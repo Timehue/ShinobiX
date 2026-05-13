@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="shinobij.client/shinobij.client.esproj">
+    <Build />
+    <Deploy />
+  </Project>
+  <Project Path="ShinobiJ.Server/ShinobiJ.Server.csproj" />
+</Solution>
