@@ -9197,7 +9197,7 @@ function AdminPanel({
                                             readImageFile(file, (image) => updatePet({ image }), 100);
                                         }}
                                     />
-                                    <AiImagePrompt label="Pet Photo" suggestedPrompt={`${pet.name} ${pet.rarity} shinobi companion`} onImage={(image) => updatePet({ image })} />
+                                    <AiImagePrompt label="Pet Photo" suggestedPrompt={`${pet.name} ${pet.rarity} shinobi companion`} onImage={async (image) => { const c = await compressDataUrl(image, 256, 0.85); updatePet({ image: c }); }} />
 
                                     <label>Name</label>
                                     <input value={pet.name} onChange={(e) => updatePet({ name: e.target.value })} />
@@ -9345,10 +9345,11 @@ function AdminPanel({
                                     });
                                     if (res.ok) {
                                         const data = await res.json();
+                                        const compressed = await compressDataUrl(data.image, 256, 0.85);
                                         const idx = updated.findIndex((p) => p.id === pet.id);
                                         if (idx >= 0) {
-                                            updated[idx] = { ...updated[idx], image: data.image };
-                                            publishSharedImage('pet:' + pet.id, data.image);
+                                            updated[idx] = { ...updated[idx], image: compressed };
+                                            publishSharedImage('pet:' + pet.id, compressed);
                                         }
                                     }
                                 } catch { /* skip */ }
@@ -9361,6 +9362,39 @@ function AdminPanel({
                             {petIsGenerating ? "Generating..." : "Generate All Missing Pet Images"}
                         </button>
                         {petGenStatus && <p className="hint" style={{ color: "#a5d6a7", marginTop: "0.4rem" }}>{petGenStatus}</p>}
+
+                        <hr style={{ margin: "12px 0", borderColor: "rgba(255,255,255,0.1)" }} />
+                        <p className="hint">Recompress already-saved pet images to ~256 px JPEG. Shrinks storage from ~1.5 MB → ~50 KB per image.</p>
+                        <button disabled={petIsGenerating} onClick={async () => {
+                            setPetIsGenerating(true);
+                            setPetGenStatus("Fetching existing pet images…");
+                            try {
+                                const r = await fetch("/api/images?cat=pet");
+                                const registry = r.ok ? await r.json() as Record<string, string> : {};
+                                const entries = Object.entries(registry);
+                                if (entries.length === 0) { setPetGenStatus("No shared pet images found."); setPetIsGenerating(false); return; }
+                                let done = 0;
+                                // Also recompress images stored directly on editable pets
+                                const updatedPets = [...editablePets];
+                                for (const [key, raw] of entries) {
+                                    setPetGenStatus(`Compressing ${key}… (${done + 1}/${entries.length})`);
+                                    try {
+                                        const compressed = await compressDataUrl(raw, 256, 0.85);
+                                        publishSharedImage(key, compressed);
+                                        // Update local pet state too if this pet is in the editor
+                                        const petId = key.replace(/^pet:/, "");
+                                        const idx = updatedPets.findIndex(p => p.id === petId);
+                                        if (idx >= 0) updatedPets[idx] = { ...updatedPets[idx], image: compressed };
+                                    } catch { /* skip bad entries */ }
+                                    done++;
+                                }
+                                setEditablePets(updatedPets);
+                                setPetGenStatus(`Done! Recompressed ${done} pet image(s).`);
+                            } catch { setPetGenStatus("Error fetching images."); }
+                            setPetIsGenerating(false);
+                        }}>
+                            {petIsGenerating ? "Working…" : "Recompress All Existing Pet Images"}
+                        </button>
                     </section>
                 </div>
             )}
