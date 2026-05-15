@@ -3863,6 +3863,7 @@ export default function App() {
     const [worldMapKey, setWorldMapKey] = useState(0);
     const [character, setCharacter] = useState<Character | null>(null);
     const [currentAccountName, setCurrentAccountName] = useState("");
+    const [sharedImages, setSharedImages] = useState<Record<string, string>>({});
     const [savedBloodlines, setSavedBloodlines] = useState<SavedBloodline[]>([]);
     const [currentBiome, setCurrentBiome] = useState<Biome>("central");
     const [currentWeather, setCurrentWeather] =
@@ -4263,6 +4264,30 @@ export default function App() {
 
         return () => clearInterval(interval);
     }, [screen]);
+
+    // Load shared images once on mount
+    useEffect(() => {
+        fetch('/api/images')
+            .then(r => r.ok ? r.json() : {})
+            .then((data: unknown) => { if (data && typeof data === 'object') setSharedImages(data as Record<string, string>); })
+            .catch(() => {});
+    }, []);
+
+    // Publish one image to the shared store (fire-and-forget)
+    function publishImage(id: string, img: string) {
+        if (!id || !img) return;
+        setSharedImages(prev => ({ ...prev, [id]: img }));
+        fetch('/api/images', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id, image: img }),
+        }).catch(() => {});
+    }
+
+    // Resolve an image: shared store first, then entity's own stored value
+    function sImg(key: string, fallback = '') {
+        return sharedImages[key] || fallback;
+    }
 
     // Keep a ref to the latest save payload so the interval always uses current data
     const latestSaveRef = useRef<{ character: Character; name: string; payload: ReturnType<typeof buildPlayerSavePayload> } | null>(null);
@@ -5037,9 +5062,11 @@ function LeftProfileCard({
 
         const reader = new FileReader();
         reader.onload = () => {
+            const img = reader.result as string;
+            publishImage('avatar:' + character.name.toLowerCase(), img);
             updateCharacter({
                 ...character,
-                avatarImage: reader.result as string
+                avatarImage: img
             });
         };
         reader.readAsDataURL(file);
@@ -5583,7 +5610,7 @@ function PetYard({ character, updateCharacter, setScreen }: { character: Charact
                                 {pet ? (
                                     <>
                                         <div className="pet-slot-avatar">
-                                            {pet.image ? <img src={pet.image} alt={pet.name} /> : <span className="pet-initials">{pet.name.slice(0, 2).toUpperCase()}</span>}
+                                            {sImg('pet:' + pet.id, pet.image) ? <img src={sImg('pet:' + pet.id, pet.image)} alt={pet.name} /> : <span className="pet-initials">{pet.name.slice(0, 2).toUpperCase()}</span>}
                                         </div>
                                         <p className="pet-slot-name">{pet.name}</p>
                                         <span className={`pet-rarity-tag rarity-${pet.rarity}`}>{pet.rarity}</span>
@@ -6399,7 +6426,7 @@ function PetArena({ character, updateCharacter, playerRoster, setScreen }: { cha
                             {character.pets.map((pet) => <option key={pet.id} value={pet.id}>{pet.name} | Lv {pet.level} | {pet.rarity}</option>)}
                         </select>
                     )}
-                    {selectedPet && <PetArenaCard owner="You" pet={selectedPet} />}
+                    {selectedPet && <PetArenaCard owner="You" pet={selectedPet} sharedImages={sharedImages} />}
                 </section>
 
                 <section className="summary-box pet-arena-selector">
@@ -6440,7 +6467,7 @@ function PetArena({ character, updateCharacter, playerRoster, setScreen }: { cha
                         <p className="hint">No player pets found. Switch to Fight AI for generic arena opponents.</p>
                     )}
                     <p className="hint">{opponentMode === "player" ? "Fight pets owned by other players in the roster." : "Fight generic AI pet arena opponents."}</p>
-                    {selectedOpponent && <PetArenaCard owner={selectedOpponent.owner} pet={selectedOpponent.pet} />}
+                    {selectedOpponent && <PetArenaCard owner={selectedOpponent.owner} pet={selectedOpponent.pet} sharedImages={sharedImages} />}
                 </section>
             </div>
 
@@ -6642,8 +6669,8 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, frame, recentFra
                                         <em />
                                     </span>
                                 )}
-                                {occupiedByPlayer && <PetBattleAvatar pet={playerPet} side="player" active={frame?.actor === "player"} status={frame?.playerStatus} />}
-                                {occupiedByEnemy  && <PetBattleAvatar pet={enemyPet}  side="enemy"  active={frame?.actor === "enemy"}  status={frame?.enemyStatus}  />}
+                                {occupiedByPlayer && <PetBattleAvatar pet={playerPet} side="player" active={frame?.actor === "player"} status={frame?.playerStatus} sharedImages={sharedImages} />}
+                                {occupiedByEnemy  && <PetBattleAvatar pet={enemyPet}  side="enemy"  active={frame?.actor === "enemy"}  status={frame?.enemyStatus}  sharedImages={sharedImages} />}
                             </div>
                         );
                     })}
@@ -6652,7 +6679,7 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, frame, recentFra
                 {winnerPet && (
                     <div className={`pet-victory-screen ${winnerSide}`}>
                         <span className="pet-victory-burst" />
-                        <PetBattleAvatar pet={winnerPet} side={winnerSide} active />
+                        <PetBattleAvatar pet={winnerPet} side={winnerSide} active sharedImages={sharedImages} />
                         <div>
                             <span>Arena Winner</span>
                             <strong>{winnerPet.name}</strong>
@@ -6687,19 +6714,21 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, frame, recentFra
     );
 }
 
-function PetBattleAvatar({ pet, side, active, status }: { pet: Pet; side: "player" | "enemy"; active: boolean; status?: { poisoned?: number; atkBuff?: boolean; defBuff?: boolean } }) {
+function PetBattleAvatar({ pet, side, active, status, sharedImages = {} }: { pet: Pet; side: "player" | "enemy"; active: boolean; status?: { poisoned?: number; atkBuff?: boolean; defBuff?: boolean }; sharedImages?: Record<string, string> }) {
+    const img = sharedImages['pet:' + pet.id] || pet.image || '';
     return (
         <div className={`pet-battle-avatar ${side}${active ? " active" : ""}${status?.poisoned ? " poisoned" : ""}`}>
-            {pet.image ? <img src={pet.image} alt={pet.name} /> : <span>{pet.name.slice(0, 2).toUpperCase()}</span>}
+            {img ? <img src={img} alt={pet.name} /> : <span>{pet.name.slice(0, 2).toUpperCase()}</span>}
         </div>
     );
 }
 
-function PetArenaCard({ owner, pet }: { owner: string; pet: Pet }) {
+function PetArenaCard({ owner, pet, sharedImages = {} }: { owner: string; pet: Pet; sharedImages?: Record<string, string> }) {
+    const img = sharedImages['pet:' + pet.id] || pet.image || '';
     return (
         <div className="pet-arena-card">
             <div className="pet-arena-avatar">
-                {pet.image ? <img src={pet.image} alt={pet.name} /> : <span>{pet.name.slice(0, 2).toUpperCase()}</span>}
+                {img ? <img src={img} alt={pet.name} /> : <span>{pet.name.slice(0, 2).toUpperCase()}</span>}
             </div>
             <div>
                 <strong>{pet.name}</strong>
@@ -6897,6 +6926,7 @@ function AdminPanel({
 
     function applyItemImage(image: string) {
         setItemImage(image);
+        publishImage('item:' + editingItemId, image);
         if (!editingItemId) return;
         const isCreator = creatorItems.some((i) => i.id === editingItemId);
         if (isCreator) {
@@ -7202,6 +7232,8 @@ function AdminPanel({
         ...savedBloodlines,
     ];
     function updateLeadershipImage(village: string, slot: "kage" | number, image: string) {
+        const shareKey = typeof slot === 'number' ? `leader:${village}:elder:${slot}` : `leader:${village}:kage`;
+        publishImage(shareKey, image);
         const current = leadershipImages[village] ?? { kage: "", elders: ["", "", ""] };
         const nextVillageImages = slot === "kage"
             ? { ...current, kage: image, elders: Array.from({ length: 3 }, (_, index) => current.elders?.[index] ?? "") }
@@ -7258,6 +7290,7 @@ function AdminPanel({
 
     function applyJutsuImage(image: string) {
         setJutsuImage(image);
+        publishImage('jutsu:' + editingJutsuId, image);
         if (!editingJutsuId) return;
         setCreatorJutsus(creatorJutsus.map((j) => j.id === editingJutsuId ? { ...j, image } : j));
         setSavedBloodlines(savedBloodlines.map((bl) => ({
@@ -7268,11 +7301,13 @@ function AdminPanel({
 
     function applyBloodlineImage(image: string) {
         setBloodlineEditImage(image);
+        publishImage('bloodline:' + editingBloodlineId, image);
         if (!editingBloodlineId) return;
         setSavedBloodlines(savedBloodlines.map((bl) => bl.id === editingBloodlineId ? { ...bl, image } : bl));
     }
 
     function setVnPageImage(eventId: string, pageIndex: number, image: string) {
+        publishImage(`vn:${eventId}:page:${pageIndex}`, image);
         setCreatorEvents(creatorEvents.map((ev) => {
             if (ev.id !== eventId || !ev.vnPages) return ev;
             return { ...ev, vnPages: ev.vnPages.map((p, i) => i === pageIndex ? { ...p, image } : p) };
@@ -7280,24 +7315,28 @@ function AdminPanel({
     }
 
     function setPetVnPageImage(pageIndex: number, image: string) {
+        publishImage(`vn:pet-encounter:page:${pageIndex}`, image);
         if (!petEncounterVn.vnPages) return;
         setPetEncounterVn({ ...petEncounterVn, vnPages: petEncounterVn.vnPages.map((p, i) => i === pageIndex ? { ...p, image } : p) });
     }
 
     function applyEventImage(image: string) {
         setEventImage(image);
+        publishImage('event:' + editingEventId + ':bg', image);
         if (!editingEventId) return;
         setCreatorEvents(creatorEvents.map((ev) => ev.id === editingEventId ? { ...ev, image } : ev));
     }
 
     function applyEventAvatarImage(avatarImage: string) {
         setEventAvatarImage(avatarImage);
+        publishImage('event:' + editingEventId + ':avatar', avatarImage);
         if (!editingEventId) return;
         setCreatorEvents(creatorEvents.map((ev) => ev.id === editingEventId ? { ...ev, avatarImage } : ev));
     }
 
     function applyAiImage(image: string) {
         setAiImage(image);
+        publishImage('ai:' + editingAiId, image);
         if (!editingAiId) return;
         setCreatorAis(creatorAis.map((ai) => ai.id === editingAiId ? { ...ai, image } : ai));
     }
@@ -9125,7 +9164,10 @@ function AdminPanel({
                                     if (res.ok) {
                                         const data = await res.json();
                                         const idx = updated.findIndex((p) => p.id === pet.id);
-                                        if (idx >= 0) updated[idx] = { ...updated[idx], image: data.image };
+                                        if (idx >= 0) {
+                                            updated[idx] = { ...updated[idx], image: data.image };
+                                            publishImage('pet:' + pet.id, data.image);
+                                        }
                                     }
                                 } catch { /* skip */ }
                                 done++;
@@ -9193,13 +9235,13 @@ function AdminPanel({
                             onChange={(e) => {
                                 const file = e.target.files?.[0];
                                 if (!file) return;
-                                readImageFile(file, (img) => setCardImage(img), 100);
+                                readImageFile(file, (img) => { setCardImage(img); if (editingCardId) publishImage('card:' + editingCardId, img); }, 100);
                             }}
                         />
                         <AiImagePrompt
                             label="Card Image"
                             suggestedPrompt={`${cardName} ${cardElement} shinobi card game artwork`}
-                            onImage={(img) => setCardImage(img)}
+                            onImage={(img) => { setCardImage(img); if (editingCardId) publishImage('card:' + editingCardId, img); }}
                         />
 
                         <div className="menu">
@@ -14433,8 +14475,8 @@ function WorldMap({
                                             <div className="other-players-map-stack">
                                                 {otherHere.map(p => (
                                                     <div key={p.name} className="other-player-map-dot" title={`${p.name} Lv ${p.level}`}>
-                                                        {p.character.avatarImage
-                                                            ? <img className="tiny-map-avatar other-player-map-avatar" src={p.character.avatarImage} alt={p.name} />
+                                                        {(sImg('avatar:' + p.name.toLowerCase(), p.character.avatarImage as string || ''))
+                                                            ? <img className="tiny-map-avatar other-player-map-avatar" src={sImg('avatar:' + p.name.toLowerCase(), p.character.avatarImage as string || '')} alt={p.name} />
                                                             : <span className="other-player-map-emoji">🥷</span>
                                                         }
                                                         <span className="other-player-map-name">{p.name}</span>
@@ -14763,7 +14805,7 @@ function WorldMap({
                                 className="location-button"
                                 onClick={() => triggerCreatorEvent(event)}
                             >
-                                <CardVisual image={event.image || event.avatarImage} icon={event.icon} label={event.name} />
+                                <CardVisual image={sImg('event:' + event.id + ':bg', event.image || event.avatarImage || '')} icon={event.icon} label={event.name} />
                                 <span>{event.name}</span>
                                 <small>Lvl {event.levelReq} | {event.biome} | {rewardSummary(event.xpReward, event.ryoReward, event.staminaReward, event.currencyRewards)}</small>
                             </button>
@@ -15587,7 +15629,7 @@ function Logbook({
                     <h3>Events</h3>
                     <div className="location-grid">{logbookEvents.map((event) => (
                         <div key={event.id} className="location-button mission-card">
-                            <CardVisual image={event.image || event.avatarImage} icon={event.icon} label={event.name} />
+                            <CardVisual image={sImg('event:' + event.id + ':bg', event.image || event.avatarImage || '')} icon={event.icon} label={event.name} />
                             <span>{event.name}</span>
                             <small>Lvl {event.levelReq} | {event.biome} | {rewardSummary(event.xpReward, event.ryoReward, event.staminaReward, event.currencyRewards)}</small>
                             <p>{event.dialogue.join(" ")}</p>
@@ -15699,7 +15741,9 @@ function Profile({
 
         const reader = new FileReader();
         reader.onload = () => {
-            updateCharacter({ ...character, avatarImage: String(reader.result) });
+            const img = String(reader.result);
+            publishImage('avatar:' + character.name.toLowerCase(), img);
+            updateCharacter({ ...character, avatarImage: img });
         };
         reader.readAsDataURL(file);
     }
@@ -16419,7 +16463,7 @@ function Arena({
     const enemyArmorFactor = opponentCharacter ? getCharacterArmorFactor(opponentCharacter, allItems) : 1.0;
     const opponentLevel = opponentCharacter?.level ?? pendingAiProfile?.level ?? aiLevel;
     const opponentName = opponentCharacter?.name ?? pendingAiProfile?.name ?? `Level ${aiLevel} AI Ninja`;
-    const opponentAvatar = opponentCharacter?.avatarImage || pendingAiProfile?.image || pendingAiProfile?.icon || "EN";
+    const opponentAvatar = opponentCharacter?.avatarImage || (pendingAiProfile ? sImg('ai:' + pendingAiProfile.id, pendingAiProfile.image || '') : '') || pendingAiProfile?.icon || "EN";
     const enemyMaxHp = opponentCharacter?.maxHp ?? pendingAiProfile?.hp ?? maxHpForLevel(opponentLevel);
     const enemyMaxChakra = opponentCharacter?.maxChakra ?? pendingAiProfile?.chakra ?? maxChakraForLevel(opponentLevel);
     const enemyMaxStamina = opponentCharacter?.maxStamina ?? pendingAiProfile?.stamina ?? maxStaminaForLevel(opponentLevel);
