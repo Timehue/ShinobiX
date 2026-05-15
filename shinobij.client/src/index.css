@@ -13484,9 +13484,13 @@ button.combat-jutsu-button,
 
 /* =============================================
    VILLAGE MAP — MOBILE OVERRIDES
-   On small screens the absolute-positioned map
-   buttons overlap badly, so we switch to a
-   flex-wrap grid and hide the background image.
+   The background image comes from an inline style
+   (so it works for all villages). On mobile we:
+   - Add a ::before overlay to darken the image
+     so buttons are readable against it
+   - Switch buttons from absolute-positioned to a
+     flex-wrap grid so none overlap
+   - Push safe-zone badge below the button grid
    ============================================= */
 
 @media (max-width: 800px) {
@@ -13494,32 +13498,45 @@ button.combat-jutsu-button,
     min-height: unset !important;
   }
 
+  /* Keep the inline-style background image visible;
+     this pseudo-element darkens it without removing it */
+  .stormveil-map::before {
+    content: '' !important;
+    position: absolute !important;
+    inset: 0 !important;
+    background: rgba(2, 6, 23, 0.52) !important;
+    pointer-events: none !important;
+    z-index: 1 !important;
+  }
+
   .stormveil-map {
-    /* Drop the decorative background image — it serves no purpose when
-       buttons aren't positioned over it. */
-    background-image: none !important;
-    background-color: rgba(2, 6, 23, 0.95) !important;
-    min-height: unset !important;
+    position: relative !important;
+    min-height: 480px !important; /* enough to show the image */
     /* Switch from absolute-child positioning to flex wrap */
     display: flex !important;
     flex-wrap: wrap !important;
     gap: 8px !important;
-    padding: 12px !important;
+    padding: 12px 12px 72px !important; /* bottom pad clears safe-zone */
     justify-content: center !important;
     align-content: flex-start !important;
   }
 
   .stormveil-map-button {
-    /* Override the absolute positioning */
     position: relative !important;
     left: unset !important;
     top: unset !important;
     transform: none !important;
-    /* Each button takes ~30% width — 3-column grid feel */
+    z-index: 2 !important; /* above the ::before overlay */
     flex: 1 1 calc(30% - 8px) !important;
-    min-width: 90px !important;
-    max-width: 130px !important;
+    min-width: 88px !important;
+    max-width: 128px !important;
     padding: 10px 6px !important;
+    background: rgba(2, 6, 23, 0.82) !important;
+  }
+
+  .stormveil-map-button:hover,
+  .stormveil-map-button:active {
+    transform: none !important;
   }
 
   .stormveil-map-button span {
@@ -13531,37 +13548,112 @@ button.combat-jutsu-button,
     text-align: center !important;
     line-height: 1.2 !important;
   }
+
+  /* Safe-zone badge — sits at the bottom of stormveil-village-screen,
+     below all the flex-wrapped buttons */
+  .village-save-bar {
+    bottom: 10px !important;
+    z-index: 5 !important;
+  }
 }
 
 /* =============================================
-   HEX BATTLE GRID — MOBILE OVERFLOW FIX
-   The scaler's edgeBuffer is handled in JS, but
-   we ensure the grid container never clips the
-   board by removing any overflow:hidden constraint
-   that fights the JS scale transform.
+   COMBAT — MOBILE LAYOUT OVERHAUL
+   On phones the two full-width side HUDs stack
+   vertically and eat all the vertical space. Fix:
+   put both HUDs side-by-side in a compact top
+   strip so the hex grid gets maximum room.
    ============================================= */
 
 @media (max-width: 800px) {
-  .arena-fullscreen .hex-battlefield {
-    /* Allow the JS-scaled grid to breathe — no side clipping */
-    overflow: visible !important;
-    /* Give the battlefield more vertical room on phones */
-    height: clamp(300px, 50dvh, 420px) !important;
-    min-height: 280px !important;
-    max-height: 420px !important;
+  /* Rearrange: 2-col top strip [player | enemy], full-width main below */
+  .arena-fullscreen .combat-layout {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    grid-template-rows: auto 1fr !important;
+    gap: 6px !important;
   }
 
+  /* Player HUD — left column, row 1 */
+  .arena-fullscreen .combat-layout > .combat-side-hud:first-child {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+  }
+
+  /* Main combat area — spans both columns, row 2 */
+  .arena-fullscreen .combat-layout > .combat-main-area {
+    grid-column: 1 / -1 !important;
+    grid-row: 2 !important;
+  }
+
+  /* Enemy HUD — right column, row 1 */
+  .arena-fullscreen .combat-layout > .combat-side-hud:last-child {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+  }
+
+  /* Compact both HUDs — show only essentials */
+  .arena-fullscreen .combat-side-hud {
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 160px !important;
+    overflow: hidden !important;
+    padding: 6px 8px !important;
+    font-size: 11px !important;
+  }
+
+  .arena-fullscreen .combat-side-hud h3 {
+    font-size: 11px !important;
+    margin-bottom: 4px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .arena-fullscreen .combat-avatar {
+    width: 44px !important;
+    height: 44px !important;
+    font-size: 22px !important;
+    margin: 0 auto 4px !important;
+  }
+
+  .arena-fullscreen .combat-avatar img {
+    width: 44px !important;
+    height: 44px !important;
+  }
+
+  /* Hex battlefield — now gets plenty of room */
+  .arena-fullscreen .hex-battlefield {
+    height: clamp(280px, 46dvh, 420px) !important;
+    min-height: 260px !important;
+    max-height: 420px !important;
+    overflow: hidden !important;
+    padding: 8px !important;
+  }
+
+  /* Fix transform-origin so scale stays centred (top center was cutting off top rows) */
   .arena-fullscreen .hex-grid-layer {
-    /* Ensure transform-origin aligns to centre so scale doesn't offset left */
-    transform-origin: top center !important;
+    transform-origin: center center !important;
   }
 }
 
 @media (max-width: 520px) {
   .arena-fullscreen .hex-battlefield {
-    height: clamp(260px, 44dvh, 360px) !important;
+    height: clamp(250px, 42dvh, 360px) !important;
     min-height: 240px !important;
     max-height: 360px !important;
     padding: 4px !important;
+  }
+
+  .arena-fullscreen .combat-side-hud {
+    max-height: 130px !important;
+    font-size: 10px !important;
+  }
+
+  .arena-fullscreen .combat-avatar {
+    width: 36px !important;
+    height: 36px !important;
+    font-size: 18px !important;
   }
 }
