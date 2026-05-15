@@ -20,6 +20,20 @@ type PlayerPresence = {
 
 const presence = new Map<string, PlayerPresence>();
 
+type CharacterSummary = {
+    level?: number;
+    village?: string;
+    specialty?: string;
+};
+
+function characterSummary(character: unknown): CharacterSummary {
+    return character && typeof character === "object" ? character as CharacterSummary : {};
+}
+
+function errorMessage(err: unknown, fallback: string) {
+    return err instanceof Error ? err.message : fallback;
+}
+
 // Evict players that haven't sent a heartbeat in 30 seconds
 setInterval(() => {
     const cutoff = Date.now() - 30_000;
@@ -50,14 +64,17 @@ app.post("/api/player/heartbeat", (req, res) => {
 
     const sectorMates = [...presence.values()]
         .filter((p) => p.name !== name && p.sector === (sector ?? existing.sector))
-        .map(({ name: n, sector: s, character: c }) => ({
-            name: n,
-            sector: s,
-            character: c,
-            level: (c as any)?.level ?? 1,
-            village: (c as any)?.village ?? "",
-            specialty: (c as any)?.specialty ?? "Ninjutsu",
-        }));
+        .map(({ name: n, sector: s, character: c }) => {
+            const summary = characterSummary(c);
+            return {
+                name: n,
+                sector: s,
+                character: c,
+                level: summary.level ?? 1,
+                village: summary.village ?? "",
+                specialty: summary.specialty ?? "Ninjutsu",
+            };
+        });
 
     res.json({ sectorMates, pendingAttacker });
 });
@@ -137,8 +154,8 @@ Style rules:
         }
 
         res.json({ image: `data:image/png;base64,${b64}` });
-    } catch (err: any) {
-        const message = err?.message ?? "Image generation failed.";
+    } catch (err: unknown) {
+        const message = errorMessage(err, "Image generation failed.");
         res.status(502).json({ error: message });
     }
 });
