@@ -5487,22 +5487,53 @@ function CharacterCreator({ onCreate }: { onCreate: (character: Character, passw
 
 function AdminLogin({ onLogin, setScreen }: { onLogin: (account: AdminAccount) => void; setScreen: (screen: Screen) => void }) {
     const [password, setPassword] = useState("");
-    function submit() {
-        const normalized = password.trim().toLowerCase();
-        if (normalized === "admin1") return onLogin("Admin 1");
-        if (normalized === "admin2") return onLogin("Admin 2");
-        return alert("Wrong password. Use: admin1 or admin2");
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState("");
+
+    async function submit() {
+        const pw = password.trim();
+        if (!pw) return;
+        setLoading(true);
+        setError("");
+        try {
+            const res = await fetch('/api/admin-auth', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password: pw }),
+            });
+            const data = await res.json() as { success: boolean; error?: string };
+            if (data.success) {
+                onLogin("Admin 1");
+            } else {
+                setError("Incorrect password.");
+                setPassword("");
+            }
+        } catch {
+            setError("Could not reach server. Try again.");
+        } finally {
+            setLoading(false);
+        }
     }
+
     return (
         <div className="card creator-card">
             <h2>Admin Login</h2>
             <label>Password</label>
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submit()} placeholder="admin" />
+            <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && submit()}
+                placeholder="Enter admin password"
+                disabled={loading}
+            />
+            {error && <p style={{ color: "var(--danger, #e55)", margin: "4px 0" }}>{error}</p>}
             <div className="menu">
-                <button onClick={submit}>Login</button>
-                <button onClick={() => setScreen("start")}>Back</button>
+                <button onClick={submit} disabled={loading || !password.trim()}>
+                    {loading ? "Checking…" : "Login"}
+                </button>
+                <button onClick={() => setScreen("start")} disabled={loading}>Back</button>
             </div>
-            <p className="hint">Passwords: admin1 or admin2</p>
         </div>
     );
 }
