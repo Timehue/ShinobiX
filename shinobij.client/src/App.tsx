@@ -7034,6 +7034,7 @@ function AdminPanel({
                     live = [...live, { ...item, image }];
                 }
                 setCreatorItems(live);
+                publishSharedImage('item:' + item.id, image);
             } catch (err) {
                 errors.push({ id: item.id, name: item.name, error: err instanceof Error ? err.message : "Failed" });
             }
@@ -7145,6 +7146,7 @@ function AdminPanel({
                     live = [...live, { ...card, image }];
                 }
                 setCreatorCards(live);
+                publishSharedImage('card:' + card.id, image);
             } catch (err) {
                 errors.push({ id: card.id, name: card.name, error: err instanceof Error ? err.message : "Failed" });
             }
@@ -8850,9 +8852,11 @@ function AdminPanel({
                                     });
                                     if (res.ok) {
                                         const data = await res.json();
-                                        const withImage = { ...jutsu, image: data.image };
+                                        const image = await compressDataUrl(data.image as string);
+                                        const withImage = { ...jutsu, image };
                                         const idx = updated.findIndex((c) => c.id === jutsu.id);
                                         if (idx >= 0) { updated[idx] = withImage; } else { updated = [...updated, withImage]; }
+                                        publishSharedImage('jutsu:' + jutsu.id, image);
                                     }
                                 } catch { /* skip */ }
                                 done++;
