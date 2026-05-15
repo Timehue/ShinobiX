@@ -364,8 +364,9 @@ FodyWeavers.xsd
 
 # ── Game-specific ─────────────────────────────────────────────────────────
 
-# Server-side save files (stored in S3 on AWS, local disk in dev — not source controlled)
+# Save files (stored in S3 on AWS, local disk in dev — not source controlled)
 ShinobiJ.Server/saves/
+shinobij.client/saves/
 
 # Atomic write temp files and rolling backups
 *.tmp
