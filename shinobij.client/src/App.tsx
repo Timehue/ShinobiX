@@ -4751,6 +4751,27 @@ export default function App() {
                 />
             )}
 
+            {screen !== "start" && character && (() => {
+                const villageBiomesMap: Record<string, string> = {
+                    "Stormveil Village": "forest",
+                    "Ashen Leaf Village": "volcano",
+                    "Frostfang Village": "snow",
+                    "Moonshadow Village": "shadow",
+                };
+                const mobileAtHome = screen !== "worldMap" || currentBiome === (villageBiomesMap[character.village] ?? "central");
+                return (
+                    <MobileNav
+                        navigate={navigate}
+                        adminLoggedIn={adminLoggedIn}
+                        logoutPlayer={logoutPlayer}
+                        resetGame={resetGame}
+                        character={character}
+                        currentSector={currentSector}
+                        atHome={mobileAtHome}
+                    />
+                );
+            })()}
+
             {incomingAttackBanner && (
                 <div className="incoming-attack-banner">{incomingAttackBanner}</div>
             )}
@@ -5247,6 +5268,106 @@ function RightMenu({
         </aside>
     );
 }
+function MobileNav({
+    navigate,
+    adminLoggedIn,
+    logoutPlayer,
+    resetGame,
+    character,
+    atHome,
+}: {
+    navigate: (screen: Screen) => void;
+    adminLoggedIn: boolean;
+    logoutPlayer: () => void;
+    resetGame: () => void;
+    character: Character;
+    currentSector: number;
+    atHome: boolean;
+}) {
+    const [open, setOpen] = useState(false);
+
+    const xpPct = character.level >= MAX_LEVEL
+        ? 100
+        : Math.min(100, Math.round((character.xp / xpNeeded(character.level)) * 100));
+
+    function go(screen: Screen) {
+        navigate(screen);
+        setOpen(false);
+    }
+
+    return (
+        <>
+            <nav className="mobile-bottom-nav">
+                <button className="mobile-nav-btn" onClick={() => go("worldMap")}>
+                    <span className="mnb-icon">🗺</span>
+                    Travel
+                </button>
+                <button className="mobile-nav-btn" onClick={() => go("village")} disabled={!atHome}>
+                    <span className="mnb-icon">🏘</span>
+                    Village
+                </button>
+                <button className="mobile-nav-btn" onClick={() => go("profile")}>
+                    <span className="mnb-icon">👤</span>
+                    Char
+                </button>
+                <button className="mobile-nav-btn" onClick={() => go("inventory")}>
+                    <span className="mnb-icon">🎒</span>
+                    Items
+                </button>
+                <button className="mobile-nav-btn menu-btn" onClick={() => setOpen(true)}>
+                    <span className="mnb-icon">☰</span>
+                    Menu
+                </button>
+            </nav>
+
+            {open && (
+                <div className="mobile-menu-overlay">
+                    <div className="mobile-menu-header">
+                        <span className="mobile-menu-title">⚔ SHINOBI MENU</span>
+                        <button className="mobile-menu-close" onClick={() => setOpen(false)}>✕</button>
+                    </div>
+
+                    <div className="mobile-char-card">
+                        <div className="mobile-char-avatar">
+                            {character.avatarImage
+                                ? <img src={character.avatarImage} alt={character.name} />
+                                : character.name.slice(0, 2).toUpperCase()
+                            }
+                        </div>
+                        <div className="mobile-char-info">
+                            <div className="mobile-char-name">{character.name}</div>
+                            <div className="mobile-char-sub">Lv {character.level} · {character.rankTitle} · {character.village}</div>
+                            <div className="mobile-xp-bar-track">
+                                <div className="mobile-xp-bar-fill" style={{ width: `${xpPct}%` }} />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="mobile-menu-grid">
+                        <button className="mobile-menu-btn" onClick={() => go("village")} disabled={!atHome}>🏘 Village</button>
+                        <button className="mobile-menu-btn" onClick={() => go("worldMap")}>🗺 Travel</button>
+                        <button className="mobile-menu-btn" onClick={() => go("storyHall")}>📖 Story</button>
+                        <button className="mobile-menu-btn" onClick={() => go("profile")}>👤 Character</button>
+                        <button className="mobile-menu-btn" onClick={() => go("logbook")}>📋 Logbook</button>
+                        <button className="mobile-menu-btn" onClick={() => go("inventory")}>🎒 Inventory</button>
+                        <button className="mobile-menu-btn" onClick={() => go("training")}>💪 Stats</button>
+                        <button className="mobile-menu-btn" onClick={() => go("jutsuTraining")}>🌀 Jutsu</button>
+                        <button className="mobile-menu-btn" onClick={() => go("missions")}>📜 Missions</button>
+                        <button className="mobile-menu-btn" onClick={() => go("pets")}>🐾 Pets</button>
+                        <button className="mobile-menu-btn" onClick={() => go("arena")}>⚔ Arena</button>
+                        <button className="mobile-menu-btn" onClick={() => go("bloodlineMaker")}>🩸 Bloodline</button>
+                        {adminLoggedIn && (
+                            <button className="mobile-menu-btn" onClick={() => go("adminPanel")}>🛡 Admin</button>
+                        )}
+                        <button className="mobile-menu-btn" onClick={() => { logoutPlayer(); setOpen(false); }}>💾 Logout + Save</button>
+                        <button className="mobile-menu-btn danger" onClick={() => { resetGame(); setOpen(false); }}>🗑 Reset</button>
+                    </div>
+                </div>
+            )}
+        </>
+    );
+}
+
 function StartScreen({ onCreate, onLogin, onAdmin }: { onCreate: (character: Character, password: string) => void; onLogin: (name: string, password: string) => void; onAdmin: () => void }) {
     const [loginName, setLoginName] = useState("");
     const [loginPassword, setLoginPassword] = useState("");
