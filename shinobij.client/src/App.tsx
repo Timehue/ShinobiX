@@ -18863,7 +18863,7 @@ function Arena({
                         </div>
                     </div>
 
-                    <div className="basic-action-bar tnr-command-bar">
+                    <div className="basic-action-bar shinobi-command-bar">
                         <button onClick={basicAttack}><span>Attack</span><small>40 AP | 10 SP</small></button>
                         <button className={selectedActionId === "move" ? "selected-action" : ""} onClick={() => { setPendingTargetJutsuId(""); setSelectedActionId((current) => current === "move" ? undefined : "move"); setDashMode(false); setLog("Move selected. Click an adjacent tile."); }}><span>Move</span><small>{adjustedApCost(30)} AP / tile</small></button>
                         <button className={dashMode || selectedActionId === "dash" ? "selected-action" : ""} onClick={() => { setPendingTargetJutsuId(""); setSelectedActionId((current) => current === "dash" ? undefined : "dash"); setDashMode((current) => !current); setLog("Dash selected. Click a tile within 3 spaces."); }}><span>Dash</span><small>3 tiles | {adjustedApCost(30)} AP | CD {cooldowns.dash ?? 0}</small></button>

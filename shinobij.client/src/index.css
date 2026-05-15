@@ -2703,7 +2703,7 @@ button {
     gap: 6px;
 }
 
-.tnr-jutsu-card {
+.shinobi-jutsu-card {
     min-height: 142px;
     padding: 3px;
     background: #f8fafc;
@@ -2716,21 +2716,21 @@ button {
     box-shadow: inset 0 0 0 2px #d1d5db;
 }
 
-    .tnr-jutsu-card.jutsu-ready {
+    .shinobi-jutsu-card.jutsu-ready {
         border-color: #166534;
         box-shadow: inset 0 0 0 2px #bbf7d0, 0 0 0 1px rgba(34, 197, 94, .35);
     }
 
-    .tnr-jutsu-card.jutsu-unavailable {
+    .shinobi-jutsu-card.jutsu-unavailable {
         opacity: .68;
         filter: saturate(.75);
     }
 
-    .tnr-jutsu-card.jutsu-out-of-range {
+    .shinobi-jutsu-card.jutsu-out-of-range {
         border-color: #b45309;
     }
 
-    .tnr-jutsu-card:disabled {
+    .shinobi-jutsu-card:disabled {
         cursor: not-allowed;
     }
 
@@ -3052,12 +3052,12 @@ button {
         border-top: 1px solid rgba(255,255,255,0.08);
     }
 
-.tnr-admin-jutsu-builder {
+.shinobi-admin-jutsu-builder {
     background: linear-gradient(180deg, rgba(255,255,255,.035), transparent 120px), #2f4359;
     border-color: rgba(186,230,253,.38);
 }
 
-.tnr-builder-title {
+.shinobi-builder-title {
     display: flex;
     justify-content: space-between;
     align-items: start;
@@ -3065,24 +3065,24 @@ button {
     margin-bottom: 12px;
 }
 
-    .tnr-builder-title h3 {
+    .shinobi-builder-title h3 {
         margin-top: 0;
     }
 
-.tnr-builder-shell {
+.shinobi-builder-shell {
     display: grid;
     grid-template-columns: 180px minmax(0, 1fr);
     gap: 14px;
     align-items: start;
 }
 
-.tnr-builder-art {
+.shinobi-builder-art {
     display: grid;
     gap: 8px;
     justify-items: stretch;
 }
 
-.tnr-jutsu-image-frame {
+.shinobi-jutsu-image-frame {
     aspect-ratio: 1 / 1;
     display: grid;
     place-items: center;
@@ -3095,49 +3095,49 @@ button {
     text-align: center;
 }
 
-    .tnr-jutsu-image-frame img {
+    .shinobi-jutsu-image-frame img {
         width: 100%;
         height: 100%;
         object-fit: cover;
         display: block;
     }
 
-.tnr-builder-fields {
+.shinobi-builder-fields {
     display: grid;
     gap: 10px;
 }
 
-.tnr-jutsu-header-card,
-.tnr-jutsu-stat-card,
-.tnr-effect-card {
+.shinobi-jutsu-header-card,
+.shinobi-jutsu-stat-card,
+.shinobi-effect-card {
     padding: 12px;
     border-radius: 8px;
     border: 1px solid rgba(186,230,253,.18);
     background: rgba(15, 27, 43, .62);
 }
 
-.tnr-field-grid {
+.shinobi-field-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(150px, 1fr));
     gap: 9px;
 }
 
-    .tnr-field-grid label,
-    .tnr-effect-header label {
+    .shinobi-field-grid label,
+    .shinobi-effect-header label {
         margin: 0;
         color: #f8fafc;
         font-size: 12px;
     }
 
-    .tnr-field-grid input,
-    .tnr-field-grid select,
-    .tnr-effect-header input,
-    .tnr-effect-header select {
+    .shinobi-field-grid input,
+    .shinobi-field-grid select,
+    .shinobi-effect-header input,
+    .shinobi-effect-header select {
         margin-top: 5px;
         max-width: none;
     }
 
-.tnr-effect-header {
+.shinobi-effect-header {
     display: grid;
     grid-template-columns: minmax(150px, .8fr) minmax(180px, 1fr);
     gap: 10px;
@@ -3145,19 +3145,19 @@ button {
     margin-bottom: 10px;
 }
 
-.tnr-checkline {
+.shinobi-checkline {
     display: flex !important;
     align-items: center;
     gap: 8px;
     min-height: 45px;
 }
 
-    .tnr-checkline input {
+    .shinobi-checkline input {
         width: auto;
         margin: 0;
     }
 
-.tnr-edit-existing {
+.shinobi-edit-existing {
     margin-bottom: 12px;
     padding: 10px;
     border-radius: 8px;
@@ -3689,7 +3689,7 @@ button {
         grid-template-columns: repeat(2, 1fr);
     }
 
-    .tnr-builder-shell {
+    .shinobi-builder-shell {
         grid-template-columns: 1fr;
     }
 }
@@ -3703,13 +3703,13 @@ button {
         grid-template-columns: repeat(2, 1fr);
     }
 
-    .tnr-builder-title,
-    .tnr-effect-header {
+    .shinobi-builder-title,
+    .shinobi-effect-header {
         grid-template-columns: 1fr;
         display: grid;
     }
 
-    .tnr-field-grid {
+    .shinobi-field-grid {
         grid-template-columns: 1fr;
     }
 
@@ -3721,7 +3721,7 @@ button {
         justify-content: start;
     }
 }
-/* ===== TNR-inspired combat skin ===== */
+/* ===== Shinobi combat skin ===== */
 
 .arena-fullscreen {
     border-radius: 4px;
@@ -3790,14 +3790,14 @@ button {
         transform: translateX(17px);
     }
 
-.tnr-command-bar {
+.shinobi-command-bar {
     grid-template-columns: repeat(4, minmax(96px, 1fr));
     border-radius: 0;
     border: 3px solid #7c3f11;
     background: linear-gradient(#a16207, #7c2d12);
 }
 
-    .tnr-command-bar button {
+    .shinobi-command-bar button {
         min-height: 54px;
         background: linear-gradient(#1e3a8a, #172554);
         border: 2px solid #fef3c7;
@@ -3805,12 +3805,12 @@ button {
         font-size: 14px;
     }
 
-        .tnr-command-bar button span {
+        .shinobi-command-bar button span {
             font-size: 14px;
             color: #f8fafc;
         }
 
-        .tnr-command-bar button small {
+        .shinobi-command-bar button small {
             font-size: 10px;
             color: #dbeafe;
         }
@@ -3822,7 +3822,7 @@ button {
     max-height: 270px;
 }
 
-.arena-fullscreen .tnr-jutsu-card {
+.arena-fullscreen .shinobi-jutsu-card {
     min-height: 126px;
     grid-template-rows: 60px auto auto auto;
     border-radius: 3px;
@@ -3996,7 +3996,7 @@ button {
 .location-button,
 .summary-box,
 .jutsu-card,
-.tnr-jutsu-card,
+.shinobi-jutsu-card,
 .stat-card {
     border-color: rgba(148,163,184,.24);
     box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 10px 24px rgba(0,0,0,.18);
@@ -4078,7 +4078,7 @@ button {
     box-shadow: 0 0 24px rgba(56,189,248,.22);
 }
 
-.tnr-command-bar {
+.shinobi-command-bar {
     border-radius: 6px;
     background: linear-gradient(180deg, rgba(250,204,21,.24), transparent), linear-gradient(#8a4b12, #5c1f0d);
 }
@@ -4088,7 +4088,7 @@ button {
     background: linear-gradient(180deg, #efe7ff, #cfc3ed);
 }
 
-.arena-fullscreen .tnr-jutsu-card {
+.arena-fullscreen .shinobi-jutsu-card {
     border-radius: 6px;
     background: linear-gradient(180deg, #fff, #eef2ff);
 }
@@ -4212,7 +4212,7 @@ button {
     gap: 7px !important;
 }
 
-.tnr-jutsu-card {
+.shinobi-jutsu-card {
     min-height: 138px !important;
     padding: 4px !important;
     border-radius: 8px !important;
@@ -4304,14 +4304,14 @@ body {
 
 .location-button,
 .equipment-item,
-.tnr-jutsu-card,
+.shinobi-jutsu-card,
 .jutsu-card {
     transition: transform .14s ease, box-shadow .14s ease, border-color .14s ease;
 }
 
     .location-button:hover,
     .equipment-item:hover,
-    .tnr-jutsu-card:hover,
+    .shinobi-jutsu-card:hover,
     .jutsu-card:hover {
         transform: translateY(-2px);
         border-color: rgba(250,204,21,.56);
@@ -4320,7 +4320,7 @@ body {
 
 .admin-jutsu-preview,
 .jutsu-art,
-.tnr-jutsu-image-frame,
+.shinobi-jutsu-image-frame,
 .admin-event-list-preview {
     border-color: rgba(186,230,253,.6);
     box-shadow: 0 10px 24px rgba(0,0,0,.32), inset 0 0 0 1px rgba(255,255,255,.08);
@@ -4329,7 +4329,7 @@ body {
     .admin-jutsu-preview img,
     .jutsu-art img,
     .admin-event-list-preview img,
-    .tnr-jutsu-image-frame img {
+    .shinobi-jutsu-image-frame img {
         width: 100%;
         height: 100%;
         object-fit: cover;
@@ -9470,7 +9470,7 @@ textarea {
         font-size: 12px !important;
     }
 
-    .tnr-command-bar,
+    .shinobi-command-bar,
     .basic-action-bar {
         grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     }
@@ -9487,14 +9487,14 @@ textarea {
         min-height: 320px !important;
     }
 
-    .tnr-command-bar button,
+    .shinobi-command-bar button,
     .basic-action-bar button {
         min-height: 44px !important;
         padding: 6px !important;
         font-size: 12px !important;
     }
 
-        .tnr-command-bar button small,
+        .shinobi-command-bar button small,
         .basic-action-bar button small {
             font-size: 9px !important;
         }
@@ -9705,13 +9705,13 @@ button.combat-jutsu-button,
     margin: auto !important;
 }
 
-.tnr-command-bar,
+.shinobi-command-bar,
 .basic-action-bar {
     grid-template-columns: repeat(auto-fit, minmax(clamp(88px, 10vw, 132px), 1fr)) !important;
     gap: clamp(5px, 0.8vw, 9px) !important;
 }
 
-.tnr-command-bar button,
+.shinobi-command-bar button,
 .basic-action-bar button {
     min-width: 0 !important;
     min-height: clamp(42px, 6vh, 58px) !important;
@@ -9866,7 +9866,7 @@ button.combat-jutsu-button,
         margin: auto !important;
     }
 
-    .tnr-command-bar,
+    .shinobi-command-bar,
     .basic-action-bar {
         grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     }
