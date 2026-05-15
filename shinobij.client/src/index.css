@@ -13240,3 +13240,244 @@ button.combat-jutsu-button,
 .item-card-legendary-steal   { box-shadow: 0 0 8px rgba(251, 146, 60, .40); }
 .item-card-legendary-shield  { box-shadow: 0 0 8px rgba(96, 165, 250, .40); }
 .item-card-legendary-reflect { box-shadow: 0 0 8px rgba(192, 132, 252, .40); }
+
+/* =============================================
+   MOBILE BOTTOM NAV + MENU OVERLAY
+   ============================================= */
+
+.mobile-bottom-nav {
+  display: none; /* hidden on desktop */
+}
+
+@media (max-width: 800px) {
+  /* Add bottom padding to center-game so content isn't under the nav */
+  .center-game {
+    padding-bottom: 70px !important;
+  }
+
+  .mobile-bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    background: linear-gradient(180deg, rgba(7,17,31,0.97), rgba(2,6,15,1));
+    border-top: 1px solid rgba(250,204,21,0.3);
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+    gap: 2px;
+    justify-content: space-around;
+    align-items: center;
+  }
+
+  .mobile-nav-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    min-width: 52px;
+    min-height: 52px;
+    padding: 6px 8px;
+    background: transparent;
+    border: none;
+    border-radius: 10px;
+    color: #94a3b8;
+    font-size: 10px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  .mobile-nav-btn:active {
+    background: rgba(250,204,21,0.15);
+    color: #facc15;
+  }
+
+  .mobile-nav-btn .mnb-icon {
+    font-size: 20px;
+    line-height: 1;
+  }
+
+  .mobile-nav-btn.menu-btn {
+    color: #facc15;
+    background: rgba(250,204,21,0.1);
+    border: 1px solid rgba(250,204,21,0.3);
+  }
+
+  .mobile-nav-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+
+  /* Full-screen overlay menu */
+  .mobile-menu-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    background: rgba(2,6,15,0.97);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+  }
+
+  .mobile-menu-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+
+  .mobile-menu-title {
+    color: #facc15;
+    font-size: 18px;
+    font-weight: bold;
+    letter-spacing: 1px;
+  }
+
+  .mobile-menu-close {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 1px solid #334155;
+    background: rgba(51,65,85,0.5);
+    color: #e8eef8;
+    font-size: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .mobile-char-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(15,23,42,0.9);
+    border: 1px solid rgba(250,204,21,0.25);
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 16px;
+  }
+
+  .mobile-char-avatar {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    border: 2px solid #facc15;
+    object-fit: cover;
+    flex-shrink: 0;
+    background: #1e293b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: bold;
+    color: #facc15;
+    overflow: hidden;
+  }
+
+  .mobile-char-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .mobile-char-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .mobile-char-name {
+    color: #facc15;
+    font-weight: bold;
+    font-size: 15px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .mobile-char-sub {
+    color: #94a3b8;
+    font-size: 12px;
+    margin-top: 2px;
+  }
+
+  .mobile-xp-bar-track {
+    height: 4px;
+    background: #1e293b;
+    border-radius: 2px;
+    margin-top: 6px;
+  }
+
+  .mobile-xp-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #facc15, #f59e0b);
+    border-radius: 2px;
+    transition: width 0.3s;
+  }
+
+  .mobile-menu-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .mobile-menu-btn {
+    padding: 14px 10px;
+    border-radius: 10px;
+    border: 1px solid #334155;
+    background: rgba(15,23,42,0.8);
+    color: #e8eef8;
+    font-size: 14px;
+    cursor: pointer;
+    text-align: center;
+    transition: background 0.15s, border-color 0.15s;
+    min-height: 48px;
+  }
+
+  .mobile-menu-btn:active {
+    background: rgba(250,204,21,0.15);
+    border-color: rgba(250,204,21,0.4);
+    color: #facc15;
+  }
+
+  .mobile-menu-btn.danger {
+    border-color: rgba(239,68,68,0.4);
+    color: #f87171;
+  }
+
+  .mobile-menu-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  /* General mobile touch improvements */
+  button {
+    min-height: 40px;
+  }
+
+  .start-grid {
+    grid-template-columns: 1fr !important;
+    padding: 12px !important;
+    margin: 0 !important;
+    gap: 12px !important;
+  }
+
+  .creator-card {
+    margin: 0 !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .mobile-menu-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+
+  .mobile-menu-btn {
+    font-size: 12px;
+    padding: 12px 6px;
+  }
+}
