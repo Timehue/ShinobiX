@@ -5275,12 +5275,7 @@ function StartScreen({ onCreate, onLogin, onAdmin }: { onCreate: (character: Cha
                 <button onClick={submitLogin} disabled={!!loginStatus}>{loginStatus || "Log Back In"}</button>
                 <p className="hint" style={{ marginTop: 8 }}>Logging in automatically restores your full save including images.</p>
             </div>
-            <div className="card creator-card admin-start-card">
-                <h2>🛠️ Admin Mode</h2>
-                <p>Create jutsus, world events, dialogue, and test your game instantly.</p>
-                <button className="admin-button" onClick={onAdmin}>Enter Admin Mode</button>
-                <p className="hint">Password: admin</p>
-            </div>
+
         </div>
     );
 }
