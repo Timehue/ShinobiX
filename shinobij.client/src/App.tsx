@@ -7102,18 +7102,20 @@ function AdminPanel({
         }
     }
 
-    function applyItemImage(image: string) {
-        setItemImage(image);
-        publishSharedImage('item:' + editingItemId, image);
-        if (!editingItemId) return;
-        const isCreator = creatorItems.some((i) => i.id === editingItemId);
-        if (isCreator) {
-            setCreatorItems(creatorItems.map((i) => i.id === editingItemId ? { ...i, image } : i));
-        } else {
-            // starter item override: create override entry with image
-            const base = [...starterItems, ...creatorItems].find((i) => i.id === editingItemId);
-            if (base) setCreatorItems([...creatorItems, { ...base, image }]);
-        }
+    function applyItemImage(rawImage: string) {
+        void compressDataUrl(rawImage, 512, 0.82).then((image) => {
+            setItemImage(image);
+            publishSharedImage('item:' + editingItemId, image);
+            if (!editingItemId) return;
+            const isCreator = creatorItems.some((i) => i.id === editingItemId);
+            if (isCreator) {
+                setCreatorItems(creatorItems.map((i) => i.id === editingItemId ? { ...i, image } : i));
+            } else {
+                // starter item override: create override entry with image
+                const base = [...starterItems, ...creatorItems].find((i) => i.id === editingItemId);
+                if (base) setCreatorItems([...creatorItems, { ...base, image }]);
+            }
+        });
     }
 
     function saveAdminItemEdit() {
@@ -7468,15 +7470,17 @@ function AdminPanel({
         }
     }
 
-    function applyJutsuImage(image: string) {
-        setJutsuImage(image);
-        publishSharedImage('jutsu:' + editingJutsuId, image);
-        if (!editingJutsuId) return;
-        setCreatorJutsus(creatorJutsus.map((j) => j.id === editingJutsuId ? { ...j, image } : j));
-        setSavedBloodlines(savedBloodlines.map((bl) => ({
-            ...bl,
-            jutsus: bl.jutsus.map((j) => j.id === editingJutsuId ? { ...j, image } : j),
-        })));
+    function applyJutsuImage(rawImage: string) {
+        void compressDataUrl(rawImage, 512, 0.82).then((image) => {
+            setJutsuImage(image);
+            publishSharedImage('jutsu:' + editingJutsuId, image);
+            if (!editingJutsuId) return;
+            setCreatorJutsus(creatorJutsus.map((j) => j.id === editingJutsuId ? { ...j, image } : j));
+            setSavedBloodlines(savedBloodlines.map((bl) => ({
+                ...bl,
+                jutsus: bl.jutsus.map((j) => j.id === editingJutsuId ? { ...j, image } : j),
+            })));
+        });
     }
 
     function applyBloodlineImage(image: string) {
@@ -8884,6 +8888,32 @@ function AdminPanel({
                                                         ? `? Generating… ${itemBulkProgress ? `${itemBulkProgress.current}/${itemBulkProgress.total}` : ""}`
                                                         : `🖼️ Generate Images for ${selCount} Item${selCount !== 1 ? "s" : ""}`}
                                                 </button>
+                                                <button
+                                                    disabled={itemBulkRunning}
+                                                    onClick={async () => {
+                                                        setItemBulkRunning(true);
+                                                        try {
+                                                            const r = await fetch("/api/images?cat=item");
+                                                            const registry = r.ok ? await r.json() as Record<string, string> : {};
+                                                            const entries = Object.entries(registry);
+                                                            if (entries.length === 0) { alert("No shared item images found."); setItemBulkRunning(false); return; }
+                                                            let done = 0;
+                                                            for (const [key, raw] of entries) {
+                                                                try {
+                                                                    const compressed = await compressDataUrl(raw, 512, 0.82);
+                                                                    publishSharedImage(key, compressed);
+                                                                    const itemId = key.replace(/^item:/, "");
+                                                                    setCreatorItems(prev => prev.map(i => i.id === itemId ? { ...i, image: compressed } : i));
+                                                                } catch { /* skip */ }
+                                                                done++;
+                                                            }
+                                                            alert(`Recompressed ${done} item image(s).`);
+                                                        } catch { alert("Error fetching images."); }
+                                                        setItemBulkRunning(false);
+                                                    }}
+                                                >
+                                                    🗜️ Recompress All Existing Item Images
+                                                </button>
                                             </div>
                                         </div>
                                     )}
@@ -9010,6 +9040,37 @@ function AdminPanel({
                             {jutsuIsGenerating ? "Generating..." : "Generate All Missing Jutsu Images"}
                         </button>
                         {jutsuGenStatus && <p className="hint" style={{ color: "#a5d6a7", marginTop: "0.4rem" }}>{jutsuGenStatus}</p>}
+
+                        <hr style={{ margin: "12px 0", borderColor: "rgba(255,255,255,0.1)" }} />
+                        <p className="hint">Recompress already-saved jutsu images to ~512 px JPEG to reduce storage size.</p>
+                        <button disabled={jutsuIsGenerating} onClick={async () => {
+                            setJutsuIsGenerating(true);
+                            setJutsuGenStatus("Fetching existing jutsu images…");
+                            try {
+                                const r = await fetch("/api/images?cat=jutsu");
+                                const registry = r.ok ? await r.json() as Record<string, string> : {};
+                                const entries = Object.entries(registry);
+                                if (entries.length === 0) { setJutsuGenStatus("No shared jutsu images found."); setJutsuIsGenerating(false); return; }
+                                let done = 0;
+                                const updatedJutsus = [...creatorJutsus];
+                                for (const [key, raw] of entries) {
+                                    setJutsuGenStatus(`Compressing ${key}… (${done + 1}/${entries.length})`);
+                                    try {
+                                        const compressed = await compressDataUrl(raw, 512, 0.82);
+                                        publishSharedImage(key, compressed);
+                                        const jutsuId = key.replace(/^jutsu:/, "");
+                                        const idx = updatedJutsus.findIndex(j => j.id === jutsuId);
+                                        if (idx >= 0) updatedJutsus[idx] = { ...updatedJutsus[idx], image: compressed };
+                                    } catch { /* skip */ }
+                                    done++;
+                                }
+                                setCreatorJutsus(updatedJutsus);
+                                setJutsuGenStatus(`Done! Recompressed ${done} jutsu image(s).`);
+                            } catch { setJutsuGenStatus("Error fetching images."); }
+                            setJutsuIsGenerating(false);
+                        }}>
+                            {jutsuIsGenerating ? "Working…" : "Recompress All Existing Jutsu Images"}
+                        </button>
                     </section>
                 </div>
             )}
@@ -9451,13 +9512,13 @@ function AdminPanel({
                             onChange={(e) => {
                                 const file = e.target.files?.[0];
                                 if (!file) return;
-                                readImageFile(file, (img) => { setCardImage(img); if (editingCardId) publishSharedImage('card:' + editingCardId, img); }, 100);
+                                readImageFile(file, async (img) => { const c = await compressDataUrl(img, 512, 0.82); setCardImage(c); if (editingCardId) publishSharedImage('card:' + editingCardId, c); }, 100);
                             }}
                         />
                         <AiImagePrompt
                             label="Card Image"
                             suggestedPrompt={`${cardName} ${cardElement} shinobi card game artwork`}
-                            onImage={(img) => { setCardImage(img); if (editingCardId) publishSharedImage('card:' + editingCardId, img); }}
+                            onImage={async (img) => { const c = await compressDataUrl(img, 512, 0.82); setCardImage(c); if (editingCardId) publishSharedImage('card:' + editingCardId, c); }}
                         />
 
                         <div className="menu">
