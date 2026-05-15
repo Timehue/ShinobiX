@@ -56,6 +56,31 @@ function sendJson(res: ServerResponse, status: number, body: unknown) {
     res.end(json);
 }
 
+type CharacterSummary = {
+    level?: number;
+    village?: string;
+    specialty?: string;
+};
+
+type OpenAiImageResponse = {
+    error?: { message?: string };
+    data?: Array<{ b64_json?: string }>;
+};
+
+function recordId(value: unknown) {
+    return value && typeof value === 'object' && 'id' in value
+        ? String((value as { id?: unknown }).id)
+        : undefined;
+}
+
+function characterSummary(character: unknown): CharacterSummary {
+    return character && typeof character === 'object' ? character as CharacterSummary : {};
+}
+
+function errorMessage(err: unknown, fallback = 'Request failed.') {
+    return err instanceof Error ? err.message : fallback;
+}
+
 function isImageField(key: string, value: unknown) {
     return (key === 'image' || key === 'avatarImage') && typeof value === 'string';
 }
@@ -64,8 +89,9 @@ function mergePreservingImages(incoming: unknown, existing: unknown): unknown {
     if (Array.isArray(incoming)) {
         return incoming.map((item, index) => {
             const existingArray = Array.isArray(existing) ? existing : [];
-            const existingById = item && typeof item === 'object' && 'id' in item
-                ? existingArray.find(candidate => candidate && typeof candidate === 'object' && (candidate as any).id === (item as any).id)
+            const itemId = recordId(item);
+            const existingById = itemId
+                ? existingArray.find(candidate => recordId(candidate) === itemId)
                 : undefined;
             return mergePreservingImages(item, existingById ?? existingArray[index]);
         });
@@ -135,15 +161,18 @@ export default defineConfig({
                         playerPresence.set(name, { name, sector: sector ?? existing.sector, character: character ?? existing.character, lastSeen: Date.now(), pendingAttacker: null });
                         const sectorMates = [...playerPresence.values()]
                             .filter(p => p.name !== name && p.sector === (sector ?? existing.sector))
-                            .map(({ name: n, sector: s, character: c }) => ({
-                                name: n, sector: s, character: c,
-                                level: (c as any)?.level ?? 1,
-                                village: (c as any)?.village ?? '',
-                                specialty: (c as any)?.specialty ?? 'Ninjutsu',
-                            }));
+                            .map(({ name: n, sector: s, character: c }) => {
+                                const summary = characterSummary(c);
+                                return {
+                                    name: n, sector: s, character: c,
+                                    level: summary.level ?? 1,
+                                    village: summary.village ?? '',
+                                    specialty: summary.specialty ?? 'Ninjutsu',
+                                };
+                            });
                         sendJson(res, 200, { sectorMates, pendingAttacker });
-                    } catch (err: any) {
-                        sendJson(res, 500, { error: err?.message });
+                    } catch (err: unknown) {
+                        sendJson(res, 500, { error: errorMessage(err) });
                     }
                 });
 
@@ -157,8 +186,8 @@ export default defineConfig({
                         if (!target) { sendJson(res, 404, { error: 'Target not online.' }); return; }
                         playerPresence.set(targetName, { ...target, pendingAttacker: attacker ?? null });
                         sendJson(res, 200, { ok: true });
-                    } catch (err: any) {
-                        sendJson(res, 500, { error: err?.message });
+                    } catch (err: unknown) {
+                        sendJson(res, 500, { error: errorMessage(err) });
                     }
                 });
 
@@ -171,8 +200,8 @@ export default defineConfig({
                         const p = playerPresence.get(name);
                         if (p) playerPresence.set(name, { ...p, pendingAttacker: null });
                         sendJson(res, 200, { ok: true });
-                    } catch (err: any) {
-                        sendJson(res, 500, { error: err?.message });
+                    } catch (err: unknown) {
+                        sendJson(res, 500, { error: errorMessage(err) });
                     }
                 });
             },
@@ -188,7 +217,7 @@ export default defineConfig({
                         if (!name || !village) { sendJson(res, 400, { error: 'Missing name or village.' }); return; }
                         villageGuards.set(name, { name, village, level: level ?? 1, lastSeen: Date.now() });
                         sendJson(res, 200, { ok: true });
-                    } catch (err: any) { sendJson(res, 500, { error: err?.message }); }
+                    } catch (err: unknown) { sendJson(res, 500, { error: errorMessage(err) }); }
                 });
 
                 // Dequeue from village guard
@@ -199,7 +228,7 @@ export default defineConfig({
                         if (!name) { sendJson(res, 400, { error: 'Missing name.' }); return; }
                         villageGuards.delete(name);
                         sendJson(res, 200, { ok: true });
-                    } catch (err: any) { sendJson(res, 500, { error: err?.message }); }
+                    } catch (err: unknown) { sendJson(res, 500, { error: errorMessage(err) }); }
                 });
 
                 // List guards for a village
@@ -212,7 +241,7 @@ export default defineConfig({
                             .filter(g => g.village === village)
                             .map(({ name, level, village: v }) => ({ name, level, village: v }));
                         sendJson(res, 200, guards);
-                    } catch (err: any) { sendJson(res, 500, { error: err?.message }); }
+                    } catch (err: unknown) { sendJson(res, 500, { error: errorMessage(err) }); }
                 });
             },
         },
@@ -226,6 +255,25 @@ export default defineConfig({
                 function safeName(name: string) {
                     return name.replace(/[^a-z0-9\-_]/g, '').toLowerCase();
                 }
+
+                server.middlewares.use('/api/clans/list', async (req: IncomingMessage, res: ServerResponse, next) => {
+                    if (req.method !== 'GET') { next(); return; }
+                    try {
+                        const clans = fs.readdirSync(savesDir)
+                            .filter(file => file.startsWith('clan-') && file.endsWith('.json'))
+                            .map(file => {
+                                try {
+                                    return JSON.parse(fs.readFileSync(path.join(savesDir, file), 'utf8'));
+                                } catch {
+                                    return null;
+                                }
+                            })
+                            .filter(Boolean);
+                        sendJson(res, 200, clans);
+                    } catch (err: unknown) {
+                        sendJson(res, 500, { error: errorMessage(err, 'Clan list failed') });
+                    }
+                });
 
                 server.middlewares.use('/api/save', async (req: IncomingMessage, res: ServerResponse, next) => {
                     // req.url is the part after /api/save  e.g. "/tyler"
@@ -267,7 +315,7 @@ export default defineConfig({
                             res.end();
                         } catch (err: unknown) {
                             res.writeHead(500);
-                            res.end(JSON.stringify({ error: (err as Error)?.message ?? 'Write failed' }));
+                            res.end(JSON.stringify({ error: errorMessage(err, 'Write failed') }));
                         }
                         return;
                     }
@@ -324,7 +372,7 @@ export default defineConfig({
                             }),
                         });
 
-                        const data = await openaiRes.json() as any;
+                        const data = await openaiRes.json() as OpenAiImageResponse;
 
                         if (!openaiRes.ok) {
                             sendJson(res, 502, { error: data?.error?.message ?? `OpenAI error ${openaiRes.status}` });
@@ -338,8 +386,8 @@ export default defineConfig({
                         }
 
                         sendJson(res, 200, { image: `data:image/png;base64,${b64}` });
-                    } catch (err: any) {
-                        sendJson(res, 500, { error: err?.message ?? 'Image generation failed.' });
+                    } catch (err: unknown) {
+                        sendJson(res, 500, { error: errorMessage(err, 'Image generation failed.') });
                     }
                 });
             },
