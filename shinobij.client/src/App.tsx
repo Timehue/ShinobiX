@@ -2,7 +2,7 @@
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect, react-hooks/purity */
 import type * as React from "react";
 import "./index.css";
-import worldMapBg from "./assets/maps/world_map.png";
+import worldMapBg from "./assets/Maps/world_map.png";
 import castleImg from "./assets/castle.png";
 import houseImg from "./assets/house1.png";
 import towerImg from "./assets/tower.png";
