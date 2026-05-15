@@ -1,4 +1,5 @@
 ﻿import { useEffect, useRef, useState, type ReactNode, type ChangeEvent } from "react";
+/* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect, react-hooks/purity */
 import type * as React from "react";
 import "./index.css";
 import worldMapBg from "./assets/maps/world_map.png";
@@ -26,10 +27,13 @@ type Screen =
     | "villageLore"
     | "profile"
     | "inventory"
+    | "logbook"
     | "training"
     | "jutsuTraining"
     | "missions"
     | "arena"
+    | "battleArena"
+    | "arenaDistrict"
     | "bloodlineMaker"
     | "clan"
     | "worldMap"
@@ -45,12 +49,16 @@ type Screen =
     | "centralHub"
     | "petArena"
     | "pets"
-    | "shinobiTiles";
+    | "shinobiTiles"
+    | "hunting"
+    | "tavern"
+    | "hallOfLegends"
+    | "shinobiCouncil";
 
 type Rank = "B Rank" | "A Rank" | "S Rank";
 type Biome = "forest" | "snow" | "volcano" | "shadow" | "central";
 type JutsuType = "Ninjutsu" | "Taijutsu" | "Genjutsu" | "Bukijutsu";
-type JutsuElement = "Earth" | "Wind" | "Lightning" | "Fire" | "Water";
+type JutsuElement = "Earth" | "Wind" | "Lightning" | "Fire" | "Water" | "None";
 type JutsuTarget = "SELF" | "OPPONENT" | "OTHER_USER" | "CHARACTER" | "EMPTY_GROUND";
 type JutsuMethod = "SINGLE" | "ALL" | "AOE_CIRCLE" | "AOE_LINE";
 type JutsuSort = "name" | "type" | "element" | "effect" | "ap" | "range" | "effectPower";
@@ -182,8 +190,160 @@ function weatherForBiome(biome: Biome) {
 }
 
 function weatherForSector(sector: number, biome: Biome) {
+    const territory = loadSectorTerritory(sector);
+    if (territory.ownerClan && territory.weather) return territory.weather;
     const table = biomeWeatherTables[biome];
     return table[(sector - 1) % table.length] ?? "clear";
+}
+
+const TERRITORY_CONTROL_SCROLL_ID = "territory-control-scroll";
+const SECTOR_TERRITORY_PREFIX = "shinobij-sector-territory-";
+const TERRITORY_CONTROL_MAX = 20000;
+const TERRITORY_HP_MAX = 20000;
+const TERRITORY_DAILY_WAR_SUPPLY = 100;
+const TERRITORY_SUPPLY_INTERVAL_MS = 24 * 60 * 60 * 1000;
+type TerritoryBuffStat = "bukijutsuOffense" | "taijutsuOffense" | "ninjutsuOffense" | "genjutsuOffense";
+type SectorTerritory = {
+    sector: number;
+    ownerClan?: string;
+    ownerVillage?: string;
+    backgroundImage?: string;
+    controlScore: number;
+    hp: number;
+    weather?: WeatherType;
+    terrainBuffStat: TerritoryBuffStat;
+    guards: string[];
+    warSupply: number;
+    lastSupplyAt?: number;
+    updatedAt: number;
+};
+
+function defaultSectorTerritory(sector: number): SectorTerritory {
+    return { sector, controlScore: 0, hp: TERRITORY_HP_MAX, terrainBuffStat: "bukijutsuOffense", guards: [], warSupply: 0, updatedAt: Date.now() };
+}
+
+function normalizeSectorTerritory(sector: number, data?: Partial<SectorTerritory>): SectorTerritory {
+    return {
+        ...defaultSectorTerritory(sector),
+        ...data,
+        sector,
+        controlScore: clampNumber(Math.floor(Number(data?.controlScore ?? 0)), 0, TERRITORY_CONTROL_MAX),
+        hp: clampNumber(Math.floor(Number(data?.hp ?? TERRITORY_HP_MAX)), 0, TERRITORY_HP_MAX),
+        guards: Array.isArray(data?.guards) ? data.guards.filter(Boolean).slice(0, 20) : [],
+        warSupply: Math.max(0, Math.floor(Number(data?.warSupply ?? 0))),
+        lastSupplyAt: data?.lastSupplyAt,
+        terrainBuffStat: (data?.terrainBuffStat ?? "bukijutsuOffense") as TerritoryBuffStat,
+        updatedAt: data?.updatedAt ?? Date.now(),
+    };
+}
+
+function sectorTerritoryKey(sector: number) {
+    return `${SECTOR_TERRITORY_PREFIX}${sector}`;
+}
+
+function loadSectorTerritory(sector: number): SectorTerritory {
+    try {
+        const raw = localStorage.getItem(sectorTerritoryKey(sector));
+        const territory = normalizeSectorTerritory(sector, raw ? JSON.parse(raw) : undefined);
+        return produceSectorWarSupply(territory);
+    } catch {
+        return defaultSectorTerritory(sector);
+    }
+}
+
+function saveSectorTerritory(territory: SectorTerritory) {
+    localStorage.setItem(sectorTerritoryKey(territory.sector), JSON.stringify(normalizeSectorTerritory(territory.sector, { ...territory, updatedAt: Date.now() })));
+}
+
+function produceSectorWarSupply(territory: SectorTerritory) {
+    if (!territory.ownerClan) return territory;
+    const now = Date.now();
+    const lastSupplyAt = territory.lastSupplyAt ?? territory.updatedAt ?? now;
+    const cycles = Math.floor((now - lastSupplyAt) / TERRITORY_SUPPLY_INTERVAL_MS);
+    if (cycles <= 0) return territory;
+    const next = normalizeSectorTerritory(territory.sector, {
+        ...territory,
+        warSupply: territory.warSupply + cycles * TERRITORY_DAILY_WAR_SUPPLY,
+        lastSupplyAt: lastSupplyAt + cycles * TERRITORY_SUPPLY_INTERVAL_MS,
+    });
+    saveSectorTerritory(next);
+    return next;
+}
+
+function loadAllSectorTerritories() {
+    return Array.from({ length: 60 }, (_, index) => loadSectorTerritory(index + 1));
+}
+
+function clanOwnedTerritories(clanName?: string) {
+    if (!clanName) return [];
+    return loadAllSectorTerritories().filter(territory => territory.ownerClan === clanName);
+}
+
+function villageOwnedTerritories(village?: string) {
+    if (!village) return [];
+    return loadAllSectorTerritories().filter(territory => territory.ownerVillage === village);
+}
+
+function clanTerritoryWarMultiplier(clanName?: string) {
+    return 1 + Math.min(10, clanOwnedTerritories(clanName).length) * 0.02;
+}
+
+function clanTerritoryStartingScore(clanName?: string) {
+    return clanOwnedTerritories(clanName).filter(territory => territory.hp >= TERRITORY_HP_MAX).length * 250;
+}
+
+function villageTerritoryWarSupply(village?: string) {
+    return villageOwnedTerritories(village).reduce((sum, territory) => sum + territory.warSupply, 0);
+}
+
+function guardIsVillageAnbu(name: string, village?: string) {
+    if (!village) return false;
+    const state = loadVillageState(village);
+    return normalizeAnbuAppointees(state.anbuAppointees).some(appointee => appointee.toLowerCase() === name.toLowerCase());
+}
+
+function sectorRaidDamageAmount(sector: number) {
+    const territory = loadSectorTerritory(sector);
+    if (!territory.ownerClan) return 250;
+    if (territory.guards.some(guard => guardIsVillageAnbu(guard, territory.ownerVillage))) return 100;
+    return territory.guards.length > 0 ? 150 : 250;
+}
+
+function territoryScrollCount(character: Character) {
+    return character.inventory.filter((itemId) => itemId === TERRITORY_CONTROL_SCROLL_ID).length;
+}
+
+function removeTerritoryScrolls(character: Character, count: number) {
+    let remaining = Math.max(0, Math.floor(count));
+    return character.inventory.filter((itemId) => {
+        if (itemId !== TERRITORY_CONTROL_SCROLL_ID || remaining <= 0) return true;
+        remaining -= 1;
+        return false;
+    });
+}
+
+function grantTerritoryScrolls(character: Character, count: number) {
+    return { ...character, inventory: [...character.inventory, ...Array.from({ length: Math.max(0, Math.floor(count)) }, () => TERRITORY_CONTROL_SCROLL_ID)] };
+}
+
+function damageSectorTerritory(sector: number, amount: number) {
+    const territory = loadSectorTerritory(sector);
+    if (!territory.ownerClan) return territory;
+    const hp = Math.max(0, territory.hp - Math.max(0, Math.floor(amount)));
+    const next = normalizeSectorTerritory(sector, hp <= 0 ? {
+        ...territory,
+        ownerClan: undefined,
+        ownerVillage: undefined,
+        backgroundImage: undefined,
+        controlScore: 0,
+        hp: TERRITORY_HP_MAX,
+        weather: undefined,
+        guards: [],
+        warSupply: 0,
+        lastSupplyAt: undefined,
+    } : { ...territory, hp });
+    saveSectorTerritory(next);
+    return next;
 }
 type Stats = {
     strength: number;
@@ -211,7 +371,7 @@ type PetJutsu = {
     power: number;
     cooldown: number;
     currentCooldown: number;
-    kind: "damage" | "buff";
+    kind: "damage" | "buff" | "heal" | "debuff" | "dot" | "move" | "barrier" | "movelock";
 };
 
 type Pet = {
@@ -253,6 +413,9 @@ type Character = {
     stamina: number;
     maxStamina: number;
     rankTitle: string;
+    customTitle?: string;
+    storyTitle?: string;
+    storyTraits?: string[];
     storyProgress: number;
     storyVillage: string;
     equippedBloodlineId?: string;
@@ -275,11 +438,31 @@ type Character = {
     clanBattleContrib: number;
     clanEventContrib: number;
     clanMissionContrib: number;
+    totalStatsTrained?: number;
+    totalMissionsCompleted?: number;
+    totalAiKills?: number;
+    totalPvpKills?: number;
+    monthlyPvpKills?: number;
+    pvpKillMonth?: string;
+    totalVillageRaids?: number;
+    villageWarMissionDate?: string;
+    villageWarRaidProgress?: number;
+    villageWarMissionsCompleted?: number;
+    totalTilesExplored?: number;
+    totalTournamentsCompleted?: number;
+    totalEndlessTowerWins?: number;
+    totalPetWins?: number;
+    defeatedAiIds?: string[];
+    rankedRating?: number;
+    rankedWins?: number;
+    rankedLosses?: number;
     clanContribMonth?: string;
     guardQueued?: boolean;
     hospitalized?: boolean;
     villageUpgrades: VillageUpgrades;
     lastBankInterestAt?: number;
+    hunterRank?: number;
+    elderFocus?: "war" | "trade" | "training";
 };
 type RewardCurrencyKey = "fateShards" | "honorSeals" | "boneCharms" | "auraStones" | "auraDust" | "mythicSeals";
 type CurrencyRewards = Partial<Record<RewardCurrencyKey, number>>;
@@ -300,6 +483,9 @@ type DuelChallenge = {
     toName: string;
     challenger: Character;
     createdAt: number;
+    mode?: "standard" | "ranked" | "clanWar1v1" | "clanWar2v2" | "clanWarPet";
+    clanWarPoints?: number;
+    sectorAttack?: boolean; // true = initiated from world-map sector, auto-routes defender
 };
 
 type AiCondition = "always" | "specific_round" | "distance_lower_than" | "distance_higher_than" | "hp_lower_than";
@@ -381,10 +567,10 @@ function equipmentSlotLabel(slot: EquipmentSlot) {
 type ArmorQuality = "Standard" | "Reinforced" | "Rare" | "Elite" | "Legendary";
 
 const armorQualityTiers: { quality: ArmorQuality; reduction: number; label: string }[] = [
-    { quality: "Standard", reduction: 0.01, label: "Standard — 1% damage reduction" },
-    { quality: "Reinforced", reduction: 0.05, label: "Reinforced — 5% damage reduction" },
-    { quality: "Rare", reduction: 0.07, label: "Rare — 7% damage reduction" },
-    { quality: "Elite", reduction: 0.10, label: "Elite — 10% damage reduction" },
+    { quality: "Standard", reduction: 0.05, label: "Standard — 5% damage reduction" },
+    { quality: "Reinforced", reduction: 0.07, label: "Reinforced — 7% damage reduction" },
+    { quality: "Rare", reduction: 0.10, label: "Rare — 10% damage reduction" },
+    { quality: "Elite", reduction: 0.12, label: "Elite — 12% damage reduction" },
     { quality: "Legendary", reduction: 0.15, label: "Legendary — 15% damage reduction" },
 ];
 
@@ -397,7 +583,7 @@ function getActivePetTrait(character: Character): PetTrait | undefined {
 }
 
 function getCharacterArmorFactor(character: Character, allItems: GameItem[]): number {
-    const armorSlots: EquipmentSlot[] = ["head", "body", "armor", "waist", "legs", "feet"];
+    const armorSlots: EquipmentSlot[] = ["head", "hand", "body", "armor", "waist", "legs", "feet"];
     let totalReduction = 0;
     for (const slot of armorSlots) {
         const id = character.equipment?.[slot];
@@ -409,6 +595,20 @@ function getCharacterArmorFactor(character: Character, allItems: GameItem[]): nu
     return Math.max(0.25, 1 - totalReduction);
 }
 
+function getEquippedItemBonus<K extends keyof NonNullable<GameItem["bonuses"]>>(
+    character: Character,
+    allItems: GameItem[],
+    field: K
+): number {
+    const allSlots = Object.values(character.equipment ?? {}) as string[];
+    let total = 0;
+    for (const id of allSlots) {
+        const item = allItems.find((i) => i.id === id);
+        if (item) total += (item.bonuses[field] as number | undefined) ?? 0;
+    }
+    return total;
+}
+
 type GameItem = {
     id: string;
     name: string;
@@ -417,11 +617,27 @@ type GameItem = {
     cost: number;
     description: string;
     armorQuality?: ArmorQuality;
+    levelReq?: number;
     image?: string;
+    weaponElement?: JutsuElement;
+    weaponRange?: number;
+    weaponCooldown?: number;
+    weaponEp?: number;
+    weaponEffect?: "Absorb" | "Lifesteal" | "Reflect" | "Increase Damage Given" | "Decrease Damage Given" | "Decrease Damage Taken" | "Shield" | "Wound" | "Poison";
+    weaponEffectValue?: number;
+    weaponEffectTarget?: "enemy" | "both"; // "both" = applies effect to both player and enemy (e.g. Smoke Bomb)
+    apCost?: number; // override the default AP cost for this item in combat
+    weaponTags?: Array<{ name: string; percent: number }>; // Named Weapon multi-tag support
+    flavorText?: string; // Player-written flavor text on Named Weapons
     bonuses: Partial<Stats> & {
         maxHp?: number;
         maxChakra?: number;
         maxStamina?: number;
+        damagePercent?: number;
+        absorbPercent?: number;
+        lifeStealPercent?: number;
+        shield?: number;
+        reflectPercent?: number;
     };
 };
 
@@ -446,6 +662,16 @@ type ActiveTraining = {
     endsAt: number;
 };
 
+type ActiveJutsuTraining = {
+    jutsuId: string;
+    label: string;
+    fromLevel: number;
+    toLevel: number;
+    ryoCost: number;
+    startedAt: number;
+    endsAt: number;
+};
+
 type CreatorEvent = {
     id: string;
     name: string;
@@ -457,14 +683,36 @@ type CreatorEvent = {
     vnScene?: string;
     vnSpeaker?: string;
     image?: string;
+    avatarImage?: string;
     aiProfileId?: string;
+    village?: string;
+    kageFinale?: boolean;
+    liberatorTitle?: string;
     vnPages?: {
         title: string;
         scene: string;
         speaker: string;
         dialogue: string[];
         image?: string;
-        choices?: { text: string; nextPage: number; conclusion?: string }[];
+        leftName?: string;
+        leftImage?: string;
+        rightName?: string;
+        rightImage?: string;
+        choices?: {
+            text: string;
+            nextPage: number;
+            conclusion?: string;
+            trait?: string;
+            battle?: {
+                bossName?: string;
+                bossIcon?: string;
+                bossHp?: number;
+                bossDamage?: number;
+                aiProfileId?: string;
+                xpReward?: number;
+                ryoReward?: number;
+            };
+        }[];
     }[];
     levelReq: number;
     xpReward: number;
@@ -490,6 +738,7 @@ type CreatorMission = {
     ryoReward: number;
     staminaReward: number;
     currencyRewards?: CurrencyRewards;
+    itemRewards?: string[];
 };
 
 type CreatorRaid = {
@@ -513,6 +762,7 @@ type PlayerAccountSave = {
         character: Character;
         currentBiome: Biome;
         activeTraining: ActiveTraining | null;
+        activeJutsuTraining?: ActiveJutsuTraining | null;
         acceptedMissionIds: string[];
         missionProgress: Record<string, number>;
         triggeredEvents: string[];
@@ -535,7 +785,25 @@ type StoryStep = {
     bossDamage: number;
     rewardXp: number;
     rewardRyo: number;
+    biome?: Biome;
+    aiProfileId?: string;
+    kageFinale?: boolean;
+    liberatorTitle?: string;
+    pages?: NonNullable<CreatorEvent["vnPages"]>;
 };
+
+type PendingArenaStoryBattle =
+    | {
+        kind: "storyBoss";
+        step: StoryStep;
+        returnScreen: Screen;
+    }
+    | {
+        kind: "triggeredEvent";
+        event: CreatorEvent;
+        battle?: NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number]["battle"];
+        returnScreen: Screen;
+    };
 
 const MAX_LEVEL = 100;
 const MAX_STAT = 2500;
@@ -551,8 +819,8 @@ function rollAwakeningElement(): string {
 }
 function elementIcon(element?: string) {
     if (element === "Water") return "💧";
-    if (element === "Wind") return "🌀";
-    if (element === "Earth") return "🪨";
+    if (element === "Wind") return "🌪️";
+    if (element === "Earth") return "⛰️";
     if (element === "Lightning") return "⚡";
     if (element === "Fire") return "🔥";
     return "✦";
@@ -609,7 +877,7 @@ const awakeningLv2VnEvent: CreatorEvent = {
     id: AWAKENING_VN_ID,
     name: "The Awakening Stone Calls",
     biome: "central",
-    icon: "💎",
+    icon: "🪨",
     eventKind: "visualNovel",
     trigger: "firstLeaveVillage",
     levelReq: 2,
@@ -701,7 +969,7 @@ function villageForOutskirtsSector(sector: number): string | undefined {
 }
 const villageLore: Record<string, { icon: string; theme: string; lore: string }> = {
     "Ashen Leaf Village": {
-        icon: "🌿",
+        icon: "🍁",
         theme: "The Traditional Path",
         lore: `Born from the remnants of a world once consumed by fire, Ashen Leaf rose where devastation met renewal.
 
@@ -798,7 +1066,7 @@ const petFeedItems = [
     ...petTreatItems,
     { id: "golden-apple", name: "Golden Apple", xp: 2000 },
 ] as const;
-const stackableItemIds = new Set<string>(petFeedItems.map((item) => item.id));
+const stackableItemIds = new Set<string>([...petFeedItems.map((item) => item.id), TERRITORY_CONTROL_SCROLL_ID]);
 function petFeedXpForItem(itemId?: string): number | undefined {
     return petFeedItems.find((item) => item.id === itemId)?.xp;
 }
@@ -855,7 +1123,7 @@ function formatPetTimer(ms: number): string {
     return `${s}s`;
 }
 const petPool: Pet[] = [
-    // STANDARD PETS - weakest
+    // STANDARD PETS — damage + move. Simple kit, mobile enough to close the gap.
     ...[
         "Red Fox", "Snow Rabbit", "Black Cat", "Forest Hawk", "River Otter",
         "Stone Turtle", "Desert Lizard", "Ashen Crow", "Blue Frog", "Wild Boar",
@@ -875,16 +1143,17 @@ const petPool: Pet[] = [
         speed: 10 + index,
         unlockedForPve: false,
         jutsus: [
-            {
-                name: `${name} Strike`,
-                power: 35 + index,
-                cooldown: 3,
-                currentCooldown: 0,
-                kind: "damage",
-            },
+            { name: `${name} Strike`, power: 35 + index, cooldown: 3, currentCooldown: 0, kind: "damage" as const },
+            index % 3 === 0
+                ? { name: `${name} Guard`, power: 28 + index, cooldown: 5, currentCooldown: 0, kind: "barrier"  as const }
+                : index % 3 === 1
+                    ? { name: `${name} Bind`,  power: 0,          cooldown: 5, currentCooldown: 0, kind: "movelock" as const }
+                    : { name: `${name} Mend`,  power: 26 + index, cooldown: 5, currentCooldown: 0, kind: "heal"    as const },
+            { name: `${name} Dash`,   power: 0,           cooldown: 4, currentCooldown: 0, kind: "move"   as const },
         ],
     })),
-    // RARE PETS - stronger than standard, weaker than legendary
+
+    // RARE PETS — damage + utility (heal/buff/debuff) + move.
     ...[
         "Crimson Fox", "Frost Hare", "Night Panther", "Sky Falcon", "Tide Otter",
         "Ironback Turtle", "Dune Viper", "Ashwing Raven", "Azure Toad", "Bristle Boar",
@@ -904,23 +1173,21 @@ const petPool: Pet[] = [
         speed: 20 + index,
         unlockedForPve: false,
         jutsus: [
-            {
-                name: `${name} Strike`,
-                power: 55 + index,
-                cooldown: 3,
-                currentCooldown: 0,
-                kind: "damage",
-            },
-            {
-                name: `${name} Instinct`,
-                power: 8,
-                cooldown: 4,
-                currentCooldown: 0,
-                kind: "buff",
-            },
+            { name: `${name} Strike`,   power: 55 + index, cooldown: 2, currentCooldown: 0, kind: "damage" as const },
+            index % 3 === 0
+                ? { name: `${name} Mend`,     power: 55 + index, cooldown: 4, currentCooldown: 0, kind: "heal"   as const }
+                : index % 3 === 1
+                    ? { name: `${name} Instinct`, power: 10,         cooldown: 4, currentCooldown: 0, kind: "buff"   as const }
+                    : { name: `${name} Weaken`,   power: 42 + index, cooldown: 4, currentCooldown: 0, kind: "debuff" as const },
+            index % 2 === 0
+                ? { name: `${name} Ward`,       power: 50 + index, cooldown: 5, currentCooldown: 0, kind: "barrier"  as const }
+                : { name: `${name} Trap Vines`, power: 0,          cooldown: 5, currentCooldown: 0, kind: "movelock" as const },
+            { name: `${name} Rush`,     power: 0,           cooldown: 4, currentCooldown: 0, kind: "move"   as const },
         ],
     })),
-    // LEGENDARY PETS - middle
+
+    // LEGENDARY PETS — buff + damage + utility (heal/debuff/dot) + move.
+    // Legendary dash cooldown is faster (CD3) — they're quicker to engage.
     ...[
         "Glacier Wolf", "Tempest Hawk", "Umbra Fox", "Spirit Deer", "Ironfang Tiger",
         "Azure Kirin", "Ember Phoenix", "Moon Serpent", "Storm Lion", "Crystal Bear",
@@ -938,24 +1205,22 @@ const petPool: Pet[] = [
         speed: 35 + index,
         unlockedForPve: false,
         jutsus: [
-            {
-                name: `${name} Battle Cry`,
-                power: 12,
-                cooldown: 3,
-                currentCooldown: 0,
-                kind: "buff",
-            },
-            {
-                name: `${name} Fang Art`,
-                power: 90 + index * 2,
-                cooldown: 3,
-                currentCooldown: 0,
-                kind: "damage",
-            },
+            { name: `${name} Battle Cry`, power: 12,              cooldown: 3, currentCooldown: 0, kind: "buff"   as const },
+            { name: `${name} Fang Art`,   power: 90 + index * 2,  cooldown: 3, currentCooldown: 0, kind: "damage" as const },
+            index % 5 === 0
+                ? { name: `${name} Life Pulse`,    power: 80 + index * 2, cooldown: 5, currentCooldown: 0, kind: "heal"     as const }
+                : index % 5 === 1
+                    ? { name: `${name} Curse Mark`,  power: 60 + index * 2, cooldown: 5, currentCooldown: 0, kind: "debuff"   as const }
+                    : index % 5 === 2
+                        ? { name: `${name} Venom Seal`,  power: 60 + index * 2, cooldown: 5, currentCooldown: 0, kind: "dot"      as const }
+                        : index % 5 === 3
+                            ? { name: `${name} Spirit Wall`, power: 70 + index * 2, cooldown: 5, currentCooldown: 0, kind: "barrier"  as const }
+                            : { name: `${name} Root Bind`,   power: 0,              cooldown: 5, currentCooldown: 0, kind: "movelock" as const },
+            { name: `${name} Lunge`,      power: 0,               cooldown: 3, currentCooldown: 0, kind: "move"   as const },
         ],
     })),
 
-    // MYTHIC PETS - strongest
+    // MYTHIC PETS — full 5-jutsu kits. Each has a unique identity.
     {
         id: "mythic-0",
         name: "Eclipse Kitsune",
@@ -968,10 +1233,14 @@ const petPool: Pet[] = [
         defense: 95,
         speed: 115,
         unlockedForPve: false,
+        // Identity: trickster — debuffs enemy, heals self, two damage forms, fastest dash
         jutsus: [
-            { name: "Nine Shadow Blessing", power: 25, cooldown: 3, currentCooldown: 0, kind: "buff" },
-            { name: "Eclipse Fang", power: 180, cooldown: 3, currentCooldown: 0, kind: "damage" },
-            { name: "Moonbreak Nova", power: 260, cooldown: 3, currentCooldown: 0, kind: "damage" },
+            { name: "Nine Shadow Blessing", power: 25,  cooldown: 3, currentCooldown: 0, kind: "buff"   },
+            { name: "Eclipse Fang",         power: 180, cooldown: 3, currentCooldown: 0, kind: "damage" },
+            { name: "Moonbreak Nova",       power: 260, cooldown: 4, currentCooldown: 0, kind: "damage" },
+            { name: "Moonlit Restoration",  power: 95,  cooldown: 5, currentCooldown: 0, kind: "heal"     },
+            { name: "Shadow Root Bind",     power: 0,   cooldown: 4, currentCooldown: 0, kind: "movelock" },
+            { name: "Phantom Phase",        power: 0,   cooldown: 3, currentCooldown: 0, kind: "move"     },
         ],
     },
     {
@@ -986,10 +1255,14 @@ const petPool: Pet[] = [
         defense: 90,
         speed: 100,
         unlockedForPve: false,
+        // Identity: storm striker — fast heavy attacks, poison pressure, storm lunge
         jutsus: [
-            { name: "Storm King Aura", power: 22, cooldown: 3, currentCooldown: 0, kind: "buff" },
-            { name: "Thunder Maw", power: 200, cooldown: 3, currentCooldown: 0, kind: "damage" },
-            { name: "Sky Rupture Beam", power: 290, cooldown: 3, currentCooldown: 0, kind: "damage" },
+            { name: "Storm King Aura",    power: 22,  cooldown: 3, currentCooldown: 0, kind: "buff"    },
+            { name: "Thunder Maw",        power: 200, cooldown: 2, currentCooldown: 0, kind: "damage"  },
+            { name: "Sky Rupture Beam",   power: 290, cooldown: 4, currentCooldown: 0, kind: "damage"  },
+            { name: "Storm Aegis",        power: 130, cooldown: 5, currentCooldown: 0, kind: "barrier" },
+            { name: "Thunderstorm Venom", power: 110, cooldown: 5, currentCooldown: 0, kind: "dot"    },
+            { name: "Stormrider Lunge",   power: 0,   cooldown: 3, currentCooldown: 0, kind: "move"   },
         ],
     },
     {
@@ -1004,10 +1277,13 @@ const petPool: Pet[] = [
         defense: 140,
         speed: 70,
         unlockedForPve: false,
+        // Identity: immovable fortress — massive sustain, debuffs opponent, slowest dash (tank)
         jutsus: [
-            { name: "Absolute Zero Guard", power: 30, cooldown: 3, currentCooldown: 0, kind: "buff" },
-            { name: "Glacier Crush", power: 175, cooldown: 3, currentCooldown: 0, kind: "damage" },
-            { name: "Frozen World Slam", power: 250, cooldown: 3, currentCooldown: 0, kind: "damage" },
+            { name: "Absolute Zero Guard",  power: 30,  cooldown: 3, currentCooldown: 0, kind: "buff"   },
+            { name: "Glacier Crush",        power: 175, cooldown: 2, currentCooldown: 0, kind: "damage" },
+            { name: "Frozen World Slam",    power: 250, cooldown: 4, currentCooldown: 0, kind: "damage" },
+            { name: "Glacial Regeneration", power: 105, cooldown: 5, currentCooldown: 0, kind: "heal"   },
+            { name: "Permafrost Slide",     power: 0,   cooldown: 4, currentCooldown: 0, kind: "move"   },
         ],
     },
     {
@@ -1022,10 +1298,13 @@ const petPool: Pet[] = [
         defense: 100,
         speed: 140,
         unlockedForPve: false,
+        // Identity: debuffer — strips enemy defense then punishes with heavy hits; fastest base speed
         jutsus: [
-            { name: "Solar Spirit Blessing", power: 35, cooldown: 3, currentCooldown: 0, kind: "buff" },
-            { name: "Radiant Horn", power: 165, cooldown: 3, currentCooldown: 0, kind: "damage" },
-            { name: "Sunfall Judgment", power: 245, cooldown: 3, currentCooldown: 0, kind: "damage" },
+            { name: "Solar Spirit Blessing", power: 35,  cooldown: 3, currentCooldown: 0, kind: "buff"   },
+            { name: "Radiant Horn",          power: 165, cooldown: 2, currentCooldown: 0, kind: "damage" },
+            { name: "Sunfall Judgment",      power: 245, cooldown: 4, currentCooldown: 0, kind: "damage" },
+            { name: "Blinding Flash",        power: 100, cooldown: 4, currentCooldown: 0, kind: "debuff" },
+            { name: "Solar Gallop",          power: 0,   cooldown: 3, currentCooldown: 0, kind: "move"   },
         ],
     },
     {
@@ -1040,10 +1319,13 @@ const petPool: Pet[] = [
         defense: 85,
         speed: 95,
         unlockedForPve: false,
+        // Identity: glass cannon brawler — highest attack, fast strikes, venom, no heal (all-in)
         jutsus: [
-            { name: "Oni Rage Howl", power: 28, cooldown: 3, currentCooldown: 0, kind: "buff" },
-            { name: "Abyss Bite", power: 210, cooldown: 3, currentCooldown: 0, kind: "damage" },
-            { name: "Hellhound Execution", power: 310, cooldown: 3, currentCooldown: 0, kind: "damage" },
+            { name: "Oni Rage Howl",       power: 28,  cooldown: 3, currentCooldown: 0, kind: "buff"   },
+            { name: "Abyss Bite",          power: 210, cooldown: 2, currentCooldown: 0, kind: "damage" },
+            { name: "Hellhound Execution", power: 310, cooldown: 4, currentCooldown: 0, kind: "damage" },
+            { name: "Hellfire Corruption", power: 120, cooldown: 5, currentCooldown: 0, kind: "dot"    },
+            { name: "Demon Surge",         power: 0,   cooldown: 3, currentCooldown: 0, kind: "move"   },
         ],
     },
 ];
@@ -1074,6 +1356,7 @@ const percentageTags = [
     "Decrease Damage Taken",
     "Absorb",
     "Lifesteal",
+    "Siphon",
     "Afterburn",
     "Reflect",
     "Recoil",
@@ -1087,10 +1370,11 @@ const cappedDamageTags = [
     "Increase Damage Taken",
     "Decrease Damage Taken",
     "Absorb",
-    "Lifesteal",
+    "Siphon",
     "Afterburn",
     "Reflect",
     "Recoil",
+    "Lifesteal",
 ];
 
 // Tags that are binary (always apply, no percent-based hit chance)
@@ -1122,12 +1406,14 @@ function tagCapForRank(rank?: Rank | null): number {
     return 30; // global / no rank
 }
 
-function effectiveTagPercent(tag: JutsuTag, bloodlineRank?: Rank | null): number {
+function effectiveTagPercent(tag: JutsuTag, bloodlineRank?: Rank | null, level = 50): number {
     const raw = tag.percent > 0 ? tag.percent : 30;
+    // Scale linearly: level 50 = full creator value, each level below 50 subtracts 0.2
+    const levelScaled = Math.max(0, raw - (50 - level) * 0.2);
     if (cappedDamageTags.includes(tag.name)) {
-        return Math.min(raw, tagCapForRank(bloodlineRank));
+        return Math.min(levelScaled, tagCapForRank(bloodlineRank));
     }
-    return raw;
+    return levelScaled;
 }
 
 const allTags = [
@@ -1153,20 +1439,21 @@ const allTags = [
     "Move",
     "Pierce",
     "Poison",
+    "Pull",
+    "Push",
     "Recoil",
     "Reflect",
-    "Push/Pull",
     "Seal",
     "Shield",
+    "Siphon",
     "Stun",
     "Stun Prevent",
     "Time Compression",
     "Time Dilation",
-    "Vamp",
     "Wound",
 ];
 
-const fixedEffectPowerTags = [...binaryTags, "Push/Pull"];
+const fixedEffectPowerTags = [...binaryTags, "Push", "Pull"];
 
 function hasFixedEffectPower(jutsu: Pick<Jutsu, "tags">) {
     return jutsu.tags.some((tag) => fixedEffectPowerTags.includes(tag.name));
@@ -1176,8 +1463,10 @@ const nonBloodlineFortyApTagPairs: JutsuTag[][] = [
     [{ name: "Increase Damage Given", percent: 30 }, { name: "Recoil", percent: 30 }],
     [{ name: "Increase Damage Taken", percent: 30 }, { name: "Reflect", percent: 30 }],
     [{ name: "Decrease Damage Given", percent: 30 }, { name: "Absorb", percent: 30 }],
-    [{ name: "Decrease Damage Taken", percent: 30 }, { name: "Lifesteal", percent: 30 }],
+    [{ name: "Decrease Damage Taken", percent: 30 }, { name: "Siphon", percent: 30 }],
     [{ name: "Increase Heal", percent: 30 }, { name: "Absorb", percent: 30 }],
+    [{ name: "Barrier", percent: 0 }, { name: "Decrease Damage Taken", percent: 30 }],
+    [{ name: "Barrier", percent: 0 }, { name: "Siphon", percent: 30 }],
 ];
 
 const nonBloodlineSixtyApTags: JutsuTag[] = [
@@ -1187,9 +1476,10 @@ const nonBloodlineSixtyApTags: JutsuTag[] = [
     { name: "Increase Damage Taken", percent: 30 },
     { name: "Decrease Damage Taken", percent: 30 },
     { name: "Absorb", percent: 30 },
-    { name: "Lifesteal", percent: 30 },
+    { name: "Siphon", percent: 30 },
     { name: "Reflect", percent: 30 },
     { name: "Recoil", percent: 30 },
+    { name: "Barrier", percent: 0 },
 ];
 
 function nonBloodlineBalanceIndex(jutsu: Jutsu) {
@@ -1221,75 +1511,94 @@ function rebalanceNonBloodlineJutsu(jutsu: Jutsu): Jutsu {
         ...normalized,
         range: normalized.target === "OPPONENT" ? 4 : normalized.range,
         cooldown: 7,
-        effectPower: 28,
+        effectPower: normalized.ap === 60 ? 38 : 0,
         tags,
     });
 }
 
 const starterJutsus: Jutsu[] = [
-    makeJutsu("starter-nin-earth-1", "Stone Needle Volley", "Ninjutsu", 40, 4, 92, 1, 22, 10, [{ name: "Pierce", percent: 0 }], "Earth"),
+    // All jutsus: stored EP=38 (Lv.50 max) → Lv.1 ≈ 28 via scaling. Tags stored at 30% → Lv.1 ≈ 20%.
+    makeJutsu("starter-nin-earth-1", "Stone Needle Volley", "Ninjutsu", 40, 4, 28, 1, 22, 10, [{ name: "Pierce", percent: 0 }], "Earth"),
     makeJutsu("starter-nin-earth-2", "Mud Coffin Bind", "Ninjutsu", 60, 3, 30, 3, 34, 12, [{ name: "Stun", percent: 0 }], "Earth"),
-    makeJutsu("starter-nin-earth-3", "Iron Sand Burst", "Ninjutsu", 40, 3, 96, 2, 24, 12, [{ name: "Wound", percent: 18 }], "Earth"),
-    makeJutsu("starter-nin-wind-1", "Vacuum Palm Wave", "Ninjutsu", 40, 5, 88, 1, 20, 12, [{ name: "Push/Pull", percent: 0 }], "Wind"),
+    makeJutsu("starter-nin-earth-3", "Iron Sand Burst", "Ninjutsu", 40, 3, 27, 2, 24, 12, [{ name: "Wound", percent: 18 }], "Earth"),
+    makeJutsu("starter-nin-wind-1", "Vacuum Palm Wave", "Ninjutsu", 40, 5, 20, 1, 20, 12, [{ name: "Push", percent: 0 }], "Wind"),
     makeJutsu("starter-nin-wind-2", "Cyclone Cutter", "Ninjutsu", 60, 5, 30, 2, 36, 14, [{ name: "Increase Damage Given", percent: 18 }], "Wind"),
-    makeJutsu("starter-nin-wind-3", "Gale Net Snare", "Ninjutsu", 40, 4, 82, 2, 24, 10, [{ name: "Decrease Damage Given", percent: 20 }], "Wind"),
-    makeJutsu("starter-nin-lightning-1", "Static Fang", "Ninjutsu", 40, 4, 100, 1, 26, 8, [{ name: "Damage", percent: 100 }], "Lightning"),
+    makeJutsu("starter-nin-wind-3", "Gale Net Snare", "Ninjutsu", 40, 4, 18, 2, 24, 10, [{ name: "Decrease Damage Given", percent: 20 }], "Wind"),
+    makeJutsu("starter-nin-lightning-1", "Static Fang", "Ninjutsu", 40, 4, 35, 1, 26, 8, [{ name: "Damage", percent: 100 }], "Lightning"),
     makeJutsu("starter-nin-lightning-2", "Thunderclap Lance", "Ninjutsu", 60, 5, 30, 2, 38, 10, [{ name: "Pierce", percent: 0 }], "Lightning"),
     makeJutsu("starter-nin-lightning-3", "Nerve Spark Seal", "Ninjutsu", 60, 3, 30, 3, 34, 12, [{ name: "Seal", percent: 0 }], "Lightning"),
-    makeJutsu("starter-nin-fire-1", "Cinder Shot", "Ninjutsu", 40, 4, 88, 1, 22, 8, [{ name: "Afterburn", percent: 18 }], "Fire"),
+    makeJutsu("starter-nin-fire-1", "Cinder Shot", "Ninjutsu", 40, 4, 25, 1, 22, 8, [{ name: "Afterburn", percent: 18 }], "Fire"),
     makeJutsu("starter-nin-fire-2", "Blazing Dragon Arc", "Ninjutsu", 60, 5, 30, 2, 40, 12, [{ name: "Increase Damage Taken", percent: 18 }], "Fire"),
-    makeJutsu("starter-nin-fire-3", "Ash Cloud Breaker", "Ninjutsu", 40, 3, 94, 2, 26, 10, [{ name: "Poison", percent: 15 }], "Fire"),
-    makeJutsu("starter-nin-water-1", "Tide Spear", "Ninjutsu", 40, 4, 96, 1, 24, 8, [{ name: "Damage", percent: 100 }], "Water"),
+    makeJutsu("starter-nin-fire-3", "Ash Cloud Breaker", "Ninjutsu", 40, 3, 23, 2, 26, 10, [{ name: "Poison", percent: 15 }], "Fire"),
+    makeJutsu("starter-nin-water-1", "Tide Spear", "Ninjutsu", 40, 4, 33, 1, 24, 8, [{ name: "Damage", percent: 100 }], "Water"),
     makeJutsu("starter-nin-water-2", "Crashing Wave Prison", "Ninjutsu", 60, 3, 30, 3, 36, 12, [{ name: "Stun", percent: 0 }], "Water"),
     makeJutsu("starter-nin-water-3", "Mist Veil Flow", "Ninjutsu", 40, 0, 0, 2, 28, 8, [{ name: "Shield", percent: 0 }, { name: "Decrease Damage Taken", percent: 18 }], "Water"),
 
-    makeJutsu("starter-tai-earth-1", "Granite Elbow", "Taijutsu", 40, 1, 98, 1, 8, 24, [{ name: "Damage", percent: 100 }], "Earth"),
+    makeJutsu("starter-tai-earth-1", "Granite Elbow", "Taijutsu", 40, 1, 35, 1, 8, 24, [{ name: "Damage", percent: 100 }], "Earth"),
     makeJutsu("starter-tai-earth-2", "Boulder Heel Drop", "Taijutsu", 60, 1, 30, 2, 10, 36, [{ name: "Increase Damage Given", percent: 16 }], "Earth"),
-    makeJutsu("starter-tai-earth-3", "Rooted Guard Break", "Taijutsu", 40, 1, 86, 2, 8, 26, [{ name: "Pierce", percent: 0 }], "Earth"),
-    makeJutsu("starter-tai-wind-1", "Tempest Step Kick", "Taijutsu", 40, 2, 92, 1, 8, 24, [{ name: "Move", percent: 0 }], "Wind"),
+    makeJutsu("starter-tai-earth-3", "Rooted Guard Break", "Taijutsu", 40, 1, 26, 2, 8, 26, [{ name: "Pierce", percent: 0 }], "Earth"),
+    makeJutsu("starter-tai-wind-1", "Tempest Step Kick", "Taijutsu", 40, 2, 20, 1, 8, 24, [{ name: "Move", percent: 0 }], "Wind"),
     makeJutsu("starter-tai-wind-2", "Rising Gale Combo", "Taijutsu", 60, 1, 30, 2, 10, 34, [{ name: "Increase Damage Taken", percent: 16 }], "Wind"),
-    makeJutsu("starter-tai-wind-3", "Spiral Backfist", "Taijutsu", 40, 1, 94, 1, 8, 22, [{ name: "Push/Pull", percent: 0 }], "Wind"),
-    makeJutsu("starter-tai-lightning-1", "Spark Jab Chain", "Taijutsu", 40, 1, 96, 1, 10, 24, [{ name: "Damage", percent: 100 }], "Lightning"),
+    makeJutsu("starter-tai-wind-3", "Spiral Backfist", "Taijutsu", 40, 1, 21, 1, 8, 22, [{ name: "Push", percent: 0 }], "Wind"),
+    makeJutsu("starter-tai-lightning-1", "Spark Jab Chain", "Taijutsu", 40, 1, 33, 1, 10, 24, [{ name: "Damage", percent: 100 }], "Lightning"),
     makeJutsu("starter-tai-lightning-2", "Raikou Knee Strike", "Taijutsu", 60, 1, 30, 2, 12, 36, [{ name: "Stun", percent: 0 }], "Lightning"),
     makeJutsu("starter-tai-lightning-3", "Flash Step Counter", "Taijutsu", 40, 1, 0, 3, 12, 28, [{ name: "Reflect", percent: 22 }], "Lightning"),
-    makeJutsu("starter-tai-fire-1", "Burning Knuckle", "Taijutsu", 40, 1, 90, 1, 10, 24, [{ name: "Afterburn", percent: 16 }], "Fire"),
+    makeJutsu("starter-tai-fire-1", "Burning Knuckle", "Taijutsu", 40, 1, 25, 1, 10, 24, [{ name: "Afterburn", percent: 16 }], "Fire"),
     makeJutsu("starter-tai-fire-2", "Meteor Axe Kick", "Taijutsu", 60, 1, 30, 2, 12, 38, [{ name: "Recoil", percent: 10 }], "Fire"),
-    makeJutsu("starter-tai-fire-3", "Cinder Rush", "Taijutsu", 40, 2, 88, 1, 10, 24, [{ name: "Wound", percent: 14 }], "Fire"),
-    makeJutsu("starter-tai-water-1", "Flowing Palm", "Taijutsu", 40, 1, 84, 1, 10, 20, [{ name: "Lifesteal", percent: 18 }], "Water"),
+    makeJutsu("starter-tai-fire-3", "Cinder Rush", "Taijutsu", 40, 2, 26, 1, 10, 24, [{ name: "Wound", percent: 14 }], "Fire"),
+    makeJutsu("starter-tai-water-1", "Flowing Palm", "Taijutsu", 40, 1, 28, 1, 10, 20, [{ name: "Siphon", percent: 18 }], "Water"),
     makeJutsu("starter-tai-water-2", "Tidal Shoulder Throw", "Taijutsu", 60, 1, 30, 2, 12, 34, [{ name: "Decrease Damage Given", percent: 18 }], "Water"),
     makeJutsu("starter-tai-water-3", "Ripple Guard Form", "Taijutsu", 40, 0, 0, 2, 12, 24, [{ name: "Shield", percent: 0 }, { name: "Cleanse Prevent", percent: 0 }], "Water"),
 
-    makeJutsu("starter-gen-earth-1", "Stone Eye Mirage", "Genjutsu", 40, 4, 86, 2, 24, 8, [{ name: "Decrease Damage Given", percent: 18 }], "Earth"),
+    makeJutsu("starter-gen-earth-1", "Stone Eye Mirage", "Genjutsu", 40, 4, 18, 2, 24, 8, [{ name: "Decrease Damage Given", percent: 18 }], "Earth"),
     makeJutsu("starter-gen-earth-2", "Buried Memory Field", "Genjutsu", 60, 4, 30, 3, 36, 10, [{ name: "Seal", percent: 0 }], "Earth"),
-    makeJutsu("starter-gen-earth-3", "Dust Puppet Vision", "Genjutsu", 40, 3, 92, 1, 24, 8, [{ name: "Poison", percent: 14 }], "Earth"),
-    makeJutsu("starter-gen-wind-1", "Whispering Gale", "Genjutsu", 40, 5, 88, 1, 22, 8, [{ name: "Increase Damage Taken", percent: 16 }], "Wind"),
+    makeJutsu("starter-gen-earth-3", "Dust Puppet Vision", "Genjutsu", 40, 3, 24, 1, 24, 8, [{ name: "Poison", percent: 14 }], "Earth"),
+    makeJutsu("starter-gen-wind-1", "Whispering Gale", "Genjutsu", 40, 5, 21, 1, 22, 8, [{ name: "Increase Damage Taken", percent: 16 }], "Wind"),
     makeJutsu("starter-gen-wind-2", "Hollow Voice Cyclone", "Genjutsu", 60, 5, 30, 2, 34, 10, [{ name: "Time Dilation", percent: 0 }], "Wind"),
     makeJutsu("starter-gen-wind-3", "Feather Step Illusion", "Genjutsu", 40, 0, 0, 2, 24, 8, [{ name: "Move", percent: 0 }, { name: "Decrease Damage Taken", percent: 16 }], "Wind"),
-    makeJutsu("starter-gen-lightning-1", "Neural Flash", "Genjutsu", 40, 4, 94, 1, 26, 8, [{ name: "Damage", percent: 100 }], "Lightning"),
+    makeJutsu("starter-gen-lightning-1", "Neural Flash", "Genjutsu", 40, 4, 32, 1, 26, 8, [{ name: "Damage", percent: 100 }], "Lightning"),
     makeJutsu("starter-gen-lightning-2", "Paralysis Theater", "Genjutsu", 60, 4, 30, 3, 38, 10, [{ name: "Stun", percent: 0 }], "Lightning"),
     makeJutsu("starter-gen-lightning-3", "Mirror Spark Dream", "Genjutsu", 40, 0, 0, 3, 30, 8, [{ name: "Mirror", percent: 22 }], "Lightning"),
-    makeJutsu("starter-gen-fire-1", "Lantern Fear", "Genjutsu", 40, 4, 90, 1, 24, 8, [{ name: "Afterburn", percent: 14 }], "Fire"),
+    makeJutsu("starter-gen-fire-1", "Lantern Fear", "Genjutsu", 40, 4, 24, 1, 24, 8, [{ name: "Afterburn", percent: 14 }], "Fire"),
     makeJutsu("starter-gen-fire-2", "Inferno Hallucination", "Genjutsu", 60, 4, 30, 2, 38, 10, [{ name: "Increase Damage Given", percent: 16 }], "Fire"),
-    makeJutsu("starter-gen-fire-3", "Ashen Mind Lock", "Genjutsu", 40, 3, 82, 2, 28, 8, [{ name: "Buff Prevent", percent: 0 }], "Fire"),
-    makeJutsu("starter-gen-water-1", "Drowning Reflection", "Genjutsu", 40, 4, 88, 1, 24, 8, [{ name: "Drain", percent: 0 }], "Water"),
+    makeJutsu("starter-gen-fire-3", "Ashen Mind Lock", "Genjutsu", 40, 3, 18, 2, 28, 8, [{ name: "Buff Prevent", percent: 0 }], "Fire"),
+    makeJutsu("starter-gen-water-1", "Drowning Reflection", "Genjutsu", 40, 4, 23, 1, 24, 8, [{ name: "Drain", percent: 0 }], "Water"),
     makeJutsu("starter-gen-water-2", "Moonlit Tide Dream", "Genjutsu", 60, 4, 30, 2, 36, 10, [{ name: "Decrease Damage Taken", percent: 20 }], "Water"),
-    makeJutsu("starter-gen-water-3", "Mist Memory Snare", "Genjutsu", 40, 4, 84, 2, 28, 8, [{ name: "Clear Prevent", percent: 0 }], "Water"),
+    makeJutsu("starter-gen-water-3", "Mist Memory Snare", "Genjutsu", 40, 4, 20, 2, 28, 8, [{ name: "Clear Prevent", percent: 0 }], "Water"),
 
-    makeJutsu("starter-buki-earth-1", "Stone Kunai Rain", "Bukijutsu", 40, 4, 94, 1, 10, 22, [{ name: "Damage", percent: 100 }], "Earth"),
-    makeJutsu("starter-buki-earth-2", "Adamant Chain Pull", "Bukijutsu", 60, 4, 30, 2, 12, 34, [{ name: "Push/Pull", percent: 0 }], "Earth"),
-    makeJutsu("starter-buki-earth-3", "Obsidian Edge", "Bukijutsu", 40, 2, 90, 1, 10, 24, [{ name: "Pierce", percent: 0 }], "Earth"),
-    makeJutsu("starter-buki-wind-1", "Windmill Shuriken Line", "Bukijutsu", 40, 5, 92, 1, 10, 22, [{ name: "Wound", percent: 14 }], "Wind"),
+    makeJutsu("starter-buki-earth-1", "Stone Kunai Rain", "Bukijutsu", 40, 4, 32, 1, 10, 22, [{ name: "Damage", percent: 100 }], "Earth"),
+    makeJutsu("starter-buki-earth-2", "Adamant Chain Pull", "Bukijutsu", 60, 4, 30, 2, 12, 34, [{ name: "Push", percent: 0 }], "Earth"),
+    makeJutsu("starter-buki-earth-3", "Obsidian Edge", "Bukijutsu", 40, 2, 26, 1, 10, 24, [{ name: "Pierce", percent: 0 }], "Earth"),
+    makeJutsu("starter-buki-wind-1", "Windmill Shuriken Line", "Bukijutsu", 40, 5, 27, 1, 10, 22, [{ name: "Wound", percent: 14 }], "Wind"),
     makeJutsu("starter-buki-wind-2", "Aerial Blade Fan", "Bukijutsu", 60, 5, 30, 2, 12, 34, [{ name: "Increase Damage Given", percent: 16 }], "Wind"),
-    makeJutsu("starter-buki-wind-3", "Crosswind Needle", "Bukijutsu", 40, 5, 88, 1, 10, 22, [{ name: "Decrease Damage Taken", percent: 16 }], "Wind"),
-    makeJutsu("starter-buki-lightning-1", "Charged Senbon", "Bukijutsu", 40, 5, 96, 1, 12, 22, [{ name: "Damage", percent: 100 }], "Lightning"),
+    makeJutsu("starter-buki-wind-3", "Crosswind Needle", "Bukijutsu", 40, 5, 22, 1, 10, 22, [{ name: "Decrease Damage Taken", percent: 16 }], "Wind"),
+    makeJutsu("starter-buki-lightning-1", "Charged Senbon", "Bukijutsu", 40, 5, 35, 1, 12, 22, [{ name: "Damage", percent: 100 }], "Lightning"),
     makeJutsu("starter-buki-lightning-2", "Thunder Wire Trap", "Bukijutsu", 60, 4, 30, 3, 14, 34, [{ name: "Stun", percent: 0 }], "Lightning"),
-    makeJutsu("starter-buki-lightning-3", "Magnet Blade Return", "Bukijutsu", 40, 4, 90, 2, 12, 26, [{ name: "Reflect", percent: 20 }], "Lightning"),
-    makeJutsu("starter-buki-fire-1", "Explosive Tag Flicker", "Bukijutsu", 40, 4, 90, 1, 12, 24, [{ name: "Afterburn", percent: 16 }], "Fire"),
+    makeJutsu("starter-buki-lightning-3", "Magnet Blade Return", "Bukijutsu", 40, 4, 22, 2, 12, 26, [{ name: "Reflect", percent: 20 }], "Lightning"),
+    makeJutsu("starter-buki-fire-1", "Explosive Tag Flicker", "Bukijutsu", 40, 4, 25, 1, 12, 24, [{ name: "Afterburn", percent: 16 }], "Fire"),
     makeJutsu("starter-buki-fire-2", "Flame Wire Detonation", "Bukijutsu", 60, 4, 30, 2, 14, 36, [{ name: "Increase Damage Taken", percent: 16 }], "Fire"),
-    makeJutsu("starter-buki-fire-3", "Searing Blade Toss", "Bukijutsu", 40, 3, 88, 1, 12, 24, [{ name: "Poison", percent: 14 }], "Fire"),
-    makeJutsu("starter-buki-water-1", "Mist Needle Spread", "Bukijutsu", 40, 5, 92, 1, 10, 22, [{ name: "Drain", percent: 0 }], "Water"),
-    makeJutsu("starter-buki-water-2", "Torrent Chain Slash", "Bukijutsu", 60, 4, 30, 2, 12, 34, [{ name: "Lifesteal", percent: 16 }], "Water"),
+    makeJutsu("starter-buki-fire-3", "Searing Blade Toss", "Bukijutsu", 40, 3, 23, 1, 12, 24, [{ name: "Poison", percent: 14 }], "Fire"),
+    makeJutsu("starter-buki-water-1", "Mist Needle Spread", "Bukijutsu", 40, 5, 24, 1, 10, 22, [{ name: "Drain", percent: 0 }], "Water"),
+    makeJutsu("starter-buki-water-2", "Torrent Chain Slash", "Bukijutsu", 60, 4, 30, 2, 12, 34, [{ name: "Siphon", percent: 16 }], "Water"),
     makeJutsu("starter-buki-water-3", "Hidden Current Guard", "Bukijutsu", 40, 0, 0, 2, 12, 24, [{ name: "Barrier", percent: 0 }, { name: "Cleanse Prevent", percent: 0 }], "Water"),
+    // Universal jutsus — no element, available to all
+    makeJutsu("starter-universal-flicker", "Flicker", "Taijutsu", 20, 5, 1, 2, 0, 5, [{ name: "Move", percent: 0 }], "None"),
+    normalizeJutsu({
+        id: "starter-universal-blitz",
+        name: "Blitz",
+        type: "Taijutsu",
+        element: "None",
+        ap: 60,
+        range: 5,
+        effectPower: 38,
+        cooldown: 7,
+        chakraCost: 15,
+        staminaCost: 15,
+        target: "EMPTY_GROUND",
+        method: "AOE_CIRCLE",
+        tags: [{ name: "Damage", percent: 100 }, { name: "Increase Damage Given", percent: 30 }],
+        battleDescription: "%user surges forward with explosive speed, obliterating everything in range.",
+    }),
 ].map(rebalanceNonBloodlineJutsu);
 
 const starterSavedBloodlines: SavedBloodline[] = [
@@ -1351,7 +1660,7 @@ const defaultPetEncounterVn: CreatorEvent = {
     id: "sys-pet-encounter",
     name: "Pet Encounter",
     biome: "forest",
-    icon: "🐾",
+    icon: "⚔️",
     eventKind: "visualNovel",
     trigger: "manual",
     levelReq: 1,
@@ -1401,22 +1710,13 @@ const defaultPetEncounterVn: CreatorEvent = {
 
 const starterItems: GameItem[] = [
     {
-        id: "wooden-katana",
-        name: "Wooden Katana",
-        slot: "hand",
-        rarity: "common",
-        cost: 75,
-        description: "A basic training blade.",
-        bonuses: { bukijutsuOffense: 25, strength: 5 },
-    },
-    {
         id: "shinobi-vest",
         name: "Shinobi Vest",
         slot: "body",
         rarity: "common",
         cost: 120,
         description: "Light armor for rookie shinobi.",
-        bonuses: { maxHp: 100, taijutsuDefense: 20 },
+        bonuses: { taijutsuDefense: 20 },
     },
     {
         id: "chakra-ring",
@@ -1464,6 +1764,15 @@ const starterItems: GameItem[] = [
         bonuses: {},
     },
     {
+        id: "territory-control-scroll",
+        name: "Territory Control Scroll",
+        slot: "item",
+        rarity: "rare",
+        cost: 1000,
+        description: "A clan war writ used to claim sectors, restore sector HP, and reinforce territory control.",
+        bonuses: {},
+    },
+    {
         id: "golden-apple",
         name: "Golden Apple",
         slot: "item",
@@ -1472,58 +1781,149 @@ const starterItems: GameItem[] = [
         description: "A Grand Marketplace pet feast. Feed to a selected pet for +2000 pet XP.",
         bonuses: {},
     },
-    // ── Legendary armor (Grand Marketplace — fate shards) ───────────────────
+    // -- Hunting materials ----------------------------------------------------
+    { id: "hunt-beast-meat", name: "Beast Meat", slot: "item", rarity: "common", cost: 0, description: "Coarse meat carved from a wild beast. Used in the Crafter to make pet treats.", bonuses: {} },
+    { id: "hunt-torn-hide", name: "Torn Hide", slot: "item", rarity: "common", cost: 0, description: "Ragged hide stripped from a forest creature. Crafting material.", bonuses: {} },
+    { id: "hunt-small-fang", name: "Small Fang", slot: "item", rarity: "common", cost: 0, description: "A sharp fang from a minor beast. Crafting material.", bonuses: {} },
+    { id: "hunt-cracked-horn", name: "Cracked Horn", slot: "item", rarity: "common", cost: 0, description: "A broken horn from a wild animal. Crafting material.", bonuses: {} },
+    { id: "hunt-wild-feather", name: "Wild Feather", slot: "item", rarity: "common", cost: 0, description: "A large feather from a forest bird of prey. Crafting material.", bonuses: {} },
+    { id: "hunt-wolf-fang", name: "Wolf Fang", slot: "item", rarity: "rare", cost: 0, description: "A serrated fang from a Frost Wolf. Worth 10 craft points in the Crafter.", bonuses: {} },
+    { id: "hunt-frost-pelt", name: "Frost Pelt", slot: "item", rarity: "rare", cost: 0, description: "Ice-laced pelt from a snow-region beast. Crafting material.", bonuses: {} },
+    { id: "hunt-ash-scale", name: "Ash Scale", slot: "item", rarity: "rare", cost: 0, description: "A heat-blackened scale from a volcanic lizard. Worth 15 craft points in the Crafter.", bonuses: {} },
+    { id: "hunt-shadow-claw", name: "Shadow Claw", slot: "item", rarity: "rare", cost: 0, description: "A razor-sharp claw from a shadow-region predator. Crafting material.", bonuses: {} },
+    { id: "hunt-shadow-pelt", name: "Shadow Pelt", slot: "item", rarity: "epic", cost: 0, description: "Dark, chakra-absorbing pelt from the Shadow Panther. Worth 25 craft points in the Crafter.", bonuses: {} },
+    { id: "hunt-ember-scale", name: "Ember Scale", slot: "item", rarity: "epic", cost: 0, description: "A glowing scale from the Ember Drake, still warm to the touch. Crafting material.", bonuses: {} },
+    { id: "hunt-ancient-beast-core", name: "Ancient Beast Core", slot: "item", rarity: "epic", cost: 0, description: "The crystallized chakra core of an ancient beast. Extremely rare crafting material.", bonuses: {} },
+    { id: "hunt-titan-bone", name: "Titan Bone", slot: "item", rarity: "epic", cost: 0, description: "A massive bone fragment from the Worldstorm Dragon. Near-indestructible.", bonuses: {} },
+    { id: "hunt-legendary-material", name: "Legendary Material", slot: "item", rarity: "legendary", cost: 0, description: "A rare drop from S-rank beasts. Worth 50 craft points in the Crafter. Required for max hunter rank.", bonuses: {} },
+    // -- Throwable weapons -------------------------------------------------------
     {
-        id: "legendary-crown",
-        name: "Crown of the Void",
-        slot: "head",
-        rarity: "legendary",
-        cost: 100,
-        description: "A transcendent crown forged from void-touched metal. Said to contain the will of fallen legends.",
-        armorQuality: "Legendary",
-        bonuses: { taijutsuDefense: 50, ninjutsuDefense: 45, maxHp: 300, strength: 10 },
+        id: "thrown-shuriken",
+        name: "Shuriken",
+        slot: "thrown",
+        rarity: "common",
+        cost: 80,
+        description: "Standard-issue throwing star. Deals 22 EP damage at range 4.",
+        weaponEp: 22,
+        weaponElement: "Wind",
+        apCost: 20,
+        weaponCooldown: 5,
+        bonuses: {},
     },
     {
-        id: "legendary-chest",
-        name: "Mantle of Eternity",
-        slot: "body",
-        rarity: "legendary",
-        cost: 100,
-        description: "An ancient chest piece worn by the first Kage. Its seals repel even S-rank techniques.",
-        armorQuality: "Legendary",
-        bonuses: { taijutsuDefense: 70, ninjutsuDefense: 60, maxHp: 600, maxChakra: 200 },
+        id: "thrown-senbon",
+        name: "Senbon",
+        slot: "thrown",
+        rarity: "rare",
+        cost: 220,
+        description: "Razor-thin needles driven into pressure points. Deals 300 damage per round for 2 rounds after impact.",
+        weaponEp: 0,
+        weaponEffect: "Wound",
+        weaponEffectValue: 300,
+        weaponElement: "Wind",
+        apCost: 20,
+        weaponCooldown: 5,
+        bonuses: {},
     },
     {
-        id: "legendary-waist",
-        name: "Obi of the Shinobi God",
-        slot: "waist",
-        rarity: "legendary",
-        cost: 100,
-        description: "A ceremonial obi woven from chakra-thread. Binds the body against fatal wounds.",
-        armorQuality: "Legendary",
-        bonuses: { taijutsuDefense: 40, ninjutsuDefense: 35, maxStamina: 300, maxHp: 200 },
+        id: "thrown-serpent-dust",
+        name: "Serpent Dust",
+        slot: "thrown",
+        rarity: "rare",
+        cost: 250,
+        description: "Toxic powder distilled from serpent venom. Poisons the target — deals 55% of their max chakra as damage per round for 2 rounds.",
+        weaponEp: 0,
+        weaponEffect: "Poison",
+        weaponEffectValue: 55,
+        weaponElement: "Wind",
+        apCost: 20,
+        weaponCooldown: 5,
+        bonuses: {},
+    },
+    // -- Combat items ------------------------------------------------------------
+    {
+        id: "item-smoke-bomb",
+        name: "Smoke Bomb",
+        slot: "item",
+        rarity: "rare",
+        cost: 180,
+        description: "Dense smoke fills the field — both you and the enemy deal 0 damage for 1 round. Pierce tag still deals full damage.",
+        weaponEffect: "Decrease Damage Given",
+        weaponEffectValue: 100,
+        weaponEffectTarget: "both",
+        apCost: 20,
+        weaponCooldown: 9,
+        bonuses: {},
     },
     {
-        id: "legendary-legs",
-        name: "Greaves of the Storm",
-        slot: "legs",
-        rarity: "legendary",
-        cost: 100,
-        description: "Leg armor forged during the Great Shinobi War. Channels lightning through every step.",
-        armorQuality: "Legendary",
-        bonuses: { taijutsuDefense: 50, ninjutsuDefense: 40, maxStamina: 250, maxHp: 250 },
+        id: "item-attack-pill",
+        name: "Attack Pill",
+        slot: "item",
+        rarity: "rare",
+        cost: 160,
+        description: "A chakra-laced stimulant that sharpens your strikes. Increases your damage output by 15% for 2 rounds.",
+        weaponEffect: "Increase Damage Given",
+        weaponEffectValue: 15,
+        apCost: 20,
+        weaponCooldown: 5,
+        bonuses: {},
     },
     {
-        id: "legendary-feet",
-        name: "Sandals of the Sennin",
-        slot: "feet",
-        rarity: "legendary",
-        cost: 100,
-        description: "Worn by a legendary sage. Imbued with natural energy, they never wear down.",
-        armorQuality: "Legendary",
-        bonuses: { taijutsuDefense: 35, ninjutsuDefense: 30, maxStamina: 200, maxHp: 150, strength: 5 },
+        id: "item-defense-pill",
+        name: "Defense Pill",
+        slot: "item",
+        rarity: "rare",
+        cost: 160,
+        description: "A hardening compound that reinforces the body. Decreases all damage you take by 15% for 2 rounds.",
+        weaponEffect: "Decrease Damage Taken",
+        weaponEffectValue: 15,
+        apCost: 20,
+        weaponCooldown: 5,
+        bonuses: {},
     },
-    // ── Head armor ──────────────────────────────────────────────────────────
+    // -- Legendary armor sets (Grand Marketplace — fate shards) -------------------
+    // Set 1: Void Sovereign — +1% damage given per piece (6% max)
+    { id: "legendary-crown", name: "Void Sovereign's Crown", slot: "head", rarity: "legendary", cost: 150, description: "The crown of a void-touched warlord. Each piece of this set amplifies your strikes by 1%.", armorQuality: "Legendary", levelReq: 40, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30, damagePercent: 1 } },
+    { id: "legendary-gloves", name: "Void Sovereign's Gauntlets", slot: "hand", rarity: "legendary", cost: 150, description: "Iron gauntlets brimming with void chakra. Every blow lands with terrifying precision.", armorQuality: "Legendary", levelReq: 40, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30, damagePercent: 1 } },
+    { id: "legendary-chest", name: "Void Sovereign's Mantle", slot: "body", rarity: "legendary", cost: 150, description: "A torso-spanning plate imbued with void energy that sharpens all attack forms.", armorQuality: "Legendary", levelReq: 40, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30, damagePercent: 1 } },
+    { id: "legendary-waist", name: "Void Sovereign's Obi", slot: "waist", rarity: "legendary", cost: 150, description: "A chakra-forged obi that focuses power into every attack.", armorQuality: "Legendary", levelReq: 40, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30, damagePercent: 1 } },
+    { id: "legendary-legs", name: "Void Sovereign's Greaves", slot: "legs", rarity: "legendary", cost: 150, description: "Void-metal greaves that lend destructive force to each step forward.", armorQuality: "Legendary", levelReq: 40, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30, damagePercent: 1 } },
+    { id: "legendary-feet", name: "Void Sovereign's Sabatons", slot: "feet", rarity: "legendary", cost: 150, description: "Swift sabatons of the void that seal unmatched offensive force in every movement.", armorQuality: "Legendary", levelReq: 40, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30, damagePercent: 1 } },
+    // Set 2: Eternal Bulwark — +1% absorb per piece (6% max)
+    { id: "bulwark-crown", name: "Eternal Bulwark's Crown", slot: "head", rarity: "legendary", cost: 150, description: "The helmet of an unkillable guardian. Each piece of this set absorbs 1% of incoming damage as healing.", armorQuality: "Legendary", levelReq: 40, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30, absorbPercent: 1 } },
+    { id: "bulwark-gloves", name: "Eternal Bulwark's Gauntlets", slot: "hand", rarity: "legendary", cost: 150, description: "Reinforced gauntlets that convert a portion of damage received into HP.", armorQuality: "Legendary", levelReq: 40, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30, absorbPercent: 1 } },
+    { id: "bulwark-chest", name: "Eternal Bulwark's Mantle", slot: "body", rarity: "legendary", cost: 150, description: "A chakra-layered breastplate that draws energy from the blows it receives.", armorQuality: "Legendary", levelReq: 40, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30, absorbPercent: 1 } },
+    { id: "bulwark-waist", name: "Eternal Bulwark's Obi", slot: "waist", rarity: "legendary", cost: 150, description: "A resilient obi that channels harm away from vital organs.", armorQuality: "Legendary", levelReq: 40, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30, absorbPercent: 1 } },
+    { id: "bulwark-legs", name: "Eternal Bulwark's Greaves", slot: "legs", rarity: "legendary", cost: 150, description: "Leg guards that resist the fiercest strikes and convert punishment into vitality.", armorQuality: "Legendary", levelReq: 40, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30, absorbPercent: 1 } },
+    { id: "bulwark-feet", name: "Eternal Bulwark's Sabatons", slot: "feet", rarity: "legendary", cost: 150, description: "Grounded sabatons that root the wearer and absorb punishment in return.", armorQuality: "Legendary", levelReq: 40, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30, absorbPercent: 1 } },
+    // Set 3: Crimson Tide — +1% lifesteal per piece (6% max)
+    { id: "crimson-crown", name: "Crimson Tide Crown", slot: "head", rarity: "legendary", cost: 150, description: "A blood-red helm from a warrior who fed on battles. Each piece heals 1% of damage dealt.", armorQuality: "Legendary", levelReq: 40, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30, lifeStealPercent: 1 } },
+    { id: "crimson-gloves", name: "Crimson Tide Gauntlets", slot: "hand", rarity: "legendary", cost: 150, description: "Bloodstained gauntlets that siphon life with every strike.", armorQuality: "Legendary", levelReq: 40, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30, lifeStealPercent: 1 } },
+    { id: "crimson-chest", name: "Crimson Tide Mantle", slot: "body", rarity: "legendary", cost: 150, description: "Armor soaked in the essence of fallen foes, restoring vitality on every blow.", armorQuality: "Legendary", levelReq: 40, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30, lifeStealPercent: 1 } },
+    { id: "crimson-waist", name: "Crimson Tide Obi", slot: "waist", rarity: "legendary", cost: 150, description: "A blood-forged obi that funnels stolen life into the wearer.", armorQuality: "Legendary", levelReq: 40, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30, lifeStealPercent: 1 } },
+    { id: "crimson-legs", name: "Crimson Tide Greaves", slot: "legs", rarity: "legendary", cost: 150, description: "Leg plates running with chakra blood that restore HP with each hit.", armorQuality: "Legendary", levelReq: 40, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30, lifeStealPercent: 1 } },
+    { id: "crimson-feet", name: "Crimson Tide Sabatons", slot: "feet", rarity: "legendary", cost: 150, description: "Swift boots that leave a crimson trail and heal the wearer on every attack.", armorQuality: "Legendary", levelReq: 40, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30, lifeStealPercent: 1 } },
+    // Set 4: Ironwall — +100 shield per piece (600 total shield at combat start)
+    { id: "ironwall-crown", name: "Ironwall Crown", slot: "head", rarity: "legendary", cost: 150, description: "A fortress-class helmet. Each piece of this set adds 100 shield points at the start of combat.", armorQuality: "Legendary", levelReq: 40, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30, shield: 100 } },
+    { id: "ironwall-gloves", name: "Ironwall Gauntlets", slot: "hand", rarity: "legendary", cost: 150, description: "Fortress-grade gauntlets that manifest a protective barrier at battle's start.", armorQuality: "Legendary", levelReq: 40, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30, shield: 100 } },
+    { id: "ironwall-chest", name: "Ironwall Mantle", slot: "body", rarity: "legendary", cost: 150, description: "An impenetrable breastplate that conjures a massive barrier when combat begins.", armorQuality: "Legendary", levelReq: 40, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30, shield: 100 } },
+    { id: "ironwall-waist", name: "Ironwall Obi", slot: "waist", rarity: "legendary", cost: 150, description: "A reinforced obi that generates a protective aura at the start of each battle.", armorQuality: "Legendary", levelReq: 40, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30, shield: 100 } },
+    { id: "ironwall-legs", name: "Ironwall Greaves", slot: "legs", rarity: "legendary", cost: 150, description: "Unbreakable leg plates that build a barrier of pure chakra before the first blow.", armorQuality: "Legendary", levelReq: 40, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30, shield: 100 } },
+    { id: "ironwall-feet", name: "Ironwall Sabatons", slot: "feet", rarity: "legendary", cost: 150, description: "Fortified sabatons that root you in place and raise a wall of chakra at combat start.", armorQuality: "Legendary", levelReq: 40, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30, shield: 100 } },
+    // Set 5: Mirror Soul — +1% reflect per piece (6% max)
+    { id: "mirror-crown", name: "Mirror Soul Crown", slot: "head", rarity: "legendary", cost: 150, description: "A helm polished like a mirror. Each piece reflects 1% of all damage back at attackers.", armorQuality: "Legendary", levelReq: 40, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30, reflectPercent: 1 } },
+    { id: "mirror-gloves", name: "Mirror Soul Gauntlets", slot: "hand", rarity: "legendary", cost: 150, description: "Reflective gauntlets that bounce a fraction of each strike back to the enemy.", armorQuality: "Legendary", levelReq: 40, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30, reflectPercent: 1 } },
+    { id: "mirror-chest", name: "Mirror Soul Mantle", slot: "body", rarity: "legendary", cost: 150, description: "A reflective breastplate that punishes enemies for every attack they land.", armorQuality: "Legendary", levelReq: 40, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30, reflectPercent: 1 } },
+    { id: "mirror-waist", name: "Mirror Soul Obi", slot: "waist", rarity: "legendary", cost: 150, description: "An obi woven with mirror-chakra that sends damage right back to its source.", armorQuality: "Legendary", levelReq: 40, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30, reflectPercent: 1 } },
+    { id: "mirror-legs", name: "Mirror Soul Greaves", slot: "legs", rarity: "legendary", cost: 150, description: "Shimmering leg plates that reflect the pain of every blow back at the attacker.", armorQuality: "Legendary", levelReq: 40, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30, reflectPercent: 1 } },
+    { id: "mirror-feet", name: "Mirror Soul Sabatons", slot: "feet", rarity: "legendary", cost: 150, description: "Mirror-polished sabatons that repel a fraction of every strike with every step.", armorQuality: "Legendary", levelReq: 40, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30, reflectPercent: 1 } },
+    // Set 6: Sennin God — +1% damage given per piece (5% max)
+    { id: "sennin-crown", name: "Sennin God's Crown", slot: "head", rarity: "legendary", cost: 150, description: "A crown worn by those who transcended mortality. Each piece of this set reflects 1% of all damage back at attackers.", armorQuality: "Legendary", levelReq: 40, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30, reflectPercent: 1 } },
+    { id: "sennin-chest", name: "Sennin God's Mantle", slot: "body", rarity: "legendary", cost: 150, description: "A mantle said to outlast time itself. Each piece of this set reflects 1% of all damage back at attackers.", armorQuality: "Legendary", levelReq: 40, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30, reflectPercent: 1 } },
+    { id: "sennin-waist", name: "Sennin God's Obi", slot: "waist", rarity: "legendary", cost: 150, description: "An obi woven by a shinobi who became something beyond human. Each piece of this set reflects 1% of all damage back at attackers.", armorQuality: "Legendary", levelReq: 40, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30, reflectPercent: 1 } },
+    { id: "sennin-legs", name: "Sennin God's Greaves", slot: "legs", rarity: "legendary", cost: 150, description: "Greaves forged inside a living storm by a being beyond shinobi. Each piece of this set reflects 1% of all damage back at attackers.", armorQuality: "Legendary", levelReq: 40, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30, reflectPercent: 1 } },
+    { id: "sennin-feet", name: "Sennin God's Sandals", slot: "feet", rarity: "legendary", cost: 150, description: "Sandals said to have walked across the heavens themselves. Each piece of this set reflects 1% of all damage back at attackers.", armorQuality: "Legendary", levelReq: 40, bonuses: { ninjutsuOffense: 30, taijutsuOffense: 30, bukijutsuOffense: 30, genjutsuOffense: 30, ninjutsuDefense: 30, taijutsuDefense: 30, bukijutsuDefense: 30, genjutsuDefense: 30, reflectPercent: 1 } },
+    // -- Head armor ----------------------------------------------------------
     {
         id: "cloth-hood",
         name: "Cloth Hood",
@@ -1531,8 +1931,8 @@ const starterItems: GameItem[] = [
         rarity: "common",
         cost: 80,
         description: "A simple cloth hood. Offers minimal protection.",
-        armorQuality: "Standard",
-        bonuses: { taijutsuDefense: 5 },
+        armorQuality: "Standard", levelReq: 1,
+        bonuses: { ninjutsuOffense: 10, taijutsuOffense: 10, bukijutsuOffense: 10, genjutsuOffense: 10, ninjutsuDefense: 10, taijutsuDefense: 10, bukijutsuDefense: 10, genjutsuDefense: 10 },
     },
     {
         id: "leather-headband",
@@ -1541,8 +1941,8 @@ const starterItems: GameItem[] = [
         rarity: "common",
         cost: 180,
         description: "Reinforced leather headband worn by field shinobi.",
-        armorQuality: "Reinforced",
-        bonuses: { taijutsuDefense: 12, ninjutsuDefense: 8 },
+        armorQuality: "Reinforced", levelReq: 5,
+        bonuses: { ninjutsuOffense: 14, taijutsuOffense: 14, bukijutsuOffense: 14, genjutsuOffense: 14, ninjutsuDefense: 14, taijutsuDefense: 14, bukijutsuDefense: 14, genjutsuDefense: 14 },
     },
     {
         id: "iron-kabuto",
@@ -1551,10 +1951,10 @@ const starterItems: GameItem[] = [
         rarity: "rare",
         cost: 400,
         description: "A fitted iron helmet offering solid protection.",
-        armorQuality: "Rare",
-        bonuses: { taijutsuDefense: 20, ninjutsuDefense: 15, maxHp: 50 },
+        armorQuality: "Rare", levelReq: 20,
+        bonuses: { ninjutsuOffense: 20, taijutsuOffense: 20, bukijutsuOffense: 20, genjutsuOffense: 20, ninjutsuDefense: 20, taijutsuDefense: 20, bukijutsuDefense: 20, genjutsuDefense: 20 },
     },
-    // ── Chest armor ─────────────────────────────────────────────────────────
+    // -- Chest armor ---------------------------------------------------------
     {
         id: "cloth-robe",
         name: "Cloth Robe",
@@ -1562,8 +1962,8 @@ const starterItems: GameItem[] = [
         rarity: "common",
         cost: 100,
         description: "A basic robe offering minimal defense.",
-        armorQuality: "Standard",
-        bonuses: { taijutsuDefense: 8, maxHp: 30 },
+        armorQuality: "Standard", levelReq: 1,
+        bonuses: { ninjutsuOffense: 10, taijutsuOffense: 10, bukijutsuOffense: 10, genjutsuOffense: 10, ninjutsuDefense: 10, taijutsuDefense: 10, bukijutsuDefense: 10, genjutsuDefense: 10 },
     },
     {
         id: "reinforced-vest",
@@ -1572,8 +1972,8 @@ const starterItems: GameItem[] = [
         rarity: "common",
         cost: 220,
         description: "Padded vest with metal plating sewn in.",
-        armorQuality: "Reinforced",
-        bonuses: { taijutsuDefense: 18, ninjutsuDefense: 10, maxHp: 80 },
+        armorQuality: "Reinforced", levelReq: 5,
+        bonuses: { ninjutsuOffense: 14, taijutsuOffense: 14, bukijutsuOffense: 14, genjutsuOffense: 14, ninjutsuDefense: 14, taijutsuDefense: 14, bukijutsuDefense: 14, genjutsuDefense: 14 },
     },
     {
         id: "rare-chest-plate",
@@ -1582,10 +1982,10 @@ const starterItems: GameItem[] = [
         rarity: "rare",
         cost: 500,
         description: "Polished rare-alloy plate for veteran shinobi.",
-        armorQuality: "Rare",
-        bonuses: { taijutsuDefense: 28, ninjutsuDefense: 20, maxHp: 150 },
+        armorQuality: "Rare", levelReq: 20,
+        bonuses: { ninjutsuOffense: 20, taijutsuOffense: 20, bukijutsuOffense: 20, genjutsuOffense: 20, ninjutsuDefense: 20, taijutsuDefense: 20, bukijutsuDefense: 20, genjutsuDefense: 20 },
     },
-    // ── Waist armor ─────────────────────────────────────────────────────────
+    // -- Waist armor ---------------------------------------------------------
     {
         id: "cloth-sash",
         name: "Cloth Sash",
@@ -1593,8 +1993,8 @@ const starterItems: GameItem[] = [
         rarity: "common",
         cost: 60,
         description: "A plain cloth sash worn around the waist.",
-        armorQuality: "Standard",
-        bonuses: { taijutsuDefense: 4, maxStamina: 20 },
+        armorQuality: "Standard", levelReq: 1,
+        bonuses: { ninjutsuOffense: 10, taijutsuOffense: 10, bukijutsuOffense: 10, genjutsuOffense: 10, ninjutsuDefense: 10, taijutsuDefense: 10, bukijutsuDefense: 10, genjutsuDefense: 10 },
     },
     {
         id: "leather-belt",
@@ -1603,8 +2003,8 @@ const starterItems: GameItem[] = [
         rarity: "common",
         cost: 140,
         description: "Sturdy leather belt reinforced at the core.",
-        armorQuality: "Reinforced",
-        bonuses: { taijutsuDefense: 10, maxStamina: 50 },
+        armorQuality: "Reinforced", levelReq: 5,
+        bonuses: { ninjutsuOffense: 14, taijutsuOffense: 14, bukijutsuOffense: 14, genjutsuOffense: 14, ninjutsuDefense: 14, taijutsuDefense: 14, bukijutsuDefense: 14, genjutsuDefense: 14 },
     },
     {
         id: "chain-obi",
@@ -1613,10 +2013,10 @@ const starterItems: GameItem[] = [
         rarity: "rare",
         cost: 320,
         description: "A woven chain obi that absorbs impact at the midsection.",
-        armorQuality: "Rare",
-        bonuses: { taijutsuDefense: 18, ninjutsuDefense: 10, maxStamina: 80 },
+        armorQuality: "Rare", levelReq: 20,
+        bonuses: { ninjutsuOffense: 20, taijutsuOffense: 20, bukijutsuOffense: 20, genjutsuOffense: 20, ninjutsuDefense: 20, taijutsuDefense: 20, bukijutsuDefense: 20, genjutsuDefense: 20 },
     },
-    // ── Leg armor ───────────────────────────────────────────────────────────
+    // -- Leg armor -----------------------------------------------------------
     {
         id: "cloth-pants",
         name: "Cloth Pants",
@@ -1624,8 +2024,8 @@ const starterItems: GameItem[] = [
         rarity: "common",
         cost: 70,
         description: "Light cloth trousers offering basic leg coverage.",
-        armorQuality: "Standard",
-        bonuses: { taijutsuDefense: 5, maxStamina: 15 },
+        armorQuality: "Standard", levelReq: 1,
+        bonuses: { ninjutsuOffense: 10, taijutsuOffense: 10, bukijutsuOffense: 10, genjutsuOffense: 10, ninjutsuDefense: 10, taijutsuDefense: 10, bukijutsuDefense: 10, genjutsuDefense: 10 },
     },
     {
         id: "padded-leggings",
@@ -1634,8 +2034,8 @@ const starterItems: GameItem[] = [
         rarity: "common",
         cost: 160,
         description: "Reinforced leggings for extended field missions.",
-        armorQuality: "Reinforced",
-        bonuses: { taijutsuDefense: 12, maxStamina: 40, maxHp: 40 },
+        armorQuality: "Reinforced", levelReq: 5,
+        bonuses: { ninjutsuOffense: 14, taijutsuOffense: 14, bukijutsuOffense: 14, genjutsuOffense: 14, ninjutsuDefense: 14, taijutsuDefense: 14, bukijutsuDefense: 14, genjutsuDefense: 14 },
     },
     {
         id: "rare-greaves",
@@ -1644,10 +2044,10 @@ const starterItems: GameItem[] = [
         rarity: "rare",
         cost: 360,
         description: "Fitted rare-metal greaves protecting the thighs and shins.",
-        armorQuality: "Rare",
-        bonuses: { taijutsuDefense: 20, ninjutsuDefense: 12, maxStamina: 60, maxHp: 80 },
+        armorQuality: "Rare", levelReq: 20,
+        bonuses: { ninjutsuOffense: 20, taijutsuOffense: 20, bukijutsuOffense: 20, genjutsuOffense: 20, ninjutsuDefense: 20, taijutsuDefense: 20, bukijutsuDefense: 20, genjutsuDefense: 20 },
     },
-    // ── Footwear ────────────────────────────────────────────────────────────
+    // -- Footwear ------------------------------------------------------------
     {
         id: "cloth-sandals",
         name: "Cloth Sandals",
@@ -1655,8 +2055,8 @@ const starterItems: GameItem[] = [
         rarity: "common",
         cost: 50,
         description: "Simple sandals offering minimal protection.",
-        armorQuality: "Standard",
-        bonuses: { taijutsuDefense: 3, maxStamina: 10 },
+        armorQuality: "Standard", levelReq: 1,
+        bonuses: { ninjutsuOffense: 10, taijutsuOffense: 10, bukijutsuOffense: 10, genjutsuOffense: 10, ninjutsuDefense: 10, taijutsuDefense: 10, bukijutsuDefense: 10, genjutsuDefense: 10 },
     },
     {
         id: "shinobi-boots",
@@ -1665,8 +2065,8 @@ const starterItems: GameItem[] = [
         rarity: "common",
         cost: 130,
         description: "Reinforced boots worn by chuunin-rank shinobi.",
-        armorQuality: "Reinforced",
-        bonuses: { taijutsuDefense: 8, maxStamina: 30, maxHp: 30 },
+        armorQuality: "Reinforced", levelReq: 5,
+        bonuses: { ninjutsuOffense: 14, taijutsuOffense: 14, bukijutsuOffense: 14, genjutsuOffense: 14, ninjutsuDefense: 14, taijutsuDefense: 14, bukijutsuDefense: 14, genjutsuDefense: 14 },
     },
     {
         id: "rare-tabi",
@@ -1675,18 +2075,19 @@ const starterItems: GameItem[] = [
         rarity: "rare",
         cost: 300,
         description: "Rare-crafted tabi with embedded guard plating.",
-        armorQuality: "Rare",
-        bonuses: { taijutsuDefense: 15, ninjutsuDefense: 8, maxStamina: 50, maxHp: 60 },
+        armorQuality: "Rare", levelReq: 20,
+        bonuses: { ninjutsuOffense: 20, taijutsuOffense: 20, bukijutsuOffense: 20, genjutsuOffense: 20, ninjutsuDefense: 20, taijutsuDefense: 20, bukijutsuDefense: 20, genjutsuDefense: 20 },
     },
-    // ── Common Weapons (Shop — ryo) ──────────────────────────────────────────
+    // -- Common Weapons / Standard tier (Shop — ryo) — 18 EP -------------------------
     {
         id: "rustfang-kunai",
         name: "Rustfang Kunai",
         slot: "hand",
         rarity: "common",
         cost: 150,
-        description: "A chipped beginner kunai with a rough edge that leaves shallow cuts. [Wound 10%]",
-        bonuses: { bukijutsuOffense: 55, strength: 5 },
+        description: "A chipped beginner kunai. Deals damage and boosts your striking force. [Damage 18 EP | Increase Damage Given 10% | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 18, levelReq: 1, weaponEffect: "Increase Damage Given", weaponEffectValue: 10,
+        bonuses: { bukijutsuOffense: 55 },
     },
     {
         id: "training-katana",
@@ -1694,8 +2095,9 @@ const starterItems: GameItem[] = [
         slot: "hand",
         rarity: "common",
         cost: 160,
-        description: "A dull academy blade made for safe sparring, but still useful in battle. [Increase Damage Given 10%]",
-        bonuses: { bukijutsuOffense: 58, strength: 5 },
+        description: "A dull academy blade. Deals damage and reduces incoming hits. [Damage 18 EP | Decrease Damage Taken 10% | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 18, levelReq: 1, weaponEffect: "Decrease Damage Taken", weaponEffectValue: 10,
+        bonuses: { taijutsuOffense: 58 },
     },
     {
         id: "ash-wrapped-tanto",
@@ -1703,8 +2105,9 @@ const starterItems: GameItem[] = [
         slot: "hand",
         rarity: "common",
         cost: 145,
-        description: "A simple short blade wrapped in burnt cloth from old village ruins. [Afterburn 10%]",
-        bonuses: { bukijutsuOffense: 54, strength: 5 },
+        description: "A blade wrapped in ash cloth. Deals damage and lowers enemy striking power. [Damage 18 EP | Decrease Damage Given 10% | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 18, levelReq: 1, weaponEffect: "Decrease Damage Given", weaponEffectValue: 10,
+        bonuses: { genjutsuOffense: 54 },
     },
     {
         id: "rookie-chain-sickle",
@@ -1712,8 +2115,9 @@ const starterItems: GameItem[] = [
         slot: "hand",
         rarity: "common",
         cost: 140,
-        description: "A lightweight chain-sickle used by beginner weapon specialists. [Decrease Damage Given 10%]",
-        bonuses: { bukijutsuOffense: 52, strength: 5 },
+        description: "A chain-sickle that disrupts enemy momentum. Deals damage and increases damage the enemy takes. [Damage 18 EP | Increase Damage Taken 10% | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 18, levelReq: 1, weaponEffect: "Increase Damage Taken", weaponEffectValue: 10,
+        bonuses: { ninjutsuOffense: 52 },
     },
     {
         id: "cracked-bone-dagger",
@@ -1721,18 +2125,20 @@ const starterItems: GameItem[] = [
         slot: "hand",
         rarity: "common",
         cost: 155,
-        description: "A cheap dagger carved from beast bone and reinforced with iron. [Lifesteal 10%]",
-        bonuses: { bukijutsuOffense: 53, strength: 5 },
+        description: "A bone dagger that opens deep wounds. Deals damage and applies bleed. [Damage 18 EP | Wound 10% | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 18, levelReq: 1, weaponEffect: "Wound", weaponEffectValue: 10,
+        bonuses: { bukijutsuOffense: 53 },
     },
-    // ── Rare Weapons (Shop — ryo) ────────────────────────────────────────────
+    // -- Rare Weapons / Reinforced tier (Shop — ryo) — 21 EP -------------------------
     {
         id: "mistfang-tanto",
         name: "Mistfang Tanto",
         slot: "hand",
         rarity: "rare",
         cost: 450,
-        description: "A clean assassin blade that leaves thin chakra cuts after striking. [Wound 15%]",
-        bonuses: { bukijutsuOffense: 88, strength: 10 },
+        description: "An assassin blade wreathed in mist chakra. Deals damage and empowers your strikes. [Damage 21 EP | Increase Damage Given 15% | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 21, levelReq: 10, weaponEffect: "Increase Damage Given", weaponEffectValue: 15,
+        bonuses: { ninjutsuOffense: 88 },
     },
     {
         id: "ashen-leaf-saber",
@@ -1740,8 +2146,9 @@ const starterItems: GameItem[] = [
         slot: "hand",
         rarity: "rare",
         cost: 480,
-        description: "A traditional fire-forged sword carried by disciplined village shinobi. [Afterburn 15%]",
-        bonuses: { bukijutsuOffense: 90, strength: 10 },
+        description: "A fire-forged sword from Ashen Leaf. Deals damage and reduces incoming hits. [Damage 21 EP | Decrease Damage Taken 15% | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 21, levelReq: 10, weaponEffect: "Decrease Damage Taken", weaponEffectValue: 15,
+        bonuses: { bukijutsuOffense: 90 },
     },
     {
         id: "riverbone-spear",
@@ -1749,8 +2156,9 @@ const starterItems: GameItem[] = [
         slot: "hand",
         rarity: "rare",
         cost: 430,
-        description: "A smooth spear designed to weaken enemy pressure from mid-range. [Decrease Damage Given 15%]",
-        bonuses: { bukijutsuOffense: 86, strength: 10 },
+        description: "A long riverbone spear. Deals damage and weakens enemy attack power. [Damage 21 EP | Decrease Damage Given 15% | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 21, levelReq: 10, weaponEffect: "Decrease Damage Given", weaponEffectValue: 15,
+        bonuses: { taijutsuOffense: 86 },
     },
     {
         id: "iron-fang-knuckles",
@@ -1758,8 +2166,9 @@ const starterItems: GameItem[] = [
         slot: "hand",
         rarity: "rare",
         cost: 510,
-        description: "Heavy knuckles made for taijutsu fighters who want raw pressure. [Increase Damage Given 15%]",
-        bonuses: { bukijutsuOffense: 93, strength: 10 },
+        description: "Heavy iron knuckles. Deals damage and exposes the enemy to more punishment. [Damage 21 EP | Increase Damage Taken 15% | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 21, levelReq: 10, weaponEffect: "Increase Damage Taken", weaponEffectValue: 15,
+        bonuses: { genjutsuOffense: 93 },
     },
     {
         id: "blue-thread-dagger",
@@ -1767,18 +2176,20 @@ const starterItems: GameItem[] = [
         slot: "hand",
         rarity: "rare",
         cost: 420,
-        description: "A dagger wrapped in blue chakra thread that feeds off clean hits. [Lifesteal 15%]",
-        bonuses: { bukijutsuOffense: 84, strength: 10 },
+        description: "A dagger woven with blue chakra thread that tears through enemy defenses. [Damage 21 EP | Wound 15% | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 21, levelReq: 10, weaponEffect: "Wound", weaponEffectValue: 15,
+        bonuses: { ninjutsuOffense: 84 },
     },
-    // ── Epic Weapons (Shop — ryo) ────────────────────────────────────────────
+    // -- Epic Weapons / Rare tier (Shop — ryo) — 24 EP --------------------------------
     {
         id: "stormcoil-kusarigama",
         name: "Stormcoil Kusarigama",
         slot: "hand",
         rarity: "epic",
         cost: 950,
-        description: "A chained sickle charged with unstable storm chakra. [Afterburn 25%]",
-        bonuses: { bukijutsuOffense: 113, strength: 15 },
+        description: "A chained sickle charged with storm chakra that tightens defense on every strike. [Damage 24 EP | Decrease Damage Taken 20% | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 24, levelReq: 25, weaponEffect: "Decrease Damage Taken", weaponEffectValue: 20,
+        bonuses: { taijutsuOffense: 113 },
     },
     {
         id: "moonshadow-needleblade",
@@ -1786,8 +2197,9 @@ const starterItems: GameItem[] = [
         slot: "hand",
         rarity: "epic",
         cost: 900,
-        description: "A thin black blade used for fast, quiet assassination strikes. [Wound 25%]",
-        bonuses: { bukijutsuOffense: 109, strength: 15 },
+        description: "A black blade coated in shadow chakra that leaves enemies vulnerable to punishment. [Damage 24 EP | Increase Damage Taken 20% | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 24, levelReq: 25, weaponEffect: "Increase Damage Taken", weaponEffectValue: 20,
+        bonuses: { genjutsuOffense: 109 },
     },
     {
         id: "frostbite-cleaver",
@@ -1795,8 +2207,9 @@ const starterItems: GameItem[] = [
         slot: "hand",
         rarity: "epic",
         cost: 980,
-        description: "A heavy frozen blade that slows an enemy's fighting rhythm. [Decrease Damage Given 25%]",
-        bonuses: { bukijutsuOffense: 115, strength: 15 },
+        description: "A frozen heavy blade that seizes enemy fighting rhythm on a clean hit. [Damage 24 EP | Decrease Damage Given 20% | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 24, levelReq: 25, weaponEffect: "Decrease Damage Given", weaponEffectValue: 20,
+        bonuses: { ninjutsuOffense: 115 },
     },
     {
         id: "ashglass-katana",
@@ -1804,8 +2217,9 @@ const starterItems: GameItem[] = [
         slot: "hand",
         rarity: "epic",
         cost: 1050,
-        description: "A volcanic glass katana that sharpens the user's killing intent. [Increase Damage Given 25%]",
-        bonuses: { bukijutsuOffense: 118, strength: 15 },
+        description: "A volcanic glass katana that sharpens the user's killing force on activation. [Damage 24 EP | Increase Damage Given 20% | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 24, levelReq: 25, weaponEffect: "Increase Damage Given", weaponEffectValue: 20,
+        bonuses: { bukijutsuOffense: 118 },
     },
     {
         id: "spirit-leech-wakizashi",
@@ -1813,18 +2227,20 @@ const starterItems: GameItem[] = [
         slot: "hand",
         rarity: "epic",
         cost: 850,
-        description: "A short spirit blade that pulls health from enemy chakra wounds. [Lifesteal 25%]",
-        bonuses: { bukijutsuOffense: 104, strength: 15 },
+        description: "A spirit blade that tears through enemy defenses leaving a festering wound. [Damage 24 EP | Wound 20% | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 24, levelReq: 25, weaponEffect: "Wound", weaponEffectValue: 20,
+        bonuses: { taijutsuOffense: 104 },
     },
-    // ── Legendary Weapons (Grand Marketplace — fate shards) ──────────────────
+    // -- Legendary Weapons (Grand Marketplace — fate shards) — 27 EP ------------------
     {
         id: "frostfang-oathblade",
         name: "Frostfang Oathblade",
         slot: "hand",
         rarity: "legendary",
         cost: 100,
-        description: "A sacred Frostfang sword carried by warriors sworn to protect their clan. [Decrease Damage Taken 30%]",
-        bonuses: { bukijutsuOffense: 136, strength: 20 },
+        description: "A sacred Frostfang sword carried by warriors sworn to protect their clan. [Damage 27 EP | Shield 300 | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 27, levelReq: 40, weaponEffect: "Shield", weaponEffectValue: 300,
+        bonuses: { taijutsuOffense: 136 },
     },
     {
         id: "tempest-fang-blade",
@@ -1832,8 +2248,9 @@ const starterItems: GameItem[] = [
         slot: "hand",
         rarity: "legendary",
         cost: 100,
-        description: "A chaotic Stormveil weapon that empowers aggressive attacks. [Increase Damage Given 30%]",
-        bonuses: { bukijutsuOffense: 141, strength: 20 },
+        description: "A chaotic Stormveil weapon that hurls enemy force back at them. [Damage 27 EP | Reflect 30% | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 27, levelReq: 40, weaponEffect: "Reflect", weaponEffectValue: 30,
+        bonuses: { bukijutsuOffense: 141 },
     },
     {
         id: "black-lotus-dagger",
@@ -1841,8 +2258,9 @@ const starterItems: GameItem[] = [
         slot: "hand",
         rarity: "legendary",
         cost: 100,
-        description: "A cursed Moonshadow dagger used by silent executioners. [Wound 30%]",
-        bonuses: { bukijutsuOffense: 131, strength: 20 },
+        description: "A cursed Moonshadow dagger used by silent executioners, draining vitality from every strike. [Damage 27 EP | Lifesteal 30% | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 27, levelReq: 40, weaponEffect: "Lifesteal", weaponEffectValue: 30,
+        bonuses: { genjutsuOffense: 131 },
     },
     {
         id: "elderbranch-katana",
@@ -1850,8 +2268,9 @@ const starterItems: GameItem[] = [
         slot: "hand",
         rarity: "legendary",
         cost: 100,
-        description: "An Ashen Leaf relic blade carved from ancient chakra wood. [Absorb 30%]",
-        bonuses: { bukijutsuOffense: 134, strength: 20 },
+        description: "An Ashen Leaf relic blade carved from ancient chakra wood, absorbing incoming force. [Damage 27 EP | Absorb 30% | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 27, levelReq: 40, weaponEffect: "Absorb", weaponEffectValue: 30,
+        bonuses: { ninjutsuOffense: 134 },
     },
     {
         id: "embercoil-scythe",
@@ -1859,18 +2278,20 @@ const starterItems: GameItem[] = [
         slot: "hand",
         rarity: "legendary",
         cost: 100,
-        description: "A curved weapon wrapped in burning chain links. [Afterburn 30%]",
-        bonuses: { bukijutsuOffense: 128, strength: 20 },
+        description: "A curved weapon wrapped in burning chain links that siphons life with each swing. [Damage 27 EP | Lifesteal 30% | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 27, levelReq: 40, weaponEffect: "Lifesteal", weaponEffectValue: 30,
+        bonuses: { taijutsuOffense: 128 },
     },
-    // ── Mythic Weapons (Grand Marketplace — fate shards) ─────────────────────
+    // -- Mythic Weapons (Grand Marketplace — fate shards) — 30 EP --
     {
         id: "worldsplitter-katana",
         name: "Worldsplitter Katana",
         slot: "hand",
         rarity: "mythic",
         cost: 100,
-        description: "A forbidden black-blue katana said to cut through fate itself. [Increase Damage Given 35%]",
-        bonuses: { bukijutsuOffense: 160, strength: 25 },
+        description: "A forbidden black-blue katana said to cut through fate itself, deflecting what cannot be dodged. [Damage 30 EP | Reflect 35% | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 30, levelReq: 55, weaponEffect: "Reflect", weaponEffectValue: 35,
+        bonuses: { bukijutsuOffense: 160 },
     },
     {
         id: "eclipse-fang-dagger",
@@ -1878,8 +2299,9 @@ const starterItems: GameItem[] = [
         slot: "hand",
         rarity: "mythic",
         cost: 100,
-        description: "A mythic assassin blade that drinks moonlight and leaves cursed wounds. [Wound 35%]",
-        bonuses: { bukijutsuOffense: 157, strength: 25 },
+        description: "A mythic assassin blade that drinks moonlight and drains the life of every enemy struck. [Damage 30 EP | Lifesteal 35% | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 30, levelReq: 55, weaponEffect: "Lifesteal", weaponEffectValue: 35,
+        bonuses: { genjutsuOffense: 157 },
     },
     {
         id: "glacier-king-cleaver",
@@ -1887,8 +2309,9 @@ const starterItems: GameItem[] = [
         slot: "hand",
         rarity: "mythic",
         cost: 100,
-        description: "A massive frozen blade once carried by the first Frostfang warlord. [Decrease Damage Given 35%]",
-        bonuses: { bukijutsuOffense: 163, strength: 25 },
+        description: "A massive frozen blade once carried by the first Frostfang warlord, raising an unbreakable shield on each blow. [Damage 30 EP | Shield 400 | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 30, levelReq: 55, weaponEffect: "Shield", weaponEffectValue: 400,
+        bonuses: { taijutsuOffense: 163 },
     },
     {
         id: "ashen-dragon-katana",
@@ -1896,8 +2319,9 @@ const starterItems: GameItem[] = [
         slot: "hand",
         rarity: "mythic",
         cost: 100,
-        description: "An ancient sword said to contain the soul of a fire dragon. [Afterburn 35%]",
-        bonuses: { bukijutsuOffense: 166, strength: 25 },
+        description: "An ancient sword said to contain the soul of a fire dragon, absorbing the heat of every strike. [Damage 30 EP | Absorb 35% | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 30, levelReq: 55, weaponEffect: "Absorb", weaponEffectValue: 35,
+        bonuses: { ninjutsuOffense: 166 },
     },
     {
         id: "void-leech-nodachi",
@@ -1905,77 +2329,197 @@ const starterItems: GameItem[] = [
         slot: "hand",
         rarity: "mythic",
         cost: 100,
-        description: "A long cursed blade that absorbs enemy chakra through every strike. [Absorb 35%]",
-        bonuses: { bukijutsuOffense: 168, strength: 25 },
+        description: "A long cursed blade that leeches enemy chakra and life force through every strike. [Damage 30 EP | Lifesteal 35% | 40 AP | Range 4 | CD 5]",
+        weaponRange: 4, weaponCooldown: 5, weaponEp: 30, levelReq: 55, weaponEffect: "Lifesteal", weaponEffectValue: 35,
+        bonuses: { bukijutsuOffense: 168 },
     },
 ];
 
-function getAllItems(creatorItems: GameItem[]) {
-    return [...creatorItems, ...starterItems.filter((s) => !creatorItems.some((c) => c.id === s.id))];
+function isArmorOrGloveItem(item: GameItem) {
+    const armorSlots: EquipmentSlot[] = ["head", "body", "armor", "waist", "legs", "feet"];
+    const isGlove = item.slot === "hand" && /glove|gauntlet/i.test(item.name);
+    return Boolean(item.armorQuality) || armorSlots.includes(item.slot) || isGlove;
 }
 
-// ── Shinobi Tiles card game ───────────────────────────────────────────────────
+function sanitizeArmorAndGloveItem(item: GameItem): GameItem {
+    if (!isArmorOrGloveItem(item)) return item;
+    const { maxHp: _maxHp, strength: _strength, ...bonuses } = item.bonuses;
+    return { ...item, bonuses };
+}
+
+// IDs that were deleted from starterItems — purge them from any save file that still has them.
+const DELETED_ITEM_IDS = new Set([
+    "wooden-katana",
+    "leg-weapon-earth", "leg-weapon-wind", "leg-weapon-lightning", "leg-weapon-fire", "leg-weapon-water",
+    "myth-weapon-earth", "myth-weapon-wind", "myth-weapon-lightning", "myth-weapon-fire", "myth-weapon-water",
+]);
+
+function getAllItems(creatorItems: GameItem[]) {
+    // starterItems always win for built-in IDs so code updates aren't overridden by stale save data.
+    // Deleted items are stripped out entirely even if present in an old save file.
+    const starterIds = new Set(starterItems.map((s) => s.id));
+    const customOnly = creatorItems.filter((c) => !starterIds.has(c.id) && !DELETED_ITEM_IDS.has(c.id));
+    return [...customOnly, ...starterItems].map(sanitizeArmorAndGloveItem);
+}
+
+type TreasuryItemStack = { itemId: string; count: number };
+
+function cleanTreasuryItems(items?: TreasuryItemStack[]): TreasuryItemStack[] {
+    const counts = new Map<string, number>();
+    for (const stack of items ?? []) {
+        if (!stack?.itemId) continue;
+        counts.set(stack.itemId, (counts.get(stack.itemId) ?? 0) + Math.max(0, Math.floor(Number(stack.count ?? 0))));
+    }
+    return [...counts.entries()]
+        .filter(([, count]) => count > 0)
+        .map(([itemId, count]) => ({ itemId, count }));
+}
+
+function addTreasuryItem(items: TreasuryItemStack[] | undefined, itemId: string, count = 1) {
+    return cleanTreasuryItems([...(items ?? []), { itemId, count }]);
+}
+
+function removeTreasuryItem(items: TreasuryItemStack[] | undefined, itemId: string, count = 1) {
+    let remaining = Math.max(1, Math.floor(count));
+    return cleanTreasuryItems(items)
+        .map((stack) => {
+            if (stack.itemId !== itemId || remaining <= 0) return stack;
+            const removed = Math.min(stack.count, remaining);
+            remaining -= removed;
+            return { ...stack, count: stack.count - removed };
+        })
+        .filter((stack) => stack.count > 0);
+}
+
+function itemDisplayName(itemId: string, allItems: GameItem[]) {
+    return getItemById(allItems, itemId)?.name ?? itemId;
+}
+
+function inventoryItemStacks(character: Character, allItems: GameItem[]) {
+    const counts = new Map<string, number>();
+    character.inventory.forEach((itemId) => counts.set(itemId, (counts.get(itemId) ?? 0) + 1));
+    return [...counts.entries()]
+        .map(([itemId, count]) => ({ itemId, count, name: itemDisplayName(itemId, allItems) }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+type PlayerTransferCurrencyKey = "ryo" | "honorSeals" | "fateShards" | "boneCharms" | "auraStones" | "mythicSeals";
+
+function grantInventoryItemToPlayer(playerName: string, itemId: string, currentCharacter: Character, updateCharacter: (character: Character) => void) {
+    if (playerName === currentCharacter.name) {
+        updateCharacter({ ...currentCharacter, inventory: [...currentCharacter.inventory, itemId] });
+        return true;
+    }
+
+    const accounts = loadPlayerAccounts();
+    const key = accountKey(playerName);
+    const account = accounts[key];
+    if (!account) return false;
+
+    const recipient = normalizeCharacter(account.snapshot.character);
+    accounts[key] = {
+        ...account,
+        snapshot: {
+            ...account.snapshot,
+            character: { ...recipient, inventory: [...recipient.inventory, itemId] },
+        },
+    };
+    savePlayerAccounts(accounts);
+    return true;
+}
+
+function grantCurrencyToPlayer(playerName: string, currency: PlayerTransferCurrencyKey, amount: number, currentCharacter: Character, updateCharacter: (character: Character) => void) {
+    const value = Math.max(1, Math.floor(amount));
+    if (playerName === currentCharacter.name) {
+        updateCharacter({ ...currentCharacter, [currency]: (currentCharacter[currency] ?? 0) + value } as Character);
+        return true;
+    }
+
+    const accounts = loadPlayerAccounts();
+    const key = accountKey(playerName);
+    const account = accounts[key];
+    if (!account) return false;
+
+    const recipient = normalizeCharacter(account.snapshot.character);
+    accounts[key] = {
+        ...account,
+        snapshot: {
+            ...account.snapshot,
+            character: { ...recipient, [currency]: (recipient[currency] ?? 0) + value } as Character,
+        },
+    };
+    savePlayerAccounts(accounts);
+    return true;
+}
+
+// -- Shinobi Tiles card game ---------------------------------------------------
 type TileCardArrow = "up" | "down" | "left" | "right";
 type TileCard = {
-    id: string; name: string; power: number; element: string;
-    arrows: TileCardArrow[]; rarity: "common" | "rare" | "epic"; description: string;
+    id: string; name: string; element: string;
+    top: number; right: number; bottom: number; left: number;
+    rarity: "common" | "rare" | "epic" | "legendary"; description: string;
     image?: string;
 };
 
+const ELEMENT_COUNTERS: Record<string, string> = {
+    Water: "Fire", Fire: "Wind", Wind: "Earth", Earth: "Lightning", Lightning: "Water",
+    Ice: "Shadow", Shadow: "Neutral", Neutral: "None"
+};
+
 const shinobiTileCards: TileCard[] = [
-    // Common (20)
-    { id: "tc-01", name: "Training Dummy", power: 1, element: "None", arrows: ["up"], rarity: "common", description: "Weak starter card." },
-    { id: "tc-02", name: "Leaf Cat", power: 2, element: "Wind", arrows: ["left", "right"], rarity: "common", description: "Fast village pet card." },
-    { id: "tc-03", name: "Stone Turtle", power: 3, element: "Earth", arrows: ["up", "down"], rarity: "common", description: "Slow but sturdy." },
-    { id: "tc-04", name: "Kunai Scout", power: 2, element: "Lightning", arrows: ["up", "right"], rarity: "common", description: "Basic ninja scout." },
-    { id: "tc-05", name: "Ramen Dog", power: 1, element: "Water", arrows: ["left", "down", "right"], rarity: "common", description: "Weak power, good arrows." },
-    { id: "tc-06", name: "Rookie Shinobi", power: 2, element: "None", arrows: ["up", "down"], rarity: "common", description: "Balanced beginner card." },
-    { id: "tc-07", name: "Wooden Shield Guard", power: 2, element: "Earth", arrows: ["left", "up"], rarity: "common", description: "Defensive corner card." },
-    { id: "tc-08", name: "Paper Tag Mouse", power: 1, element: "Fire", arrows: ["right", "down"], rarity: "common", description: "Tiny explosive card." },
-    { id: "tc-09", name: "River Frog", power: 2, element: "Water", arrows: ["down", "right"], rarity: "common", description: "Good bottom corner card." },
-    { id: "tc-10", name: "Crow Lookout", power: 2, element: "Wind", arrows: ["left", "up"], rarity: "common", description: "Good top-row card." },
-    { id: "tc-11", name: "Rusty Blade Bandit", power: 3, element: "None", arrows: ["right"], rarity: "common", description: "Strong but only attacks one way." },
-    { id: "tc-12", name: "Forest Beetle", power: 2, element: "Earth", arrows: ["left", "down"], rarity: "common", description: "Small defensive bug card." },
-    { id: "tc-13", name: "Candle Wisp", power: 2, element: "Fire", arrows: ["up", "right"], rarity: "common", description: "Starter fire spirit." },
-    { id: "tc-14", name: "Static Lizard", power: 2, element: "Lightning", arrows: ["left", "right"], rarity: "common", description: "Side-control card." },
-    { id: "tc-15", name: "Pond Turtle", power: 1, element: "Water", arrows: ["up", "left", "down"], rarity: "common", description: "Low power, many arrows." },
-    { id: "tc-16", name: "Training Clone", power: 2, element: "None", arrows: ["up", "right", "down"], rarity: "common", description: "Good beginner combo card." },
-    { id: "tc-17", name: "Small Spider", power: 1, element: "Dark", arrows: ["left", "down"], rarity: "common", description: "Sneaky weak card." },
-    { id: "tc-18", name: "Wind Squirrel", power: 2, element: "Wind", arrows: ["up", "right"], rarity: "common", description: "Quick movement card." },
-    { id: "tc-19", name: "Clay Golem Head", power: 3, element: "Earth", arrows: ["down"], rarity: "common", description: "Strong one-direction card." },
-    { id: "tc-20", name: "Village Messenger", power: 1, element: "Light", arrows: ["left", "up", "right"], rarity: "common", description: "Weak but flexible." },
-    // Rare (20)
-    { id: "tc-21", name: "Ashen Wolf", power: 4, element: "Earth", arrows: ["up", "right", "down"], rarity: "rare", description: "Reliable attacker." },
-    { id: "tc-22", name: "Storm Crow", power: 3, element: "Lightning", arrows: ["left", "up", "right"], rarity: "rare", description: "Great top-row control." },
-    { id: "tc-23", name: "Frost Owl", power: 4, element: "Water", arrows: ["up", "left", "down"], rarity: "rare", description: "Strong side card." },
-    { id: "tc-24", name: "Shadow Fox", power: 3, element: "Dark", arrows: ["left", "right", "down"], rarity: "rare", description: "Good for multi-flips." },
-    { id: "tc-25", name: "Blue Fang Lynx", power: 4, element: "Lightning", arrows: ["up", "right"], rarity: "rare", description: "High pressure rare." },
-    { id: "tc-26", name: "Forest Tanuki", power: 3, element: "Earth", arrows: ["left", "up", "down"], rarity: "rare", description: "Defensive rare pet." },
-    { id: "tc-27", name: "Mist Serpent", power: 4, element: "Water", arrows: ["left", "right"], rarity: "rare", description: "Strong lane card." },
-    { id: "tc-28", name: "Ember Salamander", power: 4, element: "Fire", arrows: ["right", "down"], rarity: "rare", description: "Good attack corner." },
-    { id: "tc-29", name: "Moonshadow Cat", power: 3, element: "Dark", arrows: ["up", "left", "right", "down"], rarity: "rare", description: "Low power, excellent arrows." },
-    { id: "tc-30", name: "Iron Mask Guard", power: 4, element: "Earth", arrows: ["up", "down"], rarity: "rare", description: "Strong vertical defender." },
-    { id: "tc-31", name: "Scroll Thief", power: 3, element: "Wind", arrows: ["left", "right", "down"], rarity: "rare", description: "Sneaky board-control card." },
-    { id: "tc-32", name: "Lightning Hare", power: 3, element: "Lightning", arrows: ["up", "right", "down"], rarity: "rare", description: "Fast pressure card." },
-    { id: "tc-33", name: "Shrine Monk", power: 3, element: "Light", arrows: ["left", "up", "right"], rarity: "rare", description: "Good support-style card." },
-    { id: "tc-34", name: "Ice Shell Turtle", power: 4, element: "Water", arrows: ["left", "up"], rarity: "rare", description: "Strong corner defender." },
-    { id: "tc-35", name: "Wild Boar Bandit", power: 4, element: "None", arrows: ["right", "down"], rarity: "rare", description: "Simple brute card." },
-    { id: "tc-36", name: "Ashen Leaf Archer", power: 3, element: "Wind", arrows: ["up", "right", "down"], rarity: "rare", description: "Balanced ranged card." },
-    { id: "tc-37", name: "Stormveil Raider", power: 4, element: "Lightning", arrows: ["left", "right"], rarity: "rare", description: "Aggressive side flipper." },
-    { id: "tc-38", name: "Frostfang Pup", power: 3, element: "Water", arrows: ["up", "left", "down"], rarity: "rare", description: "Flexible rare pet." },
-    { id: "tc-39", name: "Moonshadow Spy", power: 3, element: "Dark", arrows: ["left", "up", "right"], rarity: "rare", description: "Strong top control." },
-    { id: "tc-40", name: "Golden Beetle", power: 4, element: "Light", arrows: ["left", "down", "right"], rarity: "rare", description: "Strong bottom control." },
-    // Epic (10)
-    { id: "tc-41", name: "Blue Blade Raccoon", power: 5, element: "Water", arrows: ["up", "left", "right", "down"], rarity: "epic", description: "Strong all-around mascot card." },
-    { id: "tc-42", name: "Inferno Cat", power: 6, element: "Fire", arrows: ["right", "down"], rarity: "epic", description: "Huge power, fewer arrows." },
-    { id: "tc-43", name: "Iron Beetle King", power: 5, element: "Earth", arrows: ["left", "up", "down"], rarity: "epic", description: "Strong defensive control." },
-    { id: "tc-44", name: "Phantom Spider Lady", power: 5, element: "Dark", arrows: ["up", "left", "right"], rarity: "epic", description: "Excellent top-side control." },
-    { id: "tc-45", name: "Storm Serpent", power: 5, element: "Lightning", arrows: ["up", "right", "down"], rarity: "epic", description: "Aggressive combo card." },
-    { id: "tc-46", name: "Frostfang Dire Wolf", power: 6, element: "Water", arrows: ["up", "right"], rarity: "epic", description: "High power beast card." },
-    { id: "tc-47", name: "Ashen Forest Guardian", power: 5, element: "Earth", arrows: ["left", "up", "right", "down"], rarity: "epic", description: "Strong village defender." },
-    { id: "tc-48", name: "Moonshadow Nine-Tail", power: 5, element: "Dark", arrows: ["left", "right", "down"], rarity: "epic", description: "Dangerous bottom-row flipper." },
-    { id: "tc-49", name: "Shrine Dragon Spirit", power: 5, element: "Light", arrows: ["up", "left", "right"], rarity: "epic", description: "Holy epic spirit card." },
-    { id: "tc-50", name: "Crimson Tag Master", power: 6, element: "Fire", arrows: ["left", "down"], rarity: "epic", description: "Big power, limited angles." },
+    // Common (20) — values 15–45
+    { id: "tc-01", name: "Training Dummy",      element: "None",    top: 15, right: 15, bottom: 15, left: 15, rarity: "common", description: "Weak starter card." },
+    { id: "tc-02", name: "Leaf Cat",            element: "Wind",    top: 25, right: 30, bottom: 20, left: 30, rarity: "common", description: "Fast village pet card." },
+    { id: "tc-03", name: "Stone Turtle",        element: "Earth",   top: 35, right: 20, bottom: 35, left: 20, rarity: "common", description: "Slow but sturdy." },
+    { id: "tc-04", name: "Kunai Scout",         element: "Lightning", top: 30, right: 35, bottom: 20, left: 25, rarity: "common", description: "Basic ninja scout." },
+    { id: "tc-05", name: "Ramen Dog",           element: "Water",   top: 20, right: 25, bottom: 20, left: 25, rarity: "common", description: "Weak power, good coverage." },
+    { id: "tc-06", name: "Rookie Shinobi",      element: "Neutral", top: 25, right: 25, bottom: 25, left: 25, rarity: "common", description: "Balanced beginner card." },
+    { id: "tc-07", name: "Wooden Shield Guard", element: "Earth",   top: 30, right: 15, bottom: 30, left: 15, rarity: "common", description: "Defensive corner card." },
+    { id: "tc-08", name: "Paper Tag Mouse",     element: "Fire",    top: 20, right: 35, bottom: 35, left: 20, rarity: "common", description: "Tiny explosive card." },
+    { id: "tc-09", name: "River Frog",          element: "Water",   top: 20, right: 30, bottom: 30, left: 20, rarity: "common", description: "Good corner water card." },
+    { id: "tc-10", name: "Crow Lookout",        element: "Wind",    top: 35, right: 20, bottom: 20, left: 35, rarity: "common", description: "Good top-left card." },
+    { id: "tc-11", name: "Rusty Blade Bandit",  element: "Neutral", top: 20, right: 45, bottom: 20, left: 20, rarity: "common", description: "Strong but only one direction." },
+    { id: "tc-12", name: "Forest Beetle",       element: "Earth",   top: 20, right: 20, bottom: 30, left: 30, rarity: "common", description: "Small defensive bug card." },
+    { id: "tc-13", name: "Candle Wisp",         element: "Fire",    top: 30, right: 35, bottom: 20, left: 20, rarity: "common", description: "Starter fire spirit." },
+    { id: "tc-14", name: "Static Lizard",       element: "Lightning", top: 20, right: 35, bottom: 20, left: 35, rarity: "common", description: "Side-control card." },
+    { id: "tc-15", name: "Pond Turtle",         element: "Water",   top: 35, right: 20, bottom: 35, left: 35, rarity: "common", description: "Low attack, high coverage." },
+    { id: "tc-16", name: "Training Clone",      element: "Neutral", top: 30, right: 30, bottom: 30, left: 20, rarity: "common", description: "Good beginner combo card." },
+    { id: "tc-17", name: "Small Spider",        element: "Neutral", top: 20, right: 20, bottom: 35, left: 35, rarity: "common", description: "Sneaky bottom-left card." },
+    { id: "tc-18", name: "Wind Squirrel",       element: "Wind",    top: 30, right: 35, bottom: 20, left: 20, rarity: "common", description: "Quick movement card." },
+    { id: "tc-19", name: "Clay Golem Head",     element: "Earth",   top: 20, right: 20, bottom: 45, left: 20, rarity: "common", description: "Strong single-direction card." },
+    { id: "tc-20", name: "Village Messenger",   element: "Neutral", top: 30, right: 35, bottom: 20, left: 30, rarity: "common", description: "Flexible neutral card." },
+    // Rare (20) — values 30–65
+    { id: "tc-21", name: "Ashen Wolf",          element: "Earth",   top: 50, right: 55, bottom: 50, left: 35, rarity: "rare", description: "Reliable earth attacker." },
+    { id: "tc-22", name: "Storm Crow",          element: "Lightning", top: 55, right: 50, bottom: 35, left: 55, rarity: "rare", description: "Great top-row control." },
+    { id: "tc-23", name: "Frost Owl",           element: "Water",   top: 55, right: 35, bottom: 50, left: 55, rarity: "rare", description: "Strong side card." },
+    { id: "tc-24", name: "Shadow Fox",          element: "Neutral", top: 40, right: 55, bottom: 55, left: 55, rarity: "rare", description: "Good for multi-flips." },
+    { id: "tc-25", name: "Blue Fang Lynx",      element: "Lightning", top: 60, right: 65, bottom: 35, left: 40, rarity: "rare", description: "High pressure rare." },
+    { id: "tc-26", name: "Forest Tanuki",       element: "Earth",   top: 50, right: 40, bottom: 55, left: 55, rarity: "rare", description: "Defensive rare pet." },
+    { id: "tc-27", name: "Mist Serpent",        element: "Water",   top: 40, right: 60, bottom: 40, left: 60, rarity: "rare", description: "Strong lane card." },
+    { id: "tc-28", name: "Ember Salamander",    element: "Fire",    top: 40, right: 60, bottom: 60, left: 35, rarity: "rare", description: "Good attack corner." },
+    { id: "tc-29", name: "Moonshadow Cat",      element: "Neutral", top: 45, right: 45, bottom: 45, left: 45, rarity: "rare", description: "Low stats, all-direction." },
+    { id: "tc-30", name: "Iron Mask Guard",     element: "Earth",   top: 65, right: 35, bottom: 65, left: 35, rarity: "rare", description: "Strong vertical defender." },
+    { id: "tc-31", name: "Scroll Thief",        element: "Wind",    top: 40, right: 55, bottom: 55, left: 55, rarity: "rare", description: "Sneaky board-control card." },
+    { id: "tc-32", name: "Lightning Hare",      element: "Lightning", top: 55, right: 60, bottom: 55, left: 35, rarity: "rare", description: "Fast pressure card." },
+    { id: "tc-33", name: "Shrine Monk",         element: "Neutral", top: 50, right: 55, bottom: 35, left: 55, rarity: "rare", description: "Good support-style card." },
+    { id: "tc-34", name: "Ice Shell Turtle",    element: "Water",   top: 60, right: 40, bottom: 40, left: 60, rarity: "rare", description: "Strong corner defender." },
+    { id: "tc-35", name: "Wild Boar Bandit",    element: "Neutral", top: 40, right: 60, bottom: 60, left: 35, rarity: "rare", description: "Simple brute card." },
+    { id: "tc-36", name: "Ashen Leaf Archer",   element: "Wind",    top: 55, right: 60, bottom: 55, left: 40, rarity: "rare", description: "Balanced ranged card." },
+    { id: "tc-37", name: "Stormveil Raider",    element: "Lightning", top: 40, right: 65, bottom: 40, left: 60, rarity: "rare", description: "Aggressive side flipper." },
+    { id: "tc-38", name: "Frostfang Pup",       element: "Water",   top: 55, right: 40, bottom: 55, left: 55, rarity: "rare", description: "Flexible rare pet." },
+    { id: "tc-39", name: "Moonshadow Spy",      element: "Neutral", top: 60, right: 55, bottom: 35, left: 55, rarity: "rare", description: "Strong top control." },
+    { id: "tc-40", name: "Golden Beetle",       element: "Neutral", top: 35, right: 60, bottom: 60, left: 60, rarity: "rare", description: "Strong bottom control." },
+    // Epic (10) — values 50–90, can include Shadow
+    { id: "tc-41", name: "Blue Blade Raccoon",  element: "Water",   top: 75, right: 75, bottom: 75, left: 75, rarity: "epic", description: "Strong all-around mascot card." },
+    { id: "tc-42", name: "Inferno Cat",         element: "Fire",    top: 55, right: 90, bottom: 85, left: 50, rarity: "epic", description: "Huge power, limited left." },
+    { id: "tc-43", name: "Iron Beetle King",    element: "Earth",   top: 80, right: 60, bottom: 80, left: 70, rarity: "epic", description: "Strong defensive control." },
+    { id: "tc-44", name: "Phantom Spider Lady", element: "Shadow",  top: 80, right: 70, bottom: 55, left: 80, rarity: "epic", description: "Excellent top-side control." },
+    { id: "tc-45", name: "Storm Serpent",       element: "Lightning", top: 80, right: 85, bottom: 75, left: 55, rarity: "epic", description: "Aggressive combo card." },
+    { id: "tc-46", name: "Frostfang Dire Wolf", element: "Water",   top: 85, right: 80, bottom: 55, left: 60, rarity: "epic", description: "High power beast card." },
+    { id: "tc-47", name: "Ashen Forest Guardian", element: "Earth", top: 75, right: 75, bottom: 75, left: 80, rarity: "epic", description: "Strong village defender." },
+    { id: "tc-48", name: "Moonshadow Nine-Tail", element: "Shadow", top: 60, right: 80, bottom: 85, left: 80, rarity: "epic", description: "Dangerous bottom-row flipper." },
+    { id: "tc-49", name: "Shrine Dragon Spirit", element: "Neutral", top: 80, right: 70, bottom: 55, left: 75, rarity: "epic", description: "Holy epic spirit card." },
+    { id: "tc-50", name: "Crimson Tag Master",  element: "Fire",    top: 60, right: 55, bottom: 90, left: 80, rarity: "epic", description: "Big power, bottom-left angles." },
 ];
 
 function getAllTileCards(creatorCards: TileCard[]): TileCard[] {
@@ -1986,40 +2530,163 @@ function getItemById(items: GameItem[], id?: string) {
     return items.find((item) => item.id === id);
 }
 
+const bossScaleByLevel: Record<number, { hp: number; damage: number; xp: number; ryo: number }> = {
+    4: { hp: 180, damage: 15, xp: 120, ryo: 75 },
+    15: { hp: 550, damage: 28, xp: 500, ryo: 250 },
+    25: { hp: 950, damage: 42, xp: 900, ryo: 500 },
+    35: { hp: 1500, damage: 58, xp: 1400, ryo: 800 },
+    50: { hp: 2500, damage: 78, xp: 2200, ryo: 1300 },
+    65: { hp: 3800, damage: 105, xp: 3400, ryo: 2000 },
+    75: { hp: 5000, damage: 130, xp: 4600, ryo: 2800 },
+    85: { hp: 6800, damage: 165, xp: 6200, ryo: 4000 },
+    100: { hp: 10000, damage: 220, xp: 10000, ryo: 7500 },
+};
+
+const kageLiberatorTitles: Record<string, string> = {
+    "Stormveil Village": "Stormbreaker",
+    "Ashen Leaf Village": "Root Liberator",
+    "Frostfang Village": "Oathbreaker",
+    "Moonshadow Village": "Moon Unmasked",
+};
+
+const villageBiomeMap: Record<string, Biome> = {
+    "Stormveil Village": "forest",
+    "Ashen Leaf Village": "volcano",
+    "Frostfang Village": "snow",
+    "Moonshadow Village": "shadow",
+};
+
+function storyAiId(village: string, level: number) {
+    return `story-ai-${village.toLowerCase().replace(/\W+/g, "-")}-${level}`;
+}
+
+function storyPage(title: string, scene: string, speaker: string, dialogue: string[], leftName = speaker, rightName = "Player"): NonNullable<CreatorEvent["vnPages"]>[number] {
+    return { title, scene, speaker, dialogue, leftName, rightName, choices: [] };
+}
+
+function milestone(village: string, level: number, title: string, bossName: string, bossIcon: string, pages: NonNullable<CreatorEvent["vnPages"]>, choices: { text: string; conclusion?: string; trait?: string }[] = []): StoryStep {
+    const scale = bossScaleByLevel[level] ?? bossScaleByLevel[4];
+    const battle = { bossName, bossIcon, bossHp: scale.hp, bossDamage: scale.damage, aiProfileId: storyAiId(village, level), xpReward: scale.xp, ryoReward: scale.ryo };
+    const finalPages = pages.map((page, index) => index === pages.length - 1
+        ? { ...page, choices: choices.map((choice) => ({ ...choice, nextPage: index, battle })) }
+        : page);
+    return {
+        levelReq: level,
+        title,
+        cinematicTitle: pages[0]?.title ?? title,
+        scene: pages[0]?.scene ?? title,
+        dialogue: pages.flatMap((page) => page.dialogue),
+        bossName,
+        bossIcon,
+        bossHp: scale.hp,
+        bossDamage: scale.damage,
+        rewardXp: scale.xp,
+        rewardRyo: scale.ryo,
+        biome: villageBiomeMap[village] ?? "central",
+        aiProfileId: storyAiId(village, level),
+        kageFinale: level === 100,
+        liberatorTitle: level === 100 ? kageLiberatorTitles[village] : undefined,
+        pages: finalPages,
+    };
+}
+
+function compactArc(village: string, themeNpc: string, ally: string, kage: string, echo: string, entries: Array<{ level: number; title: string; boss: string; icon: string; scene: string; a: string; b: string; c: string }>): StoryStep[] {
+    return entries.map((entry) => milestone(village, entry.level, entry.title, entry.boss, entry.icon, [
+        storyPage(entry.title, entry.scene, themeNpc, [`${themeNpc}: ${entry.a}`, `${themeNpc}: The Hollow Gate Pact is moving beneath this village.`, `${themeNpc}: Watch what the village calls virtue; that is where corruption hides.`]),
+        storyPage("The Warning", entry.scene, ally, [`${ally}: ${entry.b}`, `${ally}: The Kage's people are twisting our village into fuel.`, `${ally}: If we ignore this, Central's gates wake with our chakra inside them.`]),
+        storyPage("The Kage's Shadow", entry.scene, entry.level === 100 ? kage : echo, [`${entry.level === 100 ? kage : echo}: ${entry.c}`, `${entry.level === 100 ? kage : echo}: The pact was made to protect us.`, `${entry.level === 100 ? kage : echo}: Now prove your village deserves another future.`]),
+    ], [
+        { text: "Protect the people.", trait: "merciful" },
+        { text: "Demand the truth.", trait: "honorable" },
+        { text: "Move in secret.", trait: "suspicious" },
+    ]));
+}
+
 const storylines: Record<string, StoryStep[]> = {
     "Stormveil Village": [
-        story(1, "The Wind Awakens", "ACT I — The Restless Sky", "Storm clouds twist over Stormveil. Blue chakra lightning dances across the rooftops.", ["Elder: The wind carries warnings before war arrives.", "Elder: The storm has noticed you.", "Elder: Face the rogue scout beyond the training cliffs."], "Rogue Wind Scout", "🌪️", 180, 18, 75, 40),
-        story(10, "Central’s Warning", "ACT II — Message from Central", "A wounded messenger collapses at the gate with Central’s golden crest.", ["Messenger: Central is no longer safe...", "Messenger: Chakra storms are appearing in every biome.", "Kage: If Central falls, every village falls."], "Storm-Touched Bandit", "⚡", 320, 28, 200, 100),
-        story(30, "The Broken Sky", "ACT III — The Sky Splits", "The clouds tear open like a wound. A floating battlefield appears above Stormveil.", ["Kage: The storm is not natural.", "Kage: Someone is weaponizing the skies.", "Kage: Climb and silence its guardian."], "Sky-Rift Guardian", "🦅", 650, 42, 550, 300),
-        story(60, "War of the Five", "ACT IV — Five Villages Tremble", "Signal fires burn in every direction. The roads to Central glow red.", ["Central Commander: The enemy wants us divided.", "Central Commander: Show them Stormveil bends to no storm."], "Tempest Warlord", "🗡️", 1050, 68, 1200, 650),
-        story(90, "Final Tempest", "ACT V — Eye of the World Storm", "A cyclone of black-blue chakra rises into the heavens. A masked figure waits inside it.", ["Masked Storm Kage: You chased the storm all this way.", "Masked Storm Kage: I was waiting for someone strong enough to break."], "Masked Storm Kage", "👹", 1800, 95, 3000, 1500),
+        milestone("Stormveil Village", 4, "First Thunder", "Stormveil Training Scout", "?", [
+            storyPage("The Training Cliffs", "Storm clouds roll above jagged cliffs. Young shinobi spar while lightning flashes behind the village.", "Elder Vanta", ["Elder Vanta: Stormveil does not hold your hand.", "Elder Vanta: Here, the sky itself tests whether you deserve to stand.", "Elder Vanta: Your first lesson is simple: move before the thunder lands."]),
+            storyPage("The New One", "Mira Volt watches from a broken stone rail, smiling like trouble found a name.", "Mira Volt", ["Mira Volt: You are the new one?", "Mira Volt: Try not to freeze. Around here, hesitation gets you buried.", "Mira Volt: The Kage says every rookie has to bleed once before being counted."]),
+            storyPage("Hear the Thunder", "The training scout steps into the ring while the cliffs echo with thunder.", "Elder Vanta", ["Elder Vanta: Do not mistake chaos for stupidity.", "Elder Vanta: The storm is wild, yes, but it always knows where to strike.", "Elder Vanta: Defeat the training scout. Show me you can hear the thunder before it arrives."]),
+        ], [{ text: "I'll strike first.", conclusion: "Mira grins. Stormveil respects boldness.", trait: "reckless" }, { text: "I'll watch before I move.", conclusion: "Elder Vanta nods. Even chaos has patterns.", trait: "suspicious" }, { text: "I don't need a lesson.", conclusion: "The training scout laughs and rushes you.", trait: "ambitious" }]),
+        milestone("Stormveil Village", 15, "The Riot Bell", "Tempest Guard Captain", "✦", [
+            storyPage("The Riot Bell Rings", "A bronze bell screams through the village. Shinobi are fighting in the market.", "Narrator", ["Narrator: The bell is not used for invasion.", "Narrator: It is used when Stormveil begins attacking itself.", "Narrator: Tonight, it rings three times."]),
+            storyPage("Planted Chaos", "Mira drags an injured duelist behind a stall as lightning cracks overhead.", "Mira Volt", ["Mira Volt: This was supposed to be a duel circle.", "Mira Volt: Then someone handed out Kage-sealed orders telling both sides the other cheated.", "Mira Volt: That is not normal chaos. That is planted chaos."]),
+            storyPage("Punishment Wall", "The Tempest Guard forms a line in the market square.", "Tempest Guard Captain", ["Tempest Guard Captain: By order of Kage Raiko, all fighters are guilty.", "Tempest Guard Captain: Anyone interfering will be treated as a traitor.", "Tempest Guard Captain: Step aside, rookie, unless you want your name carved into the punishment wall."]),
+        ], [{ text: "Protect the injured.", trait: "merciful" }, { text: "Challenge the Guard Captain.", trait: "reckless" }, { text: "Ask who gave the order.", trait: "suspicious" }]),
+        milestone("Stormveil Village", 25, "Orders Written in Lightning", "Lightning-Sealed Informant", "✦", [
+            storyPage("Burned Command", "You and Mira inspect a burned command scroll sealed by the Kage.", "Mira Volt", ["Mira Volt: This order is real.", "Mira Volt: The Kage's seal is not forged.", "Mira Volt: But why would he order his own guards to turn a duel into a riot?"]),
+            storyPage("Old Storm", "Elder Vanta traces the scorched paper with shaking fingers.", "Elder Vanta", ["Elder Vanta: There is an old storm beneath Stormveil.", "Elder Vanta: The first exiles built the village above it because they thought no ruler could control it.", "Elder Vanta: Perhaps someone learned how."]),
+            storyPage("Feed the Sky", "A voice speaks from inside the burned ink.", "Unknown Voice", ["Unknown Voice: Stormveil grows stronger when it breaks itself.", "Unknown Voice: Every argument. Every duel. Every betrayal.", "Unknown Voice: Feed the sky, and the sky will crown its master."]),
+        ], [{ text: "Follow the voice into the storm tunnel.", trait: "reckless" }, { text: "Take the scroll to Elder Vanta first.", trait: "honorable" }, { text: "Hide the scroll and investigate alone.", trait: "suspicious" }]),
+        milestone("Stormveil Village", 35, "The Storm Engine", "Storm Engine Warden", "✦", [
+            storyPage("Ancient Engine", "Beneath the village, an ancient engine spins with blue-black lightning.", "Narrator", ["Narrator: The tunnel opens into a chamber older than Stormveil.", "Narrator: Metal rings rotate around a crystal heart.", "Narrator: Every time the village above erupts in violence, the crystal pulses."]),
+            storyPage("Hunger Machine", "Elder Vanta stares at the crystal as if it is staring back.", "Elder Vanta", ["Elder Vanta: This is no defense system.", "Elder Vanta: It is a hunger machine.", "Elder Vanta: Someone has tied our people's rage to Central's old gates."]),
+            storyPage("Raiko Appears", "Kage Raiko Veyr steps from the lightning, smiling.", "Kage Raiko Veyr", ["Kage Raiko Veyr: Careful, Elder.", "Kage Raiko Veyr: You speak as if chaos is a disease.", "Kage Raiko Veyr: Chaos is the only reason Stormveil was never conquered."]),
+        ], [{ text: "Kage Raiko, explain this.", trait: "honorable" }, { text: "Destroy the engine now.", trait: "reckless" }, { text: "Stay silent and listen.", trait: "suspicious" }]),
+        milestone("Stormveil Village", 50, "Jonin of the Unchained Sky", "Jonin Rank Trial: Twin Tempest Duelists", "✦", [
+            storyPage("Kage Tower Balcony", "The Kage tower balcony overlooks hundreds of shinobi.", "Kage Raiko Veyr", ["Kage Raiko Veyr: You have survived the village.", "Kage Raiko Veyr: You have challenged guards, spies, and machines.", "Kage Raiko Veyr: Stormveil does not promote obedience. It promotes impact."]),
+            storyPage("Too Proud", "Mira watches the Kage from the edge of the crowd.", "Mira Volt", ["Mira Volt: He is smiling too much.", "Mira Volt: A normal Kage would be angry you found the engine.", "Mira Volt: Raiko looks proud."]),
+            storyPage("Rise as Jonin", "Raiko raises one hand and the crowd falls silent.", "Kage Raiko Veyr", ["Kage Raiko Veyr: Kneel, shinobi.", "Kage Raiko Veyr: Rise as Jonin.", "Kage Raiko Veyr: And remember: the village belongs to whoever is strong enough to seize it."]),
+        ], [{ text: "Accept the promotion with honor.", trait: "honorable" }, { text: "Ask about the Storm Engine publicly.", trait: "reckless" }, { text: "Accept, but watch Raiko closely.", trait: "suspicious" }]),
+        milestone("Stormveil Village", 65, "The Mission That Should Not Exist", "Tempest Execution Squad", "✦", [
+            storyPage("No Questions", "You are sent to silence a supposed rebel camp.", "Tempest Guard Captain", ["Tempest Guard Captain: Kage order.", "Tempest Guard Captain: No questions. No prisoners.", "Tempest Guard Captain: The camp is accused of plotting against Stormveil."]),
+            storyPage("Not Rebels", "The camp is filled with wounded civilians and young shinobi.", "Rebel Medic", ["Rebel Medic: We are not rebels.", "Rebel Medic: We are the ones who refused to keep feeding the Storm Engine.", "Rebel Medic: Raiko sends loyal shinobi here so they become murderers without knowing."]),
+            storyPage("Become Interesting", "Raiko appears on a ridge, watching.", "Kage Raiko Veyr", ["Kage Raiko Veyr: There it is.", "Kage Raiko Veyr: That beautiful moment when freedom becomes choice.", "Kage Raiko Veyr: Will you obey, or will you become interesting?"]),
+        ], [{ text: "Protect the camp.", trait: "merciful" }, { text: "Demand the rebels surrender safely.", trait: "honorable" }, { text: "Pretend to obey while planning to betray Raiko.", trait: "suspicious" }]),
+        milestone("Stormveil Village", 75, "Mira's Betrayal", "Mira Volt, False Betrayer", "?", [
+            storyPage("Night Meeting", "Mira meets you at night with Tempest Guard sigils on her cloak.", "Mira Volt", ["Mira Volt: I joined Raiko.", "Mira Volt: Before you say anything, listen.", "Mira Volt: He thinks I betrayed you. I needed him to think that."]),
+            storyPage("Gate Key", "Mira reveals a cracked key humming with storm chakra.", "Mira Volt", ["Mira Volt: The Storm Engine is only one piece.", "Mira Volt: Raiko has a Hollow Gate Key.", "Mira Volt: When Stormveil hits peak chaos, he will open a path to Central and become something worse than Kage."]),
+            storyPage("Betrayal Feeds", "The storm speaks through the key fragment.", "Hollow Gate Echo", ["Hollow Gate Echo: Betrayal is still chaos.", "Hollow Gate Echo: Friend against friend. Blade against promise.", "Hollow Gate Echo: Thank you for feeding us."]),
+        ], [{ text: "Trust Mira.", trait: "loyal" }, { text: "Fight Mira to keep her cover believable.", trait: "reckless" }, { text: "Refuse both sides and go alone.", trait: "ambitious" }]),
+        milestone("Stormveil Village", 85, "The Kage's True Storm", "Hollow Tempest General", "✦", [
+            storyPage("Cyclone Tower", "A cyclone forms above the Kage tower.", "Elder Vanta", ["Elder Vanta: Raiko has stopped hiding.", "Elder Vanta: He is forcing every faction in Stormveil to fight at once.", "Elder Vanta: The storm is drinking us alive."]),
+            storyPage("Eternal Conflict", "Raiko's voice rolls through every street with the thunder.", "Kage Raiko Veyr", ["Kage Raiko Veyr: Do you see it now?", "Kage Raiko Veyr: A village without conflict is a corpse.", "Kage Raiko Veyr: I will make Stormveil eternal by making it impossible to control."]),
+            storyPage("Tyranny in Lightning", "Mira stands beside you under the cyclone.", "Mira Volt", ["Mira Volt: He does not love freedom.", "Mira Volt: He loves being the only one strong enough to survive the chaos.", "Mira Volt: That is not Stormveil. That is tyranny with lightning around it."]),
+        ], [{ text: "Rally the factions together.", trait: "loyal" }, { text: "Challenge Raiko's strongest guard.", trait: "reckless" }, { text: "Destroy the storm anchors first.", trait: "suspicious" }]),
+        milestone("Stormveil Village", 100, "Break the False Thunder", "Kage Raiko Veyr, Hollow Storm Tyrant", "✦", [
+            storyPage("Storm Eye Throne", "The Kage tower floats inside a storm eye.", "Kage Raiko Veyr", ["Kage Raiko Veyr: You climbed all the way here.", "Kage Raiko Veyr: Good.", "Kage Raiko Veyr: Stormveil needs a final argument."]),
+            storyPage("Chaos Waits", "Below, the village is silent for the first time.", "Narrator", ["Narrator: Below, the village is silent.", "Narrator: For the first time, chaos waits.", "Narrator: Every shinobi watches to see who the storm will answer."]),
+            storyPage("False Thunder", "Raiko's body fractures with Hollow Gate lightning.", "Kage Raiko Veyr", ["Kage Raiko Veyr: I betrayed nothing.", "Kage Raiko Veyr: I became the truth Stormveil was too afraid to name.", "Kage Raiko Veyr: Power belongs to those who take it."]),
+        ], [{ text: "Stormveil is freedom, not your feeding ground.", trait: "honorable" }, { text: "You made chaos into chains.", trait: "suspicious" }, { text: "I'll take the Kage seat from you.", trait: "ambitious" }]),
     ],
-    "Ashen Leaf Village": [
-        story(1, "Ashes Stir", "ACT I — Smoke Beneath the Leaves", "Ash falls like snow. The trees glow red from beneath the bark.", ["Ashen Elder: Fire remembers every war.", "Ashen Elder: Now it whispers your name."], "Cinder Wolf", "🐺", 190, 20, 75, 40),
-        story(20, "Lava Rift", "ACT II — The Mountain Opens", "The volcano cracks open. Rivers of lava crawl toward Ashen Leaf.", ["Scout: Something climbed out of the rift.", "Kage: Then it belongs to an ancient war."], "Lava Rift Knight", "🔥", 450, 38, 350, 180),
-        story(50, "Inferno Beast", "ACT III — Beast of the Old Flame", "A beast made of molten stone rises from the crater.", ["Kage: We cannot contain it.", "Kage: So you must defeat it."], "Inferno Beast", "🐉", 950, 62, 1000, 550),
-        story(90, "World Burn", "ACT IV — The Flame That Ends All", "The sky turns crimson. Central’s tower burns without being touched.", ["World Flame: I am the ending hidden inside every spark.", "World Flame: Kneel or burn beautifully."], "World Flame Avatar", "☄️", 1850, 100, 3000, 1500),
-    ],
-    "Frostfang Village": [
-        story(1, "Frozen Echo", "ACT I — The Silence Beneath Snow", "The village bells ring once, then freeze mid-sound.", ["Frostfang Elder: This cold is not weather.", "Frostfang Elder: Go to the ice road."], "Ice Road Stalker", "❄️", 180, 18, 75, 40),
-        story(25, "Ice Collapse", "ACT II — The Glacier Moves", "The ancient glacier shifts for the first time in centuries.", ["Scout: The mountain moved.", "Kage: Something beneath it has awakened."], "Glacier Sentinel", "🧊", 520, 40, 425, 220),
-        story(70, "Absolute Zero", "ACT III — Time Freezes", "Snow stops falling in midair. The world becomes silent.", ["Frozen Monarch: Movement is arrogance.", "Frozen Monarch: I will make the world still."], "Frozen Monarch", "👑", 1300, 78, 1700, 850),
-        story(95, "The Last Snow", "ACT IV — White End", "Central disappears beneath a white storm. Only your footsteps remain visible.", ["Ancient Frost: I froze the first war.", "Ancient Frost: I will freeze the last."], "Ancient Frost", "🌨️", 1900, 105, 3200, 1700),
-    ],
-    "Moonshadow Village": [
-        story(1, "Whispers in Darkness", "ACT I — Names in the Dark", "The moon vanishes. Shadows stretch in directions they should not.", ["Moonshadow Elder: The shadows know your footsteps.", "Moonshadow Elder: But they do not yet know your strength."], "Shadow Whisper", "🌑", 175, 19, 75, 40),
-        story(20, "Vanishing Shinobi", "ACT II — Empty Footprints", "Entire patrols vanish without blood, sound, or tracks.", ["Scout: They were here one breath ago.", "Kage: Something is taking our shinobi alive."], "Mist Kidnapper", "☁️", 440, 36, 350, 180),
-        story(60, "Shadow Realm", "ACT III — No Escape", "The ground becomes black water. You are standing inside someone else’s jutsu.", ["Unknown Voice: You entered my domain.", "Unknown Voice: Your mind will not leave."], "Shadow Realm Keeper", "👁️", 1100, 70, 1400, 700),
-        story(90, "The Moonless Throne", "ACT IV — King of No Light", "A throne of black chakra rises from Central’s ruins.", ["Moonless King: Every village casts a shadow.", "Moonless King: Kneel in darkness."], "Moonless King", "🕷️", 1850, 98, 3000, 1500),
-    ],
+    "Ashen Leaf Village": compactArc("Ashen Leaf Village", "Elder Mori", "Toma Reed", "Kage Hoshina Enju", "First Flame Avatar", [
+        { level: 4, title: "Roots of the Shinobi", boss: "Wooden Root Guardian", icon: "⚔️", scene: "A quiet training yard rests beneath golden-green trees dusted with ash.", a: "Bow before the roots. Every shinobi who came before you stands beneath your feet.", b: "Tradition matters more than breathing here, but control still has to be chosen.", c: "The old ways require proof before they offer shelter." },
+        { level: 15, title: "The Forbidden Seed", boss: "Rootbound Guard Initiate", icon: "⚔️", scene: "A sacred tree blooms black flowers overnight.", a: "Some roots are not meant to be disturbed, but these flowers whisper like prisoners.", b: "That tree was dead yesterday. The elders are calling it a blessing.", c: "Feed the root. Burn the unwanted branch." },
+        { level: 25, title: "Names Removed from Scrolls", boss: "Archive Spirit of the Root", icon: "⚔️", scene: "Elder Mori's archive has missing scrolls and erased family lines.", a: "Entire family lines are gone. Not killed. Removed.", b: "My brother questioned the Kage's old rituals. Now the record says he never existed.", c: "Tradition remembers what it is ordered to remember." },
+        { level: 35, title: "The First Flame Chamber", boss: "First Flame Sentinel", icon: "⚔️", scene: "Hidden stairs beneath the oldest tree lead to a chamber of green fire.", a: "The First Flame was meant to preserve us, but willingness is no longer required.", b: "This is not a shrine. This is a furnace.", c: "Careless progress must be burned away." },
+        { level: 50, title: "The Branch That Rises", boss: "Jonin Trial: Rootbound Master", icon: "⚔️", scene: "The Kage hall is filled with elders and incense.", a: "Ashen Leaf needs shinobi who can carry painful truths.", b: "She is turning your suspicion into a promotion.", c: "Branches that grow too far from the tree must be cut." },
+        { level: 65, title: "The Mission of Quiet Ash", boss: "Rootbound Retrieval Squad", icon: "⚔️", scene: "Sacred relics reveal the names of people fed to the First Flame.", a: "The dead are most useful when they stop arguing.", b: "I stole names. Inside these scrolls are the people Hoshina fed to the Flame.", c: "Bring the relics back. Do not listen to their excuses." },
+        { level: 75, title: "The Ancestors Speak", boss: "Ancestor-Bound Flame Beast", icon: "⚔️", scene: "The erased names glow inside the old archive.", a: "A record that hides murder is not history. It is a weapon.", b: "The ancestors gave themselves to save children, not children to save tradition.", c: "Old roots. New blood. All will return to the first shape." },
+        { level: 85, title: "The Kage Burns the Future", boss: "Rootbound Elder Champion", icon: "⚔️", scene: "Kage Hoshina orders all young inventors arrested.", a: "The village must remember itself. Not as ash. As leaf.", b: "She is not preserving Ashen Leaf. She is freezing it in the past.", c: "Innovation created the wars. I will save this village from tomorrow." },
+        { level: 100, title: "The Tree Must Choose", boss: "Kage Hoshina Enju, First Flame Vessel", icon: "⚔️", scene: "The sacred tree burns green from root to crown.", a: "Every erased name has come to witness judgment.", b: "If she falls, Ashen Leaf changes forever.", c: "If you fall, your name joins the ash." },
+    ]),
+    "Frostfang Village": compactArc("Frostfang Village", "Elder Sova", "Captain Yura", "Kage Kael Whitefang", "Frost Seal Echo", [
+        { level: 4, title: "The Pack Survives", boss: "Snow Warden Pup", icon: "⚔️", scene: "Snow lashes across a frozen training yard.", a: "The ice remembers footsteps. Walk with purpose, and it carries you.", b: "No shinobi stands alone. Your village gives your hands meaning.", c: "Protect yourself, but think like part of a formation." },
+        { level: 15, title: "The Missing Patrol", boss: "Oathbound Soldier", icon: "⚔️", scene: "A patrol does not return from the northern ridge.", a: "Deserters leave heat behind. These left silence.", b: "Five shinobi vanished, and the Kage says they deserted.", c: "Repeat the Kage's judgment until doubt freezes." },
+        { level: 25, title: "The Loyalty Seal", boss: "Frost Seal Guardian", icon: "⚔️", scene: "The missing patrol is found alive in ice coffins.", a: "Something swallowed their vows and left obedience behind.", b: "The Kage brands soldiers before dangerous missions.", c: "Choice creates weakness. Obedience preserves the pack." },
+        { level: 35, title: "The Pale Pack", boss: "Oathbound Ice Captain", icon: "⚔️", scene: "Rebels gather in a cavern lit by blue fire.", a: "The ice screams from voices trapped beneath vows they never chose.", b: "We are loyal to Frostfang before we are loyal to Kael.", c: "Unity is not a debate. Return, and I may forgive you." },
+        { level: 50, title: "Jonin of the Frozen Oath", boss: "Jonin Rank Trial: Glacier Twins", icon: "⚔️", scene: "The Kage hall is carved inside a glacier.", a: "Endurance is holy here, but forced loyalty is only fear wearing armor.", b: "If he offers you an oath seal, refuse without refusing.", c: "Accept this mark of unity. Let the village know your heart cannot be divided." },
+        { level: 65, title: "Orders in White Blood", boss: "Oathbound Purge Unit", icon: "⚔️", scene: "The Kage sends you to eliminate a Pale Pack shelter.", a: "Mercy is not weakness. It is the proof that choice survived.", b: "Look around. Are these enemies?", c: "Cut out the weakness. Return with proof of loyalty." },
+        { level: 75, title: "Yura Breaks the Oath", boss: "Frostfang Oathbreaker Hunter", icon: "⚔️", scene: "Captain Yura kneels in the snow, carving the seal from her armor.", a: "The ice has been screaming for years.", b: "I called obedience loyalty. I was wrong.", c: "Forced loyalty is heavier. The Gate opens beneath the weight." },
+        { level: 85, title: "The Kage Freezes Dissent", boss: "Oathbound Alpha Guard", icon: "⚔️", scene: "Frostfang's central square is filled with frozen citizens.", a: "Preserved citizens are still prisoners.", b: "He froze children, elders, medics, anyone who questioned him.", c: "No one has died. This is mercy." },
+        { level: 100, title: "The Oath Must Break", boss: "Kage Kael Whitefang, Hollow Oath Tyrant", icon: "⚔️", scene: "The Kage throne sits inside the heart of the glacier.", a: "Loyalty chosen freely is stronger than any seal.", b: "That is what he forgot. That is why the village is no longer his.", c: "If I fall, Frostfang may choose. If you fall, Frostfang will obey." },
+    ]),
+    "Moonshadow Village": compactArc("Moonshadow Village", "Shade Master Iro", "Nyx", "Kage Sable Nocturne", "Hollow Moon", [
+        { level: 4, title: "No One Saves You", boss: "Hidden Blade Trainee", icon: "⚔️", scene: "The moon is hidden behind black clouds. The training yard is silent.", a: "Do not wait for encouragement. Survival is the minimum.", b: "New blood? Good. The village needed fresh secrets.", c: "Your first opponent is already watching." },
+        { level: 15, title: "The Sold Secret", boss: "Veiled Hand Collector", icon: "⚔️", scene: "A coded scroll appears in your room without a broken lock.", a: "Someone wanted you to know the village has been sold.", b: "That cipher is foreign. Someone inside Moonshadow is trading patrol routes.", c: "Curiosity is expensive. You cannot afford it." },
+        { level: 25, title: "Masks Beneath Masks", boss: "Masked Auction Enforcer", icon: "⚔️", scene: "A secret auction happens below the black market.", a: "Betrayal is only illegal when done cheaply. This is larger than greed.", b: "Every mask here belongs to someone important.", c: "Lot seven: patrol rotations. Lot eight: rare bloodline names." },
+        { level: 35, title: "The Hollow Moon Contract", boss: "Contract-Bound Shadow", icon: "⚔️", scene: "The stolen Kage document bleeds black ink.", a: "This is not a trade agreement. It is a contract.", b: "Sable is removing anyone who could compete with her.", c: "Ambition without secrecy is childish." },
+        { level: 50, title: "Jonin of the Hidden Knife", boss: "Jonin Trial: Mirror Assassin", icon: "⚔️", scene: "The Kage chamber has no guards, only mirrors.", a: "A room with no witnesses is never empty.", b: "She knows enough to invite you here.", c: "Your ambition has matured. Decide whether it belongs to you or to me." },
+        { level: 65, title: "Mission to Kill a Witness", boss: "Veiled Hand Executioner", icon: "⚔️", scene: "Sable assigns a private assassination at the old shrine.", a: "Only weak shinobi need clean hands, she says. Remember who benefits.", b: "The target copied names before they vanished.", c: "You were given a mission. Do not confuse information with morality." },
+        { level: 75, title: "Nyx Chooses a Side", boss: "Shadow Network Hunter", icon: "⚔️", scene: "Nyx waits on a rooftop beneath a blood-red moon.", a: "Moonshadow teaches selfishness, but selfish people still need a village.", b: "I sold fake secrets to find the real buyer: the Hollow Gate.", c: "Ambition is still hunger. Thank you for feeding us." },
+        { level: 85, title: "The Kage Owns Every Secret", boss: "Veiled Hand Grandmaster", icon: "⚔️", scene: "Every hidden file in Moonshadow opens at once.", a: "Secrets spill like black rain, and panic feeds the Hollow Moon.", b: "She is making the village devour itself.", c: "Trust was always fiction. Let ambition sort the survivors." },
+        { level: 100, title: "The Moon Belongs to No One", boss: "Kage Sable Nocturne, Hollow Moon Sovereign", icon: "⚔️", scene: "The Kage tower is swallowed by a black moon.", a: "Ambition that eats its own village becomes hunger.", b: "If you win, everyone will want what you have.", c: "Moonshadow was always a ladder. I simply climbed highest." },
+    ]),
 };
 
 function makeJutsu(id: string, name: string, type: JutsuType, ap: number, range: number, effectPower: number, cooldown: number, chakraCost: number, staminaCost: number, tags: JutsuTag[], element: JutsuElement = "Fire"): Jutsu {
     return normalizeJutsu({ id, name, type, element, ap, range, effectPower, cooldown, currentCooldown: 0, chakraCost, staminaCost, tags });
-}
-
-function story(levelReq: number, title: string, cinematicTitle: string, scene: string, dialogue: string[], bossName: string, bossIcon: string, bossHp: number, bossDamage: number, rewardXp: number, rewardRyo: number): StoryStep {
-    return { levelReq, title, cinematicTitle, scene, dialogue, bossName, bossIcon, bossHp, bossDamage, rewardXp, rewardRyo };
 }
 
 function makeId() {
@@ -2074,13 +2741,49 @@ function maxStaminaForLevel(level: number) {
 }
 
 function rankFromLevel(level: number) {
-    if (level >= 100) return "Legendary Kage";
-    if (level >= 90) return "Kage";
-    if (level >= 70) return "Elite Jonin";
+    if (level >= 80) return "Special Jonin";
     if (level >= 50) return "Jonin";
     if (level >= 30) return "Chunin";
-    if (level >= 10) return "Genin";
+    if (level >= 15) return "Genin";
     return "Academy Student";
+}
+
+const levelOnlyRankTitles = new Set([
+    "Academy Student",
+    "Genin",
+    "Chunin",
+    "Jonin",
+    "Elite Jonin",
+    "Special Jonin",
+    "Kage",
+    "Legendary Kage",
+]);
+
+function currentMonthKey() {
+    return new Date().toISOString().slice(0, 7);
+}
+
+function currentDateKey() {
+    return new Date().toISOString().slice(0, 10);
+}
+
+function roleRankTitle(character: Character) {
+    const currentTitle = character.rankTitle?.trim();
+    const lowerTitle = currentTitle?.toLowerCase() ?? "";
+    const isRoleTitle = lowerTitle.includes("kage") ||
+        lowerTitle.includes("elder") ||
+        lowerTitle.includes("anbu") ||
+        lowerTitle.includes("clan leader") ||
+        lowerTitle.includes("clan head");
+
+    if (currentTitle && isRoleTitle && !levelOnlyRankTitles.has(currentTitle)) return currentTitle;
+    if (character.clanFounder) return "Clan Leader";
+    return "";
+}
+
+function rankTitleForLevel(character: Character, level: number) {
+    if (level < MAX_LEVEL) return rankFromLevel(level);
+    return roleRankTitle(character) || "Special Jonin";
 }
 
 function baseStats(): Stats {
@@ -2153,7 +2856,9 @@ function normalizeAdminCharacter(character: Character): Character {
 }
 
 function gainXp(character: Character, amount: number): Character {
-    let updated: Character = { ...character, xp: character.level >= MAX_LEVEL ? 0 : character.xp + amount };
+    const trainingFocusBonus = character.elderFocus === "training" ? Math.floor(amount * 0.1) : 0;
+    const totalAmount = amount + trainingFocusBonus;
+    let updated: Character = { ...character, xp: character.level >= MAX_LEVEL ? 0 : character.xp + totalAmount };
     while (updated.level < MAX_LEVEL && updated.xp >= xpNeeded(updated.level)) {
         const needed = xpNeeded(updated.level);
         const newLevel = updated.level + 1;
@@ -2164,7 +2869,7 @@ function gainXp(character: Character, amount: number): Character {
             ...updated,
             xp: updated.xp - needed,
             level: newLevel,
-            rankTitle: rankFromLevel(newLevel),
+            rankTitle: rankTitleForLevel(updated, newLevel),
             maxHp: nextMaxHp,
             maxChakra: nextMaxChakra,
             maxStamina: nextMaxStamina,
@@ -2175,7 +2880,7 @@ function gainXp(character: Character, amount: number): Character {
             stats: addToAllStats(updated.stats, 1),
         };
     }
-    if (updated.level >= MAX_LEVEL) return { ...updated, level: MAX_LEVEL, xp: 0, rankTitle: rankFromLevel(MAX_LEVEL) };
+    if (updated.level >= MAX_LEVEL) return { ...updated, level: MAX_LEVEL, xp: 0, rankTitle: rankTitleForLevel(updated, MAX_LEVEL) };
     return updated;
 }
 
@@ -2238,8 +2943,8 @@ const villageUpgradeDefinitions: Array<{
     unit: "%";
     description: string;
 }> = [
-        { key: "training", name: "Training Grounds", icon: "🏋️", perLevel: 0.25, unit: "%", description: "+0.25% character XP from stat training per level." },
-        { key: "jutsuTraining", name: "Jutsu Training", icon: "🥋", perLevel: 0.25, unit: "%", description: "+0.25% jutsu training speed / jutsu XP per level." },
+        { key: "training", name: "Training Grounds", icon: "💪", perLevel: 0.25, unit: "%", description: "+0.25% character XP from stat training per level." },
+        { key: "jutsuTraining", name: "Jutsu Training", icon: "🔥", perLevel: 0.25, unit: "%", description: "+0.25% jutsu training speed / jutsu XP per level." },
         { key: "shop", name: "Shop", icon: "🛒", perLevel: 0.25, unit: "%", description: "0.25% shop discount per level." },
         { key: "townDefense", name: "Town Defense", icon: "🛡️", perLevel: 0.1, unit: "%", description: "+0.1% defense vs Genjutsu, Taijutsu, Bukijutsu, and Ninjutsu while defending through the Village Guard queue." },
         { key: "petYard", name: "Pet Yard", icon: "🐾", perLevel: 0.25, unit: "%", description: "+0.25% pet XP from pet training per level." },
@@ -2253,26 +2958,26 @@ type VillageLeadershipImages = Record<string, { kage?: string; elders?: string[]
 
 const villageLeadership: Record<string, VillageLeadershipProfile> = {
     "Stormveil Village": {
-        kage: "Raiden Veyr, Storm Kage",
-        elders: ["Elder Kuro Volt", "Elder Maika Gale", "Elder Denji Rain"],
+        kage: "Kage Raiko Veyr",
+        elders: ["Elder Vanta", "Mira Volt", "Tempest Guard Captain"],
         atWar: false,
         pastWars: ["Won the Tempest Border War vs Moonshadow", "Lost the Crimson Dock Raid vs Ashen Leaf", "Draw at the Broken Thunder Pass"],
     },
     "Ashen Leaf Village": {
-        kage: "Hiru Ashroot, Leaf Kage",
-        elders: ["Elder Sora Ember", "Elder Jun Oakseal", "Elder Rina Cinder"],
+        kage: "Kage Hoshina Enju",
+        elders: ["Elder Mori", "Toma Reed", "Ren Reed"],
         atWar: false,
         pastWars: ["Won the Crimson Dock Raid vs Stormveil", "Won the Ember Road Defense vs Frostfang", "Lost the Old Grove Skirmish vs Moonshadow"],
     },
     "Frostfang Village": {
-        kage: "Yukina Frostfang, Frost Kage",
-        elders: ["Elder Hako Snowguard", "Elder Mira Icevein", "Elder Tovan Wolfbond"],
+        kage: "Kage Kael Whitefang",
+        elders: ["Elder Sova", "Captain Yura", "Pale Pack Leader"],
         atWar: false,
         pastWars: ["Won the White Ridge Siege vs Moonshadow", "Lost the Ember Road Assault vs Ashen Leaf", "Draw at the Frozen Gate"],
     },
     "Moonshadow Village": {
-        kage: "Noctis Kage, Shadow Kage",
-        elders: ["Elder Aya Dusk", "Elder Ren Blackveil", "Elder Sable Thorn"],
+        kage: "Kage Sable Nocturne",
+        elders: ["Shade Master Iro", "Nyx", "Archivist Rei"],
         atWar: false,
         pastWars: ["Won the Old Grove Skirmish vs Ashen Leaf", "Lost the White Ridge Siege vs Frostfang", "Lost the Tempest Border War vs Stormveil"],
     },
@@ -2306,7 +3011,9 @@ function loadVillageLeadershipImages(): VillageLeadershipImages {
 function saveVillageLeadershipImages(images: VillageLeadershipImages) {
     try {
         localStorage.setItem(villageLeadershipImagesKey(), JSON.stringify(normalizeVillageLeadershipImages(images)));
-    } catch { }
+    } catch {
+        // localStorage may be unavailable in private or restricted browser contexts.
+    }
 }
 
 function defaultVillageUpgrades(): VillageUpgrades {
@@ -2422,9 +3129,9 @@ function villageUpgradeCost(key: VillageUpgradeKey, currentLevel: number) {
     return Math.floor((base[key] ?? 12) + currentLevel * 4 + Math.pow(currentLevel, 1.25) * 2);
 }
 
-function getTrainingXpBonus(character: Character) { return villageUpgradeBonus(character, "training"); }
-function getJutsuTrainingSpeedBonus(character: Character) { return villageUpgradeBonus(character, "jutsuTraining"); }
-function getShopDiscountPercent(character: Character) { return villageUpgradeBonus(character, "shop"); }
+function getTrainingXpBonus(character: Character) { return villageUpgradeBonus(character, "training") + (character.elderFocus === "training" ? 10 : 0); }
+function getJutsuTrainingSpeedBonus(character: Character) { return villageUpgradeBonus(character, "jutsuTraining") + (character.elderFocus === "training" ? 10 : 0); }
+function getShopDiscountPercent(character: Character) { return villageUpgradeBonus(character, "shop") + (character.elderFocus === "trade" ? 5 : 0); }
 function getTownDefenseGuardBonus(character: Character) { return villageUpgradeBonus(character, "townDefense"); }
 function getPetXpBonus(character: Character) { return villageUpgradeBonus(character, "petYard"); }
 function getBankInterestPercent(character: Character) { return villageUpgradeBonus(character, "bank"); }
@@ -2436,7 +3143,7 @@ function normalizeJutsu(jutsu: Partial<Jutsu> & Pick<Jutsu, "id" | "name" | "typ
         id: jutsu.id,
         name: jutsu.name,
         type: jutsu.type,
-        element: (jutsu.element ?? "Fire") as JutsuElement,
+        element: (jutsu.element != null ? jutsu.element : "Fire") as JutsuElement,
         ap: jutsu.ap ?? 40,
         range: jutsu.range ?? 3,
         effectPower: jutsu.effectPower ?? 50,
@@ -2459,6 +3166,7 @@ function normalizeJutsu(jutsu: Partial<Jutsu> & Pick<Jutsu, "id" | "name" | "typ
 
 function normalizeCharacter(parsed: Character): Character {
     const level = parsed.level ?? 1;
+    const currentMonth = currentMonthKey();
     const expectedMaxHp = maxHpForLevel(level);
     const expectedMaxChakra = maxChakraForLevel(level);
     const expectedMaxStamina = maxStaminaForLevel(level);
@@ -2486,6 +3194,8 @@ function normalizeCharacter(parsed: Character): Character {
         stamina: Math.min(maxStamina, parsed.maxStamina && parsed.maxStamina < expectedMaxStamina ? expectedMaxStamina : parsed.stamina ?? expectedMaxStamina),
         maxStamina,
         rankTitle: parsed.rankTitle ?? rankFromLevel(level),
+        storyTitle: parsed.storyTitle ?? "",
+        storyTraits: Array.isArray(parsed.storyTraits) ? parsed.storyTraits.filter(Boolean) : [],
         inventory: parsed.inventory ?? [],
         equipment: parsed.equipment ?? {},
         stats: { ...baseStats(), ...parsed.stats },
@@ -2501,6 +3211,24 @@ function normalizeCharacter(parsed: Character): Character {
         clanBattleContrib: parsed.clanBattleContrib ?? 0,
         clanEventContrib: parsed.clanEventContrib ?? 0,
         clanMissionContrib: parsed.clanMissionContrib ?? 0,
+        totalStatsTrained: parsed.totalStatsTrained ?? 0,
+        totalMissionsCompleted: parsed.totalMissionsCompleted ?? parsed.clanMissionContrib ?? 0,
+        totalAiKills: parsed.totalAiKills ?? 0,
+        totalPvpKills: parsed.totalPvpKills ?? 0,
+        monthlyPvpKills: parsed.pvpKillMonth === currentMonth ? parsed.monthlyPvpKills ?? 0 : 0,
+        pvpKillMonth: parsed.pvpKillMonth === currentMonth ? parsed.pvpKillMonth : currentMonth,
+        totalVillageRaids: parsed.totalVillageRaids ?? 0,
+        villageWarMissionDate: parsed.villageWarMissionDate === currentDateKey() ? parsed.villageWarMissionDate : currentDateKey(),
+        villageWarRaidProgress: parsed.villageWarMissionDate === currentDateKey() ? parsed.villageWarRaidProgress ?? 0 : 0,
+        villageWarMissionsCompleted: parsed.villageWarMissionDate === currentDateKey() ? parsed.villageWarMissionsCompleted ?? 0 : 0,
+        totalTilesExplored: parsed.totalTilesExplored ?? 0,
+        totalTournamentsCompleted: parsed.totalTournamentsCompleted ?? 0,
+        totalEndlessTowerWins: parsed.totalEndlessTowerWins ?? 0,
+        totalPetWins: parsed.totalPetWins ?? 0,
+        defeatedAiIds: Array.isArray(parsed.defeatedAiIds) ? parsed.defeatedAiIds.filter(Boolean) : [],
+        rankedRating: parsed.rankedRating ?? 1000,
+        rankedWins: parsed.rankedWins ?? 0,
+        rankedLosses: parsed.rankedLosses ?? 0,
         clanContribMonth: parsed.clanContribMonth,
         guardQueued: parsed.guardQueued ?? false,
         hospitalized: parsed.hospitalized ?? false,
@@ -2552,17 +3280,17 @@ function rosterFromAccounts(accounts: PlayerAccounts): PlayerRecord[] {
 }
 
 function getOffenseStat(stats: Stats, type: JutsuType | string) {
-    if (type === "Taijutsu") return stats.taijutsuOffense + stats.strength;
-    if (type === "Bukijutsu") return stats.bukijutsuOffense + stats.speed;
-    if (type === "Genjutsu") return stats.genjutsuOffense + stats.willpower;
-    return stats.ninjutsuOffense + stats.intelligence;
+    if (type === "Taijutsu") return stats.taijutsuOffense + stats.strength + stats.speed;
+    if (type === "Bukijutsu") return stats.bukijutsuOffense + stats.intelligence + stats.strength;
+    if (type === "Genjutsu") return stats.genjutsuOffense + stats.intelligence + stats.willpower;
+    return stats.ninjutsuOffense + stats.willpower + stats.speed;
 }
 
 function getDefenseStat(stats: Stats, type: JutsuType | string) {
-    if (type === "Taijutsu") return stats.taijutsuDefense + stats.strength;
-    if (type === "Bukijutsu") return stats.bukijutsuDefense + stats.speed;
-    if (type === "Genjutsu") return stats.genjutsuDefense + stats.willpower;
-    return stats.ninjutsuDefense + stats.intelligence;
+    if (type === "Taijutsu") return stats.taijutsuDefense + stats.strength + stats.speed;
+    if (type === "Bukijutsu") return stats.bukijutsuDefense + stats.intelligence + stats.strength;
+    if (type === "Genjutsu") return stats.genjutsuDefense + stats.intelligence + stats.willpower;
+    return stats.ninjutsuDefense + stats.willpower + stats.speed;
 }
 
 function clampNumber(value: number, min: number, max: number) {
@@ -2597,8 +3325,8 @@ function getBloodlineMultiplier(char: Character, allSavedBloodlines: SavedBloodl
     return 1.0;
 }
 
-// bloodlineMult: applied last (1.32 starter, 1.30 B Rank, 1.35 A Rank, 1.40 S Rank)
-// armorFactor / itemMult: placeholders until items/armor system is implemented
+// Damage buckets:
+// 1) base/stat/armor/weather/item outside bonuses, 2) jutsu damage tags, 3) bloodline multiplier.
 function calculateDamage(
     jutsu: Jutsu,
     attackerStats: Stats,
@@ -2606,15 +3334,18 @@ function calculateDamage(
     targetMaxHp = HP_CAP,
     bloodlineMult = 1.0,
     armorFactor = 1.0,
-    itemMult = 1.0
+    itemMult = 1.0,
+    weatherMult = 1.0
 ) {
     const offense = getOffenseStat(attackerStats, jutsu.type);
     const defense = getDefenseStat(defenderStats, jutsu.type);
-    const baselineDamage = targetMaxHp / 10;
+    const baselineDamage = targetMaxHp; // EP is now % of target max HP before armor/stat modifiers
     const statFactor = clampNumber(1 + ((offense - defense) / (MAX_STAT * 2)) * 0.85, 0.35, 1.85);
     const effectFactor = Math.max(0, jutsu.effectPower) / 100;
-    const tagMult = getTagMultiplier(jutsu.tags);
-    return Math.max(0, Math.floor(baselineDamage * effectFactor * statFactor * tagMult * bloodlineMult * armorFactor * itemMult));
+    const bucketOne = baselineDamage * effectFactor * statFactor * armorFactor * itemMult * weatherMult;
+    const bucketTwo = getTagMultiplier(jutsu.tags);
+    const bucketThree = bloodlineMult;
+    return Math.max(0, Math.floor(bucketOne * bucketTwo * bucketThree));
 }
 
 function tagPower(tag: JutsuTag, fallback = 30) {
@@ -2627,35 +3358,37 @@ function jutsuEffectInfo(jutsu: Jutsu, tag: JutsuTag) {
     const percentLabel = tag.percent > 0 ? `${tag.percent}%` : "Static";
 
     if (tag.name === "Damage") return { summary: `Deals damage at ${effectPower}% effect power.`, rule: "Uses the jutsu offense type against the target's matching defense, then applies weather, bloodline, armor, and status modifiers.", duration: "Instant", value: `${effectPower}% EP` };
-    if (tag.name === "Heal") return { summary: `Restores HP to the user based on ${effectPower}% effect power.`, rule: "Sets direct damage to 0 and heals the caster. Increase Heal statuses improve the final heal.", duration: "Instant", value: `${effectPower}% EP` };
-    if (tag.name === "Shield") return { summary: `Adds ${effectPower} shield to the user.`, rule: "Shield absorbs incoming damage before HP. Pierce can bypass shield.", duration: "Until broken", value: `${effectPower}` };
-    if (tag.name === "Barrier") return { summary: `Adds ${effectPower} barrier shield to the user.`, rule: "Functions like shield and absorbs incoming damage before HP. Pierce can bypass it.", duration: "Until broken", value: `${effectPower}` };
-    if (tag.name === "Increase Damage Given") return { summary: `Boosts the caster's damage by ${pct}%.`, rule: "Applies to this jutsu's final damage calculation as an outgoing damage multiplier.", duration: "Instant strike", value: `${pct}%` };
+    if (tag.name === "Heal") return { summary: `Restores 500 HP to the user.`, rule: "Sets direct damage to 0 and heals the caster for a flat 500 HP.", duration: "Instant", value: "500 HP" };
+    if (tag.name === "Shield") return { summary: `Adds 500 shield to the user — always succeeds.`, rule: "Shield absorbs incoming damage before HP. Pierce can bypass shield. Cannot be blocked by Buff Prevent.", duration: "Until broken", value: "500" };
+    if (tag.name === "Barrier") return { summary: "Erects an impassable wall tile one step toward the enemy on the battlefield.", rule: "Places a barrier tile that blocks movement for both fighters for 2 rounds. Cannot be bypassed.", duration: "2 rounds", value: "Wall tile" };
+    if (tag.name === "Increase Damage Given") return { summary: `Boosts the caster's damage by ${pct}% for 2 rounds.`, rule: "Adds a positive status to the caster that boosts outgoing damage for 2 rounds.", duration: "2 rounds", value: `${pct}%` };
     if (tag.name === "Decrease Damage Given") return { summary: `Makes the target deal ${pct}% less damage.`, rule: "Adds a negative status to the target that lowers outgoing damage.", duration: "2 rounds", value: `${pct}%` };
     if (tag.name === "Increase Damage Taken") return { summary: `Makes the target take ${pct}% more damage.`, rule: "Adds a negative status to the target that raises incoming damage.", duration: "2 rounds", value: `${pct}%` };
     if (tag.name === "Decrease Damage Taken") return { summary: `Makes the user take ${pct}% less damage.`, rule: "Adds a positive status to the caster that lowers incoming damage.", duration: "2 rounds", value: `${pct}%` };
     if (tag.name === "Absorb") return { summary: `Converts ${pct}% of incoming damage into healing.`, rule: "Adds a positive status to the caster. Buff Prevent can block it.", duration: "2 rounds", value: `${pct}%` };
-    if (tag.name === "Lifesteal" || tag.name === "Vamp") return { summary: `Heals the user for ${pct}% of damage dealt.`, rule: "Triggers after damage. The heal is based on capped post-damage and benefits from Increase Heal.", duration: "Instant after hit", value: `${pct}%` };
+    if (tag.name === "Siphon" || tag.name === "Vamp") return { summary: `Heals the user for ${pct}% of damage dealt.`, rule: "Triggers after damage. Instant heal based on final damage.", duration: "Instant after hit", value: `${pct}%` };
+    if (tag.name === "Lifesteal") return { summary: `Applies a 2-round status: your next 2 attacks heal you for ${pct}% of damage dealt.`, rule: "Adds a positive status to the caster. Each attack heals based on final damage.", duration: "2 rounds", value: `${pct}%` };
     if (tag.name === "Reflect") return { summary: `Reflects ${pct}% damage back at attackers.`, rule: "Adds a positive status to the caster. Buff Prevent can block it.", duration: "2 rounds", value: `${pct}%` };
     if (tag.name === "Recoil") return { summary: `Deals ${pct}% recoil damage to the user.`, rule: "Triggers after damage and hurts the caster based on capped post-damage.", duration: "Instant after hit", value: `${pct}%` };
-    if (tag.name === "Wound") return { summary: `Makes the target bleed after the hit.`, rule: "Applies a damage-over-time status based on capped post-damage.", duration: "3 rounds", value: `${pct}%` };
-    if (tag.name === "Afterburn") return { summary: `Adds extra burn damage after the hit.`, rule: "Deals capped post-damage immediately after the main hit.", duration: "Instant after hit", value: `${pct}%` };
+    if (tag.name === "Wound") return { summary: `Makes the target bleed after the hit.`, rule: "Applies a damage-over-time status based on capped post-damage.", duration: "2 rounds", value: `${pct}%` };
+    if (tag.name === "Afterburn") return { summary: `Applies a 2-round burn status: next 2 incoming attacks deal an extra ${pct}% damage.`, rule: "Adds a negative status to the enemy. Each time they are attacked while burning, the attacker's damage is boosted by this percent.", duration: "2 rounds", value: `${pct}%` };
     if (tag.name === "Stun") return { summary: `Removes ${STUN_AP_PENALTY} AP from the target's next turn.`, rule: "Always applies unless Stun Prevent or Debuff Prevent blocks it. It does not skip the target's turn.", duration: "Next turn", value: `-${STUN_AP_PENALTY} AP` };
     if (tag.name === "Seal") return { summary: "Seals the target.", rule: "Always applies unless Debuff Prevent blocks it.", duration: "2 rounds", value: "Always" };
-    if (tag.name === "Elemental Seal") return { summary: "Seals elemental jutsu.", rule: "Always applies unless Debuff Prevent blocks it. Prevents elemental jutsu use while active.", duration: "2 rounds", value: "Always" };
+    if (tag.name === "Elemental Seal") return { summary: "Seals elemental jutsu.", rule: "Always applies unless Debuff Prevent blocks it. Prevents elemental jutsu use while active for 1 round.", duration: "1 round", value: "Always" };
     if (tag.name === "Move") return { summary: "Moves the user on the battlefield.", rule: "Always lets the user choose an open tile within the jutsu range.", duration: "Instant", value: "Always" };
-    if (tag.name === "Push/Pull") return { summary: "Moves the target on the battlefield.", rule: "Pushes or pulls the target position when the jutsu resolves.", duration: "Instant", value: "Position" };
+    if (tag.name === "Push") return { summary: "Pushes the target away from the user based on jutsu range.", rule: "Moves the enemy away by the jutsu's range value in tiles.", duration: "Instant", value: "Range tiles" };
+    if (tag.name === "Pull") return { summary: "Pulls the target toward the user based on jutsu range.", rule: "Moves the enemy toward the user by the jutsu's range value in tiles.", duration: "Instant", value: "Range tiles" };
     if (tag.name === "Buff Prevent") return { summary: "Blocks positive effects on the target.", rule: "Always prevents new positive effects like Shield, Reflect, Absorb, and similar buffs.", duration: "2 rounds", value: "Always" };
-    if (tag.name === "Debuff Prevent") return { summary: "Blocks negative effects on the target.", rule: "Always prevents new debuffs such as Stun, Seal, Poison, Drain, and damage-taken increases.", duration: "2 rounds", value: "Always" };
+    if (tag.name === "Debuff Prevent") return { summary: "Protects the caster from debuffs for 2 rounds.", rule: "Adds a positive status to the caster. Prevents new debuffs like Stun, Seal, Poison, Drain from being applied to them.", duration: "2 rounds", value: "Always" };
     if (tag.name === "Cleanse Prevent") return { summary: "Prevents cleanse effects.", rule: "Always stops negative effects from being cleansed while active.", duration: "2 rounds", value: "Always" };
     if (tag.name === "Clear Prevent") return { summary: "Prevents clear effects.", rule: "Always stops positive effects from being cleared while active.", duration: "2 rounds", value: "Always" };
     if (tag.name === "Stun Prevent") return { summary: "Prevents stun.", rule: "Always protects against incoming Stun.", duration: "2 rounds", value: "Always" };
-    if (tag.name === "Poison") return { summary: `Poisons the target at ${pct}% strength.`, rule: "Adds a negative status tied to future resource use and pressure effects.", duration: "3 rounds", value: `${pct}%` };
-    if (tag.name === "Drain") return { summary: "Drains the target over time.", rule: "Deals recurring drain based on the target's HP, chakra, and stamina pools.", duration: "3 rounds", value: "Scaling" };
-    if (tag.name === "Pierce") return { summary: "Pierces shields.", rule: "The jutsu ignores shield blocking when damage is applied.", duration: "Instant", value: "Static" };
+    if (tag.name === "Poison") return { summary: `Poisons the target — deals 60% of their max chakra as damage each round.`, rule: "Applies a 2-round negative status that deals damage based on the target's chakra pool.", duration: "2 rounds", value: "Chakra-scaled" };
+    if (tag.name === "Drain") return { summary: "Drains the target of 250 HP, chakra, and stamina each round.", rule: "Applies a 2-round negative status that reduces HP, chakra, and stamina simultaneously.", duration: "2 rounds", value: "250/round" };
+    if (tag.name === "Pierce") return { summary: "True damage — bypasses all defenses and shield.", rule: "Ignores armor, shields, and all damage modifiers. Deals 900 damage at 60 AP cost, 500 damage at 40 AP cost.", duration: "Instant", value: "True" };
     if (tag.name === "Copy") return { summary: "Copies enemy positive effects.", rule: "Always copies active positive statuses from the target to the user.", duration: "Up to 2 rounds", value: "Always" };
     if (tag.name === "Mirror") return { summary: "Mirrors negative effects back to the enemy.", rule: "Always transfers the user's non-damage-over-time negative statuses to the target.", duration: "Up to 2 rounds", value: "Always" };
-    if (tag.name === "Time Compression") return { summary: "Increases enemy AP costs.", rule: "Always adds a negative status that makes enemy actions cost more AP.", duration: "2 rounds", value: "Always" };
+    if (tag.name === "Time Compression") return { summary: "Increases enemy AP costs.", rule: "Always adds a negative status that makes enemy actions cost more AP for 1 round.", duration: "1 round", value: "Always" };
     if (tag.name === "Time Dilation") return { summary: "Reduces the user's AP costs.", rule: "Always adds a positive status that makes the user's actions cost less AP.", duration: "2 rounds", value: "Always" };
     if (tag.name === "Increase Heal") return { summary: `Increases healing by ${pct}%.`, rule: "Always adds a positive status that boosts future healing and lifesteal by this amount.", duration: "2 rounds", value: `${pct}%` };
     return { summary: tag.name || "Unnamed effect", rule: "Custom effect tag.", duration: "Varies", value: percentLabel };
@@ -2699,11 +3432,12 @@ function gainJutsuXp(character: Character, jutsuId: string, amount: number, maxL
 }
 
 function scaleJutsuByLevel(jutsu: Jutsu, level: number) {
-    const levelBonus = Math.max(0, level - 1);
-    const effectMultiplier = 1 + levelBonus * 0.04;
-    const costMultiplier = Math.max(0.8, 1 - levelBonus * 0.004);
+    // EP scales additively: creator value = level 50 max. Each level below 50 subtracts 0.2 EP.
+    // Level 1: maxEP - 49×0.2 ≈ maxEP - 9.8. Level 50: maxEP.
+    const scaledEffectPower = Math.max(1, Math.floor(jutsu.effectPower - (50 - level) * 0.2));
+    const costMultiplier = Math.max(0.8, 1 - Math.max(0, level - 1) * 0.004);
     return {
-        scaledEffectPower: Math.floor(jutsu.effectPower * effectMultiplier),
+        scaledEffectPower,
         healthCost: Math.max(0, Math.floor((jutsu.healthCost - jutsu.healthCostReducePerLvl * level) * costMultiplier)),
         chakraCost: Math.max(0, Math.floor(jutsu.chakraCost * costMultiplier)),
         staminaCost: Math.max(0, Math.floor(jutsu.staminaCost * costMultiplier)),
@@ -2735,7 +3469,9 @@ function tagPointValue(tag: JutsuTag, rank?: Rank | null) {
     if (["Stun", "Copy", "Mirror", "Time Compression", "Time Dilation"].includes(tag.name)) return 2;
     if (["Seal", "Reflect", "Buff Prevent", "Cleanse Prevent", "Clear Prevent"].includes(tag.name)) return 1.5;
     if (["Shield", "Heal", "Pierce", "Wound", "Barrier", "Drain"].includes(tag.name)) return 1;
-    if (["Move", "Push/Pull", "Poison", "Afterburn"].includes(tag.name)) return 0.5;
+    if (tag.name === "Push") return 1;
+    if (tag.name === "Pull") return 0.75;
+    if (["Move", "Poison", "Afterburn"].includes(tag.name)) return 0.5;
     return 1;
 }
 
@@ -2779,6 +3515,7 @@ function createCharacter(name: string, village: string, specialty: JutsuType, bl
         avatarImage: "",
         storyProgress: 0,
         storyVillage: village,
+        storyTraits: [],
         level: 1,
         xp: 0,
         ryo: 100,
@@ -2799,7 +3536,7 @@ function createCharacter(name: string, village: string, specialty: JutsuType, bl
         stats: baseStats(),
         unspentStats: 20,
         equippedJutsuIds: [],
-        inventory: ["wooden-katana", "shinobi-vest"],
+        inventory: ["rustfang-kunai", "shinobi-vest"],
         equipment: {},
         jutsuMastery: [],
         pets: [],
@@ -2810,6 +3547,24 @@ function createCharacter(name: string, village: string, specialty: JutsuType, bl
         clanBattleContrib: 0,
         clanEventContrib: 0,
         clanMissionContrib: 0,
+        totalStatsTrained: 0,
+        totalMissionsCompleted: 0,
+        totalAiKills: 0,
+        totalPvpKills: 0,
+        monthlyPvpKills: 0,
+        pvpKillMonth: currentMonthKey(),
+        totalVillageRaids: 0,
+        villageWarMissionDate: currentDateKey(),
+        villageWarRaidProgress: 0,
+        villageWarMissionsCompleted: 0,
+        totalTilesExplored: 0,
+        totalTournamentsCompleted: 0,
+        totalEndlessTowerWins: 0,
+        totalPetWins: 0,
+        defeatedAiIds: [],
+        rankedRating: 1000,
+        rankedWins: 0,
+        rankedLosses: 0,
         villageUpgrades: defaultVillageUpgrades(),
         lastBankInterestAt: 0,
     };
@@ -2869,22 +3624,30 @@ function getJutsuSelectOptions(jutsus: Jutsu[], typeFilter: "All" | JutsuType, e
 }
 
 function storyToCreatorEvent(step: StoryStep, village: string, index: number): CreatorEvent {
+    const slug = village.toLowerCase().replace(/\W+/g, "-");
+    const pages = step.pages?.length ? step.pages : [{
+        title: step.cinematicTitle,
+        scene: step.scene,
+        speaker: "Narrator",
+        dialogue: step.dialogue,
+        choices: [],
+    }];
     return {
-        id: `story-${village.toLowerCase().replace(/\W+/g, "-")}-${index}`,
+        id: `story-${slug}-${step.levelReq}-${index}`,
         name: `${village}: ${step.title}`,
-        biome: "central",
+        biome: step.biome ?? villageBiomeMap[village] ?? "central",
         icon: step.bossIcon,
         eventKind: "visualNovel",
         trigger: "manual",
         vnTitle: step.title,
         vnScene: step.scene,
-        vnSpeaker: "Narrator",
-        vnPages: [{
-            title: step.cinematicTitle,
-            scene: step.scene,
-            speaker: "Narrator",
-            dialogue: step.dialogue,
-        }],
+        vnSpeaker: pages[0]?.speaker ?? "Narrator",
+        image: "",
+        aiProfileId: step.aiProfileId,
+        village,
+        kageFinale: step.kageFinale,
+        liberatorTitle: step.liberatorTitle,
+        vnPages: pages,
         levelReq: step.levelReq,
         xpReward: step.rewardXp,
         ryoReward: step.rewardRyo,
@@ -2955,7 +3718,8 @@ function makeBuiltinAi(
     level: number,
     village: string,
     jutsus: Jutsu[],
-    statBonus: number
+    statBonus: number,
+    hpOverride?: number
 ): CreatorAi {
     const selectedJutsus = jutsus.map(normalizeJutsu);
     return normalizeAiProfile({
@@ -2964,13 +3728,36 @@ function makeBuiltinAi(
         icon,
         level,
         village,
-        hp: maxHpForLevel(level),
+        hp: hpOverride ?? maxHpForLevel(level),
         chakra: maxChakraForLevel(level),
         stamina: maxStaminaForLevel(level),
         stats: addToAllStats(enemyStats(), statBonus),
         jutsuIds: selectedJutsus.map((jutsu) => jutsu.id),
         rules: buildBasicCombatAiRules(selectedJutsus),
     }, starterJutsus);
+}
+
+function makeStoryBossAi(village: string, step: StoryStep): CreatorAi {
+    const villageJutsus = starterJutsus.filter((jutsu) => {
+        if (village === "Stormveil Village") return ["Wind", "Lightning", "Water"].includes(jutsu.element);
+        if (village === "Ashen Leaf Village") return ["Fire", "Earth"].includes(jutsu.element);
+        if (village === "Frostfang Village") return ["Water", "Lightning", "Wind"].includes(jutsu.element);
+        if (village === "Moonshadow Village") return jutsu.type === "Genjutsu" || ["Lightning", "Wind"].includes(jutsu.element);
+        return true;
+    });
+    const jutsuCount = step.levelReq >= 85 ? 6 : step.levelReq >= 50 ? 5 : 4;
+    const selectedJutsus = (villageJutsus.length ? villageJutsus : starterJutsus).slice(0, jutsuCount);
+    const statBonus = Math.max(18, Math.floor(step.bossDamage * 0.8));
+    return makeBuiltinAi(
+        step.aiProfileId ?? storyAiId(village, step.levelReq),
+        step.bossName,
+        step.bossIcon,
+        step.levelReq,
+        village,
+        selectedJutsus,
+        statBonus,
+        step.bossHp
+    );
 }
 function rollPetEncounter(pets: Pet[]): Pet | null {
     const roll = Math.random();
@@ -3010,12 +3797,41 @@ function rollPetEncounter(pets: Pet[]): Pet | null {
 
     return null;
 }
+const storyBossAis = Object.entries(storylines).flatMap(([village, steps]) => steps.map((step) => makeStoryBossAi(village, step)));
+
 const builtinAis: CreatorAi[] = [
     makeBuiltinAi("builtin-ai-mist-sentinel", "Mist Sentinel", "MS", 8, "Stormveil Patrol", starterJutsus.filter((jutsu) => jutsu.element === "Water").slice(0, 4), 18),
     makeBuiltinAi("builtin-ai-ember-duelist", "Ember Duelist", "ED", 18, "Ashen Leaf Duelist", starterJutsus.filter((jutsu) => jutsu.element === "Fire").slice(0, 4), 34),
+    makeBuiltinAi("builtin-ai-exam-proctor", "Exam Proctor", "EP", 25, "Central Exam Hall", starterJutsus.filter((jutsu) => ["Earth", "Water", "Lightning"].includes(jutsu.element)).slice(0, 5), 44),
     makeBuiltinAi("builtin-ai-frost-sealer", "Frost Sealer", "FS", 32, "Frostfang Hunter", starterJutsus.filter((jutsu) => jutsu.element === "Lightning" || jutsu.tags.some((tag) => ["Stun", "Seal"].includes(tag.name))).slice(0, 4), 52),
+    makeBuiltinAi("builtin-ai-rogue-ninja", "Rogue Ninja", "RN", 47, "Rogue Territory", starterJutsus.filter((jutsu) => jutsu.type === "Bukijutsu" || jutsu.type === "Taijutsu").slice(0, 5), 72),
     makeBuiltinAi("builtin-ai-shadow-weaver", "Shadow Weaver", "SW", 48, "Moonshadow Operative", starterJutsus.filter((jutsu) => jutsu.type === "Genjutsu").slice(0, 5), 74),
     makeBuiltinAi("builtin-ai-central-champion", "Central Champion", "CC", 70, "Central Arena", starterJutsus.filter((jutsu) => jutsu.ap === 60).slice(0, 6), 110),
+    ...storyBossAis,
+    // -- Hunt beast AIs ------------------------------------------------------
+    makeBuiltinAi("hunt-ai-wild-boar", "Wild Boar", "🐗", 5, "Forest Territory", starterJutsus.filter((jutsu) => jutsu.element === "Earth" || jutsu.type === "Taijutsu").slice(0, 3), 10),
+    makeBuiltinAi("hunt-ai-forest-hawk", "Forest Hawk", "🦅", 8, "Forest Territory", starterJutsus.filter((jutsu) => jutsu.element === "Wind" || jutsu.type === "Bukijutsu").slice(0, 3), 14),
+    makeBuiltinAi("hunt-ai-frost-wolf", "Frost Wolf", "🐺", 18, "Snow Territory", starterJutsus.filter((jutsu) => jutsu.element === "Water" || jutsu.element === "Lightning").slice(0, 4), 26),
+    makeBuiltinAi("hunt-ai-ash-lizard", "Ash Lizard", "🦎", 22, "Volcano Territory", starterJutsus.filter((jutsu) => jutsu.element === "Fire" || jutsu.element === "Earth").slice(0, 4), 30),
+    makeBuiltinAi("hunt-ai-shadow-panther", "Shadow Panther", "🐆", 38, "Shadow Territory", starterJutsus.filter((jutsu) => jutsu.type === "Genjutsu" || jutsu.element === "Lightning").slice(0, 4), 55),
+    makeBuiltinAi("hunt-ai-ironback-bear", "Ironback Bear", "🐻", 42, "Forest Territory", starterJutsus.filter((jutsu) => jutsu.element === "Earth" || jutsu.type === "Taijutsu").slice(0, 5), 60, 1800),
+    makeBuiltinAi("hunt-ai-ember-drake", "Ember Drake", "🔥", 65, "Volcano Territory", starterJutsus.filter((jutsu) => jutsu.element === "Fire").slice(0, 6), 115, 4200),
+    makeBuiltinAi("hunt-ai-moon-serpent", "Moon Serpent", "🌙", 68, "Shadow Territory", starterJutsus.filter((jutsu) => jutsu.type === "Genjutsu" || jutsu.element === "Wind").slice(0, 6), 120, 4500),
+    makeBuiltinAi("hunt-ai-ancient-chakra-beast", "Ancient Chakra Beast", "💀", 88, "Central Wilderness", starterJutsus.filter((jutsu) => ["Fire", "Water", "Lightning", "Wind", "Earth"].includes(jutsu.element)).slice(0, 6), 155, 8000),
+    makeBuiltinAi("hunt-ai-worldstorm-dragon", "Worldstorm Dragon", "🐉", 92, "Central Wilderness", starterJutsus.filter((jutsu) => jutsu.element === "Lightning" || jutsu.element === "Wind" || jutsu.element === "Water").slice(0, 6), 165, 9000),
+];
+
+const builtinHuntMissions: CreatorMission[] = [
+    { id: "hunt-wild-boar", name: "Hunt the Wild Boar", rank: "D Rank", description: "A large wild boar has been spotted trampling the forest undergrowth near Sector 25. Track it down and eliminate it.", type: "fetchExplore", targetSector: 25, exploreCount: 3, levelReq: 1, xpReward: 80, ryoReward: 60, staminaReward: 8, aiProfileId: "hunt-ai-wild-boar", itemRewards: ["hunt-beast-meat", "hunt-beast-meat", "hunt-torn-hide"] },
+    { id: "hunt-forest-hawk", name: "Hunt the Forest Hawk", rank: "D Rank", description: "A predatory hawk has been attacking travelers through Sector 28. Scout the area and bring it down.", type: "fetchExplore", targetSector: 28, exploreCount: 3, levelReq: 1, xpReward: 80, ryoReward: 60, staminaReward: 8, aiProfileId: "hunt-ai-forest-hawk", itemRewards: ["hunt-wild-feather", "hunt-wild-feather", "hunt-small-fang"] },
+    { id: "hunt-frost-wolf", name: "Hunt the Frost Wolf", rank: "C Rank", description: "A Frost Wolf pack has been raiding supply routes through Sector 50. The alpha must be hunted and driven off.", type: "fetchExplore", targetSector: 50, exploreCount: 4, levelReq: 15, xpReward: 200, ryoReward: 160, staminaReward: 12, aiProfileId: "hunt-ai-frost-wolf", itemRewards: ["hunt-wolf-fang", "hunt-wolf-fang", "hunt-frost-pelt"] },
+    { id: "hunt-ash-lizard", name: "Hunt the Ash Lizard", rank: "C Rank", description: "An Ash Lizard has made its nest near the volcanic vents in Sector 40, blocking access to the trade paths.", type: "fetchExplore", targetSector: 40, exploreCount: 4, levelReq: 15, xpReward: 200, ryoReward: 160, staminaReward: 12, aiProfileId: "hunt-ai-ash-lizard", itemRewards: ["hunt-ash-scale", "hunt-ash-scale", "hunt-cracked-horn"] },
+    { id: "hunt-shadow-panther", name: "Hunt the Shadow Panther", rank: "B Rank", description: "A Shadow Panther stalks the darkness of Sector 12. It ambushes shinobi under cover of night — approach carefully.", type: "fetchExplore", targetSector: 12, exploreCount: 4, levelReq: 30, xpReward: 420, ryoReward: 340, staminaReward: 20, currencyRewards: { boneCharms: 1 }, aiProfileId: "hunt-ai-shadow-panther", itemRewards: ["hunt-shadow-pelt", "hunt-shadow-claw", "hunt-shadow-claw"] },
+    { id: "hunt-ironback-bear", name: "Hunt the Ironback Bear", rank: "B Rank", description: "An Ironback Bear with near-impenetrable hide has claimed the deep forest of Sector 30. It must be driven out.", type: "fetchExplore", targetSector: 30, exploreCount: 5, levelReq: 30, xpReward: 420, ryoReward: 340, staminaReward: 20, currencyRewards: { boneCharms: 1 }, aiProfileId: "hunt-ai-ironback-bear", itemRewards: ["hunt-beast-meat", "hunt-beast-meat", "hunt-cracked-horn", "hunt-cracked-horn"] },
+    { id: "hunt-ember-drake", name: "Hunt the Ember Drake", rank: "A Rank", description: "An Ember Drake — a fire-breathing lesser dragon — has emerged from the volcano at Sector 42. Extremely dangerous.", type: "fetchExplore", targetSector: 42, exploreCount: 5, levelReq: 50, xpReward: 900, ryoReward: 750, staminaReward: 30, currencyRewards: { boneCharms: 2, auraDust: 20 }, aiProfileId: "hunt-ai-ember-drake", itemRewards: ["hunt-ash-scale", "hunt-ash-scale", "hunt-ember-scale", "hunt-wolf-fang"] },
+    { id: "hunt-moon-serpent", name: "Hunt the Moon Serpent", rank: "A Rank", description: "The Moon Serpent is a colossal genjutsu-wielding serpent that hunts in the shadow sectors. It can trap minds in illusions.", type: "fetchExplore", targetSector: 8, exploreCount: 5, levelReq: 50, xpReward: 900, ryoReward: 750, staminaReward: 30, currencyRewards: { boneCharms: 2, auraDust: 20 }, aiProfileId: "hunt-ai-moon-serpent", itemRewards: ["hunt-shadow-pelt", "hunt-shadow-pelt", "hunt-shadow-claw", "hunt-shadow-claw"] },
+    { id: "hunt-ancient-chakra-beast", name: "Hunt the Ancient Chakra Beast", rank: "S Rank", description: "An Ancient Chakra Beast stirs in the central wilderness of Sector 60. It has absorbed centuries of chakra and can use all five elements. Only the strongest hunters survive.", type: "fetchExplore", targetSector: 60, exploreCount: 6, levelReq: 70, xpReward: 2000, ryoReward: 1800, staminaReward: 40, currencyRewards: { boneCharms: 3, auraDust: 40, fateShards: 1 }, aiProfileId: "hunt-ai-ancient-chakra-beast", itemRewards: ["hunt-legendary-material", "hunt-legendary-material", "hunt-ancient-beast-core"] },
+    { id: "hunt-worldstorm-dragon", name: "Hunt the Worldstorm Dragon", rank: "S Rank", description: "The Worldstorm Dragon — a living storm given form — has been sighted over Sector 65. Its scales shed lightning, and its roar shakes the ground. This is the apex of all hunts.", type: "fetchExplore", targetSector: 65, exploreCount: 6, levelReq: 70, xpReward: 2000, ryoReward: 1800, staminaReward: 40, currencyRewards: { boneCharms: 3, auraDust: 40, fateShards: 1 }, aiProfileId: "hunt-ai-worldstorm-dragon", itemRewards: ["hunt-legendary-material", "hunt-legendary-material", "hunt-titan-bone"] },
 ];
 
 function normalizeAiProfile(ai: Partial<CreatorAi>, allJutsus: Jutsu[] = starterJutsus): CreatorAi {
@@ -3077,12 +3893,17 @@ export default function App() {
     }, []);
     const [acceptedMissionIds, setAcceptedMissionIds] = useState<string[]>([]);
     const [missionProgress, setMissionProgress] = useState<Record<string, number>>({});
+    const [activeJutsuTraining, setActiveJutsuTraining] = useState<ActiveJutsuTraining | null>(null);
     const [pendingAiProfileId, setPendingAiProfileId] = useState("");
     const [pendingPvpOpponent, setPendingPvpOpponent] = useState<Character | null>(null);
+    const [temporaryStoryAi, setTemporaryStoryAi] = useState<CreatorAi | null>(null);
     const [raidBattleKind, setRaidBattleKind] = useState<"none" | "raidAi" | "raidPlayer" | "defense">("none");
     const [endlessBattleActive, setEndlessBattleActive] = useState(false);
     const [endlessBattleWave, setEndlessBattleWave] = useState(0);
     const [arenaKey, setArenaKey] = useState(0);
+    const [bloodlineMakerInitialRank, setBloodlineMakerInitialRank] = useState<Rank>("A Rank");
+    const [bloodlineMakerInitialElement, setBloodlineMakerInitialElement] = useState("");
+    const [bloodlineMakerRankLocked, setBloodlineMakerRankLocked] = useState(false);
     const [currentSector, setCurrentSector] = useState(40);
     const [playerRoster, setPlayerRoster] = useState<PlayerRecord[]>([]);
     const [duelChallenges, setDuelChallenges] = useState<DuelChallenge[]>([]);
@@ -3091,6 +3912,7 @@ export default function App() {
     const [incomingAttackBanner, setIncomingAttackBanner] = useState("");
     const [activeTriggeredEvent, setActiveTriggeredEvent] = useState<CreatorEvent | null>(null);
     const [activeTriggerReturnScreen, setActiveTriggerReturnScreen] = useState<Screen>("village");
+    const [pendingArenaStoryBattle, setPendingArenaStoryBattle] = useState<PendingArenaStoryBattle | null>(null);
     const [triggerPage, setTriggerPage] = useState(0);
     const [triggerLine, setTriggerLine] = useState(0);
     // Multiplayer heartbeat — keeps server presence alive and detects incoming attacks
@@ -3131,6 +3953,18 @@ export default function App() {
         return () => clearInterval(id);
     }, [character?.name, currentSector]);
 
+    // Sector-attack auto-routing: if a sectorAttack challenge arrives addressed to us,
+    // immediately route us to the arena as the defender (no accept/decline required).
+    useEffect(() => {
+        if (!character) return;
+        const incoming = duelChallenges.find(c => c.toName === character.name && c.sectorAttack);
+        if (!incoming) return;
+        setDuelChallenges(duelChallenges.filter(c => c.id !== incoming.id));
+        setPendingPvpOpponent(normalizeCharacter(incoming.challenger));
+        setRaidBattleKind("defense");
+        setScreen("arena");
+    }, [duelChallenges.length, character?.name]);
+
     useEffect(() => {
         // Helper: apply a full server/local snapshot to state
         function applySnapshot(snap: ReturnType<typeof buildPlayerSavePayload>) {
@@ -3138,6 +3972,7 @@ export default function App() {
             setCurrentAccountName(snap.character.name);
             setCurrentBiome(snap.currentBiome ?? "central");
             setActiveTraining(snap.activeTraining ?? null);
+            setActiveJutsuTraining(snap.activeJutsuTraining ?? null);
             setAcceptedMissionIds(snap.acceptedMissionIds ?? []);
             setMissionProgress(snap.missionProgress ?? {});
             setTriggeredEvents(snap.triggeredEvents ?? []);
@@ -3176,6 +4011,7 @@ export default function App() {
                     setCharacter(normalizeAdminCharacter(snapshot.character));
                     setCurrentBiome(snapshot.currentBiome ?? "central");
                     setActiveTraining(snapshot.activeTraining ?? null);
+                    setActiveJutsuTraining(snapshot.activeJutsuTraining ?? null);
                     setAcceptedMissionIds(snapshot.acceptedMissionIds ?? []);
                     setMissionProgress(snapshot.missionProgress ?? {});
                     setTriggeredEvents(snapshot.triggeredEvents ?? []);
@@ -3191,6 +4027,7 @@ export default function App() {
                 if (data.currentBiome) setCurrentBiome(data.currentBiome);
                 if (data.currentSector) setCurrentSector(data.currentSector);
                 if (data.activeTraining) setActiveTraining(data.activeTraining);
+                if (data.activeJutsuTraining) setActiveJutsuTraining(data.activeJutsuTraining);
                 if (data.adminLoggedIn) setAdminLoggedIn(true);
                 if (data.adminAccount) setAdminAccount(data.adminAccount);
                 if (data.creatorJutsus) setCreatorJutsus(data.creatorJutsus.map(normalizeJutsu).map(rebalanceNonBloodlineJutsu));
@@ -3238,6 +4075,7 @@ export default function App() {
                     savedBloodlines,
                     currentBiome,
                     activeTraining,
+                    activeJutsuTraining,
                     adminLoggedIn,
                     adminAccount,
                     creatorJutsus,
@@ -3267,6 +4105,7 @@ export default function App() {
         savedBloodlines,
         currentBiome,
         activeTraining,
+        activeJutsuTraining,
         adminLoggedIn,
         adminAccount,
         creatorJutsus,
@@ -3292,6 +4131,7 @@ export default function App() {
             character: characterToSave,
             currentBiome,
             activeTraining,
+            activeJutsuTraining,
             acceptedMissionIds,
             missionProgress,
             triggeredEvents,
@@ -3341,6 +4181,7 @@ export default function App() {
                 character: characterToSave,
                 currentBiome,
                 activeTraining,
+                activeJutsuTraining,
                 acceptedMissionIds,
                 missionProgress,
                 triggeredEvents,
@@ -3360,6 +4201,7 @@ export default function App() {
         currentAccountName,
         currentBiome,
         activeTraining,
+        activeJutsuTraining,
         acceptedMissionIds,
         missionProgress,
         triggeredEvents,
@@ -3382,6 +4224,11 @@ export default function App() {
             return [record, ...current.filter((player) => player.name !== character.name)].slice(0, 30);
         });
     }, [character, currentSector]);
+
+    useEffect(() => {
+        const inField = screen === "worldMap" || screen === "arena" || screen === "arenaDistrict" || screen === "battleArena";
+        if (!inField) setCurrentSector(0);
+    }, [screen]);
 
     useEffect(() => {
         if (!character || activeTriggeredEvent) return;
@@ -3451,6 +4298,7 @@ export default function App() {
                 character: newCharacter,
                 currentBiome: "central",
                 activeTraining: null,
+                activeJutsuTraining: null,
                 acceptedMissionIds: [],
                 missionProgress: {},
                 triggeredEvents: [],
@@ -3464,6 +4312,7 @@ export default function App() {
         setCharacter(newCharacter);
         setCurrentBiome("central");
         setActiveTraining(null);
+        setActiveJutsuTraining(null);
         setAcceptedMissionIds([]);
         setMissionProgress({});
         setTriggeredEvents([]);
@@ -3478,6 +4327,7 @@ export default function App() {
         setCharacter(normalizeAdminCharacter(snap.character));
         setCurrentBiome(snap.currentBiome ?? "central");
         setActiveTraining(snap.activeTraining ?? null);
+        setActiveJutsuTraining(snap.activeJutsuTraining ?? null);
         setAcceptedMissionIds(snap.acceptedMissionIds ?? []);
         setMissionProgress(snap.missionProgress ?? {});
         setTriggeredEvents(snap.triggeredEvents ?? []);
@@ -3513,6 +4363,7 @@ export default function App() {
             setCharacter(normalizeCharacter(localSnapshot.character));
             setCurrentBiome(localSnapshot.currentBiome ?? "central");
             setActiveTraining(localSnapshot.activeTraining ?? null);
+            setActiveJutsuTraining(localSnapshot.activeJutsuTraining ?? null);
             setAcceptedMissionIds(localSnapshot.acceptedMissionIds ?? []);
             setMissionProgress(localSnapshot.missionProgress ?? {});
             setTriggeredEvents(localSnapshot.triggeredEvents ?? []);
@@ -3538,6 +4389,7 @@ export default function App() {
         setCharacter(null);
         setCurrentAccountName("");
         setActiveTraining(null);
+        setActiveJutsuTraining(null);
         setAcceptedMissionIds([]);
         setMissionProgress({});
         setTriggeredEvents([]);
@@ -3556,6 +4408,7 @@ export default function App() {
         setSavedBloodlines([]);
         setCurrentBiome("central");
         setActiveTraining(null);
+        setActiveJutsuTraining(null);
         setAdminLoggedIn(false);
         setAdminAccount("");
         setCreatorJutsus([]);
@@ -3610,6 +4463,7 @@ export default function App() {
     }
 
     function handleEndlessWin(currentWave: number) {
+        setCharacter((current) => current ? { ...current, totalEndlessTowerWins: (current.totalEndlessTowerWins ?? 0) + 1 } : current);
         const next = currentWave + 1;
         setEndlessBattleWave(next);
         setPendingAiProfileId(pickRandomEndlessAi(next));
@@ -3622,7 +4476,7 @@ export default function App() {
     }
 
     function navigate(nextScreen: Screen) {
-        if (character && nextScreen === "arena") {
+        if (character && nextScreen === "battleArena") {
             const event = creatorEvents.find(
                 (candidate) =>
                     candidate.eventKind === "visualNovel" &&
@@ -3634,7 +4488,7 @@ export default function App() {
             if (event) {
                 setTriggeredEvents((ids) => [...ids, event.id]);
                 setActiveTriggeredEvent(event);
-                setActiveTriggerReturnScreen("arena");
+                setActiveTriggerReturnScreen("battleArena");
                 setTriggerPage(0);
                 setTriggerLine(0);
                 return;
@@ -3681,23 +4535,150 @@ export default function App() {
             const rewardInventory = event.id === AURA_SPHERE_VN_ID && !leveled.inventory.includes(AURA_SPHERE_ITEM_ID) && !Object.values(leveled.equipment).includes(AURA_SPHERE_ITEM_ID)
                 ? [...leveled.inventory, AURA_SPHERE_ITEM_ID]
                 : leveled.inventory;
-            setCharacter({
+            let nextCharacter: Character = {
                 ...applyCurrencyRewards(leveled, event.currencyRewards),
                 ryo: leveled.ryo + event.ryoReward,
                 stamina: Math.min(leveled.maxStamina, leveled.stamina + event.staminaReward),
                 clanEventContrib: (leveled.clanEventContrib ?? 0) + (isRewardEvent ? 1 : 0),
                 clanContribMonth: new Date().toISOString().slice(0, 7),
                 inventory: rewardInventory,
-            });
+            };
+            if (event.kageFinale && event.village === character.village) {
+                unlockVillageKageSystem(character.village, character.name);
+                nextCharacter = {
+                    ...nextCharacter,
+                    storyTitle: event.liberatorTitle ?? nextCharacter.storyTitle,
+                    rankTitle: event.liberatorTitle ?? nextCharacter.rankTitle,
+                };
+                alert(`The false Kage of ${character.village} has fallen. ${character.name} has broken the Hollow Gate Pact. The Kage seat is now open.`);
+            }
+            setCharacter(nextCharacter);
         }
 
         setActiveTriggeredEvent(null);
         setScreen(activeTriggerReturnScreen);
     }
 
+    function startStoryArenaBattle(step: StoryStep) {
+        setTemporaryStoryAi(null);
+        setPendingPvpOpponent(null);
+        setRaidBattleKind("none");
+        setPendingArenaStoryBattle({ kind: "storyBoss", step, returnScreen: "storyHall" });
+        setPendingAiProfileId(step.aiProfileId ?? "");
+        setCurrentBiome(step.biome ?? villageBiomeMap[character?.village ?? ""] ?? "central");
+        setCurrentWeather(weatherForBiome(step.biome ?? villageBiomeMap[character?.village ?? ""] ?? "central"));
+        setArenaKey((key) => key + 1);
+        setScreen("arena");
+    }
+
+    function startTriggeredEventArenaBattle(
+        event: CreatorEvent,
+        battle?: NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number]["battle"]
+    ) {
+        let aiProfileId = battle?.aiProfileId || event.aiProfileId || "";
+        if (!aiProfileId && battle) {
+            aiProfileId = `temp-vn-ai-${event.id}-${Date.now()}`;
+            const level = Math.max(1, character?.level ?? event.levelReq ?? 1);
+            setTemporaryStoryAi({
+                id: aiProfileId,
+                name: battle.bossName || event.name,
+                icon: battle.bossIcon || event.icon || "AI",
+                image: event.avatarImage || event.image,
+                level,
+                village: event.village || "AI",
+                hp: battle.bossHp || maxHpForLevel(level),
+                chakra: maxChakraForLevel(level),
+                stamina: maxStaminaForLevel(level),
+                stats: addToAllStats(enemyStats(), Math.max(0, level - 1)),
+                jutsuIds: starterJutsus.slice(0, 4).map((jutsu) => jutsu.id),
+                rules: [{ id: makeId(), condition: "always", value: 0, action: "use_highest_power_jutsu" }],
+            });
+        } else {
+            setTemporaryStoryAi(null);
+        }
+        setPendingPvpOpponent(null);
+        setRaidBattleKind("none");
+        setPendingArenaStoryBattle({ kind: "triggeredEvent", event, battle, returnScreen: activeTriggerReturnScreen });
+        setPendingAiProfileId(aiProfileId);
+        setCurrentBiome(event.biome);
+        setCurrentWeather(weatherForBiome(event.biome));
+        setActiveTriggeredEvent(null);
+        setArenaKey((key) => key + 1);
+        setScreen("arena");
+    }
+
+    function completePendingArenaStoryBattle(survivingHp: number) {
+        if (!pendingArenaStoryBattle || !character) return "Story battle complete.";
+
+        if (pendingArenaStoryBattle.kind === "storyBoss") {
+            const { step } = pendingArenaStoryBattle;
+            const leveled = gainXp({ ...character, hp: survivingHp }, step.rewardXp);
+            let nextCharacter: Character = {
+                ...leveled,
+                ryo: leveled.ryo + step.rewardRyo,
+                auraDust: (leveled.auraDust ?? 0) + 12,
+                hp: Math.min(leveled.maxHp, survivingHp + 25),
+                stamina: Math.min(leveled.maxStamina, leveled.stamina + 20),
+                chakra: Math.min(leveled.maxChakra, leveled.chakra + 20),
+                storyProgress: character.storyProgress + 1,
+                clanBattleContrib: (leveled.clanBattleContrib ?? 0) + 1,
+                clanContribMonth: new Date().toISOString().slice(0, 7),
+            };
+            if (step.kageFinale) {
+                unlockVillageKageSystem(character.village, character.name);
+                nextCharacter = {
+                    ...nextCharacter,
+                    storyTitle: step.liberatorTitle ?? nextCharacter.storyTitle,
+                    rankTitle: step.liberatorTitle ?? nextCharacter.rankTitle,
+                };
+            }
+            setCharacter(nextCharacter);
+            setPendingAiProfileId("");
+            return `${step.bossName} defeated. +${step.rewardXp} XP, +${step.rewardRyo} ryo, +12 Aura Dust. Story advanced.`;
+        }
+
+        const { event, battle } = pendingArenaStoryBattle;
+        const xpReward = battle?.xpReward ?? event.xpReward;
+        const ryoReward = battle?.ryoReward ?? event.ryoReward;
+        const leveled = gainXp({ ...character, hp: survivingHp }, xpReward);
+        const isRewardEvent = event.eventKind !== "visualNovel";
+        const rewardInventory = event.id === AURA_SPHERE_VN_ID && !leveled.inventory.includes(AURA_SPHERE_ITEM_ID) && !Object.values(leveled.equipment).includes(AURA_SPHERE_ITEM_ID)
+            ? [...leveled.inventory, AURA_SPHERE_ITEM_ID]
+            : leveled.inventory;
+        let nextCharacter: Character = {
+            ...applyCurrencyRewards(leveled, event.currencyRewards),
+            ryo: leveled.ryo + ryoReward,
+            stamina: Math.min(leveled.maxStamina, leveled.stamina + event.staminaReward),
+            clanEventContrib: (leveled.clanEventContrib ?? 0) + (isRewardEvent ? 1 : 0),
+            clanBattleContrib: (leveled.clanBattleContrib ?? 0) + 1,
+            clanContribMonth: new Date().toISOString().slice(0, 7),
+            inventory: rewardInventory,
+        };
+        if (event.kageFinale && event.village === character.village) {
+            unlockVillageKageSystem(character.village, character.name);
+            nextCharacter = {
+                ...nextCharacter,
+                storyTitle: event.liberatorTitle ?? nextCharacter.storyTitle,
+                rankTitle: event.liberatorTitle ?? nextCharacter.rankTitle,
+            };
+        }
+        setCharacter(nextCharacter);
+        setPendingAiProfileId("");
+        return `${battle?.bossName ?? event.name} defeated. +${xpReward} XP, +${ryoReward} ryo. Event reward claimed.`;
+    }
+
+    function continuePendingArenaStoryBattle() {
+        const returnScreen = pendingArenaStoryBattle?.returnScreen ?? "storyHall";
+        setPendingArenaStoryBattle(null);
+        setTemporaryStoryAi(null);
+        setPendingAiProfileId("");
+        setScreen(returnScreen);
+    }
+
     const playableAis = [
         ...builtinAis.map((builtin) => creatorAis.find((ai) => ai.id === builtin.id) ?? builtin),
         ...creatorAis.filter((ai) => !builtinAis.some((builtin) => builtin.id === ai.id)),
+        ...(temporaryStoryAi ? [temporaryStoryAi] : []),
     ];
 
     return (
@@ -3719,6 +4700,7 @@ export default function App() {
                     <LeftProfileCard
                         character={character}
                         updateCharacter={setCharacter}
+                        currentSector={currentSector}
                     />
                 )}
 
@@ -3855,10 +4837,7 @@ export default function App() {
                         setLineIndex={setTriggerLine}
                         onCancel={() => setActiveTriggeredEvent(null)}
                         onComplete={() => completeTriggeredEvent(activeTriggeredEvent)}
-                        setScreen={setScreen}
-                        setCurrentBiome={setCurrentBiome}
-                        setCurrentWeather={setCurrentWeather}
-                        setPendingAiProfileId={setPendingAiProfileId}
+                        onBattle={startTriggeredEventArenaBattle}
                     />
                 )}
 
@@ -3877,10 +4856,6 @@ export default function App() {
                     <Village
                         characterVillage={character.village}
                         setScreen={navigate}
-                        onSave={async () => {
-                            if (!currentAccountName) return;
-                            await pushSaveToServer(character, currentAccountName);
-                        }}
                     />
                 )}
                 {!activeTriggeredEvent && screen === "worldMap" && character && (
@@ -3901,19 +4876,37 @@ export default function App() {
                         playerRoster={playerRoster}
                         liveSectorPlayers={liveSectorPlayers}
                         setCurrentSector={setCurrentSector}
-                        attackPlayer={async (opponent) => {
-                            try {
-                                await fetch('/api/player/attack', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ targetName: opponent.name, attacker: character }),
-                                });
-                            } catch { /* server unavailable */ }
-                            setPendingAiProfileId("");
+                        acceptedMissionIds={acceptedMissionIds}
+                        missionProgress={missionProgress}
+                        attackPlayer={(opponent) => {
+                            // Regular duel — send a challenge the opponent must accept
+                            if (duelChallenges.some(c => c.fromName === character.name && c.toName === opponent.name)) {
+                                alert(`Challenge already pending against ${opponent.name}. Wait for them to respond.`);
+                                return;
+                            }
+                            setDuelChallenges([...duelChallenges, {
+                                id: makeId(),
+                                fromName: character.name,
+                                toName: opponent.name,
+                                challenger: character,
+                                createdAt: Date.now(),
+                                mode: "standard" as const,
+                            }]);
+                            alert(`⚔️ Challenge sent to ${opponent.name}! They'll see it in the Arena and can accept or decline.`);
+                        }}
+                        sectorAttackPlayer={(opponent) => {
+                            // Sector PvP — immediate mutual engagement, defender auto-routed
+                            setDuelChallenges([...duelChallenges, {
+                                id: makeId(),
+                                fromName: character.name,
+                                toName: opponent.name,
+                                challenger: character,
+                                createdAt: Date.now(),
+                                mode: "standard" as const,
+                                sectorAttack: true,
+                            }]);
+                            setPendingPvpOpponent(opponent.character);
                             setRaidBattleKind("raidPlayer");
-                            setPendingPvpOpponent(normalizeCharacter(opponent.character));
-                            setCurrentSector(opponent.currentSector ?? currentSector);
-                            setScreen("arena");
                         }}
                     />
                 )}
@@ -3930,27 +4923,39 @@ export default function App() {
                         updateCharacter={setCharacter}
                         setScreen={setScreen}
                         savedBloodlines={savedBloodlines}
-                        setSavedBloodlines={setSavedBloodlines}
                         triggeredEvents={triggeredEvents}
                         setTriggeredEvents={setTriggeredEvents}
                         onStartEndlessBattle={startEndlessBattle}
+                        creatorItems={creatorItems}
+                        setCreatorItems={setCreatorItems}
+                        onOpenBloodlineMaker={(rank) => {
+                            setBloodlineMakerInitialRank(rank);
+                            setBloodlineMakerInitialElement(getCharacterElements(character)[0] ?? "");
+                            setBloodlineMakerRankLocked(true);
+                            setScreen("bloodlineMaker");
+                        }}
                     />
                 )}
-                {!activeTriggeredEvent && screen === "storyHall" && character && <StoryHall character={character} setScreen={setScreen} />}
+                {!activeTriggeredEvent && screen === "storyHall" && character && <StoryHall character={character} setScreen={setScreen} onStartBattle={startStoryArenaBattle} />}
                 {!activeTriggeredEvent && screen === "storyBoss" && character && <StoryBoss character={character} updateCharacter={setCharacter} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "training" && character && <Training character={character} updateCharacter={setCharacter} activeTraining={activeTraining} setActiveTraining={setActiveTraining} />}
                 {!activeTriggeredEvent && screen === "pets" && character && <PetYard character={character} updateCharacter={setCharacter} setScreen={navigate} />}
                 {!activeTriggeredEvent && screen === "petArena" && character && <PetArena character={character} updateCharacter={setCharacter} playerRoster={playerRoster} setScreen={setScreen} />}
-                {!activeTriggeredEvent && screen === "jutsuTraining" && character && <JutsuTrainingHall character={character} updateCharacter={setCharacter} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} />}
+                {!activeTriggeredEvent && screen === "jutsuTraining" && character && <JutsuTrainingHall character={character} updateCharacter={setCharacter} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} activeJutsuTraining={activeJutsuTraining} setActiveJutsuTraining={setActiveJutsuTraining} />}
                 {!activeTriggeredEvent && screen === "missions" && character && <Missions character={character} updateCharacter={setCharacter} creatorAis={playableAis} creatorMissions={creatorMissions} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} setPendingAiProfileId={setPendingAiProfileId} setScreen={setScreen} />}
-                {!activeTriggeredEvent && screen === "townHall" && character && <TownHall character={character} updateCharacter={setCharacter} />}
-                {!activeTriggeredEvent && screen === "clan" && character && <ClanHall character={character} updateCharacter={setCharacter} />}
+                {!activeTriggeredEvent && screen === "hunting" && character && <HunterBoard character={character} updateCharacter={setCharacter} creatorAis={playableAis} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} setPendingAiProfileId={setPendingAiProfileId} setScreen={setScreen} />}
+                {!activeTriggeredEvent && screen === "logbook" && character && <Logbook character={character} updateCharacter={setCharacter} creatorAis={playableAis} creatorMissions={creatorMissions} creatorEvents={creatorEvents} creatorRaids={creatorRaids} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} savedBloodlines={savedBloodlines} setPendingAiProfileId={setPendingAiProfileId} setRaidBattleKind={setRaidBattleKind} setCurrentSector={setCurrentSector} setCurrentBiome={setCurrentBiome} setCurrentWeather={setCurrentWeather} setScreen={setScreen} />}
+                {!activeTriggeredEvent && screen === "townHall" && character && <TownHall character={character} updateCharacter={setCharacter} creatorItems={creatorItems} />}
+                {!activeTriggeredEvent && screen === "clan" && character && <ClanHall character={character} updateCharacter={setCharacter} creatorItems={creatorItems} />}
                 {!activeTriggeredEvent && screen === "bank" && character && <Bank character={character} updateCharacter={setCharacter} />}
                 {!activeTriggeredEvent && screen === "shop" && character && <Shop character={character} updateCharacter={setCharacter} creatorItems={creatorItems} creatorCards={creatorCards} />}
                 {!activeTriggeredEvent && screen === "grandMarketplace" && character && <GrandMarketplace character={character} updateCharacter={setCharacter} creatorItems={creatorItems} creatorCards={creatorCards} />}
                 {!activeTriggeredEvent && screen === "shinobiTiles" && character && <ShinobiTiles character={character} updateCharacter={setCharacter} creatorCards={creatorCards} />}
                 {!activeTriggeredEvent && screen === "hospital" && character && <Hospital character={character} updateCharacter={setCharacter} />}
                 {!activeTriggeredEvent && screen === "cafeteria" && character && <Cafeteria character={character} updateCharacter={setCharacter} />}
+                {!activeTriggeredEvent && screen === "tavern" && character && <VillageTavern character={character} setScreen={setScreen} />}
+                {!activeTriggeredEvent && screen === "hallOfLegends" && character && <HallOfLegends character={character} setScreen={setScreen} playerRoster={playerRoster} />}
+                {!activeTriggeredEvent && screen === "shinobiCouncil" && character && <ShinobiCouncilHall character={character} setScreen={setScreen} playerRoster={playerRoster} />}
                 {!activeTriggeredEvent && screen === "profile" && character && (
                     <Profile
                         character={character}
@@ -3969,9 +4974,10 @@ export default function App() {
                     />
                 )}
 
-                {!activeTriggeredEvent && screen === "arena" && character && (
+                {!activeTriggeredEvent && (screen === "arena" || screen === "battleArena" || screen === "arenaDistrict") && character && (
                     <Arena
                         key={arenaKey}
+                        lobbyMode={screen === "arenaDistrict" ? "arenaDistrict" : "battleArena"}
                         character={character}
                         updateCharacter={setCharacter}
                         savedBloodlines={savedBloodlines}
@@ -3980,6 +4986,7 @@ export default function App() {
                         pendingAiProfileId={pendingAiProfileId}
                         setPendingAiProfileId={setPendingAiProfileId}
                         currentBiome={currentBiome}
+                        currentSector={currentSector}
                         currentWeather={currentWeather}
                         playerRoster={playerRoster}
                         duelChallenges={duelChallenges}
@@ -3994,13 +5001,20 @@ export default function App() {
                         endlessBattleWave={endlessBattleWave}
                         onEndlessWin={handleEndlessWin}
                         onEndlessBattleEnd={endEndlessBattle}
+                        pendingStoryBattle={pendingArenaStoryBattle}
+                        onPendingStoryBattleWin={completePendingArenaStoryBattle}
+                        onPendingStoryBattleContinue={continuePendingArenaStoryBattle}
                     />
                 )}
 
                 {!activeTriggeredEvent && screen === "bloodlineMaker" && (
                     <BloodlineMaker
+                        initialRank={bloodlineMakerInitialRank}
+                        initialSpecialElement={bloodlineMakerInitialElement}
                         savedBloodlines={savedBloodlines}
                         setSavedBloodlines={setSavedBloodlines}
+                        lockedRank={bloodlineMakerRankLocked}
+                        onClose={() => { setBloodlineMakerRankLocked(false); setScreen("centralHub"); }}
                     />
                 )}
             </main>
@@ -4011,9 +5025,11 @@ export default function App() {
 function LeftProfileCard({
     character,
     updateCharacter,
+    currentSector,
 }: {
     character: Character;
     updateCharacter: (c: Character) => void;
+    currentSector: number;
 }) {
     function uploadAvatar(e: ChangeEvent<HTMLInputElement>) {
         const file = e.target.files?.[0];
@@ -4051,23 +5067,23 @@ function LeftProfileCard({
             <div className="left-profile-stat">HP {character.hp}/{character.maxHp}</div>
             <div className="left-profile-stat">Chakra {character.chakra}/{character.maxChakra}</div>
             <div className="left-profile-stat">Stamina {character.stamina}/{character.maxStamina}</div>
-            <div className="left-profile-stat">Sector 40</div>
+            <div className="left-profile-stat">Sector {currentSector}</div>
             <div className="left-profile-stat">Weather Clear Skies</div>
 
             {/* Currencies */}
             <div className="left-currencies">
                 <div className="left-currency-row">
-                    <span className="left-currency-icon">💴</span>
+                    <span className="left-currency-icon">💰</span>
                     <span className="left-currency-label">Ryo</span>
                     <span className="left-currency-value">{character.ryo.toLocaleString()}</span>
                 </div>
                 <div className="left-currency-row">
-                    <span className="left-currency-icon">🎖️</span>
+                    <span className="left-currency-icon">🏅</span>
                     <span className="left-currency-label">Honor Seals</span>
                     <span className="left-currency-value" style={{ color: "#facc15" }}>{character.honorSeals.toLocaleString()}</span>
                 </div>
                 <div className="left-currency-row">
-                    <span className="left-currency-icon">🌫️</span>
+                    <span className="left-currency-icon">✨</span>
                     <span className="left-currency-label">Aura Dust</span>
                     <span className="left-currency-value" style={{ color: "#fef3c7" }}>{character.auraDust.toLocaleString()}</span>
                 </div>
@@ -4077,7 +5093,7 @@ function LeftProfileCard({
                     <span className="left-currency-value" style={{ color: "#ce93d8" }}>{character.fateShards.toLocaleString()}</span>
                 </div>
                 <div className="left-currency-row">
-                    <span className="left-currency-icon">🔮</span>
+                    <span className="left-currency-icon">🔷</span>
                     <span className="left-currency-label">Aura Stones</span>
                     <span className="left-currency-value" style={{ color: "#60a5fa" }}>{character.auraStones.toLocaleString()}</span>
                 </div>
@@ -4178,11 +5194,12 @@ function RightMenu({
                         <button onClick={() => navigate("worldMap")}>Travel</button>
                         <button onClick={() => navigate("storyHall")}>Story</button>
                         <button onClick={() => navigate("profile")}>Character</button>
+                        <button onClick={() => navigate("logbook")}>Logbook</button>
                         <button onClick={() => navigate("inventory")}>Inventory</button>
                         <button onClick={() => navigate("training")}>Stats</button>
                         <button onClick={() => navigate("jutsuTraining")}>Jutsu</button>
                         <button onClick={() => navigate("missions")}>Missions</button>
-                        <button onClick={() => navigate("pets")}>Pets 🐾</button>
+                        <button onClick={() => navigate("pets")}>Pets</button>
                         <button onClick={() => navigate("arena")}>Arena</button>
                         <button onClick={() => navigate("bloodlineMaker")}>Bloodline</button>
                         <button onClick={() => navigate(adminLoggedIn ? "adminPanel" : "adminLogin")}>Admin</button>
@@ -4241,7 +5258,7 @@ function VillageLoreScreen({
     onContinue: () => void;
 }) {
     const loreData = villageLore[character.village] ?? {
-        icon: "🥷",
+        icon: "⚔️",
         theme: "The Shinobi Path",
         lore: "Your shinobi journey begins here.",
     };
@@ -4283,7 +5300,7 @@ function VillageLoreScreen({
         </div>
     );
 }
-function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, setPageIndex, setLineIndex, onCancel, onComplete, setScreen, setCurrentBiome, setCurrentWeather, setPendingAiProfileId }: { event: CreatorEvent; character: Character; pageIndex: number; lineIndex: number; setPageIndex: (index: number | ((index: number) => number)) => void; setLineIndex: (index: number | ((index: number) => number)) => void; onCancel: () => void; onComplete: () => void; setScreen: (screen: Screen) => void; setCurrentBiome: (biome: Biome) => void; setCurrentWeather: (weather: WeatherType) => void; setPendingAiProfileId: (id: string) => void }) {
+function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, setPageIndex, setLineIndex, onCancel, onComplete, onBattle }: { event: CreatorEvent; character: Character; pageIndex: number; lineIndex: number; setPageIndex: (index: number | ((index: number) => number)) => void; setLineIndex: (index: number | ((index: number) => number)) => void; onCancel: () => void; onComplete: () => void; onBattle: (event: CreatorEvent, battle?: NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number]["battle"]) => void }) {
     const pages = event.vnPages && event.vnPages.length > 0 ? event.vnPages : [{ title: event.vnTitle || event.name, scene: event.vnScene || "", speaker: event.vnSpeaker || "Narrator", dialogue: event.dialogue, image: event.image }];
     const page = pages[Math.min(pageIndex, pages.length - 1)];
     const pageDialogue = page.dialogue.length > 0 ? page.dialogue : event.dialogue;
@@ -4291,8 +5308,14 @@ function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, setPageI
     const splitLine = activeLine.includes(":") ? activeLine.split(":") : [page.speaker || event.vnSpeaker || "Narrator", activeLine];
     const speaker = splitLine[0].trim();
     const spoken = splitLine.slice(1).join(":").trim() || activeLine;
-    const initials = speaker === "Narrator" ? "..." : speaker.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase();
     const pageImage = page.image || event.image;
+    const savedRightWasPlayer = (page.rightName ?? "").trim().toLowerCase() === "player";
+    const leftName = savedRightWasPlayer ? "Player" : (page.leftName || "Player");
+    const rightName = savedRightWasPlayer ? (page.leftName || page.speaker || event.vnSpeaker || speaker) : (page.rightName || page.speaker || event.vnSpeaker || speaker);
+    const leftInitials = leftName === "Narrator" ? "..." : leftName.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase();
+    const rightInitials = rightName.toLowerCase() === "player" ? character.name.slice(0, 2).toUpperCase() : rightName.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase();
+    const leftImage = savedRightWasPlayer ? character.avatarImage : (page.leftImage || (leftName.toLowerCase() === "player" ? character.avatarImage : ""));
+    const rightImage = savedRightWasPlayer ? (page.leftImage || page.rightImage || event.avatarImage || "") : (page.rightImage || event.avatarImage || "");
     const canBack = lineIndex > 0 || pageIndex > 0;
     const isLastLine = pageIndex === pages.length - 1 && lineIndex >= pageDialogue.length - 1;
     const pageChoices = page.choices?.filter((c) => c.text);
@@ -4302,7 +5325,11 @@ function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, setPageI
     const isAuraSphereEvent = event.id === AURA_SPHERE_VN_ID;
     function previousLine() { if (lineIndex > 0) return setLineIndex((index) => index - 1); if (pageIndex > 0) { const previousPage = pages[pageIndex - 1]; setPageIndex((index) => index - 1); setLineIndex(Math.max(0, ((previousPage.dialogue.length || 1) - 1))); } }
     function nextLine() { if (isAtChoicePoint) return; if (lineIndex < pageDialogue.length - 1) return setLineIndex((index) => index + 1); if (pageIndex < pages.length - 1) { setPageIndex((index) => index + 1); setLineIndex(0); return; } setShowFinale(true); }
-    function chooseOption(choice: { text: string; nextPage: number; conclusion?: string }) {
+    function chooseOption(choice: { text: string; nextPage: number; conclusion?: string; trait?: string; battle?: NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number]["battle"] }) {
+        if (choice.battle) {
+            onBattle(event, choice.battle);
+            return;
+        }
         const target = Math.max(0, Math.min(pages.length - 1, choice.nextPage));
         if (choice.conclusion?.trim()) { setPendingChoice({ conclusion: choice.conclusion.trim(), nextPage: target }); }
         else { setPageIndex(target); setLineIndex(0); }
@@ -4323,7 +5350,7 @@ function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, setPageI
             </div>
             <div className="menu">
                 {!isAuraSphereEvent && (
-                    <button className="admin-button" onClick={() => { setPendingAiProfileId(event.aiProfileId ?? ""); setCurrentBiome(event.biome); setCurrentWeather(weatherForBiome(event.biome)); setScreen("arena"); onCancel(); }}>
+                    <button className="admin-button" onClick={() => onBattle(event)}>
                         Enter Battle — {biomeLabel(event.biome)}
                     </button>
                 )}
@@ -4347,8 +5374,8 @@ function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, setPageI
                 </div>
                 <div className={"vn-stage vn-biome-" + event.biome + (pageImage ? " vn-has-image" : "")} style={pageImage ? { backgroundImage: `linear-gradient(180deg, rgba(7,12,27,.18), rgba(7,12,27,.78)), url(${pageImage})` } : undefined}>
                     <div className="vn-backdrop"><span className="vn-village-silhouette"></span></div>
-                    <div className="vn-character mentor-character">{initials}</div>
-                    <div className="vn-character hero-character">{character.name.slice(0, 2).toUpperCase()}</div>
+                    <div className="vn-character mentor-character">{leftImage ? <img src={leftImage} alt={leftName} /> : leftInitials}</div>
+                    <div className="vn-character hero-character">{rightImage ? <img src={rightImage} alt={rightName} /> : rightInitials}</div>
                     <div className="vn-scene-card">{page.scene || event.vnScene || "An event interrupts your path."}</div>
                     <div className="vn-dialogue">
                         <div className="vn-speaker">{speaker}</div>
@@ -4378,7 +5405,7 @@ function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, setPageI
                 </div>
                 <div className="vn-choice-row">
                     <button onClick={() => { setPageIndex(0); setLineIndex(0); }}>Replay Scene</button>
-                    <button onClick={() => { setPendingAiProfileId(event.aiProfileId ?? ""); setCurrentBiome(event.biome); setCurrentWeather(weatherForBiome(event.biome)); setScreen("arena"); onCancel(); }}>Battle in {biomeLabel(event.biome)}</button>
+                    <button onClick={() => onBattle(event)}>Battle in {biomeLabel(event.biome)}</button>
                     <button onClick={onComplete}>Claim Reward + Continue</button>
                 </div>
                 <div className="vn-reward-strip">
@@ -4563,7 +5590,7 @@ function PetYard({ character, updateCharacter, setScreen }: { character: Charact
                                         {pet.trait && <span className="pet-trait-tag">{pet.trait}</span>}
                                         {character.activePetId === pet.id && <span className="pet-active-tag">Active</span>}
                                         {pet.training && Date.now() < pet.training.endsAt && (
-                                            <span className="pet-training-tag">⏱ {formatPetTimer(pet.training.endsAt - Date.now())}</span>
+                                            <span className="pet-training-tag">⏳ {formatPetTimer(pet.training.endsAt - Date.now())}</span>
                                         )}
                                         {pet.training && Date.now() >= pet.training.endsAt && (
                                             <span className="pet-ready-tag">✓ Ready</span>
@@ -4582,7 +5609,7 @@ function PetYard({ character, updateCharacter, setScreen }: { character: Charact
                         <div className="pet-detail-left pet-profile-panel">
                             <div className="pet-detail-avatar pet-heart-anchor">
                                 {selectedPet.image ? <img src={selectedPet.image} alt={selectedPet.name} /> : <span className="pet-detail-initials">{selectedPet.name.slice(0, 2).toUpperCase()}</span>}
-                                {petHeartBurst > 0 && <span key={petHeartBurst} className="pet-heart-pop">♥</span>}
+                                {petHeartBurst > 0 && <span key={petHeartBurst} className="pet-heart-pop">❤️</span>}
                             </div>
                             <h3>{selectedPet.name}</h3>
                             <p>Level {selectedPet.level} | {selectedPet.rarity}</p>
@@ -4625,7 +5652,7 @@ function PetYard({ character, updateCharacter, setScreen }: { character: Charact
                             <h4>Training</h4>
                             {selectedPet.training && Date.now() < selectedPet.training.endsAt ? (
                                 <div className="training-in-progress">
-                                    <p>📋 {petTrainingOptions.find((o) => o.type === selectedPet.training?.type)?.label}</p>
+                                    <p>⏳ {petTrainingOptions.find((o) => o.type === selectedPet.training?.type)?.label}</p>
                                     <p className="training-timer">{formatPetTimer(selectedPet.training.endsAt - Date.now())} remaining</p>
                                 </div>
                             ) : selectedPet.training ? (
@@ -4669,13 +5696,29 @@ function PetYard({ character, updateCharacter, setScreen }: { character: Charact
                                 <h4>Pet Jutsus</h4>
                                 {selectedPet.jutsus.length === 0 ? (
                                     <p className="hint">This pet has no jutsu yet.</p>
-                                ) : selectedPet.jutsus.map((jutsu, i) => (
-                                    <div key={i} className="pet-jutsu-row">
-                                        <strong>{jutsu.name}</strong>
-                                        <span>Power {jutsu.power}</span>
-                                        <span>Cooldown {jutsu.cooldown}</span>
-                                    </div>
-                                ))}
+                                ) : selectedPet.jutsus.map((jutsu, i) => {
+                                    const kindMeta: Record<string, { icon: string; label: string; color: string }> = {
+                                        damage:   { icon: "⚔️",  label: "Damage",   color: "#fca5a5" },
+                                        buff:     { icon: "💪",  label: "Buff",     color: "#86efac" },
+                                        heal:     { icon: "💚",  label: "Heal",     color: "#4ade80" },
+                                        debuff:   { icon: "🔻",  label: "Debuff",   color: "#f97316" },
+                                        dot:      { icon: "☠️",  label: "Poison",   color: "#c084fc" },
+                                        move:     { icon: "💨",  label: "Move",     color: "#93c5fd" },
+                                        barrier:  { icon: "🔵",  label: "Barrier",  color: "#7dd3fc" },
+                                        movelock: { icon: "🔒",  label: "Rootlock", color: "#fbbf24" },
+                                    };
+                                    const km = kindMeta[jutsu.kind] ?? { icon: "❓", label: jutsu.kind, color: "#aaa" };
+                                    return (
+                                        <div key={i} className="pet-jutsu-row">
+                                            <span className="pet-jutsu-kind-badge" style={{ color: km.color, borderColor: km.color }}>
+                                                {km.icon} {km.label}
+                                            </span>
+                                            <strong>{jutsu.name}</strong>
+                                            {jutsu.power > 0 && <span className="pet-jutsu-stat">P {jutsu.power}</span>}
+                                            <span className="pet-jutsu-stat">CD {jutsu.cooldown}</span>
+                                        </div>
+                                    );
+                                })}
                             </section>
                         </div>
                     </div>
@@ -4698,6 +5741,7 @@ type PetArenaOpponent = {
 
 const genericPetArenaOpponents: PetArenaOpponent[] = [
     {
+        // ── D-rank: fast skirmisher, chip damage + harassment ──
         owner: "Central Pet Arena AI",
         pet: applyPetTraitBonuses({
             id: "generic-ai-pet-sparrow",
@@ -4707,19 +5751,22 @@ const genericPetArenaOpponents: PetArenaOpponent[] = [
             xp: 0,
             maxLevel: 50,
             hp: 130,
-            attack: 24,
-            defense: 16,
-            speed: 30,
-            description: "A quick generic arena pet trained for beginner matches.",
+            attack: 26,
+            defense: 14,
+            speed: 32,
+            description: "A darting sparrow that harasses with quick pecks and blinding feathers. Fragile but relentless.",
             jutsus: [
-                { name: "Peck Rush", power: 24, cooldown: 1, currentCooldown: 0, kind: "damage" },
-                { name: "Wing Guard", power: 14, cooldown: 3, currentCooldown: 0, kind: "buff" },
+                { name: "Talon Strike",    power: 24, cooldown: 1, currentCooldown: 0, kind: "damage"   },
+                { name: "Feather Cloud",   power: 22, cooldown: 4, currentCooldown: 0, kind: "debuff"   },
+                { name: "Pin Feathers",    power: 0,  cooldown: 5, currentCooldown: 0, kind: "movelock" },
+                { name: "Wing Burst",      power: 0,  cooldown: 4, currentCooldown: 0, kind: "move"     },
             ],
             unlockedForPve: true,
             trait: "Swift",
         }, "Swift"),
     },
     {
+        // ── B-rank: fortress tank, sustain + debuff combo ──
         owner: "Central Pet Arena AI",
         pet: applyPetTraitBonuses({
             id: "generic-ai-pet-guardhound",
@@ -4728,20 +5775,25 @@ const genericPetArenaOpponents: PetArenaOpponent[] = [
             level: 18,
             xp: 0,
             maxLevel: 70,
-            hp: 240,
-            attack: 38,
-            defense: 30,
-            speed: 22,
-            description: "A sturdy AI pet that tests defensive builds.",
+            hp: 260,
+            attack: 36,
+            defense: 34,
+            speed: 20,
+            description: "An armored hound built to outlast opponents. Heals, shrugs off hits, and strips enemy buffs.",
             jutsus: [
-                { name: "Iron Bite", power: 38, cooldown: 2, currentCooldown: 0, kind: "damage" },
-                { name: "Guard Stance", power: 24, cooldown: 3, currentCooldown: 0, kind: "buff" },
+                { name: "Iron Fang",       power: 40, cooldown: 2, currentCooldown: 0, kind: "damage"  },
+                { name: "Iron Shell",      power: 34, cooldown: 3, currentCooldown: 0, kind: "buff"    },
+                { name: "Iron Barrier",    power: 90, cooldown: 5, currentCooldown: 0, kind: "barrier" },
+                { name: "Battle Howl",     power: 26, cooldown: 5, currentCooldown: 0, kind: "debuff"  },
+                { name: "Hound Mend",      power: 65, cooldown: 5, currentCooldown: 0, kind: "heal"    },
+                { name: "Pack Charge",     power: 0,  cooldown: 4, currentCooldown: 0, kind: "move"    },
             ],
             unlockedForPve: true,
             trait: "Guardian",
         }, "Guardian"),
     },
     {
+        // ── S-rank: apex predator, debuff-into-nuke combo with poison pressure ──
         owner: "Central Pet Arena AI",
         pet: applyPetTraitBonuses({
             id: "generic-ai-pet-emberlynx",
@@ -4750,14 +5802,18 @@ const genericPetArenaOpponents: PetArenaOpponent[] = [
             level: 35,
             xp: 0,
             maxLevel: 90,
-            hp: 360,
-            attack: 62,
-            defense: 34,
-            speed: 48,
-            description: "A high-pressure AI pet with aggressive jutsu timing.",
+            hp: 370,
+            attack: 66,
+            defense: 32,
+            speed: 50,
+            description: "A legendary fire-lynx that strips defenses, poisons, then closes in for devastating finishing blows.",
             jutsus: [
-                { name: "Ember Pounce", power: 62, cooldown: 2, currentCooldown: 0, kind: "damage" },
-                { name: "Predator Focus", power: 32, cooldown: 4, currentCooldown: 0, kind: "buff" },
+                { name: "Claw Slash",      power: 58, cooldown: 1, currentCooldown: 0, kind: "damage"   },
+                { name: "Ember Pounce",    power: 90, cooldown: 3, currentCooldown: 0, kind: "damage"   },
+                { name: "Predator Mark",   power: 48, cooldown: 3, currentCooldown: 0, kind: "debuff"   },
+                { name: "Flame Venom",     power: 68, cooldown: 5, currentCooldown: 0, kind: "dot"      },
+                { name: "Ember Cage",      power: 0,  cooldown: 5, currentCooldown: 0, kind: "movelock" },
+                { name: "Flame Sprint",    power: 0,  cooldown: 3, currentCooldown: 0, kind: "move"     },
             ],
             unlockedForPve: true,
             trait: "Aggressive",
@@ -4769,9 +5825,14 @@ type PetBattleFighter = {
     owner: string;
     pet: Pet;
     hp: number;
+    pos: number;
     attackBuff: number;
     defenseBuff: number;
     cooldowns: Record<string, number>;
+    dotDamage: number;
+    dotRounds: number;
+    shieldHp: number;    // absorbs incoming damage before HP is reduced
+    moveLocked: number;  // rounds remaining that this fighter cannot move
 };
 
 type PetArenaFrame = {
@@ -4782,42 +5843,210 @@ type PetArenaFrame = {
     playerPos: number;
     enemyPos: number;
     actor: "player" | "enemy" | "system";
-    actionKind?: "damage" | "buff" | "basic" | "result";
+    actionKind?: "damage" | "buff" | "basic" | "result" | "heal" | "debuff" | "dot" | "move" | "barrier" | "movelock";
+    damage?: number;
+    crit?: boolean;
+    // rich visual fields
+    traitFlash?: { actor: "player" | "enemy"; trait: string };
+    combo?: number;
+    isPrefight?: boolean;
+    isKO?: boolean;
+    playerStatus?: { poisoned?: number; atkBuff?: boolean; defBuff?: boolean; shield?: number; moveLocked?: boolean };
+    enemyStatus?: { poisoned?: number; atkBuff?: boolean; defBuff?: boolean; shield?: number; moveLocked?: boolean };
 };
 
-function petAiRules(pet: Pet): AiRule[] {
-    const buffJutsu = pet.jutsus.find((jutsu) => jutsu.kind === "buff");
-    const damageJutsu = [...pet.jutsus].filter((jutsu) => jutsu.kind === "damage").sort((a, b) => b.power - a.power)[0];
-    const rules: AiRule[] = [];
-    if (buffJutsu) rules.push({ id: makeId(), condition: "hp_lower_than", value: 55, action: "use_specific_jutsu", jutsuId: buffJutsu.name });
-    if (damageJutsu) rules.push({ id: makeId(), condition: "specific_round", value: 1, action: "use_specific_jutsu", jutsuId: damageJutsu.name });
-    rules.push({ id: makeId(), condition: "always", value: 0, action: "use_highest_power_jutsu" });
-    rules.push({ id: makeId(), condition: "always", value: 0, action: "use_basic_attack" });
-    return rules;
-}
+const PET_GRID_COLS  = 14;
+const PET_GRID_ROWS  = 6;
+const PET_GRID_SIZE  = PET_GRID_COLS * PET_GRID_ROWS; // 84
 
-function petRuleMatches(rule: AiRule, round: number, fighter: PetBattleFighter) {
-    if (rule.condition === "always") return true;
-    if (rule.condition === "specific_round") return round === rule.value;
-    if (rule.condition === "hp_lower_than") return (fighter.hp / Math.max(1, fighter.pet.hp)) * 100 < rule.value;
-    if (rule.condition === "distance_lower_than") return true;
-    if (rule.condition === "distance_higher_than") return false;
-    return false;
-}
+// 4 hand-crafted obstacle layouts for the 14×6 arena. Picked randomly each battle.
+// Tile index = row * 14 + col.  Player always starts col 1 row 2 (=29), enemy col 12 row 2 (=40).
+const PET_OBSTACLE_LAYOUTS: ReadonlyArray<ReadonlyArray<number>> = [
+    // 0 — "Narrow Gate": centre-column wall forces pets through top/bottom passages
+    [21, 35, 49, 63,  22, 36],
+    // 1 — "Twin Boulders": two diagonal boulder clusters
+    [19, 33, 34,  51, 65, 64],
+    // 2 — "Side Walls": corner blocks funnel pets into the centre lane
+    [2, 3, 16, 17,  66, 67, 80, 81],
+    // 3 — "Central Rock": big impassable rock in the middle
+    [34, 35, 36,  48, 49, 50],
+];
 
-function availablePetJutsus(fighter: PetBattleFighter) {
-    return fighter.pet.jutsus.filter((jutsu) => (fighter.cooldowns[jutsu.name] ?? 0) <= 0);
-}
-
-function choosePetJutsu(rule: AiRule, fighter: PetBattleFighter) {
-    const ready = availablePetJutsus(fighter);
-    if (rule.action === "use_specific_jutsu") {
-        return ready.find((jutsu) => jutsu.name === rule.jutsuId);
+/** BFS: returns the next tile to step onto when moving from `from` toward `to`, avoiding obstacles. */
+function bfsNextStep(from: number, to: number, obstacles: ReadonlySet<number>): number {
+    if (from === to) return from;
+    const queue: number[] = [from];
+    const parent = new Map<number, number>();
+    parent.set(from, -1);
+    while (queue.length > 0) {
+        const curr = queue.shift()!;
+        if (curr === to) {
+            let step = curr;
+            while (parent.get(step) !== from) step = parent.get(step)!;
+            return step;
+        }
+        const r = Math.floor(curr / PET_GRID_COLS), c = curr % PET_GRID_COLS;
+        const ns: number[] = [];
+        if (r > 0)              ns.push(curr - PET_GRID_COLS);
+        if (r < PET_GRID_ROWS - 1) ns.push(curr + PET_GRID_COLS);
+        if (c > 0)              ns.push(curr - 1);
+        if (c < PET_GRID_COLS - 1) ns.push(curr + 1);
+        for (const n of ns) {
+            if (!parent.has(n) && !obstacles.has(n)) {
+                parent.set(n, curr);
+                queue.push(n);
+            }
+        }
     }
-    if (rule.action === "use_highest_power_jutsu") {
-        return [...ready].sort((a, b) => b.power - a.power || b.cooldown - a.cooldown)[0];
+    return from; // no path — stay put
+}
+
+function petJutsuInRange(kind: PetJutsu["kind"] | "basic", dist: number): boolean {
+    if (kind === "buff" || kind === "heal" || kind === "move" || kind === "barrier") return true;
+    if (kind === "dot" || kind === "movelock") return dist <= 4;
+    if (kind === "debuff") return dist <= 3;
+    if (kind === "damage") return dist <= 2;
+    return dist <= 1; // basic attack
+}
+
+function tileDistance(a: number, b: number): number {
+    return Math.abs((a % PET_GRID_COLS) - (b % PET_GRID_COLS))
+         + Math.abs(Math.floor(a / PET_GRID_COLS) - Math.floor(b / PET_GRID_COLS));
+}
+
+
+/**
+ * Smart situational pet AI — replaces the old rule-list system.
+ * Reads current HP, enemy HP, round number, trait, and available jutsus,
+ * then returns the best jutsu to use this turn, "basic" for a melee attack, or null to move.
+ *
+ * Each trait has a distinct personality:
+ *   Guardian  — sustain + debuff + heavy hits, heals often
+ *   Aggressive — debuff opener → spam fast → nuke finisher, barely heals
+ *   Swift      — debuff every chance, rapid chip damage, mobile
+ *   Lucky      — opportunistic healer, unpredictable order
+ *   Battleborn — mandatory early buff → debuff → finisher
+ *   (none)     — balanced generalist
+ */
+function choosePetActionSmart(
+    actor: PetBattleFighter,
+    target: PetBattleFighter,
+    round: number,
+    dist: number,
+): PetJutsu | "basic" | null {
+    const hpPct     = (actor.hp / Math.max(1, actor.pet.hp)) * 100;
+    const targetPct = (target.hp / Math.max(1, target.pet.hp)) * 100;
+    const trait     = actor.pet.trait ?? "";
+
+    // Jutsus available this turn — off cooldown, in range, not the move jutsu
+    const avail = actor.pet.jutsus.filter(j =>
+        j.kind !== "move" &&
+        (actor.cooldowns[j.name] ?? 0) <= 0 &&
+        petJutsuInRange(j.kind, dist),
+    );
+
+    const heal     = avail.find(j => j.kind === "heal");
+    const buff     = avail.find(j => j.kind === "buff");
+    const debuff   = avail.find(j => j.kind === "debuff");
+    const barrier  = avail.find(j => j.kind === "barrier");
+    const movelock = avail.find(j => j.kind === "movelock");
+    const dot    = avail.find(j => j.kind === "dot");
+    const dmgs   = avail.filter(j => j.kind === "damage").sort((a, b) => b.power - a.power);
+    const heavy  = dmgs[0];                                                      // highest power
+    const fast   = dmgs.find(j => j.cooldown <= 2) ?? dmgs[dmgs.length - 1];   // fastest cooldown
+
+    const critical       = hpPct     <= 25;
+    const hurting        = hpPct     <= 50;
+    const finishing      = targetPct <= 30;
+    const earlyGame      = round     <= 3;
+    const midGame        = round >= 4 && round <= 8;
+    const alreadyBuffed  = actor.attackBuff > 0 || actor.defenseBuff > 0;
+    const targetPoisoned = target.dotRounds > 0;
+
+    // ── GUARDIAN: outlast and wear down ───────────────────────────────────────
+    if (trait === "Guardian") {
+        if (critical && heal)                   return heal;    // emergency heal first
+        if (critical && barrier)                return barrier; // emergency barrier
+        if (earlyGame && buff && !alreadyBuffed) return buff;   // armor up early
+        if (debuff && !finishing && dist <= 3)  return debuff; // weaken healthy enemy
+        if (movelock && !finishing && dist <= 4) return movelock; // root healthy enemy
+        if (hurting && heal)                    return heal;   // secondary heal window
+        if (hurting && barrier)                 return barrier; // secondary barrier window
+        if (dot && !targetPoisoned)             return dot;    // passive pressure
+        if (heavy)                              return heavy;
+        if (dist <= 1)                          return "basic";
+        return null;
     }
-    return undefined;
+
+    // ── AGGRESSIVE: debuff → spam fast → nuke ─────────────────────────────────
+    if (trait === "Aggressive") {
+        if (critical && heal)                   return heal;   // only heal when near-dead
+        if (earlyGame && debuff)                return debuff; // strip defense first
+        if (earlyGame && movelock)              return movelock; // root early
+        if (dot && !targetPoisoned)             return dot;    // poison for background pressure
+        if (finishing && heavy)                 return heavy;  // nuke the kill
+        if (fast)                               return fast;   // spam fastest attack
+        if (heavy)                              return heavy;
+        if (dist <= 1)                          return "basic";
+        return null;
+    }
+
+    // ── SWIFT: constant harassment, debuff every window ───────────────────────
+    if (trait === "Swift") {
+        if (critical && heal)                   return heal;
+        if (debuff)                             return debuff; // core identity — always debuff when up
+        if (movelock)                           return movelock; // root for harassment
+        if (fast)                               return fast;   // rapid strikes
+        if (dot && !targetPoisoned)             return dot;
+        if (hurting && heal)                    return heal;
+        if (heavy)                              return heavy;
+        if (dist <= 1)                          return "basic";
+        return null;
+    }
+
+    // ── LUCKY: opportunistic, generous healer, slightly chaotic ───────────────
+    if (trait === "Lucky") {
+        if (hurting && heal)                    return heal;   // heals more readily
+        if (hurting && barrier)                 return barrier; // barrier as fallback sustain
+        if (earlyGame && debuff)                return debuff;
+        if (earlyGame && movelock)              return movelock;
+        if (dot && !targetPoisoned)             return dot;
+        if (finishing && heavy)                 return heavy;
+        if (fast)                               return fast;
+        if (heavy)                              return heavy;
+        if (dist <= 1)                          return "basic";
+        return null;
+    }
+
+    // ── BATTLEBORN: front-load buff → debuff window → heavy finishers ─────────
+    if (trait === "Battleborn") {
+        if (earlyGame && buff && !alreadyBuffed) return buff;   // mandatory power spike
+        if (midGame && debuff)                  return debuff; // soften after buff
+        if (midGame && movelock)                return movelock; // root during mid pressure
+        if (finishing && heavy)                 return heavy;  // execute
+        if (dot && !targetPoisoned)             return dot;    // background pressure
+        if (fast)                               return fast;
+        if (critical && heal)                   return heal;   // reluctant healer
+        if (critical && barrier)                return barrier; // emergency barrier
+        if (heavy)                              return heavy;
+        if (dist <= 1)                          return "basic";
+        return null;
+    }
+
+    // ── DEFAULT (no trait): balanced generalist ───────────────────────────────
+    if (critical && heal)                       return heal;
+    if (critical && barrier)                    return barrier;
+    if (earlyGame && buff && !alreadyBuffed)    return buff;
+    if (earlyGame && debuff)                    return debuff;
+    if (earlyGame && movelock)                  return movelock;
+    if (hurting && heal)                        return heal;
+    if (hurting && barrier)                     return barrier;
+    if (dot && !targetPoisoned)                 return dot;
+    if (movelock && dist <= 4)                  return movelock;
+    if (heavy)                                  return heavy;
+    if (fast && fast !== heavy)                 return fast;
+    if (dist <= 1)                              return "basic";
+    return null;
 }
 
 function petBasicDamage(attacker: PetBattleFighter, defender: PetBattleFighter) {
@@ -4825,115 +6054,251 @@ function petBasicDamage(attacker: PetBattleFighter, defender: PetBattleFighter) 
 }
 
 function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: string) {
-    let player: PetBattleFighter = { owner: "You", pet: playerPet, hp: playerPet.hp, attackBuff: 0, defenseBuff: 0, cooldowns: {} };
-    let enemy: PetBattleFighter = { owner: opponentOwner, pet: opponentPet, hp: opponentPet.hp, attackBuff: 0, defenseBuff: 0, cooldowns: {} };
+    // 10×5 grid — player starts col 1 (tile 21), enemy starts col 8 (tile 28), distance = 7
+    // Pick a random obstacle layout for this battle
+    const obstacleLayout = PET_OBSTACLE_LAYOUTS[Math.floor(Math.random() * PET_OBSTACLE_LAYOUTS.length)];
+    const obstacles = new Set<number>(obstacleLayout);
+
+    // 14×6 grid: player col 1 row 2 = tile 29; enemy col 12 row 2 = tile 40
+    let player: PetBattleFighter = { owner: "You",        pet: playerPet,   hp: playerPet.hp,   pos: 29, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: 0, moveLocked: 0 };
+    let enemy:  PetBattleFighter = { owner: opponentOwner, pet: opponentPet, hp: opponentPet.hp, pos: 40, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: 0, moveLocked: 0 };
     const logs: string[] = [`${player.pet.name} enters against ${enemy.owner}'s ${enemy.pet.name}.`];
     const frames: PetArenaFrame[] = [];
-    const rules = {
-        player: petAiRules(player.pet),
-        enemy: petAiRules(enemy.pet),
-    };
-    const basePlayerPos = 15;
-    const baseEnemyPos = 19;
+    let playerCombo = 0;
+    let enemyCombo = 0;
 
-    function pushFrame(round: number, message: string, actor: PetArenaFrame["actor"], actionKind?: PetArenaFrame["actionKind"]) {
-        frames.push({
-            round,
-            message,
-            playerHp: player.hp,
-            enemyHp: enemy.hp,
-            playerPos: actor === "player" && (actionKind === "damage" || actionKind === "basic") ? 17 : basePlayerPos,
-            enemyPos: actor === "enemy" && (actionKind === "damage" || actionKind === "basic") ? 17 : baseEnemyPos,
-            actor,
-            actionKind,
-        });
+    function pushFrame(
+        round: number, message: string, actor: PetArenaFrame["actor"],
+        actionKind?: PetArenaFrame["actionKind"], damage?: number, crit?: boolean,
+        traitFlash?: PetArenaFrame["traitFlash"], combo?: number, isPrefight?: boolean, isKO?: boolean,
+    ) {
+        const playerStatus = { poisoned: player.dotRounds > 0 ? player.dotRounds : undefined, atkBuff: player.attackBuff > 0 || undefined, defBuff: player.defenseBuff > 0 || undefined, shield: player.shieldHp > 0 ? player.shieldHp : undefined, moveLocked: player.moveLocked > 0 || undefined };
+        const enemyStatus  = { poisoned: enemy.dotRounds  > 0 ? enemy.dotRounds  : undefined, atkBuff: enemy.attackBuff  > 0 || undefined, defBuff: enemy.defenseBuff  > 0 || undefined, shield: enemy.shieldHp   > 0 ? enemy.shieldHp  : undefined, moveLocked: enemy.moveLocked  > 0 || undefined };
+        frames.push({ round, message, playerHp: player.hp, enemyHp: enemy.hp, playerPos: player.pos, enemyPos: enemy.pos, actor, actionKind, damage, crit, traitFlash, combo, isPrefight, isKO, playerStatus, enemyStatus });
     }
 
+    // Pre-fight face-off frame
+    pushFrame(0, `${player.pet.name} vs ${enemy.pet.name} — FIGHT!`, "system", undefined, undefined, undefined, undefined, undefined, true);
     pushFrame(0, logs[0], "system");
 
     function tick(fighter: PetBattleFighter): PetBattleFighter {
         return {
             ...fighter,
-            attackBuff: Math.max(0, fighter.attackBuff - 1),
-            defenseBuff: Math.max(0, fighter.defenseBuff - 1),
+            attackBuff:  fighter.attackBuff  > 0 ? Math.max(0, fighter.attackBuff  - 1) : Math.min(0, fighter.attackBuff  + 1),
+            defenseBuff: fighter.defenseBuff > 0 ? Math.max(0, fighter.defenseBuff - 1) : Math.min(0, fighter.defenseBuff + 1),
             cooldowns: Object.fromEntries(Object.entries(fighter.cooldowns).map(([name, value]) => [name, Math.max(0, value - 1)])),
+            moveLocked: Math.max(0, fighter.moveLocked - 1),
         };
     }
 
-    function act(actor: PetBattleFighter, target: PetBattleFighter, actorRules: AiRule[], round: number): [PetBattleFighter, PetBattleFighter] {
+    function act(actor: PetBattleFighter, target: PetBattleFighter, round: number): [PetBattleFighter, PetBattleFighter] {
+        const dist      = tileDistance(actor.pos, target.pos);
         const actorSide: PetArenaFrame["actor"] = actor.owner === "You" ? "player" : "enemy";
-        const matchedRules = actorRules.filter((rule) => petRuleMatches(rule, round, actor));
-        for (const rule of matchedRules) {
-            if (rule.action === "move_towards_opponent") continue;
-            const jutsu = choosePetJutsu(rule, actor);
-            if (!jutsu && rule.action !== "use_basic_attack") continue;
+        const targetSide: PetArenaFrame["actor"] = actorSide === "player" ? "enemy" : "player";
+        const isFinisher = target.hp < target.pet.hp * 0.25;
 
-            if (jutsu) {
-                const nextActor = {
-                    ...actor,
-                    cooldowns: { ...actor.cooldowns, [jutsu.name]: Math.max(1, jutsu.cooldown) },
-                };
+        // Trait modifiers
+        const critChance     = actor.pet.trait === "Aggressive" ? 0.30 : 0.15;
+        const dmgBonus       = actor.pet.trait === "Battleborn"  ? 1.10 : 1.0;
+        const guardianBlock  = target.pet.trait === "Guardian"   ? 0.85 : 1.0;
+        const luckyDodgeRoll = target.pet.trait === "Lucky" && Math.random() < 0.10;
 
-                if (jutsu.kind === "buff") {
-                    const buffed = {
-                        ...nextActor,
-                        attackBuff: nextActor.attackBuff + Math.max(1, Math.floor(jutsu.power / 2)),
-                        defenseBuff: nextActor.defenseBuff + Math.max(1, Math.floor(jutsu.power / 3)),
-                    };
-                    const message = `Round ${round}: ${actor.pet.name} uses ${jutsu.name}, gaining +${Math.max(1, Math.floor(jutsu.power / 2))} ATK and +${Math.max(1, Math.floor(jutsu.power / 3))} DEF.`;
-                    logs.push(message);
-                    if (actorSide === "player") player = buffed; else enemy = buffed;
-                    pushFrame(round, message, actorSide, "buff");
-                    return [buffed, target];
-                }
+        function doMove(reason: string): [PetBattleFighter, PetBattleFighter] {
+            const newPos = bfsNextStep(actor.pos, target.pos, obstacles);
+            const moved  = { ...actor, pos: newPos };
+            const msg = `Round ${round}: ${actor.pet.name} ${reason}`;
+            logs.push(msg);
+            if (actorSide === "player") player = moved; else enemy = moved;
+            pushFrame(round, msg, actorSide, "move");
+            return [moved, target];
+        }
 
-                const damage = Math.max(1, Math.floor(actor.pet.attack + actor.attackBuff + jutsu.power - (target.pet.defense + target.defenseBuff) * 0.5));
-                const damagedTarget = { ...target, hp: Math.max(0, target.hp - damage) };
-                const message = `Round ${round}: ${actor.pet.name} uses ${jutsu.name} for ${damage} damage.`;
-                logs.push(message);
-                if (actorSide === "player") {
-                    player = nextActor;
-                    enemy = damagedTarget;
-                } else {
-                    enemy = nextActor;
-                    player = damagedTarget;
-                }
-                pushFrame(round, message, actorSide, "damage");
-                return [nextActor, damagedTarget];
+        function applyDamage(base: number, jutsuName: string, kind: "damage" | "basic", actor2: PetBattleFighter, target2: PetBattleFighter): [PetBattleFighter, PetBattleFighter] {
+            if (luckyDodgeRoll) {
+                if (actorSide === "player") playerCombo = 0; else enemyCombo = 0;
+                const msg = `Round ${round}: ${target2.pet.name}'s Lucky instinct lets it dodge ${actor2.pet.name}'s attack!`;
+                logs.push(msg);
+                pushFrame(round, msg, targetSide, kind, undefined, undefined, { actor: targetSide, trait: "Lucky" });
+                return [actor2, target2];
+            }
+            const crit   = Math.random() < critChance;
+            const damage = Math.max(1, Math.floor(base * (crit ? 1.5 : 1) * dmgBonus * guardianBlock));
+            // Shield absorbs damage before HP
+            const shieldAbsorb  = Math.min(target2.shieldHp, damage);
+            const remainDamage  = damage - shieldAbsorb;
+            const damagedTarget = { ...target2, hp: Math.max(0, target2.hp - remainDamage), shieldHp: target2.shieldHp - shieldAbsorb };
+            // Combo tracking
+            if (actorSide === "player") { playerCombo++; enemyCombo = 0; } else { enemyCombo++; playerCombo = 0; }
+            const currentCombo = actorSide === "player" ? playerCombo : enemyCombo;
+            // Trait flash selection
+            const traitFlash: PetArenaFrame["traitFlash"] =
+                (crit && actor2.pet.trait === "Aggressive") ? { actor: actorSide, trait: "Aggressive" } :
+                (guardianBlock < 1)                         ? { actor: targetSide, trait: "Guardian"   } :
+                (dmgBonus > 1 && actor2.pet.trait === "Battleborn") ? { actor: actorSide, trait: "Battleborn" } :
+                undefined;
+            const msg = `Round ${round}: ${actor2.pet.name}${jutsuName ? ` uses ${jutsuName}` : " basic attacks"} for ${damage} damage${crit ? " — CRITICAL HIT!" : ""}.`;
+            logs.push(msg);
+            if (actorSide === "player") { player = actor2; enemy = damagedTarget; } else { enemy = actor2; player = damagedTarget; }
+            pushFrame(round, msg, actorSide, kind, damage, crit, traitFlash, currentCombo >= 3 ? currentCombo : undefined);
+            // KO frame
+            if (damagedTarget.hp <= 0) {
+                const koMsg = `💀 K.O.! ${actor2.pet.name} knocks out ${target2.pet.name}!`;
+                logs.push(koMsg);
+                pushFrame(round, koMsg, actorSide, "result", undefined, undefined, undefined, undefined, undefined, true);
+            }
+            return [actor2, damagedTarget];
+        }
+
+        // Finisher mode: close the gap aggressively when target is near death
+        if (isFinisher && dist > 2) {
+            return doMove("lunges in for the kill!");
+        }
+
+        // Smart situational AI decision
+        const chosen = choosePetActionSmart(actor, target, round, dist);
+
+        if (chosen === "basic") {
+            return applyDamage(petBasicDamage(actor, target), "", "basic", actor, target);
+        }
+
+        if (chosen) {
+            const jutsu = chosen;
+            const nextActor = { ...actor, cooldowns: { ...actor.cooldowns, [jutsu.name]: Math.max(1, jutsu.cooldown) } };
+
+            if (jutsu.kind === "buff") {
+                const atkGain = Math.max(1, Math.floor(jutsu.power / 2));
+                const defGain = Math.max(1, Math.floor(jutsu.power / 3));
+                const buffed  = { ...nextActor, attackBuff: nextActor.attackBuff + atkGain, defenseBuff: nextActor.defenseBuff + defGain };
+                const msg = `Round ${round}: ${actor.pet.name} uses ${jutsu.name}, gaining +${atkGain} ATK and +${defGain} DEF.`;
+                logs.push(msg);
+                if (actorSide === "player") player = buffed; else enemy = buffed;
+                pushFrame(round, msg, actorSide, "buff");
+                return [buffed, target];
             }
 
-            const damage = petBasicDamage(actor, target);
-            const damagedTarget = { ...target, hp: Math.max(0, target.hp - damage) };
-            const message = `Round ${round}: ${actor.pet.name} basic attacks for ${damage} damage.`;
-            logs.push(message);
-            if (actorSide === "player") enemy = damagedTarget; else player = damagedTarget;
-            pushFrame(round, message, actorSide, "basic");
-            return [actor, damagedTarget];
+            if (jutsu.kind === "heal") {
+                const healAmt = Math.max(1, Math.floor(jutsu.power * 0.6));
+                const healed  = { ...nextActor, hp: Math.min(nextActor.pet.hp, nextActor.hp + healAmt) };
+                const msg = `Round ${round}: ${actor.pet.name} uses ${jutsu.name}, restoring ${healAmt} HP.`;
+                logs.push(msg);
+                if (actorSide === "player") player = healed; else enemy = healed;
+                pushFrame(round, msg, actorSide, "heal");
+                return [healed, target];
+            }
+
+            if (jutsu.kind === "barrier") {
+                const shieldAmt = Math.max(10, Math.floor(jutsu.power * 0.7));
+                const shielded  = { ...nextActor, shieldHp: nextActor.shieldHp + shieldAmt };
+                const msg = `Round ${round}: ${actor.pet.name} uses ${jutsu.name}, raising a barrier absorbing ${shieldAmt} damage!`;
+                logs.push(msg);
+                if (actorSide === "player") player = shielded; else enemy = shielded;
+                pushFrame(round, msg, actorSide, "barrier");
+                return [shielded, target];
+            }
+
+            if (jutsu.kind === "movelock") {
+                const lockRounds = 2;
+                const locked = { ...target, moveLocked: target.moveLocked + lockRounds };
+                const msg = `Round ${round}: ${actor.pet.name} uses ${jutsu.name} — ${target.pet.name} is movement-locked for ${lockRounds} rounds!`;
+                logs.push(msg);
+                if (actorSide === "player") { player = nextActor; enemy = locked; } else { enemy = nextActor; player = locked; }
+                pushFrame(round, msg, actorSide, "movelock");
+                return [nextActor, locked];
+            }
+
+            if (jutsu.kind === "debuff") {
+                const atkCut   = Math.floor(jutsu.power / 4);
+                const defCut   = Math.floor(jutsu.power / 5);
+                const weakened = { ...target, attackBuff: target.attackBuff - atkCut, defenseBuff: target.defenseBuff - defCut };
+                const msg = `Round ${round}: ${actor.pet.name} uses ${jutsu.name} — ${target.pet.name} loses ${atkCut} ATK and ${defCut} DEF.`;
+                logs.push(msg);
+                if (actorSide === "player") { player = nextActor; enemy = weakened; } else { enemy = nextActor; player = weakened; }
+                pushFrame(round, msg, actorSide, "debuff");
+                return [nextActor, weakened];
+            }
+
+            if (jutsu.kind === "dot") {
+                const dotDmg   = Math.max(1, Math.floor(jutsu.power * 0.28));
+                const poisoned = { ...target, dotDamage: dotDmg, dotRounds: 3 };
+                const msg = `Round ${round}: ${actor.pet.name} uses ${jutsu.name}, poisoning ${target.pet.name} for ${dotDmg}/round (3 rounds).`;
+                logs.push(msg);
+                if (actorSide === "player") { player = nextActor; enemy = poisoned; } else { enemy = nextActor; player = poisoned; }
+                pushFrame(round, msg, actorSide, "dot");
+                return [nextActor, poisoned];
+            }
+
+            // damage jutsu
+            const rawDmg = actor.pet.attack + actor.attackBuff + jutsu.power - (target.pet.defense + target.defenseBuff) * 0.5;
+            return applyDamage(rawDmg, jutsu.name, "damage", nextActor, target);
         }
 
-        const damage = petBasicDamage(actor, target);
-        const damagedTarget = { ...target, hp: Math.max(0, target.hp - damage) };
-        const message = `Round ${round}: ${actor.pet.name} basic attacks for ${damage} damage.`;
-        logs.push(message);
-        if (actorSide === "player") enemy = damagedTarget; else player = damagedTarget;
-        pushFrame(round, message, actorSide, "basic");
-        return [actor, damagedTarget];
+        // Movement fallback: use Dash jutsu for 3-tile burst if available, else 1-tile step
+        // Movement-locked pets cannot use move jutsus or advance
+        if (actor.moveLocked > 0) {
+            const msg = `Round ${round}: ${actor.pet.name} is movement-locked and cannot advance!`;
+            logs.push(msg);
+            pushFrame(round, msg, actorSide, "movelock");
+            return [actor, target];
+        }
+        const moveJutsu = actor.pet.jutsus.find(j => j.kind === "move" && (actor.cooldowns[j.name] ?? 0) <= 0);
+        if (moveJutsu && dist > 2) {
+            const nextActor = { ...actor, cooldowns: { ...actor.cooldowns, [moveJutsu.name]: Math.max(1, moveJutsu.cooldown) } };
+            let newPos = actor.pos;
+            for (let step = 0; step < 3; step++) {
+                const next = bfsNextStep(newPos, target.pos, obstacles);
+                if (next === newPos) break;
+                newPos = next;
+            }
+            const moved = { ...nextActor, pos: newPos };
+            const msg = `Round ${round}: ${actor.pet.name} uses ${moveJutsu.name}, dashing 3 tiles toward ${target.pet.name}!`;
+            logs.push(msg);
+            if (actorSide === "player") player = moved; else enemy = moved;
+            pushFrame(round, msg, actorSide, "move");
+            return [moved, target];
+        }
+        return doMove(`advances toward ${target.pet.name}.`);
     }
 
-    for (let round = 1; round <= 20 && player.hp > 0 && enemy.hp > 0; round += 1) {
+    for (let round = 1; round <= 30 && player.hp > 0 && enemy.hp > 0; round += 1) {
         player = tick(player);
-        enemy = tick(enemy);
-        const playerFirst = player.pet.speed >= enemy.pet.speed;
-        if (playerFirst) {
-            [player, enemy] = act(player, enemy, rules.player, round);
-            if (enemy.hp <= 0) break;
-            [enemy, player] = act(enemy, player, rules.enemy, round);
-        } else {
-            [enemy, player] = act(enemy, player, rules.enemy, round);
+        enemy  = tick(enemy);
+
+        // Apply DOT poison damage
+        if (player.dotRounds > 0) {
+            const dotDmg = player.dotDamage;
+            player = { ...player, hp: Math.max(0, player.hp - dotDmg), dotRounds: player.dotRounds - 1 };
+            const dotMsg = `Round ${round}: ${player.pet.name} writhes in poison — ${dotDmg} damage.`;
+            logs.push(dotMsg);
+            pushFrame(round, dotMsg, "player", "dot", dotDmg);
             if (player.hp <= 0) break;
-            [player, enemy] = act(player, enemy, rules.player, round);
         }
-        const roundMessage = `Round ${round} result: ${player.pet.name} ${player.hp}/${player.pet.hp} HP, ${enemy.pet.name} ${enemy.hp}/${enemy.pet.hp} HP.`;
+        if (enemy.dotRounds > 0) {
+            const dotDmg = enemy.dotDamage;
+            enemy = { ...enemy, hp: Math.max(0, enemy.hp - dotDmg), dotRounds: enemy.dotRounds - 1 };
+            const dotMsg = `Round ${round}: ${enemy.pet.name} writhes in poison — ${dotDmg} damage.`;
+            logs.push(dotMsg);
+            pushFrame(round, dotMsg, "enemy", "dot", dotDmg);
+            if (enemy.hp <= 0) break;
+        }
+
+        const playerFirst = player.pet.speed >= enemy.pet.speed;
+        const playerSwift = player.pet.trait === "Swift" && player.pet.speed >= enemy.pet.speed * 1.2;
+        const enemySwift  = enemy.pet.trait  === "Swift" && enemy.pet.speed  >= player.pet.speed * 1.2;
+
+        if (playerFirst) {
+            [player, enemy] = act(player, enemy, round);
+            if (playerSwift && enemy.hp > 0) [player, enemy] = act(player, enemy, round);
+            if (enemy.hp <= 0) break;
+            [enemy, player] = act(enemy, player, round);
+            if (enemySwift && player.hp > 0) [enemy, player] = act(enemy, player, round);
+        } else {
+            [enemy, player] = act(enemy, player, round);
+            if (enemySwift && player.hp > 0) [enemy, player] = act(enemy, player, round);
+            if (player.hp <= 0) break;
+            [player, enemy] = act(player, enemy, round);
+            if (playerSwift && enemy.hp > 0) [player, enemy] = act(player, enemy, round);
+        }
+        const roundMessage = `Round ${round}: ${player.pet.name} ${player.hp}/${player.pet.hp} HP | ${enemy.pet.name} ${enemy.hp}/${enemy.pet.hp} HP`;
         logs.push(roundMessage);
         pushFrame(round, roundMessage, "system");
     }
@@ -4944,7 +6309,7 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
     const finalMessage = result === "win" ? `${player.pet.name} wins the Pet Arena match.` : `${enemy.pet.name} wins the Pet Arena match.`;
     logs.push(finalMessage);
     pushFrame(21, finalMessage, "system", "result");
-    return { result, player, enemy, logs, frames };
+    return { result, player, enemy, logs, frames, obstacles: [...obstacles] };
 }
 
 function PetArena({ character, updateCharacter, playerRoster, setScreen }: { character: Character; updateCharacter: (character: Character) => void; playerRoster: PlayerRecord[]; setScreen: (screen: Screen) => void }) {
@@ -4959,6 +6324,7 @@ function PetArena({ character, updateCharacter, playerRoster, setScreen }: { cha
     const selectedOpponent = opponentPets.find((entry) => `${entry.owner}:${entry.pet.id}` === selectedOpponentKey) ?? opponentPets[0];
     const [battleLog, setBattleLog] = useState<string[]>([]);
     const [battleFrames, setBattleFrames] = useState<PetArenaFrame[]>([]);
+    const [battleObstacles, setBattleObstacles] = useState<number[]>([]);
     const [frameIndex, setFrameIndex] = useState(0);
     const [isPlaying, setIsPlaying] = useState(false);
     const [result, setResult] = useState("");
@@ -4981,7 +6347,7 @@ function PetArena({ character, updateCharacter, playerRoster, setScreen }: { cha
             setIsPlaying(false);
             return;
         }
-        const timer = window.setTimeout(() => setFrameIndex((index) => Math.min(index + 1, battleFrames.length - 1)), 950);
+        const timer = window.setTimeout(() => setFrameIndex((index) => Math.min(index + 1, battleFrames.length - 1)), 1200);
         return () => window.clearTimeout(timer);
     }, [battleFrames.length, frameIndex, isPlaying]);
 
@@ -4992,17 +6358,26 @@ function PetArena({ character, updateCharacter, playerRoster, setScreen }: { cha
                 ? "No player pets found. Choose Fight AI or have another player with pets in the roster."
                 : "No AI pets found.");
         }
+        const pendingClanPetBattle = loadPendingClanPetBattle();
         const battle = runPetArenaBattle(selectedPet, selectedOpponent.pet, selectedOpponent.owner);
         setBattleLog(battle.logs);
         setBattleFrames(battle.frames);
+        setBattleObstacles(battle.obstacles);
         setFrameIndex(0);
         setIsPlaying(true);
         setResult(battle.result === "win" ? "Victory" : "Defeat");
         if (battle.result === "win") {
             const reward = Math.max(20, selectedOpponent.pet.level * 5);
-            updateCharacter({ ...character, ryo: character.ryo + reward });
+            updateCharacter({ ...character, ryo: character.ryo + reward, totalPetWins: (character.totalPetWins ?? 0) + 1 });
+            if (pendingClanPetBattle) {
+                void addClanWarPoints(pendingClanPetBattle.clanName ?? character.clan, character.name, pendingClanPetBattle.points);
+                setBattleLog([...battle.logs, `${character.name} earned ${pendingClanPetBattle.points} clan war points by winning the pet battle against ${pendingClanPetBattle.opponentName}.`]);
+            }
         }
+        if (pendingClanPetBattle) savePendingClanPetBattle(null);
     }
+
+    const pendingClanPetBattle = loadPendingClanPetBattle();
 
     return (
         <div className="card pet-arena-screen">
@@ -5010,7 +6385,7 @@ function PetArena({ character, updateCharacter, playerRoster, setScreen }: { cha
                 <button className="back-btn" onClick={() => setScreen("centralHub")}>Back to Central</button>
                 <div>
                     <h2>Pet Arena</h2>
-                    <p className="hint">Autobattle only. Pets choose actions using ordered AI rules: low HP buff, opener, highest-power jutsu, then basic attack.</p>
+                    <p className="hint">{pendingClanPetBattle ? `Clan war pet battle pending against ${pendingClanPetBattle.opponentName}. Win to earn ${pendingClanPetBattle.points} clan points.` : "Autobattle only. Pets choose actions using ordered AI rules: low HP buff, opener, highest-power jutsu, then basic attack."}</p>
                 </div>
             </div>
 
@@ -5092,7 +6467,9 @@ function PetArena({ character, updateCharacter, playerRoster, setScreen }: { cha
                     enemyPet={selectedOpponent.pet}
                     enemyOwner={selectedOpponent.owner}
                     frame={currentFrame}
+                    recentFrames={battleFrames.slice(Math.max(0, frameIndex - 2), frameIndex + 1).filter(f => f.actionKind && f.actionKind !== "result")}
                     result={showResult ? result : ""}
+                    obstacles={battleObstacles}
                     onReplay={() => {
                         if (!battleFrames.length) return;
                         setFrameIndex(0);
@@ -5111,13 +6488,24 @@ function PetArena({ character, updateCharacter, playerRoster, setScreen }: { cha
     );
 }
 
-function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, frame, result, onReplay, onFightAgain, onExit }: { playerPet: Pet; enemyPet: Pet; enemyOwner: string; frame?: PetArenaFrame; result: string; onReplay: () => void; onFightAgain: () => void; onExit: () => void }) {
+function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, frame, recentFrames, result, obstacles, onReplay, onFightAgain, onExit }: { playerPet: Pet; enemyPet: Pet; enemyOwner: string; frame?: PetArenaFrame; recentFrames?: PetArenaFrame[]; result: string; obstacles?: number[]; onReplay: () => void; onFightAgain: () => void; onExit: () => void }) {
     const playerHp = frame?.playerHp ?? playerPet.hp;
-    const enemyHp = frame?.enemyHp ?? enemyPet.hp;
+    const enemyHp  = frame?.enemyHp  ?? enemyPet.hp;
     const playerPercent = Math.max(0, Math.min(100, (playerHp / Math.max(1, playerPet.hp)) * 100));
-    const enemyPercent = Math.max(0, Math.min(100, (enemyHp / Math.max(1, enemyPet.hp)) * 100));
-    const playerPos = frame?.playerPos ?? 15;
-    const enemyPos = frame?.enemyPos ?? 19;
+    const enemyPercent  = Math.max(0, Math.min(100, (enemyHp  / Math.max(1, enemyPet.hp))  * 100));
+    const [playerShake, setPlayerShake] = useState(false);
+    const [enemyShake,  setEnemyShake]  = useState(false);
+
+    useEffect(() => {
+        if (!frame?.damage) return;
+        const hitPlayer = frame.actor === "enemy";
+        if (hitPlayer) { setPlayerShake(true); const t = window.setTimeout(() => setPlayerShake(false), 420); return () => window.clearTimeout(t); }
+        else           { setEnemyShake(true);  const t = window.setTimeout(() => setEnemyShake(false),  420); return () => window.clearTimeout(t); }
+    }, [frame?.message]);
+
+    const playerPos = frame?.playerPos ?? 29;
+    const enemyPos  = frame?.enemyPos  ?? 40;
+
     const effectTile =
         frame?.actionKind === "buff"
             ? frame.actor === "enemy" ? enemyPos : playerPos
@@ -5127,43 +6515,126 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, frame, result, o
                     ? frame.actor === "enemy" ? enemyPos : playerPos
                     : -1;
     const effectLabel =
-        frame?.actionKind === "buff" ? "Boost" :
-            frame?.actionKind === "basic" ? "Hit" :
-                frame?.actionKind === "damage" ? "Strike" :
-                    frame?.actionKind === "result" ? result :
-                        "";
-    const winnerPet = result === "Victory" ? playerPet : result === "Defeat" ? enemyPet : null;
+        frame?.actionKind === "buff"   ? "Boost"  :
+        frame?.actionKind === "basic"  ? "Hit"    :
+        frame?.actionKind === "damage" ? "Strike" :
+        frame?.actionKind === "heal"   ? "Heal"   :
+        frame?.actionKind === "dot"    ? "Poison" :
+        frame?.actionKind === "move"   ? "Dash!"  :
+        frame?.actionKind === "result" ? result   : "";
+
+    const winnerPet   = result === "Victory" ? playerPet : result === "Defeat" ? enemyPet : null;
     const winnerSide: "player" | "enemy" = result === "Victory" ? "player" : "enemy";
     const winnerOwner = result === "Victory" ? "You" : enemyOwner;
 
+    // Trait flash label
+    const traitLabel =
+        frame?.traitFlash?.trait === "Lucky"      ? "🍀 LUCKY DODGE!"      :
+        frame?.traitFlash?.trait === "Aggressive" ? "💥 AGGRESSIVE CRIT!"  :
+        frame?.traitFlash?.trait === "Guardian"   ? "🛡️ GUARDIAN BLOCK!"  :
+        frame?.traitFlash?.trait === "Battleborn" ? "⚔️ BATTLEBORN BONUS!" :
+        frame?.traitFlash?.trait === "Swift"      ? "⚡ SWIFT STRIKE!"     : "";
+
+    // Float color class
+    const playerFloatClass = frame?.actor === "enemy" && frame.damage
+        ? ` pet-damage-float${frame.crit ? " crit" : ""}${frame.actionKind === "dot" ? " dot" : ""}`
+        : frame?.actor === "player" && frame.actionKind === "heal" ? " pet-damage-float heal" : "";
+    const enemyFloatClass = frame?.actor === "player" && frame.damage
+        ? ` pet-damage-float${frame.crit ? " crit" : ""}${frame.actionKind === "dot" ? " dot" : ""}`
+        : frame?.actor === "enemy" && frame.actionKind === "heal" ? " pet-damage-float heal" : "";
+
     return (
         <section className="pet-arena-battlefield">
-            <div className="pet-arena-bars">
-                <div className="pet-arena-fighter-bar">
-                    <strong>{playerPet.name}</strong>
-                    <span>{playerHp}/{playerPet.hp} HP</span>
-                    <div className="pet-arena-hpbar"><i style={{ width: `${playerPercent}%` }} /></div>
+            {/* Pre-fight face-off overlay */}
+            {frame?.isPrefight && (
+                <div className="pet-prefight-overlay">
+                    <div className="pet-prefight-vs">
+                        <div className="pet-prefight-name player">{playerPet.name}</div>
+                        <span className="pet-prefight-vs-label">VS</span>
+                        <div className="pet-prefight-name enemy">{enemyPet.name}</div>
+                    </div>
                 </div>
-                <div className="pet-arena-fighter-bar enemy">
+            )}
+
+            {/* Trait flash banner */}
+            {frame?.traitFlash && traitLabel && (
+                <div key={frame.message} className={`pet-trait-flash ${frame.traitFlash.actor}`}>{traitLabel}</div>
+            )}
+
+            {/* Combo counter */}
+            {frame?.combo && frame.combo >= 3 && (
+                <div key={`combo-${frame.message}`} className={`pet-combo-counter ${frame.actor}`}>COMBO ×{frame.combo}</div>
+            )}
+
+            {/* HP bars with status badges */}
+            <div className="pet-arena-bars">
+                <div className={`pet-arena-fighter-bar${playerShake ? " pet-hp-shaking" : ""}`}>
+                    <strong>{playerPet.name}</strong>
+                    <div className="pet-status-badges">
+                        {frame?.playerStatus?.poisoned   && <span className="pet-status-badge poison">🟣×{frame.playerStatus.poisoned}</span>}
+                        {frame?.playerStatus?.atkBuff    && <span className="pet-status-badge atk">⚔️ATK↑</span>}
+                        {frame?.playerStatus?.defBuff    && <span className="pet-status-badge def">🛡️DEF↑</span>}
+                        {frame?.playerStatus?.shield     && <span className="pet-status-badge shield">🔵{frame.playerStatus.shield}</span>}
+                        {frame?.playerStatus?.moveLocked && <span className="pet-status-badge movelock">🔒ROOTED</span>}
+                    </div>
+                    <span>{playerHp}/{playerPet.hp} HP</span>
+                    <div className={`pet-arena-hpbar${playerPercent <= 30 ? " pet-arena-hpbar-low" : ""}`}>
+                        <i style={{ width: `${playerPercent}%` }} />
+                        {playerFloatClass && frame && (
+                            <span key={frame.message} className={playerFloatClass}>
+                                {frame.crit ? `⚡ CRIT -${frame.damage}` : frame.actionKind === "dot" ? `☠ -${frame.damage}` : frame.actionKind === "heal" ? `+heal` : `-${frame.damage}`}
+                            </span>
+                        )}
+                    </div>
+                </div>
+
+                <div className={`pet-arena-fighter-bar enemy${enemyShake ? " pet-hp-shaking" : ""}`}>
                     <strong>{enemyOwner}: {enemyPet.name}</strong>
+                    <div className="pet-status-badges">
+                        {frame?.enemyStatus?.poisoned   && <span className="pet-status-badge poison">🟣×{frame.enemyStatus.poisoned}</span>}
+                        {frame?.enemyStatus?.atkBuff    && <span className="pet-status-badge atk">⚔️ATK↑</span>}
+                        {frame?.enemyStatus?.defBuff    && <span className="pet-status-badge def">🛡️DEF↑</span>}
+                        {frame?.enemyStatus?.shield     && <span className="pet-status-badge shield">🔵{frame.enemyStatus.shield}</span>}
+                        {frame?.enemyStatus?.moveLocked && <span className="pet-status-badge movelock">🔒ROOTED</span>}
+                    </div>
                     <span>{enemyHp}/{enemyPet.hp} HP</span>
-                    <div className="pet-arena-hpbar"><i style={{ width: `${enemyPercent}%` }} /></div>
+                    <div className={`pet-arena-hpbar${enemyPercent <= 30 ? " pet-arena-hpbar-low" : ""}`}>
+                        <i style={{ width: `${enemyPercent}%` }} />
+                        {enemyFloatClass && frame && (
+                            <span key={frame.message} className={enemyFloatClass}>
+                                {frame.crit ? `⚡ CRIT -${frame.damage}` : frame.actionKind === "dot" ? `☠ -${frame.damage}` : frame.actionKind === "heal" ? `+heal` : `-${frame.damage}`}
+                            </span>
+                        )}
+                    </div>
                 </div>
             </div>
 
             <div className="pet-park-stage">
+                {/* KO freeze overlay */}
+                {frame?.isKO && !winnerPet && (
+                    <div className="pet-ko-overlay">K.O. 💀</div>
+                )}
+
                 <div className={`pet-park-grid pet-vfx-${frame?.actionKind ?? "idle"} pet-vfx-actor-${frame?.actor ?? "system"}`} aria-label="Pet arena park battlefield">
-                    {Array.from({ length: 35 }, (_, index) => {
+                    {Array.from({ length: PET_GRID_SIZE }, (_, index) => {
                         const occupiedByPlayer = index === playerPos;
-                        const occupiedByEnemy = index === enemyPos;
-                        const isTrail = [3, 4, 5, 10, 11, 12, 17, 18, 24, 25, 26, 31].includes(index);
+                        const occupiedByEnemy  = index === enemyPos;
+                        const isObstacle  = (obstacles ?? []).includes(index);
+                        const isTrail     = index >= 28 && index <= 41; // row 2 of 14-col grid
                         const isActionTile = frame?.actionKind && (occupiedByPlayer || occupiedByEnemy);
-                        const hasEffect = index === effectTile && frame?.actionKind;
+                        const hasEffect   = index === effectTile && frame?.actionKind;
                         return (
                             <div
                                 key={index}
-                                className={`pet-park-tile${isTrail ? " pet-path" : ""}${isActionTile ? " pet-action-tile" : ""}${hasEffect ? ` pet-vfx-tile pet-vfx-tile-${frame?.actionKind}` : ""}${occupiedByPlayer || occupiedByEnemy ? " pet-occupied" : ""}`}
+                                className={`pet-park-tile${isObstacle ? " pet-obstacle" : ""}${isTrail && !isObstacle ? " pet-path" : ""}${isActionTile && !isObstacle ? " pet-action-tile" : ""}${hasEffect && !isObstacle ? ` pet-vfx-tile pet-vfx-tile-${frame?.actionKind}` : ""}${(occupiedByPlayer || occupiedByEnemy) && !isObstacle ? " pet-occupied" : ""}`}
                             >
+                                {isObstacle && (
+                                    <div className="pet-obstacle-block">
+                                        <div className="pet-obstacle-top" />
+                                        <div className="pet-obstacle-face" />
+                                        <div className="pet-obstacle-side" />
+                                    </div>
+                                )}
                                 {hasEffect && (
                                     <span className="pet-battle-vfx" key={`${frame?.message}-${index}`}>
                                         <i />
@@ -5171,8 +6642,8 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, frame, result, o
                                         <em />
                                     </span>
                                 )}
-                                {occupiedByPlayer && <PetBattleAvatar pet={playerPet} side="player" active={frame?.actor === "player"} />}
-                                {occupiedByEnemy && <PetBattleAvatar pet={enemyPet} side="enemy" active={frame?.actor === "enemy"} />}
+                                {occupiedByPlayer && <PetBattleAvatar pet={playerPet} side="player" active={frame?.actor === "player"} status={frame?.playerStatus} />}
+                                {occupiedByEnemy  && <PetBattleAvatar pet={enemyPet}  side="enemy"  active={frame?.actor === "enemy"}  status={frame?.enemyStatus}  />}
                             </div>
                         );
                     })}
@@ -5195,6 +6666,18 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, frame, result, o
                 )}
             </div>
 
+            {/* Round event ticker — last 3 non-system events */}
+            {recentFrames && recentFrames.length > 0 && (
+                <div className="pet-event-ticker">
+                    {[...recentFrames].reverse().map((f, i) => (
+                        <span key={`${f.message}-${i}`} className={`pet-event-chip ${f.actor} ${f.actionKind ?? ""} ${i === 0 ? "latest" : ""}`}>
+                            {f.actionKind === "dot" ? "☠" : f.actionKind === "buff" ? "⬆" : f.actionKind === "heal" ? "💚" : f.actionKind === "move" ? "💨" : f.actionKind === "debuff" ? "⬇" : f.crit ? "⚡" : "⚔"}
+                            {" "}{f.message.replace(/^Round \d+: /, "").slice(0, 42)}
+                        </span>
+                    ))}
+                </div>
+            )}
+
             <div className={`pet-arena-current-action ${frame?.actor ?? "system"}`}>
                 <span>{frame?.round ? `Round ${frame.round}` : "Ready"}</span>
                 <strong>{frame?.message ?? "Pick two pets and start the match."}</strong>
@@ -5204,9 +6687,9 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, frame, result, o
     );
 }
 
-function PetBattleAvatar({ pet, side, active }: { pet: Pet; side: "player" | "enemy"; active: boolean }) {
+function PetBattleAvatar({ pet, side, active, status }: { pet: Pet; side: "player" | "enemy"; active: boolean; status?: { poisoned?: number; atkBuff?: boolean; defBuff?: boolean } }) {
     return (
-        <div className={`pet-battle-avatar ${side}${active ? " active" : ""}`}>
+        <div className={`pet-battle-avatar ${side}${active ? " active" : ""}${status?.poisoned ? " poisoned" : ""}`}>
             {pet.image ? <img src={pet.image} alt={pet.name} /> : <span>{pet.name.slice(0, 2).toUpperCase()}</span>}
         </div>
     );
@@ -5224,7 +6707,17 @@ function PetArenaCard({ owner, pet }: { owner: string; pet: Pet }) {
                 <p>HP {pet.hp} | ATK {pet.attack} | DEF {pet.defense} | SPD {pet.speed}</p>
                 {pet.trait && <p><strong>Trait:</strong> {pet.trait} — {petTraitDescriptions[pet.trait]}</p>}
                 <div className="pet-arena-jutsu-list">
-                    {pet.jutsus.length ? pet.jutsus.map((jutsu) => <span key={jutsu.name}>{jutsu.name} ({jutsu.kind}, P{jutsu.power}, CD{jutsu.cooldown})</span>) : <span>No jutsu</span>}
+                    {pet.jutsus.length ? pet.jutsus.map((jutsu) => {
+                        const kindColors: Record<string, string> = { damage: "#fca5a5", buff: "#86efac", heal: "#4ade80", debuff: "#f97316", dot: "#c084fc", move: "#93c5fd", barrier: "#7dd3fc", movelock: "#fbbf24" };
+                        const kindIcons:  Record<string, string> = { damage: "⚔️", buff: "💪", heal: "💚", debuff: "🔻", dot: "☠️", move: "💨", barrier: "🔵", movelock: "🔒" };
+                        const col  = kindColors[jutsu.kind] ?? "#aaa";
+                        const icon = kindIcons[jutsu.kind]  ?? "❓";
+                        return (
+                            <span key={jutsu.name} className="pet-arena-jutsu-chip" style={{ borderColor: col, color: col }}>
+                                {icon} {jutsu.name}{jutsu.power > 0 ? ` · P${jutsu.power}` : ""} · CD{jutsu.cooldown}
+                            </span>
+                        );
+                    }) : <span style={{ color: "#555" }}>No jutsu</span>}
                 </div>
             </div>
         </div>
@@ -5288,6 +6781,10 @@ function AdminPanel({
     setScreen: (screen: Screen) => void;
     onSave: () => Promise<void>;
 }) {
+    // Always-fresh ref to onSave so async callbacks don't capture a stale closure
+    const onSaveRef = useRef(onSave);
+    useEffect(() => { onSaveRef.current = onSave; });
+
     const [editingJutsuId, setEditingJutsuId] = useState("");
     const [jutsuName, setJutsuName] = useState("Admin Flame Burst");
     const [jutsuGenStatus, setJutsuGenStatus] = useState("");
@@ -5330,7 +6827,14 @@ function AdminPanel({
     const [itemArmorQuality, setItemArmorQuality] = useState<ArmorQuality | "">("");
     const [itemImage, setItemImage] = useState("");
     const [editingItemId, setEditingItemId] = useState("");
-    const isArmorSlot = ["head", "body", "armor", "waist", "legs", "feet"].includes(itemSlot);
+    const [itemWeaponElement, setItemWeaponElement] = useState<JutsuElement | "">("");
+    const [itemWeaponRange, setItemWeaponRange] = useState<number | "">("");
+    const [itemWeaponCooldown, setItemWeaponCooldown] = useState<number | "">("");
+    const [itemWeaponEp, setItemWeaponEp] = useState<number | "">("");
+    const [itemWeaponEffect, setItemWeaponEffect] = useState<GameItem["weaponEffect"] | "">("");
+    const [itemWeaponEffectValue, setItemWeaponEffectValue] = useState<number | "">("");
+    const isArmorSlot = ["head", "hand", "body", "armor", "waist", "legs", "feet"].includes(itemSlot);
+    const isWeaponSlot = ["hand", "weapon", "thrown"].includes(itemSlot);
 
     // Bulk item image generation
     const [itemBulkSelections, setItemBulkSelections] = useState<string[]>([]);
@@ -5343,6 +6847,10 @@ function AdminPanel({
     const [itemBulkSlotFilter, setItemBulkSlotFilter] = useState<string>("all");
 
     function itemFromForm(id?: string): GameItem {
+        const existing = id ? getAllItems(creatorItems).find((i) => i.id === id) : null;
+        const mergedBonuses = existing
+            ? { ...existing.bonuses, [itemBonusStat]: Number(itemBonusAmount) }
+            : { [itemBonusStat]: Number(itemBonusAmount) };
         return {
             id: id ?? `item-${makeId()}`,
             name: itemName,
@@ -5352,7 +6860,13 @@ function AdminPanel({
             description: itemDescription,
             ...(isArmorSlot && itemArmorQuality ? { armorQuality: itemArmorQuality } : {}),
             ...(itemImage ? { image: itemImage } : {}),
-            bonuses: { [itemBonusStat]: Number(itemBonusAmount) },
+            ...(isWeaponSlot && itemWeaponElement ? { weaponElement: itemWeaponElement as JutsuElement } : {}),
+            ...(isWeaponSlot && itemWeaponRange !== "" ? { weaponRange: Number(itemWeaponRange) } : {}),
+            ...(isWeaponSlot && itemWeaponCooldown !== "" ? { weaponCooldown: Number(itemWeaponCooldown) } : {}),
+            ...(isWeaponSlot && itemWeaponEp !== "" ? { weaponEp: Number(itemWeaponEp) } : {}),
+            ...(isWeaponSlot && itemWeaponEffect ? { weaponEffect: itemWeaponEffect as GameItem["weaponEffect"] } : {}),
+            ...(isWeaponSlot && itemWeaponEffectValue !== "" ? { weaponEffectValue: Number(itemWeaponEffectValue) } : {}),
+            bonuses: mergedBonuses,
         };
     }
 
@@ -5365,6 +6879,12 @@ function AdminPanel({
         setItemDescription(item.description);
         setItemArmorQuality(item.armorQuality ?? "");
         setItemImage(item.image ?? "");
+        setItemWeaponElement(item.weaponElement ?? "");
+        setItemWeaponRange(item.weaponRange ?? "");
+        setItemWeaponCooldown(item.weaponCooldown ?? "");
+        setItemWeaponEp(item.weaponEp ?? "");
+        setItemWeaponEffect(item.weaponEffect ?? "");
+        setItemWeaponEffectValue(item.weaponEffectValue ?? "");
         const firstBonus = Object.entries(item.bonuses).find(([, v]) => v !== undefined && (v as number) !== 0);
         if (firstBonus) {
             setItemBonusStat(firstBonus[0] as keyof Stats);
@@ -5398,6 +6918,7 @@ function AdminPanel({
         }
         setEditingItemId("");
         alert(`${updated.name} saved.`);
+        setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
     }
 
     function createAdminItem() {
@@ -5405,6 +6926,7 @@ function AdminPanel({
         const newItem = itemFromForm();
         setCreatorItems([...creatorItems, newItem]);
         alert(`${newItem.name} created.`);
+        setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
     }
 
     async function runBulkItemGeneration() {
@@ -5460,10 +6982,12 @@ function AdminPanel({
     }
 
     const [cardName, setCardName] = useState("New Card");
-    const [cardPower, setCardPower] = useState(3);
+    const [cardTop, setCardTop] = useState(25);
+    const [cardRight, setCardRight] = useState(25);
+    const [cardBottom, setCardBottom] = useState(25);
+    const [cardLeft, setCardLeft] = useState(25);
     const [cardElement, setCardElement] = useState("None");
     const [cardRarity, setCardRarity] = useState<TileCard["rarity"]>("common");
-    const [cardArrows, setCardArrows] = useState<TileCardArrow[]>(["up"]);
     const [cardDescription, setCardDescription] = useState("A custom card.");
     const [cardImage, setCardImage] = useState("");
     const [editingCardId, setEditingCardId] = useState("");
@@ -5478,16 +7002,18 @@ function AdminPanel({
     const [bulkCustomPrompts, setBulkCustomPrompts] = useState<Record<string, string>>({});
 
     function cardFromForm(id?: string): TileCard {
-        return { id: id ?? `card-${makeId()}`, name: cardName, power: cardPower, element: cardElement, arrows: cardArrows, rarity: cardRarity, description: cardDescription, ...(cardImage ? { image: cardImage } : {}) };
+        return { id: id ?? `card-${makeId()}`, name: cardName, top: cardTop, right: cardRight, bottom: cardBottom, left: cardLeft, element: cardElement, rarity: cardRarity, description: cardDescription, ...(cardImage ? { image: cardImage } : {}) };
     }
 
     function loadAdminCard(card: TileCard) {
         setEditingCardId(card.id);
         setCardName(card.name);
-        setCardPower(card.power);
+        setCardTop(card.top);
+        setCardRight(card.right);
+        setCardBottom(card.bottom);
+        setCardLeft(card.left);
         setCardElement(card.element);
         setCardRarity(card.rarity);
-        setCardArrows(card.arrows);
         setCardDescription(card.description);
         setCardImage(card.image ?? "");
     }
@@ -5502,6 +7028,7 @@ function AdminPanel({
         }
         setEditingCardId("");
         alert(`${updated.name} saved.`);
+        setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
     }
 
     function createAdminCard() {
@@ -5509,6 +7036,7 @@ function AdminPanel({
         const newCard = cardFromForm();
         setCreatorCards([...creatorCards, newCard]);
         alert(`${newCard.name} created.`);
+        setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
     }
 
     async function generateCardImageRaw(prompt: string): Promise<string> {
@@ -5518,7 +7046,7 @@ function AdminPanel({
             body: JSON.stringify({ prompt, label: "Card Image" }),
         });
         const rawText = await response.text();
-        let data: Record<string, unknown> = {};
+        let data: Record<string, unknown>;
         try { data = rawText ? JSON.parse(rawText) : {}; } catch { throw new Error(`Server error ${response.status}`); }
         if (!response.ok) throw new Error((data.error as string) || `Status ${response.status}`);
         if (!data.image) throw new Error("No image returned.");
@@ -5576,6 +7104,7 @@ function AdminPanel({
     const [eventVnScene, setEventVnScene] = useState("Rain taps against the village rooftops while an unknown shinobi waits beneath the lanterns.");
     const [eventVnSpeaker, setEventVnSpeaker] = useState("Unknown Shinobi");
     const [eventImage, setEventImage] = useState("");
+    const [eventAvatarImage, setEventAvatarImage] = useState("");
     const [eventAiProfileId, setEventAiProfileId] = useState("");
     const [eventPageCount, setEventPageCount] = useState(1);
     const [eventVnPages, setEventVnPages] = useState(Array.from({ length: 10 }, (_, index) => ({
@@ -5584,9 +7113,13 @@ function AdminPanel({
         speaker: index === 0 ? "Unknown Shinobi" : "Narrator",
         dialogue: index === 0 ? "Unknown Shinobi: You are late.\nUnknown Shinobi: The first seal has already broken." : "",
         image: "",
-        choices: [] as { text: string; nextPage: number; conclusion?: string }[],
+        leftName: "Player",
+        leftImage: "",
+        rightName: index === 0 ? "Unknown Shinobi" : "Narrator",
+        rightImage: "",
+        choices: [] as NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>,
     })));
-    const [eventIcon, setEventIcon] = useState("⚔️");
+    const [eventIcon, setEventIcon] = useState("✦");
     const [eventLevelReq, setEventLevelReq] = useState(1);
     const [eventXp, setEventXp] = useState(200);
     const [eventRyo, setEventRyo] = useState(100);
@@ -5611,7 +7144,7 @@ function AdminPanel({
     const [editingRaidId, setEditingRaidId] = useState("");
     const [raidName, setRaidName] = useState("Shadow Boss Raid");
     const [raidBiome, setRaidBiome] = useState<Biome>("shadow");
-    const [raidIcon, setRaidIcon] = useState("💀");
+    const [raidIcon, setRaidIcon] = useState("✦");
     const [raidLevelReq, setRaidLevelReq] = useState(20);
     const [raidAiProfileId, setRaidAiProfileId] = useState("");
     const [raidWaves, setRaidWaves] = useState(3);
@@ -5757,6 +7290,12 @@ function AdminPanel({
         setCreatorEvents(creatorEvents.map((ev) => ev.id === editingEventId ? { ...ev, image } : ev));
     }
 
+    function applyEventAvatarImage(avatarImage: string) {
+        setEventAvatarImage(avatarImage);
+        if (!editingEventId) return;
+        setCreatorEvents(creatorEvents.map((ev) => ev.id === editingEventId ? { ...ev, avatarImage } : ev));
+    }
+
     function applyAiImage(image: string) {
         setAiImage(image);
         if (!editingAiId) return;
@@ -5839,6 +7378,7 @@ function AdminPanel({
         setCreatorJutsus([...creatorJutsus, newJutsu]);
 
         alert(`${newJutsu.name} created and imported to the game. Train it before equipping it.`);
+        setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
     }
 
     function saveAdminJutsuEdit() {
@@ -5857,28 +7397,45 @@ function AdminPanel({
             setCreatorJutsus([...creatorJutsus, rebalanceNonBloodlineJutsu(updatedJutsu)]);
         }
         alert(`${updatedJutsu.name} updated.`);
+        // Auto-persist: wait for React to re-render with the new state, then save
+        setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
     }
     function eventFromForm(id = `event-${makeId()}`): CreatorEvent {
+        const existingEvent = allEditableEvents.find((event) => event.id === id);
         return {
             id,
             name: eventName.trim() || "Admin Event",
             biome: eventBiome,
-            icon: eventIcon || "⚔️",
+            icon: eventIcon || "✦",
             eventKind,
             trigger: eventTrigger,
             vnTitle: eventVnTitle.trim() || eventName.trim() || "Visual Novel Scene",
             vnScene: eventVnScene.trim(),
             vnSpeaker: eventVnSpeaker.trim() || "Narrator",
             image: eventImage,
+            avatarImage: eventAvatarImage,
             aiProfileId: eventAiProfileId || undefined,
+            village: existingEvent?.village,
+            kageFinale: existingEvent?.kageFinale,
+            liberatorTitle: existingEvent?.liberatorTitle,
             vnPages: eventKind === "visualNovel" ? eventVnPages.slice(0, eventPageCount).map((page, index) => ({
                 title: page.title.trim() || `Story Page ${index + 1}`,
                 scene: page.scene.trim(),
                 speaker: page.speaker.trim() || "Narrator",
                 dialogue: page.dialogue.split("\n").map((line) => line.trim()).filter(Boolean),
                 image: page.image,
+                leftName: page.leftName?.trim() || undefined,
+                leftImage: page.leftImage || undefined,
+                rightName: page.rightName?.trim() || undefined,
+                rightImage: page.rightImage || undefined,
                 choices: page.choices?.filter((c) => c.text.trim()).length
-                    ? page.choices.filter((c) => c.text.trim()).map((c) => ({ text: c.text.trim(), nextPage: c.nextPage }))
+                    ? page.choices.filter((c) => c.text.trim()).map((c) => ({
+                        text: c.text.trim(),
+                        nextPage: c.nextPage,
+                        conclusion: c.conclusion?.trim() || undefined,
+                        trait: c.trait?.trim() || undefined,
+                        battle: c.battle,
+                    }))
                     : undefined,
             })) : undefined,
             levelReq: Math.max(1, Number(eventLevelReq)),
@@ -5901,6 +7458,7 @@ function AdminPanel({
         setEventVnScene(event.vnScene ?? "");
         setEventVnSpeaker(event.vnSpeaker ?? "Narrator");
         setEventImage(event.image ?? "");
+        setEventAvatarImage(event.avatarImage ?? "");
         setEventAiProfileId(event.aiProfileId ?? "");
         setEventLevelReq(event.levelReq);
         setEventXp(event.xpReward);
@@ -5918,12 +7476,17 @@ function AdminPanel({
         setEventPageCount(Math.min(10, Math.max(1, pages.length)));
         setEventVnPages(Array.from({ length: 10 }, (_, index) => {
             const page = pages[index];
+            const savedRightWasPlayer = (page?.rightName ?? "").trim().toLowerCase() === "player";
             return {
                 title: page?.title ?? `Story Page ${index + 1}`,
                 scene: page?.scene ?? "",
                 speaker: page?.speaker ?? "Narrator",
                 dialogue: page?.dialogue?.join("\n") ?? "",
                 image: page?.image ?? "",
+                leftName: savedRightWasPlayer ? "Player" : (page?.leftName ?? "Player"),
+                leftImage: savedRightWasPlayer ? "" : (page?.leftImage ?? ""),
+                rightName: savedRightWasPlayer ? (page?.leftName ?? page?.speaker ?? event.vnSpeaker ?? "Narrator") : (page?.rightName ?? page?.speaker ?? "Narrator"),
+                rightImage: savedRightWasPlayer ? (page?.leftImage ?? page?.rightImage ?? "") : (page?.rightImage ?? ""),
                 choices: page?.choices ?? [],
             };
         }));
@@ -5933,6 +7496,7 @@ function AdminPanel({
         const event = eventFromForm();
         setCreatorEvents([...creatorEvents, event]);
         alert(`${event.name} created and imported to World Map.`);
+        setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
     }
 
     function saveAdminEventEdit() {
@@ -5942,6 +7506,7 @@ function AdminPanel({
             ? creatorEvents.map((event) => event.id === editingEventId ? updatedEvent : event)
             : [...creatorEvents, updatedEvent]);
         alert(`${updatedEvent.name} updated.`);
+        setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
     }
 
     function missionFromForm(id = `mission-${makeId()}`): CreatorMission {
@@ -5983,6 +7548,7 @@ function AdminPanel({
         const mission = missionFromForm();
         setCreatorMissions([...creatorMissions, mission]);
         alert(`${mission.name} created and added to Mission Hall.`);
+        setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
     }
 
     function saveAdminMissionEdit() {
@@ -5992,6 +7558,7 @@ function AdminPanel({
             ? creatorMissions.map((existing) => existing.id === mission.id ? mission : existing)
             : [...creatorMissions, mission]);
         alert(`${mission.name} updated.`);
+        setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
     }
 
     function raidFromForm(id = `raid-${makeId()}`): CreatorRaid {
@@ -5999,7 +7566,7 @@ function AdminPanel({
             id,
             name: raidName.trim() || "Shadow Boss Raid",
             biome: raidBiome,
-            icon: raidIcon || "💀",
+            icon: raidIcon || "✦",
             levelReq: Math.max(1, Number(raidLevelReq)),
             aiProfileId: raidAiProfileId || undefined,
             waves: Math.max(1, Math.min(10, Number(raidWaves))),
@@ -6032,6 +7599,7 @@ function AdminPanel({
         const raid = raidFromForm();
         setCreatorRaids([...creatorRaids, raid]);
         alert(`${raid.name} created.`);
+        setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
     }
 
     function saveAdminRaidEdit() {
@@ -6042,6 +7610,7 @@ function AdminPanel({
             : [...creatorRaids, raid]);
         setEditingRaidId(raid.id);
         alert(`${raid.name} updated.`);
+        setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
     }
 
     function aiFromForm(id = `ai-${makeId()}`): CreatorAi {
@@ -6086,6 +7655,7 @@ function AdminPanel({
         setEditingAiId(ai.id);
         setSelectedAiId(ai.id);
         alert(`${ai.name} saved.`);
+        setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
     }
 
     function updateAiStat(stat: keyof Stats, value: number) {
@@ -6128,6 +7698,7 @@ function AdminPanel({
         setEditingBloodlineId(updatedBloodline.id);
         setSelectedBloodlineId(updatedBloodline.id);
         alert(`${bloodlineEditName || "Bloodline"} updated.`);
+        setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
     }
 
     function setLevel(level: number) {
@@ -6139,7 +7710,7 @@ function AdminPanel({
             ...character,
             level: nextLevel,
             xp: 0,
-            rankTitle: rankFromLevel(nextLevel),
+            rankTitle: rankTitleForLevel(character, nextLevel),
             maxHp: nextMaxHp,
             hp: nextMaxHp,
             maxChakra: nextMaxChakra,
@@ -6213,7 +7784,7 @@ function AdminPanel({
                 <div className="admin-subpanel">
                     <div className="admin-panel-heading">
                         <h3>Village Leaders</h3>
-                        <p>Add portraits for every village Kage and Elder. These appear in each village's Town Hall.</p>
+                        <p>Add portraits for every story Kage and important NPC. These appear in each village's Town Hall.</p>
                     </div>
                     {Object.entries(villageLeadership).map(([village, leadership]) => {
                         const images = leadershipImages[village] ?? { kage: "", elders: ["", "", ""] };
@@ -6233,12 +7804,12 @@ function AdminPanel({
                                     </div>
                                     {leadership.elders.map((elder, index) => (
                                         <div className="leader-admin-card" key={elder}>
-                                            <h4>{index === 0 ? "War Elder" : index === 1 ? "Trade Elder" : "Training Elder"}</h4>
+                                            <h4>{index === 0 ? "Important NPC 1" : index === 1 ? "Important NPC 2" : "Important NPC 3"}</h4>
                                             <strong>{elder}</strong>
                                             {images.elders?.[index] ? <img src={images.elders[index]} alt={elder} /> : <div className="leader-image-placeholder">No Image</div>}
                                             <input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) readImageFile(file, (image) => updateLeadershipImage(village, index, image), 100); }} />
                                             <div className="menu">
-                                                <AiImagePrompt label="Elder Image" suggestedPrompt={`${elder}, shinobi village elder portrait`} onImage={(image) => updateLeadershipImage(village, index, image)} />
+                                                <AiImagePrompt label="NPC Image" suggestedPrompt={`${elder}, shinobi story character portrait`} onImage={(image) => updateLeadershipImage(village, index, image)} />
                                                 {images.elders?.[index] && <button className="danger-button" onClick={() => updateLeadershipImage(village, index, "")}>Remove Image</button>}
                                             </div>
                                         </div>
@@ -6297,7 +7868,7 @@ function AdminPanel({
 
                             {damageTagEnabled && (
                                 <>
-                                    <label>Damage Effect Power</label>
+                                    <label>Damage Effect Power <span style={{ fontSize: "0.72rem", color: "#94a3b8" }}>(Lv.50 max · Lv.1 ≈ {Math.max(0, +(damageEffectPower - 49 * 0.2).toFixed(1))})</span></label>
                                     <input
                                         type="number"
                                         value={damageEffectPower}
@@ -6355,6 +7926,10 @@ function AdminPanel({
                             <input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; readImageFile(file, applyEventImage, 100); }} />
                             <AiImagePrompt label="Event Image" suggestedPrompt={`${eventBiome} world event scene, ${eventName}`} onImage={applyEventImage} />
                             {eventImage && (<div className="admin-jutsu-preview admin-event-preview"><img src={eventImage} alt="Event preview" /><button className="danger-button" onClick={() => applyEventImage("")}>Remove Image</button></div>)}
+                            <label>Avatar Image</label>
+                            <input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; readImageFile(file, applyEventAvatarImage, 100); }} />
+                            <AiImagePrompt label="Event Avatar" suggestedPrompt={`${eventName} shinobi character portrait`} onImage={applyEventAvatarImage} />
+                            {eventAvatarImage && (<div className="admin-jutsu-preview admin-event-preview"><img src={eventAvatarImage} alt="Event avatar preview" /><button className="danger-button" onClick={() => applyEventAvatarImage("")}>Remove Avatar</button></div>)}
                             <label>Level / XP / Ryo / Stamina</label>
                             <div className="inline-grid"><input type="number" value={eventLevelReq} onChange={(e) => setEventLevelReq(Number(e.target.value))} /><input type="number" value={eventXp} onChange={(e) => setEventXp(Number(e.target.value))} /><input type="number" value={eventRyo} onChange={(e) => setEventRyo(Number(e.target.value))} /><input type="number" value={eventStamina} onChange={(e) => setEventStamina(Number(e.target.value))} /></div>
                             <label>Bonus Currency Reward</label>
@@ -6505,6 +8080,11 @@ function AdminPanel({
                             <input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; readImageFile(file, applyEventImage, 100); }} />
                             <AiImagePrompt label="VN Backdrop" suggestedPrompt={`${eventBiome} visual novel backdrop, ${eventName}`} onImage={applyEventImage} />
                             {eventImage && (<div className="admin-jutsu-preview admin-event-preview"><img src={eventImage} alt="Backdrop preview" /><button className="danger-button" onClick={() => applyEventImage("")}>Remove Image</button></div>)}
+                            <label>Default Right-Side Avatar</label>
+                            <p className="hint">Used for the speaker, enemy, or narrator portrait on the right side when a page does not have its own right avatar.</p>
+                            <input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; readImageFile(file, applyEventAvatarImage, 100); }} />
+                            <AiImagePrompt label="Right-Side VN Avatar" suggestedPrompt={`${eventVnSpeaker || eventName} shinobi visual novel portrait`} onImage={applyEventAvatarImage} />
+                            {eventAvatarImage && (<div className="admin-jutsu-preview admin-event-preview"><img src={eventAvatarImage} alt="VN avatar preview" /><button className="danger-button" onClick={() => applyEventAvatarImage("")}>Remove Avatar</button></div>)}
                             <label>Story Pages (1–10)</label><input type="number" min={1} max={10} value={eventPageCount} onChange={(e) => setEventPageCount(Math.max(1, Math.min(10, Number(e.target.value))))} />
                             <div className="admin-vn-page-list">
                                 {eventVnPages.slice(0, eventPageCount).map((page, index) => (
@@ -6513,6 +8093,38 @@ function AdminPanel({
                                         <label>Page Title</label><input value={page.title} onChange={(e) => updateVnPage(index, { title: e.target.value })} />
                                         <label>Scene</label><textarea rows={2} value={page.scene} onChange={(e) => updateVnPage(index, { scene: e.target.value })} />
                                         <label>Speaker</label><input value={page.speaker} onChange={(e) => updateVnPage(index, { speaker: e.target.value })} />
+                                        <label>Left / Right Character Names</label>
+                                        <div className="inline-grid">
+                                            <input placeholder="Left player name" value={page.leftName ?? ""} onChange={(e) => updateVnPage(index, { leftName: e.target.value })} />
+                                            <input placeholder="Right speaker / enemy / narrator" value={page.rightName ?? ""} onChange={(e) => updateVnPage(index, { rightName: e.target.value })} />
+                                        </div>
+                                        <label>VN Avatars</label>
+                                        <div className="vn-avatar-editor-row">
+                                            <div className="vn-avatar-editor-card">
+                                                <span>Left Player</span>
+                                                <div className="vn-avatar-editor-preview">
+                                                    {(page.leftImage || character.avatarImage) ? <img src={page.leftImage || character.avatarImage} alt="Left player avatar preview" /> : (character.name || "PL").slice(0, 2).toUpperCase()}
+                                                </div>
+                                                <small>Defaults to the player avatar.</small>
+                                                <input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; readImageFile(file, (leftImage) => updateVnPage(index, { leftImage }), 100); }} />
+                                            </div>
+                                            <div className="vn-avatar-editor-card">
+                                                <span>Right Speaker / Enemy / Narrator</span>
+                                                <div className="vn-avatar-editor-preview">
+                                                    {(page.rightImage || eventAvatarImage) ? <img src={page.rightImage || eventAvatarImage} alt="Right speaker avatar preview" /> : ((page.rightName || page.speaker || "VN").slice(0, 2).toUpperCase())}
+                                                </div>
+                                                <small>Upload a page-specific avatar, or use the default right-side avatar above.</small>
+                                                <input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; readImageFile(file, (rightImage) => updateVnPage(index, { rightImage }), 100); }} />
+                                                <AiImagePrompt label={`Page ${index + 1} Right Avatar`} suggestedPrompt={`${page.rightName || page.speaker || eventVnSpeaker} visual novel portrait`} onImage={(rightImage) => updateVnPage(index, { rightImage })} />
+                                            </div>
+                                        </div>
+                                        {(page.leftImage || page.rightImage) && (
+                                            <div className="vn-page-img-preview vn-character-preview-row">
+                                                {page.leftImage && <img src={page.leftImage} alt={`${page.leftName || "Left character"} preview`} />}
+                                                {page.rightImage && <img src={page.rightImage} alt={`${page.rightName || "Right character"} preview`} />}
+                                                <button className="danger-button" onClick={() => updateVnPage(index, { leftImage: "", rightImage: "" })}>Remove Character Images</button>
+                                            </div>
+                                        )}
                                         <label>Dialogue Lines</label>
                                         <textarea rows={4} value={page.dialogue} onChange={(e) => updateVnPage(index, { dialogue: e.target.value })} />
                                         <label>Page Image</label>
@@ -6544,11 +8156,11 @@ function AdminPanel({
                                                             type="number"
                                                             min={1}
                                                             max={eventPageCount}
-                                                            placeholder="→ Page"
+                                                            placeholder="? Page"
                                                             value={choice.nextPage + 1}
                                                             onChange={(e) => updateVnPage(index, { choices: page.choices.map((c, i) => i === ci ? { ...c, nextPage: Math.max(0, Number(e.target.value) - 1) } : c) })}
                                                         />
-                                                        <button className="danger-button" onClick={() => updateVnPage(index, { choices: page.choices.filter((_, i) => i !== ci) })}>✕</button>
+                                                        <button className="danger-button" onClick={() => updateVnPage(index, { choices: page.choices.filter((_, i) => i !== ci) })}>?</button>
                                                     </div>
                                                     <textarea
                                                         rows={2}
@@ -6556,6 +8168,29 @@ function AdminPanel({
                                                         value={choice.conclusion ?? ""}
                                                         onChange={(e) => updateVnPage(index, { choices: page.choices.map((c, i) => i === ci ? { ...c, conclusion: e.target.value } : c) })}
                                                     />
+                                                    <input
+                                                        placeholder="Hidden trait flag (merciful, reckless, suspicious...)"
+                                                        value={choice.trait ?? ""}
+                                                        onChange={(e) => updateVnPage(index, { choices: page.choices.map((c, i) => i === ci ? { ...c, trait: e.target.value } : c) })}
+                                                    />
+                                                    <details className="vn-battle-trigger-editor">
+                                                        <summary>Optional Battle Trigger</summary>
+                                                        <div className="inline-grid">
+                                                            <input placeholder="Boss name" value={choice.battle?.bossName ?? ""} onChange={(e) => updateVnPage(index, { choices: page.choices.map((c, i) => i === ci ? { ...c, battle: { ...(c.battle ?? {}), bossName: e.target.value } } : c) })} />
+                                                            <input placeholder="Boss icon" value={choice.battle?.bossIcon ?? ""} onChange={(e) => updateVnPage(index, { choices: page.choices.map((c, i) => i === ci ? { ...c, battle: { ...(c.battle ?? {}), bossIcon: e.target.value } } : c) })} />
+                                                            <input type="number" placeholder="Boss HP" value={choice.battle?.bossHp ?? ""} onChange={(e) => updateVnPage(index, { choices: page.choices.map((c, i) => i === ci ? { ...c, battle: { ...(c.battle ?? {}), bossHp: Number(e.target.value) } } : c) })} />
+                                                            <input type="number" placeholder="Boss damage" value={choice.battle?.bossDamage ?? ""} onChange={(e) => updateVnPage(index, { choices: page.choices.map((c, i) => i === ci ? { ...c, battle: { ...(c.battle ?? {}), bossDamage: Number(e.target.value) } } : c) })} />
+                                                        </div>
+                                                        <label>AI Profile</label>
+                                                        <select value={choice.battle?.aiProfileId ?? ""} onChange={(e) => updateVnPage(index, { choices: page.choices.map((c, i) => i === ci ? { ...c, battle: { ...(c.battle ?? {}), aiProfileId: e.target.value || undefined } } : c) })}>
+                                                            <option value="">Use VN AI</option>
+                                                            {allAdminAis.map((ai) => <option key={ai.id} value={ai.id}>{ai.name} | Level {ai.level}</option>)}
+                                                        </select>
+                                                        <div className="inline-grid">
+                                                            <input type="number" placeholder="Reward XP" value={choice.battle?.xpReward ?? ""} onChange={(e) => updateVnPage(index, { choices: page.choices.map((c, i) => i === ci ? { ...c, battle: { ...(c.battle ?? {}), xpReward: Number(e.target.value) } } : c) })} />
+                                                            <input type="number" placeholder="Reward Ryo" value={choice.battle?.ryoReward ?? ""} onChange={(e) => updateVnPage(index, { choices: page.choices.map((c, i) => i === ci ? { ...c, battle: { ...(c.battle ?? {}), ryoReward: Number(e.target.value) } } : c) })} />
+                                                        </div>
+                                                    </details>
                                                 </div>
                                             ))}
                                             {page.choices.length < 4 && (
@@ -6589,7 +8224,7 @@ function AdminPanel({
                                         setPreviewVnLine(0);
                                     }}
                                 >
-                                    ▶ Play Preview
+                                    ➡ Play Preview
                                 </button>
                                 <button
                                     style={{ background: "#2e4a1e", borderColor: "#a5d6a7" }}
@@ -6624,7 +8259,7 @@ function AdminPanel({
                                         setPreviewVnLine(0);
                                     }}
                                 >
-                                    ▶ Preview Pet VN
+                                    ➡ Preview Pet VN
                                 </button>
                                 <button onClick={() => { setPetEncounterVn(defaultPetEncounterVn); alert("Pet Encounter VN reset to default."); }}>Reset to Default</button>
                             </div>
@@ -6633,13 +8268,13 @@ function AdminPanel({
                 </div>
             )}
 
-            {/* ── VN Preview Overlay ─────────────────────────────────── */}
+            {/* -- VN Preview Overlay ----------------------------------- */}
             {previewVn && (
                 <div className="vn-preview-overlay">
                     <div className="vn-preview-modal">
                         <div className="vn-preview-topbar">
-                            <span className="vn-preview-label">🎬 Preview Mode — this is how players will see it</span>
-                            <button className="danger-button" onClick={() => setPreviewVn(null)}>✕ Close Preview</button>
+                            <span className="vn-preview-label">🖼️ Preview Mode — this is how players will see it</span>
+                            <button className="danger-button" onClick={() => setPreviewVn(null)}>? Close Preview</button>
                         </div>
                         <TriggeredVisualNovel
                             event={previewVn}
@@ -6650,10 +8285,7 @@ function AdminPanel({
                             setLineIndex={setPreviewVnLine}
                             onCancel={() => setPreviewVn(null)}
                             onComplete={() => setPreviewVn(null)}
-                            setScreen={() => setPreviewVn(null)}
-                            setCurrentBiome={() => { }}
-                            setCurrentWeather={() => { }}
-                            setPendingAiProfileId={() => { }}
+                            onBattle={() => setPreviewVn(null)}
                         />
                     </div>
                 </div>
@@ -6824,6 +8456,43 @@ function AdminPanel({
                             </>
                         )}
 
+                        {isWeaponSlot && (
+                            <>
+                                <label>Weapon Element Lock (optional)</label>
+                                <select value={itemWeaponElement} onChange={(e) => setItemWeaponElement(e.target.value as JutsuElement | "")}>
+                                    <option value="">— None (no lock) —</option>
+                                    {jutsuElements.map((el) => <option key={el} value={el}>{el}</option>)}
+                                </select>
+
+                                <label>Weapon Range Override (blank = default)</label>
+                                <input type="number" min={1} max={10} value={itemWeaponRange} placeholder="e.g. 4"
+                                    onChange={(e) => setItemWeaponRange(e.target.value === "" ? "" : Number(e.target.value))} />
+
+                                <label>Weapon Cooldown (rounds, 0 = none)</label>
+                                <input type="number" min={0} max={20} value={itemWeaponCooldown} placeholder="e.g. 5"
+                                    onChange={(e) => setItemWeaponCooldown(e.target.value === "" ? "" : Number(e.target.value))} />
+
+                                <label>Weapon Fixed EP (blank = stat-computed)</label>
+                                <input type="number" min={1} max={200} value={itemWeaponEp} placeholder="e.g. 60"
+                                    onChange={(e) => setItemWeaponEp(e.target.value === "" ? "" : Number(e.target.value))} />
+
+                                <label>Weapon Special Effect (optional)</label>
+                                <select value={itemWeaponEffect ?? ""} onChange={(e) => setItemWeaponEffect(e.target.value as GameItem["weaponEffect"] | "")}>
+                                    <option value="">— None —</option>
+                                    <option value="Absorb">Absorb</option>
+                                    <option value="Lifesteal">Lifesteal</option>
+                                    <option value="Reflect">Reflect</option>
+                                    <option value="Increase Damage Given">Increase Damage Given</option>
+                                    <option value="Decrease Damage Given">Decrease Damage Given</option>
+                                    <option value="Shield">Shield (flat HP)</option>
+                                </select>
+
+                                <label>Effect Value (% for most; flat HP for Shield)</label>
+                                <input type="number" min={0} max={1000} value={itemWeaponEffectValue} placeholder="e.g. 30"
+                                    onChange={(e) => setItemWeaponEffectValue(e.target.value === "" ? "" : Number(e.target.value))} />
+                            </>
+                        )}
+
                         <label>Cost</label>
                         <input type="number" value={itemCost} onChange={(e) => setItemCost(Number(e.target.value))} />
 
@@ -6858,7 +8527,7 @@ function AdminPanel({
                             {editingItemId && <button onClick={() => setEditingItemId("")}>Cancel Edit</button>}
                         </div>
 
-                        {/* ── Bulk Item Image Generator ── */}
+                        {/* -- Bulk Item Image Generator -- */}
                         {(() => {
                             const allItems = getAllItems(creatorItems);
                             const slotOptions = ["all", ...Array.from(new Set(allItems.map(i => i.slot))).sort()];
@@ -6879,8 +8548,8 @@ function AdminPanel({
                             return (
                                 <div className="bulk-image-section" style={{ marginTop: 14 }}>
                                     <div className="bulk-image-header" onClick={() => setItemBulkShowSection(v => !v)}>
-                                        <span>🎨 Bulk Image Generator — Items / Armor / Weapons</span>
-                                        <span className="bulk-image-chevron">{itemBulkShowSection ? "▲" : "▼"}</span>
+                                        <span>🖼️ Bulk Image Generator — Items / Armor / Weapons</span>
+                                        <span className="bulk-image-chevron">{itemBulkShowSection ? "?" : "?"}</span>
                                     </div>
 
                                     {itemBulkShowSection && (
@@ -6947,7 +8616,7 @@ function AdminPanel({
                                                                     {item.rarity}
                                                                 </span>
                                                                 <span className="bulk-card-element">{slotLabel}</span>
-                                                                {item.image && <span className="bulk-card-has-img">✓ has image</span>}
+                                                                {item.image && <span className="bulk-card-has-img">🖼️ has image</span>}
                                                             </div>
                                                             {checked && (
                                                                 <input
@@ -6980,7 +8649,7 @@ function AdminPanel({
                                                 <div className="bulk-error-list">
                                                     <strong style={{ color: "#f87171" }}>Errors ({itemBulkErrors.length}):</strong>
                                                     {itemBulkErrors.map(e => (
-                                                        <div key={e.id} className="bulk-error-row">❌ <strong>{e.name}</strong>: {e.error}</div>
+                                                        <div key={e.id} className="bulk-error-row">? <strong>{e.name}</strong>: {e.error}</div>
                                                     ))}
                                                 </div>
                                             )}
@@ -6993,8 +8662,8 @@ function AdminPanel({
                                                     onClick={runBulkItemGeneration}
                                                 >
                                                     {itemBulkRunning
-                                                        ? `⏳ Generating… ${itemBulkProgress ? `${itemBulkProgress.current}/${itemBulkProgress.total}` : ""}`
-                                                        : `🎨 Generate Images for ${selCount} Item${selCount !== 1 ? "s" : ""}`}
+                                                        ? `? Generating… ${itemBulkProgress ? `${itemBulkProgress.current}/${itemBulkProgress.total}` : ""}`
+                                                        : `🖼️ Generate Images for ${selCount} Item${selCount !== 1 ? "s" : ""}`}
                                                 </button>
                                             </div>
                                         </div>
@@ -7012,7 +8681,7 @@ function AdminPanel({
                                     {item.image
                                         ? <img src={item.image} alt={item.name}
                                             style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 6, flexShrink: 0, border: "1px solid #334155" }} />
-                                        : <div style={{ width: 48, height: 48, borderRadius: 6, background: "#0f172a", border: "1px dashed #334155", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>⚔️</div>
+                                        : <div style={{ width: 48, height: 48, borderRadius: 6, background: "#0f172a", border: "1px dashed #334155", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>🖼️</div>
                                     }
                                     <div style={{ flex: 1, minWidth: 0 }}>
                                         <strong>{item.name}</strong>
@@ -7342,25 +9011,54 @@ function AdminPanel({
                                         <input type="number" value={pet.speed} onChange={(e) => updatePet({ speed: Number(e.target.value) })} />
                                     </div>
 
-                                    <h4>Pet Jutsus</h4>
+                                    <h4>Pet Jutsus <span style={{ fontSize: "0.75rem", color: "#64748b" }}>({pet.jutsus.length} / 6)</span></h4>
                                     {pet.jutsus.map((jutsu, index) => (
-                                        <div className="summary-box" key={index}>
+                                        <div className="summary-box" key={index} style={{ position: "relative" }}>
+                                            <button
+                                                onClick={() => updatePet({ jutsus: pet.jutsus.filter((_, i) => i !== index) })}
+                                                style={{ position: "absolute", top: 6, right: 6, background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.4)", color: "#fca5a5", borderRadius: 4, padding: "1px 7px", fontSize: "0.75rem", cursor: "pointer" }}
+                                                title="Remove this jutsu"
+                                            >✕ Remove</button>
+
                                             <label>Jutsu Name</label>
                                             <input value={jutsu.name} onChange={(e) => updatePetJutsu(index, { name: e.target.value })} />
 
-                                            <label>Power / Cooldown</label>
-                                            <div className="inline-grid">
-                                                <input type="number" value={jutsu.power} onChange={(e) => updatePetJutsu(index, { power: Number(e.target.value) })} />
-                                                <input type="number" value={jutsu.cooldown} onChange={(e) => updatePetJutsu(index, { cooldown: Number(e.target.value) })} />
-                                            </div>
-
                                             <label>Kind</label>
-                                            <select value={jutsu.kind} onChange={(e) => updatePetJutsu(index, { kind: e.target.value as "damage" | "buff" })}>
-                                                <option value="damage">damage</option>
-                                                <option value="buff">buff</option>
+                                            <select value={jutsu.kind} onChange={(e) => updatePetJutsu(index, { kind: e.target.value as PetJutsu["kind"] })}>
+                                                <option value="damage">⚔️ damage — direct attack</option>
+                                                <option value="buff">💪 buff — raise own ATK + DEF</option>
+                                                <option value="heal">💚 heal — restore own HP</option>
+                                                <option value="debuff">🔻 debuff — lower enemy ATK + DEF</option>
+                                                <option value="dot">☠️ dot — poison (3 rounds)</option>
+                                                <option value="move">💨 move — dash toward enemy</option>
+                                                <option value="barrier">🔵 barrier — absorb incoming damage</option>
+                                                <option value="movelock">🔒 movelock — root enemy (2 rounds)</option>
                                             </select>
+
+                                            <label>
+                                                {jutsu.kind === "barrier" ? "Power (shield HP = power × 0.7)" :
+                                                 jutsu.kind === "buff"    ? "Power (ATK gain = power ÷ 2, DEF gain = power ÷ 3)" :
+                                                 jutsu.kind === "heal"    ? "Power (heal = power × 0.6)" :
+                                                 jutsu.kind === "debuff"  ? "Power (ATK cut = power ÷ 4, DEF cut = power ÷ 5)" :
+                                                 jutsu.kind === "dot"     ? "Power (poison per round = power × 0.28)" :
+                                                 jutsu.kind === "move" || jutsu.kind === "movelock" ? "Power (set to 0 — auto)" :
+                                                 "Power"}
+                                            </label>
+                                            <div className="inline-grid">
+                                                <input type="number" value={jutsu.power} onChange={(e) => updatePetJutsu(index, { power: Number(e.target.value) })} placeholder="Power" />
+                                                <input type="number" value={jutsu.cooldown} onChange={(e) => updatePetJutsu(index, { cooldown: Number(e.target.value) })} placeholder="Cooldown" />
+                                            </div>
+                                            <p className="hint" style={{ margin: "2px 0 0" }}>Cooldown: rounds before this jutsu can be used again.</p>
                                         </div>
                                     ))}
+                                    {pet.jutsus.length < 6 && (
+                                        <button
+                                            style={{ marginTop: 6, width: "100%" }}
+                                            onClick={() => updatePet({
+                                                jutsus: [...pet.jutsus, { name: "New Jutsu", power: 50, cooldown: 3, currentCooldown: 0, kind: "damage" }]
+                                            })}
+                                        >+ Add Jutsu</button>
+                                    )}
 
                                     <div className="menu">
                                         {petRarityOrder.map((rarity) => {
@@ -7457,12 +9155,21 @@ function AdminPanel({
                         <label>Card Name</label>
                         <input value={cardName} onChange={(e) => setCardName(e.target.value)} />
 
-                        <label>Power (1–10)</label>
-                        <input type="number" min={1} max={10} value={cardPower} onChange={(e) => setCardPower(Number(e.target.value))} />
+                        <label>Top (1–99)</label>
+                        <input type="number" min={1} max={99} value={cardTop} onChange={(e) => setCardTop(Number(e.target.value))} />
+
+                        <label>Right (1–99)</label>
+                        <input type="number" min={1} max={99} value={cardRight} onChange={(e) => setCardRight(Number(e.target.value))} />
+
+                        <label>Bottom (1–99)</label>
+                        <input type="number" min={1} max={99} value={cardBottom} onChange={(e) => setCardBottom(Number(e.target.value))} />
+
+                        <label>Left (1–99)</label>
+                        <input type="number" min={1} max={99} value={cardLeft} onChange={(e) => setCardLeft(Number(e.target.value))} />
 
                         <label>Element</label>
                         <select value={cardElement} onChange={(e) => setCardElement(e.target.value)}>
-                            {["None", "Fire", "Water", "Wind", "Earth", "Lightning", "Shadow", "Ice"].map((el) => (
+                            {["None", "Fire", "Water", "Wind", "Earth", "Lightning", "Shadow", "Ice", "Neutral"].map((el) => (
                                 <option key={el} value={el}>{el}</option>
                             ))}
                         </select>
@@ -7472,21 +9179,8 @@ function AdminPanel({
                             <option value="common">common</option>
                             <option value="rare">rare</option>
                             <option value="epic">epic</option>
+                            <option value="legendary">legendary</option>
                         </select>
-
-                        <label>Arrows</label>
-                        <div className="inline-grid">
-                            {(["up", "down", "left", "right"] as TileCardArrow[]).map((dir) => (
-                                <label key={dir} style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
-                                    <input
-                                        type="checkbox"
-                                        checked={cardArrows.includes(dir)}
-                                        onChange={(e) => setCardArrows(e.target.checked ? [...cardArrows, dir] : cardArrows.filter((d) => d !== dir))}
-                                    />
-                                    {dir}
-                                </label>
-                            ))}
-                        </div>
 
                         <label>Description</label>
                         <textarea value={cardDescription} onChange={(e) => setCardDescription(e.target.value)} rows={2} />
@@ -7510,15 +9204,15 @@ function AdminPanel({
 
                         <div className="menu">
                             <button onClick={createAdminCard}>{editingCardId ? "Save Card" : "Create Card"}</button>
-                            {editingCardId && <button onClick={() => { setEditingCardId(""); setCardName("New Card"); setCardPower(3); setCardArrows(["up"]); setCardImage(""); }}>Cancel Edit</button>}
+                            {editingCardId && <button onClick={() => { setEditingCardId(""); setCardName("New Card"); setCardTop(25); setCardRight(25); setCardBottom(25); setCardLeft(25); setCardImage(""); }}>Cancel Edit</button>}
                         </div>
                     </section>
 
-                    {/* ── Bulk Image Generator ── */}
+                    {/* -- Bulk Image Generator -- */}
                     <section className="summary-box bulk-image-section">
                         <div className="bulk-image-header" onClick={() => setBulkShowSection(v => !v)}>
-                            <span>🎨 Bulk Image Generator</span>
-                            <span className="bulk-image-chevron">{bulkShowSection ? "▲" : "▼"}</span>
+                            <span>🖼️ Bulk Image Generator</span>
+                            <span className="bulk-image-chevron">{bulkShowSection ? "?" : "?"}</span>
                         </div>
 
                         {bulkShowSection && (() => {
@@ -7582,7 +9276,7 @@ function AdminPanel({
                                                         <span className="bulk-card-name">{card.name}</span>
                                                         <span className={`bulk-card-rarity bulk-rarity-${card.rarity}`}>{card.rarity}</span>
                                                         {card.element !== "None" && <span className="bulk-card-element">{card.element}</span>}
-                                                        {card.image && <span className="bulk-card-has-img">✓ has image</span>}
+                                                        {card.image && <span className="bulk-card-has-img">🖼️ has image</span>}
                                                     </div>
                                                     {checked && (
                                                         <input
@@ -7615,7 +9309,7 @@ function AdminPanel({
                                         <div className="bulk-error-list">
                                             <strong style={{ color: "#f87171" }}>Errors ({bulkErrors.length}):</strong>
                                             {bulkErrors.map(e => (
-                                                <div key={e.id} className="bulk-error-row">❌ <strong>{e.name}</strong>: {e.error}</div>
+                                                <div key={e.id} className="bulk-error-row">? <strong>{e.name}</strong>: {e.error}</div>
                                             ))}
                                         </div>
                                     )}
@@ -7628,8 +9322,8 @@ function AdminPanel({
                                             onClick={runBulkGeneration}
                                         >
                                             {bulkRunning
-                                                ? `⏳ Generating… ${bulkProgress ? `${bulkProgress.current}/${bulkProgress.total}` : ""}`
-                                                : `🎨 Generate Images for ${selectedCount} Card${selectedCount !== 1 ? "s" : ""}`}
+                                                ? `? Generating… ${bulkProgress ? `${bulkProgress.current}/${bulkProgress.total}` : ""}`
+                                                : `🖼️ Generate Images for ${selectedCount} Card${selectedCount !== 1 ? "s" : ""}`}
                                         </button>
                                     </div>
                                 </div>
@@ -7644,7 +9338,7 @@ function AdminPanel({
                             return (
                                 <div key={card.id} className="summary-box" style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
                                     {card.image && <img src={card.image} alt={card.name} style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 4 }} />}
-                                    <span style={{ flex: 1 }}><strong>{card.name}</strong> | PWR {card.power} | {card.element} | {card.rarity} | [{card.arrows.join(",")}]</span>
+                                    <span style={{ flex: 1 }}><strong>{card.name}</strong> | T:{card.top} R:{card.right} B:{card.bottom} L:{card.left} | {card.element} | {card.rarity}</span>
                                     <button onClick={() => loadAdminCard(card)}>Edit</button>
                                     {isCreator && (
                                         <button className="danger-button" onClick={() => { setCreatorCards(creatorCards.filter((c) => c.id !== card.id)); if (editingCardId === card.id) setEditingCardId(""); }}>Delete</button>
@@ -7667,7 +9361,7 @@ function AdminPanel({
     );
 }
 
-function TagPicker({ tag, setTag, percent, setPercent, rank }: { tag: string; setTag: (tag: string) => void; percent: number; setPercent: (percent: number) => void; rank?: Rank | null }) {
+function TagPicker({ tag, setTag, percent, setPercent, rank, jutsuTarget }: { tag: string; setTag: (tag: string) => void; percent: number; setPercent: (percent: number) => void; rank?: Rank | null; jutsuTarget?: JutsuTarget }) {
     const isBinary = binaryTags.includes(tag);
     const isCapped = cappedDamageTags.includes(tag);
     const cap = isCapped ? tagCapForRank(rank) : 100;
@@ -7675,6 +9369,8 @@ function TagPicker({ tag, setTag, percent, setPercent, rank }: { tag: string; se
     const selectedTagInfo = tag
         ? jutsuEffectInfo(normalizeJutsu({ id: "tag-preview", name: "Tag Preview", type: "Ninjutsu", effectPower: 100, tags: [{ name: tag, percent }] }), { name: tag, percent })
         : null;
+    const isGroundTargeted = jutsuTarget === "EMPTY_GROUND";
+    const availableTags = isGroundTargeted ? allTags.filter((t) => t !== "Increase Damage Taken") : allTags;
 
     function handlePercent(val: number) {
         setPercent(Math.min(cap, Math.max(0, val)));
@@ -7691,7 +9387,7 @@ function TagPicker({ tag, setTag, percent, setPercent, rank }: { tag: string; se
                 }}
             >
                 <option value="">No Tag</option>
-                {allTags.map((tagName) => <option key={tagName}>{tagName}</option>)}
+                {availableTags.map((tagName) => <option key={tagName}>{tagName}</option>)}
             </select>
             {!isBinary && isCapped && (
                 <div style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
@@ -7704,15 +9400,23 @@ function TagPicker({ tag, setTag, percent, setPercent, rank }: { tag: string; se
                         style={{ width: 56 }}
                     />
                     <span style={{ fontSize: "0.72rem", color: atCap ? "#fde047" : "#64748b" }}>
-                        / {cap}%{atCap ? " ⚡+0.75pt" : ""}
+                        / {cap}%{atCap ? " ?+0.75pt" : ""}
+                    </span>
+                    <span style={{ fontSize: "0.70rem", color: "#94a3b8" }}>
+                        Lv.50 max · Lv.1 ≈ {Math.max(0, +(percent - 49 * 0.2).toFixed(1))}%
                     </span>
                 </div>
             )}
             {!isBinary && !isCapped && tag && (
-                <input type="number" value={percent} onChange={(e) => setPercent(Number(e.target.value))} />
+                <div style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                    <input type="number" value={percent} onChange={(e) => setPercent(Number(e.target.value))} style={{ width: 56 }} />
+                    <span style={{ fontSize: "0.70rem", color: "#94a3b8" }}>
+                        Lv.50 max · Lv.1 ≈ {Math.max(0, +(percent - 49 * 0.2).toFixed(1))}%
+                    </span>
+                </div>
             )}
             {isBinary && tag && (
-                <span style={{ fontSize: "0.75rem", color: "#4ade80", padding: "0 0.4rem" }}>✓ 100% applies</span>
+                <span style={{ fontSize: "0.75rem", color: "#4ade80", padding: "0 0.4rem" }}>? 100% applies</span>
             )}
             {selectedTagInfo && (
                 <small className="tag-effect-help">
@@ -7967,33 +9671,21 @@ function JutsuEffectCards({ jutsu, scaledEffectPower }: { jutsu: Jutsu; scaledEf
     );
 }
 
-function Village({ characterVillage, setScreen, onSave }: { characterVillage: string; setScreen: (screen: Screen) => void; onSave: () => Promise<void> }) {
-    const [saving, setSaving] = useState(false);
-    const [saveMsg, setSaveMsg] = useState("");
-    async function handleSave() {
-        setSaving(true);
-        setSaveMsg("");
-        try {
-            await onSave();
-            setSaveMsg("Saved!");
-        } catch {
-            setSaveMsg("Save failed.");
-        }
-        setSaving(false);
-        setTimeout(() => setSaveMsg(""), 3000);
-    }
+function Village({ characterVillage, setScreen }: { characterVillage: string; setScreen: (screen: Screen) => void }) {
+    const [saveMsg] = useState("");
     const locations = [
-        { name: "Battle Arena", icon: "⚔️", screen: "arena" as Screen, x: "10%", y: "31%" },
-        { name: "Story Hall", icon: "🔖", screen: "storyHall" as Screen, x: "29%", y: "33%" },
+        { name: "Battle Arena", icon: "⚔️", screen: "battleArena" as Screen, x: "10%", y: "31%" },
+        { name: "Story Hall", icon: "📖", screen: "storyHall" as Screen, x: "29%", y: "33%" },
         { name: "Town Hall", icon: "🏯", screen: "townHall" as Screen, x: "50%", y: "22%" },
-        { name: "Bank", icon: "💰", screen: "bank" as Screen, x: "68%", y: "31%" },
+        { name: "Bank", icon: "🏦", screen: "bank" as Screen, x: "68%", y: "31%" },
         { name: "Shop", icon: "🛒", screen: "shop" as Screen, x: "18%", y: "79%" },
         { name: "Clan Hall", icon: "⛩️", screen: "clan" as Screen, x: "13%", y: "57%" },
         { name: "Hospital", icon: "🏥", screen: "hospital" as Screen, x: "66%", y: "56%" },
         { name: "Mission Hall", icon: "📜", screen: "missions" as Screen, x: "68%", y: "75%" },
         { name: "Cafeteria", icon: "🍜", screen: "cafeteria" as Screen, x: "82%", y: "45%" },
-        { name: "Stat Training", icon: "🏆", screen: "training" as Screen, x: "83%", y: "25%" },
-        { name: "Jutsu Training", icon: "📘", screen: "jutsuTraining" as Screen, x: "80%", y: "81%" },
+        { name: "Tavern", icon: "🍺", screen: "tavern" as Screen, x: "82%", y: "63%" },
+        { name: "Stat Training", icon: "💪", screen: "training" as Screen, x: "83%", y: "25%" },
+        { name: "Jutsu Training", icon: "🔥", screen: "jutsuTraining" as Screen, x: "80%", y: "81%" },
         { name: "World Map", icon: "🗺️", screen: "worldMap" as Screen, x: "45%", y: "68%" },
         { name: "Pet Yard", icon: "🐾", screen: "pets" as Screen, x: "32%", y: "55%" },
         { name: "Card Hall", icon: "🃏", screen: "shinobiTiles" as Screen, x: "52%", y: "55%" },
@@ -8002,9 +9694,7 @@ function Village({ characterVillage, setScreen, onSave }: { characterVillage: st
     return (
         <div className="stormveil-village-screen">
             <div className="village-save-bar">
-                <button className="village-save-btn" onClick={handleSave} disabled={saving}>
-                    {saving ? "Saving..." : "💾 Save Game"}
-                </button>
+                <div className="village-safe-zone">🛡️ SAFE ZONE</div>
                 {saveMsg && <span className="village-save-msg">{saveMsg}</span>}
             </div>
 
@@ -8055,7 +9745,7 @@ const clanLore: Record<string, { name: string; motto: string; lore: string }> = 
     }
 };
 
-// ── Clan system types & helpers ────────────────────────────────────────────
+// -- Clan system types & helpers --------------------------------------------
 type ClanMemberEntry = {
     name: string; village: string; level: number; specialty: string;
     battleContrib: number; eventContrib: number; missionContrib: number;
@@ -8063,8 +9753,10 @@ type ClanMemberEntry = {
 };
 type ClanData = {
     name: string; village: string; founderName: string;
+    image?: string;
     createdAt: number; members: ClanMemberEntry[];
 };
+type ClanJoinRequest = ClanMemberEntry & { requestedAt: number };
 function clanContribTotal(m: ClanMemberEntry): number {
     return m.battleContrib * 10 + m.eventContrib * 5 + m.missionContrib * 2;
 }
@@ -8087,11 +9779,11 @@ const CLAN_RANK_COLOR: Record<string, string> = {
     "Clan Initiate": "#64748b",
 };
 const CLAN_RANK_ICON: Record<string, string> = {
-    "Clan Head": "👑",
-    "Clan Elder": "⭐",
-    "Clan Enforcer": "🔱",
-    "Clan Shinobi": "🗡️",
-    "Clan Initiate": "🌀",
+    "Clan Head": "✦",
+    "Clan Elder": "?",
+    "Clan Enforcer": "✦",
+    "Clan Shinobi": "✦",
+    "Clan Initiate": "✦",
 };
 function clanSlug(name: string): string {
     return "clan-" + name.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -8119,13 +9811,14 @@ async function postGuardQueue(action: "queue" | "dequeue", payload: object): Pro
 }
 
 
-// ── Expanded clan systems ─────────────────────────────────────────────────
+// -- Expanded clan systems -------------------------------------------------
 type ClanRole = "Founder" | "Leader" | "Officer" | "Elite Member" | "Member" | "Recruit";
 type ClanUpgradeKey = "trainingGrounds" | "warRoom" | "treasury" | "petDen" | "medicalWing" | "blacksmith" | "scoutNetwork";
 type ClanUpgradeLevels = Record<ClanUpgradeKey, number>;
-type ClanTreasury = { ryo: number; fateShards: number; boneCharms: number; auraStones: number; mythicSeals: number; };
+type ClanTreasury = { ryo: number; fateShards: number; boneCharms: number; auraStones: number; mythicSeals: number; warSupply: number; items: TreasuryItemStack[]; };
+type ClanTreasuryCurrencyKey = Exclude<keyof ClanTreasury, "items" | "warSupply">;
 type ClanWarRecord = { opponent: string; result: "Won" | "Lost" | "Draw"; finalScore: string; topAttacker: string; topDefender: string; mvpClan: string; reward: string; date: string; };
-type EnhancedClanData = ClanData & { level: number; xp: number; treasury: ClanTreasury; upgrades: ClanUpgradeLevels; warHistory: ClanWarRecord[]; activeWar?: { opponentClan: string; enemyVillage: string; ourScore: number; enemyScore: number; startedAt: number; endsAt: number; }; roleOverrides?: Record<string, ClanRole>; };
+type EnhancedClanData = ClanData & { level: number; xp: number; treasury: ClanTreasury; upgrades: ClanUpgradeLevels; warHistory: ClanWarRecord[]; activeWar?: { opponentClan: string; enemyVillage: string; ourScore: number; enemyScore: number; startedAt: number; endsAt: number; }; roleOverrides?: Record<string, ClanRole>; joinRequests: ClanJoinRequest[]; };
 const CLAN_UPGRADE_MAX_LEVEL = 50;
 const clanBoostTiers = [
     { min: 3, max: 5, percent: 2 },
@@ -8135,19 +9828,21 @@ const clanBoostTiers = [
 ] as const;
 const clanMissionDefinitions = [
     { key: "battle", icon: "⚔️", name: "Win 20 Battles", description: "Clan members combine for 20 battle wins.", target: 20, reward: "+450 Clan XP / +2,500 Treasury Ryo" },
-    { key: "mission", icon: "📜", name: "Complete 50 Missions", description: "Clan members combine for 50 mission completions.", target: 50, reward: "+650 Clan XP / +3,500 Treasury Ryo" },
-    { key: "guard", icon: "🛡️", name: "Defend Village 10 Times", description: "Keep village guard pressure active and defend the village.", target: 10, reward: "+500 Clan XP / +2,000 Treasury Ryo" },
-    { key: "donation", icon: "💰", name: "Donate 25,000 Ryo", description: "Grow the clan treasury through member donations.", target: 25000, reward: "+700 Clan XP / +1 Aura Stone" },
-    { key: "training", icon: "⏳", name: "Train 100 Hours", description: "Long-term clan discipline objective.", target: 100, reward: "+600 Clan XP" },
-    { key: "raid", icon: "👹", name: "Defeat 5 Raid Bosses", description: "Raid contribution objective for future PvE events.", target: 5, reward: "+900 Clan XP / +1 Mythic Seal" },
+    { key: "mission", icon: "⚔️", name: "Complete 50 Missions", description: "Clan members combine for 50 mission completions.", target: 50, reward: "+650 Clan XP / +3,500 Treasury Ryo" },
+    { key: "guard", icon: "⚔️", name: "Defend Village 10 Times", description: "Keep village guard pressure active and defend the village.", target: 10, reward: "+500 Clan XP / +2,000 Treasury Ryo" },
+    { key: "territory", icon: "⚔️", name: "Claim Territory", description: "Collect Territory Control Scrolls and donate them to a sector your clan wants to own.", target: 20, reward: "+1 Sector claim push" },
+    { key: "anbu", icon: "⚔️", name: "ANBU Recon Support", description: "Coordinate with ANBU scouts, sector guards, and raid defense missions.", target: 10, reward: "+300 Clan XP / intel advantage" },
+    { key: "donation", icon: "⚔️", name: "Donate 25,000 Ryo", description: "Grow the clan treasury through member donations.", target: 25000, reward: "+700 Clan XP / +1 Aura Stone" },
+    { key: "training", icon: "⚔️", name: "Train 100 Hours", description: "Long-term clan discipline objective.", target: 100, reward: "+600 Clan XP" },
+    { key: "raid", icon: "⚔️", name: "Defeat 5 Raid Bosses", description: "Raid contribution objective for future PvE events.", target: 5, reward: "+900 Clan XP / +1 Mythic Seal" },
 ] as const;
-const CLAN_ROLE_ICON: Record<ClanRole, string> = { Founder: "👑", Leader: "🌟", Officer: "🛡️", "Elite Member": "🔱", Member: "🗡️", Recruit: "🌀" };
-function defaultClanTreasury(): ClanTreasury { return { ryo: 0, fateShards: 0, boneCharms: 0, auraStones: 0, mythicSeals: 0 }; }
+const CLAN_ROLE_ICON: Record<ClanRole, string> = { Founder: "✦", Leader: "✦", Officer: "✦", "Elite Member": "✦", Member: "✦", Recruit: "✦" };
+function defaultClanTreasury(): ClanTreasury { return { ryo: 0, fateShards: 0, boneCharms: 0, auraStones: 0, mythicSeals: 0, warSupply: 0, items: [] }; }
 function defaultClanUpgrades(): ClanUpgradeLevels { return { trainingGrounds: 0, warRoom: 0, treasury: 0, petDen: 0, medicalWing: 0, blacksmith: 0, scoutNetwork: 0 }; }
-function cleanClanTreasury(t?: Partial<ClanTreasury>): ClanTreasury { const b = defaultClanTreasury(); const m = { ...b, ...(t ?? {}) } as ClanTreasury; (Object.keys(b) as Array<keyof ClanTreasury>).forEach(k => m[k] = Math.max(0, Math.floor(Number(m[k] ?? 0)))); return m; }
+function cleanClanTreasury(t?: Partial<ClanTreasury>): ClanTreasury { const base = defaultClanTreasury(); return { ryo: Math.max(0, Math.floor(Number(t?.ryo ?? base.ryo))), fateShards: Math.max(0, Math.floor(Number(t?.fateShards ?? base.fateShards))), boneCharms: Math.max(0, Math.floor(Number(t?.boneCharms ?? base.boneCharms))), auraStones: Math.max(0, Math.floor(Number(t?.auraStones ?? base.auraStones))), mythicSeals: Math.max(0, Math.floor(Number(t?.mythicSeals ?? base.mythicSeals))), warSupply: Math.max(0, Math.floor(Number(t?.warSupply ?? base.warSupply))), items: cleanTreasuryItems(t?.items ?? base.items) }; }
 function cleanClanUpgrades(u?: Partial<ClanUpgradeLevels>): ClanUpgradeLevels { const b = defaultClanUpgrades(); const m = { ...b, ...(u ?? {}) } as ClanUpgradeLevels; (Object.keys(b) as ClanUpgradeKey[]).forEach(k => m[k] = clampNumber(Math.floor(Number(m[k] ?? 0)), 0, CLAN_UPGRADE_MAX_LEVEL)); return m; }
 function defaultClanWarHistory(name: string): ClanWarRecord[] { return [{ opponent: "Iron Lanterns", result: "Won", finalScore: "84 - 61", topAttacker: "Rill", topDefender: "Village Guard", mvpClan: name, reward: "2,500 ryo / 450 Clan XP", date: "Recent Season" }]; }
-function enhanceClanData(data: ClanData & Partial<EnhancedClanData>): EnhancedClanData { return { ...data, level: clampNumber(Math.floor(Number(data.level ?? 1)), 1, 100), xp: Math.max(0, Math.floor(Number(data.xp ?? 0))), treasury: cleanClanTreasury(data.treasury), upgrades: cleanClanUpgrades(data.upgrades), warHistory: data.warHistory?.length ? data.warHistory : defaultClanWarHistory(data.name), activeWar: data.activeWar, roleOverrides: data.roleOverrides ?? {} }; }
+function enhanceClanData(data: ClanData & Partial<EnhancedClanData>): EnhancedClanData { return { ...data, level: clampNumber(Math.floor(Number(data.level ?? 1)), 1, 100), xp: Math.max(0, Math.floor(Number(data.xp ?? 0))), treasury: cleanClanTreasury(data.treasury), upgrades: cleanClanUpgrades(data.upgrades), warHistory: data.warHistory?.length ? data.warHistory : defaultClanWarHistory(data.name), activeWar: data.activeWar, roleOverrides: data.roleOverrides ?? {}, joinRequests: (data.joinRequests ?? []).filter((request) => request?.name) }; }
 function clanXpNeeded(level: number) { return Math.floor(500 + level * 275 + Math.pow(level, 1.22) * 45); }
 function addClanXp(data: EnhancedClanData, amount: number): EnhancedClanData { let next = { ...data, xp: data.xp + Math.max(0, Math.floor(amount)) }; while (next.level < 100 && next.xp >= clanXpNeeded(next.level)) next = { ...next, xp: next.xp - clanXpNeeded(next.level), level: next.level + 1 }; return next; }
 function clanMemberBoostPercent(memberCount: number) { return clanBoostTiers.find(tier => memberCount >= tier.min && memberCount <= tier.max)?.percent ?? 0; }
@@ -8155,23 +9850,73 @@ function clanUpgradeBonus(data: EnhancedClanData, key: ClanUpgradeKey) { if (key
 function clanRoleOf(member: ClanMemberEntry, data: EnhancedClanData): ClanRole { const override = data.roleOverrides?.[member.name]; if (override) return override; if (member.name === data.founderName || member.isFounder) return "Founder"; const sorted = [...data.members].filter(m => m.name !== data.founderName).sort((a, b) => clanContribTotal(b) - clanContribTotal(a)); const idx = sorted.findIndex(m => m.name === member.name); if (idx === 0) return "Leader"; if (idx > 0 && idx <= 2) return "Officer"; if (idx > 2 && idx <= 4) return "Elite Member"; if (clanContribTotal(member) <= 5) return "Recruit"; return "Member"; }
 function canManageClan(role: ClanRole) { return role === "Founder" || role === "Leader" || role === "Officer"; }
 function clanHallTier(level: number) { if (level >= 40) return { name: "Legendary Clan Citadel", icon: "🏰", desc: "A mythic fortress known across the ninja world." }; if (level >= 25) return { name: "War Fortress", icon: "🛡️", desc: "Walls, watchtowers, and banners built for war." }; if (level >= 15) return { name: "Hidden Clan Compound", icon: "⛩️", desc: "A fortified compound with training yards and sealed rooms." }; if (level >= 7) return { name: "Fortified Dojo", icon: "🥋", desc: "A proper dojo with guard posts and a treasury room." }; return { name: "Empty Clan Camp", icon: "🏕️", desc: "A small camp waiting to grow into a feared clan home." }; }
-function clanMissionProgress(data: EnhancedClanData, key: string) { const battle = data.members.reduce((s, m) => s + (m.battleContrib ?? 0), 0); const mission = data.members.reduce((s, m) => s + (m.missionContrib ?? 0), 0); const event = data.members.reduce((s, m) => s + (m.eventContrib ?? 0), 0); if (key === "battle") return battle; if (key === "mission") return mission; if (key === "guard") return Math.min(10, Math.floor(event / 2) + data.members.filter(m => m.level >= 5).length); if (key === "donation") return data.treasury.ryo; if (key === "training") return Math.min(100, Math.floor((battle + mission + event) * 1.5)); if (key === "raid") return Math.min(5, Math.floor(event / 3)); return 0; }
-function ClanHall({ character, updateCharacter }: { character: Character; updateCharacter: (c: Character) => void }) {
+function clanMissionProgress(data: EnhancedClanData, key: string) { const battle = data.members.reduce((s, m) => s + (m.battleContrib ?? 0), 0); const mission = data.members.reduce((s, m) => s + (m.missionContrib ?? 0), 0); const event = data.members.reduce((s, m) => s + (m.eventContrib ?? 0), 0); const territories = loadAllSectorTerritories().filter(territory => territory.ownerClan === data.name); if (key === "battle") return battle; if (key === "mission") return mission; if (key === "guard") return Math.min(10, territories.reduce((sum, territory) => sum + territory.guards.length, 0) + data.members.filter(m => m.level >= 5).length); if (key === "territory") return Math.min(20, Math.floor(territories.reduce((sum, territory) => sum + territory.controlScore, 0) / 1000)); if (key === "anbu") return Math.min(10, territories.reduce((sum, territory) => sum + territory.guards.length, 0) + Math.floor(battle / 5)); if (key === "donation") return data.treasury.ryo; if (key === "training") return Math.min(100, Math.floor((battle + mission + event) * 1.5)); if (key === "raid") return Math.min(5, Math.floor(event / 3)); return 0; }
+async function addClanWarPoints(clanName: string | undefined, playerName: string, points: number) {
+    if (!clanName) return;
+    const data = await fetchClanData(clanName);
+    if (!data) return;
+    const enhanced = enhanceClanData(data);
+    if (!enhanced.activeWar) return;
+    const boostedPoints = Math.max(1, Math.round(points * clanTerritoryWarMultiplier(clanName)));
+    const updated = enhanceClanData({
+        ...enhanced,
+        activeWar: {
+            ...enhanced.activeWar,
+            ourScore: enhanced.activeWar.ourScore + boostedPoints,
+        },
+        warHistory: enhanced.warHistory,
+    });
+    await writeClanData(updated);
+    console.info(`${playerName} earned ${boostedPoints} clan war points for ${clanName}.`);
+}
+function ClanHall({ character, updateCharacter, creatorItems }: { character: Character; updateCharacter: (c: Character) => void; creatorItems: GameItem[] }) {
     const lore = clanLore[character.village];
     const isInClan = !!character.clan;
     const [clanName, setClanName] = useState("");
-    const [joinInput, setJoinInput] = useState("");
-    const [view, setView] = useState<"roster" | "guard" | "treasury" | "boosts" | "missions" | "wars" | "hall">("roster");
+    const [clanImage, setClanImage] = useState("");
+    const [view, setView] = useState<"roster" | "guard" | "treasury" | "boosts" | "missions" | "wars" | "territory" | "hall">("roster");
     const [loading, setLoading] = useState(false);
     const [clanData, setClanData] = useState<EnhancedClanData | null>(null);
+    const [availableClans, setAvailableClans] = useState<EnhancedClanData[]>([]);
+    const [clanListLoading, setClanListLoading] = useState(false);
     const [guardList, setGuardList] = useState<{ name: string; level: number; defenseBonusPercent?: number }[]>([]);
     const [guardBusy, setGuardBusy] = useState(false);
     const [donation, setDonation] = useState(1000);
+    const [clanDonateItemId, setClanDonateItemId] = useState("");
+    const [clanSendItemId, setClanSendItemId] = useState("");
+    const [clanSendPlayer, setClanSendPlayer] = useState("");
+    const [clanSendCurrency, setClanSendCurrency] = useState<ClanTreasuryCurrencyKey>("ryo");
+    const [clanSendAmount, setClanSendAmount] = useState(1);
+    const [territorySector, setTerritorySector] = useState(40);
+    const [territoryWeather, setTerritoryWeather] = useState<WeatherType>("clear");
+    const [territoryBuffStat, setTerritoryBuffStat] = useState<TerritoryBuffStat>("bukijutsuOffense");
+    const [territoryRefresh, setTerritoryRefresh] = useState(0);
+    const allClanItems = getAllItems(creatorItems);
+    const clanInventoryStacks = inventoryItemStacks(character, allClanItems);
+    const clanTreasuryItems = cleanTreasuryItems(clanData?.treasury.items);
 
     function myMemberEntry(): ClanMemberEntry {
         return { name: character.name, village: character.village, level: character.level, specialty: character.specialty, battleContrib: character.clanBattleContrib ?? 0, eventContrib: character.clanEventContrib ?? 0, missionContrib: character.clanMissionContrib ?? 0, isFounder: character.clanFounder ?? false, month: new Date().toISOString().slice(0, 7) };
     }
     async function saveClan(next: EnhancedClanData) { const enhanced = enhanceClanData(next); setClanData(enhanced); await writeClanData(enhanced); }
+
+    async function loadAvailableClans() {
+        setClanListLoading(true);
+        try {
+            const res = await fetch("/api/clans/list");
+            const data = res.ok ? await res.json() : [];
+            const clans = Array.isArray(data) ? data.map((clan) => enhanceClanData(clan)).filter((clan) => clan.village === character.village) : [];
+            setAvailableClans(clans);
+            const acceptedClan = clans.find((clan) => clan.members.some((member) => member.name === character.name));
+            if (acceptedClan && !character.clan) {
+                updateCharacter({ ...character, clan: acceptedClan.name, clanFounder: acceptedClan.founderName === character.name });
+            }
+        } catch {
+            setAvailableClans([]);
+        } finally {
+            setClanListLoading(false);
+        }
+    }
 
     useEffect(() => {
         if (!character.clan) { setClanData(null); return; }
@@ -8187,6 +9932,11 @@ function ClanHall({ character, updateCharacter }: { character: Character; update
     }, [character.clan, character.name, character.level, character.village, character.specialty, character.clanBattleContrib, character.clanEventContrib, character.clanMissionContrib]);
 
     useEffect(() => {
+        if (character.clan) return;
+        loadAvailableClans();
+    }, [character.clan, character.name, character.village]);
+
+    useEffect(() => {
         if (!isInClan || view !== "guard") return;
         fetch("/api/village-guard/list", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ village: character.village }) })
             .then(r => r.ok ? r.json() : []).then(list => setGuardList(Array.isArray(list) ? list : [])).catch(() => setGuardList([]));
@@ -8195,14 +9945,34 @@ function ClanHall({ character, updateCharacter }: { character: Character; update
     async function createClan() {
         const name = clanName.trim(); if (name.length < 3) return alert("Clan name must be at least 3 characters.");
         const existing = await fetchClanData(name); if (existing) return alert("That clan already exists.");
-        const newClan = enhanceClanData({ name, village: character.village, founderName: character.name, createdAt: Date.now(), members: [{ ...myMemberEntry(), isFounder: true }] });
+        const newClan = enhanceClanData({ name, image: clanImage, village: character.village, founderName: character.name, createdAt: Date.now(), members: [{ ...myMemberEntry(), isFounder: true }] });
         await writeClanData(newClan); updateCharacter({ ...character, clan: name, clanFounder: true }); setClanData(newClan);
     }
-    async function joinClan() {
-        const name = joinInput.trim(); const data = await fetchClanData(name); if (!data) return alert("Clan not found. Check the exact name.");
-        const enhanced = enhanceClanData(data); if (enhanced.village !== character.village) return alert("You can only join clans from your own village.");
-        const myEntry = { ...myMemberEntry(), isFounder: false }; const updated = enhanceClanData({ ...enhanced, members: enhanced.members.some(m => m.name === character.name) ? enhanced.members : [...enhanced.members, myEntry] });
-        await writeClanData(updated); updateCharacter({ ...character, clan: updated.name, clanFounder: false }); setClanData(updated);
+    async function requestJoinClan(targetClan: EnhancedClanData) {
+        if (targetClan.village !== character.village) return alert("You can only request clans from your own village.");
+        if (targetClan.members.some(member => member.name === character.name)) {
+            updateCharacter({ ...character, clan: targetClan.name, clanFounder: targetClan.founderName === character.name });
+            return;
+        }
+        if (targetClan.joinRequests.some(request => request.name === character.name)) return alert("You already requested to join this clan.");
+        const request: ClanJoinRequest = { ...myMemberEntry(), isFounder: false, requestedAt: Date.now() };
+        const updated = enhanceClanData({ ...targetClan, joinRequests: [...targetClan.joinRequests, request] });
+        await writeClanData(updated);
+        setAvailableClans(availableClans.map(clan => clan.name === updated.name ? updated : clan));
+        alert(`Join request sent to ${updated.name}. A clan leader or elder can accept it in the Clan Hall.`);
+    }
+    async function acceptJoinRequest(request: ClanJoinRequest) {
+        if (!clanData) return;
+        const updated = enhanceClanData({
+            ...clanData,
+            members: clanData.members.some(member => member.name === request.name) ? clanData.members : [...clanData.members, { ...request, isFounder: false }],
+            joinRequests: clanData.joinRequests.filter(joinRequest => joinRequest.name !== request.name),
+        });
+        await saveClan(updated);
+    }
+    async function denyJoinRequest(request: ClanJoinRequest) {
+        if (!clanData) return;
+        await saveClan({ ...clanData, joinRequests: clanData.joinRequests.filter(joinRequest => joinRequest.name !== request.name) });
     }
     async function leaveClan() {
         if (!character.clan) return; const data = await fetchClanData(character.clan); if (data) await writeClanData(enhanceClanData({ ...data, members: data.members.filter(m => m.name !== character.name) }));
@@ -8219,26 +9989,139 @@ function ClanHall({ character, updateCharacter }: { character: Character; update
         await saveClan(addClanXp({ ...clanData, treasury: { ...clanData.treasury, ryo: clanData.treasury.ryo + amount } }, Math.floor(amount / 35)));
         updateCharacter({ ...character, ryo: character.ryo - amount, clanEventContrib: (character.clanEventContrib ?? 0) + Math.max(1, Math.floor(amount / 1000)) });
     }
-    async function donateSpecial(currency: keyof Omit<ClanTreasury, "ryo">, amount: number) {
+    async function donateSpecial(currency: Exclude<ClanTreasuryCurrencyKey, "ryo">, amount: number) {
         if (!clanData) return; const current = character[currency] ?? 0; if (current < amount) return alert(`Not enough ${currency}.`);
         await saveClan(addClanXp({ ...clanData, treasury: { ...clanData.treasury, [currency]: clanData.treasury[currency] + amount } }, amount * 200));
         updateCharacter({ ...character, [currency]: current - amount, clanEventContrib: (character.clanEventContrib ?? 0) + amount } as Character);
     }
+    async function donateClanItem() {
+        if (!clanData) return;
+        if (!clanDonateItemId) return alert("Choose an item to donate.");
+        if (!character.inventory.includes(clanDonateItemId)) return alert("You do not have that item.");
+        const nextInventory = [...character.inventory];
+        nextInventory.splice(nextInventory.indexOf(clanDonateItemId), 1);
+        await saveClan(addClanXp({ ...clanData, treasury: { ...clanData.treasury, items: addTreasuryItem(clanData.treasury.items, clanDonateItemId) } }, 50));
+        updateCharacter({ ...character, inventory: nextInventory, clanEventContrib: (character.clanEventContrib ?? 0) + 1 });
+    }
+    async function donateAllTerritoryScrollsToClan() {
+        if (!clanData) return;
+        const count = territoryScrollCount(character);
+        if (count <= 0) return alert("You do not have any Territory Control Scrolls.");
+        await saveClan(addClanXp({ ...clanData, treasury: { ...clanData.treasury, items: addTreasuryItem(clanData.treasury.items, TERRITORY_CONTROL_SCROLL_ID, count) } }, count * 20));
+        updateCharacter({ ...character, inventory: removeTerritoryScrolls(character, count), clanEventContrib: (character.clanEventContrib ?? 0) + count });
+        alert(`Donated ${count} Territory Control Scroll${count === 1 ? "" : "s"} to the clan hall.`);
+    }
+    async function sendClanCurrency() {
+        if (!clanData) return;
+        if (!canManageClan(myRole)) return alert("Only clan leadership can send treasury resources.");
+        const amount = Math.max(1, Math.floor(clanSendAmount));
+        if (!clanSendPlayer) return alert("Choose a clan member.");
+        if ((clanData.treasury[clanSendCurrency] ?? 0) < amount) return alert("Not enough treasury resources.");
+        if (!grantCurrencyToPlayer(clanSendPlayer, clanSendCurrency, amount, character, updateCharacter)) return alert("Could not find that player account.");
+        await saveClan({ ...clanData, treasury: { ...clanData.treasury, [clanSendCurrency]: clanData.treasury[clanSendCurrency] - amount } });
+        alert(`Sent ${amount.toLocaleString()} ${clanSendCurrency} to ${clanSendPlayer}.`);
+    }
+    async function sendClanItem() {
+        if (!clanData) return;
+        if (!canManageClan(myRole)) return alert("Only clan leadership can send treasury items.");
+        if (!clanSendPlayer) return alert("Choose a clan member.");
+        if (!clanSendItemId) return alert("Choose an item.");
+        if (!clanData.treasury.items.some(stack => stack.itemId === clanSendItemId && stack.count > 0)) return alert("That item is not in the clan treasury.");
+        if (!grantInventoryItemToPlayer(clanSendPlayer, clanSendItemId, character, updateCharacter)) return alert("Could not find that player account.");
+        await saveClan({ ...clanData, treasury: { ...clanData.treasury, items: removeTreasuryItem(clanData.treasury.items, clanSendItemId) } });
+        alert(`Sent ${itemDisplayName(clanSendItemId, allClanItems)} to ${clanSendPlayer}.`);
+    }
     async function startClanWar() {
         if (!clanData) return; if (clanData.activeWar) return alert("Your clan already has an active war.");
         const rivals = ["Iron Lanterns", "Black Rain Circle", "Crimson Market Ronin", "White Ridge Pack"];
-        await saveClan({ ...clanData, activeWar: { opponentClan: rivals[(clanData.warHistory.length + clanData.level) % rivals.length], enemyVillage: villages[(villages.indexOf(character.village) + 1) % villages.length], ourScore: 0, enemyScore: 0, startedAt: Date.now(), endsAt: Date.now() + 48 * 60 * 60 * 1000 } });
+        await saveClan({ ...clanData, activeWar: { opponentClan: rivals[(clanData.warHistory.length + clanData.level) % rivals.length], enemyVillage: villages[(villages.indexOf(character.village) + 1) % villages.length], ourScore: clanTerritoryStartingScore(clanData.name), enemyScore: 0, startedAt: Date.now(), endsAt: Date.now() + 48 * 60 * 60 * 1000 } });
     }
-    async function addWarScore(points: number) { if (!clanData?.activeWar) return; const boosted = Math.max(1, Math.round(points * (1 + clanUpgradeBonus(clanData, "warRoom") / 100))); await saveClan({ ...clanData, activeWar: { ...clanData.activeWar, ourScore: clanData.activeWar.ourScore + boosted, enemyScore: clanData.activeWar.enemyScore + Math.floor(points / 2) } }); updateCharacter({ ...character, auraDust: (character.auraDust ?? 0) + Math.max(1, points) }); }
+    async function addWarScore(points: number) { if (!clanData?.activeWar) return; const boosted = Math.max(1, Math.round(points * (1 + clanUpgradeBonus(clanData, "warRoom") / 100) * clanTerritoryWarMultiplier(clanData.name))); await saveClan({ ...clanData, activeWar: { ...clanData.activeWar, ourScore: clanData.activeWar.ourScore + boosted, enemyScore: clanData.activeWar.enemyScore + Math.floor(points / 2) } }); updateCharacter({ ...character, auraDust: (character.auraDust ?? 0) + Math.max(1, points) }); }
+    async function collectTerritoryWarSupply() {
+        if (!clanData || !canSpendTerritoryScrolls) return alert("Only the clan leader or Clan Elders can collect sector war supply.");
+        const territories = clanOwnedTerritories(clanData.name);
+        const total = territories.reduce((sum, territory) => sum + territory.warSupply, 0);
+        if (total <= 0) return alert("Your owned sectors have not produced war supply yet.");
+        territories.forEach(territory => saveSectorTerritory({ ...territory, warSupply: 0 }));
+        await saveClan({ ...clanData, treasury: { ...clanData.treasury, warSupply: clanData.treasury.warSupply + total } });
+        refreshTerritoryPanel();
+        alert(`Collected ${total.toLocaleString()} War Supply from clan sectors.`);
+    }
+    async function spendWarSupplyOnActiveWar() {
+        if (!clanData?.activeWar) return alert("Start a clan war before spending War Supply.");
+        if (clanData.treasury.warSupply < 100) return alert("The clan treasury needs at least 100 War Supply.");
+        await saveClan({
+            ...clanData,
+            treasury: { ...clanData.treasury, warSupply: clanData.treasury.warSupply - 100 },
+            activeWar: { ...clanData.activeWar, ourScore: clanData.activeWar.ourScore + 10 },
+        });
+    }
     async function resolveClanWar() {
         if (!clanData?.activeWar) return; const war = clanData.activeWar; const result: ClanWarRecord["result"] = war.ourScore > war.enemyScore ? "Won" : war.ourScore < war.enemyScore ? "Lost" : "Draw";
         const record: ClanWarRecord = { opponent: war.opponentClan, result, finalScore: `${war.ourScore} - ${war.enemyScore}`, topAttacker: character.name, topDefender: character.guardQueued ? character.name : "Village Guard", mvpClan: result === "Won" ? clanData.name : result === "Lost" ? war.opponentClan : "None", reward: result === "Won" ? "4,000 ryo / 800 Clan XP" : result === "Draw" ? "1,500 ryo / 300 Clan XP" : "250 Clan XP", date: new Date().toLocaleDateString() };
+        if (result === "Lost") loadAllSectorTerritories().filter(territory => territory.ownerClan === clanData.name).slice(0, 1).forEach(territory => damageSectorTerritory(territory.sector, 10000));
         await saveClan(addClanXp({ ...clanData, activeWar: undefined, warHistory: [record, ...clanData.warHistory].slice(0, 12), treasury: { ...clanData.treasury, ryo: clanData.treasury.ryo + (result === "Won" ? 4000 : result === "Draw" ? 1500 : 0) } }, result === "Won" ? 800 : result === "Draw" ? 300 : 250));
+        if (result === "Won") updateCharacter({ ...grantTerritoryScrolls(character, 25), auraDust: (character.auraDust ?? 0) + 5 });
+    }
+    function refreshTerritoryPanel() { setTerritoryRefresh(value => value + 1); }
+    async function donateTerritoryScrolls(sector: number, count = 1) {
+        if (!clanData) return;
+        if (villageForOutskirtsSector(sector)) return alert("Village sectors cannot be captured. This sector belongs to the village itself.");
+        if (!canSpendTerritoryScrolls) return alert("Only the clan leader or Clan Elders can assign Territory Control Scrolls to sectors.");
+        const amount = Math.max(1, Math.floor(count));
+        if (clanTerritoryScrolls < amount) return alert(`The clan hall needs ${amount} Territory Control Scroll${amount === 1 ? "" : "s"}.`);
+        const territory = loadSectorTerritory(sector);
+        const isOwnedByUs = territory.ownerClan === clanData.name;
+        if (territory.ownerClan && !isOwnedByUs) return alert("Raid or war this sector down before your clan can claim it.");
+        const nextScore = Math.min(TERRITORY_CONTROL_MAX, territory.controlScore + amount * 1000);
+        const nextHp = isOwnedByUs ? Math.min(TERRITORY_HP_MAX, territory.hp + amount * 1000) : territory.hp;
+        const captured = !territory.ownerClan && nextScore >= TERRITORY_CONTROL_MAX;
+        saveSectorTerritory({
+            ...territory,
+            controlScore: captured ? TERRITORY_CONTROL_MAX : nextScore,
+            hp: captured ? TERRITORY_HP_MAX : nextHp,
+            ownerClan: captured ? clanData.name : territory.ownerClan,
+            ownerVillage: captured ? clanData.village : territory.ownerVillage,
+            backgroundImage: captured ? clanData.image : territory.backgroundImage,
+            weather: captured ? territoryWeather : territory.weather,
+            terrainBuffStat: captured ? territoryBuffStat : territory.terrainBuffStat,
+            warSupply: captured ? 0 : territory.warSupply,
+            lastSupplyAt: captured ? Date.now() : territory.lastSupplyAt,
+        });
+        await saveClan({ ...clanData, treasury: { ...clanData.treasury, items: removeTreasuryItem(clanData.treasury.items, TERRITORY_CONTROL_SCROLL_ID, amount) } });
+        refreshTerritoryPanel();
+    }
+    function saveTerritorySettings(sector: number) {
+        if (!clanData || !canSpendTerritoryScrolls) return alert("Only the clan leader or Clan Elders can adjust owned territory.");
+        const territory = loadSectorTerritory(sector);
+        if (territory.ownerClan !== clanData.name) return alert("Your clan does not own this sector.");
+        saveSectorTerritory({ ...territory, weather: territoryWeather, terrainBuffStat: territoryBuffStat });
+        refreshTerritoryPanel();
+        alert(`Sector ${sector} terrain and weather updated.`);
+    }
+    function toggleTerritoryGuard(sector: number) {
+        if (!clanData) return;
+        const territory = loadSectorTerritory(sector);
+        const isAnbu = isVillageAnbu(character);
+        if (territory.ownerClan !== clanData.name && !isAnbu) return alert("Only the owning clan or ANBU can guard this sector.");
+        const guards = territory.guards.includes(character.name)
+            ? territory.guards.filter(name => name !== character.name)
+            : [...territory.guards, character.name];
+        saveSectorTerritory({ ...territory, guards });
+        refreshTerritoryPanel();
+    }
+    function recordVillageWarDamage(sector: number) {
+        const territory = loadSectorTerritory(sector);
+        if (!territory.ownerClan) return alert("That sector is not claimed.");
+        if (territory.ownerVillage === character.village) return alert("Village war damage is for enemy-held sectors.");
+        damageSectorTerritory(sector, 5000);
+        refreshTerritoryPanel();
+        alert(`Village war pressure damaged Sector ${sector} for 5,000 HP.`);
     }
 
-    if (!isInClan) return <div className="card clan-hall-screen"><div className="clan-create-hero"><div><p className="act-label">{character.village}</p><h2>⛩️ {lore?.name ?? "Clan Hall"}</h2><p className="hint">{lore?.motto}</p></div><span className="clan-hall-big-icon">⛩️</span></div><p>{lore?.lore}</p><div className="clan-join-grid"><div className="summary-box"><h3>Create Clan</h3><p className="hint">Become founder, open a clan treasury, unlock member-count boosts, missions, wars, and a growing clan hall.</p><label>Clan Name</label><input value={clanName} onChange={e => setClanName(e.target.value)} placeholder="Example: Fated Reunion" /><button onClick={createClan}>Create Clan</button></div><div className="summary-box"><h3>Join Clan</h3><p className="hint">Enter the exact name of a clan from your village.</p><label>Clan Name</label><input value={joinInput} onChange={e => setJoinInput(e.target.value)} placeholder="Exact clan name..." /><button onClick={joinClan}>Join Clan</button></div></div></div>;
+    if (!isInClan) return <div className="card clan-hall-screen"><div className="clan-create-hero"><div><p className="act-label">{character.village}</p><h2>Clan Hall</h2><p className="hint">{lore?.motto}</p></div><ClanImageMark image={clanImage} name={clanName || "Clan"} village={character.village} /></div><p>{lore?.lore}</p><div className="clan-join-grid"><div className="summary-box"><h3>Create Clan</h3><p className="hint">Become founder, open a clan treasury, unlock member-count boosts, missions, wars, and a growing clan hall.</p><label>Clan Name</label><input value={clanName} onChange={e => setClanName(e.target.value)} placeholder="Example: Fated Reunion" /><label>Clan Image</label><input type="file" accept="image/*" onChange={(event) => { const file = event.target.files?.[0]; if (file) readImageFile(file, setClanImage, 100); }} />{clanImage && <div className="admin-event-list-preview"><img src={clanImage} alt={clanName || "Clan"} /></div>}<button onClick={createClan}>Create Clan</button></div><div className="summary-box clan-browse-panel"><div className="clan-section-title"><div><h3>Current Clans</h3><p className="hint">Request to join any clan from your village. Leaders and Clan Elders approve requests in their Clan Hall.</p></div><button onClick={loadAvailableClans} disabled={clanListLoading}>{clanListLoading ? "Loading..." : "Refresh"}</button></div>{availableClans.length === 0 ? <p className="hint">{clanListLoading ? "Loading clans..." : "No clans from your village exist yet."}</p> : <div className="clan-request-list">{availableClans.map(clan => { const requested = clan.joinRequests.some(request => request.name === character.name); return <div className="clan-request-card" key={clan.name}><ClanImageMark image={clan.image} name={clan.name} village={clan.village} /><div><strong>{clan.name}</strong><small>{clan.village} · Lv.{clan.level} · {clan.members.length} members</small><small>Founder: {clan.founderName}</small></div><button disabled={requested} onClick={() => requestJoinClan(clan)}>{requested ? "Request Sent" : "Request Join"}</button></div>; })}</div>}</div></div></div>;
     if (loading) return <div className="card"><p style={{ color: "#94a3b8" }}>Loading clan data…</p></div>;
-    if (!clanData) return <div className="card"><h2>⛩️ Clan Hall</h2><p>Could not load clan data for <strong>{character.clan}</strong>.</p><button className="danger-button" onClick={leaveClan}>Leave Clan</button></div>;
+    if (!clanData) return <div className="card"><h2>Clan Hall</h2><p>Could not load clan data for <strong>{character.clan}</strong>.</p><button className="danger-button" onClick={leaveClan}>Leave Clan</button></div>;
 
     const founderEntry = clanData.members.find(m => m.name === clanData.founderName);
     const nonFounders = [...clanData.members].filter(m => m.name !== clanData.founderName).sort((a, b) => clanContribTotal(b) - clanContribTotal(a));
@@ -8246,6 +10129,8 @@ function ClanHall({ character, updateCharacter }: { character: Character; update
     const myEntry = clanData.members.find(m => m.name === character.name) ?? myMemberEntry();
     const myRank = clanRankOf(myEntry, clanData.members, clanData.founderName);
     const myRole = clanRoleOf(myEntry, clanData);
+    const canReviewJoinRequests = myRole === "Founder" || myRole === "Leader" || myRank === "Clan Elder";
+    const canSpendTerritoryScrolls = myRole === "Founder" || myRole === "Leader" || myRank === "Clan Elder" || myRank === "Clan Head";
     const myContrib = clanContribTotal(myEntry);
     const hall = clanHallTier(clanData.level);
     const xpNeed = clanXpNeeded(clanData.level);
@@ -8253,36 +10138,289 @@ function ClanHall({ character, updateCharacter }: { character: Character; update
     const clanBuffs = [
         { label: "Training XP", value: clanBoostPercent }, { label: "Mission XP", value: clanBoostPercent }, { label: "Ryo Gain", value: clanBoostPercent },
     ].filter(buff => buff.value > 0);
+    void territoryRefresh;
+    const allTerritories = loadAllSectorTerritories();
+    const ownedTerritories = allTerritories.filter(territory => territory.ownerClan === clanData.name);
+    const selectedTerritory = loadSectorTerritory(territorySector);
+    const personalTerritoryScrolls = territoryScrollCount(character);
+    const clanTerritoryScrolls = clanTreasuryItems.find(stack => stack.itemId === TERRITORY_CONTROL_SCROLL_ID)?.count ?? 0;
+    const canGuardSelectedTerritory = selectedTerritory.ownerClan === clanData.name || isVillageAnbu(character);
+    const clanSectorWarSupply = ownedTerritories.reduce((sum, territory) => sum + territory.warSupply, 0);
+    const villageSectorCount = villageOwnedTerritories(character.village).length;
+    const villageSectorWarSupply = villageTerritoryWarSupply(character.village);
+    const territoryWarBonusPercent = Math.round((clanTerritoryWarMultiplier(clanData.name) - 1) * 100);
+    const territoryStartingScore = clanTerritoryStartingScore(clanData.name);
 
     return <div className="card clan-hall-screen">
-        <div className="clan-header"><div><h2 style={{ margin: 0 }}>🏴 {clanData.name}</h2><p className="hint" style={{ margin: "2px 0 0" }}>{clanData.village} · {clanData.members.length} members · Level {clanData.level}</p><div className="clan-xp-track"><span style={{ width: `${Math.min(100, (clanData.xp / xpNeed) * 100)}%` }} /></div><small>{clanData.xp.toLocaleString()} / {xpNeed.toLocaleString()} Clan XP</small></div><div className="clan-my-badge"><span className="clan-rank-badge" style={{ background: CLAN_RANK_COLOR[myRank] + "22", color: CLAN_RANK_COLOR[myRank], borderColor: CLAN_RANK_COLOR[myRank] + "55" }}>{CLAN_RANK_ICON[myRank]} {myRank}</span><span className="clan-role-badge">{CLAN_ROLE_ICON[myRole]} {myRole}</span><span className="clan-my-contrib">{myContrib} pts this month</span></div></div>
+        <div className="clan-header"><div className="clan-title-block"><ClanImageMark image={clanData.image} name={clanData.name} village={clanData.village} /><div><h2 style={{ margin: 0 }}>{clanData.name}</h2><p className="hint" style={{ margin: "2px 0 0" }}>{clanData.village} · {clanData.members.length} members · Level {clanData.level}</p><div className="clan-xp-track"><span style={{ width: `${Math.min(100, (clanData.xp / xpNeed) * 100)}%` }} /></div><small>{clanData.xp.toLocaleString()} / {xpNeed.toLocaleString()} Clan XP</small></div></div><div className="clan-my-badge"><span className="clan-rank-badge" style={{ background: CLAN_RANK_COLOR[myRank] + "22", color: CLAN_RANK_COLOR[myRank], borderColor: CLAN_RANK_COLOR[myRank] + "55" }}>{CLAN_RANK_ICON[myRank]} {myRank}</span><span className="clan-role-badge">{CLAN_ROLE_ICON[myRole]} {myRole}</span><span className="clan-my-contrib">{myContrib} pts this month</span></div></div>
         <div className="clan-buff-banner"><strong>Active Clan Boosts</strong>{clanBuffs.length === 0 ? <span>No clan boosts yet — recruit at least 3 members.</span> : clanBuffs.map(buff => <span key={buff.label}>{buff.label} +{buff.value.toFixed(2)}%</span>)}</div>
-        <div className="clan-tabs expanded-tabs"><button className={view === "roster" ? "active" : ""} onClick={() => setView("roster")}>📋 Roster</button><button className={view === "treasury" ? "active" : ""} onClick={() => setView("treasury")}>💰 Treasury</button><button className={view === "boosts" ? "active" : ""} onClick={() => setView("boosts")}>✨ Boosts</button><button className={view === "missions" ? "active" : ""} onClick={() => setView("missions")}>📜 Missions</button><button className={view === "wars" ? "active" : ""} onClick={() => setView("wars")}>⚔️ Wars</button><button className={view === "guard" ? "active" : ""} onClick={() => setView("guard")}>🛡️ Guard</button><button className={view === "hall" ? "active" : ""} onClick={() => setView("hall")}>⛩️ Hall</button></div>
-        {view === "roster" && <div className="clan-roster"><div className="clan-roster-header clan-roster-header-wide"><span>#</span><span>Member</span><span>Rank</span><span>Role</span><span>Contribution</span></div>{sortedMembers.map((member, idx) => { const rank = clanRankOf(member, clanData.members, clanData.founderName); const role = clanRoleOf(member, clanData); const contrib = clanContribTotal(member); const isMe = member.name === character.name; const rankColor = CLAN_RANK_COLOR[rank]; return <div key={member.name} className={`clan-member-row clan-member-row-wide${isMe ? " clan-member-me" : ""}`}><span className="clan-member-pos">#{idx + 1}</span><div className="clan-member-info"><span className="clan-member-name">{member.name}{isMe ? " ✦" : ""}</span><span className="clan-member-sub">Lv.{member.level} · {member.specialty}</span></div><span className="clan-rank-badge" style={{ background: rankColor + "1a", color: rankColor, borderColor: rankColor + "44" }}>{CLAN_RANK_ICON[rank]} {rank}</span><span className="clan-role-badge">{CLAN_ROLE_ICON[role]} {role}</span><div className="clan-contrib-col"><span className="clan-contrib-total">{contrib} pts</span><span className="clan-contrib-breakdown">⚔️{member.battleContrib} ✦{member.eventContrib} 📜{member.missionContrib}</span></div></div>; })}<div className="summary-box clan-rank-legend"><strong style={{ fontSize: "0.8rem", color: "#94a3b8" }}>Permissions</strong><p className="hint">Founder, Leader, and Officer can start clan wars. Everyone can donate, recruit, and contribute missions.</p></div></div>}
-        {view === "treasury" && <div className="summary-box"><h3>💰 Clan Treasury</h3><div className="treasury-grid"><p><strong>Ryo:</strong> {clanData.treasury.ryo.toLocaleString()}</p><p><strong>Fate Shards:</strong> {clanData.treasury.fateShards}</p><p><strong>Bone Charms:</strong> {clanData.treasury.boneCharms}</p><p><strong>Aura Stones:</strong> {clanData.treasury.auraStones}</p><p><strong>Mythic Seals:</strong> {clanData.treasury.mythicSeals}</p></div><label>Donate Ryo</label><input type="number" value={donation} onChange={(e) => setDonation(Number(e.target.value))} /><div className="menu"><button onClick={donateRyo}>Donate Ryo</button><button onClick={() => donateSpecial("fateShards", 1)}>Donate 1 Fate Shard</button><button onClick={() => donateSpecial("boneCharms", 1)}>Donate 1 Bone Charm</button><button onClick={() => donateSpecial("auraStones", 1)}>Donate 1 Aura Stone</button><button onClick={() => donateSpecial("mythicSeals", 1)}>Donate 1 Mythic Seal</button></div><p className="hint">Donations add clan XP and treasury resources.</p></div>}
+        <div className="clan-tabs expanded-tabs"><button className={view === "roster" ? "active" : ""} onClick={() => setView("roster")}>📋 Roster</button><button className={view === "treasury" ? "active" : ""} onClick={() => setView("treasury")}>💰 Treasury</button><button className={view === "boosts" ? "active" : ""} onClick={() => setView("boosts")}>✨ Boosts</button><button className={view === "missions" ? "active" : ""} onClick={() => setView("missions")}>📜 Missions</button><button className={view === "wars" ? "active" : ""} onClick={() => setView("wars")}>⚔️ Wars</button><button className={view === "territory" ? "active" : ""} onClick={() => setView("territory")}>🗺️ Territory</button><button className={view === "guard" ? "active" : ""} onClick={() => setView("guard")}>🛡️ Guard</button><button className={view === "hall" ? "active" : ""} onClick={() => setView("hall")}>⛩️ Hall</button></div>
+        {view === "roster" && <div className="clan-roster">{canReviewJoinRequests && <section className="summary-box clan-join-requests"><h3>Join Requests</h3>{clanData.joinRequests.length === 0 ? <p className="hint">No pending join requests.</p> : <div className="clan-request-list">{clanData.joinRequests.map(request => <div className="clan-request-card" key={request.name}><div><strong>{request.name}</strong><small>Lv.{request.level} · {request.specialty} · {request.village}</small><small>Requested {new Date(request.requestedAt).toLocaleString()}</small></div><div className="menu"><button onClick={() => acceptJoinRequest(request)}>Accept</button><button className="danger-button" onClick={() => denyJoinRequest(request)}>Deny</button></div></div>)}</div>}</section>}<div className="clan-roster-header clan-roster-header-wide"><span>#</span><span>Member</span><span>Rank</span><span>Role</span><span>Contribution</span></div>{sortedMembers.map((member, idx) => { const rank = clanRankOf(member, clanData.members, clanData.founderName); const role = clanRoleOf(member, clanData); const contrib = clanContribTotal(member); const isMe = member.name === character.name; const rankColor = CLAN_RANK_COLOR[rank]; return <div key={member.name} className={`clan-member-row clan-member-row-wide${isMe ? " clan-member-me" : ""}`}><span className="clan-member-pos">#{idx + 1}</span><div className="clan-member-info"><span className="clan-member-name">{member.name}{isMe ? " ✦" : ""}</span><span className="clan-member-sub">Lv.{member.level} · {member.specialty}</span></div><span className="clan-rank-badge" style={{ background: rankColor + "1a", color: rankColor, borderColor: rankColor + "44" }}>{CLAN_RANK_ICON[rank]} {rank}</span><span className="clan-role-badge">{CLAN_ROLE_ICON[role]} {role}</span><div className="clan-contrib-col"><span className="clan-contrib-total">{contrib} pts</span><span className="clan-contrib-breakdown">⚔️{member.battleContrib} ✦{member.eventContrib} 📜{member.missionContrib}</span></div></div>; })}<div className="summary-box clan-rank-legend"><strong style={{ fontSize: "0.8rem", color: "#94a3b8" }}>Permissions</strong><p className="hint">Founder, Leader, and Clan Elders can approve join requests. Founder, Leader, and Officer can start clan wars.</p></div></div>}
+        {view === "treasury" && <div className="summary-box"><h3>💰 Clan Treasury</h3><div className="treasury-grid"><p><strong>Ryo:</strong> {clanData.treasury.ryo.toLocaleString()}</p><p><strong>Fate Shards:</strong> {clanData.treasury.fateShards}</p><p><strong>Bone Charms:</strong> {clanData.treasury.boneCharms}</p><p><strong>Aura Stones:</strong> {clanData.treasury.auraStones}</p><p><strong>Mythic Seals:</strong> {clanData.treasury.mythicSeals}</p><p><strong>War Supply:</strong> {clanData.treasury.warSupply.toLocaleString()}</p></div><label>Donate Ryo</label><input type="number" value={donation} onChange={(e) => setDonation(Number(e.target.value))} /><div className="menu"><button onClick={donateRyo}>Donate Ryo</button><button onClick={() => donateSpecial("fateShards", 1)}>Donate 1 Fate Shard</button><button onClick={() => donateSpecial("boneCharms", 1)}>Donate 1 Bone Charm</button><button onClick={() => donateSpecial("auraStones", 1)}>Donate 1 Aura Stone</button><button onClick={() => donateSpecial("mythicSeals", 1)}>Donate 1 Mythic Seal</button></div><label>Donate Item</label><select value={clanDonateItemId} onChange={(e) => setClanDonateItemId(e.target.value)}><option value="">Choose item</option>{clanInventoryStacks.map(stack => <option key={stack.itemId} value={stack.itemId}>{stack.name} x{stack.count}</option>)}</select><button onClick={donateClanItem} disabled={!clanDonateItemId}>Donate Item</button><h4>Treasury Items</h4>{clanTreasuryItems.length === 0 ? <p className="hint">No donated items yet.</p> : <div className="treasury-grid">{clanTreasuryItems.map(stack => <p key={stack.itemId}><strong>{itemDisplayName(stack.itemId, allClanItems)}:</strong> x{stack.count}</p>)}</div>}{canManageClan(myRole) && <section className="summary-box"><h3>Send Treasury Resources</h3><p className="hint">Clan leadership can send donated resources or items to clan members.</p><label>Recipient</label><select value={clanSendPlayer} onChange={(e) => setClanSendPlayer(e.target.value)}><option value="">Choose clan member</option>{sortedMembers.map(member => <option key={member.name} value={member.name}>{member.name}</option>)}</select><label>Resource</label><select value={clanSendCurrency} onChange={(e) => setClanSendCurrency(e.target.value as ClanTreasuryCurrencyKey)}><option value="ryo">Ryo</option><option value="fateShards">Fate Shards</option><option value="boneCharms">Bone Charms</option><option value="auraStones">Aura Stones</option><option value="mythicSeals">Mythic Seals</option></select><input type="number" min={1} value={clanSendAmount} onChange={(e) => setClanSendAmount(Number(e.target.value))} /><div className="menu"><button onClick={sendClanCurrency}>Send Resource</button></div><label>Item</label><select value={clanSendItemId} onChange={(e) => setClanSendItemId(e.target.value)}><option value="">Choose treasury item</option>{clanTreasuryItems.map(stack => <option key={stack.itemId} value={stack.itemId}>{itemDisplayName(stack.itemId, allClanItems)} x{stack.count}</option>)}</select><button onClick={sendClanItem} disabled={!clanSendItemId}>Send Item</button></section>}<p className="hint">Donations add clan XP and treasury resources.</p></div>}
         {view === "boosts" && <div className="clan-upgrade-grid">{clanBoostTiers.map(tier => { const active = clanData.members.length >= tier.min && clanData.members.length <= tier.max; const label = Number.isFinite(tier.max) ? `${tier.min}-${tier.max} members` : `${tier.min}+ members`; return <div key={label} className={`town-upgrade-card clan-upgrade-card ${active ? "active" : ""}`}><div className="town-upgrade-topline"><span className="town-upgrade-icon">✨</span><div><strong>{label}</strong><p>{active ? "Active Boost" : "Recruitment Tier"}</p></div></div><div className="town-upgrade-bar"><span style={{ width: active ? "100%" : "0%" }} /></div><p className="town-upgrade-desc">Clan members receive +{tier.percent}% training XP, mission XP, and ryo gain at this roster size.</p><p className="town-upgrade-bonus">Boost: <strong>+{tier.percent}%</strong></p></div>; })}</div>}
         {view === "missions" && <div className="clan-mission-grid">{clanMissionDefinitions.map(mission => { const progress = clanMissionProgress(clanData, mission.key); return <div key={mission.key} className="summary-box clan-mission-card"><h3>{mission.icon} {mission.name}</h3><p>{mission.description}</p><div className="town-upgrade-bar"><span style={{ width: `${Math.min(100, (progress / mission.target) * 100)}%` }} /></div><p><strong>{Math.min(progress, mission.target).toLocaleString()}</strong> / {mission.target.toLocaleString()}</p><p className="hint">Reward: {mission.reward}</p></div>; })}</div>}
-        {view === "wars" && <div className="summary-box"><h3>⚔️ Clan Wars</h3>{clanData.activeWar ? <div className="clan-war-active"><h3>{clanData.name} vs {clanData.activeWar.opponentClan}</h3><p className="hint">Enemy Village: {clanData.activeWar.enemyVillage} · Ends: {new Date(clanData.activeWar.endsAt).toLocaleString()}</p><div className="war-score-board"><strong>{clanData.activeWar.ourScore}</strong><span>VS</span><strong>{clanData.activeWar.enemyScore}</strong></div><div className="menu"><button onClick={() => addWarScore(3)}>Log Arena Win +3</button><button onClick={() => addWarScore(2)}>Log Defense Win +2</button><button onClick={() => addWarScore(5)}>Log Raid Contribution +5</button><button onClick={resolveClanWar}>Resolve War</button></div></div> : <button disabled={!canManageClan(myRole)} onClick={startClanWar}>{canManageClan(myRole) ? "Start Clan War" : "Officer+ can start wars"}</button>}<h4>Past War History</h4><div className="war-record-grid">{clanData.warHistory.map((war, idx) => <div key={`${war.opponent}-${idx}`} className="war-record-card"><strong>{war.result} vs {war.opponent}</strong><span>{war.finalScore}</span><small>{war.date} · MVP: {war.mvpClan}</small><small>Top Attacker: {war.topAttacker} · Top Defender: {war.topDefender}</small><small>Reward: {war.reward}</small></div>)}</div></div>}
-        {view === "guard" && <div className="summary-box"><h3>🛡️ Village Guard</h3><p className="hint">Queue as a guard to defend <strong>{character.village}</strong>. Town Hall defense bonus applies while you are queued.</p><button className={character.guardQueued ? "danger-button" : ""} onClick={toggleGuard} disabled={guardBusy} style={{ marginBottom: 12 }}>{guardBusy ? "Updating…" : character.guardQueued ? "🛑 Leave Guard Queue" : "🛡️ Queue as Village Guard"}</button><h4>Active Guards for {character.village} ({guardList.length})</h4>{guardList.length === 0 ? <p className="hint">No active guards. Village is undefended.</p> : <div className="clan-guard-list">{guardList.map(g => <div key={g.name} className="clan-guard-row"><span>🛡️ <strong>{g.name}</strong></span><span className="clan-guard-lvl">Lv. {g.level}{g.defenseBonusPercent ? ` · DEF +${g.defenseBonusPercent.toFixed(1)}%` : ""}</span></div>)}</div>}</div>}
-        {view === "hall" && <div className="summary-box clan-visual-hall"><span className="clan-hall-tier-icon">{hall.icon}</span><div><h3>{hall.name}</h3><p>{hall.desc}</p><p className="hint">Hall tier grows automatically from clan level: Camp → Dojo → Compound → Fortress → Citadel.</p></div></div>}
+        {view === "wars" && <div className="summary-box"><h3>⚔️ Clan Wars</h3><p className="hint">Owned sectors give +{territoryWarBonusPercent}% clan war point gain, full HP sectors start new wars with +{territoryStartingScore.toLocaleString()} score, and War Supply can be spent during active wars.</p>{clanData.activeWar ? <div className="clan-war-active"><h3>{clanData.name} vs {clanData.activeWar.opponentClan}</h3><p className="hint">Enemy Village: {clanData.activeWar.enemyVillage} · Ends: {new Date(clanData.activeWar.endsAt).toLocaleString()} · War Supply: {clanData.treasury.warSupply.toLocaleString()}</p><div className="war-score-board"><strong>{clanData.activeWar.ourScore}</strong><span>VS</span><strong>{clanData.activeWar.enemyScore}</strong></div><div className="menu"><button onClick={() => addWarScore(3)}>Log Arena Win +3</button><button onClick={() => addWarScore(2)}>Log Defense Win +2</button><button onClick={() => addWarScore(5)}>Log Raid Contribution +5</button><button disabled={clanData.treasury.warSupply < 100} onClick={spendWarSupplyOnActiveWar}>Spend 100 War Supply +10</button><button onClick={resolveClanWar}>Resolve War</button></div></div> : <button disabled={!canManageClan(myRole)} onClick={startClanWar}>{canManageClan(myRole) ? "Start Clan War" : "Officer+ can start wars"}</button>}<h4>Past War History</h4><div className="war-record-grid">{clanData.warHistory.map((war, idx) => <div key={`${war.opponent}-${idx}`} className="war-record-card"><strong>{war.result} vs {war.opponent}</strong><span>{war.finalScore}</span><small>{war.date} · MVP: {war.mvpClan}</small><small>Top Attacker: {war.topAttacker} · Top Defender: {war.topDefender}</small><small>Reward: {war.reward}</small></div>)}</div></div>}
+        {view === "territory" && <div className="summary-box"><h3>Clan Territory Control</h3><p className="hint">Members donate Territory Control Scrolls to the clan hall. Owned sectors generate War Supply, boost clan war scoring, and reduce raid damage when guarded.</p><p><strong>Your Scrolls:</strong> {personalTerritoryScrolls} · <strong>Clan Hall Scrolls:</strong> {clanTerritoryScrolls} · <strong>Clan War Supply:</strong> {clanData.treasury.warSupply.toLocaleString()} · <strong>Uncollected:</strong> {clanSectorWarSupply.toLocaleString()}</p><p className="hint">Your village owns {villageSectorCount} sector{villageSectorCount === 1 ? "" : "s"} with {villageSectorWarSupply.toLocaleString()} uncollected village-wide War Supply.</p><div className="menu"><button disabled={personalTerritoryScrolls < 1} onClick={donateAllTerritoryScrollsToClan}>Donate All Territory Scrolls To Clan Hall</button><button disabled={!canSpendTerritoryScrolls || clanSectorWarSupply < 1} onClick={collectTerritoryWarSupply}>Collect Sector War Supply</button></div><div className="treasury-grid"><div><label>Sector</label><input type="number" min={1} max={60} value={territorySector} onChange={(event) => setTerritorySector(clampNumber(Number(event.target.value), 1, 60))} /></div><div><label>Weather</label><select value={territoryWeather} onChange={(event) => setTerritoryWeather(event.target.value as WeatherType)}>{Object.entries(weatherEffects).map(([key, weather]) => <option key={key} value={key}>{weather.name}</option>)}</select></div><div><label>Terrain Bonus</label><select value={territoryBuffStat} onChange={(event) => setTerritoryBuffStat(event.target.value as TerritoryBuffStat)}><option value="bukijutsuOffense">Bukijutsu Offense +10%</option><option value="taijutsuOffense">Taijutsu Offense +10%</option><option value="ninjutsuOffense">Ninjutsu Offense +10%</option><option value="genjutsuOffense">Genjutsu Offense +10%</option></select></div></div><section className="summary-box"><h4>Sector {territorySector}</h4><p><strong>Owner:</strong> {selectedTerritory.ownerClan ? `${selectedTerritory.ownerClan} (${selectedTerritory.ownerVillage})` : "Unclaimed"}</p><div className="town-upgrade-bar"><span style={{ width: `${(selectedTerritory.controlScore / TERRITORY_CONTROL_MAX) * 100}%` }} /></div><p>Control Score: {selectedTerritory.controlScore.toLocaleString()} / {TERRITORY_CONTROL_MAX.toLocaleString()}</p><div className="bar enemy-bar"><span style={{ width: `${(selectedTerritory.hp / TERRITORY_HP_MAX) * 100}%` }} /></div><p>Sector HP: {selectedTerritory.hp.toLocaleString()} / {TERRITORY_HP_MAX.toLocaleString()}</p><p>War Supply: {selectedTerritory.warSupply.toLocaleString()} · Raid Damage Taken: {sectorRaidDamageAmount(territorySector).toLocaleString()}</p><p>Fixed Weather: {weatherEffects[selectedTerritory.weather ?? weatherForSector(territorySector, "central")].name} · Terrain: {selectedTerritory.terrainBuffStat.replace("Offense", " Offense")} +10%</p><p>Guards: {selectedTerritory.guards.length ? selectedTerritory.guards.join(", ") : "None"}</p><div className="menu"><button disabled={!canSpendTerritoryScrolls || clanTerritoryScrolls < 1 || Boolean(selectedTerritory.ownerClan && selectedTerritory.ownerClan !== clanData.name)} onClick={() => donateTerritoryScrolls(territorySector)}>Assign 1 Clan Scroll</button><button disabled={!canSpendTerritoryScrolls || clanTerritoryScrolls < 5 || Boolean(selectedTerritory.ownerClan && selectedTerritory.ownerClan !== clanData.name)} onClick={() => donateTerritoryScrolls(territorySector, 5)}>Assign 5 Clan Scrolls</button><button disabled={!canSpendTerritoryScrolls || selectedTerritory.ownerClan !== clanData.name} onClick={() => saveTerritorySettings(territorySector)}>Save Terrain / Weather</button><button disabled={!canGuardSelectedTerritory} onClick={() => toggleTerritoryGuard(territorySector)}>{selectedTerritory.guards.includes(character.name) ? "Leave Sector Guard" : "Queue Sector Guard"}</button><button className="danger-button" disabled={!selectedTerritory.ownerClan || selectedTerritory.ownerVillage === character.village} onClick={() => recordVillageWarDamage(territorySector)}>Village War Hit -5,000 HP</button></div></section><h4>Your Clan Sectors</h4>{ownedTerritories.length === 0 ? <p className="hint">Your clan does not own a sector yet.</p> : <div className="war-record-grid">{ownedTerritories.map(territory => <div key={territory.sector} className="war-record-card"><strong>Sector {territory.sector}</strong><span>HP {territory.hp.toLocaleString()} / {TERRITORY_HP_MAX.toLocaleString()}</span><small>{weatherEffects[territory.weather ?? "clear"].name} · {territory.terrainBuffStat.replace("Offense", " Offense")} +10%</small><small>War Supply: {territory.warSupply.toLocaleString()} · Guards: {territory.guards.length}</small></div>)}</div>}</div>}
+        {view === "guard" && <div className="summary-box"><h3>🛡️ Village Guard</h3><p className="hint">Queue as a guard to defend <strong>{character.village}</strong>. Town Hall defense bonus applies while you are queued.</p><button className={character.guardQueued ? "danger-button" : ""} onClick={toggleGuard} disabled={guardBusy} style={{ marginBottom: 12 }}>{guardBusy ? "Updating…" : character.guardQueued ? "Leave Guard Queue" : "Queue as Village Guard"}</button><h4>Active Guards for {character.village} ({guardList.length})</h4>{guardList.length === 0 ? <p className="hint">No active guards. Village is undefended.</p> : <div className="clan-guard-list">{guardList.map(g => <div key={g.name} className="clan-guard-row"><span>🛡️ <strong>{g.name}</strong></span><span className="clan-guard-lvl">Lv. {g.level}{g.defenseBonusPercent ? ` · DEF +${g.defenseBonusPercent.toFixed(1)}%` : ""}</span></div>)}</div>}</div>}
+        {view === "hall" && <div className="summary-box clan-visual-hall"><ClanImageMark image={clanData.image} name={clanData.name} village={clanData.village} /><span className="clan-hall-tier-icon">{hall.icon}</span><div><h3>{hall.name}</h3><p>{hall.desc}</p><p className="hint">Hall tier grows automatically from clan level: Camp → Dojo → Compound → Fortress → Citadel.</p></div></div>}
         <div className="menu" style={{ marginTop: 12 }}><button className="danger-button" onClick={leaveClan}>Leave Clan</button></div>
     </div>;
 }
 
-// ── Expanded Town Hall state ──────────────────────────────────────────────
-type VillageTreasury = { ryo: number; honorSeals: number; fateShards: number; boneCharms: number; auraStones: number; mythicSeals: number; };
+// -- Expanded Town Hall state ----------------------------------------------
+type VillageTreasury = { ryo: number; honorSeals: number; fateShards: number; boneCharms: number; auraStones: number; mythicSeals: number; items: TreasuryItemStack[]; };
+type VillageTreasuryCurrencyKey = Exclude<keyof VillageTreasury, "items">;
 type DetailedVillageWarRecord = { opponent: string; winner: string; finalScore: string; topDefender: string; topAttacker: string; mvpClan: string; rewards: string; date: string; };
-type VillageState = { treasury: VillageTreasury; contributionPoints: number; notices: string[]; warRecords: DetailedVillageWarRecord[]; };
-function defaultVillageTreasury(): VillageTreasury { return { ryo: 0, honorSeals: 0, fateShards: 0, boneCharms: 0, auraStones: 0, mythicSeals: 0 }; }
-function cleanVillageTreasury(t?: Partial<VillageTreasury>): VillageTreasury { const b = defaultVillageTreasury(); const m = { ...b, ...(t ?? {}) } as VillageTreasury; (Object.keys(b) as Array<keyof VillageTreasury>).forEach(k => m[k] = Math.max(0, Math.floor(Number(m[k] ?? 0)))); return m; }
+type KageHistoryEntry = { name: string; village: string; seatedAt: number; endedAt?: number };
+type VillageState = { treasury: VillageTreasury; contributionPoints: number; notices: string[]; warRecords: DetailedVillageWarRecord[]; kageSystemUnlocked: boolean; firstLiberator?: string; seatedKage?: string; anbuAppointees: string[]; kageHistory?: KageHistoryEntry[]; };
+function defaultVillageTreasury(): VillageTreasury { return { ryo: 0, honorSeals: 0, fateShards: 0, boneCharms: 0, auraStones: 0, mythicSeals: 0, items: [] }; }
+function cleanVillageTreasury(t?: Partial<VillageTreasury>): VillageTreasury { return { ryo: Math.max(0, Math.floor(Number(t?.ryo ?? 0))), honorSeals: Math.max(0, Math.floor(Number(t?.honorSeals ?? 0))), fateShards: Math.max(0, Math.floor(Number(t?.fateShards ?? 0))), boneCharms: Math.max(0, Math.floor(Number(t?.boneCharms ?? 0))), auraStones: Math.max(0, Math.floor(Number(t?.auraStones ?? 0))), mythicSeals: Math.max(0, Math.floor(Number(t?.mythicSeals ?? 0))), items: cleanTreasuryItems(t?.items) }; }
 function defaultVillageWarRecords(village: string): DetailedVillageWarRecord[] { const leadership = villageLeadership[village]; return (leadership?.pastWars ?? ["No recorded wars yet."]).map((war, index) => ({ opponent: war.replace(/^Won |^Lost |^Draw at /, ""), winner: war.startsWith("Won") ? village : war.startsWith("Lost") ? "Enemy Village" : "Draw", finalScore: index === 0 ? "112 - 88" : index === 1 ? "76 - 91" : "64 - 64", topDefender: leadership?.elders?.[index % 3] ?? "Village Guard", topAttacker: leadership?.kage ?? "Kage Council", mvpClan: index === 0 ? "Fated Reunion" : "Unclaimed", rewards: index === 0 ? "Village XP / guard medals" : "Archive record", date: index === 0 ? "Recent Season" : "Previous Season" })); }
-function defaultVillageState(village: string): VillageState { return { treasury: defaultVillageTreasury(), contributionPoints: 0, notices: ["Town Hall upgrades are open for donation funding.", "Village Guard queue is accepting defenders."], warRecords: defaultVillageWarRecords(village) }; }
+function normalizeAnbuAppointees(appointees?: string[]) {
+    const seen = new Set<string>();
+    return Array.from({ length: 3 }, (_, index) => {
+        const name = String(appointees?.[index] ?? "").trim();
+        const key = name.toLowerCase();
+        if (!name || seen.has(key)) return "";
+        seen.add(key);
+        return name;
+    });
+}
+function defaultVillageState(village: string): VillageState { return { treasury: defaultVillageTreasury(), contributionPoints: 0, notices: ["Town Hall upgrades are open for donation funding.", "Village Guard queue is accepting defenders."], warRecords: defaultVillageWarRecords(village), kageSystemUnlocked: false, anbuAppointees: ["", "", ""] }; }
 function villageStateKey(village: string) { return "village-state-" + village.toLowerCase().replace(/[^a-z0-9]/g, ""); }
-function normalizeVillageState(village: string, state?: Partial<VillageState>): VillageState { const base = defaultVillageState(village); return { treasury: cleanVillageTreasury(state?.treasury), contributionPoints: Math.max(0, Math.floor(Number(state?.contributionPoints ?? 0))), notices: state?.notices?.length ? state.notices.slice(0, 8) : base.notices, warRecords: state?.warRecords?.length ? state.warRecords : base.warRecords }; }
+function normalizeVillageState(village: string, state?: Partial<VillageState>): VillageState { const base = defaultVillageState(village); return { treasury: cleanVillageTreasury(state?.treasury), contributionPoints: Math.max(0, Math.floor(Number(state?.contributionPoints ?? 0))), notices: state?.notices?.length ? state.notices.slice(0, 8) : base.notices, warRecords: state?.warRecords?.length ? state.warRecords : base.warRecords, kageSystemUnlocked: Boolean(state?.kageSystemUnlocked ?? base.kageSystemUnlocked), firstLiberator: state?.firstLiberator ?? base.firstLiberator, seatedKage: state?.seatedKage ?? base.seatedKage, anbuAppointees: normalizeAnbuAppointees(state?.anbuAppointees), kageHistory: state?.kageHistory ?? [] }; }
 function loadVillageState(village: string): VillageState { try { const raw = localStorage.getItem(villageStateKey(village)); return normalizeVillageState(village, raw ? JSON.parse(raw) : undefined); } catch { return defaultVillageState(village); } }
-function saveVillageState(village: string, state: VillageState) { try { localStorage.setItem(villageStateKey(village), JSON.stringify(normalizeVillageState(village, state))); } catch { } }
+function saveVillageState(village: string, state: VillageState) {
+    try {
+        localStorage.setItem(villageStateKey(village), JSON.stringify(normalizeVillageState(village, state)));
+    } catch {
+        // localStorage may be unavailable in private or restricted browser contexts.
+    }
+}
+function isVillageAnbu(character: Character) {
+    const state = loadVillageState(character.village);
+    return normalizeAnbuAppointees(state.anbuAppointees).some(name => name.toLowerCase() === character.name.toLowerCase());
+}
 
-function TownHall({ character, updateCharacter }: { character: Character; updateCharacter: (character: Character) => void }) {
+const VILLAGE_WAR_PREFIX = "shinobij-village-war-";
+const VILLAGE_WAR_HP_MAX = 5000;
+const VILLAGE_WAR_GROUND_HP_MAX = 1000;
+const VILLAGE_WAR_DAILY_MISSIONS = 2;
+const VILLAGE_WAR_RAIDS_PER_MISSION = 3;
+const VILLAGE_WAR_MISSION_DAMAGE = 30;
+const VILLAGE_WAR_GROUND_CAPTURE_DAMAGE = 750;
+
+type VillageWar = {
+    id: string;
+    villages: [string, string];
+    hp: Record<string, number>;
+    warGroundSector: number;
+    warGroundHp: number;
+    startedAt: number;
+    updatedAt: number;
+    capturedBy?: string;
+    capturedAt?: number;
+    winnerVillage?: string;
+    endedAt?: number;
+};
+
+function villageWarId(villageA: string, villageB: string) {
+    return [villageA, villageB].sort((a, b) => a.localeCompare(b)).map(village => village.toLowerCase().replace(/[^a-z0-9]/g, "")).join("-vs-");
+}
+
+function villageWarKey(villageA: string, villageB: string) {
+    return `${VILLAGE_WAR_PREFIX}${villageWarId(villageA, villageB)}`;
+}
+
+function normalizeVillageWar(data: Partial<VillageWar> & { villages: [string, string] }): VillageWar {
+    const [first, second] = data.villages;
+    return {
+        id: data.id ?? villageWarId(first, second),
+        villages: [first, second],
+        hp: {
+            [first]: clampNumber(Math.floor(Number(data.hp?.[first] ?? VILLAGE_WAR_HP_MAX)), 0, VILLAGE_WAR_HP_MAX),
+            [second]: clampNumber(Math.floor(Number(data.hp?.[second] ?? VILLAGE_WAR_HP_MAX)), 0, VILLAGE_WAR_HP_MAX),
+        },
+        warGroundSector: clampNumber(Math.floor(Number(data.warGroundSector ?? firstOpenWarGroundSector())), 1, 60),
+        warGroundHp: clampNumber(Math.floor(Number(data.warGroundHp ?? VILLAGE_WAR_GROUND_HP_MAX)), 0, VILLAGE_WAR_GROUND_HP_MAX),
+        startedAt: data.startedAt ?? Date.now(),
+        updatedAt: data.updatedAt ?? Date.now(),
+        capturedBy: data.capturedBy,
+        capturedAt: data.capturedAt,
+        winnerVillage: data.winnerVillage,
+        endedAt: data.endedAt,
+    };
+}
+
+function firstOpenWarGroundSector() {
+    return loadAllSectorTerritories().find(territory => !territory.ownerClan)?.sector ?? 40;
+}
+
+function loadVillageWar(villageA: string, villageB: string): VillageWar | null {
+    try {
+        const raw = localStorage.getItem(villageWarKey(villageA, villageB));
+        if (!raw) return null;
+        const parsed = JSON.parse(raw) as Partial<VillageWar>;
+        return normalizeVillageWar({ ...parsed, villages: parsed.villages ?? [villageA, villageB] });
+    } catch {
+        return null;
+    }
+}
+
+function saveVillageWar(war: VillageWar) {
+    const normalized = normalizeVillageWar({ ...war, updatedAt: Date.now() });
+    localStorage.setItem(villageWarKey(normalized.villages[0], normalized.villages[1]), JSON.stringify(normalized));
+    return normalized;
+}
+
+function activeVillageWarsFor(village: string) {
+    return villages
+        .filter(otherVillage => otherVillage !== village)
+        .map(otherVillage => loadVillageWar(village, otherVillage))
+        .filter((war): war is VillageWar => Boolean(war && !war.endedAt && war.villages.includes(village)));
+}
+
+function activeVillageWarBetween(villageA?: string, villageB?: string) {
+    if (!villageA || !villageB || villageA === villageB) return null;
+    const war = loadVillageWar(villageA, villageB);
+    return war && !war.endedAt ? war : null;
+}
+
+function startVillageWar(attackerVillage: string, enemyVillage: string) {
+    const existing = activeVillageWarBetween(attackerVillage, enemyVillage);
+    if (existing) return existing;
+    const war = normalizeVillageWar({
+        id: villageWarId(attackerVillage, enemyVillage),
+        villages: [attackerVillage, enemyVillage],
+        hp: { [attackerVillage]: VILLAGE_WAR_HP_MAX, [enemyVillage]: VILLAGE_WAR_HP_MAX },
+        warGroundSector: firstOpenWarGroundSector(),
+        warGroundHp: VILLAGE_WAR_GROUND_HP_MAX,
+        startedAt: Date.now(),
+    });
+    saveVillageWar(war);
+    [attackerVillage, enemyVillage].forEach(village => {
+        const state = loadVillageState(village);
+        saveVillageState(village, {
+            ...state,
+            notices: [`Village war started: ${attackerVillage} vs ${enemyVillage}. War ground: Sector ${war.warGroundSector}.`, ...state.notices].slice(0, 8),
+        });
+    });
+    return war;
+}
+
+function villageWarRoleValue(character: Character) {
+    const title = `${character.rankTitle ?? ""} ${character.storyTitle ?? ""}`.toLowerCase();
+    const state = loadVillageState(character.village);
+    if (state.seatedKage?.toLowerCase() === character.name.toLowerCase() || title.includes("kage")) return 30;
+    if (title.includes("elder") || title.includes("clan leader") || title.includes("clan head") || character.clanFounder) return 20;
+    if (isVillageAnbu(character) || title.includes("anbu")) return 15;
+    return 5;
+}
+
+function villageWarLossPenalty(character: Character) {
+    const title = `${character.rankTitle ?? ""} ${character.storyTitle ?? ""}`.toLowerCase();
+    const state = loadVillageState(character.village);
+    if (state.seatedKage?.toLowerCase() === character.name.toLowerCase() || title.includes("kage")) return 50;
+    if (title.includes("elder") || title.includes("clan leader") || title.includes("clan head") || character.clanFounder) return 20;
+    return 0;
+}
+
+function applyVillageWarDamage(war: VillageWar, damagedVillage: string, amount: number) {
+    const nextHp = Math.max(0, (war.hp[damagedVillage] ?? VILLAGE_WAR_HP_MAX) - Math.max(0, Math.floor(amount)));
+    const next = normalizeVillageWar({
+        ...war,
+        hp: { ...war.hp, [damagedVillage]: nextHp },
+        winnerVillage: nextHp <= 0 ? war.villages.find(village => village !== damagedVillage) : war.winnerVillage,
+        endedAt: nextHp <= 0 ? Date.now() : war.endedAt,
+    });
+    saveVillageWar(next);
+    return next;
+}
+
+function recordVillageWarPvp(winner: Character, loser: Character) {
+    const war = activeVillageWarBetween(winner.village, loser.village);
+    if (!war) return "";
+    const damage = villageWarRoleValue(winner) + villageWarLossPenalty(loser);
+    const updated = applyVillageWarDamage(war, loser.village, damage);
+    return ` Village War: ${loser.village} HP -${damage} (${updated.hp[loser.village]}/${VILLAGE_WAR_HP_MAX}).`;
+}
+
+function recordVillageWarRaid(character: Character, sector: number) {
+    const war = activeVillageWarsFor(character.village).find(candidate => candidate.warGroundSector === sector);
+    if (!war || war.warGroundHp <= 0) return { note: "", characterPatch: {} as Partial<Character> };
+    const enemyVillage = war.villages.find(village => village !== character.village);
+    if (!enemyVillage) return { note: "", characterPatch: {} as Partial<Character> };
+    const damage = villageWarRoleValue(character);
+    let next = normalizeVillageWar({
+        ...war,
+        warGroundHp: Math.max(0, war.warGroundHp - damage),
+    });
+    next = applyVillageWarDamage(next, enemyVillage, damage);
+    let captureNote = "";
+    if (next.warGroundHp <= 0 && !next.capturedBy) {
+        next = normalizeVillageWar({ ...next, capturedBy: character.village, capturedAt: Date.now() });
+        next = applyVillageWarDamage(next, enemyVillage, VILLAGE_WAR_GROUND_CAPTURE_DAMAGE);
+        captureNote = ` War ground captured: ${enemyVillage} HP -${VILLAGE_WAR_GROUND_CAPTURE_DAMAGE}.`;
+    } else {
+        saveVillageWar(next);
+    }
+    const today = currentDateKey();
+    const sameDay = character.villageWarMissionDate === today;
+    const currentProgress = sameDay ? character.villageWarRaidProgress ?? 0 : 0;
+    const currentCompleted = sameDay ? character.villageWarMissionsCompleted ?? 0 : 0;
+    const nextProgress = Math.min(VILLAGE_WAR_DAILY_MISSIONS * VILLAGE_WAR_RAIDS_PER_MISSION, currentProgress + 1);
+    return {
+        note: ` Village War raid: ${enemyVillage} HP -${damage}, War Ground HP -${damage}.${captureNote}`,
+        characterPatch: {
+            villageWarMissionDate: today,
+            villageWarRaidProgress: nextProgress,
+            villageWarMissionsCompleted: currentCompleted,
+        } as Partial<Character>,
+    };
+}
+
+function claimVillageWarDailyMission(character: Character, missionIndex: number) {
+    const today = currentDateKey();
+    const progress = character.villageWarMissionDate === today ? character.villageWarRaidProgress ?? 0 : 0;
+    const completed = character.villageWarMissionDate === today ? character.villageWarMissionsCompleted ?? 0 : 0;
+    if (missionIndex !== completed) return { character, note: "Claim earlier village war missions first." };
+    const required = (missionIndex + 1) * VILLAGE_WAR_RAIDS_PER_MISSION;
+    if (progress < required) return { character, note: `Raid the enemy village ${required - progress} more time(s).` };
+    const war = activeVillageWarsFor(character.village)[0];
+    const enemyVillage = war?.villages.find(village => village !== character.village);
+    if (!war || !enemyVillage) return { character, note: "Your village is not in an active war." };
+    applyVillageWarDamage(war, enemyVillage, VILLAGE_WAR_MISSION_DAMAGE);
+    return {
+        character: {
+            ...character,
+            villageWarMissionDate: today,
+            villageWarRaidProgress: progress,
+            villageWarMissionsCompleted: completed + 1,
+            clanMissionContrib: (character.clanMissionContrib ?? 0) + 1,
+            totalMissionsCompleted: (character.totalMissionsCompleted ?? 0) + 1,
+        },
+        note: `Village war mission complete. ${enemyVillage} HP -${VILLAGE_WAR_MISSION_DAMAGE}.`,
+    };
+}
+function unlockVillageKageSystem(village: string, playerName: string): VillageState {
+    const current = loadVillageState(village);
+    if (current.kageSystemUnlocked) return current;
+    const announcement = `The false Kage of ${village} has fallen. ${playerName} has broken the Hollow Gate Pact. The Kage seat is now open.`;
+    const existingHistory = current.kageHistory ?? [];
+    const newEntry: KageHistoryEntry = { name: playerName, village, seatedAt: Date.now() };
+    const next = normalizeVillageState(village, {
+        ...current,
+        kageSystemUnlocked: true,
+        firstLiberator: playerName,
+        seatedKage: playerName,
+        kageHistory: [...existingHistory, newEntry],
+        notices: [announcement, `${playerName} has claimed the first open Kage seat of ${village}.`, "The false Kage has fallen. The village is no longer ruled by secrecy. The Kage seat is now open.", ...current.notices].slice(0, 8),
+    });
+    saveVillageState(village, next);
+    return next;
+}
+
+function TownHall({ character, updateCharacter, creatorItems }: { character: Character; updateCharacter: (character: Character) => void; creatorItems: GameItem[] }) {
     const leadership = villageLeadership[character.village] ?? { kage: "Acting Kage Council", elders: ["First Elder", "Second Elder", "Third Elder"], atWar: false, pastWars: ["No recorded wars yet."] };
     const leadershipImages = loadVillageLeadershipImages()[character.village] ?? { kage: "", elders: ["", "", ""] };
     const upgrades = getVillageUpgrades(character);
@@ -8292,29 +10430,129 @@ function TownHall({ character, updateCharacter }: { character: Character; update
     const [donation, setDonation] = useState(1000);
     const [guardList, setGuardList] = useState<{ name: string; level: number; defenseBonusPercent?: number }[]>([]);
     const [guardBusy, setGuardBusy] = useState(false);
-    useEffect(() => setState(loadVillageState(character.village)), [character.village]);
+    const [villageDonateItemId, setVillageDonateItemId] = useState("");
+    const [villageSendItemId, setVillageSendItemId] = useState("");
+    const [villageSendPlayer, setVillageSendPlayer] = useState("");
+    const [villageSendCurrency, setVillageSendCurrency] = useState<VillageTreasuryCurrencyKey>("ryo");
+    const [villageSendAmount, setVillageSendAmount] = useState(1);
+    const [anbuAppointmentInputs, setAnbuAppointmentInputs] = useState<string[]>(() => normalizeAnbuAppointees(loadVillageState(character.village).anbuAppointees));
+    const [warTargetVillage, setWarTargetVillage] = useState(villages.find(village => village !== character.village) ?? villages[0]);
+    const allVillageItems = getAllItems(creatorItems);
+    const villageInventoryStacks = inventoryItemStacks(character, allVillageItems);
+    const villageTreasuryItems = cleanTreasuryItems(state.treasury.items);
+    const villagePlayers = [
+        character.name,
+        ...Object.values(loadPlayerAccounts())
+            .map(account => normalizeCharacter(account.snapshot.character))
+            .filter(player => player.village === character.village)
+            .map(player => player.name),
+    ].filter((name, index, names) => Boolean(name) && names.indexOf(name) === index).sort((a, b) => a.localeCompare(b));
+    useEffect(() => {
+        const next = loadVillageState(character.village);
+        setState(next);
+        setAnbuAppointmentInputs(normalizeAnbuAppointees(next.anbuAppointees));
+    }, [character.village]);
     useEffect(() => saveVillageState(character.village, state), [character.village, state]);
     useEffect(() => { if (tab !== "guard" && tab !== "status") return; fetch("/api/village-guard/list", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ village: character.village }) }).then(r => r.ok ? r.json() : []).then(list => setGuardList(Array.isArray(list) ? list : [])).catch(() => setGuardList([])); }, [tab, character.village, character.guardQueued]);
     function updateVillageState(next: VillageState) { const normalized = normalizeVillageState(character.village, next); setState(normalized); saveVillageState(character.village, normalized); }
     function addNotice(text: string, nextState: VillageState = state) { return { ...nextState, notices: [text, ...nextState.notices].slice(0, 8) }; }
-    function upgradeTownFeature(key: VillageUpgradeKey) { const currentLevel = upgrades[key]; if (currentLevel >= VILLAGE_UPGRADE_MAX_LEVEL) return alert("This village upgrade is already maxed at level 50."); const cost = villageUpgradeCost(key, currentLevel); if ((character.honorSeals ?? 0) < cost) return alert(`Not enough Honor Seals. You need ${cost.toLocaleString()} Honor Seals.`); updateCharacter({ ...character, honorSeals: (character.honorSeals ?? 0) - cost, villageUpgrades: { ...upgrades, [key]: currentLevel + 1 } }); updateVillageState(addNotice(`${character.name} spent ${cost.toLocaleString()} Honor Seals to upgrade ${villageUpgradeDefinitions.find(def => def.key === key)?.name ?? key} to level ${currentLevel + 1}.`, { ...state, contributionPoints: state.contributionPoints + 10 })); }
+    function beginVillageWar() {
+        if (!isSeatedKage) return alert("Only the seated Kage can start a village war.");
+        if (warTargetVillage === character.village) return alert("Choose an enemy village.");
+        const war = startVillageWar(character.village, warTargetVillage);
+        updateVillageState(addNotice(`${character.name} started a village war against ${warTargetVillage}. War ground: Sector ${war.warGroundSector}.`));
+        alert(`Village war started. War ground: Sector ${war.warGroundSector}.`);
+    }
+    function upgradeTownFeature(key: VillageUpgradeKey) { if (!isSeatedKage) return alert("Only the seated Kage can upgrade village structures."); const currentLevel = upgrades[key]; if (currentLevel >= VILLAGE_UPGRADE_MAX_LEVEL) return alert("This village upgrade is already maxed at level 50."); const cost = villageUpgradeCost(key, currentLevel); if ((character.honorSeals ?? 0) < cost) return alert(`Not enough Honor Seals. You need ${cost.toLocaleString()} Honor Seals.`); updateCharacter({ ...character, honorSeals: (character.honorSeals ?? 0) - cost, villageUpgrades: { ...upgrades, [key]: currentLevel + 1 } }); updateVillageState(addNotice(`${character.name} spent ${cost.toLocaleString()} Honor Seals to upgrade ${villageUpgradeDefinitions.find(def => def.key === key)?.name ?? key} to level ${currentLevel + 1}.`, { ...state, contributionPoints: state.contributionPoints + 10 })); }
     function donateVillageRyo() { const amount = Math.max(1, Math.floor(donation)); if (character.ryo < amount) return alert("Not enough ryo."); updateCharacter({ ...character, ryo: character.ryo - amount }); updateVillageState(addNotice(`${character.name} donated ${amount.toLocaleString()} ryo to the village treasury.`, { ...state, treasury: { ...state.treasury, ryo: state.treasury.ryo + amount }, contributionPoints: state.contributionPoints + Math.max(1, Math.floor(amount / 1000)) })); }
-    function donateVillageSpecial(currency: keyof Omit<VillageTreasury, "ryo">) { const current = character[currency] ?? 0; if (current < 1) return alert(`Not enough ${currency}.`); updateCharacter({ ...character, [currency]: current - 1 } as Character); updateVillageState(addNotice(`${character.name} donated 1 ${currency} to the village treasury.`, { ...state, treasury: { ...state.treasury, [currency]: state.treasury[currency] + 1 }, contributionPoints: state.contributionPoints + 5 })); }
+    function donateVillageSpecial(currency: Exclude<VillageTreasuryCurrencyKey, "ryo">) { const current = character[currency] ?? 0; if (current < 1) return alert(`Not enough ${currency}.`); updateCharacter({ ...character, [currency]: current - 1 } as Character); updateVillageState(addNotice(`${character.name} donated 1 ${currency} to the village treasury.`, { ...state, treasury: { ...state.treasury, [currency]: state.treasury[currency] + 1 }, contributionPoints: state.contributionPoints + 5 })); }
+    function donateVillageItem() {
+        if (!villageDonateItemId) return alert("Choose an item to donate.");
+        if (!character.inventory.includes(villageDonateItemId)) return alert("You do not have that item.");
+        const nextInventory = [...character.inventory];
+        nextInventory.splice(nextInventory.indexOf(villageDonateItemId), 1);
+        updateCharacter({ ...character, inventory: nextInventory });
+        updateVillageState(addNotice(`${character.name} donated ${itemDisplayName(villageDonateItemId, allVillageItems)} to the village treasury.`, { ...state, treasury: { ...state.treasury, items: addTreasuryItem(state.treasury.items, villageDonateItemId) }, contributionPoints: state.contributionPoints + 5 }));
+    }
+    function sendVillageCurrency() {
+        if (!isSeatedKage) return alert("Only the seated Kage can send village treasury resources.");
+        const amount = Math.max(1, Math.floor(villageSendAmount));
+        if (!villageSendPlayer) return alert("Choose a village player.");
+        if ((state.treasury[villageSendCurrency] ?? 0) < amount) return alert("Not enough village treasury resources.");
+        if (!grantCurrencyToPlayer(villageSendPlayer, villageSendCurrency, amount, character, updateCharacter)) return alert("Could not find that player account.");
+        updateVillageState(addNotice(`${character.name} sent ${amount.toLocaleString()} ${villageSendCurrency} to ${villageSendPlayer}.`, { ...state, treasury: { ...state.treasury, [villageSendCurrency]: state.treasury[villageSendCurrency] - amount } }));
+    }
+    function sendVillageItem() {
+        if (!isSeatedKage) return alert("Only the seated Kage can send village treasury items.");
+        if (!villageSendPlayer) return alert("Choose a village player.");
+        if (!villageSendItemId) return alert("Choose an item.");
+        if (!state.treasury.items.some(stack => stack.itemId === villageSendItemId && stack.count > 0)) return alert("That item is not in the village treasury.");
+        if (!grantInventoryItemToPlayer(villageSendPlayer, villageSendItemId, character, updateCharacter)) return alert("Could not find that player account.");
+        updateVillageState(addNotice(`${character.name} sent ${itemDisplayName(villageSendItemId, allVillageItems)} to ${villageSendPlayer}.`, { ...state, treasury: { ...state.treasury, items: removeTreasuryItem(state.treasury.items, villageSendItemId) } }));
+    }
     async function toggleTownGuard() { const queued = character.guardQueued ?? false; setGuardBusy(true); if (queued) { await postGuardQueue("dequeue", { name: character.name, village: character.village }); updateCharacter({ ...character, guardQueued: false }); updateVillageState(addNotice(`${character.name} left the Village Guard queue.`)); } else { await postGuardQueue("queue", { name: character.name, village: character.village, level: character.level, defenseBonusPercent: getTownDefenseGuardBonus(character) }); updateCharacter({ ...character, guardQueued: true }); updateVillageState(addNotice(`${character.name} joined the Village Guard queue with +${getTownDefenseGuardBonus(character).toFixed(1)}% defense.`)); } setGuardBusy(false); }
+    const isSeatedKage = state.seatedKage === character.name;
     function postKageChallenge() { updateVillageState(addNotice(`${character.name} entered the Kage challenge discussion for the next election cycle.`, { ...state, contributionPoints: state.contributionPoints + 25 })); }
-    function supportVillageFocus(focus: string) { updateVillageState(addNotice(`${character.name} supported the ${focus} village focus.`, { ...state, contributionPoints: state.contributionPoints + 10 })); }
+    function supportVillageFocus(focus: string, elderFocusKey: "war" | "trade" | "training") {
+        updateVillageState(addNotice(`${character.name} selected the ${focus} elder focus.`, { ...state, contributionPoints: state.contributionPoints + 10 }));
+        updateCharacter({ ...character, elderFocus: elderFocusKey });
+    }
+    function updateAnbuAppointmentInput(index: number, value: string) {
+        setAnbuAppointmentInputs(inputs => inputs.map((input, inputIndex) => inputIndex === index ? value : input));
+    }
+    function appointAnbu(index: number) {
+        if (!isSeatedKage) return alert("Only the seated Kage can appoint ANBU seats.");
+        const requestedName = anbuAppointmentInputs[index]?.trim();
+        if (!requestedName) return alert("Choose or type a village player name.");
+        const matchedName = villagePlayers.find(name => name.toLowerCase() === requestedName.toLowerCase());
+        if (!matchedName) return alert("That player is not in your village.");
+        const nextAppointees = normalizeAnbuAppointees(state.anbuAppointees).map((name, seatIndex) => seatIndex === index ? matchedName : name);
+        const duplicateSeat = nextAppointees.findIndex((name, seatIndex) => seatIndex !== index && name.toLowerCase() === matchedName.toLowerCase());
+        if (duplicateSeat >= 0) nextAppointees[duplicateSeat] = "";
+        setAnbuAppointmentInputs(nextAppointees);
+        updateVillageState(addNotice(`${character.name} appointed ${matchedName} to ANBU seat ${index + 1}.`, { ...state, anbuAppointees: nextAppointees }));
+    }
+    function clearAnbuAppointment(index: number) {
+        if (!isSeatedKage) return alert("Only the seated Kage can clear ANBU appointments.");
+        const nextAppointees = normalizeAnbuAppointees(state.anbuAppointees).map((name, seatIndex) => seatIndex === index ? "" : name);
+        setAnbuAppointmentInputs(nextAppointees);
+        updateVillageState(addNotice(`${character.name} cleared ANBU seat ${index + 1}.`, { ...state, anbuAppointees: nextAppointees }));
+    }
     const villageLevel = Math.max(1, Math.floor(totalUpgradeLevel / 8) + 1);
+    const activeVillageWars = activeVillageWarsFor(character.village);
+    const primaryVillageWar = activeVillageWars[0];
+    const activeWarEnemyVillage = primaryVillageWar?.villages.find(village => village !== character.village);
     const villageStrength = totalUpgradeLevel * 25 + state.contributionPoints + guardList.length * 75;
     const population = 1000 + villageLevel * 90 + state.contributionPoints * 2;
     const contributionRankings = [{ name: character.name, role: "Candidate", points: state.contributionPoints + totalUpgradeLevel * 12 }, { name: leadership.elders[0] ?? "War Elder", role: "War Elder", points: totalUpgradeLevel * 8 + 120 }, { name: leadership.elders[1] ?? "Trade Elder", role: "Trade Elder", points: totalUpgradeLevel * 7 + 95 }, { name: leadership.elders[2] ?? "Training Elder", role: "Training Elder", points: totalUpgradeLevel * 6 + 80 }].sort((a, b) => b.points - a.points);
+    const currentAnbuMonth = currentMonthKey();
+    const anbuCandidateCharacters = [
+        character,
+        ...Object.values(loadPlayerAccounts()).map(account => normalizeCharacter(account.snapshot.character)),
+    ]
+        .filter((player, index, players) => player.village === character.village && players.findIndex(candidate => candidate.name === player.name) === index);
+    const anbuCandidates = anbuCandidateCharacters.map(player => ({
+        name: player.name,
+        level: player.level,
+        rankTitle: player.rankTitle,
+        monthlyKills: player.pvpKillMonth === currentAnbuMonth ? player.monthlyPvpKills ?? 0 : 0,
+        totalKills: player.totalPvpKills ?? 0,
+    }));
+    const appointedAnbuSlots = normalizeAnbuAppointees(state.anbuAppointees).map(name => anbuCandidates.find(candidate => candidate.name.toLowerCase() === name.toLowerCase()) ?? null);
+    const appointedNames = new Set(appointedAnbuSlots.flatMap(slot => slot ? [slot.name.toLowerCase()] : []));
+    const earnedAnbuSlots = anbuCandidates
+        .filter(candidate => !appointedNames.has(candidate.name.toLowerCase()))
+        .sort((a, b) => b.monthlyKills - a.monthlyKills || b.totalKills - a.totalKills || b.level - a.level || a.name.localeCompare(b.name))
+        .slice(0, 7);
+    const anbuSlots = [...appointedAnbuSlots, ...Array.from({ length: 7 }, (_, index) => earnedAnbuSlots[index] ?? null)];
     return <div className="card town-hall-screen">
         <div className="town-hall-hero"><div><p className="act-label">{character.village}</p><h2>🏯 Town Hall</h2><p className="hint">Village government, war records, guard defense, upgrades, treasury, and leadership.</p></div><div className="town-hall-wallet"><span>Honor Seals</span><strong>{(character.honorSeals ?? 0).toLocaleString()}</strong><small>Ryo {character.ryo.toLocaleString()}</small></div></div>
-        <div className="clan-tabs expanded-tabs town-tabs"><button className={tab === "status" ? "active" : ""} onClick={() => setTab("status")}>📊 Status</button><button className={tab === "upgrades" ? "active" : ""} onClick={() => setTab("upgrades")}>🏗️ Upgrades</button><button className={tab === "treasury" ? "active" : ""} onClick={() => setTab("treasury")}>💰 Treasury</button><button className={tab === "guard" ? "active" : ""} onClick={() => setTab("guard")}>🛡️ Guard</button><button className={tab === "politics" ? "active" : ""} onClick={() => setTab("politics")}>👑 Kage/Elders</button></div>
-        {tab === "status" && <><div className="town-hall-grid"><section className="summary-box town-hall-panel"><h3>👑 Village Status</h3><div className="town-leader-row">{leadershipImages.kage && <img src={leadershipImages.kage} alt={leadership.kage} />}<p><strong>Kage:</strong> {leadership.kage}</p></div><p><strong>Population:</strong> {population.toLocaleString()}</p><p><strong>Village Level:</strong> {villageLevel}</p><p><strong>Village Strength:</strong> {villageStrength.toLocaleString()}</p><p><strong>Guard Queue:</strong> {guardList.length} active defender{guardList.length === 1 ? "" : "s"}</p></section><section className="summary-box town-hall-panel"><h3>⚔️ War Status</h3><div className={leadership.atWar ? "war-status at-war" : "war-status peace"}>{leadership.atWar ? "At War" : "Not At War"}</div><h4>Current Village Buffs</h4><div className="village-buff-list"><span>Training +{getTrainingXpBonus(character).toFixed(2)}%</span><span>Jutsu Speed +{getJutsuTrainingSpeedBonus(character).toFixed(2)}%</span><span>Shop Discount +{getShopDiscountPercent(character).toFixed(2)}%</span><span>Guard DEF +{getTownDefenseGuardBonus(character).toFixed(2)}%</span><span>Pet XP +{getPetXpBonus(character).toFixed(2)}%</span><span>Bank Interest +{getBankInterestPercent(character).toFixed(2)}%</span><span>Mission Rewards +{getMissionRewardBonus(character).toFixed(2)}%</span><span>Hospital Discount +{getHospitalDiscountPercent(character).toFixed(2)}%</span></div></section></div><section className="summary-box town-notice-board"><h3>📌 Village Notice Board</h3>{state.notices.map((notice, idx) => <p key={`${notice}-${idx}`}>• {notice}</p>)}</section><section className="summary-box"><h3>📜 Detailed War Records</h3><div className="war-record-grid">{state.warRecords.map((war, idx) => <div key={`${war.opponent}-${idx}`} className="war-record-card"><strong>{war.winner} vs {war.opponent}</strong><span>{war.finalScore}</span><small>{war.date} · MVP Clan: {war.mvpClan}</small><small>Top Attacker: {war.topAttacker}</small><small>Top Defender: {war.topDefender}</small><small>Rewards: {war.rewards}</small></div>)}</div></section></>}
-        {tab === "upgrades" && <section className="summary-box town-upgrade-summary"><h3>🏗️ Village Upgrades</h3><p className="hint">Village upgrades now spend <strong>Honor Seals</strong>. Earn them from village raids and defenses.</p><p className="hint">Total Village Development: <strong>{totalUpgradeLevel}</strong> / {VILLAGE_UPGRADE_MAX_LEVEL * villageUpgradeDefinitions.length}</p><div className="town-upgrade-grid">{villageUpgradeDefinitions.map((upgrade) => { const level = upgrades[upgrade.key]; const bonus = level * upgrade.perLevel; const cost = villageUpgradeCost(upgrade.key, level); const maxed = level >= VILLAGE_UPGRADE_MAX_LEVEL; const canAfford = (character.honorSeals ?? 0) >= cost; return <div key={upgrade.key} className="town-upgrade-card"><div className="town-upgrade-topline"><span className="town-upgrade-icon">{upgrade.icon}</span><div><strong>{upgrade.name}</strong><p>Level {level}/{VILLAGE_UPGRADE_MAX_LEVEL}</p></div></div><div className="town-upgrade-bar"><span style={{ width: `${(level / VILLAGE_UPGRADE_MAX_LEVEL) * 100}%` }} /></div><p className="town-upgrade-desc">{upgrade.description}</p><p className="town-upgrade-bonus">Current Bonus: <strong>{bonus.toFixed(2)}{upgrade.unit}</strong></p><button disabled={maxed || !canAfford} onClick={() => upgradeTownFeature(upgrade.key)}>{maxed ? "Max Level" : canAfford ? `Upgrade — ${cost.toLocaleString()} Honor Seals` : `Need ${cost.toLocaleString()} Honor Seals`}</button></div>; })}</div></section>}
-        {tab === "treasury" && <section className="summary-box"><h3>💰 Village Treasury</h3><p className="hint">Honor Seals are the village war and boost reserve for Kage spending.</p><div className="treasury-grid"><p><strong>Ryo:</strong> {state.treasury.ryo.toLocaleString()}</p><p><strong>Honor Seals:</strong> {state.treasury.honorSeals.toLocaleString()}</p><p><strong>Fate Shards:</strong> {state.treasury.fateShards}</p><p><strong>Bone Charms:</strong> {state.treasury.boneCharms}</p><p><strong>Aura Stones:</strong> {state.treasury.auraStones}</p><p><strong>Mythic Seals:</strong> {state.treasury.mythicSeals}</p><p><strong>Your Contribution:</strong> {state.contributionPoints} pts</p></div><label>Donate Ryo</label><input type="number" value={donation} onChange={(e) => setDonation(Number(e.target.value))} /><div className="menu"><button onClick={donateVillageRyo}>Donate Ryo</button><button onClick={() => donateVillageSpecial("honorSeals")}>Donate 1 Honor Seal</button><button onClick={() => donateVillageSpecial("fateShards")}>Donate 1 Fate Shard</button><button onClick={() => donateVillageSpecial("boneCharms")}>Donate 1 Bone Charm</button><button onClick={() => donateVillageSpecial("auraStones")}>Donate 1 Aura Stone</button><button onClick={() => donateVillageSpecial("mythicSeals")}>Donate 1 Mythic Seal</button></div></section>}
+        <div className="clan-tabs expanded-tabs town-tabs"><button className={tab === "status" ? "active" : ""} onClick={() => setTab("status")}>📊 Status</button><button className={tab === "upgrades" ? "active" : ""} onClick={() => setTab("upgrades")}>🛠️ Upgrades</button><button className={tab === "treasury" ? "active" : ""} onClick={() => setTab("treasury")}>💰 Treasury</button><button className={tab === "guard" ? "active" : ""} onClick={() => setTab("guard")}>🛡️ Guard</button><button className={tab === "politics" ? "active" : ""} onClick={() => setTab("politics")}>🏯 Kage/Elders</button></div>
+        {tab === "status" && <><div className="town-hall-grid"><section className="summary-box town-hall-panel"><h3>🏯 Village Status</h3><div className="town-leader-row"><LeaderPortrait image={leadershipImages.kage} name={state.seatedKage ?? leadership.kage} fallback="影" /><p><strong>Kage:</strong> {state.seatedKage ?? leadership.kage}</p></div><p><strong>Population:</strong> {population.toLocaleString()}</p><p><strong>Village Level:</strong> {villageLevel}</p><p><strong>Village Strength:</strong> {villageStrength.toLocaleString()}</p><p><strong>Guard Queue:</strong> {guardList.length} active defender{guardList.length === 1 ? "" : "s"}</p></section><section className="summary-box town-hall-panel"><h3>⚔️ War Status</h3><div className={primaryVillageWar ? "war-status at-war" : "war-status peace"}>{primaryVillageWar ? `At War with ${activeWarEnemyVillage}` : "Not At War"}</div>{primaryVillageWar ? <><p><strong>{character.village} HP:</strong> {primaryVillageWar.hp[character.village].toLocaleString()} / {VILLAGE_WAR_HP_MAX.toLocaleString()}</p><div className="bar enemy-bar"><span style={{ width: `${(primaryVillageWar.hp[character.village] / VILLAGE_WAR_HP_MAX) * 100}%` }} /></div><p><strong>{activeWarEnemyVillage} HP:</strong> {activeWarEnemyVillage ? primaryVillageWar.hp[activeWarEnemyVillage].toLocaleString() : 0} / {VILLAGE_WAR_HP_MAX.toLocaleString()}</p><div className="town-upgrade-bar"><span style={{ width: `${activeWarEnemyVillage ? (primaryVillageWar.hp[activeWarEnemyVillage] / VILLAGE_WAR_HP_MAX) * 100 : 0}%` }} /></div><p><strong>War Ground:</strong> Sector {primaryVillageWar.warGroundSector} · HP {primaryVillageWar.warGroundHp.toLocaleString()} / {VILLAGE_WAR_GROUND_HP_MAX.toLocaleString()}</p><p className="hint">{primaryVillageWar.capturedBy ? `Captured by ${primaryVillageWar.capturedBy}.` : "Raid from the war ground to damage enemy village HP and the sector HP."}</p></> : <><p className="hint">Village wars start at 5,000 HP. PvP kills, war-ground raids, and daily war missions reduce enemy HP.</p><label>Enemy Village</label><select value={warTargetVillage} onChange={(event) => setWarTargetVillage(event.target.value)}>{villages.filter(village => village !== character.village).map(village => <option key={village} value={village}>{village}</option>)}</select><button disabled={!isSeatedKage} onClick={beginVillageWar}>{isSeatedKage ? "Start Village War" : "Kage Only"}</button></>}<h4>Current Village Buffs</h4><div className="village-buff-list"><span>Training +{getTrainingXpBonus(character).toFixed(2)}%</span><span>Jutsu Speed +{getJutsuTrainingSpeedBonus(character).toFixed(2)}%</span><span>Shop Discount +{getShopDiscountPercent(character).toFixed(2)}%</span><span>Guard DEF +{getTownDefenseGuardBonus(character).toFixed(2)}%</span><span>Pet XP +{getPetXpBonus(character).toFixed(2)}%</span><span>Bank Interest +{getBankInterestPercent(character).toFixed(2)}%</span><span>Mission Rewards +{getMissionRewardBonus(character).toFixed(2)}%</span><span>Hospital Discount +{getHospitalDiscountPercent(character).toFixed(2)}%</span>{character.elderFocus === "war" && <span>⚔️ War Focus: -1% dmg taken (wartime)</span>}{character.elderFocus === "trade" && <span>🛒 Trade Focus: -5% shop costs</span>}{character.elderFocus === "training" && <span>📚 Training Focus: +10% XP, +10% jutsu speed</span>}</div></section></div><section className={state.kageSystemUnlocked ? "summary-box kage-unlock-panel unlocked" : "summary-box kage-unlock-panel"}><h3>{state.kageSystemUnlocked ? "Kage System Open" : "Kage System Sealed"}</h3><p>{state.kageSystemUnlocked ? "The false Kage has fallen. The village is no longer ruled by secrecy. The Kage seat is now open." : "Clear your village's level 100 Kage story fight to open elections, elder seats, village upgrades, war access, and policy control."}</p>{state.firstLiberator && <p><strong>First Liberator:</strong> {state.firstLiberator}</p>}{state.seatedKage && <p><strong>Seated Kage:</strong> {state.seatedKage}</p>}</section><section className="summary-box town-notice-board"><h3>📌 Village Notice Board</h3>{state.notices.map((notice, idx) => <p key={`${notice}-${idx}`}>• {notice}</p>)}</section><section className="summary-box"><h3>📜 Detailed War Records</h3><div className="war-record-grid">{state.warRecords.map((war, idx) => <div key={`${war.opponent}-${idx}`} className="war-record-card"><strong>{war.winner} vs {war.opponent}</strong><span>{war.finalScore}</span><small>{war.date} · MVP Clan: {war.mvpClan}</small><small>Top Attacker: {war.topAttacker}</small><small>Top Defender: {war.topDefender}</small><small>Rewards: {war.rewards}</small></div>)}</div></section></>}
+        {tab === "upgrades" && <section className="summary-box town-upgrade-summary"><h3>🛠️ Village Upgrades</h3><p className="hint">Village upgrades now spend <strong>Honor Seals</strong>. Only the seated Kage can upgrade village structures.</p><p className="hint">Current Kage: <strong>{state.seatedKage ?? "No player seated yet"}</strong>{isSeatedKage ? " — you can upgrade structures." : " — upgrades are locked for your account."}</p><p className="hint">Total Village Development: <strong>{totalUpgradeLevel}</strong> / {VILLAGE_UPGRADE_MAX_LEVEL * villageUpgradeDefinitions.length}</p><div className="town-upgrade-grid">{villageUpgradeDefinitions.map((upgrade) => { const level = upgrades[upgrade.key]; const bonus = level * upgrade.perLevel; const cost = villageUpgradeCost(upgrade.key, level); const maxed = level >= VILLAGE_UPGRADE_MAX_LEVEL; const canAfford = (character.honorSeals ?? 0) >= cost; return <div key={upgrade.key} className="town-upgrade-card"><div className="town-upgrade-topline"><span className="town-upgrade-icon">{upgrade.icon}</span><div><strong>{upgrade.name}</strong><p>Level {level}/{VILLAGE_UPGRADE_MAX_LEVEL}</p></div></div><div className="town-upgrade-bar"><span style={{ width: `${(level / VILLAGE_UPGRADE_MAX_LEVEL) * 100}%` }} /></div><p className="town-upgrade-desc">{upgrade.description}</p><p className="town-upgrade-bonus">Current Bonus: <strong>{bonus.toFixed(2)}{upgrade.unit}</strong></p><button disabled={!isSeatedKage || maxed || !canAfford} onClick={() => upgradeTownFeature(upgrade.key)}>{!isSeatedKage ? "Kage Only" : maxed ? "Max Level" : canAfford ? `Upgrade — ${cost.toLocaleString()} Honor Seals` : `Need ${cost.toLocaleString()} Honor Seals`}</button></div>; })}</div></section>}
+        {tab === "treasury" && <section className="summary-box"><h3>💰 Village Treasury</h3><p className="hint">Honor Seals are the village war and boost reserve for Kage spending.</p><div className="treasury-grid"><p><strong>Ryo:</strong> {state.treasury.ryo.toLocaleString()}</p><p><strong>Honor Seals:</strong> {state.treasury.honorSeals.toLocaleString()}</p><p><strong>Fate Shards:</strong> {state.treasury.fateShards}</p><p><strong>Bone Charms:</strong> {state.treasury.boneCharms}</p><p><strong>Aura Stones:</strong> {state.treasury.auraStones}</p><p><strong>Mythic Seals:</strong> {state.treasury.mythicSeals}</p><p><strong>Your Contribution:</strong> {state.contributionPoints} pts</p></div><label>Donate Ryo</label><input type="number" value={donation} onChange={(e) => setDonation(Number(e.target.value))} /><div className="menu"><button onClick={donateVillageRyo}>Donate Ryo</button><button onClick={() => donateVillageSpecial("honorSeals")}>Donate 1 Honor Seal</button><button onClick={() => donateVillageSpecial("fateShards")}>Donate 1 Fate Shard</button><button onClick={() => donateVillageSpecial("boneCharms")}>Donate 1 Bone Charm</button><button onClick={() => donateVillageSpecial("auraStones")}>Donate 1 Aura Stone</button><button onClick={() => donateVillageSpecial("mythicSeals")}>Donate 1 Mythic Seal</button></div><label>Donate Item</label><select value={villageDonateItemId} onChange={(e) => setVillageDonateItemId(e.target.value)}><option value="">Choose item</option>{villageInventoryStacks.map(stack => <option key={stack.itemId} value={stack.itemId}>{stack.name} x{stack.count}</option>)}</select><button onClick={donateVillageItem} disabled={!villageDonateItemId}>Donate Item</button><h4>Treasury Items</h4>{villageTreasuryItems.length === 0 ? <p className="hint">No donated items yet.</p> : <div className="treasury-grid">{villageTreasuryItems.map(stack => <p key={stack.itemId}><strong>{itemDisplayName(stack.itemId, allVillageItems)}:</strong> x{stack.count}</p>)}</div>}{isSeatedKage && <section className="summary-box"><h3>Send Village Treasury</h3><p className="hint">The seated Kage can send donated resources or items to village players.</p><label>Recipient</label><select value={villageSendPlayer} onChange={(e) => setVillageSendPlayer(e.target.value)}><option value="">Choose village player</option>{villagePlayers.map(name => <option key={name} value={name}>{name}</option>)}</select><label>Resource</label><select value={villageSendCurrency} onChange={(e) => setVillageSendCurrency(e.target.value as VillageTreasuryCurrencyKey)}><option value="ryo">Ryo</option><option value="honorSeals">Honor Seals</option><option value="fateShards">Fate Shards</option><option value="boneCharms">Bone Charms</option><option value="auraStones">Aura Stones</option><option value="mythicSeals">Mythic Seals</option></select><input type="number" min={1} value={villageSendAmount} onChange={(e) => setVillageSendAmount(Number(e.target.value))} /><div className="menu"><button onClick={sendVillageCurrency}>Send Resource</button></div><label>Item</label><select value={villageSendItemId} onChange={(e) => setVillageSendItemId(e.target.value)}><option value="">Choose treasury item</option>{villageTreasuryItems.map(stack => <option key={stack.itemId} value={stack.itemId}>{itemDisplayName(stack.itemId, allVillageItems)} x{stack.count}</option>)}</select><button onClick={sendVillageItem} disabled={!villageSendItemId}>Send Item</button></section>}</section>}
         {tab === "guard" && <section className="summary-box"><h3>🛡️ Village Guard Queue</h3><p className="hint">Town Defense gives +0.1% defense per level vs Genjutsu, Taijutsu, Bukijutsu, and Ninjutsu while defending through this queue.</p><p>Current Town Defense Bonus: <strong>+{getTownDefenseGuardBonus(character).toFixed(2)}%</strong></p><button className={character.guardQueued ? "danger-button" : ""} onClick={toggleTownGuard} disabled={guardBusy}>{guardBusy ? "Updating…" : character.guardQueued ? "Leave Guard Queue" : "Queue as Village Guard"}</button><h4>Active Defenders</h4>{guardList.length === 0 ? <p className="hint">No active guards right now.</p> : <div className="clan-guard-list">{guardList.map(g => <div key={g.name} className="clan-guard-row"><span>🛡️ <strong>{g.name}</strong></span><span className="clan-guard-lvl">Lv. {g.level}{g.defenseBonusPercent ? ` · DEF +${g.defenseBonusPercent.toFixed(1)}%` : ""}</span></div>)}</div>}</section>}
-        {tab === "politics" && <><section className="summary-box"><h3>👑 Kage & Elder Seats</h3><div className="town-leader-row town-kage-card">{leadershipImages.kage && <img src={leadershipImages.kage} alt={leadership.kage} />}<p><strong>Current Kage:</strong> {leadership.kage}</p></div><div className="elder-seat-grid"><div className="elder-card">{leadershipImages.elders?.[0] && <img className="elder-portrait" src={leadershipImages.elders[0]} alt={leadership.elders[0]} />}<span>War Elder</span><strong>{leadership.elders[0]}</strong><button onClick={() => supportVillageFocus("War Elder")}>Support War Focus</button></div><div className="elder-card">{leadershipImages.elders?.[1] && <img className="elder-portrait" src={leadershipImages.elders[1]} alt={leadership.elders[1]} />}<span>Trade Elder</span><strong>{leadership.elders[1]}</strong><button onClick={() => supportVillageFocus("Trade Elder")}>Support Trade Focus</button></div><div className="elder-card">{leadershipImages.elders?.[2] && <img className="elder-portrait" src={leadershipImages.elders[2]} alt={leadership.elders[2]} />}<span>Training Elder</span><strong>{leadership.elders[2]}</strong><button onClick={() => supportVillageFocus("Training Elder")}>Support Training Focus</button></div></div></section><section className="summary-box"><h3>🗳️ Kage Election / Challenge Board</h3><p className="hint">Local test version of future Kage elections. Contribution points decide who rises in the village.</p><div className="contrib-rank-grid">{contributionRankings.map((row, idx) => <div key={row.name} className="clan-guard-row"><span>#{idx + 1} <strong>{row.name}</strong> — {row.role}</span><span>{row.points.toLocaleString()} pts</span></div>)}</div><button onClick={postKageChallenge}>Enter Kage Challenge Discussion</button></section></>}
+        {tab === "politics" && <><section className="summary-box"><h3>🏯 Kage & Elder Seats</h3><div className="town-leader-row town-kage-card"><LeaderPortrait image={leadershipImages.kage} name={state.seatedKage ?? leadership.kage} fallback="影" /><p><strong>Current Kage:</strong> {state.seatedKage ?? leadership.kage}</p></div><div className="elder-seat-grid"><div className={`elder-card${character.elderFocus === "war" ? " elder-card-active" : ""}`}><LeaderPortrait image={leadershipImages.elders?.[0]} name={leadership.elders[0]} fallback="長" /><span>War Elder</span><strong>{leadership.elders[0]}</strong><small className="elder-focus-desc">+1% damage reduction during village wars (applied to incoming damage in combat)</small><button className={character.elderFocus === "war" ? "active" : ""} onClick={() => supportVillageFocus("War Elder", "war")}>{character.elderFocus === "war" ? "✓ War Focus Active" : "Select War Focus"}</button></div><div className={`elder-card${character.elderFocus === "trade" ? " elder-card-active" : ""}`}><LeaderPortrait image={leadershipImages.elders?.[1]} name={leadership.elders[1]} fallback="長" /><span>Trade Elder</span><strong>{leadership.elders[1]}</strong><small className="elder-focus-desc">5% discount on all items in the Shop and Grand Marketplace</small><button className={character.elderFocus === "trade" ? "active" : ""} onClick={() => supportVillageFocus("Trade Elder", "trade")}>{character.elderFocus === "trade" ? "✓ Trade Focus Active" : "Select Trade Focus"}</button></div><div className={`elder-card${character.elderFocus === "training" ? " elder-card-active" : ""}`}><LeaderPortrait image={leadershipImages.elders?.[2]} name={leadership.elders[2]} fallback="長" /><span>Training Elder</span><strong>{leadership.elders[2]}</strong><small className="elder-focus-desc">+10% XP from all sources and 10% faster jutsu training</small><button className={character.elderFocus === "training" ? "active" : ""} onClick={() => supportVillageFocus("Training Elder", "training")}>{character.elderFocus === "training" ? "✓ Training Focus Active" : "Select Training Focus"}</button></div></div></section><section className="summary-box"><h3>ANBU Black Ops</h3><p className="hint">Seats 1-3 are appointed by the seated Kage. Seats 4-10 are earned by PvP kills this month ({currentAnbuMonth}).</p><datalist id="anbu-player-options">{villagePlayers.map(name => <option key={name} value={name} />)}</datalist>{isSeatedKage && <div className="treasury-grid">{[0, 1, 2].map(index => <div key={`anbu-appoint-${index}`}><label>Appointed Seat {index + 1}</label><input list="anbu-player-options" value={anbuAppointmentInputs[index] ?? ""} onChange={(event) => updateAnbuAppointmentInput(index, event.target.value)} placeholder="Type or choose player" /><div className="menu"><button onClick={() => appointAnbu(index)}>Appoint</button><button className="danger-button" onClick={() => clearAnbuAppointment(index)}>Clear</button></div></div>)}</div>}<div className="contrib-rank-grid">{anbuSlots.map((slot, idx) => <div key={`anbu-${idx}-${slot?.name ?? "empty"}`} className="clan-guard-row"><span>#{idx + 1} <strong>{slot?.name ?? "Open ANBU Seat"}</strong>{slot ? ` — ${slot.rankTitle}` : idx < 3 ? " — Kage appointed seat" : " — No qualifying player yet"}</span><span>{slot ? `${idx < 3 ? "Appointed" : "Earned"} · ${slot.monthlyKills.toLocaleString()} monthly PvP kill${slot.monthlyKills === 1 ? "" : "s"}` : "0 kills"}</span></div>)}</div><h4>ANBU Missions</h4><div className="contrib-rank-grid"><div className="clan-guard-row"><span>Scout enemy-controlled sectors</span><span>Reveal owner, HP, guards</span></div><div className="clan-guard-row"><span>Queue as sector guard</span><span>ANBU may guard any village sector</span></div><div className="clan-guard-row"><span>Sabotage raids</span><span>Support clan raids and defense pressure</span></div></div></section><section className="summary-box"><h3>🗳️ Kage Election / Challenge Board</h3><p className="hint">Local test version of future Kage elections. Contribution points decide who rises in the village.</p><div className="contrib-rank-grid">{contributionRankings.map((row, idx) => <div key={row.name} className="clan-guard-row"><span>#{idx + 1} <strong>{row.name}</strong> — {row.role}</span><span>{row.points.toLocaleString()} pts</span></div>)}</div><button onClick={postKageChallenge}>Enter Kage Challenge Discussion</button></section></>}
     </div>;
 }
 
@@ -8395,11 +10633,11 @@ function ShopBase({
     ];
 
     const rarityIcon: Record<string, string> = {
-        common: "⬜",
-        rare: "🟦",
-        epic: "🟪",
-        legendary: "🟡",
-        mythic: "🔴"
+        common: "○",
+        rare: "✦",
+        epic: "✦",
+        legendary: "✦",
+        mythic: "✦"
     };
 
     const qualityColor: Record<string, string> = {
@@ -8413,11 +10651,12 @@ function ShopBase({
     const currencyLabel = currency === "fateShards" ? "Fate Shards" : "ryo";
     const currencyIcon = currency === "fateShards" ? "✦" : "";
     const wallet = currency === "fateShards" ? character.fateShards : character.ryo;
-    const shopDiscountPercent = currency === "ryo" ? getShopDiscountPercent(character) : 0;
+    const shopDiscountPercent = currency === "ryo" ? getShopDiscountPercent(character) : (character.elderFocus === "trade" ? 5 : 0);
     const getShopCost = (cost: number) => discountCost(cost, shopDiscountPercent);
 
     function buy(item: GameItem) {
         const finalCost = getShopCost(item.cost);
+        if (item.levelReq && character.level < item.levelReq) return alert(`Requires Level ${item.levelReq}. You are Level ${character.level}.`);
         if (wallet < finalCost) return alert(`Not enough ${currencyLabel}.`);
 
         const update = currency === "fateShards"
@@ -8443,8 +10682,9 @@ function ShopBase({
     }
 
     function itemBonusLines(item: GameItem) {
+        const armorExclude = new Set(["maxChakra", "maxStamina"]);
         return Object.entries(item.bonuses)
-            .filter(([, value]) => typeof value === "number" && value !== 0)
+            .filter(([stat, value]) => typeof value === "number" && value !== 0 && !(item.armorQuality && armorExclude.has(stat)))
             .map(([stat, value]) => ({
                 stat: statLabel(stat),
                 value: value as number
@@ -8477,6 +10717,7 @@ function ShopBase({
                                 const owned = alreadyOwned(item);
                                 const finalCost = getShopCost(item.cost);
                                 const canAfford = wallet >= finalCost;
+                                const levelLocked = item.levelReq ? character.level < item.levelReq : false;
 
                                 return (
                                     <button
@@ -8484,7 +10725,7 @@ function ShopBase({
                                         type="button"
                                         className="location-button shop-item-button"
                                         onClick={() => setSelectedItem(item)}
-                                        style={{ opacity: owned || !canAfford ? 0.75 : 1 }}
+                                        style={{ opacity: owned || !canAfford || levelLocked ? 0.75 : 1 }}
                                     >
                                         {item.image && (
                                             <img
@@ -8504,9 +10745,10 @@ function ShopBase({
 
                                         <small>{equipmentSlotLabel(item.slot)}</small>
 
-                                        <small style={{ fontWeight: "bold" }}>
-                                            {currencyIcon} {finalCost} {currencyLabel}{shopDiscountPercent > 0 ? ` (was ${item.cost})` : ""}{owned ? " — Owned" : ""}
-                                        </small>
+                                        {levelLocked
+                                            ? <small style={{ color: "#ef4444", fontWeight: "bold" }}>🔒 Lv.{item.levelReq} Required</small>
+                                            : <small style={{ fontWeight: "bold" }}>{currencyIcon} {finalCost} {currencyLabel}{shopDiscountPercent > 0 ? ` (was ${item.cost})` : ""}{owned ? " — Owned" : ""}</small>
+                                        }
                                     </button>
                                 );
                             })}
@@ -8523,7 +10765,7 @@ function ShopBase({
                             className="item-popup-close"
                             onClick={() => setSelectedItem(null)}
                         >
-                            ✕
+                            ?
                         </button>
 
                         <div className="item-popup-top">
@@ -8554,20 +10796,16 @@ function ShopBase({
                                 <div className="item-popup-detail-grid">
                                     <p><strong>Battle Type:</strong> PvE / PvP</p>
                                     <p><strong>Rarity:</strong> {selectedItem.rarity}</p>
-                                    <p><strong>Can be Traded:</strong> yes</p>
-                                    <p><strong>Can be Crafted:</strong> yes</p>
-                                    <p><strong>Stackable:</strong> {stackableItemIds.has(selectedItem.id) ? "yes" : "1"}</p>
                                     <p><strong>Item Type:</strong> {equipmentSlotLabel(selectedItem.slot)}</p>
                                     <p><strong>Hidden:</strong> no</p>
-                                    <p><strong>Range:</strong> 0</p>
+                                    <p><strong>Range:</strong> {selectedItem.weaponRange ?? 0}</p>
                                     <p><strong>Destroy on use:</strong> {stackableItemIds.has(selectedItem.id) ? "yes" : "no"}</p>
-                                    <p><strong>Action Usage:</strong> 0%</p>
+                                    <p><strong>Action Usage:</strong> {selectedItem.weaponEp ? `${selectedItem.apCost ?? 40} AP` : "0%"}</p>
                                     <p><strong>Target:</strong> self</p>
                                     <p><strong>Method:</strong> single</p>
                                     <p><strong>Weapon:</strong> {normalizeEquipmentSlot(selectedItem.slot) === "hand" ? "yes" : "none"}</p>
-                                    <p><strong>Durability:</strong> 75 / 100</p>
                                     <p><strong>Equip:</strong> {!stackableItemIds.has(selectedItem.id) && ["head", "body", "waist", "legs", "feet", "hand", "aura", "thrown"].includes(normalizeEquipmentSlot(selectedItem.slot)) ? "yes" : "no"}</p>
-                                    <p><strong>Required Level:</strong> 1</p>
+                                    <p><strong>Required Level:</strong> {selectedItem.levelReq ?? 1}</p>
                                     <p><strong>Shop Price:</strong> {currencyIcon} {getShopCost(selectedItem.cost)} {currencyLabel}{shopDiscountPercent > 0 ? ` (was ${selectedItem.cost})` : ""}</p>
                                 </div>
 
@@ -8613,6 +10851,20 @@ function ShopBase({
                                     </div>
                                 ))}
 
+                                {selectedItem.weaponEffect && (
+                                    <div className="item-popup-effect-box">
+                                        <h4>Weapon Effect: {selectedItem.weaponEffect}</h4>
+                                        <div className="item-popup-effect-grid">
+                                            <p><strong>Trigger:</strong> On use</p>
+                                            <p><strong>Calculation:</strong> {typeof selectedItem.weaponEffectValue === "number" && selectedItem.weaponEffectValue > 100 ? "flat" : "percentage"}</p>
+                                            <p><strong>Effect Power:</strong> {selectedItem.weaponEffectValue}{typeof selectedItem.weaponEffectValue === "number" && selectedItem.weaponEffectValue <= 100 ? "%" : ""}</p>
+                                            <p><strong>Target:</strong> self / enemy</p>
+                                            <p><strong>Damage EP:</strong> {selectedItem.weaponEp ?? 0}</p>
+                                            <p><strong>Cooldown:</strong> {selectedItem.weaponCooldown ?? 0} rounds</p>
+                                        </div>
+                                    </div>
+                                )}
+
                                 <div className="item-popup-actions">
                                     <button
                                         type="button"
@@ -8644,7 +10896,7 @@ function ShopBase({
 }
 
 function CardPackSection({ character, updateCharacter, currency, creatorCards }: { character: Character; updateCharacter: (c: Character) => void; currency: "ryo" | "fateShards"; creatorCards: TileCard[] }) {
-    const shopDiscountPercent = currency === "ryo" ? getShopDiscountPercent(character) : 0;
+    const shopDiscountPercent = currency === "ryo" ? getShopDiscountPercent(character) : (character.elderFocus === "trade" ? 5 : 0);
     const packCost = (cost: number) => discountCost(cost, shopDiscountPercent);
 
     function openPack(count: number, rarities: TileCard["rarity"][], cost: number) {
@@ -8673,7 +10925,7 @@ function CardPackSection({ character, updateCharacter, currency, creatorCards }:
             )}
             {currency === "fateShards" && (
                 <button onClick={() => openPack(1, ["epic"], 10)} disabled={character.fateShards < 10} style={{ color: "#ce93d8" }}>
-                    ✦ Epic Pack — 1 guaranteed Epic card — 10 Fate Shards
+                    ? Epic Pack — 1 guaranteed Epic card — 10 Fate Shards
                 </button>
             )}
         </div>
@@ -8745,12 +10997,24 @@ function ShinobiTiles({ character, updateCharacter, creatorCards }: { character:
         const nb = [...b];
         const placed = nb[pos]!.card;
         const justFlipped: number[] = [];
-        for (const dir of placed.arrows) {
+        const dirs: { atk: keyof TileCard; def: keyof TileCard; dir: TileCardArrow }[] = [
+            { atk: "top", def: "bottom", dir: "up" },
+            { atk: "bottom", def: "top", dir: "down" },
+            { atk: "left", def: "right", dir: "left" },
+            { atk: "right", def: "left", dir: "right" },
+        ];
+        const friendlyEls = nb.map((c, i) => ({ c, i })).filter(({ c, i }) => i !== pos && c?.owner === owner && c.card.element === placed.element).map(({ i }) => i);
+        for (const { atk, def, dir } of dirs) {
             const ap = adjPos(pos, dir);
             if (ap === null) continue;
             const cell = nb[ap];
             if (!cell || cell.owner === owner) continue;
-            if (placed.power >= cell.card.power) { nb[ap] = { ...cell, owner }; justFlipped.push(ap); }
+            let atkVal = placed[atk] as number;
+            const defVal = cell.card[def] as number;
+            if (ELEMENT_COUNTERS[placed.element] === cell.card.element) atkVal = Math.floor(atkVal * 1.2);
+            const hasFriendlyBoost = friendlyEls.some(fi => (["up","down","left","right"] as TileCardArrow[]).some(d => adjPos(pos, d) === fi));
+            if (hasFriendlyBoost) atkVal = Math.floor(atkVal * 1.2);
+            if (atkVal >= defVal) { nb[ap] = { ...cell, owner }; justFlipped.push(ap); }
         }
         setFlipped(justFlipped);
         return nb;
@@ -8803,9 +11067,19 @@ function ShinobiTiles({ character, updateCharacter, creatorCards }: { character:
         for (const card of eh) {
             for (const pos of empty) {
                 let score = 0;
-                for (const dir of card.arrows) {
+                const aiDirs: { atk: keyof TileCard; def: keyof TileCard; dir: TileCardArrow }[] = [
+                    { atk: "top", def: "bottom", dir: "up" },
+                    { atk: "bottom", def: "top", dir: "down" },
+                    { atk: "left", def: "right", dir: "left" },
+                    { atk: "right", def: "left", dir: "right" },
+                ];
+                for (const { atk, def, dir } of aiDirs) {
                     const ap = adjPos(pos, dir);
-                    if (ap !== null && b[ap]?.owner === "player" && card.power >= b[ap]!.card.power) score++;
+                    if (ap === null || b[ap]?.owner !== "player") continue;
+                    let atkVal = card[atk] as number;
+                    const defVal = b[ap]!.card[def] as number;
+                    if (ELEMENT_COUNTERS[card.element] === b[ap]!.card.element) atkVal = Math.floor(atkVal * 1.2);
+                    if (atkVal >= defVal) score++;
                 }
                 if (score > bestScore) { bestScore = score; bestCard = card; bestPos = pos; }
             }
@@ -8824,63 +11098,67 @@ function ShinobiTiles({ character, updateCharacter, creatorCards }: { character:
     }
 
     function CardTile({ card, owner, selected, compact }: { card: TileCard; owner?: "player" | "enemy"; selected?: boolean; compact?: boolean }) {
-        const has = (d: TileCardArrow) => card.arrows.includes(d);
         const borderColor = selected
             ? "#ffe082"
             : owner === "player" ? "#4fc3f7"
                 : owner === "enemy" ? "#ef5350"
-                    : card.rarity === "epic" ? "#ce93d8"
-                        : card.rarity === "rare" ? "#60a5fa"
-                            : "#475569";
+                    : card.rarity === "legendary" ? "#fbbf24"
+                        : card.rarity === "epic" ? "#ce93d8"
+                            : card.rarity === "rare" ? "#60a5fa"
+                                : "#475569";
         const bgColor = owner === "player" ? "rgba(13,33,55,0.97)"
             : owner === "enemy" ? "rgba(40,10,10,0.97)"
                 : "rgba(18,18,36,0.97)";
-        const rarityGlow = card.rarity === "epic" ? "0 0 10px rgba(206,147,216,0.45)"
-            : card.rarity === "rare" ? "0 0 8px rgba(96,165,250,0.4)"
-                : "none";
-        const ec: Record<string, string> = { Fire: "#ff7043", Water: "#4fc3f7", Earth: "#a1887f", Wind: "#a5d6a7", Lightning: "#fff176", Shadow: "#ba68c8", Ice: "#b0e0ff", Dark: "#ba68c8", None: "#666" };
+        const rarityGlow = card.rarity === "legendary" ? "0 0 14px rgba(251,191,36,0.6)"
+            : card.rarity === "epic" ? "0 0 10px rgba(206,147,216,0.45)"
+                : card.rarity === "rare" ? "0 0 8px rgba(96,165,250,0.4)"
+                    : "none";
+        const ec: Record<string, string> = {
+            Fire: "#ff7043", Water: "#4fc3f7", Earth: "#a1887f", Wind: "#a5d6a7",
+            Lightning: "#fff176", Shadow: "#ba68c8", Ice: "#b0e0ff", Neutral: "#94a3b8", None: "#555"
+        };
         const w = compact ? 90 : 120;
-        const ih = compact ? 60 : 90;
-        const arSz = compact ? 10 : 13;
-        const arOn = "#ffe082"; const arOff = "rgba(255,255,255,0.12)";
-        const arSh = (on: boolean) => on ? `0 0 5px ${arOn}` : "none";
+        const ih = compact ? 60 : 80;
+        const numSz = compact ? 9 : 11;
+        const numColor = "#ffe082";
+        const numBg = "rgba(0,0,0,0.72)";
         return (
             <div style={{
                 position: "relative", width: w, background: bgColor, border: `2px solid ${borderColor}`,
                 borderRadius: 8, overflow: "hidden", boxShadow: rarityGlow, boxSizing: "border-box", flexShrink: 0
             }}>
-                {/* ── Image area ── */}
+                {/* Image area with directional numbers */}
                 <div style={{ position: "relative", width: "100%", height: ih, background: "#07111f", overflow: "hidden" }}>
                     {card.image
                         ? <img src={card.image} alt={card.name} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                         : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, opacity: 0.25 }}>🃏</div>
                     }
-                    {/* Arrow overlays */}
+                    {/* Top */}
                     <span style={{
                         position: "absolute", top: 2, left: "50%", transform: "translateX(-50%)",
-                        fontSize: arSz, color: has("up") ? arOn : arOff, textShadow: arSh(has("up")), lineHeight: 1
-                    }}>▲</span>
+                        fontSize: numSz, fontWeight: "bold", color: numColor, background: numBg,
+                        padding: "1px 3px", borderRadius: 3, lineHeight: 1.2, pointerEvents: "none"
+                    }}>{card.top}</span>
+                    {/* Bottom */}
                     <span style={{
                         position: "absolute", bottom: 2, left: "50%", transform: "translateX(-50%)",
-                        fontSize: arSz, color: has("down") ? arOn : arOff, textShadow: arSh(has("down")), lineHeight: 1
-                    }}>▼</span>
+                        fontSize: numSz, fontWeight: "bold", color: numColor, background: numBg,
+                        padding: "1px 3px", borderRadius: 3, lineHeight: 1.2, pointerEvents: "none"
+                    }}>{card.bottom}</span>
+                    {/* Left */}
                     <span style={{
                         position: "absolute", left: 2, top: "50%", transform: "translateY(-50%)",
-                        fontSize: arSz, color: has("left") ? arOn : arOff, textShadow: arSh(has("left")), lineHeight: 1
-                    }}>◀</span>
+                        fontSize: numSz, fontWeight: "bold", color: numColor, background: numBg,
+                        padding: "1px 3px", borderRadius: 3, lineHeight: 1.2, pointerEvents: "none"
+                    }}>{card.left}</span>
+                    {/* Right */}
                     <span style={{
                         position: "absolute", right: 2, top: "50%", transform: "translateY(-50%)",
-                        fontSize: arSz, color: has("right") ? arOn : arOff, textShadow: arSh(has("right")), lineHeight: 1
-                    }}>▶</span>
-                    {/* Power badge */}
-                    <span style={{
-                        position: "absolute", top: 2, right: 3, fontSize: compact ? 9 : 11, fontWeight: "bold",
-                        color: "#fff", background: "rgba(0,0,0,0.7)", padding: "1px 4px", borderRadius: 4, lineHeight: 1.4
-                    }}>
-                        {card.power}
-                    </span>
+                        fontSize: numSz, fontWeight: "bold", color: numColor, background: numBg,
+                        padding: "1px 3px", borderRadius: 3, lineHeight: 1.2, pointerEvents: "none"
+                    }}>{card.right}</span>
                 </div>
-                {/* ── Name / element strip ── */}
+                {/* Name / element strip */}
                 <div style={{ padding: compact ? "2px 5px 3px" : "4px 6px 5px", background: "rgba(0,0,0,0.6)" }}>
                     <div style={{
                         fontSize: compact ? 8 : 10, fontWeight: "bold", color: "#e2e8f0",
@@ -8897,14 +11175,14 @@ function ShinobiTiles({ character, updateCharacter, creatorCards }: { character:
     // Collection view
     if (phase === "collection") {
         const grouped = (r: TileCard["rarity"]) => ownedCards.filter((c) => c.rarity === r);
-        const rarityColor = { epic: "#ce93d8", rare: "#4fc3f7", common: "#aaa" };
+        const rarityColor: Record<string, string> = { legendary: "#fbbf24", epic: "#ce93d8", rare: "#4fc3f7", common: "#aaa" };
         return (
             <div className="card">
-                <h2>🃏 Shinobi Tiles</h2>
+                <h2>🧩 Shinobi Tiles</h2>
                 <p style={{ color: "#aaa", marginBottom: "0.4rem" }}>Place cards on a 3×3 board. Arrows flip adjacent enemy cards — most cards wins.</p>
                 <p style={{ marginBottom: "0.8rem" }}>Cards owned: <strong>{ownedCards.length}</strong>{ownedCards.length < 5 && <span style={{ color: "#ef5350" }}> — Buy packs in the Shop to get started (need 5)</span>}</p>
                 {ownedCards.length >= 5 && <button onClick={() => { setDeckPicks([]); setPhase("select"); }} style={{ marginBottom: "1rem" }}>Build Deck & Play</button>}
-                {(["epic", "rare", "common"] as TileCard["rarity"][]).map((r) => grouped(r).length > 0 && (
+                {(["legendary", "epic", "rare", "common"] as TileCard["rarity"][]).map((r) => grouped(r).length > 0 && (
                     <div key={r} style={{ marginBottom: "1rem" }}>
                         <h3 style={{ color: rarityColor[r], textTransform: "capitalize", marginBottom: "0.4rem" }}>{r} ({grouped(r).length})</h3>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>{grouped(r).map((card, i) => <CardTile key={card.id + i} card={card} />)}</div>
@@ -8977,7 +11255,7 @@ function ShinobiTiles({ character, updateCharacter, creatorCards }: { character:
     const { player: pScore, enemy: eScore } = countScore(board);
     return (
         <div className="card">
-            <h2 style={{ marginBottom: "0.3rem" }}>🃏 Shinobi Tiles</h2>
+            <h2 style={{ marginBottom: "0.3rem" }}>🧩 Shinobi Tiles</h2>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.5rem", fontSize: 13 }}>
                 <span style={{ color: "#4fc3f7" }}>You: {pScore}</span>
                 <span style={{ color: isPlayerTurn ? "#a5d6a7" : "#ef9a9a" }}>{isPlayerTurn ? "Your Turn" : "Enemy thinking..."}</span>
@@ -9015,7 +11293,7 @@ function ShinobiTiles({ character, updateCharacter, creatorCards }: { character:
                 ))}
                 {playerHand.length === 0 && <span style={{ color: "#555", fontSize: 12 }}>No cards remaining</span>}
             </div>
-            {selectedCard && <p style={{ color: "#ffe082", fontSize: 12, marginTop: 4 }}>✦ {selectedCard.name} selected — tap a board cell to place it</p>}
+            {selectedCard && <p style={{ color: "#ffe082", fontSize: 12, marginTop: 4 }}>? {selectedCard.name} selected — tap a board cell to place it</p>}
         </div>
     );
 }
@@ -9041,7 +11319,7 @@ function Hospital({ character, updateCharacter }: { character: Character; update
                 <h2>🏥 Village Hospital</h2>
                 <p className="hint">Town Hall Hospital Discount: <strong>{hospitalDiscount.toFixed(2)}%</strong></p>
                 <div className="hospital-admitted-banner">
-                    <span className="hospital-admitted-icon">🚑</span>
+                    <span className="hospital-admitted-icon">🏥</span>
                     <div>
                         <strong>You are currently admitted</strong>
                         <p>You were knocked out in battle and brought here by your village medics. Pay the treatment fee to be discharged.</p>
@@ -9056,7 +11334,7 @@ function Hospital({ character, updateCharacter }: { character: Character; update
                     disabled={character.ryo < dischargeCost}
                     style={{ background: "linear-gradient(#14532d,#052e16)", borderColor: "#4ade80", opacity: character.ryo < dischargeCost ? 0.5 : 1, width: "100%" }}
                 >
-                    💊 Pay {dischargeCost.toLocaleString()} ryo — Full Heal &amp; Discharge
+                    🏥 Pay {dischargeCost.toLocaleString()} ryo — Full Heal &amp; Discharge
                 </button>
                 {character.ryo < dischargeCost && (
                     <p style={{ color: "#f87171", fontSize: "0.82rem", marginTop: "0.5rem", textAlign: "center" }}>
@@ -9075,15 +11353,499 @@ function Hospital({ character, updateCharacter }: { character: Character; update
                 <span>HP: <strong>{character.hp}/{character.maxHp}</strong></span>
                 <span style={{ marginLeft: "1.5rem" }}>Ryo: <strong>{character.ryo.toLocaleString()}</strong></span>
             </div>
-            <button onClick={topUp}>💊 Full Heal — {topUpCost} ryo{hospitalDiscount > 0 ? " discounted" : ""}</button>
+            <button onClick={topUp}>❤️ Full Heal — {topUpCost} ryo{hospitalDiscount > 0 ? " discounted" : ""}</button>
         </div>
     );
 }
 
+// ── Shinobi Council Hall ─────────────────────────────────────────────────────
+function ShinobiCouncilHall({ character, setScreen, playerRoster }: { character: Character; setScreen: (s: Screen) => void; playerRoster: PlayerRecord[] }) {
+    const [tab, setTab] = useState<"wars" | "kage">("wars");
+
+    // --- Village Wars ---
+    const allVillagePairs: [string, string][] = [];
+    for (let i = 0; i < villages.length; i++)
+        for (let j = i + 1; j < villages.length; j++)
+            allVillagePairs.push([villages[i], villages[j]]);
+
+    const activeVillageWars = allVillagePairs
+        .map(([a, b]) => loadVillageWar(a, b))
+        .filter((w): w is VillageWar => w !== null && !w.endedAt);
+
+    function topContributorForVillage(village: string): string {
+        const players = playerRoster.filter(p => p.village === village);
+        if (!players.length) return "—";
+        const top = [...players].sort((a, b) =>
+            ((b.character.totalVillageRaids ?? 0) + (b.character.clanBattleContrib ?? 0)) -
+            ((a.character.totalVillageRaids ?? 0) + (a.character.clanBattleContrib ?? 0))
+        )[0];
+        return top.name;
+    }
+
+    // --- Clan Wars ---
+    const [clanWars, setClanWars] = useState<{ clanA: string; clanB: string; scoreA: number; scoreB: number; villageA: string; villageB: string; endsAt: number; topA: string; topB: string }[]>([]);
+    const [clanWarsLoading, setClanWarsLoading] = useState(true);
+
+    useEffect(() => {
+        const uniqueClans = [...new Set(playerRoster.map(p => p.character.clan).filter(Boolean))] as string[];
+        if (!uniqueClans.length) { setClanWarsLoading(false); return; }
+        const seen = new Set<string>();
+        Promise.all(uniqueClans.map(name => fetchClanData(name))).then(results => {
+            const wars: typeof clanWars = [];
+            for (const data of results) {
+                if (!data) continue;
+                const enhanced = enhanceClanData(data);
+                if (!enhanced.activeWar) continue;
+                const key = [enhanced.name, enhanced.activeWar.opponentClan].sort().join("|");
+                if (seen.has(key)) continue;
+                seen.add(key);
+                const membersA = enhanced.members;
+                const topA = membersA.length
+                    ? [...membersA].sort((a, b) => clanContribTotal(b) - clanContribTotal(a))[0]?.name ?? "—"
+                    : "—";
+                wars.push({
+                    clanA: enhanced.name,
+                    clanB: enhanced.activeWar.opponentClan,
+                    scoreA: enhanced.activeWar.ourScore,
+                    scoreB: enhanced.activeWar.enemyScore,
+                    villageA: enhanced.village,
+                    villageB: enhanced.activeWar.enemyVillage,
+                    endsAt: enhanced.activeWar.endsAt,
+                    topA,
+                    topB: "—",
+                });
+            }
+            setClanWars(wars);
+            setClanWarsLoading(false);
+        });
+    }, []);
+
+    // --- Kage History ---
+    const allKageHistory: KageHistoryEntry[] = villages.flatMap(v => {
+        const state = loadVillageState(v);
+        const history = state.kageHistory ?? [];
+        // If seatedKage has no history entry yet, synthesize one
+        if (state.seatedKage && !history.some(e => e.name === state.seatedKage)) {
+            history.push({ name: state.seatedKage, village: v, seatedAt: state.kageSystemUnlocked ? Date.now() - 1 : Date.now() });
+        }
+        return history;
+    });
+    // Sort: current Kages first (no endedAt), then by seatedAt desc
+    const sortedKageHistory = [...allKageHistory].sort((a, b) => {
+        if (!a.endedAt && b.endedAt) return -1;
+        if (a.endedAt && !b.endedAt) return 1;
+        return b.seatedAt - a.seatedAt;
+    });
+
+    function formatDuration(ms: number): string {
+        const days = Math.floor(ms / 86400000);
+        const hours = Math.floor((ms % 86400000) / 3600000);
+        if (days > 0) return `${days}d ${hours}h`;
+        const mins = Math.floor((ms % 3600000) / 60000);
+        if (hours > 0) return `${hours}h ${mins}m`;
+        return `${mins}m`;
+    }
+
+    function HpBar({ current, max, color }: { current: number; max: number; color: string }) {
+        const pct = Math.max(0, Math.min(100, (current / max) * 100));
+        return (
+            <div className="council-hp-track">
+                <div className="council-hp-fill" style={{ width: `${pct}%`, background: color }} />
+            </div>
+        );
+    }
+
+    return (
+        <div className="card council-screen">
+            <div className="council-header">
+                <button className="back-button" onClick={() => setScreen("centralHub")}>← Central Hub</button>
+                <div>
+                    <h2>🏯 Shinobi Council Hall</h2>
+                    <p className="council-subtitle">Live war status and the eternal record of village leaders.</p>
+                </div>
+            </div>
+
+            <div className="council-tabs">
+                <button className={`council-tab ${tab === "wars" ? "council-tab-active" : ""}`} onClick={() => setTab("wars")}>⚔️ Active Wars</button>
+                <button className={`council-tab ${tab === "kage" ? "council-tab-active" : ""}`} onClick={() => setTab("kage")}>影 Kage Records</button>
+            </div>
+
+            {tab === "wars" && <><section className="council-section">
+                <h3 className="council-section-title">⚔️ Village Wars</h3>
+                {activeVillageWars.length === 0
+                    ? <p className="council-empty">No active village wars. The world is at peace.</p>
+                    : activeVillageWars.map(war => {
+                        const [vA, vB] = war.villages;
+                        const hpA = war.hp[vA] ?? 0;
+                        const hpB = war.hp[vB] ?? 0;
+                        const topA = topContributorForVillage(vA);
+                        const topB = topContributorForVillage(vB);
+                        return (
+                            <div key={war.id} className="council-war-card">
+                                <div className="council-vs-row">
+                                    <div className={`council-side ${character.village === vA ? "council-mine" : ""}`}>
+                                        <span className="council-village-name">{vA}</span>
+                                        <span className="council-hp-label">{hpA.toLocaleString()} / {VILLAGE_WAR_HP_MAX.toLocaleString()} HP</span>
+                                        <HpBar current={hpA} max={VILLAGE_WAR_HP_MAX} color="#22c55e" />
+                                        <span className="council-top">⭐ {topA}</span>
+                                    </div>
+                                    <div className="council-vs">VS</div>
+                                    <div className={`council-side council-side-right ${character.village === vB ? "council-mine" : ""}`}>
+                                        <span className="council-village-name">{vB}</span>
+                                        <span className="council-hp-label">{hpB.toLocaleString()} / {VILLAGE_WAR_HP_MAX.toLocaleString()} HP</span>
+                                        <HpBar current={hpB} max={VILLAGE_WAR_HP_MAX} color="#ef4444" />
+                                        <span className="council-top">⭐ {topB}</span>
+                                    </div>
+                                </div>
+                                <div className="council-war-meta">
+                                    War Ground: Sector {war.warGroundSector} · Ground HP {war.warGroundHp.toLocaleString()} / {VILLAGE_WAR_GROUND_HP_MAX.toLocaleString()}
+                                    {war.capturedBy ? ` · Captured by ${war.capturedBy}` : ""}
+                                </div>
+                            </div>
+                        );
+                    })
+                }
+            </section>
+
+            <section className="council-section">
+                <h3 className="council-section-title">🔥 Clan Wars</h3>
+                {clanWarsLoading
+                    ? <p className="council-empty">Loading clan wars…</p>
+                    : clanWars.length === 0
+                        ? <p className="council-empty">No active clan wars.</p>
+                        : clanWars.map(cw => {
+                            const totalMax = Math.max(cw.scoreA + cw.scoreB, 1);
+                            return (
+                                <div key={`${cw.clanA}-${cw.clanB}`} className="council-war-card">
+                                    <div className="council-vs-row">
+                                        <div className={`council-side ${character.clan === cw.clanA ? "council-mine" : ""}`}>
+                                            <span className="council-village-name">{cw.clanA}</span>
+                                            <span className="council-hp-label">{cw.villageA} · {cw.scoreA.toLocaleString()} pts</span>
+                                            <HpBar current={cw.scoreA} max={totalMax} color="#a78bfa" />
+                                            <span className="council-top">⭐ {cw.topA}</span>
+                                        </div>
+                                        <div className="council-vs">VS</div>
+                                        <div className={`council-side council-side-right ${character.clan === cw.clanB ? "council-mine" : ""}`}>
+                                            <span className="council-village-name">{cw.clanB}</span>
+                                            <span className="council-hp-label">{cw.villageB} · {cw.scoreB.toLocaleString()} pts</span>
+                                            <HpBar current={cw.scoreB} max={totalMax} color="#fb923c" />
+                                            <span className="council-top">⭐ {cw.topB}</span>
+                                        </div>
+                                    </div>
+                                    <div className="council-war-meta">
+                                        Ends {new Date(cw.endsAt).toLocaleString()}
+                                    </div>
+                                </div>
+                            );
+                        })
+                }
+            </section></>}
+
+            {tab === "kage" && <section className="council-section">
+                <h3 className="council-section-title">影 Kage Records — All Villages</h3>
+                {sortedKageHistory.length === 0
+                    ? <p className="council-empty">No Kage have been seated yet. Defeat your village's story boss to open the Kage system.</p>
+                    : sortedKageHistory.map((entry, i) => {
+                        const isActive = !entry.endedAt;
+                        const duration = isActive ? Date.now() - entry.seatedAt : (entry.endedAt! - entry.seatedAt);
+                        const isMe = entry.name === character.name;
+                        return (
+                            <div key={`${entry.name}-${entry.village}-${i}`} className={`council-kage-row ${isMe ? "council-kage-me" : ""} ${isActive ? "council-kage-active" : ""}`}>
+                                <div className="council-kage-seal">影</div>
+                                <div className="council-kage-info">
+                                    <span className="council-kage-name">{entry.name}</span>
+                                    <span className="council-kage-village">{entry.village}</span>
+                                </div>
+                                <div className="council-kage-tenure">
+                                    {isActive
+                                        ? <span className="council-kage-current">⚡ Current Kage</span>
+                                        : <span className="council-kage-former">Former</span>
+                                    }
+                                    <span className="council-kage-time">
+                                        {isActive ? `${formatDuration(duration)} in office` : `Served ${formatDuration(duration)}`}
+                                    </span>
+                                    <span className="council-kage-date">
+                                        {isActive
+                                            ? `Since ${new Date(entry.seatedAt).toLocaleDateString()}`
+                                            : `${new Date(entry.seatedAt).toLocaleDateString()} – ${new Date(entry.endedAt!).toLocaleDateString()}`
+                                        }
+                                    </span>
+                                </div>
+                            </div>
+                        );
+                    })
+                }
+            </section>}
+        </div>
+    );
+}
+
+// ── Hall of Legends ─────────────────────────────────────────────────────────
+type LbTab = "ranked" | "kills" | "xp" | "clans" | "pets" | "endless" | "villageWars" | "tournament";
+
+function HallOfLegends({ character, setScreen, playerRoster }: { character: Character; setScreen: (s: Screen) => void; playerRoster: PlayerRecord[] }) {
+    const [tab, setTab] = useState<LbTab>("ranked");
+
+    const all = playerRoster.length > 0
+        ? playerRoster.map(p => p.character)
+        : [character];
+    const me = character.name;
+
+    function Row({ rank, name, value, suffix = "", village }: { rank: number; name: string; value: number | string; suffix?: string; village?: string }) {
+        const isMe = name === me;
+        return (
+            <div className={`hol-row ${isMe ? "hol-row-me" : ""}`}>
+                <span className="hol-rank-num">{rank <= 3 ? ["🥇","🥈","🥉"][rank-1] : `#${rank}`}</span>
+                <span className="hol-name">{name}{village ? <span className="hol-village"> · {village}</span> : null}</span>
+                <span className="hol-value">{typeof value === "number" ? value.toLocaleString() : value}{suffix}</span>
+            </div>
+        );
+    }
+
+    function sortedTop(field: (c: Character) => number, n = 10) {
+        return [...all].sort((a, b) => field(b) - field(a)).slice(0, n);
+    }
+
+    // Clan aggregation
+    const clanMap = new Map<string, { score: number; members: number; topVillage: string }>();
+    for (const p of playerRoster) {
+        const c = p.character;
+        if (!c.clan) continue;
+        const existing = clanMap.get(c.clan) ?? { score: 0, members: 0, topVillage: p.village };
+        clanMap.set(c.clan, {
+            score: existing.score + (c.rankedWins ?? 0) + (c.totalPvpKills ?? 0),
+            members: existing.members + 1,
+            topVillage: existing.topVillage,
+        });
+    }
+    const topClans = [...clanMap.entries()]
+        .sort((a, b) => b[1].score - a[1].score)
+        .slice(0, 10);
+
+    // Tournament
+    const tournament = (() => { try { const r = localStorage.getItem("shinobij-arena-tournament"); return r ? JSON.parse(r) : null; } catch { return null; } })();
+
+    const tabs: { id: LbTab; label: string; icon: string }[] = [
+        { id: "ranked",      label: "Ranked",       icon: "⚔️" },
+        { id: "kills",       label: "Kill Streaks",  icon: "💀" },
+        { id: "xp",          label: "Most XP",       icon: "✨" },
+        { id: "clans",       label: "Top Clans",     icon: "🏯" },
+        { id: "pets",        label: "Pet Wins",      icon: "🐾" },
+        { id: "endless",     label: "Endless",       icon: "🌀" },
+        { id: "villageWars", label: "Village Wars",  icon: "🔥" },
+        { id: "tournament",  label: "Tournament",    icon: "🏆" },
+    ];
+
+    return (
+        <div className="card hol-screen">
+            <div className="hol-header">
+                <button className="back-button" onClick={() => setScreen("centralHub")}>← Central Hub</button>
+                <div>
+                    <h2>🏆 Hall of Legends</h2>
+                    <p className="hol-subtitle">Eternal records of the world's greatest shinobi.</p>
+                </div>
+            </div>
+
+            <div className="hol-tabs">
+                {tabs.map(t => (
+                    <button key={t.id} className={`hol-tab ${tab === t.id ? "hol-tab-active" : ""}`} onClick={() => setTab(t.id)}>
+                        {t.icon} {t.label}
+                    </button>
+                ))}
+            </div>
+
+            <div className="hol-board">
+                {tab === "ranked" && (
+                    <>
+                        <p className="hol-board-label">Ranked Battle Rating (Elo)</p>
+                        {sortedTop(c => c.rankedRating ?? 1000).map((c, i) => (
+                            <Row key={c.name} rank={i+1} name={c.name} value={c.rankedRating ?? 1000} suffix=" Elo" village={c.village} />
+                        ))}
+                    </>
+                )}
+                {tab === "kills" && (
+                    <>
+                        <p className="hol-board-label">Total PvP Kills</p>
+                        {sortedTop(c => c.totalPvpKills ?? 0).map((c, i) => (
+                            <Row key={c.name} rank={i+1} name={c.name} value={c.totalPvpKills ?? 0} suffix=" kills" village={c.village} />
+                        ))}
+                    </>
+                )}
+                {tab === "xp" && (
+                    <>
+                        <p className="hol-board-label">Total XP Earned</p>
+                        {sortedTop(c => c.xp).map((c, i) => (
+                            <Row key={c.name} rank={i+1} name={c.name} value={c.xp} suffix=" XP" village={c.village} />
+                        ))}
+                    </>
+                )}
+                {tab === "clans" && (
+                    <>
+                        <p className="hol-board-label">Clan Power (Ranked Wins + PvP Kills)</p>
+                        {topClans.length === 0
+                            ? <p className="hol-empty">No clan data available yet.</p>
+                            : topClans.map(([clan, data], i) => (
+                                <div key={clan} className={`hol-row ${character.clan === clan ? "hol-row-me" : ""}`}>
+                                    <span className="hol-rank-num">{i <= 2 ? ["🥇","🥈","🥉"][i] : `#${i+1}`}</span>
+                                    <span className="hol-name">{clan}<span className="hol-village"> · {data.members} member{data.members !== 1 ? "s" : ""}</span></span>
+                                    <span className="hol-value">{data.score.toLocaleString()} pts</span>
+                                </div>
+                            ))
+                        }
+                    </>
+                )}
+                {tab === "pets" && (
+                    <>
+                        <p className="hol-board-label">Pet Arena Wins</p>
+                        {sortedTop(c => c.totalPetWins ?? 0).map((c, i) => (
+                            <Row key={c.name} rank={i+1} name={c.name} value={c.totalPetWins ?? 0} suffix=" wins" village={c.village} />
+                        ))}
+                    </>
+                )}
+                {tab === "endless" && (
+                    <>
+                        <p className="hol-board-label">Endless Tower — Waves Survived</p>
+                        {sortedTop(c => c.totalEndlessTowerWins ?? 0).map((c, i) => (
+                            <Row key={c.name} rank={i+1} name={c.name} value={c.totalEndlessTowerWins ?? 0} suffix=" waves" village={c.village} />
+                        ))}
+                    </>
+                )}
+                {tab === "villageWars" && (
+                    <>
+                        <p className="hol-board-label">Village War Raids Completed</p>
+                        {sortedTop(c => c.totalVillageRaids ?? 0).map((c, i) => (
+                            <Row key={c.name} rank={i+1} name={c.name} value={c.totalVillageRaids ?? 0} suffix=" raids" village={c.village} />
+                        ))}
+                    </>
+                )}
+                {tab === "tournament" && (
+                    <>
+                        <p className="hol-board-label">Last Tournament</p>
+                        {!tournament
+                            ? <p className="hol-empty">No tournament has been held yet.</p>
+                            : (
+                                <div className="hol-tournament-card">
+                                    <h3>{tournament.name}</h3>
+                                    <p><strong>Hosted by:</strong> {tournament.createdBy}</p>
+                                    <p><strong>Participants ({tournament.participants?.length ?? 0}):</strong> {(tournament.participants ?? []).join(", ") || "—"}</p>
+                                    {tournament.advancedPlayers?.length > 0 && (
+                                        <p><strong>Advanced Players:</strong> {tournament.advancedPlayers.join(", ")}</p>
+                                    )}
+                                    <p className="hol-tournament-ended">Ended {new Date(tournament.endsAt).toLocaleDateString()}</p>
+                                </div>
+                            )
+                        }
+                    </>
+                )}
+            </div>
+        </div>
+    );
+}
+
+type TavernMessage = { author: string; text: string; ts: number; avatar?: string; rank?: string; customTitle?: string; level?: number };
+
+function VillageTavern({ character, setScreen }: { character: Character; setScreen: (s: Screen) => void }) {
+    const storageKey = `tavern-chat-${character.village}`;
+
+    const MSG_TTL = 5 * 60 * 1000;
+
+    function loadMessages(): TavernMessage[] {
+        try {
+            const raw: TavernMessage[] = JSON.parse(localStorage.getItem(storageKey) ?? "[]");
+            return raw.filter(m => Date.now() - m.ts < MSG_TTL);
+        }
+        catch { return []; }
+    }
+
+    const [messages, setMessages] = useState<TavernMessage[]>(loadMessages);
+    const [input, setInput] = useState("");
+    const bottomRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            setMessages(prev => {
+                const fresh = prev.filter(m => Date.now() - m.ts < MSG_TTL);
+                if (fresh.length !== prev.length) {
+                    localStorage.setItem(storageKey, JSON.stringify(fresh));
+                }
+                return fresh;
+            });
+        }, 15_000);
+        return () => clearInterval(interval);
+    }, [storageKey]);
+
+    function send() {
+        const text = input.trim();
+        if (!text) return;
+        const msg: TavernMessage = {
+            author: character.name,
+            text,
+            ts: Date.now(),
+            avatar: character.avatarImage,
+            rank: character.rankTitle,
+            customTitle: character.customTitle,
+            level: character.level,
+        };
+        const fresh = [...messages, msg].filter(m => Date.now() - m.ts < MSG_TTL).slice(-100);
+        setMessages(fresh);
+        localStorage.setItem(storageKey, JSON.stringify(fresh));
+        setInput("");
+    }
+
+    return (
+        <div className="card tavern-screen">
+            <div className="tavern-header">
+                <button className="back-button" onClick={() => setScreen("village")}>← Village</button>
+                <div>
+                    <h2>🍺 {character.village} Tavern</h2>
+                    <p className="tavern-subtitle">Village members only — speak freely.</p>
+                </div>
+            </div>
+            <div className="tavern-log">
+                {messages.length === 0 && <p className="tavern-empty">The tavern is quiet. Be the first to speak.</p>}
+                {messages.map((m, i) => (
+                    <div key={i} className={`tavern-message ${m.author === character.name ? "tavern-mine" : ""}`}>
+                        <div className="tavern-avatar-col">
+                            <div className="tavern-avatar">
+                                {m.avatar
+                                    ? <img src={m.avatar} alt={m.author} />
+                                    : <span>{m.author.slice(0, 2).toUpperCase()}</span>}
+                            </div>
+                            {m.level != null && <div className="tavern-level-badge">Lv{m.level}</div>}
+                        </div>
+                        <div className="tavern-body">
+                            <div className="tavern-meta">
+                                <span className="tavern-author">{m.author}</span>
+                                {m.customTitle && <span className="tavern-custom-title">「{m.customTitle}」</span>}
+                                {m.rank && <span className="tavern-rank">{m.rank}</span>}
+                                <span className="tavern-time">{new Date(m.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                            </div>
+                            <p className="tavern-text">{m.text}</p>
+                        </div>
+                    </div>
+                ))}
+                <div ref={bottomRef} />
+            </div>
+            <div className="tavern-input-row">
+                <input
+                    className="tavern-input"
+                    value={input}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => setInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") send(); }}
+                    placeholder={`Say something to ${character.village}...`}
+                    maxLength={300}
+                />
+                <button className="tavern-send-btn" onClick={send} disabled={!input.trim()}>⚡ Send</button>
+            </div>
+        </div>
+    );
+}
 
 function Cafeteria({ character, updateCharacter }: { character: Character; updateCharacter: (character: Character) => void }) {
     function eat(name: string, cost: number, hp: number, chakra: number, stamina: number) { if (character.ryo < cost) return alert("Not enough ryo."); updateCharacter({ ...character, ryo: character.ryo - cost, hp: Math.min(character.maxHp, character.hp + hp), chakra: Math.min(character.maxChakra, character.chakra + chakra), stamina: Math.min(character.maxStamina, character.stamina + stamina) }); alert(`${name} restored your resources.`); }
-    return <div className="card"><h2>Cafeteria</h2><p>Ryo: {character.ryo}</p><div className="location-grid"><button className="location-button" onClick={() => eat("Small Ramen", 20, 25, 10, 10)}>🍜 Small Ramen<br /><small>+25 HP +10 Chakra +10 Stamina</small></button><button className="location-button" onClick={() => eat("Shinobi Meal", 50, 75, 35, 35)}>🍱 Shinobi Meal<br /><small>+75 HP +35 Chakra +35 Stamina</small></button><button className="location-button" onClick={() => eat("Feast", 100, 9999, 9999, 9999)}>🍖 Feast<br /><small>Full restore</small></button></div></div>;
+    return <div className="card"><h2>Cafeteria</h2><p>Ryo: {character.ryo}</p><div className="location-grid"><button className="location-button" onClick={() => eat("Small Ramen", 20, 25, 10, 10)}>🍜 Small Ramen<br /><small>+25 HP +10 Chakra +10 Stamina</small></button><button className="location-button" onClick={() => eat("Shinobi Meal", 50, 75, 35, 35)}>🍱 Shinobi Meal<br /><small>+75 HP +35 Chakra +35 Stamina</small></button><button className="location-button" onClick={() => eat("Feast", 100, 9999, 9999, 9999)}>?🍽️ Feast<br /><small>Full restore</small></button></div></div>;
 }
 function Inventory({
     character,
@@ -9131,7 +11893,7 @@ function Inventory({
         if (arrow === "down") return "↓";
         if (arrow === "left") return "←";
         if (arrow === "right") return "→";
-        return "?";
+        return "✦";
     }
     const inventoryEntries = character.inventory.map((entry, index) => {
         const item = getItemById(allItems, entry) ?? allItems.find((candidate) => candidate.name === entry);
@@ -9153,13 +11915,10 @@ function Inventory({
         { label: "Thrown", equipmentSlot: "thrown", accepts: "thrown", className: "slot-thrown" },
         { label: "Item", equipmentSlot: "item", accepts: "item", className: "slot-left-item-1" },
         { label: "Body", equipmentSlot: "body", accepts: "body", className: "slot-chest" },
-        { label: "Item", className: "slot-right-item-1" },
         { label: "Hand", equipmentSlot: "hand", accepts: "hand", className: "slot-left-hand" },
         { label: "Waist", equipmentSlot: "waist", accepts: "waist", className: "slot-waist" },
         { label: "Hand", className: "slot-right-hand" },
-        { label: "Item", className: "slot-left-item-2" },
         { label: "Legs", equipmentSlot: "legs", accepts: "legs", className: "slot-legs" },
-        { label: "Item", className: "slot-right-item-2" },
         { label: "Item", className: "slot-left-item-3" },
         { label: "Feet", equipmentSlot: "feet", accepts: "feet", className: "slot-feet" },
         { label: "Item", className: "slot-right-item-3" },
@@ -9183,6 +11942,10 @@ function Inventory({
     }
 
     function equipItem(item: GameItem, index: number) {
+        if (item.weaponElement && !hasCharacterElement(character, item.weaponElement)) {
+            alert(`You need the ${item.weaponElement} element to equip ${item.name}.`);
+            return;
+        }
         const slot = normalizeEquipmentSlot(item.slot);
         const previousEquipped = equippedIdForSlot(slot);
         const nextInventory = removeInventoryIndex(index);
@@ -9257,8 +12020,9 @@ function Inventory({
     }
 
     function itemBonusLines(item: GameItem) {
+        const armorExclude = new Set(["maxChakra", "maxStamina"]);
         return Object.entries(item.bonuses)
-            .filter(([, value]) => typeof value === "number" && value !== 0)
+            .filter(([stat, value]) => typeof value === "number" && value !== 0 && !(item.armorQuality && armorExclude.has(stat)))
             .map(([stat, value]) => ({
                 stat: statLabel(stat),
                 value: value as number,
@@ -9505,14 +12269,9 @@ function Inventory({
                                             <strong>{card?.name ?? id}</strong>
 
                                             <div className="tile-card-mini-stats">
-                                                <span>Power {card?.power ?? "?"}</span>
+                                                <span>T:{card?.top ?? "?"} R:{card?.right ?? "?"}</span>
+                                                <span>B:{card?.bottom ?? "?"} L:{card?.left ?? "?"}</span>
                                                 <span>{card?.element ?? "Unknown"}</span>
-                                            </div>
-
-                                            <div className="tile-card-arrow-row">
-                                                {card?.arrows.map((arrow) => (
-                                                    <span key={arrow}>{arrowSymbol(arrow)}</span>
-                                                ))}
                                             </div>
 
                                             <small>{card?.rarity ?? "missing card"}</small>
@@ -9537,13 +12296,8 @@ function Inventory({
                                     </button>
                                     <strong>{selectedTileCard.card.name}</strong>
                                     <p className="hint">
-                                        {selectedTileCard.card.rarity} {selectedTileCard.card.element} card | Power {selectedTileCard.card.power} | Owned x{selectedTileCard.count}
+                                        {selectedTileCard.card.rarity} {selectedTileCard.card.element} card | T:{selectedTileCard.card.top} R:{selectedTileCard.card.right} B:{selectedTileCard.card.bottom} L:{selectedTileCard.card.left} | Owned x{selectedTileCard.count}
                                     </p>
-                                    <div className="tile-card-arrow-row">
-                                        {selectedTileCard.card.arrows.map((arrow) => (
-                                            <span key={arrow}>{arrowSymbol(arrow)}</span>
-                                        ))}
-                                    </div>
                                 </div>
                             )}
                         </>
@@ -9559,7 +12313,7 @@ function Inventory({
                             className="item-popup-close"
                             onClick={() => setSelectedInventoryItem(null)}
                         >
-                            ✕
+                            ?
                         </button>
 
                         <div className="item-popup-top">
@@ -9601,22 +12355,36 @@ function Inventory({
                                         <div className="item-popup-detail-grid">
                                             <p><strong>Battle Type:</strong> PvE / PvP</p>
                                             <p><strong>Rarity:</strong> {selectedGameItem.rarity}</p>
-                                            <p><strong>Can be Traded:</strong> yes</p>
-                                            <p><strong>Can be Crafted:</strong> yes</p>
-                                            <p><strong>Stackable:</strong> {selected.count}</p>
                                             <p><strong>Item Type:</strong> {equipmentSlotLabel(selectedGameItem.slot)}</p>
                                             <p><strong>Hidden:</strong> no</p>
-                                            <p><strong>Range:</strong> 0</p>
+                                            <p><strong>Range:</strong> {selectedGameItem.weaponRange ?? 0}</p>
                                             <p><strong>Destroy on use:</strong> {selectedPetFoodXp ? "yes" : "no"}</p>
-                                            <p><strong>Action Usage:</strong> 0%</p>
+                                            <p><strong>Action Usage:</strong> {selectedGameItem.apCost ? `${selectedGameItem.apCost} AP` : selectedGameItem.weaponEp ? "40 AP" : "0%"}</p>
                                             <p><strong>Target:</strong> {selectedPetFoodXp ? "selected pet" : "self"}</p>
                                             <p><strong>Method:</strong> single</p>
                                             <p><strong>Weapon:</strong> {normalizeEquipmentSlot(selectedGameItem.slot) === "hand" ? "yes" : "none"}</p>
-                                            <p><strong>Durability:</strong> 75 / 100</p>
                                             <p><strong>Equip:</strong> {selectedPetFoodXp ? "no" : "yes"}</p>
-                                            <p><strong>Required Level:</strong> 1</p>
+                                            <p><strong>Required Level:</strong> {selectedGameItem.levelReq ?? 1}</p>
                                             <p><strong>Shop Price:</strong> {selectedGameItem.cost} ryo</p>
+                                            {selectedGameItem.weaponEp != null && <p><strong>Damage EP:</strong> {selectedGameItem.weaponEp}</p>}
+                                            {selectedGameItem.weaponEffect && <p><strong>Weapon Effect:</strong> {selectedGameItem.weaponEffect} {selectedGameItem.weaponEffectValue ?? ""}%</p>}
+                                            {selectedGameItem.weaponCooldown != null && selectedGameItem.weaponCooldown > 0 && <p><strong>Cooldown:</strong> {selectedGameItem.weaponCooldown} round(s)</p>}
                                         </div>
+                                        {selectedGameItem.weaponTags && selectedGameItem.weaponTags.length > 0 && (
+                                            <div className="item-popup-effect-box">
+                                                <h4>Named Weapon Tags</h4>
+                                                <div className="item-popup-effect-grid">
+                                                    {selectedGameItem.weaponTags.map((t, i) => (
+                                                        <p key={i}><strong>Tag {i + 1}:</strong> {t.name} — {t.percent}%</p>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                        {selectedGameItem.flavorText && (
+                                            <p className="item-popup-description" style={{ fontStyle: "italic", color: "#94a3b8", marginTop: 6 }}>
+                                                "{selectedGameItem.flavorText}"
+                                            </p>
+                                        )}
 
                                         {selectedPetFoodXp && (
                                             <div className="item-popup-effect-box">
@@ -9663,7 +12431,6 @@ function Inventory({
                                 ) : (
                                     <div className="item-popup-detail-grid">
                                         <p><strong>Item Type:</strong> Consumable</p>
-                                        <p><strong>Stackable:</strong> {selected.count}</p>
                                         <p><strong>Target:</strong> self</p>
                                         <p><strong>Method:</strong> single</p>
                                     </div>
@@ -9728,7 +12495,7 @@ function SunscarFestival({
         "Kael the Sand Dealer watches you from beneath a gold mask."
     );
 
-    // ── Card Duel state ──────────────────────────────────────────────────────
+    // -- Card Duel state ------------------------------------------------------
     type DuelPhase = "idle" | "bet" | "select" | "game" | "result";
     type BoardCell = { card: TileCard; owner: "player" | "enemy" } | null;
 
@@ -9746,6 +12513,14 @@ function SunscarFestival({
 
     const allCards = getAllTileCards(creatorCards);
     const ownedCards = character.tileCards.map((id) => allCards.find((c) => c.id === id)).filter(Boolean) as TileCard[];
+    const kaelImage = "";
+    const miraaImage = "";
+
+    function FestivalPortrait({ image, icon, name }: { image?: string; icon: string; name: string }) {
+        return image
+            ? <img className="sunscar-portrait" src={image} alt={name} />
+            : <div className="sunscar-npc" aria-label={name}>{icon}</div>;
+    }
 
     function adjPos(pos: number, dir: TileCardArrow): number | null {
         const r = Math.floor(pos / 3), c = pos % 3;
@@ -9760,12 +12535,24 @@ function SunscarFestival({
         const nb = [...b];
         const placed = nb[pos]!.card;
         const justFlipped: number[] = [];
-        for (const dir of placed.arrows) {
+        const dirs: { atk: keyof TileCard; def: keyof TileCard; dir: TileCardArrow }[] = [
+            { atk: "top", def: "bottom", dir: "up" },
+            { atk: "bottom", def: "top", dir: "down" },
+            { atk: "left", def: "right", dir: "left" },
+            { atk: "right", def: "left", dir: "right" },
+        ];
+        const friendlyEls = nb.map((c, i) => ({ c, i })).filter(({ c, i }) => i !== pos && c?.owner === owner && c.card.element === placed.element).map(({ i }) => i);
+        for (const { atk, def, dir } of dirs) {
             const ap = adjPos(pos, dir);
             if (ap === null) continue;
             const cell = nb[ap];
             if (!cell || cell.owner === owner) continue;
-            if (placed.power >= cell.card.power) { nb[ap] = { ...cell, owner }; justFlipped.push(ap); }
+            let atkVal = placed[atk] as number;
+            const defVal = cell.card[def] as number;
+            if (ELEMENT_COUNTERS[placed.element] === cell.card.element) atkVal = Math.floor(atkVal * 1.2);
+            const hasFriendlyBoost = friendlyEls.some(fi => (["up","down","left","right"] as TileCardArrow[]).some(d => adjPos(pos, d) === fi));
+            if (hasFriendlyBoost) atkVal = Math.floor(atkVal * 1.2);
+            if (atkVal >= defVal) { nb[ap] = { ...cell, owner }; justFlipped.push(ap); }
         }
         setDuelFlipped(justFlipped);
         return nb;
@@ -9819,9 +12606,19 @@ function SunscarFestival({
         for (const card of eh) {
             for (const pos of empty) {
                 let score = 0;
-                for (const dir of card.arrows) {
+                const aiDirs: { atk: keyof TileCard; def: keyof TileCard; dir: TileCardArrow }[] = [
+                    { atk: "top", def: "bottom", dir: "up" },
+                    { atk: "bottom", def: "top", dir: "down" },
+                    { atk: "left", def: "right", dir: "left" },
+                    { atk: "right", def: "left", dir: "right" },
+                ];
+                for (const { atk, def, dir } of aiDirs) {
                     const ap = adjPos(pos, dir);
-                    if (ap !== null && b[ap]?.owner === "player" && card.power >= b[ap]!.card.power) score++;
+                    if (ap === null || b[ap]?.owner !== "player") continue;
+                    let atkVal = card[atk] as number;
+                    const defVal = b[ap]!.card[def] as number;
+                    if (ELEMENT_COUNTERS[card.element] === b[ap]!.card.element) atkVal = Math.floor(atkVal * 1.2);
+                    if (atkVal >= defVal) score++;
                 }
                 if (score > bestScore) { bestScore = score; bestCard = card; bestPos = pos; }
             }
@@ -9840,26 +12637,30 @@ function SunscarFestival({
     }
 
     function DuelCardTile({ card, owner, selected, compact }: { card: TileCard; owner?: "player" | "enemy"; selected?: boolean; compact?: boolean }) {
-        const has = (d: TileCardArrow) => card.arrows.includes(d);
         const borderColor = selected
             ? "#ffe082"
             : owner === "player" ? "#4fc3f7"
                 : owner === "enemy" ? "#ef5350"
-                    : card.rarity === "epic" ? "#ce93d8"
-                        : card.rarity === "rare" ? "#60a5fa"
-                            : "#475569";
+                    : card.rarity === "legendary" ? "#fbbf24"
+                        : card.rarity === "epic" ? "#ce93d8"
+                            : card.rarity === "rare" ? "#60a5fa"
+                                : "#475569";
         const bgColor = owner === "player" ? "rgba(13,33,55,0.97)"
             : owner === "enemy" ? "rgba(40,10,10,0.97)"
                 : "rgba(18,18,36,0.97)";
-        const rarityGlow = card.rarity === "epic" ? "0 0 10px rgba(206,147,216,0.45)"
-            : card.rarity === "rare" ? "0 0 8px rgba(96,165,250,0.4)"
-                : "none";
-        const ec: Record<string, string> = { Fire: "#ff7043", Water: "#4fc3f7", Earth: "#a1887f", Wind: "#a5d6a7", Lightning: "#fff176", Shadow: "#ba68c8", Ice: "#b0e0ff", Dark: "#ba68c8", None: "#666" };
+        const rarityGlow = card.rarity === "legendary" ? "0 0 14px rgba(251,191,36,0.6)"
+            : card.rarity === "epic" ? "0 0 10px rgba(206,147,216,0.45)"
+                : card.rarity === "rare" ? "0 0 8px rgba(96,165,250,0.4)"
+                    : "none";
+        const ec: Record<string, string> = {
+            Fire: "#ff7043", Water: "#4fc3f7", Earth: "#a1887f", Wind: "#a5d6a7",
+            Lightning: "#fff176", Shadow: "#ba68c8", Ice: "#b0e0ff", Neutral: "#94a3b8", None: "#555"
+        };
         const w = compact ? 90 : 120;
-        const ih = compact ? 60 : 90;
-        const arSz = compact ? 10 : 13;
-        const arOn = "#ffe082"; const arOff = "rgba(255,255,255,0.12)";
-        const arSh = (on: boolean) => on ? `0 0 5px ${arOn}` : "none";
+        const ih = compact ? 60 : 80;
+        const numSz = compact ? 9 : 11;
+        const numColor = "#ffe082";
+        const numBg = "rgba(0,0,0,0.72)";
         return (
             <div style={{
                 position: "relative", width: w, background: bgColor, border: `2px solid ${borderColor}`,
@@ -9868,30 +12669,32 @@ function SunscarFestival({
                 <div style={{ position: "relative", width: "100%", height: ih, background: "#07111f", overflow: "hidden" }}>
                     {card.image
                         ? <img src={card.image} alt={card.name} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                        : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, opacity: 0.25 }}>🃏</div>
+                        : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, opacity: 0.35 }}>🃏</div>
                     }
+                    {/* Top */}
                     <span style={{
                         position: "absolute", top: 2, left: "50%", transform: "translateX(-50%)",
-                        fontSize: arSz, color: has("up") ? arOn : arOff, textShadow: arSh(has("up")), lineHeight: 1
-                    }}>▲</span>
+                        fontSize: numSz, fontWeight: "bold", color: numColor, background: numBg,
+                        padding: "1px 3px", borderRadius: 3, lineHeight: 1.2, pointerEvents: "none"
+                    }}>{card.top}</span>
+                    {/* Bottom */}
                     <span style={{
                         position: "absolute", bottom: 2, left: "50%", transform: "translateX(-50%)",
-                        fontSize: arSz, color: has("down") ? arOn : arOff, textShadow: arSh(has("down")), lineHeight: 1
-                    }}>▼</span>
+                        fontSize: numSz, fontWeight: "bold", color: numColor, background: numBg,
+                        padding: "1px 3px", borderRadius: 3, lineHeight: 1.2, pointerEvents: "none"
+                    }}>{card.bottom}</span>
+                    {/* Left */}
                     <span style={{
                         position: "absolute", left: 2, top: "50%", transform: "translateY(-50%)",
-                        fontSize: arSz, color: has("left") ? arOn : arOff, textShadow: arSh(has("left")), lineHeight: 1
-                    }}>◀</span>
+                        fontSize: numSz, fontWeight: "bold", color: numColor, background: numBg,
+                        padding: "1px 3px", borderRadius: 3, lineHeight: 1.2, pointerEvents: "none"
+                    }}>{card.left}</span>
+                    {/* Right */}
                     <span style={{
                         position: "absolute", right: 2, top: "50%", transform: "translateY(-50%)",
-                        fontSize: arSz, color: has("right") ? arOn : arOff, textShadow: arSh(has("right")), lineHeight: 1
-                    }}>▶</span>
-                    <span style={{
-                        position: "absolute", top: 2, right: 3, fontSize: compact ? 9 : 11, fontWeight: "bold",
-                        color: "#fff", background: "rgba(0,0,0,0.7)", padding: "1px 4px", borderRadius: 4, lineHeight: 1.4
-                    }}>
-                        {card.power}
-                    </span>
+                        fontSize: numSz, fontWeight: "bold", color: numColor, background: numBg,
+                        padding: "1px 3px", borderRadius: 3, lineHeight: 1.2, pointerEvents: "none"
+                    }}>{card.right}</span>
                 </div>
                 <div style={{ padding: compact ? "2px 5px 3px" : "4px 6px 5px", background: "rgba(0,0,0,0.6)" }}>
                     <div style={{
@@ -9906,7 +12709,7 @@ function SunscarFestival({
         );
     }
 
-    const symbols = ["🔥", "🌙", "🗡️", "💰", "🦂", "👁️"];
+    const symbols = ["☀️", "🦂", "🗡️", "🌙", "💰", "👁️"];
 
     function rollDice() {
         const cost = 25;
@@ -9923,7 +12726,7 @@ function SunscarFestival({
         let rewardRyo = 0;
         let rewardXp = 0;
         let rewardStamina = 0;
-        let message = "";
+        let message: string;
 
         const same = roll[0] === roll[1] && roll[1] === roll[2];
 
@@ -9970,11 +12773,11 @@ function SunscarFestival({
         setFestivalLog(`Kael: ${message} +${rewardRyo} ryo, +${rewardXp} XP, +${rewardStamina} stamina.`);
     }
 
-    // ── Active card duel overlays ────────────────────────────────────────────
+    // -- Active card duel overlays --------------------------------------------
     if (duelPhase === "bet") {
         return (
             <div className="card" style={{ maxWidth: 480, margin: "0 auto" }}>
-                <div style={{ fontSize: "2rem", textAlign: "center", marginBottom: "0.4rem" }}>🃏</div>
+                <div style={{ fontSize: "2rem", textAlign: "center", marginBottom: "0.4rem" }}>🔮</div>
                 <h2 style={{ textAlign: "center", marginBottom: "0.2rem" }}>Miraa the Card Seer</h2>
                 <p style={{ color: "#aaa", textAlign: "center", marginBottom: "1rem" }}>"Place your wager and we shall see whose fate runs deeper."</p>
                 <p style={{ marginBottom: "0.8rem" }}>Your ryo: <strong>{character.ryo}</strong></p>
@@ -10111,7 +12914,7 @@ function SunscarFestival({
     return (
         <div className="sunscar-festival">
             <div className="sunscar-hero">
-                <h1>🏜️ Sunscar Festival</h1>
+                <h1>☀️ Sunscar Festival</h1>
                 <p>
                     Sector 35 — a permanent desert festival of lanterns, caravans,
                     sandstone arches, and fate-bound dice.
@@ -10120,7 +12923,7 @@ function SunscarFestival({
 
             <div className="sunscar-grid">
                 <section className="sunscar-card npc-card">
-                    <div className="sunscar-npc">🎭</div>
+                    <FestivalPortrait image={kaelImage} icon="🎭" name="Kael the Sand Dealer" />
                     <h2>Kael the Sand Dealer</h2>
                     <p>
                         "Fortune favors the bold… and buries the weak beneath the sands."
@@ -10146,7 +12949,7 @@ function SunscarFestival({
                 </section>
 
                 <section className="sunscar-card npc-card">
-                    <div className="sunscar-npc">🃏</div>
+                    <FestivalPortrait image={miraaImage} icon="🔮" name="Miraa the Card Seer" />
                     <h2>Miraa the Card Seer</h2>
                     <p style={{ fontStyle: "italic", color: "#aaa", marginBottom: "0.5rem" }}>
                         "The cards remember every shinobi who has sat across from me. Most don't return."
@@ -10162,11 +12965,11 @@ function SunscarFestival({
                     <h2>Festival Grounds</h2>
                     <div className="festival-visual">
                         <span>⛺</span>
-                        <span>🏺</span>
                         <span>🔥</span>
-                        <span>🎲</span>
+                        <span>🥁</span>
+                        <span>🎭</span>
                         <span>🐪</span>
-                        <span>🏜️</span>
+                        <span>🎲</span>
                     </div>
                     <p>
                         Golden tents, torch bowls, desert drums, masked merchants,
@@ -10182,19 +12985,23 @@ function CentralHub({
     updateCharacter,
     setScreen,
     savedBloodlines,
-    setSavedBloodlines,
     triggeredEvents,
     setTriggeredEvents,
     onStartEndlessBattle,
+    onOpenBloodlineMaker,
+    creatorItems,
+    setCreatorItems,
 }: {
     character: Character;
     updateCharacter: (character: Character) => void;
     setScreen: (screen: Screen) => void;
     savedBloodlines: SavedBloodline[];
-    setSavedBloodlines: (bls: SavedBloodline[]) => void;
     triggeredEvents: string[];
     setTriggeredEvents: React.Dispatch<React.SetStateAction<string[]>>;
     onStartEndlessBattle: () => void;
+    onOpenBloodlineMaker: (rank: Rank) => void;
+    creatorItems: GameItem[];
+    setCreatorItems: (items: GameItem[]) => void;
 }) {
     const [centralLog, setCentralLog] = useState(
         "Welcome to Central — the neutral heart of the shinobi world."
@@ -10203,17 +13010,118 @@ function CentralHub({
     const [showAwakening, setShowAwakening] = useState(false);
     const [awakeningMsg, setAwakeningMsg] = useState("");
     const [showCelestialPanel, setShowCelestialPanel] = useState(false);
+    const [showCrafter, setShowCrafter] = useState(false);
 
-    function quickReward(name: string, xp: number, ryo: number, stamina: number) {
-        const leveled = gainXp(character, xp);
+    // Named Weapon forge state
+    type NamedWeaponRoll = { ep: number; range: 3 | 4 | 5; offenseVal: number; tags: Array<{ name: string; percent: number }> };
+    const [namedWeaponRoll, setNamedWeaponRoll] = useState<NamedWeaponRoll | null>(null);
+    const [namedWeaponName, setNamedWeaponName] = useState("Unnamed Blade");
+    const [namedWeaponImage, setNamedWeaponImage] = useState("");
+    const [namedWeaponFlavorText, setNamedWeaponFlavorText] = useState("");
 
+    const NAMED_WEAPON_TAGS = [
+        "Damage", "Siphon", "Absorb", "Poison", "Wound",
+        "Reflect", "Shield", "Drain", "Afterburn", "Heal",
+        "Increase Damage Given", "Decrease Damage Taken",
+    ];
+
+    function rollNamedWeapon() {
+        const ranges: (3 | 4 | 5)[] = [3, 4, 5];
+        const range = ranges[Math.floor(Math.random() * 3)];
+        const ep = 30 + Math.floor(Math.random() * 6); // 30–35
+        const offenseVal = 168 + Math.floor(Math.random() * 13); // 168–180
+        const useSingle = Math.random() < 0.5;
+        const shuffled = [...NAMED_WEAPON_TAGS].sort(() => Math.random() - 0.5);
+        let tags: Array<{ name: string; percent: number }>;
+        if (useSingle) {
+            tags = [{ name: shuffled[0], percent: 35 + Math.floor(Math.random() * 6) }]; // 35–40%
+        } else {
+            tags = [
+                { name: shuffled[0], percent: 15 + Math.floor(Math.random() * 6) }, // 15–20%
+                { name: shuffled[1], percent: 15 + Math.floor(Math.random() * 6) },
+            ];
+        }
+        setNamedWeaponRoll({ ep, range, offenseVal, tags });
+    }
+
+    // Named Weapon uses premium currencies, not hunt-material craft points
+    const NW_CURRENCY_PTS: Record<string, number> = {
+        boneCharms: 5,
+        fateShards: 5,
+        auraStones: 25,
+        mythicSeals: 75,
+    };
+    const NW_COST = 500; // total points needed
+
+    function namedWeaponCurrencyPts(): number {
+        return (
+            (character.boneCharms ?? 0) * NW_CURRENCY_PTS.boneCharms +
+            (character.fateShards ?? 0) * NW_CURRENCY_PTS.fateShards +
+            (character.auraStones ?? 0) * NW_CURRENCY_PTS.auraStones +
+            (character.mythicSeals ?? 0) * NW_CURRENCY_PTS.mythicSeals
+        );
+    }
+
+    function forgeNamedWeapon() {
+        if (!namedWeaponRoll) return;
+        const available = namedWeaponCurrencyPts();
+        if (available < NW_COST) {
+            alert(`Not enough materials. Need ${NW_COST} forge pts, you have ${available}.`);
+            return;
+        }
+        // Greedy consume: spend lowest-value currencies first
+        let remaining = NW_COST;
+        let bc = character.boneCharms ?? 0;
+        let fs = character.fateShards ?? 0;
+        let as_ = character.auraStones ?? 0;
+        let ms = character.mythicSeals ?? 0;
+        // Order: boneCharms (5), fateShards (5), auraStones (25), mythicSeals (75)
+        const spend = (count: number, pts: number, cur: number): [number, number] => {
+            const use = Math.min(cur, Math.ceil(remaining / pts));
+            const actual = Math.min(use, cur);
+            return [cur - actual, remaining - actual * pts];
+        };
+        [bc, remaining] = spend(bc, NW_CURRENCY_PTS.boneCharms, bc);
+        [fs, remaining] = spend(fs, NW_CURRENCY_PTS.fateShards, fs);
+        [as_, remaining] = spend(as_, NW_CURRENCY_PTS.auraStones, as_);
+        [ms, remaining] = spend(ms, NW_CURRENCY_PTS.mythicSeals, ms);
+
+        const id = `named-weapon-${makeId()}`;
+        const tagDesc = namedWeaponRoll.tags.map((t) => `${t.name} ${t.percent}%`).join(", ");
+        const item: GameItem = {
+            id,
+            name: namedWeaponName.trim() || "Named Weapon",
+            slot: "hand",
+            rarity: "legendary",
+            cost: 0,
+            description: namedWeaponFlavorText.trim() || `A master-forged weapon. Tags: ${tagDesc}.`,
+            image: namedWeaponImage || undefined,
+            weaponEp: namedWeaponRoll.ep,
+            apCost: 40,
+            weaponRange: namedWeaponRoll.range,
+            weaponTags: namedWeaponRoll.tags,
+            flavorText: namedWeaponFlavorText.trim() || undefined,
+            bonuses: {
+                ninjutsuOffense: namedWeaponRoll.offenseVal,
+                taijutsuOffense: namedWeaponRoll.offenseVal,
+                bukijutsuOffense: namedWeaponRoll.offenseVal,
+                genjutsuOffense: namedWeaponRoll.offenseVal,
+            },
+        };
+        setCreatorItems([...creatorItems, item]);
         updateCharacter({
-            ...leveled,
-            ryo: leveled.ryo + ryo,
-            stamina: Math.min(leveled.maxStamina, leveled.stamina + stamina),
+            ...character,
+            inventory: [...character.inventory, id],
+            boneCharms: bc,
+            fateShards: fs,
+            auraStones: as_,
+            mythicSeals: ms,
         });
-
-        setCentralLog(`${name} complete. +${xp} XP, +${ryo} ryo, +${stamina} stamina.`);
+        setNamedWeaponRoll(null);
+        setNamedWeaponName("Unnamed Blade");
+        setNamedWeaponImage("");
+        setNamedWeaponFlavorText("");
+        alert(`${item.name} has been forged and added to your inventory!`);
     }
 
     function awakeningFreeRoll() {
@@ -10231,36 +13139,25 @@ function CentralHub({
 
     function awakeningPaidRoll() {
         if (character.fateShards < 10) {
-            setAwakeningMsg("❌ Not enough Fate Shards — you need 10 to reroll your element.");
+            setAwakeningMsg("⚠️ Not enough Fate Shards — you need 10 to reroll your element.");
             return;
         }
         const currentElements = getCharacterElements(character);
         const nextElements = rollAwakeningElements(Math.max(1, currentElements.length));
         updateCharacter({ ...character, fateShards: character.fateShards - 10, element: nextElements[0], elements: nextElements });
-        setAwakeningMsg(`💫 The stone swirls and reveals: ${nextElements.join(" / ")}! Your awakened elements have been rerolled (−10 Fate Shards).`);
+        setAwakeningMsg(`🪨 The stone swirls and reveals: ${nextElements.join(" / ")}! Your awakened elements have been rerolled (-10 Fate Shards).`);
     }
 
     function awakeningCreateBloodline(rank: Rank, materialKey: "boneCharms" | "auraStones" | "mythicSeals", cost: number) {
         if ((character[materialKey] ?? 0) < cost) {
             const label = materialKey === "boneCharms" ? "Bone Charms" : materialKey === "auraStones" ? "Aura Stones" : "Mythic Seals";
-            setAwakeningMsg(`❌ Not enough ${label} — you need ${cost}.`);
+            setAwakeningMsg(`⚠️ Not enough ${label} — you need ${cost}.`);
             return;
         }
-        const blName = prompt(`Name your new ${rank} bloodline:`)?.trim();
-        if (!blName) return;
-        const ownedElements = getCharacterElements(character);
-        const newBloodline: SavedBloodline = {
-            id: `awakened-${rank.replace(" ", "").toLowerCase()}-${Date.now()}`,
-            name: blName,
-            rank,
-            specialElement: ownedElements[0],
-            lore: `Forged from ${materialKey === "boneCharms" ? "100 Bone Charms" : materialKey === "auraStones" ? "100 Aura Stones" : "100 Mythic Seals"} at the Awakening Stone by ${character.name}.`,
-            jutsus: [],
-            totalPoints: rank === "B Rank" ? 100 : rank === "A Rank" ? 200 : 300,
-        };
-        setSavedBloodlines([...savedBloodlines, newBloodline]);
         updateCharacter({ ...character, [materialKey]: (character[materialKey] ?? 0) - cost });
-        setAwakeningMsg(`⚡ ${rank} Bloodline "${blName}" has been forged! Visit the admin panel to add techniques.`);
+        setShowAwakening(false);
+        setCentralLog(`${rank} bloodline forge purchased. Finish building it in the Bloodline Maker.`);
+        onOpenBloodlineMaker(rank);
     }
 
     const hasFreeRoll = (character.level >= 2 && !triggeredEvents.includes(AWAKENING_FREE_LV2_ID))
@@ -10270,14 +13167,14 @@ function CentralHub({
         {
             name: "Arena District",
             icon: "⚔️",
-            text: "Ranked battles, casual fights, clan wars, tournaments, spectators, and daily arena rewards.",
-            action: () => setScreen("arena"),
+            text: "Clan battles, ranked mode, tournaments, spectator boards, and pet battle challenges.",
+            action: () => setScreen("arenaDistrict"),
         },
         {
             name: "Shinobi Council Hall",
-            icon: "🏛️",
-            text: "View village influence, active wars, bounties, diplomacy, and Kage rankings.",
-            action: () => setCentralLog("Council Notice: The villages are stable, but tension is rising near the outer sectors."),
+            icon: "🏯",
+            text: "Active village wars, clan wars, HP of each side, and top contributors.",
+            action: () => setScreen("shinobiCouncil"),
         },
         {
             name: "Grand Marketplace",
@@ -10288,14 +13185,14 @@ function CentralHub({
         {
             name: "Hunter Guild",
             icon: "🎯",
-            text: "S-rank contracts, rogue ninja hunts, world boss clues, escort jobs, and dungeon requests.",
-            action: () => quickReward("Hunter Guild Contract", 90, 75, 10),
+            text: "Beast hunt contracts, sector tracking, material drops, and hunter rank progression.",
+            action: () => setScreen("hunting"),
         },
         {
             name: "Hall of Legends",
             icon: "🏆",
-            text: "Top players, top clans, seasonal statues, mission rankings, and legacy rewards.",
-            action: () => setCentralLog(`${character.name} is recorded as a rising shinobi of ${character.village}.`),
+            text: "Ranked leaderboards, top clans, kill streaks, pet arena, endless waves, and village war records.",
+            action: () => setScreen("hallOfLegends"),
         },
         {
             name: "Ancient Archives",
@@ -10305,7 +13202,7 @@ function CentralHub({
         },
         {
             name: "Awakening Stone",
-            icon: "💎",
+            icon: "🪨",
             text: getCharacterElements(character).length
                 ? `Your elements: ${getCharacterElements(character).join(" / ")}. Reroll, or forge a bloodline using ancient materials.`
                 : "Discover your elemental nature. Free at level 2 and level 20.",
@@ -10318,16 +13215,10 @@ function CentralHub({
             action: () => setScreen("petArena"),
         },
         {
-            name: "Gateway Ring",
-            icon: "🌀",
-            text: "Fast travel gates, regional portals, dungeon entrances, event portals, and raid queues.",
-            action: () => setScreen("worldMap"),
-        },
-        {
-            name: "Underground Syndicate",
-            icon: "🕶️",
-            text: "Illegal contracts, stolen goods, assassination boards, curse marks, and dark jutsu rumors.",
-            action: () => quickReward("Syndicate Shadow Contract", 120, 150, 0),
+            name: "Crafter",
+            icon: "🔥",
+            text: "Convert hunting materials into pet treats, elemental treats, aura dust, and bone charms.",
+            action: () => setShowCrafter(true),
         },
         {
             name: "Celestial Tower",
@@ -10378,7 +13269,7 @@ function CentralHub({
                                 <small>Fight wave after wave of random opponents. How far can you climb before you fall?</small>
                             </button>
                         </div>
-                        <button className="back-btn" style={{ marginTop: "1rem" }} onClick={() => setShowCelestialPanel(false)}>✕ Close</button>
+                        <button className="back-btn" style={{ marginTop: "1rem" }} onClick={() => setShowCelestialPanel(false)}>× Close</button>
                     </div>
                 </div>
             )}
@@ -10393,7 +13284,7 @@ function CentralHub({
                         <div className="archives-panel">
                             <div className="archives-header">
                                 <h2>📚 Ancient Archives — Bloodline Codex</h2>
-                                <button className="danger-button" onClick={() => setShowArchives(false)}>✕ Close</button>
+                                <button className="danger-button" onClick={() => setShowArchives(false)}>× Close</button>
                             </div>
                             <p className="archives-subtitle">
                                 {allBloodlines.length} bloodline{allBloodlines.length !== 1 ? "s" : ""} recorded — {starterSavedBloodlines.length} ancient, {allBloodlines.length - starterSavedBloodlines.length} custom
@@ -10404,7 +13295,7 @@ function CentralHub({
                                         <div className="archives-card-img-wrap">
                                             {bl.image
                                                 ? <img src={bl.image} alt={bl.name} className="archives-card-img" />
-                                                : <div className="archives-card-no-img">⚔️</div>
+                                                : <div className="archives-card-no-img">📜</div>
                                             }
                                         </div>
                                         <div className="archives-card-body">
@@ -10444,8 +13335,8 @@ function CentralHub({
                 <div className="archives-overlay">
                     <div className="awakening-panel">
                         <div className="archives-header">
-                            <h2>💎 Awakening Stone</h2>
-                            <button className="danger-button" onClick={() => setShowAwakening(false)}>✕ Close</button>
+                            <h2>🪨 Awakening Stone</h2>
+                            <button className="danger-button" onClick={() => setShowAwakening(false)}>× Close</button>
                         </div>
 
                         {/* Current element status */}
@@ -10470,15 +13361,15 @@ function CentralHub({
                         </div>
 
                         {awakeningMsg && (
-                            <div className={`awakening-msg ${awakeningMsg.startsWith("❌") ? "awakening-msg-error" : "awakening-msg-success"}`}>
+                            <div className={`awakening-msg ${awakeningMsg.startsWith("✦") ? "awakening-msg-error" : "awakening-msg-success"}`}>
                                 {awakeningMsg}
                             </div>
                         )}
 
                         {/* Element roll section */}
                         <div className="awakening-section">
-                            <h3>⚡ Elemental Awakening</h3>
-                            <p className="awakening-hint">The stone randomly reveals one of five elements: 💧 Water · 🌀 Wind · 🪨 Earth · ⚡ Lightning · 🔥 Fire</p>
+                            <h3>✨ Elemental Awakening</h3>
+                            <p className="awakening-hint">The stone randomly reveals one of five elements: 💧 Water · 🌪️ Wind · ⛰️ Earth · ⚡ Lightning · 🔥 Fire</p>
                             <div className="awakening-roll-row">
                                 {hasFreeRoll ? (
                                     <button className="awakening-free-btn" onClick={awakeningFreeRoll}>
@@ -10492,7 +13383,7 @@ function CentralHub({
                                         disabled={character.fateShards < 10}
                                         title={character.fateShards < 10 ? "Not enough Fate Shards" : ""}
                                     >
-                                        🔮 Reroll Element — 10 Fate Shards
+                                        🪨 Reroll Element — 10 Fate Shards
                                         <small>You have {character.fateShards} Fate Shards</small>
                                     </button>
                                 )}
@@ -10501,7 +13392,7 @@ function CentralHub({
 
                         {/* Material balances */}
                         <div className="awakening-section">
-                            <h3>🧪 Ancient Materials</h3>
+                            <h3>💠 Ancient Materials</h3>
                             <div className="awakening-materials">
                                 <div className="awakening-material-row">
                                     <span className="awakening-material-icon">🦴</span>
@@ -10509,7 +13400,7 @@ function CentralHub({
                                     <span className="awakening-material-count">{character.boneCharms ?? 0}</span>
                                 </div>
                                 <div className="awakening-material-row">
-                                    <span className="awakening-material-icon">🌟</span>
+                                    <span className="awakening-material-icon">🔷</span>
                                     <span className="awakening-material-name">Aura Stones</span>
                                     <span className="awakening-material-count">{character.auraStones ?? 0}</span>
                                 </div>
@@ -10523,7 +13414,7 @@ function CentralHub({
 
                         {/* Bloodline forge section */}
                         <div className="awakening-section">
-                            <h3>⚗️ Bloodline Forge</h3>
+                            <h3>⚒️ Bloodline Forge</h3>
                             <p className="awakening-hint">Channel ancient materials through the stone to forge a new bloodline. The bloodline will carry your element and await further techniques.</p>
                             <div className="awakening-forge-grid">
                                 <div className="awakening-forge-card rank-b">
@@ -10540,7 +13431,7 @@ function CentralHub({
                                 </div>
                                 <div className="awakening-forge-card rank-a">
                                     <div className="awakening-forge-rank">A Rank</div>
-                                    <div className="awakening-forge-cost">🌟 100 Aura Stones</div>
+                                    <div className="awakening-forge-cost">🔷 100 Aura Stones</div>
                                     <div className="awakening-forge-have">You have: {character.auraStones ?? 0}</div>
                                     <button
                                         className="awakening-forge-btn"
@@ -10567,23 +13458,309 @@ function CentralHub({
                     </div>
                 </div>
             )}
+
+            {showCrafter && (() => {
+                const CRAFT_POINTS: Record<string, number> = {
+                    "hunt-beast-meat": 5,
+                    "hunt-wolf-fang": 10,
+                    "hunt-ash-scale": 15,
+                    "hunt-shadow-pelt": 25,
+                    "hunt-legendary-material": 50,
+                };
+                const craftMaterialNames: Record<string, string> = {
+                    "hunt-beast-meat": "Beast Meat",
+                    "hunt-wolf-fang": "Wolf Fang",
+                    "hunt-ash-scale": "Ash Scale",
+                    "hunt-shadow-pelt": "Shadow Pelt",
+                    "hunt-legendary-material": "Legendary Material",
+                };
+                const totalPts = Object.entries(CRAFT_POINTS).reduce((sum, [id, pts]) => {
+                    const count = character.inventory.filter((i) => i === id).length;
+                    return sum + count * pts;
+                }, 0);
+
+                function consumeMaterials(costPts: number): string[] {
+                    const ordered = Object.entries(CRAFT_POINTS).sort((a, b) => a[1] - b[1]);
+                    let inv = [...character.inventory];
+                    let remaining = costPts;
+                    for (const [id, pts] of ordered) {
+                        while (remaining > 0 && inv.includes(id)) {
+                            const idx = inv.indexOf(id);
+                            inv.splice(idx, 1);
+                            remaining -= pts;
+                        }
+                    }
+                    return inv;
+                }
+
+                function craftItem(costPts: number, grant: (c: Character) => Character) {
+                    if (totalPts < costPts) return alert(`Not enough materials. Need ${costPts} craft points, you have ${totalPts}.`);
+                    const newInv = consumeMaterials(costPts);
+                    updateCharacter(grant({ ...character, inventory: newInv }));
+                    alert("Crafting complete!");
+                }
+
+                const recipes = [
+                    { name: "Pet Treats", cost: 50, desc: "1× Treats (+100 pet XP)", craft: (c: Character) => ({ ...c, inventory: [...c.inventory, "pet-treat"] }) },
+                    { name: "Elemental Treats", cost: 100, desc: "1× Elemental Treats (+250 pet XP)", craft: (c: Character) => ({ ...c, inventory: [...c.inventory, "elemental-pet-treat"] }) },
+                    { name: "Aura Dust", cost: 50, desc: "+50 Aura Dust", craft: (c: Character) => ({ ...c, auraDust: (c.auraDust ?? 0) + 50 }) },
+                    { name: "Bone Charm", cost: 1000, desc: "+1 Bone Charm", craft: (c: Character) => ({ ...c, boneCharms: (c.boneCharms ?? 0) + 1 }) },
+                    // Thrown weapons
+                    { name: "Shuriken ×3", cost: 15, desc: "3× Shuriken (22 EP thrown)", craft: (c: Character) => ({ ...c, inventory: [...c.inventory, "thrown-shuriken", "thrown-shuriken", "thrown-shuriken"] }) },
+                    { name: "Senbon ×1", cost: 30, desc: "1× Senbon (300 dmg/round, 2 rounds)", craft: (c: Character) => ({ ...c, inventory: [...c.inventory, "thrown-senbon"] }) },
+                    { name: "Serpent Dust ×1", cost: 40, desc: "1× Serpent Dust (55% poison, 2 rounds)", craft: (c: Character) => ({ ...c, inventory: [...c.inventory, "thrown-serpent-dust"] }) },
+                    // Combat items
+                    { name: "Smoke Bomb ×1", cost: 25, desc: "1× Smoke Bomb (100% dmg reduction to both players, 1 round; pierce still deals full dmg)", craft: (c: Character) => ({ ...c, inventory: [...c.inventory, "item-smoke-bomb"] }) },
+                    { name: "Attack Pill ×1", cost: 20, desc: "1× Attack Pill (+15% damage dealt, 2 rounds)", craft: (c: Character) => ({ ...c, inventory: [...c.inventory, "item-attack-pill"] }) },
+                    { name: "Defense Pill ×1", cost: 20, desc: "1× Defense Pill (−15% damage received, 2 rounds)", craft: (c: Character) => ({ ...c, inventory: [...c.inventory, "item-defense-pill"] }) },
+                ];
+
+                return (
+                    <div className="crafter-overlay" onClick={() => setShowCrafter(false)}>
+                        <div className="crafter-panel" onClick={(e) => e.stopPropagation()}>
+                            <div className="archives-header">
+                                <h2>🔥 Crafter</h2>
+                                <button className="danger-button" onClick={() => setShowCrafter(false)}>✕ Close</button>
+                            </div>
+                            <p className="crafter-subtitle">Convert hunting materials into useful crafted goods.</p>
+
+                            <div className="crafter-material-list">
+                                <strong>Your Materials</strong>
+                                {Object.entries(craftMaterialNames).map(([id, label]) => {
+                                    const count = character.inventory.filter((i) => i === id).length;
+                                    return (
+                                        <div key={id} className="crafter-material-row">
+                                            <span>{label}</span>
+                                            <span>{count}× <small>({CRAFT_POINTS[id]} pts each)</small></span>
+                                        </div>
+                                    );
+                                })}
+                                <div className="crafter-total-pts">Total craft points: <strong>{totalPts}</strong></div>
+                            </div>
+
+                            <div className="crafter-recipe-grid">
+                                {recipes.map((recipe) => {
+                                    const fillPct = Math.min(100, Math.floor((totalPts / recipe.cost) * 100));
+                                    return (
+                                        <div key={recipe.name} className="crafter-recipe-btn">
+                                            <strong>{recipe.name}</strong>
+                                            <small>{recipe.desc}</small>
+                                            <div className="crafter-progress-bar">
+                                                <div className="crafter-progress-fill" style={{ width: `${fillPct}%` }} />
+                                            </div>
+                                            <small className="crafter-pts-label">{Math.min(totalPts, recipe.cost)}/{recipe.cost} pts</small>
+                                            <button onClick={() => craftItem(recipe.cost, recipe.craft)} disabled={totalPts < recipe.cost}>
+                                                Craft
+                                            </button>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            {/* ── Named Weapon Forge ── */}
+                            {(() => {
+                                const nwPts = namedWeaponCurrencyPts();
+                                const nwFill = Math.min(100, Math.floor((nwPts / NW_COST) * 100));
+                                return (
+                                    <div className="named-weapon-forge">
+                                        <div className="named-weapon-forge-header">
+                                            <span className="named-weapon-forge-title">⚔️ Named Weapon</span>
+                                            <small>Roll a unique legendary hand weapon. Costs {NW_COST} forge pts.</small>
+                                        </div>
+
+                                        {/* Currency display */}
+                                        <div className="named-weapon-currencies">
+                                            <div className="named-weapon-currency-row">
+                                                <span>🦴 Bone Charms</span>
+                                                <span>{character.boneCharms ?? 0} × {NW_CURRENCY_PTS.boneCharms} pts = <strong>{(character.boneCharms ?? 0) * NW_CURRENCY_PTS.boneCharms}</strong></span>
+                                            </div>
+                                            <div className="named-weapon-currency-row">
+                                                <span>✦ Fate Shards</span>
+                                                <span>{character.fateShards ?? 0} × {NW_CURRENCY_PTS.fateShards} pts = <strong>{(character.fateShards ?? 0) * NW_CURRENCY_PTS.fateShards}</strong></span>
+                                            </div>
+                                            <div className="named-weapon-currency-row">
+                                                <span>💎 Aura Stones</span>
+                                                <span>{character.auraStones ?? 0} × {NW_CURRENCY_PTS.auraStones} pts = <strong>{(character.auraStones ?? 0) * NW_CURRENCY_PTS.auraStones}</strong></span>
+                                            </div>
+                                            <div className="named-weapon-currency-row">
+                                                <span>🔮 Mythic Seals</span>
+                                                <span>{character.mythicSeals ?? 0} × {NW_CURRENCY_PTS.mythicSeals} pts = <strong>{(character.mythicSeals ?? 0) * NW_CURRENCY_PTS.mythicSeals}</strong></span>
+                                            </div>
+                                            <div className="named-weapon-currency-total">
+                                                Total forge pts: <strong>{nwPts}</strong> / {NW_COST}
+                                            </div>
+                                        </div>
+
+                                        <div className="crafter-progress-bar" style={{ margin: "4px 0 8px" }}>
+                                            <div className="crafter-progress-fill named-weapon-fill" style={{ width: `${nwFill}%` }} />
+                                        </div>
+
+                                        <div className="named-weapon-odds">
+                                            <div className="named-weapon-odds-title">📊 Roll Odds</div>
+                                            <div className="named-weapon-odds-grid">
+                                                <div className="nwo-section">
+                                                    <div className="nwo-label">Damage EP</div>
+                                                    <div className="nwo-rows">
+                                                        {[30,31,32,33,34,35].map(v => (
+                                                            <div key={v} className="nwo-row">
+                                                                <span>{v}</span><span className="nwo-pct">16.7%</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                                <div className="nwo-section">
+                                                    <div className="nwo-label">Range</div>
+                                                    <div className="nwo-rows">
+                                                        {[3,4,5].map(v => (
+                                                            <div key={v} className="nwo-row">
+                                                                <span>{v}</span><span className="nwo-pct">33.3%</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                                <div className="nwo-section">
+                                                    <div className="nwo-label">All Offenses</div>
+                                                    <div className="nwo-rows">
+                                                        <div className="nwo-row"><span>168–180</span><span className="nwo-pct">~7.7% each</span></div>
+                                                    </div>
+                                                </div>
+                                                <div className="nwo-section">
+                                                    <div className="nwo-label">Tag Count</div>
+                                                    <div className="nwo-rows">
+                                                        <div className="nwo-row"><span>1 tag (35–40%)</span><span className="nwo-pct">50%</span></div>
+                                                        <div className="nwo-row"><span>2 tags (15–20% ea.)</span><span className="nwo-pct">50%</span></div>
+                                                    </div>
+                                                </div>
+                                                <div className="nwo-section nwo-section-wide">
+                                                    <div className="nwo-label">Possible Tags (each ~8.3% to appear)</div>
+                                                    <div className="nwo-tags">
+                                                        {NAMED_WEAPON_TAGS.map(t => (
+                                                            <span key={t} className="nwo-tag-chip">{t}</span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                                <div className="nwo-section nwo-section-wide">
+                                                    <div className="nwo-label">Tag Formula Notes</div>
+                                                    <div className="nwo-rows">
+                                                        <div className="nwo-row"><span>🛡 Shield</span><span className="nwo-pct">Adds HP shield = rolled% × weapon hit damage</span></div>
+                                                        <div className="nwo-row"><span>💚 Heal</span><span className="nwo-pct">Flat heal — 400 HP (single-tag roll) or 200 HP (dual-tag roll)</span></div>
+                                                        <div className="nwo-row"><span>🩸 Siphon</span><span className="nwo-pct">Restores HP = rolled% × weapon hit damage</span></div>
+                                                        <div className="nwo-row"><span>🔥 Afterburn</span><span className="nwo-pct">2-round status: next 2 attacks deal +rolled% damage</span></div>
+                                                        <div className="nwo-row"><span>💀 Poison / Drain</span><span className="nwo-pct">Deals rolled% of enemy chakra as damage per round</span></div>
+                                                        <div className="nwo-row"><span>⚔ Damage / IDG / DDT / Reflect / Absorb</span><span className="nwo-pct">Flat % modifier for 2 rounds</span></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            className="named-weapon-roll-btn"
+                                            onClick={rollNamedWeapon}
+                                            disabled={nwPts < NW_COST}
+                                        >
+                                            🎲 Roll Named Weapon
+                                        </button>
+
+                                        {namedWeaponRoll && (
+                                            <div className="named-weapon-result">
+                                                <div className="named-weapon-stats">
+                                                    <div className="named-weapon-stat-row"><span>Damage EP</span><strong>{namedWeaponRoll.ep}</strong></div>
+                                                    <div className="named-weapon-stat-row"><span>AP Cost</span><strong>40</strong></div>
+                                                    <div className="named-weapon-stat-row"><span>Range</span><strong>{namedWeaponRoll.range}</strong></div>
+                                                    <div className="named-weapon-stat-row"><span>All Offenses</span><strong>+{namedWeaponRoll.offenseVal}</strong></div>
+                                                    {namedWeaponRoll.tags.map((t, i) => {
+                                                        const healFlat = t.name === "Heal" ? (t.percent >= 35 ? 400 : 200) : null;
+                                                        const dmgScaled = t.name === "Shield" || t.name === "Siphon" || t.name === "Lifesteal" || t.name === "Wound" || t.name === "Afterburn";
+                                                        return (
+                                                            <div key={i} className="named-weapon-stat-row named-weapon-tag-row">
+                                                                <span>Tag {i + 1}</span>
+                                                                <strong>
+                                                                    {t.name} {t.percent}%
+                                                                    {healFlat !== null && <span className="nw-tag-formula"> (flat {healFlat} HP)</span>}
+                                                                    {dmgScaled && <span className="nw-tag-formula"> (= {t.percent}% of hit dmg)</span>}
+                                                                </strong>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+
+                                                <label className="named-weapon-label">Weapon Name</label>
+                                                <input
+                                                    className="named-weapon-input"
+                                                    value={namedWeaponName}
+                                                    onChange={(e) => setNamedWeaponName(e.target.value)}
+                                                    placeholder="e.g. Void Fang"
+                                                />
+
+                                                <label className="named-weapon-label">Flavor Text</label>
+                                                <textarea
+                                                    className="named-weapon-input"
+                                                    rows={3}
+                                                    value={namedWeaponFlavorText}
+                                                    onChange={(e) => setNamedWeaponFlavorText(e.target.value)}
+                                                    placeholder="A blade forged from the bones of ancient beasts…"
+                                                />
+
+                                                <label className="named-weapon-label">Weapon Image</label>
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    onChange={(e) => {
+                                                        const file = e.target.files?.[0];
+                                                        if (file) readImageFile(file, setNamedWeaponImage, 100);
+                                                    }}
+                                                />
+                                                {namedWeaponImage && (
+                                                    <div className="named-weapon-image-preview">
+                                                        <img src={namedWeaponImage} alt="weapon preview" />
+                                                        <button className="danger-button" onClick={() => setNamedWeaponImage("")}>Remove</button>
+                                                    </div>
+                                                )}
+
+                                                <div className="named-weapon-forge-actions">
+                                                    <button className="named-weapon-forge-btn" onClick={forgeNamedWeapon}>
+                                                        ⚔️ Forge Weapon
+                                                    </button>
+                                                    <button className="danger-button" onClick={() => setNamedWeaponRoll(null)}>
+                                                        ✕ Discard Roll
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })()}
+                        </div>
+                    </div>
+                );
+            })()}
         </div>
     );
 }
 
+/** Deterministic tile index (0-143) for a player name so their map dot is stable across renders */
+function playerNameTile(name: string): number {
+    let h = 5381;
+    for (let i = 0; i < name.length; i++) h = ((h << 5) + h + name.charCodeAt(i)) >>> 0;
+    // keep away from corners — map to 10–133 range
+    return 10 + (h % 124);
+}
+
 function sectorBackgroundImage(sector: number) {
+    if (sector === 99) return "/deathgate-sector.png";
+
     const village = villageForOutskirtsSector(sector);
     if (village) return villagePageImage(village);
 
     const sectorImages: Record<string, number[]> = {
-        ice: [47, 52, 48, 53, 54, 50, 55],
+        ice: [52, 48, 53, 54, 50, 55],
         dark: [2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 17, 20, 19, 18, 14, 15, 13],
         temple: [34, 60, 59],
-        water: [26, 21, 22, 27, 32, 28, 33, 42],
-        forrest: [36, 37, 38, 39, 40, 43, 46],      // removed 23 — now stormveil
-        stormveil: [23, 31, 35, 10, 16],               // sectors near Stormveil get storm look
+        water: [23, 26, 21, 22, 27, 32, 28, 33, 42],
+        forrest: [36, 37, 38, 39, 40, 43, 46],
+        stormveil: [31, 35, 10, 16],
         meadow2: [44, 24, 29, 30, 59, 1],
-        meadow: [25, 41, 45, 57, 51],
+        meadow: [25, 41, 45, 47, 57, 51],
     };
 
     if (sectorImages.ice.includes(sector)) return iceSectorImg;
@@ -10614,6 +13791,9 @@ function WorldMap({
     liveSectorPlayers,
     setCurrentSector,
     attackPlayer,
+    sectorAttackPlayer,
+    acceptedMissionIds,
+    missionProgress,
 }: {
     setCurrentBiome: (biome: Biome) => void;
     setScreen: (screen: Screen) => void;
@@ -10631,10 +13811,14 @@ function WorldMap({
     liveSectorPlayers: PlayerRecord[];
     setCurrentSector: (sector: number) => void;
     attackPlayer: (opponent: PlayerRecord) => void;
+    sectorAttackPlayer: (opponent: PlayerRecord) => void;
+    acceptedMissionIds: string[];
+    missionProgress: Record<string, number>;
 }) {
     const [selectedSector, setSelectedSector] = useState<number | null>(null);
     const [selectedVillageTerritory, setSelectedVillageTerritory] = useState<typeof locations[number] | null>(null);
     const [territoryGuards, setTerritoryGuards] = useState<{ name: string; level: number; village: string; defenseBonusPercent?: number }[]>([]);
+    const [sectorEnemyGuards, setSectorEnemyGuards] = useState<{ name: string; level: number; defenseBonusPercent?: number }[]>([]);
 
     useEffect(() => {
         if (!selectedVillageTerritory) { setTerritoryGuards([]); return; }
@@ -10644,6 +13828,18 @@ function WorldMap({
             body: JSON.stringify({ village: selectedVillageTerritory.name }),
         }).then(r => r.ok ? r.json() : []).then(setTerritoryGuards).catch(() => setTerritoryGuards([]));
     }, [selectedVillageTerritory]);
+
+    useEffect(() => {
+        if (!selectedSector) { setSectorEnemyGuards([]); return; }
+        const war = activeVillageWarsFor(character.village).find(w => w.warGroundSector === selectedSector);
+        const enemyVillage = war?.villages.find(v => v !== character.village);
+        if (!enemyVillage) { setSectorEnemyGuards([]); return; }
+        fetch("/api/village-guard/list", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ village: enemyVillage }),
+        }).then(r => r.ok ? r.json() : []).then(setSectorEnemyGuards).catch(() => setSectorEnemyGuards([]));
+    }, [selectedSector, character.village]);
 
     function pickGuardAi(level: number, defenseBonusPercent = 0): string {
         const effectiveLevel = level + Math.floor(defenseBonusPercent * 2);
@@ -10696,9 +13892,11 @@ function WorldMap({
         { id: 46, x: 56, y: 15 }, { id: 47, x: 62, y: 11 }, { id: 48, x: 69, y: 12 }, { id: 49, x: 76, y: 15 }, { id: 50, x: 83, y: 20 },
         { id: 51, x: 58, y: 24 }, { id: 52, x: 65, y: 25 }, { id: 53, x: 72, y: 27 }, { id: 54, x: 80, y: 31 }, { id: 55, x: 88, y: 36 },
         { id: 56, x: 53, y: 43 }, { id: 57, x: 57, y: 49 }, { id: 58, x: 52, y: 55 }, { id: 59, x: 57, y: 61 }, { id: 60, x: 50, y: 67 },
+        { id: 99, x: 51, y: 8 }, // Death's Gate — cursed PvP zone
     ];
 
     function biomeForSector(sector: number): Biome {
+        if (sector === 99) return "volcano"; // Death's Gate — cursed volcanic frontier
         if (sector >= 56) return "central"; // Central meadow
         if (sector <= 20) return "shadow";  // Moonshadow darkness
         if (sector <= 35) return "forest";  // Stormveil water
@@ -10719,7 +13917,7 @@ function WorldMap({
     function enterLandmark(location: typeof locations[number]) {
         setCurrentBiome(location.biome);
         setCurrentWeather(weatherForBiome(location.biome));
-        // Enemy village → territory exploration page; own village & Central → normal landmark
+        // Enemy village ? territory exploration page; own village & Central ? normal landmark
         if (location.type === "village" && location.name !== character.village) {
             setSelectedVillageTerritory(location);
         } else {
@@ -10819,9 +14017,11 @@ function WorldMap({
     }
 
     function exploreSector(sector: number) {
+        const exploredCharacter = { ...character, totalTilesExplored: (character.totalTilesExplored ?? 0) + 1 };
         const petEncounter = rollPetEncounter(editablePets);
 
         if (petEncounter) {
+            updateCharacter(exploredCharacter);
             setSelectedVillageTerritory(null);
             setSelectedSector(sector);
 
@@ -10836,6 +14036,7 @@ function WorldMap({
         if (Math.random() < 0.15) {
             const biome = biomeForSector(sector);
 
+            updateCharacter(exploredCharacter);
             setSelectedVillageTerritory(null);
             setSelectedSector(sector);
 
@@ -10851,12 +14052,36 @@ function WorldMap({
             return;
         }
 
+        // Hunt mission intercept — always triggers the beast AI for this sector
+        const activeHuntMission = builtinHuntMissions.find(
+            (m) =>
+                acceptedMissionIds.includes(m.id) &&
+                m.targetSector === sector &&
+                (missionProgress[m.id] ?? 0) < m.exploreCount,
+        );
+        if (activeHuntMission?.aiProfileId) {
+            const huntAi = playableAis.find((ai) => ai.id === activeHuntMission.aiProfileId);
+            if (huntAi) {
+                const biome = biomeForSector(sector);
+                updateCharacter(exploredCharacter);
+                setCurrentBiome(biome);
+                setCurrentWeather(weatherForSector(sector, biome));
+                setCurrentSector(sector);
+                recordMissionExplore(sector);
+                alert(`🐾 You've tracked down the ${huntAi.name}! Prepare to fight!`);
+                setPendingAiProfileId(huntAi.id);
+                setScreen("arena");
+                return;
+            }
+        }
+
         const battleRoll = Math.random();
 
         // 80% random AI battle chance
         if (battleRoll <= 0.80 && playableAis.length > 0) {
             const randomAi = playableAis[Math.floor(Math.random() * playableAis.length)];
 
+            updateCharacter(exploredCharacter);
             alert(`A hostile shinobi appears: ${randomAi.name}!`);
             setPendingAiProfileId(randomAi.id);
             setScreen("arena");
@@ -10866,7 +14091,7 @@ function WorldMap({
         const biome = biomeForSector(sector);
         const xpReward = 20 + Math.floor(sector / 5);
         const ryoReward = 10 + Math.floor(sector / 4);
-        const leveled = gainXp(character, xpReward);
+        const leveled = gainXp(exploredCharacter, xpReward);
 
         setCurrentBiome(biome);
         setCurrentWeather(weatherForSector(sector, biome));
@@ -10891,25 +14116,6 @@ function WorldMap({
         alert("You recovered in Sector " + sector + ". +" + staminaReward + " stamina.");
     }
 
-    function moveSectorPlayer(direction: "up" | "down" | "left" | "right") {
-        const width = 12;
-        const height = 12;
-
-        const x = sectorPlayerPos % width;
-        const y = Math.floor(sectorPlayerPos / width);
-
-        let nextX = x;
-        let nextY = y;
-
-        if (direction === "up") nextY--;
-        if (direction === "down") nextY++;
-        if (direction === "left") nextX--;
-        if (direction === "right") nextX++;
-
-        if (nextX < 0 || nextX >= width || nextY < 0 || nextY >= height) return;
-
-        setSectorPlayerPos(nextY * width + nextX);
-    }
     function triggerCreatorEvent(event: CreatorEvent) {
         setCurrentBiome(event.biome);
         setCurrentWeather(weatherForBiome(event.biome));
@@ -10969,8 +14175,8 @@ function WorldMap({
                     </div>
                     <div className={"vn-stage vn-biome-forest" + (pageImage ? " vn-has-image" : "")} style={pageImage ? { backgroundImage: `linear-gradient(180deg, rgba(7,12,27,.18), rgba(7,12,27,.78)), url(${pageImage})` } : undefined}>
                         <div className="vn-backdrop"><span className="vn-village-silhouette" /></div>
-                        <div className="vn-character mentor-character">{activePetEncounter.image ? <img src={activePetEncounter.image} alt={activePetEncounter.name} style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} /> : "🐾"}</div>
-                        <div className="vn-character hero-character">{character.name.slice(0, 2).toUpperCase()}</div>
+                        <div className="vn-character mentor-character">{character.avatarImage ? <img src={character.avatarImage} alt={character.name} /> : character.name.slice(0, 2).toUpperCase()}</div>
+                        <div className="vn-character hero-character">{activePetEncounter.image ? <img src={activePetEncounter.image} alt={activePetEncounter.name} /> : "🐾"}</div>
                         <div className="vn-scene-card">{page.scene || vn.vnScene || "Something moves through the undergrowth."}</div>
                         <div className="vn-dialogue">
                             <div className="vn-speaker">{speaker === "Narrator" ? initials : speaker}</div>
@@ -11045,12 +14251,18 @@ function WorldMap({
         const splitLine = activeLine.includes(":") ? activeLine.split(":") : [page.speaker || event.vnSpeaker || "Narrator", activeLine];
         const speaker = splitLine[0].trim();
         const spoken = splitLine.slice(1).join(":").trim() || activeLine;
-        const initials = speaker === "Narrator" ? "..." : speaker.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase();
         const pageImage = page.image || event.image;
+        const savedRightWasPlayer = (page.rightName ?? "").trim().toLowerCase() === "player";
+        const leftName = savedRightWasPlayer ? "Player" : (page.leftName || "Player");
+        const rightName = savedRightWasPlayer ? (page.leftName || page.speaker || event.vnSpeaker || speaker) : (page.rightName || page.speaker || event.vnSpeaker || speaker);
+        const leftInitials = leftName === "Narrator" ? "..." : leftName.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase();
+        const rightInitials = rightName.toLowerCase() === "player" ? character.name.slice(0, 2).toUpperCase() : rightName.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase();
+        const leftImage = savedRightWasPlayer ? character.avatarImage : (page.leftImage || (leftName.toLowerCase() === "player" ? character.avatarImage : ""));
+        const rightImage = savedRightWasPlayer ? (page.leftImage || page.rightImage || event.avatarImage || "") : (page.rightImage || event.avatarImage || "");
         const canBack = creatorEventLine > 0 || creatorEventPage > 0;
         function previousLine() { if (creatorEventLine > 0) return setCreatorEventLine((index) => index - 1); if (creatorEventPage > 0) { const previousPage = pages[creatorEventPage - 1]; setCreatorEventPage((index) => index - 1); setCreatorEventLine(Math.max(0, (previousPage.dialogue.length || 1) - 1)); } }
         function nextLine() { if (creatorEventLine < pageDialogue.length - 1) return setCreatorEventLine((index) => index + 1); if (creatorEventPage < pages.length - 1) { setCreatorEventPage((index) => index + 1); setCreatorEventLine(0); return; } completeCreatorEvent(event); }
-        return <div className="card cinematic-card"><div className="visual-novel admin-vn-play"><div className="vn-header"><div><p className="act-label">ADMIN VISUAL NOVEL EVENT</p><h2>{page.title || event.vnTitle || event.name}</h2></div><div className="vn-progress">Page {creatorEventPage + 1}/{pages.length} | Line {creatorEventLine + 1}/{Math.max(1, pageDialogue.length)}</div></div><div className={"vn-stage vn-biome-" + event.biome + (pageImage ? " vn-has-image" : "")} style={pageImage ? { backgroundImage: `linear-gradient(180deg, rgba(7,12,27,.18), rgba(7,12,27,.78)), url(${pageImage})` } : undefined}><div className="vn-backdrop"><span className="vn-village-silhouette"></span></div><div className="vn-character mentor-character">{initials}</div><div className="vn-character hero-character">{character.name.slice(0, 2).toUpperCase()}</div><div className="vn-scene-card">{page.scene || event.vnScene || "An admin-created scene unfolds across the shinobi world."}</div><div className="vn-dialogue"><div className="vn-speaker">{speaker}</div><p>{spoken}</p><div className="vn-controls"><button disabled={!canBack} onClick={previousLine}>Back</button><button onClick={nextLine}>{creatorEventPage === pages.length - 1 && creatorEventLine >= pageDialogue.length - 1 ? "Complete Event" : "Next"}</button></div></div></div><div className="vn-choice-row"><button onClick={() => { setCreatorEventPage(0); setCreatorEventLine(0); }}>Replay Scene</button><button onClick={() => { setPendingAiProfileId(event.aiProfileId ?? ""); setCurrentBiome(event.biome); setCurrentWeather(weatherForBiome(event.biome)); setScreen("arena"); }}>Battle in {biomeLabel(event.biome)}</button><button onClick={() => completeCreatorEvent(event)}>Claim Reward</button></div><div className="vn-reward-strip"><span>Requirement: Level {event.levelReq}</span><span>Reward: {rewardSummary(event.xpReward, event.ryoReward, event.staminaReward, event.currencyRewards)}</span></div></div></div>;
+        return <div className="card cinematic-card"><div className="visual-novel admin-vn-play"><div className="vn-header"><div><p className="act-label">ADMIN VISUAL NOVEL EVENT</p><h2>{page.title || event.vnTitle || event.name}</h2></div><div className="vn-progress">Page {creatorEventPage + 1}/{pages.length} | Line {creatorEventLine + 1}/{Math.max(1, pageDialogue.length)}</div></div><div className={"vn-stage vn-biome-" + event.biome + (pageImage ? " vn-has-image" : "")} style={pageImage ? { backgroundImage: `linear-gradient(180deg, rgba(7,12,27,.18), rgba(7,12,27,.78)), url(${pageImage})` } : undefined}><div className="vn-backdrop"><span className="vn-village-silhouette"></span></div><div className="vn-character mentor-character">{leftImage ? <img src={leftImage} alt={leftName} /> : leftInitials}</div><div className="vn-character hero-character">{rightImage ? <img src={rightImage} alt={rightName} /> : rightInitials}</div><div className="vn-scene-card">{page.scene || event.vnScene || "An admin-created scene unfolds across the shinobi world."}</div><div className="vn-dialogue"><div className="vn-speaker">{speaker}</div><p>{spoken}</p><div className="vn-controls"><button disabled={!canBack} onClick={previousLine}>Back</button><button onClick={nextLine}>{creatorEventPage === pages.length - 1 && creatorEventLine >= pageDialogue.length - 1 ? "Complete Event" : "Next"}</button></div></div></div><div className="vn-choice-row"><button onClick={() => { setCreatorEventPage(0); setCreatorEventLine(0); }}>Replay Scene</button><button onClick={() => { setPendingAiProfileId(event.aiProfileId ?? ""); setCurrentBiome(event.biome); setCurrentWeather(weatherForBiome(event.biome)); setScreen("arena"); }}>Battle in {biomeLabel(event.biome)}</button><button onClick={() => completeCreatorEvent(event)}>Claim Reward</button></div><div className="vn-reward-strip"><span>Requirement: Level {event.levelReq}</span><span>Reward: {rewardSummary(event.xpReward, event.ryoReward, event.staminaReward, event.currencyRewards)}</span></div></div></div>;
     }
     if (activeChest && !chestVnDone) {
         const biome = biomeForSector(selectedSector ?? 40);
@@ -11106,14 +14318,14 @@ function WorldMap({
                 <div className="visual-novel admin-vn-play">
                     <div className="vn-header">
                         <div>
-                            <p className="act-label">📦 ANCIENT CHEST DISCOVERED</p>
+                            <p className="act-label">🧰 ANCIENT CHEST DISCOVERED</p>
                             <h2>{page.title}</h2>
                         </div>
                         <div className="vn-progress">Page {chestVnPage + 1}/{vnPages.length} | Line {chestVnLine + 1}/{pageDialogue.length}</div>
                     </div>
                     <div className={`vn-stage vn-biome-${biome}`}>
                         <div className="vn-backdrop"><span className="vn-village-silhouette" /></div>
-                        <div className="vn-character mentor-character">📦</div>
+                        <div className="vn-character mentor-character">🧰</div>
                         <div className="vn-character hero-character">{character.name.slice(0, 2).toUpperCase()}</div>
                         <div className="vn-scene-card">{page.scene}</div>
                         <div className="vn-dialogue">
@@ -11139,18 +14351,18 @@ function WorldMap({
             { icon: "⭐", label: `+${activeChest.xp} XP`, sub: "Experience" },
         ];
         if (activeChest.ryo) rewards.push({ icon: "💰", label: `+${activeChest.ryo} Ryo`, sub: "Ancient gold" });
-        if (lootItem) rewards.push({ icon: stackableItemIds.has(lootItem.id) ? "🍖" : lootItem.rarity === "rare" ? "💜" : "📦", label: lootItem.name, sub: `${lootItem.rarity.charAt(0).toUpperCase() + lootItem.rarity.slice(1)} ${lootItem.slot} · ${lootItem.description.slice(0, 40)}` });
-        if (lootCard) rewards.push({ icon: lootCard.rarity === "rare" ? "💜" : "🃏", label: `${lootCard.name}${alreadyHaveCard ? " (duplicate)" : ""}`, sub: `${lootCard.rarity.charAt(0).toUpperCase() + lootCard.rarity.slice(1)} · ${lootCard.element} · Power ${lootCard.power}` });
-        if (activeChest.fateShards) rewards.push({ icon: "✨", label: "+1 Fate Shard", sub: "Premium currency" });
+        if (lootItem) rewards.push({ icon: stackableItemIds.has(lootItem.id) ? "🎒" : lootItem.rarity === "rare" ? "🔷" : "📦", label: lootItem.name, sub: `${lootItem.rarity.charAt(0).toUpperCase() + lootItem.rarity.slice(1)} ${lootItem.slot} · ${lootItem.description.slice(0, 40)}` });
+        if (lootCard) rewards.push({ icon: lootCard.rarity === "rare" ? "🃏" : "✨", label: `${lootCard.name}${alreadyHaveCard ? " (duplicate)" : ""}`, sub: `${lootCard.rarity.charAt(0).toUpperCase() + lootCard.rarity.slice(1)} · ${lootCard.element} · T:${lootCard.top} R:${lootCard.right} B:${lootCard.bottom} L:${lootCard.left}` });
+        if (activeChest.fateShards) rewards.push({ icon: "✦", label: "+1 Fate Shard", sub: "Premium currency" });
         if (activeChest.boneCharms) rewards.push({ icon: "🦴", label: "+1 Bone Charm", sub: "Awakening Stone material" });
-        if (activeChest.auraStones) rewards.push({ icon: "🌟", label: "+1 Aura Stone", sub: "Awakening Stone material" });
-        if (activeChest.auraDust) rewards.push({ icon: "🌫️", label: `+${activeChest.auraDust} Aura Dust`, sub: "Feeds the Aura Sphere" });
+        if (activeChest.auraStones) rewards.push({ icon: "🔷", label: "+1 Aura Stone", sub: "Awakening Stone material" });
+        if (activeChest.auraDust) rewards.push({ icon: "✨", label: `+${activeChest.auraDust} Aura Dust`, sub: "Feeds the Aura Sphere" });
 
         return (
             <div className="card cinematic-card ancient-chest-reveal-card">
                 <div className="chest-reveal">
                     <div className="chest-reveal-header">
-                        <p className="act-label">📦 ANCIENT CHEST CONTENTS</p>
+                        <p className="act-label">🧰 ANCIENT CHEST CONTENTS</p>
                         <h2 className="chest-reveal-title">The chest yields its secrets</h2>
                         <p className="chest-reveal-sub">A relic of the shinobi wars, now yours to keep.</p>
                     </div>
@@ -11166,7 +14378,7 @@ function WorldMap({
                         ))}
                     </div>
                     <button className="chest-claim-btn" onClick={() => claimChest(activeChest)}>
-                        ✨ Claim All Rewards
+                        ✓ Claim All Rewards
                     </button>
                 </div>
             </div>
@@ -11176,6 +14388,9 @@ function WorldMap({
     if (selectedSector) {
         const biome = biomeForSector(selectedSector);
         const sectorWeather = weatherForSector(selectedSector, biome);
+        const territory = loadSectorTerritory(selectedSector);
+        const villageWar = activeVillageWarsFor(character.village).find(war => war.warGroundSector === selectedSector);
+        const villageWarEnemy = villageWar?.villages.find(village => village !== character.village);
         const sectorPlayers = liveSectorPlayers.length > 0
             ? liveSectorPlayers.filter((p) => p.name !== character.name)
             : playerRoster
@@ -11196,24 +14411,36 @@ function WorldMap({
                         <div
                             className="pixel-map walkable-sector-map sector-image-map"
                             style={{
-                                backgroundImage: `url(${sectorBackgroundImage(selectedSector)})`,
+                                backgroundImage: `url(${territory.backgroundImage || sectorBackgroundImage(selectedSector)})`,
                             }}
                         >
                             {Array.from({ length: 144 }).map((_, index) => {
                                 const isPlayer = index === sectorPlayerPos;
+                                const otherHere = sectorPlayers.filter(p => playerNameTile(p.name) === index);
 
                                 return (
                                     <button
                                         key={index}
-                                        className={`scene-tile walkable-tile transparent-sector-tile ${isPlayer ? "sector-player-tile" : ""}`}
+                                        title={otherHere.length > 0 ? otherHere.map(p => `${p.name} (Lv ${p.level})`).join(", ") : undefined}
+                                        className={`scene-tile walkable-tile transparent-sector-tile ${isPlayer ? "sector-player-tile" : ""} ${otherHere.length > 0 ? "sector-other-tile" : ""}`}
                                         onClick={() => setSectorPlayerPos(index)}
                                     >
                                         {isPlayer ? (
-                                            character.avatarImage ? (
-                                                <img className="tiny-map-avatar" src={character.avatarImage} alt={character.name} />
-                                            ) : (
-                                                "🥷"
-                                            )
+                                            character.avatarImage
+                                                ? <img className="tiny-map-avatar" src={character.avatarImage} alt={character.name} />
+                                                : "✦"
+                                        ) : otherHere.length > 0 ? (
+                                            <div className="other-players-map-stack">
+                                                {otherHere.map(p => (
+                                                    <div key={p.name} className="other-player-map-dot" title={`${p.name} Lv ${p.level}`}>
+                                                        {p.character.avatarImage
+                                                            ? <img className="tiny-map-avatar other-player-map-avatar" src={p.character.avatarImage} alt={p.name} />
+                                                            : <span className="other-player-map-emoji">🥷</span>
+                                                        }
+                                                        <span className="other-player-map-name">{p.name}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
                                         ) : ""}
                                     </button>
                                 );
@@ -11224,34 +14451,93 @@ function WorldMap({
                     <aside className="instance-actions">
                         <h3>Sector {selectedSector}</h3>
                         <p>{weatherEffects[sectorWeather].effect}</p>
+                        <section className="summary-box">
+                            <h4>Territory Control</h4>
+                            <p><strong>Owner:</strong> {territory.ownerClan ? `${territory.ownerClan} (${territory.ownerVillage})` : "Unclaimed"}</p>
+                            <div className="town-upgrade-bar"><span style={{ width: `${(territory.controlScore / TERRITORY_CONTROL_MAX) * 100}%` }} /></div>
+                            <p>Control: {territory.controlScore.toLocaleString()} / {TERRITORY_CONTROL_MAX.toLocaleString()}</p>
+                            <div className="bar enemy-bar"><span style={{ width: `${(territory.hp / TERRITORY_HP_MAX) * 100}%` }} /></div>
+                            <p>HP: {territory.hp.toLocaleString()} / {TERRITORY_HP_MAX.toLocaleString()}</p>
+                            <p>Guards: {territory.guards.length ? territory.guards.join(", ") : "None"}</p>
+                            {villageWar && (
+                                <div className="summary-box">
+                                    <h4>Village War Ground</h4>
+                                    <p>{character.village} vs {villageWarEnemy}</p>
+                                    <p>War Ground HP: {villageWar.warGroundHp.toLocaleString()} / {VILLAGE_WAR_GROUND_HP_MAX.toLocaleString()}</p>
+                                    <p>{villageWarEnemy} HP: {villageWarEnemy ? villageWar.hp[villageWarEnemy].toLocaleString() : 0} / {VILLAGE_WAR_HP_MAX.toLocaleString()}</p>
+                                    <button className="danger-button" disabled={villageWar.warGroundHp <= 0 || Boolean(villageWar.endedAt)} onClick={() => {
+                                        const guard = sectorEnemyGuards[0];
+                                        setPendingAiProfileId(pickGuardAi(guard ? guard.level : character.level, guard?.defenseBonusPercent ?? 0));
+                                        setRaidBattleKind("raidAi");
+                                        setCurrentSector(selectedSector);
+                                        setCurrentBiome(biome);
+                                        setCurrentWeather(sectorWeather);
+                                        setScreen("arena");
+                                    }}>
+                                        Raid Enemy Village
+                                    </button>
+                                </div>
+                            )}
+                            {territory.ownerClan && territory.ownerClan !== character.clan && (
+                                <button className="danger-button" onClick={() => {
+                                    setPendingAiProfileId(pickGuardAi(character.level));
+                                    setRaidBattleKind("raidAi");
+                                    setCurrentSector(selectedSector);
+                                    setCurrentBiome(biome);
+                                    setCurrentWeather(sectorWeather);
+                                    setScreen("arena");
+                                }}>
+                                    Raid Controlled Sector
+                                </button>
+                            )}
+                        </section>
                         <section className="sector-presence">
                             <h4>Players Here {liveSectorPlayers.length > 0 && <span className="live-badge">LIVE</span>}</h4>
                             {sectorPlayers.length === 0 ? (
                                 <span>No other players in this sector.</span>
                             ) : (
-                                sectorPlayers.map((player) => (
-                                    <div className="sector-player-card" key={player.name}>
-                                        <div className="sector-player-info">
-                                            <strong>{player.name}</strong>
-                                            <small>Lv {player.level} · {player.village}</small>
-                                            <small>HP {player.character.hp}/{player.character.maxHp}</small>
+                                sectorPlayers.map((player) => {
+                                    const avatar = player.character.avatarImage;
+                                    const isImage = avatar && avatar.startsWith("http");
+                                    return (
+                                        <div className="sector-player-card" key={player.name}>
+                                            <div className="sector-player-avatar">
+                                                {isImage
+                                                    ? <img src={avatar} alt={player.name} className="sector-player-avatar-img" />
+                                                    : <span className="sector-player-avatar-emoji">{avatar || "🥷"}</span>
+                                                }
+                                            </div>
+                                            <div className="sector-player-info">
+                                                <strong>{player.name}</strong>
+                                                <small>Lv {player.level} · {player.village}</small>
+                                                <small>HP {player.character.hp}/{player.character.maxHp}</small>
+                                            </div>
+                                            <button className="danger-button" onClick={() => attackPlayer(player)}>⚔️ Challenge</button>
                                         </div>
-                                        <button className="danger-button" onClick={() => attackPlayer(player)}>Attack</button>
-                                    </div>
-                                ))
+                                    );
+                                })
                             )}
                         </section>
                         <button onClick={() => exploreSector(selectedSector)}>Explore Tile</button>
                         <button onClick={() => restInSector(selectedSector)}>Recover</button>
-                        <button
-                            onClick={() => {
-                                setCurrentBiome(biome);
-                                setCurrentWeather(sectorWeather);
-                                setScreen("arena");
-                            }}
-                        >
-                            Battle
-                        </button>
+                        {sectorPlayers.length > 0 ? (
+                            <button
+                                className="danger-button"
+                                onClick={() => {
+                                    setCurrentSector(selectedSector!);
+                                    setCurrentBiome(biome);
+                                    setCurrentWeather(sectorWeather);
+                                    sectorAttackPlayer(sectorPlayers[0]);
+                                    setScreen("arena");
+                                }}
+                            >
+                                ⚔️ Attack {sectorPlayers[0].name}
+                            </button>
+                        ) : (
+                            <button className="danger-button" disabled style={{ opacity: 0.45 }}>
+                                ⚔️ No Players in Sector
+                            </button>
+                        )}
                         <button onClick={() => setSelectedSector(null)}>Leave</button>
                     </aside>
                 </div>
@@ -11291,7 +14577,7 @@ function WorldMap({
                                             character.avatarImage ? (
                                                 <img className="tiny-map-avatar" src={character.avatarImage} alt={character.name} />
                                             ) : (
-                                                "🥷"
+                                                "✦"
                                             )
                                         ) : ""}
                                     </button>
@@ -11337,7 +14623,13 @@ function WorldMap({
                             ) : (
                                 <>
                                     <p className="territory-guard-label" style={{ color: "#475569" }}>Village Undefended</p>
-                                    <button onClick={() => { setRaidBattleKind("raidAi"); setCurrentBiome(biome); setCurrentWeather(weather); setScreen("arena"); }}>
+                                    <button onClick={() => {
+                                        setPendingAiProfileId(pickGuardAi(character.level));
+                                        setRaidBattleKind("raidAi");
+                                        setCurrentBiome(biome);
+                                        setCurrentWeather(weather);
+                                        setScreen("arena");
+                                    }}>
                                         Raid {loc.name.split(" ")[0]}
                                     </button>
                                 </>
@@ -11434,12 +14726,16 @@ function WorldMap({
                 {sectorPoints.map((sector) => (
                     <button
                         key={sector.id}
-                        className={"atlas-sector atlas-sector-" + biomeForSector(sector.id)}
+                        className={
+                            sector.id === 99
+                                ? "atlas-sector atlas-sector-deaths-gate"
+                                : "atlas-sector atlas-sector-" + biomeForSector(sector.id)
+                        }
                         style={{ left: sector.x + "%", top: sector.y + "%" }}
                         onClick={() => triggerTravelPoint(sector.id)}
-                        title={`Sector ${sector.id} | ${weatherEffects[weatherForSector(sector.id, biomeForSector(sector.id))].name}`}
+                        title={sector.id === 99 ? "Death's Gate — PvP zone: 2× XP, Ryo & Jutsu XP · 5% Bone Charm on win" : `Sector ${sector.id} | ${weatherEffects[weatherForSector(sector.id, biomeForSector(sector.id))].name}`}
                     >
-                        {sector.id === 35 ? "🎪" : sector.id}
+                        {sector.id === 99 ? "☠️" : sector.id === 35 ? "🏯" : sector.id}
                     </button>
                 ))}
 
@@ -11467,7 +14763,7 @@ function WorldMap({
                                 className="location-button"
                                 onClick={() => triggerCreatorEvent(event)}
                             >
-                                <span className="tile-icon">{event.icon}</span>
+                                <CardVisual image={event.image || event.avatarImage} icon={event.icon} label={event.name} />
                                 <span>{event.name}</span>
                                 <small>Lvl {event.levelReq} | {event.biome} | {rewardSummary(event.xpReward, event.ryoReward, event.staminaReward, event.currencyRewards)}</small>
                             </button>
@@ -11476,7 +14772,7 @@ function WorldMap({
                 </div>
             )}
 
-            {/* ── Ancient Chest — VN Scene ──────────────────────────── */}
+            {/* -- Ancient Chest — VN Scene ---------------------------- */}
             {activeChest && !chestVnDone && (() => {
                 const biome = biomeForSector(selectedSector ?? 40);
                 const biomeLabel = biome === "snow" ? "frozen tundra" : biome === "volcano" ? "volcanic ash fields" : biome === "shadow" ? "shadowed ruins" : biome === "central" ? "ancient central district" : "dense forest";
@@ -11530,14 +14826,14 @@ function WorldMap({
                         <div className="visual-novel admin-vn-play">
                             <div className="vn-header">
                                 <div>
-                                    <p className="act-label">📦 ANCIENT CHEST DISCOVERED</p>
+                                    <p className="act-label">🧰 ANCIENT CHEST DISCOVERED</p>
                                     <h2>{page.title}</h2>
                                 </div>
                                 <div className="vn-progress">Page {chestVnPage + 1}/{vnPages.length} | Line {chestVnLine + 1}/{pageDialogue.length}</div>
                             </div>
                             <div className={`vn-stage vn-biome-${biome}`}>
                                 <div className="vn-backdrop"><span className="vn-village-silhouette" /></div>
-                                <div className="vn-character mentor-character">📦</div>
+                                <div className="vn-character mentor-character">🧰</div>
                                 <div className="vn-character hero-character">{character.name.slice(0, 2).toUpperCase()}</div>
                                 <div className="vn-scene-card">{page.scene}</div>
                                 <div className="vn-dialogue">
@@ -11554,7 +14850,7 @@ function WorldMap({
                 );
             })()}
 
-            {/* ── Ancient Chest — Loot Reveal ───────────────────────── */}
+            {/* -- Ancient Chest — Loot Reveal ------------------------- */}
             {activeChest && chestVnDone && (() => {
                 const allCards = getAllTileCards([]);
                 const lootItem = activeChest.itemId ? starterItems.find((i) => i.id === activeChest.itemId) : null;
@@ -11564,17 +14860,17 @@ function WorldMap({
                     { icon: "⭐", label: `+${activeChest.xp} XP`, sub: "Experience" },
                 ];
                 if (activeChest.ryo) rewards.push({ icon: "💰", label: `+${activeChest.ryo} Ryo`, sub: "Ancient gold" });
-                if (lootItem) rewards.push({ icon: stackableItemIds.has(lootItem.id) ? "🍖" : lootItem.rarity === "rare" ? "💜" : "📦", label: lootItem.name, sub: `${lootItem.rarity.charAt(0).toUpperCase() + lootItem.rarity.slice(1)} ${lootItem.slot} · ${lootItem.description.slice(0, 40)}` });
-                if (lootCard) rewards.push({ icon: lootCard.rarity === "rare" ? "💜" : "🃏", label: `${lootCard.name}${alreadyHaveCard ? " (duplicate)" : ""}`, sub: `${lootCard.rarity.charAt(0).toUpperCase() + lootCard.rarity.slice(1)} · ${lootCard.element} · Power ${lootCard.power}` });
-                if (activeChest.fateShards) rewards.push({ icon: "✨", label: "+1 Fate Shard", sub: "Premium currency" });
+                if (lootItem) rewards.push({ icon: stackableItemIds.has(lootItem.id) ? "🎒" : lootItem.rarity === "rare" ? "🔷" : "📦", label: lootItem.name, sub: `${lootItem.rarity.charAt(0).toUpperCase() + lootItem.rarity.slice(1)} ${lootItem.slot} · ${lootItem.description.slice(0, 40)}` });
+                if (lootCard) rewards.push({ icon: lootCard.rarity === "rare" ? "🃏" : "✨", label: `${lootCard.name}${alreadyHaveCard ? " (duplicate)" : ""}`, sub: `${lootCard.rarity.charAt(0).toUpperCase() + lootCard.rarity.slice(1)} · ${lootCard.element} · T:${lootCard.top} R:${lootCard.right} B:${lootCard.bottom} L:${lootCard.left}` });
+                if (activeChest.fateShards) rewards.push({ icon: "✦", label: "+1 Fate Shard", sub: "Premium currency" });
                 if (activeChest.boneCharms) rewards.push({ icon: "🦴", label: "+1 Bone Charm", sub: "Awakening Stone material" });
-                if (activeChest.auraStones) rewards.push({ icon: "🌟", label: "+1 Aura Stone", sub: "Awakening Stone material" });
-                if (activeChest.auraDust) rewards.push({ icon: "🌫️", label: `+${activeChest.auraDust} Aura Dust`, sub: "Feeds the Aura Sphere" });
+                if (activeChest.auraStones) rewards.push({ icon: "🔷", label: "+1 Aura Stone", sub: "Awakening Stone material" });
+                if (activeChest.auraDust) rewards.push({ icon: "✨", label: `+${activeChest.auraDust} Aura Dust`, sub: "Feeds the Aura Sphere" });
                 return (
                     <div className="card cinematic-card">
                         <div className="chest-reveal">
                             <div className="chest-reveal-header">
-                                <p className="act-label">📦 ANCIENT CHEST CONTENTS</p>
+                                <p className="act-label">🧰 ANCIENT CHEST CONTENTS</p>
                                 <h2 className="chest-reveal-title">The chest yields its secrets</h2>
                                 <p className="chest-reveal-sub">A relic of the shinobi wars, now yours to keep.</p>
                             </div>
@@ -11590,7 +14886,7 @@ function WorldMap({
                                 ))}
                             </div>
                             <button className="chest-claim-btn" onClick={() => claimChest(activeChest)}>
-                                ✨ Claim All Rewards
+                                ✓ Claim All Rewards
                             </button>
                         </div>
                     </div>
@@ -11600,7 +14896,7 @@ function WorldMap({
     );
 }
 
-function StoryHall({ character, setScreen }: { character: Character; setScreen: (screen: Screen) => void }) {
+function StoryHall({ character, setScreen, onStartBattle }: { character: Character; setScreen: (screen: Screen) => void; onStartBattle: (step: StoryStep) => void }) {
     const storyLine = storylines[character.storyVillage || character.village] || [];
     const current = getCurrentStory(character);
     const [lineIndex, setLineIndex] = useState(0);
@@ -11611,7 +14907,7 @@ function StoryHall({ character, setScreen }: { character: Character; setScreen: 
     const speaker = splitLine[0].trim();
     const spoken = splitLine.slice(1).join(":").trim() || activeLine;
     const speakerInitials = speaker === "Narrator" ? "..." : speaker.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase();
-    return <div className="card cinematic-card"><div className="visual-novel"><div className="vn-header"><div><p className="act-label">{current.cinematicTitle}</p><h2>{current.title}</h2></div><div className="vn-progress">Chapter {character.storyProgress + 1}/{storyLine.length}</div></div><div className="vn-stage"><div className="vn-backdrop"><span className="vn-moon"></span><span className="vn-village-silhouette"></span></div><div className="vn-character mentor-character">{speakerInitials}</div><div className="vn-character hero-character">{character.name.slice(0, 2).toUpperCase()}</div><div className="vn-scene-card">{current.scene}</div><div className="vn-dialogue"><div className="vn-speaker">{speaker}</div><p>{spoken}</p><div className="vn-controls"><button disabled={lineIndex === 0} onClick={() => setLineIndex((index) => Math.max(0, index - 1))}>Back</button>{lineIndex < current.dialogue.length - 1 ? <button onClick={() => setLineIndex((index) => Math.min(current.dialogue.length - 1, index + 1))}>Next</button> : locked ? <button disabled>Requires Level {current.levelReq}</button> : <button onClick={() => setScreen("storyBoss")}>Face {current.bossName}</button>}</div></div></div><div className="vn-choice-row"><button onClick={() => setLineIndex(0)}>Replay Scene</button><button onClick={() => setScreen("worldMap")}>Investigate World Map</button><button disabled={locked} onClick={() => setScreen("storyBoss")}>{current.bossIcon} Boss: {current.bossName}</button></div><div className="vn-reward-strip"><span>Requirement: Level {current.levelReq}</span><span>Reward: {current.rewardXp} XP / {current.rewardRyo} ryo</span></div></div></div>;
+    return <div className="card cinematic-card"><div className="visual-novel"><div className="vn-header"><div><p className="act-label">{current.cinematicTitle}</p><h2>{current.title}</h2></div><div className="vn-progress">Chapter {character.storyProgress + 1}/{storyLine.length}</div></div><div className="vn-stage"><div className="vn-backdrop"><span className="vn-moon"></span><span className="vn-village-silhouette"></span></div><div className="vn-character mentor-character">{character.avatarImage ? <img src={character.avatarImage} alt={character.name} /> : character.name.slice(0, 2).toUpperCase()}</div><div className="vn-character hero-character">{speakerInitials}</div><div className="vn-scene-card">{current.scene}</div><div className="vn-dialogue"><div className="vn-speaker">{speaker}</div><p>{spoken}</p><div className="vn-controls"><button disabled={lineIndex === 0} onClick={() => setLineIndex((index) => Math.max(0, index - 1))}>Back</button>{lineIndex < current.dialogue.length - 1 ? <button onClick={() => setLineIndex((index) => Math.min(current.dialogue.length - 1, index + 1))}>Next</button> : locked ? <button disabled>Requires Level {current.levelReq}</button> : <button onClick={() => onStartBattle(current)}>Face {current.bossName}</button>}</div></div></div><div className="vn-choice-row"><button onClick={() => setLineIndex(0)}>Replay Scene</button><button onClick={() => setScreen("worldMap")}>Investigate World Map</button><button disabled={locked} onClick={() => onStartBattle(current)}>{current.bossIcon} Boss: {current.bossName}</button></div><div className="vn-reward-strip"><span>Requirement: Level {current.levelReq}</span><span>Reward: {current.rewardXp} XP / {current.rewardRyo} ryo</span></div></div></div>;
 }
 
 function StoryBoss({ character, updateCharacter, setScreen }: { character: Character; updateCharacter: (character: Character) => void; setScreen: (screen: Screen) => void }) {
@@ -11626,35 +14922,166 @@ function StoryBoss({ character, updateCharacter, setScreen }: { character: Chara
     const activeAuraBonuses = getActiveAuraSphereBonuses(character);
     const basicAttackDamage = boostAmount(Math.floor(35 + getOffenseStat(character.stats, character.specialty) * 0.08), activeAuraBonuses.pveDamagePercent);
     const chakraStrikeDamage = boostAmount(Math.floor(65 + getOffenseStat(character.stats, character.specialty) * 0.12), activeAuraBonuses.pveDamagePercent);
-    function winBossFight(newPlayerHp: number) { const leveled = gainXp({ ...character, hp: newPlayerHp }, storyStep.rewardXp); updateCharacter({ ...leveled, ryo: leveled.ryo + storyStep.rewardRyo, auraDust: (leveled.auraDust ?? 0) + 12, hp: Math.min(leveled.maxHp, newPlayerHp + 25), stamina: Math.min(leveled.maxStamina, leveled.stamina + 20), chakra: Math.min(leveled.maxChakra, leveled.chakra + 20), storyProgress: character.storyProgress + 1 }); setLog(`${storyStep.bossName} defeated. +${storyStep.rewardXp} XP, +${storyStep.rewardRyo} ryo, +12 Aura Dust. Story advanced.`); }
+    function winBossFight(newPlayerHp: number) {
+        const leveled = gainXp({ ...character, hp: newPlayerHp }, storyStep.rewardXp);
+        let nextCharacter: Character = {
+            ...leveled,
+            ryo: leveled.ryo + storyStep.rewardRyo,
+            auraDust: (leveled.auraDust ?? 0) + 12,
+            hp: Math.min(leveled.maxHp, newPlayerHp + 25),
+            stamina: Math.min(leveled.maxStamina, leveled.stamina + 20),
+            chakra: Math.min(leveled.maxChakra, leveled.chakra + 20),
+            storyProgress: character.storyProgress + 1,
+        };
+        if (storyStep.kageFinale) {
+            unlockVillageKageSystem(character.village, character.name);
+            nextCharacter = { ...nextCharacter, storyTitle: storyStep.liberatorTitle ?? nextCharacter.storyTitle, rankTitle: storyStep.liberatorTitle ?? nextCharacter.rankTitle };
+        }
+        updateCharacter(nextCharacter);
+        setLog(`${storyStep.bossName} defeated. +${storyStep.rewardXp} XP, +${storyStep.rewardRyo} ryo, +12 Aura Dust. Story advanced.`);
+    }
     function bossCounter() { if (bossHp <= 0) return; const damage = Math.max(5, storyStep.bossDamage + Math.floor(turn * 2)); const afterHit = Math.max(0, playerHp - damage); setPlayerHp(afterHit); updateCharacter({ ...character, hp: afterHit }); if (afterHit <= 0) return setLog(`${storyStep.bossName} defeated you. Visit the Hospital and try again.`); setTurn((t) => t + 1); setAp(100); setLog(`${storyStep.bossName} counters for ${damage} damage.`); }
     function basicAttack() { if (ap < 40) return setLog("Not enough AP."); const newBossHp = Math.max(0, bossHp - basicAttackDamage); setBossHp(newBossHp); setAp((c) => c - 40); setEffect("⚔️"); if (newBossHp <= 0) return winBossFight(playerHp); setLog(`You strike ${storyStep.bossName} for ${basicAttackDamage} damage.`); }
     function chakraStrike() { if (ap < 60) return setLog("Not enough AP."); if (character.chakra < 20) return setLog("Not enough chakra."); const newBossHp = Math.max(0, bossHp - chakraStrikeDamage); setBossHp(newBossHp); setAp((c) => c - 60); setEffect("💠"); updateCharacter({ ...character, chakra: Math.max(0, character.chakra - 20) }); if (newBossHp <= 0) return winBossFight(playerHp); setLog(`You unleash a chakra strike for ${chakraStrikeDamage} damage. -20 chakra.`); }
     function guard() { if (ap < 30) return setLog("Not enough AP."); const reducedDamage = Math.max(1, Math.floor(storyStep.bossDamage * 0.45)); const afterHit = Math.max(0, playerHp - reducedDamage); setPlayerHp(afterHit); setAp(100); setTurn((t) => t + 1); setEffect("🛡️"); updateCharacter({ ...character, hp: afterHit }); setLog(`You guard. ${storyStep.bossName} only deals ${reducedDamage} damage.`); }
-    function recover() { if (ap < 50) return setLog("Not enough AP."); const heal = 35 + Math.floor(character.stats.willpower * 0.05); const newHp = Math.min(character.maxHp, playerHp + heal); setPlayerHp(newHp); setAp((c) => c - 50); setEffect("💚"); updateCharacter({ ...character, hp: newHp, chakra: Math.min(character.maxChakra, character.chakra + 15) }); setLog(`You recover your breathing. +${heal} HP and +15 chakra.`); }
-    return <div className="card cinematic-card"><div className="boss-stage">{effect && <div className="combat-effect">{effect}</div>}<div className="cinematic-panel"><p className="act-label">{storyStep.cinematicTitle}</p><h2>{storyStep.bossIcon} {storyStep.bossName}</h2><p className="scene-text">{storyStep.scene}</p></div><div className="combat-stats"><div><strong>{character.name}</strong><div className="bar-label">HP {playerHp}/{character.maxHp}</div><div className="bar"><span style={{ width: `${(playerHp / character.maxHp) * 100}%` }}></span></div><div className="bar-label">Chakra {character.chakra}/{character.maxChakra}</div><div className="bar ap-bar"><span style={{ width: `${(character.chakra / character.maxChakra) * 100}%` }}></span></div><p>AP: {ap}/100</p></div><div><strong>{storyStep.bossName}</strong><div className="bar-label">HP {bossHp}/{storyStep.bossHp}</div><div className="bar enemy-bar"><span style={{ width: `${(bossHp / storyStep.bossHp) * 100}%` }}></span></div><p>Boss Damage: {storyStep.bossDamage}</p><p>Turn: {turn}</p></div></div><div className="jutsu-combat-grid"><button onClick={basicAttack}><span className="jutsu-icon">⚔️</span><strong>Basic Attack</strong><small>40 AP / no chakra</small></button><button onClick={chakraStrike}><span className="jutsu-icon">💠</span><strong>Chakra Strike</strong><small>60 AP / -20 chakra</small></button><button onClick={guard}><span className="jutsu-icon">🛡️</span><strong>Guard</strong><small>30 AP / reduce damage</small></button><button onClick={recover}><span className="jutsu-icon">💚</span><strong>Recover</strong><small>50 AP / heal + chakra</small></button></div><div className="menu"><button onClick={bossCounter}>End Turn</button><button onClick={() => setScreen("storyHall")}>Back to Story</button></div><div className="log">{log}</div></div></div>;
+    function recover() { if (ap < 50) return setLog("Not enough AP."); const heal = 35 + Math.floor(character.stats.willpower * 0.05); const newHp = Math.min(character.maxHp, playerHp + heal); setPlayerHp(newHp); setAp((c) => c - 50); setEffect("❤️"); updateCharacter({ ...character, hp: newHp, chakra: Math.min(character.maxChakra, character.chakra + 15) }); setLog(`You recover your breathing. +${heal} HP and +15 chakra.`); }
+    return <div className="card cinematic-card"><div className="boss-stage">{effect && <div className="combat-effect">{effect}</div>}<div className="cinematic-panel"><p className="act-label">{storyStep.cinematicTitle}</p><h2>{storyStep.bossIcon} {storyStep.bossName}</h2><p className="scene-text">{storyStep.scene}</p></div><div className="combat-stats"><div><strong>{character.name}</strong><div className="bar-label">HP {playerHp}/{character.maxHp}</div><div className="bar"><span style={{ width: `${(playerHp / character.maxHp) * 100}%` }}></span></div><div className="bar-label">Chakra {character.chakra}/{character.maxChakra}</div><div className="bar ap-bar"><span style={{ width: `${(character.chakra / character.maxChakra) * 100}%` }}></span></div><p>AP: {ap}/100</p></div><div><strong>{storyStep.bossName}</strong><div className="bar-label">HP {bossHp}/{storyStep.bossHp}</div><div className="bar enemy-bar"><span style={{ width: `${(bossHp / storyStep.bossHp) * 100}%` }}></span></div><p>Boss Damage: {storyStep.bossDamage}</p><p>Turn: {turn}</p></div></div><div className="jutsu-combat-grid"><button onClick={basicAttack}><span className="jutsu-icon">⚔️</span><strong>Basic Attack</strong><small>40 AP / no chakra</small></button><button onClick={chakraStrike}><span className="jutsu-icon">💠</span><strong>Chakra Strike</strong><small>60 AP / -20 chakra</small></button><button onClick={guard}><span className="jutsu-icon">🛡️</span><strong>Guard</strong><small>30 AP / reduce damage</small></button><button onClick={recover}><span className="jutsu-icon">❤️</span><strong>Recover</strong><small>50 AP / heal + chakra</small></button></div><div className="menu"><button onClick={bossCounter}>End Turn</button><button onClick={() => setScreen("storyHall")}>Back to Story</button></div><div className="log">{log}</div></div></div>;
 }
 
 function Training({ character, updateCharacter, activeTraining, setActiveTraining }: { character: Character; updateCharacter: (character: Character) => void; activeTraining: ActiveTraining | null; setActiveTraining: (training: ActiveTraining | null) => void }) {
     const [selectedStat, setSelectedStat] = useState<keyof Stats>("strength");
-    const trainingStats = Object.keys(baseStats()).map((key) => ({ label: key, stat: key as keyof Stats, icon: "🏋️" }));
+    const trainingStats = Object.keys(baseStats()).map((key) => ({ label: key, stat: key as keyof Stats, icon: "⏱️" }));
     const timers = [{ label: "15 Minutes", ms: 15 * 60 * 1000, xp: 20, statGain: 1, staminaCost: 5 }, { label: "1 Hour", ms: 60 * 60 * 1000, xp: 70, statGain: 3, staminaCost: 15 }, { label: "4 Hours", ms: 4 * 60 * 60 * 1000, xp: 220, statGain: 8, staminaCost: 35 }, { label: "8 Hours", ms: 8 * 60 * 60 * 1000, xp: 375, statGain: 14, staminaCost: 60 }];
     const trainingXpBonus = getTrainingXpBonus(character);
     function startTraining(timer: typeof timers[number]) { if (activeTraining) return alert("You are already training."); if (character.stamina < timer.staminaCost) return alert("Not enough stamina."); const boostedXp = boostAmount(timer.xp, trainingXpBonus); updateCharacter({ ...character, stamina: character.stamina - timer.staminaCost }); setActiveTraining({ label: `${timer.label} ${selectedStat} Training`, stat: selectedStat, xp: boostedXp, statGain: timer.statGain, staminaCost: timer.staminaCost, endsAt: Date.now() + timer.ms }); }
-    function completeTraining() { if (!activeTraining) return; if (Date.now() < activeTraining.endsAt) return alert(`Training still has ${Math.ceil((activeTraining.endsAt - Date.now()) / 1000)} seconds left.`); const leveled = gainXp(character, activeTraining.xp); updateCharacter({ ...leveled, stats: { ...leveled.stats, [activeTraining.stat]: capStat(leveled.stats[activeTraining.stat] + activeTraining.statGain) } }); alert(`${activeTraining.label} complete.`); setActiveTraining(null); }
-    return <div className="card"><h2>Training Grounds</h2><p>Stamina: {character.stamina}/{character.maxStamina} · Town Hall XP Bonus: <strong>{trainingXpBonus.toFixed(2)}%</strong></p>{activeTraining && <div className="summary-box"><h3>Active Training</h3><p>{activeTraining.label}</p><p>Ends: {new Date(activeTraining.endsAt).toLocaleTimeString()}</p><button onClick={completeTraining}>Complete Training</button></div>}<h3>Choose Stat</h3><div className="location-grid">{trainingStats.map((option) => <button key={option.stat} className="location-button" onClick={() => setSelectedStat(option.stat)}><span className="tile-icon">{option.icon}</span><span>{option.label}</span><small>{selectedStat === option.stat ? "Selected" : "Click to select"}</small></button>)}</div><h3>Choose Timer</h3><div className="location-grid">{timers.map((timer) => <button key={timer.label} className="location-button" onClick={() => startTraining(timer)}><span className="tile-icon">⏳</span><span>{timer.label}</span><small>+{boostAmount(timer.xp, trainingXpBonus)} XP / +{timer.statGain} stat</small></button>)}</div></div>;
+    function completeTraining() { if (!activeTraining) return; if (Date.now() < activeTraining.endsAt) return alert(`Training still has ${Math.ceil((activeTraining.endsAt - Date.now()) / 1000)} seconds left.`); const leveled = gainXp(character, activeTraining.xp); updateCharacter({ ...leveled, totalStatsTrained: (leveled.totalStatsTrained ?? 0) + activeTraining.statGain, stats: { ...leveled.stats, [activeTraining.stat]: capStat(leveled.stats[activeTraining.stat] + activeTraining.statGain) } }); alert(`${activeTraining.label} complete.`); setActiveTraining(null); }
+    return <div className="card"><h2>Training Grounds</h2><p>Stamina: {character.stamina}/{character.maxStamina} · Town Hall XP Bonus: <strong>{trainingXpBonus.toFixed(2)}%</strong></p>{activeTraining && <div className="summary-box"><h3>Active Training</h3><p>{activeTraining.label}</p><p>Ends: {new Date(activeTraining.endsAt).toLocaleTimeString()}</p><button onClick={completeTraining}>Complete Training</button></div>}<h3>Choose Stat</h3><div className="location-grid">{trainingStats.map((option) => <button key={option.stat} className="location-button" onClick={() => setSelectedStat(option.stat)}><span className="tile-icon">{option.icon}</span><span>{option.label}</span><small>{selectedStat === option.stat ? "Selected" : "Click to select"}</small></button>)}</div><h3>Choose Timer</h3><div className="location-grid">{timers.map((timer) => <button key={timer.label} className="location-button" onClick={() => startTraining(timer)}><span className="tile-icon">⏱️</span><span>{timer.label}</span><small>+{boostAmount(timer.xp, trainingXpBonus)} XP / +{timer.statGain} stat</small></button>)}</div></div>;
 }
 
-function JutsuTrainingHall({ character, updateCharacter, savedBloodlines, creatorJutsus }: { character: Character; updateCharacter: (character: Character) => void; savedBloodlines: SavedBloodline[]; creatorJutsus: Jutsu[] }) {
+function JutsuTrainingHall({
+    character,
+    updateCharacter,
+    savedBloodlines,
+    creatorJutsus,
+    activeJutsuTraining,
+    setActiveJutsuTraining,
+}: {
+    character: Character;
+    updateCharacter: (character: Character) => void;
+    savedBloodlines: SavedBloodline[];
+    creatorJutsus: Jutsu[];
+    activeJutsuTraining: ActiveJutsuTraining | null;
+    setActiveJutsuTraining: (training: ActiveJutsuTraining | null) => void;
+}) {
     const ownedElements = getCharacterElements(character);
     const allJutsus = getAllJutsus(savedBloodlines, creatorJutsus, character);
     const availableJutsus = allJutsus.filter((jutsu) => hasCharacterElement(character, jutsu.element));
     const lockedElementCount = allJutsus.length - availableJutsus.length;
     const [selectedJutsuId, setSelectedJutsuId] = useState(availableJutsus[0]?.id ?? "");
-    const timers = [{ label: "15 Minutes", xp: 25, characterXp: 10, staminaCost: 5 }, { label: "1 Hour", xp: 80, characterXp: 25, staminaCost: 15 }, { label: "4 Hours", xp: 240, characterXp: 75, staminaCost: 35 }, { label: "8 Hours", xp: 400, characterXp: 125, staminaCost: 60 }];
+    const [now, setNow] = useState(Date.now());
     const jutsuTrainingBonus = getJutsuTrainingSpeedBonus(character) + getActiveAuraSphereBonuses(character).jutsuTrainingSpeedPercent + getActiveAuraSphereBonuses(character).jutsuXpPercent;
-    function trainJutsu(timer: typeof timers[number]) { if (!selectedJutsuId) return alert("Pick a jutsu first."); const selectedJutsu = allJutsus.find((jutsu) => jutsu.id === selectedJutsuId); if (!selectedJutsu || !hasCharacterElement(character, selectedJutsu.element)) return alert(`You need the ${selectedJutsu?.element ?? "required"} element to train this jutsu.`); if (character.stamina < timer.staminaCost) return alert("Not enough stamina."); const mastery = getJutsuMastery(character, selectedJutsuId); if (mastery.level >= JUTSU_TRAINING_CAP) return alert("Training Hall can only train jutsu to level 30. Levels 31-50 must be earned in battle."); const boostedJutsuXp = boostAmount(timer.xp, jutsuTrainingBonus); const trainedCharacter = gainJutsuXp({ ...character, stamina: character.stamina - timer.staminaCost }, selectedJutsuId, boostedJutsuXp, JUTSU_TRAINING_CAP); updateCharacter(gainXp(trainedCharacter, timer.characterXp)); alert(`${timer.label} complete. +${boostedJutsuXp} jutsu XP.`); }
-    return <div className="card"><h2>Jutsu Training Hall</h2><p>Train jutsu to <strong>Level 30</strong>. Levels <strong>31-50</strong> must be earned from battles. Your elements: <strong>{ownedElements.length ? ownedElements.join(" / ") : "None awakened"}</strong>. Town Hall + Aura bonus: <strong>{jutsuTrainingBonus.toFixed(2)}%</strong>.</p>{lockedElementCount > 0 && <p className="hint">{lockedElementCount} jutsu locked until you awaken their element.</p>}<JutsuDropdownList jutsus={availableJutsus} label="Choose Jutsu" emptyText={ownedElements.length ? "No jutsu match your awakened elements." : "Awaken an element at the Awakening Stone before training elemental jutsu."} renderDetails={(jutsu) => { const mastery = getJutsuMastery(character, jutsu.id); const scaled = scaleJutsuByLevel(jutsu, mastery.level); return <><p>Level: {mastery.level}/50 | XP: {mastery.xp}/{mastery.level >= 50 ? "MAX" : jutsuXpNeeded(mastery.level)}</p><p>Type: {jutsu.type} | Element: {jutsu.element} | AP: {jutsu.ap} | Range: {jutsu.range}</p><p>Scaled EP: {scaled.scaledEffectPower} | Chakra Cost: {scaled.chakraCost} | Stamina Cost: {scaled.staminaCost}</p><p><strong>Effects:</strong> {describeJutsuEffects(jutsu)}</p><JutsuEffectCards jutsu={jutsu} scaledEffectPower={scaled.scaledEffectPower} /><p>{selectedJutsuId === jutsu.id ? "Selected for training." : mastery.level < 30 ? "Training Hall available." : mastery.level < 50 ? "Battle only." : "Mastered."}</p></>; }} renderActions={(jutsu) => <button onClick={() => setSelectedJutsuId(jutsu.id)}>Select For Training</button>} /><h3>Training Timers</h3><div className="location-grid">{timers.map((timer) => <button key={timer.label} className="location-button" onClick={() => trainJutsu(timer)}><span className="tile-icon">🥋</span><span>{timer.label}</span><small>+{boostAmount(timer.xp, jutsuTrainingBonus)} Jutsu XP / +{timer.characterXp} XP</small></button>)}</div></div>;
+
+    useEffect(() => {
+        const interval = setInterval(() => setNow(Date.now()), 1000);
+        return () => clearInterval(interval);
+    }, []);
+
+    function jutsuTrainingDuration(level: number) {
+        return level < 10 ? 10 * 60 * 1000 : 30 * 60 * 1000;
+    }
+
+    function jutsuTrainingCost(level: number) {
+        return level < 10
+            ? 2500 + Math.max(0, level) * 500
+            : 8000 + Math.max(0, level - 10) * 1200;
+    }
+
+    function formatTrainingTime(ms: number) {
+        const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        return `${minutes}m ${seconds.toString().padStart(2, "0")}s`;
+    }
+
+    function setJutsuMasteryLevel(jutsuId: string, level: number): Character {
+        const existing = character.jutsuMastery?.length ? character.jutsuMastery : [];
+        return {
+            ...character,
+            jutsuMastery: [
+                ...existing.filter((mastery) => mastery.jutsuId !== jutsuId),
+                { jutsuId, level: Math.min(JUTSU_TRAINING_CAP, level), xp: 0 },
+            ],
+        };
+    }
+
+    function startPaidJutsuTraining() {
+        if (activeJutsuTraining) return alert("You are already training a jutsu.");
+        if (!selectedJutsuId) return alert("Pick a jutsu first.");
+
+        const selectedJutsu = allJutsus.find((jutsu) => jutsu.id === selectedJutsuId);
+        if (!selectedJutsu || !hasCharacterElement(character, selectedJutsu.element)) {
+            return alert(`You need the ${selectedJutsu?.element ?? "required"} element to train this jutsu.`);
+        }
+
+        const mastery = getJutsuMastery(character, selectedJutsuId);
+        if (mastery.level >= JUTSU_TRAINING_CAP) {
+            return alert("Training Hall can only train jutsu to level 30. Levels 31-50 must be earned from battles.");
+        }
+
+        const cost = jutsuTrainingCost(mastery.level);
+        if (character.ryo < cost) return alert(`Not enough ryo. You need ${cost}.`);
+
+        const baseDuration = jutsuTrainingDuration(mastery.level);
+        const duration = Math.max(60_000, Math.floor(baseDuration * Math.max(0.1, 1 - jutsuTrainingBonus / 100)));
+        updateCharacter({ ...character, ryo: character.ryo - cost });
+        setActiveJutsuTraining({
+            jutsuId: selectedJutsu.id,
+            label: selectedJutsu.name,
+            fromLevel: mastery.level,
+            toLevel: Math.min(JUTSU_TRAINING_CAP, mastery.level + 1),
+            ryoCost: cost,
+            startedAt: Date.now(),
+            endsAt: Date.now() + duration,
+        });
+    }
+
+    function completePaidJutsuTraining() {
+        if (!activeJutsuTraining) return;
+        if (Date.now() < activeJutsuTraining.endsAt) {
+            alert(`Training still has ${formatTrainingTime(activeJutsuTraining.endsAt - Date.now())} left.`);
+            return;
+        }
+
+        updateCharacter(setJutsuMasteryLevel(activeJutsuTraining.jutsuId, activeJutsuTraining.toLevel));
+        alert(`${activeJutsuTraining.label} reached level ${activeJutsuTraining.toLevel}.`);
+        setActiveJutsuTraining(null);
+    }
+
+    const selectedJutsu = allJutsus.find((jutsu) => jutsu.id === selectedJutsuId);
+    const selectedMastery = selectedJutsu ? getJutsuMastery(character, selectedJutsu.id) : null;
+    const selectedCost = selectedMastery ? jutsuTrainingCost(selectedMastery.level) : 0;
+    const selectedDuration = selectedMastery ? jutsuTrainingDuration(selectedMastery.level) : 0;
+    const activeRemaining = activeJutsuTraining ? activeJutsuTraining.endsAt - now : 0;
+
+    return <div className="card"><h2>Jutsu Training Hall</h2><p>Train jutsu to <strong>Level 30</strong> with ryo. Levels <strong>31-50</strong> must be earned from battles. Your elements: <strong>{ownedElements.length ? ownedElements.join(" / ") : "None awakened"}</strong>. Town Hall + Aura training bonus: <strong>{jutsuTrainingBonus.toFixed(2)}%</strong>.</p>{lockedElementCount > 0 && <p className="hint">{lockedElementCount} jutsu locked until you awaken their element.</p>}{activeJutsuTraining && <div className="summary-box"><h3>Active Jutsu Training</h3><p><strong>{activeJutsuTraining.label}</strong>: Level {activeJutsuTraining.fromLevel} ? {activeJutsuTraining.toLevel}</p><p>Cost paid: {activeJutsuTraining.ryoCost} ryo</p><p>{activeRemaining > 0 ? `Time remaining: ${formatTrainingTime(activeRemaining)}` : "Training complete. Claim your level."}</p><button onClick={completePaidJutsuTraining}>{activeRemaining > 0 ? "Check Training" : "Claim Jutsu Level"}</button></div>}<JutsuDropdownList jutsus={availableJutsus} label="Choose Jutsu" emptyText={ownedElements.length ? "No jutsu match your awakened elements." : "Awaken an element at the Awakening Stone before training elemental jutsu."} renderDetails={(jutsu) => { const mastery = getJutsuMastery(character, jutsu.id); const scaled = scaleJutsuByLevel(jutsu, mastery.level); const cost = jutsuTrainingCost(mastery.level); const duration = jutsuTrainingDuration(mastery.level); return <><p>Level: {mastery.level}/50 | XP: {mastery.xp}/{mastery.level >= 50 ? "MAX" : jutsuXpNeeded(mastery.level)}</p><p>Type: {jutsu.type} | Element: {jutsu.element} | AP: {jutsu.ap} | Range: {jutsu.range}</p><p>Scaled EP: {scaled.scaledEffectPower} | Chakra Cost: {scaled.chakraCost} | Stamina Cost: {scaled.staminaCost}</p><p><strong>Paid Training:</strong> {mastery.level < JUTSU_TRAINING_CAP ? `${cost} ryo | ${duration / 60000} minutes | +1 full level` : "Battle only from here"}</p><p><strong>Effects:</strong> {describeJutsuEffects(jutsu)}</p><JutsuEffectCards jutsu={jutsu} scaledEffectPower={scaled.scaledEffectPower} /><p>{selectedJutsuId === jutsu.id ? "Selected for paid training." : mastery.level < 30 ? "Training Hall available." : mastery.level < 50 ? "Battle only." : "Mastered."}</p></>; }} renderActions={(jutsu) => <button onClick={() => setSelectedJutsuId(jutsu.id)}>Select For Training</button>} /><h3>Paid Ryo Training</h3><div className="summary-box"><p>{selectedJutsu ? <><strong>{selectedJutsu.name}</strong> will train from level {selectedMastery?.level ?? 0} to {Math.min(JUTSU_TRAINING_CAP, (selectedMastery?.level ?? 0) + 1)}.</> : "Choose a jutsu to train."}</p><p>Cost: <strong>{selectedCost}</strong> ryo | Time: <strong>{selectedDuration / 60000}</strong> minutes | Reward: <strong>1 full jutsu level</strong></p><button onClick={startPaidJutsuTraining} disabled={!selectedJutsu || !!activeJutsuTraining || !selectedMastery || selectedMastery.level >= JUTSU_TRAINING_CAP || character.ryo < selectedCost}>{activeJutsuTraining ? "Training In Progress" : selectedMastery && selectedMastery.level >= JUTSU_TRAINING_CAP ? "Battle Training Required" : `Pay ${selectedCost} Ryo & Train`}</button></div></div>;
+}
+
+function CardVisual({ image, icon, label }: { image?: string; icon?: string; label: string }) {
+    return image
+        ? <img className="card-visual-thumb" src={image} alt={label} />
+        : <span className="tile-icon">{icon || "✦"}</span>;
+}
+
+function ClanImageMark({ image, name, village }: { image?: string; name: string; village?: string }) {
+    return image
+        ? <img className="clan-image-mark" src={image} alt={name} />
+        : <div className="clan-image-mark clan-image-fallback">{name.slice(0, 2).toUpperCase() || village?.slice(0, 2).toUpperCase() || "CL"}</div>;
+}
+
+function LeaderPortrait({ image, name, fallback = "影" }: { image?: string; name: string; fallback?: string }) {
+    return image
+        ? <img className="leader-portrait-img" src={image} alt={name} />
+        : <div className="leader-portrait-img leader-portrait-fallback" aria-label={name}>{fallback}</div>;
 }
 
 function Missions({
@@ -11681,21 +15108,555 @@ function Missions({
     setScreen: (screen: Screen) => void;
 }) {
     const missionRewardBonus = getMissionRewardBonus(character) + getActiveAuraSphereBonuses(character).missionRewardPercent;
-    function completeMission(name: string, xp: number, ryo: number, staminaCost: number, staminaReward: number, minLevel: number) { if (character.level < minLevel) return alert(`Requires level ${minLevel}.`); if (character.stamina < staminaCost) return alert("Not enough stamina."); const boostedXp = boostAmount(xp, missionRewardBonus); const boostedRyo = boostAmount(ryo, missionRewardBonus); const boostedStamina = boostAmount(staminaReward, missionRewardBonus); const leveled = gainXp({ ...character, stamina: character.stamina - staminaCost }, boostedXp); updateCharacter({ ...leveled, ryo: leveled.ryo + boostedRyo, stamina: Math.min(leveled.maxStamina, leveled.stamina + boostedStamina), clanMissionContrib: (leveled.clanMissionContrib ?? 0) + 1, clanContribMonth: new Date().toISOString().slice(0, 7) }); alert(`${name} complete. +${boostedXp} XP, +${boostedRyo} ryo, +${boostedStamina} stamina.`); }
+    function completeMission(name: string, xp: number, ryo: number, staminaCost: number, staminaReward: number, minLevel: number) { if (character.level < minLevel) return alert(`Requires level ${minLevel}.`); if (character.stamina < staminaCost) return alert("Not enough stamina."); const boostedXp = boostAmount(xp, missionRewardBonus); const boostedRyo = boostAmount(ryo, missionRewardBonus); const boostedStamina = boostAmount(staminaReward, missionRewardBonus); const leveled = grantTerritoryScrolls(gainXp({ ...character, stamina: character.stamina - staminaCost }, boostedXp), 3); updateCharacter({ ...leveled, ryo: leveled.ryo + boostedRyo, stamina: Math.min(leveled.maxStamina, leveled.stamina + boostedStamina), clanMissionContrib: (leveled.clanMissionContrib ?? 0) + 1, totalMissionsCompleted: (leveled.totalMissionsCompleted ?? 0) + 1, clanContribMonth: new Date().toISOString().slice(0, 7) }); alert(`${name} complete. +${boostedXp} XP, +${boostedRyo} ryo, +${boostedStamina} stamina, +3 Territory Control Scrolls.`); }
     function startMissionBattle(mission: { min: number; aiProfileId: string }) { if (character.level < mission.min) return alert(`Requires level ${mission.min}.`); const ai = creatorAis.find((candidate) => candidate.id === mission.aiProfileId); if (!ai) return alert("Mission AI is not available."); setPendingAiProfileId(ai.id); setScreen("arena"); }
     function startCreatorMissionBattle(mission: CreatorMission) { if (!mission.aiProfileId) return alert("No AI assigned to this mission."); if (character.level < mission.levelReq) return alert(`Requires level ${mission.levelReq}.`); const ai = creatorAis.find((candidate) => candidate.id === mission.aiProfileId); if (!ai) return alert("Mission AI is not available."); setPendingAiProfileId(ai.id); setScreen("arena"); }
     function acceptFetchMission(mission: CreatorMission) { if (character.level < mission.levelReq) return alert(`Requires level ${mission.levelReq}.`); if (acceptedMissionIds.includes(mission.id)) return; setAcceptedMissionIds([...acceptedMissionIds, mission.id]); setMissionProgress({ ...missionProgress, [mission.id]: missionProgress[mission.id] ?? 0 }); alert(`${mission.name} accepted. Explore Sector ${mission.targetSector} ${mission.exploreCount} times.`); }
-    function claimFetchMission(mission: CreatorMission) { const progress = missionProgress[mission.id] ?? 0; if (progress < mission.exploreCount) return alert(`Explore Sector ${mission.targetSector} ${mission.exploreCount - progress} more time(s).`); const boostedXp = boostAmount(mission.xpReward, missionRewardBonus); const boostedRyo = boostAmount(mission.ryoReward, missionRewardBonus); const boostedStamina = boostAmount(mission.staminaReward, missionRewardBonus); const leveled = applyCurrencyRewards(gainXp(character, boostedXp), mission.currencyRewards); updateCharacter({ ...leveled, ryo: leveled.ryo + boostedRyo, stamina: Math.min(leveled.maxStamina, leveled.stamina + boostedStamina), clanMissionContrib: (leveled.clanMissionContrib ?? 0) + 1, clanContribMonth: new Date().toISOString().slice(0, 7) }); setAcceptedMissionIds(acceptedMissionIds.filter((id) => id !== mission.id)); setMissionProgress({ ...missionProgress, [mission.id]: 0 }); alert(`${mission.name} complete. ${rewardSummary(boostedXp, boostedRyo, boostedStamina, mission.currencyRewards)}.`); }
+    function claimFetchMission(mission: CreatorMission) { const progress = missionProgress[mission.id] ?? 0; if (progress < mission.exploreCount) return alert(`Explore Sector ${mission.targetSector} ${mission.exploreCount - progress} more time(s).`); const boostedXp = boostAmount(mission.xpReward, missionRewardBonus); const boostedRyo = boostAmount(mission.ryoReward, missionRewardBonus); const boostedStamina = boostAmount(mission.staminaReward, missionRewardBonus); const leveled = grantTerritoryScrolls(applyCurrencyRewards(gainXp(character, boostedXp), mission.currencyRewards), 3); updateCharacter({ ...leveled, ryo: leveled.ryo + boostedRyo, stamina: Math.min(leveled.maxStamina, leveled.stamina + boostedStamina), clanMissionContrib: (leveled.clanMissionContrib ?? 0) + 1, totalMissionsCompleted: (leveled.totalMissionsCompleted ?? 0) + 1, clanContribMonth: new Date().toISOString().slice(0, 7) }); setAcceptedMissionIds(acceptedMissionIds.filter((id) => id !== mission.id)); setMissionProgress({ ...missionProgress, [mission.id]: 0 }); alert(`${mission.name} complete. ${rewardSummary(boostedXp, boostedRyo, boostedStamina, mission.currencyRewards)}. +3 Territory Control Scrolls.`); }
     const missions = [
-        { name: "D-Rank Errand", xp: 25, ryo: 20, cost: 5, recover: 3, min: 1, icon: "📦", aiProfileId: "builtin-ai-mist-sentinel" },
-        { name: "C-Rank Patrol", xp: 75, ryo: 60, cost: 10, recover: 5, min: 10, icon: "👣", aiProfileId: "builtin-ai-ember-duelist" },
-        { name: "B-Rank Escort", xp: 150, ryo: 125, cost: 20, recover: 10, min: 30, icon: "🛡️", aiProfileId: "builtin-ai-frost-sealer" },
+        { name: "D-Rank Errand", xp: 25, ryo: 20, cost: 5, recover: 3, min: 1, icon: "⚔️", aiProfileId: "builtin-ai-mist-sentinel" },
+        { name: "C-Rank Patrol", xp: 75, ryo: 60, cost: 10, recover: 5, min: 10, icon: "⚔️", aiProfileId: "builtin-ai-ember-duelist" },
+        { name: "B-Rank Escort", xp: 150, ryo: 125, cost: 20, recover: 10, min: 30, icon: "⚔️", aiProfileId: "builtin-ai-frost-sealer" },
         { name: "A-Rank Hunt", xp: 300, ryo: 250, cost: 35, recover: 18, min: 50, icon: "⚔️", aiProfileId: "builtin-ai-shadow-weaver" },
-        { name: "S-Rank Crisis", xp: 700, ryo: 600, cost: 60, recover: 30, min: 70, icon: "💀", aiProfileId: "builtin-ai-central-champion" },
+        { name: "S-Rank Crisis", xp: 700, ryo: 600, cost: 60, recover: 30, min: 70, icon: "⚔️", aiProfileId: "builtin-ai-central-champion" },
     ];
     const missionRanks: MissionRank[] = ["Daily", "D Rank", "C Rank", "B Rank", "A Rank", "S Rank"];
     const groupedFetchMissions = missionRanks.map((rank) => ({ rank, missions: creatorMissions.filter((mission) => mission.rank === rank) })).filter((group) => group.missions.length > 0);
-    return <div className="card"><h2>Mission Hall</h2><p>Stamina: {character.stamina}/{character.maxStamina} · Town Hall Reward Bonus: <strong>{missionRewardBonus.toFixed(2)}%</strong></p><h3>Combat Missions</h3><div className="location-grid">{missions.map((mission) => { const ai = creatorAis.find((candidate) => candidate.id === mission.aiProfileId); return <div key={mission.name} className="location-button mission-card"><span className="tile-icon">{mission.icon}</span><span>{mission.name}</span><small>Lvl {mission.min} | -{mission.cost} STA | +{boostAmount(mission.xp, missionRewardBonus)} XP / +{boostAmount(mission.ryo, missionRewardBonus)} ryo</small><small>Battle AI: {ai?.name ?? "Missing AI"}</small><div className="menu"><button onClick={() => completeMission(mission.name, mission.xp, mission.ryo, mission.cost, mission.recover, mission.min)}>Complete</button><button onClick={() => startMissionBattle(mission)}>Battle</button></div></div>; })}</div><h3>Fetch Missions</h3>{groupedFetchMissions.length === 0 ? <p className="hint">No admin-created fetch missions yet.</p> : groupedFetchMissions.map((group) => <section className="summary-box mission-board-section" key={group.rank}><h4>{group.rank} Missions</h4><div className="location-grid">{group.missions.map((mission) => { const accepted = acceptedMissionIds.includes(mission.id); const progress = missionProgress[mission.id] ?? 0; const complete = progress >= mission.exploreCount; const missionAi = mission.aiProfileId ? creatorAis.find((candidate) => candidate.id === mission.aiProfileId) : undefined; return <div key={mission.id} className="location-button mission-card"><span className="tile-icon">SEC</span><span>{mission.name}</span><small>Sector {mission.targetSector} | Explore {progress}/{mission.exploreCount}</small><small>Lvl {mission.levelReq} | {rewardSummary(boostAmount(mission.xpReward, missionRewardBonus), boostAmount(mission.ryoReward, missionRewardBonus), boostAmount(mission.staminaReward, missionRewardBonus), mission.currencyRewards)}</small>{mission.aiProfileId && <small>Battle AI: {missionAi?.name ?? "Missing AI"}</small>}<p>{mission.description}</p><div className="mission-progress"><span style={{ width: `${Math.min(100, (progress / mission.exploreCount) * 100)}%` }}></span></div><div className="menu">{!accepted ? <button onClick={() => acceptFetchMission(mission)}>Accept</button> : complete ? <button onClick={() => claimFetchMission(mission)}>Claim Reward</button> : <button onClick={() => setScreen("worldMap")}>Go To Sector {mission.targetSector}</button>}{mission.aiProfileId && <button onClick={() => startCreatorMissionBattle(mission)}>Battle AI</button>}</div></div>; })}</div></section>)}</div>;
+    return <div className="card"><h2>Mission Hall</h2><p>Stamina: {character.stamina}/{character.maxStamina} · Town Hall Reward Bonus: <strong>{missionRewardBonus.toFixed(2)}%</strong></p><h3>Combat Missions</h3><div className="location-grid">{missions.map((mission) => { const ai = creatorAis.find((candidate) => candidate.id === mission.aiProfileId); return <div key={mission.name} className="location-button mission-card"><CardVisual image={ai?.image} icon={mission.icon} label={mission.name} /><span>{mission.name}</span><small>Lvl {mission.min} | -{mission.cost} STA | +{boostAmount(mission.xp, missionRewardBonus)} XP / +{boostAmount(mission.ryo, missionRewardBonus)} ryo</small><small>Battle AI: {ai?.name ?? "Missing AI"}</small><div className="menu"><button onClick={() => completeMission(mission.name, mission.xp, mission.ryo, mission.cost, mission.recover, mission.min)}>Complete</button><button onClick={() => startMissionBattle(mission)}>Battle</button></div></div>; })}</div><h3>Fetch Missions</h3>{groupedFetchMissions.length === 0 ? <p className="hint">No admin-created fetch missions yet.</p> : groupedFetchMissions.map((group) => <section className="summary-box mission-board-section" key={group.rank}><h4>{group.rank} Missions</h4><div className="location-grid">{group.missions.map((mission) => { const accepted = acceptedMissionIds.includes(mission.id); const progress = missionProgress[mission.id] ?? 0; const complete = progress >= mission.exploreCount; const missionAi = mission.aiProfileId ? creatorAis.find((candidate) => candidate.id === mission.aiProfileId) : undefined; return <div key={mission.id} className="location-button mission-card"><CardVisual image={missionAi?.image} icon="📍" label={mission.name} /><span>{mission.name}</span><small>Sector {mission.targetSector} | Explore {progress}/{mission.exploreCount}</small><small>Lvl {mission.levelReq} | {rewardSummary(boostAmount(mission.xpReward, missionRewardBonus), boostAmount(mission.ryoReward, missionRewardBonus), boostAmount(mission.staminaReward, missionRewardBonus), mission.currencyRewards)}</small>{mission.aiProfileId && <small>Battle AI: {missionAi?.name ?? "Missing AI"}</small>}<p>{mission.description}</p><div className="mission-progress"><span style={{ width: `${Math.min(100, (progress / mission.exploreCount) * 100)}%` }}></span></div><div className="menu">{!accepted ? <button onClick={() => acceptFetchMission(mission)}>Accept</button> : complete ? <button onClick={() => claimFetchMission(mission)}>Claim Reward</button> : <button onClick={() => setScreen("worldMap")}>Go To Sector {mission.targetSector}</button>}{mission.aiProfileId && <button onClick={() => startCreatorMissionBattle(mission)}>Battle AI</button>}</div></div>; })}</div></section>)}</div>;
+}
+
+const HUNTER_RANK_LABELS = ["Novice Hunter", "Tracker", "Beast Slayer", "Monster Hunter", "Elite Huntsman", "Chakra Beast Warden"];
+const HUNTER_RANK_COLORS = ["#22c55e", "#3b82f6", "#a855f7", "#f97316", "#ef4444", "#facc15"];
+const HUNT_MIN_RANK: Record<MissionRank, number> = { "Daily": 0, "D Rank": 0, "C Rank": 1, "B Rank": 2, "A Rank": 3, "S Rank": 4 };
+const HUNTER_RANKUP: { itemId: string; qty: number }[] = [
+    { itemId: "hunt-beast-meat", qty: 5 },
+    { itemId: "hunt-wolf-fang", qty: 5 },
+    { itemId: "hunt-ash-scale", qty: 5 },
+    { itemId: "hunt-shadow-pelt", qty: 5 },
+    { itemId: "hunt-legendary-material", qty: 3 },
+];
+const HUNT_MATERIAL_NAMES: Record<string, string> = {
+    "hunt-beast-meat": "Beast Meat",
+    "hunt-wolf-fang": "Wolf Fang",
+    "hunt-ash-scale": "Ash Scale",
+    "hunt-shadow-pelt": "Shadow Pelt",
+    "hunt-legendary-material": "Legendary Material",
+};
+
+function HunterBoard({
+    character,
+    updateCharacter,
+    creatorAis,
+    acceptedMissionIds,
+    setAcceptedMissionIds,
+    missionProgress,
+    setMissionProgress,
+    setPendingAiProfileId,
+    setScreen,
+}: {
+    character: Character;
+    updateCharacter: (c: Character) => void;
+    creatorAis: CreatorAi[];
+    acceptedMissionIds: string[];
+    setAcceptedMissionIds: (ids: string[]) => void;
+    missionProgress: Record<string, number>;
+    setMissionProgress: (p: Record<string, number>) => void;
+    setPendingAiProfileId: (id: string) => void;
+    setScreen: (s: Screen) => void;
+}) {
+    const hunterRank = character.hunterRank ?? 0;
+    const missionRewardBonus = getMissionRewardBonus(character) + getActiveAuraSphereBonuses(character).missionRewardPercent;
+
+    function invCount(itemId: string) {
+        return character.inventory.filter((id) => id === itemId).length;
+    }
+
+    function removeFromInventory(inv: string[], itemId: string, qty: number): string[] {
+        let removed = 0;
+        return inv.filter((id) => {
+            if (id === itemId && removed < qty) { removed++; return false; }
+            return true;
+        });
+    }
+
+    function rankUp() {
+        if (hunterRank >= HUNTER_RANKUP.length) return alert("You have reached the highest Hunter Rank.");
+        const req = HUNTER_RANKUP[hunterRank];
+        if (invCount(req.itemId) < req.qty) {
+            return alert(`You need ${req.qty}x ${HUNT_MATERIAL_NAMES[req.itemId]} to advance your Hunter Rank.`);
+        }
+        const newInv = removeFromInventory(character.inventory, req.itemId, req.qty);
+        updateCharacter({ ...character, inventory: newInv, hunterRank: hunterRank + 1 });
+        alert(`Hunter Rank advanced! You are now a ${HUNTER_RANK_LABELS[hunterRank + 1]}.`);
+    }
+
+    function acceptHunt(mission: CreatorMission) {
+        if (character.level < mission.levelReq) return alert(`Requires level ${mission.levelReq}.`);
+        if ((HUNT_MIN_RANK[mission.rank] ?? 0) > hunterRank) return alert(`Requires Hunter Rank: ${HUNTER_RANK_LABELS[HUNT_MIN_RANK[mission.rank] ?? 0]}.`);
+        if (acceptedMissionIds.includes(mission.id)) return;
+        setAcceptedMissionIds([...acceptedMissionIds, mission.id]);
+        setMissionProgress({ ...missionProgress, [mission.id]: missionProgress[mission.id] ?? 0 });
+        alert(`${mission.name} accepted. Head to Sector ${mission.targetSector} and explore ${mission.exploreCount} times to track the beast.`);
+    }
+
+    function claimHunt(mission: CreatorMission) {
+        const progress = missionProgress[mission.id] ?? 0;
+        if (progress < mission.exploreCount) return alert(`Track the beast ${mission.exploreCount - progress} more time(s) in Sector ${mission.targetSector}.`);
+        const boostedXp = boostAmount(mission.xpReward, missionRewardBonus);
+        const boostedRyo = boostAmount(mission.ryoReward, missionRewardBonus);
+        const boostedStamina = boostAmount(mission.staminaReward, missionRewardBonus);
+        const withCurrencies = applyCurrencyRewards(gainXp(character, boostedXp), mission.currencyRewards);
+        const withItems = { ...withCurrencies, inventory: [...withCurrencies.inventory, ...(mission.itemRewards ?? [])] };
+        const leveled = grantTerritoryScrolls(withItems, 3);
+        updateCharacter({ ...leveled, ryo: leveled.ryo + boostedRyo, stamina: Math.min(leveled.maxStamina, leveled.stamina + boostedStamina), clanMissionContrib: (leveled.clanMissionContrib ?? 0) + 1, totalMissionsCompleted: (leveled.totalMissionsCompleted ?? 0) + 1, clanContribMonth: new Date().toISOString().slice(0, 7) });
+        setAcceptedMissionIds(acceptedMissionIds.filter((id) => id !== mission.id));
+        setMissionProgress({ ...missionProgress, [mission.id]: 0 });
+        const materialNames = (mission.itemRewards ?? []).map((id) => {
+            const found = starterItems.find((i) => i.id === id);
+            return found?.name ?? id;
+        });
+        const matLine = materialNames.length ? ` Materials: ${materialNames.join(", ")}.` : "";
+        alert(`${mission.name} complete! +${boostedXp} XP, +${boostedRyo} ryo, +${boostedStamina} stamina.${matLine}`);
+    }
+
+    function battleHunt(mission: CreatorMission) {
+        if (!mission.aiProfileId) return alert("No beast AI assigned.");
+        if (character.level < mission.levelReq) return alert(`Requires level ${mission.levelReq}.`);
+        const ai = creatorAis.find((a) => a.id === mission.aiProfileId);
+        if (!ai) return alert("Beast AI not found.");
+        setPendingAiProfileId(ai.id);
+        setScreen("arena");
+    }
+
+    const missionRanks: MissionRank[] = ["D Rank", "C Rank", "B Rank", "A Rank", "S Rank"];
+
+    return (
+        <div className="hunter-board">
+            <div className="hunter-board-header">
+                <button className="back-btn" onClick={() => setScreen("centralHub")}>← Central</button>
+                <h2>🎯 Hunter Guild — Contract Board</h2>
+            </div>
+
+            <div className="hunter-rank-banner">
+                <div className="hunter-rank-info">
+                    <span className="hunter-rank-badge" style={{ background: HUNTER_RANK_COLORS[hunterRank] }}>
+                        {HUNTER_RANK_LABELS[hunterRank]}
+                    </span>
+                    <span className="hunter-rank-sub">
+                        {hunterRank < HUNTER_RANKUP.length
+                            ? `Rank Up: Turn in ${HUNTER_RANKUP[hunterRank].qty}x ${HUNT_MATERIAL_NAMES[HUNTER_RANKUP[hunterRank].itemId]} (you have ${invCount(HUNTER_RANKUP[hunterRank].itemId)})`
+                            : "Maximum Hunter Rank achieved."}
+                    </span>
+                </div>
+                {hunterRank < HUNTER_RANKUP.length && (
+                    <button
+                        className="rank-up-btn"
+                        disabled={invCount(HUNTER_RANKUP[hunterRank].itemId) < HUNTER_RANKUP[hunterRank].qty}
+                        onClick={rankUp}
+                    >
+                        Rank Up → {HUNTER_RANK_LABELS[Math.min(hunterRank + 1, HUNTER_RANK_LABELS.length - 1)]}
+                    </button>
+                )}
+            </div>
+
+            {missionRanks.map((rank) => {
+                const minRank = HUNT_MIN_RANK[rank] ?? 0;
+                const missions = builtinHuntMissions.filter((m) => m.rank === rank);
+                const locked = hunterRank < minRank;
+                return (
+                    <section key={rank} className={`hunt-rank-section ${locked ? "hunt-rank-locked" : ""}`}>
+                        <h3 className="hunt-rank-heading">
+                            <span className="hunter-rank-badge" style={{ background: HUNTER_RANK_COLORS[minRank] }}>{rank}</span>
+                            {locked && <span className="hunt-lock-label">🔒 Requires {HUNTER_RANK_LABELS[minRank]}</span>}
+                        </h3>
+                        {!locked && (
+                            <div className="hunt-contract-grid">
+                                {missions.map((mission) => {
+                                    const accepted = acceptedMissionIds.includes(mission.id);
+                                    const progress = missionProgress[mission.id] ?? 0;
+                                    const complete = progress >= mission.exploreCount;
+                                    const beastAi = creatorAis.find((a) => a.id === mission.aiProfileId);
+                                    return (
+                                        <div key={mission.id} className="hunt-contract-card">
+                                            <div className="hunt-contract-top">
+                                                <span className="hunt-beast-icon">{beastAi?.icon ?? "🐾"}</span>
+                                                <div className="hunt-contract-info">
+                                                    <strong>{mission.name}</strong>
+                                                    <small>Sector {mission.targetSector} · Lvl {mission.levelReq}+</small>
+                                                    <small>{rewardSummary(boostAmount(mission.xpReward, missionRewardBonus), boostAmount(mission.ryoReward, missionRewardBonus), boostAmount(mission.staminaReward, missionRewardBonus), mission.currencyRewards)}</small>
+                                                    {mission.itemRewards && <small className="hunt-drops">Drops: {mission.itemRewards.map((id) => starterItems.find((i) => i.id === id)?.name ?? id).join(", ")}</small>}
+                                                </div>
+                                            </div>
+                                            <p className="hunt-description">{mission.description}</p>
+                                            {accepted && (
+                                                <>
+                                                    <div className="hunt-progress-bar">
+                                                        <div className="hunt-progress-fill" style={{ width: `${Math.min(100, (progress / mission.exploreCount) * 100)}%` }} />
+                                                    </div>
+                                                    <span className="hunt-progress-label">Tracked {progress}/{mission.exploreCount}</span>
+                                                </>
+                                            )}
+                                            <div className="menu">
+                                                {!accepted
+                                                    ? <button onClick={() => acceptHunt(mission)}>Accept Hunt</button>
+                                                    : complete
+                                                        ? <button onClick={() => claimHunt(mission)}>Claim Reward</button>
+                                                        : <button onClick={() => setScreen("worldMap")}>Go To Sector {mission.targetSector}</button>
+                                                }
+                                                {mission.aiProfileId && <button onClick={() => battleHunt(mission)}>Battle {beastAi?.name ?? "Beast"}</button>}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </section>
+                );
+            })}
+        </div>
+    );
+}
+
+function Logbook({
+    character,
+    updateCharacter,
+    creatorAis,
+    creatorMissions,
+    creatorEvents,
+    creatorRaids,
+    acceptedMissionIds,
+    setAcceptedMissionIds,
+    missionProgress,
+    setMissionProgress,
+    savedBloodlines,
+    setPendingAiProfileId,
+    setRaidBattleKind,
+    setCurrentSector,
+    setCurrentBiome,
+    setCurrentWeather,
+    setScreen,
+}: {
+    character: Character;
+    updateCharacter: (character: Character) => void;
+    creatorAis: CreatorAi[];
+    creatorMissions: CreatorMission[];
+    creatorEvents: CreatorEvent[];
+    creatorRaids: CreatorRaid[];
+    acceptedMissionIds: string[];
+    setAcceptedMissionIds: (ids: string[]) => void;
+    missionProgress: Record<string, number>;
+    setMissionProgress: (progress: Record<string, number>) => void;
+    savedBloodlines: SavedBloodline[];
+    setPendingAiProfileId: (id: string) => void;
+    setRaidBattleKind: (kind: "none" | "raidAi" | "raidPlayer" | "defense") => void;
+    setCurrentSector: (sector: number) => void;
+    setCurrentBiome: (biome: Biome) => void;
+    setCurrentWeather: (weather: WeatherType) => void;
+    setScreen: (screen: Screen) => void;
+}) {
+    const missionRewardBonus = getMissionRewardBonus(character) + getActiveAuraSphereBonuses(character).missionRewardPercent;
+    const ownedElements = getCharacterElements(character);
+    const ownedBloodlines = getCharacterBloodlines(character, savedBloodlines);
+    const advancedBloodline = ownedBloodlines.find((bloodline) => ["B Rank", "A Rank", "S Rank"].includes(bloodline.rank));
+    const baseStatTotal = Object.values(baseStats()).reduce((sum, value) => sum + value, 0);
+    const currentStatTotal = Object.values(character.stats).reduce((sum, value) => sum + value, 0);
+    const statsTrained = Math.max(character.totalStatsTrained ?? 0, Math.max(0, currentStatTotal - baseStatTotal));
+    const defeatedAiIds = character.defeatedAiIds ?? [];
+    const examProctor = creatorAis.find((ai) => ai.id === "builtin-ai-exam-proctor");
+    const rogueNinja = creatorAis.find((ai) => ai.id === "builtin-ai-rogue-ninja");
+    type ExamRequirement = { label: string; progress: number; target: number; detail?: string; aiId?: string };
+    type ExamLogbookMission = { title: string; unlockLevel: number; requirements: ExamRequirement[] };
+    const assignedMissions = acceptedMissionIds
+        .map((id) => creatorMissions.find((mission) => mission.id === id))
+        .filter((mission): mission is CreatorMission => Boolean(mission));
+    const dailyMissions = creatorMissions.filter((mission) => mission.rank === "Daily");
+    const logbookEvents = creatorEvents.filter((event) => (event.eventKind ?? "reward") !== "visualNovel");
+    const logbookRaids = creatorRaids;
+    const activeVillageWar = activeVillageWarsFor(character.village)[0];
+    const activeVillageWarEnemy = activeVillageWar?.villages.find(village => village !== character.village);
+    const todayWarProgress = character.villageWarMissionDate === currentDateKey() ? character.villageWarRaidProgress ?? 0 : 0;
+    const todayWarCompleted = character.villageWarMissionDate === currentDateKey() ? character.villageWarMissionsCompleted ?? 0 : 0;
+    const villageWarDailyMissions = Array.from({ length: VILLAGE_WAR_DAILY_MISSIONS }, (_, index) => ({
+        index,
+        title: `Village War Raid Mission ${index + 1}`,
+        progress: clampNumber(todayWarProgress - index * VILLAGE_WAR_RAIDS_PER_MISSION, 0, VILLAGE_WAR_RAIDS_PER_MISSION),
+        complete: todayWarCompleted > index,
+    }));
+    const missingMissionIds = acceptedMissionIds.filter((id) => !creatorMissions.some((mission) => mission.id === id));
+    const maybeExamMissions: Array<ExamLogbookMission | null> = [
+        character.level >= 11 ? {
+            title: "Genin Exam",
+            unlockLevel: 11,
+            requirements: [
+                { label: "Awaken your first element", progress: ownedElements.length, target: 1, detail: ownedElements[0] ?? "No element awakened" },
+                { label: "Train 1000 stats", progress: statsTrained, target: 1000 },
+                { label: "Complete 20 missions", progress: character.totalMissionsCompleted ?? character.clanMissionContrib ?? 0, target: 20 },
+                { label: "Kill 20 AI", progress: character.totalAiKills ?? 0, target: 20 },
+                { label: "Explore 50 tiles", progress: character.totalTilesExplored ?? 0, target: 50 },
+            ],
+        } : null,
+        character.level >= 21 ? {
+            title: "Chunin Exam",
+            unlockLevel: 21,
+            requirements: [
+                { label: "Awaken your second element", progress: ownedElements.length, target: 2, detail: ownedElements[1] ?? "Second element not awakened" },
+                { label: "Complete 50 missions", progress: character.totalMissionsCompleted ?? character.clanMissionContrib ?? 0, target: 50 },
+                { label: "Explore 100 tiles", progress: character.totalTilesExplored ?? 0, target: 100 },
+                { label: "Join a clan", progress: character.clan ? 1 : 0, target: 1, detail: character.clan ?? "No clan joined" },
+                { label: "Defeat Exam Proctor", progress: defeatedAiIds.includes("builtin-ai-exam-proctor") ? 1 : 0, target: 1, detail: examProctor ? "Level 25 arena AI" : "Exam Proctor missing", aiId: "builtin-ai-exam-proctor" },
+            ],
+        } : null,
+        character.level >= 41 ? {
+            title: "Jonin Exam",
+            unlockLevel: 41,
+            requirements: [
+                { label: "Get 10 PvP kills", progress: character.totalPvpKills ?? 0, target: 10 },
+                { label: "Raid a village 20 times", progress: character.totalVillageRaids ?? 0, target: 20 },
+                { label: "Defeat Rogue Ninja", progress: defeatedAiIds.includes("builtin-ai-rogue-ninja") ? 1 : 0, target: 1, detail: rogueNinja ? "Level 47 arena AI" : "Rogue Ninja missing", aiId: "builtin-ai-rogue-ninja" },
+            ],
+        } : null,
+        character.level >= 80 ? {
+            title: "Special Jonin Exam",
+            unlockLevel: 80,
+            requirements: [
+                { label: "Compete in 2 tournaments", progress: character.totalTournamentsCompleted ?? 0, target: 2, detail: "Tournament system coming soon" },
+                { label: "Kill 30 players in PvP", progress: character.totalPvpKills ?? 0, target: 30 },
+                { label: "Fight the Endless in Celestial Tower", progress: character.totalEndlessTowerWins ?? 0, target: 1 },
+                { label: "Have a B, A, or S Rank bloodline", progress: advancedBloodline ? 1 : 0, target: 1, detail: advancedBloodline ? `${advancedBloodline.name} (${advancedBloodline.rank})` : "No B/A/S Rank bloodline equipped or owned" },
+            ],
+        } : null,
+    ];
+    const examMissions = maybeExamMissions.filter((mission): mission is ExamLogbookMission => mission !== null);
+
+    function claimMission(mission: CreatorMission) {
+        const progress = missionProgress[mission.id] ?? 0;
+        if (progress < mission.exploreCount) return alert(`Explore Sector ${mission.targetSector} ${mission.exploreCount - progress} more time(s).`);
+        const boostedXp = boostAmount(mission.xpReward, missionRewardBonus);
+        const boostedRyo = boostAmount(mission.ryoReward, missionRewardBonus);
+        const boostedStamina = boostAmount(mission.staminaReward, missionRewardBonus);
+        const leveled = grantTerritoryScrolls(applyCurrencyRewards(gainXp(character, boostedXp), mission.currencyRewards), 3);
+        updateCharacter({
+            ...leveled,
+            ryo: leveled.ryo + boostedRyo,
+            stamina: Math.min(leveled.maxStamina, leveled.stamina + boostedStamina),
+            clanMissionContrib: (leveled.clanMissionContrib ?? 0) + 1,
+            totalMissionsCompleted: (leveled.totalMissionsCompleted ?? 0) + 1,
+            clanContribMonth: new Date().toISOString().slice(0, 7),
+        });
+        setAcceptedMissionIds(acceptedMissionIds.filter((id) => id !== mission.id));
+        setMissionProgress({ ...missionProgress, [mission.id]: 0 });
+        alert(`${mission.name} complete. ${rewardSummary(boostedXp, boostedRyo, boostedStamina, mission.currencyRewards)}. +3 Territory Control Scrolls.`);
+    }
+
+    function acceptMission(mission: CreatorMission) {
+        if (character.level < mission.levelReq) return alert(`Requires level ${mission.levelReq}.`);
+        if (acceptedMissionIds.includes(mission.id)) return;
+        setAcceptedMissionIds([...acceptedMissionIds, mission.id]);
+        setMissionProgress({ ...missionProgress, [mission.id]: missionProgress[mission.id] ?? 0 });
+        alert(`${mission.name} accepted. Explore Sector ${mission.targetSector} ${mission.exploreCount} times.`);
+    }
+
+    function claimRewardEvent(event: CreatorEvent) {
+        if (character.level < event.levelReq) return alert(`Requires level ${event.levelReq}.`);
+        const leveled = gainXp(character, event.xpReward);
+        const rewarded = applyCurrencyRewards(leveled, event.currencyRewards);
+        updateCharacter({
+            ...rewarded,
+            ryo: rewarded.ryo + event.ryoReward,
+            stamina: Math.min(rewarded.maxStamina, rewarded.stamina + event.staminaReward),
+            clanEventContrib: (rewarded.clanEventContrib ?? 0) + 1,
+            clanContribMonth: new Date().toISOString().slice(0, 7),
+        });
+        alert(`${event.name} complete. ${rewardSummary(event.xpReward, event.ryoReward, event.staminaReward, event.currencyRewards)}.`);
+    }
+
+    function startRaid(raid: CreatorRaid) {
+        if (character.level < raid.levelReq) return alert(`Requires level ${raid.levelReq}.`);
+        setPendingAiProfileId(raid.aiProfileId || "");
+        setRaidBattleKind("raidAi");
+        setCurrentBiome(raid.biome);
+        setCurrentWeather(weatherForBiome(raid.biome));
+        setScreen("arena");
+    }
+
+    function goToWarGround() {
+        if (!activeVillageWar) return alert("Your village is not in an active war.");
+        const biome = "central" as Biome;
+        setCurrentSector(activeVillageWar.warGroundSector);
+        setCurrentBiome(biome);
+        setCurrentWeather(weatherForSector(activeVillageWar.warGroundSector, biome));
+        setScreen("worldMap");
+    }
+
+    function claimWarMission(index: number) {
+        const result = claimVillageWarDailyMission(character, index);
+        updateCharacter(result.character);
+        alert(result.note);
+    }
+
+    function abandonMission(missionId: string) {
+        const nextProgress = { ...missionProgress };
+        delete nextProgress[missionId];
+        setAcceptedMissionIds(acceptedMissionIds.filter((id) => id !== missionId));
+        setMissionProgress(nextProgress);
+    }
+
+    function startExamFight(aiId: string) {
+        const ai = creatorAis.find((candidate) => candidate.id === aiId);
+        if (!ai) return alert("Exam AI is not available.");
+        setPendingAiProfileId(ai.id);
+        setScreen("arena");
+    }
+
+    function renderRequirement(requirement: ExamRequirement) {
+        const complete = requirement.progress >= requirement.target;
+        const progressText = requirement.target === 1
+            ? complete ? "Complete" : "Incomplete"
+            : `${Math.min(requirement.progress, requirement.target)}/${requirement.target}`;
+        return (
+            <div key={requirement.label} className="summary-box">
+                <h4>{complete ? "Done" : "Open"} - {requirement.label}</h4>
+                <p>{progressText}{requirement.detail ? ` | ${requirement.detail}` : ""}</p>
+                <div className="mission-progress"><span style={{ width: `${Math.min(100, (requirement.progress / requirement.target) * 100)}%` }}></span></div>
+                {requirement.aiId && !complete && <button onClick={() => startExamFight(requirement.aiId as string)}>Fight {requirement.label.replace("Defeat ", "")}</button>}
+            </div>
+        );
+    }
+
+    return (
+        <div className="card">
+            <h2>Logbook</h2>
+            <p>Exam missions: <strong>{examMissions.length}</strong> · Daily missions: <strong>{dailyMissions.length + (activeVillageWar ? VILLAGE_WAR_DAILY_MISSIONS : 0)}</strong> · Events: <strong>{logbookEvents.length}</strong> · Raids: <strong>{logbookRaids.length}</strong> · Assigned missions: <strong>{assignedMissions.length}</strong></p>
+            {examMissions.length > 0 && (
+                <>
+                    <h3>Rank Exams</h3>
+                    {examMissions.map((exam) => {
+                        const complete = exam.requirements.every((requirement) => requirement.progress >= requirement.target);
+                        return (
+                            <section className="summary-box mission-board-section" key={exam.title}>
+                                <h3>{exam.title}</h3>
+                                <p className="hint">Unlocked at level {exam.unlockLevel}. Status: <strong>{complete ? "Ready to pass" : "In progress"}</strong></p>
+                                <div className="location-grid">{exam.requirements.map(renderRequirement)}</div>
+                            </section>
+                        );
+                    })}
+                </>
+            )}
+            {activeVillageWar && (
+                <>
+                    <h3>Village War Missions</h3>
+                    <section className="summary-box mission-board-section">
+                        <h3>{character.village} vs {activeVillageWarEnemy}</h3>
+                        <p className="hint">War Ground: Sector {activeVillageWar.warGroundSector}. Each mission needs 3 successful enemy-village raids and claims for -30 enemy village HP.</p>
+                        <div className="location-grid">{villageWarDailyMissions.map((mission) => {
+                            const canClaim = !mission.complete && todayWarCompleted === mission.index && mission.progress >= VILLAGE_WAR_RAIDS_PER_MISSION;
+                            return <div key={mission.title} className="location-button mission-card"><span className="tile-icon">WAR</span><span>{mission.title}</span><small>Raid enemy village from Sector {activeVillageWar.warGroundSector}: {mission.progress}/{VILLAGE_WAR_RAIDS_PER_MISSION}</small><small>Reward: -{VILLAGE_WAR_MISSION_DAMAGE} enemy village HP</small><div className="mission-progress"><span style={{ width: `${(mission.progress / VILLAGE_WAR_RAIDS_PER_MISSION) * 100}%` }}></span></div><div className="menu">{mission.complete ? <button disabled>Complete Today</button> : canClaim ? <button onClick={() => claimWarMission(mission.index)}>Claim War Damage</button> : <button onClick={goToWarGround}>Go To War Ground</button>}</div></div>;
+                        })}</div>
+                    </section>
+                </>
+            )}
+            {dailyMissions.length > 0 && (
+                <>
+                    <h3>Daily Missions</h3>
+                    <div className="location-grid">{dailyMissions.map((mission) => {
+                        const accepted = acceptedMissionIds.includes(mission.id);
+                        const progress = missionProgress[mission.id] ?? 0;
+                        const complete = progress >= mission.exploreCount;
+                        const progressPercent = Math.min(100, (progress / mission.exploreCount) * 100);
+                        const boostedXp = boostAmount(mission.xpReward, missionRewardBonus);
+                        const boostedRyo = boostAmount(mission.ryoReward, missionRewardBonus);
+                        const boostedStamina = boostAmount(mission.staminaReward, missionRewardBonus);
+                        return (
+                            <div key={mission.id} className="location-button mission-card">
+                                <CardVisual icon="📅" label={mission.name} />
+                                <span>{mission.name}</span>
+                                <small>Sector {mission.targetSector} | Explore {progress}/{mission.exploreCount}</small>
+                                <small>Lvl {mission.levelReq} | {rewardSummary(boostedXp, boostedRyo, boostedStamina, mission.currencyRewards)}</small>
+                                <p>{mission.description}</p>
+                                <div className="mission-progress"><span style={{ width: `${progressPercent}%` }}></span></div>
+                                <div className="menu">
+                                    {!accepted ? <button onClick={() => acceptMission(mission)}>Accept</button> : complete ? <button onClick={() => claimMission(mission)}>Claim Reward</button> : <button onClick={() => setScreen("worldMap")}>Go To Sector {mission.targetSector}</button>}
+                                </div>
+                            </div>
+                        );
+                    })}</div>
+                </>
+            )}
+            {logbookEvents.length > 0 && (
+                <>
+                    <h3>Events</h3>
+                    <div className="location-grid">{logbookEvents.map((event) => (
+                        <div key={event.id} className="location-button mission-card">
+                            <CardVisual image={event.image || event.avatarImage} icon={event.icon} label={event.name} />
+                            <span>{event.name}</span>
+                            <small>Lvl {event.levelReq} | {event.biome} | {rewardSummary(event.xpReward, event.ryoReward, event.staminaReward, event.currencyRewards)}</small>
+                            <p>{event.dialogue.join(" ")}</p>
+                            <div className="menu"><button onClick={() => claimRewardEvent(event)}>Claim Event Reward</button></div>
+                        </div>
+                    ))}</div>
+                </>
+            )}
+            {logbookRaids.length > 0 && (
+                <>
+                    <h3>Raids</h3>
+                    <div className="location-grid">{logbookRaids.map((raid) => {
+                        const raidAi = raid.aiProfileId ? creatorAis.find((ai) => ai.id === raid.aiProfileId) : undefined;
+                        return (
+                            <div key={raid.id} className="location-button mission-card">
+                                <CardVisual image={raidAi?.image} icon={raid.icon} label={raid.name} />
+                                <span>{raid.name}</span>
+                                <small>{raid.waves} waves | Lvl {raid.levelReq} | {raid.biome}</small>
+                                <small>Boss: {raidAi?.name ?? raid.aiProfileId ?? "Default arena AI"} | Reward: {rewardSummary(raid.xpReward, raid.ryoReward, raid.staminaReward, raid.currencyRewards)}</small>
+                                <p>{raid.description}</p>
+                                <div className="menu"><button onClick={() => startRaid(raid)}>Start Raid</button></div>
+                            </div>
+                        );
+                    })}</div>
+                </>
+            )}
+            <h3>Assigned Missions</h3>
+            {assignedMissions.length === 0 && missingMissionIds.length === 0 ? (
+                <div className="summary-box">
+                    <h3>No Active Assignments</h3>
+                    <p className="hint">Accept a fetch mission from the Mission Hall to track it here.</p>
+                    <button onClick={() => setScreen("missions")}>Open Mission Hall</button>
+                </div>
+            ) : (
+                <div className="location-grid">
+                    {assignedMissions.map((mission) => {
+                        const progress = missionProgress[mission.id] ?? 0;
+                        const complete = progress >= mission.exploreCount;
+                        const progressPercent = Math.min(100, (progress / mission.exploreCount) * 100);
+                        const boostedXp = boostAmount(mission.xpReward, missionRewardBonus);
+                        const boostedRyo = boostAmount(mission.ryoReward, missionRewardBonus);
+                        const boostedStamina = boostAmount(mission.staminaReward, missionRewardBonus);
+                        return (
+                            <div key={mission.id} className="location-button mission-card">
+                                <CardVisual image={creatorAis.find((ai) => ai.id === mission.aiProfileId)?.image} icon={mission.rank} label={mission.name} />
+                                <span>{mission.name}</span>
+                                <small>Sector {mission.targetSector} | Explore {progress}/{mission.exploreCount}</small>
+                                <small>Lvl {mission.levelReq} | {rewardSummary(boostedXp, boostedRyo, boostedStamina, mission.currencyRewards)}</small>
+                                <p>{mission.description}</p>
+                                <div className="mission-progress"><span style={{ width: `${progressPercent}%` }}></span></div>
+                                <div className="menu">
+                                    {complete ? <button onClick={() => claimMission(mission)}>Claim Reward</button> : <button onClick={() => setScreen("worldMap")}>Go To Sector {mission.targetSector}</button>}
+                                    <button className="danger-button" onClick={() => abandonMission(mission.id)}>Abandon</button>
+                                </div>
+                            </div>
+                        );
+                    })}
+                    {missingMissionIds.map((missionId) => (
+                        <div key={missionId} className="location-button mission-card">
+                            <span className="tile-icon">OLD</span>
+                            <span>Archived Assignment</span>
+                            <small>This mission no longer exists on the mission board.</small>
+                            <div className="menu"><button className="danger-button" onClick={() => abandonMission(missionId)}>Remove</button></div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
 }
 
 function Profile({
@@ -11745,6 +15706,8 @@ function Profile({
 
     const [statInputs, setStatInputs] = useState<Partial<Record<keyof Stats, number>>>({});
     const [statWarning, setStatWarning] = useState("");
+    const [titleInput, setTitleInput] = useState(character.customTitle ?? "");
+    const TITLE_COST = 10;
 
     function formatStatLabel(name: string) {
         return name
@@ -11767,6 +15730,7 @@ function Profile({
         updateCharacter({
             ...character,
             unspentStats: character.unspentStats - actualAdded,
+            totalStatsTrained: (character.totalStatsTrained ?? 0) + actualAdded,
             stats: { ...character.stats, [stat]: newValue },
         });
     }
@@ -11776,6 +15740,18 @@ function Profile({
             ...character,
             equippedBloodlineId: id || undefined,
         });
+    }
+
+    function purchaseTitle() {
+        const trimmed = titleInput.trim().slice(0, 15);
+        if (!trimmed) return alert("Enter a title first.");
+        if ((character.fateShards ?? 0) < TITLE_COST) return alert(`You need ${TITLE_COST} ✦ Fate Shards.`);
+        updateCharacter({ ...character, customTitle: trimmed, fateShards: character.fateShards - TITLE_COST });
+    }
+
+    function clearTitle() {
+        updateCharacter({ ...character, customTitle: undefined });
+        setTitleInput("");
     }
 
     function toggleJutsu(id: string) {
@@ -11846,6 +15822,7 @@ function Profile({
                         <p><strong>Name:</strong> {character.name}</p>
                         <p><strong>Village:</strong> {character.village}</p>
                         <p><strong>Rank:</strong> {character.rankTitle}</p>
+                        {character.customTitle && <p><strong>Title:</strong> <span style={{ color: "#facc15" }}>{character.customTitle}</span></p>}
                         <p><strong>Level:</strong> {character.level}/100</p>
                         <p><strong>Bloodline:</strong> {equippedBloodline?.name || character.bloodline}</p>
                         <p><strong>Elements:</strong> {ownedElements.length ? ownedElements.join(" / ") : "Not awakened"}</p>
@@ -11857,13 +15834,13 @@ function Profile({
                         <h3>Activity</h3>
                         <p><strong>XP:</strong> {character.level >= MAX_LEVEL ? "MAX" : `${character.xp}/${xpNeeded(character.level)}`}</p>
                         <p><strong>Ryo:</strong> {character.ryo}</p>
-                        <p><strong style={{ color: "#facc15" }}>🎖 Honor Seals:</strong> <span style={{ color: "#facc15" }}>{character.honorSeals ?? 0}</span></p>
-                        <p><strong style={{ color: "#fef3c7" }}>🌫 Aura Dust:</strong> <span style={{ color: "#fef3c7" }}>{character.auraDust ?? 0}</span></p>
+                        <p><strong style={{ color: "#facc15" }}>🏅 Honor Seals:</strong> <span style={{ color: "#facc15" }}>{character.honorSeals ?? 0}</span></p>
+                        <p><strong style={{ color: "#fef3c7" }}>✨ Aura Dust:</strong> <span style={{ color: "#fef3c7" }}>{character.auraDust ?? 0}</span></p>
                         <p><strong>Bank:</strong> {character.bankRyo}</p>
                         <p><strong style={{ color: "#ce93d8" }}>✦ Fate Shards:</strong> <span style={{ color: "#ce93d8" }}>{character.fateShards}</span></p>
                         <p><strong>Jutsu:</strong> {character.equippedJutsuIds.length}/15</p>
                         <p><strong>Equipment:</strong> {equippedItems.length}/3</p>
-                        <p><strong>Status:</strong> AWAKE ☼</p>
+                        <p><strong>Status:</strong> AWAKE ¤</p>
                     </div>
 
                     <div>
@@ -11895,6 +15872,37 @@ function Profile({
                 </button>
                 <p className="hint">Aura Dust drops from PvP, village raids, boss wins, war contribution, and ancient chests.</p>
             </section>}
+
+            <section className="summary-box profile-title-panel">
+                <div>
+                    <p className="act-label">Custom Title</p>
+                    <p style={{ color: "#94a3b8", fontSize: "0.85rem", margin: "0.2rem 0 0.75rem" }}>
+                        {character.customTitle
+                            ? <>Current: <span style={{ color: "#facc15", fontWeight: 700 }}>{character.customTitle}</span></>
+                            : "No title set."}
+                    </p>
+                    <div className="profile-title-row">
+                        <input
+                            className="profile-title-input"
+                            value={titleInput}
+                            onChange={(e: ChangeEvent<HTMLInputElement>) => setTitleInput(e.target.value.slice(0, 15))}
+                            placeholder="Up to 15 characters"
+                            maxLength={15}
+                        />
+                        <span className="profile-title-counter">{titleInput.length}/15</span>
+                        <button
+                            className="profile-title-btn"
+                            onClick={purchaseTitle}
+                            disabled={(character.fateShards ?? 0) < TITLE_COST || !titleInput.trim()}
+                        >
+                            Set Title — ✦ {TITLE_COST}
+                        </button>
+                        {character.customTitle && (
+                            <button className="danger-button" onClick={clearTitle}>Clear</button>
+                        )}
+                    </div>
+                </div>
+            </section>
 
             <section className="profile-build-panel">
                 <div className="stat-header">
@@ -12001,17 +16009,30 @@ function Profile({
         </div>
     );
 }
-function BloodlineMaker({ savedBloodlines, setSavedBloodlines }: { savedBloodlines: SavedBloodline[]; setSavedBloodlines: (bloodlines: SavedBloodline[]) => void }) {
-    const [rank, setRank] = useState<Rank>("A Rank");
+function BloodlineMaker({ initialRank, initialSpecialElement, savedBloodlines, setSavedBloodlines, lockedRank, onClose }: { initialRank: Rank; initialSpecialElement?: string; savedBloodlines: SavedBloodline[]; setSavedBloodlines: (bloodlines: SavedBloodline[]) => void; lockedRank?: boolean; onClose?: () => void }) {
+    const [rank, setRank] = useState<Rank>(initialRank);
     const [bloodlineName, setBloodlineName] = useState("Custom Bloodline");
     const [bloodlineImage, setBloodlineImage] = useState("");
-    const [specialElement, setSpecialElement] = useState("");
+    const [specialElement, setSpecialElement] = useState(initialSpecialElement ?? "");
     const [bloodlineOffense, setBloodlineOffense] = useState<JutsuType>("Ninjutsu");
-    const [jutsus, setJutsus] = useState<Jutsu[]>(Array.from({ length: 5 }).map((_, i) => blankJutsu(i, "A Rank")));
+    const [jutsus, setJutsus] = useState<Jutsu[]>(Array.from({ length: jutsuCountForRank(initialRank) }).map((_, i) => blankJutsu(i, initialRank)));
     const recommendedMax = pointBudgetForRank(rank);
+
+    useEffect(() => {
+        setRank(initialRank);
+        setSpecialElement(initialSpecialElement ?? "");
+        setJutsus(Array.from({ length: jutsuCountForRank(initialRank) }).map((_, i) => normalizeJutsu({
+            ...blankJutsu(i, initialRank),
+            element: (initialSpecialElement || "Fire") as JutsuElement,
+        })));
+    }, [initialRank, initialSpecialElement]);
+
     function changeRank(newRank: Rank) {
         setRank(newRank);
-        setJutsus(Array.from({ length: jutsuCountForRank(newRank) }).map((_, i) => blankJutsu(i, newRank)));
+        setJutsus(Array.from({ length: jutsuCountForRank(newRank) }).map((_, i) => normalizeJutsu({
+            ...blankJutsu(i, newRank),
+            element: (specialElement || "Fire") as JutsuElement,
+        })));
     }
     const totalPoints = bloodlinePoints(jutsus);
     function setBloodlineSpecialElement(value: string) {
@@ -12031,6 +16052,10 @@ function BloodlineMaker({ savedBloodlines, setSavedBloodlines }: { savedBloodlin
             else if (![4, 5].includes(next.range)) next.range = 4;
             next.cooldown = 7;
             if (hasFixedEffectPower(next)) next.effectPower = 100;
+            // Strip "Increase Damage Taken" tag if the move targets the ground
+            if (next.target === "EMPTY_GROUND") {
+                next.tags = next.tags.filter((t) => t.name !== "Increase Damage Taken");
+            }
             return next;
         }));
     }
@@ -12040,7 +16065,7 @@ function BloodlineMaker({ savedBloodlines, setSavedBloodlines }: { savedBloodlin
         updateJutsu(index, {
             ap,
             tags: (currentJutsu?.tags ?? []).slice(0, ap === 60 ? 2 : 3),
-            effectPower: fixedEffectPower ? 100 : ap === 60 ? ([30, 40].includes(currentJutsu?.effectPower ?? 0) ? currentJutsu!.effectPower : 30) : 0,
+            effectPower: fixedEffectPower ? 100 : ap === 60 ? ([40, 50].includes(currentJutsu?.effectPower ?? 0) ? currentJutsu!.effectPower : 40) : 0,
         });
     }
     function updateTag(jutsuIndex: number, tagIndex: number, updated: Partial<JutsuTag>) {
@@ -12085,7 +16110,11 @@ function BloodlineMaker({ savedBloodlines, setSavedBloodlines }: { savedBloodlin
             <label>Bloodline Image</label><input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) readImageFile(file, setBloodlineImage, 100); }} />
             <AiImagePrompt label="Bloodline Image" suggestedPrompt={`${bloodlineName}, ${specialElement || "chakra"} bloodline symbol`} onImage={setBloodlineImage} />
             {bloodlineImage && <div className="admin-event-list-preview"><img src={bloodlineImage} alt={bloodlineName} /></div>}
-            <label>Rank</label><select value={rank} onChange={(e) => changeRank(e.target.value as Rank)}><option>B Rank</option><option>A Rank</option><option>S Rank</option></select>
+            <label>Rank</label>
+            {lockedRank
+                ? <div className="bloodline-rank-locked">{rank} <span className="rank-lock-badge">🔒 Locked</span></div>
+                : <select value={rank} onChange={(e) => changeRank(e.target.value as Rank)}><option>B Rank</option><option>A Rank</option><option>S Rank</option></select>
+            }
             <div className="summary-box"><p>Total Points: {totalPoints} / {recommendedMax}</p>{specialElement.trim() && <p>Special Element: {specialElement.trim()}</p>}</div>
             {jutsus.map((jutsu, jutsuIndex) => (
                 <div className="jutsu-card maker-card" key={jutsu.id}>
@@ -12111,14 +16140,14 @@ function BloodlineMaker({ savedBloodlines, setSavedBloodlines }: { savedBloodlin
                         <button className={jutsu.ap === 60 ? "active" : ""} onClick={() => updateJutsuAp(jutsuIndex, 60)}>60 AP Damage</button>
                     </div>
                     {jutsu.ap === 60 && !hasFixedEffectPower(jutsu) && (() => {
-                        const strongUsedElsewhere = jutsus.some((j, i) => i !== jutsuIndex && j.ap === 60 && j.effectPower === 40 && !hasFixedEffectPower(j));
+                        const strongUsedElsewhere = jutsus.some((j, i) => i !== jutsuIndex && j.ap === 60 && j.effectPower === 50 && !hasFixedEffectPower(j));
                         return (
                             <div className="summary-box bloodline-damage-section">
                                 <h4>Damage</h4>
-                                <label>Effect Power</label>
+                                <label>Effect Power (Lv.50 max · Lv.1 ≈ value − 9.8)</label>
                                 <select value={jutsu.effectPower} onChange={(e) => updateJutsu(jutsuIndex, { effectPower: Number(e.target.value) })}>
-                                    <option value={30}>30 — Standard (max ~88 at lv 50)</option>
-                                    <option value={40} disabled={strongUsedElsewhere}>40 — Strong (max ~118 at lv 50){strongUsedElsewhere ? " [already used]" : " (+1 pt)"}</option>
+                                    <option value={40}>40 — Standard · Lv.1 ≈ 30.2</option>
+                                    <option value={50} disabled={strongUsedElsewhere}>50 — Nuke · Lv.1 ≈ 40.2{strongUsedElsewhere ? " [already used]" : " (+1 pt)"}</option>
                                 </select>
                             </div>
                         );
@@ -12138,7 +16167,7 @@ function BloodlineMaker({ savedBloodlines, setSavedBloodlines }: { savedBloodlin
                     <div className="inline-grid"><input type="number" value={jutsu.healthCost} onChange={(e) => updateJutsu(jutsuIndex, { healthCost: Number(e.target.value) })} /><input type="number" value={jutsu.chakraCost} onChange={(e) => updateJutsu(jutsuIndex, { chakraCost: Number(e.target.value) })} /><input type="number" value={jutsu.staminaCost} onChange={(e) => updateJutsu(jutsuIndex, { staminaCost: Number(e.target.value) })} /></div>
                     <label>Cost Reduction Per Level</label>
                     <div className="inline-grid"><input type="number" value={jutsu.healthCostReducePerLvl} onChange={(e) => updateJutsu(jutsuIndex, { healthCostReducePerLvl: Number(e.target.value) })} /><input type="number" value={jutsu.chakraCostReducePerLvl} onChange={(e) => updateJutsu(jutsuIndex, { chakraCostReducePerLvl: Number(e.target.value) })} /><input type="number" value={jutsu.staminaCostReducePerLvl} onChange={(e) => updateJutsu(jutsuIndex, { staminaCostReducePerLvl: Number(e.target.value) })} /></div>
-                    <label>Tags</label>{Array.from({ length: jutsu.ap === 60 ? 2 : 3 }).map((_, tagIndex) => <TagPicker key={tagIndex} rank={rank} tag={jutsu.tags[tagIndex]?.name ?? ""} setTag={(name) => updateTag(jutsuIndex, tagIndex, { name })} percent={jutsu.tags[tagIndex]?.percent ?? 30} setPercent={(percent) => updateTag(jutsuIndex, tagIndex, { percent })} />)}
+                    <label>Tags</label>{Array.from({ length: jutsu.ap === 60 ? 2 : 3 }).map((_, tagIndex) => <TagPicker key={tagIndex} rank={rank} jutsuTarget={jutsu.target} tag={jutsu.tags[tagIndex]?.name ?? ""} setTag={(name) => updateTag(jutsuIndex, tagIndex, { name })} percent={jutsu.tags[tagIndex]?.percent ?? 30} setPercent={(percent) => updateTag(jutsuIndex, tagIndex, { percent })} />)}
                     <p>Jutsu Points: {jutsuPoints(jutsu)}</p>
                 </div>
             ))}
@@ -12148,7 +16177,77 @@ function BloodlineMaker({ savedBloodlines, setSavedBloodlines }: { savedBloodlin
     );
 }
 
+type ArenaTournament = {
+    id: string;
+    name: string;
+    createdBy: string;
+    startsAt: number;
+    endsAt: number;
+    matchDeadline: number;
+    participants: string[];
+    advancedPlayers: string[];
+};
+type ArenaSpectatorFight = { id: string; title: string; mode: string; startedAt: number; fighters: string[] };
+type PendingClanPetBattle = { clanName?: string; points: number; opponentName: string; createdAt: number };
+const ARENA_TOURNAMENT_KEY = "shinobij-arena-tournament";
+const ARENA_ACTIVE_FIGHTS_KEY = "shinobij-active-fights";
+const CLAN_PET_BATTLE_KEY = "shinobij-clan-pet-battle";
+
+function loadArenaTournament(): ArenaTournament | null {
+    try {
+        const raw = localStorage.getItem(ARENA_TOURNAMENT_KEY);
+        return raw ? JSON.parse(raw) as ArenaTournament : null;
+    } catch {
+        return null;
+    }
+}
+
+function saveArenaTournament(tournament: ArenaTournament | null) {
+    if (!tournament) localStorage.removeItem(ARENA_TOURNAMENT_KEY);
+    else localStorage.setItem(ARENA_TOURNAMENT_KEY, JSON.stringify(tournament));
+}
+
+function loadArenaActiveFights(): ArenaSpectatorFight[] {
+    try {
+        const raw = localStorage.getItem(ARENA_ACTIVE_FIGHTS_KEY);
+        const fights = raw ? JSON.parse(raw) as ArenaSpectatorFight[] : [];
+        return fights.filter((fight) => Date.now() - fight.startedAt < 2 * 60 * 60 * 1000);
+    } catch {
+        return [];
+    }
+}
+
+function saveArenaActiveFights(fights: ArenaSpectatorFight[]) {
+    localStorage.setItem(ARENA_ACTIVE_FIGHTS_KEY, JSON.stringify(fights.slice(0, 20)));
+}
+
+function loadPendingClanPetBattle(): PendingClanPetBattle | null {
+    try {
+        const raw = localStorage.getItem(CLAN_PET_BATTLE_KEY);
+        const battle = raw ? JSON.parse(raw) as PendingClanPetBattle : null;
+        if (!battle || Date.now() - battle.createdAt > 24 * 60 * 60 * 1000) {
+            localStorage.removeItem(CLAN_PET_BATTLE_KEY);
+            return null;
+        }
+        return battle;
+    } catch {
+        localStorage.removeItem(CLAN_PET_BATTLE_KEY);
+        return null;
+    }
+}
+
+function savePendingClanPetBattle(battle: PendingClanPetBattle | null) {
+    if (!battle) localStorage.removeItem(CLAN_PET_BATTLE_KEY);
+    else localStorage.setItem(CLAN_PET_BATTLE_KEY, JSON.stringify(battle));
+}
+
+function rankedDelta(winnerRating: number, loserRating: number) {
+    const expected = 1 / (1 + Math.pow(10, (loserRating - winnerRating) / 400));
+    return Math.max(8, Math.round(24 * (1 - expected)));
+}
+
 function Arena({
+    lobbyMode = "battleArena",
     character,
     updateCharacter,
     savedBloodlines,
@@ -12157,6 +16256,7 @@ function Arena({
     pendingAiProfileId,
     setPendingAiProfileId,
     currentBiome,
+    currentSector,
     playerRoster,
     duelChallenges,
     setDuelChallenges,
@@ -12171,7 +16271,11 @@ function Arena({
     endlessBattleWave = 0,
     onEndlessWin,
     onEndlessBattleEnd,
+    pendingStoryBattle,
+    onPendingStoryBattleWin,
+    onPendingStoryBattleContinue,
 }: {
+    lobbyMode?: "battleArena" | "arenaDistrict";
     character: Character;
     updateCharacter: (character: Character) => void;
     savedBloodlines: SavedBloodline[];
@@ -12180,6 +16284,7 @@ function Arena({
     pendingAiProfileId: string;
     setPendingAiProfileId: (id: string) => void;
     currentBiome: Biome;
+    currentSector: number;
     currentWeather: WeatherType;
     playerRoster: PlayerRecord[];
     duelChallenges: DuelChallenge[];
@@ -12194,6 +16299,9 @@ function Arena({
     endlessBattleWave?: number;
     onEndlessWin?: (wave: number) => void;
     onEndlessBattleEnd?: () => void;
+    pendingStoryBattle?: PendingArenaStoryBattle | null;
+    onPendingStoryBattleWin?: (survivingHp: number) => string;
+    onPendingStoryBattleContinue?: () => void;
 }) {
     type CombatStatus = {
         name: string;
@@ -12267,7 +16375,29 @@ function Arena({
     const allJutsus = getAllJutsus(savedBloodlines, creatorJutsus, character);
     const pendingAiProfile = creatorAis.find((ai) => ai.id === pendingAiProfileId);
     const allItems = getAllItems(creatorItems);
-    const playerArmorFactor = getCharacterArmorFactor(character, allItems);
+    const isAtWarForFocus = activeVillageWarsFor(character.village).length > 0;
+    const warFocusDamageReduction = (character.elderFocus === "war" && isAtWarForFocus) ? 0.99 : 1.0;
+    const playerArmorFactor = getCharacterArmorFactor(character, allItems) * warFocusDamageReduction;
+    const equippedDamagePercent = getEquippedItemBonus(character, allItems, "damagePercent");
+    const equippedAbsorbPercent = getEquippedItemBonus(character, allItems, "absorbPercent");
+    const equippedLifeStealPercent = getEquippedItemBonus(character, allItems, "lifeStealPercent");
+    const equippedShieldBonus = getEquippedItemBonus(character, allItems, "shield");
+    const equippedReflectPercent = getEquippedItemBonus(character, allItems, "reflectPercent");
+    const playerItemMult = 1 + equippedDamagePercent / 100;
+    const characterCombatStats: Stats = {
+        strength: character.stats.strength + getEquippedItemBonus(character, allItems, "strength"),
+        speed: character.stats.speed + getEquippedItemBonus(character, allItems, "speed"),
+        intelligence: character.stats.intelligence + getEquippedItemBonus(character, allItems, "intelligence"),
+        willpower: character.stats.willpower + getEquippedItemBonus(character, allItems, "willpower"),
+        bukijutsuOffense: character.stats.bukijutsuOffense + getEquippedItemBonus(character, allItems, "bukijutsuOffense"),
+        bukijutsuDefense: character.stats.bukijutsuDefense + getEquippedItemBonus(character, allItems, "bukijutsuDefense"),
+        taijutsuOffense: character.stats.taijutsuOffense + getEquippedItemBonus(character, allItems, "taijutsuOffense"),
+        taijutsuDefense: character.stats.taijutsuDefense + getEquippedItemBonus(character, allItems, "taijutsuDefense"),
+        genjutsuOffense: character.stats.genjutsuOffense + getEquippedItemBonus(character, allItems, "genjutsuOffense"),
+        genjutsuDefense: character.stats.genjutsuDefense + getEquippedItemBonus(character, allItems, "genjutsuDefense"),
+        ninjutsuOffense: character.stats.ninjutsuOffense + getEquippedItemBonus(character, allItems, "ninjutsuOffense"),
+        ninjutsuDefense: character.stats.ninjutsuDefense + getEquippedItemBonus(character, allItems, "ninjutsuDefense"),
+    };
     const equippedJutsus = allJutsus.filter((jutsu) =>
         character.equippedJutsuIds.includes(jutsu.id) && canEquipElementJutsu(character, jutsu, savedBloodlines)
     );
@@ -12281,6 +16411,11 @@ function Arena({
     const [aiLevel, setAiLevel] = useState(character.level);
     const [playerSearch, setPlayerSearch] = useState("");
     const [opponentCharacter, setOpponentCharacter] = useState<Character | null>(null);
+    const [rankedBattleActive, setRankedBattleActive] = useState(false);
+    const [clanWarPointsActive, setClanWarPointsActive] = useState(0);
+    const [arenaTournament, setArenaTournament] = useState<ArenaTournament | null>(() => loadArenaTournament());
+    const [spectatorFights, setSpectatorFights] = useState<ArenaSpectatorFight[]>(() => loadArenaActiveFights());
+    const [opponentClanData, setOpponentClanData] = useState<EnhancedClanData | null>(null);
     const enemyArmorFactor = opponentCharacter ? getCharacterArmorFactor(opponentCharacter, allItems) : 1.0;
     const opponentLevel = opponentCharacter?.level ?? pendingAiProfile?.level ?? aiLevel;
     const opponentName = opponentCharacter?.name ?? pendingAiProfile?.name ?? `Level ${aiLevel} AI Ninja`;
@@ -12303,8 +16438,10 @@ function Arena({
 
     const [playerHp, setPlayerHp] = useState(character.hp);
     const [enemyHp, setEnemyHp] = useState(enemyMaxHp);
+    const [enemyChakra, setEnemyChakra] = useState(enemyMaxChakra);
+    const [enemyStamina, setEnemyStamina] = useState(enemyMaxStamina);
 
-    const [playerShield, setPlayerShield] = useState(0);
+    const [playerShield, setPlayerShield] = useState(equippedShieldBonus);
     const [enemyShield, setEnemyShield] = useState(0);
 
     const [ap, setAp] = useState(100);
@@ -12316,6 +16453,7 @@ function Arena({
 
     const [playerStatuses, setPlayerStatuses] = useState<CombatStatus[]>([]);
     const [enemyStatuses, setEnemyStatuses] = useState<CombatStatus[]>([]);
+    const [barrierTiles, setBarrierTiles] = useState<{ tile: number; rounds: number }[]>([]);
 
     const [cooldowns, setCooldowns] = useState<Record<string, number>>({});
     const [jutsuCooldowns, setJutsuCooldowns] = useState<Record<string, number>>({});
@@ -12328,12 +16466,15 @@ function Arena({
 
     const [pendingTargetJutsuId, setPendingTargetJutsuIdRaw] = useState("");
     const [pendingTargetJutsuDirect, setPendingTargetJutsuDirect] = useState<Jutsu | null>(null);
+    const [pendingTargetWeapon, setPendingTargetWeaponRaw] = useState<GameItem | null>(null);
     const [inspectedJutsuId, setInspectedJutsuId] = useState("");
     const [inspectedCombatItemId, setInspectedCombatItemId] = useState("");
+    const [pvpCountdown, setPvpCountdown] = useState<number | null>(null); // sector-attack countdown
     const pendingPlayerStunApPenaltyRef = useRef(false);
 
     function setPendingTargetJutsuId(value: string) {
         setPendingTargetJutsuIdRaw(value);
+        setPendingTargetWeaponRaw(null);
 
         if (!value) {
             setPendingTargetJutsuDirect(null);
@@ -12341,6 +16482,7 @@ function Arena({
     }
 
     function armPendingTargetJutsu(jutsu: Jutsu) {
+        setPendingTargetWeaponRaw(null);
         setPendingTargetJutsuDirect(jutsu);
         setPendingTargetJutsuIdRaw(jutsu.id || `${jutsu.name}-${jutsu.ap}-${jutsu.range}`);
     }
@@ -12353,10 +16495,24 @@ function Arena({
     const inspectedCombatItem = combatEquippedItems.find((item) => item.id === inspectedCombatItemId);
 
     function weatherDamageMultiplier(jutsu: Jutsu) {
+        if (rankedBattleActive) return 1;
         const weather = weatherEffects[currentWeather];
         if (weather.positiveElement === jutsu.element) return 1.05;
         if (weather.negativeElement === jutsu.element) return 0.98;
         return 1;
+    }
+
+    function territoryDamageMultiplier(jutsu: Jutsu) {
+        if (rankedBattleActive) return 1;
+        const territory = loadSectorTerritory(currentSector);
+        if (!territory.ownerClan) return 1;
+        const buffByType: Record<JutsuType, TerritoryBuffStat> = {
+            Bukijutsu: "bukijutsuOffense",
+            Taijutsu: "taijutsuOffense",
+            Ninjutsu: "ninjutsuOffense",
+            Genjutsu: "genjutsuOffense",
+        };
+        return territory.terrainBuffStat === buffByType[jutsu.type] ? 1.1 : 1;
     }
 
     function adjustedApCost(cost: number) {
@@ -12364,6 +16520,35 @@ function Arena({
         const timeDilationBonus = playerStatuses.some((s) => s.name === "Time Dilation") ? 10 : 0;
         return Math.max(0, cost + timeCompressionPenalty - timeDilationBonus);
     }
+
+    useEffect(() => {
+        if (!battleStarted || battleEnded) return;
+        const fight: ArenaSpectatorFight = {
+            id: `${character.name}-${opponentName}-${Date.now()}`,
+            title: `${character.name} vs ${opponentName}`,
+            mode: rankedBattleActive ? "Ranked" : clanWarPointsActive > 0 ? "Clan War" : raidBattleKind !== "none" ? "Raid/PvP" : "Arena",
+            startedAt: Date.now(),
+            fighters: [character.name, opponentName],
+        };
+        const next = [fight, ...loadArenaActiveFights().filter((candidate) => !candidate.fighters.includes(character.name))];
+        saveArenaActiveFights(next);
+        setSpectatorFights(next);
+        return () => {
+            const remaining = loadArenaActiveFights().filter((candidate) => candidate.id !== fight.id);
+            saveArenaActiveFights(remaining);
+            setSpectatorFights(remaining);
+        };
+    }, [battleStarted, opponentName, rankedBattleActive, clanWarPointsActive, raidBattleKind, character.name]);
+
+    useEffect(() => {
+        if (!character.clan) { setOpponentClanData(null); return; }
+        fetchClanData(character.clan).then(async (data) => {
+            const activeWar = data ? enhanceClanData(data).activeWar : undefined;
+            if (!activeWar?.opponentClan) { setOpponentClanData(null); return; }
+            const opponentData = await fetchClanData(activeWar.opponentClan);
+            setOpponentClanData(opponentData ? enhanceClanData(opponentData) : null);
+        }).catch(() => setOpponentClanData(null));
+    }, [character.clan]);
 
     useEffect(() => {
         if (!battleStarted || battleEnded) return;
@@ -12391,6 +16576,15 @@ function Arena({
     }, [ap, actionsThisTurn, activeActor, battleStarted, battleEnded]);
 
     useEffect(() => {
+        if (lobbyMode === "arenaDistrict" && !battleStarted) {
+            if (pendingAiProfileId) setPendingAiProfileId("");
+            if (pendingPvpOpponent) setPendingPvpOpponent(null);
+            if (raidBattleKind !== "none") setRaidBattleKind("none");
+        }
+    }, [lobbyMode, battleStarted, pendingAiProfileId, pendingPvpOpponent?.name, raidBattleKind]);
+
+    useEffect(() => {
+        if (lobbyMode === "arenaDistrict") return;
         if (!pendingAiProfile || battleStarted) return;
         const battleWeather = currentWeather;
         setOpponentCharacter(null);
@@ -12399,50 +16593,112 @@ function Arena({
         setBattleStarted(true);
         resetBattle(pendingAiProfile.hp);
         setLog(`Event battle started against ${pendingAiProfile.name}. Weather: ${weatherEffects[battleWeather].name}.`);
-    }, [pendingAiProfile?.id, battleStarted]);
+    }, [lobbyMode, pendingAiProfile?.id, battleStarted]);
 
     useEffect(() => {
+        if (lobbyMode === "arenaDistrict") return;
         if (!pendingPvpOpponent || battleStarted) return;
         const opponent = normalizeCharacter(pendingPvpOpponent);
+        // Prepare opponent data for battle, but run a 10-second countdown first
         setPendingAiProfileId("");
         if (raidBattleKind === "none") setRaidBattleKind("raidPlayer");
+        setRankedBattleActive(false);
+        setClanWarPointsActive(0);
         setOpponentCharacter(opponent);
         setEnemyHp(opponent.maxHp);
-        setBattleStarted(true);
-        resetBattle(opponent.maxHp);
-        setLog(`PvP battle started against ${opponent.name}. Weather: ${weatherEffects[currentWeather].name}.`);
         setPendingPvpOpponent(null);
-    }, [pendingPvpOpponent?.name, battleStarted]);
 
-    function beginAiBattle() {
-        const battleWeather = currentWeather;
+        // 10-second countdown before battle starts
+        let secs = 10;
+        setPvpCountdown(secs);
+        const interval = setInterval(() => {
+            secs -= 1;
+            setPvpCountdown(secs);
+            if (secs <= 0) {
+                clearInterval(interval);
+                setPvpCountdown(null);
+                setBattleStarted(true);
+                resetBattle(opponent.maxHp);
+                setLog(`PvP battle started against ${opponent.name}. Weather: ${weatherEffects[currentWeather].name}.`);
+            }
+        }, 1000);
+        return () => clearInterval(interval);
+    }, [lobbyMode, pendingPvpOpponent?.name, battleStarted]);
 
+    function beginRankedBattle(opponent: PlayerRecord) {
         setPendingAiProfileId("");
-        setOpponentCharacter(null);
-        setEnemyHp(maxHpForLevel(aiLevel));
+        setRaidBattleKind("none");
+        setRankedBattleActive(true);
+        setClanWarPointsActive(0);
+        setOpponentCharacter(normalizeCharacter(opponent.character));
+        setEnemyHp(opponent.character.maxHp);
         setBattleStarted(true);
-        resetBattle(maxHpForLevel(aiLevel));
-        setLog(`Battle started against Level ${aiLevel} AI Ninja. Weather: ${weatherEffects[battleWeather].name}.`);
+        resetBattle(opponent.character.maxHp);
+        setLog(`Ranked battle started against ${opponent.name}. Neutral ground: no terrain or weather modifiers.`);
     }
 
-    function challengePlayer(opponent: PlayerRecord) {
+    function beginAiBattle() {
+        const hp = maxHpForLevel(aiLevel);
+        setPendingAiProfileId("");
+        setPendingPvpOpponent(null);
+        setRaidBattleKind("none");
+        setRankedBattleActive(false);
+        setClanWarPointsActive(0);
+        setOpponentCharacter(null);
+        setEnemyHp(hp);
+        setBattleStarted(true);
+        resetBattle(hp);
+        setLog(`AI battle started against a Level ${aiLevel} AI Ninja.`);
+    }
+
+    function challengePlayer(opponent: PlayerRecord, mode: DuelChallenge["mode"] = "standard", clanWarPoints = 0) {
         if (duelChallenges.some((challenge) => challenge.fromName === character.name && challenge.toName === opponent.name)) {
             alert("Challenge already sent.");
             return;
         }
-        setDuelChallenges([...duelChallenges, { id: makeId(), fromName: character.name, toName: opponent.name, challenger: character, createdAt: Date.now() }]);
+        setDuelChallenges([...duelChallenges, { id: makeId(), fromName: character.name, toName: opponent.name, challenger: character, createdAt: Date.now(), mode, clanWarPoints }]);
         alert(`Challenge sent to ${opponent.name}.`);
     }
 
     function acceptChallenge(challenge: DuelChallenge) {
         setPendingAiProfileId("");
         setRaidBattleKind("raidPlayer");
+        setRankedBattleActive(challenge.mode === "ranked");
+        setClanWarPointsActive(challenge.clanWarPoints ?? 0);
         setOpponentCharacter(challenge.challenger);
         setDuelChallenges(duelChallenges.filter((candidate) => candidate.id !== challenge.id));
         setEnemyHp(challenge.challenger.maxHp);
         setBattleStarted(true);
         resetBattle(challenge.challenger.maxHp);
-        setLog(`Duel accepted against ${challenge.fromName}.`);
+        setLog(`${challenge.mode === "ranked" ? "Ranked duel" : challenge.clanWarPoints ? "Clan war duel" : "Duel"} accepted against ${challenge.fromName}.`);
+    }
+
+    function startTournament() {
+        const participants = [character.name, ...playerRoster.map((player) => player.name)].filter((name, index, names) => names.indexOf(name) === index);
+        const tournament: ArenaTournament = {
+            id: `tourney-${Date.now()}`,
+            name: `Weekly Arena Tournament`,
+            createdBy: character.name,
+            startsAt: Date.now(),
+            endsAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
+            matchDeadline: Date.now() + 24 * 60 * 60 * 1000,
+            participants,
+            advancedPlayers: [],
+        };
+        saveArenaTournament(tournament);
+        setArenaTournament(tournament);
+    }
+
+    function advanceTournamentPlayer(playerName: string) {
+        if (!arenaTournament) return;
+        const next = { ...arenaTournament, advancedPlayers: [...arenaTournament.advancedPlayers, playerName].filter((name, index, names) => names.indexOf(name) === index) };
+        saveArenaTournament(next);
+        setArenaTournament(next);
+    }
+
+    function clearTournament() {
+        saveArenaTournament(null);
+        setArenaTournament(null);
     }
 
     function addCombatLog(entry: string, actionId = "system", actor = activeActor === "player" ? character.name : opponentName, actorRole: BattleActor = actor === opponentName ? "enemy" : "player") {
@@ -12495,6 +16751,17 @@ function Arena({
         if (!jutsu || jutsu.method !== "AOE_CIRCLE") return new Set<number>();
         if (!jutsuRangeTiles(jutsu).has(enemyPos)) return new Set<number>();
         return new Set([enemyPos, ...hexNeighbors(enemyPos)]);
+    }
+
+    function weaponRangeTiles(item: GameItem | null | undefined) {
+        if (!item) return new Set<number>();
+        const slot = normalizeEquipmentSlot(item.slot);
+        const range = item.weaponRange ?? (slot === "thrown" ? 4 : 1);
+        if (range <= 0) return new Set<number>();
+        return new Set(
+            Array.from({ length: gridWidth * gridHeight }, (_, tile) => tile)
+                .filter((tile) => tile !== playerPos && distance(playerPos, tile) <= range)
+        );
     }
 
     function nextStepToward(origin: number, target: number) {
@@ -12577,6 +16844,17 @@ function Arena({
     function handleTileClick(tile: number) {
         if (battleEnded) return;
 
+        if (pendingTargetWeapon) {
+            if (tile === enemyPos) {
+                const weapon = pendingTargetWeapon;
+                setPendingTargetWeaponRaw(null);
+                activateCombatWeapon(weapon);
+            } else {
+                setLog(`Select ${opponentName} to attack with ${pendingTargetWeapon.name}.`);
+            }
+            return;
+        }
+
         if (pendingTargetJutsu && isMoveJutsu(pendingTargetJutsu)) {
             if (tile === enemyPos) {
                 setLog(`${pendingTargetJutsu.name}: choose an open tile, not the enemy.`);
@@ -12604,7 +16882,7 @@ function Arena({
             const mastery = getJutsuMastery(character, pendingTargetJutsu.id);
             const scaled = scaleJutsuByLevel(pendingTargetJutsu, mastery.level);
 
-            if (playerStatuses.some((s) => s.name === "Elemental Seal") && pendingTargetJutsu.element) {
+            if (playerStatuses.some((s) => s.name === "Elemental Seal") && pendingTargetJutsu.element && pendingTargetJutsu.element !== "None") {
                 setLog(`${pendingTargetJutsu.element} jutsu is sealed.`);
                 return;
             }
@@ -12633,7 +16911,7 @@ function Arena({
             setJutsuCooldowns((c) => ({ ...c, [pendingTargetJutsu.id]: pendingTargetJutsu.cooldown }));
 
             updateCharacter({
-                ...gainJutsuXp(character, pendingTargetJutsu.id, boostAmount(20, getActiveAuraSphereBonuses(character).jutsuXpPercent), JUTSU_MAX_LEVEL),
+                ...gainJutsuXp(character, pendingTargetJutsu.id, boostAmount(currentSector === 99 && !!opponentCharacter ? 40 : 20, getActiveAuraSphereBonuses(character).jutsuXpPercent), JUTSU_MAX_LEVEL),
                 hp: Math.max(0, character.hp - scaled.healthCost),
                 chakra: Math.max(0, character.chakra - scaled.chakraCost),
                 stamina: Math.max(0, character.stamina - scaled.staminaCost),
@@ -12702,6 +16980,11 @@ function Arena({
 
             if (!spendAp(30, "dash")) return;
 
+            if (barrierTiles.some((b) => b.tile === tile)) {
+                setLog("A barrier wall blocks that tile.");
+                return;
+            }
+
             setPlayerPos(tile);
             setDashMode(false);
             setSelectedActionId(undefined);
@@ -12714,6 +16997,11 @@ function Arena({
 
         if (dist !== 1) {
             setLog("Normal movement is 1 tile at a time.");
+            return;
+        }
+
+        if (barrierTiles.some((b) => b.tile === tile)) {
+            setLog("A barrier wall blocks that tile.");
             return;
         }
 
@@ -12738,26 +17026,29 @@ function Arena({
         if (!spendAp(40, "basicAttack")) return;
 
         const basicAttackJutsu = makeJutsu("basic-attack", "Basic Attack", character.specialty, 40, 1, 10, 0, 0, 10, [{ name: "Damage", percent: 10 }], "Earth");
-        let damage = Math.floor(calculateDamage(
+        let damage = calculateDamage(
             basicAttackJutsu,
-            character.stats,
+            characterCombatStats,
             enemyCombatStats,
             enemyMaxHp,
             getBloodlineMultiplier(character, savedBloodlines),
-            enemyArmorFactor
-        ) * weatherDamageMultiplier(basicAttackJutsu));
+            enemyArmorFactor,
+            playerItemMult,
+            weatherDamageMultiplier(basicAttackJutsu) * territoryDamageMultiplier(basicAttackJutsu)
+        );
         if (!opponentCharacter && getActiveAuraSphereBonuses(character).pveDamagePercent > 0) {
             damage = boostAmount(damage, getActiveAuraSphereBonuses(character).pveDamagePercent);
         }
         const blocked = Math.min(enemyShield, damage);
         const finalDamage = Math.max(0, damage - blocked);
+        const basicLsHeal = equippedLifeStealPercent > 0 ? Math.floor(cappedPostDamage(finalDamage, equippedLifeStealPercent)) : 0;
 
         setEnemyShield((s) => Math.max(0, s - blocked));
         setEnemyHp((hp) => Math.max(0, hp - finalDamage));
+        if (basicLsHeal > 0) setPlayerHp((hp) => Math.min(character.maxHp, hp + basicLsHeal));
 
         addCombatLog(
-            `Basic Attack: ${character.name} hits ${opponentName} for ${finalDamage} damage.${blocked ? ` Enemy shield blocks ${blocked}.` : ""
-            }`,
+            `Basic Attack: ${character.name} hits ${opponentName} for ${finalDamage} damage.${blocked ? ` Enemy shield blocks ${blocked}.` : ""}${basicLsHeal > 0 ? ` Lifesteal restores ${basicLsHeal} HP.` : ""}`,
             "basicAttack",
             character.name
         );
@@ -12785,19 +17076,35 @@ function Arena({
         const lines = Object.entries(item.bonuses)
             .filter(([, value]) => Number(value) !== 0)
             .map(([stat, value]) => `${stat.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase())} +${value}`);
+        if (item.weaponEp) lines.unshift(`EP ${item.weaponEp}`);
+        if (item.weaponEffect) lines.push(`${item.weaponEffect} ${item.weaponEffectValue}${item.weaponEffect === "Shield" ? " HP" : "%"}`);
+        if (item.weaponCooldown) lines.push(`${item.weaponCooldown}-round cooldown`);
+        if (item.weaponElement) lines.push(`Requires ${item.weaponElement}`);
         return lines.length ? lines.join(" | ") : "No combat bonus";
     }
 
-    function useCombatWeapon(item: GameItem) {
+    function activateCombatWeapon(item: GameItem) {
         if (battleEnded) return;
         setPendingTargetJutsuId("");
+        setPendingTargetWeaponRaw(null);
         setSelectedActionId(undefined);
         setDashMode(false);
 
+        if (item.weaponElement && !hasCharacterElement(character, item.weaponElement)) {
+            setLog(`${item.name} requires the ${item.weaponElement} element.`);
+            return;
+        }
+
+        const weaponCd = item.weaponCooldown ?? 0;
+        if (weaponCd > 0 && (jutsuCooldowns[item.id] ?? 0) > 0) {
+            setLog(`${item.name} is on cooldown: ${jutsuCooldowns[item.id]} round(s) remaining.`);
+            return;
+        }
+
         const slot = normalizeEquipmentSlot(item.slot);
         const isThrown = slot === "thrown";
-        const range = isThrown ? 4 : 1;
-        const apCost = isThrown ? 45 : 40;
+        const range = item.weaponRange ?? (isThrown ? 4 : 1);
+        const apCost = item.apCost ?? 40;
         const staminaCost = isThrown ? 8 : 10;
 
         if (distance(playerPos, enemyPos) > range) {
@@ -12812,15 +17119,17 @@ function Arena({
 
         if (!spendAp(apCost, item.id)) return;
 
-        const offense = character.stats.strength * 0.18 + character.stats.bukijutsuOffense * 0.1 + itemBonusTotal(item) * 0.18;
-        const weaponJutsu = makeJutsu(`item-${item.id}`, item.name, "Bukijutsu", apCost, range, Math.floor(22 + offense), 0, 0, staminaCost, [{ name: "Damage", percent: 100 }], "Earth");
+        const ep = item.weaponEp ?? Math.floor(22 + characterCombatStats.strength * 0.18 + characterCombatStats.bukijutsuOffense * 0.1 + itemBonusTotal(item) * 0.18);
+        const weaponJutsu = makeJutsu(`item-${item.id}`, item.name, "Bukijutsu", apCost, range, ep, 0, 0, staminaCost, [{ name: "Damage", percent: 100 }], item.weaponElement ?? "Earth");
         let damage = calculateDamage(
             weaponJutsu,
-            character.stats,
+            characterCombatStats,
             enemyCombatStats,
             enemyMaxHp,
             getBloodlineMultiplier(character, savedBloodlines),
-            enemyArmorFactor
+            enemyArmorFactor,
+            playerItemMult,
+            weatherDamageMultiplier(weaponJutsu) * territoryDamageMultiplier(weaponJutsu)
         );
         if (!opponentCharacter && getActiveAuraSphereBonuses(character).pveDamagePercent > 0) {
             damage = boostAmount(damage, getActiveAuraSphereBonuses(character).pveDamagePercent);
@@ -12828,24 +17137,116 @@ function Arena({
 
         const blocked = Math.min(enemyShield, damage);
         const finalDamage = Math.max(0, damage - blocked);
+        const weaponLsHeal = equippedLifeStealPercent > 0 ? Math.floor(cappedPostDamage(finalDamage, equippedLifeStealPercent)) : 0;
+        const effectVal = item.weaponEffectValue ?? 0;
+
+        const effectLines: string[] = [];
+        if (item.weaponEffect === "Absorb") {
+            setPlayerStatuses((s) => [...s, { name: "Absorb", rounds: 2, percent: effectVal, kind: "positive" }]);
+            effectLines.push(`Absorb: ${character.name} converts ${effectVal}% incoming damage into healing for 2 rounds.`);
+        }
+        if (item.weaponEffect === "Lifesteal") {
+            const lsHeal = Math.floor(cappedPostDamage(finalDamage, effectVal));
+            if (lsHeal > 0) { setPlayerHp((hp) => Math.min(character.maxHp, hp + lsHeal)); effectLines.push(`Lifesteal: restores ${lsHeal} HP.`); }
+        }
+        if (item.weaponEffect === "Reflect") {
+            setPlayerStatuses((s) => [...s, { name: "Reflect", rounds: 2, percent: effectVal, kind: "positive" }]);
+            effectLines.push(`Reflect: ${character.name} reflects ${effectVal}% damage for 2 rounds.`);
+        }
+        if (item.weaponEffect === "Increase Damage Given") {
+            setPlayerStatuses((s) => [...s, { name: "Increase Damage Given", rounds: 2, percent: effectVal, kind: "positive" }]);
+            effectLines.push(`Increase Damage Given: ${character.name}'s next attacks deal ${effectVal}% more damage for 2 rounds.`);
+        }
+        if (item.weaponEffect === "Decrease Damage Given") {
+            setEnemyStatuses((s) => [...s, { name: "Decrease Damage Given", rounds: 2, percent: effectVal, kind: "negative" }]);
+            effectLines.push(`Decrease Damage Given: ${opponentName} deals ${effectVal}% less damage for 2 rounds.`);
+        }
+        if (item.weaponEffect === "Shield") {
+            setPlayerShield((s) => s + effectVal);
+            effectLines.push(`Shield: ${character.name} gains ${effectVal} shield.`);
+        }
+        if (item.weaponEffect === "Wound") {
+            setEnemyStatuses((s) => [...s, { name: "Wound", rounds: 2, amount: effectVal, kind: "negative" }]);
+            effectLines.push(`Wound: ${opponentName} takes ${effectVal} damage per round for 2 rounds.`);
+        }
+        if (item.weaponEffect === "Poison") {
+            setEnemyStatuses((s) => [...s, { name: "Poison", rounds: 2, percent: effectVal, kind: "negative" }]);
+            effectLines.push(`Poison: ${opponentName} is poisoned — takes ${effectVal}% chakra as damage per round for 2 rounds.`);
+        }
+
+        // Named Weapon: apply weaponTags array (same logic as weaponEffect but iterated)
+        if (item.weaponTags && item.weaponTags.length > 0) {
+            for (const wt of item.weaponTags) {
+                const p = wt.percent;
+                if (wt.name === "Absorb") {
+                    setPlayerStatuses((s) => [...s, { name: "Absorb", rounds: 2, percent: p, kind: "positive" }]);
+                    effectLines.push(`Absorb ${p}%`);
+                } else if (wt.name === "Siphon" || wt.name === "Lifesteal") {
+                    const ls = Math.floor(cappedPostDamage(finalDamage, p));
+                    if (ls > 0) { setPlayerHp((hp) => Math.min(character.maxHp, hp + ls)); effectLines.push(`Lifesteal +${ls} HP`); }
+                } else if (wt.name === "Reflect") {
+                    setPlayerStatuses((s) => [...s, { name: "Reflect", rounds: 2, percent: p, kind: "positive" }]);
+                    effectLines.push(`Reflect ${p}%`);
+                } else if (wt.name === "Shield" || wt.name === "Barrier") {
+                    const sh = Math.floor(finalDamage * (p / 100));
+                    setPlayerShield((s) => s + sh);
+                    effectLines.push(`Shield +${sh}`);
+                } else if (wt.name === "Heal") {
+                    const hl = p >= 35 ? 400 : 200;
+                    setPlayerHp((hp) => Math.min(character.maxHp, hp + hl));
+                    effectLines.push(`Heal +${hl} HP`);
+                } else if (wt.name === "Wound") {
+                    setEnemyStatuses((s) => [...s, { name: "Wound", rounds: 2, amount: Math.floor(finalDamage * (p / 100)), kind: "negative" }]);
+                    effectLines.push(`Wound ${p}%`);
+                } else if (wt.name === "Poison") {
+                    setEnemyStatuses((s) => [...s, { name: "Poison", rounds: 2, percent: p, kind: "negative" }]);
+                    effectLines.push(`Poison ${p}%`);
+                } else if (wt.name === "Afterburn") {
+                    setEnemyStatuses((s) => [...s, { name: "Afterburn", rounds: 2, percent: p, kind: "negative" }]);
+                    effectLines.push(`Afterburn ${p}%`);
+                } else if (wt.name === "Drain") {
+                    setEnemyStatuses((s) => [...s, { name: "Drain", rounds: 2, percent: p, kind: "negative" }]);
+                    effectLines.push(`Drain ${p}%`);
+                } else if (wt.name === "Increase Damage Given") {
+                    setPlayerStatuses((s) => [...s, { name: "Increase Damage Given", rounds: 2, percent: p, kind: "positive" }]);
+                    effectLines.push(`+${p}% Damage Given`);
+                } else if (wt.name === "Decrease Damage Taken") {
+                    setPlayerStatuses((s) => [...s, { name: "Decrease Damage Taken", rounds: 2, percent: p, kind: "positive" }]);
+                    effectLines.push(`−${p}% Damage Taken`);
+                } else if (wt.name === "Pierce") {
+                    effectLines.push(`Pierce`);
+                } else if (wt.name === "Damage") {
+                    effectLines.push(`+${p}% Damage`);
+                } else if (wt.name === "Recoil") {
+                    const rc = Math.floor(finalDamage * (p / 100));
+                    setPlayerHp((hp) => Math.max(1, hp - rc));
+                    effectLines.push(`Recoil −${rc} HP`);
+                }
+            }
+        }
 
         setEnemyShield((shieldValue) => Math.max(0, shieldValue - blocked));
         setEnemyHp((hp) => Math.max(0, hp - finalDamage));
+        if (weaponLsHeal > 0) setPlayerHp((hp) => Math.min(character.maxHp, hp + weaponLsHeal));
         updateCharacter({ ...character, stamina: Math.max(0, character.stamina - staminaCost) });
-        addCombatLog(`${item.name}: ${character.name} uses equipped ${equipmentSlotLabel(item.slot).toLowerCase()} gear for ${finalDamage} damage.${blocked ? ` Enemy shield blocks ${blocked}.` : ""}`, item.id, character.name);
+
+        if (weaponCd > 0) setJutsuCooldowns((c) => ({ ...c, [item.id]: weaponCd }));
+
+        const effectSuffix = effectLines.length ? ` ${effectLines.join(" ")}` : "";
+        addCombatLog(`${item.name}: ${character.name} uses ${item.name} for ${finalDamage} damage.${blocked ? ` Enemy shield blocks ${blocked}.` : ""}${weaponLsHeal > 0 ? ` Lifesteal restores ${weaponLsHeal} HP.` : ""}${effectSuffix}`, item.id, character.name);
 
         if (enemyHp - finalDamage <= 0) return winBattle();
 
-        setLog(`${item.name} hit for ${finalDamage} damage.`);
+        setLog(`${item.name} hit for ${finalDamage} damage.${effectLines.length ? " " + effectLines[0] : ""}`);
     }
 
-    function useCombatItem(item: GameItem) {
+    function activateCombatItem(item: GameItem) {
         if (battleEnded) return;
         setPendingTargetJutsuId("");
         setSelectedActionId(undefined);
         setDashMode(false);
 
-        const apCost = 35;
+        const apCost = item.apCost ?? 35;
         if (!spendAp(apCost, item.id)) return;
 
         const maxHpBonus = Number(item.bonuses.maxHp) || 0;
@@ -12870,11 +17271,40 @@ function Arena({
             stamina: Math.min(character.maxStamina, character.stamina + staminaRestore),
         });
 
+        // weaponEffect overrides for support items (Smoke Bomb, Attack Pill, Defense Pill, etc.)
+        const effectVal = item.weaponEffectValue ?? 0;
+        const isBothTarget = item.weaponEffectTarget === "both";
+        const itemEffectLines: string[] = [];
+        if (item.weaponEffect === "Increase Damage Given") {
+            setPlayerStatuses((s) => [...s, { name: "Increase Damage Given", rounds: 2, percent: effectVal, kind: "positive" }]);
+            itemEffectLines.push(`boosts your damage by ${effectVal}% for 2 rounds`);
+        }
+        if (item.weaponEffect === "Decrease Damage Given") {
+            // Always debuff enemy; if weaponEffectTarget === "both" also debuff self (Smoke Bomb)
+            const smokeRounds = isBothTarget ? 1 : 2;
+            setEnemyStatuses((s) => [...s, { name: "Decrease Damage Given", rounds: smokeRounds, percent: effectVal, kind: "negative" }]);
+            if (isBothTarget) {
+                setPlayerStatuses((s) => [...s, { name: "Decrease Damage Given", rounds: 1, percent: effectVal, kind: "negative" }]);
+                itemEffectLines.push(`smoke fills the field — both you and ${opponentName} deal 0 damage for 1 round (Pierce bypasses)`);
+            } else {
+                itemEffectLines.push(`reduces ${opponentName}'s damage by ${effectVal}% for 2 rounds`);
+            }
+        }
+        if (item.weaponEffect === "Decrease Damage Taken") {
+            setPlayerStatuses((s) => [...s, { name: "Decrease Damage Taken", rounds: 2, percent: effectVal, kind: "positive" }]);
+            itemEffectLines.push(`reduces damage you take by ${effectVal}% for 2 rounds`);
+        }
+        if (item.weaponEffect === "Shield") {
+            setPlayerShield((s) => s + effectVal);
+            itemEffectLines.push(`grants ${effectVal} shield`);
+        }
+
         const effects = [
             heal ? `restores ${heal} HP` : "",
             chakraRestore ? `restores ${chakraRestore} chakra` : "",
             staminaRestore ? `restores ${staminaRestore} stamina` : "",
             shield + focus ? `grants ${shield + focus} shield` : "",
+            ...itemEffectLines,
         ].filter(Boolean);
 
         const summary = effects.length ? effects.join(", ") : "steadies your stance but has no active combat effect";
@@ -12882,13 +17312,26 @@ function Arena({
         addCombatLog(`${item.name}: ${character.name} uses equipped item and ${summary}.`, item.id, character.name);
     }
 
-    function useEquippedCombatItem(item: GameItem) {
+    function activateEquippedCombatItem(item: GameItem) {
         const slot = normalizeEquipmentSlot(item.slot);
         if (slot === "hand" || slot === "thrown") {
-            useCombatWeapon(item);
+            // Toggle: clicking the same weapon again cancels arming
+            if (pendingTargetWeapon?.id === item.id) {
+                setPendingTargetWeaponRaw(null);
+                setLog(`${item.name} deselected.`);
+                return;
+            }
+            // Arm for targeting — clear any pending jutsu
+            setPendingTargetJutsuIdRaw("");
+            setPendingTargetJutsuDirect(null);
+            setDashMode(false);
+            setSelectedActionId(undefined);
+            setPendingTargetWeaponRaw(item);
+            const weapRange = item.weaponRange ?? (slot === "thrown" ? 4 : 1);
+            setLog(`${item.name} armed — select ${opponentName} to attack (range ${weapRange}).`);
             return;
         }
-        useCombatItem(item);
+        activateCombatItem(item);
     }
 
     function basicHeal() {
@@ -12959,31 +17402,86 @@ function Arena({
         }
     }
 
+    function applyRankedLoss() {
+        if (!rankedBattleActive || !opponentCharacter) return;
+        const loss = rankedDelta(opponentCharacter.rankedRating ?? 1000, character.rankedRating ?? 1000);
+        updateCharacter({
+            ...character,
+            hp: 0,
+            hospitalized: true,
+            rankedRating: Math.max(0, (character.rankedRating ?? 1000) - loss),
+            rankedLosses: (character.rankedLosses ?? 0) + 1,
+        });
+        setLog(`${character.name} was defeated. Ranked -${loss} Elo.`);
+    }
+
     function winBattle() {
+        if (pendingStoryBattle) {
+            const rewardLog = onPendingStoryBattleWin?.(playerHp) ?? `${opponentName} defeated. Story battle complete.`;
+            setBattleEnded(true);
+            setBattleResult("win");
+            setLog(rewardLog);
+            addCombatLog(rewardLog, "storyVictory", character.name);
+            setRaidBattleKind("none");
+            return;
+        }
+
         const activeTrait = getActivePetTrait(character);
-        const xpGain = activeTrait === "Swift" ? 125 : 100;
-        const ryoGain = activeTrait === "Lucky" ? 90 : 75;
+        const deathsGatePvp = currentSector === 99 && !!opponentCharacter;
+        const xpGain = (activeTrait === "Swift" ? 125 : 100) * (deathsGatePvp ? 2 : 1);
+        const ryoGain = (activeTrait === "Lucky" ? 90 : 75) * (deathsGatePvp ? 2 : 1);
         const honorSealGain = raidBattleKind === "defense" ? 20 : opponentCharacter ? 15 : raidBattleKind === "raidAi" ? 5 : 0;
         const auraDustGain = raidBattleKind === "defense" ? 8 : opponentCharacter ? 6 : raidBattleKind === "raidAi" ? 4 : 0;
         const leveled = gainXp({ ...character, hp: playerHp }, xpGain);
+        const defeatedAiIds = pendingAiProfile?.id && !(character.defeatedAiIds ?? []).includes(pendingAiProfile.id)
+            ? [...(character.defeatedAiIds ?? []), pendingAiProfile.id]
+            : character.defeatedAiIds ?? [];
+        const ratingGain = rankedBattleActive && opponentCharacter ? rankedDelta(character.rankedRating ?? 1000, opponentCharacter.rankedRating ?? 1000) : 0;
+        if (clanWarPointsActive > 0) {
+            addClanWarPoints(character.clan, character.name, clanWarPointsActive);
+        }
+        const territoryScrollReward = clanWarPointsActive > 0 ? 25 : opponentCharacter ? 5 : 1;
+        const territoryRaidDamageAmount = (raidBattleKind === "raidAi" || raidBattleKind === "raidPlayer") ? sectorRaidDamageAmount(currentSector) : 0;
+        const territoryRaidDamage = territoryRaidDamageAmount > 0 ? damageSectorTerritory(currentSector, territoryRaidDamageAmount) : null;
+        const villageWarRaid = (raidBattleKind === "raidAi" || raidBattleKind === "raidPlayer") ? recordVillageWarRaid(character, currentSector) : { note: "", characterPatch: {} as Partial<Character> };
+        const villageWarPvpNote = opponentCharacter ? recordVillageWarPvp(character, opponentCharacter) : "";
+        const rewarded = grantTerritoryScrolls(leveled, territoryScrollReward);
+        const deathsGateBoneCharm = deathsGatePvp && Math.random() < 0.05 ? 1 : 0;
         updateCharacter({
-            ...leveled,
-            ryo: leveled.ryo + ryoGain,
-            honorSeals: (leveled.honorSeals ?? 0) + honorSealGain,
-            auraDust: (leveled.auraDust ?? 0) + auraDustGain,
-            stamina: Math.min(leveled.maxStamina, leveled.stamina + 15),
-            clanBattleContrib: (leveled.clanBattleContrib ?? 0) + 1,
+            ...rewarded,
+            ...villageWarRaid.characterPatch,
+            ryo: rewarded.ryo + ryoGain,
+            honorSeals: (rewarded.honorSeals ?? 0) + honorSealGain,
+            auraDust: (rewarded.auraDust ?? 0) + auraDustGain,
+            stamina: Math.min(rewarded.maxStamina, rewarded.stamina + 15),
+            boneCharms: (rewarded.boneCharms ?? 0) + deathsGateBoneCharm,
+            clanBattleContrib: (rewarded.clanBattleContrib ?? 0) + 1,
+            totalAiKills: (rewarded.totalAiKills ?? 0) + (!opponentCharacter ? 1 : 0),
+            totalPvpKills: (rewarded.totalPvpKills ?? 0) + (opponentCharacter ? 1 : 0),
+            monthlyPvpKills: (rewarded.monthlyPvpKills ?? 0) + (opponentCharacter ? 1 : 0),
+            pvpKillMonth: currentMonthKey(),
+            totalVillageRaids: (rewarded.totalVillageRaids ?? 0) + (raidBattleKind === "raidAi" || raidBattleKind === "raidPlayer" ? 1 : 0),
+            defeatedAiIds,
+            rankedRating: (rewarded.rankedRating ?? 1000) + ratingGain,
+            rankedWins: (rewarded.rankedWins ?? 0) + (ratingGain > 0 ? 1 : 0),
             clanContribMonth: new Date().toISOString().slice(0, 7),
         });
 
         const bonusNote = activeTrait === "Swift" ? " (Swift +25% XP)" : activeTrait === "Lucky" ? " (Lucky +20% ryo)" : "";
+        const deathsGateNote = deathsGatePvp ? ` ☠️ Death's Gate 2× bonus!${deathsGateBoneCharm ? " +1 Bone Charm!" : ""}` : "";
         const honorNote = honorSealGain > 0 ? ` +${honorSealGain} Honor Seals.` : "";
         const auraDustNote = auraDustGain > 0 ? ` +${auraDustGain} Aura Dust.` : "";
         setBattleEnded(true);
         setBattleResult("win");
-        setLog(`${opponentName} defeated. +${xpGain} XP, +${ryoGain} ryo, +15 stamina.${bonusNote}${honorNote}${auraDustNote}`);
-        addCombatLog(`${opponentName} is defeated. ${character.name} gains ${xpGain} XP, ${ryoGain} ryo, 15 stamina${honorNote}${auraDustNote}${bonusNote}`);
+        const rankedNote = ratingGain > 0 ? ` Ranked +${ratingGain} Elo.` : "";
+        const clanWarNote = clanWarPointsActive > 0 ? ` Clan War +${clanWarPointsActive} points.` : "";
+        const scrollNote = ` +${territoryScrollReward} Territory Control Scroll${territoryScrollReward === 1 ? "" : "s"}.`;
+        const raidNote = territoryRaidDamage?.ownerClan ? ` Sector ${currentSector} HP -${territoryRaidDamageAmount}.` : territoryRaidDamage ? ` Sector ${currentSector} control broken.` : "";
+        const villageWarNote = `${villageWarRaid.note}${villageWarPvpNote}`;
+        setLog(`${opponentName} defeated. +${xpGain} XP, +${ryoGain} ryo, +15 stamina.${bonusNote}${honorNote}${auraDustNote}${deathsGateNote}${rankedNote}${clanWarNote}${scrollNote}${raidNote}${villageWarNote}`);
+        addCombatLog(`${opponentName} is defeated. ${character.name} gains ${xpGain} XP, ${ryoGain} ryo, 15 stamina${honorNote}${auraDustNote}${bonusNote}${deathsGateNote}${rankedNote}${clanWarNote}${scrollNote}${raidNote}${villageWarNote}`);
         setRaidBattleKind("none");
+        setClanWarPointsActive(0);
     }
     function selectCombatJutsu(jutsu: Jutsu) {
         if (battleEnded) return;
@@ -13046,7 +17544,7 @@ function Arena({
         const mastery = getJutsuMastery(character, jutsu.id);
         const scaled = scaleJutsuByLevel(jutsu, mastery.level);
 
-        if (playerStatuses.some((s) => s.name === "Elemental Seal") && jutsu.element) {
+        if (playerStatuses.some((s) => s.name === "Elemental Seal") && jutsu.element && jutsu.element !== "None") {
             return setLog(`${jutsu.element} jutsu is sealed.`);
         }
 
@@ -13064,16 +17562,14 @@ function Arena({
 
         let damage = calculateDamage(
             { ...jutsu, effectPower: scaled.scaledEffectPower },
-            character.stats,
+            characterCombatStats,
             enemyCombatStats,
             enemyMaxHp,
             getBloodlineMultiplier(character, savedBloodlines),
-            enemyArmorFactor
+            enemyArmorFactor,
+            playerItemMult,
+            weatherDamageMultiplier(jutsu) * territoryDamageMultiplier(jutsu)
         );
-        const weatherMultiplier = weatherDamageMultiplier(jutsu);
-        if (weatherMultiplier !== 1) {
-            damage = Math.floor(damage * weatherMultiplier);
-        }
         if (!opponentCharacter && getActiveAuraSphereBonuses(character).pveDamagePercent > 0) {
             damage = boostAmount(damage, getActiveAuraSphereBonuses(character).pveDamagePercent);
         }
@@ -13082,21 +17578,26 @@ function Arena({
         let shield = 0;
         let pierce = false;
         const effectLines: string[] = [];
-        const instantDamageGivenTags: JutsuTag[] = [];
         const postDamageTags: JutsuTag[] = [];
         const activeDamageTakenTags = enemyStatuses.filter((s) => s.name === "Increase Damage Taken");
         const activeDamageGivenDebuffs = playerStatuses.filter((s) => s.name === "Decrease Damage Given");
         const activeDamageTakenReductions = enemyStatuses.filter((s) => s.name === "Decrease Damage Taken");
         const healMultiplier = multiplicativeTagMultiplier(playerStatuses.filter((s) => s.name === "Increase Heal"), "increase");
+        const activePlayerDmgBoosts = playerStatuses.filter((s) => s.name === "Increase Damage Given");
+        const activeAfterburn = enemyStatuses.filter((s) => s.name === "Afterburn");
+        const activePlayerLifesteal = playerStatuses.filter((s) => s.name === "Lifesteal");
         const enemyDebuffPrevented = enemyStatuses.some((s) => s.name === "Debuff Prevent");
         const playerBuffPrevented = playerStatuses.some((s) => s.name === "Buff Prevent");
 
         jutsu.tags.forEach((tag) => {
-            const pct = effectiveTagPercent(tag, jutsu.bloodlineRank);
+            const pct = effectiveTagPercent(tag, jutsu.bloodlineRank, mastery.level);
 
             if (tag.name === "Increase Damage Given") {
-                instantDamageGivenTags.push({ ...tag, percent: pct });
-                effectLines.push(`Increase Damage Given: ${character.name}'s next strike is boosted by ${pct}%.`);
+                if (playerBuffPrevented) effectLines.push(`${character.name}'s Increase Damage Given was prevented`);
+                else {
+                    setPlayerStatuses((s) => [...s, { name: "Increase Damage Given", rounds: 2, percent: pct, kind: "positive" }]);
+                    effectLines.push(`Increase Damage Given: ${character.name} deals ${pct}% more damage for 2 rounds.`);
+                }
             }
 
             if (tag.name === "Increase Damage Taken") {
@@ -13123,21 +17624,46 @@ function Arena({
                 }
             }
 
-            if (["Afterburn", "Wound", "Recoil", "Lifesteal", "Vamp"].includes(tag.name)) {
+            if (["Wound", "Recoil", "Siphon", "Vamp"].includes(tag.name)) {
                 postDamageTags.push(tag);
+            }
+            if (tag.name === "Afterburn") {
+                if (enemyDebuffPrevented) effectLines.push(`${opponentName} resists Afterburn`);
+                else {
+                    setEnemyStatuses((s) => [...s, { name: "Afterburn", rounds: 2, percent: pct, kind: "negative" }]);
+                    effectLines.push(`Afterburn: ${opponentName} will take ${pct}% extra damage for 2 rounds.`);
+                }
+            }
+
+            if (tag.name === "Lifesteal") {
+                if (playerBuffPrevented) effectLines.push(`${character.name}'s Lifesteal was prevented`);
+                else {
+                    setPlayerStatuses((s) => [...s, { name: "Lifesteal", rounds: 2, percent: pct, kind: "positive" }]);
+                    effectLines.push(`Lifesteal: ${character.name} will heal ${pct}% of damage dealt for 2 rounds.`);
+                }
             }
 
             if (tag.name === "Heal") {
-                healing += Math.floor(scaled.scaledEffectPower * healMultiplier);
+                healing += 500;
                 damage = 0;
-                effectLines.push(`Heal: ${character.name} restores ${Math.floor(scaled.scaledEffectPower * healMultiplier)} HP.`);
+                effectLines.push(`Heal: ${character.name} restores 500 HP.`);
             }
 
-            if (tag.name === "Shield" || tag.name === "Barrier") {
-                if (playerBuffPrevented) effectLines.push(`${character.name}'s shield was prevented`);
-                else shield += scaled.scaledEffectPower;
+            if (tag.name === "Shield") {
+                shield += 500;
                 damage = 0;
-                if (!playerBuffPrevented) effectLines.push(`${tag.name}: ${character.name} gains ${scaled.scaledEffectPower} shield.`);
+                effectLines.push(`Shield: ${character.name} gains 500 shield.`);
+            }
+
+            if (tag.name === "Barrier") {
+                const barrierTile = nextStepToward(playerPos, enemyPos);
+                if (barrierTile !== playerPos && barrierTile !== enemyPos) {
+                    setBarrierTiles((prev) => [...prev, { tile: barrierTile, rounds: 2 }]);
+                    effectLines.push(`Barrier: ${character.name} erects a wall between the fighters for 2 rounds.`);
+                } else {
+                    effectLines.push(`Barrier: no room to place a wall.`);
+                }
+                damage = 0;
             }
 
             if (tag.name === "Absorb") {
@@ -13176,7 +17702,7 @@ function Arena({
 
             if (tag.name === "Pierce") {
                 pierce = true;
-                effectLines.push(`${jutsu.name} pierces shields`);
+                effectLines.push(`${jutsu.name}: true damage — bypasses all defenses.`);
             }
 
             if (tag.name === "Stun") {
@@ -13199,17 +17725,17 @@ function Arena({
             if (tag.name === "Poison") {
                 if (enemyDebuffPrevented) effectLines.push(`${opponentName} resists poison`);
                 else {
-                    setEnemyStatuses((s) => [...s, { name: "Poison", rounds: 3, percent: pct, kind: "negative" }]);
-                    effectLines.push(`${opponentName} takes poison from future chakra/stamina use`);
+                    setEnemyStatuses((s) => [...s, { name: "Poison", rounds: 2, percent: pct, kind: "negative" }]);
+                    const poisonDmg = Math.floor(enemyMaxChakra * 0.06);
+                    effectLines.push(`${opponentName} is poisoned — takes ${poisonDmg} damage/round for 2 rounds`);
                 }
             }
 
             if (tag.name === "Drain") {
                 if (enemyDebuffPrevented) effectLines.push(`${opponentName} resists drain`);
                 else {
-                    const drain = Math.max(1, Math.floor((enemyMaxHp + enemyMaxChakra + enemyMaxStamina) * 0.005));
-                    setEnemyStatuses((s) => [...s, { name: "Drain", rounds: 3, amount: drain, kind: "negative" }]);
-                    effectLines.push(`${opponentName} is drained for ${drain} each round`);
+                    setEnemyStatuses((s) => [...s, { name: "Drain", rounds: 2, amount: 250, kind: "negative" }]);
+                    effectLines.push(`${opponentName} is drained — loses 250 HP, chakra, and stamina/round for 2 rounds`);
                 }
             }
 
@@ -13218,9 +17744,23 @@ function Arena({
                 effectLines.push(`${character.name} gains ${tag.name} for 2 rounds`);
             }
 
-            if (["Debuff Prevent", "Elemental Seal", "Time Compression"].includes(tag.name)) {
-                setEnemyStatuses((s) => [...s, { name: tag.name, rounds: 2, percent: pct, kind: "negative" }]);
-                effectLines.push(`${opponentName} suffers ${tag.name} for 2 rounds`);
+            if (tag.name === "Debuff Prevent") {
+                setPlayerStatuses((s) => [...s, { name: "Debuff Prevent", rounds: 2, percent: pct, kind: "positive" }]);
+                effectLines.push(`Debuff Prevent: ${character.name} cannot be debuffed for 2 rounds.`);
+            }
+            if (tag.name === "Elemental Seal") {
+                if (enemyDebuffPrevented) effectLines.push(`${opponentName} resists Elemental Seal`);
+                else {
+                    setEnemyStatuses((s) => [...s, { name: "Elemental Seal", rounds: 1, percent: pct, kind: "negative" }]);
+                    effectLines.push(`Elemental Seal: ${opponentName}'s elemental jutsu are sealed for 1 round.`);
+                }
+            }
+            if (tag.name === "Time Compression") {
+                if (enemyDebuffPrevented) effectLines.push(`${opponentName} resists Time Compression`);
+                else {
+                    setEnemyStatuses((s) => [...s, { name: "Time Compression", rounds: 1, percent: pct, kind: "negative" }]);
+                    effectLines.push(`Time Compression: ${opponentName}'s AP costs are increased for 1 round.`);
+                }
             }
 
             if (tag.name === "Move") {
@@ -13229,20 +17769,38 @@ function Arena({
                 effectLines.push(`${character.name} shifts position`);
             }
 
-            if (tag.name === "Push/Pull") {
-                const next = Math.max(0, Math.min(gridWidth * gridHeight - 1, enemyPos + (enemyPos > playerPos ? 1 : -1)));
-                if (next !== playerPos) setEnemyPos(next);
-                effectLines.push(`${opponentName} is pushed across the field`);
+            if (tag.name === "Push") {
+                const pushDist = Math.max(1, Number(jutsu.range) || 1);
+                let newPos = enemyPos;
+                for (let step = 0; step < pushDist; step++) {
+                    const away = hexNeighbors(newPos).filter((t) => distance(t, playerPos) > distance(newPos, playerPos) && t !== playerPos && t >= 0 && t < gridWidth * gridHeight);
+                    if (away.length === 0) break;
+                    newPos = away[0];
+                }
+                if (newPos !== enemyPos) setEnemyPos(newPos);
+                effectLines.push(`${opponentName} is pushed ${pushDist} tile(s) away.`);
+            }
+            if (tag.name === "Pull") {
+                const pullDist = Math.max(1, Number(jutsu.range) || 1);
+                let newPos = enemyPos;
+                for (let step = 0; step < pullDist; step++) {
+                    const toward = hexNeighbors(newPos).filter((t) => distance(t, playerPos) < distance(newPos, playerPos) && t !== playerPos && t >= 0 && t < gridWidth * gridHeight);
+                    if (toward.length === 0) break;
+                    newPos = toward[0];
+                }
+                if (newPos !== enemyPos) setEnemyPos(newPos);
+                effectLines.push(`${opponentName} is pulled ${pullDist} tile(s) closer.`);
             }
         });
 
         const damageMultiplier =
-            multiplicativeTagMultiplier(instantDamageGivenTags, "increase") *
-            multiplicativeTagMultiplier(activeDamageTakenTags, "increase") *
-            multiplicativeTagMultiplier(activeDamageGivenDebuffs, "decrease") *
+            multiplicativeTagMultiplier(activePlayerDmgBoosts, "increase") *
+            multiplicativeTagMultiplier([...activeDamageTakenTags, ...activeAfterburn], "increase") *
+            (pierce ? 1 : multiplicativeTagMultiplier(activeDamageGivenDebuffs, "decrease")) * // Pierce ignores Smoke Bomb / Decrease Damage Given
             multiplicativeTagMultiplier(activeDamageTakenReductions, "decrease");
 
         damage = Math.floor(damage * damageMultiplier);
+        if (pierce) damage = jutsu.ap >= 60 ? 900 : 500;
 
         const blocked = pierce ? 0 : Math.min(enemyShield, damage);
         const finalDamage = Math.max(0, damage - blocked);
@@ -13250,26 +17808,33 @@ function Arena({
         let recoilDamage = 0;
 
         postDamageTags.forEach((tag) => {
-            const pct = effectiveTagPercent(tag, jutsu.bloodlineRank);
-            if (tag.name === "Afterburn") {
-                const burn = cappedPostDamage(finalDamage, pct);
-                extraEnemyDamage += burn;
-                effectLines.push(`Afterburn: ${opponentName} takes ${burn} burn damage.`);
-            }
+            const pct = effectiveTagPercent(tag, jutsu.bloodlineRank, mastery.level);
             if (tag.name === "Wound" && !enemyDebuffPrevented) {
                 const wound = cappedPostDamage(finalDamage, pct);
-                setEnemyStatuses((s) => [...s, { name: "Wound", rounds: 3, amount: wound, kind: "negative" }]);
+                setEnemyStatuses((s) => [...s, { name: "Wound", rounds: 2, amount: wound, kind: "negative" }]);
                 effectLines.push(`Wound: ${opponentName} bleeds for ${wound} damage on their turns.`);
             }
             if (tag.name === "Recoil") {
                 recoilDamage += cappedPostDamage(finalDamage, pct);
             }
-            if (tag.name === "Lifesteal" || tag.name === "Vamp") {
+            if (tag.name === "Siphon" || tag.name === "Vamp") {
                 const restored = Math.floor(cappedPostDamage(finalDamage, pct) * healMultiplier);
                 healing += restored;
                 effectLines.push(`${tag.name} restores ${restored} HP`);
             }
         });
+
+        if (equippedLifeStealPercent > 0) {
+            const itemLsHeal = Math.floor(cappedPostDamage(finalDamage, equippedLifeStealPercent));
+            healing += itemLsHeal;
+            if (itemLsHeal > 0) effectLines.push(`Lifesteal restores ${itemLsHeal} HP`);
+        }
+
+        if (activePlayerLifesteal.length > 0 && finalDamage > 0) {
+            const lsPct = activePlayerLifesteal.reduce((sum, s) => sum + (s.percent ?? 0), 0);
+            const lsHeal = Math.floor(cappedPostDamage(finalDamage, lsPct) * healMultiplier);
+            if (lsHeal > 0) { healing += lsHeal; effectLines.push(`Lifesteal: restores ${lsHeal} HP.`); }
+        }
 
         setEnemyShield((s) => pierce ? s : Math.max(0, s - blocked));
         setEnemyHp((hp) => Math.max(0, hp - finalDamage - extraEnemyDamage));
@@ -13279,7 +17844,7 @@ function Arena({
         setJutsuCooldowns((c) => ({ ...c, [jutsu.id]: jutsu.cooldown }));
 
         updateCharacter({
-            ...gainJutsuXp(character, jutsu.id, boostAmount(20, getActiveAuraSphereBonuses(character).jutsuXpPercent), JUTSU_MAX_LEVEL),
+            ...gainJutsuXp(character, jutsu.id, boostAmount(currentSector === 99 && !!opponentCharacter ? 40 : 20, getActiveAuraSphereBonuses(character).jutsuXpPercent), JUTSU_MAX_LEVEL),
             hp: Math.max(0, character.hp - scaled.healthCost),
             chakra: Math.max(0, character.chakra - scaled.chakraCost),
             stamina: Math.max(0, character.stamina - scaled.staminaCost),
@@ -13339,12 +17904,14 @@ function Arena({
             : calculateDamage(
                 jutsu,
                 enemyCombatStats,
-                character.stats,
+                characterCombatStats,
                 character.maxHp,
                 opponentCharacter ? getBloodlineMultiplier(opponentCharacter, savedBloodlines) : 1.0,
-                playerArmorFactor
+                playerArmorFactor,
+                1.0,
+                weatherDamageMultiplier(jutsu)
             );
-        const damage = Math.floor(damageBase * weatherDamageMultiplier(jutsu));
+        const damage = damageBase;
         let healing = 0;
         let shield = 0;
         let extraDamage = 0;
@@ -13353,19 +17920,35 @@ function Arena({
         const enemyBuffPrevented = enemyStatuses.some((s) => s.name === "Buff Prevent");
 
         jutsu.tags.forEach((tag) => {
-            const pct = effectiveTagPercent(tag, jutsu.bloodlineRank);
+            const pct = effectiveTagPercent(tag, jutsu.bloodlineRank, 50);
             if (tag.name === "Heal") {
                 healing += Math.max(1, Math.floor(jutsu.effectPower));
                 effectLines.push(`${opponentName} heals ${Math.floor(jutsu.effectPower)} HP`);
             }
-            if (tag.name === "Shield" || tag.name === "Barrier") {
-                shield += Math.max(1, Math.floor(jutsu.effectPower));
-                effectLines.push(`${opponentName} gains ${Math.floor(jutsu.effectPower)} shield`);
+            if (tag.name === "Shield") {
+                shield += 500;
+                effectLines.push(`${opponentName} gains 500 shield`);
             }
-            if (tag.name === "Afterburn" || tag.name === "Wound") {
+            if (tag.name === "Barrier") {
+                const barrierTile = nextStepToward(enemyPos, playerPos);
+                if (barrierTile !== enemyPos && barrierTile !== playerPos) {
+                    setBarrierTiles((prev) => [...prev, { tile: barrierTile, rounds: 2 }]);
+                    effectLines.push(`${opponentName} raises a barrier wall for 2 rounds`);
+                } else {
+                    effectLines.push(`${opponentName}'s barrier has no room to form`);
+                }
+            }
+            if (tag.name === "Wound") {
                 const dot = cappedPostDamage(damage, pct);
                 extraDamage += dot;
-                effectLines.push(`${character.name} takes ${dot} ${tag.name.toLowerCase()} damage`);
+                effectLines.push(`${character.name} takes ${dot} wound damage`);
+            }
+            if (tag.name === "Afterburn") {
+                if (playerDebuffPrevented) effectLines.push(`${character.name} resists Afterburn`);
+                else {
+                    setPlayerStatuses((s) => [...s, { name: "Afterburn", rounds: 2, percent: pct, kind: "negative" }]);
+                    effectLines.push(`Afterburn: ${character.name} takes ${pct}% extra damage for 2 rounds.`);
+                }
             }
             if (tag.name === "Stun") {
                 if (playerStatuses.some((s) => s.name === "Stun Prevent")) effectLines.push(`${character.name} resisted stun`);
@@ -13386,8 +17969,8 @@ function Arena({
             if (tag.name === "Elemental Seal") {
                 if (playerDebuffPrevented) effectLines.push(`${character.name} prevents elemental seal`);
                 else {
-                    setPlayerStatuses((s) => [...s, { name: "Elemental Seal", rounds: 2, kind: "negative" }]);
-                    effectLines.push(`${character.name}'s elemental jutsu are sealed for 2 rounds`);
+                    setPlayerStatuses((s) => [...s, { name: "Elemental Seal", rounds: 1, kind: "negative" }]);
+                    effectLines.push(`${character.name}'s elemental jutsu are sealed for 1 round`);
                 }
             }
             if (tag.name === "Decrease Damage Given") {
@@ -13427,17 +18010,35 @@ function Arena({
                     effectLines.push(`${opponentName} gains ${tag.name} for 2 rounds`);
                 }
             }
-            if (["Debuff Prevent", "Time Compression"].includes(tag.name)) {
-                if (playerDebuffPrevented) effectLines.push(`${character.name} prevents ${tag.name}`);
+            if (tag.name === "Debuff Prevent") {
+                if (enemyBuffPrevented) effectLines.push(`${opponentName}'s Debuff Prevent was prevented`);
                 else {
-                    setPlayerStatuses((s) => [...s, { name: tag.name, rounds: 2, percent: pct, kind: "negative" }]);
-                    effectLines.push(`${character.name} suffers ${tag.name} for 2 rounds`);
+                    setEnemyStatuses((s) => [...s, { name: "Debuff Prevent", rounds: 2, percent: pct, kind: "positive" }]);
+                    effectLines.push(`${opponentName} gains Debuff Prevent for 2 rounds`);
+                }
+            }
+            if (tag.name === "Time Compression") {
+                if (playerDebuffPrevented) effectLines.push(`${character.name} prevents Time Compression`);
+                else {
+                    setPlayerStatuses((s) => [...s, { name: "Time Compression", rounds: 1, percent: pct, kind: "negative" }]);
+                    effectLines.push(`${character.name} suffers Time Compression for 1 round`);
                 }
             }
         });
 
-        const blocked = Math.min(playerShield, damage);
-        const finalDamage = Math.max(0, damage - blocked);
+        // Apply damage modifiers to enemy jutsu damage
+        const enemyDmgGivenDebuffs = enemyStatuses.filter((s) => s.name === "Decrease Damage Given");
+        const playerDmgTakenReductions = playerStatuses.filter((s) => s.name === "Decrease Damage Taken");
+        const playerDmgTakenBoosts = playerStatuses.filter((s) => s.name === "Increase Damage Taken" || s.name === "Afterburn");
+        const reducedDamage = Math.floor(
+            damage *
+            multiplicativeTagMultiplier(enemyDmgGivenDebuffs, "decrease") *
+            multiplicativeTagMultiplier(playerDmgTakenReductions, "decrease") *
+            multiplicativeTagMultiplier(playerDmgTakenBoosts, "increase")
+        );
+
+        const blocked = Math.min(playerShield, reducedDamage);
+        const finalDamage = Math.max(0, reducedDamage - blocked);
         setPlayerShield((s) => Math.max(0, s - blocked));
         setPlayerHp((hp) => Math.max(0, hp - finalDamage - extraDamage));
         setEnemyHp((hp) => Math.min(enemyMaxHp, hp + healing));
@@ -13466,7 +18067,8 @@ function Arena({
             setRaidBattleKind("none");
             setLog(`${character.name} was defeated.`);
             addCombatLog(`${opponentName} defeats ${character.name}.`, "defeat", opponentName);
-            updateCharacter({ ...character, hp: 0, hospitalized: true });
+            if (rankedBattleActive) applyRankedLoss();
+            else updateCharacter({ ...character, hp: 0, hospitalized: true });
         }
         return true;
     }
@@ -13476,6 +18078,7 @@ function Arena({
         const playerStunned = pendingPlayerStunApPenaltyRef.current || playerStatuses.some((s) => s.name === "Stun");
         pendingPlayerStunApPenaltyRef.current = false;
         setPlayerStatuses((s) => tickStatuses(withoutStun(s)));
+        setBarrierTiles((prev) => prev.map((b) => ({ ...b, rounds: b.rounds - 1 })).filter((b) => b.rounds > 0));
         reduceCooldowns();
         setAp(playerStunned ? Math.max(0, 100 - STUN_AP_PENALTY) : 100);
         setEnemyAp(100);
@@ -13505,14 +18108,24 @@ function Arena({
         }
 
         let dotDamage = 0;
+        let drainChakra = 0;
+        let drainStamina = 0;
         enemyStatuses.filter((s) => s.name !== "Stun").forEach((s) => {
-            if (["Wound", "Drain"].includes(s.name)) dotDamage += s.amount || 0;
-            if (s.name === "Poison") dotDamage += Math.floor((enemyMaxChakra * 0.01 + enemyMaxStamina * 0.01) * ((s.percent || 30) / 100));
+            if (s.name === "Wound") dotDamage += s.amount || 0;
+            if (s.name === "Drain") {
+                dotDamage += 250;
+                drainChakra += 250;
+                drainStamina += 250;
+            }
+            if (s.name === "Poison") dotDamage += Math.floor(enemyMaxChakra * (s.percent ?? 6) / 100);
         });
 
         if (dotDamage > 0) {
             setEnemyHp((hp) => Math.max(0, hp - dotDamage));
-            addCombatLog(`Damage over time: ${opponentName} takes ${dotDamage} damage from active effects.`, "effects", opponentName);
+            if (drainChakra > 0) setEnemyChakra((c) => Math.max(0, c - drainChakra));
+            if (drainStamina > 0) setEnemyStamina((st) => Math.max(0, st - drainStamina));
+            const drainNote = drainChakra > 0 ? ` Drain also removes ${drainChakra} chakra and ${drainStamina} stamina.` : "";
+            addCombatLog(`Damage over time: ${opponentName} takes ${dotDamage} damage from active effects.${drainNote}`, "effects", opponentName);
         }
 
         if (enemyHp - dotDamage <= 0) return winBattle();
@@ -13532,7 +18145,7 @@ function Arena({
 
                 if (rule.action === "move_towards_opponent" && distance(playerPos, enemyPos) > 1) {
                     const next = nextStepToward(enemyPos, playerPos);
-                    if (next >= 0 && next < gridWidth * gridHeight && next !== playerPos) setEnemyPos(next);
+                    if (next >= 0 && next < gridWidth * gridHeight && next !== playerPos && !barrierTiles.some((b) => b.tile === next)) setEnemyPos(next);
                     setLog(`${opponentName} follows its AI rule and moves closer.`);
                     addCombatLog(`${opponentName} follows AI Rule ${pendingAiProfile.rules.indexOf(rule) + 1} and moves toward ${character.name}.`, "move", opponentName);
                     finishEnemyAiAction();
@@ -13555,7 +18168,7 @@ function Arena({
 
             if (distance(playerPos, enemyPos) > 1) {
                 const next = nextStepToward(enemyPos, playerPos);
-                if (next >= 0 && next < gridWidth * gridHeight && next !== playerPos) setEnemyPos(next);
+                if (next >= 0 && next < gridWidth * gridHeight && next !== playerPos && !barrierTiles.some((b) => b.tile === next)) setEnemyPos(next);
                 setLog(`${opponentName} moves closer.`);
                 addCombatLog(`${opponentName} moves toward ${character.name}.`, "move", opponentName);
                 finishEnemyAiAction();
@@ -13567,18 +18180,19 @@ function Arena({
         let enemyDamage = calculateDamage(
             enemyBasicJutsu,
             enemyCombatStats,
-            character.stats,
+            characterCombatStats,
             character.maxHp,
             opponentCharacter ? getBloodlineMultiplier(opponentCharacter, savedBloodlines) : 1.0,
-            playerArmorFactor
+            playerArmorFactor,
+            1.0,
+            weatherDamageMultiplier(enemyBasicJutsu)
         );
 
         enemyDamage = Math.floor(
             enemyDamage *
-            weatherDamageMultiplier(enemyBasicJutsu) *
             multiplicativeTagMultiplier(enemyStatuses.filter((s) => s.name === "Decrease Damage Given"), "decrease") *
             multiplicativeTagMultiplier(playerStatuses.filter((s) => s.name === "Decrease Damage Taken"), "decrease") *
-            multiplicativeTagMultiplier(playerStatuses.filter((s) => s.name === "Increase Damage Taken"), "increase") *
+            multiplicativeTagMultiplier(playerStatuses.filter((s) => s.name === "Increase Damage Taken" || s.name === "Afterburn"), "increase") *
             (enemyStatuses.some((s) => s.name === "Seal" || s.name === "Elemental Seal") ? 0.85 : 1)
         );
 
@@ -13587,6 +18201,13 @@ function Arena({
             const reflected = cappedPostDamage(enemyDamage, reflect.percent || 30);
             setEnemyHp((hp) => Math.max(0, hp - reflected));
             addCombatLog(`Reflect: ${opponentName} takes ${reflected} reflected damage.`, "reflect", character.name);
+        }
+        if (equippedReflectPercent > 0) {
+            const itemReflected = Math.floor(cappedPostDamage(enemyDamage, equippedReflectPercent));
+            if (itemReflected > 0) {
+                setEnemyHp((hp) => Math.max(0, hp - itemReflected));
+                addCombatLog(`Reflect (armor): ${opponentName} takes ${itemReflected} reflected damage.`, "reflect", character.name);
+            }
         }
 
         setEnemyAp(0);
@@ -13601,7 +18222,9 @@ function Arena({
             const blocked = Math.min(playerShield, enemyDamage);
             const finalDamage = enemyDamage - blocked;
             const absorb = playerStatuses.find((s) => s.name === "Absorb");
-            const absorbed = absorb ? cappedPostDamage(finalDamage, absorb.percent || 30) : 0;
+            const itemAbsorbed = equippedAbsorbPercent > 0 ? Math.floor(cappedPostDamage(finalDamage, equippedAbsorbPercent)) : 0;
+            const statusAbsorbed = absorb ? cappedPostDamage(finalDamage, absorb.percent || 30) : 0;
+            const absorbed = Math.min(finalDamage, itemAbsorbed + statusAbsorbed);
 
             setPlayerShield((s) => Math.max(0, s - blocked));
             setPlayerHp((hp) => Math.max(0, Math.min(character.maxHp, hp - finalDamage + absorbed)));
@@ -13617,6 +18240,7 @@ function Arena({
                 setRaidBattleKind("none");
                 setLog(`${character.name} was defeated.`);
                 addCombatLog(`${opponentName} defeats ${character.name}.`, "defeat", opponentName);
+                if (rankedBattleActive) applyRankedLoss();
                 return;
             }
 
@@ -13639,6 +18263,8 @@ function Arena({
         setEnemyPos(33);
         setPlayerHp(character.hp);
         setEnemyHp(nextEnemyHp);
+        setEnemyChakra(enemyMaxChakra);
+        setEnemyStamina(enemyMaxStamina);
         setPlayerShield(0);
         setEnemyShield(0);
         setAp(100);
@@ -13646,6 +18272,7 @@ function Arena({
         setTurn(1);
         setPlayerStatuses([]);
         setEnemyStatuses([]);
+        setBarrierTiles([]);
         setCooldowns({});
         setJutsuCooldowns({});
         setBattleEnded(false);
@@ -13661,41 +18288,170 @@ function Arena({
     }
 
     if (!battleStarted) {
+        const rankedOpponents = searchablePlayers.filter((player) => player.character.level >= Math.max(1, character.level - 20));
+        const clanWarOpponents = opponentClanData
+            ? opponentClanData.members
+                .map((member) => playerRoster.find((player) => player.name === member.name))
+                .filter((player): player is PlayerRecord => Boolean(player))
+            : [];
+        const tournamentRemaining = arenaTournament ? Math.max(0, arenaTournament.endsAt - Date.now()) : 0;
+        const matchRemaining = arenaTournament ? Math.max(0, arenaTournament.matchDeadline - Date.now()) : 0;
+        const isAdminTournamentManager = isAdminAccountName(character.name);
+        if (lobbyMode === "battleArena") {
+            return (
+                <div className="card arena-lobby">
+                    <h2>Battle Arena</h2>
+                    <p>Train against AI fighters or send casual spar requests to other players.</p>
+
+                    <section className="summary-box">
+                        <h3>Fight AI</h3>
+                        <p className="hint">Pick an AI level and start a practice battle. This stays separate from ranked, clan war, and tournament play.</p>
+                        <label>AI Level</label>
+                        <input
+                            type="number"
+                            min={1}
+                            max={MAX_LEVEL}
+                            value={aiLevel}
+                            onChange={(e) => setAiLevel(Math.max(1, Math.min(MAX_LEVEL, Number(e.target.value))))}
+                        />
+                        <button onClick={beginAiBattle}>Start AI Battle</button>
+                    </section>
+
+                    <section className="summary-box">
+                        <h3>Spar Requests</h3>
+                        <label>Search Player Name</label>
+                        <input value={playerSearch} onChange={(e) => setPlayerSearch(e.target.value)} placeholder="Search by player name" />
+                        <div className="jutsu-list">
+                            {searchablePlayers.length === 0 ? <p className="hint">No matching players yet. Log in or create another player to add them to the roster.</p> : searchablePlayers.map((player) => (
+                                <div className="summary-box" key={`spar-${player.name}`}>
+                                    <strong>{player.name}</strong>
+                                    <p>Level {player.level} | {player.village} | {player.specialty}</p>
+                                    <button onClick={() => challengePlayer(player)}>Ask To Spar</button>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+
+                    <section className="summary-box">
+                        <h3>Incoming Spar Requests</h3>
+                        {incomingChallenges.filter((challenge) => !challenge.clanWarPoints && challenge.mode !== "ranked" && !challenge.sectorAttack).length === 0 ? <p className="hint">No incoming spar requests.</p> : incomingChallenges.filter((challenge) => !challenge.clanWarPoints && challenge.mode !== "ranked" && !challenge.sectorAttack).map((challenge) => (
+                            <div className="summary-box" key={challenge.id}>
+                                <strong>{challenge.fromName}</strong>
+                                <p>Casual spar request to {challenge.toName}</p>
+                                <div className="menu">
+                                    <button onClick={() => acceptChallenge(challenge)}>Accept Spar</button>
+                                    <button className="danger-button" onClick={() => setDuelChallenges(duelChallenges.filter((candidate) => candidate.id !== challenge.id))}>Decline</button>
+                                </div>
+                            </div>
+                        ))}
+                    </section>
+                </div>
+            );
+        }
         return (
             <div className="card arena-lobby">
-                <h2>Battle Arena</h2>
-                <p>Choose an AI opponent or challenge another player before combat begins.</p>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
+                    <button className="back-to-hub-btn" onClick={() => setScreen("centralHub")}>← Central Hub</button>
+                    <h2 style={{ margin: 0 }}>Arena District</h2>
+                </div>
+                <p>Clan battles, ranked mode, tournaments, spectator view, and pet battles are handled here.</p>
 
                 <section className="summary-box">
-                    <h3>Fight AI</h3>
-                    <label>AI Level</label>
-                    <input type="number" min={1} max={MAX_LEVEL} value={aiLevel} onChange={(e) => setAiLevel(Math.max(1, Math.min(MAX_LEVEL, Number(e.target.value))))} />
-                    <button onClick={beginAiBattle}>Start AI Battle</button>
-                </section>
-
-                <section className="summary-box">
-                    <h3>Challenge Player</h3>
-                    <label>Search Player Name</label>
+                    <h3>Ranked Battles</h3>
+                    <p>Rating: <strong>{character.rankedRating ?? 1000}</strong> Elo | Wins {character.rankedWins ?? 0} | Losses {character.rankedLosses ?? 0}</p>
+                    <p className="hint">Ranked fights use neutral ground: no terrain or weather modifiers.</p>
+                    <label>Search Ranked Opponent</label>
                     <input value={playerSearch} onChange={(e) => setPlayerSearch(e.target.value)} placeholder="Search by player name" />
                     <div className="jutsu-list">
-                        {searchablePlayers.length === 0 ? <p className="hint">No matching players yet. Log in or create another player to add them to the roster.</p> : searchablePlayers.map((player) => (
-                            <div className="summary-box" key={player.name}>
+                        {rankedOpponents.length === 0 ? <p className="hint">No ranked opponents found.</p> : rankedOpponents.map((player) => (
+                            <div className="summary-box" key={`ranked-${player.name}`}>
                                 <strong>{player.name}</strong>
-                                <p>Level {player.level} | {player.village} | {player.specialty}</p>
-                                <button onClick={() => challengePlayer(player)}>Challenge</button>
+                                <p>Level {player.level} | Elo {player.character.rankedRating ?? 1000}</p>
+                                <button onClick={() => beginRankedBattle(player)}>Start Ranked Match</button>
                             </div>
                         ))}
                     </div>
                 </section>
 
                 <section className="summary-box">
-                    <h3>Incoming Challenges</h3>
-                    {incomingChallenges.length === 0 ? <p className="hint">No incoming duel challenges.</p> : incomingChallenges.map((challenge) => (
+                    <h3>Clan War Challenges</h3>
+                    {!character.clan ? <p className="hint">Join a clan to see clan war opponents.</p> : !opponentClanData ? <p className="hint">Your clan is not currently at war with a player clan.</p> : (
+                        <>
+                            <p className="hint">War opponent: <strong>{opponentClanData.name}</strong>. Winners earn clan war points.</p>
+                            <div className="jutsu-list">
+                                {clanWarOpponents.length === 0 ? <p className="hint">No online roster records found for enemy clan members yet.</p> : clanWarOpponents.map((player) => (
+                                    <div className="summary-box" key={`war-${player.name}`}>
+                                        <strong>{player.name}</strong>
+                                        <p>Level {player.level} | {player.specialty}</p>
+                                        <div className="menu">
+                                            <button onClick={() => challengePlayer(player, "clanWar1v1", 50)}>1v1 +50</button>
+                                            <button onClick={() => challengePlayer(player, "clanWar2v2", 100)}>2v2 +100</button>
+                                            <button onClick={() => challengePlayer(player, "clanWarPet", 25)}>Pet Battle +25</button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </>
+                    )}
+                </section>
+
+                <section className="summary-box">
+                    <h3>Tournaments</h3>
+                    {arenaTournament ? (
+                        <>
+                            <p><strong>{arenaTournament.name}</strong> | Started by {arenaTournament.createdBy}</p>
+                            <p>Event ends in {Math.ceil(tournamentRemaining / (60 * 60 * 1000))} hour(s). Match timer: {Math.ceil(matchRemaining / (60 * 60 * 1000))} hour(s).</p>
+                            <p className="hint">Participants: {arenaTournament.participants.join(", ") || "No participants"}</p>
+                            <p className="hint">Advanced: {arenaTournament.advancedPlayers.join(", ") || "None yet"}</p>
+                            {isAdminTournamentManager && <div className="jutsu-list">{arenaTournament.participants.map((name) => <div className="summary-box" key={`advance-${name}`}><strong>{name}</strong><button onClick={() => advanceTournamentPlayer(name)}>Advance Player</button></div>)}</div>}
+                            {isAdminTournamentManager && <button className="danger-button" onClick={clearTournament}>End Tournament</button>}
+                        </>
+                    ) : (
+                        <>
+                            <p className="hint">Only Admin 1 or Admin 2 can start a weekly tournament.</p>
+                            <button disabled={!isAdminTournamentManager} onClick={startTournament}>{isAdminTournamentManager ? "Start 1 Week Tournament" : "Admin Only"}</button>
+                        </>
+                    )}
+                </section>
+
+                <section className="summary-box">
+                    <h3>Pet Battles</h3>
+                    <p className="hint">Run pet arena matches and clan war pet battles from the Arena District.</p>
+                    <button onClick={() => setScreen("petArena")}>Open Pet Battle Arena</button>
+                </section>
+
+                <section className="summary-box">
+                    <h3>Spectator Board</h3>
+                    <button onClick={() => setSpectatorFights(loadArenaActiveFights())}>Refresh Fights</button>
+                    {spectatorFights.length === 0 && duelChallenges.filter((challenge) => Boolean(challenge.clanWarPoints) || challenge.mode === "ranked").length === 0 ? <p className="hint">No active fights or open district challenges detected right now.</p> : (
+                        <div className="jutsu-list">
+                            {spectatorFights.map((fight) => <div className="summary-box" key={fight.id}><strong>{fight.title}</strong><p>{fight.mode} | Started {new Date(fight.startedAt).toLocaleTimeString()}</p><button onClick={() => alert(`Spectating ${fight.title}. Live replay streams will use this fight feed.`)}>View Fight</button></div>)}
+                            {duelChallenges.filter((challenge) => Boolean(challenge.clanWarPoints) || challenge.mode === "ranked").map((challenge) => <div className="summary-box" key={`spectate-${challenge.id}`}><strong>{challenge.fromName} vs {challenge.toName}</strong><p>{challenge.mode ?? "standard"} challenge pending</p><button onClick={() => alert("This fight has not started yet.")}>View Challenge</button></div>)}
+                        </div>
+                    )}
+                </section>
+
+                <section className="summary-box">
+                    <h3>Incoming District Challenges</h3>
+                    {incomingChallenges.filter((challenge) => Boolean(challenge.clanWarPoints) || challenge.mode === "ranked").length === 0 ? <p className="hint">No incoming ranked or clan challenges.</p> : incomingChallenges.filter((challenge) => Boolean(challenge.clanWarPoints) || challenge.mode === "ranked").map((challenge) => (
                         <div className="summary-box" key={challenge.id}>
                             <strong>{challenge.fromName}</strong>
-                            <p>challenged {challenge.toName}</p>
+                            <p>{challenge.mode ?? "standard"} challenge to {challenge.toName}{challenge.clanWarPoints ? ` | ${challenge.clanWarPoints} clan points` : ""}</p>
                             <div className="menu">
-                                <button onClick={() => acceptChallenge(challenge)}>Accept Duel</button>
+                                <button onClick={() => {
+                                    if (challenge.mode === "clanWarPet") {
+                                        savePendingClanPetBattle({
+                                            clanName: character.clan,
+                                            points: challenge.clanWarPoints ?? 25,
+                                            opponentName: challenge.fromName,
+                                            createdAt: Date.now(),
+                                        });
+                                        setDuelChallenges(duelChallenges.filter((candidate) => candidate.id !== challenge.id));
+                                        setScreen("petArena");
+                                        return;
+                                    }
+                                    acceptChallenge(challenge);
+                                }}>{challenge.mode === "clanWarPet" ? "Open Pet Arena" : "Accept Duel"}</button>
                                 <button className="danger-button" onClick={() => setDuelChallenges(duelChallenges.filter((candidate) => candidate.id !== challenge.id))}>Decline</button>
                             </div>
                         </div>
@@ -13713,34 +18469,24 @@ function Arena({
     }, []);
     const activeJutsuRangeTiles = jutsuRangeTiles(pendingTargetJutsu);
     const activeJutsuAoeTiles = jutsuAoeTiles(pendingTargetJutsu);
+    const activeWeaponRangeTiles = weaponRangeTiles(pendingTargetWeapon);
 
     return (
         <div className="arena-fullscreen">
-            <div className="terrain-weather-panel">
-                <div className="twp-biome">{biomeLabel(currentBiome)}</div>
-                <div className="twp-row">
-                    <span className="twp-label">Terrain</span>
-                    <span className="twp-value">{terrainEffects[currentBiome].description}</span>
-                </div>
-                {terrainEffects[currentBiome].playerBuff && (
-                    <div className="twp-buff twp-positive">{terrainEffects[currentBiome].playerBuff}</div>
-                )}
-                <div className="twp-divider" />
-                <div className="twp-row">
-                    <span className="twp-label">Weather</span>
-                    <span className="twp-value">{weatherEffects[currentWeather].name}</span>
-                </div>
-                {weatherEffects[currentWeather].effect !== "No combat modifiers." && (
-                    <div className="twp-effects">
-                        {weatherEffects[currentWeather].positiveElement && (
-                            <span className="twp-buff twp-positive">▲ {weatherEffects[currentWeather].positiveElement} +5%</span>
-                        )}
-                        {weatherEffects[currentWeather].negativeElement && (
-                            <span className="twp-buff twp-negative">▼ {weatherEffects[currentWeather].negativeElement} -2%</span>
-                        )}
+            {/* Sector PvP countdown overlay */}
+            {pvpCountdown !== null && (
+                <div className="pvp-countdown-overlay">
+                    <div className="pvp-countdown-box">
+                        <div className="pvp-countdown-vs">
+                            <span className="pvp-countdown-name">{character.name}</span>
+                            <span className="pvp-countdown-badge">VS</span>
+                            <span className="pvp-countdown-name">{opponentCharacter?.name ?? "Opponent"}</span>
+                        </div>
+                        <div className="pvp-countdown-number">{pvpCountdown}</div>
+                        <p className="pvp-countdown-label">Battle begins in…</p>
                     </div>
-                )}
-            </div>
+                </div>
+            )}
             <div className="combat-layout">
                 <CombatSideHud
                     name={character.name}
@@ -13765,6 +18511,25 @@ function Arena({
                         </div>
                     </div>
 
+                    <div className="twp-strip">
+                        <span className="twp-strip-biome">{biomeLabel(currentBiome)}</span>
+                        <span className="twp-strip-sep">·</span>
+                        <span className="twp-strip-label">Terrain</span>
+                        <span className="twp-strip-value">{terrainEffects[currentBiome].description}</span>
+                        {terrainEffects[currentBiome].playerBuff && (
+                            <span className="twp-buff twp-positive">{terrainEffects[currentBiome].playerBuff}</span>
+                        )}
+                        <span className="twp-strip-sep">·</span>
+                        <span className="twp-strip-label">Weather</span>
+                        <span className="twp-strip-value">{weatherEffects[currentWeather].name}</span>
+                        {weatherEffects[currentWeather].positiveElement && (
+                            <span className="twp-buff twp-positive">⬆ {weatherEffects[currentWeather].positiveElement} +5%</span>
+                        )}
+                        {weatherEffects[currentWeather].negativeElement && (
+                            <span className="twp-buff twp-negative">⬇ {weatherEffects[currentWeather].negativeElement} -2%</span>
+                        )}
+                    </div>
+
                     <div className="dual-ap-panel">
                         <div>
                             <strong>{character.name} AP</strong>
@@ -13783,7 +18548,7 @@ function Arena({
                         </div>
                     </div>
 
-                    <div className={`hex-battlefield hex-${currentBiome}`} ref={battlefieldRef}>
+                    <div className={`hex-battlefield hex-${currentBiome}${currentSector === 99 ? " hex-deathsgate" : ""}`} ref={battlefieldRef}>
                         <div
                             className="hex-grid-layer"
                             style={{
@@ -13822,21 +18587,24 @@ function Arena({
                                     const x = col * X_STEP;
                                     const y = row * Y_STEP + (col % 2 === 1 ? HEX_H / 2 : 0);
 
+                                    const isBarrierTile = barrierTiles.some((b) => b.tile === i);
                                     const canDashHere =
                                         dashMode &&
                                         distance(playerPos, i) <= 3 &&
                                         i !== playerPos &&
-                                        i !== enemyPos;
-                                    const isJutsuRangeTile = activeJutsuRangeTiles.has(i);
+                                        i !== enemyPos &&
+                                        !isBarrierTile;
+                                    const isJutsuRangeTile = activeJutsuRangeTiles.has(i) || activeWeaponRangeTiles.has(i);
                                     const isJutsuAoeTile = activeJutsuAoeTiles.has(i);
                                     const isJutsuAoeCenterTile = pendingTargetJutsu?.method === "AOE_CIRCLE" && i === enemyPos && isJutsuAoeTile;
-                                    const isPendingJutsuTarget = Boolean(pendingTargetJutsu) && i === enemyPos;
+                                    const isPendingJutsuTarget = (Boolean(pendingTargetJutsu) || Boolean(pendingTargetWeapon)) && i === enemyPos;
 
                                     return (
                                         <button
                                             key={i}
                                             className={`hex-tile ${i === playerPos ? "hex-player" : ""
                                                 } ${i === enemyPos ? "hex-enemy" : ""
+                                                } ${isBarrierTile ? "hex-barrier" : ""
                                                 } ${canDashHere ? "dash-target-tile" : ""
                                                 } ${isJutsuRangeTile ? "jutsu-range-tile" : ""
                                                 } ${isJutsuAoeTile ? "jutsu-aoe-tile" : ""
@@ -13849,10 +18617,11 @@ function Arena({
                                                 width: `${HEX_W}px`,
                                                 height: `${HEX_H}px`,
                                             }}
-                                            title={isJutsuAoeTile ? `${pendingTargetJutsu?.name} AOE hit tile` : isJutsuRangeTile ? `${pendingTargetJutsu?.name} range` : isPendingJutsuTarget ? `Target ${opponentName} with ${pendingTargetJutsu?.name}` : undefined}
+                                            title={isBarrierTile ? `Barrier wall — impassable (${barrierTiles.find((b) => b.tile === i)?.rounds ?? 0} rounds)` : isJutsuAoeTile ? `${pendingTargetJutsu?.name} AOE hit tile` : isPendingJutsuTarget ? `Target ${opponentName} with ${pendingTargetJutsu?.name ?? pendingTargetWeapon?.name}` : isJutsuRangeTile ? `${pendingTargetJutsu?.name ?? pendingTargetWeapon?.name} range` : undefined}
                                             onClick={() => handleTileClick(i)}
                                         >
-                                            {i === playerPos ? (character.avatarImage ? "" : "🥷")
+                                            {isBarrierTile ? "🧱"
+                                                : i === playerPos ? (character.avatarImage ? "" : "🥷")
                                                 : i === enemyPos ? ((opponentAvatar.startsWith("data:image") || opponentAvatar.startsWith("blob:")) ? "" : opponentAvatar)
                                                     : ""}
                                         </button>
@@ -13977,21 +18746,24 @@ function Arena({
                                             const slot = normalizeEquipmentSlot(item.slot);
                                             const isWeapon = slot === "hand" || slot === "thrown";
                                             const icon = slot === "thrown" ? "◈" : slot === "hand" ? "⚔" : "✚";
+                                            const itemAp = item.apCost ?? (slot === "thrown" ? 45 : slot === "hand" ? 40 : 35);
+                                            const weaponDisplayRange = item.weaponRange ?? (slot === "thrown" ? 4 : 1);
                                             const actionText = isWeapon
-                                                ? `${slot === "thrown" ? 45 : 40} AP | R${slot === "thrown" ? 4 : 1}`
-                                                : "35 AP | Use";
+                                                ? `${itemAp} AP | R${weaponDisplayRange}`
+                                                : `${itemAp} AP | Use`;
+                                            const isArmed = pendingTargetWeapon?.id === item.id;
 
                                             return (
                                                 <div className="combat-jutsu-card-wrap combat-item-card-wrap" key={item.id}>
                                                     <button
                                                         type="button"
-                                                        className={`combat-jutsu-button combat-item-button rarity-${item.rarity}`}
-                                                        title={`${item.name} | ${equipmentSlotLabel(item.slot)} | ${combatItemSummary(item)}`}
+                                                        className={`combat-jutsu-button combat-item-button rarity-${item.rarity}${isArmed ? " jutsu-armed" : ""}`}
+                                                        title={isArmed ? `${item.name} armed — click ${opponentName} to fire` : `${item.name} | ${equipmentSlotLabel(item.slot)} | ${combatItemSummary(item)}`}
                                                         onClick={(event) => {
                                                             event.preventDefault();
                                                             event.stopPropagation();
                                                             setInspectedJutsuId("");
-                                                            useEquippedCombatItem(item);
+                                                            activateEquippedCombatItem(item);
                                                         }}
                                                     >
                                                         <span className="combat-jutsu-thumb combat-item-thumb">
@@ -14091,7 +18863,7 @@ function Arena({
 
                                         <div className="combat-jutsu-detail-grid">
                                             <span><strong>Action:</strong> {["hand", "thrown"].includes(normalizeEquipmentSlot(inspectedCombatItem.slot)) ? "Weapon attack" : "Support item"}</span>
-                                            <span><strong>AP:</strong> {normalizeEquipmentSlot(inspectedCombatItem.slot) === "thrown" ? 45 : ["hand"].includes(normalizeEquipmentSlot(inspectedCombatItem.slot)) ? 40 : 35}</span>
+                                            <span><strong>AP:</strong> {inspectedCombatItem.apCost ?? (normalizeEquipmentSlot(inspectedCombatItem.slot) === "thrown" ? 45 : ["hand"].includes(normalizeEquipmentSlot(inspectedCombatItem.slot)) ? 40 : 35)}</span>
                                             <span><strong>Range:</strong> {normalizeEquipmentSlot(inspectedCombatItem.slot) === "thrown" ? 4 : normalizeEquipmentSlot(inspectedCombatItem.slot) === "hand" ? 1 : "Self"}</span>
                                             <span><strong>Rarity:</strong> {inspectedCombatItem.rarity}</span>
                                         </div>
@@ -14203,10 +18975,16 @@ function Arena({
                                         <p style={{ color: "#f87171", fontSize: "0.9rem", margin: "0.5rem 0" }}>
                                             You've been rushed to the village hospital. Pay <strong style={{ color: "#fde047" }}>1,000 ryo</strong> to be treated and released.
                                         </p>
-                                        <button style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171" }} onClick={() => setScreen("hospital")}>
+                                        <button style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171" }} onClick={() => { if (pendingStoryBattle) onPendingStoryBattleContinue?.(); setScreen("hospital"); }}>
                                             🏥 Go to Hospital
                                         </button>
                                     </>
+                                ) : pendingStoryBattle ? (
+                                    <div className="menu">
+                                        <button className="admin-button" onClick={onPendingStoryBattleContinue}>
+                                            Continue Story
+                                        </button>
+                                    </div>
                                 ) : (
                                     <div className="menu">
                                         <button className="admin-button" onClick={() => resetBattle()}>Fight Again</button>
