@@ -32,8 +32,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             pendingAttacker: null,
         };
 
-        // Store with 30s TTL — auto-expires when player goes offline
-        await kv.set(key, entry, { ex: 30 });
+        // Store with 60s TTL — auto-expires when player goes offline (heartbeat every 20s)
+        await kv.set(key, entry, { ex: 60 });
 
         // Find all players in same sector
         const allKeys = await kv.keys('presence:*');
