@@ -623,7 +623,7 @@ type GameItem = {
     weaponRange?: number;
     weaponCooldown?: number;
     weaponEp?: number;
-    weaponEffect?: "Absorb" | "Lifesteal" | "Reflect" | "Increase Damage Given" | "Decrease Damage Given" | "Decrease Damage Taken" | "Shield" | "Wound" | "Poison";
+    weaponEffect?: "Absorb" | "Lifesteal" | "Reflect" | "Increase Damage Given" | "Decrease Damage Given" | "Decrease Damage Taken" | "Increase Damage Taken" | "Shield" | "Wound" | "Poison";
     weaponEffectValue?: number;
     weaponEffectTarget?: "enemy" | "both"; // "both" = applies effect to both player and enemy (e.g. Smoke Bomb)
     apCost?: number; // override the default AP cost for this item in combat
@@ -4974,7 +4974,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "storyBoss" && character && <StoryBoss character={character} updateCharacter={setCharacter} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "training" && character && <Training character={character} updateCharacter={setCharacter} activeTraining={activeTraining} setActiveTraining={setActiveTraining} />}
                 {!activeTriggeredEvent && screen === "pets" && character && <PetYard character={character} updateCharacter={setCharacter} setScreen={navigate} />}
-                {!activeTriggeredEvent && screen === "petArena" && character && <PetArena character={character} updateCharacter={setCharacter} playerRoster={playerRoster} setScreen={setScreen} />}
+                {!activeTriggeredEvent && screen === "petArena" && character && <PetArena character={character} updateCharacter={setCharacter} playerRoster={playerRoster} setScreen={setScreen} sharedImages={sharedImages} />}
                 {!activeTriggeredEvent && screen === "jutsuTraining" && character && <JutsuTrainingHall character={character} updateCharacter={setCharacter} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} activeJutsuTraining={activeJutsuTraining} setActiveJutsuTraining={setActiveJutsuTraining} />}
                 {!activeTriggeredEvent && screen === "missions" && character && <Missions character={character} updateCharacter={setCharacter} creatorAis={playableAis} creatorMissions={creatorMissions} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} setPendingAiProfileId={setPendingAiProfileId} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "hunting" && character && <HunterBoard character={character} updateCharacter={setCharacter} creatorAis={playableAis} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} setPendingAiProfileId={setPendingAiProfileId} setScreen={setScreen} />}
@@ -5072,7 +5072,7 @@ function LeftProfileCard({
         const reader = new FileReader();
         reader.onload = () => {
             const img = reader.result as string;
-            publishImage('avatar:' + character.name.toLowerCase(), img);
+            publishSharedImage('avatar:' + character.name.toLowerCase(), img);
             updateCharacter({
                 ...character,
                 avatarImage: img
@@ -5619,7 +5619,7 @@ function PetYard({ character, updateCharacter, setScreen }: { character: Charact
                                 {pet ? (
                                     <>
                                         <div className="pet-slot-avatar">
-                                            {sImg('pet:' + pet.id, pet.image) ? <img src={sImg('pet:' + pet.id, pet.image)} alt={pet.name} /> : <span className="pet-initials">{pet.name.slice(0, 2).toUpperCase()}</span>}
+                                            {pet.image ? <img src={pet.image} alt={pet.name} /> : <span className="pet-initials">{pet.name.slice(0, 2).toUpperCase()}</span>}
                                         </div>
                                         <p className="pet-slot-name">{pet.name}</p>
                                         <span className={`pet-rarity-tag rarity-${pet.rarity}`}>{pet.rarity}</span>
@@ -6154,7 +6154,7 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
                 if (actorSide === "player") playerCombo = 0; else enemyCombo = 0;
                 const msg = `Round ${round}: ${target2.pet.name}'s Lucky instinct lets it dodge ${actor2.pet.name}'s attack!`;
                 logs.push(msg);
-                pushFrame(round, msg, targetSide, kind, undefined, undefined, { actor: targetSide, trait: "Lucky" });
+                pushFrame(round, msg, targetSide, kind, undefined, undefined, { actor: targetSide as "player" | "enemy", trait: "Lucky" });
                 return [actor2, target2];
             }
             const crit   = Math.random() < critChance;
@@ -6168,9 +6168,9 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
             const currentCombo = actorSide === "player" ? playerCombo : enemyCombo;
             // Trait flash selection
             const traitFlash: PetArenaFrame["traitFlash"] =
-                (crit && actor2.pet.trait === "Aggressive") ? { actor: actorSide, trait: "Aggressive" } :
-                (guardianBlock < 1)                         ? { actor: targetSide, trait: "Guardian"   } :
-                (dmgBonus > 1 && actor2.pet.trait === "Battleborn") ? { actor: actorSide, trait: "Battleborn" } :
+                (crit && actor2.pet.trait === "Aggressive") ? { actor: actorSide as "player" | "enemy", trait: "Aggressive" } :
+                (guardianBlock < 1)                         ? { actor: targetSide as "player" | "enemy", trait: "Guardian"   } :
+                (dmgBonus > 1 && actor2.pet.trait === "Battleborn") ? { actor: actorSide as "player" | "enemy", trait: "Battleborn" } :
                 undefined;
             const msg = `Round ${round}: ${actor2.pet.name}${jutsuName ? ` uses ${jutsuName}` : " basic attacks"} for ${damage} damage${crit ? " — CRITICAL HIT!" : ""}.`;
             logs.push(msg);
@@ -6348,7 +6348,7 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
     return { result, player, enemy, logs, frames, obstacles: [...obstacles] };
 }
 
-function PetArena({ character, updateCharacter, playerRoster, setScreen }: { character: Character; updateCharacter: (character: Character) => void; playerRoster: PlayerRecord[]; setScreen: (screen: Screen) => void }) {
+function PetArena({ character, updateCharacter, playerRoster, setScreen, sharedImages }: { character: Character; updateCharacter: (character: Character) => void; playerRoster: PlayerRecord[]; setScreen: (screen: Screen) => void; sharedImages: Record<string, string> }) {
     const [selectedPetId, setSelectedPetId] = useState(character.activePetId ?? character.pets[0]?.id ?? "");
     const [opponentMode, setOpponentMode] = useState<"player" | "ai">("player");
     const playerOpponentPets: PetArenaOpponent[] = playerRoster
@@ -6513,6 +6513,7 @@ function PetArena({ character, updateCharacter, playerRoster, setScreen }: { cha
                     }}
                     onFightAgain={startBattle}
                     onExit={() => setScreen("centralHub")}
+                    sharedImages={sharedImages}
                 />
             )}
 
@@ -6524,7 +6525,7 @@ function PetArena({ character, updateCharacter, playerRoster, setScreen }: { cha
     );
 }
 
-function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, frame, recentFrames, result, obstacles, onReplay, onFightAgain, onExit }: { playerPet: Pet; enemyPet: Pet; enemyOwner: string; frame?: PetArenaFrame; recentFrames?: PetArenaFrame[]; result: string; obstacles?: number[]; onReplay: () => void; onFightAgain: () => void; onExit: () => void }) {
+function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, frame, recentFrames, result, obstacles, onReplay, onFightAgain, onExit, sharedImages = {} }: { playerPet: Pet; enemyPet: Pet; enemyOwner: string; frame?: PetArenaFrame; recentFrames?: PetArenaFrame[]; result: string; obstacles?: number[]; onReplay: () => void; onFightAgain: () => void; onExit: () => void; sharedImages?: Record<string, string> }) {
     const playerHp = frame?.playerHp ?? playerPet.hp;
     const enemyHp  = frame?.enemyHp  ?? enemyPet.hp;
     const playerPercent = Math.max(0, Math.min(100, (playerHp / Math.max(1, playerPet.hp)) * 100));
