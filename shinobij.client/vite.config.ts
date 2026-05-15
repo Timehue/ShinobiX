@@ -8,30 +8,46 @@ import child_process from 'child_process';
 import { env } from 'process';
 import type { IncomingMessage, ServerResponse } from 'http';
 
-const baseFolder =
-    env.APPDATA !== undefined && env.APPDATA !== ''
-        ? `${env.APPDATA}/ASP.NET/https`
-        : `${env.HOME}/.aspnet/https`;
+// ── Cert setup (dev only — skipped on CI / Vercel / production builds) ────────
+const isBuildMode = process.argv.includes('build');
 
-const certificateName = "shinobij.client";
-const certFilePath = path.join(baseFolder, `${certificateName}.pem`);
-const keyFilePath = path.join(baseFolder, `${certificateName}.key`);
+let httpsConfig: { key: Buffer; cert: Buffer } | undefined;
 
-if (!fs.existsSync(baseFolder)) {
-    fs.mkdirSync(baseFolder, { recursive: true });
-}
+if (!isBuildMode) {
+    try {
+        const baseFolder =
+            env.APPDATA !== undefined && env.APPDATA !== ''
+                ? `${env.APPDATA}/ASP.NET/https`
+                : `${env.HOME}/.aspnet/https`;
 
-if (!fs.existsSync(certFilePath) || !fs.existsSync(keyFilePath)) {
-    if (0 !== child_process.spawnSync('dotnet', [
-        'dev-certs',
-        'https',
-        '--export-path',
-        certFilePath,
-        '--format',
-        'Pem',
-        '--no-password',
-    ], { stdio: 'inherit' }).status) {
-        throw new Error("Could not create certificate.");
+        const certificateName = "shinobij.client";
+        const certFilePath = path.join(baseFolder, `${certificateName}.pem`);
+        const keyFilePath = path.join(baseFolder, `${certificateName}.key`);
+
+        if (!fs.existsSync(baseFolder)) {
+            fs.mkdirSync(baseFolder, { recursive: true });
+        }
+
+        if (!fs.existsSync(certFilePath) || !fs.existsSync(keyFilePath)) {
+            const result = child_process.spawnSync('dotnet', [
+                'dev-certs', 'https',
+                '--export-path', certFilePath,
+                '--format', 'Pem',
+                '--no-password',
+            ], { stdio: 'inherit' });
+            if (result.status !== 0) {
+                console.warn('[vite] Could not create dev cert — running without HTTPS.');
+            }
+        }
+
+        if (fs.existsSync(certFilePath) && fs.existsSync(keyFilePath)) {
+            httpsConfig = {
+                key: fs.readFileSync(keyFilePath),
+                cert: fs.readFileSync(certFilePath),
+            };
+        }
+    } catch {
+        console.warn('[vite] Dev cert setup skipped — running without HTTPS.');
     }
 }
 
@@ -137,7 +153,7 @@ setInterval(() => {
 type GuardEntry = { name: string; village: string; level: number; lastSeen: number };
 const villageGuards = new Map<string, GuardEntry>();
 setInterval(() => {
-    const cutoff = Date.now() - 5 * 60_000; // 5-min guard expiry
+    const cutoff = Date.now() - 5 * 60_000;
     for (const [key, g] of villageGuards) {
         if (g.lastSeen < cutoff) villageGuards.delete(key);
     }
@@ -150,7 +166,6 @@ export default defineConfig({
         {
             name: 'api-multiplayer',
             configureServer(server) {
-                // Heartbeat: register presence, get sector mates + pending attack
                 server.middlewares.use('/api/player/heartbeat', async (req: IncomingMessage, res: ServerResponse, next) => {
                     if (req.method !== 'POST') { next(); return; }
                     try {
@@ -176,7 +191,6 @@ export default defineConfig({
                     }
                 });
 
-                // Attack: mark target's pendingAttacker
                 server.middlewares.use('/api/player/attack', async (req: IncomingMessage, res: ServerResponse, next) => {
                     if (req.method !== 'POST') { next(); return; }
                     try {
@@ -191,7 +205,6 @@ export default defineConfig({
                     }
                 });
 
-                // Clear attack flag after defender enters combat
                 server.middlewares.use('/api/player/clear-attack', async (req: IncomingMessage, res: ServerResponse, next) => {
                     if (req.method !== 'POST') { next(); return; }
                     try {
@@ -209,7 +222,6 @@ export default defineConfig({
         {
             name: 'api-village-guard',
             configureServer(server) {
-                // Queue as village guard
                 server.middlewares.use('/api/village-guard/queue', async (req: IncomingMessage, res: ServerResponse, next) => {
                     if (req.method !== 'POST') { next(); return; }
                     try {
@@ -220,7 +232,6 @@ export default defineConfig({
                     } catch (err: unknown) { sendJson(res, 500, { error: errorMessage(err) }); }
                 });
 
-                // Dequeue from village guard
                 server.middlewares.use('/api/village-guard/dequeue', async (req: IncomingMessage, res: ServerResponse, next) => {
                     if (req.method !== 'POST') { next(); return; }
                     try {
@@ -231,7 +242,6 @@ export default defineConfig({
                     } catch (err: unknown) { sendJson(res, 500, { error: errorMessage(err) }); }
                 });
 
-                // List guards for a village
                 server.middlewares.use('/api/village-guard/list', async (req: IncomingMessage, res: ServerResponse, next) => {
                     if (req.method !== 'POST') { next(); return; }
                     try {
@@ -248,7 +258,6 @@ export default defineConfig({
         {
             name: 'api-save',
             configureServer(server) {
-                // Store saves next to the client so they survive restarts
                 const savesDir = path.resolve(process.cwd(), 'saves');
                 if (!fs.existsSync(savesDir)) fs.mkdirSync(savesDir, { recursive: true });
 
@@ -276,7 +285,6 @@ export default defineConfig({
                 });
 
                 server.middlewares.use('/api/save', async (req: IncomingMessage, res: ServerResponse, next) => {
-                    // req.url is the part after /api/save  e.g. "/tyler"
                     const rawName = (req.url ?? '').replace(/^\//, '').split('?')[0];
                     const name = safeName(rawName);
                     if (!name) { next(); return; }
@@ -303,7 +311,6 @@ export default defineConfig({
                                     payload = mergePreservingImages(incoming, existing);
                                     fs.copyFileSync(filePath, `${filePath}.bak`);
                                 } catch {
-                                    // Existing save is invalid; keep a copy and replace it with the valid incoming payload.
                                     fs.copyFileSync(filePath, `${filePath}.corrupt-${Date.now()}.bak`);
                                 }
                             }
@@ -339,7 +346,6 @@ export default defineConfig({
                             return;
                         }
 
-                        // Load key from .env at request time so hot-reload works
                         const dotenvPath = path.resolve(process.cwd(), '.env');
                         let apiKey = env.OPENAI_API_KEY ?? '';
                         if (!apiKey && fs.existsSync(dotenvPath)) {
@@ -406,9 +412,6 @@ export default defineConfig({
             },
         },
         port: parseInt(env.DEV_SERVER_PORT || '50891'),
-        https: {
-            key: fs.readFileSync(keyFilePath),
-            cert: fs.readFileSync(certFilePath),
-        }
+        ...(httpsConfig ? { https: httpsConfig } : {}),
     }
 });
