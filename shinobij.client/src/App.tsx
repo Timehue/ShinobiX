@@ -9036,6 +9036,7 @@ function AdminPanel({
                             setCreatorJutsus(updated);
                             setJutsuIsGenerating(false);
                             setJutsuGenStatus(`Done! Generated images for ${done} jutsu(s).`);
+                            try { await onSaveRef.current(); } catch { /* ignore if no account */ }
                         }}>
                             {jutsuIsGenerating ? "Generating..." : "Generate All Missing Jutsu Images"}
                         </button>
@@ -9419,6 +9420,7 @@ function AdminPanel({
                             setEditablePets(updated);
                             setPetIsGenerating(false);
                             setPetGenStatus(`Done! Generated images for ${done} pet(s).`);
+                            try { await onSaveRef.current(); } catch { /* ignore if no account */ }
                         }}>
                             {petIsGenerating ? "Generating..." : "Generate All Missing Pet Images"}
                         </button>
