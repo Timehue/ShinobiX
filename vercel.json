@@ -1,7 +1,7 @@
 {
   "buildCommand": "cd shinobij.client && npm ci && npm run build",
   "outputDirectory": "shinobij.client/dist",
-  "installCommand": "echo skip",
+  "installCommand": "npm install",
   "framework": null,
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }
