@@ -3962,7 +3962,7 @@ export default function App() {
         }
 
         heartbeat();
-        const id = setInterval(heartbeat, 3000);
+        const id = setInterval(heartbeat, 20000);
         return () => clearInterval(id);
     }, [character?.name, currentSector]);
 
