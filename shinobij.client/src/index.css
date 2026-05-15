@@ -13481,3 +13481,87 @@ button.combat-jutsu-button,
     padding: 12px 6px;
   }
 }
+
+/* =============================================
+   VILLAGE MAP — MOBILE OVERRIDES
+   On small screens the absolute-positioned map
+   buttons overlap badly, so we switch to a
+   flex-wrap grid and hide the background image.
+   ============================================= */
+
+@media (max-width: 800px) {
+  .stormveil-village-screen {
+    min-height: unset !important;
+  }
+
+  .stormveil-map {
+    /* Drop the decorative background image — it serves no purpose when
+       buttons aren't positioned over it. */
+    background-image: none !important;
+    background-color: rgba(2, 6, 23, 0.95) !important;
+    min-height: unset !important;
+    /* Switch from absolute-child positioning to flex wrap */
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    padding: 12px !important;
+    justify-content: center !important;
+    align-content: flex-start !important;
+  }
+
+  .stormveil-map-button {
+    /* Override the absolute positioning */
+    position: relative !important;
+    left: unset !important;
+    top: unset !important;
+    transform: none !important;
+    /* Each button takes ~30% width — 3-column grid feel */
+    flex: 1 1 calc(30% - 8px) !important;
+    min-width: 90px !important;
+    max-width: 130px !important;
+    padding: 10px 6px !important;
+  }
+
+  .stormveil-map-button span {
+    font-size: 22px !important;
+  }
+
+  .stormveil-map-button strong {
+    font-size: 10px !important;
+    text-align: center !important;
+    line-height: 1.2 !important;
+  }
+}
+
+/* =============================================
+   HEX BATTLE GRID — MOBILE OVERFLOW FIX
+   The scaler's edgeBuffer is handled in JS, but
+   we ensure the grid container never clips the
+   board by removing any overflow:hidden constraint
+   that fights the JS scale transform.
+   ============================================= */
+
+@media (max-width: 800px) {
+  .arena-fullscreen .hex-battlefield {
+    /* Allow the JS-scaled grid to breathe — no side clipping */
+    overflow: visible !important;
+    /* Give the battlefield more vertical room on phones */
+    height: clamp(300px, 50dvh, 420px) !important;
+    min-height: 280px !important;
+    max-height: 420px !important;
+  }
+
+  .arena-fullscreen .hex-grid-layer {
+    /* Ensure transform-origin aligns to centre so scale doesn't offset left */
+    transform-origin: top center !important;
+  }
+}
+
+@media (max-width: 520px) {
+  .arena-fullscreen .hex-battlefield {
+    height: clamp(260px, 44dvh, 360px) !important;
+    min-height: 240px !important;
+    max-height: 360px !important;
+    padding: 4px !important;
+  }
+}
