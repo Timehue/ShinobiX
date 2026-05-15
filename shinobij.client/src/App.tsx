@@ -16552,10 +16552,12 @@ function Arena({
         function updateBoardScale() {
             const battlefield = battlefieldRef.current;
             if (!battlefield) return;
-            const edgeBuffer = Math.min(
-                112,
-                Math.max(64, Math.min(battlefield.clientWidth, battlefield.clientHeight) * 0.16)
-            );
+            // On narrow mobile screens use a much smaller buffer so the grid
+            // has room to scale down instead of being clipped at the minimum.
+            const isMobileNarrow = battlefield.clientWidth < 600;
+            const edgeBuffer = isMobileNarrow
+                ? Math.min(24, Math.max(8, Math.min(battlefield.clientWidth, battlefield.clientHeight) * 0.05))
+                : Math.min(112, Math.max(64, Math.min(battlefield.clientWidth, battlefield.clientHeight) * 0.16));
             const availableW = Math.max(1, battlefield.clientWidth - edgeBuffer * 2);
             const availableH = Math.max(1, battlefield.clientHeight - edgeBuffer * 2);
 
@@ -16565,7 +16567,9 @@ function Arena({
                 availableH / GRID_LAYER_H
             );
 
-            setBoardScale(Math.max(0.45, Math.min(1, Number(nextScale.toFixed(3)))));
+            // Allow the scale to go as low as 0.28 on mobile so the full grid fits
+            const minScale = isMobileNarrow ? 0.28 : 0.45;
+            setBoardScale(Math.max(minScale, Math.min(1, Number(nextScale.toFixed(3)))));
         }
 
         updateBoardScale();
