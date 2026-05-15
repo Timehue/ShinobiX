@@ -4277,13 +4277,34 @@ export default function App() {
         return () => clearInterval(interval);
     }, [screen]);
 
-    // Load shared images once on mount
+    // Lazy-load images by category — only fetch what the current screen needs.
+    // We track which categories are already in-flight / loaded via a ref so we
+    // never double-fetch even if the screen changes quickly.
+    const loadedCatsRef = useRef<Set<string>>(new Set());
+
+    async function loadCategory(cat: string) {
+        if (loadedCatsRef.current.has(cat)) return;
+        loadedCatsRef.current.add(cat); // mark immediately to prevent duplicate fetches
+        try {
+            const r = await fetch(`/api/images?cat=${encodeURIComponent(cat)}`);
+            if (!r.ok) return;
+            const data = await r.json() as unknown;
+            if (data && typeof data === 'object')
+                setSharedImages(prev => ({ ...prev, ...(data as Record<string, string>) }));
+        } catch { /* silently ignore — images are non-critical */ }
+    }
+
+    // Screen → image categories map
     useEffect(() => {
-        fetch('/api/images')
-            .then(r => r.ok ? r.json() : {})
-            .then((data: unknown) => { if (data && typeof data === 'object') setSharedImages(data as Record<string, string>); })
-            .catch(() => {});
-    }, []);
+        if (screen === 'worldMap')                              { void loadCategory('avatar'); void loadCategory('event'); }
+        else if (screen === 'pets' || screen === 'petArena')    { void loadCategory('pet'); }
+        else if (screen === 'jutsuTraining')                    { void loadCategory('jutsu'); }
+        else if (screen === 'shop')                             { void loadCategory('item'); }
+        else if (screen === 'shinobiTiles')                     { void loadCategory('card'); }
+        else if (screen === 'arena' || screen === 'battleArena'){ void loadCategory('avatar'); }
+        else if (screen === 'storyHall')                        { void loadCategory('event'); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [screen]);
 
     // Publish one image to the shared store (updates local state + fires API)
     function publishImage(id: string, img: string) {
