@@ -2709,6 +2709,18 @@ function compressDataUrl(dataUrl: string, maxPx = 512, quality = 0.82): Promise<
     });
 }
 
+// Module-level — callable from any component without prop drilling
+async function publishSharedImage(id: string, img: string): Promise<void> {
+    if (!id || !img) return;
+    try {
+        await fetch('/api/images', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id, image: img }),
+        });
+    } catch { /* fire-and-forget */ }
+}
+
 function readImageFile(file: File, onLoad: (image: string) => void, maxSizeMb = 100) {
     if (!file.type.startsWith("image/")) return alert("Please upload an image file.");
     if (file.size > maxSizeMb * 1024 * 1024) return alert(`Please upload an image under ${maxSizeMb} MB.`);
@@ -4273,15 +4285,11 @@ export default function App() {
             .catch(() => {});
     }, []);
 
-    // Publish one image to the shared store (fire-and-forget)
+    // Publish one image to the shared store (updates local state + fires API)
     function publishImage(id: string, img: string) {
         if (!id || !img) return;
         setSharedImages(prev => ({ ...prev, [id]: img }));
-        fetch('/api/images', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id, image: img }),
-        }).catch(() => {});
+        publishSharedImage(id, img);
     }
 
     // Resolve an image: shared store first, then entity's own stored value
@@ -4903,6 +4911,7 @@ export default function App() {
                         setCurrentSector={setCurrentSector}
                         acceptedMissionIds={acceptedMissionIds}
                         missionProgress={missionProgress}
+                        sharedImages={sharedImages}
                         attackPlayer={(opponent) => {
                             // Regular duel — send a challenge the opponent must accept
                             if (duelChallenges.some(c => c.fromName === character.name && c.toName === opponent.name)) {
@@ -6926,7 +6935,7 @@ function AdminPanel({
 
     function applyItemImage(image: string) {
         setItemImage(image);
-        publishImage('item:' + editingItemId, image);
+        publishSharedImage('item:' + editingItemId, image);
         if (!editingItemId) return;
         const isCreator = creatorItems.some((i) => i.id === editingItemId);
         if (isCreator) {
@@ -7233,7 +7242,7 @@ function AdminPanel({
     ];
     function updateLeadershipImage(village: string, slot: "kage" | number, image: string) {
         const shareKey = typeof slot === 'number' ? `leader:${village}:elder:${slot}` : `leader:${village}:kage`;
-        publishImage(shareKey, image);
+        publishSharedImage(shareKey, image);
         const current = leadershipImages[village] ?? { kage: "", elders: ["", "", ""] };
         const nextVillageImages = slot === "kage"
             ? { ...current, kage: image, elders: Array.from({ length: 3 }, (_, index) => current.elders?.[index] ?? "") }
@@ -7290,7 +7299,7 @@ function AdminPanel({
 
     function applyJutsuImage(image: string) {
         setJutsuImage(image);
-        publishImage('jutsu:' + editingJutsuId, image);
+        publishSharedImage('jutsu:' + editingJutsuId, image);
         if (!editingJutsuId) return;
         setCreatorJutsus(creatorJutsus.map((j) => j.id === editingJutsuId ? { ...j, image } : j));
         setSavedBloodlines(savedBloodlines.map((bl) => ({
@@ -7301,13 +7310,13 @@ function AdminPanel({
 
     function applyBloodlineImage(image: string) {
         setBloodlineEditImage(image);
-        publishImage('bloodline:' + editingBloodlineId, image);
+        publishSharedImage('bloodline:' + editingBloodlineId, image);
         if (!editingBloodlineId) return;
         setSavedBloodlines(savedBloodlines.map((bl) => bl.id === editingBloodlineId ? { ...bl, image } : bl));
     }
 
     function setVnPageImage(eventId: string, pageIndex: number, image: string) {
-        publishImage(`vn:${eventId}:page:${pageIndex}`, image);
+        publishSharedImage(`vn:${eventId}:page:${pageIndex}`, image);
         setCreatorEvents(creatorEvents.map((ev) => {
             if (ev.id !== eventId || !ev.vnPages) return ev;
             return { ...ev, vnPages: ev.vnPages.map((p, i) => i === pageIndex ? { ...p, image } : p) };
@@ -7315,28 +7324,28 @@ function AdminPanel({
     }
 
     function setPetVnPageImage(pageIndex: number, image: string) {
-        publishImage(`vn:pet-encounter:page:${pageIndex}`, image);
+        publishSharedImage(`vn:pet-encounter:page:${pageIndex}`, image);
         if (!petEncounterVn.vnPages) return;
         setPetEncounterVn({ ...petEncounterVn, vnPages: petEncounterVn.vnPages.map((p, i) => i === pageIndex ? { ...p, image } : p) });
     }
 
     function applyEventImage(image: string) {
         setEventImage(image);
-        publishImage('event:' + editingEventId + ':bg', image);
+        publishSharedImage('event:' + editingEventId + ':bg', image);
         if (!editingEventId) return;
         setCreatorEvents(creatorEvents.map((ev) => ev.id === editingEventId ? { ...ev, image } : ev));
     }
 
     function applyEventAvatarImage(avatarImage: string) {
         setEventAvatarImage(avatarImage);
-        publishImage('event:' + editingEventId + ':avatar', avatarImage);
+        publishSharedImage('event:' + editingEventId + ':avatar', avatarImage);
         if (!editingEventId) return;
         setCreatorEvents(creatorEvents.map((ev) => ev.id === editingEventId ? { ...ev, avatarImage } : ev));
     }
 
     function applyAiImage(image: string) {
         setAiImage(image);
-        publishImage('ai:' + editingAiId, image);
+        publishSharedImage('ai:' + editingAiId, image);
         if (!editingAiId) return;
         setCreatorAis(creatorAis.map((ai) => ai.id === editingAiId ? { ...ai, image } : ai));
     }
@@ -9166,7 +9175,7 @@ function AdminPanel({
                                         const idx = updated.findIndex((p) => p.id === pet.id);
                                         if (idx >= 0) {
                                             updated[idx] = { ...updated[idx], image: data.image };
-                                            publishImage('pet:' + pet.id, data.image);
+                                            publishSharedImage('pet:' + pet.id, data.image);
                                         }
                                     }
                                 } catch { /* skip */ }
@@ -9235,13 +9244,13 @@ function AdminPanel({
                             onChange={(e) => {
                                 const file = e.target.files?.[0];
                                 if (!file) return;
-                                readImageFile(file, (img) => { setCardImage(img); if (editingCardId) publishImage('card:' + editingCardId, img); }, 100);
+                                readImageFile(file, (img) => { setCardImage(img); if (editingCardId) publishSharedImage('card:' + editingCardId, img); }, 100);
                             }}
                         />
                         <AiImagePrompt
                             label="Card Image"
                             suggestedPrompt={`${cardName} ${cardElement} shinobi card game artwork`}
-                            onImage={(img) => { setCardImage(img); if (editingCardId) publishImage('card:' + editingCardId, img); }}
+                            onImage={(img) => { setCardImage(img); if (editingCardId) publishSharedImage('card:' + editingCardId, img); }}
                         />
 
                         <div className="menu">
@@ -13836,6 +13845,7 @@ function WorldMap({
     sectorAttackPlayer,
     acceptedMissionIds,
     missionProgress,
+    sharedImages = {},
 }: {
     setCurrentBiome: (biome: Biome) => void;
     setScreen: (screen: Screen) => void;
@@ -13856,6 +13866,7 @@ function WorldMap({
     sectorAttackPlayer: (opponent: PlayerRecord) => void;
     acceptedMissionIds: string[];
     missionProgress: Record<string, number>;
+    sharedImages?: Record<string, string>;
 }) {
     const [selectedSector, setSelectedSector] = useState<number | null>(null);
     const [selectedVillageTerritory, setSelectedVillageTerritory] = useState<typeof locations[number] | null>(null);
@@ -14475,8 +14486,8 @@ function WorldMap({
                                             <div className="other-players-map-stack">
                                                 {otherHere.map(p => (
                                                     <div key={p.name} className="other-player-map-dot" title={`${p.name} Lv ${p.level}`}>
-                                                        {(sImg('avatar:' + p.name.toLowerCase(), p.character.avatarImage as string || ''))
-                                                            ? <img className="tiny-map-avatar other-player-map-avatar" src={sImg('avatar:' + p.name.toLowerCase(), p.character.avatarImage as string || '')} alt={p.name} />
+                                                        {(sharedImages['avatar:' + p.name.toLowerCase()] || (p.character.avatarImage as string) || '')
+                                                            ? <img className="tiny-map-avatar other-player-map-avatar" src={sharedImages['avatar:' + p.name.toLowerCase()] || (p.character.avatarImage as string) || ''} alt={p.name} />
                                                             : <span className="other-player-map-emoji">🥷</span>
                                                         }
                                                         <span className="other-player-map-name">{p.name}</span>
@@ -14805,7 +14816,7 @@ function WorldMap({
                                 className="location-button"
                                 onClick={() => triggerCreatorEvent(event)}
                             >
-                                <CardVisual image={sImg('event:' + event.id + ':bg', event.image || event.avatarImage || '')} icon={event.icon} label={event.name} />
+                                <CardVisual image={sharedImages['event:' + event.id + ':bg'] || event.image || event.avatarImage || ''} icon={event.icon} label={event.name} />
                                 <span>{event.name}</span>
                                 <small>Lvl {event.levelReq} | {event.biome} | {rewardSummary(event.xpReward, event.ryoReward, event.staminaReward, event.currencyRewards)}</small>
                             </button>
@@ -15629,7 +15640,7 @@ function Logbook({
                     <h3>Events</h3>
                     <div className="location-grid">{logbookEvents.map((event) => (
                         <div key={event.id} className="location-button mission-card">
-                            <CardVisual image={sImg('event:' + event.id + ':bg', event.image || event.avatarImage || '')} icon={event.icon} label={event.name} />
+                            <CardVisual image={(event.image || event.avatarImage || '')} icon={event.icon} label={event.name} />
                             <span>{event.name}</span>
                             <small>Lvl {event.levelReq} | {event.biome} | {rewardSummary(event.xpReward, event.ryoReward, event.staminaReward, event.currencyRewards)}</small>
                             <p>{event.dialogue.join(" ")}</p>
@@ -15742,7 +15753,7 @@ function Profile({
         const reader = new FileReader();
         reader.onload = () => {
             const img = String(reader.result);
-            publishImage('avatar:' + character.name.toLowerCase(), img);
+            publishSharedImage('avatar:' + character.name.toLowerCase(), img);
             updateCharacter({ ...character, avatarImage: img });
         };
         reader.readAsDataURL(file);
@@ -16463,7 +16474,7 @@ function Arena({
     const enemyArmorFactor = opponentCharacter ? getCharacterArmorFactor(opponentCharacter, allItems) : 1.0;
     const opponentLevel = opponentCharacter?.level ?? pendingAiProfile?.level ?? aiLevel;
     const opponentName = opponentCharacter?.name ?? pendingAiProfile?.name ?? `Level ${aiLevel} AI Ninja`;
-    const opponentAvatar = opponentCharacter?.avatarImage || (pendingAiProfile ? sImg('ai:' + pendingAiProfile.id, pendingAiProfile.image || '') : '') || pendingAiProfile?.icon || "EN";
+    const opponentAvatar = opponentCharacter?.avatarImage || pendingAiProfile?.image || pendingAiProfile?.icon || "EN";
     const enemyMaxHp = opponentCharacter?.maxHp ?? pendingAiProfile?.hp ?? maxHpForLevel(opponentLevel);
     const enemyMaxChakra = opponentCharacter?.maxChakra ?? pendingAiProfile?.chakra ?? maxChakraForLevel(opponentLevel);
     const enemyMaxStamina = opponentCharacter?.maxStamina ?? pendingAiProfile?.stamina ?? maxStaminaForLevel(opponentLevel);
