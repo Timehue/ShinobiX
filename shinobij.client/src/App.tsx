@@ -7310,6 +7310,15 @@ function AdminPanel({
     const [bulkShowSection, setBulkShowSection] = useState(false);
     const [bulkCustomPrompts, setBulkCustomPrompts] = useState<Record<string, string>>({});
 
+    // AI bulk image generation (separate state from card bulk)
+    const [aiBulkSelections, setAiBulkSelections] = useState<string[]>([]);
+    const [aiBulkRunning, setAiBulkRunning] = useState(false);
+    const [aiBulkProgress, setAiBulkProgress] = useState<{ current: number; total: number; aiName: string } | null>(null);
+    const [aiBulkErrors, setAiBulkErrors] = useState<{ id: string; name: string; error: string }[]>([]);
+    const [aiBulkSkipExisting, setAiBulkSkipExisting] = useState(true);
+    const [aiBulkShowSection, setAiBulkShowSection] = useState(false);
+    const [aiBulkCustomPrompts, setAiBulkCustomPrompts] = useState<Record<string, string>>({});
+
     function cardFromForm(id?: string): TileCard {
         return { id: id ?? `card-${makeId()}`, name: cardName, top: cardTop, right: cardRight, bottom: cardBottom, left: cardLeft, element: cardElement, rarity: cardRarity, description: cardDescription, ...(cardImage ? { image: cardImage } : {}) };
     }
@@ -7398,6 +7407,53 @@ function AdminPanel({
         setBulkProgress(null);
         setBulkRunning(false);
         setBulkSelections([]);
+        try { await onSave(); } catch { /* ignore if no account */ }
+    }
+
+    async function runBulkAiGeneration() {
+        const toProcess = aiBulkSelections
+            .map(id => allAdminAis.find(a => a.id === id))
+            .filter(Boolean) as CreatorAi[];
+        if (toProcess.length === 0) { alert("No AIs selected."); return; }
+
+        setAiBulkRunning(true);
+        setAiBulkErrors([]);
+        const errors: { id: string; name: string; error: string }[] = [];
+
+        for (let i = 0; i < toProcess.length; i++) {
+            const ai = toProcess[i];
+            setAiBulkProgress({ current: i + 1, total: toProcess.length, aiName: ai.name });
+            try {
+                const customPrompt = aiBulkCustomPrompts[ai.id]?.trim();
+                const autoPrompt = `${ai.name}, ${ai.village || "shinobi"} arena opponent portrait, ninja character art`;
+                const response = await fetch("/api/generate-image", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ prompt: customPrompt || autoPrompt, label: "AI Portrait" }),
+                });
+                const rawText = await response.text();
+                let data: Record<string, unknown>;
+                try { data = rawText ? JSON.parse(rawText) : {}; } catch { throw new Error(`Server error ${response.status}`); }
+                if (!response.ok) throw new Error((data.error as string) || `Status ${response.status}`);
+                if (!data.image) throw new Error("No image returned.");
+                const image = await compressDataUrl(data.image as string, 512, 0.82);
+                // Update creatorAis if it's a creator AI, otherwise add an override
+                const isCreator = creatorAis.some(a => a.id === ai.id);
+                if (isCreator) {
+                    setCreatorAis(prev => prev.map(a => a.id === ai.id ? { ...a, image } : a));
+                } else {
+                    setCreatorAis(prev => [...prev, { ...ai, image }]);
+                }
+                publishSharedImage('ai:' + ai.id, image);
+            } catch (err) {
+                errors.push({ id: ai.id, name: ai.name, error: err instanceof Error ? err.message : "Failed" });
+            }
+        }
+
+        setAiBulkErrors(errors);
+        setAiBulkProgress(null);
+        setAiBulkRunning(false);
+        setAiBulkSelections([]);
         try { await onSave(); } catch { /* ignore if no account */ }
     }
 
@@ -8720,6 +8776,136 @@ function AdminPanel({
                         ))}
                         <div className="menu"><button onClick={() => setAiRules([...aiRules, blankAiRule()])}>Add Rule</button><button onClick={saveAdminAi}>Save AI Profile</button></div>
                         {editingAiId && <p className="hint">Editing AI: {editingAiId}</p>}
+                    </section>
+
+                    {/* -- AI Bulk Image Generator -- */}
+                    <section className="summary-box bulk-image-section">
+                        <div className="bulk-image-header" onClick={() => setAiBulkShowSection(v => !v)}>
+                            <span>🖼️ Bulk AI Image Generator</span>
+                            <span className="bulk-image-chevron">{aiBulkShowSection ? "▲" : "▼"}</span>
+                        </div>
+
+                        {aiBulkShowSection && (() => {
+                            const visibleAis = aiBulkSkipExisting
+                                ? allAdminAis.filter(a => !a.image)
+                                : allAdminAis;
+                            const selectedCount = aiBulkSelections.length;
+                            const pct = aiBulkProgress ? Math.round((aiBulkProgress.current / aiBulkProgress.total) * 100) : 0;
+
+                            return (
+                                <div className="bulk-image-body">
+                                    {/* Options row */}
+                                    <div className="bulk-image-opts">
+                                        <label className="bulk-image-toggle">
+                                            <input
+                                                type="checkbox"
+                                                checked={aiBulkSkipExisting}
+                                                onChange={e => { setAiBulkSkipExisting(e.target.checked); setAiBulkSelections([]); }}
+                                            />
+                                            Show only AIs without images
+                                        </label>
+                                        <div className="bulk-image-quickbtns">
+                                            <button
+                                                className="bulk-quick-btn"
+                                                disabled={aiBulkRunning}
+                                                onClick={() => setAiBulkSelections(visibleAis.map(a => a.id))}
+                                            >Select All ({visibleAis.length})</button>
+                                            <button
+                                                className="bulk-quick-btn"
+                                                disabled={aiBulkRunning}
+                                                onClick={() => setAiBulkSelections(allAdminAis.filter(a => !a.image).map(a => a.id))}
+                                            >No Image Only</button>
+                                            <button
+                                                className="bulk-quick-btn"
+                                                disabled={aiBulkRunning}
+                                                onClick={() => setAiBulkSelections([])}
+                                            >Deselect All</button>
+                                        </div>
+                                    </div>
+
+                                    {/* AI list */}
+                                    <div className="bulk-card-list">
+                                        {visibleAis.length === 0 && (
+                                            <p className="hint" style={{ padding: "8px 0" }}>All AI profiles already have images.</p>
+                                        )}
+                                        {visibleAis.map(ai => {
+                                            const checked = aiBulkSelections.includes(ai.id);
+                                            const customPrompt = aiBulkCustomPrompts[ai.id] ?? "";
+                                            const isBuiltin = builtinAis.some(b => b.id === ai.id);
+                                            return (
+                                                <div key={ai.id} className={`bulk-card-row${checked ? " bulk-card-row--checked" : ""}`}>
+                                                    <label className="bulk-card-check">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={checked}
+                                                            disabled={aiBulkRunning}
+                                                            onChange={e => setAiBulkSelections(e.target.checked
+                                                                ? [...aiBulkSelections, ai.id]
+                                                                : aiBulkSelections.filter(id => id !== ai.id))}
+                                                        />
+                                                    </label>
+                                                    {ai.image
+                                                        ? <img src={ai.image} alt={ai.name} className="bulk-card-thumb" />
+                                                        : <div className="bulk-card-thumb bulk-card-thumb--empty">{ai.icon || "?"}</div>
+                                                    }
+                                                    <div className="bulk-card-info">
+                                                        <span className="bulk-card-name">{ai.name}</span>
+                                                        <span className="bulk-card-element">Lv {ai.level}</span>
+                                                        {ai.village && <span className="bulk-card-element">{ai.village}</span>}
+                                                        {isBuiltin && <span className="bulk-card-has-img">⚙️ built-in</span>}
+                                                        {ai.image && <span className="bulk-card-has-img">🖼️ has image</span>}
+                                                    </div>
+                                                    {checked && (
+                                                        <input
+                                                            className="bulk-card-prompt-input"
+                                                            placeholder={`Auto: "${ai.name}, ${ai.village || "shinobi"} arena opponent portrait..."`}
+                                                            value={customPrompt}
+                                                            disabled={aiBulkRunning}
+                                                            onChange={e => setAiBulkCustomPrompts(prev => ({ ...prev, [ai.id]: e.target.value }))}
+                                                        />
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+
+                                    {/* Progress bar */}
+                                    {aiBulkProgress && (
+                                        <div className="bulk-progress-wrap">
+                                            <div className="bulk-progress-label">
+                                                Generating <strong>{aiBulkProgress.aiName}</strong> ({aiBulkProgress.current}/{aiBulkProgress.total})
+                                            </div>
+                                            <div className="bulk-progress-track">
+                                                <div className="bulk-progress-fill" style={{ width: `${pct}%` }} />
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Errors */}
+                                    {aiBulkErrors.length > 0 && (
+                                        <div className="bulk-error-list">
+                                            <strong style={{ color: "#f87171" }}>Errors ({aiBulkErrors.length}):</strong>
+                                            {aiBulkErrors.map(e => (
+                                                <div key={e.id} className="bulk-error-row">❌ <strong>{e.name}</strong>: {e.error}</div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {/* Generate button */}
+                                    <div className="menu" style={{ marginTop: 10 }}>
+                                        <button
+                                            className="bulk-generate-btn"
+                                            disabled={aiBulkRunning || selectedCount === 0}
+                                            onClick={runBulkAiGeneration}
+                                        >
+                                            {aiBulkRunning
+                                                ? `⏳ Generating… ${aiBulkProgress ? `${aiBulkProgress.current}/${aiBulkProgress.total}` : ""}`
+                                                : `🖼️ Generate Images for ${selectedCount} AI${selectedCount !== 1 ? "s" : ""}`}
+                                        </button>
+                                    </div>
+                                </div>
+                            );
+                        })()}
                     </section>
                 </div>
             )}
