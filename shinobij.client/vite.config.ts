@@ -2,6 +2,7 @@ import { fileURLToPath, URL } from 'node:url';
 
 import { defineConfig } from 'vite';
 import plugin from '@vitejs/plugin-react';
+import { ViteImageOptimizer } from 'vite-plugin-image-optimizer';
 import fs from 'fs';
 import path from 'path';
 import child_process from 'child_process';
@@ -163,6 +164,22 @@ setInterval(() => {
 export default defineConfig({
     plugins: [
         plugin(),
+        ViteImageOptimizer({
+            // Skip SVGs — favicon/icons are already tiny and svgo isn't installed
+            exclude: /\.svg$/i,
+            // Compress PNGs — background images drop from ~2.5–3.5 MB to ~300–700 KB
+            png: {
+                quality: 78,         // 0–100, 78 is visually lossless for backgrounds
+                compressionLevel: 9, // max zlib compression (no quality loss)
+                adaptiveFiltering: true,
+            },
+            // Compress JPGs (frostfang / moonshadow / stormveil scene images)
+            jpg: { quality: 78 },
+            jpeg: { quality: 78 },
+            // Also emit a WebP copy alongside every PNG/JPG so browsers that
+            // support WebP get the smallest possible file automatically.
+            webp: { quality: 75, lossless: false },
+        }),
         {
             name: 'api-multiplayer',
             configureServer(server) {
