@@ -15620,7 +15620,25 @@ function StoryBoss({ character, updateCharacter, setScreen }: { character: Chara
 
 function Training({ character, updateCharacter, activeTraining, setActiveTraining }: { character: Character; updateCharacter: (character: Character) => void; activeTraining: ActiveTraining | null; setActiveTraining: (training: ActiveTraining | null) => void }) {
     const [selectedStat, setSelectedStat] = useState<keyof Stats>("strength");
-    const trainingStats = Object.keys(baseStats()).map((key) => ({ label: key, stat: key as keyof Stats, icon: "⏱️" }));
+    const STAT_LABELS: Record<string, { label: string; icon: string }> = {
+        strength:         { label: "Strength",      icon: "💪" },
+        speed:            { label: "Speed",          icon: "⚡" },
+        intelligence:     { label: "Intelligence",   icon: "🧠" },
+        willpower:        { label: "Willpower",      icon: "🔮" },
+        ninjutsuOffense:  { label: "Ninjutsu Off.",  icon: "🌀" },
+        ninjutsuDefense:  { label: "Ninjutsu Def.",  icon: "🛡️" },
+        taijutsuOffense:  { label: "Taijutsu Off.",  icon: "👊" },
+        taijutsuDefense:  { label: "Taijutsu Def.",  icon: "🥋" },
+        genjutsuOffense:  { label: "Genjutsu Off.",  icon: "👁️" },
+        genjutsuDefense:  { label: "Genjutsu Def.",  icon: "🌙" },
+        bukijutsuOffense: { label: "Bukijutsu Off.", icon: "⚔️" },
+        bukijutsuDefense: { label: "Bukijutsu Def.", icon: "🗡️" },
+    };
+    const trainingStats = Object.keys(baseStats()).map((key) => ({
+        label: STAT_LABELS[key]?.label ?? key,
+        stat: key as keyof Stats,
+        icon: STAT_LABELS[key]?.icon ?? "⏱️",
+    }));
     const timers = [{ label: "15 Minutes", ms: 15 * 60 * 1000, xp: 20, statGain: 1, staminaCost: 5 }, { label: "1 Hour", ms: 60 * 60 * 1000, xp: 70, statGain: 3, staminaCost: 15 }, { label: "4 Hours", ms: 4 * 60 * 60 * 1000, xp: 220, statGain: 8, staminaCost: 35 }, { label: "8 Hours", ms: 8 * 60 * 60 * 1000, xp: 375, statGain: 14, staminaCost: 60 }];
     const trainingXpBonus = getTrainingXpBonus(character);
     function startTraining(timer: typeof timers[number]) { if (activeTraining) return alert("You are already training."); if (character.stamina < timer.staminaCost) return alert("Not enough stamina."); const boostedXp = boostAmount(timer.xp, trainingXpBonus); updateCharacter({ ...character, stamina: character.stamina - timer.staminaCost }); setActiveTraining({ label: `${timer.label} ${selectedStat} Training`, stat: selectedStat, xp: boostedXp, statGain: timer.statGain, staminaCost: timer.staminaCost, endsAt: Date.now() + timer.ms }); }
