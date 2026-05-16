@@ -4299,9 +4299,11 @@ export default function App() {
         if (screen === 'worldMap')                              { void loadCategory('avatar'); void loadCategory('event'); }
         else if (screen === 'pets' || screen === 'petArena')    { void loadCategory('pet'); }
         else if (screen === 'jutsuTraining')                    { void loadCategory('jutsu'); }
-        else if (screen === 'shop')                             { void loadCategory('item'); }
+        else if (screen === 'shop' || screen === 'profile' || screen === 'inventory' || screen === 'adminPanel') {
+            void loadCategory('item');
+        }
         else if (screen === 'shinobiTiles')                     { void loadCategory('card'); }
-        else if (screen === 'arena' || screen === 'battleArena'){ void loadCategory('avatar'); }
+        else if (screen === 'arena' || screen === 'battleArena'){ void loadCategory('avatar'); void loadCategory('jutsu'); }
         else if (screen === 'storyHall')                        { void loadCategory('event'); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [screen]);
@@ -8903,7 +8905,7 @@ function AdminPanel({
                                                                     const compressed = await compressDataUrl(raw, 512, 0.82);
                                                                     publishSharedImage(key, compressed);
                                                                     const itemId = key.replace(/^item:/, "");
-                                                                    setCreatorItems(prev => prev.map(i => i.id === itemId ? { ...i, image: compressed } : i));
+                                                                    setCreatorItems(creatorItems.map(i => i.id === itemId ? { ...i, image: compressed } : i));
                                                                 } catch { /* skip */ }
                                                                 done++;
                                                             }
