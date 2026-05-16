@@ -371,7 +371,7 @@ type PetJutsu = {
     power: number;
     cooldown: number;
     currentCooldown: number;
-    kind: "damage" | "buff" | "heal" | "debuff" | "dot" | "move" | "barrier" | "movelock";
+    kind: "damage" | "buff" | "heal" | "debuff" | "dot" | "move" | "barrier" | "movelock" | "lifesteal" | "shield" | "absorb";
 };
 
 type Pet = {
@@ -391,6 +391,7 @@ type Pet = {
     unlockedForPve: boolean;
     trait?: PetTrait;
     training?: { type: PetTrainingType; endsAt: number };
+    moveRange?: number; // tiles moved per turn (2–5); defaults to 2
 };
 type Character = {
     name: string;
@@ -6085,7 +6086,7 @@ type PetArenaOpponent = {
 
 const genericPetArenaOpponents: PetArenaOpponent[] = [
     {
-        // ── D-rank: fast skirmisher, chip damage + harassment ──
+        // ── D-rank: fast skirmisher — lifesteal + harassment ──
         owner: "Central Pet Arena AI",
         pet: applyPetTraitBonuses({
             id: "generic-ai-pet-sparrow",
@@ -6098,19 +6099,21 @@ const genericPetArenaOpponents: PetArenaOpponent[] = [
             attack: 26,
             defense: 14,
             speed: 32,
-            description: "A darting sparrow that harasses with quick pecks and blinding feathers. Fragile but relentless.",
+            moveRange: 4,
+            description: "A darting sparrow that harasses with quick pecks, drains HP, and blinds with feathers. Fragile but relentless.",
             jutsus: [
-                { name: "Talon Strike",    power: 24, cooldown: 1, currentCooldown: 0, kind: "damage"   },
-                { name: "Feather Cloud",   power: 22, cooldown: 4, currentCooldown: 0, kind: "debuff"   },
-                { name: "Pin Feathers",    power: 0,  cooldown: 5, currentCooldown: 0, kind: "movelock" },
-                { name: "Wing Burst",      power: 0,  cooldown: 4, currentCooldown: 0, kind: "move"     },
+                { name: "Talon Strike",    power: 24, cooldown: 1, currentCooldown: 0, kind: "damage"    },
+                { name: "Blood Peck",      power: 28, cooldown: 3, currentCooldown: 0, kind: "lifesteal" },
+                { name: "Feather Cloud",   power: 22, cooldown: 4, currentCooldown: 0, kind: "debuff"    },
+                { name: "Pin Feathers",    power: 0,  cooldown: 5, currentCooldown: 0, kind: "movelock"  },
+                { name: "Wing Burst",      power: 0,  cooldown: 4, currentCooldown: 0, kind: "move"      },
             ],
             unlockedForPve: true,
             trait: "Swift",
         }, "Swift"),
     },
     {
-        // ── B-rank: fortress tank, sustain + debuff combo ──
+        // ── B-rank: fortress tank, absorb + shield + sustain ──
         owner: "Central Pet Arena AI",
         pet: applyPetTraitBonuses({
             id: "generic-ai-pet-guardhound",
@@ -6123,21 +6126,22 @@ const genericPetArenaOpponents: PetArenaOpponent[] = [
             attack: 36,
             defense: 34,
             speed: 20,
-            description: "An armored hound built to outlast opponents. Heals, shrugs off hits, and strips enemy buffs.",
+            moveRange: 2,
+            description: "An armored hound that absorbs blows, raises shields, heals, and wears opponents down with relentless pressure.",
             jutsus: [
                 { name: "Iron Fang",       power: 40, cooldown: 2, currentCooldown: 0, kind: "damage"  },
                 { name: "Iron Shell",      power: 34, cooldown: 3, currentCooldown: 0, kind: "buff"    },
                 { name: "Iron Barrier",    power: 90, cooldown: 5, currentCooldown: 0, kind: "barrier" },
-                { name: "Battle Howl",     power: 26, cooldown: 5, currentCooldown: 0, kind: "debuff"  },
+                { name: "Iron Ward",       power: 55, cooldown: 4, currentCooldown: 0, kind: "shield"  },
+                { name: "Absorb Stance",   power: 0,  cooldown: 6, currentCooldown: 0, kind: "absorb"  },
                 { name: "Hound Mend",      power: 65, cooldown: 5, currentCooldown: 0, kind: "heal"    },
-                { name: "Pack Charge",     power: 0,  cooldown: 4, currentCooldown: 0, kind: "move"    },
             ],
             unlockedForPve: true,
             trait: "Guardian",
         }, "Guardian"),
     },
     {
-        // ── S-rank: apex predator, debuff-into-nuke combo with poison pressure ──
+        // ── S-rank: apex predator — lifesteal + absorb + nuke ──
         owner: "Central Pet Arena AI",
         pet: applyPetTraitBonuses({
             id: "generic-ai-pet-emberlynx",
@@ -6150,14 +6154,15 @@ const genericPetArenaOpponents: PetArenaOpponent[] = [
             attack: 66,
             defense: 32,
             speed: 50,
-            description: "A legendary fire-lynx that strips defenses, poisons, then closes in for devastating finishing blows.",
+            moveRange: 5,
+            description: "A legendary fire-lynx that strips defenses, drains life, absorbs retaliation, then closes in for devastating finishing blows.",
             jutsus: [
-                { name: "Claw Slash",      power: 58, cooldown: 1, currentCooldown: 0, kind: "damage"   },
-                { name: "Ember Pounce",    power: 90, cooldown: 3, currentCooldown: 0, kind: "damage"   },
-                { name: "Predator Mark",   power: 48, cooldown: 3, currentCooldown: 0, kind: "debuff"   },
-                { name: "Flame Venom",     power: 68, cooldown: 5, currentCooldown: 0, kind: "dot"      },
-                { name: "Ember Cage",      power: 0,  cooldown: 5, currentCooldown: 0, kind: "movelock" },
-                { name: "Flame Sprint",    power: 0,  cooldown: 3, currentCooldown: 0, kind: "move"     },
+                { name: "Claw Slash",      power: 58, cooldown: 1, currentCooldown: 0, kind: "damage"    },
+                { name: "Ember Drain",     power: 70, cooldown: 3, currentCooldown: 0, kind: "lifesteal" },
+                { name: "Predator Mark",   power: 48, cooldown: 3, currentCooldown: 0, kind: "debuff"    },
+                { name: "Flame Venom",     power: 68, cooldown: 5, currentCooldown: 0, kind: "dot"       },
+                { name: "Ember Absorb",    power: 0,  cooldown: 6, currentCooldown: 0, kind: "absorb"    },
+                { name: "Ember Pounce",    power: 90, cooldown: 4, currentCooldown: 0, kind: "damage"    },
             ],
             unlockedForPve: true,
             trait: "Aggressive",
@@ -6175,8 +6180,10 @@ type PetBattleFighter = {
     cooldowns: Record<string, number>;
     dotDamage: number;
     dotRounds: number;
-    shieldHp: number;    // absorbs incoming damage before HP is reduced
-    moveLocked: number;  // rounds remaining that this fighter cannot move
+    shieldHp: number;     // absorbs incoming damage before HP is reduced
+    moveLocked: number;   // rounds remaining that this fighter cannot move
+    absorbRounds: number; // rounds of damage-reduction stance active
+    absorbPercent: number;// fraction of incoming damage reduced (0–1)
 };
 
 type PetArenaFrame = {
@@ -6187,7 +6194,7 @@ type PetArenaFrame = {
     playerPos: number;
     enemyPos: number;
     actor: "player" | "enemy" | "system";
-    actionKind?: "damage" | "buff" | "basic" | "result" | "heal" | "debuff" | "dot" | "move" | "barrier" | "movelock";
+    actionKind?: "damage" | "buff" | "basic" | "result" | "heal" | "debuff" | "dot" | "move" | "barrier" | "movelock" | "lifesteal" | "shield" | "absorb";
     damage?: number;
     crit?: boolean;
     // rich visual fields
@@ -6195,15 +6202,15 @@ type PetArenaFrame = {
     combo?: number;
     isPrefight?: boolean;
     isKO?: boolean;
-    playerStatus?: { poisoned?: number; atkBuff?: boolean; defBuff?: boolean; shield?: number; moveLocked?: boolean };
-    enemyStatus?: { poisoned?: number; atkBuff?: boolean; defBuff?: boolean; shield?: number; moveLocked?: boolean };
+    playerStatus?: { poisoned?: number; atkBuff?: boolean; defBuff?: boolean; shield?: number; moveLocked?: boolean; absorbing?: boolean };
+    enemyStatus?: { poisoned?: number; atkBuff?: boolean; defBuff?: boolean; shield?: number; moveLocked?: boolean; absorbing?: boolean };
 };
 
 const PET_GRID_COLS  = 14;
 const PET_GRID_ROWS  = 6;
 const PET_GRID_SIZE  = PET_GRID_COLS * PET_GRID_ROWS; // 84
 
-// 4 hand-crafted obstacle layouts for the 14×6 arena. Picked randomly each battle.
+// 8 hand-crafted obstacle layouts for the 14×6 arena. Picked randomly each battle.
 // Tile index = row * 14 + col.  Player always starts col 1 row 2 (=29), enemy col 12 row 2 (=40).
 const PET_OBSTACLE_LAYOUTS: ReadonlyArray<ReadonlyArray<number>> = [
     // 0 — "Narrow Gate": centre-column wall forces pets through top/bottom passages
@@ -6214,6 +6221,14 @@ const PET_OBSTACLE_LAYOUTS: ReadonlyArray<ReadonlyArray<number>> = [
     [2, 3, 16, 17,  66, 67, 80, 81],
     // 3 — "Central Rock": big impassable rock in the middle
     [34, 35, 36,  48, 49, 50],
+    // 4 — "Half Walls": offset walls on each flank create asymmetric lanes
+    [32, 46, 60,  23, 37, 51],
+    // 5 — "Cross Bars": horizontal strips top and bottom force centre path
+    [18, 19, 20, 21,  63, 64, 65, 66],
+    // 6 — "Zigzag": diagonal stepping stones disrupt straight charges
+    [17, 33, 49, 65,  18, 46],
+    // 7 — "Fortress": enclosed square with two entry gaps on the sides
+    [33, 34, 47, 48,  21, 63],
 ];
 
 /** BFS: returns the next tile to step onto when moving from `from` toward `to`, avoiding obstacles. */
@@ -6246,10 +6261,10 @@ function bfsNextStep(from: number, to: number, obstacles: ReadonlySet<number>): 
 }
 
 function petJutsuInRange(kind: PetJutsu["kind"] | "basic", dist: number): boolean {
-    if (kind === "buff" || kind === "heal" || kind === "move" || kind === "barrier") return true;
+    if (kind === "buff" || kind === "heal" || kind === "move" || kind === "barrier" || kind === "shield" || kind === "absorb") return true;
     if (kind === "dot" || kind === "movelock") return dist <= 4;
     if (kind === "debuff") return dist <= 3;
-    if (kind === "damage") return dist <= 2;
+    if (kind === "damage" || kind === "lifesteal") return dist <= 2;
     return dist <= 1; // basic attack
 }
 
@@ -6289,15 +6304,19 @@ function choosePetActionSmart(
         petJutsuInRange(j.kind, dist),
     );
 
-    const heal     = avail.find(j => j.kind === "heal");
-    const buff     = avail.find(j => j.kind === "buff");
-    const debuff   = avail.find(j => j.kind === "debuff");
-    const barrier  = avail.find(j => j.kind === "barrier");
-    const movelock = avail.find(j => j.kind === "movelock");
+    const heal      = avail.find(j => j.kind === "heal");
+    const buff      = avail.find(j => j.kind === "buff");
+    const debuff    = avail.find(j => j.kind === "debuff");
+    const barrier   = avail.find(j => j.kind === "barrier");
+    const shield    = avail.find(j => j.kind === "shield");
+    const absorb    = avail.find(j => j.kind === "absorb");
+    const lifesteal = avail.find(j => j.kind === "lifesteal");
+    const movelock  = avail.find(j => j.kind === "movelock");
     const dot    = avail.find(j => j.kind === "dot");
     const dmgs   = avail.filter(j => j.kind === "damage").sort((a, b) => b.power - a.power);
     const heavy  = dmgs[0];                                                      // highest power
     const fast   = dmgs.find(j => j.cooldown <= 2) ?? dmgs[dmgs.length - 1];   // fastest cooldown
+    const alreadyAbsorbing = actor.absorbRounds > 0;
 
     const critical       = hpPct     <= 25;
     const hurting        = hpPct     <= 50;
@@ -6309,87 +6328,100 @@ function choosePetActionSmart(
 
     // ── GUARDIAN: outlast and wear down ───────────────────────────────────────
     if (trait === "Guardian") {
-        if (critical && heal)                   return heal;    // emergency heal first
-        if (critical && barrier)                return barrier; // emergency barrier
-        if (earlyGame && buff && !alreadyBuffed) return buff;   // armor up early
-        if (debuff && !finishing && dist <= 3)  return debuff; // weaken healthy enemy
-        if (movelock && !finishing && dist <= 4) return movelock; // root healthy enemy
-        if (hurting && heal)                    return heal;   // secondary heal window
-        if (hurting && barrier)                 return barrier; // secondary barrier window
-        if (dot && !targetPoisoned)             return dot;    // passive pressure
-        if (heavy)                              return heavy;
-        if (dist <= 1)                          return "basic";
+        if (critical && heal)                        return heal;
+        if (critical && barrier)                     return barrier;
+        if (critical && shield)                      return shield;
+        if (earlyGame && absorb && !alreadyAbsorbing) return absorb; // defensive opener
+        if (earlyGame && buff && !alreadyBuffed)     return buff;
+        if (debuff && !finishing && dist <= 3)       return debuff;
+        if (movelock && !finishing && dist <= 4)     return movelock;
+        if (hurting && heal)                         return heal;
+        if (hurting && barrier)                      return barrier;
+        if (hurting && shield)                       return shield;
+        if (dot && !targetPoisoned)                  return dot;
+        if (heavy)                                   return heavy;
+        if (dist <= 1)                               return "basic";
         return null;
     }
 
-    // ── AGGRESSIVE: debuff → spam fast → nuke ─────────────────────────────────
+    // ── AGGRESSIVE: debuff → lifesteal spam → nuke ────────────────────────────
     if (trait === "Aggressive") {
-        if (critical && heal)                   return heal;   // only heal when near-dead
-        if (earlyGame && debuff)                return debuff; // strip defense first
-        if (earlyGame && movelock)              return movelock; // root early
-        if (dot && !targetPoisoned)             return dot;    // poison for background pressure
-        if (finishing && heavy)                 return heavy;  // nuke the kill
-        if (fast)                               return fast;   // spam fastest attack
-        if (heavy)                              return heavy;
-        if (dist <= 1)                          return "basic";
+        if (critical && heal)                        return heal;
+        if (earlyGame && debuff)                     return debuff;
+        if (earlyGame && movelock)                   return movelock;
+        if (dot && !targetPoisoned)                  return dot;
+        if (lifesteal && dist <= 2)                  return lifesteal; // drain to sustain aggression
+        if (finishing && heavy)                      return heavy;
+        if (fast)                                    return fast;
+        if (heavy)                                   return heavy;
+        if (dist <= 1)                               return "basic";
         return null;
     }
 
     // ── SWIFT: constant harassment, debuff every window ───────────────────────
     if (trait === "Swift") {
-        if (critical && heal)                   return heal;
-        if (debuff)                             return debuff; // core identity — always debuff when up
-        if (movelock)                           return movelock; // root for harassment
-        if (fast)                               return fast;   // rapid strikes
-        if (dot && !targetPoisoned)             return dot;
-        if (hurting && heal)                    return heal;
-        if (heavy)                              return heavy;
-        if (dist <= 1)                          return "basic";
+        if (critical && heal)                        return heal;
+        if (critical && shield)                      return shield; // quick defensive dash
+        if (debuff)                                  return debuff;
+        if (movelock)                                return movelock;
+        if (lifesteal && dist <= 2)                  return lifesteal; // drain on the move
+        if (fast)                                    return fast;
+        if (dot && !targetPoisoned)                  return dot;
+        if (hurting && heal)                         return heal;
+        if (heavy)                                   return heavy;
+        if (dist <= 1)                               return "basic";
         return null;
     }
 
     // ── LUCKY: opportunistic, generous healer, slightly chaotic ───────────────
     if (trait === "Lucky") {
-        if (hurting && heal)                    return heal;   // heals more readily
-        if (hurting && barrier)                 return barrier; // barrier as fallback sustain
-        if (earlyGame && debuff)                return debuff;
-        if (earlyGame && movelock)              return movelock;
-        if (dot && !targetPoisoned)             return dot;
-        if (finishing && heavy)                 return heavy;
-        if (fast)                               return fast;
-        if (heavy)                              return heavy;
-        if (dist <= 1)                          return "basic";
+        if (hurting && heal)                         return heal;
+        if (hurting && barrier)                      return barrier;
+        if (hurting && shield)                       return shield;
+        if (earlyGame && debuff)                     return debuff;
+        if (earlyGame && movelock)                   return movelock;
+        if (lifesteal && dist <= 2)                  return lifesteal; // lucky drain
+        if (dot && !targetPoisoned)                  return dot;
+        if (finishing && heavy)                      return heavy;
+        if (fast)                                    return fast;
+        if (heavy)                                   return heavy;
+        if (dist <= 1)                               return "basic";
         return null;
     }
 
-    // ── BATTLEBORN: front-load buff → debuff window → heavy finishers ─────────
+    // ── BATTLEBORN: front-load buff → absorb → debuff → heavy finishers ───────
     if (trait === "Battleborn") {
-        if (earlyGame && buff && !alreadyBuffed) return buff;   // mandatory power spike
-        if (midGame && debuff)                  return debuff; // soften after buff
-        if (midGame && movelock)                return movelock; // root during mid pressure
-        if (finishing && heavy)                 return heavy;  // execute
-        if (dot && !targetPoisoned)             return dot;    // background pressure
-        if (fast)                               return fast;
-        if (critical && heal)                   return heal;   // reluctant healer
-        if (critical && barrier)                return barrier; // emergency barrier
-        if (heavy)                              return heavy;
-        if (dist <= 1)                          return "basic";
+        if (earlyGame && buff && !alreadyBuffed)     return buff;
+        if (earlyGame && absorb && !alreadyAbsorbing) return absorb; // tanky opener
+        if (midGame && debuff)                       return debuff;
+        if (midGame && movelock)                     return movelock;
+        if (finishing && heavy)                      return heavy;
+        if (lifesteal && dist <= 2)                  return lifesteal;
+        if (dot && !targetPoisoned)                  return dot;
+        if (fast)                                    return fast;
+        if (critical && heal)                        return heal;
+        if (critical && barrier)                     return barrier;
+        if (heavy)                                   return heavy;
+        if (dist <= 1)                               return "basic";
         return null;
     }
 
     // ── DEFAULT (no trait): balanced generalist ───────────────────────────────
-    if (critical && heal)                       return heal;
-    if (critical && barrier)                    return barrier;
-    if (earlyGame && buff && !alreadyBuffed)    return buff;
-    if (earlyGame && debuff)                    return debuff;
-    if (earlyGame && movelock)                  return movelock;
-    if (hurting && heal)                        return heal;
-    if (hurting && barrier)                     return barrier;
-    if (dot && !targetPoisoned)                 return dot;
-    if (movelock && dist <= 4)                  return movelock;
-    if (heavy)                                  return heavy;
-    if (fast && fast !== heavy)                 return fast;
-    if (dist <= 1)                              return "basic";
+    if (critical && heal)                            return heal;
+    if (critical && barrier)                         return barrier;
+    if (critical && shield)                          return shield;
+    if (earlyGame && buff && !alreadyBuffed)         return buff;
+    if (earlyGame && absorb && !alreadyAbsorbing)    return absorb;
+    if (earlyGame && debuff)                         return debuff;
+    if (earlyGame && movelock)                       return movelock;
+    if (hurting && heal)                             return heal;
+    if (hurting && barrier)                          return barrier;
+    if (dot && !targetPoisoned)                      return dot;
+    if (lifesteal && dist <= 2)                      return lifesteal;
+    if (movelock && dist <= 4)                       return movelock;
+    if (heavy)                                       return heavy;
+    if (fast && fast !== heavy)                      return fast;
+    if (dist <= 1)                                   return "basic";
     return null;
 }
 
@@ -6404,8 +6436,8 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
     const obstacles = new Set<number>(obstacleLayout);
 
     // 14×6 grid: player col 1 row 2 = tile 29; enemy col 12 row 2 = tile 40
-    let player: PetBattleFighter = { owner: "You",        pet: playerPet,   hp: playerPet.hp,   pos: 29, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: 0, moveLocked: 0 };
-    let enemy:  PetBattleFighter = { owner: opponentOwner, pet: opponentPet, hp: opponentPet.hp, pos: 40, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: 0, moveLocked: 0 };
+    let player: PetBattleFighter = { owner: "You",        pet: playerPet,   hp: playerPet.hp,   pos: 29, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: 0, moveLocked: 0, absorbRounds: 0, absorbPercent: 0 };
+    let enemy:  PetBattleFighter = { owner: opponentOwner, pet: opponentPet, hp: opponentPet.hp, pos: 40, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: 0, moveLocked: 0, absorbRounds: 0, absorbPercent: 0 };
     const logs: string[] = [`${player.pet.name} enters against ${enemy.owner}'s ${enemy.pet.name}.`];
     const frames: PetArenaFrame[] = [];
     let playerCombo = 0;
@@ -6416,8 +6448,8 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
         actionKind?: PetArenaFrame["actionKind"], damage?: number, crit?: boolean,
         traitFlash?: PetArenaFrame["traitFlash"], combo?: number, isPrefight?: boolean, isKO?: boolean,
     ) {
-        const playerStatus = { poisoned: player.dotRounds > 0 ? player.dotRounds : undefined, atkBuff: player.attackBuff > 0 || undefined, defBuff: player.defenseBuff > 0 || undefined, shield: player.shieldHp > 0 ? player.shieldHp : undefined, moveLocked: player.moveLocked > 0 || undefined };
-        const enemyStatus  = { poisoned: enemy.dotRounds  > 0 ? enemy.dotRounds  : undefined, atkBuff: enemy.attackBuff  > 0 || undefined, defBuff: enemy.defenseBuff  > 0 || undefined, shield: enemy.shieldHp   > 0 ? enemy.shieldHp  : undefined, moveLocked: enemy.moveLocked  > 0 || undefined };
+        const playerStatus = { poisoned: player.dotRounds > 0 ? player.dotRounds : undefined, atkBuff: player.attackBuff > 0 || undefined, defBuff: player.defenseBuff > 0 || undefined, shield: player.shieldHp > 0 ? player.shieldHp : undefined, moveLocked: player.moveLocked > 0 || undefined, absorbing: player.absorbRounds > 0 || undefined };
+        const enemyStatus  = { poisoned: enemy.dotRounds  > 0 ? enemy.dotRounds  : undefined, atkBuff: enemy.attackBuff  > 0 || undefined, defBuff: enemy.defenseBuff  > 0 || undefined, shield: enemy.shieldHp   > 0 ? enemy.shieldHp  : undefined, moveLocked: enemy.moveLocked  > 0 || undefined, absorbing: enemy.absorbRounds  > 0 || undefined };
         frames.push({ round, message, playerHp: player.hp, enemyHp: enemy.hp, playerPos: player.pos, enemyPos: enemy.pos, actor, actionKind, damage, crit, traitFlash, combo, isPrefight, isKO, playerStatus, enemyStatus });
     }
 
@@ -6428,10 +6460,11 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
     function tick(fighter: PetBattleFighter): PetBattleFighter {
         return {
             ...fighter,
-            attackBuff:  fighter.attackBuff  > 0 ? Math.max(0, fighter.attackBuff  - 1) : Math.min(0, fighter.attackBuff  + 1),
-            defenseBuff: fighter.defenseBuff > 0 ? Math.max(0, fighter.defenseBuff - 1) : Math.min(0, fighter.defenseBuff + 1),
-            cooldowns: Object.fromEntries(Object.entries(fighter.cooldowns).map(([name, value]) => [name, Math.max(0, value - 1)])),
-            moveLocked: Math.max(0, fighter.moveLocked - 1),
+            attackBuff:   fighter.attackBuff  > 0 ? Math.max(0, fighter.attackBuff  - 1) : Math.min(0, fighter.attackBuff  + 1),
+            defenseBuff:  fighter.defenseBuff > 0 ? Math.max(0, fighter.defenseBuff - 1) : Math.min(0, fighter.defenseBuff + 1),
+            cooldowns:    Object.fromEntries(Object.entries(fighter.cooldowns).map(([name, value]) => [name, Math.max(0, value - 1)])),
+            moveLocked:   Math.max(0, fighter.moveLocked   - 1),
+            absorbRounds: Math.max(0, fighter.absorbRounds - 1),
         };
     }
 
@@ -6448,7 +6481,13 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
         const luckyDodgeRoll = target.pet.trait === "Lucky" && Math.random() < 0.10;
 
         function doMove(reason: string): [PetBattleFighter, PetBattleFighter] {
-            const newPos = bfsNextStep(actor.pos, target.pos, obstacles);
+            const steps = actor.pet.moveRange ?? 2;
+            let newPos = actor.pos;
+            for (let s = 0; s < steps; s++) {
+                const next = bfsNextStep(newPos, target.pos, obstacles);
+                if (next === newPos || next === target.pos) break; // wall or would collide
+                newPos = next;
+            }
             const moved  = { ...actor, pos: newPos };
             const msg = `Round ${round}: ${actor.pet.name} ${reason}`;
             logs.push(msg);
@@ -6466,7 +6505,9 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
                 return [actor2, target2];
             }
             const crit   = Math.random() < critChance;
-            const damage = Math.max(1, Math.floor(base * (crit ? 1.5 : 1) * dmgBonus * guardianBlock));
+            // Absorb stance reduces incoming damage by absorbPercent
+            const absorbMult = target2.absorbRounds > 0 ? (1 - target2.absorbPercent) : 1;
+            const damage = Math.max(1, Math.floor(base * (crit ? 1.5 : 1) * dmgBonus * guardianBlock * absorbMult));
             // Shield absorbs damage before HP
             const shieldAbsorb  = Math.min(target2.shieldHp, damage);
             const remainDamage  = damage - shieldAbsorb;
@@ -6569,6 +6610,44 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
                 if (actorSide === "player") { player = nextActor; enemy = poisoned; } else { enemy = nextActor; player = poisoned; }
                 pushFrame(round, msg, actorSide, "dot");
                 return [nextActor, poisoned];
+            }
+
+            if (jutsu.kind === "shield") {
+                const shieldAmt = Math.max(5, Math.floor(jutsu.power * 0.45));
+                const shielded  = { ...nextActor, shieldHp: nextActor.shieldHp + shieldAmt };
+                const msg = `Round ${round}: ${actor.pet.name} uses ${jutsu.name}, forming a ward that absorbs ${shieldAmt} damage!`;
+                logs.push(msg);
+                if (actorSide === "player") player = shielded; else enemy = shielded;
+                pushFrame(round, msg, actorSide, "shield");
+                return [shielded, target];
+            }
+
+            if (jutsu.kind === "absorb") {
+                const rounds  = 3;
+                const pct     = 0.35;
+                const absorbed = { ...nextActor, absorbRounds: rounds, absorbPercent: pct };
+                const msg = `Round ${round}: ${actor.pet.name} uses ${jutsu.name} — entering absorb stance for ${rounds} rounds (35% damage reduction)!`;
+                logs.push(msg);
+                if (actorSide === "player") player = absorbed; else enemy = absorbed;
+                pushFrame(round, msg, actorSide, "absorb");
+                return [absorbed, target];
+            }
+
+            if (jutsu.kind === "lifesteal") {
+                const rawDmg = actor.pet.attack + actor.attackBuff + jutsu.power - (target.pet.defense + target.defenseBuff) * 0.5;
+                const preTargetHp = target.hp;
+                const [returnedActor, damagedTarget] = applyDamage(rawDmg, jutsu.name, "damage", nextActor, target);
+                // Drain 40% of actual HP lost back to attacker
+                const actualDmg = Math.max(0, preTargetHp - damagedTarget.hp);
+                const stealAmt  = Math.max(1, Math.floor(actualDmg * 0.40));
+                const healed    = { ...returnedActor, hp: Math.min(returnedActor.pet.hp, returnedActor.hp + stealAmt) };
+                if (actualDmg > 0) {
+                    const lsMsg = `Round ${round}: ${actor.pet.name} drains ${stealAmt} HP from the attack!`;
+                    logs.push(lsMsg);
+                    if (actorSide === "player") player = healed; else enemy = healed;
+                    pushFrame(round, lsMsg, actorSide, "lifesteal", stealAmt);
+                }
+                return [healed, damagedTarget];
             }
 
             // damage jutsu
@@ -6851,22 +6930,35 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, frame, recentFra
     const playerPos = frame?.playerPos ?? 29;
     const enemyPos  = frame?.enemyPos  ?? 40;
 
+    const selfTile   = frame?.actor === "enemy" ? enemyPos : playerPos;
+    const targetTile = frame?.actor === "enemy" ? playerPos : enemyPos;
     const effectTile =
-        frame?.actionKind === "buff"
-            ? frame.actor === "enemy" ? enemyPos : playerPos
-            : frame?.actionKind === "damage" || frame?.actionKind === "basic"
-                ? frame.actor === "enemy" ? playerPos : enemyPos
-                : frame?.actionKind === "result"
-                    ? frame.actor === "enemy" ? enemyPos : playerPos
-                    : -1;
+        frame?.actionKind === "buff"      ? selfTile   :
+        frame?.actionKind === "heal"      ? selfTile   :
+        frame?.actionKind === "barrier"   ? selfTile   :
+        frame?.actionKind === "shield"    ? selfTile   :
+        frame?.actionKind === "absorb"    ? selfTile   :
+        frame?.actionKind === "damage"    ? targetTile :
+        frame?.actionKind === "basic"     ? targetTile :
+        frame?.actionKind === "lifesteal" ? targetTile :
+        frame?.actionKind === "debuff"    ? targetTile :
+        frame?.actionKind === "dot"       ? targetTile :
+        frame?.actionKind === "movelock"  ? targetTile :
+        frame?.actionKind === "result"    ? selfTile   : -1;
     const effectLabel =
-        frame?.actionKind === "buff"   ? "Boost"  :
-        frame?.actionKind === "basic"  ? "Hit"    :
-        frame?.actionKind === "damage" ? "Strike" :
-        frame?.actionKind === "heal"   ? "Heal"   :
-        frame?.actionKind === "dot"    ? "Poison" :
-        frame?.actionKind === "move"   ? "Dash!"  :
-        frame?.actionKind === "result" ? result   : "";
+        frame?.actionKind === "buff"      ? "⬆ Boost!"    :
+        frame?.actionKind === "basic"     ? "💥 Hit!"     :
+        frame?.actionKind === "damage"    ? "⚔ Strike!"   :
+        frame?.actionKind === "heal"      ? "💚 Heal!"    :
+        frame?.actionKind === "dot"       ? "☠ Poison!"   :
+        frame?.actionKind === "move"      ? "💨 Dash!"    :
+        frame?.actionKind === "barrier"   ? "🔵 Barrier!" :
+        frame?.actionKind === "shield"    ? "🛡 Shield!"  :
+        frame?.actionKind === "absorb"    ? "✨ Absorb!"  :
+        frame?.actionKind === "lifesteal" ? "🩸 Drain!"   :
+        frame?.actionKind === "movelock"  ? "🔒 Root!"    :
+        frame?.actionKind === "debuff"    ? "⬇ Weaken!"  :
+        frame?.actionKind === "result"    ? result        : "";
 
     const winnerPet   = result === "Victory" ? playerPet : result === "Defeat" ? enemyPet : null;
     const winnerSide: "player" | "enemy" = result === "Victory" ? "player" : "enemy";
@@ -6880,13 +6972,19 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, frame, recentFra
         frame?.traitFlash?.trait === "Battleborn" ? "⚔️ BATTLEBORN BONUS!" :
         frame?.traitFlash?.trait === "Swift"      ? "⚡ SWIFT STRIKE!"     : "";
 
-    // Float color class
-    const playerFloatClass = frame?.actor === "enemy" && frame.damage
-        ? ` pet-damage-float${frame.crit ? " crit" : ""}${frame.actionKind === "dot" ? " dot" : ""}`
-        : frame?.actor === "player" && frame.actionKind === "heal" ? " pet-damage-float heal" : "";
-    const enemyFloatClass = frame?.actor === "player" && frame.damage
-        ? ` pet-damage-float${frame.crit ? " crit" : ""}${frame.actionKind === "dot" ? " dot" : ""}`
-        : frame?.actor === "enemy" && frame.actionKind === "heal" ? " pet-damage-float heal" : "";
+    // Float color class — lifesteal shows a green +drain on the attacker's bar
+    const playerFloatClass =
+        frame?.actor === "enemy" && frame.damage && frame.actionKind !== "lifesteal"
+            ? ` pet-damage-float${frame.crit ? " crit" : ""}${frame.actionKind === "dot" ? " dot" : ""}`
+        : frame?.actor === "player" && frame.actionKind === "heal" ? " pet-damage-float heal"
+        : frame?.actor === "player" && frame.actionKind === "lifesteal" ? " pet-damage-float lifesteal"
+        : "";
+    const enemyFloatClass =
+        frame?.actor === "player" && frame.damage && frame.actionKind !== "lifesteal"
+            ? ` pet-damage-float${frame.crit ? " crit" : ""}${frame.actionKind === "dot" ? " dot" : ""}`
+        : frame?.actor === "enemy" && frame.actionKind === "heal" ? " pet-damage-float heal"
+        : frame?.actor === "enemy" && frame.actionKind === "lifesteal" ? " pet-damage-float lifesteal"
+        : "";
 
     return (
         <section className="pet-arena-battlefield">
@@ -6916,18 +7014,19 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, frame, recentFra
                 <div className={`pet-arena-fighter-bar${playerShake ? " pet-hp-shaking" : ""}`}>
                     <strong>{playerPet.name}</strong>
                     <div className="pet-status-badges">
-                        {frame?.playerStatus?.poisoned   && <span className="pet-status-badge poison">🟣×{frame.playerStatus.poisoned}</span>}
-                        {frame?.playerStatus?.atkBuff    && <span className="pet-status-badge atk">⚔️ATK↑</span>}
-                        {frame?.playerStatus?.defBuff    && <span className="pet-status-badge def">🛡️DEF↑</span>}
+                        {frame?.playerStatus?.poisoned   && <span className="pet-status-badge poison">☠×{frame.playerStatus.poisoned}</span>}
+                        {frame?.playerStatus?.atkBuff    && <span className="pet-status-badge atk">⚔ATK↑</span>}
+                        {frame?.playerStatus?.defBuff    && <span className="pet-status-badge def">🛡DEF↑</span>}
                         {frame?.playerStatus?.shield     && <span className="pet-status-badge shield">🔵{frame.playerStatus.shield}</span>}
-                        {frame?.playerStatus?.moveLocked && <span className="pet-status-badge movelock">🔒ROOTED</span>}
+                        {frame?.playerStatus?.moveLocked && <span className="pet-status-badge movelock">🔒ROOT</span>}
+                        {frame?.playerStatus?.absorbing  && <span className="pet-status-badge absorb">✨ABSORB</span>}
                     </div>
                     <span>{playerHp}/{playerPet.hp} HP</span>
                     <div className={`pet-arena-hpbar${playerPercent <= 30 ? " pet-arena-hpbar-low" : ""}`}>
                         <i style={{ width: `${playerPercent}%` }} />
                         {playerFloatClass && frame && (
                             <span key={frame.message} className={playerFloatClass}>
-                                {frame.crit ? `⚡ CRIT -${frame.damage}` : frame.actionKind === "dot" ? `☠ -${frame.damage}` : frame.actionKind === "heal" ? `+heal` : `-${frame.damage}`}
+                                {frame.actionKind === "lifesteal" ? `🩸 +${frame.damage}` : frame.crit ? `⚡ CRIT -${frame.damage}` : frame.actionKind === "dot" ? `☠ -${frame.damage}` : frame.actionKind === "heal" ? `💚 +${frame.damage ?? "heal"}` : `-${frame.damage}`}
                             </span>
                         )}
                     </div>
@@ -6936,18 +7035,19 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, frame, recentFra
                 <div className={`pet-arena-fighter-bar enemy${enemyShake ? " pet-hp-shaking" : ""}`}>
                     <strong>{enemyOwner}: {enemyPet.name}</strong>
                     <div className="pet-status-badges">
-                        {frame?.enemyStatus?.poisoned   && <span className="pet-status-badge poison">🟣×{frame.enemyStatus.poisoned}</span>}
-                        {frame?.enemyStatus?.atkBuff    && <span className="pet-status-badge atk">⚔️ATK↑</span>}
-                        {frame?.enemyStatus?.defBuff    && <span className="pet-status-badge def">🛡️DEF↑</span>}
+                        {frame?.enemyStatus?.poisoned   && <span className="pet-status-badge poison">☠×{frame.enemyStatus.poisoned}</span>}
+                        {frame?.enemyStatus?.atkBuff    && <span className="pet-status-badge atk">⚔ATK↑</span>}
+                        {frame?.enemyStatus?.defBuff    && <span className="pet-status-badge def">🛡DEF↑</span>}
                         {frame?.enemyStatus?.shield     && <span className="pet-status-badge shield">🔵{frame.enemyStatus.shield}</span>}
-                        {frame?.enemyStatus?.moveLocked && <span className="pet-status-badge movelock">🔒ROOTED</span>}
+                        {frame?.enemyStatus?.moveLocked && <span className="pet-status-badge movelock">🔒ROOT</span>}
+                        {frame?.enemyStatus?.absorbing  && <span className="pet-status-badge absorb">✨ABSORB</span>}
                     </div>
                     <span>{enemyHp}/{enemyPet.hp} HP</span>
                     <div className={`pet-arena-hpbar${enemyPercent <= 30 ? " pet-arena-hpbar-low" : ""}`}>
                         <i style={{ width: `${enemyPercent}%` }} />
                         {enemyFloatClass && frame && (
                             <span key={frame.message} className={enemyFloatClass}>
-                                {frame.crit ? `⚡ CRIT -${frame.damage}` : frame.actionKind === "dot" ? `☠ -${frame.damage}` : frame.actionKind === "heal" ? `+heal` : `-${frame.damage}`}
+                                {frame.actionKind === "lifesteal" ? `🩸 +${frame.damage}` : frame.crit ? `⚡ CRIT -${frame.damage}` : frame.actionKind === "dot" ? `☠ -${frame.damage}` : frame.actionKind === "heal" ? `💚 +${frame.damage ?? "heal"}` : `-${frame.damage}`}
                             </span>
                         )}
                     </div>
@@ -7016,7 +7116,7 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, frame, recentFra
                 <div className="pet-event-ticker">
                     {[...recentFrames].reverse().map((f, i) => (
                         <span key={`${f.message}-${i}`} className={`pet-event-chip ${f.actor} ${f.actionKind ?? ""} ${i === 0 ? "latest" : ""}`}>
-                            {f.actionKind === "dot" ? "☠" : f.actionKind === "buff" ? "⬆" : f.actionKind === "heal" ? "💚" : f.actionKind === "move" ? "💨" : f.actionKind === "debuff" ? "⬇" : f.crit ? "⚡" : "⚔"}
+                            {f.actionKind === "dot" ? "☠" : f.actionKind === "buff" ? "⬆" : f.actionKind === "heal" ? "💚" : f.actionKind === "move" ? "💨" : f.actionKind === "debuff" ? "⬇" : f.actionKind === "lifesteal" ? "🩸" : f.actionKind === "shield" ? "🛡" : f.actionKind === "absorb" ? "✨" : f.actionKind === "barrier" ? "🔵" : f.actionKind === "movelock" ? "🔒" : f.crit ? "⚡" : "⚔"}
                             {" "}{f.message.replace(/^Round \d+: /, "").slice(0, 42)}
                         </span>
                     ))}
@@ -9686,17 +9786,22 @@ function AdminPanel({
                                                 <option value="debuff">🔻 debuff — lower enemy ATK + DEF</option>
                                                 <option value="dot">☠️ dot — poison (3 rounds)</option>
                                                 <option value="move">💨 move — dash toward enemy</option>
-                                                <option value="barrier">🔵 barrier — absorb incoming damage</option>
+                                                <option value="barrier">🔵 barrier — large absorb shield</option>
                                                 <option value="movelock">🔒 movelock — root enemy (2 rounds)</option>
+                                                <option value="lifesteal">🩸 lifesteal — damage + drain 40% HP back</option>
+                                                <option value="shield">🛡 shield — small fast ward (power × 0.45)</option>
+                                                <option value="absorb">✨ absorb — 35% damage reduction for 3 rounds</option>
                                             </select>
 
                                             <label>
-                                                {jutsu.kind === "barrier" ? "Power (shield HP = power × 0.7)" :
-                                                 jutsu.kind === "buff"    ? "Power (ATK gain = power ÷ 2, DEF gain = power ÷ 3)" :
-                                                 jutsu.kind === "heal"    ? "Power (heal = power × 0.6)" :
-                                                 jutsu.kind === "debuff"  ? "Power (ATK cut = power ÷ 4, DEF cut = power ÷ 5)" :
-                                                 jutsu.kind === "dot"     ? "Power (poison per round = power × 0.28)" :
-                                                 jutsu.kind === "move" || jutsu.kind === "movelock" ? "Power (set to 0 — auto)" :
+                                                {jutsu.kind === "barrier"   ? "Power (shield HP = power × 0.7)" :
+                                                 jutsu.kind === "shield"    ? "Power (ward HP = power × 0.45)" :
+                                                 jutsu.kind === "buff"      ? "Power (ATK gain = power ÷ 2, DEF gain = power ÷ 3)" :
+                                                 jutsu.kind === "heal"      ? "Power (heal = power × 0.6)" :
+                                                 jutsu.kind === "debuff"    ? "Power (ATK cut = power ÷ 4, DEF cut = power ÷ 5)" :
+                                                 jutsu.kind === "dot"       ? "Power (poison per round = power × 0.28)" :
+                                                 jutsu.kind === "lifesteal" ? "Power (damage + 40% drain; treated as damage jutsu)" :
+                                                 jutsu.kind === "absorb" || jutsu.kind === "move" || jutsu.kind === "movelock" ? "Power (set to 0 — auto)" :
                                                  "Power"}
                                             </label>
                                             <div className="inline-grid">

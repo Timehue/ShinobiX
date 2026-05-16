@@ -13762,3 +13762,173 @@ button.combat-jutsu-button,
         background: rgba(59,130,246,0.4);
     }
 }
+
+/* ═══════════════════════════════════════════════════
+   Pet Arena — per-action-kind VFX tile overlays
+   ═══════════════════════════════════════════════════ */
+
+/* ── lifesteal: dual red→green burst on target tile ── */
+.pet-vfx-tile-lifesteal {
+    animation: pet-tile-lifesteal 0.55s ease-out forwards !important;
+}
+@keyframes pet-tile-lifesteal {
+    0%   { box-shadow: 0 0 0 0 rgba(239,68,68,0), inset 0 0 0 0 rgba(34,197,94,0); background: transparent; }
+    30%  { box-shadow: 0 0 22px 8px rgba(239,68,68,0.75), inset 0 0 18px 6px rgba(239,68,68,0.4); background: rgba(239,68,68,0.18); }
+    70%  { box-shadow: 0 0 22px 8px rgba(34,197,94,0.65), inset 0 0 18px 6px rgba(34,197,94,0.3); background: rgba(34,197,94,0.14); }
+    100% { box-shadow: none; background: transparent; }
+}
+
+/* ── shield: quick cyan pulse ring ── */
+.pet-vfx-tile-shield {
+    animation: pet-tile-shield 0.6s ease-out forwards !important;
+}
+@keyframes pet-tile-shield {
+    0%   { box-shadow: 0 0 0 0 rgba(6,182,212,0.9), inset 0 0 0 0 rgba(6,182,212,0); background: transparent; }
+    40%  { box-shadow: 0 0 0 14px rgba(6,182,212,0.45), inset 0 0 16px 4px rgba(6,182,212,0.3); background: rgba(6,182,212,0.12); }
+    100% { box-shadow: 0 0 0 26px rgba(6,182,212,0), inset 0 0 0 0 rgba(6,182,212,0); background: transparent; }
+}
+
+/* ── absorb: golden protective bubble expands then settles ── */
+.pet-vfx-tile-absorb {
+    animation: pet-tile-absorb 0.75s ease-out forwards !important;
+}
+@keyframes pet-tile-absorb {
+    0%   { box-shadow: 0 0 0 0 rgba(250,204,21,0.9); background: rgba(250,204,21,0.05); }
+    35%  { box-shadow: 0 0 18px 10px rgba(250,204,21,0.55), inset 0 0 20px 6px rgba(250,204,21,0.25); background: rgba(250,204,21,0.15); }
+    70%  { box-shadow: 0 0 30px 14px rgba(250,204,21,0.28); background: rgba(250,204,21,0.08); }
+    100% { box-shadow: 0 0 0 0 rgba(250,204,21,0); background: transparent; }
+}
+
+/* ── barrier: deep blue wall flash ── */
+.pet-vfx-tile-barrier {
+    animation: pet-tile-barrier 0.65s ease-out forwards !important;
+}
+@keyframes pet-tile-barrier {
+    0%   { box-shadow: inset 0 0 0 0 rgba(59,130,246,0); background: transparent; }
+    30%  { box-shadow: inset 0 0 30px 10px rgba(59,130,246,0.55), 0 0 20px 8px rgba(59,130,246,0.4); background: rgba(59,130,246,0.18); }
+    100% { box-shadow: none; background: transparent; }
+}
+
+/* ── heal: soft green sparkle on self ── */
+.pet-vfx-tile-heal {
+    animation: pet-tile-heal 0.65s ease-out forwards !important;
+}
+@keyframes pet-tile-heal {
+    0%   { box-shadow: 0 0 0 0 rgba(34,197,94,0); background: transparent; }
+    40%  { box-shadow: 0 0 20px 10px rgba(34,197,94,0.55), inset 0 0 14px 4px rgba(34,197,94,0.3); background: rgba(34,197,94,0.14); }
+    100% { box-shadow: none; background: transparent; }
+}
+
+/* ── damage: sharp red flash ── */
+.pet-vfx-tile-damage {
+    animation: pet-tile-damage 0.45s ease-out forwards !important;
+}
+@keyframes pet-tile-damage {
+    0%   { box-shadow: inset 0 0 0 0 rgba(239,68,68,0); background: transparent; }
+    20%  { box-shadow: inset 0 0 28px 10px rgba(239,68,68,0.7), 0 0 18px 6px rgba(239,68,68,0.5); background: rgba(239,68,68,0.2); }
+    100% { box-shadow: none; background: transparent; }
+}
+
+/* ── basic attack: white impact flash ── */
+.pet-vfx-tile-basic {
+    animation: pet-tile-basic 0.35s ease-out forwards !important;
+}
+@keyframes pet-tile-basic {
+    0%   { box-shadow: inset 0 0 0 0 rgba(255,255,255,0); background: transparent; }
+    25%  { box-shadow: inset 0 0 20px 8px rgba(255,255,255,0.55); background: rgba(255,255,255,0.14); }
+    100% { box-shadow: none; background: transparent; }
+}
+
+/* ── debuff: purple gloom ── */
+.pet-vfx-tile-debuff {
+    animation: pet-tile-debuff 0.55s ease-out forwards !important;
+}
+@keyframes pet-tile-debuff {
+    0%   { box-shadow: 0 0 0 0 rgba(168,85,247,0); background: transparent; }
+    35%  { box-shadow: 0 0 20px 10px rgba(168,85,247,0.6), inset 0 0 18px 5px rgba(168,85,247,0.35); background: rgba(168,85,247,0.14); }
+    100% { box-shadow: none; background: transparent; }
+}
+
+/* ── dot (poison): pulsing toxic green ── */
+.pet-vfx-tile-dot {
+    animation: pet-tile-dot 0.7s ease-out forwards !important;
+}
+@keyframes pet-tile-dot {
+    0%   { box-shadow: 0 0 0 0 rgba(132,204,22,0); background: transparent; }
+    40%  { box-shadow: 0 0 18px 10px rgba(132,204,22,0.6), inset 0 0 14px 5px rgba(132,204,22,0.3); background: rgba(132,204,22,0.14); }
+    100% { box-shadow: none; background: transparent; }
+}
+
+/* ── movelock: chain/orange freeze ── */
+.pet-vfx-tile-movelock {
+    animation: pet-tile-movelock 0.55s ease-out forwards !important;
+}
+@keyframes pet-tile-movelock {
+    0%   { box-shadow: 0 0 0 0 rgba(251,146,60,0); background: transparent; }
+    40%  { box-shadow: 0 0 22px 10px rgba(251,146,60,0.65), inset 0 0 18px 6px rgba(251,146,60,0.3); background: rgba(251,146,60,0.16); }
+    100% { box-shadow: none; background: transparent; }
+}
+
+/* ── move: cool blue motion blur ── */
+.pet-vfx-tile-move {
+    animation: pet-tile-move 0.4s ease-out forwards !important;
+}
+@keyframes pet-tile-move {
+    0%   { box-shadow: 0 0 0 0 rgba(56,189,248,0); background: transparent; }
+    30%  { box-shadow: 0 0 16px 8px rgba(56,189,248,0.5), inset 0 0 12px 4px rgba(56,189,248,0.25); background: rgba(56,189,248,0.1); }
+    100% { box-shadow: none; background: transparent; }
+}
+
+/* ── buff: golden shimmer on self ── */
+.pet-vfx-tile-buff {
+    animation: pet-tile-buff 0.6s ease-out forwards !important;
+}
+@keyframes pet-tile-buff {
+    0%   { box-shadow: 0 0 0 0 rgba(250,204,21,0); background: transparent; }
+    35%  { box-shadow: 0 0 20px 10px rgba(250,204,21,0.65), inset 0 0 16px 5px rgba(250,204,21,0.3); background: rgba(250,204,21,0.14); }
+    100% { box-shadow: none; background: transparent; }
+}
+
+/* ── Lifesteal float: green drain text ── */
+.pet-damage-float.lifesteal {
+    color: #4ade80 !important;
+    text-shadow: 0 0 8px rgba(74,222,128,0.8) !important;
+}
+
+/* ── Absorb status badge ── */
+.pet-status-badge.absorb {
+    background: linear-gradient(90deg, #854d0e, #ca8a04);
+    color: #fef9c3;
+    border-color: #fde047;
+    text-shadow: 0 0 4px rgba(250,204,21,0.6);
+}
+
+/* ── Obstacle blocks — more dramatic 3-D look ── */
+.pet-obstacle-block {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+.pet-obstacle-top {
+    position: absolute;
+    top: 0; left: 8%;
+    width: 84%; height: 40%;
+    background: linear-gradient(135deg, #78716c, #57534e);
+    border-radius: 3px 3px 0 0;
+    box-shadow: inset 0 2px 4px rgba(255,255,255,0.18);
+}
+.pet-obstacle-face {
+    position: absolute;
+    bottom: 0; left: 0;
+    width: 72%; height: 62%;
+    background: linear-gradient(180deg, #57534e, #3b3330);
+    box-shadow: inset 1px 0 6px rgba(0,0,0,0.4);
+}
+.pet-obstacle-side {
+    position: absolute;
+    bottom: 0; right: 0;
+    width: 30%; height: 62%;
+    background: linear-gradient(180deg, #44403c, #292524);
+    box-shadow: inset -1px 0 4px rgba(0,0,0,0.5);
+}
+
