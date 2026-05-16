@@ -7910,9 +7910,22 @@ function AdminPanel({
         }));
     }
 
+    function publishEventPageImages(event: CreatorEvent) {
+        // Publish all VN page images to shared KV so they survive server save stripping.
+        // Called on every save (create or update) to catch images uploaded before
+        // editingEventId was set, and to re-publish in case of any missed writes.
+        if (!event.vnPages) return;
+        event.vnPages.forEach((page, i) => {
+            if (page.image)      void publishSharedImage(`vn:${event.id}:page:${i}`,       page.image);
+            if (page.leftImage)  void publishSharedImage(`vn:${event.id}:page:${i}:left`,  page.leftImage);
+            if (page.rightImage) void publishSharedImage(`vn:${event.id}:page:${i}:right`, page.rightImage);
+        });
+    }
+
     function createAdminEvent() {
         const event = eventFromForm();
         setCreatorEvents([...creatorEvents, event]);
+        publishEventPageImages(event);
         alert(`${event.name} created and imported to World Map.`);
         setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
     }
@@ -7923,6 +7936,7 @@ function AdminPanel({
         setCreatorEvents(creatorEvents.some((event) => event.id === editingEventId)
             ? creatorEvents.map((event) => event.id === editingEventId ? updatedEvent : event)
             : [...creatorEvents, updatedEvent]);
+        publishEventPageImages(updatedEvent);
         alert(`${updatedEvent.name} updated.`);
         setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
     }
