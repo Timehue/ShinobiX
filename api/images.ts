@@ -32,6 +32,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'GET') {
         const cat = typeof req.query.cat === 'string' ? req.query.cat.trim() : '';
 
+        // Images are immutable once stored — cache aggressively at the browser and CDN.
+        // 5-minute max-age means repeated screen transitions cost zero KV reads.
+        // stale-while-revalidate lets the CDN serve stale while refreshing in the background.
+        res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=600');
+
         if (cat) {
             // Fetch new category key in parallel with a filtered read of the legacy blob
             const [catImages, legacy] = await Promise.all([
