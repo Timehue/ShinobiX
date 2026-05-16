@@ -16748,6 +16748,9 @@ function Arena({
 
     const battlefieldRef = useRef<HTMLDivElement | null>(null);
     const [boardScale, setBoardScale] = useState(1);
+    // Container dimensions stored in state so the JSX centering math is always
+    // in sync with the scale that was computed from the same measurement.
+    const [boardContainerSize, setBoardContainerSize] = useState({ w: 0, h: 0 });
 
     useEffect(() => {
         const battlefield = battlefieldRef.current;
@@ -16756,16 +16759,18 @@ function Arena({
         function updateBoardScale() {
             const battlefield = battlefieldRef.current;
             if (!battlefield) return;
+            const cw = battlefield.clientWidth;
+            const ch = battlefield.clientHeight;
             // On narrow mobile screens use a much smaller buffer so the grid
             // has room to scale down instead of being clipped at the minimum.
-            const isMobileNarrow = battlefield.clientWidth < 600;
-            // No edge buffer on mobile — JS centering via margins handles spacing.
+            const isMobileNarrow = cw < 600;
+            // No edge buffer on mobile — JS absolute-positioning handles centering.
             // Keep a small buffer on desktop for aesthetics.
             const edgeBuffer = isMobileNarrow
                 ? 0
-                : Math.min(112, Math.max(64, Math.min(battlefield.clientWidth, battlefield.clientHeight) * 0.16));
-            const availableW = Math.max(1, battlefield.clientWidth - edgeBuffer * 2);
-            const availableH = Math.max(1, battlefield.clientHeight - edgeBuffer * 2);
+                : Math.min(112, Math.max(64, Math.min(cw, ch) * 0.16));
+            const availableW = Math.max(1, cw - edgeBuffer * 2);
+            const availableH = Math.max(1, ch - edgeBuffer * 2);
 
             const nextScale = Math.min(
                 1,
@@ -16773,9 +16778,12 @@ function Arena({
                 availableH / GRID_LAYER_H
             );
 
-            // Allow the scale to go as low as 0.18 on very small phones
-            const minScale = isMobileNarrow ? 0.18 : 0.45;
-            setBoardScale(Math.max(minScale, Math.min(1, Number(nextScale.toFixed(3)))));
+            // Allow the scale to go as low as 0.15 on very small phones
+            const minScale = isMobileNarrow ? 0.15 : 0.45;
+            const clamped = Math.max(minScale, Math.min(1, Number(nextScale.toFixed(3))));
+            setBoardScale(clamped);
+            // Store container size so inline-style centering uses the same snapshot.
+            setBoardContainerSize({ w: cw, h: ch });
         }
 
         updateBoardScale();
@@ -18969,21 +18977,23 @@ function Arena({
                         <div
                             className="hex-grid-layer"
                             style={(() => {
-                                // Scale from top-left, then offset so the shrunken grid
-                                // is centred inside whatever space the battlefield has.
+                                // Use absolute positioning so margin: auto CSS rules cannot
+                                // interfere. The grid is centred via left/top offsets that
+                                // are computed from the same container snapshot as boardScale.
                                 const scaledW = GRID_LAYER_W * boardScale;
                                 const scaledH = GRID_LAYER_H * boardScale;
-                                const cW = battlefieldRef.current?.clientWidth  ?? scaledW;
-                                const cH = battlefieldRef.current?.clientHeight ?? scaledH;
-                                const mL = Math.max(0, (cW - scaledW) / 2);
-                                const mT = Math.max(0, (cH - scaledH) / 2);
+                                const cW = boardContainerSize.w || (battlefieldRef.current?.clientWidth ?? scaledW);
+                                const cH = boardContainerSize.h || (battlefieldRef.current?.clientHeight ?? scaledH);
+                                const leftOffset = Math.max(0, (cW - scaledW) / 2);
+                                const topOffset  = Math.max(0, (cH - scaledH) / 2);
                                 return {
+                                    position: "absolute" as const,
                                     width: `${GRID_LAYER_W}px`,
                                     height: `${GRID_LAYER_H}px`,
                                     transform: `scale(${boardScale})`,
                                     transformOrigin: "top left",
-                                    marginLeft: `${mL}px`,
-                                    marginTop:  `${mT}px`,
+                                    left: `${leftOffset}px`,
+                                    top:  `${topOffset}px`,
                                 };
                             })()}
                         >
