@@ -9309,10 +9309,10 @@ function AdminPanel({
                                         onChange={(e) => {
                                             const file = e.target.files?.[0];
                                             if (!file) return;
-                                            readImageFile(file, (image) => updatePet({ image }), 100);
+                                            readImageFile(file, async (raw) => { const c = await compressDataUrl(raw, 256, 0.85); updatePet({ image: c }); publishSharedImage('pet:' + pet.id, c); }, 100);
                                         }}
                                     />
-                                    <AiImagePrompt label="Pet Photo" suggestedPrompt={`${pet.name} ${pet.rarity} shinobi companion`} onImage={async (image) => { const c = await compressDataUrl(image, 256, 0.85); updatePet({ image: c }); }} />
+                                    <AiImagePrompt label="Pet Photo" suggestedPrompt={`${pet.name} ${pet.rarity} shinobi companion`} onImage={async (image) => { const c = await compressDataUrl(image, 256, 0.85); updatePet({ image: c }); publishSharedImage('pet:' + pet.id, c); }} />
 
                                     <label>Name</label>
                                     <input value={pet.name} onChange={(e) => updatePet({ name: e.target.value })} />
