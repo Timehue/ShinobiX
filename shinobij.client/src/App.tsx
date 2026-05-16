@@ -12411,20 +12411,47 @@ function VillageTavern({ character, setScreen, sharedImages }: { character: Char
     const [sending, setSending] = useState(false);
     const [loading, setLoading] = useState(true);
     const bottomRef = useRef<HTMLDivElement>(null);
+    // Track last known message count so we skip re-renders when nothing changed
+    const lastCountRef = useRef<number>(-1);
 
     async function fetchMessages() {
         try {
             const res = await fetch(`/api/village/chat?village=${encodeURIComponent(character.village)}`);
-            if (res.ok) setMessages(await res.json());
+            if (!res.ok) return;
+            // Server sends X-Message-Count so we can skip JSON parse when unchanged
+            const count = Number(res.headers.get("X-Message-Count") ?? -1);
+            if (count !== -1 && count === lastCountRef.current) return;
+            const data: TavernMessage[] = await res.json();
+            lastCountRef.current = data.length;
+            setMessages(data);
         } catch { /* silently ignore network errors */ }
         finally { setLoading(false); }
     }
 
-    // Load on mount + poll every 15s for new messages from other players
+    // Load on mount + poll every 30s; pause completely when tab is in the background
     useEffect(() => {
         void fetchMessages();
-        const interval = setInterval(() => { void fetchMessages(); }, 15_000);
-        return () => clearInterval(interval);
+        let interval: ReturnType<typeof setInterval> | null = setInterval(() => {
+            if (!document.hidden) void fetchMessages();
+        }, 30_000);
+
+        function handleVisibility() {
+            if (document.hidden) {
+                // Tab hidden — stop polling to save KV reads
+                if (interval) { clearInterval(interval); interval = null; }
+            } else {
+                // Tab visible again — fetch immediately then resume polling
+                void fetchMessages();
+                if (!interval) interval = setInterval(() => {
+                    if (!document.hidden) void fetchMessages();
+                }, 30_000);
+            }
+        }
+        document.addEventListener("visibilitychange", handleVisibility);
+        return () => {
+            if (interval) clearInterval(interval);
+            document.removeEventListener("visibilitychange", handleVisibility);
+        };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [character.village]);
 
