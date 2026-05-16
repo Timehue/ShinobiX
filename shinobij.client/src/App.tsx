@@ -2712,7 +2712,9 @@ function compressDataUrl(dataUrl: string, maxPx = 512, quality = 0.82): Promise<
             canvas.width = Math.round(img.width * scale);
             canvas.height = Math.round(img.height * scale);
             canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
-            resolve(canvas.toDataURL("image/jpeg", quality));
+            // Prefer WebP (~30% smaller than JPEG at same quality); fall back to JPEG
+            const webp = canvas.toDataURL("image/webp", quality);
+            resolve(webp.startsWith("data:image/webp") ? webp : canvas.toDataURL("image/jpeg", quality));
         };
         img.onerror = () => resolve(dataUrl);
         img.src = dataUrl;
@@ -4027,7 +4029,10 @@ export default function App() {
             // Re-hydrate images after KV restore — clears the loaded-cats guard so
             // loadCategory fires again and overwrites the empty image strings that
             // pushSaveToServer strips before sending to KV.
+            // Also clear sessionStorage image cache so we always get fresh KV data
+            // after login rather than serving stale cached images.
             loadedCatsRef.current.clear();
+            clearImgCache();
             setTimeout(() => {
                 void loadCategory('item'); void loadCategory('pet');
                 void loadCategory('card'); void loadCategory('jutsu');
@@ -4381,15 +4386,43 @@ export default function App() {
                 images['ai:' + ai.id] ? { ...ai, image: images['ai:' + ai.id] } : ai));
     }
 
+    // SessionStorage cache helpers — images don't change often so 10-min local
+    // cache eliminates most repeat KV reads on page refresh / screen changes.
+    const IMG_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+    function imgCacheKey(cat: string) { return `imgcat:${cat}`; }
+    function clearImgCache() {
+        try {
+            ['item','pet','card','jutsu','event','avatar','ai','misc'].forEach(c =>
+                sessionStorage.removeItem(imgCacheKey(c)));
+        } catch { /* private browsing — ignore */ }
+    }
+
     async function loadCategory(cat: string) {
         if (loadedCatsRef.current.has(cat)) return;
         loadedCatsRef.current.add(cat);
+
+        // 1. Try sessionStorage first — avoids a KV round-trip on page refresh
+        try {
+            const raw = sessionStorage.getItem(imgCacheKey(cat));
+            if (raw) {
+                const { ts, data } = JSON.parse(raw) as { ts: number; data: Record<string, string> };
+                if (Date.now() - ts < IMG_CACHE_TTL) {
+                    hydrateImages(cat, data);
+                    return; // served from cache — zero KV reads
+                }
+            }
+        } catch { /* sessionStorage unavailable or parse error */ }
+
+        // 2. Fetch from KV and cache the result
         try {
             const r = await fetch(`/api/images?cat=${encodeURIComponent(cat)}`);
             if (!r.ok) return;
             const data = await r.json() as unknown;
             if (!data || typeof data !== 'object') return;
             hydrateImages(cat, data as Record<string, string>);
+            try {
+                sessionStorage.setItem(imgCacheKey(cat), JSON.stringify({ ts: Date.now(), data }));
+            } catch { /* quota exceeded — skip caching, no problem */ }
         } catch { /* silently ignore — images are non-critical */ }
     }
 
@@ -5221,11 +5254,10 @@ function LeftProfileCard({
 
         const reader = new FileReader();
         reader.onload = () => {
-            const img = reader.result as string;
-            publishSharedImage('avatar:' + character.name.toLowerCase(), img);
-            updateCharacter({
-                ...character,
-                avatarImage: img
+            // Compress to 256px — avatars are displayed at ≤84px so 512 is wasteful
+            void compressDataUrl(reader.result as string, 256, 0.80).then((img) => {
+                publishSharedImage('avatar:' + character.name.toLowerCase(), img);
+                updateCharacter({ ...character, avatarImage: img });
             });
         };
         reader.readAsDataURL(file);
@@ -16414,9 +16446,11 @@ function Profile({
 
         const reader = new FileReader();
         reader.onload = () => {
-            const img = String(reader.result);
-            publishSharedImage('avatar:' + character.name.toLowerCase(), img);
-            updateCharacter({ ...character, avatarImage: img });
+            // Compress to 256px — avatars are displayed at ≤84px so 512 is wasteful
+            void compressDataUrl(String(reader.result), 256, 0.80).then((img) => {
+                publishSharedImage('avatar:' + character.name.toLowerCase(), img);
+                updateCharacter({ ...character, avatarImage: img });
+            });
         };
         reader.readAsDataURL(file);
     }
