@@ -15129,6 +15129,8 @@ function WorldMap({
 
     return (
         <div className="card">
+            {/* scroll wrapper keeps the map pannable on narrow mobile screens */}
+            <div className="world-map-scroll">
             <div
                 className="anime-world-map atlas-world-map generated-world-map"
                 style={{ backgroundImage: `url(${worldMapBg})` }}
@@ -15175,6 +15177,7 @@ function WorldMap({
                     </button>
                 ))}
             </div>
+            </div>{/* end world-map-scroll */}
 
             {creatorEvents.filter(e => e.eventKind !== "visualNovel").length > 0 && (
                 <div className="summary-box creator-event-list">
@@ -18989,28 +18992,41 @@ function Arena({
                     </div>
 
                     <div className={`hex-battlefield hex-${currentBiome}${currentSector === 99 ? " hex-deathsgate" : ""}`} ref={battlefieldRef}>
+                        {/*
+                          Clip-wrapper: sized to the POST-TRANSFORM visual dimensions so
+                          overflow:hidden clips at exactly the right boundary regardless
+                          of how the browser applies transform vs. overflow interaction.
+                          Centred inside the battlefield via absolute left/top offsets.
+                        */}
+                        <div style={(() => {
+                            const scaledW = GRID_LAYER_W * boardScale;
+                            const scaledH = GRID_LAYER_H * boardScale;
+                            const cW = boardContainerSize.w || (battlefieldRef.current?.clientWidth  ?? scaledW);
+                            const cH = boardContainerSize.h || (battlefieldRef.current?.clientHeight ?? scaledH);
+                            const leftOffset = Math.max(0, (cW - scaledW) / 2);
+                            const topOffset  = Math.max(0, (cH - scaledH) / 2);
+                            return {
+                                position: "absolute" as const,
+                                left:   `${leftOffset}px`,
+                                top:    `${topOffset}px`,
+                                width:  `${scaledW}px`,
+                                height: `${scaledH}px`,
+                                overflow: "hidden",
+                            };
+                        })()}>
                         <div
                             className="hex-grid-layer"
-                            style={(() => {
-                                // Use absolute positioning so margin: auto CSS rules cannot
-                                // interfere. The grid is centred via left/top offsets that
-                                // are computed from the same container snapshot as boardScale.
-                                const scaledW = GRID_LAYER_W * boardScale;
-                                const scaledH = GRID_LAYER_H * boardScale;
-                                const cW = boardContainerSize.w || (battlefieldRef.current?.clientWidth ?? scaledW);
-                                const cH = boardContainerSize.h || (battlefieldRef.current?.clientHeight ?? scaledH);
-                                const leftOffset = Math.max(0, (cW - scaledW) / 2);
-                                const topOffset  = Math.max(0, (cH - scaledH) / 2);
-                                return {
-                                    position: "absolute" as const,
-                                    width: `${GRID_LAYER_W}px`,
-                                    height: `${GRID_LAYER_H}px`,
-                                    transform: `scale(${boardScale})`,
-                                    transformOrigin: "top left",
-                                    left: `${leftOffset}px`,
-                                    top:  `${topOffset}px`,
-                                };
-                            })()}
+                            style={{
+                                // Grid layer occupies its full pre-scale size; the transform
+                                // shrinks it to exactly fill the clip-wrapper above.
+                                position: "absolute" as const,
+                                width: `${GRID_LAYER_W}px`,
+                                height: `${GRID_LAYER_H}px`,
+                                transform: `scale(${boardScale})`,
+                                transformOrigin: "top left",
+                                left: "0",
+                                top: "0",
+                            }}
                         >
                             {/* Avatar overlay — sits above tiles, not clipped by hex clip-path */}
                             {(() => {
@@ -19083,6 +19099,7 @@ function Arena({
                                 })
                             )}
                         </div>
+                        </div>{/* end clip-wrapper */}
                     </div>
 
                     <div className="basic-action-bar shinobi-command-bar">

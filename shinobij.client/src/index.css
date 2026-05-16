@@ -13661,4 +13661,25 @@ button.combat-jutsu-button,
     height: 36px !important;
     font-size: 18px !important;
   }
+
+  /* ── World map scroll fix ── */
+  /* Let the map be its natural landscape size so sectors stay properly
+     placed; the scroll wrapper handles horizontal panning. */
+  .world-map-scroll {
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    width: 100% !important;
+    border-radius: 8px !important;
+  }
+
+  .world-map-scroll .atlas-world-map {
+    /* Keep the map at a fixed landscape size the sector % positions were
+       designed for, so they line up with the background image. */
+    min-width: 720px !important;
+    width: 720px !important;
+    height: 520px !important;
+    min-height: 520px !important;
+    border-radius: 0 !important;
+  }
 }
