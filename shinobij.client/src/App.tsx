@@ -16726,8 +16726,10 @@ function Arena({
             // On narrow mobile screens use a much smaller buffer so the grid
             // has room to scale down instead of being clipped at the minimum.
             const isMobileNarrow = battlefield.clientWidth < 600;
+            // No edge buffer on mobile — JS centering via margins handles spacing.
+            // Keep a small buffer on desktop for aesthetics.
             const edgeBuffer = isMobileNarrow
-                ? Math.min(24, Math.max(8, Math.min(battlefield.clientWidth, battlefield.clientHeight) * 0.05))
+                ? 0
                 : Math.min(112, Math.max(64, Math.min(battlefield.clientWidth, battlefield.clientHeight) * 0.16));
             const availableW = Math.max(1, battlefield.clientWidth - edgeBuffer * 2);
             const availableH = Math.max(1, battlefield.clientHeight - edgeBuffer * 2);
@@ -16738,8 +16740,8 @@ function Arena({
                 availableH / GRID_LAYER_H
             );
 
-            // Allow the scale to go as low as 0.28 on mobile so the full grid fits
-            const minScale = isMobileNarrow ? 0.28 : 0.45;
+            // Allow the scale to go as low as 0.18 on very small phones
+            const minScale = isMobileNarrow ? 0.18 : 0.45;
             setBoardScale(Math.max(minScale, Math.min(1, Number(nextScale.toFixed(3)))));
         }
 
@@ -18933,12 +18935,24 @@ function Arena({
                     <div className={`hex-battlefield hex-${currentBiome}${currentSector === 99 ? " hex-deathsgate" : ""}`} ref={battlefieldRef}>
                         <div
                             className="hex-grid-layer"
-                            style={{
-                                width: `${GRID_LAYER_W}px`,
-                                height: `${GRID_LAYER_H}px`,
-                                transform: `scale(${boardScale})`,
-                                transformOrigin: "center center",
-                            }}
+                            style={(() => {
+                                // Scale from top-left, then offset so the shrunken grid
+                                // is centred inside whatever space the battlefield has.
+                                const scaledW = GRID_LAYER_W * boardScale;
+                                const scaledH = GRID_LAYER_H * boardScale;
+                                const cW = battlefieldRef.current?.clientWidth  ?? scaledW;
+                                const cH = battlefieldRef.current?.clientHeight ?? scaledH;
+                                const mL = Math.max(0, (cW - scaledW) / 2);
+                                const mT = Math.max(0, (cH - scaledH) / 2);
+                                return {
+                                    width: `${GRID_LAYER_W}px`,
+                                    height: `${GRID_LAYER_H}px`,
+                                    transform: `scale(${boardScale})`,
+                                    transformOrigin: "top left",
+                                    marginLeft: `${mL}px`,
+                                    marginTop:  `${mT}px`,
+                                };
+                            })()}
                         >
                             {/* Avatar overlay — sits above tiles, not clipped by hex clip-path */}
                             {(() => {
