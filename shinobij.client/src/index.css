@@ -6608,11 +6608,11 @@ textarea {
     }
 
 .left-profile-avatar {
-    width: 58px !important;
-    height: 58px !important;
+    width: 84px !important;
+    height: 84px !important;
     display: grid !important;
     place-items: center !important;
-    margin-bottom: 2px !important;
+    margin-bottom: 4px !important;
     border: 0 !important;
     background: transparent !important;
     color: #bae6fd !important;
