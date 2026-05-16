@@ -5136,7 +5136,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "shinobiTiles" && character && <ShinobiTiles character={character} updateCharacter={setCharacter} creatorCards={creatorCards} />}
                 {!activeTriggeredEvent && screen === "hospital" && character && <Hospital character={character} updateCharacter={setCharacter} />}
                 {!activeTriggeredEvent && screen === "cafeteria" && character && <Cafeteria character={character} updateCharacter={setCharacter} />}
-                {!activeTriggeredEvent && screen === "tavern" && character && <VillageTavern character={character} setScreen={setScreen} />}
+                {!activeTriggeredEvent && screen === "tavern" && character && <VillageTavern character={character} setScreen={setScreen} sharedImages={sharedImages} />}
                 {!activeTriggeredEvent && screen === "hallOfLegends" && character && <HallOfLegends character={character} setScreen={setScreen} playerRoster={playerRoster} />}
                 {!activeTriggeredEvent && screen === "shinobiCouncil" && character && <ShinobiCouncilHall character={character} setScreen={setScreen} playerRoster={playerRoster} />}
                 {!activeTriggeredEvent && screen === "profile" && character && (
@@ -5180,6 +5180,7 @@ export default function App() {
                         setRaidBattleKind={setRaidBattleKind}
                         creatorItems={creatorItems}
                         setScreen={navigate}
+                        sharedImages={sharedImages}
                         endlessBattleActive={endlessBattleActive}
                         endlessBattleWave={endlessBattleWave}
                         onEndlessWin={handleEndlessWin}
@@ -12402,56 +12403,53 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
     );
 }
 
-type TavernMessage = { author: string; text: string; ts: number; avatar?: string; rank?: string; customTitle?: string; level?: number };
+type TavernMessage = { author: string; text: string; ts: number; rank?: string; customTitle?: string; level?: number };
 
-function VillageTavern({ character, setScreen }: { character: Character; setScreen: (s: Screen) => void }) {
-    const storageKey = `tavern-chat-${character.village}`;
+function VillageTavern({ character, setScreen, sharedImages }: { character: Character; setScreen: (s: Screen) => void; sharedImages: Record<string, string> }) {
+    const [messages, setMessages] = useState<TavernMessage[]>([]);
+    const [input, setInput] = useState("");
+    const [sending, setSending] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const bottomRef = useRef<HTMLDivElement>(null);
 
-    const MSG_TTL = 5 * 60 * 1000;
-
-    function loadMessages(): TavernMessage[] {
+    async function fetchMessages() {
         try {
-            const raw: TavernMessage[] = JSON.parse(localStorage.getItem(storageKey) ?? "[]");
-            return raw.filter(m => Date.now() - m.ts < MSG_TTL);
-        }
-        catch { return []; }
+            const res = await fetch(`/api/village/chat?village=${encodeURIComponent(character.village)}`);
+            if (res.ok) setMessages(await res.json());
+        } catch { /* silently ignore network errors */ }
+        finally { setLoading(false); }
     }
 
-    const [messages, setMessages] = useState<TavernMessage[]>(loadMessages);
-    const [input, setInput] = useState("");
-    const bottomRef = useRef<HTMLDivElement>(null);
+    // Load on mount + poll every 15s for new messages from other players
+    useEffect(() => {
+        void fetchMessages();
+        const interval = setInterval(() => { void fetchMessages(); }, 15_000);
+        return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [character.village]);
 
     useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
-    useEffect(() => {
-        const interval = setInterval(() => {
-            setMessages(prev => {
-                const fresh = prev.filter(m => Date.now() - m.ts < MSG_TTL);
-                if (fresh.length !== prev.length) {
-                    localStorage.setItem(storageKey, JSON.stringify(fresh));
-                }
-                return fresh;
-            });
-        }, 15_000);
-        return () => clearInterval(interval);
-    }, [storageKey]);
-
-    function send() {
+    async function send() {
         const text = input.trim();
-        if (!text) return;
-        const msg: TavernMessage = {
-            author: character.name,
-            text,
-            ts: Date.now(),
-            avatar: character.avatarImage,
-            rank: character.rankTitle,
-            customTitle: character.customTitle,
-            level: character.level,
-        };
-        const fresh = [...messages, msg].filter(m => Date.now() - m.ts < MSG_TTL).slice(-100);
-        setMessages(fresh);
-        localStorage.setItem(storageKey, JSON.stringify(fresh));
+        if (!text || sending) return;
+        setSending(true);
         setInput("");
+        try {
+            const res = await fetch(`/api/village/chat?village=${encodeURIComponent(character.village)}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    author: character.name,
+                    text,
+                    rank: character.rankTitle,
+                    customTitle: character.customTitle,
+                    level: character.level,
+                }),
+            });
+            if (res.ok) setMessages(await res.json());
+        } catch { /* ignore */ }
+        setSending(false);
     }
 
     return (
@@ -12464,28 +12462,32 @@ function VillageTavern({ character, setScreen }: { character: Character; setScre
                 </div>
             </div>
             <div className="tavern-log">
-                {messages.length === 0 && <p className="tavern-empty">The tavern is quiet. Be the first to speak.</p>}
-                {messages.map((m, i) => (
-                    <div key={i} className={`tavern-message ${m.author === character.name ? "tavern-mine" : ""}`}>
-                        <div className="tavern-avatar-col">
-                            <div className="tavern-avatar">
-                                {m.avatar
-                                    ? <img src={m.avatar} alt={m.author} />
-                                    : <span>{m.author.slice(0, 2).toUpperCase()}</span>}
+                {loading && <p className="tavern-empty">Loading messages…</p>}
+                {!loading && messages.length === 0 && <p className="tavern-empty">The tavern is quiet. Be the first to speak.</p>}
+                {messages.map((m, i) => {
+                    const avatar = sharedImages['avatar:' + m.author.toLowerCase()] || (m.author === character.name ? character.avatarImage : '');
+                    return (
+                        <div key={i} className={`tavern-message ${m.author === character.name ? "tavern-mine" : ""}`}>
+                            <div className="tavern-avatar-col">
+                                <div className="tavern-avatar">
+                                    {avatar
+                                        ? <img src={avatar} alt={m.author} />
+                                        : <span>{m.author.slice(0, 2).toUpperCase()}</span>}
+                                </div>
+                                {m.level != null && <div className="tavern-level-badge">Lv{m.level}</div>}
                             </div>
-                            {m.level != null && <div className="tavern-level-badge">Lv{m.level}</div>}
-                        </div>
-                        <div className="tavern-body">
-                            <div className="tavern-meta">
-                                <span className="tavern-author">{m.author}</span>
-                                {m.customTitle && <span className="tavern-custom-title">「{m.customTitle}」</span>}
-                                {m.rank && <span className="tavern-rank">{m.rank}</span>}
-                                <span className="tavern-time">{new Date(m.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                            <div className="tavern-body">
+                                <div className="tavern-meta">
+                                    <span className="tavern-author">{m.author}</span>
+                                    {m.customTitle && <span className="tavern-custom-title">「{m.customTitle}」</span>}
+                                    {m.rank && <span className="tavern-rank">{m.rank}</span>}
+                                    <span className="tavern-time">{new Date(m.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                                </div>
+                                <p className="tavern-text">{m.text}</p>
                             </div>
-                            <p className="tavern-text">{m.text}</p>
                         </div>
-                    </div>
-                ))}
+                    );
+                })}
                 <div ref={bottomRef} />
             </div>
             <div className="tavern-input-row">
@@ -12493,11 +12495,14 @@ function VillageTavern({ character, setScreen }: { character: Character; setScre
                     className="tavern-input"
                     value={input}
                     onChange={(e: ChangeEvent<HTMLInputElement>) => setInput(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") send(); }}
+                    onKeyDown={(e) => { if (e.key === "Enter") void send(); }}
                     placeholder={`Say something to ${character.village}...`}
                     maxLength={300}
+                    disabled={sending}
                 />
-                <button className="tavern-send-btn" onClick={send} disabled={!input.trim()}>⚡ Send</button>
+                <button className="tavern-send-btn" onClick={() => void send()} disabled={!input.trim() || sending}>
+                    {sending ? "…" : "⚡ Send"}
+                </button>
             </div>
         </div>
     );
@@ -16934,6 +16939,7 @@ function Arena({
     setRaidBattleKind,
     creatorItems,
     setScreen,
+    sharedImages = {},
     endlessBattleActive = false,
     endlessBattleWave = 0,
     onEndlessWin,
@@ -16962,6 +16968,7 @@ function Arena({
     setRaidBattleKind: (kind: "none" | "raidAi" | "raidPlayer" | "defense") => void;
     creatorItems: GameItem[];
     setScreen: (screen: Screen) => void;
+    sharedImages?: Record<string, string>;
     endlessBattleActive?: boolean;
     endlessBattleWave?: number;
     onEndlessWin?: (wave: number) => void;
@@ -17100,7 +17107,11 @@ function Arena({
     const enemyArmorFactor = opponentCharacter ? getCharacterArmorFactor(opponentCharacter, allItems) : 1.0;
     const opponentLevel = opponentCharacter?.level ?? pendingAiProfile?.level ?? aiLevel;
     const opponentName = opponentCharacter?.name ?? pendingAiProfile?.name ?? `Level ${aiLevel} AI Ninja`;
-    const opponentAvatar = opponentCharacter?.avatarImage || pendingAiProfile?.image || pendingAiProfile?.icon || "EN";
+    const opponentAvatar = opponentCharacter?.avatarImage
+        || (opponentCharacter ? (sharedImages['avatar:' + opponentCharacter.name.toLowerCase()] ?? '') : '')
+        || pendingAiProfile?.image
+        || pendingAiProfile?.icon
+        || "EN";
     const enemyMaxHp = opponentCharacter?.maxHp ?? pendingAiProfile?.hp ?? maxHpForLevel(opponentLevel);
     const enemyMaxChakra = opponentCharacter?.maxChakra ?? pendingAiProfile?.chakra ?? maxChakraForLevel(opponentLevel);
     const enemyMaxStamina = opponentCharacter?.maxStamina ?? pendingAiProfile?.stamina ?? maxStaminaForLevel(opponentLevel);
