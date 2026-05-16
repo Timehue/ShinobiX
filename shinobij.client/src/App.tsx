@@ -4359,10 +4359,14 @@ export default function App() {
                 ...e,
                 ...(images['event:' + e.id + ':bg']     ? { image: images['event:' + e.id + ':bg'] }         : {}),
                 ...(images['event:' + e.id + ':avatar'] ? { avatarImage: images['event:' + e.id + ':avatar'] } : {}),
-                // Hydrate VN page images (stored as vn:{id}:page:{N})
+                // Hydrate VN page images (background, left avatar, right avatar)
                 ...(e.vnPages ? {
-                    vnPages: e.vnPages.map((p, i) =>
-                        images[`vn:${e.id}:page:${i}`] ? { ...p, image: images[`vn:${e.id}:page:${i}`] } : p)
+                    vnPages: e.vnPages.map((p, i) => ({
+                        ...p,
+                        ...(images[`vn:${e.id}:page:${i}`]        ? { image:      images[`vn:${e.id}:page:${i}`] }        : {}),
+                        ...(images[`vn:${e.id}:page:${i}:left`]   ? { leftImage:  images[`vn:${e.id}:page:${i}:left`] }   : {}),
+                        ...(images[`vn:${e.id}:page:${i}:right`]  ? { rightImage: images[`vn:${e.id}:page:${i}:right`] }  : {}),
+                    }))
                 } : {}),
             })));
         else if (cat === 'avatar')
@@ -7628,10 +7632,30 @@ function AdminPanel({
 
     function updateVnPage(index: number, updated: Partial<typeof eventVnPages[number]>) {
         setEventVnPages((pages) => pages.map((page, pageIndex) => pageIndex === index ? { ...page, ...updated } : page));
-        if ('image' in updated && editingEventId) {
+        if (!editingEventId) return;
+        // Publish any image fields to shared KV so they survive page reload
+        if ('image' in updated) {
+            const img = updated.image ?? '';
+            publishImage(`vn:${editingEventId}:page:${index}`, img);
             setCreatorEvents(creatorEvents.map((ev) => {
                 if (ev.id !== editingEventId || !ev.vnPages) return ev;
-                return { ...ev, vnPages: ev.vnPages.map((p, i) => i === index ? { ...p, image: updated.image } : p) };
+                return { ...ev, vnPages: ev.vnPages.map((p, i) => i === index ? { ...p, image: img } : p) };
+            }));
+        }
+        if ('leftImage' in updated) {
+            const img = updated.leftImage ?? '';
+            publishImage(`vn:${editingEventId}:page:${index}:left`, img);
+            setCreatorEvents(creatorEvents.map((ev) => {
+                if (ev.id !== editingEventId || !ev.vnPages) return ev;
+                return { ...ev, vnPages: ev.vnPages.map((p, i) => i === index ? { ...p, leftImage: img } : p) };
+            }));
+        }
+        if ('rightImage' in updated) {
+            const img = updated.rightImage ?? '';
+            publishImage(`vn:${editingEventId}:page:${index}:right`, img);
+            setCreatorEvents(creatorEvents.map((ev) => {
+                if (ev.id !== editingEventId || !ev.vnPages) return ev;
+                return { ...ev, vnPages: ev.vnPages.map((p, i) => i === index ? { ...p, rightImage: img } : p) };
             }));
         }
     }
@@ -7639,8 +7663,8 @@ function AdminPanel({
     function applyJutsuImage(rawImage: string) {
         void compressDataUrl(rawImage, 512, 0.82).then((image) => {
             setJutsuImage(image);
-            publishSharedImage('jutsu:' + editingJutsuId, image);
             if (!editingJutsuId) return;
+            publishImage('jutsu:' + editingJutsuId, image);
             setCreatorJutsus(creatorJutsus.map((j) => j.id === editingJutsuId ? { ...j, image } : j));
             setSavedBloodlines(savedBloodlines.map((bl) => ({
                 ...bl,
@@ -7651,13 +7675,13 @@ function AdminPanel({
 
     function applyBloodlineImage(image: string) {
         setBloodlineEditImage(image);
-        publishSharedImage('bloodline:' + editingBloodlineId, image);
         if (!editingBloodlineId) return;
+        publishImage('bloodline:' + editingBloodlineId, image);
         setSavedBloodlines(savedBloodlines.map((bl) => bl.id === editingBloodlineId ? { ...bl, image } : bl));
     }
 
     function setVnPageImage(eventId: string, pageIndex: number, image: string) {
-        publishSharedImage(`vn:${eventId}:page:${pageIndex}`, image);
+        publishImage(`vn:${eventId}:page:${pageIndex}`, image);
         setCreatorEvents(creatorEvents.map((ev) => {
             if (ev.id !== eventId || !ev.vnPages) return ev;
             return { ...ev, vnPages: ev.vnPages.map((p, i) => i === pageIndex ? { ...p, image } : p) };
@@ -7665,22 +7689,22 @@ function AdminPanel({
     }
 
     function setPetVnPageImage(pageIndex: number, image: string) {
-        publishSharedImage(`vn:pet-encounter:page:${pageIndex}`, image);
+        publishImage(`vn:pet-encounter:page:${pageIndex}`, image);
         if (!petEncounterVn.vnPages) return;
         setPetEncounterVn({ ...petEncounterVn, vnPages: petEncounterVn.vnPages.map((p, i) => i === pageIndex ? { ...p, image } : p) });
     }
 
     function applyEventImage(image: string) {
         setEventImage(image);
-        publishSharedImage('event:' + editingEventId + ':bg', image);
         if (!editingEventId) return;
+        publishImage('event:' + editingEventId + ':bg', image);
         setCreatorEvents(creatorEvents.map((ev) => ev.id === editingEventId ? { ...ev, image } : ev));
     }
 
     function applyEventAvatarImage(avatarImage: string) {
         setEventAvatarImage(avatarImage);
-        publishSharedImage('event:' + editingEventId + ':avatar', avatarImage);
         if (!editingEventId) return;
+        publishImage('event:' + editingEventId + ':avatar', avatarImage);
         setCreatorEvents(creatorEvents.map((ev) => ev.id === editingEventId ? { ...ev, avatarImage } : ev));
     }
 
