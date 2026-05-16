@@ -17032,6 +17032,8 @@ function Arena({
     // Container dimensions stored in state so the JSX centering math is always
     // in sync with the scale that was computed from the same measurement.
     const [boardContainerSize, setBoardContainerSize] = useState({ w: 0, h: 0 });
+    // User-controlled zoom offset on top of the auto scale (mobile slider)
+    const [userScaleOffset, setUserScaleOffset] = useState(0);
 
     useEffect(() => {
         const battlefield = battlefieldRef.current;
@@ -17078,6 +17080,8 @@ function Arena({
             window.removeEventListener("resize", updateBoardScale);
         };
     }, [GRID_LAYER_W, GRID_LAYER_H]);
+    // Clamp effective scale between 0.15 and 1.5
+    const effectiveScale = Math.max(0.15, Math.min(1.5, boardScale + userScaleOffset));
     const allJutsus = getAllJutsus(savedBloodlines, creatorJutsus, character);
     const pendingAiProfile = creatorAis.find((ai) => ai.id === pendingAiProfileId);
     const allItems = getAllItems(creatorItems);
@@ -19259,6 +19263,23 @@ function Arena({
                         </div>
                     </div>
 
+                    <div className="hex-zoom-bar">
+                        <span className="hex-zoom-label">🔍</span>
+                        <input
+                            type="range"
+                            className="hex-zoom-slider"
+                            min={-0.4}
+                            max={0.5}
+                            step={0.02}
+                            value={userScaleOffset}
+                            onChange={(e) => setUserScaleOffset(Number(e.target.value))}
+                        />
+                        <button
+                            className="hex-zoom-reset"
+                            onClick={() => setUserScaleOffset(0)}
+                            title="Reset zoom"
+                        >↺</button>
+                    </div>
                     <div className={`hex-battlefield hex-${currentBiome}${currentSector === 99 ? " hex-deathsgate" : ""}`} ref={battlefieldRef}>
                         {/*
                           Clip-wrapper: sized to the POST-TRANSFORM visual dimensions so
@@ -19267,8 +19288,8 @@ function Arena({
                           Centred inside the battlefield via absolute left/top offsets.
                         */}
                         <div style={(() => {
-                            const scaledW = GRID_LAYER_W * boardScale;
-                            const scaledH = GRID_LAYER_H * boardScale;
+                            const scaledW = GRID_LAYER_W * effectiveScale;
+                            const scaledH = GRID_LAYER_H * effectiveScale;
                             const cW = boardContainerSize.w || (battlefieldRef.current?.clientWidth  ?? scaledW);
                             const cH = boardContainerSize.h || (battlefieldRef.current?.clientHeight ?? scaledH);
                             const leftOffset = Math.max(0, (cW - scaledW) / 2);
@@ -19290,7 +19311,7 @@ function Arena({
                                 position: "absolute" as const,
                                 width: `${GRID_LAYER_W}px`,
                                 height: `${GRID_LAYER_H}px`,
-                                transform: `scale(${boardScale})`,
+                                transform: `scale(${effectiveScale})`,
                                 transformOrigin: "top left",
                                 left: "0",
                                 top: "0",
