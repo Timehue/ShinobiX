@@ -4032,6 +4032,7 @@ export default function App() {
                 void loadCategory('item'); void loadCategory('pet');
                 void loadCategory('card'); void loadCategory('jutsu');
                 void loadCategory('event'); void loadCategory('avatar');
+                void loadCategory('ai');
             }, 0);
         }
 
