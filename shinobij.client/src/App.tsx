@@ -7636,7 +7636,7 @@ function AdminPanel({
         // Publish any image fields to shared KV so they survive page reload
         if ('image' in updated) {
             const img = updated.image ?? '';
-            publishImage(`vn:${editingEventId}:page:${index}`, img);
+            void publishSharedImage(`vn:${editingEventId}:page:${index}`, img);
             setCreatorEvents(creatorEvents.map((ev) => {
                 if (ev.id !== editingEventId || !ev.vnPages) return ev;
                 return { ...ev, vnPages: ev.vnPages.map((p, i) => i === index ? { ...p, image: img } : p) };
@@ -7644,7 +7644,7 @@ function AdminPanel({
         }
         if ('leftImage' in updated) {
             const img = updated.leftImage ?? '';
-            publishImage(`vn:${editingEventId}:page:${index}:left`, img);
+            void publishSharedImage(`vn:${editingEventId}:page:${index}:left`, img);
             setCreatorEvents(creatorEvents.map((ev) => {
                 if (ev.id !== editingEventId || !ev.vnPages) return ev;
                 return { ...ev, vnPages: ev.vnPages.map((p, i) => i === index ? { ...p, leftImage: img } : p) };
@@ -7652,7 +7652,7 @@ function AdminPanel({
         }
         if ('rightImage' in updated) {
             const img = updated.rightImage ?? '';
-            publishImage(`vn:${editingEventId}:page:${index}:right`, img);
+            void publishSharedImage(`vn:${editingEventId}:page:${index}:right`, img);
             setCreatorEvents(creatorEvents.map((ev) => {
                 if (ev.id !== editingEventId || !ev.vnPages) return ev;
                 return { ...ev, vnPages: ev.vnPages.map((p, i) => i === index ? { ...p, rightImage: img } : p) };
@@ -7664,7 +7664,7 @@ function AdminPanel({
         void compressDataUrl(rawImage, 512, 0.82).then((image) => {
             setJutsuImage(image);
             if (!editingJutsuId) return;
-            publishImage('jutsu:' + editingJutsuId, image);
+            void publishSharedImage('jutsu:' + editingJutsuId, image);
             setCreatorJutsus(creatorJutsus.map((j) => j.id === editingJutsuId ? { ...j, image } : j));
             setSavedBloodlines(savedBloodlines.map((bl) => ({
                 ...bl,
@@ -7676,12 +7676,12 @@ function AdminPanel({
     function applyBloodlineImage(image: string) {
         setBloodlineEditImage(image);
         if (!editingBloodlineId) return;
-        publishImage('bloodline:' + editingBloodlineId, image);
+        void publishSharedImage('bloodline:' + editingBloodlineId, image);
         setSavedBloodlines(savedBloodlines.map((bl) => bl.id === editingBloodlineId ? { ...bl, image } : bl));
     }
 
     function setVnPageImage(eventId: string, pageIndex: number, image: string) {
-        publishImage(`vn:${eventId}:page:${pageIndex}`, image);
+        void publishSharedImage(`vn:${eventId}:page:${pageIndex}`, image);
         setCreatorEvents(creatorEvents.map((ev) => {
             if (ev.id !== eventId || !ev.vnPages) return ev;
             return { ...ev, vnPages: ev.vnPages.map((p, i) => i === pageIndex ? { ...p, image } : p) };
@@ -7689,7 +7689,7 @@ function AdminPanel({
     }
 
     function setPetVnPageImage(pageIndex: number, image: string) {
-        publishImage(`vn:pet-encounter:page:${pageIndex}`, image);
+        void publishSharedImage(`vn:pet-encounter:page:${pageIndex}`, image);
         if (!petEncounterVn.vnPages) return;
         setPetEncounterVn({ ...petEncounterVn, vnPages: petEncounterVn.vnPages.map((p, i) => i === pageIndex ? { ...p, image } : p) });
     }
@@ -7697,14 +7697,14 @@ function AdminPanel({
     function applyEventImage(image: string) {
         setEventImage(image);
         if (!editingEventId) return;
-        publishImage('event:' + editingEventId + ':bg', image);
+        void publishSharedImage('event:' + editingEventId + ':bg', image);
         setCreatorEvents(creatorEvents.map((ev) => ev.id === editingEventId ? { ...ev, image } : ev));
     }
 
     function applyEventAvatarImage(avatarImage: string) {
         setEventAvatarImage(avatarImage);
         if (!editingEventId) return;
-        publishImage('event:' + editingEventId + ':avatar', avatarImage);
+        void publishSharedImage('event:' + editingEventId + ':avatar', avatarImage);
         setCreatorEvents(creatorEvents.map((ev) => ev.id === editingEventId ? { ...ev, avatarImage } : ev));
     }
 
@@ -7713,8 +7713,8 @@ function AdminPanel({
         if (!editingAiId) return;
         // Update creatorAis state so the arena sees the image immediately
         setCreatorAis(creatorAis.map((ai) => ai.id === editingAiId ? { ...ai, image } : ai));
-        // Persist to shared KV + update local sharedImages so sImg resolves immediately
-        publishImage('ai:' + editingAiId, image);
+        // Persist to shared KV so the image survives reload
+        void publishSharedImage('ai:' + editingAiId, image);
     }
 
     function jutsuFromForm(id = `admin-${makeId()}`) {
@@ -17085,7 +17085,7 @@ function Arena({
     const enemyArmorFactor = opponentCharacter ? getCharacterArmorFactor(opponentCharacter, allItems) : 1.0;
     const opponentLevel = opponentCharacter?.level ?? pendingAiProfile?.level ?? aiLevel;
     const opponentName = opponentCharacter?.name ?? pendingAiProfile?.name ?? `Level ${aiLevel} AI Ninja`;
-    const opponentAvatar = opponentCharacter?.avatarImage || sImg('ai:' + pendingAiProfileId) || pendingAiProfile?.image || pendingAiProfile?.icon || "EN";
+    const opponentAvatar = opponentCharacter?.avatarImage || pendingAiProfile?.image || pendingAiProfile?.icon || "EN";
     const enemyMaxHp = opponentCharacter?.maxHp ?? pendingAiProfile?.hp ?? maxHpForLevel(opponentLevel);
     const enemyMaxChakra = opponentCharacter?.maxChakra ?? pendingAiProfile?.chakra ?? maxChakraForLevel(opponentLevel);
     const enemyMaxStamina = opponentCharacter?.maxStamina ?? pendingAiProfile?.stamina ?? maxStaminaForLevel(opponentLevel);
