@@ -57,7 +57,7 @@ type Screen =
 
 type Rank = "B Rank" | "A Rank" | "S Rank";
 type Biome = "forest" | "snow" | "volcano" | "shadow" | "central";
-type JutsuType = "Ninjutsu" | "Taijutsu" | "Genjutsu" | "Bukijutsu";
+type JutsuType = "Ninjutsu" | "Taijutsu" | "Genjutsu" | "Bukijutsu" | "Any";
 type JutsuElement = "Earth" | "Wind" | "Lightning" | "Fire" | "Water" | "None";
 type JutsuTarget = "SELF" | "OPPONENT" | "OTHER_USER" | "CHARACTER" | "EMPTY_GROUND";
 type JutsuMethod = "SINGLE" | "ALL" | "AOE_CIRCLE" | "AOE_LINE";
@@ -1028,8 +1028,8 @@ Where other villages build bonds, Moonshadow cultivates ambition.
 To choose Moonshadow is to rely on no one… and ensure no one can ever control you.`
     }
 };
-const specialties: JutsuType[] = ["Ninjutsu", "Taijutsu", "Genjutsu", "Bukijutsu"];
-const jutsuElements: JutsuElement[] = ["Earth", "Wind", "Lightning", "Fire", "Water"];
+const specialties: JutsuType[] = ["Ninjutsu", "Taijutsu", "Genjutsu", "Bukijutsu", "Any"];
+const jutsuElements: JutsuElement[] = ["Earth", "Wind", "Lightning", "Fire", "Water", "None"];
 const jutsuTargets: JutsuTarget[] = ["OPPONENT", "SELF", "OTHER_USER", "CHARACTER", "EMPTY_GROUND"];
 const jutsuMethods: JutsuMethod[] = ["SINGLE", "ALL", "AOE_CIRCLE", "AOE_LINE"];
 const bloodlineJutsuMethods: JutsuMethod[] = ["SINGLE", "AOE_CIRCLE"];
@@ -3302,6 +3302,12 @@ function rosterFromAccounts(accounts: PlayerAccounts): PlayerRecord[] {
 }
 
 function getOffenseStat(stats: Stats, type: JutsuType | string) {
+    if (type === "Any") return Math.max(
+        stats.ninjutsuOffense + stats.willpower + stats.speed,
+        stats.taijutsuOffense + stats.strength + stats.speed,
+        stats.genjutsuOffense + stats.intelligence + stats.willpower,
+        stats.bukijutsuOffense + stats.intelligence + stats.strength,
+    );
     if (type === "Taijutsu") return stats.taijutsuOffense + stats.strength + stats.speed;
     if (type === "Bukijutsu") return stats.bukijutsuOffense + stats.intelligence + stats.strength;
     if (type === "Genjutsu") return stats.genjutsuOffense + stats.intelligence + stats.willpower;
@@ -3309,6 +3315,12 @@ function getOffenseStat(stats: Stats, type: JutsuType | string) {
 }
 
 function getDefenseStat(stats: Stats, type: JutsuType | string) {
+    if (type === "Any") return Math.max(
+        stats.ninjutsuDefense + stats.willpower + stats.speed,
+        stats.taijutsuDefense + stats.strength + stats.speed,
+        stats.genjutsuDefense + stats.intelligence + stats.willpower,
+        stats.bukijutsuDefense + stats.intelligence + stats.strength,
+    );
     if (type === "Taijutsu") return stats.taijutsuDefense + stats.strength + stats.speed;
     if (type === "Bukijutsu") return stats.bukijutsuDefense + stats.intelligence + stats.strength;
     if (type === "Genjutsu") return stats.genjutsuDefense + stats.intelligence + stats.willpower;
@@ -7701,11 +7713,13 @@ function AdminPanel({
                 totalPoints: bloodline.jutsus.map((jutsu) => jutsu.id === editingJutsuId ? updatedJutsu : jutsu).reduce((sum, jutsu) => sum + jutsuPoints(jutsu), 0),
             } : bloodline));
         } else if (creatorJutsus.some((jutsu) => jutsu.id === editingJutsuId)) {
-            setCreatorJutsus(creatorJutsus.map((jutsu) => jutsu.id === editingJutsuId ? rebalanceNonBloodlineJutsu(updatedJutsu) : jutsu));
+            // Save exactly what the admin set — no rebalance override
+            setCreatorJutsus(creatorJutsus.map((jutsu) => jutsu.id === editingJutsuId ? updatedJutsu : jutsu));
         } else {
-            setCreatorJutsus([...creatorJutsus, rebalanceNonBloodlineJutsu(updatedJutsu)]);
+            // Override a starter jutsu — stored in creatorJutsus, wins via Map in getAllJutsus
+            setCreatorJutsus([...creatorJutsus, updatedJutsu]);
         }
-        alert(`${updatedJutsu.name} updated.`);
+        alert(`${updatedJutsu.name} saved.`);
         // Auto-persist: wait for React to re-render with the new state, then save
         setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
     }
@@ -16931,11 +16945,12 @@ function Arena({
         if (rankedBattleActive) return 1;
         const territory = loadSectorTerritory(currentSector);
         if (!territory.ownerClan) return 1;
-        const buffByType: Record<JutsuType, TerritoryBuffStat> = {
+        const buffByType: Partial<Record<JutsuType, TerritoryBuffStat>> = {
             Bukijutsu: "bukijutsuOffense",
             Taijutsu: "taijutsuOffense",
             Ninjutsu: "ninjutsuOffense",
             Genjutsu: "genjutsuOffense",
+            // "Any" type uses all stats — grant the territory bonus if any matching buff applies
         };
         return territory.terrainBuffStat === buffByType[jutsu.type] ? 1.1 : 1;
     }
