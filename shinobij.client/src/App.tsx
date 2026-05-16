@@ -2355,11 +2355,21 @@ const DELETED_ITEM_IDS = new Set([
 ]);
 
 function getAllItems(creatorItems: GameItem[]) {
-    // starterItems always win for built-in IDs so code updates aren't overridden by stale save data.
+    // starterItems always win for built-in stats so code updates aren't overridden by stale save data.
+    // Exception: admin-generated images on starter items ARE respected — only the image field is merged.
     // Deleted items are stripped out entirely even if present in an old save file.
     const starterIds = new Set(starterItems.map((s) => s.id));
     const customOnly = creatorItems.filter((c) => !starterIds.has(c.id) && !DELETED_ITEM_IDS.has(c.id));
-    return [...customOnly, ...starterItems].map(sanitizeArmorAndGloveItem);
+    // Build a map of image overrides for starter items from creator entries
+    const imageOverrides = new Map(
+        creatorItems
+            .filter(c => starterIds.has(c.id) && c.image)
+            .map(c => [c.id, c.image as string])
+    );
+    const starterWithImages = starterItems.map(s =>
+        imageOverrides.has(s.id) ? { ...s, image: imageOverrides.get(s.id) } : s
+    );
+    return [...customOnly, ...starterWithImages].map(sanitizeArmorAndGloveItem);
 }
 
 type TreasuryItemStack = { itemId: string; count: number };
@@ -4002,6 +4012,15 @@ export default function App() {
             if (snap.petEncounterVn) setPetEncounterVn(snap.petEncounterVn);
             if (snap.editablePets) setEditablePets(mergeMissingBuiltInPets(snap.editablePets));
             setScreen("village");
+            // Re-hydrate images after KV restore — clears the loaded-cats guard so
+            // loadCategory fires again and overwrites the empty image strings that
+            // pushSaveToServer strips before sending to KV.
+            loadedCatsRef.current.clear();
+            setTimeout(() => {
+                void loadCategory('item'); void loadCategory('pet');
+                void loadCategory('card'); void loadCategory('jutsu');
+                void loadCategory('event'); void loadCategory('avatar');
+            }, 0);
         }
 
         let localAccountName = "";
@@ -4306,6 +4325,42 @@ export default function App() {
     // A ref prevents duplicate fetches even when called from multiple effects.
     const loadedCatsRef = useRef<Set<string>>(new Set());
 
+    // Applies fetched images into the relevant React state arrays.
+    // Extracted so applySnapshot can call it after the KV restore to avoid
+    // the race condition where applySnapshot (empty images) lands after loadCategory.
+    function hydrateImages(cat: string, images: Record<string, string>) {
+        setSharedImages(prev => ({ ...prev, ...images }));
+        if (cat === 'item')
+            setCreatorItems(prev => prev.map(item =>
+                images['item:' + item.id] ? { ...item, image: images['item:' + item.id] } : item));
+        else if (cat === 'pet')
+            setEditablePets(prev => prev.map(pet =>
+                images['pet:' + pet.id] ? { ...pet, image: images['pet:' + pet.id] } : pet));
+        else if (cat === 'card')
+            setCreatorCards(prev => prev.map(card =>
+                images['card:' + card.id] ? { ...card, image: images['card:' + card.id] } : card));
+        else if (cat === 'jutsu')
+            setCreatorJutsus(prev => prev.map(j =>
+                images['jutsu:' + j.id] ? { ...j, image: images['jutsu:' + j.id] } : j));
+        else if (cat === 'event')
+            setCreatorEvents(prev => prev.map(e => ({
+                ...e,
+                ...(images['event:' + e.id + ':bg']     ? { image: images['event:' + e.id + ':bg'] }         : {}),
+                ...(images['event:' + e.id + ':avatar'] ? { avatarImage: images['event:' + e.id + ':avatar'] } : {}),
+                // Hydrate VN page images (stored as vn:{id}:page:{N})
+                ...(e.vnPages ? {
+                    vnPages: e.vnPages.map((p, i) =>
+                        images[`vn:${e.id}:page:${i}`] ? { ...p, image: images[`vn:${e.id}:page:${i}`] } : p)
+                } : {}),
+            })));
+        else if (cat === 'avatar')
+            setCharacter(prev => {
+                if (!prev) return prev;
+                const img = images['avatar:' + prev.name.toLowerCase()];
+                return img ? { ...prev, avatarImage: img } : prev;
+            });
+    }
+
     async function loadCategory(cat: string) {
         if (loadedCatsRef.current.has(cat)) return;
         loadedCatsRef.current.add(cat);
@@ -4314,29 +4369,7 @@ export default function App() {
             if (!r.ok) return;
             const data = await r.json() as unknown;
             if (!data || typeof data !== 'object') return;
-            const images = data as Record<string, string>;
-            // Update sharedImages state
-            setSharedImages(prev => ({ ...prev, ...images }));
-            // Hydrate embedded image fields so item/pet/card/jutsu displays work
-            // without needing sharedImages passed into every child component
-            if (cat === 'item')
-                setCreatorItems(prev => prev.map(item =>
-                    images['item:' + item.id] ? { ...item, image: images['item:' + item.id] } : item));
-            else if (cat === 'pet')
-                setEditablePets(prev => prev.map(pet =>
-                    images['pet:' + pet.id] ? { ...pet, image: images['pet:' + pet.id] } : pet));
-            else if (cat === 'card')
-                setCreatorCards(prev => prev.map(card =>
-                    images['card:' + card.id] ? { ...card, image: images['card:' + card.id] } : card));
-            else if (cat === 'jutsu')
-                setCreatorJutsus(prev => prev.map(j =>
-                    images['jutsu:' + j.id] ? { ...j, image: images['jutsu:' + j.id] } : j));
-            else if (cat === 'event')
-                setCreatorEvents(prev => prev.map(e => ({
-                    ...e,
-                    ...(images['event:' + e.id + ':bg'] ? { image: images['event:' + e.id + ':bg'] } : {}),
-                    ...(images['event:' + e.id + ':avatar'] ? { avatarImage: images['event:' + e.id + ':avatar'] } : {}),
-                })));
+            hydrateImages(cat, data as Record<string, string>);
         } catch { /* silently ignore — images are non-critical */ }
     }
 
