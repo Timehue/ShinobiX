@@ -4164,10 +4164,16 @@ export default function App() {
     }
 
     async function pushSaveToServer(characterToSave: Character, name: string) {
+        // Strip base64 images before sending — keeps the payload small so it fits
+        // within Vercel's request body limit. Images persist separately via
+        // publishSharedImage → shared:images:{cat} and are hydrated on load.
+        function stripImages(_k: string, v: unknown) {
+            return typeof v === 'string' && v.startsWith('data:image') ? '' : v;
+        }
         const res = await fetch(`/api/save/${encodeURIComponent(name.toLowerCase())}`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(buildPlayerSavePayload(characterToSave)),
+            body: JSON.stringify(buildPlayerSavePayload(characterToSave), stripImages),
         });
         if (!res.ok) throw new Error(`Server returned ${res.status}`);
     }
@@ -4295,22 +4301,49 @@ export default function App() {
         return () => clearInterval(interval);
     }, [screen]);
 
-    // Lazy-load images by category — only fetch what the current screen needs.
-    // We track which categories are already in-flight / loaded via a ref so we
-    // never double-fetch even if the screen changes quickly.
+    // Image category loader — fetches from shared KV store and hydrates
+    // embedded image fields so all existing display code works without changes.
+    // A ref prevents duplicate fetches even when called from multiple effects.
     const loadedCatsRef = useRef<Set<string>>(new Set());
 
     async function loadCategory(cat: string) {
         if (loadedCatsRef.current.has(cat)) return;
-        loadedCatsRef.current.add(cat); // mark immediately to prevent duplicate fetches
+        loadedCatsRef.current.add(cat);
         try {
             const r = await fetch(`/api/images?cat=${encodeURIComponent(cat)}`);
             if (!r.ok) return;
             const data = await r.json() as unknown;
-            if (data && typeof data === 'object')
-                setSharedImages(prev => ({ ...prev, ...(data as Record<string, string>) }));
+            if (!data || typeof data !== 'object') return;
+            const images = data as Record<string, string>;
+            // Update sharedImages state
+            setSharedImages(prev => ({ ...prev, ...images }));
+            // Hydrate embedded image fields so item/pet/card/jutsu displays work
+            // without needing sharedImages passed into every child component
+            if (cat === 'item')
+                setCreatorItems(prev => prev.map(item =>
+                    images['item:' + item.id] ? { ...item, image: images['item:' + item.id] } : item));
+            else if (cat === 'pet')
+                setEditablePets(prev => prev.map(pet =>
+                    images['pet:' + pet.id] ? { ...pet, image: images['pet:' + pet.id] } : pet));
+            else if (cat === 'card')
+                setCreatorCards(prev => prev.map(card =>
+                    images['card:' + card.id] ? { ...card, image: images['card:' + card.id] } : card));
+            else if (cat === 'jutsu')
+                setCreatorJutsus(prev => prev.map(j =>
+                    images['jutsu:' + j.id] ? { ...j, image: images['jutsu:' + j.id] } : j));
+            else if (cat === 'event')
+                setCreatorEvents(prev => prev.map(e => ({
+                    ...e,
+                    ...(images['event:' + e.id + ':bg'] ? { image: images['event:' + e.id + ':bg'] } : {}),
+                    ...(images['event:' + e.id + ':avatar'] ? { avatarImage: images['event:' + e.id + ':avatar'] } : {}),
+                })));
         } catch { /* silently ignore — images are non-critical */ }
     }
+
+    // Load ALL image categories at startup — ensures images from publishSharedImage
+    // are always available regardless of which screen the player visits first.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    useEffect(() => { void loadCategory('item'); void loadCategory('pet'); void loadCategory('card'); void loadCategory('jutsu'); void loadCategory('event'); void loadCategory('avatar'); }, []);
 
     // Screen → image categories map
     useEffect(() => {
