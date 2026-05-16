@@ -4258,6 +4258,24 @@ export default function App() {
         setTriggerLine(0);
     }, [activeTriggeredEvent, character, screen, triggeredEvents]);
 
+    // Auto-trigger level-gated creator VN events (eventKind === "visualNovel", no special trigger)
+    useEffect(() => {
+        if (!character || activeTriggeredEvent) return;
+        const candidate = creatorEvents.find(
+            (ev) =>
+                ev.eventKind === "visualNovel" &&
+                !ev.trigger &&
+                !triggeredEvents.includes(ev.id) &&
+                character.level >= ev.levelReq
+        );
+        if (!candidate) return;
+        setTriggeredEvents((ids) => [...ids, candidate.id]);
+        setActiveTriggeredEvent(candidate);
+        setActiveTriggerReturnScreen(screen);
+        setTriggerPage(0);
+        setTriggerLine(0);
+    }, [activeTriggeredEvent, character, creatorEvents, screen, triggeredEvents]);
+
     useEffect(() => {
         const interval = setInterval(() => {
             setCharacter((prev) => {
@@ -15078,11 +15096,11 @@ function WorldMap({
                 ))}
             </div>
 
-            {creatorEvents.length > 0 && (
+            {creatorEvents.filter(e => e.eventKind !== "visualNovel").length > 0 && (
                 <div className="summary-box creator-event-list">
                     <h3>Admin Events</h3>
                     <div className="location-grid">
-                        {creatorEvents.map((event) => (
+                        {creatorEvents.filter(e => e.eventKind !== "visualNovel").map((event) => (
                             <button
                                 key={event.id}
                                 className="location-button"
