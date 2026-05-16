@@ -13623,18 +13623,19 @@ button.combat-jutsu-button,
     height: 44px !important;
   }
 
-  /* Hex battlefield — now gets plenty of room */
+  /* Hex battlefield — block layout so JS margin-centering works reliably */
   .arena-fullscreen .hex-battlefield {
+    display: block !important;      /* override CSS-grid centering; JS handles it */
     height: clamp(280px, 46dvh, 420px) !important;
     min-height: 260px !important;
     max-height: 420px !important;
     overflow: hidden !important;
-    padding: 8px !important;
+    padding: 0 !important;
   }
 
-  /* Fix transform-origin so scale stays centred (top center was cutting off top rows) */
+  /* JS sets transform-origin: top left and margins — don't fight it */
   .arena-fullscreen .hex-grid-layer {
-    transform-origin: center center !important;
+    transform-origin: top left !important;
   }
 }
 
@@ -13643,7 +13644,7 @@ button.combat-jutsu-button,
     height: clamp(250px, 42dvh, 360px) !important;
     min-height: 240px !important;
     max-height: 360px !important;
-    padding: 4px !important;
+    padding: 0 !important;
   }
 
   .arena-fullscreen .combat-side-hud {
