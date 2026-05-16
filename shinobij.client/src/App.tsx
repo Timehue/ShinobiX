@@ -4371,6 +4371,9 @@ export default function App() {
                 const img = images['avatar:' + prev.name.toLowerCase()];
                 return img ? { ...prev, avatarImage: img } : prev;
             });
+        else if (cat === 'ai')
+            setCreatorAis(prev => prev.map(ai =>
+                images['ai:' + ai.id] ? { ...ai, image: images['ai:' + ai.id] } : ai));
     }
 
     async function loadCategory(cat: string) {
@@ -4388,7 +4391,7 @@ export default function App() {
     // Load ALL image categories at startup — ensures images from publishSharedImage
     // are always available regardless of which screen the player visits first.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    useEffect(() => { void loadCategory('item'); void loadCategory('pet'); void loadCategory('card'); void loadCategory('jutsu'); void loadCategory('event'); void loadCategory('avatar'); }, []);
+    useEffect(() => { void loadCategory('item'); void loadCategory('pet'); void loadCategory('card'); void loadCategory('jutsu'); void loadCategory('event'); void loadCategory('avatar'); void loadCategory('ai'); }, []);
 
     // Screen → image categories map
     useEffect(() => {
@@ -4397,9 +4400,10 @@ export default function App() {
         else if (screen === 'jutsuTraining')                    { void loadCategory('jutsu'); }
         else if (screen === 'shop' || screen === 'profile' || screen === 'inventory' || screen === 'adminPanel') {
             void loadCategory('item');
+            void loadCategory('ai');
         }
         else if (screen === 'shinobiTiles')                     { void loadCategory('card'); }
-        else if (screen === 'arena' || screen === 'battleArena'){ void loadCategory('avatar'); void loadCategory('jutsu'); }
+        else if (screen === 'arena' || screen === 'battleArena'){ void loadCategory('avatar'); void loadCategory('jutsu'); void loadCategory('ai'); }
         else if (screen === 'storyHall')                        { void loadCategory('event'); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [screen]);
@@ -7420,6 +7424,10 @@ function AdminPanel({
         setAiBulkErrors([]);
         const errors: { id: string; name: string; error: string }[] = [];
 
+        // Track live state locally (mirrors runBulkGeneration's "live" pattern)
+        // so each iteration builds on the previous and onSave sees the final state.
+        let liveAis = [...creatorAis];
+
         for (let i = 0; i < toProcess.length; i++) {
             const ai = toProcess[i];
             setAiBulkProgress({ current: i + 1, total: toProcess.length, aiName: ai.name });
@@ -7437,14 +7445,17 @@ function AdminPanel({
                 if (!response.ok) throw new Error((data.error as string) || `Status ${response.status}`);
                 if (!data.image) throw new Error("No image returned.");
                 const image = await compressDataUrl(data.image as string, 512, 0.82);
-                // Update creatorAis if it's a creator AI, otherwise add an override
-                const isCreator = creatorAis.some(a => a.id === ai.id);
-                if (isCreator) {
-                    setCreatorAis(prev => prev.map(a => a.id === ai.id ? { ...a, image } : a));
+
+                // Update local array — if AI is already in creatorAis update it, else add override
+                if (liveAis.some(a => a.id === ai.id)) {
+                    liveAis = liveAis.map(a => a.id === ai.id ? { ...a, image } : a);
                 } else {
-                    setCreatorAis(prev => [...prev, { ...ai, image }]);
+                    liveAis = [...liveAis, { ...ai, image }];
                 }
-                publishSharedImage('ai:' + ai.id, image);
+                // Push updated array to React state so UI refreshes after each AI
+                setCreatorAis(liveAis);
+                // Persist to shared KV (all players see the image on next load)
+                await publishSharedImage('ai:' + ai.id, image);
             } catch (err) {
                 errors.push({ id: ai.id, name: ai.name, error: err instanceof Error ? err.message : "Failed" });
             }
@@ -7454,7 +7465,8 @@ function AdminPanel({
         setAiBulkProgress(null);
         setAiBulkRunning(false);
         setAiBulkSelections([]);
-        try { await onSave(); } catch { /* ignore if no account */ }
+        // onSaveRef.current now closes over the updated creatorAis via re-renders
+        try { await onSaveRef.current(); } catch { /* ignore if no account */ }
     }
 
     const [previewVn, setPreviewVn] = useState<CreatorEvent | null>(null);
@@ -7674,9 +7686,11 @@ function AdminPanel({
 
     function applyAiImage(image: string) {
         setAiImage(image);
-        publishSharedImage('ai:' + editingAiId, image);
         if (!editingAiId) return;
+        // Update creatorAis state so the arena sees the image immediately
         setCreatorAis(creatorAis.map((ai) => ai.id === editingAiId ? { ...ai, image } : ai));
+        // Persist to shared KV + update local sharedImages so sImg resolves immediately
+        publishImage('ai:' + editingAiId, image);
     }
 
     function jutsuFromForm(id = `admin-${makeId()}`) {
@@ -17047,7 +17061,7 @@ function Arena({
     const enemyArmorFactor = opponentCharacter ? getCharacterArmorFactor(opponentCharacter, allItems) : 1.0;
     const opponentLevel = opponentCharacter?.level ?? pendingAiProfile?.level ?? aiLevel;
     const opponentName = opponentCharacter?.name ?? pendingAiProfile?.name ?? `Level ${aiLevel} AI Ninja`;
-    const opponentAvatar = opponentCharacter?.avatarImage || pendingAiProfile?.image || pendingAiProfile?.icon || "EN";
+    const opponentAvatar = opponentCharacter?.avatarImage || sImg('ai:' + pendingAiProfileId) || pendingAiProfile?.image || pendingAiProfile?.icon || "EN";
     const enemyMaxHp = opponentCharacter?.maxHp ?? pendingAiProfile?.hp ?? maxHpForLevel(opponentLevel);
     const enemyMaxChakra = opponentCharacter?.maxChakra ?? pendingAiProfile?.chakra ?? maxChakraForLevel(opponentLevel);
     const enemyMaxStamina = opponentCharacter?.maxStamina ?? pendingAiProfile?.stamina ?? maxStaminaForLevel(opponentLevel);
