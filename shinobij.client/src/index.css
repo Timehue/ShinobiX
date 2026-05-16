@@ -9366,15 +9366,16 @@ textarea {
     }
 
     .arena-fullscreen .hex-grid-layer {
-        position: relative !important;
-        margin: 0 auto !important;
-        transform-origin: center center !important;
+        position: absolute !important;
+        margin: 0 !important;
+        transform-origin: top left !important;
     }
 
     .arena-fullscreen .hex-tile {
         position: absolute !important;
         margin-left: 0 !important;
         margin-top: 0 !important;
+        transform: none !important;
     }
 
         .arena-fullscreen .hex-tile:nth-child(24n+13),
@@ -9701,8 +9702,9 @@ button.combat-jutsu-button,
 }
 
 .arena-fullscreen .hex-grid-layer {
-    position: relative !important;
-    margin: auto !important;
+    position: absolute !important;
+    margin: 0 !important;
+    transform-origin: top left !important;
 }
 
 .shinobi-command-bar,
@@ -13633,9 +13635,11 @@ button.combat-jutsu-button,
     padding: 0 !important;
   }
 
-  /* JS sets transform-origin: top left and margins — don't fight it */
+  /* JS sets transform-origin: top left and left/top — don't fight it */
   .arena-fullscreen .hex-grid-layer {
+    position: absolute !important;
     transform-origin: top left !important;
+    margin: 0 !important;
   }
 }
 
