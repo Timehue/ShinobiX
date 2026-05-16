@@ -31,6 +31,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'GET') {
         const messages = await kv.get<ChatMessage[]>(key) ?? [];
         const fresh = messages.filter(m => Date.now() - m.ts < MSG_TTL_MS);
+        // X-Message-Count lets the client skip JSON parsing when nothing changed
+        res.setHeader('X-Message-Count', String(fresh.length));
+        // Don't cache chat — always fresh, but no-store avoids CDN storing it
+        res.setHeader('Cache-Control', 'no-store');
         return res.status(200).json(fresh);
     }
 
