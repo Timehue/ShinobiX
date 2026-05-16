@@ -17,6 +17,7 @@ const KNOWN_PREFIXES: Record<string, string> = {
     event:     'event',
     bloodline: 'bloodline',
     vn:        'event',   // visual-novel pages share the event category
+    ai:        'ai',
 };
 
 function categoryFromId(id: string): string {
