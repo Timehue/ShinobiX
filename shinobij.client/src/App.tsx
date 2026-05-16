@@ -7330,7 +7330,7 @@ function AdminPanel({
     const [eventName, setEventName] = useState("Admin World Event");
     const [editingEventId, setEditingEventId] = useState("");
     const [eventKind, setEventKind] = useState<"reward" | "visualNovel">("visualNovel");
-    const [eventTrigger, setEventTrigger] = useState<"manual" | "firstBattleArena" | "firstLeaveVillage">("manual");
+    const [eventTrigger, setEventTrigger] = useState<"" | "manual" | "firstBattleArena" | "firstLeaveVillage">("");
     const [eventBiome, setEventBiome] = useState<Biome>("central");
     const [eventVnTitle, setEventVnTitle] = useState("A Stranger at the Gate");
     const [eventVnScene, setEventVnScene] = useState("Rain taps against the village rooftops while an unknown shinobi waits beneath the lanterns.");
@@ -7651,7 +7651,7 @@ function AdminPanel({
             biome: eventBiome,
             icon: eventIcon || "✦",
             eventKind,
-            trigger: eventTrigger,
+            trigger: eventTrigger || undefined,
             vnTitle: eventVnTitle.trim() || eventName.trim() || "Visual Novel Scene",
             vnScene: eventVnScene.trim(),
             vnSpeaker: eventVnSpeaker.trim() || "Narrator",
@@ -7694,7 +7694,7 @@ function AdminPanel({
         setEditingEventId(event.id);
         setEventName(event.name);
         setEventKind(event.eventKind ?? "reward");
-        setEventTrigger(event.trigger ?? "manual");
+        setEventTrigger(event.trigger ?? "");
         setEventBiome(event.biome);
         setEventIcon(event.icon);
         setEventVnTitle(event.vnTitle ?? event.name);
@@ -8162,7 +8162,7 @@ function AdminPanel({
                             <h3>World Event Builder</h3>
                             <label>Event Name</label><input value={eventName} onChange={(e) => setEventName(e.target.value)} />
                             <label>AI To Fight</label><select value={eventAiProfileId} onChange={(e) => setEventAiProfileId(e.target.value)}><option value="">Default Arena AI</option>{allAdminAis.map((ai) => <option key={ai.id} value={ai.id}>{ai.name} | Level {ai.level}</option>)}</select>
-                            <label>Trigger</label><select value={eventTrigger} onChange={(e) => setEventTrigger(e.target.value as "manual" | "firstBattleArena" | "firstLeaveVillage")}><option value="manual">Manual: World Map Admin Event</option><option value="firstBattleArena">First time clicking Battle Arena</option><option value="firstLeaveVillage">First time leaving the Village</option></select>
+                            <label>Trigger</label><select value={eventTrigger} onChange={(e) => setEventTrigger(e.target.value as "" | "manual" | "firstBattleArena" | "firstLeaveVillage")}><option value="manual">Manual: World Map Admin Event</option><option value="firstBattleArena">First time clicking Battle Arena</option><option value="firstLeaveVillage">First time leaving the Village</option></select>
                             <label>Biome</label><select value={eventBiome} onChange={(e) => setEventBiome(e.target.value as Biome)}><option value="central">central</option><option value="forest">forest</option><option value="volcano">volcano</option><option value="snow">snow</option><option value="shadow">shadow</option></select>
                             <label>Icon</label><input value={eventIcon} onChange={(e) => setEventIcon(e.target.value)} />
                             <label>Event Image</label>
@@ -8316,7 +8316,7 @@ function AdminPanel({
                             <label>Scene Description</label><textarea value={eventVnScene} onChange={(e) => setEventVnScene(e.target.value)} rows={3} />
                             <label>Default Speaker</label><input value={eventVnSpeaker} onChange={(e) => setEventVnSpeaker(e.target.value)} />
                             <label>AI To Fight (after VN)</label><select value={eventAiProfileId} onChange={(e) => setEventAiProfileId(e.target.value)}><option value="">Default Arena AI</option>{allAdminAis.map((ai) => <option key={ai.id} value={ai.id}>{ai.name} | Level {ai.level}</option>)}</select>
-                            <label>Trigger</label><select value={eventTrigger} onChange={(e) => setEventTrigger(e.target.value as "manual" | "firstBattleArena" | "firstLeaveVillage")}><option value="manual">Manual: World Map</option><option value="firstBattleArena">First Battle Arena click</option><option value="firstLeaveVillage">First Village exit</option></select>
+                            <label>Trigger</label><select value={eventTrigger} onChange={(e) => setEventTrigger(e.target.value as "" | "manual" | "firstBattleArena" | "firstLeaveVillage")}><option value="">Automatic (when level is reached)</option><option value="firstBattleArena">First Battle Arena click</option><option value="firstLeaveVillage">First Village exit</option></select>
                             <label>Biome</label><select value={eventBiome} onChange={(e) => setEventBiome(e.target.value as Biome)}><option value="central">central</option><option value="forest">forest</option><option value="volcano">volcano</option><option value="snow">snow</option><option value="shadow">shadow</option></select>
                             <label>Icon</label><input value={eventIcon} onChange={(e) => setEventIcon(e.target.value)} />
                             <label>Backdrop Image</label>
