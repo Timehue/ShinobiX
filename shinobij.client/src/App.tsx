@@ -7150,23 +7150,19 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                             <input value={opponentSearch} onChange={(e) => { setOpponentSearch(e.target.value); setPetChallengeMsg(""); }} placeholder="Search by player name" />
                         </>
                     )}
-                    {opponentPets.length > 0 ? (
-                        <select value={selectedOpponentKey} onChange={(e) => setSelectedOpponentKey(e.target.value)}>
-                            {opponentPets.map((entry) => <option key={`${entry.owner}:${entry.pet.id}`} value={`${entry.owner}:${entry.pet.id}`}>{entry.owner}: {entry.pet.name} | Lv {entry.pet.level}</option>)}
-                        </select>
-                    ) : opponentMode === "player" && opponentSearch.trim() ? (
+                    {opponentMode === "player" && opponentSearch.trim() ? (
                         <div>
                             {(() => {
                                 const q = opponentSearch.trim().toLowerCase();
-                                const offlineMatches = allServerPlayers.filter(p => p.name.toLowerCase().includes(q) && !p.online);
-                                if (offlineMatches.length > 0) {
+                                const matches = allServerPlayers.filter(p => p.name.toLowerCase().includes(q));
+                                if (matches.length > 0) {
                                     return (
                                         <>
-                                            <p className="hint">Offline players matching "{opponentSearch.trim()}":</p>
-                                            {offlineMatches.map(p => (
-                                                <div key={p.name} style={{ marginBottom: 4 }}>
-                                                    <strong>{p.name}</strong> <span className="hint">Lv {p.level} · {p.village || "Unknown"} · Offline</span>
-                                                    <button style={{ marginLeft: 8 }} onClick={() => { setOpponentSearch(p.name); sendDirectPetChallenge(p.name, selectedPet?.id); }}>🐾 Challenge</button>
+                                            {matches.map(p => (
+                                                <div key={p.name} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, flexWrap: "wrap" }}>
+                                                    <strong>{p.name}</strong>
+                                                    <span className="hint">Lv {p.level} · {p.village || "Unknown"} · {p.online ? "🟢 Online" : "⚫ Offline"}</span>
+                                                    <button onClick={() => sendDirectPetChallenge(p.name, selectedPet?.id)}>🐾 Challenge</button>
                                                 </div>
                                             ))}
                                             {petChallengeMsg && <p className="hint" style={{ color: petChallengeMsg.startsWith("✅") ? "#4ade80" : "#f87171", marginTop: 6 }}>{petChallengeMsg}</p>}
@@ -7175,13 +7171,17 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                                 }
                                 return (
                                     <>
-                                        <p className="hint">No player found for "{opponentSearch.trim()}". Send them a challenge — they'll see it on their next login.</p>
-                                        <button onClick={() => sendDirectPetChallenge(opponentSearch.trim(), selectedPet?.id)}>🐾 Challenge "{opponentSearch.trim()}" to a Pet Battle</button>
+                                        <p className="hint">No account found for "{opponentSearch.trim()}". Challenge by name — they'll see it on their next login.</p>
+                                        <button onClick={() => sendDirectPetChallenge(opponentSearch.trim(), selectedPet?.id)}>🐾 Challenge "{opponentSearch.trim()}"</button>
                                         {petChallengeMsg && <p className="hint" style={{ color: petChallengeMsg.startsWith("✅") ? "#4ade80" : "#f87171", marginTop: 6 }}>{petChallengeMsg}</p>}
                                     </>
                                 );
                             })()}
                         </div>
+                    ) : opponentPets.length > 0 ? (
+                        <select value={selectedOpponentKey} onChange={(e) => setSelectedOpponentKey(e.target.value)}>
+                            {opponentPets.map((entry) => <option key={`${entry.owner}:${entry.pet.id}`} value={`${entry.owner}:${entry.pet.id}`}>{entry.owner}: {entry.pet.name} | Lv {entry.pet.level}</option>)}
+                        </select>
                     ) : (
                         <p className="hint">No matching player pets found. Type a player's name to challenge them, or switch to Fight AI.</p>
                     )}
