@@ -36,9 +36,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 lastSeen: Date.now(),
             };
 
+            // ?signal=1: admin edit — force client to reload from KV on next heartbeat
+            const forceReload = req.query.signal === '1';
+
             await Promise.all([
                 kv.set(key, payload),
                 kv.hset(REGISTRY_KEY, { [name]: JSON.stringify(registryEntry) }),
+                forceReload ? kv.set(`reset-signal:${name.toLowerCase()}`, 1, { ex: 300 }) : Promise.resolve(),
             ]);
             return res.status(200).end();
         } catch (err) {
