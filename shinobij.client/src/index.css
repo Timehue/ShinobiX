@@ -13763,6 +13763,82 @@ button.combat-jutsu-button,
     }
 }
 
+/* =====================================================
+   COMBAT — PORTRAIT PHONE VERTICAL SPACE RECLAIM
+   The journey banner + info strips + HUDs consume
+   almost the entire viewport before the hex grid
+   even appears. Hide decorative chrome during combat
+   and give the battlefield the leftover height.
+   ===================================================== */
+
+/* Hide the top banner entirely on all combat screens */
+@media (max-width: 800px) {
+  .screen-arena .journey-banner,
+  .screen-storyBoss .journey-banner,
+  .screen-battleArena .journey-banner,
+  .screen-arenaDistrict .journey-banner {
+    display: none !important;
+  }
+
+  /* Hide the decorative arena title card + terrain/weather strip */
+  .arena-fullscreen .arena-top-panel,
+  .arena-fullscreen .twp-strip {
+    display: none !important;
+  }
+
+  /* Compact the AP bars panel */
+  .arena-fullscreen .dual-ap-panel {
+    padding: 5px 8px !important;
+    margin-bottom: 4px !important;
+    gap: 6px !important;
+    font-size: 11px !important;
+  }
+
+  /* Slim the zoom slider bar */
+  .hex-zoom-bar {
+    padding: 3px 8px !important;
+    margin-bottom: 3px !important;
+  }
+
+  /*
+    Battlefield: fill whatever is left after the compact chrome.
+    Budget (approximate):
+      HUD strip        130px  (max-height from the layout rule above)
+      zoom bar          34px
+      AP panel          34px
+      jutsu bar        130px  (new max-height below)
+      gaps + padding    30px
+      ─────────────────────
+      total non-field  358px  → leave 360 as a safe round number
+  */
+  .arena-fullscreen .hex-battlefield {
+    height: calc(100dvh - 360px) !important;
+    min-height: 260px !important;
+    max-height: none !important;
+    padding: 0 !important;
+  }
+
+  /* Compact jutsu bar — one scrollable row of cards */
+  .arena-fullscreen .jutsu-layout-card,
+  .arena-fullscreen .combat-jutsu-bar {
+    max-height: 130px !important;
+    overflow-y: auto !important;
+  }
+}
+
+/* Extra-small phones (≤520px) */
+@media (max-width: 520px) {
+  .arena-fullscreen .hex-battlefield {
+    height: calc(100dvh - 330px) !important;
+    min-height: 240px !important;
+  }
+
+  .arena-fullscreen .jutsu-layout-card,
+  .arena-fullscreen .combat-jutsu-bar {
+    max-height: 110px !important;
+  }
+}
+
 /* ═══════════════════════════════════════════════════
    Pet Arena — per-action-kind VFX tile overlays
    ═══════════════════════════════════════════════════ */
