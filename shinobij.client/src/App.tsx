@@ -4023,8 +4023,9 @@ export default function App() {
                 }
                 if (data.pendingChallenges?.length) {
                     setDuelChallenges((current) => {
+                        const myNameLower = char.name.toLowerCase();
                         const incoming = data.pendingChallenges!
-                            .filter((challenge) => challenge.toName === char.name)
+                            .filter((challenge) => challenge.toName.toLowerCase() === myNameLower)
                             .map((challenge) => ({ ...challenge, challenger: normalizeCharacter(challenge.challenger) }));
                         const fresh = incoming.filter((challenge) => !current.some((existing) => existing.id === challenge.id));
                         return fresh.length ? [...current, ...fresh] : current;
@@ -4053,7 +4054,7 @@ export default function App() {
     // immediately route us to the arena as the defender (no accept/decline required).
     useEffect(() => {
         if (!character) return;
-        const incoming = duelChallenges.find(c => c.toName === character.name && c.sectorAttack);
+        const incoming = duelChallenges.find(c => c.toName.toLowerCase() === character.name.toLowerCase() && c.sectorAttack);
         if (!incoming) return;
         setDuelChallenges(duelChallenges.filter(c => c.id !== incoming.id));
         setPendingPvpOpponent(normalizeCharacter(incoming.challenger));
@@ -7935,11 +7936,13 @@ function AdminPanel({
         setPmSnap(null);
         try {
             const res = await fetch(`/api/save/${encodeURIComponent(pmTargetName.trim().toLowerCase())}`);
-            if (!res.ok) { setPmMsg("No save found for that name."); return; }
-            const data = await res.json();
+            if (res.status === 404) { setPmMsg("⚠️ No server save found for that name (player may use local-only save)."); return; }
+            if (!res.ok) { setPmMsg(`❌ Server error ${res.status} — check the player name and try again.`); return; }
+            let data: Record<string, unknown>;
+            try { data = await res.json(); } catch { setPmMsg("❌ Save exists but response was not valid JSON."); return; }
             setPmSnap(data);
-            setPmMsg(`Loaded: ${pmTargetName.trim()}`);
-        } catch { setPmMsg("Error fetching save."); }
+            setPmMsg(`✅ Loaded: ${pmTargetName.trim()}`);
+        } catch { setPmMsg("❌ Network error — make sure you're on the deployed site, not local dev."); }
     }
 
     async function pmGive() {
@@ -10512,7 +10515,7 @@ function AdminPanel({
                                 />
                                 <button onClick={pmLookup}>Look Up</button>
                             </div>
-                            {pmMsg && <p className="hint" style={{ color: pmMsg.startsWith("✅") ? "#4ade80" : pmMsg.startsWith("❌") ? "#f87171" : undefined }}>{pmMsg}</p>}
+                            {pmMsg && <p className="hint" style={{ color: pmMsg.startsWith("✅") ? "#4ade80" : pmMsg.startsWith("❌") ? "#f87171" : pmMsg.startsWith("⚠️") ? "#fbbf24" : undefined }}>{pmMsg}</p>}
 
                             {pmChar && (
                                 <>
@@ -10539,13 +10542,29 @@ function AdminPanel({
 
                                     <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
                                         <button onClick={pmGive}>✅ Give &amp; Save</button>
-                                        <button
-                                            className="danger-button"
-                                            onClick={pmReset}
-                                        >🗑️ Reset Account to Zero</button>
                                     </div>
                                 </>
                             )}
+                        </section>
+
+                        {/* ── Reset Account ── */}
+                        <section className="summary-box" style={{ borderColor: "#7f1d1d" }}>
+                            <h4>🗑️ Reset Player Account</h4>
+                            <p className="hint">Wipes the server save entirely. The player will start fresh on next login. This cannot be undone.</p>
+                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                                <input
+                                    style={{ flex: 1, minWidth: 160 }}
+                                    value={pmTargetName}
+                                    onChange={e => setPmTargetName(e.target.value)}
+                                    placeholder="Player name (exact)"
+                                />
+                                <button
+                                    className="danger-button"
+                                    disabled={!pmTargetName.trim()}
+                                    onClick={pmReset}
+                                >🗑️ Reset Account to Zero</button>
+                            </div>
+                            <p className="hint" style={{ color: "#fbbf24" }}>⚠️ You do not need to look up the save first — reset works by name alone.</p>
                         </section>
 
                         {/* ── Named Weapons / Armor with Images ── */}
@@ -17746,7 +17765,7 @@ function Arena({
             : [];
     const playerSearchMatches = (player: PlayerRecord, search: string) =>
         player.name !== character.name && player.name.toLowerCase().includes(search.trim().toLowerCase());
-    const incomingChallenges = duelChallenges.filter((challenge) => challenge.toName === character.name);
+    const incomingChallenges = duelChallenges.filter((challenge) => challenge.toName.toLowerCase() === character.name.toLowerCase());
     const rollInitiative = () => (character.stats.speed + character.stats.willpower * 0.4 >= enemyCombatStats.speed + enemyCombatStats.willpower * 0.4 ? "player" : "enemy") as BattleActor;
 
     const [playerPos, setPlayerPos] = useState(62);
