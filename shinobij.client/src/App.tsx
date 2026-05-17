@@ -5305,7 +5305,7 @@ export default function App() {
                         acceptedMissionIds={acceptedMissionIds}
                         missionProgress={missionProgress}
                         sharedImages={sharedImages}
-                        sectorAttackPlayer={async (opponent) => {
+                        sectorAttackPlayer={(opponent) => {
                             // Sector PvP — immediate mutual engagement, defender auto-routed
                             const challenge: DuelChallenge = {
                                 id: makeId(),
@@ -5317,15 +5317,13 @@ export default function App() {
                                 sectorAttack: true,
                             };
                             setDuelChallenges([...duelChallenges, challenge]);
-                            try {
-                                await fetch('/api/player/attack', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ targetName: opponent.name, attacker: character }),
-                                });
-                            } catch { /* local PvP still starts for the attacker */ }
                             setPendingPvpOpponent(normalizeCharacter(opponent.character));
                             setRaidBattleKind("raidPlayer");
+                            fetch('/api/player/attack', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ targetName: opponent.name, attacker: character }),
+                            }).catch(() => { /* defender notification best-effort */ });
                         }}
                     />
                 )}
