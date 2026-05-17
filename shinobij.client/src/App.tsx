@@ -4055,7 +4055,14 @@ export default function App() {
                         const snap = await saveRes.json() as { character?: Character };
                         if (snap.character) setCharacter(normalizeCharacter(snap.character));
                     } else {
-                        // Save was deleted — log out so they start fresh on next login
+                        // Save was deleted (account reset) — also clear localStorage so the
+                        // stale level-100 snapshot can't be reloaded on the next login.
+                        const lsKey = accountKey(accountName);
+                        if (lsKey) {
+                            const accounts = loadPlayerAccounts();
+                            delete accounts[lsKey];
+                            savePlayerAccounts(accounts);
+                        }
                         setCharacter(null);
                         setCurrentAccountName("");
                         setScreen("start");
@@ -4774,9 +4781,23 @@ export default function App() {
         }
 
         // Always pull the full server save — this is where images and latest state live
-        const serverSnapshot = await pullSaveFromServer(name);
-        if (serverSnapshot) {
+        const saveRes = await fetch(`/api/save/${encodeURIComponent(name.toLowerCase())}`);
+        if (saveRes.ok) {
+            const serverSnapshot = await saveRes.json() as ReturnType<typeof buildPlayerSavePayload>;
             applyServerSnapshot(serverSnapshot);
+        } else if (saveRes.status === 404) {
+            // Account was reset — clear the stale localStorage snapshot so it can't
+            // be reloaded and overwrite the fresh start on next login.
+            const lsKey = accountKey(name);
+            if (lsKey) {
+                const accounts = loadPlayerAccounts();
+                delete accounts[lsKey];
+                savePlayerAccounts(accounts);
+            }
+            setCharacter(null);
+            setCurrentAccountName("");
+            setScreen("start");
+            alert(`The account "${name}" has been reset. Please create a new character.`);
         } else if (!account) {
             alert("No save found for that name. Check spelling or create a new character.");
         }
@@ -10972,17 +10993,38 @@ function AdminPanel({
                                                 </div>
                                             </div>
                                         )}
-                                        {/* Inventory */}
+                                        {/* Inventory — stacked by item ID */}
                                         {inventory.length > 0 && (
                                             <div>
                                                 <p style={{ fontSize: "0.8rem", color: "#94a3b8", marginBottom: 4 }}>🎒 Inventory ({inventory.length} items)</p>
                                                 <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                                                    {inventory.map((itemId, idx) => (
-                                                        <div key={idx} style={{ display: "flex", alignItems: "center", gap: 4, background: "#1e293b", border: "1px solid #334155", borderRadius: 4, padding: "2px 6px", fontSize: "0.75rem" }}>
-                                                            <span>{itemName(itemId)}</span>
-                                                            <button onClick={() => removeInventoryItem(idx)} style={{ fontSize: "0.65rem", padding: "1px 5px", background: "#7f1d1d", borderColor: "#ef4444", color: "#fca5a5" }}>✕</button>
-                                                        </div>
-                                                    ))}
+                                                    {(() => {
+                                                        const stacked: { itemId: string; indices: number[] }[] = [];
+                                                        inventory.forEach((id, idx) => {
+                                                            const s = stacked.find(x => x.itemId === id);
+                                                            if (s) s.indices.push(idx); else stacked.push({ itemId: id, indices: [idx] });
+                                                        });
+                                                        return stacked.map(({ itemId, indices }) => {
+                                                            const count = indices.length;
+                                                            const removeOne = () => {
+                                                                const newInv = inventory.filter((_, i) => i !== indices[indices.length - 1]);
+                                                                void pmEditPatch({ ...pmEditSnap!, character: { ...char, inventory: newInv } });
+                                                            };
+                                                            const removeAll = () => {
+                                                                const set = new Set(indices);
+                                                                const newInv = inventory.filter((_, i) => !set.has(i));
+                                                                void pmEditPatch({ ...pmEditSnap!, character: { ...char, inventory: newInv } });
+                                                            };
+                                                            return (
+                                                                <div key={itemId} style={{ display: "flex", alignItems: "center", gap: 4, background: "#1e293b", border: "1px solid #334155", borderRadius: 4, padding: "2px 6px", fontSize: "0.75rem" }}>
+                                                                    <span>{itemName(itemId)}</span>
+                                                                    {count > 1 && <span style={{ background: "#334155", borderRadius: 8, padding: "0 5px", fontSize: "0.65rem", color: "#94a3b8" }}>×{count}</span>}
+                                                                    <button onClick={removeOne} title="Remove one" style={{ fontSize: "0.65rem", padding: "1px 5px", background: "#7f1d1d", borderColor: "#ef4444", color: "#fca5a5" }}>✕1</button>
+                                                                    {count > 1 && <button onClick={removeAll} title={`Remove all ${count}`} style={{ fontSize: "0.65rem", padding: "1px 5px", background: "#7f1d1d", borderColor: "#ef4444", color: "#fca5a5" }}>✕{count}</button>}
+                                                                </div>
+                                                            );
+                                                        });
+                                                    })()}
                                                 </div>
                                             </div>
                                         )}
