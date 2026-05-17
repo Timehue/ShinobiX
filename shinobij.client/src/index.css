@@ -2,6 +2,226 @@
     box-sizing: border-box;
 }
 
+/* Final mobile map/menu pass: preserve real maps and stop portrait menus clipping. */
+@media (max-width: 800px) {
+    html,
+    body,
+    #root,
+    .game {
+        height: auto !important;
+        min-height: 100dvh !important;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+    }
+
+    .center-game {
+        height: auto !important;
+        min-height: 100dvh !important;
+        overflow: visible !important;
+        padding: 8px 8px calc(112px + env(safe-area-inset-bottom, 0px)) !important;
+    }
+
+    .center-game > .card,
+    .center-game > .creator-card,
+    .center-game > .admin-subpanel,
+    .center-game > .bloodline-maker-screen,
+    .center-game > .profile-card,
+    .center-game > .cinematic-card,
+    .profile-build-panel,
+    .summary-box {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        overflow: visible !important;
+    }
+
+    .world-map-scroll {
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        -webkit-overflow-scrolling: touch !important;
+        overscroll-behavior-x: contain !important;
+        border-radius: 12px !important;
+        padding-bottom: 6px !important;
+    }
+
+    .world-map-scroll .anime-world-map,
+    .world-map-scroll .atlas-world-map,
+    .world-map-scroll .generated-world-map {
+        flex: 0 0 auto !important;
+        width: 900px !important;
+        min-width: 900px !important;
+        max-width: none !important;
+        height: 620px !important;
+        min-height: 620px !important;
+        max-height: none !important;
+        aspect-ratio: auto !important;
+        transform: none !important;
+        background-size: 100% 100% !important;
+        background-position: center center !important;
+    }
+
+    .world-map-scroll .atlas-sector {
+        width: 54px !important;
+        height: 54px !important;
+        min-width: 54px !important;
+        min-height: 54px !important;
+        font-size: 24px !important;
+        line-height: 1 !important;
+    }
+
+    .world-map-scroll .atlas-landmark {
+        min-width: 124px !important;
+        max-width: 168px !important;
+        padding: 8px 10px !important;
+        font-size: 15px !important;
+    }
+
+    .map-instance {
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow-x: auto !important;
+        overflow-y: visible !important;
+        -webkit-overflow-scrolling: touch !important;
+        padding-bottom: 10px !important;
+    }
+
+    .map-instance .instance-frame,
+    .sector-instance-wrap,
+    .map-instance .sector-instance-wrap:has(.instance-info),
+    .map-instance .sector-instance-wrap:not(:has(.instance-info)) {
+        width: 760px !important;
+        min-width: 760px !important;
+        max-width: none !important;
+        height: auto !important;
+        min-height: 720px !important;
+        overflow: visible !important;
+        grid-template-columns: minmax(0, 1fr) 240px !important;
+        grid-template-areas: "scene actions" !important;
+        align-items: start !important;
+    }
+
+    .map-instance .instance-frame > main.tile-scene,
+    .sector-instance-wrap .tile-scene {
+        grid-area: scene !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        height: auto !important;
+        overflow: visible !important;
+    }
+
+    .map-instance .instance-frame > aside.instance-actions,
+    .sector-instance-wrap .instance-actions,
+    .map-instance .sector-instance-wrap:has(.instance-info) > aside.instance-actions,
+    .map-instance .sector-instance-wrap:not(:has(.instance-info)) > aside.instance-actions {
+        grid-area: actions !important;
+        width: 240px !important;
+        min-width: 240px !important;
+        max-width: 240px !important;
+        height: auto !important;
+        max-height: none !important;
+        overflow: visible !important;
+    }
+
+    .walkable-sector-map,
+    .sector-image-map {
+        width: 520px !important;
+        min-width: 520px !important;
+        max-width: 520px !important;
+        height: 720px !important;
+        min-height: 720px !important;
+        max-height: none !important;
+        aspect-ratio: auto !important;
+    }
+
+    .location-grid,
+    .jutsu-list,
+    .tag-grid,
+    .inline-grid,
+    .admin-grid,
+    .start-grid,
+    .profile-summary,
+    .inventory-character-layout,
+    .technique-shell,
+    .pet-stats-grid,
+    .pet-arena-grid {
+        grid-template-columns: 1fr !important;
+        max-width: 100% !important;
+        overflow: visible !important;
+    }
+
+    .stat-grid {
+        grid-template-columns: 1fr !important;
+        max-width: 100% !important;
+        overflow: visible !important;
+    }
+
+    .stat-card,
+    .location-button,
+    .jutsu-card,
+    .summary-box {
+        min-width: 0 !important;
+    }
+
+    .stat-card-input-row,
+    .profile-title-row,
+    .menu {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+    }
+
+    .profile-title-row input,
+    .profile-title-row button,
+    .profile-title-row select,
+    .stat-card-input-row input,
+    .stat-card-input-row button,
+    .menu button,
+    input,
+    select,
+    textarea,
+    button {
+        max-width: 100% !important;
+    }
+}
+
+@media (max-width: 420px) {
+    .world-map-scroll .anime-world-map,
+    .world-map-scroll .atlas-world-map,
+    .world-map-scroll .generated-world-map {
+        width: 840px !important;
+        min-width: 840px !important;
+        height: 580px !important;
+        min-height: 580px !important;
+    }
+
+    .map-instance .instance-frame,
+    .sector-instance-wrap,
+    .map-instance .sector-instance-wrap:has(.instance-info),
+    .map-instance .sector-instance-wrap:not(:has(.instance-info)) {
+        width: 720px !important;
+        min-width: 720px !important;
+        grid-template-columns: minmax(0, 1fr) 220px !important;
+    }
+
+    .walkable-sector-map,
+    .sector-image-map {
+        width: 500px !important;
+        min-width: 500px !important;
+    }
+
+    .map-instance .instance-frame > aside.instance-actions,
+    .sector-instance-wrap .instance-actions,
+    .map-instance .sector-instance-wrap:has(.instance-info) > aside.instance-actions,
+    .map-instance .sector-instance-wrap:not(:has(.instance-info)) > aside.instance-actions {
+        width: 220px !important;
+        min-width: 220px !important;
+        max-width: 220px !important;
+    }
+}
+
 html, body, #root {
     margin: 0;
     min-height: 100%;
@@ -2126,6 +2346,49 @@ button {
     font-style: italic;
 }
 
+.pet-happiness-meter {
+    display: grid;
+    gap: 6px;
+    padding: 8px 10px;
+    border: 1px solid rgba(250, 204, 21, 0.3);
+    border-radius: 10px;
+    background: rgba(2, 6, 23, 0.48);
+}
+
+.pet-happiness-meter-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 0.82rem;
+}
+
+    .pet-happiness-meter-top strong {
+        color: #fef3c7;
+    }
+
+    .pet-happiness-meter-top span {
+        color: #e2e8f0;
+        font-weight: 900;
+    }
+
+.pet-happiness-track {
+    height: 12px;
+    border-radius: 999px;
+    overflow: hidden;
+    background: linear-gradient(90deg, #7f1d1d, #ca8a04 50%, #166534);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+    .pet-happiness-track span {
+        display: block;
+        width: var(--pet-happiness, 0%);
+        height: 100%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, #ef4444, #facc15 50%, #22c55e);
+        box-shadow: 0 0 12px rgba(250, 204, 21, 0.3);
+        transition: width 0.25s ease;
+    }
+
 .pet-training-panel {
     display: flex;
     flex-direction: column;
@@ -3720,6 +3983,40 @@ button {
     .hex-battlefield {
         justify-content: start;
     }
+}
+
+/* Keep same-sector player cards readable in the narrow right sector panel. */
+.map-instance .sector-presence .sector-player-card {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    align-items: center !important;
+    gap: 6px !important;
+    padding: 6px !important;
+}
+
+.map-instance .sector-presence .sector-player-info {
+    min-width: 0 !important;
+    display: grid !important;
+    gap: 1px !important;
+}
+
+.map-instance .sector-presence .sector-player-info strong,
+.map-instance .sector-presence .sector-player-info small {
+    display: block !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    overflow-wrap: normal !important;
+    word-break: normal !important;
+}
+
+.map-instance .sector-presence .sector-player-card button {
+    width: auto !important;
+    min-width: 48px !important;
+    min-height: 24px !important;
+    padding: 3px 6px !important;
+    font-size: 9px !important;
+    line-height: 1 !important;
 }
 /* ===== Shinobi combat skin ===== */
 
@@ -14185,3 +14482,360 @@ button.combat-jutsu-button,
     box-shadow: inset -1px 0 4px rgba(0,0,0,0.5);
 }
 
+/* ===== Desktop combat restore =====
+   Keep the full PC battle chrome visible: title, terrain/weather strip,
+   AP bars, board, actions, and side HUDs. Phone rules below 800px still
+   own the compact mobile combat view. */
+@media (min-width: 801px) {
+    .arena-fullscreen {
+        overflow: visible !important;
+        height: auto !important;
+        max-height: none !important;
+    }
+
+    .arena-fullscreen .combat-layout {
+        display: grid !important;
+        grid-template-columns: minmax(160px, 220px) minmax(0, 1fr) minmax(160px, 220px) !important;
+        grid-template-rows: auto !important;
+        gap: clamp(8px, 1vw, 14px) !important;
+        align-items: start !important;
+        overflow: visible !important;
+    }
+
+    .arena-fullscreen .combat-layout > .combat-side-hud:first-child {
+        grid-column: 1 !important;
+        grid-row: 1 !important;
+    }
+
+    .arena-fullscreen .combat-layout > .combat-main-area {
+        grid-column: 2 !important;
+        grid-row: 1 !important;
+        display: block !important;
+        min-width: 0 !important;
+        overflow: visible !important;
+        order: 0 !important;
+    }
+
+    .arena-fullscreen .combat-layout > .combat-side-hud:last-child {
+        grid-column: 3 !important;
+        grid-row: 1 !important;
+    }
+
+    .arena-fullscreen .combat-side-hud {
+        position: sticky !important;
+        top: 90px !important;
+        width: auto !important;
+        max-width: none !important;
+        max-height: none !important;
+        overflow: visible !important;
+    }
+
+    .arena-fullscreen .arena-top-panel {
+        display: grid !important;
+        margin-bottom: 10px !important;
+    }
+
+    .arena-fullscreen .twp-strip {
+        display: flex !important;
+        margin-bottom: 8px !important;
+    }
+
+    .arena-fullscreen .dual-ap-panel {
+        display: grid !important;
+        grid-template-columns: 1fr auto 1fr !important;
+        margin-bottom: 10px !important;
+    }
+
+    .arena-fullscreen .hex-zoom-bar {
+        display: none !important;
+    }
+
+    .arena-fullscreen .hex-battlefield {
+        height: clamp(420px, 52dvh, 520px) !important;
+        min-height: clamp(420px, 52dvh, 520px) !important;
+        max-height: none !important;
+        margin-bottom: 12px !important;
+        overflow: hidden !important;
+    }
+
+    .arena-fullscreen .battle-command-panel,
+    .arena-fullscreen .jutsu-layout-card,
+    .arena-fullscreen .combat-jutsu-bar {
+        display: grid !important;
+        visibility: visible !important;
+    }
+}
+
+/* ===== Mobile combat scroll restore =====
+   Let phone players scroll through the full command and jutsu/item controls.
+   Earlier mobile combat rules lock the arena to 100dvh and hide overflow,
+   which traps content below the battlefield. */
+@media (max-width: 800px) {
+    body:has(.arena-fullscreen),
+    .game:has(.arena-fullscreen),
+    .center-game:has(.arena-fullscreen) {
+        overflow-y: auto !important;
+        height: auto !important;
+        max-height: none !important;
+    }
+
+    .center-game:has(.arena-fullscreen) {
+        padding-bottom: calc(78px + env(safe-area-inset-bottom)) !important;
+    }
+
+    .arena-fullscreen {
+        height: auto !important;
+        min-height: 100dvh !important;
+        max-height: none !important;
+        overflow: visible !important;
+        display: block !important;
+    }
+
+    .arena-fullscreen .combat-layout {
+        min-height: 0 !important;
+        overflow: visible !important;
+    }
+
+    .arena-fullscreen .combat-layout > .combat-main-area {
+        display: block !important;
+        min-height: 0 !important;
+        overflow: visible !important;
+    }
+
+    .arena-fullscreen .hex-battlefield {
+        height: clamp(260px, 48dvh, 430px) !important;
+        min-height: 260px !important;
+        max-height: none !important;
+        margin-bottom: 8px !important;
+        flex: none !important;
+    }
+
+    .arena-fullscreen .basic-action-bar,
+    .arena-fullscreen .shinobi-command-bar {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        max-height: none !important;
+        overflow: visible !important;
+    }
+
+    .arena-fullscreen .jutsu-layout-card,
+    .arena-fullscreen .combat-jutsu-bar {
+        max-height: none !important;
+        overflow: visible !important;
+    }
+}
+
+/* Final mobile map/menu pass: keep this at EOF so it wins over older mobile patches. */
+@media (max-width: 800px) {
+    html,
+    body,
+    #root,
+    .game {
+        height: auto !important;
+        min-height: 100dvh !important;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+    }
+
+    .center-game {
+        height: auto !important;
+        min-height: 100dvh !important;
+        overflow: visible !important;
+        padding: 8px 8px calc(112px + env(safe-area-inset-bottom, 0px)) !important;
+    }
+
+    .center-game > .card,
+    .center-game > .creator-card,
+    .center-game > .admin-subpanel,
+    .center-game > .bloodline-maker-screen,
+    .center-game > .profile-card,
+    .center-game > .cinematic-card,
+    .profile-build-panel,
+    .summary-box {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        overflow: visible !important;
+    }
+
+    .world-map-scroll {
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        -webkit-overflow-scrolling: touch !important;
+        overscroll-behavior-x: contain !important;
+        border-radius: 12px !important;
+        padding-bottom: 6px !important;
+    }
+
+    .world-map-scroll .anime-world-map,
+    .world-map-scroll .atlas-world-map,
+    .world-map-scroll .generated-world-map {
+        flex: 0 0 auto !important;
+        width: 900px !important;
+        min-width: 900px !important;
+        max-width: none !important;
+        height: 620px !important;
+        min-height: 620px !important;
+        max-height: none !important;
+        aspect-ratio: auto !important;
+        transform: none !important;
+        background-size: 100% 100% !important;
+        background-position: center center !important;
+    }
+
+    .world-map-scroll .atlas-sector {
+        width: 54px !important;
+        height: 54px !important;
+        min-width: 54px !important;
+        min-height: 54px !important;
+        font-size: 24px !important;
+        line-height: 1 !important;
+    }
+
+    .world-map-scroll .atlas-landmark {
+        min-width: 124px !important;
+        max-width: 168px !important;
+        padding: 8px 10px !important;
+        font-size: 15px !important;
+    }
+
+    .map-instance {
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow-x: auto !important;
+        overflow-y: visible !important;
+        -webkit-overflow-scrolling: touch !important;
+        padding-bottom: 10px !important;
+    }
+
+    .map-instance .instance-frame,
+    .sector-instance-wrap,
+    .map-instance .sector-instance-wrap:has(.instance-info),
+    .map-instance .sector-instance-wrap:not(:has(.instance-info)) {
+        width: 760px !important;
+        min-width: 760px !important;
+        max-width: none !important;
+        height: auto !important;
+        min-height: 720px !important;
+        overflow: visible !important;
+        grid-template-columns: minmax(0, 1fr) 240px !important;
+        grid-template-areas: "scene actions" !important;
+        align-items: start !important;
+    }
+
+    .map-instance .instance-frame > main.tile-scene,
+    .sector-instance-wrap .tile-scene {
+        grid-area: scene !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        height: auto !important;
+        overflow: visible !important;
+    }
+
+    .map-instance .instance-frame > aside.instance-actions,
+    .sector-instance-wrap .instance-actions,
+    .map-instance .sector-instance-wrap:has(.instance-info) > aside.instance-actions,
+    .map-instance .sector-instance-wrap:not(:has(.instance-info)) > aside.instance-actions {
+        grid-area: actions !important;
+        width: 240px !important;
+        min-width: 240px !important;
+        max-width: 240px !important;
+        height: auto !important;
+        max-height: none !important;
+        overflow: visible !important;
+    }
+
+    .walkable-sector-map,
+    .sector-image-map {
+        width: 520px !important;
+        min-width: 520px !important;
+        max-width: 520px !important;
+        height: 720px !important;
+        min-height: 720px !important;
+        max-height: none !important;
+        aspect-ratio: auto !important;
+    }
+
+    .location-grid,
+    .jutsu-list,
+    .tag-grid,
+    .inline-grid,
+    .admin-grid,
+    .start-grid,
+    .profile-summary,
+    .inventory-character-layout,
+    .technique-shell,
+    .pet-stats-grid,
+    .pet-arena-grid,
+    .stat-grid {
+        grid-template-columns: 1fr !important;
+        max-width: 100% !important;
+        overflow: visible !important;
+    }
+
+    .stat-card,
+    .location-button,
+    .jutsu-card,
+    .summary-box {
+        min-width: 0 !important;
+    }
+
+    .stat-card-input-row,
+    .profile-title-row,
+    .menu {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+    }
+
+    .profile-title-row input,
+    .profile-title-row button,
+    .profile-title-row select,
+    .stat-card-input-row input,
+    .stat-card-input-row button,
+    .menu button,
+    input,
+    select,
+    textarea,
+    button {
+        max-width: 100% !important;
+    }
+}
+
+@media (max-width: 420px) {
+    .world-map-scroll .anime-world-map,
+    .world-map-scroll .atlas-world-map,
+    .world-map-scroll .generated-world-map {
+        width: 840px !important;
+        min-width: 840px !important;
+        height: 580px !important;
+        min-height: 580px !important;
+    }
+
+    .map-instance .instance-frame,
+    .sector-instance-wrap,
+    .map-instance .sector-instance-wrap:has(.instance-info),
+    .map-instance .sector-instance-wrap:not(:has(.instance-info)) {
+        width: 720px !important;
+        min-width: 720px !important;
+        grid-template-columns: minmax(0, 1fr) 220px !important;
+    }
+
+    .walkable-sector-map,
+    .sector-image-map {
+        width: 500px !important;
+        min-width: 500px !important;
+    }
+
+    .map-instance .instance-frame > aside.instance-actions,
+    .sector-instance-wrap .instance-actions,
+    .map-instance .sector-instance-wrap:has(.instance-info) > aside.instance-actions,
+    .map-instance .sector-instance-wrap:not(:has(.instance-info)) > aside.instance-actions {
+        width: 220px !important;
+        min-width: 220px !important;
+        max-width: 220px !important;
+    }
+}
