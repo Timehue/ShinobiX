@@ -5279,33 +5279,6 @@ export default function App() {
                         acceptedMissionIds={acceptedMissionIds}
                         missionProgress={missionProgress}
                         sharedImages={sharedImages}
-                        attackPlayer={async (opponent) => {
-                            // Regular duel — send a challenge the opponent must accept
-                            if (duelChallenges.some(c => c.fromName === character.name && c.toName === opponent.name)) {
-                                alert(`Challenge already pending against ${opponent.name}. Wait for them to respond.`);
-                                return;
-                            }
-                            const challenge: DuelChallenge = {
-                                id: makeId(),
-                                fromName: character.name,
-                                toName: opponent.name,
-                                challenger: character,
-                                createdAt: Date.now(),
-                                mode: "standard" as const,
-                            };
-                            setDuelChallenges([...duelChallenges, challenge]);
-                            try {
-                                const res = await fetch('/api/player/challenge', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ targetName: opponent.name, challenge }),
-                                });
-                                if (!res.ok) throw new Error(`Server returned ${res.status}`);
-                                alert(`⚔️ Challenge sent to ${opponent.name}! They'll see it in the Arena and can accept or decline.`);
-                            } catch {
-                                alert(`${opponent.name} is not reachable live right now. The challenge was kept on this device only.`);
-                            }
-                        }}
                         sectorAttackPlayer={async (opponent) => {
                             // Sector PvP — immediate mutual engagement, defender auto-routed
                             const challenge: DuelChallenge = {
@@ -15363,7 +15336,6 @@ function WorldMap({
     playerRoster,
     liveSectorPlayers,
     setCurrentSector,
-    attackPlayer,
     sectorAttackPlayer,
     acceptedMissionIds,
     missionProgress,
@@ -15384,7 +15356,6 @@ function WorldMap({
     playerRoster: PlayerRecord[];
     liveSectorPlayers: PlayerRecord[];
     setCurrentSector: (sector: number) => void;
-    attackPlayer: (opponent: PlayerRecord) => void;
     sectorAttackPlayer: (opponent: PlayerRecord) => void;
     acceptedMissionIds: string[];
     missionProgress: Record<string, number>;
@@ -16087,31 +16058,19 @@ function WorldMap({
                                             <strong>{player.name}</strong>
                                             <small>Level {player.level}</small>
                                         </div>
-                                        <button className="danger-button" onClick={() => attackPlayer(player)}>Attack</button>
+                                        <button className="danger-button" onClick={() => {
+                                            setCurrentSector(selectedSector!);
+                                            setCurrentBiome(biome);
+                                            setCurrentWeather(sectorWeather);
+                                            sectorAttackPlayer(player);
+                                            setScreen("arena");
+                                        }}>⚔️ Attack</button>
                                     </div>
                                 ))
                             )}
                         </section>
                         <button onClick={() => exploreSector(selectedSector)}>Explore Tile</button>
                         <button onClick={() => restInSector(selectedSector)}>Recover</button>
-                        {sectorPlayers.length > 0 ? (
-                            <button
-                                className="danger-button"
-                                onClick={() => {
-                                    setCurrentSector(selectedSector!);
-                                    setCurrentBiome(biome);
-                                    setCurrentWeather(sectorWeather);
-                                    sectorAttackPlayer(sectorPlayers[0]);
-                                    setScreen("arena");
-                                }}
-                            >
-                                ⚔️ Attack {sectorPlayers[0].name}
-                            </button>
-                        ) : (
-                            <button className="danger-button" disabled style={{ opacity: 0.45 }}>
-                                ⚔️ No Players in Sector
-                            </button>
-                        )}
                         <button onClick={() => setSelectedSector(null)}>Leave</button>
                     </aside>
                 </div>
