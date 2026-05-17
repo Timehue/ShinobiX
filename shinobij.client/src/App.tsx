@@ -393,6 +393,7 @@ type Pet = {
     happiness?: number;
     training?: { type: PetTrainingType; endsAt: number };
     moveRange?: number; // tiles moved per turn (2–5); defaults to 2
+    nickname?: string;
 };
 type Character = {
     name: string;
@@ -1077,6 +1078,7 @@ const stackableItemIds = new Set<string>([...petFeedItems.map((item) => item.id)
 function petFeedXpForItem(itemId?: string): number | undefined {
     return petFeedItems.find((item) => item.id === itemId)?.xp;
 }
+function petDisplayName(pet: Pick<Pet, "name" | "nickname">) { return pet.nickname?.trim() || pet.name; }
 function petHappiness(pet: Pick<Pet, "happiness">) {
     return Math.max(0, Math.min(100, Math.floor(pet.happiness ?? 0)));
 }
@@ -6059,6 +6061,8 @@ function PetYard({ character, updateCharacter, setScreen }: { character: Charact
     const [trainingDuration, setTrainingDuration] = useState(petTrainingDurations[0].ms);
     const [tick, setTick] = useState(0);
     const [petHeartBurst, setPetHeartBurst] = useState(0);
+    const [nicknameInput, setNicknameInput] = useState("");
+    const [nicknameMsg, setNicknameMsg] = useState("");
     const selectedPet = character.pets.find((p) => p.id === selectedPetId) ?? character.pets[0] ?? null;
     const petXpBonus = getPetXpBonus(character);
 
@@ -6132,6 +6136,21 @@ function PetYard({ character, updateCharacter, setScreen }: { character: Charact
         alert(`${selectedPet.name} ate ${treat.name} and gained ${treat.xp} XP. Happiness +10%.${fedPet.level > selectedPet.level ? ` Level ${fedPet.level}!` : ""}`);
     }
 
+    function setNickname() {
+        if (!selectedPet) return;
+        const nick = nicknameInput.trim();
+        if (!nick) { setNicknameMsg("Enter a nickname first."); return; }
+        if (nick.length > 24) { setNicknameMsg("Max 24 characters."); return; }
+        if (character.fateShards < 10) { setNicknameMsg("❌ Need 10 Fate Shards."); return; }
+        updateCharacter({
+            ...character,
+            fateShards: character.fateShards - 10,
+            pets: character.pets.map(p => p.id === selectedPet.id ? { ...p, nickname: nick } : p),
+        });
+        setNicknameInput("");
+        setNicknameMsg(`✅ Nickname set to "${nick}"`);
+    }
+
     function releasePet() {
         if (!selectedPet) return;
         if (!confirm(`Release ${selectedPet.name}? This cannot be undone.`)) return;
@@ -6172,7 +6191,7 @@ function PetYard({ character, updateCharacter, setScreen }: { character: Charact
                                         <div className="pet-slot-avatar">
                                             {pet.image ? <img src={pet.image} alt={pet.name} /> : <span className="pet-initials">{pet.name.slice(0, 2).toUpperCase()}</span>}
                                         </div>
-                                        <p className="pet-slot-name">{pet.name}</p>
+                                        <p className="pet-slot-name">{petDisplayName(pet)}</p>
                                         <span className={`pet-rarity-tag rarity-${pet.rarity}`}>{pet.rarity}</span>
                                         {pet.trait && <span className="pet-trait-tag">{pet.trait}</span>}
                                         {character.activePetId === pet.id && <span className="pet-active-tag">Active</span>}
@@ -6198,11 +6217,27 @@ function PetYard({ character, updateCharacter, setScreen }: { character: Charact
                                 {selectedPet.image ? <img src={selectedPet.image} alt={selectedPet.name} /> : <span className="pet-detail-initials">{selectedPet.name.slice(0, 2).toUpperCase()}</span>}
                                 {petHeartBurst > 0 && <span key={petHeartBurst} className="pet-heart-pop">❤️</span>}
                             </div>
-                            <h3>{selectedPet.name}</h3>
+                            <h3>{petDisplayName(selectedPet)}</h3>
+                            {selectedPet.nickname && <p className="hint" style={{ fontSize: "0.72rem", marginTop: -4 }}>({selectedPet.name})</p>}
                             <p>Level {selectedPet.level} | {selectedPet.rarity}</p>
                             <p className="pet-xp-line">
                                 XP {selectedPet.level >= selectedPet.maxLevel ? "MAX" : `${selectedPet.xp}/${petXpNeeded(selectedPet.level)}`}
                             </p>
+                            <div style={{ marginTop: 8, width: "100%" }}>
+                                <div style={{ display: "flex", gap: 4, marginBottom: 4 }}>
+                                    <input
+                                        value={nicknameInput}
+                                        onChange={e => { setNicknameInput(e.target.value); setNicknameMsg(""); }}
+                                        placeholder={selectedPet.nickname ? `Current: ${selectedPet.nickname}` : "Set nickname…"}
+                                        maxLength={24}
+                                        style={{ flex: 1, fontSize: "0.8rem", padding: "3px 6px" }}
+                                    />
+                                    <button onClick={setNickname} style={{ fontSize: "0.75rem", padding: "3px 8px", whiteSpace: "nowrap" }}>
+                                        🎴 10 Shards
+                                    </button>
+                                </div>
+                                {nicknameMsg && <p className="hint" style={{ fontSize: "0.72rem", color: nicknameMsg.startsWith("✅") ? "#4ade80" : "#f87171" }}>{nicknameMsg}</p>}
+                            </div>
                             <div className="pet-happiness-meter" style={{ ["--pet-happiness" as string]: `${petHappiness(selectedPet)}%` }}>
                                 <div className="pet-happiness-meter-top">
                                     <strong>Happiness</strong>
@@ -7116,7 +7151,7 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                         <p className="hint">You need a pet before entering the arena.</p>
                     ) : (
                         <select value={selectedPetId} onChange={(e) => setSelectedPetId(e.target.value)}>
-                            {character.pets.map((pet) => <option key={pet.id} value={pet.id}>{pet.name} | Lv {pet.level} | {pet.rarity}</option>)}
+                            {character.pets.map((pet) => <option key={pet.id} value={pet.id}>{petDisplayName(pet)} | Lv {pet.level} | {pet.rarity}</option>)}
                         </select>
                     )}
                     {selectedPet && <PetArenaCard owner="You" pet={selectedPet} sharedImages={sharedImages} />}
@@ -7490,10 +7525,10 @@ function PetArenaCard({ owner, pet, sharedImages = {} }: { owner: string; pet: P
     return (
         <div className="pet-arena-card">
             <div className="pet-arena-avatar">
-                {img ? <img src={img} alt={pet.name} /> : <span>{pet.name.slice(0, 2).toUpperCase()}</span>}
+                {img ? <img src={img} alt={petDisplayName(pet)} /> : <span>{petDisplayName(pet).slice(0, 2).toUpperCase()}</span>}
             </div>
             <div>
-                <strong>{pet.name}</strong>
+                <strong>{petDisplayName(pet)}</strong>
                 <p>{owner} | {pet.rarity} | Lv {pet.level}</p>
                 <p>HP {pet.hp} | ATK {pet.attack} | DEF {pet.defense} | SPD {pet.speed}</p>
                 {pet.trait && <p><strong>Trait:</strong> {pet.trait} — {petTraitDescriptions[pet.trait]}</p>}
