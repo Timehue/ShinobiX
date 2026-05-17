@@ -8626,6 +8626,9 @@ function AdminPanel({
             <p>Anything created here is saved and imported into normal gameplay.</p>
 
             <div className="admin-panel-switcher">
+                <button className={activeAdminPanel === "playerManagement" ? "active" : ""} onClick={() => setActiveAdminPanel("playerManagement")}>
+                    👤 Players
+                </button>
                 <button className={activeAdminPanel === "jutsuBloodlines" ? "active" : ""} onClick={() => setActiveAdminPanel("jutsuBloodlines")}>
                     Jutsus + Bloodlines
                 </button>
@@ -8638,7 +8641,6 @@ function AdminPanel({
                 <button className={activeAdminPanel === "aiCreator" ? "active" : ""} onClick={() => setActiveAdminPanel("aiCreator")}>
                     AI Creator
                 </button>
-
                 <button className={activeAdminPanel === "petEditor" ? "active" : ""} onClick={() => setActiveAdminPanel("petEditor")}>
                     Pet Editor
                 </button>
@@ -8647,9 +8649,6 @@ function AdminPanel({
                 </button>
                 <button className={activeAdminPanel === "villageLeaders" ? "active" : ""} onClick={() => setActiveAdminPanel("villageLeaders")}>
                     Village Leaders
-                </button>
-                <button className={activeAdminPanel === "playerManagement" ? "active" : ""} onClick={() => setActiveAdminPanel("playerManagement")}>
-                    👤 Players
                 </button>
             </div>
 
