@@ -6902,6 +6902,28 @@ function PetArena({ character, updateCharacter, playerRoster, setScreen, sharedI
     const [selectedPetId, setSelectedPetId] = useState(character.activePetId ?? character.pets[0]?.id ?? "");
     const [opponentMode, setOpponentMode] = useState<"player" | "ai">("player");
     const [opponentSearch, setOpponentSearch] = useState("");
+    const [petChallengeMsg, setPetChallengeMsg] = useState("");
+
+    async function sendDirectPetChallenge(toName: string) {
+        const challenge: DuelChallenge = {
+            id: makeId(),
+            fromName: character.name,
+            toName,
+            challenger: character,
+            createdAt: Date.now(),
+            mode: "clanWarPet",
+        };
+        try {
+            const res = await fetch('/api/player/challenge', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ targetName: toName, challenge }),
+            });
+            setPetChallengeMsg(res.ok ? `✅ Pet challenge sent to ${toName}! They'll see it shortly.` : `❌ Could not reach ${toName}. Check the name and try again.`);
+        } catch {
+            setPetChallengeMsg(`❌ Network error sending challenge.`);
+        }
+    }
     const playerOpponentPets: PetArenaOpponent[] = playerRoster
         .filter((player) => player.name !== character.name)
         .flatMap((player) => player.character.pets.map((pet) => ({ owner: player.name, pet })));
@@ -7026,17 +7048,21 @@ function PetArena({ character, updateCharacter, playerRoster, setScreen, sharedI
                     {opponentMode === "player" && (
                         <>
                             <label>Search Player Name</label>
-                            <input value={opponentSearch} onChange={(e) => setOpponentSearch(e.target.value)} placeholder="Search by player name" />
+                            <input value={opponentSearch} onChange={(e) => { setOpponentSearch(e.target.value); setPetChallengeMsg(""); }} placeholder="Search by player name" />
                         </>
                     )}
                     {opponentPets.length > 0 ? (
-                        <>
-                            <select value={selectedOpponentKey} onChange={(e) => setSelectedOpponentKey(e.target.value)}>
-                                {opponentPets.map((entry) => <option key={`${entry.owner}:${entry.pet.id}`} value={`${entry.owner}:${entry.pet.id}`}>{entry.owner}: {entry.pet.name} | Lv {entry.pet.level}</option>)}
-                            </select>
-                        </>
+                        <select value={selectedOpponentKey} onChange={(e) => setSelectedOpponentKey(e.target.value)}>
+                            {opponentPets.map((entry) => <option key={`${entry.owner}:${entry.pet.id}`} value={`${entry.owner}:${entry.pet.id}`}>{entry.owner}: {entry.pet.name} | Lv {entry.pet.level}</option>)}
+                        </select>
+                    ) : opponentMode === "player" && opponentSearch.trim() ? (
+                        <div>
+                            <p className="hint">No roster match for "{opponentSearch.trim()}". Send them a pet challenge — they'll get it on their next heartbeat.</p>
+                            <button onClick={() => sendDirectPetChallenge(opponentSearch.trim())}>🐾 Challenge "{opponentSearch.trim()}" to a Pet Battle</button>
+                            {petChallengeMsg && <p className="hint" style={{ color: petChallengeMsg.startsWith("✅") ? "#4ade80" : "#f87171", marginTop: 6 }}>{petChallengeMsg}</p>}
+                        </div>
                     ) : (
-                        <p className="hint">No matching player pets found. Search another player name or switch to Fight AI.</p>
+                        <p className="hint">No matching player pets found. Type a player's name to challenge them, or switch to Fight AI.</p>
                     )}
                     <p className="hint">{opponentMode === "player" ? "Fight pets owned by other players in the roster." : "Fight generic AI pet arena opponents."}</p>
                     {selectedOpponent && <PetArenaCard owner={selectedOpponent.owner} pet={selectedOpponent.pet} sharedImages={sharedImages} />}
@@ -19815,7 +19841,19 @@ function Arena({
                     <label>Search Player Name</label>
                     <input value={petChallengeSearch} onChange={(e) => setPetChallengeSearch(e.target.value)} placeholder="Search by player name" />
                     <div className="jutsu-list">
-                        {petChallengeOpponents.length === 0 ? <p className="hint">No matching players with pets found.</p> : petChallengeOpponents.map((player) => (
+                        {petChallengeOpponents.length === 0 && petChallengeSearch.trim() ? (
+                            <>
+                                <p className="hint">No roster match. Send a pet challenge directly to "{petChallengeSearch.trim()}".</p>
+                                <button onClick={() => {
+                                    const name = petChallengeSearch.trim();
+                                    if (!name || name === character.name) return;
+                                    const stub = { name, level: 1, village: "", specialty: "Ninjutsu", character: { ...character, name } as Character, currentSector: 0, lastSeenAt: Date.now() } as PlayerRecord;
+                                    challengePlayer(stub, "clanWarPet", 25);
+                                }}>🐾 Challenge "{petChallengeSearch.trim()}" to a Pet Battle</button>
+                            </>
+                        ) : petChallengeOpponents.length === 0 ? (
+                            <p className="hint">No matching players with pets found — type a player's exact name to challenge them directly.</p>
+                        ) : petChallengeOpponents.map((player) => (
                             <div className="summary-box" key={`pet-challenge-${player.name}`}>
                                 <strong>{player.name}</strong>
                                 <p>Level {player.level} | Pets {player.character.pets.length}</p>
