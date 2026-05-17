@@ -6984,6 +6984,31 @@ textarea {
     padding-top: 4px;
 }
 
+.left-caps-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3px 6px;
+}
+
+.left-caps-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.left-caps-label {
+    font-size: 0.62rem;
+    color: #94a3b8;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.left-caps-value {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #e2e8f0;
+}
+
 /* ── Side profile XP bar ── */
 .left-xp-section {
     width: 100%;
