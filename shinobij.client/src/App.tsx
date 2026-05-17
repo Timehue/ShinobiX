@@ -7892,7 +7892,94 @@ function AdminPanel({
     const [aiJutsuIds, setAiJutsuIds] = useState<string[]>(starterJutsus.slice(0, 4).map((jutsu) => jutsu.id));
     const [aiRules, setAiRules] = useState<AiRule[]>(starterAiProfile(starterJutsus).rules);
     const [selectedAiId, setSelectedAiId] = useState("");
-    const [activeAdminPanel, setActiveAdminPanel] = useState<"jutsuBloodlines" | "eventsRaids" | "visualNovels" | "aiCreator" | "petEditor" | "cardEditor" | "villageLeaders">("jutsuBloodlines");
+    const [activeAdminPanel, setActiveAdminPanel] = useState<"jutsuBloodlines" | "eventsRaids" | "visualNovels" | "aiCreator" | "petEditor" | "cardEditor" | "villageLeaders" | "playerManagement">("jutsuBloodlines");
+
+    // --- Player Management tab state ---
+    const [pmTargetName, setPmTargetName] = useState("");
+    const [pmSnap, setPmSnap] = useState<Record<string, unknown> | null>(null);
+    const [pmMsg, setPmMsg] = useState("");
+    const [pmGivePetId, setPmGivePetId] = useState("");
+    const [pmGiveAmounts, setPmGiveAmounts] = useState<Record<string, number>>({ honorSeals: 0, fateShards: 0, boneCharms: 0, auraStones: 0, auraDust: 0, mythicSeals: 0 });
+    const [approvedItemIds, setApprovedItemIds] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem("admin:approvedItems") ?? "[]"); } catch { return []; } });
+    const [approvedBloodlineIds, setApprovedBloodlineIds] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem("admin:approvedBloodlines") ?? "[]"); } catch { return []; } });
+
+    async function pmLookup() {
+        if (!pmTargetName.trim()) return;
+        setPmMsg("Looking up…");
+        setPmSnap(null);
+        try {
+            const res = await fetch(`/api/save/${encodeURIComponent(pmTargetName.trim().toLowerCase())}`);
+            if (!res.ok) { setPmMsg("No save found for that name."); return; }
+            const data = await res.json();
+            setPmSnap(data);
+            setPmMsg(`Loaded: ${pmTargetName.trim()}`);
+        } catch { setPmMsg("Error fetching save."); }
+    }
+
+    async function pmGive() {
+        if (!pmSnap) { setPmMsg("Look up a player first."); return; }
+        const char = pmSnap.character as Record<string, unknown>;
+        // Give pet
+        if (pmGivePetId) {
+            const pet = editablePets.find(p => p.id === pmGivePetId);
+            if (pet) {
+                const cloned = { ...pet, id: `${pet.id}-${Date.now()}` };
+                const existing = (char.pets as unknown[] | undefined) ?? [];
+                char.pets = [...existing, cloned];
+            }
+        }
+        // Give currencies
+        for (const [key, amt] of Object.entries(pmGiveAmounts)) {
+            if (amt > 0) char[key] = ((char[key] as number) ?? 0) + amt;
+        }
+        const updated = { ...pmSnap, character: char };
+        try {
+            const res = await fetch(`/api/save/${encodeURIComponent(pmTargetName.trim().toLowerCase())}`, {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(updated),
+            });
+            if (!res.ok) throw new Error();
+            setPmMsg("✅ Saved! Player will see changes on next login.");
+            setPmSnap(updated);
+            setPmGivePetId("");
+            setPmGiveAmounts({ honorSeals: 0, fateShards: 0, boneCharms: 0, auraStones: 0, auraDust: 0, mythicSeals: 0 });
+        } catch { setPmMsg("❌ Failed to save."); }
+    }
+
+    async function pmReset() {
+        if (!pmTargetName.trim()) return;
+        if (!window.confirm(`Reset ${pmTargetName.trim()}'s account to level 1? This cannot be undone.`)) return;
+        try {
+            const res = await fetch(`/api/save/${encodeURIComponent(pmTargetName.trim().toLowerCase())}`, {
+                method: "DELETE",
+            });
+            if (!res.ok) throw new Error();
+            setPmSnap(null);
+            setPmMsg("✅ Account reset. Player starts fresh on next login.");
+        } catch { setPmMsg("❌ Reset failed."); }
+    }
+
+    function pmApproveItem(id: string) {
+        const next = [...approvedItemIds, id];
+        setApprovedItemIds(next);
+        localStorage.setItem("admin:approvedItems", JSON.stringify(next));
+    }
+
+    function pmDeleteItem(id: string) {
+        setCreatorItems(creatorItems.filter(i => i.id !== id));
+        pmApproveItem(id); // also hide from review
+    }
+
+    function pmApproveBloodline(id: string) {
+        const next = [...approvedBloodlineIds, id];
+        setApprovedBloodlineIds(next);
+        localStorage.setItem("admin:approvedBloodlines", JSON.stringify(next));
+    }
+
+    function pmDeleteBloodline(id: string) {
+        setSavedBloodlines(savedBloodlines.filter(b => b.id !== id));
+        pmApproveBloodline(id);
+    }
     const [leadershipImages, setLeadershipImages] = useState<VillageLeadershipImages>(() => loadVillageLeadershipImages());
     const eventKindFilter: "All" | "reward" | "visualNovel" =
         activeAdminPanel === "eventsRaids" ? "reward"
@@ -8534,6 +8621,9 @@ function AdminPanel({
                 </button>
                 <button className={activeAdminPanel === "villageLeaders" ? "active" : ""} onClick={() => setActiveAdminPanel("villageLeaders")}>
                     Village Leaders
+                </button>
+                <button className={activeAdminPanel === "playerManagement" ? "active" : ""} onClick={() => setActiveAdminPanel("playerManagement")}>
+                    👤 Players
                 </button>
             </div>
 
@@ -10363,6 +10453,118 @@ function AdminPanel({
                     </section>
                 </div>
             )}
+
+            {activeAdminPanel === "playerManagement" && (() => {
+                const reviewItems = getAllItems(creatorItems).filter(i =>
+                    i.image && ["weapon","armor","accessory","rune"].includes(i.slot) && !approvedItemIds.includes(i.id)
+                );
+                const reviewBloodlines = savedBloodlines.filter(b => !approvedBloodlineIds.includes(b.id));
+                const pmChar = pmSnap?.character as Record<string, unknown> | null;
+                const currencyLabels: { key: string; label: string }[] = [
+                    { key: "honorSeals",  label: "Honor Seals"  },
+                    { key: "fateShards",  label: "Fate Shards"  },
+                    { key: "boneCharms",  label: "Bone Charms"  },
+                    { key: "auraStones",  label: "Aura Stones"  },
+                    { key: "auraDust",    label: "Aura Dust"    },
+                    { key: "mythicSeals", label: "Mythic Seals" },
+                ];
+                return (
+                    <div className="admin-subpanel">
+                        <div className="admin-panel-heading">
+                            <h3>👤 Player Management</h3>
+                            <p>Give items, manage weapons/bloodlines, and reset accounts.</p>
+                        </div>
+
+                        {/* ── Give to Player ── */}
+                        <section className="summary-box">
+                            <h4>Give to Player</h4>
+                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                                <input
+                                    style={{ flex: 1, minWidth: 160 }}
+                                    value={pmTargetName}
+                                    onChange={e => setPmTargetName(e.target.value)}
+                                    placeholder="Player name (exact)"
+                                />
+                                <button onClick={pmLookup}>Look Up</button>
+                            </div>
+                            {pmMsg && <p className="hint" style={{ color: pmMsg.startsWith("✅") ? "#4ade80" : pmMsg.startsWith("❌") ? "#f87171" : undefined }}>{pmMsg}</p>}
+
+                            {pmChar && (
+                                <>
+                                    <p className="hint">Current — Ryo: {String(pmChar.ryo ?? 0)} | Honor: {String(pmChar.honorSeals ?? 0)} | Shards: {String(pmChar.fateShards ?? 0)} | Charms: {String(pmChar.boneCharms ?? 0)} | Aura: {String(pmChar.auraDust ?? 0)} | Stones: {String(pmChar.auraStones ?? 0)} | Mythic: {String(pmChar.mythicSeals ?? 0)}</p>
+
+                                    <label>Give Pet</label>
+                                    <select value={pmGivePetId} onChange={e => setPmGivePetId(e.target.value)}>
+                                        <option value="">— No pet —</option>
+                                        {editablePets.map(p => <option key={p.id} value={p.id}>{p.name} ({p.rarity})</option>)}
+                                    </select>
+
+                                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(160px,1fr))", gap: 8, marginTop: 8 }}>
+                                        {currencyLabels.map(({ key, label }) => (
+                                            <label key={key} style={{ display: "flex", flexDirection: "column", gap: 2, fontSize: "0.85rem" }}>
+                                                {label}
+                                                <input
+                                                    type="number" min={0}
+                                                    value={pmGiveAmounts[key] ?? 0}
+                                                    onChange={e => setPmGiveAmounts(prev => ({ ...prev, [key]: Math.max(0, Number(e.target.value)) }))}
+                                                />
+                                            </label>
+                                        ))}
+                                    </div>
+
+                                    <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+                                        <button onClick={pmGive}>✅ Give &amp; Save</button>
+                                        <button
+                                            className="danger-button"
+                                            onClick={pmReset}
+                                        >🗑️ Reset Account to Zero</button>
+                                    </div>
+                                </>
+                            )}
+                        </section>
+
+                        {/* ── Named Weapons / Armor with Images ── */}
+                        <section className="summary-box">
+                            <h4>Named Weapons &amp; Armor with Images ({reviewItems.length} pending)</h4>
+                            <p className="hint">Approve keeps the item in the game. Delete removes it entirely.</p>
+                            {reviewItems.length === 0
+                                ? <p className="hint">No items pending review.</p>
+                                : reviewItems.map(item => (
+                                    <div key={item.id} className="summary-box" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                                        {item.image && <img src={item.image} alt={item.name} style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 6, border: "1px solid #334155" }} />}
+                                        <div style={{ flex: 1 }}>
+                                            <strong>{item.name}</strong>
+                                            <p className="hint" style={{ margin: 0 }}>{item.slot} · {item.rarity}</p>
+                                        </div>
+                                        <button onClick={() => pmApproveItem(item.id)}>✅ Approve</button>
+                                        <button className="danger-button" onClick={() => pmDeleteItem(item.id)}>🗑️ Delete</button>
+                                    </div>
+                                ))
+                            }
+                        </section>
+
+                        {/* ── Bloodlines Created ── */}
+                        <section className="summary-box">
+                            <h4>Bloodlines Created ({reviewBloodlines.length} pending)</h4>
+                            <p className="hint">Approve keeps the bloodline available. Delete removes it from the game.</p>
+                            {reviewBloodlines.length === 0
+                                ? <p className="hint">No bloodlines pending review.</p>
+                                : reviewBloodlines.map(bl => (
+                                    <div key={bl.id} className="summary-box" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                                        {bl.image && <img src={bl.image} alt={bl.name} style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 6, border: "1px solid #334155" }} />}
+                                        <div style={{ flex: 1 }}>
+                                            <strong>{bl.name}</strong>
+                                            <p className="hint" style={{ margin: 0 }}>{bl.rank}{bl.specialElement ? ` · ${bl.specialElement}` : ""} · {bl.totalPoints} pts · {bl.jutsus.length} jutsus</p>
+                                        </div>
+                                        <button onClick={() => pmApproveBloodline(bl.id)}>✅ Approve</button>
+                                        <button className="danger-button" onClick={() => pmDeleteBloodline(bl.id)}>🗑️ Delete</button>
+                                    </div>
+                                ))
+                            }
+                        </section>
+                    </div>
+                );
+            })()}
 
             <div className="menu">
                 <button onClick={() => setScreen("worldMap")}>Test World Map</button>
