@@ -2920,7 +2920,7 @@ function normalizeAdminCharacter(character: Character): Character {
 function gainXp(character: Character, amount: number): Character {
     const trainingFocusBonus = character.elderFocus === "training" ? Math.floor(amount * 0.1) : 0;
     const totalAmount = amount + trainingFocusBonus;
-    let updated: Character = { ...character, xp: character.level >= MAX_LEVEL ? 0 : character.xp + totalAmount };
+    let updated: Character = { ...character, xp: character.level >= MAX_LEVEL ? 0 : character.xp + totalAmount, unspentStats: character.unspentStats + totalAmount };
     while (updated.level < MAX_LEVEL && updated.xp >= xpNeeded(updated.level)) {
         const needed = xpNeeded(updated.level);
         const newLevel = updated.level + 1;
