@@ -8151,7 +8151,9 @@ function AdminPanel({
                 return;
             }
             setPmSnap(null);
+            setPmTargetName("");
             setPmMsg("✅ Account reset. Player starts fresh on next login.");
+            fetchAllKnownPlayers();
         } catch (e) { setPmMsg(`❌ Reset failed: ${String(e)}`); }
     }
 
