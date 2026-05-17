@@ -10929,6 +10929,26 @@ button.combat-jutsu-button,
     text-transform: uppercase;
     margin: 0;
 }
+.pvp-coinflip-result {
+    font-size: 1.05rem;
+    font-weight: 700;
+    padding: 8px 24px;
+    border-radius: 10px;
+    letter-spacing: 0.03em;
+    animation: pvp-countdown-pulse 1s ease-in-out infinite;
+}
+.pvp-coinflip-result.coinflip-win {
+    background: rgba(34, 197, 94, 0.18);
+    border: 1px solid rgba(34, 197, 94, 0.45);
+    color: #86efac;
+    text-shadow: 0 0 12px rgba(34, 197, 94, 0.5);
+}
+.pvp-coinflip-result.coinflip-lose {
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    color: #fca5a5;
+    text-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
+}
 
 /* ── Trait flash banner ────────────────────────── */
 .pet-trait-flash {
