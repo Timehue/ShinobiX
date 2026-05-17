@@ -6987,8 +6987,8 @@ textarea {
 .left-caps-grid {
     display: grid;
     grid-template-columns: auto auto;
-    gap: 2px 12px;
-    justify-content: start;
+    gap: 2px 16px;
+    justify-content: center;
 }
 
 .left-caps-cell {
