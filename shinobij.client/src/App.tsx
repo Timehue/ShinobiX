@@ -17355,7 +17355,8 @@ function Arena({
     const [inspectedCombatItemId, setInspectedCombatItemId] = useState("");
     // Pre-fight countdown (10 s) — used for ALL battle types now
     const [prefightCountdown, setPrefightCountdown] = useState<number | null>(null);
-    const prefightDataRef = useRef<{ hp: number; logMsg: string } | null>(null);
+    const [prefightFirstActor, setPrefightFirstActor] = useState<"player" | "enemy" | null>(null);
+    const prefightDataRef = useRef<{ hp: number; logMsg: string; firstActor: "player" | "enemy" } | null>(null);
 
     // Per-turn round timer (45 s). Resets each time it becomes the player's turn.
     const [roundTimer, setRoundTimer] = useState<number>(45);
@@ -17483,11 +17484,12 @@ function Arena({
             // MUST null out first so the overlay hides and the round-timer effect
             // (which guards on prefightCountdown !== null) is allowed to start.
             setPrefightCountdown(null);
+            setPrefightFirstActor(null);
             const data = prefightDataRef.current;
             if (data) {
                 prefightDataRef.current = null;
                 setBattleStarted(true);
-                resetBattleRef.current(data.hp);
+                resetBattleRef.current(data.hp, data.firstActor);
                 setLogRef.current(data.logMsg);
             }
             return;
@@ -17521,10 +17523,10 @@ function Arena({
     // When it becomes the enemy's turn, fire their action automatically after a
     // short delay. This replaces the manual "Resolve" button tap on mobile.
     useEffect(() => {
-        if (!battleStarted || battleEnded || activeActor !== "enemy") return;
+        if (!battleStarted || battleEnded || activeActor !== "enemy" || prefightCountdown !== null) return;
         const t = setTimeout(() => enemyTurnRef.current(), 1200);
         return () => clearTimeout(t);
-    }, [battleStarted, battleEnded, activeActor]);
+    }, [battleStarted, battleEnded, activeActor, prefightCountdown]);
 
     useEffect(() => {
         if (lobbyMode === "arenaDistrict" && !battleStarted) {
@@ -17559,7 +17561,10 @@ function Arena({
     }, [lobbyMode, pendingPvpOpponent?.name, battleStarted]);
 
     function startPrefight(hp: number, logMsg: string) {
-        prefightDataRef.current = { hp, logMsg };
+        // Coin flip — 50/50 who gets first turn
+        const firstActor: "player" | "enemy" = Math.random() < 0.5 ? "player" : "enemy";
+        prefightDataRef.current = { hp, logMsg, firstActor };
+        setPrefightFirstActor(firstActor);
         setPrefightCountdown(10);
     }
 
@@ -19193,7 +19198,7 @@ function Arena({
         setTurn((t) => t + 1);
     }
 
-    function resetBattle(nextEnemyHp = enemyMaxHp) {
+    function resetBattle(nextEnemyHp = enemyMaxHp, firstActor?: "player" | "enemy") {
         setPlayerPos(62);
         setEnemyPos(33);
         setPlayerHp(character.hp);
@@ -19214,10 +19219,10 @@ function Arena({
         setBattleResult(null);
         setDashMode(false);
         setSelectedActionId(undefined);
-        const initiative = rollInitiative();
+        const initiative = firstActor ?? rollInitiative();
         setActiveActor(initiative);
         setActionsThisTurn(0);
-        setLog(initiative === "player" ? "Battle reset. You have initiative." : `Battle reset. ${opponentName} has initiative.`);
+        setLog(initiative === "player" ? `${character.name} wins the coin flip — you have initiative!` : `${opponentName} wins the coin flip — they move first!`);
         setCombatLog([]);
         setBattleHistory([]);
     }
@@ -19232,7 +19237,7 @@ function Arena({
     };
     enemyTurnRef.current    = enemyTurn;
 
-    if (!battleStarted) {
+    if (!battleStarted && prefightCountdown === null) {
         const rankedOpponents = searchablePlayers.filter((player) => player.character.level >= Math.max(1, character.level - 20));
         const clanWarOpponents = opponentClanData
             ? opponentClanData.members
@@ -19427,6 +19432,13 @@ function Arena({
                             <span className="pvp-countdown-badge">VS</span>
                             <span className="pvp-countdown-name">{opponentName}</span>
                         </div>
+                        {prefightFirstActor && (
+                            <div className={`pvp-coinflip-result${prefightFirstActor === "player" ? " coinflip-win" : " coinflip-lose"}`}>
+                                🎲 {prefightFirstActor === "player"
+                                    ? `${character.name} goes first!`
+                                    : `${opponentName} goes first!`}
+                            </div>
+                        )}
                         <div className="pvp-countdown-number">{prefightCountdown}</div>
                         <p className="pvp-countdown-label">Battle begins in…</p>
                     </div>
