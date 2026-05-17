@@ -22,13 +22,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'POST') {
         try {
             const resetSignalKey = `reset-signal:${name.toLowerCase()}`;
+            const adminLockKey = `admin-lock:${name.toLowerCase()}`;
+            if (req.query.ack === '1') {
+                await Promise.all([
+                    kv.del(resetSignalKey),
+                    kv.del(adminLockKey),
+                ]);
+                return res.status(200).json({ ok: true });
+            }
+
             const isAdminSave = req.query.signal === '1';
 
             // If a reset-signal is pending (admin edit in-flight) and this is NOT the admin save,
             // silently drop the client auto-save so it can't overwrite admin changes.
             if (!isAdminSave) {
-                const pendingSignal = await kv.get(resetSignalKey);
-                if (pendingSignal) return res.status(200).end();
+                const [pendingSignal, adminLock] = await Promise.all([
+                    kv.get(resetSignalKey),
+                    kv.get(adminLockKey),
+                ]);
+                if (pendingSignal || adminLock) return res.status(200).end();
             }
 
             const incoming = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
@@ -46,12 +58,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 lastSeen: Date.now(),
             };
 
+            if (isAdminSave) await kv.set(adminLockKey, 1, { ex: 300 });
             await Promise.all([
                 kv.set(key, payload),
                 kv.hset(REGISTRY_KEY, { [name]: JSON.stringify(registryEntry) }),
-                // Admin save: set reset-signal so client reloads on next heartbeat
-                isAdminSave ? kv.set(resetSignalKey, 1, { ex: 300 }) : Promise.resolve(),
             ]);
+            // Admin save: set reset-signal after the new save is committed so the client reloads that exact version.
+            if (isAdminSave) await kv.set(resetSignalKey, 1, { ex: 300 });
             return res.status(200).end();
         } catch (err) {
             return res.status(500).json({ error: String(err) });
@@ -60,11 +73,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (req.method === 'DELETE') {
         try {
+            const lowered = name.toLowerCase();
+            const adminLockKey = `admin-lock:${lowered}`;
+            await kv.set(adminLockKey, 1, { ex: 300 });
             await Promise.all([
                 kv.del(key),
                 kv.hdel(REGISTRY_KEY, name),
                 // Signal the player's client to reload on next heartbeat (5-min TTL)
-                kv.set(`reset-signal:${name.toLowerCase()}`, 1, { ex: 300 }),
+                kv.set(`reset-signal:${lowered}`, 1, { ex: 300 }),
             ]);
             return res.status(200).json({ ok: true });
         } catch (err) {

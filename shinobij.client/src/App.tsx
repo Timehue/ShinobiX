@@ -50,6 +50,7 @@ type Screen =
     | "petArena"
     | "pets"
     | "shinobiTiles"
+    | "dungeon"
     | "hunting"
     | "tavern"
     | "hallOfLegends"
@@ -484,6 +485,17 @@ type PlayerRecord = {
     lastSeenAt?: number;
 };
 
+type ServerPlayerSummary = {
+    name: string;
+    level: number;
+    village: string;
+    specialty?: string;
+    online: boolean;
+    character?: Character;
+    currentSector?: number;
+    lastSeenAt?: number;
+};
+
 type DuelChallenge = {
     id: string;
     fromName: string;
@@ -741,6 +753,7 @@ type CreatorMission = {
     aiProfileId?: string;
     targetSector: number;
     exploreCount: number;
+    raidCount?: number;
     levelReq: number;
     xpReward: number;
     ryoReward: number;
@@ -811,6 +824,10 @@ type PendingArenaStoryBattle =
         event: CreatorEvent;
         battle?: NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number]["battle"];
         returnScreen: Screen;
+    }
+    | {
+        kind: "dungeonAi";
+        returnScreen: Screen;
     };
 
 const MAX_LEVEL = 100;
@@ -820,6 +837,7 @@ const AURA_SPHERE_VN_ID = "builtin-aura-sphere-lv9";
 const AURA_SPHERE_ITEM_ID = "aura-sphere";
 const AWAKENING_FREE_LV2_ID = "awakening-free-lv2";
 const AWAKENING_FREE_LV20_ID = "awakening-free-lv20";
+const DUNGEON_VN_ID = "builtin-hidden-dungeon";
 const AWAKENING_ELEMENTS = ["Water", "Wind", "Earth", "Lightning", "Fire"] as const;
 const STUN_AP_PENALTY = 40;
 function rollAwakeningElement(): string {
@@ -946,6 +964,62 @@ const auraSphereLv9VnEvent: CreatorEvent = {
                 "Village Elder: Feed it Aura Dust from battles, raids, bosses, war contribution, and ancient chests.",
                 "Village Elder: Treat it well, and one day your own aura will answer before you speak.",
             ],
+        },
+    ],
+};
+
+const hiddenDungeonVnEvent: CreatorEvent = {
+    id: DUNGEON_VN_ID,
+    name: "Hidden Dungeon Gate",
+    biome: "shadow",
+    icon: "DG",
+    eventKind: "visualNovel",
+    trigger: "manual",
+    vnTitle: "Hidden Dungeon Gate",
+    vnScene: "A sealed stairwell opens beneath the tile you explored.",
+    vnSpeaker: "Narrator",
+    levelReq: 50,
+    xpReward: 0,
+    ryoReward: 0,
+    staminaReward: 0,
+    currencyRewards: { boneCharms: 10, auraStones: 5, fateShards: 5 },
+    dialogue: [
+        "Narrator: The ground exhales old chakra.",
+        "Narrator: Three seals burn in the dark: combat, strategy, and companionship.",
+    ],
+    vnPages: [
+        {
+            title: "Seal One: The Warden",
+            scene: "A masked shinobi steps from a hall of old torii gates.",
+            speaker: "Dungeon Warden",
+            dialogue: [
+                "Dungeon Warden: Only shinobi level 50 or higher may cross this seal.",
+                "Dungeon Warden: Defeat the guardian chosen by the dungeon, or leave with your life.",
+            ],
+            leftName: "Player",
+            rightName: "Dungeon Warden",
+        },
+        {
+            title: "Seal Two: The Tile Shrine",
+            scene: "Stone cards grind across a square altar. Five slots wait for your deck.",
+            speaker: "Dungeon Warden",
+            dialogue: [
+                "Dungeon Warden: Strength is not enough.",
+                "Dungeon Warden: Win the shinobi tile game. If you have no cards, you cannot complete this seal.",
+            ],
+            leftName: "Player",
+            rightName: "Dungeon Warden",
+        },
+        {
+            title: "Seal Three: The Rare Beast",
+            scene: "A rare pet spirit circles the final chamber with bright, hostile eyes.",
+            speaker: "Dungeon Warden",
+            dialogue: [
+                "Dungeon Warden: The final seal tests the bond between shinobi and pet.",
+                "Dungeon Warden: Win this battle and the dungeon treasury opens.",
+            ],
+            leftName: "Player",
+            rightName: "Dungeon Warden",
         },
     ],
 };
@@ -3914,6 +3988,30 @@ const builtinHuntMissions: CreatorMission[] = [
     { id: "hunt-worldstorm-dragon", name: "Hunt the Worldstorm Dragon", rank: "S Rank", description: "The Worldstorm Dragon — a living storm given form — has been sighted over Sector 65. Its scales shed lightning, and its roar shakes the ground. This is the apex of all hunts.", type: "fetchExplore", targetSector: 65, exploreCount: 6, levelReq: 70, xpReward: 2000, ryoReward: 1800, staminaReward: 40, currencyRewards: { boneCharms: 3, auraDust: 40, fateShards: 1 }, aiProfileId: "hunt-ai-worldstorm-dragon", itemRewards: ["hunt-legendary-material", "hunt-legendary-material", "hunt-titan-bone"] },
 ];
 
+const builtinFetchMissions: CreatorMission[] = [
+    { id: "fetch-d-supply-trail", name: "D Rank Supply Trail Sweep", rank: "D Rank", description: "Scout a random low-risk sector, mark safe tile routes, then raid the nearby village outpost once to recover missing supplies.", type: "fetchExplore", targetSector: 18, exploreCount: 3, raidCount: 1, levelReq: 1, xpReward: 90, ryoReward: 75, staminaReward: 8 },
+    { id: "fetch-c-border-scout", name: "C Rank Border Scout Run", rank: "C Rank", description: "Explore the assigned border sector several times to map patrol movement, then raid the village guard post twice for field reports.", type: "fetchExplore", targetSector: 32, exploreCount: 5, raidCount: 2, levelReq: 15, xpReward: 240, ryoReward: 190, staminaReward: 14 },
+    { id: "fetch-b-enemy-cache", name: "B Rank Enemy Cache Search", rank: "B Rank", description: "Search a contested sector for hidden supply caches, then raid the village defenses to break their courier route.", type: "fetchExplore", targetSector: 47, exploreCount: 7, raidCount: 3, levelReq: 30, xpReward: 520, ryoReward: 420, staminaReward: 22, currencyRewards: { boneCharms: 1 } },
+    { id: "fetch-a-black-route", name: "A Rank Black Route Operation", rank: "A Rank", description: "Sweep a dangerous sector for black-route intel, then raid the enemy village enough times to expose their command chain.", type: "fetchExplore", targetSector: 58, exploreCount: 9, raidCount: 4, levelReq: 50, xpReward: 1100, ryoReward: 900, staminaReward: 32, currencyRewards: { boneCharms: 2, auraDust: 20 } },
+    { id: "fetch-s-shadow-front", name: "S Rank Shadow Front Incursion", rank: "S Rank", description: "Penetrate a high-threat sector, complete a deep tile sweep, and raid the village front repeatedly before returning with the sealed orders.", type: "fetchExplore", targetSector: 65, exploreCount: 12, raidCount: 5, levelReq: 70, xpReward: 2400, ryoReward: 2100, staminaReward: 45, currencyRewards: { boneCharms: 3, auraDust: 45, fateShards: 1 } },
+];
+
+function missionRaidProgressKey(missionId: string) {
+    return `${missionId}:raids`;
+}
+
+function missionRaidRequirement(mission: CreatorMission) {
+    return Math.max(0, Number(mission.raidCount ?? 0));
+}
+
+function mergeBuiltinMissions(customMissions: CreatorMission[]) {
+    const customById = new Map(customMissions.map((mission) => [mission.id, mission]));
+    return [
+        ...builtinFetchMissions.map((mission) => customById.get(mission.id) ?? mission),
+        ...customMissions.filter((mission) => !builtinFetchMissions.some((builtin) => builtin.id === mission.id)),
+    ];
+}
+
 function normalizeAiProfile(ai: Partial<CreatorAi>, allJutsus: Jutsu[] = starterJutsus): CreatorAi {
     const fallback = starterAiProfile(allJutsus);
     return {
@@ -4007,7 +4105,7 @@ export default function App() {
     const [bloodlineMakerRankLocked, setBloodlineMakerRankLocked] = useState(false);
     const [currentSector, setCurrentSector] = useState(40);
     const [playerRoster, setPlayerRoster] = useState<PlayerRecord[]>([]);
-    const [allServerPlayers, setAllServerPlayers] = useState<{ name: string; level: number; village: string; online: boolean }[]>([]);
+    const [allServerPlayers, setAllServerPlayers] = useState<ServerPlayerSummary[]>([]);
     const [hospitalEntryTime, setHospitalEntryTime] = useState<number | null>(null);
     const [duelChallenges, setDuelChallenges] = useState<DuelChallenge[]>([]);
     const [triggeredEvents, setTriggeredEvents] = useState<string[]>([]);
@@ -4018,6 +4116,11 @@ export default function App() {
     const [pendingArenaStoryBattle, setPendingArenaStoryBattle] = useState<PendingArenaStoryBattle | null>(null);
     const [triggerPage, setTriggerPage] = useState(0);
     const [triggerLine, setTriggerLine] = useState(0);
+    const [activeDungeonEvent, setActiveDungeonEvent] = useState<CreatorEvent | null>(null);
+    const [dungeonStage, setDungeonStage] = useState<"intro" | "tile" | "pet" | "complete">("intro");
+    const [dungeonPage, setDungeonPage] = useState(0);
+    const [dungeonLine, setDungeonLine] = useState(0);
+    const [dungeonReturnScreen, setDungeonReturnScreen] = useState<Screen>("worldMap");
     // Warn before refresh/close during battle or while hospitalized
     useEffect(() => {
         function handleBeforeUnload(e: BeforeUnloadEvent) {
@@ -4054,6 +4157,7 @@ export default function App() {
                     if (saveRes.ok) {
                         const snap = await saveRes.json() as { character?: Character };
                         if (snap.character) setCharacter(normalizeCharacter(snap.character));
+                        await fetch(`/api/save/${encodeURIComponent(accountName)}?ack=1`, { method: "POST" });
                     } else {
                         // Save was deleted (account reset) — also clear localStorage so the
                         // stale level-100 snapshot can't be reloaded on the next login.
@@ -4066,6 +4170,7 @@ export default function App() {
                         setCharacter(null);
                         setCurrentAccountName("");
                         setScreen("start");
+                        await fetch(`/api/save/${encodeURIComponent(accountName)}?ack=1`, { method: "POST" });
                     }
                     return;
                 }
@@ -4123,8 +4228,31 @@ export default function App() {
             try {
                 const res = await fetch('/api/player/roster');
                 if (!res.ok) return;
-                const data = await res.json() as { players?: { name: string; level: number; village: string; online: boolean }[] };
-                if (data.players?.length) setAllServerPlayers(data.players.filter(p => p.name.toLowerCase() !== character!.name.toLowerCase()));
+                const data = await res.json() as { players?: ServerPlayerSummary[] };
+                if (data.players?.length) {
+                    const serverPlayers = data.players.filter(p => p.name.toLowerCase() !== character!.name.toLowerCase());
+                    setAllServerPlayers(serverPlayers);
+                    setPlayerRoster((prev) => {
+                        const merged = [...prev];
+                        for (const incoming of serverPlayers) {
+                            if (!incoming.character) continue;
+                            const normalized = normalizeCharacter(incoming.character);
+                            const record: PlayerRecord = {
+                                name: incoming.name || normalized.name,
+                                level: incoming.level ?? normalized.level,
+                                village: incoming.village || normalized.village,
+                                specialty: (incoming.specialty as JutsuType | undefined) ?? normalized.specialty,
+                                character: normalized,
+                                currentSector: incoming.currentSector ?? 40,
+                                lastSeenAt: incoming.lastSeenAt ?? Date.now(),
+                            };
+                            const idx = merged.findIndex(p => p.name.toLowerCase() === record.name.toLowerCase());
+                            if (idx >= 0) merged[idx] = { ...merged[idx], ...record };
+                            else merged.push(record);
+                        }
+                        return merged;
+                    });
+                }
             } catch { /* silently skip */ }
         }
         fetchRoster();
@@ -4852,7 +4980,7 @@ export default function App() {
     }
 
     function recordMissionExplore(sector: number) {
-        const matchingMissions = creatorMissions.filter((mission) =>
+        const matchingMissions = mergeBuiltinMissions(creatorMissions).filter((mission) =>
             acceptedMissionIds.includes(mission.id) &&
             mission.type === "fetchExplore" &&
             mission.targetSector === sector
@@ -4864,6 +4992,26 @@ export default function App() {
             const next = { ...current };
             matchingMissions.forEach((mission) => {
                 next[mission.id] = Math.min(mission.exploreCount, (next[mission.id] ?? 0) + 1);
+            });
+            return next;
+        });
+    }
+
+    function recordMissionRaid(sector: number) {
+        const matchingMissions = mergeBuiltinMissions(creatorMissions).filter((mission) =>
+            acceptedMissionIds.includes(mission.id) &&
+            mission.type === "fetchExplore" &&
+            mission.targetSector === sector &&
+            missionRaidRequirement(mission) > 0
+        );
+
+        if (matchingMissions.length === 0) return;
+
+        setMissionProgress((current) => {
+            const next = { ...current };
+            matchingMissions.forEach((mission) => {
+                const key = missionRaidProgressKey(mission.id);
+                next[key] = Math.min(missionRaidRequirement(mission), (next[key] ?? 0) + 1);
             });
             return next;
         });
@@ -4997,6 +5145,79 @@ export default function App() {
         setScreen(activeTriggerReturnScreen);
     }
 
+    function dungeonEventTemplate() {
+        return creatorEvents.find((event) => event.id === DUNGEON_VN_ID) ?? hiddenDungeonVnEvent;
+    }
+
+    function triggerDungeonEncounter(returnScreen: Screen = "worldMap") {
+        if (!character) return;
+        const event = dungeonEventTemplate();
+        if (character.level < event.levelReq) return;
+        setActiveDungeonEvent(event);
+        setDungeonStage("intro");
+        setDungeonPage(0);
+        setDungeonLine(0);
+        setDungeonReturnScreen(returnScreen);
+        setScreen("dungeon");
+    }
+
+    function startDungeonAiFight() {
+        if (!character || !activeDungeonEvent) return;
+        const level = [50, 75, 100][Math.floor(Math.random() * 3)];
+        const statBoost = level === 100 ? 190 : level === 75 ? 145 : 105;
+        const hpBoost = level === 100 ? 2.25 : level === 75 ? 2 : 1.75;
+        const aiProfileId = `temp-dungeon-ai-${level}-${Date.now()}`;
+        setTemporaryStoryAi({
+            id: aiProfileId,
+            name: level === 100 ? "Abyssal Dungeon Warden" : level === 75 ? "Sealed Dungeon Warden" : "Dungeon Warden",
+            icon: "DG",
+            image: activeDungeonEvent.avatarImage || activeDungeonEvent.image,
+            level,
+            village: "Hidden Dungeon",
+            hp: Math.floor(maxHpForLevel(level) * hpBoost),
+            chakra: Math.floor(maxChakraForLevel(level) * 1.8),
+            stamina: Math.floor(maxStaminaForLevel(level) * 1.8),
+            stats: addToAllStats(enemyStats(), statBoost),
+            jutsuIds: starterJutsus
+                .filter((jutsu) => jutsu.ap >= 40)
+                .slice(level === 100 ? 8 : level === 75 ? 6 : 4, level === 100 ? 14 : level === 75 ? 12 : 10)
+                .map((jutsu) => jutsu.id),
+            rules: [
+                { id: makeId(), condition: "hp_lower_than", value: 45, action: "use_highest_power_jutsu" },
+                { id: makeId(), condition: "always", value: 0, action: "use_highest_power_jutsu" },
+            ],
+        });
+        setPendingPvpOpponent(null);
+        setRaidBattleKind("none");
+        setPendingArenaStoryBattle({ kind: "dungeonAi", returnScreen: "dungeon" });
+        setPendingAiProfileId(aiProfileId);
+        setCurrentBiome(activeDungeonEvent.biome);
+        setCurrentWeather(weatherForBiome(activeDungeonEvent.biome));
+        setArenaKey((key) => key + 1);
+        setScreen("arena");
+    }
+
+    function leaveDungeon() {
+        setActiveDungeonEvent(null);
+        setDungeonStage("intro");
+        setDungeonPage(0);
+        setDungeonLine(0);
+        setTemporaryStoryAi(null);
+        setPendingArenaStoryBattle(null);
+        setPendingAiProfileId("");
+        setScreen(dungeonReturnScreen);
+    }
+
+    function completeDungeon() {
+        if (!character || !activeDungeonEvent) return;
+        const rewarded = applyCurrencyRewards(character, activeDungeonEvent.currencyRewards);
+        setCharacter(rewarded);
+        alert(`${activeDungeonEvent.name} cleared. +10 Bone Charms, +5 Aura Stones, +5 Fate Shards.`);
+        setActiveDungeonEvent(null);
+        setDungeonStage("complete");
+        setScreen(dungeonReturnScreen);
+    }
+
     function startStoryArenaBattle(step: StoryStep) {
         setTemporaryStoryAi(null);
         setPendingPvpOpponent(null);
@@ -5073,6 +5294,14 @@ export default function App() {
             setCharacter(nextCharacter);
             setPendingAiProfileId("");
             return `${step.bossName} defeated. +${step.rewardXp} XP, +${step.rewardRyo} ryo, +12 Aura Dust. Story advanced.`;
+        }
+
+        if (pendingArenaStoryBattle.kind === "dungeonAi") {
+            setCharacter({ ...character, hp: Math.min(character.maxHp, survivingHp + 50) });
+            setDungeonStage("tile");
+            setTemporaryStoryAi(null);
+            setPendingAiProfileId("");
+            return "Dungeon Warden defeated. The second seal opens: win the shinobi tile game to continue.";
         }
 
         const { event, battle } = pendingArenaStoryBattle;
@@ -5305,6 +5534,26 @@ export default function App() {
                     />
                 )}
 
+                {!activeTriggeredEvent && screen === "dungeon" && character && activeDungeonEvent && (
+                    <DungeonEncounter
+                        event={activeDungeonEvent}
+                        character={character}
+                        updateCharacter={setCharacter}
+                        creatorCards={creatorCards}
+                        editablePets={editablePets}
+                        stage={dungeonStage}
+                        pageIndex={dungeonPage}
+                        lineIndex={dungeonLine}
+                        setPageIndex={setDungeonPage}
+                        setLineIndex={setDungeonLine}
+                        onStartAiFight={startDungeonAiFight}
+                        onTileWin={() => { setDungeonStage("pet"); setDungeonPage(2); setDungeonLine(0); }}
+                        onPetWin={completeDungeon}
+                        onLeave={leaveDungeon}
+                        sharedImages={sharedImages}
+                    />
+                )}
+
                 {!activeTriggeredEvent && screen === "villageLore" && character && (
                     <VillageLoreScreen
                         character={character}
@@ -5333,7 +5582,7 @@ export default function App() {
                         petEncounterVn={petEncounterVn}
                         editablePets={editablePets}
                         setPendingAiProfileId={setPendingAiProfileId}
-                        setPendingPvpOpponent={(c) => setPendingPvpOpponent(normalizeCharacter(c))}
+                        setPendingPvpOpponent={(c) => setPendingPvpOpponent(c ? normalizeCharacter(c) : null)}
                         setRaidBattleKind={setRaidBattleKind}
                         recordMissionExplore={recordMissionExplore}
                         playableAis={playableAis}
@@ -5344,6 +5593,7 @@ export default function App() {
                         acceptedMissionIds={acceptedMissionIds}
                         missionProgress={missionProgress}
                         sharedImages={sharedImages}
+                        onDungeonFound={() => triggerDungeonEncounter("worldMap")}
                         sectorAttackPlayer={(opponent) => {
                             // Sector PvP — immediate mutual engagement, defender auto-routed
                             const challenge: DuelChallenge = {
@@ -5356,6 +5606,7 @@ export default function App() {
                                 sectorAttack: true,
                             };
                             setDuelChallenges([...duelChallenges, challenge]);
+                            setPendingAiProfileId("");
                             setPendingPvpOpponent(normalizeCharacter(opponent.character));
                             setRaidBattleKind("raidPlayer");
                             fetch('/api/player/attack', {
@@ -5461,6 +5712,7 @@ export default function App() {
                         pendingStoryBattle={pendingArenaStoryBattle}
                         onPendingStoryBattleWin={completePendingArenaStoryBattle}
                         onPendingStoryBattleContinue={continuePendingArenaStoryBattle}
+                        onMissionRaidComplete={recordMissionRaid}
                     />
                 )}
 
@@ -5989,6 +6241,177 @@ function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, setPageI
                 </div>
             </div>
         </div>
+    );
+}
+
+function DungeonEncounter({
+    event,
+    character,
+    updateCharacter,
+    creatorCards,
+    editablePets,
+    stage,
+    pageIndex,
+    lineIndex,
+    setPageIndex,
+    setLineIndex,
+    onStartAiFight,
+    onTileWin,
+    onPetWin,
+    onLeave,
+    sharedImages = {},
+}: {
+    event: CreatorEvent;
+    character: Character;
+    updateCharacter: (character: Character) => void;
+    creatorCards: TileCard[];
+    editablePets: Pet[];
+    stage: "intro" | "tile" | "pet" | "complete";
+    pageIndex: number;
+    lineIndex: number;
+    setPageIndex: (index: number | ((index: number) => number)) => void;
+    setLineIndex: (index: number | ((index: number) => number)) => void;
+    onStartAiFight: () => void;
+    onTileWin: () => void;
+    onPetWin: () => void;
+    onLeave: () => void;
+    sharedImages?: Record<string, string>;
+}) {
+    const pages = event.vnPages && event.vnPages.length > 0 ? event.vnPages : hiddenDungeonVnEvent.vnPages!;
+    const stagePage = stage === "pet" ? 2 : stage === "tile" ? 1 : 0;
+    const page = pages[Math.min(stagePage, pages.length - 1)];
+    const pageDialogue = page.dialogue.length > 0 ? page.dialogue : event.dialogue;
+    const activeLine = pageDialogue[lineIndex] ?? pageDialogue[0] ?? page.scene ?? "The dungeon waits.";
+    const splitLine = activeLine.includes(":") ? activeLine.split(":") : [page.speaker || event.vnSpeaker || "Narrator", activeLine];
+    const speaker = splitLine[0].trim();
+    const spoken = splitLine.slice(1).join(":").trim() || activeLine;
+    const pageImage = page.image || event.image;
+    const canBack = lineIndex > 0;
+    const isLastLine = lineIndex >= pageDialogue.length - 1;
+    const actionLabel = stage === "intro" ? "Challenge Seal One" : stage === "tile" ? "Start Tile Seal" : "Challenge Rare Pet";
+    function nextLine() {
+        if (!isLastLine) setLineIndex((line) => line + 1);
+    }
+    if (stage === "tile" && isLastLine) {
+        return <ShinobiTiles character={character} updateCharacter={updateCharacter} creatorCards={creatorCards} dungeonMode onDungeonWin={onTileWin} onDungeonLeave={onLeave} />;
+    }
+    if (stage === "pet" && isLastLine) {
+        return <DungeonPetBattle character={character} updateCharacter={updateCharacter} editablePets={editablePets} onWin={onPetWin} onLeave={onLeave} sharedImages={sharedImages} />;
+    }
+    return (
+        <div className="card cinematic-card">
+            <button className="danger-button" onClick={onLeave}>Leave Dungeon</button>
+            <div className="visual-novel admin-vn-play">
+                <div className="vn-header">
+                    <div>
+                        <p className="act-label">HIDDEN DUNGEON</p>
+                        <h2>{page.title || event.vnTitle || event.name}</h2>
+                    </div>
+                    <div className="vn-progress">Seal {stagePage + 1}/3 | Line {lineIndex + 1}/{Math.max(1, pageDialogue.length)}</div>
+                </div>
+                <div className={"vn-stage vn-biome-" + event.biome + (pageImage ? " vn-has-image" : "")} style={pageImage ? { backgroundImage: `linear-gradient(180deg, rgba(7,12,27,.18), rgba(7,12,27,.78)), url(${pageImage})` } : undefined}>
+                    <div className="vn-backdrop"><span className="vn-village-silhouette"></span></div>
+                    <div className="vn-character mentor-character">{character.avatarImage ? <img src={character.avatarImage} alt={character.name} /> : character.name.slice(0, 2).toUpperCase()}</div>
+                    <div className="vn-character hero-character">{event.avatarImage ? <img src={event.avatarImage} alt={speaker} /> : "DG"}</div>
+                    <div className="vn-scene-card">{page.scene || event.vnScene || "A hidden dungeon opens underfoot."}</div>
+                    <div className="vn-dialogue">
+                        <div className="vn-speaker">{speaker}</div>
+                        <p>{spoken}</p>
+                        <div className="vn-controls">
+                            <button disabled={!canBack} onClick={() => setLineIndex((line) => Math.max(0, line - 1))}>Back</button>
+                            {!isLastLine ? <button onClick={nextLine}>Next</button> : <button className="admin-button" onClick={stage === "intro" ? onStartAiFight : () => setLineIndex((line) => line)}>{actionLabel}</button>}
+                        </div>
+                    </div>
+                </div>
+                <div className="vn-reward-strip">
+                    <span>Requires Level {event.levelReq}</span>
+                    <span>Clear all 3 seals: {rewardSummary(event.xpReward, event.ryoReward, event.staminaReward, event.currencyRewards)}</span>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function DungeonPetBattle({ character, updateCharacter, editablePets, onWin, onLeave, sharedImages = {} }: { character: Character; updateCharacter: (character: Character) => void; editablePets: Pet[]; onWin: () => void; onLeave: () => void; sharedImages?: Record<string, string> }) {
+    const selectedPet = character.pets.find((pet) => pet.id === character.activePetId) ?? character.pets[0];
+    const rarePool = editablePets.filter((pet) => pet.rarity === "rare" || pet.rarity === "legendary" || pet.rarity === "mythic");
+    const basePet = rarePool[Math.floor(Math.random() * Math.max(1, rarePool.length))] ?? genericPetArenaOpponents[2].pet;
+    const [enemyPet] = useState<Pet>(() => ({
+        ...basePet,
+        id: `dungeon-pet-${Date.now()}`,
+        name: basePet.name || "Dungeon Rare Beast",
+        rarity: "rare",
+        level: Math.max(55, basePet.level + 25),
+        hp: Math.max(900, Math.floor(basePet.hp * 2.1)),
+        attack: Math.max(110, Math.floor(basePet.attack * 1.9)),
+        defense: Math.max(100, Math.floor(basePet.defense * 1.8)),
+        speed: Math.max(90, Math.floor(basePet.speed * 1.6)),
+        trait: basePet.trait ?? "Battleborn",
+    }));
+    const [battleFrames, setBattleFrames] = useState<PetArenaFrame[]>([]);
+    const [battleObstacles, setBattleObstacles] = useState<number[]>([]);
+    const [frameIndex, setFrameIndex] = useState(0);
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [result, setResult] = useState("");
+    const currentFrame = battleFrames[frameIndex];
+    const visibleLog = battleFrames.length ? battleFrames.slice(0, frameIndex + 1).map((frame) => frame.message) : [];
+    useEffect(() => {
+        if (!isPlaying) return;
+        if (frameIndex >= battleFrames.length - 1) {
+            setIsPlaying(false);
+            return;
+        }
+        const timer = window.setTimeout(() => setFrameIndex((index) => Math.min(index + 1, battleFrames.length - 1)), 900);
+        return () => window.clearTimeout(timer);
+    }, [battleFrames.length, frameIndex, isPlaying]);
+    function startBattle() {
+        if (!selectedPet) return;
+        const battle = runPetArenaBattle(selectedPet, enemyPet, "Dungeon Beast");
+        setBattleFrames(battle.frames);
+        setBattleObstacles(battle.obstacles);
+        setFrameIndex(0);
+        setIsPlaying(true);
+        setResult(battle.result === "win" ? "Victory" : "Defeat");
+        if (battle.result === "win") updateCharacter({ ...character, totalPetWins: (character.totalPetWins ?? 0) + 1 });
+    }
+    if (!selectedPet) {
+        return (
+            <div className="card cinematic-card">
+                <h2>Rare Beast Seal</h2>
+                <p className="hint">You need at least one pet to complete this seal.</p>
+                <button className="danger-button" onClick={onLeave}>Leave Dungeon</button>
+            </div>
+        );
+    }
+    if (!battleFrames.length) {
+        return (
+            <div className="card cinematic-card">
+                <h2>Rare Beast Seal</h2>
+                <div className="pet-arena-grid">
+                    <PetArenaCard owner="You" pet={selectedPet} sharedImages={sharedImages} />
+                    <PetArenaCard owner="Dungeon Beast" pet={enemyPet} sharedImages={sharedImages} />
+                </div>
+                <div className="menu">
+                    <button className="admin-button" onClick={startBattle}>Start Pet Battle</button>
+                    <button className="danger-button" onClick={onLeave}>Leave Dungeon</button>
+                </div>
+            </div>
+        );
+    }
+    return (
+        <PetArenaBattlefield
+            playerPet={selectedPet}
+            enemyPet={enemyPet}
+            enemyOwner="Dungeon Beast"
+            frame={currentFrame}
+            recentFrames={battleFrames.slice(Math.max(0, frameIndex - 4), frameIndex + 1)}
+            result={result}
+            obstacles={battleObstacles}
+            onReplay={() => { setBattleFrames([]); setResult(""); }}
+            onFightAgain={() => { setBattleFrames([]); setResult(""); }}
+            onExit={result === "Victory" ? onWin : onLeave}
+            sharedImages={sharedImages}
+        />
     );
 }
 
@@ -7043,7 +7466,7 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
     return { result, player, enemy, logs, frames, obstacles: [...obstacles] };
 }
 
-function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, setScreen, sharedImages, duelChallenges, setDuelChallenges }: { character: Character; updateCharacter: (character: Character) => void; playerRoster: PlayerRecord[]; allServerPlayers: { name: string; level: number; village: string; online: boolean }[]; setScreen: (screen: Screen) => void; sharedImages: Record<string, string>; duelChallenges: DuelChallenge[]; setDuelChallenges: (c: DuelChallenge[]) => void }) {
+function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, setScreen, sharedImages, duelChallenges, setDuelChallenges }: { character: Character; updateCharacter: (character: Character) => void; playerRoster: PlayerRecord[]; allServerPlayers: ServerPlayerSummary[]; setScreen: (screen: Screen) => void; sharedImages: Record<string, string>; duelChallenges: DuelChallenge[]; setDuelChallenges: (c: DuelChallenge[]) => void }) {
     const [selectedPetId, setSelectedPetId] = useState(character.activePetId ?? character.pets[0]?.id ?? "");
     const [opponentMode, setOpponentMode] = useState<"player" | "ai">("player");
     const [opponentSearch, setOpponentSearch] = useState("");
@@ -7632,7 +8055,7 @@ function AdminPanel({
     setScreen: (screen: Screen) => void;
     onSave: () => Promise<void>;
     playerRoster: PlayerRecord[];
-    allServerPlayers: { name: string; level: number; village: string; online: boolean }[];
+    allServerPlayers: ServerPlayerSummary[];
     adminPw: string;
 }) {
     // Always-fresh ref to onSave so async callbacks don't capture a stale closure
@@ -8077,6 +8500,7 @@ function AdminPanel({
     const [missionAiProfileId, setMissionAiProfileId] = useState("");
     const [missionTargetSector, setMissionTargetSector] = useState(1);
     const [missionExploreCount, setMissionExploreCount] = useState(3);
+    const [missionRaidCount, setMissionRaidCount] = useState(0);
     const [missionLevelReq, setMissionLevelReq] = useState(1);
     const [missionXp, setMissionXp] = useState(50);
     const [missionRyo, setMissionRyo] = useState(35);
@@ -8188,7 +8612,7 @@ function AdminPanel({
         }
         const updated = { ...pmSnap, character: char };
         try {
-            const res = await fetch(`/api/save/${encodeURIComponent(pmTargetName.trim().toLowerCase())}`, {
+            const res = await fetch(`/api/save/${encodeURIComponent(pmTargetName.trim().toLowerCase())}?signal=1`, {
                 method: "POST", headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(updated),
             });
@@ -8372,7 +8796,10 @@ function AdminPanel({
         ...creatorAis.filter((ai) => !builtinAis.some((builtin) => builtin.id === ai.id)),
     ];
     const selectedAdminAiProfile = allAdminAis.find((ai) => ai.id === selectedAiId) ?? allAdminAis[0];
-    const builtInVisualNovels = Object.entries(storylines).flatMap(([village, steps]) => steps.map((step, index) => storyToCreatorEvent(step, village, index)));
+    const builtInVisualNovels = [
+        hiddenDungeonVnEvent,
+        ...Object.entries(storylines).flatMap(([village, steps]) => steps.map((step, index) => storyToCreatorEvent(step, village, index))),
+    ];
     const allEditableEvents = [
         ...builtInVisualNovels.filter((builtIn) => !creatorEvents.some((event) => event.id === builtIn.id)),
         ...creatorEvents,
@@ -8410,7 +8837,8 @@ function AdminPanel({
             return String(a[eventSort]).localeCompare(String(b[eventSort])) || a.name.localeCompare(b.name);
         });
 
-    const sortedCreatorMissions = [...creatorMissions]
+    const editableMissions = mergeBuiltinMissions(creatorMissions);
+    const sortedCreatorMissions = [...editableMissions]
         .filter((mission) => missionRankFilter === "All" || mission.rank === missionRankFilter)
         .sort((a, b) => missionRanks.indexOf(a.rank) - missionRanks.indexOf(b.rank) || a.levelReq - b.levelReq || a.name.localeCompare(b.name));
 
@@ -8749,8 +9177,9 @@ function AdminPanel({
             description: missionDescription.trim() || "Explore the assigned sector and return to claim the reward.",
             type: "fetchExplore",
             aiProfileId: missionAiProfileId || undefined,
-            targetSector: Math.max(1, Math.min(60, Number(missionTargetSector))),
+            targetSector: Math.max(1, Math.min(99, Number(missionTargetSector))),
             exploreCount: Math.max(1, Number(missionExploreCount)),
+            raidCount: Math.max(0, Number(missionRaidCount)),
             levelReq: Math.max(1, Math.min(MAX_LEVEL, Number(missionLevelReq))),
             xpReward: Math.max(0, Number(missionXp)),
             ryoReward: Math.max(0, Number(missionRyo)),
@@ -8767,6 +9196,7 @@ function AdminPanel({
         setMissionAiProfileId(mission.aiProfileId ?? "");
         setMissionTargetSector(mission.targetSector);
         setMissionExploreCount(mission.exploreCount);
+        setMissionRaidCount(missionRaidRequirement(mission));
         setMissionLevelReq(mission.levelReq);
         setMissionXp(mission.xpReward);
         setMissionRyo(mission.ryoReward);
@@ -9183,7 +9613,7 @@ function AdminPanel({
                         </section>
                         <section className="summary-box">
                             <h3>Mission Editor</h3>
-                            <p className="hint">Fetch quests send players to a numbered world sector and count each Explore Tile action.</p>
+                            <p className="hint">Fetch quests send players to a numbered world sector and count Explore Tile actions plus optional village raids in that sector.</p>
                             <label>Mission Name</label><input value={missionName} onChange={(e) => setMissionName(e.target.value)} />
                             <label>Mission Board</label>
                             <select value={missionRank} onChange={(e) => setMissionRank(e.target.value as MissionRank)}>
@@ -9195,10 +9625,11 @@ function AdminPanel({
                                 <option value="">No mission battle AI</option>
                                 {allAdminAis.map((ai) => <option key={ai.id} value={ai.id}>{ai.name} | Level {ai.level}</option>)}
                             </select>
-                            <label>Target Sector / Explore Count</label>
+                            <label>Target Sector / Explore Count / Raid Count</label>
                             <div className="inline-grid">
-                                <input type="number" min={1} max={60} value={missionTargetSector} onChange={(e) => setMissionTargetSector(Number(e.target.value))} />
+                                <input type="number" min={1} max={99} value={missionTargetSector} onChange={(e) => setMissionTargetSector(Number(e.target.value))} />
                                 <input type="number" min={1} value={missionExploreCount} onChange={(e) => setMissionExploreCount(Number(e.target.value))} />
+                                <input type="number" min={0} value={missionRaidCount} onChange={(e) => setMissionRaidCount(Number(e.target.value))} />
                             </div>
                             <label>Level / XP / Ryo / Stamina Reward</label>
                             <div className="inline-grid">
@@ -9229,7 +9660,7 @@ function AdminPanel({
                             {sortedCreatorMissions.length === 0 ? <p className="hint">No custom missions yet.</p> : sortedCreatorMissions.map((mission) => (
                                 <div className="summary-box mission-editor-card" key={mission.id}>
                                     <strong>{mission.rank}: {mission.name}</strong>
-                                    <p>Sector {mission.targetSector} x {mission.exploreCount} explores | Level {mission.levelReq}</p>
+                                    <p>Sector {mission.targetSector} x {mission.exploreCount} explores{missionRaidRequirement(mission) > 0 ? ` + ${missionRaidRequirement(mission)} village raids` : ""} | Level {mission.levelReq}</p>
                                     {mission.aiProfileId && <p>Battle AI: {allAdminAis.find((ai) => ai.id === mission.aiProfileId)?.name ?? mission.aiProfileId}</p>}
                                     <p>{mission.description}</p>
                                     <p>Reward: {rewardSummary(mission.xpReward, mission.ryoReward, mission.staminaReward, mission.currencyRewards)}</p>
@@ -12774,14 +13205,14 @@ function GrandMarketplace({ character, updateCharacter, creatorItems, creatorCar
     );
 }
 
-function ShinobiTiles({ character, updateCharacter, creatorCards }: { character: Character; updateCharacter: (c: Character) => void; creatorCards: TileCard[] }) {
+function ShinobiTiles({ character, updateCharacter, creatorCards, dungeonMode = false, onDungeonWin, onDungeonLeave }: { character: Character; updateCharacter: (c: Character) => void; creatorCards: TileCard[]; dungeonMode?: boolean; onDungeonWin?: () => void; onDungeonLeave?: () => void }) {
     type BoardCell = { card: TileCard; owner: "player" | "enemy" } | null;
     type Phase = "collection" | "select" | "game" | "result";
 
     const allCards = getAllTileCards(creatorCards);
     const ownedCards = character.tileCards.map((id) => allCards.find((c) => c.id === id)).filter(Boolean) as TileCard[];
 
-    const [phase, setPhase] = useState<Phase>("collection");
+    const [phase, setPhase] = useState<Phase>(dungeonMode ? "select" : "collection");
     const [deckPicks, setDeckPicks] = useState<TileCard[]>([]);
     const [board, setBoard] = useState<BoardCell[]>(Array(9).fill(null));
     const [playerHand, setPlayerHand] = useState<TileCard[]>([]);
@@ -12838,13 +13269,16 @@ function ShinobiTiles({ character, updateCharacter, creatorCards }: { character:
         const r = player > enemy ? "win" : player < enemy ? "lose" : "draw";
         setResult(r);
         setPhase("result");
-        if (r === "win") updateCharacter({ ...character, ryo: character.ryo + 150 });
+        if (r === "win" && !dungeonMode) updateCharacter({ ...character, ryo: character.ryo + 150 });
         return true;
     }
 
     function startGame() {
         if (deckPicks.length !== 5) return;
-        const ai = [...allCards].sort(() => Math.random() - 0.5).slice(0, 5);
+        const aiPool = dungeonMode
+            ? [...allCards].sort((a, b) => (b.top + b.right + b.bottom + b.left) - (a.top + a.right + a.bottom + a.left)).slice(0, Math.max(5, Math.ceil(allCards.length / 3)))
+            : allCards;
+        const ai = [...aiPool].sort(() => Math.random() - 0.5).slice(0, 5);
         setBoard(Array(9).fill(null));
         setPlayerHand([...deckPicks]);
         setEnemyHand(ai);
@@ -13002,13 +13436,23 @@ function ShinobiTiles({ character, updateCharacter, creatorCards }: { character:
 
     // Deck selection
     if (phase === "select") {
+        if (dungeonMode && ownedCards.length < 5) {
+            return (
+                <div className="card cinematic-card">
+                    <h2>Tile Shrine Locked</h2>
+                    <p className="hint">You need at least 5 Shinobi Tile cards to complete this dungeon seal.</p>
+                    <p>Cards owned: <strong>{ownedCards.length}</strong> / 5</p>
+                    <button className="danger-button" onClick={onDungeonLeave}>Leave Dungeon</button>
+                </div>
+            );
+        }
         return (
             <div className="card">
-                <h2>Select 5 Cards</h2>
+                <h2>{dungeonMode ? "Dungeon Tile Seal" : "Select 5 Cards"}</h2>
                 <p style={{ marginBottom: "0.5rem" }}>Picked: <strong>{deckPicks.length} / 5</strong></p>
                 <div className="menu" style={{ marginBottom: "1rem" }}>
-                    <button onClick={startGame} disabled={deckPicks.length !== 5}>Play</button>
-                    <button onClick={() => setPhase("collection")}>Back</button>
+                    <button onClick={startGame} disabled={deckPicks.length !== 5}>{dungeonMode ? "Challenge Shrine" : "Play"}</button>
+                    <button onClick={dungeonMode ? onDungeonLeave : () => setPhase("collection")}>{dungeonMode ? "Leave Dungeon" : "Back"}</button>
                 </div>
                 {deckPicks.length > 0 && (
                     <div style={{ marginBottom: "1rem" }}>
@@ -13043,7 +13487,9 @@ function ShinobiTiles({ character, updateCharacter, creatorCards }: { character:
                     {result === "win" ? "Victory!" : result === "lose" ? "Defeated" : "Draw"}
                 </h2>
                 <p style={{ marginBottom: "0.5rem" }}>You <strong>{player}</strong> — Enemy <strong>{enemy}</strong></p>
-                {result === "win" && <p style={{ color: "#a5d6a7", marginBottom: "0.8rem" }}>+150 ryo reward!</p>}
+                {result === "win" && !dungeonMode && <p style={{ color: "#a5d6a7", marginBottom: "0.8rem" }}>+150 ryo reward!</p>}
+                {dungeonMode && result === "win" && <p style={{ color: "#a5d6a7", marginBottom: "0.8rem" }}>The second seal breaks open.</p>}
+                {dungeonMode && result !== "win" && <p style={{ color: "#ef9a9a", marginBottom: "0.8rem" }}>The tile shrine refuses you.</p>}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 6, marginBottom: "1rem", maxWidth: 320, margin: "0 auto 1rem" }}>
                     {board.map((cell, i) => (
                         <div key={i} style={{ background: cell?.owner === "player" ? "#0d2137" : cell?.owner === "enemy" ? "#200a0a" : "#111", border: `2px solid ${cell?.owner === "player" ? "#4fc3f7" : cell?.owner === "enemy" ? "#ef5350" : "#333"}`, borderRadius: 8, padding: 4, minHeight: 80, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -13052,8 +13498,8 @@ function ShinobiTiles({ character, updateCharacter, creatorCards }: { character:
                     ))}
                 </div>
                 <div className="menu">
-                    <button onClick={() => { setDeckPicks([]); setPhase("select"); }}>Play Again</button>
-                    <button onClick={() => setPhase("collection")}>Collection</button>
+                    {dungeonMode && result === "win" ? <button className="admin-button" onClick={onDungeonWin}>Continue to Final Seal</button> : <button onClick={() => { setDeckPicks([]); setPhase("select"); }}>Play Again</button>}
+                    <button onClick={dungeonMode ? onDungeonLeave : () => setPhase("collection")}>{dungeonMode ? "Leave Dungeon" : "Collection"}</button>
                 </div>
             </div>
         );
@@ -15721,6 +16167,7 @@ function WorldMap({
     acceptedMissionIds,
     missionProgress,
     sharedImages = {},
+    onDungeonFound,
 }: {
     setCurrentBiome: (biome: Biome) => void;
     setScreen: (screen: Screen) => void;
@@ -15730,7 +16177,7 @@ function WorldMap({
     petEncounterVn: CreatorEvent;
     editablePets: Pet[];
     setPendingAiProfileId: (id: string) => void;
-    setPendingPvpOpponent: (c: Character) => void;
+    setPendingPvpOpponent: (c: Character | null) => void;
     setRaidBattleKind: (kind: "none" | "raidAi" | "raidPlayer" | "defense") => void;
     recordMissionExplore: (sector: number) => void;
     playableAis: CreatorAi[];
@@ -15742,6 +16189,7 @@ function WorldMap({
     acceptedMissionIds: string[];
     missionProgress: Record<string, number>;
     sharedImages?: Record<string, string>;
+    onDungeonFound: () => void;
 }) {
     const [selectedSector, setSelectedSector] = useState<number | null>(null);
     const [selectedVillageTerritory, setSelectedVillageTerritory] = useState<typeof locations[number] | null>(null);
@@ -15768,6 +16216,29 @@ function WorldMap({
             body: JSON.stringify({ village: enemyVillage }),
         }).then(r => r.ok ? r.json() : []).then(setSectorEnemyGuards).catch(() => setSectorEnemyGuards([]));
     }, [selectedSector, character.village]);
+
+    async function fetchSavedPlayerCharacter(name: string): Promise<Character | null> {
+        const rosterMatch = playerRoster.find((player) => player.name.toLowerCase() === name.toLowerCase());
+        if (rosterMatch?.character) return normalizeCharacter(rosterMatch.character);
+        try {
+            const res = await fetch(`/api/save/${encodeURIComponent(name.toLowerCase())}`);
+            if (!res.ok) return null;
+            const data = await res.json() as { character?: unknown };
+            return data.character ? normalizeCharacter(data.character as Character) : null;
+        } catch {
+            return null;
+        }
+    }
+
+    function startPvpRaid(opponent: Character, sector: number, biome: Biome, weather: WeatherType) {
+        setPendingAiProfileId("");
+        setPendingPvpOpponent(normalizeCharacter(opponent));
+        setRaidBattleKind("raidPlayer");
+        setCurrentSector(sector);
+        setCurrentBiome(biome);
+        setCurrentWeather(weather);
+        setScreen("arena");
+    }
 
     function pickGuardAi(level: number, defenseBonusPercent = 0): string {
         const effectiveLevel = level + Math.floor(defenseBonusPercent * 2);
@@ -15956,6 +16427,18 @@ function WorldMap({
             dailyTilesExplored: dailyTiles + 1,
             lastDailyReset: currentDateKey(),
         };
+        if (character.level >= hiddenDungeonVnEvent.levelReq && Math.random() < 0.02) {
+            const biome = biomeForSector(sector);
+            updateCharacter(exploredCharacter);
+            setSelectedVillageTerritory(null);
+            setSelectedSector(sector);
+            setCurrentBiome(biome);
+            setCurrentWeather(weatherForSector(sector, biome));
+            setCurrentSector(sector);
+            recordMissionExplore(sector);
+            onDungeonFound();
+            return;
+        }
         const petEncounter = rollPetEncounter(editablePets);
 
         if (petEncounter) {
@@ -16408,7 +16891,21 @@ function WorldMap({
                                     <p>{villageWarEnemy} HP: {villageWarEnemy ? villageWar.hp[villageWarEnemy].toLocaleString() : 0} / {VILLAGE_WAR_HP_MAX.toLocaleString()}</p>
                                     <button className="danger-button" disabled={villageWar.warGroundHp <= 0 || Boolean(villageWar.endedAt)} onClick={() => {
                                         const guard = sectorEnemyGuards[0];
-                                        setPendingAiProfileId(pickGuardAi(guard ? guard.level : character.level, guard?.defenseBonusPercent ?? 0));
+                                        if (guard) {
+                                            fetchSavedPlayerCharacter(guard.name).then((guardCharacter) => {
+                                                if (guardCharacter) return startPvpRaid(guardCharacter, selectedSector, biome, sectorWeather);
+                                                setPendingPvpOpponent(null);
+                                                setPendingAiProfileId(pickGuardAi(guard.level, guard.defenseBonusPercent ?? 0));
+                                                setRaidBattleKind("raidAi");
+                                                setCurrentSector(selectedSector);
+                                                setCurrentBiome(biome);
+                                                setCurrentWeather(sectorWeather);
+                                                setScreen("arena");
+                                            });
+                                            return;
+                                        }
+                                        setPendingPvpOpponent(null);
+                                        setPendingAiProfileId(pickGuardAi(character.level));
                                         setRaidBattleKind("raidAi");
                                         setCurrentSector(selectedSector);
                                         setCurrentBiome(biome);
@@ -16421,6 +16918,7 @@ function WorldMap({
                             )}
                             {territory.ownerClan && territory.ownerClan !== character.clan && (
                                 <button className="danger-button" onClick={() => {
+                                    setPendingPvpOpponent(null);
                                     setPendingAiProfileId(pickGuardAi(character.level));
                                     setRaidBattleKind("raidAi");
                                     setCurrentSector(selectedSector);
@@ -16536,16 +17034,29 @@ function WorldMap({
                                                     noGuard?: boolean; guardLevel?: number; defenseBonusPercent?: number;
                                                 };
                                                 if (data.pvp && data.guardCharacter) {
-                                                    setPendingPvpOpponent(normalizeCharacter(data.guardCharacter as Character));
-                                                    setRaidBattleKind("raidPlayer");
+                                                    startPvpRaid(data.guardCharacter as Character, virtualSector, biome, weather);
+                                                    return;
                                                 } else {
+                                                    const savedGuard = await fetchSavedPlayerCharacter(guard.name);
+                                                    if (savedGuard) {
+                                                        startPvpRaid(savedGuard, virtualSector, biome, weather);
+                                                        return;
+                                                    }
+                                                    setPendingPvpOpponent(null);
                                                     setPendingAiProfileId(pickGuardAi(data.guardLevel ?? guard.level, data.defenseBonusPercent ?? guard.defenseBonusPercent ?? 0));
                                                     setRaidBattleKind("raidAi");
                                                 }
                                             } catch {
+                                                const savedGuard = await fetchSavedPlayerCharacter(guard.name);
+                                                if (savedGuard) {
+                                                    startPvpRaid(savedGuard, virtualSector, biome, weather);
+                                                    return;
+                                                }
+                                                setPendingPvpOpponent(null);
                                                 setPendingAiProfileId(pickGuardAi(guard.level, guard.defenseBonusPercent ?? 0));
                                                 setRaidBattleKind("raidAi");
                                             }
+                                            setCurrentSector(virtualSector);
                                             setCurrentBiome(biome);
                                             setCurrentWeather(weather);
                                             setScreen("arena");
@@ -16561,8 +17072,10 @@ function WorldMap({
                                 <>
                                     <p className="territory-guard-label" style={{ color: "#475569" }}>Village Undefended</p>
                                     <button onClick={() => {
+                                        setPendingPvpOpponent(null);
                                         setPendingAiProfileId(pickGuardAi(character.level));
                                         setRaidBattleKind("raidAi");
+                                        setCurrentSector(virtualSector);
                                         setCurrentBiome(biome);
                                         setCurrentWeather(weather);
                                         setScreen("arena");
@@ -17069,8 +17582,8 @@ function Missions({
     function completeMission(name: string, xp: number, ryo: number, staminaCost: number, staminaReward: number, minLevel: number) { if (character.level < minLevel) return alert(`Requires level ${minLevel}.`); if (character.stamina < staminaCost) return alert("Not enough stamina."); const todayMissions = character.dailyMissionsCompleted ?? 0; if (todayMissions >= 20) return alert("Daily mission limit reached (20/20). Resets at midnight UTC."); const boostedXp = boostAmount(xp, missionRewardBonus); const boostedRyo = boostAmount(ryo, missionRewardBonus); const boostedStamina = boostAmount(staminaReward, missionRewardBonus); const leveled = grantTerritoryScrolls(gainXp({ ...character, stamina: character.stamina - staminaCost }, boostedXp), 3); updateCharacter({ ...leveled, ryo: leveled.ryo + boostedRyo, stamina: Math.min(leveled.maxStamina, leveled.stamina + boostedStamina), clanMissionContrib: (leveled.clanMissionContrib ?? 0) + 1, totalMissionsCompleted: (leveled.totalMissionsCompleted ?? 0) + 1, dailyMissionsCompleted: todayMissions + 1, lastDailyReset: currentDateKey(), clanContribMonth: new Date().toISOString().slice(0, 7) }); alert(`${name} complete. +${boostedXp} XP, +${boostedRyo} ryo, +${boostedStamina} stamina, +3 Territory Control Scrolls.`); }
     function startMissionBattle(mission: { min: number; aiProfileId: string }) { if (character.level < mission.min) return alert(`Requires level ${mission.min}.`); const ai = creatorAis.find((candidate) => candidate.id === mission.aiProfileId); if (!ai) return alert("Mission AI is not available."); setPendingAiProfileId(ai.id); setScreen("arena"); }
     function startCreatorMissionBattle(mission: CreatorMission) { if (!mission.aiProfileId) return alert("No AI assigned to this mission."); if (character.level < mission.levelReq) return alert(`Requires level ${mission.levelReq}.`); const ai = creatorAis.find((candidate) => candidate.id === mission.aiProfileId); if (!ai) return alert("Mission AI is not available."); setPendingAiProfileId(ai.id); setScreen("arena"); }
-    function acceptFetchMission(mission: CreatorMission) { if (character.level < mission.levelReq) return alert(`Requires level ${mission.levelReq}.`); if (acceptedMissionIds.includes(mission.id)) return; setAcceptedMissionIds([...acceptedMissionIds, mission.id]); setMissionProgress({ ...missionProgress, [mission.id]: missionProgress[mission.id] ?? 0 }); alert(`${mission.name} accepted. Explore Sector ${mission.targetSector} ${mission.exploreCount} times.`); }
-    function claimFetchMission(mission: CreatorMission) { const progress = missionProgress[mission.id] ?? 0; if (progress < mission.exploreCount) return alert(`Explore Sector ${mission.targetSector} ${mission.exploreCount - progress} more time(s).`); const todayMissions = character.dailyMissionsCompleted ?? 0; if (todayMissions >= 20) return alert("Daily mission limit reached (20/20). Resets at midnight UTC."); const boostedXp = boostAmount(mission.xpReward, missionRewardBonus); const boostedRyo = boostAmount(mission.ryoReward, missionRewardBonus); const boostedStamina = boostAmount(mission.staminaReward, missionRewardBonus); const leveled = grantTerritoryScrolls(applyCurrencyRewards(gainXp(character, boostedXp), mission.currencyRewards), 3); updateCharacter({ ...leveled, ryo: leveled.ryo + boostedRyo, stamina: Math.min(leveled.maxStamina, leveled.stamina + boostedStamina), clanMissionContrib: (leveled.clanMissionContrib ?? 0) + 1, totalMissionsCompleted: (leveled.totalMissionsCompleted ?? 0) + 1, dailyMissionsCompleted: todayMissions + 1, lastDailyReset: currentDateKey(), clanContribMonth: new Date().toISOString().slice(0, 7) }); setAcceptedMissionIds(acceptedMissionIds.filter((id) => id !== mission.id)); setMissionProgress({ ...missionProgress, [mission.id]: 0 }); alert(`${mission.name} complete. ${rewardSummary(boostedXp, boostedRyo, boostedStamina, mission.currencyRewards)}. +3 Territory Control Scrolls.`); }
+    function acceptFetchMission(mission: CreatorMission) { if (character.level < mission.levelReq) return alert(`Requires level ${mission.levelReq}.`); if (acceptedMissionIds.includes(mission.id)) return; const raidKey = missionRaidProgressKey(mission.id); setAcceptedMissionIds([...acceptedMissionIds, mission.id]); setMissionProgress({ ...missionProgress, [mission.id]: missionProgress[mission.id] ?? 0, [raidKey]: missionProgress[raidKey] ?? 0 }); const raidReq = missionRaidRequirement(mission); alert(`${mission.name} accepted. Explore Sector ${mission.targetSector} ${mission.exploreCount} times${raidReq > 0 ? ` and raid the village ${raidReq} time(s)` : ""}.`); }
+    function claimFetchMission(mission: CreatorMission) { const progress = missionProgress[mission.id] ?? 0; const raidReq = missionRaidRequirement(mission); const raidProgress = missionProgress[missionRaidProgressKey(mission.id)] ?? 0; if (progress < mission.exploreCount) return alert(`Explore Sector ${mission.targetSector} ${mission.exploreCount - progress} more time(s).`); if (raidProgress < raidReq) return alert(`Raid from Sector ${mission.targetSector} ${raidReq - raidProgress} more time(s).`); const todayMissions = character.dailyMissionsCompleted ?? 0; if (todayMissions >= 20) return alert("Daily mission limit reached (20/20). Resets at midnight UTC."); const boostedXp = boostAmount(mission.xpReward, missionRewardBonus); const boostedRyo = boostAmount(mission.ryoReward, missionRewardBonus); const boostedStamina = boostAmount(mission.staminaReward, missionRewardBonus); const leveled = grantTerritoryScrolls(applyCurrencyRewards(gainXp(character, boostedXp), mission.currencyRewards), 3); updateCharacter({ ...leveled, ryo: leveled.ryo + boostedRyo, stamina: Math.min(leveled.maxStamina, leveled.stamina + boostedStamina), clanMissionContrib: (leveled.clanMissionContrib ?? 0) + 1, totalMissionsCompleted: (leveled.totalMissionsCompleted ?? 0) + 1, dailyMissionsCompleted: todayMissions + 1, lastDailyReset: currentDateKey(), clanContribMonth: new Date().toISOString().slice(0, 7) }); setAcceptedMissionIds(acceptedMissionIds.filter((id) => id !== mission.id)); setMissionProgress({ ...missionProgress, [mission.id]: 0, [missionRaidProgressKey(mission.id)]: 0 }); alert(`${mission.name} complete. ${rewardSummary(boostedXp, boostedRyo, boostedStamina, mission.currencyRewards)}. +3 Territory Control Scrolls.`); }
     const missions = [
         { name: "D-Rank Errand", xp: 25, ryo: 20, cost: 5, recover: 3, min: 1, icon: "⚔️", aiProfileId: "builtin-ai-mist-sentinel" },
         { name: "C-Rank Patrol", xp: 75, ryo: 60, cost: 10, recover: 5, min: 10, icon: "⚔️", aiProfileId: "builtin-ai-ember-duelist" },
@@ -17079,8 +17592,8 @@ function Missions({
         { name: "S-Rank Crisis", xp: 700, ryo: 600, cost: 60, recover: 30, min: 70, icon: "⚔️", aiProfileId: "builtin-ai-central-champion" },
     ];
     const missionRanks: MissionRank[] = ["Daily", "D Rank", "C Rank", "B Rank", "A Rank", "S Rank"];
-    const groupedFetchMissions = missionRanks.map((rank) => ({ rank, missions: creatorMissions.filter((mission) => mission.rank === rank) })).filter((group) => group.missions.length > 0);
-    return <div className="card"><h2>Mission Hall</h2><p>Stamina: {character.stamina}/{character.maxStamina} · Town Hall Reward Bonus: <strong>{missionRewardBonus.toFixed(2)}%</strong></p><h3>Combat Missions</h3><div className="location-grid">{missions.map((mission) => { const ai = creatorAis.find((candidate) => candidate.id === mission.aiProfileId); return <div key={mission.name} className="location-button mission-card"><CardVisual image={ai?.image} icon={mission.icon} label={mission.name} /><span>{mission.name}</span><small>Lvl {mission.min} | -{mission.cost} STA | +{boostAmount(mission.xp, missionRewardBonus)} XP / +{boostAmount(mission.ryo, missionRewardBonus)} ryo</small><small>Battle AI: {ai?.name ?? "Missing AI"}</small><div className="menu"><button onClick={() => completeMission(mission.name, mission.xp, mission.ryo, mission.cost, mission.recover, mission.min)}>Complete</button><button onClick={() => startMissionBattle(mission)}>Battle</button></div></div>; })}</div><h3>Fetch Missions</h3>{groupedFetchMissions.length === 0 ? <p className="hint">No admin-created fetch missions yet.</p> : groupedFetchMissions.map((group) => <section className="summary-box mission-board-section" key={group.rank}><h4>{group.rank} Missions</h4><div className="location-grid">{group.missions.map((mission) => { const accepted = acceptedMissionIds.includes(mission.id); const progress = missionProgress[mission.id] ?? 0; const complete = progress >= mission.exploreCount; const missionAi = mission.aiProfileId ? creatorAis.find((candidate) => candidate.id === mission.aiProfileId) : undefined; return <div key={mission.id} className="location-button mission-card"><CardVisual image={missionAi?.image} icon="📍" label={mission.name} /><span>{mission.name}</span><small>Sector {mission.targetSector} | Explore {progress}/{mission.exploreCount}</small><small>Lvl {mission.levelReq} | {rewardSummary(boostAmount(mission.xpReward, missionRewardBonus), boostAmount(mission.ryoReward, missionRewardBonus), boostAmount(mission.staminaReward, missionRewardBonus), mission.currencyRewards)}</small>{mission.aiProfileId && <small>Battle AI: {missionAi?.name ?? "Missing AI"}</small>}<p>{mission.description}</p><div className="mission-progress"><span style={{ width: `${Math.min(100, (progress / mission.exploreCount) * 100)}%` }}></span></div><div className="menu">{!accepted ? <button onClick={() => acceptFetchMission(mission)}>Accept</button> : complete ? <button onClick={() => claimFetchMission(mission)}>Claim Reward</button> : <button onClick={() => setScreen("worldMap")}>Go To Sector {mission.targetSector}</button>}{mission.aiProfileId && <button onClick={() => startCreatorMissionBattle(mission)}>Battle AI</button>}</div></div>; })}</div></section>)}</div>;
+    const groupedFetchMissions = missionRanks.map((rank) => ({ rank, missions: mergeBuiltinMissions(creatorMissions).filter((mission) => mission.rank === rank) })).filter((group) => group.missions.length > 0);
+    return <div className="card"><h2>Mission Hall</h2><p>Stamina: {character.stamina}/{character.maxStamina} · Town Hall Reward Bonus: <strong>{missionRewardBonus.toFixed(2)}%</strong></p><h3>Combat Missions</h3><div className="location-grid">{missions.map((mission) => { const ai = creatorAis.find((candidate) => candidate.id === mission.aiProfileId); return <div key={mission.name} className="location-button mission-card"><CardVisual image={ai?.image} icon={mission.icon} label={mission.name} /><span>{mission.name}</span><small>Lvl {mission.min} | -{mission.cost} STA | +{boostAmount(mission.xp, missionRewardBonus)} XP / +{boostAmount(mission.ryo, missionRewardBonus)} ryo</small><small>Battle AI: {ai?.name ?? "Missing AI"}</small><div className="menu"><button onClick={() => completeMission(mission.name, mission.xp, mission.ryo, mission.cost, mission.recover, mission.min)}>Complete</button><button onClick={() => startMissionBattle(mission)}>Battle</button></div></div>; })}</div><h3>Fetch Missions</h3>{groupedFetchMissions.length === 0 ? <p className="hint">No fetch missions yet.</p> : groupedFetchMissions.map((group) => <section className="summary-box mission-board-section" key={group.rank}><h4>{group.rank} Missions</h4><div className="location-grid">{group.missions.map((mission) => { const accepted = acceptedMissionIds.includes(mission.id); const progress = missionProgress[mission.id] ?? 0; const raidReq = missionRaidRequirement(mission); const raidProgress = missionProgress[missionRaidProgressKey(mission.id)] ?? 0; const complete = progress >= mission.exploreCount && raidProgress >= raidReq; const totalRequired = mission.exploreCount + raidReq; const totalProgress = Math.min(mission.exploreCount, progress) + Math.min(raidReq, raidProgress); const missionAi = mission.aiProfileId ? creatorAis.find((candidate) => candidate.id === mission.aiProfileId) : undefined; return <div key={mission.id} className="location-button mission-card"><CardVisual image={missionAi?.image} icon="📍" label={mission.name} /><span>{mission.name}</span><small>Sector {mission.targetSector} | Explore {progress}/{mission.exploreCount}{raidReq > 0 ? ` | Raid ${raidProgress}/${raidReq}` : ""}</small><small>Lvl {mission.levelReq} | {rewardSummary(boostAmount(mission.xpReward, missionRewardBonus), boostAmount(mission.ryoReward, missionRewardBonus), boostAmount(mission.staminaReward, missionRewardBonus), mission.currencyRewards)}</small>{mission.aiProfileId && <small>Battle AI: {missionAi?.name ?? "Missing AI"}</small>}<p>{mission.description}</p><div className="mission-progress"><span style={{ width: `${Math.min(100, (totalProgress / Math.max(1, totalRequired)) * 100)}%` }}></span></div><div className="menu">{!accepted ? <button onClick={() => acceptFetchMission(mission)}>Accept</button> : complete ? <button onClick={() => claimFetchMission(mission)}>Claim Reward</button> : <button onClick={() => setScreen("worldMap")}>Go To Sector {mission.targetSector}</button>}{mission.aiProfileId && <button onClick={() => startCreatorMissionBattle(mission)}>Battle AI</button>}</div></div>; })}</div></section>)}</div>;
 }
 
 const HUNTER_RANK_LABELS = ["Novice Hunter", "Tracker", "Beast Slayer", "Monster Hunter", "Elite Huntsman", "Chakra Beast Warden"];
@@ -17324,10 +17837,11 @@ function Logbook({
     const rogueNinja = creatorAis.find((ai) => ai.id === "builtin-ai-rogue-ninja");
     type ExamRequirement = { label: string; progress: number; target: number; detail?: string; aiId?: string };
     type ExamLogbookMission = { title: string; unlockLevel: number; requirements: ExamRequirement[] };
+    const availableLogbookMissions = mergeBuiltinMissions(creatorMissions);
     const assignedMissions = acceptedMissionIds
-        .map((id) => creatorMissions.find((mission) => mission.id === id))
+        .map((id) => availableLogbookMissions.find((mission) => mission.id === id))
         .filter((mission): mission is CreatorMission => Boolean(mission));
-    const dailyMissions = creatorMissions.filter((mission) => mission.rank === "Daily");
+    const dailyMissions = availableLogbookMissions.filter((mission) => mission.rank === "Daily");
     const logbookEvents = creatorEvents.filter((event) => (event.eventKind ?? "reward") !== "visualNovel");
     const logbookRaids = creatorRaids;
     const activeVillageWar = activeVillageWarsFor(character.village)[0];
@@ -17340,7 +17854,7 @@ function Logbook({
         progress: clampNumber(todayWarProgress - index * VILLAGE_WAR_RAIDS_PER_MISSION, 0, VILLAGE_WAR_RAIDS_PER_MISSION),
         complete: todayWarCompleted > index,
     }));
-    const missingMissionIds = acceptedMissionIds.filter((id) => !creatorMissions.some((mission) => mission.id === id));
+    const missingMissionIds = acceptedMissionIds.filter((id) => !availableLogbookMissions.some((mission) => mission.id === id));
     const maybeExamMissions: Array<ExamLogbookMission | null> = [
         character.level >= 11 ? {
             title: "Genin Exam",
@@ -17388,7 +17902,10 @@ function Logbook({
 
     function claimMission(mission: CreatorMission) {
         const progress = missionProgress[mission.id] ?? 0;
+        const raidReq = missionRaidRequirement(mission);
+        const raidProgress = missionProgress[missionRaidProgressKey(mission.id)] ?? 0;
         if (progress < mission.exploreCount) return alert(`Explore Sector ${mission.targetSector} ${mission.exploreCount - progress} more time(s).`);
+        if (raidProgress < raidReq) return alert(`Raid from Sector ${mission.targetSector} ${raidReq - raidProgress} more time(s).`);
         const boostedXp = boostAmount(mission.xpReward, missionRewardBonus);
         const boostedRyo = boostAmount(mission.ryoReward, missionRewardBonus);
         const boostedStamina = boostAmount(mission.staminaReward, missionRewardBonus);
@@ -17402,16 +17919,18 @@ function Logbook({
             clanContribMonth: new Date().toISOString().slice(0, 7),
         });
         setAcceptedMissionIds(acceptedMissionIds.filter((id) => id !== mission.id));
-        setMissionProgress({ ...missionProgress, [mission.id]: 0 });
+        setMissionProgress({ ...missionProgress, [mission.id]: 0, [missionRaidProgressKey(mission.id)]: 0 });
         alert(`${mission.name} complete. ${rewardSummary(boostedXp, boostedRyo, boostedStamina, mission.currencyRewards)}. +3 Territory Control Scrolls.`);
     }
 
     function acceptMission(mission: CreatorMission) {
         if (character.level < mission.levelReq) return alert(`Requires level ${mission.levelReq}.`);
         if (acceptedMissionIds.includes(mission.id)) return;
+        const raidKey = missionRaidProgressKey(mission.id);
         setAcceptedMissionIds([...acceptedMissionIds, mission.id]);
-        setMissionProgress({ ...missionProgress, [mission.id]: missionProgress[mission.id] ?? 0 });
-        alert(`${mission.name} accepted. Explore Sector ${mission.targetSector} ${mission.exploreCount} times.`);
+        setMissionProgress({ ...missionProgress, [mission.id]: missionProgress[mission.id] ?? 0, [raidKey]: missionProgress[raidKey] ?? 0 });
+        const raidReq = missionRaidRequirement(mission);
+        alert(`${mission.name} accepted. Explore Sector ${mission.targetSector} ${mission.exploreCount} times${raidReq > 0 ? ` and raid the village ${raidReq} time(s)` : ""}.`);
     }
 
     function claimRewardEvent(event: CreatorEvent) {
@@ -17455,6 +17974,7 @@ function Logbook({
     function abandonMission(missionId: string) {
         const nextProgress = { ...missionProgress };
         delete nextProgress[missionId];
+        delete nextProgress[missionRaidProgressKey(missionId)];
         setAcceptedMissionIds(acceptedMissionIds.filter((id) => id !== missionId));
         setMissionProgress(nextProgress);
     }
@@ -17519,8 +18039,10 @@ function Logbook({
                     <div className="location-grid">{dailyMissions.map((mission) => {
                         const accepted = acceptedMissionIds.includes(mission.id);
                         const progress = missionProgress[mission.id] ?? 0;
-                        const complete = progress >= mission.exploreCount;
-                        const progressPercent = Math.min(100, (progress / mission.exploreCount) * 100);
+                        const raidReq = missionRaidRequirement(mission);
+                        const raidProgress = missionProgress[missionRaidProgressKey(mission.id)] ?? 0;
+                        const complete = progress >= mission.exploreCount && raidProgress >= raidReq;
+                        const progressPercent = Math.min(100, ((Math.min(mission.exploreCount, progress) + Math.min(raidReq, raidProgress)) / Math.max(1, mission.exploreCount + raidReq)) * 100);
                         const boostedXp = boostAmount(mission.xpReward, missionRewardBonus);
                         const boostedRyo = boostAmount(mission.ryoReward, missionRewardBonus);
                         const boostedStamina = boostAmount(mission.staminaReward, missionRewardBonus);
@@ -17528,7 +18050,7 @@ function Logbook({
                             <div key={mission.id} className="location-button mission-card">
                                 <CardVisual icon="📅" label={mission.name} />
                                 <span>{mission.name}</span>
-                                <small>Sector {mission.targetSector} | Explore {progress}/{mission.exploreCount}</small>
+                                <small>Sector {mission.targetSector} | Explore {progress}/{mission.exploreCount}{raidReq > 0 ? ` | Raid ${raidProgress}/${raidReq}` : ""}</small>
                                 <small>Lvl {mission.levelReq} | {rewardSummary(boostedXp, boostedRyo, boostedStamina, mission.currencyRewards)}</small>
                                 <p>{mission.description}</p>
                                 <div className="mission-progress"><span style={{ width: `${progressPercent}%` }}></span></div>
@@ -17583,8 +18105,10 @@ function Logbook({
                 <div className="location-grid">
                     {assignedMissions.map((mission) => {
                         const progress = missionProgress[mission.id] ?? 0;
-                        const complete = progress >= mission.exploreCount;
-                        const progressPercent = Math.min(100, (progress / mission.exploreCount) * 100);
+                        const raidReq = missionRaidRequirement(mission);
+                        const raidProgress = missionProgress[missionRaidProgressKey(mission.id)] ?? 0;
+                        const complete = progress >= mission.exploreCount && raidProgress >= raidReq;
+                        const progressPercent = Math.min(100, ((Math.min(mission.exploreCount, progress) + Math.min(raidReq, raidProgress)) / Math.max(1, mission.exploreCount + raidReq)) * 100);
                         const boostedXp = boostAmount(mission.xpReward, missionRewardBonus);
                         const boostedRyo = boostAmount(mission.ryoReward, missionRewardBonus);
                         const boostedStamina = boostAmount(mission.staminaReward, missionRewardBonus);
@@ -17592,7 +18116,7 @@ function Logbook({
                             <div key={mission.id} className="location-button mission-card">
                                 <CardVisual image={creatorAis.find((ai) => ai.id === mission.aiProfileId)?.image} icon={mission.rank} label={mission.name} />
                                 <span>{mission.name}</span>
-                                <small>Sector {mission.targetSector} | Explore {progress}/{mission.exploreCount}</small>
+                                <small>Sector {mission.targetSector} | Explore {progress}/{mission.exploreCount}{raidReq > 0 ? ` | Raid ${raidProgress}/${raidReq}` : ""}</small>
                                 <small>Lvl {mission.levelReq} | {rewardSummary(boostedXp, boostedRyo, boostedStamina, mission.currencyRewards)}</small>
                                 <p>{mission.description}</p>
                                 <div className="mission-progress"><span style={{ width: `${progressPercent}%` }}></span></div>
@@ -18237,6 +18761,7 @@ function Arena({
     pendingStoryBattle,
     onPendingStoryBattleWin,
     onPendingStoryBattleContinue,
+    onMissionRaidComplete,
 }: {
     lobbyMode?: "battleArena" | "arenaDistrict";
     character: Character;
@@ -18266,6 +18791,7 @@ function Arena({
     pendingStoryBattle?: PendingArenaStoryBattle | null;
     onPendingStoryBattleWin?: (survivingHp: number) => string;
     onPendingStoryBattleContinue?: () => void;
+    onMissionRaidComplete?: (sector: number) => void;
 }) {
     type CombatStatus = {
         name: string;
@@ -19520,6 +20046,9 @@ function Arena({
             rankedWins: (rewarded.rankedWins ?? 0) + (ratingGain > 0 ? 1 : 0),
             clanContribMonth: new Date().toISOString().slice(0, 7),
         });
+        if (raidBattleKind === "raidAi" || raidBattleKind === "raidPlayer") {
+            onMissionRaidComplete?.(currentSector);
+        }
 
         const bonusNote = activeTrait === "Swift" ? " (Swift +25% XP)" : activeTrait === "Lucky" ? " (Lucky +20% ryo)" : "";
         const deathsGateNote = deathsGatePvp ? ` ☠️ Death's Gate 2× bonus!${deathsGateBoneCharm ? " +1 Bone Charm!" : ""}` : "";
