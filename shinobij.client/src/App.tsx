@@ -7121,59 +7121,56 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                             <input value={opponentSearch} onChange={(e) => { setOpponentSearch(e.target.value); setPetChallengeMsg(""); }} placeholder="Search by player name" />
                         </>
                     )}
-                    {opponentMode === "player" && opponentSearch.trim() ? (
-                        <div>
-                            {(() => {
-                                const q = opponentSearch.trim().toLowerCase();
-                                const matches = allServerPlayers.filter(p => p.name.toLowerCase().includes(q));
-                                if (matches.length > 0) {
+                    {opponentMode === "player" ? (
+                        opponentSearch.trim() ? (
+                            <div>
+                                {(() => {
+                                    const q = opponentSearch.trim().toLowerCase();
+                                    const matches = allServerPlayers.filter(p => p.name.toLowerCase().includes(q));
+                                    if (matches.length > 0) {
+                                        return (
+                                            <>
+                                                {matches.map(p => (
+                                                    <div key={p.name} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, flexWrap: "wrap" }}>
+                                                        <strong>{p.name}</strong>
+                                                        <span className="hint">Lv {p.level} · {p.village || "Unknown"} · {p.online ? "🟢 Online" : "⚫ Offline"}</span>
+                                                        <button onClick={() => sendDirectPetChallenge(p.name, selectedPet?.id)}>🐾 Challenge</button>
+                                                    </div>
+                                                ))}
+                                                {petChallengeMsg && <p className="hint" style={{ color: petChallengeMsg.startsWith("✅") ? "#4ade80" : "#f87171", marginTop: 6 }}>{petChallengeMsg}</p>}
+                                            </>
+                                        );
+                                    }
                                     return (
                                         <>
-                                            {matches.map(p => (
-                                                <div key={p.name} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, flexWrap: "wrap" }}>
-                                                    <strong>{p.name}</strong>
-                                                    <span className="hint">Lv {p.level} · {p.village || "Unknown"} · {p.online ? "🟢 Online" : "⚫ Offline"}</span>
-                                                    <button onClick={() => sendDirectPetChallenge(p.name, selectedPet?.id)}>🐾 Challenge</button>
-                                                </div>
-                                            ))}
+                                            <p className="hint">No account found for "{opponentSearch.trim()}".</p>
+                                            <button onClick={() => sendDirectPetChallenge(opponentSearch.trim(), selectedPet?.id)}>🐾 Challenge "{opponentSearch.trim()}"</button>
                                             {petChallengeMsg && <p className="hint" style={{ color: petChallengeMsg.startsWith("✅") ? "#4ade80" : "#f87171", marginTop: 6 }}>{petChallengeMsg}</p>}
                                         </>
                                     );
-                                }
-                                return (
-                                    <>
-                                        <p className="hint">No account found for "{opponentSearch.trim()}". Challenge by name — they'll see it on their next login.</p>
-                                        <button onClick={() => sendDirectPetChallenge(opponentSearch.trim(), selectedPet?.id)}>🐾 Challenge "{opponentSearch.trim()}"</button>
-                                        {petChallengeMsg && <p className="hint" style={{ color: petChallengeMsg.startsWith("✅") ? "#4ade80" : "#f87171", marginTop: 6 }}>{petChallengeMsg}</p>}
-                                    </>
-                                );
-                            })()}
-                        </div>
-                    ) : opponentPets.length > 0 ? (
-                        <select value={selectedOpponentKey} onChange={(e) => setSelectedOpponentKey(e.target.value)}>
-                            {opponentPets.map((entry) => <option key={`${entry.owner}:${entry.pet.id}`} value={`${entry.owner}:${entry.pet.id}`}>{entry.owner}: {entry.pet.name} | Lv {entry.pet.level}</option>)}
-                        </select>
+                                })()}
+                            </div>
+                        ) : (
+                            <p className="hint">Type a player's name to send them a pet battle challenge.</p>
+                        )
                     ) : (
-                        <p className="hint">No matching player pets found. Type a player's name to challenge them, or switch to Fight AI.</p>
+                        <>
+                            {opponentPets.length > 0 ? (
+                                <select value={selectedOpponentKey} onChange={(e) => setSelectedOpponentKey(e.target.value)}>
+                                    {opponentPets.map((entry) => <option key={`${entry.owner}:${entry.pet.id}`} value={`${entry.owner}:${entry.pet.id}`}>{entry.owner}: {entry.pet.name} | Lv {entry.pet.level}</option>)}
+                                </select>
+                            ) : (
+                                <p className="hint">No AI opponents available.</p>
+                            )}
+                            {selectedOpponent && <PetArenaCard owner={selectedOpponent.owner} pet={selectedOpponent.pet} sharedImages={sharedImages} />}
+                        </>
                     )}
-                    <p className="hint">{opponentMode === "player" ? "Fight pets owned by other players in the roster." : "Fight generic AI pet arena opponents."}</p>
-                    {selectedOpponent && <PetArenaCard owner={selectedOpponent.owner} pet={selectedOpponent.pet} sharedImages={sharedImages} />}
                 </section>
             </div>
 
             <div className="menu">
-                {opponentMode === "player" ? (
-                    <button
-                        onClick={() => selectedOpponent && sendDirectPetChallenge(selectedOpponent.owner, selectedPet?.id)}
-                        disabled={!selectedPet || !selectedOpponent}
-                    >
-                        🐾 Challenge {selectedOpponent?.owner ?? "Player"}
-                    </button>
-                ) : (
+                {opponentMode === "ai" && (
                     <button onClick={() => startBattle()} disabled={!selectedPet || !selectedOpponent}>Start Battle</button>
-                )}
-                {petChallengeMsg && opponentMode === "player" && (
-                    <p className="hint" style={{ color: petChallengeMsg.startsWith("✅") ? "#4ade80" : "#f87171", margin: "4px 0 0" }}>{petChallengeMsg}</p>
                 )}
                 {battleReady && battleFrames.length > 0 && (
                     <button onClick={() => {
