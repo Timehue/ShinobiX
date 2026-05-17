@@ -8143,6 +8143,69 @@ function AdminPanel({
         } catch { setPmMsg("❌ Failed to save."); }
     }
 
+    const [pmEditName, setPmEditName] = useState("");
+    const [pmEditSnap, setPmEditSnap] = useState<Record<string, unknown> | null>(null);
+    const [pmEditMsg, setPmEditMsg] = useState("");
+    const [pmEditFields, setPmEditFields] = useState<Record<string, number>>({});
+
+    async function pmEditLookup() {
+        if (!pmEditName.trim()) return;
+        setPmEditMsg("Loading…");
+        setPmEditSnap(null);
+        try {
+            const res = await fetch(`/api/save/${encodeURIComponent(pmEditName.trim().toLowerCase())}`);
+            if (!res.ok) { setPmEditMsg("❌ Player not found."); return; }
+            const data = await res.json() as Record<string, unknown>;
+            const char = data.character as Record<string, unknown> ?? {};
+            const stats = char.stats as Record<string, number> ?? {};
+            setPmEditSnap(data);
+            setPmEditFields({
+                level: (char.level as number) ?? 1,
+                xp: (char.xp as number) ?? 0,
+                ryo: (char.ryo as number) ?? 0,
+                unspentStats: (char.unspentStats as number) ?? 0,
+                strength: stats.strength ?? 0,
+                speed: stats.speed ?? 0,
+                intelligence: stats.intelligence ?? 0,
+                willpower: stats.willpower ?? 0,
+                ninjutsuOffense: stats.ninjutsuOffense ?? 0,
+                ninjutsuDefense: stats.ninjutsuDefense ?? 0,
+                taijutsuOffense: stats.taijutsuOffense ?? 0,
+                taijutsuDefense: stats.taijutsuDefense ?? 0,
+                bukijutsuOffense: stats.bukijutsuOffense ?? 0,
+                bukijutsuDefense: stats.bukijutsuDefense ?? 0,
+                genjutsuOffense: stats.genjutsuOffense ?? 0,
+                genjutsuDefense: stats.genjutsuDefense ?? 0,
+            });
+            setPmEditMsg(`✅ Loaded ${pmEditName.trim()}`);
+        } catch { setPmEditMsg("❌ Network error."); }
+    }
+
+    async function pmEditSave() {
+        if (!pmEditSnap) return;
+        const char = { ...(pmEditSnap.character as Record<string, unknown> ?? {}) };
+        const stats = { ...(char.stats as Record<string, number> ?? {}) };
+        const statKeys = ["strength","speed","intelligence","willpower","ninjutsuOffense","ninjutsuDefense","taijutsuOffense","taijutsuDefense","bukijutsuOffense","bukijutsuDefense","genjutsuOffense","genjutsuDefense"];
+        for (const key of statKeys) stats[key] = pmEditFields[key] ?? stats[key] ?? 0;
+        char.level = pmEditFields.level;
+        char.xp = pmEditFields.xp;
+        char.ryo = pmEditFields.ryo;
+        char.unspentStats = pmEditFields.unspentStats;
+        char.stats = stats;
+        const updated = { ...pmEditSnap, character: char };
+        setPmEditMsg("Saving…");
+        try {
+            const res = await fetch(`/api/save/${encodeURIComponent(pmEditName.trim().toLowerCase())}`, {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(updated),
+            });
+            if (!res.ok) throw new Error();
+            setPmEditSnap(updated);
+            setPmEditMsg("✅ Saved! Changes apply on player's next heartbeat.");
+            fetchAllKnownPlayers();
+        } catch { setPmEditMsg("❌ Save failed."); }
+    }
+
     async function pmReset() {
         if (!pmTargetName.trim()) return;
         if (!window.confirm(`Reset ${pmTargetName.trim()}'s account to level 1? This cannot be undone.`)) return;
@@ -10781,50 +10844,68 @@ function AdminPanel({
                             )}
                         </section>
 
+                        {/* ── Manual Stat Edit ── */}
+                        <section className="summary-box">
+                            <h4>✏️ Edit Player Stats</h4>
+                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 8 }}>
+                                <input style={{ flex: 1, minWidth: 160 }} value={pmEditName} onChange={e => { setPmEditName(e.target.value); setPmEditSnap(null); }} placeholder="Player name" />
+                                <button onClick={pmEditLookup} disabled={!pmEditName.trim()}>Look Up</button>
+                            </div>
+                            {pmEditMsg && <p className="hint" style={{ color: pmEditMsg.startsWith("✅") ? "#4ade80" : pmEditMsg.startsWith("❌") ? "#f87171" : "#fcd34d", marginBottom: 8 }}>{pmEditMsg}</p>}
+                            {pmEditSnap && (() => {
+                                const fields: { key: string; label: string }[] = [
+                                    { key: "level", label: "Level" },
+                                    { key: "xp", label: "XP" },
+                                    { key: "ryo", label: "Ryo" },
+                                    { key: "unspentStats", label: "Stat Points" },
+                                    { key: "strength", label: "Strength" },
+                                    { key: "speed", label: "Speed" },
+                                    { key: "intelligence", label: "Intelligence" },
+                                    { key: "willpower", label: "Willpower" },
+                                    { key: "ninjutsuOffense", label: "Ninjutsu Off" },
+                                    { key: "ninjutsuDefense", label: "Ninjutsu Def" },
+                                    { key: "taijutsuOffense", label: "Taijutsu Off" },
+                                    { key: "taijutsuDefense", label: "Taijutsu Def" },
+                                    { key: "bukijutsuOffense", label: "Bukijutsu Off" },
+                                    { key: "bukijutsuDefense", label: "Bukijutsu Def" },
+                                    { key: "genjutsuOffense", label: "Genjutsu Off" },
+                                    { key: "genjutsuDefense", label: "Genjutsu Def" },
+                                ];
+                                return (
+                                    <>
+                                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: "6px 12px", marginBottom: 10 }}>
+                                            {fields.map(f => (
+                                                <label key={f.key} style={{ display: "flex", flexDirection: "column", fontSize: "0.78rem", gap: 2 }}>
+                                                    <span style={{ color: "#94a3b8" }}>{f.label}</span>
+                                                    <input
+                                                        type="number"
+                                                        value={pmEditFields[f.key] ?? 0}
+                                                        onChange={e => setPmEditFields(prev => ({ ...prev, [f.key]: Number(e.target.value) }))}
+                                                        style={{ width: "100%", padding: "2px 6px" }}
+                                                    />
+                                                </label>
+                                            ))}
+                                        </div>
+                                        <button onClick={pmEditSave} style={{ background: "linear-gradient(#1e3a5f,#0c1f3d)", borderColor: "#60a5fa" }}>💾 Save Changes</button>
+                                    </>
+                                );
+                            })()}
+                        </section>
+
                         {/* ── Reset Account ── */}
                         <section className="summary-box" style={{ borderColor: "#7f1d1d" }}>
-                            <h4>🗑️ Reset Player Account</h4>
-                            <p className="hint">Wipes the server save entirely. The player will start fresh on next login. This cannot be undone.</p>
-                            {(() => {
-                                const dropdownPlayers = allKnownPlayers.length > 0
-                                    ? allKnownPlayers
-                                    : allServerPlayers.length > 0
-                                        ? allServerPlayers
-                                        : [...new Map(playerRoster.map(p => [p.name, p])).values()].map(p => ({ name: p.name, level: p.level, village: p.village || "", online: false }));
-                                return dropdownPlayers.length > 0 ? (
-                                    <div style={{ marginBottom: 8 }}>
-                                        <label style={{ fontSize: "0.85rem", display: "block", marginBottom: 4 }}>
-                                            All server accounts ({dropdownPlayers.length}) — 🟢 = online now:
-                                        </label>
-                                        <select
-                                            value={pmTargetName}
-                                            onChange={e => setPmTargetName(e.target.value)}
-                                            style={{ width: "100%", marginBottom: 4 }}
-                                        >
-                                            <option value="">— Select a player —</option>
-                                            {dropdownPlayers.map(p => (
-                                                <option key={p.name} value={p.name}>
-                                                    {p.online ? "🟢 " : ""}{p.name} (Lv {p.level} · {p.village || "No Village"})
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                ) : null;
-                            })()}
+                            <h4>🗑️ Wipe Player Account</h4>
+                            <p className="hint">Deletes the server save entirely. Player starts fresh on next login. Cannot be undone.</p>
                             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                                 <input
                                     style={{ flex: 1, minWidth: 160 }}
                                     value={pmTargetName}
                                     onChange={e => setPmTargetName(e.target.value)}
-                                    placeholder="Or type player name manually"
+                                    placeholder="Player name"
                                 />
-                                <button
-                                    className="danger-button"
-                                    disabled={!pmTargetName.trim()}
-                                    onClick={pmReset}
-                                >🗑️ Reset Account to Zero</button>
+                                <button className="danger-button" disabled={!pmTargetName.trim()} onClick={pmReset}>🗑️ Wipe Account</button>
                             </div>
-                            <p className="hint" style={{ color: "#fbbf24", marginTop: 6 }}>⚠️ No lookup required — reset works by name alone. Player list updates as players come online via heartbeat.</p>
+                            {pmMsg && <p className="hint" style={{ color: pmMsg.startsWith("✅") ? "#4ade80" : pmMsg.startsWith("❌") ? "#f87171" : "#fcd34d", marginTop: 6 }}>{pmMsg}</p>}
                         </section>
 
                         {/* ── Full Server Reset ── */}
