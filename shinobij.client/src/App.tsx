@@ -10506,12 +10506,31 @@ function AdminPanel({
                         {/* ── Give to Player ── */}
                         <section className="summary-box">
                             <h4>Give to Player</h4>
+                            {playerRoster.length > 0 && (
+                                <div style={{ marginBottom: 8 }}>
+                                    <label style={{ fontSize: "0.85rem", display: "block", marginBottom: 4 }}>Pick from active / known players:</label>
+                                    <select
+                                        value={pmTargetName}
+                                        onChange={e => { setPmTargetName(e.target.value); setPmSnap(null); setPmMsg(""); }}
+                                        style={{ width: "100%", marginBottom: 4 }}
+                                    >
+                                        <option value="">— Select a player —</option>
+                                        {[...new Map(playerRoster.map(p => [p.name, p])).values()]
+                                            .sort((a, b) => a.name.localeCompare(b.name))
+                                            .map(p => (
+                                                <option key={p.name} value={p.name}>
+                                                    {p.name} (Lv {p.level} · {p.village || "No Village"})
+                                                </option>
+                                            ))}
+                                    </select>
+                                </div>
+                            )}
                             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                                 <input
                                     style={{ flex: 1, minWidth: 160 }}
                                     value={pmTargetName}
                                     onChange={e => setPmTargetName(e.target.value)}
-                                    placeholder="Player name (exact)"
+                                    placeholder="Or type player name manually"
                                 />
                                 <button onClick={pmLookup}>Look Up</button>
                             </div>
@@ -10551,12 +10570,31 @@ function AdminPanel({
                         <section className="summary-box" style={{ borderColor: "#7f1d1d" }}>
                             <h4>🗑️ Reset Player Account</h4>
                             <p className="hint">Wipes the server save entirely. The player will start fresh on next login. This cannot be undone.</p>
+                            {playerRoster.length > 0 && (
+                                <div style={{ marginBottom: 8 }}>
+                                    <label style={{ fontSize: "0.85rem", display: "block", marginBottom: 4 }}>Pick from active / known players:</label>
+                                    <select
+                                        value={pmTargetName}
+                                        onChange={e => setPmTargetName(e.target.value)}
+                                        style={{ width: "100%", marginBottom: 4 }}
+                                    >
+                                        <option value="">— Select a player —</option>
+                                        {[...new Map(playerRoster.map(p => [p.name, p])).values()]
+                                            .sort((a, b) => a.name.localeCompare(b.name))
+                                            .map(p => (
+                                                <option key={p.name} value={p.name}>
+                                                    {p.name} (Lv {p.level} · {p.village || "No Village"})
+                                                </option>
+                                            ))}
+                                    </select>
+                                </div>
+                            )}
                             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                                 <input
                                     style={{ flex: 1, minWidth: 160 }}
                                     value={pmTargetName}
                                     onChange={e => setPmTargetName(e.target.value)}
-                                    placeholder="Player name (exact)"
+                                    placeholder="Or type player name manually"
                                 />
                                 <button
                                     className="danger-button"
@@ -10564,7 +10602,7 @@ function AdminPanel({
                                     onClick={pmReset}
                                 >🗑️ Reset Account to Zero</button>
                             </div>
-                            <p className="hint" style={{ color: "#fbbf24" }}>⚠️ You do not need to look up the save first — reset works by name alone.</p>
+                            <p className="hint" style={{ color: "#fbbf24", marginTop: 6 }}>⚠️ No lookup required — reset works by name alone. Player list updates as players come online via heartbeat.</p>
                         </section>
 
                         {/* ── Named Weapons / Armor with Images ── */}
