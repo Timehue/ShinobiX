@@ -17354,7 +17354,6 @@ function Arena({
     // Pre-fight countdown (10 s) — used for ALL battle types now
     const [prefightCountdown, setPrefightCountdown] = useState<number | null>(null);
     const [prefightFirstActor, setPrefightFirstActor] = useState<"player" | "enemy" | null>(null);
-    const prefightDataRef = useRef<{ hp: number; logMsg: string; firstActor: "player" | "enemy" } | null>(null);
 
     // Per-turn round timer (45 s). Resets each time it becomes the player's turn.
     const [roundTimer, setRoundTimer] = useState<number>(45);
@@ -17475,21 +17474,14 @@ function Arena({
     }, [ap, actionsThisTurn, activeActor, battleStarted, battleEnded]);
 
     // ── Pre-fight countdown effect ───────────────────────────────────────────
-    // Ticks prefightCountdown down from 10 → 0, then starts the battle.
+    // Ticks prefightCountdown down from 10 → 0, then dismisses the overlay.
+    // The battle itself is already started by startPrefight() — this only
+    // hides the countdown UI so the player can act.
     useEffect(() => {
         if (prefightCountdown === null) return;
         if (prefightCountdown <= 0) {
-            // MUST null out first so the overlay hides and the round-timer effect
-            // (which guards on prefightCountdown !== null) is allowed to start.
             setPrefightCountdown(null);
             setPrefightFirstActor(null);
-            const data = prefightDataRef.current;
-            if (data) {
-                prefightDataRef.current = null;
-                setBattleStarted(true);
-                resetBattleRef.current(data.hp, data.firstActor);
-                setLogRef.current(data.logMsg);
-            }
             return;
         }
         const t = setTimeout(() => setPrefightCountdown((c) => (c !== null ? c - 1 : null)), 1000);
@@ -17561,7 +17553,11 @@ function Arena({
     function startPrefight(hp: number, logMsg: string) {
         // Coin flip — 50/50 who gets first turn
         const firstActor: "player" | "enemy" = Math.random() < 0.5 ? "player" : "enemy";
-        prefightDataRef.current = { hp, logMsg, firstActor };
+        // Start the battle immediately so the full arena UI renders behind the
+        // countdown overlay. The overlay just delays player input, not rendering.
+        setBattleStarted(true);
+        resetBattleRef.current(hp, firstActor);
+        setLogRef.current(logMsg);
         setPrefightFirstActor(firstActor);
         setPrefightCountdown(10);
     }
@@ -19235,7 +19231,7 @@ function Arena({
     };
     enemyTurnRef.current    = enemyTurn;
 
-    if (!battleStarted && prefightCountdown === null) {
+    if (!battleStarted) {
         const rankedOpponents = searchablePlayers.filter((player) => player.character.level >= Math.max(1, character.level - 20));
         const clanWarOpponents = opponentClanData
             ? opponentClanData.members
