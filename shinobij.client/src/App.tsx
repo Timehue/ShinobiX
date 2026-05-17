@@ -5167,6 +5167,7 @@ export default function App() {
                         setSavedBloodlines={setSavedBloodlines}
                         setAdminLoggedIn={setAdminLoggedIn}
                         setScreen={setScreen}
+                        playerRoster={playerRoster}
                         onSave={async () => {
                             if (!currentAccountName) return;
                             await pushSaveToServer(character, currentAccountName);
@@ -7404,6 +7405,7 @@ function AdminPanel({
     setAdminLoggedIn,
     setScreen,
     onSave,
+    playerRoster,
 }: {
     character: Character;
     updateCharacter: (character: Character) => void;
@@ -7432,6 +7434,7 @@ function AdminPanel({
     setAdminLoggedIn: (value: boolean) => void;
     setScreen: (screen: Screen) => void;
     onSave: () => Promise<void>;
+    playerRoster: PlayerRecord[];
 }) {
     // Always-fresh ref to onSave so async callbacks don't capture a stale closure
     const onSaveRef = useRef(onSave);
