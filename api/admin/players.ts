@@ -42,26 +42,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
         }
 
-        // Fallback: also scan save:* for any accounts not yet in the registry
-        if (players.length === 0) {
-            const saveKeys = await kv.keys('save:*');
-            for (const key of saveKeys) {
-                const name = key.replace('save:', '');
-                if (players.some(p => p.name.toLowerCase() === name.toLowerCase())) continue;
-                try {
-                    const snap = await kv.get<Record<string, unknown>>(key);
-                    const char = snap?.character as Record<string, unknown> | undefined;
-                    players.push({
-                        name: (char?.name as string) ?? name,
-                        level: (char?.level as number) ?? 1,
-                        village: (char?.village as string) ?? '',
-                        specialty: (char?.specialty as string) ?? '',
-                        lastSeen: 0,
-                        online: onlineNames.has(name.toLowerCase()),
-                    });
-                } catch {
-                    players.push({ name, level: 1, village: '', specialty: '', lastSeen: 0, online: onlineNames.has(name.toLowerCase()) });
-                }
+        // Always scan save:* to catch accounts not yet in the registry
+        // (players who existed before the registry was added, or never heartbeated since)
+        const saveKeys = await kv.keys('save:*');
+        for (const key of saveKeys) {
+            const name = key.replace('save:', '');
+            if (players.some(p => p.name.toLowerCase() === name.toLowerCase())) continue;
+            try {
+                const snap = await kv.get<Record<string, unknown>>(key);
+                const char = snap?.character as Record<string, unknown> | undefined;
+                players.push({
+                    name: (char?.name as string) ?? name,
+                    level: (char?.level as number) ?? 1,
+                    village: (char?.village as string) ?? '',
+                    specialty: (char?.specialty as string) ?? '',
+                    lastSeen: 0,
+                    online: onlineNames.has(name.toLowerCase()),
+                });
+            } catch {
+                players.push({ name, level: 1, village: '', specialty: '', lastSeen: 0, online: onlineNames.has(name.toLowerCase()) });
             }
         }
 

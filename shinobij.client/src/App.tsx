@@ -488,6 +488,7 @@ type DuelChallenge = {
     fromName: string;
     toName: string;
     challenger: Character;
+    challengerPetId?: string; // which pet the challenger is using for pet battles
     createdAt: number;
     mode?: "standard" | "ranked" | "clanWar1v1" | "clanWar2v2" | "clanWarPet";
     clanWarPoints?: number;
@@ -5138,22 +5139,6 @@ export default function App() {
                                 <span>✦ SHARDS</span>
                                 <strong>{character.fateShards}</strong>
                             </div>
-                            <div className="stat-box" style={{ color: (character.dailyTilesExplored ?? 0) >= 150 ? "#ef4444" : "#86efac" }}>
-                                <span>🗺 TILES</span>
-                                <strong>{character.dailyTilesExplored ?? 0}/150</strong>
-                            </div>
-                            <div className="stat-box" style={{ color: (character.dailyMissionsCompleted ?? 0) >= 20 ? "#ef4444" : "#fcd34d" }}>
-                                <span>📜 MISSIONS</span>
-                                <strong>{character.dailyMissionsCompleted ?? 0}/20</strong>
-                            </div>
-                            <div className="stat-box" style={{ color: (character.dailyFateSpins ?? 0) >= 5 ? "#ef4444" : "#a5b4fc" }}>
-                                <span>🎲 SPINS</span>
-                                <strong>{character.dailyFateSpins ?? 0}/5</strong>
-                            </div>
-                            <div className="stat-box" style={{ color: "#94a3b8" }}>
-                                <span>⏱ RESET IN</span>
-                                <strong style={{ fontSize: "0.75em" }}>{resetCountdown}</strong>
-                            </div>
                         </div>
                     )}
                 </div>
@@ -5525,6 +5510,30 @@ function LeftProfileCard({
                     <span className="left-currency-icon">🦴</span>
                     <span className="left-currency-label">Bone Charms</span>
                     <span className="left-currency-value" style={{ color: "#94a3b8" }}>{character.boneCharms.toLocaleString()}</span>
+                </div>
+            </div>
+
+            {/* Daily caps */}
+            <div className="left-daily-caps">
+                <div className="left-currency-row">
+                    <span className="left-currency-icon">🗺</span>
+                    <span className="left-currency-label">Tiles</span>
+                    <span className="left-currency-value" style={{ color: (character.dailyTilesExplored ?? 0) >= 150 ? "#ef4444" : "#86efac" }}>{character.dailyTilesExplored ?? 0}/150</span>
+                </div>
+                <div className="left-currency-row">
+                    <span className="left-currency-icon">📜</span>
+                    <span className="left-currency-label">Missions</span>
+                    <span className="left-currency-value" style={{ color: (character.dailyMissionsCompleted ?? 0) >= 20 ? "#ef4444" : "#fcd34d" }}>{character.dailyMissionsCompleted ?? 0}/20</span>
+                </div>
+                <div className="left-currency-row">
+                    <span className="left-currency-icon">🎲</span>
+                    <span className="left-currency-label">Fate Spins</span>
+                    <span className="left-currency-value" style={{ color: (character.dailyFateSpins ?? 0) >= 5 ? "#ef4444" : "#a5b4fc" }}>{character.dailyFateSpins ?? 0}/5</span>
+                </div>
+                <div className="left-currency-row">
+                    <span className="left-currency-icon">⏱</span>
+                    <span className="left-currency-label">Reset In</span>
+                    <span className="left-currency-value" style={{ color: "#94a3b8", fontSize: "0.8em" }}>{resetCountdown}</span>
                 </div>
             </div>
 
@@ -6955,12 +6964,13 @@ function PetArena({ character, updateCharacter, playerRoster, setScreen, sharedI
     const [opponentSearch, setOpponentSearch] = useState("");
     const [petChallengeMsg, setPetChallengeMsg] = useState("");
 
-    async function sendDirectPetChallenge(toName: string) {
+    async function sendDirectPetChallenge(toName: string, fromPetId?: string) {
         const challenge: DuelChallenge = {
             id: makeId(),
             fromName: character.name,
             toName,
             challenger: character,
+            challengerPetId: fromPetId,
             createdAt: Date.now(),
             mode: "clanWarPet",
         };
@@ -7015,15 +7025,16 @@ function PetArena({ character, updateCharacter, playerRoster, setScreen, sharedI
         return () => window.clearTimeout(timer);
     }, [battleFrames.length, frameIndex, isPlaying]);
 
-    function startBattle() {
+    function startBattle(opponentOverride?: PetArenaOpponent) {
         if (!selectedPet) return alert("Choose one of your pets first.");
-        if (!selectedOpponent) {
+        const opponent = opponentOverride ?? selectedOpponent;
+        if (!opponent) {
             return alert(opponentMode === "player"
                 ? "No player pets found. Choose Fight AI or have another player with pets in the roster."
                 : "No AI pets found.");
         }
         const pendingClanPetBattle = loadPendingClanPetBattle();
-        const battle = runPetArenaBattle(selectedPet, selectedOpponent.pet, selectedOpponent.owner);
+        const battle = runPetArenaBattle(selectedPet, opponent.pet, opponent.owner);
         setBattleLog(battle.logs);
         setBattleFrames(battle.frames);
         setBattleObstacles(battle.obstacles);
@@ -7031,7 +7042,7 @@ function PetArena({ character, updateCharacter, playerRoster, setScreen, sharedI
         setIsPlaying(true);
         setResult(battle.result === "win" ? "Victory" : "Defeat");
         if (battle.result === "win") {
-            const reward = Math.max(20, selectedOpponent.pet.level * 5);
+            const reward = Math.max(20, opponent.pet.level * 5);
             updateCharacter({ ...character, ryo: character.ryo + reward, totalPetWins: (character.totalPetWins ?? 0) + 1 });
             if (pendingClanPetBattle) {
                 void addClanWarPoints(pendingClanPetBattle.clanName ?? character.clan, character.name, pendingClanPetBattle.points);
@@ -7057,7 +7068,11 @@ function PetArena({ character, updateCharacter, playerRoster, setScreen, sharedI
                 <div key={c.id} className="summary-box" style={{ background: "#1e3a2f", border: "1px solid #4ade80", marginBottom: 8, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                     <span>🐾 <strong>{c.fromName}</strong> challenged you to a pet battle!</span>
                     <div className="menu" style={{ marginLeft: "auto" }}>
-                        <button onClick={() => setDuelChallenges(duelChallenges.filter((x) => x.id !== c.id))}>✅ Accept (already here)</button>
+                        <button onClick={() => {
+                            const challengerPet = c.challenger.pets.find(p => p.id === c.challengerPetId) ?? c.challenger.pets[0];
+                            setDuelChallenges(duelChallenges.filter((x) => x.id !== c.id));
+                            if (challengerPet) startBattle({ owner: c.fromName, pet: challengerPet });
+                        }}>✅ Accept & Fight</button>
                         <button className="danger-button" onClick={() => setDuelChallenges(duelChallenges.filter((x) => x.id !== c.id))}>Decline</button>
                     </div>
                 </div>
@@ -7119,7 +7134,7 @@ function PetArena({ character, updateCharacter, playerRoster, setScreen, sharedI
                     ) : opponentMode === "player" && opponentSearch.trim() ? (
                         <div>
                             <p className="hint">No roster match for "{opponentSearch.trim()}". Send them a pet challenge — they'll get it on their next heartbeat.</p>
-                            <button onClick={() => sendDirectPetChallenge(opponentSearch.trim())}>🐾 Challenge "{opponentSearch.trim()}" to a Pet Battle</button>
+                            <button onClick={() => sendDirectPetChallenge(opponentSearch.trim(), selectedPet?.id)}>🐾 Challenge "{opponentSearch.trim()}" to a Pet Battle</button>
                             {petChallengeMsg && <p className="hint" style={{ color: petChallengeMsg.startsWith("✅") ? "#4ade80" : "#f87171", marginTop: 6 }}>{petChallengeMsg}</p>}
                         </div>
                     ) : (
@@ -7131,7 +7146,19 @@ function PetArena({ character, updateCharacter, playerRoster, setScreen, sharedI
             </div>
 
             <div className="menu">
-                <button onClick={startBattle} disabled={!selectedPet || !selectedOpponent}>Start Battle</button>
+                {opponentMode === "player" ? (
+                    <button
+                        onClick={() => selectedOpponent && sendDirectPetChallenge(selectedOpponent.owner, selectedPet?.id)}
+                        disabled={!selectedPet || !selectedOpponent}
+                    >
+                        🐾 Challenge {selectedOpponent?.owner ?? "Player"}
+                    </button>
+                ) : (
+                    <button onClick={() => startBattle()} disabled={!selectedPet || !selectedOpponent}>Start Battle</button>
+                )}
+                {petChallengeMsg && opponentMode === "player" && (
+                    <p className="hint" style={{ color: petChallengeMsg.startsWith("✅") ? "#4ade80" : "#f87171", margin: "4px 0 0" }}>{petChallengeMsg}</p>
+                )}
                 {battleFrames.length > 0 && (
                     <button onClick={() => {
                         if (frameIndex >= battleFrames.length - 1) {
@@ -8065,14 +8092,20 @@ function AdminPanel({
     async function pmReset() {
         if (!pmTargetName.trim()) return;
         if (!window.confirm(`Reset ${pmTargetName.trim()}'s account to level 1? This cannot be undone.`)) return;
+        setPmMsg("⏳ Resetting…");
         try {
             const res = await fetch(`/api/save/${encodeURIComponent(pmTargetName.trim().toLowerCase())}`, {
                 method: "DELETE",
             });
-            if (!res.ok) throw new Error();
+            if (!res.ok) {
+                let errDetail = `HTTP ${res.status}`;
+                try { const d = await res.json() as { error?: string }; if (d.error) errDetail = d.error; } catch { /* no-op */ }
+                setPmMsg(`❌ Reset failed: ${errDetail}`);
+                return;
+            }
             setPmSnap(null);
             setPmMsg("✅ Account reset. Player starts fresh on next login.");
-        } catch { setPmMsg("❌ Reset failed."); }
+        } catch (e) { setPmMsg(`❌ Reset failed: ${String(e)}`); }
     }
 
     async function serverReset() {
