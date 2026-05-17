@@ -20,8 +20,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const { name, sector, character } = body as { name?: string; sector?: number; character?: unknown };
         if (!name) return res.status(400).json({ error: 'Missing name.' });
 
-        const key = `presence:${name}`;
-        const existing = await kv.get<PresenceEntry>(key);
+        const challengeKey = `challenges:${name.toLowerCase().trim()}`;
+        const presenceKey = `presence:${name}`;
+
+        // Read presence + pending challenges in parallel
+        const [existing, pendingChallenges] = await Promise.all([
+            kv.get<PresenceEntry>(presenceKey),
+            kv.get<unknown[]>(challengeKey),
+        ]);
         const pendingAttacker = existing?.pendingAttacker ?? null;
 
         const entry: PresenceEntry = {
@@ -32,8 +38,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             pendingAttacker: null,
         };
 
-        // Store with 60s TTL — auto-expires when player goes offline (heartbeat every 20s)
-        await kv.set(key, entry, { ex: 60 });
+        // Store presence + clear delivered challenges in parallel
+        await Promise.all([
+            kv.set(presenceKey, entry, { ex: 60 }),
+            pendingChallenges?.length ? kv.del(challengeKey) : Promise.resolve(),
+        ]);
 
         // Fetch all active presence entries
         const allKeys = await kv.keys('presence:*');
@@ -60,7 +69,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // allPlayers — every active player (for roster, search, pet arena, spar, etc.)
         const allPlayers = allEntries.map(toRecord);
 
-        return res.status(200).json({ sectorMates, allPlayers, pendingAttacker });
+        return res.status(200).json({
+            sectorMates,
+            allPlayers,
+            pendingAttacker,
+            pendingChallenges: pendingChallenges ?? [],
+        });
     } catch (err) {
         return res.status(500).json({ error: String(err) });
     }
