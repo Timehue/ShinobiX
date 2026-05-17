@@ -14369,53 +14369,68 @@ function SunscarFestival({
         let rewardRyo = 0;
         let rewardXp = 0;
         let rewardStamina = 0;
+        let rewardBoneCharms = 0;
+        let rewardFateShards = 0;
+        let rewardAuraStones = 0;
         let message: string;
 
         const same = roll[0] === roll[1] && roll[1] === roll[2];
 
         if (same && roll[0] === "👁️") {
-            rewardRyo = 500;
-            rewardXp = 150;
-            message = "LEGENDARY FATE! The Eye of the Dunes opens.";
+            rewardBoneCharms = 10;
+            rewardFateShards = 5;
+            rewardAuraStones = 5;
+            message = "LEGENDARY FATE! The Eye of the Dunes opens — rare currencies pour from the heavens.";
         } else if (same) {
-            rewardRyo = 200;
-            rewardXp = 75;
-            message = "Triple symbols! The crowd erupts around the dice table.";
+            rewardBoneCharms = Math.floor(Math.random() * 5) + 1; // 1–5
+            rewardFateShards = Math.floor(Math.random() * 3) + 1; // 1–3
+            message = `Triple ${roll[0]}! The dice bless you with rare spoils.`;
         } else if (roll.includes("🦂")) {
-            rewardRyo = 0;
-            rewardXp = 10;
-            message = "The scorpion strikes. You lose the wager, but learn from fate.";
+            rewardRyo = 10;
+            rewardXp = 15;
+            message = "The scorpion strikes. A harsh lesson — you walk away with scraps.";
         } else if (roll.includes("💰")) {
-            rewardRyo = 75;
-            message = "Coins flash beneath the desert sun. You win ryo.";
+            rewardRyo = 100;
+            rewardXp = 20;
+            message = "Coins flash beneath the desert sun. Fortune smiles on you.";
         } else if (roll.includes("🗡️")) {
-            rewardStamina = 20;
-            message = "Blade omen. Your fighting spirit rises.";
+            rewardStamina = 30;
+            rewardXp = 25;
+            message = "Blade omen. Your body surges with fighting spirit.";
         } else if (roll.includes("🌙")) {
-            rewardXp = 50;
-            message = "Moon omen. A strange luck follows you.";
+            rewardXp = 75;
+            rewardRyo = 25;
+            message = "Moon omen. A strange luck follows you through the night.";
         } else {
-            rewardRyo = 30;
+            rewardRyo = 40;
+            rewardXp = 10;
             message = "Small fortune. The sands give a little back.";
         }
 
-        const paidCharacter = {
-            ...character,
-            ryo: character.ryo - cost,
-        };
-
+        const paidCharacter = { ...character, ryo: character.ryo - cost };
         const leveled = gainXp(paidCharacter, rewardXp);
 
         updateCharacter({
             ...leveled,
             ryo: leveled.ryo + rewardRyo,
             stamina: Math.min(leveled.maxStamina, leveled.stamina + rewardStamina),
+            boneCharms: (leveled.boneCharms ?? 0) + rewardBoneCharms,
+            fateShards: (leveled.fateShards ?? 0) + rewardFateShards,
+            auraStones: (leveled.auraStones ?? 0) + rewardAuraStones,
             dailyFateSpins: dailySpins + 1,
             lastDailyReset: currentDateKey(),
         });
 
         setDiceResult(roll);
-        setFestivalLog(`Kael: ${message} +${rewardRyo} ryo, +${rewardXp} XP, +${rewardStamina} stamina. (${dailySpins + 1}/5 spins today)`);
+        const parts = [
+            rewardBoneCharms > 0 && `+${rewardBoneCharms} Bone Charms`,
+            rewardFateShards > 0 && `+${rewardFateShards} Fate Shards`,
+            rewardAuraStones > 0 && `+${rewardAuraStones} Aura Stones`,
+            rewardRyo > 0 && `+${rewardRyo} ryo`,
+            rewardXp > 0 && `+${rewardXp} XP`,
+            rewardStamina > 0 && `+${rewardStamina} stamina`,
+        ].filter(Boolean).join(", ");
+        setFestivalLog(`Kael: ${message} ${parts}. (${dailySpins + 1}/5 spins today)`);
     }
 
     // -- Active card duel overlays --------------------------------------------
