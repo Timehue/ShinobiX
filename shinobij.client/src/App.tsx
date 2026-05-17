@@ -4391,8 +4391,24 @@ export default function App() {
     function hydrateImages(cat: string, images: Record<string, string>) {
         setSharedImages(prev => ({ ...prev, ...images }));
         if (cat === 'item')
-            setCreatorItems(prev => prev.map(item =>
-                images['item:' + item.id] ? { ...item, image: images['item:' + item.id] } : item));
+            setCreatorItems(prev => {
+                // Patch images onto existing entries.
+                const patched = prev.map(item =>
+                    images['item:' + item.id] ? { ...item, image: images['item:' + item.id] } : item);
+                // For starter items whose image is in KV but whose creatorItems entry
+                // doesn't exist yet on this player (e.g. admin uploaded after their last
+                // save), auto-create a minimal entry so getAllItems can apply the override.
+                const existingIds = new Set(prev.map(i => i.id));
+                const seeded: GameItem[] = [];
+                for (const [key, img] of Object.entries(images)) {
+                    if (!key.startsWith('item:')) continue;
+                    const id = key.slice(5);
+                    if (existingIds.has(id)) continue;
+                    const base = starterItems.find(s => s.id === id);
+                    if (base) seeded.push({ ...base, image: img });
+                }
+                return seeded.length ? [...patched, ...seeded] : patched;
+            });
         else if (cat === 'pet') {
             setEditablePets(prev => prev.map(pet =>
                 images['pet:' + pet.id] ? { ...pet, image: images['pet:' + pet.id] } : pet));
@@ -4445,8 +4461,24 @@ export default function App() {
                 return img ? { ...prev, avatarImage: img } : prev;
             });
         else if (cat === 'ai')
-            setCreatorAis(prev => prev.map(ai =>
-                images['ai:' + ai.id] ? { ...ai, image: images['ai:' + ai.id] } : ai));
+            setCreatorAis(prev => {
+                // Patch images onto existing creatorAis entries.
+                const patched = prev.map(ai =>
+                    images['ai:' + ai.id] ? { ...ai, image: images['ai:' + ai.id] } : ai);
+                // For builtin AIs whose image is in KV but for which there is no
+                // creatorAis override entry yet, auto-create one so that playableAis
+                // (which prefers creatorAis over builtinAis) picks up the image.
+                const existingIds = new Set(prev.map(a => a.id));
+                const seeded: CreatorAi[] = [];
+                for (const [key, img] of Object.entries(images)) {
+                    if (!key.startsWith('ai:')) continue;
+                    const id = key.slice(3);
+                    if (existingIds.has(id)) continue;
+                    const base = builtinAis.find(b => b.id === id);
+                    if (base) seeded.push({ ...base, image: img });
+                }
+                return seeded.length ? [...patched, ...seeded] : patched;
+            });
     }
 
     // SessionStorage cache helpers — images don't change often so 10-min local
@@ -17444,6 +17476,7 @@ function Arena({
     const opponentAvatar = opponentCharacter?.avatarImage
         || (opponentCharacter ? (sharedImages['avatar:' + opponentCharacter.name.toLowerCase()] ?? '') : '')
         || pendingAiProfile?.image
+        || (pendingAiProfile ? (sharedImages['ai:' + pendingAiProfile.id] ?? '') : '')
         || pendingAiProfile?.icon
         || "EN";
     const enemyMaxHp = opponentCharacter?.maxHp ?? pendingAiProfile?.hp ?? maxHpForLevel(opponentLevel);
