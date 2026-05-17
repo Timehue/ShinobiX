@@ -5308,7 +5308,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "storyBoss" && character && <StoryBoss character={character} updateCharacter={setCharacter} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "training" && character && <Training character={character} updateCharacter={setCharacter} activeTraining={activeTraining} setActiveTraining={setActiveTraining} />}
                 {!activeTriggeredEvent && screen === "pets" && character && <PetYard character={character} updateCharacter={setCharacter} setScreen={navigate} />}
-                {!activeTriggeredEvent && screen === "petArena" && character && <PetArena character={character} updateCharacter={setCharacter} playerRoster={playerRoster} setScreen={setScreen} sharedImages={sharedImages} />}
+                {!activeTriggeredEvent && screen === "petArena" && character && <PetArena character={character} updateCharacter={setCharacter} playerRoster={playerRoster} setScreen={setScreen} sharedImages={sharedImages} duelChallenges={duelChallenges} setDuelChallenges={setDuelChallenges} />}
                 {!activeTriggeredEvent && screen === "jutsuTraining" && character && <JutsuTrainingHall character={character} updateCharacter={setCharacter} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} activeJutsuTraining={activeJutsuTraining} setActiveJutsuTraining={setActiveJutsuTraining} />}
                 {!activeTriggeredEvent && screen === "missions" && character && <Missions character={character} updateCharacter={setCharacter} creatorAis={playableAis} creatorMissions={creatorMissions} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} setPendingAiProfileId={setPendingAiProfileId} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "hunting" && character && <HunterBoard character={character} updateCharacter={setCharacter} creatorAis={playableAis} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} setPendingAiProfileId={setPendingAiProfileId} setScreen={setScreen} />}
@@ -6900,7 +6900,7 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
     return { result, player, enemy, logs, frames, obstacles: [...obstacles] };
 }
 
-function PetArena({ character, updateCharacter, playerRoster, setScreen, sharedImages }: { character: Character; updateCharacter: (character: Character) => void; playerRoster: PlayerRecord[]; setScreen: (screen: Screen) => void; sharedImages: Record<string, string> }) {
+function PetArena({ character, updateCharacter, playerRoster, setScreen, sharedImages, duelChallenges, setDuelChallenges }: { character: Character; updateCharacter: (character: Character) => void; playerRoster: PlayerRecord[]; setScreen: (screen: Screen) => void; sharedImages: Record<string, string>; duelChallenges: DuelChallenge[]; setDuelChallenges: (c: DuelChallenge[]) => void }) {
     const [selectedPetId, setSelectedPetId] = useState(character.activePetId ?? character.pets[0]?.id ?? "");
     const [opponentMode, setOpponentMode] = useState<"player" | "ai">("player");
     const [opponentSearch, setOpponentSearch] = useState("");
@@ -7003,6 +7003,16 @@ function PetArena({ character, updateCharacter, playerRoster, setScreen, sharedI
                     <p className="hint">{pendingClanPetBattle ? `Clan war pet battle pending against ${pendingClanPetBattle.opponentName}. Win to earn ${pendingClanPetBattle.points} clan points.` : "Autobattle only. Pets choose actions using ordered AI rules: low HP buff, opener, highest-power jutsu, then basic attack."}</p>
                 </div>
             </div>
+
+            {duelChallenges.filter((c) => c.mode === "clanWarPet" && !c.clanWarPoints && c.toName.toLowerCase() === character.name.toLowerCase()).map((c) => (
+                <div key={c.id} className="summary-box" style={{ background: "#1e3a2f", border: "1px solid #4ade80", marginBottom: 8, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                    <span>🐾 <strong>{c.fromName}</strong> challenged you to a pet battle!</span>
+                    <div className="menu" style={{ marginLeft: "auto" }}>
+                        <button onClick={() => setDuelChallenges(duelChallenges.filter((x) => x.id !== c.id))}>✅ Accept (already here)</button>
+                        <button className="danger-button" onClick={() => setDuelChallenges(duelChallenges.filter((x) => x.id !== c.id))}>Decline</button>
+                    </div>
+                </div>
+            ))}
 
             <div className="pet-arena-grid">
                 <section className="summary-box pet-arena-selector">
@@ -19801,8 +19811,26 @@ function Arena({
                     </section>
 
                     <section className="summary-box">
+                        <h3>🐾 Incoming Pet Challenges</h3>
+                        {incomingChallenges.filter((c) => c.mode === "clanWarPet" && !c.clanWarPoints).length === 0
+                            ? <p className="hint">No incoming pet challenges.</p>
+                            : incomingChallenges.filter((c) => c.mode === "clanWarPet" && !c.clanWarPoints).map((challenge) => (
+                                <div className="summary-box" key={challenge.id}>
+                                    <strong>{challenge.fromName}</strong> wants a pet battle!
+                                    <div className="menu">
+                                        <button onClick={() => {
+                                            setDuelChallenges(duelChallenges.filter((c) => c.id !== challenge.id));
+                                            setScreen("petArena");
+                                        }}>🐾 Go to Pet Arena</button>
+                                        <button className="danger-button" onClick={() => setDuelChallenges(duelChallenges.filter((c) => c.id !== challenge.id))}>Decline</button>
+                                    </div>
+                                </div>
+                            ))}
+                    </section>
+
+                    <section className="summary-box">
                         <h3>Incoming Spar Requests</h3>
-                        {incomingChallenges.filter((challenge) => !challenge.clanWarPoints && challenge.mode !== "ranked" && !challenge.sectorAttack).length === 0 ? <p className="hint">No incoming spar requests.</p> : incomingChallenges.filter((challenge) => !challenge.clanWarPoints && challenge.mode !== "ranked" && !challenge.sectorAttack).map((challenge) => (
+                        {incomingChallenges.filter((challenge) => !challenge.clanWarPoints && challenge.mode !== "ranked" && challenge.mode !== "clanWarPet" && !challenge.sectorAttack).length === 0 ? <p className="hint">No incoming spar requests.</p> : incomingChallenges.filter((challenge) => !challenge.clanWarPoints && challenge.mode !== "ranked" && challenge.mode !== "clanWarPet" && !challenge.sectorAttack).map((challenge) => (
                             <div className="summary-box" key={challenge.id}>
                                 <strong>{challenge.fromName}</strong>
                                 <p>Casual spar request to {challenge.toName}</p>
