@@ -17365,7 +17365,7 @@ function Arena({
     const [roundTimerKey, setRoundTimerKey] = useState(0);
 
     // Stable refs so timer callbacks always call the latest version of arena functions.
-    const resetBattleRef   = useRef<(hp?: number) => void>(() => {});
+    const resetBattleRef   = useRef<(hp?: number, firstActor?: "player" | "enemy") => void>(() => {});
     const setLogRef        = useRef<(msg: string) => void>(() => {});
     const autoEndTurnRef   = useRef<() => void>(() => {});
     const enemyTurnRef     = useRef<() => void>(() => {});
