@@ -2,12 +2,22 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '@vercel/kv';
 import { cors } from '../_utils.js';
 
+const REGISTRY_KEY = 'player:registry';
+
 type PresenceEntry = {
     name: string;
     sector: number;
     character: unknown;
     lastSeen: number;
     pendingAttacker: unknown | null;
+};
+
+type RegistryEntry = {
+    name: string;
+    level: number;
+    village: string;
+    specialty: string;
+    lastSeen: number;
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -38,10 +48,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             pendingAttacker: null,
         };
 
-        // Store presence + clear delivered challenges in parallel
+        // Upsert into persistent player registry (never expires — survives presence TTL)
+        const ch = character as Record<string, unknown> | null;
+        const registryEntry: RegistryEntry = {
+            name,
+            level: (ch?.level as number) ?? 1,
+            village: (ch?.village as string) ?? '',
+            specialty: (ch?.specialty as string) ?? '',
+            lastSeen: Date.now(),
+        };
+        const registryField: Record<string, string> = { [name.toLowerCase()]: JSON.stringify(registryEntry) };
+
+        // Store presence + clear delivered challenges + update registry in parallel
         await Promise.all([
             kv.set(presenceKey, entry, { ex: 60 }),
             pendingChallenges?.length ? kv.del(challengeKey) : Promise.resolve(),
+            kv.hset(REGISTRY_KEY, registryField),
         ]);
 
         // Fetch all active presence entries

@@ -7946,9 +7946,9 @@ function AdminPanel({
     const [allKnownPlayers, setAllKnownPlayers] = useState<{ name: string; level: number; village: string; online: boolean }[]>([]);
     const [serverResetMsg, setServerResetMsg] = useState("");
 
-    // Fetch all server-saved players whenever the Players tab is opened
-    useEffect(() => {
-        if (activeAdminPanel !== "playerManagement" || !adminPw) return;
+    // Fetch all server-saved players (registry + presence)
+    function fetchAllKnownPlayers() {
+        if (!adminPw) return;
         fetch('/api/admin/players', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -7959,6 +7959,12 @@ function AdminPanel({
                 if (data?.players) setAllKnownPlayers(data.players);
             })
             .catch(() => {/* silently ignore */});
+    }
+
+    // Auto-fetch whenever the Players tab is opened
+    useEffect(() => {
+        if (activeAdminPanel !== "playerManagement") return;
+        fetchAllKnownPlayers();
     }, [activeAdminPanel, adminPw]);
     const [pmGivePetId, setPmGivePetId] = useState("");
     const [pmGiveAmounts, setPmGiveAmounts] = useState<Record<string, number>>({ honorSeals: 0, fateShards: 0, boneCharms: 0, auraStones: 0, auraDust: 0, mythicSeals: 0 });
@@ -10558,7 +10564,11 @@ function AdminPanel({
                     <div className="admin-subpanel">
                         <div className="admin-panel-heading">
                             <h3>👤 Player Management</h3>
-                            <p>Give items, manage weapons/bloodlines, and reset accounts.</p>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                                <p style={{ margin: 0 }}>Give items, manage weapons/bloodlines, and reset accounts.</p>
+                                <button style={{ fontSize: "0.8rem", padding: "3px 10px" }} onClick={fetchAllKnownPlayers}>🔄 Refresh Player List</button>
+                                {allKnownPlayers.length > 0 && <span className="hint" style={{ margin: 0 }}>{allKnownPlayers.length} accounts · {allKnownPlayers.filter(p => p.online).length} online</span>}
+                            </div>
                         </div>
 
                         {/* ── Give to Player ── */}
@@ -10571,7 +10581,7 @@ function AdminPanel({
                                 return dropdownPlayers.length > 0 ? (
                                     <div style={{ marginBottom: 8 }}>
                                         <label style={{ fontSize: "0.85rem", display: "block", marginBottom: 4 }}>
-                                            All server accounts ({dropdownPlayers.length}) — 🟢 = online now:
+                                            All server accounts ({dropdownPlayers.length}) — 🟢 online · sorted by recent activity:
                                         </label>
                                         <select
                                             value={pmTargetName}
@@ -10579,11 +10589,16 @@ function AdminPanel({
                                             style={{ width: "100%", marginBottom: 4 }}
                                         >
                                             <option value="">— Select a player —</option>
-                                            {dropdownPlayers.map(p => (
-                                                <option key={p.name} value={p.name}>
-                                                    {p.online ? "🟢 " : ""}{p.name} (Lv {p.level} · {p.village || "No Village"})
-                                                </option>
-                                            ))}
+                                            {dropdownPlayers.map(p => {
+                                                const ls = (p as { lastSeen?: number }).lastSeen;
+                                                const ago = ls ? Math.floor((Date.now() - ls) / 60000) : null;
+                                                const agoStr = ago === null ? "" : ago < 2 ? " · just now" : ago < 60 ? ` · ${ago}m ago` : ago < 1440 ? ` · ${Math.floor(ago / 60)}h ago` : ` · ${Math.floor(ago / 1440)}d ago`;
+                                                return (
+                                                    <option key={p.name} value={p.name}>
+                                                        {p.online ? "🟢 " : ""}{p.name} (Lv {p.level} · {p.village || "No Village"}{agoStr})
+                                                    </option>
+                                                );
+                                            })}
                                         </select>
                                     </div>
                                 ) : null;
