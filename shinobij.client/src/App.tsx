@@ -7944,6 +7944,7 @@ function AdminPanel({
     const [pmSnap, setPmSnap] = useState<Record<string, unknown> | null>(null);
     const [pmMsg, setPmMsg] = useState("");
     const [allKnownPlayers, setAllKnownPlayers] = useState<{ name: string; level: number; village: string; online: boolean }[]>([]);
+    const [serverResetMsg, setServerResetMsg] = useState("");
 
     // Fetch all server-saved players whenever the Players tab is opened
     useEffect(() => {
@@ -8020,6 +8021,29 @@ function AdminPanel({
             setPmSnap(null);
             setPmMsg("✅ Account reset. Player starts fresh on next login.");
         } catch { setPmMsg("❌ Reset failed."); }
+    }
+
+    async function serverReset() {
+        if (!window.confirm(
+            "⚠️ FULL SERVER RESET ⚠️\n\nThis will:\n• Delete ALL player saves (every account goes back to Level 0)\n• Clear all clans, village chats, presence, and challenge data\n\nThis will NOT delete:\n• Admin-created content (jutsus, missions, AIs, events, pets)\n• Any uploaded images (kage, elders, pets, weapons, etc.)\n\nThis CANNOT be undone. Are you absolutely sure?"
+        )) return;
+        setServerResetMsg("⏳ Wiping server…");
+        try {
+            const res = await fetch('/api/admin/server-reset', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password: adminPw }),
+            });
+            const data = await res.json() as { ok?: boolean; deletedCount?: number; error?: string };
+            if (data.ok) {
+                setServerResetMsg(`✅ Server reset complete — ${data.deletedCount ?? 0} keys wiped. All images preserved. Players start fresh on next login.`);
+                setAllKnownPlayers([]);
+            } else {
+                setServerResetMsg(`❌ Reset failed: ${data.error ?? 'Unknown error'}`);
+            }
+        } catch {
+            setServerResetMsg("❌ Network error during reset.");
+        }
     }
 
     function pmApproveItem(id: string) {
@@ -10647,6 +10671,24 @@ function AdminPanel({
                                 >🗑️ Reset Account to Zero</button>
                             </div>
                             <p className="hint" style={{ color: "#fbbf24", marginTop: 6 }}>⚠️ No lookup required — reset works by name alone. Player list updates as players come online via heartbeat.</p>
+                        </section>
+
+                        {/* ── Full Server Reset ── */}
+                        <section className="summary-box" style={{ borderColor: "#450a0a", background: "#1c0606" }}>
+                            <h4 style={{ color: "#fca5a5" }}>☢️ Full Server Reset</h4>
+                            <p className="hint">Wipes <strong>every player account</strong> back to Level 0. Clears all clans, village chats, presence data, and pending challenges.</p>
+                            <p className="hint" style={{ color: "#4ade80" }}>✅ Preserved: All uploaded images (kage, elders, pets, weapons, avatars) and all admin-created game content (jutsus, missions, AIs, events).</p>
+                            <button
+                                className="danger-button"
+                                style={{ marginTop: 8, width: "100%", padding: "10px", fontSize: "1rem", background: "#7f1d1d" }}
+                                onClick={serverReset}
+                            >☢️ Reset Entire Server (All Players → Level 0)</button>
+                            {serverResetMsg && (
+                                <p className="hint" style={{
+                                    marginTop: 8,
+                                    color: serverResetMsg.startsWith("✅") ? "#4ade80" : serverResetMsg.startsWith("❌") ? "#f87171" : "#fbbf24"
+                                }}>{serverResetMsg}</p>
+                            )}
                         </section>
 
                         {/* ── Named Weapons / Armor with Images ── */}
