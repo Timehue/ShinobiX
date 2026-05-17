@@ -4596,6 +4596,17 @@ export default function App() {
         if (snap.editablePets) setEditablePets(mergeMissingBuiltInPets(snap.editablePets));
         setPlayerRoster(rosterFromAccounts(loadPlayerAccounts()));
         setScreen("village");
+        // Re-hydrate images after login — server save strips base64 images to stay
+        // within payload limits. Clear the loaded-cats guard and sessionStorage cache
+        // so loadCategory re-fetches from KV and patches image fields back in.
+        loadedCatsRef.current.clear();
+        clearImgCache();
+        setTimeout(() => {
+            void loadCategory('item'); void loadCategory('pet');
+            void loadCategory('card'); void loadCategory('jutsu');
+            void loadCategory('event'); void loadCategory('avatar');
+            void loadCategory('ai');
+        }, 0);
     }
 
     async function loginPlayerAccount(name: string, password: string) {
