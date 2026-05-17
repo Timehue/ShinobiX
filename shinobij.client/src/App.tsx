@@ -390,6 +390,7 @@ type Pet = {
     jutsus: PetJutsu[];
     unlockedForPve: boolean;
     trait?: PetTrait;
+    happiness?: number;
     training?: { type: PetTrainingType; endsAt: number };
     moveRange?: number; // tiles moved per turn (2–5); defaults to 2
 };
@@ -1070,6 +1071,12 @@ const petFeedItems = [
 const stackableItemIds = new Set<string>([...petFeedItems.map((item) => item.id), TERRITORY_CONTROL_SCROLL_ID]);
 function petFeedXpForItem(itemId?: string): number | undefined {
     return petFeedItems.find((item) => item.id === itemId)?.xp;
+}
+function petHappiness(pet: Pick<Pet, "happiness">) {
+    return Math.max(0, Math.min(100, Math.floor(pet.happiness ?? 0)));
+}
+function increasePetHappiness(pet: Pet, amount = 10): Pet {
+    return { ...pet, happiness: Math.min(100, petHappiness(pet) + amount) };
 }
 function rollPetTrait(rarity: PetRarity): PetTrait {
     const pool = rarity === "mythic" ? petTraits : petTraits.filter((t) => t !== "Guardian");
@@ -2355,21 +2362,45 @@ const DELETED_ITEM_IDS = new Set([
     "myth-weapon-earth", "myth-weapon-wind", "myth-weapon-lightning", "myth-weapon-fire", "myth-weapon-water",
 ]);
 
+const ADMIN_DELETED_ITEM_MARKER = "__ADMIN_DELETED_ITEM__";
+
+function isAdminDeletedItemMarker(item: GameItem) {
+    return item.name === ADMIN_DELETED_ITEM_MARKER;
+}
+
+function deletedItemMarker(id: string): GameItem {
+    return {
+        id,
+        name: ADMIN_DELETED_ITEM_MARKER,
+        slot: "item",
+        rarity: "common",
+        cost: 0,
+        description: "Admin-deleted item marker.",
+        bonuses: {},
+    };
+}
+
 function getAllItems(creatorItems: GameItem[]) {
     // starterItems always win for built-in stats so code updates aren't overridden by stale save data.
     // Exception: admin-generated images on starter items ARE respected — only the image field is merged.
     // Deleted items are stripped out entirely even if present in an old save file.
     const starterIds = new Set(starterItems.map((s) => s.id));
-    const customOnly = creatorItems.filter((c) => !starterIds.has(c.id) && !DELETED_ITEM_IDS.has(c.id));
+    const adminDeletedIds = new Set(creatorItems.filter(isAdminDeletedItemMarker).map((item) => item.id));
+    const customOnly = creatorItems.filter((c) =>
+        !starterIds.has(c.id) &&
+        !DELETED_ITEM_IDS.has(c.id) &&
+        !adminDeletedIds.has(c.id) &&
+        !isAdminDeletedItemMarker(c)
+    );
     // Build a map of image overrides for starter items from creator entries
     const imageOverrides = new Map(
         creatorItems
-            .filter(c => starterIds.has(c.id) && c.image)
+            .filter(c => starterIds.has(c.id) && c.image && !adminDeletedIds.has(c.id) && !isAdminDeletedItemMarker(c))
             .map(c => [c.id, c.image as string])
     );
-    const starterWithImages = starterItems.map(s =>
-        imageOverrides.has(s.id) ? { ...s, image: imageOverrides.get(s.id) } : s
-    );
+    const starterWithImages = starterItems
+        .filter(s => !adminDeletedIds.has(s.id))
+        .map(s => imageOverrides.has(s.id) ? { ...s, image: imageOverrides.get(s.id) } : s);
     return [...customOnly, ...starterWithImages].map(sanitizeArmorAndGloveItem);
 }
 
@@ -2726,11 +2757,12 @@ function compressDataUrl(dataUrl: string, maxPx = 512, quality = 0.82): Promise<
 async function publishSharedImage(id: string, img: string): Promise<void> {
     if (!id || !img) return;
     try {
-        await fetch('/api/images', {
+        const res = await fetch('/api/images', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id, image: img }),
         });
+        if (!res.ok) throw new Error(`Image publish failed: ${res.status}`);
     } catch { /* fire-and-forget */ }
 }
 
@@ -3970,8 +4002,17 @@ export default function App() {
                     body: JSON.stringify({ name: char.name, sector: currentSector, character: char }),
                 });
                 if (!res.ok) return;
-                const data: { sectorMates?: PlayerRecord[]; pendingAttacker?: Character | null } = await res.json();
+                const data: { sectorMates?: PlayerRecord[]; pendingAttacker?: Character | null; pendingChallenges?: DuelChallenge[] } = await res.json();
                 if (data.sectorMates) setLiveSectorPlayers(data.sectorMates);
+                if (data.pendingChallenges?.length) {
+                    setDuelChallenges((current) => {
+                        const incoming = data.pendingChallenges!
+                            .filter((challenge) => challenge.toName === char.name)
+                            .map((challenge) => ({ ...challenge, challenger: normalizeCharacter(challenge.challenger) }));
+                        const fresh = incoming.filter((challenge) => !current.some((existing) => existing.id === challenge.id));
+                        return fresh.length ? [...current, ...fresh] : current;
+                    });
+                }
                 if (data.pendingAttacker) {
                     const attacker = normalizeCharacter(data.pendingAttacker);
                     setIncomingAttackBanner(`${attacker.name} is attacking you!`);
@@ -4375,7 +4416,19 @@ export default function App() {
                         ...(images[`vn:${e.id}:page:${i}:right`]  ? { rightImage: images[`vn:${e.id}:page:${i}:right`] }  : {}),
                     }))
                 } : {}),
-            })));
+            }))),
+            setPetEncounterVn(prev => prev.vnPages ? {
+                ...prev,
+                vnPages: prev.vnPages.map((p, i) => ({
+                    ...p,
+                    ...(images[`vn:pet-encounter:page:${i}`]        ? { image:      images[`vn:pet-encounter:page:${i}`] }        : {}),
+                    ...(images[`vn:pet-encounter:page:${i}:left`]   ? { leftImage:  images[`vn:pet-encounter:page:${i}:left`] }   : {}),
+                    ...(images[`vn:pet-encounter:page:${i}:right`]  ? { rightImage: images[`vn:pet-encounter:page:${i}:right`] }  : {}),
+                    ...(images[`vn:sys-pet-encounter:page:${i}`]        ? { image:      images[`vn:sys-pet-encounter:page:${i}`] }        : {}),
+                    ...(images[`vn:sys-pet-encounter:page:${i}:left`]   ? { leftImage:  images[`vn:sys-pet-encounter:page:${i}:left`] }   : {}),
+                    ...(images[`vn:sys-pet-encounter:page:${i}:right`]  ? { rightImage: images[`vn:sys-pet-encounter:page:${i}:right`] }  : {}),
+                })),
+            } : prev);
         else if (cat === 'avatar')
             setCharacter(prev => {
                 if (!prev) return prev;
@@ -4467,13 +4520,16 @@ export default function App() {
     });
 
     useEffect(() => {
+        function stripAutosaveImages(_key: string, value: unknown) {
+            return typeof value === "string" && value.startsWith("data:image") ? "" : value;
+        }
         const id = setInterval(() => {
             const snap = latestSaveRef.current;
             if (!snap) return;
             fetch(`/api/save/${encodeURIComponent(snap.name.toLowerCase())}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(snap.payload),
+                body: JSON.stringify(snap.payload, stripAutosaveImages),
             }).catch(() => { /* silent background save */ });
         }, 60_000);
         return () => clearInterval(id);
@@ -5095,25 +5151,36 @@ export default function App() {
                         acceptedMissionIds={acceptedMissionIds}
                         missionProgress={missionProgress}
                         sharedImages={sharedImages}
-                        attackPlayer={(opponent) => {
+                        attackPlayer={async (opponent) => {
                             // Regular duel — send a challenge the opponent must accept
                             if (duelChallenges.some(c => c.fromName === character.name && c.toName === opponent.name)) {
                                 alert(`Challenge already pending against ${opponent.name}. Wait for them to respond.`);
                                 return;
                             }
-                            setDuelChallenges([...duelChallenges, {
+                            const challenge: DuelChallenge = {
                                 id: makeId(),
                                 fromName: character.name,
                                 toName: opponent.name,
                                 challenger: character,
                                 createdAt: Date.now(),
                                 mode: "standard" as const,
-                            }]);
-                            alert(`⚔️ Challenge sent to ${opponent.name}! They'll see it in the Arena and can accept or decline.`);
+                            };
+                            setDuelChallenges([...duelChallenges, challenge]);
+                            try {
+                                const res = await fetch('/api/player/challenge', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ targetName: opponent.name, challenge }),
+                                });
+                                if (!res.ok) throw new Error(`Server returned ${res.status}`);
+                                alert(`⚔️ Challenge sent to ${opponent.name}! They'll see it in the Arena and can accept or decline.`);
+                            } catch {
+                                alert(`${opponent.name} is not reachable live right now. The challenge was kept on this device only.`);
+                            }
                         }}
-                        sectorAttackPlayer={(opponent) => {
+                        sectorAttackPlayer={async (opponent) => {
                             // Sector PvP — immediate mutual engagement, defender auto-routed
-                            setDuelChallenges([...duelChallenges, {
+                            const challenge: DuelChallenge = {
                                 id: makeId(),
                                 fromName: character.name,
                                 toName: opponent.name,
@@ -5121,8 +5188,16 @@ export default function App() {
                                 createdAt: Date.now(),
                                 mode: "standard" as const,
                                 sectorAttack: true,
-                            }]);
-                            setPendingPvpOpponent(opponent.character);
+                            };
+                            setDuelChallenges([...duelChallenges, challenge]);
+                            try {
+                                await fetch('/api/player/attack', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ targetName: opponent.name, attacker: character }),
+                                });
+                            } catch { /* local PvP still starts for the attacker */ }
+                            setPendingPvpOpponent(normalizeCharacter(opponent.character));
                             setRaidBattleKind("raidPlayer");
                         }}
                     />
@@ -5873,6 +5948,11 @@ function PetYard({ character, updateCharacter, setScreen }: { character: Charact
     function petSelectedPet() {
         if (!selectedPet) return;
         setPetHeartBurst(Date.now());
+        const happierPet = increasePetHappiness(selectedPet);
+        updateCharacter({
+            ...character,
+            pets: character.pets.map((p) => p.id === selectedPet.id ? happierPet : p),
+        });
     }
 
     function feedPet(treat: typeof petFeedItems[number]) {
@@ -5881,13 +5961,13 @@ function PetYard({ character, updateCharacter, setScreen }: { character: Charact
             return alert(`You need ${treat.name} to feed ${selectedPet.name}.`);
         }
 
-        const fedPet = gainPetXp(selectedPet, treat.xp);
+        const fedPet = increasePetHappiness(gainPetXp(selectedPet, treat.xp));
         updateCharacter({
             ...character,
             inventory: removeInventoryItem(treat.id),
             pets: character.pets.map((p) => p.id === selectedPet.id ? fedPet : p),
         });
-        alert(`${selectedPet.name} ate ${treat.name} and gained ${treat.xp} XP.${fedPet.level > selectedPet.level ? ` Level ${fedPet.level}!` : ""}`);
+        alert(`${selectedPet.name} ate ${treat.name} and gained ${treat.xp} XP. Happiness +10%.${fedPet.level > selectedPet.level ? ` Level ${fedPet.level}!` : ""}`);
     }
 
     function releasePet() {
@@ -5961,6 +6041,15 @@ function PetYard({ character, updateCharacter, setScreen }: { character: Charact
                             <p className="pet-xp-line">
                                 XP {selectedPet.level >= selectedPet.maxLevel ? "MAX" : `${selectedPet.xp}/${petXpNeeded(selectedPet.level)}`}
                             </p>
+                            <div className="pet-happiness-meter" style={{ ["--pet-happiness" as string]: `${petHappiness(selectedPet)}%` }}>
+                                <div className="pet-happiness-meter-top">
+                                    <strong>Happiness</strong>
+                                    <span>{petHappiness(selectedPet)}%</span>
+                                </div>
+                                <div className="pet-happiness-track">
+                                    <span />
+                                </div>
+                            </div>
                             <div className="pet-stats-grid">
                                 <span>❤️ HP: {selectedPet.hp}</span>
                                 <span>⚔️ ATK: {selectedPet.attack}</span>
@@ -5969,7 +6058,7 @@ function PetYard({ character, updateCharacter, setScreen }: { character: Charact
                             </div>
                             {selectedPet.description && <p className="pet-description">{selectedPet.description}</p>}
                             <div className="pet-care-actions">
-                                <button onClick={petSelectedPet}>Pet</button>
+                                <button onClick={petSelectedPet}>Pet +10% Happiness</button>
                             </div>
                             <section className="pet-feed-panel">
                                 <h4>Feed</h4>
@@ -6738,10 +6827,15 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
 function PetArena({ character, updateCharacter, playerRoster, setScreen, sharedImages }: { character: Character; updateCharacter: (character: Character) => void; playerRoster: PlayerRecord[]; setScreen: (screen: Screen) => void; sharedImages: Record<string, string> }) {
     const [selectedPetId, setSelectedPetId] = useState(character.activePetId ?? character.pets[0]?.id ?? "");
     const [opponentMode, setOpponentMode] = useState<"player" | "ai">("player");
+    const [opponentSearch, setOpponentSearch] = useState("");
     const playerOpponentPets: PetArenaOpponent[] = playerRoster
         .filter((player) => player.name !== character.name)
         .flatMap((player) => player.character.pets.map((pet) => ({ owner: player.name, pet })));
-    const opponentPets: PetArenaOpponent[] = opponentMode === "player" ? playerOpponentPets : genericPetArenaOpponents;
+    const playerOpponentQuery = opponentSearch.trim().toLowerCase();
+    const filteredPlayerOpponentPets = playerOpponentQuery
+        ? playerOpponentPets.filter((entry) => entry.owner.toLowerCase().includes(playerOpponentQuery))
+        : playerOpponentPets;
+    const opponentPets: PetArenaOpponent[] = opponentMode === "player" ? filteredPlayerOpponentPets : genericPetArenaOpponents;
     const [selectedOpponentKey, setSelectedOpponentKey] = useState("");
     const selectedPet = character.pets.find((pet) => pet.id === selectedPetId) ?? character.pets[0];
     const selectedOpponent = opponentPets.find((entry) => `${entry.owner}:${entry.pet.id}` === selectedOpponentKey) ?? opponentPets[0];
@@ -6855,12 +6949,20 @@ function PetArena({ character, updateCharacter, playerRoster, setScreen, sharedI
                             Fight AI
                         </button>
                     </div>
+                    {opponentMode === "player" && (
+                        <>
+                            <label>Search Player Name</label>
+                            <input value={opponentSearch} onChange={(e) => setOpponentSearch(e.target.value)} placeholder="Search by player name" />
+                        </>
+                    )}
                     {opponentPets.length > 0 ? (
-                        <select value={selectedOpponentKey} onChange={(e) => setSelectedOpponentKey(e.target.value)}>
-                            {opponentPets.map((entry) => <option key={`${entry.owner}:${entry.pet.id}`} value={`${entry.owner}:${entry.pet.id}`}>{entry.owner}: {entry.pet.name} | Lv {entry.pet.level}</option>)}
-                        </select>
+                        <>
+                            <select value={selectedOpponentKey} onChange={(e) => setSelectedOpponentKey(e.target.value)}>
+                                {opponentPets.map((entry) => <option key={`${entry.owner}:${entry.pet.id}`} value={`${entry.owner}:${entry.pet.id}`}>{entry.owner}: {entry.pet.name} | Lv {entry.pet.level}</option>)}
+                            </select>
+                        </>
                     ) : (
-                        <p className="hint">No player pets found. Switch to Fight AI for generic arena opponents.</p>
+                        <p className="hint">No matching player pets found. Search another player name or switch to Fight AI.</p>
                     )}
                     <p className="hint">{opponentMode === "player" ? "Fight pets owned by other players in the roster." : "Fight generic AI pet arena opponents."}</p>
                     {selectedOpponent && <PetArenaCard owner={selectedOpponent.owner} pet={selectedOpponent.pet} sharedImages={sharedImages} />}
@@ -7360,6 +7462,7 @@ function AdminPanel({
 
     function saveAdminItemEdit() {
         const updated = itemFromForm(editingItemId);
+        if (updated.image) void publishSharedImage('item:' + updated.id, updated.image);
         const isCreator = creatorItems.some((i) => i.id === editingItemId);
         if (isCreator) {
             setCreatorItems(creatorItems.map((i) => i.id === editingItemId ? updated : i));
@@ -7374,8 +7477,27 @@ function AdminPanel({
     function createAdminItem() {
         if (editingItemId) { saveAdminItemEdit(); return; }
         const newItem = itemFromForm();
+        if (newItem.image) void publishSharedImage('item:' + newItem.id, newItem.image);
         setCreatorItems([...creatorItems, newItem]);
         alert(`${newItem.name} created.`);
+        setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
+    }
+
+    function deleteAdminItem(item: GameItem) {
+        if (!confirm(`Delete ${item.name} from the shop and game?`)) return;
+        const starterItem = starterItems.some((starter) => starter.id === item.id);
+        const nextItems = creatorItems.filter((existing) => existing.id !== item.id);
+        setCreatorItems(starterItem ? [...nextItems, deletedItemMarker(item.id)] : nextItems);
+        if (editingItemId === item.id) setEditingItemId("");
+        setItemBulkSelections((ids) => ids.filter((id) => id !== item.id));
+        updateCharacter({
+            ...character,
+            inventory: character.inventory.filter((id) => id !== item.id),
+            equipment: Object.fromEntries(
+                Object.entries(character.equipment).map(([slot, id]) => [slot, id === item.id ? "" : id])
+            ) as Character["equipment"],
+        });
+        alert(`${item.name} deleted from the shop and game.`);
         setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
     }
 
@@ -7923,6 +8045,7 @@ function AdminPanel({
 
     function createAdminJutsu() {
         const newJutsu = rebalanceNonBloodlineJutsu(jutsuFromForm());
+        if (newJutsu.image) void publishSharedImage('jutsu:' + newJutsu.id, newJutsu.image);
 
         setCreatorJutsus([...creatorJutsus, newJutsu]);
 
@@ -7933,6 +8056,7 @@ function AdminPanel({
     function saveAdminJutsuEdit() {
         if (!editingJutsuId) return alert("Load an existing admin jutsu first.");
         const updatedJutsu = jutsuFromForm(editingJutsuId);
+        if (updatedJutsu.image) void publishSharedImage('jutsu:' + updatedJutsu.id, updatedJutsu.image);
         const sourceBloodline = savedBloodlines.find((bloodline) => bloodline.jutsus.some((jutsu) => jutsu.id === editingJutsuId));
         if (sourceBloodline) {
             setSavedBloodlines(savedBloodlines.map((bloodline) => bloodline.id === sourceBloodline.id ? {
@@ -8043,33 +8167,33 @@ function AdminPanel({
         }));
     }
 
-    function publishEventPageImages(event: CreatorEvent) {
+    async function publishEventPageImages(event: CreatorEvent, imageEventId = event.id) {
         // Publish all VN page images to shared KV so they survive server save stripping.
         // Called on every save (create or update) to catch images uploaded before
         // editingEventId was set, and to re-publish in case of any missed writes.
         if (!event.vnPages) return;
-        event.vnPages.forEach((page, i) => {
-            if (page.image)      void publishSharedImage(`vn:${event.id}:page:${i}`,       page.image);
-            if (page.leftImage)  void publishSharedImage(`vn:${event.id}:page:${i}:left`,  page.leftImage);
-            if (page.rightImage) void publishSharedImage(`vn:${event.id}:page:${i}:right`, page.rightImage);
-        });
+        await Promise.all(event.vnPages.flatMap((page, i) => [
+            page.image      ? publishSharedImage(`vn:${imageEventId}:page:${i}`,       page.image)      : Promise.resolve(),
+            page.leftImage  ? publishSharedImage(`vn:${imageEventId}:page:${i}:left`,  page.leftImage)  : Promise.resolve(),
+            page.rightImage ? publishSharedImage(`vn:${imageEventId}:page:${i}:right`, page.rightImage) : Promise.resolve(),
+        ]));
     }
 
-    function createAdminEvent() {
+    async function createAdminEvent() {
         const event = eventFromForm();
         setCreatorEvents([...creatorEvents, event]);
-        publishEventPageImages(event);
+        await publishEventPageImages(event);
         alert(`${event.name} created and imported to World Map.`);
         setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
     }
 
-    function saveAdminEventEdit() {
+    async function saveAdminEventEdit() {
         if (!editingEventId) return alert("Load an existing admin event first.");
         const updatedEvent = eventFromForm(editingEventId);
         setCreatorEvents(creatorEvents.some((event) => event.id === editingEventId)
             ? creatorEvents.map((event) => event.id === editingEventId ? updatedEvent : event)
             : [...creatorEvents, updatedEvent]);
-        publishEventPageImages(updatedEvent);
+        await publishEventPageImages(updatedEvent);
         alert(`${updatedEvent.name} updated.`);
         setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
     }
@@ -8214,6 +8338,7 @@ function AdminPanel({
 
     function saveAdminAi() {
         const ai = aiFromForm(editingAiId || undefined);
+        if (ai.image) void publishSharedImage('ai:' + ai.id, ai.image);
         setCreatorAis(creatorAis.some((existing) => existing.id === ai.id)
             ? creatorAis.map((existing) => existing.id === ai.id ? ai : existing)
             : [...creatorAis, ai]);
@@ -8793,8 +8918,11 @@ function AdminPanel({
                                 </button>
                                 <button
                                     style={{ background: "#2e4a1e", borderColor: "#a5d6a7" }}
-                                    onClick={() => {
-                                        setPetEncounterVn(eventFromForm("sys-pet-encounter"));
+                                    onClick={async () => {
+                                        const petVn = eventFromForm("sys-pet-encounter");
+                                        setPetEncounterVn(petVn);
+                                        await publishEventPageImages(petVn, "pet-encounter");
+                                        setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
                                         alert("Pet Encounter VN saved! Players will see this scene when they find a pet.");
                                     }}
                                 >
@@ -9413,14 +9541,12 @@ function AdminPanel({
                                     </div>
                                     <div className="menu" style={{ flexShrink: 0 }}>
                                         <button onClick={() => loadAdminItem(item)}>Load / Edit</button>
-                                        {isCreator && (
-                                            <button
-                                                className="danger-button"
-                                                onClick={() => { setCreatorItems(creatorItems.filter((i) => i.id !== item.id)); if (editingItemId === item.id) setEditingItemId(""); }}
-                                            >
-                                                Delete
-                                            </button>
-                                        )}
+                                        <button
+                                            className="danger-button"
+                                            onClick={() => deleteAdminItem(item)}
+                                        >
+                                            Delete
+                                        </button>
                                     </div>
                                 </div>
                             );
@@ -15327,26 +15453,15 @@ function WorldMap({
                             {sectorPlayers.length === 0 ? (
                                 <span>No other players in this sector.</span>
                             ) : (
-                                sectorPlayers.map((player) => {
-                                    const avatar = player.character.avatarImage;
-                                    const isImage = avatar && avatar.startsWith("http");
-                                    return (
-                                        <div className="sector-player-card" key={player.name}>
-                                            <div className="sector-player-avatar">
-                                                {isImage
-                                                    ? <img src={avatar} alt={player.name} className="sector-player-avatar-img" />
-                                                    : <span className="sector-player-avatar-emoji">{avatar || "🥷"}</span>
-                                                }
-                                            </div>
-                                            <div className="sector-player-info">
-                                                <strong>{player.name}</strong>
-                                                <small>Lv {player.level} · {player.village}</small>
-                                                <small>HP {player.character.hp}/{player.character.maxHp}</small>
-                                            </div>
-                                            <button className="danger-button" onClick={() => attackPlayer(player)}>⚔️ Challenge</button>
+                                sectorPlayers.map((player) => (
+                                    <div className="sector-player-card" key={player.name}>
+                                        <div className="sector-player-info">
+                                            <strong>{player.name}</strong>
+                                            <small>Level {player.level}</small>
                                         </div>
-                                    );
-                                })
+                                        <button className="danger-button" onClick={() => attackPlayer(player)}>Attack</button>
+                                    </div>
+                                ))
                             )}
                         </section>
                         <button onClick={() => exploreSector(selectedSector)}>Explore Tile</button>
@@ -17219,9 +17334,7 @@ function Arena({
             const cw = el.clientWidth;
             const ch = el.clientHeight;
             const isMobileNarrow = cw < 600;
-            const edgeBuffer = isMobileNarrow
-                ? 0
-                : Math.min(112, Math.max(64, Math.min(cw, ch) * 0.16));
+            const edgeBuffer = 0;
             const availableW = Math.max(1, cw - edgeBuffer * 2);
             const availableH = Math.max(1, ch - edgeBuffer * 2);
 
@@ -17287,7 +17400,9 @@ function Arena({
         .filter((item): item is GameItem => Boolean(item));
     const [battleStarted, setBattleStarted] = useState(false);
     const [aiLevel, setAiLevel] = useState(character.level);
-    const [playerSearch, setPlayerSearch] = useState("");
+    const [sparSearch, setSparSearch] = useState("");
+    const [rankedSearch, setRankedSearch] = useState("");
+    const [petChallengeSearch, setPetChallengeSearch] = useState("");
     const [opponentCharacter, setOpponentCharacter] = useState<Character | null>(null);
     const [rankedBattleActive, setRankedBattleActive] = useState(false);
     const [clanWarPointsActive, setClanWarPointsActive] = useState(0);
@@ -17311,7 +17426,8 @@ function Arena({
         : opponentCharacter
             ? getAllJutsus(savedBloodlines, creatorJutsus, opponentCharacter).filter((jutsu) => opponentCharacter.equippedJutsuIds.includes(jutsu.id))
             : [];
-    const searchablePlayers = playerRoster.filter((player) => player.name !== character.name && player.name.toLowerCase().includes(playerSearch.trim().toLowerCase()));
+    const playerSearchMatches = (player: PlayerRecord, search: string) =>
+        player.name !== character.name && player.name.toLowerCase().includes(search.trim().toLowerCase());
     const incomingChallenges = duelChallenges.filter((challenge) => challenge.toName === character.name);
     const rollInitiative = () => (character.stats.speed + character.stats.willpower * 0.4 >= enemyCombatStats.speed + enemyCombatStats.willpower * 0.4 ? "player" : "enemy") as BattleActor;
 
@@ -17584,24 +17700,36 @@ function Arena({
         startPrefight(hp, `AI battle started against a Level ${aiLevel} AI Ninja. Weather: ${weatherEffects[currentWeather].name}.`);
     }
 
-    function challengePlayer(opponent: PlayerRecord, mode: DuelChallenge["mode"] = "standard", clanWarPoints = 0) {
+    async function challengePlayer(opponent: PlayerRecord, mode: DuelChallenge["mode"] = "standard", clanWarPoints = 0) {
         if (duelChallenges.some((challenge) => challenge.fromName === character.name && challenge.toName === opponent.name)) {
             alert("Challenge already sent.");
             return;
         }
-        setDuelChallenges([...duelChallenges, { id: makeId(), fromName: character.name, toName: opponent.name, challenger: character, createdAt: Date.now(), mode, clanWarPoints }]);
-        alert(`Challenge sent to ${opponent.name}.`);
+        const challenge: DuelChallenge = { id: makeId(), fromName: character.name, toName: opponent.name, challenger: character, createdAt: Date.now(), mode, clanWarPoints };
+        setDuelChallenges([...duelChallenges, challenge]);
+        try {
+            const res = await fetch('/api/player/challenge', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ targetName: opponent.name, challenge }),
+            });
+            if (!res.ok) throw new Error(`Server returned ${res.status}`);
+            alert(`${mode === "ranked" ? "Ranked challenge" : mode === "clanWarPet" ? "Pet challenge" : "Challenge"} sent to ${opponent.name}.`);
+        } catch {
+            alert(`${opponent.name} is not reachable live right now. The challenge was kept on this device only.`);
+        }
     }
 
     function acceptChallenge(challenge: DuelChallenge) {
+        const challenger = normalizeCharacter(challenge.challenger);
         setPendingAiProfileId("");
         setRaidBattleKind("raidPlayer");
         setRankedBattleActive(challenge.mode === "ranked");
         setClanWarPointsActive(challenge.clanWarPoints ?? 0);
-        setOpponentCharacter(challenge.challenger);
+        setOpponentCharacter(challenger);
         setDuelChallenges(duelChallenges.filter((candidate) => candidate.id !== challenge.id));
-        setEnemyHp(challenge.challenger.maxHp);
-        startPrefight(challenge.challenger.maxHp, `${challenge.mode === "ranked" ? "Ranked duel" : challenge.clanWarPoints ? "Clan war duel" : "Duel"} accepted against ${challenge.fromName}.`);
+        setEnemyHp(challenger.maxHp);
+        startPrefight(challenger.maxHp, `${challenge.mode === "ranked" ? "Ranked PvP duel" : challenge.clanWarPoints ? "Clan war PvP duel" : "PvP duel"} accepted against ${challenge.fromName}.`);
     }
 
     function startTournament() {
@@ -19232,7 +19360,13 @@ function Arena({
     enemyTurnRef.current    = enemyTurn;
 
     if (!battleStarted) {
-        const rankedOpponents = searchablePlayers.filter((player) => player.character.level >= Math.max(1, character.level - 20));
+        const sparOpponents = playerRoster.filter((player) => playerSearchMatches(player, sparSearch));
+        const rankedOpponents = playerRoster
+            .filter((player) => playerSearchMatches(player, rankedSearch))
+            .filter((player) => player.character.level >= Math.max(1, character.level - 20));
+        const petChallengeOpponents = playerRoster
+            .filter((player) => playerSearchMatches(player, petChallengeSearch))
+            .filter((player) => player.character.pets.length > 0);
         const clanWarOpponents = opponentClanData
             ? opponentClanData.members
                 .map((member) => playerRoster.find((player) => player.name === member.name))
@@ -19264,13 +19398,13 @@ function Arena({
                     <section className="summary-box">
                         <h3>Spar Requests</h3>
                         <label>Search Player Name</label>
-                        <input value={playerSearch} onChange={(e) => setPlayerSearch(e.target.value)} placeholder="Search by player name" />
+                        <input value={sparSearch} onChange={(e) => setSparSearch(e.target.value)} placeholder="Search by player name" />
                         <div className="jutsu-list">
-                            {searchablePlayers.length === 0 ? <p className="hint">No matching players yet. Log in or create another player to add them to the roster.</p> : searchablePlayers.map((player) => (
+                            {sparOpponents.length === 0 ? <p className="hint">No matching players yet. Log in or create another player to add them to the roster.</p> : sparOpponents.map((player) => (
                                 <div className="summary-box" key={`spar-${player.name}`}>
                                     <strong>{player.name}</strong>
                                     <p>Level {player.level} | {player.village} | {player.specialty}</p>
-                                    <button onClick={() => challengePlayer(player)}>Ask To Spar</button>
+                                    <button onClick={() => challengePlayer(player)}>Send Spar Challenge</button>
                                 </div>
                             ))}
                         </div>
@@ -19305,13 +19439,13 @@ function Arena({
                     <p>Rating: <strong>{character.rankedRating ?? 1000}</strong> Elo | Wins {character.rankedWins ?? 0} | Losses {character.rankedLosses ?? 0}</p>
                     <p className="hint">Ranked fights use neutral ground: no terrain or weather modifiers.</p>
                     <label>Search Ranked Opponent</label>
-                    <input value={playerSearch} onChange={(e) => setPlayerSearch(e.target.value)} placeholder="Search by player name" />
+                    <input value={rankedSearch} onChange={(e) => setRankedSearch(e.target.value)} placeholder="Search by player name" />
                     <div className="jutsu-list">
                         {rankedOpponents.length === 0 ? <p className="hint">No ranked opponents found.</p> : rankedOpponents.map((player) => (
                             <div className="summary-box" key={`ranked-${player.name}`}>
                                 <strong>{player.name}</strong>
                                 <p>Level {player.level} | Elo {player.character.rankedRating ?? 1000}</p>
-                                <button onClick={() => beginRankedBattle(player)}>Start Ranked Match</button>
+                                <button onClick={() => challengePlayer(player, "ranked")}>Send Ranked Challenge</button>
                             </div>
                         ))}
                     </div>
@@ -19360,7 +19494,18 @@ function Arena({
 
                 <section className="summary-box">
                     <h3>Pet Battles</h3>
-                    <p className="hint">Run pet arena matches and clan war pet battles from the Arena District.</p>
+                    <p className="hint">Search players with pets, send a pet battle challenge, or open the pet arena directly.</p>
+                    <label>Search Player Name</label>
+                    <input value={petChallengeSearch} onChange={(e) => setPetChallengeSearch(e.target.value)} placeholder="Search by player name" />
+                    <div className="jutsu-list">
+                        {petChallengeOpponents.length === 0 ? <p className="hint">No matching players with pets found.</p> : petChallengeOpponents.map((player) => (
+                            <div className="summary-box" key={`pet-challenge-${player.name}`}>
+                                <strong>{player.name}</strong>
+                                <p>Level {player.level} | Pets {player.character.pets.length}</p>
+                                <button onClick={() => challengePlayer(player, "clanWarPet", 25)}>Send Pet Challenge</button>
+                            </div>
+                        ))}
+                    </div>
                     <button onClick={() => setScreen("petArena")}>Open Pet Battle Arena</button>
                 </section>
 
