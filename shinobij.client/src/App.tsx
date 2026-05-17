@@ -4393,9 +4393,18 @@ export default function App() {
         if (cat === 'item')
             setCreatorItems(prev => prev.map(item =>
                 images['item:' + item.id] ? { ...item, image: images['item:' + item.id] } : item));
-        else if (cat === 'pet')
+        else if (cat === 'pet') {
             setEditablePets(prev => prev.map(pet =>
                 images['pet:' + pet.id] ? { ...pet, image: images['pet:' + pet.id] } : pet));
+            // Also patch images onto the pets stored on each player's character —
+            // character.pets are cloned copies that don't auto-update with editablePets.
+            setCharacter(prev => {
+                if (!prev || !prev.pets?.length) return prev;
+                const patchedPets = prev.pets.map(p =>
+                    images['pet:' + p.id] ? { ...p, image: images['pet:' + p.id] } : p);
+                return { ...prev, pets: patchedPets };
+            });
+        }
         else if (cat === 'card')
             setCreatorCards(prev => prev.map(card =>
                 images['card:' + card.id] ? { ...card, image: images['card:' + card.id] } : card));
@@ -9838,6 +9847,15 @@ function AdminPanel({
                                 setEditablePets(
                                     editablePets.map((p) => p.id === selectedPet.id ? { ...p, ...updated } : p)
                                 );
+                                // Mirror image changes to character.pets so the pet tab
+                                // shows the new image immediately without a page reload.
+                                if (updated.image !== undefined) {
+                                    const patchedPets = character.pets.map(p =>
+                                        p.id === selectedPet.id ? { ...p, image: updated.image! } : p);
+                                    if (patchedPets.some(p => p.id === selectedPet.id)) {
+                                        updateCharacter({ ...character, pets: patchedPets });
+                                    }
+                                }
                             }
 
                             function updatePetJutsu(index: number, updated: Partial<PetJutsu>) {
