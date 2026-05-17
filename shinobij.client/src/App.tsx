@@ -5312,6 +5312,7 @@ export default function App() {
                         petEncounterVn={petEncounterVn}
                         editablePets={editablePets}
                         setPendingAiProfileId={setPendingAiProfileId}
+                        setPendingPvpOpponent={(c) => setPendingPvpOpponent(normalizeCharacter(c))}
                         setRaidBattleKind={setRaidBattleKind}
                         recordMissionExplore={recordMissionExplore}
                         playableAis={playableAis}
@@ -15636,6 +15637,7 @@ function WorldMap({
     petEncounterVn,
     editablePets,
     setPendingAiProfileId,
+    setPendingPvpOpponent,
     setRaidBattleKind,
     recordMissionExplore,
     playableAis,
@@ -15656,6 +15658,7 @@ function WorldMap({
     petEncounterVn: CreatorEvent;
     editablePets: Pet[];
     setPendingAiProfileId: (id: string) => void;
+    setPendingPvpOpponent: (c: Character) => void;
     setRaidBattleKind: (kind: "none" | "raidAi" | "raidPlayer" | "defense") => void;
     recordMissionExplore: (sector: number) => void;
     playableAis: CreatorAi[];
@@ -16448,10 +16451,29 @@ function WorldMap({
                                     ))}
                                     <button
                                         className="territory-raid-btn"
-                                        onClick={() => {
+                                        onClick={async () => {
                                             const guard = territoryGuards[0];
-                                            setPendingAiProfileId(pickGuardAi(guard.level, guard.defenseBonusPercent ?? 0));
-                                            setRaidBattleKind("raidAi");
+                                            try {
+                                                const res = await fetch('/api/village-guard/challenge', {
+                                                    method: 'POST',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify({ attackerCharacter: character, village: loc.name }),
+                                                });
+                                                const data = await res.json() as {
+                                                    pvp?: boolean; guardCharacter?: unknown;
+                                                    noGuard?: boolean; guardLevel?: number; defenseBonusPercent?: number;
+                                                };
+                                                if (data.pvp && data.guardCharacter) {
+                                                    setPendingPvpOpponent(normalizeCharacter(data.guardCharacter as Character));
+                                                    setRaidBattleKind("raidPlayer");
+                                                } else {
+                                                    setPendingAiProfileId(pickGuardAi(data.guardLevel ?? guard.level, data.defenseBonusPercent ?? guard.defenseBonusPercent ?? 0));
+                                                    setRaidBattleKind("raidAi");
+                                                }
+                                            } catch {
+                                                setPendingAiProfileId(pickGuardAi(guard.level, guard.defenseBonusPercent ?? 0));
+                                                setRaidBattleKind("raidAi");
+                                            }
                                             setCurrentBiome(biome);
                                             setCurrentWeather(weather);
                                             setScreen("arena");
@@ -16460,7 +16482,7 @@ function WorldMap({
                                         ⚔️ Challenge Guard
                                     </button>
                                     <p className="hint" style={{ fontSize: "0.7rem", color: "#64748b", marginTop: 2 }}>
-                                        Victory earns 5 Honor Seals from an AI guard raid.
+                                        Guard online? Real PvP. Guard offline? AI fight.
                                     </p>
                                 </>
                             ) : (
