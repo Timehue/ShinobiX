@@ -508,6 +508,7 @@ type DuelChallenge = {
     clanWarPoints?: number;
     sectorAttack?: boolean; // true = initiated from world-map sector, auto-routes defender
     battleId?: string;     // if set, both players join a shared PvP session instead of separate arenas
+    accepted?: boolean;    // true = defender accepted spar/ranked, routes original challenger to pvpBattle as p1
 };
 
 type AiCondition = "always" | "specific_round" | "distance_lower_than" | "distance_higher_than" | "hp_lower_than";
@@ -4282,6 +4283,18 @@ export default function App() {
         }
     }, [duelChallenges.length, character?.name]);
 
+    // Accepted-challenge routing: when the defender accepts a spar/ranked challenge they push back
+    // an accepted:true notification with a battleId — auto-route the original challenger to pvpBattle as p1.
+    useEffect(() => {
+        if (!character) return;
+        const accepted = duelChallenges.find(c => c.accepted && !!c.battleId && c.toName.toLowerCase() === character.name.toLowerCase());
+        if (!accepted) return;
+        setDuelChallenges(prev => prev.filter(c => c.id !== accepted.id));
+        setPvpBattleId(accepted.battleId!);
+        setPvpRole("p1");
+        setScreen("pvpBattle");
+    }, [duelChallenges.length, character?.name]);
+
     useEffect(() => {
         // Helper: apply a full server/local snapshot to state
         function applySnapshot(snap: ReturnType<typeof buildPlayerSavePayload>) {
@@ -5756,6 +5769,8 @@ export default function App() {
                         onPendingStoryBattleWin={completePendingArenaStoryBattle}
                         onPendingStoryBattleContinue={continuePendingArenaStoryBattle}
                         onMissionRaidComplete={recordMissionRaid}
+                        setPvpBattleId={setPvpBattleId}
+                        setPvpRole={setPvpRole}
                     />
                 )}
 
@@ -18874,6 +18889,8 @@ function Arena({
     onPendingStoryBattleWin,
     onPendingStoryBattleContinue,
     onMissionRaidComplete,
+    setPvpBattleId,
+    setPvpRole,
 }: {
     lobbyMode?: "battleArena" | "arenaDistrict";
     character: Character;
@@ -18904,6 +18921,8 @@ function Arena({
     onPendingStoryBattleWin?: (survivingHp: number) => string;
     onPendingStoryBattleContinue?: () => void;
     onMissionRaidComplete?: (sector: number) => void;
+    setPvpBattleId?: (id: string) => void;
+    setPvpRole?: (role: "p1" | "p2") => void;
 }) {
     type CombatStatus = {
         name: string;
@@ -19350,16 +19369,40 @@ function Arena({
         }
     }
 
-    function acceptChallenge(challenge: DuelChallenge) {
+    async function acceptChallenge(challenge: DuelChallenge) {
         const challenger = normalizeCharacter(challenge.challenger);
-        setPendingAiProfileId("");
-        setRaidBattleKind("raidPlayer");
-        setRankedBattleActive(challenge.mode === "ranked");
-        setClanWarPointsActive(challenge.clanWarPoints ?? 0);
-        setOpponentCharacter(challenger);
         setDuelChallenges(duelChallenges.filter((candidate) => candidate.id !== challenge.id));
-        setEnemyHp(challenger.maxHp);
-        startPrefight(challenger.maxHp, `${challenge.mode === "ranked" ? "Ranked PvP duel" : challenge.clanWarPoints ? "Clan war PvP duel" : "PvP duel"} accepted against ${challenge.fromName}.`);
+        try {
+            // Create a shared turn-based hex-grid PvP session: challenger = p1, us = p2
+            const res = await fetch('/api/pvp/session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ p1Character: challenger, p2Character: character }),
+            });
+            if (!res.ok) throw new Error('Session create failed');
+            const { battleId } = await res.json() as { battleId: string };
+            // Push acceptance notification back so the original challenger gets routed to p1
+            fetch('/api/player/challenge', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    targetName: challenge.fromName,
+                    challenge: { ...challenge, battleId, accepted: true, fromName: character.name, toName: challenge.fromName },
+                }),
+            }).catch(() => {});
+            setPvpBattleId?.(battleId);
+            setPvpRole?.("p2");
+            setScreen("pvpBattle");
+        } catch {
+            // Fallback to old arena if session creation fails
+            setPendingAiProfileId("");
+            setRaidBattleKind("raidPlayer");
+            setRankedBattleActive(challenge.mode === "ranked");
+            setClanWarPointsActive(challenge.clanWarPoints ?? 0);
+            setOpponentCharacter(challenger);
+            setEnemyHp(challenger.maxHp);
+            startPrefight(challenger.maxHp, `${challenge.mode === "ranked" ? "Ranked PvP duel" : challenge.clanWarPoints ? "Clan war PvP duel" : "PvP duel"} accepted against ${challenge.fromName}.`);
+        }
     }
 
     function startTournament() {
