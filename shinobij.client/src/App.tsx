@@ -17480,6 +17480,9 @@ function Arena({
     useEffect(() => {
         if (prefightCountdown === null) return;
         if (prefightCountdown <= 0) {
+            // MUST null out first so the overlay hides and the round-timer effect
+            // (which guards on prefightCountdown !== null) is allowed to start.
+            setPrefightCountdown(null);
             const data = prefightDataRef.current;
             if (data) {
                 prefightDataRef.current = null;
@@ -19644,7 +19647,7 @@ function Arena({
                         <button onClick={clearEnemyPositiveEffects}><span>Clear</span><small>60 AP | CD {cooldowns.clear ?? 0}</small></button>
                         <button onClick={cleansePlayerNegativeEffects}><span>Cleanse</span><small>60 AP | CD {cooldowns.cleanse ?? 0}</small></button>
                         <button onClick={flee}><span>Flee</span><small>100 AP | 20%</small></button>
-                        <button onClick={waitTurn}><span>{activeActor === "enemy" ? "Resolve" : "Wait"}</span><small>{activeActor === "enemy" ? "Enemy acts" : "End turn"}</small></button>
+                        <button onClick={waitTurn}><span>Wait</span><small>{activeActor === "enemy" ? "Skip delay" : "End turn"}</small></button>
                     </div>
 
                     <div className="jutsu-layout-card combat-jutsu-bar">
