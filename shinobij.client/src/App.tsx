@@ -8216,6 +8216,20 @@ function AdminPanel({
         } catch { setPmEditMsg("❌ Network error."); }
     }
 
+    async function pmEditPatch(updatedSnap: Record<string, unknown>) {
+        setPmEditMsg("Saving…");
+        try {
+            const res = await fetch(`/api/save/${encodeURIComponent(pmEditName.trim().toLowerCase())}`, {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(updatedSnap),
+            });
+            if (!res.ok) throw new Error();
+            setPmEditSnap(updatedSnap);
+            setPmEditMsg("✅ Saved!");
+            fetchAllKnownPlayers();
+        } catch { setPmEditMsg("❌ Save failed."); }
+    }
+
     async function pmEditSave() {
         if (!pmEditSnap) return;
         const char = { ...(pmEditSnap.character as Record<string, unknown> ?? {}) };
@@ -8228,17 +8242,7 @@ function AdminPanel({
         char.unspentStats = pmEditFields.unspentStats;
         char.stats = stats;
         const updated = { ...pmEditSnap, character: char };
-        setPmEditMsg("Saving…");
-        try {
-            const res = await fetch(`/api/save/${encodeURIComponent(pmEditName.trim().toLowerCase())}`, {
-                method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(updated),
-            });
-            if (!res.ok) throw new Error();
-            setPmEditSnap(updated);
-            setPmEditMsg("✅ Saved! Changes apply on player's next heartbeat.");
-            fetchAllKnownPlayers();
-        } catch { setPmEditMsg("❌ Save failed."); }
+        await pmEditPatch(updated);
     }
 
     async function pmReset() {
@@ -10923,6 +10927,79 @@ function AdminPanel({
                                         </div>
                                         <button onClick={pmEditSave} style={{ background: "linear-gradient(#1e3a5f,#0c1f3d)", borderColor: "#60a5fa" }}>💾 Save Changes</button>
                                     </>
+                                );
+                            })()}
+                            {pmEditSnap && (() => {
+                                const char = pmEditSnap.character as Record<string, unknown> ?? {};
+                                const inventory = (char.inventory as string[] | undefined) ?? [];
+                                const equipment = (char.equipment as Record<string, string> | undefined) ?? {};
+                                const pets = (char.pets as Pet[] | undefined) ?? [];
+                                const allItems = getAllItems(creatorItems);
+                                const itemName = (id: string) => allItems.find(i => i.id === id)?.name ?? id;
+
+                                function removeInventoryItem(idx: number) {
+                                    const newInv = inventory.filter((_, i) => i !== idx);
+                                    const updated = { ...pmEditSnap!, character: { ...char, inventory: newInv } };
+                                    void pmEditPatch(updated);
+                                }
+                                function unequipSlot(slot: string) {
+                                    const newEquip = { ...equipment };
+                                    delete newEquip[slot];
+                                    const updated = { ...pmEditSnap!, character: { ...char, equipment: newEquip } };
+                                    void pmEditPatch(updated);
+                                }
+                                function removePet(petId: string) {
+                                    const newPets = pets.filter(p => p.id !== petId);
+                                    const updated = { ...pmEditSnap!, character: { ...char, pets: newPets } };
+                                    void pmEditPatch(updated);
+                                }
+
+                                return (
+                                    <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 12 }}>
+                                        {/* Equipment */}
+                                        {Object.keys(equipment).length > 0 && (
+                                            <div>
+                                                <p style={{ fontSize: "0.8rem", color: "#94a3b8", marginBottom: 4 }}>⚔️ Equipment</p>
+                                                <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                                                    {Object.entries(equipment).map(([slot, itemId]) => (
+                                                        <div key={slot} style={{ display: "flex", alignItems: "center", gap: 4, background: "#1e293b", border: "1px solid #334155", borderRadius: 4, padding: "2px 6px", fontSize: "0.75rem" }}>
+                                                            <span style={{ color: "#94a3b8" }}>{slot}:</span>
+                                                            <span>{itemName(itemId)}</span>
+                                                            <button onClick={() => unequipSlot(slot)} style={{ fontSize: "0.65rem", padding: "1px 5px", background: "#7f1d1d", borderColor: "#ef4444", color: "#fca5a5" }}>✕</button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                        {/* Inventory */}
+                                        {inventory.length > 0 && (
+                                            <div>
+                                                <p style={{ fontSize: "0.8rem", color: "#94a3b8", marginBottom: 4 }}>🎒 Inventory ({inventory.length} items)</p>
+                                                <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                                                    {inventory.map((itemId, idx) => (
+                                                        <div key={idx} style={{ display: "flex", alignItems: "center", gap: 4, background: "#1e293b", border: "1px solid #334155", borderRadius: 4, padding: "2px 6px", fontSize: "0.75rem" }}>
+                                                            <span>{itemName(itemId)}</span>
+                                                            <button onClick={() => removeInventoryItem(idx)} style={{ fontSize: "0.65rem", padding: "1px 5px", background: "#7f1d1d", borderColor: "#ef4444", color: "#fca5a5" }}>✕</button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                        {/* Pets */}
+                                        {pets.length > 0 && (
+                                            <div>
+                                                <p style={{ fontSize: "0.8rem", color: "#94a3b8", marginBottom: 4 }}>🐾 Pets</p>
+                                                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                                    {pets.map(pet => (
+                                                        <div key={pet.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "#1e293b", border: "1px solid #334155", borderRadius: 4, padding: "4px 8px", fontSize: "0.78rem" }}>
+                                                            <span style={{ flex: 1 }}><strong>{petDisplayName(pet)}</strong> <span style={{ color: "#94a3b8" }}>Lv {pet.level} · {pet.rarity}{pet.nickname ? ` · "${pet.nickname}"` : ""}</span></span>
+                                                            <button onClick={() => removePet(pet.id)} style={{ fontSize: "0.65rem", padding: "1px 8px", background: "#7f1d1d", borderColor: "#ef4444", color: "#fca5a5" }}>Remove</button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
                                 );
                             })()}
                         </section>
