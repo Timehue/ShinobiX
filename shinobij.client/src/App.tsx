@@ -6965,6 +6965,7 @@ function PetArena({ character, updateCharacter, playerRoster, setScreen, sharedI
     const [petChallengeMsg, setPetChallengeMsg] = useState("");
 
     async function sendDirectPetChallenge(toName: string, fromPetId?: string) {
+        setBattleReady(false);
         const challenge: DuelChallenge = {
             id: makeId(),
             fromName: character.name,
@@ -6996,6 +6997,7 @@ function PetArena({ character, updateCharacter, playerRoster, setScreen, sharedI
     const [selectedOpponentKey, setSelectedOpponentKey] = useState("");
     const selectedPet = character.pets.find((pet) => pet.id === selectedPetId) ?? character.pets[0];
     const selectedOpponent = opponentPets.find((entry) => `${entry.owner}:${entry.pet.id}` === selectedOpponentKey) ?? opponentPets[0];
+    const [battleReady, setBattleReady] = useState(false);
     const [battleLog, setBattleLog] = useState<string[]>([]);
     const [battleFrames, setBattleFrames] = useState<PetArenaFrame[]>([]);
     const [battleObstacles, setBattleObstacles] = useState<number[]>([]);
@@ -7035,6 +7037,7 @@ function PetArena({ character, updateCharacter, playerRoster, setScreen, sharedI
         }
         const pendingClanPetBattle = loadPendingClanPetBattle();
         const battle = runPetArenaBattle(selectedPet, opponent.pet, opponent.owner);
+        setBattleReady(true);
         setBattleLog(battle.logs);
         setBattleFrames(battle.frames);
         setBattleObstacles(battle.obstacles);
@@ -7099,6 +7102,7 @@ function PetArena({ character, updateCharacter, playerRoster, setScreen, sharedI
                             className={opponentMode === "player" ? "active" : ""}
                             onClick={() => {
                                 setOpponentMode("player");
+                                setBattleReady(false);
                                 setBattleLog([]);
                                 setBattleFrames([]);
                                 setResult("");
@@ -7112,6 +7116,7 @@ function PetArena({ character, updateCharacter, playerRoster, setScreen, sharedI
                             className={opponentMode === "ai" ? "active" : ""}
                             onClick={() => {
                                 setOpponentMode("ai");
+                                setBattleReady(false);
                                 setBattleLog([]);
                                 setBattleFrames([]);
                                 setResult("");
@@ -7159,7 +7164,7 @@ function PetArena({ character, updateCharacter, playerRoster, setScreen, sharedI
                 {petChallengeMsg && opponentMode === "player" && (
                     <p className="hint" style={{ color: petChallengeMsg.startsWith("✅") ? "#4ade80" : "#f87171", margin: "4px 0 0" }}>{petChallengeMsg}</p>
                 )}
-                {battleFrames.length > 0 && (
+                {battleReady && battleFrames.length > 0 && (
                     <button onClick={() => {
                         if (frameIndex >= battleFrames.length - 1) {
                             setFrameIndex(0);
@@ -7171,10 +7176,10 @@ function PetArena({ character, updateCharacter, playerRoster, setScreen, sharedI
                         {isPlaying ? "Pause" : frameIndex >= battleFrames.length - 1 ? "Replay" : "Resume"}
                     </button>
                 )}
-                {showResult && result && <strong className={result === "Victory" ? "pet-arena-win" : "pet-arena-loss"}>{result}</strong>}
+                {battleReady && showResult && result && <strong className={result === "Victory" ? "pet-arena-win" : "pet-arena-loss"}>{result}</strong>}
             </div>
 
-            {selectedPet && selectedOpponent && (
+            {battleReady && selectedPet && selectedOpponent && (
                 <PetArenaBattlefield
                     playerPet={selectedPet}
                     enemyPet={selectedOpponent.pet}
