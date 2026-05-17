@@ -50,11 +50,11 @@
     .world-map-scroll .atlas-world-map,
     .world-map-scroll .generated-world-map {
         flex: 0 0 auto !important;
-        width: 900px !important;
-        min-width: 900px !important;
+        width: 1100px !important;
+        min-width: 1100px !important;
         max-width: none !important;
-        height: 620px !important;
-        min-height: 620px !important;
+        height: 680px !important;
+        min-height: 680px !important;
         max-height: none !important;
         aspect-ratio: auto !important;
         transform: none !important;
@@ -191,10 +191,10 @@
     .world-map-scroll .anime-world-map,
     .world-map-scroll .atlas-world-map,
     .world-map-scroll .generated-world-map {
-        width: 840px !important;
-        min-width: 840px !important;
-        height: 580px !important;
-        min-height: 580px !important;
+        width: 1020px !important;
+        min-width: 1020px !important;
+        height: 640px !important;
+        min-height: 640px !important;
     }
 
     .map-instance .instance-frame,
@@ -6974,6 +6974,14 @@ textarea {
     font-weight: 700;
     font-size: 0.67rem;
     text-align: right;
+}
+
+/* ── Daily caps in player card ── */
+.left-daily-caps {
+    width: 100%;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    margin-top: 4px;
+    padding-top: 4px;
 }
 
 /* ── Side profile XP bar ── */
@@ -14673,11 +14681,11 @@ button.combat-jutsu-button,
     .world-map-scroll .atlas-world-map,
     .world-map-scroll .generated-world-map {
         flex: 0 0 auto !important;
-        width: 900px !important;
-        min-width: 900px !important;
+        width: 1100px !important;
+        min-width: 1100px !important;
         max-width: none !important;
-        height: 620px !important;
-        min-height: 620px !important;
+        height: 680px !important;
+        min-height: 680px !important;
         max-height: none !important;
         aspect-ratio: auto !important;
         transform: none !important;
@@ -14809,10 +14817,10 @@ button.combat-jutsu-button,
     .world-map-scroll .anime-world-map,
     .world-map-scroll .atlas-world-map,
     .world-map-scroll .generated-world-map {
-        width: 840px !important;
-        min-width: 840px !important;
-        height: 580px !important;
-        min-height: 580px !important;
+        width: 1020px !important;
+        min-width: 1020px !important;
+        height: 640px !important;
+        min-height: 640px !important;
     }
 
     .map-instance .instance-frame,
