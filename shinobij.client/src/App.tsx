@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useState, type ReactNode, type ChangeEvent } from "react";
+﻿import { useCallback, useEffect, useRef, useState, type ReactNode, type ChangeEvent } from "react";
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect, react-hooks/purity */
 import type * as React from "react";
 import "./index.css";
@@ -17193,6 +17193,9 @@ function Arena({
     const GRID_LAYER_W = (gridWidth - 1) * X_STEP + HEX_W;
     const GRID_LAYER_H = (gridHeight - 1) * Y_STEP + HEX_H * 1.5;
 
+    // Callback ref — fires whenever the hex-battlefield element mounts or unmounts.
+    // This ensures the ResizeObserver is always attached even when the element first
+    // renders mid-session (e.g. after the lobby→battle transition or prefight countdown).
     const battlefieldRef = useRef<HTMLDivElement | null>(null);
     const [boardScale, setBoardScale] = useState(1);
     // Container dimensions stored in state so the JSX centering math is always
@@ -17201,50 +17204,45 @@ function Arena({
     // User-controlled zoom offset on top of the auto scale (mobile slider)
     const [userScaleOffset, setUserScaleOffset] = useState(0);
 
-    useEffect(() => {
-        const battlefield = battlefieldRef.current;
-        if (!battlefield) return;
+    const battlefieldCallbackRef = useCallback((el: HTMLDivElement | null) => {
+        battlefieldRef.current = el;
+
+        // Clean up any previous observer stored on the element
+        if ((el as (HTMLDivElement & { _roCleanup?: () => void }) | null)?._roCleanup) {
+            (el as HTMLDivElement & { _roCleanup?: () => void })._roCleanup!();
+        }
+
+        if (!el) return;
 
         function updateBoardScale() {
-            const battlefield = battlefieldRef.current;
-            if (!battlefield) return;
-            const cw = battlefield.clientWidth;
-            const ch = battlefield.clientHeight;
-            // On narrow mobile screens use a much smaller buffer so the grid
-            // has room to scale down instead of being clipped at the minimum.
+            if (!el) return;
+            const cw = el.clientWidth;
+            const ch = el.clientHeight;
             const isMobileNarrow = cw < 600;
-            // No edge buffer on mobile — JS absolute-positioning handles centering.
-            // Keep a small buffer on desktop for aesthetics.
             const edgeBuffer = isMobileNarrow
                 ? 0
                 : Math.min(112, Math.max(64, Math.min(cw, ch) * 0.16));
             const availableW = Math.max(1, cw - edgeBuffer * 2);
             const availableH = Math.max(1, ch - edgeBuffer * 2);
 
-            const nextScale = Math.min(
-                1,
-                availableW / GRID_LAYER_W,
-                availableH / GRID_LAYER_H
-            );
-
-            // Allow the scale to go as low as 0.15 on very small phones
+            const nextScale = Math.min(1, availableW / GRID_LAYER_W, availableH / GRID_LAYER_H);
             const minScale = isMobileNarrow ? 0.15 : 0.45;
             const clamped = Math.max(minScale, Math.min(1, Number(nextScale.toFixed(3))));
             setBoardScale(clamped);
-            // Store container size so inline-style centering uses the same snapshot.
             setBoardContainerSize({ w: cw, h: ch });
         }
 
         updateBoardScale();
 
         const observer = new ResizeObserver(updateBoardScale);
-        observer.observe(battlefield);
+        observer.observe(el);
         window.addEventListener("resize", updateBoardScale);
 
-        return () => {
+        const cleanup = () => {
             observer.disconnect();
             window.removeEventListener("resize", updateBoardScale);
         };
+        (el as HTMLDivElement & { _roCleanup?: () => void })._roCleanup = cleanup;
     }, [GRID_LAYER_W, GRID_LAYER_H]);
     // Clamp effective scale between 0.15 and 1.5
     const effectiveScale = Math.max(0.15, Math.min(1.5, boardScale + userScaleOffset));
@@ -19540,7 +19538,7 @@ function Arena({
                             title="Reset zoom"
                         >↺</button>
                     </div>
-                    <div className={`hex-battlefield hex-${currentBiome}${currentSector === 99 ? " hex-deathsgate" : ""}`} ref={battlefieldRef}>
+                    <div className={`hex-battlefield hex-${currentBiome}${currentSector === 99 ? " hex-deathsgate" : ""}`} ref={battlefieldCallbackRef}>
                         {/*
                           Clip-wrapper: sized to the POST-TRANSFORM visual dimensions so
                           overflow:hidden clips at exactly the right boundary regardless
@@ -19561,10 +19559,6 @@ function Arena({
                                 width:  `${scaledW}px`,
                                 height: `${scaledH}px`,
                                 overflow: "hidden",
-                                // Hide until ResizeObserver has measured the container so
-                                // the grid never flashes at scale=1 (unscaled) on first paint.
-                                opacity: boardContainerSize.w > 0 ? 1 : 0,
-                                transition: "opacity 0.15s ease",
                             };
                         })()}>
                         <div
