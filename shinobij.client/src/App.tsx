@@ -4954,6 +4954,28 @@ export default function App() {
         }
     }
 
+    async function deleteCharacter() {
+        if (!character) return;
+        if (!window.confirm(`Delete "${character.name}"? This permanently removes your character and all save data. This cannot be undone.`)) return;
+        const accountName = currentAccountName || character.name;
+        await fetch(`/api/save/${encodeURIComponent(accountName.toLowerCase())}`, { method: "DELETE" }).catch(() => {});
+        const accounts = loadPlayerAccounts();
+        delete accounts[accountKey(accountName)];
+        savePlayerAccounts(accounts);
+        setCharacter(null);
+        setCurrentAccountName("");
+        setActiveTraining(null);
+        setActiveJutsuTraining(null);
+        setAcceptedMissionIds([]);
+        setMissionProgress({});
+        setTriggeredEvents([]);
+        setPendingAiProfileId("");
+        setPendingPvpOpponent(null);
+        setCurrentSector(40);
+        setActiveTriggeredEvent(null);
+        setScreen("start");
+    }
+
     function logoutPlayer() {
         if (character) {
             saveAccountProgress(character);
@@ -5726,6 +5748,7 @@ export default function App() {
                         savedBloodlines={savedBloodlines}
                         creatorJutsus={creatorJutsus}
                         creatorItems={creatorItems}
+                        onDeleteCharacter={deleteCharacter}
                     />
                 )}
                 {!activeTriggeredEvent && screen === "inventory" && character && (
@@ -12291,6 +12314,13 @@ function ClanHall({ character, updateCharacter, creatorItems }: { character: Cha
         if (!character.clan) return; const data = await fetchClanData(character.clan); if (data) await writeClanData(enhanceClanData({ ...data, members: data.members.filter(m => m.name !== character.name) }));
         updateCharacter({ ...character, clan: undefined, clanFounder: false, guardQueued: false }); setClanData(null);
     }
+    async function deleteClan() {
+        if (!character.clan || !character.clanFounder) return;
+        if (!window.confirm(`Delete "${character.clan}"? This permanently removes the clan for all members and cannot be undone.`)) return;
+        await fetch(`/api/save/${clanSlug(character.clan)}`, { method: "DELETE" }).catch(() => {});
+        updateCharacter({ ...character, clan: undefined, clanFounder: false, guardQueued: false });
+        setClanData(null);
+    }
     async function toggleGuard() {
         const queued = character.guardQueued ?? false; setGuardBusy(true);
         if (queued) { await postGuardQueue("dequeue", { name: character.name, village: character.village }); updateCharacter({ ...character, guardQueued: false }); }
@@ -12476,7 +12506,10 @@ function ClanHall({ character, updateCharacter, creatorItems }: { character: Cha
         {view === "territory" && <div className="summary-box"><h3>Clan Territory Control</h3><p className="hint">Members donate Territory Control Scrolls to the clan hall. Owned sectors generate War Supply, boost clan war scoring, and reduce raid damage when guarded.</p><p><strong>Your Scrolls:</strong> {personalTerritoryScrolls} · <strong>Clan Hall Scrolls:</strong> {clanTerritoryScrolls} · <strong>Clan War Supply:</strong> {clanData.treasury.warSupply.toLocaleString()} · <strong>Uncollected:</strong> {clanSectorWarSupply.toLocaleString()}</p><p className="hint">Your village owns {villageSectorCount} sector{villageSectorCount === 1 ? "" : "s"} with {villageSectorWarSupply.toLocaleString()} uncollected village-wide War Supply.</p><div className="menu"><button disabled={personalTerritoryScrolls < 1} onClick={donateAllTerritoryScrollsToClan}>Donate All Territory Scrolls To Clan Hall</button><button disabled={!canSpendTerritoryScrolls || clanSectorWarSupply < 1} onClick={collectTerritoryWarSupply}>Collect Sector War Supply</button></div><div className="treasury-grid"><div><label>Sector</label><input type="number" min={1} max={60} value={territorySector} onChange={(event) => setTerritorySector(clampNumber(Number(event.target.value), 1, 60))} /></div><div><label>Weather</label><select value={territoryWeather} onChange={(event) => setTerritoryWeather(event.target.value as WeatherType)}>{Object.entries(weatherEffects).map(([key, weather]) => <option key={key} value={key}>{weather.name}</option>)}</select></div><div><label>Terrain Bonus</label><select value={territoryBuffStat} onChange={(event) => setTerritoryBuffStat(event.target.value as TerritoryBuffStat)}><option value="bukijutsuOffense">Bukijutsu Offense +10%</option><option value="taijutsuOffense">Taijutsu Offense +10%</option><option value="ninjutsuOffense">Ninjutsu Offense +10%</option><option value="genjutsuOffense">Genjutsu Offense +10%</option></select></div></div><section className="summary-box"><h4>Sector {territorySector}</h4><p><strong>Owner:</strong> {selectedTerritory.ownerClan ? `${selectedTerritory.ownerClan} (${selectedTerritory.ownerVillage})` : "Unclaimed"}</p><div className="town-upgrade-bar"><span style={{ width: `${(selectedTerritory.controlScore / TERRITORY_CONTROL_MAX) * 100}%` }} /></div><p>Control Score: {selectedTerritory.controlScore.toLocaleString()} / {TERRITORY_CONTROL_MAX.toLocaleString()}</p><div className="bar enemy-bar"><span style={{ width: `${(selectedTerritory.hp / TERRITORY_HP_MAX) * 100}%` }} /></div><p>Sector HP: {selectedTerritory.hp.toLocaleString()} / {TERRITORY_HP_MAX.toLocaleString()}</p><p>War Supply: {selectedTerritory.warSupply.toLocaleString()} · Raid Damage Taken: {sectorRaidDamageAmount(territorySector).toLocaleString()}</p><p>Fixed Weather: {weatherEffects[selectedTerritory.weather ?? weatherForSector(territorySector, "central")].name} · Terrain: {selectedTerritory.terrainBuffStat.replace("Offense", " Offense")} +10%</p><p>Guards: {selectedTerritory.guards.length ? selectedTerritory.guards.join(", ") : "None"}</p><div className="menu"><button disabled={!canSpendTerritoryScrolls || clanTerritoryScrolls < 1 || Boolean(selectedTerritory.ownerClan && selectedTerritory.ownerClan !== clanData.name)} onClick={() => donateTerritoryScrolls(territorySector)}>Assign 1 Clan Scroll</button><button disabled={!canSpendTerritoryScrolls || clanTerritoryScrolls < 5 || Boolean(selectedTerritory.ownerClan && selectedTerritory.ownerClan !== clanData.name)} onClick={() => donateTerritoryScrolls(territorySector, 5)}>Assign 5 Clan Scrolls</button><button disabled={!canSpendTerritoryScrolls || selectedTerritory.ownerClan !== clanData.name} onClick={() => saveTerritorySettings(territorySector)}>Save Terrain / Weather</button><button disabled={!canGuardSelectedTerritory} onClick={() => toggleTerritoryGuard(territorySector)}>{selectedTerritory.guards.includes(character.name) ? "Leave Sector Guard" : "Queue Sector Guard"}</button><button className="danger-button" disabled={!selectedTerritory.ownerClan || selectedTerritory.ownerVillage === character.village} onClick={() => recordVillageWarDamage(territorySector)}>Village War Hit -5,000 HP</button></div></section><h4>Your Clan Sectors</h4>{ownedTerritories.length === 0 ? <p className="hint">Your clan does not own a sector yet.</p> : <div className="war-record-grid">{ownedTerritories.map(territory => <div key={territory.sector} className="war-record-card"><strong>Sector {territory.sector}</strong><span>HP {territory.hp.toLocaleString()} / {TERRITORY_HP_MAX.toLocaleString()}</span><small>{weatherEffects[territory.weather ?? "clear"].name} · {territory.terrainBuffStat.replace("Offense", " Offense")} +10%</small><small>War Supply: {territory.warSupply.toLocaleString()} · Guards: {territory.guards.length}</small></div>)}</div>}</div>}
         {view === "guard" && <div className="summary-box"><h3>🛡️ Village Guard</h3><p className="hint">Queue as a guard to defend <strong>{character.village}</strong>. Town Hall defense bonus applies while you are queued.</p><button className={character.guardQueued ? "danger-button" : ""} onClick={toggleGuard} disabled={guardBusy} style={{ marginBottom: 12 }}>{guardBusy ? "Updating…" : character.guardQueued ? "Leave Guard Queue" : "Queue as Village Guard"}</button><h4>Active Guards for {character.village} ({guardList.length})</h4>{guardList.length === 0 ? <p className="hint">No active guards. Village is undefended.</p> : <div className="clan-guard-list">{guardList.map(g => <div key={g.name} className="clan-guard-row"><span>🛡️ <strong>{g.name}</strong></span><span className="clan-guard-lvl">Lv. {g.level}{g.defenseBonusPercent ? ` · DEF +${g.defenseBonusPercent.toFixed(1)}%` : ""}</span></div>)}</div>}</div>}
         {view === "hall" && <div className="summary-box clan-visual-hall"><ClanImageMark image={clanData.image} name={clanData.name} village={clanData.village} /><span className="clan-hall-tier-icon">{hall.icon}</span><div><h3>{hall.name}</h3><p>{hall.desc}</p><p className="hint">Hall tier grows automatically from clan level: Camp → Dojo → Compound → Fortress → Citadel.</p></div></div>}
-        <div className="menu" style={{ marginTop: 12 }}><button className="danger-button" onClick={leaveClan}>Leave Clan</button></div>
+        <div className="menu" style={{ marginTop: 12 }}>
+            <button className="danger-button" onClick={leaveClan}>Leave Clan</button>
+            {character.clanFounder && <button className="danger-button" onClick={deleteClan}>Delete Clan</button>}
+        </div>
     </div>;
 }
 
@@ -18274,12 +18307,14 @@ function Profile({
     savedBloodlines,
     creatorJutsus,
     creatorItems,
+    onDeleteCharacter,
 }: {
     character: Character;
     updateCharacter: (character: Character) => void;
     savedBloodlines: SavedBloodline[];
     creatorJutsus: Jutsu[];
     creatorItems: GameItem[];
+    onDeleteCharacter?: () => void;
 }) {
     const allJutsus = getAllJutsus(savedBloodlines, creatorJutsus, character);
     const allItems = getAllItems(creatorItems);
@@ -18619,6 +18654,14 @@ function Profile({
                     );
                 })()}
             </section>
+
+            {onDeleteCharacter && (
+                <section className="profile-build-panel">
+                    <h2>Account</h2>
+                    <button className="danger-button" onClick={onDeleteCharacter}>Delete Character</button>
+                    <p className="hint">Permanently deletes your character and save data. This cannot be undone.</p>
+                </section>
+            )}
         </div>
     );
 }
