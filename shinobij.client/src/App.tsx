@@ -4412,12 +4412,17 @@ export default function App() {
         else if (cat === 'pet') {
             setEditablePets(prev => prev.map(pet =>
                 images['pet:' + pet.id] ? { ...pet, image: images['pet:' + pet.id] } : pet));
-            // Also patch images onto the pets stored on each player's character —
-            // character.pets are cloned copies that don't auto-update with editablePets.
+            // Also patch images onto the pets stored on each player's character.
+            // cloneEncounterPet appends -Date.now() to the pool ID (e.g. "standard-1"
+            // becomes "standard-1-1747482312345"), so we strip the timestamp suffix
+            // (always >= 10 digits) when looking up the KV image key.
             setCharacter(prev => {
                 if (!prev || !prev.pets?.length) return prev;
-                const patchedPets = prev.pets.map(p =>
-                    images['pet:' + p.id] ? { ...p, image: images['pet:' + p.id] } : p);
+                const patchedPets = prev.pets.map(p => {
+                    const baseId = p.id.replace(/-\d{10,}$/, '');
+                    const img = images['pet:' + p.id] || images['pet:' + baseId];
+                    return img ? { ...p, image: img } : p;
+                });
                 return { ...prev, pets: patchedPets };
             });
         }
@@ -7287,7 +7292,8 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, frame, recentFra
 }
 
 function PetBattleAvatar({ pet, side, active, status, sharedImages = {} }: { pet: Pet; side: "player" | "enemy"; active: boolean; status?: { poisoned?: number; atkBuff?: boolean; defBuff?: boolean }; sharedImages?: Record<string, string> }) {
-    const img = sharedImages['pet:' + pet.id] || pet.image || '';
+    const petBaseId = pet.id.replace(/-\d{10,}$/, '');
+    const img = sharedImages['pet:' + pet.id] || sharedImages['pet:' + petBaseId] || pet.image || '';
     return (
         <div className={`pet-battle-avatar ${side}${active ? " active" : ""}${status?.poisoned ? " poisoned" : ""}`}>
             {img ? <img src={img} alt={pet.name} /> : <span>{pet.name.slice(0, 2).toUpperCase()}</span>}
@@ -7296,7 +7302,8 @@ function PetBattleAvatar({ pet, side, active, status, sharedImages = {} }: { pet
 }
 
 function PetArenaCard({ owner, pet, sharedImages = {} }: { owner: string; pet: Pet; sharedImages?: Record<string, string> }) {
-    const img = sharedImages['pet:' + pet.id] || pet.image || '';
+    const petBaseId = pet.id.replace(/-\d{10,}$/, '');
+    const img = sharedImages['pet:' + pet.id] || sharedImages['pet:' + petBaseId] || pet.image || '';
     return (
         <div className="pet-arena-card">
             <div className="pet-arena-avatar">
@@ -9881,10 +9888,15 @@ function AdminPanel({
                                 );
                                 // Mirror image changes to character.pets so the pet tab
                                 // shows the new image immediately without a page reload.
+                                // character.pets use timestamp-suffixed IDs (cloneEncounterPet),
+                                // so match on the base pool ID (strip trailing -NNNNNNNNNNNN).
                                 if (updated.image !== undefined) {
-                                    const patchedPets = character.pets.map(p =>
-                                        p.id === selectedPet.id ? { ...p, image: updated.image! } : p);
-                                    if (patchedPets.some(p => p.id === selectedPet.id)) {
+                                    const basePoolId = selectedPet.id.replace(/-\d{10,}$/, '');
+                                    const patchedPets = character.pets.map(p => {
+                                        const pBase = p.id.replace(/-\d{10,}$/, '');
+                                        return pBase === basePoolId ? { ...p, image: updated.image! } : p;
+                                    });
+                                    if (patchedPets.some(p => p.id.replace(/-\d{10,}$/, '') === basePoolId)) {
                                         updateCharacter({ ...character, pets: patchedPets });
                                     }
                                 }
