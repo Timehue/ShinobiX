@@ -13763,6 +13763,107 @@ button.combat-jutsu-button,
     }
 }
 
+/* ── Round timer display ──────────────────────────────────────────────────── */
+
+/* Make the AP panel a 3-column layout: player AP | timer | enemy AP */
+.arena-fullscreen .dual-ap-panel {
+    grid-template-columns: 1fr auto 1fr !important;
+    align-items: center !important;
+}
+
+.round-timer-display {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 0 6px;
+}
+
+.round-timer-display small {
+    font-size: 9px;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    white-space: nowrap;
+}
+
+.round-timer-ring {
+    position: relative;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: conic-gradient(
+        #38bdf8 calc(var(--rt-pct, 100%)),
+        rgba(30, 58, 138, 0.55) calc(var(--rt-pct, 100%))
+    );
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+    transition: background 0.9s linear;
+}
+
+/* Inset "hole" for donut effect */
+.round-timer-ring::before {
+    content: "";
+    position: absolute;
+    inset: 6px;
+    background: #0f172a;
+    border-radius: 50%;
+}
+
+.round-timer-num {
+    position: relative;
+    z-index: 1;
+    font-size: 15px;
+    font-weight: 900;
+    color: #e2e8f0;
+    line-height: 1;
+}
+
+/* Urgent state: last 10 seconds */
+.round-timer-display.round-timer-urgent .round-timer-ring {
+    background: conic-gradient(
+        #ef4444 calc(var(--rt-pct, 0%)),
+        rgba(127, 29, 29, 0.55) calc(var(--rt-pct, 0%))
+    ) !important;
+    box-shadow: 0 0 18px rgba(239, 68, 68, 0.6) !important;
+    animation: timer-pulse 0.8s ease-in-out infinite alternate;
+}
+
+.round-timer-display.round-timer-urgent .round-timer-num {
+    color: #fca5a5;
+}
+
+@keyframes timer-pulse {
+    from { box-shadow: 0 0 10px rgba(239, 68, 68, 0.4); }
+    to   { box-shadow: 0 0 24px rgba(239, 68, 68, 0.9); }
+}
+
+/* Inactive placeholder when it's the enemy's turn */
+.round-timer-display.round-timer-inactive .round-timer-ring {
+    background: rgba(30, 41, 59, 0.6) !important;
+    box-shadow: none !important;
+    animation: none !important;
+}
+
+.round-timer-display.round-timer-inactive .round-timer-num {
+    color: #475569;
+}
+
+/* Mobile: make the ring a bit smaller so the AP panel doesn't get too tall */
+@media (max-width: 800px) {
+    .round-timer-ring {
+        width: 38px !important;
+        height: 38px !important;
+    }
+    .round-timer-num {
+        font-size: 12px !important;
+    }
+    .round-timer-ring::before {
+        inset: 5px !important;
+    }
+}
+
 /* =====================================================
    COMBAT — PORTRAIT PHONE VERTICAL SPACE RECLAIM
    The journey banner + info strips + HUDs consume
