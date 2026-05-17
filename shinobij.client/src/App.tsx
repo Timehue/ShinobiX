@@ -463,6 +463,10 @@ type Character = {
     hospitalized?: boolean;
     villageUpgrades: VillageUpgrades;
     lastBankInterestAt?: number;
+    dailyTilesExplored?: number;
+    dailyMissionsCompleted?: number;
+    dailyFateSpins?: number;
+    lastDailyReset?: string;
     hunterRank?: number;
     elderFocus?: "war" | "trade" | "training";
 };
@@ -3291,6 +3295,10 @@ function normalizeCharacter(parsed: Character): Character {
         hospitalized: parsed.hospitalized ?? false,
         villageUpgrades: normalizeVillageUpgrades(parsed.villageUpgrades),
         lastBankInterestAt: parsed.lastBankInterestAt ?? 0,
+        lastDailyReset: currentDateKey(),
+        dailyTilesExplored: parsed.lastDailyReset === currentDateKey() ? (parsed.dailyTilesExplored ?? 0) : 0,
+        dailyMissionsCompleted: parsed.lastDailyReset === currentDateKey() ? (parsed.dailyMissionsCompleted ?? 0) : 0,
+        dailyFateSpins: parsed.lastDailyReset === currentDateKey() ? (parsed.dailyFateSpins ?? 0) : 0,
     };
 }
 
@@ -3941,6 +3949,7 @@ export default function App() {
     const [adminLoggedIn, setAdminLoggedIn] = useState(false);
     const [adminAccount, setAdminAccount] = useState<AdminAccount | "">("");
     const [adminPw, setAdminPw] = useState("");
+    const [resetCountdown, setResetCountdown] = useState("--:--:--");
     const [creatorJutsus, setCreatorJutsus] = useState<Jutsu[]>([]);
     const [creatorEvents, setCreatorEvents] = useState<CreatorEvent[]>([]);
     const [creatorItems, setCreatorItems] = useState<GameItem[]>([]);
@@ -3951,6 +3960,24 @@ export default function App() {
     const [petEncounterVn, setPetEncounterVn] = useState<CreatorEvent>(defaultPetEncounterVn);
     const [editablePets, setEditablePets] = useState<Pet[]>(petPool);
     const [selectedPetId, setSelectedPetId] = useState(petPool[0]?.id ?? "");
+    // Daily reset countdown — updates every second, resets at midnight UTC
+    useEffect(() => {
+        function tick() {
+            const now = new Date();
+            const midnight = new Date();
+            midnight.setUTCHours(24, 0, 0, 0);
+            const diff = midnight.getTime() - now.getTime();
+            const h = Math.floor(diff / 3_600_000);
+            const m = Math.floor((diff % 3_600_000) / 60_000);
+            const s = Math.floor((diff % 60_000) / 1_000);
+            setResetCountdown(
+                `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
+            );
+        }
+        tick();
+        const id = setInterval(tick, 1000);
+        return () => clearInterval(id);
+    }, []);
     useEffect(() => {
         setEditablePets((currentPets) => {
             const mergedPets = mergeMissingBuiltInPets(currentPets);
@@ -5108,6 +5135,22 @@ export default function App() {
                             <div className="stat-box" style={{ color: "#ce93d8" }}>
                                 <span>✦ SHARDS</span>
                                 <strong>{character.fateShards}</strong>
+                            </div>
+                            <div className="stat-box" style={{ color: (character.dailyTilesExplored ?? 0) >= 150 ? "#ef4444" : "#86efac" }}>
+                                <span>🗺 TILES</span>
+                                <strong>{character.dailyTilesExplored ?? 0}/150</strong>
+                            </div>
+                            <div className="stat-box" style={{ color: (character.dailyMissionsCompleted ?? 0) >= 20 ? "#ef4444" : "#fcd34d" }}>
+                                <span>📜 MISSIONS</span>
+                                <strong>{character.dailyMissionsCompleted ?? 0}/20</strong>
+                            </div>
+                            <div className="stat-box" style={{ color: (character.dailyFateSpins ?? 0) >= 5 ? "#ef4444" : "#a5b4fc" }}>
+                                <span>🎲 SPINS</span>
+                                <strong>{character.dailyFateSpins ?? 0}/5</strong>
+                            </div>
+                            <div className="stat-box" style={{ color: "#94a3b8" }}>
+                                <span>⏱ RESET IN</span>
+                                <strong style={{ fontSize: "0.75em" }}>{resetCountdown}</strong>
                             </div>
                         </div>
                     )}
@@ -14143,6 +14186,11 @@ function SunscarFestival({
 
     function rollDice() {
         const cost = 25;
+        const dailySpins = character.dailyFateSpins ?? 0;
+        if (dailySpins >= 5) {
+            setFestivalLog("Kael: The dice grow cold. Your fate is spent for today — return at midnight UTC.");
+            return;
+        }
 
         if (character.ryo < cost) {
             setFestivalLog("Kael: No coin, no fate. Come back with more ryo.");
@@ -14197,10 +14245,12 @@ function SunscarFestival({
             ...leveled,
             ryo: leveled.ryo + rewardRyo,
             stamina: Math.min(leveled.maxStamina, leveled.stamina + rewardStamina),
+            dailyFateSpins: dailySpins + 1,
+            lastDailyReset: currentDateKey(),
         });
 
         setDiceResult(roll);
-        setFestivalLog(`Kael: ${message} +${rewardRyo} ryo, +${rewardXp} XP, +${rewardStamina} stamina.`);
+        setFestivalLog(`Kael: ${message} +${rewardRyo} ryo, +${rewardXp} XP, +${rewardStamina} stamina. (${dailySpins + 1}/5 spins today)`);
     }
 
     // -- Active card duel overlays --------------------------------------------
@@ -15449,7 +15499,17 @@ function WorldMap({
     }
 
     function exploreSector(sector: number) {
-        const exploredCharacter = { ...character, totalTilesExplored: (character.totalTilesExplored ?? 0) + 1 };
+        const dailyTiles = character.dailyTilesExplored ?? 0;
+        if (dailyTiles >= 150) {
+            alert("Daily tile exploration limit reached (150/150). Resets at midnight UTC.");
+            return;
+        }
+        const exploredCharacter = {
+            ...character,
+            totalTilesExplored: (character.totalTilesExplored ?? 0) + 1,
+            dailyTilesExplored: dailyTiles + 1,
+            lastDailyReset: currentDateKey(),
+        };
         const petEncounter = rollPetEncounter(editablePets);
 
         if (petEncounter) {
@@ -16550,11 +16610,11 @@ function Missions({
     setScreen: (screen: Screen) => void;
 }) {
     const missionRewardBonus = getMissionRewardBonus(character) + getActiveAuraSphereBonuses(character).missionRewardPercent;
-    function completeMission(name: string, xp: number, ryo: number, staminaCost: number, staminaReward: number, minLevel: number) { if (character.level < minLevel) return alert(`Requires level ${minLevel}.`); if (character.stamina < staminaCost) return alert("Not enough stamina."); const boostedXp = boostAmount(xp, missionRewardBonus); const boostedRyo = boostAmount(ryo, missionRewardBonus); const boostedStamina = boostAmount(staminaReward, missionRewardBonus); const leveled = grantTerritoryScrolls(gainXp({ ...character, stamina: character.stamina - staminaCost }, boostedXp), 3); updateCharacter({ ...leveled, ryo: leveled.ryo + boostedRyo, stamina: Math.min(leveled.maxStamina, leveled.stamina + boostedStamina), clanMissionContrib: (leveled.clanMissionContrib ?? 0) + 1, totalMissionsCompleted: (leveled.totalMissionsCompleted ?? 0) + 1, clanContribMonth: new Date().toISOString().slice(0, 7) }); alert(`${name} complete. +${boostedXp} XP, +${boostedRyo} ryo, +${boostedStamina} stamina, +3 Territory Control Scrolls.`); }
+    function completeMission(name: string, xp: number, ryo: number, staminaCost: number, staminaReward: number, minLevel: number) { if (character.level < minLevel) return alert(`Requires level ${minLevel}.`); if (character.stamina < staminaCost) return alert("Not enough stamina."); const todayMissions = character.dailyMissionsCompleted ?? 0; if (todayMissions >= 20) return alert("Daily mission limit reached (20/20). Resets at midnight UTC."); const boostedXp = boostAmount(xp, missionRewardBonus); const boostedRyo = boostAmount(ryo, missionRewardBonus); const boostedStamina = boostAmount(staminaReward, missionRewardBonus); const leveled = grantTerritoryScrolls(gainXp({ ...character, stamina: character.stamina - staminaCost }, boostedXp), 3); updateCharacter({ ...leveled, ryo: leveled.ryo + boostedRyo, stamina: Math.min(leveled.maxStamina, leveled.stamina + boostedStamina), clanMissionContrib: (leveled.clanMissionContrib ?? 0) + 1, totalMissionsCompleted: (leveled.totalMissionsCompleted ?? 0) + 1, dailyMissionsCompleted: todayMissions + 1, lastDailyReset: currentDateKey(), clanContribMonth: new Date().toISOString().slice(0, 7) }); alert(`${name} complete. +${boostedXp} XP, +${boostedRyo} ryo, +${boostedStamina} stamina, +3 Territory Control Scrolls.`); }
     function startMissionBattle(mission: { min: number; aiProfileId: string }) { if (character.level < mission.min) return alert(`Requires level ${mission.min}.`); const ai = creatorAis.find((candidate) => candidate.id === mission.aiProfileId); if (!ai) return alert("Mission AI is not available."); setPendingAiProfileId(ai.id); setScreen("arena"); }
     function startCreatorMissionBattle(mission: CreatorMission) { if (!mission.aiProfileId) return alert("No AI assigned to this mission."); if (character.level < mission.levelReq) return alert(`Requires level ${mission.levelReq}.`); const ai = creatorAis.find((candidate) => candidate.id === mission.aiProfileId); if (!ai) return alert("Mission AI is not available."); setPendingAiProfileId(ai.id); setScreen("arena"); }
     function acceptFetchMission(mission: CreatorMission) { if (character.level < mission.levelReq) return alert(`Requires level ${mission.levelReq}.`); if (acceptedMissionIds.includes(mission.id)) return; setAcceptedMissionIds([...acceptedMissionIds, mission.id]); setMissionProgress({ ...missionProgress, [mission.id]: missionProgress[mission.id] ?? 0 }); alert(`${mission.name} accepted. Explore Sector ${mission.targetSector} ${mission.exploreCount} times.`); }
-    function claimFetchMission(mission: CreatorMission) { const progress = missionProgress[mission.id] ?? 0; if (progress < mission.exploreCount) return alert(`Explore Sector ${mission.targetSector} ${mission.exploreCount - progress} more time(s).`); const boostedXp = boostAmount(mission.xpReward, missionRewardBonus); const boostedRyo = boostAmount(mission.ryoReward, missionRewardBonus); const boostedStamina = boostAmount(mission.staminaReward, missionRewardBonus); const leveled = grantTerritoryScrolls(applyCurrencyRewards(gainXp(character, boostedXp), mission.currencyRewards), 3); updateCharacter({ ...leveled, ryo: leveled.ryo + boostedRyo, stamina: Math.min(leveled.maxStamina, leveled.stamina + boostedStamina), clanMissionContrib: (leveled.clanMissionContrib ?? 0) + 1, totalMissionsCompleted: (leveled.totalMissionsCompleted ?? 0) + 1, clanContribMonth: new Date().toISOString().slice(0, 7) }); setAcceptedMissionIds(acceptedMissionIds.filter((id) => id !== mission.id)); setMissionProgress({ ...missionProgress, [mission.id]: 0 }); alert(`${mission.name} complete. ${rewardSummary(boostedXp, boostedRyo, boostedStamina, mission.currencyRewards)}. +3 Territory Control Scrolls.`); }
+    function claimFetchMission(mission: CreatorMission) { const progress = missionProgress[mission.id] ?? 0; if (progress < mission.exploreCount) return alert(`Explore Sector ${mission.targetSector} ${mission.exploreCount - progress} more time(s).`); const todayMissions = character.dailyMissionsCompleted ?? 0; if (todayMissions >= 20) return alert("Daily mission limit reached (20/20). Resets at midnight UTC."); const boostedXp = boostAmount(mission.xpReward, missionRewardBonus); const boostedRyo = boostAmount(mission.ryoReward, missionRewardBonus); const boostedStamina = boostAmount(mission.staminaReward, missionRewardBonus); const leveled = grantTerritoryScrolls(applyCurrencyRewards(gainXp(character, boostedXp), mission.currencyRewards), 3); updateCharacter({ ...leveled, ryo: leveled.ryo + boostedRyo, stamina: Math.min(leveled.maxStamina, leveled.stamina + boostedStamina), clanMissionContrib: (leveled.clanMissionContrib ?? 0) + 1, totalMissionsCompleted: (leveled.totalMissionsCompleted ?? 0) + 1, dailyMissionsCompleted: todayMissions + 1, lastDailyReset: currentDateKey(), clanContribMonth: new Date().toISOString().slice(0, 7) }); setAcceptedMissionIds(acceptedMissionIds.filter((id) => id !== mission.id)); setMissionProgress({ ...missionProgress, [mission.id]: 0 }); alert(`${mission.name} complete. ${rewardSummary(boostedXp, boostedRyo, boostedStamina, mission.currencyRewards)}. +3 Territory Control Scrolls.`); }
     const missions = [
         { name: "D-Rank Errand", xp: 25, ryo: 20, cost: 5, recover: 3, min: 1, icon: "⚔️", aiProfileId: "builtin-ai-mist-sentinel" },
         { name: "C-Rank Patrol", xp: 75, ryo: 60, cost: 10, recover: 5, min: 10, icon: "⚔️", aiProfileId: "builtin-ai-ember-duelist" },
