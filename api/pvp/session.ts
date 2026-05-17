@@ -16,9 +16,12 @@ export type PvpFighter = {
     maxHp: number;
     chakra: number;
     maxChakra: number;
+    stamina: number;
+    maxStamina: number;
     shield: number;
     statuses: PvpStatus[];
     character: Record<string, unknown>;
+    pos: number; // hex grid position (0–119 for 12×10 grid)
 };
 
 export type PvpSession = {
@@ -26,8 +29,10 @@ export type PvpSession = {
     p1: PvpFighter;
     p2: PvpFighter;
     round: number;
-    p1Move: string | null;
-    p2Move: string | null;
+    activePlayer: 'p1' | 'p2'; // whose turn it is
+    ap: { p1: number; p2: number };
+    actionsThisTurn: number;
+    cooldowns: { p1: Record<string, number>; p2: Record<string, number> };
     log: string[];
     status: 'active' | 'done';
     winner: 'p1' | 'p2' | 'draw' | null;
@@ -36,18 +41,26 @@ export type PvpSession = {
 
 const SESSION_TTL = 600;
 
-function makeFighter(char: Record<string, unknown>): PvpFighter {
+// Starting positions matching arena (p1 left side, p2 right side)
+const P1_START = 62;
+const P2_START = 33;
+
+function makeFighter(char: Record<string, unknown>, pos: number): PvpFighter {
     const maxHp = Number((char.maxHp as number) ?? 100);
     const maxChakra = Number((char.maxChakra as number) ?? 50);
+    const maxStamina = Number((char.maxStamina as number) ?? 50);
     return {
         name: (char.name as string) ?? 'Unknown',
         hp: Math.min(Number((char.hp as number) ?? maxHp), maxHp),
         maxHp,
         chakra: Math.min(Number((char.chakra as number) ?? maxChakra), maxChakra),
         maxChakra,
+        stamina: Math.min(Number((char.stamina as number) ?? maxStamina), maxStamina),
+        maxStamina,
         shield: 0,
         statuses: [],
         character: char,
+        pos,
     };
 }
 
@@ -78,12 +91,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             const session: PvpSession = {
                 battleId,
-                p1: makeFighter(p1Character),
-                p2: makeFighter(p2Character),
+                p1: makeFighter(p1Character, P1_START),
+                p2: makeFighter(p2Character, P2_START),
                 round: 1,
-                p1Move: null,
-                p2Move: null,
-                log: [`⚔️ ${p1Name} vs ${p2Name} — Battle begins! Both players choose simultaneously.`],
+                activePlayer: 'p1',
+                ap: { p1: 100, p2: 100 },
+                actionsThisTurn: 0,
+                cooldowns: { p1: {}, p2: {} },
+                log: [`⚔️ ${p1Name} vs ${p2Name} — Battle begins! ${p1Name} goes first.`],
                 status: 'active',
                 winner: null,
                 createdAt: Date.now(),

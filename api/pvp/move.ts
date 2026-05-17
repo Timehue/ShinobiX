@@ -3,120 +3,111 @@ import { kv } from '@vercel/kv';
 import { cors } from '../_utils.js';
 import type { PvpFighter, PvpSession, PvpStatus } from './session.js';
 
-// ─── Formula constants (matches arena) ───────────────────────────────────────
-const MAX_STAT = 2500;
+// ─── Grid constants (match arena exactly) ─────────────────────────────────────
+const GRID_W = 12;
+const GRID_H = 10;
 const MAX_ROUNDS = 25;
-// Halved vs arena so that TTK ≈ 10 rounds with 20 EP jutsu at equal stats
-const PVP_SCALE = 0.5;
+const MAX_ACTIONS = 5;
 
-// Flat amounts that match arena constants
+// ─── Combat formula constants ─────────────────────────────────────────────────
+const MAX_STAT = 2500;
+const PVP_SCALE = 0.5;
 const HEAL_FLAT = 500;
 const SHIELD_FLAT = 500;
 const DRAIN_AMOUNT = 250;
 
+// ─── Grid helpers (exact match to arena geometry) ─────────────────────────────
+function xy(pos: number) { return { x: pos % GRID_W, y: Math.floor(pos / GRID_W) }; }
+function posFromXY(x: number, y: number): number {
+    if (x < 0 || x >= GRID_W || y < 0 || y >= GRID_H) return -1;
+    return y * GRID_W + x;
+}
+function axial(pos: number) {
+    const { x, y } = xy(pos);
+    return { q: x, r: y - ((x - (x & 1)) / 2) };
+}
+function distance(a: number, b: number): number {
+    const A = axial(a); const B = axial(b);
+    return (Math.abs(A.q - B.q) + Math.abs(A.q + A.r - B.q - B.r) + Math.abs(A.r - B.r)) / 2;
+}
+function hexNeighbors(pos: number): number[] {
+    const { x, y } = xy(pos);
+    const even = x % 2 === 0;
+    const deltas = even
+        ? [[1, 0], [1, -1], [0, -1], [-1, -1], [-1, 0], [0, 1]]
+        : [[1, 1], [1, 0], [0, -1], [-1, 0], [-1, 1], [0, 1]];
+    return deltas.map(([dx, dy]) => posFromXY(x + dx!, y + dy!)).filter(n => n >= 0);
+}
+
+// ─── Jutsu types ──────────────────────────────────────────────────────────────
 type JutsuTag = { name: string; percent?: number; amount?: number };
 type Jutsu = {
     id: string;
     name: string;
     type: string;
-    effectPower?: number;
+    target?: string;
+    range?: number;
     ap?: number;
+    cooldown?: number;
+    effectPower?: number;
     tags?: JutsuTag[];
 };
 
 // ─── Stat helpers ─────────────────────────────────────────────────────────────
-
 function getOffense(stats: Record<string, number>, type: string): number {
     if (type === 'Taijutsu') return (stats.taijutsuOffense ?? 0) + (stats.strength ?? 0) + (stats.speed ?? 0);
     if (type === 'Bukijutsu') return (stats.bukijutsuOffense ?? 0) + (stats.intelligence ?? 0) + (stats.strength ?? 0);
     if (type === 'Genjutsu') return (stats.genjutsuOffense ?? 0) + (stats.intelligence ?? 0) + (stats.willpower ?? 0);
     return (stats.ninjutsuOffense ?? 0) + (stats.willpower ?? 0) + (stats.speed ?? 0);
 }
-
 function getDefense(stats: Record<string, number>, type: string): number {
     if (type === 'Taijutsu') return (stats.taijutsuDefense ?? 0) + (stats.strength ?? 0) + (stats.speed ?? 0);
     if (type === 'Bukijutsu') return (stats.bukijutsuDefense ?? 0) + (stats.intelligence ?? 0) + (stats.strength ?? 0);
     if (type === 'Genjutsu') return (stats.genjutsuDefense ?? 0) + (stats.intelligence ?? 0) + (stats.willpower ?? 0);
     return (stats.ninjutsuDefense ?? 0) + (stats.willpower ?? 0) + (stats.speed ?? 0);
 }
-
-// ─── Bucket 2: Damage tag bonus multiplier (matches arena getTagMultiplier) ──
-
 function getTagMultiplier(tags: JutsuTag[]): number {
-    const dmgTags = (tags ?? [])
-        .filter(t => t.name === 'Damage' && (t.percent ?? 0) > 0)
-        .sort((a, b) => (b.percent ?? 0) - (a.percent ?? 0));
-    return dmgTags.reduce((mult, tag, i) => mult * (1 + ((tag.percent ?? 0) / 100) * Math.pow(0.7, i)), 1);
+    const dmg = (tags ?? []).filter(t => t.name === 'Damage' && (t.percent ?? 0) > 0).sort((a, b) => (b.percent ?? 0) - (a.percent ?? 0));
+    return dmg.reduce((m, t, i) => m * (1 + ((t.percent ?? 0) / 100) * Math.pow(0.7, i)), 1);
 }
-
-// ─── cappedPostDamage (matches arena) ─────────────────────────────────────────
-
 function cappedPostDamage(damage: number, percent: number): number {
     return Math.floor(Math.min(damage * (percent / 100), damage * 0.6));
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function findJutsu(character: Record<string, unknown>, jutsuId: string): Jutsu | null {
-    if (!jutsuId || jutsuId === 'skip') return null;
-    const list = (character.jutsu as Jutsu[] | undefined) ?? [];
-    return list.find(j => j.id === jutsuId) ?? null;
+// ─── Fighter helpers ──────────────────────────────────────────────────────────
+function hasStatus(f: PvpFighter, name: string) { return f.statuses.some(s => s.name === name); }
+function addStatus(f: PvpFighter, s: PvpStatus): PvpFighter {
+    return { ...f, statuses: [...f.statuses.filter(x => x.name !== s.name), s] };
 }
-
-function hasStatus(fighter: PvpFighter, name: string): boolean {
-    return fighter.statuses.some(s => s.name === name);
+function tickStatuses(f: PvpFighter): PvpFighter {
+    return { ...f, statuses: f.statuses.map(s => ({ ...s, rounds: s.rounds - 1 })).filter(s => s.rounds > 0) };
 }
-
-function addStatus(fighter: PvpFighter, status: PvpStatus): PvpFighter {
-    return { ...fighter, statuses: [...fighter.statuses, status] };
+function tickCooldowns(cds: Record<string, number>): Record<string, number> {
+    const next: Record<string, number> = {};
+    for (const [k, v] of Object.entries(cds)) if (v > 1) next[k] = v - 1;
+    return next;
 }
-
-function tickStatuses(fighter: PvpFighter): PvpFighter {
-    return { ...fighter, statuses: fighter.statuses.map(s => ({ ...s, rounds: s.rounds - 1 })).filter(s => s.rounds > 0) };
-}
-
-// ─── Status multipliers for damage ────────────────────────────────────────────
-
 function damageMultiplierFor(attacker: PvpFighter, defender: PvpFighter): number {
-    let mult = 1;
-    // Attacker's damage boosts
+    let m = 1;
     for (const s of attacker.statuses) {
-        if (s.name === 'Increase Damage Given') mult *= (1 + (s.percent ?? 0) / 100);
-        if (s.name === 'Decrease Damage Given') mult /= (1 + (s.percent ?? 0) / 100);
+        if (s.name === 'Increase Damage Given') m *= (1 + (s.percent ?? 0) / 100);
+        if (s.name === 'Decrease Damage Given') m /= (1 + (s.percent ?? 0) / 100);
     }
-    // Defender's vulnerability
     for (const s of defender.statuses) {
-        if (s.name === 'Increase Damage Taken') mult *= (1 + (s.percent ?? 0) / 100);
-        if (s.name === 'Decrease Damage Taken') mult /= (1 + (s.percent ?? 0) / 100);
-        if (s.name === 'Afterburn') mult *= (1 + (s.percent ?? 0) / 100);
+        if (s.name === 'Increase Damage Taken') m *= (1 + (s.percent ?? 0) / 100);
+        if (s.name === 'Decrease Damage Taken') m /= (1 + (s.percent ?? 0) / 100);
+        if (s.name === 'Afterburn') m *= (1 + (s.percent ?? 0) / 100);
     }
-    return mult;
+    return m;
 }
 
-// ─── Apply one jutsu — returns updated self + opponent + log lines ────────────
-
-function applyJutsu(
-    self: PvpFighter,
-    opponent: PvpFighter,
-    jutsu: Jutsu,
-): { self: PvpFighter; opponent: PvpFighter; lines: string[] } {
+// ─── Jutsu application (3-bucket formula, all tags) ───────────────────────────
+function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu): { self: PvpFighter; opponent: PvpFighter; lines: string[] } {
     const offStats = (self.character.stats as Record<string, number>) ?? {};
     const defStats = (opponent.character.stats as Record<string, number>) ?? {};
-    const offense = getOffense(offStats, jutsu.type);
-    const defense = getDefense(defStats, jutsu.type);
-
-    // Bucket 1: base damage
-    const statFactor = Math.max(0.35, Math.min(1.85, 1 + (offense - defense) / (MAX_STAT * 2) * 0.85));
+    const statFactor = Math.max(0.35, Math.min(1.85, 1 + (getOffense(offStats, jutsu.type) - getDefense(defStats, jutsu.type)) / (MAX_STAT * 2) * 0.85));
     const effectFactor = Math.max(0, jutsu.effectPower ?? 20) / 100;
-    const bucketOne = opponent.maxHp * effectFactor * statFactor * PVP_SCALE;
-
-    // Bucket 2: Damage tag bonus
-    const bucketTwo = getTagMultiplier(jutsu.tags ?? []);
-
-    // Bucket 3: bloodline (1.0 — not tracked here)
-    const bucketThree = 1.0;
-
-    const baseDmg = Math.max(0, Math.floor(bucketOne * bucketTwo * bucketThree));
+    const baseDmg = Math.max(0, Math.floor(opponent.maxHp * effectFactor * statFactor * PVP_SCALE * getTagMultiplier(jutsu.tags ?? [])));
 
     const tags = jutsu.tags ?? [];
     const lines: string[] = [];
@@ -127,349 +118,137 @@ function applyJutsu(
     let shieldGain = 0;
     let pierce = false;
 
-    // ── Pre-damage tag resolution (buffs/debuffs first) ──────────────────────
-
     for (const tag of tags) {
         const pct = tag.percent ?? 0;
-
-        if (tag.name === 'Heal') {
-            healing += HEAL_FLAT;
-            damage = 0;
-            lines.push(`Heal: ${s.name} restores ${HEAL_FLAT} HP.`);
-            continue;
-        }
-
-        if (tag.name === 'Shield') {
-            shieldGain += SHIELD_FLAT;
-            damage = 0;
-            lines.push(`Shield: ${s.name} gains ${SHIELD_FLAT} shield.`);
-            continue;
-        }
-
-        if (tag.name === 'Pierce') {
-            pierce = true;
-            lines.push(`Pierce: ${jutsu.name} bypasses all defenses.`);
-            continue;
-        }
-
-        if (tag.name === 'Stun') {
-            if (!hasStatus(o, 'Debuff Prevent')) {
-                o = addStatus(o, { name: 'Stun', rounds: 1, kind: 'negative' });
-                lines.push(`Stun: ${o.name} is stunned and must skip their next turn.`);
-            }
-            continue;
-        }
-
-        if (tag.name === 'Poison') {
-            if (!hasStatus(o, 'Debuff Prevent')) {
-                const poisonDmg = Math.floor(o.maxChakra * 0.06);
-                o = addStatus(o, { name: 'Poison', rounds: 2, percent: pct, kind: 'negative' });
-                lines.push(`Poison: ${o.name} takes ~${poisonDmg} damage/round for 2 rounds.`);
-            }
-            continue;
-        }
-
-        if (tag.name === 'Drain') {
-            if (!hasStatus(o, 'Debuff Prevent')) {
-                o = addStatus(o, { name: 'Drain', rounds: 2, amount: DRAIN_AMOUNT, kind: 'negative' });
-                lines.push(`Drain: ${o.name} loses ${DRAIN_AMOUNT} HP, chakra, and stamina/round for 2 rounds.`);
-            }
-            continue;
-        }
-
-        if (tag.name === 'Absorb') {
-            if (!hasStatus(s, 'Buff Prevent')) {
-                s = addStatus(s, { name: 'Absorb', rounds: 2, percent: pct, kind: 'positive' });
-                lines.push(`Absorb: ${s.name} converts ${pct}% incoming damage to healing for 2 rounds.`);
-            }
-            continue;
-        }
-
-        if (tag.name === 'Reflect') {
-            if (!hasStatus(s, 'Buff Prevent')) {
-                s = addStatus(s, { name: 'Reflect', rounds: 2, percent: pct, kind: 'positive' });
-                lines.push(`Reflect: ${s.name} reflects ${pct}% damage for 2 rounds.`);
-            }
-            continue;
-        }
-
-        if (tag.name === 'Lifesteal') {
-            if (!hasStatus(s, 'Buff Prevent')) {
-                s = addStatus(s, { name: 'Lifesteal', rounds: 2, percent: pct, kind: 'positive' });
-                lines.push(`Lifesteal: ${s.name} will heal ${pct}% of damage dealt for 2 rounds.`);
-            }
-            continue;
-        }
-
-        if (tag.name === 'Increase Damage Given') {
-            s = addStatus(s, { name: 'Increase Damage Given', rounds: 2, percent: pct, kind: 'positive' });
-            lines.push(`+${pct}% Damage Given: ${s.name} deals more damage for 2 rounds.`);
-            continue;
-        }
-
-        if (tag.name === 'Decrease Damage Given') {
-            if (!hasStatus(o, 'Debuff Prevent')) {
-                o = addStatus(o, { name: 'Decrease Damage Given', rounds: 2, percent: pct, kind: 'negative' });
-                lines.push(`-${pct}% Damage Given: ${o.name} deals less damage for 2 rounds.`);
-            }
-            continue;
-        }
-
-        if (tag.name === 'Increase Damage Taken') {
-            if (!hasStatus(o, 'Debuff Prevent')) {
-                o = addStatus(o, { name: 'Increase Damage Taken', rounds: 2, percent: pct, kind: 'negative' });
-                lines.push(`+${pct}% Damage Taken: ${o.name} takes more damage for 2 rounds.`);
-            }
-            continue;
-        }
-
-        if (tag.name === 'Decrease Damage Taken') {
-            s = addStatus(s, { name: 'Decrease Damage Taken', rounds: 2, percent: pct, kind: 'positive' });
-            lines.push(`-${pct}% Damage Taken: ${s.name} takes less damage for 2 rounds.`);
-            continue;
-        }
-
-        if (tag.name === 'Afterburn') {
-            if (!hasStatus(o, 'Debuff Prevent')) {
-                o = addStatus(o, { name: 'Afterburn', rounds: 2, percent: pct, kind: 'negative' });
-                lines.push(`Afterburn: ${o.name} takes ${pct}% extra damage for 2 rounds.`);
-            }
-            continue;
-        }
-
-        if (tag.name === 'Debuff Prevent') {
-            s = addStatus(s, { name: 'Debuff Prevent', rounds: 2, percent: pct, kind: 'positive' });
-            lines.push(`Debuff Prevent: ${s.name} cannot be debuffed for 2 rounds.`);
-            continue;
-        }
-
-        if (tag.name === 'Seal' || tag.name === 'Elemental Seal') {
-            if (!hasStatus(o, 'Debuff Prevent')) {
-                o = addStatus(o, { name: tag.name, rounds: 2, kind: 'negative' });
-                lines.push(`${tag.name}: ${o.name} is sealed.`);
-            }
-            continue;
-        }
+        if (tag.name === 'Heal') { healing += HEAL_FLAT; damage = 0; lines.push(`Heal: ${s.name} restores ${HEAL_FLAT} HP.`); continue; }
+        if (tag.name === 'Shield') { shieldGain += SHIELD_FLAT; damage = 0; lines.push(`Shield: ${s.name} gains ${SHIELD_FLAT} shield.`); continue; }
+        if (tag.name === 'Pierce') { pierce = true; lines.push(`Pierce: bypasses defenses.`); continue; }
+        if (tag.name === 'Stun') { if (!hasStatus(o, 'Debuff Prevent')) { o = addStatus(o, { name: 'Stun', rounds: 1, kind: 'negative' }); lines.push(`Stun: ${o.name} loses their next turn.`); } continue; }
+        if (tag.name === 'Poison') { if (!hasStatus(o, 'Debuff Prevent')) { const dmg = Math.floor(o.maxChakra * 0.06); o = addStatus(o, { name: 'Poison', rounds: 2, percent: pct, kind: 'negative' }); lines.push(`Poison: ${o.name} takes ~${dmg}/round for 2 turns.`); } continue; }
+        if (tag.name === 'Drain') { if (!hasStatus(o, 'Debuff Prevent')) { o = addStatus(o, { name: 'Drain', rounds: 2, amount: DRAIN_AMOUNT, kind: 'negative' }); lines.push(`Drain: ${o.name} loses ${DRAIN_AMOUNT} HP+chakra/turn for 2 turns.`); } continue; }
+        if (tag.name === 'Absorb') { if (!hasStatus(s, 'Buff Prevent')) { s = addStatus(s, { name: 'Absorb', rounds: 2, percent: pct, kind: 'positive' }); lines.push(`Absorb: ${s.name} converts ${pct}% incoming damage for 2 turns.`); } continue; }
+        if (tag.name === 'Reflect') { if (!hasStatus(s, 'Buff Prevent')) { s = addStatus(s, { name: 'Reflect', rounds: 2, percent: pct, kind: 'positive' }); lines.push(`Reflect: ${s.name} reflects ${pct}% damage for 2 turns.`); } continue; }
+        if (tag.name === 'Lifesteal') { if (!hasStatus(s, 'Buff Prevent')) { s = addStatus(s, { name: 'Lifesteal', rounds: 2, percent: pct, kind: 'positive' }); lines.push(`Lifesteal: ${s.name} heals on hit for 2 turns.`); } continue; }
+        if (tag.name === 'Increase Damage Given') { s = addStatus(s, { name: 'Increase Damage Given', rounds: 2, percent: pct, kind: 'positive' }); lines.push(`+${pct}% Damage Given: ${s.name} for 2 turns.`); continue; }
+        if (tag.name === 'Decrease Damage Given') { if (!hasStatus(o, 'Debuff Prevent')) { o = addStatus(o, { name: 'Decrease Damage Given', rounds: 2, percent: pct, kind: 'negative' }); lines.push(`-${pct}% Damage Given: ${o.name} for 2 turns.`); } continue; }
+        if (tag.name === 'Increase Damage Taken') { if (!hasStatus(o, 'Debuff Prevent')) { o = addStatus(o, { name: 'Increase Damage Taken', rounds: 2, percent: pct, kind: 'negative' }); lines.push(`+${pct}% Damage Taken: ${o.name} for 2 turns.`); } continue; }
+        if (tag.name === 'Decrease Damage Taken') { s = addStatus(s, { name: 'Decrease Damage Taken', rounds: 2, percent: pct, kind: 'positive' }); lines.push(`-${pct}% Damage Taken: ${s.name} for 2 turns.`); continue; }
+        if (tag.name === 'Afterburn') { if (!hasStatus(o, 'Debuff Prevent')) { o = addStatus(o, { name: 'Afterburn', rounds: 2, percent: pct, kind: 'negative' }); lines.push(`Afterburn: ${o.name} +${pct}% damage taken for 2 turns.`); } continue; }
+        if (tag.name === 'Debuff Prevent') { s = addStatus(s, { name: 'Debuff Prevent', rounds: 2, kind: 'positive' }); lines.push(`Debuff Prevent: ${s.name} for 2 turns.`); continue; }
+        if (tag.name === 'Seal' || tag.name === 'Elemental Seal') { if (!hasStatus(o, 'Debuff Prevent')) { o = addStatus(o, { name: tag.name, rounds: 2, kind: 'negative' }); lines.push(`${tag.name}: ${o.name} is sealed.`); } continue; }
     }
-
-    // ── Apply status multipliers to damage ────────────────────────────────────
 
     if (pierce) {
         damage = (jutsu.ap ?? 40) >= 60 ? 900 : 500;
     } else {
-        const mult = damageMultiplierFor(s, o);
-        damage = Math.floor(damage * mult);
+        damage = Math.floor(damage * damageMultiplierFor(s, o));
     }
 
-    // ── Shield block / deal damage ────────────────────────────────────────────
-
     if (damage > 0) {
-        // Absorb: some damage converts to self-heal
-        const absorb = s.statuses.find(st => st.name === 'Absorb');
-        if (absorb && pierce === false) {
-            // Absorb applies to INCOMING damage on the opponent side — but in this
-            // function `s` is the attacker. Absorb will be handled when defender
-            // resolves THEIR incoming damage from attacker's move.
-        }
-
         const blocked = pierce ? 0 : Math.min(o.shield, damage);
         const finalDmg = Math.max(0, damage - blocked);
-
-        // Defender's Reflect
         const reflect = o.statuses.find(st => st.name === 'Reflect');
-        let reflectedDmg = 0;
-        if (reflect && !pierce) {
-            reflectedDmg = cappedPostDamage(finalDmg, reflect.percent ?? 30);
-        }
-
-        // Defender's Absorb
+        const reflectedDmg = reflect && !pierce ? cappedPostDamage(finalDmg, reflect.percent ?? 30) : 0;
         const defAbsorb = o.statuses.find(st => st.name === 'Absorb');
-        let absorbHeal = 0;
-        if (defAbsorb) {
-            absorbHeal = cappedPostDamage(finalDmg, defAbsorb.percent ?? 30);
-        }
+        const absorbHeal = defAbsorb ? cappedPostDamage(finalDmg, defAbsorb.percent ?? 30) : 0;
 
         o = { ...o, hp: Math.max(0, o.hp - finalDmg), shield: Math.max(0, o.shield - damage) };
-
-        if (absorbHeal > 0) {
-            o = { ...o, hp: Math.min(o.maxHp, o.hp + absorbHeal) };
-        }
-
-        if (blocked > 0) lines.push(`${blocked} absorbed by shield.`);
+        if (absorbHeal > 0) o = { ...o, hp: Math.min(o.maxHp, o.hp + absorbHeal) };
+        if (blocked > 0) lines.push(`${blocked} absorbed by ${o.name}'s shield.`);
         if (finalDmg > 0) lines.push(`${finalDmg} damage to ${o.name}.`);
         if (absorbHeal > 0) lines.push(`${o.name} absorbs ${absorbHeal} HP.`);
-        if (reflectedDmg > 0) {
-            s = { ...s, hp: Math.max(0, s.hp - reflectedDmg) };
-            lines.push(`${s.name} takes ${reflectedDmg} reflected damage.`);
-        }
+        if (reflectedDmg > 0) { s = { ...s, hp: Math.max(0, s.hp - reflectedDmg) }; lines.push(`${s.name} takes ${reflectedDmg} reflected damage.`); }
 
-        // Post-damage: Wound, Recoil, Siphon/Vamp, Lifesteal
         for (const tag of tags) {
             const pct = tag.percent ?? 0;
             if (tag.name === 'Wound' && !hasStatus(o, 'Debuff Prevent')) {
-                const woundAmt = cappedPostDamage(finalDmg, pct || 30);
-                o = addStatus(o, { name: 'Wound', rounds: 2, amount: woundAmt, kind: 'negative' });
-                lines.push(`Wound: ${o.name} bleeds for ${woundAmt}/round for 2 rounds.`);
+                const amt = cappedPostDamage(finalDmg, pct || 30);
+                o = addStatus(o, { name: 'Wound', rounds: 2, amount: amt, kind: 'negative' });
+                lines.push(`Wound: ${o.name} bleeds ${amt}/turn for 2 turns.`);
             }
-            if (tag.name === 'Recoil') {
-                const rc = cappedPostDamage(finalDmg, pct || 30);
-                s = { ...s, hp: Math.max(0, s.hp - rc) };
-                lines.push(`Recoil: ${s.name} takes ${rc} recoil damage.`);
-            }
-            if (tag.name === 'Siphon' || tag.name === 'Vamp') {
-                const siphon = cappedPostDamage(finalDmg, pct || 30);
-                s = { ...s, hp: Math.min(s.maxHp, s.hp + siphon) };
-                lines.push(`${tag.name}: ${s.name} heals ${siphon} HP.`);
-            }
+            if (tag.name === 'Recoil') { const rc = cappedPostDamage(finalDmg, pct || 30); s = { ...s, hp: Math.max(0, s.hp - rc) }; lines.push(`Recoil: ${s.name} takes ${rc} recoil.`); }
+            if (tag.name === 'Siphon' || tag.name === 'Vamp') { const h = cappedPostDamage(finalDmg, pct || 30); s = { ...s, hp: Math.min(s.maxHp, s.hp + h) }; lines.push(`${tag.name}: ${s.name} heals ${h} HP.`); }
         }
 
-        // Active Lifesteal status
         const ls = s.statuses.find(st => st.name === 'Lifesteal');
-        if (ls && finalDmg > 0) {
-            const lsHeal = cappedPostDamage(finalDmg, ls.percent ?? 30);
-            s = { ...s, hp: Math.min(s.maxHp, s.hp + lsHeal) };
-            lines.push(`Lifesteal: ${s.name} heals ${lsHeal} HP.`);
-        }
+        if (ls && finalDmg > 0) { const h = cappedPostDamage(finalDmg, ls.percent ?? 30); s = { ...s, hp: Math.min(s.maxHp, s.hp + h) }; lines.push(`Lifesteal: ${s.name} heals ${h} HP.`); }
     }
-
-    // ── Apply heal and shield to self ─────────────────────────────────────────
 
     if (healing > 0) s = { ...s, hp: Math.min(s.maxHp, s.hp + healing) };
     if (shieldGain > 0) s = { ...s, shield: s.shield + shieldGain };
-
     return { self: s, opponent: o, lines };
 }
 
-// ─── Apply DoTs/status-over-time at start of each actor's resolution ─────────
-
+// ─── DoTs applied at start of each turn ───────────────────────────────────────
 function applyDoTs(fighter: PvpFighter): { fighter: PvpFighter; lines: string[] } {
     const lines: string[] = [];
     let f = { ...fighter };
-
     for (const s of f.statuses) {
-        if (s.name === 'Wound' && s.amount) {
-            f = { ...f, hp: Math.max(0, f.hp - s.amount) };
-            lines.push(`${f.name} bleeds for ${s.amount} (Wound).`);
-        }
-        if (s.name === 'Poison') {
-            const dmg = Math.floor(f.maxChakra * 0.06);
-            f = { ...f, hp: Math.max(0, f.hp - dmg), chakra: Math.max(0, f.chakra - dmg) };
-            lines.push(`${f.name} takes ${dmg} Poison damage.`);
-        }
-        if (s.name === 'Drain') {
-            const amt = s.amount ?? DRAIN_AMOUNT;
-            f = { ...f, hp: Math.max(0, f.hp - amt), chakra: Math.max(0, f.chakra - amt) };
-            lines.push(`${f.name} is drained for ${amt} HP and chakra.`);
-        }
+        if (s.name === 'Wound' && s.amount) { f = { ...f, hp: Math.max(0, f.hp - s.amount) }; lines.push(`${f.name} bleeds ${s.amount} (Wound).`); }
+        if (s.name === 'Poison') { const dmg = Math.floor(f.maxChakra * 0.06); f = { ...f, hp: Math.max(0, f.hp - dmg), chakra: Math.max(0, f.chakra - dmg) }; lines.push(`${f.name} takes ${dmg} Poison damage.`); }
+        if (s.name === 'Drain') { const amt = s.amount ?? DRAIN_AMOUNT; f = { ...f, hp: Math.max(0, f.hp - amt), chakra: Math.max(0, f.chakra - amt) }; lines.push(`${f.name} drained ${amt} HP+chakra.`); }
     }
-
     return { fighter: f, lines };
 }
 
-// ─── Round resolution ─────────────────────────────────────────────────────────
-
-function resolveRound(session: PvpSession): PvpSession {
-    const j1 = findJutsu(session.p1.character, session.p1Move ?? 'skip');
-    const j2 = findJutsu(session.p2.character, session.p2Move ?? 'skip');
-    let p1 = { ...session.p1 };
-    let p2 = { ...session.p2 };
-    const lines: string[] = [`— Round ${session.round} —`];
-
-    // Apply DoTs to both fighters
-    const d1 = applyDoTs(p1); p1 = d1.fighter; lines.push(...d1.lines);
-    const d2 = applyDoTs(p2); p2 = d2.fighter; lines.push(...d2.lines);
-
-    // Resolve both moves simultaneously
-    const p1Stunned = p1.statuses.some(s => s.name === 'Stun');
-    const p2Stunned = p2.statuses.some(s => s.name === 'Stun');
-
-    let p1Result: { self: PvpFighter; opponent: PvpFighter; lines: string[] } | null = null;
-    let p2Result: { self: PvpFighter; opponent: PvpFighter; lines: string[] } | null = null;
-
-    if (p1Stunned) {
-        lines.push(`${p1.name} is stunned and skips their action.`);
-    } else if (j1) {
-        p1Result = applyJutsu(p1, p2, j1);
-        lines.push(`${p1.name} uses ${j1.name}:`);
-        lines.push(...p1Result.lines);
-    } else {
-        lines.push(`${p1.name} skips their turn.`);
-    }
-
-    if (p2Stunned) {
-        lines.push(`${p2.name} is stunned and skips their action.`);
-    } else if (j2) {
-        // p2 attacks the state BEFORE p1's move resolved (simultaneous)
-        p2Result = applyJutsu(p2, p1, j2);
-        lines.push(`${p2.name} uses ${j2.name}:`);
-        lines.push(...p2Result.lines);
-    } else {
-        lines.push(`${p2.name} skips their turn.`);
-    }
-
-    // Merge simultaneous results: each gets their own self-changes + combined opponent damage
-    if (p1Result && p2Result) {
-        // P1's self updates + P2's incoming damage on P1
-        p1 = {
-            ...p1Result.self,
-            hp: Math.max(0, Math.min(p1Result.self.maxHp, p1Result.self.hp - (p1.hp - p2Result.opponent.hp))),
-            shield: p2Result.opponent.shield,
-            statuses: [...new Map([...p1Result.self.statuses, ...p2Result.opponent.statuses].map(s => [s.name + s.kind, s])).values()],
-        };
-        // P2's self updates + P1's incoming damage on P2
-        p2 = {
-            ...p2Result.self,
-            hp: Math.max(0, Math.min(p2Result.self.maxHp, p2Result.self.hp - (p2.hp - p1Result.opponent.hp))),
-            shield: p1Result.opponent.shield,
-            statuses: [...new Map([...p2Result.self.statuses, ...p1Result.opponent.statuses].map(s => [s.name + s.kind, s])).values()],
-        };
-    } else if (p1Result) {
-        p1 = p1Result.self;
-        p2 = p1Result.opponent;
-    } else if (p2Result) {
-        p2 = p2Result.self;
-        p1 = p2Result.opponent;
-    }
-
-    // Tick statuses (remove Stun after it fires)
-    p1 = tickStatuses(p1);
-    p2 = tickStatuses(p2);
-
-    // Check winner
+// ─── Win check ────────────────────────────────────────────────────────────────
+function checkWinner(s: PvpSession): PvpSession {
+    if (s.status === 'done') return s;
+    const { p1, p2 } = s;
+    const lines: string[] = [];
     let status: 'active' | 'done' = 'active';
     let winner: 'p1' | 'p2' | 'draw' | null = null;
-
-    if (p1.hp <= 0 && p2.hp <= 0) {
-        status = 'done'; winner = 'draw';
-        lines.push('Both fighters fall! Draw!');
-    } else if (p1.hp <= 0) {
-        status = 'done'; winner = 'p2';
-        lines.push(`⚔️ ${p2.name} wins!`);
-    } else if (p2.hp <= 0) {
-        status = 'done'; winner = 'p1';
-        lines.push(`⚔️ ${p1.name} wins!`);
-    } else if (session.round >= MAX_ROUNDS) {
+    if (p1.hp <= 0 && p2.hp <= 0) { status = 'done'; winner = 'draw'; lines.push('Both fighters fall! Draw!'); }
+    else if (p1.hp <= 0) { status = 'done'; winner = 'p2'; lines.push(`⚔️ ${p2.name} wins!`); }
+    else if (p2.hp <= 0) { status = 'done'; winner = 'p1'; lines.push(`⚔️ ${p1.name} wins!`); }
+    else if (s.round > MAX_ROUNDS) {
         status = 'done';
         if (p1.hp > p2.hp) { winner = 'p1'; lines.push(`Time limit! ${p1.name} wins by HP!`); }
         else if (p2.hp > p1.hp) { winner = 'p2'; lines.push(`Time limit! ${p2.name} wins by HP!`); }
         else { winner = 'draw'; lines.push('Time limit! Draw!'); }
     }
+    return { ...s, status, winner, log: lines.length ? [...s.log, ...lines] : s.log };
+}
 
-    return {
-        ...session,
-        p1,
-        p2,
-        round: status === 'active' ? session.round + 1 : session.round,
-        p1Move: null,
-        p2Move: null,
-        log: [...session.log, ...lines],
-        status,
-        winner,
-    };
+// ─── End active player's turn, hand off to the other ──────────────────────────
+function endTurn(session: PvpSession, depth = 0): PvpSession {
+    const current = session.activePlayer;
+    const next: 'p1' | 'p2' = current === 'p1' ? 'p2' : 'p1';
+    const newRound = current === 'p2' ? session.round + 1 : session.round;
+    const lines: string[] = [];
+
+    // Tick current player's statuses + cooldowns
+    let s = { ...session };
+    if (current === 'p1') {
+        s = { ...s, p1: tickStatuses(s.p1), cooldowns: { ...s.cooldowns, p1: tickCooldowns(s.cooldowns.p1) } };
+    } else {
+        s = { ...s, p2: tickStatuses(s.p2), cooldowns: { ...s.cooldowns, p2: tickCooldowns(s.cooldowns.p2) } };
+    }
+
+    // Apply DoTs to the next player at start of their turn
+    let nextFighter = next === 'p1' ? s.p1 : s.p2;
+    const dots = applyDoTs(nextFighter);
+    nextFighter = dots.fighter;
+    lines.push(...dots.lines);
+    s = next === 'p1' ? { ...s, p1: nextFighter } : { ...s, p2: nextFighter };
+
+    s = checkWinner({ ...s, round: newRound, log: lines.length ? [...s.log, ...lines] : s.log });
+    if (s.status === 'done') return s;
+
+    // Auto-skip stunned player (max depth 2 to avoid infinite recursion)
+    const isStunned = nextFighter.statuses.some(st => st.name === 'Stun');
+    if (isStunned && depth < 2) {
+        const unstunned = { ...nextFighter, statuses: nextFighter.statuses.filter(st => st.name !== 'Stun') };
+        const skipLine = `${nextFighter.name} is stunned and loses their turn.`;
+        s = next === 'p1' ? { ...s, p1: unstunned } : { ...s, p2: unstunned };
+        s = { ...s, activePlayer: next, ap: { ...s.ap, [next]: 100 }, actionsThisTurn: 0, log: [...s.log, skipLine] };
+        return endTurn(s, depth + 1);
+    }
+
+    return { ...s, activePlayer: next, ap: { ...s.ap, [next]: 100 }, actionsThisTurn: 0 };
 }
 
 // ─── Handler ──────────────────────────────────────────────────────────────────
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res);
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -477,33 +256,174 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-        const { battleId, role, jutsuId } = body as {
+        const { battleId, role, action, tile, jutsuId } = body as {
             battleId?: string;
             role?: 'p1' | 'p2';
+            action?: string;
+            tile?: number;
             jutsuId?: string;
         };
-        if (!battleId || !role || jutsuId === undefined) {
-            return res.status(400).json({ error: 'Missing battleId, role, or jutsuId' });
-        }
+        if (!battleId || !role || !action) return res.status(400).json({ error: 'Missing battleId, role, or action' });
 
         const key = `pvp:${battleId}`;
         const session = await kv.get<PvpSession>(key);
         if (!session) return res.status(404).json({ error: 'Battle session not found' });
         if (session.status === 'done') return res.status(200).json(session);
+        if (session.activePlayer !== role) return res.status(200).json(session);
 
-        // Idempotent — if already submitted this role's move, return current state
-        if (role === 'p1' && session.p1Move !== null) return res.status(200).json(session);
-        if (role === 'p2' && session.p2Move !== null) return res.status(200).json(session);
+        const me = role === 'p1' ? session.p1 : session.p2;
+        const opp = role === 'p1' ? session.p2 : session.p1;
+        const myCooldowns = role === 'p1' ? session.cooldowns.p1 : session.cooldowns.p2;
+        const myAp = role === 'p1' ? session.ap.p1 : session.ap.p2;
+        const lines: string[] = [];
 
-        const updated: PvpSession = { ...session, [role === 'p1' ? 'p1Move' : 'p2Move']: jutsuId };
+        function canAct(cost: number) { return myAp >= cost && session.actionsThisTurn < MAX_ACTIONS; }
 
-        // Resolve round once both moves are in
-        const resolved = (updated.p1Move !== null && updated.p2Move !== null)
-            ? resolveRound(updated)
-            : updated;
+        function commit(updMe: PvpFighter | null, updOpp: PvpFighter | null, apCost: number, cd?: Record<string, number>): PvpSession {
+            let s = { ...session };
+            if (updMe) s = role === 'p1' ? { ...s, p1: updMe } : { ...s, p2: updMe };
+            if (updOpp) s = role === 'p1' ? { ...s, p2: updOpp } : { ...s, p1: updOpp };
+            s = { ...s, ap: { ...s.ap, [role]: myAp - apCost }, actionsThisTurn: s.actionsThisTurn + 1 };
+            if (cd) s = { ...s, cooldowns: { ...s.cooldowns, [role]: { ...myCooldowns, ...cd } } };
+            if (lines.length) s = { ...s, log: [...s.log, ...lines] };
+            return checkWinner(s);
+        }
 
-        await kv.set(key, resolved, { ex: 600 });
-        return res.status(200).json(resolved);
+        let result: PvpSession;
+
+        switch (action) {
+            case 'wait': {
+                lines.push(`${me.name} ends their turn.`);
+                result = endTurn({ ...session, log: [...session.log, ...lines] });
+                break;
+            }
+
+            case 'move': {
+                if (tile === undefined || !canAct(30)) return res.status(200).json(session);
+                if (!hexNeighbors(me.pos).includes(tile) || tile === opp.pos) return res.status(200).json(session);
+                lines.push(`${me.name} moves.`);
+                result = commit({ ...me, pos: tile }, null, 30);
+                break;
+            }
+
+            case 'dash': {
+                if (tile === undefined || !canAct(30)) return res.status(200).json(session);
+                if (distance(me.pos, tile) > 3 || tile === opp.pos || tile === me.pos) return res.status(200).json(session);
+                lines.push(`${me.name} dashes.`);
+                result = commit({ ...me, pos: tile }, null, 30);
+                break;
+            }
+
+            case 'basicAttack': {
+                if (!canAct(40)) return res.status(200).json(session);
+                if (distance(me.pos, opp.pos) > 1) {
+                    await kv.set(key, { ...session, log: [...session.log, `${me.name}: too far for basic attack — move closer.`] }, { ex: 600 });
+                    return res.status(200).json({ ...session, log: [...session.log, `${me.name}: too far for basic attack.`] });
+                }
+                if (me.stamina < 10) {
+                    await kv.set(key, { ...session, log: [...session.log, `${me.name}: not enough stamina.`] }, { ex: 600 });
+                    return res.status(200).json({ ...session, log: [...session.log, `${me.name}: not enough stamina.`] });
+                }
+                const specialty = (me.character.specialty as string) ?? 'Ninjutsu';
+                const basicJutsu: Jutsu = { id: 'basic-attack', name: 'Basic Attack', type: specialty, effectPower: 10, ap: 40, range: 1, tags: [{ name: 'Damage', percent: 10 }] };
+                lines.push(`${me.name} uses Basic Attack:`);
+                const atk = applyJutsu(me, opp, basicJutsu);
+                lines.push(...atk.lines);
+                result = commit({ ...atk.self, stamina: Math.max(0, atk.self.stamina - 10) }, atk.opponent, 40);
+                break;
+            }
+
+            case 'basicHeal': {
+                if (!canAct(60) || (myCooldowns.basicHeal ?? 0) > 0 || me.chakra < 10) return res.status(200).json(session);
+                const healAmt = Math.max(1, Math.floor(me.maxHp * 0.1));
+                lines.push(`${me.name} uses Basic Heal, restoring ${healAmt} HP.`);
+                result = commit({ ...me, hp: Math.min(me.maxHp, me.hp + healAmt), chakra: Math.max(0, me.chakra - 10) }, null, 60, { basicHeal: 5 });
+                break;
+            }
+
+            case 'clear': {
+                if (!canAct(60) || (myCooldowns.clear ?? 0) > 0) return res.status(200).json(session);
+                if (hasStatus(opp, 'Clear Prevent')) {
+                    lines.push(`${opp.name}'s Clear Prevent blocks the clear.`);
+                    result = commit(null, null, 60, { clear: 10 });
+                } else {
+                    const removed = opp.statuses.filter(s => s.kind === 'positive').map(s => s.name);
+                    lines.push(`Clear: removed ${removed.length ? removed.join(', ') : 'no positive effects'} from ${opp.name}.`);
+                    result = commit(null, { ...opp, statuses: opp.statuses.filter(s => s.kind !== 'positive') }, 60, { clear: 10 });
+                }
+                break;
+            }
+
+            case 'cleanse': {
+                if (!canAct(60) || (myCooldowns.cleanse ?? 0) > 0) return res.status(200).json(session);
+                if (hasStatus(me, 'Cleanse Prevent')) {
+                    lines.push(`${me.name}'s Cleanse Prevent blocks the cleanse.`);
+                    result = commit(null, null, 60, { cleanse: 10 });
+                } else {
+                    const removed = me.statuses.filter(s => s.kind === 'negative').map(s => s.name);
+                    lines.push(`Cleanse: removed ${removed.length ? removed.join(', ') : 'no negative effects'} from ${me.name}.`);
+                    result = commit({ ...me, statuses: me.statuses.filter(s => s.kind !== 'negative') }, null, 60, { cleanse: 10 });
+                }
+                break;
+            }
+
+            case 'jutsu': {
+                if (!jutsuId) return res.status(400).json({ error: 'Missing jutsuId' });
+                const jutsuList = (me.character.jutsu as Jutsu[] | undefined) ?? [];
+                const jutsu = jutsuList.find(j => j.id === jutsuId);
+                if (!jutsu) return res.status(200).json(session);
+                const apCost = jutsu.ap ?? 40;
+                if (!canAct(apCost) || (myCooldowns[jutsuId] ?? 0) > 0) return res.status(200).json(session);
+
+                const selfTarget = jutsu.target === 'SELF' ||
+                    (jutsu.tags ?? []).some(t => ['Heal', 'Shield', 'Absorb', 'Reflect', 'Lifesteal', 'Debuff Prevent', 'Increase Damage Given', 'Decrease Damage Taken'].includes(t.name));
+                if (!selfTarget) {
+                    const range = Math.max(0, Number(jutsu.range) || 0);
+                    if (range > 0 && distance(me.pos, opp.pos) > range) {
+                        const outOfRangeMsg = `${jutsu.name} is out of range (need ≤${range}, distance ${Math.round(distance(me.pos, opp.pos))}).`;
+                        const updated = { ...session, log: [...session.log, outOfRangeMsg] };
+                        await kv.set(key, updated, { ex: 600 });
+                        return res.status(200).json(updated);
+                    }
+                }
+
+                lines.push(`${me.name} uses ${jutsu.name}:`);
+                const jr = applyJutsu(me, opp, jutsu);
+                lines.push(...jr.lines);
+                const cd = (jutsu.cooldown ?? 0) > 0 ? { [jutsuId]: jutsu.cooldown! } : undefined;
+                result = commit(jr.self, jr.opponent, apCost, cd);
+                break;
+            }
+
+            case 'flee': {
+                if (!canAct(100)) return res.status(200).json(session);
+                const hpCost = Math.max(1, Math.floor(me.maxHp * 0.1));
+                const escaped = Math.random() < 0.2;
+                const updatedMe = { ...me, hp: Math.max(0, me.hp - hpCost) };
+                if (escaped) {
+                    lines.push(`${me.name} fled the battle, losing ${hpCost} HP.`);
+                    result = {
+                        ...session,
+                        ...(role === 'p1' ? { p1: updatedMe } : { p2: updatedMe }),
+                        ap: { ...session.ap, [role]: myAp - 100 },
+                        actionsThisTurn: session.actionsThisTurn + 1,
+                        status: 'done',
+                        winner: role === 'p1' ? 'p2' : 'p1',
+                        log: [...session.log, ...lines],
+                    };
+                } else {
+                    lines.push(`${me.name} tried to flee, lost ${hpCost} HP, but failed.`);
+                    result = commit(updatedMe, null, 100);
+                }
+                break;
+            }
+
+            default:
+                return res.status(400).json({ error: `Unknown action: ${action}` });
+        }
+
+        await kv.set(key, result, { ex: 600 });
+        return res.status(200).json(result);
     } catch (err) {
         return res.status(500).json({ error: String(err) });
     }
