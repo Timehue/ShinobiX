@@ -17248,6 +17248,10 @@ function Arena({
     }, [GRID_LAYER_W, GRID_LAYER_H]);
     // Clamp effective scale between 0.15 and 1.5
     const effectiveScale = Math.max(0.15, Math.min(1.5, boardScale + userScaleOffset));
+
+    // Keep stable refs in sync with the latest arena function versions every render.
+    // Timer callbacks read these so they always call fresh closures.
+    // (enemyTurnRef and autoEndTurnRef are populated below once those functions are defined.)
     const allJutsus = getAllJutsus(savedBloodlines, creatorJutsus, character);
     const pendingAiProfile = creatorAis.find((ai) => ai.id === pendingAiProfileId);
     const allItems = getAllItems(creatorItems);
@@ -17349,7 +17353,22 @@ function Arena({
     const [pendingTargetWeapon, setPendingTargetWeaponRaw] = useState<GameItem | null>(null);
     const [inspectedJutsuId, setInspectedJutsuId] = useState("");
     const [inspectedCombatItemId, setInspectedCombatItemId] = useState("");
-    const [pvpCountdown, setPvpCountdown] = useState<number | null>(null); // sector-attack countdown
+    // Pre-fight countdown (10 s) — used for ALL battle types now
+    const [prefightCountdown, setPrefightCountdown] = useState<number | null>(null);
+    const prefightDataRef = useRef<{ hp: number; logMsg: string } | null>(null);
+
+    // Per-turn round timer (45 s). Resets each time it becomes the player's turn.
+    const [roundTimer, setRoundTimer] = useState<number>(45);
+    // Incrementing this key causes the round-timer effect to restart the 45-second window
+    // (used when the player takes an action to keep their time from expiring mid-combo).
+    const [roundTimerKey, setRoundTimerKey] = useState(0);
+
+    // Stable refs so timer callbacks always call the latest version of arena functions.
+    const resetBattleRef   = useRef<(hp?: number) => void>(() => {});
+    const setLogRef        = useRef<(msg: string) => void>(() => {});
+    const autoEndTurnRef   = useRef<() => void>(() => {});
+    const enemyTurnRef     = useRef<() => void>(() => {});
+
     const pendingPlayerStunApPenaltyRef = useRef(false);
 
     function setPendingTargetJutsuId(value: string) {
@@ -17456,6 +17475,54 @@ function Arena({
         }
     }, [ap, actionsThisTurn, activeActor, battleStarted, battleEnded]);
 
+    // ── Pre-fight countdown effect ───────────────────────────────────────────
+    // Ticks prefightCountdown down from 10 → 0, then starts the battle.
+    useEffect(() => {
+        if (prefightCountdown === null) return;
+        if (prefightCountdown <= 0) {
+            const data = prefightDataRef.current;
+            if (data) {
+                prefightDataRef.current = null;
+                setBattleStarted(true);
+                resetBattleRef.current(data.hp);
+                setLogRef.current(data.logMsg);
+            }
+            return;
+        }
+        const t = setTimeout(() => setPrefightCountdown((c) => (c !== null ? c - 1 : null)), 1000);
+        return () => clearTimeout(t);
+    }, [prefightCountdown]);
+
+    // ── 45-second round timer ────────────────────────────────────────────────
+    // Resets each time it becomes the player's turn OR the player takes an action
+    // (roundTimerKey bump in spendAp). When it hits 0, auto-passes the turn.
+    useEffect(() => {
+        if (!battleStarted || battleEnded || prefightCountdown !== null || activeActor !== "player") {
+            setRoundTimer(45);
+            return;
+        }
+        let secs = 45;
+        setRoundTimer(45);
+        const interval = setInterval(() => {
+            secs -= 1;
+            setRoundTimer(secs);
+            if (secs <= 0) {
+                clearInterval(interval);
+                autoEndTurnRef.current();
+            }
+        }, 1000);
+        return () => clearInterval(interval);
+    }, [battleStarted, battleEnded, activeActor, prefightCountdown, roundTimerKey]);
+
+    // ── Auto-resolve enemy turn ───────────────────────────────────────────────
+    // When it becomes the enemy's turn, fire their action automatically after a
+    // short delay. This replaces the manual "Resolve" button tap on mobile.
+    useEffect(() => {
+        if (!battleStarted || battleEnded || activeActor !== "enemy") return;
+        const t = setTimeout(() => enemyTurnRef.current(), 1200);
+        return () => clearTimeout(t);
+    }, [battleStarted, battleEnded, activeActor]);
+
     useEffect(() => {
         if (lobbyMode === "arenaDistrict" && !battleStarted) {
             if (pendingAiProfileId) setPendingAiProfileId("");
@@ -17471,16 +17538,13 @@ function Arena({
         setOpponentCharacter(null);
         setAiLevel(pendingAiProfile.level);
         setEnemyHp(pendingAiProfile.hp);
-        setBattleStarted(true);
-        resetBattle(pendingAiProfile.hp);
-        setLog(`Event battle started against ${pendingAiProfile.name}. Weather: ${weatherEffects[battleWeather].name}.`);
+        startPrefight(pendingAiProfile.hp, `Event battle started against ${pendingAiProfile.name}. Weather: ${weatherEffects[battleWeather].name}.`);
     }, [lobbyMode, pendingAiProfile?.id, battleStarted]);
 
     useEffect(() => {
         if (lobbyMode === "arenaDistrict") return;
         if (!pendingPvpOpponent || battleStarted) return;
         const opponent = normalizeCharacter(pendingPvpOpponent);
-        // Prepare opponent data for battle, but run a 10-second countdown first
         setPendingAiProfileId("");
         if (raidBattleKind === "none") setRaidBattleKind("raidPlayer");
         setRankedBattleActive(false);
@@ -17488,23 +17552,13 @@ function Arena({
         setOpponentCharacter(opponent);
         setEnemyHp(opponent.maxHp);
         setPendingPvpOpponent(null);
-
-        // 10-second countdown before battle starts
-        let secs = 10;
-        setPvpCountdown(secs);
-        const interval = setInterval(() => {
-            secs -= 1;
-            setPvpCountdown(secs);
-            if (secs <= 0) {
-                clearInterval(interval);
-                setPvpCountdown(null);
-                setBattleStarted(true);
-                resetBattle(opponent.maxHp);
-                setLog(`PvP battle started against ${opponent.name}. Weather: ${weatherEffects[currentWeather].name}.`);
-            }
-        }, 1000);
-        return () => clearInterval(interval);
+        startPrefight(opponent.maxHp, `PvP battle started against ${opponent.name}. Weather: ${weatherEffects[currentWeather].name}.`);
     }, [lobbyMode, pendingPvpOpponent?.name, battleStarted]);
+
+    function startPrefight(hp: number, logMsg: string) {
+        prefightDataRef.current = { hp, logMsg };
+        setPrefightCountdown(10);
+    }
 
     function beginRankedBattle(opponent: PlayerRecord) {
         setPendingAiProfileId("");
@@ -17513,9 +17567,7 @@ function Arena({
         setClanWarPointsActive(0);
         setOpponentCharacter(normalizeCharacter(opponent.character));
         setEnemyHp(opponent.character.maxHp);
-        setBattleStarted(true);
-        resetBattle(opponent.character.maxHp);
-        setLog(`Ranked battle started against ${opponent.name}. Neutral ground: no terrain or weather modifiers.`);
+        startPrefight(opponent.character.maxHp, `Ranked battle started against ${opponent.name}. Neutral ground: no terrain or weather modifiers.`);
     }
 
     function beginAiBattle() {
@@ -17527,9 +17579,7 @@ function Arena({
         setClanWarPointsActive(0);
         setOpponentCharacter(null);
         setEnemyHp(hp);
-        setBattleStarted(true);
-        resetBattle(hp);
-        setLog(`AI battle started against a Level ${aiLevel} AI Ninja.`);
+        startPrefight(hp, `AI battle started against a Level ${aiLevel} AI Ninja. Weather: ${weatherEffects[currentWeather].name}.`);
     }
 
     function challengePlayer(opponent: PlayerRecord, mode: DuelChallenge["mode"] = "standard", clanWarPoints = 0) {
@@ -17549,9 +17599,7 @@ function Arena({
         setOpponentCharacter(challenge.challenger);
         setDuelChallenges(duelChallenges.filter((candidate) => candidate.id !== challenge.id));
         setEnemyHp(challenge.challenger.maxHp);
-        setBattleStarted(true);
-        resetBattle(challenge.challenger.maxHp);
-        setLog(`${challenge.mode === "ranked" ? "Ranked duel" : challenge.clanWarPoints ? "Clan war duel" : "Duel"} accepted against ${challenge.fromName}.`);
+        startPrefight(challenge.challenger.maxHp, `${challenge.mode === "ranked" ? "Ranked duel" : challenge.clanWarPoints ? "Clan war duel" : "Duel"} accepted against ${challenge.fromName}.`);
     }
 
     function startTournament() {
@@ -17670,6 +17718,9 @@ function Arena({
         }
         setAp((current) => current - adjustedCost);
         setActionsThisTurn((current) => current + 1);
+        // Reset the 45-second round timer on every successful action so the
+        // player's clock doesn't expire while they're mid-combo.
+        setRoundTimerKey((k) => k + 1);
         return true;
     }
 
@@ -19168,6 +19219,16 @@ function Arena({
         setBattleHistory([]);
     }
 
+    // Keep stable refs fresh — must be after all functions are defined
+    resetBattleRef.current  = resetBattle;
+    setLogRef.current       = setLog;
+    autoEndTurnRef.current  = () => {
+        if (!battleStarted || battleEnded || activeActor !== "player") return;
+        addCombatLog(`⏰ ${character.name}'s turn timed out! Turn passes to ${opponentName}.`, "timeout", character.name);
+        waitTurn();
+    };
+    enemyTurnRef.current    = enemyTurn;
+
     if (!battleStarted) {
         const rankedOpponents = searchablePlayers.filter((player) => player.character.level >= Math.max(1, character.level - 20));
         const clanWarOpponents = opponentClanData
@@ -19354,16 +19415,16 @@ function Arena({
 
     return (
         <div className="arena-fullscreen">
-            {/* Sector PvP countdown overlay */}
-            {pvpCountdown !== null && (
+            {/* Pre-fight countdown overlay — shown for ALL battle types */}
+            {prefightCountdown !== null && (
                 <div className="pvp-countdown-overlay">
                     <div className="pvp-countdown-box">
                         <div className="pvp-countdown-vs">
                             <span className="pvp-countdown-name">{character.name}</span>
                             <span className="pvp-countdown-badge">VS</span>
-                            <span className="pvp-countdown-name">{opponentCharacter?.name ?? "Opponent"}</span>
+                            <span className="pvp-countdown-name">{opponentName}</span>
                         </div>
-                        <div className="pvp-countdown-number">{pvpCountdown}</div>
+                        <div className="pvp-countdown-number">{prefightCountdown}</div>
                         <p className="pvp-countdown-label">Battle begins in…</p>
                     </div>
                 </div>
@@ -19419,6 +19480,24 @@ function Arena({
                             </div>
                             <small>{ap}/100 | {activeActor === "player" ? `Active: ${actionsThisTurn}/5 actions` : "Waiting"}</small>
                         </div>
+
+                        {/* Round timer — shown in the middle column when it's the player's turn */}
+                        {activeActor === "player" && battleStarted && !battleEnded && (
+                            <div className={`round-timer-display${roundTimer <= 10 ? " round-timer-urgent" : ""}`}>
+                                <div className="round-timer-ring" style={{ "--rt-pct": `${(roundTimer / 45) * 100}%` } as React.CSSProperties}>
+                                    <span className="round-timer-num">{roundTimer}</span>
+                                </div>
+                                <small>Turn timer</small>
+                            </div>
+                        )}
+                        {(activeActor !== "player" || !battleStarted || battleEnded) && (
+                            <div className="round-timer-display round-timer-inactive">
+                                <div className="round-timer-ring">
+                                    <span className="round-timer-num">—</span>
+                                </div>
+                                <small>{activeActor === "enemy" ? "Enemy turn…" : "—"}</small>
+                            </div>
+                        )}
 
                         <div>
                             <strong>Enemy AP</strong>
