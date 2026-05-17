@@ -8267,6 +8267,34 @@ function AdminPanel({
         await pmEditPatch(updated);
     }
 
+    async function pmSoftReset() {
+        const name = pmTargetName.trim();
+        if (!name) return;
+        if (!window.confirm(`Soft-reset ${name}? Their name, village, specialty, and bloodline are kept. Everything else goes back to level 1 defaults.`)) return;
+        setPmMsg("⏳ Soft-resetting…");
+        try {
+            const res = await fetch(`/api/save/${encodeURIComponent(name.toLowerCase())}`);
+            if (!res.ok) { setPmMsg("❌ Player not found."); return; }
+            const existing = await res.json() as Record<string, unknown>;
+            const char = (existing.character ?? {}) as Record<string, unknown>;
+            const fresh = createCharacter(
+                (char.name as string) || name,
+                (char.village as string) || "",
+                ((char.specialty as string) || "Ninjutsu") as JutsuType,
+                (char.bloodline as string) || "None",
+            );
+            const freshSnap = { ...existing, character: fresh };
+            const saveRes = await fetch(`/api/save/${encodeURIComponent(name.toLowerCase())}?signal=1`, {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(freshSnap),
+            });
+            if (!saveRes.ok) { setPmMsg("❌ Save failed."); return; }
+            setPmSnap(null);
+            setPmMsg(`✅ ${name} soft-reset to Lv 1. Village, specialty & bloodline preserved.`);
+            fetchAllKnownPlayers();
+        } catch (e) { setPmMsg(`❌ Error: ${String(e)}`); }
+    }
+
     async function pmReset() {
         if (!pmTargetName.trim()) return;
         if (!window.confirm(`Reset ${pmTargetName.trim()}'s account to level 1? This cannot be undone.`)) return;
@@ -11049,17 +11077,19 @@ function AdminPanel({
 
                         {/* ── Reset Account ── */}
                         <section className="summary-box" style={{ borderColor: "#7f1d1d" }}>
-                            <h4>🗑️ Wipe Player Account</h4>
-                            <p className="hint">Deletes the server save entirely. Player starts fresh on next login. Cannot be undone.</p>
-                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                            <h4>🗑️ Reset Player Account</h4>
+                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 8 }}>
                                 <input
                                     style={{ flex: 1, minWidth: 160 }}
                                     value={pmTargetName}
                                     onChange={e => setPmTargetName(e.target.value)}
                                     placeholder="Player name"
                                 />
-                                <button className="danger-button" disabled={!pmTargetName.trim()} onClick={pmReset}>🗑️ Wipe Account</button>
+                                <button disabled={!pmTargetName.trim()} onClick={pmSoftReset} style={{ background: "#78350f", borderColor: "#f59e0b", color: "#fde68a" }}>↺ Soft Reset</button>
+                                <button className="danger-button" disabled={!pmTargetName.trim()} onClick={pmReset}>🗑️ Full Wipe</button>
                             </div>
+                            <p className="hint" style={{ marginBottom: 2 }}><strong style={{ color: "#fde68a" }}>↺ Soft Reset</strong> — keeps name, village, specialty & bloodline. Resets everything else to Lv 1 defaults.</p>
+                            <p className="hint"><strong style={{ color: "#fca5a5" }}>🗑️ Full Wipe</strong> — deletes the save entirely. Player must create a new character.</p>
                             {pmMsg && <p className="hint" style={{ color: pmMsg.startsWith("✅") ? "#4ade80" : pmMsg.startsWith("❌") ? "#f87171" : "#fcd34d", marginTop: 6 }}>{pmMsg}</p>}
                         </section>
 
