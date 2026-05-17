@@ -21956,9 +21956,12 @@ type PvpFighterState = {
     maxHp: number;
     chakra: number;
     maxChakra: number;
+    stamina: number;
+    maxStamina: number;
     shield: number;
     statuses: PvpStatusState[];
     character: Record<string, unknown>;
+    pos: number;
 };
 
 type PvpSessionState = {
@@ -21966,12 +21969,15 @@ type PvpSessionState = {
     p1: PvpFighterState;
     p2: PvpFighterState;
     round: number;
-    p1Move: string | null;
-    p2Move: string | null;
+    activePlayer: "p1" | "p2";
+    ap: { p1: number; p2: number };
+    actionsThisTurn: number;
+    cooldowns: { p1: Record<string, number>; p2: Record<string, number> };
     log: string[];
     status: "active" | "done";
     winner: "p1" | "p2" | "draw" | null;
 };
+
 
 function PvpBattleScreen({
     character,
@@ -21990,10 +21996,74 @@ function PvpBattleScreen({
     currentBiome: Biome;
     currentSector: number;
 }) {
+    // Grid constants — exact match to arena
+    const gridWidth = 12;
+    const gridHeight = 10;
+    const HEX_W = 72;
+    const HEX_H = 42;
+    const X_STEP = HEX_W * 0.75;
+    const Y_STEP = HEX_H * 0.92;
+    const ORB = 52;
+    const GRID_LAYER_W = (gridWidth - 1) * X_STEP + HEX_W;
+    const GRID_LAYER_H = (gridHeight - 1) * Y_STEP + HEX_H * 1.5;
+
     const [session, setSession] = useState<PvpSessionState | null>(null);
     const [submitting, setSubmitting] = useState(false);
+    const [dashMode, setDashMode] = useState(false);
+    const [selectedActionId, setSelectedActionId] = useState<"move" | "dash" | undefined>(undefined);
+    const [pendingJutsuId, setPendingJutsuId] = useState("");
     const [inspectedJutsuId, setInspectedJutsuId] = useState("");
-    const logEndRef = useRef<HTMLDivElement>(null);
+    const [boardScale, setBoardScale] = useState(1);
+    const [boardContainerSize, setBoardContainerSize] = useState({ w: 0, h: 0 });
+    const [userScaleOffset, setUserScaleOffset] = useState(0);
+    const battlefieldRef = useRef<HTMLDivElement | null>(null);
+    const logRef = useRef<HTMLDivElement>(null);
+
+    // Grid helpers — exact match to arena
+    function pvpXY(pos: number) { return { x: pos % gridWidth, y: Math.floor(pos / gridWidth) }; }
+    function pvpPosFromXY(x: number, y: number): number {
+        if (x < 0 || x >= gridWidth || y < 0 || y >= gridHeight) return -1;
+        return y * gridWidth + x;
+    }
+    function pvpAxial(pos: number) { const { x, y } = pvpXY(pos); return { q: x, r: y - ((x - (x & 1)) / 2) }; }
+    function pvpDist(a: number, b: number): number {
+        const A = pvpAxial(a); const B = pvpAxial(b);
+        return (Math.abs(A.q - B.q) + Math.abs(A.q + A.r - B.q - B.r) + Math.abs(A.r - B.r)) / 2;
+    }
+    function pvpHexNeighbors(pos: number): number[] {
+        const { x, y } = pvpXY(pos);
+        const even = x % 2 === 0;
+        const deltas = even
+            ? [[1,0],[1,-1],[0,-1],[-1,-1],[-1,0],[0,1]]
+            : [[1,1],[1,0],[0,-1],[-1,0],[-1,1],[0,1]];
+        return deltas.map(([dx, dy]) => pvpPosFromXY(x + dx!, y + dy!)).filter(n => n >= 0);
+    }
+
+    // ResizeObserver — exact match to arena pattern
+    const battlefieldCallbackRef = useCallback((el: HTMLDivElement | null) => {
+        battlefieldRef.current = el;
+        if ((el as (HTMLDivElement & { _roCleanup?: () => void }) | null)?._roCleanup) {
+            (el as HTMLDivElement & { _roCleanup?: () => void })._roCleanup!();
+        }
+        if (!el) return;
+        function updateScale() {
+            if (!el) return;
+            const cw = el.clientWidth;
+            const ch = el.clientHeight;
+            const isMobileNarrow = cw < 600;
+            const nextScale = Math.min(1, cw / GRID_LAYER_W, ch / GRID_LAYER_H);
+            const minScale = isMobileNarrow ? 0.15 : 0.45;
+            setBoardScale(Math.max(minScale, Math.min(1, Number(nextScale.toFixed(3)))));
+            setBoardContainerSize({ w: cw, h: ch });
+        }
+        updateScale();
+        const observer = new ResizeObserver(updateScale);
+        observer.observe(el);
+        window.addEventListener("resize", updateScale);
+        const cleanup = () => { observer.disconnect(); window.removeEventListener("resize", updateScale); };
+        (el as HTMLDivElement & { _roCleanup?: () => void })._roCleanup = cleanup;
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    const effectiveScale = Math.max(0.15, Math.min(1.5, boardScale + userScaleOffset));
 
     useEffect(() => {
         let active = true;
@@ -22015,14 +22085,14 @@ function PvpBattleScreen({
     }, [battleId]);
 
     useEffect(() => {
-        logEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
     }, [session?.log.length]);
 
     if (!session) return (
         <div className="arena-fullscreen">
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
                 <div className="card" style={{ textAlign: "center", padding: "2rem" }}>
-                    <h2>⚔️ PvP Battle</h2>
+                    <h2>PvP Battle</h2>
                     <p style={{ color: "#94a3b8" }}>Connecting to battle session...</p>
                 </div>
             </div>
@@ -22031,46 +22101,89 @@ function PvpBattleScreen({
 
     const me = role === "p1" ? session.p1 : session.p2;
     const opp = role === "p1" ? session.p2 : session.p1;
-    const myMove = role === "p1" ? session.p1Move : session.p2Move;
-    const submitted = myMove !== null;
+    const myPos = me.pos;
+    const oppPos = opp.pos;
+    const myAp = role === "p1" ? session.ap.p1 : session.ap.p2;
+    const oppAp = role === "p1" ? session.ap.p2 : session.ap.p1;
+    const myCooldowns = role === "p1" ? session.cooldowns.p1 : session.cooldowns.p2;
+    const isMyTurn = session.activePlayer === role;
     const done = session.status === "done";
     const iWon = (session.winner === "p1" && role === "p1") || (session.winner === "p2" && role === "p2");
     const isDraw = session.winner === "draw";
-    const isStunned = me.statuses.some(s => s.name === "Stun" && s.rounds > 0);
+    const pendingJutsu = equippedJutsu.find(j => j.id === pendingJutsuId) ?? null;
     const inspectedJutsu = equippedJutsu.find(j => j.id === inspectedJutsuId) ?? null;
+    const isAdjacent = pvpDist(myPos, oppPos) <= 1;
 
-    const fallbackIcon = (j: Jutsu) =>
-        j.type === "Taijutsu" ? "👊" :
-        j.type === "Bukijutsu" ? "🗡️" :
-        j.type === "Genjutsu" ? "👁️" : "💠";
+    const allTiles = Array.from({ length: gridWidth * gridHeight }, (_, i) => i);
+    const dashRangeTiles = new Set(dashMode ? allTiles.filter(t => t !== myPos && t !== oppPos && pvpDist(myPos, t) <= 3) : []);
+    const moveAdjacentTiles = new Set(selectedActionId === "move" ? pvpHexNeighbors(myPos).filter(t => t !== oppPos) : []);
+    const jutsuRange = pendingJutsu ? Math.max(0, Number(pendingJutsu.range) || 0) : 0;
+    const jutsuRangeTiles = new Set(pendingJutsu ? allTiles.filter(t => t !== myPos && pvpDist(myPos, t) <= jutsuRange) : []);
 
-    async function submitMove(jutsuId: string) {
-        if (submitting || submitted || done) return;
+    async function submitAction(pvpAction: string, pvpTile?: number, pvpJutsuId?: string) {
+        if (submitting || done || !isMyTurn) return;
         setSubmitting(true);
         try {
+            const body: Record<string, unknown> = { battleId, role, action: pvpAction };
+            if (pvpTile !== undefined) body.tile = pvpTile;
+            if (pvpJutsuId) body.jutsuId = pvpJutsuId;
             const res = await fetch("/api/pvp/move", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ battleId, role, jutsuId }),
+                body: JSON.stringify(body),
             });
-            if (res.ok) setSession(await res.json() as PvpSessionState);
+            if (res.ok) {
+                const data = await res.json() as PvpSessionState;
+                setSession(data);
+                if (data.activePlayer !== role) {
+                    setPendingJutsuId(""); setDashMode(false); setSelectedActionId(undefined);
+                }
+            }
         } catch { /* ignore */ }
         finally { setSubmitting(false); }
     }
 
+    function handleTileClick(tileIdx: number) {
+        if (!isMyTurn || submitting || done) return;
+        if (dashMode && dashRangeTiles.has(tileIdx)) {
+            setDashMode(false); setSelectedActionId(undefined);
+            submitAction("dash", tileIdx); return;
+        }
+        if (selectedActionId === "move" && moveAdjacentTiles.has(tileIdx)) {
+            setSelectedActionId(undefined); submitAction("move", tileIdx); return;
+        }
+        if (pendingJutsuId && jutsuRangeTiles.has(tileIdx) && tileIdx === oppPos) {
+            const jId = pendingJutsuId; setPendingJutsuId("");
+            submitAction("jutsu", tileIdx, jId); return;
+        }
+        if (!pendingJutsuId && !dashMode && !selectedActionId && tileIdx === oppPos) {
+            submitAction("basicAttack");
+        }
+    }
+
+    function selectJutsu(jutsu: Jutsu) {
+        if (!isMyTurn || submitting || done) return;
+        setInspectedJutsuId(""); setDashMode(false); setSelectedActionId(undefined);
+        const selfTarget = jutsu.target === "SELF" ||
+            (jutsu.tags ?? []).some(t => ["Heal","Shield","Absorb","Reflect","Lifesteal","Debuff Prevent","Increase Damage Given","Decrease Damage Taken"].includes(t.name));
+        if (selfTarget) submitAction("jutsu", undefined, jutsu.id);
+        else setPendingJutsuId(jutsu.id);
+    }
+
+    const fallbackIcon = (j: Jutsu) =>
+        j.type === "Taijutsu" ? "👊" : j.type === "Bukijutsu" ? "🗡️" : j.type === "Genjutsu" ? "👁️" : "💠";
+    const myAvatar = (me.character?.avatarImage as string) || "";
+    const oppAvatar = (opp.character?.avatarImage as string) || "";
+
     return (
         <div className="arena-fullscreen">
             <div className="combat-layout">
-                {/* Player (me) side HUD */}
                 <CombatSideHud
                     name={`${me.name} (You)`}
-                    avatar={(me.character?.avatarImage as string) || "🥷"}
-                    hp={me.hp}
-                    maxHp={me.maxHp}
-                    chakra={me.chakra}
-                    maxChakra={me.maxChakra}
-                    stamina={0}
-                    maxStamina={1}
+                    avatar={myAvatar || "🥷"}
+                    hp={me.hp} maxHp={me.maxHp}
+                    chakra={me.chakra} maxChakra={me.maxChakra}
+                    stamina={me.stamina} maxStamina={me.maxStamina}
                     shield={me.shield}
                     village={(me.character?.village as string) || ""}
                     turn={session.round}
@@ -22078,99 +22191,210 @@ function PvpBattleScreen({
                 />
 
                 <main className="combat-main-area">
-                    {/* Biome background area — reuses exact arena CSS */}
-                    <div
-                        className={`hex-battlefield hex-${currentBiome}${currentSector === 99 ? " hex-deathsgate" : ""}`}
-                        style={{ minHeight: 160, display: "flex", alignItems: "center", justifyContent: "center" }}
-                    >
-                        <div style={{ textAlign: "center", background: "rgba(0,0,0,0.6)", borderRadius: 12, padding: "0.9rem 2.5rem" }}>
-                            <h2 style={{ margin: 0, fontSize: "1.25em", color: "#fbbf24", letterSpacing: 1 }}>
-                                ⚔️ PvP Battle — Round {session.round}
-                            </h2>
-                            <p style={{ margin: "0.25rem 0 0", color: "#94a3b8", fontSize: "0.82em" }}>
-                                {me.name} vs {opp.name} · Moves resolve simultaneously
-                            </p>
+                    <div className="dual-ap-panel">
+                        <div>
+                            <strong>{me.name} AP</strong>
+                            <div className="hud-bar ap-display-bar"><span style={{ width: `${myAp}%` }} /></div>
+                            <small>{myAp}/100 | {isMyTurn ? `Active: ${session.actionsThisTurn}/5` : "Waiting"}</small>
+                        </div>
+                        <div className="round-timer-display round-timer-inactive">
+                            <div className="round-timer-ring">
+                                <span className="round-timer-num">{session.round}</span>
+                            </div>
+                            <small>{isMyTurn ? "Your Turn" : `${opp.name}'s Turn`}</small>
+                        </div>
+                        <div>
+                            <strong>{opp.name} AP</strong>
+                            <div className="hud-bar enemy-ap-display-bar"><span style={{ width: `${oppAp}%` }} /></div>
+                            <small>{oppAp}/100 | {!isMyTurn ? "Active" : "Waiting"}</small>
                         </div>
                     </div>
 
-                    {/* Jutsu selection panel */}
+                    <div className="hex-zoom-bar">
+                        <span className="hex-zoom-label">🔍</span>
+                        <input type="range" className="hex-zoom-slider" min={-0.4} max={0.5} step={0.02}
+                            value={userScaleOffset} onChange={e => setUserScaleOffset(Number(e.target.value))} />
+                        <button className="hex-zoom-reset" onClick={() => setUserScaleOffset(0)} title="Reset zoom">↺</button>
+                    </div>
+
+                    <div className={`hex-battlefield hex-${currentBiome}${currentSector === 99 ? " hex-deathsgate" : ""}`}
+                        ref={battlefieldCallbackRef}>
+                        <div style={(() => {
+                            const scaledW = GRID_LAYER_W * effectiveScale;
+                            const scaledH = GRID_LAYER_H * effectiveScale;
+                            const cW = boardContainerSize.w || (battlefieldRef.current?.clientWidth ?? scaledW);
+                            const cH = boardContainerSize.h || (battlefieldRef.current?.clientHeight ?? scaledH);
+                            return {
+                                position: "absolute" as const,
+                                left: `${Math.max(0, (cW - scaledW) / 2)}px`,
+                                top: `${Math.max(0, (cH - scaledH) / 2)}px`,
+                                width: `${scaledW}px`,
+                                height: `${scaledH}px`,
+                                overflow: "hidden",
+                            };
+                        })()}>
+                            <div className="hex-grid-layer" style={{
+                                position: "absolute" as const,
+                                width: `${GRID_LAYER_W}px`,
+                                height: `${GRID_LAYER_H}px`,
+                                transform: `scale(${effectiveScale})`,
+                                transformOrigin: "top left",
+                                left: "0", top: "0",
+                            }}>
+                                {(() => {
+                                    const orbForPos = (pos: number, isOpp: boolean, imgSrc: string, altName: string) => {
+                                        const row = Math.floor(pos / gridWidth);
+                                        const col = pos % gridWidth;
+                                        const ox = col * X_STEP + HEX_W / 2 - ORB / 2;
+                                        const oy = row * Y_STEP + (col % 2 === 1 ? HEX_H / 2 : 0) + HEX_H * 0.85 - ORB;
+                                        return (
+                                            <div key={isOpp ? "opp-orb" : "me-orb"}
+                                                className={`avatar-orb ${isOpp ? "enemy-orb" : ""}`}
+                                                style={{ position: "absolute", left: ox, top: oy, width: ORB, height: ORB, zIndex: 10, pointerEvents: "none" }}>
+                                                <img className="tiny-map-avatar" src={imgSrc} alt={altName} />
+                                            </div>
+                                        );
+                                    };
+                                    return (
+                                        <>
+                                            {(myAvatar.startsWith("data:image") || myAvatar.startsWith("blob:")) && orbForPos(myPos, false, myAvatar, me.name)}
+                                            {(oppAvatar.startsWith("data:image") || oppAvatar.startsWith("blob:")) && orbForPos(oppPos, true, oppAvatar, opp.name)}
+                                        </>
+                                    );
+                                })()}
+
+                                {Array.from({ length: gridHeight }).map((_, row) =>
+                                    Array.from({ length: gridWidth }).map((_, col) => {
+                                        const i = row * gridWidth + col;
+                                        const tx = col * X_STEP;
+                                        const ty = row * Y_STEP + (col % 2 === 1 ? HEX_H / 2 : 0);
+                                        const isMyTile = i === myPos;
+                                        const isOppTile = i === oppPos;
+                                        const canMove = dashRangeTiles.has(i) || moveAdjacentTiles.has(i);
+                                        const isJutsuRange = jutsuRangeTiles.has(i);
+                                        const isPendingTarget = !!pendingJutsuId && i === oppPos && jutsuRangeTiles.has(i);
+                                        return (
+                                            <button
+                                                key={i}
+                                                className={`hex-tile${isMyTile ? " hex-player" : ""}${isOppTile ? " hex-enemy" : ""}${canMove ? " dash-target-tile" : ""}${isJutsuRange ? " jutsu-range-tile" : ""}${isPendingTarget ? " jutsu-target-tile" : ""}`}
+                                                style={{ left: `${tx}px`, top: `${ty}px`, width: `${HEX_W}px`, height: `${HEX_H}px` }}
+                                                onClick={() => handleTileClick(i)}
+                                            >
+                                                {isMyTile && !myAvatar.startsWith("data:") && !myAvatar.startsWith("blob:") ? "🥷"
+                                                    : isOppTile && !oppAvatar.startsWith("data:") && !oppAvatar.startsWith("blob:") ? "EN"
+                                                    : ""}
+                                            </button>
+                                        );
+                                    })
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {!done && (isMyTurn ? (
+                        <div className="basic-action-bar shinobi-command-bar">
+                            <button onClick={() => submitAction("basicAttack")}
+                                disabled={submitting || !isAdjacent || myAp < 40 || me.stamina < 10}>
+                                <span>Attack</span><small>40 AP | 10 SP{!isAdjacent ? " | Move closer" : ""}</small>
+                            </button>
+                            <button className={selectedActionId === "move" ? "selected-action" : ""}
+                                onClick={() => { setPendingJutsuId(""); setDashMode(false); setSelectedActionId(v => v === "move" ? undefined : "move"); }}
+                                disabled={submitting || myAp < 30}>
+                                <span>Move</span><small>30 AP / tile</small>
+                            </button>
+                            <button className={dashMode ? "selected-action" : ""}
+                                onClick={() => { setPendingJutsuId(""); setSelectedActionId(undefined); setDashMode(v => !v); }}
+                                disabled={submitting || myAp < 30}>
+                                <span>Dash</span><small>3 tiles | 30 AP</small>
+                            </button>
+                            <button onClick={() => submitAction("basicHeal")}
+                                disabled={submitting || (myCooldowns.basicHeal ?? 0) > 0 || me.chakra < 10 || myAp < 60}>
+                                <span>Heal</span><small>60 AP | 10 CP | CD {myCooldowns.basicHeal ?? 0}</small>
+                            </button>
+                            <button onClick={() => submitAction("clear")}
+                                disabled={submitting || (myCooldowns.clear ?? 0) > 0 || myAp < 60}>
+                                <span>Clear</span><small>60 AP | CD {myCooldowns.clear ?? 0}</small>
+                            </button>
+                            <button onClick={() => submitAction("cleanse")}
+                                disabled={submitting || (myCooldowns.cleanse ?? 0) > 0 || myAp < 60}>
+                                <span>Cleanse</span><small>60 AP | CD {myCooldowns.cleanse ?? 0}</small>
+                            </button>
+                            <button onClick={() => submitAction("flee")} disabled={submitting || myAp < 100}>
+                                <span>Flee</span><small>100 AP | 20%</small>
+                            </button>
+                            <button onClick={() => submitAction("wait")} disabled={submitting}>
+                                <span>Wait</span><small>End turn</small>
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="basic-action-bar shinobi-command-bar" style={{ justifyContent: "center" }}>
+                            <p style={{ color: "#94a3b8", padding: "0.5rem 1rem", margin: 0 }}>
+                                {opp.name} is taking their turn...
+                            </p>
+                        </div>
+                    ))}
+
                     <div className="jutsu-layout-card combat-jutsu-bar">
                         {done ? (
                             <div style={{ textAlign: "center", padding: "1.25rem 0" }}>
-                                <h3 style={{
-                                    fontSize: "1.6em", marginBottom: "0.5rem",
-                                    color: isDraw ? "#94a3b8" : iWon ? "#4ade80" : "#f87171",
-                                }}>
-                                    {isDraw ? "🤝 Draw!" : iWon ? "🏆 Victory!" : "💀 Defeated!"}
+                                <h3 style={{ fontSize: "1.6em", marginBottom: "0.5rem", color: isDraw ? "#94a3b8" : iWon ? "#4ade80" : "#f87171" }}>
+                                    {isDraw ? "Draw!" : iWon ? "Victory!" : "Defeated!"}
                                 </h3>
                                 <button onClick={() => setScreen("worldMap")}>Return to World Map</button>
                             </div>
-                        ) : submitted ? (
-                            <p style={{ textAlign: "center", color: "#94a3b8", padding: "0.75rem" }}>
-                                ⏳ Move locked in — waiting for {opp.name}...
+                        ) : !isMyTurn ? (
+                            <p style={{ textAlign: "center", color: "#94a3b8", padding: "0.75rem", fontSize: "0.85em", margin: 0 }}>
+                                Waiting for {opp.name} to act...
                             </p>
-                        ) : isStunned ? (
-                            <div style={{ textAlign: "center" }}>
-                                <p style={{ color: "#a78bfa", marginBottom: "0.5rem", fontSize: "0.9em" }}>
-                                    You are stunned and cannot act this round.
-                                </p>
-                                <button onClick={() => submitMove("skip")} disabled={submitting}>
-                                    Confirm Skip (Stunned)
-                                </button>
-                            </div>
                         ) : (
                             <>
-                                <p style={{ color: "#94a3b8", marginBottom: "0.4rem", fontSize: "0.82em", padding: "0 0.25rem" }}>
-                                    Pick your jutsu — both moves resolve simultaneously:
-                                </p>
-                                <div className="combat-equipped-jutsu-grid">
-                                    {equippedJutsu.map(j => {
-                                        const mastery = getJutsuMastery(character, j.id);
-                                        const scaled = scaleJutsuByLevel(j, mastery.level);
-                                        return (
-                                            <div key={j.id} className="combat-jutsu-card-wrap">
-                                                <button
-                                                    type="button"
-                                                    className="combat-jutsu-button"
-                                                    title={`${j.name} | ${j.ap} AP | ${scaled.scaledEffectPower}% EP`}
-                                                    onClick={() => { setInspectedJutsuId(""); submitMove(j.id); }}
-                                                    disabled={submitting}
-                                                >
-                                                    <span className="combat-jutsu-thumb">
-                                                        {j.image ? <img src={j.image} alt={j.name} /> : <strong>{fallbackIcon(j)}</strong>}
-                                                    </span>
-                                                    <span className="combat-jutsu-name">{j.name}</span>
-                                                    <span className="combat-jutsu-info">{j.ap} AP | {j.type} | {scaled.scaledEffectPower}% EP</span>
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    className="combat-jutsu-help"
-                                                    onClick={() => setInspectedJutsuId(inspectedJutsuId === j.id ? "" : j.id)}
-                                                    title={`View ${j.name} details`}
-                                                >?</button>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                                <button
-                                    onClick={() => submitMove("skip")}
-                                    disabled={submitting}
-                                    style={{ width: "100%", marginTop: "0.35rem", opacity: 0.55, fontSize: "0.8em" }}
-                                >
-                                    Skip Turn
-                                </button>
-
+                                {pendingJutsu && (
+                                    <div className="summary-box combat-target-prompt">
+                                        <strong>{pendingJutsu.name} armed</strong>
+                                        <span>Click {opp.name} on the battlefield (range {pendingJutsu.range}) to fire.</span>
+                                        <button type="button" onClick={() => setPendingJutsuId("")}>Cancel</button>
+                                    </div>
+                                )}
+                                {equippedJutsu.length === 0 ? (
+                                    <div className="summary-box">No equipped jutsus. Equip from Profile.</div>
+                                ) : (
+                                    <div className="combat-equipped-jutsu-grid">
+                                        {equippedJutsu.map(j => {
+                                            const mastery = getJutsuMastery(character, j.id);
+                                            const scaled = scaleJutsuByLevel(j, mastery.level);
+                                            const onCooldown = (myCooldowns[j.id] ?? 0) > 0;
+                                            const isArmed = pendingJutsuId === j.id;
+                                            return (
+                                                <div key={j.id} className={`combat-jutsu-card-wrap${isArmed ? " selected-action" : ""}`}>
+                                                    <button
+                                                        type="button"
+                                                        className={`combat-jutsu-button${isArmed ? " selected-action" : ""}${onCooldown ? " jutsu-on-cooldown" : ""}`}
+                                                        title={onCooldown ? `${j.name} cooldown: ${myCooldowns[j.id]} turns` : `${j.name} | ${j.ap} AP | Range ${j.range}`}
+                                                        onClick={() => !onCooldown && selectJutsu(j)}
+                                                        disabled={submitting || onCooldown || myAp < (j.ap ?? 40)}
+                                                    >
+                                                        <span className="combat-jutsu-thumb">
+                                                            {j.image ? <img src={j.image} alt={j.name} /> : <strong>{fallbackIcon(j)}</strong>}
+                                                        </span>
+                                                        <span className="combat-jutsu-name">{j.name}</span>
+                                                        <span className="combat-jutsu-info">{j.ap} AP | R{j.range} | CD {myCooldowns[j.id] ?? 0}</span>
+                                                    </button>
+                                                    <button type="button" className="combat-jutsu-help"
+                                                        onClick={() => setInspectedJutsuId(inspectedJutsuId === j.id ? "" : j.id)}
+                                                        title={`View ${j.name} details`}>?</button>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
                                 {inspectedJutsu && (() => {
                                     const mastery = getJutsuMastery(character, inspectedJutsu.id);
                                     const scaled = scaleJutsuByLevel(inspectedJutsu, mastery.level);
                                     return (
                                         <div className="combat-jutsu-detail-popover">
                                             <div className="combat-jutsu-detail-header">
-                                                <div>
-                                                    <strong>{inspectedJutsu.name}</strong>
-                                                    <small>Level {mastery.level}</small>
-                                                </div>
-                                                <button type="button" onClick={() => setInspectedJutsuId("")}>×</button>
+                                                <div><strong>{inspectedJutsu.name}</strong><small>Level {mastery.level}</small></div>
+                                                <button type="button" onClick={() => setInspectedJutsuId("")}>x</button>
                                             </div>
                                             <div className="combat-jutsu-detail-grid">
                                                 <span><strong>Type:</strong> {inspectedJutsu.type}</span>
@@ -22182,9 +22406,7 @@ function PvpBattleScreen({
                                                 <span><strong>Chakra Cost:</strong> {scaled.chakraCost}</span>
                                                 <span><strong>Stamina Cost:</strong> {scaled.staminaCost}</span>
                                             </div>
-                                            {inspectedJutsu.description && (
-                                                <p className="combat-jutsu-detail-desc">{inspectedJutsu.description}</p>
-                                            )}
+                                            {inspectedJutsu.description && <p className="combat-jutsu-detail-desc">{inspectedJutsu.description}</p>}
                                             <div className="combat-jutsu-effects-list">
                                                 <JutsuEffectCards jutsu={inspectedJutsu} scaledEffectPower={scaled.scaledEffectPower} />
                                             </div>
@@ -22195,43 +22417,27 @@ function PvpBattleScreen({
                         )}
                     </div>
 
-                    {/* Battle log — same timeline style as arena */}
-                    <div className="combat-text-log combat-timeline">
+                    <div ref={logRef} className="combat-text-log combat-timeline">
                         <div className="combat-log-header">
                             <strong>Battle Log</strong>
-                            <span>Round {session.round}</span>
+                            <span>Round {session.round} | {isMyTurn ? "Your Turn" : `${opp.name}'s Turn`}</span>
                         </div>
                         {session.log.length === 0 ? (
                             <p>No log entries yet.</p>
-                        ) : (
-                            session.log.map((line, i) => (
-                                <p
-                                    key={i}
-                                    className="timeline-entry timeline-player"
-                                    style={{
-                                        color: line.startsWith("—") ? "#475569" : line.includes("wins!") || line.includes("Victory") ? "#fbbf24" : "#cbd5e1",
-                                        borderBottom: line.startsWith("—") ? "1px solid #1e293b" : undefined,
-                                        paddingBottom: line.startsWith("—") ? "0.1rem" : undefined,
-                                    }}
-                                >
-                                    {line}
-                                </p>
-                            ))
-                        )}
-                        <div ref={logEndRef} />
+                        ) : session.log.map((line, i) => (
+                            <p key={i} className="timeline-entry timeline-player" style={{
+                                color: line.includes("wins!") ? "#fbbf24" : "#cbd5e1",
+                            }}>{line}</p>
+                        ))}
                     </div>
                 </main>
 
-                {/* Opponent side HUD */}
                 <CombatSideHud
                     name={opp.name}
-                    avatar={(opp.character?.avatarImage as string) || "🥷"}
-                    hp={opp.hp}
-                    maxHp={opp.maxHp}
-                    chakra={opp.chakra}
-                    maxChakra={opp.maxChakra}
-                    stamina={0}
-                    maxStamina={1}
+                    avatar={oppAvatar || "EN"}
+                    hp={opp.hp} maxHp={opp.maxHp}
+                    chakra={opp.chakra} maxChakra={opp.maxChakra}
+                    stamina={opp.stamina} maxStamina={opp.maxStamina}
                     shield={opp.shield}
                     village={(opp.character?.village as string) || ""}
                     turn={session.round}
@@ -22241,3 +22447,4 @@ function PvpBattleScreen({
         </div>
     );
 }
+
