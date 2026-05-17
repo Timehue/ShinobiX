@@ -4002,8 +4002,25 @@ export default function App() {
                     body: JSON.stringify({ name: char.name, sector: currentSector, character: char }),
                 });
                 if (!res.ok) return;
-                const data: { sectorMates?: PlayerRecord[]; pendingAttacker?: Character | null; pendingChallenges?: DuelChallenge[] } = await res.json();
+                const data: { sectorMates?: PlayerRecord[]; allPlayers?: PlayerRecord[]; pendingAttacker?: Character | null; pendingChallenges?: DuelChallenge[] } = await res.json();
                 if (data.sectorMates) setLiveSectorPlayers(data.sectorMates);
+                // Merge server-reported active players into the local roster so players
+                // on different devices/browsers appear in search, spar, pet arena, etc.
+                if (data.allPlayers?.length) {
+                    setPlayerRoster(prev => {
+                        const merged = [...prev];
+                        for (const incoming of data.allPlayers!) {
+                            const idx = merged.findIndex(p => p.name === incoming.name);
+                            const record: PlayerRecord = {
+                                ...incoming,
+                                character: normalizeCharacter(incoming.character as Character),
+                            };
+                            if (idx >= 0) merged[idx] = record;
+                            else merged.push(record);
+                        }
+                        return merged.slice(0, 50);
+                    });
+                }
                 if (data.pendingChallenges?.length) {
                     setDuelChallenges((current) => {
                         const incoming = data.pendingChallenges!
