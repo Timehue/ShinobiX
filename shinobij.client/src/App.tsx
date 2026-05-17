@@ -15628,9 +15628,12 @@ function WorldMap({
 
         const battleRoll = Math.random();
 
-        // 80% random AI battle chance
+        // 80% random AI battle chance — pick AI closest in level to the player
         if (battleRoll <= 0.80 && playableAis.length > 0) {
-            const randomAi = playableAis[Math.floor(Math.random() * playableAis.length)];
+            const sorted = [...playableAis].sort((a, b) => Math.abs((a.level ?? 1) - character.level) - Math.abs((b.level ?? 1) - character.level));
+            const closestLevel = Math.abs((sorted[0].level ?? 1) - character.level);
+            const levelMatches = sorted.filter(ai => Math.abs((ai.level ?? 1) - character.level) === closestLevel);
+            const randomAi = levelMatches[Math.floor(Math.random() * levelMatches.length)];
 
             updateCharacter(exploredCharacter);
             alert(`A hostile shinobi appears: ${randomAi.name}!`);
