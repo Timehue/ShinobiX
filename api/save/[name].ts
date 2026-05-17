@@ -2,6 +2,8 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '@vercel/kv';
 import { safeName, mergePreservingImages, cors } from '../_utils.js';
 
+const REGISTRY_KEY = 'player:registry';
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res);
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -22,7 +24,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const incoming = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
             const existing = await kv.get(key);
             const payload = existing ? mergePreservingImages(incoming, existing) : incoming;
-            await kv.set(key, payload);
+
+            // Upsert player into persistent registry so admin can always see all accounts
+            const char = (incoming as Record<string, unknown>)?.character as Record<string, unknown> | undefined;
+            const displayName: string = (char?.name as string) || name;
+            const registryEntry = {
+                name: displayName,
+                level: (char?.level as number) ?? 1,
+                village: (char?.village as string) ?? '',
+                specialty: (char?.specialty as string) ?? '',
+                lastSeen: Date.now(),
+            };
+
+            await Promise.all([
+                kv.set(key, payload),
+                kv.hset(REGISTRY_KEY, { [name]: JSON.stringify(registryEntry) }),
+            ]);
             return res.status(200).end();
         } catch (err) {
             return res.status(500).json({ error: String(err) });
