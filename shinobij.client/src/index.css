@@ -9794,9 +9794,8 @@ button.combat-jutsu-button,
         display: none !important;
     }
 
-    .arena-fullscreen .combat-layout {
-        grid-template-columns: 1fr !important;
-    }
+    /* Arena keeps 3-column layout at this breakpoint — only collapse to
+       single-column on mobile (≤800px) where the compact HUD strip takes over. */
 
     .arena-fullscreen .combat-side-hud {
         position: static !important;
@@ -10412,7 +10411,7 @@ button.combat-jutsu-button,
 /* terrain-weather-panel relocated to twp-strip */
 
 .arena-fullscreen .combat-side-hud {
-    min-height: 760px !important;
+    min-height: 0 !important;
     height: auto !important;
     max-height: none !important;
     overflow: visible !important;
