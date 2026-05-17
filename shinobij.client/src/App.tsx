@@ -54,7 +54,8 @@ type Screen =
     | "hunting"
     | "tavern"
     | "hallOfLegends"
-    | "shinobiCouncil";
+    | "shinobiCouncil"
+    | "pvpBattle";
 
 type Rank = "B Rank" | "A Rank" | "S Rank";
 type Biome = "forest" | "snow" | "volcano" | "shadow" | "central";
@@ -506,6 +507,7 @@ type DuelChallenge = {
     mode?: "standard" | "ranked" | "clanWar1v1" | "clanWar2v2" | "clanWarPet";
     clanWarPoints?: number;
     sectorAttack?: boolean; // true = initiated from world-map sector, auto-routes defender
+    battleId?: string;     // if set, both players join a shared PvP session instead of separate arenas
 };
 
 type AiCondition = "always" | "specific_round" | "distance_lower_than" | "distance_higher_than" | "hp_lower_than";
@@ -4095,6 +4097,8 @@ export default function App() {
     const [activeJutsuTraining, setActiveJutsuTraining] = useState<ActiveJutsuTraining | null>(null);
     const [pendingAiProfileId, setPendingAiProfileId] = useState("");
     const [pendingPvpOpponent, setPendingPvpOpponent] = useState<Character | null>(null);
+    const [pvpBattleId, setPvpBattleId] = useState<string | null>(null);
+    const [pvpRole, setPvpRole] = useState<"p1" | "p2" | null>(null);
     const [temporaryStoryAi, setTemporaryStoryAi] = useState<CreatorAi | null>(null);
     const [raidBattleKind, setRaidBattleKind] = useState<"none" | "raidAi" | "raidPlayer" | "defense">("none");
     const [endlessBattleActive, setEndlessBattleActive] = useState(false);
@@ -4260,16 +4264,22 @@ export default function App() {
         return () => clearInterval(id);
     }, [character?.name]);
 
-    // Sector-attack auto-routing: if a sectorAttack challenge arrives addressed to us,
-    // immediately route us to the arena as the defender (no accept/decline required).
+    // Sector-attack auto-routing: if a sectorAttack challenge arrives, route defender to
+    // the shared PvP battle (battleId present) or legacy arena as fallback.
     useEffect(() => {
         if (!character) return;
         const incoming = duelChallenges.find(c => c.toName.toLowerCase() === character.name.toLowerCase() && c.sectorAttack);
         if (!incoming) return;
         setDuelChallenges(duelChallenges.filter(c => c.id !== incoming.id));
-        setPendingPvpOpponent(normalizeCharacter(incoming.challenger));
-        setRaidBattleKind("defense");
-        setScreen("arena");
+        if (incoming.battleId) {
+            setPvpBattleId(incoming.battleId);
+            setPvpRole("p2");
+            setScreen("pvpBattle");
+        } else {
+            setPendingPvpOpponent(normalizeCharacter(incoming.challenger));
+            setRaidBattleKind("defense");
+            setScreen("arena");
+        }
     }, [duelChallenges.length, character?.name]);
 
     useEffect(() => {
@@ -5594,8 +5604,39 @@ export default function App() {
                         missionProgress={missionProgress}
                         sharedImages={sharedImages}
                         onDungeonFound={() => triggerDungeonEncounter("worldMap")}
-                        sectorAttackPlayer={(opponent) => {
-                            // Sector PvP — immediate mutual engagement, defender auto-routed
+                        setPvpBattleId={setPvpBattleId}
+                        setPvpRole={setPvpRole}
+                        savedBloodlines={savedBloodlines}
+                        creatorJutsus={creatorJutsus}
+                        sectorAttackPlayer={async (opponent) => {
+                            // Create shared PvP session so both players fight each other for real
+                            const p1Jutsus = getAllJutsus(savedBloodlines, creatorJutsus, character)
+                                .filter(j => character.equippedJutsuIds.includes(j.id));
+                            const oppChar = opponent.character as Character;
+                            const p2Jutsus = getAllJutsus(savedBloodlines, creatorJutsus, oppChar)
+                                .filter(j => oppChar.equippedJutsuIds.includes(j.id));
+                            let battleId = '';
+                            try {
+                                const sr = await fetch('/api/pvp/session', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        p1Character: { ...character, jutsu: p1Jutsus },
+                                        p2Character: { ...oppChar, jutsu: p2Jutsus },
+                                    }),
+                                });
+                                if (sr.ok) ({ battleId } = await sr.json() as { battleId: string });
+                            } catch { /* fallback below */ }
+
+                            if (!battleId) {
+                                // Fallback: old arena behavior
+                                setPendingPvpOpponent(normalizeCharacter(opponent.character));
+                                setRaidBattleKind("raidPlayer");
+                                setScreen("arena");
+                                return;
+                            }
+
+                            // Notify defender via DuelChallenge with battleId
                             const challenge: DuelChallenge = {
                                 id: makeId(),
                                 fromName: character.name,
@@ -5604,16 +5645,18 @@ export default function App() {
                                 createdAt: Date.now(),
                                 mode: "standard" as const,
                                 sectorAttack: true,
+                                battleId,
                             };
-                            setDuelChallenges([...duelChallenges, challenge]);
-                            setPendingAiProfileId("");
-                            setPendingPvpOpponent(normalizeCharacter(opponent.character));
-                            setRaidBattleKind("raidPlayer");
-                            fetch('/api/player/attack', {
+                            fetch('/api/player/challenge', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ targetName: opponent.name, attacker: character }),
-                            }).catch(() => { /* defender notification best-effort */ });
+                                body: JSON.stringify({ targetName: opponent.name, challenge }),
+                            }).catch(() => {});
+
+                            // Route attacker to shared pvpBattle as p1
+                            setPvpBattleId(battleId);
+                            setPvpRole("p1");
+                            setScreen("pvpBattle");
                         }}
                     />
                 )}
@@ -5715,6 +5758,20 @@ export default function App() {
                         onMissionRaidComplete={recordMissionRaid}
                     />
                 )}
+
+                {screen === "pvpBattle" && character && pvpBattleId && pvpRole && (() => {
+                    const pvpJutsus = getAllJutsus(savedBloodlines, creatorJutsus, character)
+                        .filter(j => character.equippedJutsuIds.includes(j.id));
+                    return (
+                        <PvpBattleScreen
+                            character={character}
+                            battleId={pvpBattleId}
+                            role={pvpRole}
+                            setScreen={navigate}
+                            equippedJutsu={pvpJutsus}
+                        />
+                    );
+                })()}
 
                 {!activeTriggeredEvent && screen === "bloodlineMaker" && (
                     <BloodlineMaker
@@ -16168,6 +16225,10 @@ function WorldMap({
     missionProgress,
     sharedImages = {},
     onDungeonFound,
+    setPvpBattleId,
+    setPvpRole,
+    savedBloodlines,
+    creatorJutsus: wmCreatorJutsus,
 }: {
     setCurrentBiome: (biome: Biome) => void;
     setScreen: (screen: Screen) => void;
@@ -16190,6 +16251,10 @@ function WorldMap({
     missionProgress: Record<string, number>;
     sharedImages?: Record<string, string>;
     onDungeonFound: () => void;
+    setPvpBattleId: (id: string) => void;
+    setPvpRole: (role: "p1" | "p2") => void;
+    savedBloodlines: SavedBloodline[];
+    creatorJutsus: Jutsu[];
 }) {
     const [selectedSector, setSelectedSector] = useState<number | null>(null);
     const [selectedVillageTerritory, setSelectedVillageTerritory] = useState<typeof locations[number] | null>(null);
@@ -16230,14 +16295,40 @@ function WorldMap({
         }
     }
 
-    function startPvpRaid(opponent: Character, sector: number, biome: Biome, weather: WeatherType) {
-        setPendingAiProfileId("");
-        setPendingPvpOpponent(normalizeCharacter(opponent));
-        setRaidBattleKind("raidPlayer");
+    async function startPvpRaid(opponent: Character, sector: number, biome: Biome, weather: WeatherType) {
         setCurrentSector(sector);
         setCurrentBiome(biome);
         setCurrentWeather(weather);
-        setScreen("arena");
+
+        // Embed jutsu objects so server can resolve moves
+        const p1Jutsus = getAllJutsus(savedBloodlines, wmCreatorJutsus, character)
+            .filter(j => character.equippedJutsuIds.includes(j.id));
+        const p2Jutsus = getAllJutsus(savedBloodlines, wmCreatorJutsus, opponent)
+            .filter(j => opponent.equippedJutsuIds.includes(j.id));
+
+        let battleId = '';
+        try {
+            const sr = await fetch('/api/pvp/session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    p1Character: { ...character, jutsu: p1Jutsus },
+                    p2Character: { ...opponent, jutsu: p2Jutsus },
+                }),
+            });
+            if (sr.ok) ({ battleId } = await sr.json() as { battleId: string });
+        } catch { /* fallback below */ }
+
+        if (!battleId) {
+            setPendingPvpOpponent(normalizeCharacter(opponent));
+            setRaidBattleKind("raidPlayer");
+            setScreen("arena");
+            return;
+        }
+
+        setPvpBattleId(battleId);
+        setPvpRole("p1");
+        setScreen("pvpBattle");
     }
 
     function pickGuardAi(level: number, defenseBonusPercent = 0): string {
@@ -17023,42 +17114,61 @@ function WorldMap({
                                         className="territory-raid-btn"
                                         onClick={async () => {
                                             const guard = territoryGuards[0];
+                                            setCurrentSector(virtualSector);
+                                            setCurrentBiome(biome);
+                                            setCurrentWeather(weather);
+
+                                            // Fetch guard's actual character data
+                                            let guardChar: Character | null = null;
                                             try {
-                                                const res = await fetch('/api/village-guard/challenge', {
+                                                const cr = await fetch('/api/village-guard/challenge', {
                                                     method: 'POST',
                                                     headers: { 'Content-Type': 'application/json' },
                                                     body: JSON.stringify({ attackerCharacter: character, village: loc.name }),
                                                 });
-                                                const data = await res.json() as {
-                                                    pvp?: boolean; guardCharacter?: unknown;
-                                                    noGuard?: boolean; guardLevel?: number; defenseBonusPercent?: number;
-                                                };
-                                                if (data.pvp && data.guardCharacter) {
-                                                    startPvpRaid(data.guardCharacter as Character, virtualSector, biome, weather);
+                                                const data = await cr.json() as { pvp?: boolean; guardCharacter?: unknown; guardLevel?: number; defenseBonusPercent?: number; };
+                                                if (data.pvp && data.guardCharacter) guardChar = data.guardCharacter as Character;
+                                            } catch { /* ignore */ }
+
+                                            if (!guardChar) guardChar = await fetchSavedPlayerCharacter(guard.name);
+
+                                            if (guardChar) {
+                                                // Embed jutsu so server can resolve moves
+                                                const p1j = getAllJutsus(savedBloodlines, wmCreatorJutsus, character).filter(j => character.equippedJutsuIds.includes(j.id));
+                                                const p2j = getAllJutsus(savedBloodlines, wmCreatorJutsus, guardChar).filter(j => guardChar.equippedJutsuIds.includes(j.id));
+                                                // Create shared PvP session and notify the guard via challenge
+                                                let battleId = '';
+                                                try {
+                                                    const sr = await fetch('/api/pvp/session', {
+                                                        method: 'POST',
+                                                        headers: { 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({ p1Character: { ...character, jutsu: p1j }, p2Character: { ...guardChar, jutsu: p2j } }),
+                                                    });
+                                                    if (sr.ok) ({ battleId } = await sr.json() as { battleId: string });
+                                                } catch { /* fallback */ }
+
+                                                if (battleId) {
+                                                    // Send battleId to the guard so they auto-route to pvpBattle
+                                                    fetch('/api/village-guard/challenge', {
+                                                        method: 'POST',
+                                                        headers: { 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({ attackerCharacter: character, village: loc.name, battleId }),
+                                                    }).catch(() => {});
+                                                    setPvpBattleId(battleId);
+                                                    setPvpRole("p1");
+                                                    setScreen("pvpBattle");
                                                     return;
-                                                } else {
-                                                    const savedGuard = await fetchSavedPlayerCharacter(guard.name);
-                                                    if (savedGuard) {
-                                                        startPvpRaid(savedGuard, virtualSector, biome, weather);
-                                                        return;
-                                                    }
-                                                    setPendingPvpOpponent(null);
-                                                    setPendingAiProfileId(pickGuardAi(data.guardLevel ?? guard.level, data.defenseBonusPercent ?? guard.defenseBonusPercent ?? 0));
-                                                    setRaidBattleKind("raidAi");
                                                 }
-                                            } catch {
-                                                const savedGuard = await fetchSavedPlayerCharacter(guard.name);
-                                                if (savedGuard) {
-                                                    startPvpRaid(savedGuard, virtualSector, biome, weather);
-                                                    return;
-                                                }
-                                                setPendingPvpOpponent(null);
-                                                setPendingAiProfileId(pickGuardAi(guard.level, guard.defenseBonusPercent ?? 0));
-                                                setRaidBattleKind("raidAi");
+                                                // Session creation failed — fallback to arena
+                                                setPendingPvpOpponent(normalizeCharacter(guardChar));
+                                                setRaidBattleKind("raidPlayer");
+                                                setScreen("arena");
+                                                return;
                                             }
-                                            setCurrentSector(virtualSector);
-                                            setCurrentBiome(biome);
-                                            setCurrentWeather(weather);
+
+                                            // No guard character — AI fallback
+                                            setPendingAiProfileId(pickGuardAi(guard.level, guard.defenseBonusPercent ?? 0));
+                                            setRaidBattleKind("raidAi");
                                             setScreen("arena");
                                         }}
                                     >
@@ -21823,6 +21933,216 @@ function CombatEffectsPanel({
                         <small>{s.percent ? `${s.percent}%` : s.amount ? `${s.amount}` : "active"} | {s.rounds}r</small>
                     </div>
                 ))
+            )}
+        </div>
+    );
+}
+
+// ─── True Player-vs-Player Battle Screen ────────────────────────────────────
+
+type PvpFighterState = {
+    name: string;
+    hp: number;
+    maxHp: number;
+    shield: number;
+    stunRounds: number;
+    wound: boolean;
+    character: Character;
+};
+
+type PvpSessionState = {
+    battleId: string;
+    p1: PvpFighterState;
+    p2: PvpFighterState;
+    round: number;
+    p1Move: string | null;
+    p2Move: string | null;
+    log: string[];
+    status: "active" | "done";
+    winner: "p1" | "p2" | "draw" | null;
+};
+
+function PvpBattleScreen({
+    character,
+    battleId,
+    role,
+    setScreen,
+    equippedJutsu,
+}: {
+    character: Character;
+    battleId: string;
+    role: "p1" | "p2";
+    setScreen: (s: Screen) => void;
+    equippedJutsu: Jutsu[];
+}) {
+    const [session, setSession] = useState<PvpSessionState | null>(null);
+    const [submitting, setSubmitting] = useState(false);
+    const logRef = useRef<HTMLDivElement>(null);
+
+    // Poll the shared session every 2 seconds until battle ends
+    useEffect(() => {
+        let active = true;
+        async function poll() {
+            while (active) {
+                try {
+                    const res = await fetch(`/api/pvp/session?id=${encodeURIComponent(battleId)}`);
+                    if (res.ok) {
+                        const data = await res.json() as PvpSessionState;
+                        setSession(data);
+                        if (data.status === "done") break;
+                    }
+                } catch { /* ignore network errors */ }
+                await new Promise<void>(r => setTimeout(r, 2000));
+            }
+        }
+        poll();
+        return () => { active = false; };
+    }, [battleId]);
+
+    useEffect(() => {
+        if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
+    }, [session?.log.length]);
+
+    if (!session) return (
+        <div className="card" style={{ textAlign: "center", padding: "2rem" }}>
+            <h2>⚔️ PvP Battle</h2>
+            <p style={{ color: "#94a3b8" }}>Connecting to battle session...</p>
+        </div>
+    );
+
+    const me = role === "p1" ? session.p1 : session.p2;
+    const opp = role === "p1" ? session.p2 : session.p1;
+    const myMove = role === "p1" ? session.p1Move : session.p2Move;
+    const submitted = myMove !== null;
+    const jutsuList = equippedJutsu;
+    const done = session.status === "done";
+    const iWon = (session.winner === "p1" && role === "p1") || (session.winner === "p2" && role === "p2");
+    const isDraw = session.winner === "draw";
+
+    async function submitMove(jutsuId: string) {
+        if (submitting || submitted || done) return;
+        setSubmitting(true);
+        try {
+            const res = await fetch("/api/pvp/move", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ battleId, role, jutsuId }),
+            });
+            if (res.ok) setSession(await res.json() as PvpSessionState);
+        } catch { /* ignore */ }
+        finally { setSubmitting(false); }
+    }
+
+    const hpColor = (pct: number) => pct > 50 ? "#4ade80" : pct > 25 ? "#facc15" : "#f87171";
+    const meHpPct = Math.max(0, (me.hp / me.maxHp) * 100);
+    const oppHpPct = Math.max(0, (opp.hp / opp.maxHp) * 100);
+
+    return (
+        <div className="card" style={{ maxWidth: 620, margin: "0 auto" }}>
+            <h2 style={{ textAlign: "center", marginBottom: "0.5rem" }}>
+                ⚔️ PvP Battle — Round {session.round}
+            </h2>
+
+            {/* HP Bars */}
+            <div style={{ display: "flex", gap: "0.75rem", alignItems: "flex-start", marginBottom: "1rem" }}>
+                <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 700, marginBottom: 3 }}>
+                        {me.name} <span style={{ fontWeight: 400, fontSize: "0.8em", color: "#94a3b8" }}>(You)</span>
+                    </div>
+                    <div style={{ background: "#1e293b", borderRadius: 6, height: 12, overflow: "hidden" }}>
+                        <div style={{ width: `${meHpPct}%`, height: "100%", background: hpColor(meHpPct), transition: "width 0.4s" }} />
+                    </div>
+                    <div style={{ fontSize: "0.78em", color: "#94a3b8", marginTop: 2 }}>
+                        {me.hp}/{me.maxHp} HP
+                        {me.shield > 0 && <span style={{ marginLeft: 5, color: "#60a5fa" }}>🛡️ {me.shield}</span>}
+                        {me.wound && <span style={{ marginLeft: 5, color: "#f87171" }}>⚠ Wounded</span>}
+                        {me.stunRounds > 0 && <span style={{ marginLeft: 5, color: "#a78bfa" }}>⚡ Stunned ({me.stunRounds})</span>}
+                    </div>
+                </div>
+                <div style={{ fontWeight: 800, color: "#f59e0b", fontSize: "1.1em", paddingTop: 2 }}>VS</div>
+                <div style={{ flex: 1, textAlign: "right" }}>
+                    <div style={{ fontWeight: 700, marginBottom: 3 }}>{opp.name}</div>
+                    <div style={{ background: "#1e293b", borderRadius: 6, height: 12, overflow: "hidden" }}>
+                        <div style={{ width: `${oppHpPct}%`, height: "100%", background: hpColor(oppHpPct), transition: "width 0.4s", float: "right" }} />
+                    </div>
+                    <div style={{ fontSize: "0.78em", color: "#94a3b8", marginTop: 2 }}>
+                        {opp.hp}/{opp.maxHp} HP
+                        {opp.shield > 0 && <span style={{ marginLeft: 5, color: "#60a5fa" }}>🛡️ {opp.shield}</span>}
+                        {opp.wound && <span style={{ marginLeft: 5, color: "#f87171" }}>⚠ Wounded</span>}
+                        {opp.stunRounds > 0 && <span style={{ marginLeft: 5, color: "#a78bfa" }}>⚡ Stunned ({opp.stunRounds})</span>}
+                    </div>
+                </div>
+            </div>
+
+            {/* Battle log */}
+            <div ref={logRef} style={{
+                background: "#0f172a", borderRadius: 8, padding: "0.6rem 0.8rem",
+                height: 150, overflowY: "auto", marginBottom: "1rem",
+                fontSize: "0.8em", color: "#cbd5e1", lineHeight: 1.5,
+            }}>
+                {session.log.map((line, i) => (
+                    <p key={i} style={{
+                        margin: "0.1rem 0",
+                        color: line.startsWith("—") ? "#475569" : line.includes("wins!") ? "#fbbf24" : "#cbd5e1",
+                        borderBottom: line.startsWith("—") ? "1px solid #1e293b" : "none",
+                        paddingBottom: line.startsWith("—") ? "0.1rem" : 0,
+                    }}>{line}</p>
+                ))}
+            </div>
+
+            {/* Actions */}
+            {!done ? (
+                submitted ? (
+                    <p style={{ textAlign: "center", color: "#94a3b8", padding: "0.75rem" }}>
+                        ⏳ Move locked in — waiting for {opp.name}...
+                    </p>
+                ) : me.stunRounds > 0 ? (
+                    <div style={{ textAlign: "center" }}>
+                        <p style={{ color: "#a78bfa", marginBottom: "0.5rem", fontSize: "0.9em" }}>
+                            You are stunned and cannot act this round.
+                        </p>
+                        <button onClick={() => submitMove("skip")} disabled={submitting}>
+                            Confirm Skip (Stunned)
+                        </button>
+                    </div>
+                ) : (
+                    <div>
+                        <p style={{ color: "#94a3b8", marginBottom: "0.4rem", fontSize: "0.82em" }}>
+                            Pick your jutsu — both moves resolve simultaneously:
+                        </p>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.35rem" }}>
+                            {jutsuList.slice(0, 8).map(j => (
+                                <button
+                                    key={j.id}
+                                    onClick={() => submitMove(j.id)}
+                                    disabled={submitting}
+                                    style={{ textAlign: "left", padding: "0.4rem 0.55rem", fontSize: "0.8em" }}
+                                >
+                                    <strong>{j.name}</strong>
+                                    <br />
+                                    <span style={{ color: "#64748b" }}>{j.type} · {j.effectPower ?? 20}% power</span>
+                                </button>
+                            ))}
+                        </div>
+                        <button
+                            onClick={() => submitMove("skip")}
+                            disabled={submitting}
+                            style={{ width: "100%", marginTop: "0.35rem", opacity: 0.55, fontSize: "0.8em" }}
+                        >
+                            Skip Turn
+                        </button>
+                    </div>
+                )
+            ) : (
+                <div style={{ textAlign: "center", padding: "1rem 0" }}>
+                    <h3 style={{
+                        fontSize: "1.6em", marginBottom: "0.5rem",
+                        color: isDraw ? "#94a3b8" : iWon ? "#4ade80" : "#f87171",
+                    }}>
+                        {isDraw ? "🤝 Draw!" : iWon ? "🏆 Victory!" : "💀 Defeated!"}
+                    </h3>
+                    <button onClick={() => setScreen("worldMap")}>Return to World Map</button>
+                </div>
             )}
         </div>
     );

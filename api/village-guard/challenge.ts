@@ -13,7 +13,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-        const { attackerCharacter, village } = body as { attackerCharacter?: Record<string, unknown>; village?: string };
+        const { attackerCharacter, village, battleId } = body as { attackerCharacter?: Record<string, unknown>; village?: string; battleId?: string };
         if (!village) return res.status(400).json({ error: 'Missing village.' });
 
         // Find all active guards for this village
@@ -48,7 +48,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 challenger: attackerCharacter,
                 createdAt: Date.now(),
                 mode: 'standard',
-                sectorAttack: true, // reuses the auto-routing effect on the defender's client
+                sectorAttack: true,
+                ...(battleId ? { battleId } : {}),
             };
 
             const challengeKey = `challenges:${guard.name.toLowerCase().trim()}`;
