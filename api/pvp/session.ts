@@ -2,13 +2,22 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '@vercel/kv';
 import { cors } from '../_utils.js';
 
+export type PvpStatus = {
+    name: string;
+    rounds: number;
+    percent?: number;
+    amount?: number;
+    kind: 'positive' | 'negative';
+};
+
 export type PvpFighter = {
     name: string;
     hp: number;
     maxHp: number;
+    chakra: number;
+    maxChakra: number;
     shield: number;
-    stunRounds: number;
-    wound: boolean;
+    statuses: PvpStatus[];
     character: Record<string, unknown>;
 };
 
@@ -29,13 +38,15 @@ const SESSION_TTL = 600;
 
 function makeFighter(char: Record<string, unknown>): PvpFighter {
     const maxHp = Number((char.maxHp as number) ?? 100);
+    const maxChakra = Number((char.maxChakra as number) ?? 50);
     return {
         name: (char.name as string) ?? 'Unknown',
         hp: Math.min(Number((char.hp as number) ?? maxHp), maxHp),
         maxHp,
+        chakra: Math.min(Number((char.chakra as number) ?? maxChakra), maxChakra),
+        maxChakra,
         shield: 0,
-        stunRounds: 0,
-        wound: false,
+        statuses: [],
         character: char,
     };
 }
@@ -72,7 +83,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 round: 1,
                 p1Move: null,
                 p2Move: null,
-                log: [`⚔️ ${p1Name} vs ${p2Name} — Battle begins! Choose your jutsu.`],
+                log: [`⚔️ ${p1Name} vs ${p2Name} — Battle begins! Both players choose simultaneously.`],
                 status: 'active',
                 winner: null,
                 createdAt: Date.now(),
