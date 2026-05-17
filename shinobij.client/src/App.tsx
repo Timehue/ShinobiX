@@ -4005,6 +4005,7 @@ export default function App() {
     const [bloodlineMakerRankLocked, setBloodlineMakerRankLocked] = useState(false);
     const [currentSector, setCurrentSector] = useState(40);
     const [playerRoster, setPlayerRoster] = useState<PlayerRecord[]>([]);
+    const [allServerPlayers, setAllServerPlayers] = useState<{ name: string; level: number; village: string; online: boolean }[]>([]);
     const [duelChallenges, setDuelChallenges] = useState<DuelChallenge[]>([]);
     const [triggeredEvents, setTriggeredEvents] = useState<string[]>([]);
     const [liveSectorPlayers, setLiveSectorPlayers] = useState<PlayerRecord[]>([]);
@@ -4078,6 +4079,22 @@ export default function App() {
         const id = setInterval(heartbeat, 20000);
         return () => clearInterval(id);
     }, [character?.name, currentSector]);
+
+    // Fetch full server player list (includes offline players from registry)
+    useEffect(() => {
+        if (!character?.name) return;
+        async function fetchRoster() {
+            try {
+                const res = await fetch('/api/player/roster');
+                if (!res.ok) return;
+                const data = await res.json() as { players?: { name: string; level: number; village: string; online: boolean }[] };
+                if (data.players?.length) setAllServerPlayers(data.players.filter(p => p.name.toLowerCase() !== character!.name.toLowerCase()));
+            } catch { /* silently skip */ }
+        }
+        fetchRoster();
+        const id = setInterval(fetchRoster, 300000); // refresh every 5 min
+        return () => clearInterval(id);
+    }, [character?.name]);
 
     // Sector-attack auto-routing: if a sectorAttack challenge arrives addressed to us,
     // immediately route us to the arena as the defender (no accept/decline required).
@@ -5201,6 +5218,7 @@ export default function App() {
                         setAdminLoggedIn={setAdminLoggedIn}
                         setScreen={setScreen}
                         playerRoster={playerRoster}
+                        allServerPlayers={allServerPlayers}
                         adminPw={adminPw}
                         onSave={async () => {
                             if (!currentAccountName) return;
@@ -5342,7 +5360,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "storyBoss" && character && <StoryBoss character={character} updateCharacter={setCharacter} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "training" && character && <Training character={character} updateCharacter={setCharacter} activeTraining={activeTraining} setActiveTraining={setActiveTraining} />}
                 {!activeTriggeredEvent && screen === "pets" && character && <PetYard character={character} updateCharacter={setCharacter} setScreen={navigate} />}
-                {!activeTriggeredEvent && screen === "petArena" && character && <PetArena character={character} updateCharacter={setCharacter} playerRoster={playerRoster} setScreen={setScreen} sharedImages={sharedImages} duelChallenges={duelChallenges} setDuelChallenges={setDuelChallenges} />}
+                {!activeTriggeredEvent && screen === "petArena" && character && <PetArena character={character} updateCharacter={setCharacter} playerRoster={playerRoster} allServerPlayers={allServerPlayers} setScreen={setScreen} sharedImages={sharedImages} duelChallenges={duelChallenges} setDuelChallenges={setDuelChallenges} />}
                 {!activeTriggeredEvent && screen === "jutsuTraining" && character && <JutsuTrainingHall character={character} updateCharacter={setCharacter} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} activeJutsuTraining={activeJutsuTraining} setActiveJutsuTraining={setActiveJutsuTraining} />}
                 {!activeTriggeredEvent && screen === "missions" && character && <Missions character={character} updateCharacter={setCharacter} creatorAis={playableAis} creatorMissions={creatorMissions} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} setPendingAiProfileId={setPendingAiProfileId} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "hunting" && character && <HunterBoard character={character} updateCharacter={setCharacter} creatorAis={playableAis} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} setPendingAiProfileId={setPendingAiProfileId} setScreen={setScreen} />}
@@ -6958,7 +6976,7 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
     return { result, player, enemy, logs, frames, obstacles: [...obstacles] };
 }
 
-function PetArena({ character, updateCharacter, playerRoster, setScreen, sharedImages, duelChallenges, setDuelChallenges }: { character: Character; updateCharacter: (character: Character) => void; playerRoster: PlayerRecord[]; setScreen: (screen: Screen) => void; sharedImages: Record<string, string>; duelChallenges: DuelChallenge[]; setDuelChallenges: (c: DuelChallenge[]) => void }) {
+function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, setScreen, sharedImages, duelChallenges, setDuelChallenges }: { character: Character; updateCharacter: (character: Character) => void; playerRoster: PlayerRecord[]; allServerPlayers: { name: string; level: number; village: string; online: boolean }[]; setScreen: (screen: Screen) => void; sharedImages: Record<string, string>; duelChallenges: DuelChallenge[]; setDuelChallenges: (c: DuelChallenge[]) => void }) {
     const [selectedPetId, setSelectedPetId] = useState(character.activePetId ?? character.pets[0]?.id ?? "");
     const [opponentMode, setOpponentMode] = useState<"player" | "ai">("player");
     const [opponentSearch, setOpponentSearch] = useState("");
@@ -7138,9 +7156,31 @@ function PetArena({ character, updateCharacter, playerRoster, setScreen, sharedI
                         </select>
                     ) : opponentMode === "player" && opponentSearch.trim() ? (
                         <div>
-                            <p className="hint">No roster match for "{opponentSearch.trim()}". Send them a pet challenge — they'll get it on their next heartbeat.</p>
-                            <button onClick={() => sendDirectPetChallenge(opponentSearch.trim(), selectedPet?.id)}>🐾 Challenge "{opponentSearch.trim()}" to a Pet Battle</button>
-                            {petChallengeMsg && <p className="hint" style={{ color: petChallengeMsg.startsWith("✅") ? "#4ade80" : "#f87171", marginTop: 6 }}>{petChallengeMsg}</p>}
+                            {(() => {
+                                const q = opponentSearch.trim().toLowerCase();
+                                const offlineMatches = allServerPlayers.filter(p => p.name.toLowerCase().includes(q) && !p.online);
+                                if (offlineMatches.length > 0) {
+                                    return (
+                                        <>
+                                            <p className="hint">Offline players matching "{opponentSearch.trim()}":</p>
+                                            {offlineMatches.map(p => (
+                                                <div key={p.name} style={{ marginBottom: 4 }}>
+                                                    <strong>{p.name}</strong> <span className="hint">Lv {p.level} · {p.village || "Unknown"} · Offline</span>
+                                                    <button style={{ marginLeft: 8 }} onClick={() => { setOpponentSearch(p.name); sendDirectPetChallenge(p.name, selectedPet?.id); }}>🐾 Challenge</button>
+                                                </div>
+                                            ))}
+                                            {petChallengeMsg && <p className="hint" style={{ color: petChallengeMsg.startsWith("✅") ? "#4ade80" : "#f87171", marginTop: 6 }}>{petChallengeMsg}</p>}
+                                        </>
+                                    );
+                                }
+                                return (
+                                    <>
+                                        <p className="hint">No player found for "{opponentSearch.trim()}". Send them a challenge — they'll see it on their next login.</p>
+                                        <button onClick={() => sendDirectPetChallenge(opponentSearch.trim(), selectedPet?.id)}>🐾 Challenge "{opponentSearch.trim()}" to a Pet Battle</button>
+                                        {petChallengeMsg && <p className="hint" style={{ color: petChallengeMsg.startsWith("✅") ? "#4ade80" : "#f87171", marginTop: 6 }}>{petChallengeMsg}</p>}
+                                    </>
+                                );
+                            })()}
                         </div>
                     ) : (
                         <p className="hint">No matching player pets found. Type a player's name to challenge them, or switch to Fight AI.</p>
@@ -7497,6 +7537,7 @@ function AdminPanel({
     setScreen,
     onSave,
     playerRoster,
+    allServerPlayers,
     adminPw,
 }: {
     character: Character;
@@ -7527,6 +7568,7 @@ function AdminPanel({
     setScreen: (screen: Screen) => void;
     onSave: () => Promise<void>;
     playerRoster: PlayerRecord[];
+    allServerPlayers: { name: string; level: number; village: string; online: boolean }[];
     adminPw: string;
 }) {
     // Always-fresh ref to onSave so async callbacks don't capture a stale closure
@@ -10661,7 +10703,9 @@ function AdminPanel({
                             {(() => {
                                 const dropdownPlayers = allKnownPlayers.length > 0
                                     ? allKnownPlayers
-                                    : [...new Map(playerRoster.map(p => [p.name, p])).values()].map(p => ({ name: p.name, level: p.level, village: p.village || "", online: false }));
+                                    : allServerPlayers.length > 0
+                                        ? allServerPlayers
+                                        : [...new Map(playerRoster.map(p => [p.name, p])).values()].map(p => ({ name: p.name, level: p.level, village: p.village || "", online: false }));
                                 return dropdownPlayers.length > 0 ? (
                                     <div style={{ marginBottom: 8 }}>
                                         <label style={{ fontSize: "0.85rem", display: "block", marginBottom: 4 }}>
@@ -10735,7 +10779,9 @@ function AdminPanel({
                             {(() => {
                                 const dropdownPlayers = allKnownPlayers.length > 0
                                     ? allKnownPlayers
-                                    : [...new Map(playerRoster.map(p => [p.name, p])).values()].map(p => ({ name: p.name, level: p.level, village: p.village || "", online: false }));
+                                    : allServerPlayers.length > 0
+                                        ? allServerPlayers
+                                        : [...new Map(playerRoster.map(p => [p.name, p])).values()].map(p => ({ name: p.name, level: p.level, village: p.village || "", online: false }));
                                 return dropdownPlayers.length > 0 ? (
                                     <div style={{ marginBottom: 8 }}>
                                         <label style={{ fontSize: "0.85rem", display: "block", marginBottom: 4 }}>
