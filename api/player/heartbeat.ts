@@ -35,21 +35,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Store with 60s TTL — auto-expires when player goes offline (heartbeat every 20s)
         await kv.set(key, entry, { ex: 60 });
 
-        // Find all players in same sector
+        // Fetch all active presence entries
         const allKeys = await kv.keys('presence:*');
-        const others = (await Promise.all(allKeys.map(k => kv.get<PresenceEntry>(k))))
-            .filter((p): p is PresenceEntry => !!p && p.name !== name && p.sector === entry.sector)
-            .map(({ name: n, sector: s, character: c }) => {
-                const ch = c as Record<string, unknown> | null;
-                return {
-                    name: n, sector: s, character: c,
-                    level: ch?.level ?? 1,
-                    village: ch?.village ?? '',
-                    specialty: ch?.specialty ?? 'Ninjutsu',
-                };
-            });
+        const allEntries = (await Promise.all(allKeys.map(k => kv.get<PresenceEntry>(k))))
+            .filter((p): p is PresenceEntry => !!p && p.name !== name);
 
-        return res.status(200).json({ sectorMates: others, pendingAttacker });
+        const toRecord = ({ name: n, sector: s, character: c }: PresenceEntry) => {
+            const ch = c as Record<string, unknown> | null;
+            return {
+                name: n, sector: s, character: c,
+                level: ch?.level ?? 1,
+                village: ch?.village ?? '',
+                specialty: ch?.specialty ?? 'Ninjutsu',
+                currentSector: s,
+                lastSeenAt: Date.now(),
+            };
+        };
+
+        // sectorMates — same sector only (for world-map display)
+        const sectorMates = allEntries
+            .filter(p => p.sector === entry.sector)
+            .map(toRecord);
+
+        // allPlayers — every active player (for roster, search, pet arena, spar, etc.)
+        const allPlayers = allEntries.map(toRecord);
+
+        return res.status(200).json({ sectorMates, allPlayers, pendingAttacker });
     } catch (err) {
         return res.status(500).json({ error: String(err) });
     }
