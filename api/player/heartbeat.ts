@@ -32,12 +32,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const challengeKey = `challenges:${name.toLowerCase().trim()}`;
         const presenceKey = `presence:${name}`;
+        const resetSignalKey = `reset-signal:${name.toLowerCase().trim()}`;
 
-        // Read presence + pending challenges in parallel
-        const [existing, pendingChallenges] = await Promise.all([
+        // Read presence + pending challenges + reset signal in parallel
+        const [existing, pendingChallenges, resetSignal] = await Promise.all([
             kv.get<PresenceEntry>(presenceKey),
             kv.get<unknown[]>(challengeKey),
+            kv.get(resetSignalKey),
         ]);
+
+        // If the admin reset this account, tell the client to reload and clear the signal
+        if (resetSignal) {
+            await kv.del(resetSignalKey);
+            return res.status(200).json({ forceReload: true });
+        }
+
         const pendingAttacker = existing?.pendingAttacker ?? null;
 
         const entry: PresenceEntry = {
