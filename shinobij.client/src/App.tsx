@@ -19549,6 +19549,10 @@ function Arena({
                                 width:  `${scaledW}px`,
                                 height: `${scaledH}px`,
                                 overflow: "hidden",
+                                // Hide until ResizeObserver has measured the container so
+                                // the grid never flashes at scale=1 (unscaled) on first paint.
+                                opacity: boardContainerSize.w > 0 ? 1 : 0,
+                                transition: "opacity 0.15s ease",
                             };
                         })()}>
                         <div
