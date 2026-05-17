@@ -51,6 +51,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             await Promise.all([
                 kv.del(key),
                 kv.hdel(REGISTRY_KEY, name),
+                // Signal the player's client to reload on next heartbeat (5-min TTL)
+                kv.set(`reset-signal:${name.toLowerCase()}`, 1, { ex: 300 }),
             ]);
             return res.status(200).json({ ok: true });
         } catch (err) {
