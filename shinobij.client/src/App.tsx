@@ -19491,7 +19491,19 @@ function Arena({
                         <label>Search Player Name</label>
                         <input value={sparSearch} onChange={(e) => setSparSearch(e.target.value)} placeholder="Search by player name" />
                         <div className="jutsu-list">
-                            {sparOpponents.length === 0 ? <p className="hint">No matching players yet. Log in or create another player to add them to the roster.</p> : sparOpponents.map((player) => (
+                            {sparOpponents.length === 0 && sparSearch.trim() ? (
+                                <>
+                                    <p className="hint">No roster match. Send a challenge directly to "{sparSearch.trim()}" — they'll see it on their next heartbeat.</p>
+                                    <button onClick={() => {
+                                        const name = sparSearch.trim();
+                                        if (!name || name === character.name) return;
+                                        const stub = { name, level: 1, village: "", specialty: "Ninjutsu", character: { ...character, name } as Character, currentSector: 0, lastSeenAt: Date.now() } as PlayerRecord;
+                                        challengePlayer(stub);
+                                    }}>Send Spar Challenge to "{sparSearch.trim()}"</button>
+                                </>
+                            ) : sparOpponents.length === 0 ? (
+                                <p className="hint">No matching players yet — type a player's exact name to send them a direct challenge.</p>
+                            ) : sparOpponents.map((player) => (
                                 <div className="summary-box" key={`spar-${player.name}`}>
                                     <strong>{player.name}</strong>
                                     <p>Level {player.level} | {player.village} | {player.specialty}</p>
@@ -19532,7 +19544,19 @@ function Arena({
                     <label>Search Ranked Opponent</label>
                     <input value={rankedSearch} onChange={(e) => setRankedSearch(e.target.value)} placeholder="Search by player name" />
                     <div className="jutsu-list">
-                        {rankedOpponents.length === 0 ? <p className="hint">No ranked opponents found.</p> : rankedOpponents.map((player) => (
+                        {rankedOpponents.length === 0 && rankedSearch.trim() ? (
+                            <>
+                                <p className="hint">No roster match. Send a ranked challenge directly to "{rankedSearch.trim()}".</p>
+                                <button onClick={() => {
+                                    const name = rankedSearch.trim();
+                                    if (!name || name === character.name) return;
+                                    const stub = { name, level: 1, village: "", specialty: "Ninjutsu", character: { ...character, name } as Character, currentSector: 0, lastSeenAt: Date.now() } as PlayerRecord;
+                                    challengePlayer(stub, "ranked");
+                                }}>Send Ranked Challenge to "{rankedSearch.trim()}"</button>
+                            </>
+                        ) : rankedOpponents.length === 0 ? (
+                            <p className="hint">No ranked opponents found — type a player's exact name to challenge them directly.</p>
+                        ) : rankedOpponents.map((player) => (
                             <div className="summary-box" key={`ranked-${player.name}`}>
                                 <strong>{player.name}</strong>
                                 <p>Level {player.level} | Elo {player.character.rankedRating ?? 1000}</p>
