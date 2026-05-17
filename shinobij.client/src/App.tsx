@@ -3948,7 +3948,7 @@ export default function App() {
     const [activeTraining, setActiveTraining] = useState<ActiveTraining | null>(null);
     const [adminLoggedIn, setAdminLoggedIn] = useState(false);
     const [adminAccount, setAdminAccount] = useState<AdminAccount | "">("");
-    const [adminPw, setAdminPw] = useState("");
+    const [adminPw, setAdminPw] = useState(() => sessionStorage.getItem("admin:pw") ?? "");
     const [resetCountdown, setResetCountdown] = useState("--:--:--");
     const [creatorJutsus, setCreatorJutsus] = useState<Jutsu[]>([]);
     const [creatorEvents, setCreatorEvents] = useState<CreatorEvent[]>([]);
@@ -4765,6 +4765,8 @@ export default function App() {
         setActiveJutsuTraining(null);
         setAdminLoggedIn(false);
         setAdminAccount("");
+        sessionStorage.removeItem("admin:pw");
+        setAdminPw("");
         setCreatorJutsus([]);
         setCreatorAis([]);
         setPendingAiProfileId("");
@@ -5171,6 +5173,7 @@ export default function App() {
                         onLogin={async (account, pw) => {
                             setAdminLoggedIn(true);
                             setAdminAccount(account);
+                            sessionStorage.setItem("admin:pw", pw);
                             setAdminPw(pw);
                             setCurrentAccountName(account); // needed for save button + auto-save
                             const adminChar = createAdminCharacter(account);
@@ -10736,10 +10739,14 @@ function AdminPanel({
                             <h4 style={{ color: "#fca5a5" }}>☢️ Full Server Reset</h4>
                             <p className="hint">Wipes <strong>every player account</strong> back to Level 0. Clears all clans, village chats, presence data, and pending challenges.</p>
                             <p className="hint" style={{ color: "#4ade80" }}>✅ Preserved: All uploaded images (kage, elders, pets, weapons, avatars) and all admin-created game content (jutsus, missions, AIs, events).</p>
+                            {!adminPw && (
+                                <p className="hint" style={{ color: "#f87171", marginBottom: 6 }}>⚠️ Session restored without password. Please log out and log back in to enable server actions.</p>
+                            )}
                             <button
                                 className="danger-button"
-                                style={{ marginTop: 8, width: "100%", padding: "10px", fontSize: "1rem", background: "#7f1d1d" }}
+                                style={{ marginTop: 8, width: "100%", padding: "10px", fontSize: "1rem", background: adminPw ? "#7f1d1d" : "#4a1a1a", opacity: adminPw ? 1 : 0.5 }}
                                 onClick={serverReset}
+                                disabled={!adminPw}
                             >☢️ Reset Entire Server (All Players → Level 0)</button>
                             {serverResetMsg && (
                                 <p className="hint" style={{
