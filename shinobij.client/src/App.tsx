@@ -3940,6 +3940,7 @@ export default function App() {
     const [activeTraining, setActiveTraining] = useState<ActiveTraining | null>(null);
     const [adminLoggedIn, setAdminLoggedIn] = useState(false);
     const [adminAccount, setAdminAccount] = useState<AdminAccount | "">("");
+    const [adminPw, setAdminPw] = useState("");
     const [creatorJutsus, setCreatorJutsus] = useState<Jutsu[]>([]);
     const [creatorEvents, setCreatorEvents] = useState<CreatorEvent[]>([]);
     const [creatorItems, setCreatorItems] = useState<GameItem[]>([]);
@@ -5124,9 +5125,10 @@ export default function App() {
 
                 {screen === "adminLogin" && (
                     <AdminLogin
-                        onLogin={async (account) => {
+                        onLogin={async (account, pw) => {
                             setAdminLoggedIn(true);
                             setAdminAccount(account);
+                            setAdminPw(pw);
                             setCurrentAccountName(account); // needed for save button + auto-save
                             const adminChar = createAdminCharacter(account);
                             setCharacter(adminChar);
@@ -5168,6 +5170,7 @@ export default function App() {
                         setAdminLoggedIn={setAdminLoggedIn}
                         setScreen={setScreen}
                         playerRoster={playerRoster}
+                        adminPw={adminPw}
                         onSave={async () => {
                             if (!currentAccountName) return;
                             await pushSaveToServer(character, currentAccountName);
@@ -5914,7 +5917,7 @@ function CharacterCreator({ onCreate }: { onCreate: (character: Character, passw
     );
 }
 
-function AdminLogin({ onLogin, setScreen }: { onLogin: (account: AdminAccount) => void; setScreen: (screen: Screen) => void }) {
+function AdminLogin({ onLogin, setScreen }: { onLogin: (account: AdminAccount, password: string) => void; setScreen: (screen: Screen) => void }) {
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
@@ -5932,7 +5935,7 @@ function AdminLogin({ onLogin, setScreen }: { onLogin: (account: AdminAccount) =
             });
             const data = await res.json() as { success: boolean; error?: string };
             if (data.success) {
-                onLogin("Admin 1");
+                onLogin("Admin 1", pw);
             } else {
                 setError("Incorrect password.");
                 setPassword("");
@@ -7416,6 +7419,7 @@ function AdminPanel({
     setScreen,
     onSave,
     playerRoster,
+    adminPw,
 }: {
     character: Character;
     updateCharacter: (character: Character) => void;
@@ -7445,6 +7449,7 @@ function AdminPanel({
     setScreen: (screen: Screen) => void;
     onSave: () => Promise<void>;
     playerRoster: PlayerRecord[];
+    adminPw: string;
 }) {
     // Always-fresh ref to onSave so async callbacks don't capture a stale closure
     const onSaveRef = useRef(onSave);
@@ -7938,6 +7943,22 @@ function AdminPanel({
     const [pmTargetName, setPmTargetName] = useState("");
     const [pmSnap, setPmSnap] = useState<Record<string, unknown> | null>(null);
     const [pmMsg, setPmMsg] = useState("");
+    const [allKnownPlayers, setAllKnownPlayers] = useState<{ name: string; level: number; village: string; online: boolean }[]>([]);
+
+    // Fetch all server-saved players whenever the Players tab is opened
+    useEffect(() => {
+        if (activeAdminPanel !== "playerManagement" || !adminPw) return;
+        fetch('/api/admin/players', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: adminPw }),
+        })
+            .then(r => r.ok ? r.json() : null)
+            .then((data: { players: { name: string; level: number; village: string; online: boolean }[] } | null) => {
+                if (data?.players) setAllKnownPlayers(data.players);
+            })
+            .catch(() => {/* silently ignore */});
+    }, [activeAdminPanel, adminPw]);
     const [pmGivePetId, setPmGivePetId] = useState("");
     const [pmGiveAmounts, setPmGiveAmounts] = useState<Record<string, number>>({ honorSeals: 0, fateShards: 0, boneCharms: 0, auraStones: 0, auraDust: 0, mythicSeals: 0 });
     const [approvedItemIds, setApprovedItemIds] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem("admin:approvedItems") ?? "[]"); } catch { return []; } });
@@ -10519,25 +10540,30 @@ function AdminPanel({
                         {/* ── Give to Player ── */}
                         <section className="summary-box">
                             <h4>Give to Player</h4>
-                            {playerRoster.length > 0 && (
-                                <div style={{ marginBottom: 8 }}>
-                                    <label style={{ fontSize: "0.85rem", display: "block", marginBottom: 4 }}>Pick from active / known players:</label>
-                                    <select
-                                        value={pmTargetName}
-                                        onChange={e => { setPmTargetName(e.target.value); setPmSnap(null); setPmMsg(""); }}
-                                        style={{ width: "100%", marginBottom: 4 }}
-                                    >
-                                        <option value="">— Select a player —</option>
-                                        {[...new Map(playerRoster.map(p => [p.name, p])).values()]
-                                            .sort((a, b) => a.name.localeCompare(b.name))
-                                            .map(p => (
+                            {(() => {
+                                const dropdownPlayers = allKnownPlayers.length > 0
+                                    ? allKnownPlayers
+                                    : [...new Map(playerRoster.map(p => [p.name, p])).values()].map(p => ({ name: p.name, level: p.level, village: p.village || "", online: false }));
+                                return dropdownPlayers.length > 0 ? (
+                                    <div style={{ marginBottom: 8 }}>
+                                        <label style={{ fontSize: "0.85rem", display: "block", marginBottom: 4 }}>
+                                            All server accounts ({dropdownPlayers.length}) — 🟢 = online now:
+                                        </label>
+                                        <select
+                                            value={pmTargetName}
+                                            onChange={e => { setPmTargetName(e.target.value); setPmSnap(null); setPmMsg(""); }}
+                                            style={{ width: "100%", marginBottom: 4 }}
+                                        >
+                                            <option value="">— Select a player —</option>
+                                            {dropdownPlayers.map(p => (
                                                 <option key={p.name} value={p.name}>
-                                                    {p.name} (Lv {p.level} · {p.village || "No Village"})
+                                                    {p.online ? "🟢 " : ""}{p.name} (Lv {p.level} · {p.village || "No Village"})
                                                 </option>
                                             ))}
-                                    </select>
-                                </div>
-                            )}
+                                        </select>
+                                    </div>
+                                ) : null;
+                            })()}
                             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                                 <input
                                     style={{ flex: 1, minWidth: 160 }}
@@ -10583,25 +10609,30 @@ function AdminPanel({
                         <section className="summary-box" style={{ borderColor: "#7f1d1d" }}>
                             <h4>🗑️ Reset Player Account</h4>
                             <p className="hint">Wipes the server save entirely. The player will start fresh on next login. This cannot be undone.</p>
-                            {playerRoster.length > 0 && (
-                                <div style={{ marginBottom: 8 }}>
-                                    <label style={{ fontSize: "0.85rem", display: "block", marginBottom: 4 }}>Pick from active / known players:</label>
-                                    <select
-                                        value={pmTargetName}
-                                        onChange={e => setPmTargetName(e.target.value)}
-                                        style={{ width: "100%", marginBottom: 4 }}
-                                    >
-                                        <option value="">— Select a player —</option>
-                                        {[...new Map(playerRoster.map(p => [p.name, p])).values()]
-                                            .sort((a, b) => a.name.localeCompare(b.name))
-                                            .map(p => (
+                            {(() => {
+                                const dropdownPlayers = allKnownPlayers.length > 0
+                                    ? allKnownPlayers
+                                    : [...new Map(playerRoster.map(p => [p.name, p])).values()].map(p => ({ name: p.name, level: p.level, village: p.village || "", online: false }));
+                                return dropdownPlayers.length > 0 ? (
+                                    <div style={{ marginBottom: 8 }}>
+                                        <label style={{ fontSize: "0.85rem", display: "block", marginBottom: 4 }}>
+                                            All server accounts ({dropdownPlayers.length}) — 🟢 = online now:
+                                        </label>
+                                        <select
+                                            value={pmTargetName}
+                                            onChange={e => setPmTargetName(e.target.value)}
+                                            style={{ width: "100%", marginBottom: 4 }}
+                                        >
+                                            <option value="">— Select a player —</option>
+                                            {dropdownPlayers.map(p => (
                                                 <option key={p.name} value={p.name}>
-                                                    {p.name} (Lv {p.level} · {p.village || "No Village"})
+                                                    {p.online ? "🟢 " : ""}{p.name} (Lv {p.level} · {p.village || "No Village"})
                                                 </option>
                                             ))}
-                                    </select>
-                                </div>
-                            )}
+                                        </select>
+                                    </div>
+                                ) : null;
+                            })()}
                             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                                 <input
                                     style={{ flex: 1, minWidth: 160 }}
