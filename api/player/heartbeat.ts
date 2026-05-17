@@ -41,9 +41,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             kv.get(resetSignalKey),
         ]);
 
-        // If the admin reset this account, tell the client to reload and clear the signal
+        // If the admin reset this account, tell the client to reload.
+        // The client acks after applying the server save so stale autosaves stay blocked.
         if (resetSignal) {
-            await kv.del(resetSignalKey);
             return res.status(200).json({ forceReload: true });
         }
 
