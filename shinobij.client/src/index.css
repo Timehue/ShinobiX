@@ -307,7 +307,7 @@ h3 {
 
 .admin-panel-switcher {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 10px;
     max-width: 1180px;
     margin: 20px auto 0;
