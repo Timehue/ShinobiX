@@ -4044,7 +4044,22 @@ export default function App() {
                     body: JSON.stringify({ name: char.name, sector: currentSector, character: char }),
                 });
                 if (!res.ok) return;
-                const data: { sectorMates?: PlayerRecord[]; allPlayers?: PlayerRecord[]; pendingAttacker?: Character | null; pendingChallenges?: DuelChallenge[] } = await res.json();
+                const data: { sectorMates?: PlayerRecord[]; allPlayers?: PlayerRecord[]; pendingAttacker?: Character | null; pendingChallenges?: DuelChallenge[]; forceReload?: boolean } = await res.json();
+                // Admin reset this account — wipe local state and reload from server
+                if (data.forceReload) {
+                    const accountName = currentAccountName || char.name.toLowerCase();
+                    const saveRes = await fetch(`/api/save/${encodeURIComponent(accountName)}`);
+                    if (saveRes.ok) {
+                        const snap = await saveRes.json() as { character?: Character };
+                        if (snap.character) setCharacter(normalizeCharacter(snap.character));
+                    } else {
+                        // Save was deleted — log out so they start fresh on next login
+                        setCharacter(null);
+                        setCurrentAccountName("");
+                        setScreen("start");
+                    }
+                    return;
+                }
                 if (data.sectorMates) setLiveSectorPlayers(data.sectorMates);
                 // Merge server-reported active players into the local roster so players
                 // on different devices/browsers appear in search, spar, pet arena, etc.
