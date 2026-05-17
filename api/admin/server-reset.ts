@@ -47,6 +47,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             })
         );
 
+        // Clear the player registry (players must re-register on next heartbeat/save)
+        await kv.del('player:registry');
+        deleted.push('player:registry');
+
         // shared:images:* keys are intentionally NOT touched — kage, elder, pet,
         // item, AI, avatar images all survive the reset.
 
