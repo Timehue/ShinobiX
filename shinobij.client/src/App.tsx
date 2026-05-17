@@ -8219,7 +8219,7 @@ function AdminPanel({
     async function pmEditPatch(updatedSnap: Record<string, unknown>) {
         setPmEditMsg("Saving…");
         try {
-            const res = await fetch(`/api/save/${encodeURIComponent(pmEditName.trim().toLowerCase())}`, {
+            const res = await fetch(`/api/save/${encodeURIComponent(pmEditName.trim().toLowerCase())}?signal=1`, {
                 method: "POST", headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(updatedSnap),
             });
