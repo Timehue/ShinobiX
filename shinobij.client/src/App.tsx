@@ -5533,7 +5533,7 @@ function LeftProfileCard({
                 <div className="left-currency-row">
                     <span className="left-currency-icon">⏱</span>
                     <span className="left-currency-label">Reset In</span>
-                    <span className="left-currency-value" style={{ color: "#94a3b8", fontSize: "0.8em" }}>{resetCountdown}</span>
+                    <span className="left-currency-value" style={{ color: "#94a3b8", fontSize: "0.8em" }}>{(() => { const now = new Date(); const ms = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)).getTime() - now.getTime(); const h = Math.floor(ms / 3600000); const m = Math.floor((ms % 3600000) / 60000); const s = Math.floor((ms % 60000) / 1000); return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`; })()}</span>
                 </div>
             </div>
 
