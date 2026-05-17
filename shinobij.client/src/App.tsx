@@ -5769,6 +5769,8 @@ export default function App() {
                             role={pvpRole}
                             setScreen={navigate}
                             equippedJutsu={pvpJutsus}
+                            currentBiome={currentBiome}
+                            currentSector={currentSector}
                         />
                     );
                 })()}
@@ -21940,14 +21942,23 @@ function CombatEffectsPanel({
 
 // ─── True Player-vs-Player Battle Screen ────────────────────────────────────
 
+type PvpStatusState = {
+    name: string;
+    rounds: number;
+    percent?: number;
+    amount?: number;
+    kind: "positive" | "negative";
+};
+
 type PvpFighterState = {
     name: string;
     hp: number;
     maxHp: number;
+    chakra: number;
+    maxChakra: number;
     shield: number;
-    stunRounds: number;
-    wound: boolean;
-    character: Character;
+    statuses: PvpStatusState[];
+    character: Record<string, unknown>;
 };
 
 type PvpSessionState = {
@@ -21968,18 +21979,22 @@ function PvpBattleScreen({
     role,
     setScreen,
     equippedJutsu,
+    currentBiome,
+    currentSector,
 }: {
     character: Character;
     battleId: string;
     role: "p1" | "p2";
     setScreen: (s: Screen) => void;
     equippedJutsu: Jutsu[];
+    currentBiome: Biome;
+    currentSector: number;
 }) {
     const [session, setSession] = useState<PvpSessionState | null>(null);
     const [submitting, setSubmitting] = useState(false);
-    const logRef = useRef<HTMLDivElement>(null);
+    const [inspectedJutsuId, setInspectedJutsuId] = useState("");
+    const logEndRef = useRef<HTMLDivElement>(null);
 
-    // Poll the shared session every 2 seconds until battle ends
     useEffect(() => {
         let active = true;
         async function poll() {
@@ -21991,7 +22006,7 @@ function PvpBattleScreen({
                         setSession(data);
                         if (data.status === "done") break;
                     }
-                } catch { /* ignore network errors */ }
+                } catch { /* ignore */ }
                 await new Promise<void>(r => setTimeout(r, 2000));
             }
         }
@@ -22000,13 +22015,17 @@ function PvpBattleScreen({
     }, [battleId]);
 
     useEffect(() => {
-        if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
+        logEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [session?.log.length]);
 
     if (!session) return (
-        <div className="card" style={{ textAlign: "center", padding: "2rem" }}>
-            <h2>⚔️ PvP Battle</h2>
-            <p style={{ color: "#94a3b8" }}>Connecting to battle session...</p>
+        <div className="arena-fullscreen">
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
+                <div className="card" style={{ textAlign: "center", padding: "2rem" }}>
+                    <h2>⚔️ PvP Battle</h2>
+                    <p style={{ color: "#94a3b8" }}>Connecting to battle session...</p>
+                </div>
+            </div>
         </div>
     );
 
@@ -22014,10 +22033,16 @@ function PvpBattleScreen({
     const opp = role === "p1" ? session.p2 : session.p1;
     const myMove = role === "p1" ? session.p1Move : session.p2Move;
     const submitted = myMove !== null;
-    const jutsuList = equippedJutsu;
     const done = session.status === "done";
     const iWon = (session.winner === "p1" && role === "p1") || (session.winner === "p2" && role === "p2");
     const isDraw = session.winner === "draw";
+    const isStunned = me.statuses.some(s => s.name === "Stun" && s.rounds > 0);
+    const inspectedJutsu = equippedJutsu.find(j => j.id === inspectedJutsuId) ?? null;
+
+    const fallbackIcon = (j: Jutsu) =>
+        j.type === "Taijutsu" ? "👊" :
+        j.type === "Bukijutsu" ? "🗡️" :
+        j.type === "Genjutsu" ? "👁️" : "💠";
 
     async function submitMove(jutsuId: string) {
         if (submitting || submitted || done) return;
@@ -22033,117 +22058,186 @@ function PvpBattleScreen({
         finally { setSubmitting(false); }
     }
 
-    const hpColor = (pct: number) => pct > 50 ? "#4ade80" : pct > 25 ? "#facc15" : "#f87171";
-    const meHpPct = Math.max(0, (me.hp / me.maxHp) * 100);
-    const oppHpPct = Math.max(0, (opp.hp / opp.maxHp) * 100);
-
     return (
-        <div className="card" style={{ maxWidth: 620, margin: "0 auto" }}>
-            <h2 style={{ textAlign: "center", marginBottom: "0.5rem" }}>
-                ⚔️ PvP Battle — Round {session.round}
-            </h2>
+        <div className="arena-fullscreen">
+            <div className="combat-layout">
+                {/* Player (me) side HUD */}
+                <CombatSideHud
+                    name={`${me.name} (You)`}
+                    avatar={(me.character?.avatarImage as string) || "🥷"}
+                    hp={me.hp}
+                    maxHp={me.maxHp}
+                    chakra={me.chakra}
+                    maxChakra={me.maxChakra}
+                    stamina={0}
+                    maxStamina={1}
+                    shield={me.shield}
+                    village={(me.character?.village as string) || ""}
+                    turn={session.round}
+                    statuses={me.statuses}
+                />
 
-            {/* HP Bars */}
-            <div style={{ display: "flex", gap: "0.75rem", alignItems: "flex-start", marginBottom: "1rem" }}>
-                <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 700, marginBottom: 3 }}>
-                        {me.name} <span style={{ fontWeight: 400, fontSize: "0.8em", color: "#94a3b8" }}>(You)</span>
-                    </div>
-                    <div style={{ background: "#1e293b", borderRadius: 6, height: 12, overflow: "hidden" }}>
-                        <div style={{ width: `${meHpPct}%`, height: "100%", background: hpColor(meHpPct), transition: "width 0.4s" }} />
-                    </div>
-                    <div style={{ fontSize: "0.78em", color: "#94a3b8", marginTop: 2 }}>
-                        {me.hp}/{me.maxHp} HP
-                        {me.shield > 0 && <span style={{ marginLeft: 5, color: "#60a5fa" }}>🛡️ {me.shield}</span>}
-                        {me.wound && <span style={{ marginLeft: 5, color: "#f87171" }}>⚠ Wounded</span>}
-                        {me.stunRounds > 0 && <span style={{ marginLeft: 5, color: "#a78bfa" }}>⚡ Stunned ({me.stunRounds})</span>}
-                    </div>
-                </div>
-                <div style={{ fontWeight: 800, color: "#f59e0b", fontSize: "1.1em", paddingTop: 2 }}>VS</div>
-                <div style={{ flex: 1, textAlign: "right" }}>
-                    <div style={{ fontWeight: 700, marginBottom: 3 }}>{opp.name}</div>
-                    <div style={{ background: "#1e293b", borderRadius: 6, height: 12, overflow: "hidden" }}>
-                        <div style={{ width: `${oppHpPct}%`, height: "100%", background: hpColor(oppHpPct), transition: "width 0.4s", float: "right" }} />
-                    </div>
-                    <div style={{ fontSize: "0.78em", color: "#94a3b8", marginTop: 2 }}>
-                        {opp.hp}/{opp.maxHp} HP
-                        {opp.shield > 0 && <span style={{ marginLeft: 5, color: "#60a5fa" }}>🛡️ {opp.shield}</span>}
-                        {opp.wound && <span style={{ marginLeft: 5, color: "#f87171" }}>⚠ Wounded</span>}
-                        {opp.stunRounds > 0 && <span style={{ marginLeft: 5, color: "#a78bfa" }}>⚡ Stunned ({opp.stunRounds})</span>}
-                    </div>
-                </div>
-            </div>
-
-            {/* Battle log */}
-            <div ref={logRef} style={{
-                background: "#0f172a", borderRadius: 8, padding: "0.6rem 0.8rem",
-                height: 150, overflowY: "auto", marginBottom: "1rem",
-                fontSize: "0.8em", color: "#cbd5e1", lineHeight: 1.5,
-            }}>
-                {session.log.map((line, i) => (
-                    <p key={i} style={{
-                        margin: "0.1rem 0",
-                        color: line.startsWith("—") ? "#475569" : line.includes("wins!") ? "#fbbf24" : "#cbd5e1",
-                        borderBottom: line.startsWith("—") ? "1px solid #1e293b" : "none",
-                        paddingBottom: line.startsWith("—") ? "0.1rem" : 0,
-                    }}>{line}</p>
-                ))}
-            </div>
-
-            {/* Actions */}
-            {!done ? (
-                submitted ? (
-                    <p style={{ textAlign: "center", color: "#94a3b8", padding: "0.75rem" }}>
-                        ⏳ Move locked in — waiting for {opp.name}...
-                    </p>
-                ) : me.stunRounds > 0 ? (
-                    <div style={{ textAlign: "center" }}>
-                        <p style={{ color: "#a78bfa", marginBottom: "0.5rem", fontSize: "0.9em" }}>
-                            You are stunned and cannot act this round.
-                        </p>
-                        <button onClick={() => submitMove("skip")} disabled={submitting}>
-                            Confirm Skip (Stunned)
-                        </button>
-                    </div>
-                ) : (
-                    <div>
-                        <p style={{ color: "#94a3b8", marginBottom: "0.4rem", fontSize: "0.82em" }}>
-                            Pick your jutsu — both moves resolve simultaneously:
-                        </p>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.35rem" }}>
-                            {jutsuList.slice(0, 8).map(j => (
-                                <button
-                                    key={j.id}
-                                    onClick={() => submitMove(j.id)}
-                                    disabled={submitting}
-                                    style={{ textAlign: "left", padding: "0.4rem 0.55rem", fontSize: "0.8em" }}
-                                >
-                                    <strong>{j.name}</strong>
-                                    <br />
-                                    <span style={{ color: "#64748b" }}>{j.type} · {j.effectPower ?? 20}% power</span>
-                                </button>
-                            ))}
+                <main className="combat-main-area">
+                    {/* Biome background area — reuses exact arena CSS */}
+                    <div
+                        className={`hex-battlefield hex-${currentBiome}${currentSector === 99 ? " hex-deathsgate" : ""}`}
+                        style={{ minHeight: 160, display: "flex", alignItems: "center", justifyContent: "center" }}
+                    >
+                        <div style={{ textAlign: "center", background: "rgba(0,0,0,0.6)", borderRadius: 12, padding: "0.9rem 2.5rem" }}>
+                            <h2 style={{ margin: 0, fontSize: "1.25em", color: "#fbbf24", letterSpacing: 1 }}>
+                                ⚔️ PvP Battle — Round {session.round}
+                            </h2>
+                            <p style={{ margin: "0.25rem 0 0", color: "#94a3b8", fontSize: "0.82em" }}>
+                                {me.name} vs {opp.name} · Moves resolve simultaneously
+                            </p>
                         </div>
-                        <button
-                            onClick={() => submitMove("skip")}
-                            disabled={submitting}
-                            style={{ width: "100%", marginTop: "0.35rem", opacity: 0.55, fontSize: "0.8em" }}
-                        >
-                            Skip Turn
-                        </button>
                     </div>
-                )
-            ) : (
-                <div style={{ textAlign: "center", padding: "1rem 0" }}>
-                    <h3 style={{
-                        fontSize: "1.6em", marginBottom: "0.5rem",
-                        color: isDraw ? "#94a3b8" : iWon ? "#4ade80" : "#f87171",
-                    }}>
-                        {isDraw ? "🤝 Draw!" : iWon ? "🏆 Victory!" : "💀 Defeated!"}
-                    </h3>
-                    <button onClick={() => setScreen("worldMap")}>Return to World Map</button>
-                </div>
-            )}
+
+                    {/* Jutsu selection panel */}
+                    <div className="jutsu-layout-card combat-jutsu-bar">
+                        {done ? (
+                            <div style={{ textAlign: "center", padding: "1.25rem 0" }}>
+                                <h3 style={{
+                                    fontSize: "1.6em", marginBottom: "0.5rem",
+                                    color: isDraw ? "#94a3b8" : iWon ? "#4ade80" : "#f87171",
+                                }}>
+                                    {isDraw ? "🤝 Draw!" : iWon ? "🏆 Victory!" : "💀 Defeated!"}
+                                </h3>
+                                <button onClick={() => setScreen("worldMap")}>Return to World Map</button>
+                            </div>
+                        ) : submitted ? (
+                            <p style={{ textAlign: "center", color: "#94a3b8", padding: "0.75rem" }}>
+                                ⏳ Move locked in — waiting for {opp.name}...
+                            </p>
+                        ) : isStunned ? (
+                            <div style={{ textAlign: "center" }}>
+                                <p style={{ color: "#a78bfa", marginBottom: "0.5rem", fontSize: "0.9em" }}>
+                                    You are stunned and cannot act this round.
+                                </p>
+                                <button onClick={() => submitMove("skip")} disabled={submitting}>
+                                    Confirm Skip (Stunned)
+                                </button>
+                            </div>
+                        ) : (
+                            <>
+                                <p style={{ color: "#94a3b8", marginBottom: "0.4rem", fontSize: "0.82em", padding: "0 0.25rem" }}>
+                                    Pick your jutsu — both moves resolve simultaneously:
+                                </p>
+                                <div className="combat-equipped-jutsu-grid">
+                                    {equippedJutsu.map(j => {
+                                        const mastery = getJutsuMastery(character, j.id);
+                                        const scaled = scaleJutsuByLevel(j, mastery.level);
+                                        return (
+                                            <div key={j.id} className="combat-jutsu-card-wrap">
+                                                <button
+                                                    type="button"
+                                                    className="combat-jutsu-button"
+                                                    title={`${j.name} | ${j.ap} AP | ${scaled.scaledEffectPower}% EP`}
+                                                    onClick={() => { setInspectedJutsuId(""); submitMove(j.id); }}
+                                                    disabled={submitting}
+                                                >
+                                                    <span className="combat-jutsu-thumb">
+                                                        {j.image ? <img src={j.image} alt={j.name} /> : <strong>{fallbackIcon(j)}</strong>}
+                                                    </span>
+                                                    <span className="combat-jutsu-name">{j.name}</span>
+                                                    <span className="combat-jutsu-info">{j.ap} AP | {j.type} | {scaled.scaledEffectPower}% EP</span>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="combat-jutsu-help"
+                                                    onClick={() => setInspectedJutsuId(inspectedJutsuId === j.id ? "" : j.id)}
+                                                    title={`View ${j.name} details`}
+                                                >?</button>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                <button
+                                    onClick={() => submitMove("skip")}
+                                    disabled={submitting}
+                                    style={{ width: "100%", marginTop: "0.35rem", opacity: 0.55, fontSize: "0.8em" }}
+                                >
+                                    Skip Turn
+                                </button>
+
+                                {inspectedJutsu && (() => {
+                                    const mastery = getJutsuMastery(character, inspectedJutsu.id);
+                                    const scaled = scaleJutsuByLevel(inspectedJutsu, mastery.level);
+                                    return (
+                                        <div className="combat-jutsu-detail-popover">
+                                            <div className="combat-jutsu-detail-header">
+                                                <div>
+                                                    <strong>{inspectedJutsu.name}</strong>
+                                                    <small>Level {mastery.level}</small>
+                                                </div>
+                                                <button type="button" onClick={() => setInspectedJutsuId("")}>×</button>
+                                            </div>
+                                            <div className="combat-jutsu-detail-grid">
+                                                <span><strong>Type:</strong> {inspectedJutsu.type}</span>
+                                                <span><strong>Element:</strong> {inspectedJutsu.element}</span>
+                                                <span><strong>AP:</strong> {inspectedJutsu.ap}</span>
+                                                <span><strong>Range:</strong> {inspectedJutsu.range}</span>
+                                                <span><strong>Effect Power:</strong> {scaled.scaledEffectPower}</span>
+                                                <span><strong>Cooldown:</strong> {inspectedJutsu.cooldown}</span>
+                                                <span><strong>Chakra Cost:</strong> {scaled.chakraCost}</span>
+                                                <span><strong>Stamina Cost:</strong> {scaled.staminaCost}</span>
+                                            </div>
+                                            {inspectedJutsu.description && (
+                                                <p className="combat-jutsu-detail-desc">{inspectedJutsu.description}</p>
+                                            )}
+                                            <div className="combat-jutsu-effects-list">
+                                                <JutsuEffectCards jutsu={inspectedJutsu} scaledEffectPower={scaled.scaledEffectPower} />
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+                            </>
+                        )}
+                    </div>
+
+                    {/* Battle log — same timeline style as arena */}
+                    <div className="combat-text-log combat-timeline">
+                        <div className="combat-log-header">
+                            <strong>Battle Log</strong>
+                            <span>Round {session.round}</span>
+                        </div>
+                        {session.log.length === 0 ? (
+                            <p>No log entries yet.</p>
+                        ) : (
+                            session.log.map((line, i) => (
+                                <p
+                                    key={i}
+                                    className="timeline-entry timeline-player"
+                                    style={{
+                                        color: line.startsWith("—") ? "#475569" : line.includes("wins!") || line.includes("Victory") ? "#fbbf24" : "#cbd5e1",
+                                        borderBottom: line.startsWith("—") ? "1px solid #1e293b" : undefined,
+                                        paddingBottom: line.startsWith("—") ? "0.1rem" : undefined,
+                                    }}
+                                >
+                                    {line}
+                                </p>
+                            ))
+                        )}
+                        <div ref={logEndRef} />
+                    </div>
+                </main>
+
+                {/* Opponent side HUD */}
+                <CombatSideHud
+                    name={opp.name}
+                    avatar={(opp.character?.avatarImage as string) || "🥷"}
+                    hp={opp.hp}
+                    maxHp={opp.maxHp}
+                    chakra={opp.chakra}
+                    maxChakra={opp.maxChakra}
+                    stamina={0}
+                    maxStamina={1}
+                    shield={opp.shield}
+                    village={(opp.character?.village as string) || ""}
+                    turn={session.round}
+                    statuses={opp.statuses}
+                />
+            </div>
         </div>
     );
 }
