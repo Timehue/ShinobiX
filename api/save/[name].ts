@@ -21,6 +21,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (req.method === 'POST') {
         try {
+            const resetSignalKey = `reset-signal:${name.toLowerCase()}`;
+            const isAdminSave = req.query.signal === '1';
+
+            // If a reset-signal is pending (admin edit in-flight) and this is NOT the admin save,
+            // silently drop the client auto-save so it can't overwrite admin changes.
+            if (!isAdminSave) {
+                const pendingSignal = await kv.get(resetSignalKey);
+                if (pendingSignal) return res.status(200).end();
+            }
+
             const incoming = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
             const existing = await kv.get(key);
             const payload = existing ? mergePreservingImages(incoming, existing) : incoming;
@@ -36,13 +46,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 lastSeen: Date.now(),
             };
 
-            // ?signal=1: admin edit — force client to reload from KV on next heartbeat
-            const forceReload = req.query.signal === '1';
-
             await Promise.all([
                 kv.set(key, payload),
                 kv.hset(REGISTRY_KEY, { [name]: JSON.stringify(registryEntry) }),
-                forceReload ? kv.set(`reset-signal:${name.toLowerCase()}`, 1, { ex: 300 }) : Promise.resolve(),
+                // Admin save: set reset-signal so client reloads on next heartbeat
+                isAdminSave ? kv.set(resetSignalKey, 1, { ex: 300 }) : Promise.resolve(),
             ]);
             return res.status(200).end();
         } catch (err) {
