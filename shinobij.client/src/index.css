@@ -13771,6 +13771,63 @@ button.combat-jutsu-button,
     align-items: center !important;
 }
 
+/* ── Mobile: lock arena to viewport so the grid can't overflow ── */
+@media (max-width: 800px) {
+    /* Fix the whole arena to the viewport height */
+    .arena-fullscreen {
+        height: 100dvh !important;
+        max-height: 100dvh !important;
+        overflow: hidden !important;
+        display: flex !important;
+        flex-direction: column !important;
+        padding: 0 !important;
+        border: none !important;
+        border-radius: 0 !important;
+    }
+
+    /* The combat-layout fills remaining height */
+    .arena-fullscreen .combat-layout {
+        flex: 1 1 0 !important;
+        min-height: 0 !important;
+        overflow: hidden !important;
+    }
+
+    /* combat-main-area fills the remaining grid row */
+    .arena-fullscreen .combat-layout > .combat-main-area {
+        display: flex !important;
+        flex-direction: column !important;
+        min-height: 0 !important;
+        overflow: hidden !important;
+    }
+
+    /* Battlefield grows to fill remaining space in the flex column */
+    .arena-fullscreen .hex-battlefield {
+        flex: 1 1 0 !important;
+        height: auto !important;
+        min-height: 200px !important;
+        max-height: none !important;
+    }
+
+    /* Jutsu bar stays compact and scrollable */
+    .arena-fullscreen .jutsu-layout-card,
+    .arena-fullscreen .combat-jutsu-bar {
+        flex-shrink: 0 !important;
+        max-height: 120px !important;
+        overflow-y: auto !important;
+    }
+
+    /* AP panel stays compact */
+    .arena-fullscreen .dual-ap-panel {
+        flex-shrink: 0 !important;
+    }
+
+    /* Command bar stays compact */
+    .arena-fullscreen .basic-action-bar,
+    .arena-fullscreen .shinobi-command-bar {
+        flex-shrink: 0 !important;
+    }
+}
+
 .round-timer-display {
     display: flex;
     flex-direction: column;
