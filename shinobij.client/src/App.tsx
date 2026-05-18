@@ -6040,6 +6040,24 @@ export default function App() {
                         .filter((id): id is string => Boolean(id))
                         .map(id => getItemById(pvpAllItems, id))
                         .filter((item): item is GameItem => Boolean(item));
+                    function handlePvpWin(_opponentName: string) {
+                        if (!character) return;
+                        const deathsGate = currentSector === 99;
+                        const activeTrait = getActivePetTrait(character);
+                        const xpGain = (activeTrait === "Swift" ? 125 : 100) * (deathsGate ? 2 : 1);
+                        const ryoGain = (activeTrait === "Lucky" ? 90 : 75) * (deathsGate ? 2 : 1);
+                        const leveled = gainXp(character, xpGain);
+                        const rewarded = grantTerritoryScrolls(leveled, 5);
+                        setCharacter({
+                            ...rewarded,
+                            ryo: rewarded.ryo + ryoGain,
+                            honorSeals: (rewarded.honorSeals ?? 0) + 15,
+                            auraDust: (rewarded.auraDust ?? 0) + 6,
+                            totalPvpKills: (rewarded.totalPvpKills ?? 0) + 1,
+                            monthlyPvpKills: (rewarded.monthlyPvpKills ?? 0) + 1,
+                            pvpKillMonth: currentMonthKey(),
+                        });
+                    }
                     return (
                         <PvpBattleScreen
                             character={character}
@@ -6051,6 +6069,7 @@ export default function App() {
                             currentBiome={currentBiome}
                             currentWeather={currentWeather}
                             currentSector={currentSector}
+                            onWin={handlePvpWin}
                         />
                     );
                 })()}
@@ -22334,6 +22353,7 @@ type PvpSessionState = {
     log: string[];
     status: "active" | "done";
     winner: "p1" | "p2" | "draw" | null;
+    fleedBy?: "p1" | "p2";
 };
 
 
@@ -22347,6 +22367,7 @@ function PvpBattleScreen({
     currentBiome,
     currentWeather,
     currentSector,
+    onWin,
 }: {
     character: Character;
     battleId: string;
@@ -22357,6 +22378,7 @@ function PvpBattleScreen({
     currentBiome: Biome;
     currentWeather: WeatherType;
     currentSector: number;
+    onWin?: (opponentName: string) => void;
 }) {
     // Grid constants — exact match to arena
     const gridWidth = 12;
@@ -22388,6 +22410,7 @@ function PvpBattleScreen({
     const battlefieldRef = useRef<HTMLDivElement | null>(null);
     const logRef = useRef<HTMLDivElement>(null);
     const pvpSessionFirstLoadRef = useRef(false);
+    const pvpRewardRef = useRef(false);
 
     // Grid helpers — exact match to arena
     function pvpXY(pos: number) { return { x: pos % gridWidth, y: Math.floor(pos / gridWidth) }; }
@@ -22472,6 +22495,16 @@ function PvpBattleScreen({
         }, 1000);
         return () => clearInterval(iv);
     }, [!!session]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Grant XP/Ryo reward once when I win
+    useEffect(() => {
+        if (session?.status !== "done") return;
+        const iWonNow = (session.winner === "p1" && role === "p1") || (session.winner === "p2" && role === "p2");
+        if (!iWonNow || pvpRewardRef.current) return;
+        pvpRewardRef.current = true;
+        const oppName = role === "p1" ? session.p2.name : session.p1.name;
+        onWin?.(oppName);
+    }, [session?.status, session?.winner]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Auto-pass when my turn starts but I can't afford the cheapest action
     const pvpMyAp = session ? (role === "p1" ? session.ap.p1 : session.ap.p2) : 100;
@@ -22574,7 +22607,12 @@ function PvpBattleScreen({
         if (submitting || done || !isMyTurn) return;
         setSubmitting(true);
         try {
-            const body: Record<string, unknown> = { battleId, role, action: pvpAction };
+            const wfx = weatherEffects[currentWeather];
+            const body: Record<string, unknown> = {
+                battleId, role, action: pvpAction,
+                weatherPositiveElement: wfx.positiveElement ?? "",
+                weatherNegativeElement: wfx.negativeElement ?? "",
+            };
             if (pvpTile !== undefined) body.tile = pvpTile;
             if (pvpJutsuId) body.jutsuId = pvpJutsuId;
             if (pvpItem) {
@@ -22582,6 +22620,7 @@ function PvpBattleScreen({
                 body.itemData = {
                     effectPower: pvpItem.weaponEp ?? 15,
                     type: "Bukijutsu",
+                    weaponElement: pvpItem.weaponElement ?? "",
                     weaponRange: pvpItem.weaponRange ?? (normalizeEquipmentSlot(pvpItem.slot) === "thrown" ? 4 : 1),
                     ap: pvpItem.apCost ?? (pvpAction === "item" ? 35 : 40),
                     tags: pvpItem.weaponTags ?? [],
@@ -22870,12 +22909,25 @@ function PvpBattleScreen({
                         {done ? (
                             <div className="battle-ended-overlay" style={{ position: "relative", inset: "unset", background: "none" }}>
                                 <div className="card battle-ended-card">
-                                    <h2 className={isDraw ? "" : iWon ? "battle-result-win" : "battle-result-loss"}>
-                                        {isDraw ? "Draw" : iWon ? "Victory" : "☠️ Defeated"}
+                                    <h2 className={isDraw ? "" : iWon ? "battle-result-win" : session.fleedBy === role ? "battle-result-fled" : "battle-result-loss"}>
+                                        {isDraw ? "Draw" : iWon ? "Victory" : session.fleedBy === role ? "Escaped" : "☠️ Defeated"}
                                     </h2>
                                     <p style={{ color: "#94a3b8", fontSize: "0.9rem", margin: "0.4rem 0 0.8rem" }}>
-                                        {isDraw ? "The duel ended with equal honor." : iWon ? `${me.name} wins the duel!` : `${opp.name} wins the duel.`}
+                                        {isDraw ? "The duel ended with equal honor."
+                                            : iWon ? `${me.name} wins the duel!`
+                                            : session.fleedBy === role ? `${me.name} fled the battle.`
+                                            : `${opp.name} wins the duel.`}
                                     </p>
+                                    {iWon && (() => {
+                                        const deathsGate = currentSector === 99;
+                                        const xp = 100 * (deathsGate ? 2 : 1);
+                                        const ryo = 75 * (deathsGate ? 2 : 1);
+                                        return (
+                                            <p style={{ color: "#ffd700", fontSize: "0.85rem", margin: "0 0 0.8rem" }}>
+                                                +{xp} XP · +{ryo} Ryo · +15 Honor Seals · +6 Aura Dust{deathsGate ? " · ☠️ 2× bonus!" : ""}
+                                            </p>
+                                        );
+                                    })()}
                                     <div className="menu">
                                         <button onClick={() => setScreen("village")}>Return to Village</button>
                                         <button onClick={() => setScreen("worldMap")}>World Map</button>
