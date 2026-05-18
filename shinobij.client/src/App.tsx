@@ -2834,193 +2834,193 @@ const storylines: Record<string, StoryStep[]> = {
     ]),
     "Frostfang Village": [
         milestone("Frostfang Village", 4, "The Pack Survives", "Snow Warden Pup", "⚔️", [
-            storyPage("The Frozen Yard", "The training yard is open to the sky. Snow falls straight down in the windless cold.", "Elder Sova", [
-                "Elder Sova: Frostfang does not welcome you. It receives you, as the ice receives every footstep.",
-                "Elder Sova: The pack was never built on warmth. It was built on the understanding that cold kills alone.",
-                "Elder Sova: Before you are a shinobi here, you are a body that needs the village to survive. Remember that first.",
+            storyPage("The Pack Survives", "Snow lashes across a frozen training yard.", "Elder Sova", [
+                "Elder Sova: The ice remembers footsteps. Walk with purpose, and it carries you.",
+                "Elder Sova: This village was carved out of cold that killed everyone who came before us.",
+                "Elder Sova: The training yard is your first test. It will not be your last.",
             ]),
-            storyPage("First Formation", "Captain Yura stands at the head of a ten-person line, watching without expression.", "Captain Yura", [
-                "Captain Yura: You are late. In Frostfang, late means your partner dies without you.",
-                "Captain Yura: The training exercise is a wolf drill. You close the gap between yourself and the person beside you, no matter what.",
-                "Captain Yura: Drop your ego at the gate. Here, your life belongs to the formation.",
+            storyPage("Formation", "Captain Yura calls the drill over the sound of the wind.", "Captain Yura", [
+                "Captain Yura: No shinobi stands alone. Your village gives your hands meaning.",
+                "Captain Yura: The Snow Warden Pup is not the real lesson. Staying in formation when it charges is.",
+                "Captain Yura: A wolf that breaks ranks is just a dog. Remember that.",
             ]),
-            storyPage("The First Test", "A Snow Warden Pup lunges from the snowbank at the edge of the training yard.", "Elder Sova", [
-                "Elder Sova: The pack tests itself constantly. That is not cruelty.",
-                "Elder Sova: What you do in the next ten seconds determines what Frostfang thinks you are worth.",
-                "Elder Sova: Fight — not to survive. Fight to make sure the person beside you does not have to.",
+            storyPage("The Cold Does Not Care", "The Snow Warden Pup circles the edge of the yard, watching for the weakest gap.", "Frost Seal Echo", [
+                "Frost Seal Echo: Protect yourself, but think like part of a formation.",
+                "Frost Seal Echo: The cold does not hate you. It simply does not care.",
+                "Frost Seal Echo: Survive this, and the pack will remember your name.",
             ]),
         ], [
-            { text: "Cover the formation's flank first.", conclusion: "Yura notes the instinct.", trait: "loyal" },
-            { text: "Take down the threat before anyone else has to.", conclusion: "Elder Sova watches quietly. Good.", trait: "reckless" },
-            { text: "Wait for the formation order.", conclusion: "Yura respects the discipline.", trait: "honorable" },
+            { text: "Hold the formation line.", trait: "loyal" },
+            { text: "Draw it toward me alone.", trait: "reckless" },
+            { text: "Signal the others and flank it.", trait: "suspicious" },
         ]),
         milestone("Frostfang Village", 15, "The Missing Patrol", "Oathbound Soldier", "⚔️", [
-            storyPage("Five Seats Empty", "The northern gate has been open since yesterday. The patrol has not returned.", "Elder Sova", [
-                "Elder Sova: Five shinobi. All with sealed oaths. None with reason to run.",
-                "Elder Sova: The Kage says they deserted. I have known each of them since childhood.",
-                "Elder Sova: The ice keeps records. Footsteps do not lie the way people do. Come with me.",
+            storyPage("The Missing Patrol", "A patrol does not return from the northern ridge.", "Elder Sova", [
+                "Elder Sova: Deserters leave heat behind. These left silence.",
+                "Elder Sova: Five of Yura's best soldiers, all with fresh oaths. None would have run.",
+                "Elder Sova: Something pulled them away from their post. Something patient.",
             ]),
-            storyPage("What the Trail Showed", "The tracks stop at the ridge. There is no struggle in the snow, only a sudden absence of footprints.", "Captain Yura", [
-                "Captain Yura: The trail just stops. No blood, no sign of attack, no direction change.",
-                "Captain Yura: Five trained soldiers don't vanish. Something took them, or something pulled them.",
-                "Captain Yura: I reported it to Kael this morning. He closed the file before I finished speaking.",
+            storyPage("The Closed File", "Captain Yura stands at the northern gate, looking out at empty tracks.", "Captain Yura", [
+                "Captain Yura: Five shinobi vanished, and the Kage says they deserted.",
+                "Captain Yura: I trained each of them. They were not the kind to break their oaths.",
+                "Captain Yura: Kael closed the file before I could finish my report. That is not investigation. That is silence.",
             ]),
-            storyPage("Something Came Back", "One of the missing soldiers walks through the gate at dusk, eyes flat and white.", "Elder Sova", [
-                "Elder Sova: That is Dren. He has been on the northern patrol for eleven years.",
-                "Elder Sova: That is not how Dren walks. That is not how Dren looks at anything.",
-                "Elder Sova: Do not let him report to the Kage alone. Stay close.",
+            storyPage("What Returns", "One of the missing soldiers walks through the gate at dusk, eyes flat and white.", "Frost Seal Echo", [
+                "Frost Seal Echo: Repeat the Kage's judgment until doubt freezes.",
+                "Frost Seal Echo: A soldier who doubts the Kage doubts the pack.",
+                "Frost Seal Echo: Return to your post. The patrol will be explained in time.",
             ]),
         ], [
-            { text: "Follow Dren and watch what he reports.", conclusion: "Elder Sova nods.", trait: "suspicious" },
-            { text: "Intercept him before he reaches the Kage tower.", conclusion: "Yura grabs your arm. Not yet.", trait: "reckless" },
-            { text: "Find where the other four went.", conclusion: "Elder Sova closes his eyes. Right question.", trait: "honorable" },
+            { text: "Follow the trail north.", trait: "reckless" },
+            { text: "Report what we know to Elder Sova.", trait: "honorable" },
+            { text: "Ask the Kage directly what happened.", trait: "suspicious" },
         ]),
         milestone("Frostfang Village", 25, "The Loyalty Seal", "Frost Seal Guardian", "⚔️", [
-            storyPage("The Ice Coffins", "The other four patrol members are found sealed inside ice beneath the northern ridge, alive and still.", "Elder Sova", [
-                "Elder Sova: They are breathing. Slowly. The cold should have killed them.",
-                "Elder Sova: Look at their hands. The seal marks are burning from inside.",
-                "Elder Sova: I have seen this once before, forty years ago. The Kage burned the record. I did not.",
+            storyPage("The Loyalty Seal", "The missing patrol is found alive in ice coffins.", "Elder Sova", [
+                "Elder Sova: Something swallowed their vows and left obedience behind.",
+                "Elder Sova: They breathe. They stand. They do not speak unless asked.",
+                "Elder Sova: I have seen this seal used before. I helped write the theory behind it. I am not proud.",
             ]),
-            storyPage("Dren's Report", "Dren stands in the Kage's chamber delivering a perfectly calm briefing on his own disappearance.", "Captain Yura", [
-                "Captain Yura: He said the patrol was attacked by Pale Pack rebels. He said he alone escaped.",
-                "Captain Yura: He gave coordinates for a Pale Pack camp that I know is abandoned.",
-                "Captain Yura: He did not blink once during the entire debrief.",
+            storyPage("The Kage's Tool", "Captain Yura examines the seal burns on their wrists without touching them.", "Captain Yura", [
+                "Captain Yura: The Kage brands soldiers before dangerous missions.",
+                "Captain Yura: He told us the seal was for protection — a last resort if a shinobi was captured.",
+                "Captain Yura: This is not protection. He used it on his own people.",
             ]),
-            storyPage("The Seal Speaks", "Something resonates from the seal marks on your own wrist — a voice thin as cracking ice.", "Frost Seal Echo", [
-                "Frost Seal Echo: Loyalty is not chosen. It is remembered.",
-                "Frost Seal Echo: The five who were lost asked the wrong questions. The ice preserved them so they could learn again.",
-                "Frost Seal Echo: You are still asking questions. That is acceptable. For now.",
+            storyPage("What the Seal Says", "The Frost Seal Guardian rises from the ice, seal marks blazing across its arms.", "Frost Seal Echo", [
+                "Frost Seal Echo: Choice creates weakness. Obedience preserves the pack.",
+                "Frost Seal Echo: The sealed soldiers do not suffer. They are certain.",
+                "Frost Seal Echo: Certainty is a gift. Most shinobi spend their lives searching for it.",
             ]),
         ], [
-            { text: "Find the records Elder Sova hid forty years ago.", conclusion: "Elder Sova goes still. You already understood.", trait: "suspicious" },
-            { text: "Confront the Kage with what we found.", conclusion: "Yura shakes her head. Not yet. Not without proof he can't silence.", trait: "honorable" },
-            { text: "Dig the four teammates out of the ice.", conclusion: "Elder Sova: they may not thank you for it.", trait: "merciful" },
+            { text: "Destroy the seal records before they can be used again.", trait: "honorable" },
+            { text: "Find out who else has been sealed.", trait: "suspicious" },
+            { text: "Demand the Kage explain himself.", trait: "reckless" },
         ]),
         milestone("Frostfang Village", 35, "The Pale Pack", "Oathbound Ice Captain", "⚔️", [
-            storyPage("The Blue Fire Cave", "A cavern lit by pale blue flame. Thirty shinobi with broken seal marks on their wrists sit in a circle.", "Elder Sova", [
-                "Elder Sova: These are not deserters. Every one of them broke their seal voluntarily.",
-                "Elder Sova: The seal removal is agonizing. You have to want freedom more than you fear the pain.",
-                "Elder Sova: Kael calls them the Pale Pack. They call themselves the ones who remembered they had a choice.",
+            storyPage("The Pale Pack", "Rebels gather in a cavern lit by blue fire.", "Elder Sova", [
+                "Elder Sova: The ice screams from voices trapped beneath vows they never chose.",
+                "Elder Sova: These are not criminals. They refused the seal and ran before it was forced on them.",
+                "Elder Sova: Kael calls them deserters. I call them the only ones still thinking for themselves.",
             ]),
-            storyPage("Yura's Question", "Captain Yura stands at the cave entrance, not yet stepping inside.", "Captain Yura", [
-                "Captain Yura: I have given eleven years to Frostfang. I have followed every order.",
-                "Captain Yura: I need to know if I followed them because I believed, or because the seal made it easy to believe.",
-                "Captain Yura: There is a difference. I just do not know yet which one I am.",
+            storyPage("The Line Yura Won't Cross", "Captain Yura stands at the cave entrance, not yet stepping inside.", "Captain Yura", [
+                "Captain Yura: We are loyal to Frostfang before we are loyal to Kael.",
+                "Captain Yura: The Pale Pack did not abandon the village. They refused to let the village be taken from them.",
+                "Captain Yura: I have been thinking about the difference between those two things for a long time.",
             ]),
-            storyPage("The Pack Speaks", "The Pale Pack leader — a woman with a cracked seal scar across her palm — addresses the room.", "Pale Pack Leader", [
-                "Pale Pack Leader: We are loyal to Frostfang. We always were. We are not loyal to Kael Whitefang.",
-                "Pale Pack Leader: The village is not the Kage. The village is every person the Kage has decided to preserve.",
-                "Pale Pack Leader: You have a seal. We are not asking you to break it tonight. We are asking you to remember it is yours.",
+            storyPage("What the Pack Remembers", "The Oathbound Ice Captain charges from the far end of the cavern.", "Frost Seal Echo", [
+                "Frost Seal Echo: Unity is not a debate. Return, and I may forgive you.",
+                "Frost Seal Echo: The pack needs every tooth. A loose tooth invites infection.",
+                "Frost Seal Echo: Come back before this goes further. The Kage is not patient.",
             ]),
         ], [
-            { text: "The seal is mine. So is the choice of what it means.", conclusion: "The Pale Pack leader bows her head.", trait: "honorable" },
-            { text: "I need time. I will not report this location.", conclusion: "Elder Sova places a hand on your shoulder.", trait: "suspicious" },
-            { text: "Tell me what Kael is actually building.", conclusion: "The leader exchanges a look with Elder Sova.", trait: "ambitious" },
+            { text: "Stand with the Pale Pack.", trait: "honorable" },
+            { text: "Warn them to stay hidden and leave.", trait: "merciful" },
+            { text: "Ask how many others have refused the seal.", trait: "suspicious" },
         ]),
         milestone("Frostfang Village", 50, "Jonin of the Frozen Oath", "Jonin Rank Trial: Glacier Twins", "⚔️", [
-            storyPage("The Glacier Hall", "The Kage chamber is carved inside living ice. Kael sits on a throne of frozen bone-white stone.", "Kage Kael Whitefang", [
-                "Kage Kael Whitefang: You have been tested and you have not broken. That is not small.",
-                "Kage Kael Whitefang: Every Jonin of Frostfang carries the Frozen Oath — a seal that binds their strength to the village.",
-                "Kage Kael Whitefang: This is not a leash. It is a declaration. This village is worth dying for, and you are willing to say so in blood.",
+            storyPage("Jonin of the Frozen Oath", "The Kage hall is carved inside a glacier.", "Elder Sova", [
+                "Elder Sova: Endurance is holy here, but forced loyalty is only fear wearing armor.",
+                "Elder Sova: The Jonin rank in Frostfang comes with something the rank alone does not.",
+                "Elder Sova: Watch what Kael offers you alongside the promotion. That is the real test.",
             ]),
-            storyPage("Before the Trial", "Yura finds you in the corridor outside, speaking quietly.", "Captain Yura", [
-                "Captain Yura: He is going to offer you the Frozen Oath before the trial, not after.",
-                "Captain Yura: The trial is designed to be harder for the unsealed. It is designed to feel like the seal is helping you.",
-                "Captain Yura: Whatever you choose — remember it was a choice. He will try to make it feel like it was not.",
+            storyPage("Yura's Warning", "Captain Yura finds you in the corridor before the ceremony begins.", "Captain Yura", [
+                "Captain Yura: If he offers you an oath seal, refuse without refusing.",
+                "Captain Yura: I took mine because I thought loyalty and the seal were the same thing.",
+                "Captain Yura: They are not. I know that now. I wish I had known it at your rank.",
             ]),
-            storyPage("The Glacier Twins", "Two figures emerge from the ice walls of the trial chamber — mirror images, sealed to the bone.", "Frost Seal Echo", [
-                "Frost Seal Echo: One fights for the pack. One fights for the oath. They are not the same thing.",
-                "Frost Seal Echo: Decide which one you are before you raise your hand.",
-                "Frost Seal Echo: The ice will remember your answer. It always does.",
+            storyPage("The Glacier Twins", "Two sealed figures emerge from the trial chamber walls, moving as one.", "Frost Seal Echo", [
+                "Frost Seal Echo: Accept this mark of unity. Let the village know your heart cannot be divided.",
+                "Frost Seal Echo: The Glacier Twins were sealed before birth. They know nothing else.",
+                "Frost Seal Echo: That is not tragedy. That is strength without the weight of doubt.",
             ]),
         ], [
-            { text: "Accept the rank. Refuse the seal.", conclusion: "Kael's expression does not change. Something behind his eyes does.", trait: "honorable" },
-            { text: "Accept both — play the role completely.", conclusion: "Yura watches from the corridor. She understands.", trait: "suspicious" },
-            { text: "Accept the seal on your own terms — your oath, not his.", conclusion: "Frost Seal Echo goes silent.", trait: "ambitious" },
+            { text: "Accept the rank and decline the seal.", trait: "honorable" },
+            { text: "Accept the rank and take the seal on your own terms.", trait: "ambitious" },
+            { text: "Ask what the seal costs the ones who carry it.", trait: "suspicious" },
         ]),
         milestone("Frostfang Village", 65, "Orders in White Blood", "Oathbound Purge Unit", "⚔️", [
-            storyPage("The Private Order", "Kael gives you a mission briefing with no record, no witness, no scroll.", "Kage Kael Whitefang", [
-                "Kage Kael Whitefang: The shelter you are targeting housed nineteen people who broke their oaths.",
-                "Kage Kael Whitefang: I am not asking you to punish dissent. I am asking you to protect the formation.",
-                "Kage Kael Whitefang: A cracked bone that is not set becomes a break. This is medicine, not execution.",
+            storyPage("Orders in White Blood", "The Kage sends you to eliminate a Pale Pack shelter.", "Elder Sova", [
+                "Elder Sova: Mercy is not weakness. It is the proof that choice survived.",
+                "Elder Sova: The order Kael gave you is designed to make you something you are not.",
+                "Elder Sova: What you find at that shelter will tell you who Frostfang is actually fighting.",
             ]),
-            storyPage("The Shelter", "The shelter holds fourteen people: six children, four elders, four unsealed shinobi.", "Captain Yura", [
-                "Captain Yura: He told you nineteen Pale Pack fighters. He sent you here on purpose.",
-                "Captain Yura: He knew what was here. He wanted to know what you would do with it.",
-                "Captain Yura: I am not ordering you either way. But I am standing here, and I am watching.",
+            storyPage("What Was There", "The shelter holds children, elders, and four unsealed shinobi — not nineteen fighters.", "Captain Yura", [
+                "Captain Yura: Look around. Are these enemies?",
+                "Captain Yura: He told you nineteen Pale Pack fighters. He sent you here knowing what you would find.",
+                "Captain Yura: He wants to know what you will do with it.",
             ]),
-            storyPage("The Unit Arrives", "An Oathbound Purge Unit emerges from the tree line — they were following you the entire time.", "Frost Seal Echo", [
-                "Frost Seal Echo: The order was not given to you. It was given through you.",
-                "Frost Seal Echo: The seal reads your intentions before you act.",
-                "Frost Seal Echo: You have ten seconds before the unit takes the order back.",
+            storyPage("The Unit Behind You", "The Oathbound Purge Unit steps from the treeline — they followed you the entire way.", "Frost Seal Echo", [
+                "Frost Seal Echo: Cut out the weakness. Return with proof of loyalty.",
+                "Frost Seal Echo: The order is clear. Hesitation is not mercy — it is doubt.",
+                "Frost Seal Echo: Complete this, and the conflict ends. Refuse, and you become the next target.",
             ]),
         ], [
-            { text: "Protect the shelter. Take on the Purge Unit.", conclusion: "Yura is already moving.", trait: "merciful" },
-            { text: "Get the civilians out before the unit reaches them.", conclusion: "Elder Sova: every second you bought mattered.", trait: "loyal" },
-            { text: "Stand between the unit and the shelter and make them choose.", conclusion: "Yura: that was either genius or suicide. Probably both.", trait: "reckless" },
+            { text: "Protect the shelter.", trait: "merciful" },
+            { text: "Get the civilians out before the unit reaches them.", trait: "loyal" },
+            { text: "Stand between the unit and the shelter and force them to choose.", trait: "reckless" },
         ]),
         milestone("Frostfang Village", 75, "Yura Breaks the Oath", "Frostfang Oathbreaker Hunter", "⚔️", [
-            storyPage("The Kneeling Captain", "Captain Yura kneels in the snow at the edge of the village with a blade pressed against her own wrist.", "Captain Yura", [
-                "Captain Yura: It has to come out. I have known that for three years.",
-                "Captain Yura: Every time I questioned an order and didn't, the seal felt warm. That warmth is what I cannot forgive.",
-                "Captain Yura: I was not obedient because I believed. I was obedient because it was easier. That is not loyalty. That is a cage.",
+            storyPage("Yura Breaks the Oath", "Captain Yura kneels in the snow, carving the seal from her armor.", "Elder Sova", [
+                "Elder Sova: The ice has been screaming for years.",
+                "Elder Sova: Every sealed shinobi who doubted and said nothing — their silence built this moment.",
+                "Elder Sova: Yura is not weak for breaking. She is the first one strong enough to.",
             ]),
-            storyPage("Elder Sova in the Snow", "Elder Sova stands a few steps away, lantern in hand, like he knew this was coming.", "Elder Sova", [
-                "Elder Sova: I helped design the Frozen Oath. I was forty years younger and I thought controlled loyalty was safe loyalty.",
-                "Elder Sova: I have carried that decision in my chest since the first seal was pressed.",
-                "Elder Sova: Help her. I will carry whatever comes after.",
+            storyPage("What She Knows Now", "Captain Yura presses the blade against her own wrist without hesitation.", "Captain Yura", [
+                "Captain Yura: I called obedience loyalty. I was wrong.",
+                "Captain Yura: Everything I did under the seal — I need to know which of it was mine.",
+                "Captain Yura: The only way to find out is to take it off and see what I do next.",
             ]),
-            storyPage("The Seal Resists", "The Frost Seal Echo screams through Yura's mark as she begins the removal.", "Frost Seal Echo", [
-                "Frost Seal Echo: Loyalty that breaks was never loyalty.",
-                "Frost Seal Echo: Return. Obey. The pack does not survive a loose tooth.",
-                "Frost Seal Echo: If you remove this mark, everything you chose while wearing it becomes a question.",
+            storyPage("The Oath Fights Back", "The Oathbreaker Hunter emerges from the treeline — sent to stop exactly this.", "Frost Seal Echo", [
+                "Frost Seal Echo: Forced loyalty is heavier. The Gate opens beneath the weight.",
+                "Frost Seal Echo: Remove the seal and you remove your place in the formation.",
+                "Frost Seal Echo: You will be hunted. The pack does not forgive a tooth that pulls itself.",
             ]),
         ], [
-            { text: "Help Yura through the removal.", conclusion: "She takes one breath and removes it completely.", trait: "merciful" },
-            { text: "Stand watch — no one interrupts this.", conclusion: "Elder Sova stays beside you both.", trait: "loyal" },
-            { text: "Ask Yura what she plans to do after.", conclusion: "Yura: something I should have done three years ago.", trait: "suspicious" },
+            { text: "Help Yura through the removal.", trait: "merciful" },
+            { text: "Stand guard — no one interrupts this.", trait: "loyal" },
+            { text: "Demand the Echo name the Gate it keeps mentioning.", trait: "suspicious" },
         ]),
         milestone("Frostfang Village", 85, "The Kage Freezes Dissent", "Oathbound Alpha Guard", "⚔️", [
-            storyPage("The Frozen Square", "Frostfang's central square is still. Citizens stand upright in the open air, sealed in ice mid-step.", "Elder Sova", [
-                "Elder Sova: Forty-three people. I counted.",
-                "Elder Sova: The youngest is eight years old. She was bringing her mother a coat.",
-                "Elder Sova: He called it preservation. He told the remaining village this was mercy before the winter comes.",
+            storyPage("The Kage Freezes Dissent", "Frostfang's central square is filled with frozen citizens.", "Elder Sova", [
+                "Elder Sova: Preserved citizens are still prisoners.",
+                "Elder Sova: The square held forty-three people this morning. None of them were armed.",
+                "Elder Sova: He called it protection. He called the patrol desertion. He calls everything something else.",
             ]),
-            storyPage("Kael Explains", "Kage Kael stands at the edge of the square, hands folded, watching his village with something that looks like pride.", "Kage Kael Whitefang", [
-                "Kage Kael Whitefang: Dissent is a wound. Untreated, it spreads.",
-                "Kage Kael Whitefang: These people are not dead. When Frostfang is stable again, they will be released.",
-                "Kage Kael Whitefang: The pack does not have the luxury of debate in a blizzard. I am protecting the formation.",
+            storyPage("Kael's Explanation", "The Kage stands at the edge of the square, watching his village with something that looks like pride.", "Captain Yura", [
+                "Captain Yura: He froze children, elders, medics — anyone who questioned him.",
+                "Captain Yura: The Alpha Guard is still taking orders. They have not looked at the square.",
+                "Captain Yura: If we can show them what is in that ice, we can end this without a battle.",
             ]),
-            storyPage("Elder Sova's Last Stand", "Elder Sova steps into the center of the square, between Kael and the frozen citizens.", "Elder Sova", [
-                "Elder Sova: I helped you build the oath. I will not watch you use it to build a tomb.",
-                "Elder Sova: This is not Frostfang. Frostfang survives together. You froze them so they could not choose together.",
-                "Elder Sova: You wanted a pack. You made statues. There is a difference, and it matters.",
+            storyPage("The Guard Advances", "The Oathbound Alpha Guard moves to seal the square exits.", "Frost Seal Echo", [
+                "Frost Seal Echo: No one has died. This is mercy.",
+                "Frost Seal Echo: The village is stable. The chaos has been removed.",
+                "Frost Seal Echo: When the threat passes, the ice will melt. This is how the pack endures.",
             ]),
         ], [
-            { text: "Get the Pale Pack — they need to see this.", conclusion: "Yura is already running.", trait: "suspicious" },
-            { text: "Keep Kael talking — buy time for the village to act.", conclusion: "Elder Sova holds his ground.", trait: "honorable" },
-            { text: "Start breaking the ice seals on the citizens now.", conclusion: "The Alpha Guard steps forward.", trait: "reckless" },
+            { text: "Break the ice seals and free the citizens.", trait: "reckless" },
+            { text: "Turn the Alpha Guard against Kael.", trait: "honorable" },
+            { text: "Get to Kael before he seals anyone else.", trait: "suspicious" },
         ]),
         milestone("Frostfang Village", 100, "The Oath Must Break", "Kage Kael Whitefang, Hollow Oath Tyrant", "⚔️", [
-            storyPage("The Heart of the Glacier", "The throne room pulses with cold blue light from thousands of embedded oath seals in the walls.", "Kage Kael Whitefang", [
-                "Kage Kael Whitefang: Every seal in these walls was given freely. Every person who wore it lived longer because they did.",
-                "Kage Kael Whitefang: I did not force a single oath. I made the cost of not swearing too high to ignore.",
-                "Kage Kael Whitefang: There is a name for what I did. It is called governance.",
+            storyPage("The Oath Must Break", "The Kage throne sits inside the heart of the glacier.", "Elder Sova", [
+                "Elder Sova: Loyalty chosen freely is stronger than any seal.",
+                "Elder Sova: I have watched Frostfang for sixty years. It was built by people who had nothing but each other.",
+                "Elder Sova: Kael did not build this village. He inherited it. And he is about to lose it.",
             ]),
-            storyPage("Yura Speaks", "Captain Yura stands beside you, wrist bare where the seal used to be.", "Captain Yura", [
-                "Captain Yura: I was loyal to this village before I was ever sealed. I am still loyal to it now.",
-                "Captain Yura: The oath did not make me part of the pack. The pack made me part of the pack.",
-                "Captain Yura: He confused the two. That confusion is standing in front of us right now.",
+            storyPage("What Yura Knows", "Captain Yura stands at your side, wrist bare where the seal used to be.", "Captain Yura", [
+                "Captain Yura: That is what he forgot. That is why the village is no longer his.",
+                "Captain Yura: Frostfang was loyal before the seals existed. The pack does not need chains to hold together.",
+                "Captain Yura: End this. Not for us. For everyone still frozen in that square.",
             ]),
-            storyPage("The Echo Speaks Last", "The Hollow Oath Tyrant rises as every seal in the glacier walls cracks and pulses in unison.", "Frost Seal Echo", [
-                "Frost Seal Echo: Every oath ever broken feeds this.",
-                "Frost Seal Echo: Every time loyalty was worn as armor instead of felt as truth, it came here.",
-                "Frost Seal Echo: Kael did not create this. He just opened the door. That is what happens when you confuse obedience for love.",
+            storyPage("The Tyrant's Argument", "The Hollow Oath Tyrant rises from the glacier as every embedded seal in the walls begins to crack.", "Kage Kael Whitefang", [
+                "Kage Kael Whitefang: If I fall, Frostfang may choose. If you fall, Frostfang will obey.",
+                "Kage Kael Whitefang: I did not create the seals to control the village. I created them because the village kept choosing wrong.",
+                "Kage Kael Whitefang: You are the last variable. After tonight, Frostfang will finally be safe.",
             ]),
         ], [
-            { text: "Loyalty chosen freely is stronger than any seal.", conclusion: "The glacier cracks from the top down.", trait: "honorable" },
-            { text: "Frostfang survives together — or it does not survive at all.", conclusion: "Yura raises her hand beside you.", trait: "loyal" },
-            { text: "The oath was never his to give. It was always yours to keep.", conclusion: "Frost Seal Echo fractures into silence.", trait: "merciful" },
+            { text: "The village never needed you to choose for it.", trait: "honorable" },
+            { text: "Free the people in the square before this ends.", trait: "merciful" },
+            { text: "A Kage who fears his own village has already lost it.", trait: "ambitious" },
         ]),
     ],
     "Moonshadow Village": [
