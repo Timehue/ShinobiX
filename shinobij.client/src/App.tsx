@@ -2821,17 +2821,197 @@ const storylines: Record<string, StoryStep[]> = {
             storyPage("False Thunder", "Raiko's body fractures with Hollow Gate lightning.", "Kage Raiko Veyr", ["Kage Raiko Veyr: I betrayed nothing.", "Kage Raiko Veyr: I became the truth Stormveil was too afraid to name.", "Kage Raiko Veyr: Power belongs to those who take it."]),
         ], [{ text: "Stormveil is freedom, not your feeding ground.", trait: "honorable" }, { text: "You made chaos into chains.", trait: "suspicious" }, { text: "I'll take the Kage seat from you.", trait: "ambitious" }]),
     ],
-    "Ashen Leaf Village": compactArc("Ashen Leaf Village", "Elder Mori", "Toma Reed", "Kage Hoshina Enju", "First Flame Avatar", [
-        { level: 4, title: "Roots of the Shinobi", boss: "Wooden Root Guardian", icon: "⚔️", scene: "A quiet training yard rests beneath golden-green trees dusted with ash.", a: "Bow before the roots. Every shinobi who came before you stands beneath your feet.", b: "Tradition matters more than breathing here, but control still has to be chosen.", c: "The old ways require proof before they offer shelter." },
-        { level: 15, title: "The Forbidden Seed", boss: "Rootbound Guard Initiate", icon: "⚔️", scene: "A sacred tree blooms black flowers overnight.", a: "Some roots are not meant to be disturbed, but these flowers whisper like prisoners.", b: "That tree was dead yesterday. The elders are calling it a blessing.", c: "Feed the root. Burn the unwanted branch." },
-        { level: 25, title: "Names Removed from Scrolls", boss: "Archive Spirit of the Root", icon: "⚔️", scene: "Elder Mori's archive has missing scrolls and erased family lines.", a: "Entire family lines are gone. Not killed. Removed.", b: "My brother questioned the Kage's old rituals. Now the record says he never existed.", c: "Tradition remembers what it is ordered to remember." },
-        { level: 35, title: "The First Flame Chamber", boss: "First Flame Sentinel", icon: "⚔️", scene: "Hidden stairs beneath the oldest tree lead to a chamber of green fire.", a: "The First Flame was meant to preserve us, but willingness is no longer required.", b: "This is not a shrine. This is a furnace.", c: "Careless progress must be burned away." },
-        { level: 50, title: "The Branch That Rises", boss: "Jonin Trial: Rootbound Master", icon: "⚔️", scene: "The Kage hall is filled with elders and incense.", a: "Ashen Leaf needs shinobi who can carry painful truths.", b: "She is turning your suspicion into a promotion.", c: "Branches that grow too far from the tree must be cut." },
-        { level: 65, title: "The Mission of Quiet Ash", boss: "Rootbound Retrieval Squad", icon: "⚔️", scene: "Sacred relics reveal the names of people fed to the First Flame.", a: "The dead are most useful when they stop arguing.", b: "I stole names. Inside these scrolls are the people Hoshina fed to the Flame.", c: "Bring the relics back. Do not listen to their excuses." },
-        { level: 75, title: "The Ancestors Speak", boss: "Ancestor-Bound Flame Beast", icon: "⚔️", scene: "The erased names glow inside the old archive.", a: "A record that hides murder is not history. It is a weapon.", b: "The ancestors gave themselves to save children, not children to save tradition.", c: "Old roots. New blood. All will return to the first shape." },
-        { level: 85, title: "The Kage Burns the Future", boss: "Rootbound Elder Champion", icon: "⚔️", scene: "Kage Hoshina orders all young inventors arrested.", a: "The village must remember itself. Not as ash. As leaf.", b: "She is not preserving Ashen Leaf. She is freezing it in the past.", c: "Innovation created the wars. I will save this village from tomorrow." },
-        { level: 100, title: "The Tree Must Choose", boss: "Kage Hoshina Enju, First Flame Vessel", icon: "⚔️", scene: "The sacred tree burns green from root to crown.", a: "Every erased name has come to witness judgment.", b: "If she falls, Ashen Leaf changes forever.", c: "If you fall, your name joins the ash." },
-    ]),
+    "Ashen Leaf Village": [
+        milestone("Ashen Leaf Village", 4, "Roots of the Shinobi", "Wooden Root Guardian", "⚔️", [
+            storyPage("Roots of the Shinobi", "A quiet training yard rests beneath golden-green trees dusted with ash.", "Elder Mori", [
+                "Elder Mori: Bow before the roots. Every shinobi who came before you stands beneath your feet.",
+                "Elder Mori: Ashen Leaf does not train warriors. It grows them. That takes longer, and it asks more.",
+                "Elder Mori: The Root Guardian is the first lesson. Not because it is easy, but because it is watching.",
+            ]),
+            storyPage("The Weight of Tradition", "Toma Reed stands at the edge of the yard, arms crossed, watching the Guardian stir.", "Toma Reed", [
+                "Toma Reed: Tradition matters more than breathing here, but control still has to be chosen.",
+                "Toma Reed: The elders will test you on what you know before they test you on what you can do.",
+                "Toma Reed: Pass the Root Guardian and they will start to see you. Fail and you become a footnote.",
+            ]),
+            storyPage("The Old Ways Ask", "The Wooden Root Guardian rises from the ground, bark cracking, eyes lit with green fire.", "First Flame Avatar", [
+                "First Flame Avatar: The old ways require proof before they offer shelter.",
+                "First Flame Avatar: The roots remember everyone who walked this yard. They will remember you too.",
+                "First Flame Avatar: Show them something worth remembering.",
+            ]),
+        ], [
+            { text: "Bow to the roots before engaging.", trait: "honorable" },
+            { text: "Read the Guardian's movement before striking.", trait: "suspicious" },
+            { text: "Hit first. Prove intent.", trait: "reckless" },
+        ]),
+        milestone("Ashen Leaf Village", 15, "The Forbidden Seed", "Rootbound Guard Initiate", "⚔️", [
+            storyPage("The Forbidden Seed", "A sacred tree blooms black flowers overnight.", "Elder Mori", [
+                "Elder Mori: Some roots are not meant to be disturbed, but these flowers whisper like prisoners.",
+                "Elder Mori: That tree has not flowered in three generations. The last time it did, six families disappeared.",
+                "Elder Mori: The archive recorded it as a blessed harvest. I was there. It was not.",
+            ]),
+            storyPage("What the Elders Call It", "Toma Reed crouches beneath the black blooms, studying them without touching.", "Toma Reed", [
+                "Toma Reed: That tree was dead yesterday. The elders are calling it a blessing.",
+                "Toma Reed: I have been asking who tended this tree before it bloomed. No one will answer.",
+                "Toma Reed: The Guard Initiate has been posted here since dawn. Someone does not want us near it.",
+            ]),
+            storyPage("What the Root Wants", "The Guard Initiate moves to block your path, hand already on their weapon.", "First Flame Avatar", [
+                "First Flame Avatar: Feed the root. Burn the unwanted branch.",
+                "First Flame Avatar: The black flowers are a signal, not a miracle. Something was planted here on purpose.",
+                "First Flame Avatar: You are being watched to see whether you ask questions or follow orders.",
+            ]),
+        ], [
+            { text: "Take a sample of the black flowers before they're removed.", trait: "suspicious" },
+            { text: "Ask Elder Mori what the last bloom cost.", trait: "honorable" },
+            { text: "Get past the Guard Initiate and find who tends the tree.", trait: "reckless" },
+        ]),
+        milestone("Ashen Leaf Village", 25, "Names Removed from Scrolls", "Archive Spirit of the Root", "⚔️", [
+            storyPage("Names Removed from Scrolls", "Elder Mori's archive has missing scrolls and erased family lines.", "Elder Mori", [
+                "Elder Mori: Entire family lines are gone. Not killed. Removed.",
+                "Elder Mori: The gaps follow a pattern. Every removed name questioned the Kage within the last twenty years.",
+                "Elder Mori: Someone has been tending this archive the same way they tend that tree.",
+            ]),
+            storyPage("Toma's Brother", "Toma Reed spreads the damaged scrolls across the archive floor, hands shaking.", "Toma Reed", [
+                "Toma Reed: My brother questioned the Kage's old rituals. Now the record says he never existed.",
+                "Toma Reed: I have his name on a letter he sent me two years ago. The archive does not.",
+                "Toma Reed: This is not record-keeping. This is erasure while everyone watches.",
+            ]),
+            storyPage("The Archive Defends Itself", "The Archive Spirit rises from the scroll stacks, drawn by the disturbance in the records.", "First Flame Avatar", [
+                "First Flame Avatar: Tradition remembers what it is ordered to remember.",
+                "First Flame Avatar: The Spirit was not bound to protect truth. It was bound to protect the archive.",
+                "First Flame Avatar: Those are not the same thing anymore.",
+            ]),
+        ], [
+            { text: "Copy the missing names before anyone else can erase them.", trait: "suspicious" },
+            { text: "Destroy the falsified records entirely.", trait: "reckless" },
+            { text: "Confront the Kage with the pattern of removals.", trait: "honorable" },
+        ]),
+        milestone("Ashen Leaf Village", 35, "The First Flame Chamber", "First Flame Sentinel", "⚔️", [
+            storyPage("The First Flame Chamber", "Hidden stairs beneath the oldest tree lead to a chamber of green fire.", "Elder Mori", [
+                "Elder Mori: The First Flame was meant to preserve us, but willingness is no longer required.",
+                "Elder Mori: It was built as an offering chamber. Shinobi who had nothing left would give themselves to keep the village alive.",
+                "Elder Mori: No one is giving themselves freely anymore. The names in those scrolls are proof.",
+            ]),
+            storyPage("What Toma Sees", "Toma Reed stops at the entrance to the chamber, staring at the green fire.", "Toma Reed", [
+                "Toma Reed: This is not a shrine. This is a furnace.",
+                "Toma Reed: The heat is wrong. Shrines feel like remembrance. This feels like appetite.",
+                "Toma Reed: The Kage has been feeding it. I want to know with what.",
+            ]),
+            storyPage("The Sentinel Rises", "The First Flame Sentinel steps from the fire, armored in hardened ash.", "First Flame Avatar", [
+                "First Flame Avatar: Careless progress must be burned away.",
+                "First Flame Avatar: The Sentinel does not distinguish between what was freely given and what was taken.",
+                "First Flame Avatar: It simply guards the Flame. That is the problem.",
+            ]),
+        ], [
+            { text: "Extinguish a section of the Flame to see what it's protecting.", trait: "reckless" },
+            { text: "Find the offering records before fighting the Sentinel.", trait: "suspicious" },
+            { text: "Destroy the Sentinel and shut the chamber down.", trait: "honorable" },
+        ]),
+        milestone("Ashen Leaf Village", 50, "The Branch That Rises", "Jonin Trial: Rootbound Master", "⚔️", [
+            storyPage("The Branch That Rises", "The Kage hall is filled with elders and incense.", "Elder Mori", [
+                "Elder Mori: Ashen Leaf needs shinobi who can carry painful truths.",
+                "Elder Mori: The elders know what you have seen. They are watching to see if you carry it or bury it.",
+                "Elder Mori: The Jonin rank in this village is not a reward. It is a test of what you do with what you know.",
+            ]),
+            storyPage("Hoshina's Read", "Kage Hoshina Enju watches you from across the hall with something close to satisfaction.", "Toma Reed", [
+                "Toma Reed: She is turning your suspicion into a promotion.",
+                "Toma Reed: She wants you ranked because a Jonin who knows too much is easier to manage than a Chunin who keeps asking questions.",
+                "Toma Reed: Accept carefully. Know what she thinks she just bought.",
+            ]),
+            storyPage("The Rootbound Master", "The trial begins as the Rootbound Master emerges from the chamber floor.", "First Flame Avatar", [
+                "First Flame Avatar: Branches that grow too far from the tree must be cut.",
+                "First Flame Avatar: The Rootbound Master tests whether your strength serves the village or only yourself.",
+                "First Flame Avatar: That is a question the Flame has been asking for a long time.",
+            ]),
+        ], [
+            { text: "Accept the rank and use it to dig further.", trait: "suspicious" },
+            { text: "Accept and ask Hoshina directly what she expects in return.", trait: "honorable" },
+            { text: "Decline until the erased names are answered for.", trait: "reckless" },
+        ]),
+        milestone("Ashen Leaf Village", 65, "The Mission of Quiet Ash", "Rootbound Retrieval Squad", "⚔️", [
+            storyPage("The Mission of Quiet Ash", "Sacred relics reveal the names of people fed to the First Flame.", "Elder Mori", [
+                "Elder Mori: The dead are most useful when they stop arguing.",
+                "Elder Mori: These relics were supposed to be destroyed. Someone hid them in the outer grove instead.",
+                "Elder Mori: Every name on them is someone the archive says never existed.",
+            ]),
+            storyPage("What Toma Stole", "Toma Reed lays out stolen scrolls on a stone table, hands still.", "Toma Reed", [
+                "Toma Reed: I stole names. Inside these scrolls are the people Hoshina fed to the Flame.",
+                "Toma Reed: My brother is in here. So are forty-three others going back thirty years.",
+                "Toma Reed: The Retrieval Squad is already looking for these. We have very little time.",
+            ]),
+            storyPage("The Squad Arrives", "The Rootbound Retrieval Squad enters the grove from three directions at once.", "First Flame Avatar", [
+                "First Flame Avatar: Bring the relics back. Do not listen to their excuses.",
+                "First Flame Avatar: The Squad was not told what they are retrieving. They were told it was stolen property.",
+                "First Flame Avatar: They are following orders. The names in those scrolls are why that matters.",
+            ]),
+        ], [
+            { text: "Protect the scrolls and take down the Squad.", trait: "merciful" },
+            { text: "Hide the scrolls and lead the Squad away from them.", trait: "suspicious" },
+            { text: "Send the scrolls with Toma and face the Squad alone.", trait: "loyal" },
+        ]),
+        milestone("Ashen Leaf Village", 75, "The Ancestors Speak", "Ancestor-Bound Flame Beast", "⚔️", [
+            storyPage("The Ancestors Speak", "The erased names glow inside the old archive.", "Elder Mori", [
+                "Elder Mori: A record that hides murder is not history. It is a weapon.",
+                "Elder Mori: The names are glowing because someone finally brought the relics back.",
+                "Elder Mori: The archive is trying to correct itself. Whatever Hoshina bound to suppress it is fighting back.",
+            ]),
+            storyPage("What They Gave", "Toma Reed reads the names aloud one by one as the archive walls begin to shake.", "Toma Reed", [
+                "Toma Reed: The ancestors gave themselves to save children, not children to save tradition.",
+                "Toma Reed: Every name on that wall chose the Flame. None of the names in the stolen scrolls did.",
+                "Toma Reed: Hoshina turned an offering into a sacrifice. That is the line she crossed.",
+            ]),
+            storyPage("The Flame Beast Wakes", "The Ancestor-Bound Flame Beast tears free of the archive walls, drawn by the restored names.", "First Flame Avatar", [
+                "First Flame Avatar: Old roots. New blood. All will return to the first shape.",
+                "First Flame Avatar: The Beast was not created to attack. It was created to protect what the archive tried to erase.",
+                "First Flame Avatar: It does not know you yet. Show it you are not here to bury the names again.",
+            ]),
+        ], [
+            { text: "Call the names out loud — show the Beast you restored them.", trait: "honorable" },
+            { text: "Draw it away from the archive before it destroys the records.", trait: "reckless" },
+            { text: "Let it burn what Hoshina corrupted and protect what remains.", trait: "suspicious" },
+        ]),
+        milestone("Ashen Leaf Village", 85, "The Kage Burns the Future", "Rootbound Elder Champion", "⚔️", [
+            storyPage("The Kage Burns the Future", "Kage Hoshina orders all young inventors arrested.", "Elder Mori", [
+                "Elder Mori: The village must remember itself. Not as ash. As leaf.",
+                "Elder Mori: She is arresting anyone who has built something new in the last five years.",
+                "Elder Mori: Fourteen people this morning. Three of them are children.",
+            ]),
+            storyPage("What Hoshina Said", "Toma Reed watches the arrests from a rooftop, jaw tight.", "Toma Reed", [
+                "Toma Reed: She is not preserving Ashen Leaf. She is freezing it in the past.",
+                "Toma Reed: Hoshina told the council that innovation caused the last war. She is not wrong about the cause.",
+                "Toma Reed: But arresting children for building things is not how you prevent the next one.",
+            ]),
+            storyPage("The Elder Champion", "The Rootbound Elder Champion steps forward to enforce the Kage's order.", "First Flame Avatar", [
+                "First Flame Avatar: Innovation created the wars. I will save this village from tomorrow.",
+                "First Flame Avatar: The Elder Champion has served Ashen Leaf for forty years. They believe this is right.",
+                "First Flame Avatar: That is what makes them the hardest obstacle in the village.",
+            ]),
+        ], [
+            { text: "Free the arrested inventors before they reach the Flame.", trait: "merciful" },
+            { text: "Challenge the Elder Champion directly.", trait: "reckless" },
+            { text: "Get to Hoshina before the arrests are complete.", trait: "suspicious" },
+        ]),
+        milestone("Ashen Leaf Village", 100, "The Tree Must Choose", "Kage Hoshina Enju, First Flame Vessel", "⚔️", [
+            storyPage("The Tree Must Choose", "The sacred tree burns green from root to crown.", "Elder Mori", [
+                "Elder Mori: Every erased name has come to witness judgment.",
+                "Elder Mori: The tree has not burned like this since it was planted. It is not dying.",
+                "Elder Mori: It is deciding. The First Flame does not serve Hoshina anymore. It is asking what it should serve.",
+            ]),
+            storyPage("What Toma Carries", "Toma Reed stands at your side holding the recovered scrolls.", "Toma Reed", [
+                "Toma Reed: If she falls, Ashen Leaf changes forever.",
+                "Toma Reed: Every erased name in my hand is someone who trusted this village and was taken from it.",
+                "Toma Reed: We do not fight for revenge. We fight so the next name on a scroll is chosen, not stolen.",
+            ]),
+            storyPage("Hoshina's Final Argument", "Kage Hoshina Enju steps into the green fire, the First Flame consuming her armor.", "Kage Hoshina Enju", [
+                "Kage Hoshina Enju: If you fall, your name joins the ash.",
+                "Kage Hoshina Enju: I did not erase them. I protected everything their deaths made possible.",
+                "Kage Hoshina Enju: Ashen Leaf is alive because of what I fed the Flame. That is not murder. That is governance.",
+            ]),
+        ], [
+            { text: "The names you erased are the village you claim to protect.", trait: "honorable" },
+            { text: "Ashen Leaf survives by choosing — not by being fed to a fire.", trait: "merciful" },
+            { text: "The tree is already choosing. You just cannot hear it.", trait: "ambitious" },
+        ]),
+    ],
     "Frostfang Village": [
         milestone("Frostfang Village", 4, "The Pack Survives", "Snow Warden Pup", "⚔️", [
             storyPage("The Pack Survives", "Snow lashes across a frozen training yard.", "Elder Sova", [
