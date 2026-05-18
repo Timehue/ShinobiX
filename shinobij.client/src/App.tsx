@@ -622,6 +622,22 @@ function getCharacterArmorFactor(character: Character, allItems: GameItem[]): nu
     return Math.max(0.25, 1 - totalReduction);
 }
 
+// PvP-specific: returns raw DR sum (no hard floor) so the server's soft DR pool
+// can give diminishing returns across all 7 slots + pet Guardian.
+// 1 legendary piece = 0.15, full 7-slot legendary + Guardian = 1.13.
+function getCharacterArmorRawDR(character: Character, allItems: GameItem[]): number {
+    const armorSlots: EquipmentSlot[] = ["head", "hand", "body", "armor", "waist", "legs", "feet"];
+    let totalReduction = 0;
+    for (const slot of armorSlots) {
+        const id = character.equipment?.[slot];
+        if (!id) continue;
+        const item = allItems.find((i) => i.id === id);
+        if (item?.armorQuality) totalReduction += armorReductionForQuality(item.armorQuality);
+    }
+    if (getActivePetTrait(character) === "Guardian") totalReduction += 0.08;
+    return Math.min(1.5, totalReduction);
+}
+
 function getEquippedItemBonus<K extends keyof NonNullable<GameItem["bonuses"]>>(
     character: Character,
     allItems: GameItem[],
@@ -6283,8 +6299,8 @@ export default function App() {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({
-                                        p1Character: { ...character, jutsu: p1Jutsus, bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, getAllItems(creatorItems)) },
-                                        p2Character: { ...oppChar, jutsu: p2Jutsus, bloodlineMult: getBloodlineMultiplier(oppChar, savedBloodlines), armorFactor: getCharacterArmorFactor(oppChar, getAllItems(creatorItems)) },
+                                        p1Character: { ...character, jutsu: p1Jutsus, bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, getAllItems(creatorItems)), armorRawDR: getCharacterArmorRawDR(character, getAllItems(creatorItems)), itemDamagePct: getEquippedItemBonus(character, getAllItems(creatorItems), "damagePercent") },
+                                        p2Character: { ...oppChar, jutsu: p2Jutsus, bloodlineMult: getBloodlineMultiplier(oppChar, savedBloodlines), armorFactor: getCharacterArmorFactor(oppChar, getAllItems(creatorItems)), armorRawDR: getCharacterArmorRawDR(oppChar, getAllItems(creatorItems)), itemDamagePct: getEquippedItemBonus(oppChar, getAllItems(creatorItems), "damagePercent") },
                                     }),
                                 });
                                 if (sr.ok) ({ battleId } = await sr.json() as { battleId: string });
@@ -17076,8 +17092,8 @@ function WorldMap({
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    p1Character: { ...character, jutsu: p1Jutsus, bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, getAllItems(wmCreatorItems)) },
-                    p2Character: { ...opponent, jutsu: p2Jutsus, bloodlineMult: getBloodlineMultiplier(opponent, savedBloodlines), armorFactor: getCharacterArmorFactor(opponent, getAllItems(wmCreatorItems)) },
+                    p1Character: { ...character, jutsu: p1Jutsus, bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, getAllItems(wmCreatorItems)), armorRawDR: getCharacterArmorRawDR(character, getAllItems(wmCreatorItems)), itemDamagePct: getEquippedItemBonus(character, getAllItems(wmCreatorItems), "damagePercent") },
+                    p2Character: { ...opponent, jutsu: p2Jutsus, bloodlineMult: getBloodlineMultiplier(opponent, savedBloodlines), armorFactor: getCharacterArmorFactor(opponent, getAllItems(wmCreatorItems)), armorRawDR: getCharacterArmorRawDR(opponent, getAllItems(wmCreatorItems)), itemDamagePct: getEquippedItemBonus(opponent, getAllItems(wmCreatorItems), "damagePercent") },
                 }),
             });
             if (sr.ok) ({ battleId } = await sr.json() as { battleId: string });
@@ -17917,7 +17933,7 @@ function WorldMap({
                                                     const sr = await fetch('/api/pvp/session', {
                                                         method: 'POST',
                                                         headers: { 'Content-Type': 'application/json' },
-                                                        body: JSON.stringify({ p1Character: { ...character, jutsu: p1j, bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, getAllItems(wmCreatorItems)) }, p2Character: { ...guardChar, jutsu: p2j, bloodlineMult: getBloodlineMultiplier(guardChar, savedBloodlines), armorFactor: getCharacterArmorFactor(guardChar, getAllItems(wmCreatorItems)) } }),
+                                                        body: JSON.stringify({ p1Character: { ...character, jutsu: p1j, bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, getAllItems(wmCreatorItems)), armorRawDR: getCharacterArmorRawDR(character, getAllItems(wmCreatorItems)), itemDamagePct: getEquippedItemBonus(character, getAllItems(wmCreatorItems), "damagePercent") }, p2Character: { ...guardChar, jutsu: p2j, bloodlineMult: getBloodlineMultiplier(guardChar, savedBloodlines), armorFactor: getCharacterArmorFactor(guardChar, getAllItems(wmCreatorItems)), armorRawDR: getCharacterArmorRawDR(guardChar, getAllItems(wmCreatorItems)), itemDamagePct: getEquippedItemBonus(guardChar, getAllItems(wmCreatorItems), "damagePercent") } }),
                                                     });
                                                     if (sr.ok) ({ battleId } = await sr.json() as { battleId: string });
                                                 } catch { /* fallback */ }
@@ -20165,7 +20181,7 @@ function Arena({
             const res = await fetch('/api/pvp/session', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ p1Character: { ...challenger, bloodlineMult: getBloodlineMultiplier(challenger as Character, savedBloodlines), armorFactor: getCharacterArmorFactor(challenger as Character, allItems) }, p2Character: { ...character, bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, allItems) } }),
+                body: JSON.stringify({ p1Character: { ...challenger, bloodlineMult: getBloodlineMultiplier(challenger as Character, savedBloodlines), armorFactor: getCharacterArmorFactor(challenger as Character, allItems), armorRawDR: getCharacterArmorRawDR(challenger as Character, allItems), itemDamagePct: getEquippedItemBonus(challenger as Character, allItems, "damagePercent") }, p2Character: { ...character, bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, allItems), armorRawDR: getCharacterArmorRawDR(character, allItems), itemDamagePct: getEquippedItemBonus(character, allItems, "damagePercent") } }),
             });
             if (!res.ok) throw new Error('Session create failed');
             const { battleId } = await res.json() as { battleId: string };
