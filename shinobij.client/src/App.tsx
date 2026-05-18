@@ -910,7 +910,17 @@ function isBloodlineSpecialElementJutsu(character: Character, jutsu: Jutsu, save
         bloodline.jutsus.some((bloodlineJutsu) => bloodlineJutsu.id === jutsu.id)
     );
 }
+function isBloodlineJutsu(character: Character, jutsu: Jutsu, savedBloodlines: SavedBloodline[]) {
+    return getCharacterBloodlines(character, savedBloodlines).some((bloodline) =>
+        bloodline.jutsus.some((bloodlineJutsu) => bloodlineJutsu.id === jutsu.id)
+    );
+}
 function canEquipElementJutsu(character: Character, jutsu: Jutsu, savedBloodlines: SavedBloodline[]) {
+    // No element (or explicit "None") — universal jutsu, always accessible.
+    if (!jutsu.element || jutsu.element === "None") return true;
+    // Bloodline jutsu — accessible regardless of owned elements since the bloodline itself grants access.
+    if (isBloodlineJutsu(character, jutsu, savedBloodlines)) return true;
+    // Elemental jutsu — character must own the element (or have it via bloodline special element).
     return hasCharacterElement(character, jutsu.element) || isBloodlineSpecialElementJutsu(character, jutsu, savedBloodlines);
 }
 function rollNewAwakeningElement(currentElements: string[]) {
@@ -4114,6 +4124,7 @@ function jutsuEffectInfo(jutsu: Jutsu, tag: JutsuTag) {
     const effectPower = jutsu.effectPower;
     const percentLabel = tag.percent > 0 ? `${tag.percent}%` : "Static";
 
+    if (tag.name === "Damage") return { summary: `Deals damage at ${effectPower}% effect power.`, rule: "Uses the jutsu offense type against the target's matching defense, then applies weather, terrain, bloodline, armor, and status modifiers.", duration: "Instant", value: `${effectPower}% EP` };
     if (tag.name === "Heal") return { summary: `Restores 500 HP to the user.`, rule: "Sets direct damage to 0 and heals the caster for a flat 500 HP.", duration: "Instant", value: "500 HP" };
     if (tag.name === "Shield") return { summary: `Adds 500 shield to the user — always succeeds.`, rule: "Shield absorbs incoming damage before HP. Pierce can bypass shield. Cannot be blocked by Buff Prevent.", duration: "Until broken", value: "500" };
     if (tag.name === "Barrier") return { summary: "Erects an impassable wall tile one step toward the enemy on the battlefield.", rule: "Places a barrier tile that blocks movement for both fighters for 2 rounds. Cannot be bypassed.", duration: "2 rounds", value: "Wall tile" };
@@ -17169,10 +17180,10 @@ function WorldMap({
     function biomeForSector(sector: number): Biome {
         if (sector === 99) return "volcano"; // Death's Gate — cursed volcanic frontier
         if (sector >= 56) return "central"; // Central meadow
-        if (sector <= 20) return "shadow";  // Moonshadow darkness
-        if (sector <= 35) return "forest";  // Stormveil water
-        if (sector <= 45) return "volcano"; // Ashen Leaf forest
-        return "snow";                      // Frostfang ice
+        if (sector <= 20) return "shadow";  // Moonshadow shadow territory
+        if (sector <= 35) return "forest";  // Stormveil forest territory
+        if (sector <= 45) return "volcano"; // Ashen Leaf volcano territory
+        return "snow";                      // Frostfang snow territory
     }
 
     // Sector adjacent to each home village (used for Outskirts)
@@ -18448,7 +18459,7 @@ function JutsuTrainingHall({
     const selectedDuration = selectedMastery ? jutsuTrainingDuration(selectedMastery.level) : 0;
     const activeRemaining = activeJutsuTraining ? activeJutsuTraining.endsAt - now : 0;
 
-    return <div className="card"><h2>Jutsu Training Hall</h2><p>Train jutsu to <strong>Level 30</strong> with ryo. Levels <strong>31-50</strong> must be earned from battles. Your elements: <strong>{ownedElements.length ? ownedElements.join(" / ") : "None awakened"}</strong>. Town Hall + Aura training bonus: <strong>{jutsuTrainingBonus.toFixed(2)}%</strong>.</p>{lockedElementCount > 0 && <p className="hint">{lockedElementCount} jutsu locked until you awaken their element.</p>}{activeJutsuTraining && <div className="summary-box"><h3>Active Jutsu Training</h3><p><strong>{activeJutsuTraining.label}</strong>: Level {activeJutsuTraining.fromLevel} ? {activeJutsuTraining.toLevel}</p><p>Cost paid: {activeJutsuTraining.ryoCost} ryo</p><p>{activeRemaining > 0 ? `Time remaining: ${formatTrainingTime(activeRemaining)}` : "Training complete. Claim your level."}</p><button onClick={completePaidJutsuTraining}>{activeRemaining > 0 ? "Check Training" : "Claim Jutsu Level"}</button></div>}<JutsuDropdownList jutsus={availableJutsus} label="Choose Jutsu" emptyText={ownedElements.length ? "No jutsu match your awakened elements." : "Awaken an element at the Awakening Stone before training elemental jutsu."} renderDetails={(jutsu) => { const mastery = getJutsuMastery(character, jutsu.id); const scaled = scaleJutsuByLevel(jutsu, mastery.level); const cost = jutsuTrainingCost(mastery.level); const duration = jutsuTrainingDuration(mastery.level); return <><p>Level: {mastery.level}/50 | XP: {mastery.xp}/{mastery.level >= 50 ? "MAX" : jutsuXpNeeded(mastery.level)}</p><p>Type: {jutsu.type} | Element: {jutsu.element} | AP: {jutsu.ap} | Range: {jutsu.range}</p><p>Scaled EP: {scaled.scaledEffectPower} | Chakra Cost: {scaled.chakraCost} | Stamina Cost: {scaled.staminaCost}</p><p><strong>Paid Training:</strong> {mastery.level < JUTSU_TRAINING_CAP ? `${cost} ryo | ${duration / 60000} minutes | +1 full level` : "Battle only from here"}</p><p><strong>Effects:</strong> {describeJutsuEffects(scaleJutsuTagsForDisplay(jutsu, mastery.level))}</p><JutsuEffectCards jutsu={jutsu} scaledEffectPower={scaled.scaledEffectPower} masteryLevel={mastery.level} /><p>{selectedJutsuId === jutsu.id ? "Selected for paid training." : mastery.level < 30 ? "Training Hall available." : mastery.level < 50 ? "Battle only." : "Mastered."}</p></>; }} renderActions={(jutsu) => <button onClick={() => setSelectedJutsuId(jutsu.id)}>Select For Training</button>} /><h3>Paid Ryo Training</h3><div className="summary-box"><p>{selectedJutsu ? <><strong>{selectedJutsu.name}</strong> will train from level {selectedMastery?.level ?? 0} to {Math.min(JUTSU_TRAINING_CAP, (selectedMastery?.level ?? 0) + 1)}.</> : "Choose a jutsu to train."}</p><p>Cost: <strong>{selectedCost}</strong> ryo | Time: <strong>{selectedDuration / 60000}</strong> minutes | Reward: <strong>1 full jutsu level</strong></p><button onClick={startPaidJutsuTraining} disabled={!selectedJutsu || !!activeJutsuTraining || !selectedMastery || selectedMastery.level >= JUTSU_TRAINING_CAP || character.ryo < selectedCost}>{activeJutsuTraining ? "Training In Progress" : selectedMastery && selectedMastery.level >= JUTSU_TRAINING_CAP ? "Battle Training Required" : `Pay ${selectedCost} Ryo & Train`}</button></div></div>;
+    return <div className="card"><h2>Jutsu Training Hall</h2><p>Train jutsu to <strong>Level 30</strong> with ryo. Levels <strong>31-50</strong> must be earned from battles. Your elements: <strong>{ownedElements.length ? ownedElements.join(" / ") : "None awakened"}</strong>. Town Hall + Aura training bonus: <strong>{jutsuTrainingBonus.toFixed(2)}%</strong>.</p>{lockedElementCount > 0 && <p className="hint">{lockedElementCount} jutsu locked until you awaken their element.</p>}{activeJutsuTraining && <div className="summary-box"><h3>Active Jutsu Training</h3><p><strong>{activeJutsuTraining.label}</strong>: Level {activeJutsuTraining.fromLevel} ? {activeJutsuTraining.toLevel}</p><p>Cost paid: {activeJutsuTraining.ryoCost} ryo</p><p>{activeRemaining > 0 ? `Time remaining: ${formatTrainingTime(activeRemaining)}` : "Training complete. Claim your level."}</p><button onClick={completePaidJutsuTraining}>{activeRemaining > 0 ? "Check Training" : "Claim Jutsu Level"}</button></div>}<JutsuDropdownList jutsus={availableJutsus} label="Choose Jutsu" emptyText={ownedElements.length ? "No jutsu match your awakened elements." : "Awaken an element at the Awakening Stone before training elemental jutsu."} renderDetails={(jutsu) => { const mastery = getJutsuMastery(character, jutsu.id); const scaled = scaleJutsuByLevel(jutsu, mastery.level); const cost = jutsuTrainingCost(mastery.level); const duration = jutsuTrainingDuration(mastery.level); return <><p>Level: {mastery.level}/50 | XP: {mastery.xp}/{mastery.level >= 50 ? "MAX" : jutsuXpNeeded(mastery.level)}</p><p>Type: {jutsu.type} | Element: {jutsu.element} | AP: {jutsu.ap} | Range: {jutsu.range}</p><p>Scaled EP: {scaled.scaledEffectPower} | Chakra Cost: {scaled.chakraCost} | Stamina Cost: {scaled.staminaCost}</p><p><strong>Paid Training:</strong> {mastery.level === 0 ? "Free & Instant — unlocks Level 1" : mastery.level < JUTSU_TRAINING_CAP ? `${cost} ryo | ${duration / 60000} minutes | +1 full level` : "Battle only from here"}</p><p><strong>Effects:</strong> {describeJutsuEffects({ ...scaleJutsuTagsForDisplay(jutsu, mastery.level), effectPower: scaled.scaledEffectPower })}</p><JutsuEffectCards jutsu={jutsu} scaledEffectPower={scaled.scaledEffectPower} masteryLevel={mastery.level} /><p>{selectedJutsuId === jutsu.id ? "Selected for paid training." : mastery.level < 30 ? "Training Hall available." : mastery.level < 50 ? "Battle only." : "Mastered."}</p></>; }} renderActions={(jutsu) => <button onClick={() => setSelectedJutsuId(jutsu.id)}>Select For Training</button>} /><h3>Paid Ryo Training</h3><div className="summary-box"><p>{selectedJutsu ? <><strong>{selectedJutsu.name}</strong> will train from level {selectedMastery?.level ?? 0} to {Math.min(JUTSU_TRAINING_CAP, (selectedMastery?.level ?? 0) + 1)}.</> : "Choose a jutsu to train."}</p><p>{selectedMastery?.level === 0 ? <><strong>Free & Instant</strong> — Level 0 → 1</> : <>Cost: <strong>{selectedCost}</strong> ryo | Time: <strong>{selectedDuration / 60000}</strong> minutes | Reward: <strong>1 full jutsu level</strong></>}</p><button onClick={startPaidJutsuTraining} disabled={!selectedJutsu || !!activeJutsuTraining || !selectedMastery || selectedMastery.level >= JUTSU_TRAINING_CAP || (selectedMastery.level > 0 && character.ryo < selectedCost)}>{activeJutsuTraining ? "Training In Progress" : selectedMastery && selectedMastery.level >= JUTSU_TRAINING_CAP ? "Battle Training Required" : selectedMastery?.level === 0 ? "Unlock Level 1 (Free)" : `Pay ${selectedCost} Ryo & Train`}</button></div></div>;
 }
 
 function CardVisual({ image, icon, label }: { image?: string; icon?: string; label: string }) {
@@ -23083,6 +23094,7 @@ function PvpBattleScreen({
                 battleId, role, action: pvpAction,
                 weatherPositiveElement: wfx.positiveElement ?? "",
                 weatherNegativeElement: wfx.negativeElement ?? "",
+                biome: currentBiome,
             };
             if (pvpTile !== undefined) body.tile = pvpTile;
             if (pvpJutsuId) body.jutsuId = pvpJutsuId;
