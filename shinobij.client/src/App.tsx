@@ -5216,7 +5216,7 @@ export default function App() {
             return;
         }
         setTriggeredEvents((ids) => ids.includes(AURA_SPHERE_VN_ID) ? ids : [...ids, AURA_SPHERE_VN_ID]);
-        setActiveTriggeredEvent(auraSphereLv9VnEvent);
+        setActiveTriggeredEvent(creatorEvents.find(e => e.id === AURA_SPHERE_VN_ID) ?? auraSphereLv9VnEvent);
         setActiveTriggerReturnScreen(screen);
         setTriggerPage(0);
         setTriggerLine(0);
@@ -5779,7 +5779,7 @@ export default function App() {
             // Built-in: Awakening Stone VN fires first time leaving village at level 2+
             if (character.level >= 2 && !triggeredEvents.includes(AWAKENING_VN_ID)) {
                 setTriggeredEvents((ids) => [...ids, AWAKENING_VN_ID]);
-                setActiveTriggeredEvent(awakeningLv2VnEvent);
+                setActiveTriggeredEvent(creatorEvents.find(e => e.id === AWAKENING_VN_ID) ?? awakeningLv2VnEvent);
                 setActiveTriggerReturnScreen(nextScreen);
                 setTriggerPage(0);
                 setTriggerLine(0);
@@ -9601,6 +9601,8 @@ function AdminPanel({
     const selectedAdminAiProfile = allAdminAis.find((ai) => ai.id === selectedAiId) ?? allAdminAis[0];
     const builtInVisualNovels = [
         hiddenDungeonVnEvent,
+        awakeningLv2VnEvent,
+        auraSphereLv9VnEvent,
         ...Object.entries(storylines).flatMap(([village, steps]) => steps.map((step, index) => storyToCreatorEvent(step, village, index))),
     ];
     const allEditableEvents = [
@@ -9710,10 +9712,21 @@ function AdminPanel({
 
     function setVnPageImage(eventId: string, pageIndex: number, image: string) {
         void publishSharedImage(`vn:${eventId}:page:${pageIndex}`, image);
-        setCreatorEvents(creatorEvents.map((ev) => {
-            if (ev.id !== eventId || !ev.vnPages) return ev;
-            return { ...ev, vnPages: ev.vnPages.map((p, i) => i === pageIndex ? { ...p, image } : p) };
-        }));
+        setCreatorEvents(prev => {
+            const existing = prev.find(ev => ev.id === eventId);
+            if (existing) {
+                return prev.map((ev) => {
+                    if (ev.id !== eventId || !ev.vnPages) return ev;
+                    return { ...ev, vnPages: ev.vnPages.map((p, i) => i === pageIndex ? { ...p, image } : p) };
+                });
+            }
+            // Builtin event not yet in creatorEvents — upsert it so the image persists
+            const builtin = builtInVisualNovels.find(b => b.id === eventId);
+            if (builtin?.vnPages) {
+                return [...prev, { ...builtin, vnPages: builtin.vnPages.map((p, i) => i === pageIndex ? { ...p, image } : p) }];
+            }
+            return prev;
+        });
     }
 
     function setPetVnPageImage(pageIndex: number, image: string) {
