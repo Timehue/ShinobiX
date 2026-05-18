@@ -8417,7 +8417,7 @@ function AdminPanel({
     creatorAis: CreatorAi[];
     setCreatorAis: (ais: CreatorAi[]) => void;
     creatorEvents: CreatorEvent[];
-    setCreatorEvents: (events: CreatorEvent[]) => void;
+    setCreatorEvents: React.Dispatch<React.SetStateAction<CreatorEvent[]>>;
     creatorMissions: CreatorMission[];
     setCreatorMissions: (missions: CreatorMission[]) => void;
     creatorRaids: CreatorRaid[];
