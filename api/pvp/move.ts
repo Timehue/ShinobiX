@@ -118,7 +118,9 @@ function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu, wMult 
     const defStats = (opponent.character.stats as Record<string, number>) ?? {};
     const statFactor = Math.max(0.35, Math.min(1.85, 1 + (getOffense(offStats, jutsu.type) - getDefense(defStats, jutsu.type)) / (MAX_STAT * 2) * 0.85));
     const effectFactor = Math.max(0, scaledEp) / 100;
-    const baseDmg = Math.max(0, Math.floor(opponent.maxHp * effectFactor * statFactor * PVP_SCALE * getTagMultiplier(jutsu.tags ?? []) * wMult));
+    // Bloodline mult: pre-computed on the client and stored in character (1.0 if absent)
+    const bloodlineMult = Math.max(1.0, Number((self.character.bloodlineMult as number) ?? 1.0));
+    const baseDmg = Math.max(0, Math.floor(opponent.maxHp * effectFactor * statFactor * PVP_SCALE * getTagMultiplier(jutsu.tags ?? []) * wMult * bloodlineMult));
 
     const tags = jutsu.tags ?? [];
     const lines: string[] = [];
@@ -131,21 +133,27 @@ function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu, wMult 
 
     for (const tag of tags) {
         const pct = tag.percent ?? 0;
-        if (tag.name === 'Heal') { healing += HEAL_FLAT; damage = 0; lines.push(`Heal: ${s.name} restores ${HEAL_FLAT} HP.`); continue; }
-        if (tag.name === 'Shield') { shieldGain += SHIELD_FLAT; damage = 0; lines.push(`Shield: ${s.name} gains ${SHIELD_FLAT} shield.`); continue; }
+        if (tag.name === 'Heal') { if (!hasStatus(s, 'Buff Prevent')) { healing += HEAL_FLAT; damage = 0; lines.push(`Heal: ${s.name} restores ${HEAL_FLAT} HP.`); } continue; }
+        if (tag.name === 'Shield') { if (!hasStatus(s, 'Buff Prevent')) { shieldGain += SHIELD_FLAT; damage = 0; lines.push(`Shield: ${s.name} gains ${SHIELD_FLAT} shield.`); } continue; }
         if (tag.name === 'Pierce') { pierce = true; lines.push(`Pierce: bypasses defenses.`); continue; }
-        if (tag.name === 'Stun') { if (!hasStatus(o, 'Debuff Prevent')) { o = addStatus(o, { name: 'Stun', rounds: 1, kind: 'negative' }); lines.push(`Stun: ${o.name} loses their next turn.`); } continue; }
+        if (tag.name === 'Stun') { if (!hasStatus(o, 'Debuff Prevent') && !hasStatus(o, 'Stun Prevent')) { o = addStatus(o, { name: 'Stun', rounds: 1, kind: 'negative' }); lines.push(`Stun: ${o.name} loses 40 AP next turn.`); } continue; }
         if (tag.name === 'Poison') { if (!hasStatus(o, 'Debuff Prevent')) { const dmg = Math.floor(o.maxChakra * 0.06); o = addStatus(o, { name: 'Poison', rounds: 2, percent: pct, kind: 'negative' }); lines.push(`Poison: ${o.name} takes ~${dmg}/round for 2 turns.`); } continue; }
         if (tag.name === 'Drain') { if (!hasStatus(o, 'Debuff Prevent')) { o = addStatus(o, { name: 'Drain', rounds: 2, amount: DRAIN_AMOUNT, kind: 'negative' }); lines.push(`Drain: ${o.name} loses ${DRAIN_AMOUNT} HP+chakra/turn for 2 turns.`); } continue; }
         if (tag.name === 'Absorb') { if (!hasStatus(s, 'Buff Prevent')) { s = addStatus(s, { name: 'Absorb', rounds: 2, percent: pct, kind: 'positive' }); lines.push(`Absorb: ${s.name} converts ${pct}% incoming damage for 2 turns.`); } continue; }
         if (tag.name === 'Reflect') { if (!hasStatus(s, 'Buff Prevent')) { s = addStatus(s, { name: 'Reflect', rounds: 2, percent: pct, kind: 'positive' }); lines.push(`Reflect: ${s.name} reflects ${pct}% damage for 2 turns.`); } continue; }
         if (tag.name === 'Lifesteal') { if (!hasStatus(s, 'Buff Prevent')) { s = addStatus(s, { name: 'Lifesteal', rounds: 2, percent: pct, kind: 'positive' }); lines.push(`Lifesteal: ${s.name} heals on hit for 2 turns.`); } continue; }
-        if (tag.name === 'Increase Damage Given') { s = addStatus(s, { name: 'Increase Damage Given', rounds: 2, percent: pct, kind: 'positive' }); lines.push(`+${pct}% Damage Given: ${s.name} for 2 turns.`); continue; }
+        if (tag.name === 'Increase Damage Given') { if (!hasStatus(s, 'Buff Prevent')) { s = addStatus(s, { name: 'Increase Damage Given', rounds: 2, percent: pct, kind: 'positive' }); lines.push(`+${pct}% Damage Given: ${s.name} for 2 turns.`); } continue; }
         if (tag.name === 'Decrease Damage Given') { if (!hasStatus(o, 'Debuff Prevent')) { o = addStatus(o, { name: 'Decrease Damage Given', rounds: 2, percent: pct, kind: 'negative' }); lines.push(`-${pct}% Damage Given: ${o.name} for 2 turns.`); } continue; }
         if (tag.name === 'Increase Damage Taken') { if (!hasStatus(o, 'Debuff Prevent')) { o = addStatus(o, { name: 'Increase Damage Taken', rounds: 2, percent: pct, kind: 'negative' }); lines.push(`+${pct}% Damage Taken: ${o.name} for 2 turns.`); } continue; }
-        if (tag.name === 'Decrease Damage Taken') { s = addStatus(s, { name: 'Decrease Damage Taken', rounds: 2, percent: pct, kind: 'positive' }); lines.push(`-${pct}% Damage Taken: ${s.name} for 2 turns.`); continue; }
+        if (tag.name === 'Decrease Damage Taken') { if (!hasStatus(s, 'Buff Prevent')) { s = addStatus(s, { name: 'Decrease Damage Taken', rounds: 2, percent: pct, kind: 'positive' }); lines.push(`-${pct}% Damage Taken: ${s.name} for 2 turns.`); } continue; }
         if (tag.name === 'Afterburn') { if (!hasStatus(o, 'Debuff Prevent')) { o = addStatus(o, { name: 'Afterburn', rounds: 2, percent: pct, kind: 'negative' }); lines.push(`Afterburn: ${o.name} +${pct}% damage taken for 2 turns.`); } continue; }
         if (tag.name === 'Debuff Prevent') { s = addStatus(s, { name: 'Debuff Prevent', rounds: 2, kind: 'positive' }); lines.push(`Debuff Prevent: ${s.name} for 2 turns.`); continue; }
+        if (tag.name === 'Buff Prevent') { if (!hasStatus(o, 'Debuff Prevent')) { o = addStatus(o, { name: 'Buff Prevent', rounds: 2, kind: 'negative' }); lines.push(`Buff Prevent: ${o.name} cannot gain positive effects for 2 turns.`); } continue; }
+        if (tag.name === 'Stun Prevent') { s = addStatus(s, { name: 'Stun Prevent', rounds: 2, kind: 'positive' }); lines.push(`Stun Prevent: ${s.name} is immune to Stun for 2 turns.`); continue; }
+        if (tag.name === 'Copy') { const copied = o.statuses.filter(st => st.kind === 'positive'); copied.forEach(st => { s = addStatus(s, { ...st }); }); lines.push(`Copy: ${s.name} copied ${copied.length ? copied.map(st => st.name).join(', ') : 'nothing'} from ${o.name}.`); continue; }
+        if (tag.name === 'Mirror') { const mirrored = s.statuses.filter(st => st.kind === 'negative' && st.name !== 'Wound' && st.name !== 'Poison' && st.name !== 'Drain'); if (!hasStatus(o, 'Debuff Prevent')) { mirrored.forEach(st => { o = addStatus(o, { ...st }); }); s = { ...s, statuses: s.statuses.filter(st => !mirrored.includes(st)) }; lines.push(`Mirror: ${s.name} reflected ${mirrored.length ? mirrored.map(st => st.name).join(', ') : 'no debuffs'} onto ${o.name}.`); } continue; }
+        if (tag.name === 'Time Compression') { if (!hasStatus(o, 'Debuff Prevent')) { o = addStatus(o, { name: 'Time Compression', rounds: 2, percent: pct || 20, kind: 'negative' }); lines.push(`Time Compression: ${o.name}'s actions cost ${pct || 20}% more AP for 2 turns.`); } continue; }
+        if (tag.name === 'Time Dilation') { if (!hasStatus(s, 'Buff Prevent')) { s = addStatus(s, { name: 'Time Dilation', rounds: 2, percent: pct || 20, kind: 'positive' }); lines.push(`Time Dilation: ${s.name}'s actions cost ${pct || 20}% less AP for 2 turns.`); } continue; }
         if (tag.name === 'Seal' || tag.name === 'Elemental Seal') { if (!hasStatus(o, 'Debuff Prevent')) { o = addStatus(o, { name: tag.name, rounds: 2, kind: 'negative' }); lines.push(`${tag.name}: ${o.name} is sealed.`); } continue; }
     }
 
@@ -222,7 +230,7 @@ function checkWinner(s: PvpSession): PvpSession {
 }
 
 // ─── End active player's turn, hand off to the other ──────────────────────────
-function endTurn(session: PvpSession, depth = 0): PvpSession {
+function endTurn(session: PvpSession): PvpSession {
     const current = session.activePlayer;
     const next: 'p1' | 'p2' = current === 'p1' ? 'p2' : 'p1';
     const newRound = current === 'p2' ? session.round + 1 : session.round;
@@ -237,6 +245,18 @@ function endTurn(session: PvpSession, depth = 0): PvpSession {
         s = { ...s, p2: tickStatuses(s.p2), cooldowns: { ...s.cooldowns, p2: tickCooldowns(s.cooldowns.p2) } };
     }
 
+    // Chakra regen: 10% of max chakra restored to both fighters at the end of each full round
+    if (current === 'p2') {
+        const p1Regen = Math.floor(s.p1.maxChakra * 0.1);
+        const p2Regen = Math.floor(s.p2.maxChakra * 0.1);
+        s = {
+            ...s,
+            p1: { ...s.p1, chakra: Math.min(s.p1.maxChakra, s.p1.chakra + p1Regen) },
+            p2: { ...s.p2, chakra: Math.min(s.p2.maxChakra, s.p2.chakra + p2Regen) },
+        };
+        lines.push(`Chakra restored (+10%).`);
+    }
+
     // Apply DoTs to the next player at start of their turn
     let nextFighter = next === 'p1' ? s.p1 : s.p2;
     const dots = applyDoTs(nextFighter);
@@ -247,17 +267,20 @@ function endTurn(session: PvpSession, depth = 0): PvpSession {
     s = checkWinner({ ...s, round: newRound, log: lines.length ? [...s.log, ...lines] : s.log });
     if (s.status === 'done') return s;
 
-    // Auto-skip stunned player (max depth 2 to avoid infinite recursion)
-    const isStunned = nextFighter.statuses.some(st => st.name === 'Stun');
-    if (isStunned && depth < 2) {
+    // Stun applies a 40 AP penalty instead of skipping the turn entirely
+    const stunStatus = nextFighter.statuses.find(st => st.name === 'Stun');
+    const baseAp = stunStatus ? Math.max(0, 100 - 40) : 100;
+    if (stunStatus) {
         const unstunned = { ...nextFighter, statuses: nextFighter.statuses.filter(st => st.name !== 'Stun') };
-        const skipLine = `${nextFighter.name} is stunned and loses their turn.`;
         s = next === 'p1' ? { ...s, p1: unstunned } : { ...s, p2: unstunned };
-        s = { ...s, activePlayer: next, ap: { ...s.ap, [next]: 100 }, actionsThisTurn: 0, log: [...s.log, skipLine] };
-        return endTurn(s, depth + 1);
+        lines.push(`${nextFighter.name} is stunned — starts turn with ${baseAp} AP.`);
     }
 
-    return { ...s, activePlayer: next, ap: { ...s.ap, [next]: 100 }, actionsThisTurn: 0 };
+    // Time Compression: next player's AP costs increase by percent
+    // Time Dilation: next player's AP costs decrease by percent — stored on fighter, applied by canAct in handler
+    // Both are status effects already applied; the handler reads them via the session
+
+    return { ...s, activePlayer: next, ap: { ...s.ap, [next]: baseAp }, actionsThisTurn: 0 };
 }
 
 // ─── Handler ──────────────────────────────────────────────────────────────────
@@ -302,13 +325,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const myAp = role === 'p1' ? session.ap.p1 : session.ap.p2;
         const lines: string[] = [];
 
-        function canAct(cost: number) { return myAp >= cost && session.actionsThisTurn < MAX_ACTIONS; }
+        // Apply Time Compression (costs more) and Time Dilation (costs less) to AP
+        function adjustedCost(base: number): number {
+            let cost = base;
+            const compression = me.statuses.find(st => st.name === 'Time Compression');
+            const dilation = me.statuses.find(st => st.name === 'Time Dilation');
+            if (compression) cost = Math.ceil(cost * (1 + (compression.percent ?? 20) / 100));
+            if (dilation) cost = Math.floor(cost * (1 - (dilation.percent ?? 20) / 100));
+            return Math.max(1, cost);
+        }
+        function canAct(cost: number) { return myAp >= adjustedCost(cost) && session.actionsThisTurn < MAX_ACTIONS; }
 
         function commit(updMe: PvpFighter | null, updOpp: PvpFighter | null, apCost: number, cd?: Record<string, number>): PvpSession {
             let s = { ...session };
             if (updMe) s = role === 'p1' ? { ...s, p1: updMe } : { ...s, p2: updMe };
             if (updOpp) s = role === 'p1' ? { ...s, p2: updOpp } : { ...s, p1: updOpp };
-            s = { ...s, ap: { ...s.ap, [role]: myAp - apCost }, actionsThisTurn: s.actionsThisTurn + 1 };
+            s = { ...s, ap: { ...s.ap, [role]: myAp - adjustedCost(apCost) }, actionsThisTurn: s.actionsThisTurn + 1 };
             if (cd) s = { ...s, cooldowns: { ...s.cooldowns, [role]: { ...myCooldowns, ...cd } } };
             if (lines.length) s = { ...s, log: [...s.log, ...lines] };
             return checkWinner(s);
