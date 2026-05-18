@@ -4198,7 +4198,7 @@ function blankJutsu(index: number, rank: Rank): Jutsu {
     ]);
 }
 function jutsuCountForRank(rank: Rank) { return rank === "B Rank" ? 4 : 5; }
-function pointBudgetForRank(rank: Rank) { return rank === "S Rank" ? 14 : rank === "A Rank" ? 13 : 9; }
+function pointBudgetForRank(rank: Rank) { return rank === "S Rank" ? 11 : rank === "A Rank" ? 10 : 7; }
 
 function tagPointValue(tag: JutsuTag, rank?: Rank | null) {
     if (!tag.name) return 0;
@@ -4212,7 +4212,7 @@ function tagPointValue(tag: JutsuTag, rank?: Rank | null) {
         if (tag.percent >= 35) return 0.5;
         return 0;
     }
-    if (["Stun", "Copy", "Mirror", "Time Compression", "Time Dilation"].includes(tag.name)) return 2;
+    if (["Stun", "Copy", "Mirror", "Time Compression", "Time Dilation", "Debuff Prevent"].includes(tag.name)) return 2;
     if (["Seal", "Reflect", "Buff Prevent", "Cleanse Prevent", "Clear Prevent"].includes(tag.name)) return 1.5;
     if (["Shield", "Heal", "Pierce", "Wound", "Barrier", "Drain"].includes(tag.name)) return 1;
     if (tag.name === "Push") return 1;
@@ -19471,6 +19471,14 @@ function BloodlineMaker({ initialRank, initialSpecialElement, savedBloodlines, s
             if (next.target === "EMPTY_GROUND") {
                 next.tags = next.tags.filter((t) => t.name !== "Increase Damage Taken");
             }
+            // AOE_CIRCLE method requires Move tag in the first slot — they are tied
+            if (next.method === "AOE_CIRCLE") {
+                const hasMoveTag = next.tags.some((t) => t.name === "Move");
+                if (!hasMoveTag) {
+                    const slots = next.tags.filter((t) => t.name !== "Move");
+                    next.tags = [{ name: "Move", percent: 0 }, ...slots].slice(0, next.ap === 60 ? 2 : 3);
+                }
+            }
             return next;
         }));
     }
@@ -19545,10 +19553,10 @@ function BloodlineMaker({ initialRank, initialSpecialElement, savedBloodlines, s
                     <div className="inline-grid">
                         <select value={jutsu.target} onChange={(e) => updateJutsu(jutsuIndex, { target: e.target.value as JutsuTarget })}>{jutsuTargets.map((target) => <option key={target} value={target}>{target === "EMPTY_GROUND" ? "GROUND" : target}</option>)}</select>
                         <select value={bloodlineJutsuMethods.includes(jutsu.method) ? jutsu.method : "SINGLE"} onChange={(e) => updateJutsu(jutsuIndex, { method: e.target.value as JutsuMethod })}>
-                            {bloodlineJutsuMethods.map((method) => <option key={method} value={method}>{method === "AOE_CIRCLE" ? "AOE_SPIRAL_SHOOT (+1 point with Ground)" : method}</option>)}
+                            {bloodlineJutsuMethods.map((method) => <option key={method} value={method}>{method === "AOE_CIRCLE" ? "AOE_CIRCLE (Move + Ring Damage)" : method}</option>)}
                         </select>
                     </div>
-                    {jutsu.target === "EMPTY_GROUND" && jutsu.method === "AOE_CIRCLE" && <div className="summary-box bloodline-element-lock">Ground AOE Spiral Shoot: instant ground effect (+1 point). Opponent debuffs apply when the target is caught in the impact area.</div>}
+                    {jutsu.method === "AOE_CIRCLE" && <div className="summary-box bloodline-element-lock">AOE Circle: you move to a chosen tile, then deal damage to every hex surrounding your destination. Move tag is required and auto-added. If the opponent is adjacent to your landing tile, they take the hit.</div>}
                     <label>AP Type</label>
                     <div className="admin-ap-toggle">
                         <button className={jutsu.ap === 40 ? "active" : ""} onClick={() => updateJutsuAp(jutsuIndex, 40)}>40 AP Utility</button>
