@@ -11,7 +11,8 @@ const MAX_ACTIONS = 5;
 
 // ─── Combat formula constants ─────────────────────────────────────────────────
 const MAX_STAT = 2500;
-const PVP_SCALE = 0.5;
+const PVP_SCALE = 0.42;    // Global PvP damage scale — tuned for ~10-round TTK in a mirror match
+const K_DR = 0.5;           // Diminishing-returns constant for the DR pool: DR% = raw/(raw+K_DR)
 const HEAL_FLAT = 500;
 const SHIELD_FLAT = 500;
 const DRAIN_AMOUNT = 250;
@@ -93,15 +94,26 @@ function tickCooldowns(cds: Record<string, number>): Record<string, number> {
     for (const [k, v] of Object.entries(cds)) if (v > 1) next[k] = v - 1;
     return next;
 }
-function damageMultiplierFor(attacker: PvpFighter, defender: PvpFighter): number {
+// Raw DR contribution from defensive status effects.
+// Added into the DR pool alongside armor — soft cap via K_DR so stacking always helps.
+function drContributionFor(attacker: PvpFighter, defender: PvpFighter): number {
+    let dr = 0;
+    for (const s of attacker.statuses) {
+        if (s.name === 'Decrease Damage Given') dr += (s.percent ?? 0) / 100;
+    }
+    for (const s of defender.statuses) {
+        if (s.name === 'Decrease Damage Taken') dr += (s.percent ?? 0) / 100;
+    }
+    return dr;
+}
+// Amplifiers (offensive / vulnerability buffs) — no diminishing returns, these increase damage.
+function ampMultiplierFor(attacker: PvpFighter, defender: PvpFighter): number {
     let m = 1;
     for (const s of attacker.statuses) {
         if (s.name === 'Increase Damage Given') m *= (1 + (s.percent ?? 0) / 100);
-        if (s.name === 'Decrease Damage Given') m /= (1 + (s.percent ?? 0) / 100);
     }
     for (const s of defender.statuses) {
         if (s.name === 'Increase Damage Taken') m *= (1 + (s.percent ?? 0) / 100);
-        if (s.name === 'Decrease Damage Taken') m /= (1 + (s.percent ?? 0) / 100);
         if (s.name === 'Afterburn') m *= (1 + (s.percent ?? 0) / 100);
     }
     return m;
@@ -119,14 +131,25 @@ function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu, wMult 
     const defStats = (opponent.character.stats as Record<string, number>) ?? {};
     const statFactor = Math.max(0.35, Math.min(1.85, 1 + (getOffense(offStats, jutsu.type) - getDefense(defStats, jutsu.type)) / (MAX_STAT * 2) * 0.85));
     const effectFactor = Math.max(0, scaledEp) / 100;
-    // Bloodline mult: pre-computed on the client and stored in character (1.0 if absent)
+    // Bloodline mult: pre-computed on the client (1.0 if absent)
     const bloodlineMult = Math.max(1.0, Number((self.character.bloodlineMult as number) ?? 1.0));
-    // Armor factor: pre-computed on the client from armorQuality tiers (0.25–1.0)
-    // Applied alongside status DR below with a shared 0.25 floor so armor + Decrease Damage Taken
-    // can never combine to exceed the 75% DR cap.
-    const armorFactor = Math.min(1.0, Math.max(0.25, Number((opponent.character.armorFactor as number) ?? 1.0)));
-    // Raw damage before any DR — armor and status multipliers applied together later
-    const baseDmg = Math.max(0, Math.floor(opponent.maxHp * effectFactor * statFactor * PVP_SCALE * wMult * bloodlineMult));
+    // Item damage bonus: pre-computed on the client from equipped item bonuses (0 if absent → ×1.0)
+    const itemDamageMult = 1 + Math.max(0, Number((self.character.itemDamagePct as number) ?? 0)) / 100;
+    // Raw base damage — DR applied separately below
+    const baseDmg = Math.max(0, Math.floor(
+        opponent.maxHp * effectFactor * statFactor * PVP_SCALE * wMult * bloodlineMult * itemDamageMult
+    ));
+    // ── Defensive DR pool (diminishing returns) ───────────────────────────────
+    // armorRawDR: raw sum of per-piece reductions (e.g. 7×0.15 + 0.08 Guardian = 1.13).
+    // Falls back to deriving from old armorFactor for sessions created before this update.
+    const armorRawDR = (opponent.character.armorRawDR !== undefined && opponent.character.armorRawDR !== null)
+        ? Math.min(1.5, Math.max(0, Number(opponent.character.armorRawDR)))
+        : Math.max(0, 1 - Math.min(1.0, Math.max(0.25, Number((opponent.character.armorFactor as number) ?? 1.0))));
+    // Status DR feeds the same pool — every point still reduces damage, just with diminishing returns.
+    const rawStatusDR = drContributionFor(self, opponent);
+    const rawTotalDR = armorRawDR + rawStatusDR;
+    // effectiveDR = rawTotal / (rawTotal + K_DR)  →  always < 1, always grows with more DR
+    const effectiveDR = rawTotalDR > 0 ? rawTotalDR / (rawTotalDR + K_DR) : 0;
 
     const tags = jutsu.tags ?? [];
     const lines: string[] = [];
@@ -166,10 +189,11 @@ function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu, wMult 
     if (pierce) {
         damage = (jutsu.ap ?? 40) >= 60 ? 900 : 500;
     } else {
-        // Combine armor DR and status DR (Decrease Damage Taken etc.) under a shared 0.25 floor.
-        // This prevents stacking them past the 75% global DR cap.
-        const combinedFactor = Math.max(0.25, armorFactor * damageMultiplierFor(s, o));
-        damage = Math.floor(damage * combinedFactor);
+        // Amplifiers (Increase Damage Given, Increase Damage Taken, Afterburn) apply at full value.
+        const ampMult = ampMultiplierFor(s, o);
+        // DR is already computed above as effectiveDR ∈ [0, 1).
+        // Armor, DDT, and DDG all feed the same pool — more always helps, but with diminishing returns.
+        damage = Math.max(0, Math.floor(damage * (1 - effectiveDR) * ampMult));
     }
 
     if (damage > 0) {
@@ -522,7 +546,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     await kv.set(key, updated, { ex: 600 });
                     return res.status(200).json(updated);
                 }
-                const wTags: JutsuTag[] = [{ name: 'Damage', percent: 100 }, ...(itemData.tags ?? [])];
+                const wTags: JutsuTag[] = [...(itemData.tags ?? [])];
                 if (itemData.weaponEffect && !wTags.find(t => t.name === itemData.weaponEffect)) {
                     wTags.push({ name: itemData.weaponEffect, percent: itemData.weaponEffectValue ?? 0 });
                 }
