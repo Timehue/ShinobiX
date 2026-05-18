@@ -69,10 +69,7 @@ function getDefense(stats: Record<string, number>, type: string): number {
     if (type === 'Genjutsu') return (stats.genjutsuDefense ?? 0) + (stats.intelligence ?? 0) + (stats.willpower ?? 0);
     return (stats.ninjutsuDefense ?? 0) + (stats.willpower ?? 0) + (stats.speed ?? 0);
 }
-function getTagMultiplier(tags: JutsuTag[]): number {
-    const dmg = (tags ?? []).filter(t => t.name === 'Damage' && (t.percent ?? 0) > 0).sort((a, b) => (b.percent ?? 0) - (a.percent ?? 0));
-    return dmg.reduce((m, t, i) => m * (1 + ((t.percent ?? 0) / 100) * Math.pow(0.7, i)), 1);
-}
+
 function cappedPostDamage(damage: number, percent: number): number {
     return Math.floor(Math.min(damage * (percent / 100), damage * 0.6));
 }
@@ -129,7 +126,7 @@ function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu, wMult 
     // can never combine to exceed the 75% DR cap.
     const armorFactor = Math.min(1.0, Math.max(0.25, Number((opponent.character.armorFactor as number) ?? 1.0)));
     // Raw damage before any DR — armor and status multipliers applied together later
-    const baseDmg = Math.max(0, Math.floor(opponent.maxHp * effectFactor * statFactor * PVP_SCALE * getTagMultiplier(jutsu.tags ?? []) * wMult * bloodlineMult));
+    const baseDmg = Math.max(0, Math.floor(opponent.maxHp * effectFactor * statFactor * PVP_SCALE * wMult * bloodlineMult));
 
     const tags = jutsu.tags ?? [];
     const lines: string[] = [];
@@ -394,7 +391,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return res.status(200).json({ ...session, log: [...session.log, `${me.name}: not enough stamina.`] });
                 }
                 const specialty = (me.character.specialty as string) ?? 'Ninjutsu';
-                const basicJutsu: Jutsu = { id: 'basic-attack', name: 'Basic Attack', type: specialty, effectPower: 10, ap: 40, range: 1, tags: [{ name: 'Damage', percent: 10 }] };
+                const basicJutsu: Jutsu = { id: 'basic-attack', name: 'Basic Attack', type: specialty, effectPower: 10, ap: 40, range: 1, tags: [] };
                 lines.push(`${me.name} uses Basic Attack:`);
                 const atk = applyJutsu(me, opp, basicJutsu, 1);
                 lines.push(...atk.lines);

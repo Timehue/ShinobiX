@@ -1513,7 +1513,6 @@ function effectiveTagPercent(tag: JutsuTag, bloodlineRank?: Rank | null, level =
 }
 
 const allTags = [
-    "Damage",
     "Absorb",
     "Afterburn",
     "Barrier",
@@ -1598,16 +1597,16 @@ function nonBloodlineSixtyApTag(jutsu: Jutsu): JutsuTag {
 function rebalanceNonBloodlineJutsu(jutsu: Jutsu): Jutsu {
     const normalized = normalizeJutsu(jutsu);
     const tags = normalized.ap === 60
-        ? [{ name: "Damage", percent: 30 }, nonBloodlineSixtyApTag(normalized)]
+        ? [nonBloodlineSixtyApTag(normalized)]
         : normalized.ap === 40
             ? nonBloodlineFortyApTags(normalized)
-            : [{ name: "Damage", percent: 30 }];
+            : [];
 
     return normalizeJutsu({
         ...normalized,
         range: normalized.target === "OPPONENT" ? 4 : normalized.range,
         cooldown: 7,
-        effectPower: normalized.ap === 60 ? 28 : 0,
+        effectPower: normalized.ap === 60 ? 36 : 0,
         tags,
     });
 }
@@ -1705,9 +1704,9 @@ const starterSavedBloodlines: SavedBloodline[] = [
         specialElement: "Blood",
         lore: "A cursed kekkei genkai born from a clan that broke a forbidden pact with blood spirits. Those awakened by the Ashen Eyes see the world through a veil of crimson — perceiving every living being as a tapestry of veins and chakra pathways. The afflicted can shatter hallucinations directly into their opponent's bloodstream, weaponizing the very sight of life itself. Ancient texts warn that prolonged use slowly turns the user's own eyes the color of ash and bone.",
         jutsus: [
-            makeJutsu("ashen-eyes-blood-gaze", "Blood Gaze Rupture", "Genjutsu", 60, 4, 28, 7, 32, 12, [{ name: "Damage", percent: 30 }], "Blood" as JutsuElement),
-            makeJutsu("ashen-eyes-crimson-hall", "Crimson Hallucination", "Genjutsu", 60, 4, 28, 7, 34, 10, [{ name: "Damage", percent: 30 }], "Blood" as JutsuElement),
-            makeJutsu("ashen-eyes-vein-mirror", "Vein Mirror Nightmare", "Genjutsu", 60, 4, 28, 7, 36, 10, [{ name: "Damage", percent: 30 }], "Blood" as JutsuElement),
+            makeJutsu("ashen-eyes-blood-gaze", "Blood Gaze Rupture", "Genjutsu", 60, 4, 36, 7, 32, 12, [], "Blood" as JutsuElement),
+            makeJutsu("ashen-eyes-crimson-hall", "Crimson Hallucination", "Genjutsu", 60, 4, 36, 7, 34, 10, [], "Blood" as JutsuElement),
+            makeJutsu("ashen-eyes-vein-mirror", "Vein Mirror Nightmare", "Genjutsu", 60, 4, 36, 7, 36, 10, [], "Blood" as JutsuElement),
         ],
         totalPoints: 9,
     },
@@ -1718,9 +1717,9 @@ const starterSavedBloodlines: SavedBloodline[] = [
         specialElement: "Lava",
         lore: "Forged in the volcanic rifts of the Ember Wastes, the Inferno Cataclysm lineage merges fire and earth chakra at the cellular level. The wielder's body temperature runs far above human limits — surface veins glow faintly orange in darkness. In battle, they can compress molten rock and superheated gas into devastating projectiles or coffin-like formations that entomb the enemy in cooling lava. Survivors of their attacks are found encased in obsidian, preserved like dark statues.",
         jutsus: [
-            makeJutsu("inferno-cataclysm-lava-burst", "Lava Burst Coffin", "Ninjutsu", 60, 4, 28, 7, 34, 12, [{ name: "Damage", percent: 30 }], "Lava" as JutsuElement),
-            makeJutsu("inferno-cataclysm-molten-rain", "Molten Rainfall", "Ninjutsu", 60, 4, 28, 7, 36, 10, [{ name: "Damage", percent: 30 }], "Lava" as JutsuElement),
-            makeJutsu("inferno-cataclysm-crater-lance", "Crater Lance", "Ninjutsu", 60, 4, 28, 7, 38, 10, [{ name: "Damage", percent: 30 }], "Lava" as JutsuElement),
+            makeJutsu("inferno-cataclysm-lava-burst", "Lava Burst Coffin", "Ninjutsu", 60, 4, 36, 7, 34, 12, [], "Lava" as JutsuElement),
+            makeJutsu("inferno-cataclysm-molten-rain", "Molten Rainfall", "Ninjutsu", 60, 4, 36, 7, 36, 10, [], "Lava" as JutsuElement),
+            makeJutsu("inferno-cataclysm-crater-lance", "Crater Lance", "Ninjutsu", 60, 4, 36, 7, 38, 10, [], "Lava" as JutsuElement),
         ],
         totalPoints: 9,
     },
@@ -1731,9 +1730,9 @@ const starterSavedBloodlines: SavedBloodline[] = [
         specialElement: "Shadow",
         lore: "Descended from a sect of bukijutsu assassins who trained in perpetual darkness for generations, the Shadow Lotus bloodline channels shadow-natured chakra through weapons and thrown implements. Their techniques bloom like deadly flowers from the dark — blades that trail shadow-ribbons, senbon that multiply in dim light, and wires that vanish entirely in low visibility. Their clan temple has no lanterns. They say the darkness learned to fear them first.",
         jutsus: [
-            makeJutsu("shadow-lotus-umbra-senbon", "Umbra Senbon Bloom", "Bukijutsu", 60, 4, 28, 7, 28, 18, [{ name: "Damage", percent: 30 }], "Shadow" as JutsuElement),
-            makeJutsu("shadow-lotus-night-petal", "Night Petal Cutter", "Bukijutsu", 60, 4, 28, 7, 30, 18, [{ name: "Damage", percent: 30 }], "Shadow" as JutsuElement),
-            makeJutsu("shadow-lotus-eclipse-wire", "Eclipse Wire Blossom", "Bukijutsu", 60, 4, 28, 7, 32, 16, [{ name: "Damage", percent: 30 }], "Shadow" as JutsuElement),
+            makeJutsu("shadow-lotus-umbra-senbon", "Umbra Senbon Bloom", "Bukijutsu", 60, 4, 36, 7, 28, 18, [], "Shadow" as JutsuElement),
+            makeJutsu("shadow-lotus-night-petal", "Night Petal Cutter", "Bukijutsu", 60, 4, 36, 7, 30, 18, [], "Shadow" as JutsuElement),
+            makeJutsu("shadow-lotus-eclipse-wire", "Eclipse Wire Blossom", "Bukijutsu", 60, 4, 36, 7, 32, 16, [], "Shadow" as JutsuElement),
         ],
         totalPoints: 9,
     },
@@ -1744,9 +1743,9 @@ const starterSavedBloodlines: SavedBloodline[] = [
         specialElement: "Iron",
         lore: "A taijutsu bloodline born from miners who fused raw metallic chakra into their fighting style over ten generations. Iron Fang users can coat their limbs in magnetized iron-dense chakra, turning every punch and kick into a shattering impact that tears armor and breaks weapons. Their fists leave cracked stone. Some high-level users develop iron-grey patches on their knuckles, shins, and forearms — natural battle plating grown from within. The clan motto: 'The mountain doesn't dodge. It endures. Then it falls on you.'",
         jutsus: [
-            makeJutsu("iron-fang-ferrous-crash", "Ferrous Fang Crash", "Taijutsu", 60, 4, 28, 7, 12, 34, [{ name: "Damage", percent: 30 }], "Iron" as JutsuElement),
-            makeJutsu("iron-fang-steel-maw", "Steel Maw Breaker", "Taijutsu", 60, 4, 28, 7, 10, 36, [{ name: "Damage", percent: 30 }], "Iron" as JutsuElement),
-            makeJutsu("iron-fang-magnet-knuckle", "Magnet Knuckle Rend", "Taijutsu", 60, 4, 28, 7, 12, 38, [{ name: "Damage", percent: 30 }], "Iron" as JutsuElement),
+            makeJutsu("iron-fang-ferrous-crash", "Ferrous Fang Crash", "Taijutsu", 60, 4, 36, 7, 12, 34, [], "Iron" as JutsuElement),
+            makeJutsu("iron-fang-steel-maw", "Steel Maw Breaker", "Taijutsu", 60, 4, 36, 7, 10, 36, [], "Iron" as JutsuElement),
+            makeJutsu("iron-fang-magnet-knuckle", "Magnet Knuckle Rend", "Taijutsu", 60, 4, 36, 7, 12, 38, [], "Iron" as JutsuElement),
         ],
         totalPoints: 9,
     },
@@ -4057,10 +4056,6 @@ function multiplicativeTagMultiplier(tags: { percent?: number }[], direction: "i
     }, 1);
 }
 
-function getTagMultiplier(tags: JutsuTag[]): number {
-    const dmgTags = tags.filter(t => t.name === "Damage").sort((a, b) => b.percent - a.percent);
-    return dmgTags.reduce((mult, tag, i) => mult * (1 + (tag.percent / 100) * Math.pow(0.7, i)), 1);
-}
 
 function getBloodlineMultiplier(char: Character, allSavedBloodlines: SavedBloodline[]): number {
     if (!char.equippedBloodlineId) return 1.0;
@@ -4089,9 +4084,8 @@ function calculateDamage(
     const statFactor = clampNumber(1 + ((offense - defense) / (MAX_STAT * 2)) * 0.85, 0.35, 1.85);
     const effectFactor = Math.max(0, jutsu.effectPower) / 100;
     const bucketOne = baselineDamage * effectFactor * statFactor * armorFactor * itemMult * weatherMult;
-    const bucketTwo = getTagMultiplier(jutsu.tags);
-    const bucketThree = bloodlineMult;
-    return Math.max(0, Math.floor(bucketOne * bucketTwo * bucketThree));
+    const bucketTwo = bloodlineMult;
+    return Math.max(0, Math.floor(bucketOne * bucketTwo));
 }
 
 function tagPower(tag: JutsuTag, fallback = 30) {
@@ -4103,7 +4097,6 @@ function jutsuEffectInfo(jutsu: Jutsu, tag: JutsuTag) {
     const effectPower = jutsu.effectPower;
     const percentLabel = tag.percent > 0 ? `${tag.percent}%` : "Static";
 
-    if (tag.name === "Damage") return { summary: `Deals damage at ${effectPower}% effect power.`, rule: "Uses the jutsu offense type against the target's matching defense, then applies weather, bloodline, armor, and status modifiers.", duration: "Instant", value: `${effectPower}% EP` };
     if (tag.name === "Heal") return { summary: `Restores 500 HP to the user.`, rule: "Sets direct damage to 0 and heals the caster for a flat 500 HP.", duration: "Instant", value: "500 HP" };
     if (tag.name === "Shield") return { summary: `Adds 500 shield to the user — always succeeds.`, rule: "Shield absorbs incoming damage before HP. Pierce can bypass shield. Cannot be blocked by Buff Prevent.", duration: "Until broken", value: "500" };
     if (tag.name === "Barrier") return { summary: "Erects an impassable wall tile one step toward the enemy on the battlefield.", rule: "Places a barrier tile that blocks movement for both fighters for 2 rounds. Cannot be bypassed.", duration: "2 rounds", value: "Wall tile" };
@@ -8867,8 +8860,6 @@ function AdminPanel({
     const [tag4Percent, setTag4Percent] = useState(30);
     const [jutsuDescription, setJutsuDescription] = useState("");
     const [jutsuImage, setJutsuImage] = useState("");
-    const [damageTagEnabled, setDamageTagEnabled] = useState(true);
-    const [damageEffectPower, setDamageEffectPower] = useState(100);
     const [itemName, setItemName] = useState("Iron Katana");
     const [itemSlot, setItemSlot] = useState<EquipmentSlot>("hand");
     const [itemRarity, setItemRarity] = useState<GameItem["rarity"]>("common");
@@ -9625,10 +9616,6 @@ function AdminPanel({
             { name: tag4, percent: tag4Percent },
         ]);
 
-        if (damageTagEnabled) {
-            tags.unshift({ name: "Damage", percent: damageEffectPower });
-        }
-
         return normalizeJutsuTags(tags);
     }
 
@@ -9728,10 +9715,6 @@ function AdminPanel({
     }
 
     function jutsuFromForm(id = `admin-${makeId()}`) {
-        const finalEffectPower = damageTagEnabled
-            ? Number(damageEffectPower)
-            : Number(jutsuEp);
-
         const jutsu = normalizeJutsu({
             id,
             name: jutsuName.trim() || "Admin Jutsu",
@@ -9739,7 +9722,7 @@ function AdminPanel({
             element: jutsuElement,
             ap: Number(jutsuAp),
             range: Number(jutsuRange),
-            effectPower: finalEffectPower,
+            effectPower: Number(jutsuEp),
             cooldown: Number(jutsuCooldown),
             target: jutsuTarget,
             method: jutsuMethod,
@@ -9764,8 +9747,6 @@ function AdminPanel({
 
     function loadAdminJutsu(jutsu: Jutsu) {
         const normalized = normalizeJutsu(jutsu);
-        const damageTag = normalized.tags.find((tag) => tag.name === "Damage");
-        const otherTags = normalized.tags.filter((tag) => tag.name !== "Damage");
 
         setEditingJutsuId(normalized.id);
         setJutsuName(normalized.name);
@@ -9785,16 +9766,14 @@ function AdminPanel({
         setStaminaCostReducePerLvl(normalized.staminaCostReducePerLvl);
         setJutsuDescription(normalized.description ?? "");
         setJutsuImage(normalized.image ?? "");
-        setDamageTagEnabled(Boolean(damageTag));
-        setDamageEffectPower(damageTag?.percent ?? normalized.effectPower);
-        setTag1(otherTags[0]?.name ?? "");
-        setTag1Percent(otherTags[0]?.percent ?? 30);
-        setTag2(otherTags[1]?.name ?? "");
-        setTag2Percent(otherTags[1]?.percent ?? 30);
-        setTag3(otherTags[2]?.name ?? "");
-        setTag3Percent(otherTags[2]?.percent ?? 30);
-        setTag4(otherTags[3]?.name ?? "");
-        setTag4Percent(otherTags[3]?.percent ?? 30);
+        setTag1(normalized.tags[0]?.name ?? "");
+        setTag1Percent(normalized.tags[0]?.percent ?? 30);
+        setTag2(normalized.tags[1]?.name ?? "");
+        setTag2Percent(normalized.tags[1]?.percent ?? 30);
+        setTag3(normalized.tags[2]?.name ?? "");
+        setTag3Percent(normalized.tags[2]?.percent ?? 30);
+        setTag4(normalized.tags[3]?.name ?? "");
+        setTag4Percent(normalized.tags[3]?.percent ?? 30);
     }
 
     function createAdminJutsu() {
@@ -10310,25 +10289,6 @@ function AdminPanel({
                                 </div>
                             )}
 
-                            <label>
-                                <input
-                                    type="checkbox"
-                                    checked={damageTagEnabled}
-                                    onChange={(e) => setDamageTagEnabled(e.target.checked)}
-                                />
-                                Add Damage Tag
-                            </label>
-
-                            {damageTagEnabled && (
-                                <>
-                                    <label>Damage Effect Power <span style={{ fontSize: "0.72rem", color: "#94a3b8" }}>(Lv.50 max · Lv.1 ≈ {Math.max(0, +(damageEffectPower - 49 * 0.2).toFixed(1))})</span></label>
-                                    <input
-                                        type="number"
-                                        value={damageEffectPower}
-                                        onChange={(e) => setDamageEffectPower(Number(e.target.value))}
-                                    />
-                                </>
-                            )}
                             <label>Type / Element</label>
                             <div className="inline-grid">
                                 <select value={jutsuType} onChange={(e) => setJutsuType(e.target.value as JutsuType)}>{specialties.map((type) => <option key={type}>{type}</option>)}</select>
