@@ -1607,13 +1607,13 @@ function rebalanceNonBloodlineJutsu(jutsu: Jutsu): Jutsu {
         ...normalized,
         range: normalized.target === "OPPONENT" ? 4 : normalized.range,
         cooldown: 7,
-        effectPower: normalized.ap === 60 ? 38 : 0,
+        effectPower: normalized.ap === 60 ? 28 : 0,
         tags,
     });
 }
 
 const starterJutsus: Jutsu[] = [
-    // All jutsus: stored EP=38 (Lv.50 max) → Lv.1 ≈ 28 via scaling. Tags stored at 30% → Lv.1 ≈ 20%.
+    // All jutsus: stored EP=28 (base). PvP/PvE scales +0.2 per mastery level → EP 38 at mastery 50. Tags stored at 30% → displays as 20% at mastery 0 via effectiveTagPercent.
     makeJutsu("starter-nin-earth-1", "Stone Needle Volley", "Ninjutsu", 40, 4, 28, 1, 22, 10, [{ name: "Pierce", percent: 0 }], "Earth"),
     makeJutsu("starter-nin-earth-2", "Mud Coffin Bind", "Ninjutsu", 60, 3, 30, 3, 34, 12, [{ name: "Stun", percent: 0 }], "Earth"),
     makeJutsu("starter-nin-earth-3", "Iron Sand Burst", "Ninjutsu", 40, 3, 27, 2, 24, 12, [{ name: "Wound", percent: 18 }], "Earth"),
@@ -1705,9 +1705,9 @@ const starterSavedBloodlines: SavedBloodline[] = [
         specialElement: "Blood",
         lore: "A cursed kekkei genkai born from a clan that broke a forbidden pact with blood spirits. Those awakened by the Ashen Eyes see the world through a veil of crimson — perceiving every living being as a tapestry of veins and chakra pathways. The afflicted can shatter hallucinations directly into their opponent's bloodstream, weaponizing the very sight of life itself. Ancient texts warn that prolonged use slowly turns the user's own eyes the color of ash and bone.",
         jutsus: [
-            makeJutsu("ashen-eyes-blood-gaze", "Blood Gaze Rupture", "Genjutsu", 60, 4, 30, 7, 32, 12, [{ name: "Damage", percent: 100 }], "Blood" as JutsuElement),
-            makeJutsu("ashen-eyes-crimson-hall", "Crimson Hallucination", "Genjutsu", 60, 4, 30, 7, 34, 10, [{ name: "Damage", percent: 100 }], "Blood" as JutsuElement),
-            makeJutsu("ashen-eyes-vein-mirror", "Vein Mirror Nightmare", "Genjutsu", 60, 4, 30, 7, 36, 10, [{ name: "Damage", percent: 100 }], "Blood" as JutsuElement),
+            makeJutsu("ashen-eyes-blood-gaze", "Blood Gaze Rupture", "Genjutsu", 60, 4, 28, 7, 32, 12, [{ name: "Damage", percent: 30 }], "Blood" as JutsuElement),
+            makeJutsu("ashen-eyes-crimson-hall", "Crimson Hallucination", "Genjutsu", 60, 4, 28, 7, 34, 10, [{ name: "Damage", percent: 30 }], "Blood" as JutsuElement),
+            makeJutsu("ashen-eyes-vein-mirror", "Vein Mirror Nightmare", "Genjutsu", 60, 4, 28, 7, 36, 10, [{ name: "Damage", percent: 30 }], "Blood" as JutsuElement),
         ],
         totalPoints: 9,
     },
@@ -1718,9 +1718,9 @@ const starterSavedBloodlines: SavedBloodline[] = [
         specialElement: "Lava",
         lore: "Forged in the volcanic rifts of the Ember Wastes, the Inferno Cataclysm lineage merges fire and earth chakra at the cellular level. The wielder's body temperature runs far above human limits — surface veins glow faintly orange in darkness. In battle, they can compress molten rock and superheated gas into devastating projectiles or coffin-like formations that entomb the enemy in cooling lava. Survivors of their attacks are found encased in obsidian, preserved like dark statues.",
         jutsus: [
-            makeJutsu("inferno-cataclysm-lava-burst", "Lava Burst Coffin", "Ninjutsu", 60, 4, 30, 7, 34, 12, [{ name: "Damage", percent: 100 }], "Lava" as JutsuElement),
-            makeJutsu("inferno-cataclysm-molten-rain", "Molten Rainfall", "Ninjutsu", 60, 4, 30, 7, 36, 10, [{ name: "Damage", percent: 100 }], "Lava" as JutsuElement),
-            makeJutsu("inferno-cataclysm-crater-lance", "Crater Lance", "Ninjutsu", 60, 4, 30, 7, 38, 10, [{ name: "Damage", percent: 100 }], "Lava" as JutsuElement),
+            makeJutsu("inferno-cataclysm-lava-burst", "Lava Burst Coffin", "Ninjutsu", 60, 4, 28, 7, 34, 12, [{ name: "Damage", percent: 30 }], "Lava" as JutsuElement),
+            makeJutsu("inferno-cataclysm-molten-rain", "Molten Rainfall", "Ninjutsu", 60, 4, 28, 7, 36, 10, [{ name: "Damage", percent: 30 }], "Lava" as JutsuElement),
+            makeJutsu("inferno-cataclysm-crater-lance", "Crater Lance", "Ninjutsu", 60, 4, 28, 7, 38, 10, [{ name: "Damage", percent: 30 }], "Lava" as JutsuElement),
         ],
         totalPoints: 9,
     },
@@ -1731,9 +1731,9 @@ const starterSavedBloodlines: SavedBloodline[] = [
         specialElement: "Shadow",
         lore: "Descended from a sect of bukijutsu assassins who trained in perpetual darkness for generations, the Shadow Lotus bloodline channels shadow-natured chakra through weapons and thrown implements. Their techniques bloom like deadly flowers from the dark — blades that trail shadow-ribbons, senbon that multiply in dim light, and wires that vanish entirely in low visibility. Their clan temple has no lanterns. They say the darkness learned to fear them first.",
         jutsus: [
-            makeJutsu("shadow-lotus-umbra-senbon", "Umbra Senbon Bloom", "Bukijutsu", 60, 4, 30, 7, 28, 18, [{ name: "Damage", percent: 100 }], "Shadow" as JutsuElement),
-            makeJutsu("shadow-lotus-night-petal", "Night Petal Cutter", "Bukijutsu", 60, 4, 30, 7, 30, 18, [{ name: "Damage", percent: 100 }], "Shadow" as JutsuElement),
-            makeJutsu("shadow-lotus-eclipse-wire", "Eclipse Wire Blossom", "Bukijutsu", 60, 4, 30, 7, 32, 16, [{ name: "Damage", percent: 100 }], "Shadow" as JutsuElement),
+            makeJutsu("shadow-lotus-umbra-senbon", "Umbra Senbon Bloom", "Bukijutsu", 60, 4, 28, 7, 28, 18, [{ name: "Damage", percent: 30 }], "Shadow" as JutsuElement),
+            makeJutsu("shadow-lotus-night-petal", "Night Petal Cutter", "Bukijutsu", 60, 4, 28, 7, 30, 18, [{ name: "Damage", percent: 30 }], "Shadow" as JutsuElement),
+            makeJutsu("shadow-lotus-eclipse-wire", "Eclipse Wire Blossom", "Bukijutsu", 60, 4, 28, 7, 32, 16, [{ name: "Damage", percent: 30 }], "Shadow" as JutsuElement),
         ],
         totalPoints: 9,
     },
@@ -1744,9 +1744,9 @@ const starterSavedBloodlines: SavedBloodline[] = [
         specialElement: "Iron",
         lore: "A taijutsu bloodline born from miners who fused raw metallic chakra into their fighting style over ten generations. Iron Fang users can coat their limbs in magnetized iron-dense chakra, turning every punch and kick into a shattering impact that tears armor and breaks weapons. Their fists leave cracked stone. Some high-level users develop iron-grey patches on their knuckles, shins, and forearms — natural battle plating grown from within. The clan motto: 'The mountain doesn't dodge. It endures. Then it falls on you.'",
         jutsus: [
-            makeJutsu("iron-fang-ferrous-crash", "Ferrous Fang Crash", "Taijutsu", 60, 4, 30, 7, 12, 34, [{ name: "Damage", percent: 100 }], "Iron" as JutsuElement),
-            makeJutsu("iron-fang-steel-maw", "Steel Maw Breaker", "Taijutsu", 60, 4, 30, 7, 10, 36, [{ name: "Damage", percent: 100 }], "Iron" as JutsuElement),
-            makeJutsu("iron-fang-magnet-knuckle", "Magnet Knuckle Rend", "Taijutsu", 60, 4, 30, 7, 12, 38, [{ name: "Damage", percent: 100 }], "Iron" as JutsuElement),
+            makeJutsu("iron-fang-ferrous-crash", "Ferrous Fang Crash", "Taijutsu", 60, 4, 28, 7, 12, 34, [{ name: "Damage", percent: 30 }], "Iron" as JutsuElement),
+            makeJutsu("iron-fang-steel-maw", "Steel Maw Breaker", "Taijutsu", 60, 4, 28, 7, 10, 36, [{ name: "Damage", percent: 30 }], "Iron" as JutsuElement),
+            makeJutsu("iron-fang-magnet-knuckle", "Magnet Knuckle Rend", "Taijutsu", 60, 4, 28, 7, 12, 38, [{ name: "Damage", percent: 30 }], "Iron" as JutsuElement),
         ],
         totalPoints: 9,
     },
