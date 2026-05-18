@@ -256,12 +256,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-        const { battleId, role, action, tile, jutsuId } = body as {
+        const { battleId, role, action, tile, jutsuId, itemName, itemData } = body as {
             battleId?: string;
             role?: 'p1' | 'p2';
             action?: string;
             tile?: number;
             jutsuId?: string;
+            itemName?: string;
+            itemData?: {
+                effectPower?: number;
+                type?: string;
+                weaponRange?: number;
+                ap?: number;
+                tags?: JutsuTag[];
+                weaponEffect?: string;
+                weaponEffectValue?: number;
+            };
         };
         if (!battleId || !role || !action) return res.status(400).json({ error: 'Missing battleId, role, or action' });
 
@@ -392,6 +402,59 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 lines.push(...jr.lines);
                 const cd = (jutsu.cooldown ?? 0) > 0 ? { [jutsuId]: jutsu.cooldown! } : undefined;
                 result = commit(jr.self, jr.opponent, apCost, cd);
+                break;
+            }
+
+            case 'weapon': {
+                if (!itemData) return res.status(400).json({ error: 'Missing itemData' });
+                const weapRange = itemData.weaponRange ?? 1;
+                const wApCost = itemData.ap ?? 40;
+                if (!canAct(wApCost)) return res.status(200).json(session);
+                if (distance(me.pos, opp.pos) > weapRange) {
+                    const msg = `${me.name}: ${itemName ?? 'Weapon'} is out of range (need ≤${weapRange}).`;
+                    const updated = { ...session, log: [...session.log, msg] };
+                    await kv.set(key, updated, { ex: 600 });
+                    return res.status(200).json(updated);
+                }
+                const wTags: JutsuTag[] = [{ name: 'Damage', percent: 100 }, ...(itemData.tags ?? [])];
+                if (itemData.weaponEffect && !wTags.find(t => t.name === itemData.weaponEffect)) {
+                    wTags.push({ name: itemData.weaponEffect, percent: itemData.weaponEffectValue ?? 0 });
+                }
+                const weaponJutsu: Jutsu = {
+                    id: 'weapon',
+                    name: itemName ?? 'Weapon Attack',
+                    type: itemData.type ?? 'Bukijutsu',
+                    effectPower: itemData.effectPower ?? 15,
+                    ap: wApCost,
+                    range: weapRange,
+                    tags: wTags,
+                };
+                lines.push(`${me.name} uses ${weaponJutsu.name}:`);
+                const wr = applyJutsu(me, opp, weaponJutsu);
+                lines.push(...wr.lines);
+                result = commit(wr.self, wr.opponent, wApCost);
+                break;
+            }
+
+            case 'item': {
+                if (!itemData) return res.status(400).json({ error: 'Missing itemData' });
+                const iApCost = itemData.ap ?? 35;
+                if (!canAct(iApCost)) return res.status(200).json(session);
+                const iTags: JutsuTag[] = itemData.tags?.length ? itemData.tags : [{ name: 'Heal' }];
+                const itemJutsu: Jutsu = {
+                    id: 'item',
+                    name: itemName ?? 'Item',
+                    type: 'Ninjutsu',
+                    target: 'SELF',
+                    effectPower: itemData.effectPower ?? 10,
+                    ap: iApCost,
+                    range: 0,
+                    tags: iTags,
+                };
+                lines.push(`${me.name} uses ${itemJutsu.name}:`);
+                const ir = applyJutsu(me, opp, itemJutsu);
+                lines.push(...ir.lines);
+                result = commit(ir.self, ir.opponent, iApCost);
                 break;
             }
 
