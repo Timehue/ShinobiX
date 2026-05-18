@@ -22388,6 +22388,16 @@ function PvpBattleScreen({
         return () => clearInterval(iv);
     }, [!!session]); // eslint-disable-line react-hooks/exhaustive-deps
 
+    // Auto-pass when my turn starts but I can't afford the cheapest action
+    const pvpMyAp = session ? (role === "p1" ? session.ap.p1 : session.ap.p2) : 100;
+    useEffect(() => {
+        if (!session || session.status === "done" || session.activePlayer !== role) return;
+        if (pvpMyAp < pvpMinActionCost()) {
+            const t = setTimeout(() => submitAction("wait"), 500);
+            return () => clearTimeout(t);
+        }
+    }, [session?.activePlayer, pvpMyAp]); // eslint-disable-line react-hooks/exhaustive-deps
+
     // Per-turn round timer — auto-passes turn at 0
     const pvpIsMyTurn = session?.activePlayer === role;
     const pvpDone = session?.status === "done";
@@ -22448,6 +22458,17 @@ function PvpBattleScreen({
         return Math.max(0, base + penalty - bonus);
     }
 
+    function pvpMinActionCost() {
+        const costs = [
+            pvpAdjustedApCost(30), // move / dash
+            40,                    // basic attack
+            ...equippedJutsu.map(j => j.ap ?? 40),
+            ...pvpEquippedWeapons.map(i => i.apCost ?? 40),
+            ...pvpEquippedConsumables.map(i => i.apCost ?? 35),
+        ];
+        return Math.min(...costs);
+    }
+
     const pvpLogRounds = (() => {
         const groups: { round: number; entries: string[] }[] = [];
         let current: { round: number; entries: string[] } | null = null;
@@ -22495,6 +22516,12 @@ function PvpBattleScreen({
                 if (data.activePlayer !== role) {
                     setPendingJutsuId(""); setDashMode(false); setSelectedActionId(undefined);
                     setPendingBasicAttack(false); setPendingWeaponId("");
+                } else if (data.status !== "done") {
+                    // Still my turn — check if I can afford anything
+                    const newAp = role === "p1" ? data.ap.p1 : data.ap.p2;
+                    if (newAp < pvpMinActionCost()) {
+                        setTimeout(() => submitAction("wait"), 500);
+                    }
                 }
             }
         } catch { /* ignore */ }
