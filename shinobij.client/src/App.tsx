@@ -1800,6 +1800,51 @@ const defaultPetEncounterVn: CreatorEvent = {
     ],
 };
 
+const defaultAncientChestVn: CreatorEvent = {
+    id: "sys-ancient-chest",
+    name: "Ancient Chest",
+    biome: "forest",
+    icon: "🧰",
+    eventKind: "visualNovel",
+    trigger: "manual",
+    levelReq: 1,
+    xpReward: 0,
+    ryoReward: 0,
+    staminaReward: 0,
+    dialogue: [],
+    vnTitle: "Something Stirs in the Ruins",
+    vnScene: "Deep within the wilderness, a faint shimmer catches your eye.",
+    vnSpeaker: "Narrator",
+    vnPages: [
+        {
+            title: "Something Stirs in the Ruins",
+            scene: "Deep within the wilderness, a faint shimmer catches your eye.",
+            speaker: "Narrator",
+            dialogue: [
+                "Narrator: You pause. Something between the rubble is glowing.",
+                "Narrator: Half-buried under centuries of earth and stone — an ancient chest.",
+                "Narrator: These runes... pre-war era seals. This thing has been here a long time.",
+                "Narrator: The chakra lock flickers as you approach, as if recognizing your presence.",
+                "Narrator: Whoever left this... they wanted someone strong enough to find it.",
+                "Narrator: You press your hand to the seal. It dissolves at your touch.",
+            ],
+            choices: [],
+        },
+        {
+            title: "The Chest Opens",
+            scene: "Golden light spills from the ancient chest as the seal breaks.",
+            speaker: "Narrator",
+            dialogue: [
+                "Narrator: The lid swings open with a low resonant hum.",
+                "Narrator: Inside — preserved by chakra for decades — the chest reveals its contents.",
+                "Narrator: ...I wasn't expecting this.",
+                "Narrator: The ancient shinobi who sealed this chest left something worth finding.",
+            ],
+            choices: [],
+        },
+    ],
+};
+
 const starterItems: GameItem[] = [
     {
         id: "shinobi-vest",
@@ -4242,6 +4287,7 @@ export default function App() {
     const [creatorRaids, setCreatorRaids] = useState<CreatorRaid[]>([]);
     const [creatorCards, setCreatorCards] = useState<TileCard[]>([]);
     const [petEncounterVn, setPetEncounterVn] = useState<CreatorEvent>(defaultPetEncounterVn);
+    const [ancientChestVn, setAncientChestVn] = useState<CreatorEvent>(defaultAncientChestVn);
     const [editablePets, setEditablePets] = useState<Pet[]>(petPool);
     const [selectedPetId, setSelectedPetId] = useState(petPool[0]?.id ?? "");
     // Daily reset countdown — updates every second, resets at midnight UTC
@@ -4497,6 +4543,7 @@ export default function App() {
             if (snap.creatorCards) setCreatorCards(snap.creatorCards);
             if (snap.creatorItems) setCreatorItems(snap.creatorItems);
             if (snap.petEncounterVn) setPetEncounterVn(snap.petEncounterVn);
+            if (snap.ancientChestVn) setAncientChestVn(snap.ancientChestVn);
             if (snap.editablePets) setEditablePets(mergeMissingBuiltInPets(snap.editablePets));
             setScreen("village");
             // Re-hydrate images after KV restore — clears the loaded-cats guard so
@@ -4608,6 +4655,7 @@ export default function App() {
                     creatorRaids,
                     creatorCards,
                     petEncounterVn,
+                    ancientChestVn,
                     acceptedMissionIds,
                     missionProgress,
                     creatorItems,
@@ -4638,6 +4686,7 @@ export default function App() {
         creatorRaids,
         creatorCards,
         petEncounterVn,
+        ancientChestVn,
         acceptedMissionIds,
         missionProgress,
         creatorItems,
@@ -4669,6 +4718,7 @@ export default function App() {
             creatorCards,
             creatorItems,
             petEncounterVn,
+            ancientChestVn,
             editablePets,
         };
     }
@@ -5070,6 +5120,7 @@ export default function App() {
         if (snap.creatorCards) setCreatorCards(snap.creatorCards);
         if (snap.creatorItems) setCreatorItems(snap.creatorItems);
         if (snap.petEncounterVn) setPetEncounterVn(snap.petEncounterVn);
+        if (snap.ancientChestVn) setAncientChestVn(snap.ancientChestVn);
         if (snap.editablePets) setEditablePets(mergeMissingBuiltInPets(snap.editablePets));
         setPlayerRoster(rosterFromAccounts(loadPlayerAccounts()));
         setScreen("village");
@@ -5727,6 +5778,8 @@ export default function App() {
                         setCreatorCards={setCreatorCards}
                         petEncounterVn={petEncounterVn}
                         setPetEncounterVn={setPetEncounterVn}
+                        ancientChestVn={ancientChestVn}
+                        setAncientChestVn={setAncientChestVn}
                         editablePets={editablePets}
                         setEditablePets={setEditablePets}
                         selectedPetId={selectedPetId}
@@ -5805,6 +5858,7 @@ export default function App() {
                         updateCharacter={setCharacter}
                         creatorEvents={creatorEvents}
                         petEncounterVn={petEncounterVn}
+                        ancientChestVn={ancientChestVn}
                         editablePets={editablePets}
                         setPendingAiProfileId={setPendingAiProfileId}
                         setPendingPvpOpponent={(c) => setPendingPvpOpponent(c ? normalizeCharacter(c) : null)}
@@ -8296,6 +8350,8 @@ function AdminPanel({
     setCreatorCards,
     petEncounterVn,
     setPetEncounterVn,
+    ancientChestVn,
+    setAncientChestVn,
     editablePets,
     setEditablePets,
     selectedPetId,
@@ -8327,6 +8383,8 @@ function AdminPanel({
     setCreatorCards: (cards: TileCard[]) => void;
     petEncounterVn: CreatorEvent;
     setPetEncounterVn: (vn: CreatorEvent) => void;
+    ancientChestVn: CreatorEvent;
+    setAncientChestVn: (vn: CreatorEvent) => void;
     editablePets: Pet[];
     setEditablePets: (pets: Pet[]) => void;
     selectedPetId: string;
@@ -9203,6 +9261,12 @@ function AdminPanel({
         void publishSharedImage(`vn:pet-encounter:page:${pageIndex}`, image);
         if (!petEncounterVn.vnPages) return;
         setPetEncounterVn({ ...petEncounterVn, vnPages: petEncounterVn.vnPages.map((p, i) => i === pageIndex ? { ...p, image } : p) });
+    }
+
+    function setAncientChestVnPageImage(pageIndex: number, image: string) {
+        void publishSharedImage(`vn:ancient-chest:page:${pageIndex}`, image);
+        if (!ancientChestVn.vnPages) return;
+        setAncientChestVn({ ...ancientChestVn, vnPages: ancientChestVn.vnPages.map((p, i) => i === pageIndex ? { ...p, image } : p) });
     }
 
     function applyEventImage(image: string) {
@@ -10986,9 +11050,12 @@ function AdminPanel({
                 </div>
             )}
             {activeAdminPanel === "visualNovels" && (() => {
-                const galleryVns: { id: string; label: string; pages: { title: string; image?: string }[]; isPet?: boolean }[] = [];
+                const galleryVns: { id: string; label: string; pages: { title: string; image?: string }[]; isPet?: boolean; isChest?: boolean }[] = [];
                 if (petEncounterVn.vnPages?.length) {
                     galleryVns.push({ id: "sys-pet-encounter", label: "🐾 Pet Encounter VN", pages: petEncounterVn.vnPages, isPet: true });
+                }
+                if (ancientChestVn.vnPages?.length) {
+                    galleryVns.push({ id: "sys-ancient-chest", label: "🧰 Ancient Chest VN", pages: ancientChestVn.vnPages, isChest: true });
                 }
                 sortedEditableEvents
                     .filter((ev) => (ev.eventKind ?? "reward") === "visualNovel")
@@ -10998,6 +11065,11 @@ function AdminPanel({
                         }
                     });
                 if (galleryVns.length === 0) return null;
+                function gallerySetImage(vn: typeof galleryVns[number], pi: number, img: string) {
+                    if (vn.isPet) setPetVnPageImage(pi, img);
+                    else if (vn.isChest) setAncientChestVnPageImage(pi, img);
+                    else setVnPageImage(vn.id, pi, img);
+                }
                 return (
                     <div className="admin-subpanel vn-gallery-panel">
                         <h3>VN Image Gallery</h3>
@@ -11024,15 +11096,15 @@ function AdminPanel({
                                                     <input type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => {
                                                         const file = e.target.files?.[0];
                                                         if (!file) return;
-                                                        readImageFile(file, (img) => vn.isPet ? setPetVnPageImage(pi, img) : setVnPageImage(vn.id, pi, img), 100);
+                                                        readImageFile(file, (img) => gallerySetImage(vn, pi, img), 100);
                                                     }} />
                                                 </label>
-                                                <AiImagePrompt label="" suggestedPrompt={`${page.title} visual novel scene`} onImage={(img) => vn.isPet ? setPetVnPageImage(pi, img) : setVnPageImage(vn.id, pi, img)} />
+                                                <AiImagePrompt label="" suggestedPrompt={`${page.title} visual novel scene`} onImage={(img) => gallerySetImage(vn, pi, img)} />
                                                 {character.avatarImage && (
-                                                    <button onClick={() => vn.isPet ? setPetVnPageImage(pi, character.avatarImage!) : setVnPageImage(vn.id, pi, character.avatarImage!)}>Avatar</button>
+                                                    <button onClick={() => gallerySetImage(vn, pi, character.avatarImage!)}>Avatar</button>
                                                 )}
                                                 {page.image && (
-                                                    <button className="danger-button" onClick={() => vn.isPet ? setPetVnPageImage(pi, "") : setVnPageImage(vn.id, pi, "")}>Remove</button>
+                                                    <button className="danger-button" onClick={() => gallerySetImage(vn, pi, "")}>Remove</button>
                                                 )}
                                             </div>
                                         </div>
@@ -16447,6 +16519,7 @@ function WorldMap({
     updateCharacter,
     creatorEvents,
     petEncounterVn,
+    ancientChestVn,
     editablePets,
     setPendingAiProfileId,
     setPendingPvpOpponent,
@@ -16473,6 +16546,7 @@ function WorldMap({
     updateCharacter: (character: Character) => void;
     creatorEvents: CreatorEvent[];
     petEncounterVn: CreatorEvent;
+    ancientChestVn: CreatorEvent;
     editablePets: Pet[];
     setPendingAiProfileId: (id: string) => void;
     setPendingPvpOpponent: (c: Character | null) => void;
@@ -17065,6 +17139,7 @@ function WorldMap({
             setChestVnDone(true);
         }
 
+        const chestPageImage = ancientChestVn.vnPages?.[chestVnPage]?.image;
         return (
             <div className="card cinematic-card ancient-chest-vn-card">
                 <div className="visual-novel admin-vn-play">
@@ -17076,7 +17151,11 @@ function WorldMap({
                         <div className="vn-progress">Page {chestVnPage + 1}/{vnPages.length} | Line {chestVnLine + 1}/{pageDialogue.length}</div>
                     </div>
                     <div className={`vn-stage vn-biome-${biome}`}>
-                        <div className="vn-backdrop"><span className="vn-village-silhouette" /></div>
+                        <div className="vn-backdrop">
+                            {chestPageImage
+                                ? <img src={chestPageImage} alt={page.title} className="vn-bg-image" />
+                                : <span className="vn-village-silhouette" />}
+                        </div>
                         <div className="vn-character mentor-character">🧰</div>
                         <div className="vn-character hero-character">{character.name.slice(0, 2).toUpperCase()}</div>
                         <div className="vn-scene-card">{page.scene}</div>
@@ -17621,6 +17700,7 @@ function WorldMap({
                     if (!isLastPage) { setChestVnPage((p) => p + 1); setChestVnLine(0); return; }
                     setChestVnDone(true);
                 }
+                const chestPageImg = ancientChestVn.vnPages?.[chestVnPage]?.image;
                 return (
                     <div className="card cinematic-card">
                         <div className="visual-novel admin-vn-play">
@@ -17632,7 +17712,11 @@ function WorldMap({
                                 <div className="vn-progress">Page {chestVnPage + 1}/{vnPages.length} | Line {chestVnLine + 1}/{pageDialogue.length}</div>
                             </div>
                             <div className={`vn-stage vn-biome-${biome}`}>
-                                <div className="vn-backdrop"><span className="vn-village-silhouette" /></div>
+                                <div className="vn-backdrop">
+                                    {chestPageImg
+                                        ? <img src={chestPageImg} alt={page.title} className="vn-bg-image" />
+                                        : <span className="vn-village-silhouette" />}
+                                </div>
                                 <div className="vn-character mentor-character">🧰</div>
                                 <div className="vn-character hero-character">{character.name.slice(0, 2).toUpperCase()}</div>
                                 <div className="vn-scene-card">{page.scene}</div>
