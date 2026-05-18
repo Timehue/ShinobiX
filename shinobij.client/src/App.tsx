@@ -5807,6 +5807,16 @@ export default function App() {
                             if (!currentAccountName) return;
                             await pushSaveToServer(character, currentAccountName);
                         }}
+                        onReloadImages={() => {
+                            loadedCatsRef.current.clear();
+                            clearImgCache();
+                            setTimeout(() => {
+                                void loadCategory('item'); void loadCategory('pet');
+                                void loadCategory('card'); void loadCategory('jutsu');
+                                void loadCategory('event'); void loadCategory('avatar');
+                                void loadCategory('ai');
+                            }, 0);
+                        }}
                     />
                 )}
 
@@ -8395,6 +8405,7 @@ function AdminPanel({
     setAdminLoggedIn,
     setScreen,
     onSave,
+    onReloadImages,
     playerRoster,
     allServerPlayers,
     adminPw,
@@ -8428,6 +8439,7 @@ function AdminPanel({
     setAdminLoggedIn: (value: boolean) => void;
     setScreen: (screen: Screen) => void;
     onSave: () => Promise<void>;
+    onReloadImages?: () => void;
     playerRoster: PlayerRecord[];
     allServerPlayers: ServerPlayerSummary[];
     adminPw: string;
@@ -9234,11 +9246,13 @@ function AdminPanel({
     function updateVnPage(index: number, updated: Partial<typeof eventVnPages[number]>) {
         setEventVnPages((pages) => pages.map((page, pageIndex) => pageIndex === index ? { ...page, ...updated } : page));
         if (!editingEventId) return;
-        // Publish any image fields to shared KV so they survive page reload
+        // Publish any image fields to shared KV so they survive page reload.
+        // Use functional updater for setCreatorEvents to avoid stale-closure overwrites
+        // when multiple images are uploaded in rapid succession.
         if ('image' in updated) {
             const img = updated.image ?? '';
             void publishSharedImage(`vn:${editingEventId}:page:${index}`, img);
-            setCreatorEvents(creatorEvents.map((ev) => {
+            setCreatorEvents(prev => prev.map((ev) => {
                 if (ev.id !== editingEventId || !ev.vnPages) return ev;
                 return { ...ev, vnPages: ev.vnPages.map((p, i) => i === index ? { ...p, image: img } : p) };
             }));
@@ -9246,7 +9260,7 @@ function AdminPanel({
         if ('leftImage' in updated) {
             const img = updated.leftImage ?? '';
             void publishSharedImage(`vn:${editingEventId}:page:${index}:left`, img);
-            setCreatorEvents(creatorEvents.map((ev) => {
+            setCreatorEvents(prev => prev.map((ev) => {
                 if (ev.id !== editingEventId || !ev.vnPages) return ev;
                 return { ...ev, vnPages: ev.vnPages.map((p, i) => i === index ? { ...p, leftImage: img } : p) };
             }));
@@ -9254,7 +9268,7 @@ function AdminPanel({
         if ('rightImage' in updated) {
             const img = updated.rightImage ?? '';
             void publishSharedImage(`vn:${editingEventId}:page:${index}:right`, img);
-            setCreatorEvents(creatorEvents.map((ev) => {
+            setCreatorEvents(prev => prev.map((ev) => {
                 if (ev.id !== editingEventId || !ev.vnPages) return ev;
                 return { ...ev, vnPages: ev.vnPages.map((p, i) => i === index ? { ...p, rightImage: img } : p) };
             }));
@@ -9785,6 +9799,11 @@ function AdminPanel({
                 <button className="village-save-btn" onClick={handleAdminSave} disabled={adminSaving} style={{ marginLeft: "auto" }}>
                     {adminSaving ? "Saving…" : "💾 Save"}
                 </button>
+                {onReloadImages && (
+                    <button className="village-save-btn" onClick={onReloadImages} style={{ background: "#2a6" }}>
+                        🔄 Reload Images
+                    </button>
+                )}
                 {adminSaveMsg && <span className="village-save-msg">{adminSaveMsg}</span>}
             </div>
             <p>Anything created here is saved and imported into normal gameplay.</p>

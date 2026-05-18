@@ -5,8 +5,13 @@ import { cors } from './_utils.js';
 // Legacy single-blob key (kept for backward-compat reads during migration)
 const LEGACY_KEY = 'shared:images';
 
-// Per-category keys — new images go here, GET merges legacy + category
+// Old per-category JSON blob keys (kept for backward-compat reads)
 const catKey = (cat: string) => `shared:images:${cat}`;
+
+// New per-category Redis hash keys — HSET is atomic per-field, eliminating
+// the GET→modify→SET race condition that caused concurrent uploads to overwrite
+// each other and permanently lose images.
+const catHashKey = (cat: string) => `shared:imgfields:${cat}`;
 
 const KNOWN_PREFIXES: Record<string, string> = {
     avatar:    'avatar',
@@ -32,14 +37,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'GET') {
         const cat = typeof req.query.cat === 'string' ? req.query.cat.trim() : '';
 
-        // Images are immutable once stored — cache aggressively at the browser and CDN.
-        // 5-minute max-age means repeated screen transitions cost zero KV reads.
-        // stale-while-revalidate lets the CDN serve stale while refreshing in the background.
         res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=600');
 
         if (cat) {
-            // Fetch new category key in parallel with a filtered read of the legacy blob
-            const [catImages, legacy] = await Promise.all([
+            // Fetch all three sources in parallel: new hash, old blob, legacy blob.
+            // Hash wins (newest writes), old blob and legacy are backward-compat.
+            const [hashImages, catImages, legacy] = await Promise.all([
+                kv.hgetall<Record<string, string>>(catHashKey(cat)),
                 kv.get<Record<string, string>>(catKey(cat)),
                 kv.get<Record<string, string>>(LEGACY_KEY),
             ]);
@@ -52,8 +56,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
             }
 
-            // Category-specific key wins over legacy for any duplicate key
-            return res.status(200).json({ ...legacyMatches, ...(catImages ?? {}) });
+            // Merge: legacy < old blob < new hash (newest always wins)
+            return res.status(200).json({
+                ...legacyMatches,
+                ...(catImages ?? {}),
+                ...(hashImages ?? {}),
+            });
         }
 
         // No category param — return everything (admin / bulk use)
@@ -68,11 +76,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!id || !image) return res.status(400).json({ error: 'Missing id or image.' });
 
             const cat = categoryFromId(id);
-            const key = catKey(cat);
-
-            const existing = await kv.get<Record<string, string>>(key) ?? {};
-            existing[id] = image;
-            await kv.set(key, existing);
+            // Atomic HSET — sets exactly this one field without touching any other
+            // image in the same category. Eliminates the race condition.
+            await kv.hset(catHashKey(cat), { [id]: image });
 
             return res.status(200).end();
         } catch (err) {
