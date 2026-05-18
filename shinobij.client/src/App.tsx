@@ -4955,7 +4955,7 @@ export default function App() {
                 void loadCategory('item'); void loadCategory('pet');
                 void loadCategory('card'); void loadCategory('jutsu');
                 void loadCategory('event'); void loadCategory('avatar');
-                void loadCategory('ai');
+                void loadCategory('ai'); void loadCategory('bloodline');
             }, 0);
         }
 
@@ -5405,6 +5405,12 @@ export default function App() {
                 })),
             } : prev);
         }
+        else if (cat === 'bloodline')
+            // Restore the bloodline's own cover image (stripped by stripImages on save).
+            // Jutsu images inside bloodlines are handled by loadCategory('jutsu').
+            setSavedBloodlines(prev => prev.map(b =>
+                images['bloodline:' + b.id] ? { ...b, image: images['bloodline:' + b.id] } : b
+            ));
         else if (cat === 'avatar')
             setCharacter(prev => {
                 if (!prev) return prev;
@@ -5475,7 +5481,7 @@ export default function App() {
     // Load ALL image categories at startup — ensures images from publishSharedImage
     // are always available regardless of which screen the player visits first.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    useEffect(() => { void loadCategory('item'); void loadCategory('pet'); void loadCategory('card'); void loadCategory('jutsu'); void loadCategory('event'); void loadCategory('avatar'); void loadCategory('ai'); }, []);
+    useEffect(() => { void loadCategory('item'); void loadCategory('pet'); void loadCategory('card'); void loadCategory('jutsu'); void loadCategory('event'); void loadCategory('avatar'); void loadCategory('ai'); void loadCategory('bloodline'); }, []);
 
     // Screen → image categories map
     useEffect(() => {
@@ -5488,6 +5494,7 @@ export default function App() {
         }
         else if (screen === 'shinobiTiles')                     { void loadCategory('card'); }
         else if (screen === 'arena' || screen === 'battleArena'){ void loadCategory('avatar'); void loadCategory('jutsu'); void loadCategory('ai'); }
+        else if (screen === 'bloodlineMaker')                   { void loadCategory('bloodline'); void loadCategory('jutsu'); }
         else if (screen === 'storyHall')                        { void loadCategory('event'); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [screen]);
@@ -5598,7 +5605,7 @@ export default function App() {
             void loadCategory('item'); void loadCategory('pet');
             void loadCategory('card'); void loadCategory('jutsu');
             void loadCategory('event'); void loadCategory('avatar');
-            void loadCategory('ai');
+            void loadCategory('ai'); void loadCategory('bloodline');
         }, 0);
     }
 
@@ -19743,7 +19750,14 @@ function BloodlineMaker({ initialRank, initialSpecialElement, savedBloodlines, s
             staminaCost: jutsu.ap === 60 ? 300 : 175,
             tags: normalizeJutsuTags(jutsu.tags),
         }));
-        setSavedBloodlines([...savedBloodlines, { id: makeId(), name: bloodlineName, rank, image: bloodlineImage, specialElement: specialElement.trim(), jutsus: finalizedJutsus, totalPoints: bloodlinePoints(finalizedJutsus) }]);
+        const newId = makeId();
+        // Publish bloodline image and jutsu images to shared KV so they survive
+        // stripImages on save and are restored for all players via hydrateImages.
+        if (bloodlineImage) void publishSharedImage('bloodline:' + newId, bloodlineImage);
+        for (const jutsu of finalizedJutsus) {
+            if (jutsu.image) void publishSharedImage('jutsu:' + jutsu.id, jutsu.image);
+        }
+        setSavedBloodlines([...savedBloodlines, { id: newId, name: bloodlineName, rank, image: bloodlineImage, specialElement: specialElement.trim(), jutsus: finalizedJutsus, totalPoints: bloodlinePoints(finalizedJutsus) }]);
         alert(`${bloodlineName} saved.`);
     }
     return (
