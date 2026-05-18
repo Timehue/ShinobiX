@@ -18518,7 +18518,142 @@ function Missions({
     ];
     const missionRanks: MissionRank[] = ["Daily", "D Rank", "C Rank", "B Rank", "A Rank", "S Rank"];
     const groupedFetchMissions = missionRanks.map((rank) => ({ rank, missions: mergeBuiltinMissions(creatorMissions).filter((mission) => mission.rank === rank) })).filter((group) => group.missions.length > 0);
-    return <div className="card"><h2>Mission Hall</h2><p>Stamina: {character.stamina}/{character.maxStamina} · Town Hall Reward Bonus: <strong>{missionRewardBonus.toFixed(2)}%</strong></p><h3>Combat Missions</h3><div className="location-grid">{missions.map((mission) => { const ai = creatorAis.find((candidate) => candidate.id === mission.aiProfileId); return <div key={mission.name} className="location-button mission-card"><CardVisual image={ai?.image} icon={mission.icon} label={mission.name} /><span>{mission.name}</span><small>Lvl {mission.min} | -{mission.cost} STA | +{boostAmount(mission.xp, missionRewardBonus)} XP / +{boostAmount(mission.ryo, missionRewardBonus)} ryo</small><small>Battle AI: {ai?.name ?? "Missing AI"}</small><div className="menu"><button onClick={() => completeMission(mission.name, mission.xp, mission.ryo, mission.cost, mission.recover, mission.min)}>Complete</button><button onClick={() => startMissionBattle(mission)}>Battle</button></div></div>; })}</div><h3>Fetch Missions</h3>{groupedFetchMissions.length === 0 ? <p className="hint">No fetch missions yet.</p> : groupedFetchMissions.map((group) => <section className="summary-box mission-board-section" key={group.rank}><h4>{group.rank} Missions</h4><div className="location-grid">{group.missions.map((mission) => { const accepted = acceptedMissionIds.includes(mission.id); const progress = missionProgress[mission.id] ?? 0; const raidReq = missionRaidRequirement(mission); const raidProgress = missionProgress[missionRaidProgressKey(mission.id)] ?? 0; const complete = progress >= mission.exploreCount && raidProgress >= raidReq; const totalRequired = mission.exploreCount + raidReq; const totalProgress = Math.min(mission.exploreCount, progress) + Math.min(raidReq, raidProgress); const missionAi = mission.aiProfileId ? creatorAis.find((candidate) => candidate.id === mission.aiProfileId) : undefined; return <div key={mission.id} className="location-button mission-card"><CardVisual image={missionAi?.image} icon="📍" label={mission.name} /><span>{mission.name}</span><small>Sector {mission.targetSector} | Explore {progress}/{mission.exploreCount}{raidReq > 0 ? ` | Raid ${raidProgress}/${raidReq}` : ""}</small><small>Lvl {mission.levelReq} | {rewardSummary(boostAmount(mission.xpReward, missionRewardBonus), boostAmount(mission.ryoReward, missionRewardBonus), boostAmount(mission.staminaReward, missionRewardBonus), mission.currencyRewards)}</small>{mission.aiProfileId && <small>Battle AI: {missionAi?.name ?? "Missing AI"}</small>}<p>{mission.description}</p><div className="mission-progress"><span style={{ width: `${Math.min(100, (totalProgress / Math.max(1, totalRequired)) * 100)}%` }}></span></div><div className="menu">{!accepted ? <button onClick={() => acceptFetchMission(mission)}>Accept</button> : complete ? <button onClick={() => claimFetchMission(mission)}>Claim Reward</button> : <button onClick={() => setScreen("worldMap")}>Go To Sector {mission.targetSector}</button>}{mission.aiProfileId && <button onClick={() => startCreatorMissionBattle(mission)}>Battle AI</button>}</div></div>; })}</div></section>)}</div>;
+    const rankColor: Record<string, string> = { "D Rank": "#22c55e", "C Rank": "#3b82f6", "B Rank": "#a855f7", "A Rank": "#f97316", "S Rank": "#ef4444", "Daily": "#facc15" };
+    const todayMissions = character.dailyMissionsCompleted ?? 0;
+
+    return (
+        <div className="card mission-hall">
+            {/* ── Header ── */}
+            <div className="mh-header">
+                <div>
+                    <h2>Mission Hall</h2>
+                    <p className="mh-sub">Town Hall Reward Bonus: <strong>+{missionRewardBonus.toFixed(1)}%</strong></p>
+                </div>
+                <div className="mh-stats">
+                    <div className="mh-stat-chip">
+                        <span className="mh-stat-label">Stamina</span>
+                        <span className="mh-stat-value">{character.stamina}<span className="mh-stat-max">/{character.maxStamina}</span></span>
+                    </div>
+                    <div className="mh-stat-chip">
+                        <span className="mh-stat-label">Daily</span>
+                        <span className="mh-stat-value">{todayMissions}<span className="mh-stat-max">/20</span></span>
+                    </div>
+                </div>
+            </div>
+
+            {/* ── Combat Missions ── */}
+            <section className="mh-section">
+                <h3 className="mh-section-title">⚔️ Combat Missions</h3>
+                <p className="hint">Defeat the assigned enemy to earn rewards. No shortcuts.</p>
+                <div className="mh-combat-grid">
+                    {missions.map((mission) => {
+                        const ai = creatorAis.find((c) => c.id === mission.aiProfileId);
+                        const locked = character.level < mission.min;
+                        return (
+                            <div key={mission.name} className={`mh-combat-card${locked ? " mh-locked" : ""}`}>
+                                <div className="mh-combat-rank" style={{ background: rankColor[(mission.name.split("-")[0]?.trim() ?? "") + " Rank"] ?? "#475569" }}>
+                                    {(mission.name.split("-")[0]?.trim() ?? "") + "-Rank"}
+                                </div>
+                                <div className="mh-combat-avatar">
+                                    {ai?.image
+                                        ? <img src={ai.image} alt={ai.name} />
+                                        : <span>{mission.icon}</span>}
+                                </div>
+                                <div className="mh-combat-body">
+                                    <strong className="mh-combat-name">{mission.name}</strong>
+                                    <span className="mh-combat-enemy">{ai?.name ?? "Unknown Enemy"}</span>
+                                    <div className="mh-combat-tags">
+                                        <span className="mh-tag mh-tag-req">Lv {mission.min}+</span>
+                                        <span className="mh-tag mh-tag-sta">-{mission.cost} STA</span>
+                                    </div>
+                                    <div className="mh-combat-rewards">
+                                        <span>⭐ {boostAmount(mission.xp, missionRewardBonus)} XP</span>
+                                        <span>💰 {boostAmount(mission.ryo, missionRewardBonus)} ryo</span>
+                                    </div>
+                                </div>
+                                <button
+                                    className="mh-combat-btn"
+                                    disabled={locked || character.stamina < mission.cost || todayMissions >= 20}
+                                    onClick={() => startMissionBattle(mission)}
+                                >
+                                    {locked ? `Lv ${mission.min} Required` : "⚔️ Begin Mission"}
+                                </button>
+                            </div>
+                        );
+                    })}
+                </div>
+            </section>
+
+            {/* ── Fetch Missions ── */}
+            <section className="mh-section">
+                <h3 className="mh-section-title">📋 Field Missions</h3>
+                {groupedFetchMissions.length === 0
+                    ? <p className="hint">No field missions posted yet.</p>
+                    : groupedFetchMissions.map((group) => (
+                        <div className="mh-fetch-group" key={group.rank}>
+                            <div className="mh-fetch-group-label" style={{ borderColor: rankColor[group.rank] ?? "#475569", color: rankColor[group.rank] ?? "#94a3b8" }}>
+                                {group.rank}
+                            </div>
+                            <div className="mh-fetch-grid">
+                                {group.missions.map((mission) => {
+                                    const accepted = acceptedMissionIds.includes(mission.id);
+                                    const progress = missionProgress[mission.id] ?? 0;
+                                    const raidReq = missionRaidRequirement(mission);
+                                    const raidProgress = missionProgress[missionRaidProgressKey(mission.id)] ?? 0;
+                                    const complete = progress >= mission.exploreCount && raidProgress >= raidReq;
+                                    const totalRequired = mission.exploreCount + raidReq;
+                                    const totalProgress = Math.min(mission.exploreCount, progress) + Math.min(raidReq, raidProgress);
+                                    const progressPct = Math.min(100, (totalProgress / Math.max(1, totalRequired)) * 100);
+                                    const missionAi = mission.aiProfileId ? creatorAis.find((c) => c.id === mission.aiProfileId) : undefined;
+                                    return (
+                                        <div key={mission.id} className={`mh-fetch-card${complete && accepted ? " mh-fetch-complete" : ""}`}>
+                                            <div className="mh-fetch-top">
+                                                <div className="mh-fetch-avatar">
+                                                    {missionAi?.image
+                                                        ? <img src={missionAi.image} alt={missionAi.name} />
+                                                        : <span>📍</span>}
+                                                </div>
+                                                <div className="mh-fetch-info">
+                                                    <strong>{mission.name}</strong>
+                                                    <span className="mh-fetch-meta">Sector {mission.targetSector} · Lv {mission.levelReq}+</span>
+                                                    <span className="mh-fetch-meta">{mission.description}</span>
+                                                </div>
+                                            </div>
+                                            <div className="mh-fetch-rewards">
+                                                <span>⭐ {boostAmount(mission.xpReward, missionRewardBonus)} XP</span>
+                                                <span>💰 {boostAmount(mission.ryoReward, missionRewardBonus)} ryo</span>
+                                            </div>
+                                            {accepted && (
+                                                <div className="mh-fetch-progress-wrap">
+                                                    <div className="mh-fetch-progress-label">
+                                                        <span>Explore {Math.min(progress, mission.exploreCount)}/{mission.exploreCount}</span>
+                                                        {raidReq > 0 && <span>Raid {Math.min(raidProgress, raidReq)}/{raidReq}</span>}
+                                                    </div>
+                                                    <div className="mission-progress">
+                                                        <span style={{ width: `${progressPct}%` }} />
+                                                    </div>
+                                                </div>
+                                            )}
+                                            <div className="mh-fetch-actions">
+                                                {!accepted
+                                                    ? <button onClick={() => acceptFetchMission(mission)}>Accept Mission</button>
+                                                    : complete
+                                                        ? <button className="mh-claim-btn" onClick={() => claimFetchMission(mission)}>✅ Claim Reward</button>
+                                                        : <button onClick={() => setScreen("worldMap")}>🗺️ Go to Sector {mission.targetSector}</button>}
+                                                {mission.aiProfileId && (
+                                                    <button onClick={() => startCreatorMissionBattle(mission)}>⚔️ Battle AI</button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    ))
+                }
+            </section>
+        </div>
+    );
 }
 
 const HUNTER_RANK_LABELS = ["Novice Hunter", "Tracker", "Beast Slayer", "Monster Hunter", "Elite Huntsman", "Chakra Beast Warden"];
