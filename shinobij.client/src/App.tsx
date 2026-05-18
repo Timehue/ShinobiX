@@ -11435,9 +11435,9 @@ function AdminPanel({
                             setCreatorJutsus(updated);
                             // Patch generated images onto bloodline jutsus too
                             if (Object.keys(bloodlineImageMap).length > 0) {
-                                setSavedBloodlines(prev => prev.map(b => ({
+                                setSavedBloodlines(savedBloodlines.map((b: SavedBloodline) => ({
                                     ...b,
-                                    jutsus: b.jutsus.map(j =>
+                                    jutsus: b.jutsus.map((j: Jutsu) =>
                                         bloodlineImageMap[j.id] ? { ...j, image: bloodlineImageMap[j.id] } : j),
                                 })));
                             }
