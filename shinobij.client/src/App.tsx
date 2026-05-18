@@ -4939,6 +4939,18 @@ export default function App() {
                     ...(images[`vn:sys-pet-encounter:page:${i}:left`]   ? { leftImage:  images[`vn:sys-pet-encounter:page:${i}:left`] }   : {}),
                     ...(images[`vn:sys-pet-encounter:page:${i}:right`]  ? { rightImage: images[`vn:sys-pet-encounter:page:${i}:right`] }  : {}),
                 })),
+            } : prev),
+            setAncientChestVn(prev => prev.vnPages ? {
+                ...prev,
+                vnPages: prev.vnPages.map((p, i) => ({
+                    ...p,
+                    ...(images[`vn:ancient-chest:page:${i}`]        ? { image:      images[`vn:ancient-chest:page:${i}`] }        : {}),
+                    ...(images[`vn:ancient-chest:page:${i}:left`]   ? { leftImage:  images[`vn:ancient-chest:page:${i}:left`] }   : {}),
+                    ...(images[`vn:ancient-chest:page:${i}:right`]  ? { rightImage: images[`vn:ancient-chest:page:${i}:right`] }  : {}),
+                    ...(images[`vn:sys-ancient-chest:page:${i}`]        ? { image:      images[`vn:sys-ancient-chest:page:${i}`] }        : {}),
+                    ...(images[`vn:sys-ancient-chest:page:${i}:left`]   ? { leftImage:  images[`vn:sys-ancient-chest:page:${i}:left`] }   : {}),
+                    ...(images[`vn:sys-ancient-chest:page:${i}:right`]  ? { rightImage: images[`vn:sys-ancient-chest:page:${i}:right`] }  : {}),
+                })),
             } : prev);
         else if (cat === 'avatar')
             setCharacter(prev => {
@@ -10299,6 +10311,44 @@ function AdminPanel({
                                     ➡ Preview Pet VN
                                 </button>
                                 <button onClick={() => { setPetEncounterVn(defaultPetEncounterVn); alert("Pet Encounter VN reset to default."); }}>Reset to Default</button>
+                            </div>
+                        </section>
+
+                        <section className="summary-box">
+                            <h4>🧰 Ancient Chest VN (System)</h4>
+                            <p className="hint">This VN plays when a player opens an ancient chest. Load it above, edit, then click "Save as Ancient Chest VN".</p>
+                            <p><strong>{ancientChestVn.vnTitle || ancientChestVn.name}</strong> — {ancientChestVn.vnPages?.length ?? 1} page(s)</p>
+                            {ancientChestVn.vnPages?.map((page, i) => (
+                                <div key={i} className="summary-box" style={{ marginBottom: "0.4rem" }}>
+                                    <strong>Page {i + 1}: {page.title}</strong>
+                                    <p style={{ color: "#aaa", fontSize: 12 }}>{page.scene}</p>
+                                </div>
+                            ))}
+                            <div className="menu">
+                                <button onClick={() => loadAdminEvent(ancientChestVn)}>Load for Editing</button>
+                                <button
+                                    style={{ background: "#2e4a1e", borderColor: "#a5d6a7" }}
+                                    onClick={async () => {
+                                        const chestVn = eventFromForm("sys-ancient-chest");
+                                        setAncientChestVn(chestVn);
+                                        await publishEventPageImages(chestVn, "ancient-chest");
+                                        setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
+                                        alert("Ancient Chest VN saved! Players will see this scene when they open ancient chests.");
+                                    }}
+                                >
+                                    💾 Save as Ancient Chest VN
+                                </button>
+                                <button
+                                    style={{ background: "#1e3a5f", borderColor: "#60a5fa" }}
+                                    onClick={() => {
+                                        setPreviewVn(ancientChestVn);
+                                        setPreviewVnPage(0);
+                                        setPreviewVnLine(0);
+                                    }}
+                                >
+                                    ➡ Preview Chest VN
+                                </button>
+                                <button onClick={() => { setAncientChestVn(defaultAncientChestVn); alert("Ancient Chest VN reset to default."); }}>Reset to Default</button>
                             </div>
                         </section>
                     </div>
