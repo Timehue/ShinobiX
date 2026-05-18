@@ -6269,6 +6269,7 @@ export default function App() {
                         setPvpRole={setPvpRole}
                         savedBloodlines={savedBloodlines}
                         creatorJutsus={creatorJutsus}
+                        creatorItems={creatorItems}
                         sectorAttackPlayer={async (opponent) => {
                             // Create shared PvP session so both players fight each other for real
                             const p1Jutsus = getAllJutsus(savedBloodlines, creatorJutsus, character)
@@ -6282,8 +6283,8 @@ export default function App() {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({
-                                        p1Character: { ...character, jutsu: p1Jutsus, bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, allItems) },
-                                        p2Character: { ...oppChar, jutsu: p2Jutsus, bloodlineMult: getBloodlineMultiplier(oppChar, savedBloodlines), armorFactor: getCharacterArmorFactor(oppChar, allItems) },
+                                        p1Character: { ...character, jutsu: p1Jutsus, bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, getAllItems(creatorItems)) },
+                                        p2Character: { ...oppChar, jutsu: p2Jutsus, bloodlineMult: getBloodlineMultiplier(oppChar, savedBloodlines), armorFactor: getCharacterArmorFactor(oppChar, getAllItems(creatorItems)) },
                                     }),
                                 });
                                 if (sr.ok) ({ battleId } = await sr.json() as { battleId: string });
@@ -16989,6 +16990,7 @@ function WorldMap({
     setPvpRole,
     savedBloodlines,
     creatorJutsus: wmCreatorJutsus,
+    creatorItems: wmCreatorItems,
 }: {
     setCurrentBiome: (biome: Biome) => void;
     setScreen: (screen: Screen) => void;
@@ -17016,6 +17018,7 @@ function WorldMap({
     setPvpRole: (role: "p1" | "p2") => void;
     savedBloodlines: SavedBloodline[];
     creatorJutsus: Jutsu[];
+    creatorItems: GameItem[];
 }) {
     const [selectedSector, setSelectedSector] = useState<number | null>(null);
     const [selectedVillageTerritory, setSelectedVillageTerritory] = useState<typeof locations[number] | null>(null);
@@ -17073,8 +17076,8 @@ function WorldMap({
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    p1Character: { ...character, jutsu: p1Jutsus, bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, allItems) },
-                    p2Character: { ...opponent, jutsu: p2Jutsus, bloodlineMult: getBloodlineMultiplier(opponent, savedBloodlines), armorFactor: getCharacterArmorFactor(opponent, allItems) },
+                    p1Character: { ...character, jutsu: p1Jutsus, bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, getAllItems(wmCreatorItems)) },
+                    p2Character: { ...opponent, jutsu: p2Jutsus, bloodlineMult: getBloodlineMultiplier(opponent, savedBloodlines), armorFactor: getCharacterArmorFactor(opponent, getAllItems(wmCreatorItems)) },
                 }),
             });
             if (sr.ok) ({ battleId } = await sr.json() as { battleId: string });
@@ -17914,7 +17917,7 @@ function WorldMap({
                                                     const sr = await fetch('/api/pvp/session', {
                                                         method: 'POST',
                                                         headers: { 'Content-Type': 'application/json' },
-                                                        body: JSON.stringify({ p1Character: { ...character, jutsu: p1j, bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, allItems) }, p2Character: { ...guardChar, jutsu: p2j, bloodlineMult: getBloodlineMultiplier(guardChar, savedBloodlines), armorFactor: getCharacterArmorFactor(guardChar, allItems) } }),
+                                                        body: JSON.stringify({ p1Character: { ...character, jutsu: p1j, bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, getAllItems(wmCreatorItems)) }, p2Character: { ...guardChar, jutsu: p2j, bloodlineMult: getBloodlineMultiplier(guardChar, savedBloodlines), armorFactor: getCharacterArmorFactor(guardChar, getAllItems(wmCreatorItems)) } }),
                                                     });
                                                     if (sr.ok) ({ battleId } = await sr.json() as { battleId: string });
                                                 } catch { /* fallback */ }
