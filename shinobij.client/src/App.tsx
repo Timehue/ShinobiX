@@ -5567,6 +5567,14 @@ export default function App() {
         };
         savePlayerAccounts(accounts);
 
+        // Register the password server-side so it is enforced even on new devices.
+        // Fire-and-forget — local state is set immediately and server sync is async.
+        void fetch('/api/player-auth', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'register', name: newCharacter.name.toLowerCase(), password }),
+        });
+
         setCurrentAccountName(newCharacter.name);
         setCharacter(newCharacter);
         setCurrentBiome("central");
@@ -5619,12 +5627,53 @@ export default function App() {
     }
 
     async function loginPlayerAccount(name: string, password: string) {
-        const account = loadPlayerAccounts()[accountKey(name)];
+        const accounts = loadPlayerAccounts();
+        const account = accounts[accountKey(name)];
 
-        // If local account exists, validate password strictly
-        if (account && account.password !== password) {
+        // Always verify password against the server first — this is the authoritative check.
+        // Local localStorage only provides a fast-path pre-check.
+        let authOk = false;
+        let legacy = false;
+        try {
+            const authRes = await fetch('/api/player-auth', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'verify', name: name.trim().toLowerCase(), password }),
+            });
+            if (authRes.ok) {
+                const authData = await authRes.json() as { ok: boolean; legacy?: boolean };
+                authOk = authData.ok;
+                legacy = authData.legacy ?? false;
+            }
+        } catch {
+            // Network failure — fall back to local check if available
+            if (account) {
+                authOk = account.password === password;
+            } else {
+                alert("Could not reach server to verify password. Check your connection and try again.");
+                return;
+            }
+        }
+
+        if (!authOk) {
             alert("Player name or password is incorrect.");
             return;
+        }
+
+        // Legacy account verified (no server hash yet) AND we have local data proving
+        // this is the real owner — silently upgrade to server-side password now.
+        if (legacy && account && account.password === password) {
+            void fetch('/api/player-auth', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'register', name: name.trim().toLowerCase(), password }),
+            });
+        }
+
+        // Keep local password in sync
+        if (account) {
+            accounts[accountKey(name)].password = password;
+            savePlayerAccounts(accounts);
         }
 
         // Show village immediately with whatever local data we have
@@ -5653,9 +5702,9 @@ export default function App() {
             // be reloaded and overwrite the fresh start on next login.
             const lsKey = accountKey(name);
             if (lsKey) {
-                const accounts = loadPlayerAccounts();
-                delete accounts[lsKey];
-                savePlayerAccounts(accounts);
+                const accs = loadPlayerAccounts();
+                delete accs[lsKey];
+                savePlayerAccounts(accs);
             }
             setCharacter(null);
             setCurrentAccountName("");
@@ -5670,7 +5719,19 @@ export default function App() {
         if (!character) return;
         if (!window.confirm(`Delete "${character.name}"? This permanently removes your character and all save data. This cannot be undone.`)) return;
         const accountName = currentAccountName || character.name;
-        await fetch(`/api/save/${encodeURIComponent(accountName.toLowerCase())}`, { method: "DELETE" }).catch(() => {});
+        // Get the player's password from localStorage to authenticate the delete on the server.
+        const localAccounts = loadPlayerAccounts();
+        const localPw = localAccounts[accountKey(accountName)]?.password ?? "";
+        await fetch(`/api/save/${encodeURIComponent(accountName.toLowerCase())}`, {
+            method: "DELETE",
+            headers: localPw ? { "x-player-password": localPw } : {},
+        }).catch(() => {});
+        // Also remove the server-side auth record so the name can be reused.
+        void fetch('/api/player-auth', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...(localPw ? { 'x-player-password': localPw } : {}) },
+            body: JSON.stringify({ action: 'delete', name: accountName.toLowerCase(), password: localPw }),
+        }).catch(() => {});
         const accounts = loadPlayerAccounts();
         delete accounts[accountKey(accountName)];
         savePlayerAccounts(accounts);
@@ -5705,6 +5766,30 @@ export default function App() {
         setCurrentSector(40);
         setActiveTriggeredEvent(null);
         setScreen("start");
+    }
+
+    async function changePassword(oldPassword: string, newPassword: string): Promise<{ ok: boolean; error?: string }> {
+        const accountName = currentAccountName || character?.name || "";
+        try {
+            const res = await fetch('/api/player-auth', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'change', name: accountName.toLowerCase(), oldPassword, newPassword }),
+            });
+            const data = await res.json() as { ok: boolean; error?: string };
+            if (data.ok) {
+                // Update local password in localStorage too
+                const accounts = loadPlayerAccounts();
+                const key = accountKey(accountName);
+                if (accounts[key]) {
+                    accounts[key].password = newPassword;
+                    savePlayerAccounts(accounts);
+                }
+            }
+            return data;
+        } catch {
+            return { ok: false, error: 'Network error. Try again.' };
+        }
     }
 
     function resetGame() {
@@ -6136,6 +6221,7 @@ export default function App() {
                     adminLoggedIn={adminLoggedIn}
                     resetGame={resetGame}
                     logoutPlayer={logoutPlayer}
+                    changePassword={changePassword}
                     currentBiome={currentBiome}
                     characterVillage={character?.village ?? ""}
                     screen={screen}
@@ -6156,6 +6242,7 @@ export default function App() {
                         adminLoggedIn={adminLoggedIn}
                         logoutPlayer={logoutPlayer}
                         resetGame={resetGame}
+                        changePassword={changePassword}
                         character={character}
                         currentSector={currentSector}
                         atHome={mobileAtHome}
@@ -6754,6 +6841,7 @@ function RightMenu({
     adminLoggedIn,
     resetGame,
     logoutPlayer,
+    changePassword,
     currentBiome,
     characterVillage,
     screen,
@@ -6762,13 +6850,34 @@ function RightMenu({
     adminLoggedIn: boolean;
     resetGame: () => void;
     logoutPlayer: () => void;
+    changePassword: (oldPw: string, newPw: string) => Promise<{ ok: boolean; error?: string }>;
     currentBiome: Biome;
     characterVillage: string;
     screen: Screen;
 }) {
     const [menuOpen, setMenuOpen] = useState(true);
+    const [showChangePw, setShowChangePw] = useState(false);
+    const [oldPw, setOldPw] = useState("");
+    const [newPw, setNewPw] = useState("");
+    const [confirmPw, setConfirmPw] = useState("");
+    const [pwMsg, setPwMsg] = useState("");
     const homeBiome = villageBiomes[characterVillage];
     const atHome = screen !== "worldMap" || currentBiome === homeBiome;
+
+    async function submitChangePw() {
+        if (!oldPw || !newPw) { setPwMsg("Fill in all fields."); return; }
+        if (newPw.length < 6) { setPwMsg("New password must be at least 6 characters."); return; }
+        if (newPw !== confirmPw) { setPwMsg("New passwords do not match."); return; }
+        setPwMsg("Saving…");
+        const result = await changePassword(oldPw, newPw);
+        if (result.ok) {
+            setPwMsg("✅ Password changed.");
+            setOldPw(""); setNewPw(""); setConfirmPw("");
+            setTimeout(() => { setShowChangePw(false); setPwMsg(""); }, 1500);
+        } else {
+            setPwMsg(`❌ ${result.error ?? "Failed."}`);
+        }
+    }
 
     return (
         <aside
@@ -6799,9 +6908,20 @@ function RightMenu({
                         <button onClick={() => navigate("arena")}>Arena</button>
                         <button onClick={() => navigate("bloodlineMaker")}>Bloodline</button>
                         <button onClick={() => navigate(adminLoggedIn ? "adminPanel" : "adminLogin")}>Admin</button>
+                        <button onClick={() => { setShowChangePw(v => !v); setPwMsg(""); }}>🔑 Change Password</button>
                         <button onClick={logoutPlayer}>Logout + Save</button>
                         <button className="danger-button" onClick={resetGame}>Reset</button>
                     </div>
+
+                    {showChangePw && (
+                        <div style={{ padding: "8px 4px", borderTop: "1px solid rgba(255,255,255,0.1)", marginTop: 6 }}>
+                            <input type="password" placeholder="Current password" value={oldPw} onChange={e => setOldPw(e.target.value)} style={{ width: "100%", marginBottom: 4 }} />
+                            <input type="password" placeholder="New password (min 6)" value={newPw} onChange={e => setNewPw(e.target.value)} style={{ width: "100%", marginBottom: 4 }} />
+                            <input type="password" placeholder="Confirm new password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} onKeyDown={e => e.key === "Enter" && submitChangePw()} style={{ width: "100%", marginBottom: 6 }} />
+                            {pwMsg && <p style={{ fontSize: "0.78rem", margin: "0 0 6px", color: pwMsg.startsWith("✅") ? "#4ade80" : "#f87171" }}>{pwMsg}</p>}
+                            <button onClick={submitChangePw} style={{ width: "100%" }}>Save Password</button>
+                        </div>
+                    )}
                 </>
             )}
         </aside>
@@ -6812,6 +6932,7 @@ function MobileNav({
     adminLoggedIn,
     logoutPlayer,
     resetGame,
+    changePassword,
     character,
     atHome,
 }: {
@@ -6819,11 +6940,32 @@ function MobileNav({
     adminLoggedIn: boolean;
     logoutPlayer: () => void;
     resetGame: () => void;
+    changePassword: (oldPw: string, newPw: string) => Promise<{ ok: boolean; error?: string }>;
     character: Character;
     currentSector: number;
     atHome: boolean;
 }) {
     const [open, setOpen] = useState(false);
+    const [showChangePw, setShowChangePw] = useState(false);
+    const [oldPw, setOldPw] = useState("");
+    const [newPw, setNewPw] = useState("");
+    const [confirmPw, setConfirmPw] = useState("");
+    const [pwMsg, setPwMsg] = useState("");
+
+    async function submitChangePw() {
+        if (!oldPw || !newPw) { setPwMsg("Fill in all fields."); return; }
+        if (newPw.length < 6) { setPwMsg("New password must be at least 6 characters."); return; }
+        if (newPw !== confirmPw) { setPwMsg("Passwords do not match."); return; }
+        setPwMsg("Saving…");
+        const result = await changePassword(oldPw, newPw);
+        if (result.ok) {
+            setPwMsg("✅ Password changed.");
+            setOldPw(""); setNewPw(""); setConfirmPw("");
+            setTimeout(() => { setShowChangePw(false); setPwMsg(""); }, 1500);
+        } else {
+            setPwMsg(`❌ ${result.error ?? "Failed."}`);
+        }
+    }
 
     const xpPct = character.level >= MAX_LEVEL
         ? 100
@@ -6898,9 +7040,21 @@ function MobileNav({
                         {adminLoggedIn && (
                             <button className="mobile-menu-btn" onClick={() => go("adminPanel")}>🛡 Admin</button>
                         )}
+                        <button className="mobile-menu-btn" onClick={() => { setShowChangePw(v => !v); setPwMsg(""); }}>🔑 Change Password</button>
                         <button className="mobile-menu-btn" onClick={() => { logoutPlayer(); setOpen(false); }}>💾 Logout + Save</button>
                         <button className="mobile-menu-btn danger" onClick={() => { resetGame(); setOpen(false); }}>🗑 Reset</button>
                     </div>
+
+                    {showChangePw && (
+                        <div style={{ padding: "12px 16px", borderTop: "1px solid rgba(255,255,255,0.1)", marginTop: 8 }}>
+                            <p style={{ fontWeight: 600, marginBottom: 8, fontSize: "0.9rem" }}>Change Password</p>
+                            <input type="password" placeholder="Current password" value={oldPw} onChange={e => setOldPw(e.target.value)} style={{ width: "100%", marginBottom: 6 }} />
+                            <input type="password" placeholder="New password (min 6)" value={newPw} onChange={e => setNewPw(e.target.value)} style={{ width: "100%", marginBottom: 6 }} />
+                            <input type="password" placeholder="Confirm new password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} style={{ width: "100%", marginBottom: 8 }} />
+                            {pwMsg && <p style={{ fontSize: "0.82rem", margin: "0 0 8px", color: pwMsg.startsWith("✅") ? "#4ade80" : "#f87171" }}>{pwMsg}</p>}
+                            <button onClick={submitChangePw} style={{ width: "100%" }}>Save Password</button>
+                        </div>
+                    )}
                 </div>
             )}
         </>
@@ -7372,6 +7526,40 @@ function AdminLogin({ onLogin, setScreen }: { onLogin: (account: AdminAccount, p
                 </button>
                 <button onClick={() => setScreen("start")} disabled={loading}>Back</button>
             </div>
+        </div>
+    );
+}
+
+function AdminPasswordReset({ adminPw }: { adminPw: string }) {
+    const [targetName, setTargetName] = useState("");
+    const [newPw, setNewPw] = useState("");
+    const [msg, setMsg] = useState("");
+
+    async function submit() {
+        if (!targetName.trim() || !newPw.trim()) { setMsg("Enter a player name and new password."); return; }
+        if (newPw.length < 6) { setMsg("Password must be at least 6 characters."); return; }
+        setMsg("Resetting…");
+        try {
+            const res = await fetch('/api/player-auth', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPw },
+                body: JSON.stringify({ action: 'adminreset', name: targetName.trim().toLowerCase(), newPassword: newPw }),
+            });
+            const data = await res.json() as { ok: boolean; error?: string };
+            setMsg(data.ok ? `✅ Password reset for ${targetName.trim()}.` : `❌ ${data.error ?? "Failed."}`);
+            if (data.ok) { setTargetName(""); setNewPw(""); }
+        } catch { setMsg("❌ Network error."); }
+    }
+
+    return (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <p className="hint" style={{ margin: 0 }}>Set a new password for a player (e.g. for account recovery). The player's old password is not needed.</p>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <input placeholder="Player name" value={targetName} onChange={e => setTargetName(e.target.value)} style={{ flex: 1, minWidth: 140 }} />
+                <input type="password" placeholder="New password (min 6)" value={newPw} onChange={e => setNewPw(e.target.value)} style={{ flex: 1, minWidth: 160 }} />
+                <button onClick={submit}>Reset</button>
+            </div>
+            {msg && <p className="hint" style={{ color: msg.startsWith("✅") ? "#4ade80" : "#f87171", margin: 0 }}>{msg}</p>}
         </div>
     );
 }
@@ -12294,6 +12482,12 @@ function AdminPanel({
                                     </div>
                                 </>
                             )}
+                        </section>
+
+                        {/* ── Password Reset ── */}
+                        <section className="summary-box">
+                            <h4>🔑 Reset Player Password</h4>
+                            <AdminPasswordReset adminPw={adminPw} />
                         </section>
 
                         {/* ── Manual Stat Edit ── */}
