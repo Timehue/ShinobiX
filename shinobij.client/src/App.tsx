@@ -623,8 +623,9 @@ function getCharacterArmorFactor(character: Character, allItems: GameItem[]): nu
 }
 
 // PvP-specific: returns raw DR sum (no hard floor) so the server's soft DR pool
-// can give diminishing returns across all 7 slots + pet Guardian.
-// 1 legendary piece = 0.15, full 7-slot legendary + Guardian = 1.13.
+// can give diminishing returns across all 7 armor slots. Pets deliberately excluded
+// from PvP — their Guardian trait only applies in PvE via getCharacterArmorFactor.
+// 1 legendary piece = 0.15, full 7-slot legendary = 1.05.
 function getCharacterArmorRawDR(character: Character, allItems: GameItem[]): number {
     const armorSlots: EquipmentSlot[] = ["head", "hand", "body", "armor", "waist", "legs", "feet"];
     let totalReduction = 0;
@@ -634,7 +635,7 @@ function getCharacterArmorRawDR(character: Character, allItems: GameItem[]): num
         const item = allItems.find((i) => i.id === id);
         if (item?.armorQuality) totalReduction += armorReductionForQuality(item.armorQuality);
     }
-    if (getActivePetTrait(character) === "Guardian") totalReduction += 0.08;
+    // No pet Guardian bonus here — pets do not affect PvP combat.
     return Math.min(1.5, totalReduction);
 }
 
