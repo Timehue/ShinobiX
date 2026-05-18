@@ -45,11 +45,14 @@ type Jutsu = {
     id: string;
     name: string;
     type: string;
+    element?: string;
     target?: string;
     range?: number;
     ap?: number;
     cooldown?: number;
     effectPower?: number;
+    chakraCost?: number;
+    staminaCost?: number;
     tags?: JutsuTag[];
 };
 
@@ -72,6 +75,12 @@ function getTagMultiplier(tags: JutsuTag[]): number {
 }
 function cappedPostDamage(damage: number, percent: number): number {
     return Math.floor(Math.min(damage * (percent / 100), damage * 0.6));
+}
+function weatherMultiplier(element: string | undefined, positiveEl: string, negativeEl: string): number {
+    if (!element || (!positiveEl && !negativeEl)) return 1;
+    if (positiveEl && element === positiveEl) return 1.05;
+    if (negativeEl && element === negativeEl) return 0.98;
+    return 1;
 }
 
 // ─── Fighter helpers ──────────────────────────────────────────────────────────
@@ -102,12 +111,14 @@ function damageMultiplierFor(attacker: PvpFighter, defender: PvpFighter): number
 }
 
 // ─── Jutsu application (3-bucket formula, all tags) ───────────────────────────
-function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu): { self: PvpFighter; opponent: PvpFighter; lines: string[] } {
+function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu, wMult = 1): { self: PvpFighter; opponent: PvpFighter; lines: string[] } {
+    const attackerLevel = Math.max(1, Math.min(50, Number((self.character.level as number) ?? 1)));
+    const scaledEp = (jutsu.effectPower ?? 20) + attackerLevel * 0.2;
     const offStats = (self.character.stats as Record<string, number>) ?? {};
     const defStats = (opponent.character.stats as Record<string, number>) ?? {};
     const statFactor = Math.max(0.35, Math.min(1.85, 1 + (getOffense(offStats, jutsu.type) - getDefense(defStats, jutsu.type)) / (MAX_STAT * 2) * 0.85));
-    const effectFactor = Math.max(0, jutsu.effectPower ?? 20) / 100;
-    const baseDmg = Math.max(0, Math.floor(opponent.maxHp * effectFactor * statFactor * PVP_SCALE * getTagMultiplier(jutsu.tags ?? [])));
+    const effectFactor = Math.max(0, scaledEp) / 100;
+    const baseDmg = Math.max(0, Math.floor(opponent.maxHp * effectFactor * statFactor * PVP_SCALE * getTagMultiplier(jutsu.tags ?? []) * wMult));
 
     const tags = jutsu.tags ?? [];
     const lines: string[] = [];
@@ -257,16 +268,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-        const { battleId, role, action, tile, jutsuId, itemName, itemData } = body as {
+        const { battleId, role, action, tile, jutsuId, itemName, itemData, weatherPositiveElement = '', weatherNegativeElement = '' } = body as {
             battleId?: string;
             role?: 'p1' | 'p2';
             action?: string;
             tile?: number;
             jutsuId?: string;
             itemName?: string;
+            weatherPositiveElement?: string;
+            weatherNegativeElement?: string;
             itemData?: {
                 effectPower?: number;
                 type?: string;
+                weaponElement?: string;
                 weaponRange?: number;
                 ap?: number;
                 tags?: JutsuTag[];
@@ -338,7 +352,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const specialty = (me.character.specialty as string) ?? 'Ninjutsu';
                 const basicJutsu: Jutsu = { id: 'basic-attack', name: 'Basic Attack', type: specialty, effectPower: 10, ap: 40, range: 1, tags: [{ name: 'Damage', percent: 10 }] };
                 lines.push(`${me.name} uses Basic Attack:`);
-                const atk = applyJutsu(me, opp, basicJutsu);
+                const atk = applyJutsu(me, opp, basicJutsu, 1);
                 lines.push(...atk.lines);
                 result = commit({ ...atk.self, stamina: Math.max(0, atk.self.stamina - 10) }, atk.opponent, 40);
                 break;
@@ -386,6 +400,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const apCost = jutsu.ap ?? 40;
                 if (!canAct(apCost) || (myCooldowns[jutsuId] ?? 0) > 0) return res.status(200).json(session);
 
+                const jChakraCost = jutsu.chakraCost ?? 0;
+                const jStaminaCost = jutsu.staminaCost ?? 0;
+                if (jChakraCost > 0 && me.chakra < jChakraCost) {
+                    const msg = `${me.name}: not enough chakra for ${jutsu.name} (need ${jChakraCost}).`;
+                    const updated = { ...session, log: [...session.log, msg] };
+                    await kv.set(key, updated, { ex: 600 });
+                    return res.status(200).json(updated);
+                }
+                if (jStaminaCost > 0 && me.stamina < jStaminaCost) {
+                    const msg = `${me.name}: not enough stamina for ${jutsu.name} (need ${jStaminaCost}).`;
+                    const updated = { ...session, log: [...session.log, msg] };
+                    await kv.set(key, updated, { ex: 600 });
+                    return res.status(200).json(updated);
+                }
+
                 const selfTarget = jutsu.target === 'SELF' ||
                     (jutsu.tags ?? []).some(t => ['Heal', 'Shield', 'Absorb', 'Reflect', 'Lifesteal', 'Debuff Prevent', 'Increase Damage Given', 'Decrease Damage Taken'].includes(t.name));
                 if (!selfTarget) {
@@ -399,10 +428,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
 
                 lines.push(`${me.name} uses ${jutsu.name}:`);
-                const jr = applyJutsu(me, opp, jutsu);
+                const jWMult = weatherMultiplier(jutsu.element, weatherPositiveElement, weatherNegativeElement);
+                const jr = applyJutsu(me, opp, jutsu, jWMult);
+                const jUpdatedSelf = {
+                    ...jr.self,
+                    chakra: Math.max(0, jr.self.chakra - jChakraCost),
+                    stamina: Math.max(0, jr.self.stamina - jStaminaCost),
+                };
                 lines.push(...jr.lines);
                 const cd = (jutsu.cooldown ?? 0) > 0 ? { [jutsuId]: jutsu.cooldown! } : undefined;
-                result = commit(jr.self, jr.opponent, apCost, cd);
+                result = commit(jUpdatedSelf, jr.opponent, apCost, cd);
                 break;
             }
 
@@ -431,7 +466,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     tags: wTags,
                 };
                 lines.push(`${me.name} uses ${weaponJutsu.name}:`);
-                const wr = applyJutsu(me, opp, weaponJutsu);
+                const wWMult = weatherMultiplier(itemData.weaponElement as string | undefined, weatherPositiveElement, weatherNegativeElement);
+                const wr = applyJutsu(me, opp, weaponJutsu, wWMult);
                 lines.push(...wr.lines);
                 result = commit(wr.self, wr.opponent, wApCost);
                 break;
@@ -473,6 +509,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         actionsThisTurn: session.actionsThisTurn + 1,
                         status: 'done',
                         winner: role === 'p1' ? 'p2' : 'p1',
+                        fleedBy: role,
                         log: [...session.log, ...lines],
                     };
                 } else {
