@@ -6289,8 +6289,8 @@ export default function App() {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({
-                                        p1Character: { ...character, jutsu: p1Jutsus, bloodlineMult: getBloodlineMultiplier(character, savedBloodlines) },
-                                        p2Character: { ...oppChar, jutsu: p2Jutsus, bloodlineMult: getBloodlineMultiplier(oppChar, savedBloodlines) },
+                                        p1Character: { ...character, jutsu: p1Jutsus, bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, allItems) },
+                                        p2Character: { ...oppChar, jutsu: p2Jutsus, bloodlineMult: getBloodlineMultiplier(oppChar, savedBloodlines), armorFactor: getCharacterArmorFactor(oppChar, allItems) },
                                     }),
                                 });
                                 if (sr.ok) ({ battleId } = await sr.json() as { battleId: string });
@@ -17113,8 +17113,8 @@ function WorldMap({
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    p1Character: { ...character, jutsu: p1Jutsus, bloodlineMult: getBloodlineMultiplier(character, savedBloodlines) },
-                    p2Character: { ...opponent, jutsu: p2Jutsus, bloodlineMult: getBloodlineMultiplier(opponent, savedBloodlines) },
+                    p1Character: { ...character, jutsu: p1Jutsus, bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, allItems) },
+                    p2Character: { ...opponent, jutsu: p2Jutsus, bloodlineMult: getBloodlineMultiplier(opponent, savedBloodlines), armorFactor: getCharacterArmorFactor(opponent, allItems) },
                 }),
             });
             if (sr.ok) ({ battleId } = await sr.json() as { battleId: string });
@@ -17954,7 +17954,7 @@ function WorldMap({
                                                     const sr = await fetch('/api/pvp/session', {
                                                         method: 'POST',
                                                         headers: { 'Content-Type': 'application/json' },
-                                                        body: JSON.stringify({ p1Character: { ...character, jutsu: p1j, bloodlineMult: getBloodlineMultiplier(character, savedBloodlines) }, p2Character: { ...guardChar, jutsu: p2j, bloodlineMult: getBloodlineMultiplier(guardChar, savedBloodlines) } }),
+                                                        body: JSON.stringify({ p1Character: { ...character, jutsu: p1j, bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, allItems) }, p2Character: { ...guardChar, jutsu: p2j, bloodlineMult: getBloodlineMultiplier(guardChar, savedBloodlines), armorFactor: getCharacterArmorFactor(guardChar, allItems) } }),
                                                     });
                                                     if (sr.ok) ({ battleId } = await sr.json() as { battleId: string });
                                                 } catch { /* fallback */ }
@@ -20202,7 +20202,7 @@ function Arena({
             const res = await fetch('/api/pvp/session', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ p1Character: { ...challenger, bloodlineMult: getBloodlineMultiplier(challenger as Character, savedBloodlines) }, p2Character: { ...character, bloodlineMult: getBloodlineMultiplier(character, savedBloodlines) } }),
+                body: JSON.stringify({ p1Character: { ...challenger, bloodlineMult: getBloodlineMultiplier(challenger as Character, savedBloodlines), armorFactor: getCharacterArmorFactor(challenger as Character, allItems) }, p2Character: { ...character, bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, allItems) } }),
             });
             if (!res.ok) throw new Error('Session create failed');
             const { battleId } = await res.json() as { battleId: string };
