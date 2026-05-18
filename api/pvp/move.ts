@@ -120,7 +120,9 @@ function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu, wMult 
     const effectFactor = Math.max(0, scaledEp) / 100;
     // Bloodline mult: pre-computed on the client and stored in character (1.0 if absent)
     const bloodlineMult = Math.max(1.0, Number((self.character.bloodlineMult as number) ?? 1.0));
-    const baseDmg = Math.max(0, Math.floor(opponent.maxHp * effectFactor * statFactor * PVP_SCALE * getTagMultiplier(jutsu.tags ?? []) * wMult * bloodlineMult));
+    // Armor factor: pre-computed on the client from armorQuality tiers (capped at 0.25 floor = 75% max reduction)
+    const armorFactor = Math.min(1.0, Math.max(0.25, Number((opponent.character.armorFactor as number) ?? 1.0)));
+    const baseDmg = Math.max(0, Math.floor(opponent.maxHp * effectFactor * statFactor * PVP_SCALE * getTagMultiplier(jutsu.tags ?? []) * wMult * bloodlineMult * armorFactor));
 
     const tags = jutsu.tags ?? [];
     const lines: string[] = [];
