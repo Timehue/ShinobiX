@@ -80,6 +80,21 @@ function weatherMultiplier(element: string | undefined, positiveEl: string, nega
     if (negativeEl && element === negativeEl) return 0.98;
     return 1;
 }
+// Terrain bonuses — match the terrainEffects table on the client exactly:
+//   forest  → +10% Taijutsu / Bukijutsu
+//   snow    → +10% Water element
+//   volcano → +10% Fire element
+//   shadow  → +10% Genjutsu
+//   central → no bonus
+function terrainMultiplier(jutsu: Jutsu, biome: string): number {
+    switch (biome) {
+        case 'forest':  return jutsu.type === 'Taijutsu'  ? 1.1 : 1;
+        case 'snow':    return jutsu.type === 'Bukijutsu' ? 1.1 : 1;
+        case 'volcano': return jutsu.type === 'Ninjutsu'  ? 1.1 : 1;
+        case 'shadow':  return jutsu.type  === 'Genjutsu'   ? 1.1 : 1;
+        default:        return 1;
+    }
+}
 
 // ─── Fighter helpers ──────────────────────────────────────────────────────────
 function hasStatus(f: PvpFighter, name: string) { return f.statuses.some(s => s.name === name); }
@@ -120,7 +135,7 @@ function ampMultiplierFor(attacker: PvpFighter, defender: PvpFighter): number {
 }
 
 // ─── Jutsu application (3-bucket formula, all tags) ───────────────────────────
-function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu, wMult = 1): { self: PvpFighter; opponent: PvpFighter; lines: string[] } {
+function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu, wMult = 1, biome = 'central'): { self: PvpFighter; opponent: PvpFighter; lines: string[] } {
     // Use jutsu mastery level (0–50) for EP scaling so trained jutsus hit harder in PvP.
     // Falls back to 0 if the jutsu has never been trained (no bonus).
     const jutsuMasteries = (self.character.jutsuMastery as Array<{ jutsuId: string; level: number }> | null) ?? [];
@@ -135,9 +150,11 @@ function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu, wMult 
     const bloodlineMult = Math.max(1.0, Number((self.character.bloodlineMult as number) ?? 1.0));
     // Item damage bonus: pre-computed on the client from equipped item bonuses (0 if absent → ×1.0)
     const itemDamageMult = 1 + Math.max(0, Number((self.character.itemDamagePct as number) ?? 0)) / 100;
+    // Terrain bonus: +10% when jutsu type/element matches the current biome
+    const tMult = terrainMultiplier(jutsu, biome);
     // Raw base damage — DR applied separately below
     const baseDmg = Math.max(0, Math.floor(
-        opponent.maxHp * effectFactor * statFactor * PVP_SCALE * wMult * bloodlineMult * itemDamageMult
+        opponent.maxHp * effectFactor * statFactor * PVP_SCALE * wMult * tMult * bloodlineMult * itemDamageMult
     ));
     // ── Defensive DR pool (diminishing returns) ───────────────────────────────
     // armorRawDR: raw sum of per-piece reductions (e.g. 7×0.15 + 0.08 Guardian = 1.13).
@@ -278,17 +295,7 @@ function endTurn(session: PvpSession): PvpSession {
         s = { ...s, p2: tickStatuses(s.p2), cooldowns: { ...s.cooldowns, p2: tickCooldowns(s.cooldowns.p2) } };
     }
 
-    // Chakra regen: 10% of max chakra restored to both fighters at the end of each full round
-    if (current === 'p2') {
-        const p1Regen = Math.floor(s.p1.maxChakra * 0.1);
-        const p2Regen = Math.floor(s.p2.maxChakra * 0.1);
-        s = {
-            ...s,
-            p1: { ...s.p1, chakra: Math.min(s.p1.maxChakra, s.p1.chakra + p1Regen) },
-            p2: { ...s.p2, chakra: Math.min(s.p2.maxChakra, s.p2.chakra + p2Regen) },
-        };
-        lines.push(`Chakra restored (+10%).`);
-    }
+    // No chakra or stamina regen during PvP — resources are finite per fight.
 
     // Apply DoTs to the next player at start of their turn
     let nextFighter = next === 'p1' ? s.p1 : s.p2;
@@ -324,7 +331,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-        const { battleId, role, action, tile, jutsuId, itemName, itemData, weatherPositiveElement = '', weatherNegativeElement = '' } = body as {
+        const { battleId, role, action, tile, jutsuId, itemName, itemData, weatherPositiveElement = '', weatherNegativeElement = '', biome = 'central' } = body as {
             battleId?: string;
             role?: 'p1' | 'p2';
             action?: string;
@@ -333,6 +340,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             itemName?: string;
             weatherPositiveElement?: string;
             weatherNegativeElement?: string;
+            biome?: string;
             itemData?: {
                 effectPower?: number;
                 type?: string;
@@ -417,7 +425,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const specialty = (me.character.specialty as string) ?? 'Ninjutsu';
                 const basicJutsu: Jutsu = { id: 'basic-attack', name: 'Basic Attack', type: specialty, effectPower: 10, ap: 40, range: 1, tags: [] };
                 lines.push(`${me.name} uses Basic Attack:`);
-                const atk = applyJutsu(me, opp, basicJutsu, 1);
+                const atk = applyJutsu(me, opp, basicJutsu, 1, biome);
                 lines.push(...atk.lines);
                 result = commit({ ...atk.self, stamina: Math.max(0, atk.self.stamina - 10) }, atk.opponent, 40);
                 break;
@@ -464,6 +472,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!jutsu) return res.status(200).json(session);
                 const apCost = jutsu.ap ?? 40;
                 if (!canAct(apCost) || (myCooldowns[jutsuId] ?? 0) > 0) return res.status(200).json(session);
+
+                // ── Elemental Seal enforcement ───────────────────────────────────
+                // Elemental Seal blocks the five basic elements only.
+                const BASIC_ELEMENTS = new Set(['Earth', 'Wind', 'Water', 'Lightning', 'Fire']);
+                if (hasStatus(me, 'Elemental Seal') && jutsu.element && BASIC_ELEMENTS.has(jutsu.element)) {
+                    const esMsg = `${me.name} is Elementally Sealed — cannot use ${jutsu.name} (${jutsu.element}).`;
+                    const esState = { ...session, log: [...session.log, esMsg] };
+                    await kv.set(key, esState, { ex: 600 });
+                    return res.status(200).json(esState);
+                }
 
                 const jChakraCost = jutsu.chakraCost ?? 0;
                 const jStaminaCost = jutsu.staminaCost ?? 0;
@@ -513,7 +531,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (ring.includes(opp.pos)) {
                         // Strip Move tag so applyJutsu treats this as a pure damage/effect jutsu
                         const damageJutsu = { ...jutsu, tags: (jutsu.tags ?? []).filter(t => t.name !== 'Move') };
-                        const jr = applyJutsu(movedSelf, opp, damageJutsu, jWMult);
+                        const jr = applyJutsu(movedSelf, opp, damageJutsu, jWMult, biome);
                         lines.push(`Ring impact catches ${opp.name}!`);
                         lines.push(...jr.lines);
                         result = commit({ ...jr.self, chakra: Math.max(0, jr.self.chakra - jChakraCost), stamina: Math.max(0, jr.self.stamina - jStaminaCost) }, jr.opponent, apCost, cd);
@@ -524,7 +542,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     break;
                 }
 
-                const jr = applyJutsu(me, opp, jutsu, jWMult);
+                const jr = applyJutsu(me, opp, jutsu, jWMult, biome);
                 const jUpdatedSelf = {
                     ...jr.self,
                     chakra: Math.max(0, jr.self.chakra - jChakraCost),
@@ -561,7 +579,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 };
                 lines.push(`${me.name} uses ${weaponJutsu.name}:`);
                 const wWMult = weatherMultiplier(itemData.weaponElement as string | undefined, weatherPositiveElement, weatherNegativeElement);
-                const wr = applyJutsu(me, opp, weaponJutsu, wWMult);
+                const wr = applyJutsu(me, opp, weaponJutsu, wWMult, biome);
                 lines.push(...wr.lines);
                 result = commit(wr.self, wr.opponent, wApCost);
                 break;
