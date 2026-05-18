@@ -112,8 +112,12 @@ function damageMultiplierFor(attacker: PvpFighter, defender: PvpFighter): number
 
 // ─── Jutsu application (3-bucket formula, all tags) ───────────────────────────
 function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu, wMult = 1): { self: PvpFighter; opponent: PvpFighter; lines: string[] } {
-    const attackerLevel = Math.max(1, Math.min(50, Number((self.character.level as number) ?? 1)));
-    const scaledEp = (jutsu.effectPower ?? 20) + attackerLevel * 0.2;
+    // Use jutsu mastery level (0–50) for EP scaling so trained jutsus hit harder in PvP.
+    // Falls back to 0 if the jutsu has never been trained (no bonus).
+    const jutsuMasteries = (self.character.jutsuMastery as Array<{ jutsuId: string; level: number }> | null) ?? [];
+    const masteryEntry = jutsuMasteries.find(m => m.jutsuId === jutsu.id);
+    const masteryLevel = Math.max(0, Math.min(50, masteryEntry?.level ?? 0));
+    const scaledEp = (jutsu.effectPower ?? 20) + masteryLevel * 0.2;
     const offStats = (self.character.stats as Record<string, number>) ?? {};
     const defStats = (opponent.character.stats as Record<string, number>) ?? {};
     const statFactor = Math.max(0.35, Math.min(1.85, 1 + (getOffense(offStats, jutsu.type) - getDefense(defStats, jutsu.type)) / (MAX_STAT * 2) * 0.85));

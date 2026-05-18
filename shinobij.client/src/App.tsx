@@ -4065,9 +4065,9 @@ function getTagMultiplier(tags: JutsuTag[]): number {
 function getBloodlineMultiplier(char: Character, allSavedBloodlines: SavedBloodline[]): number {
     if (!char.equippedBloodlineId) return 1.0;
     const adminBl = allSavedBloodlines.find(b => b.id === char.equippedBloodlineId);
-    if (adminBl) return adminBl.rank === "S Rank" ? 1.40 : adminBl.rank === "A Rank" ? 1.35 : 1.30;
+    if (adminBl) return adminBl.rank === "S Rank" ? 1.20 : adminBl.rank === "A Rank" ? 1.15 : 1.10;
     const starterBl = starterSavedBloodlines.find(b => b.id === char.equippedBloodlineId);
-    if (starterBl) return 1.32;
+    if (starterBl) return 1.08;
     return 1.0;
 }
 
