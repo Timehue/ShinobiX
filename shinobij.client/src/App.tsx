@@ -5308,9 +5308,17 @@ export default function App() {
         else if (cat === 'card')
             setCreatorCards(prev => prev.map(card =>
                 images['card:' + card.id] ? { ...card, image: images['card:' + card.id] } : card));
-        else if (cat === 'jutsu')
+        else if (cat === 'jutsu') {
             setCreatorJutsus(prev => prev.map(j =>
                 images['jutsu:' + j.id] ? { ...j, image: images['jutsu:' + j.id] } : j));
+            // Also hydrate jutsu images stored inside bloodlines — the save strips base64
+            // so these need the same KV lookup as creatorJutsus.
+            setSavedBloodlines(prev => prev.map(b => ({
+                ...b,
+                jutsus: b.jutsus.map(j =>
+                    images['jutsu:' + j.id] ? { ...j, image: images['jutsu:' + j.id] } : j),
+            })));
+        }
         else if (cat === 'event')
             setCreatorEvents(prev => prev.map(e => ({
                 ...e,
@@ -11403,6 +11411,7 @@ function AdminPanel({
                             setJutsuIsGenerating(true);
                             let done = 0;
                             let updated = [...creatorJutsus];
+                            const bloodlineImageMap: Record<string, string> = {};
                             for (const jutsu of missing) {
                                 setJutsuGenStatus(`Generating ${jutsu.name}... (${done + 1}/${missing.length})`);
                                 try {
@@ -11417,12 +11426,21 @@ function AdminPanel({
                                         const withImage = { ...jutsu, image };
                                         const idx = updated.findIndex((c) => c.id === jutsu.id);
                                         if (idx >= 0) { updated[idx] = withImage; } else { updated = [...updated, withImage]; }
+                                        bloodlineImageMap[jutsu.id] = image;
                                         publishSharedImage('jutsu:' + jutsu.id, image);
                                     }
                                 } catch { /* skip */ }
                                 done++;
                             }
                             setCreatorJutsus(updated);
+                            // Patch generated images onto bloodline jutsus too
+                            if (Object.keys(bloodlineImageMap).length > 0) {
+                                setSavedBloodlines(prev => prev.map(b => ({
+                                    ...b,
+                                    jutsus: b.jutsus.map(j =>
+                                        bloodlineImageMap[j.id] ? { ...j, image: bloodlineImageMap[j.id] } : j),
+                                })));
+                            }
                             setJutsuIsGenerating(false);
                             setJutsuGenStatus(`Done! Generated images for ${done} jutsu(s).`);
                             try { await onSaveRef.current(); } catch { /* ignore if no account */ }
