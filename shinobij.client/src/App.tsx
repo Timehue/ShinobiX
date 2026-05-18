@@ -4782,10 +4782,19 @@ export default function App() {
                 // Admin reset this account — wipe local state and reload from server
                 if (data.forceReload) {
                     const accountName = currentAccountName || char.name.toLowerCase();
+                    // Admin accounts never respond to force-reload signals — admin writes
+                    // to player keys, not their own, so a signal on "admin1" should not
+                    // disrupt the admin session. Just ack and continue.
+                    if (adminLoggedIn) {
+                        await fetch(`/api/save/${encodeURIComponent(accountName)}?ack=1`, { method: "POST" });
+                        return;
+                    }
                     const saveRes = await fetch(`/api/save/${encodeURIComponent(accountName)}`);
                     if (saveRes.ok) {
-                        const snap = await saveRes.json() as { character?: Character };
-                        if (snap.character) setCharacter(normalizeCharacter(snap.character));
+                        const snap = await saveRes.json() as ReturnType<typeof buildPlayerSavePayload>;
+                        // Apply full snapshot so all admin-given changes (pets, currencies,
+                        // items, etc.) are reflected across the entire player state.
+                        applyServerSnapshot(snap);
                         await fetch(`/api/save/${encodeURIComponent(accountName)}?ack=1`, { method: "POST" });
                     } else {
                         // Save was deleted (account reset) — also clear localStorage so the
@@ -6222,9 +6231,23 @@ export default function App() {
                             const adminChar = createAdminCharacter(account);
                             setCharacter(adminChar);
                             setScreen("adminPanel");
-                            // Restore any previously saved admin data (jutsus, events, pets, etc.)
+                            // Restore admin content only — do NOT call applyServerSnapshot here
+                            // because it overrides setScreen("adminPanel") with setScreen("village")
+                            // and can corrupt currentAccountName if the save contains unexpected data.
                             const snap = await pullSaveFromServer(account);
-                            if (snap) applyServerSnapshot(snap);
+                            if (snap) {
+                                if (snap.creatorJutsus) setCreatorJutsus((snap.creatorJutsus as Jutsu[]).map(normalizeJutsu).map(rebalanceNonBloodlineJutsu));
+                                if (snap.creatorAis) setCreatorAis(snap.creatorAis as CreatorAi[]);
+                                if (snap.creatorEvents) setCreatorEvents(snap.creatorEvents as CreatorEvent[]);
+                                if (snap.creatorMissions) setCreatorMissions(snap.creatorMissions as CreatorMission[]);
+                                if (snap.creatorRaids) setCreatorRaids(snap.creatorRaids as CreatorRaid[]);
+                                if (snap.creatorCards) setCreatorCards(snap.creatorCards as TileCard[]);
+                                if (snap.creatorItems) setCreatorItems(snap.creatorItems as GameItem[]);
+                                if (snap.editablePets) setEditablePets(mergeMissingBuiltInPets(snap.editablePets as Pet[]));
+                                if (snap.savedBloodlines) setSavedBloodlines((snap.savedBloodlines as SavedBloodline[]).map((b) => ({ ...b, jutsus: b.jutsus.map(normalizeJutsu) })));
+                                if (snap.petEncounterVn) setPetEncounterVn(snap.petEncounterVn as CreatorEvent);
+                                if (snap.ancientChestVn) setAncientChestVn(snap.ancientChestVn as CreatorEvent);
+                            }
                         }}
                         setScreen={setScreen}
                     />
@@ -9470,7 +9493,7 @@ function AdminPanel({
         const updated = { ...pmSnap, character: char };
         try {
             const res = await fetch(`/api/save/${encodeURIComponent(pmTargetName.trim().toLowerCase())}?signal=1`, {
-                method: "POST", headers: { "Content-Type": "application/json" },
+                method: "POST", headers: { "Content-Type": "application/json", "x-admin-password": adminPw },
                 body: JSON.stringify(updated),
             });
             if (!res.ok) throw new Error();
@@ -9523,7 +9546,7 @@ function AdminPanel({
         setPmEditMsg("Saving…");
         try {
             const res = await fetch(`/api/save/${encodeURIComponent(pmEditName.trim().toLowerCase())}?signal=1`, {
-                method: "POST", headers: { "Content-Type": "application/json" },
+                method: "POST", headers: { "Content-Type": "application/json", "x-admin-password": adminPw },
                 body: JSON.stringify(updatedSnap),
             });
             if (!res.ok) throw new Error();
@@ -9566,7 +9589,7 @@ function AdminPanel({
             );
             const freshSnap = { ...existing, character: fresh };
             const saveRes = await fetch(`/api/save/${encodeURIComponent(name.toLowerCase())}?signal=1`, {
-                method: "POST", headers: { "Content-Type": "application/json" },
+                method: "POST", headers: { "Content-Type": "application/json", "x-admin-password": adminPw },
                 body: JSON.stringify(freshSnap),
             });
             if (!saveRes.ok) { setPmMsg("❌ Save failed."); return; }
@@ -9583,6 +9606,7 @@ function AdminPanel({
         try {
             const res = await fetch(`/api/save/${encodeURIComponent(pmTargetName.trim().toLowerCase())}`, {
                 method: "DELETE",
+                headers: { "x-admin-password": adminPw },
             });
             if (!res.ok) {
                 let errDetail = `HTTP ${res.status}`;

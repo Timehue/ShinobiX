@@ -33,6 +33,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             const isAdminSave = req.query.signal === '1';
 
+            // Admin-flagged writes require the admin password to prevent any client
+            // from force-reloading a player with arbitrary data.
+            if (isAdminSave) {
+                const adminPassword = process.env.ADMIN_PASSWORD;
+                const providedPw = req.headers['x-admin-password'] as string | undefined;
+                if (!adminPassword || providedPw !== adminPassword) {
+                    return res.status(401).json({ error: 'Admin authentication required.' });
+                }
+            }
+
             // If a reset-signal is pending (admin edit in-flight) and this is NOT the admin save,
             // silently drop the client auto-save so it can't overwrite admin changes.
             if (!isAdminSave) {
@@ -73,6 +83,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (req.method === 'DELETE') {
         try {
+            const adminPassword = process.env.ADMIN_PASSWORD;
+            const providedPw = req.headers['x-admin-password'] as string | undefined;
+            if (!adminPassword || providedPw !== adminPassword) {
+                return res.status(401).json({ error: 'Admin authentication required.' });
+            }
             const lowered = name.toLowerCase();
             const adminLockKey = `admin-lock:${lowered}`;
             await kv.set(adminLockKey, 1, { ex: 300 });
