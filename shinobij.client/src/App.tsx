@@ -5343,21 +5343,43 @@ export default function App() {
                     images['jutsu:' + j.id] ? { ...j, image: images['jutsu:' + j.id] } : j),
             })));
         }
-        else if (cat === 'event')
-            setCreatorEvents(prev => prev.map(e => ({
-                ...e,
-                ...(images['event:' + e.id + ':bg']     ? { image: images['event:' + e.id + ':bg'] }         : {}),
-                ...(images['event:' + e.id + ':avatar'] ? { avatarImage: images['event:' + e.id + ':avatar'] } : {}),
-                // Hydrate VN page images (background, left avatar, right avatar)
-                ...(e.vnPages ? {
-                    vnPages: e.vnPages.map((p, i) => ({
-                        ...p,
-                        ...(images[`vn:${e.id}:page:${i}`]        ? { image:      images[`vn:${e.id}:page:${i}`] }        : {}),
-                        ...(images[`vn:${e.id}:page:${i}:left`]   ? { leftImage:  images[`vn:${e.id}:page:${i}:left`] }   : {}),
-                        ...(images[`vn:${e.id}:page:${i}:right`]  ? { rightImage: images[`vn:${e.id}:page:${i}:right`] }  : {}),
-                    }))
-                } : {}),
-            }))),
+        else if (cat === 'event') {
+            // Helper: apply KV images onto a single event's vnPages
+            function patchEventImages(e: CreatorEvent): CreatorEvent {
+                return {
+                    ...e,
+                    ...(images['event:' + e.id + ':bg']     ? { image: images['event:' + e.id + ':bg'] }         : {}),
+                    ...(images['event:' + e.id + ':avatar'] ? { avatarImage: images['event:' + e.id + ':avatar'] } : {}),
+                    ...(e.vnPages ? {
+                        vnPages: e.vnPages.map((p, i) => ({
+                            ...p,
+                            ...(images[`vn:${e.id}:page:${i}`]       ? { image:      images[`vn:${e.id}:page:${i}`] }       : {}),
+                            ...(images[`vn:${e.id}:page:${i}:left`]  ? { leftImage:  images[`vn:${e.id}:page:${i}:left`] }  : {}),
+                            ...(images[`vn:${e.id}:page:${i}:right`] ? { rightImage: images[`vn:${e.id}:page:${i}:right`] } : {}),
+                        }))
+                    } : {}),
+                };
+            }
+            setCreatorEvents(prev => {
+                const patched = prev.map(patchEventImages);
+                // Seed builtin VN events that have KV images but are not yet in
+                // creatorEvents. Without seeding, non-admin players fall through to
+                // the hardcoded no-image fallback when these events trigger.
+                const builtinVns = [awakeningLv2VnEvent, auraSphereLv9VnEvent, hiddenDungeonVnEvent];
+                const existingIds = new Set(prev.map(e => e.id));
+                const seeded: CreatorEvent[] = [];
+                for (const builtin of builtinVns) {
+                    if (existingIds.has(builtin.id)) continue;
+                    // Check if KV has any image for this builtin VN
+                    const hasImage = builtin.vnPages?.some((_, i) =>
+                        images[`vn:${builtin.id}:page:${i}`] ||
+                        images[`vn:${builtin.id}:page:${i}:left`] ||
+                        images[`vn:${builtin.id}:page:${i}:right`]
+                    );
+                    if (hasImage) seeded.push(patchEventImages(builtin));
+                }
+                return seeded.length ? [...patched, ...seeded] : patched;
+            });
             setPetEncounterVn(prev => prev.vnPages ? {
                 ...prev,
                 vnPages: prev.vnPages.map((p, i) => ({
@@ -5369,7 +5391,7 @@ export default function App() {
                     ...(images[`vn:sys-pet-encounter:page:${i}:left`]   ? { leftImage:  images[`vn:sys-pet-encounter:page:${i}:left`] }   : {}),
                     ...(images[`vn:sys-pet-encounter:page:${i}:right`]  ? { rightImage: images[`vn:sys-pet-encounter:page:${i}:right`] }  : {}),
                 })),
-            } : prev),
+            } : prev);
             setAncientChestVn(prev => prev.vnPages ? {
                 ...prev,
                 vnPages: prev.vnPages.map((p, i) => ({
@@ -5382,6 +5404,7 @@ export default function App() {
                     ...(images[`vn:sys-ancient-chest:page:${i}:right`]  ? { rightImage: images[`vn:sys-ancient-chest:page:${i}:right`] }  : {}),
                 })),
             } : prev);
+        }
         else if (cat === 'avatar')
             setCharacter(prev => {
                 if (!prev) return prev;
