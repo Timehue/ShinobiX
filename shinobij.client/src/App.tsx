@@ -204,6 +204,7 @@ const TERRITORY_CONTROL_MAX = 20000;
 const TERRITORY_HP_MAX = 20000;
 const TERRITORY_DAILY_WAR_SUPPLY = 100;
 const TERRITORY_SUPPLY_INTERVAL_MS = 24 * 60 * 60 * 1000;
+const TERRITORY_REBUILD_COOLDOWN_MS = 2 * 60 * 60 * 1000; // 2 hours after destruction before recapture
 type TerritoryBuffStat = "bukijutsuOffense" | "taijutsuOffense" | "ninjutsuOffense" | "genjutsuOffense";
 type SectorTerritory = {
     sector: number;
@@ -217,6 +218,7 @@ type SectorTerritory = {
     guards: string[];
     warSupply: number;
     lastSupplyAt?: number;
+    rebuiltAt?: number; // timestamp when sector was last destroyed — blocks recapture for TERRITORY_REBUILD_COOLDOWN_MS
     updatedAt: number;
 };
 
@@ -344,6 +346,7 @@ function damageSectorTerritory(sector: number, amount: number) {
         guards: [],
         warSupply: 0,
         lastSupplyAt: undefined,
+        rebuiltAt: Date.now(),
     } : { ...territory, hp });
     saveSectorTerritory(next);
     return next;
@@ -13139,6 +13142,14 @@ function ClanHall({ character, updateCharacter, creatorItems }: { character: Cha
         if (territory.ownerClan && !isOwnedByUs) return alert("Raid or war this sector down before your clan can claim it.");
         // Clans are limited to one captured sector at a time
         if (!isOwnedByUs && clanOwnedTerritories(clanData.name).length >= 1) return alert("Your clan already controls a sector. Clans may only hold one sector at a time.");
+        // Rebuild cooldown — sector cannot be captured while recovering from destruction
+        if (!isOwnedByUs && territory.rebuiltAt) {
+            const msLeft = TERRITORY_REBUILD_COOLDOWN_MS - (Date.now() - territory.rebuiltAt);
+            if (msLeft > 0) {
+                const minsLeft = Math.ceil(msLeft / 60000);
+                return alert(`This sector was just destroyed and is recovering. It can be captured again in ${minsLeft} minute${minsLeft === 1 ? "" : "s"}.`);
+            }
+        }
         const nextScore = Math.min(TERRITORY_CONTROL_MAX, territory.controlScore + amount * 1000);
         const nextHp = isOwnedByUs ? Math.min(TERRITORY_HP_MAX, territory.hp + amount * 1000) : territory.hp;
         const captured = !territory.ownerClan && nextScore >= TERRITORY_CONTROL_MAX;
@@ -17749,6 +17760,12 @@ function WorldMap({
                         <section className="summary-box">
                             <h4>Territory Control</h4>
                             <p><strong>Owner:</strong> {territory.ownerClan ? `${territory.ownerClan} (${territory.ownerVillage})` : "Unclaimed"}</p>
+                            {!territory.ownerClan && territory.rebuiltAt && (() => {
+                                const msLeft = TERRITORY_REBUILD_COOLDOWN_MS - (Date.now() - territory.rebuiltAt);
+                                if (msLeft <= 0) return null;
+                                const minsLeft = Math.ceil(msLeft / 60000);
+                                return <p style={{ color: "#e88", fontWeight: 600 }}>⏳ Recovering — capturable in {minsLeft}m</p>;
+                            })()}
                             <div className="town-upgrade-bar"><span style={{ width: `${(territory.controlScore / TERRITORY_CONTROL_MAX) * 100}%` }} /></div>
                             <p>Control: {territory.controlScore.toLocaleString()} / {TERRITORY_CONTROL_MAX.toLocaleString()}</p>
                             <div className="bar enemy-bar"><span style={{ width: `${(territory.hp / TERRITORY_HP_MAX) * 100}%` }} /></div>
