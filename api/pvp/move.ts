@@ -120,9 +120,12 @@ function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu, wMult 
     const effectFactor = Math.max(0, scaledEp) / 100;
     // Bloodline mult: pre-computed on the client and stored in character (1.0 if absent)
     const bloodlineMult = Math.max(1.0, Number((self.character.bloodlineMult as number) ?? 1.0));
-    // Armor factor: pre-computed on the client from armorQuality tiers (capped at 0.25 floor = 75% max reduction)
+    // Armor factor: pre-computed on the client from armorQuality tiers (0.25–1.0)
+    // Applied alongside status DR below with a shared 0.25 floor so armor + Decrease Damage Taken
+    // can never combine to exceed the 75% DR cap.
     const armorFactor = Math.min(1.0, Math.max(0.25, Number((opponent.character.armorFactor as number) ?? 1.0)));
-    const baseDmg = Math.max(0, Math.floor(opponent.maxHp * effectFactor * statFactor * PVP_SCALE * getTagMultiplier(jutsu.tags ?? []) * wMult * bloodlineMult * armorFactor));
+    // Raw damage before any DR — armor and status multipliers applied together later
+    const baseDmg = Math.max(0, Math.floor(opponent.maxHp * effectFactor * statFactor * PVP_SCALE * getTagMultiplier(jutsu.tags ?? []) * wMult * bloodlineMult));
 
     const tags = jutsu.tags ?? [];
     const lines: string[] = [];
@@ -162,7 +165,10 @@ function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu, wMult 
     if (pierce) {
         damage = (jutsu.ap ?? 40) >= 60 ? 900 : 500;
     } else {
-        damage = Math.floor(damage * damageMultiplierFor(s, o));
+        // Combine armor DR and status DR (Decrease Damage Taken etc.) under a shared 0.25 floor.
+        // This prevents stacking them past the 75% global DR cap.
+        const combinedFactor = Math.max(0.25, armorFactor * damageMultiplierFor(s, o));
+        damage = Math.floor(damage * combinedFactor);
     }
 
     if (damage > 0) {
