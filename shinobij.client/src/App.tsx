@@ -2798,17 +2798,197 @@ const storylines: Record<string, StoryStep[]> = {
         { level: 85, title: "The Kage Freezes Dissent", boss: "Oathbound Alpha Guard", icon: "⚔️", scene: "Frostfang's central square is filled with frozen citizens.", a: "Preserved citizens are still prisoners.", b: "He froze children, elders, medics, anyone who questioned him.", c: "No one has died. This is mercy." },
         { level: 100, title: "The Oath Must Break", boss: "Kage Kael Whitefang, Hollow Oath Tyrant", icon: "⚔️", scene: "The Kage throne sits inside the heart of the glacier.", a: "Loyalty chosen freely is stronger than any seal.", b: "That is what he forgot. That is why the village is no longer his.", c: "If I fall, Frostfang may choose. If you fall, Frostfang will obey." },
     ]),
-    "Moonshadow Village": compactArc("Moonshadow Village", "Shade Master Iro", "Nyx", "Kage Sable Nocturne", "Hollow Moon", [
-        { level: 4, title: "No One Saves You", boss: "Hidden Blade Trainee", icon: "⚔️", scene: "The moon is hidden behind black clouds. The training yard is silent.", a: "Do not wait for encouragement. Survival is the minimum.", b: "New blood? Good. The village needed fresh secrets.", c: "Your first opponent is already watching." },
-        { level: 15, title: "The Sold Secret", boss: "Veiled Hand Collector", icon: "⚔️", scene: "A coded scroll appears in your room without a broken lock.", a: "Someone wanted you to know the village has been sold.", b: "That cipher is foreign. Someone inside Moonshadow is trading patrol routes.", c: "Curiosity is expensive. You cannot afford it." },
-        { level: 25, title: "Masks Beneath Masks", boss: "Masked Auction Enforcer", icon: "⚔️", scene: "A secret auction happens below the black market.", a: "Betrayal is only illegal when done cheaply. This is larger than greed.", b: "Every mask here belongs to someone important.", c: "Lot seven: patrol rotations. Lot eight: rare bloodline names." },
-        { level: 35, title: "The Hollow Moon Contract", boss: "Contract-Bound Shadow", icon: "⚔️", scene: "The stolen Kage document bleeds black ink.", a: "This is not a trade agreement. It is a contract.", b: "Sable is removing anyone who could compete with her.", c: "Ambition without secrecy is childish." },
-        { level: 50, title: "Jonin of the Hidden Knife", boss: "Jonin Trial: Mirror Assassin", icon: "⚔️", scene: "The Kage chamber has no guards, only mirrors.", a: "A room with no witnesses is never empty.", b: "She knows enough to invite you here.", c: "Your ambition has matured. Decide whether it belongs to you or to me." },
-        { level: 65, title: "Mission to Kill a Witness", boss: "Veiled Hand Executioner", icon: "⚔️", scene: "Sable assigns a private assassination at the old shrine.", a: "Only weak shinobi need clean hands, she says. Remember who benefits.", b: "The target copied names before they vanished.", c: "You were given a mission. Do not confuse information with morality." },
-        { level: 75, title: "Nyx Chooses a Side", boss: "Shadow Network Hunter", icon: "⚔️", scene: "Nyx waits on a rooftop beneath a blood-red moon.", a: "Moonshadow teaches selfishness, but selfish people still need a village.", b: "I sold fake secrets to find the real buyer: the Hollow Gate.", c: "Ambition is still hunger. Thank you for feeding us." },
-        { level: 85, title: "The Kage Owns Every Secret", boss: "Veiled Hand Grandmaster", icon: "⚔️", scene: "Every hidden file in Moonshadow opens at once.", a: "Secrets spill like black rain, and panic feeds the Hollow Moon.", b: "She is making the village devour itself.", c: "Trust was always fiction. Let ambition sort the survivors." },
-        { level: 100, title: "The Moon Belongs to No One", boss: "Kage Sable Nocturne, Hollow Moon Sovereign", icon: "⚔️", scene: "The Kage tower is swallowed by a black moon.", a: "Ambition that eats its own village becomes hunger.", b: "If you win, everyone will want what you have.", c: "Moonshadow was always a ladder. I simply climbed highest." },
-    ]),
+    "Moonshadow Village": [
+        milestone("Moonshadow Village", 4, "No One Saves You", "Hidden Blade Trainee", "⚔️", [
+            storyPage("The Silent Yard", "The moon is hidden behind black clouds. The training yard is silent.", "Shade Master Iro", [
+                "Shade Master Iro: Welcome to Moonshadow. No one will greet you, and no one will watch your back.",
+                "Shade Master Iro: Every shinobi here has one skill in common: knowing exactly how much their presence is worth.",
+                "Shade Master Iro: Find yours quickly, or someone else will assign you a value you will not enjoy.",
+            ]),
+            storyPage("New Blood", "A figure crouches on a rooftop above the yard, watching with quiet amusement.", "Nyx", [
+                "Nyx: So you are the new one. You look like you are still waiting for someone to explain the rules.",
+                "Nyx: There are no rules here. There are prices. Everything costs something.",
+                "Nyx: The trainee in the yard already knows your face. I would start moving.",
+            ]),
+            storyPage("The First Test", "The Hidden Blade Trainee drops from the shadows, knife already drawn.", "Shade Master Iro", [
+                "Shade Master Iro: Every shinobi's first lesson in Moonshadow is the same.",
+                "Shade Master Iro: No one announces the test. No one tells you when it begins.",
+                "Shade Master Iro: They simply send someone who is already better than you and wait to see what you do.",
+            ]),
+        ], [
+            { text: "I'll read the opponent first.", conclusion: "Shade Master Iro watches closely. Good instincts.", trait: "suspicious" },
+            { text: "Strike before they settle.", conclusion: "Nyx smirks from the rooftop. Aggressive suits this village.", trait: "reckless" },
+            { text: "I have nothing to prove yet.", conclusion: "Shade Master Iro narrows his eyes. Neither does the knife.", trait: "ambitious" },
+        ]),
+        milestone("Moonshadow Village", 15, "The Sold Secret", "Veiled Hand Collector", "⚔️", [
+            storyPage("Unmarked Scroll", "A coded scroll appears in your room without a broken lock.", "Shade Master Iro", [
+                "Shade Master Iro: Someone left that for you to find. Not to warn you. To test what you do with it.",
+                "Shade Master Iro: The cipher is a dead network's hand. Whoever sent it wanted you to know they still exist.",
+                "Shade Master Iro: In Moonshadow, information delivered without a price attached is a trap.",
+            ]),
+            storyPage("The Decoded Pattern", "Nyx reads the scroll by candlelight, tracing the cipher with one finger.", "Nyx", [
+                "Nyx: Patrol routes. All of them. Yours, mine, the gate rotations.",
+                "Nyx: Someone inside Moonshadow has been selling our movements to an outside buyer for months.",
+                "Nyx: The worst part? Whoever leaked this is still being paid. The scroll proves the deal is ongoing.",
+            ]),
+            storyPage("The Collector Arrives", "A figure in layered veils steps through the door without knocking.", "Veiled Hand Collector", [
+                "Veiled Hand Collector: You decoded it faster than expected.",
+                "Veiled Hand Collector: That scroll was bait. The question was whether you would run to the Kage or keep it.",
+                "Veiled Hand Collector: You kept it. Interesting. Now hand it over, or we test how well you fight indoors.",
+            ]),
+        ], [
+            { text: "I kept it to find the real leak, not to protect it.", trait: "honorable" },
+            { text: "You will tell me who hired you first.", trait: "suspicious" },
+            { text: "The scroll stays with me.", trait: "ambitious" },
+        ]),
+        milestone("Moonshadow Village", 25, "Masks Beneath Masks", "Masked Auction Enforcer", "⚔️", [
+            storyPage("Below the Market", "A secret auction runs beneath the black market in a room that smells of old ink.", "Shade Master Iro", [
+                "Shade Master Iro: Every mask in this room belongs to someone with a rank and a reason to hide it.",
+                "Shade Master Iro: The first auction items were jutsu scrolls and contraband.",
+                "Shade Master Iro: They are not selling contraband anymore.",
+            ]),
+            storyPage("What Is Being Sold", "Nyx points to the lot board as the auctioneer begins calling names.", "Nyx", [
+                "Nyx: Lot four: Chunin patrol schedules. Lot five: medical records with chakra signatures.",
+                "Nyx: Lot seven: bloodline names. Living ones. With home addresses.",
+                "Nyx: Someone is building a list of everyone in Moonshadow who could threaten the Kage.",
+            ]),
+            storyPage("Spotted", "An enforcer in a blank white mask locks eyes with you from across the room.", "Masked Auction Enforcer", [
+                "Masked Auction Enforcer: Guests do not attend without an invitation.",
+                "Masked Auction Enforcer: You have two choices: leave with your memory wiped, or leave in pieces.",
+                "Masked Auction Enforcer: Which would you prefer?",
+            ]),
+        ], [
+            { text: "I came to buy. What is lot nine?", trait: "suspicious" },
+            { text: "Shut this auction down.", trait: "honorable" },
+            { text: "My invitation is staying alive long enough to walk out.", trait: "reckless" },
+        ]),
+        milestone("Moonshadow Village", 35, "The Hollow Moon Contract", "Contract-Bound Shadow", "⚔️", [
+            storyPage("The Bleeding Document", "The stolen Kage document bleeds black ink when held to moonlight.", "Shade Master Iro", [
+                "Shade Master Iro: This is not a trade agreement and it is not a security directive.",
+                "Shade Master Iro: It is a list of names the Kage has agreed to make disappear in exchange for something larger.",
+                "Shade Master Iro: The ink is reactive. It was designed to destroy itself. Someone copied it fast.",
+            ]),
+            storyPage("The Real Purpose", "Nyx spreads the surviving pages across the floor, piecing them together.", "Nyx", [
+                "Nyx: Sable is not removing threats. She is removing competition.",
+                "Nyx: Every name on this list is a shinobi talented enough to challenge her position.",
+                "Nyx: The contract is with an outside party. Someone who benefits from Moonshadow having only one strong leader.",
+            ]),
+            storyPage("The Shadow Speaks", "A voice slides out of the darkness at the edge of the room.", "Hollow Moon", [
+                "Hollow Moon: The contract was signed before you arrived.",
+                "Hollow Moon: Every secret your village has ever held was already being traded.",
+                "Hollow Moon: Ambition is useful. It makes people sign things without reading the last page.",
+            ]),
+        ], [
+            { text: "Who is the outside party?", trait: "suspicious" },
+            { text: "Sable answers for every name on this list.", trait: "honorable" },
+            { text: "I want to know what she was promised.", trait: "ambitious" },
+        ]),
+        milestone("Moonshadow Village", 50, "Jonin of the Hidden Knife", "Jonin Trial: Mirror Assassin", "⚔️", [
+            storyPage("The Mirror Chamber", "The Kage chamber has no guards. Every wall is mirrored floor to ceiling.", "Kage Sable Nocturne", [
+                "Kage Sable Nocturne: A room with no witnesses is never truly empty.",
+                "Kage Sable Nocturne: The mirrors remember everything. So does the village.",
+                "Kage Sable Nocturne: You have been thorough. You have been quiet. You have stayed useful.",
+            ]),
+            storyPage("Something Is Off", "Nyx waits in the corridor outside, too far for Sable to see.", "Nyx", [
+                "Nyx: She knows exactly what you found. The contract, the auction, all of it.",
+                "Nyx: A normal Kage would have had you silenced.",
+                "Nyx: Sable promoted you. That means she thinks you are more valuable inside her hand than outside it.",
+            ]),
+            storyPage("The Price of Rank", "Sable extends a blade handle-first across the table.", "Kage Sable Nocturne", [
+                "Kage Sable Nocturne: Jonin of the Hidden Knife is not a rank given for loyalty.",
+                "Kage Sable Nocturne: It is given to people whose ambition has matured enough to be aimed.",
+                "Kage Sable Nocturne: The question is whether that ambition belongs to you, or to me.",
+            ]),
+        ], [
+            { text: "Accept the rank on my own terms.", trait: "ambitious" },
+            { text: "Accept, and watch everything she does after.", trait: "suspicious" },
+            { text: "Ask what she expects in return.", trait: "honorable" },
+        ]),
+        milestone("Moonshadow Village", 65, "Mission to Kill a Witness", "Veiled Hand Executioner", "⚔️", [
+            storyPage("The Private Order", "Sable assigns a private assassination at the old shrine, no written record.", "Kage Sable Nocturne", [
+                "Kage Sable Nocturne: The target saw something they were not meant to see.",
+                "Kage Sable Nocturne: They have not spoken yet, but they will. Silence is a delay, not a solution.",
+                "Kage Sable Nocturne: I am not asking you to enjoy this. I am asking you to be useful.",
+            ]),
+            storyPage("What the Target Knows", "The target sits in the shrine, holding a folded paper with shaking hands.", "Shrine Witness", [
+                "Shrine Witness: I copied the names before they were erased.",
+                "Shrine Witness: People the Kage sold to the Hollow Gate. Alive ones.",
+                "Shrine Witness: If you kill me, the list dies with me. But you already know what she is doing.",
+            ]),
+            storyPage("The Executioner Arrives", "A Veiled Hand operative appears at the shrine entrance, watching you both.", "Veiled Hand Executioner", [
+                "Veiled Hand Executioner: The Kage sent backup in case you hesitated.",
+                "Veiled Hand Executioner: This is not a test of loyalty. It is a test of whether you are still useful.",
+                "Veiled Hand Executioner: Make a choice. We do not have long.",
+            ]),
+        ], [
+            { text: "Protect the witness and take the list.", trait: "merciful" },
+            { text: "Take down the Executioner and let the witness run.", trait: "reckless" },
+            { text: "Appear to comply, then get the list out another way.", trait: "suspicious" },
+        ]),
+        milestone("Moonshadow Village", 75, "Nyx Chooses a Side", "Shadow Network Hunter", "⚔️", [
+            storyPage("Rooftop Under a Red Moon", "Nyx waits on a rooftop beneath a blood-red moon, alone.", "Nyx", [
+                "Nyx: Moonshadow teaches you to trust no one. I used that lesson against the Hollow Gate.",
+                "Nyx: I spent six months selling them false intelligence. Bad patrol routes. Wrong names.",
+                "Nyx: I found their real buyer: an agent embedded inside the Kage's inner circle.",
+            ]),
+            storyPage("The Gate's Hand Inside", "Nyx passes a small sealed envelope with a name written on the outside.", "Nyx", [
+                "Nyx: The Hollow Gate does not want Moonshadow destroyed. It wants it hollow.",
+                "Nyx: A village that runs on pure ambition and no loyalty is the easiest kind to feed.",
+                "Nyx: Sable did not start this. She was recruited into it. The difference matters for what comes next.",
+            ]),
+            storyPage("The Moon Listens", "The red light on the rooftop deepens, and a voice resonates from the shadows.", "Hollow Moon", [
+                "Hollow Moon: Selfishness is still hunger.",
+                "Hollow Moon: A village of hungry people is a village that feeds us without noticing.",
+                "Hollow Moon: Thank you for the months of careful secrets. Every one of them arrived.",
+            ]),
+        ], [
+            { text: "We close the Gate's channel from inside.", trait: "suspicious" },
+            { text: "Expose the embedded agent publicly.", trait: "honorable" },
+            { text: "Let Sable think she still controls the village.", trait: "ambitious" },
+        ]),
+        milestone("Moonshadow Village", 85, "The Kage Owns Every Secret", "Veiled Hand Grandmaster", "⚔️", [
+            storyPage("The Files Open", "Every hidden archive in Moonshadow unseals at once. Secrets flood the streets.", "Shade Master Iro", [
+                "Shade Master Iro: She did this.",
+                "Shade Master Iro: Every debt, every betrayal, every name someone hid to survive. She released it all.",
+                "Shade Master Iro: A village built on secrets does not survive when the secrets go public at once.",
+            ]),
+            storyPage("Controlled Collapse", "Sable watches from the Kage tower balcony as the village tears itself apart.", "Kage Sable Nocturne", [
+                "Kage Sable Nocturne: Moonshadow was always going to destroy itself. I simply chose the moment.",
+                "Kage Sable Nocturne: When the smoke clears, the ones still standing will owe their survival to me.",
+                "Kage Sable Nocturne: That is not a village anymore. That is a weapon.",
+            ]),
+            storyPage("Not Yet", "Nyx pulls you back from the street as two groups clash in the square below.", "Nyx", [
+                "Nyx: She wants us in the chaos. She wants us blamed for it or consumed by it.",
+                "Nyx: Every shinobi she cannot account for right now is a problem for her plan.",
+                "Nyx: We do not fight in the square. We get to the tower.",
+            ]),
+        ], [
+            { text: "Rally anyone still thinking clearly.", trait: "loyal" },
+            { text: "Go straight for the tower now.", trait: "reckless" },
+            { text: "Find and destroy the archive release mechanism first.", trait: "suspicious" },
+        ]),
+        milestone("Moonshadow Village", 100, "The Moon Belongs to No One", "Kage Sable Nocturne, Hollow Moon Sovereign", "⚔️", [
+            storyPage("The Tower in the Black Moon", "The Kage tower is swallowed in a black moon. Sable stands at the summit.", "Kage Sable Nocturne", [
+                "Kage Sable Nocturne: You climbed every rung.",
+                "Kage Sable Nocturne: You read every scroll, survived every test, and refused to be useful on my terms.",
+                "Kage Sable Nocturne: Moonshadow was always a ladder. The only question is who stands at the top.",
+            ]),
+            storyPage("What She Became", "The Hollow Moon light bleeds through Sable's shadow, and she does not seem to notice.", "Nyx", [
+                "Nyx: She is not in control anymore. The Gate finished using her.",
+                "Nyx: She thought she was feeding her own ambition. She was feeding the Hollow Moon.",
+                "Nyx: Ambition that eats its village eventually eats its owner.",
+            ]),
+            storyPage("The Last Argument", "Sable's shadow stretches across the entire tower floor.", "Kage Sable Nocturne", [
+                "Kage Sable Nocturne: I protected this village by owning every secret inside it.",
+                "Kage Sable Nocturne: Without control, Moonshadow would have been picked apart years ago.",
+                "Kage Sable Nocturne: If you win tonight, everyone will want what you have. Welcome to the top.",
+            ]),
+        ], [
+            { text: "The moon belongs to no one. Not you. Not the Gate.", trait: "honorable" },
+            { text: "You called it protection. They called it a cage.", trait: "merciful" },
+            { text: "I did not climb here to own the village. I climbed here to free it.", trait: "loyal" },
+        ]),
+    ],
 };
 
 function makeJutsu(id: string, name: string, type: JutsuType, ap: number, range: number, effectPower: number, cooldown: number, chakraCost: number, staminaCost: number, tags: JutsuTag[], element: JutsuElement = "Fire"): Jutsu {
