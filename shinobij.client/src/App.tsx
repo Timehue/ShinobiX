@@ -6276,8 +6276,8 @@ export default function App() {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({
-                                        p1Character: { ...character, jutsu: p1Jutsus },
-                                        p2Character: { ...oppChar, jutsu: p2Jutsus },
+                                        p1Character: { ...character, jutsu: p1Jutsus, bloodlineMult: getBloodlineMultiplier(character, savedBloodlines) },
+                                        p2Character: { ...oppChar, jutsu: p2Jutsus, bloodlineMult: getBloodlineMultiplier(oppChar, savedBloodlines) },
                                     }),
                                 });
                                 if (sr.ok) ({ battleId } = await sr.json() as { battleId: string });
@@ -17098,8 +17098,8 @@ function WorldMap({
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    p1Character: { ...character, jutsu: p1Jutsus },
-                    p2Character: { ...opponent, jutsu: p2Jutsus },
+                    p1Character: { ...character, jutsu: p1Jutsus, bloodlineMult: getBloodlineMultiplier(character, savedBloodlines) },
+                    p2Character: { ...opponent, jutsu: p2Jutsus, bloodlineMult: getBloodlineMultiplier(opponent, savedBloodlines) },
                 }),
             });
             if (sr.ok) ({ battleId } = await sr.json() as { battleId: string });
@@ -17939,7 +17939,7 @@ function WorldMap({
                                                     const sr = await fetch('/api/pvp/session', {
                                                         method: 'POST',
                                                         headers: { 'Content-Type': 'application/json' },
-                                                        body: JSON.stringify({ p1Character: { ...character, jutsu: p1j }, p2Character: { ...guardChar, jutsu: p2j } }),
+                                                        body: JSON.stringify({ p1Character: { ...character, jutsu: p1j, bloodlineMult: getBloodlineMultiplier(character, savedBloodlines) }, p2Character: { ...guardChar, jutsu: p2j, bloodlineMult: getBloodlineMultiplier(guardChar, savedBloodlines) } }),
                                                     });
                                                     if (sr.ok) ({ battleId } = await sr.json() as { battleId: string });
                                                 } catch { /* fallback */ }
@@ -18358,7 +18358,7 @@ function JutsuTrainingHall({
 }) {
     const ownedElements = getCharacterElements(character);
     const allJutsus = getAllJutsus(savedBloodlines, creatorJutsus, character);
-    const availableJutsus = allJutsus.filter((jutsu) => hasCharacterElement(character, jutsu.element));
+    const availableJutsus = allJutsus.filter((jutsu) => canEquipElementJutsu(character, jutsu, savedBloodlines));
     const lockedElementCount = allJutsus.length - availableJutsus.length;
     const [selectedJutsuId, setSelectedJutsuId] = useState(availableJutsus[0]?.id ?? "");
     const [now, setNow] = useState(Date.now());
@@ -18402,13 +18402,20 @@ function JutsuTrainingHall({
         if (!selectedJutsuId) return alert("Pick a jutsu first.");
 
         const selectedJutsu = allJutsus.find((jutsu) => jutsu.id === selectedJutsuId);
-        if (!selectedJutsu || !hasCharacterElement(character, selectedJutsu.element)) {
+        if (!selectedJutsu || !canEquipElementJutsu(character, selectedJutsu, savedBloodlines)) {
             return alert(`You need the ${selectedJutsu?.element ?? "required"} element to train this jutsu.`);
         }
 
         const mastery = getJutsuMastery(character, selectedJutsuId);
         if (mastery.level >= JUTSU_TRAINING_CAP) {
             return alert("Training Hall can only train jutsu to level 30. Levels 31-50 must be earned from battles.");
+        }
+
+        // First level is always free and instant
+        if (mastery.level === 0) {
+            updateCharacter(setJutsuMasteryLevel(selectedJutsu.id, 1));
+            alert(`${selectedJutsu.name} unlocked at level 1 for free!`);
+            return;
         }
 
         const cost = jutsuTrainingCost(mastery.level);
@@ -20172,7 +20179,7 @@ function Arena({
             const res = await fetch('/api/pvp/session', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ p1Character: challenger, p2Character: character }),
+                body: JSON.stringify({ p1Character: { ...challenger, bloodlineMult: getBloodlineMultiplier(challenger as Character, savedBloodlines) }, p2Character: { ...character, bloodlineMult: getBloodlineMultiplier(character, savedBloodlines) } }),
             });
             if (!res.ok) throw new Error('Session create failed');
             const { battleId } = await res.json() as { battleId: string };
