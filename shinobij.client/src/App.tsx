@@ -5994,6 +5994,7 @@ export default function App() {
                             equippedJutsu={pvpJutsus}
                             equippedItems={pvpItems}
                             currentBiome={currentBiome}
+                            currentWeather={currentWeather}
                             currentSector={currentSector}
                         />
                     );
@@ -22259,6 +22260,7 @@ function PvpBattleScreen({
     equippedJutsu,
     equippedItems,
     currentBiome,
+    currentWeather,
     currentSector,
 }: {
     character: Character;
@@ -22268,6 +22270,7 @@ function PvpBattleScreen({
     equippedJutsu: Jutsu[];
     equippedItems: GameItem[];
     currentBiome: Biome;
+    currentWeather: WeatherType;
     currentSector: number;
 }) {
     // Grid constants — exact match to arena
@@ -22289,11 +22292,17 @@ function PvpBattleScreen({
     const [pendingBasicAttack, setPendingBasicAttack] = useState(false);
     const [pendingWeaponId, setPendingWeaponId] = useState("");
     const [inspectedJutsuId, setInspectedJutsuId] = useState("");
+    const [inspectedWeaponId, setInspectedWeaponId] = useState("");
     const [boardScale, setBoardScale] = useState(1);
     const [boardContainerSize, setBoardContainerSize] = useState({ w: 0, h: 0 });
     const [userScaleOffset, setUserScaleOffset] = useState(0);
+    const [pvpRoundTimer, setPvpRoundTimer] = useState(45);
+    const [pvpRoundTimerKey, setPvpRoundTimerKey] = useState(0);
+    const [pvpPrefightCountdown, setPvpPrefightCountdown] = useState<number | null>(null);
+    const [pvpPrefightFirstActor, setPvpPrefightFirstActor] = useState<"p1" | "p2" | null>(null);
     const battlefieldRef = useRef<HTMLDivElement | null>(null);
     const logRef = useRef<HTMLDivElement>(null);
+    const pvpSessionFirstLoadRef = useRef(false);
 
     // Grid helpers — exact match to arena
     function pvpXY(pos: number) { return { x: pos % gridWidth, y: Math.floor(pos / gridWidth) }; }
@@ -22364,6 +22373,37 @@ function PvpBattleScreen({
         if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
     }, [session?.log.length]);
 
+    // Prefight countdown — triggers once when session first loads
+    useEffect(() => {
+        if (!session || pvpSessionFirstLoadRef.current) return;
+        pvpSessionFirstLoadRef.current = true;
+        setPvpPrefightFirstActor(session.activePlayer);
+        let count = 5;
+        setPvpPrefightCountdown(count);
+        const iv = setInterval(() => {
+            count -= 1;
+            setPvpPrefightCountdown(count > 0 ? count : null);
+            if (count <= 0) clearInterval(iv);
+        }, 1000);
+        return () => clearInterval(iv);
+    }, [!!session]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Per-turn round timer — auto-passes turn at 0
+    const pvpIsMyTurn = session?.activePlayer === role;
+    const pvpDone = session?.status === "done";
+    useEffect(() => {
+        if (!session || pvpDone || pvpPrefightCountdown !== null) { setPvpRoundTimer(45); return; }
+        if (!pvpIsMyTurn) { setPvpRoundTimer(45); return; }
+        let secs = 45;
+        setPvpRoundTimer(45);
+        const iv = setInterval(() => {
+            secs -= 1;
+            setPvpRoundTimer(secs);
+            if (secs <= 0) { clearInterval(iv); submitAction("wait"); }
+        }, 1000);
+        return () => clearInterval(iv);
+    }, [!!session, pvpDone, pvpPrefightCountdown, pvpIsMyTurn, pvpRoundTimerKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
     if (!session) return (
         <div className="arena-fullscreen">
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
@@ -22402,6 +22442,28 @@ function PvpBattleScreen({
     const weaponRangeTilesSet = new Set(pendingWeapon ? allTiles.filter(t => t !== myPos && pvpDist(myPos, t) <= pvpWeaponRange) : []);
     const basicAttackRangeTiles = new Set(pendingBasicAttack ? allTiles.filter(t => t !== myPos && pvpDist(myPos, t) <= 1) : []);
 
+    function pvpAdjustedApCost(base: number) {
+        const penalty = me.statuses.some(s => s.name === "Time Compression") ? 10 : 0;
+        const bonus = me.statuses.some(s => s.name === "Time Dilation") ? 10 : 0;
+        return Math.max(0, base + penalty - bonus);
+    }
+
+    const pvpLogRounds = (() => {
+        const groups: { round: number; entries: string[] }[] = [];
+        let current: { round: number; entries: string[] } | null = null;
+        for (const line of session.log) {
+            const m = line.match(/^--- Round (\d+) ---$/);
+            if (m) {
+                current = { round: parseInt(m[1]!), entries: [] };
+                groups.push(current);
+            } else {
+                if (!current) { current = { round: 1, entries: [] }; groups.push(current); }
+                current.entries.push(line);
+            }
+        }
+        return groups;
+    })();
+
     async function submitAction(pvpAction: string, pvpTile?: number, pvpJutsuId?: string, pvpItem?: GameItem) {
         if (submitting || done || !isMyTurn) return;
         setSubmitting(true);
@@ -22429,6 +22491,7 @@ function PvpBattleScreen({
             if (res.ok) {
                 const data = await res.json() as PvpSessionState;
                 setSession(data);
+                setPvpRoundTimerKey(k => k + 1);
                 if (data.activePlayer !== role) {
                     setPendingJutsuId(""); setDashMode(false); setSelectedActionId(undefined);
                     setPendingBasicAttack(false); setPendingWeaponId("");
@@ -22478,6 +22541,24 @@ function PvpBattleScreen({
 
     return (
         <div className="arena-fullscreen">
+            {pvpPrefightCountdown !== null && (
+                <div className="pvp-countdown-overlay">
+                    <div className="pvp-countdown-box">
+                        <div className="pvp-countdown-vs">
+                            <span className="pvp-countdown-name">{me.name}</span>
+                            <span className="pvp-countdown-badge">VS</span>
+                            <span className="pvp-countdown-name">{opp.name}</span>
+                        </div>
+                        {pvpPrefightFirstActor && (
+                            <div className={`pvp-coinflip-result${pvpPrefightFirstActor === role ? " coinflip-win" : " coinflip-lose"}`}>
+                                🎲 {pvpPrefightFirstActor === role ? `${me.name} goes first!` : `${opp.name} goes first!`}
+                            </div>
+                        )}
+                        <div className="pvp-countdown-number">{pvpPrefightCountdown}</div>
+                        <p className="pvp-countdown-label">Battle begins in…</p>
+                    </div>
+                </div>
+            )}
             <div className="combat-layout">
                 <CombatSideHud
                     name={`${me.name} (You)`}
@@ -22492,18 +22573,53 @@ function PvpBattleScreen({
                 />
 
                 <main className="combat-main-area">
+                    <div className="arena-top-panel">
+                        <div className="arena-title-panel">
+                            <h2>{biomeLabel(currentBiome)}</h2>
+                            <p>Round {session.round} | PvP Duel</p>
+                        </div>
+                    </div>
+
+                    <div className="twp-strip">
+                        <span className="twp-strip-biome">{biomeLabel(currentBiome)}</span>
+                        <span className="twp-strip-sep">·</span>
+                        <span className="twp-strip-label">Terrain</span>
+                        <span className="twp-strip-value">{terrainEffects[currentBiome].description}</span>
+                        {terrainEffects[currentBiome].playerBuff && (
+                            <span className="twp-buff twp-positive">{terrainEffects[currentBiome].playerBuff}</span>
+                        )}
+                        <span className="twp-strip-sep">·</span>
+                        <span className="twp-strip-label">Weather</span>
+                        <span className="twp-strip-value">{weatherEffects[currentWeather].name}</span>
+                        {weatherEffects[currentWeather].positiveElement && (
+                            <span className="twp-buff twp-positive">⬆ {weatherEffects[currentWeather].positiveElement} +5%</span>
+                        )}
+                        {weatherEffects[currentWeather].negativeElement && (
+                            <span className="twp-buff twp-negative">⬇ {weatherEffects[currentWeather].negativeElement} -2%</span>
+                        )}
+                    </div>
+
                     <div className="dual-ap-panel">
                         <div>
                             <strong>{me.name} AP</strong>
                             <div className="hud-bar ap-display-bar"><span style={{ width: `${myAp}%` }} /></div>
                             <small>{myAp}/100 | {isMyTurn ? `Active: ${session.actionsThisTurn}/5` : "Waiting"}</small>
                         </div>
-                        <div className="round-timer-display round-timer-inactive">
-                            <div className="round-timer-ring">
-                                <span className="round-timer-num">{session.round}</span>
+                        {isMyTurn && !done ? (
+                            <div className={`round-timer-display${pvpRoundTimer <= 10 ? " round-timer-urgent" : ""}`}>
+                                <div className="round-timer-ring" style={{ "--rt-pct": `${(pvpRoundTimer / 45) * 100}%` } as React.CSSProperties}>
+                                    <span className="round-timer-num">{pvpRoundTimer}</span>
+                                </div>
+                                <small>Turn timer</small>
                             </div>
-                            <small>{isMyTurn ? "Your Turn" : `${opp.name}'s Turn`}</small>
-                        </div>
+                        ) : (
+                            <div className="round-timer-display round-timer-inactive">
+                                <div className="round-timer-ring">
+                                    <span className="round-timer-num">—</span>
+                                </div>
+                                <small>{done ? "—" : `${opp.name}'s Turn`}</small>
+                            </div>
+                        )}
                         <div>
                             <strong>{opp.name} AP</strong>
                             <div className="hud-bar enemy-ap-display-bar"><span style={{ width: `${oppAp}%` }} /></div>
@@ -22603,13 +22719,13 @@ function PvpBattleScreen({
                             </button>
                             <button className={selectedActionId === "move" ? "selected-action" : ""}
                                 onClick={() => { setPendingJutsuId(""); setPendingBasicAttack(false); setPendingWeaponId(""); setDashMode(false); setSelectedActionId(v => v === "move" ? undefined : "move"); }}
-                                disabled={submitting || myAp < 30}>
-                                <span>Move</span><small>30 AP / tile</small>
+                                disabled={submitting || myAp < pvpAdjustedApCost(30)}>
+                                <span>Move</span><small>{pvpAdjustedApCost(30)} AP / tile</small>
                             </button>
                             <button className={dashMode ? "selected-action" : ""}
                                 onClick={() => { setPendingJutsuId(""); setPendingBasicAttack(false); setPendingWeaponId(""); setSelectedActionId(undefined); setDashMode(v => !v); }}
-                                disabled={submitting || myAp < 30}>
-                                <span>Dash</span><small>3 tiles | 30 AP</small>
+                                disabled={submitting || myAp < pvpAdjustedApCost(30)}>
+                                <span>Dash</span><small>3 tiles | {pvpAdjustedApCost(30)} AP</small>
                             </button>
                             <button onClick={() => submitAction("basicHeal")}
                                 disabled={submitting || (myCooldowns.basicHeal ?? 0) > 0 || me.chakra < 10 || myAp < 60}>
@@ -22640,11 +22756,19 @@ function PvpBattleScreen({
 
                     <div className="jutsu-layout-card combat-jutsu-bar">
                         {done ? (
-                            <div style={{ textAlign: "center", padding: "1.25rem 0" }}>
-                                <h3 style={{ fontSize: "1.6em", marginBottom: "0.5rem", color: isDraw ? "#94a3b8" : iWon ? "#4ade80" : "#f87171" }}>
-                                    {isDraw ? "Draw!" : iWon ? "Victory!" : "Defeated!"}
-                                </h3>
-                                <button onClick={() => setScreen("worldMap")}>Return to World Map</button>
+                            <div className="battle-ended-overlay" style={{ position: "relative", inset: "unset", background: "none" }}>
+                                <div className="card battle-ended-card">
+                                    <h2 className={isDraw ? "" : iWon ? "battle-result-win" : "battle-result-loss"}>
+                                        {isDraw ? "Draw" : iWon ? "Victory" : "☠️ Defeated"}
+                                    </h2>
+                                    <p style={{ color: "#94a3b8", fontSize: "0.9rem", margin: "0.4rem 0 0.8rem" }}>
+                                        {isDraw ? "The duel ended with equal honor." : iWon ? `${me.name} wins the duel!` : `${opp.name} wins the duel.`}
+                                    </p>
+                                    <div className="menu">
+                                        <button onClick={() => setScreen("village")}>Return to Village</button>
+                                        <button onClick={() => setScreen("worldMap")}>World Map</button>
+                                    </div>
+                                </div>
                             </div>
                         ) : !isMyTurn ? (
                             <p style={{ textAlign: "center", color: "#94a3b8", padding: "0.75rem", fontSize: "0.85em", margin: 0 }}>
@@ -22704,7 +22828,7 @@ function PvpBattleScreen({
                                                             type="button"
                                                             className={`combat-jutsu-button combat-item-button rarity-${item.rarity}${isArmed ? " selected-action" : ""}`}
                                                             title={`${item.name} | ${apCost} AP | Range ${wRange}`}
-                                                            onClick={() => { setInspectedJutsuId(""); setPendingJutsuId(""); setDashMode(false); setSelectedActionId(undefined); setPendingBasicAttack(false); setPendingWeaponId(v => v === item.id ? "" : item.id); }}
+                                                            onClick={() => { setInspectedJutsuId(""); setInspectedWeaponId(""); setPendingJutsuId(""); setDashMode(false); setSelectedActionId(undefined); setPendingBasicAttack(false); setPendingWeaponId(v => v === item.id ? "" : item.id); }}
                                                             disabled={submitting || myAp < apCost}>
                                                             <span className="combat-jutsu-thumb combat-item-thumb">
                                                                 {item.image ? <img src={item.image} alt={item.name} /> : <strong>{slot === "thrown" ? "◈" : "⚔"}</strong>}
@@ -22712,6 +22836,9 @@ function PvpBattleScreen({
                                                             <span className="combat-jutsu-name">{item.name}</span>
                                                             <span className="combat-jutsu-info">{apCost} AP | R{wRange}</span>
                                                         </button>
+                                                        <button type="button" className="combat-jutsu-help"
+                                                            onClick={() => setInspectedWeaponId(inspectedWeaponId === item.id ? "" : item.id)}
+                                                            title={`View ${item.name} details`}>?</button>
                                                     </div>
                                                 );
                                             })}
@@ -22742,13 +22869,36 @@ function PvpBattleScreen({
                                     )}
                                     </>
                                 )}
+                                {inspectedWeaponId && (() => {
+                                    const w = pvpEquippedWeapons.find(x => x.id === inspectedWeaponId);
+                                    if (!w) return null;
+                                    const slot = normalizeEquipmentSlot(w.slot);
+                                    const wRange = w.weaponRange ?? (slot === "thrown" ? 4 : 1);
+                                    return (
+                                        <div className="combat-jutsu-detail-popover">
+                                            <div className="combat-jutsu-detail-header">
+                                                <div><strong>{w.name}</strong><small>{slot === "thrown" ? "Thrown" : "Melee"}</small></div>
+                                                <button type="button" onClick={() => setInspectedWeaponId("")}>x</button>
+                                            </div>
+                                            <div className="combat-jutsu-detail-grid">
+                                                <span><strong>Type:</strong> Bukijutsu</span>
+                                                <span><strong>Rarity:</strong> {w.rarity}</span>
+                                                <span><strong>AP Cost:</strong> {w.apCost ?? 40}</span>
+                                                <span><strong>Range:</strong> {wRange}</span>
+                                                <span><strong>Effect Power:</strong> {w.weaponEp ?? 15}</span>
+                                                {w.weaponEffect && <span><strong>Effect:</strong> {w.weaponEffect}</span>}
+                                            </div>
+                                            {w.description && <p className="combat-jutsu-detail-desc">{w.description}</p>}
+                                        </div>
+                                    );
+                                })()}
                                 {inspectedJutsu && (() => {
                                     const mastery = getJutsuMastery(character, inspectedJutsu.id);
                                     const scaled = scaleJutsuByLevel(inspectedJutsu, mastery.level);
                                     return (
                                         <div className="combat-jutsu-detail-popover">
                                             <div className="combat-jutsu-detail-header">
-                                                <div><strong>{inspectedJutsu.name}</strong><small>Level {mastery.level}</small></div>
+                                                <div><strong>{inspectedJutsu.name}</strong><small>Level {mastery.level} / 30</small></div>
                                                 <button type="button" onClick={() => setInspectedJutsuId("")}>x</button>
                                             </div>
                                             <div className="combat-jutsu-detail-grid">
@@ -22774,15 +22924,25 @@ function PvpBattleScreen({
 
                     <div ref={logRef} className="combat-text-log combat-timeline">
                         <div className="combat-log-header">
-                            <strong>Battle Log</strong>
-                            <span>Round {session.round} | {isMyTurn ? "Your Turn" : `${opp.name}'s Turn`}</span>
+                            <strong>Timeline</strong>
+                            <span>{isMyTurn ? "Your Turn" : `${opp.name}'s Turn`}</span>
                         </div>
                         {session.log.length === 0 ? (
-                            <p>No log entries yet.</p>
-                        ) : session.log.map((line, i) => (
-                            <p key={i} className="timeline-entry timeline-player" style={{
-                                color: line.includes("wins!") ? "#fbbf24" : "#cbd5e1",
-                            }}>{line}</p>
+                            <p>No timeline entries yet.</p>
+                        ) : pvpLogRounds.length > 0 ? pvpLogRounds.map(group => (
+                            <section className="timeline-round" key={group.round}>
+                                <div className="timeline-round-header">
+                                    <span>Round {group.round}</span>
+                                </div>
+                                {group.entries.map((line, i) => (
+                                    <p key={i} className={`timeline-entry ${line.startsWith(me.name) ? "timeline-player" : line.startsWith(opp.name) ? "timeline-enemy" : "timeline-system"}`}
+                                        style={{ color: line.includes("wins!") ? "#fbbf24" : undefined }}>
+                                        {line}
+                                    </p>
+                                ))}
+                            </section>
+                        )) : session.log.map((line, i) => (
+                            <p key={i} className="timeline-entry timeline-player" style={{ color: line.includes("wins!") ? "#fbbf24" : "#cbd5e1" }}>{line}</p>
                         ))}
                     </div>
                 </main>

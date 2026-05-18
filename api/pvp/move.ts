@@ -216,6 +216,7 @@ function endTurn(session: PvpSession, depth = 0): PvpSession {
     const next: 'p1' | 'p2' = current === 'p1' ? 'p2' : 'p1';
     const newRound = current === 'p2' ? session.round + 1 : session.round;
     const lines: string[] = [];
+    if (newRound > session.round) lines.push(`--- Round ${newRound} ---`);
 
     // Tick current player's statuses + cooldowns
     let s = { ...session };
