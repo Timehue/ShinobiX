@@ -4226,7 +4226,7 @@ function scaleJutsuTagsForDisplay(jutsu: Jutsu, level: number): Jutsu {
 
 function blankJutsu(index: number, rank: Rank): Jutsu {
     const defaultPercent = rank === "S Rank" ? 40 : 35;
-    return makeJutsu(makeId(), `Jutsu ${index + 1}`, "Ninjutsu", 60, 4, 0, 7, 0, 0, [
+    return makeJutsu(makeId(), `Jutsu ${index + 1}`, "Ninjutsu", 60, 4, 0, 7, 300, 300, [
         { name: "", percent: defaultPercent },
         { name: "", percent: defaultPercent },
     ]);
@@ -19628,6 +19628,8 @@ function BloodlineMaker({ initialRank, initialSpecialElement, savedBloodlines, s
         const fixedEffectPower = currentJutsu ? hasFixedEffectPower(currentJutsu) : false;
         updateJutsu(index, {
             ap,
+            chakraCost: ap === 60 ? 300 : 175,
+            staminaCost: ap === 60 ? 300 : 175,
             tags: (currentJutsu?.tags ?? []).slice(0, ap === 60 ? 2 : 3),
             effectPower: fixedEffectPower ? 100 : ap === 60 ? ([40, 50].includes(currentJutsu?.effectPower ?? 0) ? currentJutsu!.effectPower : 40) : 0,
         });
@@ -19659,6 +19661,8 @@ function BloodlineMaker({ initialRank, initialSpecialElement, savedBloodlines, s
             range: jutsu.target === "SELF" ? 0 : jutsu.range,
             cooldown: 7,
             effectPower: hasFixedEffectPower(jutsu) ? 100 : jutsu.effectPower,
+            chakraCost: jutsu.ap === 60 ? 300 : 175,
+            staminaCost: jutsu.ap === 60 ? 300 : 175,
             tags: normalizeJutsuTags(jutsu.tags),
         }));
         setSavedBloodlines([...savedBloodlines, { id: makeId(), name: bloodlineName, rank, image: bloodlineImage, specialElement: specialElement.trim(), jutsus: finalizedJutsus, totalPoints: bloodlinePoints(finalizedJutsus) }]);
@@ -19727,8 +19731,9 @@ function BloodlineMaker({ initialRank, initialSpecialElement, savedBloodlines, s
                         <div className="summary-box bloodline-element-lock">Range: Self target</div>
                     )}
                     <div className="summary-box bloodline-element-lock">Cooldown: 7</div>
-                    <label>Health / Chakra / Stamina Cost</label>
-                    <div className="inline-grid"><input type="number" value={jutsu.healthCost} onChange={(e) => updateJutsu(jutsuIndex, { healthCost: Number(e.target.value) })} /><input type="number" value={jutsu.chakraCost} onChange={(e) => updateJutsu(jutsuIndex, { chakraCost: Number(e.target.value) })} /><input type="number" value={jutsu.staminaCost} onChange={(e) => updateJutsu(jutsuIndex, { staminaCost: Number(e.target.value) })} /></div>
+                    <label>Health Cost</label>
+                    <div className="inline-grid"><input type="number" value={jutsu.healthCost} onChange={(e) => updateJutsu(jutsuIndex, { healthCost: Number(e.target.value) })} /></div>
+                    <div className="summary-box bloodline-element-lock">Chakra Cost: {jutsu.ap === 60 ? 300 : 175} · Stamina Cost: {jutsu.ap === 60 ? 300 : 175} (locked by AP tier)</div>
                     <label>Cost Reduction Per Level</label>
                     <div className="inline-grid"><input type="number" value={jutsu.healthCostReducePerLvl} onChange={(e) => updateJutsu(jutsuIndex, { healthCostReducePerLvl: Number(e.target.value) })} /><input type="number" value={jutsu.chakraCostReducePerLvl} onChange={(e) => updateJutsu(jutsuIndex, { chakraCostReducePerLvl: Number(e.target.value) })} /><input type="number" value={jutsu.staminaCostReducePerLvl} onChange={(e) => updateJutsu(jutsuIndex, { staminaCostReducePerLvl: Number(e.target.value) })} /></div>
                     <label>Tags</label>{Array.from({ length: jutsu.ap === 60 ? 2 : 3 }).map((_, tagIndex) => <TagPicker key={tagIndex} rank={rank} jutsuTarget={jutsu.target} tag={jutsu.tags[tagIndex]?.name ?? ""} setTag={(name) => updateTag(jutsuIndex, tagIndex, { name })} percent={jutsu.tags[tagIndex]?.percent ?? 30} setPercent={(percent) => updateTag(jutsuIndex, tagIndex, { percent })} />)}
