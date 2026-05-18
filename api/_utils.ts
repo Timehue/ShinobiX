@@ -11,7 +11,12 @@ function recordId(value: unknown) {
 }
 
 function isImageField(key: string, value: unknown) {
-    return (key === 'image' || key === 'avatarImage') && typeof value === 'string';
+    return (
+        key === 'image' ||
+        key === 'avatarImage' ||
+        key === 'leftImage' ||
+        key === 'rightImage'
+    ) && typeof value === 'string';
 }
 
 export function mergePreservingImages(incoming: unknown, existing: unknown): unknown {
