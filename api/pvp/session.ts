@@ -36,6 +36,7 @@ export type PvpSession = {
     log: string[];
     status: 'active' | 'done';
     winner: 'p1' | 'p2' | 'draw' | null;
+    fleedBy?: 'p1' | 'p2';
     createdAt: number;
 };
 
