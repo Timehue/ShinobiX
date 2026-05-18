@@ -5206,7 +5206,7 @@ export default function App() {
         const interval = setInterval(() => {
             setCharacter((prev) => {
                 if (!prev) return prev;
-                if (screen === "arena" || screen === "storyBoss") return prev;
+                if (screen === "arena" || screen === "storyBoss" || screen === "pvpBattle") return prev;
                 const auraBonuses = getActiveAuraSphereBonuses(prev);
 
                 return {
