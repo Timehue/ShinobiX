@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '@vercel/kv';
 import { safeName, mergePreservingImages, cors } from '../_utils.js';
+import { verifyPlayerPassword } from '../player-auth.js';
 
 const REGISTRY_KEY = 'player:registry';
 
@@ -84,9 +85,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'DELETE') {
         try {
             const adminPassword = process.env.ADMIN_PASSWORD;
-            const providedPw = req.headers['x-admin-password'] as string | undefined;
-            if (!adminPassword || providedPw !== adminPassword) {
-                return res.status(401).json({ error: 'Admin authentication required.' });
+            const adminPw = req.headers['x-admin-password'] as string | undefined;
+            const playerPw = req.headers['x-player-password'] as string | undefined;
+            const isAdmin = adminPassword && adminPw === adminPassword;
+            if (!isAdmin) {
+                // Allow player to delete their own save by providing their own password.
+                if (!playerPw) return res.status(401).json({ error: 'Authentication required.' });
+                const authRecord = await kv.get(`auth:${name.toLowerCase()}`);
+                if (authRecord) {
+                    // Server-side password exists — must verify
+                    const valid = await verifyPlayerPassword(name, playerPw);
+                    if (!valid) return res.status(401).json({ error: 'Incorrect password.' });
+                }
+                // Legacy account (no server auth record) — allow delete; player is already
+                // authenticated client-side to reach this button.
             }
             const lowered = name.toLowerCase();
             const adminLockKey = `admin-lock:${lowered}`;
