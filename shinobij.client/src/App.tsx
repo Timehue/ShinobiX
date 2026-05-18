@@ -5309,8 +5309,32 @@ export default function App() {
             setCreatorCards(prev => prev.map(card =>
                 images['card:' + card.id] ? { ...card, image: images['card:' + card.id] } : card));
         else if (cat === 'jutsu') {
-            setCreatorJutsus(prev => prev.map(j =>
-                images['jutsu:' + j.id] ? { ...j, image: images['jutsu:' + j.id] } : j));
+            setCreatorJutsus(prev => {
+                // Patch images onto existing creatorJutsus entries.
+                const patched = prev.map(j =>
+                    images['jutsu:' + j.id] ? { ...j, image: images['jutsu:' + j.id] } : j);
+                // Seed starter jutsu and starter bloodline jutsu images into creatorJutsus
+                // so getAllJutsus (which processes creatorJutsus last in its Map) overrides
+                // the no-image global-const version. Without this, non-admin players never
+                // see images on starter jutsus because the global starterJutsus array is
+                // not React state and cannot be patched by hydrateImages.
+                const existingIds = new Set(prev.map(j => j.id));
+                const seeded: Jutsu[] = [];
+                for (const [key, img] of Object.entries(images)) {
+                    if (!key.startsWith('jutsu:')) continue;
+                    const id = key.slice(6);
+                    if (existingIds.has(id)) continue;
+                    // Check starter jutsus
+                    const starterMatch = starterJutsus.find(j => j.id === id);
+                    if (starterMatch) { seeded.push({ ...starterMatch, image: img }); continue; }
+                    // Check starter bloodline jutsus
+                    for (const bl of starterSavedBloodlines) {
+                        const blMatch = bl.jutsus.find(j => j.id === id);
+                        if (blMatch) { seeded.push({ ...blMatch, image: img }); break; }
+                    }
+                }
+                return seeded.length ? [...patched, ...seeded] : patched;
+            });
             // Also hydrate jutsu images stored inside bloodlines — the save strips base64
             // so these need the same KV lookup as creatorJutsus.
             setSavedBloodlines(prev => prev.map(b => ({
