@@ -461,6 +461,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
                 lines.push(`${me.name} uses ${jutsu.name}:`);
                 const jWMult = weatherMultiplier(jutsu.element, weatherPositiveElement, weatherNegativeElement);
+                const cd = (jutsu.cooldown ?? 0) > 0 ? { [jutsuId]: jutsu.cooldown! } : undefined;
+
+                // AOE_CIRCLE + Move: move to chosen tile, deal damage to all surrounding hexes
+                if ((jutsu.method as string) === 'AOE_CIRCLE' && (jutsu.tags ?? []).some(t => t.name === 'Move') && tile !== undefined) {
+                    const destTile = tile;
+                    const range = Math.max(1, Number(jutsu.range) || 4);
+                    if (distance(me.pos, destTile) > range || destTile === opp.pos) {
+                        const msg = `${me.name}: ${jutsu.name} — destination out of range or occupied.`;
+                        const updated = { ...session, log: [...session.log, msg] };
+                        await kv.set(key, updated, { ex: 600 });
+                        return res.status(200).json(updated);
+                    }
+                    const movedSelf = { ...me, pos: destTile, chakra: Math.max(0, me.chakra - jChakraCost), stamina: Math.max(0, me.stamina - jStaminaCost) };
+                    lines.push(`${me.name} dashes to hex ${destTile}.`);
+                    // Check if opponent is in the ring around the destination
+                    const ring = hexNeighbors(destTile);
+                    if (ring.includes(opp.pos)) {
+                        // Strip Move tag so applyJutsu treats this as a pure damage/effect jutsu
+                        const damageJutsu = { ...jutsu, tags: (jutsu.tags ?? []).filter(t => t.name !== 'Move') };
+                        const jr = applyJutsu(movedSelf, opp, damageJutsu, jWMult);
+                        lines.push(`Ring impact catches ${opp.name}!`);
+                        lines.push(...jr.lines);
+                        result = commit({ ...jr.self, chakra: Math.max(0, jr.self.chakra - jChakraCost), stamina: Math.max(0, jr.self.stamina - jStaminaCost) }, jr.opponent, apCost, cd);
+                    } else {
+                        lines.push(`${opp.name} is outside the impact ring.`);
+                        result = commit(movedSelf, null, apCost, cd);
+                    }
+                    break;
+                }
+
                 const jr = applyJutsu(me, opp, jutsu, jWMult);
                 const jUpdatedSelf = {
                     ...jr.self,
@@ -468,7 +498,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     stamina: Math.max(0, jr.self.stamina - jStaminaCost),
                 };
                 lines.push(...jr.lines);
-                const cd = (jutsu.cooldown ?? 0) > 0 ? { [jutsuId]: jutsu.cooldown! } : undefined;
                 result = commit(jUpdatedSelf, jr.opponent, apCost, cd);
                 break;
             }
