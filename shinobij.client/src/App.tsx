@@ -5980,6 +5980,11 @@ export default function App() {
                 {screen === "pvpBattle" && character && pvpBattleId && pvpRole && (() => {
                     const pvpJutsus = getAllJutsus(savedBloodlines, creatorJutsus, character)
                         .filter(j => character.equippedJutsuIds.includes(j.id));
+                    const pvpItems = (["hand", "weapon", "thrown", "item"] as EquipmentSlot[])
+                        .map(slot => character.equipment[slot])
+                        .filter((id): id is string => Boolean(id))
+                        .map(id => getItemById(allItems, id))
+                        .filter((item): item is GameItem => Boolean(item));
                     return (
                         <PvpBattleScreen
                             character={character}
@@ -5987,6 +5992,7 @@ export default function App() {
                             role={pvpRole}
                             setScreen={navigate}
                             equippedJutsu={pvpJutsus}
+                            equippedItems={pvpItems}
                             currentBiome={currentBiome}
                             currentSector={currentSector}
                         />
@@ -22251,6 +22257,7 @@ function PvpBattleScreen({
     role,
     setScreen,
     equippedJutsu,
+    equippedItems,
     currentBiome,
     currentSector,
 }: {
@@ -22259,6 +22266,7 @@ function PvpBattleScreen({
     role: "p1" | "p2";
     setScreen: (s: Screen) => void;
     equippedJutsu: Jutsu[];
+    equippedItems: GameItem[];
     currentBiome: Biome;
     currentSector: number;
 }) {
@@ -22278,6 +22286,8 @@ function PvpBattleScreen({
     const [dashMode, setDashMode] = useState(false);
     const [selectedActionId, setSelectedActionId] = useState<"move" | "dash" | undefined>(undefined);
     const [pendingJutsuId, setPendingJutsuId] = useState("");
+    const [pendingBasicAttack, setPendingBasicAttack] = useState(false);
+    const [pendingWeaponId, setPendingWeaponId] = useState("");
     const [inspectedJutsuId, setInspectedJutsuId] = useState("");
     const [boardScale, setBoardScale] = useState(1);
     const [boardContainerSize, setBoardContainerSize] = useState({ w: 0, h: 0 });
@@ -22385,14 +22395,32 @@ function PvpBattleScreen({
     const moveAdjacentTiles = new Set(selectedActionId === "move" ? pvpHexNeighbors(myPos).filter(t => t !== oppPos) : []);
     const jutsuRange = pendingJutsu ? Math.max(0, Number(pendingJutsu.range) || 0) : 0;
     const jutsuRangeTiles = new Set(pendingJutsu ? allTiles.filter(t => t !== myPos && pvpDist(myPos, t) <= jutsuRange) : []);
+    const pvpEquippedWeapons = equippedItems.filter(item => { const s = normalizeEquipmentSlot(item.slot); return s === "hand" || s === "thrown"; });
+    const pvpEquippedConsumables = equippedItems.filter(item => { const s = normalizeEquipmentSlot(item.slot); return s !== "hand" && s !== "thrown"; });
+    const pendingWeapon = pvpEquippedWeapons.find(w => w.id === pendingWeaponId) ?? null;
+    const pvpWeaponRange = pendingWeapon ? (pendingWeapon.weaponRange ?? (normalizeEquipmentSlot(pendingWeapon.slot) === "thrown" ? 4 : 1)) : 0;
+    const weaponRangeTilesSet = new Set(pendingWeapon ? allTiles.filter(t => t !== myPos && pvpDist(myPos, t) <= pvpWeaponRange) : []);
+    const basicAttackRangeTiles = new Set(pendingBasicAttack ? allTiles.filter(t => t !== myPos && pvpDist(myPos, t) <= 1) : []);
 
-    async function submitAction(pvpAction: string, pvpTile?: number, pvpJutsuId?: string) {
+    async function submitAction(pvpAction: string, pvpTile?: number, pvpJutsuId?: string, pvpItem?: GameItem) {
         if (submitting || done || !isMyTurn) return;
         setSubmitting(true);
         try {
             const body: Record<string, unknown> = { battleId, role, action: pvpAction };
             if (pvpTile !== undefined) body.tile = pvpTile;
             if (pvpJutsuId) body.jutsuId = pvpJutsuId;
+            if (pvpItem) {
+                body.itemName = pvpItem.name;
+                body.itemData = {
+                    effectPower: pvpItem.weaponEp ?? 15,
+                    type: "Bukijutsu",
+                    weaponRange: pvpItem.weaponRange ?? (normalizeEquipmentSlot(pvpItem.slot) === "thrown" ? 4 : 1),
+                    ap: pvpItem.apCost ?? (pvpAction === "item" ? 35 : 40),
+                    tags: pvpItem.weaponTags ?? [],
+                    weaponEffect: pvpItem.weaponEffect,
+                    weaponEffectValue: pvpItem.weaponEffectValue ?? 0,
+                };
+            }
             const res = await fetch("/api/pvp/move", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -22403,6 +22431,7 @@ function PvpBattleScreen({
                 setSession(data);
                 if (data.activePlayer !== role) {
                     setPendingJutsuId(""); setDashMode(false); setSelectedActionId(undefined);
+                    setPendingBasicAttack(false); setPendingWeaponId("");
                 }
             }
         } catch { /* ignore */ }
@@ -22422,14 +22451,20 @@ function PvpBattleScreen({
             const jId = pendingJutsuId; setPendingJutsuId("");
             submitAction("jutsu", tileIdx, jId); return;
         }
-        if (!pendingJutsuId && !dashMode && !selectedActionId && tileIdx === oppPos) {
-            submitAction("basicAttack");
+        if (pendingBasicAttack && basicAttackRangeTiles.has(tileIdx) && tileIdx === oppPos) {
+            setPendingBasicAttack(false);
+            submitAction("basicAttack"); return;
+        }
+        if (pendingWeapon && weaponRangeTilesSet.has(tileIdx) && tileIdx === oppPos) {
+            const w = pendingWeapon; setPendingWeaponId("");
+            submitAction("weapon", tileIdx, undefined, w); return;
         }
     }
 
     function selectJutsu(jutsu: Jutsu) {
         if (!isMyTurn || submitting || done) return;
         setInspectedJutsuId(""); setDashMode(false); setSelectedActionId(undefined);
+        setPendingBasicAttack(false); setPendingWeaponId("");
         const selfTarget = jutsu.target === "SELF" ||
             (jutsu.tags ?? []).some(t => ["Heal","Shield","Absorb","Reflect","Lifesteal","Debuff Prevent","Increase Damage Given","Decrease Damage Taken"].includes(t.name));
         if (selfTarget) submitAction("jutsu", undefined, jutsu.id);
@@ -22537,8 +22572,10 @@ function PvpBattleScreen({
                                         const isMyTile = i === myPos;
                                         const isOppTile = i === oppPos;
                                         const canMove = dashRangeTiles.has(i) || moveAdjacentTiles.has(i);
-                                        const isJutsuRange = jutsuRangeTiles.has(i);
-                                        const isPendingTarget = !!pendingJutsuId && i === oppPos && jutsuRangeTiles.has(i);
+                                        const isJutsuRange = jutsuRangeTiles.has(i) || weaponRangeTilesSet.has(i) || basicAttackRangeTiles.has(i);
+                                        const isPendingTarget = (!!pendingJutsuId && i === oppPos && jutsuRangeTiles.has(i)) ||
+                                            (!!pendingWeapon && i === oppPos && weaponRangeTilesSet.has(i)) ||
+                                            (pendingBasicAttack && i === oppPos && basicAttackRangeTiles.has(i));
                                         return (
                                             <button
                                                 key={i}
@@ -22559,17 +22596,18 @@ function PvpBattleScreen({
 
                     {!done && (isMyTurn ? (
                         <div className="basic-action-bar shinobi-command-bar">
-                            <button onClick={() => submitAction("basicAttack")}
-                                disabled={submitting || !isAdjacent || myAp < 40 || me.stamina < 10}>
-                                <span>Attack</span><small>40 AP | 10 SP{!isAdjacent ? " | Move closer" : ""}</small>
+                            <button className={pendingBasicAttack ? "selected-action" : ""}
+                                onClick={() => { setPendingJutsuId(""); setPendingWeaponId(""); setDashMode(false); setSelectedActionId(undefined); setPendingBasicAttack(v => !v); }}
+                                disabled={submitting || myAp < 40 || me.stamina < 10}>
+                                <span>Attack</span><small>40 AP | 10 SP | R1</small>
                             </button>
                             <button className={selectedActionId === "move" ? "selected-action" : ""}
-                                onClick={() => { setPendingJutsuId(""); setDashMode(false); setSelectedActionId(v => v === "move" ? undefined : "move"); }}
+                                onClick={() => { setPendingJutsuId(""); setPendingBasicAttack(false); setPendingWeaponId(""); setDashMode(false); setSelectedActionId(v => v === "move" ? undefined : "move"); }}
                                 disabled={submitting || myAp < 30}>
                                 <span>Move</span><small>30 AP / tile</small>
                             </button>
                             <button className={dashMode ? "selected-action" : ""}
-                                onClick={() => { setPendingJutsuId(""); setSelectedActionId(undefined); setDashMode(v => !v); }}
+                                onClick={() => { setPendingJutsuId(""); setPendingBasicAttack(false); setPendingWeaponId(""); setSelectedActionId(undefined); setDashMode(v => !v); }}
                                 disabled={submitting || myAp < 30}>
                                 <span>Dash</span><small>3 tiles | 30 AP</small>
                             </button>
@@ -22614,16 +22652,17 @@ function PvpBattleScreen({
                             </p>
                         ) : (
                             <>
-                                {pendingJutsu && (
+                                {(pendingJutsu || pendingWeapon || pendingBasicAttack) && (
                                     <div className="summary-box combat-target-prompt">
-                                        <strong>{pendingJutsu.name} armed</strong>
-                                        <span>Click {opp.name} on the battlefield (range {pendingJutsu.range}) to fire.</span>
-                                        <button type="button" onClick={() => setPendingJutsuId("")}>Cancel</button>
+                                        <strong>{pendingJutsu?.name ?? pendingWeapon?.name ?? "Basic Attack"} armed</strong>
+                                        <span>Click {opp.name} on the battlefield (range {pendingJutsu?.range ?? pvpWeaponRange ?? 1}) to fire.</span>
+                                        <button type="button" onClick={() => { setPendingJutsuId(""); setPendingWeaponId(""); setPendingBasicAttack(false); }}>Cancel</button>
                                     </div>
                                 )}
-                                {equippedJutsu.length === 0 ? (
-                                    <div className="summary-box">No equipped jutsus. Equip from Profile.</div>
+                                {equippedJutsu.length === 0 && pvpEquippedWeapons.length === 0 && pvpEquippedConsumables.length === 0 ? (
+                                    <div className="summary-box">No equipped jutsus or items. Equip from Profile.</div>
                                 ) : (
+                                    <>
                                     <div className="combat-equipped-jutsu-grid">
                                         {equippedJutsu.map(j => {
                                             const mastery = getJutsuMastery(character, j.id);
@@ -22652,6 +22691,56 @@ function PvpBattleScreen({
                                             );
                                         })}
                                     </div>
+                                    {pvpEquippedWeapons.length > 0 && (
+                                        <div className="combat-equipped-items-row">
+                                            {pvpEquippedWeapons.map(item => {
+                                                const slot = normalizeEquipmentSlot(item.slot);
+                                                const wRange = item.weaponRange ?? (slot === "thrown" ? 4 : 1);
+                                                const apCost = item.apCost ?? 40;
+                                                const isArmed = pendingWeaponId === item.id;
+                                                return (
+                                                    <div className={`combat-jutsu-card-wrap combat-item-card-wrap${isArmed ? " selected-action" : ""}`} key={item.id}>
+                                                        <button
+                                                            type="button"
+                                                            className={`combat-jutsu-button combat-item-button rarity-${item.rarity}${isArmed ? " selected-action" : ""}`}
+                                                            title={`${item.name} | ${apCost} AP | Range ${wRange}`}
+                                                            onClick={() => { setInspectedJutsuId(""); setPendingJutsuId(""); setDashMode(false); setSelectedActionId(undefined); setPendingBasicAttack(false); setPendingWeaponId(v => v === item.id ? "" : item.id); }}
+                                                            disabled={submitting || myAp < apCost}>
+                                                            <span className="combat-jutsu-thumb combat-item-thumb">
+                                                                {item.image ? <img src={item.image} alt={item.name} /> : <strong>{slot === "thrown" ? "◈" : "⚔"}</strong>}
+                                                            </span>
+                                                            <span className="combat-jutsu-name">{item.name}</span>
+                                                            <span className="combat-jutsu-info">{apCost} AP | R{wRange}</span>
+                                                        </button>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                    {pvpEquippedConsumables.length > 0 && (
+                                        <div className="combat-equipped-items-row">
+                                            {pvpEquippedConsumables.map(item => {
+                                                const apCost = item.apCost ?? 35;
+                                                return (
+                                                    <div className="combat-jutsu-card-wrap combat-item-card-wrap" key={item.id}>
+                                                        <button
+                                                            type="button"
+                                                            className={`combat-jutsu-button combat-item-button rarity-${item.rarity}`}
+                                                            title={`${item.name} | ${apCost} AP | Use`}
+                                                            onClick={() => { setInspectedJutsuId(""); setPendingJutsuId(""); setPendingBasicAttack(false); setPendingWeaponId(""); submitAction("item", undefined, undefined, item); }}
+                                                            disabled={submitting || myAp < apCost}>
+                                                            <span className="combat-jutsu-thumb combat-item-thumb">
+                                                                {item.image ? <img src={item.image} alt={item.name} /> : <strong>✚</strong>}
+                                                            </span>
+                                                            <span className="combat-jutsu-name">{item.name}</span>
+                                                            <span className="combat-jutsu-info">{apCost} AP | Use</span>
+                                                        </button>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                    </>
                                 )}
                                 {inspectedJutsu && (() => {
                                     const mastery = getJutsuMastery(character, inspectedJutsu.id);
