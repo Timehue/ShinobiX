@@ -307,7 +307,8 @@ function guardIsVillageAnbu(name: string, village?: string) {
 function sectorRaidDamageAmount(sector: number) {
     const territory = loadSectorTerritory(sector);
     if (!territory.ownerClan) return 250;
-    if (territory.guards.some(guard => guardIsVillageAnbu(guard, territory.ownerVillage))) return 100;
+    const anbuCount = territory.guards.filter(guard => guardIsVillageAnbu(guard, territory.ownerVillage)).length;
+    if (anbuCount > 0) return Math.max(50, 250 - anbuCount * 50);
     return territory.guards.length > 0 ? 150 : 250;
 }
 
@@ -7073,7 +7074,9 @@ function DungeonEncounter({
 }
 
 function DungeonPetBattle({ character, updateCharacter, editablePets, onWin, onLeave, sharedImages = {} }: { character: Character; updateCharacter: (character: Character) => void; editablePets: Pet[]; onWin: () => void; onLeave: () => void; sharedImages?: Record<string, string> }) {
-    const selectedPet = character.pets.find((pet) => pet.id === character.activePetId) ?? character.pets[0];
+    const defaultPetId = character.activePetId ?? character.pets[0]?.id ?? "";
+    const [chosenPetId, setChosenPetId] = useState(defaultPetId);
+    const selectedPet = character.pets.find((pet) => pet.id === chosenPetId) ?? character.pets[0];
     const rarePool = editablePets.filter((pet) => pet.rarity === "rare" || pet.rarity === "legendary" || pet.rarity === "mythic");
     const basePet = rarePool[Math.floor(Math.random() * Math.max(1, rarePool.length))] ?? genericPetArenaOpponents[2].pet;
     const [enemyPet] = useState<Pet>(() => ({
@@ -7127,6 +7130,16 @@ function DungeonPetBattle({ character, updateCharacter, editablePets, onWin, onL
         return (
             <div className="card cinematic-card">
                 <h2>Rare Beast Seal</h2>
+                {character.pets.length > 1 && (
+                    <div className="menu" style={{ marginBottom: "0.75rem" }}>
+                        <label style={{ fontWeight: 600, marginRight: "0.5rem" }}>Choose your pet:</label>
+                        <select value={chosenPetId} onChange={e => setChosenPetId(e.target.value)} style={{ padding: "4px 8px", borderRadius: 6 }}>
+                            {character.pets.map(p => (
+                                <option key={p.id} value={p.id}>{p.nickname ?? p.name} (Lv {p.level} · {p.rarity})</option>
+                            ))}
+                        </select>
+                    </div>
+                )}
                 <div className="pet-arena-grid">
                     <PetArenaCard owner="You" pet={selectedPet} sharedImages={sharedImages} />
                     <PetArenaCard owner="Dungeon Beast" pet={enemyPet} sharedImages={sharedImages} />
@@ -13124,6 +13137,8 @@ function ClanHall({ character, updateCharacter, creatorItems }: { character: Cha
         const territory = loadSectorTerritory(sector);
         const isOwnedByUs = territory.ownerClan === clanData.name;
         if (territory.ownerClan && !isOwnedByUs) return alert("Raid or war this sector down before your clan can claim it.");
+        // Clans are limited to one captured sector at a time
+        if (!isOwnedByUs && clanOwnedTerritories(clanData.name).length >= 1) return alert("Your clan already controls a sector. Clans may only hold one sector at a time.");
         const nextScore = Math.min(TERRITORY_CONTROL_MAX, territory.controlScore + amount * 1000);
         const nextHp = isOwnedByUs ? Math.min(TERRITORY_HP_MAX, territory.hp + amount * 1000) : territory.hp;
         const captured = !territory.ownerClan && nextScore >= TERRITORY_CONTROL_MAX;
