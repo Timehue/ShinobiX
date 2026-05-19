@@ -94,20 +94,20 @@ const terrainEffects: Record<
 > = {
     forest: {
         name: "Forest Terrain",
-        description: "Taijutsu and Bukijutsu are empowered.",
-        playerBuff: "+10% Physical Damage",
+        description: "Taijutsu is empowered.",
+        playerBuff: "+10% Taijutsu Damage",
     },
 
     snow: {
         name: "Frozen Terrain",
-        description: "Water techniques are empowered.",
-        playerBuff: "+10% Water Damage",
+        description: "Bukijutsu is empowered.",
+        playerBuff: "+10% Bukijutsu Damage",
     },
 
     volcano: {
         name: "Volcanic Terrain",
-        description: "Fire attacks burn hotter.",
-        playerBuff: "+10% Fire Damage",
+        description: "Ninjutsu is empowered.",
+        playerBuff: "+10% Ninjutsu Damage",
     },
 
     shadow: {
@@ -397,7 +397,7 @@ type Pet = {
     unlockedForPve: boolean;
     trait?: PetTrait;
     happiness?: number;
-    training?: { type: PetTrainingType; endsAt: number };
+    training?: { type: PetTrainingType; endsAt: number; durationMs?: number };
     moveRange?: number; // tiles moved per turn (2–5); defaults to 2
     nickname?: string;
 };
@@ -695,6 +695,10 @@ type SavedBloodline = {
     lore?: string;
     jutsus: Jutsu[];
     totalPoints: number;
+};
+type ReviewBloodline = SavedBloodline & {
+    ownerName?: string;
+    ownerKey?: string;
 };
 
 type ActiveTraining = {
@@ -1060,6 +1064,11 @@ const hiddenDungeonVnEvent: CreatorEvent = {
 const JUTSU_MAX_LEVEL = 50;
 const JUTSU_TRAINING_CAP = 30;
 const STORAGE = "ninjav-admin-build-v1";
+const jutsuResourceCostPercentByAp: Record<number, number> = {
+    20: 2,
+    40: 3,
+    60: 5,
+};
 const PLAYER_ACCOUNTS_STORAGE = "ninjav-player-accounts-v1";
 const HP_CAP = 10000;
 const CHAKRA_CAP = 5000;
@@ -1166,13 +1175,31 @@ const petTrainingDurations = [
     { label: "8 hours", ms: 8 * 60 * 60 * 1000 },
 ] as const;
 const petRarityOrder: PetRarity[] = ["standard", "rare", "legendary", "mythic"];
+const petTrainingDurationMultipliers: Record<number, number> = {
+    [15 * 60 * 1000]: 1,
+    [60 * 60 * 1000]: 3,
+    [4 * 60 * 60 * 1000]: 8,
+    [8 * 60 * 60 * 1000]: 14,
+};
 const petTrainingOptions: { type: PetTrainingType; label: string; desc: string }[] = [
-    { type: "strength", label: "Strength Training", desc: "Boosts attack (+3 per session)" },
-    { type: "endurance", label: "Endurance Training", desc: "Boosts HP (+15) and defense (+2)" },
-    { type: "agility", label: "Agility Training", desc: "Boosts speed (+2)" },
-    { type: "chakra", label: "Chakra Training", desc: "Boosts jutsu power (+2 per jutsu)" },
-    { type: "bond", label: "Bond Training", desc: "Earns XP and improves passive bonuses" },
+    { type: "strength", label: "Strength Training", desc: "Boosts attack and pet XP" },
+    { type: "endurance", label: "Endurance Training", desc: "Boosts HP, defense, and pet XP" },
+    { type: "agility", label: "Agility Training", desc: "Boosts speed and pet XP" },
+    { type: "chakra", label: "Chakra Training", desc: "Boosts jutsu power and pet XP" },
+    { type: "bond", label: "Bond Training", desc: "Balanced stat growth, XP, and happiness" },
 ];
+const balancedPetBaseStats: Record<PetRarity, { hp: number; attack: number; defense: number; speed: number; jutsuPower: number; moveRange: number }> = {
+    standard: { hp: 320, attack: 40, defense: 28, speed: 30, jutsuPower: 50, moveRange: 3 },
+    rare: { hp: 370, attack: 48, defense: 34, speed: 36, jutsuPower: 62, moveRange: 3 },
+    legendary: { hp: 430, attack: 58, defense: 42, speed: 44, jutsuPower: 78, moveRange: 4 },
+    mythic: { hp: 500, attack: 70, defense: 52, speed: 52, jutsuPower: 96, moveRange: 4 },
+};
+const petStatCaps: Record<PetRarity, { hp: number; attack: number; defense: number; speed: number; jutsuPower: number }> = {
+    standard: { hp: 1700, attack: 260, defense: 210, speed: 190, jutsuPower: 320 },
+    rare: { hp: 1900, attack: 290, defense: 240, speed: 220, jutsuPower: 360 },
+    legendary: { hp: 2200, attack: 330, defense: 280, speed: 250, jutsuPower: 420 },
+    mythic: { hp: 2500, attack: 380, defense: 320, speed: 285, jutsuPower: 500 },
+};
 const petTreatItems = [
     { id: "pet-treat", name: "Treats", xp: 100 },
     { id: "elemental-pet-treat", name: "Elemental Treats", xp: 250 },
@@ -1190,8 +1217,74 @@ function petDisplayName(pet: Pick<Pet, "name" | "nickname">) { return pet.nickna
 function petHappiness(pet: Pick<Pet, "happiness">) {
     return Math.max(0, Math.min(100, Math.floor(pet.happiness ?? 0)));
 }
+function petCombatDamage(pet: Pet) {
+    const bestDamageJutsu = Math.max(0, ...pet.jutsus.filter((jutsu) => jutsu.kind === "damage").map((jutsu) => jutsu.power));
+    return Math.max(20, Math.floor(pet.attack * 1.35 + bestDamageJutsu * 0.65 + pet.level * 2));
+}
 function increasePetHappiness(pet: Pet, amount = 10): Pet {
     return { ...pet, happiness: Math.min(100, petHappiness(pet) + amount) };
+}
+function petVariantIndex(pet: Pick<Pet, "id">) {
+    return Math.max(0, Number(pet.id.match(/-(\d+)(?:-|$)/)?.[1] ?? 0));
+}
+function capPetStats(pet: Pet): Pet {
+    const caps = petStatCaps[pet.rarity] ?? petStatCaps.standard;
+    return {
+        ...pet,
+        hp: Math.min(caps.hp, Math.max(1, Math.round(pet.hp))),
+        attack: Math.min(caps.attack, Math.max(1, Math.round(pet.attack))),
+        defense: Math.min(caps.defense, Math.max(1, Math.round(pet.defense))),
+        speed: Math.min(caps.speed, Math.max(1, Math.round(pet.speed))),
+        jutsus: pet.jutsus.map((jutsu) => ({
+            ...jutsu,
+            power: jutsu.power > 0 ? Math.min(caps.jutsuPower, Math.max(1, Math.round(jutsu.power))) : 0,
+        })),
+        moveRange: Math.max(2, Math.min(5, Math.round(pet.moveRange ?? balancedPetBaseStats[pet.rarity]?.moveRange ?? 3))),
+    };
+}
+function balanceBuiltInPetTemplate(pet: Pet): Pet {
+    const base = balancedPetBaseStats[pet.rarity] ?? balancedPetBaseStats.standard;
+    const variant = petVariantIndex(pet);
+    const kitBonus = Math.max(0, pet.jutsus.length - 3);
+    const hp = base.hp + variant * (pet.rarity === "standard" ? 6 : pet.rarity === "rare" ? 7 : pet.rarity === "legendary" ? 9 : 11) - kitBonus * 18;
+    const attack = base.attack + Math.floor(variant * (pet.rarity === "standard" ? 0.7 : pet.rarity === "rare" ? 0.8 : pet.rarity === "legendary" ? 1 : 1.2)) - kitBonus * 2;
+    const defense = base.defense + Math.floor(variant * (pet.rarity === "standard" ? 0.55 : pet.rarity === "rare" ? 0.65 : pet.rarity === "legendary" ? 0.85 : 1)) - kitBonus * 2;
+    const speed = base.speed + Math.floor(variant * (pet.rarity === "standard" ? 0.5 : pet.rarity === "rare" ? 0.6 : pet.rarity === "legendary" ? 0.75 : 0.9));
+    const jutsus = pet.jutsus.map((jutsu, i) => {
+        if (jutsu.power <= 0) return { ...jutsu };
+        const kindBonus = jutsu.kind === "damage" ? 8 : jutsu.kind === "heal" || jutsu.kind === "barrier" ? 4 : 0;
+        const slotBonus = i * 5;
+        return { ...jutsu, power: base.jutsuPower + variant + kindBonus + slotBonus };
+    });
+    return capPetStats({ ...pet, hp, attack, defense, speed, jutsus, moveRange: pet.moveRange ?? base.moveRange });
+}
+function petTrainingMultiplier(pet: Pet) {
+    const durationMultiplier = petTrainingDurationMultipliers[pet.training?.durationMs ?? petTrainingDurations[0].ms] ?? 1;
+    const loyalMultiplier = pet.trait === "Loyal" ? 1.5 : 1;
+    const happinessMultiplier = petHappiness(pet) >= 80 ? 1.15 : petHappiness(pet) >= 50 ? 1.05 : 1;
+    return durationMultiplier * loyalMultiplier * happinessMultiplier;
+}
+function petTrainingGains(pet: Pet) {
+    const mult = petTrainingMultiplier(pet);
+    return {
+        attack: Math.max(1, Math.round(3 * mult)),
+        hp: Math.max(5, Math.round(16 * mult)),
+        defense: Math.max(1, Math.round(2 * mult)),
+        speed: Math.max(1, Math.round(2 * mult)),
+        jutsuPower: Math.max(1, Math.round(2 * mult)),
+        xp: Math.max(15, Math.round(45 * mult)),
+        bondHp: Math.max(4, Math.round(8 * mult)),
+        bondStat: Math.max(1, Math.round(1 * mult)),
+    };
+}
+function petTrainingPreview(pet: Pet, type: PetTrainingType, durationMs: number) {
+    const previewPet = { ...pet, training: { type, endsAt: Date.now() + durationMs, durationMs } };
+    const gains = petTrainingGains(previewPet);
+    if (type === "strength") return `+${gains.attack} ATK, +${gains.xp} XP`;
+    if (type === "endurance") return `+${gains.hp} HP, +${gains.defense} DEF, +${gains.xp} XP`;
+    if (type === "agility") return `+${gains.speed} SPD, +${gains.xp} XP`;
+    if (type === "chakra") return `+${gains.jutsuPower} jutsu power, +${gains.xp} XP`;
+    return `+${gains.bondHp} HP, +${gains.bondStat} all battle stats, +${gains.xp + Math.round(gains.xp * 0.35)} XP, +5 happiness`;
 }
 function rollPetTrait(rarity: PetRarity): PetTrait {
     const pool = rarity === "mythic" ? petTraits : petTraits.filter((t) => t !== "Guardian");
@@ -1208,13 +1301,20 @@ function applyPetTraitBonuses(pet: Pet, trait: PetTrait): Pet {
 }
 function collectPetTraining(pet: Pet): Pet {
     if (!pet.training) return pet;
-    const xpMult = pet.trait === "Loyal" ? 1.5 : 1;
+    const gains = petTrainingGains(pet);
     switch (pet.training.type) {
-        case "strength": return { ...pet, attack: pet.attack + Math.round(3 * xpMult), training: undefined };
-        case "endurance": return { ...pet, hp: pet.hp + Math.round(15 * xpMult), defense: pet.defense + Math.round(2 * xpMult), training: undefined };
-        case "agility": return { ...pet, speed: pet.speed + Math.round(2 * xpMult), training: undefined };
-        case "chakra": return { ...pet, jutsus: pet.jutsus.map(j => ({ ...j, power: j.power + Math.round(2 * xpMult) })), training: undefined };
-        case "bond": return { ...pet, xp: pet.xp + Math.round(50 * xpMult), training: undefined };
+        case "strength": return capPetStats(gainPetXp({ ...pet, attack: pet.attack + gains.attack, training: undefined }, gains.xp));
+        case "endurance": return capPetStats(gainPetXp({ ...pet, hp: pet.hp + gains.hp, defense: pet.defense + gains.defense, training: undefined }, gains.xp));
+        case "agility": return capPetStats(gainPetXp({ ...pet, speed: pet.speed + gains.speed, training: undefined }, gains.xp));
+        case "chakra": return capPetStats(gainPetXp({ ...pet, jutsus: pet.jutsus.map(j => ({ ...j, power: j.power > 0 ? j.power + gains.jutsuPower : j.power })), training: undefined }, gains.xp));
+        case "bond": return capPetStats(gainPetXp(increasePetHappiness({
+            ...pet,
+            hp: pet.hp + gains.bondHp,
+            attack: pet.attack + gains.bondStat,
+            defense: pet.defense + gains.bondStat,
+            speed: pet.speed + gains.bondStat,
+            training: undefined,
+        }, 5), gains.xp + Math.round(gains.xp * 0.35)));
     }
 }
 function petXpNeeded(level: number): number {
@@ -1223,10 +1323,12 @@ function petXpNeeded(level: number): number {
 function gainPetXp(pet: Pet, amount: number): Pet {
     let level = pet.level;
     let xp = pet.xp + Math.max(0, Math.floor(amount));
+    let levelUps = 0;
 
     while (level < pet.maxLevel && xp >= petXpNeeded(level)) {
         xp -= petXpNeeded(level);
         level += 1;
+        levelUps += 1;
     }
 
     if (level >= pet.maxLevel) {
@@ -1234,7 +1336,17 @@ function gainPetXp(pet: Pet, amount: number): Pet {
         xp = 0;
     }
 
-    return { ...pet, level, xp };
+    if (levelUps <= 0) return { ...pet, level, xp };
+    return capPetStats({
+        ...pet,
+        level,
+        xp,
+        hp: pet.hp + levelUps * 6,
+        attack: pet.attack + levelUps * 1,
+        defense: pet.defense + levelUps * 1,
+        speed: pet.speed + (levelUps % 2),
+        jutsus: pet.jutsus.map((jutsu) => ({ ...jutsu, power: jutsu.power > 0 ? jutsu.power + Math.ceil(levelUps / 2) : jutsu.power })),
+    });
 }
 function formatPetTimer(ms: number): string {
     if (ms <= 0) return "Done";
@@ -1245,7 +1357,7 @@ function formatPetTimer(ms: number): string {
     if (m > 0) return `${m}m ${s}s`;
     return `${s}s`;
 }
-const petPool: Pet[] = [
+const petPool: Pet[] = ([
     // STANDARD PETS — damage + move. Simple kit, mobile enough to close the gap.
     ...[
         "Red Fox", "Snow Rabbit", "Black Cat", "Forest Hawk", "River Otter",
@@ -1451,7 +1563,7 @@ const petPool: Pet[] = [
             { name: "Demon Surge",         power: 0,   cooldown: 3, currentCooldown: 0, kind: "move"   },
         ],
     },
-];
+] as Pet[]).map(balanceBuiltInPetTemplate);
 function mergeMissingBuiltInPets(currentPets: Pet[]): Pet[] {
     const currentIds = new Set(currentPets.map((pet) => pet.id));
     const missingBuiltInPets = petPool.filter((pet) => !currentIds.has(pet.id));
@@ -1464,6 +1576,38 @@ function cloneEncounterPet(pet: Pet): Pet {
         id: `${pet.id}-${Date.now()}`,
         jutsus: pet.jutsus.map((jutsu) => ({ ...jutsu })),
     };
+}
+function builtInPetTemplateId(id: string) {
+    return id.match(/^(standard|rare|legendary|mythic)-\d+/)?.[0] ?? id;
+}
+function normalizePet(pet: Pet): Pet {
+    const baseTemplate = petPool.find((template) => template.id === builtInPetTemplateId(pet.id));
+    const merged = baseTemplate ? {
+        ...pet,
+        hp: Math.max(pet.hp ?? 0, baseTemplate.hp),
+        attack: Math.max(pet.attack ?? 0, baseTemplate.attack),
+        defense: Math.max(pet.defense ?? 0, baseTemplate.defense),
+        speed: Math.max(pet.speed ?? 0, baseTemplate.speed),
+        moveRange: pet.moveRange ?? baseTemplate.moveRange,
+        jutsus: (pet.jutsus?.length ? pet.jutsus : baseTemplate.jutsus).map((jutsu, i) => {
+            const baseJutsu = baseTemplate.jutsus[i];
+            return {
+                ...baseJutsu,
+                ...jutsu,
+                power: Math.max(jutsu.power ?? 0, baseJutsu?.power ?? 0),
+                currentCooldown: 0,
+            };
+        }),
+    } : pet;
+    return capPetStats({
+        ...merged,
+        rarity: merged.rarity ?? "standard",
+        level: Math.max(1, Math.floor(merged.level ?? 1)),
+        xp: Math.max(0, Math.floor(merged.xp ?? 0)),
+        maxLevel: Math.max(1, Math.floor(merged.maxLevel ?? 100)),
+        unlockedForPve: Boolean(merged.unlockedForPve),
+        happiness: petHappiness(merged),
+    });
 }
 const starterBloodlineOffense: Record<string, JutsuType> = {
     "Ashen Eyes": "Genjutsu",
@@ -3454,7 +3598,7 @@ function compressDataUrl(dataUrl: string, maxPx = 512, quality = 0.82): Promise<
 
 // Module-level — callable from any component without prop drilling
 async function publishSharedImage(id: string, img: string): Promise<void> {
-    if (!id || !img) return;
+    if (!id) return;
     try {
         const res = await fetch('/api/images', {
             method: 'POST',
@@ -3957,7 +4101,7 @@ function normalizeCharacter(parsed: Character): Character {
         stats: { ...baseStats(), ...parsed.stats },
         equippedJutsuIds: (parsed.equippedJutsuIds ?? []).slice(0, 15),
         jutsuMastery: parsed.jutsuMastery ?? [],
-        pets: parsed.pets ?? [],
+        pets: (parsed.pets ?? []).map(normalizePet),
         activePetId: parsed.activePetId,
         boneCharms: parsed.boneCharms ?? 0,
         auraStones: parsed.auraStones ?? 0,
@@ -4150,7 +4294,7 @@ function jutsuEffectInfo(jutsu: Jutsu, tag: JutsuTag) {
     if (tag.name === "Cleanse Prevent") return { summary: "Prevents cleanse effects.", rule: "Always stops negative effects from being cleansed while active.", duration: "2 rounds", value: "Always" };
     if (tag.name === "Clear Prevent") return { summary: "Prevents clear effects.", rule: "Always stops positive effects from being cleared while active.", duration: "2 rounds", value: "Always" };
     if (tag.name === "Stun Prevent") return { summary: "Prevents stun.", rule: "Always protects against incoming Stun.", duration: "2 rounds", value: "Always" };
-    if (tag.name === "Poison") return { summary: `Poisons the target — deals 60% of their max chakra as damage each round.`, rule: "Applies a 2-round negative status that deals damage based on the target's chakra pool.", duration: "2 rounds", value: "Chakra-scaled" };
+    if (tag.name === "Poison") return { summary: `Poisons the target — deals ${pct}% of their max chakra as damage each round.`, rule: "Applies a 2-round negative status that deals damage based on the target's chakra pool.", duration: "2 rounds", value: `${pct}% chakra` };
     if (tag.name === "Drain") return { summary: "Drains the target of 250 HP, chakra, and stamina each round.", rule: "Applies a 2-round negative status that reduces HP, chakra, and stamina simultaneously.", duration: "2 rounds", value: "250/round" };
     if (tag.name === "Pierce") return { summary: "True damage — bypasses all defenses and shield.", rule: "Ignores armor, shields, and all damage modifiers. Deals 900 damage at 60 AP cost, 500 damage at 40 AP cost.", duration: "Instant", value: "True" };
     if (tag.name === "Copy") return { summary: "Copies enemy positive effects.", rule: "Always copies active positive statuses from the target to the user.", duration: "Up to 2 rounds", value: "Always" };
@@ -4161,10 +4305,16 @@ function jutsuEffectInfo(jutsu: Jutsu, tag: JutsuTag) {
     return { summary: tag.name || "Unnamed effect", rule: "Custom effect tag.", duration: "Varies", value: percentLabel };
 }
 
-function describeJutsuEffects(jutsu: Jutsu) {
-    const descriptions = jutsu.tags
+function jutsuDisplayAtLevel(jutsu: Jutsu, masteryLevel = JUTSU_MAX_LEVEL): Jutsu {
+    const scaled = scaleJutsuByLevel(jutsu, masteryLevel);
+    return scaleJutsuTagsForDisplay({ ...jutsu, effectPower: scaled.scaledEffectPower }, masteryLevel);
+}
+
+function describeJutsuEffects(jutsu: Jutsu, masteryLevel = JUTSU_MAX_LEVEL) {
+    const displayJutsu = jutsuDisplayAtLevel(jutsu, masteryLevel);
+    const descriptions = displayJutsu.tags
         .filter((tag) => tag.name)
-        .map((tag) => jutsuEffectInfo(jutsu, tag).summary);
+        .map((tag) => jutsuEffectInfo(displayJutsu, tag).summary);
 
     return descriptions.length ? descriptions.join(" ") : "No special effects.";
 }
@@ -4203,11 +4353,59 @@ function scaleJutsuByLevel(jutsu: Jutsu, level: number) {
     // Level 1: maxEP - 49×0.2 ≈ maxEP - 9.8. Level 50: maxEP.
     const scaledEffectPower = Math.max(1, Math.floor(jutsu.effectPower - (50 - level) * 0.2));
     const costMultiplier = Math.max(0.8, 1 - Math.max(0, level - 1) * 0.004);
+    const chakraCostPercent = jutsu.chakraCost > 0 ? jutsuResourceCostPercent(jutsu, level) : 0;
+    const staminaCostPercent = jutsu.staminaCost > 0 ? jutsuResourceCostPercent(jutsu, level) : 0;
     return {
         scaledEffectPower,
         healthCost: Math.max(0, Math.floor((jutsu.healthCost - jutsu.healthCostReducePerLvl * level) * costMultiplier)),
-        chakraCost: Math.max(0, Math.floor(jutsu.chakraCost * costMultiplier)),
-        staminaCost: Math.max(0, Math.floor(jutsu.staminaCost * costMultiplier)),
+        chakraCost: chakraCostPercent,
+        staminaCost: staminaCostPercent,
+        chakraCostPercent,
+        staminaCostPercent,
+    };
+}
+function jutsuResourceCostPercent(jutsu: Pick<Jutsu, "ap">, masteryLevel = 0) {
+    const masteryReduction = masteryLevel >= JUTSU_MAX_LEVEL ? 1 : 0;
+    let percent = 0;
+    if (jutsu.ap && jutsuResourceCostPercentByAp[jutsu.ap] !== undefined) {
+        percent = jutsuResourceCostPercentByAp[jutsu.ap];
+    } else if ((jutsu.ap ?? 0) >= 60) {
+        percent = 5;
+    } else if ((jutsu.ap ?? 0) >= 40) {
+        percent = 3;
+    } else if ((jutsu.ap ?? 0) > 0) {
+        percent = 2;
+    }
+    return percent > 0 ? Math.max(1, percent - masteryReduction) : 0;
+}
+function jutsuResourceCost(maxResource: number, jutsu: Pick<Jutsu, "ap" | "chakraCost" | "staminaCost">, resource: "chakra" | "stamina", masteryLevel = 0) {
+    const originalCost = resource === "chakra" ? jutsu.chakraCost : jutsu.staminaCost;
+    if (!originalCost || originalCost <= 0) return 0;
+    return Math.max(1, Math.floor(maxResource * (jutsuResourceCostPercent(jutsu, masteryLevel) / 100)));
+}
+function formatJutsuResourcePercent(jutsu: Pick<Jutsu, "ap" | "chakraCost" | "staminaCost">, resource: "chakra" | "stamina", masteryLevel = 0) {
+    const originalCost = resource === "chakra" ? jutsu.chakraCost : jutsu.staminaCost;
+    return originalCost && originalCost > 0 ? `${jutsuResourceCostPercent(jutsu, masteryLevel)}%` : "0%";
+}
+function jutsuResourceBackingCost(jutsu: Pick<Jutsu, "ap">) {
+    return jutsuResourceCostPercent(jutsu) > 0 ? 100 : 0;
+}
+function lockJutsuResourceCosts<T extends Pick<Jutsu, "ap"> & Partial<Pick<Jutsu, "chakraCost" | "staminaCost" | "chakraCostReducePerLvl" | "staminaCostReducePerLvl">>>(jutsu: T): T {
+    const backingCost = jutsuResourceBackingCost(jutsu);
+    return {
+        ...jutsu,
+        chakraCost: backingCost,
+        staminaCost: backingCost,
+        chakraCostReducePerLvl: 0,
+        staminaCostReducePerLvl: 0,
+    };
+}
+function scaleJutsuCostsForCharacter(jutsu: Jutsu, level: number, character: Pick<Character, "maxChakra" | "maxStamina">) {
+    const scaled = scaleJutsuByLevel(jutsu, level);
+    return {
+        ...scaled,
+        chakraCost: jutsuResourceCost(character.maxChakra, jutsu, "chakra", level),
+        staminaCost: jutsuResourceCost(character.maxStamina, jutsu, "stamina", level),
     };
 }
 // Returns a copy of the jutsu with tag percents scaled to the given mastery level for display.
@@ -5085,7 +5283,9 @@ export default function App() {
         if (localAccountName) {
             pullSaveFromServer(localAccountName).then((snap) => {
                 if (snap) applySnapshot(snap);
-            });
+            }).finally(() => { void pullSharedAdminContent(); });
+        } else {
+            void pullSharedAdminContent();
         }
     }, []);
 
@@ -5158,7 +5358,9 @@ export default function App() {
         editablePets,
     ]);
 
-    function buildPlayerSavePayload(characterToSave: Character) {
+    function buildPlayerSavePayload(characterToSave: Character, overrides: Partial<{
+        savedBloodlines: SavedBloodline[];
+    }> = {}) {
         return {
             character: characterToSave,
             currentBiome,
@@ -5180,10 +5382,11 @@ export default function App() {
             petEncounterVn,
             ancientChestVn,
             editablePets,
+            ...overrides,
         };
     }
 
-    async function pushSaveToServer(characterToSave: Character, name: string) {
+    async function pushSaveToServer(characterToSave: Character, name: string, overrides?: Parameters<typeof buildPlayerSavePayload>[1]) {
         // Strip base64 images before sending — keeps the payload small so it fits
         // within Vercel's request body limit. Images persist separately via
         // publishSharedImage → shared:images:{cat} and are hydrated on load.
@@ -5193,7 +5396,7 @@ export default function App() {
         const res = await fetch(`/api/save/${encodeURIComponent(name.toLowerCase())}`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(buildPlayerSavePayload(characterToSave), stripImages),
+            body: JSON.stringify(buildPlayerSavePayload(characterToSave, overrides), stripImages),
         });
         if (!res.ok) throw new Error(`Server returned ${res.status}`);
     }
@@ -5206,6 +5409,35 @@ export default function App() {
         } catch {
             return null;
         }
+    }
+
+    function mergeById<T extends { id: string }>(current: T[], incoming: T[]) {
+        const merged = new Map(current.map((item) => [item.id, item]));
+        incoming.forEach((item) => merged.set(item.id, item));
+        return Array.from(merged.values());
+    }
+
+    function applySharedAdminContentSnapshot(snap: ReturnType<typeof buildPlayerSavePayload>) {
+        if (snap.savedBloodlines) setSavedBloodlines((prev) => mergeById(prev, (snap.savedBloodlines as SavedBloodline[]).map((bloodline) => ({ ...bloodline, jutsus: bloodline.jutsus.map(normalizeJutsu) }))));
+        if (snap.creatorJutsus) setCreatorJutsus((prev) => mergeById(prev, (snap.creatorJutsus as Jutsu[]).map(normalizeJutsu).map(rebalanceNonBloodlineJutsu)));
+        if (snap.creatorEvents) setCreatorEvents((prev) => mergeById(prev, snap.creatorEvents as CreatorEvent[]));
+        if (snap.petEncounterVn) setPetEncounterVn(snap.petEncounterVn as CreatorEvent);
+        if (snap.ancientChestVn) setAncientChestVn(snap.ancientChestVn as CreatorEvent);
+    }
+
+    async function pullSharedAdminContent() {
+        const snapshots = await Promise.all([
+            pullSaveFromServer("Admin 1"),
+            pullSaveFromServer("Admin 2"),
+        ]);
+        const available = snapshots.filter((snap): snap is ReturnType<typeof buildPlayerSavePayload> => Boolean(snap));
+        if (!available.length) return;
+        available.forEach(applySharedAdminContentSnapshot);
+        loadedCatsRef.current.delete('jutsu');
+        loadedCatsRef.current.delete('bloodline');
+        loadedCatsRef.current.delete('event');
+        clearImgCache();
+        setTimeout(() => { void loadCategory('jutsu'); void loadCategory('bloodline'); void loadCategory('event'); }, 0);
     }
 
     function saveAccountProgress(characterToSave: Character, accountName = currentAccountName) {
@@ -5374,7 +5606,7 @@ export default function App() {
             setCreatorJutsus(prev => {
                 // Patch images onto existing creatorJutsus entries.
                 const patched = prev.map(j =>
-                    images['jutsu:' + j.id] ? { ...j, image: images['jutsu:' + j.id] } : j);
+                    Object.prototype.hasOwnProperty.call(images, 'jutsu:' + j.id) ? { ...j, image: images['jutsu:' + j.id] } : j);
                 // Seed starter jutsu and starter bloodline jutsu images into creatorJutsus
                 // so getAllJutsus (which processes creatorJutsus last in its Map) overrides
                 // the no-image global-const version. Without this, non-admin players never
@@ -5402,7 +5634,7 @@ export default function App() {
             setSavedBloodlines(prev => prev.map(b => ({
                 ...b,
                 jutsus: b.jutsus.map(j =>
-                    images['jutsu:' + j.id] ? { ...j, image: images['jutsu:' + j.id] } : j),
+                    Object.prototype.hasOwnProperty.call(images, 'jutsu:' + j.id) ? { ...j, image: images['jutsu:' + j.id] } : j),
             })));
         }
         else if (cat === 'event') {
@@ -5444,6 +5676,8 @@ export default function App() {
             });
             setPetEncounterVn(prev => prev.vnPages ? {
                 ...prev,
+                ...(images['event:pet-encounter:bg'] || images['event:sys-pet-encounter:bg'] ? { image: images['event:pet-encounter:bg'] || images['event:sys-pet-encounter:bg'] } : {}),
+                ...(images['event:pet-encounter:avatar'] || images['event:sys-pet-encounter:avatar'] ? { avatarImage: images['event:pet-encounter:avatar'] || images['event:sys-pet-encounter:avatar'] } : {}),
                 vnPages: prev.vnPages.map((p, i) => ({
                     ...p,
                     ...(images[`vn:pet-encounter:page:${i}`]        ? { image:      images[`vn:pet-encounter:page:${i}`] }        : {}),
@@ -5456,6 +5690,8 @@ export default function App() {
             } : prev);
             setAncientChestVn(prev => prev.vnPages ? {
                 ...prev,
+                ...(images['event:ancient-chest:bg'] || images['event:sys-ancient-chest:bg'] ? { image: images['event:ancient-chest:bg'] || images['event:sys-ancient-chest:bg'] } : {}),
+                ...(images['event:ancient-chest:avatar'] || images['event:sys-ancient-chest:avatar'] ? { avatarImage: images['event:ancient-chest:avatar'] || images['event:sys-ancient-chest:avatar'] } : {}),
                 vnPages: prev.vnPages.map((p, i) => ({
                     ...p,
                     ...(images[`vn:ancient-chest:page:${i}`]        ? { image:      images[`vn:ancient-chest:page:${i}`] }        : {}),
@@ -5553,6 +5789,7 @@ export default function App() {
         else if (screen === 'shop' || screen === 'profile' || screen === 'inventory' || screen === 'adminPanel') {
             void loadCategory('item');
             void loadCategory('ai');
+            void loadCategory('bloodline');
         }
         else if (screen === 'shinobiTiles')                     { void loadCategory('card'); }
         else if (screen === 'arena' || screen === 'battleArena'){ void loadCategory('avatar'); void loadCategory('jutsu'); void loadCategory('ai'); }
@@ -5639,6 +5876,7 @@ export default function App() {
         setPendingAiProfileId("");
         setCurrentSector(40);
         setScreen("villageLore");
+        void pullSharedAdminContent();
     }
 
     // Apply a full server snapshot to all game state
@@ -5750,6 +5988,7 @@ export default function App() {
         if (saveRes.ok) {
             const serverSnapshot = await saveRes.json() as ReturnType<typeof buildPlayerSavePayload>;
             applyServerSnapshot(serverSnapshot);
+            await pullSharedAdminContent();
         } else if (saveRes.status === 404) {
             // Account was reset — clear the stale localStorage snapshot so it can't
             // be reloaded and overwrite the fresh start on next login.
@@ -6424,6 +6663,14 @@ export default function App() {
                                 if (snap.savedBloodlines) setSavedBloodlines((snap.savedBloodlines as SavedBloodline[]).map((b) => ({ ...b, jutsus: b.jutsus.map(normalizeJutsu) })));
                                 if (snap.petEncounterVn) setPetEncounterVn(snap.petEncounterVn as CreatorEvent);
                                 if (snap.ancientChestVn) setAncientChestVn(snap.ancientChestVn as CreatorEvent);
+                                loadedCatsRef.current.clear();
+                                clearImgCache();
+                                setTimeout(() => {
+                                    void loadCategory('item'); void loadCategory('pet');
+                                    void loadCategory('card'); void loadCategory('jutsu');
+                                    void loadCategory('event'); void loadCategory('avatar');
+                                    void loadCategory('ai'); void loadCategory('bloodline');
+                                }, 0);
                             }
                         }}
                         setScreen={setScreen}
@@ -6474,7 +6721,7 @@ export default function App() {
                                 void loadCategory('item'); void loadCategory('pet');
                                 void loadCategory('card'); void loadCategory('jutsu');
                                 void loadCategory('event'); void loadCategory('avatar');
-                                void loadCategory('ai');
+                                void loadCategory('ai'); void loadCategory('bloodline');
                             }, 0);
                         }}
                     />
@@ -6764,6 +7011,10 @@ export default function App() {
                         savedBloodlines={savedBloodlines}
                         setSavedBloodlines={setSavedBloodlines}
                         lockedRank={bloodlineMakerRankLocked}
+                        onSaveBloodlines={(nextBloodlines) => {
+                            if (!character || !currentAccountName) return;
+                            void pushSaveToServer(character, currentAccountName, { savedBloodlines: nextBloodlines }).catch(() => {});
+                        }}
                         onClose={() => { setBloodlineMakerRankLocked(false); setScreen("centralHub"); }}
                     />
                 )}
@@ -7677,7 +7928,7 @@ function PetYard({ character, updateCharacter, setScreen }: { character: Charact
         if (selectedPet.training && Date.now() < selectedPet.training.endsAt) return alert(`${selectedPet.name} is already training.`);
         updateCharacter({
             ...character,
-            pets: character.pets.map((p) => p.id === selectedPet.id ? { ...p, training: { type: trainingType, endsAt: Date.now() + trainingDuration } } : p),
+            pets: character.pets.map((p) => p.id === selectedPet.id ? { ...p, training: { type: trainingType, endsAt: Date.now() + trainingDuration, durationMs: trainingDuration } } : p),
         });
     }
 
@@ -7687,12 +7938,12 @@ function PetYard({ character, updateCharacter, setScreen }: { character: Charact
             return alert(`${selectedPet.name} needs ${formatPetTimer(selectedPet.training.endsAt - Date.now())} more.`);
         }
         const completedBase = collectPetTraining(selectedPet);
-        const bonusXp = selectedPet.training.type === "bond" ? Math.max(0, boostAmount(completedBase.xp - selectedPet.xp, petXpBonus) - (completedBase.xp - selectedPet.xp)) : 0;
-        const completed = selectedPet.training.type === "bond"
-            ? gainPetXp({ ...completedBase, xp: selectedPet.xp }, completedBase.xp - selectedPet.xp + bonusXp)
-            : completedBase;
+        const gains = petTrainingGains(selectedPet);
+        const baseXp = selectedPet.training.type === "bond" ? gains.xp + Math.round(gains.xp * 0.35) : gains.xp;
+        const bonusXp = Math.max(0, boostAmount(baseXp, petXpBonus) - baseXp);
+        const completed = bonusXp > 0 ? gainPetXp(completedBase, bonusXp) : completedBase;
         updateCharacter({ ...character, pets: character.pets.map((p) => p.id === selectedPet.id ? completed : p) });
-        alert(`${selectedPet.name} completed ${selectedPet.training.type} training!${bonusXp > 0 ? ` +${bonusXp} bonus pet XP.` : " Stats improved."}`);
+        alert(`${selectedPet.name} completed ${selectedPet.training.type} training! Stats improved.${bonusXp > 0 ? ` +${bonusXp} bonus pet XP.` : ""}`);
     }
 
     function removeInventoryItem(itemId: string) {
@@ -7904,6 +8155,7 @@ function PetYard({ character, updateCharacter, setScreen }: { character: Charact
                                             <option key={d.ms} value={d.ms}>{d.label}</option>
                                         ))}
                                     </select>
+                                    <p className="hint">Expected gains: {petTrainingPreview(selectedPet, trainingType, trainingDuration)}</p>
                                     <button className="admin-button" onClick={startTraining}>Start Training</button>
                                 </>
                             )}
@@ -9710,6 +9962,7 @@ function AdminPanel({
     const [pmSnap, setPmSnap] = useState<Record<string, unknown> | null>(null);
     const [pmMsg, setPmMsg] = useState("");
     const [allKnownPlayers, setAllKnownPlayers] = useState<{ name: string; level: number; village: string; online: boolean }[]>([]);
+    const [pendingPlayerBloodlines, setPendingPlayerBloodlines] = useState<ReviewBloodline[]>([]);
     const [serverResetMsg, setServerResetMsg] = useState("");
 
     // Fetch all server-saved players (registry + presence)
@@ -9721,8 +9974,14 @@ function AdminPanel({
             body: JSON.stringify({ password: adminPw }),
         })
             .then(r => r.ok ? r.json() : null)
-            .then((data: { players: { name: string; level: number; village: string; online: boolean }[] } | null) => {
+            .then((data: { players: { name: string; level: number; village: string; online: boolean }[]; bloodlines?: ReviewBloodline[] } | null) => {
                 if (data?.players) setAllKnownPlayers(data.players);
+                if (data?.bloodlines) {
+                    setPendingPlayerBloodlines(data.bloodlines.map((bloodline) => ({
+                        ...bloodline,
+                        jutsus: (bloodline.jutsus ?? []).map(normalizeJutsu),
+                    })));
+                }
             })
             .catch(() => {/* silently ignore */});
     }
@@ -9933,15 +10192,47 @@ function AdminPanel({
         pmApproveItem(id); // also hide from review
     }
 
-    function pmApproveBloodline(id: string) {
-        const next = [...approvedBloodlineIds, id];
+    function bloodlineReviewKey(bloodline: ReviewBloodline) {
+        return `${bloodline.ownerKey ?? "admin"}:${bloodline.id}`;
+    }
+
+    function isBloodlineApproved(bloodline: ReviewBloodline) {
+        return approvedBloodlineIds.includes(bloodline.id) || approvedBloodlineIds.includes(bloodlineReviewKey(bloodline));
+    }
+
+    function pmApproveBloodline(bloodline: ReviewBloodline) {
+        const reviewKey = bloodlineReviewKey(bloodline);
+        const cleanBloodline: SavedBloodline = {
+            id: bloodline.id,
+            name: bloodline.name,
+            rank: bloodline.rank,
+            image: bloodline.image,
+            specialElement: bloodline.specialElement,
+            lore: bloodline.lore,
+            jutsus: bloodline.jutsus.map(normalizeJutsu),
+            totalPoints: bloodline.totalPoints,
+        };
+        if (!savedBloodlines.some((existing) => existing.id === cleanBloodline.id)) {
+            if (cleanBloodline.image) void publishSharedImage('bloodline:' + cleanBloodline.id, cleanBloodline.image);
+            for (const jutsu of cleanBloodline.jutsus) {
+                if (jutsu.image) void publishSharedImage('jutsu:' + jutsu.id, jutsu.image);
+            }
+            setSavedBloodlines([...savedBloodlines, cleanBloodline]);
+            setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
+        }
+        const next = Array.from(new Set([...approvedBloodlineIds, reviewKey]));
         setApprovedBloodlineIds(next);
         localStorage.setItem("admin:approvedBloodlines", JSON.stringify(next));
     }
 
-    function pmDeleteBloodline(id: string) {
-        setSavedBloodlines(savedBloodlines.filter(b => b.id !== id));
-        pmApproveBloodline(id);
+    function pmDeleteBloodline(bloodline: ReviewBloodline) {
+        const reviewKey = bloodlineReviewKey(bloodline);
+        if (!bloodline.ownerKey || bloodline.ownerKey === "admin") {
+            setSavedBloodlines(savedBloodlines.filter(b => b.id !== bloodline.id));
+        }
+        const next = Array.from(new Set([...approvedBloodlineIds, reviewKey]));
+        setApprovedBloodlineIds(next);
+        localStorage.setItem("admin:approvedBloodlines", JSON.stringify(next));
     }
     const [leadershipImages, setLeadershipImages] = useState<VillageLeadershipImages>(() => loadVillageLeadershipImages());
     const eventKindFilter: "All" | "reward" | "visualNovel" =
@@ -10184,7 +10475,7 @@ function AdminPanel({
 
     function createAdminJutsu() {
         const newJutsu = rebalanceNonBloodlineJutsu(jutsuFromForm());
-        if (newJutsu.image) void publishSharedImage('jutsu:' + newJutsu.id, newJutsu.image);
+        void publishSharedImage('jutsu:' + newJutsu.id, newJutsu.image ?? "");
 
         setCreatorJutsus([...creatorJutsus, newJutsu]);
 
@@ -10195,7 +10486,7 @@ function AdminPanel({
     function saveAdminJutsuEdit() {
         if (!editingJutsuId) return alert("Load an existing admin jutsu first.");
         const updatedJutsu = jutsuFromForm(editingJutsuId);
-        if (updatedJutsu.image) void publishSharedImage('jutsu:' + updatedJutsu.id, updatedJutsu.image);
+        void publishSharedImage('jutsu:' + updatedJutsu.id, updatedJutsu.image ?? "");
         const sourceBloodline = savedBloodlines.find((bloodline) => bloodline.jutsus.some((jutsu) => jutsu.id === editingJutsuId));
         if (sourceBloodline) {
             setSavedBloodlines(savedBloodlines.map((bloodline) => bloodline.id === sourceBloodline.id ? {
@@ -10310,11 +10601,15 @@ function AdminPanel({
         // Publish all VN page images to shared KV so they survive server save stripping.
         // Called on every save (create or update) to catch images uploaded before
         // editingEventId was set, and to re-publish in case of any missed writes.
+        await Promise.all([
+            publishSharedImage(`event:${imageEventId}:bg`, event.image ?? ""),
+            publishSharedImage(`event:${imageEventId}:avatar`, event.avatarImage ?? ""),
+        ]);
         if (!event.vnPages) return;
         await Promise.all(event.vnPages.flatMap((page, i) => [
-            page.image      ? publishSharedImage(`vn:${imageEventId}:page:${i}`,       page.image)      : Promise.resolve(),
-            page.leftImage  ? publishSharedImage(`vn:${imageEventId}:page:${i}:left`,  page.leftImage)  : Promise.resolve(),
-            page.rightImage ? publishSharedImage(`vn:${imageEventId}:page:${i}:right`, page.rightImage) : Promise.resolve(),
+            publishSharedImage(`vn:${imageEventId}:page:${i}`,       page.image ?? ""),
+            publishSharedImage(`vn:${imageEventId}:page:${i}:left`,  page.leftImage ?? ""),
+            publishSharedImage(`vn:${imageEventId}:page:${i}:right`, page.rightImage ?? ""),
         ]));
     }
 
@@ -12478,7 +12773,10 @@ function AdminPanel({
                 const reviewItems = getAllItems(creatorItems).filter(i =>
                     i.image && ["weapon","armor","accessory","rune"].includes(i.slot) && !approvedItemIds.includes(i.id)
                 );
-                const reviewBloodlines = savedBloodlines.filter(b => !approvedBloodlineIds.includes(b.id));
+                const reviewBloodlines: ReviewBloodline[] = [
+                    ...savedBloodlines.map((bloodline) => ({ ...bloodline, ownerName: "Admin", ownerKey: "admin" })),
+                    ...pendingPlayerBloodlines.filter((bloodline) => !savedBloodlines.some((saved) => saved.id === bloodline.id)),
+                ].filter((bloodline) => !isBloodlineApproved(bloodline));
                 const pmChar = pmSnap?.character as Record<string, unknown> | null;
                 const currencyLabels: { key: string; label: string }[] = [
                     { key: "honorSeals",  label: "Honor Seals"  },
@@ -12789,14 +13087,15 @@ function AdminPanel({
                             {reviewBloodlines.length === 0
                                 ? <p className="hint">No bloodlines pending review.</p>
                                 : reviewBloodlines.map(bl => (
-                                    <div key={bl.id} className="summary-box" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                                    <div key={bloodlineReviewKey(bl)} className="summary-box" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                                         {bl.image && <img src={bl.image} alt={bl.name} style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 6, border: "1px solid #334155" }} />}
                                         <div style={{ flex: 1 }}>
                                             <strong>{bl.name}</strong>
-                                            <p className="hint" style={{ margin: 0 }}>{bl.rank}{bl.specialElement ? ` · ${bl.specialElement}` : ""} · {bl.totalPoints} pts · {bl.jutsus.length} jutsus</p>
+                                            <p className="hint" style={{ margin: 0 }}>{bl.ownerName ? `By ${bl.ownerName} · ` : ""}{bl.rank}{bl.specialElement ? ` · ${bl.specialElement}` : ""} · {bl.totalPoints} pts · {bl.jutsus.length} jutsus</p>
+                                            {bl.lore && <p className="hint" style={{ margin: "4px 0 0" }}>{bl.lore}</p>}
                                         </div>
-                                        <button onClick={() => pmApproveBloodline(bl.id)}>✅ Approve</button>
-                                        <button className="danger-button" onClick={() => pmDeleteBloodline(bl.id)}>🗑️ Delete</button>
+                                        <button onClick={() => pmApproveBloodline(bl)}>✅ Approve</button>
+                                        <button className="danger-button" onClick={() => pmDeleteBloodline(bl)}>🗑️ Delete</button>
                                     </div>
                                 ))
                             }
@@ -13101,13 +13400,14 @@ function JutsuEffectCards({ jutsu, scaledEffectPower, masteryLevel }: { jutsu: J
         );
     }
 
-    const level = masteryLevel ?? 50;
-    const epJutsu = scaledEffectPower === undefined ? jutsu : { ...jutsu, effectPower: scaledEffectPower };
-    const effectJutsu = scaleJutsuTagsForDisplay(epJutsu, level);
+    const level = masteryLevel ?? JUTSU_MAX_LEVEL;
+    const effectJutsu = scaledEffectPower === undefined
+        ? jutsuDisplayAtLevel(jutsu, level)
+        : scaleJutsuTagsForDisplay({ ...jutsu, effectPower: scaledEffectPower }, level);
 
     return (
         <div className="jutsu-effect-cards">
-            {tags.map((tag, index) => {
+            {effectJutsu.tags.filter((tag) => tag.name).map((tag, index) => {
                 const info = jutsuEffectInfo(effectJutsu, tag);
                 return (
                     <div className="jutsu-effect-card" key={`${tag.name}-${index}`}>
@@ -18682,8 +18982,11 @@ function StoryBoss({ character, updateCharacter, setScreen }: { character: Chara
     const [turn, setTurn] = useState(1);
     const [log, setLog] = useState("The boss steps forward. The air changes.");
     const [effect, setEffect] = useState("");
+    const [summonedPetId, setSummonedPetId] = useState("");
     if (!storyStep) return <div className="card"><h2>No Boss Available</h2><button onClick={() => setScreen("storyHall")}>Back to Story</button></div>;
     const activeAuraBonuses = getActiveAuraSphereBonuses(character);
+    const activeBattlePet = character.pets.find((pet) => pet.id === character.activePetId);
+    const summonedPet = activeBattlePet && summonedPetId === activeBattlePet.id ? activeBattlePet : null;
     const basicAttackDamage = boostAmount(Math.floor(35 + getOffenseStat(character.stats, character.specialty) * 0.08), activeAuraBonuses.pveDamagePercent);
     const chakraStrikeDamage = boostAmount(Math.floor(65 + getOffenseStat(character.stats, character.specialty) * 0.12), activeAuraBonuses.pveDamagePercent);
     function winBossFight(newPlayerHp: number) {
@@ -18704,12 +19007,40 @@ function StoryBoss({ character, updateCharacter, setScreen }: { character: Chara
         updateCharacter(nextCharacter);
         setLog(`${storyStep.bossName} defeated. +${storyStep.rewardXp} XP, +${storyStep.rewardRyo} ryo, +12 Aura Dust. Story advanced.`);
     }
+    function summonBossPet() {
+        if (!activeBattlePet) return setLog("No active pet selected. Choose one in the Pet Yard first.");
+        if (!activeBattlePet.unlockedForPve) return setLog(`${petDisplayName(activeBattlePet)} must reach level 50 before it can join PvE battles.`);
+        if (summonedPet) return setLog(`${petDisplayName(summonedPet)} is already fighting beside you.`);
+        setSummonedPetId(activeBattlePet.id);
+        setLog(`${petDisplayName(activeBattlePet)} joins the boss fight and will act after you do.`);
+    }
+    function bossPetFollowUp(currentBossHp = bossHp, currentPlayerHp = playerHp) {
+        if (!summonedPet || currentBossHp <= 0 || currentPlayerHp <= 0) return;
+        const petName = petDisplayName(summonedPet);
+        const happiness = petHappiness(summonedPet);
+        const loyalTarget = happiness >= 71;
+        const attacksBoss = loyalTarget || Math.random() >= 0.5;
+        const damage = petCombatDamage(summonedPet);
+        if (attacksBoss) {
+            const nextBossHp = Math.max(0, currentBossHp - damage);
+            setBossHp(nextBossHp);
+            setEffect("🐾");
+            if (nextBossHp <= 0) return winBossFight(currentPlayerHp);
+            return setLog(`${petName} attacks ${storyStep.bossName}${loyalTarget ? "" : " despite low happiness"} for ${damage} damage.`);
+        }
+        const friendlyDamage = Math.max(1, Math.floor(damage * 0.65));
+        const nextPlayerHp = Math.max(0, currentPlayerHp - friendlyDamage);
+        setPlayerHp(nextPlayerHp);
+        updateCharacter({ ...character, hp: nextPlayerHp });
+        setEffect("🐾");
+        setLog(`${petName}'s low happiness backfires. It attacks you for ${friendlyDamage} damage.`);
+    }
     function bossCounter() { if (bossHp <= 0) return; const damage = Math.max(5, storyStep.bossDamage + Math.floor(turn * 2)); const afterHit = Math.max(0, playerHp - damage); setPlayerHp(afterHit); updateCharacter({ ...character, hp: afterHit }); if (afterHit <= 0) return setLog(`${storyStep.bossName} defeated you. Visit the Hospital and try again.`); setTurn((t) => t + 1); setAp(100); setLog(`${storyStep.bossName} counters for ${damage} damage.`); }
-    function basicAttack() { if (ap < 40) return setLog("Not enough AP."); const newBossHp = Math.max(0, bossHp - basicAttackDamage); setBossHp(newBossHp); setAp((c) => c - 40); setEffect("⚔️"); if (newBossHp <= 0) return winBossFight(playerHp); setLog(`You strike ${storyStep.bossName} for ${basicAttackDamage} damage.`); }
-    function chakraStrike() { if (ap < 60) return setLog("Not enough AP."); if (character.chakra < 20) return setLog("Not enough chakra."); const newBossHp = Math.max(0, bossHp - chakraStrikeDamage); setBossHp(newBossHp); setAp((c) => c - 60); setEffect("💠"); updateCharacter({ ...character, chakra: Math.max(0, character.chakra - 20) }); if (newBossHp <= 0) return winBossFight(playerHp); setLog(`You unleash a chakra strike for ${chakraStrikeDamage} damage. -20 chakra.`); }
-    function guard() { if (ap < 30) return setLog("Not enough AP."); const reducedDamage = Math.max(1, Math.floor(storyStep.bossDamage * 0.45)); const afterHit = Math.max(0, playerHp - reducedDamage); setPlayerHp(afterHit); setAp(100); setTurn((t) => t + 1); setEffect("🛡️"); updateCharacter({ ...character, hp: afterHit }); setLog(`You guard. ${storyStep.bossName} only deals ${reducedDamage} damage.`); }
-    function recover() { if (ap < 50) return setLog("Not enough AP."); const heal = 35 + Math.floor(character.stats.willpower * 0.05); const newHp = Math.min(character.maxHp, playerHp + heal); setPlayerHp(newHp); setAp((c) => c - 50); setEffect("❤️"); updateCharacter({ ...character, hp: newHp, chakra: Math.min(character.maxChakra, character.chakra + 15) }); setLog(`You recover your breathing. +${heal} HP and +15 chakra.`); }
-    return <div className="card cinematic-card"><div className="boss-stage">{effect && <div className="combat-effect">{effect}</div>}<div className="cinematic-panel"><p className="act-label">{storyStep.cinematicTitle}</p><h2>{storyStep.bossIcon} {storyStep.bossName}</h2><p className="scene-text">{storyStep.scene}</p></div><div className="combat-stats"><div><strong>{character.name}</strong><div className="bar-label">HP {playerHp}/{character.maxHp}</div><div className="bar"><span style={{ width: `${(playerHp / character.maxHp) * 100}%` }}></span></div><div className="bar-label">Chakra {character.chakra}/{character.maxChakra}</div><div className="bar ap-bar"><span style={{ width: `${(character.chakra / character.maxChakra) * 100}%` }}></span></div><p>AP: {ap}/100</p></div><div><strong>{storyStep.bossName}</strong><div className="bar-label">HP {bossHp}/{storyStep.bossHp}</div><div className="bar enemy-bar"><span style={{ width: `${(bossHp / storyStep.bossHp) * 100}%` }}></span></div><p>Boss Damage: {storyStep.bossDamage}</p><p>Turn: {turn}</p></div></div><div className="jutsu-combat-grid"><button onClick={basicAttack}><span className="jutsu-icon">⚔️</span><strong>Basic Attack</strong><small>40 AP / no chakra</small></button><button onClick={chakraStrike}><span className="jutsu-icon">💠</span><strong>Chakra Strike</strong><small>60 AP / -20 chakra</small></button><button onClick={guard}><span className="jutsu-icon">🛡️</span><strong>Guard</strong><small>30 AP / reduce damage</small></button><button onClick={recover}><span className="jutsu-icon">❤️</span><strong>Recover</strong><small>50 AP / heal + chakra</small></button></div><div className="menu"><button onClick={bossCounter}>End Turn</button><button onClick={() => setScreen("storyHall")}>Back to Story</button></div><div className="log">{log}</div></div></div>;
+    function basicAttack() { if (ap < 40) return setLog("Not enough AP."); const newBossHp = Math.max(0, bossHp - basicAttackDamage); setBossHp(newBossHp); setAp((c) => c - 40); setEffect("⚔️"); if (newBossHp <= 0) return winBossFight(playerHp); setLog(`You strike ${storyStep.bossName} for ${basicAttackDamage} damage.`); bossPetFollowUp(newBossHp, playerHp); }
+    function chakraStrike() { if (ap < 60) return setLog("Not enough AP."); if (character.chakra < 20) return setLog("Not enough chakra."); const newBossHp = Math.max(0, bossHp - chakraStrikeDamage); setBossHp(newBossHp); setAp((c) => c - 60); setEffect("💠"); updateCharacter({ ...character, chakra: Math.max(0, character.chakra - 20) }); if (newBossHp <= 0) return winBossFight(playerHp); setLog(`You unleash a chakra strike for ${chakraStrikeDamage} damage. -20 chakra.`); bossPetFollowUp(newBossHp, playerHp); }
+    function guard() { if (ap < 30) return setLog("Not enough AP."); const reducedDamage = Math.max(1, Math.floor(storyStep.bossDamage * 0.45)); const afterHit = Math.max(0, playerHp - reducedDamage); setPlayerHp(afterHit); setAp(100); setTurn((t) => t + 1); setEffect("🛡️"); updateCharacter({ ...character, hp: afterHit }); setLog(`You guard. ${storyStep.bossName} only deals ${reducedDamage} damage.`); bossPetFollowUp(bossHp, afterHit); }
+    function recover() { if (ap < 50) return setLog("Not enough AP."); const heal = 35 + Math.floor(character.stats.willpower * 0.05); const newHp = Math.min(character.maxHp, playerHp + heal); setPlayerHp(newHp); setAp((c) => c - 50); setEffect("❤️"); updateCharacter({ ...character, hp: newHp, chakra: Math.min(character.maxChakra, character.chakra + 15) }); setLog(`You recover your breathing. +${heal} HP and +15 chakra.`); bossPetFollowUp(bossHp, newHp); }
+    return <div className="card cinematic-card"><div className="boss-stage">{effect && <div className="combat-effect">{effect}</div>}<div className="cinematic-panel"><p className="act-label">{storyStep.cinematicTitle}</p><h2>{storyStep.bossIcon} {storyStep.bossName}</h2><p className="scene-text">{storyStep.scene}</p></div><div className="combat-stats"><div><strong>{character.name}</strong><div className="bar-label">HP {playerHp}/{character.maxHp}</div><div className="bar"><span style={{ width: `${(playerHp / character.maxHp) * 100}%` }}></span></div><div className="bar-label">Chakra {character.chakra}/{character.maxChakra}</div><div className="bar ap-bar"><span style={{ width: `${(character.chakra / character.maxChakra) * 100}%` }}></span></div><p>AP: {ap}/100</p>{summonedPet && <p>Pet: {petDisplayName(summonedPet)} · Happy {petHappiness(summonedPet)}%</p>}</div><div><strong>{storyStep.bossName}</strong><div className="bar-label">HP {bossHp}/{storyStep.bossHp}</div><div className="bar enemy-bar"><span style={{ width: `${(bossHp / storyStep.bossHp) * 100}%` }}></span></div><p>Boss Damage: {storyStep.bossDamage}</p><p>Turn: {turn}</p></div></div><div className="jutsu-combat-grid"><button onClick={basicAttack}><span className="jutsu-icon">⚔️</span><strong>Basic Attack</strong><small>40 AP / no chakra</small></button><button onClick={chakraStrike}><span className="jutsu-icon">💠</span><strong>Chakra Strike</strong><small>60 AP / -20 chakra</small></button><button onClick={guard}><span className="jutsu-icon">🛡️</span><strong>Guard</strong><small>30 AP / reduce damage</small></button><button onClick={recover}><span className="jutsu-icon">❤️</span><strong>Recover</strong><small>50 AP / heal + chakra</small></button><button onClick={summonBossPet} disabled={!activeBattlePet || Boolean(summonedPet)}><span className="jutsu-icon">🐾</span><strong>Summon Pet</strong><small>{summonedPet ? `${petDisplayName(summonedPet)} active` : activeBattlePet ? petDisplayName(activeBattlePet) : "No active pet"}</small></button></div><div className="menu"><button onClick={bossCounter}>End Turn</button><button onClick={() => setScreen("storyHall")}>Back to Story</button></div><div className="log">{log}</div></div></div>;
 }
 
 function Training({ character, updateCharacter, activeTraining, setActiveTraining }: { character: Character; updateCharacter: (character: Character) => void; activeTraining: ActiveTraining | null; setActiveTraining: (training: ActiveTraining | null) => void }) {
@@ -18852,7 +19183,7 @@ function JutsuTrainingHall({
     const selectedDuration = selectedMastery ? jutsuTrainingDuration(selectedMastery.level) : 0;
     const activeRemaining = activeJutsuTraining ? activeJutsuTraining.endsAt - now : 0;
 
-    return <div className="card"><h2>Jutsu Training Hall</h2><p>Train jutsu to <strong>Level 30</strong> with ryo. Levels <strong>31-50</strong> must be earned from battles. Your elements: <strong>{ownedElements.length ? ownedElements.join(" / ") : "None awakened"}</strong>. Town Hall + Aura training bonus: <strong>{jutsuTrainingBonus.toFixed(2)}%</strong>.</p>{lockedElementCount > 0 && <p className="hint">{lockedElementCount} jutsu locked until you awaken their element.</p>}{activeJutsuTraining && <div className="summary-box"><h3>Active Jutsu Training</h3><p><strong>{activeJutsuTraining.label}</strong>: Level {activeJutsuTraining.fromLevel} ? {activeJutsuTraining.toLevel}</p><p>Cost paid: {activeJutsuTraining.ryoCost} ryo</p><p>{activeRemaining > 0 ? `Time remaining: ${formatTrainingTime(activeRemaining)}` : "Training complete. Claim your level."}</p><button onClick={completePaidJutsuTraining}>{activeRemaining > 0 ? "Check Training" : "Claim Jutsu Level"}</button></div>}<JutsuDropdownList jutsus={availableJutsus} label="Choose Jutsu" emptyText={ownedElements.length ? "No jutsu match your awakened elements." : "Awaken an element at the Awakening Stone before training elemental jutsu."} renderDetails={(jutsu) => { const mastery = getJutsuMastery(character, jutsu.id); const scaled = scaleJutsuByLevel(jutsu, mastery.level); const cost = jutsuTrainingCost(mastery.level); const duration = jutsuTrainingDuration(mastery.level); return <><p>Level: {mastery.level}/50 | XP: {mastery.xp}/{mastery.level >= 50 ? "MAX" : jutsuXpNeeded(mastery.level)}</p><p>Type: {jutsu.type} | Element: {jutsu.element} | AP: {jutsu.ap} | Range: {jutsu.range}</p><p>Scaled EP: {scaled.scaledEffectPower} | Chakra Cost: {scaled.chakraCost} | Stamina Cost: {scaled.staminaCost}</p><p><strong>Paid Training:</strong> {mastery.level === 0 ? "Free & Instant — unlocks Level 1" : mastery.level < JUTSU_TRAINING_CAP ? `${cost} ryo | ${duration / 60000} minutes | +1 full level` : "Battle only from here"}</p><p><strong>Effects:</strong> {describeJutsuEffects({ ...scaleJutsuTagsForDisplay(jutsu, mastery.level), effectPower: scaled.scaledEffectPower })}</p><JutsuEffectCards jutsu={jutsu} scaledEffectPower={scaled.scaledEffectPower} masteryLevel={mastery.level} /><p>{selectedJutsuId === jutsu.id ? "Selected for paid training." : mastery.level < 30 ? "Training Hall available." : mastery.level < 50 ? "Battle only." : "Mastered."}</p></>; }} renderActions={(jutsu) => <button onClick={() => setSelectedJutsuId(jutsu.id)}>Select For Training</button>} /><h3>Paid Ryo Training</h3><div className="summary-box"><p>{selectedJutsu ? <><strong>{selectedJutsu.name}</strong> will train from level {selectedMastery?.level ?? 0} to {Math.min(JUTSU_TRAINING_CAP, (selectedMastery?.level ?? 0) + 1)}.</> : "Choose a jutsu to train."}</p><p>{selectedMastery?.level === 0 ? <><strong>Free & Instant</strong> — Level 0 → 1</> : <>Cost: <strong>{selectedCost}</strong> ryo | Time: <strong>{selectedDuration / 60000}</strong> minutes | Reward: <strong>1 full jutsu level</strong></>}</p><button onClick={startPaidJutsuTraining} disabled={!selectedJutsu || !!activeJutsuTraining || !selectedMastery || selectedMastery.level >= JUTSU_TRAINING_CAP || (selectedMastery.level > 0 && character.ryo < selectedCost)}>{activeJutsuTraining ? "Training In Progress" : selectedMastery && selectedMastery.level >= JUTSU_TRAINING_CAP ? "Battle Training Required" : selectedMastery?.level === 0 ? "Unlock Level 1 (Free)" : `Pay ${selectedCost} Ryo & Train`}</button></div></div>;
+    return <div className="card"><h2>Jutsu Training Hall</h2><p>Train jutsu to <strong>Level 30</strong> with ryo. Levels <strong>31-50</strong> must be earned from battles. Your elements: <strong>{ownedElements.length ? ownedElements.join(" / ") : "None awakened"}</strong>. Town Hall + Aura training bonus: <strong>{jutsuTrainingBonus.toFixed(2)}%</strong>.</p>{lockedElementCount > 0 && <p className="hint">{lockedElementCount} jutsu locked until you awaken their element.</p>}{activeJutsuTraining && <div className="summary-box"><h3>Active Jutsu Training</h3><p><strong>{activeJutsuTraining.label}</strong>: Level {activeJutsuTraining.fromLevel} ? {activeJutsuTraining.toLevel}</p><p>Cost paid: {activeJutsuTraining.ryoCost} ryo</p><p>{activeRemaining > 0 ? `Time remaining: ${formatTrainingTime(activeRemaining)}` : "Training complete. Claim your level."}</p><button onClick={completePaidJutsuTraining}>{activeRemaining > 0 ? "Check Training" : "Claim Jutsu Level"}</button></div>}<JutsuDropdownList jutsus={availableJutsus} label="Choose Jutsu" emptyText={ownedElements.length ? "No jutsu match your awakened elements." : "Awaken an element at the Awakening Stone before training elemental jutsu."} renderDetails={(jutsu) => { const mastery = getJutsuMastery(character, jutsu.id); const scaled = scaleJutsuByLevel(jutsu, mastery.level); const cost = jutsuTrainingCost(mastery.level); const duration = jutsuTrainingDuration(mastery.level); const displayJutsu = jutsuDisplayAtLevel(jutsu, mastery.level); return <><p>Level: {mastery.level}/50 | XP: {mastery.xp}/{mastery.level >= 50 ? "MAX" : jutsuXpNeeded(mastery.level)}</p><p>Type: {jutsu.type} | Element: {jutsu.element} | AP: {jutsu.ap} | Range: {jutsu.range}</p><p>Scaled EP: {scaled.scaledEffectPower} | Chakra Cost: {scaled.chakraCost}% | Stamina Cost: {scaled.staminaCost}%</p><p>Tags: {displayJutsu.tags.map((tag) => `${tag.name}${tag.percent ? ` ${tag.percent}%` : ""}`).join(", ") || "None"}</p><p><strong>Paid Training:</strong> {mastery.level === 0 ? "Free & Instant — unlocks Level 1" : mastery.level < JUTSU_TRAINING_CAP ? `${cost} ryo | ${duration / 60000} minutes | +1 full level` : "Battle only from here"}</p><p><strong>Effects:</strong> {describeJutsuEffects(jutsu, mastery.level)}</p><JutsuEffectCards jutsu={jutsu} scaledEffectPower={scaled.scaledEffectPower} masteryLevel={mastery.level} /><p>{selectedJutsuId === jutsu.id ? "Selected for paid training." : mastery.level < 30 ? "Training Hall available." : mastery.level < 50 ? "Battle only." : "Mastered."}</p></>; }} renderActions={(jutsu) => <button onClick={() => setSelectedJutsuId(jutsu.id)}>Select For Training</button>} /><h3>Paid Ryo Training</h3><div className="summary-box"><p>{selectedJutsu ? <><strong>{selectedJutsu.name}</strong> will train from level {selectedMastery?.level ?? 0} to {Math.min(JUTSU_TRAINING_CAP, (selectedMastery?.level ?? 0) + 1)}.</> : "Choose a jutsu to train."}</p><p>{selectedMastery?.level === 0 ? <><strong>Free & Instant</strong> — Level 0 → 1</> : <>Cost: <strong>{selectedCost}</strong> ryo | Time: <strong>{selectedDuration / 60000}</strong> minutes | Reward: <strong>1 full jutsu level</strong></>}</p><button onClick={startPaidJutsuTraining} disabled={!selectedJutsu || !!activeJutsuTraining || !selectedMastery || selectedMastery.level >= JUTSU_TRAINING_CAP || (selectedMastery.level > 0 && character.ryo < selectedCost)}>{activeJutsuTraining ? "Training In Progress" : selectedMastery && selectedMastery.level >= JUTSU_TRAINING_CAP ? "Battle Training Required" : selectedMastery?.level === 0 ? "Unlock Level 1 (Free)" : `Pay ${selectedCost} Ryo & Train`}</button></div></div>;
 }
 
 function CardVisual({ image, icon, label }: { image?: string; icon?: string; label: string }) {
@@ -19931,10 +20262,17 @@ function Profile({
                                     const mastery = getJutsuMastery(character, jutsu.id);
                                     return (
                                         <>
-                                            <p>Level {mastery.level}/50 | {jutsu.type} | {jutsu.element} | {jutsu.ap} AP | R{jutsu.range} | EP {jutsu.effectPower}</p>
-                                            <p>Tags: {jutsu.tags.map((tag) => `${tag.name}${tag.percent ? ` ${tag.percent}%` : ""}`).join(", ") || "None"}</p>
-                                            <p><strong>Effects:</strong> {describeJutsuEffects(jutsu)}</p>
-                                            <JutsuEffectCards jutsu={jutsu} />
+                                            {(() => {
+                                                const displayJutsu = jutsuDisplayAtLevel(jutsu, mastery.level);
+                                                return (
+                                                    <>
+                                                        <p>Level {mastery.level}/50 | {jutsu.type} | {jutsu.element} | {jutsu.ap} AP | R{jutsu.range} | EP {displayJutsu.effectPower}</p>
+                                                        <p>Tags: {displayJutsu.tags.map((tag) => `${tag.name}${tag.percent ? ` ${tag.percent}%` : ""}`).join(", ") || "None"}</p>
+                                                        <p><strong>Effects:</strong> {describeJutsuEffects(jutsu, mastery.level)}</p>
+                                                        <JutsuEffectCards jutsu={jutsu} masteryLevel={mastery.level} />
+                                                    </>
+                                                );
+                                            })()}
                                         </>
                                     );
                                 }}
@@ -19958,9 +20296,10 @@ function Profile({
         </div>
     );
 }
-function BloodlineMaker({ initialRank, initialSpecialElement, savedBloodlines, setSavedBloodlines, lockedRank, onClose }: { initialRank: Rank; initialSpecialElement?: string; savedBloodlines: SavedBloodline[]; setSavedBloodlines: (bloodlines: SavedBloodline[]) => void; lockedRank?: boolean; onClose?: () => void }) {
+function BloodlineMaker({ initialRank, initialSpecialElement, savedBloodlines, setSavedBloodlines, lockedRank, onSaveBloodlines, onClose }: { initialRank: Rank; initialSpecialElement?: string; savedBloodlines: SavedBloodline[]; setSavedBloodlines: (bloodlines: SavedBloodline[]) => void; lockedRank?: boolean; onSaveBloodlines?: (bloodlines: SavedBloodline[]) => void; onClose?: () => void }) {
     const [rank, setRank] = useState<Rank>(initialRank);
     const [bloodlineName, setBloodlineName] = useState("Custom Bloodline");
+    const [bloodlineLore, setBloodlineLore] = useState("");
     const [bloodlineImage, setBloodlineImage] = useState("");
     const [specialElement, setSpecialElement] = useState(initialSpecialElement ?? "");
     const [bloodlineOffense, setBloodlineOffense] = useState<JutsuType>("Ninjutsu");
@@ -19995,7 +20334,7 @@ function BloodlineMaker({ initialRank, initialSpecialElement, savedBloodlines, s
     function updateJutsu(index: number, updated: Partial<Jutsu>) {
         setJutsus((current) => current.map((jutsu, i) => {
             if (i !== index) return jutsu;
-            const next = normalizeJutsu({ ...jutsu, ...updated });
+            const next = normalizeJutsu(lockJutsuResourceCosts({ ...jutsu, ...updated }));
             if (!bloodlineJutsuMethods.includes(next.method)) next.method = "SINGLE";
             if (next.target === "SELF") next.range = 0;
             else if (![4, 5].includes(next.range)) next.range = 4;
@@ -20021,8 +20360,10 @@ function BloodlineMaker({ initialRank, initialSpecialElement, savedBloodlines, s
         const fixedEffectPower = currentJutsu ? hasFixedEffectPower(currentJutsu) : false;
         updateJutsu(index, {
             ap,
-            chakraCost: ap === 60 ? 300 : 175,
-            staminaCost: ap === 60 ? 300 : 175,
+            chakraCost: jutsuResourceBackingCost({ ap }),
+            staminaCost: jutsuResourceBackingCost({ ap }),
+            chakraCostReducePerLvl: 0,
+            staminaCostReducePerLvl: 0,
             tags: (currentJutsu?.tags ?? []).slice(0, ap === 60 ? 2 : 3),
             effectPower: fixedEffectPower ? 100 : ap === 60 ? ([40, 50].includes(currentJutsu?.effectPower ?? 0) ? currentJutsu!.effectPower : 40) : 0,
         });
@@ -20047,15 +20388,13 @@ function BloodlineMaker({ initialRank, initialSpecialElement, savedBloodlines, s
     function saveBloodline() {
         const finalElement = (specialElement.trim() || "Fire") as JutsuElement;
         const finalizedJutsus = jutsus.map((jutsu) => normalizeJutsu({
-            ...jutsu,
+            ...lockJutsuResourceCosts(jutsu),
             type: bloodlineOffense,
             element: finalElement,
             method: bloodlineJutsuMethods.includes(jutsu.method) ? jutsu.method : "SINGLE",
             range: jutsu.target === "SELF" ? 0 : jutsu.range,
             cooldown: 7,
             effectPower: hasFixedEffectPower(jutsu) ? 100 : jutsu.effectPower,
-            chakraCost: jutsu.ap === 60 ? 300 : 175,
-            staminaCost: jutsu.ap === 60 ? 300 : 175,
             tags: normalizeJutsuTags(jutsu.tags),
         }));
         const newId = makeId();
@@ -20065,13 +20404,16 @@ function BloodlineMaker({ initialRank, initialSpecialElement, savedBloodlines, s
         for (const jutsu of finalizedJutsus) {
             if (jutsu.image) void publishSharedImage('jutsu:' + jutsu.id, jutsu.image);
         }
-        setSavedBloodlines([...savedBloodlines, { id: newId, name: bloodlineName, rank, image: bloodlineImage, specialElement: specialElement.trim(), jutsus: finalizedJutsus, totalPoints: bloodlinePoints(finalizedJutsus) }]);
+        const nextBloodlines = [...savedBloodlines, { id: newId, name: bloodlineName, rank, image: bloodlineImage, specialElement: specialElement.trim(), lore: bloodlineLore.trim(), jutsus: finalizedJutsus, totalPoints: bloodlinePoints(finalizedJutsus) }];
+        setSavedBloodlines(nextBloodlines);
+        onSaveBloodlines?.(nextBloodlines);
         alert(`${bloodlineName} saved.`);
     }
     return (
         <div className="card bloodline-maker-screen global-menu-panel">
             <h2>Bloodline Maker</h2>
             <label>Name</label><input value={bloodlineName} onChange={(e) => setBloodlineName(e.target.value)} />
+            <label>Bloodline Text / Lore</label><textarea rows={3} value={bloodlineLore} onChange={(e) => setBloodlineLore(e.target.value)} placeholder="Describe what this bloodline is, where it comes from, or what makes it special." />
             <label>Special Element</label><input value={specialElement} onChange={(e) => setBloodlineSpecialElement(e.target.value)} placeholder="Example: Crystal, Lava, Storm, Shadow Flame" />
             <label>Offense Choice</label>
             <select value={bloodlineOffense} onChange={(e) => setBloodlineOffenseChoice(e.target.value as JutsuType)}>{specialties.map((s) => <option key={s}>{s}</option>)}</select>
@@ -20133,15 +20475,18 @@ function BloodlineMaker({ initialRank, initialSpecialElement, savedBloodlines, s
                     <div className="summary-box bloodline-element-lock">Cooldown: 7</div>
                     <label>Health Cost</label>
                     <div className="inline-grid"><input type="number" value={jutsu.healthCost} onChange={(e) => updateJutsu(jutsuIndex, { healthCost: Number(e.target.value) })} /></div>
-                    <div className="summary-box bloodline-element-lock">Chakra Cost: {jutsu.ap === 60 ? 300 : 175} · Stamina Cost: {jutsu.ap === 60 ? 300 : 175} (locked by AP tier)</div>
+                    <div className="summary-box bloodline-element-lock">
+                        Chakra/Stamina Cost: {formatJutsuResourcePercent(jutsu, "chakra")} each · Level 50: {formatJutsuResourcePercent(jutsu, "chakra", JUTSU_MAX_LEVEL)} each
+                    </div>
                     <label>Cost Reduction Per Level</label>
-                    <div className="inline-grid"><input type="number" value={jutsu.healthCostReducePerLvl} onChange={(e) => updateJutsu(jutsuIndex, { healthCostReducePerLvl: Number(e.target.value) })} /><input type="number" value={jutsu.chakraCostReducePerLvl} onChange={(e) => updateJutsu(jutsuIndex, { chakraCostReducePerLvl: Number(e.target.value) })} /><input type="number" value={jutsu.staminaCostReducePerLvl} onChange={(e) => updateJutsu(jutsuIndex, { staminaCostReducePerLvl: Number(e.target.value) })} /></div>
+                    <div className="inline-grid"><input type="number" value={jutsu.healthCostReducePerLvl} onChange={(e) => updateJutsu(jutsuIndex, { healthCostReducePerLvl: Number(e.target.value) })} /></div>
+                    <div className="summary-box bloodline-element-lock">Chakra and stamina reduction is locked to mastery: -1% at jutsu level 50.</div>
                     <label>Tags</label>{Array.from({ length: jutsu.ap === 60 ? 2 : 3 }).map((_, tagIndex) => <TagPicker key={tagIndex} rank={rank} jutsuTarget={jutsu.target} tag={jutsu.tags[tagIndex]?.name ?? ""} setTag={(name) => updateTag(jutsuIndex, tagIndex, { name })} percent={jutsu.tags[tagIndex]?.percent ?? 30} setPercent={(percent) => updateTag(jutsuIndex, tagIndex, { percent })} />)}
                     <p>Jutsu Points: {jutsuPoints(jutsu)}</p>
                 </div>
             ))}
             <button onClick={saveBloodline}>Save Bloodline</button>
-            <h3>Saved</h3>{savedBloodlines.map((b) => <div className="summary-box" key={b.id}>{b.image && <div className="admin-event-list-preview"><img src={b.image} alt={b.name} /></div>}{b.name} | {b.rank} | {b.specialElement ? `${b.specialElement} | ` : ""}Points {b.totalPoints}</div>)}
+            <h3>Saved</h3>{savedBloodlines.map((b) => <div className="summary-box" key={b.id}>{b.image && <div className="admin-event-list-preview"><img src={b.image} alt={b.name} /></div>}{b.name} | {b.rank} | {b.specialElement ? `${b.specialElement} | ` : ""}Points {b.totalPoints}{b.lore && <p className="hint">{b.lore}</p>}</div>)}
         </div>
     );
 }
@@ -20466,6 +20811,7 @@ function Arena({
     const [actionsThisTurn, setActionsThisTurn] = useState(0);
     const [battleHistory, setBattleHistory] = useState<BattleActionEntry[]>([]);
     const [selectedActionId, setSelectedActionId] = useState<SelectedCombatAction>(undefined);
+    const [summonedPetId, setSummonedPetId] = useState("");
 
     const [pendingTargetJutsuId, setPendingTargetJutsuIdRaw] = useState("");
     const [pendingTargetJutsuDirect, setPendingTargetJutsuDirect] = useState<Jutsu | null>(null);
@@ -20489,6 +20835,7 @@ function Arena({
     const enemyTurnRef     = useRef<() => void>(() => {});
 
     const pendingPlayerStunApPenaltyRef = useRef(false);
+    const lastPetActionKeyRef = useRef("");
 
     function setPendingTargetJutsuId(value: string) {
         setPendingTargetJutsuIdRaw(value);
@@ -20511,6 +20858,9 @@ function Arena({
 
     const inspectedJutsu = equippedJutsus.find((jutsu) => jutsu.id === inspectedJutsuId);
     const inspectedCombatItem = combatEquippedItems.find((item) => item.id === inspectedCombatItemId);
+    const activeBattlePet = character.pets.find((pet) => pet.id === character.activePetId);
+    const summonedPet = activeBattlePet && summonedPetId === activeBattlePet.id ? activeBattlePet : null;
+    const canSummonPet = Boolean(!opponentCharacter && battleStarted && !battleEnded);
 
     function weatherDamageMultiplier(jutsu: Jutsu) {
         if (rankedBattleActive) return 1;
@@ -20883,6 +21233,64 @@ function Arena({
         return true;
     }
 
+    function summonActivePet() {
+        if (!activeBattlePet) {
+            setLog("No active pet selected. Choose one in the Pet Yard first.");
+            return;
+        }
+        if (!activeBattlePet.unlockedForPve) {
+            setLog(`${petDisplayName(activeBattlePet)} must reach level 50 before it can join PvE battles.`);
+            return;
+        }
+        if (opponentCharacter) {
+            setLog("Pets cannot be summoned in player-vs-player battles.");
+            return;
+        }
+        if (summonedPetId === activeBattlePet.id) {
+            setLog(`${petDisplayName(activeBattlePet)} is already fighting beside you.`);
+            return;
+        }
+        setSummonedPetId(activeBattlePet.id);
+        setLog(`${petDisplayName(activeBattlePet)} joins the fight and will act after your moves.`);
+        addCombatLog(`${character.name} summons ${petDisplayName(activeBattlePet)}. Happiness: ${petHappiness(activeBattlePet)}%.`, "summonPet", petDisplayName(activeBattlePet));
+    }
+
+    function runSummonedPetAction() {
+        if (!summonedPet || opponentCharacter || battleEnded || activeActor !== "player") return;
+        if (enemyHp <= 0 || playerHp <= 0) return;
+
+        const petName = petDisplayName(summonedPet);
+        const happiness = petHappiness(summonedPet);
+        const loyalTarget = happiness >= 71;
+        const attacksEnemy = loyalTarget || Math.random() >= 0.5;
+        const damage = petCombatDamage(summonedPet);
+
+        if (attacksEnemy) {
+            const newEnemyHp = Math.max(0, enemyHp - damage);
+            setEnemyHp(newEnemyHp);
+            const loyaltyNote = loyalTarget ? "" : " despite its low happiness";
+            setLog(`${petName} attacks ${opponentName}${loyaltyNote} for ${damage} damage.`);
+            addCombatLog(`${petName} attacks ${opponentName}${loyaltyNote} for ${damage} damage.`, "petAttack", petName);
+            if (newEnemyHp <= 0) winBattle();
+            return;
+        }
+
+        const friendlyDamage = Math.max(1, Math.floor(damage * 0.65));
+        const newPlayerHp = Math.max(0, playerHp - friendlyDamage);
+        setPlayerHp(newPlayerHp);
+        updateCharacter({ ...character, hp: newPlayerHp });
+        setLog(`${petName}'s low happiness backfires. It attacks you for ${friendlyDamage} damage.`);
+        addCombatLog(`${petName}'s low happiness backfires and it attacks ${character.name} for ${friendlyDamage} damage.`, "petBackfire", petName);
+
+        if (newPlayerHp <= 0) {
+            setBattleEnded(true);
+            setBattleResult("loss");
+            setRaidBattleKind("none");
+            setLog(`${character.name} was defeated after ${petName}'s backfire.`);
+            addCombatLog(`${petName}'s backfire defeats ${character.name}.`, "defeat", petName);
+        }
+    }
+
     function waitTurn() {
         if (battleEnded) return;
         if (activeActor === "enemy") {
@@ -20892,6 +21300,14 @@ function Arena({
         addCombatLog(`${character.name} waits and ends their turn with ${ap} AP remaining.`, "wait", character.name);
         enemyTurn();
     }
+
+    useEffect(() => {
+        if (!summonedPet || opponentCharacter || !battleStarted || battleEnded || activeActor !== "player" || actionsThisTurn <= 0) return;
+        const key = `${turn}:${actionsThisTurn}`;
+        if (lastPetActionKeyRef.current === key) return;
+        lastPetActionKeyRef.current = key;
+        runSummonedPetAction();
+    }, [actionsThisTurn, activeActor, battleEnded, battleStarted, opponentCharacter, summonedPet?.id, turn]); // eslint-disable-line react-hooks/exhaustive-deps
 
     function reduceCooldowns() {
         setCooldowns((current) => {
@@ -20971,7 +21387,7 @@ function Arena({
             }
 
             const mastery = getJutsuMastery(character, pendingTargetJutsu.id);
-            const scaled = scaleJutsuByLevel(pendingTargetJutsu, mastery.level);
+            const scaled = scaleJutsuCostsForCharacter(pendingTargetJutsu, mastery.level, character);
 
             if (playerStatuses.some((s) => s.name === "Elemental Seal") && pendingTargetJutsu.element && pendingTargetJutsu.element !== "None") {
                 setLog(`${pendingTargetJutsu.element} jutsu is sealed.`);
@@ -21636,7 +22052,7 @@ function Arena({
         }
 
         const mastery = getJutsuMastery(character, jutsu.id);
-        const scaled = scaleJutsuByLevel(jutsu, mastery.level);
+        const scaled = scaleJutsuCostsForCharacter(jutsu, mastery.level, character);
 
         if (playerStatuses.some((s) => s.name === "Elemental Seal") && jutsu.element && jutsu.element !== "None") {
             return setLog(`${jutsu.element} jutsu is sealed.`);
@@ -21820,7 +22236,7 @@ function Arena({
                 if (enemyDebuffPrevented) effectLines.push(`${opponentName} resists poison`);
                 else {
                     setEnemyStatuses((s) => [...s, { name: "Poison", rounds: 2, percent: pct, kind: "negative" }]);
-                    const poisonDmg = Math.floor(enemyMaxChakra * 0.06);
+                    const poisonDmg = Math.floor(enemyMaxChakra * (pct / 100));
                     effectLines.push(`${opponentName} is poisoned — takes ${poisonDmg} damage/round for 2 rounds`);
                 }
             }
@@ -22373,6 +22789,8 @@ function Arena({
         setBattleResult(null);
         setDashMode(false);
         setSelectedActionId(undefined);
+        setSummonedPetId("");
+        lastPetActionKeyRef.current = "";
         const initiative = firstActor ?? rollInitiative();
         setActiveActor(initiative);
         setActionsThisTurn(0);
@@ -22883,6 +23301,12 @@ function Arena({
                         <button onClick={basicHeal}><span>Heal</span><small>60 AP | 10 CP | CD {cooldowns.basicHeal ?? 0}</small></button>
                         <button onClick={clearEnemyPositiveEffects}><span>Clear</span><small>60 AP | CD {cooldowns.clear ?? 0}</small></button>
                         <button onClick={cleansePlayerNegativeEffects}><span>Cleanse</span><small>60 AP | CD {cooldowns.cleanse ?? 0}</small></button>
+                        {canSummonPet && (
+                            <button onClick={summonActivePet} disabled={!activeBattlePet || Boolean(summonedPet)}>
+                                <span>Pet</span>
+                                <small>{summonedPet ? `${petDisplayName(summonedPet)} active` : activeBattlePet ? `Summon ${petDisplayName(activeBattlePet)}` : "No active pet"}</small>
+                            </button>
+                        )}
                         <button onClick={flee}><span>Flee</span><small>100 AP | 20%</small></button>
                         <button onClick={waitTurn}><span>Wait</span><small>{activeActor === "enemy" ? "Skip delay" : "End turn"}</small></button>
                     </div>
@@ -23073,8 +23497,8 @@ function Arena({
                                                 <span><strong>Target:</strong> {cleanTarget}</span>
                                                 <span><strong>Method:</strong> {cleanMethod}</span>
                                                 <span><strong>Effect Power:</strong> {scaled.scaledEffectPower}</span>
-                                                <span><strong>Chakra Usage:</strong> {scaled.chakraCost}</span>
-                                                <span><strong>Stamina Usage:</strong> {scaled.staminaCost}</span>
+                                                <span><strong>Chakra Usage:</strong> {formatJutsuResourcePercent(inspectedJutsu, "chakra", mastery.level)}</span>
+                                                <span><strong>Stamina Usage:</strong> {formatJutsuResourcePercent(inspectedJutsu, "stamina", mastery.level)}</span>
                                             </div>
 
                                             {inspectedJutsu.description && (
@@ -24085,7 +24509,7 @@ function PvpBattleScreen({
                                     return (
                                         <div className="combat-jutsu-detail-popover">
                                             <div className="combat-jutsu-detail-header">
-                                                <div><strong>{inspectedJutsu.name}</strong><small>Level {mastery.level} / 30</small></div>
+                                                <div><strong>{inspectedJutsu.name}</strong><small>Level {mastery.level} / {JUTSU_MAX_LEVEL}</small></div>
                                                 <button type="button" onClick={() => setInspectedJutsuId("")}>x</button>
                                             </div>
                                             <div className="combat-jutsu-detail-grid">
@@ -24095,12 +24519,12 @@ function PvpBattleScreen({
                                                 <span><strong>Range:</strong> {inspectedJutsu.range}</span>
                                                 <span><strong>Effect Power:</strong> {scaled.scaledEffectPower}</span>
                                                 <span><strong>Cooldown:</strong> {inspectedJutsu.cooldown}</span>
-                                                <span><strong>Chakra Cost:</strong> {scaled.chakraCost}</span>
-                                                <span><strong>Stamina Cost:</strong> {scaled.staminaCost}</span>
+                                                <span><strong>Chakra Cost:</strong> {formatJutsuResourcePercent(inspectedJutsu, "chakra", mastery.level)}</span>
+                                                <span><strong>Stamina Cost:</strong> {formatJutsuResourcePercent(inspectedJutsu, "stamina", mastery.level)}</span>
                                             </div>
                                             {inspectedJutsu.description && <p className="combat-jutsu-detail-desc">{inspectedJutsu.description}</p>}
                                             <div className="combat-jutsu-effects-list">
-                                                <JutsuEffectCards jutsu={inspectedJutsu} scaledEffectPower={scaled.scaledEffectPower} />
+                                                <JutsuEffectCards jutsu={inspectedJutsu} scaledEffectPower={scaled.scaledEffectPower} masteryLevel={mastery.level} />
                                             </div>
                                         </div>
                                     );
@@ -24149,4 +24573,3 @@ function PvpBattleScreen({
         </div>
     );
 }
-
