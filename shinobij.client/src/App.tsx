@@ -594,11 +594,11 @@ function equipmentSlotLabel(slot: EquipmentSlot) {
 type ArmorQuality = "Standard" | "Reinforced" | "Rare" | "Elite" | "Legendary";
 
 const armorQualityTiers: { quality: ArmorQuality; reduction: number; label: string }[] = [
-    { quality: "Standard", reduction: 0.05, label: "Standard — 5% damage reduction" },
-    { quality: "Reinforced", reduction: 0.07, label: "Reinforced — 7% damage reduction" },
-    { quality: "Rare", reduction: 0.10, label: "Rare — 10% damage reduction" },
-    { quality: "Elite", reduction: 0.12, label: "Elite — 12% damage reduction" },
-    { quality: "Legendary", reduction: 0.15, label: "Legendary — 15% damage reduction" },
+    { quality: "Standard", reduction: 0.01, label: "Standard — 1% damage reduction" },
+    { quality: "Reinforced", reduction: 0.03, label: "Reinforced — 3% damage reduction" },
+    { quality: "Rare", reduction: 0.05, label: "Rare — 5% damage reduction" },
+    { quality: "Elite", reduction: 0.06, label: "Elite — 6% damage reduction" },
+    { quality: "Legendary", reduction: 0.07, label: "Legendary — 7% damage reduction" },
 ];
 
 function armorReductionForQuality(quality?: ArmorQuality): number {
@@ -625,7 +625,7 @@ function getCharacterArmorFactor(character: Character, allItems: GameItem[]): nu
 // PvP-specific: returns raw DR sum (no hard floor) so the server's soft DR pool
 // can give diminishing returns across all 7 armor slots. Pets deliberately excluded
 // from PvP — their Guardian trait only applies in PvE via getCharacterArmorFactor.
-// 1 legendary piece = 0.15, full 7-slot legendary = 1.05.
+// 1 legendary piece = 0.07, full 7-slot legendary = 0.49.
 function getCharacterArmorRawDR(character: Character, allItems: GameItem[]): number {
     const armorSlots: EquipmentSlot[] = ["head", "hand", "body", "armor", "waist", "legs", "feet"];
     let totalReduction = 0;
@@ -20385,7 +20385,7 @@ function BloodlineMaker({ initialRank, initialSpecialElement, savedBloodlines, s
             return hasFixedEffectPower(next) ? { ...next, effectPower: 100 } : next;
         }));
     }
-    function saveBloodline() {
+    async function saveBloodline() {
         const finalElement = (specialElement.trim() || "Fire") as JutsuElement;
         const finalizedJutsus = jutsus.map((jutsu) => normalizeJutsu({
             ...lockJutsuResourceCosts(jutsu),
@@ -20400,10 +20400,10 @@ function BloodlineMaker({ initialRank, initialSpecialElement, savedBloodlines, s
         const newId = makeId();
         // Publish bloodline image and jutsu images to shared KV so they survive
         // stripImages on save and are restored for all players via hydrateImages.
-        if (bloodlineImage) void publishSharedImage('bloodline:' + newId, bloodlineImage);
-        for (const jutsu of finalizedJutsus) {
-            if (jutsu.image) void publishSharedImage('jutsu:' + jutsu.id, jutsu.image);
-        }
+        await Promise.all([
+            bloodlineImage ? publishSharedImage('bloodline:' + newId, bloodlineImage) : Promise.resolve(),
+            ...finalizedJutsus.map((jutsu) => jutsu.image ? publishSharedImage('jutsu:' + jutsu.id, jutsu.image) : Promise.resolve()),
+        ]);
         const nextBloodlines = [...savedBloodlines, { id: newId, name: bloodlineName, rank, image: bloodlineImage, specialElement: specialElement.trim(), lore: bloodlineLore.trim(), jutsus: finalizedJutsus, totalPoints: bloodlinePoints(finalizedJutsus) }];
         setSavedBloodlines(nextBloodlines);
         onSaveBloodlines?.(nextBloodlines);
@@ -20418,7 +20418,7 @@ function BloodlineMaker({ initialRank, initialSpecialElement, savedBloodlines, s
             <label>Offense Choice</label>
             <select value={bloodlineOffense} onChange={(e) => setBloodlineOffenseChoice(e.target.value as JutsuType)}>{specialties.map((s) => <option key={s}>{s}</option>)}</select>
             <label>Bloodline Image</label><input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) readImageFile(file, setBloodlineImage, 100); }} />
-            <AiImagePrompt label="Bloodline Image" suggestedPrompt={`${bloodlineName}, ${specialElement || "chakra"} bloodline symbol`} onImage={setBloodlineImage} />
+            <AiImagePrompt label="Bloodline Image" suggestedPrompt={`${bloodlineName}, ${specialElement || "chakra"} bloodline symbol`} onImage={async (image) => setBloodlineImage(await compressDataUrl(image, 512, 0.82))} />
             {bloodlineImage && <div className="admin-event-list-preview"><img src={bloodlineImage} alt={bloodlineName} /></div>}
             <label>Rank</label>
             {lockedRank
@@ -20432,7 +20432,7 @@ function BloodlineMaker({ initialRank, initialSpecialElement, savedBloodlines, s
                     <label>Name</label><input value={jutsu.name} onChange={(e) => updateJutsu(jutsuIndex, { name: e.target.value })} />
                     <label>Battle Description</label><textarea rows={2} value={jutsu.battleDescription} onChange={(e) => updateJutsu(jutsuIndex, { battleDescription: e.target.value, description: e.target.value })} />
                     <label>Jutsu Image</label><input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) readImageFile(file, (image) => updateJutsu(jutsuIndex, { image }), 100); }} />
-                    <AiImagePrompt label="Jutsu Image" suggestedPrompt={`${jutsu.name}, ${specialElement || jutsu.element} ${bloodlineOffense} bloodline technique`} onImage={(image) => updateJutsu(jutsuIndex, { image })} />
+                    <AiImagePrompt label="Jutsu Image" suggestedPrompt={`${jutsu.name}, ${specialElement || jutsu.element} ${bloodlineOffense} bloodline technique`} onImage={async (image) => updateJutsu(jutsuIndex, { image: await compressDataUrl(image, 512, 0.82) })} />
                     {jutsu.image && <div className="admin-jutsu-preview"><img src={jutsu.image} alt={jutsu.name} /></div>}
                     <div className="summary-box bloodline-element-lock">Offense: {bloodlineOffense}</div>
                     <div className="summary-box bloodline-element-lock">Element: {specialElement.trim() || "Type a special element above"}</div>
