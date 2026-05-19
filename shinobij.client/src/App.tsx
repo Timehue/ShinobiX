@@ -5534,6 +5534,30 @@ export default function App() {
         setTriggerLine(0);
     }, [activeTriggeredEvent, character, creatorEvents, screen, triggeredEvents]);
 
+    // Auto-trigger the multi-page story chapter VN when a player first reaches the required level.
+    // Uses TriggeredVisualNovel (full vnPages reader) instead of the flat StoryHall dialogue.
+    // Rewards are 0 here — XP/ryo come from beating the boss after the VN.
+    useEffect(() => {
+        if (!character || activeTriggeredEvent) return;
+        // Don't interrupt battle screens — let the VN fire after the player returns
+        if (screen === "arena" || screen === "storyBoss" || screen === "pvpBattle") return;
+        const step = getCurrentStory(character);
+        if (!step || character.level < step.levelReq) return;
+        const village = character.storyVillage || character.village;
+        const storyLine = storylines[village] || [];
+        const index = storyLine.findIndex(s => s.levelReq === step.levelReq);
+        if (index < 0) return;
+        const eventId = `story-${village.toLowerCase().replace(/\W+/g, "-")}-${step.levelReq}-${index}`;
+        if (triggeredEvents.includes(eventId)) return;
+        // Build the VN event — zero out rewards (awarded by boss fight, not VN viewing)
+        const vnEvent: CreatorEvent = { ...storyToCreatorEvent(step, village, index), xpReward: 0, ryoReward: 0 };
+        setTriggeredEvents(ids => [...ids, eventId]);
+        setActiveTriggeredEvent(vnEvent);
+        setActiveTriggerReturnScreen("storyHall");
+        setTriggerPage(0);
+        setTriggerLine(0);
+    }, [activeTriggeredEvent, character, screen, triggeredEvents]);
+
     useEffect(() => {
         const interval = setInterval(() => {
             setCharacter((prev) => {
@@ -6463,9 +6487,24 @@ export default function App() {
                 rankTitle: event.liberatorTitle ?? nextCharacter.rankTitle,
             };
         }
+        // Story chapter battles (triggered via auto-VN) must advance storyProgress just
+        // like kind:"storyBoss" does. The event id always starts with "story-" for these.
+        const isStoryChapterBattle = event.id.startsWith("story-");
+        if (isStoryChapterBattle) {
+            nextCharacter = {
+                ...nextCharacter,
+                storyProgress: character.storyProgress + 1,
+                auraDust: (nextCharacter.auraDust ?? 0) + 12,
+                hp: Math.min(nextCharacter.maxHp, survivingHp + 25),
+                stamina: Math.min(nextCharacter.maxStamina, nextCharacter.stamina + 20),
+                chakra: Math.min(nextCharacter.maxChakra, nextCharacter.chakra + 20),
+            };
+        }
         setCharacter(nextCharacter);
         setPendingAiProfileId("");
-        return `${battle?.bossName ?? event.name} defeated. +${xpReward} XP, +${ryoReward} ryo. Event reward claimed.`;
+        return isStoryChapterBattle
+            ? `${battle?.bossName ?? event.name} defeated. +${xpReward} XP, +${ryoReward} ryo, +12 Aura Dust. Story advanced.`
+            : `${battle?.bossName ?? event.name} defeated. +${xpReward} XP, +${ryoReward} ryo. Event reward claimed.`;
     }
 
     function continuePendingArenaStoryBattle() {
@@ -7509,6 +7548,7 @@ function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, setPageI
     const [showFinale, setShowFinale] = useState(false);
     const [pendingChoice, setPendingChoice] = useState<{ conclusion: string; nextPage: number } | null>(null);
     const isAuraSphereEvent = event.id === AURA_SPHERE_VN_ID;
+    const isStoryChapterEvent = event.id.startsWith("story-");
     function previousLine() { if (lineIndex > 0) return setLineIndex((index) => index - 1); if (pageIndex > 0) { const previousPage = pages[pageIndex - 1]; setPageIndex((index) => index - 1); setLineIndex(Math.max(0, ((previousPage.dialogue.length || 1) - 1))); } }
     function nextLine() { if (isAtChoicePoint) return; if (lineIndex < pageDialogue.length - 1) return setLineIndex((index) => index + 1); if (pageIndex < pages.length - 1) { setPageIndex((index) => index + 1); setLineIndex(0); return; } setShowFinale(true); }
     function chooseOption(choice: { text: string; nextPage: number; conclusion?: string; trait?: string; battle?: NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number]["battle"] }) {
@@ -7531,19 +7571,29 @@ function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, setPageI
                 <p className="vn-scene-card">
                     {isAuraSphereEvent
                         ? "The elder places the Aura Sphere in your hands. It waits in your inventory until you equip it in your aura slot."
-                        : <>The scene fades — a shinobi challenger steps from the shadows of <strong>{biomeLabel(event.biome)}</strong>. The fight is not over.</>}
+                        : isStoryChapterEvent
+                            ? <>The scene fades. Your village story continues — face the chapter boss when you are ready.</>
+                            : <>The scene fades — a shinobi challenger steps from the shadows of <strong>{biomeLabel(event.biome)}</strong>. The fight is not over.</>}
                 </p>
             </div>
             <div className="menu">
-                {!isAuraSphereEvent && (
+                {!isAuraSphereEvent && !isStoryChapterEvent && (
                     <button className="admin-button" onClick={() => onBattle(event)}>
                         Enter Battle — {biomeLabel(event.biome)}
                     </button>
                 )}
-                <button onClick={onComplete}>{isAuraSphereEvent ? "Claim Aura Sphere" : "Claim Reward & Skip Fight"}</button>
+                <button onClick={onComplete}>
+                    {isAuraSphereEvent ? "Claim Aura Sphere" : isStoryChapterEvent ? "Continue to Story Hall" : "Claim Reward & Skip Fight"}
+                </button>
             </div>
             <div className="vn-reward-strip">
-                <span>{isAuraSphereEvent ? "Reward: Aura Sphere item" : `Reward: ${rewardSummary(event.xpReward, event.ryoReward, event.staminaReward, event.currencyRewards)}`}</span>
+                <span>
+                    {isAuraSphereEvent
+                        ? "Reward: Aura Sphere item"
+                        : isStoryChapterEvent
+                            ? "Defeat the chapter boss in Story Hall to earn XP and ryo."
+                            : `Reward: ${rewardSummary(event.xpReward, event.ryoReward, event.staminaReward, event.currencyRewards)}`}
+                </span>
             </div>
         </div>
     );
