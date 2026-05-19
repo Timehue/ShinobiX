@@ -5549,9 +5549,11 @@ export default function App() {
         if (index < 0) return;
         const eventId = `story-${village.toLowerCase().replace(/\W+/g, "-")}-${step.levelReq}-${index}`;
         if (triggeredEvents.includes(eventId)) return;
-        // Build the VN event — zero out rewards (awarded by boss fight, not VN viewing).
-        // Apply any KV-stored images (same key pattern as patchEventImages in hydrateImages).
-        const base = storyToCreatorEvent(step, village, index);
+        // Prefer the admin-edited version from creatorEvents (contains uploaded images,
+        // custom dialogue, etc.) over the hardcoded storyToCreatorEvent fallback.
+        // Then overlay any KV-stored images that landed in sharedImages.
+        const edited = creatorEvents.find(e => e.id === eventId);
+        const base = edited ?? storyToCreatorEvent(step, village, index);
         const vnEvent: CreatorEvent = {
             ...base,
             xpReward: 0,
@@ -5572,7 +5574,7 @@ export default function App() {
         setActiveTriggerReturnScreen("storyHall");
         setTriggerPage(0);
         setTriggerLine(0);
-    }, [activeTriggeredEvent, character, screen, sharedImages, triggeredEvents]);
+    }, [activeTriggeredEvent, character, creatorEvents, screen, sharedImages, triggeredEvents]);
 
     // When sharedImages updates while a story VN is open (images loaded after trigger fired),
     // patch the live activeTriggeredEvent so images appear without re-triggering the whole flow.
