@@ -49,5 +49,5 @@ export function mergePreservingImages(incoming: unknown, existing: unknown): unk
 export function cors(res: { setHeader: (k: string, v: string) => void }) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-password, x-player-password');
 }
