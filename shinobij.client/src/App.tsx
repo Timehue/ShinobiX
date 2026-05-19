@@ -5574,6 +5574,35 @@ export default function App() {
         setTriggerLine(0);
     }, [activeTriggeredEvent, character, screen, sharedImages, triggeredEvents]);
 
+    // When sharedImages updates while a story VN is open (images loaded after trigger fired),
+    // patch the live activeTriggeredEvent so images appear without re-triggering the whole flow.
+    useEffect(() => {
+        setActiveTriggeredEvent(prev => {
+            if (!prev || !prev.id.startsWith('story-')) return prev;
+            const id = prev.id;
+            const hasNewImages =
+                (sharedImages['event:' + id + ':bg']     && prev.image       !== sharedImages['event:' + id + ':bg'])     ||
+                (sharedImages['event:' + id + ':avatar'] && prev.avatarImage !== sharedImages['event:' + id + ':avatar']) ||
+                prev.vnPages?.some((p, i) =>
+                    (sharedImages[`vn:${id}:page:${i}`]       && p.image      !== sharedImages[`vn:${id}:page:${i}`])       ||
+                    (sharedImages[`vn:${id}:page:${i}:left`]  && p.leftImage  !== sharedImages[`vn:${id}:page:${i}:left`])  ||
+                    (sharedImages[`vn:${id}:page:${i}:right`] && p.rightImage !== sharedImages[`vn:${id}:page:${i}:right`])
+                );
+            if (!hasNewImages) return prev;
+            return {
+                ...prev,
+                ...(sharedImages['event:' + id + ':bg']     ? { image:       sharedImages['event:' + id + ':bg'] }     : {}),
+                ...(sharedImages['event:' + id + ':avatar'] ? { avatarImage: sharedImages['event:' + id + ':avatar'] } : {}),
+                vnPages: prev.vnPages?.map((p, i) => ({
+                    ...p,
+                    ...(sharedImages[`vn:${id}:page:${i}`]       ? { image:      sharedImages[`vn:${id}:page:${i}`] }       : {}),
+                    ...(sharedImages[`vn:${id}:page:${i}:left`]  ? { leftImage:  sharedImages[`vn:${id}:page:${i}:left`] }  : {}),
+                    ...(sharedImages[`vn:${id}:page:${i}:right`] ? { rightImage: sharedImages[`vn:${id}:page:${i}:right`] } : {}),
+                })),
+            };
+        });
+    }, [sharedImages]);
+
     useEffect(() => {
         const interval = setInterval(() => {
             setCharacter((prev) => {
