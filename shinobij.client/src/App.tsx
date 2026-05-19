@@ -23357,6 +23357,11 @@ function Arena({
                                     const isJutsuAoeTile = activeJutsuAoeTiles.has(i);
                                     const isJutsuAoeCenterTile = pendingTargetJutsu?.method === "AOE_CIRCLE" && i === enemyPos && isJutsuAoeTile;
                                     const isPendingJutsuTarget = (Boolean(pendingTargetJutsu) || Boolean(pendingTargetWeapon)) && i === enemyPos;
+                                    // Ground-target jutsu: highlight valid landing tiles (in range AND catches enemy)
+                                    const isGroundTargetTile = pendingTargetJutsu != null &&
+                                        isGroundEffectJutsu(pendingTargetJutsu) &&
+                                        distance(playerPos, i) <= Math.max(0, Number(pendingTargetJutsu.range) || 0) &&
+                                        (i === enemyPos || (pendingTargetJutsu.method === "AOE_CIRCLE" && hexNeighbors(i).includes(enemyPos)));
 
                                     return (
                                         <button
@@ -23369,6 +23374,7 @@ function Arena({
                                                 } ${isJutsuAoeTile ? "jutsu-aoe-tile" : ""
                                                 } ${isJutsuAoeCenterTile ? "jutsu-aoe-center-tile" : ""
                                                 } ${isPendingJutsuTarget ? "jutsu-target-tile" : ""
+                                                } ${isGroundTargetTile ? "ground-target-tile" : ""
                                                 }`}
                                             style={{
                                                 left: `${x}px`,
@@ -23376,7 +23382,7 @@ function Arena({
                                                 width: `${HEX_W}px`,
                                                 height: `${HEX_H}px`,
                                             }}
-                                            title={isBarrierTile ? `Barrier wall — impassable (${barrierTiles.find((b) => b.tile === i)?.rounds ?? 0} rounds)` : isJutsuAoeTile ? `${pendingTargetJutsu?.name} AOE hit tile` : isPendingJutsuTarget ? `Target ${opponentName} with ${pendingTargetJutsu?.name ?? pendingTargetWeapon?.name}` : isJutsuRangeTile ? `${pendingTargetJutsu?.name ?? pendingTargetWeapon?.name} range` : undefined}
+                                            title={isBarrierTile ? `Barrier wall — impassable (${barrierTiles.find((b) => b.tile === i)?.rounds ?? 0} rounds)` : isGroundTargetTile ? `Place ${pendingTargetJutsu?.name} here` : isJutsuAoeTile ? `${pendingTargetJutsu?.name} AOE hit tile` : isPendingJutsuTarget ? `Target ${opponentName} with ${pendingTargetJutsu?.name ?? pendingTargetWeapon?.name}` : isJutsuRangeTile ? `${pendingTargetJutsu?.name ?? pendingTargetWeapon?.name} range` : undefined}
                                             onClick={() => handleTileClick(i)}
                                         >
                                             {isBarrierTile ? "🧱"
@@ -23409,14 +23415,12 @@ function Arena({
                     </div>
 
                     <div className="jutsu-layout-card combat-jutsu-bar">
-                        {pendingTargetJutsu && (
+                        {pendingTargetJutsu && !isGroundEffectJutsu(pendingTargetJutsu) && (
                             <div className="summary-box combat-target-prompt">
                                 <strong>{pendingTargetJutsu.name} armed</strong>
                                 <span>
                                     {isMoveJutsu(pendingTargetJutsu)
                                         ? `Choose an open tile within ${moveJutsuRange(pendingTargetJutsu)} spaces.`
-                                        : isGroundEffectJutsu(pendingTargetJutsu)
-                                            ? `Choose a ground tile within ${pendingTargetJutsu.range} spaces that catches ${opponentName}.`
                                         : `Choose ${opponentName} on the battlefield to confirm.`}
                                 </span>
                                 <button

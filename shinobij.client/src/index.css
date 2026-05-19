@@ -8875,6 +8875,16 @@ textarea {
         inset 0 0 22px rgba(251, 113, 133, 0.58),
         0 0 20px rgba(251, 113, 133, 0.75) !important;
 }
+
+/* Ground-target tile — valid landing square for EMPTY_GROUND jutsus */
+.ground-target-tile {
+    outline: 3px solid rgba(251, 146, 60, 0.95) !important;
+    box-shadow:
+        inset 0 0 20px rgba(251, 146, 60, 0.45),
+        0 0 16px rgba(251, 146, 60, 0.7) !important;
+    filter: saturate(1.3) brightness(1.1);
+    cursor: crosshair !important;
+}
 /* ===== Combat equipped jutsu buttons only ===== */
 
 .combat-jutsu-bar {
