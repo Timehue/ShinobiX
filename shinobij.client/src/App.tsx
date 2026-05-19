@@ -5549,14 +5549,30 @@ export default function App() {
         if (index < 0) return;
         const eventId = `story-${village.toLowerCase().replace(/\W+/g, "-")}-${step.levelReq}-${index}`;
         if (triggeredEvents.includes(eventId)) return;
-        // Build the VN event — zero out rewards (awarded by boss fight, not VN viewing)
-        const vnEvent: CreatorEvent = { ...storyToCreatorEvent(step, village, index), xpReward: 0, ryoReward: 0 };
+        // Build the VN event — zero out rewards (awarded by boss fight, not VN viewing).
+        // Apply any KV-stored images (same key pattern as patchEventImages in hydrateImages).
+        const base = storyToCreatorEvent(step, village, index);
+        const vnEvent: CreatorEvent = {
+            ...base,
+            xpReward: 0,
+            ryoReward: 0,
+            ...(sharedImages['event:' + eventId + ':bg']     ? { image:       sharedImages['event:' + eventId + ':bg'] }     : {}),
+            ...(sharedImages['event:' + eventId + ':avatar'] ? { avatarImage: sharedImages['event:' + eventId + ':avatar'] } : {}),
+            ...(base.vnPages ? {
+                vnPages: base.vnPages.map((p, i) => ({
+                    ...p,
+                    ...(sharedImages[`vn:${eventId}:page:${i}`]       ? { image:      sharedImages[`vn:${eventId}:page:${i}`] }       : {}),
+                    ...(sharedImages[`vn:${eventId}:page:${i}:left`]  ? { leftImage:  sharedImages[`vn:${eventId}:page:${i}:left`] }  : {}),
+                    ...(sharedImages[`vn:${eventId}:page:${i}:right`] ? { rightImage: sharedImages[`vn:${eventId}:page:${i}:right`] } : {}),
+                }))
+            } : {}),
+        };
         setTriggeredEvents(ids => [...ids, eventId]);
         setActiveTriggeredEvent(vnEvent);
         setActiveTriggerReturnScreen("storyHall");
         setTriggerPage(0);
         setTriggerLine(0);
-    }, [activeTriggeredEvent, character, screen, triggeredEvents]);
+    }, [activeTriggeredEvent, character, screen, sharedImages, triggeredEvents]);
 
     useEffect(() => {
         const interval = setInterval(() => {
