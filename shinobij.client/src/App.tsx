@@ -4855,7 +4855,9 @@ export default function App() {
         }
 
         heartbeat();
-        const id = setInterval(heartbeat, 20000);
+        // 5-second interval so both players get routed to the battle screen within ~5s
+        // of a challenge being sent or accepted (was 20s — too slow for real-time battles).
+        const id = setInterval(heartbeat, 5000);
         return () => clearInterval(id);
     }, [character?.name, currentSector]);
 
@@ -4927,6 +4929,57 @@ export default function App() {
         setPvpRole("p1");
         setScreen("pvpBattle");
     }, [duelChallenges.length, character?.name]);
+
+    // App-level accept for spar/ranked challenges — allows accepting from any screen,
+    // not just when the player has already navigated to the Arena.
+    async function acceptChallengeGlobal(challenge: DuelChallenge) {
+        if (!character) return;
+        const challenger = normalizeCharacter(challenge.challenger);
+        setDuelChallenges(prev => prev.filter(c => c.id !== challenge.id));
+        try {
+            const allItems = getAllItems(creatorItems);
+            const res = await fetch('/api/pvp/session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    p1Character: {
+                        ...challenger,
+                        bloodlineMult: getBloodlineMultiplier(challenger as Character, savedBloodlines),
+                        armorFactor: getCharacterArmorFactor(challenger as Character, allItems),
+                        armorRawDR: getCharacterArmorRawDR(challenger as Character, allItems),
+                        itemDamagePct: getEquippedItemBonus(challenger as Character, allItems, "damagePercent"),
+                    },
+                    p2Character: {
+                        ...character,
+                        bloodlineMult: getBloodlineMultiplier(character, savedBloodlines),
+                        armorFactor: getCharacterArmorFactor(character, allItems),
+                        armorRawDR: getCharacterArmorRawDR(character, allItems),
+                        itemDamagePct: getEquippedItemBonus(character, allItems, "damagePercent"),
+                    },
+                }),
+            });
+            if (!res.ok) throw new Error('Session create failed');
+            const { battleId } = await res.json() as { battleId: string };
+            // Push acceptance back so challenger's heartbeat routes them to pvpBattle as p1
+            fetch('/api/player/challenge', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    targetName: challenge.fromName,
+                    challenge: { ...challenge, battleId, accepted: true, fromName: character.name, toName: challenge.fromName },
+                }),
+            }).catch(() => {});
+            setPvpBattleId(battleId);
+            setPvpRole("p2");
+            setScreen("pvpBattle");
+        } catch {
+            // Fallback: old arena behavior
+            setPendingAiProfileId('');
+            setPendingPvpOpponent(challenger as Character);
+            setRaidBattleKind("raidPlayer");
+            setScreen("arena");
+        }
+    }
 
     useEffect(() => {
         // Helper: apply a full server/local snapshot to state
@@ -6253,6 +6306,43 @@ export default function App() {
             {incomingAttackBanner && (
                 <div className="incoming-attack-banner">{incomingAttackBanner}</div>
             )}
+
+            {/* Global incoming challenge notification — visible from any screen */}
+            {character && (() => {
+                const pending = duelChallenges.filter(c =>
+                    !c.accepted &&
+                    !c.sectorAttack &&
+                    c.toName.toLowerCase() === character.name.toLowerCase()
+                );
+                if (!pending.length) return null;
+                const c = pending[0];
+                const isPet = c.mode === "clanWarPet";
+                const isRanked = c.mode === "ranked";
+                const label = isPet ? "pet battle" : isRanked ? "ranked duel" : "spar";
+                return (
+                    <div className="incoming-attack-banner" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
+                        <span>⚔️ <strong>{c.fromName}</strong> challenged you to a {label}!</span>
+                        <div style={{ display: "flex", gap: 6 }}>
+                            <button
+                                style={{ padding: "4px 14px", background: "#22c55e", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 700 }}
+                                onClick={() => {
+                                    if (isPet) {
+                                        // Leave challenge in the list so PetArena can handle it
+                                        setScreen("petArena");
+                                    } else {
+                                        void acceptChallengeGlobal(c);
+                                    }
+                                }}
+                            >✅ Accept</button>
+                            <button
+                                style={{ padding: "4px 14px", background: "#ef4444", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 700 }}
+                                onClick={() => setDuelChallenges(prev => prev.filter(x => x.id !== c.id))}
+                            >✖ Decline</button>
+                        </div>
+                        {pending.length > 1 && <span style={{ opacity: 0.7, fontSize: "0.85em" }}>+{pending.length - 1} more</span>}
+                    </div>
+                );
+            })()}
 
             <main
                 className={`center-game screen-${screen}`}
