@@ -4273,6 +4273,172 @@ button {
     align-items: stretch;
 }
 
+/* ===== PvP rich battle log ===== */
+.pvp-rich-log {
+    background: #0c0f17 !important;
+    border-color: #1e293b !important;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.pvp-log-empty {
+    color: #475569;
+    font-style: italic;
+    padding: 8px;
+}
+
+/* Round section */
+.pvp-round-section {
+    margin-bottom: 6px;
+}
+
+.pvp-round-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 6px 3px;
+    margin-bottom: 3px;
+}
+
+.pvp-round-label::before,
+.pvp-round-label::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: #1e3a5f;
+}
+
+.pvp-round-badge {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #3b82f6;
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.25);
+    border-radius: 12px;
+    padding: 2px 10px;
+    white-space: nowrap;
+}
+
+/* Action block */
+.pvp-log-block {
+    border-radius: 6px;
+    overflow: hidden;
+    margin: 3px 0;
+    border-left: 3px solid transparent;
+}
+
+.pvp-block-player {
+    border-left-color: #22c55e;
+    background: rgba(20, 50, 30, 0.55);
+}
+
+.pvp-block-enemy {
+    border-left-color: #ef4444;
+    background: rgba(50, 15, 15, 0.55);
+}
+
+.pvp-block-system {
+    border-left-color: #475569;
+    background: rgba(15, 23, 42, 0.5);
+}
+
+.pvp-block-victory {
+    border-left-color: #fbbf24 !important;
+    background: rgba(40, 30, 5, 0.7) !important;
+}
+
+/* Block header */
+.pvp-block-header {
+    padding: 5px 8px 3px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px;
+    font-weight: 700;
+}
+
+.pvp-actor-name {
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.pvp-actor-me { color: #4ade80; }
+.pvp-actor-opp { color: #f87171; }
+
+.pvp-uses-text {
+    color: #64748b;
+    font-weight: 400;
+    font-size: 11px;
+}
+
+.pvp-jutsu-name {
+    color: #fde68a;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.pvp-block-full {
+    color: #cbd5e1;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.pvp-victory-text {
+    color: #fbbf24 !important;
+    font-size: 13px !important;
+    font-weight: 900 !important;
+}
+
+/* Jutsu description */
+.pvp-block-desc {
+    margin: 0;
+    padding: 1px 8px 4px 9px;
+    font-size: 10.5px;
+    color: #94a3b8;
+    font-style: italic;
+    line-height: 1.4;
+    border-left: 2px solid rgba(100, 116, 139, 0.3);
+    margin-left: 8px;
+    margin-bottom: 3px;
+}
+
+/* Effect list */
+.pvp-block-effects {
+    list-style: none;
+    margin: 0;
+    padding: 0 6px 5px 8px;
+}
+
+.pvp-effect-line {
+    display: flex;
+    align-items: flex-start;
+    gap: 5px;
+    padding: 2px 2px;
+    font-size: 11px;
+    line-height: 1.35;
+}
+
+.pvp-effect-icon {
+    font-size: 9px;
+    flex-shrink: 0;
+    margin-top: 2px;
+    min-width: 14px;
+    text-align: center;
+}
+
+/* Effect line colors */
+.pvp-effect-damage { color: #fca5a5; }
+.pvp-effect-heal   { color: #86efac; }
+.pvp-effect-shield { color: #93c5fd; }
+.pvp-effect-debuff { color: #fdba74; }
+.pvp-effect-buff   { color: #a5f3fc; }
+.pvp-effect-hit    { color: #fde68a; font-weight: 700; }
+.pvp-effect-miss   { color: #475569; font-style: italic; }
+.pvp-effect-move   { color: #67e8f9; }
+.pvp-effect-system { color: #94a3b8; }
+
 @media (max-width: 1100px) {
     .combat-layout {
         grid-template-columns: 1fr;
