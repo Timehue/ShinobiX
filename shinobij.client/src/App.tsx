@@ -9782,6 +9782,7 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
     const selectedPet = character.pets.find((pet) => pet.id === selectedPetId) ?? character.pets[0];
     const selectedOpponent = opponentPets.find((entry) => `${entry.owner}:${entry.pet.id}` === selectedOpponentKey) ?? opponentPets[0];
     const [battleReady, setBattleReady] = useState(false);
+    const [battleOpponent, setBattleOpponent] = useState<PetArenaOpponent | null>(null);
     const [battleLog, setBattleLog] = useState<string[]>([]);
     const [battleFrames, setBattleFrames] = useState<PetArenaFrame[]>([]);
     const [battleObstacles, setBattleObstacles] = useState<number[]>([]);
@@ -9822,6 +9823,7 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
         const pendingClanPetBattle = loadPendingClanPetBattle(character.clan);
         const battle = runPetArenaBattle(selectedPet, opponent.pet, opponent.owner);
         setBattleReady(true);
+        setBattleOpponent(opponent);
         setBattleLog(battle.logs);
         setBattleFrames(battle.frames);
         setBattleObstacles(battle.obstacles);
@@ -9861,21 +9863,21 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                 <div key={c.id} className="summary-box" style={{ background: "#1e3a2f", border: "1px solid #4ade80", marginBottom: 8, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                     <span>?? <strong>{c.fromName}</strong> challenged you to a pet battle!</span>
                     <div className="menu" style={{ marginLeft: "auto" }}>
-                        <button onClick={() => {
+                        <button onClick={async () => {
                             const challengerPet = c.challenger.pets.find(p => p.id === c.challengerPetId) ?? c.challenger.pets[0];
                             setDuelChallenges(duelChallenges.filter((x) => x.id !== c.id));
-                            fetch('/api/player/challenge', {
+                            // Clear the challenge from KV then notify the challenger with retry logic
+                            // so they get pulled into the battle even on a cold-start or hiccup.
+                            void fetch('/api/player/challenge', {
                                 method: 'DELETE',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ targetName: c.toName, fromName: c.fromName, challengeId: c.id }),
                             }).catch(() => {});
-                            fetch('/api/player/challenge', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ targetName: c.fromName, challenge: { ...c, accepted: true, fromName: character.name, toName: c.fromName, responderPetId: selectedPet?.id, responderPet: selectedPet } }),
-                            }).catch(() => {});
+                            const acceptedNotice: DuelChallenge = { ...c, accepted: true, fromName: character.name, toName: c.fromName, responderPetId: selectedPet?.id, responderPet: selectedPet };
+                            const notified = await postPlayerChallengeNotice(c.fromName, acceptedNotice);
                             if (challengerPet) startBattle({ owner: c.fromName, pet: challengerPet });
-                        }}>? Accept & Fight</button>
+                            if (!notified) alert(`${c.fromName} may not be pulled in automatically. Ask them to open Pet Arena.`);
+                        }}>🐾 Accept & Fight</button>
                         <button className="danger-button" onClick={() => {
                             setDuelChallenges(duelChallenges.filter((x) => x.id !== c.id));
                             fetch('/api/player/challenge', {
@@ -10010,11 +10012,11 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                 {battleReady && showResult && result && <strong className={result === "Victory" ? "pet-arena-win" : "pet-arena-loss"}>{result}</strong>}
             </div>
 
-            {battleReady && selectedPet && selectedOpponent && (
+            {battleReady && selectedPet && battleOpponent && (
                 <PetArenaBattlefield
                     playerPet={selectedPet}
-                    enemyPet={selectedOpponent.pet}
-                    enemyOwner={selectedOpponent.owner}
+                    enemyPet={battleOpponent.pet}
+                    enemyOwner={battleOpponent.owner}
                     frame={currentFrame}
                     recentFrames={battleFrames.slice(Math.max(0, frameIndex - 2), frameIndex + 1).filter(f => f.actionKind && f.actionKind !== "result")}
                     result={showResult ? result : ""}
