@@ -25393,6 +25393,13 @@ type PvpStatusState = {
     kind: "positive" | "negative";
 };
 
+type PvpMotionFx = {
+    id: string;
+    fighter: "p1" | "p2";
+    from: number;
+    to: number;
+};
+
 type PvpFighterState = {
     name: string;
     hp: number;
@@ -25482,6 +25489,8 @@ function PvpBattleScreen({
     const logRef = useRef<HTMLDivElement>(null);
     const pvpSessionFirstLoadRef = useRef(false);
     const pvpRewardRef = useRef(false);
+    const [pvpMotionFx, setPvpMotionFx] = useState<PvpMotionFx[]>([]);
+    const previousPvpPositionsRef = useRef<{ p1: number; p2: number } | null>(null);
 
     // Grid helpers — exact match to arena
     function pvpXY(pos: number) { return { x: pos % gridWidth, y: Math.floor(pos / gridWidth) }; }
@@ -25501,6 +25510,13 @@ function PvpBattleScreen({
             ? [[1,0],[1,-1],[0,-1],[-1,-1],[-1,0],[0,1]]
             : [[1,1],[1,0],[0,-1],[-1,0],[-1,1],[0,1]];
         return deltas.map(([dx, dy]) => pvpPosFromXY(x + dx!, y + dy!)).filter(n => n >= 0);
+    }
+    function pvpTileCenter(pos: number) {
+        const { x, y } = pvpXY(pos);
+        return {
+            x: x * X_STEP + HEX_W / 2,
+            y: y * Y_STEP + (x % 2 === 1 ? HEX_H / 2 : 0) + HEX_H / 2,
+        };
     }
 
     // ResizeObserver — exact match to arena pattern
@@ -25551,6 +25567,24 @@ function PvpBattleScreen({
     useEffect(() => {
         if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
     }, [session?.log.length]);
+
+    // Emit motion fx whenever either fighter's position changes
+    useEffect(() => {
+        if (!session) return;
+        const previous = previousPvpPositionsRef.current;
+        const current = { p1: session.p1.pos, p2: session.p2.pos };
+        if (!previous) { previousPvpPositionsRef.current = current; return; }
+        const nextFx: PvpMotionFx[] = [];
+        if (previous.p1 !== current.p1) nextFx.push({ id: `p1-${Date.now()}-${current.p1}`, fighter: "p1", from: previous.p1, to: current.p1 });
+        if (previous.p2 !== current.p2) nextFx.push({ id: `p2-${Date.now()}-${current.p2}`, fighter: "p2", from: previous.p2, to: current.p2 });
+        previousPvpPositionsRef.current = current;
+        if (!nextFx.length) return;
+        setPvpMotionFx((existing) => [...existing, ...nextFx].slice(-6));
+        const timeout = window.setTimeout(() => {
+            setPvpMotionFx((existing) => existing.filter((fx) => !nextFx.some((added) => added.id === fx.id)));
+        }, 620);
+        return () => window.clearTimeout(timeout);
+    }, [session?.p1.pos, session?.p2.pos]);
 
     // Prefight countdown — triggers once when session first loads
     useEffect(() => {
@@ -25945,6 +25979,42 @@ function PvpBattleScreen({
                                     );
                                 })()}
 
+                                {pvpMotionFx.map((fx) => {
+                                    const from = pvpTileCenter(fx.from);
+                                    const to = pvpTileCenter(fx.to);
+                                    const dx = to.x - from.x;
+                                    const dy = to.y - from.y;
+                                    const length = Math.max(18, Math.hypot(dx, dy));
+                                    const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+                                    const isEnemyFx = fx.fighter !== role;
+                                    return (
+                                        <div key={fx.id} className={`pvp-dash-fx${isEnemyFx ? " enemy-dash-fx" : ""}`} aria-hidden="true">
+                                            <span
+                                                className="pvp-dash-trail"
+                                                style={{
+                                                    left: `${from.x}px`,
+                                                    top: `${from.y}px`,
+                                                    width: `${length}px`,
+                                                    transform: `rotate(${angle}deg)`,
+                                                }}
+                                            />
+                                            <span
+                                                className="pvp-dash-ghost"
+                                                style={{
+                                                    left: `${from.x - ORB / 2}px`,
+                                                    top: `${from.y - ORB / 2}px`,
+                                                    "--dash-x": `${dx}px`,
+                                                    "--dash-y": `${dy}px`,
+                                                } as React.CSSProperties}
+                                            />
+                                            <span
+                                                className="pvp-dash-impact"
+                                                style={{ left: `${to.x - 24}px`, top: `${to.y - 24}px` }}
+                                            />
+                                        </div>
+                                    );
+                                })}
+
                                 {Array.from({ length: gridHeight }).map((_, row) =>
                                     Array.from({ length: gridWidth }).map((_, col) => {
                                         const i = row * gridWidth + col;
@@ -26064,7 +26134,11 @@ function PvpBattleScreen({
                                         <strong>{pendingJutsu?.name ?? pendingWeapon?.name ?? "Basic Attack"} armed</strong>
                                         <span>
                                             {pendingJutsu && pvpIsGroundTargetJutsu(pendingJutsu)
-                                                ? `Click an open ground tile in range ${pendingJutsu.range}.`
+                                                ? pvpIsMoveJutsu(pendingJutsu) && pendingJutsu.method === "AOE_CIRCLE"
+                                                    ? `Click an open tile in range ${pendingJutsu.range} to dash there. Surrounding hexes resolve instantly.`
+                                                    : pvpIsMoveJutsu(pendingJutsu)
+                                                        ? `Click any open tile in range ${pendingJutsu.range} to move there.`
+                                                        : `Click an open ground tile in range ${pendingJutsu.range}.`
                                                 : `Click ${opp.name} on the battlefield (range ${pendingJutsu?.range ?? pvpWeaponRange ?? 1}) to fire.`}
                                         </span>
                                         <button type="button" onClick={() => { setPendingJutsuId(""); setPendingWeaponId(""); setPendingBasicAttack(false); }}>Cancel</button>
