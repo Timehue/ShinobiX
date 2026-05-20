@@ -15078,6 +15078,24 @@ function claimVillageWarDailyMission(character: Character, missionIndex: number)
     };
 }
 function unlockVillageKageSystem(village: string, playerName: string): VillageState {
+    // POST to server — server is the single source of truth for kage status.
+    // If another player already unlocked the kage system for this village, the server
+    // returns the existing state (first liberator keeps the seat).
+    fetch('/api/village/kage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ village, playerName, action: 'unlock' }),
+    }).then(r => r.ok ? r.json() : null).then((serverState) => {
+        if (!serverState) return;
+        const latest = loadVillageState(village);
+        saveVillageState(village, normalizeVillageState(village, {
+            ...latest,
+            kageSystemUnlocked: true,
+            seatedKage: serverState.seatedKage ?? latest.seatedKage,
+            firstLiberator: serverState.firstLiberator ?? latest.firstLiberator,
+        }));
+    }).catch(() => {});
+
     const current = loadVillageState(village);
     if (current.kageSystemUnlocked) return current;
     const announcement = `The false Kage of ${village} has fallen. ${playerName} has broken the Hollow Gate Pact. The Kage seat is now open.`;
@@ -15128,6 +15146,21 @@ function TownHall({ character, updateCharacter, creatorItems }: { character: Cha
         setAnbuAppointmentInputs(normalizeAnbuAppointees(next.anbuAppointees));
     }, [character.village]);
     useEffect(() => saveVillageState(character.village, state), [character.village, state]);
+    // Fetch authoritative kage state from server so all players see the same seated kage.
+    useEffect(() => {
+        fetch(`/api/village/kage?village=${encodeURIComponent(character.village)}`)
+            .then(r => r.ok ? r.json() : null)
+            .then((serverState) => {
+                if (!serverState?.kageSystemUnlocked) return;
+                setState(prev => normalizeVillageState(character.village, {
+                    ...prev,
+                    kageSystemUnlocked: true,
+                    seatedKage: serverState.seatedKage ?? prev.seatedKage,
+                    firstLiberator: serverState.firstLiberator ?? prev.firstLiberator,
+                }));
+            })
+            .catch(() => {});
+    }, [character.village]);
     useEffect(() => { if (tab !== "guard" && tab !== "status") return; fetch("/api/village-guard/list", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ village: character.village }) }).then(r => r.ok ? r.json() : []).then(list => setGuardList(Array.isArray(list) ? list : [])).catch(() => setGuardList([])); }, [tab, character.village, character.guardQueued]);
     function updateVillageState(next: VillageState) { const normalized = normalizeVillageState(character.village, next); setState(normalized); saveVillageState(character.village, normalized); }
     function addNotice(text: string, nextState: VillageState = state) { return { ...nextState, notices: [text, ...nextState.notices].slice(0, 8) }; }
