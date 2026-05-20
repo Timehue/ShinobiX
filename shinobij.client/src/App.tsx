@@ -6145,11 +6145,11 @@ export default function App() {
         setTriggerLine(0);
     }, [activeTriggeredEvent, character, creatorEvents, screen, sharedImages, triggeredEvents]);
 
-    // When sharedImages updates while a story VN is open (images loaded after trigger fired),
+    // When sharedImages updates while any VN is open (images loaded after trigger fired),
     // patch the live activeTriggeredEvent so images appear without re-triggering the whole flow.
     useEffect(() => {
         setActiveTriggeredEvent(prev => {
-            if (!prev || !prev.id.startsWith('story-')) return prev;
+            if (!prev) return prev;
             const id = prev.id;
             const hasNewImages =
                 (sharedImages['event:' + id + ':bg']     && prev.image       !== sharedImages['event:' + id + ':bg'])     ||
