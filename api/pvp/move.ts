@@ -61,6 +61,7 @@ type PvpItem = {
     weaponTags?: JutsuTag[];
     weaponEffect?: string;
     weaponEffectValue?: number;
+    weaponEffectTarget?: string;
 };
 type Jutsu = {
     id: string;
@@ -721,7 +722,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
                 const iApCost = serverItem.apCost ?? 35;
                 if (!canAct(iApCost)) return finish(session);
-                const iTags: JutsuTag[] = serverItem.weaponTags?.length ? serverItem.weaponTags : [{ name: 'Heal' }];
+                const iTags: JutsuTag[] = serverItem.weaponTags?.length
+                    ? serverItem.weaponTags
+                    : serverItem.weaponEffect
+                        ? [{ name: serverItem.weaponEffect, percent: serverItem.weaponEffectValue ?? 0 }]
+                        : [{ name: 'Heal' }];
                 const itemJutsu: Jutsu = {
                     id: 'item',
                     name: serverItem.name ?? 'Item',
@@ -734,8 +739,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 };
                 lines.push(`${me.name} uses ${itemJutsu.name}:`);
                 const ir = applyJutsu(me, opp, itemJutsu);
+                // For "both" target items (e.g. Smoke Bomb): also apply the effect to the caster
+                let irSelf = ir.self;
+                if (serverItem.weaponEffectTarget === 'both' && serverItem.weaponEffect === 'Decrease Damage Given') {
+                    const ddgPct = serverItem.weaponEffectValue ?? 0;
+                    irSelf = addStatus(irSelf, { name: 'Decrease Damage Given', rounds: 1, percent: ddgPct, kind: 'negative' });
+                    ir.lines.push(`Smoke: ${irSelf.name} also deals ${ddgPct}% less damage for 1 round.`);
+                }
                 lines.push(...ir.lines);
-                result = commit(ir.self, ir.opponent, iApCost);
+                result = commit(irSelf, ir.opponent, iApCost);
                 break;
             }
 
