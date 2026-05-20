@@ -23399,6 +23399,12 @@ function Arena({
             if (lsHeal > 0) { healing += lsHeal; effectLines.push(`Lifesteal: restores ${lsHeal} HP.`); }
         }
 
+        const activePlayerRecoil = playerStatuses.find((s) => s.name === "Recoil");
+        if (activePlayerRecoil && finalDamage > 0) {
+            recoilDamage += cappedPostDamage(finalDamage, activePlayerRecoil.percent ?? 30);
+            effectLines.push(`Recoil: ${character.name} takes ${recoilDamage} recoil damage.`);
+        }
+
         setEnemyShield((s) => pierce ? s : Math.max(0, s - blocked));
         setEnemyHp((hp) => Math.max(0, hp - finalDamage - extraEnemyDamage));
         setPlayerHp((hp) => Math.max(0, Math.min(character.maxHp, hp + healing - recoilDamage)));
