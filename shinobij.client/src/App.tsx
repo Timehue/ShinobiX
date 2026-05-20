@@ -5007,6 +5007,7 @@ type PlayerCombatSave = {
     character?: Character;
     savedBloodlines?: SavedBloodline[];
     creatorJutsus?: Jutsu[];
+    creatorItems?: GameItem[];
 };
 
 async function fetchPlayerCombatSave(name: string): Promise<PlayerCombatSave | null> {
@@ -5016,6 +5017,7 @@ async function fetchPlayerCombatSave(name: string): Promise<PlayerCombatSave | n
         const data = await res.json() as PlayerCombatSave;
         const saved = Array.isArray(data.savedBloodlines) ? data.savedBloodlines : [];
         const created = Array.isArray(data.creatorJutsus) ? data.creatorJutsus : [];
+        const createdItems = Array.isArray(data.creatorItems) ? data.creatorItems : [];
         return {
             character: data.character ? normalizeCharacter(data.character) : undefined,
             savedBloodlines: saved.map((bloodline) => ({
@@ -5023,6 +5025,7 @@ async function fetchPlayerCombatSave(name: string): Promise<PlayerCombatSave | n
                 jutsus: (bloodline.jutsus ?? []).map(normalizeJutsu),
             })),
             creatorJutsus: created.map(normalizeJutsu).map(rebalanceNonBloodlineJutsu),
+            creatorItems: createdItems.map(sanitizeArmorAndGloveItem),
         };
     } catch {
         return null;
@@ -5959,13 +5962,14 @@ export default function App() {
         const challenger = normalizeCharacter(challenge.challenger);
         setDuelChallenges(prev => prev.filter(c => c.id !== challenge.id));
         try {
-            const allItems = getAllItems(creatorItems);
             // Only fetch the challenger's save if they didn't embed their jutsus in the challenge.
             // The defender's data is already in memory — no extra KV read needed.
             const p1CombatSave = challenge.challengerJutsus?.length ? null : await fetchPlayerCombatSave(challenge.fromName);
             const p1SavedBloodlines = p1CombatSave?.savedBloodlines ?? savedBloodlines;
             const p1CreatorJutsus = p1CombatSave?.creatorJutsus ?? creatorJutsus;
             const p1Character = p1CombatSave?.character ?? (challenger as Character);
+            const p1AllItems = getAllItems(p1CombatSave?.creatorItems ?? creatorItems);
+            const p2AllItems = getAllItems(creatorItems);
             const p1Jutsus = challenge.challengerJutsus?.length
                 ? challenge.challengerJutsus.map(normalizeJutsu)
                 : getPvpJutsuLoadout(p1SavedBloodlines, p1CreatorJutsus, p1Character);
@@ -5977,20 +5981,20 @@ export default function App() {
                     p1Character: {
                         ...p1Character,
                         jutsu: p1Jutsus,
-                        pvpItems: getPvpItemLoadout(p1Character, allItems),
+                        pvpItems: getPvpItemLoadout(p1Character, p1AllItems),
                         bloodlineMult: challenge.challengerBloodlineMult ?? getBloodlineMultiplier(p1Character, p1SavedBloodlines),
-                        armorFactor: getCharacterArmorFactor(p1Character, allItems),
-                        armorRawDR: getCharacterArmorRawDR(p1Character, allItems),
-                        itemDamagePct: getEquippedItemBonus(p1Character, allItems, "damagePercent"),
+                        armorFactor: getCharacterArmorFactor(p1Character, p1AllItems),
+                        armorRawDR: getCharacterArmorRawDR(p1Character, p1AllItems),
+                        itemDamagePct: getEquippedItemBonus(p1Character, p1AllItems, "damagePercent"),
                     },
                     p2Character: {
                         ...character,
                         jutsu: p2Jutsus,
-                        pvpItems: getPvpItemLoadout(character, allItems),
+                        pvpItems: getPvpItemLoadout(character, p2AllItems),
                         bloodlineMult: getBloodlineMultiplier(character, savedBloodlines),
-                        armorFactor: getCharacterArmorFactor(character, allItems),
-                        armorRawDR: getCharacterArmorRawDR(character, allItems),
-                        itemDamagePct: getEquippedItemBonus(character, allItems, "damagePercent"),
+                        armorFactor: getCharacterArmorFactor(character, p2AllItems),
+                        armorRawDR: getCharacterArmorRawDR(character, p2AllItems),
+                        itemDamagePct: getEquippedItemBonus(character, p2AllItems, "damagePercent"),
                     },
                 }),
             });
@@ -7650,11 +7654,13 @@ export default function App() {
                         creatorItems={creatorItems}
                         sectorAttackPlayer={async (opponent) => {
                             // Create shared PvP session so both players fight each other for real
+                            const selfAllItems = getAllItems(creatorItems);
                             const p1Jutsus = getPvpJutsuLoadout(savedBloodlines, creatorJutsus, character);
                             const opponentSave = await fetchPlayerCombatSave(opponent.name);
                             const oppChar = opponentSave?.character ?? opponent.character as Character;
                             const opponentBloodlines = opponentSave?.savedBloodlines?.length ? opponentSave.savedBloodlines : savedBloodlines;
                             const opponentCreatorJutsus = opponentSave?.creatorJutsus?.length ? [...creatorJutsus, ...opponentSave.creatorJutsus] : creatorJutsus;
+                            const opponentAllItems = getAllItems(opponentSave?.creatorItems?.length ? opponentSave.creatorItems : creatorItems);
                             const p2Jutsus = getPvpJutsuLoadout(opponentBloodlines, opponentCreatorJutsus, oppChar);
                             let battleId = '';
                             try {
@@ -7662,8 +7668,8 @@ export default function App() {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({
-                                        p1Character: { ...character, jutsu: p1Jutsus, pvpItems: getPvpItemLoadout(character, getAllItems(creatorItems)), bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, getAllItems(creatorItems)), armorRawDR: getCharacterArmorRawDR(character, getAllItems(creatorItems)), itemDamagePct: getEquippedItemBonus(character, getAllItems(creatorItems), "damagePercent") },
-                                        p2Character: { ...oppChar, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(oppChar, getAllItems(creatorItems)), bloodlineMult: getBloodlineMultiplier(oppChar, opponentBloodlines), armorFactor: getCharacterArmorFactor(oppChar, getAllItems(creatorItems)), armorRawDR: getCharacterArmorRawDR(oppChar, getAllItems(creatorItems)), itemDamagePct: getEquippedItemBonus(oppChar, getAllItems(creatorItems), "damagePercent") },
+                                        p1Character: { ...character, jutsu: p1Jutsus, pvpItems: getPvpItemLoadout(character, selfAllItems), bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, selfAllItems), armorRawDR: getCharacterArmorRawDR(character, selfAllItems), itemDamagePct: getEquippedItemBonus(character, selfAllItems, "damagePercent") },
+                                        p2Character: { ...oppChar, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(oppChar, opponentAllItems), bloodlineMult: getBloodlineMultiplier(oppChar, opponentBloodlines), armorFactor: getCharacterArmorFactor(oppChar, opponentAllItems), armorRawDR: getCharacterArmorRawDR(oppChar, opponentAllItems), itemDamagePct: getEquippedItemBonus(oppChar, opponentAllItems, "damagePercent") },
                                     }),
                                 });
                                 if (sr.ok) ({ battleId } = await sr.json() as { battleId: string });
@@ -18968,11 +18974,13 @@ function WorldMap({
         setCurrentWeather(weather);
 
         // Embed jutsu objects so server can resolve moves
+        const selfAllItems = getAllItems(wmCreatorItems);
         const p1Jutsus = getPvpJutsuLoadout(savedBloodlines, wmCreatorJutsus, character);
         const opponentSave = await fetchPlayerCombatSave(opponent.name);
         const opponentCharacter = opponentSave?.character ?? opponent;
         const opponentBloodlines = opponentSave?.savedBloodlines?.length ? opponentSave.savedBloodlines : savedBloodlines;
         const opponentCreatorJutsus = opponentSave?.creatorJutsus?.length ? [...wmCreatorJutsus, ...opponentSave.creatorJutsus] : wmCreatorJutsus;
+        const opponentAllItems = getAllItems(opponentSave?.creatorItems?.length ? opponentSave.creatorItems : wmCreatorItems);
         const p2Jutsus = getPvpJutsuLoadout(opponentBloodlines, opponentCreatorJutsus, opponentCharacter);
 
         let battleId = '';
@@ -18981,8 +18989,8 @@ function WorldMap({
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    p1Character: { ...character, jutsu: p1Jutsus, pvpItems: getPvpItemLoadout(character, getAllItems(wmCreatorItems)), bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, getAllItems(wmCreatorItems)), armorRawDR: getCharacterArmorRawDR(character, getAllItems(wmCreatorItems)), itemDamagePct: getEquippedItemBonus(character, getAllItems(wmCreatorItems), "damagePercent") },
-                    p2Character: { ...opponentCharacter, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(opponentCharacter, getAllItems(wmCreatorItems)), bloodlineMult: getBloodlineMultiplier(opponentCharacter, opponentBloodlines), armorFactor: getCharacterArmorFactor(opponentCharacter, getAllItems(wmCreatorItems)), armorRawDR: getCharacterArmorRawDR(opponentCharacter, getAllItems(wmCreatorItems)), itemDamagePct: getEquippedItemBonus(opponentCharacter, getAllItems(wmCreatorItems), "damagePercent") },
+                    p1Character: { ...character, jutsu: p1Jutsus, pvpItems: getPvpItemLoadout(character, selfAllItems), bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, selfAllItems), armorRawDR: getCharacterArmorRawDR(character, selfAllItems), itemDamagePct: getEquippedItemBonus(character, selfAllItems, "damagePercent") },
+                    p2Character: { ...opponentCharacter, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(opponentCharacter, opponentAllItems), bloodlineMult: getBloodlineMultiplier(opponentCharacter, opponentBloodlines), armorFactor: getCharacterArmorFactor(opponentCharacter, opponentAllItems), armorRawDR: getCharacterArmorRawDR(opponentCharacter, opponentAllItems), itemDamagePct: getEquippedItemBonus(opponentCharacter, opponentAllItems, "damagePercent") },
                 }),
             });
             if (sr.ok) ({ battleId } = await sr.json() as { battleId: string });
@@ -22521,6 +22529,8 @@ function Arena({
             const p1SavedBloodlines = p1CombatSave?.savedBloodlines ?? savedBloodlines;
             const p1CreatorJutsus = p1CombatSave?.creatorJutsus ?? creatorJutsus;
             const p1Character = p1CombatSave?.character ?? (challenger as Character);
+            const p1AllItems = getAllItems(p1CombatSave?.creatorItems ?? creatorItems);
+            const p2AllItems = getAllItems(creatorItems);
             const p1Jutsus = challenge.challengerJutsus?.length
                 ? challenge.challengerJutsus.map(normalizeJutsu)
                 : getPvpJutsuLoadout(p1SavedBloodlines, p1CreatorJutsus, p1Character);
@@ -22529,8 +22539,8 @@ function Arena({
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    p1Character: { ...p1Character, jutsu: p1Jutsus, pvpItems: getPvpItemLoadout(p1Character, allItems), bloodlineMult: challenge.challengerBloodlineMult ?? getBloodlineMultiplier(p1Character, p1SavedBloodlines), armorFactor: getCharacterArmorFactor(p1Character, allItems), armorRawDR: getCharacterArmorRawDR(p1Character, allItems), itemDamagePct: getEquippedItemBonus(p1Character, allItems, "damagePercent") },
-                    p2Character: { ...character, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(character, allItems), bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, allItems), armorRawDR: getCharacterArmorRawDR(character, allItems), itemDamagePct: getEquippedItemBonus(character, allItems, "damagePercent") },
+                    p1Character: { ...p1Character, jutsu: p1Jutsus, pvpItems: getPvpItemLoadout(p1Character, p1AllItems), bloodlineMult: challenge.challengerBloodlineMult ?? getBloodlineMultiplier(p1Character, p1SavedBloodlines), armorFactor: getCharacterArmorFactor(p1Character, p1AllItems), armorRawDR: getCharacterArmorRawDR(p1Character, p1AllItems), itemDamagePct: getEquippedItemBonus(p1Character, p1AllItems, "damagePercent") },
+                    p2Character: { ...character, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(character, p2AllItems), bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, p2AllItems), armorRawDR: getCharacterArmorRawDR(character, p2AllItems), itemDamagePct: getEquippedItemBonus(character, p2AllItems, "damagePercent") },
                 }),
             });
             if (!res.ok) throw new Error('Session create failed');
