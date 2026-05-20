@@ -8967,6 +8967,74 @@ textarea {
         inset 0 0 22px rgba(251, 146, 60, 0.55),
         0 0 18px rgba(251, 146, 60, 0.78) !important;
 }
+/* ===== PvP movement / dash visual effects ===== */
+.pvp-dash-fx {
+    position: absolute;
+    inset: 0;
+    z-index: 18;
+    pointer-events: none;
+}
+.pvp-dash-trail {
+    position: absolute;
+    height: 8px;
+    border-radius: 999px;
+    transform-origin: 0 50%;
+    background: linear-gradient(90deg, rgba(248, 250, 252, 0), rgba(125, 211, 252, 0.9), rgba(250, 204, 21, 0.95));
+    box-shadow: 0 0 18px rgba(56, 189, 248, 0.8), 0 0 28px rgba(250, 204, 21, 0.45);
+    opacity: 0;
+    animation: pvpDashTrail 520ms ease-out forwards;
+}
+.pvp-dash-ghost {
+    position: absolute;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    border: 2px solid rgba(254, 243, 199, 0.95);
+    background:
+        radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.94), rgba(125, 211, 252, 0.5) 42%, rgba(14, 165, 233, 0.12) 68%, transparent 72%);
+    box-shadow: 0 0 18px rgba(125, 211, 252, 0.95), 0 0 34px rgba(250, 204, 21, 0.5);
+    animation: pvpDashGhost 520ms cubic-bezier(.2, .8, .2, 1) forwards;
+}
+.pvp-dash-impact {
+    position: absolute;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: 3px solid rgba(250, 204, 21, 0.95);
+    box-shadow: inset 0 0 18px rgba(250, 204, 21, 0.42), 0 0 22px rgba(250, 204, 21, 0.7);
+    animation: pvpDashImpact 560ms ease-out forwards;
+}
+.enemy-dash-fx .pvp-dash-trail {
+    background: linear-gradient(90deg, rgba(248, 250, 252, 0), rgba(251, 113, 133, 0.9), rgba(168, 85, 247, 0.95));
+    box-shadow: 0 0 18px rgba(251, 113, 133, 0.85), 0 0 28px rgba(168, 85, 247, 0.5);
+}
+.enemy-dash-fx .pvp-dash-ghost {
+    border-color: rgba(254, 205, 211, 0.95);
+    background:
+        radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.92), rgba(251, 113, 133, 0.54) 42%, rgba(168, 85, 247, 0.14) 68%, transparent 72%);
+    box-shadow: 0 0 18px rgba(251, 113, 133, 0.9), 0 0 34px rgba(168, 85, 247, 0.5);
+}
+.enemy-dash-fx .pvp-dash-impact {
+    border-color: rgba(251, 113, 133, 0.95);
+    box-shadow: inset 0 0 18px rgba(251, 113, 133, 0.45), 0 0 22px rgba(251, 113, 133, 0.72);
+}
+@keyframes pvpDashTrail {
+    0%   { opacity: 0; }
+    18%  { opacity: 1; }
+    100% { opacity: 0; filter: blur(5px); }
+}
+@keyframes pvpDashGhost {
+    0%   { opacity: 0; transform: translate(0, 0) scale(0.72); filter: blur(3px); }
+    15%  { opacity: 1; }
+    78%  { opacity: 0.85; transform: translate(var(--dash-x), var(--dash-y)) scale(1.05); filter: blur(0); }
+    100% { opacity: 0; transform: translate(var(--dash-x), var(--dash-y)) scale(0.85); filter: blur(5px); }
+}
+@keyframes pvpDashImpact {
+    0%   { opacity: 0; transform: scale(0.35); }
+    28%  { opacity: 1; transform: scale(0.95); }
+    100% { opacity: 0; transform: scale(1.8); }
+}
+
 /* ===== Combat equipped jutsu buttons only ===== */
 
 .combat-jutsu-bar {
