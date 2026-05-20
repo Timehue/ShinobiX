@@ -4742,7 +4742,7 @@ function scaleJutsuTagsForDisplay(jutsu: Jutsu, level: number): Jutsu {
 
 function blankJutsu(index: number, rank: Rank): Jutsu {
     const defaultPercent = rank === "S Rank" ? 40 : 35;
-    return makeJutsu(makeId(), `Jutsu ${index + 1}`, "Ninjutsu", 60, 4, 0, 7, 300, 300, [
+    return makeJutsu(makeId(), `Jutsu ${index + 1}`, "Ninjutsu", 60, 4, 40, 7, 300, 300, [
         { name: "", percent: defaultPercent },
         { name: "", percent: defaultPercent },
     ]);
@@ -22246,7 +22246,7 @@ function Arena({
     }
 
     function groundTargetRelocatesUser(jutsu: Pick<Jutsu, "target" | "method" | "tags">) {
-        return jutsu.target === "EMPTY_GROUND" && (jutsu.method === "AOE_CIRCLE" || isMoveJutsu(jutsu));
+        return jutsu.target === "EMPTY_GROUND" && isMoveJutsu(jutsu);
     }
 
     function moveJutsuRange(jutsu: Pick<Jutsu, "range">) {
@@ -24253,7 +24253,7 @@ function Arena({
                                         i !== playerPos &&
                                         i !== enemyPos &&
                                         !isBarrierTile;
-                                    const isJutsuRangeTile = activeJutsuRangeTiles.has(i) || activeWeaponRangeTiles.has(i);
+                                    const isJutsuRangeTile = (activeJutsuRangeTiles.has(i) && !(pendingTargetJutsu && isMoveJutsu(pendingTargetJutsu))) || activeWeaponRangeTiles.has(i);
                                     const isJutsuAoeTile = activeJutsuAoeTiles.has(i);
                                     const isJutsuAoeCenterTile = pendingTargetJutsu?.method === "AOE_CIRCLE" && i === enemyPos && isJutsuAoeTile;
                                     const isGroundAffectedTile = activeGroundAffectedTiles.has(i);
@@ -24289,7 +24289,7 @@ function Arena({
                                                 } ${isJutsuAoeCenterTile ? "jutsu-aoe-center-tile" : ""
                                                 } ${isPendingJutsuTarget ? "jutsu-target-tile" : ""
                                                 } ${isGroundTargetTile ? "ground-target-tile" : ""
-                                                } ${isMoveLandingTile ? "ground-target-tile" : ""
+                                                } ${isMoveLandingTile ? "dash-target-tile" : ""
                                                 }`}
                                             style={{
                                                 left: `${x}px`,
