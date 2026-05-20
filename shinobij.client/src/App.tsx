@@ -22411,7 +22411,7 @@ function Arena({
             if (!notified) alert(`${challenge.fromName} may not be pulled in automatically. Ask them to reopen the game or wait for heartbeat.`);
         } catch {
             // Restore the challenge so the player can retry
-            setDuelChallenges(prev => prev.some(c => c.id === challenge.id) ? prev : [challenge, ...prev]);
+            setDuelChallenges(duelChallenges.some(c => c.id === challenge.id) ? duelChallenges : [challenge, ...duelChallenges]);
             alert(`Could not start the battle with ${challenge.fromName}. Try accepting again.`);
         }
     }
