@@ -527,12 +527,15 @@ type DuelChallenge = {
     challengerJutsus?: Jutsu[];
     challengerBloodlineMult?: number;
     challengerPetId?: string; // which pet the challenger is using for pet battles
+    responderPetId?: string;
+    responderPet?: Pet;
     createdAt: number;
     mode?: "standard" | "ranked" | "clanWar1v1" | "clanWar2v2" | "clanWarPet";
     clanWarPoints?: number;
     sectorAttack?: boolean; // true = initiated from world-map sector, auto-routes defender
     battleId?: string;     // if set, both players join a shared PvP session instead of separate arenas
     accepted?: boolean;    // true = defender accepted spar/ranked, routes original challenger to pvpBattle as p1
+    declined?: boolean;
 };
 
 type AiCondition = "always" | "specific_round" | "distance_lower_than" | "distance_higher_than" | "hp_lower_than";
@@ -4968,6 +4971,23 @@ async function fetchPlayerCombatSave(name: string): Promise<PlayerCombatSave | n
     }
 }
 
+async function postPlayerChallengeNotice(targetName: string, challenge: DuelChallenge) {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+        try {
+            const res = await fetch('/api/player/challenge', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ targetName, challenge }),
+            });
+            if (res.ok) return true;
+        } catch {
+            // retry below
+        }
+        await new Promise(resolve => setTimeout(resolve, 350 + attempt * 500));
+    }
+    return false;
+}
+
 function getJutsuSelectOptions(jutsus: Jutsu[], typeFilter: "All" | JutsuType, elementFilter: "All" | JutsuElement, sortBy: JutsuSort) {
     return [...jutsus]
         .filter((jutsu) => typeFilter === "All" || jutsu.type === typeFilter)
@@ -5558,6 +5578,8 @@ export default function App() {
     const [allServerPlayers, setAllServerPlayers] = useState<ServerPlayerSummary[]>([]);
     const [hospitalEntryTime, setHospitalEntryTime] = useState<number | null>(null);
     const [duelChallenges, setDuelChallenges] = useState<DuelChallenge[]>([]);
+    const [processingChallengeIds, setProcessingChallengeIds] = useState<string[]>([]);
+    const [pendingPetBattleOpponent, setPendingPetBattleOpponent] = useState<{ owner: string; pet: Pet } | null>(null);
     const [triggeredEvents, setTriggeredEvents] = useState<string[]>([]);
     const [liveSectorPlayers, setLiveSectorPlayers] = useState<PlayerRecord[]>([]);
     const [incomingAttackBanner, setIncomingAttackBanner] = useState("");
@@ -5657,8 +5679,9 @@ export default function App() {
                         const incoming = data.pendingChallenges!
                             .filter((challenge) => challenge.toName.toLowerCase() === myNameLower)
                             .map((challenge) => ({ ...challenge, challenger: normalizeCharacter(challenge.challenger) }));
-                        const fresh = incoming.filter((challenge) => !current.some((existing) => existing.id === challenge.id));
-                        return fresh.length ? [...current, ...fresh] : current;
+                        if (!incoming.length) return current;
+                        const merged = current.filter((existing) => !incoming.some((challenge) => challenge.id === existing.id));
+                        return [...merged, ...incoming];
                     });
                 }
                 if (data.pendingAttacker) {
@@ -5681,6 +5704,63 @@ export default function App() {
         const id = setInterval(heartbeat, 5000);
         return () => clearInterval(id);
     }, [character?.name, currentSector]);
+
+    async function clearChallengeOnServer(challenge: DuelChallenge) {
+        await fetch('/api/player/challenge', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                targetName: challenge.toName,
+                fromName: challenge.fromName,
+                challengeId: challenge.id,
+            }),
+        }).catch(() => {});
+    }
+
+    function declineChallengeGlobal(challenge: DuelChallenge) {
+        setDuelChallenges(prev => prev.filter(candidate => candidate.id !== challenge.id));
+        void clearChallengeOnServer(challenge);
+        fetch('/api/player/challenge', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                targetName: challenge.fromName,
+                challenge: {
+                    ...challenge,
+                    declined: true,
+                    fromName: character?.name ?? challenge.toName,
+                    toName: challenge.fromName,
+                },
+            }),
+        }).catch(() => {});
+    }
+
+    async function acceptPetChallengeGlobal(challenge: DuelChallenge) {
+        if (!character) return;
+        if (processingChallengeIds.includes(challenge.id)) return;
+        const myPet = character.pets.find(pet => pet.id === character.activePetId) ?? character.pets[0];
+        const challengerPet = challenge.challenger.pets.find(pet => pet.id === challenge.challengerPetId) ?? challenge.challenger.pets[0];
+        if (!myPet || !challengerPet) {
+            alert("Both players need a pet before this pet battle can start.");
+            return;
+        }
+        setProcessingChallengeIds(prev => [...prev, challenge.id]);
+        setDuelChallenges(prev => prev.filter(candidate => candidate.id !== challenge.id));
+        await clearChallengeOnServer(challenge);
+        const acceptedNotice: DuelChallenge = {
+            ...challenge,
+            accepted: true,
+            fromName: character.name,
+            toName: challenge.fromName,
+            responderPetId: myPet.id,
+            responderPet: myPet,
+        };
+        const notified = await postPlayerChallengeNotice(challenge.fromName, acceptedNotice);
+        setPendingPetBattleOpponent({ owner: challenge.fromName, pet: challengerPet });
+        setScreen("petArena");
+        setProcessingChallengeIds(prev => prev.filter(id => id !== challenge.id));
+        if (!notified) alert(`${challenge.fromName} may not be pulled in automatically. Ask them to open Pet Arena if they do not see the fight.`);
+    }
 
     // Fetch full server player list (includes offline players from registry)
     useEffect(() => {
@@ -5745,7 +5825,7 @@ export default function App() {
         if (!character) return;
         const incoming = duelChallenges.find(c => c.toName.toLowerCase() === character.name.toLowerCase() && c.sectorAttack);
         if (!incoming) return;
-        setDuelChallenges(duelChallenges.filter(c => c.id !== incoming.id));
+        setDuelChallenges(prev => prev.filter(c => c.id !== incoming.id));
         if (incoming.battleId) {
             setPvpBattleId(incoming.battleId);
             setPvpRole("p2");
@@ -5755,24 +5835,48 @@ export default function App() {
             setRaidBattleKind("defense");
             setScreen("arena");
         }
-    }, [duelChallenges.length, character?.name]);
+    }, [duelChallenges, character?.name]);
 
     // Accepted-challenge routing: when the defender accepts a spar/ranked challenge they push back
     // an accepted:true notification with a battleId — auto-route the original challenger to pvpBattle as p1.
     useEffect(() => {
         if (!character) return;
-        const accepted = duelChallenges.find(c => c.accepted && !!c.battleId && c.toName.toLowerCase() === character.name.toLowerCase());
+        const accepted = duelChallenges.find(c => c.accepted && c.toName.toLowerCase() === character.name.toLowerCase());
         if (!accepted) return;
         setDuelChallenges(prev => prev.filter(c => c.id !== accepted.id));
+        if (accepted.mode === "clanWarPet") {
+            if (accepted.responderPet) {
+                setPendingPetBattleOpponent({ owner: accepted.fromName, pet: accepted.responderPet });
+                setScreen("petArena");
+            } else {
+                alert(`${accepted.fromName} accepted your pet battle. Open Pet Arena if it does not start automatically.`);
+                setScreen("petArena");
+            }
+            return;
+        }
+        if (!accepted.battleId) {
+            alert(`${accepted.fromName} accepted your challenge.`);
+            return;
+        }
         setPvpBattleId(accepted.battleId!);
         setPvpRole("p1");
         setScreen("pvpBattle");
-    }, [duelChallenges.length, character?.name]);
+    }, [duelChallenges, character?.name]);
+
+    useEffect(() => {
+        if (!character) return;
+        const declined = duelChallenges.find(c => c.declined && c.toName.toLowerCase() === character.name.toLowerCase());
+        if (!declined) return;
+        setDuelChallenges(prev => prev.filter(c => c.id !== declined.id));
+        alert(`${declined.fromName} declined your challenge.`);
+    }, [duelChallenges, character?.name]);
 
     // App-level accept for spar/ranked challenges — allows accepting from any screen,
     // not just when the player has already navigated to the Arena.
     async function acceptChallengeGlobal(challenge: DuelChallenge) {
         if (!character) return;
+        if (processingChallengeIds.includes(challenge.id)) return;
+        setProcessingChallengeIds(prev => [...prev, challenge.id]);
         const challenger = normalizeCharacter(challenge.challenger);
         setDuelChallenges(prev => prev.filter(c => c.id !== challenge.id));
         try {
@@ -5806,23 +5910,16 @@ export default function App() {
             if (!res.ok) throw new Error('Session create failed');
             const { battleId } = await res.json() as { battleId: string };
             // Push acceptance back so challenger's heartbeat routes them to pvpBattle as p1
-            fetch('/api/player/challenge', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    targetName: challenge.fromName,
-                    challenge: { ...challenge, battleId, accepted: true, fromName: character.name, toName: challenge.fromName },
-                }),
-            }).catch(() => {});
+            const notified = await postPlayerChallengeNotice(challenge.fromName, { ...challenge, battleId, accepted: true, fromName: character.name, toName: challenge.fromName });
             setPvpBattleId(battleId);
             setPvpRole("p2");
             setScreen("pvpBattle");
+            if (!notified) alert(`${challenge.fromName} may not be pulled in automatically. Ask them to reopen the game or wait for heartbeat.`);
         } catch {
-            // Fallback: old arena behavior
-            setPendingAiProfileId('');
-            setPendingPvpOpponent(challenger as Character);
-            setRaidBattleKind("raidPlayer");
-            setScreen("arena");
+            setDuelChallenges(prev => prev.some(c => c.id === challenge.id) ? prev : [challenge, ...prev]);
+            alert(`${challenge.fromName}'s challenge could not be accepted. Try again if it is still pending.`);
+        } finally {
+            setProcessingChallengeIds(prev => prev.filter(id => id !== challenge.id));
         }
     }
 
@@ -5919,7 +6016,6 @@ export default function App() {
                 if (data.pendingAiProfileId) setPendingAiProfileId(data.pendingAiProfileId);
                 if (data.triggeredEvents) setTriggeredEvents(data.triggeredEvents);
                 if (data.playerRoster && Object.keys(accounts).length === 0) setPlayerRoster(data.playerRoster.map((player: PlayerRecord) => ({ ...player, character: normalizeCharacter(player.character), currentSector: player.currentSector ?? 40 })));
-                if (data.duelChallenges) setDuelChallenges(data.duelChallenges.map((challenge: DuelChallenge) => ({ ...challenge, challenger: normalizeCharacter(challenge.challenger) })));
             }
         } catch {
             console.warn("Could not load local save data.");
@@ -5970,7 +6066,6 @@ export default function App() {
                     currentSector,
                     triggeredEvents,
                     playerRoster,
-                    duelChallenges,
                     editablePets,
                 }, noImages)
             );
@@ -6001,7 +6096,6 @@ export default function App() {
         currentSector,
         triggeredEvents,
         playerRoster,
-        duelChallenges,
         editablePets,
     ]);
 
@@ -7313,6 +7407,7 @@ export default function App() {
             {character && (() => {
                 const pending = duelChallenges.filter(c =>
                     !c.accepted &&
+                    !c.declined &&
                     !c.sectorAttack &&
                     c.toName.toLowerCase() === character.name.toLowerCase()
                 );
@@ -7321,24 +7416,26 @@ export default function App() {
                 const isPet = c.mode === "clanWarPet";
                 const isRanked = c.mode === "ranked";
                 const label = isPet ? "pet battle" : isRanked ? "ranked duel" : "spar";
+                const busy = processingChallengeIds.includes(c.id);
                 return (
                     <div className="incoming-attack-banner" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
                         <span>?? <strong>{c.fromName}</strong> challenged you to a {label}!</span>
                         <div style={{ display: "flex", gap: 6 }}>
                             <button
                                 style={{ padding: "4px 14px", background: "#22c55e", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 700 }}
+                                disabled={busy}
                                 onClick={() => {
                                     if (isPet) {
-                                        // Leave challenge in the list so PetArena can handle it
-                                        setScreen("petArena");
+                                        void acceptPetChallengeGlobal(c);
                                     } else {
                                         void acceptChallengeGlobal(c);
                                     }
                                 }}
-                            >? Accept</button>
+                            >{busy ? "Opening..." : "? Accept"}</button>
                             <button
                                 style={{ padding: "4px 14px", background: "#ef4444", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 700 }}
-                                onClick={() => setDuelChallenges(prev => prev.filter(x => x.id !== c.id))}
+                                disabled={busy}
+                                onClick={() => declineChallengeGlobal(c)}
                             >? Decline</button>
                         </div>
                         {pending.length > 1 && <span style={{ opacity: 0.7, fontSize: "0.85em" }}>+{pending.length - 1} more</span>}
@@ -7684,7 +7781,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "storyBoss" && character && <StoryBoss character={character} updateCharacter={setCharacter} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "training" && character && <Training character={character} updateCharacter={setCharacter} activeTraining={activeTraining} setActiveTraining={setActiveTraining} />}
                 {!activeTriggeredEvent && screen === "pets" && character && <PetYard character={character} updateCharacter={setCharacter} setScreen={navigate} />}
-                {!activeTriggeredEvent && screen === "petArena" && character && <PetArena character={character} updateCharacter={setCharacter} playerRoster={playerRoster} allServerPlayers={allServerPlayers} setScreen={setScreen} sharedImages={sharedImages} duelChallenges={duelChallenges} setDuelChallenges={setDuelChallenges} />}
+                {!activeTriggeredEvent && screen === "petArena" && character && <PetArena character={character} updateCharacter={setCharacter} playerRoster={playerRoster} allServerPlayers={allServerPlayers} setScreen={setScreen} sharedImages={sharedImages} duelChallenges={duelChallenges} setDuelChallenges={setDuelChallenges} pendingPetBattleOpponent={pendingPetBattleOpponent} onPendingPetBattleStarted={() => setPendingPetBattleOpponent(null)} />}
                 {!activeTriggeredEvent && screen === "jutsuTraining" && character && <JutsuTrainingHall character={character} updateCharacter={setCharacter} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} activeJutsuTraining={activeJutsuTraining} setActiveJutsuTraining={setActiveJutsuTraining} />}
                 {!activeTriggeredEvent && screen === "missions" && character && <Missions character={character} updateCharacter={setCharacter} creatorAis={playableAis} creatorMissions={creatorMissions} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} setPendingAiProfileId={setPendingAiProfileId} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "hunting" && character && <HunterBoard character={character} updateCharacter={setCharacter} creatorAis={playableAis} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} setPendingAiProfileId={setPendingAiProfileId} setScreen={setScreen} />}
@@ -9686,13 +9783,17 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
     return { result, player, enemy, logs, frames, obstacles: [...obstacles] };
 }
 
-function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, setScreen, sharedImages, duelChallenges, setDuelChallenges }: { character: Character; updateCharacter: (character: Character) => void; playerRoster: PlayerRecord[]; allServerPlayers: ServerPlayerSummary[]; setScreen: (screen: Screen) => void; sharedImages: Record<string, string>; duelChallenges: DuelChallenge[]; setDuelChallenges: (c: DuelChallenge[]) => void }) {
+function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, setScreen, sharedImages, duelChallenges, setDuelChallenges, pendingPetBattleOpponent, onPendingPetBattleStarted }: { character: Character; updateCharacter: (character: Character) => void; playerRoster: PlayerRecord[]; allServerPlayers: ServerPlayerSummary[]; setScreen: (screen: Screen) => void; sharedImages: Record<string, string>; duelChallenges: DuelChallenge[]; setDuelChallenges: (c: DuelChallenge[]) => void; pendingPetBattleOpponent?: { owner: string; pet: Pet } | null; onPendingPetBattleStarted?: () => void }) {
     const [selectedPetId, setSelectedPetId] = useState(character.activePetId ?? character.pets[0]?.id ?? "");
     const [opponentMode, setOpponentMode] = useState<"player" | "ai">("player");
     const [opponentSearch, setOpponentSearch] = useState("");
     const [petChallengeMsg, setPetChallengeMsg] = useState("");
 
     async function sendDirectPetChallenge(toName: string, fromPetId?: string) {
+        if (duelChallenges.some((challenge) => challenge.fromName === character.name && !challenge.accepted && !challenge.declined && !challenge.battleId && Date.now() - challenge.createdAt < 120000)) {
+            setPetChallengeMsg("You already have a pending challenge. Wait for it to be accepted, declined, or expire before sending another.");
+            return;
+        }
         setBattleReady(false);
         const challenge: DuelChallenge = {
             id: makeId(),
@@ -9709,6 +9810,11 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ targetName: toName, challenge }),
             });
+            if (res.status === 409) {
+                setPetChallengeMsg("You already have a pending challenge. Wait for it to be accepted, declined, or expire before sending another.");
+                return;
+            }
+            if (res.ok && !duelChallenges.some((c: DuelChallenge) => c.id === challenge.id)) setDuelChallenges([...duelChallenges, challenge]);
             setPetChallengeMsg(res.ok ? `? Pet challenge sent to ${toName}! They'll see it shortly.` : `? Could not reach ${toName}. Check the name and try again.`);
         } catch {
             setPetChallengeMsg(`? Network error sending challenge.`);
@@ -9783,6 +9889,12 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
         if (pendingClanPetBattle) savePendingClanPetBattle(null);
     }
 
+    useEffect(() => {
+        if (!pendingPetBattleOpponent || !selectedPet) return;
+        startBattle(pendingPetBattleOpponent);
+        onPendingPetBattleStarted?.();
+    }, [pendingPetBattleOpponent?.owner, pendingPetBattleOpponent?.pet.id, selectedPet?.id]);
+
     const pendingClanPetBattle = loadPendingClanPetBattle();
 
     return (
@@ -9802,9 +9914,31 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                         <button onClick={() => {
                             const challengerPet = c.challenger.pets.find(p => p.id === c.challengerPetId) ?? c.challenger.pets[0];
                             setDuelChallenges(duelChallenges.filter((x) => x.id !== c.id));
+                            fetch('/api/player/challenge', {
+                                method: 'DELETE',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ targetName: c.toName, fromName: c.fromName, challengeId: c.id }),
+                            }).catch(() => {});
+                            fetch('/api/player/challenge', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ targetName: c.fromName, challenge: { ...c, accepted: true, fromName: character.name, toName: c.fromName, responderPetId: selectedPet?.id, responderPet: selectedPet } }),
+                            }).catch(() => {});
                             if (challengerPet) startBattle({ owner: c.fromName, pet: challengerPet });
                         }}>? Accept & Fight</button>
-                        <button className="danger-button" onClick={() => setDuelChallenges(duelChallenges.filter((x) => x.id !== c.id))}>Decline</button>
+                        <button className="danger-button" onClick={() => {
+                            setDuelChallenges(duelChallenges.filter((x) => x.id !== c.id));
+                            fetch('/api/player/challenge', {
+                                method: 'DELETE',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ targetName: c.toName, fromName: c.fromName, challengeId: c.id }),
+                            }).catch(() => {});
+                            fetch('/api/player/challenge', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ targetName: c.fromName, challenge: { ...c, declined: true, fromName: character.name, toName: c.fromName } }),
+                            }).catch(() => {});
+                        }}>Decline</button>
                     </div>
                 </div>
             ))}
@@ -21933,7 +22067,7 @@ function Arena({
             : [];
     const playerSearchMatches = (player: PlayerRecord, search: string) =>
         player.name !== character.name && player.name.toLowerCase().includes(search.trim().toLowerCase());
-    const incomingChallenges = duelChallenges.filter((challenge) => challenge.toName.toLowerCase() === character.name.toLowerCase());
+    const incomingChallenges = duelChallenges.filter((challenge) => !challenge.accepted && !challenge.declined && challenge.toName.toLowerCase() === character.name.toLowerCase());
     const rollInitiative = () => (character.stats.speed + character.stats.willpower * 0.4 >= enemyCombatStats.speed + enemyCombatStats.willpower * 0.4 ? "player" : "enemy") as BattleActor;
 
     const [playerPos, setPlayerPos] = useState(62);
@@ -22214,8 +22348,8 @@ function Arena({
     }
 
     async function challengePlayer(opponent: PlayerRecord, mode: DuelChallenge["mode"] = "standard", clanWarPoints = 0) {
-        if (duelChallenges.some((challenge) => challenge.fromName === character.name && challenge.toName === opponent.name)) {
-            alert("Challenge already sent.");
+        if (duelChallenges.some((challenge) => challenge.fromName === character.name && !challenge.accepted && !challenge.declined && !challenge.battleId && Date.now() - challenge.createdAt < 120000)) {
+            alert("You already have a pending challenge. Wait for it to be accepted, declined, or expire before sending another.");
             return;
         }
         const challenge: DuelChallenge = {
@@ -22229,18 +22363,39 @@ function Arena({
             mode,
             clanWarPoints,
         };
-        setDuelChallenges([...duelChallenges, challenge]);
         try {
             const res = await fetch('/api/player/challenge', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ targetName: opponent.name, challenge }),
             });
+            if (res.status === 409) {
+                alert("You already have a pending challenge. Wait for it to be accepted, declined, or expire before sending another.");
+                return;
+            }
             if (!res.ok) throw new Error(`Server returned ${res.status}`);
+            if (!duelChallenges.some((existing: DuelChallenge) => existing.id === challenge.id)) setDuelChallenges([...duelChallenges, challenge]);
             alert(`${mode === "ranked" ? "Ranked challenge" : mode === "clanWarPet" ? "Pet challenge" : "Challenge"} sent to ${opponent.name}.`);
         } catch {
-            alert(`${opponent.name} is not reachable live right now. The challenge was kept on this device only.`);
+            alert(`${opponent.name} is not reachable live right now. Challenge was not sent.`);
         }
+    }
+
+    function declineChallenge(challenge: DuelChallenge) {
+        setDuelChallenges(duelChallenges.filter((candidate) => candidate.id !== challenge.id));
+        fetch('/api/player/challenge', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ targetName: challenge.toName, fromName: challenge.fromName, challengeId: challenge.id }),
+        }).catch(() => {});
+        fetch('/api/player/challenge', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                targetName: challenge.fromName,
+                challenge: { ...challenge, declined: true, fromName: character.name, toName: challenge.fromName },
+            }),
+        }).catch(() => {});
     }
 
     async function acceptChallenge(challenge: DuelChallenge) {
@@ -22260,17 +22415,11 @@ function Arena({
             if (!res.ok) throw new Error('Session create failed');
             const { battleId } = await res.json() as { battleId: string };
             // Push acceptance notification back so the original challenger gets routed to p1
-            fetch('/api/player/challenge', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    targetName: challenge.fromName,
-                    challenge: { ...challenge, battleId, accepted: true, fromName: character.name, toName: challenge.fromName },
-                }),
-            }).catch(() => {});
+            const notified = await postPlayerChallengeNotice(challenge.fromName, { ...challenge, battleId, accepted: true, fromName: character.name, toName: challenge.fromName });
             setPvpBattleId?.(battleId);
             setPvpRole?.("p2");
             setScreen("pvpBattle");
+            if (!notified) alert(`${challenge.fromName} may not be pulled in automatically. Ask them to reopen the game or wait for heartbeat.`);
         } catch {
             // Fallback to old arena if session creation fails
             setPendingAiProfileId("");
@@ -24205,7 +24354,7 @@ function Arena({
                                             setDuelChallenges(duelChallenges.filter((c) => c.id !== challenge.id));
                                             setScreen("petArena");
                                         }}>🐾 Go to Pet Arena</button>
-                                        <button className="danger-button" onClick={() => setDuelChallenges(duelChallenges.filter((c) => c.id !== challenge.id))}>Decline</button>
+                                        <button className="danger-button" onClick={() => declineChallenge(challenge)}>Decline</button>
                                     </div>
                                 </div>
                             ))}
@@ -24219,7 +24368,7 @@ function Arena({
                                 <p>Casual spar request to {challenge.toName}</p>
                                 <div className="menu">
                                     <button onClick={() => acceptChallenge(challenge)}>Accept Spar</button>
-                                    <button className="danger-button" onClick={() => setDuelChallenges(duelChallenges.filter((candidate) => candidate.id !== challenge.id))}>Decline</button>
+                                    <button className="danger-button" onClick={() => declineChallenge(challenge)}>Decline</button>
                                 </div>
                             </div>
                         ))}
@@ -24337,10 +24486,10 @@ function Arena({
                 <section className="summary-box">
                     <h3>Spectator Board</h3>
                     <button onClick={() => setSpectatorFights(loadArenaActiveFights())}>Refresh Fights</button>
-                    {spectatorFights.length === 0 && duelChallenges.filter((challenge) => Boolean(challenge.clanWarPoints) || challenge.mode === "ranked").length === 0 ? <p className="hint">No active fights or open district challenges detected right now.</p> : (
+                    {spectatorFights.length === 0 && duelChallenges.filter((challenge) => !challenge.accepted && !challenge.declined && (Boolean(challenge.clanWarPoints) || challenge.mode === "ranked")).length === 0 ? <p className="hint">No active fights or open district challenges detected right now.</p> : (
                         <div className="jutsu-list">
                             {spectatorFights.map((fight) => <div className="summary-box" key={fight.id}><strong>{fight.title}</strong><p>{fight.mode} | Started {new Date(fight.startedAt).toLocaleTimeString()}</p><button onClick={() => alert(`Spectating ${fight.title}. Live replay streams will use this fight feed.`)}>View Fight</button></div>)}
-                            {duelChallenges.filter((challenge) => Boolean(challenge.clanWarPoints) || challenge.mode === "ranked").map((challenge) => <div className="summary-box" key={`spectate-${challenge.id}`}><strong>{challenge.fromName} vs {challenge.toName}</strong><p>{challenge.mode ?? "standard"} challenge pending</p><button onClick={() => alert("This fight has not started yet.")}>View Challenge</button></div>)}
+                            {duelChallenges.filter((challenge) => !challenge.accepted && !challenge.declined && (Boolean(challenge.clanWarPoints) || challenge.mode === "ranked")).map((challenge) => <div className="summary-box" key={`spectate-${challenge.id}`}><strong>{challenge.fromName} vs {challenge.toName}</strong><p>{challenge.mode ?? "standard"} challenge pending</p><button onClick={() => alert("This fight has not started yet.")}>View Challenge</button></div>)}
                         </div>
                     )}
                 </section>
@@ -24361,12 +24510,22 @@ function Arena({
                                             createdAt: Date.now(),
                                         });
                                         setDuelChallenges(duelChallenges.filter((candidate) => candidate.id !== challenge.id));
+                                        fetch('/api/player/challenge', {
+                                            method: 'DELETE',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ targetName: challenge.toName, fromName: challenge.fromName, challengeId: challenge.id }),
+                                        }).catch(() => {});
+                                        fetch('/api/player/challenge', {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ targetName: challenge.fromName, challenge: { ...challenge, accepted: true, fromName: character.name, toName: challenge.fromName, responderPetId: character.activePetId ?? character.pets[0]?.id, responderPet: character.pets.find(pet => pet.id === character.activePetId) ?? character.pets[0] } }),
+                                        }).catch(() => {});
                                         setScreen("petArena");
                                         return;
                                     }
                                     acceptChallenge(challenge);
                                 }}>{challenge.mode === "clanWarPet" ? "Open Pet Arena" : "Accept Duel"}</button>
-                                <button className="danger-button" onClick={() => setDuelChallenges(duelChallenges.filter((candidate) => candidate.id !== challenge.id))}>Decline</button>
+                                <button className="danger-button" onClick={() => declineChallenge(challenge)}>Decline</button>
                             </div>
                         </div>
                     ))}
