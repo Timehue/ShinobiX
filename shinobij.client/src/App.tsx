@@ -5732,18 +5732,19 @@ export default function App() {
         }
 
         heartbeat();
-        // 5-second interval so both players get routed to the battle screen within ~5s
-        // of a challenge being sent or accepted (was 20s — too slow for real-time battles).
-        const id = setInterval(heartbeat, 5000);
+        // 10-second interval — halves KV commands vs the old 5s without hurting challenge
+        // routing (challenges arrive within ~10s, which is acceptable for real-time play).
+        const id = setInterval(heartbeat, 10000);
         return () => clearInterval(id);
     }, [character?.name, currentSector]);
 
     // Shared game state hydration — load village/arena/clan state from KV on login,
-    // then refresh every 10 s so all players see the latest shared state.
+    // then refresh every 30 s so all players see the latest shared state.
+    // (Village/arena/clan data changes rarely — 30s lag is imperceptible.)
     useEffect(() => {
         if (!character) return;
         void hydrateSharedGameState();
-        const id = setInterval(() => { void hydrateSharedGameState(); }, 10000);
+        const id = setInterval(() => { void hydrateSharedGameState(); }, 30000);
         return () => clearInterval(id);
     }, [character?.name]);
 
@@ -25507,7 +25508,7 @@ function PvpBattleScreen({
                         if (data.status === "done") break;
                     }
                 } catch { /* ignore */ }
-                await new Promise<void>(r => setTimeout(r, 2000));
+                await new Promise<void>(r => setTimeout(r, 3000));
             }
         }
         poll();

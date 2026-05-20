@@ -11,6 +11,7 @@ import { cors } from '../_utils.js';
 // game:village-leadership-images survives — uploaded leader portraits preserved.
 const WIPE_PATTERNS = [
     'presence:*',
+    'presence:all',         // bulk presence hash (cleared alongside individual keys)
     'challenges:*',
     'challenge-outgoing:*',
     'chat:village:*',
