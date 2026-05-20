@@ -2020,7 +2020,22 @@ const starterJutsus: Jutsu[] = [
     makeJutsu("starter-buki-water-2", "Torrent Chain Slash", "Bukijutsu", 60, 4, 30, 2, 250, 250, [{ name: "Siphon", percent: 16 }], "Water"),
     makeJutsu("starter-buki-water-3", "Hidden Current Guard", "Bukijutsu", 40, 0, 0, 2, 125, 125, [{ name: "Barrier", percent: 0 }, { name: "Cleanse Prevent", percent: 0 }], "Water"),
     // Universal jutsus — no element, available to all
-    makeJutsu("starter-universal-flicker", "Flicker", "Taijutsu", 20, 5, 1, 2, 25, 25, [{ name: "Move", percent: 0 }], "None"),
+    normalizeJutsu({
+        id: "starter-universal-flicker",
+        name: "Flicker",
+        type: "Taijutsu",
+        element: "None",
+        ap: 20,
+        range: 5,
+        effectPower: 1,
+        cooldown: 2,
+        chakraCost: 25,
+        staminaCost: 25,
+        target: "EMPTY_GROUND",
+        method: "SINGLE",
+        tags: [{ name: "Move", percent: 0 }],
+        battleDescription: "%user vanishes and reappears on a nearby open tile.",
+    }),
     normalizeJutsu({
         id: "starter-universal-blitz",
         name: "Blitz",
@@ -25732,6 +25747,17 @@ function PvpBattleScreen({
         if (selectedActionId === "move" && moveAdjacentTiles.has(tileIdx)) {
             setSelectedActionId(undefined); submitAction("move", tileIdx); return;
         }
+        if (pendingJutsuId && pendingJutsu && pvpIsMoveJutsu(pendingJutsu) && tileIdx === oppPos) {
+            // Clicked on the opponent while a move jutsu is armed — pick the closest valid
+            // adjacent landing tile instead of silently doing nothing.
+            const landingTile = pvpHexNeighbors(oppPos)
+                .filter(t => groundJutsuTiles.has(t))
+                .sort((a, b) => pvpDist(myPos, a) - pvpDist(myPos, b))[0];
+            if (landingTile !== undefined) {
+                const jId = pendingJutsuId; setPendingJutsuId("");
+                submitAction("jutsu", landingTile, jId); return;
+            }
+        }
         if (pendingJutsuId && pendingJutsu && pvpIsGroundTargetJutsu(pendingJutsu) && groundJutsuTiles.has(tileIdx)) {
             const jId = pendingJutsuId; setPendingJutsuId("");
             submitAction("jutsu", tileIdx, jId); return;
@@ -25921,7 +25947,8 @@ function PvpBattleScreen({
                                         const ty = row * Y_STEP + (col % 2 === 1 ? HEX_H / 2 : 0);
                                         const isMyTile = i === myPos;
                                         const isOppTile = i === oppPos;
-                                        const canMove = dashRangeTiles.has(i) || moveAdjacentTiles.has(i);
+                                        const canMove = dashRangeTiles.has(i) || moveAdjacentTiles.has(i) ||
+                                            Boolean(pendingJutsu && pvpIsMoveJutsu(pendingJutsu) && groundJutsuTiles.has(i));
                                         const isJutsuRange = jutsuRangeTiles.has(i) || weaponRangeTilesSet.has(i) || basicAttackRangeTiles.has(i);
                                         const isGroundTarget = groundJutsuTiles.has(i);
                                         const isGroundAffected = groundJutsuAffectedTiles.has(i);
