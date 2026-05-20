@@ -62,7 +62,7 @@ type Biome = "forest" | "snow" | "volcano" | "shadow" | "central";
 type JutsuType = "Ninjutsu" | "Taijutsu" | "Genjutsu" | "Bukijutsu" | "Any";
 type JutsuElement = "Earth" | "Wind" | "Lightning" | "Fire" | "Water" | "None";
 type JutsuTarget = "SELF" | "OPPONENT" | "OTHER_USER" | "CHARACTER" | "EMPTY_GROUND";
-type JutsuMethod = "SINGLE" | "ALL" | "AOE_CIRCLE" | "AOE_LINE";
+type JutsuMethod = "SINGLE" | "ALL" | "AOE_CIRCLE" | "INSTANT_EFFECT";
 type JutsuSort = "name" | "type" | "element" | "effect" | "ap" | "range" | "effectPower";
 type WeatherType =
     | "clear"
@@ -1224,8 +1224,9 @@ To choose Moonshadow is to rely on no one… and ensure no one can ever control 
 const specialties: JutsuType[] = ["Ninjutsu", "Taijutsu", "Genjutsu", "Bukijutsu", "Any"];
 const jutsuElements: JutsuElement[] = ["Earth", "Wind", "Lightning", "Fire", "Water", "None"];
 const jutsuTargets: JutsuTarget[] = ["OPPONENT", "SELF", "OTHER_USER", "CHARACTER", "EMPTY_GROUND"];
-const jutsuMethods: JutsuMethod[] = ["SINGLE", "ALL", "AOE_CIRCLE", "AOE_LINE"];
-const bloodlineJutsuMethods: JutsuMethod[] = ["SINGLE", "AOE_CIRCLE", "AOE_LINE"];
+const jutsuMethods: JutsuMethod[] = ["SINGLE", "ALL", "AOE_CIRCLE", "INSTANT_EFFECT"];
+const bloodlineJutsuMethods: JutsuMethod[] = ["SINGLE", "AOE_CIRCLE", "INSTANT_EFFECT"];
+const instantEffectGroundTags = ["Decrease Damage Given", "Recoil", "Poison"];
 const adminIconOptions: { value: string; label: string }[] = [
     { value: "!", label: "! — Alert / Warning" },
     { value: "?", label: "? — Unknown / Mystery" },
@@ -1808,6 +1809,11 @@ function normalizeTagName(name: string) {
     if (name === "Time Dilation") return "Overclock";
     if (name === "Vamp") return "Siphon";
     return name;
+}
+
+function normalizeJutsuMethod(method?: string) {
+    if (method === "AOE_LINE") return "INSTANT_EFFECT" as JutsuMethod;
+    return (method ?? "SINGLE") as JutsuMethod;
 }
 
 function tagMatchesName(name: string, canonicalName: string) {
@@ -4428,7 +4434,7 @@ function normalizeJutsu(jutsu: Partial<Jutsu> & Pick<Jutsu, "id" | "name" | "typ
         staminaCost: jutsu.staminaCost ?? 10,
         healthCost: jutsu.healthCost ?? 0,
         target: (jutsu.target ?? "OPPONENT") as JutsuTarget,
-        method: (jutsu.method ?? "SINGLE") as JutsuMethod,
+        method: normalizeJutsuMethod(jutsu.method),
         battleDescription: jutsu.battleDescription ?? `${jutsu.name} strikes %target`,
         healthCostReducePerLvl: jutsu.healthCostReducePerLvl ?? 0,
         chakraCostReducePerLvl: jutsu.chakraCostReducePerLvl ?? 0,
@@ -4846,7 +4852,7 @@ function jutsuPoints(jutsu: Jutsu, rank?: Rank | null) {
     let points = jutsu.tags.reduce((sum, tag) => sum + tagPointValue(tag, effectiveRank), 0);
     if (jutsu.ap === 40) points += 1;
     if (jutsu.range >= 5) points += 0.5;
-    if (jutsu.target === "EMPTY_GROUND" && (jutsu.method === "AOE_CIRCLE" || jutsu.method === "AOE_LINE")) points += 1;
+    if (jutsu.target === "EMPTY_GROUND" && (jutsu.method === "AOE_CIRCLE" || jutsu.method === "INSTANT_EFFECT")) points += 1;
     if (!hasFixedEffectPower(jutsu)) {
         if (jutsu.effectPower >= 38 && jutsu.effectPower <= 40) points += 1;
         if (jutsu.effectPower >= 45) points += 2;
@@ -14232,7 +14238,7 @@ function AdminPanel({
     );
 }
 
-function TagPicker({ tag, setTag, percent, setPercent, rank, jutsuTarget, disabledTags = [] }: { tag: string; setTag: (tag: string) => void; percent: number; setPercent: (percent: number) => void; rank?: Rank | null; jutsuTarget?: JutsuTarget; disabledTags?: string[] }) {
+function TagPicker({ tag, setTag, percent, setPercent, rank, jutsuTarget, disabledTags = [], allowedTags }: { tag: string; setTag: (tag: string) => void; percent: number; setPercent: (percent: number) => void; rank?: Rank | null; jutsuTarget?: JutsuTarget; disabledTags?: string[]; allowedTags?: string[] }) {
     const isBinary = binaryTags.includes(tag);
     const isCapped = cappedDamageTags.includes(tag);
     const cap = isCapped ? tagCapForRank(rank) : 100;
@@ -14241,7 +14247,7 @@ function TagPicker({ tag, setTag, percent, setPercent, rank, jutsuTarget, disabl
         ? jutsuEffectInfo(normalizeJutsu({ id: "tag-preview", name: "Tag Preview", type: "Ninjutsu", effectPower: 100, tags: [{ name: tag, percent }] }), { name: tag, percent })
         : null;
     const isGroundTargeted = jutsuTarget === "EMPTY_GROUND";
-    const availableTags = isGroundTargeted ? allTags.filter((t) => t !== "Increase Damage Taken") : allTags;
+    const availableTags = allowedTags ?? (isGroundTargeted ? allTags.filter((t) => t !== "Increase Damage Taken") : allTags);
     const disabledTagSet = new Set(disabledTags);
 
     function handlePercent(val: number) {
@@ -21637,7 +21643,10 @@ function BloodlineMaker({ initialRank, initialSpecialElement, character, updateC
             if (i !== index) return jutsu;
             const next = normalizeJutsu(lockJutsuResourceCosts({ ...jutsu, ...updated }));
             if (!bloodlineJutsuMethods.includes(next.method)) next.method = "SINGLE";
-            if (next.method === "AOE_LINE") next.target = "EMPTY_GROUND";
+            if (next.method === "INSTANT_EFFECT") {
+                next.target = "EMPTY_GROUND";
+                next.tags = next.tags.filter((t) => instantEffectGroundTags.includes(t.name));
+            }
             if (next.target === "SELF") next.range = 0;
             else if (![4, 5].includes(next.range)) next.range = 4;
             next.cooldown = 7;
@@ -21703,7 +21712,9 @@ function BloodlineMaker({ initialRank, initialSpecialElement, character, updateC
         const usedUniqueTags = new Set<string>();
         const finalizedJutsus = jutsus.map((jutsu) => {
             const seenJutsuTags = new Set<string>();
+            const finalMethod = bloodlineJutsuMethods.includes(jutsu.method) ? jutsu.method : "SINGLE";
             const tags = normalizeJutsuTags(jutsu.tags).filter((tag) => {
+                if (finalMethod === "INSTANT_EFFECT" && !instantEffectGroundTags.includes(tag.name)) return false;
                 if (seenJutsuTags.has(tag.name)) return false;
                 seenJutsuTags.add(tag.name);
                 if (bloodlineUniqueTags.includes(tag.name)) {
@@ -21716,7 +21727,7 @@ function BloodlineMaker({ initialRank, initialSpecialElement, character, updateC
             ...lockJutsuResourceCosts(jutsu),
             type: bloodlineOffense,
             element: finalElement,
-            method: bloodlineJutsuMethods.includes(jutsu.method) ? jutsu.method : "SINGLE",
+            method: finalMethod,
             range: jutsu.target === "SELF" ? 0 : jutsu.range,
             cooldown: 7,
             effectPower: hasFixedEffectPower(jutsu) ? 100 : jutsu.ap === 60 ? (jutsu.effectPower === 50 ? 50 : 40) : jutsu.effectPower,
@@ -21772,11 +21783,11 @@ function BloodlineMaker({ initialRank, initialSpecialElement, character, updateC
                     <div className="inline-grid">
                         <select value={jutsu.target} onChange={(e) => updateJutsu(jutsuIndex, { target: e.target.value as JutsuTarget })}>{jutsuTargets.map((target) => <option key={target} value={target}>{target === "EMPTY_GROUND" ? "GROUND" : target}</option>)}</select>
                         <select value={bloodlineJutsuMethods.includes(jutsu.method) ? jutsu.method : "SINGLE"} onChange={(e) => updateJutsu(jutsuIndex, { method: e.target.value as JutsuMethod })}>
-                            {bloodlineJutsuMethods.map((method) => <option key={method} value={method}>{method === "AOE_CIRCLE" ? "AOE_CIRCLE (Move + Ring Damage)" : method === "AOE_LINE" ? "AOE_LINE (Ground Range Burst)" : method}</option>)}
+                            {bloodlineJutsuMethods.map((method) => <option key={method} value={method}>{method === "AOE_CIRCLE" ? "AOE_CIRCLE (Move + Ring Damage)" : method === "INSTANT_EFFECT" ? "Instant Effect (Ground Burst)" : method}</option>)}
                         </select>
                     </div>
                     {jutsu.method === "AOE_CIRCLE" && <div className="summary-box bloodline-element-lock">AOE Circle: you move to a chosen tile, then deal damage to every hex surrounding your destination. Move tag is required and auto-added. If the opponent is adjacent to your landing tile, they take the hit.</div>}
-                    {jutsu.method === "AOE_LINE" && <div className="summary-box bloodline-element-lock">AOE Line: target is locked to GROUND. Click an open ground tile in battle; every tile in that range is affected instantly. Costs +1 jutsu point.</div>}
+                    {jutsu.method === "INSTANT_EFFECT" && <div className="summary-box bloodline-element-lock">Instant Effect: target is locked to GROUND. Click an open ground tile in battle; that tile and its surrounding hexes become a 2-round defensive zone. Decrease Damage Given, Recoil, or Poison apply immediately if the enemy is caught and again each turn they stand in it. Costs +1 jutsu point.</div>}
                     <label>AP Type</label>
                     <div className="admin-ap-toggle">
                         <button className={jutsu.ap === 40 ? "active" : ""} onClick={() => updateJutsuAp(jutsuIndex, 40)}>40 AP Utility</button>
@@ -21819,7 +21830,7 @@ function BloodlineMaker({ initialRank, initialSpecialElement, character, updateC
                             );
                             return usedOnThisJutsu || usedOnAnotherJutsu;
                         });
-                        return <TagPicker key={tagIndex} rank={rank} jutsuTarget={jutsu.target} tag={currentTag} disabledTags={disabledTags} setTag={(name) => updateTag(jutsuIndex, tagIndex, { name })} percent={jutsu.tags[tagIndex]?.percent ?? 30} setPercent={(percent) => updateTag(jutsuIndex, tagIndex, { percent })} />;
+                        return <TagPicker key={tagIndex} rank={rank} jutsuTarget={jutsu.target} allowedTags={jutsu.method === "INSTANT_EFFECT" ? instantEffectGroundTags : undefined} tag={currentTag} disabledTags={disabledTags} setTag={(name) => updateTag(jutsuIndex, tagIndex, { name })} percent={jutsu.tags[tagIndex]?.percent ?? 30} setPercent={(percent) => updateTag(jutsuIndex, tagIndex, { percent })} />;
                     })}
                     <p>Jutsu Points: {jutsuPoints(jutsu)}</p>
                 </div>
@@ -22590,14 +22601,8 @@ function Arena({
 
     function groundAffectedTiles(jutsu: Jutsu | null | undefined, groundTile: number | null) {
         if (!jutsu || !isGroundEffectJutsu(jutsu)) return new Set<number>();
-        if (jutsu.method === "AOE_LINE") {
-            const range = Math.max(0, Number(jutsu.range) || 0);
-            return new Set(
-                Array.from({ length: gridWidth * gridHeight }, (_, tile) => tile)
-                    .filter((tile) => tile !== playerPos && distance(playerPos, tile) <= range)
-            );
-        }
         if (groundTile === null) return new Set<number>();
+        if (jutsu.method === "INSTANT_EFFECT") return new Set([groundTile, ...hexNeighbors(groundTile)]);
         if (jutsu.method === "AOE_CIRCLE") return new Set(hexNeighbors(groundTile));
         return new Set([groundTile]);
     }
@@ -22783,7 +22788,7 @@ function Arena({
     function groundTargetCatchesEnemy(jutsu: Pick<Jutsu, "method">, tile: number) {
         return tile === enemyPos ||
             (jutsu.method === "AOE_CIRCLE" && hexNeighbors(tile).includes(enemyPos)) ||
-            (jutsu.method === "AOE_LINE" && distance(playerPos, enemyPos) <= distance(playerPos, tile));
+            (jutsu.method === "INSTANT_EFFECT" && hexNeighbors(tile).includes(enemyPos));
     }
 
     function groundTargetRelocatesUser(jutsu: Pick<Jutsu, "target" | "method" | "tags">) {
@@ -25420,6 +25425,15 @@ type PvpFighterState = {
     pos: number;
 };
 
+type PvpGroundEffectState = {
+    id: string;
+    owner: "p1" | "p2";
+    name: string;
+    tiles: number[];
+    rounds: number;
+    tags: JutsuTag[];
+};
+
 type PvpSessionState = {
     battleId: string;
     p1: PvpFighterState;
@@ -25429,6 +25443,7 @@ type PvpSessionState = {
     ap: { p1: number; p2: number };
     actionsThisTurn: number;
     cooldowns: { p1: Record<string, number>; p2: Record<string, number> };
+    groundEffects?: PvpGroundEffectState[];
     log: string[];
     status: "active" | "done";
     winner: "p1" | "p2" | "draw" | null;
@@ -25671,6 +25686,32 @@ function PvpBattleScreen({
     const pvpIsMoveJutsu = (jutsu: Jutsu | null | undefined) => Boolean(jutsu?.tags?.some(tag => tagMatchesName(tag.name, "Move")));
     const pvpIsGroundTargetJutsu = (jutsu: Jutsu | null | undefined) => Boolean(jutsu && (jutsu.target === "EMPTY_GROUND" || pvpIsMoveJutsu(jutsu)));
 
+    const pvpGroundEffectClass = (jutsu: Jutsu | null | undefined, tileUse: "target" | "affected") => {
+        if (!jutsu) return "";
+        const tagNames = new Set((jutsu.tags ?? []).map(tag => normalizeTagName(tag.name)));
+        const element = jutsu.element;
+        if (tileUse === "target" && tagNames.has("Move")) return " ground-effect-move";
+        if (tagNames.has("Poison") || tagNames.has("Drain") || tagNames.has("Siphon")) return " ground-effect-poison";
+        if (tagNames.has("Ignition") || element === "Fire") return " ground-effect-fire";
+        if (tagNames.has("Stun") || tagNames.has("Lag") || tagNames.has("Overclock") || element === "Lightning") return " ground-effect-lightning";
+        if (tagNames.has("Shield") || tagNames.has("Barrier") || tagNames.has("Absorb") || tagNames.has("Reflect") || tagNames.has("Decrease Damage Taken")) return " ground-effect-guard";
+        if (element === "Water") return " ground-effect-water";
+        if (element === "Earth") return " ground-effect-earth";
+        if (element === "Wind") return " ground-effect-wind";
+        return " ground-effect-force";
+    };
+
+    const pvpGroundZoneClass = (effect: PvpGroundEffectState | undefined) => {
+        if (!effect) return "";
+        const tagNames = new Set((effect.tags ?? []).map(tag => normalizeTagName(tag.name)));
+        if (tagNames.has("Poison")) return " ground-effect-poison";
+        if (tagNames.has("Recoil")) return " ground-effect-fire";
+        if (tagNames.has("Decrease Damage Given")) return " ground-effect-lightning";
+        return " ground-effect-force";
+    };
+
+    const activeGroundEffects = session.groundEffects ?? [];
+
     const allTiles = Array.from({ length: gridWidth * gridHeight }, (_, i) => i);
     const dashRangeTiles = new Set(dashMode ? allTiles.filter(t => t !== myPos && t !== oppPos && pvpDist(myPos, t) <= 3) : []);
     const moveAdjacentTiles = new Set(selectedActionId === "move" ? pvpHexNeighbors(myPos).filter(t => t !== oppPos) : []);
@@ -25679,13 +25720,13 @@ function PvpBattleScreen({
     const groundJutsuTiles = new Set(pvpIsGroundTargetJutsu(pendingJutsu) ? allTiles.filter(t => t !== myPos && t !== oppPos && pvpDist(myPos, t) <= jutsuRange) : []);
     const groundJutsuAffectedTiles = new Set(
         pendingJutsu && pvpIsGroundTargetJutsu(pendingJutsu)
-            ? pendingJutsu.method === "AOE_LINE"
-                ? allTiles.filter(t => t !== myPos && pvpDist(myPos, t) <= jutsuRange)
-                : hoveredPvpTile !== null
-                    ? pendingJutsu.method === "AOE_CIRCLE"
+            ? hoveredPvpTile !== null
+                ? pendingJutsu.method === "INSTANT_EFFECT"
+                    ? [hoveredPvpTile, ...pvpHexNeighbors(hoveredPvpTile)]
+                    : pendingJutsu.method === "AOE_CIRCLE"
                         ? pvpHexNeighbors(hoveredPvpTile)
                         : [hoveredPvpTile]
-                    : []
+                : []
             : []
     );
     const pvpEquippedWeapons = equippedItems.filter(item => { const s = normalizeEquipmentSlot(item.slot); return s === "hand" || s === "thrown"; });
@@ -26033,13 +26074,20 @@ function PvpBattleScreen({
                                         const isJutsuRange = jutsuRangeTiles.has(i) || weaponRangeTilesSet.has(i) || basicAttackRangeTiles.has(i);
                                         const isGroundTarget = groundJutsuTiles.has(i);
                                         const isGroundAffected = groundJutsuAffectedTiles.has(i);
+                                        const activeGroundEffect = activeGroundEffects.find(effect => effect.tiles.includes(i));
+                                        const isActiveGroundEffect = Boolean(activeGroundEffect);
+                                        const groundEffectClass = (isGroundTarget || isGroundAffected)
+                                            ? pvpGroundEffectClass(pendingJutsu, isGroundAffected ? "affected" : "target")
+                                            : isActiveGroundEffect
+                                                ? pvpGroundZoneClass(activeGroundEffect)
+                                                : "";
                                         const isPendingTarget = (!!pendingJutsuId && i === oppPos && jutsuRangeTiles.has(i)) ||
                                             (!!pendingWeapon && i === oppPos && weaponRangeTilesSet.has(i)) ||
                                             (pendingBasicAttack && i === oppPos && basicAttackRangeTiles.has(i));
                                         return (
                                             <button
                                                 key={i}
-                                                className={`hex-tile${isMyTile ? " hex-player" : ""}${isOppTile ? " hex-enemy" : ""}${canMove ? " dash-target-tile" : ""}${isJutsuRange ? " jutsu-range-tile" : ""}${isGroundAffected ? " ground-affected-tile" : ""}${isGroundTarget ? " ground-target-tile" : ""}${isPendingTarget ? " jutsu-target-tile" : ""}`}
+                                                className={`hex-tile${isMyTile ? " hex-player" : ""}${isOppTile ? " hex-enemy" : ""}${canMove ? " dash-target-tile" : ""}${isJutsuRange ? " jutsu-range-tile" : ""}${(isGroundAffected || isActiveGroundEffect) ? " ground-affected-tile" : ""}${isGroundTarget ? " ground-target-tile" : ""}${groundEffectClass}${isPendingTarget ? " jutsu-target-tile" : ""}`
                                                 style={{ left: `${tx}px`, top: `${ty}px`, width: `${HEX_W}px`, height: `${HEX_H}px` }}
                                                 onMouseEnter={() => setHoveredPvpTile(i)}
                                                 onMouseLeave={() => setHoveredPvpTile(null)}
@@ -26144,7 +26192,9 @@ function PvpBattleScreen({
                                                     ? `Click an open tile in range ${pendingJutsu.range} to dash there. Surrounding hexes resolve instantly.`
                                                     : pvpIsMoveJutsu(pendingJutsu)
                                                         ? `Click any open tile in range ${pendingJutsu.range} to move there.`
-                                                        : `Click an open ground tile in range ${pendingJutsu.range}.`
+                                                        : pendingJutsu.method === "INSTANT_EFFECT"
+                                                            ? `Click an open ground tile in range ${pendingJutsu.range}. The ground effect lasts 2 rounds and applies immediately if the enemy is caught.`
+                                                            : `Click an open ground tile in range ${pendingJutsu.range}.`
                                                 : `Click ${opp.name} on the battlefield (range ${pendingJutsu?.range ?? pvpWeaponRange ?? 1}) to fire.`}
                                         </span>
                                         <button type="button" onClick={() => { setPendingJutsuId(""); setPendingWeaponId(""); setPendingBasicAttack(false); }}>Cancel</button>
