@@ -1977,8 +1977,8 @@ const starterJutsus: Jutsu[] = [
         staminaCost: 250,
         target: "EMPTY_GROUND",
         method: "AOE_CIRCLE",
-        tags: [{ name: "Damage", percent: 100 }, { name: "Increase Damage Given", percent: 30 }],
-        battleDescription: "%user surges forward with explosive speed, obliterating everything in range.",
+        tags: [{ name: "Move", percent: 0 }, { name: "Damage", percent: 100 }, { name: "Increase Damage Given", percent: 30 }],
+        battleDescription: "%user surges forward with explosive speed, moving to the target tile and obliterating everything adjacent.",
     }),
 ].map(rebalanceNonBloodlineJutsu);
 
@@ -22060,6 +22060,7 @@ function Arena({
     function jutsuAoeTiles(jutsu: Jutsu | null | undefined) {
         if (!jutsu || jutsu.method !== "AOE_CIRCLE") return new Set<number>();
         if (isGroundEffectJutsu(jutsu)) return new Set<number>();
+        if (isMoveJutsu(jutsu)) return new Set<number>(); // Move+AOE_CIRCLE uses hover-based ring preview
         if (!jutsuRangeTiles(jutsu).has(enemyPos)) return new Set<number>();
         return new Set([enemyPos, ...hexNeighbors(enemyPos)]);
     }
@@ -22269,6 +22270,19 @@ function Arena({
             } else {
                 setLog(`Select ${opponentName} to attack with ${pendingTargetWeapon.name}.`);
             }
+            return;
+        }
+
+        // Move+AOE_CIRCLE: player moves to the tile then damages the adjacent ring.
+        // Validation mirrors pure-move but delegates resource/damage to castJutsu.
+        if (pendingTargetJutsu && isMoveJutsu(pendingTargetJutsu) && pendingTargetJutsu.method === "AOE_CIRCLE") {
+            if (tile === enemyPos) { setLog(`${pendingTargetJutsu.name}: choose a landing tile, not the enemy.`); return; }
+            if (tile === playerPos) { setLog(`${pendingTargetJutsu.name}: choose a different tile.`); return; }
+            if (barrierTiles.some((b) => b.tile === tile)) { setLog("A barrier wall blocks that tile."); return; }
+            const dist = distance(playerPos, tile);
+            const moveRange = moveJutsuRange(pendingTargetJutsu);
+            if (dist < 1 || dist > moveRange) { setLog(`${pendingTargetJutsu.name} can move up to ${moveRange} tile(s).`); return; }
+            castJutsu(pendingTargetJutsu, true, tile);
             return;
         }
 
@@ -22988,7 +23002,11 @@ function Arena({
         if (character.stamina < scaled.staminaCost) return setLog("Not enough stamina.");
 
         const groundTargeted = isGroundEffectJutsu(jutsu);
-        const groundHitEnemy = !groundTargeted || groundTargetCatchesEnemy(jutsu, targetTile);
+        const groundHitEnemy = groundTargeted
+            ? groundTargetCatchesEnemy(jutsu, targetTile)
+            : (moveJutsu && jutsu.method === "AOE_CIRCLE")
+                ? hexNeighbors(targetTile).includes(enemyPos)
+                : true;
         const relocatesToGround = groundTargetRelocatesUser(jutsu);
         const effectiveTargetTile = groundTargeted ? targetTile : enemyPos;
         if (!moveJutsu && jutsu.target !== "SELF" && jutsu.range > 0 && distance(playerPos, effectiveTargetTile) > jutsu.range) {
@@ -23325,10 +23343,10 @@ function Arena({
 
         const totalDamage = finalDamage + extraEnemyDamage;
 
-        const groundTargetNote = groundTargeted
+        const groundTargetNote = (groundTargeted || (moveJutsu && jutsu.method === "AOE_CIRCLE"))
             ? groundHitEnemy
-                ? `Ground Target: ${character.name} lands on hex ${targetTile}; the impact catches ${opponentName}.`
-                : `Ground Target: ${character.name} lands on hex ${targetTile}; ${opponentName} is outside the impact.`
+                ? `AOE: ${character.name} lands on hex ${targetTile}; the blast catches ${opponentName}.`
+                : `AOE: ${character.name} lands on hex ${targetTile}; ${opponentName} is outside the blast.`
             : "";
 
         const timelineParts = [
@@ -23350,8 +23368,8 @@ function Arena({
 
         if (enemyHp - finalDamage - extraEnemyDamage <= 0) return winBattle();
 
-        setLog(groundTargeted
-            ? `${jutsu.name}: moved to hex ${targetTile}. ${groundHitEnemy ? `${finalDamage + extraEnemyDamage} damage.` : `${opponentName} was outside the impact.`} ${healing ? `Healed ${healing}.` : ""}`
+        setLog((groundTargeted || (moveJutsu && jutsu.method === "AOE_CIRCLE"))
+            ? `${jutsu.name}: moved to hex ${targetTile}. ${groundHitEnemy ? `${finalDamage + extraEnemyDamage} damage.` : `${opponentName} was outside the blast.`} ${healing ? `Healed ${healing}.` : ""}`
             : `${jutsu.name} used on ${opponentName}. ${finalDamage + extraEnemyDamage} damage. ${healing ? `Healed ${healing}.` : ""}`);
     }
 
@@ -24254,6 +24272,11 @@ function Arena({
                                         i !== enemyPos &&
                                         !isBarrierTile;
                                     const isJutsuRangeTile = (activeJutsuRangeTiles.has(i) && !(pendingTargetJutsu && isMoveJutsu(pendingTargetJutsu))) || activeWeaponRangeTiles.has(i);
+                                    const isMoveAoeAffectedTile = pendingTargetJutsu != null &&
+                                        isMoveJutsu(pendingTargetJutsu) &&
+                                        pendingTargetJutsu.method === "AOE_CIRCLE" &&
+                                        hoveredBattleTile !== null &&
+                                        hexNeighbors(hoveredBattleTile).includes(i);
                                     const isJutsuAoeTile = activeJutsuAoeTiles.has(i);
                                     const isJutsuAoeCenterTile = pendingTargetJutsu?.method === "AOE_CIRCLE" && i === enemyPos && isJutsuAoeTile;
                                     const isGroundAffectedTile = activeGroundAffectedTiles.has(i);
@@ -24285,7 +24308,7 @@ function Arena({
                                                 } ${canDashHere ? "dash-target-tile" : ""
                                                 } ${isJutsuRangeTile ? "jutsu-range-tile" : ""
                                                 } ${isJutsuAoeTile ? "jutsu-aoe-tile" : ""
-                                                } ${isGroundAffectedTile ? "ground-affected-tile" : ""
+                                                } ${(isGroundAffectedTile || isMoveAoeAffectedTile) ? "ground-affected-tile" : ""
                                                 } ${isJutsuAoeCenterTile ? "jutsu-aoe-center-tile" : ""
                                                 } ${isPendingJutsuTarget ? "jutsu-target-tile" : ""
                                                 } ${isGroundTargetTile ? "ground-target-tile" : ""
