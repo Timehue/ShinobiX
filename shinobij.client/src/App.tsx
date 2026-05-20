@@ -5483,6 +5483,7 @@ export default function App() {
     const [bloodlineMakerInitialRank, setBloodlineMakerInitialRank] = useState<Rank>("A Rank");
     const [bloodlineMakerInitialElement, setBloodlineMakerInitialElement] = useState("");
     const [bloodlineMakerRankLocked, setBloodlineMakerRankLocked] = useState(false);
+    const [bloodlineMakerEditingBloodline, setBloodlineMakerEditingBloodline] = useState<SavedBloodline | null>(null);
     const [currentSector, setCurrentSector] = useState(40);
     const [playerRoster, setPlayerRoster] = useState<PlayerRecord[]>([]);
     const [allServerPlayers, setAllServerPlayers] = useState<ServerPlayerSummary[]>([]);
@@ -7374,6 +7375,13 @@ export default function App() {
                         setSavedBloodlines={setSavedBloodlines}
                         setAdminLoggedIn={setAdminLoggedIn}
                         setScreen={setScreen}
+                        onEditBloodline={(bl) => {
+                            setBloodlineMakerEditingBloodline(bl);
+                            setBloodlineMakerInitialRank(bl.rank);
+                            setBloodlineMakerInitialElement(bl.specialElement ?? "");
+                            setBloodlineMakerRankLocked(false);
+                            setScreen("bloodlineMaker");
+                        }}
                         playerRoster={playerRoster}
                         allServerPlayers={allServerPlayers}
                         adminPw={adminPw}
@@ -7701,11 +7709,12 @@ export default function App() {
                         savedBloodlines={savedBloodlines}
                         setSavedBloodlines={setSavedBloodlines}
                         lockedRank={bloodlineMakerRankLocked}
+                        editingBloodline={bloodlineMakerEditingBloodline}
                         onSaveBloodlines={(nextBloodlines, nextCharacter) => {
                             if (!character || !currentAccountName) return;
                             void pushSaveToServer(nextCharacter ?? character, currentAccountName, { savedBloodlines: nextBloodlines }).catch(() => {});
                         }}
-                        onClose={() => { setBloodlineMakerRankLocked(false); setScreen("centralHub"); }}
+                        onClose={() => { setBloodlineMakerRankLocked(false); setBloodlineMakerEditingBloodline(null); setScreen(isAdminAccountName(character.name) ? "adminPanel" : "centralHub"); }}
                     />
                 )}
             </main>
@@ -10133,6 +10142,7 @@ function AdminPanel({
     setScreen,
     onSave,
     onReloadImages,
+    onEditBloodline,
     playerRoster,
     allServerPlayers,
     adminPw,
@@ -10167,6 +10177,7 @@ function AdminPanel({
     setScreen: (screen: Screen) => void;
     onSave: () => Promise<void>;
     onReloadImages?: () => void;
+    onEditBloodline?: (bloodline: SavedBloodline) => void;
     playerRoster: PlayerRecord[];
     allServerPlayers: ServerPlayerSummary[];
     adminPw: string;
@@ -13887,6 +13898,10 @@ function AdminPanel({
                                             <p className="hint" style={{ margin: 0 }}>{bl.ownerName ? `By ${bl.ownerName} · ` : ""}{bl.rank}{bl.specialElement ? ` · ${bl.specialElement}` : ""} · {bl.totalPoints} pts · {bl.jutsus.length} jutsus</p>
                                             {bl.lore && <p className="hint" style={{ margin: "4px 0 0" }}>{bl.lore}</p>}
                                         </div>
+                                        <button onClick={() => {
+                                            const base: SavedBloodline = { id: bl.id, name: bl.name, rank: bl.rank, image: bl.image, specialElement: bl.specialElement, lore: bl.lore, jutsus: bl.jutsus, totalPoints: bl.totalPoints };
+                                            onEditBloodline?.(base);
+                                        }}>✏️ Edit</button>
                                         <button onClick={() => pmApproveBloodline(bl)}>✅ Approve</button>
                                         <button className="danger-button" onClick={() => pmDeleteBloodline(bl)}>🗑️ Delete</button>
                                     </div>
@@ -21128,24 +21143,34 @@ function Profile({
         </div>
     );
 }
-function BloodlineMaker({ initialRank, initialSpecialElement, character, updateCharacter, savedBloodlines, setSavedBloodlines, lockedRank, onSaveBloodlines, onClose }: { initialRank: Rank; initialSpecialElement?: string; character: Character; updateCharacter: (character: Character) => void; savedBloodlines: SavedBloodline[]; setSavedBloodlines: (bloodlines: SavedBloodline[]) => void; lockedRank?: boolean; onSaveBloodlines?: (bloodlines: SavedBloodline[], character?: Character) => void; onClose?: () => void }) {
-    const [rank, setRank] = useState<Rank>(initialRank);
-    const [bloodlineName, setBloodlineName] = useState("Custom Bloodline");
-    const [bloodlineLore, setBloodlineLore] = useState("");
-    const [bloodlineImage, setBloodlineImage] = useState("");
-    const [specialElement, setSpecialElement] = useState(initialSpecialElement ?? "");
-    const [bloodlineOffense, setBloodlineOffense] = useState<JutsuType>("Ninjutsu");
-    const [jutsus, setJutsus] = useState<Jutsu[]>(Array.from({ length: jutsuCountForRank(initialRank) }).map((_, i) => blankJutsu(i, initialRank)));
+function BloodlineMaker({ initialRank, initialSpecialElement, character, updateCharacter, savedBloodlines, setSavedBloodlines, lockedRank, editingBloodline, onSaveBloodlines, onClose }: { initialRank: Rank; initialSpecialElement?: string; character: Character; updateCharacter: (character: Character) => void; savedBloodlines: SavedBloodline[]; setSavedBloodlines: (bloodlines: SavedBloodline[]) => void; lockedRank?: boolean; editingBloodline?: SavedBloodline | null; onSaveBloodlines?: (bloodlines: SavedBloodline[], character?: Character) => void; onClose?: () => void }) {
+    const [rank, setRank] = useState<Rank>(editingBloodline?.rank ?? initialRank);
+    const [bloodlineName, setBloodlineName] = useState(editingBloodline?.name ?? "Custom Bloodline");
+    const [bloodlineLore, setBloodlineLore] = useState(editingBloodline?.lore ?? "");
+    const [bloodlineImage, setBloodlineImage] = useState(editingBloodline?.image ?? "");
+    const [specialElement, setSpecialElement] = useState(editingBloodline?.specialElement ?? initialSpecialElement ?? "");
+    const [bloodlineOffense, setBloodlineOffense] = useState<JutsuType>((editingBloodline?.jutsus[0]?.type ?? "Ninjutsu") as JutsuType);
+    const [jutsus, setJutsus] = useState<Jutsu[]>(editingBloodline?.jutsus ?? Array.from({ length: jutsuCountForRank(initialRank) }).map((_, i) => blankJutsu(i, initialRank)));
     const recommendedMax = pointBudgetForRank(rank);
 
     useEffect(() => {
+        if (editingBloodline) {
+            setRank(editingBloodline.rank);
+            setBloodlineName(editingBloodline.name);
+            setBloodlineLore(editingBloodline.lore ?? "");
+            setBloodlineImage(editingBloodline.image ?? "");
+            setSpecialElement(editingBloodline.specialElement ?? "");
+            setBloodlineOffense((editingBloodline.jutsus[0]?.type ?? "Ninjutsu") as JutsuType);
+            setJutsus(editingBloodline.jutsus);
+            return;
+        }
         setRank(initialRank);
         setSpecialElement(initialSpecialElement ?? "");
         setJutsus(Array.from({ length: jutsuCountForRank(initialRank) }).map((_, i) => normalizeJutsu({
             ...blankJutsu(i, initialRank),
             element: (initialSpecialElement || "Fire") as JutsuElement,
         })));
-    }, [initialRank, initialSpecialElement]);
+    }, [initialRank, initialSpecialElement, editingBloodline]);
 
     function changeRank(newRank: Rank) {
         setRank(newRank);
@@ -21250,21 +21275,23 @@ function BloodlineMaker({ initialRank, initialSpecialElement, character, updateC
             tags,
         });
         });
-        const newId = makeId();
+        const finalId = editingBloodline?.id ?? makeId();
         // Publish bloodline image and jutsu images to shared KV so they survive
         // stripImages on save and are restored for all players via hydrateImages.
         const imageResults = await Promise.all([
-            bloodlineImage ? publishSharedImage('bloodline:' + newId, bloodlineImage) : Promise.resolve(),
+            bloodlineImage ? publishSharedImage('bloodline:' + finalId, bloodlineImage) : Promise.resolve(),
             ...finalizedJutsus.map((jutsu) => jutsu.image ? publishSharedImage('jutsu:' + jutsu.id, jutsu.image) : Promise.resolve()),
         ]);
         const imageSaveFailed = imageResults.some((result) => result === false);
-        const newBloodline = { id: newId, name: bloodlineName, rank, image: bloodlineImage, specialElement: specialElement.trim(), lore: bloodlineLore.trim(), jutsus: finalizedJutsus, totalPoints: bloodlinePoints(finalizedJutsus) };
-        const nextBloodlines = [...savedBloodlines, newBloodline];
+        const newBloodline = { id: finalId, name: bloodlineName, rank, image: bloodlineImage, specialElement: specialElement.trim(), lore: bloodlineLore.trim(), jutsus: finalizedJutsus, totalPoints: bloodlinePoints(finalizedJutsus) };
+        const nextBloodlines = editingBloodline
+            ? savedBloodlines.map((b) => b.id === finalId ? newBloodline : b)
+            : [...savedBloodlines, newBloodline];
         const nextCharacter = replaceCharacterBloodline(character, newBloodline, savedBloodlines);
         setSavedBloodlines(nextBloodlines);
         updateCharacter(nextCharacter);
         onSaveBloodlines?.(nextBloodlines, nextCharacter);
-        alert(imageSaveFailed ? `${bloodlineName} saved and equipped, but one or more images did not upload to shared storage.` : `${bloodlineName} saved and equipped.`);
+        alert(imageSaveFailed ? `${bloodlineName} saved, but one or more images did not upload to shared storage.` : `${bloodlineName} saved.`);
     }
     return (
         <div className="card bloodline-maker-screen global-menu-panel">
@@ -21331,14 +21358,9 @@ function BloodlineMaker({ initialRank, initialSpecialElement, character, updateC
                         <div className="summary-box bloodline-element-lock">Range: Self target</div>
                     )}
                     <div className="summary-box bloodline-element-lock">Cooldown: 7</div>
-                    <label>Health Cost</label>
-                    <div className="inline-grid"><input type="number" value={jutsu.healthCost} onChange={(e) => updateJutsu(jutsuIndex, { healthCost: Number(e.target.value) })} /></div>
                     <div className="summary-box bloodline-element-lock">
-                        Chakra/Stamina Cost: {formatJutsuResourcePercent(jutsu, "chakra")} each · Level 50: {formatJutsuResourcePercent(jutsu, "chakra", JUTSU_MAX_LEVEL)} each
+                        Chakra/Stamina Cost: {formatJutsuResourcePercent(jutsu, "chakra")} each · Level 50: {formatJutsuResourcePercent(jutsu, "chakra", JUTSU_MAX_LEVEL)} each · Reduction: -1% at mastery 50.
                     </div>
-                    <label>Cost Reduction Per Level</label>
-                    <div className="inline-grid"><input type="number" value={jutsu.healthCostReducePerLvl} onChange={(e) => updateJutsu(jutsuIndex, { healthCostReducePerLvl: Number(e.target.value) })} /></div>
-                    <div className="summary-box bloodline-element-lock">Chakra and stamina reduction is locked to mastery: -1% at jutsu level 50.</div>
                     <label>Tags</label>{Array.from({ length: jutsu.ap === 60 ? 2 : 3 }).map((_, tagIndex) => {
                         const currentTag = jutsu.tags[tagIndex]?.name ?? "";
                         const disabledTags = allTags.filter((tagName) => {
@@ -23195,8 +23217,10 @@ function Arena({
             if (tag.name === "Poison") {
                 if (enemyDebuffPrevented) effectLines.push(`${opponentName} resists poison`);
                 else {
-                    setEnemyStatuses((s) => [...s, { name: "Poison", rounds: 2, percent: pct, kind: "negative" }]);
-                    const poisonDmg = Math.floor(enemyMaxChakra * (pct / 100));
+                    const poisonDmgRaw = Math.floor(enemyMaxChakra * (pct / 100));
+                    const poisonCap = Math.floor((scaled.chakraCost + scaled.staminaCost) * 0.5);
+                    const poisonDmg = Math.min(poisonDmgRaw, poisonCap);
+                    setEnemyStatuses((s) => [...s, { name: "Poison", rounds: 2, percent: pct, kind: "negative", amount: poisonDmg }]);
                     effectLines.push(`${opponentName} is poisoned — takes ${poisonDmg} damage/round for 2 rounds`);
                 }
             }
@@ -23641,7 +23665,7 @@ function Arena({
                 drainChakra += 250;
                 drainStamina += 250;
             }
-            if (s.name === "Poison") dotDamage += Math.floor(enemyMaxChakra * (s.percent ?? 6) / 100);
+            if (s.name === "Poison") dotDamage += s.amount ?? Math.floor(enemyMaxChakra * (s.percent ?? 6) / 100);
         });
 
         if (dotDamage > 0) {
