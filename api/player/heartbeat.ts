@@ -20,6 +20,12 @@ type RegistryEntry = {
     lastSeen: number;
 };
 
+function normalizeSector(value: unknown, fallback = 40) {
+    const sector = Number(value);
+    if (!Number.isFinite(sector)) return fallback;
+    return Math.max(0, Math.floor(sector));
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res);
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -49,9 +55,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const pendingAttacker = existing?.pendingAttacker ?? null;
 
+        const entrySector = normalizeSector(sector, normalizeSector(existing?.sector, 40));
         const entry: PresenceEntry = {
             name,
-            sector: sector ?? existing?.sector ?? 40,
+            sector: entrySector,
             character: character ?? existing?.character ?? null,
             lastSeen: Date.now(),
             pendingAttacker: null,
@@ -94,7 +101,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // sectorMates — same sector only (for world-map display)
         const sectorMates = allEntries
-            .filter(p => p.sector === entry.sector)
+            .filter(p => normalizeSector(p.sector) === entry.sector)
             .map(toRecord);
 
         // allPlayers — every active player (for roster, search, pet arena, spar, etc.)
