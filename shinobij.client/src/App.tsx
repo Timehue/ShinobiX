@@ -5938,6 +5938,7 @@ export default function App() {
                     p1Character: {
                         ...p1Character,
                         jutsu: p1Jutsus,
+                        pvpItems: getPvpItemLoadout(p1Character, allItems),
                         bloodlineMult: challenge.challengerBloodlineMult ?? getBloodlineMultiplier(p1Character, p1SavedBloodlines),
                         armorFactor: getCharacterArmorFactor(p1Character, allItems),
                         armorRawDR: getCharacterArmorRawDR(p1Character, allItems),
@@ -5946,6 +5947,7 @@ export default function App() {
                     p2Character: {
                         ...p2Character,
                         jutsu: p2Jutsus,
+                        pvpItems: getPvpItemLoadout(p2Character, allItems),
                         bloodlineMult: getBloodlineMultiplier(p2Character, p2SavedBloodlines),
                         armorFactor: getCharacterArmorFactor(p2Character, allItems),
                         armorRawDR: getCharacterArmorRawDR(p2Character, allItems),
