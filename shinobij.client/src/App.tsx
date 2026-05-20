@@ -1309,7 +1309,46 @@ const petFeedItems = [
     ...petTreatItems,
     { id: "golden-apple", name: "Golden Apple", xp: 2000 },
 ] as const;
-const stackableItemIds = new Set<string>([...petFeedItems.map((item) => item.id), TERRITORY_CONTROL_SCROLL_ID]);
+// All "item" and "thrown" slot items are stackable (consumables, hunting mats, pet food, combat items).
+// Armor, weapons stored in equipment slots (hand, body, etc.) are not stackable.
+const ITEM_STACK_MAX = 50;
+// Lazily built after starterItems is declared (avoids hoisting issues).
+let _stackableItemIds: Set<string> | null = null;
+function stackableItemIds(): Set<string> {
+    if (!_stackableItemIds) {
+        _stackableItemIds = new Set<string>(
+            starterItems
+                .filter((i) => i.slot === "item" || i.slot === "thrown")
+                .map((i) => i.id)
+        );
+    }
+    return _stackableItemIds;
+}
+
+/** True if the player can add one more of itemId without exceeding the stack cap. */
+function canStackItem(inventory: string[], itemId: string): boolean {
+    if (!stackableItemIds().has(itemId)) return false;
+    return inventory.filter((id) => id === itemId).length < ITEM_STACK_MAX;
+}
+
+/** Add one item to inventory, respecting the 50-stack cap. Returns original if cap reached. */
+function addItemToInventory(inventory: string[], itemId: string): string[] {
+    if (!stackableItemIds().has(itemId)) {
+        if (inventory.includes(itemId)) return inventory; // non-stackable already owned
+        return [...inventory, itemId];
+    }
+    if (inventory.filter((id) => id === itemId).length >= ITEM_STACK_MAX) return inventory;
+    return [...inventory, itemId];
+}
+
+/** Remove one copy of itemId from inventory (used when consuming in battle). */
+function consumeOneFromInventory(inventory: string[], itemId: string): string[] {
+    const idx = inventory.lastIndexOf(itemId);
+    if (idx === -1) return inventory;
+    const next = [...inventory];
+    next.splice(idx, 1);
+    return next;
+}
 function petFeedXpForItem(itemId?: string): number | undefined {
     return petFeedItems.find((item) => item.id === itemId)?.xp;
 }
@@ -2911,7 +2950,7 @@ async function patchPlayerSaveCharacter(playerName: string, patcher: (char: Char
 
 function grantInventoryItemToPlayer(playerName: string, itemId: string, currentCharacter: Character, updateCharacter: (character: Character) => void) {
     if (playerName === currentCharacter.name) {
-        updateCharacter({ ...currentCharacter, inventory: [...currentCharacter.inventory, itemId] });
+        updateCharacter({ ...currentCharacter, inventory: addItemToInventory(currentCharacter.inventory, itemId) });
         return true;
     }
 
@@ -2925,12 +2964,12 @@ function grantInventoryItemToPlayer(playerName: string, itemId: string, currentC
         ...account,
         snapshot: {
             ...account.snapshot,
-            character: { ...recipient, inventory: [...recipient.inventory, itemId] },
+            character: { ...recipient, inventory: addItemToInventory(recipient.inventory, itemId) },
         },
     };
     savePlayerAccounts(accounts);
     // Also patch KV save directly so the recipient sees it on any device
-    void patchPlayerSaveCharacter(playerName, (char) => ({ ...char, inventory: [...(char.inventory ?? []), itemId] }));
+    void patchPlayerSaveCharacter(playerName, (char) => ({ ...char, inventory: addItemToInventory(char.inventory ?? [], itemId) }));
     return true;
 }
 
@@ -7930,6 +7969,7 @@ export default function App() {
                             currentWeather={currentWeather}
                             currentSector={currentSector}
                             onWin={handlePvpWin}
+                            updateCharacter={setCharacter}
                         />
                     );
                 })()}
@@ -15652,14 +15692,14 @@ function ShopBase({
         updateCharacter({
             ...character,
             ...update,
-            inventory: [...character.inventory, item.id]
+            inventory: addItemToInventory(character.inventory, item.id)
         });
 
         setSelectedItem(null);
     }
 
     const alreadyOwned = (item: GameItem) =>
-        stackableItemIds.has(item.id) ? false : character.inventory.includes(item.id) || Object.values(character.equipment).includes(item.id);
+        stackableItemIds().has(item.id) ? false : character.inventory.includes(item.id) || Object.values(character.equipment).includes(item.id);
 
     function statLabel(stat: string) {
         return stat
@@ -15785,12 +15825,12 @@ function ShopBase({
                                     <p><strong>Item Type:</strong> {equipmentSlotLabel(selectedItem.slot)}</p>
                                     <p><strong>Hidden:</strong> no</p>
                                     <p><strong>Range:</strong> {selectedItem.weaponRange ?? 0}</p>
-                                    <p><strong>Destroy on use:</strong> {stackableItemIds.has(selectedItem.id) ? "yes" : "no"}</p>
+                                    <p><strong>Destroy on use:</strong> {stackableItemIds().has(selectedItem.id) ? "yes" : "no"}</p>
                                     <p><strong>Action Usage:</strong> {selectedItem.weaponEp ? `${selectedItem.apCost ?? 40} AP` : "0%"}</p>
                                     <p><strong>Target:</strong> self</p>
                                     <p><strong>Method:</strong> single</p>
                                     <p><strong>Weapon:</strong> {normalizeEquipmentSlot(selectedItem.slot) === "hand" ? "yes" : "none"}</p>
-                                    <p><strong>Equip:</strong> {!stackableItemIds.has(selectedItem.id) && ["head", "body", "waist", "legs", "feet", "hand", "aura", "thrown"].includes(normalizeEquipmentSlot(selectedItem.slot)) ? "yes" : "no"}</p>
+                                    <p><strong>Equip:</strong> {!stackableItemIds().has(selectedItem.id) && ["head", "body", "waist", "legs", "feet", "hand", "aura", "thrown"].includes(normalizeEquipmentSlot(selectedItem.slot)) ? "yes" : "no"}</p>
                                     <p><strong>Required Level:</strong> {selectedItem.levelReq ?? 1}</p>
                                     <p><strong>Shop Price:</strong> {currencyIcon} {getShopCost(selectedItem.cost)} {currencyLabel}{shopDiscountPercent > 0 ? ` (was ${selectedItem.cost})` : ""}</p>
                                 </div>
@@ -19184,8 +19224,8 @@ function WorldMap({
 
     function claimChest(loot: ChestLoot) {
         const leveled = gainXp(character, loot.xp);
-        const newInventory = loot.itemId && (stackableItemIds.has(loot.itemId) || !character.inventory.includes(loot.itemId))
-            ? [...character.inventory, loot.itemId]
+        const newInventory = loot.itemId
+            ? addItemToInventory(character.inventory, loot.itemId)
             : character.inventory;
         const newTileCards = loot.cardId && !character.tileCards.includes(loot.cardId)
             ? [...character.tileCards, loot.cardId]
@@ -19553,7 +19593,7 @@ function WorldMap({
             { icon: "⭐", label: `+${displayCharacterXpGain(activeChest.xp)} XP`, sub: "Experience" },
         ];
         if (activeChest.ryo) rewards.push({ icon: "💰", label: `+${activeChest.ryo} Ryo`, sub: "Ancient gold" });
-        if (lootItem) rewards.push({ icon: stackableItemIds.has(lootItem.id) ? "🎒" : lootItem.rarity === "rare" ? "🔷" : "📦", label: lootItem.name, sub: `${lootItem.rarity.charAt(0).toUpperCase() + lootItem.rarity.slice(1)} ${lootItem.slot} · ${lootItem.description.slice(0, 40)}` });
+        if (lootItem) rewards.push({ icon: stackableItemIds().has(lootItem.id) ? "🎒" : lootItem.rarity === "rare" ? "🔷" : "📦", label: lootItem.name, sub: `${lootItem.rarity.charAt(0).toUpperCase() + lootItem.rarity.slice(1)} ${lootItem.slot} · ${lootItem.description.slice(0, 40)}` });
         if (lootCard) rewards.push({ icon: lootCard.rarity === "rare" ? "🃏" : "✨", label: `${lootCard.name}${alreadyHaveCard ? " (duplicate)" : ""}`, sub: `${lootCard.rarity.charAt(0).toUpperCase() + lootCard.rarity.slice(1)} · ${lootCard.element} · T:${lootCard.top} R:${lootCard.right} B:${lootCard.bottom} L:${lootCard.left}` });
         if (activeChest.fateShards) rewards.push({ icon: "✦", label: "+1 Fate Shard", sub: "Premium currency" });
         if (activeChest.boneCharms) rewards.push({ icon: "🦴", label: "+1 Bone Charm", sub: "Awakening Stone material" });
@@ -20145,7 +20185,7 @@ function WorldMap({
                     { icon: "⭐", label: `+${displayCharacterXpGain(activeChest.xp)} XP`, sub: "Experience" },
                 ];
                 if (activeChest.ryo) rewards.push({ icon: "💰", label: `+${activeChest.ryo} Ryo`, sub: "Ancient gold" });
-                if (lootItem) rewards.push({ icon: stackableItemIds.has(lootItem.id) ? "🎒" : lootItem.rarity === "rare" ? "🔷" : "📦", label: lootItem.name, sub: `${lootItem.rarity.charAt(0).toUpperCase() + lootItem.rarity.slice(1)} ${lootItem.slot} · ${lootItem.description.slice(0, 40)}` });
+                if (lootItem) rewards.push({ icon: stackableItemIds().has(lootItem.id) ? "🎒" : lootItem.rarity === "rare" ? "🔷" : "📦", label: lootItem.name, sub: `${lootItem.rarity.charAt(0).toUpperCase() + lootItem.rarity.slice(1)} ${lootItem.slot} · ${lootItem.description.slice(0, 40)}` });
                 if (lootCard) rewards.push({ icon: lootCard.rarity === "rare" ? "🃏" : "✨", label: `${lootCard.name}${alreadyHaveCard ? " (duplicate)" : ""}`, sub: `${lootCard.rarity.charAt(0).toUpperCase() + lootCard.rarity.slice(1)} · ${lootCard.element} · T:${lootCard.top} R:${lootCard.right} B:${lootCard.bottom} L:${lootCard.left}` });
                 if (activeChest.fateShards) rewards.push({ icon: "✦", label: "+1 Fate Shard", sub: "Premium currency" });
                 if (activeChest.boneCharms) rewards.push({ icon: "🦴", label: "+1 Bone Charm", sub: "Awakening Stone material" });
@@ -25440,6 +25480,7 @@ function PvpBattleScreen({
     currentWeather,
     currentSector,
     onWin,
+    updateCharacter,
 }: {
     character: Character;
     battleId: string;
@@ -25451,6 +25492,7 @@ function PvpBattleScreen({
     currentWeather: WeatherType;
     currentSector: number;
     onWin?: (opponentName: string) => void;
+    updateCharacter?: (c: Character) => void;
 }) {
     // Grid constants — exact match to arena
     const gridWidth = 12;
@@ -25726,6 +25768,10 @@ function PvpBattleScreen({
                 const data = await res.json() as PvpSessionState;
                 setSession(data);
                 setPvpRoundTimerKey(k => k + 1);
+                // Consume one item/thrown weapon from inventory after a successful use
+                if ((pvpAction === "item" || pvpAction === "weapon") && pvpItem && updateCharacter) {
+                    updateCharacter({ ...character, inventory: consumeOneFromInventory(character.inventory, pvpItem.id) });
+                }
                 if (data.activePlayer !== role) {
                     setPendingJutsuId(""); setDashMode(false); setSelectedActionId(undefined);
                     setPendingBasicAttack(false); setPendingWeaponId("");
