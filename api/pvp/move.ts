@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '@vercel/kv';
 import { cors } from '../_utils.js';
-import type { PvpFighter, PvpSession, PvpStatus } from './session.js';
+import type { PvpFighter, PvpGroundEffect, PvpSession, PvpStatus } from './session.js';
 
 // ─── Grid constants (match arena exactly) ─────────────────────────────────────
 const GRID_W = 12;
@@ -87,8 +87,79 @@ function normalizeTagName(name: string): string {
     return name;
 }
 
+function normalizeJutsuMethod(method?: string): string {
+    if (method === 'AOE_LINE') return 'INSTANT_EFFECT';
+    return method ?? 'SINGLE';
+}
+
 function nameMatches(name: string, canonicalName: string): boolean {
     return normalizeTagName(name) === canonicalName;
+}
+
+// ─── Ground effect zone helpers ───────────────────────────────────────────────
+const INSTANT_EFFECT_ALLOWED_TAGS = new Set(['Decrease Damage Given', 'Recoil', 'Poison']);
+
+function groundEffectTiles(center: number): number[] {
+    return [center, ...hexNeighbors(center)];
+}
+
+function groundEffectTags(tags: JutsuTag[]): JutsuTag[] {
+    return tags
+        .map(tag => ({ ...tag, name: normalizeTagName(tag.name) }))
+        .filter(tag => INSTANT_EFFECT_ALLOWED_TAGS.has(tag.name));
+}
+
+function applyGroundEffectToFighter(fighter: PvpFighter, effect: PvpGroundEffect): { fighter: PvpFighter; lines: string[] } {
+    let next = { ...fighter };
+    const lines: string[] = [];
+    if (!effect.tiles.includes(fighter.pos)) return { fighter: next, lines };
+    if (hasStatus(next, 'Debuff Prevent')) {
+        lines.push(`${next.name}'s Debuff Prevent blocks ${effect.name}.`);
+        return { fighter: next, lines };
+    }
+    for (const tag of effect.tags) {
+        const tagName = normalizeTagName(tag.name);
+        const pct = Math.max(1, Math.floor(tag.percent ?? 30));
+        if (tagName === 'Decrease Damage Given') {
+            next = addStatus(next, { name: 'Decrease Damage Given', rounds: 2, percent: pct, kind: 'negative' });
+            lines.push(`${effect.name}: ${next.name} deals ${pct}% less damage for 2 turns.`);
+        } else if (tagName === 'Recoil') {
+            next = addStatus(next, { name: 'Recoil', rounds: 2, percent: pct, kind: 'negative' });
+            lines.push(`${effect.name}: ${next.name} suffers ${pct}% recoil on attacks for 2 turns.`);
+        } else if (tagName === 'Poison') {
+            const poisonPct = pct > 0 ? pct : 6;
+            const dmg = Math.floor(next.maxChakra * (poisonPct / 100));
+            next = addStatus(next, { name: 'Poison', rounds: 2, percent: poisonPct, kind: 'negative' });
+            lines.push(`${effect.name}: ${next.name} is poisoned for ~${dmg}/round for 2 turns.`);
+        }
+    }
+    return { fighter: next, lines };
+}
+
+function applyGroundEffects(session: PvpSession): { session: PvpSession; lines: string[] } {
+    let p1 = session.p1;
+    let p2 = session.p2;
+    const lines: string[] = [];
+    for (const effect of session.groundEffects ?? []) {
+        // Ground effects are owned by one player and apply to the opponent
+        const targetRole = effect.owner === 'p1' ? 'p2' : 'p1';
+        if (targetRole === 'p1') {
+            const applied = applyGroundEffectToFighter(p1, effect);
+            p1 = applied.fighter;
+            lines.push(...applied.lines);
+        } else {
+            const applied = applyGroundEffectToFighter(p2, effect);
+            p2 = applied.fighter;
+            lines.push(...applied.lines);
+        }
+    }
+    return { session: { ...session, p1, p2 }, lines };
+}
+
+function tickGroundEffects(effects: PvpGroundEffect[] | undefined): PvpGroundEffect[] {
+    return (effects ?? [])
+        .map(effect => ({ ...effect, rounds: effect.rounds - 1 }))
+        .filter(effect => effect.rounds > 0);
 }
 
 function normalizeEquipmentSlot(slot?: string): string {
@@ -371,6 +442,16 @@ function endTurn(session: PvpSession): PvpSession {
 
     // No chakra or stamina regen during PvP — resources are finite per fight.
 
+    // Tick ground effects at round boundary (after p2 acts, before p1 starts)
+    if (newRound > session.round) {
+        s = { ...s, groundEffects: tickGroundEffects(s.groundEffects) };
+    }
+
+    // Apply ground effects to the next player at start of their turn
+    const groundApplied = applyGroundEffects(s);
+    s = groundApplied.session;
+    lines.push(...groundApplied.lines);
+
     // Apply DoTs to the next player at start of their turn
     let nextFighter = next === 'p1' ? s.p1 : s.p2;
     const dots = applyDoTs(nextFighter);
@@ -462,8 +543,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         function canAct(cost: number) { return myAp >= adjustedCost(cost) && session.actionsThisTurn < MAX_ACTIONS; }
 
-        function commit(updMe: PvpFighter | null, updOpp: PvpFighter | null, apCost: number, cd?: Record<string, number>): PvpSession {
-            let s = { ...session };
+        function commit(updMe: PvpFighter | null, updOpp: PvpFighter | null, apCost: number, cd?: Record<string, number>, extra?: Partial<PvpSession>): PvpSession {
+            let s = { ...session, ...extra };
             if (updMe) s = role === 'p1' ? { ...s, p1: updMe } : { ...s, p2: updMe };
             if (updOpp) s = role === 'p1' ? { ...s, p2: updOpp } : { ...s, p1: updOpp };
             s = { ...s, ap: { ...s.ap, [role]: myAp - adjustedCost(apCost) }, actionsThisTurn: s.actionsThisTurn + 1 };
@@ -584,6 +665,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
 
                 const tags = jutsu.tags ?? [];
+                const jutsuMethod = normalizeJutsuMethod(jutsu.method);
                 const moveTag = tags.some(t => normalizeTagName(t.name) === 'Move');
                 const groundTarget = jutsu.target === 'EMPTY_GROUND';
                 const needsGroundTile = groundTarget || moveTag;
@@ -625,15 +707,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const movedSelf = { ...me, pos: destTile, chakra: Math.max(0, me.chakra - jChakraCost), stamina: Math.max(0, me.stamina - jStaminaCost) };
                     lines.push(`${me.name} dashes to hex ${destTile}.`);
                     const ring = hexNeighbors(destTile);
-                    const lineRange = distance(me.pos, destTile);
-                    if (((jutsu.method as string) === 'AOE_CIRCLE' && ring.includes(opp.pos)) || ((jutsu.method as string) === 'AOE_LINE' && distance(me.pos, opp.pos) <= lineRange)) {
+                    if (jutsuMethod === 'AOE_CIRCLE' && ring.includes(opp.pos)) {
                         // Strip Move tag so applyJutsu treats this as a pure damage/effect jutsu
                         const damageJutsu = { ...jutsu, tags: tags.filter(t => normalizeTagName(t.name) !== 'Move') };
                         const jr = applyJutsu(movedSelf, opp, damageJutsu, jWMult, biome);
-                        lines.push(`${(jutsu.method as string) === 'AOE_LINE' ? 'Area impact' : 'Ring impact'} catches ${opp.name}!`);
+                        lines.push(`Ring impact catches ${opp.name}!`);
                         lines.push(...jr.lines);
                         result = commit(jr.self, jr.opponent, apCost, cd);
-                    } else if ((jutsu.method as string) === 'AOE_CIRCLE' || (jutsu.method as string) === 'AOE_LINE') {
+                    } else if (jutsuMethod === 'AOE_CIRCLE') {
                         lines.push(`${opp.name} is outside the impact area.`);
                         result = commit(movedSelf, null, apCost, cd);
                     } else {
@@ -651,13 +732,43 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         await kv.set(key, updated, { ex: 600 });
                         return finish(updated);
                     }
+
+                    // INSTANT_EFFECT: create a 2-round defensive ground zone and apply immediately
+                    // if the opponent is already standing in the affected tiles.
+                    if (jutsuMethod === 'INSTANT_EFFECT') {
+                        const zoneTags = groundEffectTags(tags);
+                        if (!zoneTags.length) {
+                            const msg = `${me.name}: ${jutsu.name} needs Decrease Damage Given, Recoil, or Poison for its ground effect.`;
+                            const updated = { ...session, log: [...session.log, msg] };
+                            await kv.set(key, updated, { ex: 600 });
+                            return finish(updated);
+                        }
+                        const groundEffect: PvpGroundEffect = {
+                            id: `${jutsu.id}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                            owner: role,
+                            name: jutsu.name,
+                            tiles: groundEffectTiles(targetTile),
+                            rounds: 2,
+                            tags: zoneTags,
+                        };
+                        const paidSelf = { ...me, chakra: Math.max(0, me.chakra - jChakraCost), stamina: Math.max(0, me.stamina - jStaminaCost) };
+                        lines.push(`${jutsu.name} creates a ground effect for 2 rounds.`);
+                        // Apply immediately if opponent is already in the zone
+                        const tempSession = { ...session, groundEffects: [...(session.groundEffects ?? []), groundEffect] };
+                        const immediateApplied = applyGroundEffects(tempSession);
+                        lines.push(...immediateApplied.lines);
+                        const updatedOpp = role === 'p1' ? immediateApplied.session.p2 : immediateApplied.session.p1;
+                        const oppChanged = updatedOpp !== opp;
+                        result = commit(paidSelf, oppChanged ? updatedOpp : null, apCost, cd, { groundEffects: [...(session.groundEffects ?? []), groundEffect] });
+                        break;
+                    }
+
                     const ring = hexNeighbors(targetTile);
-                    const lineRange = distance(me.pos, targetTile);
-                    const catchesOpponent = ((jutsu.method as string) === 'AOE_CIRCLE' && ring.includes(opp.pos)) || ((jutsu.method as string) === 'AOE_LINE' && distance(me.pos, opp.pos) <= lineRange);
+                    const catchesOpponent = jutsuMethod === 'AOE_CIRCLE' && ring.includes(opp.pos);
                     const paidSelf = { ...me, chakra: Math.max(0, me.chakra - jChakraCost), stamina: Math.max(0, me.stamina - jStaminaCost) };
                     if (catchesOpponent) {
                         const jr = applyJutsu(paidSelf, opp, jutsu, jWMult, biome);
-                        lines.push(`${(jutsu.method as string) === 'AOE_LINE' ? 'Area line' : 'Area burst'} catches ${opp.name}!`);
+                        lines.push(`Area burst catches ${opp.name}!`);
                         lines.push(...jr.lines);
                         result = commit(jr.self, jr.opponent, apCost, cd);
                     } else {

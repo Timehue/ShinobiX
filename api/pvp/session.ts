@@ -24,6 +24,15 @@ export type PvpFighter = {
     pos: number; // hex grid position (0–119 for 12×10 grid)
 };
 
+export type PvpGroundEffect = {
+    id: string;
+    owner: 'p1' | 'p2';
+    name: string;
+    tiles: number[];
+    rounds: number;
+    tags: Array<{ name: string; percent?: number; amount?: number }>;
+};
+
 export type PvpSession = {
     battleId: string;
     p1: PvpFighter;
@@ -33,6 +42,7 @@ export type PvpSession = {
     ap: { p1: number; p2: number };
     actionsThisTurn: number;
     cooldowns: { p1: Record<string, number>; p2: Record<string, number> };
+    groundEffects?: PvpGroundEffect[];
     log: string[];
     status: 'active' | 'done';
     winner: 'p1' | 'p2' | 'draw' | null;
