@@ -1806,6 +1806,7 @@ function normalizeTagName(name: string) {
     if (name === "Afterburn") return "Ignition";
     if (name === "Time Compression") return "Lag";
     if (name === "Time Dilation") return "Overclock";
+    if (name === "Vamp") return "Siphon";
     return name;
 }
 
@@ -4657,7 +4658,7 @@ function jutsuEffectInfo(jutsu: Jutsu, tag: JutsuTag) {
     if (tag.name === "Increase Damage Taken") return { summary: `Makes the target take ${pct}% more damage.`, rule: "Adds a negative status to the target that raises incoming damage.", duration: "2 rounds", value: `${pct}%` };
     if (tag.name === "Decrease Damage Taken") return { summary: `Makes the user take ${pct}% less damage.`, rule: "Adds a positive status to the caster that lowers incoming damage.", duration: "2 rounds", value: `${pct}%` };
     if (tag.name === "Absorb") return { summary: `Converts ${pct}% of incoming damage into healing.`, rule: "Adds a positive status to the caster. Buff Prevent can block it.", duration: "2 rounds", value: `${pct}%` };
-    if (tag.name === "Siphon" || tag.name === "Vamp") return { summary: `Heals the user for ${pct}% of damage dealt.`, rule: "Triggers after damage. Instant heal based on final damage.", duration: "Instant after hit", value: `${pct}%` };
+    if (tag.name === "Siphon") return { summary: `Heals the user for ${pct}% of damage dealt.`, rule: "Triggers after damage. Instant heal based on final damage.", duration: "Instant after hit", value: `${pct}%` };
     if (tag.name === "Lifesteal") return { summary: `Applies a 2-round status: your next 2 attacks heal you for ${pct}% of damage dealt.`, rule: "Adds a positive status to the caster. Each attack heals based on final damage.", duration: "2 rounds", value: `${pct}%` };
     if (tag.name === "Reflect") return { summary: `Reflects ${pct}% damage back at attackers.`, rule: "Adds a positive status to the caster. Buff Prevent can block it.", duration: "2 rounds", value: `${pct}%` };
     if (tag.name === "Recoil") return { summary: `Applies ${pct}% recoil to the target.`, rule: "The target suffers capped recoil damage when they attack.", duration: "2 rounds", value: `${pct}%` };
@@ -5169,7 +5170,7 @@ function isControlJutsu(jutsu: Jutsu) {
 }
 
 function isPressureJutsu(jutsu: Jutsu) {
-    return jutsu.target !== "SELF" && jutsu.tags.some((tag) => ["Ignition", "Wound", "Poison", "Drain", "Siphon", "Vamp"].some((name) => tagMatchesName(tag.name, name)));
+    return jutsu.target !== "SELF" && jutsu.tags.some((tag) => ["Ignition", "Wound", "Poison", "Drain", "Siphon"].some((name) => tagMatchesName(tag.name, name)));
 }
 
 function aiLoadoutFromJutsus(jutsus: Jutsu[]): AiLoadoutId {
@@ -21639,13 +21640,15 @@ function BloodlineMaker({ initialRank, initialSpecialElement, character, updateC
             if (next.target === "EMPTY_GROUND") {
                 next.tags = next.tags.filter((t) => t.name !== "Increase Damage Taken");
             }
-            // AOE_CIRCLE method requires Move tag in the first slot — they are tied
+            // AOE_CIRCLE method requires Move tag in the first slot — they are tied.
+            // Also force EMPTY_GROUND so the landing tile is always the chosen tile.
             if (next.method === "AOE_CIRCLE") {
                 const hasMoveTag = next.tags.some((t) => t.name === "Move");
                 if (!hasMoveTag) {
                     const slots = next.tags.filter((t) => t.name !== "Move");
                     next.tags = [{ name: "Move", percent: 0 }, ...slots].slice(0, next.ap === 60 ? 2 : 3);
                 }
+                next.target = "EMPTY_GROUND";
             }
             return next;
         }));
@@ -21683,7 +21686,9 @@ function BloodlineMaker({ initialRank, initialSpecialElement, character, updateC
                 merged.percent = Math.min(merged.percent ?? 30, tagCapForRank(rank));
             }
             tags[tagIndex] = merged;
-            const next = { ...jutsu, tags: normalizeJutsuTags(tags) };
+            const next = normalizeJutsu({ ...jutsu, tags: normalizeJutsuTags(tags) });
+            // Selecting Move immediately locks the jutsu to ground targeting
+            if (merged.name === "Move") next.target = "EMPTY_GROUND";
             return hasFixedEffectPower(next) ? { ...next, effectPower: 100 } : next;
         }));
     }
@@ -23622,7 +23627,7 @@ function Arena({
                 }
             }
 
-            if (["Wound", "Recoil", "Siphon", "Vamp"].includes(tag.name)) {
+            if (["Wound", "Recoil", "Siphon"].includes(tag.name)) {
                 postDamageTags.push(tag);
             }
             if (tagMatchesName(tag.name, "Ignition")) {
@@ -23834,7 +23839,7 @@ function Arena({
                 setEnemyStatuses((s) => [...s, { name: "Recoil", rounds: 2, percent: pct, kind: "negative" }]);
                 effectLines.push(`Recoil: ${opponentName} will take recoil when attacking.`);
             }
-            if (tag.name === "Siphon" || tag.name === "Vamp") {
+            if (tag.name === "Siphon") {
                 const restored = Math.floor(cappedPostDamage(finalDamage, pct) * healMultiplier);
                 healing += restored;
                 effectLines.push(`${tag.name} restores ${restored} HP`);
