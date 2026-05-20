@@ -39,9 +39,29 @@ function hexNeighbors(pos: number): number[] {
         : [[1, 1], [1, 0], [0, -1], [-1, 0], [-1, 1], [0, 1]];
     return deltas.map(([dx, dy]) => posFromXY(x + dx!, y + dy!)).filter(n => n >= 0);
 }
-
+function nextStepToward(from: number, to: number): number {
+    return hexNeighbors(from).sort((a, b) => distance(a, to) - distance(b, to))[0] ?? from;
+}
+function barrierTiles(...fighters: PvpFighter[]): number[] {
+    return fighters.flatMap(f => f.statuses.filter(s => s.name === 'Barrier' && typeof s.amount === 'number').map(s => s.amount!));
+}
+function tileBlocked(tile: number, ...fighters: PvpFighter[]) {
+    return barrierTiles(...fighters).includes(tile);
+}
 // ─── Jutsu types ──────────────────────────────────────────────────────────────
 type JutsuTag = { name: string; percent?: number; amount?: number };
+type PvpItem = {
+    id?: string;
+    name?: string;
+    slot?: string;
+    weaponEp?: number;
+    weaponElement?: string;
+    weaponRange?: number;
+    apCost?: number;
+    weaponTags?: JutsuTag[];
+    weaponEffect?: string;
+    weaponEffectValue?: number;
+};
 type Jutsu = {
     id: string;
     name: string;
@@ -52,10 +72,41 @@ type Jutsu = {
     ap?: number;
     cooldown?: number;
     effectPower?: number;
+    method?: string;
     chakraCost?: number;
     staminaCost?: number;
     tags?: JutsuTag[];
 };
+
+function normalizeTagName(name: string): string {
+    if (name === 'Seal') return 'Bloodline Seal';
+    if (name === 'Afterburn') return 'Ignition';
+    if (name === 'Time Compression') return 'Lag';
+    if (name === 'Time Dilation') return 'Overclock';
+    return name;
+}
+
+function nameMatches(name: string, canonicalName: string): boolean {
+    return normalizeTagName(name) === canonicalName;
+}
+
+function normalizeEquipmentSlot(slot?: string): string {
+    if (slot === 'weapon') return 'hand';
+    if (slot === 'armor') return 'body';
+    if (slot === 'accessory') return 'aura';
+    return slot ?? '';
+}
+
+function equippedPvpItem(fighter: PvpFighter, itemId?: string, itemName?: string): PvpItem | null {
+    const items = ((fighter.character.pvpItems as PvpItem[] | undefined) ?? []);
+    const equipment = (fighter.character.equipment as Record<string, string | undefined> | undefined) ?? {};
+    const equippedIds = new Set(Object.values(equipment).filter((id): id is string => Boolean(id)));
+    return items.find(item =>
+        Boolean(item.id) &&
+        equippedIds.has(item.id!) &&
+        ((itemId && item.id === itemId) || (!itemId && itemName && item.name === itemName))
+    ) ?? null;
+}
 
 // ─── Stat helpers ─────────────────────────────────────────────────────────────
 function getOffense(stats: Record<string, number>, type: string): number {
@@ -80,12 +131,12 @@ function weatherMultiplier(element: string | undefined, positiveEl: string, nega
     if (negativeEl && element === negativeEl) return 0.98;
     return 1;
 }
-// Terrain bonuses — match the terrainEffects table on the client exactly:
-//   forest  → +10% Taijutsu / Bukijutsu
-//   snow    → +10% Water element
-//   volcano → +10% Fire element
-//   shadow  → +10% Genjutsu
-//   central → no bonus
+// Terrain bonuses - match the terrainEffects table on the client exactly:
+//   forest  -> +10% Taijutsu
+//   snow    -> +10% Bukijutsu
+//   volcano -> +10% Ninjutsu
+//   shadow  -> +10% Genjutsu
+//   central -> no bonus
 function terrainMultiplier(jutsu: Jutsu, biome: string): number {
     switch (biome) {
         case 'forest':  return jutsu.type === 'Taijutsu'  ? 1.1 : 1;
@@ -97,9 +148,9 @@ function terrainMultiplier(jutsu: Jutsu, biome: string): number {
 }
 
 // ─── Fighter helpers ──────────────────────────────────────────────────────────
-function hasStatus(f: PvpFighter, name: string) { return f.statuses.some(s => s.name === name); }
+function hasStatus(f: PvpFighter, name: string) { return f.statuses.some(s => nameMatches(s.name, name)); }
 function addStatus(f: PvpFighter, s: PvpStatus): PvpFighter {
-    return { ...f, statuses: [...f.statuses.filter(x => x.name !== s.name), s] };
+    return { ...f, statuses: [...f.statuses.filter(x => !nameMatches(x.name, s.name)), s] };
 }
 function tickStatuses(f: PvpFighter): PvpFighter {
     return { ...f, statuses: f.statuses.map(s => ({ ...s, rounds: s.rounds - 1 })).filter(s => s.rounds > 0) };
@@ -129,7 +180,7 @@ function ampMultiplierFor(attacker: PvpFighter, defender: PvpFighter): number {
     }
     for (const s of defender.statuses) {
         if (s.name === 'Increase Damage Taken') m *= (1 + (s.percent ?? 0) / 100);
-        if (s.name === 'Afterburn') m *= (1 + (s.percent ?? 0) / 100);
+        if (nameMatches(s.name, 'Ignition')) m *= (1 + (s.percent ?? 0) / 100);
     }
     return m;
 }
@@ -154,14 +205,15 @@ function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu, wMult 
     const statFactor = Math.max(0.35, Math.min(1.85, 1 + (getOffense(offStats, jutsu.type) - getDefense(defStats, jutsu.type)) / (MAX_STAT * 2) * 0.85));
     const effectFactor = Math.max(0, scaledEp) / 100;
     // Bloodline mult: pre-computed on the client (1.0 if absent)
-    const bloodlineMult = Math.max(1.0, Number((self.character.bloodlineMult as number) ?? 1.0));
+    const bloodlineMult = (hasStatus(self, 'Bloodline Seal') || hasStatus(self, 'Seal')) ? 1.0 : Math.max(1.0, Number((self.character.bloodlineMult as number) ?? 1.0));
     // Item damage bonus: pre-computed on the client from equipped item bonuses (0 if absent → ×1.0)
     const itemDamageMult = 1 + Math.max(0, Number((self.character.itemDamagePct as number) ?? 0)) / 100;
     // Terrain bonus: +10% when jutsu type/element matches the current biome
     const tMult = terrainMultiplier(jutsu, biome);
-    // Raw base damage — DR applied separately below
+    // Raw base damage — scaled off attacker's maxHp so higher-level players hit harder.
+    // Using opponent.maxHp caused low-level players to deal more damage against tanky targets.
     const baseDmg = Math.max(0, Math.floor(
-        opponent.maxHp * effectFactor * statFactor * PVP_SCALE * wMult * tMult * bloodlineMult * itemDamageMult
+        self.maxHp * effectFactor * statFactor * PVP_SCALE * wMult * tMult * bloodlineMult * itemDamageMult
     ));
     // ── Defensive DR pool (diminishing returns) ───────────────────────────────
     // armorRawDR: raw sum of per-piece reductions (e.g. 7×0.15 + 0.08 Guardian = 1.13).
@@ -183,11 +235,16 @@ function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu, wMult 
     let healing = 0;
     let shieldGain = 0;
     let pierce = false;
+    const healBoost = s.statuses
+        .filter(st => st.name === 'Increase Heal')
+        .reduce((mult, st) => mult * (1 + (st.percent ?? 0) / 100), 1);
 
     for (const tag of tags) {
+        const tagName = normalizeTagName(tag.name);
         const pct = Math.floor(scaledTagPercent(tag.percent ?? 0, masteryLevel));
-        if (tag.name === 'Heal') { if (!hasStatus(s, 'Buff Prevent')) { healing += HEAL_FLAT; damage = 0; lines.push(`Heal: ${s.name} restores ${HEAL_FLAT} HP.`); } continue; }
-        if (tag.name === 'Shield') { if (!hasStatus(s, 'Buff Prevent')) { shieldGain += SHIELD_FLAT; damage = 0; lines.push(`Shield: ${s.name} gains ${SHIELD_FLAT} shield.`); } continue; }
+        if (tag.name === 'Heal') { healing += Math.floor(HEAL_FLAT * healBoost); damage = 0; lines.push(`Heal: ${s.name} restores ${Math.floor(HEAL_FLAT * healBoost)} HP.`); continue; }
+        if (tag.name === 'Shield') { shieldGain += SHIELD_FLAT; damage = 0; lines.push(`Shield: ${s.name} gains ${SHIELD_FLAT} shield.`); continue; }
+        if (tag.name === 'Barrier') { const tile = nextStepToward(s.pos, o.pos); if (tile !== s.pos && tile !== o.pos) { s = addStatus(s, { name: 'Barrier', rounds: 2, amount: tile, kind: 'positive' }); lines.push(`Barrier: ${s.name} blocks hex ${tile} for 2 turns.`); } else lines.push(`Barrier: no room to place a wall.`); damage = 0; continue; }
         if (tag.name === 'Pierce') { pierce = true; lines.push(`Pierce: bypasses defenses.`); continue; }
         if (tag.name === 'Stun') { if (!hasStatus(o, 'Debuff Prevent') && !hasStatus(o, 'Stun Prevent')) { o = addStatus(o, { name: 'Stun', rounds: 1, kind: 'negative' }); lines.push(`Stun: ${o.name} loses 40 AP next turn.`); } continue; }
         if (tag.name === 'Poison') { if (!hasStatus(o, 'Debuff Prevent')) { const poisonPct = pct > 0 ? pct : 6; const dmg = Math.floor(o.maxChakra * (poisonPct / 100)); o = addStatus(o, { name: 'Poison', rounds: 2, percent: poisonPct, kind: 'negative' }); lines.push(`Poison: ${o.name} takes ~${dmg}/round for 2 turns.`); } continue; }
@@ -199,21 +256,27 @@ function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu, wMult 
         if (tag.name === 'Decrease Damage Given') { if (!hasStatus(o, 'Debuff Prevent')) { o = addStatus(o, { name: 'Decrease Damage Given', rounds: 2, percent: pct, kind: 'negative' }); lines.push(`-${pct}% Damage Given: ${o.name} for 2 turns.`); } continue; }
         if (tag.name === 'Increase Damage Taken') { if (!hasStatus(o, 'Debuff Prevent')) { o = addStatus(o, { name: 'Increase Damage Taken', rounds: 2, percent: pct, kind: 'negative' }); lines.push(`+${pct}% Damage Taken: ${o.name} for 2 turns.`); } continue; }
         if (tag.name === 'Decrease Damage Taken') { if (!hasStatus(s, 'Buff Prevent')) { s = addStatus(s, { name: 'Decrease Damage Taken', rounds: 2, percent: pct, kind: 'positive' }); lines.push(`-${pct}% Damage Taken: ${s.name} for 2 turns.`); } continue; }
-        if (tag.name === 'Afterburn') { if (!hasStatus(o, 'Debuff Prevent')) { o = addStatus(o, { name: 'Afterburn', rounds: 2, percent: pct, kind: 'negative' }); lines.push(`Afterburn: ${o.name} +${pct}% damage taken for 2 turns.`); } continue; }
+        if (tagName === 'Ignition') { if (!hasStatus(o, 'Debuff Prevent')) { o = addStatus(o, { name: 'Ignition', rounds: 2, percent: pct, kind: 'negative' }); lines.push(`Ignition: ${o.name} +${pct}% damage taken for 2 turns.`); } continue; }
         if (tag.name === 'Debuff Prevent') { s = addStatus(s, { name: 'Debuff Prevent', rounds: 2, kind: 'positive' }); lines.push(`Debuff Prevent: ${s.name} for 2 turns.`); continue; }
         if (tag.name === 'Buff Prevent') { if (!hasStatus(o, 'Debuff Prevent')) { o = addStatus(o, { name: 'Buff Prevent', rounds: 2, kind: 'negative' }); lines.push(`Buff Prevent: ${o.name} cannot gain positive effects for 2 turns.`); } continue; }
+        if (tag.name === 'Cleanse Prevent') { if (!hasStatus(o, 'Debuff Prevent')) { o = addStatus(o, { name: 'Cleanse Prevent', rounds: 2, kind: 'negative' }); lines.push(`Cleanse Prevent: ${o.name} cannot cleanse debuffs for 2 turns.`); } continue; }
+        if (tag.name === 'Clear Prevent') { if (!hasStatus(s, 'Buff Prevent')) { s = addStatus(s, { name: 'Clear Prevent', rounds: 2, kind: 'positive' }); lines.push(`Clear Prevent: ${s.name}'s buffs cannot be cleared for 2 turns.`); } continue; }
         if (tag.name === 'Stun Prevent') { s = addStatus(s, { name: 'Stun Prevent', rounds: 2, kind: 'positive' }); lines.push(`Stun Prevent: ${s.name} is immune to Stun for 2 turns.`); continue; }
         if (tag.name === 'Copy') { const copied = o.statuses.filter(st => st.kind === 'positive'); copied.forEach(st => { s = addStatus(s, { ...st }); }); lines.push(`Copy: ${s.name} copied ${copied.length ? copied.map(st => st.name).join(', ') : 'nothing'} from ${o.name}.`); continue; }
-        if (tag.name === 'Mirror') { const mirrored = s.statuses.filter(st => st.kind === 'negative' && st.name !== 'Wound' && st.name !== 'Poison' && st.name !== 'Drain'); if (!hasStatus(o, 'Debuff Prevent')) { mirrored.forEach(st => { o = addStatus(o, { ...st }); }); s = { ...s, statuses: s.statuses.filter(st => !mirrored.includes(st)) }; lines.push(`Mirror: ${s.name} reflected ${mirrored.length ? mirrored.map(st => st.name).join(', ') : 'no debuffs'} onto ${o.name}.`); } continue; }
-        if (tag.name === 'Time Compression') { if (!hasStatus(o, 'Debuff Prevent')) { o = addStatus(o, { name: 'Time Compression', rounds: 2, percent: pct || 20, kind: 'negative' }); lines.push(`Time Compression: ${o.name}'s actions cost ${pct || 20}% more AP for 2 turns.`); } continue; }
-        if (tag.name === 'Time Dilation') { if (!hasStatus(s, 'Buff Prevent')) { s = addStatus(s, { name: 'Time Dilation', rounds: 2, percent: pct || 20, kind: 'positive' }); lines.push(`Time Dilation: ${s.name}'s actions cost ${pct || 20}% less AP for 2 turns.`); } continue; }
-        if (tag.name === 'Seal' || tag.name === 'Elemental Seal') { if (!hasStatus(o, 'Debuff Prevent')) { o = addStatus(o, { name: tag.name, rounds: 2, kind: 'negative' }); lines.push(`${tag.name}: ${o.name} is sealed.`); } continue; }
+        if (tag.name === 'Mirror') { const mirrored = s.statuses.filter(st => st.kind === 'negative' && st.name !== 'Wound' && !nameMatches(st.name, 'Ignition') && st.name !== 'Poison' && st.name !== 'Drain'); if (!hasStatus(o, 'Debuff Prevent')) { mirrored.forEach(st => { o = addStatus(o, { ...st }); }); s = { ...s, statuses: s.statuses.filter(st => !mirrored.includes(st)) }; lines.push(`Mirror: ${s.name} reflected ${mirrored.length ? mirrored.map(st => st.name).join(', ') : 'no debuffs'} onto ${o.name}.`); } continue; }
+        if (tagName === 'Lag') { if (!hasStatus(o, 'Debuff Prevent')) { o = addStatus(o, { name: 'Lag', rounds: 2, percent: pct || 20, kind: 'negative' }); lines.push(`Lag: ${o.name}'s actions cost ${pct || 20}% more AP for 2 turns.`); } continue; }
+        if (tagName === 'Overclock') { if (!hasStatus(s, 'Buff Prevent')) { s = addStatus(s, { name: 'Overclock', rounds: 2, percent: pct || 20, kind: 'positive' }); lines.push(`Overclock: ${s.name}'s actions cost ${pct || 20}% less AP for 2 turns.`); } continue; }
+        if (tag.name === 'Increase Heal') { if (!hasStatus(s, 'Buff Prevent')) { s = addStatus(s, { name: 'Increase Heal', rounds: 2, percent: pct, kind: 'positive' }); lines.push(`Increase Heal: ${s.name}'s healing is increased by ${pct}% for 2 turns.`); } continue; }
+        if (tag.name === 'Push') { if (!hasStatus(o, 'Debuff Prevent')) { const dist = Math.max(1, Number(jutsu.range) || 1); let nextPos = o.pos; for (let step = 0; step < dist; step++) { const away = hexNeighbors(nextPos).filter(t => distance(t, s.pos) > distance(nextPos, s.pos) && t !== s.pos && !tileBlocked(t, s, o)); if (!away.length) break; nextPos = away[0]!; } o = { ...o, pos: nextPos }; lines.push(`Push: ${o.name} is pushed ${dist} tile(s).`); } continue; }
+        if (tag.name === 'Pull') { if (!hasStatus(o, 'Debuff Prevent')) { const dist = Math.max(1, Number(jutsu.range) || 1); let nextPos = o.pos; for (let step = 0; step < dist; step++) { const toward = hexNeighbors(nextPos).filter(t => distance(t, s.pos) < distance(nextPos, s.pos) && t !== s.pos && !tileBlocked(t, s, o)); if (!toward.length) break; nextPos = toward[0]!; } o = { ...o, pos: nextPos }; lines.push(`Pull: ${o.name} is pulled ${dist} tile(s).`); } continue; }
+        if (tag.name === 'Bloodline Seal' || tag.name === 'Seal') { if (!hasStatus(o, 'Debuff Prevent')) { o = addStatus(o, { name: 'Bloodline Seal', rounds: 2, kind: 'negative' }); lines.push(`Bloodline Seal: ${o.name}'s bloodline is sealed.`); } continue; }
+        if (tag.name === 'Elemental Seal') { if (!hasStatus(o, 'Debuff Prevent')) { o = addStatus(o, { name: tag.name, rounds: 1, kind: 'negative' }); lines.push(`${tag.name}: ${o.name}'s elemental jutsu are sealed.`); } continue; }
     }
 
     if (pierce) {
         damage = (jutsu.ap ?? 40) >= 60 ? 900 : 500;
     } else {
-        // Amplifiers (Increase Damage Given, Increase Damage Taken, Afterburn) apply at full value.
+        // Amplifiers (Increase Damage Given, Increase Damage Taken, Ignition) apply at full value.
         const ampMult = ampMultiplierFor(s, o);
         // DR is already computed above as effectiveDR ∈ [0, 1).
         // Armor, DDT, and DDG all feed the same pool — more always helps, but with diminishing returns.
@@ -243,11 +306,11 @@ function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu, wMult 
                 lines.push(`Wound: ${o.name} bleeds ${amt}/turn for 2 turns.`);
             }
             if (tag.name === 'Recoil') { const rc = cappedPostDamage(finalDmg, pct || 30); s = { ...s, hp: Math.max(0, s.hp - rc) }; lines.push(`Recoil: ${s.name} takes ${rc} recoil.`); }
-            if (tag.name === 'Siphon' || tag.name === 'Vamp') { const h = cappedPostDamage(finalDmg, pct || 30); s = { ...s, hp: Math.min(s.maxHp, s.hp + h) }; lines.push(`${tag.name}: ${s.name} heals ${h} HP.`); }
+            if (tag.name === 'Siphon' || tag.name === 'Vamp') { const h = Math.floor(cappedPostDamage(finalDmg, pct || 30) * healBoost); s = { ...s, hp: Math.min(s.maxHp, s.hp + h) }; lines.push(`${tag.name}: ${s.name} heals ${h} HP.`); }
         }
 
         const ls = s.statuses.find(st => st.name === 'Lifesteal');
-        if (ls && finalDmg > 0) { const h = cappedPostDamage(finalDmg, ls.percent ?? 30); s = { ...s, hp: Math.min(s.maxHp, s.hp + h) }; lines.push(`Lifesteal: ${s.name} heals ${h} HP.`); }
+        if (ls && finalDmg > 0) { const h = Math.floor(cappedPostDamage(finalDmg, ls.percent ?? 30) * healBoost); s = { ...s, hp: Math.min(s.maxHp, s.hp + h) }; lines.push(`Lifesteal: ${s.name} heals ${h} HP.`); }
     }
 
     if (healing > 0) s = { ...s, hp: Math.min(s.maxHp, s.hp + healing) };
@@ -323,8 +386,8 @@ function endTurn(session: PvpSession): PvpSession {
         lines.push(`${nextFighter.name} is stunned — starts turn with ${baseAp} AP.`);
     }
 
-    // Time Compression: next player's AP costs increase by percent
-    // Time Dilation: next player's AP costs decrease by percent — stored on fighter, applied by canAct in handler
+    // Lag: next player's AP costs increase by percent
+    // Overclock: next player's AP costs decrease by percent — stored on fighter, applied by canAct in handler
     // Both are status effects already applied; the handler reads them via the session
 
     return { ...s, activePlayer: next, ap: { ...s.ap, [next]: baseAp }, actionsThisTurn: 0 };
@@ -338,12 +401,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-        const { battleId, role, action, tile, jutsuId, itemName, itemData, weatherPositiveElement = '', weatherNegativeElement = '', biome = 'central' } = body as {
+        const { battleId, role, action, tile, jutsuId, itemId, itemName, itemData, weatherPositiveElement = '', weatherNegativeElement = '', biome = 'central' } = body as {
             battleId?: string;
             role?: 'p1' | 'p2';
             action?: string;
             tile?: number;
             jutsuId?: string;
+            itemId?: string;
             itemName?: string;
             weatherPositiveElement?: string;
             weatherNegativeElement?: string;
@@ -367,17 +431,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (session.status === 'done') return res.status(200).json(session);
         if (session.activePlayer !== role) return res.status(200).json(session);
 
+        const lockKey = `${key}:lock`;
+        const lockToken = `${role}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+        const lockResult = await kv.set(lockKey, lockToken, { nx: true, ex: 3 } as never);
+        if (!lockResult) return res.status(200).json(session);
+
+        async function finish(payload: PvpSession) {
+            await kv.del(lockKey).catch(() => undefined);
+            return res.status(200).json(payload);
+        }
+
         const me = role === 'p1' ? session.p1 : session.p2;
         const opp = role === 'p1' ? session.p2 : session.p1;
         const myCooldowns = role === 'p1' ? session.cooldowns.p1 : session.cooldowns.p2;
         const myAp = role === 'p1' ? session.ap.p1 : session.ap.p2;
         const lines: string[] = [];
 
-        // Apply Time Compression (costs more) and Time Dilation (costs less) to AP
+        // Apply Lag (costs more) and Overclock (costs less) to AP
         function adjustedCost(base: number): number {
             let cost = base;
-            const compression = me.statuses.find(st => st.name === 'Time Compression');
-            const dilation = me.statuses.find(st => st.name === 'Time Dilation');
+            const compression = me.statuses.find(st => nameMatches(st.name, 'Lag'));
+            const dilation = me.statuses.find(st => nameMatches(st.name, 'Overclock'));
             if (compression) cost = Math.ceil(cost * (1 + (compression.percent ?? 20) / 100));
             if (dilation) cost = Math.floor(cost * (1 - (dilation.percent ?? 20) / 100));
             return Math.max(1, cost);
@@ -404,30 +478,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
 
             case 'move': {
-                if (tile === undefined || !canAct(30)) return res.status(200).json(session);
-                if (!hexNeighbors(me.pos).includes(tile) || tile === opp.pos) return res.status(200).json(session);
+                if (tile === undefined || !canAct(30)) return finish(session);
+                if (!hexNeighbors(me.pos).includes(tile) || tile === opp.pos || tileBlocked(tile, me, opp)) return finish(session);
                 lines.push(`${me.name} moves.`);
                 result = commit({ ...me, pos: tile }, null, 30);
                 break;
             }
 
             case 'dash': {
-                if (tile === undefined || !canAct(30)) return res.status(200).json(session);
-                if (distance(me.pos, tile) > 3 || tile === opp.pos || tile === me.pos) return res.status(200).json(session);
+                if (tile === undefined || !canAct(30)) return finish(session);
+                if (distance(me.pos, tile) > 3 || tile === opp.pos || tile === me.pos || tileBlocked(tile, me, opp)) return finish(session);
                 lines.push(`${me.name} dashes.`);
                 result = commit({ ...me, pos: tile }, null, 30);
                 break;
             }
 
             case 'basicAttack': {
-                if (!canAct(40)) return res.status(200).json(session);
+                if (!canAct(40)) return finish(session);
                 if (distance(me.pos, opp.pos) > 1) {
                     await kv.set(key, { ...session, log: [...session.log, `${me.name}: too far for basic attack — move closer.`] }, { ex: 600 });
-                    return res.status(200).json({ ...session, log: [...session.log, `${me.name}: too far for basic attack.`] });
+                    return finish({ ...session, log: [...session.log, `${me.name}: too far for basic attack.`] });
                 }
                 if (me.stamina < 10) {
                     await kv.set(key, { ...session, log: [...session.log, `${me.name}: not enough stamina.`] }, { ex: 600 });
-                    return res.status(200).json({ ...session, log: [...session.log, `${me.name}: not enough stamina.`] });
+                    return finish({ ...session, log: [...session.log, `${me.name}: not enough stamina.`] });
                 }
                 const specialty = (me.character.specialty as string) ?? 'Ninjutsu';
                 const basicJutsu: Jutsu = { id: 'basic-attack', name: 'Basic Attack', type: specialty, effectPower: 10, ap: 40, range: 1, tags: [] };
@@ -439,7 +513,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
 
             case 'basicHeal': {
-                if (!canAct(60) || (myCooldowns.basicHeal ?? 0) > 0 || me.chakra < 10) return res.status(200).json(session);
+                if (!canAct(60) || (myCooldowns.basicHeal ?? 0) > 0 || me.chakra < 10) return finish(session);
                 const healAmt = Math.max(1, Math.floor(me.maxHp * 0.1));
                 lines.push(`${me.name} uses Basic Heal, restoring ${healAmt} HP.`);
                 result = commit({ ...me, hp: Math.min(me.maxHp, me.hp + healAmt), chakra: Math.max(0, me.chakra - 10) }, null, 60, { basicHeal: 5 });
@@ -447,7 +521,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
 
             case 'clear': {
-                if (!canAct(60) || (myCooldowns.clear ?? 0) > 0) return res.status(200).json(session);
+                if (!canAct(60) || (myCooldowns.clear ?? 0) > 0) return finish(session);
                 if (hasStatus(opp, 'Clear Prevent')) {
                     lines.push(`${opp.name}'s Clear Prevent blocks the clear.`);
                     result = commit(null, null, 60, { clear: 10 });
@@ -460,7 +534,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
 
             case 'cleanse': {
-                if (!canAct(60) || (myCooldowns.cleanse ?? 0) > 0) return res.status(200).json(session);
+                if (!canAct(60) || (myCooldowns.cleanse ?? 0) > 0) return finish(session);
                 if (hasStatus(me, 'Cleanse Prevent')) {
                     lines.push(`${me.name}'s Cleanse Prevent blocks the cleanse.`);
                     result = commit(null, null, 60, { cleanse: 10 });
@@ -473,12 +547,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
 
             case 'jutsu': {
-                if (!jutsuId) return res.status(400).json({ error: 'Missing jutsuId' });
+                if (!jutsuId) { await kv.del(lockKey).catch(() => undefined); return res.status(400).json({ error: 'Missing jutsuId' }); }
                 const jutsuList = (me.character.jutsu as Jutsu[] | undefined) ?? [];
                 const jutsu = jutsuList.find(j => j.id === jutsuId);
-                if (!jutsu) return res.status(200).json(session);
+                if (!jutsu) return finish(session);
                 const apCost = jutsu.ap ?? 40;
-                if (!canAct(apCost) || (myCooldowns[jutsuId] ?? 0) > 0) return res.status(200).json(session);
+                if (!canAct(apCost) || (myCooldowns[jutsuId] ?? 0) > 0) return finish(session);
 
                 // ── Elemental Seal enforcement ───────────────────────────────────
                 // Elemental Seal blocks the five basic elements only.
@@ -487,7 +561,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const esMsg = `${me.name} is Elementally Sealed — cannot use ${jutsu.name} (${jutsu.element}).`;
                     const esState = { ...session, log: [...session.log, esMsg] };
                     await kv.set(key, esState, { ex: 600 });
-                    return res.status(200).json(esState);
+                    return finish(esState);
                 }
 
                 const jChakraCost = jutsu.chakraCost ?? 0;
@@ -496,24 +570,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const msg = `${me.name}: not enough chakra for ${jutsu.name} (need ${jChakraCost}).`;
                     const updated = { ...session, log: [...session.log, msg] };
                     await kv.set(key, updated, { ex: 600 });
-                    return res.status(200).json(updated);
+                    return finish(updated);
                 }
                 if (jStaminaCost > 0 && me.stamina < jStaminaCost) {
                     const msg = `${me.name}: not enough stamina for ${jutsu.name} (need ${jStaminaCost}).`;
                     const updated = { ...session, log: [...session.log, msg] };
                     await kv.set(key, updated, { ex: 600 });
-                    return res.status(200).json(updated);
+                    return finish(updated);
                 }
 
-                const selfTarget = jutsu.target === 'SELF' ||
-                    (jutsu.tags ?? []).some(t => ['Heal', 'Shield', 'Absorb', 'Reflect', 'Lifesteal', 'Debuff Prevent', 'Increase Damage Given', 'Decrease Damage Taken'].includes(t.name));
-                if (!selfTarget) {
+                const tags = jutsu.tags ?? [];
+                const moveTag = tags.some(t => normalizeTagName(t.name) === 'Move');
+                const groundTarget = jutsu.target === 'EMPTY_GROUND';
+                const needsGroundTile = groundTarget || moveTag;
+                const selfTarget = jutsu.target === 'SELF';
+                const opponentAffectingTags = new Set(['Stun', 'Bloodline Seal', 'Elemental Seal', 'Buff Prevent', 'Cleanse Prevent', 'Decrease Damage Given', 'Increase Damage Taken', 'Ignition', 'Poison', 'Drain', 'Lag', 'Mirror', 'Push', 'Pull']);
+                const affectsOpponent = (jutsu.effectPower ?? 0) > 0 || tags.some(t => opponentAffectingTags.has(normalizeTagName(t.name)));
+                if (needsGroundTile && tile === undefined) {
+                    const msg = `${me.name}: ${jutsu.name} needs a ground tile target.`;
+                    const updated = { ...session, log: [...session.log, msg] };
+                    await kv.set(key, updated, { ex: 600 });
+                    return finish(updated);
+                }
+                if (!selfTarget && !groundTarget && !moveTag && affectsOpponent) {
                     const range = Math.max(0, Number(jutsu.range) || 0);
                     if (range > 0 && distance(me.pos, opp.pos) > range) {
                         const outOfRangeMsg = `${jutsu.name} is out of range (need ≤${range}, distance ${Math.round(distance(me.pos, opp.pos))}).`;
                         const updated = { ...session, log: [...session.log, outOfRangeMsg] };
                         await kv.set(key, updated, { ex: 600 });
-                        return res.status(200).json(updated);
+                        return finish(updated);
                     }
                 }
 
@@ -521,30 +606,59 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const jWMult = weatherMultiplier(jutsu.element, weatherPositiveElement, weatherNegativeElement);
                 const cd = (jutsu.cooldown ?? 0) > 0 ? { [jutsuId]: jutsu.cooldown! } : undefined;
 
-                // AOE_CIRCLE + Move: move to chosen tile, deal damage to all surrounding hexes
-                if ((jutsu.method as string) === 'AOE_CIRCLE' && (jutsu.tags ?? []).some(t => t.name === 'Move') && tile !== undefined) {
+                // Ground-target and movement jutsus: choose an open tile in range.
+                // AOE_CIRCLE resolves from the chosen tile and only hits if the opponent
+                // is in the surrounding ring. Pure Move jutsus just relocate the user.
+                if (moveTag && tile !== undefined) {
                     const destTile = tile;
                     const range = Math.max(1, Number(jutsu.range) || 4);
-                    if (distance(me.pos, destTile) > range || destTile === opp.pos) {
+                    if (destTile < 0 || destTile >= GRID_W * GRID_H || distance(me.pos, destTile) > range || destTile === opp.pos || destTile === me.pos || tileBlocked(destTile, me, opp)) {
                         const msg = `${me.name}: ${jutsu.name} — destination out of range or occupied.`;
                         const updated = { ...session, log: [...session.log, msg] };
                         await kv.set(key, updated, { ex: 600 });
-                        return res.status(200).json(updated);
+                        return finish(updated);
                     }
                     const movedSelf = { ...me, pos: destTile, chakra: Math.max(0, me.chakra - jChakraCost), stamina: Math.max(0, me.stamina - jStaminaCost) };
                     lines.push(`${me.name} dashes to hex ${destTile}.`);
-                    // Check if opponent is in the ring around the destination
                     const ring = hexNeighbors(destTile);
-                    if (ring.includes(opp.pos)) {
+                    const lineRange = distance(me.pos, destTile);
+                    if (((jutsu.method as string) === 'AOE_CIRCLE' && ring.includes(opp.pos)) || ((jutsu.method as string) === 'AOE_LINE' && distance(me.pos, opp.pos) <= lineRange)) {
                         // Strip Move tag so applyJutsu treats this as a pure damage/effect jutsu
-                        const damageJutsu = { ...jutsu, tags: (jutsu.tags ?? []).filter(t => t.name !== 'Move') };
+                        const damageJutsu = { ...jutsu, tags: tags.filter(t => t.name !== 'Move') };
                         const jr = applyJutsu(movedSelf, opp, damageJutsu, jWMult, biome);
-                        lines.push(`Ring impact catches ${opp.name}!`);
+                        lines.push(`${(jutsu.method as string) === 'AOE_LINE' ? 'Area impact' : 'Ring impact'} catches ${opp.name}!`);
                         lines.push(...jr.lines);
                         result = commit({ ...jr.self, chakra: Math.max(0, jr.self.chakra - jChakraCost), stamina: Math.max(0, jr.self.stamina - jStaminaCost) }, jr.opponent, apCost, cd);
-                    } else {
-                        lines.push(`${opp.name} is outside the impact ring.`);
+                    } else if ((jutsu.method as string) === 'AOE_CIRCLE' || (jutsu.method as string) === 'AOE_LINE') {
+                        lines.push(`${opp.name} is outside the impact area.`);
                         result = commit(movedSelf, null, apCost, cd);
+                    } else {
+                        result = commit(movedSelf, null, apCost, cd);
+                    }
+                    break;
+                }
+
+                if (groundTarget && tile !== undefined) {
+                    const targetTile = tile;
+                    const range = Math.max(1, Number(jutsu.range) || 4);
+                    if (targetTile < 0 || targetTile >= GRID_W * GRID_H || distance(me.pos, targetTile) > range || targetTile === opp.pos || targetTile === me.pos || tileBlocked(targetTile, me, opp)) {
+                        const msg = `${me.name}: ${jutsu.name} — target tile out of range or occupied.`;
+                        const updated = { ...session, log: [...session.log, msg] };
+                        await kv.set(key, updated, { ex: 600 });
+                        return finish(updated);
+                    }
+                    const ring = hexNeighbors(targetTile);
+                    const lineRange = distance(me.pos, targetTile);
+                    const catchesOpponent = ((jutsu.method as string) === 'AOE_CIRCLE' && ring.includes(opp.pos)) || ((jutsu.method as string) === 'AOE_LINE' && distance(me.pos, opp.pos) <= lineRange);
+                    const paidSelf = { ...me, chakra: Math.max(0, me.chakra - jChakraCost), stamina: Math.max(0, me.stamina - jStaminaCost) };
+                    if (catchesOpponent) {
+                        const jr = applyJutsu(paidSelf, opp, jutsu, jWMult, biome);
+                        lines.push(`${(jutsu.method as string) === 'AOE_LINE' ? 'Area line' : 'Area burst'} catches ${opp.name}!`);
+                        lines.push(...jr.lines);
+                        result = commit(jr.self, jr.opponent, apCost, cd);
+                    } else {
+                        lines.push(`${opp.name} is outside the impact area.`);
+                        result = commit(paidSelf, null, apCost, cd);
                     }
                     break;
                 }
@@ -561,31 +675,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
 
             case 'weapon': {
-                if (!itemData) return res.status(400).json({ error: 'Missing itemData' });
-                const weapRange = itemData.weaponRange ?? 1;
-                const wApCost = itemData.ap ?? 40;
-                if (!canAct(wApCost)) return res.status(200).json(session);
+                const serverItem = equippedPvpItem(me, itemId, itemName);
+                if (!serverItem || !['hand', 'thrown'].includes(normalizeEquipmentSlot(serverItem.slot))) {
+                    await kv.del(lockKey).catch(() => undefined);
+                    return res.status(400).json({ error: 'Weapon is not equipped for this fighter' });
+                }
+                const weapRange = serverItem.weaponRange ?? (normalizeEquipmentSlot(serverItem.slot) === 'thrown' ? 4 : 1);
+                const wApCost = serverItem.apCost ?? 40;
+                if (!canAct(wApCost)) return finish(session);
                 if (distance(me.pos, opp.pos) > weapRange) {
                     const msg = `${me.name}: ${itemName ?? 'Weapon'} is out of range (need ≤${weapRange}).`;
                     const updated = { ...session, log: [...session.log, msg] };
                     await kv.set(key, updated, { ex: 600 });
-                    return res.status(200).json(updated);
+                    return finish(updated);
                 }
-                const wTags: JutsuTag[] = [...(itemData.tags ?? [])];
-                if (itemData.weaponEffect && !wTags.find(t => t.name === itemData.weaponEffect)) {
-                    wTags.push({ name: itemData.weaponEffect, percent: itemData.weaponEffectValue ?? 0 });
+                const wTags: JutsuTag[] = [...(serverItem.weaponTags ?? [])];
+                if (serverItem.weaponEffect && !wTags.find(t => t.name === serverItem.weaponEffect)) {
+                    wTags.push({ name: serverItem.weaponEffect, percent: serverItem.weaponEffectValue ?? 0 });
                 }
                 const weaponJutsu: Jutsu = {
                     id: 'weapon',
-                    name: itemName ?? 'Weapon Attack',
-                    type: itemData.type ?? 'Bukijutsu',
-                    effectPower: itemData.effectPower ?? 15,
+                    name: serverItem.name ?? 'Weapon Attack',
+                    type: 'Bukijutsu',
+                    effectPower: serverItem.weaponEp ?? 15,
                     ap: wApCost,
                     range: weapRange,
                     tags: wTags,
                 };
                 lines.push(`${me.name} uses ${weaponJutsu.name}:`);
-                const wWMult = weatherMultiplier(itemData.weaponElement as string | undefined, weatherPositiveElement, weatherNegativeElement);
+                const wWMult = weatherMultiplier(serverItem.weaponElement, weatherPositiveElement, weatherNegativeElement);
                 const wr = applyJutsu(me, opp, weaponJutsu, wWMult, biome);
                 lines.push(...wr.lines);
                 result = commit(wr.self, wr.opponent, wApCost);
@@ -593,16 +711,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
 
             case 'item': {
-                if (!itemData) return res.status(400).json({ error: 'Missing itemData' });
-                const iApCost = itemData.ap ?? 35;
-                if (!canAct(iApCost)) return res.status(200).json(session);
-                const iTags: JutsuTag[] = itemData.tags?.length ? itemData.tags : [{ name: 'Heal' }];
+                const serverItem = equippedPvpItem(me, itemId, itemName);
+                if (!serverItem || ['hand', 'thrown'].includes(normalizeEquipmentSlot(serverItem.slot))) {
+                    await kv.del(lockKey).catch(() => undefined);
+                    return res.status(400).json({ error: 'Item is not equipped for this fighter' });
+                }
+                const iApCost = serverItem.apCost ?? 35;
+                if (!canAct(iApCost)) return finish(session);
+                const iTags: JutsuTag[] = serverItem.weaponTags?.length ? serverItem.weaponTags : [{ name: 'Heal' }];
                 const itemJutsu: Jutsu = {
                     id: 'item',
-                    name: itemName ?? 'Item',
+                    name: serverItem.name ?? 'Item',
                     type: 'Ninjutsu',
                     target: 'SELF',
-                    effectPower: itemData.effectPower ?? 10,
+                    effectPower: serverItem.weaponEp ?? 10,
                     ap: iApCost,
                     range: 0,
                     tags: iTags,
@@ -615,7 +737,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
 
             case 'flee': {
-                if (!canAct(100)) return res.status(200).json(session);
+                if (!canAct(100)) return finish(session);
                 const hpCost = Math.max(1, Math.floor(me.maxHp * 0.1));
                 const escaped = Math.random() < 0.2;
                 const updatedMe = { ...me, hp: Math.max(0, me.hp - hpCost) };
@@ -639,11 +761,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
 
             default:
+                await kv.del(lockKey).catch(() => undefined);
                 return res.status(400).json({ error: `Unknown action: ${action}` });
         }
 
         await kv.set(key, result, { ex: 600 });
-        return res.status(200).json(result);
+        return finish(result);
     } catch (err) {
         return res.status(500).json({ error: String(err) });
     }
