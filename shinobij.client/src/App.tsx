@@ -4504,6 +4504,10 @@ function rosterFromAccounts(accounts: PlayerAccounts): PlayerRecord[] {
     });
 }
 
+function sameSector(a?: number, b?: number) {
+    return Math.floor(Number(a ?? 40)) === Math.floor(Number(b ?? 40));
+}
+
 function getOffenseStat(stats: Stats, type: JutsuType | string) {
     if (type === "Any") return Math.max(
         stats.ninjutsuOffense + stats.willpower + stats.speed,
@@ -7487,6 +7491,7 @@ export default function App() {
                         setCurrentWeather={setCurrentWeather}
                         playerRoster={playerRoster}
                         liveSectorPlayers={liveSectorPlayers}
+                        currentSector={currentSector}
                         setCurrentSector={setCurrentSector}
                         acceptedMissionIds={acceptedMissionIds}
                         missionProgress={missionProgress}
@@ -18530,6 +18535,7 @@ function WorldMap({
     setCurrentWeather,
     playerRoster,
     liveSectorPlayers,
+    currentSector,
     setCurrentSector,
     sectorAttackPlayer,
     acceptedMissionIds,
@@ -18558,6 +18564,7 @@ function WorldMap({
     setCurrentWeather: (weather: WeatherType) => void;
     playerRoster: PlayerRecord[];
     liveSectorPlayers: PlayerRecord[];
+    currentSector: number;
     setCurrentSector: (sector: number) => void;
     sectorAttackPlayer: (opponent: PlayerRecord) => void;
     acceptedMissionIds: string[];
@@ -18738,9 +18745,7 @@ function WorldMap({
         const biome = biomeForSector(sector);
         setCurrentBiome(biome);
         setCurrentWeather(weatherForSector(sector, biome));
-        // Do NOT set currentSector here — just viewing a sector panel on the map
-        // does not place you in that sector. It is set only when an action is taken
-        // (explore, battle, rest, etc.) inside the sector.
+        setCurrentSector(sector);
         setSelectedSector(sector);
     }
 
@@ -19207,13 +19212,15 @@ function WorldMap({
         const territory = loadSectorTerritory(selectedSector);
         const villageWar = activeVillageWarsFor(character.village).find(war => war.warGroundSector === selectedSector);
         const villageWarEnemy = villageWar?.villages.find(village => village !== character.village);
-        const sectorPlayers = liveSectorPlayers.length > 0
-            ? liveSectorPlayers
-                .filter((p) => p.name !== character.name)
-                .filter((p) => (p.currentSector ?? 40) === selectedSector)
-            : playerRoster
-                .filter((player) => player.name !== character.name)
-                .filter((player) => (player.currentSector ?? 40) === selectedSector);
+        const livePlayersHere = liveSectorPlayers
+            .filter((p) => p.name.toLowerCase() !== character.name.toLowerCase())
+            .filter((p) => sameSector(p.currentSector, selectedSector));
+        const rosterPlayersHere = playerRoster
+            .filter((player) => player.name.toLowerCase() !== character.name.toLowerCase())
+            .filter((player) => sameSector(player.currentSector, selectedSector));
+        const sectorPlayers = sameSector(currentSector, selectedSector)
+            ? (livePlayersHere.length > 0 ? livePlayersHere : rosterPlayersHere)
+            : [];
 
         return (
             <div className="map-instance">
@@ -19331,7 +19338,7 @@ function WorldMap({
                             )}
                         </section>
                         <section className="sector-presence">
-                            <h4>Players Here {liveSectorPlayers.length > 0 && <span className="live-badge">LIVE</span>}</h4>
+                            <h4>Players Here {livePlayersHere.length > 0 && <span className="live-badge">LIVE</span>}</h4>
                             {sectorPlayers.length === 0 ? (
                                 <span>No other players in this sector.</span>
                             ) : (
