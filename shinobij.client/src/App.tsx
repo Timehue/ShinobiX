@@ -18724,7 +18724,9 @@ function WorldMap({
         const biome = biomeForSector(sector);
         setCurrentBiome(biome);
         setCurrentWeather(weatherForSector(sector, biome));
-        setCurrentSector(sector);
+        // Do NOT set currentSector here — just viewing a sector panel on the map
+        // does not place you in that sector. It is set only when an action is taken
+        // (explore, battle, rest, etc.) inside the sector.
         setSelectedSector(sector);
     }
 
@@ -19192,7 +19194,9 @@ function WorldMap({
         const villageWar = activeVillageWarsFor(character.village).find(war => war.warGroundSector === selectedSector);
         const villageWarEnemy = villageWar?.villages.find(village => village !== character.village);
         const sectorPlayers = liveSectorPlayers.length > 0
-            ? liveSectorPlayers.filter((p) => p.name !== character.name)
+            ? liveSectorPlayers
+                .filter((p) => p.name !== character.name)
+                .filter((p) => (p.currentSector ?? 40) === selectedSector)
             : playerRoster
                 .filter((player) => player.name !== character.name)
                 .filter((player) => (player.currentSector ?? 40) === selectedSector);
