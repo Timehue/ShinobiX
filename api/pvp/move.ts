@@ -709,8 +709,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 lines.push(`${me.name} uses ${weaponJutsu.name}:`);
                 const wWMult = weatherMultiplier(serverItem.weaponElement, weatherPositiveElement, weatherNegativeElement);
                 const wr = applyJutsu(me, opp, weaponJutsu, wWMult, biome);
+                // Flat-bleed weapons (weaponEp=0 + weaponEffect='Wound'): applyJutsu produces
+                // baseDmg=0 so the Wound tag inside the damage>0 block never runs.
+                // Apply Wound directly here using the flat weaponEffectValue amount.
+                let wrOpp = wr.opponent;
+                if ((serverItem.weaponEp ?? 15) === 0 && serverItem.weaponEffect === 'Wound') {
+                    const woundAmt = serverItem.weaponEffectValue ?? 0;
+                    if (woundAmt > 0 && !hasStatus(wrOpp, 'Debuff Prevent')) {
+                        wrOpp = addStatus(wrOpp, { name: 'Wound', rounds: 2, amount: woundAmt, kind: 'negative' });
+                        lines.push(`Wound: ${wrOpp.name} bleeds ${woundAmt}/turn for 2 turns.`);
+                    }
+                }
                 lines.push(...wr.lines);
-                result = commit(wr.self, wr.opponent, wApCost);
+                result = commit(wr.self, wrOpp, wApCost);
                 break;
             }
 
@@ -732,7 +743,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     name: serverItem.name ?? 'Item',
                     type: 'Ninjutsu',
                     target: 'SELF',
-                    effectPower: serverItem.weaponEp ?? 10,
+                    effectPower: serverItem.weaponEp ?? 0,  // 0 default: combat items are utility-only unless weaponEp is set
                     ap: iApCost,
                     range: 0,
                     tags: iTags,
