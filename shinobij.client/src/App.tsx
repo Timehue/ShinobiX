@@ -208,7 +208,7 @@ function biomeForWorldSector(sector: number): Biome {
 }
 
 const TERRITORY_CONTROL_SCROLL_ID = "territory-control-scroll";
-const SECTOR_TERRITORY_PREFIX = "shinobij-sector-territory-";
+const WORLD_STATE_API = "/api/world-state";
 const TERRITORY_CONTROL_MAX = 20000;
 const TERRITORY_HP_MAX = 20000;
 const TERRITORY_DAILY_WAR_SUPPLY = 100;
@@ -231,6 +231,9 @@ type SectorTerritory = {
     updatedAt: number;
 };
 
+let sharedSectorTerritoryCache: Record<number, SectorTerritory> = {};
+let sharedVillageWarCache: Record<string, VillageWar> = {};
+
 function defaultSectorTerritory(sector: number): SectorTerritory {
     return { sector, controlScore: 0, hp: TERRITORY_HP_MAX, terrainBuffStat: "bukijutsuOffense", guards: [], warSupply: 0, updatedAt: Date.now() };
 }
@@ -250,22 +253,28 @@ function normalizeSectorTerritory(sector: number, data?: Partial<SectorTerritory
     };
 }
 
-function sectorTerritoryKey(sector: number) {
-    return `${SECTOR_TERRITORY_PREFIX}${sector}`;
+function persistSharedWorldState(kind: "territory" | "war", payload: SectorTerritory | VillageWar) {
+    if (typeof fetch === "undefined") return;
+    fetch(WORLD_STATE_API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(kind === "territory" ? { kind, territory: payload } : { kind, war: payload }),
+    }).catch(() => {
+        // The local cache already reflects the action; the next successful refresh will reconcile shared state.
+    });
 }
 
 function loadSectorTerritory(sector: number): SectorTerritory {
-    try {
-        const raw = localStorage.getItem(sectorTerritoryKey(sector));
-        const territory = normalizeSectorTerritory(sector, raw ? JSON.parse(raw) : undefined);
-        return produceSectorWarSupply(territory);
-    } catch {
-        return defaultSectorTerritory(sector);
-    }
+    const cached = sharedSectorTerritoryCache[sector];
+    if (cached) return produceSectorWarSupply(cached);
+    return defaultSectorTerritory(sector);
 }
 
 function saveSectorTerritory(territory: SectorTerritory) {
-    localStorage.setItem(sectorTerritoryKey(territory.sector), JSON.stringify(normalizeSectorTerritory(territory.sector, { ...territory, updatedAt: Date.now() })));
+    const normalized = normalizeSectorTerritory(territory.sector, { ...territory, updatedAt: Date.now() });
+    sharedSectorTerritoryCache[normalized.sector] = normalized;
+    persistSharedWorldState("territory", normalized);
+    return normalized;
 }
 
 function produceSectorWarSupply(territory: SectorTerritory) {
@@ -5423,6 +5432,7 @@ export default function App() {
     const [sharedImages, setSharedImages] = useState<Record<string, string>>({});
     const [savedBloodlines, setSavedBloodlines] = useState<SavedBloodline[]>([]);
     const [publicPlayerBloodlines, setPublicPlayerBloodlines] = useState<ReviewBloodline[]>([]);
+    const [, setWorldStateVersion] = useState(0);
     const [currentBiome, setCurrentBiome] = useState<Biome>("central");
     const [currentWeather, setCurrentWeather] =
         useState<WeatherType>("clear");
@@ -5442,6 +5452,27 @@ export default function App() {
     const [ancientChestVn, setAncientChestVn] = useState<CreatorEvent>(defaultAncientChestVn);
     const [editablePets, setEditablePets] = useState<Pet[]>(petPool);
     const [selectedPetId, setSelectedPetId] = useState(petPool[0]?.id ?? "");
+    useEffect(() => {
+        let alive = true;
+        async function refreshWorldState() {
+            try {
+                const response = await fetch(WORLD_STATE_API, { cache: "no-store" });
+                if (!response.ok) return;
+                const data = await response.json();
+                if (!alive) return;
+                hydrateSharedWorldState(data);
+                setWorldStateVersion(version => version + 1);
+            } catch {
+                // Offline/dev fallback keeps the current in-memory world state until the API is available.
+            }
+        }
+        refreshWorldState();
+        const id = setInterval(refreshWorldState, 15000);
+        return () => {
+            alive = false;
+            clearInterval(id);
+        };
+    }, []);
     // Daily reset countdown — updates every second, resets at midnight UTC
     useEffect(() => {
         function tick() {
@@ -10919,9 +10950,9 @@ function AdminPanel({
 
     async function serverReset() {
         if (!window.confirm(
-            "☢️ FULL SERVER RESET ☢️\n\nThis will:\n• Delete ALL player saves (every account goes back to Level 0)\n• Clear all clans, village chats, presence, and challenge data\n\nThis will NOT delete:\n• Admin-created content (jutsus, missions, AIs, events, pets)\n• Any uploaded images (kage, elders, pets, weapons, etc.)\n\nThis CANNOT be undone. Are you absolutely sure?"
+            "☢️ FULL SERVER RESET ☢️\n\nThis will:\n• Delete ALL player saves — everyone starts fresh at Level 1 and chooses their village again\n• Reset Kage seats and village war history for every village\n• Clear all clans, village chats, presence, PvP sessions, and challenge data\n• Wipe player passwords (players set a new one on next login)\n\nThis will NOT delete:\n• Admin-created content (jutsus, missions, AIs, events, pets, cards, visual novels)\n• Any uploaded images (kage portraits, elder portraits, pets, weapons, avatars)\n• Village Leaders tab configuration (names and images)\n\nThis CANNOT be undone. Are you absolutely sure?"
         )) return;
-        setServerResetMsg("? Wiping server…");
+        setServerResetMsg("⏳ Wiping server…");
         try {
             const res = await fetch('/api/admin/server-reset', {
                 method: 'POST',
@@ -10930,13 +10961,37 @@ function AdminPanel({
             });
             const data = await res.json() as { ok?: boolean; deletedCount?: number; error?: string };
             if (data.ok) {
-                setServerResetMsg(`? Server reset complete — ${data.deletedCount ?? 0} keys wiped. All images preserved. Players start fresh on next login.`);
+                // Clear client-side village/war/territory state so the local cache
+                // matches the fresh server. Preserve leadership images and admin session.
+                const preserve = new Set([
+                    villageLeadershipImagesKey(),
+                    STORAGE,
+                    PLAYER_ACCOUNTS_STORAGE,
+                    "admin:approvedItems",
+                    "admin:approvedBloodlines",
+                ]);
+                const toRemove: string[] = [];
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (!key || preserve.has(key)) continue;
+                    if (
+                        key.startsWith("village-state-") ||
+                        key.startsWith("shinobij-village-war-") ||
+                        key.startsWith("shinobij-sector-territory-")
+                    ) {
+                        toRemove.push(key);
+                    }
+                }
+                toRemove.forEach(k => localStorage.removeItem(k));
+                // Clear stale local player account cache
+                localStorage.removeItem(PLAYER_ACCOUNTS_STORAGE);
                 setAllKnownPlayers([]);
+                setServerResetMsg(`✅ Server reset complete — ${data.deletedCount ?? 0} keys wiped. All images and admin content preserved. Players start fresh on next login.`);
             } else {
-                setServerResetMsg(`? Reset failed: ${data.error ?? 'Unknown error'}`);
+                setServerResetMsg(`❌ Reset failed: ${data.error ?? 'Unknown error'}`);
             }
         } catch {
-            setServerResetMsg("? Network error during reset.");
+            setServerResetMsg("❌ Network error during reset.");
         }
     }
 
@@ -13930,8 +13985,8 @@ function AdminPanel({
                         {/* -- Full Server Reset -- */}
                         <section className="summary-box" style={{ borderColor: "#450a0a", background: "#1c0606" }}>
                             <h4 style={{ color: "#fca5a5" }}>☢️ Full Server Reset</h4>
-                            <p className="hint">Wipes <strong>every player account</strong> back to Level 0. Clears all clans, village chats, presence data, and pending challenges.</p>
-                            <p className="hint" style={{ color: "#4ade80" }}>? Preserved: All uploaded images (kage, elders, pets, weapons, avatars) and all admin-created game content (jutsus, missions, AIs, events).</p>
+                            <p className="hint">Wipes <strong>every player account</strong> back to Level 1. Everyone chooses their village fresh. Resets Kage seats, village wars, clans, village chats, presence, PvP sessions, and player passwords.</p>
+                            <p className="hint" style={{ color: "#4ade80" }}>✅ Preserved: All uploaded images (kage portraits, elder portraits, pets, weapons, avatars) and all admin-created game content (jutsus, missions, AIs, events, pets, cards, visual novels). Village Leaders tab configuration is kept.</p>
                             {!adminPw && (
                                 <p className="hint" style={{ color: "#f87171", marginBottom: 6 }}>⚠️ Session restored without password. Please log out and log back in to enable server actions.</p>
                             )}
@@ -14878,7 +14933,6 @@ function isVillageAnbu(character: Character) {
     return normalizeAnbuAppointees(state.anbuAppointees).some(name => name.toLowerCase() === character.name.toLowerCase());
 }
 
-const VILLAGE_WAR_PREFIX = "shinobij-village-war-";
 const VILLAGE_WAR_HP_MAX = 5000;
 const VILLAGE_WAR_GROUND_HP_MAX = 1000;
 const VILLAGE_WAR_DAILY_MISSIONS = 2;
@@ -14904,10 +14958,6 @@ function villageWarId(villageA: string, villageB: string) {
     return [villageA, villageB].sort((a, b) => a.localeCompare(b)).map(village => village.toLowerCase().replace(/[^a-z0-9]/g, "")).join("-vs-");
 }
 
-function villageWarKey(villageA: string, villageB: string) {
-    return `${VILLAGE_WAR_PREFIX}${villageWarId(villageA, villageB)}`;
-}
-
 function normalizeVillageWar(data: Partial<VillageWar> & { villages: [string, string] }): VillageWar {
     const [first, second] = data.villages;
     return {
@@ -14928,24 +14978,39 @@ function normalizeVillageWar(data: Partial<VillageWar> & { villages: [string, st
     };
 }
 
+function hydrateSharedWorldState(data: { territories?: Partial<SectorTerritory>[]; wars?: (Partial<VillageWar> & { villages?: [string, string] })[] }) {
+    const territories: Record<number, SectorTerritory> = {};
+    (data.territories ?? []).forEach(territory => {
+        const sector = Math.floor(Number(territory?.sector ?? 0));
+        if (sector >= 1 && sector <= 60) {
+            territories[sector] = normalizeSectorTerritory(sector, territory);
+        }
+    });
+    sharedSectorTerritoryCache = territories;
+
+    const wars: Record<string, VillageWar> = {};
+    (data.wars ?? []).forEach(war => {
+        if (!Array.isArray(war?.villages) || war.villages.length !== 2) return;
+        const normalized = normalizeVillageWar({ ...war, villages: war.villages });
+        wars[normalized.id] = normalized;
+    });
+    sharedVillageWarCache = wars;
+}
+
 function firstOpenWarGroundSector() {
     return loadAllSectorTerritories().find(territory => !territory.ownerClan)?.sector ?? 40;
 }
 
 function loadVillageWar(villageA: string, villageB: string): VillageWar | null {
-    try {
-        const raw = localStorage.getItem(villageWarKey(villageA, villageB));
-        if (!raw) return null;
-        const parsed = JSON.parse(raw) as Partial<VillageWar>;
-        return normalizeVillageWar({ ...parsed, villages: parsed.villages ?? [villageA, villageB] });
-    } catch {
-        return null;
-    }
+    const cached = sharedVillageWarCache[villageWarId(villageA, villageB)];
+    if (cached) return normalizeVillageWar(cached);
+    return null;
 }
 
 function saveVillageWar(war: VillageWar) {
     const normalized = normalizeVillageWar({ ...war, updatedAt: Date.now() });
-    localStorage.setItem(villageWarKey(normalized.villages[0], normalized.villages[1]), JSON.stringify(normalized));
+    sharedVillageWarCache[normalized.id] = normalized;
+    persistSharedWorldState("war", normalized);
     return normalized;
 }
 
