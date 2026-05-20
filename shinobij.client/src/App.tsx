@@ -1882,11 +1882,14 @@ function nonBloodlineSixtyApTag(jutsu: Jutsu): JutsuTag {
 
 function rebalanceNonBloodlineJutsu(jutsu: Jutsu): Jutsu {
     const normalized = normalizeJutsu(jutsu);
-    const tags = normalized.ap === 60
+    const moveTags = normalized.tags.filter((t) => normalizeTagName(t.name) === "Move");
+    const combatTags = normalized.ap === 60
         ? [nonBloodlineSixtyApTag(normalized)]
         : normalized.ap === 40
             ? nonBloodlineFortyApTags(normalized)
             : [];
+    // Move tags define movement jutsus — always preserve them regardless of AP tier
+    const tags = [...moveTags, ...combatTags.filter((t) => normalizeTagName(t.name) !== "Move")];
 
     return normalizeJutsu({
         ...normalized,
@@ -1982,8 +1985,8 @@ const starterJutsus: Jutsu[] = [
     }),
 ].map(rebalanceNonBloodlineJutsu);
 
-function makeStarterBloodlineDamageJutsu(id: string, name: string, type: JutsuType, element: string): Jutsu {
-    return makeJutsu(id, name, type, 60, 4, 40, 7, 100, 100, [{ name: "Damage", percent: 20 }], element as JutsuElement);
+function makeStarterBloodlineDamageJutsu(id: string, name: string, type: JutsuType, element: string, secondaryTag: JutsuTag): Jutsu {
+    return makeJutsu(id, name, type, 60, 4, 30, 7, 100, 100, [secondaryTag], element as JutsuElement);
 }
 
 function makeStarterBloodlineUtilityJutsu(id: string, name: string, type: JutsuType, element: string, tags: JutsuTag[]): Jutsu {
@@ -1998,9 +2001,9 @@ const starterSavedBloodlines: SavedBloodline[] = [
         specialElement: "Blood",
         lore: "A cursed kekkei genkai born from a clan that broke a forbidden pact with blood spirits. Those awakened by the Ashen Eyes see the world through a veil of crimson — perceiving every living being as a tapestry of veins and chakra pathways. The afflicted can shatter hallucinations directly into their opponent's bloodstream, weaponizing the very sight of life itself. Ancient texts warn that prolonged use slowly turns the user's own eyes the color of ash and bone.",
         jutsus: [
-            makeStarterBloodlineDamageJutsu("ashen-eyes-blood-gaze", "Blood Gaze Rupture", "Genjutsu", "Blood"),
-            makeStarterBloodlineDamageJutsu("ashen-eyes-crimson-hall", "Crimson Hallucination", "Genjutsu", "Blood"),
-            makeStarterBloodlineDamageJutsu("ashen-eyes-vein-mirror", "Vein Mirror Nightmare", "Genjutsu", "Blood"),
+            makeStarterBloodlineDamageJutsu("ashen-eyes-blood-gaze", "Blood Gaze Rupture", "Genjutsu", "Blood", { name: "Wound", percent: 20 }),
+            makeStarterBloodlineDamageJutsu("ashen-eyes-crimson-hall", "Crimson Hallucination", "Genjutsu", "Blood", { name: "Increase Damage Taken", percent: 20 }),
+            makeStarterBloodlineDamageJutsu("ashen-eyes-vein-mirror", "Vein Mirror Nightmare", "Genjutsu", "Blood", { name: "Poison", percent: 20 }),
             makeStarterBloodlineUtilityJutsu("ashen-eyes-hematoma-veil", "Hematoma Veil", "Genjutsu", "Blood", [{ name: "Increase Damage Taken", percent: 20 }, { name: "Decrease Damage Given", percent: 20 }]),
         ],
         totalPoints: 9,
@@ -2012,9 +2015,9 @@ const starterSavedBloodlines: SavedBloodline[] = [
         specialElement: "Lava",
         lore: "Forged in the volcanic rifts of the Ember Wastes, the Inferno Cataclysm lineage merges fire and earth chakra at the cellular level. The wielder's body temperature runs far above human limits — surface veins glow faintly orange in darkness. In battle, they can compress molten rock and superheated gas into devastating projectiles or coffin-like formations that entomb the enemy in cooling lava. Survivors of their attacks are found encased in obsidian, preserved like dark statues.",
         jutsus: [
-            makeStarterBloodlineDamageJutsu("inferno-cataclysm-lava-burst", "Lava Burst Coffin", "Ninjutsu", "Lava"),
-            makeStarterBloodlineDamageJutsu("inferno-cataclysm-molten-rain", "Molten Rainfall", "Ninjutsu", "Lava"),
-            makeStarterBloodlineDamageJutsu("inferno-cataclysm-crater-lance", "Crater Lance", "Ninjutsu", "Lava"),
+            makeStarterBloodlineDamageJutsu("inferno-cataclysm-lava-burst", "Lava Burst Coffin", "Ninjutsu", "Lava", { name: "Ignition", percent: 20 }),
+            makeStarterBloodlineDamageJutsu("inferno-cataclysm-molten-rain", "Molten Rainfall", "Ninjutsu", "Lava", { name: "Increase Damage Given", percent: 20 }),
+            makeStarterBloodlineDamageJutsu("inferno-cataclysm-crater-lance", "Crater Lance", "Ninjutsu", "Lava", { name: "Wound", percent: 20 }),
             makeStarterBloodlineUtilityJutsu("inferno-cataclysm-obsidian-afterglow", "Obsidian Afterglow", "Ninjutsu", "Lava", [{ name: "Ignition", percent: 20 }, { name: "Decrease Damage Given", percent: 20 }]),
         ],
         totalPoints: 9,
@@ -2026,9 +2029,9 @@ const starterSavedBloodlines: SavedBloodline[] = [
         specialElement: "Shadow",
         lore: "Descended from a sect of bukijutsu assassins who trained in perpetual darkness for generations, the Shadow Lotus bloodline channels shadow-natured chakra through weapons and thrown implements. Their techniques bloom like deadly flowers from the dark — blades that trail shadow-ribbons, senbon that multiply in dim light, and wires that vanish entirely in low visibility. Their clan temple has no lanterns. They say the darkness learned to fear them first.",
         jutsus: [
-            makeStarterBloodlineDamageJutsu("shadow-lotus-umbra-senbon", "Umbra Senbon Bloom", "Bukijutsu", "Shadow"),
-            makeStarterBloodlineDamageJutsu("shadow-lotus-night-petal", "Night Petal Cutter", "Bukijutsu", "Shadow"),
-            makeStarterBloodlineDamageJutsu("shadow-lotus-eclipse-wire", "Eclipse Wire Blossom", "Bukijutsu", "Shadow"),
+            makeStarterBloodlineDamageJutsu("shadow-lotus-umbra-senbon", "Umbra Senbon Bloom", "Bukijutsu", "Shadow", { name: "Poison", percent: 20 }),
+            makeStarterBloodlineDamageJutsu("shadow-lotus-night-petal", "Night Petal Cutter", "Bukijutsu", "Shadow", { name: "Decrease Damage Taken", percent: 20 }),
+            makeStarterBloodlineDamageJutsu("shadow-lotus-eclipse-wire", "Eclipse Wire Blossom", "Bukijutsu", "Shadow", { name: "Absorb", percent: 20 }),
             makeStarterBloodlineUtilityJutsu("shadow-lotus-black-petal-guard", "Black Petal Guard", "Bukijutsu", "Shadow", [{ name: "Decrease Damage Taken", percent: 20 }, { name: "Absorb", percent: 20 }]),
         ],
         totalPoints: 9,
@@ -2040,9 +2043,9 @@ const starterSavedBloodlines: SavedBloodline[] = [
         specialElement: "Iron",
         lore: "A taijutsu bloodline born from miners who fused raw metallic chakra into their fighting style over ten generations. Iron Fang users can coat their limbs in magnetized iron-dense chakra, turning every punch and kick into a shattering impact that tears armor and breaks weapons. Their fists leave cracked stone. Some high-level users develop iron-grey patches on their knuckles, shins, and forearms — natural battle plating grown from within. The clan motto: 'The mountain doesn't dodge. It endures. Then it falls on you.'",
         jutsus: [
-            makeStarterBloodlineDamageJutsu("iron-fang-ferrous-crash", "Ferrous Fang Crash", "Taijutsu", "Iron"),
-            makeStarterBloodlineDamageJutsu("iron-fang-steel-maw", "Steel Maw Breaker", "Taijutsu", "Iron"),
-            makeStarterBloodlineDamageJutsu("iron-fang-magnet-knuckle", "Magnet Knuckle Rend", "Taijutsu", "Iron"),
+            makeStarterBloodlineDamageJutsu("iron-fang-ferrous-crash", "Ferrous Fang Crash", "Taijutsu", "Iron", { name: "Wound", percent: 20 }),
+            makeStarterBloodlineDamageJutsu("iron-fang-steel-maw", "Steel Maw Breaker", "Taijutsu", "Iron", { name: "Increase Damage Given", percent: 20 }),
+            makeStarterBloodlineDamageJutsu("iron-fang-magnet-knuckle", "Magnet Knuckle Rend", "Taijutsu", "Iron", { name: "Decrease Damage Taken", percent: 20 }),
             makeStarterBloodlineUtilityJutsu("iron-fang-anvil-breath", "Anvil Breath Guard", "Taijutsu", "Iron", [{ name: "Increase Damage Given", percent: 20 }, { name: "Decrease Damage Taken", percent: 20 }]),
         ],
         totalPoints: 9,
@@ -7605,6 +7608,11 @@ export default function App() {
                         character={character}
                         updateCharacter={setCharacter}
                         savedBloodlines={savedBloodlines}
+                        setSavedBloodlines={setSavedBloodlines}
+                        onSaveBloodlines={(next, char) => {
+                            if (!currentAccountName) return;
+                            void pushSaveToServer(char, currentAccountName, { savedBloodlines: next }).catch(() => {});
+                        }}
                         creatorJutsus={creatorJutsus}
                         creatorItems={creatorItems}
                         onDeleteCharacter={deleteCharacter}
@@ -20779,6 +20787,8 @@ function Profile({
     character,
     updateCharacter,
     savedBloodlines,
+    setSavedBloodlines,
+    onSaveBloodlines,
     creatorJutsus,
     creatorItems,
     onDeleteCharacter,
@@ -20786,6 +20796,8 @@ function Profile({
     character: Character;
     updateCharacter: (character: Character) => void;
     savedBloodlines: SavedBloodline[];
+    setSavedBloodlines?: (bloodlines: SavedBloodline[]) => void;
+    onSaveBloodlines?: (bloodlines: SavedBloodline[], character: Character) => void;
     creatorJutsus: Jutsu[];
     creatorItems: GameItem[];
     onDeleteCharacter?: () => void;
@@ -21072,18 +21084,42 @@ function Profile({
 
             <section className="profile-build-panel">
                 <h2>Equip Bloodline</h2>
-
+                {(() => {
+                    const starterBl = starterSavedBloodlines.find((bl) => bl.name === (character.bloodline === "Blue Blade Eyes" ? "Ashen Eyes" : character.bloodline));
+                    return starterBl ? (
+                        <div className="summary-box" style={{ marginBottom: 8 }}>
+                            <strong>Starter Bloodline:</strong> {starterBl.name} ({starterBl.specialElement} · {starterBl.rank}) — always active
+                        </div>
+                    ) : null;
+                })()}
                 <select
                     value={character.equippedBloodlineId || ""}
                     onChange={(e) => equipBloodline(e.target.value)}
                 >
-                    <option value="">No Created Bloodline Equipped</option>
+                    <option value="">No Custom Bloodline Equipped</option>
                     {savedBloodlines.map((bloodline) => (
                         <option key={bloodline.id} value={bloodline.id}>
                             {bloodline.name} | {bloodline.specialElement ? `${bloodline.specialElement} | ` : ""}{bloodline.rank}
                         </option>
                     ))}
                 </select>
+                {savedBloodlines.length > 0 && (
+                    <div style={{ marginTop: 8 }}>
+                        <p className="hint">Remove bloodlines you no longer want:</p>
+                        {savedBloodlines.map((bl) => (
+                            <div key={bl.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                                <span style={{ flex: 1 }}>{bl.name} ({bl.rank})</span>
+                                <button className="danger-button" style={{ padding: "2px 8px", fontSize: "0.8rem" }} onClick={() => {
+                                    if (!confirm(`Remove "${bl.name}" from your bloodline list?`)) return;
+                                    const next = savedBloodlines.filter((b) => b.id !== bl.id);
+                                    setSavedBloodlines?.(next);
+                                    if (character.equippedBloodlineId === bl.id) equipBloodline("");
+                                    onSaveBloodlines?.(next, character);
+                                }}>Remove</button>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </section>
 
             <section className="profile-build-panel">
