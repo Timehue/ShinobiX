@@ -2891,6 +2891,24 @@ function inventoryItemStacks(character: Character, allItems: GameItem[]) {
 
 type PlayerTransferCurrencyKey = "ryo" | "honorSeals" | "fateShards" | "boneCharms" | "auraStones" | "mythicSeals";
 
+async function patchPlayerSaveCharacter(playerName: string, patcher: (char: Character) => Character): Promise<boolean> {
+    try {
+        const res = await fetch(`/api/save/${encodeURIComponent(playerName.toLowerCase())}`);
+        if (!res.ok) return false;
+        const snap = await res.json() as Record<string, unknown>;
+        const char = normalizeCharacter(snap.character as unknown as Character);
+        const patched = patcher(char);
+        const saveRes = await fetch(`/api/save/${encodeURIComponent(playerName.toLowerCase())}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...snap, character: patched }),
+        });
+        return saveRes.ok;
+    } catch {
+        return false;
+    }
+}
+
 function grantInventoryItemToPlayer(playerName: string, itemId: string, currentCharacter: Character, updateCharacter: (character: Character) => void) {
     if (playerName === currentCharacter.name) {
         updateCharacter({ ...currentCharacter, inventory: [...currentCharacter.inventory, itemId] });
@@ -2911,6 +2929,8 @@ function grantInventoryItemToPlayer(playerName: string, itemId: string, currentC
         },
     };
     savePlayerAccounts(accounts);
+    // Also patch KV save directly so the recipient sees it on any device
+    void patchPlayerSaveCharacter(playerName, (char) => ({ ...char, inventory: [...(char.inventory ?? []), itemId] }));
     return true;
 }
 
@@ -2935,6 +2955,8 @@ function grantCurrencyToPlayer(playerName: string, currency: PlayerTransferCurre
         },
     };
     savePlayerAccounts(accounts);
+    // Also patch KV save directly so the recipient sees it on any device
+    void patchPlayerSaveCharacter(playerName, (char) => ({ ...char, [currency]: ((char[currency as keyof Character] as number) ?? 0) + value } as Character));
     return true;
 }
 
@@ -4227,20 +4249,12 @@ function normalizeVillageLeadershipImages(images?: VillageLeadershipImages): Vil
 }
 
 function loadVillageLeadershipImages(): VillageLeadershipImages {
-    try {
-        const raw = localStorage.getItem(villageLeadershipImagesKey());
-        return normalizeVillageLeadershipImages(raw ? JSON.parse(raw) : undefined);
-    } catch {
-        return normalizeVillageLeadershipImages();
-    }
+    return normalizeVillageLeadershipImages(sharedVillageLeadershipImagesCache ?? undefined);
 }
 
 function saveVillageLeadershipImages(images: VillageLeadershipImages) {
-    try {
-        localStorage.setItem(villageLeadershipImagesKey(), JSON.stringify(normalizeVillageLeadershipImages(images)));
-    } catch {
-        // localStorage may be unavailable in private or restricted browser contexts.
-    }
+    sharedVillageLeadershipImagesCache = normalizeVillageLeadershipImages(images);
+    persistSharedGameState('villageLeadershipImages', { images: sharedVillageLeadershipImagesCache });
 }
 
 function defaultVillageUpgrades(): VillageUpgrades {
@@ -5704,6 +5718,15 @@ export default function App() {
         const id = setInterval(heartbeat, 5000);
         return () => clearInterval(id);
     }, [character?.name, currentSector]);
+
+    // Shared game state hydration — load village/arena/clan state from KV on login,
+    // then refresh every 10 s so all players see the latest shared state.
+    useEffect(() => {
+        if (!character) return;
+        void hydrateSharedGameState();
+        const id = setInterval(() => { void hydrateSharedGameState(); }, 10000);
+        return () => clearInterval(id);
+    }, [character?.name]);
 
     async function clearChallengeOnServer(challenge: DuelChallenge) {
         await fetch('/api/player/challenge', {
@@ -9869,7 +9892,7 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                 ? "No player pets found. Choose Fight AI or have another player with pets in the roster."
                 : "No AI pets found.");
         }
-        const pendingClanPetBattle = loadPendingClanPetBattle();
+        const pendingClanPetBattle = loadPendingClanPetBattle(character.clan);
         const battle = runPetArenaBattle(selectedPet, opponent.pet, opponent.owner);
         setBattleReady(true);
         setBattleLog(battle.logs);
@@ -9886,7 +9909,7 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                 setBattleLog([...battle.logs, `${character.name} earned ${pendingClanPetBattle.points} clan war points by winning the pet battle against ${pendingClanPetBattle.opponentName}.`]);
             }
         }
-        if (pendingClanPetBattle) savePendingClanPetBattle(null);
+        if (pendingClanPetBattle) savePendingClanPetBattle(null, character.clan);
     }
 
     useEffect(() => {
@@ -9895,7 +9918,7 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
         onPendingPetBattleStarted?.();
     }, [pendingPetBattleOpponent?.owner, pendingPetBattleOpponent?.pet.id, selectedPet?.id]);
 
-    const pendingClanPetBattle = loadPendingClanPetBattle();
+    const pendingClanPetBattle = loadPendingClanPetBattle(character.clan);
 
     return (
         <div className="card pet-arena-screen">
@@ -10932,7 +10955,6 @@ function AdminPanel({
                 if (data?.players) setAllKnownPlayers(data.players);
                 if (data?.approvedBloodlines) {
                     setApprovedBloodlineIds(data.approvedBloodlines);
-                    localStorage.setItem("admin:approvedBloodlines", JSON.stringify(data.approvedBloodlines));
                 }
                 if (data?.bloodlines) {
                     setPendingPlayerBloodlines(data.bloodlines.map((bloodline) => ({
@@ -10949,11 +10971,18 @@ function AdminPanel({
     useEffect(() => {
         if (activeAdminPanel !== "playerManagement" && activeAdminPanel !== "jutsuBloodlines") return;
         fetchAllKnownPlayers();
+        // Also load approved item IDs from KV
+        fetch('/api/admin/item-review')
+            .then(r => r.ok ? r.json() : null)
+            .then((data: { approvedItems?: string[] } | null) => {
+                if (data?.approvedItems) setApprovedItemIds(data.approvedItems);
+            })
+            .catch(() => {});
     }, [activeAdminPanel, adminPw]);
     const [pmGivePetId, setPmGivePetId] = useState("");
     const [pmGiveAmounts, setPmGiveAmounts] = useState<Record<string, number>>({ honorSeals: 0, fateShards: 0, boneCharms: 0, auraStones: 0, auraDust: 0, mythicSeals: 0 });
-    const [approvedItemIds, setApprovedItemIds] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem("admin:approvedItems") ?? "[]"); } catch { return []; } });
-    const [approvedBloodlineIds, setApprovedBloodlineIds] = useState<string[]>(() => { try { return JSON.parse(localStorage.getItem("admin:approvedBloodlines") ?? "[]"); } catch { return []; } });
+    const [approvedItemIds, setApprovedItemIds] = useState<string[]>([]);
+    const [approvedBloodlineIds, setApprovedBloodlineIds] = useState<string[]>([]);
 
     async function pmLookup() {
         if (!pmTargetName.trim()) return;
@@ -11167,7 +11196,12 @@ function AdminPanel({
     function pmApproveItem(id: string) {
         const next = [...approvedItemIds, id];
         setApprovedItemIds(next);
-        localStorage.setItem("admin:approvedItems", JSON.stringify(next));
+        // Persist to KV via item-review endpoint (fire-and-forget)
+        void fetch('/api/admin/item-review', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: adminPw, action: 'approve', itemId: id }),
+        });
     }
 
     function pmDeleteItem(id: string) {
@@ -11198,7 +11232,6 @@ function AdminPanel({
         const data = await res.json() as { approvedBloodlines?: string[] };
         if (data.approvedBloodlines) {
             setApprovedBloodlineIds(data.approvedBloodlines);
-            localStorage.setItem("admin:approvedBloodlines", JSON.stringify(data.approvedBloodlines));
         }
     }
 
@@ -11224,7 +11257,6 @@ function AdminPanel({
         }
         const next = Array.from(new Set([...approvedBloodlineIds, reviewKey]));
         setApprovedBloodlineIds(next);
-        localStorage.setItem("admin:approvedBloodlines", JSON.stringify(next));
         try {
             await saveBloodlineReviewAction("approve", bloodline);
             setPmMsg(`✅ Approved ${bloodline.name}.`);
@@ -11240,7 +11272,6 @@ function AdminPanel({
         }
         const next = Array.from(new Set([...approvedBloodlineIds, reviewKey]));
         setApprovedBloodlineIds(next);
-        localStorage.setItem("admin:approvedBloodlines", JSON.stringify(next));
         setPendingPlayerBloodlines(pendingPlayerBloodlines.filter((candidate) => bloodlineReviewKey(candidate) !== reviewKey));
         try {
             await saveBloodlineReviewAction("delete", bloodline);
@@ -15089,13 +15120,16 @@ function normalizeAnbuAppointees(appointees?: string[]) {
 function defaultVillageState(village: string): VillageState { return { treasury: defaultVillageTreasury(), contributionPoints: 0, notices: ["Town Hall upgrades are open for donation funding.", "Village Guard queue is accepting defenders."], warRecords: defaultVillageWarRecords(village), kageSystemUnlocked: false, anbuAppointees: ["", "", ""] }; }
 function villageStateKey(village: string) { return "village-state-" + village.toLowerCase().replace(/[^a-z0-9]/g, ""); }
 function normalizeVillageState(village: string, state?: Partial<VillageState>): VillageState { const base = defaultVillageState(village); return { treasury: cleanVillageTreasury(state?.treasury), contributionPoints: Math.max(0, Math.floor(Number(state?.contributionPoints ?? 0))), notices: state?.notices?.length ? state.notices.slice(0, 8) : base.notices, warRecords: state?.warRecords?.length ? state.warRecords : base.warRecords, kageSystemUnlocked: Boolean(state?.kageSystemUnlocked ?? base.kageSystemUnlocked), firstLiberator: state?.firstLiberator ?? base.firstLiberator, seatedKage: state?.seatedKage ?? base.seatedKage, anbuAppointees: normalizeAnbuAppointees(state?.anbuAppointees), kageHistory: state?.kageHistory ?? [] }; }
-function loadVillageState(village: string): VillageState { try { const raw = localStorage.getItem(villageStateKey(village)); return normalizeVillageState(village, raw ? JSON.parse(raw) : undefined); } catch { return defaultVillageState(village); } }
+function loadVillageState(village: string): VillageState {
+    const key = village.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const cached = sharedVillageStateCache[key];
+    return normalizeVillageState(village, cached as Partial<VillageState> | undefined);
+}
 function saveVillageState(village: string, state: VillageState) {
-    try {
-        localStorage.setItem(villageStateKey(village), JSON.stringify(normalizeVillageState(village, state)));
-    } catch {
-        // localStorage may be unavailable in private or restricted browser contexts.
-    }
+    const key = village.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const normalized = normalizeVillageState(village, state);
+    sharedVillageStateCache[key] = normalized;
+    persistSharedGameState('villageState', { village, state: normalized });
 }
 function isVillageAnbu(character: Character) {
     const state = loadVillageState(character.village);
@@ -16645,7 +16679,7 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
         .slice(0, 10);
 
     // Tournament
-    const tournament = (() => { try { const r = localStorage.getItem("shinobij-arena-tournament"); return r ? JSON.parse(r) : null; } catch { return null; } })();
+    const tournament = loadArenaTournament();
 
     const tabs: { id: LbTab; label: string; icon: string }[] = [
         { id: "ranked",      label: "Ranked",       icon: "⚔️" },
@@ -21792,56 +21826,75 @@ type ArenaTournament = {
 };
 type ArenaSpectatorFight = { id: string; title: string; mode: string; startedAt: number; fighters: string[] };
 type PendingClanPetBattle = { clanName?: string; points: number; opponentName: string; createdAt: number };
-const ARENA_TOURNAMENT_KEY = "shinobij-arena-tournament";
-const ARENA_ACTIVE_FIGHTS_KEY = "shinobij-active-fights";
-const CLAN_PET_BATTLE_KEY = "shinobij-clan-pet-battle";
+const GAME_STATE_API = '/api/game-state';
+
+// Module-level in-memory caches — populated by hydrateSharedGameState on startup
+// and refreshed every 10 s so all players see the same shared state.
+let sharedVillageStateCache: Record<string, unknown> = {};
+let sharedVillageLeadershipImagesCache: VillageLeadershipImages | null = null;
+let sharedArenaTournamentCache: ArenaTournament | null = null;
+let sharedArenaActiveFightsCache: ArenaSpectatorFight[] = [];
+let sharedClanPetBattleCache: Record<string, PendingClanPetBattle | null> = {};
+
+async function hydrateSharedGameState() {
+    try {
+        const res = await fetch(GAME_STATE_API);
+        if (!res.ok) return;
+        const data = await res.json() as {
+            villageStates?: Record<string, unknown>;
+            villageLeadershipImages?: VillageLeadershipImages | null;
+            arenaTournament?: ArenaTournament | null;
+            arenaActiveFights?: ArenaSpectatorFight[];
+            clanPetBattles?: Record<string, PendingClanPetBattle | null>;
+        };
+        if (data.villageStates) sharedVillageStateCache = data.villageStates;
+        if (data.villageLeadershipImages != null) sharedVillageLeadershipImagesCache = data.villageLeadershipImages;
+        if ('arenaTournament' in data) sharedArenaTournamentCache = data.arenaTournament ?? null;
+        if (data.arenaActiveFights) sharedArenaActiveFightsCache = data.arenaActiveFights;
+        if (data.clanPetBattles) sharedClanPetBattleCache = data.clanPetBattles as Record<string, PendingClanPetBattle | null>;
+    } catch {
+        // Network error — keep existing cached values
+    }
+}
+
+function persistSharedGameState(kind: string, payload: Record<string, unknown>) {
+    void fetch(GAME_STATE_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind, ...payload }),
+    });
+}
 
 function loadArenaTournament(): ArenaTournament | null {
-    try {
-        const raw = localStorage.getItem(ARENA_TOURNAMENT_KEY);
-        return raw ? JSON.parse(raw) as ArenaTournament : null;
-    } catch {
-        return null;
-    }
+    return sharedArenaTournamentCache;
 }
 
 function saveArenaTournament(tournament: ArenaTournament | null) {
-    if (!tournament) localStorage.removeItem(ARENA_TOURNAMENT_KEY);
-    else localStorage.setItem(ARENA_TOURNAMENT_KEY, JSON.stringify(tournament));
+    sharedArenaTournamentCache = tournament;
+    persistSharedGameState('arenaTournament', { tournament: tournament ?? null });
 }
 
 function loadArenaActiveFights(): ArenaSpectatorFight[] {
-    try {
-        const raw = localStorage.getItem(ARENA_ACTIVE_FIGHTS_KEY);
-        const fights = raw ? JSON.parse(raw) as ArenaSpectatorFight[] : [];
-        return fights.filter((fight) => Date.now() - fight.startedAt < 2 * 60 * 60 * 1000);
-    } catch {
-        return [];
-    }
+    return sharedArenaActiveFightsCache.filter((fight) => Date.now() - fight.startedAt < 2 * 60 * 60 * 1000);
 }
 
 function saveArenaActiveFights(fights: ArenaSpectatorFight[]) {
-    localStorage.setItem(ARENA_ACTIVE_FIGHTS_KEY, JSON.stringify(fights.slice(0, 20)));
+    sharedArenaActiveFightsCache = fights.slice(0, 20);
+    persistSharedGameState('arenaActiveFights', { fights: sharedArenaActiveFightsCache });
 }
 
-function loadPendingClanPetBattle(): PendingClanPetBattle | null {
-    try {
-        const raw = localStorage.getItem(CLAN_PET_BATTLE_KEY);
-        const battle = raw ? JSON.parse(raw) as PendingClanPetBattle : null;
-        if (!battle || Date.now() - battle.createdAt > 24 * 60 * 60 * 1000) {
-            localStorage.removeItem(CLAN_PET_BATTLE_KEY);
-            return null;
-        }
-        return battle;
-    } catch {
-        localStorage.removeItem(CLAN_PET_BATTLE_KEY);
-        return null;
-    }
+function loadPendingClanPetBattle(clanName?: string): PendingClanPetBattle | null {
+    const key = (clanName ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (!key) return null;
+    const battle = sharedClanPetBattleCache[key];
+    if (!battle || Date.now() - battle.createdAt > 24 * 60 * 60 * 1000) return null;
+    return battle;
 }
 
-function savePendingClanPetBattle(battle: PendingClanPetBattle | null) {
-    if (!battle) localStorage.removeItem(CLAN_PET_BATTLE_KEY);
-    else localStorage.setItem(CLAN_PET_BATTLE_KEY, JSON.stringify(battle));
+function savePendingClanPetBattle(battle: PendingClanPetBattle | null, clanName?: string) {
+    const key = (battle?.clanName ?? clanName ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (key) sharedClanPetBattleCache[key] = battle;
+    persistSharedGameState('pendingClanPetBattle', { clanName: key, battle: battle ?? null });
 }
 
 function rankedDelta(winnerRating: number, loserRating: number) {
