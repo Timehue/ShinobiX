@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode, type ChangeEvent } from "react";
+﻿import { useCallback, useEffect, useRef, useState, type ReactNode, type ChangeEvent } from "react";
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect, react-hooks/purity */
 import type * as React from "react";
 import "./index.css";
@@ -909,12 +909,12 @@ function rollAwakeningElement(): string {
     return AWAKENING_ELEMENTS[Math.floor(Math.random() * AWAKENING_ELEMENTS.length)];
 }
 function elementIcon(element?: string) {
-    if (element === "Water") return "??";
-    if (element === "Wind") return "???";
-    if (element === "Earth") return "??";
-    if (element === "Lightning") return "?";
-    if (element === "Fire") return "??";
-    return "?";
+    if (element === "Water") return "💧";
+    if (element === "Wind") return "🌪️";
+    if (element === "Earth") return "⛰️";
+    if (element === "Lightning") return "⚡";
+    if (element === "Fire") return "🔥";
+    return "✦";
 }
 function uniqueElements(elements: (string | undefined | null)[]) {
     const seen = new Set<string>();
@@ -994,7 +994,7 @@ const awakeningLv2VnEvent: CreatorEvent = {
     id: AWAKENING_VN_ID,
     name: "The Awakening Stone Calls",
     biome: "central",
-    icon: "??",
+    icon: "🪨",
     eventKind: "visualNovel",
     trigger: "firstLeaveVillage",
     levelReq: 2,
@@ -1147,7 +1147,7 @@ function villageForOutskirtsSector(sector: number): string | undefined {
 }
 const villageLore: Record<string, { icon: string; theme: string; lore: string }> = {
     "Ashen Leaf Village": {
-        icon: "??",
+        icon: "🍁",
         theme: "The Traditional Path",
         lore: `Born from the remnants of a world once consumed by fire, Ashen Leaf rose where devastation met renewal.
 
@@ -1161,7 +1161,7 @@ To walk their path is to carry the weight of legacy… and the honor that comes 
     },
 
     "Stormveil Village": {
-        icon: "?",
+        icon: "⚡",
         theme: "The Chaotic Path",
         lore: `Stormveil was never meant to exist.
 
@@ -1177,7 +1177,7 @@ To join Stormveil is to abandon certainty… and become the storm.`
     },
 
     "Frostfang Village": {
-        icon: "??",
+        icon: "❄️",
         theme: "The Loyal Path",
         lore: `Far beyond the reach of warm lands lies Frostfang—a village carved into ice and bound by unbreakable unity.
 
@@ -1191,7 +1191,7 @@ To stand with Frostfang is to never stand alone… but to fall means you have fa
     },
 
     "Moonshadow Village": {
-        icon: "??",
+        icon: "⚡",
         theme: "The Selfish Path",
         lore: `Moonshadow exists in silence… and thrives in secrecy.
 
@@ -2053,7 +2053,7 @@ const defaultPetEncounterVn: CreatorEvent = {
     id: "sys-pet-encounter",
     name: "Pet Encounter",
     biome: "forest",
-    icon: "??",
+    icon: "⚔️",
     eventKind: "visualNovel",
     trigger: "manual",
     levelReq: 1,
@@ -2105,7 +2105,7 @@ const defaultAncientChestVn: CreatorEvent = {
     id: "sys-ancient-chest",
     name: "Ancient Chest",
     biome: "forest",
-    icon: "??",
+    icon: "🧰",
     eventKind: "visualNovel",
     trigger: "manual",
     levelReq: 1,
@@ -3081,27 +3081,27 @@ const storylines: Record<string, StoryStep[]> = {
             storyPage("The New One", "Mira Volt watches from a broken stone rail, smiling like trouble found a name.", "Mira Volt", ["Mira Volt: You are the new one?", "Mira Volt: Try not to freeze. Around here, hesitation gets you buried.", "Mira Volt: The Kage says every rookie has to bleed once before being counted."]),
             storyPage("Hear the Thunder", "The training scout steps into the ring while the cliffs echo with thunder.", "Elder Vanta", ["Elder Vanta: Do not mistake chaos for stupidity.", "Elder Vanta: The storm is wild, yes, but it always knows where to strike.", "Elder Vanta: Defeat the training scout. Show me you can hear the thunder before it arrives."]),
         ], [{ text: "I'll strike first.", conclusion: "Mira grins. Stormveil respects boldness.", trait: "reckless" }, { text: "I'll watch before I move.", conclusion: "Elder Vanta nods. Even chaos has patterns.", trait: "suspicious" }, { text: "I don't need a lesson.", conclusion: "The training scout laughs and rushes you.", trait: "ambitious" }]),
-        milestone("Stormveil Village", 15, "The Riot Bell", "Tempest Guard Captain", "?", [
+        milestone("Stormveil Village", 15, "The Riot Bell", "Tempest Guard Captain", "✦", [
             storyPage("The Riot Bell Rings", "A bronze bell screams through the village. Shinobi are fighting in the market.", "Narrator", ["Narrator: The bell is not used for invasion.", "Narrator: It is used when Stormveil begins attacking itself.", "Narrator: Tonight, it rings three times."]),
             storyPage("Planted Chaos", "Mira drags an injured duelist behind a stall as lightning cracks overhead.", "Mira Volt", ["Mira Volt: This was supposed to be a duel circle.", "Mira Volt: Then someone handed out Kage-sealed orders telling both sides the other cheated.", "Mira Volt: That is not normal chaos. That is planted chaos."]),
             storyPage("Punishment Wall", "The Tempest Guard forms a line in the market square.", "Tempest Guard Captain", ["Tempest Guard Captain: By order of Kage Raiko, all fighters are guilty.", "Tempest Guard Captain: Anyone interfering will be treated as a traitor.", "Tempest Guard Captain: Step aside, rookie, unless you want your name carved into the punishment wall."]),
         ], [{ text: "Protect the injured.", trait: "merciful" }, { text: "Challenge the Guard Captain.", trait: "reckless" }, { text: "Ask who gave the order.", trait: "suspicious" }]),
-        milestone("Stormveil Village", 25, "Orders Written in Lightning", "Lightning-Sealed Informant", "?", [
+        milestone("Stormveil Village", 25, "Orders Written in Lightning", "Lightning-Sealed Informant", "✦", [
             storyPage("Burned Command", "You and Mira inspect a burned command scroll sealed by the Kage.", "Mira Volt", ["Mira Volt: This order is real.", "Mira Volt: The Kage's seal is not forged.", "Mira Volt: But why would he order his own guards to turn a duel into a riot?"]),
             storyPage("Old Storm", "Elder Vanta traces the scorched paper with shaking fingers.", "Elder Vanta", ["Elder Vanta: There is an old storm beneath Stormveil.", "Elder Vanta: The first exiles built the village above it because they thought no ruler could control it.", "Elder Vanta: Perhaps someone learned how."]),
             storyPage("Feed the Sky", "A voice speaks from inside the burned ink.", "Unknown Voice", ["Unknown Voice: Stormveil grows stronger when it breaks itself.", "Unknown Voice: Every argument. Every duel. Every betrayal.", "Unknown Voice: Feed the sky, and the sky will crown its master."]),
         ], [{ text: "Follow the voice into the storm tunnel.", trait: "reckless" }, { text: "Take the scroll to Elder Vanta first.", trait: "honorable" }, { text: "Hide the scroll and investigate alone.", trait: "suspicious" }]),
-        milestone("Stormveil Village", 35, "The Storm Engine", "Storm Engine Warden", "?", [
+        milestone("Stormveil Village", 35, "The Storm Engine", "Storm Engine Warden", "✦", [
             storyPage("Ancient Engine", "Beneath the village, an ancient engine spins with blue-black lightning.", "Narrator", ["Narrator: The tunnel opens into a chamber older than Stormveil.", "Narrator: Metal rings rotate around a crystal heart.", "Narrator: Every time the village above erupts in violence, the crystal pulses."]),
             storyPage("Hunger Machine", "Elder Vanta stares at the crystal as if it is staring back.", "Elder Vanta", ["Elder Vanta: This is no defense system.", "Elder Vanta: It is a hunger machine.", "Elder Vanta: Someone has tied our people's rage to Central's old gates."]),
             storyPage("Raiko Appears", "Kage Raiko Veyr steps from the lightning, smiling.", "Kage Raiko Veyr", ["Kage Raiko Veyr: Careful, Elder.", "Kage Raiko Veyr: You speak as if chaos is a disease.", "Kage Raiko Veyr: Chaos is the only reason Stormveil was never conquered."]),
         ], [{ text: "Kage Raiko, explain this.", trait: "honorable" }, { text: "Destroy the engine now.", trait: "reckless" }, { text: "Stay silent and listen.", trait: "suspicious" }]),
-        milestone("Stormveil Village", 50, "Jonin of the Unchained Sky", "Jonin Rank Trial: Twin Tempest Duelists", "?", [
+        milestone("Stormveil Village", 50, "Jonin of the Unchained Sky", "Jonin Rank Trial: Twin Tempest Duelists", "✦", [
             storyPage("Kage Tower Balcony", "The Kage tower balcony overlooks hundreds of shinobi.", "Kage Raiko Veyr", ["Kage Raiko Veyr: You have survived the village.", "Kage Raiko Veyr: You have challenged guards, spies, and machines.", "Kage Raiko Veyr: Stormveil does not promote obedience. It promotes impact."]),
             storyPage("Too Proud", "Mira watches the Kage from the edge of the crowd.", "Mira Volt", ["Mira Volt: He is smiling too much.", "Mira Volt: A normal Kage would be angry you found the engine.", "Mira Volt: Raiko looks proud."]),
             storyPage("Rise as Jonin", "Raiko raises one hand and the crowd falls silent.", "Kage Raiko Veyr", ["Kage Raiko Veyr: Kneel, shinobi.", "Kage Raiko Veyr: Rise as Jonin.", "Kage Raiko Veyr: And remember: the village belongs to whoever is strong enough to seize it."]),
         ], [{ text: "Accept the promotion with honor.", trait: "honorable" }, { text: "Ask about the Storm Engine publicly.", trait: "reckless" }, { text: "Accept, but watch Raiko closely.", trait: "suspicious" }]),
-        milestone("Stormveil Village", 65, "The Mission That Should Not Exist", "Tempest Execution Squad", "?", [
+        milestone("Stormveil Village", 65, "The Mission That Should Not Exist", "Tempest Execution Squad", "✦", [
             storyPage("No Questions", "You are sent to silence a supposed rebel camp.", "Tempest Guard Captain", ["Tempest Guard Captain: Kage order.", "Tempest Guard Captain: No questions. No prisoners.", "Tempest Guard Captain: The camp is accused of plotting against Stormveil."]),
             storyPage("Not Rebels", "The camp is filled with wounded civilians and young shinobi.", "Rebel Medic", ["Rebel Medic: We are not rebels.", "Rebel Medic: We are the ones who refused to keep feeding the Storm Engine.", "Rebel Medic: Raiko sends loyal shinobi here so they become murderers without knowing."]),
             storyPage("Become Interesting", "Raiko appears on a ridge, watching.", "Kage Raiko Veyr", ["Kage Raiko Veyr: There it is.", "Kage Raiko Veyr: That beautiful moment when freedom becomes choice.", "Kage Raiko Veyr: Will you obey, or will you become interesting?"]),
@@ -3111,19 +3111,19 @@ const storylines: Record<string, StoryStep[]> = {
             storyPage("Gate Key", "Mira reveals a cracked key humming with storm chakra.", "Mira Volt", ["Mira Volt: The Storm Engine is only one piece.", "Mira Volt: Raiko has a Hollow Gate Key.", "Mira Volt: When Stormveil hits peak chaos, he will open a path to Central and become something worse than Kage."]),
             storyPage("Betrayal Feeds", "The storm speaks through the key fragment.", "Hollow Gate Echo", ["Hollow Gate Echo: Betrayal is still chaos.", "Hollow Gate Echo: Friend against friend. Blade against promise.", "Hollow Gate Echo: Thank you for feeding us."]),
         ], [{ text: "Trust Mira.", trait: "loyal" }, { text: "Fight Mira to keep her cover believable.", trait: "reckless" }, { text: "Refuse both sides and go alone.", trait: "ambitious" }]),
-        milestone("Stormveil Village", 85, "The Kage's True Storm", "Hollow Tempest General", "?", [
+        milestone("Stormveil Village", 85, "The Kage's True Storm", "Hollow Tempest General", "✦", [
             storyPage("Cyclone Tower", "A cyclone forms above the Kage tower.", "Elder Vanta", ["Elder Vanta: Raiko has stopped hiding.", "Elder Vanta: He is forcing every faction in Stormveil to fight at once.", "Elder Vanta: The storm is drinking us alive."]),
             storyPage("Eternal Conflict", "Raiko's voice rolls through every street with the thunder.", "Kage Raiko Veyr", ["Kage Raiko Veyr: Do you see it now?", "Kage Raiko Veyr: A village without conflict is a corpse.", "Kage Raiko Veyr: I will make Stormveil eternal by making it impossible to control."]),
             storyPage("Tyranny in Lightning", "Mira stands beside you under the cyclone.", "Mira Volt", ["Mira Volt: He does not love freedom.", "Mira Volt: He loves being the only one strong enough to survive the chaos.", "Mira Volt: That is not Stormveil. That is tyranny with lightning around it."]),
         ], [{ text: "Rally the factions together.", trait: "loyal" }, { text: "Challenge Raiko's strongest guard.", trait: "reckless" }, { text: "Destroy the storm anchors first.", trait: "suspicious" }]),
-        milestone("Stormveil Village", 100, "Break the False Thunder", "Kage Raiko Veyr, Hollow Storm Tyrant", "?", [
+        milestone("Stormveil Village", 100, "Break the False Thunder", "Kage Raiko Veyr, Hollow Storm Tyrant", "✦", [
             storyPage("Storm Eye Throne", "The Kage tower floats inside a storm eye.", "Kage Raiko Veyr", ["Kage Raiko Veyr: You climbed all the way here.", "Kage Raiko Veyr: Good.", "Kage Raiko Veyr: Stormveil needs a final argument."]),
             storyPage("Chaos Waits", "Below, the village is silent for the first time.", "Narrator", ["Narrator: Below, the village is silent.", "Narrator: For the first time, chaos waits.", "Narrator: Every shinobi watches to see who the storm will answer."]),
             storyPage("False Thunder", "Raiko's body fractures with Hollow Gate lightning.", "Kage Raiko Veyr", ["Kage Raiko Veyr: I betrayed nothing.", "Kage Raiko Veyr: I became the truth Stormveil was too afraid to name.", "Kage Raiko Veyr: Power belongs to those who take it."]),
         ], [{ text: "Stormveil is freedom, not your feeding ground.", trait: "honorable" }, { text: "You made chaos into chains.", trait: "suspicious" }, { text: "I'll take the Kage seat from you.", trait: "ambitious" }]),
     ],
     "Ashen Leaf Village": [
-        milestone("Ashen Leaf Village", 4, "Roots of the Shinobi", "Wooden Root Guardian", "??", [
+        milestone("Ashen Leaf Village", 4, "Roots of the Shinobi", "Wooden Root Guardian", "⚔️", [
             storyPage("Roots of the Shinobi", "A quiet training yard rests beneath golden-green trees dusted with ash.", "Elder Mori", [
                 "Elder Mori: Bow before the roots. Every shinobi who came before you stands beneath your feet.",
                 "Elder Mori: Ashen Leaf does not train warriors. It grows them. That takes longer, and it asks more.",
@@ -3144,7 +3144,7 @@ const storylines: Record<string, StoryStep[]> = {
             { text: "Read the Guardian's movement before striking.", trait: "suspicious" },
             { text: "Hit first. Prove intent.", trait: "reckless" },
         ]),
-        milestone("Ashen Leaf Village", 15, "The Forbidden Seed", "Rootbound Guard Initiate", "??", [
+        milestone("Ashen Leaf Village", 15, "The Forbidden Seed", "Rootbound Guard Initiate", "⚔️", [
             storyPage("The Forbidden Seed", "A sacred tree blooms black flowers overnight.", "Elder Mori", [
                 "Elder Mori: Some roots are not meant to be disturbed, but these flowers whisper like prisoners.",
                 "Elder Mori: That tree has not flowered in three generations. The last time it did, six families disappeared.",
@@ -3165,7 +3165,7 @@ const storylines: Record<string, StoryStep[]> = {
             { text: "Ask Elder Mori what the last bloom cost.", trait: "honorable" },
             { text: "Get past the Guard Initiate and find who tends the tree.", trait: "reckless" },
         ]),
-        milestone("Ashen Leaf Village", 25, "Names Removed from Scrolls", "Archive Spirit of the Root", "??", [
+        milestone("Ashen Leaf Village", 25, "Names Removed from Scrolls", "Archive Spirit of the Root", "⚔️", [
             storyPage("Names Removed from Scrolls", "Elder Mori's archive has missing scrolls and erased family lines.", "Elder Mori", [
                 "Elder Mori: Entire family lines are gone. Not killed. Removed.",
                 "Elder Mori: The gaps follow a pattern. Every removed name questioned the Kage within the last twenty years.",
@@ -3186,7 +3186,7 @@ const storylines: Record<string, StoryStep[]> = {
             { text: "Destroy the falsified records entirely.", trait: "reckless" },
             { text: "Confront the Kage with the pattern of removals.", trait: "honorable" },
         ]),
-        milestone("Ashen Leaf Village", 35, "The First Flame Chamber", "First Flame Sentinel", "??", [
+        milestone("Ashen Leaf Village", 35, "The First Flame Chamber", "First Flame Sentinel", "⚔️", [
             storyPage("The First Flame Chamber", "Hidden stairs beneath the oldest tree lead to a chamber of green fire.", "Elder Mori", [
                 "Elder Mori: The First Flame was meant to preserve us, but willingness is no longer required.",
                 "Elder Mori: It was built as an offering chamber. Shinobi who had nothing left would give themselves to keep the village alive.",
@@ -3207,7 +3207,7 @@ const storylines: Record<string, StoryStep[]> = {
             { text: "Find the offering records before fighting the Sentinel.", trait: "suspicious" },
             { text: "Destroy the Sentinel and shut the chamber down.", trait: "honorable" },
         ]),
-        milestone("Ashen Leaf Village", 50, "The Branch That Rises", "Jonin Trial: Rootbound Master", "??", [
+        milestone("Ashen Leaf Village", 50, "The Branch That Rises", "Jonin Trial: Rootbound Master", "⚔️", [
             storyPage("The Branch That Rises", "The Kage hall is filled with elders and incense.", "Elder Mori", [
                 "Elder Mori: Ashen Leaf needs shinobi who can carry painful truths.",
                 "Elder Mori: The elders know what you have seen. They are watching to see if you carry it or bury it.",
@@ -3228,7 +3228,7 @@ const storylines: Record<string, StoryStep[]> = {
             { text: "Accept and ask Hoshina directly what she expects in return.", trait: "honorable" },
             { text: "Decline until the erased names are answered for.", trait: "reckless" },
         ]),
-        milestone("Ashen Leaf Village", 65, "The Mission of Quiet Ash", "Rootbound Retrieval Squad", "??", [
+        milestone("Ashen Leaf Village", 65, "The Mission of Quiet Ash", "Rootbound Retrieval Squad", "⚔️", [
             storyPage("The Mission of Quiet Ash", "Sacred relics reveal the names of people fed to the First Flame.", "Elder Mori", [
                 "Elder Mori: The dead are most useful when they stop arguing.",
                 "Elder Mori: These relics were supposed to be destroyed. Someone hid them in the outer grove instead.",
@@ -3249,7 +3249,7 @@ const storylines: Record<string, StoryStep[]> = {
             { text: "Hide the scrolls and lead the Squad away from them.", trait: "suspicious" },
             { text: "Send the scrolls with Toma and face the Squad alone.", trait: "loyal" },
         ]),
-        milestone("Ashen Leaf Village", 75, "The Ancestors Speak", "Ancestor-Bound Flame Beast", "??", [
+        milestone("Ashen Leaf Village", 75, "The Ancestors Speak", "Ancestor-Bound Flame Beast", "⚔️", [
             storyPage("The Ancestors Speak", "The erased names glow inside the old archive.", "Elder Mori", [
                 "Elder Mori: A record that hides murder is not history. It is a weapon.",
                 "Elder Mori: The names are glowing because someone finally brought the relics back.",
@@ -3270,7 +3270,7 @@ const storylines: Record<string, StoryStep[]> = {
             { text: "Draw it away from the archive before it destroys the records.", trait: "reckless" },
             { text: "Let it burn what Hoshina corrupted and protect what remains.", trait: "suspicious" },
         ]),
-        milestone("Ashen Leaf Village", 85, "The Kage Burns the Future", "Rootbound Elder Champion", "??", [
+        milestone("Ashen Leaf Village", 85, "The Kage Burns the Future", "Rootbound Elder Champion", "⚔️", [
             storyPage("The Kage Burns the Future", "Kage Hoshina orders all young inventors arrested.", "Elder Mori", [
                 "Elder Mori: The village must remember itself. Not as ash. As leaf.",
                 "Elder Mori: She is arresting anyone who has built something new in the last five years.",
@@ -3291,7 +3291,7 @@ const storylines: Record<string, StoryStep[]> = {
             { text: "Challenge the Elder Champion directly.", trait: "reckless" },
             { text: "Get to Hoshina before the arrests are complete.", trait: "suspicious" },
         ]),
-        milestone("Ashen Leaf Village", 100, "The Tree Must Choose", "Kage Hoshina Enju, First Flame Vessel", "??", [
+        milestone("Ashen Leaf Village", 100, "The Tree Must Choose", "Kage Hoshina Enju, First Flame Vessel", "⚔️", [
             storyPage("The Tree Must Choose", "The sacred tree burns green from root to crown.", "Elder Mori", [
                 "Elder Mori: Every erased name has come to witness judgment.",
                 "Elder Mori: The tree has not burned like this since it was planted. It is not dying.",
@@ -3314,7 +3314,7 @@ const storylines: Record<string, StoryStep[]> = {
         ]),
     ],
     "Frostfang Village": [
-        milestone("Frostfang Village", 4, "The Pack Survives", "Snow Warden Pup", "??", [
+        milestone("Frostfang Village", 4, "The Pack Survives", "Snow Warden Pup", "⚔️", [
             storyPage("The Pack Survives", "Snow lashes across a frozen training yard.", "Elder Sova", [
                 "Elder Sova: The ice remembers footsteps. Walk with purpose, and it carries you.",
                 "Elder Sova: This village was carved out of cold that killed everyone who came before us.",
@@ -3335,7 +3335,7 @@ const storylines: Record<string, StoryStep[]> = {
             { text: "Draw it toward me alone.", trait: "reckless" },
             { text: "Signal the others and flank it.", trait: "suspicious" },
         ]),
-        milestone("Frostfang Village", 15, "The Missing Patrol", "Oathbound Soldier", "??", [
+        milestone("Frostfang Village", 15, "The Missing Patrol", "Oathbound Soldier", "⚔️", [
             storyPage("The Missing Patrol", "A patrol does not return from the northern ridge.", "Elder Sova", [
                 "Elder Sova: Deserters leave heat behind. These left silence.",
                 "Elder Sova: Five of Yura's best soldiers, all with fresh oaths. None would have run.",
@@ -3356,7 +3356,7 @@ const storylines: Record<string, StoryStep[]> = {
             { text: "Report what we know to Elder Sova.", trait: "honorable" },
             { text: "Ask the Kage directly what happened.", trait: "suspicious" },
         ]),
-        milestone("Frostfang Village", 25, "The Loyalty Seal", "Frost Seal Guardian", "??", [
+        milestone("Frostfang Village", 25, "The Loyalty Seal", "Frost Seal Guardian", "⚔️", [
             storyPage("The Loyalty Seal", "The missing patrol is found alive in ice coffins.", "Elder Sova", [
                 "Elder Sova: Something swallowed their vows and left obedience behind.",
                 "Elder Sova: They breathe. They stand. They do not speak unless asked.",
@@ -3377,7 +3377,7 @@ const storylines: Record<string, StoryStep[]> = {
             { text: "Find out who else has been sealed.", trait: "suspicious" },
             { text: "Demand the Kage explain himself.", trait: "reckless" },
         ]),
-        milestone("Frostfang Village", 35, "The Pale Pack", "Oathbound Ice Captain", "??", [
+        milestone("Frostfang Village", 35, "The Pale Pack", "Oathbound Ice Captain", "⚔️", [
             storyPage("The Pale Pack", "Rebels gather in a cavern lit by blue fire.", "Elder Sova", [
                 "Elder Sova: The ice screams from voices trapped beneath vows they never chose.",
                 "Elder Sova: These are not criminals. They refused the seal and ran before it was forced on them.",
@@ -3398,7 +3398,7 @@ const storylines: Record<string, StoryStep[]> = {
             { text: "Warn them to stay hidden and leave.", trait: "merciful" },
             { text: "Ask how many others have refused the seal.", trait: "suspicious" },
         ]),
-        milestone("Frostfang Village", 50, "Jonin of the Frozen Oath", "Jonin Rank Trial: Glacier Twins", "??", [
+        milestone("Frostfang Village", 50, "Jonin of the Frozen Oath", "Jonin Rank Trial: Glacier Twins", "⚔️", [
             storyPage("Jonin of the Frozen Oath", "The Kage hall is carved inside a glacier.", "Elder Sova", [
                 "Elder Sova: Endurance is holy here, but forced loyalty is only fear wearing armor.",
                 "Elder Sova: The Jonin rank in Frostfang comes with something the rank alone does not.",
@@ -3419,7 +3419,7 @@ const storylines: Record<string, StoryStep[]> = {
             { text: "Accept the rank and take the seal on your own terms.", trait: "ambitious" },
             { text: "Ask what the seal costs the ones who carry it.", trait: "suspicious" },
         ]),
-        milestone("Frostfang Village", 65, "Orders in White Blood", "Oathbound Purge Unit", "??", [
+        milestone("Frostfang Village", 65, "Orders in White Blood", "Oathbound Purge Unit", "⚔️", [
             storyPage("Orders in White Blood", "The Kage sends you to eliminate a Pale Pack shelter.", "Elder Sova", [
                 "Elder Sova: Mercy is not weakness. It is the proof that choice survived.",
                 "Elder Sova: The order Kael gave you is designed to make you something you are not.",
@@ -3440,7 +3440,7 @@ const storylines: Record<string, StoryStep[]> = {
             { text: "Get the civilians out before the unit reaches them.", trait: "loyal" },
             { text: "Stand between the unit and the shelter and force them to choose.", trait: "reckless" },
         ]),
-        milestone("Frostfang Village", 75, "Yura Breaks the Oath", "Frostfang Oathbreaker Hunter", "??", [
+        milestone("Frostfang Village", 75, "Yura Breaks the Oath", "Frostfang Oathbreaker Hunter", "⚔️", [
             storyPage("Yura Breaks the Oath", "Captain Yura kneels in the snow, carving the seal from her armor.", "Elder Sova", [
                 "Elder Sova: The ice has been screaming for years.",
                 "Elder Sova: Every sealed shinobi who doubted and said nothing — their silence built this moment.",
@@ -3461,7 +3461,7 @@ const storylines: Record<string, StoryStep[]> = {
             { text: "Stand guard — no one interrupts this.", trait: "loyal" },
             { text: "Demand the Echo name the Gate it keeps mentioning.", trait: "suspicious" },
         ]),
-        milestone("Frostfang Village", 85, "The Kage Freezes Dissent", "Oathbound Alpha Guard", "??", [
+        milestone("Frostfang Village", 85, "The Kage Freezes Dissent", "Oathbound Alpha Guard", "⚔️", [
             storyPage("The Kage Freezes Dissent", "Frostfang's central square is filled with frozen citizens.", "Elder Sova", [
                 "Elder Sova: Preserved citizens are still prisoners.",
                 "Elder Sova: The square held forty-three people this morning. None of them were armed.",
@@ -3482,7 +3482,7 @@ const storylines: Record<string, StoryStep[]> = {
             { text: "Turn the Alpha Guard against Kael.", trait: "honorable" },
             { text: "Get to Kael before he seals anyone else.", trait: "suspicious" },
         ]),
-        milestone("Frostfang Village", 100, "The Oath Must Break", "Kage Kael Whitefang, Hollow Oath Tyrant", "??", [
+        milestone("Frostfang Village", 100, "The Oath Must Break", "Kage Kael Whitefang, Hollow Oath Tyrant", "⚔️", [
             storyPage("The Oath Must Break", "The Kage throne sits inside the heart of the glacier.", "Elder Sova", [
                 "Elder Sova: Loyalty chosen freely is stronger than any seal.",
                 "Elder Sova: I have watched Frostfang for sixty years. It was built by people who had nothing but each other.",
@@ -3505,7 +3505,7 @@ const storylines: Record<string, StoryStep[]> = {
         ]),
     ],
     "Moonshadow Village": [
-        milestone("Moonshadow Village", 4, "No One Saves You", "Hidden Blade Trainee", "??", [
+        milestone("Moonshadow Village", 4, "No One Saves You", "Hidden Blade Trainee", "⚔️", [
             storyPage("The Silent Yard", "The moon is hidden behind black clouds. The training yard is silent.", "Shade Master Iro", [
                 "Shade Master Iro: Welcome to Moonshadow. No one will greet you, and no one will watch your back.",
                 "Shade Master Iro: Every shinobi here has one skill in common: knowing exactly how much their presence is worth.",
@@ -3526,7 +3526,7 @@ const storylines: Record<string, StoryStep[]> = {
             { text: "Strike before they settle.", conclusion: "Nyx smirks from the rooftop. Aggressive suits this village.", trait: "reckless" },
             { text: "I have nothing to prove yet.", conclusion: "Shade Master Iro narrows his eyes. Neither does the knife.", trait: "ambitious" },
         ]),
-        milestone("Moonshadow Village", 15, "The Sold Secret", "Veiled Hand Collector", "??", [
+        milestone("Moonshadow Village", 15, "The Sold Secret", "Veiled Hand Collector", "⚔️", [
             storyPage("Unmarked Scroll", "A coded scroll appears in your room without a broken lock.", "Shade Master Iro", [
                 "Shade Master Iro: Someone left that for you to find. Not to warn you. To test what you do with it.",
                 "Shade Master Iro: The cipher is a dead network's hand. Whoever sent it wanted you to know they still exist.",
@@ -3547,7 +3547,7 @@ const storylines: Record<string, StoryStep[]> = {
             { text: "You will tell me who hired you first.", trait: "suspicious" },
             { text: "The scroll stays with me.", trait: "ambitious" },
         ]),
-        milestone("Moonshadow Village", 25, "Masks Beneath Masks", "Masked Auction Enforcer", "??", [
+        milestone("Moonshadow Village", 25, "Masks Beneath Masks", "Masked Auction Enforcer", "⚔️", [
             storyPage("Below the Market", "A secret auction runs beneath the black market in a room that smells of old ink.", "Shade Master Iro", [
                 "Shade Master Iro: Every mask in this room belongs to someone with a rank and a reason to hide it.",
                 "Shade Master Iro: The first auction items were jutsu scrolls and contraband.",
@@ -3568,7 +3568,7 @@ const storylines: Record<string, StoryStep[]> = {
             { text: "Shut this auction down.", trait: "honorable" },
             { text: "My invitation is staying alive long enough to walk out.", trait: "reckless" },
         ]),
-        milestone("Moonshadow Village", 35, "The Hollow Moon Contract", "Contract-Bound Shadow", "??", [
+        milestone("Moonshadow Village", 35, "The Hollow Moon Contract", "Contract-Bound Shadow", "⚔️", [
             storyPage("The Bleeding Document", "The stolen Kage document bleeds black ink when held to moonlight.", "Shade Master Iro", [
                 "Shade Master Iro: This is not a trade agreement and it is not a security directive.",
                 "Shade Master Iro: It is a list of names the Kage has agreed to make disappear in exchange for something larger.",
@@ -3589,7 +3589,7 @@ const storylines: Record<string, StoryStep[]> = {
             { text: "Sable answers for every name on this list.", trait: "honorable" },
             { text: "I want to know what she was promised.", trait: "ambitious" },
         ]),
-        milestone("Moonshadow Village", 50, "Jonin of the Hidden Knife", "Jonin Trial: Mirror Assassin", "??", [
+        milestone("Moonshadow Village", 50, "Jonin of the Hidden Knife", "Jonin Trial: Mirror Assassin", "⚔️", [
             storyPage("The Mirror Chamber", "The Kage chamber has no guards. Every wall is mirrored floor to ceiling.", "Kage Sable Nocturne", [
                 "Kage Sable Nocturne: A room with no witnesses is never truly empty.",
                 "Kage Sable Nocturne: The mirrors remember everything. So does the village.",
@@ -3610,7 +3610,7 @@ const storylines: Record<string, StoryStep[]> = {
             { text: "Accept, and watch everything she does after.", trait: "suspicious" },
             { text: "Ask what she expects in return.", trait: "honorable" },
         ]),
-        milestone("Moonshadow Village", 65, "Mission to Kill a Witness", "Veiled Hand Executioner", "??", [
+        milestone("Moonshadow Village", 65, "Mission to Kill a Witness", "Veiled Hand Executioner", "⚔️", [
             storyPage("The Private Order", "Sable assigns a private assassination at the old shrine, no written record.", "Kage Sable Nocturne", [
                 "Kage Sable Nocturne: The target saw something they were not meant to see.",
                 "Kage Sable Nocturne: They have not spoken yet, but they will. Silence is a delay, not a solution.",
@@ -3631,7 +3631,7 @@ const storylines: Record<string, StoryStep[]> = {
             { text: "Take down the Executioner and let the witness run.", trait: "reckless" },
             { text: "Appear to comply, then get the list out another way.", trait: "suspicious" },
         ]),
-        milestone("Moonshadow Village", 75, "Nyx Chooses a Side", "Shadow Network Hunter", "??", [
+        milestone("Moonshadow Village", 75, "Nyx Chooses a Side", "Shadow Network Hunter", "⚔️", [
             storyPage("Rooftop Under a Red Moon", "Nyx waits on a rooftop beneath a blood-red moon, alone.", "Nyx", [
                 "Nyx: Moonshadow teaches you to trust no one. I used that lesson against the Hollow Gate.",
                 "Nyx: I spent six months selling them false intelligence. Bad patrol routes. Wrong names.",
@@ -3652,7 +3652,7 @@ const storylines: Record<string, StoryStep[]> = {
             { text: "Expose the embedded agent publicly.", trait: "honorable" },
             { text: "Let Sable think she still controls the village.", trait: "ambitious" },
         ]),
-        milestone("Moonshadow Village", 85, "The Kage Owns Every Secret", "Veiled Hand Grandmaster", "??", [
+        milestone("Moonshadow Village", 85, "The Kage Owns Every Secret", "Veiled Hand Grandmaster", "⚔️", [
             storyPage("The Files Open", "Every hidden archive in Moonshadow unseals at once. Secrets flood the streets.", "Shade Master Iro", [
                 "Shade Master Iro: She did this.",
                 "Shade Master Iro: Every debt, every betrayal, every name someone hid to survive. She released it all.",
@@ -3673,7 +3673,7 @@ const storylines: Record<string, StoryStep[]> = {
             { text: "Go straight for the tower now.", trait: "reckless" },
             { text: "Find and destroy the archive release mechanism first.", trait: "suspicious" },
         ]),
-        milestone("Moonshadow Village", 100, "The Moon Belongs to No One", "Kage Sable Nocturne, Hollow Moon Sovereign", "??", [
+        milestone("Moonshadow Village", 100, "The Moon Belongs to No One", "Kage Sable Nocturne, Hollow Moon Sovereign", "⚔️", [
             storyPage("The Tower in the Black Moon", "The Kage tower is swallowed in a black moon. Sable stands at the summit.", "Kage Sable Nocturne", [
                 "Kage Sable Nocturne: You climbed every rung.",
                 "Kage Sable Nocturne: You read every scroll, survived every test, and refused to be useful on my terms.",
@@ -4156,14 +4156,14 @@ const villageUpgradeDefinitions: Array<{
     unit: "%";
     description: string;
 }> = [
-        { key: "training", name: "Training Grounds", icon: "??", perLevel: 0.25, unit: "%", description: "+0.25% character XP from stat training per level." },
-        { key: "jutsuTraining", name: "Jutsu Training", icon: "??", perLevel: 0.25, unit: "%", description: "+0.25% jutsu training speed / jutsu XP per level." },
-        { key: "shop", name: "Shop", icon: "??", perLevel: 0.25, unit: "%", description: "0.25% shop discount per level." },
-        { key: "townDefense", name: "Town Defense", icon: "???", perLevel: 0.1, unit: "%", description: "+0.1% defense vs Genjutsu, Taijutsu, Bukijutsu, and Ninjutsu while defending through the Village Guard queue." },
-        { key: "petYard", name: "Pet Yard", icon: "??", perLevel: 0.25, unit: "%", description: "+0.25% pet XP from pet training per level." },
-        { key: "bank", name: "Bank", icon: "??", perLevel: 0.25, unit: "%", description: "+0.25% bank interest per level." },
-        { key: "missionHall", name: "Mission Hall", icon: "??", perLevel: 0.5, unit: "%", description: "+0.5% XP, ryo, and stamina mission rewards per level." },
-        { key: "hospital", name: "Hospital", icon: "??", perLevel: 1, unit: "%", description: "1% hospital discount per level." },
+        { key: "training", name: "Training Grounds", icon: "💪", perLevel: 0.25, unit: "%", description: "+0.25% character XP from stat training per level." },
+        { key: "jutsuTraining", name: "Jutsu Training", icon: "🔥", perLevel: 0.25, unit: "%", description: "+0.25% jutsu training speed / jutsu XP per level." },
+        { key: "shop", name: "Shop", icon: "🛒", perLevel: 0.25, unit: "%", description: "0.25% shop discount per level." },
+        { key: "townDefense", name: "Town Defense", icon: "🛡️", perLevel: 0.1, unit: "%", description: "+0.1% defense vs Genjutsu, Taijutsu, Bukijutsu, and Ninjutsu while defending through the Village Guard queue." },
+        { key: "petYard", name: "Pet Yard", icon: "🐾", perLevel: 0.25, unit: "%", description: "+0.25% pet XP from pet training per level." },
+        { key: "bank", name: "Bank", icon: "🏦", perLevel: 0.25, unit: "%", description: "+0.25% bank interest per level." },
+        { key: "missionHall", name: "Mission Hall", icon: "📜", perLevel: 0.5, unit: "%", description: "+0.5% XP, ryo, and stamina mission rewards per level." },
+        { key: "hospital", name: "Hospital", icon: "🏥", perLevel: 1, unit: "%", description: "1% hospital discount per level." },
     ];
 
 type VillageLeadershipProfile = { kage: string; elders: string[]; atWar: boolean; pastWars: string[] };
@@ -5304,16 +5304,16 @@ const builtinAis: CreatorAi[] = [
     makeBuiltinAi("builtin-ai-central-champion", "Central Champion", "CC", 70, "Central Arena", aiJutsuLoadout("boss"), 160, undefined, "boss"),
     ...storyBossAis,
     // -- Hunt beast AIs ------------------------------------------------------
-    makeBuiltinAi("hunt-ai-wild-boar", "Wild Boar", "??", 5, "Forest Territory", aiJutsuLoadout("hunter"), 18, 720, "hunter"),
-    makeBuiltinAi("hunt-ai-forest-hawk", "Forest Hawk", "??", 8, "Forest Territory", aiJutsuLoadout("burst"), 25, 1100, "burst"),
-    makeBuiltinAi("hunt-ai-frost-wolf", "Frost Wolf", "??", 18, "Snow Territory", aiJutsuLoadout("hunter"), 42, 2500, "hunter"),
-    makeBuiltinAi("hunt-ai-ash-lizard", "Ash Lizard", "??", 22, "Volcano Territory", aiJutsuLoadout("burst"), 50, 3200, "burst"),
-    makeBuiltinAi("hunt-ai-shadow-panther", "Shadow Panther", "??", 38, "Shadow Territory", aiJutsuLoadout("control"), 78, 5800, "control"),
-    makeBuiltinAi("hunt-ai-ironback-bear", "Ironback Bear", "??", 42, "Forest Territory", aiJutsuLoadout("defender"), 85, 6500, "defender"),
-    makeBuiltinAi("hunt-ai-ember-drake", "Ember Drake", "??", 65, "Volcano Territory", aiJutsuLoadout("boss"), 150, 12000, "boss"),
-    makeBuiltinAi("hunt-ai-moon-serpent", "Moon Serpent", "??", 68, "Shadow Territory", aiJutsuLoadout("control"), 158, 13000, "control"),
-    makeBuiltinAi("hunt-ai-ancient-chakra-beast", "Ancient Chakra Beast", "??", 88, "Central Wilderness", aiJutsuLoadout("boss"), 205, 18000, "boss"),
-    makeBuiltinAi("hunt-ai-worldstorm-dragon", "Worldstorm Dragon", "??", 92, "Central Wilderness", aiJutsuLoadout("boss"), 220, 20000, "boss"),
+    makeBuiltinAi("hunt-ai-wild-boar", "Wild Boar", "🐗", 5, "Forest Territory", aiJutsuLoadout("hunter"), 18, 720, "hunter"),
+    makeBuiltinAi("hunt-ai-forest-hawk", "Forest Hawk", "🦅", 8, "Forest Territory", aiJutsuLoadout("burst"), 25, 1100, "burst"),
+    makeBuiltinAi("hunt-ai-frost-wolf", "Frost Wolf", "🐺", 18, "Snow Territory", aiJutsuLoadout("hunter"), 42, 2500, "hunter"),
+    makeBuiltinAi("hunt-ai-ash-lizard", "Ash Lizard", "🦎", 22, "Volcano Territory", aiJutsuLoadout("burst"), 50, 3200, "burst"),
+    makeBuiltinAi("hunt-ai-shadow-panther", "Shadow Panther", "🐆", 38, "Shadow Territory", aiJutsuLoadout("control"), 78, 5800, "control"),
+    makeBuiltinAi("hunt-ai-ironback-bear", "Ironback Bear", "🐻", 42, "Forest Territory", aiJutsuLoadout("defender"), 85, 6500, "defender"),
+    makeBuiltinAi("hunt-ai-ember-drake", "Ember Drake", "🔥", 65, "Volcano Territory", aiJutsuLoadout("boss"), 150, 12000, "boss"),
+    makeBuiltinAi("hunt-ai-moon-serpent", "Moon Serpent", "🌙", 68, "Shadow Territory", aiJutsuLoadout("control"), 158, 13000, "control"),
+    makeBuiltinAi("hunt-ai-ancient-chakra-beast", "Ancient Chakra Beast", "💀", 88, "Central Wilderness", aiJutsuLoadout("boss"), 205, 18000, "boss"),
+    makeBuiltinAi("hunt-ai-worldstorm-dragon", "Worldstorm Dragon", "🐉", 92, "Central Wilderness", aiJutsuLoadout("boss"), 220, 20000, "boss"),
 ];
 
 const builtinHuntMissions: CreatorMission[] = [
@@ -7949,7 +7949,7 @@ function RightMenu({
                             <input type="password" placeholder="Current password" value={oldPw} onChange={e => setOldPw(e.target.value)} style={{ width: "100%", marginBottom: 4 }} />
                             <input type="password" placeholder="New password (min 6)" value={newPw} onChange={e => setNewPw(e.target.value)} style={{ width: "100%", marginBottom: 4 }} />
                             <input type="password" placeholder="Confirm new password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} onKeyDown={e => e.key === "Enter" && submitChangePw()} style={{ width: "100%", marginBottom: 6 }} />
-                            {pwMsg && <p style={{ fontSize: "0.78rem", margin: "0 0 6px", color: pwMsg.startsWith("?") ? "#4ade80" : "#f87171" }}>{pwMsg}</p>}
+                            {pwMsg && <p style={{ fontSize: "0.78rem", margin: "0 0 6px", color: pwMsg.startsWith("✅") ? "#4ade80" : "#f87171" }}>{pwMsg}</p>}
                             <button onClick={submitChangePw} style={{ width: "100%" }}>Save Password</button>
                         </div>
                     )}
@@ -8082,7 +8082,7 @@ function MobileNav({
                             <input type="password" placeholder="Current password" value={oldPw} onChange={e => setOldPw(e.target.value)} style={{ width: "100%", marginBottom: 6 }} />
                             <input type="password" placeholder="New password (min 6)" value={newPw} onChange={e => setNewPw(e.target.value)} style={{ width: "100%", marginBottom: 6 }} />
                             <input type="password" placeholder="Confirm new password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} style={{ width: "100%", marginBottom: 8 }} />
-                            {pwMsg && <p style={{ fontSize: "0.82rem", margin: "0 0 8px", color: pwMsg.startsWith("?") ? "#4ade80" : "#f87171" }}>{pwMsg}</p>}
+                            {pwMsg && <p style={{ fontSize: "0.82rem", margin: "0 0 8px", color: pwMsg.startsWith("✅") ? "#4ade80" : "#f87171" }}>{pwMsg}</p>}
                             <button onClick={submitChangePw} style={{ width: "100%" }}>Save Password</button>
                         </div>
                     )}
@@ -8134,7 +8134,7 @@ function VillageLoreScreen({
     onContinue: () => void;
 }) {
     const loreData = villageLore[character.village] ?? {
-        icon: "??",
+        icon: "⚔️",
         theme: "The Shinobi Path",
         lore: "Your shinobi journey begins here.",
     };
@@ -8601,7 +8601,7 @@ function AdminPasswordReset({ adminPw }: { adminPw: string }) {
                 <input type="password" placeholder="New password (min 6)" value={newPw} onChange={e => setNewPw(e.target.value)} style={{ flex: 1, minWidth: 160 }} />
                 <button onClick={submit}>Reset</button>
             </div>
-            {msg && <p className="hint" style={{ color: msg.startsWith("?") ? "#4ade80" : "#f87171", margin: 0 }}>{msg}</p>}
+            {msg && <p className="hint" style={{ color: msg.startsWith("✅") ? "#4ade80" : "#f87171", margin: 0 }}>{msg}</p>}
         </div>
     );
 }
@@ -8787,7 +8787,7 @@ function PetYard({ character, updateCharacter, setScreen }: { character: Charact
                                         ?? 10 Shards
                                     </button>
                                 </div>
-                                {nicknameMsg && <p className="hint" style={{ fontSize: "0.72rem", color: nicknameMsg.startsWith("?") ? "#4ade80" : "#f87171" }}>{nicknameMsg}</p>}
+                                {nicknameMsg && <p className="hint" style={{ fontSize: "0.72rem", color: nicknameMsg.startsWith("✅") ? "#4ade80" : "#f87171" }}>{nicknameMsg}</p>}
                             </div>
                             <div className="pet-happiness-meter" style={{ ["--pet-happiness" as string]: `${petHappiness(selectedPet)}%` }}>
                                 <div className="pet-happiness-meter-top">
@@ -8881,16 +8881,16 @@ function PetYard({ character, updateCharacter, setScreen }: { character: Charact
                                     <p className="hint">This pet has no jutsu yet.</p>
                                 ) : selectedPet.jutsus.map((jutsu, i) => {
                                     const kindMeta: Record<string, { icon: string; label: string; color: string }> = {
-                                        damage:   { icon: "??",  label: "Damage",   color: "#fca5a5" },
-                                        buff:     { icon: "??",  label: "Buff",     color: "#86efac" },
-                                        heal:     { icon: "??",  label: "Heal",     color: "#4ade80" },
-                                        debuff:   { icon: "??",  label: "Debuff",   color: "#f97316" },
-                                        dot:      { icon: "??",  label: "Poison",   color: "#c084fc" },
-                                        move:     { icon: "??",  label: "Move",     color: "#93c5fd" },
-                                        barrier:  { icon: "??",  label: "Barrier",  color: "#7dd3fc" },
-                                        movelock: { icon: "??",  label: "Rootlock", color: "#fbbf24" },
+                                        damage:   { icon: "⚔️",  label: "Damage",   color: "#fca5a5" },
+                                        buff:     { icon: "💪",  label: "Buff",     color: "#86efac" },
+                                        heal:     { icon: "💚",  label: "Heal",     color: "#4ade80" },
+                                        debuff:   { icon: "🔻",  label: "Debuff",   color: "#f97316" },
+                                        dot:      { icon: "☠️",  label: "Poison",   color: "#c084fc" },
+                                        move:     { icon: "💨",  label: "Move",     color: "#93c5fd" },
+                                        barrier:  { icon: "🔵",  label: "Barrier",  color: "#7dd3fc" },
+                                        movelock: { icon: "🔒",  label: "Rootlock", color: "#fbbf24" },
                                     };
-                                    const km = kindMeta[jutsu.kind] ?? { icon: "?", label: jutsu.kind, color: "#aaa" };
+                                    const km = kindMeta[jutsu.kind] ?? { icon: "❓", label: jutsu.kind, color: "#aaa" };
                                     return (
                                         <div key={i} className="pet-jutsu-row">
                                             <span className="pet-jutsu-kind-badge" style={{ color: km.color, borderColor: km.color }}>
@@ -9763,7 +9763,7 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                                                         <button onClick={() => sendDirectPetChallenge(p.name, selectedPet?.id)}>?? Challenge</button>
                                                     </div>
                                                 ))}
-                                                {petChallengeMsg && <p className="hint" style={{ color: petChallengeMsg.startsWith("?") ? "#4ade80" : "#f87171", marginTop: 6 }}>{petChallengeMsg}</p>}
+                                                {petChallengeMsg && <p className="hint" style={{ color: petChallengeMsg.startsWith("✅") ? "#4ade80" : "#f87171", marginTop: 6 }}>{petChallengeMsg}</p>}
                                             </>
                                         );
                                     }
@@ -9771,7 +9771,7 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                                         <>
                                             <p className="hint">No account found for "{opponentSearch.trim()}".</p>
                                             <button onClick={() => sendDirectPetChallenge(opponentSearch.trim(), selectedPet?.id)}>?? Challenge "{opponentSearch.trim()}"</button>
-                                            {petChallengeMsg && <p className="hint" style={{ color: petChallengeMsg.startsWith("?") ? "#4ade80" : "#f87171", marginTop: 6 }}>{petChallengeMsg}</p>}
+                                            {petChallengeMsg && <p className="hint" style={{ color: petChallengeMsg.startsWith("✅") ? "#4ade80" : "#f87171", marginTop: 6 }}>{petChallengeMsg}</p>}
                                         </>
                                     );
                                 })()}
@@ -10045,7 +10045,7 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, frame, recentFra
                 <div className="pet-event-ticker">
                     {[...recentFrames].reverse().map((f, i) => (
                         <span key={`${f.message}-${i}`} className={`pet-event-chip ${f.actor} ${f.actionKind ?? ""} ${i === 0 ? "latest" : ""}`}>
-                            {f.actionKind === "dot" ? "?" : f.actionKind === "buff" ? "?" : f.actionKind === "heal" ? "??" : f.actionKind === "move" ? "??" : f.actionKind === "debuff" ? "?" : f.actionKind === "lifesteal" ? "??" : f.actionKind === "shield" ? "??" : f.actionKind === "absorb" ? "?" : f.actionKind === "barrier" ? "??" : f.actionKind === "movelock" ? "??" : f.crit ? "?" : "?"}
+                            {f.actionKind === "dot" ? "☠" : f.actionKind === "buff" ? "⬆" : f.actionKind === "heal" ? "💚" : f.actionKind === "move" ? "💨" : f.actionKind === "debuff" ? "⬇" : f.actionKind === "lifesteal" ? "🩸" : f.actionKind === "shield" ? "🛡" : f.actionKind === "absorb" ? "✨" : f.actionKind === "barrier" ? "🔵" : f.actionKind === "movelock" ? "🔒" : f.crit ? "⚡" : "⚔"}
                             {" "}{f.message.replace(/^Round \d+: /, "").slice(0, 42)}
                         </span>
                     ))}
@@ -10087,9 +10087,9 @@ function PetArenaCard({ owner, pet, sharedImages = {} }: { owner: string; pet: P
                 <div className="pet-arena-jutsu-list">
                     {pet.jutsus.length ? pet.jutsus.map((jutsu) => {
                         const kindColors: Record<string, string> = { damage: "#fca5a5", buff: "#86efac", heal: "#4ade80", debuff: "#f97316", dot: "#c084fc", move: "#93c5fd", barrier: "#7dd3fc", movelock: "#fbbf24" };
-                        const kindIcons:  Record<string, string> = { damage: "??", buff: "??", heal: "??", debuff: "??", dot: "??", move: "??", barrier: "??", movelock: "??" };
+                        const kindIcons:  Record<string, string> = { damage: "⚔️", buff: "💪", heal: "💚", debuff: "🔻", dot: "☠️", move: "💨", barrier: "🔵", movelock: "🔒" };
                         const col  = kindColors[jutsu.kind] ?? "#aaa";
-                        const icon = kindIcons[jutsu.kind]  ?? "?";
+                        const icon = kindIcons[jutsu.kind]  ?? "❓";
                         return (
                             <span key={jutsu.name} className="pet-arena-jutsu-chip" style={{ borderColor: col, color: col }}>
                                 {icon} {jutsu.name}{jutsu.power > 0 ? ` · P${jutsu.power}` : ""} · CD{jutsu.cooldown}
@@ -10597,7 +10597,7 @@ function AdminPanel({
         rightImage: "",
         choices: [] as NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>,
     })));
-    const [eventIcon, setEventIcon] = useState("?");
+    const [eventIcon, setEventIcon] = useState("✦");
     const [eventLevelReq, setEventLevelReq] = useState(1);
     const [eventXp, setEventXp] = useState(200);
     const [eventRyo, setEventRyo] = useState(100);
@@ -10624,7 +10624,7 @@ function AdminPanel({
     const [raidName, setRaidName] = useState("Shadow Boss Raid");
     const [raidBiome, setRaidBiome] = useState<Biome>("shadow");
     const [raidTargetSector, setRaidTargetSector] = useState(8);
-    const [raidIcon, setRaidIcon] = useState("?");
+    const [raidIcon, setRaidIcon] = useState("✦");
     const [raidLevelReq, setRaidLevelReq] = useState(20);
     const [raidAiProfileId, setRaidAiProfileId] = useState("");
     const [raidWaves, setRaidWaves] = useState(3);
@@ -11255,7 +11255,7 @@ function AdminPanel({
             name: eventName.trim() || "Admin Event",
             biome: targetBiome,
             targetSector,
-            icon: eventIcon || "?",
+            icon: eventIcon || "✦",
             eventKind,
             trigger: eventTrigger || undefined,
             vnTitle: eventVnTitle.trim() || eventName.trim() || "Visual Novel Scene",
@@ -11438,7 +11438,7 @@ function AdminPanel({
             name: raidName.trim() || "Shadow Boss Raid",
             targetSector,
             biome: biomeForWorldSector(targetSector),
-            icon: raidIcon || "?",
+            icon: raidIcon || "✦",
             levelReq: Math.max(1, Number(raidLevelReq)),
             aiProfileId: raidAiProfileId || undefined,
             waves: Math.max(1, Math.min(10, Number(raidWaves))),
@@ -12351,8 +12351,8 @@ function AdminPanel({
                     {/* -- AI Bulk Image Generator -- */}
                     <section className="summary-box bulk-image-section">
                         <div className="bulk-image-header" onClick={() => setAiBulkShowSection(v => !v)}>
-                            <span>??? Bulk AI Image Generator</span>
-                            <span className="bulk-image-chevron">{aiBulkShowSection ? "?" : "?"}</span>
+                            <span>🖼️ Bulk AI Image Generator</span>
+                            <span className="bulk-image-chevron">{aiBulkShowSection ? "▲" : "▼"}</span>
                         </div>
 
                         {aiBulkShowSection && (() => {
@@ -13633,7 +13633,7 @@ function AdminPanel({
                                 />
                                 <button onClick={pmLookup}>Look Up</button>
                             </div>
-                            {pmMsg && <p className="hint" style={{ color: pmMsg.startsWith("?") ? "#4ade80" : pmMsg.startsWith("?") ? "#f87171" : pmMsg.startsWith("??") ? "#fbbf24" : undefined }}>{pmMsg}</p>}
+                            {pmMsg && <p className="hint" style={{ color: pmMsg.startsWith("✅") ? "#4ade80" : pmMsg.startsWith("❌") ? "#f87171" : pmMsg.startsWith("⚠️") ? "#fbbf24" : undefined }}>{pmMsg}</p>}
 
                             {pmChar && (
                                 <>
@@ -13678,7 +13678,7 @@ function AdminPanel({
                                 <input style={{ flex: 1, minWidth: 160 }} value={pmEditName} onChange={e => { setPmEditName(e.target.value); setPmEditSnap(null); }} placeholder="Player name" />
                                 <button onClick={pmEditLookup} disabled={!pmEditName.trim()}>Look Up</button>
                             </div>
-                            {pmEditMsg && <p className="hint" style={{ color: pmEditMsg.startsWith("?") ? "#4ade80" : pmEditMsg.startsWith("?") ? "#f87171" : "#fcd34d", marginBottom: 8 }}>{pmEditMsg}</p>}
+                            {pmEditMsg && <p className="hint" style={{ color: pmEditMsg.startsWith("✅") ? "#4ade80" : pmEditMsg.startsWith("❌") ? "#f87171" : "#fcd34d", marginBottom: 8 }}>{pmEditMsg}</p>}
                             {pmEditSnap && (() => {
                                 const fields: { key: string; label: string }[] = [
                                     { key: "level", label: "Level" },
@@ -13823,17 +13823,17 @@ function AdminPanel({
                                     onChange={e => setPmTargetName(e.target.value)}
                                     placeholder="Player name"
                                 />
-                                <button disabled={!pmTargetName.trim()} onClick={pmSoftReset} style={{ background: "#78350f", borderColor: "#f59e0b", color: "#fde68a" }}>? Soft Reset</button>
-                                <button className="danger-button" disabled={!pmTargetName.trim()} onClick={pmReset}>??? Full Wipe</button>
+                                <button disabled={!pmTargetName.trim()} onClick={pmSoftReset} style={{ background: "#78350f", borderColor: "#f59e0b", color: "#fde68a" }}>↺ Soft Reset</button>
+                                <button className="danger-button" disabled={!pmTargetName.trim()} onClick={pmReset}>🗑️ Full Wipe</button>
                             </div>
                             <p className="hint" style={{ marginBottom: 2 }}><strong style={{ color: "#fde68a" }}>? Soft Reset</strong> — keeps name, village, specialty & bloodline. Resets everything else to Lv 1 defaults.</p>
                             <p className="hint"><strong style={{ color: "#fca5a5" }}>??? Full Wipe</strong> — deletes the save entirely. Player must create a new character.</p>
-                            {pmMsg && <p className="hint" style={{ color: pmMsg.startsWith("?") ? "#4ade80" : pmMsg.startsWith("?") ? "#f87171" : "#fcd34d", marginTop: 6 }}>{pmMsg}</p>}
+                            {pmMsg && <p className="hint" style={{ color: pmMsg.startsWith("✅") ? "#4ade80" : pmMsg.startsWith("❌") ? "#f87171" : "#fcd34d", marginTop: 6 }}>{pmMsg}</p>}
                         </section>
 
                         {/* -- Full Server Reset -- */}
                         <section className="summary-box" style={{ borderColor: "#450a0a", background: "#1c0606" }}>
-                            <h4 style={{ color: "#fca5a5" }}>?? Full Server Reset</h4>
+                            <h4 style={{ color: "#fca5a5" }}>☢️ Full Server Reset</h4>
                             <p className="hint">Wipes <strong>every player account</strong> back to Level 0. Clears all clans, village chats, presence data, and pending challenges.</p>
                             <p className="hint" style={{ color: "#4ade80" }}>? Preserved: All uploaded images (kage, elders, pets, weapons, avatars) and all admin-created game content (jutsus, missions, AIs, events).</p>
                             {!adminPw && (
@@ -13844,11 +13844,11 @@ function AdminPanel({
                                 style={{ marginTop: 8, width: "100%", padding: "10px", fontSize: "1rem", background: adminPw ? "#7f1d1d" : "#4a1a1a", opacity: adminPw ? 1 : 0.5 }}
                                 onClick={serverReset}
                                 disabled={!adminPw}
-                            >?? Reset Entire Server (All Players ? Level 0)</button>
+                            >☢️ Reset Entire Server (All Players → Level 0)</button>
                             {serverResetMsg && (
                                 <p className="hint" style={{
                                     marginTop: 8,
-                                    color: serverResetMsg.startsWith("?") ? "#4ade80" : serverResetMsg.startsWith("?") ? "#f87171" : "#fbbf24"
+                                    color: serverResetMsg.startsWith("✅") ? "#4ade80" : serverResetMsg.startsWith("❌") ? "#f87171" : "#fbbf24"
                                 }}>{serverResetMsg}</p>
                             )}
                         </section>
@@ -14230,27 +14230,27 @@ function JutsuEffectCards({ jutsu, scaledEffectPower, masteryLevel }: { jutsu: J
 function Village({ characterVillage, setScreen }: { characterVillage: string; setScreen: (screen: Screen) => void }) {
     const [saveMsg] = useState("");
     const locations = [
-        { name: "Battle Arena", icon: "??", screen: "battleArena" as Screen, x: "10%", y: "31%" },
-        { name: "Story Hall", icon: "??", screen: "storyHall" as Screen, x: "29%", y: "33%" },
-        { name: "Town Hall", icon: "??", screen: "townHall" as Screen, x: "50%", y: "22%" },
-        { name: "Bank", icon: "??", screen: "bank" as Screen, x: "68%", y: "31%" },
-        { name: "Shop", icon: "??", screen: "shop" as Screen, x: "18%", y: "79%" },
-        { name: "Clan Hall", icon: "??", screen: "clan" as Screen, x: "13%", y: "57%" },
-        { name: "Hospital", icon: "??", screen: "hospital" as Screen, x: "66%", y: "56%" },
-        { name: "Mission Hall", icon: "??", screen: "missions" as Screen, x: "68%", y: "75%" },
-        { name: "Cafeteria", icon: "??", screen: "cafeteria" as Screen, x: "82%", y: "45%" },
-        { name: "Tavern", icon: "??", screen: "tavern" as Screen, x: "82%", y: "63%" },
-        { name: "Stat Training", icon: "??", screen: "training" as Screen, x: "83%", y: "25%" },
-        { name: "Jutsu Training", icon: "??", screen: "jutsuTraining" as Screen, x: "80%", y: "81%" },
-        { name: "World Map", icon: "???", screen: "worldMap" as Screen, x: "45%", y: "68%" },
-        { name: "Pet Yard", icon: "??", screen: "pets" as Screen, x: "32%", y: "55%" },
-        { name: "Card Hall", icon: "??", screen: "shinobiTiles" as Screen, x: "52%", y: "55%" },
+        { name: "Battle Arena", icon: "⚔️", screen: "battleArena" as Screen, x: "10%", y: "31%" },
+        { name: "Story Hall", icon: "📖", screen: "storyHall" as Screen, x: "29%", y: "33%" },
+        { name: "Town Hall", icon: "🏯", screen: "townHall" as Screen, x: "50%", y: "22%" },
+        { name: "Bank", icon: "🏦", screen: "bank" as Screen, x: "68%", y: "31%" },
+        { name: "Shop", icon: "🛒", screen: "shop" as Screen, x: "18%", y: "79%" },
+        { name: "Clan Hall", icon: "⛩️", screen: "clan" as Screen, x: "13%", y: "57%" },
+        { name: "Hospital", icon: "🏥", screen: "hospital" as Screen, x: "66%", y: "56%" },
+        { name: "Mission Hall", icon: "📜", screen: "missions" as Screen, x: "68%", y: "75%" },
+        { name: "Cafeteria", icon: "🍜", screen: "cafeteria" as Screen, x: "82%", y: "45%" },
+        { name: "Tavern", icon: "🍺", screen: "tavern" as Screen, x: "82%", y: "63%" },
+        { name: "Stat Training", icon: "💪", screen: "training" as Screen, x: "83%", y: "25%" },
+        { name: "Jutsu Training", icon: "🔥", screen: "jutsuTraining" as Screen, x: "80%", y: "81%" },
+        { name: "World Map", icon: "🗺️", screen: "worldMap" as Screen, x: "45%", y: "68%" },
+        { name: "Pet Yard", icon: "🐾", screen: "pets" as Screen, x: "32%", y: "55%" },
+        { name: "Card Hall", icon: "🃏", screen: "shinobiTiles" as Screen, x: "52%", y: "55%" },
     ];
 
     return (
         <div className="stormveil-village-screen">
             <div className="village-save-bar">
-                <div className="village-safe-zone">??? SAFE ZONE</div>
+                <div className="village-safe-zone">🛡️ SAFE ZONE</div>
                 {saveMsg && <span className="village-save-msg">{saveMsg}</span>}
             </div>
 
@@ -14335,11 +14335,11 @@ const CLAN_RANK_COLOR: Record<string, string> = {
     "Clan Initiate": "#64748b",
 };
 const CLAN_RANK_ICON: Record<string, string> = {
-    "Clan Head": "?",
+    "Clan Head": "✦",
     "Clan Elder": "?",
-    "Clan Enforcer": "?",
-    "Clan Shinobi": "?",
-    "Clan Initiate": "?",
+    "Clan Enforcer": "✦",
+    "Clan Shinobi": "✦",
+    "Clan Initiate": "✦",
 };
 function clanSlug(name: string): string {
     return "clan-" + name.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -14383,16 +14383,16 @@ const clanBoostTiers = [
     { min: 16, max: Infinity, percent: 10 },
 ] as const;
 const clanMissionDefinitions = [
-    { key: "battle", icon: "??", name: "Win 20 Battles", description: "Clan members combine for 20 battle wins.", target: 20, reward: "+450 Clan XP / +2,500 Treasury Ryo" },
-    { key: "mission", icon: "??", name: "Complete 50 Missions", description: "Clan members combine for 50 mission completions.", target: 50, reward: "+650 Clan XP / +3,500 Treasury Ryo" },
-    { key: "guard", icon: "??", name: "Defend Village 10 Times", description: "Keep village guard pressure active and defend the village.", target: 10, reward: "+500 Clan XP / +2,000 Treasury Ryo" },
-    { key: "territory", icon: "??", name: "Claim Territory", description: "Collect Territory Control Scrolls and donate them to a sector your clan wants to own.", target: 20, reward: "+1 Sector claim push" },
-    { key: "anbu", icon: "??", name: "ANBU Recon Support", description: "Coordinate with ANBU scouts, sector guards, and raid defense missions.", target: 10, reward: "+300 Clan XP / intel advantage" },
-    { key: "donation", icon: "??", name: "Donate 25,000 Ryo", description: "Grow the clan treasury through member donations.", target: 25000, reward: "+700 Clan XP / +1 Aura Stone" },
-    { key: "training", icon: "??", name: "Train 100 Hours", description: "Long-term clan discipline objective.", target: 100, reward: "+600 Clan XP" },
-    { key: "raid", icon: "??", name: "Defeat 5 Raid Bosses", description: "Raid contribution objective for future PvE events.", target: 5, reward: "+900 Clan XP / +1 Mythic Seal" },
+    { key: "battle", icon: "⚔️", name: "Win 20 Battles", description: "Clan members combine for 20 battle wins.", target: 20, reward: "+450 Clan XP / +2,500 Treasury Ryo" },
+    { key: "mission", icon: "⚔️", name: "Complete 50 Missions", description: "Clan members combine for 50 mission completions.", target: 50, reward: "+650 Clan XP / +3,500 Treasury Ryo" },
+    { key: "guard", icon: "⚔️", name: "Defend Village 10 Times", description: "Keep village guard pressure active and defend the village.", target: 10, reward: "+500 Clan XP / +2,000 Treasury Ryo" },
+    { key: "territory", icon: "⚔️", name: "Claim Territory", description: "Collect Territory Control Scrolls and donate them to a sector your clan wants to own.", target: 20, reward: "+1 Sector claim push" },
+    { key: "anbu", icon: "⚔️", name: "ANBU Recon Support", description: "Coordinate with ANBU scouts, sector guards, and raid defense missions.", target: 10, reward: "+300 Clan XP / intel advantage" },
+    { key: "donation", icon: "⚔️", name: "Donate 25,000 Ryo", description: "Grow the clan treasury through member donations.", target: 25000, reward: "+700 Clan XP / +1 Aura Stone" },
+    { key: "training", icon: "⚔️", name: "Train 100 Hours", description: "Long-term clan discipline objective.", target: 100, reward: "+600 Clan XP" },
+    { key: "raid", icon: "⚔️", name: "Defeat 5 Raid Bosses", description: "Raid contribution objective for future PvE events.", target: 5, reward: "+900 Clan XP / +1 Mythic Seal" },
 ] as const;
-const CLAN_ROLE_ICON: Record<ClanRole, string> = { Founder: "?", Leader: "?", Officer: "?", "Elite Member": "?", Member: "?", Recruit: "?" };
+const CLAN_ROLE_ICON: Record<ClanRole, string> = { Founder: "✦", Leader: "✦", Officer: "✦", "Elite Member": "✦", Member: "✦", Recruit: "✦" };
 function defaultClanTreasury(): ClanTreasury { return { ryo: 0, fateShards: 0, boneCharms: 0, auraStones: 0, mythicSeals: 0, warSupply: 0, items: [] }; }
 function defaultClanUpgrades(): ClanUpgradeLevels { return { trainingGrounds: 0, warRoom: 0, treasury: 0, petDen: 0, medicalWing: 0, blacksmith: 0, scoutNetwork: 0 }; }
 function cleanClanTreasury(t?: Partial<ClanTreasury>): ClanTreasury { const base = defaultClanTreasury(); return { ryo: Math.max(0, Math.floor(Number(t?.ryo ?? base.ryo))), fateShards: Math.max(0, Math.floor(Number(t?.fateShards ?? base.fateShards))), boneCharms: Math.max(0, Math.floor(Number(t?.boneCharms ?? base.boneCharms))), auraStones: Math.max(0, Math.floor(Number(t?.auraStones ?? base.auraStones))), mythicSeals: Math.max(0, Math.floor(Number(t?.mythicSeals ?? base.mythicSeals))), warSupply: Math.max(0, Math.floor(Number(t?.warSupply ?? base.warSupply))), items: cleanTreasuryItems(t?.items ?? base.items) }; }
@@ -14405,7 +14405,7 @@ function clanMemberBoostPercent(memberCount: number) { return clanBoostTiers.fin
 function clanUpgradeBonus(data: EnhancedClanData, key: ClanUpgradeKey) { if (key === "trainingGrounds" || key === "scoutNetwork") return clanMemberBoostPercent(data.members.length); return 0; }
 function clanRoleOf(member: ClanMemberEntry, data: EnhancedClanData): ClanRole { const override = data.roleOverrides?.[member.name]; if (override) return override; if (member.name === data.founderName || member.isFounder) return "Founder"; const sorted = [...data.members].filter(m => m.name !== data.founderName).sort((a, b) => clanContribTotal(b) - clanContribTotal(a)); const idx = sorted.findIndex(m => m.name === member.name); if (idx === 0) return "Leader"; if (idx > 0 && idx <= 2) return "Officer"; if (idx > 2 && idx <= 4) return "Elite Member"; if (clanContribTotal(member) <= 5) return "Recruit"; return "Member"; }
 function canManageClan(role: ClanRole) { return role === "Founder" || role === "Leader" || role === "Officer"; }
-function clanHallTier(level: number) { if (level >= 40) return { name: "Legendary Clan Citadel", icon: "??", desc: "A mythic fortress known across the shinobi world." }; if (level >= 25) return { name: "War Fortress", icon: "???", desc: "Walls, watchtowers, and banners built for war." }; if (level >= 15) return { name: "Hidden Clan Compound", icon: "??", desc: "A fortified compound with training yards and sealed rooms." }; if (level >= 7) return { name: "Fortified Dojo", icon: "??", desc: "A proper dojo with guard posts and a treasury room." }; return { name: "Empty Clan Camp", icon: "???", desc: "A small camp waiting to grow into a feared clan home." }; }
+function clanHallTier(level: number) { if (level >= 40) return { name: "Legendary Clan Citadel", icon: "🏰", desc: "A mythic fortress known across the shinobi world." }; if (level >= 25) return { name: "War Fortress", icon: "🛡️", desc: "Walls, watchtowers, and banners built for war." }; if (level >= 15) return { name: "Hidden Clan Compound", icon: "⛩️", desc: "A fortified compound with training yards and sealed rooms." }; if (level >= 7) return { name: "Fortified Dojo", icon: "🥋", desc: "A proper dojo with guard posts and a treasury room." }; return { name: "Empty Clan Camp", icon: "🏕️", desc: "A small camp waiting to grow into a feared clan home." }; }
 function clanMissionProgress(data: EnhancedClanData, key: string) { const battle = data.members.reduce((s, m) => s + (m.battleContrib ?? 0), 0); const mission = data.members.reduce((s, m) => s + (m.missionContrib ?? 0), 0); const event = data.members.reduce((s, m) => s + (m.eventContrib ?? 0), 0); const territories = loadAllSectorTerritories().filter(territory => territory.ownerClan === data.name); if (key === "battle") return battle; if (key === "mission") return mission; if (key === "guard") return Math.min(10, territories.reduce((sum, territory) => sum + territory.guards.length, 0) + data.members.filter(m => m.level >= 5).length); if (key === "territory") return Math.min(20, Math.floor(territories.reduce((sum, territory) => sum + territory.controlScore, 0) / 1000)); if (key === "anbu") return Math.min(10, territories.reduce((sum, territory) => sum + territory.guards.length, 0) + Math.floor(battle / 5)); if (key === "donation") return data.treasury.ryo; if (key === "training") return Math.min(100, Math.floor((battle + mission + event) * 1.5)); if (key === "raid") return Math.min(5, Math.floor(event / 3)); return 0; }
 async function addClanWarPoints(clanName: string | undefined, playerName: string, points: number) {
     if (!clanName) return;
@@ -14727,14 +14727,14 @@ function ClanHall({ character, updateCharacter, creatorItems }: { character: Cha
     return <div className="card clan-hall-screen">
         <div className="clan-header"><div className="clan-title-block"><ClanImageMark image={clanData.image} name={clanData.name} village={clanData.village} /><div><h2 style={{ margin: 0 }}>{clanData.name}</h2><p className="hint" style={{ margin: "2px 0 0" }}>{clanData.village} · {clanData.members.length} members · Level {clanData.level}</p><div className="clan-xp-track"><span style={{ width: `${Math.min(100, (clanData.xp / xpNeed) * 100)}%` }} /></div><small>{clanData.xp.toLocaleString()} / {xpNeed.toLocaleString()} Clan XP</small></div></div><div className="clan-my-badge"><span className="clan-rank-badge" style={{ background: CLAN_RANK_COLOR[myRank] + "22", color: CLAN_RANK_COLOR[myRank], borderColor: CLAN_RANK_COLOR[myRank] + "55" }}>{CLAN_RANK_ICON[myRank]} {myRank}</span><span className="clan-role-badge">{CLAN_ROLE_ICON[myRole]} {myRole}</span><span className="clan-my-contrib">{myContrib} pts this month</span></div></div>
         <div className="clan-buff-banner"><strong>Active Clan Boosts</strong>{clanBuffs.length === 0 ? <span>No clan boosts yet — recruit at least 3 members.</span> : clanBuffs.map(buff => <span key={buff.label}>{buff.label} +{buff.value.toFixed(2)}%</span>)}</div>
-        <div className="clan-tabs expanded-tabs"><button className={view === "roster" ? "active" : ""} onClick={() => setView("roster")}>?? Roster</button><button className={view === "treasury" ? "active" : ""} onClick={() => setView("treasury")}>?? Treasury</button><button className={view === "boosts" ? "active" : ""} onClick={() => setView("boosts")}>? Boosts</button><button className={view === "missions" ? "active" : ""} onClick={() => setView("missions")}>?? Missions</button><button className={view === "wars" ? "active" : ""} onClick={() => setView("wars")}>?? Wars</button><button className={view === "territory" ? "active" : ""} onClick={() => setView("territory")}>??? Territory</button><button className={view === "guard" ? "active" : ""} onClick={() => setView("guard")}>??? Guard</button><button className={view === "hall" ? "active" : ""} onClick={() => setView("hall")}>?? Hall</button></div>
+        <div className="clan-tabs expanded-tabs"><button className={view === "roster" ? "active" : ""} onClick={() => setView("roster")}>?? Roster</button><button className={view === "treasury" ? "active" : ""} onClick={() => setView("treasury")}>💰 Treasury</button><button className={view === "boosts" ? "active" : ""} onClick={() => setView("boosts")}>? Boosts</button><button className={view === "missions" ? "active" : ""} onClick={() => setView("missions")}>?? Missions</button><button className={view === "wars" ? "active" : ""} onClick={() => setView("wars")}>?? Wars</button><button className={view === "territory" ? "active" : ""} onClick={() => setView("territory")}>??? Territory</button><button className={view === "guard" ? "active" : ""} onClick={() => setView("guard")}>🛡️ Guard</button><button className={view === "hall" ? "active" : ""} onClick={() => setView("hall")}>?? Hall</button></div>
         {view === "roster" && <div className="clan-roster">{canReviewJoinRequests && <section className="summary-box clan-join-requests"><h3>Join Requests</h3>{clanData.joinRequests.length === 0 ? <p className="hint">No pending join requests.</p> : <div className="clan-request-list">{clanData.joinRequests.map(request => <div className="clan-request-card" key={request.name}><div><strong>{request.name}</strong><small>Lv.{request.level} · {request.specialty} · {request.village}</small><small>Requested {new Date(request.requestedAt).toLocaleString()}</small></div><div className="menu"><button onClick={() => acceptJoinRequest(request)}>Accept</button><button className="danger-button" onClick={() => denyJoinRequest(request)}>Deny</button></div></div>)}</div>}</section>}<div className="clan-roster-header clan-roster-header-wide"><span>#</span><span>Member</span><span>Rank</span><span>Role</span><span>Contribution</span></div>{sortedMembers.map((member, idx) => { const rank = clanRankOf(member, clanData.members, clanData.founderName); const role = clanRoleOf(member, clanData); const contrib = clanContribTotal(member); const isMe = member.name === character.name; const rankColor = CLAN_RANK_COLOR[rank]; return <div key={member.name} className={`clan-member-row clan-member-row-wide${isMe ? " clan-member-me" : ""}`}><span className="clan-member-pos">#{idx + 1}</span><div className="clan-member-info"><span className="clan-member-name">{member.name}{isMe ? " ?" : ""}</span><span className="clan-member-sub">Lv.{member.level} · {member.specialty}</span></div><span className="clan-rank-badge" style={{ background: rankColor + "1a", color: rankColor, borderColor: rankColor + "44" }}>{CLAN_RANK_ICON[rank]} {rank}</span><span className="clan-role-badge">{CLAN_ROLE_ICON[role]} {role}</span><div className="clan-contrib-col"><span className="clan-contrib-total">{contrib} pts</span><span className="clan-contrib-breakdown">??{member.battleContrib} ?{member.eventContrib} ??{member.missionContrib}</span></div></div>; })}<div className="summary-box clan-rank-legend"><strong style={{ fontSize: "0.8rem", color: "#94a3b8" }}>Permissions</strong><p className="hint">Founder, Leader, and Clan Elders can approve join requests. Founder, Leader, and Officer can start clan wars.</p></div></div>}
         {view === "treasury" && <div className="summary-box"><h3>?? Clan Treasury</h3><div className="treasury-grid"><p><strong>Ryo:</strong> {clanData.treasury.ryo.toLocaleString()}</p><p><strong>Fate Shards:</strong> {clanData.treasury.fateShards}</p><p><strong>Bone Charms:</strong> {clanData.treasury.boneCharms}</p><p><strong>Aura Stones:</strong> {clanData.treasury.auraStones}</p><p><strong>Mythic Seals:</strong> {clanData.treasury.mythicSeals}</p><p><strong>War Supply:</strong> {clanData.treasury.warSupply.toLocaleString()}</p></div><label>Donate Ryo</label><input type="number" value={donation} onChange={(e) => setDonation(Number(e.target.value))} /><div className="menu"><button onClick={donateRyo}>Donate Ryo</button><button onClick={() => donateSpecial("fateShards", 1)}>Donate 1 Fate Shard</button><button onClick={() => donateSpecial("boneCharms", 1)}>Donate 1 Bone Charm</button><button onClick={() => donateSpecial("auraStones", 1)}>Donate 1 Aura Stone</button><button onClick={() => donateSpecial("mythicSeals", 1)}>Donate 1 Mythic Seal</button></div><label>Donate Item</label><select value={clanDonateItemId} onChange={(e) => setClanDonateItemId(e.target.value)}><option value="">Choose item</option>{clanInventoryStacks.map(stack => <option key={stack.itemId} value={stack.itemId}>{stack.name} x{stack.count}</option>)}</select><button onClick={donateClanItem} disabled={!clanDonateItemId}>Donate Item</button><h4>Treasury Items</h4>{clanTreasuryItems.length === 0 ? <p className="hint">No donated items yet.</p> : <div className="treasury-grid">{clanTreasuryItems.map(stack => <p key={stack.itemId}><strong>{itemDisplayName(stack.itemId, allClanItems)}:</strong> x{stack.count}</p>)}</div>}{canManageClan(myRole) && <section className="summary-box"><h3>Send Treasury Resources</h3><p className="hint">Clan leadership can send donated resources or items to clan members.</p><label>Recipient</label><select value={clanSendPlayer} onChange={(e) => setClanSendPlayer(e.target.value)}><option value="">Choose clan member</option>{sortedMembers.map(member => <option key={member.name} value={member.name}>{member.name}</option>)}</select><label>Resource</label><select value={clanSendCurrency} onChange={(e) => setClanSendCurrency(e.target.value as ClanTreasuryCurrencyKey)}><option value="ryo">Ryo</option><option value="fateShards">Fate Shards</option><option value="boneCharms">Bone Charms</option><option value="auraStones">Aura Stones</option><option value="mythicSeals">Mythic Seals</option></select><input type="number" min={1} value={clanSendAmount} onChange={(e) => setClanSendAmount(Number(e.target.value))} /><div className="menu"><button onClick={sendClanCurrency}>Send Resource</button></div><label>Item</label><select value={clanSendItemId} onChange={(e) => setClanSendItemId(e.target.value)}><option value="">Choose treasury item</option>{clanTreasuryItems.map(stack => <option key={stack.itemId} value={stack.itemId}>{itemDisplayName(stack.itemId, allClanItems)} x{stack.count}</option>)}</select><button onClick={sendClanItem} disabled={!clanSendItemId}>Send Item</button></section>}<p className="hint">Donations add clan XP and treasury resources.</p></div>}
         {view === "boosts" && <div className="clan-upgrade-grid">{clanBoostTiers.map(tier => { const active = clanData.members.length >= tier.min && clanData.members.length <= tier.max; const label = Number.isFinite(tier.max) ? `${tier.min}-${tier.max} members` : `${tier.min}+ members`; return <div key={label} className={`town-upgrade-card clan-upgrade-card ${active ? "active" : ""}`}><div className="town-upgrade-topline"><span className="town-upgrade-icon">?</span><div><strong>{label}</strong><p>{active ? "Active Boost" : "Recruitment Tier"}</p></div></div><div className="town-upgrade-bar"><span style={{ width: active ? "100%" : "0%" }} /></div><p className="town-upgrade-desc">Clan members receive +{tier.percent}% training XP, mission XP, and ryo gain at this roster size.</p><p className="town-upgrade-bonus">Boost: <strong>+{tier.percent}%</strong></p></div>; })}</div>}
         {view === "missions" && <div className="clan-mission-grid">{clanMissionDefinitions.map(mission => { const progress = clanMissionProgress(clanData, mission.key); return <div key={mission.key} className="summary-box clan-mission-card"><h3>{mission.icon} {mission.name}</h3><p>{mission.description}</p><div className="town-upgrade-bar"><span style={{ width: `${Math.min(100, (progress / mission.target) * 100)}%` }} /></div><p><strong>{Math.min(progress, mission.target).toLocaleString()}</strong> / {mission.target.toLocaleString()}</p><p className="hint">Reward: {mission.reward}</p></div>; })}</div>}
         {view === "wars" && <div className="summary-box"><h3>?? Clan Wars</h3><p className="hint">Owned sectors give +{territoryWarBonusPercent}% clan war point gain, full HP sectors start new wars with +{territoryStartingScore.toLocaleString()} score, and War Supply can be spent during active wars.</p>{clanData.activeWar ? <div className="clan-war-active"><h3>{clanData.name} vs {clanData.activeWar.opponentClan}</h3><p className="hint">Enemy Village: {clanData.activeWar.enemyVillage} · Ends: {new Date(clanData.activeWar.endsAt).toLocaleString()} · War Supply: {clanData.treasury.warSupply.toLocaleString()}</p><div className="war-score-board"><strong>{clanData.activeWar.ourScore}</strong><span>VS</span><strong>{clanData.activeWar.enemyScore}</strong></div><div className="menu"><button onClick={() => addWarScore(3)}>Log Arena Win +3</button><button onClick={() => addWarScore(2)}>Log Defense Win +2</button><button onClick={() => addWarScore(5)}>Log Raid Contribution +5</button><button disabled={clanData.treasury.warSupply < 100} onClick={spendWarSupplyOnActiveWar}>Spend 100 War Supply +10</button><button onClick={resolveClanWar}>Resolve War</button></div></div> : <button disabled={!canManageClan(myRole)} onClick={startClanWar}>{canManageClan(myRole) ? "Start Clan War" : "Officer+ can start wars"}</button>}<h4>Past War History</h4><div className="war-record-grid">{clanData.warHistory.map((war, idx) => <div key={`${war.opponent}-${idx}`} className="war-record-card"><strong>{war.result} vs {war.opponent}</strong><span>{war.finalScore}</span><small>{war.date} · MVP: {war.mvpClan}</small><small>Top Attacker: {war.topAttacker} · Top Defender: {war.topDefender}</small><small>Reward: {war.reward}</small></div>)}</div></div>}
         {view === "territory" && <div className="summary-box"><h3>Clan Territory Control</h3><p className="hint">Members donate Territory Control Scrolls to the clan hall. Owned sectors generate War Supply, boost clan war scoring, and reduce raid damage when guarded.</p><p><strong>Your Scrolls:</strong> {personalTerritoryScrolls} · <strong>Clan Hall Scrolls:</strong> {clanTerritoryScrolls} · <strong>Clan War Supply:</strong> {clanData.treasury.warSupply.toLocaleString()} · <strong>Uncollected:</strong> {clanSectorWarSupply.toLocaleString()}</p><p className="hint">Your village owns {villageSectorCount} sector{villageSectorCount === 1 ? "" : "s"} with {villageSectorWarSupply.toLocaleString()} uncollected village-wide War Supply.</p><div className="menu"><button disabled={personalTerritoryScrolls < 1} onClick={donateAllTerritoryScrollsToClan}>Donate All Territory Scrolls To Clan Hall</button><button disabled={!canSpendTerritoryScrolls || clanSectorWarSupply < 1} onClick={collectTerritoryWarSupply}>Collect Sector War Supply</button></div><div className="treasury-grid"><div><label>Sector</label><input type="number" min={1} max={60} value={territorySector} onChange={(event) => setTerritorySector(clampNumber(Number(event.target.value), 1, 60))} /></div><div><label>Weather</label><select value={territoryWeather} onChange={(event) => setTerritoryWeather(event.target.value as WeatherType)}>{Object.entries(weatherEffects).map(([key, weather]) => <option key={key} value={key}>{weather.name}</option>)}</select></div><div><label>Terrain Bonus</label><select value={territoryBuffStat} onChange={(event) => setTerritoryBuffStat(event.target.value as TerritoryBuffStat)}><option value="bukijutsuOffense">Bukijutsu Offense +10%</option><option value="taijutsuOffense">Taijutsu Offense +10%</option><option value="ninjutsuOffense">Ninjutsu Offense +10%</option><option value="genjutsuOffense">Genjutsu Offense +10%</option></select></div></div><section className="summary-box"><h4>Sector {territorySector}</h4><p><strong>Owner:</strong> {selectedTerritory.ownerClan ? `${selectedTerritory.ownerClan} (${selectedTerritory.ownerVillage})` : "Unclaimed"}</p><div className="town-upgrade-bar"><span style={{ width: `${(selectedTerritory.controlScore / TERRITORY_CONTROL_MAX) * 100}%` }} /></div><p>Control Score: {selectedTerritory.controlScore.toLocaleString()} / {TERRITORY_CONTROL_MAX.toLocaleString()}</p><div className="bar enemy-bar"><span style={{ width: `${(selectedTerritory.hp / TERRITORY_HP_MAX) * 100}%` }} /></div><p>Sector HP: {selectedTerritory.hp.toLocaleString()} / {TERRITORY_HP_MAX.toLocaleString()}</p><p>War Supply: {selectedTerritory.warSupply.toLocaleString()} · Raid Damage Taken: {sectorRaidDamageAmount(territorySector).toLocaleString()}</p><p>Fixed Weather: {weatherEffects[selectedTerritory.weather ?? weatherForSector(territorySector, "central")].name} · Terrain: {selectedTerritory.terrainBuffStat.replace("Offense", " Offense")} +10%</p><p>Guards: {selectedTerritory.guards.length ? selectedTerritory.guards.join(", ") : "None"}</p><div className="menu"><button disabled={!canSpendTerritoryScrolls || clanTerritoryScrolls < 1 || Boolean(selectedTerritory.ownerClan && selectedTerritory.ownerClan !== clanData.name)} onClick={() => donateTerritoryScrolls(territorySector)}>Assign 1 Clan Scroll</button><button disabled={!canSpendTerritoryScrolls || clanTerritoryScrolls < 5 || Boolean(selectedTerritory.ownerClan && selectedTerritory.ownerClan !== clanData.name)} onClick={() => donateTerritoryScrolls(territorySector, 5)}>Assign 5 Clan Scrolls</button><button disabled={!canSpendTerritoryScrolls || selectedTerritory.ownerClan !== clanData.name} onClick={() => saveTerritorySettings(territorySector)}>Save Terrain / Weather</button><button disabled={!canGuardSelectedTerritory} onClick={() => toggleTerritoryGuard(territorySector)}>{selectedTerritory.guards.includes(character.name) ? "Leave Sector Guard" : "Queue Sector Guard"}</button><button className="danger-button" disabled={!selectedTerritory.ownerClan || selectedTerritory.ownerVillage === character.village} onClick={() => recordVillageWarDamage(territorySector)}>Village War Hit -5,000 HP</button></div></section><h4>Your Clan Sectors</h4>{ownedTerritories.length === 0 ? <p className="hint">Your clan does not own a sector yet.</p> : <div className="war-record-grid">{ownedTerritories.map(territory => <div key={territory.sector} className="war-record-card"><strong>Sector {territory.sector}</strong><span>HP {territory.hp.toLocaleString()} / {TERRITORY_HP_MAX.toLocaleString()}</span><small>{weatherEffects[territory.weather ?? "clear"].name} · {territory.terrainBuffStat.replace("Offense", " Offense")} +10%</small><small>War Supply: {territory.warSupply.toLocaleString()} · Guards: {territory.guards.length}</small></div>)}</div>}</div>}
-        {view === "guard" && <div className="summary-box"><h3>??? Village Guard</h3><p className="hint">Queue as a guard to defend <strong>{character.village}</strong>. Town Hall defense bonus applies while you are queued.</p><button className={character.guardQueued ? "danger-button" : ""} onClick={toggleGuard} disabled={guardBusy} style={{ marginBottom: 12 }}>{guardBusy ? "Updating…" : character.guardQueued ? "Leave Guard Queue" : "Queue as Village Guard"}</button><h4>Active Guards for {character.village} ({guardList.length})</h4>{guardList.length === 0 ? <p className="hint">No active guards. Village is undefended.</p> : <div className="clan-guard-list">{guardList.map(g => <div key={g.name} className="clan-guard-row"><span>??? <strong>{g.name}</strong></span><span className="clan-guard-lvl">Lv. {g.level}{g.defenseBonusPercent ? ` · DEF +${g.defenseBonusPercent.toFixed(1)}%` : ""}</span></div>)}</div>}</div>}
+        {view === "guard" && <div className="summary-box"><h3>??? Village Guard</h3><p className="hint">Queue as a guard to defend <strong>{character.village}</strong>. Town Hall defense bonus applies while you are queued.</p><button className={character.guardQueued ? "danger-button" : ""} onClick={toggleGuard} disabled={guardBusy} style={{ marginBottom: 12 }}>{guardBusy ? "Updating…" : character.guardQueued ? "Leave Guard Queue" : "Queue as Village Guard"}</button><h4>Active Guards for {character.village} ({guardList.length})</h4>{guardList.length === 0 ? <p className="hint">No active guards. Village is undefended.</p> : <div className="clan-guard-list">{guardList.map(g => <div key={g.name} className="clan-guard-row"><span>🛡️ <strong>{g.name}</strong></span><span className="clan-guard-lvl">Lv. {g.level}{g.defenseBonusPercent ? ` · DEF +${g.defenseBonusPercent.toFixed(1)}%` : ""}</span></div>)}</div>}</div>}
         {view === "hall" && <div className="summary-box clan-visual-hall"><ClanImageMark image={clanData.image} name={clanData.name} village={clanData.village} /><span className="clan-hall-tier-icon">{hall.icon}</span><div><h3>{hall.name}</h3><p>{hall.desc}</p><p className="hint">Hall tier grows automatically from clan level: Camp ? Dojo ? Compound ? Fortress ? Citadel.</p></div></div>}
         <div className="menu" style={{ marginTop: 12 }}>
             <button className="danger-button" onClick={leaveClan}>Leave Clan</button>
@@ -15121,13 +15121,13 @@ function TownHall({ character, updateCharacter, creatorItems }: { character: Cha
         .slice(0, 7);
     const anbuSlots = [...appointedAnbuSlots, ...Array.from({ length: 7 }, (_, index) => earnedAnbuSlots[index] ?? null)];
     return <div className="card town-hall-screen">
-        <div className="town-hall-hero"><div><p className="act-label">{character.village}</p><h2>?? Town Hall</h2><p className="hint">Village government, war records, guard defense, upgrades, treasury, and leadership.</p></div><div className="town-hall-wallet"><span>Honor Seals</span><strong>{(character.honorSeals ?? 0).toLocaleString()}</strong><small>Ryo {character.ryo.toLocaleString()}</small></div></div>
-        <div className="clan-tabs expanded-tabs town-tabs"><button className={tab === "status" ? "active" : ""} onClick={() => setTab("status")}>?? Status</button><button className={tab === "upgrades" ? "active" : ""} onClick={() => setTab("upgrades")}>??? Upgrades</button><button className={tab === "treasury" ? "active" : ""} onClick={() => setTab("treasury")}>?? Treasury</button><button className={tab === "guard" ? "active" : ""} onClick={() => setTab("guard")}>??? Guard</button><button className={tab === "politics" ? "active" : ""} onClick={() => setTab("politics")}>?? Kage/Elders</button></div>
-        {tab === "status" && <><div className="town-hall-grid"><section className="summary-box town-hall-panel"><h3>?? Village Status</h3><div className="town-leader-row"><LeaderPortrait image={leadershipImages.kage} name={state.seatedKage ?? leadership.kage} fallback="?" /><p><strong>Kage:</strong> {state.seatedKage ?? leadership.kage}</p></div><p><strong>Population:</strong> {population.toLocaleString()}</p><p><strong>Village Level:</strong> {villageLevel}</p><p><strong>Village Strength:</strong> {villageStrength.toLocaleString()}</p><p><strong>Guard Queue:</strong> {guardList.length} active defender{guardList.length === 1 ? "" : "s"}</p></section><section className="summary-box town-hall-panel"><h3>?? War Status</h3><div className={primaryVillageWar ? "war-status at-war" : "war-status peace"}>{primaryVillageWar ? `At War with ${activeWarEnemyVillage}` : "Not At War"}</div>{primaryVillageWar ? <><p><strong>{character.village} HP:</strong> {primaryVillageWar.hp[character.village].toLocaleString()} / {VILLAGE_WAR_HP_MAX.toLocaleString()}</p><div className="bar enemy-bar"><span style={{ width: `${(primaryVillageWar.hp[character.village] / VILLAGE_WAR_HP_MAX) * 100}%` }} /></div><p><strong>{activeWarEnemyVillage} HP:</strong> {activeWarEnemyVillage ? primaryVillageWar.hp[activeWarEnemyVillage].toLocaleString() : 0} / {VILLAGE_WAR_HP_MAX.toLocaleString()}</p><div className="town-upgrade-bar"><span style={{ width: `${activeWarEnemyVillage ? (primaryVillageWar.hp[activeWarEnemyVillage] / VILLAGE_WAR_HP_MAX) * 100 : 0}%` }} /></div><p><strong>War Ground:</strong> Sector {primaryVillageWar.warGroundSector} · HP {primaryVillageWar.warGroundHp.toLocaleString()} / {VILLAGE_WAR_GROUND_HP_MAX.toLocaleString()}</p><p className="hint">{primaryVillageWar.capturedBy ? `Captured by ${primaryVillageWar.capturedBy}.` : "Raid from the war ground to damage enemy village HP and the sector HP."}</p></> : <><p className="hint">Village wars start at 5,000 HP. PvP kills, war-ground raids, and daily war missions reduce enemy HP.</p><label>Enemy Village</label><select value={warTargetVillage} onChange={(event) => setWarTargetVillage(event.target.value)}>{villages.filter(village => village !== character.village).map(village => <option key={village} value={village}>{village}</option>)}</select><button disabled={!isSeatedKage} onClick={beginVillageWar}>{isSeatedKage ? "Start Village War" : "Kage Only"}</button></>}<h4>Current Village Buffs</h4><div className="village-buff-list"><span>Training +{getTrainingXpBonus(character).toFixed(2)}%</span><span>Jutsu Speed +{getJutsuTrainingSpeedBonus(character).toFixed(2)}%</span><span>Shop Discount +{getShopDiscountPercent(character).toFixed(2)}%</span><span>Guard DEF +{getTownDefenseGuardBonus(character).toFixed(2)}%</span><span>Pet XP +{getPetXpBonus(character).toFixed(2)}%</span><span>Bank Interest +{getBankInterestPercent(character).toFixed(2)}%</span><span>Mission Rewards +{getMissionRewardBonus(character).toFixed(2)}%</span><span>Hospital Discount +{getHospitalDiscountPercent(character).toFixed(2)}%</span>{character.elderFocus === "war" && <span>?? War Focus: -1% dmg taken (wartime)</span>}{character.elderFocus === "trade" && <span>?? Trade Focus: -5% shop costs</span>}{character.elderFocus === "training" && <span>?? Training Focus: +10% XP, +10% jutsu speed</span>}</div></section></div><section className={state.kageSystemUnlocked ? "summary-box kage-unlock-panel unlocked" : "summary-box kage-unlock-panel"}><h3>{state.kageSystemUnlocked ? "Kage System Open" : "Kage System Sealed"}</h3><p>{state.kageSystemUnlocked ? "The false Kage has fallen. The village is no longer ruled by secrecy. The Kage seat is now open." : "Clear your village's level 100 Kage story fight to open elections, elder seats, village upgrades, war access, and policy control."}</p>{state.firstLiberator && <p><strong>First Liberator:</strong> {state.firstLiberator}</p>}{state.seatedKage && <p><strong>Seated Kage:</strong> {state.seatedKage}</p>}</section><section className="summary-box town-notice-board"><h3>?? Village Notice Board</h3>{state.notices.map((notice, idx) => <p key={`${notice}-${idx}`}>• {notice}</p>)}</section><section className="summary-box"><h3>?? Detailed War Records</h3><div className="war-record-grid">{state.warRecords.map((war, idx) => <div key={`${war.opponent}-${idx}`} className="war-record-card"><strong>{war.winner} vs {war.opponent}</strong><span>{war.finalScore}</span><small>{war.date} · MVP Clan: {war.mvpClan}</small><small>Top Attacker: {war.topAttacker}</small><small>Top Defender: {war.topDefender}</small><small>Rewards: {war.rewards}</small></div>)}</div></section></>}
-        {tab === "upgrades" && <section className="summary-box town-upgrade-summary"><h3>??? Village Upgrades</h3><p className="hint">Village upgrades now spend <strong>Honor Seals</strong>. Only the seated Kage can upgrade village structures.</p><p className="hint">Current Kage: <strong>{state.seatedKage ?? "No player seated yet"}</strong>{isSeatedKage ? " — you can upgrade structures." : " — upgrades are locked for your account."}</p><p className="hint">Total Village Development: <strong>{totalUpgradeLevel}</strong> / {VILLAGE_UPGRADE_MAX_LEVEL * villageUpgradeDefinitions.length}</p><div className="town-upgrade-grid">{villageUpgradeDefinitions.map((upgrade) => { const level = upgrades[upgrade.key]; const bonus = level * upgrade.perLevel; const cost = villageUpgradeCost(upgrade.key, level); const maxed = level >= VILLAGE_UPGRADE_MAX_LEVEL; const canAfford = (character.honorSeals ?? 0) >= cost; return <div key={upgrade.key} className="town-upgrade-card"><div className="town-upgrade-topline"><span className="town-upgrade-icon">{upgrade.icon}</span><div><strong>{upgrade.name}</strong><p>Level {level}/{VILLAGE_UPGRADE_MAX_LEVEL}</p></div></div><div className="town-upgrade-bar"><span style={{ width: `${(level / VILLAGE_UPGRADE_MAX_LEVEL) * 100}%` }} /></div><p className="town-upgrade-desc">{upgrade.description}</p><p className="town-upgrade-bonus">Current Bonus: <strong>{bonus.toFixed(2)}{upgrade.unit}</strong></p><button disabled={!isSeatedKage || maxed || !canAfford} onClick={() => upgradeTownFeature(upgrade.key)}>{!isSeatedKage ? "Kage Only" : maxed ? "Max Level" : canAfford ? `Upgrade — ${cost.toLocaleString()} Honor Seals` : `Need ${cost.toLocaleString()} Honor Seals`}</button></div>; })}</div></section>}
-        {tab === "treasury" && <section className="summary-box"><h3>Village Treasury</h3><p className="hint">Honor Seals are the village war and boost reserve for Kage spending.</p><div className="treasury-grid"><p><strong>Ryo:</strong> {state.treasury.ryo.toLocaleString()}</p><p><strong>Honor Seals:</strong> {state.treasury.honorSeals.toLocaleString()}</p><p><strong>Fate Shards:</strong> {state.treasury.fateShards}</p><p><strong>Bone Charms:</strong> {state.treasury.boneCharms}</p><p><strong>Aura Stones:</strong> {state.treasury.auraStones}</p><p><strong>Mythic Seals:</strong> {state.treasury.mythicSeals}</p><p><strong>Your Contribution:</strong> {state.contributionPoints} pts</p></div><label>Donate Ryo</label><input type="number" value={donation} onChange={(e) => setDonation(Number(e.target.value))} /><div className="menu"><button onClick={donateVillageRyo}>Donate Ryo</button><button onClick={() => donateVillageSpecial("honorSeals")}>Donate 1 Honor Seal</button><button onClick={() => donateVillageSpecial("fateShards")}>Donate 1 Fate Shard</button><button onClick={() => donateVillageSpecial("boneCharms")}>Donate 1 Bone Charm</button><button onClick={() => donateVillageSpecial("auraStones")}>Donate 1 Aura Stone</button><button onClick={() => donateVillageSpecial("mythicSeals")}>Donate 1 Mythic Seal</button></div><label>Donate Item</label><select value={villageDonateItemId} onChange={(e) => setVillageDonateItemId(e.target.value)}><option value="">Choose item</option>{villageInventoryStacks.map(stack => <option key={stack.itemId} value={stack.itemId}>{stack.name} x{stack.count}</option>)}</select><button onClick={donateVillageItem} disabled={!villageDonateItemId}>Donate Item</button><h4>Treasury Items</h4>{villageTreasuryItems.length === 0 ? <p className="hint">No donated items yet.</p> : <div className="treasury-grid">{villageTreasuryItems.map(stack => <p key={stack.itemId}><strong>{itemDisplayName(stack.itemId, allVillageItems)}:</strong> x{stack.count}</p>)}</div>}{isSeatedKage && <section className="summary-box"><h3>Kage Gift Village Treasury</h3><p className="hint">The seated Kage can gift donated resources or items to village players.</p><label>Recipient</label><select value={villageSendPlayer} onChange={(e) => setVillageSendPlayer(e.target.value)}><option value="">Choose village player</option>{villagePlayers.map(name => <option key={name} value={name}>{name}</option>)}</select><label>Resource</label><select value={villageSendCurrency} onChange={(e) => setVillageSendCurrency(e.target.value as VillageTreasuryCurrencyKey)}><option value="ryo">Ryo</option><option value="honorSeals">Honor Seals</option><option value="fateShards">Fate Shards</option><option value="boneCharms">Bone Charms</option><option value="auraStones">Aura Stones</option><option value="mythicSeals">Mythic Seals</option></select><input type="number" min={1} value={villageSendAmount} onChange={(e) => setVillageSendAmount(Number(e.target.value))} /><div className="menu"><button onClick={sendVillageCurrency}>Gift Resource</button></div><label>Item</label><select value={villageSendItemId} onChange={(e) => setVillageSendItemId(e.target.value)}><option value="">Choose treasury item</option>{villageTreasuryItems.map(stack => <option key={stack.itemId} value={stack.itemId}>{itemDisplayName(stack.itemId, allVillageItems)} x{stack.count}</option>)}</select><button onClick={sendVillageItem} disabled={!villageSendItemId}>Gift Donated Item</button></section>}</section>}
-        {tab === "guard" && <section className="summary-box"><h3>??? Village Guard Queue</h3><p className="hint">Town Defense gives +0.1% defense per level vs Genjutsu, Taijutsu, Bukijutsu, and Ninjutsu while defending through this queue.</p><p>Current Town Defense Bonus: <strong>+{getTownDefenseGuardBonus(character).toFixed(2)}%</strong></p><button className={character.guardQueued ? "danger-button" : ""} onClick={toggleTownGuard} disabled={guardBusy}>{guardBusy ? "Updating…" : character.guardQueued ? "Leave Guard Queue" : "Queue as Village Guard"}</button><h4>Active Defenders</h4>{guardList.length === 0 ? <p className="hint">No active guards right now.</p> : <div className="clan-guard-list">{guardList.map(g => <div key={g.name} className="clan-guard-row"><span>??? <strong>{g.name}</strong></span><span className="clan-guard-lvl">Lv. {g.level}{g.defenseBonusPercent ? ` · DEF +${g.defenseBonusPercent.toFixed(1)}%` : ""}</span></div>)}</div>}</section>}
-        {tab === "politics" && <><section className="summary-box"><h3>?? Kage & Elder Seats</h3><div className="town-leader-row town-kage-card"><LeaderPortrait image={leadershipImages.kage} name={state.seatedKage ?? leadership.kage} fallback="?" /><p><strong>Current Kage:</strong> {state.seatedKage ?? leadership.kage}</p></div><div className="elder-seat-grid"><div className={`elder-card${character.elderFocus === "war" ? " elder-card-active" : ""}`}><LeaderPortrait image={leadershipImages.elders?.[0]} name={leadership.elders[0]} fallback="?" /><span>War Elder</span><strong>{leadership.elders[0]}</strong><small className="elder-focus-desc">+1% damage reduction during village wars (applied to incoming damage in combat)</small><button className={character.elderFocus === "war" ? "active" : ""} onClick={() => supportVillageFocus("War Elder", "war")}>{character.elderFocus === "war" ? "? War Focus Active" : "Select War Focus"}</button></div><div className={`elder-card${character.elderFocus === "trade" ? " elder-card-active" : ""}`}><LeaderPortrait image={leadershipImages.elders?.[1]} name={leadership.elders[1]} fallback="?" /><span>Trade Elder</span><strong>{leadership.elders[1]}</strong><small className="elder-focus-desc">5% discount on all items in the Shop and Grand Marketplace</small><button className={character.elderFocus === "trade" ? "active" : ""} onClick={() => supportVillageFocus("Trade Elder", "trade")}>{character.elderFocus === "trade" ? "? Trade Focus Active" : "Select Trade Focus"}</button></div><div className={`elder-card${character.elderFocus === "training" ? " elder-card-active" : ""}`}><LeaderPortrait image={leadershipImages.elders?.[2]} name={leadership.elders[2]} fallback="?" /><span>Training Elder</span><strong>{leadership.elders[2]}</strong><small className="elder-focus-desc">+10% XP from all sources and 10% faster jutsu training</small><button className={character.elderFocus === "training" ? "active" : ""} onClick={() => supportVillageFocus("Training Elder", "training")}>{character.elderFocus === "training" ? "? Training Focus Active" : "Select Training Focus"}</button></div></div></section><section className="summary-box"><h3>ANBU Black Ops</h3><p className="hint">Seats 1-3 are appointed by the seated Kage. Seats 4-10 are earned by PvP kills this month ({currentAnbuMonth}).</p><datalist id="anbu-player-options">{villagePlayers.map(name => <option key={name} value={name} />)}</datalist>{isSeatedKage && <div className="treasury-grid">{[0, 1, 2].map(index => <div key={`anbu-appoint-${index}`}><label>Appointed Seat {index + 1}</label><input list="anbu-player-options" value={anbuAppointmentInputs[index] ?? ""} onChange={(event) => updateAnbuAppointmentInput(index, event.target.value)} placeholder="Type or choose player" /><div className="menu"><button onClick={() => appointAnbu(index)}>Appoint</button><button className="danger-button" onClick={() => clearAnbuAppointment(index)}>Clear</button></div></div>)}</div>}<div className="contrib-rank-grid">{anbuSlots.map((slot, idx) => <div key={`anbu-${idx}-${slot?.name ?? "empty"}`} className="clan-guard-row"><span>#{idx + 1} <strong>{slot?.name ?? "Open ANBU Seat"}</strong>{slot ? ` — ${slot.rankTitle}` : idx < 3 ? " — Kage appointed seat" : " — No qualifying player yet"}</span><span>{slot ? `${idx < 3 ? "Appointed" : "Earned"} · ${slot.monthlyKills.toLocaleString()} monthly PvP kill${slot.monthlyKills === 1 ? "" : "s"}` : "0 kills"}</span></div>)}</div><h4>ANBU Missions</h4><div className="contrib-rank-grid"><div className="clan-guard-row"><span>Scout enemy-controlled sectors</span><span>Reveal owner, HP, guards</span></div><div className="clan-guard-row"><span>Queue as sector guard</span><span>ANBU may guard any village sector</span></div><div className="clan-guard-row"><span>Sabotage raids</span><span>Support clan raids and defense pressure</span></div></div></section><section className="summary-box"><h3>??? Kage Election / Challenge Board</h3><p className="hint">Local test version of future Kage elections. Contribution points decide who rises in the village.</p><div className="contrib-rank-grid">{contributionRankings.map((row, idx) => <div key={row.name} className="clan-guard-row"><span>#{idx + 1} <strong>{row.name}</strong> — {row.role}</span><span>{row.points.toLocaleString()} pts</span></div>)}</div><button onClick={postKageChallenge}>Enter Kage Challenge Discussion</button></section></>}
+        <div className="town-hall-hero"><div><p className="act-label">{character.village}</p><h2>🏯 Town Hall</h2><p className="hint">Village government, war records, guard defense, upgrades, treasury, and leadership.</p></div><div className="town-hall-wallet"><span>Honor Seals</span><strong>{(character.honorSeals ?? 0).toLocaleString()}</strong><small>Ryo {character.ryo.toLocaleString()}</small></div></div>
+        <div className="clan-tabs expanded-tabs town-tabs"><button className={tab === "status" ? "active" : ""} onClick={() => setTab("status")}>📊 Status</button><button className={tab === "upgrades" ? "active" : ""} onClick={() => setTab("upgrades")}>🛠️ Upgrades</button><button className={tab === "treasury" ? "active" : ""} onClick={() => setTab("treasury")}>💰 Treasury</button><button className={tab === "guard" ? "active" : ""} onClick={() => setTab("guard")}>🛡️ Guard</button><button className={tab === "politics" ? "active" : ""} onClick={() => setTab("politics")}>🏯 Kage/Elders</button></div>
+        {tab === "status" && <><div className="town-hall-grid"><section className="summary-box town-hall-panel"><h3>🏯 Village Status</h3><div className="town-leader-row"><LeaderPortrait image={leadershipImages.kage} name={state.seatedKage ?? leadership.kage} fallback="影" /><p><strong>Kage:</strong> {state.seatedKage ?? leadership.kage}</p></div><p><strong>Population:</strong> {population.toLocaleString()}</p><p><strong>Village Level:</strong> {villageLevel}</p><p><strong>Village Strength:</strong> {villageStrength.toLocaleString()}</p><p><strong>Guard Queue:</strong> {guardList.length} active defender{guardList.length === 1 ? "" : "s"}</p></section><section className="summary-box town-hall-panel"><h3>⚔️ War Status</h3><div className={primaryVillageWar ? "war-status at-war" : "war-status peace"}>{primaryVillageWar ? `At War with ${activeWarEnemyVillage}` : "Not At War"}</div>{primaryVillageWar ? <><p><strong>{character.village} HP:</strong> {primaryVillageWar.hp[character.village].toLocaleString()} / {VILLAGE_WAR_HP_MAX.toLocaleString()}</p><div className="bar enemy-bar"><span style={{ width: `${(primaryVillageWar.hp[character.village] / VILLAGE_WAR_HP_MAX) * 100}%` }} /></div><p><strong>{activeWarEnemyVillage} HP:</strong> {activeWarEnemyVillage ? primaryVillageWar.hp[activeWarEnemyVillage].toLocaleString() : 0} / {VILLAGE_WAR_HP_MAX.toLocaleString()}</p><div className="town-upgrade-bar"><span style={{ width: `${activeWarEnemyVillage ? (primaryVillageWar.hp[activeWarEnemyVillage] / VILLAGE_WAR_HP_MAX) * 100 : 0}%` }} /></div><p><strong>War Ground:</strong> Sector {primaryVillageWar.warGroundSector} · HP {primaryVillageWar.warGroundHp.toLocaleString()} / {VILLAGE_WAR_GROUND_HP_MAX.toLocaleString()}</p><p className="hint">{primaryVillageWar.capturedBy ? `Captured by ${primaryVillageWar.capturedBy}.` : "Raid from the war ground to damage enemy village HP and the sector HP."}</p></> : <><p className="hint">Village wars start at 5,000 HP. PvP kills, war-ground raids, and daily war missions reduce enemy HP.</p><label>Enemy Village</label><select value={warTargetVillage} onChange={(event) => setWarTargetVillage(event.target.value)}>{villages.filter(village => village !== character.village).map(village => <option key={village} value={village}>{village}</option>)}</select><button disabled={!isSeatedKage} onClick={beginVillageWar}>{isSeatedKage ? "Start Village War" : "Kage Only"}</button></>}<h4>Current Village Buffs</h4><div className="village-buff-list"><span>Training +{getTrainingXpBonus(character).toFixed(2)}%</span><span>Jutsu Speed +{getJutsuTrainingSpeedBonus(character).toFixed(2)}%</span><span>Shop Discount +{getShopDiscountPercent(character).toFixed(2)}%</span><span>Guard DEF +{getTownDefenseGuardBonus(character).toFixed(2)}%</span><span>Pet XP +{getPetXpBonus(character).toFixed(2)}%</span><span>Bank Interest +{getBankInterestPercent(character).toFixed(2)}%</span><span>Mission Rewards +{getMissionRewardBonus(character).toFixed(2)}%</span><span>Hospital Discount +{getHospitalDiscountPercent(character).toFixed(2)}%</span>{character.elderFocus === "war" && <span>⚔️ War Focus: -1% dmg taken (wartime)</span>}{character.elderFocus === "trade" && <span>🛒 Trade Focus: -5% shop costs</span>}{character.elderFocus === "training" && <span>📚 Training Focus: +10% XP, +10% jutsu speed</span>}</div></section></div><section className={state.kageSystemUnlocked ? "summary-box kage-unlock-panel unlocked" : "summary-box kage-unlock-panel"}><h3>{state.kageSystemUnlocked ? "Kage System Open" : "Kage System Sealed"}</h3><p>{state.kageSystemUnlocked ? "The false Kage has fallen. The village is no longer ruled by secrecy. The Kage seat is now open." : "Clear your village's level 100 Kage story fight to open elections, elder seats, village upgrades, war access, and policy control."}</p>{state.firstLiberator && <p><strong>First Liberator:</strong> {state.firstLiberator}</p>}{state.seatedKage && <p><strong>Seated Kage:</strong> {state.seatedKage}</p>}</section><section className="summary-box town-notice-board"><h3>📌 Village Notice Board</h3>{state.notices.map((notice, idx) => <p key={`${notice}-${idx}`}>• {notice}</p>)}</section><section className="summary-box"><h3>📜 Detailed War Records</h3><div className="war-record-grid">{state.warRecords.map((war, idx) => <div key={`${war.opponent}-${idx}`} className="war-record-card"><strong>{war.winner} vs {war.opponent}</strong><span>{war.finalScore}</span><small>{war.date} · MVP Clan: {war.mvpClan}</small><small>Top Attacker: {war.topAttacker}</small><small>Top Defender: {war.topDefender}</small><small>Rewards: {war.rewards}</small></div>)}</div></section></>}
+        {tab === "upgrades" && <section className="summary-box town-upgrade-summary"><h3>🛠️ Village Upgrades</h3><p className="hint">Village upgrades now spend <strong>Honor Seals</strong>. Only the seated Kage can upgrade village structures.</p><p className="hint">Current Kage: <strong>{state.seatedKage ?? "No player seated yet"}</strong>{isSeatedKage ? " — you can upgrade structures." : " — upgrades are locked for your account."}</p><p className="hint">Total Village Development: <strong>{totalUpgradeLevel}</strong> / {VILLAGE_UPGRADE_MAX_LEVEL * villageUpgradeDefinitions.length}</p><div className="town-upgrade-grid">{villageUpgradeDefinitions.map((upgrade) => { const level = upgrades[upgrade.key]; const bonus = level * upgrade.perLevel; const cost = villageUpgradeCost(upgrade.key, level); const maxed = level >= VILLAGE_UPGRADE_MAX_LEVEL; const canAfford = (character.honorSeals ?? 0) >= cost; return <div key={upgrade.key} className="town-upgrade-card"><div className="town-upgrade-topline"><span className="town-upgrade-icon">{upgrade.icon}</span><div><strong>{upgrade.name}</strong><p>Level {level}/{VILLAGE_UPGRADE_MAX_LEVEL}</p></div></div><div className="town-upgrade-bar"><span style={{ width: `${(level / VILLAGE_UPGRADE_MAX_LEVEL) * 100}%` }} /></div><p className="town-upgrade-desc">{upgrade.description}</p><p className="town-upgrade-bonus">Current Bonus: <strong>{bonus.toFixed(2)}{upgrade.unit}</strong></p><button disabled={!isSeatedKage || maxed || !canAfford} onClick={() => upgradeTownFeature(upgrade.key)}>{!isSeatedKage ? "Kage Only" : maxed ? "Max Level" : canAfford ? `Upgrade — ${cost.toLocaleString()} Honor Seals` : `Need ${cost.toLocaleString()} Honor Seals`}</button></div>; })}</div></section>}
+        {tab === "treasury" && <section className="summary-box"><h3>💰 Village Treasury</h3><p className="hint">Honor Seals are the village war and boost reserve for Kage spending.</p><div className="treasury-grid"><p><strong>Ryo:</strong> {state.treasury.ryo.toLocaleString()}</p><p><strong>Honor Seals:</strong> {state.treasury.honorSeals.toLocaleString()}</p><p><strong>Fate Shards:</strong> {state.treasury.fateShards}</p><p><strong>Bone Charms:</strong> {state.treasury.boneCharms}</p><p><strong>Aura Stones:</strong> {state.treasury.auraStones}</p><p><strong>Mythic Seals:</strong> {state.treasury.mythicSeals}</p><p><strong>Your Contribution:</strong> {state.contributionPoints} pts</p></div><label>Donate Ryo</label><input type="number" value={donation} onChange={(e) => setDonation(Number(e.target.value))} /><div className="menu"><button onClick={donateVillageRyo}>Donate Ryo</button><button onClick={() => donateVillageSpecial("honorSeals")}>Donate 1 Honor Seal</button><button onClick={() => donateVillageSpecial("fateShards")}>Donate 1 Fate Shard</button><button onClick={() => donateVillageSpecial("boneCharms")}>Donate 1 Bone Charm</button><button onClick={() => donateVillageSpecial("auraStones")}>Donate 1 Aura Stone</button><button onClick={() => donateVillageSpecial("mythicSeals")}>Donate 1 Mythic Seal</button></div><label>Donate Item</label><select value={villageDonateItemId} onChange={(e) => setVillageDonateItemId(e.target.value)}><option value="">Choose item</option>{villageInventoryStacks.map(stack => <option key={stack.itemId} value={stack.itemId}>{stack.name} x{stack.count}</option>)}</select><button onClick={donateVillageItem} disabled={!villageDonateItemId}>Donate Item</button><h4>Treasury Items</h4>{villageTreasuryItems.length === 0 ? <p className="hint">No donated items yet.</p> : <div className="treasury-grid">{villageTreasuryItems.map(stack => <p key={stack.itemId}><strong>{itemDisplayName(stack.itemId, allVillageItems)}:</strong> x{stack.count}</p>)}</div>}{isSeatedKage && <section className="summary-box"><h3>Kage Gift Village Treasury</h3><p className="hint">The seated Kage can gift donated resources or items to village players.</p><label>Recipient</label><select value={villageSendPlayer} onChange={(e) => setVillageSendPlayer(e.target.value)}><option value="">Choose village player</option>{villagePlayers.map(name => <option key={name} value={name}>{name}</option>)}</select><label>Resource</label><select value={villageSendCurrency} onChange={(e) => setVillageSendCurrency(e.target.value as VillageTreasuryCurrencyKey)}><option value="ryo">Ryo</option><option value="honorSeals">Honor Seals</option><option value="fateShards">Fate Shards</option><option value="boneCharms">Bone Charms</option><option value="auraStones">Aura Stones</option><option value="mythicSeals">Mythic Seals</option></select><input type="number" min={1} value={villageSendAmount} onChange={(e) => setVillageSendAmount(Number(e.target.value))} /><div className="menu"><button onClick={sendVillageCurrency}>Gift Resource</button></div><label>Item</label><select value={villageSendItemId} onChange={(e) => setVillageSendItemId(e.target.value)}><option value="">Choose treasury item</option>{villageTreasuryItems.map(stack => <option key={stack.itemId} value={stack.itemId}>{itemDisplayName(stack.itemId, allVillageItems)} x{stack.count}</option>)}</select><button onClick={sendVillageItem} disabled={!villageSendItemId}>Gift Donated Item</button></section>}</section>}
+        {tab === "guard" && <section className="summary-box"><h3>🛡️ Village Guard Queue</h3><p className="hint">Town Defense gives +0.1% defense per level vs Genjutsu, Taijutsu, Bukijutsu, and Ninjutsu while defending through this queue.</p><p>Current Town Defense Bonus: <strong>+{getTownDefenseGuardBonus(character).toFixed(2)}%</strong></p><button className={character.guardQueued ? "danger-button" : ""} onClick={toggleTownGuard} disabled={guardBusy}>{guardBusy ? "Updating…" : character.guardQueued ? "Leave Guard Queue" : "Queue as Village Guard"}</button><h4>Active Defenders</h4>{guardList.length === 0 ? <p className="hint">No active guards right now.</p> : <div className="clan-guard-list">{guardList.map(g => <div key={g.name} className="clan-guard-row"><span>🛡️ <strong>{g.name}</strong></span><span className="clan-guard-lvl">Lv. {g.level}{g.defenseBonusPercent ? ` · DEF +${g.defenseBonusPercent.toFixed(1)}%` : ""}</span></div>)}</div>}</section>}
+        {tab === "politics" && <><section className="summary-box"><h3>🏯 Kage & Elder Seats</h3><div className="town-leader-row town-kage-card"><LeaderPortrait image={leadershipImages.kage} name={state.seatedKage ?? leadership.kage} fallback="影" /><p><strong>Current Kage:</strong> {state.seatedKage ?? leadership.kage}</p></div><div className="elder-seat-grid"><div className={`elder-card${character.elderFocus === "war" ? " elder-card-active" : ""}`}><LeaderPortrait image={leadershipImages.elders?.[0]} name={leadership.elders[0]} fallback="長" /><span>War Elder</span><strong>{leadership.elders[0]}</strong><small className="elder-focus-desc">+1% damage reduction during village wars (applied to incoming damage in combat)</small><button className={character.elderFocus === "war" ? "active" : ""} onClick={() => supportVillageFocus("War Elder", "war")}>{character.elderFocus === "war" ? "✓ War Focus Active" : "Select War Focus"}</button></div><div className={`elder-card${character.elderFocus === "trade" ? " elder-card-active" : ""}`}><LeaderPortrait image={leadershipImages.elders?.[1]} name={leadership.elders[1]} fallback="長" /><span>Trade Elder</span><strong>{leadership.elders[1]}</strong><small className="elder-focus-desc">5% discount on all items in the Shop and Grand Marketplace</small><button className={character.elderFocus === "trade" ? "active" : ""} onClick={() => supportVillageFocus("Trade Elder", "trade")}>{character.elderFocus === "trade" ? "✓ Trade Focus Active" : "Select Trade Focus"}</button></div><div className={`elder-card${character.elderFocus === "training" ? " elder-card-active" : ""}`}><LeaderPortrait image={leadershipImages.elders?.[2]} name={leadership.elders[2]} fallback="長" /><span>Training Elder</span><strong>{leadership.elders[2]}</strong><small className="elder-focus-desc">+10% XP from all sources and 10% faster jutsu training</small><button className={character.elderFocus === "training" ? "active" : ""} onClick={() => supportVillageFocus("Training Elder", "training")}>{character.elderFocus === "training" ? "✓ Training Focus Active" : "Select Training Focus"}</button></div></div></section><section className="summary-box"><h3>ANBU Black Ops</h3><p className="hint">Seats 1-3 are appointed by the seated Kage. Seats 4-10 are earned by PvP kills this month ({currentAnbuMonth}).</p><datalist id="anbu-player-options">{villagePlayers.map(name => <option key={name} value={name} />)}</datalist>{isSeatedKage && <div className="treasury-grid">{[0, 1, 2].map(index => <div key={`anbu-appoint-${index}`}><label>Appointed Seat {index + 1}</label><input list="anbu-player-options" value={anbuAppointmentInputs[index] ?? ""} onChange={(event) => updateAnbuAppointmentInput(index, event.target.value)} placeholder="Type or choose player" /><div className="menu"><button onClick={() => appointAnbu(index)}>Appoint</button><button className="danger-button" onClick={() => clearAnbuAppointment(index)}>Clear</button></div></div>)}</div>}<div className="contrib-rank-grid">{anbuSlots.map((slot, idx) => <div key={`anbu-${idx}-${slot?.name ?? "empty"}`} className="clan-guard-row"><span>#{idx + 1} <strong>{slot?.name ?? "Open ANBU Seat"}</strong>{slot ? ` — ${slot.rankTitle}` : idx < 3 ? " — Kage appointed seat" : " — No qualifying player yet"}</span><span>{slot ? `${idx < 3 ? "Appointed" : "Earned"} · ${slot.monthlyKills.toLocaleString()} monthly PvP kill${slot.monthlyKills === 1 ? "" : "s"}` : "0 kills"}</span></div>)}</div><h4>ANBU Missions</h4><div className="contrib-rank-grid"><div className="clan-guard-row"><span>Scout enemy-controlled sectors</span><span>Reveal owner, HP, guards</span></div><div className="clan-guard-row"><span>Queue as sector guard</span><span>ANBU may guard any village sector</span></div><div className="clan-guard-row"><span>Sabotage raids</span><span>Support clan raids and defense pressure</span></div></div></section><section className="summary-box"><h3>🗳️ Kage Election / Challenge Board</h3><p className="hint">Local test version of future Kage elections. Contribution points decide who rises in the village.</p><div className="contrib-rank-grid">{contributionRankings.map((row, idx) => <div key={row.name} className="clan-guard-row"><span>#{idx + 1} <strong>{row.name}</strong> — {row.role}</span><span>{row.points.toLocaleString()} pts</span></div>)}</div><button onClick={postKageChallenge}>Enter Kage Challenge Discussion</button></section></>}
     </div>;
 }
 
@@ -15208,11 +15208,11 @@ function ShopBase({
     ];
 
     const rarityIcon: Record<string, string> = {
-        common: "?",
-        rare: "?",
-        epic: "?",
-        legendary: "?",
-        mythic: "?"
+        common: "○",
+        rare: "✦",
+        epic: "✦",
+        legendary: "✦",
+        mythic: "✦"
     };
 
     const qualityColor: Record<string, string> = {
@@ -15224,7 +15224,7 @@ function ShopBase({
     };
 
     const currencyLabel = currency === "fateShards" ? "Fate Shards" : "ryo";
-    const currencyIcon = currency === "fateShards" ? "?" : "";
+    const currencyIcon = currency === "fateShards" ? "✦" : "";
     const wallet = currency === "fateShards" ? character.fateShards : character.ryo;
     const shopDiscountPercent = currency === "ryo" ? getShopDiscountPercent(character) : (character.elderFocus === "trade" ? 5 : 0);
     const getShopCost = (cost: number) => discountCost(cost, shopDiscountPercent);
@@ -16002,9 +16002,9 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, hospita
                                 </span>
                             </div>
                             <button onClick={() => healPlayer(p.name)} style={{ background: "linear-gradient(#14532d,#052e16)", borderColor: "#4ade80" }}>
-                                ?? Heal
+                                💚 Heal
                             </button>
-                            {healMsg[p.name] && <span className="hint" style={{ color: healMsg[p.name].startsWith("?") ? "#4ade80" : "#f87171" }}>{healMsg[p.name]}</span>}
+                            {healMsg[p.name] && <span className="hint" style={{ color: healMsg[p.name].startsWith("✅") ? "#4ade80" : "#f87171" }}>{healMsg[p.name]}</span>}
                         </div>
                     ))}
                 </div>
@@ -16250,7 +16250,7 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
         const isMe = name === me;
         return (
             <div className={`hol-row ${isMe ? "hol-row-me" : ""}`}>
-                <span className="hol-rank-num">{rank <= 3 ? ["??","??","??"][rank-1] : `#${rank}`}</span>
+                <span className="hol-rank-num">{rank <= 3 ? ["🥇","🥈","🥉"][rank-1] : `#${rank}`}</span>
                 <span className="hol-name">{name}{village ? <span className="hol-village"> · {village}</span> : null}</span>
                 <span className="hol-value">{typeof value === "number" ? value.toLocaleString() : value}{suffix}</span>
             </div>
@@ -16281,14 +16281,14 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
     const tournament = (() => { try { const r = localStorage.getItem("shinobij-arena-tournament"); return r ? JSON.parse(r) : null; } catch { return null; } })();
 
     const tabs: { id: LbTab; label: string; icon: string }[] = [
-        { id: "ranked",      label: "Ranked",       icon: "??" },
-        { id: "kills",       label: "Kill Streaks",  icon: "??" },
-        { id: "xp",          label: "Most XP",       icon: "?" },
-        { id: "clans",       label: "Top Clans",     icon: "??" },
-        { id: "pets",        label: "Pet Wins",      icon: "??" },
-        { id: "endless",     label: "Endless",       icon: "??" },
-        { id: "villageWars", label: "Village Wars",  icon: "??" },
-        { id: "tournament",  label: "Tournament",    icon: "??" },
+        { id: "ranked",      label: "Ranked",       icon: "⚔️" },
+        { id: "kills",       label: "Kill Streaks",  icon: "💀" },
+        { id: "xp",          label: "Most XP",       icon: "✨" },
+        { id: "clans",       label: "Top Clans",     icon: "🏯" },
+        { id: "pets",        label: "Pet Wins",      icon: "🐾" },
+        { id: "endless",     label: "Endless",       icon: "🌀" },
+        { id: "villageWars", label: "Village Wars",  icon: "🔥" },
+        { id: "tournament",  label: "Tournament",    icon: "🏆" },
     ];
 
     return (
@@ -16341,7 +16341,7 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
                             ? <p className="hol-empty">No clan data available yet.</p>
                             : topClans.map(([clan, data], i) => (
                                 <div key={clan} className={`hol-row ${character.clan === clan ? "hol-row-me" : ""}`}>
-                                    <span className="hol-rank-num">{i <= 2 ? ["??","??","??"][i] : `#${i+1}`}</span>
+                                    <span className="hol-rank-num">{i <= 2 ? ["🥇","🥈","🥉"][i] : `#${i+1}`}</span>
                                     <span className="hol-name">{clan}<span className="hol-village"> · {data.members} member{data.members !== 1 ? "s" : ""}</span></span>
                                     <span className="hol-value">{data.score.toLocaleString()} pts</span>
                                 </div>
@@ -16575,11 +16575,11 @@ function Inventory({
     );
 
     function arrowSymbol(arrow: TileCardArrow) {
-        if (arrow === "up") return "?";
-        if (arrow === "down") return "?";
-        if (arrow === "left") return "?";
-        if (arrow === "right") return "?";
-        return "?";
+        if (arrow === "up") return "↑";
+        if (arrow === "down") return "↓";
+        if (arrow === "left") return "←";
+        if (arrow === "right") return "→";
+        return "✦";
     }
     const inventoryEntries = character.inventory.map((entry, index) => {
         const item = getItemById(allItems, entry) ?? allItems.find((candidate) => candidate.name === entry);
@@ -17395,7 +17395,7 @@ function SunscarFestival({
         );
     }
 
-    const symbols = ["??", "??", "???", "??", "??", "???"];
+    const symbols = ["☀️", "🦂", "🗡️", "🌙", "💰", "👁️"];
 
     function rollDice() {
         const cost = 25;
@@ -17424,7 +17424,7 @@ function SunscarFestival({
 
         const same = roll[0] === roll[1] && roll[1] === roll[2];
 
-        if (same && roll[0] === "???") {
+        if (same && roll[0] === "👁️") {
             rewardBoneCharms = 10;
             rewardFateShards = 5;
             rewardAuraStones = 5;
@@ -17433,19 +17433,19 @@ function SunscarFestival({
             rewardBoneCharms = Math.floor(Math.random() * 5) + 1; // 1–5
             rewardFateShards = Math.floor(Math.random() * 3) + 1; // 1–3
             message = `Triple ${roll[0]}! The dice bless you with rare spoils.`;
-        } else if (roll.includes("??")) {
+        } else if (roll.includes("🦂")) {
             rewardRyo = 10;
             rewardXp = 15;
             message = "The scorpion strikes. A harsh lesson — you walk away with scraps.";
-        } else if (roll.includes("??")) {
+        } else if (roll.includes("💰")) {
             rewardRyo = 100;
             rewardXp = 20;
             message = "Coins flash beneath the desert sun. Fortune smiles on you.";
-        } else if (roll.includes("???")) {
+        } else if (roll.includes("🗡️")) {
             rewardStamina = 30;
             rewardXp = 25;
             message = "Blade omen. Your body surges with fighting spirit.";
-        } else if (roll.includes("??")) {
+        } else if (roll.includes("🌙")) {
             rewardXp = 75;
             rewardRyo = 25;
             message = "Moon omen. A strange luck follows you through the night.";
@@ -17631,7 +17631,7 @@ function SunscarFestival({
 
             <div className="sunscar-grid">
                 <section className="sunscar-card npc-card">
-                    <FestivalPortrait image={kaelImage} icon="??" name="Kael the Sand Dealer" />
+                    <FestivalPortrait image={kaelImage} icon="🎭" name="Kael the Sand Dealer" />
                     <h2>Kael the Sand Dealer</h2>
                     <p>
                         "Fortune favors the bold… and buries the weak beneath the sands."
@@ -17641,7 +17641,7 @@ function SunscarFestival({
                 </section>
 
                 <section className="sunscar-card dice-card">
-                    <h2>?? Dice of Fate</h2>
+                    <h2>🎲 Dice of Fate</h2>
 
                     <div className="dice-row">
                         {(diceResult.length ? diceResult : ["?", "?", "?"]).map((die, index) => (
@@ -17657,7 +17657,7 @@ function SunscarFestival({
                 </section>
 
                 <section className="sunscar-card npc-card">
-                    <FestivalPortrait image={miraaImage} icon="??" name="Miraa the Card Seer" />
+                    <FestivalPortrait image={miraaImage} icon="🔮" name="Miraa the Card Seer" />
                     <h2>Miraa the Card Seer</h2>
                     <p style={{ fontStyle: "italic", color: "#aaa", marginBottom: "0.5rem" }}>
                         "The cards remember every shinobi who has sat across from me. Most don't return."
@@ -17874,43 +17874,43 @@ function CentralHub({
     const centralOptions = [
         {
             name: "Arena District",
-            icon: "??",
+            icon: "⚔️",
             text: "Clan battles, ranked mode, tournaments, spectator boards, and pet battle challenges.",
             action: () => setScreen("arenaDistrict"),
         },
         {
             name: "Shinobi Council Hall",
-            icon: "??",
+            icon: "🏯",
             text: "Active village wars, clan wars, HP of each side, and top contributors.",
             action: () => setScreen("shinobiCouncil"),
         },
         {
             name: "Grand Marketplace",
-            icon: "??",
+            icon: "🛒",
             text: "Rare items, trading stalls, cosmetics, limited event goods, and merchant contracts.",
             action: () => setScreen("grandMarketplace"),
         },
         {
             name: "Hunter Guild",
-            icon: "??",
+            icon: "🎯",
             text: "Beast hunt contracts, sector tracking, material drops, and hunter rank progression.",
             action: () => setScreen("hunting"),
         },
         {
             name: "Hall of Legends",
-            icon: "??",
+            icon: "🏆",
             text: "Ranked leaderboards, top clans, kill streaks, pet arena, endless waves, and village war records.",
             action: () => setScreen("hallOfLegends"),
         },
         {
             name: "Ancient Archives",
-            icon: "??",
+            icon: "📚",
             text: "Bloodline lore, forbidden jutsu research, hidden boss clues, and world history.",
             action: () => setShowArchives(true),
         },
         {
             name: "Awakening Stone",
-            icon: "??",
+            icon: "🪨",
             text: getCharacterElements(character).length
                 ? `Your elements: ${getCharacterElements(character).join(" / ")}. Reroll, or forge a bloodline using ancient materials.`
                 : "Discover your elemental nature. Free at level 2 and level 20.",
@@ -17918,19 +17918,19 @@ function CentralHub({
         },
         {
             name: "Pet Arena",
-            icon: "??",
+            icon: "🐾",
             text: "Choose one of your pets and watch it autobattle another player's pet using AI rule logic.",
             action: () => setScreen("petArena"),
         },
         {
             name: "Crafter",
-            icon: "??",
+            icon: "🔥",
             text: "Convert hunting materials into pet treats, elemental treats, aura dust, and bone charms.",
             action: () => setShowCrafter(true),
         },
         {
             name: "Celestial Tower",
-            icon: "??",
+            icon: "🗼",
             text: "Endless PvE floors, boss rushes, element trials, bloodline trials, and ascension battles.",
             action: () => setShowCelestialPanel(true),
         },
@@ -17939,7 +17939,7 @@ function CentralHub({
     return (
         <div className="central-hub">
             <div className="central-hero">
-                <h1>?? Central — The Thousand Gates</h1>
+                <h1>🏯 Central — The Thousand Gates</h1>
                 <p>
                     A neutral fortress city where every village, clan, rogue, merchant,
                     hunter, and legend crosses paths.
@@ -18069,7 +18069,7 @@ function CentralHub({
                         </div>
 
                         {awakeningMsg && (
-                            <div className={`awakening-msg ${awakeningMsg.startsWith("?") ? "awakening-msg-error" : "awakening-msg-success"}`}>
+                            <div className={`awakening-msg ${awakeningMsg.startsWith("✦") ? "awakening-msg-error" : "awakening-msg-success"}`}>
                                 {awakeningMsg}
                             </div>
                         )}
@@ -18956,7 +18956,7 @@ function WorldMap({
                     <div className={"vn-stage vn-biome-forest" + (pageImage ? " vn-has-image" : "")} style={pageImage ? { backgroundImage: `linear-gradient(180deg, rgba(7,12,27,.18), rgba(7,12,27,.78)), url(${pageImage})` } : undefined}>
                         <div className="vn-backdrop"><span className="vn-village-silhouette" /></div>
                         <div className="vn-character mentor-character">{character.avatarImage ? <img src={character.avatarImage} alt={character.name} /> : character.name.slice(0, 2).toUpperCase()}</div>
-                        <div className="vn-character hero-character">{activePetEncounter.image ? <img src={activePetEncounter.image} alt={activePetEncounter.name} /> : "??"}</div>
+                        <div className="vn-character hero-character">{activePetEncounter.image ? <img src={activePetEncounter.image} alt={activePetEncounter.name} /> : "🐾"}</div>
                         <div className="vn-scene-card">{page.scene || vn.vnScene || "Something moves through the undergrowth."}</div>
                         <div className="vn-dialogue">
                             <div className="vn-speaker">{speaker === "Narrator" ? initials : speaker}</div>
@@ -19133,15 +19133,15 @@ function WorldMap({
         const lootCard = activeChest.cardId ? allCards.find((c) => c.id === activeChest.cardId) : null;
         const alreadyHaveCard = lootCard && character.tileCards.includes(lootCard.id);
         const rewards: { icon: string; label: string; sub: string }[] = [
-            { icon: "?", label: `+${displayCharacterXpGain(activeChest.xp)} XP`, sub: "Experience" },
+            { icon: "⭐", label: `+${displayCharacterXpGain(activeChest.xp)} XP`, sub: "Experience" },
         ];
-        if (activeChest.ryo) rewards.push({ icon: "??", label: `+${activeChest.ryo} Ryo`, sub: "Ancient gold" });
-        if (lootItem) rewards.push({ icon: stackableItemIds.has(lootItem.id) ? "??" : lootItem.rarity === "rare" ? "??" : "??", label: lootItem.name, sub: `${lootItem.rarity.charAt(0).toUpperCase() + lootItem.rarity.slice(1)} ${lootItem.slot} · ${lootItem.description.slice(0, 40)}` });
-        if (lootCard) rewards.push({ icon: lootCard.rarity === "rare" ? "??" : "?", label: `${lootCard.name}${alreadyHaveCard ? " (duplicate)" : ""}`, sub: `${lootCard.rarity.charAt(0).toUpperCase() + lootCard.rarity.slice(1)} · ${lootCard.element} · T:${lootCard.top} R:${lootCard.right} B:${lootCard.bottom} L:${lootCard.left}` });
-        if (activeChest.fateShards) rewards.push({ icon: "?", label: "+1 Fate Shard", sub: "Premium currency" });
-        if (activeChest.boneCharms) rewards.push({ icon: "??", label: "+1 Bone Charm", sub: "Awakening Stone material" });
-        if (activeChest.auraStones) rewards.push({ icon: "??", label: "+1 Aura Stone", sub: "Awakening Stone material" });
-        if (activeChest.auraDust) rewards.push({ icon: "?", label: `+${activeChest.auraDust} Aura Dust`, sub: "Feeds the Aura Sphere" });
+        if (activeChest.ryo) rewards.push({ icon: "💰", label: `+${activeChest.ryo} Ryo`, sub: "Ancient gold" });
+        if (lootItem) rewards.push({ icon: stackableItemIds.has(lootItem.id) ? "🎒" : lootItem.rarity === "rare" ? "🔷" : "📦", label: lootItem.name, sub: `${lootItem.rarity.charAt(0).toUpperCase() + lootItem.rarity.slice(1)} ${lootItem.slot} · ${lootItem.description.slice(0, 40)}` });
+        if (lootCard) rewards.push({ icon: lootCard.rarity === "rare" ? "🃏" : "✨", label: `${lootCard.name}${alreadyHaveCard ? " (duplicate)" : ""}`, sub: `${lootCard.rarity.charAt(0).toUpperCase() + lootCard.rarity.slice(1)} · ${lootCard.element} · T:${lootCard.top} R:${lootCard.right} B:${lootCard.bottom} L:${lootCard.left}` });
+        if (activeChest.fateShards) rewards.push({ icon: "✦", label: "+1 Fate Shard", sub: "Premium currency" });
+        if (activeChest.boneCharms) rewards.push({ icon: "🦴", label: "+1 Bone Charm", sub: "Awakening Stone material" });
+        if (activeChest.auraStones) rewards.push({ icon: "🔷", label: "+1 Aura Stone", sub: "Awakening Stone material" });
+        if (activeChest.auraDust) rewards.push({ icon: "✨", label: `+${activeChest.auraDust} Aura Dust`, sub: "Feeds the Aura Sphere" });
 
         return (
             <div className="card cinematic-card ancient-chest-reveal-card">
@@ -19213,7 +19213,7 @@ function WorldMap({
                                         {isPlayer ? (
                                             character.avatarImage
                                                 ? <img className="tiny-map-avatar" src={character.avatarImage} alt={character.name} />
-                                                : "?"
+                                                : "✦"
                                         ) : otherHere.length > 0 ? (
                                             <div className="other-players-map-stack">
                                                 {otherHere.map(p => (
@@ -19360,7 +19360,7 @@ function WorldMap({
                                             character.avatarImage ? (
                                                 <img className="tiny-map-avatar" src={character.avatarImage} alt={character.name} />
                                             ) : (
-                                                "?"
+                                                "✦"
                                             )
                                         ) : ""}
                                     </button>
@@ -19573,7 +19573,7 @@ function WorldMap({
                         onClick={() => triggerTravelPoint(sector.id)}
                         title={sector.id === 99 ? "Death's Gate — PvP zone: 2× XP, Ryo & Jutsu XP · 5% Bone Charm on win" : `Sector ${sector.id} | ${weatherEffects[weatherForSector(sector.id, biomeForSector(sector.id))].name}`}
                     >
-                        {sector.id === 99 ? "??" : sector.id === 35 ? "??" : sector.id}
+                        {sector.id === 99 ? "☠️" : sector.id === 35 ? "🏯" : sector.id}
                     </button>
                 ))}
 
@@ -19718,15 +19718,15 @@ function WorldMap({
                 const lootCard = activeChest.cardId ? allCards.find((c) => c.id === activeChest.cardId) : null;
                 const alreadyHaveCard = lootCard && character.tileCards.includes(lootCard.id);
                 const rewards: { icon: string; label: string; sub: string }[] = [
-                    { icon: "?", label: `+${displayCharacterXpGain(activeChest.xp)} XP`, sub: "Experience" },
+                    { icon: "⭐", label: `+${displayCharacterXpGain(activeChest.xp)} XP`, sub: "Experience" },
                 ];
-                if (activeChest.ryo) rewards.push({ icon: "??", label: `+${activeChest.ryo} Ryo`, sub: "Ancient gold" });
-                if (lootItem) rewards.push({ icon: stackableItemIds.has(lootItem.id) ? "??" : lootItem.rarity === "rare" ? "??" : "??", label: lootItem.name, sub: `${lootItem.rarity.charAt(0).toUpperCase() + lootItem.rarity.slice(1)} ${lootItem.slot} · ${lootItem.description.slice(0, 40)}` });
-                if (lootCard) rewards.push({ icon: lootCard.rarity === "rare" ? "??" : "?", label: `${lootCard.name}${alreadyHaveCard ? " (duplicate)" : ""}`, sub: `${lootCard.rarity.charAt(0).toUpperCase() + lootCard.rarity.slice(1)} · ${lootCard.element} · T:${lootCard.top} R:${lootCard.right} B:${lootCard.bottom} L:${lootCard.left}` });
-                if (activeChest.fateShards) rewards.push({ icon: "?", label: "+1 Fate Shard", sub: "Premium currency" });
-                if (activeChest.boneCharms) rewards.push({ icon: "??", label: "+1 Bone Charm", sub: "Awakening Stone material" });
-                if (activeChest.auraStones) rewards.push({ icon: "??", label: "+1 Aura Stone", sub: "Awakening Stone material" });
-                if (activeChest.auraDust) rewards.push({ icon: "?", label: `+${activeChest.auraDust} Aura Dust`, sub: "Feeds the Aura Sphere" });
+                if (activeChest.ryo) rewards.push({ icon: "💰", label: `+${activeChest.ryo} Ryo`, sub: "Ancient gold" });
+                if (lootItem) rewards.push({ icon: stackableItemIds.has(lootItem.id) ? "🎒" : lootItem.rarity === "rare" ? "🔷" : "📦", label: lootItem.name, sub: `${lootItem.rarity.charAt(0).toUpperCase() + lootItem.rarity.slice(1)} ${lootItem.slot} · ${lootItem.description.slice(0, 40)}` });
+                if (lootCard) rewards.push({ icon: lootCard.rarity === "rare" ? "🃏" : "✨", label: `${lootCard.name}${alreadyHaveCard ? " (duplicate)" : ""}`, sub: `${lootCard.rarity.charAt(0).toUpperCase() + lootCard.rarity.slice(1)} · ${lootCard.element} · T:${lootCard.top} R:${lootCard.right} B:${lootCard.bottom} L:${lootCard.left}` });
+                if (activeChest.fateShards) rewards.push({ icon: "✦", label: "+1 Fate Shard", sub: "Premium currency" });
+                if (activeChest.boneCharms) rewards.push({ icon: "🦴", label: "+1 Bone Charm", sub: "Awakening Stone material" });
+                if (activeChest.auraStones) rewards.push({ icon: "🔷", label: "+1 Aura Stone", sub: "Awakening Stone material" });
+                if (activeChest.auraDust) rewards.push({ icon: "✨", label: `+${activeChest.auraDust} Aura Dust`, sub: "Feeds the Aura Sphere" });
                 return (
                     <div className="card cinematic-card">
                         <div className="chest-reveal">
@@ -19856,7 +19856,7 @@ function StoryBoss({ character, updateCharacter, setScreen }: { character: Chara
         if (attacksBoss) {
             const nextBossHp = Math.max(0, currentBossHp - damage);
             setBossHp(nextBossHp);
-            setEffect("??");
+            setEffect("🐾");
             if (nextBossHp <= 0) return winBossFight(currentPlayerHp);
             return setLog(`${petName} attacks ${storyStep.bossName}${loyalTarget ? "" : " despite low happiness"} for ${damage} damage.`);
         }
@@ -19864,37 +19864,37 @@ function StoryBoss({ character, updateCharacter, setScreen }: { character: Chara
         const nextPlayerHp = Math.max(0, currentPlayerHp - friendlyDamage);
         setPlayerHp(nextPlayerHp);
         updateCharacter({ ...character, hp: nextPlayerHp });
-        setEffect("??");
+        setEffect("🐾");
         setLog(`${petName}'s low happiness backfires. It attacks you for ${friendlyDamage} damage.`);
     }
     function bossCounter() { if (bossHp <= 0) return; const damage = Math.max(5, storyStep.bossDamage + Math.floor(turn * 2)); const afterHit = Math.max(0, playerHp - damage); setPlayerHp(afterHit); updateCharacter({ ...character, hp: afterHit }); if (afterHit <= 0) return setLog(`${storyStep.bossName} defeated you. Visit the Hospital and try again.`); setTurn((t) => t + 1); setAp(100); setLog(`${storyStep.bossName} counters for ${damage} damage.`); }
-    function basicAttack() { if (ap < 40) return setLog("Not enough AP."); const newBossHp = Math.max(0, bossHp - basicAttackDamage); setBossHp(newBossHp); setAp((c) => c - 40); setEffect("??"); if (newBossHp <= 0) return winBossFight(playerHp); setLog(`You strike ${storyStep.bossName} for ${basicAttackDamage} damage.`); bossPetFollowUp(newBossHp, playerHp); }
-    function chakraStrike() { if (ap < 60) return setLog("Not enough AP."); if (character.chakra < 20) return setLog("Not enough chakra."); const newBossHp = Math.max(0, bossHp - chakraStrikeDamage); setBossHp(newBossHp); setAp((c) => c - 60); setEffect("??"); updateCharacter({ ...character, chakra: Math.max(0, character.chakra - 20) }); if (newBossHp <= 0) return winBossFight(playerHp); setLog(`You unleash a chakra strike for ${chakraStrikeDamage} damage. -20 chakra.`); bossPetFollowUp(newBossHp, playerHp); }
-    function guard() { if (ap < 30) return setLog("Not enough AP."); const reducedDamage = Math.max(1, Math.floor(storyStep.bossDamage * 0.45)); const afterHit = Math.max(0, playerHp - reducedDamage); setPlayerHp(afterHit); setAp(100); setTurn((t) => t + 1); setEffect("???"); updateCharacter({ ...character, hp: afterHit }); setLog(`You guard. ${storyStep.bossName} only deals ${reducedDamage} damage.`); bossPetFollowUp(bossHp, afterHit); }
-    function recover() { if (ap < 50) return setLog("Not enough AP."); const heal = 35 + Math.floor(character.stats.willpower * 0.05); const newHp = Math.min(character.maxHp, playerHp + heal); setPlayerHp(newHp); setAp((c) => c - 50); setEffect("??"); updateCharacter({ ...character, hp: newHp, chakra: Math.min(character.maxChakra, character.chakra + 15) }); setLog(`You recover your breathing. +${heal} HP and +15 chakra.`); bossPetFollowUp(bossHp, newHp); }
-    return <div className="card cinematic-card"><div className="boss-stage">{effect && <div className="combat-effect">{effect}</div>}<div className="cinematic-panel"><p className="act-label">{storyStep.cinematicTitle}</p><h2>{storyStep.bossIcon} {storyStep.bossName}</h2><p className="scene-text">{storyStep.scene}</p></div><div className="combat-stats"><div><strong>{character.name}</strong><div className="bar-label">HP {playerHp}/{character.maxHp}</div><div className="bar"><span style={{ width: `${(playerHp / character.maxHp) * 100}%` }}></span></div><div className="bar-label">Chakra {character.chakra}/{character.maxChakra}</div><div className="bar ap-bar"><span style={{ width: `${(character.chakra / character.maxChakra) * 100}%` }}></span></div><p>AP: {ap}/100</p>{summonedPet && <p>Pet: {petDisplayName(summonedPet)} · Happy {petHappiness(summonedPet)}%</p>}</div><div><strong>{storyStep.bossName}</strong><div className="bar-label">HP {bossHp}/{storyStep.bossHp}</div><div className="bar enemy-bar"><span style={{ width: `${(bossHp / storyStep.bossHp) * 100}%` }}></span></div><p>Boss Damage: {storyStep.bossDamage}</p><p>Turn: {turn}</p></div></div><div className="jutsu-combat-grid"><button onClick={basicAttack}><span className="jutsu-icon">??</span><strong>Basic Attack</strong><small>40 AP / no chakra</small></button><button onClick={chakraStrike}><span className="jutsu-icon">??</span><strong>Chakra Strike</strong><small>60 AP / -20 chakra</small></button><button onClick={guard}><span className="jutsu-icon">???</span><strong>Guard</strong><small>30 AP / reduce damage</small></button><button onClick={recover}><span className="jutsu-icon">??</span><strong>Recover</strong><small>50 AP / heal + chakra</small></button><button onClick={summonBossPet} disabled={!activeBattlePet || Boolean(summonedPet)}><span className="jutsu-icon">??</span><strong>Summon Pet</strong><small>{summonedPet ? `${petDisplayName(summonedPet)} active` : activeBattlePet ? petDisplayName(activeBattlePet) : "No active pet"}</small></button></div><div className="menu"><button onClick={bossCounter}>End Turn</button><button onClick={() => setScreen("storyHall")}>Back to Story</button></div><div className="log">{log}</div></div></div>;
+    function basicAttack() { if (ap < 40) return setLog("Not enough AP."); const newBossHp = Math.max(0, bossHp - basicAttackDamage); setBossHp(newBossHp); setAp((c) => c - 40); setEffect("⚔️"); if (newBossHp <= 0) return winBossFight(playerHp); setLog(`You strike ${storyStep.bossName} for ${basicAttackDamage} damage.`); bossPetFollowUp(newBossHp, playerHp); }
+    function chakraStrike() { if (ap < 60) return setLog("Not enough AP."); if (character.chakra < 20) return setLog("Not enough chakra."); const newBossHp = Math.max(0, bossHp - chakraStrikeDamage); setBossHp(newBossHp); setAp((c) => c - 60); setEffect("💠"); updateCharacter({ ...character, chakra: Math.max(0, character.chakra - 20) }); if (newBossHp <= 0) return winBossFight(playerHp); setLog(`You unleash a chakra strike for ${chakraStrikeDamage} damage. -20 chakra.`); bossPetFollowUp(newBossHp, playerHp); }
+    function guard() { if (ap < 30) return setLog("Not enough AP."); const reducedDamage = Math.max(1, Math.floor(storyStep.bossDamage * 0.45)); const afterHit = Math.max(0, playerHp - reducedDamage); setPlayerHp(afterHit); setAp(100); setTurn((t) => t + 1); setEffect("🛡️"); updateCharacter({ ...character, hp: afterHit }); setLog(`You guard. ${storyStep.bossName} only deals ${reducedDamage} damage.`); bossPetFollowUp(bossHp, afterHit); }
+    function recover() { if (ap < 50) return setLog("Not enough AP."); const heal = 35 + Math.floor(character.stats.willpower * 0.05); const newHp = Math.min(character.maxHp, playerHp + heal); setPlayerHp(newHp); setAp((c) => c - 50); setEffect("❤️"); updateCharacter({ ...character, hp: newHp, chakra: Math.min(character.maxChakra, character.chakra + 15) }); setLog(`You recover your breathing. +${heal} HP and +15 chakra.`); bossPetFollowUp(bossHp, newHp); }
+    return <div className="card cinematic-card"><div className="boss-stage">{effect && <div className="combat-effect">{effect}</div>}<div className="cinematic-panel"><p className="act-label">{storyStep.cinematicTitle}</p><h2>{storyStep.bossIcon} {storyStep.bossName}</h2><p className="scene-text">{storyStep.scene}</p></div><div className="combat-stats"><div><strong>{character.name}</strong><div className="bar-label">HP {playerHp}/{character.maxHp}</div><div className="bar"><span style={{ width: `${(playerHp / character.maxHp) * 100}%` }}></span></div><div className="bar-label">Chakra {character.chakra}/{character.maxChakra}</div><div className="bar ap-bar"><span style={{ width: `${(character.chakra / character.maxChakra) * 100}%` }}></span></div><p>AP: {ap}/100</p>{summonedPet && <p>Pet: {petDisplayName(summonedPet)} · Happy {petHappiness(summonedPet)}%</p>}</div><div><strong>{storyStep.bossName}</strong><div className="bar-label">HP {bossHp}/{storyStep.bossHp}</div><div className="bar enemy-bar"><span style={{ width: `${(bossHp / storyStep.bossHp) * 100}%` }}></span></div><p>Boss Damage: {storyStep.bossDamage}</p><p>Turn: {turn}</p></div></div><div className="jutsu-combat-grid"><button onClick={basicAttack}><span className="jutsu-icon">⚔️</span><strong>Basic Attack</strong><small>40 AP / no chakra</small></button><button onClick={chakraStrike}><span className="jutsu-icon">💠</span><strong>Chakra Strike</strong><small>60 AP / -20 chakra</small></button><button onClick={guard}><span className="jutsu-icon">🛡️</span><strong>Guard</strong><small>30 AP / reduce damage</small></button><button onClick={recover}><span className="jutsu-icon">❤️</span><strong>Recover</strong><small>50 AP / heal + chakra</small></button><button onClick={summonBossPet} disabled={!activeBattlePet || Boolean(summonedPet)}><span className="jutsu-icon">🐾</span><strong>Summon Pet</strong><small>{summonedPet ? `${petDisplayName(summonedPet)} active` : activeBattlePet ? petDisplayName(activeBattlePet) : "No active pet"}</small></button></div><div className="menu"><button onClick={bossCounter}>End Turn</button><button onClick={() => setScreen("storyHall")}>Back to Story</button></div><div className="log">{log}</div></div></div>;
 }
 
 function Training({ character, updateCharacter, activeTraining, setActiveTraining }: { character: Character; updateCharacter: (character: Character) => void; activeTraining: ActiveTraining | null; setActiveTraining: (training: ActiveTraining | null) => void }) {
     const [selectedStat, setSelectedStat] = useState<keyof Stats>("strength");
     const STAT_LABELS: Record<string, { label: string; icon: string }> = {
-        strength:         { label: "Strength",      icon: "??" },
-        speed:            { label: "Speed",          icon: "?" },
-        intelligence:     { label: "Intelligence",   icon: "??" },
-        willpower:        { label: "Willpower",      icon: "??" },
-        ninjutsuOffense:  { label: "Ninjutsu Off.",  icon: "??" },
-        ninjutsuDefense:  { label: "Ninjutsu Def.",  icon: "???" },
-        taijutsuOffense:  { label: "Taijutsu Off.",  icon: "??" },
-        taijutsuDefense:  { label: "Taijutsu Def.",  icon: "??" },
-        genjutsuOffense:  { label: "Genjutsu Off.",  icon: "???" },
-        genjutsuDefense:  { label: "Genjutsu Def.",  icon: "??" },
-        bukijutsuOffense: { label: "Bukijutsu Off.", icon: "??" },
-        bukijutsuDefense: { label: "Bukijutsu Def.", icon: "???" },
+        strength:         { label: "Strength",      icon: "💪" },
+        speed:            { label: "Speed",          icon: "⚡" },
+        intelligence:     { label: "Intelligence",   icon: "🧠" },
+        willpower:        { label: "Willpower",      icon: "🔮" },
+        ninjutsuOffense:  { label: "Ninjutsu Off.",  icon: "🌀" },
+        ninjutsuDefense:  { label: "Ninjutsu Def.",  icon: "🛡️" },
+        taijutsuOffense:  { label: "Taijutsu Off.",  icon: "👊" },
+        taijutsuDefense:  { label: "Taijutsu Def.",  icon: "🥋" },
+        genjutsuOffense:  { label: "Genjutsu Off.",  icon: "👁️" },
+        genjutsuDefense:  { label: "Genjutsu Def.",  icon: "🌙" },
+        bukijutsuOffense: { label: "Bukijutsu Off.", icon: "⚔️" },
+        bukijutsuDefense: { label: "Bukijutsu Def.", icon: "🗡️" },
     };
     const trainingStats = Object.keys(baseStats()).map((key) => ({
         label: STAT_LABELS[key]?.label ?? key,
         stat: key as keyof Stats,
-        icon: STAT_LABELS[key]?.icon ?? "??",
+        icon: STAT_LABELS[key]?.icon ?? "⏱️",
     }));
     const timers = [{ label: "15 Minutes", ms: 15 * 60 * 1000, xp: 20, statGain: 1, staminaCost: 5 }, { label: "1 Hour", ms: 60 * 60 * 1000, xp: 70, statGain: 3, staminaCost: 15 }, { label: "4 Hours", ms: 4 * 60 * 60 * 1000, xp: 220, statGain: 8, staminaCost: 35 }, { label: "8 Hours", ms: 8 * 60 * 60 * 1000, xp: 375, statGain: 14, staminaCost: 60 }];
     const trainingXpBonus = getTrainingXpBonus(character);
@@ -20021,7 +20021,7 @@ function JutsuTrainingHall({
 function CardVisual({ image, icon, label }: { image?: string; icon?: string; label: string }) {
     return image
         ? <img className="card-visual-thumb" src={image} alt={label} />
-        : <span className="tile-icon">{icon || "?"}</span>;
+        : <span className="tile-icon">{icon || "✦"}</span>;
 }
 
 function ClanImageMark({ image, name, village }: { image?: string; name: string; village?: string }) {
@@ -20030,7 +20030,7 @@ function ClanImageMark({ image, name, village }: { image?: string; name: string;
         : <div className="clan-image-mark clan-image-fallback">{name.slice(0, 2).toUpperCase() || village?.slice(0, 2).toUpperCase() || "CL"}</div>;
 }
 
-function LeaderPortrait({ image, name, fallback = "?" }: { image?: string; name: string; fallback?: string }) {
+function LeaderPortrait({ image, name, fallback = "影" }: { image?: string; name: string; fallback?: string }) {
     return image
         ? <img className="leader-portrait-img" src={image} alt={name} />
         : <div className="leader-portrait-img leader-portrait-fallback" aria-label={name}>{fallback}</div>;
@@ -20066,11 +20066,11 @@ function Missions({
     function acceptFetchMission(mission: CreatorMission) { if (character.level < mission.levelReq) return alert(`Requires level ${mission.levelReq}.`); if (acceptedMissionIds.includes(mission.id)) return; const raidKey = missionRaidProgressKey(mission.id); setAcceptedMissionIds([...acceptedMissionIds, mission.id]); setMissionProgress({ ...missionProgress, [mission.id]: missionProgress[mission.id] ?? 0, [raidKey]: missionProgress[raidKey] ?? 0 }); const raidReq = missionRaidRequirement(mission); alert(`${mission.name} accepted. Explore Sector ${mission.targetSector} ${mission.exploreCount} times${raidReq > 0 ? ` and raid the village ${raidReq} time(s)` : ""}.`); }
     function claimFetchMission(mission: CreatorMission) { const progress = missionProgress[mission.id] ?? 0; const raidReq = missionRaidRequirement(mission); const raidProgress = missionProgress[missionRaidProgressKey(mission.id)] ?? 0; if (progress < mission.exploreCount) return alert(`Explore Sector ${mission.targetSector} ${mission.exploreCount - progress} more time(s).`); if (raidProgress < raidReq) return alert(`Raid from Sector ${mission.targetSector} ${raidReq - raidProgress} more time(s).`); if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`); const boostedXp = boostAmount(mission.xpReward, missionRewardBonus); const boostedRyo = boostAmount(mission.ryoReward, missionRewardBonus); const boostedStamina = boostAmount(mission.staminaReward, missionRewardBonus); const leveled = grantTerritoryScrolls(applyCurrencyRewards(gainXp(character, boostedXp), mission.currencyRewards), 3); updateCharacter(markMissionCompleted({ ...leveled, ryo: leveled.ryo + boostedRyo, stamina: Math.min(leveled.maxStamina, leveled.stamina + boostedStamina) })); setAcceptedMissionIds(acceptedMissionIds.filter((id) => id !== mission.id)); setMissionProgress({ ...missionProgress, [mission.id]: 0, [missionRaidProgressKey(mission.id)]: 0 }); alert(`${mission.name} complete. ${rewardSummary(boostedXp, boostedRyo, boostedStamina, mission.currencyRewards, character)}. +3 Territory Control Scrolls.`); }
     const missions = [
-        { name: "D-Rank Errand", xp: 25, ryo: 20, cost: 5, recover: 3, min: 1, icon: "??", aiProfileId: "builtin-ai-mist-sentinel" },
-        { name: "C-Rank Patrol", xp: 75, ryo: 60, cost: 10, recover: 5, min: 10, icon: "??", aiProfileId: "builtin-ai-ember-duelist" },
-        { name: "B-Rank Escort", xp: 150, ryo: 125, cost: 20, recover: 10, min: 30, icon: "??", aiProfileId: "builtin-ai-frost-sealer" },
-        { name: "A-Rank Hunt", xp: 300, ryo: 250, cost: 35, recover: 18, min: 50, icon: "??", aiProfileId: "builtin-ai-shadow-weaver" },
-        { name: "S-Rank Crisis", xp: 700, ryo: 600, cost: 60, recover: 30, min: 70, icon: "??", aiProfileId: "builtin-ai-central-champion" },
+        { name: "D-Rank Errand", xp: 25, ryo: 20, cost: 5, recover: 3, min: 1, icon: "⚔️", aiProfileId: "builtin-ai-mist-sentinel" },
+        { name: "C-Rank Patrol", xp: 75, ryo: 60, cost: 10, recover: 5, min: 10, icon: "⚔️", aiProfileId: "builtin-ai-ember-duelist" },
+        { name: "B-Rank Escort", xp: 150, ryo: 125, cost: 20, recover: 10, min: 30, icon: "⚔️", aiProfileId: "builtin-ai-frost-sealer" },
+        { name: "A-Rank Hunt", xp: 300, ryo: 250, cost: 35, recover: 18, min: 50, icon: "⚔️", aiProfileId: "builtin-ai-shadow-weaver" },
+        { name: "S-Rank Crisis", xp: 700, ryo: 600, cost: 60, recover: 30, min: 70, icon: "⚔️", aiProfileId: "builtin-ai-central-champion" },
     ];
     const missionRanks: MissionRank[] = ["Daily", "D Rank", "C Rank", "B Rank", "A Rank", "S Rank"];
     const groupedFetchMissions = missionRanks.map((rank) => ({ rank, missions: mergeBuiltinMissions(creatorMissions).filter((mission) => mission.rank === rank) })).filter((group) => group.missions.length > 0);
@@ -20367,7 +20367,7 @@ function HunterBoard({
                                     return (
                                         <div key={mission.id} className="hunt-contract-card">
                                             <div className="hunt-contract-top">
-                                                <span className="hunt-beast-icon">{beastAi?.icon ?? "??"}</span>
+                                                <span className="hunt-beast-icon">{beastAi?.icon ?? "🐾"}</span>
                                                 <div className="hunt-contract-info">
                                                     <strong>{mission.name}</strong>
                                                     <small>Sector {mission.targetSector} · Lvl {mission.levelReq}+</small>
@@ -20663,7 +20663,7 @@ function Logbook({
                         const boostedStamina = boostAmount(mission.staminaReward, missionRewardBonus);
                         return (
                             <div key={mission.id} className="location-button mission-card">
-                                <CardVisual icon="??" label={mission.name} />
+                                <CardVisual icon="📅" label={mission.name} />
                                 <span>{mission.name}</span>
                                 <small>Sector {mission.targetSector} | Explore {progress}/{mission.exploreCount}{raidReq > 0 ? ` | Raid ${raidProgress}/${raidReq}` : ""}</small>
                                 <small>Lvl {mission.levelReq} | {rewardSummary(boostedXp, boostedRyo, boostedStamina, mission.currencyRewards, character)}</small>
@@ -24087,7 +24087,7 @@ function Arena({
             <div className="combat-layout">
                 <CombatSideHud
                     name={character.name}
-                    avatar={character.avatarImage || "??"}
+                    avatar={character.avatarImage || "🥷"}
                     hp={playerHp}
                     maxHp={character.maxHp}
                     chakra={character.chakra}
@@ -24293,8 +24293,8 @@ function Arena({
                                             onMouseLeave={() => setHoveredBattleTile(null)}
                                             onClick={() => handleTileClick(i)}
                                         >
-                                            {isBarrierTile ? "??"
-                                                : i === playerPos ? (character.avatarImage ? "" : "??")
+                                            {isBarrierTile ? "🧱"
+                                                : i === playerPos ? (character.avatarImage ? "" : "🥷")
                                                 : i === enemyPos ? ((opponentAvatar.startsWith("data:image") || opponentAvatar.startsWith("blob:")) ? "" : opponentAvatar)
                                                     : ""}
                                         </button>
@@ -24364,10 +24364,10 @@ function Arena({
                                         const image = jutsu.image;
 
                                         const fallbackIcon =
-                                            jutsu.type === "Taijutsu" ? "??" :
-                                                jutsu.type === "Bukijutsu" ? "???" :
-                                                    jutsu.type === "Genjutsu" ? "???" :
-                                                        "??";
+                                            jutsu.type === "Taijutsu" ? "👊" :
+                                                jutsu.type === "Bukijutsu" ? "🗡️" :
+                                                    jutsu.type === "Genjutsu" ? "👁️" :
+                                                        "💠";
 
                                         return (
                                             <div
@@ -24425,7 +24425,7 @@ function Arena({
                                         {combatEquippedItems.map((item) => {
                                             const slot = normalizeEquipmentSlot(item.slot);
                                             const isWeapon = slot === "hand" || slot === "thrown";
-                                            const icon = slot === "thrown" ? "?" : slot === "hand" ? "?" : "?";
+                                            const icon = slot === "thrown" ? "◈" : slot === "hand" ? "⚔" : "✚";
                                             const itemAp = item.apCost ?? (slot === "thrown" ? 45 : slot === "hand" ? 40 : 35);
                                             const weaponDisplayRange = item.weaponRange ?? (slot === "thrown" ? 4 : 1);
                                             const actionText = isWeapon
@@ -25165,7 +25165,7 @@ function PvpBattleScreen({
     }
 
     const fallbackIcon = (j: Jutsu) =>
-        j.type === "Taijutsu" ? "??" : j.type === "Bukijutsu" ? "???" : j.type === "Genjutsu" ? "???" : "??";
+        j.type === "Taijutsu" ? "👊" : j.type === "Bukijutsu" ? "🗡️" : j.type === "Genjutsu" ? "👁️" : "💠";
     const myAvatar = (me.character?.avatarImage as string) || "";
     const oppAvatar = (opp.character?.avatarImage as string) || "";
 
@@ -25192,7 +25192,7 @@ function PvpBattleScreen({
             <div className="combat-layout">
                 <CombatSideHud
                     name={`${me.name} (You)`}
-                    avatar={myAvatar || "??"}
+                    avatar={myAvatar || "🥷"}
                     hp={me.hp} maxHp={me.maxHp}
                     chakra={me.chakra} maxChakra={me.maxChakra}
                     stamina={me.stamina} maxStamina={me.maxStamina}
@@ -25333,7 +25333,7 @@ function PvpBattleScreen({
                                                 onMouseLeave={() => setHoveredPvpTile(null)}
                                                 onClick={() => handleTileClick(i)}
                                             >
-                                                {isMyTile && !myAvatar.startsWith("data:") && !myAvatar.startsWith("blob:") ? "??"
+                                                {isMyTile && !myAvatar.startsWith("data:") && !myAvatar.startsWith("blob:") ? "🥷"
                                                     : isOppTile && !oppAvatar.startsWith("data:") && !oppAvatar.startsWith("blob:") ? "EN"
                                                     : ""}
                                             </button>
@@ -25482,7 +25482,7 @@ function PvpBattleScreen({
                                                             onClick={() => { setInspectedJutsuId(""); setInspectedWeaponId(""); setPendingJutsuId(""); setDashMode(false); setSelectedActionId(undefined); setPendingBasicAttack(false); setPendingWeaponId(v => v === item.id ? "" : item.id); }}
                                                             disabled={submitting || myAp < apCost}>
                                                             <span className="combat-jutsu-thumb combat-item-thumb">
-                                                                {item.image ? <img src={item.image} alt={item.name} /> : <strong>{slot === "thrown" ? "?" : "?"}</strong>}
+                                                                {item.image ? <img src={item.image} alt={item.name} /> : <strong>{slot === "thrown" ? "◈" : "⚔"}</strong>}
                                                             </span>
                                                             <span className="combat-jutsu-name">{item.name}</span>
                                                             <span className="combat-jutsu-info">{apCost} AP | R{wRange}</span>
