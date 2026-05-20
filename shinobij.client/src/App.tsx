@@ -26218,7 +26218,7 @@ function PvpBattleScreen({
                                         return (
                                             <button
                                                 key={i}
-                                                className={`hex-tile${isMyTile ? " hex-player" : ""}${isOppTile ? " hex-enemy" : ""}${canMove ? " dash-target-tile" : ""}${isJutsuRange ? " jutsu-range-tile" : ""}${(isGroundAffected || isActiveGroundEffect) ? " ground-affected-tile" : ""}${isGroundTarget ? " ground-target-tile" : ""}${groundEffectClass}${isPendingTarget ? " jutsu-target-tile" : ""}`
+                                                className={`hex-tile${isMyTile ? " hex-player" : ""}${isOppTile ? " hex-enemy" : ""}${canMove ? " dash-target-tile" : ""}${isJutsuRange ? " jutsu-range-tile" : ""}${(isGroundAffected || isActiveGroundEffect) ? " ground-affected-tile" : ""}${isGroundTarget ? " ground-target-tile" : ""}${groundEffectClass}${isPendingTarget ? " jutsu-target-tile" : ""}`}
                                                 style={{ left: `${tx}px`, top: `${ty}px`, width: `${HEX_W}px`, height: `${HEX_H}px` }}
                                                 onMouseEnter={() => setHoveredPvpTile(i)}
                                                 onMouseLeave={() => setHoveredPvpTile(null)}
