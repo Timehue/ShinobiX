@@ -2,13 +2,23 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '@vercel/kv';
 import { cors } from '../_utils.js';
 
-// Key patterns to wipe (player data, presence, chats, clans, guard queues)
+// Patterns wiped on full reset. Anything matching these is deleted.
+// shared:images / shared:imgfields are intentionally excluded — all uploaded
+// images (kage portraits, elder portraits, pets, weapons, avatars) survive.
+// save:admin* is excluded — admin-created content (jutsus, AIs, missions,
+// events, pets, cards, visual novels) survives.
+// admin:approvedBloodlines survives — admin curation list is preserved.
 const WIPE_PATTERNS = [
     'presence:*',
     'challenges:*',
     'chat:village:*',
     'clan:*',
     'guard:*',
+    'pvp:*',           // active PvP sessions
+    'village:kage:*',  // per-village kage unlock / seated kage
+    'auth:*',          // player passwords — players re-register on next login
+    'admin-lock:*',    // short-lived admin locks (cleanup)
+    'reset-signal:*',  // short-lived reset signals (cleanup)
 ];
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -27,16 +37,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const deleted: string[] = [];
 
-        // 1. Wipe all player saves — but KEEP admin saves (save:admin*) so
-        //    admin-created content (jutsus, AIs, missions, events, pets) survives.
+        // 1. Wipe all player saves — admin saves are preserved so admin-created
+        //    content (jutsus, AIs, missions, events, pets, cards, VNs) survives.
         const saveKeys = await kv.keys('save:*');
-        const playerSaveKeys = saveKeys.filter(k => !k.startsWith('save:admin'));
+        const playerSaveKeys = saveKeys.filter(k => !k.toLowerCase().startsWith('save:admin'));
         if (playerSaveKeys.length > 0) {
             await Promise.all(playerSaveKeys.map(k => kv.del(k)));
             deleted.push(...playerSaveKeys);
         }
 
-        // 2. Wipe presence, challenges, chat, clans, guard queue
+        // 2. Wipe all other reset patterns in parallel
         await Promise.all(
             WIPE_PATTERNS.map(async (pattern) => {
                 const keys = await kv.keys(pattern);
@@ -47,12 +57,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             })
         );
 
-        // Clear the player registry (players must re-register on next heartbeat/save)
+        // 3. Clear the player registry
         await kv.del('player:registry');
         deleted.push('player:registry');
-
-        // shared:images:* keys are intentionally NOT touched — kage, elder, pet,
-        // item, AI, avatar images all survive the reset.
 
         return res.status(200).json({
             ok: true,
