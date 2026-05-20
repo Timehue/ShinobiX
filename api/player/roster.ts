@@ -15,6 +15,19 @@ type RosterPlayer = {
     lastSeenAt?: number;
 };
 
+type PresenceEntry = {
+    name: string;
+    sector: number;
+    character?: unknown;
+    lastSeen?: number;
+};
+
+function normalizeSector(value: unknown, fallback = 40) {
+    const sector = Number(value);
+    if (!Number.isFinite(sector)) return fallback;
+    return Math.max(0, Math.floor(sector));
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res);
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -22,7 +35,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     try {
         const presenceKeys = await kv.keys('presence:*');
-        const onlineNames = new Set(presenceKeys.map(k => k.replace('presence:', '').toLowerCase()));
+        const presenceEntries = (await Promise.all(presenceKeys.map(k => kv.get<PresenceEntry>(k))))
+            .filter((entry): entry is PresenceEntry => Boolean(entry?.name));
+        const livePresenceByName = new Map(presenceEntries.map(entry => [entry.name.toLowerCase(), entry]));
+        const onlineNames = new Set(livePresenceByName.keys());
 
         // Primary: persistent registry (every player who ever connected)
         const rawRegistry = await kv.hgetall<Record<string, string>>(REGISTRY_KEY) ?? {};
@@ -32,7 +48,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             try {
                 const entry = typeof value === 'string' ? JSON.parse(value) : value;
                 const save = await kv.get<Record<string, unknown>>(`save:${key}`);
-                const character = save?.character;
+                const livePresence = livePresenceByName.get((entry.name ?? '').toLowerCase());
+                const character = livePresence?.character ?? save?.character;
                 players.push({
                     name: entry.name ?? '',
                     level: entry.level ?? 1,
@@ -40,8 +57,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     specialty: entry.specialty ?? '',
                     online: onlineNames.has((entry.name ?? '').toLowerCase()),
                     character,
-                    currentSector: (save?.currentSector as number | undefined) ?? 40,
-                    lastSeenAt: entry.lastSeen ?? 0,
+                    currentSector: normalizeSector(livePresence?.sector, normalizeSector(save?.currentSector, 40)),
+                    lastSeenAt: livePresence?.lastSeen ?? entry.lastSeen ?? 0,
                 });
             } catch { /* skip malformed */ }
         }
@@ -53,7 +70,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (players.some(p => p.name.toLowerCase() === name.toLowerCase())) continue;
             try {
                 const save = await kv.get<Record<string, unknown>>(key);
-                const character = save?.character as Record<string, unknown> | undefined;
+                const livePresence = livePresenceByName.get(name.toLowerCase());
+                const character = (livePresence?.character ?? save?.character) as Record<string, unknown> | undefined;
                 if (!character) continue;
                 players.push({
                     name: (character.name as string) ?? name,
@@ -62,8 +80,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     specialty: (character.specialty as string) ?? '',
                     online: onlineNames.has(name.toLowerCase()),
                     character,
-                    currentSector: (save?.currentSector as number | undefined) ?? 40,
-                    lastSeenAt: 0,
+                    currentSector: normalizeSector(livePresence?.sector, normalizeSector(save?.currentSector, 40)),
+                    lastSeenAt: livePresence?.lastSeen ?? 0,
                 });
             } catch {
                 // skip unreadable saves
