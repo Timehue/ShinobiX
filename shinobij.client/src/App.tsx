@@ -22126,6 +22126,7 @@ function Arena({
     const enemyTurnRef     = useRef<() => void>(() => {});
 
     const pendingPlayerStunApPenaltyRef = useRef(false);
+    const aiTurnRef = useRef<{ remainingAp: number; actionsUsed: number; localPos: number; done: boolean; usedJutsuIds: Set<string> } | null>(null);
     const lastPetActionKeyRef = useRef("");
 
     function setPendingTargetJutsuId(value: string) {
@@ -22543,6 +22544,23 @@ function Arena({
         const occupied = new Set([playerPos]);
         const candidates = hexNeighbors(origin).filter((next) => !occupied.has(next));
         return candidates.sort((a, b) => distance(a, target) - distance(b, target))[0] ?? origin;
+    }
+
+    // Find the best tile reachable within dashRange hex steps from `from` that
+    // minimises distance to `target`. Avoids the target tile and barrier tiles.
+    // Returns `from` unchanged if no closer tile exists.
+    function findDashDest(from: number, target: number, dashRange = 3): number {
+        const blocked = new Set([target, ...barrierTiles.map((b) => b.tile)]);
+        let best = from;
+        let bestDist = distance(from, target);
+        for (let tile = 0; tile < gridWidth * gridHeight; tile++) {
+            if (blocked.has(tile)) continue;
+            const steps = distance(from, tile);
+            if (steps < 1 || steps > dashRange) continue;
+            const toTarget = distance(tile, target);
+            if (toTarget < bestDist) { best = tile; bestDist = toTarget; }
+        }
+        return best;
     }
 
     function spendAp(cost: number, actionId = "action") {
@@ -24042,6 +24060,7 @@ function Arena({
         setLog(`${opponentName} used ${jutsu.name}.`);
 
         if (playerHp - finalDamage - extraDamage <= 0) {
+            if (aiTurnRef.current) aiTurnRef.current.done = true;
             setBattleEnded(true);
             setBattleResult("loss");
             setRaidBattleKind("none");
@@ -24076,8 +24095,8 @@ function Arena({
         setActionsThisTurn(0);
         const enemyStunned = enemyStatuses.some((s) => s.name === "Stun");
         const enemyCompressed = enemyStatuses.some((s) => statusMatchesName(s, "Lag"));
-        const enemyTurnAp = Math.max(0, 100 - (enemyStunned ? STUN_AP_PENALTY : 0) - (enemyCompressed ? 10 : 0));
-        setEnemyAp(enemyTurnAp);
+        const startAp = Math.max(0, 100 - (enemyStunned ? STUN_AP_PENALTY : 0));
+        setEnemyAp(startAp);
         if (enemyStunned) {
             setEnemyStatuses((s) => withoutStun(s));
             setLog(`Stun: ${opponentName} loses ${STUN_AP_PENALTY} AP this turn.`);
@@ -24087,19 +24106,15 @@ function Arena({
             addCombatLog(`Lag: ${opponentName}'s actions cost 10 more AP this turn.`, "lag", opponentName);
         }
 
+        // ── DoTs ──────────────────────────────────────────────────────────────────
         let dotDamage = 0;
         let drainChakra = 0;
         let drainStamina = 0;
         enemyStatuses.filter((s) => s.name !== "Stun").forEach((s) => {
             if (s.name === "Wound") dotDamage += s.amount || 0;
-            if (s.name === "Drain") {
-                dotDamage += 250;
-                drainChakra += 250;
-                drainStamina += 250;
-            }
+            if (s.name === "Drain") { dotDamage += 250; drainChakra += 250; drainStamina += 250; }
             if (s.name === "Poison") dotDamage += s.amount ?? Math.floor(enemyMaxChakra * (s.percent ?? 6) / 100);
         });
-
         if (dotDamage > 0) {
             setEnemyHp((hp) => Math.max(0, hp - dotDamage));
             if (drainChakra > 0) setEnemyChakra((c) => Math.max(0, c - drainChakra));
@@ -24107,135 +24122,145 @@ function Arena({
             const drainNote = drainChakra > 0 ? ` Drain also removes ${drainChakra} chakra and ${drainStamina} stamina.` : "";
             addCombatLog(`Damage over time: ${opponentName} takes ${dotDamage} damage from active effects.${drainNote}`, "effects", opponentName);
         }
-
         if (enemyHp - dotDamage <= 0) return winBattle();
 
-        if (pendingAiProfile) {
-            const matchedRules = pendingAiProfile.rules.filter(aiRuleMatches);
+        // ── Multi-action turn setup ───────────────────────────────────────────────
+        // aiTurnRef holds mutable working state that persists across the chained
+        // setTimeout callbacks so each aiStep sees up-to-date AP, position, and
+        // which jutsus have already been used this turn.
+        aiTurnRef.current = { remainingAp: startAp, actionsUsed: 0, localPos: enemyPos, done: false, usedJutsuIds: new Set() };
 
-            for (const rule of matchedRules) {
-                const specificJutsu = rule.jutsuId ? enemyAiJutsus.find((jutsu) => jutsu.id === rule.jutsuId) : undefined;
-                const chosenJutsu = rule.action === "use_specific_jutsu" ? specificJutsu : rule.action === "use_highest_power_jutsu" ? highestPowerAiJutsu(enemyTurnAp) : undefined;
+        // Farthest jutsu range available (used to decide when to stop moving).
+        function bestJutsuRange(): number {
+            return enemyAiJutsus
+                .filter((j) => !aiTurnRef.current?.usedJutsuIds.has(j.id) && j.target !== "SELF" && (j.range ?? 0) > 0)
+                .reduce((max, j) => Math.max(max, j.range ?? 0), 1);
+        }
 
-                if (chosenJutsu && enemyUseAiJutsu(chosenJutsu, enemyTurnAp)) {
-                    addCombatLog(`${opponentName} follows AI Rule ${pendingAiProfile.rules.indexOf(rule) + 1}.`, "aiRule", opponentName);
+        // Pick the best usable jutsu reachable from `pos` with `ap` AP remaining.
+        // Excludes jutsus already used this turn and those still on cooldown.
+        function pickBestJutsu(pos: number, ap: number): Jutsu | undefined {
+            const usedIds = aiTurnRef.current?.usedJutsuIds ?? new Set();
+            return [...enemyAiJutsus]
+                .filter((j) => j.ap <= ap)
+                .filter((j) => !usedIds.has(j.id))
+                .filter((j) => (enemyJutsuCooldowns[j.id] ?? 0) <= 0)
+                .filter((j) => j.target === "SELF" || (j.range ?? 0) <= 0 || distance(pos, playerPos) <= (j.range ?? 0))
+                .sort((a, b) => {
+                    const score = (j: Jutsu) => {
+                        let s = j.effectPower;
+                        if (isSelfSupportJutsu(j) && enemyHp / enemyMaxHp > 0.65) s -= 45;
+                        if (isControlJutsu(j)) s += 8;
+                        if (isPressureJutsu(j)) s += 6;
+                        return s;
+                    };
+                    return score(b) - score(a) || b.ap - a.ap;
+                })[0];
+        }
+
+        function aiStep() {
+            const state = aiTurnRef.current;
+            if (!state || state.done || battleEnded) { finishEnemyAiAction(); return; }
+            const { remainingAp, actionsUsed, localPos } = state;
+            if (remainingAp < 30 || actionsUsed >= 5) { finishEnemyAiAction(); return; }
+
+            // ── A. AI profile rules (highest priority) ───────────────────────────
+            if (pendingAiProfile) {
+                const matchedRules = pendingAiProfile.rules.filter(aiRuleMatches);
+                for (const rule of matchedRules) {
+                    const specificJutsu = rule.jutsuId ? enemyAiJutsus.find((j) => j.id === rule.jutsuId) : undefined;
+                    const chosenJutsu = rule.action === "use_specific_jutsu" ? specificJutsu
+                        : rule.action === "use_highest_power_jutsu" ? pickBestJutsu(localPos, remainingAp)
+                        : undefined;
+                    if (chosenJutsu && !state.usedJutsuIds.has(chosenJutsu.id) && enemyUseAiJutsu(chosenJutsu, remainingAp)) {
+                        state.usedJutsuIds.add(chosenJutsu.id);
+                        state.remainingAp -= chosenJutsu.ap;
+                        state.actionsUsed++;
+                        setEnemyAp(Math.max(0, state.remainingAp));
+                        addCombatLog(`${opponentName} follows AI Rule ${matchedRules.indexOf(rule) + 1}.`, "aiRule", opponentName);
+                        if (!state.done) setTimeout(aiStep, 700); else finishEnemyAiAction();
+                        return;
+                    }
+                }
+            }
+
+            // ── B. Best in-range jutsu ───────────────────────────────────────────
+            const jutsu = pickBestJutsu(localPos, remainingAp);
+            if (jutsu && enemyUseAiJutsu(jutsu, remainingAp)) {
+                state.usedJutsuIds.add(jutsu.id);
+                state.remainingAp -= jutsu.ap;
+                state.actionsUsed++;
+                setEnemyAp(Math.max(0, state.remainingAp));
+                if (opponentCharacter) addCombatLog(`${opponentName} uses an equipped jutsu.`, jutsu.id, opponentName);
+                if (!state.done) setTimeout(aiStep, 700); else finishEnemyAiAction();
+                return;
+            }
+
+            // ── C. Dash toward player to enter jutsu range (30 AP) ───────────────
+            if (remainingAp >= 30) {
+                const wantRange = Math.max(1, bestJutsuRange());
+                if (distance(localPos, playerPos) > wantRange) {
+                    const dest = findDashDest(localPos, playerPos, 3);
+                    if (dest !== localPos) {
+                        const dashDist = Math.round(distance(localPos, dest));
+                        state.localPos = dest;
+                        state.remainingAp -= 30;
+                        state.actionsUsed++;
+                        setEnemyPos(dest);
+                        setEnemyAp(Math.max(0, state.remainingAp));
+                        setLog(`${opponentName} ${dashDist > 1 ? "dashes" : "moves"} closer.`);
+                        addCombatLog(`${opponentName} ${dashDist > 1 ? "dashes" : "moves"} toward ${character.name}.`, "move", opponentName);
+                        setTimeout(aiStep, 500);
+                        return;
+                    }
+                }
+            }
+
+            // ── D. Basic attack if adjacent and enough AP ────────────────────────
+            if (remainingAp >= 40 && distance(localPos, playerPos) <= 1) {
+                const basicJutsu = makeJutsu("enemy-basic-strike", "Enemy Strike", "Taijutsu", 40, 1, 100, 0, 0, 0, [], "Earth");
+                let dmg = calculateDamage(basicJutsu, enemyCombatStats, characterCombatStats, character.maxHp, activeBloodlineMultiplier(opponentCharacter, enemyStatuses), playerArmorFactor, 1.0, weatherDamageMultiplier(basicJutsu));
+                dmg = Math.floor(dmg *
+                    multiplicativeTagMultiplier(enemyStatuses.filter((s) => s.name === "Decrease Damage Given"), "decrease") *
+                    multiplicativeTagMultiplier(playerStatuses.filter((s) => s.name === "Decrease Damage Taken"), "decrease") *
+                    multiplicativeTagMultiplier(playerStatuses.filter((s) => s.name === "Increase Damage Taken" || statusMatchesName(s, "Ignition")), "increase") *
+                    (enemyStatuses.some((s) => s.name === "Bloodline Seal" || s.name === "Seal" || s.name === "Elemental Seal") ? 0.85 : 1));
+                const reflect = playerStatuses.find((s) => s.name === "Reflect");
+                if (reflect) { const r = cappedPostDamage(dmg, reflect.percent || 30); setEnemyHp((hp) => Math.max(0, hp - r)); addCombatLog(`Reflect: ${opponentName} takes ${r} reflected damage.`, "reflect", character.name); }
+                if (equippedReflectPercent > 0) { const r = Math.floor(cappedPostDamage(dmg, equippedReflectPercent)); if (r > 0) { setEnemyHp((hp) => Math.max(0, hp - r)); addCombatLog(`Reflect (armor): ${opponentName} takes ${r} reflected damage.`, "reflect", character.name); } }
+                const blocked = Math.min(playerShield, dmg);
+                const finalDmg = dmg - blocked;
+                const absorb = playerStatuses.find((s) => s.name === "Absorb");
+                const absorbed = Math.min(finalDmg, (equippedAbsorbPercent > 0 ? Math.floor(cappedPostDamage(finalDmg, equippedAbsorbPercent)) : 0) + (absorb ? cappedPostDamage(finalDmg, absorb.percent || 30) : 0));
+                setPlayerShield((s) => Math.max(0, s - blocked));
+                setPlayerHp((hp) => Math.max(0, Math.min(character.maxHp, hp - finalDmg + absorbed)));
+                updateCharacter({ ...character, hp: Math.max(0, Math.min(character.maxHp, playerHp - finalDmg + absorbed)) });
+                setLog(`Enemy attacked for ${finalDmg}.`);
+                addCombatLog(`${opponentName} attacks ${character.name} for ${finalDmg} damage.${blocked ? ` Shield blocks ${blocked}.` : ""}${absorbed ? ` Absorb restores ${absorbed}.` : ""}`, "basicAttack", opponentName);
+                state.remainingAp -= 40;
+                state.actionsUsed++;
+                setEnemyAp(Math.max(0, state.remainingAp));
+                if (playerHp - finalDmg + absorbed <= 0) {
+                    state.done = true;
+                    setBattleEnded(true);
+                    setBattleResult("loss");
+                    setRaidBattleKind("none");
+                    setLog(`${character.name} was defeated.`);
+                    addCombatLog(`${opponentName} defeats ${character.name}.`, "defeat", opponentName);
+                    if (rankedBattleActive) applyRankedLoss();
+                    else updateCharacter({ ...character, hp: 0, hospitalized: true });
                     finishEnemyAiAction();
                     return;
                 }
-
-                if (rule.action === "move_towards_opponent" && distance(playerPos, enemyPos) > 1) {
-                    const next = nextStepToward(enemyPos, playerPos);
-                    if (next >= 0 && next < gridWidth * gridHeight && next !== playerPos && !barrierTiles.some((b) => b.tile === next)) setEnemyPos(next);
-                    setLog(`${opponentName} follows its AI rule and moves closer.`);
-                    addCombatLog(`${opponentName} follows AI Rule ${pendingAiProfile.rules.indexOf(rule) + 1} and moves toward ${character.name}.`, "move", opponentName);
-                    finishEnemyAiAction();
-                    return;
-                }
-
-                if (rule.action === "use_basic_attack" && distance(playerPos, enemyPos) <= 1) {
-                    break;
-                }
-            }
-        }
-
-        if (opponentCharacter && enemyAiJutsus.length > 0) {
-            const chosenJutsu = highestPowerAiJutsu(enemyTurnAp);
-            if (chosenJutsu && enemyUseAiJutsu(chosenJutsu, enemyTurnAp)) {
-                addCombatLog(`${opponentName} uses an equipped player jutsu.`, chosenJutsu.id, opponentName);
-                finishEnemyAiAction();
+                setTimeout(aiStep, 600);
                 return;
             }
 
-            if (distance(playerPos, enemyPos) > 1) {
-                const next = nextStepToward(enemyPos, playerPos);
-                if (next >= 0 && next < gridWidth * gridHeight && next !== playerPos && !barrierTiles.some((b) => b.tile === next)) setEnemyPos(next);
-                setLog(`${opponentName} moves closer.`);
-                addCombatLog(`${opponentName} moves toward ${character.name}.`, "move", opponentName);
-                finishEnemyAiAction();
-                return;
-            }
+            // ── E. Nothing useful — end turn ─────────────────────────────────────
+            finishEnemyAiAction();
         }
 
-        const enemyBasicJutsu = makeJutsu("enemy-basic-strike", "Enemy Strike", "Taijutsu", 40, 1, 100, 0, 0, 0, [], "Earth");
-        let enemyDamage = calculateDamage(
-            enemyBasicJutsu,
-            enemyCombatStats,
-            characterCombatStats,
-            character.maxHp,
-            activeBloodlineMultiplier(opponentCharacter, enemyStatuses),
-            playerArmorFactor,
-            1.0,
-            weatherDamageMultiplier(enemyBasicJutsu)
-        );
-
-        enemyDamage = Math.floor(
-            enemyDamage *
-            multiplicativeTagMultiplier(enemyStatuses.filter((s) => s.name === "Decrease Damage Given"), "decrease") *
-            multiplicativeTagMultiplier(playerStatuses.filter((s) => s.name === "Decrease Damage Taken"), "decrease") *
-            multiplicativeTagMultiplier(playerStatuses.filter((s) => s.name === "Increase Damage Taken" || statusMatchesName(s, "Ignition")), "increase") *
-            (enemyStatuses.some((s) => s.name === "Bloodline Seal" || s.name === "Seal" || s.name === "Elemental Seal") ? 0.85 : 1)
-        );
-
-        const reflect = playerStatuses.find((s) => s.name === "Reflect");
-        if (reflect) {
-            const reflected = cappedPostDamage(enemyDamage, reflect.percent || 30);
-            setEnemyHp((hp) => Math.max(0, hp - reflected));
-            addCombatLog(`Reflect: ${opponentName} takes ${reflected} reflected damage.`, "reflect", character.name);
-        }
-        if (equippedReflectPercent > 0) {
-            const itemReflected = Math.floor(cappedPostDamage(enemyDamage, equippedReflectPercent));
-            if (itemReflected > 0) {
-                setEnemyHp((hp) => Math.max(0, hp - itemReflected));
-                addCombatLog(`Reflect (armor): ${opponentName} takes ${itemReflected} reflected damage.`, "reflect", character.name);
-            }
-        }
-
-        setEnemyAp(0);
-
-        if (distance(playerPos, enemyPos) > 1) {
-            const next = nextStepToward(enemyPos, playerPos);
-
-            if (next >= 0 && next < gridWidth * gridHeight && next !== playerPos) setEnemyPos(next);
-            setLog("Enemy moved closer across the grid.");
-            addCombatLog(`${opponentName} moves closer across the battlefield.`, "move", opponentName);
-        } else {
-            const blocked = Math.min(playerShield, enemyDamage);
-            const finalDamage = enemyDamage - blocked;
-            const absorb = playerStatuses.find((s) => s.name === "Absorb");
-            const itemAbsorbed = equippedAbsorbPercent > 0 ? Math.floor(cappedPostDamage(finalDamage, equippedAbsorbPercent)) : 0;
-            const statusAbsorbed = absorb ? cappedPostDamage(finalDamage, absorb.percent || 30) : 0;
-            const absorbed = Math.min(finalDamage, itemAbsorbed + statusAbsorbed);
-
-            setPlayerShield((s) => Math.max(0, s - blocked));
-            setPlayerHp((hp) => Math.max(0, Math.min(character.maxHp, hp - finalDamage + absorbed)));
-
-            updateCharacter({
-                ...character,
-                hp: Math.max(0, Math.min(character.maxHp, playerHp - finalDamage + absorbed)),
-            });
-
-            if (playerHp - finalDamage + absorbed <= 0) {
-                setBattleEnded(true);
-                setBattleResult("loss");
-                setRaidBattleKind("none");
-                setLog(`${character.name} was defeated.`);
-                addCombatLog(`${opponentName} defeats ${character.name}.`, "defeat", opponentName);
-                if (rankedBattleActive) applyRankedLoss();
-                return;
-            }
-
-            setLog(`Enemy attacked for ${finalDamage}.`);
-            addCombatLog(`${opponentName} attacks ${character.name} for ${finalDamage} damage.${blocked ? ` Shield blocks ${blocked}.` : ""}${absorbed ? ` Absorb restores ${absorbed}.` : ""}`, "basicAttack", opponentName);
-        }
-
-        setEnemyStatuses((s) => tickStatuses(s));
-        setPlayerStatuses((s) => tickStatuses(s));
-        reduceCooldowns();
-        setAp(100);
-        setEnemyAp(100);
-        setActiveActor("player");
-        setActionsThisTurn(0);
-        setTurn((t) => t + 1);
+        setTimeout(aiStep, 500);
     }
 
     function resetBattle(nextEnemyHp = enemyMaxHp, firstActor?: "player" | "enemy") {
