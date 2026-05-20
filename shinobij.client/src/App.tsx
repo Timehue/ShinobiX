@@ -3003,15 +3003,15 @@ function getItemById(items: GameItem[], id?: string) {
 }
 
 const bossScaleByLevel: Record<number, { hp: number; damage: number; xp: number; ryo: number }> = {
-    4: { hp: 180, damage: 15, xp: 120, ryo: 75 },
-    15: { hp: 550, damage: 28, xp: 500, ryo: 250 },
-    25: { hp: 950, damage: 42, xp: 900, ryo: 500 },
-    35: { hp: 1500, damage: 58, xp: 1400, ryo: 800 },
-    50: { hp: 2500, damage: 78, xp: 2200, ryo: 1300 },
-    65: { hp: 3800, damage: 105, xp: 3400, ryo: 2000 },
-    75: { hp: 5000, damage: 130, xp: 4600, ryo: 2800 },
-    85: { hp: 6800, damage: 165, xp: 6200, ryo: 4000 },
-    100: { hp: 10000, damage: 220, xp: 10000, ryo: 7500 },
+    4:   { hp: 600,   damage: 18,  xp: 120,   ryo: 75 },
+    15:  { hp: 2000,  damage: 32,  xp: 500,   ryo: 250 },
+    25:  { hp: 3500,  damage: 50,  xp: 900,   ryo: 500 },
+    35:  { hp: 5200,  damage: 68,  xp: 1400,  ryo: 800 },
+    50:  { hp: 7500,  damage: 90,  xp: 2200,  ryo: 1300 },
+    65:  { hp: 11000, damage: 120, xp: 3400,  ryo: 2000 },
+    75:  { hp: 14000, damage: 148, xp: 4600,  ryo: 2800 },
+    85:  { hp: 18000, damage: 185, xp: 6200,  ryo: 4000 },
+    100: { hp: 24000, damage: 250, xp: 10000, ryo: 7500 },
 };
 
 const kageLiberatorTitles: Record<string, string> = {
@@ -3965,14 +3965,14 @@ function aiPrimaryJutsuType(jutsus: Jutsu[] = []): JutsuType | undefined {
 
 function aiStatsForLevel(level: number, jutsus: Jutsu[] = []): Stats {
     const safeLevel = Math.max(1, Math.min(MAX_LEVEL, Math.floor(level || 1)));
-    const base = 25 + safeLevel * 14;
-    const defenseLift = safeLevel * 4;
-    const primaryLift = safeLevel * 7;
+    const base = 30 + safeLevel * 16;
+    const defenseLift = safeLevel * 5;
+    const primaryLift = safeLevel * 9;
     const stats: Stats = {
-        strength: scaleStat(base + safeLevel * 2),
-        speed: scaleStat(base + safeLevel * 2),
-        intelligence: scaleStat(base + safeLevel * 2),
-        willpower: scaleStat(base + safeLevel * 2),
+        strength: scaleStat(base + safeLevel * 3),
+        speed: scaleStat(base + safeLevel * 3),
+        intelligence: scaleStat(base + safeLevel * 3),
+        willpower: scaleStat(base + safeLevel * 3),
         bukijutsuOffense: scaleStat(base),
         bukijutsuDefense: scaleStat(base + defenseLift),
         taijutsuOffense: scaleStat(base),
@@ -3985,24 +3985,24 @@ function aiStatsForLevel(level: number, jutsus: Jutsu[] = []): Stats {
     const primary = aiPrimaryJutsuType(jutsus);
     if (primary === "Bukijutsu") {
         stats.bukijutsuOffense = scaleStat(stats.bukijutsuOffense + primaryLift);
-        stats.bukijutsuDefense = scaleStat(stats.bukijutsuDefense + safeLevel * 2);
-        stats.strength = scaleStat(stats.strength + safeLevel * 3);
-        stats.speed = scaleStat(stats.speed + safeLevel * 2);
+        stats.bukijutsuDefense = scaleStat(stats.bukijutsuDefense + safeLevel * 3);
+        stats.strength = scaleStat(stats.strength + safeLevel * 4);
+        stats.speed = scaleStat(stats.speed + safeLevel * 3);
     } else if (primary === "Taijutsu") {
         stats.taijutsuOffense = scaleStat(stats.taijutsuOffense + primaryLift);
-        stats.taijutsuDefense = scaleStat(stats.taijutsuDefense + safeLevel * 2);
-        stats.strength = scaleStat(stats.strength + safeLevel * 3);
-        stats.speed = scaleStat(stats.speed + safeLevel * 3);
+        stats.taijutsuDefense = scaleStat(stats.taijutsuDefense + safeLevel * 3);
+        stats.strength = scaleStat(stats.strength + safeLevel * 4);
+        stats.speed = scaleStat(stats.speed + safeLevel * 4);
     } else if (primary === "Genjutsu") {
         stats.genjutsuOffense = scaleStat(stats.genjutsuOffense + primaryLift);
-        stats.genjutsuDefense = scaleStat(stats.genjutsuDefense + safeLevel * 2);
-        stats.intelligence = scaleStat(stats.intelligence + safeLevel * 3);
-        stats.willpower = scaleStat(stats.willpower + safeLevel * 3);
+        stats.genjutsuDefense = scaleStat(stats.genjutsuDefense + safeLevel * 3);
+        stats.intelligence = scaleStat(stats.intelligence + safeLevel * 4);
+        stats.willpower = scaleStat(stats.willpower + safeLevel * 4);
     } else if (primary === "Ninjutsu") {
         stats.ninjutsuOffense = scaleStat(stats.ninjutsuOffense + primaryLift);
-        stats.ninjutsuDefense = scaleStat(stats.ninjutsuDefense + safeLevel * 2);
-        stats.intelligence = scaleStat(stats.intelligence + safeLevel * 3);
-        stats.willpower = scaleStat(stats.willpower + safeLevel * 2);
+        stats.ninjutsuDefense = scaleStat(stats.ninjutsuDefense + safeLevel * 3);
+        stats.intelligence = scaleStat(stats.intelligence + safeLevel * 4);
+        stats.willpower = scaleStat(stats.willpower + safeLevel * 3);
     }
     return stats;
 }
@@ -4010,12 +4010,12 @@ function aiStatsForLevel(level: number, jutsus: Jutsu[] = []): Stats {
 function aiHpForLevel(level: number, toughness = 0) {
     const safeLevel = Math.max(1, Math.min(MAX_LEVEL, Math.floor(level || 1)));
     const levelScale = safeLevel / MAX_LEVEL;
-    return Math.floor(maxHpForLevel(safeLevel) * (1.05 + levelScale * 0.2 + toughness));
+    return Math.floor(maxHpForLevel(safeLevel) * (1.12 + levelScale * 0.35 + toughness * 1.5));
 }
 
 function aiRawDamageReductionForLevel(level: number, toughness = 0) {
     const safeLevel = Math.max(1, Math.min(MAX_LEVEL, Math.floor(level || 1)));
-    return clampNumber(0.02 + safeLevel * 0.004 + toughness * 0.25, 0.03, 0.55);
+    return clampNumber(0.06 + safeLevel * 0.005 + toughness * 0.28, 0.08, 0.62);
 }
 
 function aiArmorFactorFromRaw(rawDR: number) {
@@ -5122,31 +5122,75 @@ function buildBasicCombatAiRules(selectedJutsus: Jutsu[], loadoutId: AiLoadoutId
     const selfJutsu = usableJutsus.find(isSelfSupportJutsu);
     const controlJutsu = usableJutsus.find(isControlJutsu);
     const pressureJutsu = usableJutsus.find(isPressureJutsu);
-    const damageJutsu = [...usableJutsus]
+    const offensiveJutsus = [...usableJutsus]
         .filter((jutsu) => jutsu.target !== "SELF")
-        .sort((a, b) => b.effectPower - a.effectPower || b.ap - a.ap)[0];
+        .sort((a, b) => b.effectPower - a.effectPower || b.ap - a.ap);
+    const damageJutsu = offensiveJutsus[0];
+    const secondaryJutsu = offensiveJutsus[1];
     const longestRange = Math.max(1, ...usableJutsus.filter((jutsu) => jutsu.target !== "SELF").map((jutsu) => jutsu.range || 1));
+    const isBoss = loadoutId === "boss";
+    const isControl = loadoutId === "control";
+    const isDefender = loadoutId === "defender";
+    const isBurst = loadoutId === "burst";
     const rules: AiRule[] = [];
 
+    // Self-sustain — defenders and bosses are more proactive about healing
     if (selfJutsu) {
-        rules.push({ id: makeId(), condition: "hp_lower_than", value: loadoutId === "defender" || loadoutId === "boss" ? 65 : 45, action: "use_specific_jutsu", jutsuId: selfJutsu.id });
-        if (loadoutId === "defender") rules.push({ id: makeId(), condition: "specific_round", value: 1, action: "use_specific_jutsu", jutsuId: selfJutsu.id });
+        const healThreshold = isDefender || isBoss ? 70 : isBurst ? 35 : 48;
+        rules.push({ id: makeId(), condition: "hp_lower_than", value: healThreshold, action: "use_specific_jutsu", jutsuId: selfJutsu.id });
+        if (isDefender) {
+            // Defenders shield on round 1 and again at low HP
+            rules.push({ id: makeId(), condition: "specific_round", value: 1, action: "use_specific_jutsu", jutsuId: selfJutsu.id });
+            rules.push({ id: makeId(), condition: "hp_lower_than", value: 40, action: "use_specific_jutsu", jutsuId: selfJutsu.id });
+        }
+        if (isBoss) {
+            // Boss heals reactively twice — at 70% and again at 35%
+            rules.push({ id: makeId(), condition: "hp_lower_than", value: 35, action: "use_specific_jutsu", jutsuId: selfJutsu.id });
+        }
     }
 
+    // Control — open with disruption and re-apply on odd rounds or at critical moments
     if (controlJutsu) {
         rules.push({ id: makeId(), condition: "specific_round", value: 1, action: "use_specific_jutsu", jutsuId: controlJutsu.id });
-        if (loadoutId === "control" || loadoutId === "boss") rules.push({ id: makeId(), condition: "hp_lower_than", value: 55, action: "use_specific_jutsu", jutsuId: controlJutsu.id });
+        if (isControl || isBoss) {
+            rules.push({ id: makeId(), condition: "specific_round", value: 3, action: "use_specific_jutsu", jutsuId: controlJutsu.id });
+            rules.push({ id: makeId(), condition: "specific_round", value: 5, action: "use_specific_jutsu", jutsuId: controlJutsu.id });
+            rules.push({ id: makeId(), condition: "hp_lower_than", value: 50, action: "use_specific_jutsu", jutsuId: controlJutsu.id });
+        }
     }
 
-    if (pressureJutsu && loadoutId !== "defender") {
-        rules.push({ id: makeId(), condition: "specific_round", value: controlJutsu ? 2 : 1, action: "use_specific_jutsu", jutsuId: pressureJutsu.id });
+    // Pressure — burst AI front-loads, boss AI cycles between rounds
+    if (pressureJutsu && !isDefender) {
+        const startRound = controlJutsu ? 2 : 1;
+        rules.push({ id: makeId(), condition: "specific_round", value: startRound, action: "use_specific_jutsu", jutsuId: pressureJutsu.id });
+        if (isBurst) {
+            // Burst AI re-applies pressure every 3 rounds
+            rules.push({ id: makeId(), condition: "specific_round", value: startRound + 3, action: "use_specific_jutsu", jutsuId: pressureJutsu.id });
+            rules.push({ id: makeId(), condition: "specific_round", value: startRound + 6, action: "use_specific_jutsu", jutsuId: pressureJutsu.id });
+        }
+        if (isBoss) {
+            // Boss alternates between primary and secondary damage tool
+            rules.push({ id: makeId(), condition: "specific_round", value: 4, action: "use_specific_jutsu", jutsuId: pressureJutsu.id });
+            rules.push({ id: makeId(), condition: "specific_round", value: 7, action: "use_specific_jutsu", jutsuId: pressureJutsu.id });
+        }
     }
+
+    // Alternate between strongest and second-strongest damage jutsu for boss/bruiser variety
+    if (isBoss && secondaryJutsu && secondaryJutsu.id !== damageJutsu?.id) {
+        rules.push({ id: makeId(), condition: "specific_round", value: 3, action: "use_specific_jutsu", jutsuId: secondaryJutsu.id });
+        rules.push({ id: makeId(), condition: "specific_round", value: 6, action: "use_specific_jutsu", jutsuId: secondaryJutsu.id });
+    }
+
+    // Primary offense — always use best damage jutsu when in range
     if (damageJutsu) {
         rules.push({ id: makeId(), condition: "distance_lower_than", value: longestRange + 1, action: "use_specific_jutsu", jutsuId: damageJutsu.id });
         rules.push({ id: makeId(), condition: "distance_lower_than", value: longestRange + 1, action: "use_highest_power_jutsu" });
     }
 
+    // Movement — close the gap
     rules.push({ id: makeId(), condition: "distance_higher_than", value: longestRange, action: "move_towards_opponent" });
+
+    // Fallback
     rules.push({ id: makeId(), condition: "always", value: 0, action: damageJutsu ? "use_highest_power_jutsu" : "use_basic_attack" });
     rules.push({ id: makeId(), condition: "always", value: 0, action: "use_basic_attack" });
 
@@ -5197,8 +5241,8 @@ function makeStoryBossAi(village: string, step: StoryStep): CreatorAi {
     });
     const jutsuCount = step.levelReq >= 85 ? 6 : step.levelReq >= 50 ? 5 : 4;
     const selectedJutsus = (villageJutsus.length ? villageJutsus : starterJutsus).slice(0, jutsuCount);
-    const statBonus = Math.max(18, Math.floor(step.bossDamage * 0.8));
-    const bossHp = Math.max(step.bossHp, aiHpForLevel(step.levelReq, step.kageFinale ? 0.35 : 0.22));
+    const statBonus = Math.max(25, Math.floor(step.bossDamage * 0.9));
+    const bossHp = Math.max(step.bossHp, aiHpForLevel(step.levelReq, step.kageFinale ? 0.50 : 0.30));
     return makeBuiltinAi(
         step.aiProfileId ?? storyAiId(village, step.levelReq),
         step.bossName,
@@ -5251,25 +5295,25 @@ function rollPetEncounter(pets: Pet[]): Pet | null {
 const storyBossAis = Object.entries(storylines).flatMap(([village, steps]) => steps.map((step) => makeStoryBossAi(village, step)));
 
 const builtinAis: CreatorAi[] = [
-    makeBuiltinAi("builtin-ai-mist-sentinel", "Mist Sentinel", "MS", 8, "Stormveil Patrol", aiJutsuLoadout("defender"), 18, undefined, "defender"),
-    makeBuiltinAi("builtin-ai-ember-duelist", "Ember Duelist", "ED", 18, "Ashen Leaf Duelist", aiJutsuLoadout("burst"), 34, undefined, "burst"),
-    makeBuiltinAi("builtin-ai-exam-proctor", "Exam Proctor", "EP", 25, "Central Exam Hall", aiJutsuLoadout("balanced"), 44, undefined, "balanced"),
-    makeBuiltinAi("builtin-ai-frost-sealer", "Frost Sealer", "FS", 32, "Frostfang Hunter", aiJutsuLoadout("control"), 52, undefined, "control"),
-    makeBuiltinAi("builtin-ai-rogue-ninja", "Rogue Ninja", "RN", 47, "Rogue Territory", aiJutsuLoadout("bruiser"), 72, undefined, "bruiser"),
-    makeBuiltinAi("builtin-ai-shadow-weaver", "Shadow Weaver", "SW", 48, "Moonshadow Operative", aiJutsuLoadout("control"), 74, undefined, "control"),
-    makeBuiltinAi("builtin-ai-central-champion", "Central Champion", "CC", 70, "Central Arena", aiJutsuLoadout("boss"), 110, undefined, "boss"),
+    makeBuiltinAi("builtin-ai-mist-sentinel", "Mist Sentinel", "MS", 8, "Stormveil Patrol", aiJutsuLoadout("defender"), 30, undefined, "defender"),
+    makeBuiltinAi("builtin-ai-ember-duelist", "Ember Duelist", "ED", 18, "Ashen Leaf Duelist", aiJutsuLoadout("burst"), 50, undefined, "burst"),
+    makeBuiltinAi("builtin-ai-exam-proctor", "Exam Proctor", "EP", 25, "Central Exam Hall", aiJutsuLoadout("balanced"), 62, undefined, "balanced"),
+    makeBuiltinAi("builtin-ai-frost-sealer", "Frost Sealer", "FS", 32, "Frostfang Hunter", aiJutsuLoadout("control"), 75, undefined, "control"),
+    makeBuiltinAi("builtin-ai-rogue-ninja", "Rogue Ninja", "RN", 47, "Rogue Territory", aiJutsuLoadout("bruiser"), 100, undefined, "bruiser"),
+    makeBuiltinAi("builtin-ai-shadow-weaver", "Shadow Weaver", "SW", 48, "Moonshadow Operative", aiJutsuLoadout("control"), 102, undefined, "control"),
+    makeBuiltinAi("builtin-ai-central-champion", "Central Champion", "CC", 70, "Central Arena", aiJutsuLoadout("boss"), 160, undefined, "boss"),
     ...storyBossAis,
     // -- Hunt beast AIs ------------------------------------------------------
-    makeBuiltinAi("hunt-ai-wild-boar", "Wild Boar", "??", 5, "Forest Territory", aiJutsuLoadout("hunter"), 10, undefined, "hunter"),
-    makeBuiltinAi("hunt-ai-forest-hawk", "Forest Hawk", "??", 8, "Forest Territory", aiJutsuLoadout("burst"), 14, undefined, "burst"),
-    makeBuiltinAi("hunt-ai-frost-wolf", "Frost Wolf", "??", 18, "Snow Territory", aiJutsuLoadout("hunter"), 26, undefined, "hunter"),
-    makeBuiltinAi("hunt-ai-ash-lizard", "Ash Lizard", "??", 22, "Volcano Territory", aiJutsuLoadout("burst"), 30, undefined, "burst"),
-    makeBuiltinAi("hunt-ai-shadow-panther", "Shadow Panther", "??", 38, "Shadow Territory", aiJutsuLoadout("control"), 55, undefined, "control"),
-    makeBuiltinAi("hunt-ai-ironback-bear", "Ironback Bear", "??", 42, "Forest Territory", aiJutsuLoadout("defender"), 60, 1800, "defender"),
-    makeBuiltinAi("hunt-ai-ember-drake", "Ember Drake", "??", 65, "Volcano Territory", aiJutsuLoadout("boss"), 115, 4200, "boss"),
-    makeBuiltinAi("hunt-ai-moon-serpent", "Moon Serpent", "??", 68, "Shadow Territory", aiJutsuLoadout("control"), 120, 4500, "control"),
-    makeBuiltinAi("hunt-ai-ancient-chakra-beast", "Ancient Chakra Beast", "??", 88, "Central Wilderness", aiJutsuLoadout("boss"), 155, 8000, "boss"),
-    makeBuiltinAi("hunt-ai-worldstorm-dragon", "Worldstorm Dragon", "??", 92, "Central Wilderness", aiJutsuLoadout("boss"), 165, 9000, "boss"),
+    makeBuiltinAi("hunt-ai-wild-boar", "Wild Boar", "??", 5, "Forest Territory", aiJutsuLoadout("hunter"), 18, 720, "hunter"),
+    makeBuiltinAi("hunt-ai-forest-hawk", "Forest Hawk", "??", 8, "Forest Territory", aiJutsuLoadout("burst"), 25, 1100, "burst"),
+    makeBuiltinAi("hunt-ai-frost-wolf", "Frost Wolf", "??", 18, "Snow Territory", aiJutsuLoadout("hunter"), 42, 2500, "hunter"),
+    makeBuiltinAi("hunt-ai-ash-lizard", "Ash Lizard", "??", 22, "Volcano Territory", aiJutsuLoadout("burst"), 50, 3200, "burst"),
+    makeBuiltinAi("hunt-ai-shadow-panther", "Shadow Panther", "??", 38, "Shadow Territory", aiJutsuLoadout("control"), 78, 5800, "control"),
+    makeBuiltinAi("hunt-ai-ironback-bear", "Ironback Bear", "??", 42, "Forest Territory", aiJutsuLoadout("defender"), 85, 6500, "defender"),
+    makeBuiltinAi("hunt-ai-ember-drake", "Ember Drake", "??", 65, "Volcano Territory", aiJutsuLoadout("boss"), 150, 12000, "boss"),
+    makeBuiltinAi("hunt-ai-moon-serpent", "Moon Serpent", "??", 68, "Shadow Territory", aiJutsuLoadout("control"), 158, 13000, "control"),
+    makeBuiltinAi("hunt-ai-ancient-chakra-beast", "Ancient Chakra Beast", "??", 88, "Central Wilderness", aiJutsuLoadout("boss"), 205, 18000, "boss"),
+    makeBuiltinAi("hunt-ai-worldstorm-dragon", "Worldstorm Dragon", "??", 92, "Central Wilderness", aiJutsuLoadout("boss"), 220, 20000, "boss"),
 ];
 
 const builtinHuntMissions: CreatorMission[] = [
@@ -6895,12 +6939,13 @@ export default function App() {
     function startDungeonAiFight() {
         if (!character || !activeDungeonEvent) return;
         const level = [50, 75, 100][Math.floor(Math.random() * 3)];
-        const toughness = level === 100 ? 0.45 : level === 75 ? 0.35 : 0.25;
-        const statBoost = level === 100 ? 190 : level === 75 ? 145 : 105;
+        const toughness = level === 100 ? 0.55 : level === 75 ? 0.42 : 0.30;
+        const statBoost = level === 100 ? 230 : level === 75 ? 175 : 130;
         const dungeonJutsus = starterJutsus
             .filter((jutsu) => jutsu.ap >= 40)
             .slice(level === 100 ? 8 : level === 75 ? 6 : 4, level === 100 ? 14 : level === 75 ? 12 : 10);
         const armorRawDR = aiRawDamageReductionForLevel(level, toughness);
+        const dungeonLoadoutId: AiLoadoutId = level === 100 ? "boss" : level === 75 ? "control" : "defender";
         const aiProfileId = `temp-dungeon-ai-${level}-${Date.now()}`;
         setTemporaryStoryAi({
             id: aiProfileId,
@@ -6915,11 +6960,9 @@ export default function App() {
             stats: addToAllStats(aiStatsForLevel(level, dungeonJutsus), statBoost),
             armorRawDR,
             armorFactor: aiArmorFactorFromRaw(armorRawDR),
+            loadoutId: dungeonLoadoutId,
             jutsuIds: dungeonJutsus.map((jutsu) => jutsu.id),
-            rules: [
-                { id: makeId(), condition: "hp_lower_than", value: 45, action: "use_highest_power_jutsu" },
-                { id: makeId(), condition: "always", value: 0, action: "use_highest_power_jutsu" },
-            ],
+            rules: buildBasicCombatAiRules(dungeonJutsus, dungeonLoadoutId),
         });
         setPendingPvpOpponent(null);
         setRaidBattleKind("none");
@@ -6973,8 +7016,10 @@ export default function App() {
             aiProfileId = `temp-vn-ai-${event.id}-${Date.now()}`;
             const level = Math.max(1, character?.level ?? event.levelReq ?? 1);
             const eventJutsus = starterJutsus.slice(0, 4);
-            const toughness = battle.bossHp ? 0.18 : 0.08;
+            const toughness = battle.bossHp ? 0.25 : 0.12;
             const armorRawDR = aiRawDamageReductionForLevel(level, toughness);
+            const vnLoadoutId: AiLoadoutId = battle.bossHp ? "boss" : "balanced";
+            const vnRules = buildBasicCombatAiRules(eventJutsus, vnLoadoutId);
             setTemporaryStoryAi({
                 id: aiProfileId,
                 name: battle.bossName || event.name,
@@ -6985,11 +7030,12 @@ export default function App() {
                 hp: Math.max(battle.bossHp || 0, aiHpForLevel(level, toughness)),
                 chakra: maxChakraForLevel(level),
                 stamina: maxStaminaForLevel(level),
-                stats: aiStatsForLevel(level, eventJutsus),
+                stats: addToAllStats(aiStatsForLevel(level, eventJutsus), Math.floor(level * 0.8)),
                 armorRawDR,
                 armorFactor: aiArmorFactorFromRaw(armorRawDR),
+                loadoutId: vnLoadoutId,
                 jutsuIds: eventJutsus.map((jutsu) => jutsu.id),
-                rules: [{ id: makeId(), condition: "always", value: 0, action: "use_highest_power_jutsu" }],
+                rules: vnRules,
             });
         } else {
             setTemporaryStoryAi(null);
