@@ -24145,12 +24145,21 @@ function Arena({
 
         const blocked = Math.min(playerShield, reducedDamage);
         const finalDamage = Math.max(0, reducedDamage - blocked);
+        const jutsuAbsorb = playerStatuses.find((s) => s.name === "Absorb");
+        const jutsuItemAbsorbed = equippedAbsorbPercent > 0 ? Math.floor(cappedPostDamage(finalDamage, equippedAbsorbPercent)) : 0;
+        const jutsuStatusAbsorbed = jutsuAbsorb ? cappedPostDamage(finalDamage, jutsuAbsorb.percent || 30) : 0;
+        const jutsuAbsorbed = Math.min(finalDamage, jutsuItemAbsorbed + jutsuStatusAbsorbed);
+        const jutsuReflect = playerStatuses.find((s) => s.name === "Reflect");
+        const jutsuStatusReflected = jutsuReflect ? cappedPostDamage(finalDamage, jutsuReflect.percent || 30) : 0;
+        const jutsuItemReflected = equippedReflectPercent > 0 ? Math.floor(cappedPostDamage(finalDamage, equippedReflectPercent)) : 0;
         setPlayerShield((s) => Math.max(0, s - blocked));
-        setPlayerHp((hp) => Math.max(0, hp - finalDamage - extraDamage));
+        setPlayerHp((hp) => Math.max(0, hp - finalDamage - extraDamage + jutsuAbsorbed));
         setEnemyHp((hp) => Math.min(enemyMaxHp, hp + healing));
         setEnemyShield((s) => s + shield);
         setEnemyJutsuCooldowns((current) => ({ ...current, [jutsu.id]: Math.max(1, jutsu.cooldown || 1) }));
-        updateCharacter({ ...character, hp: Math.max(0, playerHp - finalDamage - extraDamage) });
+        updateCharacter({ ...character, hp: Math.max(0, playerHp - finalDamage - extraDamage + jutsuAbsorbed) });
+        if (jutsuStatusReflected > 0) { setEnemyHp((hp) => Math.max(0, hp - jutsuStatusReflected)); }
+        if (jutsuItemReflected > 0) { setEnemyHp((hp) => Math.max(0, hp - jutsuItemReflected)); }
         const enemyFlavorText =
             jutsu.battleDescription?.trim() ||
             jutsu.description?.trim() ||
@@ -24158,8 +24167,10 @@ function Arena({
 
         const enemyTimelineParts = [
             `${jutsu.name}: ${enemyFlavorText}`,
-            finalDamage + extraDamage > 0 ? `Damage Dealt: ${character.name} takes ${finalDamage + extraDamage} damage.` : "",
+            finalDamage + extraDamage > 0 ? `Damage Dealt: ${character.name} takes ${finalDamage + extraDamage - jutsuAbsorbed} damage.` : "",
             blocked > 0 ? `Shield: ${character.name}'s shield blocks ${blocked} damage.` : "",
+            jutsuAbsorbed > 0 ? `Absorb: ${character.name} converts ${jutsuAbsorbed} damage to healing.` : "",
+            jutsuStatusReflected + jutsuItemReflected > 0 ? `Reflect: ${opponentName} takes ${jutsuStatusReflected + jutsuItemReflected} reflected damage.` : "",
             healing > 0 ? `Heal: ${opponentName} restores ${healing} HP.` : "",
             shield > 0 ? `Shield: ${opponentName} gains ${shield} shield.` : "",
             effectLines.length ? `Tags: ${effectLines.join(" ")}` : "",
@@ -24168,7 +24179,7 @@ function Arena({
         addCombatLog(enemyTimelineParts, jutsu.id, opponentName);
         setLog(`${opponentName} used ${jutsu.name}.`);
 
-        if (playerHp - finalDamage - extraDamage <= 0) {
+        if (playerHp - finalDamage - extraDamage + jutsuAbsorbed <= 0) {
             if (aiTurnRef.current) aiTurnRef.current.done = true;
             setBattleEnded(true);
             setBattleResult("loss");
@@ -24334,16 +24345,18 @@ function Arena({
                     multiplicativeTagMultiplier(playerStatuses.filter((s) => s.name === "Decrease Damage Taken"), "decrease") *
                     multiplicativeTagMultiplier(playerStatuses.filter((s) => s.name === "Increase Damage Taken" || statusMatchesName(s, "Ignition")), "increase") *
                     (enemyStatuses.some((s) => s.name === "Bloodline Seal" || s.name === "Seal" || s.name === "Elemental Seal") ? 0.85 : 1));
-                const reflect = playerStatuses.find((s) => s.name === "Reflect");
-                if (reflect) { const r = cappedPostDamage(dmg, reflect.percent || 30); setEnemyHp((hp) => Math.max(0, hp - r)); addCombatLog(`Reflect: ${opponentName} takes ${r} reflected damage.`, "reflect", character.name); }
-                if (equippedReflectPercent > 0) { const r = Math.floor(cappedPostDamage(dmg, equippedReflectPercent)); if (r > 0) { setEnemyHp((hp) => Math.max(0, hp - r)); addCombatLog(`Reflect (armor): ${opponentName} takes ${r} reflected damage.`, "reflect", character.name); } }
                 const blocked = Math.min(playerShield, dmg);
-                const finalDmg = dmg - blocked;
+                const finalDmg = Math.max(0, dmg - blocked);
                 const absorb = playerStatuses.find((s) => s.name === "Absorb");
                 const absorbed = Math.min(finalDmg, (equippedAbsorbPercent > 0 ? Math.floor(cappedPostDamage(finalDmg, equippedAbsorbPercent)) : 0) + (absorb ? cappedPostDamage(finalDmg, absorb.percent || 30) : 0));
+                const reflect = playerStatuses.find((s) => s.name === "Reflect");
+                const statusReflected = reflect ? cappedPostDamage(finalDmg, reflect.percent || 30) : 0;
+                const itemReflected = equippedReflectPercent > 0 ? Math.floor(cappedPostDamage(finalDmg, equippedReflectPercent)) : 0;
                 setPlayerShield((s) => Math.max(0, s - blocked));
                 setPlayerHp((hp) => Math.max(0, Math.min(character.maxHp, hp - finalDmg + absorbed)));
                 updateCharacter({ ...character, hp: Math.max(0, Math.min(character.maxHp, playerHp - finalDmg + absorbed)) });
+                if (statusReflected > 0) { setEnemyHp((hp) => Math.max(0, hp - statusReflected)); addCombatLog(`Reflect: ${opponentName} takes ${statusReflected} reflected damage.`, "reflect", character.name); }
+                if (itemReflected > 0) { setEnemyHp((hp) => Math.max(0, hp - itemReflected)); addCombatLog(`Reflect (armor): ${opponentName} takes ${itemReflected} reflected damage.`, "reflect", character.name); }
                 setLog(`Enemy attacked for ${finalDmg}.`);
                 addCombatLog(`${opponentName} attacks ${character.name} for ${finalDmg} damage.${blocked ? ` Shield blocks ${blocked}.` : ""}${absorbed ? ` Absorb restores ${absorbed}.` : ""}`, "basicAttack", opponentName);
                 state.remainingAp -= 40;
