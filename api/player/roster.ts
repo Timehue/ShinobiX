@@ -109,6 +109,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return a.name.localeCompare(b.name);
         });
 
+        // 60s CDN cache — the client only polls every 5 min anyway, and online status
+        // is supplemented by the heartbeat, so 60s staleness here is invisible.
+        res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=10');
         return res.status(200).json({ players });
     } catch (err) {
         return res.status(500).json({ error: String(err) });
