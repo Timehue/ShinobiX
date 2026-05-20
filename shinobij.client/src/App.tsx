@@ -1227,6 +1227,7 @@ const jutsuTargets: JutsuTarget[] = ["OPPONENT", "SELF", "OTHER_USER", "CHARACTE
 const jutsuMethods: JutsuMethod[] = ["SINGLE", "ALL", "AOE_CIRCLE", "INSTANT_EFFECT"];
 const bloodlineJutsuMethods: JutsuMethod[] = ["SINGLE", "AOE_CIRCLE", "INSTANT_EFFECT"];
 const instantEffectGroundTags = ["Decrease Damage Given", "Recoil", "Poison"];
+const fortyApBlockedBloodlineTags = ["Pierce", "Siphon", "Mirror", "Copy", "Wound"];
 const adminIconOptions: { value: string; label: string }[] = [
     { value: "!", label: "! — Alert / Warning" },
     { value: "?", label: "? — Unknown / Mystery" },
@@ -4689,7 +4690,7 @@ function jutsuEffectInfo(jutsu: Jutsu, tag: JutsuTag) {
     if (tag.name === "Stun Prevent") return { summary: "Prevents stun.", rule: "Always protects against incoming Stun.", duration: "2 rounds", value: "Always" };
     if (tag.name === "Poison") return { summary: `Poisons the target — deals ${pct}% of their max chakra as damage each round.`, rule: "Applies a 2-round negative status that deals damage based on the target's chakra pool.", duration: "2 rounds", value: `${pct}% chakra` };
     if (tag.name === "Drain") return { summary: "Drains the target of 250 HP, chakra, and stamina each round.", rule: "Applies a 2-round negative status that reduces HP, chakra, and stamina simultaneously.", duration: "2 rounds", value: "250/round" };
-    if (tag.name === "Pierce") return { summary: "True damage — bypasses all defenses and shield.", rule: "Ignores armor, shields, and all damage modifiers. Deals 900 damage at 60 AP cost, 500 damage at 40 AP cost.", duration: "Instant", value: "True" };
+    if (tag.name === "Pierce") return { summary: "True damage — 900 damage no matter what.", rule: "Ignores armor, shields, damage reduction, damage buffs, and damage debuffs. Bloodline builder only allows Pierce on 60 AP jutsus.", duration: "Instant", value: "900" };
     if (tag.name === "Copy") return { summary: "Copies enemy positive effects.", rule: "Always copies active positive statuses from the target to the user.", duration: "Up to 2 rounds", value: "Always" };
     if (tag.name === "Mirror") return { summary: "Mirrors negative effects back to the enemy.", rule: "Always transfers the user's non-damage-over-time negative statuses to the target.", duration: "Up to 2 rounds", value: "Always" };
     if (tagMatchesName(tag.name, "Lag")) return { summary: "Increases enemy AP costs.", rule: "Always adds a negative status that makes enemy actions cost more AP for 1 round.", duration: "1 round", value: "Always" };
@@ -21665,6 +21666,9 @@ function BloodlineMaker({ initialRank, initialSpecialElement, character, updateC
                 }
                 next.target = "EMPTY_GROUND";
             }
+            if (next.ap === 40) {
+                next.tags = next.tags.filter((t) => !fortyApBlockedBloodlineTags.includes(t.name));
+            }
             return next;
         }));
     }
@@ -21677,7 +21681,7 @@ function BloodlineMaker({ initialRank, initialSpecialElement, character, updateC
             staminaCost: jutsuResourceBackingCost({ ap }),
             chakraCostReducePerLvl: 0,
             staminaCostReducePerLvl: 0,
-            tags: (currentJutsu?.tags ?? []).slice(0, ap === 60 ? 2 : 3),
+            tags: (currentJutsu?.tags ?? []).filter((tag) => ap === 60 || !fortyApBlockedBloodlineTags.includes(tag.name)).slice(0, ap === 60 ? 2 : 3),
             effectPower: fixedEffectPower ? 100 : ap === 60 ? ([40, 50].includes(currentJutsu?.effectPower ?? 0) ? currentJutsu!.effectPower : 40) : 0,
         });
     }
@@ -21704,8 +21708,24 @@ function BloodlineMaker({ initialRank, initialSpecialElement, character, updateC
             const next = normalizeJutsu({ ...jutsu, tags: normalizeJutsuTags(tags) });
             // Selecting Move immediately locks the jutsu to ground targeting
             if (merged.name === "Move") next.target = "EMPTY_GROUND";
+            if (next.ap === 40) {
+                next.tags = next.tags.filter((tag) => !fortyApBlockedBloodlineTags.includes(tag.name));
+            }
             return hasFixedEffectPower(next) ? { ...next, effectPower: 100 } : next;
         }));
+    }
+    function togglePierceTag(index: number) {
+        const currentJutsu = jutsus[index];
+        if (!currentJutsu || currentJutsu.ap !== 60 || currentJutsu.method === "INSTANT_EFFECT") return;
+        const withoutPierce = currentJutsu.tags.filter((tag) => tag.name !== "Pierce");
+        const hasPierce = withoutPierce.length !== currentJutsu.tags.length;
+        const maxSlots = 2;
+        const tags = hasPierce
+            ? withoutPierce
+            : withoutPierce.length >= maxSlots
+                ? [...withoutPierce.slice(0, maxSlots - 1), { name: "Pierce", percent: 0 }]
+                : [...withoutPierce, { name: "Pierce", percent: 0 }];
+        updateJutsu(index, { tags });
     }
     async function saveBloodline() {
         const finalElement = (specialElement.trim() || "Fire") as JutsuElement;
@@ -21715,6 +21735,7 @@ function BloodlineMaker({ initialRank, initialSpecialElement, character, updateC
             const finalMethod = bloodlineJutsuMethods.includes(jutsu.method) ? jutsu.method : "SINGLE";
             const tags = normalizeJutsuTags(jutsu.tags).filter((tag) => {
                 if (finalMethod === "INSTANT_EFFECT" && !instantEffectGroundTags.includes(tag.name)) return false;
+                if (jutsu.ap === 40 && fortyApBlockedBloodlineTags.includes(tag.name)) return false;
                 if (seenJutsuTags.has(tag.name)) return false;
                 seenJutsuTags.add(tag.name);
                 if (bloodlineUniqueTags.includes(tag.name)) {
@@ -21795,6 +21816,7 @@ function BloodlineMaker({ initialRank, initialSpecialElement, character, updateC
                     </div>
                     {jutsu.ap === 60 && !hasFixedEffectPower(jutsu) && (() => {
                         const strongUsedElsewhere = jutsus.some((j, i) => i !== jutsuIndex && j.ap === 60 && j.effectPower === 50 && !hasFixedEffectPower(j));
+                        const hasPierce = jutsu.tags.some((tag) => tag.name === "Pierce");
                         return (
                             <div className="summary-box bloodline-damage-section">
                                 <h4>Damage</h4>
@@ -21803,6 +21825,10 @@ function BloodlineMaker({ initialRank, initialSpecialElement, character, updateC
                                     <option value={40}>40 — Standard · Lv.1 ˜ 30.2</option>
                                     <option value={50} disabled={strongUsedElsewhere}>50 — Nuke · Lv.1 ˜ 40.2{strongUsedElsewhere ? " [already used]" : " (+1 pt)"}</option>
                                 </select>
+                                <button type="button" className={hasPierce ? "active" : ""} onClick={() => togglePierceTag(jutsuIndex)}>
+                                    Pierce — 900 true damage
+                                </button>
+                                <small className="tag-effect-help">Pierce ignores armor, shields, damage reduction, damage buffs, and damage debuffs. Only available on 60 AP bloodline jutsus.</small>
                             </div>
                         );
                     })()}
@@ -21830,7 +21856,12 @@ function BloodlineMaker({ initialRank, initialSpecialElement, character, updateC
                             );
                             return usedOnThisJutsu || usedOnAnotherJutsu;
                         });
-                        return <TagPicker key={tagIndex} rank={rank} jutsuTarget={jutsu.target} allowedTags={jutsu.method === "INSTANT_EFFECT" ? instantEffectGroundTags : undefined} tag={currentTag} disabledTags={disabledTags} setTag={(name) => updateTag(jutsuIndex, tagIndex, { name })} percent={jutsu.tags[tagIndex]?.percent ?? 30} setPercent={(percent) => updateTag(jutsuIndex, tagIndex, { percent })} />;
+                        const allowedTags = jutsu.method === "INSTANT_EFFECT"
+                            ? instantEffectGroundTags
+                            : jutsu.ap === 40
+                                ? allTags.filter((tagName) => !fortyApBlockedBloodlineTags.includes(tagName))
+                                : undefined;
+                        return <TagPicker key={tagIndex} rank={rank} jutsuTarget={jutsu.target} allowedTags={allowedTags} tag={currentTag} disabledTags={disabledTags} setTag={(name) => updateTag(jutsuIndex, tagIndex, { name })} percent={jutsu.tags[tagIndex]?.percent ?? 30} setPercent={(percent) => updateTag(jutsuIndex, tagIndex, { percent })} />;
                     })}
                     <p>Jutsu Points: {jutsuPoints(jutsu)}</p>
                 </div>
