@@ -840,8 +840,8 @@ type CreatorRaid = {
 };
 
 type PlayerAccountSave = {
-    password: string;
-    snapshot: {
+    password?: string;
+    snapshot?: {
         character: Character;
         currentBiome: Biome;
         activeTraining: ActiveTraining | null;
@@ -2954,21 +2954,7 @@ function grantInventoryItemToPlayer(playerName: string, itemId: string, currentC
         return true;
     }
 
-    const accounts = loadPlayerAccounts();
-    const key = accountKey(playerName);
-    const account = accounts[key];
-    if (!account) return false;
-
-    const recipient = normalizeCharacter(account.snapshot.character);
-    accounts[key] = {
-        ...account,
-        snapshot: {
-            ...account.snapshot,
-            character: { ...recipient, inventory: addItemToInventory(recipient.inventory, itemId) },
-        },
-    };
-    savePlayerAccounts(accounts);
-    // Also patch KV save directly so the recipient sees it on any device
+    // Snapshot is no longer stored locally — KV patch is the authoritative grant path.
     void patchPlayerSaveCharacter(playerName, (char) => ({ ...char, inventory: addItemToInventory(char.inventory ?? [], itemId) }));
     return true;
 }
@@ -2980,21 +2966,7 @@ function grantCurrencyToPlayer(playerName: string, currency: PlayerTransferCurre
         return true;
     }
 
-    const accounts = loadPlayerAccounts();
-    const key = accountKey(playerName);
-    const account = accounts[key];
-    if (!account) return false;
-
-    const recipient = normalizeCharacter(account.snapshot.character);
-    accounts[key] = {
-        ...account,
-        snapshot: {
-            ...account.snapshot,
-            character: { ...recipient, [currency]: (recipient[currency] ?? 0) + value } as Character,
-        },
-    };
-    savePlayerAccounts(accounts);
-    // Also patch KV save directly so the recipient sees it on any device
+    // Snapshot is no longer stored locally — KV patch is the authoritative grant path.
     void patchPlayerSaveCharacter(playerName, (char) => ({ ...char, [currency]: ((char[currency as keyof Character] as number) ?? 0) + value } as Character));
     return true;
 }
@@ -4540,21 +4512,23 @@ function loadPlayerAccounts(): PlayerAccounts {
 }
 
 function savePlayerAccounts(accounts: PlayerAccounts) {
-    // Strip base64 images so we never hit the 5 MB localStorage quota.
-    // The full data (with images) lives on the server and is loaded on login/startup.
-    function noImages(_key: string, value: unknown) {
+    // Local account cache is only a legacy name list — no password, no snapshot.
+    // Server KV is the save/auth source of truth.
+    function stripSensitive(_key: string, value: unknown) {
+        if (_key === "password") return undefined;
+        if (_key === "snapshot") return undefined;
         if (typeof value === "string" && value.startsWith("data:image")) return "";
         return value;
     }
     try {
-        localStorage.setItem(PLAYER_ACCOUNTS_STORAGE, JSON.stringify(accounts, noImages));
+        localStorage.setItem(PLAYER_ACCOUNTS_STORAGE, JSON.stringify(accounts, stripSensitive));
     } catch {
-        // If it still fails for some reason, silently skip — server save is the source of truth
+        // silently skip — server save is the source of truth
     }
 }
 
 function rosterFromAccounts(accounts: PlayerAccounts): PlayerRecord[] {
-    return Object.values(accounts).map((account) => {
+    return Object.values(accounts).filter((account): account is PlayerAccountSave & { snapshot: NonNullable<PlayerAccountSave["snapshot"]> } => Boolean(account.snapshot)).map((account) => {
         const character = normalizeCharacter(account.snapshot.character);
         return {
             name: character.name,
@@ -6045,49 +6019,8 @@ export default function App() {
                 const accounts = loadPlayerAccounts();
                 setPlayerRoster(rosterFromAccounts(accounts));
 
+                // localStorage only remembers which account to resume — all real state comes from KV/server.
                 localAccountName = data.currentAccountName ?? "";
-                const savedAccount = accounts[accountKey(localAccountName)];
-
-                // Restore session from local snapshot (no images — stripped to save space)
-                if (localAccountName && savedAccount) {
-                    const snapshot = savedAccount.snapshot;
-                    setCurrentAccountName(snapshot.character.name);
-                    setCharacter(normalizeAdminCharacter(snapshot.character));
-                    setCurrentBiome(snapshot.currentBiome ?? "central");
-                    setActiveTraining(snapshot.activeTraining ?? null);
-                    setActiveJutsuTraining(snapshot.activeJutsuTraining ?? null);
-                    setAcceptedMissionIds(snapshot.acceptedMissionIds ?? []);
-                    setMissionProgress(snapshot.missionProgress ?? {});
-                    setTriggeredEvents(snapshot.triggeredEvents ?? []);
-                    setPendingAiProfileId(snapshot.pendingAiProfileId ?? "");
-                    setCurrentSector(snapshot.currentSector ?? 40);
-                    setScreen("village");
-                } else if (data.character) {
-                    setCharacter(normalizeAdminCharacter(data.character));
-                    setScreen("village");
-                }
-
-                if (data.savedBloodlines) setSavedBloodlines(data.savedBloodlines.map((b: SavedBloodline) => ({ ...b, jutsus: b.jutsus.map(normalizeJutsu) })));
-                if (data.currentBiome) setCurrentBiome(data.currentBiome);
-                if (data.currentSector) setCurrentSector(data.currentSector);
-                if (data.activeTraining) setActiveTraining(data.activeTraining);
-                if (data.activeJutsuTraining) setActiveJutsuTraining(data.activeJutsuTraining);
-                if (data.adminLoggedIn) setAdminLoggedIn(true);
-                if (data.adminAccount) setAdminAccount(data.adminAccount);
-                if (data.creatorJutsus) setCreatorJutsus(data.creatorJutsus.map(normalizeJutsu).map(rebalanceNonBloodlineJutsu));
-                if (data.creatorAis) setCreatorAis(balanceExistingAiProfiles(data.creatorAis, savedJutsuPool(data)));
-                if (data.creatorItems) setCreatorItems(data.creatorItems);
-                if (data.creatorEvents) setCreatorEvents(data.creatorEvents);
-                if (data.editablePets) setEditablePets(mergeMissingBuiltInPets(data.editablePets));
-                if (data.creatorMissions) setCreatorMissions(data.creatorMissions);
-                if (data.creatorRaids) setCreatorRaids(data.creatorRaids);
-                if (data.creatorCards) setCreatorCards(data.creatorCards);
-                if (data.petEncounterVn) setPetEncounterVn(data.petEncounterVn);
-                if (data.acceptedMissionIds) setAcceptedMissionIds(data.acceptedMissionIds);
-                if (data.missionProgress) setMissionProgress(data.missionProgress);
-                if (data.pendingAiProfileId) setPendingAiProfileId(data.pendingAiProfileId);
-                if (data.triggeredEvents) setTriggeredEvents(data.triggeredEvents);
-                if (data.playerRoster && Object.keys(accounts).length === 0) setPlayerRoster(data.playerRoster.map((player: PlayerRecord) => ({ ...player, character: normalizeCharacter(player.character), currentSector: player.currentSector ?? 40 })));
             }
         } catch {
             console.warn("Could not load local save data.");
@@ -6105,71 +6038,13 @@ export default function App() {
     }, []);
 
     useEffect(() => {
-        // Strip base64 images before writing to localStorage to avoid 5 MB quota errors.
-        // Images are preserved server-side via pushSaveToServer and restored on startup.
-        function noImages(_key: string, value: unknown) {
-            if (typeof value === "string" && value.startsWith("data:image")) return "";
-            return value;
-        }
+        // localStorage stores only the account name for resume — all game state lives in KV.
         try {
-            localStorage.setItem(
-                STORAGE,
-                JSON.stringify({
-                    character,
-                    currentAccountName,
-                    savedBloodlines,
-                    currentBiome,
-                    activeTraining,
-                    activeJutsuTraining,
-                    adminLoggedIn,
-                    adminAccount,
-                    creatorJutsus,
-                    creatorAis,
-                    creatorEvents,
-                    creatorMissions,
-                    creatorRaids,
-                    creatorCards,
-                    petEncounterVn,
-                    ancientChestVn,
-                    acceptedMissionIds,
-                    missionProgress,
-                    creatorItems,
-                    pendingAiProfileId,
-                    currentSector,
-                    triggeredEvents,
-                    playerRoster,
-                    editablePets,
-                }, noImages)
-            );
-        } catch (error) {
-            console.warn("localStorage save failed:", error);
+            localStorage.setItem(STORAGE, JSON.stringify({ currentAccountName }));
+        } catch {
+            // silently skip
         }
-    }, [
-        character,
-        currentAccountName,
-        savedBloodlines,
-        currentBiome,
-        activeTraining,
-        activeJutsuTraining,
-        adminLoggedIn,
-        adminAccount,
-        creatorJutsus,
-        creatorAis,
-        creatorEvents,
-        creatorMissions,
-        creatorRaids,
-        creatorCards,
-        petEncounterVn,
-        ancientChestVn,
-        acceptedMissionIds,
-        missionProgress,
-        creatorItems,
-        pendingAiProfileId,
-        currentSector,
-        triggeredEvents,
-        playerRoster,
-        editablePets,
-    ]);
+    }, [currentAccountName]);
 
     function buildPlayerSavePayload(characterToSave: Character, overrides: Partial<{
         savedBloodlines: SavedBloodline[];
@@ -6734,37 +6609,31 @@ export default function App() {
         return () => clearInterval(id);
     }, []);
 
-    function createPlayerAccount(newCharacter: Character, password: string) {
-        const key = accountKey(newCharacter.name);
-        const accounts = loadPlayerAccounts();
-        if (accounts[key]) {
-            alert("A player with that name already exists. Log in instead or choose another name.");
+    async function createPlayerAccount(newCharacter: Character, password: string) {
+        // Check server first — it is the authoritative account registry.
+        try {
+            const authRes = await fetch('/api/player-auth', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'register', name: newCharacter.name.toLowerCase(), password }),
+            });
+            if (authRes.status === 409) {
+                alert("A player with that name already exists. Log in instead or choose another name.");
+                return;
+            }
+            if (!authRes.ok) {
+                alert("Could not create the server account. Try again.");
+                return;
+            }
+        } catch {
+            alert("Could not reach the server to create the account. Check your connection and try again.");
             return;
         }
 
-        accounts[key] = {
-            password,
-            snapshot: {
-                character: newCharacter,
-                currentBiome: "central",
-                activeTraining: null,
-                activeJutsuTraining: null,
-                acceptedMissionIds: [],
-                missionProgress: {},
-                triggeredEvents: [],
-                pendingAiProfileId: "",
-                currentSector: 40,
-            },
-        };
+        // Record the name locally (no password, no snapshot — server is source of truth).
+        const accounts = loadPlayerAccounts();
+        accounts[accountKey(newCharacter.name)] = accounts[accountKey(newCharacter.name)] ?? {};
         savePlayerAccounts(accounts);
-
-        // Register the password server-side so it is enforced even on new devices.
-        // Fire-and-forget — local state is set immediately and server sync is async.
-        void fetch('/api/player-auth', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'register', name: newCharacter.name.toLowerCase(), password }),
-        });
 
         setCurrentAccountName(newCharacter.name);
         setCharacter(newCharacter);
@@ -6777,6 +6646,7 @@ export default function App() {
         setPendingAiProfileId("");
         setCurrentSector(40);
         setScreen("villageLore");
+        void pushSaveToServer(newCharacter, newCharacter.name).catch(() => {});
         void pullSharedAdminContent();
     }
 
@@ -6862,29 +6732,7 @@ export default function App() {
             });
         }
 
-        // Keep local password in sync
-        if (account) {
-            accounts[accountKey(name)].password = password;
-            savePlayerAccounts(accounts);
-        }
-
-        // Show village immediately with whatever local data we have
-        if (account) {
-            const localSnapshot = account.snapshot;
-            setCurrentAccountName(localSnapshot.character.name);
-            setCharacter(normalizeCharacter(localSnapshot.character));
-            setCurrentBiome(localSnapshot.currentBiome ?? "central");
-            setActiveTraining(localSnapshot.activeTraining ?? null);
-            setActiveJutsuTraining(localSnapshot.activeJutsuTraining ?? null);
-            setAcceptedMissionIds(localSnapshot.acceptedMissionIds ?? []);
-            setMissionProgress(localSnapshot.missionProgress ?? {});
-            setTriggeredEvents(localSnapshot.triggeredEvents ?? []);
-            setPendingAiProfileId(localSnapshot.pendingAiProfileId ?? "");
-            setCurrentSector(localSnapshot.currentSector ?? 40);
-            setScreen("village");
-        }
-
-        // Always pull the full server save — this is where images and latest state live
+        // Always pull the full server save - this is where the real character state lives.
         const saveRes = await fetch(`/api/save/${encodeURIComponent(name.toLowerCase())}`);
         if (saveRes.ok) {
             const serverSnapshot = await saveRes.json() as ReturnType<typeof buildPlayerSavePayload>;
@@ -7858,7 +7706,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "missions" && character && <Missions character={character} updateCharacter={setCharacter} creatorAis={playableAis} creatorMissions={creatorMissions} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} setPendingAiProfileId={setPendingAiProfileId} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "hunting" && character && <HunterBoard character={character} updateCharacter={setCharacter} creatorAis={playableAis} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} setPendingAiProfileId={setPendingAiProfileId} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "logbook" && character && <Logbook character={character} updateCharacter={setCharacter} creatorAis={playableAis} creatorMissions={creatorMissions} creatorEvents={creatorEvents} creatorRaids={creatorRaids} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} savedBloodlines={savedBloodlines} setPendingAiProfileId={setPendingAiProfileId} setRaidBattleKind={setRaidBattleKind} setCurrentSector={setCurrentSector} setCurrentBiome={setCurrentBiome} setCurrentWeather={setCurrentWeather} setScreen={setScreen} />}
-                {!activeTriggeredEvent && screen === "townHall" && character && <TownHall character={character} updateCharacter={setCharacter} creatorItems={creatorItems} />}
+                {!activeTriggeredEvent && screen === "townHall" && character && <TownHall character={character} updateCharacter={setCharacter} creatorItems={creatorItems} allServerPlayers={allServerPlayers} />}
                 {!activeTriggeredEvent && screen === "clan" && character && <ClanHall character={character} updateCharacter={setCharacter} creatorItems={creatorItems} />}
                 {!activeTriggeredEvent && screen === "bank" && character && <Bank character={character} updateCharacter={setCharacter} />}
                 {!activeTriggeredEvent && screen === "shop" && character && <Shop character={character} updateCharacter={setCharacter} creatorItems={creatorItems} creatorCards={creatorCards} />}
@@ -15431,7 +15279,7 @@ function unlockVillageKageSystem(village: string, playerName: string): VillageSt
     return next;
 }
 
-function TownHall({ character, updateCharacter, creatorItems }: { character: Character; updateCharacter: (character: Character) => void; creatorItems: GameItem[] }) {
+function TownHall({ character, updateCharacter, creatorItems, allServerPlayers }: { character: Character; updateCharacter: (character: Character) => void; creatorItems: GameItem[]; allServerPlayers: ServerPlayerSummary[] }) {
     const leadership = villageLeadership[character.village] ?? { kage: "Acting Kage Council", elders: ["First Elder", "Second Elder", "Third Elder"], atWar: false, pastWars: ["No recorded wars yet."] };
     const leadershipImages = loadVillageLeadershipImages()[character.village] ?? { kage: "", elders: ["", "", ""] };
     const upgrades = getVillageUpgrades(character);
@@ -15453,8 +15301,7 @@ function TownHall({ character, updateCharacter, creatorItems }: { character: Cha
     const villageTreasuryItems = cleanTreasuryItems(state.treasury.items);
     const villagePlayers = [
         character.name,
-        ...Object.values(loadPlayerAccounts())
-            .map(account => normalizeCharacter(account.snapshot.character))
+        ...allServerPlayers
             .filter(player => player.village === character.village)
             .map(player => player.name),
     ].filter((name, index, names) => Boolean(name) && names.indexOf(name) === index).sort((a, b) => a.localeCompare(b));
@@ -15554,7 +15401,9 @@ function TownHall({ character, updateCharacter, creatorItems }: { character: Cha
     const currentAnbuMonth = currentMonthKey();
     const anbuCandidateCharacters = [
         character,
-        ...Object.values(loadPlayerAccounts()).map(account => normalizeCharacter(account.snapshot.character)),
+        ...allServerPlayers
+            .filter(player => player.character)
+            .map(player => normalizeCharacter(player.character as Character)),
     ]
         .filter((player, index, players) => player.village === character.village && players.findIndex(candidate => candidate.name === player.name) === index);
     const anbuCandidates = anbuCandidateCharacters.map(player => ({
