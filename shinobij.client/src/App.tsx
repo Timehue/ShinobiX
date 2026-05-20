@@ -1967,7 +1967,7 @@ const starterJutsus: Jutsu[] = [
     normalizeJutsu({
         id: "starter-universal-blitz",
         name: "Blitz",
-        type: "Taijutsu",
+        type: "Any",
         element: "None",
         ap: 60,
         range: 5,
@@ -10952,9 +10952,9 @@ function AdminPanel({
         localStorage.setItem("admin:approvedBloodlines", JSON.stringify(next));
         try {
             await saveBloodlineReviewAction("approve", bloodline);
-            setPmMsg(`? Approved ${bloodline.name}.`);
+            setPmMsg(`✅ Approved ${bloodline.name}.`);
         } catch {
-            setPmMsg("?? Approved locally, but server review state did not save.");
+            setPmMsg("⚠️ Approved locally, but server review state did not save.");
         }
     }
 
@@ -10969,10 +10969,10 @@ function AdminPanel({
         setPendingPlayerBloodlines(pendingPlayerBloodlines.filter((candidate) => bloodlineReviewKey(candidate) !== reviewKey));
         try {
             await saveBloodlineReviewAction("delete", bloodline);
-            setPmMsg(`? Deleted ${bloodline.name} from review${bloodline.ownerName ? ` and ${bloodline.ownerName}'s save` : ""}.`);
+            setPmMsg(`✅ Deleted ${bloodline.name} from review${bloodline.ownerName ? ` and ${bloodline.ownerName}'s save` : ""}.`);
             fetchAllKnownPlayers();
         } catch {
-            setPmMsg("?? Hidden locally, but server delete did not complete.");
+            setPmMsg("⚠️ Hidden locally, but server delete did not complete.");
         }
     }
     const [leadershipImages, setLeadershipImages] = useState<VillageLeadershipImages>(() => loadVillageLeadershipImages());
@@ -13569,7 +13569,7 @@ function AdminPanel({
                 const reviewBloodlines: ReviewBloodline[] = [
                     ...savedBloodlines.map((bloodline) => ({ ...bloodline, ownerName: "Admin", ownerKey: "admin" })),
                     ...pendingPlayerBloodlines.filter((bloodline) => !savedBloodlines.some((saved) => saved.id === bloodline.id)),
-                ].filter((bloodline) => !isBloodlineApproved(bloodline));
+                ];
                 const pmChar = pmSnap?.character as Record<string, unknown> | null;
                 const currencyLabels: { key: string; label: string }[] = [
                     { key: "honorSeals",  label: "Honor Seals"  },
@@ -13582,7 +13582,7 @@ function AdminPanel({
                 return (
                     <div className="admin-subpanel">
                         <div className="admin-panel-heading">
-                            <h3>?? Player Management</h3>
+                            <h3>👤 Player Management</h3>
                             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                                 <p style={{ margin: 0 }}>Give items, manage weapons/bloodlines, and reset accounts.</p>
                                 <button style={{ fontSize: "0.8rem", padding: "3px 10px" }} onClick={fetchAllKnownPlayers}>?? Refresh Player List</button>
@@ -13667,13 +13667,13 @@ function AdminPanel({
 
                         {/* -- Password Reset -- */}
                         <section className="summary-box">
-                            <h4>?? Reset Player Password</h4>
+                            <h4>🔑 Reset Player Password</h4>
                             <AdminPasswordReset adminPw={adminPw} />
                         </section>
 
                         {/* -- Manual Stat Edit -- */}
                         <section className="summary-box">
-                            <h4>?? Edit Player Stats</h4>
+                            <h4>✏️ Edit Player Stats</h4>
                             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 8 }}>
                                 <input style={{ flex: 1, minWidth: 160 }} value={pmEditName} onChange={e => { setPmEditName(e.target.value); setPmEditSnap(null); }} placeholder="Player name" />
                                 <button onClick={pmEditLookup} disabled={!pmEditName.trim()}>Look Up</button>
@@ -13815,7 +13815,7 @@ function AdminPanel({
 
                         {/* -- Reset Account -- */}
                         <section className="summary-box" style={{ borderColor: "#7f1d1d" }}>
-                            <h4>??? Reset Player Account</h4>
+                            <h4>🗑️ Reset Player Account</h4>
                             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 8 }}>
                                 <input
                                     style={{ flex: 1, minWidth: 160 }}
@@ -13866,8 +13866,8 @@ function AdminPanel({
                                             <strong>{item.name}</strong>
                                             <p className="hint" style={{ margin: 0 }}>{item.slot} · {item.rarity}</p>
                                         </div>
-                                        <button onClick={() => pmApproveItem(item.id)}>? Approve</button>
-                                        <button className="danger-button" onClick={() => pmDeleteItem(item.id)}>??? Delete</button>
+                                        <button onClick={() => pmApproveItem(item.id)}>✅ Approve</button>
+                                        <button className="danger-button" onClick={() => pmDeleteItem(item.id)}>🗑️ Delete</button>
                                     </div>
                                 ))
                             }
@@ -13875,10 +13875,10 @@ function AdminPanel({
 
                         {/* -- Bloodlines Created -- */}
                         <section className="summary-box">
-                            <h4>Bloodlines Created ({reviewBloodlines.length} pending)</h4>
-                            <p className="hint">Approve keeps the bloodline available. Delete removes it from the game.</p>
+                            <h4>All Bloodlines ({reviewBloodlines.length})</h4>
+                            <p className="hint">All created bloodlines. Delete removes a bloodline from the game entirely.</p>
                             {reviewBloodlines.length === 0
-                                ? <p className="hint">No bloodlines pending review.</p>
+                                ? <p className="hint">No bloodlines created yet.</p>
                                 : reviewBloodlines.map(bl => (
                                     <div key={bloodlineReviewKey(bl)} className="summary-box" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                                         {bl.image && <img src={bl.image} alt={bl.name} style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 6, border: "1px solid #334155" }} />}
@@ -13887,8 +13887,8 @@ function AdminPanel({
                                             <p className="hint" style={{ margin: 0 }}>{bl.ownerName ? `By ${bl.ownerName} · ` : ""}{bl.rank}{bl.specialElement ? ` · ${bl.specialElement}` : ""} · {bl.totalPoints} pts · {bl.jutsus.length} jutsus</p>
                                             {bl.lore && <p className="hint" style={{ margin: "4px 0 0" }}>{bl.lore}</p>}
                                         </div>
-                                        <button onClick={() => pmApproveBloodline(bl)}>? Approve</button>
-                                        <button className="danger-button" onClick={() => pmDeleteBloodline(bl)}>??? Delete</button>
+                                        <button onClick={() => pmApproveBloodline(bl)}>✅ Approve</button>
+                                        <button className="danger-button" onClick={() => pmDeleteBloodline(bl)}>🗑️ Delete</button>
                                     </div>
                                 ))
                             }
@@ -17991,7 +17991,7 @@ function CentralHub({
                     <div className="archives-overlay">
                         <div className="archives-panel">
                             <div className="archives-header">
-                                <h2>?? Ancient Archives — Bloodline Codex</h2>
+                                <h2>📚 Ancient Archives — Bloodline Codex</h2>
                                 <button className="danger-button" onClick={() => setShowArchives(false)}>× Close</button>
                             </div>
                             <p className="archives-subtitle">
@@ -18003,7 +18003,7 @@ function CentralHub({
                                         <div className="archives-card-img-wrap">
                                             {bl.image
                                                 ? <img src={bl.image} alt={bl.name} className="archives-card-img" />
-                                                : <div className="archives-card-no-img">??</div>
+                                                : <div className="archives-card-no-img">📜</div>
                                             }
                                         </div>
                                         <div className="archives-card-body">
@@ -18012,7 +18012,7 @@ function CentralHub({
                                                 <span className="archives-rank-badge">{bl.rank}</span>
                                             </div>
                                             {bl.specialElement && (
-                                                <span className="archives-element-tag">? {bl.specialElement} Release</span>
+                                                <span className="archives-element-tag">✦ {bl.specialElement} Release</span>
                                             )}
                                             {bl.lore
                                                 ? <p className="archives-lore">{bl.lore}</p>
@@ -24258,12 +24258,20 @@ function Arena({
                                     const isJutsuAoeCenterTile = pendingTargetJutsu?.method === "AOE_CIRCLE" && i === enemyPos && isJutsuAoeTile;
                                     const isGroundAffectedTile = activeGroundAffectedTiles.has(i);
                                     const isPendingJutsuTarget =
-                                        ((pendingTargetJutsu != null && !isGroundEffectJutsu(pendingTargetJutsu)) || Boolean(pendingTargetWeapon)) &&
+                                        ((pendingTargetJutsu != null && !isGroundEffectJutsu(pendingTargetJutsu) && !isMoveJutsu(pendingTargetJutsu)) || Boolean(pendingTargetWeapon)) &&
                                         i === enemyPos;
                                     // Ground-target jutsu: highlight valid open landing tiles in range.
                                     const isGroundTargetTile = pendingTargetJutsu != null &&
                                         isGroundEffectJutsu(pendingTargetJutsu) &&
                                         distance(playerPos, i) <= Math.max(0, Number(pendingTargetJutsu.range) || 0) &&
+                                        i !== playerPos &&
+                                        i !== enemyPos &&
+                                        !isBarrierTile;
+                                    // Move jutsu: highlight valid landing tiles.
+                                    const isMoveLandingTile = pendingTargetJutsu != null &&
+                                        isMoveJutsu(pendingTargetJutsu) &&
+                                        distance(playerPos, i) >= 1 &&
+                                        distance(playerPos, i) <= moveJutsuRange(pendingTargetJutsu) &&
                                         i !== playerPos &&
                                         i !== enemyPos &&
                                         !isBarrierTile;
@@ -24281,6 +24289,7 @@ function Arena({
                                                 } ${isJutsuAoeCenterTile ? "jutsu-aoe-center-tile" : ""
                                                 } ${isPendingJutsuTarget ? "jutsu-target-tile" : ""
                                                 } ${isGroundTargetTile ? "ground-target-tile" : ""
+                                                } ${isMoveLandingTile ? "ground-target-tile" : ""
                                                 }`}
                                             style={{
                                                 left: `${x}px`,
