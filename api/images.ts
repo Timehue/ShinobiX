@@ -24,6 +24,7 @@ const KNOWN_PREFIXES: Record<string, string> = {
     vn:        'event',   // visual-novel pages share the event category
     ai:        'ai',
 };
+const KNOWN_CATEGORIES = Array.from(new Set(Object.values(KNOWN_PREFIXES)));
 
 function categoryFromId(id: string): string {
     const prefix = id.split(':')[0];
@@ -65,15 +66,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         // No category param — return everything (admin / bulk use)
-        const images = await kv.get<Record<string, string>>(LEGACY_KEY);
-        return res.status(200).json(images ?? {});
+        const [legacy, ...categoryEntries] = await Promise.all([
+            kv.get<Record<string, string>>(LEGACY_KEY),
+            ...KNOWN_CATEGORIES.flatMap((category) => [
+                kv.get<Record<string, string>>(catKey(category)),
+                kv.hgetall<Record<string, string>>(catHashKey(category)),
+            ]),
+        ]);
+        return res.status(200).json(Object.assign({}, legacy ?? {}, ...categoryEntries.map((entry) => entry ?? {})));
     }
 
     if (req.method === 'POST') {
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
             const { id, image } = body as { id?: string; image?: string };
-            if (!id || !image) return res.status(400).json({ error: 'Missing id or image.' });
+            if (!id || typeof image !== 'string') return res.status(400).json({ error: 'Missing id or image.' });
 
             const cat = categoryFromId(id);
             // Atomic HSET — sets exactly this one field without touching any other

@@ -134,6 +134,13 @@ function ampMultiplierFor(attacker: PvpFighter, defender: PvpFighter): number {
     return m;
 }
 
+// Scale a tag percent by mastery level — mirrors the client's effectiveTagPercent logic:
+//   level 50 = full stored value, each level below 50 subtracts 0.2 from the raw percent.
+function scaledTagPercent(rawPct: number, masteryLevel: number): number {
+    const raw = rawPct > 0 ? rawPct : 30;
+    return Math.max(0, raw - (50 - masteryLevel) * 0.2);
+}
+
 // ─── Jutsu application (3-bucket formula, all tags) ───────────────────────────
 function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu, wMult = 1, biome = 'central'): { self: PvpFighter; opponent: PvpFighter; lines: string[] } {
     // Use jutsu mastery level (0–50) for EP scaling so trained jutsus hit harder in PvP.
@@ -178,12 +185,12 @@ function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu, wMult 
     let pierce = false;
 
     for (const tag of tags) {
-        const pct = tag.percent ?? 0;
+        const pct = Math.floor(scaledTagPercent(tag.percent ?? 0, masteryLevel));
         if (tag.name === 'Heal') { if (!hasStatus(s, 'Buff Prevent')) { healing += HEAL_FLAT; damage = 0; lines.push(`Heal: ${s.name} restores ${HEAL_FLAT} HP.`); } continue; }
         if (tag.name === 'Shield') { if (!hasStatus(s, 'Buff Prevent')) { shieldGain += SHIELD_FLAT; damage = 0; lines.push(`Shield: ${s.name} gains ${SHIELD_FLAT} shield.`); } continue; }
         if (tag.name === 'Pierce') { pierce = true; lines.push(`Pierce: bypasses defenses.`); continue; }
         if (tag.name === 'Stun') { if (!hasStatus(o, 'Debuff Prevent') && !hasStatus(o, 'Stun Prevent')) { o = addStatus(o, { name: 'Stun', rounds: 1, kind: 'negative' }); lines.push(`Stun: ${o.name} loses 40 AP next turn.`); } continue; }
-        if (tag.name === 'Poison') { if (!hasStatus(o, 'Debuff Prevent')) { const dmg = Math.floor(o.maxChakra * 0.06); o = addStatus(o, { name: 'Poison', rounds: 2, percent: pct, kind: 'negative' }); lines.push(`Poison: ${o.name} takes ~${dmg}/round for 2 turns.`); } continue; }
+        if (tag.name === 'Poison') { if (!hasStatus(o, 'Debuff Prevent')) { const poisonPct = pct > 0 ? pct : 6; const dmg = Math.floor(o.maxChakra * (poisonPct / 100)); o = addStatus(o, { name: 'Poison', rounds: 2, percent: poisonPct, kind: 'negative' }); lines.push(`Poison: ${o.name} takes ~${dmg}/round for 2 turns.`); } continue; }
         if (tag.name === 'Drain') { if (!hasStatus(o, 'Debuff Prevent')) { o = addStatus(o, { name: 'Drain', rounds: 2, amount: DRAIN_AMOUNT, kind: 'negative' }); lines.push(`Drain: ${o.name} loses ${DRAIN_AMOUNT} HP+chakra/turn for 2 turns.`); } continue; }
         if (tag.name === 'Absorb') { if (!hasStatus(s, 'Buff Prevent')) { s = addStatus(s, { name: 'Absorb', rounds: 2, percent: pct, kind: 'positive' }); lines.push(`Absorb: ${s.name} converts ${pct}% incoming damage for 2 turns.`); } continue; }
         if (tag.name === 'Reflect') { if (!hasStatus(s, 'Buff Prevent')) { s = addStatus(s, { name: 'Reflect', rounds: 2, percent: pct, kind: 'positive' }); lines.push(`Reflect: ${s.name} reflects ${pct}% damage for 2 turns.`); } continue; }
@@ -254,7 +261,7 @@ function applyDoTs(fighter: PvpFighter): { fighter: PvpFighter; lines: string[] 
     let f = { ...fighter };
     for (const s of f.statuses) {
         if (s.name === 'Wound' && s.amount) { f = { ...f, hp: Math.max(0, f.hp - s.amount) }; lines.push(`${f.name} bleeds ${s.amount} (Wound).`); }
-        if (s.name === 'Poison') { const dmg = Math.floor(f.maxChakra * 0.06); f = { ...f, hp: Math.max(0, f.hp - dmg), chakra: Math.max(0, f.chakra - dmg) }; lines.push(`${f.name} takes ${dmg} Poison damage.`); }
+        if (s.name === 'Poison') { const poisonPct = s.percent && s.percent > 0 ? s.percent : 6; const dmg = Math.floor(f.maxChakra * (poisonPct / 100)); f = { ...f, hp: Math.max(0, f.hp - dmg), chakra: Math.max(0, f.chakra - dmg) }; lines.push(`${f.name} takes ${dmg} Poison damage.`); }
         if (s.name === 'Drain') { const amt = s.amount ?? DRAIN_AMOUNT; f = { ...f, hp: Math.max(0, f.hp - amt), chakra: Math.max(0, f.chakra - amt) }; lines.push(`${f.name} drained ${amt} HP+chakra.`); }
     }
     return { fighter: f, lines };

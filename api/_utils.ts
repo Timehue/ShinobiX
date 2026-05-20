@@ -11,7 +11,12 @@ function recordId(value: unknown) {
 }
 
 function isImageField(key: string, value: unknown) {
-    return (key === 'image' || key === 'avatarImage') && typeof value === 'string';
+    return (
+        key === 'image' ||
+        key === 'avatarImage' ||
+        key === 'leftImage' ||
+        key === 'rightImage'
+    ) && typeof value === 'string';
 }
 
 export function mergePreservingImages(incoming: unknown, existing: unknown): unknown {
@@ -44,5 +49,5 @@ export function mergePreservingImages(incoming: unknown, existing: unknown): unk
 export function cors(res: { setHeader: (k: string, v: string) => void }) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-password, x-player-password');
 }

@@ -42,15 +42,43 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
         }
 
-        // Always scan save:* to catch accounts not yet in the registry
-        // (players who existed before the registry was added, or never heartbeated since)
+        // Scan all save:* keys — needed to catch accounts not yet in the registry
+        // AND to collect player-submitted bloodlines.
         const saveKeys = await kv.keys('save:*');
-        for (const key of saveKeys) {
+
+        // Collect all bloodlines from all player saves in parallel
+        type RawBloodline = Record<string, unknown>;
+        type BloodlineEntry = {
+            id: string;
+            name: string;
+            rank: string;
+            image?: string;
+            specialElement?: string;
+            lore?: string;
+            jutsus: unknown[];
+            totalPoints: number;
+            ownerName: string;
+            ownerKey: string;
+        };
+        const bloodlineEntries: BloodlineEntry[] = [];
+
+        const saveSnaps = await Promise.all(
+            saveKeys.map(async (key) => {
+                try {
+                    const snap = await kv.get<Record<string, unknown>>(key);
+                    return { key, snap };
+                } catch {
+                    return { key, snap: null };
+                }
+            })
+        );
+
+        for (const { key, snap } of saveSnaps) {
             const name = key.replace('save:', '');
-            if (players.some(p => p.name.toLowerCase() === name.toLowerCase())) continue;
-            try {
-                const snap = await kv.get<Record<string, unknown>>(key);
-                const char = snap?.character as Record<string, unknown> | undefined;
+            const char = snap?.character as Record<string, unknown> | undefined;
+
+            // Add to player list if not already present from registry
+            if (!players.some(p => p.name.toLowerCase() === name.toLowerCase())) {
                 players.push({
                     name: (char?.name as string) ?? name,
                     level: (char?.level as number) ?? 1,
@@ -59,8 +87,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     lastSeen: 0,
                     online: onlineNames.has(name.toLowerCase()),
                 });
+            }
+
+            // Collect bloodlines
+            const rawBloodlines = snap?.savedBloodlines as RawBloodline[] | undefined;
+            if (Array.isArray(rawBloodlines)) {
+                const ownerName = (char?.name as string) ?? name;
+                for (const bl of rawBloodlines) {
+                    if (!bl?.id || !bl?.name) continue;
+                    bloodlineEntries.push({
+                        id: String(bl.id),
+                        name: String(bl.name),
+                        rank: String(bl.rank ?? 'B Rank'),
+                        image: bl.image ? String(bl.image) : undefined,
+                        specialElement: bl.specialElement ? String(bl.specialElement) : undefined,
+                        lore: bl.lore ? String(bl.lore) : undefined,
+                        jutsus: Array.isArray(bl.jutsus) ? bl.jutsus : [],
+                        totalPoints: Number(bl.totalPoints ?? 0),
+                        ownerName,
+                        ownerKey: name,
+                    });
+                }
+            }
+        }
+
+        // Restore bloodline images from shared KV image store
+        // (saveBloodline strips large data-urls on auto-save; they live in shared:imgfields:bloodline)
+        if (bloodlineEntries.length > 0) {
+            try {
+                const sharedImages = await kv.hgetall<Record<string, string>>('shared:imgfields:bloodline') ?? {};
+                for (const bl of bloodlineEntries) {
+                    if (!bl.image && sharedImages[`bloodline:${bl.id}`]) {
+                        bl.image = sharedImages[`bloodline:${bl.id}`];
+                    }
+                }
             } catch {
-                players.push({ name, level: 1, village: '', specialty: '', lastSeen: 0, online: onlineNames.has(name.toLowerCase()) });
+                // non-fatal — images just won't be restored
             }
         }
 
@@ -71,7 +133,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return a.name.localeCompare(b.name);
         });
 
-        return res.status(200).json({ players });
+        return res.status(200).json({ players, bloodlines: bloodlineEntries });
     } catch (err) {
         return res.status(500).json({ error: String(err) });
     }
