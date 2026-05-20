@@ -587,7 +587,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const groundTarget = jutsu.target === 'EMPTY_GROUND';
                 const needsGroundTile = groundTarget || moveTag;
                 const selfTarget = jutsu.target === 'SELF';
-                const opponentAffectingTags = new Set(['Stun', 'Bloodline Seal', 'Elemental Seal', 'Buff Prevent', 'Cleanse Prevent', 'Decrease Damage Given', 'Increase Damage Taken', 'Ignition', 'Poison', 'Drain', 'Lag', 'Mirror', 'Push', 'Pull']);
+                const opponentAffectingTags = new Set(['Stun', 'Bloodline Seal', 'Elemental Seal', 'Buff Prevent', 'Cleanse Prevent', 'Decrease Damage Given', 'Increase Damage Taken', 'Ignition', 'Poison', 'Drain', 'Lag', 'Mirror', 'Push', 'Pull', 'Recoil']);
                 const affectsOpponent = (jutsu.effectPower ?? 0) > 0 || tags.some(t => opponentAffectingTags.has(normalizeTagName(t.name)));
                 if (needsGroundTile && tile === undefined) {
                     const msg = `${me.name}: ${jutsu.name} needs a ground tile target.`;
@@ -627,11 +627,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const lineRange = distance(me.pos, destTile);
                     if (((jutsu.method as string) === 'AOE_CIRCLE' && ring.includes(opp.pos)) || ((jutsu.method as string) === 'AOE_LINE' && distance(me.pos, opp.pos) <= lineRange)) {
                         // Strip Move tag so applyJutsu treats this as a pure damage/effect jutsu
-                        const damageJutsu = { ...jutsu, tags: tags.filter(t => t.name !== 'Move') };
+                        const damageJutsu = { ...jutsu, tags: tags.filter(t => normalizeTagName(t.name) !== 'Move') };
                         const jr = applyJutsu(movedSelf, opp, damageJutsu, jWMult, biome);
                         lines.push(`${(jutsu.method as string) === 'AOE_LINE' ? 'Area impact' : 'Ring impact'} catches ${opp.name}!`);
                         lines.push(...jr.lines);
-                        result = commit({ ...jr.self, chakra: Math.max(0, jr.self.chakra - jChakraCost), stamina: Math.max(0, jr.self.stamina - jStaminaCost) }, jr.opponent, apCost, cd);
+                        result = commit(jr.self, jr.opponent, apCost, cd);
                     } else if ((jutsu.method as string) === 'AOE_CIRCLE' || (jutsu.method as string) === 'AOE_LINE') {
                         lines.push(`${opp.name} is outside the impact area.`);
                         result = commit(movedSelf, null, apCost, cd);
