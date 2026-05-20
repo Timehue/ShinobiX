@@ -21165,7 +21165,11 @@ function BloodlineMaker({ initialRank, initialSpecialElement, character, updateC
             setBloodlineImage(editingBloodline.image ?? "");
             setSpecialElement(editingBloodline.specialElement ?? "");
             setBloodlineOffense((editingBloodline.jutsus[0]?.type ?? "Ninjutsu") as JutsuType);
-            setJutsus(editingBloodline.jutsus);
+            setJutsus(editingBloodline.jutsus.map((j) =>
+                j.ap === 60 && !hasFixedEffectPower(j) && ![40, 50].includes(j.effectPower)
+                    ? { ...j, effectPower: 40 }
+                    : j
+            ));
             return;
         }
         setRank(initialRank);
@@ -21275,7 +21279,7 @@ function BloodlineMaker({ initialRank, initialSpecialElement, character, updateC
             method: bloodlineJutsuMethods.includes(jutsu.method) ? jutsu.method : "SINGLE",
             range: jutsu.target === "SELF" ? 0 : jutsu.range,
             cooldown: 7,
-            effectPower: hasFixedEffectPower(jutsu) ? 100 : jutsu.effectPower,
+            effectPower: hasFixedEffectPower(jutsu) ? 100 : jutsu.ap === 60 ? (jutsu.effectPower === 50 ? 50 : 40) : jutsu.effectPower,
             tags,
         });
         });
@@ -21344,7 +21348,7 @@ function BloodlineMaker({ initialRank, initialSpecialElement, character, updateC
                             <div className="summary-box bloodline-damage-section">
                                 <h4>Damage</h4>
                                 <label>Effect Power (Lv.50 max · Lv.1 ˜ value - 9.8)</label>
-                                <select value={jutsu.effectPower} onChange={(e) => updateJutsu(jutsuIndex, { effectPower: Number(e.target.value) })}>
+                                <select value={jutsu.effectPower === 50 ? 50 : 40} onChange={(e) => updateJutsu(jutsuIndex, { effectPower: Number(e.target.value) })}>
                                     <option value={40}>40 — Standard · Lv.1 ˜ 30.2</option>
                                     <option value={50} disabled={strongUsedElsewhere}>50 — Nuke · Lv.1 ˜ 40.2{strongUsedElsewhere ? " [already used]" : " (+1 pt)"}</option>
                                 </select>
