@@ -25784,17 +25784,94 @@ function PvpBattleScreen({
         return Math.min(...costs);
     }
 
+    // ── PvP log parsing ───────────────────────────────────────────────────────
+    type PvpLogBlock = {
+        header: string;
+        actorName: string;
+        jutsuName: string;
+        description: string;
+        subLines: string[];
+        actorRole: "player" | "enemy" | "system";
+    };
+
+    /** Classify a sub-line for color + icon. */
+    function pvpLogLineKind(line: string): "damage" | "heal" | "shield" | "debuff" | "buff" | "hit" | "miss" | "move" | "system" {
+        if (/\d+(\.\d+)? damage to/.test(line) || /reflected damage|recoil damage|bleeds/.test(line)) return "damage";
+        if (/heals? \d|restoring \d|absorbs \d/.test(line)) return "heal";
+        if (/absorbed by.*shield|gains \d+ shield/.test(line)) return "shield";
+        if (/Stun:|Poison:|Drain:|Wound:|Lag:|Seal:|Ignition:|Decrease Damage Given:|Increase Damage Taken:|Buff Prevent:|Cleanse Prevent:|Bloodline Seal:|Elemental Seal:|Recoil:/.test(line)) return "debuff";
+        if (/Shield:|Absorb:|Reflect:|Lifesteal:|Overclock:|Increase Damage Given:|Decrease Damage Taken:|Debuff Prevent:|Clear Prevent:|Stun Prevent:|Increase Heal:/.test(line)) return "buff";
+        if (/catches|Ring impact|Area burst|Instant ground/.test(line)) return "hit";
+        if (/outside the impact|too far|out of range/.test(line)) return "miss";
+        if (/dashes to hex|is pushed|is pulled|moves\./.test(line)) return "move";
+        return "system";
+    }
+
+    const pvpLogLineIcon: Record<ReturnType<typeof pvpLogLineKind>, string> = {
+        damage: "⚔️", heal: "💚", shield: "🛡️", debuff: "☠️", buff: "✨", hit: "🎯", miss: "💨", move: "👣", system: "·",
+    };
+
+    /** Build a quick name→description map from both fighters' jutsu arrays. */
+    const pvpJutsuDescMap = (() => {
+        const map = new Map<string, string>();
+        const addJutsus = (arr: unknown) => {
+            if (!Array.isArray(arr)) return;
+            for (const j of arr) {
+                if (j?.name && (j.battleDescription || j.description)) {
+                    map.set(String(j.name).toLowerCase(), String(j.battleDescription ?? j.description ?? ""));
+                }
+            }
+        };
+        addJutsus(me.character.jutsu);
+        addJutsus(opp.character.jutsu);
+        return map;
+    })();
+
     const pvpLogRounds = (() => {
-        const groups: { round: number; entries: string[] }[] = [];
-        let current: { round: number; entries: string[] } | null = null;
-        for (const line of session.log) {
-            const m = line.match(/^--- Round (\d+) ---$/);
-            if (m) {
-                current = { round: parseInt(m[1]!), entries: [] };
-                groups.push(current);
+        type RoundGroup = { round: number; blocks: PvpLogBlock[] };
+        const groups: RoundGroup[] = [];
+        let currentGroup: RoundGroup | null = null;
+        let currentBlock: PvpLogBlock | null = null;
+
+        const isHeader = (line: string) =>
+            /\buses\b/.test(line) || / moves\.$/.test(line) || / dashes\.$/.test(line) ||
+            / dashes to hex/.test(line) || / ends their turn/.test(line) || / fled /.test(line) ||
+            /^⚔️/.test(line) || /^Both fighters/.test(line) || /^Time limit/.test(line) ||
+            /^Clear:/.test(line) || /^Cleanse:/.test(line);
+
+        const actorOf = (line: string): "player" | "enemy" | "system" =>
+            line.startsWith(me.name) ? "player" : line.startsWith(opp.name) ? "enemy" : "system";
+
+        for (const raw of session.log) {
+            const roundMatch = raw.match(/^--- Round (\d+) ---$/);
+            if (roundMatch) {
+                currentGroup = { round: parseInt(roundMatch[1]!), blocks: [] };
+                groups.push(currentGroup);
+                currentBlock = null;
+                continue;
+            }
+            if (!currentGroup) { currentGroup = { round: 1, blocks: [] }; groups.push(currentGroup); }
+
+            if (isHeader(raw)) {
+                const jutsuMatch = raw.match(/^(.+?) uses (.+?):?\s*$/);
+                const actor = jutsuMatch?.[1] ?? "";
+                const jName = jutsuMatch ? (jutsuMatch[2] ?? "").replace(/:$/, "").trim() : "";
+                const desc = jName ? (pvpJutsuDescMap.get(jName.toLowerCase()) ?? "") : "";
+                const cleanDesc = desc.replace(/%target/gi, opp.name).replace(/%self/gi, me.name);
+                currentBlock = {
+                    header: raw,
+                    actorName: actor,
+                    jutsuName: jName,
+                    description: cleanDesc,
+                    subLines: [],
+                    actorRole: actorOf(raw),
+                };
+                currentGroup.blocks.push(currentBlock);
+            } else if (currentBlock) {
+                currentBlock.subLines.push(raw);
             } else {
-                if (!current) { current = { round: 1, entries: [] }; groups.push(current); }
-                current.entries.push(line);
+                currentBlock = { header: raw, actorName: "", jutsuName: "", description: "", subLines: [], actorRole: actorOf(raw) };
+                currentGroup.blocks.push(currentBlock);
             }
         }
         return groups;
@@ -26370,27 +26447,55 @@ function PvpBattleScreen({
                         )}
                     </div>
 
-                    <div ref={logRef} className="combat-text-log combat-timeline">
+                    <div ref={logRef} className="combat-text-log combat-timeline pvp-rich-log">
                         <div className="combat-log-header">
-                            <strong>Timeline</strong>
-                            <span>{isMyTurn ? "Your Turn" : `${opp.name}'s Turn`}</span>
+                            <strong>Battle Log</strong>
+                            <span>{isMyTurn ? "⚡ Your Turn" : `⏳ ${opp.name}'s Turn`}</span>
                         </div>
                         {session.log.length === 0 ? (
-                            <p>No timeline entries yet.</p>
-                        ) : pvpLogRounds.length > 0 ? pvpLogRounds.map(group => (
-                            <section className="timeline-round" key={group.round}>
-                                <div className="timeline-round-header">
-                                    <span>Round {group.round}</span>
+                            <p className="pvp-log-empty">No actions yet — battle just started.</p>
+                        ) : pvpLogRounds.map(group => (
+                            <section className="pvp-round-section" key={group.round}>
+                                <div className="pvp-round-label">
+                                    <span className="pvp-round-badge">Round {group.round}</span>
                                 </div>
-                                {group.entries.map((line, i) => (
-                                    <p key={i} className={`timeline-entry ${line.startsWith(me.name) ? "timeline-player" : line.startsWith(opp.name) ? "timeline-enemy" : "timeline-system"}`}
-                                        style={{ color: line.includes("wins!") ? "#fbbf24" : undefined }}>
-                                        {line}
-                                    </p>
-                                ))}
+                                {group.blocks.map((block, bi) => {
+                                    const isVictory = /wins!|Draw!|fled/.test(block.header);
+                                    const roleClass = block.actorRole === "player" ? "pvp-block-player"
+                                        : block.actorRole === "enemy" ? "pvp-block-enemy" : "pvp-block-system";
+                                    return (
+                                        <div key={bi} className={`pvp-log-block ${roleClass}${isVictory ? " pvp-block-victory" : ""}`}>
+                                            <div className="pvp-block-header">
+                                                {block.jutsuName ? (
+                                                    <>
+                                                        <span className={`pvp-actor-name ${block.actorRole === "player" ? "pvp-actor-me" : "pvp-actor-opp"}`}>{block.actorName}</span>
+                                                        <span className="pvp-uses-text"> uses </span>
+                                                        <span className="pvp-jutsu-name">{block.jutsuName}</span>
+                                                    </>
+                                                ) : (
+                                                    <span className={`pvp-block-full ${isVictory ? "pvp-victory-text" : ""}`}>{block.header}</span>
+                                                )}
+                                            </div>
+                                            {block.description && (
+                                                <p className="pvp-block-desc">{block.description}</p>
+                                            )}
+                                            {block.subLines.length > 0 && (
+                                                <ul className="pvp-block-effects">
+                                                    {block.subLines.map((sub, si) => {
+                                                        const kind = pvpLogLineKind(sub);
+                                                        return (
+                                                            <li key={si} className={`pvp-effect-line pvp-effect-${kind}`}>
+                                                                <span className="pvp-effect-icon">{pvpLogLineIcon[kind]}</span>
+                                                                <span>{sub}</span>
+                                                            </li>
+                                                        );
+                                                    })}
+                                                </ul>
+                                            )}
+                                        </div>
+                                    );
+                                })}
                             </section>
-                        )) : session.log.map((line, i) => (
-                            <p key={i} className="timeline-entry timeline-player" style={{ color: line.includes("wins!") ? "#fbbf24" : "#cbd5e1" }}>{line}</p>
                         ))}
                     </div>
                 </main>
