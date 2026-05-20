@@ -11,22 +11,33 @@ import { cors } from '../_utils.js';
 // game:village-leadership-images survives — uploaded leader portraits preserved.
 const WIPE_PATTERNS = [
     'presence:*',
-    'presence:all',         // bulk presence hash (cleared alongside individual keys)
+    'presence:all',             // bulk presence hash (cleared alongside individual keys)
     'challenges:*',
     'challenge-outgoing:*',
     'chat:village:*',
     'clan:*',
     'guard:*',
-    'pvp:*',                   // active PvP sessions
-    'village:kage:*',          // per-village kage unlock / seated kage
-    'auth:*',                  // player passwords — players re-register on next login
-    'admin-lock:*',            // short-lived admin locks (cleanup)
-    'reset-signal:*',          // short-lived reset signals (cleanup)
-    'game:village-state:*',    // shared village treasury / notices / war records
-    'game:arena:tournament',   // arena tournament bracket
-    'game:arena:active-fights',// arena spectator fight list
-    'game:clan-pet-battle:*',  // pending clan pet battle challenges
+    'pvp:*',                    // active PvP sessions
+    'auth:*',                   // player passwords — players re-register on next login
+    'admin-lock:*',             // short-lived admin locks (cleanup)
+    'reset-signal:*',           // short-lived reset signals (cleanup)
+    'game:village-state:*',     // shared village treasury / notices / war records
+    'game:arena:tournament',    // arena tournament bracket
+    'game:arena:active-fights', // arena spectator fight list
+    'game:clan-pet-battle:*',   // pending clan pet battle challenges
+    'world:territory:*',        // sector territory ownership
+    'world:war:*',              // active village wars
 ];
+
+// Village → KV image key for the default Kage portrait.
+// Images are stored in game:village-leadership-images (preserved through resets).
+// After wiping, we re-seed the shared imgfields hash so portraits load instantly.
+const KAGE_VILLAGES = [
+    'Stormveil Village',
+    'Ashen Leaf Village',
+    'Frostfang Village',
+    'Moonshadow Village',
+] as const;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res);
@@ -67,6 +78,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // 3. Clear the player registry
         await kv.del('player:registry');
         deleted.push('player:registry');
+
+        // 4. Re-seed Kage portraits from the preserved game:village-leadership-images key
+        //    into the shared:imgfields:misc hash so portraits load immediately for all players.
+        try {
+            type LeadershipImages = Record<string, { kage?: string; elders?: string[] }>;
+            const leadershipData = await kv.get<{ images?: LeadershipImages }>('game:village-leadership-images');
+            const images = leadershipData?.images ?? {};
+            const imgPayload: Record<string, string> = {};
+            for (const village of KAGE_VILLAGES) {
+                const kageImg = images[village]?.kage;
+                if (kageImg) imgPayload[`leader:${village}:kage`] = kageImg;
+            }
+            if (Object.keys(imgPayload).length > 0) {
+                await kv.hset('shared:imgfields:misc', imgPayload);
+            }
+        } catch {
+            // Non-fatal — portraits still load from game:village-leadership-images
+        }
 
         return res.status(200).json({
             ok: true,
