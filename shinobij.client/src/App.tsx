@@ -1983,7 +1983,7 @@ const starterJutsus: Jutsu[] = [
 ].map(rebalanceNonBloodlineJutsu);
 
 function makeStarterBloodlineDamageJutsu(id: string, name: string, type: JutsuType, element: string): Jutsu {
-    return makeJutsu(id, name, type, 60, 4, 40, 7, 100, 100, [], element as JutsuElement);
+    return makeJutsu(id, name, type, 60, 4, 40, 7, 100, 100, [{ name: "Damage", percent: 20 }], element as JutsuElement);
 }
 
 function makeStarterBloodlineUtilityJutsu(id: string, name: string, type: JutsuType, element: string, tags: JutsuTag[]): Jutsu {
@@ -2001,7 +2001,7 @@ const starterSavedBloodlines: SavedBloodline[] = [
             makeStarterBloodlineDamageJutsu("ashen-eyes-blood-gaze", "Blood Gaze Rupture", "Genjutsu", "Blood"),
             makeStarterBloodlineDamageJutsu("ashen-eyes-crimson-hall", "Crimson Hallucination", "Genjutsu", "Blood"),
             makeStarterBloodlineDamageJutsu("ashen-eyes-vein-mirror", "Vein Mirror Nightmare", "Genjutsu", "Blood"),
-            makeStarterBloodlineUtilityJutsu("ashen-eyes-hematoma-veil", "Hematoma Veil", "Genjutsu", "Blood", [{ name: "Increase Damage Taken", percent: 30 }, { name: "Decrease Damage Given", percent: 30 }]),
+            makeStarterBloodlineUtilityJutsu("ashen-eyes-hematoma-veil", "Hematoma Veil", "Genjutsu", "Blood", [{ name: "Increase Damage Taken", percent: 20 }, { name: "Decrease Damage Given", percent: 20 }]),
         ],
         totalPoints: 9,
     },
@@ -2015,7 +2015,7 @@ const starterSavedBloodlines: SavedBloodline[] = [
             makeStarterBloodlineDamageJutsu("inferno-cataclysm-lava-burst", "Lava Burst Coffin", "Ninjutsu", "Lava"),
             makeStarterBloodlineDamageJutsu("inferno-cataclysm-molten-rain", "Molten Rainfall", "Ninjutsu", "Lava"),
             makeStarterBloodlineDamageJutsu("inferno-cataclysm-crater-lance", "Crater Lance", "Ninjutsu", "Lava"),
-            makeStarterBloodlineUtilityJutsu("inferno-cataclysm-obsidian-afterglow", "Obsidian Afterglow", "Ninjutsu", "Lava", [{ name: "Ignition", percent: 30 }, { name: "Decrease Damage Given", percent: 30 }]),
+            makeStarterBloodlineUtilityJutsu("inferno-cataclysm-obsidian-afterglow", "Obsidian Afterglow", "Ninjutsu", "Lava", [{ name: "Ignition", percent: 20 }, { name: "Decrease Damage Given", percent: 20 }]),
         ],
         totalPoints: 9,
     },
@@ -2029,7 +2029,7 @@ const starterSavedBloodlines: SavedBloodline[] = [
             makeStarterBloodlineDamageJutsu("shadow-lotus-umbra-senbon", "Umbra Senbon Bloom", "Bukijutsu", "Shadow"),
             makeStarterBloodlineDamageJutsu("shadow-lotus-night-petal", "Night Petal Cutter", "Bukijutsu", "Shadow"),
             makeStarterBloodlineDamageJutsu("shadow-lotus-eclipse-wire", "Eclipse Wire Blossom", "Bukijutsu", "Shadow"),
-            makeStarterBloodlineUtilityJutsu("shadow-lotus-black-petal-guard", "Black Petal Guard", "Bukijutsu", "Shadow", [{ name: "Decrease Damage Taken", percent: 30 }, { name: "Absorb", percent: 30 }]),
+            makeStarterBloodlineUtilityJutsu("shadow-lotus-black-petal-guard", "Black Petal Guard", "Bukijutsu", "Shadow", [{ name: "Decrease Damage Taken", percent: 20 }, { name: "Absorb", percent: 20 }]),
         ],
         totalPoints: 9,
     },
@@ -2043,7 +2043,7 @@ const starterSavedBloodlines: SavedBloodline[] = [
             makeStarterBloodlineDamageJutsu("iron-fang-ferrous-crash", "Ferrous Fang Crash", "Taijutsu", "Iron"),
             makeStarterBloodlineDamageJutsu("iron-fang-steel-maw", "Steel Maw Breaker", "Taijutsu", "Iron"),
             makeStarterBloodlineDamageJutsu("iron-fang-magnet-knuckle", "Magnet Knuckle Rend", "Taijutsu", "Iron"),
-            makeStarterBloodlineUtilityJutsu("iron-fang-anvil-breath", "Anvil Breath Guard", "Taijutsu", "Iron", [{ name: "Increase Damage Given", percent: 30 }, { name: "Decrease Damage Taken", percent: 30 }]),
+            makeStarterBloodlineUtilityJutsu("iron-fang-anvil-breath", "Anvil Breath Guard", "Taijutsu", "Iron", [{ name: "Increase Damage Given", percent: 20 }, { name: "Decrease Damage Taken", percent: 20 }]),
         ],
         totalPoints: 9,
     },
@@ -10981,7 +10981,7 @@ function AdminPanel({
             : activeAdminPanel === "visualNovels" ? "visualNovel"
                 : "All";
 
-    const allGameJutsus = getAllJutsus(savedBloodlines, creatorJutsus, character);
+    const allGameJutsus = getAllJutsus(savedBloodlines, creatorJutsus, null);
     const allAdminAis = [
         ...builtinAis.map((builtin) => creatorAis.find((ai) => ai.id === builtin.id) ?? builtin),
         ...creatorAis.filter((ai) => !builtinAis.some((builtin) => builtin.id === ai.id)),
