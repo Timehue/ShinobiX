@@ -7,18 +7,24 @@ import { cors } from '../_utils.js';
 // images (kage portraits, elder portraits, pets, weapons, avatars) survive.
 // save:admin* is excluded — admin-created content (jutsus, AIs, missions,
 // events, pets, cards, visual novels) survives.
-// admin:approvedBloodlines survives — admin curation list is preserved.
+// admin:approvedBloodlines and admin:approvedItems survive — admin curation lists preserved.
+// game:village-leadership-images survives — uploaded leader portraits preserved.
 const WIPE_PATTERNS = [
     'presence:*',
     'challenges:*',
+    'challenge-outgoing:*',
     'chat:village:*',
     'clan:*',
     'guard:*',
-    'pvp:*',           // active PvP sessions
-    'village:kage:*',  // per-village kage unlock / seated kage
-    'auth:*',          // player passwords — players re-register on next login
-    'admin-lock:*',    // short-lived admin locks (cleanup)
-    'reset-signal:*',  // short-lived reset signals (cleanup)
+    'pvp:*',                   // active PvP sessions
+    'village:kage:*',          // per-village kage unlock / seated kage
+    'auth:*',                  // player passwords — players re-register on next login
+    'admin-lock:*',            // short-lived admin locks (cleanup)
+    'reset-signal:*',          // short-lived reset signals (cleanup)
+    'game:village-state:*',    // shared village treasury / notices / war records
+    'game:arena:tournament',   // arena tournament bracket
+    'game:arena:active-fights',// arena spectator fight list
+    'game:clan-pet-battle:*',  // pending clan pet battle challenges
 ];
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
