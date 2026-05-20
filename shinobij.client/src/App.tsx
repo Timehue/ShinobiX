@@ -7820,6 +7820,7 @@ export default function App() {
                             currentSector={currentSector}
                             onWin={handlePvpWin}
                             updateCharacter={setCharacter}
+                            sharedImages={sharedImages}
                         />
                     );
                 })()}
@@ -22386,14 +22387,9 @@ function Arena({
             setScreen("pvpBattle");
             if (!notified) alert(`${challenge.fromName} may not be pulled in automatically. Ask them to reopen the game or wait for heartbeat.`);
         } catch {
-            // Fallback to old arena if session creation fails
-            setPendingAiProfileId("");
-            setRaidBattleKind("raidPlayer");
-            setRankedBattleActive(challenge.mode === "ranked");
-            setClanWarPointsActive(challenge.clanWarPoints ?? 0);
-            setOpponentCharacter(challenger);
-            setEnemyHp(challenger.maxHp);
-            startPrefight(challenger.maxHp, `${challenge.mode === "ranked" ? "Ranked PvP duel" : challenge.clanWarPoints ? "Clan war PvP duel" : "PvP duel"} accepted against ${challenge.fromName}.`);
+            // Restore the challenge so the player can retry
+            setDuelChallenges(prev => prev.some(c => c.id === challenge.id) ? prev : [challenge, ...prev]);
+            alert(`Could not start the battle with ${challenge.fromName}. Try accepting again.`);
         }
     }
 
@@ -25332,6 +25328,7 @@ function PvpBattleScreen({
     currentSector,
     onWin,
     updateCharacter,
+    sharedImages,
 }: {
     character: Character;
     battleId: string;
@@ -25344,6 +25341,7 @@ function PvpBattleScreen({
     currentSector: number;
     onWin?: (opponentName: string) => void;
     updateCharacter?: (c: Character) => void;
+    sharedImages?: Record<string, string>;
 }) {
     // Grid constants — exact match to arena
     const gridWidth = 12;
@@ -25678,8 +25676,14 @@ function PvpBattleScreen({
 
     const fallbackIcon = (j: Jutsu) =>
         j.type === "Taijutsu" ? "👊" : j.type === "Bukijutsu" ? "🗡️" : j.type === "Genjutsu" ? "👁️" : "💠";
-    const myAvatar = (me.character?.avatarImage as string) || "";
-    const oppAvatar = (opp.character?.avatarImage as string) || "";
+    // Use the live character prop for own avatar (has images loaded via loadCategory)
+    // Fall back to session data as last resort.
+    const myAvatar = character.avatarImage
+        || (sharedImages?.['avatar:' + character.name.toLowerCase()] ?? '')
+        || (me.character?.avatarImage as string) || "";
+    // Opponent avatar: session data may be stripped; look up from sharedImages first.
+    const oppAvatar = (sharedImages?.['avatar:' + opp.name.toLowerCase()] ?? '')
+        || (opp.character?.avatarImage as string) || "";
 
     return (
         <div className="arena-fullscreen">
