@@ -4373,7 +4373,7 @@ function normalizeJutsu(jutsu: Partial<Jutsu> & Pick<Jutsu, "id" | "name" | "typ
         element: (jutsu.element != null ? jutsu.element : "Fire") as JutsuElement,
         ap: jutsu.ap ?? 40,
         range: jutsu.range ?? 3,
-        effectPower: jutsu.effectPower ?? 50,
+        effectPower: (jutsu.effectPower ?? 50) || ((jutsu.ap ?? 40) >= 60 ? 40 : 0),
         cooldown: jutsu.cooldown ?? 1,
         currentCooldown: jutsu.currentCooldown ?? 0,
         chakraCost: jutsu.chakraCost ?? 20,
