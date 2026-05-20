@@ -6595,8 +6595,10 @@ export default function App() {
         return sharedImages[key] || fallback;
     }
 
-    // Keep a ref to the latest save payload so the interval always uses current data
+    // Keep a ref to the latest save payload so the interval always uses current data.
+    // lastSavedJsonRef tracks what was last sent to KV — autosave skips if nothing changed.
     const latestSaveRef = useRef<{ character: Character; name: string; payload: ReturnType<typeof buildPlayerSavePayload> } | null>(null);
+    const lastSavedJsonRef = useRef<string>("");
     useEffect(() => {
         if (!character || !currentAccountName) { latestSaveRef.current = null; return; }
         latestSaveRef.current = { character, name: currentAccountName, payload: buildPlayerSavePayload(character) };
@@ -6609,11 +6611,18 @@ export default function App() {
         const id = setInterval(() => {
             const snap = latestSaveRef.current;
             if (!snap) return;
+            // Skip the save if nothing has changed since the last successful save.
+            const json = JSON.stringify(snap.payload, stripAutosaveImages);
+            if (json === lastSavedJsonRef.current) return;
+            lastSavedJsonRef.current = json;
             fetch(`/api/save/${encodeURIComponent(snap.name.toLowerCase())}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(snap.payload, stripAutosaveImages),
-            }).catch(() => { /* silent background save */ });
+                body: json,
+            }).catch(() => {
+                // Reset so the next tick retries
+                lastSavedJsonRef.current = "";
+            });
         }, 60_000);
         return () => clearInterval(id);
     }, []);
