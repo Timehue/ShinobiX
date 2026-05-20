@@ -4998,6 +4998,10 @@ async function fetchPlayerCombatSave(name: string): Promise<PlayerCombatSave | n
     }
 }
 
+function stringifyServerSavePayload(payload: unknown) {
+    return JSON.stringify(payload, (_key, value) => typeof value === "string" && value.startsWith("data:image") ? "" : value);
+}
+
 async function postPlayerChallengeNotice(targetName: string, challenge: DuelChallenge) {
     for (let attempt = 0; attempt < 3; attempt += 1) {
         try {
@@ -8714,6 +8718,7 @@ function AdminPasswordReset({ adminPw }: { adminPw: string }) {
     async function submit() {
         if (!targetName.trim() || !newPw.trim()) { setMsg("Enter a player name and new password."); return; }
         if (newPw.length < 6) { setMsg("Password must be at least 6 characters."); return; }
+        if (!adminPw) { setMsg("❌ Admin password missing. Log out and back into admin."); return; }
         setMsg("Resetting…");
         try {
             const res = await fetch('/api/player-auth', {
@@ -8722,9 +8727,9 @@ function AdminPasswordReset({ adminPw }: { adminPw: string }) {
                 body: JSON.stringify({ action: 'adminreset', name: targetName.trim().toLowerCase(), newPassword: newPw }),
             });
             const data = await res.json() as { ok: boolean; error?: string };
-            setMsg(data.ok ? `? Password reset for ${targetName.trim()}.` : `? ${data.error ?? "Failed."}`);
+            setMsg(data.ok ? `✅ Password reset for ${targetName.trim()}.` : `❌ ${data.error ?? `Failed with HTTP ${res.status}.`}`);
             if (data.ok) { setTargetName(""); setNewPw(""); }
-        } catch { setMsg("? Network error."); }
+        } catch { setMsg("❌ Network error."); }
     }
 
     return (
@@ -10902,6 +10907,7 @@ function AdminPanel({
 
     async function pmGive() {
         if (!pmSnap) { setPmMsg("Look up a player first."); return; }
+        if (!adminPw) { setPmMsg("❌ Admin password missing. Log out and back into admin."); return; }
         const char = pmSnap.character as Record<string, unknown>;
         // Give pet
         if (pmGivePetId) {
@@ -10920,14 +10926,19 @@ function AdminPanel({
         try {
             const res = await fetch(`/api/save/${encodeURIComponent(pmTargetName.trim().toLowerCase())}?signal=1`, {
                 method: "POST", headers: { "Content-Type": "application/json", "x-admin-password": adminPw },
-                body: JSON.stringify(updated),
+                body: stringifyServerSavePayload(updated),
             });
-            if (!res.ok) throw new Error();
-            setPmMsg("? Saved! Player will see changes on next login.");
+            if (!res.ok) {
+                let detail = `HTTP ${res.status}`;
+                try { const data = await res.json() as { error?: string }; if (data.error) detail = data.error; } catch {}
+                setPmMsg(`❌ Save failed: ${detail}`);
+                return;
+            }
+            setPmMsg("✅ Saved! Player will see changes on next login.");
             setPmSnap(updated);
             setPmGivePetId("");
             setPmGiveAmounts({ honorSeals: 0, fateShards: 0, boneCharms: 0, auraStones: 0, auraDust: 0, mythicSeals: 0 });
-        } catch { setPmMsg("? Failed to save."); }
+        } catch (err) { setPmMsg(`❌ Failed to save: ${String(err)}`); }
     }
 
     const [pmEditName, setPmEditName] = useState("");
@@ -10970,16 +10981,22 @@ function AdminPanel({
 
     async function pmEditPatch(updatedSnap: Record<string, unknown>) {
         setPmEditMsg("Saving…");
+        if (!adminPw) { setPmEditMsg("❌ Admin password missing. Log out and back into admin."); return; }
         try {
             const res = await fetch(`/api/save/${encodeURIComponent(pmEditName.trim().toLowerCase())}?signal=1`, {
                 method: "POST", headers: { "Content-Type": "application/json", "x-admin-password": adminPw },
-                body: JSON.stringify(updatedSnap),
+                body: stringifyServerSavePayload(updatedSnap),
             });
-            if (!res.ok) throw new Error();
+            if (!res.ok) {
+                let detail = `HTTP ${res.status}`;
+                try { const data = await res.json() as { error?: string }; if (data.error) detail = data.error; } catch {}
+                setPmEditMsg(`❌ Save failed: ${detail}`);
+                return;
+            }
             setPmEditSnap(updatedSnap);
-            setPmEditMsg("? Saved!");
+            setPmEditMsg("✅ Saved!");
             fetchAllKnownPlayers();
-        } catch { setPmEditMsg("? Save failed."); }
+        } catch (err) { setPmEditMsg(`❌ Save failed: ${String(err)}`); }
     }
 
     async function pmEditSave() {
@@ -11001,7 +11018,8 @@ function AdminPanel({
         const name = pmTargetName.trim();
         if (!name) return;
         if (!window.confirm(`Soft-reset ${name}? Their name, village, specialty, and bloodline are kept. Everything else goes back to level 1 defaults.`)) return;
-        setPmMsg("? Soft-resetting…");
+        if (!adminPw) { setPmMsg("❌ Admin password missing. Log out and back into admin."); return; }
+        setPmMsg("Soft-resetting…");
         try {
             const res = await fetch(`/api/save/${encodeURIComponent(name.toLowerCase())}`);
             if (!res.ok) { setPmMsg("? Player not found."); return; }
@@ -11016,11 +11034,16 @@ function AdminPanel({
             const freshSnap = { ...existing, character: fresh };
             const saveRes = await fetch(`/api/save/${encodeURIComponent(name.toLowerCase())}?signal=1`, {
                 method: "POST", headers: { "Content-Type": "application/json", "x-admin-password": adminPw },
-                body: JSON.stringify(freshSnap),
+                body: stringifyServerSavePayload(freshSnap),
             });
-            if (!saveRes.ok) { setPmMsg("? Save failed."); return; }
+            if (!saveRes.ok) {
+                let detail = `HTTP ${saveRes.status}`;
+                try { const data = await saveRes.json() as { error?: string }; if (data.error) detail = data.error; } catch {}
+                setPmMsg(`❌ Save failed: ${detail}`);
+                return;
+            }
             setPmSnap(null);
-            setPmMsg(`? ${name} soft-reset to Lv 1. Village, specialty & bloodline preserved.`);
+            setPmMsg(`✅ ${name} soft-reset to Lv 1. Village, specialty & bloodline preserved.`);
             fetchAllKnownPlayers();
         } catch (e) { setPmMsg(`? Error: ${String(e)}`); }
     }
