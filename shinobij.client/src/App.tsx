@@ -4601,7 +4601,7 @@ function jutsuEffectInfo(jutsu: Jutsu, tag: JutsuTag) {
     if (tag.name === "Siphon" || tag.name === "Vamp") return { summary: `Heals the user for ${pct}% of damage dealt.`, rule: "Triggers after damage. Instant heal based on final damage.", duration: "Instant after hit", value: `${pct}%` };
     if (tag.name === "Lifesteal") return { summary: `Applies a 2-round status: your next 2 attacks heal you for ${pct}% of damage dealt.`, rule: "Adds a positive status to the caster. Each attack heals based on final damage.", duration: "2 rounds", value: `${pct}%` };
     if (tag.name === "Reflect") return { summary: `Reflects ${pct}% damage back at attackers.`, rule: "Adds a positive status to the caster. Buff Prevent can block it.", duration: "2 rounds", value: `${pct}%` };
-    if (tag.name === "Recoil") return { summary: `Deals ${pct}% recoil damage to the user.`, rule: "Triggers after damage and hurts the caster based on capped post-damage.", duration: "Instant after hit", value: `${pct}%` };
+    if (tag.name === "Recoil") return { summary: `Applies ${pct}% recoil to the target.`, rule: "The target suffers capped recoil damage when they attack.", duration: "2 rounds", value: `${pct}%` };
     if (tag.name === "Wound") return { summary: `Makes the target bleed after the hit.`, rule: "Applies a damage-over-time status based on capped post-damage.", duration: "2 rounds", value: `${pct}%` };
     if (tagMatchesName(tag.name, "Ignition")) return { summary: `Applies a 2-round ignition status: next 2 incoming attacks deal an extra ${pct}% damage.`, rule: "Adds a negative status to the enemy. Each time they are attacked while ignited, the attacker's damage is boosted by this percent.", duration: "2 rounds", value: `${pct}%` };
     if (tag.name === "Stun") return { summary: `Removes ${STUN_AP_PENALTY} AP from the target's next turn.`, rule: "Always applies unless Stun Prevent or Debuff Prevent blocks it. It does not skip the target's turn.", duration: "Next turn", value: `-${STUN_AP_PENALTY} AP` };
@@ -4923,6 +4923,11 @@ function getAllJutsus(savedBloodlines: SavedBloodline[], creatorJutsus: Jutsu[],
         merged.set(jutsu.id, jutsu);
     });
     return [...merged.values()];
+}
+
+function getPvpJutsuLoadout(savedBloodlines: SavedBloodline[], creatorJutsus: Jutsu[], character: Character) {
+    return getAllJutsus(savedBloodlines, creatorJutsus, character)
+        .filter((jutsu) => character.equippedJutsuIds.includes(jutsu.id));
 }
 
 function getJutsuSelectOptions(jutsus: Jutsu[], typeFilter: "All" | JutsuType, elementFilter: "All" | JutsuElement, sortBy: JutsuSort) {
@@ -5693,12 +5698,15 @@ export default function App() {
         setDuelChallenges(prev => prev.filter(c => c.id !== challenge.id));
         try {
             const allItems = getAllItems(creatorItems);
+            const p1Jutsus = getPvpJutsuLoadout(savedBloodlines, creatorJutsus, challenger as Character);
+            const p2Jutsus = getPvpJutsuLoadout(savedBloodlines, creatorJutsus, character);
             const res = await fetch('/api/pvp/session', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     p1Character: {
                         ...challenger,
+                        jutsu: p1Jutsus,
                         bloodlineMult: getBloodlineMultiplier(challenger as Character, savedBloodlines),
                         armorFactor: getCharacterArmorFactor(challenger as Character, allItems),
                         armorRawDR: getCharacterArmorRawDR(challenger as Character, allItems),
@@ -5706,6 +5714,7 @@ export default function App() {
                     },
                     p2Character: {
                         ...character,
+                        jutsu: p2Jutsus,
                         bloodlineMult: getBloodlineMultiplier(character, savedBloodlines),
                         armorFactor: getCharacterArmorFactor(character, allItems),
                         armorRawDR: getCharacterArmorRawDR(character, allItems),
@@ -6776,11 +6785,13 @@ export default function App() {
         });
     }
 
-    function recordMissionRaid(sector: number) {
+    function recordMissionRaid(_sector: number) {
+        // Sector filter removed: village territory raids use a virtual offset sector that
+        // doesn't match mission.targetSector, so any raid win counts toward accepted raid
+        // missions. The explore requirement still pins the player to the correct location.
         const matchingMissions = allProgressMissions(creatorMissions).filter((mission) =>
             acceptedMissionIds.includes(mission.id) &&
             mission.type === "fetchExplore" &&
-            mission.targetSector === sector &&
             missionRaidRequirement(mission) > 0
         );
 
@@ -7469,7 +7480,7 @@ export default function App() {
                         ancientChestVn={ancientChestVn}
                         editablePets={editablePets}
                         setPendingAiProfileId={setPendingAiProfileId}
-                        setPendingPvpOpponent={(c) => setPendingPvpOpponent(c ? normalizeCharacter(c) : null)}
+                            setPendingPvpOpponent={(c) => setPendingPvpOpponent(c ? normalizeCharacter(c) : null)}
                         setRaidBattleKind={setRaidBattleKind}
                         recordMissionExplore={recordMissionExplore}
                         playableAis={playableAis}
@@ -7488,11 +7499,9 @@ export default function App() {
                         creatorItems={creatorItems}
                         sectorAttackPlayer={async (opponent) => {
                             // Create shared PvP session so both players fight each other for real
-                            const p1Jutsus = getAllJutsus(savedBloodlines, creatorJutsus, character)
-                                .filter(j => character.equippedJutsuIds.includes(j.id));
+                            const p1Jutsus = getPvpJutsuLoadout(savedBloodlines, creatorJutsus, character);
                             const oppChar = opponent.character as Character;
-                            const p2Jutsus = getAllJutsus(savedBloodlines, creatorJutsus, oppChar)
-                                .filter(j => oppChar.equippedJutsuIds.includes(j.id));
+                            const p2Jutsus = getPvpJutsuLoadout(savedBloodlines, creatorJutsus, oppChar);
                             let battleId = '';
                             try {
                                 const sr = await fetch('/api/pvp/session', {
@@ -7665,8 +7674,7 @@ export default function App() {
                 )}
 
                 {screen === "pvpBattle" && character && pvpBattleId && pvpRole && (() => {
-                    const pvpJutsus = getAllJutsus(savedBloodlines, creatorJutsus, character)
-                        .filter(j => character.equippedJutsuIds.includes(j.id));
+                    const pvpJutsus = getPvpJutsuLoadout(savedBloodlines, creatorJutsus, character);
                     const pvpAllItems = getAllItems(creatorItems);
                     const pvpItems = (["hand", "weapon", "thrown", "item"] as EquipmentSlot[])
                         .map(slot => character.equipment[slot])
@@ -18607,10 +18615,8 @@ function WorldMap({
         setCurrentWeather(weather);
 
         // Embed jutsu objects so server can resolve moves
-        const p1Jutsus = getAllJutsus(savedBloodlines, wmCreatorJutsus, character)
-            .filter(j => character.equippedJutsuIds.includes(j.id));
-        const p2Jutsus = getAllJutsus(savedBloodlines, wmCreatorJutsus, opponent)
-            .filter(j => opponent.equippedJutsuIds.includes(j.id));
+        const p1Jutsus = getPvpJutsuLoadout(savedBloodlines, wmCreatorJutsus, character);
+        const p2Jutsus = getPvpJutsuLoadout(savedBloodlines, wmCreatorJutsus, opponent);
 
         let battleId = '';
         try {
@@ -19437,8 +19443,8 @@ function WorldMap({
 
                                             if (guardChar) {
                                                 // Embed jutsu so server can resolve moves
-                                                const p1j = getAllJutsus(savedBloodlines, wmCreatorJutsus, character).filter(j => character.equippedJutsuIds.includes(j.id));
-                                                const p2j = getAllJutsus(savedBloodlines, wmCreatorJutsus, guardChar).filter(j => guardChar.equippedJutsuIds.includes(j.id));
+                                                const p1j = getPvpJutsuLoadout(savedBloodlines, wmCreatorJutsus, character);
+                                                const p2j = getPvpJutsuLoadout(savedBloodlines, wmCreatorJutsus, guardChar);
                                                 // Create shared PvP session and notify the guard via challenge
                                                 let battleId = '';
                                                 try {
@@ -20591,6 +20597,7 @@ function Logbook({
 
     function startRaid(raid: CreatorRaid) {
         if (character.level < raid.levelReq) return alert(`Requires level ${raid.levelReq}.`);
+        if (raid.targetSector) setCurrentSector(raid.targetSector);
         setPendingAiProfileId(raid.aiProfileId || "");
         setRaidBattleKind("raidAi");
         setCurrentBiome(raid.biome);
@@ -22018,10 +22025,12 @@ function Arena({
         setDuelChallenges(duelChallenges.filter((candidate) => candidate.id !== challenge.id));
         try {
             // Create a shared turn-based hex-grid PvP session: challenger = p1, us = p2
+            const p1Jutsus = getPvpJutsuLoadout(savedBloodlines, creatorJutsus, challenger);
+            const p2Jutsus = getPvpJutsuLoadout(savedBloodlines, creatorJutsus, character);
             const res = await fetch('/api/pvp/session', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ p1Character: { ...challenger, pvpItems: getPvpItemLoadout(challenger as Character, allItems), bloodlineMult: getBloodlineMultiplier(challenger as Character, savedBloodlines), armorFactor: getCharacterArmorFactor(challenger as Character, allItems), armorRawDR: getCharacterArmorRawDR(challenger as Character, allItems), itemDamagePct: getEquippedItemBonus(challenger as Character, allItems, "damagePercent") }, p2Character: { ...character, pvpItems: getPvpItemLoadout(character, allItems), bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, allItems), armorRawDR: getCharacterArmorRawDR(character, allItems), itemDamagePct: getEquippedItemBonus(character, allItems, "damagePercent") } }),
+                body: JSON.stringify({ p1Character: { ...challenger, jutsu: p1Jutsus, pvpItems: getPvpItemLoadout(challenger as Character, allItems), bloodlineMult: getBloodlineMultiplier(challenger as Character, savedBloodlines), armorFactor: getCharacterArmorFactor(challenger as Character, allItems), armorRawDR: getCharacterArmorRawDR(challenger as Character, allItems), itemDamagePct: getEquippedItemBonus(challenger as Character, allItems, "damagePercent") }, p2Character: { ...character, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(character, allItems), bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, allItems), armorRawDR: getCharacterArmorRawDR(character, allItems), itemDamagePct: getEquippedItemBonus(character, allItems, "damagePercent") } }),
             });
             if (!res.ok) throw new Error('Session create failed');
             const { battleId } = await res.json() as { battleId: string };
@@ -22299,7 +22308,7 @@ function Arena({
         return statuses.filter((s) => s.name !== "Stun");
     }
     function isMoveJutsu(jutsu: Pick<Jutsu, "target" | "tags">) {
-        return jutsu.tags.some((tag) => tag.name === "Move");
+        return jutsu.tags.some((tag) => tagMatchesName(tag.name, "Move"));
     }
 
     function isGroundEffectJutsu(jutsu: Pick<Jutsu, "target" | "tags">) {
@@ -22727,9 +22736,8 @@ function Arena({
                 } else if (wt.name === "Damage") {
                     effectLines.push(`+${p}% Damage`);
                 } else if (wt.name === "Recoil") {
-                    const rc = Math.floor(finalDamage * (p / 100));
-                    setPlayerHp((hp) => Math.max(1, hp - rc));
-                    effectLines.push(`Recoil -${rc} HP`);
+                    setEnemyStatuses((s) => [...s, { name: "Recoil", rounds: 2, percent: p, kind: "negative" }]);
+                    effectLines.push(`Recoil ${p}%`);
                 }
             }
         }
@@ -23369,7 +23377,8 @@ function Arena({
                 effectLines.push(`Wound: ${opponentName} bleeds for ${wound} damage on their turns.`);
             }
             if (tag.name === "Recoil") {
-                recoilDamage += cappedPostDamage(finalDamage, pct);
+                setEnemyStatuses((s) => [...s, { name: "Recoil", rounds: 2, percent: pct, kind: "negative" }]);
+                effectLines.push(`Recoil: ${opponentName} will take recoil when attacking.`);
             }
             if (tag.name === "Siphon" || tag.name === "Vamp") {
                 const restored = Math.floor(cappedPostDamage(finalDamage, pct) * healMultiplier);
@@ -23424,7 +23433,6 @@ function Arena({
             blocked > 0 ? `Shield: ${opponentName}'s shield blocks ${blocked} damage.` : "",
             healing > 0 ? `Heal: ${character.name} restores ${healing} HP.` : "",
             shield > 0 ? `Shield: ${character.name} gains ${shield} shield.` : "",
-            recoilDamage > 0 ? `Recoil: ${character.name} takes ${recoilDamage} recoil damage.` : "",
             effectLines.length ? `Tags: ${effectLines.join(" ")}` : "",
         ].filter(Boolean).join(" ");
 
@@ -25134,7 +25142,7 @@ function PvpBattleScreen({
     const pendingJutsu = equippedJutsu.find(j => j.id === pendingJutsuId) ?? null;
     const inspectedJutsu = equippedJutsu.find(j => j.id === inspectedJutsuId) ?? null;
     const isAdjacent = pvpDist(myPos, oppPos) <= 1;
-    const pvpIsMoveJutsu = (jutsu: Jutsu | null | undefined) => Boolean(jutsu?.tags?.some(tag => tag.name === "Move"));
+    const pvpIsMoveJutsu = (jutsu: Jutsu | null | undefined) => Boolean(jutsu?.tags?.some(tag => tagMatchesName(tag.name, "Move")));
     const pvpIsGroundTargetJutsu = (jutsu: Jutsu | null | undefined) => Boolean(jutsu && (jutsu.target === "EMPTY_GROUND" || pvpIsMoveJutsu(jutsu)));
 
     const allTiles = Array.from({ length: gridWidth * gridHeight }, (_, i) => i);
@@ -25734,4 +25742,3 @@ function PvpBattleScreen({
         </div>
     );
 }
-
