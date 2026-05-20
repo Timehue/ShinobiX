@@ -3,6 +3,11 @@ import { kv } from '@vercel/kv';
 import { cors } from '../_utils.js';
 
 const REGISTRY_KEY = 'player:registry';
+// Single hash that holds every player's presence data as JSON-encoded fields.
+// One kv.hgetall() replaces kv.keys('presence:*') + N*kv.get() on every heartbeat.
+const PRESENCE_HASH_KEY = 'presence:all';
+// Entries older than this are considered offline (matches the individual key TTL of 60s).
+const PRESENCE_TTL_MS = 65_000;
 
 type PresenceEntry = {
     name: string;
@@ -26,6 +31,16 @@ function normalizeSector(value: unknown, fallback = 40) {
     return Math.max(0, Math.floor(sector));
 }
 
+function parsePresenceField(v: unknown): PresenceEntry | null {
+    try {
+        const parsed: PresenceEntry = typeof v === 'string' ? JSON.parse(v) : v as PresenceEntry;
+        if (!parsed?.name) return null;
+        return parsed;
+    } catch {
+        return null;
+    }
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res);
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -40,15 +55,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const presenceKey = `presence:${name}`;
         const resetSignalKey = `reset-signal:${name.toLowerCase().trim()}`;
 
-        // Read presence + pending challenges + reset signal in parallel
+        // Read this player's own presence (for pendingAttacker), challenges, and reset signal in parallel.
+        // Individual presence key is still kept so attack.ts / clear-attack.ts can target specific players.
         const [existing, pendingChallenges, resetSignal] = await Promise.all([
             kv.get<PresenceEntry>(presenceKey),
             kv.get<unknown[]>(challengeKey),
             kv.get(resetSignalKey),
         ]);
 
-        // If the admin reset this account, tell the client to reload.
-        // The client acks after applying the server save so stale autosaves stay blocked.
         if (resetSignal) {
             return res.status(200).json({ forceReload: true });
         }
@@ -64,7 +78,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             pendingAttacker: null,
         };
 
-        // Upsert into persistent player registry (never expires — survives presence TTL)
         const ch = character as Record<string, unknown> | null;
         const registryEntry: RegistryEntry = {
             name,
@@ -74,18 +87,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             lastSeen: Date.now(),
         };
         const registryField: Record<string, string> = { [name.toLowerCase()]: JSON.stringify(registryEntry) };
+        const entryJson = JSON.stringify(entry);
 
-        // Store presence + clear delivered challenges + update registry in parallel
+        // Write individual key (for attack.ts / clear-attack.ts) + hash (for bulk reads) + registry in parallel.
         await Promise.all([
             kv.set(presenceKey, entry, { ex: 60 }),
+            kv.hset(PRESENCE_HASH_KEY, { [name]: entryJson }),
             pendingChallenges?.length ? kv.del(challengeKey) : Promise.resolve(),
             kv.hset(REGISTRY_KEY, registryField),
         ]);
 
-        // Fetch all active presence entries
-        const allKeys = await kv.keys('presence:*');
-        const allEntries = (await Promise.all(allKeys.map(k => kv.get<PresenceEntry>(k))))
-            .filter((p): p is PresenceEntry => !!p && p.name !== name);
+        // Single command to get all active presence — replaces kv.keys('presence:*') + N*kv.get().
+        const allRaw = await kv.hgetall<Record<string, unknown>>(PRESENCE_HASH_KEY) ?? {};
+        const now = Date.now();
+        const allEntries: PresenceEntry[] = [];
+        const staleNames: string[] = [];
+
+        for (const [field, v] of Object.entries(allRaw)) {
+            const p = parsePresenceField(v);
+            if (!p) { staleNames.push(field); continue; }
+            if (now - p.lastSeen > PRESENCE_TTL_MS) {
+                staleNames.push(field);
+            } else if (p.name !== name) {
+                allEntries.push(p);
+            }
+        }
+
+        // Lazily prune stale entries from the hash (fire-and-forget — don't block the response).
+        if (staleNames.length > 0) {
+            void kv.hdel(PRESENCE_HASH_KEY, ...staleNames);
+        }
 
         const toRecord = ({ name: n, sector: s, character: c }: PresenceEntry) => {
             const ch = c as Record<string, unknown> | null;
@@ -99,12 +130,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             };
         };
 
-        // sectorMates — same sector only (for world-map display)
         const sectorMates = allEntries
             .filter(p => normalizeSector(p.sector) === entry.sector)
             .map(toRecord);
 
-        // allPlayers — every active player (for roster, search, pet arena, spar, etc.)
         const allPlayers = allEntries.map(toRecord);
 
         return res.status(200).json({
