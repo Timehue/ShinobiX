@@ -5423,7 +5423,7 @@ const builtinHuntMissions: CreatorMission[] = [
     { id: "hunt-ember-drake", name: "Hunt the Ember Drake", rank: "A Rank", description: "An Ember Drake — a fire-breathing lesser dragon — has emerged from the volcano at Sector 42. Extremely dangerous.", type: "fetchExplore", targetSector: 42, exploreCount: 5, levelReq: 50, xpReward: 900, ryoReward: 750, staminaReward: 30, currencyRewards: { boneCharms: 2, auraDust: 20 }, aiProfileId: "hunt-ai-ember-drake", itemRewards: ["hunt-ash-scale", "hunt-ash-scale", "hunt-ember-scale", "hunt-wolf-fang"] },
     { id: "hunt-moon-serpent", name: "Hunt the Moon Serpent", rank: "A Rank", description: "The Moon Serpent is a colossal genjutsu-wielding serpent that hunts in the shadow sectors. It can trap minds in illusions.", type: "fetchExplore", targetSector: 8, exploreCount: 5, levelReq: 50, xpReward: 900, ryoReward: 750, staminaReward: 30, currencyRewards: { boneCharms: 2, auraDust: 20 }, aiProfileId: "hunt-ai-moon-serpent", itemRewards: ["hunt-shadow-pelt", "hunt-shadow-pelt", "hunt-shadow-claw", "hunt-shadow-claw"] },
     { id: "hunt-ancient-chakra-beast", name: "Hunt the Ancient Chakra Beast", rank: "S Rank", description: "An Ancient Chakra Beast stirs in the central wilderness of Sector 60. It has absorbed centuries of chakra and can use all five elements. Only the strongest hunters survive.", type: "fetchExplore", targetSector: 60, exploreCount: 6, levelReq: 70, xpReward: 2000, ryoReward: 1800, staminaReward: 40, currencyRewards: { boneCharms: 3, auraDust: 40, fateShards: 1 }, aiProfileId: "hunt-ai-ancient-chakra-beast", itemRewards: ["hunt-legendary-material", "hunt-legendary-material", "hunt-ancient-beast-core"] },
-    { id: "hunt-worldstorm-dragon", name: "Hunt the Worldstorm Dragon", rank: "S Rank", description: "The Worldstorm Dragon — a living storm given form — has been sighted over Sector 65. Its scales shed lightning, and its roar shakes the ground. This is the apex of all hunts.", type: "fetchExplore", targetSector: 65, exploreCount: 6, levelReq: 70, xpReward: 2000, ryoReward: 1800, staminaReward: 40, currencyRewards: { boneCharms: 3, auraDust: 40, fateShards: 1 }, aiProfileId: "hunt-ai-worldstorm-dragon", itemRewards: ["hunt-legendary-material", "hunt-legendary-material", "hunt-titan-bone"] },
+    { id: "hunt-worldstorm-dragon", name: "Hunt the Worldstorm Dragon", rank: "S Rank", description: "The Worldstorm Dragon — a living storm given form — has been sighted over Sector 59. Its scales shed lightning, and its roar shakes the ground. This is the apex of all hunts.", type: "fetchExplore", targetSector: 59, exploreCount: 6, levelReq: 70, xpReward: 2000, ryoReward: 1800, staminaReward: 40, currencyRewards: { boneCharms: 3, auraDust: 40, fateShards: 1 }, aiProfileId: "hunt-ai-worldstorm-dragon", itemRewards: ["hunt-legendary-material", "hunt-legendary-material", "hunt-titan-bone"] },
 ];
 
 const builtinFetchMissions: CreatorMission[] = [
@@ -6872,6 +6872,7 @@ export default function App() {
         const matchingMissions = allProgressMissions(creatorMissions).filter((mission) =>
             acceptedMissionIds.includes(mission.id) &&
             mission.type === "fetchExplore" &&
+            !mission.id.startsWith("hunt-") &&
             mission.targetSector === sector
         );
 
@@ -7595,6 +7596,7 @@ export default function App() {
                         setCurrentSector={setCurrentSector}
                         acceptedMissionIds={acceptedMissionIds}
                         missionProgress={missionProgress}
+                        setMissionProgress={setMissionProgress}
                         sharedImages={sharedImages}
                         onDungeonFound={() => triggerDungeonEncounter("worldMap")}
                         setPvpBattleId={setPvpBattleId}
@@ -7710,7 +7712,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "petArena" && character && <PetArena character={character} updateCharacter={setCharacter} playerRoster={playerRoster} allServerPlayers={allServerPlayers} setScreen={setScreen} sharedImages={sharedImages} duelChallenges={duelChallenges} setDuelChallenges={setDuelChallenges} pendingPetBattleOpponent={pendingPetBattleOpponent} onPendingPetBattleStarted={() => setPendingPetBattleOpponent(null)} />}
                 {!activeTriggeredEvent && screen === "jutsuTraining" && character && <JutsuTrainingHall character={character} updateCharacter={setCharacter} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} activeJutsuTraining={activeJutsuTraining} setActiveJutsuTraining={setActiveJutsuTraining} />}
                 {!activeTriggeredEvent && screen === "missions" && character && <Missions character={character} updateCharacter={setCharacter} creatorAis={playableAis} creatorMissions={creatorMissions} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} setPendingAiProfileId={setPendingAiProfileId} setScreen={setScreen} />}
-                {!activeTriggeredEvent && screen === "hunting" && character && <HunterBoard character={character} updateCharacter={setCharacter} creatorAis={playableAis} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} setPendingAiProfileId={setPendingAiProfileId} setScreen={setScreen} />}
+                {!activeTriggeredEvent && screen === "hunting" && character && <HunterBoard character={character} updateCharacter={setCharacter} creatorAis={playableAis} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "logbook" && character && <Logbook character={character} updateCharacter={setCharacter} creatorAis={playableAis} creatorMissions={creatorMissions} creatorEvents={creatorEvents} creatorRaids={creatorRaids} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} savedBloodlines={savedBloodlines} setPendingAiProfileId={setPendingAiProfileId} setRaidBattleKind={setRaidBattleKind} setCurrentSector={setCurrentSector} setCurrentBiome={setCurrentBiome} setCurrentWeather={setCurrentWeather} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "townHall" && character && <TownHall character={character} updateCharacter={setCharacter} creatorItems={creatorItems} allServerPlayers={allServerPlayers} />}
                 {!activeTriggeredEvent && screen === "clan" && character && <ClanHall character={character} updateCharacter={setCharacter} creatorItems={creatorItems} />}
@@ -18839,6 +18841,7 @@ function WorldMap({
     sectorAttackPlayer,
     acceptedMissionIds,
     missionProgress,
+    setMissionProgress,
     sharedImages = {},
     onDungeonFound,
     setPvpBattleId,
@@ -18868,6 +18871,7 @@ function WorldMap({
     sectorAttackPlayer: (opponent: PlayerRecord) => void;
     acceptedMissionIds: string[];
     missionProgress: Record<string, number>;
+    setMissionProgress: React.Dispatch<React.SetStateAction<Record<string, number>>>;
     sharedImages?: Record<string, string>;
     onDungeonFound: () => void;
     setPvpBattleId: (id: string) => void;
@@ -19169,24 +19173,6 @@ function WorldMap({
             return;
         }
 
-        // Hunt mission intercept — always triggers the beast AI for this sector
-        const activeHuntMission = builtinHuntMissions.find(
-            (m) =>
-                acceptedMissionIds.includes(m.id) &&
-                m.targetSector === sector &&
-                (missionProgress[m.id] ?? 0) < m.exploreCount,
-        );
-        if (activeHuntMission?.aiProfileId) {
-            const huntAi = playableAis.find((ai) => ai.id === activeHuntMission.aiProfileId);
-            if (huntAi) {
-                updateCharacter(exploredCharacter);
-                alert(`🎯 You've tracked down the ${huntAi.name}! Prepare to fight!`);
-                setPendingAiProfileId(huntAi.id);
-                setScreen("arena");
-                return;
-            }
-        }
-
         const battleRoll = Math.random();
 
         // 80% random AI battle chance — pick AI closest in level to the player
@@ -19223,6 +19209,49 @@ function WorldMap({
         });
 
         alert("You recovered in Sector " + sector + ". +" + staminaReward + " stamina.");
+    }
+
+    function huntSector(sector: number) {
+        if (sector < 1 || sector > 60) {
+            alert("Hunting is only available in Sectors 1-60.");
+            return;
+        }
+        const biome = biomeForSector(sector);
+        setSelectedVillageTerritory(null);
+        setSelectedSector(sector);
+        setCurrentBiome(biome);
+        setCurrentWeather(weatherForSector(sector, biome));
+        setCurrentSector(sector);
+        const activeHuntMission = builtinHuntMissions.find(
+            (mission) =>
+                acceptedMissionIds.includes(mission.id) &&
+                mission.targetSector === sector &&
+                mission.aiProfileId
+        );
+        if (!activeHuntMission) {
+            alert(`No accepted hunt contract is active in Sector ${sector}.`);
+            return;
+        }
+        const requiredTracks = activeHuntMission.exploreCount ?? 1;
+        const currentProgress = missionProgress[activeHuntMission.id] ?? 0;
+        const nextProgress = Math.min(requiredTracks, currentProgress + 1);
+        setMissionProgress((current) => ({
+            ...current,
+            [activeHuntMission.id]: Math.max(nextProgress, current[activeHuntMission.id] ?? 0),
+        }));
+        if (nextProgress < requiredTracks) {
+            alert(`${activeHuntMission.name}: tracks found in Sector ${sector}. ${nextProgress}/${requiredTracks}`);
+            return;
+        }
+        const huntAi = playableAis.find((ai) => ai.id === activeHuntMission.aiProfileId);
+        if (!huntAi) {
+            alert("Beast AI not found.");
+            return;
+        }
+        alert(`You've tracked down the ${huntAi.name}! Prepare to fight!`);
+        setPendingAiProfileId(huntAi.id);
+        setRaidBattleKind("raidAi");
+        setScreen("arena");
     }
 
     function triggerCreatorEvent(event: CreatorEvent) {
@@ -19517,6 +19546,14 @@ function WorldMap({
         const sectorPlayers = sameSector(currentSector, selectedSector)
             ? (livePlayersHere.length > 0 ? livePlayersHere : rosterPlayersHere)
             : [];
+        const activeHuntMissionForSector = selectedSector >= 1 && selectedSector <= 60
+            ? builtinHuntMissions.find(
+                (m) => acceptedMissionIds.includes(m.id) && m.targetSector === selectedSector && m.aiProfileId
+            ) ?? null
+            : null;
+        const activeHuntAiForSector = activeHuntMissionForSector
+            ? playableAis.find((ai) => ai.id === activeHuntMissionForSector.aiProfileId) ?? null
+            : null;
 
         return (
             <div className="map-instance">
@@ -19656,6 +19693,11 @@ function WorldMap({
                             )}
                         </section>
                         <button onClick={() => exploreSector(selectedSector)}>Explore Tile</button>
+                        {activeHuntMissionForSector && (
+                            <button onClick={() => huntSector(selectedSector)}>
+                                🎯 Hunt{activeHuntAiForSector ? `: ${activeHuntAiForSector.name}` : ""}
+                            </button>
+                        )}
                         <button onClick={() => restInSector(selectedSector)}>Recover</button>
                         <button onClick={() => setSelectedSector(null)}>Leave</button>
                     </aside>
@@ -20577,7 +20619,6 @@ function HunterBoard({
     setAcceptedMissionIds,
     missionProgress,
     setMissionProgress,
-    setPendingAiProfileId,
     setScreen,
 }: {
     character: Character;
@@ -20587,7 +20628,6 @@ function HunterBoard({
     setAcceptedMissionIds: (ids: string[]) => void;
     missionProgress: Record<string, number>;
     setMissionProgress: (p: Record<string, number>) => void;
-    setPendingAiProfileId: (id: string) => void;
     setScreen: (s: Screen) => void;
 }) {
     const hunterRank = character.hunterRank ?? 0;
@@ -20622,12 +20662,12 @@ function HunterBoard({
         if (acceptedMissionIds.includes(mission.id)) return;
         setAcceptedMissionIds([...acceptedMissionIds, mission.id]);
         setMissionProgress({ ...missionProgress, [mission.id]: missionProgress[mission.id] ?? 0 });
-        alert(`${mission.name} accepted. Head to Sector ${mission.targetSector} and explore ${mission.exploreCount} times to track the beast.`);
+        alert(`${mission.name} accepted. Head to Sector ${mission.targetSector} and use Hunt ${mission.exploreCount} time(s) to track the beast.`);
     }
 
     function claimHunt(mission: CreatorMission) {
         const progress = missionProgress[mission.id] ?? 0;
-        if (progress < mission.exploreCount) return alert(`Track the beast ${mission.exploreCount - progress} more time(s) in Sector ${mission.targetSector}.`);
+        if (progress < mission.exploreCount) return alert(`Hunt the beast ${mission.exploreCount - progress} more time(s) in Sector ${mission.targetSector}.`);
         if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`);
         const boostedXp = boostAmount(mission.xpReward, missionRewardBonus);
         const boostedRyo = boostAmount(mission.ryoReward, missionRewardBonus);
@@ -20649,10 +20689,8 @@ function HunterBoard({
     function battleHunt(mission: CreatorMission) {
         if (!mission.aiProfileId) return alert("No beast AI assigned.");
         if (character.level < mission.levelReq) return alert(`Requires level ${mission.levelReq}.`);
-        const ai = creatorAis.find((a) => a.id === mission.aiProfileId);
-        if (!ai) return alert("Beast AI not found.");
-        setPendingAiProfileId(ai.id);
-        setScreen("arena");
+        alert(`Head to Sector ${mission.targetSector} on the World Map and use the Hunt button to fight the beast.`);
+        setScreen("worldMap");
     }
 
     const missionRanks: MissionRank[] = ["D Rank", "C Rank", "B Rank", "A Rank", "S Rank"];
@@ -20720,7 +20758,7 @@ function HunterBoard({
                                                     <div className="hunt-progress-bar">
                                                         <div className="hunt-progress-fill" style={{ width: `${Math.min(100, (progress / mission.exploreCount) * 100)}%` }} />
                                                     </div>
-                                                    <span className="hunt-progress-label">Tracked {progress}/{mission.exploreCount}</span>
+                                                    <span className="hunt-progress-label">Hunted {progress}/{mission.exploreCount}</span>
                                                 </>
                                             )}
                                             <div className="menu">
