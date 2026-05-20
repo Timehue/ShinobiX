@@ -22940,8 +22940,8 @@ function Arena({
             });
 
             const flavorText =
-                pendingTargetJutsu.battleDescription?.trim() ||
-                pendingTargetJutsu.description?.trim() ||
+                (pendingTargetJutsu.battleDescription?.replace(/%user/g, character.name) ?? "").trim() ||
+                (pendingTargetJutsu.description?.replace(/%user/g, character.name) ?? "").trim() ||
                 `${character.name} shifts across the battlefield.`;
 
             setLog(`${pendingTargetJutsu.name}: moved ${dist} tile(s).`);
@@ -23931,8 +23931,8 @@ function Arena({
         });
 
         const flavorText =
-            jutsu.battleDescription?.trim() ||
-            jutsu.description?.trim() ||
+            (jutsu.battleDescription?.replace(/%user/g, character.name) ?? "").trim() ||
+            (jutsu.description?.replace(/%user/g, character.name) ?? "").trim() ||
             `${character.name} unleashes ${jutsu.name}.`;
 
         const totalDamage = finalDamage + extraEnemyDamage;
@@ -23996,6 +23996,58 @@ function Arena({
     function enemyUseAiJutsu(jutsu: Jutsu, availableAp = 100) {
         if (jutsu.ap > availableAp) return false;
         if ((enemyJutsuCooldowns[jutsu.id] ?? 0) > 0) return false;
+
+        // ── Move-tag jutsus: AI relocates toward the player ─────────────────────
+        // Bypass the distance-to-player range check; the range governs how far the
+        // AI can jump, not whether the player is within attack range.
+        const aiMoveTag = jutsu.tags.some(t => tagMatchesName(t.name, "Move"));
+        if (aiMoveTag) {
+            const moveRange = Math.max(1, Number(jutsu.range) || 1);
+            // Find valid landing tile that gets the AI closest to the player
+            let bestTile = -1;
+            let bestDist = Infinity;
+            for (let t = 0; t < gridWidth * gridHeight; t++) {
+                if (t === enemyPos || t === playerPos) continue;
+                if (barrierTiles.some(b => b.tile === t)) continue;
+                const fromEnemy = distance(enemyPos, t);
+                if (fromEnemy < 1 || fromEnemy > moveRange) continue;
+                const toPlayer = distance(t, playerPos);
+                if (toPlayer < bestDist) { bestDist = toPlayer; bestTile = t; }
+            }
+            if (bestTile < 0) return false; // nowhere to land
+            setEnemyPos(bestTile);
+            setEnemyJutsuCooldowns(c => ({ ...c, [jutsu.id]: Math.max(1, jutsu.cooldown || 1) }));
+            if (jutsu.method === "AOE_CIRCLE" && hexNeighbors(bestTile).includes(playerPos)) {
+                // Ring catches the player — compute damage from the non-Move tags
+                const dmgJutsu = { ...jutsu, tags: jutsu.tags.filter(t => !tagMatchesName(t.name, "Move")) };
+                const rawDmg = calculateDamage(dmgJutsu, enemyCombatStats, characterCombatStats, character.maxHp, activeBloodlineMultiplier(opponentCharacter, enemyStatuses), playerArmorFactor, 1.0, weatherDamageMultiplier(dmgJutsu));
+                const ringDmgBoosts = playerStatuses.filter(s => s.name === "Increase Damage Taken" || statusMatchesName(s, "Ignition"));
+                const ringDmgGivenDebuffs = enemyStatuses.filter(s => s.name === "Decrease Damage Given");
+                const ringDmgReductions = playerStatuses.filter(s => s.name === "Decrease Damage Taken");
+                const reducedDmg = Math.floor(rawDmg * multiplicativeTagMultiplier(ringDmgGivenDebuffs, "decrease") * multiplicativeTagMultiplier(ringDmgReductions, "decrease") * multiplicativeTagMultiplier(ringDmgBoosts, "increase"));
+                const blocked = Math.min(playerShield, reducedDmg);
+                const finalDmg = Math.max(0, reducedDmg - blocked);
+                setPlayerShield(s => Math.max(0, s - blocked));
+                setPlayerHp(hp => Math.max(0, hp - finalDmg));
+                updateCharacter({ ...character, hp: Math.max(0, playerHp - finalDmg) });
+                setLog(`${opponentName} uses ${jutsu.name} — ring blast hits ${character.name} for ${finalDmg}!`);
+                addCombatLog(`${jutsu.name}: ${opponentName} dashes to hex ${bestTile}. Ring impact: ${character.name} takes ${finalDmg} damage.`, jutsu.id, opponentName);
+                if (playerHp - finalDmg <= 0) {
+                    if (aiTurnRef.current) aiTurnRef.current.done = true;
+                    setBattleEnded(true); setBattleResult("loss"); setRaidBattleKind("none");
+                    setLog(`${character.name} was defeated.`);
+                    addCombatLog(`${opponentName} defeats ${character.name}.`, "defeat", opponentName);
+                    if (rankedBattleActive) applyRankedLoss();
+                    else updateCharacter({ ...character, hp: 0, hospitalized: true });
+                }
+            } else {
+                const flavor = jutsu.battleDescription?.replace(/%user/g, opponentName)?.trim() || `${opponentName} shifts position.`;
+                setLog(`${opponentName} uses ${jutsu.name} and moves.`);
+                addCombatLog(`${jutsu.name}: ${flavor}`, jutsu.id, opponentName);
+            }
+            return true;
+        }
+
         if (jutsu.target !== "SELF" && jutsu.range > 0 && distance(playerPos, enemyPos) > jutsu.range) return false;
 
         const damageBase = jutsu.tags.some((tag) => ["Heal", "Shield", "Barrier"].includes(tag.name))
@@ -24171,8 +24223,8 @@ function Arena({
         if (jutsuStatusReflected > 0) { setEnemyHp((hp) => Math.max(0, hp - jutsuStatusReflected)); }
         if (jutsuItemReflected > 0) { setEnemyHp((hp) => Math.max(0, hp - jutsuItemReflected)); }
         const enemyFlavorText =
-            jutsu.battleDescription?.trim() ||
-            jutsu.description?.trim() ||
+            (jutsu.battleDescription?.replace(/%user/g, opponentName) ?? "").trim() ||
+            (jutsu.description?.replace(/%user/g, opponentName) ?? "").trim() ||
             `${opponentName} uses ${jutsu.name}.`;
 
         const enemyTimelineParts = [
@@ -24275,7 +24327,7 @@ function Arena({
                 .filter((j) => j.ap <= ap)
                 .filter((j) => !usedIds.has(j.id))
                 .filter((j) => (enemyJutsuCooldowns[j.id] ?? 0) <= 0)
-                .filter((j) => j.target === "SELF" || (j.range ?? 0) <= 0 || distance(pos, playerPos) <= (j.range ?? 0))
+                .filter((j) => j.target === "SELF" || (j.range ?? 0) <= 0 || distance(pos, playerPos) <= (j.range ?? 0) || j.tags.some(t => tagMatchesName(t.name, "Move")))
                 .sort((a, b) => {
                     const score = (j: Jutsu) => {
                         let s = j.effectPower;
