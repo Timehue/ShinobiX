@@ -2699,6 +2699,73 @@ button {
     background: #22c55e;
 }
 
+.shield-bar span {
+    background: #38bdf8;
+    box-shadow: 0 0 6px rgba(56,189,248,.6);
+}
+
+.combat-side-hud--active {
+    border-color: #fbbf24;
+    box-shadow: 0 0 18px rgba(251,191,36,.35);
+}
+
+.combat-hud-header {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-bottom: 8px;
+}
+
+.combat-hud-header h3 {
+    margin: 0;
+    color: #fef3c7;
+    font-size: 0.95rem;
+}
+
+.combat-hud-village {
+    font-size: 0.7rem;
+    color: #94a3b8;
+}
+
+.combat-hud-turn-badge {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    padding: 1px 7px;
+    border-radius: 99px;
+    margin-top: 2px;
+    width: fit-content;
+}
+
+.turn-badge-active {
+    background: #fbbf24;
+    color: #1c1917;
+}
+
+.turn-badge-waiting {
+    background: #1e293b;
+    color: #64748b;
+}
+
+.resource-label {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 2px;
+}
+
+.resource-label small {
+    color: #94a3b8;
+    font-size: 0.75em;
+}
+
+.combat-hud-meta {
+    font-size: 0.72rem;
+    color: #475569;
+    margin: 6px 0 4px;
+    text-align: right;
+}
+
 .combat-main-area {
     min-width: 0;
 }
@@ -8884,6 +8951,21 @@ textarea {
         0 0 16px rgba(251, 146, 60, 0.7) !important;
     filter: saturate(1.3) brightness(1.1);
     cursor: crosshair !important;
+}
+
+.ground-affected-tile {
+    outline: 3px solid rgba(34, 211, 238, 0.98) !important;
+    box-shadow:
+        inset 0 0 24px rgba(34, 211, 238, 0.56),
+        0 0 18px rgba(34, 211, 238, 0.78) !important;
+    filter: saturate(1.45) brightness(1.18);
+}
+
+.ground-target-tile.ground-affected-tile {
+    outline-color: rgba(251, 146, 60, 0.98) !important;
+    box-shadow:
+        inset 0 0 22px rgba(251, 146, 60, 0.55),
+        0 0 18px rgba(251, 146, 60, 0.78) !important;
 }
 /* ===== Combat equipped jutsu buttons only ===== */
 

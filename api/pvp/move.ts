@@ -305,9 +305,12 @@ function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu, wMult 
                 o = addStatus(o, { name: 'Wound', rounds: 2, amount: amt, kind: 'negative' });
                 lines.push(`Wound: ${o.name} bleeds ${amt}/turn for 2 turns.`);
             }
-            if (tag.name === 'Recoil') { const rc = cappedPostDamage(finalDmg, pct || 30); s = { ...s, hp: Math.max(0, s.hp - rc) }; lines.push(`Recoil: ${s.name} takes ${rc} recoil.`); }
+            if (tag.name === 'Recoil') { if (!hasStatus(o, 'Debuff Prevent')) { o = addStatus(o, { name: 'Recoil', rounds: 2, percent: pct || 30, kind: 'negative' }); lines.push(`Recoil: ${o.name} will suffer ${pct || 30}% recoil on their attacks for 2 turns.`); } continue; }
             if (tag.name === 'Siphon' || tag.name === 'Vamp') { const h = Math.floor(cappedPostDamage(finalDmg, pct || 30) * healBoost); s = { ...s, hp: Math.min(s.maxHp, s.hp + h) }; lines.push(`${tag.name}: ${s.name} heals ${h} HP.`); }
         }
+
+        const recoilStatus = s.statuses.find(st => st.name === 'Recoil');
+        if (recoilStatus && finalDmg > 0) { const rc = cappedPostDamage(finalDmg, recoilStatus.percent ?? 30); s = { ...s, hp: Math.max(0, s.hp - rc) }; lines.push(`Recoil: ${s.name} takes ${rc} recoil damage from their own attack.`); }
 
         const ls = s.statuses.find(st => st.name === 'Lifesteal');
         if (ls && finalDmg > 0) { const h = Math.floor(cappedPostDamage(finalDmg, ls.percent ?? 30) * healBoost); s = { ...s, hp: Math.min(s.maxHp, s.hp + h) }; lines.push(`Lifesteal: ${s.name} heals ${h} HP.`); }

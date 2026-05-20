@@ -5973,7 +5973,7 @@ export default function App() {
 
     function applySharedAdminContentSnapshot(snap: ReturnType<typeof buildPlayerSavePayload>) {
         const sharedCreatorJutsus = ((snap.creatorJutsus as Jutsu[] | undefined) ?? []).map(normalizeJutsu).map(rebalanceNonBloodlineJutsu);
-        if (snap.savedBloodlines) setSavedBloodlines((prev) => mergeById(prev, (snap.savedBloodlines as SavedBloodline[]).map((bloodline) => ({ ...bloodline, jutsus: bloodline.jutsus.map(normalizeJutsu) }))));
+        // Bloodlines are intentionally NOT synced from admin saves — each player sees only their own bloodlines.
         if (snap.creatorJutsus) setCreatorJutsus((prev) => mergeById(prev, sharedCreatorJutsus));
         if (snap.creatorAis) setCreatorAis((prev) => mergeById(prev, balanceExistingAiProfiles(snap.creatorAis as CreatorAi[], [...starterJutsus, ...sharedCreatorJutsus])));
         if (snap.creatorEvents) setCreatorEvents((prev) => mergeById(prev, snap.creatorEvents as CreatorEvent[]));
@@ -24749,6 +24749,7 @@ function CombatSideHud({
     village,
     turn,
     statuses,
+    isActive,
 }: {
     name: string;
     avatar: string;
@@ -24762,10 +24763,20 @@ function CombatSideHud({
     village: string;
     turn: number;
     statuses: { name: string; rounds: number; amount?: number; percent?: number; kind: "positive" | "negative" }[];
+    isActive?: boolean;
 }) {
+    const hpPct = Math.max(0, Math.min(100, (hp / maxHp) * 100));
+    const hpColor = hpPct > 50 ? "#22c55e" : hpPct > 25 ? "#f59e0b" : "#ef4444";
     return (
-        <aside className="combat-side-hud">
-            <h3>{name}</h3>
+        <aside className={`combat-side-hud${isActive ? " combat-side-hud--active" : ""}`}>
+            <div className="combat-hud-header">
+                <h3>{name}</h3>
+                {village && <span className="combat-hud-village">{village}</span>}
+                <span className={`combat-hud-turn-badge${isActive ? " turn-badge-active" : " turn-badge-waiting"}`}>
+                    {isActive ? "Acting" : "Waiting"}
+                </span>
+            </div>
+
             <div className="combat-avatar">
                 {avatar.startsWith("data:image") || avatar.startsWith("blob:") ? (
                     <img src={avatar} alt={name} />
@@ -24775,33 +24786,41 @@ function CombatSideHud({
             </div>
 
             <div className="resource-line">
-                HP ({hp} / {maxHp})
+                <span className="resource-label">HP <small>{hp} / {maxHp}</small></span>
                 <div className="hud-bar hp-bar">
-                    <span style={{ width: `${(hp / maxHp) * 100}%` }} />
+                    <span style={{ width: `${hpPct}%`, background: hpColor }} />
                 </div>
             </div>
 
             <div className="resource-line">
-                CP ({chakra} / {maxChakra})
+                <span className="resource-label">Chakra <small>{chakra} / {maxChakra}</small></span>
                 <div className="hud-bar chakra-bar">
-                    <span style={{ width: `${(chakra / maxChakra) * 100}%` }} />
+                    <span style={{ width: `${Math.max(0, Math.min(100, (chakra / maxChakra) * 100))}%` }} />
                 </div>
             </div>
 
             <div className="resource-line">
-                SP ({stamina} / {maxStamina})
+                <span className="resource-label">Stamina <small>{stamina} / {maxStamina}</small></span>
                 <div className="hud-bar stamina-bar">
-                    <span style={{ width: `${(stamina / maxStamina) * 100}%` }} />
+                    <span style={{ width: `${Math.max(0, Math.min(100, (stamina / maxStamina) * 100))}%` }} />
                 </div>
             </div>
 
-            <p><strong>Status:</strong> BATTLE ???</p>
-            <p><strong>Village:</strong> {village}</p>
-            <p><strong>Turn:</strong> {turn}</p>
-            <p><strong>Shield:</strong> {shield}</p>
+            {shield > 0 && (
+                <div className="resource-line">
+                    <span className="resource-label">Shield <small>{shield}</small></span>
+                    <div className="hud-bar shield-bar">
+                        <span style={{ width: `${Math.min(100, (shield / 1500) * 100)}%` }} />
+                    </div>
+                </div>
+            )}
 
-            <CombatEffectsPanel title="Positive Effects" statuses={statuses.filter((s) => s.kind === "positive")} />
-            <CombatEffectsPanel title="Negative Effects" statuses={statuses.filter((s) => s.kind === "negative")} />
+            <div className="combat-hud-meta">
+                <span>Round {turn}</span>
+            </div>
+
+            <CombatEffectsPanel title="Buffs" statuses={statuses.filter((s) => s.kind === "positive")} />
+            <CombatEffectsPanel title="Debuffs" statuses={statuses.filter((s) => s.kind === "negative")} />
         </aside>
     );
 }
@@ -25256,6 +25275,7 @@ function PvpBattleScreen({
                     village={(me.character?.village as string) || ""}
                     turn={session.round}
                     statuses={me.statuses}
+                    isActive={isMyTurn && !done}
                 />
 
                 <main className="combat-main-area">
@@ -25664,6 +25684,7 @@ function PvpBattleScreen({
                     village={(opp.character?.village as string) || ""}
                     turn={session.round}
                     statuses={opp.statuses}
+                    isActive={!isMyTurn && !done}
                 />
             </div>
         </div>
