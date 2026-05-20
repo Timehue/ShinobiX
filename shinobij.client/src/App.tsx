@@ -5708,9 +5708,13 @@ export default function App() {
                 }
                 if (data.pendingChallenges?.length) {
                     setDuelChallenges((current) => {
+                        const now = Date.now();
                         const myNameLower = char.name.toLowerCase();
                         const incoming = data.pendingChallenges!
-                            .filter((challenge) => challenge.toName.toLowerCase() === myNameLower)
+                            .filter((challenge) =>
+                                challenge.toName.toLowerCase() === myNameLower &&
+                                now - (challenge.createdAt ?? now) < 120_000 // drop challenges older than 2 min
+                            )
                             .map((challenge) => ({ ...challenge, challenger: normalizeCharacter(challenge.challenger) }));
                         if (!incoming.length) return current;
                         const merged = current.filter((existing) => !incoming.some((challenge) => challenge.id === existing.id));
@@ -5862,13 +5866,16 @@ export default function App() {
         return () => clearInterval(id);
     }, []);
 
-    // Sector-attack auto-routing: if a sectorAttack challenge arrives, route defender to
-    // the shared PvP battle (battleId present) or legacy arena as fallback.
+    // Sector-attack auto-routing: if a sectorAttack challenge arrives, show a banner and
+    // route the defender to the shared PvP battle (battleId present) or legacy arena as fallback.
     useEffect(() => {
         if (!character) return;
         const incoming = duelChallenges.find(c => c.toName.toLowerCase() === character.name.toLowerCase() && c.sectorAttack);
         if (!incoming) return;
         setDuelChallenges(prev => prev.filter(c => c.id !== incoming.id));
+        const attackerName = (incoming.challenger as Character | undefined)?.name ?? incoming.fromName;
+        setIncomingAttackBanner(`⚔️ ${attackerName} is attacking you!`);
+        setTimeout(() => setIncomingAttackBanner(""), 4000);
         if (incoming.battleId) {
             setPvpBattleId(incoming.battleId);
             setPvpRole("p2");
@@ -5924,20 +5931,16 @@ export default function App() {
         setDuelChallenges(prev => prev.filter(c => c.id !== challenge.id));
         try {
             const allItems = getAllItems(creatorItems);
-            const [p1CombatSave, p2CombatSave] = await Promise.all([
-                challenge.challengerJutsus?.length ? Promise.resolve(null) : fetchPlayerCombatSave(challenge.fromName),
-                fetchPlayerCombatSave(character.name),
-            ]);
+            // Only fetch the challenger's save if they didn't embed their jutsus in the challenge.
+            // The defender's data is already in memory — no extra KV read needed.
+            const p1CombatSave = challenge.challengerJutsus?.length ? null : await fetchPlayerCombatSave(challenge.fromName);
             const p1SavedBloodlines = p1CombatSave?.savedBloodlines ?? savedBloodlines;
             const p1CreatorJutsus = p1CombatSave?.creatorJutsus ?? creatorJutsus;
-            const p2SavedBloodlines = p2CombatSave?.savedBloodlines ?? savedBloodlines;
-            const p2CreatorJutsus = p2CombatSave?.creatorJutsus ?? creatorJutsus;
             const p1Character = p1CombatSave?.character ?? (challenger as Character);
-            const p2Character = p2CombatSave?.character ?? character;
             const p1Jutsus = challenge.challengerJutsus?.length
                 ? challenge.challengerJutsus.map(normalizeJutsu)
                 : getPvpJutsuLoadout(p1SavedBloodlines, p1CreatorJutsus, p1Character);
-            const p2Jutsus = getPvpJutsuLoadout(p2SavedBloodlines, p2CreatorJutsus, p2Character);
+            const p2Jutsus = getPvpJutsuLoadout(savedBloodlines, creatorJutsus, character);
             const res = await fetch('/api/pvp/session', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -5952,13 +5955,13 @@ export default function App() {
                         itemDamagePct: getEquippedItemBonus(p1Character, allItems, "damagePercent"),
                     },
                     p2Character: {
-                        ...p2Character,
+                        ...character,
                         jutsu: p2Jutsus,
-                        pvpItems: getPvpItemLoadout(p2Character, allItems),
-                        bloodlineMult: getBloodlineMultiplier(p2Character, p2SavedBloodlines),
-                        armorFactor: getCharacterArmorFactor(p2Character, allItems),
-                        armorRawDR: getCharacterArmorRawDR(p2Character, allItems),
-                        itemDamagePct: getEquippedItemBonus(p2Character, allItems, "damagePercent"),
+                        pvpItems: getPvpItemLoadout(character, allItems),
+                        bloodlineMult: getBloodlineMultiplier(character, savedBloodlines),
+                        armorFactor: getCharacterArmorFactor(character, allItems),
+                        armorRawDR: getCharacterArmorRawDR(character, allItems),
+                        itemDamagePct: getEquippedItemBonus(character, allItems, "damagePercent"),
                     },
                 }),
             });
@@ -22441,25 +22444,24 @@ function Arena({
         const challenger = normalizeCharacter(challenge.challenger);
         setDuelChallenges(duelChallenges.filter((candidate) => candidate.id !== challenge.id));
         try {
-            // Create a shared turn-based hex-grid PvP session: challenger = p1, us = p2
-            const [p1CombatSave, p2CombatSave] = await Promise.all([
-                challenge.challengerJutsus?.length ? Promise.resolve(null) : fetchPlayerCombatSave(challenge.fromName),
-                fetchPlayerCombatSave(character.name),
-            ]);
+            // Create a shared turn-based hex-grid PvP session: challenger = p1, us = p2.
+            // Only fetch the challenger's save if they didn't embed jutsus in the challenge.
+            // The defender's data is already in memory — no extra KV read needed.
+            const p1CombatSave = challenge.challengerJutsus?.length ? null : await fetchPlayerCombatSave(challenge.fromName);
             const p1SavedBloodlines = p1CombatSave?.savedBloodlines ?? savedBloodlines;
             const p1CreatorJutsus = p1CombatSave?.creatorJutsus ?? creatorJutsus;
-            const p2SavedBloodlines = p2CombatSave?.savedBloodlines ?? savedBloodlines;
-            const p2CreatorJutsus = p2CombatSave?.creatorJutsus ?? creatorJutsus;
             const p1Character = p1CombatSave?.character ?? (challenger as Character);
-            const p2Character = p2CombatSave?.character ?? character;
             const p1Jutsus = challenge.challengerJutsus?.length
                 ? challenge.challengerJutsus.map(normalizeJutsu)
                 : getPvpJutsuLoadout(p1SavedBloodlines, p1CreatorJutsus, p1Character);
-            const p2Jutsus = getPvpJutsuLoadout(p2SavedBloodlines, p2CreatorJutsus, p2Character);
+            const p2Jutsus = getPvpJutsuLoadout(savedBloodlines, creatorJutsus, character);
             const res = await fetch('/api/pvp/session', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ p1Character: { ...p1Character, jutsu: p1Jutsus, pvpItems: getPvpItemLoadout(p1Character, allItems), bloodlineMult: challenge.challengerBloodlineMult ?? getBloodlineMultiplier(p1Character, p1SavedBloodlines), armorFactor: getCharacterArmorFactor(p1Character, allItems), armorRawDR: getCharacterArmorRawDR(p1Character, allItems), itemDamagePct: getEquippedItemBonus(p1Character, allItems, "damagePercent") }, p2Character: { ...p2Character, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(p2Character, allItems), bloodlineMult: getBloodlineMultiplier(p2Character, p2SavedBloodlines), armorFactor: getCharacterArmorFactor(p2Character, allItems), armorRawDR: getCharacterArmorRawDR(p2Character, allItems), itemDamagePct: getEquippedItemBonus(p2Character, allItems, "damagePercent") } }),
+                body: JSON.stringify({
+                    p1Character: { ...p1Character, jutsu: p1Jutsus, pvpItems: getPvpItemLoadout(p1Character, allItems), bloodlineMult: challenge.challengerBloodlineMult ?? getBloodlineMultiplier(p1Character, p1SavedBloodlines), armorFactor: getCharacterArmorFactor(p1Character, allItems), armorRawDR: getCharacterArmorRawDR(p1Character, allItems), itemDamagePct: getEquippedItemBonus(p1Character, allItems, "damagePercent") },
+                    p2Character: { ...character, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(character, allItems), bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, allItems), armorRawDR: getCharacterArmorRawDR(character, allItems), itemDamagePct: getEquippedItemBonus(character, allItems, "damagePercent") },
+                }),
             });
             if (!res.ok) throw new Error('Session create failed');
             const { battleId } = await res.json() as { battleId: string };
