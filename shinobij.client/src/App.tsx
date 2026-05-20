@@ -8008,12 +8008,12 @@ function LeftProfileCard({
                     <span className="left-currency-value" style={{ color: "#facc15" }}>{character.honorSeals.toLocaleString()}</span>
                 </div>
                 <div className="left-currency-row">
-                    <span className="left-currency-icon">?</span>
+                    <span className="left-currency-icon">✨</span>
                     <span className="left-currency-label">Aura Dust</span>
                     <span className="left-currency-value" style={{ color: "#fef3c7" }}>{character.auraDust.toLocaleString()}</span>
                 </div>
                 <div className="left-currency-row">
-                    <span className="left-currency-icon">?</span>
+                    <span className="left-currency-icon">🔮</span>
                     <span className="left-currency-label">Fate Shards</span>
                     <span className="left-currency-value" style={{ color: "#ce93d8" }}>{character.fateShards.toLocaleString()}</span>
                 </div>
@@ -8244,23 +8244,23 @@ function MobileNav({
         <>
             <nav className="mobile-bottom-nav">
                 <button className="mobile-nav-btn" onClick={() => go("worldMap")}>
-                    <span className="mnb-icon">??</span>
+                    <span className="mnb-icon">🗺️</span>
                     Travel
                 </button>
                 <button className="mobile-nav-btn" onClick={() => go("village")} disabled={!atHome}>
-                    <span className="mnb-icon">??</span>
+                    <span className="mnb-icon">🏘️</span>
                     Village
                 </button>
                 <button className="mobile-nav-btn" onClick={() => go("profile")}>
-                    <span className="mnb-icon">??</span>
+                    <span className="mnb-icon">👤</span>
                     Char
                 </button>
                 <button className="mobile-nav-btn" onClick={() => go("inventory")}>
-                    <span className="mnb-icon">??</span>
+                    <span className="mnb-icon">🎒</span>
                     Items
                 </button>
                 <button className="mobile-nav-btn menu-btn" onClick={() => setOpen(true)}>
-                    <span className="mnb-icon">?</span>
+                    <span className="mnb-icon">☰</span>
                     Menu
                 </button>
             </nav>
@@ -8269,7 +8269,7 @@ function MobileNav({
                 <div className="mobile-menu-overlay">
                     <div className="mobile-menu-header">
                         <span className="mobile-menu-title">? SHINOBI MENU</span>
-                        <button className="mobile-menu-close" onClick={() => setOpen(false)}>?</button>
+                        <button className="mobile-menu-close" onClick={() => setOpen(false)}>✕</button>
                     </div>
 
                     <div className="mobile-char-card">
@@ -8980,10 +8980,10 @@ function PetYard({ character, updateCharacter, setScreen }: { character: Charact
                                         {pet.trait && <span className="pet-trait-tag">{pet.trait}</span>}
                                         {character.activePetId === pet.id && <span className="pet-active-tag">Active</span>}
                                         {pet.training && Date.now() < pet.training.endsAt && (
-                                            <span className="pet-training-tag">? {formatPetTimer(pet.training.endsAt - Date.now())}</span>
+                                            <span className="pet-training-tag">⏳ {formatPetTimer(pet.training.endsAt - Date.now())}</span>
                                         )}
                                         {pet.training && Date.now() >= pet.training.endsAt && (
-                                            <span className="pet-ready-tag">? Ready</span>
+                                            <span className="pet-ready-tag">✅ Ready</span>
                                         )}
                                     </>
                                 ) : (
@@ -8999,7 +8999,7 @@ function PetYard({ character, updateCharacter, setScreen }: { character: Charact
                         <div className="pet-detail-left pet-profile-panel">
                             <div className="pet-detail-avatar pet-heart-anchor">
                                 {selectedPet.image ? <img src={selectedPet.image} alt={selectedPet.name} /> : <span className="pet-detail-initials">{selectedPet.name.slice(0, 2).toUpperCase()}</span>}
-                                {petHeartBurst > 0 && <span key={petHeartBurst} className="pet-heart-pop">??</span>}
+                                {petHeartBurst > 0 && <span key={petHeartBurst} className="pet-heart-pop">❤️</span>}
                             </div>
                             <h3>{petDisplayName(selectedPet)}</h3>
                             {selectedPet.nickname && <p className="hint" style={{ fontSize: "0.72rem", marginTop: -4 }}>({selectedPet.name})</p>}
@@ -9057,7 +9057,7 @@ function PetYard({ character, updateCharacter, setScreen }: { character: Charact
                             </section>
                             <div className="menu">
                                 <button onClick={() => updateCharacter({ ...character, activePetId: selectedPet.id })}>
-                                    {character.activePetId === selectedPet.id ? "? Active Pet" : "Set as Active"}
+                                    {character.activePetId === selectedPet.id ? "❤️ Active Pet" : "Set as Active"}
                                 </button>
                                 <button className="danger-button" onClick={releasePet}>Release</button>
                             </div>
@@ -12399,7 +12399,7 @@ function AdminPanel({
                                                             value={choice.nextPage + 1}
                                                             onChange={(e) => updateVnPage(index, { choices: page.choices.map((c, i) => i === ci ? { ...c, nextPage: Math.max(0, Number(e.target.value) - 1) } : c) })}
                                                         />
-                                                        <button className="danger-button" onClick={() => updateVnPage(index, { choices: page.choices.filter((_, i) => i !== ci) })}>?</button>
+                                                        <button className="danger-button" onClick={() => updateVnPage(index, { choices: page.choices.filter((_, i) => i !== ci) })}>✕</button>
                                                     </div>
                                                     <textarea
                                                         rows={2}
@@ -12804,7 +12804,7 @@ function AdminPanel({
                                         <div className="bulk-error-list">
                                             <strong style={{ color: "#f87171" }}>Errors ({aiBulkErrors.length}):</strong>
                                             {aiBulkErrors.map(e => (
-                                                <div key={e.id} className="bulk-error-row">? <strong>{e.name}</strong>: {e.error}</div>
+                                                <div key={e.id} className="bulk-error-row">⚠️ <strong>{e.name}</strong>: {e.error}</div>
                                             ))}
                                         </div>
                                     )}
@@ -13035,7 +13035,7 @@ function AdminPanel({
                                                             </label>
                                                             {item.image
                                                                 ? <img src={item.image} alt={item.name} className="bulk-card-thumb" />
-                                                                : <div className="bulk-card-thumb bulk-card-thumb--empty">?</div>
+                                                                : <div className="bulk-card-thumb bulk-card-thumb--empty">🃏</div>
                                                             }
                                                             <div className="bulk-card-info">
                                                                 <span className="bulk-card-name">{item.name}</span>
@@ -13076,7 +13076,7 @@ function AdminPanel({
                                                 <div className="bulk-error-list">
                                                     <strong style={{ color: "#f87171" }}>Errors ({itemBulkErrors.length}):</strong>
                                                     {itemBulkErrors.map(e => (
-                                                        <div key={e.id} className="bulk-error-row">? <strong>{e.name}</strong>: {e.error}</div>
+                                                        <div key={e.id} className="bulk-error-row">⚠️ <strong>{e.name}</strong>: {e.error}</div>
                                                     ))}
                                                 </div>
                                             )}
@@ -13837,7 +13837,7 @@ function AdminPanel({
                                                     </label>
                                                     {card.image
                                                         ? <img src={card.image} alt={card.name} className="bulk-card-thumb" />
-                                                        : <div className="bulk-card-thumb bulk-card-thumb--empty">?</div>
+                                                        : <div className="bulk-card-thumb bulk-card-thumb--empty">🃏</div>
                                                     }
                                                     <div className="bulk-card-info">
                                                         <span className="bulk-card-name">{card.name}</span>
@@ -13876,7 +13876,7 @@ function AdminPanel({
                                         <div className="bulk-error-list">
                                             <strong style={{ color: "#f87171" }}>Errors ({bulkErrors.length}):</strong>
                                             {bulkErrors.map(e => (
-                                                <div key={e.id} className="bulk-error-row">? <strong>{e.name}</strong>: {e.error}</div>
+                                                <div key={e.id} className="bulk-error-row">⚠️ <strong>{e.name}</strong>: {e.error}</div>
                                             ))}
                                         </div>
                                     )}
@@ -14104,7 +14104,7 @@ function AdminPanel({
                                                         <div key={slot} style={{ display: "flex", alignItems: "center", gap: 4, background: "#1e293b", border: "1px solid #334155", borderRadius: 4, padding: "2px 6px", fontSize: "0.75rem" }}>
                                                             <span style={{ color: "#94a3b8" }}>{slot}:</span>
                                                             <span>{itemName(itemId)}</span>
-                                                            <button onClick={() => unequipSlot(slot)} style={{ fontSize: "0.65rem", padding: "1px 5px", background: "#7f1d1d", borderColor: "#ef4444", color: "#fca5a5" }}>?</button>
+                                                            <button onClick={() => unequipSlot(slot)} style={{ fontSize: "0.65rem", padding: "1px 5px", background: "#7f1d1d", borderColor: "#ef4444", color: "#fca5a5" }}>✕</button>
                                                         </div>
                                                     ))}
                                                 </div>
@@ -15085,7 +15085,7 @@ function ClanHall({ character, updateCharacter, creatorItems }: { character: Cha
         <div className="clan-tabs expanded-tabs"><button className={view === "roster" ? "active" : ""} onClick={() => setView("roster")}>📋 Roster</button><button className={view === "treasury" ? "active" : ""} onClick={() => setView("treasury")}>💰 Treasury</button><button className={view === "boosts" ? "active" : ""} onClick={() => setView("boosts")}>? Boosts</button><button className={view === "missions" ? "active" : ""} onClick={() => setView("missions")}>📜 Missions</button><button className={view === "wars" ? "active" : ""} onClick={() => setView("wars")}>⚔️ Wars</button><button className={view === "territory" ? "active" : ""} onClick={() => setView("territory")}>🗺️ Territory</button><button className={view === "guard" ? "active" : ""} onClick={() => setView("guard")}>🛡️ Guard</button><button className={view === "hall" ? "active" : ""} onClick={() => setView("hall")}>⛩️ Hall</button></div>
         {view === "roster" && <div className="clan-roster">{canReviewJoinRequests && <section className="summary-box clan-join-requests"><h3>Join Requests</h3>{clanData.joinRequests.length === 0 ? <p className="hint">No pending join requests.</p> : <div className="clan-request-list">{clanData.joinRequests.map(request => <div className="clan-request-card" key={request.name}><div><strong>{request.name}</strong><small>Lv.{request.level} · {request.specialty} · {request.village}</small><small>Requested {new Date(request.requestedAt).toLocaleString()}</small></div><div className="menu"><button onClick={() => acceptJoinRequest(request)}>Accept</button><button className="danger-button" onClick={() => denyJoinRequest(request)}>Deny</button></div></div>)}</div>}</section>}<div className="clan-roster-header clan-roster-header-wide"><span>#</span><span>Member</span><span>Rank</span><span>Role</span><span>Contribution</span></div>{sortedMembers.map((member, idx) => { const rank = clanRankOf(member, clanData.members, clanData.founderName); const role = clanRoleOf(member, clanData); const contrib = clanContribTotal(member); const isMe = member.name === character.name; const rankColor = CLAN_RANK_COLOR[rank]; return <div key={member.name} className={`clan-member-row clan-member-row-wide${isMe ? " clan-member-me" : ""}`}><span className="clan-member-pos">#{idx + 1}</span><div className="clan-member-info"><span className="clan-member-name">{member.name}{isMe ? " ?" : ""}</span><span className="clan-member-sub">Lv.{member.level} · {member.specialty}</span></div><span className="clan-rank-badge" style={{ background: rankColor + "1a", color: rankColor, borderColor: rankColor + "44" }}>{CLAN_RANK_ICON[rank]} {rank}</span><span className="clan-role-badge">{CLAN_ROLE_ICON[role]} {role}</span><div className="clan-contrib-col"><span className="clan-contrib-total">{contrib} pts</span><span className="clan-contrib-breakdown">??{member.battleContrib} ?{member.eventContrib} ??{member.missionContrib}</span></div></div>; })}<div className="summary-box clan-rank-legend"><strong style={{ fontSize: "0.8rem", color: "#94a3b8" }}>Permissions</strong><p className="hint">Founder, Leader, and Clan Elders can approve join requests. Founder, Leader, and Officer can start clan wars.</p></div></div>}
         {view === "treasury" && <div className="summary-box"><h3>💰 Clan Treasury</h3><div className="treasury-grid"><p><strong>Ryo:</strong> {clanData.treasury.ryo.toLocaleString()}</p><p><strong>Fate Shards:</strong> {clanData.treasury.fateShards}</p><p><strong>Bone Charms:</strong> {clanData.treasury.boneCharms}</p><p><strong>Aura Stones:</strong> {clanData.treasury.auraStones}</p><p><strong>Mythic Seals:</strong> {clanData.treasury.mythicSeals}</p><p><strong>War Supply:</strong> {clanData.treasury.warSupply.toLocaleString()}</p></div><label>Donate Ryo</label><input type="number" value={donation} onChange={(e) => setDonation(Number(e.target.value))} /><div className="menu"><button onClick={donateRyo}>Donate Ryo</button><button onClick={() => donateSpecial("fateShards", 1)}>Donate 1 Fate Shard</button><button onClick={() => donateSpecial("boneCharms", 1)}>Donate 1 Bone Charm</button><button onClick={() => donateSpecial("auraStones", 1)}>Donate 1 Aura Stone</button><button onClick={() => donateSpecial("mythicSeals", 1)}>Donate 1 Mythic Seal</button></div><label>Donate Item</label><select value={clanDonateItemId} onChange={(e) => setClanDonateItemId(e.target.value)}><option value="">Choose item</option>{clanInventoryStacks.map(stack => <option key={stack.itemId} value={stack.itemId}>{stack.name} x{stack.count}</option>)}</select><button onClick={donateClanItem} disabled={!clanDonateItemId}>Donate Item</button><h4>Treasury Items</h4>{clanTreasuryItems.length === 0 ? <p className="hint">No donated items yet.</p> : <div className="treasury-grid">{clanTreasuryItems.map(stack => <p key={stack.itemId}><strong>{itemDisplayName(stack.itemId, allClanItems)}:</strong> x{stack.count}</p>)}</div>}{canManageClan(myRole) && <section className="summary-box"><h3>Send Treasury Resources</h3><p className="hint">Clan leadership can send donated resources or items to clan members.</p><label>Recipient</label><select value={clanSendPlayer} onChange={(e) => setClanSendPlayer(e.target.value)}><option value="">Choose clan member</option>{sortedMembers.map(member => <option key={member.name} value={member.name}>{member.name}</option>)}</select><label>Resource</label><select value={clanSendCurrency} onChange={(e) => setClanSendCurrency(e.target.value as ClanTreasuryCurrencyKey)}><option value="ryo">Ryo</option><option value="fateShards">Fate Shards</option><option value="boneCharms">Bone Charms</option><option value="auraStones">Aura Stones</option><option value="mythicSeals">Mythic Seals</option></select><input type="number" min={1} value={clanSendAmount} onChange={(e) => setClanSendAmount(Number(e.target.value))} /><div className="menu"><button onClick={sendClanCurrency}>Send Resource</button></div><label>Item</label><select value={clanSendItemId} onChange={(e) => setClanSendItemId(e.target.value)}><option value="">Choose treasury item</option>{clanTreasuryItems.map(stack => <option key={stack.itemId} value={stack.itemId}>{itemDisplayName(stack.itemId, allClanItems)} x{stack.count}</option>)}</select><button onClick={sendClanItem} disabled={!clanSendItemId}>Send Item</button></section>}<p className="hint">Donations add clan XP and treasury resources.</p></div>}
-        {view === "boosts" && <div className="clan-upgrade-grid">{clanBoostTiers.map(tier => { const active = clanData.members.length >= tier.min && clanData.members.length <= tier.max; const label = Number.isFinite(tier.max) ? `${tier.min}-${tier.max} members` : `${tier.min}+ members`; return <div key={label} className={`town-upgrade-card clan-upgrade-card ${active ? "active" : ""}`}><div className="town-upgrade-topline"><span className="town-upgrade-icon">?</span><div><strong>{label}</strong><p>{active ? "Active Boost" : "Recruitment Tier"}</p></div></div><div className="town-upgrade-bar"><span style={{ width: active ? "100%" : "0%" }} /></div><p className="town-upgrade-desc">Clan members receive +{tier.percent}% training XP, mission XP, and ryo gain at this roster size.</p><p className="town-upgrade-bonus">Boost: <strong>+{tier.percent}%</strong></p></div>; })}</div>}
+        {view === "boosts" && <div className="clan-upgrade-grid">{clanBoostTiers.map(tier => { const active = clanData.members.length >= tier.min && clanData.members.length <= tier.max; const label = Number.isFinite(tier.max) ? `${tier.min}-${tier.max} members` : `${tier.min}+ members`; return <div key={label} className={`town-upgrade-card clan-upgrade-card ${active ? "active" : ""}`}><div className="town-upgrade-topline"><span className="town-upgrade-icon">⚡</span><div><strong>{label}</strong><p>{active ? "Active Boost" : "Recruitment Tier"}</p></div></div><div className="town-upgrade-bar"><span style={{ width: active ? "100%" : "0%" }} /></div><p className="town-upgrade-desc">Clan members receive +{tier.percent}% training XP, mission XP, and ryo gain at this roster size.</p><p className="town-upgrade-bonus">Boost: <strong>+{tier.percent}%</strong></p></div>; })}</div>}
         {view === "missions" && <div className="clan-mission-grid">{clanMissionDefinitions.map(mission => { const progress = clanMissionProgress(clanData, mission.key); return <div key={mission.key} className="summary-box clan-mission-card"><h3>{mission.icon} {mission.name}</h3><p>{mission.description}</p><div className="town-upgrade-bar"><span style={{ width: `${Math.min(100, (progress / mission.target) * 100)}%` }} /></div><p><strong>{Math.min(progress, mission.target).toLocaleString()}</strong> / {mission.target.toLocaleString()}</p><p className="hint">Reward: {mission.reward}</p></div>; })}</div>}
         {view === "wars" && <div className="summary-box"><h3>⚔️ Clan Wars</h3><p className="hint">Owned sectors give +{territoryWarBonusPercent}% clan war point gain, full HP sectors start new wars with +{territoryStartingScore.toLocaleString()} score, and War Supply can be spent during active wars.</p>{clanData.activeWar ? <div className="clan-war-active"><h3>{clanData.name} vs {clanData.activeWar.opponentClan}</h3><p className="hint">Enemy Village: {clanData.activeWar.enemyVillage} · Ends: {new Date(clanData.activeWar.endsAt).toLocaleString()} · War Supply: {clanData.treasury.warSupply.toLocaleString()}</p><div className="war-score-board"><strong>{clanData.activeWar.ourScore}</strong><span>VS</span><strong>{clanData.activeWar.enemyScore}</strong></div><div className="menu"><button onClick={() => addWarScore(3)}>Log Arena Win +3</button><button onClick={() => addWarScore(2)}>Log Defense Win +2</button><button onClick={() => addWarScore(5)}>Log Raid Contribution +5</button><button disabled={clanData.treasury.warSupply < 100} onClick={spendWarSupplyOnActiveWar}>Spend 100 War Supply +10</button><button onClick={resolveClanWar}>Resolve War</button></div></div> : <button disabled={!canManageClan(myRole)} onClick={startClanWar}>{canManageClan(myRole) ? "Start Clan War" : "Officer+ can start wars"}</button>}<h4>Past War History</h4><div className="war-record-grid">{clanData.warHistory.map((war, idx) => <div key={`${war.opponent}-${idx}`} className="war-record-card"><strong>{war.result} vs {war.opponent}</strong><span>{war.finalScore}</span><small>{war.date} · MVP: {war.mvpClan}</small><small>Top Attacker: {war.topAttacker} · Top Defender: {war.topDefender}</small><small>Reward: {war.reward}</small></div>)}</div></div>}
         {view === "territory" && <div className="summary-box"><h3>Clan Territory Control</h3><p className="hint">Members donate Territory Control Scrolls to the clan hall. Owned sectors generate War Supply, boost clan war scoring, and reduce raid damage when guarded.</p><p><strong>Your Scrolls:</strong> {personalTerritoryScrolls} · <strong>Clan Hall Scrolls:</strong> {clanTerritoryScrolls} · <strong>Clan War Supply:</strong> {clanData.treasury.warSupply.toLocaleString()} · <strong>Uncollected:</strong> {clanSectorWarSupply.toLocaleString()}</p><p className="hint">Your village owns {villageSectorCount} sector{villageSectorCount === 1 ? "" : "s"} with {villageSectorWarSupply.toLocaleString()} uncollected village-wide War Supply.</p><div className="menu"><button disabled={personalTerritoryScrolls < 1} onClick={donateAllTerritoryScrollsToClan}>Donate All Territory Scrolls To Clan Hall</button><button disabled={!canSpendTerritoryScrolls || clanSectorWarSupply < 1} onClick={collectTerritoryWarSupply}>Collect Sector War Supply</button></div><div className="treasury-grid"><div><label>Sector</label><input type="number" min={1} max={60} value={territorySector} onChange={(event) => setTerritorySector(clampNumber(Number(event.target.value), 1, 60))} /></div><div><label>Weather</label><select value={territoryWeather} onChange={(event) => setTerritoryWeather(event.target.value as WeatherType)}>{Object.entries(weatherEffects).map(([key, weather]) => <option key={key} value={key}>{weather.name}</option>)}</select></div><div><label>Terrain Bonus</label><select value={territoryBuffStat} onChange={(event) => setTerritoryBuffStat(event.target.value as TerritoryBuffStat)}><option value="bukijutsuOffense">Bukijutsu Offense +10%</option><option value="taijutsuOffense">Taijutsu Offense +10%</option><option value="ninjutsuOffense">Ninjutsu Offense +10%</option><option value="genjutsuOffense">Genjutsu Offense +10%</option></select></div></div><section className="summary-box"><h4>Sector {territorySector}</h4><p><strong>Owner:</strong> {selectedTerritory.ownerClan ? `${selectedTerritory.ownerClan} (${selectedTerritory.ownerVillage})` : "Unclaimed"}</p><div className="town-upgrade-bar"><span style={{ width: `${(selectedTerritory.controlScore / TERRITORY_CONTROL_MAX) * 100}%` }} /></div><p>Control Score: {selectedTerritory.controlScore.toLocaleString()} / {TERRITORY_CONTROL_MAX.toLocaleString()}</p><div className="bar enemy-bar"><span style={{ width: `${(selectedTerritory.hp / TERRITORY_HP_MAX) * 100}%` }} /></div><p>Sector HP: {selectedTerritory.hp.toLocaleString()} / {TERRITORY_HP_MAX.toLocaleString()}</p><p>War Supply: {selectedTerritory.warSupply.toLocaleString()} · Raid Damage Taken: {sectorRaidDamageAmount(territorySector).toLocaleString()}</p><p>Fixed Weather: {weatherEffects[selectedTerritory.weather ?? weatherForSector(territorySector, "central")].name} · Terrain: {selectedTerritory.terrainBuffStat.replace("Offense", " Offense")} +10%</p><p>Guards: {selectedTerritory.guards.length ? selectedTerritory.guards.join(", ") : "None"}</p><div className="menu"><button disabled={!canSpendTerritoryScrolls || clanTerritoryScrolls < 1 || Boolean(selectedTerritory.ownerClan && selectedTerritory.ownerClan !== clanData.name)} onClick={() => donateTerritoryScrolls(territorySector)}>Assign 1 Clan Scroll</button><button disabled={!canSpendTerritoryScrolls || clanTerritoryScrolls < 5 || Boolean(selectedTerritory.ownerClan && selectedTerritory.ownerClan !== clanData.name)} onClick={() => donateTerritoryScrolls(territorySector, 5)}>Assign 5 Clan Scrolls</button><button disabled={!canSpendTerritoryScrolls || selectedTerritory.ownerClan !== clanData.name} onClick={() => saveTerritorySettings(territorySector)}>Save Terrain / Weather</button><button disabled={!canGuardSelectedTerritory} onClick={() => toggleTerritoryGuard(territorySector)}>{selectedTerritory.guards.includes(character.name) ? "Leave Sector Guard" : "Queue Sector Guard"}</button><button className="danger-button" disabled={!selectedTerritory.ownerClan || selectedTerritory.ownerVillage === character.village} onClick={() => recordVillageWarDamage(territorySector)}>Village War Hit -5,000 HP</button></div></section><h4>Your Clan Sectors</h4>{ownedTerritories.length === 0 ? <p className="hint">Your clan does not own a sector yet.</p> : <div className="war-record-grid">{ownedTerritories.map(territory => <div key={territory.sector} className="war-record-card"><strong>Sector {territory.sector}</strong><span>HP {territory.hp.toLocaleString()} / {TERRITORY_HP_MAX.toLocaleString()}</span><small>{weatherEffects[territory.weather ?? "clear"].name} · {territory.terrainBuffStat.replace("Offense", " Offense")} +10%</small><small>War Supply: {territory.warSupply.toLocaleString()} · Guards: {territory.guards.length}</small></div>)}</div>}</div>}
@@ -16110,7 +16110,7 @@ function ShinobiTiles({ character, updateCharacter, creatorCards, dungeonMode = 
                 <div style={{ position: "relative", width: "100%", height: ih, background: "#07111f", overflow: "hidden" }}>
                     {card.image
                         ? <img src={card.image} alt={card.name} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                        : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, opacity: 0.25 }}>??</div>
+                        : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, opacity: 0.25 }}>🃏</div>
                     }
                     {/* Top */}
                     <span style={{
@@ -16343,7 +16343,7 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, hospita
                 <h2>🏥 Village Hospital</h2>
                 <p className="hint">Town Hall Hospital Discount: <strong>{hospitalDiscount.toFixed(2)}%</strong></p>
                 <div className="hospital-admitted-banner">
-                    <span className="hospital-admitted-icon">??</span>
+                    <span className="hospital-admitted-icon">🏥</span>
                     <div>
                         <strong>You are currently admitted</strong>
                         <p>You were knocked out in battle. Pay the discharge fee or wait for the free check-out.</p>
@@ -16607,7 +16607,7 @@ function ShinobiCouncilHall({ character, setScreen, playerRoster }: { character:
                         const isMe = entry.name === character.name;
                         return (
                             <div key={`${entry.name}-${entry.village}-${i}`} className={`council-kage-row ${isMe ? "council-kage-me" : ""} ${isActive ? "council-kage-active" : ""}`}>
-                                <div className="council-kage-seal">?</div>
+                                <div className="council-kage-seal">🌀</div>
                                 <div className="council-kage-info">
                                     <span className="council-kage-name">{entry.name}</span>
                                     <span className="council-kage-village">{entry.village}</span>
@@ -17349,7 +17349,7 @@ function Inventory({
                                                 {card?.image ? (
                                                     <img src={card.image} alt={card.name} />
                                                 ) : (
-                                                    <span>??</span>
+                                                    <span>🃏</span>
                                                 )}
                                             </div>
 
@@ -17756,7 +17756,7 @@ function SunscarFestival({
                 <div style={{ position: "relative", width: "100%", height: ih, background: "#07111f", overflow: "hidden" }}>
                     {card.image
                         ? <img src={card.image} alt={card.name} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                        : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, opacity: 0.35 }}>??</div>
+                        : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, opacity: 0.35 }}>🃏</div>
                     }
                     {/* Top */}
                     <span style={{
@@ -17886,7 +17886,7 @@ function SunscarFestival({
     if (duelPhase === "bet") {
         return (
             <div className="card" style={{ maxWidth: 480, margin: "0 auto" }}>
-                <div style={{ fontSize: "2rem", textAlign: "center", marginBottom: "0.4rem" }}>??</div>
+                <div style={{ fontSize: "2rem", textAlign: "center", marginBottom: "0.4rem" }}>🔮</div>
                 <h2 style={{ textAlign: "center", marginBottom: "0.2rem" }}>Miraa the Card Seer</h2>
                 <p style={{ color: "#aaa", textAlign: "center", marginBottom: "1rem" }}>"Place your wager and we shall see whose fate runs deeper."</p>
                 <p style={{ marginBottom: "0.8rem" }}>Your ryo: <strong>{character.ryo}</strong></p>
@@ -18073,12 +18073,12 @@ function SunscarFestival({
                 <section className="sunscar-card">
                     <h2>Festival Grounds</h2>
                     <div className="festival-visual">
-                        <span>?</span>
-                        <span>??</span>
-                        <span>??</span>
-                        <span>??</span>
-                        <span>??</span>
-                        <span>??</span>
+                        <span>🎪</span>
+                        <span>🎆</span>
+                        <span>🎭</span>
+                        <span>🎊</span>
+                        <span>🪩</span>
+                        <span>🎉</span>
                     </div>
                     <p>
                         Golden tents, torch bowls, desert drums, masked merchants,
@@ -18370,12 +18370,12 @@ function CentralHub({
                         <p className="celestial-panel-sub">Choose your challenge, shinobi.</p>
                         <div className="celestial-panel-options">
                             <button className="celestial-option-btn" onClick={() => { setShowCelestialPanel(false); setCentralLog("Celestial Tower is open. Floor 1 trial begins in the Arena."); setScreen("arena"); }}>
-                                <span className="celestial-option-icon">??</span>
+                                <span className="celestial-option-icon">⚔️</span>
                                 <strong>Floor Trial</strong>
                                 <small>Standard arena battle against a selected opponent.</small>
                             </button>
                             <button className="celestial-option-btn celestial-endless-btn" onClick={() => { setShowCelestialPanel(false); onStartEndlessBattle(); }}>
-                                <span className="celestial-option-icon">??</span>
+                                <span className="celestial-option-icon">🌊</span>
                                 <strong>Endless Battle</strong>
                                 <small>Fight wave after wave of random opponents. How far can you climb before you fall?</small>
                             </button>
@@ -18513,17 +18513,17 @@ function CentralHub({
                             <h3>💠 Ancient Materials</h3>
                             <div className="awakening-materials">
                                 <div className="awakening-material-row">
-                                    <span className="awakening-material-icon">??</span>
+                                    <span className="awakening-material-icon">🦴</span>
                                     <span className="awakening-material-name">Bone Charms</span>
                                     <span className="awakening-material-count">{character.boneCharms ?? 0}</span>
                                 </div>
                                 <div className="awakening-material-row">
-                                    <span className="awakening-material-icon">??</span>
+                                    <span className="awakening-material-icon">💎</span>
                                     <span className="awakening-material-name">Aura Stones</span>
                                     <span className="awakening-material-count">{character.auraStones ?? 0}</span>
                                 </div>
                                 <div className="awakening-material-row">
-                                    <span className="awakening-material-icon">??</span>
+                                    <span className="awakening-material-icon">🌟</span>
                                     <span className="awakening-material-name">Mythic Seals</span>
                                     <span className="awakening-material-count">{character.mythicSeals ?? 0}</span>
                                 </div>
@@ -19517,7 +19517,7 @@ function WorldMap({
                                 ? <img src={chestPageImage} alt={page.title} className="vn-bg-image" />
                                 : <span className="vn-village-silhouette" />}
                         </div>
-                        <div className="vn-character mentor-character">??</div>
+                        <div className="vn-character mentor-character">🧙</div>
                         <div className="vn-character hero-character">{character.name.slice(0, 2).toUpperCase()}</div>
                         <div className="vn-scene-card">{page.scene}</div>
                         <div className="vn-dialogue">
@@ -19631,7 +19631,7 @@ function WorldMap({
                                                     <div key={p.name} className="other-player-map-dot" title={`${p.name} Lv ${p.level}`}>
                                                         {(sharedImages['avatar:' + p.name.toLowerCase()] || (p.character.avatarImage as string) || '')
                                                             ? <img className="tiny-map-avatar other-player-map-avatar" src={sharedImages['avatar:' + p.name.toLowerCase()] || (p.character.avatarImage as string) || ''} alt={p.name} />
-                                                            : <span className="other-player-map-emoji">??</span>
+                                                            : <span className="other-player-map-emoji">🥷</span>
                                                         }
                                                         <span className="other-player-map-name">{p.name}</span>
                                                     </div>
@@ -20108,7 +20108,7 @@ function WorldMap({
                                         ? <img src={chestPageImg} alt={page.title} className="vn-bg-image" />
                                         : <span className="vn-village-silhouette" />}
                                 </div>
-                                <div className="vn-character mentor-character">??</div>
+                                <div className="vn-character mentor-character">🧙</div>
                                 <div className="vn-character hero-character">{character.name.slice(0, 2).toUpperCase()}</div>
                                 <div className="vn-scene-card">{page.scene}</div>
                                 <div className="vn-dialogue">
@@ -20314,7 +20314,7 @@ function Training({ character, updateCharacter, activeTraining, setActiveTrainin
     const trainingXpBonus = getTrainingXpBonus(character);
     function startTraining(timer: typeof timers[number]) { if (activeTraining) return alert("You are already training."); if (character.stamina < timer.staminaCost) return alert("Not enough stamina."); const boostedXp = boostAmount(timer.xp, trainingXpBonus); updateCharacter({ ...character, stamina: character.stamina - timer.staminaCost }); setActiveTraining({ label: `${timer.label} ${selectedStat} Training`, stat: selectedStat, xp: boostedXp, statGain: statPointsEarnedFromXp(character, boostedXp), staminaCost: timer.staminaCost, endsAt: Date.now() + timer.ms }); }
     function completeTraining() { if (!activeTraining) return; if (Date.now() < activeTraining.endsAt) return alert(`Training still has ${Math.ceil((activeTraining.endsAt - Date.now()) / 1000)} seconds left.`); const earnedStatPoints = statPointsEarnedFromXp(character, activeTraining.xp); const leveled = gainXp(character, activeTraining.xp); const focusedGain = Math.min(earnedStatPoints, leveled.unspentStats, MAX_STAT - leveled.stats[activeTraining.stat]); updateCharacter({ ...leveled, unspentStats: leveled.unspentStats - focusedGain, totalStatsTrained: (leveled.totalStatsTrained ?? 0) + focusedGain, stats: { ...leveled.stats, [activeTraining.stat]: capStat(leveled.stats[activeTraining.stat] + focusedGain) } }); alert(`${activeTraining.label} complete. ${focusedGain > 0 ? `${focusedGain} earned stat point${focusedGain !== 1 ? "s" : ""} went into ${formatStatName(activeTraining.stat)}.` : "No new stat point was earned from this XP tick."}`); setActiveTraining(null); }
-    return <div className="card"><h2>Training Grounds</h2><p>Stamina: {character.stamina}/{character.maxStamina} · Town Hall XP Bonus: <strong>{trainingXpBonus.toFixed(2)}%</strong>{CHARACTER_XP_GAIN_MULTIPLIER !== 1 ? <> · Testing XP: <strong>{CHARACTER_XP_GAIN_MULTIPLIER}x</strong></> : null}</p>{activeTraining && <div className="summary-box"><h3>Active Training</h3><p>{activeTraining.label}</p><p>Ends: {new Date(activeTraining.endsAt).toLocaleTimeString()}</p><button onClick={completeTraining}>Complete Training</button></div>}<h3>Choose Stat</h3><div className="location-grid">{trainingStats.map((option) => <button key={option.stat} className="location-button" onClick={() => setSelectedStat(option.stat)}><span className="tile-icon">{option.icon}</span><span>{option.label}</span><small>{selectedStat === option.stat ? "Selected" : "Click to select"}</small></button>)}</div><h3>Choose Timer</h3><div className="location-grid">{timers.map((timer) => { const boostedXp = boostAmount(timer.xp, trainingXpBonus); const effectiveXp = effectiveCharacterXpGain(character, boostedXp); const earnedPoints = statPointsEarnedFromXp(character, boostedXp); return <button key={timer.label} className="location-button" onClick={() => startTraining(timer)}><span className="tile-icon">??</span><span>{timer.label}</span><small>+{effectiveXp} XP / ~{earnedPoints} stat point{earnedPoints !== 1 ? "s" : ""}</small></button>; })}</div></div>;
+    return <div className="card"><h2>Training Grounds</h2><p>Stamina: {character.stamina}/{character.maxStamina} · Town Hall XP Bonus: <strong>{trainingXpBonus.toFixed(2)}%</strong>{CHARACTER_XP_GAIN_MULTIPLIER !== 1 ? <> · Testing XP: <strong>{CHARACTER_XP_GAIN_MULTIPLIER}x</strong></> : null}</p>{activeTraining && <div className="summary-box"><h3>Active Training</h3><p>{activeTraining.label}</p><p>Ends: {new Date(activeTraining.endsAt).toLocaleTimeString()}</p><button onClick={completeTraining}>Complete Training</button></div>}<h3>Choose Stat</h3><div className="location-grid">{trainingStats.map((option) => <button key={option.stat} className="location-button" onClick={() => setSelectedStat(option.stat)}><span className="tile-icon">{option.icon}</span><span>{option.label}</span><small>{selectedStat === option.stat ? "Selected" : "Click to select"}</small></button>)}</div><h3>Choose Timer</h3><div className="location-grid">{timers.map((timer) => { const boostedXp = boostAmount(timer.xp, trainingXpBonus); const effectiveXp = effectiveCharacterXpGain(character, boostedXp); const earnedPoints = statPointsEarnedFromXp(character, boostedXp); return <button key={timer.label} className="location-button" onClick={() => startTraining(timer)}><span className="tile-icon">⏰</span><span>{timer.label}</span><small>+{effectiveXp} XP / ~{earnedPoints} stat point{earnedPoints !== 1 ? "s" : ""}</small></button>; })}</div></div>;
 }
 
 function JutsuTrainingHall({
@@ -20581,7 +20581,7 @@ function Missions({
                                                 <div className="mh-fetch-avatar">
                                                     {missionAi?.image
                                                         ? <img src={missionAi.image} alt={missionAi.name} />
-                                                        : <span>??</span>}
+                                                        : <span>🃏</span>}
                                                 </div>
                                                 <div className="mh-fetch-info">
                                                     <strong>{mission.name}</strong>
@@ -24726,7 +24726,7 @@ function Arena({
                     </div>
 
                     <div className="hex-zoom-bar">
-                        <span className="hex-zoom-label">??</span>
+                        <span className="hex-zoom-label">🔍</span>
                         <input
                             type="range"
                             className="hex-zoom-slider"
@@ -24740,7 +24740,7 @@ function Arena({
                             className="hex-zoom-reset"
                             onClick={() => setUserScaleOffset(0)}
                             title="Reset zoom"
-                        >?</button>
+                        >↺</button>
                     </div>
                     <div className={`hex-battlefield hex-${currentBiome}${currentSector === 99 ? " hex-deathsgate" : ""}`} ref={battlefieldCallbackRef}>
                         {/*
@@ -25854,10 +25854,10 @@ function PvpBattleScreen({
                     </div>
 
                     <div className="hex-zoom-bar">
-                        <span className="hex-zoom-label">??</span>
+                        <span className="hex-zoom-label">🔍</span>
                         <input type="range" className="hex-zoom-slider" min={-0.4} max={0.5} step={0.02}
                             value={userScaleOffset} onChange={e => setUserScaleOffset(Number(e.target.value))} />
-                        <button className="hex-zoom-reset" onClick={() => setUserScaleOffset(0)} title="Reset zoom">?</button>
+                        <button className="hex-zoom-reset" onClick={() => setUserScaleOffset(0)} title="Reset zoom">↺</button>
                     </div>
 
                     <div className={`hex-battlefield hex-${currentBiome}${currentSector === 99 ? " hex-deathsgate" : ""}`}
@@ -26057,7 +26057,7 @@ function PvpBattleScreen({
                                                     </button>
                                                     <button type="button" className="combat-jutsu-help"
                                                         onClick={() => setInspectedJutsuId(inspectedJutsuId === j.id ? "" : j.id)}
-                                                        title={`View ${j.name} details`}>?</button>
+                                                        title={`View ${j.name} details`}>↺</button>
                                                 </div>
                                             );
                                         })}
@@ -26085,7 +26085,7 @@ function PvpBattleScreen({
                                                         </button>
                                                         <button type="button" className="combat-jutsu-help"
                                                             onClick={() => setInspectedWeaponId(inspectedWeaponId === item.id ? "" : item.id)}
-                                                            title={`View ${item.name} details`}>?</button>
+                                                            title={`View ${item.name} details`}>↺</button>
                                                     </div>
                                                 );
                                             })}
@@ -26104,7 +26104,7 @@ function PvpBattleScreen({
                                                             onClick={() => { setInspectedJutsuId(""); setPendingJutsuId(""); setPendingBasicAttack(false); setPendingWeaponId(""); submitAction("item", undefined, undefined, item); }}
                                                             disabled={submitting || myAp < apCost}>
                                                             <span className="combat-jutsu-thumb combat-item-thumb">
-                                                                {item.image ? <img src={item.image} alt={item.name} /> : <strong>?</strong>}
+                                                                {item.image ? <img src={item.image} alt={item.name} /> : <strong>🎁</strong>}
                                                             </span>
                                                             <span className="combat-jutsu-name">{item.name}</span>
                                                             <span className="combat-jutsu-info">{apCost} AP | Use</span>
