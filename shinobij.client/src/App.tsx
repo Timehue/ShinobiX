@@ -489,6 +489,7 @@ type Character = {
     villageUpgrades: VillageUpgrades;
     lastBankInterestAt?: number;
     dailyTilesExplored?: number;
+    dailyHuntsUsed?: number;
     dailyMissionsCompleted?: number;
     dailyFateSpins?: number;
     lastDailyReset?: string;
@@ -4493,6 +4494,7 @@ function normalizeCharacter(parsed: Character): Character {
         lastBankInterestAt: parsed.lastBankInterestAt ?? 0,
         lastDailyReset: currentDateKey(),
         dailyTilesExplored: parsed.lastDailyReset === currentDateKey() ? (parsed.dailyTilesExplored ?? 0) : 0,
+        dailyHuntsUsed: parsed.lastDailyReset === currentDateKey() ? (parsed.dailyHuntsUsed ?? 0) : 0,
         dailyMissionsCompleted: parsed.lastDailyReset === currentDateKey() ? (parsed.dailyMissionsCompleted ?? 0) : 0,
         dailyFateSpins: parsed.lastDailyReset === currentDateKey() ? (parsed.dailyFateSpins ?? 0) : 0,
     };
@@ -7947,6 +7949,10 @@ function LeftProfileCard({
                     <div className="left-caps-cell">
                         <span className="left-caps-label">🗺 Tiles</span>
                         <span className="left-caps-value" style={{ color: (character.dailyTilesExplored ?? 0) >= 150 ? "#ef4444" : "#86efac" }}>{character.dailyTilesExplored ?? 0}/150</span>
+                    </div>
+                    <div className="left-caps-cell">
+                        <span className="left-caps-label">🎯 Hunts</span>
+                        <span className="left-caps-value" style={{ color: (character.dailyHuntsUsed ?? 0) >= 50 ? "#ef4444" : "#86efac" }}>{character.dailyHuntsUsed ?? 0}/50</span>
                     </div>
                     <div className="left-caps-cell">
                         <span className="left-caps-label">📜 Missions</span>
@@ -19216,6 +19222,11 @@ function WorldMap({
             alert("Hunting is only available in Sectors 1-60.");
             return;
         }
+        const dailyHunts = character.dailyHuntsUsed ?? 0;
+        if (dailyHunts >= 50) {
+            alert("Daily hunt limit reached (50/50). Resets at midnight UTC.");
+            return;
+        }
         const biome = biomeForSector(sector);
         setSelectedVillageTerritory(null);
         setSelectedSector(sector);
@@ -19235,6 +19246,7 @@ function WorldMap({
         const requiredTracks = activeHuntMission.exploreCount ?? 1;
         const currentProgress = missionProgress[activeHuntMission.id] ?? 0;
         const nextProgress = Math.min(requiredTracks, currentProgress + 1);
+        updateCharacter({ ...character, dailyHuntsUsed: dailyHunts + 1, lastDailyReset: currentDateKey() });
         setMissionProgress((current) => ({
             ...current,
             [activeHuntMission.id]: Math.max(nextProgress, current[activeHuntMission.id] ?? 0),
