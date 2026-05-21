@@ -6648,31 +6648,46 @@ export default function App() {
 
     async function loadCategory(cat: string) {
         if (loadedCatsRef.current.has(cat)) return;
-        loadedCatsRef.current.add(cat);
+        // Do NOT mark loaded yet — only mark after a successful fetch so that
+        // transient failures (Supabase cold start, timeout) allow retry.
 
         // 1. Try sessionStorage first — avoids a KV round-trip on page refresh
         try {
             const raw = sessionStorage.getItem(imgCacheKey(cat));
             if (raw) {
                 const { ts, data } = JSON.parse(raw) as { ts: number; data: Record<string, string> };
-                if (Date.now() - ts < IMG_CACHE_TTL) {
+                // Only use cache if it has actual entries (not an empty timeout result)
+                if (Date.now() - ts < IMG_CACHE_TTL && Object.keys(data).length > 0) {
                     hydrateImages(cat, data);
+                    loadedCatsRef.current.add(cat);
                     return; // served from cache — zero KV reads
                 }
             }
         } catch { /* sessionStorage unavailable or parse error */ }
 
-        // 2. Fetch from KV and cache the result
-        try {
-            const r = await fetch(`/api/images?cat=${encodeURIComponent(cat)}`);
-            if (!r.ok) return;
-            const data = await r.json() as unknown;
-            if (!data || typeof data !== 'object') return;
-            hydrateImages(cat, data as Record<string, string>);
+        // 2. Fetch from KV — retry once after 2s on failure (handles Supabase cold starts)
+        for (let attempt = 0; attempt < 2; attempt++) {
             try {
-                sessionStorage.setItem(imgCacheKey(cat), JSON.stringify({ ts: Date.now(), data }));
-            } catch { /* quota exceeded — skip caching, no problem */ }
-        } catch { /* silently ignore — images are non-critical */ }
+                if (attempt > 0) await new Promise(r => setTimeout(r, 2000));
+                const r = await fetch(`/api/images?cat=${encodeURIComponent(cat)}`);
+                if (!r.ok) continue;
+                const data = await r.json() as unknown;
+                if (!data || typeof data !== 'object') continue;
+                const entries = data as Record<string, string>;
+                // Only cache and mark done if we actually got images back.
+                // An empty {} from a Supabase timeout would poison the cache.
+                if (Object.keys(entries).length > 0) {
+                    hydrateImages(cat, entries);
+                    try {
+                        sessionStorage.setItem(imgCacheKey(cat), JSON.stringify({ ts: Date.now(), data: entries }));
+                    } catch { /* quota exceeded — skip caching */ }
+                }
+                // Mark loaded even if empty — the category genuinely has no images yet
+                loadedCatsRef.current.add(cat);
+                return;
+            } catch { /* network error — retry */ }
+        }
+        // Both attempts failed — leave loadedCatsRef unset so next screen visit retries
     }
 
     // Load ALL image categories at startup — ensures images from publishSharedImage
@@ -6829,19 +6844,32 @@ export default function App() {
         // Local localStorage only provides a fast-path pre-check.
         let authOk = false;
         let legacy = false;
-        try {
-            const authRes = await loginFetch('/api/player-auth', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'verify', name: name.trim().toLowerCase(), password }),
-            });
-            if (authRes.ok) {
-                const authData = await authRes.json() as { ok: boolean; legacy?: boolean };
-                authOk = authData.ok;
-                legacy = authData.legacy ?? false;
+        let authVerified = false;
+        // Retry up to 2 times — handles Supabase cold starts (first call often slow)
+        for (let attempt = 0; attempt < 2 && !authVerified; attempt++) {
+            try {
+                if (attempt > 0) await new Promise(r => setTimeout(r, 2000));
+                const authRes = await loginFetch('/api/player-auth', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'verify', name: name.trim().toLowerCase(), password }),
+                }, 15000);
+                if (authRes.status === 503) continue; // storage unavailable — retry
+                if (authRes.ok) {
+                    const authData = await authRes.json() as { ok: boolean; legacy?: boolean };
+                    authOk = authData.ok;
+                    legacy = authData.legacy ?? false;
+                    authVerified = true;
+                } else {
+                    // Non-retriable HTTP error — stop
+                    authVerified = true;
+                }
+            } catch {
+                // Network/timeout error — retry once, then fall back to local cache
             }
-        } catch {
-            // Network failure - only old cached accounts may have a local password.
+        }
+        if (!authVerified) {
+            // Both attempts failed (network down / persistent timeout)
             if (account?.password) {
                 authOk = account.password === password;
             } else {
@@ -6866,10 +6894,16 @@ export default function App() {
         }
 
         // Always pull the full server save - this is where the real character state lives.
-        let saveRes: Response;
-        try {
-            saveRes = await loginFetch(`/api/save/${encodeURIComponent(name.toLowerCase())}`, undefined, 20000);
-        } catch {
+        // Retry once on failure to handle transient Supabase cold starts.
+        let saveRes: Response | null = null;
+        for (let attempt = 0; attempt < 2; attempt++) {
+            try {
+                if (attempt > 0) await new Promise(r => setTimeout(r, 2000));
+                saveRes = await loginFetch(`/api/save/${encodeURIComponent(name.toLowerCase())}`, undefined, 20000);
+                if (saveRes.status !== 503) break; // 503 = storage unavailable, retry
+            } catch { /* timeout/network — retry */ }
+        }
+        if (!saveRes) {
             alert("Could not load your save from the server. Try again in a moment.");
             return;
         }
