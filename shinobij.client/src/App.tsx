@@ -1311,17 +1311,20 @@ const petTrainingOptions: { type: PetTrainingType; label: string; desc: string }
     { type: "chakra", label: "Chakra Training", desc: "Boosts jutsu power and pet XP" },
     { type: "bond", label: "Bond Training", desc: "Balanced stat growth, XP, and happiness" },
 ];
+// Base stats and caps are kept within ~5% per tier so rarity gives a small edge
+// without making cross-rarity matchups a guaranteed win/loss.
 const balancedPetBaseStats: Record<PetRarity, { hp: number; attack: number; defense: number; speed: number; jutsuPower: number; moveRange: number }> = {
-    standard: { hp: 320, attack: 40, defense: 28, speed: 30, jutsuPower: 50, moveRange: 3 },
-    rare: { hp: 370, attack: 48, defense: 34, speed: 36, jutsuPower: 62, moveRange: 3 },
-    legendary: { hp: 430, attack: 58, defense: 42, speed: 44, jutsuPower: 78, moveRange: 4 },
-    mythic: { hp: 500, attack: 70, defense: 52, speed: 52, jutsuPower: 96, moveRange: 4 },
+    standard:  { hp: 330, attack: 42, defense: 30, speed: 31, jutsuPower: 52, moveRange: 3 },
+    rare:      { hp: 347, attack: 44, defense: 32, speed: 33, jutsuPower: 55, moveRange: 3 },
+    legendary: { hp: 364, attack: 46, defense: 34, speed: 35, jutsuPower: 58, moveRange: 4 },
+    mythic:    { hp: 382, attack: 49, defense: 36, speed: 37, jutsuPower: 62, moveRange: 4 },
 };
+// Each tier cap is ~5% above the tier below (~15% total standard → mythic).
 const petStatCaps: Record<PetRarity, { hp: number; attack: number; defense: number; speed: number; jutsuPower: number }> = {
-    standard: { hp: 1700, attack: 260, defense: 210, speed: 190, jutsuPower: 320 },
-    rare: { hp: 1900, attack: 290, defense: 240, speed: 220, jutsuPower: 360 },
-    legendary: { hp: 2200, attack: 330, defense: 280, speed: 250, jutsuPower: 420 },
-    mythic: { hp: 2500, attack: 380, defense: 320, speed: 285, jutsuPower: 500 },
+    standard:  { hp: 1800, attack: 275, defense: 225, speed: 205, jutsuPower: 345 },
+    rare:      { hp: 1890, attack: 289, defense: 236, speed: 215, jutsuPower: 362 },
+    legendary: { hp: 1985, attack: 303, defense: 248, speed: 226, jutsuPower: 380 },
+    mythic:    { hp: 2085, attack: 318, defense: 260, speed: 237, jutsuPower: 399 },
 };
 const petTreatItems = [
     { id: "pet-treat", name: "Treats", xp: 100 },
