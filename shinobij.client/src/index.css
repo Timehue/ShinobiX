@@ -7612,7 +7612,7 @@ textarea {
     width: 100%;
     border-top: 1px solid rgba(255,255,255,0.08);
     margin-top: 4px;
-    padding: 4px 6px 0 20px;
+    padding: 4px 6px 0 44px;
     box-sizing: border-box;
 }
 
@@ -7661,7 +7661,7 @@ textarea {
     align-items: center;
     gap: 5px;
     margin-top: 6px;
-    padding: 0 22px;
+    padding: 0 40px;
     box-sizing: border-box;
 }
 
@@ -7722,13 +7722,18 @@ textarea {
     width: 100%;
     box-sizing: border-box;
     margin-top: 4px;
-    padding: 5px 6px;
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 0 14px;
     display: flex;
     flex-direction: column;
     gap: 3px;
+}
+
+.left-timer-bar {
+    box-sizing: border-box;
+    padding: 4px 8px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .left-timer-row {
