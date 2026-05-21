@@ -71,13 +71,17 @@ let _pool: pg.Pool | null = null;
 function getPool(): pg.Pool {
     if (_pool) return _pool;
 
-    const url = process.env.DATABASE_URL!;
+    // DATABASE_URL wins; fall back to SUPABASE_POSTGRES_URL (set automatically
+    // by the Supabase Vercel integration on all environments).
+    const url = (process.env.DATABASE_URL ?? process.env.SUPABASE_POSTGRES_URL)!;
 
-    // Strip sslmode from the connection string — pg v8 treats sslmode=require
-    // as verify-full, overriding ssl:{rejectUnauthorized:false}.
+    // Strip params that confuse pg: sslmode (pg v8 treats require as verify-full)
+    // and pgbouncer=true (Supavisor hint for ORMs, not understood by pg driver).
     const cleanUrl = url
         .replace(/([?&])sslmode=[^&]*/g, (_, sep) => (sep === '?' ? '?' : ''))
-        .replace(/\?$/, '');
+        .replace(/([?&])pgbouncer=[^&]*/g, (_, sep) => (sep === '?' ? '?' : ''))
+        .replace(/\?$/, '')
+        .replace(/\?&/, '?');
 
     _pool = new Pool({
         connectionString: cleanUrl,
@@ -348,6 +352,8 @@ const supabaseKv = {
 
 // ─── Export the right backend ─────────────────────────────────────────────────
 
-// Use pg Pool when DATABASE_URL is set (cPanel/Passenger long-running process).
-// Fall back to Supabase REST API for Vercel serverless (no TCP cold-start cost).
-export const kv = process.env.DATABASE_URL ? pgKv : supabaseKv;
+// Use pg Pool when a direct connection URL is available:
+//   DATABASE_URL      — set explicitly (cPanel/Passenger, or manually in Vercel)
+//   SUPABASE_POSTGRES_URL — set automatically by the Supabase Vercel integration
+// Fall back to Supabase REST API only when neither is present.
+export const kv = (process.env.DATABASE_URL || process.env.SUPABASE_POSTGRES_URL) ? pgKv : supabaseKv;
