@@ -6120,6 +6120,7 @@ export default function App() {
 
     function buildPlayerSavePayload(characterToSave: Character, overrides: Partial<{
         savedBloodlines: SavedBloodline[];
+        creatorJutsus: Jutsu[];
     }> = {}) {
         return {
             character: characterToSave,
@@ -7568,10 +7569,10 @@ export default function App() {
                         playerRoster={playerRoster}
                         allServerPlayers={allServerPlayers}
                         adminPw={adminPw}
-                        onSave={async () => {
+                        onSave={async (overrides?: Parameters<typeof buildPlayerSavePayload>[1]) => {
                             const adminSaveName = adminAccount || currentAccountName;
                             if (!adminSaveName) return;
-                            await pushSaveToServer(character, adminSaveName);
+                            await pushSaveToServer(character, adminSaveName, overrides);
                         }}
                         onReloadImages={() => {
                             loadedCatsRef.current.clear();
@@ -10604,7 +10605,7 @@ function AdminPanel({
     setSavedBloodlines: (bloodlines: SavedBloodline[]) => void;
     setAdminLoggedIn: (value: boolean) => void;
     setScreen: (screen: Screen) => void;
-    onSave: () => Promise<void>;
+    onSave: (overrides?: { savedBloodlines?: SavedBloodline[]; creatorJutsus?: Jutsu[] }) => Promise<void>;
     onReloadImages?: () => void;
     onEditBloodline?: (bloodline: SavedBloodline) => void;
     playerRoster: PlayerRecord[];
@@ -11742,10 +11743,11 @@ function AdminPanel({
         const newJutsu = rebalanceNonBloodlineJutsu(jutsuFromForm());
         void publishSharedImage('jutsu:' + newJutsu.id, newJutsu.image ?? "");
 
-        setCreatorJutsus([...creatorJutsus, newJutsu]);
+        const updatedJutsus = [...creatorJutsus, newJutsu];
+        setCreatorJutsus(updatedJutsus);
 
         alert(`${newJutsu.name} created and imported to the game. Train it before equipping it.`);
-        setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
+        void onSave({ creatorJutsus: updatedJutsus });
     }
 
     function saveAdminJutsuEdit() {
@@ -11754,21 +11756,27 @@ function AdminPanel({
         void publishSharedImage('jutsu:' + updatedJutsu.id, updatedJutsu.image ?? "");
         const sourceBloodline = savedBloodlines.find((bloodline) => bloodline.jutsus.some((jutsu) => jutsu.id === editingJutsuId));
         if (sourceBloodline) {
-            setSavedBloodlines(savedBloodlines.map((bloodline) => bloodline.id === sourceBloodline.id ? {
+            const updatedBloodlines = savedBloodlines.map((bloodline) => bloodline.id === sourceBloodline.id ? {
                 ...bloodline,
                 jutsus: bloodline.jutsus.map((jutsu) => jutsu.id === editingJutsuId ? updatedJutsu : jutsu),
                 totalPoints: bloodline.jutsus.map((jutsu) => jutsu.id === editingJutsuId ? updatedJutsu : jutsu).reduce((sum, jutsu) => sum + jutsuPoints(jutsu), 0),
-            } : bloodline));
+            } : bloodline);
+            setSavedBloodlines(updatedBloodlines);
+            alert(`${updatedJutsu.name} saved.`);
+            void onSave({ savedBloodlines: updatedBloodlines });
         } else if (creatorJutsus.some((jutsu) => jutsu.id === editingJutsuId)) {
             // Save exactly what the admin set — no rebalance override
-            setCreatorJutsus(creatorJutsus.map((jutsu) => jutsu.id === editingJutsuId ? updatedJutsu : jutsu));
+            const updatedJutsus = creatorJutsus.map((jutsu) => jutsu.id === editingJutsuId ? updatedJutsu : jutsu);
+            setCreatorJutsus(updatedJutsus);
+            alert(`${updatedJutsu.name} saved.`);
+            void onSave({ creatorJutsus: updatedJutsus });
         } else {
             // Override a starter jutsu — stored in creatorJutsus, wins via Map in getAllJutsus
-            setCreatorJutsus([...creatorJutsus, updatedJutsu]);
+            const updatedJutsus = [...creatorJutsus, updatedJutsu];
+            setCreatorJutsus(updatedJutsus);
+            alert(`${updatedJutsu.name} saved.`);
+            void onSave({ creatorJutsus: updatedJutsus });
         }
-        alert(`${updatedJutsu.name} saved.`);
-        // Auto-persist: wait for React to re-render with the new state, then save
-        setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
     }
     function eventFromForm(id = `event-${makeId()}`): CreatorEvent {
         const existingEvent = allEditableEvents.find((event) => event.id === id);
