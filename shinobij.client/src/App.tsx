@@ -20034,58 +20034,39 @@ function WorldMap({
         });
     }
 
-    // ── WASD / E keyboard navigation ─────────────────────────────────────────────
-    // W/A/S/D moves to the nearest sector in that cardinal direction.
-    // E explores the current sector (or selected sector if already there).
-    // Blocked during travel and when focus is inside an input/textarea/select.
+    // ── WASD / E keyboard controls inside a sector tile view ─────────────────────
+    // W/A/S/D moves one tile in that direction on the 12-wide sector grid.
+    // E explores the open sector.
+    // Only active while a sector panel is open and focus is not in a text field.
+    const SECTOR_GRID_W = 12;
+    const SECTOR_GRID_SIZE = 144;
     useEffect(() => {
-        function nearestSectorInDir(fromId: number, dx: number, dy: number): number | null {
-            const from = sectorPoints.find(s => s.id === fromId);
-            if (!from) return null;
-            let best: { id: number; score: number } | null = null;
-            for (const s of sectorPoints) {
-                if (s.id === fromId) continue;
-                const relX = s.x - from.x;
-                const relY = s.y - from.y;
-                // Must move at least somewhat in the intended direction
-                const forward = relX * dx + relY * dy;
-                if (forward <= 0) continue;
-                // Penalise lateral drift so straight moves win over diagonal
-                const lateral = Math.abs(relX * dy - relY * dx);
-                const dist = Math.sqrt(relX * relX + relY * relY);
-                const score = forward / (lateral + dist * 0.4 + 1);
-                if (!best || score > best.score) best = { id: s.id, score };
-            }
-            return best?.id ?? null;
-        }
-
+        if (!selectedSector) return;
         function handleKey(e: KeyboardEvent) {
-            if (isTraveling) return;
             const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
             if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
 
             const key = e.key.toLowerCase();
             if (key === 'e') {
                 e.preventDefault();
-                const target = selectedSector ?? currentSector;
-                if (target) exploreSector(target);
+                exploreSector(selectedSector!);
                 return;
             }
-
-            // dx/dy in map-percentage space: right=+x, down=+y
-            const dir: Record<string, [number, number]> = {
-                w: [0, -1], a: [-1, 0], s: [0, 1], d: [1, 0],
-            };
-            if (!dir[key]) return;
+            if (!['w', 'a', 's', 'd'].includes(key)) return;
             e.preventDefault();
-            const [dx, dy] = dir[key]!;
-            const next = nearestSectorInDir(currentSector, dx, dy);
-            if (next !== null) triggerTravelPoint(next);
+            setSectorPlayerPos(prev => {
+                const col = prev % SECTOR_GRID_W;
+                const row = Math.floor(prev / SECTOR_GRID_W);
+                if (key === 'w' && row > 0)                          return prev - SECTOR_GRID_W;
+                if (key === 's' && row < (SECTOR_GRID_SIZE / SECTOR_GRID_W) - 1) return prev + SECTOR_GRID_W;
+                if (key === 'a' && col > 0)                          return prev - 1;
+                if (key === 'd' && col < SECTOR_GRID_W - 1)          return prev + 1;
+                return prev;
+            });
         }
-
         window.addEventListener('keydown', handleKey);
         return () => window.removeEventListener('keydown', handleKey);
-    }, [currentSector, selectedSector, isTraveling, sectorPoints]);
+    }, [selectedSector]);
 
     function rollAncientChest(sector: number, allCards: TileCard[]): ChestLoot {
         // Always: XP scaled to sector
