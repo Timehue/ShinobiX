@@ -17425,6 +17425,52 @@ function Inventory({
         alert("This item cannot be used yet.");
     }
 
+    function isSellableGear(item: GameItem) {
+        const slot = normalizeEquipmentSlot(item.slot);
+        return item.armorQuality || ["head", "body", "waist", "legs", "feet", "hand", "thrown", "item"].includes(slot);
+    }
+    function sellValueForItem(item: GameItem) {
+        return Math.floor(Math.max(0, item.cost) / 2);
+    }
+    function sellSelectedItem(count = 1) {
+        const selected = selectedInventoryItem;
+        if (!selected?.item) return;
+        const item = selected.item;
+        if (!isSellableGear(item)) return alert("This item cannot be sold.");
+        const qty = selected.source === "equipped" ? 1 : Math.max(1, Math.min(selected.count, Math.floor(count)));
+        const saleValue = sellValueForItem(item) * qty;
+        if (selected.source === "equipped" && selected.equipmentSlot) {
+            const normalized = normalizeEquipmentSlot(selected.equipmentSlot);
+            updateCharacter({
+                ...character,
+                ryo: character.ryo + saleValue,
+                equipment: {
+                    ...character.equipment,
+                    [normalized]: undefined,
+                    ...(normalized === "hand" ? { weapon: undefined } : {}),
+                    ...(normalized === "body" ? { armor: undefined } : {}),
+                    ...(normalized === "aura" ? { accessory: undefined } : {}),
+                },
+            });
+            setSelectedInventoryItem(null);
+            return;
+        }
+        let remaining = qty;
+        const nextInventory = character.inventory.filter((entry, index) => {
+            if (remaining <= 0) return true;
+            const matchesSelectedStack = entry === selected.entry || entry === item.id || index === selected.index;
+            if (!matchesSelectedStack) return true;
+            remaining -= 1;
+            return false;
+        });
+        updateCharacter({
+            ...character,
+            ryo: character.ryo + saleValue,
+            inventory: nextInventory,
+        });
+        setSelectedInventoryItem(null);
+    }
+
     function statLabel(stat: string) {
         return stat
             .replace(/([A-Z])/g, " $1")
@@ -17460,6 +17506,7 @@ function Inventory({
     const selected = selectedInventoryItem;
     const selectedGameItem = selected?.item;
     const selectedPetFoodXp = petFeedXpForItem(selectedGameItem?.id);
+    const selectedSellValue = selectedGameItem && isSellableGear(selectedGameItem) ? sellValueForItem(selectedGameItem) : 0;
 
     return (
         <>
@@ -17845,6 +17892,7 @@ function Inventory({
                                             <p><strong>Equip:</strong> {selectedPetFoodXp ? "no" : "yes"}</p>
                                             <p><strong>Required Level:</strong> {selectedGameItem.levelReq ?? 1}</p>
                                             <p><strong>Shop Price:</strong> {selectedGameItem.cost} ryo</p>
+                                            {selectedSellValue > 0 && <p><strong>Sell Value:</strong> {selectedSellValue} ryo</p>}
                                             {selectedGameItem.weaponEp != null && <p><strong>Damage EP:</strong> {selectedGameItem.weaponEp}</p>}
                                             {selectedGameItem.weaponEffect && <p><strong>Weapon Effect:</strong> {selectedGameItem.weaponEffect} {selectedGameItem.weaponEffectValue ?? ""}%</p>}
                                             {selectedGameItem.weaponCooldown != null && selectedGameItem.weaponCooldown > 0 && <p><strong>Cooldown:</strong> {selectedGameItem.weaponCooldown} round(s)</p>}
@@ -17940,6 +17988,24 @@ function Inventory({
                                             onClick={() => consumeItem(selected.entry, selected.index)}
                                         >
                                             {selected.entry === "Soldier Pill" || selected.entry === "Chakra Pill" ? "Use" : "Inspect"}
+                                        </button>
+                                    )}
+
+                                    {selectedGameItem && selectedSellValue > 0 && (
+                                        <button
+                                            type="button"
+                                            onClick={() => sellSelectedItem(1)}
+                                        >
+                                            💰 Sell for {selectedSellValue} ryo
+                                        </button>
+                                    )}
+
+                                    {selectedGameItem && selected.source === "backpack" && selected.count > 1 && selectedSellValue > 0 && (
+                                        <button
+                                            type="button"
+                                            onClick={() => sellSelectedItem(selected.count)}
+                                        >
+                                            💰 Sell All ×{selected.count} for {selectedSellValue * selected.count} ryo
                                         </button>
                                     )}
 
