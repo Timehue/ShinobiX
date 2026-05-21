@@ -1,6 +1,6 @@
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
-const SESSION_TTL = 600;
+const SESSION_TTL = 60 * 60;
 // Starting positions matching arena (p1 left side, p2 right side)
 const P1_START = 62;
 const P2_START = 33;
