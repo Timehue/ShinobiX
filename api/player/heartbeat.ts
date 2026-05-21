@@ -15,6 +15,8 @@ type PresenceEntry = {
     character: unknown;
     lastSeen: number;
     pendingAttacker: unknown | null;
+    travelingUntil?: number; // ms epoch — non-zero while traveling between sectors
+    inBattle?: boolean;      // true while a PvP session is active
 };
 
 function normalizeSector(value: unknown, fallback = 40) {
@@ -30,7 +32,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-        const { name, sector, character } = body as { name?: string; sector?: number; character?: unknown };
+        const { name, sector, character, travelingUntil, inBattle } = body as {
+            name?: string;
+            sector?: number;
+            character?: unknown;
+            travelingUntil?: number;
+            inBattle?: boolean;
+        };
         if (!name) return res.status(400).json({ error: 'Missing name.' });
 
         const challengeKey = `challenges:${name.toLowerCase().trim()}`;
@@ -51,12 +59,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const pendingAttacker = existing?.pendingAttacker ?? null;
 
         const entrySector = normalizeSector(sector, normalizeSector(existing?.sector, 40));
+        const now = Date.now();
         const entry: PresenceEntry = {
             name,
             sector: entrySector,
             character: character ?? existing?.character ?? null,
-            lastSeen: Date.now(),
+            lastSeen: now,
             pendingAttacker: null,
+            // Persist travel window so attack.ts / challenge.ts can reject mid-travel requests.
+            travelingUntil: (travelingUntil && travelingUntil > now) ? travelingUntil : undefined,
+            // Persist battle flag so attack.ts can reject double-battle requests.
+            inBattle: inBattle === true ? true : undefined,
         };
 
         // Write only the individual TTL key — one cheap upsert, Postgres handles expiry.
@@ -78,7 +91,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             (v): v is PresenceEntry => Boolean(v?.name)
         );
 
-        const toRecord = ({ name: n, sector: s, character: c }: PresenceEntry) => {
+        const toRecord = ({ name: n, sector: s, character: c, travelingUntil: tu, inBattle: ib }: PresenceEntry) => {
             const ch = c as Record<string, unknown> | null;
             return {
                 name: n, sector: s, character: c,
@@ -87,6 +100,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 specialty: ch?.specialty ?? 'Ninjutsu',
                 currentSector: s,
                 lastSeenAt: Date.now(),
+                travelingUntil: tu ?? 0,
+                inBattle: ib ?? false,
             };
         };
 

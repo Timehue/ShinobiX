@@ -5762,6 +5762,8 @@ export default function App() {
     // Multiplayer heartbeat — keeps server presence alive and detects incoming attacks
     const characterRef = useRef<Character | null>(null);
     useEffect(() => { characterRef.current = character; }, [character]);
+    const screenRef = useRef<Screen>(screen);
+    useEffect(() => { screenRef.current = screen; }, [screen]);
     const isTraveling = travelingUntil > travelNow;
 
     useEffect(() => {
@@ -5780,7 +5782,7 @@ export default function App() {
                 const res = await fetch('/api/player/heartbeat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: char.name, sector: currentSector, character: char, travelingUntil: isTraveling ? travelingUntil : 0 }),
+                    body: JSON.stringify({ name: char.name, sector: currentSector, character: char, travelingUntil: isTraveling ? travelingUntil : 0, inBattle: screenRef.current === 'pvpBattle' }),
                 });
                 if (!res.ok) return;
                 const data: { sectorMates?: PlayerRecord[]; allPlayers?: PlayerRecord[]; pendingAttacker?: Character | null; pendingChallenges?: DuelChallenge[]; forceReload?: boolean } = await res.json();
