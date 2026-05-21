@@ -248,7 +248,7 @@ function applyJutsu(self, opponent, jutsu, wMult = 1, biome = 'central') {
     const jutsuMasteries = self.character.jutsuMastery ?? [];
     const masteryEntry = jutsuMasteries.find(m => m.jutsuId === jutsu.id);
     const masteryLevel = Math.max(0, Math.min(50, masteryEntry?.level ?? 0));
-    const scaledEp = (jutsu.effectPower ?? 20) + masteryLevel * 0.2;
+    const scaledEp = jutsu.bloodlineRank && jutsu.ap === 40 ? 0 : (jutsu.effectPower ?? 20) + masteryLevel * 0.2;
     const offStats = self.character.stats ?? {};
     const defStats = opponent.character.stats ?? {};
     const statFactor = Math.max(0.35, Math.min(1.85, 1 + (getOffense(offStats, jutsu.type) - getDefense(defStats, jutsu.type)) / (MAX_STAT * 2) * 0.85));
