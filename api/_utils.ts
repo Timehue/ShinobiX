@@ -1,7 +1,7 @@
 // Shared utilities for Vercel API functions
 
 export function safeName(name: string) {
-    return name.replace(/[^a-z0-9\-_]/g, '').toLowerCase();
+    return name.toLowerCase().replace(/[^a-z0-9\-_]/g, '');
 }
 
 function recordId(value: unknown) {
