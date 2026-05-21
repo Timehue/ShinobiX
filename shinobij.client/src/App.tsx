@@ -22675,7 +22675,7 @@ function Arena({
             if (data.challenge && onAcceptChallenge) {
                 // P2 case — we received a challenge; auto-accept it
                 const c = { ...data.challenge, challenger: normalizeCharacter((data.challenge.challenger ?? { name: data.opponentName ?? "" }) as Character) };
-                setDuelChallenges(prev => [...prev.filter(x => x.id !== c.id), c]);
+                setDuelChallenges([...duelChallenges.filter((x: DuelChallenge) => x.id !== c.id), c]);
                 setRankedQueueMatchMsg(`Match found vs ${data.opponentName}! Starting battle...`);
                 void onAcceptChallenge(c);
             } else {
