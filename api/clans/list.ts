@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { kv } from '@vercel/kv';
+import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
