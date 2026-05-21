@@ -10190,6 +10190,95 @@ textarea {
         }
 
 
+/* ===== TILE CARD FILTER / SELL UI ===== */
+
+.tile-card-filters {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 10px;
+    padding: 8px 10px;
+    background: rgba(15, 23, 42, 0.55);
+    border: 1px solid rgba(51, 65, 85, 0.6);
+    border-radius: 8px;
+}
+
+.tile-card-filter-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.tile-card-filter-group label {
+    font-size: 10px;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 700;
+    min-width: 44px;
+}
+
+.tile-card-filter-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.tile-card-filter-buttons button {
+    padding: 2px 9px;
+    font-size: 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(51, 65, 85, 0.8);
+    background: rgba(15, 23, 42, 0.6);
+    color: #64748b;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+    line-height: 1.6;
+}
+
+.tile-card-filter-buttons button:hover {
+    background: rgba(30, 41, 59, 0.9);
+    color: #cbd5e1;
+    border-color: #475569;
+}
+
+.tile-card-filter-buttons button.active {
+    background: #1e3a8a;
+    border-color: #3b82f6;
+    color: #bfdbfe;
+    font-weight: 700;
+}
+
+.tile-card-inventory-card.selected {
+    outline: 2px solid #facc15;
+    outline-offset: 1px;
+}
+
+.tile-card-sell-btn {
+    margin-top: 2px;
+    padding: 3px 6px;
+    font-size: 9px;
+    background: rgba(127, 29, 29, 0.55);
+    border: 1px solid rgba(239, 68, 68, 0.5);
+    color: #fca5a5;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    width: 100%;
+    line-height: 1.5;
+}
+
+.tile-card-sell-btn:hover {
+    background: rgba(185, 28, 28, 0.75);
+    color: #fee2e2;
+    border-color: #ef4444;
+}
+
+.tile-card-selected-detail {
+    position: relative;
+}
+
 /* ===== FINAL MOBILE / RESOLUTION SAFE PATCH ===== */
 
 /* Fix the banner cut-off caused by the older center -115px rule. */
