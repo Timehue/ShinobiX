@@ -21298,16 +21298,79 @@ function Training({ character, updateCharacter, activeTraining, setActiveTrainin
         bukijutsuOffense: { label: "Bukijutsu Off.", icon: "⚔️" },
         bukijutsuDefense: { label: "Bukijutsu Def.", icon: "🛡️" },
     };
-    const trainingStats = Object.keys(baseStats()).map((key) => ({
-        label: STAT_LABELS[key]?.label ?? key,
-        stat: key as keyof Stats,
-        icon: STAT_LABELS[key]?.icon ?? "??",
-    }));
-    const timers = [{ label: "15 Minutes", ms: 15 * 60 * 1000, xp: 20, statGain: 1, staminaCost: 5 }, { label: "1 Hour", ms: 60 * 60 * 1000, xp: 70, statGain: 3, staminaCost: 15 }, { label: "4 Hours", ms: 4 * 60 * 60 * 1000, xp: 220, statGain: 8, staminaCost: 35 }, { label: "8 Hours", ms: 8 * 60 * 60 * 1000, xp: 375, statGain: 14, staminaCost: 60 }];
+    const statGroups = [
+        { title: "General", description: "Core stats used across combat and progression.", stats: ["strength", "speed", "intelligence", "willpower"] as (keyof Stats)[] },
+        { title: "Offense", description: "Damage scaling by jutsu style.", stats: ["ninjutsuOffense", "taijutsuOffense", "genjutsuOffense", "bukijutsuOffense"] as (keyof Stats)[] },
+        { title: "Defense", description: "Damage resistance by incoming style.", stats: ["ninjutsuDefense", "taijutsuDefense", "genjutsuDefense", "bukijutsuDefense"] as (keyof Stats)[] },
+    ];
+    const timers = [
+        { label: "15 Minutes", icon: "⚡", ms: 15 * 60 * 1000, xp: 20, statGain: 1, staminaCost: 5 },
+        { label: "1 Hour",     icon: "⏰", ms: 60 * 60 * 1000, xp: 70, statGain: 3, staminaCost: 15 },
+        { label: "4 Hours",    icon: "🕓", ms: 4 * 60 * 60 * 1000, xp: 220, statGain: 8, staminaCost: 35 },
+        { label: "8 Hours",    icon: "🌙", ms: 8 * 60 * 60 * 1000, xp: 375, statGain: 14, staminaCost: 60 },
+    ];
     const trainingXpBonus = getTrainingXpBonus(character);
     function startTraining(timer: typeof timers[number]) { if (activeTraining) return alert("You are already training."); if (character.stamina < timer.staminaCost) return alert("Not enough stamina."); const boostedXp = boostAmount(timer.xp, trainingXpBonus); updateCharacter({ ...character, stamina: character.stamina - timer.staminaCost }); setActiveTraining({ label: `${timer.label} ${selectedStat} Training`, stat: selectedStat, xp: boostedXp, statGain: statPointsEarnedFromXp(character, boostedXp), staminaCost: timer.staminaCost, endsAt: Date.now() + timer.ms }); }
     function completeTraining() { if (!activeTraining) return; if (Date.now() < activeTraining.endsAt) return alert(`Training still has ${Math.ceil((activeTraining.endsAt - Date.now()) / 1000)} seconds left.`); const earnedStatPoints = statPointsEarnedFromXp(character, activeTraining.xp); const leveled = gainXp(character, activeTraining.xp); const focusedGain = Math.min(earnedStatPoints, leveled.unspentStats, MAX_STAT - leveled.stats[activeTraining.stat]); updateCharacter({ ...leveled, unspentStats: leveled.unspentStats - focusedGain, totalStatsTrained: (leveled.totalStatsTrained ?? 0) + focusedGain, stats: { ...leveled.stats, [activeTraining.stat]: capStat(leveled.stats[activeTraining.stat] + focusedGain) } }); alert(`${activeTraining.label} complete. ${focusedGain > 0 ? `${focusedGain} earned stat point${focusedGain !== 1 ? "s" : ""} went into ${formatStatName(activeTraining.stat)}.` : "No new stat point was earned from this XP tick."}`); setActiveTraining(null); }
-    return <div className="card"><h2>Training Grounds</h2><p>Stamina: {character.stamina}/{character.maxStamina} · Town Hall XP Bonus: <strong>{trainingXpBonus.toFixed(2)}%</strong>{CHARACTER_XP_GAIN_MULTIPLIER !== 1 ? <> · Testing XP: <strong>{CHARACTER_XP_GAIN_MULTIPLIER}x</strong></> : null}</p>{activeTraining && <div className="summary-box"><h3>Active Training</h3><p>{activeTraining.label}</p><p>Ends: {new Date(activeTraining.endsAt).toLocaleTimeString()}</p><button onClick={completeTraining}>Complete Training</button></div>}<h3>Choose Stat</h3><div className="location-grid">{trainingStats.map((option) => <button key={option.stat} className="location-button" onClick={() => setSelectedStat(option.stat)}><span className="tile-icon">{option.icon}</span><span>{option.label}</span><small>{selectedStat === option.stat ? "Selected" : "Click to select"}</small></button>)}</div><h3>Choose Timer</h3><div className="location-grid">{timers.map((timer) => { const boostedXp = boostAmount(timer.xp, trainingXpBonus); const effectiveXp = effectiveCharacterXpGain(character, boostedXp); const earnedPoints = statPointsEarnedFromXp(character, boostedXp); return <button key={timer.label} className="location-button" onClick={() => startTraining(timer)}><span className="tile-icon">⏱️</span><span>{timer.label}</span><small>+{effectiveXp} XP / ~{earnedPoints} stat point{earnedPoints !== 1 ? "s" : ""}</small></button>; })}</div></div>;
+    return (
+        <div className="card">
+            <h2>Training Grounds</h2>
+            <p>Stamina: {character.stamina}/{character.maxStamina} · Town Hall XP Bonus: <strong>{trainingXpBonus.toFixed(2)}%</strong>{CHARACTER_XP_GAIN_MULTIPLIER !== 1 ? <> · Testing XP: <strong>{CHARACTER_XP_GAIN_MULTIPLIER}x</strong></> : null}</p>
+
+            {activeTraining && (
+                <div className="summary-box">
+                    <h3>Active Training</h3>
+                    <p>{activeTraining.label}</p>
+                    <p>Ends: {new Date(activeTraining.endsAt).toLocaleTimeString()}</p>
+                    <button onClick={completeTraining}>Complete Training</button>
+                </div>
+            )}
+
+            <h3>Choose Stat</h3>
+            <div className="stat-group-list">
+                {statGroups.map((group) => (
+                    <section className="stat-group" key={group.title}>
+                        <div className="stat-group-heading">
+                            <h3>{group.title}</h3>
+                            <span>{group.description}</span>
+                        </div>
+                        <div className="stat-grid">
+                            {group.stats.map((stat) => {
+                                const info = STAT_LABELS[stat];
+                                return (
+                                    <button
+                                        key={stat}
+                                        className={`location-button${selectedStat === stat ? " selected" : ""}`}
+                                        onClick={() => setSelectedStat(stat)}
+                                    >
+                                        <span className="tile-icon">{info?.icon ?? "?"}</span>
+                                        <span>{info?.label ?? stat}</span>
+                                        <small>{selectedStat === stat ? "Selected" : "Click to select"}</small>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </section>
+                ))}
+            </div>
+
+            <h3>Choose Timer</h3>
+            <div className="location-grid">
+                {timers.map((timer) => {
+                    const boostedXp = boostAmount(timer.xp, trainingXpBonus);
+                    const effectiveXp = effectiveCharacterXpGain(character, boostedXp);
+                    const earnedPoints = statPointsEarnedFromXp(character, boostedXp);
+                    return (
+                        <button key={timer.label} className="location-button" onClick={() => startTraining(timer)}>
+                            <span className="tile-icon">{timer.icon}</span>
+                            <span>{timer.label}</span>
+                            <small>+{effectiveXp} XP / ~{earnedPoints} stat point{earnedPoints !== 1 ? "s" : ""}</small>
+                        </button>
+                    );
+                })}
+            </div>
+        </div>
+    );
 }
 
 function JutsuTrainingHall({
