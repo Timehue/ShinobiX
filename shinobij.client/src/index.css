@@ -10007,6 +10007,41 @@ textarea {
 /* terrain-weather-panel relocated to twp-strip inside combat-main-area */
 /* ===== Shop / Grand Marketplace item popup ===== */
 
+.shop-filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.shop-filter-select {
+    padding: 5px 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(148,163,184,0.25);
+    background: rgba(15,23,42,0.85);
+    color: #e2e8f0;
+    font-size: 0.78rem;
+    cursor: pointer;
+    flex: 1;
+    min-width: 130px;
+}
+.shop-filter-select:focus { outline: none; border-color: rgba(148,163,184,0.5); }
+
+.shop-filter-clear {
+    padding: 5px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(239,68,68,0.4);
+    background: rgba(239,68,68,0.12);
+    color: #f87171;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s;
+}
+.shop-filter-clear:hover { background: rgba(239,68,68,0.25); }
+
 .shop-item-button {
     min-height: 150px !important;
     align-content: start !important;
