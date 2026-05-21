@@ -766,9 +766,10 @@ export default async function handler(req, res) {
         if (!battleId || !role || !action)
             return res.status(400).json({ error: 'Missing battleId, role, or action' });
         const key = `pvp:${battleId}`;
-        const session = await kv.get(key);
-        if (!session)
+        const sessionMaybe = await kv.get(key);
+        if (!sessionMaybe)
             return res.status(404).json({ error: 'Battle session not found' });
+        const session = sessionMaybe;
         if (session.status === 'done')
             return res.status(200).json(session);
         if (session.activePlayer !== role)

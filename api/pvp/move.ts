@@ -559,8 +559,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!battleId || !role || !action) return res.status(400).json({ error: 'Missing battleId, role, or action' });
 
         const key = `pvp:${battleId}`;
-        const session = await kv.get<PvpSession>(key);
-        if (!session) return res.status(404).json({ error: 'Battle session not found' });
+        const sessionMaybe = await kv.get<PvpSession>(key);
+        if (!sessionMaybe) return res.status(404).json({ error: 'Battle session not found' });
+        const session: PvpSession = sessionMaybe;
         if (session.status === 'done') return res.status(200).json(session);
         if (session.activePlayer !== role) return res.status(200).json(session);
 
@@ -592,11 +593,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         function canAct(cost: number) { return myAp >= adjustedCost(cost) && session.actionsThisTurn < MAX_ACTIONS; }
 
         function commit(updMe: PvpFighter | null, updOpp: PvpFighter | null, apCost: number, cd?: Record<string, number>, extra?: Partial<PvpSession>): PvpSession {
-            let s = { ...session, ...extra };
+            let s: PvpSession = { ...session, ...extra } as PvpSession;
             if (updMe) s = role === 'p1' ? { ...s, p1: updMe } : { ...s, p2: updMe };
             if (updOpp) s = role === 'p1' ? { ...s, p2: updOpp } : { ...s, p1: updOpp };
-            s = { ...s, ap: { ...s.ap, [role]: myAp - adjustedCost(apCost) }, actionsThisTurn: s.actionsThisTurn + 1 };
-            if (cd) s = { ...s, cooldowns: { ...s.cooldowns, [role]: { ...myCooldowns, ...cd } } };
+            s = { ...s, ap: { ...s.ap, [role as 'p1' | 'p2']: myAp - adjustedCost(apCost) }, actionsThisTurn: s.actionsThisTurn + 1 };
+            if (cd) s = { ...s, cooldowns: { ...s.cooldowns, [role as 'p1' | 'p2']: { ...myCooldowns, ...cd } } };
             if (lines.length) s = { ...s, log: [...s.log, ...lines] };
             return checkWinner(s);
         }
