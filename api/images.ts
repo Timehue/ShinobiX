@@ -43,7 +43,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             // Helper: read a kv value with a per-call timeout so one slow Supabase
             // REST response never hangs the whole function.
-            const withTimeout = <T>(p: Promise<T | null>, ms = 25_000): Promise<T | null> =>
+            // 18s per KV call — Supabase client aborts at 20s, function maxDuration is 30s.
+            // This ordering (18 < 20 < 30) ensures: Promise.race fires, Supabase aborts,
+            // function returns cleanly — never hard-killed mid-flight by Vercel.
+            const withTimeout = <T>(p: Promise<T | null>, ms = 18_000): Promise<T | null> =>
                 Promise.race([p, new Promise<null>((resolve) => setTimeout(() => resolve(null), ms))]);
 
             if (cat) {
