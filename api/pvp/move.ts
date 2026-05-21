@@ -74,6 +74,7 @@ type Jutsu = {
     cooldown?: number;
     effectPower?: number;
     method?: string;
+    bloodlineRank?: string;
     chakraCost?: number;
     staminaCost?: number;
     tags?: JutsuTag[];
@@ -271,7 +272,7 @@ function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu, wMult 
     const jutsuMasteries = (self.character.jutsuMastery as Array<{ jutsuId: string; level: number }> | null) ?? [];
     const masteryEntry = jutsuMasteries.find(m => m.jutsuId === jutsu.id);
     const masteryLevel = Math.max(0, Math.min(50, masteryEntry?.level ?? 0));
-    const scaledEp = (jutsu.effectPower ?? 20) + masteryLevel * 0.2;
+    const scaledEp = jutsu.bloodlineRank && jutsu.ap === 40 ? 0 : (jutsu.effectPower ?? 20) + masteryLevel * 0.2;
     const offStats = (self.character.stats as Record<string, number>) ?? {};
     const defStats = (opponent.character.stats as Record<string, number>) ?? {};
     const statFactor = Math.max(0.35, Math.min(1.85, 1 + (getOffense(offStats, jutsu.type) - getDefense(defStats, jutsu.type)) / (MAX_STAT * 2) * 0.85));
