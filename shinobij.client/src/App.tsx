@@ -1849,7 +1849,6 @@ const allTags = [
     "Lifesteal",
     "Mirror",
     "Move",
-    "Pierce",
     "Poison",
     "Pull",
     "Push",
@@ -21957,11 +21956,18 @@ function BloodlineMaker({ initialRank, initialSpecialElement, character, updateC
                             <div className="summary-box bloodline-damage-section">
                                 <h4>Damage</h4>
                                 <label>Effect Power (Lv.50 max · Lv.1 ˜ value - 9.8)</label>
-                                <select value={jutsu.effectPower === 50 ? 50 : 40} onChange={(e) => updateJutsu(jutsuIndex, { effectPower: Number(e.target.value) })}>
+                                <select value={jutsu.tags.some(t => t.name === "Pierce") ? "pierce" : jutsu.effectPower === 50 ? 50 : 40} onChange={(e) => {
+                                    if (e.target.value === "pierce") {
+                                        updateJutsu(jutsuIndex, { effectPower: 40, tags: [{ name: "Pierce", percent: 0 }, ...jutsu.tags.filter(t => t.name !== "Pierce")] });
+                                    } else {
+                                        updateJutsu(jutsuIndex, { effectPower: Number(e.target.value), tags: jutsu.tags.filter(t => t.name !== "Pierce") });
+                                    }
+                                }}>
                                     <option value={40}>40 — Standard · Lv.1 ˜ 30.2</option>
                                     <option value={50} disabled={strongUsedElsewhere}>50 — Nuke · Lv.1 ˜ 40.2{strongUsedElsewhere ? " [already used]" : " (+1 pt)"}</option>
+                                    <option value="pierce">Pierce — 900 true damage, ignores all defenses (+1 pt)</option>
                                 </select>
-                                <small className="tag-effect-help">Standard 60 AP damage is 0 points. Nukes are +1 point. Pierce is in the tag dropdown and only available on 60 AP bloodline jutsus.</small>
+                                <small className="tag-effect-help">Standard 60 AP damage is 0 points. Nukes deal scaled damage based on stats (+1 pt). Pierce always deals exactly 900 damage regardless of armor, shields, or buffs (+1 pt).</small>
                             </div>
                         );
                     })()}
