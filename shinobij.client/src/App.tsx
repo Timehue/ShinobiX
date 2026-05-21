@@ -18889,7 +18889,7 @@ function SunscarFestival({
 
             <div className="sunscar-grid">
                 <section className="sunscar-card npc-card">
-                    <FestivalPortrait image={kaelImage} icon="??" name="Kael the Sand Dealer" />
+                    <FestivalPortrait image={kaelImage} icon="🎲" name="Kael the Sand Dealer" />
                     <h2>Kael the Sand Dealer</h2>
                     <p>
                         "Fortune favors the bold… and buries the weak beneath the sands."
@@ -18899,7 +18899,7 @@ function SunscarFestival({
                 </section>
 
                 <section className="sunscar-card dice-card">
-                    <h2>?? Dice of Fate</h2>
+                    <h2>🎲 Dice of Fate</h2>
 
                     <div className="dice-row">
                         {(diceResult.length ? diceResult : ["?", "?", "?"]).map((die, index) => (
@@ -18915,7 +18915,7 @@ function SunscarFestival({
                 </section>
 
                 <section className="sunscar-card npc-card">
-                    <FestivalPortrait image={miraaImage} icon="??" name="Miraa the Card Seer" />
+                    <FestivalPortrait image={miraaImage} icon="🃏" name="Miraa the Card Seer" />
                     <h2>Miraa the Card Seer</h2>
                     <p style={{ fontStyle: "italic", color: "#aaa", marginBottom: "0.5rem" }}>
                         "The cards remember every shinobi who has sat across from me. Most don't return."
@@ -18930,12 +18930,12 @@ function SunscarFestival({
                 <section className="sunscar-card">
                     <h2>Festival Grounds</h2>
                     <div className="festival-visual">
-                        <span>?</span>
-                        <span>??</span>
-                        <span>??</span>
-                        <span>??</span>
-                        <span>??</span>
-                        <span>??</span>
+                        <span>🏕️</span>
+                        <span>🔥</span>
+                        <span>🥁</span>
+                        <span>🎭</span>
+                        <span>🐪</span>
+                        <span>🎲</span>
                     </div>
                     <p>
                         Golden tents, torch bowls, desert drums, masked merchants,
