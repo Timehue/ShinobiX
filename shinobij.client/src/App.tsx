@@ -7349,6 +7349,8 @@ export default function App() {
                         updateCharacter={setCharacter}
                         currentSector={currentSector}
                         navigate={navigate}
+                        activeTraining={activeTraining}
+                        activeJutsuTraining={activeJutsuTraining}
                     />
                 )}
 
@@ -7961,12 +7963,25 @@ function LeftProfileCard({
     updateCharacter,
     currentSector,
     navigate,
+    activeTraining,
+    activeJutsuTraining,
 }: {
     character: Character;
     updateCharacter: (c: Character) => void;
     currentSector: number;
     navigate: (screen: Screen) => void;
+    activeTraining: ActiveTraining | null;
+    activeJutsuTraining: ActiveJutsuTraining | null;
 }) {
+    const [now, setNow] = useState(Date.now());
+    useEffect(() => {
+        const hasTimer = (activeTraining && Date.now() < activeTraining.endsAt) ||
+                         (activeJutsuTraining && Date.now() < activeJutsuTraining.endsAt);
+        if (!hasTimer) return;
+        const id = setInterval(() => setNow(Date.now()), 1000);
+        return () => clearInterval(id);
+    }, [!!activeTraining, !!activeJutsuTraining]);
+    void now; // used implicitly via Date.now() calls below
     return (
         <aside className="left-profile-card">
             <div
@@ -8077,6 +8092,27 @@ function LeftProfileCard({
                     </>
                 )}
             </div>
+
+            {/* Active timers */}
+            {((activeTraining && Date.now() < activeTraining.endsAt) ||
+              (activeJutsuTraining && Date.now() < activeJutsuTraining.endsAt)) && (
+                <div className="left-active-timers">
+                    {activeTraining && Date.now() < activeTraining.endsAt && (
+                        <div className="left-timer-row">
+                            <span className="left-timer-icon">💪</span>
+                            <span className="left-timer-label">{activeTraining.label}</span>
+                            <span className="left-timer-value">{formatPetTimer(activeTraining.endsAt - Date.now())}</span>
+                        </div>
+                    )}
+                    {activeJutsuTraining && Date.now() < activeJutsuTraining.endsAt && (
+                        <div className="left-timer-row">
+                            <span className="left-timer-icon">🌀</span>
+                            <span className="left-timer-label">{activeJutsuTraining.label}</span>
+                            <span className="left-timer-value">{formatPetTimer(activeJutsuTraining.endsAt - Date.now())}</span>
+                        </div>
+                    )}
+                </div>
+            )}
         </aside>
     );
 }
