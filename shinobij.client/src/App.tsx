@@ -1338,10 +1338,10 @@ const petTrainingOptions: { type: PetTrainingType; label: string; desc: string }
     { type: "chakra", label: "Chakra Training", desc: "Boosts jutsu power and pet XP" },
     { type: "bond", label: "Bond Training", desc: "Balanced stat growth, XP, and happiness" },
 ];
-const petExpeditionOptions: { type: PetExpeditionType; label: string; durationMs: number; desc: string }[] = [
-    { type: "scout", label: "Scout Routes", durationMs: 45 * 60 * 1000, desc: "Short ryo and pet XP trip." },
-    { type: "forage", label: "Forage Wilds", durationMs: 2 * 60 * 60 * 1000, desc: "Balanced XP, stats, and material chance." },
-    { type: "ruins", label: "Explore Old Ruins", durationMs: 4 * 60 * 60 * 1000, desc: "Long trip with best rare currency odds." },
+const petExpeditionOptions: { type: PetExpeditionType; label: string; durationMs: number; durationLabel: string; desc: string }[] = [
+    { type: "scout", label: "Scout Routes", durationMs: 45 * 60 * 1000, durationLabel: "45m", desc: "Short ryo and pet XP trip." },
+    { type: "forage", label: "Forage Wilds", durationMs: 2 * 60 * 60 * 1000, durationLabel: "2h", desc: "Balanced XP, stats, and material chance." },
+    { type: "ruins", label: "Explore Old Ruins", durationMs: 4 * 60 * 60 * 1000, durationLabel: "4h", desc: "Long trip with best rare currency odds." },
 ];
 const balancedPetBaseStats: Record<PetRarity, { hp: number; attack: number; defense: number; speed: number; jutsuPower: number; moveRange: number }> = {
     standard: { hp: 320, attack: 40, defense: 28, speed: 30, jutsuPower: 50, moveRange: 3 },
@@ -9392,7 +9392,7 @@ function PetYard({ character, updateCharacter, setScreen }: { character: Charact
                                 <>
                                     <label>Expedition Type</label>
                                     <select value={expeditionType} onChange={(e) => setExpeditionType(e.target.value as PetExpeditionType)}>
-                                        {petExpeditionOptions.map((option) => <option key={option.type} value={option.type}>{option.label} - {option.desc}</option>)}
+                                        {petExpeditionOptions.map((option) => <option key={option.type} value={option.type}>{option.label} ({option.durationLabel}) - {option.desc}</option>)}
                                     </select>
                                     <button className="admin-button" onClick={startExpedition}>Send Exploring</button>
                                     <p className="hint">Expeditions give ryo, pet XP, stat gains, and a chance for Aura Stones, Bone Charms, and Fate Shards.</p>
