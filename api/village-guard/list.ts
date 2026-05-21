@@ -15,7 +15,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!village) return res.status(400).json({ error: 'Missing village.' });
 
         const keys = await kv.keys('guard:*');
-        const guards = (await Promise.all(keys.map(k => kv.get<GuardEntry>(k))))
+        const guards = (await kv.mget<GuardEntry[]>(...keys))
             .filter((g): g is GuardEntry => !!g && g.village === village)
             .map(({ name, level, village: v }) => ({ name, level, village: v }));
 

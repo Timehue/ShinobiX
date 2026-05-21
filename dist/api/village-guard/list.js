@@ -12,7 +12,7 @@ export default async function handler(req, res) {
         if (!village)
             return res.status(400).json({ error: 'Missing village.' });
         const keys = await kv.keys('guard:*');
-        const guards = (await Promise.all(keys.map(k => kv.get(k))))
+        const guards = (await kv.mget(...keys))
             .filter((g) => !!g && g.village === village)
             .map(({ name, level, village: v }) => ({ name, level, village: v }));
         return res.status(200).json(guards);

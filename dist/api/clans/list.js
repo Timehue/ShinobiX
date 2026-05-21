@@ -11,7 +11,7 @@ export default async function handler(req, res) {
         const keys = await kv.keys('clan:*');
         if (!keys.length)
             return res.status(200).json([]);
-        const clans = await Promise.all(keys.map(k => kv.get(k)));
+        const clans = await kv.mget(...keys);
         return res.status(200).json(clans.filter(Boolean));
     }
     catch (err) {
