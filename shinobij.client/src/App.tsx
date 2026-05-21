@@ -18648,7 +18648,7 @@ function SunscarFestival({
         );
     }
 
-    const symbols = ["??", "??", "???", "??", "??", "???"];
+    const symbols = ["🦂", "🪙", "👁️", "⚔️", "🌙", "⭐"];
 
     function rollDice() {
         const cost = 25;
@@ -18677,7 +18677,7 @@ function SunscarFestival({
 
         const same = roll[0] === roll[1] && roll[1] === roll[2];
 
-        if (same && roll[0] === "???") {
+        if (same && roll[0] === "👁️") {
             rewardBoneCharms = 10;
             rewardFateShards = 5;
             rewardAuraStones = 5;
@@ -18686,19 +18686,19 @@ function SunscarFestival({
             rewardBoneCharms = Math.floor(Math.random() * 5) + 1; // 1–5
             rewardFateShards = Math.floor(Math.random() * 3) + 1; // 1–3
             message = `Triple ${roll[0]}! The dice bless you with rare spoils.`;
-        } else if (roll.includes("??")) {
+        } else if (roll.includes("🦂")) {
             rewardRyo = 10;
             rewardXp = 15;
             message = "The scorpion strikes. A harsh lesson — you walk away with scraps.";
-        } else if (roll.includes("??")) {
+        } else if (roll.includes("🪙")) {
             rewardRyo = 100;
             rewardXp = 20;
             message = "Coins flash beneath the desert sun. Fortune smiles on you.";
-        } else if (roll.includes("???")) {
+        } else if (roll.includes("⚔️")) {
             rewardStamina = 30;
             rewardXp = 25;
             message = "Blade omen. Your body surges with fighting spirit.";
-        } else if (roll.includes("??")) {
+        } else if (roll.includes("🌙")) {
             rewardXp = 75;
             rewardRyo = 25;
             message = "Moon omen. A strange luck follows you through the night.";
@@ -18897,7 +18897,7 @@ function SunscarFestival({
                     <h2>🎲 Dice of Fate</h2>
 
                     <div className="dice-row">
-                        {(diceResult.length ? diceResult : ["?", "?", "?"]).map((die, index) => (
+                        {(diceResult.length ? diceResult : ["🎲", "🎲", "🎲"]).map((die, index) => (
                             <div className="fate-die" key={index}>{die}</div>
                         ))}
                     </div>
