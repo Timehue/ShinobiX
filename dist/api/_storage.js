@@ -178,27 +178,34 @@ const supabaseKv = {
     },
     async keys(pattern) {
         const db = getSupabase();
-        const now = new Date().toISOString();
+        // Fetch key + expires_at and filter expiry client-side.
+        // Avoid putting a timestamp inside .or() — the colons in ISO strings
+        // confuse the PostgREST filter parser and cause consistent 500 errors.
         const { data, error } = await db
-            .from('kv_store').select('key')
-            .like('key', toSqlPattern(pattern))
-            .or(`expires_at.is.null,expires_at.gt.${now}`);
+            .from('kv_store').select('key, expires_at')
+            .like('key', toSqlPattern(pattern));
         if (error)
             throw new Error(`kv.keys(${pattern}): ${error.message}`);
-        return (data ?? []).map((r) => r.key);
+        const now = Date.now();
+        return (data ?? [])
+            .filter((r) => !r.expires_at || new Date(r.expires_at).getTime() > now)
+            .map((r) => r.key);
     },
     async mget(...keys) {
         if (!keys.length)
             return [];
         const db = getSupabase();
-        const now = new Date().toISOString();
+        // Same pattern as keys(): fetch expires_at and filter client-side
+        // to avoid the PostgREST timestamp colon parsing bug.
         const { data, error } = await db
-            .from('kv_store').select('key, value')
-            .in('key', keys)
-            .or(`expires_at.is.null,expires_at.gt.${now}`);
+            .from('kv_store').select('key, value, expires_at')
+            .in('key', keys);
         if (error)
             throw new Error(`kv.mget: ${error.message}`);
-        const map = new Map((data ?? []).map((r) => [r.key, r.value]));
+        const now = Date.now();
+        const map = new Map((data ?? [])
+            .filter((r) => !r.expires_at || new Date(r.expires_at).getTime() > now)
+            .map((r) => [r.key, r.value]));
         return keys.map((k) => (map.has(k) ? map.get(k) : null));
     },
     async hgetall(key) {
