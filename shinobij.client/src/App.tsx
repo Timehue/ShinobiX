@@ -17260,7 +17260,34 @@ function VillageTavern({ character, setScreen, sharedImages }: { character: Char
 
 function Cafeteria({ character, updateCharacter }: { character: Character; updateCharacter: (character: Character) => void }) {
     function eat(name: string, cost: number, hp: number, chakra: number, stamina: number) { if (character.ryo < cost) return alert("Not enough ryo."); updateCharacter({ ...character, ryo: character.ryo - cost, hp: Math.min(character.maxHp, character.hp + hp), chakra: Math.min(character.maxChakra, character.chakra + chakra), stamina: Math.min(character.maxStamina, character.stamina + stamina) }); alert(`${name} restored your resources.`); }
-    return <div className="card"><h2>Cafeteria</h2><p>Ryo: {character.ryo}</p><div className="location-grid"><button className="location-button" onClick={() => eat("Small Ramen", 20, 25, 10, 10)}>🍜 Small Ramen<br /><small>+25 HP +10 Chakra +10 Stamina</small></button><button className="location-button" onClick={() => eat("Shinobi Meal", 50, 75, 35, 35)}>🍱 Shinobi Meal<br /><small>+75 HP +35 Chakra +35 Stamina</small></button><button className="location-button" onClick={() => eat("Feast", 100, 9999, 9999, 9999)}>🍽️ Feast<br /><small>Full restore</small></button></div></div>;
+    const meals = [
+        { name: "Small Ramen", icon: "🍜", cost: 20,  hp: 25,   chakra: 10,   stamina: 10,   label: "+25 HP  +10 Chakra  +10 Stamina" },
+        { name: "Shinobi Meal", icon: "🍱", cost: 50,  hp: 75,   chakra: 35,   stamina: 35,   label: "+75 HP  +35 Chakra  +35 Stamina" },
+        { name: "Feast",        icon: "🍽️", cost: 100, hp: 9999, chakra: 9999, stamina: 9999, label: "Full restore" },
+    ];
+    return (
+        <div className="card">
+            <h2>Cafeteria</h2>
+            <p>Ryo: <strong>{character.ryo.toLocaleString()}</strong></p>
+            <div className="location-grid">
+                {meals.map((meal) => (
+                    <button
+                        key={meal.name}
+                        className="location-button"
+                        onClick={() => eat(meal.name, meal.cost, meal.hp, meal.chakra, meal.stamina)}
+                        disabled={character.ryo < meal.cost}
+                    >
+                        <span className="tile-icon">{meal.icon}</span>
+                        <span>{meal.name}</span>
+                        <small>{meal.label}</small>
+                        <small style={{ color: character.ryo < meal.cost ? "#ef4444" : "#facc15", fontWeight: 700 }}>
+                            💰 {meal.cost} ryo
+                        </small>
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
 }
 function Inventory({
     character,
