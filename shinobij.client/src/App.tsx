@@ -5778,6 +5778,7 @@ export default function App() {
                     setPendingAiProfileId('');
                     setPendingPvpOpponent(attacker);
                     setRaidBattleKind("defense");
+                    setPvpBattleContext({ mode: "standard", sectorAttack: true, raidKind: "defense", sector: currentSector });
                     setScreen('arena');
                 }
             } catch {
@@ -5846,7 +5847,7 @@ export default function App() {
             responderPet: myPet,
         };
         const notified = await postPlayerChallengeNotice(challenge.fromName, acceptedNotice);
-        setPendingPetBattleOpponent({ owner: challenge.fromName, pet: challengerPet, battleSeed: challenge.petBattleSeed });
+        setPendingPetBattleOpponent({ owner: challenge.fromName, pet: challengerPet, battleSeed: challenge.petBattleSeed ?? challenge.createdAt });
         setScreen("petArena");
         setProcessingChallengeIds(prev => prev.filter(id => id !== challenge.id));
         if (!notified) alert(`${challenge.fromName} may not be pulled in automatically. Ask them to open Pet Arena if they do not see the fight.`);
@@ -5937,7 +5938,7 @@ export default function App() {
         setDuelChallenges(prev => prev.filter(c => c.id !== accepted.id));
         if (accepted.mode === "clanWarPet") {
             if (accepted.responderPet) {
-                setPendingPetBattleOpponent({ owner: accepted.fromName, pet: accepted.responderPet, battleSeed: accepted.petBattleSeed });
+                setPendingPetBattleOpponent({ owner: accepted.fromName, pet: accepted.responderPet, battleSeed: accepted.petBattleSeed ?? accepted.createdAt });
                 setScreen("petArena");
             } else {
                 alert(`${accepted.fromName} accepted your pet battle. Open Pet Arena if it does not start automatically.`);
@@ -6024,8 +6025,9 @@ export default function App() {
             setScreen("pvpBattle");
             if (!notified) alert(`${challenge.fromName} may not be pulled in automatically. Ask them to reopen the game or wait for heartbeat.`);
         } catch {
-            setDuelChallenges(prev => prev.some(c => c.id === challenge.id) ? prev : [challenge, ...prev]);
-            alert(`${challenge.fromName}'s challenge could not be accepted. Try again if it is still pending.`);
+            // Do not re-add the challenge — it may have already expired on the challenger's side
+            // and re-adding creates a ghost that can never complete.
+            alert(`Could not accept ${challenge.fromName}'s challenge — the session failed to create. Ask them to send a new challenge.`);
         } finally {
             setProcessingChallengeIds(prev => prev.filter(id => id !== challenge.id));
         }
@@ -7336,8 +7338,8 @@ export default function App() {
                 screen !== "storyBoss" && (
                     <LeftProfileCard
                         character={character}
-                        updateCharacter={setCharacter}
                         currentSector={currentSector}
+                        navigate={navigate}
                     />
                 )}
 
@@ -7945,44 +7947,27 @@ export default function App() {
 
 function LeftProfileCard({
     character,
-    updateCharacter,
     currentSector,
+    navigate,
 }: {
     character: Character;
-    updateCharacter: (c: Character) => void;
     currentSector: number;
+    navigate: (screen: Screen) => void;
 }) {
-    function uploadAvatar(e: ChangeEvent<HTMLInputElement>) {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = () => {
-            // Compress to 256px — avatars are displayed at =84px so 512 is wasteful
-            void compressDataUrl(reader.result as string, 256, 0.80).then((img) => {
-                publishSharedImage('avatar:' + character.name.toLowerCase(), img);
-                updateCharacter({ ...character, avatarImage: img });
-            });
-        };
-        reader.readAsDataURL(file);
-    }
-
     return (
         <aside className="left-profile-card">
-            <label className={`left-profile-avatar ${getActiveAuraSphereBonuses(character).avatarAura ? "aura-sphere-avatar" : ""}`}>
+            <div
+                className={`left-profile-avatar ${getActiveAuraSphereBonuses(character).avatarAura ? "aura-sphere-avatar" : ""}`}
+                onClick={() => navigate("profile")}
+                style={{ cursor: "pointer" }}
+                title="View Profile"
+            >
                 {character.avatarImage ? (
                     <img src={character.avatarImage} alt={character.name} />
                 ) : (
                     character.name.slice(0, 2).toUpperCase()
                 )}
-
-                <input
-                    type="file"
-                    accept="image/*"
-                    onChange={uploadAvatar}
-                    style={{ display: "none" }}
-                />
-            </label>
+            </div>
 
             <div className="left-profile-name">{character.name}</div>
             <div className="left-profile-rank">{character.rankTitle}</div>
@@ -9830,6 +9815,7 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
     const [opponentMode, setOpponentMode] = useState<"player" | "ai">("player");
     const [opponentSearch, setOpponentSearch] = useState("");
     const [petChallengeMsg, setPetChallengeMsg] = useState("");
+    const [acceptingPetIds, setAcceptingPetIds] = useState<string[]>([]);
 
     async function sendDirectPetChallenge(toName: string, fromPetId?: string) {
         if (duelChallenges.some((challenge) => challenge.fromName === character.name && !challenge.accepted && !challenge.declined && !challenge.battleId && Date.now() - challenge.createdAt < 120000)) {
@@ -9959,11 +9945,13 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                 </div>
             </div>
 
-            {duelChallenges.filter((c) => c.mode === "clanWarPet" && !c.clanWarPoints && c.toName.toLowerCase() === character.name.toLowerCase()).map((c) => (
+            {duelChallenges.filter((c) => c.mode === "clanWarPet" && c.toName.toLowerCase() === character.name.toLowerCase() && !c.accepted && !c.declined).map((c) => (
                 <div key={c.id} className="summary-box" style={{ background: "#1e3a2f", border: "1px solid #4ade80", marginBottom: 8, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                     <span>?? <strong>{c.fromName}</strong> challenged you to a pet battle!</span>
                     <div className="menu" style={{ marginLeft: "auto" }}>
-                        <button onClick={() => {
+                        <button disabled={acceptingPetIds.includes(c.id)} onClick={() => {
+                            if (acceptingPetIds.includes(c.id)) return;
+                            setAcceptingPetIds(prev => [...prev, c.id]);
                             const challengerPet = c.challenger.pets.find(p => p.id === c.challengerPetId) ?? c.challenger.pets[0];
                             setDuelChallenges(duelChallenges.filter((x) => x.id !== c.id));
                             fetch('/api/player/challenge', {
@@ -9976,7 +9964,8 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ targetName: c.fromName, challenge: { ...c, accepted: true, fromName: character.name, toName: c.fromName, responderPetId: selectedPet?.id, responderPet: selectedPet } }),
                             }).catch(() => {});
-                            if (challengerPet) startBattle({ owner: c.fromName, pet: challengerPet, battleSeed: c.petBattleSeed });
+                            if (challengerPet) startBattle({ owner: c.fromName, pet: challengerPet, battleSeed: c.petBattleSeed ?? c.createdAt });
+                            // No need to clear acceptingPetIds — challenge is filtered out of the list once setDuelChallenges runs
                         }}>? Accept & Fight</button>
                         <button className="danger-button" onClick={() => {
                             setDuelChallenges(duelChallenges.filter((x) => x.id !== c.id));
@@ -19882,7 +19871,7 @@ function WorldMap({
                                             setCurrentBiome(biome);
                                             setCurrentWeather(sectorWeather);
                                             sectorAttackPlayer(player);
-                                            setScreen("arena");
+                                            // sectorAttackPlayer handles navigation (pvpBattle or arena fallback) — do NOT setScreen here
                                         }}>⚔️ Attack</button>
                                     </div>
                                 ))
@@ -20002,18 +19991,30 @@ function WorldMap({
                                                     const sr = await fetch('/api/pvp/session', {
                                                         method: 'POST',
                                                         headers: { 'Content-Type': 'application/json' },
-                                                        body: stringifyPvpSessionPayload({ p1Character: { ...selfChar, jutsu: p1j, pvpItems: getPvpItemLoadout(selfChar, getAllItems(wmCreatorItems)), bloodlineMult: getBloodlineMultiplier(selfChar, selfBloodlines), armorFactor: getCharacterArmorFactor(selfChar, getAllItems(wmCreatorItems)), armorRawDR: getCharacterArmorRawDR(selfChar, getAllItems(wmCreatorItems)), itemDamagePct: getEquippedItemBonus(selfChar, getAllItems(wmCreatorItems), "damagePercent") }, p2Character: { ...guardSessionChar, jutsu: p2j, pvpItems: getPvpItemLoadout(guardSessionChar, getAllItems(wmCreatorItems)), bloodlineMult: getBloodlineMultiplier(guardSessionChar, guardBloodlines), armorFactor: getCharacterArmorFactor(guardSessionChar, getAllItems(wmCreatorItems)), armorRawDR: getCharacterArmorRawDR(guardSessionChar, getAllItems(wmCreatorItems)), itemDamagePct: getEquippedItemBonus(guardSessionChar, getAllItems(wmCreatorItems), "damagePercent") } }),
+                                                        body: stringifyPvpSessionPayload({ p1Character: { ...selfChar, jutsu: p1j, pvpItems: getPvpItemLoadout(selfChar, getAllItems(wmCreatorItems)), bloodlineMult: getBloodlineMultiplier(selfChar, selfBloodlines), armorFactor: getCharacterArmorFactor(selfChar, getAllItems(wmCreatorItems)), armorRawDR: getCharacterArmorRawDR(selfChar, getAllItems(wmCreatorItems)), itemDamagePct: getEquippedItemBonus(selfChar, getAllItems(wmCreatorItems), "damagePercent") }, p2Character: { ...guardSessionChar, jutsu: p2j, pvpItems: getPvpItemLoadout(guardSessionChar, getAllItems(guardSave?.creatorItems?.length ? guardSave.creatorItems : wmCreatorItems)), bloodlineMult: getBloodlineMultiplier(guardSessionChar, guardBloodlines), armorFactor: getCharacterArmorFactor(guardSessionChar, getAllItems(guardSave?.creatorItems?.length ? guardSave.creatorItems : wmCreatorItems)), armorRawDR: getCharacterArmorRawDR(guardSessionChar, getAllItems(guardSave?.creatorItems?.length ? guardSave.creatorItems : wmCreatorItems)), itemDamagePct: getEquippedItemBonus(guardSessionChar, getAllItems(guardSave?.creatorItems?.length ? guardSave.creatorItems : wmCreatorItems), "damagePercent") } }),
                                                     });
                                                     if (sr.ok) ({ battleId } = await sr.json() as { battleId: string });
                                                 } catch { /* fallback */ }
 
                                                 if (battleId) {
-                                                    // Send battleId to the guard so they auto-route to pvpBattle
-                                                    fetch('/api/village-guard/challenge', {
-                                                        method: 'POST',
-                                                        headers: { 'Content-Type': 'application/json' },
-                                                        body: JSON.stringify({ attackerCharacter: character, village: loc.name, battleId, guardName: guardSessionChar.name }),
-                                                    }).catch(() => {});
+                                                    // Send battleId to the guard so they auto-route to pvpBattle via heartbeat
+                                                    let notifyOk = false;
+                                                    try {
+                                                        const nr = await fetch('/api/village-guard/challenge', {
+                                                            method: 'POST',
+                                                            headers: { 'Content-Type': 'application/json' },
+                                                            body: JSON.stringify({ attackerCharacter: character, village: loc.name, battleId, guardName: guardSessionChar.name }),
+                                                        });
+                                                        notifyOk = nr.ok;
+                                                    } catch { /* fall through */ }
+                                                    if (!notifyOk) {
+                                                        // Could not write the battle invite to the guard's KV slot —
+                                                        // fall back to local AI arena instead of leaving both stuck.
+                                                        setPendingPvpOpponent(normalizeCharacter(guardChar!));
+                                                        setRaidBattleKind("raidPlayer");
+                                                        setScreen("arena");
+                                                        return;
+                                                    }
                                                     setPvpBattleId(battleId);
                                                     setPvpRole("p1");
                                                     setPvpBattleContext({ mode: "standard", sectorAttack: true, raidKind: "raidPlayer", sector: virtualSector });
@@ -21867,6 +21868,10 @@ function BloodlineMaker({ initialRank, initialSpecialElement, character, updateC
         }));
     }
     async function saveBloodline() {
+        if (totalPoints > recommendedMax) {
+            alert(`This bloodline is over the ${rank} point limit (${totalPoints} / ${recommendedMax}). Reduce your jutsu tags or switch some jutsus to 40 AP before saving.`);
+            return;
+        }
         const finalElement = (specialElement.trim() || "Fire") as JutsuElement;
         const usedUniqueTags = new Set<string>();
         const finalizedJutsus = jutsus.map((jutsu) => {
@@ -21932,7 +21937,10 @@ function BloodlineMaker({ initialRank, initialSpecialElement, character, updateC
                 ? <div className="bloodline-rank-locked">{rank} <span className="rank-lock-badge">🔒 Locked</span></div>
                 : <select value={rank} onChange={(e) => changeRank(e.target.value as Rank)}><option>B Rank</option><option>A Rank</option><option>S Rank</option></select>
             }
-            <div className="summary-box"><p>Total Points: {totalPoints} / {recommendedMax}</p>{specialElement.trim() && <p>Special Element: {specialElement.trim()}</p>}</div>
+            <div className={`summary-box${totalPoints > recommendedMax ? " bloodline-over-budget" : ""}`}>
+                <p>Total Points: {totalPoints} / {recommendedMax}{totalPoints > recommendedMax && <span className="bloodline-over-budget-label"> ⚠ Over limit — reduce tags or switch to lower AP jutsus</span>}</p>
+                {specialElement.trim() && <p>Special Element: {specialElement.trim()}</p>}
+            </div>
             {jutsus.map((jutsu, jutsuIndex) => (
                 <div className="jutsu-card maker-card" key={jutsu.id}>
                     <h3>{jutsu.name}</h3>
@@ -22184,6 +22192,8 @@ function Arena({
     };
     type SelectedCombatAction = "move" | "dash" | undefined;
 
+    // Guard against double-accepting the same challenge from two UI locations simultaneously
+    const [acceptingChallengeIds, setAcceptingChallengeIds] = useState<string[]>([]);
     const gridWidth = 12;
     const gridHeight = 10;
 
@@ -22673,6 +22683,8 @@ function Arena({
     }
 
     async function acceptChallenge(challenge: DuelChallenge) {
+        if (acceptingChallengeIds.includes(challenge.id)) return;
+        setAcceptingChallengeIds(prev => [...prev, challenge.id]);
         const challenger = normalizeCharacter(challenge.challenger);
         setDuelChallenges(duelChallenges.filter((candidate) => candidate.id !== challenge.id));
         try {
@@ -22718,6 +22730,8 @@ function Arena({
             setOpponentCharacter(challenger);
             setEnemyHp(challenger.maxHp);
             startPrefight(challenger.maxHp, `${challenge.mode === "ranked" ? "Ranked PvP duel" : challenge.clanWarPoints ? "Clan war PvP duel" : "PvP duel"} accepted against ${challenge.fromName}.`);
+        } finally {
+            setAcceptingChallengeIds(prev => prev.filter(id => id !== challenge.id));
         }
     }
 
