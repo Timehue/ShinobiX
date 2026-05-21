@@ -551,6 +551,14 @@ type DuelChallenge = {
     declined?: boolean;
 };
 
+type SharedPvpBattleContext = {
+    mode?: DuelChallenge["mode"];
+    clanWarPoints?: number;
+    sectorAttack?: boolean;
+    raidKind?: "raidPlayer" | "defense";
+    sector?: number;
+};
+
 type AiCondition = "always" | "specific_round" | "distance_lower_than" | "distance_higher_than" | "hp_lower_than";
 type AiAction = "use_specific_jutsu" | "use_highest_power_jutsu" | "move_towards_opponent" | "use_basic_attack";
 type AiLoadoutId = "balanced" | "control" | "burst" | "bruiser" | "defender" | "hunter" | "boss";
@@ -5629,6 +5637,7 @@ export default function App() {
     const [pendingPvpOpponent, setPendingPvpOpponent] = useState<Character | null>(null);
     const [pvpBattleId, setPvpBattleId] = useState<string | null>(null);
     const [pvpRole, setPvpRole] = useState<"p1" | "p2" | null>(null);
+    const [pvpBattleContext, setPvpBattleContext] = useState<SharedPvpBattleContext | null>(null);
     const [temporaryStoryAi, setTemporaryStoryAi] = useState<CreatorAi | null>(null);
     const [raidBattleKind, setRaidBattleKind] = useState<"none" | "raidAi" | "raidPlayer" | "defense">("none");
     const [endlessBattleActive, setEndlessBattleActive] = useState(false);
@@ -5901,6 +5910,7 @@ export default function App() {
         if (incoming.battleId) {
             setPvpBattleId(incoming.battleId);
             setPvpRole("p2");
+            setPvpBattleContext({ mode: incoming.mode, clanWarPoints: incoming.clanWarPoints, sectorAttack: true, raidKind: "defense", sector: currentSector });
             setScreen("pvpBattle");
         } else {
             setPendingPvpOpponent(normalizeCharacter(incoming.challenger));
@@ -5932,6 +5942,7 @@ export default function App() {
         }
         setPvpBattleId(accepted.battleId!);
         setPvpRole("p1");
+        setPvpBattleContext({ mode: accepted.mode, clanWarPoints: accepted.clanWarPoints, sectorAttack: accepted.sectorAttack, sector: currentSector });
         setScreen("pvpBattle");
     }, [duelChallenges, character?.name]);
 
@@ -6000,6 +6011,7 @@ export default function App() {
             const notified = await postPlayerChallengeNotice(challenge.fromName, { ...challenge, battleId, accepted: true, fromName: character.name, toName: challenge.fromName });
             setPvpBattleId(battleId);
             setPvpRole("p2");
+            setPvpBattleContext({ mode: challenge.mode, clanWarPoints: challenge.clanWarPoints, sectorAttack: challenge.sectorAttack, sector: currentSector });
             setScreen("pvpBattle");
             if (!notified) alert(`${challenge.fromName} may not be pulled in automatically. Ask them to reopen the game or wait for heartbeat.`);
         } catch {
@@ -7632,6 +7644,7 @@ export default function App() {
                         onDungeonFound={() => triggerDungeonEncounter("worldMap")}
                         setPvpBattleId={setPvpBattleId}
                         setPvpRole={setPvpRole}
+                        setPvpBattleContext={setPvpBattleContext}
                         savedBloodlines={savedBloodlines}
                         creatorJutsus={creatorJutsus}
                         creatorItems={creatorItems}
@@ -7694,6 +7707,7 @@ export default function App() {
                             // Route attacker to shared pvpBattle as p1
                             setPvpBattleId(battleId);
                             setPvpRole("p1");
+                            setPvpBattleContext({ mode: challenge.mode, clanWarPoints: challenge.clanWarPoints, sectorAttack: true, raidKind: "raidPlayer", sector: currentSector });
                             setScreen("pvpBattle");
                         }}
                     />
@@ -7822,6 +7836,7 @@ export default function App() {
                         onMissionRaidComplete={recordMissionRaid}
                         setPvpBattleId={setPvpBattleId}
                         setPvpRole={setPvpRole}
+                        setPvpBattleContext={setPvpBattleContext}
                         setPendingPetBattleOpponent={setPendingPetBattleOpponent}
                     />
                 )}
@@ -7834,24 +7849,42 @@ export default function App() {
                         .filter((id): id is string => Boolean(id))
                         .map(id => getItemById(pvpAllItems, id))
                         .filter((item): item is GameItem => Boolean(item));
-                    function handlePvpWin(_opponentName: string) {
+                    function handlePvpWin(_opponentName: string, opponent?: Character) {
                         if (!character) return;
-                        const deathsGate = currentSector === 99;
+                        const context = pvpBattleContext;
+                        const rewardSector = context?.sector ?? currentSector;
+                        const deathsGate = rewardSector === 99;
                         const activeTrait = getActivePetTrait(character);
                         const xpGain = (activeTrait === "Swift" ? 125 : 100) * (deathsGate ? 2 : 1);
                         const ryoGain = (activeTrait === "Lucky" ? 90 : 75) * (deathsGate ? 2 : 1);
+                        const ratingGain = context?.mode === "ranked" && opponent
+                            ? rankedDelta(character.rankedRating ?? 1000, opponent.rankedRating ?? 1000)
+                            : 0;
+                        const clanWarPoints = context?.clanWarPoints ?? 0;
+                        if (clanWarPoints > 0) addClanWarPoints(character.clan, character.name, clanWarPoints);
+                        if (context?.raidKind === "raidPlayer") {
+                            damageSectorTerritory(rewardSector, sectorRaidDamageAmount(rewardSector));
+                        }
+                        const villageWarRaid = context?.raidKind === "raidPlayer"
+                            ? recordVillageWarRaid(character, rewardSector)
+                            : { characterPatch: {} as Partial<Character> };
+                        const villageWarPvpPatch = opponent ? recordVillageWarPvp(character, opponent) : "";
                         const leveled = gainXp(character, xpGain);
                         const rewarded = grantTerritoryScrolls(leveled, 5);
                         setCharacter({
                             ...rewarded,
+                            ...villageWarRaid.characterPatch,
                             ryo: rewarded.ryo + ryoGain,
                             honorSeals: (rewarded.honorSeals ?? 0) + 15,
                             auraDust: (rewarded.auraDust ?? 0) + 6,
                             totalPvpKills: (rewarded.totalPvpKills ?? 0) + 1,
                             monthlyPvpKills: (rewarded.monthlyPvpKills ?? 0) + 1,
                             pvpKillMonth: currentMonthKey(),
+                            rankedRating: (rewarded.rankedRating ?? 1000) + ratingGain,
+                            rankedWins: (rewarded.rankedWins ?? 0) + (ratingGain > 0 ? 1 : 0),
                         });
-                        if (currentSector > 0) recordMissionRaid(currentSector);
+                        if (rewardSector > 0) recordMissionRaid(rewardSector);
+                        if (villageWarPvpPatch) console.info(villageWarPvpPatch.trim());
                     }
                     return (
                         <PvpBattleScreen
@@ -7866,6 +7899,15 @@ export default function App() {
                             currentSector={currentSector}
                             sharedImages={sharedImages}
                             onWin={handlePvpWin}
+                            onLoss={(opponent) => {
+                                if (pvpBattleContext?.mode !== "ranked" || !opponent) return;
+                                const loss = rankedDelta(opponent.rankedRating ?? 1000, character.rankedRating ?? 1000);
+                                setCharacter({
+                                    ...character,
+                                    rankedRating: Math.max(0, (character.rankedRating ?? 1000) - loss),
+                                    rankedLosses: (character.rankedLosses ?? 0) + 1,
+                                });
+                            }}
                         />
                     );
                 })()}
@@ -18953,6 +18995,7 @@ function WorldMap({
     onDungeonFound,
     setPvpBattleId,
     setPvpRole,
+    setPvpBattleContext,
     savedBloodlines,
     creatorJutsus: wmCreatorJutsus,
     creatorItems: wmCreatorItems,
@@ -18983,6 +19026,7 @@ function WorldMap({
     onDungeonFound: () => void;
     setPvpBattleId: (id: string) => void;
     setPvpRole: (role: "p1" | "p2") => void;
+    setPvpBattleContext: (context: SharedPvpBattleContext | null) => void;
     savedBloodlines: SavedBloodline[];
     creatorJutsus: Jutsu[];
     creatorItems: GameItem[];
@@ -19080,6 +19124,7 @@ function WorldMap({
 
         setPvpBattleId(battleId);
         setPvpRole("p1");
+        setPvpBattleContext({ mode: "standard", sectorAttack: true, raidKind: "raidPlayer", sector });
         setScreen("pvpBattle");
     }
 
@@ -19962,6 +20007,7 @@ function WorldMap({
                                                     }).catch(() => {});
                                                     setPvpBattleId(battleId);
                                                     setPvpRole("p1");
+                                                    setPvpBattleContext({ mode: "standard", sectorAttack: true, raidKind: "raidPlayer", sector: virtualSector });
                                                     setScreen("pvpBattle");
                                                     return;
                                                 }
@@ -22065,6 +22111,7 @@ function Arena({
     onMissionRaidComplete,
     setPvpBattleId,
     setPvpRole,
+    setPvpBattleContext,
     setPendingPetBattleOpponent,
 }: {
     lobbyMode?: "battleArena" | "arenaDistrict";
@@ -22098,6 +22145,7 @@ function Arena({
     onMissionRaidComplete?: (sector: number) => void;
     setPvpBattleId?: (id: string) => void;
     setPvpRole?: (role: "p1" | "p2") => void;
+    setPvpBattleContext?: (context: SharedPvpBattleContext | null) => void;
     setPendingPetBattleOpponent?: (opponent: PetArenaOpponent | null) => void;
 }) {
     type CombatStatus = {
@@ -22638,6 +22686,7 @@ function Arena({
             const notified = await postPlayerChallengeNotice(challenge.fromName, { ...challenge, battleId, accepted: true, fromName: character.name, toName: challenge.fromName });
             setPvpBattleId?.(battleId);
             setPvpRole?.("p2");
+            setPvpBattleContext?.({ mode: challenge.mode, clanWarPoints: challenge.clanWarPoints, sectorAttack: challenge.sectorAttack, sector: currentSector });
             setScreen("pvpBattle");
             if (!notified) alert(`${challenge.fromName} may not be pulled in automatically. Ask them to reopen the game or wait for heartbeat.`);
         } catch {
@@ -25609,6 +25658,7 @@ function PvpBattleScreen({
     currentSector,
     sharedImages,
     onWin,
+    onLoss,
 }: {
     character: Character;
     battleId: string;
@@ -25620,7 +25670,8 @@ function PvpBattleScreen({
     currentWeather: WeatherType;
     currentSector: number;
     sharedImages: Record<string, string>;
-    onWin?: (opponentName: string) => void;
+    onWin?: (opponentName: string, opponent?: Character) => void;
+    onLoss?: (opponent?: Character) => void;
 }) {
     // Grid constants — exact match to arena
     const gridWidth = 12;
@@ -25769,14 +25820,17 @@ function PvpBattleScreen({
         return () => clearInterval(iv);
     }, [!!session]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Grant XP/Ryo reward once when I win
+    // Apply completion rewards/penalties once per client when the shared fight ends.
     useEffect(() => {
         if (session?.status !== "done") return;
         const iWonNow = (session.winner === "p1" && role === "p1") || (session.winner === "p2" && role === "p2");
-        if (!iWonNow || pvpRewardRef.current) return;
+        const iLostNow = session.winner && session.winner !== "draw" && !iWonNow;
+        if ((!iWonNow && !iLostNow) || pvpRewardRef.current) return;
         pvpRewardRef.current = true;
-        const oppName = role === "p1" ? session.p2.name : session.p1.name;
-        onWin?.(oppName);
+        const oppFighter = role === "p1" ? session.p2 : session.p1;
+        const opponent = normalizeCharacter(oppFighter.character as Character);
+        if (iWonNow) onWin?.(oppFighter.name, opponent);
+        else onLoss?.(opponent);
     }, [session?.status, session?.winner]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Auto-pass when my turn starts but I can't afford the cheapest action
