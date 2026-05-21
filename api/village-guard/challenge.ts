@@ -18,7 +18,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // Find all active guards for this village
         const keys = await kv.keys('guard:*');
-        const guards = (await Promise.all(keys.map(k => kv.get<GuardEntry>(k))))
+        const guards = (await kv.mget<GuardEntry[]>(...keys))
             .filter((g): g is GuardEntry => !!g && g.village === village);
 
         if (guards.length === 0) {
