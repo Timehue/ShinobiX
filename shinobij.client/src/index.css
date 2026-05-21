@@ -4542,6 +4542,17 @@ button {
     background: linear-gradient(135deg, rgba(15, 23, 42, .96), rgba(2, 6, 23, .96));
 }
 
+.summary-box.bloodline-over-budget {
+    border: 1px solid #ef4444;
+    background: linear-gradient(135deg, rgba(60, 10, 10, .96), rgba(30, 5, 5, .96));
+}
+
+.bloodline-over-budget-label {
+    color: #f87171;
+    font-weight: 600;
+    margin-left: 6px;
+}
+
 .atlas-world-map {
     border-radius: 8px;
     border-color: rgba(186, 230, 253, .55);
