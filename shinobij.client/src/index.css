@@ -7513,17 +7513,39 @@ textarea {
         z-index: 1;
     }
 
+.left-profile-avatar-wrap {
+    position: relative !important;
+    display: inline-flex !important;
+    margin-bottom: 4px !important;
+}
+
 .left-profile-avatar {
     width: 84px !important;
     height: 84px !important;
     display: grid !important;
     place-items: center !important;
-    margin-bottom: 4px !important;
+    margin-bottom: 0 !important;
     border: 0 !important;
     background: transparent !important;
     color: #bae6fd !important;
     font-weight: 900 !important;
     text-shadow: 0 2px 5px #000, 0 0 12px rgba(56, 189, 248, 0.8) !important;
+}
+
+.left-avatar-upload-btn {
+    position: absolute !important;
+    bottom: 2px !important;
+    right: 2px !important;
+    background: rgba(0,0,0,0.65) !important;
+    border-radius: 50% !important;
+    width: 22px !important;
+    height: 22px !important;
+    display: grid !important;
+    place-items: center !important;
+    font-size: 0.7rem !important;
+    cursor: pointer !important;
+    line-height: 1 !important;
+    border: 1px solid rgba(255,255,255,0.2) !important;
 }
 
 .left-profile-name,
