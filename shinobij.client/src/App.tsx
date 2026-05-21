@@ -539,6 +539,7 @@ type DuelChallenge = {
     challengerJutsus?: Jutsu[];
     challengerBloodlineMult?: number;
     challengerPetId?: string; // which pet the challenger is using for pet battles
+    petBattleSeed?: number;
     responderPetId?: string;
     responderPet?: Pet;
     createdAt: number;
@@ -5650,7 +5651,7 @@ export default function App() {
     const [hospitalEntryTime, setHospitalEntryTime] = useState<number | null>(null);
     const [duelChallenges, setDuelChallenges] = useState<DuelChallenge[]>([]);
     const [processingChallengeIds, setProcessingChallengeIds] = useState<string[]>([]);
-    const [pendingPetBattleOpponent, setPendingPetBattleOpponent] = useState<{ owner: string; pet: Pet } | null>(null);
+    const [pendingPetBattleOpponent, setPendingPetBattleOpponent] = useState<PetArenaOpponent | null>(null);
     const [triggeredEvents, setTriggeredEvents] = useState<string[]>([]);
     const [liveSectorPlayers, setLiveSectorPlayers] = useState<PlayerRecord[]>([]);
     const [incomingAttackBanner, setIncomingAttackBanner] = useState("");
@@ -5769,12 +5770,10 @@ export default function App() {
             }
         }
 
-        // Sector 0 = village. Players can't be attacked there so we don't need
-        // rapid presence updates. Use a slow tick (60s) just to keep forceReload
-        // detection alive for admin resets. Skip the immediate fire too.
-        const inVillage = currentSector === 0;
-        if (!inVillage) heartbeat();
-        const id = setInterval(heartbeat, inVillage ? 60000 : 5000);
+        heartbeat();
+        // 5-second interval so both players get routed to the battle screen within ~5s
+        // of a challenge being sent or accepted (was 20s — too slow for real-time battles).
+        const id = setInterval(heartbeat, 5000);
         return () => clearInterval(id);
     }, [character?.name, currentSector]);
 
@@ -5829,7 +5828,7 @@ export default function App() {
             responderPet: myPet,
         };
         const notified = await postPlayerChallengeNotice(challenge.fromName, acceptedNotice);
-        setPendingPetBattleOpponent({ owner: challenge.fromName, pet: challengerPet });
+        setPendingPetBattleOpponent({ owner: challenge.fromName, pet: challengerPet, battleSeed: challenge.petBattleSeed });
         setScreen("petArena");
         setProcessingChallengeIds(prev => prev.filter(id => id !== challenge.id));
         if (!notified) alert(`${challenge.fromName} may not be pulled in automatically. Ask them to open Pet Arena if they do not see the fight.`);
@@ -5919,7 +5918,7 @@ export default function App() {
         setDuelChallenges(prev => prev.filter(c => c.id !== accepted.id));
         if (accepted.mode === "clanWarPet") {
             if (accepted.responderPet) {
-                setPendingPetBattleOpponent({ owner: accepted.fromName, pet: accepted.responderPet });
+                setPendingPetBattleOpponent({ owner: accepted.fromName, pet: accepted.responderPet, battleSeed: accepted.petBattleSeed });
                 setScreen("petArena");
             } else {
                 alert(`${accepted.fromName} accepted your pet battle. Open Pet Arena if it does not start automatically.`);
@@ -7823,6 +7822,7 @@ export default function App() {
                         onMissionRaidComplete={recordMissionRaid}
                         setPvpBattleId={setPvpBattleId}
                         setPvpRole={setPvpRole}
+                        setPendingPetBattleOpponent={setPendingPetBattleOpponent}
                     />
                 )}
 
@@ -9107,6 +9107,7 @@ function PetYard({ character, updateCharacter, setScreen }: { character: Charact
 type PetArenaOpponent = {
     owner: string;
     pet: Pet;
+    battleSeed?: number;
 };
 
 const genericPetArenaOpponents: PetArenaOpponent[] = [
@@ -9454,10 +9455,23 @@ function petBasicDamage(attacker: PetBattleFighter, defender: PetBattleFighter) 
     return Math.max(1, Math.floor(attacker.pet.attack + attacker.attackBuff - (defender.pet.defense + defender.defenseBuff) * 0.45));
 }
 
-function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: string) {
+function seededPetBattleRandom(seed: number) {
+    let state = Math.max(1, Math.floor(seed) >>> 0);
+    return () => {
+        state = (state * 1664525 + 1013904223) >>> 0;
+        return state / 4294967296;
+    };
+}
+
+function petBattleTieKey(pet: Pet) {
+    return `${pet.speed}:${pet.id}:${pet.name}`;
+}
+
+function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: string, seed = Date.now()) {
+    const rng = seededPetBattleRandom(seed);
     // 10×5 grid — player starts col 1 (tile 21), enemy starts col 8 (tile 28), distance = 7
     // Pick a random obstacle layout for this battle
-    const obstacleLayout = PET_OBSTACLE_LAYOUTS[Math.floor(Math.random() * PET_OBSTACLE_LAYOUTS.length)];
+    const obstacleLayout = PET_OBSTACLE_LAYOUTS[Math.floor(rng() * PET_OBSTACLE_LAYOUTS.length)];
     const obstacles = new Set<number>(obstacleLayout);
 
     // 14×6 grid: player col 1 row 2 = tile 29; enemy col 12 row 2 = tile 40
@@ -9503,7 +9517,7 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
         const critChance     = actor.pet.trait === "Aggressive" ? 0.30 : 0.15;
         const dmgBonus       = actor.pet.trait === "Battleborn"  ? 1.10 : 1.0;
         const guardianBlock  = target.pet.trait === "Guardian"   ? 0.85 : 1.0;
-        const luckyDodgeRoll = target.pet.trait === "Lucky" && Math.random() < 0.10;
+        const luckyDodgeRoll = target.pet.trait === "Lucky" && rng() < 0.10;
 
         function doMove(reason: string): [PetBattleFighter, PetBattleFighter] {
             const steps = actor.pet.moveRange ?? 2;
@@ -9529,7 +9543,7 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
                 pushFrame(round, msg, targetSide, kind, undefined, undefined, { actor: targetSide as "player" | "enemy", trait: "Lucky" });
                 return [actor2, target2];
             }
-            const crit   = Math.random() < critChance;
+            const crit   = rng() < critChance;
             // Absorb stance reduces incoming damage by absorbPercent
             const absorbMult = target2.absorbRounds > 0 ? (1 - target2.absorbPercent) : 1;
             const damage = Math.max(1, Math.floor(base * (crit ? 1.5 : 1) * dmgBonus * guardianBlock * absorbMult));
@@ -9729,7 +9743,7 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
             if (enemy.hp <= 0) break;
         }
 
-        const playerFirst = player.pet.speed >= enemy.pet.speed;
+        const playerFirst = player.pet.speed > enemy.pet.speed || (player.pet.speed === enemy.pet.speed && petBattleTieKey(player.pet) <= petBattleTieKey(enemy.pet));
         const playerSwift = player.pet.trait === "Swift" && player.pet.speed >= enemy.pet.speed * 1.2;
         const enemySwift  = enemy.pet.trait  === "Swift" && enemy.pet.speed  >= player.pet.speed * 1.2;
 
@@ -9760,7 +9774,7 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
     return { result, player, enemy, logs, frames, obstacles: [...obstacles] };
 }
 
-function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, setScreen, sharedImages, duelChallenges, setDuelChallenges, pendingPetBattleOpponent, onPendingPetBattleStarted }: { character: Character; updateCharacter: (character: Character) => void; playerRoster: PlayerRecord[]; allServerPlayers: ServerPlayerSummary[]; setScreen: (screen: Screen) => void; sharedImages: Record<string, string>; duelChallenges: DuelChallenge[]; setDuelChallenges: (c: DuelChallenge[]) => void; pendingPetBattleOpponent?: { owner: string; pet: Pet } | null; onPendingPetBattleStarted?: () => void }) {
+function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, setScreen, sharedImages, duelChallenges, setDuelChallenges, pendingPetBattleOpponent, onPendingPetBattleStarted }: { character: Character; updateCharacter: (character: Character) => void; playerRoster: PlayerRecord[]; allServerPlayers: ServerPlayerSummary[]; setScreen: (screen: Screen) => void; sharedImages: Record<string, string>; duelChallenges: DuelChallenge[]; setDuelChallenges: (c: DuelChallenge[]) => void; pendingPetBattleOpponent?: PetArenaOpponent | null; onPendingPetBattleStarted?: () => void }) {
     const [selectedPetId, setSelectedPetId] = useState(character.activePetId ?? character.pets[0]?.id ?? "");
     const [opponentMode, setOpponentMode] = useState<"player" | "ai">("player");
     const [opponentSearch, setOpponentSearch] = useState("");
@@ -9771,6 +9785,15 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
             setPetChallengeMsg("You already have a pending challenge. Wait for it to be accepted, declined, or expire before sending another.");
             return;
         }
+        const targetRecord = allServerPlayers.find((player) => player.name.toLowerCase() === toName.toLowerCase());
+        if (targetRecord?.character && targetRecord.character.pets.length === 0) {
+            setPetChallengeMsg(`${toName} does not have a pet available for battle.`);
+            return;
+        }
+        if (!selectedPet) {
+            setPetChallengeMsg("Choose one of your pets first.");
+            return;
+        }
         setBattleReady(false);
         const challenge: DuelChallenge = {
             id: makeId(),
@@ -9778,6 +9801,7 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
             toName,
             challenger: character,
             challengerPetId: fromPetId,
+            petBattleSeed: Date.now() + Math.floor(Math.random() * 100000),
             createdAt: Date.now(),
             mode: "clanWarPet",
         };
@@ -9847,7 +9871,7 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                 : "No AI pets found.");
         }
         const pendingClanPetBattle = loadPendingClanPetBattle();
-        const battle = runPetArenaBattle(selectedPet, opponent.pet, opponent.owner);
+        const battle = runPetArenaBattle(selectedPet, opponent.pet, opponent.owner, opponent.battleSeed ?? Date.now());
         setBattleReady(true);
         setBattleLog(battle.logs);
         setBattleFrames(battle.frames);
@@ -9870,7 +9894,7 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
         if (!pendingPetBattleOpponent || !selectedPet) return;
         startBattle(pendingPetBattleOpponent);
         onPendingPetBattleStarted?.();
-    }, [pendingPetBattleOpponent?.owner, pendingPetBattleOpponent?.pet.id, selectedPet?.id]);
+    }, [pendingPetBattleOpponent?.owner, pendingPetBattleOpponent?.pet.id, pendingPetBattleOpponent?.battleSeed, selectedPet?.id]);
 
     const pendingClanPetBattle = loadPendingClanPetBattle();
 
@@ -9901,7 +9925,7 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ targetName: c.fromName, challenge: { ...c, accepted: true, fromName: character.name, toName: c.fromName, responderPetId: selectedPet?.id, responderPet: selectedPet } }),
                             }).catch(() => {});
-                            if (challengerPet) startBattle({ owner: c.fromName, pet: challengerPet });
+                            if (challengerPet) startBattle({ owner: c.fromName, pet: challengerPet, battleSeed: c.petBattleSeed });
                         }}>? Accept & Fight</button>
                         <button className="danger-button" onClick={() => {
                             setDuelChallenges(duelChallenges.filter((x) => x.id !== c.id));
@@ -22023,6 +22047,7 @@ function Arena({
     onMissionRaidComplete,
     setPvpBattleId,
     setPvpRole,
+    setPendingPetBattleOpponent,
 }: {
     lobbyMode?: "battleArena" | "arenaDistrict";
     character: Character;
@@ -22055,6 +22080,7 @@ function Arena({
     onMissionRaidComplete?: (sector: number) => void;
     setPvpBattleId?: (id: string) => void;
     setPvpRole?: (role: "p1" | "p2") => void;
+    setPendingPetBattleOpponent?: (opponent: PetArenaOpponent | null) => void;
 }) {
     type CombatStatus = {
         name: string;
@@ -22503,6 +22529,15 @@ function Arena({
             alert("You already have a pending challenge. Wait for it to be accepted, declined, or expire before sending another.");
             return;
         }
+        if (mode === "clanWarPet" && !character.pets.length) {
+            alert("You need a pet before sending a pet battle challenge.");
+            return;
+        }
+        const knownPetTarget = mode === "clanWarPet" ? playerRoster.find((player) => player.name.toLowerCase() === opponent.name.toLowerCase()) : undefined;
+        if (mode === "clanWarPet" && knownPetTarget && knownPetTarget.character.pets.length === 0) {
+            alert(`${opponent.name} does not have a pet available for battle.`);
+            return;
+        }
         const challenge: DuelChallenge = {
             id: makeId(),
             fromName: character.name,
@@ -22510,6 +22545,8 @@ function Arena({
             challenger: character,
             challengerJutsus: getPvpJutsuLoadout(savedBloodlines, creatorJutsus, character),
             challengerBloodlineMult: getBloodlineMultiplier(character, savedBloodlines),
+            challengerPetId: mode === "clanWarPet" ? (character.activePetId ?? character.pets[0]?.id) : undefined,
+            petBattleSeed: mode === "clanWarPet" ? Date.now() + Math.floor(Math.random() * 100000) : undefined,
             createdAt: Date.now(),
             mode,
             clanWarPoints,
@@ -24688,6 +24725,12 @@ function Arena({
                             <div className="menu">
                                 <button onClick={() => {
                                     if (challenge.mode === "clanWarPet") {
+                                        const challengerPet = challenge.challenger.pets.find(pet => pet.id === challenge.challengerPetId) ?? challenge.challenger.pets[0];
+                                        const responderPet = character.pets.find(pet => pet.id === character.activePetId) ?? character.pets[0];
+                                        if (!challengerPet || !responderPet) {
+                                            alert("Both players need a pet before this pet battle can start.");
+                                            return;
+                                        }
                                         savePendingClanPetBattle({
                                             clanName: character.clan,
                                             points: challenge.clanWarPoints ?? 25,
@@ -24703,8 +24746,9 @@ function Arena({
                                         fetch('/api/player/challenge', {
                                             method: 'POST',
                                             headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({ targetName: challenge.fromName, challenge: { ...challenge, accepted: true, fromName: character.name, toName: challenge.fromName, responderPetId: character.activePetId ?? character.pets[0]?.id, responderPet: character.pets.find(pet => pet.id === character.activePetId) ?? character.pets[0] } }),
+                                            body: JSON.stringify({ targetName: challenge.fromName, challenge: { ...challenge, accepted: true, fromName: character.name, toName: challenge.fromName, responderPetId: responderPet.id, responderPet } }),
                                         }).catch(() => {});
+                                        setPendingPetBattleOpponent?.({ owner: challenge.fromName, pet: challengerPet, battleSeed: challenge.petBattleSeed });
                                         setScreen("petArena");
                                         return;
                                     }
