@@ -66,11 +66,16 @@ function normalizeVillageWar(data) {
     };
 }
 async function getByPrefix(prefix) {
-    const keys = await kv.keys(`${prefix}*`);
-    if (!keys.length)
+    try {
+        const keys = await kv.keys(`${prefix}*`);
+        if (!keys.length)
+            return [];
+        const values = await Promise.all(keys.map(key => kv.get(key)));
+        return values.filter(Boolean);
+    }
+    catch {
         return [];
-    const values = await Promise.all(keys.map(key => kv.get(key)));
-    return values.filter(Boolean);
+    }
 }
 export default async function handler(req, res) {
     cors(res);
