@@ -227,7 +227,9 @@ function getSupabase(): SupabaseClient {
     // Vercel function until the platform kills it (~300 s), returning no response.
     const fetchWithTimeout: typeof fetch = (input, init) => {
         const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), 30_000);
+        // 20s hard cap per Supabase REST call — keeps us well under the 30s
+        // maxDuration so the function always has time to return a response.
+        const timer = setTimeout(() => ctrl.abort(), 20_000);
         return fetch(input, { ...init, signal: ctrl.signal }).finally(() => clearTimeout(timer));
     };
     _supabase = createClient(url, key, {
