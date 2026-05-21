@@ -7340,6 +7340,7 @@ export default function App() {
                 screen !== "storyBoss" && (
                     <LeftProfileCard
                         character={character}
+                        updateCharacter={setCharacter}
                         currentSector={currentSector}
                         navigate={navigate}
                     />
@@ -7950,10 +7951,12 @@ export default function App() {
 
 function LeftProfileCard({
     character,
+    updateCharacter,
     currentSector,
     navigate,
 }: {
     character: Character;
+    updateCharacter: (c: Character) => void;
     currentSector: number;
     navigate: (screen: Screen) => void;
 }) {
