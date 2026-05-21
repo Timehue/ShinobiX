@@ -5,6 +5,7 @@ import { cors } from '../_utils.js';
 export type PvpStatus = {
     name: string;
     rounds: number;
+    activeRound?: number;
     percent?: number;
     amount?: number;
     kind: 'positive' | 'negative';
@@ -50,7 +51,7 @@ export type PvpSession = {
     createdAt: number;
 };
 
-const SESSION_TTL = 600;
+const SESSION_TTL = 60 * 60;
 
 // Starting positions matching arena (p1 left side, p2 right side)
 const P1_START = 62;
