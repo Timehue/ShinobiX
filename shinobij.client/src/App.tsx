@@ -19060,6 +19060,24 @@ function WorldMap({
             return;
         }
 
+        const challenge: DuelChallenge = {
+            id: makeId(),
+            fromName: character.name,
+            toName: opponentCharacter.name,
+            challenger: character,
+            challengerJutsus: p1Jutsus,
+            challengerBloodlineMult: getBloodlineMultiplier(selfCharacter, selfBloodlines),
+            createdAt: Date.now(),
+            mode: "standard",
+            sectorAttack: true,
+            battleId,
+        };
+        fetch('/api/player/challenge', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ targetName: opponentCharacter.name, challenge }),
+        }).catch(() => {});
+
         setPvpBattleId(battleId);
         setPvpRole("p1");
         setScreen("pvpBattle");
@@ -19902,7 +19920,7 @@ function WorldMap({
                                                 const cr = await fetch('/api/village-guard/challenge', {
                                                     method: 'POST',
                                                     headers: { 'Content-Type': 'application/json' },
-                                                    body: JSON.stringify({ attackerCharacter: character, village: loc.name }),
+                                                    body: JSON.stringify({ attackerCharacter: character, village: loc.name, guardName: guard.name }),
                                                 });
                                                 const data = await cr.json() as { pvp?: boolean; guardCharacter?: unknown; guardLevel?: number; defenseBonusPercent?: number; };
                                                 if (data.pvp && data.guardCharacter) guardChar = data.guardCharacter as Character;
@@ -19940,7 +19958,7 @@ function WorldMap({
                                                     fetch('/api/village-guard/challenge', {
                                                         method: 'POST',
                                                         headers: { 'Content-Type': 'application/json' },
-                                                        body: JSON.stringify({ attackerCharacter: character, village: loc.name, battleId }),
+                                                        body: JSON.stringify({ attackerCharacter: character, village: loc.name, battleId, guardName: guardSessionChar.name }),
                                                     }).catch(() => {});
                                                     setPvpBattleId(battleId);
                                                     setPvpRole("p1");
@@ -24573,7 +24591,6 @@ function Arena({
                                     <strong>{challenge.fromName}</strong> wants a pet battle!
                                     <div className="menu">
                                         <button onClick={() => {
-                                            setDuelChallenges(duelChallenges.filter((c) => c.id !== challenge.id));
                                             setScreen("petArena");
                                         }}>🐾 Go to Pet Arena</button>
                                         <button className="danger-button" onClick={() => declineChallenge(challenge)}>Decline</button>
