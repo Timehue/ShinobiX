@@ -9498,7 +9498,7 @@ function choosePetActionSmart(
 }
 
 function petBasicDamage(attacker: PetBattleFighter, defender: PetBattleFighter) {
-    return Math.max(1, Math.floor(attacker.pet.attack + attacker.attackBuff - (defender.pet.defense + defender.defenseBuff) * 0.45));
+    return Math.max(1, Math.floor(attacker.pet.attack + attacker.attackBuff - (defender.pet.defense + defender.defenseBuff) * 0.5));
 }
 
 function seededPetBattleRandom(seed: number) {
@@ -9619,9 +9619,14 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
             return [actor2, damagedTarget];
         }
 
-        // Finisher mode: close the gap aggressively when target is near death
+        // Finisher mode: use ranged jutsus (dot/movelock reach dist ≤ 4) before lunging
         if (isFinisher && dist > 2) {
-            return doMove("lunges in for the kill!");
+            const rangedFinisher = actor.pet.jutsus.find(j =>
+                (j.kind === "dot" || j.kind === "movelock" || j.kind === "debuff") &&
+                (actor.cooldowns[j.name] ?? 0) <= 0 &&
+                petJutsuInRange(j.kind, dist)
+            );
+            if (!rangedFinisher) return doMove("lunges in for the kill!");
         }
 
         // Smart situational AI decision
@@ -9689,8 +9694,10 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
 
             if (jutsu.kind === "dot") {
                 const dotDmg   = Math.max(1, Math.floor(jutsu.power * 0.28));
-                const poisoned = { ...target, dotDamage: dotDmg, dotRounds: 3 };
-                const msg = `Round ${round}: ${actor.pet.name} uses ${jutsu.name}, poisoning ${target.pet.name} for ${dotDmg}/round (3 rounds).`;
+                // Extend duration if already poisoned; never shorten an existing longer DOT
+                const newRounds = Math.max(3, target.dotRounds);
+                const poisoned = { ...target, dotDamage: dotDmg, dotRounds: newRounds };
+                const msg = `Round ${round}: ${actor.pet.name} uses ${jutsu.name}, poisoning ${target.pet.name} for ${dotDmg}/round (${newRounds} rounds).`;
                 logs.push(msg);
                 if (actorSide === "player") { player = nextActor; enemy = poisoned; } else { enemy = nextActor; player = poisoned; }
                 pushFrame(round, msg, actorSide, "dot");
@@ -9722,17 +9729,18 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
                 const rawDmg = actor.pet.attack + actor.attackBuff + jutsu.power - (target.pet.defense + target.defenseBuff) * 0.5;
                 const preTargetHp = target.hp;
                 const [returnedActor, damagedTarget] = applyDamage(rawDmg, jutsu.name, "damage", nextActor, target);
-                // Drain 40% of actual HP lost back to attacker
+                // Drain 40% of actual HP lost — no free heal if shield absorbed everything
                 const actualDmg = Math.max(0, preTargetHp - damagedTarget.hp);
-                const stealAmt  = Math.max(1, Math.floor(actualDmg * 0.40));
-                const healed    = { ...returnedActor, hp: Math.min(returnedActor.pet.hp, returnedActor.hp + stealAmt) };
-                if (actualDmg > 0) {
+                const stealAmt  = Math.floor(actualDmg * 0.40);
+                if (stealAmt > 0) {
+                    const healed = { ...returnedActor, hp: Math.min(returnedActor.pet.hp, returnedActor.hp + stealAmt) };
                     const lsMsg = `Round ${round}: ${actor.pet.name} drains ${stealAmt} HP from the attack!`;
                     logs.push(lsMsg);
                     if (actorSide === "player") player = healed; else enemy = healed;
                     pushFrame(round, lsMsg, actorSide, "lifesteal", stealAmt);
+                    return [healed, damagedTarget];
                 }
-                return [healed, damagedTarget];
+                return [returnedActor, damagedTarget];
             }
 
             // damage jutsu
@@ -9767,17 +9775,19 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
         return doMove(`advances toward ${target.pet.name}.`);
     }
 
+    let lastRound = 1;
     for (let round = 1; round <= 30 && player.hp > 0 && enemy.hp > 0; round += 1) {
+        lastRound = round;
         player = tick(player);
         enemy  = tick(enemy);
 
-        // Apply DOT poison damage
+        // Apply DOT poison damage — actor label is the one who APPLIED the poison (the opponent)
         if (player.dotRounds > 0) {
             const dotDmg = player.dotDamage;
             player = { ...player, hp: Math.max(0, player.hp - dotDmg), dotRounds: player.dotRounds - 1 };
             const dotMsg = `Round ${round}: ${player.pet.name} writhes in poison — ${dotDmg} damage.`;
             logs.push(dotMsg);
-            pushFrame(round, dotMsg, "player", "dot", dotDmg);
+            pushFrame(round, dotMsg, "enemy", "dot", dotDmg); // enemy applied the poison to player
             if (player.hp <= 0) break;
         }
         if (enemy.dotRounds > 0) {
@@ -9785,7 +9795,7 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
             enemy = { ...enemy, hp: Math.max(0, enemy.hp - dotDmg), dotRounds: enemy.dotRounds - 1 };
             const dotMsg = `Round ${round}: ${enemy.pet.name} writhes in poison — ${dotDmg} damage.`;
             logs.push(dotMsg);
-            pushFrame(round, dotMsg, "enemy", "dot", dotDmg);
+            pushFrame(round, dotMsg, "player", "dot", dotDmg); // player applied the poison to enemy
             if (enemy.hp <= 0) break;
         }
 
@@ -9816,7 +9826,7 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
     const result = playerWon ? "win" : enemyWon ? "loss" : player.hp >= enemy.hp ? "win" : "loss";
     const finalMessage = result === "win" ? `${player.pet.name} wins the Pet Arena match.` : `${enemy.pet.name} wins the Pet Arena match.`;
     logs.push(finalMessage);
-    pushFrame(21, finalMessage, "system", "result");
+    pushFrame(lastRound, finalMessage, "system", "result");
     return { result, player, enemy, logs, frames, obstacles: [...obstacles] };
 }
 
