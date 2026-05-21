@@ -6055,7 +6055,7 @@ export default function App() {
             setPendingAiProfileId(snap.pendingAiProfileId ?? "");
             setCurrentSector(snap.currentSector ?? 40);
             if (snap.savedBloodlines) setSavedBloodlines(snap.savedBloodlines.map((bloodline: SavedBloodline) => ({ ...bloodline, jutsus: bloodline.jutsus.map(normalizeJutsu) })));
-            if (snap.creatorJutsus) setCreatorJutsus(snap.creatorJutsus.map(normalizeJutsu).map(rebalanceNonBloodlineJutsu));
+            if (snap.creatorJutsus) setCreatorJutsus(snap.creatorJutsus.map(normalizeJutsu));
             if (snap.creatorAis) setCreatorAis(balanceExistingAiProfiles(snap.creatorAis, savedJutsuPool(snap)));
             if (snap.creatorEvents) setCreatorEvents(snap.creatorEvents);
             if (snap.creatorMissions) setCreatorMissions(snap.creatorMissions);
@@ -6179,7 +6179,7 @@ export default function App() {
     }
 
     function applySharedAdminContentSnapshot(snap: ReturnType<typeof buildPlayerSavePayload>) {
-        const sharedCreatorJutsus = ((snap.creatorJutsus as Jutsu[] | undefined) ?? []).map(normalizeJutsu).map(rebalanceNonBloodlineJutsu);
+        const sharedCreatorJutsus = ((snap.creatorJutsus as Jutsu[] | undefined) ?? []).map(normalizeJutsu);
         // Bloodlines are intentionally NOT synced from admin saves — each player sees only their own bloodlines.
         if (snap.creatorJutsus) setCreatorJutsus((prev) => mergeById(prev, sharedCreatorJutsus));
         if (snap.creatorAis) setCreatorAis((prev) => mergeById(prev, balanceExistingAiProfiles(snap.creatorAis as CreatorAi[], [...starterJutsus, ...sharedCreatorJutsus])));
@@ -6720,7 +6720,7 @@ export default function App() {
         setPendingAiProfileId(snap.pendingAiProfileId ?? "");
         setCurrentSector(snap.currentSector ?? 40);
         if (snap.savedBloodlines) setSavedBloodlines(snap.savedBloodlines.map((bloodline: SavedBloodline) => ({ ...bloodline, jutsus: bloodline.jutsus.map(normalizeJutsu) })));
-        if (snap.creatorJutsus) setCreatorJutsus(snap.creatorJutsus.map(normalizeJutsu).map(rebalanceNonBloodlineJutsu));
+        if (snap.creatorJutsus) setCreatorJutsus(snap.creatorJutsus.map(normalizeJutsu));
         if (snap.creatorAis) setCreatorAis(balanceExistingAiProfiles(snap.creatorAis, savedJutsuPool(snap)));
         if (snap.creatorEvents) setCreatorEvents(snap.creatorEvents);
         if (snap.creatorMissions) setCreatorMissions(snap.creatorMissions);
@@ -7504,7 +7504,7 @@ export default function App() {
                             // and can corrupt currentAccountName if the save contains unexpected data.
                             const snap = await pullSaveFromServer(account);
                             if (snap) {
-                                if (snap.creatorJutsus) setCreatorJutsus((snap.creatorJutsus as Jutsu[]).map(normalizeJutsu).map(rebalanceNonBloodlineJutsu));
+                                if (snap.creatorJutsus) setCreatorJutsus((snap.creatorJutsus as Jutsu[]).map(normalizeJutsu));
                                 if (snap.creatorAis) setCreatorAis(balanceExistingAiProfiles(snap.creatorAis as CreatorAi[], savedJutsuPool(snap)));
                                 if (snap.creatorEvents) setCreatorEvents(snap.creatorEvents as CreatorEvent[]);
                                 if (snap.creatorMissions) setCreatorMissions(snap.creatorMissions as CreatorMission[]);
