@@ -844,6 +844,41 @@ button {
     margin-bottom: 8px;
 }
 
+/* ── Stat group list (General / Offense / Defense) ── */
+.stat-group-list {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.stat-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.stat-group-heading {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(51, 65, 85, 0.6);
+}
+
+.stat-group-heading h3 {
+    margin: 0;
+    font-size: 0.88rem;
+    font-weight: 800;
+    color: #e2e8f0;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+}
+
+.stat-group-heading span {
+    font-size: 0.75rem;
+    color: #64748b;
+}
+
 /* ── Individual stat card ── */
 .stat-card {
     background: rgba(2, 6, 23, 0.5);

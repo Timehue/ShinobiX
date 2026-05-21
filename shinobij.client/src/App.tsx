@@ -21992,8 +21992,27 @@ function Profile({
                 </div>
                 {statWarning && <p className="stat-warning">{statWarning}</p>}
 
-                <div className="stat-grid">
-                    {(Object.entries(character.stats) as [keyof Stats, number][]).map(([stat, value]) => {
+                {(() => {
+                    const statGroups: Array<{ title: string; description: string; stats: Array<keyof Stats> }> = [
+                        {
+                            title: "General",
+                            description: "Core stats used across combat and progression.",
+                            stats: ["speed", "strength", "intelligence", "willpower"],
+                        },
+                        {
+                            title: "Offense",
+                            description: "Damage scaling by jutsu style.",
+                            stats: ["bukijutsuOffense", "taijutsuOffense", "genjutsuOffense", "ninjutsuOffense"],
+                        },
+                        {
+                            title: "Defense",
+                            description: "Damage resistance checks by incoming style.",
+                            stats: ["bukijutsuDefense", "taijutsuDefense", "genjutsuDefense", "ninjutsuDefense"],
+                        },
+                    ];
+
+                    function renderStatCard(stat: keyof Stats) {
+                        const value = character.stats[stat];
                         const pct = Math.round((value / MAX_STAT) * 100);
                         return (
                             <div className="stat-card" key={stat}>
@@ -22022,8 +22041,24 @@ function Profile({
                                 </div>
                             </div>
                         );
-                    })}
-                </div>
+                    }
+
+                    return (
+                        <div className="stat-group-list">
+                            {statGroups.map((group) => (
+                                <section className="stat-group" key={group.title}>
+                                    <div className="stat-group-heading">
+                                        <h3>{group.title}</h3>
+                                        <span>{group.description}</span>
+                                    </div>
+                                    <div className="stat-grid">
+                                        {group.stats.map(renderStatCard)}
+                                    </div>
+                                </section>
+                            ))}
+                        </div>
+                    );
+                })()}
             </section>
 
             <section className="profile-build-panel">
