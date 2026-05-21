@@ -70,7 +70,8 @@ async function getByPrefix(prefix) {
         const keys = await kv.keys(`${prefix}*`);
         if (!keys.length)
             return [];
-        const values = await Promise.all(keys.map(key => kv.get(key)));
+        // Use mget to fetch all values in one round-trip instead of N individual gets.
+        const values = await kv.mget(...keys);
         return values.filter(Boolean);
     }
     catch {
@@ -86,7 +87,10 @@ export default async function handler(req, res) {
             getByPrefix(TERRITORY_KEY_PREFIX),
             getByPrefix(VILLAGE_WAR_KEY_PREFIX),
         ]);
-        res.setHeader('Cache-Control', 'no-store');
+        // CDN caches this for 15 s so all players polling every 15 s share
+        // one Supabase round-trip per window instead of one per player.
+        // stale-while-revalidate=10 keeps the response instant while revalidating.
+        res.setHeader('Cache-Control', 's-maxage=15, stale-while-revalidate=10');
         return res.status(200).json({ territories, wars });
     }
     if (req.method === 'POST') {

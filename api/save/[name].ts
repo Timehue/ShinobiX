@@ -46,19 +46,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             // If a reset-signal is pending (admin edit in-flight) and this is NOT the admin save,
             // silently drop the client auto-save so it can't overwrite admin changes.
+            // Speculatively fetch the existing save in parallel with the signal checks —
+            // saves one round-trip on every auto-save (the common path).
+            const incoming = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
             if (!isAdminSave) {
-                const [pendingSignal, adminLock] = await Promise.all([
+                const [pendingSignal, adminLock, existing] = await Promise.all([
                     kv.get(resetSignalKey),
                     kv.get(adminLockKey),
+                    kv.get(key),
                 ]);
                 if (pendingSignal || adminLock) return res.status(200).end();
+                const payload = existing ? mergePreservingImages(incoming, existing) : incoming;
+
+                const char = (incoming as Record<string, unknown>)?.character as Record<string, unknown> | undefined;
+                const displayName: string = (char?.name as string) || name;
+                const registryEntry = {
+                    name: displayName,
+                    level: (char?.level as number) ?? 1,
+                    village: (char?.village as string) ?? '',
+                    specialty: (char?.specialty as string) ?? '',
+                    lastSeen: Date.now(),
+                };
+
+                await Promise.all([
+                    kv.set(key, payload),
+                    kv.hset(REGISTRY_KEY, { [name]: JSON.stringify(registryEntry) }),
+                ]);
+                return res.status(200).end();
             }
 
-            const incoming = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+            // Admin save path — lock first, then read + write, then signal reload.
+            await kv.set(adminLockKey, 1, { ex: 300 });
             const existing = await kv.get(key);
             const payload = existing ? mergePreservingImages(incoming, existing) : incoming;
 
-            // Upsert player into persistent registry so admin can always see all accounts
             const char = (incoming as Record<string, unknown>)?.character as Record<string, unknown> | undefined;
             const displayName: string = (char?.name as string) || name;
             const registryEntry = {
@@ -69,13 +90,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 lastSeen: Date.now(),
             };
 
-            if (isAdminSave) await kv.set(adminLockKey, 1, { ex: 300 });
             await Promise.all([
                 kv.set(key, payload),
                 kv.hset(REGISTRY_KEY, { [name]: JSON.stringify(registryEntry) }),
             ]);
-            // Admin save: set reset-signal after the new save is committed so the client reloads that exact version.
-            if (isAdminSave) await kv.set(resetSignalKey, 1, { ex: 300 });
+            // Set reset-signal after the new save is committed so the client reloads that exact version.
+            await kv.set(resetSignalKey, 1, { ex: 300 });
             return res.status(200).end();
         } catch (err) {
             return res.status(500).json({ error: String(err) });

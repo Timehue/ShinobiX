@@ -107,8 +107,9 @@ async function getByPrefix<T>(prefix: string) {
     try {
         const keys = await kv.keys(`${prefix}*`);
         if (!keys.length) return [];
-        const values = await Promise.all(keys.map(key => kv.get<T>(key)));
-        return values.filter(Boolean);
+        // Use mget to fetch all values in one round-trip instead of N individual gets.
+        const values = await kv.mget<T[]>(...keys);
+        return values.filter(Boolean) as T[];
     } catch {
         return [];
     }
@@ -123,7 +124,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             getByPrefix<SectorTerritory>(TERRITORY_KEY_PREFIX),
             getByPrefix<VillageWar>(VILLAGE_WAR_KEY_PREFIX),
         ]);
-        res.setHeader('Cache-Control', 'no-store');
+        // CDN caches this for 15 s so all players polling every 15 s share
+        // one Supabase round-trip per window instead of one per player.
+        // stale-while-revalidate=10 keeps the response instant while revalidating.
+        res.setHeader('Cache-Control', 's-maxage=15, stale-while-revalidate=10');
         return res.status(200).json({ territories, wars });
     }
 

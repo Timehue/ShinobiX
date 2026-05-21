@@ -23,18 +23,24 @@ export default async function handler(req, res) {
             ]);
             const villageStates = {};
             if (villageStateKeys.length > 0) {
-                const stateValues = await Promise.all(villageStateKeys.map(k => kv.get(k)));
+                // mget fetches all values in one round-trip instead of N individual gets.
+                const stateValues = await kv.mget(...villageStateKeys);
                 villageStateKeys.forEach((k, i) => {
-                    const name = k.slice(VILLAGE_STATE_PREFIX.length);
-                    villageStates[name] = stateValues[i];
+                    if (stateValues[i] != null) {
+                        const name = k.slice(VILLAGE_STATE_PREFIX.length);
+                        villageStates[name] = stateValues[i];
+                    }
                 });
             }
             const clanPetBattles = {};
             if (clanPetBattleKeys.length > 0) {
-                const battleValues = await Promise.all(clanPetBattleKeys.map(k => kv.get(k)));
+                // mget fetches all values in one round-trip instead of N individual gets.
+                const battleValues = await kv.mget(...clanPetBattleKeys);
                 clanPetBattleKeys.forEach((k, i) => {
-                    const name = k.slice(CLAN_PET_BATTLE_PREFIX.length);
-                    clanPetBattles[name] = battleValues[i];
+                    if (battleValues[i] != null) {
+                        const name = k.slice(CLAN_PET_BATTLE_PREFIX.length);
+                        clanPetBattles[name] = battleValues[i];
+                    }
                 });
             }
             // CDN caches this response for 20s so N players polling every 30s share
