@@ -5779,10 +5779,13 @@ export default function App() {
             }
         }
 
-        heartbeat();
-        // 5-second interval so both players get routed to the battle screen within ~5s
-        // of a challenge being sent or accepted (was 20s — too slow for real-time battles).
-        const id = setInterval(heartbeat, 5000);
+        // In village (sector 0) there is nothing time-sensitive — challenges can't
+        // arrive here and presence doesn't need real-time updates. Poll every 60s
+        // to keep the server-side TTL alive without hammering the DB.
+        // Outside village, poll every 5s so battles and challenges feel real-time.
+        const inVillage = currentSector === 0;
+        if (!inVillage) heartbeat();
+        const id = setInterval(heartbeat, inVillage ? 60000 : 5000);
         return () => clearInterval(id);
     }, [character?.name, currentSector]);
 
