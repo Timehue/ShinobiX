@@ -23895,8 +23895,9 @@ function Arena({
     function activeStatuses(statuses: CombatStatus[]) {
         return statuses.filter((status) => (status.activeRound ?? turn) <= turn);
     }
+    // Tags resolve next round for ALL jutsus except INSTANT_EFFECT ground-zone jutsus.
     function bloodlineTagsResolveNextRound(jutsu: Pick<Jutsu, "bloodlineRank" | "target" | "method">) {
-        return Boolean(jutsu.bloodlineRank) && !(jutsu.target === "EMPTY_GROUND" && jutsu.method === "INSTANT_EFFECT");
+        return !(jutsu.target === "EMPTY_GROUND" && jutsu.method === "INSTANT_EFFECT");
     }
     function statusForJutsu(jutsu: Pick<Jutsu, "bloodlineRank" | "target" | "method">, status: CombatStatus): CombatStatus {
         return bloodlineTagsResolveNextRound(jutsu) ? { ...status, rounds: status.rounds + 1, activeRound: turn + 1 } : status;
@@ -25121,6 +25122,13 @@ function Arena({
         const effectLines: string[] = [];
         const playerDebuffPrevented = playerStatuses.some((s) => s.name === "Debuff Prevent");
         const enemyBuffPrevented = enemyStatuses.some((s) => s.name === "Buff Prevent");
+        // Defer status effects to next round unless this is an INSTANT_EFFECT ground-zone jutsu.
+        const deferEnemyStatus = (status: CombatStatus): CombatStatus =>
+            !(jutsu.target === "EMPTY_GROUND" && jutsu.method === "INSTANT_EFFECT")
+                ? { ...status, rounds: status.rounds + 1, activeRound: turn + 1 }
+                : status;
+        const queueToPlayer = (status: CombatStatus) => setPlayerStatuses((s) => [...s, deferEnemyStatus(status)]);
+        const queueToEnemy = (status: CombatStatus) => setEnemyStatuses((s) => [...s, deferEnemyStatus(status)]);
 
         jutsu.tags.forEach((tag) => {
             const pct = effectiveTagPercent(tag, jutsu.bloodlineRank, 50);
@@ -25149,7 +25157,7 @@ function Arena({
             if (tagMatchesName(tag.name, "Ignition")) {
                 if (playerDebuffPrevented) effectLines.push(`${character.name} resists Ignition`);
                 else {
-                    setPlayerStatuses((s) => [...s, { name: "Ignition", rounds: 2, percent: pct, kind: "negative" }]);
+                    queueToPlayer({ name: "Ignition", rounds: 2, percent: pct, kind: "negative" });
                     effectLines.push(`Ignition: ${character.name} takes ${pct}% extra damage for 2 rounds.`);
                 }
             }
@@ -25158,35 +25166,35 @@ function Arena({
                 else if (playerDebuffPrevented) effectLines.push(`${character.name} prevents stun`);
                 else {
                     pendingPlayerStunApPenaltyRef.current = true;
-                    setPlayerStatuses((s) => [...s, { name: "Stun", rounds: 1, kind: "negative" }]);
+                    queueToPlayer({ name: "Stun", rounds: 1, kind: "negative" });
                     effectLines.push(`Stun: ${character.name} loses ${STUN_AP_PENALTY} AP on their next turn`);
                 }
             }
             if (tag.name === "Bloodline Seal" || tag.name === "Seal") {
                 if (playerDebuffPrevented) effectLines.push(`${character.name} prevents bloodline seal`);
                 else {
-                    setPlayerStatuses((s) => [...s, { name: "Bloodline Seal", rounds: 2, kind: "negative" }]);
+                    queueToPlayer({ name: "Bloodline Seal", rounds: 2, kind: "negative" });
                     effectLines.push(`${character.name}'s bloodline is sealed for 2 rounds`);
                 }
             }
             if (tag.name === "Elemental Seal") {
                 if (playerDebuffPrevented) effectLines.push(`${character.name} prevents elemental seal`);
                 else {
-                    setPlayerStatuses((s) => [...s, { name: "Elemental Seal", rounds: 1, kind: "negative" }]);
+                    queueToPlayer({ name: "Elemental Seal", rounds: 1, kind: "negative" });
                     effectLines.push(`${character.name}'s elemental jutsu are sealed for 1 round`);
                 }
             }
             if (tag.name === "Decrease Damage Given") {
                 if (playerDebuffPrevented) effectLines.push(`${character.name} prevents damage given debuff`);
                 else {
-                    setPlayerStatuses((s) => [...s, { name: "Decrease Damage Given", rounds: 2, percent: pct, kind: "negative" }]);
+                    queueToPlayer({ name: "Decrease Damage Given", rounds: 2, percent: pct, kind: "negative" });
                     effectLines.push(`${character.name}'s damage given is decreased by ${pct}%`);
                 }
             }
             if (tag.name === "Increase Damage Taken") {
                 if (playerDebuffPrevented) effectLines.push(`${character.name} prevents damage taken debuff`);
                 else {
-                    setPlayerStatuses((s) => [...s, { name: "Increase Damage Taken", rounds: 2, percent: pct, kind: "negative" }]);
+                    queueToPlayer({ name: "Increase Damage Taken", rounds: 2, percent: pct, kind: "negative" });
                     effectLines.push(`${character.name}'s damage taken is increased by ${pct}%`);
                 }
             }
@@ -25194,7 +25202,7 @@ function Arena({
                 const copied = playerStatuses.filter((s) => s.kind === "positive");
                 if (enemyBuffPrevented) effectLines.push(`${opponentName}'s copy was prevented`);
                 else if (copied.length) {
-                    setEnemyStatuses((s) => [...s, ...copied.map((status) => ({ ...status, rounds: Math.min(2, status.rounds) }))]);
+                    setEnemyStatuses((s) => [...s, ...copied.map((status) => deferEnemyStatus({ ...status, rounds: Math.min(2, status.rounds) }))]);
                     effectLines.push(`${opponentName} copies ${copied.length} positive effect(s)`);
                 } else effectLines.push("no positive effects to copy");
             }
@@ -25202,14 +25210,14 @@ function Arena({
                 const mirrored = enemyStatuses.filter((s) => s.kind === "negative" && s.name !== "Wound" && !statusMatchesName(s, "Ignition"));
                 if (playerDebuffPrevented) effectLines.push(`${character.name} prevents mirrored debuffs`);
                 else if (mirrored.length) {
-                    setPlayerStatuses((s) => [...s, ...mirrored.map((status) => ({ ...status, rounds: Math.min(2, status.rounds) }))]);
+                    setPlayerStatuses((s) => [...s, ...mirrored.map((status) => deferEnemyStatus({ ...status, rounds: Math.min(2, status.rounds) }))]);
                     effectLines.push(`${opponentName} mirrors ${mirrored.length} negative effect(s)`);
                 } else effectLines.push("no negative effects to mirror");
             }
             if (tag.name === "Buff Prevent") {
                 if (playerDebuffPrevented) effectLines.push(`${character.name} prevents Buff Prevent`);
                 else {
-                    setPlayerStatuses((s) => [...s, { name: "Buff Prevent", rounds: 2, percent: pct, kind: "negative" }]);
+                    queueToPlayer({ name: "Buff Prevent", rounds: 2, percent: pct, kind: "negative" });
                     effectLines.push(`${character.name} cannot gain positive effects for 2 rounds`);
                 }
             }
@@ -25217,7 +25225,7 @@ function Arena({
             if (tag.name === "Cleanse Prevent") {
                 if (playerDebuffPrevented) effectLines.push(`${character.name} prevents Cleanse Prevent`);
                 else {
-                    setPlayerStatuses((s) => [...s, { name: "Cleanse Prevent", rounds: 2, percent: pct, kind: "negative" }]);
+                    queueToPlayer({ name: "Cleanse Prevent", rounds: 2, percent: pct, kind: "negative" });
                     effectLines.push(`${character.name} cannot cleanse debuffs for 2 rounds`);
                 }
             }
@@ -25226,21 +25234,21 @@ function Arena({
                 const statusName = normalizeTagName(tag.name);
                 if (enemyBuffPrevented) effectLines.push(`${opponentName}'s ${statusName} was prevented`);
                 else {
-                    setEnemyStatuses((s) => [...s, { name: statusName, rounds: 2, percent: pct, kind: "positive" }]);
+                    queueToEnemy({ name: statusName, rounds: 2, percent: pct, kind: "positive" });
                     effectLines.push(`${opponentName} gains ${statusName} for 2 rounds`);
                 }
             }
             if (tag.name === "Debuff Prevent") {
                 if (enemyBuffPrevented) effectLines.push(`${opponentName}'s Debuff Prevent was prevented`);
                 else {
-                    setEnemyStatuses((s) => [...s, { name: "Debuff Prevent", rounds: 2, percent: pct, kind: "positive" }]);
+                    queueToEnemy({ name: "Debuff Prevent", rounds: 2, percent: pct, kind: "positive" });
                     effectLines.push(`${opponentName} gains Debuff Prevent for 2 rounds`);
                 }
             }
             if (tagMatchesName(tag.name, "Lag")) {
                 if (playerDebuffPrevented) effectLines.push(`${character.name} prevents Lag`);
                 else {
-                    setPlayerStatuses((s) => [...s, { name: "Lag", rounds: 1, percent: pct, kind: "negative" }]);
+                    queueToPlayer({ name: "Lag", rounds: 1, percent: pct, kind: "negative" });
                     effectLines.push(`${character.name} suffers Lag for 1 round`);
                 }
             }
