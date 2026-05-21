@@ -19,6 +19,40 @@
  *   Hash values        → value column holds a JSON object.
  *   TTL                → expires_at (timestamptz); lazily evicted on read.
  */
+const _readCache = new Map();
+// These prefixes change too rapidly to benefit from caching.
+const _noCachePrefixes = ['presence:', 'challenges:', 'reset-signal:', 'admin-lock:'];
+function _shouldCache(key) {
+    return !_noCachePrefixes.some(p => key.startsWith(p));
+}
+function _cacheTtlMs(key) {
+    if (key.startsWith('shared:images') || key.startsWith('shared:imgfields'))
+        return 60_000;
+    if (key.startsWith('world:') || key.startsWith('game:'))
+        return 15_000;
+    return 10_000; // saves, auth, registry, etc.
+}
+function _cacheRead(key) {
+    if (!_shouldCache(key))
+        return undefined;
+    const entry = _readCache.get(key);
+    if (!entry)
+        return undefined;
+    if (Date.now() > entry.expiresAt) {
+        _readCache.delete(key);
+        return undefined;
+    }
+    return entry.value;
+}
+function _cacheWrite(key, value) {
+    if (!_shouldCache(key))
+        return;
+    _readCache.set(key, { value, expiresAt: Date.now() + _cacheTtlMs(key) });
+}
+function _cacheInvalidate(...keys) {
+    for (const k of keys)
+        _readCache.delete(k);
+}
 // ─── pg Pool backend (cPanel / Passenger) ────────────────────────────────────
 import pg from 'pg';
 const { Pool } = pg;
@@ -57,33 +91,44 @@ function expiresAt(ex) {
 // ─── pg implementations ───────────────────────────────────────────────────────
 const pgKv = {
     async get(key) {
+        const hit = _cacheRead(key);
+        if (hit !== undefined)
+            return hit;
         const db = getPool();
         const { rows } = await db.query(`SELECT value, expires_at FROM public.kv_store WHERE key = $1`, [key]);
-        if (!rows.length)
+        if (!rows.length) {
+            _cacheWrite(key, null);
             return null;
+        }
         const row = rows[0];
         if (row.expires_at && new Date(row.expires_at) <= new Date()) {
             void db.query(`DELETE FROM public.kv_store WHERE key = $1`, [key]);
             return null;
         }
+        _cacheWrite(key, row.value);
         return row.value;
     },
     async set(key, value, options) {
+        _cacheInvalidate(key);
         const db = getPool();
         const exp = options?.ex ? expiresAt(options.ex) : null;
         if (options?.nx) {
             const { rows } = await db.query(`SELECT public.kv_set_nx($1, $2::jsonb, $3::timestamptz) AS kv_set_nx`, [key, JSON.stringify(value), exp]);
+            if (rows[0].kv_set_nx)
+                _cacheWrite(key, value);
             return rows[0].kv_set_nx ? 'OK' : null;
         }
         await db.query(`INSERT INTO public.kv_store (key, value, expires_at, updated_at)
              VALUES ($1, $2::jsonb, $3::timestamptz, now())
              ON CONFLICT (key) DO UPDATE
                  SET value = EXCLUDED.value, expires_at = EXCLUDED.expires_at, updated_at = now()`, [key, JSON.stringify(value), exp]);
+        _cacheWrite(key, value);
         return 'OK';
     },
     async del(...keys) {
         if (!keys.length)
             return 0;
+        _cacheInvalidate(...keys);
         const { rowCount } = await getPool().query(`DELETE FROM public.kv_store WHERE key = ANY($1::text[])`, [keys]);
         return rowCount ?? 0;
     },
@@ -94,20 +139,43 @@ const pgKv = {
     async mget(...keys) {
         if (!keys.length)
             return [];
-        const { rows } = await getPool().query(`SELECT key, value FROM public.kv_store WHERE key = ANY($1::text[]) AND (expires_at IS NULL OR expires_at > now())`, [keys]);
-        const map = new Map(rows.map((r) => [r.key, r.value]));
-        return keys.map((k) => (map.has(k) ? map.get(k) : null));
+        // Check cache first — only fetch keys not already cached.
+        const result = new Array(keys.length).fill(null);
+        const missIndices = [];
+        const missKeys = [];
+        for (let i = 0; i < keys.length; i++) {
+            const hit = _cacheRead(keys[i]);
+            if (hit !== undefined) {
+                result[i] = hit;
+            }
+            else {
+                missIndices.push(i);
+                missKeys.push(keys[i]);
+            }
+        }
+        if (missKeys.length) {
+            const { rows } = await getPool().query(`SELECT key, value FROM public.kv_store WHERE key = ANY($1::text[]) AND (expires_at IS NULL OR expires_at > now())`, [missKeys]);
+            const map = new Map(rows.map((r) => [r.key, r.value]));
+            for (let j = 0; j < missKeys.length; j++) {
+                const val = map.has(missKeys[j]) ? map.get(missKeys[j]) : null;
+                result[missIndices[j]] = val;
+                _cacheWrite(missKeys[j], val);
+            }
+        }
+        return result;
     },
     async hgetall(key) {
         return pgKv.get(key);
     },
     async hset(key, fields) {
+        _cacheInvalidate(key);
         await getPool().query(`SELECT public.kv_hset($1, $2::jsonb)`, [key, JSON.stringify(fields)]);
         return Object.keys(fields).length;
     },
     async hdel(key, ...fields) {
         if (!fields.length)
             return 0;
+        _cacheInvalidate(key);
         await getPool().query(`SELECT public.kv_hdel($1, $2::text[])`, [key, fields]);
         return fields.length;
     },
