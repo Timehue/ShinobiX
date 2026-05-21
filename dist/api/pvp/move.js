@@ -5,6 +5,7 @@ const GRID_W = 12;
 const GRID_H = 10;
 const MAX_ROUNDS = 25;
 const MAX_ACTIONS = 5;
+const SESSION_TTL = 60 * 60;
 // ─── Combat formula constants ─────────────────────────────────────────────────
 const MAX_STAT = 2500;
 const PVP_SCALE = 0.42; // Global PvP damage scale — tuned for ~10-round TTK in a mirror match
@@ -45,6 +46,9 @@ function barrierTiles(...fighters) {
 function tileBlocked(tile, ...fighters) {
     return barrierTiles(...fighters).includes(tile);
 }
+function isZeroDamageFortyApJutsu(jutsu) {
+    return jutsu.ap === 40 && jutsu.id !== 'basic-attack' && !jutsu.id.startsWith('item-');
+}
 function normalizeTagName(name) {
     if (name === 'Seal')
         return 'Bloodline Seal';
@@ -54,6 +58,8 @@ function normalizeTagName(name) {
         return 'Lag';
     if (name === 'Time Dilation')
         return 'Overclock';
+    if (name === 'Vamp')
+        return 'Siphon';
     return name;
 }
 function normalizeJutsuMethod(method) {
@@ -63,70 +69,6 @@ function normalizeJutsuMethod(method) {
 }
 function nameMatches(name, canonicalName) {
     return normalizeTagName(name) === canonicalName;
-}
-// ─── Ground effect zone helpers ───────────────────────────────────────────────
-const INSTANT_EFFECT_ALLOWED_TAGS = new Set(['Decrease Damage Given', 'Recoil', 'Poison']);
-function groundEffectTiles(center) {
-    return [center, ...hexNeighbors(center)];
-}
-function groundEffectTags(tags) {
-    return tags
-        .map(tag => ({ ...tag, name: normalizeTagName(tag.name) }))
-        .filter(tag => INSTANT_EFFECT_ALLOWED_TAGS.has(tag.name));
-}
-function applyGroundEffectToFighter(fighter, effect) {
-    let next = { ...fighter };
-    const lines = [];
-    if (!effect.tiles.includes(fighter.pos))
-        return { fighter: next, lines };
-    if (hasStatus(next, 'Debuff Prevent')) {
-        lines.push(`${next.name}'s Debuff Prevent blocks ${effect.name}.`);
-        return { fighter: next, lines };
-    }
-    for (const tag of effect.tags) {
-        const tagName = normalizeTagName(tag.name);
-        const pct = Math.max(1, Math.floor(tag.percent ?? 30));
-        if (tagName === 'Decrease Damage Given') {
-            next = addStatus(next, { name: 'Decrease Damage Given', rounds: 2, percent: pct, kind: 'negative' });
-            lines.push(`${effect.name}: ${next.name} deals ${pct}% less damage for 2 turns.`);
-        }
-        else if (tagName === 'Recoil') {
-            next = addStatus(next, { name: 'Recoil', rounds: 2, percent: pct, kind: 'negative' });
-            lines.push(`${effect.name}: ${next.name} suffers ${pct}% recoil on attacks for 2 turns.`);
-        }
-        else if (tagName === 'Poison') {
-            const poisonPct = pct > 0 ? pct : 6;
-            const dmg = Math.floor(next.maxChakra * (poisonPct / 100));
-            next = addStatus(next, { name: 'Poison', rounds: 2, percent: poisonPct, kind: 'negative' });
-            lines.push(`${effect.name}: ${next.name} is poisoned for ~${dmg}/round for 2 turns.`);
-        }
-    }
-    return { fighter: next, lines };
-}
-function applyGroundEffects(session) {
-    let p1 = session.p1;
-    let p2 = session.p2;
-    const lines = [];
-    for (const effect of session.groundEffects ?? []) {
-        // Ground effects are owned by one player and apply to the opponent
-        const targetRole = effect.owner === 'p1' ? 'p2' : 'p1';
-        if (targetRole === 'p1') {
-            const applied = applyGroundEffectToFighter(p1, effect);
-            p1 = applied.fighter;
-            lines.push(...applied.lines);
-        }
-        else {
-            const applied = applyGroundEffectToFighter(p2, effect);
-            p2 = applied.fighter;
-            lines.push(...applied.lines);
-        }
-    }
-    return { session: { ...session, p1, p2 }, lines };
-}
-function tickGroundEffects(effects) {
-    return (effects ?? [])
-        .map(effect => ({ ...effect, rounds: effect.rounds - 1 }))
-        .filter(effect => effect.rounds > 0);
 }
 function normalizeEquipmentSlot(slot) {
     if (slot === 'weapon')
@@ -196,6 +138,68 @@ function hasStatus(f, name) { return f.statuses.some(s => nameMatches(s.name, na
 function addStatus(f, s) {
     return { ...f, statuses: [...f.statuses.filter(x => !nameMatches(x.name, s.name)), s] };
 }
+function groundEffectTiles(center) {
+    return [center, ...hexNeighbors(center)];
+}
+function groundEffectTags(tags) {
+    const allowed = new Set(['Decrease Damage Given', 'Recoil', 'Poison']);
+    return tags
+        .map(tag => ({ ...tag, name: normalizeTagName(tag.name) }))
+        .filter(tag => allowed.has(tag.name));
+}
+function applyGroundEffectToFighter(fighter, effect) {
+    let next = { ...fighter };
+    const lines = [];
+    if (!effect.tiles.includes(fighter.pos))
+        return { fighter: next, lines };
+    if (hasStatus(next, 'Debuff Prevent')) {
+        lines.push(`${next.name}'s Debuff Prevent blocks ${effect.name}.`);
+        return { fighter: next, lines };
+    }
+    for (const tag of effect.tags) {
+        const tagName = normalizeTagName(tag.name);
+        const pct = Math.max(1, Math.floor(tag.percent ?? 30));
+        if (tagName === 'Decrease Damage Given') {
+            next = addStatus(next, { name: 'Decrease Damage Given', rounds: 2, percent: pct, kind: 'negative' });
+            lines.push(`${effect.name}: ${next.name} deals ${pct}% less damage for 2 turns.`);
+        }
+        else if (tagName === 'Recoil') {
+            next = addStatus(next, { name: 'Recoil', rounds: 2, percent: pct, kind: 'negative' });
+            lines.push(`${effect.name}: ${next.name} suffers ${pct}% recoil on attacks for 2 turns.`);
+        }
+        else if (tagName === 'Poison') {
+            const poisonPct = pct > 0 ? pct : 6;
+            const dmg = Math.floor(next.maxChakra * (poisonPct / 100));
+            next = addStatus(next, { name: 'Poison', rounds: 2, percent: poisonPct, kind: 'negative' });
+            lines.push(`${effect.name}: ${next.name} is poisoned for ~${dmg}/round for 2 turns.`);
+        }
+    }
+    return { fighter: next, lines };
+}
+function applyGroundEffects(session) {
+    let p1 = session.p1;
+    let p2 = session.p2;
+    const lines = [];
+    for (const effect of session.groundEffects ?? []) {
+        const targetRole = effect.owner === 'p1' ? 'p2' : 'p1';
+        if (targetRole === 'p1') {
+            const applied = applyGroundEffectToFighter(p1, effect);
+            p1 = applied.fighter;
+            lines.push(...applied.lines);
+        }
+        else {
+            const applied = applyGroundEffectToFighter(p2, effect);
+            p2 = applied.fighter;
+            lines.push(...applied.lines);
+        }
+    }
+    return { session: { ...session, p1, p2 }, lines };
+}
+function tickGroundEffects(effects) {
+    return (effects ?? [])
+        .map(effect => ({ ...effect, rounds: effect.rounds - 1 }))
+        .filter(effect => effect.rounds > 0);
+}
 function tickStatuses(f) {
     return { ...f, statuses: f.statuses.map(s => ({ ...s, rounds: s.rounds - 1 })).filter(s => s.rounds > 0) };
 }
@@ -248,7 +252,7 @@ function applyJutsu(self, opponent, jutsu, wMult = 1, biome = 'central') {
     const jutsuMasteries = self.character.jutsuMastery ?? [];
     const masteryEntry = jutsuMasteries.find(m => m.jutsuId === jutsu.id);
     const masteryLevel = Math.max(0, Math.min(50, masteryEntry?.level ?? 0));
-    const scaledEp = jutsu.bloodlineRank && jutsu.ap === 40 ? 0 : (jutsu.effectPower ?? 20) + masteryLevel * 0.2;
+    const scaledEp = isZeroDamageFortyApJutsu(jutsu) ? 0 : (jutsu.effectPower ?? 20) + masteryLevel * 0.2;
     const offStats = self.character.stats ?? {};
     const defStats = opponent.character.stats ?? {};
     const statFactor = Math.max(0.35, Math.min(1.85, 1 + (getOffense(offStats, jutsu.type) - getDefense(defStats, jutsu.type)) / (MAX_STAT * 2) * 0.85));
@@ -507,7 +511,7 @@ function applyJutsu(self, opponent, jutsu, wMult = 1, biome = 'central') {
         }
     }
     if (pierce) {
-        damage = (jutsu.ap ?? 40) >= 60 ? 900 : 500;
+        damage = (jutsu.ap ?? 40) >= 60 ? 900 : 0;
     }
     else {
         // Amplifiers (Increase Damage Given, Increase Damage Taken, Ignition) apply at full value.
@@ -550,10 +554,10 @@ function applyJutsu(self, opponent, jutsu, wMult = 1, biome = 'central') {
                 }
                 continue;
             }
-            if (tag.name === 'Siphon' || tag.name === 'Vamp') {
+            if (normalizeTagName(tag.name) === 'Siphon') {
                 const h = Math.floor(cappedPostDamage(finalDmg, pct || 30) * healBoost);
                 s = { ...s, hp: Math.min(s.maxHp, s.hp + h) };
-                lines.push(`${tag.name}: ${s.name} heals ${h} HP.`);
+                lines.push(`Siphon: ${s.name} heals ${h} HP.`);
             }
         }
         const recoilStatus = s.statuses.find(st => st.name === 'Recoil');
@@ -648,6 +652,9 @@ function endTurn(session) {
         lines.push(`--- Round ${newRound} ---`);
     // Tick current player's statuses + cooldowns
     let s = { ...session };
+    if (newRound > session.round) {
+        s = { ...s, groundEffects: tickGroundEffects(s.groundEffects) };
+    }
     if (current === 'p1') {
         s = { ...s, p1: tickStatuses(s.p1), cooldowns: { ...s.cooldowns, p1: tickCooldowns(s.cooldowns.p1) } };
     }
@@ -655,16 +662,12 @@ function endTurn(session) {
         s = { ...s, p2: tickStatuses(s.p2), cooldowns: { ...s.cooldowns, p2: tickCooldowns(s.cooldowns.p2) } };
     }
     // No chakra or stamina regen during PvP — resources are finite per fight.
-    // Tick ground effects at round boundary (after p2 acts, before p1 starts)
-    if (newRound > session.round) {
-        s = { ...s, groundEffects: tickGroundEffects(s.groundEffects) };
-    }
-    // Apply ground effects to the next player at start of their turn
-    const groundApplied = applyGroundEffects(s);
-    s = groundApplied.session;
-    lines.push(...groundApplied.lines);
     // Apply DoTs to the next player at start of their turn
     let nextFighter = next === 'p1' ? s.p1 : s.p2;
+    const groundApplied = applyGroundEffects(s);
+    s = groundApplied.session;
+    nextFighter = next === 'p1' ? s.p1 : s.p2;
+    lines.push(...groundApplied.lines);
     const dots = applyDoTs(nextFighter);
     nextFighter = dots.fighter;
     lines.push(...dots.lines);
@@ -740,6 +743,9 @@ export default async function handler(req, res) {
             s = { ...s, ap: { ...s.ap, [role]: myAp - adjustedCost(apCost) }, actionsThisTurn: s.actionsThisTurn + 1 };
             if (cd)
                 s = { ...s, cooldowns: { ...s.cooldowns, [role]: { ...myCooldowns, ...cd } } };
+            const groundApplied = applyGroundEffects(s);
+            s = groundApplied.session;
+            lines.push(...groundApplied.lines);
             if (lines.length)
                 s = { ...s, log: [...s.log, ...lines] };
             return checkWinner(s);
@@ -773,11 +779,11 @@ export default async function handler(req, res) {
                 if (!canAct(40))
                     return finish(session);
                 if (distance(me.pos, opp.pos) > 1) {
-                    await kv.set(key, { ...session, log: [...session.log, `${me.name}: too far for basic attack — move closer.`] }, { ex: 600 });
+                    await kv.set(key, { ...session, log: [...session.log, `${me.name}: too far for basic attack — move closer.`] }, { ex: SESSION_TTL });
                     return finish({ ...session, log: [...session.log, `${me.name}: too far for basic attack.`] });
                 }
                 if (me.stamina < 10) {
-                    await kv.set(key, { ...session, log: [...session.log, `${me.name}: not enough stamina.`] }, { ex: 600 });
+                    await kv.set(key, { ...session, log: [...session.log, `${me.name}: not enough stamina.`] }, { ex: SESSION_TTL });
                     return finish({ ...session, log: [...session.log, `${me.name}: not enough stamina.`] });
                 }
                 const specialty = me.character.specialty ?? 'Ninjutsu';
@@ -831,8 +837,12 @@ export default async function handler(req, res) {
                 }
                 const jutsuList = me.character.jutsu ?? [];
                 const jutsu = jutsuList.find(j => j.id === jutsuId);
-                if (!jutsu)
-                    return finish(session);
+                if (!jutsu) {
+                    const missingMsg = `${me.name}: selected jutsu is not available in this PvP session. Reopen the duel or re-equip your loadout.`;
+                    const updated = { ...session, log: [...session.log, missingMsg] };
+                    await kv.set(key, updated, { ex: SESSION_TTL });
+                    return finish(updated);
+                }
                 const apCost = jutsu.ap ?? 40;
                 if (!canAct(apCost) || (myCooldowns[jutsuId] ?? 0) > 0)
                     return finish(session);
@@ -842,7 +852,7 @@ export default async function handler(req, res) {
                 if (hasStatus(me, 'Elemental Seal') && jutsu.element && BASIC_ELEMENTS.has(jutsu.element)) {
                     const esMsg = `${me.name} is Elementally Sealed — cannot use ${jutsu.name} (${jutsu.element}).`;
                     const esState = { ...session, log: [...session.log, esMsg] };
-                    await kv.set(key, esState, { ex: 600 });
+                    await kv.set(key, esState, { ex: SESSION_TTL });
                     return finish(esState);
                 }
                 const jChakraCost = jutsu.chakraCost ?? 0;
@@ -850,17 +860,16 @@ export default async function handler(req, res) {
                 if (jChakraCost > 0 && me.chakra < jChakraCost) {
                     const msg = `${me.name}: not enough chakra for ${jutsu.name} (need ${jChakraCost}).`;
                     const updated = { ...session, log: [...session.log, msg] };
-                    await kv.set(key, updated, { ex: 600 });
+                    await kv.set(key, updated, { ex: SESSION_TTL });
                     return finish(updated);
                 }
                 if (jStaminaCost > 0 && me.stamina < jStaminaCost) {
                     const msg = `${me.name}: not enough stamina for ${jutsu.name} (need ${jStaminaCost}).`;
                     const updated = { ...session, log: [...session.log, msg] };
-                    await kv.set(key, updated, { ex: 600 });
+                    await kv.set(key, updated, { ex: SESSION_TTL });
                     return finish(updated);
                 }
                 const tags = jutsu.tags ?? [];
-                const jutsuMethod = normalizeJutsuMethod(jutsu.method);
                 const moveTag = tags.some(t => normalizeTagName(t.name) === 'Move');
                 const groundTarget = jutsu.target === 'EMPTY_GROUND';
                 const needsGroundTile = groundTarget || moveTag;
@@ -870,7 +879,7 @@ export default async function handler(req, res) {
                 if (needsGroundTile && tile === undefined) {
                     const msg = `${me.name}: ${jutsu.name} needs a ground tile target.`;
                     const updated = { ...session, log: [...session.log, msg] };
-                    await kv.set(key, updated, { ex: 600 });
+                    await kv.set(key, updated, { ex: SESSION_TTL });
                     return finish(updated);
                 }
                 if (!selfTarget && !groundTarget && !moveTag && affectsOpponent) {
@@ -878,13 +887,14 @@ export default async function handler(req, res) {
                     if (range > 0 && distance(me.pos, opp.pos) > range) {
                         const outOfRangeMsg = `${jutsu.name} is out of range (need ≤${range}, distance ${Math.round(distance(me.pos, opp.pos))}).`;
                         const updated = { ...session, log: [...session.log, outOfRangeMsg] };
-                        await kv.set(key, updated, { ex: 600 });
+                        await kv.set(key, updated, { ex: SESSION_TTL });
                         return finish(updated);
                     }
                 }
                 lines.push(`${me.name} uses ${jutsu.name}:`);
                 const jWMult = weatherMultiplier(jutsu.element, weatherPositiveElement, weatherNegativeElement);
                 const cd = (jutsu.cooldown ?? 0) > 0 ? { [jutsuId]: jutsu.cooldown } : undefined;
+                const jutsuMethod = normalizeJutsuMethod(jutsu.method);
                 // Ground-target and movement jutsus: choose an open tile in range.
                 // AOE_CIRCLE resolves from the chosen tile and only hits if the opponent
                 // is in the surrounding ring. Pure Move jutsus just relocate the user.
@@ -894,7 +904,7 @@ export default async function handler(req, res) {
                     if (destTile < 0 || destTile >= GRID_W * GRID_H || distance(me.pos, destTile) > range || destTile === opp.pos || destTile === me.pos || tileBlocked(destTile, me, opp)) {
                         const msg = `${me.name}: ${jutsu.name} — destination out of range or occupied.`;
                         const updated = { ...session, log: [...session.log, msg] };
-                        await kv.set(key, updated, { ex: 600 });
+                        await kv.set(key, updated, { ex: SESSION_TTL });
                         return finish(updated);
                     }
                     const movedSelf = { ...me, pos: destTile, chakra: Math.max(0, me.chakra - jChakraCost), stamina: Math.max(0, me.stamina - jStaminaCost) };
@@ -923,17 +933,15 @@ export default async function handler(req, res) {
                     if (targetTile < 0 || targetTile >= GRID_W * GRID_H || distance(me.pos, targetTile) > range || targetTile === opp.pos || targetTile === me.pos || tileBlocked(targetTile, me, opp)) {
                         const msg = `${me.name}: ${jutsu.name} — target tile out of range or occupied.`;
                         const updated = { ...session, log: [...session.log, msg] };
-                        await kv.set(key, updated, { ex: 600 });
+                        await kv.set(key, updated, { ex: SESSION_TTL });
                         return finish(updated);
                     }
-                    // INSTANT_EFFECT: create a 2-round defensive ground zone and apply immediately
-                    // if the opponent is already standing in the affected tiles.
                     if (jutsuMethod === 'INSTANT_EFFECT') {
                         const zoneTags = groundEffectTags(tags);
                         if (!zoneTags.length) {
                             const msg = `${me.name}: ${jutsu.name} needs Decrease Damage Given, Recoil, or Poison for its ground effect.`;
                             const updated = { ...session, log: [...session.log, msg] };
-                            await kv.set(key, updated, { ex: 600 });
+                            await kv.set(key, updated, { ex: SESSION_TTL });
                             return finish(updated);
                         }
                         const groundEffect = {
@@ -946,13 +954,7 @@ export default async function handler(req, res) {
                         };
                         const paidSelf = { ...me, chakra: Math.max(0, me.chakra - jChakraCost), stamina: Math.max(0, me.stamina - jStaminaCost) };
                         lines.push(`${jutsu.name} creates a ground effect for 2 rounds.`);
-                        // Apply immediately if opponent is already in the zone
-                        const tempSession = { ...session, groundEffects: [...(session.groundEffects ?? []), groundEffect] };
-                        const immediateApplied = applyGroundEffects(tempSession);
-                        lines.push(...immediateApplied.lines);
-                        const updatedOpp = role === 'p1' ? immediateApplied.session.p2 : immediateApplied.session.p1;
-                        const oppChanged = updatedOpp !== opp;
-                        result = commit(paidSelf, oppChanged ? updatedOpp : null, apCost, cd, { groundEffects: [...(session.groundEffects ?? []), groundEffect] });
+                        result = commit(paidSelf, null, apCost, cd, { groundEffects: [...(session.groundEffects ?? []), groundEffect] });
                         break;
                     }
                     const ring = hexNeighbors(targetTile);
@@ -993,7 +995,7 @@ export default async function handler(req, res) {
                 if (distance(me.pos, opp.pos) > weapRange) {
                     const msg = `${me.name}: ${itemName ?? 'Weapon'} is out of range (need ≤${weapRange}).`;
                     const updated = { ...session, log: [...session.log, msg] };
-                    await kv.set(key, updated, { ex: 600 });
+                    await kv.set(key, updated, { ex: SESSION_TTL });
                     return finish(updated);
                 }
                 const wTags = [...(serverItem.weaponTags ?? [])];
@@ -1012,19 +1014,8 @@ export default async function handler(req, res) {
                 lines.push(`${me.name} uses ${weaponJutsu.name}:`);
                 const wWMult = weatherMultiplier(serverItem.weaponElement, weatherPositiveElement, weatherNegativeElement);
                 const wr = applyJutsu(me, opp, weaponJutsu, wWMult, biome);
-                // Flat-bleed weapons (weaponEp=0 + weaponEffect='Wound'): applyJutsu produces
-                // baseDmg=0 so the Wound tag inside the damage>0 block never runs.
-                // Apply Wound directly here using the flat weaponEffectValue amount.
-                let wrOpp = wr.opponent;
-                if ((serverItem.weaponEp ?? 15) === 0 && serverItem.weaponEffect === 'Wound') {
-                    const woundAmt = serverItem.weaponEffectValue ?? 0;
-                    if (woundAmt > 0 && !hasStatus(wrOpp, 'Debuff Prevent')) {
-                        wrOpp = addStatus(wrOpp, { name: 'Wound', rounds: 2, amount: woundAmt, kind: 'negative' });
-                        lines.push(`Wound: ${wrOpp.name} bleeds ${woundAmt}/turn for 2 turns.`);
-                    }
-                }
                 lines.push(...wr.lines);
-                result = commit(wr.self, wrOpp, wApCost);
+                result = commit(wr.self, wr.opponent, wApCost);
                 break;
             }
             case 'item': {
@@ -1046,7 +1037,7 @@ export default async function handler(req, res) {
                     name: serverItem.name ?? 'Item',
                     type: 'Ninjutsu',
                     target: 'SELF',
-                    effectPower: serverItem.weaponEp ?? 0, // 0 default: combat items are utility-only unless weaponEp is set
+                    effectPower: serverItem.weaponEp ?? 10,
                     ap: iApCost,
                     range: 0,
                     tags: iTags,
@@ -1093,7 +1084,7 @@ export default async function handler(req, res) {
                 await kv.del(lockKey).catch(() => undefined);
                 return res.status(400).json({ error: `Unknown action: ${action}` });
         }
-        await kv.set(key, result, { ex: 600 });
+        await kv.set(key, result, { ex: SESSION_TTL });
         return finish(result);
     }
     catch (err) {
