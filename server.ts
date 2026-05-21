@@ -69,8 +69,10 @@ app.use((_req: Request, res: Response, next: NextFunction) => {
 
 // ─── Route helper ────────────────────────────────────────────────────────────
 
-// Handler type: anything with a default export that accepts req/res.
-type AnyHandler = { default: (req: unknown, res: unknown) => unknown };
+// Handler type: the default-exported async function from each handler module.
+// In ESM, `import fn from './module'` gives you the function directly.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyHandler = (...args: any[]) => any;
 
 /**
  * Register a handler on both the bare path and /api-prefixed path.
@@ -89,7 +91,7 @@ function route(path: string, handler: AnyHandler) {
                 method: req.method,
                 body: req.body,
             };
-            await (handler.default as (req: unknown, res: unknown) => Promise<void>)(augmented, res);
+            await handler(augmented, res);
         } catch (err) {
             next(err);
         }

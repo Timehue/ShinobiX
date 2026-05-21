@@ -385,3 +385,6 @@ deploy.zip
 publish/
 /shinobij.client/saves/admin201.json.bak
 /shinobij.client/saves/admin201.json
+
+# Migration backups (contain player data — never commit)
+upstash-backup-*.json
