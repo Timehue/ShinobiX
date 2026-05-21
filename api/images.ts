@@ -36,44 +36,45 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'OPTIONS') return res.status(200).end();
 
     if (req.method === 'GET') {
-        const cat = typeof req.query.cat === 'string' ? req.query.cat.trim() : '';
+        try {
+            const cat = typeof req.query.cat === 'string' ? req.query.cat.trim() : '';
 
-        res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=600');
+            res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=600');
 
-        if (cat) {
-            // Fetch all three sources in parallel: new hash, old blob, legacy blob.
-            // Hash wins (newest writes), old blob and legacy are backward-compat.
-            const [hashImages, catImages, legacy] = await Promise.all([
-                kv.hgetall<Record<string, string>>(catHashKey(cat)),
-                kv.get<Record<string, string>>(catKey(cat)),
-                kv.get<Record<string, string>>(LEGACY_KEY),
-            ]);
+            // Helper: read a kv value with a per-call timeout so one slow Supabase
+            // REST response never hangs the whole function.
+            const withTimeout = <T>(p: Promise<T | null>, ms = 25_000): Promise<T | null> =>
+                Promise.race([p, new Promise<null>((resolve) => setTimeout(() => resolve(null), ms))]);
 
-            // Pull any matching entries from the legacy blob (migration shim)
-            const legacyMatches: Record<string, string> = {};
-            if (legacy) {
-                for (const [k, v] of Object.entries(legacy)) {
-                    if (categoryFromId(k) === cat) legacyMatches[k] = v;
-                }
+            if (cat) {
+                // Fetch hash (primary) and old blob (backward-compat) in parallel.
+                // Skip the legacy single-blob key — it's empty after migration and
+                // is multi-MB; reading it on every request causes Vercel timeouts.
+                const [hashImages, catImages] = await Promise.all([
+                    withTimeout(kv.hgetall<Record<string, string>>(catHashKey(cat))),
+                    withTimeout(kv.get<Record<string, string>>(catKey(cat))),
+                ]);
+
+                // Merge: old blob < new hash (newest always wins)
+                return res.status(200).json({
+                    ...(catImages ?? {}),
+                    ...(hashImages ?? {}),
+                });
             }
 
-            // Merge: legacy < old blob < new hash (newest always wins)
-            return res.status(200).json({
-                ...legacyMatches,
-                ...(catImages ?? {}),
-                ...(hashImages ?? {}),
-            });
+            // No category param — return everything (admin / bulk use).
+            // Run per-category fetches in parallel with individual timeouts.
+            const categoryEntries = await Promise.all(
+                KNOWN_CATEGORIES.flatMap((category) => [
+                    withTimeout(kv.get<Record<string, string>>(catKey(category))),
+                    withTimeout(kv.hgetall<Record<string, string>>(catHashKey(category))),
+                ]),
+            );
+            return res.status(200).json(Object.assign({}, ...categoryEntries.map((entry) => entry ?? {})));
+        } catch (err) {
+            console.error('[images GET error]', err);
+            return res.status(200).json({}); // return empty rather than hanging/500
         }
-
-        // No category param — return everything (admin / bulk use)
-        const [legacy, ...categoryEntries] = await Promise.all([
-            kv.get<Record<string, string>>(LEGACY_KEY),
-            ...KNOWN_CATEGORIES.flatMap((category) => [
-                kv.get<Record<string, string>>(catKey(category)),
-                kv.hgetall<Record<string, string>>(catHashKey(category)),
-            ]),
-        ]);
-        return res.status(200).json(Object.assign({}, legacy ?? {}, ...categoryEntries.map((entry) => entry ?? {})));
     }
 
     if (req.method === 'POST') {
