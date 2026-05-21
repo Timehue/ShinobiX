@@ -7437,6 +7437,7 @@ export default function App() {
                         character={character}
                         updateCharacter={setCharacter}
                         currentSector={currentSector}
+                        setScreen={setScreen}
                     />
                 )}
 
@@ -8088,10 +8089,12 @@ function LeftProfileCard({
     character,
     updateCharacter,
     currentSector,
+    setScreen,
 }: {
     character: Character;
     updateCharacter: (c: Character) => void;
     currentSector: number;
+    setScreen: (s: Screen) => void;
 }) {
     function uploadAvatar(e: ChangeEvent<HTMLInputElement>) {
         const file = e.target.files?.[0];
@@ -8110,20 +8113,28 @@ function LeftProfileCard({
 
     return (
         <aside className="left-profile-card">
-            <label className={`left-profile-avatar ${getActiveAuraSphereBonuses(character).avatarAura ? "aura-sphere-avatar" : ""}`}>
-                {character.avatarImage ? (
-                    <img src={character.avatarImage} alt={character.name} />
-                ) : (
-                    character.name.slice(0, 2).toUpperCase()
-                )}
-
-                <input
-                    type="file"
-                    accept="image/*"
-                    onChange={uploadAvatar}
-                    style={{ display: "none" }}
-                />
-            </label>
+            <div className="left-profile-avatar-wrap">
+                <button
+                    className={`left-profile-avatar ${getActiveAuraSphereBonuses(character).avatarAura ? "aura-sphere-avatar" : ""}`}
+                    onClick={() => setScreen("profile")}
+                    title="View character profile"
+                >
+                    {character.avatarImage ? (
+                        <img src={character.avatarImage} alt={character.name} />
+                    ) : (
+                        character.name.slice(0, 2).toUpperCase()
+                    )}
+                </button>
+                <label className="left-avatar-upload-btn" title="Change avatar">
+                    📷
+                    <input
+                        type="file"
+                        accept="image/*"
+                        onChange={uploadAvatar}
+                        style={{ display: "none" }}
+                    />
+                </label>
+            </div>
 
             <div className="left-profile-name">{character.name}</div>
             <div className="left-profile-rank">{character.rankTitle}</div>
@@ -8430,7 +8441,7 @@ function MobileNav({
                         <button className="mobile-menu-btn" onClick={() => go("village")} disabled={!atHome}>?? Village</button>
                         <button className="mobile-menu-btn" onClick={() => go("worldMap")}>?? Travel</button>
                         <button className="mobile-menu-btn" onClick={() => go("storyHall")}>?? Story</button>
-                        <button className="mobile-menu-btn" onClick={() => go("profile")}>?? Character</button>
+                        <button className="mobile-menu-btn" onClick={() => go("profile")}>👤 Character</button>
                         <button className="mobile-menu-btn" onClick={() => go("logbook")}>?? Logbook</button>
                         <button className="mobile-menu-btn" onClick={() => go("inventory")}>?? Inventory</button>
                         <button className="mobile-menu-btn" onClick={() => go("training")}>?? Stats</button>
@@ -14905,27 +14916,27 @@ function JutsuEffectCards({ jutsu, scaledEffectPower, masteryLevel }: { jutsu: J
 function Village({ characterVillage, setScreen }: { characterVillage: string; setScreen: (screen: Screen) => void }) {
     const [saveMsg] = useState("");
     const locations = [
-        { name: "Battle Arena", icon: "??", screen: "battleArena" as Screen, x: "10%", y: "31%" },
-        { name: "Story Hall", icon: "??", screen: "storyHall" as Screen, x: "29%", y: "33%" },
-        { name: "Town Hall", icon: "??", screen: "townHall" as Screen, x: "50%", y: "22%" },
-        { name: "Bank", icon: "??", screen: "bank" as Screen, x: "68%", y: "31%" },
-        { name: "Shop", icon: "??", screen: "shop" as Screen, x: "18%", y: "79%" },
-        { name: "Clan Hall", icon: "??", screen: "clan" as Screen, x: "13%", y: "57%" },
-        { name: "Hospital", icon: "??", screen: "hospital" as Screen, x: "66%", y: "56%" },
-        { name: "Mission Hall", icon: "??", screen: "missions" as Screen, x: "68%", y: "75%" },
-        { name: "Cafeteria", icon: "??", screen: "cafeteria" as Screen, x: "82%", y: "45%" },
-        { name: "Tavern", icon: "??", screen: "tavern" as Screen, x: "82%", y: "63%" },
-        { name: "Stat Training", icon: "??", screen: "training" as Screen, x: "83%", y: "25%" },
-        { name: "Jutsu Training", icon: "??", screen: "jutsuTraining" as Screen, x: "80%", y: "81%" },
-        { name: "World Map", icon: "???", screen: "worldMap" as Screen, x: "45%", y: "68%" },
-        { name: "Pet Yard", icon: "??", screen: "pets" as Screen, x: "32%", y: "55%" },
-        { name: "Card Hall", icon: "??", screen: "shinobiTiles" as Screen, x: "52%", y: "55%" },
+        { name: "Battle Arena", icon: "⚔️", screen: "battleArena" as Screen, x: "10%", y: "31%" },
+        { name: "Story Hall", icon: "📖", screen: "storyHall" as Screen, x: "29%", y: "33%" },
+        { name: "Town Hall", icon: "🏯", screen: "townHall" as Screen, x: "50%", y: "22%" },
+        { name: "Bank", icon: "🏦", screen: "bank" as Screen, x: "68%", y: "31%" },
+        { name: "Shop", icon: "🛒", screen: "shop" as Screen, x: "18%", y: "79%" },
+        { name: "Clan Hall", icon: "⛩️", screen: "clan" as Screen, x: "13%", y: "57%" },
+        { name: "Hospital", icon: "🏥", screen: "hospital" as Screen, x: "66%", y: "56%" },
+        { name: "Mission Hall", icon: "📜", screen: "missions" as Screen, x: "68%", y: "75%" },
+        { name: "Cafeteria", icon: "🍜", screen: "cafeteria" as Screen, x: "82%", y: "45%" },
+        { name: "Tavern", icon: "🍺", screen: "tavern" as Screen, x: "82%", y: "63%" },
+        { name: "Stat Training", icon: "💪", screen: "training" as Screen, x: "83%", y: "25%" },
+        { name: "Jutsu Training", icon: "🔥", screen: "jutsuTraining" as Screen, x: "80%", y: "81%" },
+        { name: "World Map", icon: "🗺️", screen: "worldMap" as Screen, x: "45%", y: "68%" },
+        { name: "Pet Yard", icon: "🐾", screen: "pets" as Screen, x: "32%", y: "55%" },
+        { name: "Card Hall", icon: "🃏", screen: "shinobiTiles" as Screen, x: "52%", y: "55%" },
     ];
 
     return (
         <div className="stormveil-village-screen">
             <div className="village-save-bar">
-                <div className="village-safe-zone">??? SAFE ZONE</div>
+                <div className="village-safe-zone">🛡️ SAFE ZONE</div>
                 {saveMsg && <span className="village-save-msg">{saveMsg}</span>}
             </div>
 
