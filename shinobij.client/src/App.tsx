@@ -8290,17 +8290,21 @@ function LeftProfileCard({
               (activeJutsuTraining && Date.now() < activeJutsuTraining.endsAt)) && (
                 <div className="left-active-timers">
                     {activeTraining && Date.now() < activeTraining.endsAt && (
-                        <div className="left-timer-row">
-                            <span className="left-timer-icon">💪</span>
-                            <span className="left-timer-label">{activeTraining.label}</span>
-                            <span className="left-timer-value">{formatPetTimer(activeTraining.endsAt - Date.now())}</span>
+                        <div className="left-timer-bar">
+                            <div className="left-timer-row">
+                                <span className="left-timer-icon">💪</span>
+                                <span className="left-timer-label">{activeTraining.label}</span>
+                                <span className="left-timer-value">{formatPetTimer(activeTraining.endsAt - Date.now())}</span>
+                            </div>
                         </div>
                     )}
                     {activeJutsuTraining && Date.now() < activeJutsuTraining.endsAt && (
-                        <div className="left-timer-row">
-                            <span className="left-timer-icon">🌀</span>
-                            <span className="left-timer-label">{activeJutsuTraining.label}</span>
-                            <span className="left-timer-value">{formatPetTimer(activeJutsuTraining.endsAt - Date.now())}</span>
+                        <div className="left-timer-bar">
+                            <div className="left-timer-row">
+                                <span className="left-timer-icon">🌀</span>
+                                <span className="left-timer-label">{activeJutsuTraining.label}</span>
+                                <span className="left-timer-value">{formatPetTimer(activeJutsuTraining.endsAt - Date.now())}</span>
+                            </div>
                         </div>
                     )}
                 </div>
