@@ -31,7 +31,7 @@ export default async function handler(req, res) {
     if (req.method === 'GET') {
         try {
             const cat = typeof req.query.cat === 'string' ? req.query.cat.trim() : '';
-            res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=600');
+            res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=120');
             // Helper: read a kv value with a per-call timeout so one slow Supabase
             // REST response never hangs the whole function.
             const withTimeout = (p, ms = 25_000) => Promise.race([p, new Promise((resolve) => setTimeout(() => resolve(null), ms))]);
