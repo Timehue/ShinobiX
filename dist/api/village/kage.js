@@ -1,0 +1,56 @@
+import { kv } from '../_storage.js';
+import { cors } from '../_utils.js';
+function kageKey(village) {
+    return `village:kage:${village.toLowerCase().replace(/\s+/g, '-')}`;
+}
+export default async function handler(req, res) {
+    cors(res);
+    if (req.method === 'OPTIONS')
+        return res.status(200).end();
+    const village = typeof req.query.village === 'string' ? req.query.village.trim() : '';
+    if (req.method === 'GET') {
+        if (!village)
+            return res.status(400).json({ error: 'Missing village.' });
+        const state = await kv.get(kageKey(village)) ?? { kageSystemUnlocked: false };
+        res.setHeader('Cache-Control', 'public, max-age=30, stale-while-revalidate=60');
+        return res.status(200).json(state);
+    }
+    if (req.method === 'POST') {
+        try {
+            const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+            const { village: bodyVillage, playerName, action } = body;
+            const v = (bodyVillage ?? '').trim() || village;
+            if (!v || !playerName)
+                return res.status(400).json({ error: 'Missing village or playerName.' });
+            const key = kageKey(v);
+            const current = await kv.get(key) ?? { kageSystemUnlocked: false };
+            if (action === 'unlock') {
+                if (current.kageSystemUnlocked) {
+                    // Already unlocked — return current without changing the seated kage
+                    return res.status(200).json(current);
+                }
+                const next = {
+                    kageSystemUnlocked: true,
+                    seatedKage: playerName,
+                    firstLiberator: playerName,
+                    unlockedAt: Date.now(),
+                };
+                await kv.set(key, next);
+                return res.status(200).json(next);
+            }
+            if (action === 'seat') {
+                if (!current.kageSystemUnlocked) {
+                    return res.status(400).json({ error: 'Kage system not unlocked for this village.' });
+                }
+                const next = { ...current, seatedKage: playerName };
+                await kv.set(key, next);
+                return res.status(200).json(next);
+            }
+            return res.status(400).json({ error: 'Invalid action.' });
+        }
+        catch (err) {
+            return res.status(500).json({ error: String(err) });
+        }
+    }
+    return res.status(405).end();
+}

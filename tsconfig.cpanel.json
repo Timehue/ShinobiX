@@ -10,7 +10,8 @@
         "skipLibCheck": true,
         "declaration": false,
         "resolveJsonModule": true,
-        "allowSyntheticDefaultImports": true
+        "allowSyntheticDefaultImports": true,
+        "noEmitOnError": false
     },
     "include": [
         "server.ts",

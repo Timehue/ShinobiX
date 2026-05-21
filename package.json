@@ -10,14 +10,17 @@
         "dev": "node --watch app.js"
     },
     "dependencies": {
-        "@supabase/supabase-js": "^2.49.4",
+        "@supabase/supabase-js": "^2.106.1",
         "@vercel/node": "^5.0.0",
         "dotenv": "^17.0.0",
-        "express": "^5.0.1"
+        "express": "^5.0.1",
+        "pg": "^8.21.0"
     },
     "devDependencies": {
         "@types/express": "^5.0.0",
         "@types/node": "^22.0.0",
+        "@types/pg": "^8.11.0",
+        "ioredis": "^5.10.1",
         "typescript": "^5.7.0"
     }
 }
