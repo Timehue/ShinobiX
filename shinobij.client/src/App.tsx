@@ -8136,37 +8136,37 @@ function LeftProfileCard({
             {/* Currencies */}
             <div className="left-currencies">
                 <div className="left-currency-row">
-                    <span className="left-currency-icon">??</span>
+                    <span className="left-currency-icon">💰</span>
                     <span className="left-currency-label">Ryo</span>
                     <span className="left-currency-value">{character.ryo.toLocaleString()}</span>
                 </div>
                 <div className="left-currency-row">
-                    <span className="left-currency-icon">??</span>
+                    <span className="left-currency-icon">🏅</span>
                     <span className="left-currency-label">Honor Seals</span>
                     <span className="left-currency-value" style={{ color: "#facc15" }}>{character.honorSeals.toLocaleString()}</span>
                 </div>
                 <div className="left-currency-row">
-                    <span className="left-currency-icon">?</span>
+                    <span className="left-currency-icon">✨</span>
                     <span className="left-currency-label">Aura Dust</span>
                     <span className="left-currency-value" style={{ color: "#fef3c7" }}>{character.auraDust.toLocaleString()}</span>
                 </div>
                 <div className="left-currency-row">
-                    <span className="left-currency-icon">?</span>
+                    <span className="left-currency-icon">🔮</span>
                     <span className="left-currency-label">Fate Shards</span>
                     <span className="left-currency-value" style={{ color: "#ce93d8" }}>{character.fateShards.toLocaleString()}</span>
                 </div>
                 <div className="left-currency-row">
-                    <span className="left-currency-icon">??</span>
+                    <span className="left-currency-icon">🔷</span>
                     <span className="left-currency-label">Aura Stones</span>
                     <span className="left-currency-value" style={{ color: "#60a5fa" }}>{character.auraStones.toLocaleString()}</span>
                 </div>
                 <div className="left-currency-row">
-                    <span className="left-currency-icon">??</span>
+                    <span className="left-currency-icon">🔱</span>
                     <span className="left-currency-label">Mythic Seals</span>
                     <span className="left-currency-value" style={{ color: "#fde047" }}>{character.mythicSeals.toLocaleString()}</span>
                 </div>
                 <div className="left-currency-row">
-                    <span className="left-currency-icon">??</span>
+                    <span className="left-currency-icon">🦴</span>
                     <span className="left-currency-label">Bone Charms</span>
                     <span className="left-currency-value" style={{ color: "#94a3b8" }}>{character.boneCharms.toLocaleString()}</span>
                 </div>
@@ -8176,19 +8176,19 @@ function LeftProfileCard({
             <div className="left-daily-caps">
                 <div className="left-caps-grid">
                     <div className="left-caps-cell">
-                        <span className="left-caps-label">?? Tiles</span>
+                        <span className="left-caps-label">🗺️ Tiles</span>
                         <span className="left-caps-value" style={{ color: (character.dailyTilesExplored ?? 0) >= 150 ? "#ef4444" : "#86efac" }}>{character.dailyTilesExplored ?? 0}/150</span>
                     </div>
                     <div className="left-caps-cell">
-                        <span className="left-caps-label">?? Missions</span>
+                        <span className="left-caps-label">📜 Missions</span>
                         <span className="left-caps-value" style={{ color: dailyMissionsCompleted(character) >= DAILY_MISSION_LIMIT ? "#ef4444" : "#fcd34d" }}>{dailyMissionsCompleted(character)}/{DAILY_MISSION_LIMIT}</span>
                     </div>
                     <div className="left-caps-cell">
-                        <span className="left-caps-label">?? Fate Spins</span>
+                        <span className="left-caps-label">🎰 Fate Spins</span>
                         <span className="left-caps-value" style={{ color: (character.dailyFateSpins ?? 0) >= 5 ? "#ef4444" : "#a5b4fc" }}>{character.dailyFateSpins ?? 0}/5</span>
                     </div>
                     <div className="left-caps-cell">
-                        <span className="left-caps-label">? Reset In</span>
+                        <span className="left-caps-label">⏰ Reset In</span>
                         <span className="left-caps-value" style={{ color: "#94a3b8" }}>{(() => { const now = new Date(); const ms = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)).getTime() - now.getTime(); const h = Math.floor(ms / 3600000); const m = Math.floor((ms % 3600000) / 60000); const s = Math.floor((ms % 60000) / 1000); return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`; })()}</span>
                     </div>
                 </div>
@@ -8310,7 +8310,7 @@ function RightMenu({
                         <button onClick={() => navigate("arena")}>Arena</button>
                         <button onClick={() => navigate("bloodlineMaker")}>Bloodline</button>
                         <button onClick={() => navigate(adminLoggedIn ? "adminPanel" : "adminLogin")}>Admin</button>
-                        <button onClick={() => { setShowChangePw(v => !v); setPwMsg(""); }}>?? Change Password</button>
+                        <button onClick={() => { setShowChangePw(v => !v); setPwMsg(""); }}>🔑 Change Password</button>
                         <button onClick={logoutPlayer}>Logout + Save</button>
                         <button className="danger-button" onClick={resetGame}>Reset</button>
                     </div>
@@ -8442,7 +8442,7 @@ function MobileNav({
                         {adminLoggedIn && (
                             <button className="mobile-menu-btn" onClick={() => go("adminPanel")}>?? Admin</button>
                         )}
-                        <button className="mobile-menu-btn" onClick={() => { setShowChangePw(v => !v); setPwMsg(""); }}>?? Change Password</button>
+                        <button className="mobile-menu-btn" onClick={() => { setShowChangePw(v => !v); setPwMsg(""); }}>🔑 Change Password</button>
                         <button className="mobile-menu-btn" onClick={() => { logoutPlayer(); setOpen(false); }}>?? Logout + Save</button>
                         <button className="mobile-menu-btn danger" onClick={() => { resetGame(); setOpen(false); }}>?? Reset</button>
                     </div>
@@ -9195,7 +9195,7 @@ function PetYard({ character, updateCharacter, setScreen }: { character: Charact
                         <div className="pet-detail-left pet-profile-panel">
                             <div className="pet-detail-avatar pet-heart-anchor">
                                 {selectedPet.image ? <img src={selectedPet.image} alt={selectedPet.name} /> : <span className="pet-detail-initials">{selectedPet.name.slice(0, 2).toUpperCase()}</span>}
-                                {petHeartBurst > 0 && <span key={petHeartBurst} className="pet-heart-pop">??</span>}
+                                {petHeartBurst > 0 && <span key={petHeartBurst} className="pet-heart-pop">❤️</span>}
                             </div>
                             <h3>{petDisplayName(selectedPet)}</h3>
                             {selectedPet.nickname && <p className="hint" style={{ fontSize: "0.72rem", marginTop: -4 }}>({selectedPet.name})</p>}
@@ -16220,11 +16220,11 @@ function ShopBase({
     ];
 
     const rarityIcon: Record<string, string> = {
-        common: "?",
-        rare: "?",
-        epic: "?",
-        legendary: "?",
-        mythic: "?"
+        common: "○",
+        rare: "✦",
+        epic: "✦",
+        legendary: "✦",
+        mythic: "✦"
     };
 
     const qualityColor: Record<string, string> = {
@@ -16236,7 +16236,7 @@ function ShopBase({
     };
 
     const currencyLabel = currency === "fateShards" ? "Fate Shards" : "ryo";
-    const currencyIcon = currency === "fateShards" ? "?" : "";
+    const currencyIcon = currency === "fateShards" ? "🔮" : "";
     const wallet = currency === "fateShards" ? character.fateShards : character.ryo;
     const shopDiscountPercent = currency === "ryo" ? getShopDiscountPercent(character) : (character.elderFocus === "trade" ? 5 : 0);
     const getShopCost = (cost: number) => discountCost(cost, shopDiscountPercent);
@@ -16333,7 +16333,7 @@ function ShopBase({
                                         <small>{equipmentSlotLabel(item.slot)}</small>
 
                                         {levelLocked
-                                            ? <small style={{ color: "#ef4444", fontWeight: "bold" }}>?? Lv.{item.levelReq} Required</small>
+                                            ? <small style={{ color: "#ef4444", fontWeight: "bold" }}>🔒 Lv.{item.levelReq} Required</small>
                                             : <small style={{ fontWeight: "bold" }}>{currencyIcon} {finalCost} {currencyLabel}{shopDiscountPercent > 0 ? ` (was ${item.cost})` : ""}{owned ? " — Owned" : ""}</small>
                                         }
                                     </button>
@@ -18711,7 +18711,7 @@ function SunscarFestival({
     return (
         <div className="sunscar-festival">
             <div className="sunscar-hero">
-                <h1>?? Sunscar Festival</h1>
+                <h1>☀️ Sunscar Festival</h1>
                 <p>
                     Sector 35 — a permanent desert festival of lanterns, caravans,
                     sandstone arches, and fate-bound dice.
@@ -21116,18 +21116,18 @@ function StoryBoss({ character, updateCharacter, setScreen }: { character: Chara
 function Training({ character, updateCharacter, activeTraining, setActiveTraining }: { character: Character; updateCharacter: (character: Character) => void; activeTraining: ActiveTraining | null; setActiveTraining: (training: ActiveTraining | null) => void }) {
     const [selectedStat, setSelectedStat] = useState<keyof Stats>("strength");
     const STAT_LABELS: Record<string, { label: string; icon: string }> = {
-        strength:         { label: "Strength",      icon: "??" },
-        speed:            { label: "Speed",          icon: "?" },
-        intelligence:     { label: "Intelligence",   icon: "??" },
-        willpower:        { label: "Willpower",      icon: "??" },
-        ninjutsuOffense:  { label: "Ninjutsu Off.",  icon: "??" },
-        ninjutsuDefense:  { label: "Ninjutsu Def.",  icon: "???" },
-        taijutsuOffense:  { label: "Taijutsu Off.",  icon: "??" },
-        taijutsuDefense:  { label: "Taijutsu Def.",  icon: "??" },
-        genjutsuOffense:  { label: "Genjutsu Off.",  icon: "???" },
-        genjutsuDefense:  { label: "Genjutsu Def.",  icon: "??" },
-        bukijutsuOffense: { label: "Bukijutsu Off.", icon: "??" },
-        bukijutsuDefense: { label: "Bukijutsu Def.", icon: "???" },
+        strength:         { label: "Strength",      icon: "💪" },
+        speed:            { label: "Speed",          icon: "⚡" },
+        intelligence:     { label: "Intelligence",   icon: "🧠" },
+        willpower:        { label: "Willpower",      icon: "🔮" },
+        ninjutsuOffense:  { label: "Ninjutsu Off.",  icon: "🌀" },
+        ninjutsuDefense:  { label: "Ninjutsu Def.",  icon: "🌊" },
+        taijutsuOffense:  { label: "Taijutsu Off.",  icon: "👊" },
+        taijutsuDefense:  { label: "Taijutsu Def.",  icon: "🥋" },
+        genjutsuOffense:  { label: "Genjutsu Off.",  icon: "👁️" },
+        genjutsuDefense:  { label: "Genjutsu Def.",  icon: "🌙" },
+        bukijutsuOffense: { label: "Bukijutsu Off.", icon: "⚔️" },
+        bukijutsuDefense: { label: "Bukijutsu Def.", icon: "🛡️" },
     };
     const trainingStats = Object.keys(baseStats()).map((key) => ({
         label: STAT_LABELS[key]?.label ?? key,
@@ -21138,7 +21138,7 @@ function Training({ character, updateCharacter, activeTraining, setActiveTrainin
     const trainingXpBonus = getTrainingXpBonus(character);
     function startTraining(timer: typeof timers[number]) { if (activeTraining) return alert("You are already training."); if (character.stamina < timer.staminaCost) return alert("Not enough stamina."); const boostedXp = boostAmount(timer.xp, trainingXpBonus); updateCharacter({ ...character, stamina: character.stamina - timer.staminaCost }); setActiveTraining({ label: `${timer.label} ${selectedStat} Training`, stat: selectedStat, xp: boostedXp, statGain: statPointsEarnedFromXp(character, boostedXp), staminaCost: timer.staminaCost, endsAt: Date.now() + timer.ms }); }
     function completeTraining() { if (!activeTraining) return; if (Date.now() < activeTraining.endsAt) return alert(`Training still has ${Math.ceil((activeTraining.endsAt - Date.now()) / 1000)} seconds left.`); const earnedStatPoints = statPointsEarnedFromXp(character, activeTraining.xp); const leveled = gainXp(character, activeTraining.xp); const focusedGain = Math.min(earnedStatPoints, leveled.unspentStats, MAX_STAT - leveled.stats[activeTraining.stat]); updateCharacter({ ...leveled, unspentStats: leveled.unspentStats - focusedGain, totalStatsTrained: (leveled.totalStatsTrained ?? 0) + focusedGain, stats: { ...leveled.stats, [activeTraining.stat]: capStat(leveled.stats[activeTraining.stat] + focusedGain) } }); alert(`${activeTraining.label} complete. ${focusedGain > 0 ? `${focusedGain} earned stat point${focusedGain !== 1 ? "s" : ""} went into ${formatStatName(activeTraining.stat)}.` : "No new stat point was earned from this XP tick."}`); setActiveTraining(null); }
-    return <div className="card"><h2>Training Grounds</h2><p>Stamina: {character.stamina}/{character.maxStamina} · Town Hall XP Bonus: <strong>{trainingXpBonus.toFixed(2)}%</strong>{CHARACTER_XP_GAIN_MULTIPLIER !== 1 ? <> · Testing XP: <strong>{CHARACTER_XP_GAIN_MULTIPLIER}x</strong></> : null}</p>{activeTraining && <div className="summary-box"><h3>Active Training</h3><p>{activeTraining.label}</p><p>Ends: {new Date(activeTraining.endsAt).toLocaleTimeString()}</p><button onClick={completeTraining}>Complete Training</button></div>}<h3>Choose Stat</h3><div className="location-grid">{trainingStats.map((option) => <button key={option.stat} className="location-button" onClick={() => setSelectedStat(option.stat)}><span className="tile-icon">{option.icon}</span><span>{option.label}</span><small>{selectedStat === option.stat ? "Selected" : "Click to select"}</small></button>)}</div><h3>Choose Timer</h3><div className="location-grid">{timers.map((timer) => { const boostedXp = boostAmount(timer.xp, trainingXpBonus); const effectiveXp = effectiveCharacterXpGain(character, boostedXp); const earnedPoints = statPointsEarnedFromXp(character, boostedXp); return <button key={timer.label} className="location-button" onClick={() => startTraining(timer)}><span className="tile-icon">??</span><span>{timer.label}</span><small>+{effectiveXp} XP / ~{earnedPoints} stat point{earnedPoints !== 1 ? "s" : ""}</small></button>; })}</div></div>;
+    return <div className="card"><h2>Training Grounds</h2><p>Stamina: {character.stamina}/{character.maxStamina} · Town Hall XP Bonus: <strong>{trainingXpBonus.toFixed(2)}%</strong>{CHARACTER_XP_GAIN_MULTIPLIER !== 1 ? <> · Testing XP: <strong>{CHARACTER_XP_GAIN_MULTIPLIER}x</strong></> : null}</p>{activeTraining && <div className="summary-box"><h3>Active Training</h3><p>{activeTraining.label}</p><p>Ends: {new Date(activeTraining.endsAt).toLocaleTimeString()}</p><button onClick={completeTraining}>Complete Training</button></div>}<h3>Choose Stat</h3><div className="location-grid">{trainingStats.map((option) => <button key={option.stat} className="location-button" onClick={() => setSelectedStat(option.stat)}><span className="tile-icon">{option.icon}</span><span>{option.label}</span><small>{selectedStat === option.stat ? "Selected" : "Click to select"}</small></button>)}</div><h3>Choose Timer</h3><div className="location-grid">{timers.map((timer) => { const boostedXp = boostAmount(timer.xp, trainingXpBonus); const effectiveXp = effectiveCharacterXpGain(character, boostedXp); const earnedPoints = statPointsEarnedFromXp(character, boostedXp); return <button key={timer.label} className="location-button" onClick={() => startTraining(timer)}><span className="tile-icon">⏱️</span><span>{timer.label}</span><small>+{effectiveXp} XP / ~{earnedPoints} stat point{earnedPoints !== 1 ? "s" : ""}</small></button>; })}</div></div>;
 }
 
 function JutsuTrainingHall({
@@ -21337,7 +21337,7 @@ function Missions({
 
             {/* -- Combat Missions -- */}
             <section className="mh-section">
-                <h3 className="mh-section-title">?? Combat Missions</h3>
+                <h3 className="mh-section-title">⚔️ Combat Missions</h3>
                 <p className="hint">Defeat the assigned enemy to earn rewards. No shortcuts.</p>
                 <div className="mh-combat-grid">
                     {missions.map((mission) => {
@@ -21361,8 +21361,8 @@ function Missions({
                                         <span className="mh-tag mh-tag-sta">-{mission.cost} STA</span>
                                     </div>
                                     <div className="mh-combat-rewards">
-                                        <span>? {displayCharacterXpGain(boostAmount(mission.xp, missionRewardBonus))} XP</span>
-                                        <span>?? {boostAmount(mission.ryo, missionRewardBonus)} ryo</span>
+                                        <span>⭐ {displayCharacterXpGain(boostAmount(mission.xp, missionRewardBonus))} XP</span>
+                                        <span>💰 {boostAmount(mission.ryo, missionRewardBonus)} ryo</span>
                                     </div>
                                 </div>
                                 <button
@@ -21370,7 +21370,7 @@ function Missions({
                                     disabled={locked || character.stamina < mission.cost || todayMissions >= DAILY_MISSION_LIMIT}
                                     onClick={() => startMissionBattle(mission)}
                                 >
-                                    {locked ? `Lv ${mission.min} Required` : "?? Begin Mission"}
+                                    {locked ? `Lv ${mission.min} Required` : "⚔️ Begin Mission"}
                                 </button>
                             </div>
                         );
@@ -21380,7 +21380,7 @@ function Missions({
 
             {/* -- Fetch Missions -- */}
             <section className="mh-section">
-                <h3 className="mh-section-title">?? Field Missions</h3>
+                <h3 className="mh-section-title">📍 Field Missions</h3>
                 {groupedFetchMissions.length === 0
                     ? <p className="hint">No field missions posted yet.</p>
                     : groupedFetchMissions.map((group) => (
@@ -21405,7 +21405,7 @@ function Missions({
                                                 <div className="mh-fetch-avatar">
                                                     {missionAi?.image
                                                         ? <img src={missionAi.image} alt={missionAi.name} />
-                                                        : <span>??</span>}
+                                                        : <span>📍</span>}
                                                 </div>
                                                 <div className="mh-fetch-info">
                                                     <strong>{mission.name}</strong>
@@ -21414,8 +21414,8 @@ function Missions({
                                                 </div>
                                             </div>
                                             <div className="mh-fetch-rewards">
-                                                <span>? {displayCharacterXpGain(boostAmount(mission.xpReward, missionRewardBonus))} XP</span>
-                                                <span>?? {boostAmount(mission.ryoReward, missionRewardBonus)} ryo</span>
+                                                <span>⭐ {displayCharacterXpGain(boostAmount(mission.xpReward, missionRewardBonus))} XP</span>
+                                                <span>💰 {boostAmount(mission.ryoReward, missionRewardBonus)} ryo</span>
                                             </div>
                                             {accepted && (
                                                 <div className="mh-fetch-progress-wrap">
@@ -21432,10 +21432,10 @@ function Missions({
                                                 {!accepted
                                                     ? <button onClick={() => acceptFetchMission(mission)}>Accept Mission</button>
                                                     : complete
-                                                        ? <button className="mh-claim-btn" onClick={() => claimFetchMission(mission)}>? Claim Reward</button>
-                                                        : <button onClick={() => setScreen("worldMap")}>??? Go to Sector {mission.targetSector}</button>}
+                                                        ? <button className="mh-claim-btn" onClick={() => claimFetchMission(mission)}>✅ Claim Reward</button>
+                                                        : <button onClick={() => setScreen("worldMap")}>🗺️ Go to Sector {mission.targetSector}</button>}
                                                 {mission.aiProfileId && (
-                                                    <button onClick={() => startCreatorMissionBattle(mission)}>?? Battle AI</button>
+                                                    <button onClick={() => startCreatorMissionBattle(mission)}>⚔️ Battle AI</button>
                                                 )}
                                             </div>
                                         </div>
