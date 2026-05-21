@@ -16,7 +16,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const target = await kv.get<Record<string, unknown>>(key);
         if (!target) return res.status(404).json({ error: 'Target not online.' });
 
-        await kv.set(key, { ...target, pendingAttacker: attacker ?? null }, { ex: 30 });
+        await kv.set(key, { ...target, pendingAttacker: attacker ?? null }, { ex: 60 });
         return res.status(200).json({ ok: true });
     } catch (err) {
         return res.status(500).json({ error: String(err) });

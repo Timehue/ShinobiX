@@ -12,7 +12,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const { name } = body as { name?: string };
         if (!name) return res.status(400).json({ error: 'Missing name.' });
 
-        await kv.del(`guard:${name}`);
+        await kv.del(`guard:${name.toLowerCase().trim()}`);
         return res.status(200).json({ ok: true });
     } catch (err) {
         return res.status(500).json({ error: String(err) });
