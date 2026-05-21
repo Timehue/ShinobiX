@@ -5977,13 +5977,15 @@ export default function App() {
                 fetchPlayerCombatSave(challenge.fromName),
                 fetchPlayerCombatSave(character.name),
             ]);
-            const p1SavedBloodlines = p1CombatSave?.savedBloodlines ?? savedBloodlines;
-            const p1CreatorJutsus = p1CombatSave?.creatorJutsus ?? creatorJutsus;
+            // P1 = challenger (another player) — never fall back to defender's data
+            const p1SavedBloodlines = p1CombatSave?.savedBloodlines ?? [];
+            const p1CreatorJutsus = p1CombatSave?.creatorJutsus ?? [];
+            // P2 = self (defender) — safe to fall back to local state
             const p2SavedBloodlines = p2CombatSave?.savedBloodlines ?? savedBloodlines;
             const p2CreatorJutsus = p2CombatSave?.creatorJutsus ?? creatorJutsus;
             const p1Character = p1CombatSave?.character ?? challenger;
             const p2Character = p2CombatSave?.character ?? character;
-            const p1AllItems = getAllItems(p1CombatSave?.creatorItems ?? creatorItems);
+            const p1AllItems = getAllItems(p1CombatSave?.creatorItems ?? []);
             const p2AllItems = getAllItems(p2CombatSave?.creatorItems ?? creatorItems);
             const p1Jutsus = p1CombatSave?.character
                 ? getPvpJutsuLoadout(p1SavedBloodlines, p1CreatorJutsus, p1Character)
@@ -7667,13 +7669,14 @@ export default function App() {
                             ]);
                             const selfChar = selfSave?.character ?? character;
                             const selfBloodlines = selfSave?.savedBloodlines?.length ? selfSave.savedBloodlines : savedBloodlines;
-                            const selfCreatorJutsus = selfSave?.creatorJutsus?.length ? [...creatorJutsus, ...selfSave.creatorJutsus] : creatorJutsus;
-                            const selfAllItems = getAllItems(selfSave?.creatorItems?.length ? selfSave.creatorItems : creatorItems);
+                            const selfCreatorJutsus = selfSave?.creatorJutsus ?? creatorJutsus;
+                            const selfAllItems = getAllItems(selfSave?.creatorItems ?? creatorItems);
                             const p1Jutsus = getPvpJutsuLoadout(selfBloodlines, selfCreatorJutsus, selfChar);
                             const oppChar = opponentSave?.character ?? opponent.character as Character;
-                            const opponentBloodlines = opponentSave?.savedBloodlines?.length ? opponentSave.savedBloodlines : savedBloodlines;
-                            const opponentCreatorJutsus = opponentSave?.creatorJutsus?.length ? [...creatorJutsus, ...opponentSave.creatorJutsus] : creatorJutsus;
-                            const opponentAllItems = getAllItems(opponentSave?.creatorItems?.length ? opponentSave.creatorItems : creatorItems);
+                            // Use opponent's own data only — never fall back to attacker's bloodlines/jutsus/items
+                            const opponentBloodlines = opponentSave?.savedBloodlines ?? [];
+                            const opponentCreatorJutsus = opponentSave?.creatorJutsus ?? [];
+                            const opponentAllItems = getAllItems(opponentSave?.creatorItems ?? []);
                             const p2Jutsus = getPvpJutsuLoadout(opponentBloodlines, opponentCreatorJutsus, oppChar);
                             let battleId = '';
                             try {
@@ -19979,11 +19982,12 @@ function WorldMap({
                                                 ]);
                                                 const selfChar = selfSave?.character ?? character;
                                                 const selfBloodlines = selfSave?.savedBloodlines?.length ? selfSave.savedBloodlines : savedBloodlines;
-                                                const selfCreatorJutsus = selfSave?.creatorJutsus?.length ? [...wmCreatorJutsus, ...selfSave.creatorJutsus] : wmCreatorJutsus;
+                                                const selfCreatorJutsus = selfSave?.creatorJutsus ?? wmCreatorJutsus;
                                                 const p1j = getPvpJutsuLoadout(selfBloodlines, selfCreatorJutsus, selfChar);
                                                 const guardSessionChar = guardSave?.character ?? guardChar;
-                                                const guardBloodlines = guardSave?.savedBloodlines?.length ? guardSave.savedBloodlines : savedBloodlines;
-                                                const guardCreatorJutsus = guardSave?.creatorJutsus?.length ? [...wmCreatorJutsus, ...guardSave.creatorJutsus] : wmCreatorJutsus;
+                                                // Use guard's own data only — never fall back to attacker's bloodlines/jutsus
+                                                const guardBloodlines = guardSave?.savedBloodlines ?? [];
+                                                const guardCreatorJutsus = guardSave?.creatorJutsus ?? [];
                                                 const p2j = getPvpJutsuLoadout(guardBloodlines, guardCreatorJutsus, guardSessionChar);
                                                 // Create shared PvP session and notify the guard via challenge
                                                 let battleId = '';
@@ -22693,13 +22697,15 @@ function Arena({
                 fetchPlayerCombatSave(challenge.fromName),
                 fetchPlayerCombatSave(character.name),
             ]);
-            const p1SavedBloodlines = p1CombatSave?.savedBloodlines ?? savedBloodlines;
-            const p1CreatorJutsus = p1CombatSave?.creatorJutsus ?? creatorJutsus;
+            // P1 = challenger (another player) — never fall back to defender's data
+            const p1SavedBloodlines = p1CombatSave?.savedBloodlines ?? [];
+            const p1CreatorJutsus = p1CombatSave?.creatorJutsus ?? [];
+            // P2 = self (defender) — safe to fall back to local state
             const p2SavedBloodlines = p2CombatSave?.savedBloodlines ?? savedBloodlines;
             const p2CreatorJutsus = p2CombatSave?.creatorJutsus ?? creatorJutsus;
             const p1Character = p1CombatSave?.character ?? challenger;
             const p2Character = p2CombatSave?.character ?? character;
-            const p1AllItems = getAllItems(p1CombatSave?.creatorItems ?? creatorItems);
+            const p1AllItems = getAllItems(p1CombatSave?.creatorItems ?? []);
             const p2AllItems = getAllItems(p2CombatSave?.creatorItems ?? creatorItems);
             const p1Jutsus = p1CombatSave?.character
                 ? getPvpJutsuLoadout(p1SavedBloodlines, p1CreatorJutsus, p1Character)
