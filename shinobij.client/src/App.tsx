@@ -1893,10 +1893,10 @@ const nonBloodlineFortyApTagPairs: JutsuTag[][] = [
     [{ name: "Increase Damage Given", percent: 30 }, { name: "Recoil", percent: 30 }],
     [{ name: "Increase Damage Taken", percent: 30 }, { name: "Reflect", percent: 30 }],
     [{ name: "Decrease Damage Given", percent: 30 }, { name: "Absorb", percent: 30 }],
-    [{ name: "Decrease Damage Taken", percent: 30 }, { name: "Siphon", percent: 30 }],
+    [{ name: "Decrease Damage Taken", percent: 30 }, { name: "Reflect", percent: 30 }],
     [{ name: "Increase Heal", percent: 30 }, { name: "Absorb", percent: 30 }],
-    [{ name: "Barrier", percent: 0 }, { name: "Decrease Damage Taken", percent: 30 }],
-    [{ name: "Barrier", percent: 0 }, { name: "Siphon", percent: 30 }],
+    [{ name: "Poison", percent: 30 }, { name: "Decrease Damage Taken", percent: 30 }],
+    [{ name: "Drain", percent: 0 }, { name: "Decrease Damage Given", percent: 30 }],
 ];
 
 const nonBloodlineSixtyApTags: JutsuTag[] = [
@@ -1909,7 +1909,7 @@ const nonBloodlineSixtyApTags: JutsuTag[] = [
     { name: "Siphon", percent: 30 },
     { name: "Reflect", percent: 30 },
     { name: "Recoil", percent: 30 },
-    { name: "Barrier", percent: 0 },
+    { name: "Wound", percent: 30 },
 ];
 
 function nonBloodlineBalanceIndex(jutsu: Jutsu) {
@@ -1979,7 +1979,7 @@ const starterJutsus: Jutsu[] = [
     makeJutsu("starter-tai-fire-1", "Burning Knuckle", "Taijutsu", 40, 1, 25, 1, 125, 125, [{ name: "Ignition", percent: 16 }], "Fire"),
     makeJutsu("starter-tai-fire-2", "Meteor Axe Kick", "Taijutsu", 60, 1, 30, 2, 250, 250, [{ name: "Recoil", percent: 10 }], "Fire"),
     makeJutsu("starter-tai-fire-3", "Cinder Rush", "Taijutsu", 40, 2, 26, 1, 125, 125, [{ name: "Wound", percent: 14 }], "Fire"),
-    makeJutsu("starter-tai-water-1", "Flowing Palm", "Taijutsu", 40, 1, 28, 1, 125, 125, [{ name: "Siphon", percent: 18 }], "Water"),
+    makeJutsu("starter-tai-water-1", "Flowing Palm", "Taijutsu", 40, 1, 28, 1, 125, 125, [{ name: "Absorb", percent: 18 }], "Water"),
     makeJutsu("starter-tai-water-2", "Tidal Shoulder Throw", "Taijutsu", 60, 1, 30, 2, 250, 250, [{ name: "Decrease Damage Given", percent: 18 }], "Water"),
     makeJutsu("starter-tai-water-3", "Ripple Guard Form", "Taijutsu", 40, 0, 0, 2, 125, 125, [{ name: "Shield", percent: 0 }, { name: "Cleanse Prevent", percent: 0 }], "Water"),
 
@@ -2013,7 +2013,7 @@ const starterJutsus: Jutsu[] = [
     makeJutsu("starter-buki-fire-3", "Searing Blade Toss", "Bukijutsu", 40, 3, 23, 1, 125, 125, [{ name: "Poison", percent: 14 }], "Fire"),
     makeJutsu("starter-buki-water-1", "Mist Needle Spread", "Bukijutsu", 40, 5, 24, 1, 125, 125, [{ name: "Drain", percent: 0 }], "Water"),
     makeJutsu("starter-buki-water-2", "Torrent Chain Slash", "Bukijutsu", 60, 4, 30, 2, 250, 250, [{ name: "Siphon", percent: 16 }], "Water"),
-    makeJutsu("starter-buki-water-3", "Hidden Current Guard", "Bukijutsu", 40, 0, 0, 2, 125, 125, [{ name: "Barrier", percent: 0 }, { name: "Cleanse Prevent", percent: 0 }], "Water"),
+    makeJutsu("starter-buki-water-3", "Hidden Current Guard", "Bukijutsu", 40, 0, 0, 2, 125, 125, [{ name: "Absorb", percent: 18 }, { name: "Cleanse Prevent", percent: 0 }], "Water"),
     // Universal jutsus — no element, available to all
     normalizeJutsu({
         id: "starter-universal-flicker",
@@ -22490,7 +22490,11 @@ function Arena({
         const nextMoveCost = adjustedApCost(30);
         if (nextMoveCost > 0 && ap < nextMoveCost) {
             addCombatLog(`${character.name} has ${ap} AP left and cannot afford another move. Round ends automatically.`, "autoEnd", character.name);
-            enemyTurn();
+            // Signal end-of-player-turn by setting actor to "enemy".
+            // The auto-resolve useEffect below will then call enemyTurn() via
+            // setTimeout — this avoids a second enemyTurn() call that was
+            // triggered by setActiveActor("enemy") inside enemyTurn() itself.
+            setActiveActor("enemy");
         }
     }, [ap, actionsThisTurn, activeActor, battleStarted, battleEnded]);
 
@@ -22909,12 +22913,13 @@ function Arena({
 
     function waitTurn() {
         if (battleEnded) return;
-        if (activeActor === "enemy") {
-            enemyTurn();
-            return;
-        }
+        if (activeActor === "enemy") return; // already enemy's turn, do nothing
         addCombatLog(`${character.name} waits and ends their turn with ${ap} AP remaining.`, "wait", character.name);
-        enemyTurn();
+        // Set actor to "enemy" — the auto-resolve useEffect fires enemyTurn()
+        // via setTimeout(1200ms). Calling enemyTurn() directly here would cause
+        // a double turn because setActiveActor("enemy") inside enemyTurn() also
+        // triggers that same useEffect.
+        setActiveActor("enemy");
     }
 
     useEffect(() => {
