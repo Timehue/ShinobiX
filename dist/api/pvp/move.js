@@ -134,9 +134,26 @@ function terrainMultiplier(jutsu, biome) {
     }
 }
 // ─── Fighter helpers ──────────────────────────────────────────────────────────
-function hasStatus(f, name) { return f.statuses.some(s => nameMatches(s.name, name)); }
+function isStatusActive(status, round) {
+    return status.activeRound === undefined || status.activeRound <= round;
+}
+function activeStatuses(f, round) {
+    return f.statuses.filter(status => isStatusActive(status, round));
+}
+function hasStatus(f, name, round = Number.POSITIVE_INFINITY) {
+    return activeStatuses(f, round).some(s => nameMatches(s.name, name));
+}
 function addStatus(f, s) {
     return { ...f, statuses: [...f.statuses.filter(x => !nameMatches(x.name, s.name)), s] };
+}
+function bloodlineTagsResolveNextRound(jutsu) {
+    return Boolean(jutsu.bloodlineRank) && !(jutsu.target === 'EMPTY_GROUND' && normalizeJutsuMethod(jutsu.method) === 'INSTANT_EFFECT');
+}
+function statusForJutsu(jutsu, status, round) {
+    return bloodlineTagsResolveNextRound(jutsu) ? { ...status, activeRound: round + 1 } : status;
+}
+function addJutsuStatus(f, jutsu, status, round) {
+    return addStatus(f, statusForJutsu(jutsu, status, round));
 }
 function groundEffectTiles(center) {
     return [center, ...hexNeighbors(center)];
@@ -200,8 +217,13 @@ function tickGroundEffects(effects) {
         .map(effect => ({ ...effect, rounds: effect.rounds - 1 }))
         .filter(effect => effect.rounds > 0);
 }
-function tickStatuses(f) {
-    return { ...f, statuses: f.statuses.map(s => ({ ...s, rounds: s.rounds - 1 })).filter(s => s.rounds > 0) };
+function tickStatuses(f, round) {
+    return {
+        ...f,
+        statuses: f.statuses
+            .map(s => isStatusActive(s, round) ? { ...s, rounds: s.rounds - 1 } : s)
+            .filter(s => s.rounds > 0),
+    };
 }
 function tickCooldowns(cds) {
     const next = {};
@@ -212,26 +234,26 @@ function tickCooldowns(cds) {
 }
 // Raw DR contribution from defensive status effects.
 // Added into the DR pool alongside armor — soft cap via K_DR so stacking always helps.
-function drContributionFor(attacker, defender) {
+function drContributionFor(attacker, defender, round) {
     let dr = 0;
-    for (const s of attacker.statuses) {
+    for (const s of activeStatuses(attacker, round)) {
         if (s.name === 'Decrease Damage Given')
             dr += (s.percent ?? 0) / 100;
     }
-    for (const s of defender.statuses) {
+    for (const s of activeStatuses(defender, round)) {
         if (s.name === 'Decrease Damage Taken')
             dr += (s.percent ?? 0) / 100;
     }
     return dr;
 }
 // Amplifiers (offensive / vulnerability buffs) — no diminishing returns, these increase damage.
-function ampMultiplierFor(attacker, defender) {
+function ampMultiplierFor(attacker, defender, round) {
     let m = 1;
-    for (const s of attacker.statuses) {
+    for (const s of activeStatuses(attacker, round)) {
         if (s.name === 'Increase Damage Given')
             m *= (1 + (s.percent ?? 0) / 100);
     }
-    for (const s of defender.statuses) {
+    for (const s of activeStatuses(defender, round)) {
         if (s.name === 'Increase Damage Taken')
             m *= (1 + (s.percent ?? 0) / 100);
         if (nameMatches(s.name, 'Ignition'))
@@ -246,7 +268,7 @@ function scaledTagPercent(rawPct, masteryLevel) {
     return Math.max(0, raw - (50 - masteryLevel) * 0.2);
 }
 // ─── Jutsu application (3-bucket formula, all tags) ───────────────────────────
-function applyJutsu(self, opponent, jutsu, wMult = 1, biome = 'central') {
+function applyJutsu(self, opponent, jutsu, wMult = 1, biome = 'central', round = 1) {
     // Use jutsu mastery level (0–50) for EP scaling so trained jutsus hit harder in PvP.
     // Falls back to 0 if the jutsu has never been trained (no bonus).
     const jutsuMasteries = self.character.jutsuMastery ?? [];
@@ -258,7 +280,7 @@ function applyJutsu(self, opponent, jutsu, wMult = 1, biome = 'central') {
     const statFactor = Math.max(0.35, Math.min(1.85, 1 + (getOffense(offStats, jutsu.type) - getDefense(defStats, jutsu.type)) / (MAX_STAT * 2) * 0.85));
     const effectFactor = Math.max(0, scaledEp) / 100;
     // Bloodline mult: pre-computed on the client (1.0 if absent)
-    const bloodlineMult = (hasStatus(self, 'Bloodline Seal') || hasStatus(self, 'Seal')) ? 1.0 : Math.max(1.0, Number(self.character.bloodlineMult ?? 1.0));
+    const bloodlineMult = (hasStatus(self, 'Bloodline Seal', round) || hasStatus(self, 'Seal', round)) ? 1.0 : Math.max(1.0, Number(self.character.bloodlineMult ?? 1.0));
     // Item damage bonus: pre-computed on the client from equipped item bonuses (0 if absent → ×1.0)
     const itemDamageMult = 1 + Math.max(0, Number(self.character.itemDamagePct ?? 0)) / 100;
     // Terrain bonus: +10% when jutsu type/element matches the current biome
@@ -273,7 +295,7 @@ function applyJutsu(self, opponent, jutsu, wMult = 1, biome = 'central') {
         ? Math.min(1.5, Math.max(0, Number(opponent.character.armorRawDR)))
         : Math.max(0, 1 - Math.min(1.0, Math.max(0.25, Number(opponent.character.armorFactor ?? 1.0))));
     // Status DR feeds the same pool — every point still reduces damage, just with diminishing returns.
-    const rawStatusDR = drContributionFor(self, opponent);
+    const rawStatusDR = drContributionFor(self, opponent, round);
     const rawTotalDR = armorRawDR + rawStatusDR;
     // effectiveDR = rawTotal / (rawTotal + K_DR)  →  always < 1, always grows with more DR
     const effectiveDR = rawTotalDR > 0 ? rawTotalDR / (rawTotalDR + K_DR) : 0;
@@ -286,7 +308,7 @@ function applyJutsu(self, opponent, jutsu, wMult = 1, biome = 'central') {
     let shieldGain = 0;
     let pierce = false;
     const healBoost = s.statuses
-        .filter(st => st.name === 'Increase Heal')
+        .filter(st => isStatusActive(st, round) && st.name === 'Increase Heal')
         .reduce((mult, st) => mult * (1 + (st.percent ?? 0) / 100), 1);
     for (const tag of tags) {
         const tagName = normalizeTagName(tag.name);
@@ -320,191 +342,203 @@ function applyJutsu(self, opponent, jutsu, wMult = 1, biome = 'central') {
             continue;
         }
         if (tag.name === 'Stun') {
-            if (!hasStatus(o, 'Debuff Prevent') && !hasStatus(o, 'Stun Prevent')) {
-                o = addStatus(o, { name: 'Stun', rounds: 1, kind: 'negative' });
+            if (!hasStatus(o, 'Debuff Prevent', round) && !hasStatus(o, 'Stun Prevent', round)) {
+                o = addJutsuStatus(o, jutsu, { name: 'Stun', rounds: 1, kind: 'negative' }, round);
                 lines.push(`Stun: ${o.name} loses 40 AP next turn.`);
             }
             continue;
         }
         if (tag.name === 'Poison') {
-            if (!hasStatus(o, 'Debuff Prevent')) {
+            if (!hasStatus(o, 'Debuff Prevent', round)) {
                 const poisonPct = pct > 0 ? pct : 6;
                 const dmg = Math.floor(o.maxChakra * (poisonPct / 100));
-                o = addStatus(o, { name: 'Poison', rounds: 2, percent: poisonPct, kind: 'negative' });
+                o = addJutsuStatus(o, jutsu, { name: 'Poison', rounds: 2, percent: poisonPct, kind: 'negative' }, round);
                 lines.push(`Poison: ${o.name} takes ~${dmg}/round for 2 turns.`);
             }
             continue;
         }
         if (tag.name === 'Drain') {
-            if (!hasStatus(o, 'Debuff Prevent')) {
-                o = addStatus(o, { name: 'Drain', rounds: 2, amount: DRAIN_AMOUNT, kind: 'negative' });
+            if (!hasStatus(o, 'Debuff Prevent', round)) {
+                o = addJutsuStatus(o, jutsu, { name: 'Drain', rounds: 2, amount: DRAIN_AMOUNT, kind: 'negative' }, round);
                 lines.push(`Drain: ${o.name} loses ${DRAIN_AMOUNT} HP+chakra/turn for 2 turns.`);
             }
             continue;
         }
         if (tag.name === 'Absorb') {
-            if (!hasStatus(s, 'Buff Prevent')) {
-                s = addStatus(s, { name: 'Absorb', rounds: 2, percent: pct, kind: 'positive' });
+            if (!hasStatus(s, 'Buff Prevent', round)) {
+                s = addJutsuStatus(s, jutsu, { name: 'Absorb', rounds: 2, percent: pct, kind: 'positive' }, round);
                 lines.push(`Absorb: ${s.name} converts ${pct}% incoming damage for 2 turns.`);
             }
             continue;
         }
         if (tag.name === 'Reflect') {
-            if (!hasStatus(s, 'Buff Prevent')) {
-                s = addStatus(s, { name: 'Reflect', rounds: 2, percent: pct, kind: 'positive' });
+            if (!hasStatus(s, 'Buff Prevent', round)) {
+                s = addJutsuStatus(s, jutsu, { name: 'Reflect', rounds: 2, percent: pct, kind: 'positive' }, round);
                 lines.push(`Reflect: ${s.name} reflects ${pct}% damage for 2 turns.`);
             }
             continue;
         }
         if (tag.name === 'Lifesteal') {
-            if (!hasStatus(s, 'Buff Prevent')) {
-                s = addStatus(s, { name: 'Lifesteal', rounds: 2, percent: pct, kind: 'positive' });
+            if (!hasStatus(s, 'Buff Prevent', round)) {
+                s = addJutsuStatus(s, jutsu, { name: 'Lifesteal', rounds: 2, percent: pct, kind: 'positive' }, round);
                 lines.push(`Lifesteal: ${s.name} heals on hit for 2 turns.`);
             }
             continue;
         }
         if (tag.name === 'Increase Damage Given') {
-            if (!hasStatus(s, 'Buff Prevent')) {
-                s = addStatus(s, { name: 'Increase Damage Given', rounds: 2, percent: pct, kind: 'positive' });
+            if (!hasStatus(s, 'Buff Prevent', round)) {
+                s = addJutsuStatus(s, jutsu, { name: 'Increase Damage Given', rounds: 2, percent: pct, kind: 'positive' }, round);
                 lines.push(`+${pct}% Damage Given: ${s.name} for 2 turns.`);
             }
             continue;
         }
         if (tag.name === 'Decrease Damage Given') {
-            if (!hasStatus(o, 'Debuff Prevent')) {
-                o = addStatus(o, { name: 'Decrease Damage Given', rounds: 2, percent: pct, kind: 'negative' });
+            if (!hasStatus(o, 'Debuff Prevent', round)) {
+                o = addJutsuStatus(o, jutsu, { name: 'Decrease Damage Given', rounds: 2, percent: pct, kind: 'negative' }, round);
                 lines.push(`-${pct}% Damage Given: ${o.name} for 2 turns.`);
             }
             continue;
         }
         if (tag.name === 'Increase Damage Taken') {
-            if (!hasStatus(o, 'Debuff Prevent')) {
-                o = addStatus(o, { name: 'Increase Damage Taken', rounds: 2, percent: pct, kind: 'negative' });
+            if (!hasStatus(o, 'Debuff Prevent', round)) {
+                o = addJutsuStatus(o, jutsu, { name: 'Increase Damage Taken', rounds: 2, percent: pct, kind: 'negative' }, round);
                 lines.push(`+${pct}% Damage Taken: ${o.name} for 2 turns.`);
             }
             continue;
         }
         if (tag.name === 'Decrease Damage Taken') {
-            if (!hasStatus(s, 'Buff Prevent')) {
-                s = addStatus(s, { name: 'Decrease Damage Taken', rounds: 2, percent: pct, kind: 'positive' });
+            if (!hasStatus(s, 'Buff Prevent', round)) {
+                s = addJutsuStatus(s, jutsu, { name: 'Decrease Damage Taken', rounds: 2, percent: pct, kind: 'positive' }, round);
                 lines.push(`-${pct}% Damage Taken: ${s.name} for 2 turns.`);
             }
             continue;
         }
         if (tagName === 'Ignition') {
-            if (!hasStatus(o, 'Debuff Prevent')) {
-                o = addStatus(o, { name: 'Ignition', rounds: 2, percent: pct, kind: 'negative' });
+            if (!hasStatus(o, 'Debuff Prevent', round)) {
+                o = addJutsuStatus(o, jutsu, { name: 'Ignition', rounds: 2, percent: pct, kind: 'negative' }, round);
                 lines.push(`Ignition: ${o.name} +${pct}% damage taken for 2 turns.`);
             }
             continue;
         }
         if (tag.name === 'Debuff Prevent') {
-            s = addStatus(s, { name: 'Debuff Prevent', rounds: 2, kind: 'positive' });
+            s = addJutsuStatus(s, jutsu, { name: 'Debuff Prevent', rounds: 2, kind: 'positive' }, round);
             lines.push(`Debuff Prevent: ${s.name} for 2 turns.`);
             continue;
         }
         if (tag.name === 'Buff Prevent') {
-            if (!hasStatus(o, 'Debuff Prevent')) {
-                o = addStatus(o, { name: 'Buff Prevent', rounds: 2, kind: 'negative' });
+            if (!hasStatus(o, 'Debuff Prevent', round)) {
+                o = addJutsuStatus(o, jutsu, { name: 'Buff Prevent', rounds: 2, kind: 'negative' }, round);
                 lines.push(`Buff Prevent: ${o.name} cannot gain positive effects for 2 turns.`);
             }
             continue;
         }
         if (tag.name === 'Cleanse Prevent') {
-            if (!hasStatus(o, 'Debuff Prevent')) {
-                o = addStatus(o, { name: 'Cleanse Prevent', rounds: 2, kind: 'negative' });
+            if (!hasStatus(o, 'Debuff Prevent', round)) {
+                o = addJutsuStatus(o, jutsu, { name: 'Cleanse Prevent', rounds: 2, kind: 'negative' }, round);
                 lines.push(`Cleanse Prevent: ${o.name} cannot cleanse debuffs for 2 turns.`);
             }
             continue;
         }
         if (tag.name === 'Clear Prevent') {
-            if (!hasStatus(s, 'Buff Prevent')) {
-                s = addStatus(s, { name: 'Clear Prevent', rounds: 2, kind: 'positive' });
+            if (!hasStatus(s, 'Buff Prevent', round)) {
+                s = addJutsuStatus(s, jutsu, { name: 'Clear Prevent', rounds: 2, kind: 'positive' }, round);
                 lines.push(`Clear Prevent: ${s.name}'s buffs cannot be cleared for 2 turns.`);
             }
             continue;
         }
         if (tag.name === 'Stun Prevent') {
-            s = addStatus(s, { name: 'Stun Prevent', rounds: 2, kind: 'positive' });
+            s = addJutsuStatus(s, jutsu, { name: 'Stun Prevent', rounds: 2, kind: 'positive' }, round);
             lines.push(`Stun Prevent: ${s.name} is immune to Stun for 2 turns.`);
             continue;
         }
         if (tag.name === 'Copy') {
-            const copied = o.statuses.filter(st => st.kind === 'positive');
-            copied.forEach(st => { s = addStatus(s, { ...st }); });
+            const copied = activeStatuses(o, round).filter(st => st.kind === 'positive');
+            copied.forEach(st => { s = addJutsuStatus(s, jutsu, { ...st }, round); });
             lines.push(`Copy: ${s.name} copied ${copied.length ? copied.map(st => st.name).join(', ') : 'nothing'} from ${o.name}.`);
             continue;
         }
         if (tag.name === 'Mirror') {
-            const mirrored = s.statuses.filter(st => st.kind === 'negative' && st.name !== 'Wound' && !nameMatches(st.name, 'Ignition') && st.name !== 'Poison' && st.name !== 'Drain');
-            if (!hasStatus(o, 'Debuff Prevent')) {
-                mirrored.forEach(st => { o = addStatus(o, { ...st }); });
+            const mirrored = activeStatuses(s, round).filter(st => st.kind === 'negative' && st.name !== 'Wound' && !nameMatches(st.name, 'Ignition') && st.name !== 'Poison' && st.name !== 'Drain');
+            if (!hasStatus(o, 'Debuff Prevent', round)) {
+                mirrored.forEach(st => { o = addJutsuStatus(o, jutsu, { ...st }, round); });
                 s = { ...s, statuses: s.statuses.filter(st => !mirrored.includes(st)) };
                 lines.push(`Mirror: ${s.name} reflected ${mirrored.length ? mirrored.map(st => st.name).join(', ') : 'no debuffs'} onto ${o.name}.`);
             }
             continue;
         }
         if (tagName === 'Lag') {
-            if (!hasStatus(o, 'Debuff Prevent')) {
-                o = addStatus(o, { name: 'Lag', rounds: 2, percent: pct || 20, kind: 'negative' });
+            if (!hasStatus(o, 'Debuff Prevent', round)) {
+                o = addJutsuStatus(o, jutsu, { name: 'Lag', rounds: 2, percent: pct || 20, kind: 'negative' }, round);
                 lines.push(`Lag: ${o.name}'s actions cost ${pct || 20}% more AP for 2 turns.`);
             }
             continue;
         }
         if (tagName === 'Overclock') {
-            if (!hasStatus(s, 'Buff Prevent')) {
-                s = addStatus(s, { name: 'Overclock', rounds: 2, percent: pct || 20, kind: 'positive' });
+            if (!hasStatus(s, 'Buff Prevent', round)) {
+                s = addJutsuStatus(s, jutsu, { name: 'Overclock', rounds: 2, percent: pct || 20, kind: 'positive' }, round);
                 lines.push(`Overclock: ${s.name}'s actions cost ${pct || 20}% less AP for 2 turns.`);
             }
             continue;
         }
         if (tag.name === 'Increase Heal') {
-            if (!hasStatus(s, 'Buff Prevent')) {
-                s = addStatus(s, { name: 'Increase Heal', rounds: 2, percent: pct, kind: 'positive' });
+            if (!hasStatus(s, 'Buff Prevent', round)) {
+                s = addJutsuStatus(s, jutsu, { name: 'Increase Heal', rounds: 2, percent: pct, kind: 'positive' }, round);
                 lines.push(`Increase Heal: ${s.name}'s healing is increased by ${pct}% for 2 turns.`);
             }
             continue;
         }
         if (tag.name === 'Push') {
-            if (!hasStatus(o, 'Debuff Prevent')) {
+            if (!hasStatus(o, 'Debuff Prevent', round)) {
                 const dist = Math.max(1, Number(jutsu.range) || 1);
-                let nextPos = o.pos;
-                for (let step = 0; step < dist; step++) {
-                    const away = hexNeighbors(nextPos).filter(t => distance(t, s.pos) > distance(nextPos, s.pos) && t !== s.pos && !tileBlocked(t, s, o));
-                    if (!away.length)
-                        break;
-                    nextPos = away[0];
+                if (bloodlineTagsResolveNextRound(jutsu)) {
+                    o = addJutsuStatus(o, jutsu, { name: 'Push', rounds: 1, amount: dist, kind: 'negative' }, round);
+                    lines.push(`Push: ${o.name} will be pushed ${dist} tile(s) next round.`);
                 }
-                o = { ...o, pos: nextPos };
-                lines.push(`Push: ${o.name} is pushed ${dist} tile(s).`);
+                else {
+                    let nextPos = o.pos;
+                    for (let step = 0; step < dist; step++) {
+                        const away = hexNeighbors(nextPos).filter(t => distance(t, s.pos) > distance(nextPos, s.pos) && t !== s.pos && !tileBlocked(t, s, o));
+                        if (!away.length)
+                            break;
+                        nextPos = away[0];
+                    }
+                    o = { ...o, pos: nextPos };
+                    lines.push(`Push: ${o.name} is pushed ${dist} tile(s).`);
+                }
             }
             continue;
         }
         if (tag.name === 'Pull') {
-            if (!hasStatus(o, 'Debuff Prevent')) {
+            if (!hasStatus(o, 'Debuff Prevent', round)) {
                 const dist = Math.max(1, Number(jutsu.range) || 1);
-                let nextPos = o.pos;
-                for (let step = 0; step < dist; step++) {
-                    const toward = hexNeighbors(nextPos).filter(t => distance(t, s.pos) < distance(nextPos, s.pos) && t !== s.pos && !tileBlocked(t, s, o));
-                    if (!toward.length)
-                        break;
-                    nextPos = toward[0];
+                if (bloodlineTagsResolveNextRound(jutsu)) {
+                    o = addJutsuStatus(o, jutsu, { name: 'Pull', rounds: 1, amount: dist, kind: 'negative' }, round);
+                    lines.push(`Pull: ${o.name} will be pulled ${dist} tile(s) next round.`);
                 }
-                o = { ...o, pos: nextPos };
-                lines.push(`Pull: ${o.name} is pulled ${dist} tile(s).`);
+                else {
+                    let nextPos = o.pos;
+                    for (let step = 0; step < dist; step++) {
+                        const toward = hexNeighbors(nextPos).filter(t => distance(t, s.pos) < distance(nextPos, s.pos) && t !== s.pos && !tileBlocked(t, s, o));
+                        if (!toward.length)
+                            break;
+                        nextPos = toward[0];
+                    }
+                    o = { ...o, pos: nextPos };
+                    lines.push(`Pull: ${o.name} is pulled ${dist} tile(s).`);
+                }
             }
             continue;
         }
         if (tag.name === 'Bloodline Seal' || tag.name === 'Seal') {
-            if (!hasStatus(o, 'Debuff Prevent')) {
-                o = addStatus(o, { name: 'Bloodline Seal', rounds: 2, kind: 'negative' });
+            if (!hasStatus(o, 'Debuff Prevent', round)) {
+                o = addJutsuStatus(o, jutsu, { name: 'Bloodline Seal', rounds: 2, kind: 'negative' }, round);
                 lines.push(`Bloodline Seal: ${o.name}'s bloodline is sealed.`);
             }
             continue;
         }
         if (tag.name === 'Elemental Seal') {
-            if (!hasStatus(o, 'Debuff Prevent')) {
-                o = addStatus(o, { name: tag.name, rounds: 1, kind: 'negative' });
+            if (!hasStatus(o, 'Debuff Prevent', round)) {
+                o = addJutsuStatus(o, jutsu, { name: tag.name, rounds: 1, kind: 'negative' }, round);
                 lines.push(`${tag.name}: ${o.name}'s elemental jutsu are sealed.`);
             }
             continue;
@@ -515,7 +549,7 @@ function applyJutsu(self, opponent, jutsu, wMult = 1, biome = 'central') {
     }
     else {
         // Amplifiers (Increase Damage Given, Increase Damage Taken, Ignition) apply at full value.
-        const ampMult = ampMultiplierFor(s, o);
+        const ampMult = ampMultiplierFor(self, opponent, round);
         // DR is already computed above as effectiveDR ∈ [0, 1).
         // Armor, DDT, and DDG all feed the same pool — more always helps, but with diminishing returns.
         damage = Math.max(0, Math.floor(damage * (1 - effectiveDR) * ampMult));
@@ -523,9 +557,9 @@ function applyJutsu(self, opponent, jutsu, wMult = 1, biome = 'central') {
     if (damage > 0) {
         const blocked = pierce ? 0 : Math.min(o.shield, damage);
         const finalDmg = Math.max(0, damage - blocked);
-        const reflect = o.statuses.find(st => st.name === 'Reflect');
+        const reflect = activeStatuses(o, round).find(st => st.name === 'Reflect');
         const reflectedDmg = reflect && !pierce ? cappedPostDamage(finalDmg, reflect.percent ?? 30) : 0;
-        const defAbsorb = o.statuses.find(st => st.name === 'Absorb');
+        const defAbsorb = activeStatuses(o, round).find(st => st.name === 'Absorb');
         const absorbHeal = defAbsorb ? cappedPostDamage(finalDmg, defAbsorb.percent ?? 30) : 0;
         o = { ...o, hp: Math.max(0, o.hp - finalDmg), shield: Math.max(0, o.shield - damage) };
         if (absorbHeal > 0)
@@ -542,14 +576,14 @@ function applyJutsu(self, opponent, jutsu, wMult = 1, biome = 'central') {
         }
         for (const tag of tags) {
             const pct = tag.percent ?? 0;
-            if (tag.name === 'Wound' && !hasStatus(o, 'Debuff Prevent')) {
+            if (tag.name === 'Wound' && !hasStatus(o, 'Debuff Prevent', round)) {
                 const amt = cappedPostDamage(finalDmg, pct || 30);
-                o = addStatus(o, { name: 'Wound', rounds: 2, amount: amt, kind: 'negative' });
+                o = addJutsuStatus(o, jutsu, { name: 'Wound', rounds: 2, amount: amt, kind: 'negative' }, round);
                 lines.push(`Wound: ${o.name} bleeds ${amt}/turn for 2 turns.`);
             }
             if (tag.name === 'Recoil') {
-                if (!hasStatus(o, 'Debuff Prevent')) {
-                    o = addStatus(o, { name: 'Recoil', rounds: 2, percent: pct || 30, kind: 'negative' });
+                if (!hasStatus(o, 'Debuff Prevent', round)) {
+                    o = addJutsuStatus(o, jutsu, { name: 'Recoil', rounds: 2, percent: pct || 30, kind: 'negative' }, round);
                     lines.push(`Recoil: ${o.name} will suffer ${pct || 30}% recoil on their attacks for 2 turns.`);
                 }
                 continue;
@@ -560,13 +594,13 @@ function applyJutsu(self, opponent, jutsu, wMult = 1, biome = 'central') {
                 lines.push(`Siphon: ${s.name} heals ${h} HP.`);
             }
         }
-        const recoilStatus = s.statuses.find(st => st.name === 'Recoil');
+        const recoilStatus = activeStatuses(s, round).find(st => st.name === 'Recoil');
         if (recoilStatus && finalDmg > 0) {
             const rc = cappedPostDamage(finalDmg, recoilStatus.percent ?? 30);
             s = { ...s, hp: Math.max(0, s.hp - rc) };
             lines.push(`Recoil: ${s.name} takes ${rc} recoil damage from their own attack.`);
         }
-        const ls = s.statuses.find(st => st.name === 'Lifesteal');
+        const ls = activeStatuses(s, round).find(st => st.name === 'Lifesteal');
         if (ls && finalDmg > 0) {
             const h = Math.floor(cappedPostDamage(finalDmg, ls.percent ?? 30) * healBoost);
             s = { ...s, hp: Math.min(s.maxHp, s.hp + h) };
@@ -580,10 +614,10 @@ function applyJutsu(self, opponent, jutsu, wMult = 1, biome = 'central') {
     return { self: s, opponent: o, lines };
 }
 // ─── DoTs applied at start of each turn ───────────────────────────────────────
-function applyDoTs(fighter) {
+function applyDoTs(fighter, round) {
     const lines = [];
     let f = { ...fighter };
-    for (const s of f.statuses) {
+    for (const s of activeStatuses(f, round)) {
         if (s.name === 'Wound' && s.amount) {
             f = { ...f, hp: Math.max(0, f.hp - s.amount) };
             lines.push(`${f.name} bleeds ${s.amount} (Wound).`);
@@ -603,6 +637,33 @@ function applyDoTs(fighter) {
     return { fighter: f, lines };
 }
 // ─── Win check ────────────────────────────────────────────────────────────────
+function applyQueuedMovement(target, source, round) {
+    let fighter = { ...target };
+    const lines = [];
+    const movementStatuses = activeStatuses(fighter, round).filter(status => status.name === 'Push' || status.name === 'Pull');
+    for (const status of movementStatuses) {
+        const dist = Math.max(1, status.amount ?? 1);
+        let nextPos = fighter.pos;
+        for (let step = 0; step < dist; step++) {
+            const candidates = hexNeighbors(nextPos).filter(tile => {
+                if (tile === source.pos || tileBlocked(tile, fighter, source))
+                    return false;
+                return status.name === 'Push'
+                    ? distance(tile, source.pos) > distance(nextPos, source.pos)
+                    : distance(tile, source.pos) < distance(nextPos, source.pos);
+            });
+            if (!candidates.length)
+                break;
+            nextPos = candidates[0];
+        }
+        fighter = { ...fighter, pos: nextPos };
+        lines.push(`${status.name}: ${fighter.name} is ${status.name === 'Push' ? 'pushed' : 'pulled'} ${dist} tile(s).`);
+    }
+    if (movementStatuses.length) {
+        fighter = { ...fighter, statuses: fighter.statuses.filter(status => !movementStatuses.includes(status)) };
+    }
+    return { fighter, lines };
+}
 function checkWinner(s) {
     if (s.status === 'done')
         return s;
@@ -656,10 +717,10 @@ function endTurn(session) {
         s = { ...s, groundEffects: tickGroundEffects(s.groundEffects) };
     }
     if (current === 'p1') {
-        s = { ...s, p1: tickStatuses(s.p1), cooldowns: { ...s.cooldowns, p1: tickCooldowns(s.cooldowns.p1) } };
+        s = { ...s, p1: tickStatuses(s.p1, session.round), cooldowns: { ...s.cooldowns, p1: tickCooldowns(s.cooldowns.p1) } };
     }
     else {
-        s = { ...s, p2: tickStatuses(s.p2), cooldowns: { ...s.cooldowns, p2: tickCooldowns(s.cooldowns.p2) } };
+        s = { ...s, p2: tickStatuses(s.p2, session.round), cooldowns: { ...s.cooldowns, p2: tickCooldowns(s.cooldowns.p2) } };
     }
     // No chakra or stamina regen during PvP — resources are finite per fight.
     // Apply DoTs to the next player at start of their turn
@@ -668,7 +729,11 @@ function endTurn(session) {
     s = groundApplied.session;
     nextFighter = next === 'p1' ? s.p1 : s.p2;
     lines.push(...groundApplied.lines);
-    const dots = applyDoTs(nextFighter);
+    const otherFighter = next === 'p1' ? s.p2 : s.p1;
+    const moved = applyQueuedMovement(nextFighter, otherFighter, newRound);
+    nextFighter = moved.fighter;
+    lines.push(...moved.lines);
+    const dots = applyDoTs(nextFighter, newRound);
     nextFighter = dots.fighter;
     lines.push(...dots.lines);
     s = next === 'p1' ? { ...s, p1: nextFighter } : { ...s, p2: nextFighter };
@@ -676,7 +741,7 @@ function endTurn(session) {
     if (s.status === 'done')
         return s;
     // Stun applies a 40 AP penalty instead of skipping the turn entirely
-    const stunStatus = nextFighter.statuses.find(st => st.name === 'Stun');
+    const stunStatus = activeStatuses(nextFighter, newRound).find(st => st.name === 'Stun');
     const baseAp = stunStatus ? Math.max(0, 100 - 40) : 100;
     if (stunStatus) {
         const unstunned = { ...nextFighter, statuses: nextFighter.statuses.filter(st => st.name !== 'Stun') };
@@ -725,8 +790,8 @@ export default async function handler(req, res) {
         // Apply Lag (costs more) and Overclock (costs less) to AP
         function adjustedCost(base) {
             let cost = base;
-            const compression = me.statuses.find(st => nameMatches(st.name, 'Lag'));
-            const dilation = me.statuses.find(st => nameMatches(st.name, 'Overclock'));
+            const compression = activeStatuses(me, session.round).find(st => nameMatches(st.name, 'Lag'));
+            const dilation = activeStatuses(me, session.round).find(st => nameMatches(st.name, 'Overclock'));
             if (compression)
                 cost = Math.ceil(cost * (1 + (compression.percent ?? 20) / 100));
             if (dilation)
@@ -743,9 +808,6 @@ export default async function handler(req, res) {
             s = { ...s, ap: { ...s.ap, [role]: myAp - adjustedCost(apCost) }, actionsThisTurn: s.actionsThisTurn + 1 };
             if (cd)
                 s = { ...s, cooldowns: { ...s.cooldowns, [role]: { ...myCooldowns, ...cd } } };
-            const groundApplied = applyGroundEffects(s);
-            s = groundApplied.session;
-            lines.push(...groundApplied.lines);
             if (lines.length)
                 s = { ...s, log: [...s.log, ...lines] };
             return checkWinner(s);
@@ -789,7 +851,7 @@ export default async function handler(req, res) {
                 const specialty = me.character.specialty ?? 'Ninjutsu';
                 const basicJutsu = { id: 'basic-attack', name: 'Basic Attack', type: specialty, effectPower: 10, ap: 40, range: 1, tags: [] };
                 lines.push(`${me.name} uses Basic Attack:`);
-                const atk = applyJutsu(me, opp, basicJutsu, 1, biome);
+                const atk = applyJutsu(me, opp, basicJutsu, 1, biome, session.round);
                 lines.push(...atk.lines);
                 result = commit({ ...atk.self, stamina: Math.max(0, atk.self.stamina - 10) }, atk.opponent, 40);
                 break;
@@ -805,7 +867,7 @@ export default async function handler(req, res) {
             case 'clear': {
                 if (!canAct(60) || (myCooldowns.clear ?? 0) > 0)
                     return finish(session);
-                if (hasStatus(opp, 'Clear Prevent')) {
+                if (hasStatus(opp, 'Clear Prevent', session.round)) {
                     lines.push(`${opp.name}'s Clear Prevent blocks the clear.`);
                     result = commit(null, null, 60, { clear: 10 });
                 }
@@ -819,7 +881,7 @@ export default async function handler(req, res) {
             case 'cleanse': {
                 if (!canAct(60) || (myCooldowns.cleanse ?? 0) > 0)
                     return finish(session);
-                if (hasStatus(me, 'Cleanse Prevent')) {
+                if (hasStatus(me, 'Cleanse Prevent', session.round)) {
                     lines.push(`${me.name}'s Cleanse Prevent blocks the cleanse.`);
                     result = commit(null, null, 60, { cleanse: 10 });
                 }
@@ -849,7 +911,7 @@ export default async function handler(req, res) {
                 // ── Elemental Seal enforcement ───────────────────────────────────
                 // Elemental Seal blocks the five basic elements only.
                 const BASIC_ELEMENTS = new Set(['Earth', 'Wind', 'Water', 'Lightning', 'Fire']);
-                if (hasStatus(me, 'Elemental Seal') && jutsu.element && BASIC_ELEMENTS.has(jutsu.element)) {
+                if (hasStatus(me, 'Elemental Seal', session.round) && jutsu.element && BASIC_ELEMENTS.has(jutsu.element)) {
                     const esMsg = `${me.name} is Elementally Sealed — cannot use ${jutsu.name} (${jutsu.element}).`;
                     const esState = { ...session, log: [...session.log, esMsg] };
                     await kv.set(key, esState, { ex: SESSION_TTL });
@@ -913,7 +975,7 @@ export default async function handler(req, res) {
                     if (jutsuMethod === 'AOE_CIRCLE' && ring.includes(opp.pos)) {
                         // Strip Move tag so applyJutsu treats this as a pure damage/effect jutsu
                         const damageJutsu = { ...jutsu, tags: tags.filter(t => normalizeTagName(t.name) !== 'Move') };
-                        const jr = applyJutsu(movedSelf, opp, damageJutsu, jWMult, biome);
+                        const jr = applyJutsu(movedSelf, opp, damageJutsu, jWMult, biome, session.round);
                         lines.push(`Ring impact catches ${opp.name}!`);
                         lines.push(...jr.lines);
                         result = commit(jr.self, jr.opponent, apCost, cd);
@@ -954,14 +1016,16 @@ export default async function handler(req, res) {
                         };
                         const paidSelf = { ...me, chakra: Math.max(0, me.chakra - jChakraCost), stamina: Math.max(0, me.stamina - jStaminaCost) };
                         lines.push(`${jutsu.name} creates a ground effect for 2 rounds.`);
-                        result = commit(paidSelf, null, apCost, cd, { groundEffects: [...(session.groundEffects ?? []), groundEffect] });
+                        const instantGround = applyGroundEffectToFighter(opp, groundEffect);
+                        lines.push(...instantGround.lines);
+                        result = commit(paidSelf, instantGround.fighter, apCost, cd, { groundEffects: [...(session.groundEffects ?? []), groundEffect] });
                         break;
                     }
                     const ring = hexNeighbors(targetTile);
                     const catchesOpponent = jutsuMethod === 'AOE_CIRCLE' && ring.includes(opp.pos);
                     const paidSelf = { ...me, chakra: Math.max(0, me.chakra - jChakraCost), stamina: Math.max(0, me.stamina - jStaminaCost) };
                     if (catchesOpponent) {
-                        const jr = applyJutsu(paidSelf, opp, jutsu, jWMult, biome);
+                        const jr = applyJutsu(paidSelf, opp, jutsu, jWMult, biome, session.round);
                         lines.push(`Area burst catches ${opp.name}!`);
                         lines.push(...jr.lines);
                         result = commit(jr.self, jr.opponent, apCost, cd);
@@ -972,7 +1036,7 @@ export default async function handler(req, res) {
                     }
                     break;
                 }
-                const jr = applyJutsu(me, opp, jutsu, jWMult, biome);
+                const jr = applyJutsu(me, opp, jutsu, jWMult, biome, session.round);
                 const jUpdatedSelf = {
                     ...jr.self,
                     chakra: Math.max(0, jr.self.chakra - jChakraCost),
@@ -1013,7 +1077,7 @@ export default async function handler(req, res) {
                 };
                 lines.push(`${me.name} uses ${weaponJutsu.name}:`);
                 const wWMult = weatherMultiplier(serverItem.weaponElement, weatherPositiveElement, weatherNegativeElement);
-                const wr = applyJutsu(me, opp, weaponJutsu, wWMult, biome);
+                const wr = applyJutsu(me, opp, weaponJutsu, wWMult, biome, session.round);
                 lines.push(...wr.lines);
                 result = commit(wr.self, wr.opponent, wApCost);
                 break;
@@ -1043,7 +1107,7 @@ export default async function handler(req, res) {
                     tags: iTags,
                 };
                 lines.push(`${me.name} uses ${itemJutsu.name}:`);
-                const ir = applyJutsu(me, opp, itemJutsu);
+                const ir = applyJutsu(me, opp, itemJutsu, 1, biome, session.round);
                 // For "both" target items (e.g. Smoke Bomb): also apply the effect to the caster
                 let irSelf = ir.self;
                 if (serverItem.weaponEffectTarget === 'both' && serverItem.weaponEffect === 'Decrease Damage Given') {
