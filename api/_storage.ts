@@ -83,8 +83,18 @@ function getPool(): pg.Pool {
         .replace(/\?$/, '')
         .replace(/\?&/, '?');
 
+    // Parse the URL manually with the WHATWG URL API instead of passing
+    // connectionString. pg v8 delegates connection-string parsing to
+    // pg-connection-string which calls the deprecated url.parse() internally,
+    // causing Node.js to emit DEP0169 on every request. Passing individual
+    // config fields bypasses that code path entirely.
+    const parsed = new URL(cleanUrl);
     _pool = new Pool({
-        connectionString: cleanUrl,
+        host: parsed.hostname,
+        port: parsed.port ? parseInt(parsed.port, 10) : 5432,
+        user: decodeURIComponent(parsed.username),
+        password: decodeURIComponent(parsed.password),
+        database: parsed.pathname.replace(/^\//, ''),
         ssl: { rejectUnauthorized: false },
         max: 5,
         idleTimeoutMillis: 30_000,
