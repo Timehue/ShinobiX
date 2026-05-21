@@ -22383,35 +22383,44 @@ function Profile({
                     if (learnedJutsus.length === 0) {
                         return <p className="hint">{learnedAnyJutsus.length ? "Your learned jutsu are locked behind elements you do not currently have." : "You haven't trained any jutsu yet. Visit the Training Grounds to learn them."}</p>;
                     }
+                    const equippedJutsus = learnedJutsus.filter((j) => character.equippedJutsuIds.includes(j.id));
+                    const availableJutsus = learnedJutsus.filter((j) => !character.equippedJutsuIds.includes(j.id));
+                    const jutsuDetails = (jutsu: Jutsu) => {
+                        const mastery = getJutsuMastery(character, jutsu.id);
+                        const displayJutsu = jutsuDisplayAtLevel(jutsu, mastery.level);
+                        return (
+                            <>
+                                <p>Level {mastery.level}/50 | {jutsu.type} | {jutsu.element} | {jutsu.ap} AP | R{jutsu.range} | EP {displayJutsu.effectPower}</p>
+                                <p>Tags: {displayJutsu.tags.map((tag) => `${tag.name}${tag.percent ? ` ${tag.percent}%` : ""}`).join(", ") || "None"}</p>
+                                <p><strong>Effects:</strong> {describeJutsuEffects(jutsu, mastery.level)}</p>
+                                <JutsuEffectCards jutsu={jutsu} masteryLevel={mastery.level} />
+                            </>
+                        );
+                    };
                     return (
                         <>
-                            <p className="hint">{learnedJutsus.length} jutsu learned for your elements — only trained jutsu can be equipped.</p>
-                            <JutsuDropdownList
-                                jutsus={learnedJutsus}
-                                label="Find Jutsu"
-                                renderDetails={(jutsu) => {
-                                    const mastery = getJutsuMastery(character, jutsu.id);
-                                    return (
-                                        <>
-                                            {(() => {
-                                                const displayJutsu = jutsuDisplayAtLevel(jutsu, mastery.level);
-                                                return (
-                                                    <>
-                                                        <p>Level {mastery.level}/50 | {jutsu.type} | {jutsu.element} | {jutsu.ap} AP | R{jutsu.range} | EP {displayJutsu.effectPower}</p>
-                                                        <p>Tags: {displayJutsu.tags.map((tag) => `${tag.name}${tag.percent ? ` ${tag.percent}%` : ""}`).join(", ") || "None"}</p>
-                                                        <p><strong>Effects:</strong> {describeJutsuEffects(jutsu, mastery.level)}</p>
-                                                        <JutsuEffectCards jutsu={jutsu} masteryLevel={mastery.level} />
-                                                    </>
-                                                );
-                                            })()}
-                                        </>
-                                    );
-                                }}
-                                renderActions={(jutsu) => {
-                                    const equipped = character.equippedJutsuIds.includes(jutsu.id);
-                                    return <button onClick={() => toggleJutsu(jutsu.id)}>{equipped ? "Unequip" : "Equip"}</button>;
-                                }}
-                            />
+                            {equippedJutsus.length > 0 && (
+                                <>
+                                    <h4 style={{ margin: "8px 0 4px", color: "#86efac", fontSize: "0.82rem" }}>✅ Equipped ({equippedJutsus.length})</h4>
+                                    <JutsuDropdownList
+                                        jutsus={equippedJutsus}
+                                        label="Equipped Jutsu"
+                                        renderDetails={jutsuDetails}
+                                        renderActions={(jutsu) => <button className="danger-button" onClick={() => toggleJutsu(jutsu.id)}>Unequip</button>}
+                                    />
+                                </>
+                            )}
+                            {availableJutsus.length > 0 && (
+                                <>
+                                    <h4 style={{ margin: "10px 0 4px", color: "#94a3b8", fontSize: "0.82rem" }}>📚 Not Equipped ({availableJutsus.length})</h4>
+                                    <JutsuDropdownList
+                                        jutsus={availableJutsus}
+                                        label="Available Jutsu"
+                                        renderDetails={jutsuDetails}
+                                        renderActions={(jutsu) => <button onClick={() => toggleJutsu(jutsu.id)}>Equip</button>}
+                                    />
+                                </>
+                            )}
                         </>
                     );
                 })()}
