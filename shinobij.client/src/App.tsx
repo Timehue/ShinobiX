@@ -15816,12 +15816,31 @@ function ShopBase({
     currency?: "ryo" | "fateShards";
 }) {
     const [selectedItem, setSelectedItem] = useState<GameItem | null>(null);
+    const [shopFilterRarity, setShopFilterRarity] = useState<string>("all");
+    const [shopFilterKind,   setShopFilterKind]   = useState<string>("all");
+    const [shopFilterSlot,   setShopFilterSlot]   = useState<string>("all");
 
     const allItems = getAllItems(creatorItems);
     const shopSlots: EquipmentSlot[] = ["head", "body", "waist", "legs", "feet", "hand", "aura", "weapon", "thrown", "item", "accessory"];
-    const shopItems = allItems.filter(
-        (item) => shopSlots.includes(item.slot) && filterRarities.includes(item.rarity)
-    );
+
+    const kindSlotMap: Record<string, EquipmentSlot[]> = {
+        armor:       ["head", "body", "waist", "legs", "feet"],
+        weapon:      ["hand", "weapon", "thrown"],
+        accessory:   ["aura", "accessory"],
+        consumable:  ["item"],
+    };
+
+    const shopItems = allItems.filter((item) => {
+        if (!shopSlots.includes(item.slot)) return false;
+        if (!filterRarities.includes(item.rarity)) return false;
+        if (shopFilterRarity !== "all" && item.rarity !== shopFilterRarity) return false;
+        if (shopFilterKind   !== "all" && !kindSlotMap[shopFilterKind]?.includes(normalizeEquipmentSlot(item.slot))) return false;
+        if (shopFilterSlot   !== "all" && normalizeEquipmentSlot(item.slot) !== shopFilterSlot) return false;
+        return true;
+    });
+
+    const availableRarities = [...new Set(allItems.filter(i => shopSlots.includes(i.slot) && filterRarities.includes(i.rarity)).map(i => i.rarity))];
+    const availableSlots    = [...new Set(allItems.filter(i => shopSlots.includes(i.slot) && filterRarities.includes(i.rarity)).map(i => normalizeEquipmentSlot(i.slot)))];
 
     const slotGroups: { label: string; slots: EquipmentSlot[] }[] = [
         { label: "Head", slots: ["head"] },
@@ -15898,12 +15917,40 @@ function ShopBase({
 
             <p style={{ marginBottom: "0.25rem", color: "#aaa" }}>{subtitle}</p>
 
-            <p style={{ marginBottom: "1rem" }}>
+            <p style={{ marginBottom: "0.75rem" }}>
                 {currency === "fateShards"
                     ? <><span style={{ color: "#ce93d8" }}>? Fate Shards:</span> <strong style={{ color: "#ce93d8" }}>{character.fateShards}</strong></>
                     : <>Wallet: <strong>{character.ryo} ryo</strong> · Town Hall Shop Discount: <strong>{shopDiscountPercent.toFixed(2)}%</strong></>
                 }
             </p>
+
+            {/* Filter bar */}
+            <div className="shop-filter-bar">
+                <select className="shop-filter-select" value={shopFilterRarity} onChange={e => setShopFilterRarity(e.target.value)}>
+                    <option value="all">All Rarities</option>
+                    {availableRarities.map(r => <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>)}
+                </select>
+                <select className="shop-filter-select" value={shopFilterKind} onChange={e => setShopFilterKind(e.target.value)}>
+                    <option value="all">All Types</option>
+                    <option value="armor">Armor</option>
+                    <option value="weapon">Weapon / Thrown</option>
+                    <option value="accessory">Accessory / Aura</option>
+                    <option value="consumable">Consumable</option>
+                </select>
+                <select className="shop-filter-select" value={shopFilterSlot} onChange={e => setShopFilterSlot(e.target.value)}>
+                    <option value="all">All Slots</option>
+                    {availableSlots.map(s => <option key={s} value={s}>{equipmentSlotLabel(s)}</option>)}
+                </select>
+                {(shopFilterRarity !== "all" || shopFilterKind !== "all" || shopFilterSlot !== "all") && (
+                    <button className="shop-filter-clear" onClick={() => { setShopFilterRarity("all"); setShopFilterKind("all"); setShopFilterSlot("all"); }}>
+                        ✕ Clear
+                    </button>
+                )}
+            </div>
+
+            {shopItems.length === 0 && (
+                <p className="hint" style={{ marginTop: 8 }}>No items match these filters.</p>
+            )}
 
             {slotGroups.map((group) => {
                 const groupItems = shopItems.filter((item) => group.slots.includes(normalizeEquipmentSlot(item.slot)));
