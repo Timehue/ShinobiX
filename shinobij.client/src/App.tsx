@@ -18905,7 +18905,7 @@ function CentralHub({
                                                     accept="image/*"
                                                     onChange={(e) => {
                                                         const file = e.target.files?.[0];
-                                                        if (file) readImageFile(file, setNamedWeaponImage, 100);
+                                                        if (file) readImageFile(file, setNamedWeaponImage, 1.5);
                                                     }}
                                                 />
                                                 {namedWeaponImage && (
@@ -21383,6 +21383,7 @@ function Profile({
         const file = event.target.files?.[0];
         if (!file) return;
         if (!file.type.startsWith("image/")) return alert("Please upload an image file.");
+        if (file.size > 1.5 * 1024 * 1024) return alert("Avatar image must be under 1.5 MB.");
 
         const reader = new FileReader();
         reader.onload = () => {
@@ -21936,7 +21937,7 @@ function BloodlineMaker({ initialRank, initialSpecialElement, character, updateC
             <label>Special Element</label><input value={specialElement} onChange={(e) => setBloodlineSpecialElement(e.target.value)} placeholder="Example: Crystal, Lava, Storm, Shadow Flame" />
             <label>Offense Choice</label>
             <select value={bloodlineOffense} onChange={(e) => setBloodlineOffenseChoice(e.target.value as JutsuType)}>{specialties.map((s) => <option key={s}>{s}</option>)}</select>
-            <label>Bloodline Image</label><input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) readImageFile(file, setBloodlineImage, 100); }} />
+            <label>Bloodline Image</label><input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) readImageFile(file, setBloodlineImage, 1.5); }} />
             <AiImagePrompt label="Bloodline Image" suggestedPrompt={`${bloodlineName}, ${specialElement || "chakra"} bloodline symbol`} onImage={async (image) => setBloodlineImage(await compressDataUrl(image, 512, 0.82))} />
             {bloodlineImage && <div className="admin-event-list-preview"><img src={bloodlineImage} alt={bloodlineName} /></div>}
             <label>Rank</label>
@@ -21953,7 +21954,7 @@ function BloodlineMaker({ initialRank, initialSpecialElement, character, updateC
                     <h3>{jutsu.name}</h3>
                     <label>Name</label><input value={jutsu.name} onChange={(e) => updateJutsu(jutsuIndex, { name: e.target.value })} />
                     <label>Battle Description</label><textarea rows={2} value={jutsu.battleDescription} onChange={(e) => updateJutsu(jutsuIndex, { battleDescription: e.target.value, description: e.target.value })} />
-                    <label>Jutsu Image</label><input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) readImageFile(file, (image) => updateJutsu(jutsuIndex, { image }), 100); }} />
+                    <label>Jutsu Image</label><input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) readImageFile(file, (image) => updateJutsu(jutsuIndex, { image }), 1.5); }} />
                     <AiImagePrompt label="Jutsu Image" suggestedPrompt={`${jutsu.name}, ${specialElement || jutsu.element} ${bloodlineOffense} bloodline technique`} onImage={async (image) => updateJutsu(jutsuIndex, { image: await compressDataUrl(image, 512, 0.82) })} />
                     {jutsu.image && <div className="admin-jutsu-preview"><img src={jutsu.image} alt={jutsu.name} /></div>}
                     <div className="summary-box bloodline-element-lock">Offense: {bloodlineOffense}</div>
