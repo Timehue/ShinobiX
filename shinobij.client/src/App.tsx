@@ -4273,14 +4273,14 @@ const villageUpgradeDefinitions: Array<{
     unit: "%";
     description: string;
 }> = [
-        { key: "training", name: "Training Grounds", icon: "??", perLevel: 0.25, unit: "%", description: "+0.25% character XP from stat training per level." },
-        { key: "jutsuTraining", name: "Jutsu Training", icon: "??", perLevel: 0.25, unit: "%", description: "+0.25% jutsu training speed / jutsu XP per level." },
-        { key: "shop", name: "Shop", icon: "??", perLevel: 0.25, unit: "%", description: "0.25% shop discount per level." },
-        { key: "townDefense", name: "Town Defense", icon: "???", perLevel: 0.1, unit: "%", description: "+0.1% defense vs Genjutsu, Taijutsu, Bukijutsu, and Ninjutsu while defending through the Village Guard queue." },
-        { key: "petYard", name: "Pet Yard", icon: "??", perLevel: 0.25, unit: "%", description: "+0.25% pet XP from pet training per level." },
-        { key: "bank", name: "Bank", icon: "??", perLevel: 0.25, unit: "%", description: "+0.25% bank interest per level." },
-        { key: "missionHall", name: "Mission Hall", icon: "??", perLevel: 0.5, unit: "%", description: "+0.5% XP, ryo, and stamina mission rewards per level." },
-        { key: "hospital", name: "Hospital", icon: "??", perLevel: 1, unit: "%", description: "1% hospital discount per level." },
+        { key: "training", name: "Training Grounds", icon: "💪", perLevel: 0.25, unit: "%", description: "+0.25% character XP from stat training per level." },
+        { key: "jutsuTraining", name: "Jutsu Training", icon: "📖", perLevel: 0.25, unit: "%", description: "+0.25% jutsu training speed / jutsu XP per level." },
+        { key: "shop", name: "Shop", icon: "🛒", perLevel: 0.25, unit: "%", description: "0.25% shop discount per level." },
+        { key: "townDefense", name: "Town Defense", icon: "🏯", perLevel: 0.1, unit: "%", description: "+0.1% defense vs Genjutsu, Taijutsu, Bukijutsu, and Ninjutsu while defending through the Village Guard queue." },
+        { key: "petYard", name: "Pet Yard", icon: "🐾", perLevel: 0.25, unit: "%", description: "+0.25% pet XP from pet training per level." },
+        { key: "bank", name: "Bank", icon: "🏦", perLevel: 0.25, unit: "%", description: "+0.25% bank interest per level." },
+        { key: "missionHall", name: "Mission Hall", icon: "📜", perLevel: 0.5, unit: "%", description: "+0.5% XP, ryo, and stamina mission rewards per level." },
+        { key: "hospital", name: "Hospital", icon: "⚕️", perLevel: 1, unit: "%", description: "1% hospital discount per level." },
     ];
 
 type VillageLeadershipProfile = { kage: string; elders: string[]; atWar: boolean; pastWars: string[] };
@@ -9355,10 +9355,10 @@ function PetYard({ character, updateCharacter, setScreen }: { character: Charact
                                 </div>
                             </div>
                             <div className="pet-stats-grid">
-                                <span>?? HP: {selectedPet.hp}</span>
-                                <span>?? ATK: {selectedPet.attack}</span>
-                                <span>??? DEF: {selectedPet.defense}</span>
-                                <span>?? SPD: {selectedPet.speed}</span>
+                                <span>❤️ HP: {selectedPet.hp}</span>
+                                <span>⚔️ ATK: {selectedPet.attack}</span>
+                                <span>🛡️ DEF: {selectedPet.defense}</span>
+                                <span>💨 SPD: {selectedPet.speed}</span>
                             </div>
                             {selectedPet.description && <p className="pet-description">{selectedPet.description}</p>}
                             <div className="pet-care-actions">
@@ -10587,19 +10587,19 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, frame, recentFra
                 <div className={`pet-arena-fighter-bar${playerShake ? " pet-hp-shaking" : ""}`}>
                     <strong>{playerPet.name}</strong>
                     <div className="pet-status-badges">
-                        {frame?.playerStatus?.poisoned   && <span className="pet-status-badge poison">?×{frame.playerStatus.poisoned}</span>}
-                        {frame?.playerStatus?.atkBuff    && <span className="pet-status-badge atk">?ATK?</span>}
-                        {frame?.playerStatus?.defBuff    && <span className="pet-status-badge def">??DEF?</span>}
-                        {frame?.playerStatus?.shield     && <span className="pet-status-badge shield">??{frame.playerStatus.shield}</span>}
-                        {frame?.playerStatus?.moveLocked && <span className="pet-status-badge movelock">??ROOT</span>}
-                        {frame?.playerStatus?.absorbing  && <span className="pet-status-badge absorb">?ABSORB</span>}
+                        {frame?.playerStatus?.poisoned   && <span className="pet-status-badge poison">☠️×{frame.playerStatus.poisoned}</span>}
+                        {frame?.playerStatus?.atkBuff    && <span className="pet-status-badge atk">⚔️ATK↑</span>}
+                        {frame?.playerStatus?.defBuff    && <span className="pet-status-badge def">🛡️DEF↑</span>}
+                        {frame?.playerStatus?.shield     && <span className="pet-status-badge shield">🔰{frame.playerStatus.shield}</span>}
+                        {frame?.playerStatus?.moveLocked && <span className="pet-status-badge movelock">🔒ROOT</span>}
+                        {frame?.playerStatus?.absorbing  && <span className="pet-status-badge absorb">✨ABSORB</span>}
                     </div>
                     <span>{playerHp}/{playerPet.hp} HP</span>
                     <div className={`pet-arena-hpbar${playerPercent <= 30 ? " pet-arena-hpbar-low" : ""}`}>
                         <i style={{ width: `${playerPercent}%` }} />
                         {playerFloatClass && frame && (
                             <span key={frame.message} className={playerFloatClass}>
-                                {frame.actionKind === "lifesteal" ? `?? +${frame.damage}` : frame.crit ? `? CRIT -${frame.damage}` : frame.actionKind === "dot" ? `? -${frame.damage}` : frame.actionKind === "heal" ? `?? +${frame.damage ?? "heal"}` : `-${frame.damage}`}
+                                {frame.actionKind === "lifesteal" ? `🩸 +${frame.damage}` : frame.crit ? `💥 CRIT -${frame.damage}` : frame.actionKind === "dot" ? `☠️ -${frame.damage}` : frame.actionKind === "heal" ? `💚 +${frame.damage ?? "heal"}` : `-${frame.damage}`}
                             </span>
                         )}
                     </div>
@@ -10608,19 +10608,19 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, frame, recentFra
                 <div className={`pet-arena-fighter-bar enemy${enemyShake ? " pet-hp-shaking" : ""}`}>
                     <strong>{enemyOwner}: {enemyPet.name}</strong>
                     <div className="pet-status-badges">
-                        {frame?.enemyStatus?.poisoned   && <span className="pet-status-badge poison">?×{frame.enemyStatus.poisoned}</span>}
-                        {frame?.enemyStatus?.atkBuff    && <span className="pet-status-badge atk">?ATK?</span>}
-                        {frame?.enemyStatus?.defBuff    && <span className="pet-status-badge def">??DEF?</span>}
-                        {frame?.enemyStatus?.shield     && <span className="pet-status-badge shield">??{frame.enemyStatus.shield}</span>}
-                        {frame?.enemyStatus?.moveLocked && <span className="pet-status-badge movelock">??ROOT</span>}
-                        {frame?.enemyStatus?.absorbing  && <span className="pet-status-badge absorb">?ABSORB</span>}
+                        {frame?.enemyStatus?.poisoned   && <span className="pet-status-badge poison">☠️×{frame.enemyStatus.poisoned}</span>}
+                        {frame?.enemyStatus?.atkBuff    && <span className="pet-status-badge atk">⚔️ATK↑</span>}
+                        {frame?.enemyStatus?.defBuff    && <span className="pet-status-badge def">🛡️DEF↑</span>}
+                        {frame?.enemyStatus?.shield     && <span className="pet-status-badge shield">🔰{frame.enemyStatus.shield}</span>}
+                        {frame?.enemyStatus?.moveLocked && <span className="pet-status-badge movelock">🔒ROOT</span>}
+                        {frame?.enemyStatus?.absorbing  && <span className="pet-status-badge absorb">✨ABSORB</span>}
                     </div>
                     <span>{enemyHp}/{enemyPet.hp} HP</span>
                     <div className={`pet-arena-hpbar${enemyPercent <= 30 ? " pet-arena-hpbar-low" : ""}`}>
                         <i style={{ width: `${enemyPercent}%` }} />
                         {enemyFloatClass && frame && (
                             <span key={frame.message} className={enemyFloatClass}>
-                                {frame.actionKind === "lifesteal" ? `?? +${frame.damage}` : frame.crit ? `? CRIT -${frame.damage}` : frame.actionKind === "dot" ? `? -${frame.damage}` : frame.actionKind === "heal" ? `?? +${frame.damage ?? "heal"}` : `-${frame.damage}`}
+                                {frame.actionKind === "lifesteal" ? `🩸 +${frame.damage}` : frame.crit ? `💥 CRIT -${frame.damage}` : frame.actionKind === "dot" ? `☠️ -${frame.damage}` : frame.actionKind === "heal" ? `💚 +${frame.damage ?? "heal"}` : `-${frame.damage}`}
                             </span>
                         )}
                     </div>
@@ -13983,17 +13983,17 @@ function AdminPanel({
 
                                             <label>Kind</label>
                                             <select value={jutsu.kind} onChange={(e) => updatePetJutsu(index, { kind: e.target.value as PetJutsu["kind"] })}>
-                                                <option value="damage">?? damage — direct attack</option>
-                                                <option value="buff">?? buff — raise own ATK + DEF</option>
-                                                <option value="heal">?? heal — restore own HP</option>
-                                                <option value="debuff">?? debuff — lower enemy ATK + DEF</option>
-                                                <option value="dot">?? dot — poison (3 rounds)</option>
-                                                <option value="move">?? move — dash toward enemy</option>
-                                                <option value="barrier">?? barrier — large absorb shield</option>
-                                                <option value="movelock">?? movelock — root enemy (2 rounds)</option>
-                                                <option value="lifesteal">?? lifesteal — damage + drain 40% HP back</option>
-                                                <option value="shield">?? shield — small fast ward (power × 0.45)</option>
-                                                <option value="absorb">? absorb — 35% damage reduction for 3 rounds</option>
+                                                <option value="damage">⚔️ damage — direct attack</option>
+                                                <option value="buff">💪 buff — raise own ATK + DEF</option>
+                                                <option value="heal">💚 heal — restore own HP</option>
+                                                <option value="debuff">📉 debuff — lower enemy ATK + DEF</option>
+                                                <option value="dot">☠️ dot — poison (3 rounds)</option>
+                                                <option value="move">💨 move — dash toward enemy</option>
+                                                <option value="barrier">🔰 barrier — large absorb shield</option>
+                                                <option value="movelock">🔒 movelock — root enemy (2 rounds)</option>
+                                                <option value="lifesteal">🩸 lifesteal — damage + drain 40% HP back</option>
+                                                <option value="shield">🛡️ shield — small fast ward (power × 0.45)</option>
+                                                <option value="absorb">✨ absorb — 35% damage reduction for 3 rounds</option>
                                             </select>
 
                                             <label>
@@ -19665,11 +19665,11 @@ function CentralHub({
                                                 <div className="nwo-section nwo-section-wide">
                                                     <div className="nwo-label">Tag Formula Notes</div>
                                                     <div className="nwo-rows">
-                                                        <div className="nwo-row"><span>?? Shield</span><span className="nwo-pct">Adds HP shield = rolled% × weapon hit damage</span></div>
-                                                        <div className="nwo-row"><span>?? Heal</span><span className="nwo-pct">Flat heal — 400 HP (single-tag roll) or 200 HP (dual-tag roll)</span></div>
-                                                        <div className="nwo-row"><span>?? Siphon</span><span className="nwo-pct">Restores HP = rolled% × weapon hit damage</span></div>
-                                                        <div className="nwo-row"><span>?? Afterburn</span><span className="nwo-pct">2-round status: next 2 attacks deal +rolled% damage</span></div>
-                                                        <div className="nwo-row"><span>?? Poison / Drain</span><span className="nwo-pct">Deals rolled% of enemy chakra as damage per round</span></div>
+                                                        <div className="nwo-row"><span>🔰 Shield</span><span className="nwo-pct">Adds HP shield = rolled% × weapon hit damage</span></div>
+                                                        <div className="nwo-row"><span>💚 Heal</span><span className="nwo-pct">Flat heal — 400 HP (single-tag roll) or 200 HP (dual-tag roll)</span></div>
+                                                        <div className="nwo-row"><span>🩸 Siphon</span><span className="nwo-pct">Restores HP = rolled% × weapon hit damage</span></div>
+                                                        <div className="nwo-row"><span>🔥 Afterburn</span><span className="nwo-pct">2-round status: next 2 attacks deal +rolled% damage</span></div>
+                                                        <div className="nwo-row"><span>☠️ Poison / Drain</span><span className="nwo-pct">Deals rolled% of enemy chakra as damage per round</span></div>
                                                         <div className="nwo-row"><span>? Damage / IDG / DDT / Reflect / Absorb</span><span className="nwo-pct">Flat % modifier for 2 rounds</span></div>
                                                     </div>
                                                 </div>
