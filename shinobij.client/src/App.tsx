@@ -21758,6 +21758,14 @@ function Profile({
         setTitleInput("");
     }
 
+    const [jutsuSort, setJutsuSort] = useState<"name" | "type" | "element" | "ap-asc" | "ap-desc" | "mastery">("name");
+
+    const JUTSU_TYPE_COLOR: Record<string, string> = {
+        "Ninjutsu": "#3b82f6", "Taijutsu": "#f97316", "Genjutsu": "#a855f7",
+        "Medical Ninjutsu": "#22c55e", "Kenjutsu": "#ef4444",
+        "Fuinjutsu": "#eab308", "Senjutsu": "#6366f1",
+    };
+
     function toggleJutsu(id: string) {
         const equipped = character.equippedJutsuIds.includes(id);
         const mastery = getJutsuMastery(character, id);
@@ -21993,51 +22001,100 @@ function Profile({
             </section>
 
             <section className="profile-build-panel">
-                <div className="stat-header">
-                    <h2>Jutsu Loadout: {character.equippedJutsuIds.length}/15</h2>
-                    <button
-                        className="danger-button"
-                        onClick={() => updateCharacter({ ...character, equippedJutsuIds: [] })}
-                        disabled={character.equippedJutsuIds.length === 0}
-                    >
-                        Unequip All
-                    </button>
-                </div>
                 {(() => {
                     const learnedAnyJutsus = allJutsus.filter((j) => getJutsuMastery(character, j.id).level >= 1);
-                    const learnedJutsus = allJutsus.filter((j) => getJutsuMastery(character, j.id).level >= 1 && canEquipElementJutsu(character, j, savedBloodlines));
-                    if (learnedJutsus.length === 0) {
+                    const learnedJutsus    = allJutsus.filter((j) => getJutsuMastery(character, j.id).level >= 1 && canEquipElementJutsu(character, j, savedBloodlines));
+                    const equippedJutsus   = character.equippedJutsuIds
+                        .map((id) => allJutsus.find((j) => j.id === id))
+                        .filter((j): j is Jutsu => Boolean(j));
+
+                    function sortJutsus(list: Jutsu[]): Jutsu[] {
+                        return [...list].sort((a, b) => {
+                            if (jutsuSort === "type")     return a.type.localeCompare(b.type);
+                            if (jutsuSort === "element")  return a.element.localeCompare(b.element);
+                            if (jutsuSort === "ap-asc")   return a.ap - b.ap;
+                            if (jutsuSort === "ap-desc")  return b.ap - a.ap;
+                            if (jutsuSort === "mastery")  return getJutsuMastery(character, b.id).level - getJutsuMastery(character, a.id).level;
+                            return a.name.localeCompare(b.name); // "name" default
+                        });
+                    }
+
+                    const knownUnequipped = sortJutsus(learnedJutsus.filter((j) => !character.equippedJutsuIds.includes(j.id)));
+
+                    function JutsuCard({ jutsu, mode }: { jutsu: Jutsu; mode: "equipped" | "known" }) {
+                        const mastery = getJutsuMastery(character, jutsu.id);
+                        const typeColor = JUTSU_TYPE_COLOR[jutsu.type] ?? "#64748b";
+                        const isEquipped = character.equippedJutsuIds.includes(jutsu.id);
+                        return (
+                            <div
+                                className={`jutsu-loadout-card${mode === "equipped" ? " equipped" : ""}${isEquipped && mode === "known" ? " is-equipped" : ""}`}
+                                style={{ "--jutsu-type-color": typeColor } as React.CSSProperties}
+                                title={`${jutsu.name} · ${jutsu.type} · ${jutsu.element} · ${jutsu.ap} AP · Lvl ${mastery.level}/50`}
+                            >
+                                <div className="jutsu-loadout-art">
+                                    {jutsu.image
+                                        ? <img src={jutsu.image} alt={jutsu.name} />
+                                        : <span className="jutsu-loadout-art-placeholder">{jutsu.type.charAt(0)}</span>
+                                    }
+                                </div>
+                                <span className="jutsu-loadout-ap-badge">{jutsu.ap}</span>
+                                {mastery.level > 0 && (
+                                    <span className="jutsu-loadout-lvl-badge">Lv{mastery.level}</span>
+                                )}
+                                <div className="jutsu-loadout-footer">
+                                    <span className="jutsu-loadout-name">{jutsu.name}</span>
+                                </div>
+                                <button
+                                    className={`jutsu-loadout-toggle-btn${isEquipped ? " unequip" : " equip"}`}
+                                    onClick={() => toggleJutsu(jutsu.id)}
+                                    title={isEquipped ? "Unequip" : "Equip"}
+                                >
+                                    {isEquipped ? "×" : "+"}
+                                </button>
+                            </div>
+                        );
+                    }
+
+                    if (learnedJutsus.length === 0 && equippedJutsus.length === 0) {
                         return <p className="hint">{learnedAnyJutsus.length ? "Your learned jutsu are locked behind elements you do not currently have." : "You haven't trained any jutsu yet. Visit the Training Grounds to learn them."}</p>;
                     }
+
                     return (
                         <>
-                            <p className="hint">{learnedJutsus.length} jutsu learned for your elements — only trained jutsu can be equipped.</p>
-                            <JutsuDropdownList
-                                jutsus={learnedJutsus}
-                                label="Find Jutsu"
-                                renderDetails={(jutsu) => {
-                                    const mastery = getJutsuMastery(character, jutsu.id);
-                                    return (
-                                        <>
-                                            {(() => {
-                                                const displayJutsu = jutsuDisplayAtLevel(jutsu, mastery.level);
-                                                return (
-                                                    <>
-                                                        <p>Level {mastery.level}/50 | {jutsu.type} | {jutsu.element} | {jutsu.ap} AP | R{jutsu.range} | EP {displayJutsu.effectPower}</p>
-                                                        <p>Tags: {displayJutsu.tags.map((tag) => `${tag.name}${tag.percent ? ` ${tag.percent}%` : ""}`).join(", ") || "None"}</p>
-                                                        <p><strong>Effects:</strong> {describeJutsuEffects(jutsu, mastery.level)}</p>
-                                                        <JutsuEffectCards jutsu={jutsu} masteryLevel={mastery.level} />
-                                                    </>
-                                                );
-                                            })()}
-                                        </>
-                                    );
-                                }}
-                                renderActions={(jutsu) => {
-                                    const equipped = character.equippedJutsuIds.includes(jutsu.id);
-                                    return <button onClick={() => toggleJutsu(jutsu.id)}>{equipped ? "Unequip" : "Equip"}</button>;
-                                }}
-                            />
+                            {/* ── Equipped card grid ── */}
+                            <div className="stat-header" style={{ marginBottom: "0.6rem" }}>
+                                <h2>Equipped Jutsu ({equippedJutsus.length}/15)</h2>
+                                <button className="danger-button" onClick={() => updateCharacter({ ...character, equippedJutsuIds: [] })} disabled={equippedJutsus.length === 0}>
+                                    Unequip All
+                                </button>
+                            </div>
+                            {equippedJutsus.length === 0
+                                ? <p className="hint" style={{ marginBottom: 12 }}>No jutsu equipped yet — select from your known jutsu below.</p>
+                                : <div className="jutsu-loadout-card-grid">{equippedJutsus.map((j) => <JutsuCard key={j.id} jutsu={j} mode="equipped" />)}</div>
+                            }
+
+                            {/* ── Divider + sort ── */}
+                            <div className="jutsu-loadout-divider">
+                                <span>Known Jutsu ({learnedJutsus.length})</span>
+                                <select
+                                    className="jutsu-loadout-sort"
+                                    value={jutsuSort}
+                                    onChange={(e) => setJutsuSort(e.target.value as typeof jutsuSort)}
+                                >
+                                    <option value="name">Sort: Name A–Z</option>
+                                    <option value="type">Sort: Type</option>
+                                    <option value="element">Sort: Element</option>
+                                    <option value="ap-asc">Sort: AP ↑ Low–High</option>
+                                    <option value="ap-desc">Sort: AP ↓ High–Low</option>
+                                    <option value="mastery">Sort: Mastery Level ↓</option>
+                                </select>
+                            </div>
+
+                            {/* ── Known (unequipped) grid ── */}
+                            {knownUnequipped.length === 0
+                                ? <p className="hint">All learned jutsu are equipped.</p>
+                                : <div className="jutsu-loadout-card-grid known">{knownUnequipped.map((j) => <JutsuCard key={j.id} jutsu={j} mode="known" />)}</div>
+                            }
                         </>
                     );
                 })()}

@@ -10190,6 +10190,223 @@ textarea {
         }
 
 
+/* ===== JUTSU LOADOUT CARD GRID ===== */
+
+.jutsu-loadout-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.jutsu-loadout-card-grid.known {
+    opacity: 0.92;
+}
+
+.jutsu-loadout-card {
+    position: relative;
+    border-radius: 9px;
+    overflow: hidden;
+    background: rgba(10, 14, 30, 0.92);
+    border: 2px solid rgba(100, 116, 139, 0.55);
+    display: flex;
+    flex-direction: column;
+    cursor: default;
+    transition: transform 0.15s, box-shadow 0.15s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+
+.jutsu-loadout-card.equipped {
+    border-color: var(--jutsu-type-color, #3b82f6);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--jutsu-type-color, #3b82f6) 40%, transparent);
+}
+
+.jutsu-loadout-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.5);
+}
+
+.jutsu-loadout-card.is-equipped {
+    border-color: rgba(74, 222, 128, 0.5);
+    background: rgba(6, 40, 18, 0.85);
+}
+
+/* Card image */
+.jutsu-loadout-art {
+    position: relative;
+    height: 76px;
+    overflow: hidden;
+    background: #07111f;
+    flex-shrink: 0;
+}
+
+.jutsu-loadout-art img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.jutsu-loadout-art-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    font-size: 28px;
+    font-weight: 900;
+    color: var(--jutsu-type-color, #3b82f6);
+    opacity: 0.35;
+    font-style: italic;
+}
+
+/* AP badge — bottom-right circle overlay */
+.jutsu-loadout-ap-badge {
+    position: absolute;
+    bottom: 28px;
+    right: 4px;
+    min-width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--jutsu-type-color, #3b82f6) 80%, #000 20%);
+    border: 2px solid rgba(255,255,255,0.18);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 900;
+    line-height: 1;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+    pointer-events: none;
+    z-index: 2;
+}
+
+/* Mastery level badge — top-left */
+.jutsu-loadout-lvl-badge {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: rgba(0,0,0,0.65);
+    color: #facc15;
+    font-size: 9px;
+    font-weight: 700;
+    pointer-events: none;
+    z-index: 2;
+}
+
+/* Name strip */
+.jutsu-loadout-footer {
+    padding: 3px 22px 3px 5px;
+    background: linear-gradient(to top, rgba(0,0,0,0.85), rgba(0,0,0,0.5));
+    min-height: 28px;
+    display: flex;
+    align-items: center;
+}
+
+.jutsu-loadout-name {
+    font-size: 9px;
+    font-weight: 700;
+    color: #e2e8f0;
+    line-height: 1.25;
+    word-break: break-word;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+/* Equip/unequip toggle button */
+.jutsu-loadout-toggle-btn {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(255,255,255,0.25);
+    font-size: 14px;
+    font-weight: 900;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 3;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.jutsu-loadout-toggle-btn.unequip {
+    background: rgba(127, 29, 29, 0.75);
+    color: #fca5a5;
+    border-color: rgba(239, 68, 68, 0.5);
+}
+
+.jutsu-loadout-toggle-btn.unequip:hover {
+    background: rgba(185, 28, 28, 0.9);
+    color: #fff;
+}
+
+.jutsu-loadout-toggle-btn.equip {
+    background: rgba(6, 60, 20, 0.75);
+    color: #86efac;
+    border-color: rgba(74, 222, 128, 0.4);
+}
+
+.jutsu-loadout-toggle-btn.equip:hover {
+    background: rgba(20, 100, 40, 0.9);
+    color: #fff;
+}
+
+/* Divider between equipped and known */
+.jutsu-loadout-divider {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 14px 0 10px;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+}
+
+.jutsu-loadout-divider span {
+    white-space: nowrap;
+}
+
+.jutsu-loadout-divider::before,
+.jutsu-loadout-divider::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: rgba(51, 65, 85, 0.7);
+}
+
+.jutsu-loadout-divider::before {
+    display: none;
+}
+
+/* Sort dropdown */
+.jutsu-loadout-sort {
+    margin-left: auto;
+    padding: 3px 8px;
+    font-size: 11px;
+    background: rgba(15, 23, 42, 0.8);
+    border: 1px solid #334155;
+    border-radius: 6px;
+    color: #94a3b8;
+    cursor: pointer;
+}
+
+.jutsu-loadout-sort:focus {
+    outline: none;
+    border-color: #3b82f6;
+    color: #e2e8f0;
+}
+
 /* ===== TILE CARD FILTER / SELL UI ===== */
 
 .tile-card-filters {
