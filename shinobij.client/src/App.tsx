@@ -7997,12 +7997,12 @@ function LeftProfileCard({
                     <span className="left-currency-value" style={{ color: "#facc15" }}>{character.honorSeals.toLocaleString()}</span>
                 </div>
                 <div className="left-currency-row">
-                    <span className="left-currency-icon">?</span>
+                    <span className="left-currency-icon">✨</span>
                     <span className="left-currency-label">Aura Dust</span>
                     <span className="left-currency-value" style={{ color: "#fef3c7" }}>{character.auraDust.toLocaleString()}</span>
                 </div>
                 <div className="left-currency-row">
-                    <span className="left-currency-icon">?</span>
+                    <span className="left-currency-icon">💠</span>
                     <span className="left-currency-label">Fate Shards</span>
                     <span className="left-currency-value" style={{ color: "#ce93d8" }}>{character.fateShards.toLocaleString()}</span>
                 </div>
