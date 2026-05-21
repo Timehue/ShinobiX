@@ -6559,7 +6559,7 @@ export default function App() {
     // SessionStorage cache helpers — images don't change often so 10-min local
     // cache eliminates most repeat KV reads on page refresh / screen changes.
     const IMG_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
-    function imgCacheKey(cat: string) { return `imgcat:${cat}`; }
+    function imgCacheKey(cat: string) { return `imgcat:v2:${cat}`; }
     function clearImgCache() {
         try {
             ['item','pet','card','jutsu','event','avatar','ai','bloodline','misc'].forEach(c =>
