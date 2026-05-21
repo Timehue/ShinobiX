@@ -84,19 +84,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!oldPassword || !newPassword) {
             return res.status(400).json({ ok: false, error: 'Missing oldPassword or newPassword.' });
         }
-        const record = await kv.get<AuthRecord>(key);
-        if (!record) {
-            // Legacy account with no password yet — just set it.
+        try {
+            const record = await kv.get<AuthRecord>(key);
+            if (!record) {
+                // Legacy account with no password yet — just set it.
+                const salt = newSalt();
+                await kv.set(key, { hash: hashPw(newPassword, salt), salt });
+                return res.status(200).json({ ok: true });
+            }
+            if (hashPw(oldPassword, record.salt) !== record.hash) {
+                return res.status(401).json({ ok: false, error: 'Incorrect current password.' });
+            }
             const salt = newSalt();
             await kv.set(key, { hash: hashPw(newPassword, salt), salt });
             return res.status(200).json({ ok: true });
+        } catch (err) {
+            console.error('[player-auth change]', String(err));
+            return res.status(503).json({ ok: false, error: 'Storage unavailable. Try again.' });
         }
-        if (hashPw(oldPassword, record.salt) !== record.hash) {
-            return res.status(401).json({ ok: false, error: 'Incorrect current password.' });
-        }
-        const salt = newSalt();
-        await kv.set(key, { hash: hashPw(newPassword, salt), salt });
-        return res.status(200).json({ ok: true });
     }
 
     if (action === 'delete') {
@@ -105,15 +110,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const adminPassword = process.env.ADMIN_PASSWORD;
         const adminPw = req.headers['x-admin-password'] as string | undefined;
         if (adminPassword && adminPw === adminPassword) {
-            await kv.del(key);
+            try {
+                await kv.del(key);
+            } catch (err) {
+                console.error('[player-auth delete]', String(err));
+                return res.status(503).json({ ok: false, error: 'Storage unavailable. Try again.' });
+            }
             return res.status(200).json({ ok: true });
         }
         if (!password) return res.status(401).json({ ok: false, error: 'Authentication required.' });
-        const record = await kv.get<AuthRecord>(key);
-        if (record && hashPw(password, record.salt) !== record.hash) {
-            return res.status(401).json({ ok: false, error: 'Incorrect password.' });
+        try {
+            const record = await kv.get<AuthRecord>(key);
+            if (record && hashPw(password, record.salt) !== record.hash) {
+                return res.status(401).json({ ok: false, error: 'Incorrect password.' });
+            }
+            await kv.del(key);
+        } catch (err) {
+            console.error('[player-auth delete]', String(err));
+            return res.status(503).json({ ok: false, error: 'Storage unavailable. Try again.' });
         }
-        await kv.del(key);
         return res.status(200).json({ ok: true });
     }
 
@@ -125,8 +140,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(401).json({ ok: false, error: 'Admin authentication required.' });
         }
         if (!newPassword) return res.status(400).json({ ok: false, error: 'Missing newPassword.' });
-        const salt = newSalt();
-        await kv.set(key, { hash: hashPw(newPassword, salt), salt });
+        try {
+            const salt = newSalt();
+            await kv.set(key, { hash: hashPw(newPassword, salt), salt });
+        } catch (err) {
+            console.error('[player-auth adminreset]', String(err));
+            return res.status(503).json({ ok: false, error: 'Storage unavailable. Try again.' });
+        }
         return res.status(200).json({ ok: true });
     }
 
