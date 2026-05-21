@@ -1576,7 +1576,7 @@ const petPool: Pet[] = ([
                         ? { name: `${name} Venom Seal`,  power: 60 + index * 2, cooldown: 5, currentCooldown: 0, kind: "dot"      as const }
                         : index % 5 === 3
                             ? { name: `${name} Spirit Wall`, power: 70 + index * 2, cooldown: 5, currentCooldown: 0, kind: "barrier"  as const }
-                            : { name: `${name} Root Bind`,   power: 0,              cooldown: 5, currentCooldown: 0, kind: "movelock" as const },
+                            : { name: `${name} Venom Bite`,  power: 52 + index * 2, cooldown: 5, currentCooldown: 0, kind: "dot"     as const },
             { name: `${name} Lunge`,      power: 0,               cooldown: 3, currentCooldown: 0, kind: "move"   as const },
         ],
     })),
@@ -1600,7 +1600,7 @@ const petPool: Pet[] = ([
             { name: "Eclipse Fang",         power: 180, cooldown: 3, currentCooldown: 0, kind: "damage" },
             { name: "Moonbreak Nova",       power: 260, cooldown: 4, currentCooldown: 0, kind: "damage" },
             { name: "Moonlit Restoration",  power: 95,  cooldown: 5, currentCooldown: 0, kind: "heal"     },
-            { name: "Shadow Root Bind",     power: 0,   cooldown: 4, currentCooldown: 0, kind: "movelock" },
+            { name: "Lunar Drain",           power: 90,  cooldown: 4, currentCooldown: 0, kind: "lifesteal" },
             { name: "Phantom Phase",        power: 0,   cooldown: 3, currentCooldown: 0, kind: "move"     },
         ],
     },
