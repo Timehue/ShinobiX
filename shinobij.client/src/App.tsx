@@ -5769,10 +5769,12 @@ export default function App() {
             }
         }
 
-        heartbeat();
-        // 5-second interval so both players get routed to the battle screen within ~5s
-        // of a challenge being sent or accepted (was 20s — too slow for real-time battles).
-        const id = setInterval(heartbeat, 5000);
+        // Sector 0 = village. Players can't be attacked there so we don't need
+        // rapid presence updates. Use a slow tick (60s) just to keep forceReload
+        // detection alive for admin resets. Skip the immediate fire too.
+        const inVillage = currentSector === 0;
+        if (!inVillage) heartbeat();
+        const id = setInterval(heartbeat, inVillage ? 60000 : 5000);
         return () => clearInterval(id);
     }, [character?.name, currentSector]);
 
