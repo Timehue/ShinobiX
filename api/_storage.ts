@@ -157,7 +157,18 @@ function getSupabase(): SupabaseClient {
     const url = process.env.SUPABASE_URL;
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (!url || !key) throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set.');
-    _supabase = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+    // Give every Supabase REST call a 30-second hard timeout via a custom fetch.
+    // Without this, one slow JSONB serialisation on a multi-MB blob hangs the
+    // Vercel function until the platform kills it (~300 s), returning no response.
+    const fetchWithTimeout: typeof fetch = (input, init) => {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 30_000);
+        return fetch(input, { ...init, signal: ctrl.signal }).finally(() => clearTimeout(timer));
+    };
+    _supabase = createClient(url, key, {
+        auth: { persistSession: false, autoRefreshToken: false },
+        global: { fetch: fetchWithTimeout },
+    });
     return _supabase;
 }
 
