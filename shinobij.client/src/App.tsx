@@ -472,6 +472,7 @@ type Character = {
     pets: Pet[];
     activePetId?: string;
     tileCards: string[];
+    savedTileDeck?: string[];
     element?: string;
     elements?: string[];
     boneCharms: number;
@@ -4512,6 +4513,7 @@ function normalizeCharacter(parsed: Character): Character {
         auraSphereLevel: Math.max(1, Math.floor(parsed.auraSphereLevel ?? 1)),
         fateShards: parsed.fateShards ?? 0,
         tileCards: parsed.tileCards ?? [],
+        savedTileDeck: parsed.savedTileDeck ?? undefined,
         elements: getCharacterElements(parsed),
         hp: Math.min(maxHp, parsed.maxHp && parsed.maxHp < expectedMaxHp ? expectedMaxHp : parsed.hp ?? expectedMaxHp),
         maxHp,
@@ -16944,14 +16946,47 @@ function ShinobiTiles({ character, updateCharacter, creatorCards, dungeonMode = 
                 </div>
             );
         }
+        const savedDeckCards = (character.savedTileDeck ?? [])
+            .map(id => allCards.find(c => c.id === id))
+            .filter(Boolean) as TileCard[];
+        const hasSavedDeck = savedDeckCards.length === 5 &&
+            savedDeckCards.every(c => character.tileCards.includes(c.id));
+
         return (
             <div className="card">
                 <h2>{dungeonMode ? "Dungeon Tile Seal" : "Select 5 Cards"}</h2>
                 <p style={{ marginBottom: "0.5rem" }}>Picked: <strong>{deckPicks.length} / 5</strong></p>
-                <div className="menu" style={{ marginBottom: "1rem" }}>
+                <div className="menu" style={{ marginBottom: "0.5rem" }}>
                     <button onClick={startGame} disabled={deckPicks.length !== 5}>{dungeonMode ? "Challenge Shrine" : "Play"}</button>
                     <button onClick={dungeonMode ? onDungeonLeave : () => setPhase("collection")}>{dungeonMode ? "Leave Dungeon" : "Back"}</button>
                 </div>
+                <div className="menu" style={{ marginBottom: "1rem" }}>
+                    <button
+                        disabled={deckPicks.length !== 5}
+                        onClick={() => updateCharacter({ ...character, savedTileDeck: deckPicks.map(c => c.id) })}
+                        title="Save current 5-card deck"
+                    >💾 Save Deck</button>
+                    <button
+                        disabled={!hasSavedDeck}
+                        onClick={() => hasSavedDeck && setDeckPicks(savedDeckCards)}
+                        title={hasSavedDeck ? "Load your saved deck" : "No valid saved deck"}
+                    >📂 Load Deck</button>
+                    {character.savedTileDeck && character.savedTileDeck.length > 0 && (
+                        <button
+                            className="danger-button"
+                            style={{ fontSize: 11, padding: "3px 8px" }}
+                            onClick={() => updateCharacter({ ...character, savedTileDeck: [] })}
+                            title="Clear saved deck"
+                        >✕ Clear</button>
+                    )}
+                </div>
+                {character.savedTileDeck && character.savedTileDeck.length > 0 && (
+                    <p style={{ fontSize: 11, color: hasSavedDeck ? "#86efac" : "#f87171", marginBottom: "0.6rem" }}>
+                        {hasSavedDeck
+                            ? "💾 Saved deck available — click Load Deck to use it"
+                            : "⚠️ Saved deck contains cards you no longer own"}
+                    </p>
+                )}
                 {deckPicks.length > 0 && (
                     <div style={{ marginBottom: "1rem" }}>
                         <h4>Your Deck</h4>
