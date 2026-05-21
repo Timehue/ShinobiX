@@ -151,6 +151,21 @@ route('/bloodlines/list', bloodlinesListHandler);
 // Admin review queues
 route('/admin/bloodline-review', bloodlineReviewHandler);
 route('/admin/item-review', itemReviewHandler);
+// ─── Frontend static files (cPanel / Passenger) ───────────────────────────────
+// Serve the built React app from the public/ subfolder so the whole domain
+// works: /api/* hits Express routes above, everything else gets index.html.
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const publicDir = join(__dirname, 'public');
+import { existsSync } from 'fs';
+if (existsSync(publicDir)) {
+    app.use(express.static(publicDir));
+    app.get('*', (_req, res) => {
+        res.sendFile(join(publicDir, 'index.html'));
+    });
+}
 // ─── Error handler ────────────────────────────────────────────────────────────
 app.use((err, _req, res, _next) => {
     console.error('[server error]', err);
