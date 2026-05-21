@@ -14937,9 +14937,9 @@ function JutsuDropdownList({
                     </select>
                     {selectedJutsu && (
                         <div className="technique-selected-panel">
+                            {renderActions && <div className="menu">{renderActions(selectedJutsu)}</div>}
                             <h4>{selectedJutsu.name}</h4>
                             {renderDetails(selectedJutsu)}
-                            {renderActions && <div className="menu">{renderActions(selectedJutsu)}</div>}
                         </div>
                     )}
                 </aside>
