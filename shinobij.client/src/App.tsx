@@ -17281,6 +17281,7 @@ function Inventory({
         source: "backpack" | "equipped";
         equipmentSlot?: EquipmentSlot;
     }>(null);
+    const [activeSlotPicker, setActiveSlotPicker] = useState<EquipmentSlot | null>(null);
     const [inventoryTab, setInventoryTab] = useState<"items" | "tileCards">("items");
     const [selectedTileCard, setSelectedTileCard] = useState<{ card: TileCard; count: number } | null>(null);
     const [cardSortBy, setCardSortBy]               = useState<"rarity" | "name" | "power">("rarity");
@@ -17571,18 +17572,21 @@ function Inventory({
                                     type="button"
                                     className={`character-equip-slot ${slot.className} ${equipped ? `filled rarity-${equipped.rarity}` : ""}`}
                                     onClick={() => {
-                                        if (!slot.equipmentSlot || !equipped) return;
-
-                                        setSelectedInventoryItem({
-                                            entry: equipped.id,
-                                            item: equipped,
-                                            index: -1,
-                                            count: 1,
-                                            source: "equipped",
-                                            equipmentSlot: slot.equipmentSlot,
-                                        });
+                                        if (!slot.equipmentSlot) return;
+                                        if (equipped) {
+                                            setSelectedInventoryItem({
+                                                entry: equipped.id,
+                                                item: equipped,
+                                                index: -1,
+                                                count: 1,
+                                                source: "equipped",
+                                                equipmentSlot: slot.equipmentSlot,
+                                            });
+                                        } else {
+                                            setActiveSlotPicker(slot.equipmentSlot);
+                                        }
                                     }}
-                                    title={equipped ? `${equipped.name}: click to inspect` : slotHelp(slot)}
+                                    title={equipped ? `${equipped.name}: click to inspect` : slot.accepts ? `Click to equip ${equipmentSlotLabel(slot.accepts)}` : slotHelp(slot)}
                                 >
                                     {equipped?.image ? (
                                         <img
@@ -17620,6 +17624,44 @@ function Inventory({
                             );
                         })}
                     </div>
+
+                    {/* Slot picker modal */}
+                    {activeSlotPicker && (() => {
+                        const slotLabel = equipmentSlotLabel(activeSlotPicker);
+                        const matchingItems = character.inventory
+                            .map((id, idx) => ({ item: getItemById(allItems, id), idx }))
+                            .filter(({ item }) => item && normalizeEquipmentSlot(item.slot) === normalizeEquipmentSlot(activeSlotPicker)) as { item: GameItem; idx: number }[];
+                        return (
+                            <div className="slot-picker-overlay" onClick={() => setActiveSlotPicker(null)}>
+                                <div className="slot-picker-panel" onClick={e => e.stopPropagation()}>
+                                    <div className="slot-picker-header">
+                                        <h3>{slotLabel} Slot</h3>
+                                        <button className="slot-picker-close" onClick={() => setActiveSlotPicker(null)}>×</button>
+                                    </div>
+                                    {matchingItems.length === 0 ? (
+                                        <p className="slot-picker-empty">No {slotLabel.toLowerCase()} items in your backpack.</p>
+                                    ) : (
+                                        <div className="slot-picker-grid">
+                                            {matchingItems.map(({ item, idx }) => (
+                                                <button
+                                                    key={idx}
+                                                    className={`slot-picker-item rarity-${item.rarity}`}
+                                                    onClick={() => { equipItem(item, idx); setActiveSlotPicker(null); }}
+                                                >
+                                                    {item.image
+                                                        ? <img src={item.image} alt={item.name} className="slot-picker-img" />
+                                                        : <span className="slot-picker-initials">{itemInitials(item.name)}</span>
+                                                    }
+                                                    <span className="slot-picker-name">{item.name}</span>
+                                                    <span className="slot-picker-rarity">{item.rarity}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })()}
                 </section>
 
                 <section className="inventory-backpack-panel">
