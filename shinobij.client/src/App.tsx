@@ -7853,6 +7853,7 @@ export default function App() {
                         setPvpRole={setPvpRole}
                         setPvpBattleContext={setPvpBattleContext}
                         setPendingPetBattleOpponent={setPendingPetBattleOpponent}
+                        onAcceptChallenge={acceptChallengeGlobal}
                     />
                 )}
 
@@ -22106,9 +22107,15 @@ function hydrateSharedGameState(data: {
         : null;
 }
 
+/**
+ * Standard Elo K=32 formula.
+ * Returns the points the winner gains (and loser loses).
+ * Min 4, max 28 — so beating a much stronger opponent rewards more,
+ * and beating a much weaker one risks very little.
+ */
 function rankedDelta(winnerRating: number, loserRating: number) {
     const expected = 1 / (1 + Math.pow(10, (loserRating - winnerRating) / 400));
-    return Math.max(8, Math.round(24 * (1 - expected)));
+    return Math.max(4, Math.round(32 * (1 - expected)));
 }
 
 function Arena({
@@ -22121,6 +22128,7 @@ function Arena({
     pendingAiProfileId,
     setPendingAiProfileId,
     currentBiome,
+    onAcceptChallenge,
     currentSector,
     playerRoster,
     duelChallenges,
@@ -22179,6 +22187,7 @@ function Arena({
     setPvpRole?: (role: "p1" | "p2") => void;
     setPvpBattleContext?: (context: SharedPvpBattleContext | null) => void;
     setPendingPetBattleOpponent?: (opponent: PetArenaOpponent | null) => void;
+    onAcceptChallenge?: (challenge: DuelChallenge) => Promise<void>;
 }) {
     type CombatStatus = {
         name: string;
@@ -22308,8 +22317,12 @@ function Arena({
     const [battleStarted, setBattleStarted] = useState(false);
     const [aiLevel, setAiLevel] = useState(character.level);
     const [sparSearch, setSparSearch] = useState("");
-    const [rankedSearch, setRankedSearch] = useState("");
     const [petChallengeSearch, setPetChallengeSearch] = useState("");
+    const [inRankedQueue, setInRankedQueue] = useState(false);
+    const [rankedQueueSize, setRankedQueueSize] = useState(0);
+    const [rankedQueueLoading, setRankedQueueLoading] = useState(false);
+    const [rankedQueueMatchMsg, setRankedQueueMatchMsg] = useState("");
+    const rankedQueueIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const [opponentCharacter, setOpponentCharacter] = useState<Character | null>(null);
     const [rankedBattleActive, setRankedBattleActive] = useState(false);
     const [clanWarPointsActive, setClanWarPointsActive] = useState(0);
@@ -22324,6 +22337,23 @@ function Arena({
         const id = setInterval(refreshArenaState, 10000);
         return () => clearInterval(id);
     }, []);
+    // Fetch live ranked queue size on mount and every 15s (when not polling ourselves)
+    useEffect(() => {
+        const fetchQueueSize = () => {
+            if (inRankedQueue) return; // already polling via sendRankedQueueJoin
+            fetch('/api/ranked-queue/join', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                // Use a sentinel body that returns size without actually joining
+                body: JSON.stringify({ name: `__peek__${character.name}`, rating: character.rankedRating ?? 1000, peek: true }),
+            }).then(r => r.ok ? r.json() : null).then(d => {
+                if (d?.queueSize !== undefined) setRankedQueueSize(d.queueSize);
+            }).catch(() => {});
+        };
+        fetchQueueSize();
+        const id = setInterval(fetchQueueSize, 15000);
+        return () => clearInterval(id);
+    }, [inRankedQueue]); // eslint-disable-line react-hooks/exhaustive-deps
     const [opponentClanData, setOpponentClanData] = useState<EnhancedClanData | null>(null);
     const opponentLevel = opponentCharacter?.level ?? pendingAiProfile?.level ?? aiLevel;
     const enemyArmorFactor = opponentCharacter ? getCharacterArmorFactor(opponentCharacter, allItems) : aiArmorFactorForProfile(pendingAiProfile ?? { level: opponentLevel });
@@ -22627,6 +22657,62 @@ function Arena({
         setEnemyHp(hp);
         startPrefight(hp, `AI battle started against a Level ${aiLevel} AI Ninja. Weather: ${weatherEffects[currentWeather].name}.`);
     }
+
+    // ── Ranked queue ──────────────────────────────────────────────────────────
+    async function sendRankedQueueJoin() {
+        const res = await fetch('/api/ranked-queue/join', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: character.name, rating: character.rankedRating ?? 1000 }),
+        });
+        if (!res.ok) return;
+        const data = await res.json() as { matched?: boolean; queued?: boolean; queueSize?: number; opponentName?: string; challenge?: DuelChallenge };
+        if (data.matched) {
+            // Stop polling
+            if (rankedQueueIntervalRef.current) { clearInterval(rankedQueueIntervalRef.current); rankedQueueIntervalRef.current = null; }
+            setInRankedQueue(false);
+            setRankedQueueLoading(false);
+            if (data.challenge && onAcceptChallenge) {
+                // P2 case — we received a challenge; auto-accept it
+                const c = { ...data.challenge, challenger: normalizeCharacter((data.challenge.challenger ?? { name: data.opponentName ?? "" }) as Character) };
+                setDuelChallenges(prev => [...prev.filter(x => x.id !== c.id), c]);
+                setRankedQueueMatchMsg(`Match found vs ${data.opponentName}! Starting battle...`);
+                void onAcceptChallenge(c);
+            } else {
+                // P1 case — we were the waiting player; heartbeat routes us
+                setRankedQueueMatchMsg(`Match found vs ${data.opponentName ?? "opponent"}! Battle starting soon...`);
+            }
+        } else {
+            setRankedQueueSize(data.queueSize ?? 1);
+        }
+    }
+
+    async function joinRankedQueue() {
+        if (inRankedQueue) return;
+        setRankedQueueLoading(true);
+        setRankedQueueMatchMsg("");
+        try {
+            await sendRankedQueueJoin();
+            setInRankedQueue(true);
+            if (!rankedQueueIntervalRef.current) {
+                rankedQueueIntervalRef.current = setInterval(() => { void sendRankedQueueJoin(); }, 5000);
+            }
+        } finally {
+            setRankedQueueLoading(false);
+        }
+    }
+
+    async function leaveRankedQueue() {
+        if (rankedQueueIntervalRef.current) { clearInterval(rankedQueueIntervalRef.current); rankedQueueIntervalRef.current = null; }
+        setInRankedQueue(false);
+        setRankedQueueMatchMsg("");
+        await fetch('/api/ranked-queue/leave', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: character.name }),
+        }).catch(() => {});
+    }
+    // ── End ranked queue ──────────────────────────────────────────────────────
 
     async function challengePlayer(opponent: PlayerRecord, mode: DuelChallenge["mode"] = "standard", clanWarPoints = 0) {
         if (duelChallenges.some((challenge) => challenge.fromName === character.name && !challenge.accepted && !challenge.declined && !challenge.battleId && Date.now() - challenge.createdAt < 120000)) {
@@ -24615,9 +24701,6 @@ function Arena({
 
     if (!battleStarted) {
         const sparOpponents = playerRoster.filter((player) => playerSearchMatches(player, sparSearch));
-        const rankedOpponents = playerRoster
-            .filter((player) => playerSearchMatches(player, rankedSearch))
-            .filter((player) => player.character.level >= Math.max(1, character.level - 20));
         const petChallengeOpponents = playerRoster
             .filter((player) => playerSearchMatches(player, petChallengeSearch))
             .filter((player) => player.character.pets.length > 0);
@@ -24719,31 +24802,26 @@ function Arena({
 
                 <section className="summary-box">
                     <h3>Ranked Battles</h3>
-                    <p>Rating: <strong>{character.rankedRating ?? 1000}</strong> Elo | Wins {character.rankedWins ?? 0} | Losses {character.rankedLosses ?? 0}</p>
-                    <p className="hint">Ranked fights use neutral ground: no terrain or weather modifiers.</p>
-                    <label>Search Ranked Opponent</label>
-                    <input value={rankedSearch} onChange={(e) => setRankedSearch(e.target.value)} placeholder="Search by player name" />
-                    <div className="jutsu-list">
-                        {rankedOpponents.length === 0 && rankedSearch.trim() ? (
-                            <>
-                                <p className="hint">No roster match. Send a ranked challenge directly to "{rankedSearch.trim()}".</p>
-                                <button onClick={() => {
-                                    const name = rankedSearch.trim();
-                                    if (!name || name === character.name) return;
-                                    const stub = { name, level: 1, village: "", specialty: "Ninjutsu", character: { ...character, name } as Character, currentSector: 0, lastSeenAt: Date.now() } as PlayerRecord;
-                                    challengePlayer(stub, "ranked");
-                                }}>Send Ranked Challenge to "{rankedSearch.trim()}"</button>
-                            </>
-                        ) : rankedOpponents.length === 0 ? (
-                            <p className="hint">No ranked opponents found — type a player's exact name to challenge them directly.</p>
-                        ) : rankedOpponents.map((player) => (
-                            <div className="summary-box" key={`ranked-${player.name}`}>
-                                <strong>{player.name}</strong>
-                                <p>Level {player.level} | Elo {player.character.rankedRating ?? 1000}</p>
-                                <button onClick={() => challengePlayer(player, "ranked")}>Send Ranked Challenge</button>
-                            </div>
-                        ))}
+                    <p>Rating: <strong style={{ color: "#facc15" }}>{character.rankedRating ?? 1000}</strong> Elo &nbsp;|&nbsp; Wins {character.rankedWins ?? 0} &nbsp;|&nbsp; Losses {character.rankedLosses ?? 0}</p>
+                    <p className="hint">Ranked fights use neutral ground: no terrain or weather modifiers. Elo gained/lost scales with the rating gap.</p>
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px", margin: "8px 0" }}>
+                        <span>🎯 Players in queue: <strong>{inRankedQueue ? rankedQueueSize : rankedQueueSize}</strong></span>
                     </div>
+                    {rankedQueueMatchMsg ? (
+                        <p style={{ color: "#4ade80", fontWeight: 600 }}>{rankedQueueMatchMsg}</p>
+                    ) : inRankedQueue ? (
+                        <>
+                            <p className="hint" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                <span style={{ animation: "spin 1s linear infinite", display: "inline-block" }}>⏳</span>
+                                Searching for an opponent...
+                            </p>
+                            <button className="danger-button" onClick={() => void leaveRankedQueue()}>Leave Queue</button>
+                        </>
+                    ) : (
+                        <button onClick={() => void joinRankedQueue()} disabled={rankedQueueLoading}>
+                            {rankedQueueLoading ? "Joining..." : "⚔️ Enter Ranked Queue"}
+                        </button>
+                    )}
                 </section>
 
                 <section className="summary-box">

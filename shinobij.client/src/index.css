@@ -4553,6 +4553,11 @@ button {
     margin-left: 6px;
 }
 
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
 .atlas-world-map {
     border-radius: 8px;
     border-color: rgba(186, 230, 253, .55);
