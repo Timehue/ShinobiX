@@ -20034,6 +20034,59 @@ function WorldMap({
         });
     }
 
+    // ── WASD / E keyboard navigation ─────────────────────────────────────────────
+    // W/A/S/D moves to the nearest sector in that cardinal direction.
+    // E explores the current sector (or selected sector if already there).
+    // Blocked during travel and when focus is inside an input/textarea/select.
+    useEffect(() => {
+        function nearestSectorInDir(fromId: number, dx: number, dy: number): number | null {
+            const from = sectorPoints.find(s => s.id === fromId);
+            if (!from) return null;
+            let best: { id: number; score: number } | null = null;
+            for (const s of sectorPoints) {
+                if (s.id === fromId) continue;
+                const relX = s.x - from.x;
+                const relY = s.y - from.y;
+                // Must move at least somewhat in the intended direction
+                const forward = relX * dx + relY * dy;
+                if (forward <= 0) continue;
+                // Penalise lateral drift so straight moves win over diagonal
+                const lateral = Math.abs(relX * dy - relY * dx);
+                const dist = Math.sqrt(relX * relX + relY * relY);
+                const score = forward / (lateral + dist * 0.4 + 1);
+                if (!best || score > best.score) best = { id: s.id, score };
+            }
+            return best?.id ?? null;
+        }
+
+        function handleKey(e: KeyboardEvent) {
+            if (isTraveling) return;
+            const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+            if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+
+            const key = e.key.toLowerCase();
+            if (key === 'e') {
+                e.preventDefault();
+                const target = selectedSector ?? currentSector;
+                if (target) exploreSector(target);
+                return;
+            }
+
+            // dx/dy in map-percentage space: right=+x, down=+y
+            const dir: Record<string, [number, number]> = {
+                w: [0, -1], a: [-1, 0], s: [0, 1], d: [1, 0],
+            };
+            if (!dir[key]) return;
+            e.preventDefault();
+            const [dx, dy] = dir[key]!;
+            const next = nearestSectorInDir(currentSector, dx, dy);
+            if (next !== null) triggerTravelPoint(next);
+        }
+
+        window.addEventListener('keydown', handleKey);
+        return () => window.removeEventListener('keydown', handleKey);
+    }, [currentSector, selectedSector, isTraveling, sectorPoints]);
+
     function rollAncientChest(sector: number, allCards: TileCard[]): ChestLoot {
         // Always: XP scaled to sector
         const xp = 50 + Math.floor(sector * 2);
