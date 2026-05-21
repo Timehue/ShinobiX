@@ -4988,7 +4988,9 @@ function getAllJutsus(savedBloodlines: SavedBloodline[], creatorJutsus: Jutsu[],
         ...markRank(equippedBloodline?.jutsus ?? [], equippedBloodline?.rank ?? "B Rank"),
         ...creatorJutsus.map((jutsu) => {
             const starterBloodlineRank = starterBloodlineJutsuRank(jutsu.id);
-            return starterBloodlineRank ? { ...normalizeJutsu(jutsu), bloodlineRank: starterBloodlineRank } : rebalanceNonBloodlineJutsu(jutsu);
+            // Do NOT rebalance here — admin-saved values must be preserved as-is.
+            // rebalanceNonBloodlineJutsu is only called during initial creation.
+            return starterBloodlineRank ? { ...normalizeJutsu(jutsu), bloodlineRank: starterBloodlineRank } : normalizeJutsu(jutsu);
         }),
     ].map(normalizeJutsu).forEach((jutsu) => {
         merged.set(jutsu.id, jutsu);
