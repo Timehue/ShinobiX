@@ -8178,15 +8178,6 @@ function LeftProfileCard({
                         character.name.slice(0, 2).toUpperCase()
                     )}
                 </button>
-                <label className="left-avatar-upload-btn" title="Change avatar">
-                    📷
-                    <input
-                        type="file"
-                        accept="image/*"
-                        onChange={uploadAvatar}
-                        style={{ display: "none" }}
-                    />
-                </label>
             </div>
 
             <div className="left-profile-name">{character.name}</div>
