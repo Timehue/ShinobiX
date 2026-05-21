@@ -5080,7 +5080,9 @@ async function fetchPlayerCombatSave(name: string): Promise<PlayerCombatSave | n
                 ...bloodline,
                 jutsus: (bloodline.jutsus ?? []).map(normalizeJutsu),
             })),
-            creatorJutsus: created.map(normalizeJutsu).map(rebalanceNonBloodlineJutsu),
+            // Do NOT rebalance here — admin-saved values must survive combat loading.
+            // rebalanceNonBloodlineJutsu must only run on initial creation, never on reads.
+            creatorJutsus: created.map(normalizeJutsu),
             creatorItems: createdItems.map(sanitizeArmorAndGloveItem),
         };
     } catch {

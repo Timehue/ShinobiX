@@ -173,8 +173,12 @@ function hasStatus(f: PvpFighter, name: string, round = Number.POSITIVE_INFINITY
 function addStatus(f: PvpFighter, s: PvpStatus): PvpFighter {
     return { ...f, statuses: [...f.statuses.filter(x => !nameMatches(x.name, s.name)), s] };
 }
+// Tags resolve next round for ALL jutsus (bloodline or not) except INSTANT_EFFECT
+// ground-zone jutsus where the enemy is standing in the zone on cast.
+// Mirrors the client-side fix in App.tsx — previously only bloodline jutsus were
+// deferred, leaving non-bloodline tags incorrectly instant in PvP.
 function bloodlineTagsResolveNextRound(jutsu: Pick<Jutsu, 'bloodlineRank' | 'target' | 'method'>) {
-    return Boolean(jutsu.bloodlineRank) && !(jutsu.target === 'EMPTY_GROUND' && normalizeJutsuMethod(jutsu.method) === 'INSTANT_EFFECT');
+    return !(jutsu.target === 'EMPTY_GROUND' && normalizeJutsuMethod(jutsu.method) === 'INSTANT_EFFECT');
 }
 function statusForJutsu(jutsu: Pick<Jutsu, 'bloodlineRank' | 'target' | 'method'>, status: PvpStatus, round: number): PvpStatus {
     return bloodlineTagsResolveNextRound(jutsu) ? { ...status, activeRound: round + 1 } : status;
