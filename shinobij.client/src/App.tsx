@@ -6761,7 +6761,17 @@ export default function App() {
                 const authData = await authRes.json() as { ok: boolean; legacy?: boolean };
                 authOk = authData.ok;
                 legacy = authData.legacy ?? false;
+            } else if (authRes.status === 503) {
+                // Server storage temporarily unavailable — fall back to local check rather
+                // than showing "wrong password" when the server is just having a bad moment.
+                if (account) {
+                    authOk = account.password === password;
+                } else {
+                    alert("Server is temporarily unavailable. Try again in a moment.");
+                    return;
+                }
             }
+            // Any other non-ok status (400, 500, etc.) leaves authOk=false → wrong password
         } catch {
             // Network failure — fall back to local check if available
             if (account) {

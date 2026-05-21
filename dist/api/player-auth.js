@@ -31,11 +31,17 @@ export default async function handler(req, res) {
         // Register a new password. Fails if one already exists — use 'change' to update.
         if (!password)
             return res.status(400).json({ ok: false, error: 'Missing password.' });
-        const existing = await kv.get(key);
-        if (existing)
-            return res.status(409).json({ ok: false, error: 'Account already has a password.' });
-        const salt = newSalt();
-        await kv.set(key, { hash: hashPw(password, salt), salt });
+        try {
+            const existing = await kv.get(key);
+            if (existing)
+                return res.status(409).json({ ok: false, error: 'Account already has a password.' });
+            const salt = newSalt();
+            await kv.set(key, { hash: hashPw(password, salt), salt });
+        }
+        catch (err) {
+            console.error('[player-auth register]', String(err));
+            return res.status(503).json({ ok: false, error: 'Storage unavailable. Try again.' });
+        }
         return res.status(200).json({ ok: true });
     }
     if (action === 'verify') {
@@ -43,7 +49,17 @@ export default async function handler(req, res) {
         // or { ok: true, legacy: true } if no server password exists yet (legacy account).
         if (!password)
             return res.status(400).json({ ok: false, error: 'Missing password.' });
-        const record = await kv.get(key);
+        let record;
+        try {
+            record = await kv.get(key);
+        }
+        catch (err) {
+            // KV read failure (Supabase timeout, network hiccup, etc.).
+            // Return 503 so the client can fall back to local auth rather than
+            // showing "wrong password" when the server is just temporarily unavailable.
+            console.error('[player-auth verify]', String(err));
+            return res.status(503).json({ ok: false, error: 'Storage unavailable. Try again.' });
+        }
         if (!record) {
             // No server-side password stored yet (account predates this auth system).
             // Return legacy=true so the client can decide whether to register the password.
