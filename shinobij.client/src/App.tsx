@@ -21981,6 +21981,7 @@ function Profile({
     }
 
     const [jutsuSort, setJutsuSort] = useState<"name" | "type" | "element" | "ap-asc" | "ap-desc" | "mastery">("name");
+    const [infoJutsuId, setInfoJutsuId] = useState<string | null>(null);
 
     const JUTSU_TYPE_COLOR: Record<string, string> = {
         "Ninjutsu": "#3b82f6", "Taijutsu": "#f97316", "Genjutsu": "#a855f7",
@@ -22308,6 +22309,11 @@ function Profile({
                                 >
                                     {isEquipped ? "×" : "+"}
                                 </button>
+                                <button
+                                    className="jutsu-loadout-info-btn"
+                                    onClick={(e) => { e.stopPropagation(); setInfoJutsuId(infoJutsuId === jutsu.id ? null : jutsu.id); }}
+                                    title="Jutsu Info"
+                                >?</button>
                             </div>
                         );
                     }
@@ -22352,6 +22358,43 @@ function Profile({
                                 ? <p className="hint">All learned jutsu are equipped.</p>
                                 : <div className="jutsu-loadout-card-grid known">{knownUnequipped.map((j) => <JutsuCard key={j.id} jutsu={j} mode="known" />)}</div>
                             }
+
+                            {/* ── Jutsu info modal ── */}
+                            {infoJutsuId && (() => {
+                                const allCards = [...equippedJutsus, ...knownUnequipped];
+                                const infoJutsu = allCards.find(j => j.id === infoJutsuId);
+                                if (!infoJutsu) return null;
+                                const m = getJutsuMastery(character, infoJutsu.id);
+                                const scaled = scaleJutsuByLevel(infoJutsu, m.level);
+                                const typeColor = JUTSU_TYPE_COLOR[infoJutsu.type] ?? "#64748b";
+                                return (
+                                    <div className="jutsu-info-overlay" onClick={() => setInfoJutsuId(null)}>
+                                        <div className="jutsu-info-panel" style={{ "--jutsu-type-color": typeColor } as React.CSSProperties} onClick={e => e.stopPropagation()}>
+                                            <button className="jutsu-info-close" onClick={() => setInfoJutsuId(null)}>×</button>
+                                            {infoJutsu.image && <img className="jutsu-info-art" src={infoJutsu.image} alt={infoJutsu.name} />}
+                                            <h3 className="jutsu-info-name">{infoJutsu.name}</h3>
+                                            <div className="jutsu-info-badges">
+                                                <span className="jutsu-info-badge type">{infoJutsu.type}</span>
+                                                <span className="jutsu-info-badge element">{infoJutsu.element}</span>
+                                            </div>
+                                            <div className="jutsu-info-stats">
+                                                <div className="jutsu-info-stat"><span>AP</span><strong>{infoJutsu.ap}</strong></div>
+                                                <div className="jutsu-info-stat"><span>Range</span><strong>{infoJutsu.range}</strong></div>
+                                                <div className="jutsu-info-stat"><span>EP</span><strong>{scaled.scaledEffectPower}</strong></div>
+                                                <div className="jutsu-info-stat"><span>Mastery</span><strong>{m.level}/50</strong></div>
+                                                <div className="jutsu-info-stat"><span>Chakra</span><strong>{scaled.chakraCost}%</strong></div>
+                                                <div className="jutsu-info-stat"><span>Stamina</span><strong>{scaled.staminaCost}%</strong></div>
+                                            </div>
+                                            {infoJutsu.tags.length > 0 && (
+                                                <p className="jutsu-info-tags">
+                                                    {jutsuDisplayAtLevel(infoJutsu, m.level).tags.map(t => `${t.name}${t.percent ? ` ${t.percent}%` : ""}`).join(" · ")}
+                                                </p>
+                                            )}
+                                            <p className="jutsu-info-effects">{describeJutsuEffects(infoJutsu, m.level)}</p>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
                         </>
                     );
                 })()}
