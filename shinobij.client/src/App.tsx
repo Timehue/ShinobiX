@@ -7571,7 +7571,7 @@ export default function App() {
                         adminPw={adminPw}
                         onSave={async (overrides?: Parameters<typeof buildPlayerSavePayload>[1]) => {
                             const adminSaveName = adminAccount || currentAccountName;
-                            if (!adminSaveName) return;
+                            if (!adminSaveName) throw new Error("No admin account name — log out and back in.");
                             await pushSaveToServer(character, adminSaveName, overrides);
                         }}
                         onReloadImages={() => {
@@ -11739,43 +11739,49 @@ function AdminPanel({
         setTag4Percent(normalized.tags[3]?.percent ?? 30);
     }
 
-    function createAdminJutsu() {
+    async function createAdminJutsu() {
         const newJutsu = rebalanceNonBloodlineJutsu(jutsuFromForm());
         void publishSharedImage('jutsu:' + newJutsu.id, newJutsu.image ?? "");
 
         const updatedJutsus = [...creatorJutsus, newJutsu];
         setCreatorJutsus(updatedJutsus);
 
-        alert(`${newJutsu.name} created and imported to the game. Train it before equipping it.`);
-        void onSave({ creatorJutsus: updatedJutsus });
+        try {
+            await onSave({ creatorJutsus: updatedJutsus });
+            alert(`${newJutsu.name} created and imported to the game. Train it before equipping it.`);
+        } catch (err) {
+            alert(`Create failed: ${String(err)}`);
+        }
     }
 
-    function saveAdminJutsuEdit() {
+    async function saveAdminJutsuEdit() {
         if (!editingJutsuId) return alert("Load an existing admin jutsu first.");
         const updatedJutsu = jutsuFromForm(editingJutsuId);
         void publishSharedImage('jutsu:' + updatedJutsu.id, updatedJutsu.image ?? "");
         const sourceBloodline = savedBloodlines.find((bloodline) => bloodline.jutsus.some((jutsu) => jutsu.id === editingJutsuId));
-        if (sourceBloodline) {
-            const updatedBloodlines = savedBloodlines.map((bloodline) => bloodline.id === sourceBloodline.id ? {
-                ...bloodline,
-                jutsus: bloodline.jutsus.map((jutsu) => jutsu.id === editingJutsuId ? updatedJutsu : jutsu),
-                totalPoints: bloodline.jutsus.map((jutsu) => jutsu.id === editingJutsuId ? updatedJutsu : jutsu).reduce((sum, jutsu) => sum + jutsuPoints(jutsu), 0),
-            } : bloodline);
-            setSavedBloodlines(updatedBloodlines);
+        try {
+            if (sourceBloodline) {
+                const updatedBloodlines = savedBloodlines.map((bloodline) => bloodline.id === sourceBloodline.id ? {
+                    ...bloodline,
+                    jutsus: bloodline.jutsus.map((jutsu) => jutsu.id === editingJutsuId ? updatedJutsu : jutsu),
+                    totalPoints: bloodline.jutsus.map((jutsu) => jutsu.id === editingJutsuId ? updatedJutsu : jutsu).reduce((sum, jutsu) => sum + jutsuPoints(jutsu), 0),
+                } : bloodline);
+                setSavedBloodlines(updatedBloodlines);
+                await onSave({ savedBloodlines: updatedBloodlines });
+            } else if (creatorJutsus.some((jutsu) => jutsu.id === editingJutsuId)) {
+                // Save exactly what the admin set — no rebalance override
+                const updatedJutsus = creatorJutsus.map((jutsu) => jutsu.id === editingJutsuId ? updatedJutsu : jutsu);
+                setCreatorJutsus(updatedJutsus);
+                await onSave({ creatorJutsus: updatedJutsus });
+            } else {
+                // Override a starter jutsu — stored in creatorJutsus, wins via Map in getAllJutsus
+                const updatedJutsus = [...creatorJutsus, updatedJutsu];
+                setCreatorJutsus(updatedJutsus);
+                await onSave({ creatorJutsus: updatedJutsus });
+            }
             alert(`${updatedJutsu.name} saved.`);
-            void onSave({ savedBloodlines: updatedBloodlines });
-        } else if (creatorJutsus.some((jutsu) => jutsu.id === editingJutsuId)) {
-            // Save exactly what the admin set — no rebalance override
-            const updatedJutsus = creatorJutsus.map((jutsu) => jutsu.id === editingJutsuId ? updatedJutsu : jutsu);
-            setCreatorJutsus(updatedJutsus);
-            alert(`${updatedJutsu.name} saved.`);
-            void onSave({ creatorJutsus: updatedJutsus });
-        } else {
-            // Override a starter jutsu — stored in creatorJutsus, wins via Map in getAllJutsus
-            const updatedJutsus = [...creatorJutsus, updatedJutsu];
-            setCreatorJutsus(updatedJutsus);
-            alert(`${updatedJutsu.name} saved.`);
-            void onSave({ creatorJutsus: updatedJutsus });
+        } catch (err) {
+            alert(`Save failed: ${String(err)}`);
         }
     }
     function eventFromForm(id = `event-${makeId()}`): CreatorEvent {
