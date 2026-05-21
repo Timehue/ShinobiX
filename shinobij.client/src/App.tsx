@@ -22787,6 +22787,11 @@ function BloodlineMaker({ initialRank, initialSpecialElement, character, updateC
             return hasFixedEffectPower(next) ? { ...next, effectPower: 100 } : next;
         }));
     }
+    const bloodlinePointLimit: Record<Rank, number> = { "B Rank": 8, "A Rank": 10, "S Rank": 11 };
+    const currentTotalPoints = bloodlinePoints(jutsus);
+    const pointLimit = bloodlinePointLimit[rank] ?? 8;
+    const overLimit = currentTotalPoints > pointLimit;
+
     async function saveBloodline() {
         const finalElement = (specialElement.trim() || "Fire") as JutsuElement;
         const usedUniqueTags = new Set<string>();
@@ -22819,6 +22824,13 @@ function BloodlineMaker({ initialRank, initialSpecialElement, character, updateC
             tags,
         });
         });
+        // Enforce point limit before doing any async work.
+        const finalPoints = bloodlinePoints(finalizedJutsus);
+        const finalLimit = bloodlinePointLimit[rank] ?? 8;
+        if (finalPoints > finalLimit) {
+            alert(`${bloodlineName} is over the ${rank} point limit (${finalPoints}/${finalLimit} points). Remove or simplify jutsu tags before saving.`);
+            return;
+        }
         const finalId = editingBloodline?.id ?? makeId();
         // Publish bloodline image and jutsu images to shared KV so they survive
         // stripImages on save and are restored for all players via hydrateImages.
@@ -22942,7 +22954,11 @@ function BloodlineMaker({ initialRank, initialSpecialElement, character, updateC
                     <p>Jutsu Points: {jutsuPoints(jutsu)}</p>
                 </div>
             ))}
-            <button onClick={saveBloodline}>Save Bloodline</button>
+            <div style={{ margin: "8px 0", padding: "8px 12px", borderRadius: 8, background: overLimit ? "rgba(220,50,50,0.15)" : "rgba(255,255,255,0.04)", border: `1px solid ${overLimit ? "rgba(220,50,50,0.5)" : "rgba(255,255,255,0.08)"}`, display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontWeight: 600, color: overLimit ? "#ff6b6b" : "inherit" }}>Total Points: {currentTotalPoints} / {pointLimit}</span>
+                {overLimit && <span style={{ color: "#ff6b6b", fontSize: "0.85em" }}>⚠️ Over the {rank} limit — reduce tags to save.</span>}
+            </div>
+            <button onClick={saveBloodline} disabled={overLimit} style={overLimit ? { opacity: 0.5, cursor: "not-allowed" } : undefined}>Save Bloodline</button>
             <h3>Saved</h3>{savedBloodlines.map((b) => <div className="summary-box" key={b.id}>{b.image && <div className="admin-event-list-preview"><img src={b.image} alt={b.name} /></div>}{b.name} | {b.rank} | {b.specialElement ? `${b.specialElement} | ` : ""}Points {b.totalPoints}{b.lore && <p className="hint">{b.lore}</p>}</div>)}
         </div>
     );
