@@ -19439,6 +19439,58 @@ function WorldMap({
         }).then(r => r.ok ? r.json() : []).then(setSectorEnemyGuards).catch(() => setSectorEnemyGuards([]));
     }, [selectedSector, character.village]);
 
+    // WASD movement + E explore — no visible UI, purely functional
+    useEffect(() => {
+        const pts = [
+            { id: 1, x: 67, y: 46 }, { id: 2, x: 72, y: 45 }, { id: 3, x: 78, y: 45 }, { id: 4, x: 83, y: 47 }, { id: 5, x: 87, y: 51 },
+            { id: 6, x: 74, y: 53 }, { id: 7, x: 79, y: 56 }, { id: 8, x: 84, y: 59 }, { id: 9, x: 69, y: 61 }, { id: 10, x: 75, y: 65 },
+            { id: 11, x: 81, y: 67 }, { id: 12, x: 88, y: 69 }, { id: 13, x: 64, y: 70 }, { id: 14, x: 71, y: 74 }, { id: 15, x: 78, y: 76 },
+            { id: 16, x: 84, y: 78 }, { id: 17, x: 90, y: 79 }, { id: 18, x: 73, y: 86 }, { id: 19, x: 81, y: 88 }, { id: 20, x: 89, y: 90 },
+            { id: 21, x: 16, y: 49 }, { id: 22, x: 21, y: 45 }, { id: 23, x: 27, y: 42 }, { id: 24, x: 33, y: 40 }, { id: 25, x: 39, y: 43 },
+            { id: 26, x: 18, y: 56 }, { id: 27, x: 24, y: 54 }, { id: 28, x: 31, y: 55 }, { id: 29, x: 38, y: 58 }, { id: 30, x: 45, y: 60 },
+            { id: 31, x: 20, y: 65 }, { id: 32, x: 27, y: 67 }, { id: 33, x: 34, y: 70 }, { id: 34, x: 41, y: 72 }, { id: 35, x: 47, y: 76 },
+            { id: 36, x: 13, y: 30 }, { id: 37, x: 18, y: 23 }, { id: 38, x: 24, y: 18 }, { id: 39, x: 31, y: 17 }, { id: 40, x: 38, y: 20 },
+            { id: 41, x: 45, y: 25 }, { id: 42, x: 18, y: 34 }, { id: 43, x: 27, y: 31 }, { id: 44, x: 36, y: 33 }, { id: 45, x: 45, y: 36 },
+            { id: 46, x: 56, y: 15 }, { id: 47, x: 62, y: 11 }, { id: 48, x: 69, y: 12 }, { id: 49, x: 76, y: 15 }, { id: 50, x: 83, y: 20 },
+            { id: 51, x: 58, y: 24 }, { id: 52, x: 65, y: 25 }, { id: 53, x: 72, y: 27 }, { id: 54, x: 80, y: 31 }, { id: 55, x: 88, y: 36 },
+            { id: 56, x: 53, y: 43 }, { id: 57, x: 57, y: 49 }, { id: 58, x: 52, y: 55 }, { id: 59, x: 57, y: 61 }, { id: 60, x: 50, y: 67 },
+            { id: 99, x: 51, y: 8 },
+        ];
+
+        function nearestInDir(fromId: number, dx: number, dy: number): number | null {
+            const cur = pts.find(s => s.id === fromId);
+            if (!cur) return null;
+            let best: number | null = null;
+            let bestDist = Infinity;
+            for (const s of pts) {
+                if (s.id === fromId) continue;
+                const vx = s.x - cur.x;
+                const vy = s.y - cur.y;
+                if (vx * dx + vy * dy <= 0) continue; // wrong half-plane
+                const dist = Math.sqrt(vx * vx + vy * vy);
+                if (dist < bestDist) { bestDist = dist; best = s.id; }
+            }
+            return best;
+        }
+
+        function onKey(e: KeyboardEvent) {
+            const tag = (e.target as HTMLElement).tagName;
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+            const k = e.key.toLowerCase();
+            if (k === 'e') { exploreSector(currentSector); return; }
+            const dirs: Record<string, [number, number]> = { w: [0, -1], s: [0, 1], a: [-1, 0], d: [1, 0] };
+            const dir = dirs[k];
+            if (!dir) return;
+            e.preventDefault();
+            const next = nearestInDir(currentSector, dir[0], dir[1]);
+            if (next !== null) triggerTravelPoint(next);
+        }
+
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentSector]);
+
     async function fetchSavedPlayerCharacter(name: string): Promise<Character | null> {
         const rosterMatch = playerRoster.find((player) => player.name.toLowerCase() === name.toLowerCase());
         if (rosterMatch?.character) return normalizeCharacter(rosterMatch.character);
