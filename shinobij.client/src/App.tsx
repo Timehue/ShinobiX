@@ -7438,6 +7438,8 @@ export default function App() {
                         updateCharacter={setCharacter}
                         currentSector={currentSector}
                         setScreen={setScreen}
+                        activeTraining={activeTraining}
+                        activeJutsuTraining={activeJutsuTraining}
                     />
                 )}
 
@@ -8090,12 +8092,26 @@ function LeftProfileCard({
     updateCharacter,
     currentSector,
     setScreen,
+    activeTraining,
+    activeJutsuTraining,
 }: {
     character: Character;
     updateCharacter: (c: Character) => void;
     currentSector: number;
     setScreen: (s: Screen) => void;
+    activeTraining: ActiveTraining | null;
+    activeJutsuTraining: ActiveJutsuTraining | null;
 }) {
+    const [now, setNow] = useState(Date.now());
+    useEffect(() => {
+        const hasTimer = (activeTraining && Date.now() < activeTraining.endsAt) ||
+                         (activeJutsuTraining && Date.now() < activeJutsuTraining.endsAt);
+        if (!hasTimer) return;
+        const id = setInterval(() => setNow(Date.now()), 1000);
+        return () => clearInterval(id);
+    }, [!!activeTraining, !!activeJutsuTraining]);
+    void now;
+
     function uploadAvatar(e: ChangeEvent<HTMLInputElement>) {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -8231,6 +8247,27 @@ function LeftProfileCard({
                     </>
                 )}
             </div>
+
+            {/* Active training timers */}
+            {((activeTraining && Date.now() < activeTraining.endsAt) ||
+              (activeJutsuTraining && Date.now() < activeJutsuTraining.endsAt)) && (
+                <div className="left-active-timers">
+                    {activeTraining && Date.now() < activeTraining.endsAt && (
+                        <div className="left-timer-row">
+                            <span className="left-timer-icon">💪</span>
+                            <span className="left-timer-label">{activeTraining.label}</span>
+                            <span className="left-timer-value">{formatPetTimer(activeTraining.endsAt - Date.now())}</span>
+                        </div>
+                    )}
+                    {activeJutsuTraining && Date.now() < activeJutsuTraining.endsAt && (
+                        <div className="left-timer-row">
+                            <span className="left-timer-icon">🌀</span>
+                            <span className="left-timer-label">{activeJutsuTraining.label}</span>
+                            <span className="left-timer-value">{formatPetTimer(activeJutsuTraining.endsAt - Date.now())}</span>
+                        </div>
+                    )}
+                </div>
+            )}
         </aside>
     );
 }
@@ -16573,6 +16610,10 @@ function ShinobiTiles({ character, updateCharacter, creatorCards, dungeonMode = 
 
     const [phase, setPhase] = useState<Phase>(dungeonMode ? "select" : "collection");
     const [deckPicks, setDeckPicks] = useState<TileCard[]>([]);
+    const [collFilterRarity, setCollFilterRarity]   = useState<TileCard["rarity"] | "all">("all");
+    const [collFilterElement, setCollFilterElement] = useState<string>("all");
+    const [collSortBy, setCollSortBy]               = useState<"rarity" | "name" | "power">("rarity");
+    const [collSelectedCard, setCollSelectedCard]   = useState<TileCard | null>(null);
     const [board, setBoard] = useState<BoardCell[]>(Array(9).fill(null));
     const [playerHand, setPlayerHand] = useState<TileCard[]>([]);
     const [enemyHand, setEnemyHand] = useState<TileCard[]>([]);
@@ -16780,20 +16821,113 @@ function ShinobiTiles({ character, updateCharacter, creatorCards, dungeonMode = 
 
     // Collection view
     if (phase === "collection") {
-        const grouped = (r: TileCard["rarity"]) => ownedCards.filter((c) => c.rarity === r);
+        const ec: Record<string, string> = { Fire: "#ff7043", Water: "#4fc3f7", Earth: "#a1887f", Wind: "#a5d6a7", Lightning: "#fff176", Shadow: "#ba68c8", Ice: "#b0e0ff", Neutral: "#94a3b8", None: "#555" };
+        const rarityOrd: Record<string, number> = { legendary: 0, epic: 1, rare: 2, common: 3 };
         const rarityColor: Record<string, string> = { legendary: "#fbbf24", epic: "#ce93d8", rare: "#4fc3f7", common: "#aaa" };
+
+        function sellCard(card: TileCard) {
+            const idx = character.tileCards.indexOf(card.id);
+            if (idx === -1) return;
+            const updated = [...character.tileCards];
+            updated.splice(idx, 1);
+            updateCharacter({ ...character, tileCards: updated, ryo: character.ryo + 5 });
+            setCollSelectedCard(null);
+        }
+
+        const filteredOwned = ownedCards
+            .filter(c =>
+                (collFilterRarity === "all" || c.rarity === collFilterRarity) &&
+                (collFilterElement === "all" || c.element === collFilterElement)
+            )
+            .sort((a, b) => {
+                if (collSortBy === "name")  return a.name.localeCompare(b.name);
+                if (collSortBy === "power") return (b.top + b.right + b.bottom + b.left) - (a.top + a.right + a.bottom + a.left);
+                return (rarityOrd[a.rarity] ?? 4) - (rarityOrd[b.rarity] ?? 4);
+            });
+
         return (
             <div className="card">
-                <h2>?? Shinobi Tiles</h2>
+                <h2>🧩 Shinobi Tiles</h2>
                 <p style={{ color: "#aaa", marginBottom: "0.4rem" }}>Place cards on a 3×3 board. Arrows flip adjacent enemy cards — most cards wins.</p>
-                <p style={{ marginBottom: "0.8rem" }}>Cards owned: <strong>{ownedCards.length}</strong>{ownedCards.length < 5 && <span style={{ color: "#ef5350" }}> — Buy packs in the Shop to get started (need 5)</span>}</p>
-                {ownedCards.length >= 5 && <button onClick={() => { setDeckPicks([]); setPhase("select"); }} style={{ marginBottom: "1rem" }}>Build Deck & Play</button>}
-                {(["legendary", "epic", "rare", "common"] as TileCard["rarity"][]).map((r) => grouped(r).length > 0 && (
-                    <div key={r} style={{ marginBottom: "1rem" }}>
-                        <h3 style={{ color: rarityColor[r], textTransform: "capitalize", marginBottom: "0.4rem" }}>{r} ({grouped(r).length})</h3>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>{grouped(r).map((card, i) => <CardTile key={card.id + i} card={card} />)}</div>
+                <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: "0.8rem", flexWrap: "wrap" }}>
+                    <span>Cards owned: <strong>{ownedCards.length}</strong></span>
+                    {ownedCards.length < 5 && <span style={{ color: "#ef5350", fontSize: 13 }}>Need 5 to play — buy packs in Shop</span>}
+                    {ownedCards.length >= 5 && <button onClick={() => { setDeckPicks([]); setPhase("select"); }}>Build Deck &amp; Play</button>}
+                </div>
+                <div className="tile-card-filters">
+                    <div className="tile-card-filter-group">
+                        <label>Rarity</label>
+                        <div className="tile-card-filter-buttons">
+                            {(["all", "legendary", "epic", "rare", "common"] as const).map(r => (
+                                <button key={r} type="button"
+                                    className={collFilterRarity === r ? "active" : ""}
+                                    onClick={() => setCollFilterRarity(r)}
+                                    style={r !== "all" ? { color: rarityColor[r] } : {}}
+                                >{r === "all" ? "All" : r.charAt(0).toUpperCase() + r.slice(1)}</button>
+                            ))}
+                        </div>
                     </div>
-                ))}
+                    <div className="tile-card-filter-group">
+                        <label>Element</label>
+                        <div className="tile-card-filter-buttons">
+                            {["all", "Fire", "Water", "Wind", "Earth", "Lightning", "Shadow", "Neutral", "None"].map(e => (
+                                <button key={e} type="button"
+                                    className={collFilterElement === e ? "active" : ""}
+                                    onClick={() => setCollFilterElement(e)}
+                                    style={e !== "all" ? { color: ec[e] ?? "#aaa" } : {}}
+                                >{e === "all" ? "All" : e}</button>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="tile-card-filter-group">
+                        <label>Sort</label>
+                        <div className="tile-card-filter-buttons">
+                            {(["rarity", "power", "name"] as const).map(s => (
+                                <button key={s} type="button"
+                                    className={collSortBy === s ? "active" : ""}
+                                    onClick={() => setCollSortBy(s)}
+                                >{s === "rarity" ? "Rarity" : s === "power" ? "⚡ Power" : "A–Z"}</button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+                {filteredOwned.length === 0
+                    ? <p style={{ color: "#aaa", fontSize: 13 }}>No cards match this filter.</p>
+                    : (
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                            {filteredOwned.map((card, i) => (
+                                <div key={card.id + i} style={{ cursor: "pointer", position: "relative" }}
+                                    onClick={() => setCollSelectedCard(card)}>
+                                    <CardTile card={card} selected={collSelectedCard?.id === card.id} />
+                                </div>
+                            ))}
+                        </div>
+                    )
+                }
+                {collSelectedCard && (
+                    <div className="summary-box tile-card-selected-detail" style={{ marginTop: 12 }}>
+                        <button type="button" className="item-popup-close"
+                            onClick={() => setCollSelectedCard(null)}>×</button>
+                        <strong style={{ fontSize: 15 }}>{collSelectedCard.name}</strong>
+                        <p style={{ fontSize: 12, margin: "4px 0 2px" }}>
+                            <span style={{ color: ec[collSelectedCard.element] ?? "#aaa" }}>{collSelectedCard.element}</span>
+                            {" · "}
+                            <span style={{ color: rarityColor[collSelectedCard.rarity] }}>{collSelectedCard.rarity}</span>
+                        </p>
+                        <p style={{ fontSize: 13, fontWeight: "bold", margin: "4px 0" }}>
+                            ↑{collSelectedCard.top} &nbsp; →{collSelectedCard.right} &nbsp; ↓{collSelectedCard.bottom} &nbsp; ←{collSelectedCard.left}
+                            &nbsp;·&nbsp; <span style={{ color: "#facc15" }}>⚡{collSelectedCard.top + collSelectedCard.right + collSelectedCard.bottom + collSelectedCard.left} total</span>
+                        </p>
+                        <p style={{ fontSize: 11, color: "#94a3b8", marginBottom: 8 }}>{collSelectedCard.description}</p>
+                        <p style={{ fontSize: 11, color: "#94a3b8", marginBottom: 8 }}>
+                            Copies owned: <strong>{ownedCards.filter(c => c.id === collSelectedCard.id).length}</strong>
+                        </p>
+                        <button type="button" className="danger-button" style={{ fontSize: 12 }}
+                            onClick={() => sellCard(collSelectedCard)}>
+                            💰 Sell 1 copy — +5 ryo
+                        </button>
+                    </div>
+                )}
             </div>
         );
     }
