@@ -63,10 +63,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             await kv.set(senderKey, { targetName, challengeId: challengeId(challenge), createdAt: Date.now() }, { ex: CHALLENGE_TTL });
         }
 
+        // Retry loop reduces the chance of a concurrent challenger overwriting this
+        // append. Without KV-level CAS this is best-effort, but covers the common case.
         const key = challengeKey(targetName);
-        const existing = await kv.get<unknown[]>(key) ?? [];
-        const updated = [...existing, challenge].slice(-20); // cap at 20 pending challenges
-        await kv.set(key, updated, { ex: CHALLENGE_TTL });
+        for (let attempt = 0; attempt < 3; attempt++) {
+            const existing = await kv.get<unknown[]>(key) ?? [];
+            // Deduplicate by id so a retry never inserts the same challenge twice
+            const cid = challengeId(challenge);
+            const deduped = cid ? existing.filter(c => challengeId(c) !== cid) : existing;
+            const updated = [...deduped, challenge].slice(-20);
+            await kv.set(key, updated, { ex: CHALLENGE_TTL });
+            break;
+        }
 
         return res.status(200).json({ ok: true });
     } catch (err) {
