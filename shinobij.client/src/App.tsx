@@ -6917,18 +6917,27 @@ export default function App() {
             applyServerSnapshot(serverSnapshot);
             void pullSharedAdminContent();
         } else if (saveRes.status === 404) {
-            // Account was reset — clear the stale localStorage snapshot so it can't
-            // be reloaded and overwrite the fresh start on next login.
+            // Save is missing but auth passed — clear the stale localStorage snapshot and
+            // also delete the auth record (password already verified above) so the player
+            // can immediately re-register and create a fresh character without getting
+            // a 409 "already exists" block. This handles the deadlock where auth:name exists
+            // but save:name does not (e.g. initial save failed on account creation).
             const lsKey = accountKey(name);
             if (lsKey) {
                 const accs = loadPlayerAccounts();
                 delete accs[lsKey];
                 savePlayerAccounts(accs);
             }
+            // Best-effort auth clear — if it fails they'll need admin help, but try.
+            void fetch('/api/player-auth', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'delete', name: name.trim().toLowerCase(), password }),
+            });
             setCharacter(null);
             setCurrentAccountName("");
             setScreen("start");
-            alert(`The account "${name}" has been reset. Please create a new character.`);
+            alert(`No save data was found for "${name}". Your login lock has been cleared — please create a new character with the same name and password.`);
         } else if (!account) {
             alert("No save found for that name. Check spelling or create a new character.");
         }
@@ -9067,6 +9076,40 @@ function AdminPasswordReset({ adminPw }: { adminPw: string }) {
                 <input placeholder="Player name" value={targetName} onChange={e => setTargetName(e.target.value)} style={{ flex: 1, minWidth: 140 }} />
                 <input type="password" placeholder="New password (min 6)" value={newPw} onChange={e => setNewPw(e.target.value)} style={{ flex: 1, minWidth: 160 }} />
                 <button onClick={submit}>Reset</button>
+            </div>
+            {msg && <p className="hint" style={{ color: msg.startsWith("?") ? "#4ade80" : "#f87171", margin: 0 }}>{msg}</p>}
+        </div>
+    );
+}
+
+function AdminClearAuthLock({ adminPw }: { adminPw: string }) {
+    const [targetName, setTargetName] = useState("");
+    const [msg, setMsg] = useState("");
+
+    async function submit() {
+        if (!targetName.trim()) { setMsg("Enter a player name."); return; }
+        if (!adminPw) { setMsg("? Admin password missing."); return; }
+        setMsg("Clearing…");
+        try {
+            const res = await fetch('/api/player-auth', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPw },
+                body: JSON.stringify({ action: 'delete', name: targetName.trim().toLowerCase() }),
+            });
+            const data = await res.json() as { ok: boolean; error?: string };
+            setMsg(data.ok ? `? Auth lock cleared for ${targetName.trim()}. They can now create a fresh account.` : `? ${data.error ?? `Failed with HTTP ${res.status}.`}`);
+            if (data.ok) setTargetName("");
+        } catch {
+            setMsg("? Network error.");
+        }
+    }
+
+    return (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <p className="hint" style={{ margin: 0 }}>Use when a player has a password record but no save data (stuck in "account exists" loop). Clears the auth lock so they can re-register with the same name.</p>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <input placeholder="Player name" value={targetName} onChange={e => setTargetName(e.target.value)} style={{ flex: 1, minWidth: 140 }} />
+                <button onClick={submit}>Clear Auth Lock</button>
             </div>
             {msg && <p className="hint" style={{ color: msg.startsWith("?") ? "#4ade80" : "#f87171", margin: 0 }}>{msg}</p>}
         </div>
@@ -14411,6 +14454,12 @@ function AdminPanel({
                         <section className="summary-box">
                             <h4>?? Reset Player Password</h4>
                             <AdminPasswordReset adminPw={adminPw} />
+                        </section>
+
+                        {/* -- Auth Lock Clear -- */}
+                        <section className="summary-box">
+                            <h4>?? Clear Auth Lock</h4>
+                            <AdminClearAuthLock adminPw={adminPw} />
                         </section>
 
                         {/* -- Manual Stat Edit -- */}
