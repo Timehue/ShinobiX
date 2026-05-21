@@ -1,51 +1,49 @@
 /**
- * Postgres KV adapter — drop-in replacement for @vercel/kv.
+ * Dual-mode KV adapter — drop-in replacement for @vercel/kv.
  *
- * Uses a direct pg Pool connection to Supabase Postgres, bypassing the
- * PostgREST REST API.  This avoids the 8-second PostgREST statement timeout
- * that kills reads of large image blobs (some rows are 10 MB+).
+ * ┌──────────────┬──────────────────────────────────────────────────────┐
+ * │ Environment  │ Backend                                              │
+ * ├──────────────┼──────────────────────────────────────────────────────┤
+ * │ cPanel /     │ pg Pool → direct Postgres.  No REST timeout; handles │
+ * │ Passenger    │ 10 MB+ image blobs.  DATABASE_URL env var required.  │
+ * ├──────────────┼──────────────────────────────────────────────────────┤
+ * │ Vercel /     │ Supabase REST API (PostgREST).  HTTP-based; no TCP   │
+ * │ serverless   │ cold-start penalty.  SUPABASE_URL +                  │
+ * │              │ SUPABASE_SERVICE_ROLE_KEY env vars required.         │
+ * │              │ Statement timeout raised to 120s via ALTER ROLE.     │
+ * └──────────────┴──────────────────────────────────────────────────────┘
  *
- * Required env var:
- *   DATABASE_URL — Postgres connection string, e.g.:
- *     postgres://postgres:PASSWORD@db.PROJECT.supabase.co:5432/postgres
- *
- * Storage model:
+ * Storage model (shared):
  *   Each key is one row in public.kv_store.
  *   String/JSON values → value column (JSONB).
- *   Hash values        → value column holds a JSON object; hset merges fields
- *                        atomically via the kv_hset SQL function.
- *   TTL                → stored in expires_at (timestamptz); lazily evicted on
- *                        read, and periodically by kv_delete_expired().
+ *   Hash values        → value column holds a JSON object.
+ *   TTL                → expires_at (timestamptz); lazily evicted on read.
  */
+// ─── pg Pool backend (cPanel / Passenger) ────────────────────────────────────
 import pg from 'pg';
 const { Pool } = pg;
-// ─── Connection pool (singleton) ─────────────────────────────────────────────
 let _pool = null;
-function pool() {
+function getPool() {
     if (_pool)
         return _pool;
     const url = process.env.DATABASE_URL;
-    if (!url) {
-        throw new Error('DATABASE_URL must be set in environment.');
-    }
     // Strip sslmode from the connection string — pg v8 treats sslmode=require
-    // as verify-full and rejects Supabase's self-signed cert, overriding any
-    // ssl option passed to the Pool constructor.  We set ssl explicitly below.
-    const cleanUrl = url.replace(/([?&])sslmode=[^&]*/g, (m, sep) => sep === '?' ? '?' : '').replace(/\?$/, '');
+    // as verify-full, overriding ssl:{rejectUnauthorized:false}.
+    const cleanUrl = url
+        .replace(/([?&])sslmode=[^&]*/g, (_, sep) => (sep === '?' ? '?' : ''))
+        .replace(/\?$/, '');
     _pool = new Pool({
         connectionString: cleanUrl,
         ssl: { rejectUnauthorized: false },
-        max: 5, // keep a small pool — Passenger reuses the process
+        max: 5,
         idleTimeoutMillis: 30_000,
-        connectionTimeoutMillis: 10_000,
+        connectionTimeoutMillis: 15_000,
     });
     _pool.on('error', (err) => {
         console.error('[pg pool error]', err.message);
     });
     return _pool;
 }
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-/** Convert a Redis-style glob pattern to a SQL LIKE pattern. */
 function toSqlPattern(pattern) {
     return pattern
         .replace(/%/g, '\\%')
@@ -53,90 +51,174 @@ function toSqlPattern(pattern) {
         .replace(/\*/g, '%')
         .replace(/\?/g, '_');
 }
-/** Build an ISO expires_at string from a seconds-to-live value. */
 function expiresAt(ex) {
     return new Date(Date.now() + ex * 1000).toISOString();
 }
-// ─── Adapter ─────────────────────────────────────────────────────────────────
-export const kv = {
-    // ── get ──────────────────────────────────────────────────────────────────
+// ─── pg implementations ───────────────────────────────────────────────────────
+const pgKv = {
     async get(key) {
-        const db = pool();
+        const db = getPool();
         const { rows } = await db.query(`SELECT value, expires_at FROM public.kv_store WHERE key = $1`, [key]);
-        if (rows.length === 0)
+        if (!rows.length)
             return null;
         const row = rows[0];
-        // Lazy expiry check.
         if (row.expires_at && new Date(row.expires_at) <= new Date()) {
             void db.query(`DELETE FROM public.kv_store WHERE key = $1`, [key]);
             return null;
         }
-        // pg automatically parses JSONB → JS object/primitive.
         return row.value;
     },
-    // ── set ──────────────────────────────────────────────────────────────────
     async set(key, value, options) {
-        const db = pool();
+        const db = getPool();
         const exp = options?.ex ? expiresAt(options.ex) : null;
         if (options?.nx) {
-            // Use the kv_set_nx SQL function for atomic set-if-not-exists.
             const { rows } = await db.query(`SELECT public.kv_set_nx($1, $2::jsonb, $3::timestamptz) AS kv_set_nx`, [key, JSON.stringify(value), exp]);
             return rows[0].kv_set_nx ? 'OK' : null;
         }
         await db.query(`INSERT INTO public.kv_store (key, value, expires_at, updated_at)
              VALUES ($1, $2::jsonb, $3::timestamptz, now())
              ON CONFLICT (key) DO UPDATE
-                 SET value      = EXCLUDED.value,
-                     expires_at = EXCLUDED.expires_at,
-                     updated_at = now()`, [key, JSON.stringify(value), exp]);
+                 SET value = EXCLUDED.value, expires_at = EXCLUDED.expires_at, updated_at = now()`, [key, JSON.stringify(value), exp]);
         return 'OK';
     },
-    // ── del ──────────────────────────────────────────────────────────────────
     async del(...keys) {
-        if (keys.length === 0)
+        if (!keys.length)
             return 0;
-        const db = pool();
-        const { rowCount } = await db.query(`DELETE FROM public.kv_store WHERE key = ANY($1::text[])`, [keys]);
+        const { rowCount } = await getPool().query(`DELETE FROM public.kv_store WHERE key = ANY($1::text[])`, [keys]);
         return rowCount ?? 0;
     },
-    // ── keys ─────────────────────────────────────────────────────────────────
     async keys(pattern) {
-        const db = pool();
-        const sqlPat = toSqlPattern(pattern);
-        const { rows } = await db.query(`SELECT key FROM public.kv_store
-             WHERE key LIKE $1
-               AND (expires_at IS NULL OR expires_at > now())`, [sqlPat]);
+        const { rows } = await getPool().query(`SELECT key FROM public.kv_store WHERE key LIKE $1 AND (expires_at IS NULL OR expires_at > now())`, [toSqlPattern(pattern)]);
         return rows.map((r) => r.key);
     },
-    // ── mget ─────────────────────────────────────────────────────────────────
     async mget(...keys) {
-        if (keys.length === 0)
+        if (!keys.length)
             return [];
-        const db = pool();
-        const { rows } = await db.query(`SELECT key, value FROM public.kv_store
-             WHERE key = ANY($1::text[])
-               AND (expires_at IS NULL OR expires_at > now())`, [keys]);
+        const { rows } = await getPool().query(`SELECT key, value FROM public.kv_store WHERE key = ANY($1::text[]) AND (expires_at IS NULL OR expires_at > now())`, [keys]);
         const map = new Map(rows.map((r) => [r.key, r.value]));
         return keys.map((k) => (map.has(k) ? map.get(k) : null));
     },
-    // ── hgetall ──────────────────────────────────────────────────────────────
     async hgetall(key) {
-        // Hashes are stored as JSON objects in the value column — same as get.
-        return this.get(key);
+        return pgKv.get(key);
     },
-    // ── hset ─────────────────────────────────────────────────────────────────
     async hset(key, fields) {
-        const db = pool();
-        // kv_hset atomically merges new fields into the existing JSON object.
-        await db.query(`SELECT public.kv_hset($1, $2::jsonb)`, [key, JSON.stringify(fields)]);
+        await getPool().query(`SELECT public.kv_hset($1, $2::jsonb)`, [key, JSON.stringify(fields)]);
         return Object.keys(fields).length;
     },
-    // ── hdel ─────────────────────────────────────────────────────────────────
     async hdel(key, ...fields) {
-        if (fields.length === 0)
+        if (!fields.length)
             return 0;
-        const db = pool();
-        await db.query(`SELECT public.kv_hdel($1, $2::text[])`, [key, fields]);
+        await getPool().query(`SELECT public.kv_hdel($1, $2::text[])`, [key, fields]);
         return fields.length;
     },
 };
+// ─── Supabase REST backend (Vercel / serverless) ──────────────────────────────
+import { createClient } from '@supabase/supabase-js';
+let _supabase = null;
+function getSupabase() {
+    if (_supabase)
+        return _supabase;
+    const url = process.env.SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key)
+        throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set.');
+    _supabase = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+    return _supabase;
+}
+function isExpired(exp) {
+    return !!exp && new Date(exp) <= new Date();
+}
+const supabaseKv = {
+    async get(key) {
+        const db = getSupabase();
+        const { data, error } = await db.from('kv_store').select('value, expires_at').eq('key', key).maybeSingle();
+        if (error)
+            throw new Error(`kv.get(${key}): ${error.message}`);
+        if (!data)
+            return null;
+        if (isExpired(data.expires_at)) {
+            void db.from('kv_store').delete().eq('key', key);
+            return null;
+        }
+        return data.value;
+    },
+    async set(key, value, options) {
+        const db = getSupabase();
+        const exp = options?.ex ? expiresAt(options.ex) : null;
+        if (options?.nx) {
+            const { data, error } = await db.rpc('kv_set_nx', { p_key: key, p_value: value, p_expires_at: exp });
+            if (error)
+                throw new Error(`kv.set NX(${key}): ${error.message}`);
+            return data ? 'OK' : null;
+        }
+        const { error } = await db.from('kv_store').upsert({ key, value, expires_at: exp, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+        if (error)
+            throw new Error(`kv.set(${key}): ${error.message}`);
+        return 'OK';
+    },
+    async del(...keys) {
+        if (!keys.length)
+            return 0;
+        const db = getSupabase();
+        const { count, error } = await db.from('kv_store').delete({ count: 'exact' }).in('key', keys);
+        if (error)
+            throw new Error(`kv.del: ${error.message}`);
+        return count ?? 0;
+    },
+    async keys(pattern) {
+        const db = getSupabase();
+        const now = new Date().toISOString();
+        const { data, error } = await db
+            .from('kv_store').select('key')
+            .like('key', toSqlPattern(pattern))
+            .or(`expires_at.is.null,expires_at.gt.${now}`);
+        if (error)
+            throw new Error(`kv.keys(${pattern}): ${error.message}`);
+        return (data ?? []).map((r) => r.key);
+    },
+    async mget(...keys) {
+        if (!keys.length)
+            return [];
+        const db = getSupabase();
+        const now = new Date().toISOString();
+        const { data, error } = await db
+            .from('kv_store').select('key, value')
+            .in('key', keys)
+            .or(`expires_at.is.null,expires_at.gt.${now}`);
+        if (error)
+            throw new Error(`kv.mget: ${error.message}`);
+        const map = new Map((data ?? []).map((r) => [r.key, r.value]));
+        return keys.map((k) => (map.has(k) ? map.get(k) : null));
+    },
+    async hgetall(key) {
+        return supabaseKv.get(key);
+    },
+    async hset(key, fields) {
+        const db = getSupabase();
+        const { error } = await db.rpc('kv_hset', { p_key: key, p_fields: fields });
+        if (error) {
+            console.warn(`kv.hset RPC failed, using fallback: ${error.message}`);
+            const existing = (await supabaseKv.get(key)) ?? {};
+            await supabaseKv.set(key, { ...existing, ...fields });
+        }
+        return Object.keys(fields).length;
+    },
+    async hdel(key, ...fields) {
+        if (!fields.length)
+            return 0;
+        const db = getSupabase();
+        const { error } = await db.rpc('kv_hdel', { p_key: key, p_fields: fields });
+        if (error) {
+            console.warn(`kv.hdel RPC failed, using fallback: ${error.message}`);
+            const existing = (await supabaseKv.get(key)) ?? {};
+            for (const f of fields)
+                delete existing[f];
+            await supabaseKv.set(key, existing);
+        }
+        return fields.length;
+    },
+};
+// ─── Export the right backend ─────────────────────────────────────────────────
+// Use pg Pool when DATABASE_URL is set (cPanel/Passenger long-running process).
+// Fall back to Supabase REST API for Vercel serverless (no TCP cold-start cost).
+export const kv = process.env.DATABASE_URL ? pgKv : supabaseKv;
