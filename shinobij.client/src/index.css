@@ -16166,3 +16166,82 @@ button.combat-jutsu-button,
         max-width: 220px !important;
     }
 }
+
+/* ── Notice Board ───────────────────────────────────────── */
+.notice-board-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 12px;
+}
+.notice-post {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.notice-post.pinned {
+    border-color: #fbbf24;
+    background: #1c1a0e;
+}
+.notice-post-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+}
+.notice-post-head span:first-child {
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 0.72rem;
+    white-space: nowrap;
+}
+.notice-post-head strong {
+    font-size: 0.88rem;
+    color: #e2e8f0;
+    flex: 1;
+    min-width: 0;
+}
+.notice-post-head small {
+    color: #94a3b8;
+    font-size: 0.72rem;
+}
+.notice-post-meta {
+    color: #64748b;
+    font-size: 0.68rem;
+    margin-left: auto;
+    white-space: nowrap;
+}
+.notice-post p {
+    margin: 0;
+    font-size: 0.82rem;
+    color: #cbd5e1;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+.notice-post-form {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 14px;
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 10px 12px;
+}
+.notice-post-form label {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    margin-bottom: 2px;
+}
+.notice-post-form textarea {
+    resize: vertical;
+    min-height: 64px;
+}
