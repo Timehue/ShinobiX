@@ -34,8 +34,13 @@ function pool(): pg.Pool {
         throw new Error('DATABASE_URL must be set in environment.');
     }
 
+    // Strip sslmode from the connection string — pg v8 treats sslmode=require
+    // as verify-full and rejects Supabase's self-signed cert, overriding any
+    // ssl option passed to the Pool constructor.  We set ssl explicitly below.
+    const cleanUrl = url.replace(/([?&])sslmode=[^&]*/g, (m, sep) => sep === '?' ? '?' : '').replace(/\?$/, '');
+
     _pool = new Pool({
-        connectionString: url,
+        connectionString: cleanUrl,
         ssl: { rejectUnauthorized: false },
         max: 5,                // keep a small pool — Passenger reuses the process
         idleTimeoutMillis: 30_000,
