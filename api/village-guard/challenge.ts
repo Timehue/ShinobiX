@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { kv } from '@vercel/kv';
+import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
 
 type GuardEntry = { name: string; village: string; level: number; lastSeen: number; defenseBonusPercent?: number };
