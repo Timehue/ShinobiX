@@ -52,6 +52,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const record = challenge as { accepted?: boolean; declined?: boolean; battleId?: string };
         const fromName = challengeFromName(challenge);
 
+        // For new challenges (not accept/decline/battle routing), gate on travel + battle state.
+        if (!record.accepted && !record.declined && !record.battleId) {
+            const targetPresence = await kv.get<Record<string, unknown>>(`presence:${targetName}`);
+            if (targetPresence) {
+                if (Number(targetPresence.travelingUntil ?? 0) > Date.now()) {
+                    return res.status(409).json({ error: 'Target is traveling.' });
+                }
+                if (targetPresence.inBattle) {
+                    return res.status(409).json({ error: 'Target is already in a battle.' });
+                }
+                if (targetPresence.pendingAttacker) {
+                    return res.status(409).json({ error: 'Target is already engaged in combat.' });
+                }
+            }
+        }
+
         if (record.accepted || record.declined) {
             await kv.del(outgoingKey(targetName));
         } else if (fromName && !record.battleId) {
