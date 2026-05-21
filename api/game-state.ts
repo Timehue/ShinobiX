@@ -28,19 +28,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             const villageStates: Record<string, unknown> = {};
             if (villageStateKeys.length > 0) {
-                const stateValues = await Promise.all(villageStateKeys.map(k => kv.get<unknown>(k)));
+                // mget fetches all values in one round-trip instead of N individual gets.
+                const stateValues = await kv.mget<unknown[]>(...villageStateKeys);
                 villageStateKeys.forEach((k, i) => {
-                    const name = k.slice(VILLAGE_STATE_PREFIX.length);
-                    villageStates[name] = stateValues[i];
+                    if (stateValues[i] != null) {
+                        const name = k.slice(VILLAGE_STATE_PREFIX.length);
+                        villageStates[name] = stateValues[i];
+                    }
                 });
             }
 
             const clanPetBattles: Record<string, unknown> = {};
             if (clanPetBattleKeys.length > 0) {
-                const battleValues = await Promise.all(clanPetBattleKeys.map(k => kv.get<unknown>(k)));
+                // mget fetches all values in one round-trip instead of N individual gets.
+                const battleValues = await kv.mget<unknown[]>(...clanPetBattleKeys);
                 clanPetBattleKeys.forEach((k, i) => {
-                    const name = k.slice(CLAN_PET_BATTLE_PREFIX.length);
-                    clanPetBattles[name] = battleValues[i];
+                    if (battleValues[i] != null) {
+                        const name = k.slice(CLAN_PET_BATTLE_PREFIX.length);
+                        clanPetBattles[name] = battleValues[i];
+                    }
                 });
             }
 
