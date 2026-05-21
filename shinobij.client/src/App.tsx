@@ -1910,7 +1910,6 @@ const allTags = [
     "Lifesteal",
     "Mirror",
     "Move",
-    "Pierce",
     "Poison",
     "Pull",
     "Push",
@@ -1936,6 +1935,7 @@ const bloodlineUniqueTags = [
     "Copy",
     "Lag",
     "Overclock",
+    "Pierce",
 ];
 
 const fixedEffectPowerTags = [...binaryTags, "Push", "Pull"];
@@ -14654,22 +14654,13 @@ function AdminPanel({
     );
 }
 
-function TagPicker({ tag, setTag, percent, setPercent, rank, jutsuTarget, disabledTags = [], allowedTags, percentChoices }: { tag: string; setTag: (tag: string) => void; percent: number; setPercent: (percent: number) => void; rank?: Rank | null; jutsuTarget?: JutsuTarget; disabledTags?: string[]; allowedTags?: string[]; percentChoices?: number[] }) {
-    const isBinary = binaryTags.includes(tag);
-    const isCapped = cappedDamageTags.includes(tag);
-    const cap = isCapped ? tagCapForRank(rank) : 100;
-    const atCap = isCapped && percent >= cap;
+function TagPicker({ tag, setTag, percent, setPercent, rank, jutsuTarget, disabledTags = [], allowedTags }: { tag: string; setTag: (tag: string) => void; percent: number; setPercent: (percent: number) => void; rank?: Rank | null; jutsuTarget?: JutsuTarget; disabledTags?: string[]; allowedTags?: string[] }) {
     const selectedTagInfo = tag
         ? jutsuEffectInfo(normalizeJutsu({ id: "tag-preview", name: "Tag Preview", type: "Ninjutsu", effectPower: 100, tags: [{ name: tag, percent }] }), { name: tag, percent })
         : null;
     const isGroundTargeted = jutsuTarget === "EMPTY_GROUND";
     const availableTags = allowedTags ?? (isGroundTargeted ? allTags.filter((t) => t !== "Increase Damage Taken") : allTags);
     const disabledTagSet = new Set(disabledTags);
-    const selectablePercent = percentChoices?.length ? (percentChoices.includes(percent) ? percent : percentChoices[percentChoices.length - 1]) : percent;
-
-    function handlePercent(val: number) {
-        setPercent(Math.min(cap, Math.max(0, val)));
-    }
 
     return (
         <div className="tag-picker">
@@ -14679,7 +14670,11 @@ function TagPicker({ tag, setTag, percent, setPercent, rank, jutsuTarget, disabl
                     const nextTag = e.target.value;
                     if (disabledTagSet.has(nextTag)) return;
                     setTag(nextTag);
-                    if (binaryTags.includes(nextTag)) setPercent(0);
+                    // Auto-set percent based on tag type — no manual % input needed
+                    if (!nextTag || binaryTags.includes(nextTag)) setPercent(0);
+                    else if (cappedDamageTags.includes(nextTag)) setPercent(tagCapForRank(rank));
+                    else if (percentageTags.includes(nextTag)) setPercent(40);
+                    else setPercent(100);
                 }}
             >
                 <option value="">No Tag</option>
@@ -14689,47 +14684,6 @@ function TagPicker({ tag, setTag, percent, setPercent, rank, jutsuTarget, disabl
                     </option>
                 ))}
             </select>
-            {!isBinary && isCapped && (
-                <div style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
-                    {percentChoices?.length ? (
-                        <select value={selectablePercent} onChange={(e) => setPercent(Number(e.target.value))} style={{ width: 72 }}>
-                            {percentChoices.map((choice) => <option key={choice} value={choice}>{choice}%</option>)}
-                        </select>
-                    ) : (
-                        <input
-                            type="number"
-                            value={percent}
-                            min={0}
-                            max={cap}
-                            onChange={(e) => handlePercent(Number(e.target.value))}
-                            style={{ width: 56 }}
-                        />
-                    )}
-                    <span style={{ fontSize: "0.72rem", color: atCap ? "#fde047" : "#64748b" }}>
-                        / {cap}%{atCap ? " ?+0.75pt" : ""}
-                    </span>
-                    <span style={{ fontSize: "0.70rem", color: "#94a3b8" }}>
-                        Lv.50 max · Lv.1 ˜ {Math.max(0, +(percent - 49 * 0.2).toFixed(1))}%
-                    </span>
-                </div>
-            )}
-            {!isBinary && !isCapped && tag && (
-                <div style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
-                    {percentChoices?.length ? (
-                        <select value={selectablePercent} onChange={(e) => setPercent(Number(e.target.value))} style={{ width: 72 }}>
-                            {percentChoices.map((choice) => <option key={choice} value={choice}>{choice}%</option>)}
-                        </select>
-                    ) : (
-                        <input type="number" value={percent} onChange={(e) => setPercent(Number(e.target.value))} style={{ width: 56 }} />
-                    )}
-                    <span style={{ fontSize: "0.70rem", color: "#94a3b8" }}>
-                        Lv.50 max · Lv.1 ˜ {Math.max(0, +(percent - 49 * 0.2).toFixed(1))}%
-                    </span>
-                </div>
-            )}
-            {isBinary && tag && (
-                <span style={{ fontSize: "0.75rem", color: "#4ade80", padding: "0 0.4rem" }}>? 100% applies</span>
-            )}
             {selectedTagInfo && (
                 <small className="tag-effect-help">
                     {selectedTagInfo.summary} {selectedTagInfo.rule}
@@ -22749,18 +22703,17 @@ function BloodlineMaker({ initialRank, initialSpecialElement, character, updateC
                 );
                 if (duplicateOnJutsu || duplicateOnBloodline) return jutsu;
             }
-            if (merged.name && binaryTags.includes(merged.name)) {
-                merged.percent = 0;
-            }
-            if (merged.name === "Pierce") {
-                merged.percent = 0;
-            }
-            if (merged.name && !binaryTags.includes(merged.name) && merged.name !== "Pierce") {
-                merged.percent = normalizeBloodlineTagPercent(merged.percent, rank);
-            }
-            // Enforce per-rank cap on capped damage tags
-            if (merged.name && cappedDamageTags.includes(merged.name)) {
-                merged.percent = Math.min(merged.percent ?? 30, tagCapForRank(rank));
+            // When the tag name changes, auto-set percent to the correct value for that tag type.
+            if ('name' in updated) {
+                if (!merged.name || binaryTags.includes(merged.name) || merged.name === "Pierce") {
+                    merged.percent = 0;
+                } else if (cappedDamageTags.includes(merged.name)) {
+                    merged.percent = tagCapForRank(rank);
+                } else if (percentageTags.includes(merged.name)) {
+                    merged.percent = 40; // max Wound tier → +1 pt
+                } else {
+                    merged.percent = 100;
+                }
             }
             tags[tagIndex] = merged;
             const next = normalizeJutsu({ ...jutsu, tags: normalizeJutsuTags(tags) });
@@ -22866,15 +22819,31 @@ function BloodlineMaker({ initialRank, initialSpecialElement, character, updateC
                     </div>
                     {jutsu.ap === 60 && !hasFixedEffectPower(jutsu) && (() => {
                         const strongUsedElsewhere = jutsus.some((j, i) => i !== jutsuIndex && j.ap === 60 && j.effectPower === 50 && !hasFixedEffectPower(j));
+                        const pierceUsedElsewhere = jutsus.some((j, i) => i !== jutsuIndex && j.tags.some((t) => t.name === "Pierce"));
+                        const hasPierceTag = jutsu.tags.some((t) => t.name === "Pierce");
+                        const damageMode = hasPierceTag ? "pierce" : jutsu.effectPower === 50 ? "nuke" : "standard";
+                        function handleDamageMode(mode: string) {
+                            if (mode === "pierce") {
+                                updateJutsu(jutsuIndex, {
+                                    effectPower: 40,
+                                    tags: [...jutsu.tags.filter((t) => t.name !== "Pierce"), { name: "Pierce", percent: 0 }],
+                                });
+                            } else if (mode === "nuke") {
+                                updateJutsu(jutsuIndex, { effectPower: 50, tags: jutsu.tags.filter((t) => t.name !== "Pierce") });
+                            } else {
+                                updateJutsu(jutsuIndex, { effectPower: 40, tags: jutsu.tags.filter((t) => t.name !== "Pierce") });
+                            }
+                        }
                         return (
                             <div className="summary-box bloodline-damage-section">
                                 <h4>Damage</h4>
                                 <label>Effect Power (Lv.50 max · Lv.1 ˜ value - 9.8)</label>
-                                <select value={jutsu.effectPower === 50 ? 50 : 40} onChange={(e) => updateJutsu(jutsuIndex, { effectPower: Number(e.target.value) })}>
-                                    <option value={40}>40 — Standard · Lv.1 ˜ 30.2</option>
-                                    <option value={50} disabled={strongUsedElsewhere}>50 — Nuke · Lv.1 ˜ 40.2{strongUsedElsewhere ? " [already used]" : " (+1 pt)"}</option>
+                                <select value={damageMode} onChange={(e) => handleDamageMode(e.target.value)}>
+                                    <option value="standard">40 — Standard · Lv.1 ˜ 30.2</option>
+                                    <option value="nuke" disabled={strongUsedElsewhere}>50 — Nuke · Lv.1 ˜ 40.2{strongUsedElsewhere ? " [already used]" : " (+1 pt)"}</option>
+                                    <option value="pierce" disabled={pierceUsedElsewhere}>Pierce — 900 true damage{pierceUsedElsewhere ? " [already used]" : " (+1 pt)"}</option>
                                 </select>
-                                <small className="tag-effect-help">Standard 60 AP damage is 0 points. Nukes are +1 point. Pierce is in the tag dropdown and only available on 60 AP bloodline jutsus.</small>
+                                <small className="tag-effect-help">Standard 60 AP is 0 points. Nuke (+1 pt) scales with level. Pierce (+1 pt) deals 900 unblockable damage — ignores shields, armor, and all damage modifiers. Only one Nuke and one Pierce allowed per bloodline.</small>
                             </div>
                         );
                     })()}
@@ -22907,7 +22876,7 @@ function BloodlineMaker({ initialRank, initialSpecialElement, character, updateC
                             : jutsu.ap === 40
                                 ? allTags.filter((tagName) => !fortyApBlockedBloodlineTags.includes(tagName))
                                 : undefined;
-                        return <TagPicker key={tagIndex} rank={rank} jutsuTarget={jutsu.target} allowedTags={allowedTags} tag={currentTag} disabledTags={disabledTags} percentChoices={bloodlineTagPercentChoices(rank)} setTag={(name) => updateTag(jutsuIndex, tagIndex, { name })} percent={jutsu.tags[tagIndex]?.percent ?? 30} setPercent={(percent) => updateTag(jutsuIndex, tagIndex, { percent })} />;
+                        return <TagPicker key={tagIndex} rank={rank} jutsuTarget={jutsu.target} allowedTags={allowedTags} tag={currentTag} disabledTags={disabledTags} setTag={(name) => updateTag(jutsuIndex, tagIndex, { name })} percent={jutsu.tags[tagIndex]?.percent ?? 30} setPercent={(percent) => updateTag(jutsuIndex, tagIndex, { percent })} />;
                     })}
                     <p>Jutsu Points: {jutsuPoints(jutsu)}</p>
                 </div>
