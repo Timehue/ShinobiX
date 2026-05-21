@@ -1782,6 +1782,13 @@ const binaryTags = [
     "Stun Prevent",
     "Lag",
     "Overclock",
+    // Fixed-value tags — no percentage applies
+    "Shield",   // always 500 shield
+    "Heal",     // always 500 HP
+    "Barrier",  // always 1 wall tile
+    "Drain",    // always 250 HP+chakra+stamina/round
+    "Push",     // distance set by range, not percent
+    "Pull",     // distance set by range, not percent
 ];
 
 function normalizeTagName(name: string) {
