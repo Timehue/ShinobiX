@@ -3,8 +3,8 @@ import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
 
 const REGISTRY_KEY = 'player:registry';
-const PRESENCE_HASH_KEY = 'presence:all';
-const PRESENCE_TTL_MS = 65_000;
+const PRESENCE_KEY_PREFIX = 'presence:';
+const PRESENCE_TTL_MS = 65_000; // kept for belt-and-suspenders staleness check
 
 type RosterPlayer = {
     name: string;
@@ -36,16 +36,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method !== 'GET') return res.status(405).end();
 
     try {
-        // One command instead of kv.keys('presence:*') + N*kv.get().
-        const allPresenceRaw = await kv.hgetall<Record<string, unknown>>(PRESENCE_HASH_KEY) ?? {};
+        // Read individual presence:<name> TTL keys written by heartbeat.ts.
+        // kv.keys() only returns non-expired keys, so no manual TTL filter needed.
+        const presenceKeys = await kv.keys(`${PRESENCE_KEY_PREFIX}*`);
+        const presenceValues = presenceKeys.length > 0
+            ? await kv.mget<PresenceEntry[]>(...presenceKeys)
+            : [];
         const now = Date.now();
-        const presenceEntries: PresenceEntry[] = [];
-        for (const v of Object.values(allPresenceRaw)) {
-            try {
-                const p: PresenceEntry = typeof v === 'string' ? JSON.parse(v) : v as PresenceEntry;
-                if (p?.name && now - (p.lastSeen ?? 0) <= PRESENCE_TTL_MS) presenceEntries.push(p);
-            } catch { /* skip malformed */ }
-        }
+        const presenceEntries: PresenceEntry[] = presenceValues.filter(
+            (v): v is PresenceEntry => Boolean(v?.name) && now - ((v as PresenceEntry).lastSeen ?? 0) <= PRESENCE_TTL_MS
+        );
         const livePresenceByName = new Map(presenceEntries.map(entry => [entry.name.toLowerCase(), entry]));
         const onlineNames = new Set(livePresenceByName.keys());
 
