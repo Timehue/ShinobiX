@@ -104,10 +104,14 @@ function normalizeVillageWar(data: Partial<VillageWar> & { villages?: [string, s
 }
 
 async function getByPrefix<T>(prefix: string) {
-    const keys = await kv.keys(`${prefix}*`);
-    if (!keys.length) return [];
-    const values = await Promise.all(keys.map(key => kv.get<T>(key)));
-    return values.filter(Boolean);
+    try {
+        const keys = await kv.keys(`${prefix}*`);
+        if (!keys.length) return [];
+        const values = await Promise.all(keys.map(key => kv.get<T>(key)));
+        return values.filter(Boolean);
+    } catch {
+        return [];
+    }
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
