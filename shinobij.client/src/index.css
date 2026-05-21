@@ -7469,9 +7469,9 @@ textarea {
 
 .left-caps-grid {
     display: grid;
-    grid-template-columns: auto auto;
-    gap: 2px 16px;
-    justify-content: center;
+    grid-template-columns: 1fr 1fr;
+    gap: 2px 6px;
+    width: 100%;
 }
 
 .left-caps-cell {
@@ -7479,17 +7479,21 @@ textarea {
     flex-direction: column;
     align-items: flex-start;
     gap: 0;
+    min-width: 0;
 }
 
 .left-caps-label {
-    font-size: 0.62rem;
+    font-size: 0.60rem;
     color: #94a3b8;
     font-weight: 500;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
 }
 
 .left-caps-value {
-    font-size: 0.72rem;
+    font-size: 0.68rem;
     font-weight: 700;
     color: #e2e8f0;
 }
