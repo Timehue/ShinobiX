@@ -20979,7 +20979,7 @@ function WorldMap({
                         onClick={() => triggerTravelPoint(sector.id)}
                         title={sector.id === 99 ? "Death's Gate — PvP zone: 2× XP, Ryo & Jutsu XP · 5% Bone Charm on win" : `Sector ${sector.id} | ${weatherEffects[weatherForSector(sector.id, biomeForSector(sector.id))].name}`}
                     >
-                        {sector.id === 99 ? "??" : sector.id === 35 ? "??" : sector.id}
+                        {sector.id === 99 ? "💀" : sector.id === 35 ? "☀️" : sector.id}
                     </button>
                 ))}
 
