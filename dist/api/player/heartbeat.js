@@ -20,7 +20,7 @@ export default async function handler(req, res) {
         return res.status(405).end();
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-        const { name, sector, character } = body;
+        const { name, sector, character, travelingUntil, inBattle } = body;
         if (!name)
             return res.status(400).json({ error: 'Missing name.' });
         const challengeKey = `challenges:${name.toLowerCase().trim()}`;
@@ -37,12 +37,17 @@ export default async function handler(req, res) {
         }
         const pendingAttacker = existing?.pendingAttacker ?? null;
         const entrySector = normalizeSector(sector, normalizeSector(existing?.sector, 40));
+        const now = Date.now();
         const entry = {
             name,
             sector: entrySector,
             character: character ?? existing?.character ?? null,
-            lastSeen: Date.now(),
+            lastSeen: now,
             pendingAttacker: null,
+            // Persist travel window so attack.ts / challenge.ts can reject mid-travel requests.
+            travelingUntil: (travelingUntil && travelingUntil > now) ? travelingUntil : undefined,
+            // Persist battle flag so attack.ts can reject double-battle requests.
+            inBattle: inBattle === true ? true : undefined,
         };
         // Write only the individual TTL key — one cheap upsert, Postgres handles expiry.
         // No JSONB hash merge means no O(N-players) CPU work per heartbeat.
@@ -58,7 +63,7 @@ export default async function handler(req, res) {
             ? await kv.mget(...otherKeys)
             : [];
         const allEntries = otherValues.filter((v) => Boolean(v?.name));
-        const toRecord = ({ name: n, sector: s, character: c }) => {
+        const toRecord = ({ name: n, sector: s, character: c, travelingUntil: tu, inBattle: ib }) => {
             const ch = c;
             return {
                 name: n, sector: s, character: c,
@@ -67,6 +72,8 @@ export default async function handler(req, res) {
                 specialty: ch?.specialty ?? 'Ninjutsu',
                 currentSector: s,
                 lastSeenAt: Date.now(),
+                travelingUntil: tu ?? 0,
+                inBattle: ib ?? false,
             };
         };
         const sectorMates = allEntries

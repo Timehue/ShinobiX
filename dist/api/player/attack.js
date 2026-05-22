@@ -15,7 +15,20 @@ export default async function handler(req, res) {
         const target = await kv.get(key);
         if (!target)
             return res.status(404).json({ error: 'Target not online.' });
-        await kv.set(key, { ...target, pendingAttacker: attacker ?? null }, { ex: 30 });
+        // Block attack if the target is currently traveling between sectors.
+        const travelingUntil = Number(target.travelingUntil ?? 0);
+        if (travelingUntil > Date.now()) {
+            return res.status(409).json({ error: 'Target is traveling and cannot be attacked.' });
+        }
+        // Block attack if the target already has a pending attacker (double-battle prevention).
+        if (target.pendingAttacker) {
+            return res.status(409).json({ error: 'Target is already engaged in combat.' });
+        }
+        // Block attack if the target is in an active PvP battle.
+        if (target.inBattle) {
+            return res.status(409).json({ error: 'Target is already in a battle.' });
+        }
+        await kv.set(key, { ...target, pendingAttacker: attacker ?? null }, { ex: 60 });
         return res.status(200).json({ ok: true });
     }
     catch (err) {

@@ -1,104 +1,142 @@
-# cPanel Node.js App Setup (fatedreunion.com / sparkedhost)
+# cPanel Deployment Guide — ShinobiX
 
-## Goal
-Run the Express API server on cPanel (Phusion Passenger) to offload API traffic
-from Vercel/Supabase and reduce Supabase CPU load.
-
-The server uses `DATABASE_URL` (direct Postgres pool) instead of Supabase REST,
-so it is faster and never hits Supabase's CPU-intensive JSONB endpoints.
+Runs the Express API + React SPA on cPanel via Phusion Passenger (Node.js).
+No Vercel needed. Direct Postgres connection to Supabase cuts cold-start latency.
 
 ---
 
-## Folder structure to create in File Manager
+## One-time setup
 
+### 1. Clone the repo on the server
+
+In cPanel → **Terminal** (or SSH):
+
+```bash
+mkdir -p ~/apps
+cd ~/apps
+git clone https://github.com/Timehue/ShinobiX.git shinobix
+cd shinobix
+npm install
 ```
-nodeapps/shinobi-api/
-nodeapps/shinobi-api/api/          <- compiled API handlers
-nodeapps/shinobi-api/public/       <- built React frontend
-nodeapps/shinobi-api/server.js     <- Express entry point
-nodeapps/shinobi-api/package.json  <- cpanel-deploy/package.json
-```
 
----
+### 2. Register the Node.js app in cPanel
 
-## Files to upload
+Go to **Software → Setup Node.js App → Create Application**:
 
-| Local source | Upload destination |
+| Field | Value |
 |---|---|
-| `dist/server.js` | `nodeapps/shinobi-api/server.js` |
-| `dist/api/` (entire folder) | `nodeapps/shinobi-api/api/` |
-| `cpanel-deploy/package.json` | `nodeapps/shinobi-api/package.json` |
-| `shinobij.client/dist/*` (all files) | `nodeapps/shinobi-api/public/` |
+| Node.js version | 20 or 22 (latest available) |
+| Application mode | Production |
+| Application root | `apps/shinobix` |
+| Application URL | `fatedreunion.com` (or subdomain) |
+| Application startup file | `app.js` |
 
-**Tip:** Zip `dist/` locally, upload & extract in File Manager, then move
-the contents of the extracted `dist/` folder up into `nodeapps/shinobi-api/`.
-Then upload `cpanel-deploy/package.json` as `package.json`.
-Then zip & upload `shinobij.client/dist/` into the `public/` subfolder.
+Click **Create**.
 
----
+### 3. Set environment variables
 
-## Application Manager registration form
-
-- **Application name**: `Shinobi Journey`
-- **Deployment domain**: `fatedreunion.com`
-- **Application root**: `nodeapps/shinobi-api`
-- **Application startup file**: `server.js`
-- **Node.js version**: newest available (18+ required, 20+ preferred)
-- **Application mode**: Production
-
----
-
-## Environment variables
-
-Set these in Application Manager after registering:
+In the Application Manager, add:
 
 ```
-DATABASE_URL        = postgres://postgres.soaychxshtbgwujhytsf:<password>@aws-1-us-east-1.pooler.supabase.com:6543/postgres
-SUPABASE_URL        = https://soaychxshtbgwujhytsf.supabase.co
+DATABASE_URL         = postgres://postgres.<project>:<password>@aws-0-us-east-1.pooler.supabase.com:6543/postgres
+SUPABASE_URL         = https://<project>.supabase.co
 SUPABASE_SERVICE_ROLE_KEY = <service role key>
-ADMIN_PASSWORD      = <admin password>
-OPENAI_API_KEY      = <openai key if using AI image generation>
+ADMIN_PASSWORD       = <your admin password>
+OPENAI_API_KEY       = <openai key — only needed for AI image generation>
 ```
 
-> NOTE: Rotate the Postgres password after setup — it was shared in chat.
-> Go to Supabase dashboard → Settings → Database → Reset password.
+> `DATABASE_URL` activates the direct pg Pool backend in `_storage.ts`.
+> This is faster than Supabase REST and avoids their CPU-intensive JSONB endpoints.
+
+### 4. Run npm install (in App Manager)
+
+Click **Run NPM Install** in the Application Manager, or in Terminal:
+
+```bash
+cd ~/apps/shinobix
+npm install
+```
+
+### 5. Start the app
+
+Click **Restart** in the Application Manager.
 
 ---
 
-## Start the app
+## Test it
 
-1. Click **Run NPM Install** (installs express, pg, @supabase/supabase-js)
-2. Click **Restart**
+```
+https://fatedreunion.com/api/health          → {"ok":true}
+https://fatedreunion.com/api/debug/storage   → confirms DB connection + env vars
+https://fatedreunion.com/                    → React SPA loads
+```
 
 ---
 
-## Test endpoints
+## Deploying updates
 
+All code changes flow through Git. After pushing to GitHub:
+
+**On the cPanel server (Terminal or SSH):**
+
+```bash
+cd ~/apps/shinobix
+git pull
+npm run build        # compiles TypeScript + builds React client
 ```
-https://fatedreunion.com/api/health          -> {"ok":true}
-https://fatedreunion.com/api/debug/storage   -> confirms DB connection
-https://fatedreunion.com/                    -> serves React frontend
-```
+
+Then click **Restart** in Application Manager (or via Terminal if you have the restart command).
+
+### What `npm run build` does
+
+1. `build:server` — TypeScript → `dist/` (Express server + API handlers)
+2. `build:client` — Vite → `shinobij.client/dist/` (React SPA)
+
+The Express server automatically serves the React build from `shinobij.client/dist/`
+and falls back to `index.html` for all non-API routes.
 
 ---
 
 ## How it works
 
-- Phusion Passenger launches `node server.js` and keeps it alive
-- `server.js` is the Express wrapper in `dist/server.js`
-- All `/api/*` routes hit the Express handlers directly (no Vercel cold starts)
-- `public/` folder serves the React SPA; `*` falls through to `index.html`
-- `_storage.ts` detects `DATABASE_URL` and uses the pg Pool backend instead
-  of Supabase REST — this is what cuts the CPU load
+```
+cPanel Passenger
+  └── node app.js
+        └── loads .env
+        └── imports dist/server.js  (Express)
+              ├── /api/*  →  handler modules in dist/api/
+              └── /*      →  serves shinobij.client/dist/ (React SPA)
+```
+
+- `_storage.ts` sees `DATABASE_URL` → uses pg Pool (direct Postgres, no REST overhead)
+- All `/api/...` fetch calls from the React app hit the same Express process
+- No cold starts, no Vercel function limits, no Supabase REST timeout issues
 
 ---
 
-## Rebuilding after code changes
+## File layout (on server)
 
-```bash
-# In the NinjaK repo:
-npm run build:cpanel          # compiles TypeScript -> dist/
-cd shinobij.client && npm run build   # builds React -> shinobij.client/dist/
-
-# Then re-upload changed files to cPanel and restart the app
 ```
+~/apps/shinobix/
+  app.js                     ← Passenger entry point (loads .env, starts server)
+  dist/
+    server.js                ← compiled Express server
+    api/                     ← compiled API handlers
+  shinobij.client/
+    dist/                    ← built React SPA (served as static files)
+  api/                       ← TypeScript source (not served directly)
+  package.json
+  .env                       ← created manually on server, never committed
+```
+
+---
+
+## Troubleshooting
+
+| Symptom | Check |
+|---|---|
+| App won't start | `cat ~/apps/shinobix/logs/error.log` or Passenger log in cPanel |
+| `/api/health` 502 | App not running — click Restart in App Manager |
+| `/api/debug/storage` error | Check `DATABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` env vars |
+| React app shows blank page | Run `npm run build` — client may not be built yet |
+| API calls return 404 | Run `npm run build:server` — dist/ may be out of date |

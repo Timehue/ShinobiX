@@ -5,7 +5,10 @@
     "type": "module",
     "description": "ShinobiX game API — Express/cPanel backend, Supabase storage",
     "scripts": {
-        "build:cpanel": "tsc -p tsconfig.cpanel.json",
+        "build:server": "tsc -p tsconfig.cpanel.json",
+        "build:client": "cd shinobij.client && npm run build",
+        "build": "npm run build:server && npm run build:client",
+        "build:cpanel": "npm run build",
         "start": "node app.js",
         "dev": "node --watch app.js"
     },

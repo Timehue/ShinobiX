@@ -11,7 +11,8 @@ export default async function handler(req, res) {
         const { name, village, level } = body;
         if (!name || !village)
             return res.status(400).json({ error: 'Missing name or village.' });
-        await kv.set(`guard:${name}`, { name, village, level: level ?? 1, lastSeen: Date.now() }, { ex: 300 });
+        const normalizedName = name.toLowerCase().trim();
+        await kv.set(`guard:${normalizedName}`, { name, village, level: level ?? 1, lastSeen: Date.now() }, { ex: 300 });
         return res.status(200).json({ ok: true });
     }
     catch (err) {

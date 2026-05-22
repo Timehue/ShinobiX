@@ -60,14 +60,28 @@ let _pool = null;
 function getPool() {
     if (_pool)
         return _pool;
-    const url = process.env.DATABASE_URL;
-    // Strip sslmode from the connection string — pg v8 treats sslmode=require
-    // as verify-full, overriding ssl:{rejectUnauthorized:false}.
+    // DATABASE_URL wins; fall back to SUPABASE_POSTGRES_URL (set automatically
+    // by the Supabase Vercel integration on all environments).
+    const url = (process.env.DATABASE_URL ?? process.env.SUPABASE_POSTGRES_URL);
+    // Strip params that confuse pg: sslmode (pg v8 treats require as verify-full)
+    // and pgbouncer=true (Supavisor hint for ORMs, not understood by pg driver).
     const cleanUrl = url
         .replace(/([?&])sslmode=[^&]*/g, (_, sep) => (sep === '?' ? '?' : ''))
-        .replace(/\?$/, '');
+        .replace(/([?&])pgbouncer=[^&]*/g, (_, sep) => (sep === '?' ? '?' : ''))
+        .replace(/\?$/, '')
+        .replace(/\?&/, '?');
+    // Parse the URL manually with the WHATWG URL API instead of passing
+    // connectionString. pg v8 delegates connection-string parsing to
+    // pg-connection-string which calls the deprecated url.parse() internally,
+    // causing Node.js to emit DEP0169 on every request. Passing individual
+    // config fields bypasses that code path entirely.
+    const parsed = new URL(cleanUrl);
     _pool = new Pool({
-        connectionString: cleanUrl,
+        host: parsed.hostname,
+        port: parsed.port ? parseInt(parsed.port, 10) : 5432,
+        user: decodeURIComponent(parsed.username),
+        password: decodeURIComponent(parsed.password),
+        database: parsed.pathname.replace(/^\//, ''),
         ssl: { rejectUnauthorized: false },
         max: 5,
         idleTimeoutMillis: 30_000,
@@ -195,7 +209,9 @@ function getSupabase() {
     // Vercel function until the platform kills it (~300 s), returning no response.
     const fetchWithTimeout = (input, init) => {
         const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), 30_000);
+        // 20s hard cap per Supabase REST call — keeps us well under the 30s
+        // maxDuration so the function always has time to return a response.
+        const timer = setTimeout(() => ctrl.abort(), 20_000);
         return fetch(input, { ...init, signal: ctrl.signal }).finally(() => clearTimeout(timer));
     };
     _supabase = createClient(url, key, {
@@ -305,6 +321,8 @@ const supabaseKv = {
     },
 };
 // ─── Export the right backend ─────────────────────────────────────────────────
-// Use pg Pool when DATABASE_URL is set (cPanel/Passenger long-running process).
-// Fall back to Supabase REST API for Vercel serverless (no TCP cold-start cost).
-export const kv = process.env.DATABASE_URL ? pgKv : supabaseKv;
+// Use pg Pool when a direct connection URL is available:
+//   DATABASE_URL      — set explicitly (cPanel/Passenger, or manually in Vercel)
+//   SUPABASE_POSTGRES_URL — set automatically by the Supabase Vercel integration
+// Fall back to Supabase REST API only when neither is present.
+export const kv = (process.env.DATABASE_URL || process.env.SUPABASE_POSTGRES_URL) ? pgKv : supabaseKv;

@@ -9,11 +9,16 @@ export default async function handler(req, res) {
         return res.status(200).end();
     const village = typeof req.query.village === 'string' ? req.query.village.trim() : '';
     if (req.method === 'GET') {
-        if (!village)
-            return res.status(400).json({ error: 'Missing village.' });
-        const state = await kv.get(kageKey(village)) ?? { kageSystemUnlocked: false };
-        res.setHeader('Cache-Control', 'public, max-age=30, stale-while-revalidate=60');
-        return res.status(200).json(state);
+        try {
+            if (!village)
+                return res.status(400).json({ error: 'Missing village.' });
+            const state = await kv.get(kageKey(village)) ?? { kageSystemUnlocked: false };
+            res.setHeader('Cache-Control', 'public, max-age=30, stale-while-revalidate=60');
+            return res.status(200).json(state);
+        }
+        catch (err) {
+            return res.status(500).json({ error: String(err) });
+        }
     }
     if (req.method === 'POST') {
         try {
