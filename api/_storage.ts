@@ -247,7 +247,18 @@ function getSupabase(): SupabaseClient {
     };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     function _hardcodedLookup(hostname: string, options: any, callback: (err: Error | null, address: string, family: number) => void): void {
-        if (_HARDCODED_IPS[hostname]) return callback(null, _HARDCODED_IPS[hostname], 4);
+        console.log('[_storage] lookup called for hostname:', hostname);
+        if (_HARDCODED_IPS[hostname]) {
+            console.log('[_storage] hardcoded hit:', hostname, '->', _HARDCODED_IPS[hostname]);
+            return callback(null, _HARDCODED_IPS[hostname], 4);
+        }
+        // Fallback: ALWAYS return the Supabase IP for any *.supabase.co host —
+        // CageFS blocks DNS so dns.lookup would fail anyway.
+        if (hostname.endsWith('.supabase.co')) {
+            console.log('[_storage] supabase.co fallback:', hostname, '-> 172.64.149.246');
+            return callback(null, '172.64.149.246', 4);
+        }
+        console.log('[_storage] falling back to dns.lookup for:', hostname);
         // eslint-disable-next-line @typescript-eslint/no-require-imports
         require('dns').lookup(hostname, options, callback);
     }
@@ -258,8 +269,14 @@ function getSupabase(): SupabaseClient {
         const undici = require('undici') as any;
         const agent = new undici.Agent({ connect: { family: 4, lookup: _hardcodedLookup } });
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        baseFetch = (input, init) => undici.fetch(input, { ...(init ?? {}), dispatcher: agent } as any);
-    } catch {
+        baseFetch = (input, init) => {
+            const u = typeof input === 'string' ? input : (input as { url?: string; href?: string }).url ?? (input as { href?: string }).href ?? String(input);
+            console.log('[_storage] fetch called:', u);
+            return undici.fetch(input, { ...(init ?? {}), dispatcher: agent } as any);
+        };
+        console.log('[_storage] undici agent created with hardcoded lookup');
+    } catch (e) {
+        console.warn('[_storage] undici not available:', (e as Error).message);
         // undici not available — fall back to global fetch
     }
 
