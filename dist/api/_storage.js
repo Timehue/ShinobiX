@@ -210,15 +210,29 @@ function getSupabase() {
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (!url || !key)
         throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set.');
-    // Give every Supabase REST call a 30-second hard timeout via a custom fetch.
-    // Without this, one slow JSONB serialisation on a multi-MB blob hangs the
-    // Vercel function until the platform kills it (~300 s), returning no response.
+    // Build a base fetch that forces IPv4.
+    // CloudLinux shared hosting has no IPv6 routing; without this, DNS AAAA
+    // records cause ENETUNREACH errors. We use undici directly so we can pass
+    // a custom dispatcher — the global fetch dispatcher cannot be overridden
+    // from a CJS module in all Node 22 builds.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let baseFetch = globalThis.fetch;
+    try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const undici = require('undici');
+        const ipv4Agent = new undici.Agent({ connect: { family: 4 } });
+        baseFetch = (input, init) => 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        undici.fetch(input, { ...(init ?? {}), dispatcher: ipv4Agent });
+    }
+    catch {
+        // undici not available — fall back to global fetch and hope for IPv4
+    }
+    // Give every Supabase REST call a 20-second hard timeout.
     const fetchWithTimeout = (input, init) => {
         const ctrl = new AbortController();
-        // 20s hard cap per Supabase REST call — keeps us well under the 30s
-        // maxDuration so the function always has time to return a response.
         const timer = setTimeout(() => ctrl.abort(), 20_000);
-        return fetch(input, { ...init, signal: ctrl.signal }).finally(() => clearTimeout(timer));
+        return baseFetch(input, { ...init, signal: ctrl.signal }).finally(() => clearTimeout(timer));
     };
     _supabase = (0, supabase_js_1.createClient)(url, key, {
         auth: { persistSession: false, autoRefreshToken: false },
