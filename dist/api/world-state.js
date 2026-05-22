@@ -121,7 +121,8 @@ async function handler(req, res) {
             return res.status(400).json({ error: 'Invalid world state update.' });
         }
         catch (err) {
-            return res.status(500).json({ error: String(err) });
+            console.error('[world-state]', err);
+            return res.status(500).json({ error: 'Internal server error.' });
         }
     }
     return res.status(405).end();

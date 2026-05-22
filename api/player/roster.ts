@@ -114,6 +114,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=10');
         return res.status(200).json({ players });
     } catch (err) {
-        return res.status(500).json({ error: String(err) });
+        console.error('[roster]', err);
+        return res.status(500).json({ error: 'Internal server error.' });
     }
 }

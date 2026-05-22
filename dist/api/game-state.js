@@ -60,7 +60,8 @@ async function handler(req, res) {
             });
         }
         catch (err) {
-            return res.status(500).json({ error: String(err) });
+            console.error('[game-state]', err);
+            return res.status(500).json({ error: 'Internal server error.' });
         }
     }
     if (req.method === 'POST') {
@@ -126,7 +127,8 @@ async function handler(req, res) {
             return res.status(400).json({ error: 'Unknown kind.' });
         }
         catch (err) {
-            return res.status(500).json({ error: String(err) });
+            console.error('[game-state]', err);
+            return res.status(500).json({ error: 'Internal server error.' });
         }
     }
     return res.status(405).end();

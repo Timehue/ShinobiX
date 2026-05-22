@@ -26,7 +26,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             res.setHeader('Cache-Control', 'public, max-age=30, stale-while-revalidate=60');
             return res.status(200).json(state);
         } catch (err) {
-            return res.status(500).json({ error: String(err) });
+            console.error('[village/kage]', err);
+            return res.status(500).json({ error: 'Internal server error.' });
         }
     }
 
@@ -70,7 +71,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             return res.status(400).json({ error: 'Invalid action.' });
         } catch (err) {
-            return res.status(500).json({ error: String(err) });
+            console.error('[village/kage]', err);
+            return res.status(500).json({ error: 'Internal server error.' });
         }
     }
 

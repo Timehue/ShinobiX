@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from './_storage.js';
 import { cors } from './_utils.js';
+import { enforceRateLimit } from './_ratelimit.js';
 import crypto from 'crypto';
 
 // `hash` stores either the legacy HMAC-SHA256 hex (no version prefix) or the
@@ -89,6 +90,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res);
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).end();
+
+    // Rate-limit auth actions by IP: 20 attempts per 15 minutes.
+    // This defends against brute-force password guessing without locking
+    // out legitimate multi-account households (each account has its own name
+    // so they can't easily enumerate targets anyway).
+    if (!enforceRateLimit(req, res, 'player-auth', 20, 15 * 60_000)) return;
 
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
     const { action, name, password, oldPassword, newPassword } = body as {

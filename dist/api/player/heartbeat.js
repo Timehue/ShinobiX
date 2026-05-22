@@ -4,12 +4,17 @@ exports.default = handler;
 const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
-const REGISTRY_KEY = 'player:registry';
+const _ratelimit_js_1 = require("../_ratelimit.js");
 // Individual TTL keys (presence:<name>) with 60s expiry.
 // Postgres expires them automatically — no JSONB hash merges, no CPU spike.
 // Reads use kv.keys('presence:*') + kv.mget() = 2 indexed queries.
 const PRESENCE_KEY_PREFIX = 'presence:';
 const PRESENCE_TTL_S = 60;
+let _presenceListCache = null;
+const PRESENCE_LIST_CACHE_TTL_MS = 5_000;
+// Max time the client can claim to be traveling (10 min). Caps an exploited
+// travelingUntil that would make a player permanently unreachable.
+const MAX_TRAVEL_WINDOW_MS = 10 * 60_000;
 function normalizeSector(value, fallback = 40) {
     const sector = Number(value);
     if (!Number.isFinite(sector))
@@ -22,6 +27,17 @@ async function handler(req, res) {
         return res.status(200).end();
     if (req.method !== 'POST')
         return res.status(405).end();
+    // 1 heartbeat per 2 s per player (30/min). Authenticated name wins over IP for
+    // the rate-limit key so shared IPs (NAT) don't bleed into each other's quota.
+    const bodyPeek = typeof req.body === 'string' ? (() => { try {
+        return JSON.parse(req.body);
+    }
+    catch {
+        return {};
+    } })() : (req.body ?? {});
+    const peekName = typeof bodyPeek?.name === 'string' ? bodyPeek.name : undefined;
+    if (!(0, _ratelimit_js_1.enforceRateLimit)(req, res, 'heartbeat', 30, 60_000, peekName))
+        return;
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
         const { name, sector, character, travelingUntil, inBattle } = body;
@@ -51,6 +67,11 @@ async function handler(req, res) {
         const pendingAttacker = existing?.pendingAttacker ?? null;
         const entrySector = normalizeSector(sector, normalizeSector(existing?.sector, 40));
         const now = Date.now();
+        // Cap client-supplied travelingUntil so an exploit can't make a player
+        // permanently untouchable (e.g. client sends year 9999 epoch).
+        const safeTravelUntil = travelingUntil
+            ? Math.min(travelingUntil, now + MAX_TRAVEL_WINDOW_MS)
+            : undefined;
         const entry = {
             name,
             sector: entrySector,
@@ -58,7 +79,7 @@ async function handler(req, res) {
             lastSeen: now,
             pendingAttacker: null,
             // Persist travel window so attack.ts / challenge.ts can reject mid-travel requests.
-            travelingUntil: (travelingUntil && travelingUntil > now) ? travelingUntil : undefined,
+            travelingUntil: (safeTravelUntil && safeTravelUntil > now) ? safeTravelUntil : undefined,
             // Persist battle flag so attack.ts can reject double-battle requests.
             inBattle: inBattle === true ? true : undefined,
         };
@@ -68,14 +89,29 @@ async function handler(req, res) {
             _storage_js_1.kv.set(presenceKey, entry, { ex: PRESENCE_TTL_S }),
             pendingChallenges?.length ? _storage_js_1.kv.del(challengeKey) : Promise.resolve(),
         ]);
-        // Fetch all active presence via keys + mget — 2 indexed queries, no large blob.
-        // Expired keys are excluded by the kv.keys() query (expires_at filter in SQL).
-        const presenceKeys = await _storage_js_1.kv.keys(`${PRESENCE_KEY_PREFIX}*`);
-        const otherKeys = presenceKeys.filter(k => k !== presenceKey);
-        const otherValues = otherKeys.length
-            ? await _storage_js_1.kv.mget(...otherKeys)
-            : [];
-        const allEntries = otherValues.filter((v) => Boolean(v?.name));
+        // Build the full presence list using an in-process cache (refreshed every 5 s).
+        // Between refreshes, each call patches its own updated entry into the cached list —
+        // so the caller always sees fresh data for themselves without an O(N) KV round-trip
+        // on every single heartbeat (which would be O(N²) total across all players).
+        let allEntries;
+        const cacheAge = _presenceListCache ? now - _presenceListCache.at : Infinity;
+        if (cacheAge < PRESENCE_LIST_CACHE_TTL_MS) {
+            // Splice caller's freshly-written entry into the cached list.
+            allEntries = _presenceListCache.entries
+                .filter(e => e.name.toLowerCase() !== name.toLowerCase())
+                .concat([entry]);
+        }
+        else {
+            // Cache stale — do the full O(N) refresh from KV.
+            const presenceKeys = await _storage_js_1.kv.keys(`${PRESENCE_KEY_PREFIX}*`);
+            const otherKeys = presenceKeys.filter(k => k !== presenceKey);
+            const otherValues = otherKeys.length
+                ? await _storage_js_1.kv.mget(...otherKeys)
+                : [];
+            const otherEntries = otherValues.filter((v) => Boolean(v?.name));
+            allEntries = [...otherEntries, entry];
+            _presenceListCache = { entries: allEntries, at: now };
+        }
         const toRecord = ({ name: n, sector: s, character: c, travelingUntil: tu, inBattle: ib }) => {
             const ch = c;
             return {
@@ -101,6 +137,7 @@ async function handler(req, res) {
         });
     }
     catch (err) {
-        return res.status(500).json({ error: String(err) });
+        console.error('[heartbeat]', err);
+        return res.status(500).json({ error: 'Internal server error.' });
     }
 }

@@ -80,7 +80,8 @@ async function handler(req, res) {
             return res.status(200).json({ battleId });
         }
         catch (err) {
-            return res.status(500).json({ error: String(err) });
+            console.error('[pvp/session]', err);
+            return res.status(500).json({ error: 'Internal server error.' });
         }
     }
     return res.status(405).end();

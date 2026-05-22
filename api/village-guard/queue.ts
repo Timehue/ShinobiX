@@ -16,6 +16,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         await kv.set(`guard:${normalizedName}`, { name, village, level: level ?? 1, lastSeen: Date.now() }, { ex: 300 });
         return res.status(200).json({ ok: true });
     } catch (err) {
-        return res.status(500).json({ error: String(err) });
+        console.error('[village-guard/queue]', err);
+        return res.status(500).json({ error: 'Internal server error.' });
     }
 }

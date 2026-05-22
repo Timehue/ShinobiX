@@ -14,6 +14,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const clans = await kv.mget(...keys);
         return res.status(200).json(clans.filter(Boolean));
     } catch (err) {
-        return res.status(500).json({ error: String(err) });
+        console.error('[clans/list]', err);
+        return res.status(500).json({ error: 'Internal server error.' });
     }
 }
