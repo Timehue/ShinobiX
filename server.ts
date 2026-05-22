@@ -128,6 +128,24 @@ app.get(['/health', '/api/health'], (_req, res) => {
     res.json({ ok: true, ..._BUILD_INFO });
 });
 
+// Internal restart endpoint — auth via KV_PROXY_TOKEN (the same shared
+// secret we already trust). Passenger respawns the worker when the
+// process exits, which reliably picks up new code from disk even when
+// tmp/restart.txt isn't honored.
+app.post(['/restart', '/api/restart'], (req, res) => {
+    const expected = process.env.KV_PROXY_TOKEN;
+    if (!expected || req.headers['x-kv-token'] !== expected) {
+        res.status(401).json({ error: 'invalid x-kv-token' });
+        return;
+    }
+    res.json({ ok: true, restarting: true, prevCommit: _BUILD_INFO.commit });
+    // Give the response a chance to flush before exiting.
+    setTimeout(() => {
+        console.log('[restart] exiting worker on operator request');
+        process.exit(0);
+    }, 250);
+});
+
 // ─── API routes ───────────────────────────────────────────────────────────────
 
 // Save — dynamic :name param merged into req.query.name for the handler.
