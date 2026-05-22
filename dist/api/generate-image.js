@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = handler;
 const _utils_js_1 = require("./_utils.js");
 const _auth_js_1 = require("./_auth.js");
+const _ratelimit_js_1 = require("./_ratelimit.js");
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res);
     if (req.method === 'OPTIONS')
@@ -14,6 +15,11 @@ async function handler(req, res) {
     const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req);
     if (!identity)
         return res.status(401).json({ error: 'Authentication required.' });
+    // 2 images per 60 s per authenticated identity. Tight limit because each
+    // call costs real money ($0.02-0.04/image at gpt-image-1 low quality).
+    const authedName = identity.admin ? null : identity.name;
+    if (!(0, _ratelimit_js_1.enforceRateLimit)(req, res, 'generate-image', 2, 60_000, authedName))
+        return;
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
         return res.status(500).json({ error: 'OPENAI_API_KEY is not configured in Vercel environment variables.' });
@@ -50,6 +56,7 @@ async function handler(req, res) {
         return res.status(200).json({ image: `data:image/png;base64,${b64}` });
     }
     catch (err) {
-        return res.status(500).json({ error: String(err) });
+        console.error('[generate-image]', err);
+        return res.status(500).json({ error: 'Internal server error.' });
     }
 }

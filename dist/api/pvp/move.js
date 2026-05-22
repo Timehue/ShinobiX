@@ -1173,6 +1173,7 @@ async function handler(req, res) {
         return finish(result);
     }
     catch (err) {
-        return res.status(500).json({ error: String(err) });
+        console.error('[pvp/move]', err);
+        return res.status(500).json({ error: 'Internal server error.' });
     }
 }

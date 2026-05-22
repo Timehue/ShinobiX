@@ -18,6 +18,7 @@ async function handler(req, res) {
         return res.status(200).json(clans.filter(Boolean));
     }
     catch (err) {
-        return res.status(500).json({ error: String(err) });
+        console.error('[clans/list]', err);
+        return res.status(500).json({ error: 'Internal server error.' });
     }
 }

@@ -63,7 +63,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 clanPetBattles,
             });
         } catch (err) {
-            return res.status(500).json({ error: String(err) });
+            console.error('[game-state]', err);
+            return res.status(500).json({ error: 'Internal server error.' });
         }
     }
 
@@ -129,7 +130,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             return res.status(400).json({ error: 'Unknown kind.' });
         } catch (err) {
-            return res.status(500).json({ error: String(err) });
+            console.error('[game-state]', err);
+            return res.status(500).json({ error: 'Internal server error.' });
         }
     }
 

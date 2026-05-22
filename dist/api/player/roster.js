@@ -93,6 +93,7 @@ async function handler(req, res) {
         return res.status(200).json({ players });
     }
     catch (err) {
-        return res.status(500).json({ error: String(err) });
+        console.error('[roster]', err);
+        return res.status(500).json({ error: 'Internal server error.' });
     }
 }

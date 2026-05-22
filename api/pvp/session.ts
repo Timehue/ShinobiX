@@ -134,7 +134,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             await kv.set(`pvp:${battleId}`, session, { ex: SESSION_TTL });
             return res.status(200).json({ battleId });
         } catch (err) {
-            return res.status(500).json({ error: String(err) });
+            console.error('[pvp/session]', err);
+            return res.status(500).json({ error: 'Internal server error.' });
         }
     }
 
