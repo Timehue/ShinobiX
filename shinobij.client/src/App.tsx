@@ -6787,9 +6787,11 @@ export default function App() {
         }
 
         const accounts = loadPlayerAccounts();
-        accounts[key] = {
-        };
+        accounts[key] = { ...(accounts[key] ?? {}), password };
         savePlayerAccounts(accounts);
+        // Pass the password so the global authFetch interceptor can attach
+        // x-player-name / x-player-password to every /api/ request from now on.
+        setActivePlayer(newCharacter.name, password);
 
         setCurrentAccountName(newCharacter.name);
         setCharacter(newCharacter);
@@ -6910,13 +6912,23 @@ export default function App() {
             });
         }
 
+        // Prime the authFetch interceptor *before* the save GET fires.
+        // Without this, the interceptor has no credentials and the backend
+        // returns 401, which the UI mistranslates as "no save found".
+        setActivePlayer(name, password);
+
         // Always pull the full server save - this is where the real character state lives.
         // Retry once on failure to handle transient Supabase cold starts.
         let saveRes: Response | null = null;
         for (let attempt = 0; attempt < 2; attempt++) {
             try {
                 if (attempt > 0) await new Promise(r => setTimeout(r, 2000));
-                saveRes = await loginFetch(`/api/save/${encodeURIComponent(name.toLowerCase())}`, undefined, 20000);
+                // Explicit auth headers — belt-and-suspenders alongside the interceptor.
+                saveRes = await loginFetch(
+                    `/api/save/${encodeURIComponent(name.toLowerCase())}`,
+                    { headers: { 'x-player-name': name, 'x-player-password': password } },
+                    20000,
+                );
                 if (saveRes.status !== 503) break; // 503 = storage unavailable, retry
             } catch { /* timeout/network — retry */ }
         }
