@@ -3,14 +3,66 @@ import { kv } from './_storage.js';
 import { cors } from './_utils.js';
 import crypto from 'crypto';
 
+// `hash` stores either the legacy HMAC-SHA256 hex (no version prefix) or the
+// new scrypt format `scrypt:N:r:p:hex`. New writes always use scrypt.
 type AuthRecord = { hash: string; salt: string };
 
 function newSalt(): string {
     return crypto.randomBytes(16).toString('hex');
 }
 
-export function hashPw(password: string, salt: string): string {
+// ─── Password hashing ─────────────────────────────────────────────────────────
+// Old hashes: HMAC-SHA256 (fast, vulnerable to GPU brute force if leaked).
+// New hashes: scrypt with N=16384 r=8 p=1 — Node built-in, no deps,
+// ~100ms/hash on commodity hardware (vs ~10ns for HMAC).
+//
+// On successful verify of a legacy hash, we transparently re-hash with scrypt
+// and write back the new format. Over time the legacy hashes disappear.
+
+const SCRYPT_N = 16384;
+const SCRYPT_R = 8;
+const SCRYPT_P = 1;
+const SCRYPT_KEYLEN = 64;
+const SCRYPT_PREFIX = 'scrypt:';
+
+function hashScrypt(password: string, salt: string): string {
+    const derived = crypto.scryptSync(password, salt, SCRYPT_KEYLEN, {
+        N: SCRYPT_N,
+        r: SCRYPT_R,
+        p: SCRYPT_P,
+    });
+    return `${SCRYPT_PREFIX}${SCRYPT_N}:${SCRYPT_R}:${SCRYPT_P}:${derived.toString('hex')}`;
+}
+
+function hashLegacy(password: string, salt: string): string {
     return crypto.createHmac('sha256', salt).update(password).digest('hex');
+}
+
+// Public alias retained for backward compat with any other callers — always
+// uses the modern algorithm now.
+export function hashPw(password: string, salt: string): string {
+    return hashScrypt(password, salt);
+}
+
+function safeStringEqual(a: string, b: string): boolean {
+    const ba = Buffer.from(a);
+    const bb = Buffer.from(b);
+    if (ba.length !== bb.length) {
+        crypto.timingSafeEqual(ba, ba); // keep timing flat-ish
+        return false;
+    }
+    return crypto.timingSafeEqual(ba, bb);
+}
+
+/**
+ * Verify a password against a stored AuthRecord. Handles both legacy and
+ * modern hash formats. Returns true if valid.
+ */
+function verifyAgainst(record: AuthRecord, password: string): boolean {
+    if (record.hash.startsWith(SCRYPT_PREFIX)) {
+        return safeStringEqual(hashScrypt(password, record.salt), record.hash);
+    }
+    return safeStringEqual(hashLegacy(password, record.salt), record.hash);
 }
 
 export function authKey(name: string): string {
@@ -20,7 +72,17 @@ export function authKey(name: string): string {
 export async function verifyPlayerPassword(name: string, password: string): Promise<boolean> {
     const record = await kv.get<AuthRecord>(authKey(name));
     if (!record) return false;
-    return hashPw(password, record.salt) === record.hash;
+    const ok = verifyAgainst(record, password);
+    // Opportunistically migrate legacy hashes to scrypt on successful login.
+    if (ok && !record.hash.startsWith(SCRYPT_PREFIX)) {
+        try {
+            const salt = newSalt();
+            await kv.set(authKey(name), { hash: hashScrypt(password, salt), salt });
+        } catch {
+            // Migration is best-effort — auth itself already succeeded.
+        }
+    }
+    return ok;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -74,7 +136,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Return legacy=true so the client can decide whether to register the password.
             return res.status(200).json({ ok: true, legacy: true });
         }
-        const valid = hashPw(password, record.salt) === record.hash;
+        const valid = verifyAgainst(record, password);
+        // Opportunistically upgrade legacy HMAC hashes to scrypt on each
+        // successful verify, so the legacy format dies off over time.
+        if (valid && !record.hash.startsWith(SCRYPT_PREFIX)) {
+            try {
+                const salt = newSalt();
+                await kv.set(key, { hash: hashScrypt(password, salt), salt });
+            } catch {
+                // best-effort
+            }
+        }
         if (!valid) return res.status(200).json({ ok: false });
         return res.status(200).json({ ok: true });
     }
@@ -92,7 +164,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 await kv.set(key, { hash: hashPw(newPassword, salt), salt });
                 return res.status(200).json({ ok: true });
             }
-            if (hashPw(oldPassword, record.salt) !== record.hash) {
+            if (!verifyAgainst(record, oldPassword)) {
                 return res.status(401).json({ ok: false, error: 'Incorrect current password.' });
             }
             const salt = newSalt();
@@ -109,7 +181,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Must supply either valid player password or admin password.
         const adminPassword = process.env.ADMIN_PASSWORD;
         const adminPw = req.headers['x-admin-password'] as string | undefined;
-        if (adminPassword && adminPw === adminPassword) {
+        if (adminPassword && adminPw && safeStringEqual(adminPw, adminPassword)) {
             try {
                 await kv.del(key);
             } catch (err) {
@@ -121,7 +193,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!password) return res.status(401).json({ ok: false, error: 'Authentication required.' });
         try {
             const record = await kv.get<AuthRecord>(key);
-            if (record && hashPw(password, record.salt) !== record.hash) {
+            if (record && !verifyAgainst(record, password)) {
                 return res.status(401).json({ ok: false, error: 'Incorrect password.' });
             }
             await kv.del(key);
@@ -136,7 +208,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Admin sets a player's password to a new value (e.g. for account recovery).
         const adminPassword = process.env.ADMIN_PASSWORD;
         const adminPw = req.headers['x-admin-password'] as string | undefined;
-        if (!adminPassword || adminPw !== adminPassword) {
+        if (!adminPassword || !adminPw || !safeStringEqual(adminPw, adminPassword)) {
             return res.status(401).json({ ok: false, error: 'Admin authentication required.' });
         }
         if (!newPassword) return res.status(400).json({ ok: false, error: 'Missing newPassword.' });

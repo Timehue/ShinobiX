@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
+import { authedPlayerOrAdmin } from '../_auth.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res);
@@ -11,6 +12,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
         const { name } = body as { name?: string };
         if (!name) return res.status(400).json({ error: 'Missing name.' });
+
+        // Can only clear your own pending attacker.
+        const identity = await authedPlayerOrAdmin(req, name);
+        if (!identity) return res.status(401).json({ error: 'Authentication required.' });
+        if (!identity.admin && identity.name !== name.toLowerCase().trim()) {
+            return res.status(403).json({ error: 'Cannot clear another player.' });
+        }
 
         const key = `presence:${name}`;
         const entry = await kv.get<Record<string, unknown>>(key);

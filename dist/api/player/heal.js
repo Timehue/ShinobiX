@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = handler;
 const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
+const _auth_js_1 = require("../_auth.js");
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res);
     if (req.method === 'OPTIONS')
@@ -14,6 +15,14 @@ async function handler(req, res) {
         const targetName = (0, _utils_js_1.safeName)(String(body.targetName ?? ''));
         if (!targetName)
             return res.status(400).json({ error: 'Invalid target name.' });
+        // Heal can only be self-targeted (or admin). Stops random bots from
+        // healing every hospitalized player and nullifying hospital downtime.
+        const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req, targetName);
+        if (!identity)
+            return res.status(401).json({ error: 'Authentication required.' });
+        if (!identity.admin && identity.name !== targetName) {
+            return res.status(403).json({ error: 'Can only heal yourself.' });
+        }
         const key = `save:${targetName}`;
         const existing = await _storage_js_1.kv.get(key);
         if (!existing)

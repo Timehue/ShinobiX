@@ -3,6 +3,21 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = handler;
 const _storage_js_1 = require("./_storage.js");
 const _utils_js_1 = require("./_utils.js");
+const _auth_js_1 = require("./_auth.js");
+// Max raw image string length (≈ base64 of a ~2 MB image). Anything bigger is
+// rejected — keeps disk usage bounded and stops one player from filling the
+// shared image bucket with megabyte uploads.
+const MAX_IMAGE_BYTES = 3_000_000;
+function isValidImageString(s) {
+    if (s.length > MAX_IMAGE_BYTES)
+        return false;
+    // Accept data URLs for png/jpeg/webp/gif/svg, or http(s) URLs.
+    if (/^data:image\/(png|jpe?g|webp|gif|svg\+xml);base64,/i.test(s))
+        return true;
+    if (/^https?:\/\//i.test(s))
+        return true;
+    return false;
+}
 // Legacy single-blob key (kept for backward-compat reads during migration)
 const LEGACY_KEY = 'shared:images';
 // Old per-category JSON blob keys (kept for backward-compat reads)
@@ -69,11 +84,19 @@ async function handler(req, res) {
         }
     }
     if (req.method === 'POST') {
+        // Uploads require a logged-in player. Stops random bots from replacing
+        // jutsu icons or kage portraits with arbitrary content.
+        const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req);
+        if (!identity)
+            return res.status(401).json({ error: 'Authentication required.' });
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
             const { id, image } = body;
             if (!id || typeof image !== 'string')
                 return res.status(400).json({ error: 'Missing id or image.' });
+            if (!isValidImageString(image)) {
+                return res.status(400).json({ error: 'Image must be a valid data URL or http(s) URL under 3 MB.' });
+            }
             const cat = categoryFromId(id);
             // Atomic HSET — sets exactly this one field without touching any other
             // image in the same category. Eliminates the race condition.

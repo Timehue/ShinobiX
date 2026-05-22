@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
+import { authedPlayerOrAdmin } from '../_auth.js';
 import type { PvpFighter, PvpGroundEffect, PvpSession, PvpStatus } from './session.js';
 
 // ─── Grid constants (match arena exactly) ─────────────────────────────────────
@@ -568,6 +569,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const session: PvpSession = sessionMaybe;
         if (session.status === 'done') return res.status(200).json(session);
         if (session.activePlayer !== role) return res.status(200).json(session);
+
+        // Verify the requester actually owns the role they're moving as.
+        // Without this, anyone could submit moves on another player's behalf.
+        const identity = await authedPlayerOrAdmin(req);
+        if (!identity) return res.status(401).json({ error: 'Authentication required.' });
+        if (!identity.admin) {
+            const claimedFighter = role === 'p1' ? session.p1 : session.p2;
+            const claimedName = String(claimedFighter.name ?? '').trim().toLowerCase();
+            if (claimedName !== identity.name) {
+                return res.status(403).json({ error: 'Cannot move as another player.' });
+            }
+        }
 
         const lockKey = `${key}:lock`;
         const lockToken = `${role}:${Date.now()}:${Math.random().toString(36).slice(2)}`;

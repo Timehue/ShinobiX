@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = handler;
 const _storage_js_1 = require("./_storage.js");
 const _utils_js_1 = require("./_utils.js");
+const _auth_js_1 = require("./_auth.js");
 const TERRITORY_CONTROL_MAX = 20000;
 const TERRITORY_HP_MAX = 20000;
 const VILLAGE_WAR_HP_MAX = 5000;
@@ -97,6 +98,12 @@ async function handler(req, res) {
         return res.status(200).json({ territories, wars });
     }
     if (req.method === 'POST') {
+        // Require a logged-in player at minimum. Cleaner gating per-kind would
+        // need game-rule validation (e.g. you can only update a sector you're
+        // attacking) — leaving that for a follow-up.
+        const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req);
+        if (!identity)
+            return res.status(401).json({ error: 'Authentication required.' });
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
             if (body?.kind === 'territory') {

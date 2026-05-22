@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
+import { authedPlayerOrAdmin } from '../_auth.js';
 
 const REGISTRY_KEY = 'player:registry';
 // Individual TTL keys (presence:<name>) with 60s expiry.
@@ -40,6 +41,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             inBattle?: boolean;
         };
         if (!name) return res.status(400).json({ error: 'Missing name.' });
+
+        // Require that the heartbeat is from the named player (or admin).
+        // Stops attackers from spoofing presence: setting inBattle=true to be
+        // untouchable, faking travelingUntil, teleporting others, etc.
+        const identity = await authedPlayerOrAdmin(req, name);
+        if (!identity) return res.status(401).json({ error: 'Authentication required.' });
+        if (!identity.admin && identity.name !== name.toLowerCase().trim()) {
+            return res.status(403).json({ error: 'Cannot heartbeat as another player.' });
+        }
 
         const challengeKey = `challenges:${name.toLowerCase().trim()}`;
         const presenceKey = `${PRESENCE_KEY_PREFIX}${name}`;
