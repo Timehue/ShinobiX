@@ -8388,12 +8388,19 @@ function LeftProfileCard({
 }) {
     const [now, setNow] = useState(Date.now());
     useEffect(() => {
+        const pets = character.pets ?? [];
+        const hasPetTimer = pets.some(
+            (p) => (p.training && Date.now() < p.training.endsAt) ||
+                   (p.expedition && Date.now() < p.expedition.endsAt)
+        );
         const hasTimer = (activeTraining && Date.now() < activeTraining.endsAt) ||
-                         (activeJutsuTraining && Date.now() < activeJutsuTraining.endsAt);
+                         (activeJutsuTraining && Date.now() < activeJutsuTraining.endsAt) ||
+                         hasPetTimer;
         if (!hasTimer) return;
         const id = setInterval(() => setNow(Date.now()), 1000);
         return () => clearInterval(id);
-    }, [!!activeTraining, !!activeJutsuTraining]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [!!activeTraining, !!activeJutsuTraining, character.pets]);
     void now;
 
     function uploadAvatar(e: ChangeEvent<HTMLInputElement>) {
@@ -8525,7 +8532,11 @@ function LeftProfileCard({
 
             {/* Active training timers */}
             {((activeTraining && Date.now() < activeTraining.endsAt) ||
-              (activeJutsuTraining && Date.now() < activeJutsuTraining.endsAt)) && (
+              (activeJutsuTraining && Date.now() < activeJutsuTraining.endsAt) ||
+              (character.pets ?? []).some(
+                  (p) => (p.training && Date.now() < p.training.endsAt) ||
+                         (p.expedition && Date.now() < p.expedition.endsAt)
+              )) && (
                 <div className="left-active-timers">
                     {activeTraining && Date.now() < activeTraining.endsAt && (
                         <div className="left-timer-bar">
@@ -8545,6 +8556,33 @@ function LeftProfileCard({
                             </div>
                         </div>
                     )}
+                    {(character.pets ?? []).map((pet) => {
+                        const rows: React.ReactNode[] = [];
+                        if (pet.training && Date.now() < pet.training.endsAt) {
+                            const label = petTrainingOptions.find((o) => o.type === pet.training!.type)?.label ?? pet.training.type;
+                            rows.push(
+                                <div key={`pt-${pet.id}`} className="left-timer-bar">
+                                    <div className="left-timer-row">
+                                        <span className="left-timer-icon">🐾</span>
+                                        <span className="left-timer-label">{petDisplayName(pet)} · {label}</span>
+                                        <span className="left-timer-value">{formatPetTimer(pet.training!.endsAt - Date.now())}</span>
+                                    </div>
+                                </div>
+                            );
+                        }
+                        if (pet.expedition && Date.now() < pet.expedition.endsAt) {
+                            rows.push(
+                                <div key={`pe-${pet.id}`} className="left-timer-bar">
+                                    <div className="left-timer-row">
+                                        <span className="left-timer-icon">🗺️</span>
+                                        <span className="left-timer-label">{petDisplayName(pet)} · Expedition</span>
+                                        <span className="left-timer-value">{formatPetTimer(pet.expedition!.endsAt - Date.now())}</span>
+                                    </div>
+                                </div>
+                            );
+                        }
+                        return rows;
+                    })}
                 </div>
             )}
         </aside>
