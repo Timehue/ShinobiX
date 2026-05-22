@@ -129,15 +129,21 @@ app.get(['/debug/storage', '/api/debug/storage'], async (_req, res) => {
             req.on('timeout', () => { req.destroy(); resolve('Timeout'); });
         });
 
-        // Import lazily so we don't crash at startup if env vars aren't ready.
-        const { kv } = await import('./api/_storage.js');
-        // Perform a harmless read to confirm connectivity.
-        await kv.get('__health_check__');
+        let kvError: string | null = null;
+        try {
+            // Import lazily so we don't crash at startup if env vars aren't ready.
+            const { kv } = await import('./api/_storage.js');
+            await kv.get('__health_check__');
+        } catch (err) {
+            kvError = String(err);
+        }
+
         res.json({
-            ok: true,
+            ok: kvError === null,
             supabase_url: url,
             key_prefix: key.slice(0, 12) + '…',
             httpsTest,
+            kvError,
         });
     } catch (err) {
         const e = err as any;
