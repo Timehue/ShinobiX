@@ -1,4 +1,4 @@
 {
-  "startup_file": "app.js",
+  "startup_file": "startup.cjs",
   "environment": "production"
 }
