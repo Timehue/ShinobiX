@@ -17099,48 +17099,58 @@ html[data-vp="xs"] .pmtab {
 }
 
 /* =====================================================================
-   MOBILE SCROLL FIX — must be the very last .center-game rule.
+   MOBILE SCROLL FIX — specificity-based, not source-order-based.
 
-   The general .center-game block (height: 100vh; overflow-y: auto) is
-   not inside any media query, so it appears later in the file than the
-   early @media(max-width:800px) block and wins the cascade — keeping
-   center-game at a fixed 100vh height even on phones, which clips all
-   tab content.
+   Plain class selectors (.center-game) all have specificity 0,1,0.
+   When multiple !important rules share the same specificity the LATER
+   one in source order wins — and there are many later .center-game
+   blocks we can't easily reorder.
 
-   Placing these overrides at EOF guarantees they beat every earlier
-   !important declaration for ≤800px screens.
+   Fix: use the html[data-vp] attribute selector (set by the JS hook in
+   App.tsx) which has specificity 0,2,0 and therefore beats every plain
+   .center-game !important rule regardless of where it appears in the
+   file.  xs = <560px, sm = 560-979px — covers all phones & tablets.
    ===================================================================== */
-@media (max-width: 800px) {
-    html,
-    body,
-    #root,
-    .game-shell,
-    .game,
-    .app-shell {
-        height: auto !important;
-        min-height: 100dvh !important;
-        overflow-x: hidden !important;
-        overflow-y: auto !important;
-    }
+html[data-vp="xs"],
+html[data-vp="sm"] {
+    height: auto !important;
+    overflow-y: auto !important;
+}
 
-    .center-game {
-        /* Let center-game grow with content — body/root handles scrolling */
-        height: auto !important;
-        min-height: calc(100dvh - var(--banner-h, 120px)) !important;
-        overflow-x: hidden !important;
-        overflow-y: visible !important;
-        /* Bottom clearance for the fixed mobile nav bar (112px) +
-           safe area for phones with a home indicator bar */
-        padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px)) !important;
-    }
+html[data-vp="xs"] body,
+html[data-vp="sm"] body {
+    height: auto !important;
+    overflow-y: auto !important;
+}
 
-    /* Stat grid and profile panels must not impose a fixed height */
-    .profile-page-card,
-    .profile-build-panel,
-    .stat-grid,
-    .profile-overview-panel {
-        height: auto !important;
-        overflow: visible !important;
-        max-height: none !important;
-    }
+html[data-vp="xs"] #root,
+html[data-vp="sm"] #root {
+    height: auto !important;
+    overflow-y: auto !important;
+}
+
+/* center-game must NOT be a fixed-height scroll box on mobile —
+   let the body scroll so all tab content is reachable */
+html[data-vp="xs"] .center-game,
+html[data-vp="sm"] .center-game {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow-x: hidden !important;
+    overflow-y: visible !important;
+    /* Clear the fixed mobile nav bar (≈112px) + device safe-area */
+    padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px)) !important;
+}
+
+/* Profile panels, stat grids — must never clip their content */
+html[data-vp="xs"] .profile-page-card,
+html[data-vp="sm"] .profile-page-card,
+html[data-vp="xs"] .profile-build-panel,
+html[data-vp="sm"] .profile-build-panel,
+html[data-vp="xs"] .stat-grid,
+html[data-vp="sm"] .stat-grid,
+html[data-vp="xs"] .profile-overview-panel,
+html[data-vp="sm"] .profile-overview-panel {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
 }
