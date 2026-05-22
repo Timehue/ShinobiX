@@ -114,7 +114,13 @@ app.get(['/debug/storage', '/api/debug/storage'], async (_req, res) => {
         });
     }
     catch (err) {
-        res.status(500).json({ ok: false, error: String(err) });
+        const e = err;
+        res.status(500).json({
+            ok: false,
+            error: String(err),
+            cause: e?.cause ? String(e.cause) : undefined,
+            errors: Array.isArray(e?.errors) ? e.errors.map((x) => String(x)) : undefined,
+        });
     }
 });
 // ─── API routes ───────────────────────────────────────────────────────────────
