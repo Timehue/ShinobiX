@@ -685,7 +685,15 @@ export async function migrateDiskRoutedKeysToOverlay(opts?: { dryRun?: boolean }
 //   KV_PROXY_URL set → disk-prefix keys go to remote proxy (theravensark.com)
 //   neither set      → all keys stay on the base backend (legacy behavior)
 
-const _baseKv: KvLike = (process.env.DATABASE_URL || process.env.SUPABASE_POSTGRES_URL) ? pgKv : supabaseKv;
+// On Vercel, always use the Supabase REST API regardless of which Postgres
+// env vars are present. The Supabase Vercel integration auto-sets a pile of
+// SUPABASE_POSTGRES_* vars that may not work from Vercel's network anyway,
+// and the disk overlay already handles the heavy storage. Set FORCE_PG_KV=1
+// to override and force the pg pool path.
+const _onVercel = !!process.env.VERCEL;
+const _forcePg = process.env.FORCE_PG_KV === '1';
+const _havePgUrl = !!(process.env.DATABASE_URL || process.env.SUPABASE_POSTGRES_URL);
+const _baseKv: KvLike = (_forcePg || (_havePgUrl && !_onVercel)) ? pgKv : supabaseKv;
 
 // Disk overlay (only attached when env tells us where to read/write).
 const _diskRoot = process.env.DISK_KV_DIR ?? null;
