@@ -8000,6 +8000,7 @@ export default function App() {
                         savedBloodlines={savedBloodlines}
                         creatorJutsus={creatorJutsus}
                         creatorItems={creatorItems}
+                        onImmediateSave={(char) => { void pushSaveToServer(char, currentAccountName).catch(() => {}); }}
                         sectorAttackPlayer={async (opponent) => {
                             if (isTraveling) {
                                 alert("You cannot attack while traveling.");
@@ -8096,6 +8097,8 @@ export default function App() {
                         onStartDungeon={(event) => triggerDungeonEncounter("centralHub", event)}
                         creatorItems={creatorItems}
                         setCreatorItems={setCreatorItems}
+                        playableAis={playableAis}
+                        sharedImages={sharedImages}
                         onOpenBloodlineMaker={(rank) => {
                             setBloodlineMakerInitialRank(rank);
                             setBloodlineMakerInitialElement(getCharacterElements(character)[0] ?? "");
@@ -19359,6 +19362,8 @@ function CentralHub({
     onOpenBloodlineMaker,
     creatorItems,
     setCreatorItems,
+    playableAis,
+    sharedImages = {},
 }: {
     character: Character;
     updateCharacter: (character: Character) => void;
@@ -19372,6 +19377,8 @@ function CentralHub({
     onOpenBloodlineMaker: (rank: Rank) => void;
     creatorItems: GameItem[];
     setCreatorItems: (items: GameItem[]) => void;
+    playableAis: CreatorAi[];
+    sharedImages?: Record<string, string>;
 }) {
     const [centralLog, setCentralLog] = useState(
         "Welcome to Central — the neutral heart of the shinobi world."
@@ -20350,6 +20357,7 @@ function WorldMap({
     savedBloodlines,
     creatorJutsus: wmCreatorJutsus,
     creatorItems: wmCreatorItems,
+    onImmediateSave,
 }: {
     setCurrentBiome: (biome: Biome) => void;
     setScreen: (screen: Screen) => void;
@@ -20385,6 +20393,7 @@ function WorldMap({
     savedBloodlines: SavedBloodline[];
     creatorJutsus: Jutsu[];
     creatorItems: GameItem[];
+    onImmediateSave?: (char: Character) => void;
 }) {
     const [selectedSector, setSelectedSector] = useState<number | null>(null);
     const [selectedVillageTerritory, setSelectedVillageTerritory] = useState<typeof locations[number] | null>(null);
@@ -20966,10 +20975,10 @@ function WorldMap({
                             const trait = rollPetTrait(encounter.rarity);
                             const petWithTrait = applyPetTraitBonuses({ ...encounter, trait }, trait);
                             const updatedChar = { ...character, pets: [...character.pets, petWithTrait] };
-                            setCharacter(updatedChar);
+                            updateCharacter(updatedChar);
                             // Explicitly push to server so the pet isn't lost on reload
                             // before the 60-second auto-save interval fires.
-                            void pushSaveToServer(updatedChar, currentAccountName).catch(() => {});
+                            onImmediateSave?.(updatedChar);
                             alert(`${encounter.name} joined you!\nTrait: ${trait} — ${petTraitDescriptions[trait]}`);
                         }}
                     >
