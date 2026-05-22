@@ -115,6 +115,20 @@ app.get(['/debug/storage', '/api/debug/storage'], async (_req, res) => {
             res.status(500).json({ ok: false, error: 'SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY not set.' });
             return;
         }
+
+        // Test raw HTTPS connectivity using Node's built-in https module
+        // (bypasses fetch/undici to isolate the issue).
+        const httpsTest = await new Promise<string>((resolve) => {
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
+            const https = require('https') as typeof import('https');
+            const req = https.get(url + '/rest/v1/', {
+                headers: { apikey: key, Authorization: `Bearer ${key}` },
+                timeout: 8000,
+            }, (r) => resolve(`HTTP ${r.statusCode}`));
+            req.on('error', (e: NodeJS.ErrnoException) => resolve(`Error: ${e.message} code=${e.code}`));
+            req.on('timeout', () => { req.destroy(); resolve('Timeout'); });
+        });
+
         // Import lazily so we don't crash at startup if env vars aren't ready.
         const { kv } = await import('./api/_storage.js');
         // Perform a harmless read to confirm connectivity.
@@ -123,6 +137,7 @@ app.get(['/debug/storage', '/api/debug/storage'], async (_req, res) => {
             ok: true,
             supabase_url: url,
             key_prefix: key.slice(0, 12) + '…',
+            httpsTest,
         });
     } catch (err) {
         const e = err as any;
