@@ -11,7 +11,10 @@ export default async function handler(req, res) {
         const { name } = body;
         if (!name)
             return res.status(400).json({ error: 'Missing name.' });
-        await kv.del(`guard:${name.toLowerCase().trim()}`);
+        const nameLower = name.toLowerCase().trim();
+        const raw = await kv.get('ranked-queue') ?? [];
+        const updated = raw.filter((e) => e.name.toLowerCase() !== nameLower);
+        await kv.set('ranked-queue', updated, { ex: 600 });
         return res.status(200).json({ ok: true });
     }
     catch (err) {

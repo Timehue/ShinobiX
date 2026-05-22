@@ -14,7 +14,7 @@ export default async function handler(req, res) {
         const key = `presence:${name}`;
         const entry = await kv.get(key);
         if (entry)
-            await kv.set(key, { ...entry, pendingAttacker: null }, { ex: 30 });
+            await kv.set(key, { ...entry, pendingAttacker: null }, { ex: 60 });
         return res.status(200).json({ ok: true });
     }
     catch (err) {
