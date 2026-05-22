@@ -16513,3 +16513,182 @@ button.combat-jutsu-button,
     resize: vertical;
     min-height: 64px;
 }
+
+/* ================================================================
+   MOBILE PROFILE — TAB NAV & LAYOUT REDESIGN
+   Desktop: tab nav hidden, all sections visible as-is.
+   Mobile  : sticky tab bar, one section visible at a time.
+================================================================ */
+
+/* Tab nav: hidden on desktop */
+.profile-mobile-tabs {
+    display: none;
+}
+
+/* Hide non-active tab panels on mobile */
+@media (max-width: 800px) {
+    /* ── Sticky tab bar ── */
+    .profile-mobile-tabs {
+        display: flex;
+        gap: 4px;
+        padding: 6px;
+        background: rgba(2, 6, 23, 0.94);
+        border-radius: 12px;
+        border: 1px solid rgba(250, 204, 21, 0.25);
+        position: sticky;
+        top: 0;
+        z-index: 30;
+        margin-bottom: 10px;
+        backdrop-filter: blur(10px);
+    }
+
+    .pmtab {
+        flex: 1;
+        padding: 9px 2px;
+        border-radius: 8px;
+        background: transparent;
+        border: 1px solid transparent;
+        color: #64748b;
+        font-size: 0.68rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background 0.15s, border-color 0.15s, color 0.15s;
+        line-height: 1.25;
+        text-align: center;
+        min-height: 44px;
+    }
+
+    .pmtab-active {
+        background: rgba(250, 204, 21, 0.14) !important;
+        border-color: rgba(250, 204, 21, 0.55) !important;
+        color: #facc15 !important;
+    }
+
+    /* Hide non-active tab content */
+    .profile-tab-hidden {
+        display: none !important;
+    }
+
+    /* ── Overview panel: avatar left, info right in a row ── */
+    .profile-overview-panel {
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+        padding: 12px !important;
+    }
+
+    .profile-avatar-upload-box {
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        gap: 12px !important;
+    }
+
+    .profile-big-avatar {
+        width: 88px !important;
+        height: 88px !important;
+        flex-shrink: 0 !important;
+        border-radius: 12px !important;
+    }
+
+    .avatar-upload-button {
+        padding: 10px 14px !important;
+        font-size: 0.82rem !important;
+    }
+
+    /* ── Info grid: compact single column ── */
+    .profile-info-grid {
+        grid-template-columns: 1fr !important;
+        gap: 8px !important;
+    }
+
+    .profile-info-grid > div {
+        background: rgba(2, 6, 23, 0.45);
+        border: 1px solid rgba(100, 116, 139, 0.28);
+        border-radius: 8px;
+        padding: 10px 12px;
+    }
+
+    .profile-info-grid h3 {
+        margin: 0 0 6px !important;
+        font-size: 0.78rem !important;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #facc15 !important;
+    }
+
+    .profile-info-grid p {
+        margin: 3px 0 !important;
+        font-size: 0.82rem !important;
+        line-height: 1.4;
+    }
+
+    /* ── Stat cards: 2-col grid with big touch Add button ── */
+    .stat-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 8px !important;
+    }
+
+    .stat-card {
+        padding: 8px 10px !important;
+        gap: 4px !important;
+    }
+
+    .stat-card-label {
+        font-size: 0.72rem !important;
+    }
+
+    .stat-current {
+        font-size: 1rem !important;
+    }
+
+    .stat-card-input-row {
+        gap: 4px !important;
+    }
+
+    .stat-input {
+        width: 44px !important;
+        min-width: 44px !important;
+        padding: 5px 4px !important;
+        font-size: 0.82rem !important;
+    }
+
+    .stat-add-btn {
+        padding: 5px 6px !important;
+        font-size: 0.78rem !important;
+        min-height: 36px !important;
+    }
+
+    /* ── Stat group heading compact ── */
+    .stat-group-heading {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 1px !important;
+    }
+
+    .stat-group-heading h3 {
+        font-size: 0.8rem !important;
+    }
+
+    .stat-group-heading span {
+        font-size: 0.68rem !important;
+    }
+
+    /* ── Title row already stacks vertically (from earlier patch) ── */
+
+    /* ── Profile page padding ── */
+    .profile-page-card {
+        gap: 10px !important;
+        padding: 0 !important;
+    }
+
+    .profile-build-panel,
+    .profile-overview-panel {
+        border-radius: 8px !important;
+    }
+
+    /* Points badge next to stat header */
+    .stat-header {
+        flex-wrap: wrap !important;
+        gap: 6px !important;
+    }
+}
