@@ -1,15 +1,18 @@
-import { kv } from '../_storage.js';
-import { cors } from '../_utils.js';
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.default = handler;
+const _storage_js_1 = require("../_storage.js");
+const _utils_js_1 = require("../_utils.js");
 const APPROVED_ITEMS_KEY = 'admin:approvedItems';
 async function loadApprovedItems() {
-    const approved = await kv.get(APPROVED_ITEMS_KEY);
+    const approved = await _storage_js_1.kv.get(APPROVED_ITEMS_KEY);
     return Array.isArray(approved) ? approved : [];
 }
 async function saveApprovedItems(ids) {
-    await kv.set(APPROVED_ITEMS_KEY, Array.from(new Set(ids)));
+    await _storage_js_1.kv.set(APPROVED_ITEMS_KEY, Array.from(new Set(ids)));
 }
-export default async function handler(req, res) {
-    cors(res);
+async function handler(req, res) {
+    (0, _utils_js_1.cors)(res);
     if (req.method === 'OPTIONS')
         return res.status(200).end();
     if (req.method === 'GET') {

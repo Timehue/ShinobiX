@@ -1,20 +1,14 @@
 /**
- * cPanel / Phusion Passenger entry point.
+ * cPanel / Phusion Passenger entry point (CommonJS).
  *
- * 1. Loads .env from the same directory as this file (so env vars are
- *    available before any module imports them).
- * 2. Starts the compiled Express server from dist/server.js.
+ * Passenger's node-loader uses require() to load this file.
+ * This is plain CommonJS — no ESM import/export.
  *
- * Passenger sets process.env.PORT automatically.
- * Node 18+ required (native ESM, top-level await).
+ * 1. Loads .env from the same directory.
+ * 2. Requires the compiled Express server from dist/server.js.
  */
 
-import { config } from 'dotenv';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 
-const appDir = dirname(fileURLToPath(import.meta.url));
-config({ path: join(appDir, '.env') });
-
-// Import the compiled server — this starts the HTTP listener.
-await import('./dist/server.js');
+// Start the compiled Express server.
+require('./dist/server.js');

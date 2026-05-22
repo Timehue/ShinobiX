@@ -1,5 +1,8 @@
-import { kv } from '../_storage.js';
-import { cors } from '../_utils.js';
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.default = handler;
+const _storage_js_1 = require("../_storage.js");
+const _utils_js_1 = require("../_utils.js");
 // Patterns wiped on full reset. Anything matching these is deleted.
 // shared:images / shared:imgfields are intentionally excluded — all uploaded
 // images (kage portraits, elder portraits, pets, weapons, avatars) survive.
@@ -35,8 +38,8 @@ const KAGE_VILLAGES = [
     'Frostfang Village',
     'Moonshadow Village',
 ];
-export default async function handler(req, res) {
-    cors(res);
+async function handler(req, res) {
+    (0, _utils_js_1.cors)(res);
     if (req.method === 'OPTIONS')
         return res.status(200).end();
     if (req.method !== 'POST')
@@ -51,27 +54,27 @@ export default async function handler(req, res) {
         const deleted = [];
         // 1. Wipe all player saves — admin saves are preserved so admin-created
         //    content (jutsus, AIs, missions, events, pets, cards, VNs) survives.
-        const saveKeys = await kv.keys('save:*');
+        const saveKeys = await _storage_js_1.kv.keys('save:*');
         const playerSaveKeys = saveKeys.filter(k => !k.toLowerCase().startsWith('save:admin'));
         if (playerSaveKeys.length > 0) {
-            await Promise.all(playerSaveKeys.map(k => kv.del(k)));
+            await Promise.all(playerSaveKeys.map(k => _storage_js_1.kv.del(k)));
             deleted.push(...playerSaveKeys);
         }
         // 2. Wipe all other reset patterns in parallel
         await Promise.all(WIPE_PATTERNS.map(async (pattern) => {
-            const keys = await kv.keys(pattern);
+            const keys = await _storage_js_1.kv.keys(pattern);
             if (keys.length > 0) {
-                await Promise.all(keys.map(k => kv.del(k)));
+                await Promise.all(keys.map(k => _storage_js_1.kv.del(k)));
                 deleted.push(...keys);
             }
         }));
         // 3. Clear the player registry
-        await kv.del('player:registry');
+        await _storage_js_1.kv.del('player:registry');
         deleted.push('player:registry');
         // 4. Re-seed Kage portraits from the preserved game:village-leadership-images key
         //    into the shared:imgfields:misc hash so portraits load immediately for all players.
         try {
-            const leadershipData = await kv.get('game:village-leadership-images');
+            const leadershipData = await _storage_js_1.kv.get('game:village-leadership-images');
             const images = leadershipData?.images ?? {};
             const imgPayload = {};
             for (const village of KAGE_VILLAGES) {
@@ -80,7 +83,7 @@ export default async function handler(req, res) {
                     imgPayload[`leader:${village}:kage`] = kageImg;
             }
             if (Object.keys(imgPayload).length > 0) {
-                await kv.hset('shared:imgfields:misc', imgPayload);
+                await _storage_js_1.kv.hset('shared:imgfields:misc', imgPayload);
             }
         }
         catch {

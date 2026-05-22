@@ -1,7 +1,10 @@
-import { kv } from '../_storage.js';
-import { cors } from '../_utils.js';
-export default async function handler(req, res) {
-    cors(res);
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.default = handler;
+const _storage_js_1 = require("../_storage.js");
+const _utils_js_1 = require("../_utils.js");
+async function handler(req, res) {
+    (0, _utils_js_1.cors)(res);
     if (req.method === 'OPTIONS')
         return res.status(200).end();
     if (req.method !== 'POST')
@@ -12,9 +15,9 @@ export default async function handler(req, res) {
         if (!name)
             return res.status(400).json({ error: 'Missing name.' });
         const key = `presence:${name}`;
-        const entry = await kv.get(key);
+        const entry = await _storage_js_1.kv.get(key);
         if (entry)
-            await kv.set(key, { ...entry, pendingAttacker: null }, { ex: 60 });
+            await _storage_js_1.kv.set(key, { ...entry, pendingAttacker: null }, { ex: 60 });
         return res.status(200).json({ ok: true });
     }
     catch (err) {

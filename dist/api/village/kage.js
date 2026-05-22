@@ -1,10 +1,13 @@
-import { kv } from '../_storage.js';
-import { cors } from '../_utils.js';
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.default = handler;
+const _storage_js_1 = require("../_storage.js");
+const _utils_js_1 = require("../_utils.js");
 function kageKey(village) {
     return `village:kage:${village.toLowerCase().replace(/\s+/g, '-')}`;
 }
-export default async function handler(req, res) {
-    cors(res);
+async function handler(req, res) {
+    (0, _utils_js_1.cors)(res);
     if (req.method === 'OPTIONS')
         return res.status(200).end();
     const village = typeof req.query.village === 'string' ? req.query.village.trim() : '';
@@ -12,7 +15,7 @@ export default async function handler(req, res) {
         try {
             if (!village)
                 return res.status(400).json({ error: 'Missing village.' });
-            const state = await kv.get(kageKey(village)) ?? { kageSystemUnlocked: false };
+            const state = await _storage_js_1.kv.get(kageKey(village)) ?? { kageSystemUnlocked: false };
             res.setHeader('Cache-Control', 'public, max-age=30, stale-while-revalidate=60');
             return res.status(200).json(state);
         }
@@ -28,7 +31,7 @@ export default async function handler(req, res) {
             if (!v || !playerName)
                 return res.status(400).json({ error: 'Missing village or playerName.' });
             const key = kageKey(v);
-            const current = await kv.get(key) ?? { kageSystemUnlocked: false };
+            const current = await _storage_js_1.kv.get(key) ?? { kageSystemUnlocked: false };
             if (action === 'unlock') {
                 if (current.kageSystemUnlocked) {
                     // Already unlocked — return current without changing the seated kage
@@ -40,7 +43,7 @@ export default async function handler(req, res) {
                     firstLiberator: playerName,
                     unlockedAt: Date.now(),
                 };
-                await kv.set(key, next);
+                await _storage_js_1.kv.set(key, next);
                 return res.status(200).json(next);
             }
             if (action === 'seat') {
@@ -48,7 +51,7 @@ export default async function handler(req, res) {
                     return res.status(400).json({ error: 'Kage system not unlocked for this village.' });
                 }
                 const next = { ...current, seatedKage: playerName };
-                await kv.set(key, next);
+                await _storage_js_1.kv.set(key, next);
                 return res.status(200).json(next);
             }
             return res.status(400).json({ error: 'Invalid action.' });

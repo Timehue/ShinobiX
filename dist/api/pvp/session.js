@@ -1,5 +1,8 @@
-import { kv } from '../_storage.js';
-import { cors } from '../_utils.js';
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.default = handler;
+const _storage_js_1 = require("../_storage.js");
+const _utils_js_1 = require("../_utils.js");
 const SESSION_TTL = 60 * 60;
 // Starting positions matching arena (p1 left side, p2 right side)
 const P1_START = 62;
@@ -22,15 +25,15 @@ function makeFighter(char, pos) {
         pos,
     };
 }
-export default async function handler(req, res) {
-    cors(res);
+async function handler(req, res) {
+    (0, _utils_js_1.cors)(res);
     if (req.method === 'OPTIONS')
         return res.status(200).end();
     if (req.method === 'GET') {
         const battleId = String(req.query.id ?? '');
         if (!battleId)
             return res.status(400).json({ error: 'Missing id' });
-        const session = await kv.get(`pvp:${battleId}`);
+        const session = await _storage_js_1.kv.get(`pvp:${battleId}`);
         if (!session)
             return res.status(404).json({ error: 'Session not found' });
         return res.status(200).json(session);
@@ -58,7 +61,7 @@ export default async function handler(req, res) {
                 winner: null,
                 createdAt: Date.now(),
             };
-            await kv.set(`pvp:${battleId}`, session, { ex: SESSION_TTL });
+            await _storage_js_1.kv.set(`pvp:${battleId}`, session, { ex: SESSION_TTL });
             return res.status(200).json({ battleId });
         }
         catch (err) {
