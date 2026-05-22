@@ -6324,7 +6324,14 @@ export default function App() {
     useEffect(() => {
         // Helper: apply a full server/local snapshot to state
         function applySnapshot(snap: ReturnType<typeof buildPlayerSavePayload>) {
-            setCharacter(normalizeAdminCharacter(snap.character));
+            // Seed prevCharRef so the auto-save interval treats this load as clean
+            // (no local changes yet). Without this, a second logged-in device would
+            // immediately auto-save the just-loaded snapshot, overwriting progress
+            // made by a more recently active device.
+            const normalized = normalizeAdminCharacter(snap.character);
+            prevCharRef.current = normalized;
+            charDirtyRef.current = false;
+            setCharacter(normalized);
             setCurrentAccountName(snap.character.name);
             setCurrentBiome(snap.currentBiome ?? "central");
             setActiveTraining(snap.activeTraining ?? null);
@@ -6942,10 +6949,27 @@ export default function App() {
         return sharedImages[key] || fallback;
     }
 
-    // Keep a ref to the latest save payload so the interval always uses current data
+    // Keep a ref to the latest save payload so the interval always uses current data.
     const latestSaveRef = useRef<{ character: Character; name: string; payload: ReturnType<typeof buildPlayerSavePayload> } | null>(null);
+
+    // Dirty-tracking: only auto-save when character state actually changed locally.
+    // This prevents a second device (e.g. desktop) from continuously re-uploading the
+    // snapshot it loaded from the server, which would overwrite progress made on the
+    // primary device (e.g. mobile still in the village).
+    //
+    // How it works: we compare character object references (React immutable pattern).
+    // Refs only change when setCharacter() is called with new data. After a server load
+    // we seed prevCharRef so the load itself isn't counted as a local change.
+    const prevCharRef = useRef<Character | null>(null);
+    const charDirtyRef = useRef(false);
+
     useEffect(() => {
         if (!character || !currentAccountName) { latestSaveRef.current = null; return; }
+        // Detect genuine local character changes (reference inequality = new React state).
+        if (character !== prevCharRef.current) {
+            charDirtyRef.current = true;
+            prevCharRef.current = character;
+        }
         latestSaveRef.current = { character, name: currentAccountName, payload: buildPlayerSavePayload(character) };
     });
 
@@ -6954,13 +6978,20 @@ export default function App() {
             return typeof value === "string" && value.startsWith("data:image") ? "" : value;
         }
         const id = setInterval(() => {
+            // Only save if the character actually changed locally since the last server sync.
+            // A second logged-in device that loaded from server and did nothing will have
+            // charDirtyRef=false and skip the save entirely — preserving the other device's progress.
+            if (!charDirtyRef.current) return;
             const snap = latestSaveRef.current;
             if (!snap) return;
+            charDirtyRef.current = false; // optimistically clear; restored on failure
             fetch(`/api/save/${encodeURIComponent(snap.name.toLowerCase())}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(snap.payload, stripAutosaveImages),
-            }).catch(() => { /* silent background save */ });
+            }).catch(() => {
+                charDirtyRef.current = true; // restore so next tick retries
+            });
         }, 60_000);
         return () => clearInterval(id);
     }, []);
@@ -7010,8 +7041,13 @@ export default function App() {
 
     // Apply a full server snapshot to all game state
     function applyServerSnapshot(snap: ReturnType<typeof buildPlayerSavePayload>) {
+        // Seed prevCharRef so the auto-save interval treats this load as clean —
+        // same reasoning as applySnapshot above (prevent stale re-upload).
+        const normalized = normalizeAdminCharacter(snap.character);
+        prevCharRef.current = normalized;
+        charDirtyRef.current = false;
         setCurrentAccountName(snap.character.name);
-        setCharacter(normalizeAdminCharacter(snap.character));
+        setCharacter(normalized);
         setCurrentBiome(snap.currentBiome ?? "central");
         setActiveTraining(snap.activeTraining ?? null);
         setActiveJutsuTraining(snap.activeJutsuTraining ?? null);
