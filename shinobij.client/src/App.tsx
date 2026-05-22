@@ -21070,11 +21070,9 @@ function WorldMap({
                         </div>
                         <div className="vn-progress">Page {chestVnPage + 1}/{vnPages.length} | Line {chestVnLine + 1}/{pageDialogue.length}</div>
                     </div>
-                    <div className={`vn-stage vn-biome-${biome}`}>
+                    <div className={`vn-stage vn-biome-${biome}${chestPageImage ? " vn-has-image" : ""}`} style={chestPageImage ? { backgroundImage: `linear-gradient(180deg, rgba(7,12,27,.18), rgba(7,12,27,.78)), url(${chestPageImage})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}>
                         <div className="vn-backdrop">
-                            {chestPageImage
-                                ? <img src={chestPageImage} alt={page.title} className="vn-bg-image" />
-                                : <span className="vn-village-silhouette" />}
+                            {!chestPageImage && <span className="vn-village-silhouette" />}
                         </div>
                         <div className="vn-character mentor-character">??</div>
                         <div className="vn-character hero-character">{character.name.slice(0, 2).toUpperCase()}</div>
@@ -21702,11 +21700,9 @@ function WorldMap({
                                 </div>
                                 <div className="vn-progress">Page {chestVnPage + 1}/{vnPages.length} | Line {chestVnLine + 1}/{pageDialogue.length}</div>
                             </div>
-                            <div className={`vn-stage vn-biome-${biome}`}>
+                            <div className={`vn-stage vn-biome-${biome}${chestPageImg ? " vn-has-image" : ""}`} style={chestPageImg ? { backgroundImage: `linear-gradient(180deg, rgba(7,12,27,.18), rgba(7,12,27,.78)), url(${chestPageImg})`, backgroundSize: "cover", backgroundPosition: "center" } : undefined}>
                                 <div className="vn-backdrop">
-                                    {chestPageImg
-                                        ? <img src={chestPageImg} alt={page.title} className="vn-bg-image" />
-                                        : <span className="vn-village-silhouette" />}
+                                    {!chestPageImg && <span className="vn-village-silhouette" />}
                                 </div>
                                 <div className="vn-character mentor-character">??</div>
                                 <div className="vn-character hero-character">{character.name.slice(0, 2).toUpperCase()}</div>
