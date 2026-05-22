@@ -11439,7 +11439,22 @@ button.combat-jutsu-button,
         margin-right: 0 !important;
         width: 100vw !important;
         max-width: 100vw !important;
+        /* shorthand padding — overridden on ≤800px to restore nav-bar clearance */
         padding: clamp(6px, 2vw, 12px) !important;
+    }
+
+    /* ── Restore bottom clearance for the fixed mobile nav bar (≤800px).
+       This rule MUST live after the ≤980px block above because that block's
+       shorthand `padding` overwrites the bottom value set earlier.         ── */
+    @media (max-width: 800px) {
+        .center-game {
+            padding-bottom: calc(112px + env(safe-area-inset-bottom, 0px)) !important;
+        }
+
+        /* Give the profile card a little extra breathing room at the bottom */
+        .profile-page-card {
+            padding-bottom: 12px !important;
+        }
     }
 
     .journey-banner {
