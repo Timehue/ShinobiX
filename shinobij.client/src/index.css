@@ -17156,63 +17156,139 @@ html[data-vp="sm"] .profile-overview-panel {
 }
 
 /* =====================================================================
-   MOBILE SECTOR VIEW FIX — stack map above actions panel.
+   MOBILE SECTOR VIEW FIX — stack map above actions panel, full width.
 
-   The 980px @media rule makes .instance-frame a fixed-height block with
-   aside.instance-actions absolutely positioned to the right of the map.
-   On phones this makes them appear side-by-side with wasted space below.
+   The 980px @media rule intentionally makes .instance-frame 760px wide
+   (wider than the phone screen) with overflow-x:auto on .map-instance,
+   creating a landscape horizontal scroller. On a phone this causes a
+   left black gap (pixel-map is centered in the 760px container) and the
+   actions panel overflows to the right.
 
-   We override with data-vp specificity (0,2,0) to force a vertical flex
-   column so the map sits above the actions panel.
+   Fix: collapse everything to 100vw, stack vertically, let the pixel-map
+   scroll sideways inside its own container so users can pan the map.
+   Uses specificity 0,3,0 (attr + class + class) to beat all 0,2,0 rules.
    ===================================================================== */
 
-/* Frame: vertical flex column, height driven by content */
+/* Outer scroll container: no horizontal scroll on the wrapper itself */
+html[data-vp="xs"] .map-instance,
+html[data-vp="sm"] .map-instance {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+    padding-bottom: 0 !important;
+}
+
+/* Frame: collapse to screen width, flex column */
 html[data-vp="xs"] .map-instance .instance-frame,
 html[data-vp="sm"] .map-instance .instance-frame {
     display: flex !important;
     flex-direction: column !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
     height: auto !important;
     min-height: 0 !important;
     overflow: visible !important;
     grid-template-areas: unset !important;
     grid-template-columns: unset !important;
     gap: 0 !important;
+    padding: 6px !important;
 }
 
-/* Map: full width, fixed viewport-proportional height */
+/* Map tile-scene: full width, sensible height, horizontal panning */
 html[data-vp="xs"] .map-instance .instance-frame > main.tile-scene,
 html[data-vp="sm"] .map-instance .instance-frame > main.tile-scene {
     width: 100% !important;
-    height: min(75vw, 360px) !important;
-    min-height: 200px !important;
-    overflow: hidden !important;
+    min-width: 0 !important;
+    height: min(80vw, 380px) !important;
+    min-height: 220px !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
     position: relative !important;
     flex-shrink: 0 !important;
 }
 
-/* Actions panel: take full width, flow naturally below the map */
+/* Pixel/walkable/sector-image map: fills the scene, scrolls inside it */
+html[data-vp="xs"] .map-instance .instance-frame > main.tile-scene .pixel-map,
+html[data-vp="xs"] .map-instance .instance-frame > main.tile-scene .walkable-sector-map,
+html[data-vp="xs"] .map-instance .instance-frame > main.tile-scene .sector-image-map,
+html[data-vp="sm"] .map-instance .instance-frame > main.tile-scene .pixel-map,
+html[data-vp="sm"] .map-instance .instance-frame > main.tile-scene .walkable-sector-map,
+html[data-vp="sm"] .map-instance .instance-frame > main.tile-scene .sector-image-map {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    max-height: 100% !important;
+    aspect-ratio: auto !important;
+    margin-inline: 0 !important;
+}
+
+/* Actions panel: full width, content wraps naturally below the map */
 html[data-vp="xs"] .map-instance .instance-frame > aside.instance-actions,
 html[data-vp="sm"] .map-instance .instance-frame > aside.instance-actions {
     position: static !important;
     width: 100% !important;
+    min-width: 0 !important;
     max-width: 100% !important;
     height: auto !important;
     max-height: none !important;
     overflow-y: visible !important;
+    overflow-x: hidden !important;
     flex-shrink: 0 !important;
-    padding: 8px 10px !important;
+    padding: 10px 12px !important;
+    box-sizing: border-box !important;
 }
 
-/* Let sector wrapper scroll vertically on mobile */
+/* Let sector-instance-wrap (territory screens) also stack & fill */
 html[data-vp="xs"] .sector-instance-wrap,
 html[data-vp="sm"] .sector-instance-wrap {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
     height: auto !important;
     min-height: 0 !important;
     overflow: visible !important;
+    grid-template-columns: 1fr !important;
+    grid-template-areas:
+        "scene"
+        "actions" !important;
 }
 
-html[data-vp="xs"] .map-instance,
-html[data-vp="sm"] .map-instance {
+html[data-vp="xs"] .sector-instance-wrap .tile-scene,
+html[data-vp="sm"] .sector-instance-wrap .tile-scene {
+    width: 100% !important;
+    min-width: 0 !important;
+    height: min(80vw, 380px) !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+}
+
+html[data-vp="xs"] .sector-instance-wrap .tile-scene .pixel-map,
+html[data-vp="xs"] .sector-instance-wrap .tile-scene .walkable-sector-map,
+html[data-vp="xs"] .sector-instance-wrap .tile-scene .sector-image-map,
+html[data-vp="sm"] .sector-instance-wrap .tile-scene .pixel-map,
+html[data-vp="sm"] .sector-instance-wrap .tile-scene .walkable-sector-map,
+html[data-vp="sm"] .sector-instance-wrap .tile-scene .sector-image-map {
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    aspect-ratio: auto !important;
+    margin-inline: 0 !important;
+}
+
+html[data-vp="xs"] .sector-instance-wrap .instance-actions,
+html[data-vp="sm"] .sector-instance-wrap .instance-actions {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
     height: auto !important;
-    overflow: visible !important;
+    max-height: none !important;
+    overflow-x: hidden !important;
+    overflow-y: visible !important;
+    box-sizing: border-box !important;
 }
