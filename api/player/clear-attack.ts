@@ -25,6 +25,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (entry) await kv.set(key, { ...entry, pendingAttacker: null }, { ex: 60 });
         return res.status(200).json({ ok: true });
     } catch (err) {
-        return res.status(500).json({ error: String(err) });
+        console.error('[clear-attack]', err);
+        return res.status(500).json({ error: 'Internal server error.' });
     }
 }

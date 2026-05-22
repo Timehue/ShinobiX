@@ -21,6 +21,7 @@ async function handler(req, res) {
         return res.status(200).json({ ok: true });
     }
     catch (err) {
-        return res.status(500).json({ error: String(err) });
+        console.error('[ranked-queue/leave]', err);
+        return res.status(500).json({ error: 'Internal server error.' });
     }
 }
