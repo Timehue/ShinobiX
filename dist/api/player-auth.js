@@ -13,8 +13,52 @@ const crypto_1 = __importDefault(require("crypto"));
 function newSalt() {
     return crypto_1.default.randomBytes(16).toString('hex');
 }
-function hashPw(password, salt) {
+// ─── Password hashing ─────────────────────────────────────────────────────────
+// Old hashes: HMAC-SHA256 (fast, vulnerable to GPU brute force if leaked).
+// New hashes: scrypt with N=16384 r=8 p=1 — Node built-in, no deps,
+// ~100ms/hash on commodity hardware (vs ~10ns for HMAC).
+//
+// On successful verify of a legacy hash, we transparently re-hash with scrypt
+// and write back the new format. Over time the legacy hashes disappear.
+const SCRYPT_N = 16384;
+const SCRYPT_R = 8;
+const SCRYPT_P = 1;
+const SCRYPT_KEYLEN = 64;
+const SCRYPT_PREFIX = 'scrypt:';
+function hashScrypt(password, salt) {
+    const derived = crypto_1.default.scryptSync(password, salt, SCRYPT_KEYLEN, {
+        N: SCRYPT_N,
+        r: SCRYPT_R,
+        p: SCRYPT_P,
+    });
+    return `${SCRYPT_PREFIX}${SCRYPT_N}:${SCRYPT_R}:${SCRYPT_P}:${derived.toString('hex')}`;
+}
+function hashLegacy(password, salt) {
     return crypto_1.default.createHmac('sha256', salt).update(password).digest('hex');
+}
+// Public alias retained for backward compat with any other callers — always
+// uses the modern algorithm now.
+function hashPw(password, salt) {
+    return hashScrypt(password, salt);
+}
+function safeStringEqual(a, b) {
+    const ba = Buffer.from(a);
+    const bb = Buffer.from(b);
+    if (ba.length !== bb.length) {
+        crypto_1.default.timingSafeEqual(ba, ba); // keep timing flat-ish
+        return false;
+    }
+    return crypto_1.default.timingSafeEqual(ba, bb);
+}
+/**
+ * Verify a password against a stored AuthRecord. Handles both legacy and
+ * modern hash formats. Returns true if valid.
+ */
+function verifyAgainst(record, password) {
+    if (record.hash.startsWith(SCRYPT_PREFIX)) {
+        return safeStringEqual(hashScrypt(password, record.salt), record.hash);
+    }
+    return safeStringEqual(hashLegacy(password, record.salt), record.hash);
 }
 function authKey(name) {
     return `auth:${name.trim().toLowerCase()}`;
@@ -23,7 +67,18 @@ async function verifyPlayerPassword(name, password) {
     const record = await _storage_js_1.kv.get(authKey(name));
     if (!record)
         return false;
-    return hashPw(password, record.salt) === record.hash;
+    const ok = verifyAgainst(record, password);
+    // Opportunistically migrate legacy hashes to scrypt on successful login.
+    if (ok && !record.hash.startsWith(SCRYPT_PREFIX)) {
+        try {
+            const salt = newSalt();
+            await _storage_js_1.kv.set(authKey(name), { hash: hashScrypt(password, salt), salt });
+        }
+        catch {
+            // Migration is best-effort — auth itself already succeeded.
+        }
+    }
+    return ok;
 }
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res);
@@ -74,7 +129,18 @@ async function handler(req, res) {
             // Return legacy=true so the client can decide whether to register the password.
             return res.status(200).json({ ok: true, legacy: true });
         }
-        const valid = hashPw(password, record.salt) === record.hash;
+        const valid = verifyAgainst(record, password);
+        // Opportunistically upgrade legacy HMAC hashes to scrypt on each
+        // successful verify, so the legacy format dies off over time.
+        if (valid && !record.hash.startsWith(SCRYPT_PREFIX)) {
+            try {
+                const salt = newSalt();
+                await _storage_js_1.kv.set(key, { hash: hashScrypt(password, salt), salt });
+            }
+            catch {
+                // best-effort
+            }
+        }
         if (!valid)
             return res.status(200).json({ ok: false });
         return res.status(200).json({ ok: true });
@@ -92,7 +158,7 @@ async function handler(req, res) {
                 await _storage_js_1.kv.set(key, { hash: hashPw(newPassword, salt), salt });
                 return res.status(200).json({ ok: true });
             }
-            if (hashPw(oldPassword, record.salt) !== record.hash) {
+            if (!verifyAgainst(record, oldPassword)) {
                 return res.status(401).json({ ok: false, error: 'Incorrect current password.' });
             }
             const salt = newSalt();
@@ -109,7 +175,7 @@ async function handler(req, res) {
         // Must supply either valid player password or admin password.
         const adminPassword = process.env.ADMIN_PASSWORD;
         const adminPw = req.headers['x-admin-password'];
-        if (adminPassword && adminPw === adminPassword) {
+        if (adminPassword && adminPw && safeStringEqual(adminPw, adminPassword)) {
             try {
                 await _storage_js_1.kv.del(key);
             }
@@ -123,7 +189,7 @@ async function handler(req, res) {
             return res.status(401).json({ ok: false, error: 'Authentication required.' });
         try {
             const record = await _storage_js_1.kv.get(key);
-            if (record && hashPw(password, record.salt) !== record.hash) {
+            if (record && !verifyAgainst(record, password)) {
                 return res.status(401).json({ ok: false, error: 'Incorrect password.' });
             }
             await _storage_js_1.kv.del(key);
@@ -138,7 +204,7 @@ async function handler(req, res) {
         // Admin sets a player's password to a new value (e.g. for account recovery).
         const adminPassword = process.env.ADMIN_PASSWORD;
         const adminPw = req.headers['x-admin-password'];
-        if (!adminPassword || adminPw !== adminPassword) {
+        if (!adminPassword || !adminPw || !safeStringEqual(adminPw, adminPassword)) {
             return res.status(401).json({ ok: false, error: 'Admin authentication required.' });
         }
         if (!newPassword)

@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { cors } from './_utils.js';
+import { safeEqual } from './_auth.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res);
@@ -14,7 +15,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(500).json({ success: false, error: 'ADMIN_PASSWORD not configured on server.' });
     }
 
-    if (password === adminPassword) {
+    // Constant-time compare so attackers can't byte-leak via response timing.
+    if (password && safeEqual(password, adminPassword)) {
         return res.status(200).json({ success: true });
     }
 

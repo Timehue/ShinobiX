@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from './_storage.js';
 import { cors } from './_utils.js';
+import { authedPlayerOrAdmin } from './_auth.js';
 
 const LEADERSHIP_IMAGES_KEY = 'game:village-leadership-images';
 const VILLAGE_STATE_PREFIX = 'game:village-state:';
@@ -67,9 +68,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (req.method === 'POST') {
+        // Mutations need at least a logged-in player. Admin-only kinds further
+        // gated below (villageLeadershipImages, arenaTournament).
+        const identity = await authedPlayerOrAdmin(req);
+        if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
             const { kind } = body as { kind?: string };
+
+            // Admin-only kinds — wholesale state writes that no individual
+            // player should drive (treasury wipes, tournament resets, etc.).
+            const adminOnlyKinds = new Set(['villageLeadershipImages', 'arenaTournament']);
+            if (adminOnlyKinds.has(String(kind)) && !identity.admin) {
+                return res.status(403).json({ error: 'Admin only.' });
+            }
 
             if (kind === 'villageState') {
                 const { village, state } = body as { village?: string; state?: unknown };

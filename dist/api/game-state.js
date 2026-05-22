@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = handler;
 const _storage_js_1 = require("./_storage.js");
 const _utils_js_1 = require("./_utils.js");
+const _auth_js_1 = require("./_auth.js");
 const LEADERSHIP_IMAGES_KEY = 'game:village-leadership-images';
 const VILLAGE_STATE_PREFIX = 'game:village-state:';
 const ARENA_TOURNAMENT_KEY = 'game:arena:tournament';
@@ -63,9 +64,20 @@ async function handler(req, res) {
         }
     }
     if (req.method === 'POST') {
+        // Mutations need at least a logged-in player. Admin-only kinds further
+        // gated below (villageLeadershipImages, arenaTournament).
+        const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req);
+        if (!identity)
+            return res.status(401).json({ error: 'Authentication required.' });
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
             const { kind } = body;
+            // Admin-only kinds — wholesale state writes that no individual
+            // player should drive (treasury wipes, tournament resets, etc.).
+            const adminOnlyKinds = new Set(['villageLeadershipImages', 'arenaTournament']);
+            if (adminOnlyKinds.has(String(kind)) && !identity.admin) {
+                return res.status(403).json({ error: 'Admin only.' });
+            }
             if (kind === 'villageState') {
                 const { village, state } = body;
                 if (!village || !state)
