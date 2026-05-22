@@ -2,7 +2,6 @@
     "name": "shinobix-api",
     "version": "1.0.0",
     "private": true,
-    "type": "module",
     "description": "ShinobiX game API — Express/cPanel backend, Supabase storage",
     "scripts": {
         "build:server": "tsc -p tsconfig.cpanel.json",

@@ -1,6 +1,9 @@
-import { cors } from './_utils.js';
-export default async function handler(req, res) {
-    cors(res);
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.default = handler;
+const _utils_js_1 = require("./_utils.js");
+async function handler(req, res) {
+    (0, _utils_js_1.cors)(res);
     if (req.method === 'OPTIONS')
         return res.status(200).end();
     if (req.method !== 'POST')

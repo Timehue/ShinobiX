@@ -1,13 +1,16 @@
-import { kv } from '../_storage.js';
-import { cors } from '../_utils.js';
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.default = handler;
+const _storage_js_1 = require("../_storage.js");
+const _utils_js_1 = require("../_utils.js");
 // NOTE: LEGACY_IMAGE_KEY ('shared:images') intentionally omitted here — it is a
 // multi-MB all-categories blob that causes connection-pool exhaustion when
 // fetched alongside N save reads.  Bloodline images migrated to the per-category
 // keys below, so the legacy blob is redundant for this endpoint.
 const bloodlineImageBlobKey = 'shared:images:bloodline';
 const bloodlineImageHashKey = 'shared:imgfields:bloodline';
-export default async function handler(req, res) {
-    cors(res);
+async function handler(req, res) {
+    (0, _utils_js_1.cors)(res);
     if (req.method === 'OPTIONS')
         return res.status(200).end();
     if (req.method !== 'GET')
@@ -15,9 +18,9 @@ export default async function handler(req, res) {
     try {
         // Fetch image maps and save keys in parallel — 3 queries total.
         const [saveKeys, bloodlineBlobImages, bloodlineHashImages] = await Promise.all([
-            kv.keys('save:*'),
-            kv.get(bloodlineImageBlobKey),
-            kv.hgetall(bloodlineImageHashKey),
+            _storage_js_1.kv.keys('save:*'),
+            _storage_js_1.kv.get(bloodlineImageBlobKey),
+            _storage_js_1.kv.hgetall(bloodlineImageHashKey),
         ]);
         const sharedBloodlineImages = {
             ...(bloodlineBlobImages ?? {}),
@@ -29,7 +32,7 @@ export default async function handler(req, res) {
         // exhaustion and high error rates under load.
         const nonAdminKeys = saveKeys.filter(k => !k.replace('save:', '').toLowerCase().startsWith('admin'));
         const snapshots = nonAdminKeys.length
-            ? await kv.mget(...nonAdminKeys)
+            ? await _storage_js_1.kv.mget(...nonAdminKeys)
             : [];
         const bloodlines = [];
         for (let i = 0; i < nonAdminKeys.length; i++) {

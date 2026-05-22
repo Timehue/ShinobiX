@@ -1,23 +1,32 @@
-import { kv } from './_storage.js';
-import { cors } from './_utils.js';
-import crypto from 'crypto';
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.hashPw = hashPw;
+exports.authKey = authKey;
+exports.verifyPlayerPassword = verifyPlayerPassword;
+exports.default = handler;
+const _storage_js_1 = require("./_storage.js");
+const _utils_js_1 = require("./_utils.js");
+const crypto_1 = __importDefault(require("crypto"));
 function newSalt() {
-    return crypto.randomBytes(16).toString('hex');
+    return crypto_1.default.randomBytes(16).toString('hex');
 }
-export function hashPw(password, salt) {
-    return crypto.createHmac('sha256', salt).update(password).digest('hex');
+function hashPw(password, salt) {
+    return crypto_1.default.createHmac('sha256', salt).update(password).digest('hex');
 }
-export function authKey(name) {
+function authKey(name) {
     return `auth:${name.trim().toLowerCase()}`;
 }
-export async function verifyPlayerPassword(name, password) {
-    const record = await kv.get(authKey(name));
+async function verifyPlayerPassword(name, password) {
+    const record = await _storage_js_1.kv.get(authKey(name));
     if (!record)
         return false;
     return hashPw(password, record.salt) === record.hash;
 }
-export default async function handler(req, res) {
-    cors(res);
+async function handler(req, res) {
+    (0, _utils_js_1.cors)(res);
     if (req.method === 'OPTIONS')
         return res.status(200).end();
     if (req.method !== 'POST')
@@ -32,11 +41,11 @@ export default async function handler(req, res) {
         if (!password)
             return res.status(400).json({ ok: false, error: 'Missing password.' });
         try {
-            const existing = await kv.get(key);
+            const existing = await _storage_js_1.kv.get(key);
             if (existing)
                 return res.status(409).json({ ok: false, error: 'Account already has a password.' });
             const salt = newSalt();
-            await kv.set(key, { hash: hashPw(password, salt), salt });
+            await _storage_js_1.kv.set(key, { hash: hashPw(password, salt), salt });
         }
         catch (err) {
             console.error('[player-auth register]', String(err));
@@ -51,7 +60,7 @@ export default async function handler(req, res) {
             return res.status(400).json({ ok: false, error: 'Missing password.' });
         let record;
         try {
-            record = await kv.get(key);
+            record = await _storage_js_1.kv.get(key);
         }
         catch (err) {
             // KV read failure (Supabase timeout, network hiccup, etc.).
@@ -76,18 +85,18 @@ export default async function handler(req, res) {
             return res.status(400).json({ ok: false, error: 'Missing oldPassword or newPassword.' });
         }
         try {
-            const record = await kv.get(key);
+            const record = await _storage_js_1.kv.get(key);
             if (!record) {
                 // Legacy account with no password yet — just set it.
                 const salt = newSalt();
-                await kv.set(key, { hash: hashPw(newPassword, salt), salt });
+                await _storage_js_1.kv.set(key, { hash: hashPw(newPassword, salt), salt });
                 return res.status(200).json({ ok: true });
             }
             if (hashPw(oldPassword, record.salt) !== record.hash) {
                 return res.status(401).json({ ok: false, error: 'Incorrect current password.' });
             }
             const salt = newSalt();
-            await kv.set(key, { hash: hashPw(newPassword, salt), salt });
+            await _storage_js_1.kv.set(key, { hash: hashPw(newPassword, salt), salt });
             return res.status(200).json({ ok: true });
         }
         catch (err) {
@@ -102,7 +111,7 @@ export default async function handler(req, res) {
         const adminPw = req.headers['x-admin-password'];
         if (adminPassword && adminPw === adminPassword) {
             try {
-                await kv.del(key);
+                await _storage_js_1.kv.del(key);
             }
             catch (err) {
                 console.error('[player-auth delete]', String(err));
@@ -113,11 +122,11 @@ export default async function handler(req, res) {
         if (!password)
             return res.status(401).json({ ok: false, error: 'Authentication required.' });
         try {
-            const record = await kv.get(key);
+            const record = await _storage_js_1.kv.get(key);
             if (record && hashPw(password, record.salt) !== record.hash) {
                 return res.status(401).json({ ok: false, error: 'Incorrect password.' });
             }
-            await kv.del(key);
+            await _storage_js_1.kv.del(key);
         }
         catch (err) {
             console.error('[player-auth delete]', String(err));
@@ -136,7 +145,7 @@ export default async function handler(req, res) {
             return res.status(400).json({ ok: false, error: 'Missing newPassword.' });
         try {
             const salt = newSalt();
-            await kv.set(key, { hash: hashPw(newPassword, salt), salt });
+            await _storage_js_1.kv.set(key, { hash: hashPw(newPassword, salt), salt });
         }
         catch (err) {
             console.error('[player-auth adminreset]', String(err));

@@ -1,3 +1,4 @@
+"use strict";
 /**
  * Dual-mode KV adapter — drop-in replacement for @vercel/kv.
  *
@@ -19,6 +20,11 @@
  *   Hash values        → value column holds a JSON object.
  *   TTL                → expires_at (timestamptz); lazily evicted on read.
  */
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.kv = void 0;
 const _readCache = new Map();
 // These prefixes change too rapidly to benefit from caching.
 const _noCachePrefixes = ['presence:', 'challenges:', 'reset-signal:', 'admin-lock:'];
@@ -54,8 +60,8 @@ function _cacheInvalidate(...keys) {
         _readCache.delete(k);
 }
 // ─── pg Pool backend (cPanel / Passenger) ────────────────────────────────────
-import pg from 'pg';
-const { Pool } = pg;
+const pg_1 = __importDefault(require("pg"));
+const { Pool } = pg_1.default;
 let _pool = null;
 function getPool() {
     if (_pool)
@@ -195,7 +201,7 @@ const pgKv = {
     },
 };
 // ─── Supabase REST backend (Vercel / serverless) ──────────────────────────────
-import { createClient } from '@supabase/supabase-js';
+const supabase_js_1 = require("@supabase/supabase-js");
 let _supabase = null;
 function getSupabase() {
     if (_supabase)
@@ -214,7 +220,7 @@ function getSupabase() {
         const timer = setTimeout(() => ctrl.abort(), 20_000);
         return fetch(input, { ...init, signal: ctrl.signal }).finally(() => clearTimeout(timer));
     };
-    _supabase = createClient(url, key, {
+    _supabase = (0, supabase_js_1.createClient)(url, key, {
         auth: { persistSession: false, autoRefreshToken: false },
         global: { fetch: fetchWithTimeout },
     });
@@ -325,4 +331,4 @@ const supabaseKv = {
 //   DATABASE_URL      — set explicitly (cPanel/Passenger, or manually in Vercel)
 //   SUPABASE_POSTGRES_URL — set automatically by the Supabase Vercel integration
 // Fall back to Supabase REST API only when neither is present.
-export const kv = (process.env.DATABASE_URL || process.env.SUPABASE_POSTGRES_URL) ? pgKv : supabaseKv;
+exports.kv = (process.env.DATABASE_URL || process.env.SUPABASE_POSTGRES_URL) ? pgKv : supabaseKv;
