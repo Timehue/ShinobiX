@@ -125,7 +125,13 @@ app.get(['/debug/storage', '/api/debug/storage'], async (_req, res) => {
             key_prefix: key.slice(0, 12) + '…',
         });
     } catch (err) {
-        res.status(500).json({ ok: false, error: String(err) });
+        const e = err as any;
+        res.status(500).json({
+            ok: false,
+            error: String(err),
+            cause: e?.cause ? String(e.cause) : undefined,
+            errors: Array.isArray(e?.errors) ? e.errors.map((x: unknown) => String(x)) : undefined,
+        });
     }
 });
 
