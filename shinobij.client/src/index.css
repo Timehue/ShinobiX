@@ -17292,3 +17292,81 @@ html[data-vp="sm"] .sector-instance-wrap .instance-actions {
     overflow-y: visible !important;
     box-sizing: border-box !important;
 }
+
+/* =====================================================================
+   MOBILE BANNER TIMER WIDGET
+   Top-right corner of the journey banner — shows server clock + all
+   active training / expedition countdowns. Hidden on md/lg/xl because
+   the left profile card already surfaces this info on desktop.
+   ===================================================================== */
+
+.banner-mobile-timers {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 3px;
+    pointer-events: none;
+}
+
+.bmt-clock {
+    font-size: 11px;
+    font-family: monospace;
+    color: #94a3b8;
+    background: rgba(2, 6, 23, 0.80);
+    border: 1px solid rgba(250, 204, 21, 0.22);
+    border-radius: 5px;
+    padding: 2px 7px;
+    letter-spacing: 0.5px;
+}
+
+.bmt-timers {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+}
+
+.bmt-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(2, 6, 23, 0.85);
+    border: 1px solid rgba(250, 204, 21, 0.20);
+    border-radius: 4px;
+    padding: 2px 6px;
+    max-width: 190px;
+}
+
+.bmt-icon {
+    font-size: 10px;
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+.bmt-label {
+    color: #cbd5e1;
+    font-size: 9px;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.bmt-value {
+    color: #facc15;
+    font-family: monospace;
+    font-size: 9px;
+    flex-shrink: 0;
+    margin-left: 4px;
+}
+
+/* Hide on desktop — left profile card covers this */
+html[data-vp="md"] .banner-mobile-timers,
+html[data-vp="lg"] .banner-mobile-timers,
+html[data-vp="xl"] .banner-mobile-timers {
+    display: none !important;
+}
