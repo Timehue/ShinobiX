@@ -6972,8 +6972,9 @@ body {
 .journey-banner {
     min-height: 160px !important;
     height: 160px !important;
-    background-size: cover !important;
-    background-position: 0% 35% !important;
+    background-size: auto 100% !important;
+    background-position: left center !important;
+    background-repeat: no-repeat !important;
     margin-top: 0 !important;
 }
 
@@ -11235,6 +11236,7 @@ button.combat-jutsu-button,
     /* auto 100% scales the image to exactly fill the banner height — no vertical clipping */
     background-size: auto 100% !important;
     background-position: left center !important;
+    background-repeat: no-repeat !important;
 }
 
 .journey-banner-img {
@@ -11444,7 +11446,8 @@ button.combat-jutsu-button,
         height: clamp(90px, 14dvh, 120px) !important;
         min-height: clamp(90px, 14dvh, 120px) !important;
         max-height: clamp(90px, 14dvh, 120px) !important;
-        background-position: 0% 35% !important;
+        background-position: left center !important;
+        background-repeat: no-repeat !important;
     }
 
     .journey-live-stats {
