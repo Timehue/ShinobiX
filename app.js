@@ -10,15 +10,22 @@
  */
 
 // Force IPv4 for all outbound fetch connections.
-// CloudLinux shared hosting has no IPv6 routing, so DNS AAAA records cause
-// "ENETUNREACH" errors. Setting family:4 on the global undici dispatcher
-// makes every fetch() prefer A records instead.
+// CloudLinux shared hosting has no IPv6 routing. We use node:undici (the
+// built-in module powering Node 22's fetch) so setGlobalDispatcher actually
+// affects the native fetch used by @supabase/supabase-js.
 try {
-    const { Agent, setGlobalDispatcher } = require('undici');
+    const { Agent, setGlobalDispatcher } = require('node:undici');
     setGlobalDispatcher(new Agent({ connect: { family: 4 } }));
-    console.log('[app] IPv4-only dispatcher set for all fetch connections.');
+    console.log('[app] IPv4-only dispatcher set via node:undici.');
 } catch (e) {
-    console.warn('[app] Could not set IPv4 dispatcher:', e.message);
+    // Fallback: try the npm undici package (older Node versions).
+    try {
+        const { Agent, setGlobalDispatcher } = require('undici');
+        setGlobalDispatcher(new Agent({ connect: { family: 4 } }));
+        console.log('[app] IPv4-only dispatcher set via npm undici.');
+    } catch (e2) {
+        console.warn('[app] Could not set IPv4 dispatcher:', e2.message);
+    }
 }
 
 require('dotenv').config({ path: require('path').join(__dirname, '.env') });
