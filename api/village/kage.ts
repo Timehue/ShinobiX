@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
+import { authedPlayerOrAdmin } from '../_auth.js';
 
 type VillageKageState = {
     kageSystemUnlocked: boolean;
@@ -32,6 +33,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (req.method === 'POST') {
+        // All Kage mutations require authentication.
+        const identity = await authedPlayerOrAdmin(req);
+        if (!identity) return res.status(401).json({ error: 'Authentication required.' });
+
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
             const { village: bodyVillage, playerName, action } = body as {
@@ -41,6 +46,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             };
             const v = (bodyVillage ?? '').trim() || village;
             if (!v || !playerName) return res.status(400).json({ error: 'Missing village or playerName.' });
+
+            // Players may only act as themselves (or admin can act for anyone).
+            if (!identity.admin && identity.name !== playerName.toLowerCase().trim()) {
+                return res.status(403).json({ error: 'Cannot perform Kage actions as another player.' });
+            }
 
             const key = kageKey(v);
             const current = await kv.get<VillageKageState>(key) ?? { kageSystemUnlocked: false };
@@ -63,6 +73,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (action === 'seat') {
                 if (!current.kageSystemUnlocked) {
                     return res.status(400).json({ error: 'Kage system not unlocked for this village.' });
+                }
+                // Only the current seated Kage or an admin may install a new Kage.
+                const currentKage = (current.seatedKage ?? '').toLowerCase().trim();
+                if (!identity.admin && identity.name !== currentKage) {
+                    return res.status(403).json({ error: 'Only the seated Kage or admin can change the Kage.' });
                 }
                 const next: VillageKageState = { ...current, seatedKage: playerName };
                 await kv.set(key, next);
