@@ -168,7 +168,7 @@ route('/ranked-queue/leave', leave_js_1.default);
 const staticDir = process.env.STATIC_DIR ?? (0, node_path_1.join)(__dirname, '..', 'shinobij.client', 'dist');
 app.use(express_1.default.static(staticDir));
 // SPA fallback — any non-API path serves index.html so React Router handles it.
-app.get('*', (_req, res) => {
+app.get(/(.*)/, (_req, res) => {
     res.sendFile((0, node_path_1.join)(staticDir, 'index.html'));
 });
 // ─── Error handler ────────────────────────────────────────────────────────────

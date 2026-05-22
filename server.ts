@@ -198,7 +198,7 @@ const staticDir = process.env.STATIC_DIR ?? join(__dirname, '..', 'shinobij.clie
 app.use(express.static(staticDir));
 
 // SPA fallback — any non-API path serves index.html so React Router handles it.
-app.get('*', (_req, res) => {
+app.get(/(.*)/, (_req, res) => {
     res.sendFile(join(staticDir, 'index.html'));
 });
 
