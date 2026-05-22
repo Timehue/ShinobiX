@@ -8664,23 +8664,23 @@ function MobileNav({
         <>
             <nav className="mobile-bottom-nav">
                 <button className="mobile-nav-btn" onClick={() => go("worldMap")}>
-                    <span className="mnb-icon">??</span>
+                    <span className="mnb-icon">🗺️</span>
                     Travel
                 </button>
                 <button className="mobile-nav-btn" onClick={() => go("village")} disabled={!atHome}>
-                    <span className="mnb-icon">??</span>
+                    <span className="mnb-icon">🏯</span>
                     Village
                 </button>
                 <button className="mobile-nav-btn" onClick={() => go("profile")}>
-                    <span className="mnb-icon">??</span>
+                    <span className="mnb-icon">👤</span>
                     Char
                 </button>
                 <button className="mobile-nav-btn" onClick={() => go("inventory")}>
-                    <span className="mnb-icon">??</span>
+                    <span className="mnb-icon">🎒</span>
                     Items
                 </button>
                 <button className="mobile-nav-btn menu-btn" onClick={() => setOpen(true)}>
-                    <span className="mnb-icon">?</span>
+                    <span className="mnb-icon">☰</span>
                     Menu
                 </button>
             </nav>
@@ -8688,8 +8688,8 @@ function MobileNav({
             {open && (
                 <div className="mobile-menu-overlay">
                     <div className="mobile-menu-header">
-                        <span className="mobile-menu-title">? SHINOBI MENU</span>
-                        <button className="mobile-menu-close" onClick={() => setOpen(false)}>?</button>
+                        <span className="mobile-menu-title">🥷 SHINOBI MENU</span>
+                        <button className="mobile-menu-close" onClick={() => setOpen(false)}>✕</button>
                     </div>
 
                     <div className="mobile-char-card">
@@ -8709,24 +8709,24 @@ function MobileNav({
                     </div>
 
                     <div className="mobile-menu-grid">
-                        <button className="mobile-menu-btn" onClick={() => go("village")} disabled={!atHome}>?? Village</button>
-                        <button className="mobile-menu-btn" onClick={() => go("worldMap")}>?? Travel</button>
-                        <button className="mobile-menu-btn" onClick={() => go("storyHall")}>?? Story</button>
+                        <button className="mobile-menu-btn" onClick={() => go("village")} disabled={!atHome}>🏯 Village</button>
+                        <button className="mobile-menu-btn" onClick={() => go("worldMap")}>🗺️ Travel</button>
+                        <button className="mobile-menu-btn" onClick={() => go("storyHall")}>📖 Story</button>
                         <button className="mobile-menu-btn" onClick={() => go("profile")}>👤 Character</button>
-                        <button className="mobile-menu-btn" onClick={() => go("logbook")}>?? Logbook</button>
-                        <button className="mobile-menu-btn" onClick={() => go("inventory")}>?? Inventory</button>
-                        <button className="mobile-menu-btn" onClick={() => go("training")}>?? Stats</button>
-                        <button className="mobile-menu-btn" onClick={() => go("jutsuTraining")}>?? Jutsu</button>
-                        <button className="mobile-menu-btn" onClick={() => go("missions")}>?? Missions</button>
-                        <button className="mobile-menu-btn" onClick={() => go("pets")}>?? Pets</button>
-                        <button className="mobile-menu-btn" onClick={() => go("arena")}>? Arena</button>
-                        <button className="mobile-menu-btn" onClick={() => go("bloodlineMaker")}>?? Bloodline</button>
+                        <button className="mobile-menu-btn" onClick={() => go("logbook")}>📜 Logbook</button>
+                        <button className="mobile-menu-btn" onClick={() => go("inventory")}>🎒 Inventory</button>
+                        <button className="mobile-menu-btn" onClick={() => go("training")}>💪 Stats</button>
+                        <button className="mobile-menu-btn" onClick={() => go("jutsuTraining")}>⚡ Jutsu</button>
+                        <button className="mobile-menu-btn" onClick={() => go("missions")}>📋 Missions</button>
+                        <button className="mobile-menu-btn" onClick={() => go("pets")}>🐾 Pets</button>
+                        <button className="mobile-menu-btn" onClick={() => go("arena")}>⚔️ Arena</button>
+                        <button className="mobile-menu-btn" onClick={() => go("bloodlineMaker")}>🧬 Bloodline</button>
                         {adminLoggedIn && (
-                            <button className="mobile-menu-btn" onClick={() => go("adminPanel")}>?? Admin</button>
+                            <button className="mobile-menu-btn" onClick={() => go("adminPanel")}>🛠️ Admin</button>
                         )}
                         <button className="mobile-menu-btn" onClick={() => { setShowChangePw(v => !v); setPwMsg(""); }}>🔑 Change Password</button>
-                        <button className="mobile-menu-btn" onClick={() => { logoutPlayer(); setOpen(false); }}>?? Logout + Save</button>
-                        <button className="mobile-menu-btn danger" onClick={() => { resetGame(); setOpen(false); }}>?? Reset</button>
+                        <button className="mobile-menu-btn" onClick={() => { logoutPlayer(); setOpen(false); }}>💾 Logout + Save</button>
+                        <button className="mobile-menu-btn danger" onClick={() => { resetGame(); setOpen(false); }}>⚠️ Reset</button>
                     </div>
 
                     {showChangePw && (
@@ -16705,7 +16705,7 @@ function ShopBase({
 
             <p style={{ marginBottom: "1rem" }}>
                 {currency === "fateShards"
-                    ? <><span style={{ color: "#ce93d8" }}>? Fate Shards:</span> <strong style={{ color: "#ce93d8" }}>{character.fateShards}</strong></>
+                    ? <><span style={{ color: "#ce93d8" }}>🔮 Fate Shards:</span> <strong style={{ color: "#ce93d8" }}>{character.fateShards}</strong></>
                     : <>Wallet: <strong>{character.ryo} ryo</strong> · Town Hall Shop Discount: <strong>{shopDiscountPercent.toFixed(2)}%</strong></>
                 }
             </p>
@@ -16963,7 +16963,7 @@ function GrandMarketplace({ character, updateCharacter, creatorItems, creatorCar
                 updateCharacter={updateCharacter}
                 creatorItems={creatorItems}
                 title="Grand Marketplace"
-                subtitle="Legendary and Mythic equipment from across the shinobi world. All items cost Fate Shards ?"
+                subtitle="Legendary and Mythic equipment from across the shinobi world. All items cost Fate Shards 🔮"
                 filterRarities={["legendary", "mythic"]}
                 currency="fateShards"
             />
@@ -20119,19 +20119,19 @@ function CentralHub({
                                         {/* Currency display */}
                                         <div className="named-weapon-currencies">
                                             <div className="named-weapon-currency-row">
-                                                <span>?? Bone Charms</span>
+                                                <span>🪬 Bone Charms</span>
                                                 <span>{character.boneCharms ?? 0} × {NW_CURRENCY_PTS.boneCharms} pts = <strong>{(character.boneCharms ?? 0) * NW_CURRENCY_PTS.boneCharms}</strong></span>
                                             </div>
                                             <div className="named-weapon-currency-row">
-                                                <span>? Fate Shards</span>
+                                                <span>🔮 Fate Shards</span>
                                                 <span>{character.fateShards ?? 0} × {NW_CURRENCY_PTS.fateShards} pts = <strong>{(character.fateShards ?? 0) * NW_CURRENCY_PTS.fateShards}</strong></span>
                                             </div>
                                             <div className="named-weapon-currency-row">
-                                                <span>?? Aura Stones</span>
+                                                <span>💠 Aura Stones</span>
                                                 <span>{character.auraStones ?? 0} × {NW_CURRENCY_PTS.auraStones} pts = <strong>{(character.auraStones ?? 0) * NW_CURRENCY_PTS.auraStones}</strong></span>
                                             </div>
                                             <div className="named-weapon-currency-row">
-                                                <span>?? Mythic Seals</span>
+                                                <span>🔱 Mythic Seals</span>
                                                 <span>{character.mythicSeals ?? 0} × {NW_CURRENCY_PTS.mythicSeals} pts = <strong>{(character.mythicSeals ?? 0) * NW_CURRENCY_PTS.mythicSeals}</strong></span>
                                             </div>
                                             <div className="named-weapon-currency-total">
@@ -20144,7 +20144,7 @@ function CentralHub({
                                         </div>
 
                                         <div className="named-weapon-odds">
-                                            <div className="named-weapon-odds-title">?? Roll Odds</div>
+                                            <div className="named-weapon-odds-title">🎲 Roll Odds</div>
                                             <div className="named-weapon-odds-grid">
                                                 <div className="nwo-section">
                                                     <div className="nwo-label">Damage EP</div>
@@ -21106,21 +21106,21 @@ function WorldMap({
         const lootCard = activeChest.cardId ? allCards.find((c) => c.id === activeChest.cardId) : null;
         const alreadyHaveCard = lootCard && character.tileCards.includes(lootCard.id);
         const rewards: { icon: string; label: string; sub: string }[] = [
-            { icon: "?", label: `+${displayCharacterXpGain(activeChest.xp)} XP`, sub: "Experience" },
+            { icon: "⭐", label: `+${displayCharacterXpGain(activeChest.xp)} XP`, sub: "Experience" },
         ];
-        if (activeChest.ryo) rewards.push({ icon: "??", label: `+${activeChest.ryo} Ryo`, sub: "Ancient gold" });
-        if (lootItem) rewards.push({ icon: stackableItemIds.has(lootItem.id) ? "??" : lootItem.rarity === "rare" ? "??" : "??", label: lootItem.name, sub: `${lootItem.rarity.charAt(0).toUpperCase() + lootItem.rarity.slice(1)} ${lootItem.slot} · ${lootItem.description.slice(0, 40)}` });
-        if (lootCard) rewards.push({ icon: lootCard.rarity === "rare" ? "??" : "?", label: `${lootCard.name}${alreadyHaveCard ? " (duplicate)" : ""}`, sub: `${lootCard.rarity.charAt(0).toUpperCase() + lootCard.rarity.slice(1)} · ${lootCard.element} · T:${lootCard.top} R:${lootCard.right} B:${lootCard.bottom} L:${lootCard.left}` });
-        if (activeChest.fateShards) rewards.push({ icon: "?", label: "+1 Fate Shard", sub: "Premium currency" });
-        if (activeChest.boneCharms) rewards.push({ icon: "??", label: "+1 Bone Charm", sub: "Awakening Stone material" });
-        if (activeChest.auraStones) rewards.push({ icon: "??", label: "+1 Aura Stone", sub: "Awakening Stone material" });
-        if (activeChest.auraDust) rewards.push({ icon: "?", label: `+${activeChest.auraDust} Aura Dust`, sub: "Feeds the Aura Sphere" });
+        if (activeChest.ryo) rewards.push({ icon: "🪙", label: `+${activeChest.ryo} Ryo`, sub: "Ancient gold" });
+        if (lootItem) rewards.push({ icon: stackableItemIds.has(lootItem.id) ? "📦" : lootItem.rarity === "rare" ? "⭐" : "🎁", label: lootItem.name, sub: `${lootItem.rarity.charAt(0).toUpperCase() + lootItem.rarity.slice(1)} ${lootItem.slot} · ${lootItem.description.slice(0, 40)}` });
+        if (lootCard) rewards.push({ icon: lootCard.rarity === "rare" ? "🌟" : "🃏", label: `${lootCard.name}${alreadyHaveCard ? " (duplicate)" : ""}`, sub: `${lootCard.rarity.charAt(0).toUpperCase() + lootCard.rarity.slice(1)} · ${lootCard.element} · T:${lootCard.top} R:${lootCard.right} B:${lootCard.bottom} L:${lootCard.left}` });
+        if (activeChest.fateShards) rewards.push({ icon: "🔮", label: "+1 Fate Shard", sub: "Premium currency" });
+        if (activeChest.boneCharms) rewards.push({ icon: "🪬", label: "+1 Bone Charm", sub: "Awakening Stone material" });
+        if (activeChest.auraStones) rewards.push({ icon: "💠", label: "+1 Aura Stone", sub: "Awakening Stone material" });
+        if (activeChest.auraDust) rewards.push({ icon: "✨", label: `+${activeChest.auraDust} Aura Dust`, sub: "Feeds the Aura Sphere" });
 
         return (
             <div className="card cinematic-card ancient-chest-reveal-card">
                 <div className="chest-reveal">
                     <div className="chest-reveal-header">
-                        <p className="act-label">?? ANCIENT CHEST CONTENTS</p>
+                        <p className="act-label">📦 ANCIENT CHEST CONTENTS</p>
                         <h2 className="chest-reveal-title">The chest yields its secrets</h2>
                         <p className="chest-reveal-sub">A relic of the shinobi wars, now yours to keep.</p>
                     </div>
@@ -21737,20 +21737,20 @@ function WorldMap({
                 const lootCard = activeChest.cardId ? allCards.find((c) => c.id === activeChest.cardId) : null;
                 const alreadyHaveCard = lootCard && character.tileCards.includes(lootCard.id);
                 const rewards: { icon: string; label: string; sub: string }[] = [
-                    { icon: "?", label: `+${displayCharacterXpGain(activeChest.xp)} XP`, sub: "Experience" },
+                    { icon: "⭐", label: `+${displayCharacterXpGain(activeChest.xp)} XP`, sub: "Experience" },
                 ];
-                if (activeChest.ryo) rewards.push({ icon: "??", label: `+${activeChest.ryo} Ryo`, sub: "Ancient gold" });
-                if (lootItem) rewards.push({ icon: stackableItemIds.has(lootItem.id) ? "??" : lootItem.rarity === "rare" ? "??" : "??", label: lootItem.name, sub: `${lootItem.rarity.charAt(0).toUpperCase() + lootItem.rarity.slice(1)} ${lootItem.slot} · ${lootItem.description.slice(0, 40)}` });
-                if (lootCard) rewards.push({ icon: lootCard.rarity === "rare" ? "??" : "?", label: `${lootCard.name}${alreadyHaveCard ? " (duplicate)" : ""}`, sub: `${lootCard.rarity.charAt(0).toUpperCase() + lootCard.rarity.slice(1)} · ${lootCard.element} · T:${lootCard.top} R:${lootCard.right} B:${lootCard.bottom} L:${lootCard.left}` });
-                if (activeChest.fateShards) rewards.push({ icon: "?", label: "+1 Fate Shard", sub: "Premium currency" });
-                if (activeChest.boneCharms) rewards.push({ icon: "??", label: "+1 Bone Charm", sub: "Awakening Stone material" });
-                if (activeChest.auraStones) rewards.push({ icon: "??", label: "+1 Aura Stone", sub: "Awakening Stone material" });
-                if (activeChest.auraDust) rewards.push({ icon: "?", label: `+${activeChest.auraDust} Aura Dust`, sub: "Feeds the Aura Sphere" });
+                if (activeChest.ryo) rewards.push({ icon: "🪙", label: `+${activeChest.ryo} Ryo`, sub: "Ancient gold" });
+                if (lootItem) rewards.push({ icon: stackableItemIds.has(lootItem.id) ? "📦" : lootItem.rarity === "rare" ? "⭐" : "🎁", label: lootItem.name, sub: `${lootItem.rarity.charAt(0).toUpperCase() + lootItem.rarity.slice(1)} ${lootItem.slot} · ${lootItem.description.slice(0, 40)}` });
+                if (lootCard) rewards.push({ icon: lootCard.rarity === "rare" ? "🌟" : "🃏", label: `${lootCard.name}${alreadyHaveCard ? " (duplicate)" : ""}`, sub: `${lootCard.rarity.charAt(0).toUpperCase() + lootCard.rarity.slice(1)} · ${lootCard.element} · T:${lootCard.top} R:${lootCard.right} B:${lootCard.bottom} L:${lootCard.left}` });
+                if (activeChest.fateShards) rewards.push({ icon: "🔮", label: "+1 Fate Shard", sub: "Premium currency" });
+                if (activeChest.boneCharms) rewards.push({ icon: "🪬", label: "+1 Bone Charm", sub: "Awakening Stone material" });
+                if (activeChest.auraStones) rewards.push({ icon: "💠", label: "+1 Aura Stone", sub: "Awakening Stone material" });
+                if (activeChest.auraDust) rewards.push({ icon: "✨", label: `+${activeChest.auraDust} Aura Dust`, sub: "Feeds the Aura Sphere" });
                 return (
                     <div className="card cinematic-card">
                         <div className="chest-reveal">
                             <div className="chest-reveal-header">
-                                <p className="act-label">?? ANCIENT CHEST CONTENTS</p>
+                                <p className="act-label">📦 ANCIENT CHEST CONTENTS</p>
                                 <h2 className="chest-reveal-title">The chest yields its secrets</h2>
                                 <p className="chest-reveal-sub">A relic of the shinobi wars, now yours to keep.</p>
                             </div>
@@ -23069,7 +23069,7 @@ function Profile({
                         <p><strong style={{ color: "#facc15" }}>?? Honor Seals:</strong> <span style={{ color: "#facc15" }}>{character.honorSeals ?? 0}</span></p>
                         <p><strong style={{ color: "#fef3c7" }}>? Aura Dust:</strong> <span style={{ color: "#fef3c7" }}>{character.auraDust ?? 0}</span></p>
                         <p><strong>Bank:</strong> {character.bankRyo}</p>
-                        <p><strong style={{ color: "#ce93d8" }}>? Fate Shards:</strong> <span style={{ color: "#ce93d8" }}>{character.fateShards}</span></p>
+                        <p><strong style={{ color: "#ce93d8" }}>🔮 Fate Shards:</strong> <span style={{ color: "#ce93d8" }}>{character.fateShards}</span></p>
                         <p><strong>Jutsu:</strong> {character.equippedJutsuIds.length}/15</p>
                         <p><strong>Equipment:</strong> {equippedItems.length}/3</p>
                         <p><strong>Status:</strong> AWAKE ¤</p>
@@ -23127,7 +23127,7 @@ function Profile({
                             onClick={purchaseTitle}
                             disabled={(character.fateShards ?? 0) < TITLE_COST || !titleInput.trim()}
                         >
-                            Set Title — ? {TITLE_COST}
+                            Set Title — 🔮 {TITLE_COST}
                         </button>
                         {character.customTitle && (
                             <button className="danger-button" onClick={clearTitle}>Clear</button>
