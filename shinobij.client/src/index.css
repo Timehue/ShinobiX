@@ -16692,3 +16692,86 @@ button.combat-jutsu-button,
         gap: 6px !important;
     }
 }
+
+/* ===================================================================
+   Viewport-class adaptive rules  (set by JS in App → useLayoutEffect)
+   html[data-vp] values: xs (<560) | sm (560-979) | md (980-1179)
+                          lg (1180-1399) | xl (≥1400)
+
+   Use these for adjustments that:
+   • span the gap between two media-query breakpoints, OR
+   • need to be read from JS (e.g. conditional rendering logic)
+   ===================================================================*/
+
+/* ── xl: large desktop (≥1400px) — give content a bit more breathing room ── */
+html[data-vp="xl"] {
+    --side-rail-w: clamp(220px, 17vw, 280px);
+    --right-menu-w: clamp(210px, 16vw, 268px);
+    --banner-h: clamp(130px, 13dvh, 175px);
+}
+
+html[data-vp="xl"] .right-menu-buttons button {
+    min-height: 38px !important;
+    font-size: 0.87rem !important;
+}
+
+html[data-vp="xl"] .journey-live-stats .stat-box strong {
+    font-size: clamp(15px, 1.2vw, 20px) !important;
+}
+
+/* ── md: small laptop / landscape tablet (980–1179px) ─────────────────────
+   Sidebars are visible but tight.  Compact the right-menu and left-rail
+   inner elements so they don't squeeze the center content.               ── */
+html[data-vp="md"] .right-menu-buttons button {
+    min-height: 32px !important;
+    padding: 5px 7px !important;
+    font-size: 0.76rem !important;
+    border-radius: 6px !important;
+}
+
+html[data-vp="md"] .left-profile-card {
+    gap: 4px !important;
+    font-size: 0.76rem !important;
+}
+
+html[data-vp="md"] .left-profile-avatar {
+    width: clamp(64px, 8vw, 90px) !important;
+    height: clamp(64px, 8vw, 90px) !important;
+}
+
+html[data-vp="md"] .left-nav-button {
+    padding: 6px 8px !important;
+    font-size: 0.76rem !important;
+    min-height: 32px !important;
+}
+
+html[data-vp="md"] .journey-live-stats .stat-box {
+    padding: 4px 6px !important;
+}
+
+html[data-vp="md"] .journey-live-stats .stat-box strong {
+    font-size: clamp(11px, 0.95vw, 14px) !important;
+}
+
+/* ── sm: mobile / portrait tablet (560–979px) ─────────────────────────────
+   No sidebars (handled by @media ≤980px).  Fine-tune center padding and
+   any elements that still feel cramped at mid-phone widths.               ── */
+html[data-vp="sm"] .center-game {
+    padding: clamp(6px, 2vw, 10px) !important;
+}
+
+/* ── xs: small phone (<560px) — maximize every pixel ─────────────────────── */
+html[data-vp="xs"] .center-game {
+    padding: 4px !important;
+}
+
+html[data-vp="xs"] .profile-mobile-tabs {
+    gap: 2px !important;
+    padding: 4px !important;
+}
+
+html[data-vp="xs"] .pmtab {
+    font-size: 0.62rem !important;
+    padding: 7px 1px !important;
+    min-height: 38px !important;
+}
