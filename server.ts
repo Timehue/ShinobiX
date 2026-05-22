@@ -12,6 +12,8 @@
 
 import express, { type Request, type Response, type NextFunction } from 'express';
 import { createServer } from 'node:http';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 
 // ─── Handler imports ─────────────────────────────────────────────────────────
 // All handlers use import type { VercelRequest, VercelResponse } for TypeScript
@@ -45,6 +47,8 @@ import kageHandler         from './api/village/kage.js';
 import bloodlineReviewHandler from './api/admin/bloodline-review.js';
 import itemReviewHandler   from './api/admin/item-review.js';
 import bloodlinesListHandler from './api/bloodlines/list.js';
+import rankedJoinHandler  from './api/ranked-queue/join.js';
+import rankedLeaveHandler from './api/ranked-queue/leave.js';
 
 // ─── App setup ───────────────────────────────────────────────────────────────
 
@@ -182,6 +186,24 @@ route('/bloodlines/list', bloodlinesListHandler);
 // Admin review queues
 route('/admin/bloodline-review', bloodlineReviewHandler);
 route('/admin/item-review',      itemReviewHandler);
+
+// Ranked queue
+route('/ranked-queue/join',  rankedJoinHandler);
+route('/ranked-queue/leave', rankedLeaveHandler);
+
+// ─── Static files (React SPA) ─────────────────────────────────────────────────
+// STATIC_DIR env var overrides the default so the same compiled server.js works
+// both in the repo (shinobij.client/dist) and in a manual cPanel upload (public/).
+const __filename = fileURLToPath(import.meta.url);
+const __serverDir = dirname(__filename);
+const staticDir = process.env.STATIC_DIR ?? join(__serverDir, '..', 'shinobij.client', 'dist');
+
+app.use(express.static(staticDir));
+
+// SPA fallback — any non-API path serves index.html so React Router handles it.
+app.get('*', (_req, res) => {
+    res.sendFile(join(staticDir, 'index.html'));
+});
 
 // ─── Error handler ────────────────────────────────────────────────────────────
 

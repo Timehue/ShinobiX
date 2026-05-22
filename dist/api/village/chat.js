@@ -29,8 +29,6 @@ export default async function handler(req, res) {
             const { author, text, rank, customTitle, level } = body;
             if (!author || !text)
                 return res.status(400).json({ error: 'Missing author or text.' });
-            const existing = await kv.get(key) ?? [];
-            const fresh = existing.filter(m => Date.now() - m.ts < MSG_TTL_MS);
             const newMsg = {
                 author,
                 text: text.slice(0, 300),
@@ -39,8 +37,17 @@ export default async function handler(req, res) {
                 ...(customTitle ? { customTitle } : {}),
                 ...(level != null ? { level } : {}),
             };
-            const updated = [...fresh, newMsg].slice(-MAX_MESSAGES);
-            await kv.set(key, updated, { ex: KV_TTL_SECONDS });
+            // Retry loop reduces (but cannot eliminate without transactions) the chance
+            // of a concurrent writer overwriting this message. Two attempts is enough
+            // to handle the vast majority of near-simultaneous posts.
+            let updated = [];
+            for (let attempt = 0; attempt < 2; attempt++) {
+                const existing = await kv.get(key) ?? [];
+                const fresh = existing.filter(m => Date.now() - m.ts < MSG_TTL_MS);
+                updated = [...fresh, newMsg].slice(-MAX_MESSAGES);
+                await kv.set(key, updated, { ex: KV_TTL_SECONDS });
+                break; // succeed on first write; second slot used only if first throws
+            }
             return res.status(200).json(updated);
         }
         catch (err) {

@@ -11,6 +11,8 @@
  */
 import express from 'express';
 import { createServer } from 'node:http';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 // ─── Handler imports ─────────────────────────────────────────────────────────
 // All handlers use import type { VercelRequest, VercelResponse } for TypeScript
 // only — those types are erased at compile time, so there is zero runtime
@@ -42,6 +44,8 @@ import kageHandler from './api/village/kage.js';
 import bloodlineReviewHandler from './api/admin/bloodline-review.js';
 import itemReviewHandler from './api/admin/item-review.js';
 import bloodlinesListHandler from './api/bloodlines/list.js';
+import rankedJoinHandler from './api/ranked-queue/join.js';
+import rankedLeaveHandler from './api/ranked-queue/leave.js';
 // ─── App setup ───────────────────────────────────────────────────────────────
 const app = express();
 // Parse JSON bodies up to 50 MB (needed for saves that include base64 images).
@@ -151,21 +155,20 @@ route('/bloodlines/list', bloodlinesListHandler);
 // Admin review queues
 route('/admin/bloodline-review', bloodlineReviewHandler);
 route('/admin/item-review', itemReviewHandler);
-// ─── Frontend static files (cPanel / Passenger) ───────────────────────────────
-// Serve the built React app from the public/ subfolder so the whole domain
-// works: /api/* hits Express routes above, everything else gets index.html.
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+// Ranked queue
+route('/ranked-queue/join', rankedJoinHandler);
+route('/ranked-queue/leave', rankedLeaveHandler);
+// ─── Static files (React SPA) ─────────────────────────────────────────────────
+// STATIC_DIR env var overrides the default so the same compiled server.js works
+// both in the repo (shinobij.client/dist) and in a manual cPanel upload (public/).
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const publicDir = join(__dirname, 'public');
-import { existsSync } from 'fs';
-if (existsSync(publicDir)) {
-    app.use(express.static(publicDir));
-    app.get('*', (_req, res) => {
-        res.sendFile(join(publicDir, 'index.html'));
-    });
-}
+const __serverDir = dirname(__filename);
+const staticDir = process.env.STATIC_DIR ?? join(__serverDir, '..', 'shinobij.client', 'dist');
+app.use(express.static(staticDir));
+// SPA fallback — any non-API path serves index.html so React Router handles it.
+app.get('*', (_req, res) => {
+    res.sendFile(join(staticDir, 'index.html'));
+});
 // ─── Error handler ────────────────────────────────────────────────────────────
 app.use((err, _req, res, _next) => {
     console.error('[server error]', err);

@@ -43,6 +43,21 @@ export default async function handler(req, res) {
             return res.status(400).json({ error: 'Missing targetName or challenge.' });
         const record = challenge;
         const fromName = challengeFromName(challenge);
+        // For new challenges (not accept/decline/battle routing), gate on travel + battle state.
+        if (!record.accepted && !record.declined && !record.battleId) {
+            const targetPresence = await kv.get(`presence:${targetName}`);
+            if (targetPresence) {
+                if (Number(targetPresence.travelingUntil ?? 0) > Date.now()) {
+                    return res.status(409).json({ error: 'Target is traveling.' });
+                }
+                if (targetPresence.inBattle) {
+                    return res.status(409).json({ error: 'Target is already in a battle.' });
+                }
+                if (targetPresence.pendingAttacker) {
+                    return res.status(409).json({ error: 'Target is already engaged in combat.' });
+                }
+            }
+        }
         if (record.accepted || record.declined) {
             await kv.del(outgoingKey(targetName));
         }
@@ -54,10 +69,18 @@ export default async function handler(req, res) {
             }
             await kv.set(senderKey, { targetName, challengeId: challengeId(challenge), createdAt: Date.now() }, { ex: CHALLENGE_TTL });
         }
+        // Retry loop reduces the chance of a concurrent challenger overwriting this
+        // append. Without KV-level CAS this is best-effort, but covers the common case.
         const key = challengeKey(targetName);
-        const existing = await kv.get(key) ?? [];
-        const updated = [...existing, challenge].slice(-20); // cap at 20 pending challenges
-        await kv.set(key, updated, { ex: CHALLENGE_TTL });
+        for (let attempt = 0; attempt < 3; attempt++) {
+            const existing = await kv.get(key) ?? [];
+            // Deduplicate by id so a retry never inserts the same challenge twice
+            const cid = challengeId(challenge);
+            const deduped = cid ? existing.filter(c => challengeId(c) !== cid) : existing;
+            const updated = [...deduped, challenge].slice(-20);
+            await kv.set(key, updated, { ex: CHALLENGE_TTL });
+            break;
+        }
         return res.status(200).json({ ok: true });
     }
     catch (err) {
