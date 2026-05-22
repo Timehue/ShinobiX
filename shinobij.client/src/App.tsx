@@ -11745,7 +11745,9 @@ function AdminPanel({
         setPmMsg("Looking up…");
         setPmSnap(null);
         try {
-            const res = await fetch(`/api/save/${encodeURIComponent(pmTargetName.trim().toLowerCase())}`);
+            const res = await fetch(`/api/save/${encodeURIComponent(pmTargetName.trim().toLowerCase())}`, {
+                headers: adminPw ? { "x-admin-password": adminPw } : {},
+            });
             if (res.status === 404) { setPmMsg("?? No server save found for that name (player may use local-only save)."); return; }
             if (!res.ok) { setPmMsg(`? Server error ${res.status} — check the player name and try again.`); return; }
             let data: Record<string, unknown>;
@@ -11803,7 +11805,10 @@ function AdminPanel({
         setPmEditMsg("Loading…");
         setPmEditSnap(null);
         try {
-            const res = await fetch(`/api/save/${encodeURIComponent(pmEditName.trim().toLowerCase())}`);
+            const res = await fetch(`/api/save/${encodeURIComponent(pmEditName.trim().toLowerCase())}`, {
+                headers: adminPw ? { "x-admin-password": adminPw } : {},
+            });
+            if (res.status === 401) { setPmEditMsg("? Admin auth failed — log out and back in as admin."); return; }
             if (!res.ok) { setPmEditMsg("? Player not found."); return; }
             const data = await res.json() as Record<string, unknown>;
             const char = data.character as Record<string, unknown> ?? {};
