@@ -237,22 +237,30 @@ function getSupabase(): SupabaseClient {
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (!url || !key) throw new Error('SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set.');
 
-    // Build a base fetch that forces IPv4.
-    // CloudLinux shared hosting has no IPv6 routing; without this, DNS AAAA
-    // records cause ENETUNREACH errors. We use undici directly so we can pass
-    // a custom dispatcher — the global fetch dispatcher cannot be overridden
-    // from a CJS module in all Node 22 builds.
+    // Build a base fetch that hardcodes the Supabase IPv4 address.
+    // CloudLinux CageFS jails block outbound DNS (port 53), so getaddrinfo
+    // always fails. We bypass DNS entirely by hardcoding the known IPv4 address
+    // (Cloudflare CDN) and passing a custom lookup to the undici Agent.
+    // Resolved externally: nslookup soaychxshtbgwujhytsf.supabase.co 8.8.8.8
+    const _HARDCODED_IPS: Record<string, string> = {
+        'soaychxshtbgwujhytsf.supabase.co': '172.64.149.246',
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    function _hardcodedLookup(hostname: string, options: any, callback: (err: Error | null, address: string, family: number) => void): void {
+        if (_HARDCODED_IPS[hostname]) return callback(null, _HARDCODED_IPS[hostname], 4);
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        require('dns').lookup(hostname, options, callback);
+    }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let baseFetch: typeof fetch = globalThis.fetch;
     try {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const undici = require('undici') as { fetch: typeof fetch; Agent: new (o: object) => object };
-        const ipv4Agent = new undici.Agent({ connect: { family: 4 } });
-        baseFetch = (input, init) =>
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            undici.fetch(input, { ...(init ?? {}), dispatcher: ipv4Agent } as any);
+        // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+        const undici = require('undici') as any;
+        const agent = new undici.Agent({ connect: { family: 4, lookup: _hardcodedLookup } });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        baseFetch = (input, init) => undici.fetch(input, { ...(init ?? {}), dispatcher: agent } as any);
     } catch {
-        // undici not available — fall back to global fetch and hope for IPv4
+        // undici not available — fall back to global fetch
     }
 
     // Give every Supabase REST call a 20-second hard timeout.
