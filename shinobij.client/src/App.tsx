@@ -22889,6 +22889,7 @@ function Profile({
     const [statWarning, setStatWarning] = useState("");
     const [titleInput, setTitleInput] = useState(character.customTitle ?? "");
     const TITLE_COST = 10;
+    const [mobileTab, setMobileTab] = useState<'overview' | 'stats' | 'jutsu' | 'builds'>('overview');
 
     function formatStatLabel(name: string) {
         return name
@@ -23024,6 +23025,24 @@ function Profile({
 
     return (
         <div className="profile-page-card">
+            {/* Mobile-only tab navigation — hidden on desktop via CSS */}
+            <nav className="profile-mobile-tabs">
+                {([
+                    { id: 'overview', label: '👤 Profile' },
+                    { id: 'stats',    label: '💪 Stats'   },
+                    { id: 'jutsu',    label: '⚡ Jutsu'   },
+                    { id: 'builds',   label: '🩸 Builds'  },
+                ] as const).map(({ id, label }) => (
+                    <button
+                        key={id}
+                        className={`pmtab${mobileTab === id ? ' pmtab-active' : ''}`}
+                        onClick={() => setMobileTab(id)}
+                    >{label}</button>
+                ))}
+            </nav>
+
+            {/* ── Overview tab ─────────────────────────── */}
+            <div className={mobileTab !== 'overview' ? 'profile-tab-hidden' : ''}>
             <div className="profile-page-header">
                 <div>
                     <h2>Profile</h2>
@@ -23104,38 +23123,10 @@ function Profile({
                 </button>
                 <p className="hint">Aura Dust drops from PvP, village raids, boss wins, war contribution, and ancient chests.</p>
             </section>}
+            </div>{/* end overview tab */}
 
-            <section className="summary-box profile-title-panel">
-                <div>
-                    <p className="act-label">Custom Title</p>
-                    <p style={{ color: "#94a3b8", fontSize: "0.85rem", margin: "0.2rem 0 0.75rem" }}>
-                        {character.customTitle
-                            ? <>Current: <span style={{ color: "#facc15", fontWeight: 700 }}>{character.customTitle}</span></>
-                            : "No title set."}
-                    </p>
-                    <div className="profile-title-row">
-                        <input
-                            className="profile-title-input"
-                            value={titleInput}
-                            onChange={(e: ChangeEvent<HTMLInputElement>) => setTitleInput(e.target.value.slice(0, 15))}
-                            placeholder="Up to 15 characters"
-                            maxLength={15}
-                        />
-                        <span className="profile-title-counter">{titleInput.length}/15</span>
-                        <button
-                            className="profile-title-btn"
-                            onClick={purchaseTitle}
-                            disabled={(character.fateShards ?? 0) < TITLE_COST || !titleInput.trim()}
-                        >
-                            Set Title — 🔮 {TITLE_COST}
-                        </button>
-                        {character.customTitle && (
-                            <button className="danger-button" onClick={clearTitle}>Clear</button>
-                        )}
-                    </div>
-                </div>
-            </section>
-
+            {/* ── Stats tab ────────────────────────────── */}
+            <div className={mobileTab !== 'stats' ? 'profile-tab-hidden' : ''}>
             <section className="profile-build-panel">
                 <div className="stat-header">
                     <h2>User Stats</h2>
@@ -23159,47 +23150,10 @@ function Profile({
                     ))}
                 </div>
             </section>
+            </div>{/* end stats tab */}
 
-            <section className="profile-build-panel">
-                <h2>Equip Bloodline</h2>
-                {(() => {
-                    const starterBl = starterSavedBloodlines.find((bl) => bl.name === (character.bloodline === "Blue Blade Eyes" ? "Ashen Eyes" : character.bloodline));
-                    return starterBl ? (
-                        <div className="summary-box" style={{ marginBottom: 8 }}>
-                            <strong>Starter Bloodline:</strong> {starterBl.name} ({starterBl.specialElement} · {starterBl.rank}) — always active
-                        </div>
-                    ) : null;
-                })()}
-                <select
-                    value={character.equippedBloodlineId || ""}
-                    onChange={(e) => equipBloodline(e.target.value)}
-                >
-                    <option value="">No Custom Bloodline Equipped</option>
-                    {savedBloodlines.map((bloodline) => (
-                        <option key={bloodline.id} value={bloodline.id}>
-                            {bloodline.name} | {bloodline.specialElement ? `${bloodline.specialElement} | ` : ""}{bloodline.rank}
-                        </option>
-                    ))}
-                </select>
-                {savedBloodlines.length > 0 && (
-                    <div style={{ marginTop: 8 }}>
-                        <p className="hint">Remove bloodlines you no longer want:</p>
-                        {savedBloodlines.map((bl) => (
-                            <div key={bl.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                                <span style={{ flex: 1 }}>{bl.name} ({bl.rank})</span>
-                                <button className="danger-button" style={{ padding: "2px 8px", fontSize: "0.8rem" }} onClick={() => {
-                                    if (!confirm(`Remove "${bl.name}" from your bloodline list?`)) return;
-                                    const next = savedBloodlines.filter((b) => b.id !== bl.id);
-                                    setSavedBloodlines?.(next);
-                                    if (character.equippedBloodlineId === bl.id) equipBloodline("");
-                                    onSaveBloodlines?.(next, character);
-                                }}>Remove</button>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </section>
-
+            {/* ── Jutsu tab ────────────────────────────── */}
+            <div className={mobileTab !== 'jutsu' ? 'profile-tab-hidden' : ''}>
             <section className="profile-build-panel">
                 <div className="stat-header">
                     <h2>Jutsu Loadout: {character.equippedJutsuIds.length}/15</h2>
@@ -23259,6 +23213,80 @@ function Profile({
                     );
                 })()}
             </section>
+            </div>{/* end jutsu tab */}
+
+            {/* ── Builds tab ───────────────────────────── */}
+            <div className={mobileTab !== 'builds' ? 'profile-tab-hidden' : ''}>
+            <section className="summary-box profile-title-panel">
+                <div>
+                    <p className="act-label">Custom Title</p>
+                    <p style={{ color: "#94a3b8", fontSize: "0.85rem", margin: "0.2rem 0 0.75rem" }}>
+                        {character.customTitle
+                            ? <>Current: <span style={{ color: "#facc15", fontWeight: 700 }}>{character.customTitle}</span></>
+                            : "No title set."}
+                    </p>
+                    <div className="profile-title-row">
+                        <input
+                            className="profile-title-input"
+                            value={titleInput}
+                            onChange={(e: ChangeEvent<HTMLInputElement>) => setTitleInput(e.target.value.slice(0, 15))}
+                            placeholder="Up to 15 characters"
+                            maxLength={15}
+                        />
+                        <span className="profile-title-counter">{titleInput.length}/15</span>
+                        <button
+                            className="profile-title-btn"
+                            onClick={purchaseTitle}
+                            disabled={(character.fateShards ?? 0) < TITLE_COST || !titleInput.trim()}
+                        >
+                            Set Title — 🔮 {TITLE_COST}
+                        </button>
+                        {character.customTitle && (
+                            <button className="danger-button" onClick={clearTitle}>Clear</button>
+                        )}
+                    </div>
+                </div>
+            </section>
+
+            <section className="profile-build-panel">
+                <h2>Equip Bloodline</h2>
+                {(() => {
+                    const starterBl = starterSavedBloodlines.find((bl) => bl.name === (character.bloodline === "Blue Blade Eyes" ? "Ashen Eyes" : character.bloodline));
+                    return starterBl ? (
+                        <div className="summary-box" style={{ marginBottom: 8 }}>
+                            <strong>Starter Bloodline:</strong> {starterBl.name} ({starterBl.specialElement} · {starterBl.rank}) — always active
+                        </div>
+                    ) : null;
+                })()}
+                <select
+                    value={character.equippedBloodlineId || ""}
+                    onChange={(e) => equipBloodline(e.target.value)}
+                >
+                    <option value="">No Custom Bloodline Equipped</option>
+                    {savedBloodlines.map((bloodline) => (
+                        <option key={bloodline.id} value={bloodline.id}>
+                            {bloodline.name} | {bloodline.specialElement ? `${bloodline.specialElement} | ` : ""}{bloodline.rank}
+                        </option>
+                    ))}
+                </select>
+                {savedBloodlines.length > 0 && (
+                    <div style={{ marginTop: 8 }}>
+                        <p className="hint">Remove bloodlines you no longer want:</p>
+                        {savedBloodlines.map((bl) => (
+                            <div key={bl.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                                <span style={{ flex: 1 }}>{bl.name} ({bl.rank})</span>
+                                <button className="danger-button" style={{ padding: "2px 8px", fontSize: "0.8rem" }} onClick={() => {
+                                    if (!confirm(`Remove "${bl.name}" from your bloodline list?`)) return;
+                                    const next = savedBloodlines.filter((b) => b.id !== bl.id);
+                                    setSavedBloodlines?.(next);
+                                    if (character.equippedBloodlineId === bl.id) equipBloodline("");
+                                    onSaveBloodlines?.(next, character);
+                                }}>Remove</button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </section>
 
             {onDeleteCharacter && (
                 <section className="profile-build-panel">
@@ -23267,6 +23295,7 @@ function Profile({
                     <p className="hint">Permanently deletes your character and save data. This cannot be undone.</p>
                 </section>
             )}
+            </div>{/* end builds tab */}
         </div>
     );
 }
