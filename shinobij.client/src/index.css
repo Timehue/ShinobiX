@@ -5527,7 +5527,9 @@ body {
     grid-template-columns: 110px minmax(0, 1fr) 130px !important;
     gap: 6px !important;
     padding: 6px !important;
-    height: calc(100vh - 110px) !important;
+    /* Use --banner-h (defined on :root) so the frame never exceeds the
+       available space below the banner, keeping all tiles on-screen. */
+    height: calc(100dvh - var(--banner-h) - 2px) !important;
     overflow: hidden !important;
 }
 
@@ -5558,7 +5560,7 @@ body {
 }
 
 .pixel-map {
-    height: calc(100vh - 170px) !important;
+    height: calc(100dvh - var(--banner-h) - 60px) !important;
     aspect-ratio: auto !important;
     padding: 4px !important;
 }
@@ -7051,7 +7053,7 @@ body {
     grid-template-columns: 110px minmax(0, 1fr) 120px !important;
     gap: 6px !important;
     padding: 6px !important;
-    height: calc(100vh - 110px) !important;
+    height: calc(100dvh - var(--banner-h) - 2px) !important;
     overflow: hidden !important;
 }
 
@@ -7109,7 +7111,7 @@ body {
 }
 
 .pixel-map {
-    height: calc(100vh - 170px) !important;
+    height: calc(100dvh - var(--banner-h) - 60px) !important;
     aspect-ratio: auto !important;
     padding: 4px !important;
 }
@@ -8955,7 +8957,7 @@ textarea {
     gap: 8px !important;
     width: 100% !important;
     max-width: 100% !important;
-    height: calc(100vh - 110px) !important;
+    height: calc(100dvh - var(--banner-h) - 2px) !important;
     padding: 6px !important;
     overflow: hidden !important;
     border: 6px solid #7c3f11 !important;
@@ -9252,7 +9254,7 @@ textarea {
     grid-template-areas: "scene actions" !important;
     gap: 6px !important;
     padding: 6px !important;
-    height: calc(100vh - 110px) !important;
+    height: calc(100dvh - var(--banner-h) - 2px) !important;
     overflow: hidden !important;
 }
 
