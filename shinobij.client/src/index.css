@@ -11491,6 +11491,58 @@ button.combat-jutsu-button,
     }
 }
 
+/* ── Sector explore: overlay actions panel on the map at tablet/mobile widths ──
+   The ≤980px block above collapses instance-frame to single-column, which pushes
+   the action buttons (Explore, Recover, Leave) below the full-height map and out
+   of view. This block overrides just the instance-frame case to keep the map
+   full-height and float the actions panel as a translucent overlay instead.      */
+@media (max-width: 980px) {
+    .map-instance .instance-frame {
+        position: relative !important;
+        grid-template-columns: 1fr !important;
+        grid-template-areas: "scene" !important;
+        height: min(92dvh, 920px) !important;
+        min-height: clamp(480px, 70dvh, 760px) !important;
+        overflow: hidden !important;
+    }
+
+    .map-instance .instance-frame > main.tile-scene {
+        grid-area: scene !important;
+        grid-column: 1 !important;
+        display: grid !important;
+        grid-template-rows: auto 1fr !important;
+        height: 100% !important;
+        overflow: hidden !important;
+    }
+
+    .map-instance .instance-frame .sector-image-map {
+        height: 100% !important;
+        min-height: 0 !important;
+    }
+
+    /* Float the action buttons as an overlay in the top-right of the map */
+    .map-instance .instance-frame > aside.instance-actions {
+        position: absolute !important;
+        top: 36px !important;   /* clear the scene-title bar */
+        right: 8px !important;
+        width: clamp(124px, 18vw, 160px) !important;
+        min-width: 120px !important;
+        max-width: 160px !important;
+        max-height: calc(100% - 52px) !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        z-index: 20 !important;
+        grid-area: unset !important;
+        grid-column: unset !important;
+        background: rgba(6, 10, 22, 0.92) !important;
+        backdrop-filter: blur(6px) !important;
+        -webkit-backdrop-filter: blur(6px) !important;
+        border-radius: 8px !important;
+        border: 1px solid rgba(250, 204, 21, 0.45) !important;
+        padding: 6px !important;
+    }
+}
+
 @media (max-width: 560px) {
     :root {
         --battle-board-h: clamp(240px, 34dvh, 320px);
