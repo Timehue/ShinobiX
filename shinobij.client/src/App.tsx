@@ -7813,6 +7813,13 @@ export default function App() {
                     className="journey-banner"
                     style={{ backgroundImage: `url(${shinobiBanner})` }}
                 >
+                    {character && screen !== "start" && (
+                        <BannerMobileTimers
+                            activeTraining={activeTraining}
+                            activeJutsuTraining={activeJutsuTraining}
+                            pets={character.pets ?? []}
+                        />
+                    )}
                     {character && (
                         <div className="journey-live-stats">
                             <div className="stat-box">
@@ -8367,6 +8374,78 @@ export default function App() {
                     />
                 )}
             </main>
+        </div>
+    );
+}
+
+/* ── Mobile banner timer widget ──────────────────────────────────────
+   Shown in the top-right corner of the journey banner on xs/sm screens
+   only. Desktop already has the left profile card for this information.
+   ──────────────────────────────────────────────────────────────────── */
+function BannerMobileTimers({
+    activeTraining,
+    activeJutsuTraining,
+    pets,
+}: {
+    activeTraining: ActiveTraining | null;
+    activeJutsuTraining: ActiveJutsuTraining | null;
+    pets: Pet[];
+}) {
+    const [now, setNow] = useState(Date.now());
+    useEffect(() => {
+        const id = setInterval(() => setNow(Date.now()), 1000);
+        return () => clearInterval(id);
+    }, []);
+    void now;
+
+    const t = new Date();
+    const utcTime = `${String(t.getUTCHours()).padStart(2, "0")}:${String(t.getUTCMinutes()).padStart(2, "0")} UTC`;
+
+    const timerRows: React.ReactNode[] = [];
+    if (activeTraining && Date.now() < activeTraining.endsAt) {
+        timerRows.push(
+            <div key="stat" className="bmt-row">
+                <span className="bmt-icon">💪</span>
+                <span className="bmt-label">{activeTraining.label}</span>
+                <span className="bmt-value">{formatPetTimer(activeTraining.endsAt - Date.now())}</span>
+            </div>
+        );
+    }
+    if (activeJutsuTraining && Date.now() < activeJutsuTraining.endsAt) {
+        timerRows.push(
+            <div key="jutsu" className="bmt-row">
+                <span className="bmt-icon">🌀</span>
+                <span className="bmt-label">{activeJutsuTraining.label}</span>
+                <span className="bmt-value">{formatPetTimer(activeJutsuTraining.endsAt - Date.now())}</span>
+            </div>
+        );
+    }
+    for (const pet of pets) {
+        if (pet.training && Date.now() < pet.training.endsAt) {
+            const label = petTrainingOptions.find(o => o.type === pet.training!.type)?.label ?? pet.training.type;
+            timerRows.push(
+                <div key={`pt-${pet.id}`} className="bmt-row">
+                    <span className="bmt-icon">🐾</span>
+                    <span className="bmt-label">{petDisplayName(pet)} · {label}</span>
+                    <span className="bmt-value">{formatPetTimer(pet.training!.endsAt - Date.now())}</span>
+                </div>
+            );
+        }
+        if (pet.expedition && Date.now() < pet.expedition.endsAt) {
+            timerRows.push(
+                <div key={`pe-${pet.id}`} className="bmt-row">
+                    <span className="bmt-icon">🗺️</span>
+                    <span className="bmt-label">{petDisplayName(pet)} · Exp</span>
+                    <span className="bmt-value">{formatPetTimer(pet.expedition!.endsAt - Date.now())}</span>
+                </div>
+            );
+        }
+    }
+
+    return (
+        <div className="banner-mobile-timers">
+            <div className="bmt-clock">🕐 {utcTime}</div>
+            {timerRows.length > 0 && <div className="bmt-timers">{timerRows}</div>}
         </div>
     );
 }
