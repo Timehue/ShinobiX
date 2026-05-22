@@ -17097,3 +17097,50 @@ html[data-vp="xs"] .pmtab {
         min-height: 34px !important;
     }
 }
+
+/* =====================================================================
+   MOBILE SCROLL FIX — must be the very last .center-game rule.
+
+   The general .center-game block (height: 100vh; overflow-y: auto) is
+   not inside any media query, so it appears later in the file than the
+   early @media(max-width:800px) block and wins the cascade — keeping
+   center-game at a fixed 100vh height even on phones, which clips all
+   tab content.
+
+   Placing these overrides at EOF guarantees they beat every earlier
+   !important declaration for ≤800px screens.
+   ===================================================================== */
+@media (max-width: 800px) {
+    html,
+    body,
+    #root,
+    .game-shell,
+    .game,
+    .app-shell {
+        height: auto !important;
+        min-height: 100dvh !important;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+    }
+
+    .center-game {
+        /* Let center-game grow with content — body/root handles scrolling */
+        height: auto !important;
+        min-height: calc(100dvh - var(--banner-h, 120px)) !important;
+        overflow-x: hidden !important;
+        overflow-y: visible !important;
+        /* Bottom clearance for the fixed mobile nav bar (112px) +
+           safe area for phones with a home indicator bar */
+        padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px)) !important;
+    }
+
+    /* Stat grid and profile panels must not impose a fixed height */
+    .profile-page-card,
+    .profile-build-panel,
+    .stat-grid,
+    .profile-overview-panel {
+        height: auto !important;
+        overflow: visible !important;
+        max-height: none !important;
+    }
+}
