@@ -521,6 +521,7 @@ type Character = {
     claimedVillageAgendaDate?: string;
     claimedMapControlDate?: string;
     hunterRank?: number;
+    weeklyBossKills?: Record<string, string>;
     elderFocus?: "war" | "trade" | "training";
 };
 type RewardCurrencyKey = "fateShards" | "honorSeals" | "boneCharms" | "auraStones" | "auraDust" | "mythicSeals";
@@ -1182,6 +1183,13 @@ const hiddenDungeonVnEvent: CreatorEvent = {
         },
     ],
 };
+const craftDungeonEvents: CreatorEvent[] = [
+    { ...hiddenDungeonVnEvent, id: "craft-dungeon-forest", name: "Forest Relic Dungeon", biome: "forest", icon: "FD", vnTitle: "Forest Relic Dungeon", vnScene: "Ancient roots twist around a sealed forge gate." },
+    { ...hiddenDungeonVnEvent, id: "craft-dungeon-snow", name: "Snow Relic Dungeon", biome: "snow", icon: "SD", vnTitle: "Snow Relic Dungeon", vnScene: "A glacial stairway opens into a frozen armory." },
+    { ...hiddenDungeonVnEvent, id: "craft-dungeon-volcano", name: "Volcano Relic Dungeon", biome: "volcano", icon: "VD", vnTitle: "Volcano Relic Dungeon", vnScene: "Lava-lit stone doors reveal a buried weapon vault." },
+    { ...hiddenDungeonVnEvent, id: "craft-dungeon-shadow", name: "Shadow Relic Dungeon", biome: "shadow", icon: "XD", vnTitle: "Shadow Relic Dungeon", vnScene: "A black shrine exhales old chakra and opens below." },
+    { ...hiddenDungeonVnEvent, id: "craft-dungeon-central", name: "Central Relic Dungeon", biome: "central", icon: "CD", vnTitle: "Central Relic Dungeon", vnScene: "A neutral gate beneath Central hums with sealed relic power." },
+];
 const JUTSU_MAX_LEVEL = 50;
 const JUTSU_TRAINING_CAP = 30;
 const STORAGE = "ninjav-admin-build-v1";
@@ -2362,6 +2370,12 @@ const starterItems: GameItem[] = [
     { id: "hunt-ancient-beast-core", name: "Ancient Beast Core", slot: "item", rarity: "epic", cost: 0, description: "The crystallized chakra core of an ancient beast. Extremely rare crafting material.", bonuses: {} },
     { id: "hunt-titan-bone", name: "Titan Bone", slot: "item", rarity: "epic", cost: 0, description: "A massive bone fragment from the Worldstorm Dragon. Near-indestructible.", bonuses: {} },
     { id: "hunt-legendary-material", name: "Legendary Material", slot: "item", rarity: "legendary", cost: 0, description: "A rare drop from S-rank beasts. Worth 50 craft points in the Crafter. Required for max hunter rank.", bonuses: {} },
+    // -- Weapon forging materials ----------------------------------------------
+    { id: "weekly-boss-core", name: "Weekly Boss Core", slot: "item", rarity: "legendary", cost: 0, description: "A time-gated core from the weekly boss. Used to forge epic and legendary weapons.", bonuses: {} },
+    { id: "dungeon-key", name: "Dungeon Key", slot: "item", rarity: "rare", cost: 0, description: "A key that opens one Hidden Dungeon run. Drops from weekly bosses and war crates.", bonuses: {} },
+    { id: "dungeon-legendary-relic", name: "Dungeon Legendary Relic", slot: "item", rarity: "legendary", cost: 0, description: "A relic recovered from a Hidden Dungeon. Used to forge legendary weapons.", bonuses: {} },
+    { id: "warforged-relic", name: "Warforged Relic", slot: "item", rarity: "legendary", cost: 0, description: "A battle-marked relic from a war crate. Used to forge legendary weapons.", bonuses: {} },
+    { id: "legendary-war-crate", name: "Legendary War Crate", slot: "item", rarity: "legendary", cost: 0, description: "A crate awarded for major clan or village war victories. Open it for a Warforged Relic and a chance at a Dungeon Key.", bonuses: {} },
     // -- Throwable weapons -------------------------------------------------------
     {
         id: "thrown-shuriken",
@@ -2990,6 +3004,84 @@ function removeTreasuryItem(items: TreasuryItemStack[] | undefined, itemId: stri
 
 function itemDisplayName(itemId: string, allItems: GameItem[]) {
     return getItemById(allItems, itemId)?.name ?? itemId;
+}
+
+const WEEKLY_BOSS_CORE_ID = "weekly-boss-core";
+const DUNGEON_KEY_ID = "dungeon-key";
+const DUNGEON_LEGENDARY_RELIC_ID = "dungeon-legendary-relic";
+const WARFORGED_RELIC_ID = "warforged-relic";
+const LEGENDARY_WAR_CRATE_ID = "legendary-war-crate";
+
+type WeeklyBossStatus = "dormant" | "active" | "defeated" | "escaped";
+type WeeklyBossSchedule = {
+    weekKey: string;
+    bossId: string;
+    bossName: string;
+    bossIcon: string;
+    startsAt: number;
+    endsAt: number;
+    status: WeeklyBossStatus;
+};
+
+const weeklyBossPool = [
+    { id: "ashen-dragon", name: "Ashen Dragon", icon: "DR" },
+    { id: "moonshadow-oni", name: "Moonshadow Oni", icon: "ON" },
+    { id: "frostfang-warlord", name: "Frostfang Warlord", icon: "FW" },
+    { id: "stormveil-beast", name: "Stormveil Beast", icon: "SB" },
+    { id: "deathsgate-revenant", name: "Deathsgate Revenant", icon: "DG" },
+];
+
+function seededHash(input: string) {
+    let hash = 2166136261;
+    for (let i = 0; i < input.length; i += 1) {
+        hash ^= input.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+}
+
+function weekKeyForDate(date = new Date()) {
+    const utc = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+    const day = date.getUTCDay() || 7;
+    const thursday = new Date(utc + (4 - day) * 24 * 60 * 60 * 1000);
+    const yearStart = Date.UTC(thursday.getUTCFullYear(), 0, 1);
+    const week = Math.ceil((((thursday.getTime() - yearStart) / 86400000) + 1) / 7);
+    return `${thursday.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
+}
+
+function weeklyBossSchedule(character?: Character, now = Date.now()): WeeklyBossSchedule {
+    const current = new Date(now);
+    const weekKey = weekKeyForDate(current);
+    const seed = seededHash(weekKey);
+    const boss = weeklyBossPool[seed % weeklyBossPool.length];
+    const dayOffset = (seed >>> 4) % 7;
+    const hour = (seed >>> 9) % 24;
+    const start = new Date(Date.UTC(current.getUTCFullYear(), current.getUTCMonth(), current.getUTCDate()));
+    const startDay = start.getUTCDay() || 7;
+    start.setUTCDate(start.getUTCDate() - (startDay - 1) + dayOffset);
+    start.setUTCHours(hour, 0, 0, 0);
+    const startsAt = start.getTime();
+    const endsAt = startsAt + 24 * 60 * 60 * 1000;
+    const killed = Boolean(character?.weeklyBossKills?.[weekKey]);
+    const status: WeeklyBossStatus = killed ? "defeated" : now < startsAt ? "dormant" : now <= endsAt ? "active" : "escaped";
+    return { weekKey, bossId: boss.id, bossName: boss.name, bossIcon: boss.icon, startsAt, endsAt, status };
+}
+
+function addInventoryItems(character: Character, itemIds: string[]) {
+    return { ...character, inventory: [...character.inventory, ...itemIds] };
+}
+
+function removeInventoryItems(inventory: string[], requirements: Record<string, number>) {
+    const remaining = { ...requirements };
+    return inventory.filter((itemId) => {
+        if (!remaining[itemId]) return true;
+        remaining[itemId] -= 1;
+        return false;
+    });
+}
+
+function hasInventoryRequirements(character: Character, requirements: Record<string, number>) {
+    return Object.entries(requirements).every(([itemId, qty]) => character.inventory.filter((id) => id === itemId).length >= qty);
 }
 
 function inventoryItemStacks(character: Character, allItems: GameItem[]) {
@@ -4564,6 +4656,7 @@ function normalizeCharacter(parsed: Character): Character {
         rankedRating: parsed.rankedRating ?? 1000,
         rankedWins: parsed.rankedWins ?? 0,
         rankedLosses: parsed.rankedLosses ?? 0,
+        weeklyBossKills: parsed.weeklyBossKills ?? {},
         clanContribMonth: parsed.clanContribMonth,
         guardQueued: parsed.guardQueued ?? false,
         hospitalized: parsed.hospitalized ?? false,
@@ -7242,10 +7335,12 @@ export default function App() {
         return creatorEvents.find((event) => event.id === DUNGEON_VN_ID) ?? hiddenDungeonVnEvent;
     }
 
-    function triggerDungeonEncounter(returnScreen: Screen = "worldMap") {
+    function triggerDungeonEncounter(returnScreen: Screen = "worldMap", dungeonOverride?: CreatorEvent) {
         if (!character) return;
-        const event = dungeonEventTemplate();
+        const event = dungeonOverride ?? dungeonEventTemplate();
         if (character.level < event.levelReq) return;
+        if (!character.inventory.includes(DUNGEON_KEY_ID)) return alert("You need a Dungeon Key to open the Hidden Dungeon.");
+        setCharacter({ ...character, inventory: removeInventoryItems(character.inventory, { [DUNGEON_KEY_ID]: 1 }) });
         setActiveDungeonEvent(event);
         setDungeonStage("intro");
         setDungeonPage(0);
@@ -7305,9 +7400,9 @@ export default function App() {
 
     function completeDungeon() {
         if (!character || !activeDungeonEvent) return;
-        const rewarded = applyCurrencyRewards(character, activeDungeonEvent.currencyRewards);
+        const rewarded = addInventoryItems(applyCurrencyRewards(character, activeDungeonEvent.currencyRewards), [DUNGEON_LEGENDARY_RELIC_ID]);
         setCharacter(rewarded);
-        alert(`${activeDungeonEvent.name} cleared. +10 Bone Charms, +5 Aura Stones, +5 Fate Shards.`);
+        alert(`${activeDungeonEvent.name} cleared. +10 Bone Charms, +5 Aura Stones, +5 Fate Shards, +1 Dungeon Legendary Relic.`);
         setActiveDungeonEvent(null);
         setDungeonStage("complete");
         setScreen(dungeonReturnScreen);
@@ -7933,6 +8028,7 @@ export default function App() {
                         triggeredEvents={triggeredEvents}
                         setTriggeredEvents={setTriggeredEvents}
                         onStartEndlessBattle={startEndlessBattle}
+                        onStartDungeon={(event) => triggerDungeonEncounter("centralHub", event)}
                         creatorItems={creatorItems}
                         setCreatorItems={setCreatorItems}
                         onOpenBloodlineMaker={(rank) => {
@@ -8094,7 +8190,7 @@ export default function App() {
                         }
                         const villageWarRaid = context?.raidKind === "raidPlayer"
                             ? recordVillageWarRaid(character, rewardSector)
-                            : { characterPatch: {} as Partial<Character> };
+                            : { characterPatch: {} as Partial<Character>, warCrate: false };
                         const villageWarPvpPatch = opponent ? recordVillageWarPvp(character, opponent) : "";
                         const leveled = gainXp(character, xpGain);
                         const rewarded = grantTerritoryScrolls(leveled, 5);
@@ -8104,6 +8200,7 @@ export default function App() {
                             ryo: rewarded.ryo + ryoGain,
                             honorSeals: (rewarded.honorSeals ?? 0) + 15,
                             auraDust: (rewarded.auraDust ?? 0) + 6,
+                            inventory: villageWarRaid.warCrate ? [...rewarded.inventory, LEGENDARY_WAR_CRATE_ID] : rewarded.inventory,
                             totalPvpKills: (rewarded.totalPvpKills ?? 0) + 1,
                             monthlyPvpKills: (rewarded.monthlyPvpKills ?? 0) + 1,
                             pvpKillMonth: currentMonthKey(),
@@ -15448,10 +15545,10 @@ function ClanHall({ character, updateCharacter, creatorItems }: { character: Cha
     }
     async function resolveClanWar() {
         if (!clanData?.activeWar) return; const war = clanData.activeWar; const result: ClanWarRecord["result"] = war.ourScore > war.enemyScore ? "Won" : war.ourScore < war.enemyScore ? "Lost" : "Draw";
-        const record: ClanWarRecord = { opponent: war.opponentClan, result, finalScore: `${war.ourScore} - ${war.enemyScore}`, topAttacker: character.name, topDefender: character.guardQueued ? character.name : "Village Guard", mvpClan: result === "Won" ? clanData.name : result === "Lost" ? war.opponentClan : "None", reward: result === "Won" ? "4,000 ryo / 800 Clan XP" : result === "Draw" ? "1,500 ryo / 300 Clan XP" : "250 Clan XP", date: new Date().toLocaleDateString() };
+        const record: ClanWarRecord = { opponent: war.opponentClan, result, finalScore: `${war.ourScore} - ${war.enemyScore}`, topAttacker: character.name, topDefender: character.guardQueued ? character.name : "Village Guard", mvpClan: result === "Won" ? clanData.name : result === "Lost" ? war.opponentClan : "None", reward: result === "Won" ? "4,000 ryo / 800 Clan XP / War Crate" : result === "Draw" ? "1,500 ryo / 300 Clan XP" : "250 Clan XP", date: new Date().toLocaleDateString() };
         if (result === "Lost") loadAllSectorTerritories().filter(territory => territory.ownerClan === clanData.name).slice(0, 1).forEach(territory => damageSectorTerritory(territory.sector, 10000));
         await saveClan(addClanXp({ ...clanData, activeWar: undefined, warHistory: [record, ...clanData.warHistory].slice(0, 12), treasury: { ...clanData.treasury, ryo: clanData.treasury.ryo + (result === "Won" ? 4000 : result === "Draw" ? 1500 : 0) } }, result === "Won" ? 800 : result === "Draw" ? 300 : 250));
-        if (result === "Won") updateCharacter({ ...grantTerritoryScrolls(character, 25), auraDust: (character.auraDust ?? 0) + 5 });
+        if (result === "Won") updateCharacter({ ...grantTerritoryScrolls(addInventoryItems(character, [LEGENDARY_WAR_CRATE_ID]), 25), auraDust: (character.auraDust ?? 0) + 5 });
     }
     function refreshTerritoryPanel() { setTerritoryRefresh(value => value + 1); }
     async function donateTerritoryScrolls(sector: number, count = 1) {
@@ -15854,9 +15951,9 @@ function recordVillageWarPvp(winner: Character, loser: Character) {
 
 function recordVillageWarRaid(character: Character, sector: number) {
     const war = activeVillageWarsFor(character.village).find(candidate => candidate.warGroundSector === sector);
-    if (!war || war.warGroundHp <= 0) return { note: "", characterPatch: {} as Partial<Character> };
+    if (!war || war.warGroundHp <= 0) return { note: "", characterPatch: {} as Partial<Character>, warCrate: false };
     const enemyVillage = war.villages.find(village => village !== character.village);
-    if (!enemyVillage) return { note: "", characterPatch: {} as Partial<Character> };
+    if (!enemyVillage) return { note: "", characterPatch: {} as Partial<Character>, warCrate: false };
     const damage = villageWarRoleValue(character);
     let next = normalizeVillageWar({
         ...war,
@@ -15883,6 +15980,7 @@ function recordVillageWarRaid(character: Character, sector: number) {
             villageWarRaidProgress: nextProgress,
             villageWarMissionsCompleted: currentCompleted,
         } as Partial<Character>,
+        warCrate: Boolean(next.endedAt && next.winnerVillage === character.village),
     };
 }
 
@@ -15897,15 +15995,17 @@ function claimVillageWarDailyMission(character: Character, missionIndex: number)
     const war = activeVillageWarsFor(character.village)[0];
     const enemyVillage = war?.villages.find(village => village !== character.village);
     if (!war || !enemyVillage) return { character, note: "Your village is not in an active war." };
-    applyVillageWarDamage(war, enemyVillage, VILLAGE_WAR_MISSION_DAMAGE);
+    const updatedWar = applyVillageWarDamage(war, enemyVillage, VILLAGE_WAR_MISSION_DAMAGE);
+    const wonWar = updatedWar.endedAt && updatedWar.winnerVillage === character.village;
     return {
         character: {
             ...markMissionCompleted(character),
+            inventory: wonWar ? [...character.inventory, LEGENDARY_WAR_CRATE_ID] : character.inventory,
             villageWarMissionDate: today,
             villageWarRaidProgress: progress,
             villageWarMissionsCompleted: completed + 1,
         },
-        note: `Village war mission complete. ${enemyVillage} HP -${VILLAGE_WAR_MISSION_DAMAGE}.`,
+        note: `Village war mission complete. ${enemyVillage} HP -${VILLAGE_WAR_MISSION_DAMAGE}.${wonWar ? " Your village won the war. +1 Legendary War Crate." : ""}`,
     };
 }
 function unlockVillageKageSystem(village: string, playerName: string): VillageState {
@@ -16316,9 +16416,10 @@ function ShopBase({
 
     const allItems = getAllItems(creatorItems);
     const shopSlots: EquipmentSlot[] = ["head", "body", "waist", "legs", "feet", "hand", "aura", "weapon", "thrown", "item", "accessory"];
-    const shopItems = allItems.filter(
-        (item) => shopSlots.includes(item.slot) && filterRarities.includes(item.rarity)
-    );
+    const shopItems = allItems.filter((item) => {
+        const craftOnlyWeapon = item.slot === "hand" && item.weaponEp != null && ["rare", "epic", "legendary"].includes(item.rarity);
+        return shopSlots.includes(item.slot) && filterRarities.includes(item.rarity) && !craftOnlyWeapon;
+    });
 
     const slotGroups: { label: string; slots: EquipmentSlot[] }[] = [
         { label: "Head", slots: ["head"] },
@@ -17927,6 +18028,20 @@ function Inventory({
     }
 
     function consumeItem(entry: string, index: number) {
+        if (entry === LEGENDARY_WAR_CRATE_ID) {
+            const rewards = [WARFORGED_RELIC_ID];
+            if (Math.random() < 0.35) rewards.push(DUNGEON_KEY_ID);
+            updateCharacter({
+                ...character,
+                inventory: [...removeInventoryIndex(index), ...rewards],
+                honorSeals: (character.honorSeals ?? 0) + 10,
+                ryo: character.ryo + 500,
+            });
+            setSelectedInventoryItem(null);
+            alert(`War crate opened. +1 Warforged Relic, +500 ryo, +10 Honor Seals${rewards.includes(DUNGEON_KEY_ID) ? ", +1 Dungeon Key" : ""}.`);
+            return;
+        }
+
         if (entry === "Soldier Pill") {
             updateCharacter({
                 ...character,
@@ -18435,7 +18550,16 @@ function Inventory({
                                 )}
 
                                 <div className="item-popup-actions">
-                                    {selectedGameItem && selected.source === "backpack" && !selectedPetFoodXp && (
+                                    {selectedGameItem?.id === LEGENDARY_WAR_CRATE_ID && selected.source === "backpack" && (
+                                        <button
+                                            type="button"
+                                            onClick={() => consumeItem(selected.entry, selected.index)}
+                                        >
+                                            Open Crate
+                                        </button>
+                                    )}
+
+                                    {selectedGameItem && selected.source === "backpack" && !selectedPetFoodXp && selectedGameItem.id !== LEGENDARY_WAR_CRATE_ID && (
                                         <button
                                             type="button"
                                             onClick={() => equipItem(selectedGameItem, selected.index)}
@@ -19027,6 +19151,7 @@ function CentralHub({
     triggeredEvents,
     setTriggeredEvents,
     onStartEndlessBattle,
+    onStartDungeon,
     onOpenBloodlineMaker,
     creatorItems,
     setCreatorItems,
@@ -19039,6 +19164,7 @@ function CentralHub({
     triggeredEvents: string[];
     setTriggeredEvents: React.Dispatch<React.SetStateAction<string[]>>;
     onStartEndlessBattle: () => void;
+    onStartDungeon: (event: CreatorEvent) => void;
     onOpenBloodlineMaker: (rank: Rank) => void;
     creatorItems: GameItem[];
     setCreatorItems: (items: GameItem[]) => void;
@@ -19050,7 +19176,9 @@ function CentralHub({
     const [showAwakening, setShowAwakening] = useState(false);
     const [awakeningMsg, setAwakeningMsg] = useState("");
     const [showCelestialPanel, setShowCelestialPanel] = useState(false);
+    const [showDungeonPanel, setShowDungeonPanel] = useState(false);
     const [showCrafter, setShowCrafter] = useState(false);
+    const [crafterTab, setCrafterTab] = useState<"supplies" | "weapons">("supplies");
 
     // Named Weapon forge state
     type NamedWeaponRoll = { ep: number; range: 3 | 4 | 5; offenseVal: number; tags: Array<{ name: string; percent: number }> };
@@ -19202,6 +19330,56 @@ function CentralHub({
 
     const hasFreeRoll = (character.level >= 2 && !triggeredEvents.includes(AWAKENING_FREE_LV2_ID))
         || (character.level >= 20 && !triggeredEvents.includes(AWAKENING_FREE_LV20_ID));
+    const weeklyBoss = weeklyBossSchedule(character);
+    const allHubItems = getAllItems(creatorItems);
+
+    function countInventory(itemId: string) {
+        return character.inventory.filter((id) => id === itemId).length;
+    }
+
+    function claimWeeklyBoss() {
+        const schedule = weeklyBossSchedule(character);
+        if (schedule.status === "defeated") return alert("You already defeated this week's boss.");
+        if (schedule.status === "dormant") return alert(`The weekly boss has not spawned yet. Spawn: ${new Date(schedule.startsAt).toLocaleString()}.`);
+        if (schedule.status === "escaped") return alert("This week's boss has escaped.");
+        if (character.level < 40) return alert("Weekly bosses require level 40.");
+        if (character.hp <= 0) return alert("You need to heal before challenging the weekly boss.");
+        const rewards = [WEEKLY_BOSS_CORE_ID];
+        if (Math.random() < 0.5) rewards.push(DUNGEON_KEY_ID);
+        updateCharacter({
+            ...addInventoryItems(character, rewards),
+            weeklyBossKills: { ...(character.weeklyBossKills ?? {}), [schedule.weekKey]: schedule.bossId },
+            ryo: character.ryo + 1500,
+            auraDust: (character.auraDust ?? 0) + 10,
+        });
+        alert(`${schedule.bossName} defeated. +1 Weekly Boss Core, +1,500 ryo, +10 Aura Dust${rewards.includes(DUNGEON_KEY_ID) ? ", +1 Dungeon Key" : ""}.`);
+    }
+
+    function weaponCraftRequirements(item: GameItem): { items: Record<string, number>; ryo: number } {
+        if (item.rarity === "rare") return { items: { "hunt-wolf-fang": 2 }, ryo: 600 };
+        if (item.rarity === "epic") return { items: { "hunt-shadow-pelt": 2, [WEEKLY_BOSS_CORE_ID]: 1 }, ryo: 1400 };
+        return { items: { [WEEKLY_BOSS_CORE_ID]: 1, [DUNGEON_LEGENDARY_RELIC_ID]: 1, [WARFORGED_RELIC_ID]: 1 }, ryo: 3500 };
+    }
+
+    function craftExistingWeapon(item: GameItem) {
+        const requirements = weaponCraftRequirements(item);
+        if (character.level < (item.levelReq ?? 1)) return alert(`Requires level ${item.levelReq ?? 1}.`);
+        if (character.ryo < requirements.ryo) return alert(`Not enough ryo. Need ${requirements.ryo.toLocaleString()}.`);
+        if (!hasInventoryRequirements(character, requirements.items)) return alert("Missing required weapon materials.");
+        updateCharacter({
+            ...character,
+            ryo: character.ryo - requirements.ryo,
+            inventory: [...removeInventoryItems(character.inventory, requirements.items), item.id],
+        });
+        alert(`${item.name} forged and added to your inventory.`);
+    }
+
+    const craftableWeapons = allHubItems
+        .filter((item) => item.slot === "hand" && item.weaponEp != null && ["rare", "epic", "legendary"].includes(item.rarity) && !item.id.startsWith("named-weapon-"))
+        .sort((a, b) => {
+            const rank = { rare: 1, epic: 2, legendary: 3, common: 0, mythic: 4 } as Record<string, number>;
+            return (rank[a.rarity] ?? 0) - (rank[b.rarity] ?? 0) || a.name.localeCompare(b.name);
+        });
 
     const centralOptions = [
         {
@@ -19257,8 +19435,26 @@ function CentralHub({
         {
             name: "Crafter",
             icon: "??",
-            text: "Convert hunting materials into pet treats, elemental treats, aura dust, and bone charms.",
+            text: "Convert hunting, boss, dungeon, and war materials into supplies and existing balanced weapons.",
             action: () => setShowCrafter(true),
+        },
+        {
+            name: "Relic Dungeons",
+            icon: "DG",
+            text: `Use Dungeon Keys to enter one of five same-strength relic dungeons. Keys: ${countInventory(DUNGEON_KEY_ID)}.`,
+            action: () => setShowDungeonPanel(true),
+        },
+        {
+            name: "Weekly Boss",
+            icon: weeklyBoss.bossIcon,
+            text: weeklyBoss.status === "active"
+                ? `${weeklyBoss.bossName} is active until ${new Date(weeklyBoss.endsAt).toLocaleString()}.`
+                : weeklyBoss.status === "defeated"
+                    ? `${weeklyBoss.bossName} defeated this week.`
+                    : weeklyBoss.status === "escaped"
+                        ? `${weeklyBoss.bossName} escaped. Returns next week.`
+                        : `${weeklyBoss.bossName} spawns ${new Date(weeklyBoss.startsAt).toLocaleString()}.`,
+            action: claimWeeklyBoss,
         },
         {
             name: "Celestial Tower",
@@ -19291,6 +19487,34 @@ function CentralHub({
                     </button>
                 ))}
             </div>
+
+            {showDungeonPanel && (
+                <div className="celestial-panel-overlay" onClick={() => setShowDungeonPanel(false)}>
+                    <div className="celestial-panel" onClick={e => e.stopPropagation()}>
+                        <h2>Relic Dungeons</h2>
+                        <p className="celestial-panel-sub">All five dungeons use the same strength curve and reward a Dungeon Legendary Relic on full clear.</p>
+                        <p className="hint">Dungeon Keys: <strong>{countInventory(DUNGEON_KEY_ID)}</strong></p>
+                        <div className="celestial-panel-options">
+                            {craftDungeonEvents.map((event) => (
+                                <button
+                                    key={event.id}
+                                    className="celestial-option-btn"
+                                    onClick={() => {
+                                        setShowDungeonPanel(false);
+                                        onStartDungeon(event);
+                                    }}
+                                    disabled={countInventory(DUNGEON_KEY_ID) <= 0 || character.level < event.levelReq}
+                                >
+                                    <span className="celestial-option-icon">{event.icon}</span>
+                                    <strong>{event.name}</strong>
+                                    <small>Lv {event.levelReq} | {biomeLabel(event.biome)} | drops Dungeon Legendary Relic</small>
+                                </button>
+                            ))}
+                        </div>
+                        <button className="danger-button" onClick={() => setShowDungeonPanel(false)}>Close</button>
+                    </div>
+                </div>
+            )}
 
             {showCelestialPanel && (
                 <div className="celestial-panel-overlay" onClick={() => setShowCelestialPanel(false)}>
@@ -19569,9 +19793,13 @@ function CentralHub({
                                 <h2>?? Crafter</h2>
                                 <button className="danger-button" onClick={() => setShowCrafter(false)}>? Close</button>
                             </div>
-                            <p className="crafter-subtitle">Convert hunting materials into useful crafted goods.</p>
+                            <p className="crafter-subtitle">Convert hunting, boss, dungeon, and war materials into supplies or existing balanced weapons.</p>
+                            <div className="inventory-tabs" style={{ marginBottom: 12 }}>
+                                <button className={crafterTab === "supplies" ? "active" : ""} onClick={() => setCrafterTab("supplies")}>Supplies</button>
+                                <button className={crafterTab === "weapons" ? "active" : ""} onClick={() => setCrafterTab("weapons")}>Weapons</button>
+                            </div>
 
-                            <div className="crafter-material-list">
+                            {crafterTab === "supplies" && <><div className="crafter-material-list">
                                 <strong>Your Materials</strong>
                                 {Object.entries(craftMaterialNames).map(([id, label]) => {
                                     const count = character.inventory.filter((i) => i === id).length;
@@ -19602,10 +19830,37 @@ function CentralHub({
                                         </div>
                                     );
                                 })}
+                            </div></>}
+
+                            {crafterTab === "weapons" && <><div className="crafter-material-list">
+                                <strong>Weapon Materials</strong>
+                                <div className="crafter-material-row"><span>Wolf Fang</span><span>{countInventory("hunt-wolf-fang")}Ã—</span></div>
+                                <div className="crafter-material-row"><span>Shadow Pelt</span><span>{countInventory("hunt-shadow-pelt")}Ã—</span></div>
+                                <div className="crafter-material-row"><span>Weekly Boss Core</span><span>{countInventory(WEEKLY_BOSS_CORE_ID)}Ã—</span></div>
+                                <div className="crafter-material-row"><span>Dungeon Legendary Relic</span><span>{countInventory(DUNGEON_LEGENDARY_RELIC_ID)}Ã—</span></div>
+                                <div className="crafter-material-row"><span>Warforged Relic</span><span>{countInventory(WARFORGED_RELIC_ID)}Ã—</span></div>
                             </div>
 
+                            <div className="crafter-recipe-grid">
+                                {craftableWeapons.map((item) => {
+                                    const req = weaponCraftRequirements(item);
+                                    const ready = character.level >= (item.levelReq ?? 1) && character.ryo >= req.ryo && hasInventoryRequirements(character, req.items);
+                                    const reqText = Object.entries(req.items).map(([id, qty]) => `${qty}x ${itemDisplayName(id, allHubItems)}`).join(", ");
+                                    return (
+                                        <div key={item.id} className="crafter-recipe-btn">
+                                            <strong>{item.name}</strong>
+                                            <small>{item.rarity.toUpperCase()} | Lv {item.levelReq ?? 1} | {item.weaponEp ?? 0} EP | {item.weaponEffect ?? "Weapon"}</small>
+                                            <small>{reqText} + {req.ryo.toLocaleString()} ryo</small>
+                                            <button onClick={() => craftExistingWeapon(item)} disabled={!ready}>
+                                                Forge
+                                            </button>
+                                        </div>
+                                    );
+                                })}
+                            </div></>}
+
                             {/* -- Named Weapon Forge -- */}
-                            {(() => {
+                            {crafterTab === "weapons" && (() => {
                                 const nwPts = namedWeaponCurrencyPts();
                                 const nwFill = Math.min(100, Math.floor((nwPts / NW_COST) * 100));
                                 return (
@@ -24699,7 +24954,7 @@ function Arena({
         const territoryScrollReward = clanWarPointsActive > 0 ? 25 : opponentCharacter ? 5 : 1;
         const territoryRaidDamageAmount = (raidBattleKind === "raidAi" || raidBattleKind === "raidPlayer") ? sectorRaidDamageAmount(currentSector) : 0;
         const territoryRaidDamage = territoryRaidDamageAmount > 0 ? damageSectorTerritory(currentSector, territoryRaidDamageAmount) : null;
-        const villageWarRaid = (raidBattleKind === "raidAi" || raidBattleKind === "raidPlayer") ? recordVillageWarRaid(character, currentSector) : { note: "", characterPatch: {} as Partial<Character> };
+        const villageWarRaid = (raidBattleKind === "raidAi" || raidBattleKind === "raidPlayer") ? recordVillageWarRaid(character, currentSector) : { note: "", characterPatch: {} as Partial<Character>, warCrate: false };
         const villageWarPvpNote = opponentCharacter ? recordVillageWarPvp(character, opponentCharacter) : "";
         const rewarded = grantTerritoryScrolls(leveled, territoryScrollReward);
         const deathsGateBoneCharm = deathsGatePvp && Math.random() < 0.05 ? 1 : 0;
@@ -24711,6 +24966,7 @@ function Arena({
             auraDust: (rewarded.auraDust ?? 0) + auraDustGain,
             stamina: Math.min(rewarded.maxStamina, rewarded.stamina + 15),
             boneCharms: (rewarded.boneCharms ?? 0) + deathsGateBoneCharm,
+            inventory: villageWarRaid.warCrate ? [...rewarded.inventory, LEGENDARY_WAR_CRATE_ID] : rewarded.inventory,
             clanBattleContrib: (rewarded.clanBattleContrib ?? 0) + 1,
             totalAiKills: (rewarded.totalAiKills ?? 0) + (!opponentCharacter ? 1 : 0),
             dailyAiKills: (rewarded.dailyAiKills ?? 0) + (!opponentCharacter ? 1 : 0),
@@ -24737,7 +24993,7 @@ function Arena({
         const clanWarNote = clanWarPointsActive > 0 ? ` Clan War +${clanWarPointsActive} points.` : "";
         const scrollNote = ` +${territoryScrollReward} Territory Control Scroll${territoryScrollReward === 1 ? "" : "s"}.`;
         const raidNote = territoryRaidDamage?.ownerClan ? ` Sector ${currentSector} HP -${territoryRaidDamageAmount}.` : territoryRaidDamage ? ` Sector ${currentSector} control broken.` : "";
-        const villageWarNote = `${villageWarRaid.note}${villageWarPvpNote}`;
+        const villageWarNote = `${villageWarRaid.note}${villageWarRaid.warCrate ? " Your village won the war. +1 Legendary War Crate." : ""}${villageWarPvpNote}`;
         const effectiveXpGain = effectiveCharacterXpGain(character, xpGain);
         setLog(`${opponentName} defeated. +${effectiveXpGain} XP, +${ryoGain} ryo, +15 stamina.${bonusNote}${honorNote}${auraDustNote}${deathsGateNote}${rankedNote}${clanWarNote}${scrollNote}${raidNote}${villageWarNote}`);
         addCombatLog(`${opponentName} is defeated. ${character.name} gains ${effectiveXpGain} XP, ${ryoGain} ryo, 15 stamina${honorNote}${auraDustNote}${bonusNote}${deathsGateNote}${rankedNote}${clanWarNote}${scrollNote}${raidNote}${villageWarNote}`);
