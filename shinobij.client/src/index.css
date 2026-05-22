@@ -11321,12 +11321,16 @@ button.combat-jutsu-button,
     min-height: 0 !important;
     height: 100% !important;
     overflow: hidden !important;
+    /* Breathing room so the bottom tile row's player token isn't clipped */
+    padding-bottom: 22px !important;
 }
 
 .pixel-map,
 .walkable-sector-map {
     aspect-ratio: 1 / 1 !important;
-    height: min(100%, calc(100dvh - var(--banner-h) + 106px)) !important;
+    /* cap to the tile-scene row height; the 1fr row already shrinks
+       to fit so max-height: 100% is the binding constraint */
+    height: min(100%, calc(100dvh - var(--banner-h) - 40px)) !important;
     max-height: 100% !important;
     margin-inline: auto !important;
 }
