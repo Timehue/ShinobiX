@@ -136,6 +136,44 @@ app.get(['/debug/storage', '/api/debug/storage'], async (_req, res) => {
             req.on('error', (e) => resolve(`Error: ${e.message} code=${e.code}`));
             req.on('timeout', () => { req.destroy(); resolve('Timeout'); });
         });
+        // Raw TCP test: connect directly to the hardcoded Supabase IPv4 on port 443.
+        // This bypasses DNS and TLS to check if the firewall allows outbound port 443.
+        const tcpTest = await new Promise((resolve) => {
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
+            const net = require('net');
+            const socket = net.createConnection({ host: '172.64.149.246', port: 443, family: 4 });
+            const timer = setTimeout(() => { socket.destroy(); resolve('TCP Timeout (port 443 blocked?)'); }, 6000);
+            socket.on('connect', () => { clearTimeout(timer); socket.destroy(); resolve('TCP OK (port 443 reachable)'); });
+            socket.on('error', (e) => { clearTimeout(timer); resolve(`TCP Error: ${e.message} code=${e.code}`); });
+        });
+        // Direct undici fetch test with detailed error capture.
+        const undiciTest = await new Promise((resolve) => {
+            try {
+                // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+                const undici = require('undici');
+                function lookup(h, _o, cb) {
+                    cb(null, '172.64.149.246', 4);
+                }
+                const agent = new undici.Agent({ connect: { family: 4, lookup } });
+                const ctrl = new AbortController();
+                const timer = setTimeout(() => { ctrl.abort(); resolve('undici Timeout after 8s'); }, 8000);
+                undici.fetch(url + '/rest/v1/', {
+                    signal: ctrl.signal,
+                    dispatcher: agent,
+                    headers: { apikey: key, Authorization: `Bearer ${key}` },
+                }).then((r) => {
+                    clearTimeout(timer);
+                    resolve(`undici HTTP ${r.status}`);
+                }).catch((e) => {
+                    clearTimeout(timer);
+                    const err = e;
+                    resolve(`undici Error: ${String(e)} code=${err?.cause?.code ?? err?.code ?? '?'} type=${err?.constructor?.name}`);
+                });
+            }
+            catch (e) {
+                resolve(`undici threw: ${String(e)}`);
+            }
+        });
         let kvError = null;
         try {
             // Import lazily so we don't crash at startup if env vars aren't ready.
@@ -146,12 +184,14 @@ app.get(['/debug/storage', '/api/debug/storage'], async (_req, res) => {
             kvError = String(err);
         }
         res.json({
-            v: 4,
+            v: 5,
             ok: kvError === null,
             supabase_url: url,
             key_prefix: key.slice(0, 12) + '…',
             dnsTest,
             httpsTest,
+            tcpTest,
+            undiciTest,
             kvError,
         });
     }
