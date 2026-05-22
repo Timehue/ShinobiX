@@ -4678,7 +4678,7 @@ function normalizeCharacter(parsed: Character): Character {
         unspentStats: Math.max(0, statPointBudgetForProgress(level, xp) - allocatedStatPoints(stats)),
         equippedJutsuIds: (parsed.equippedJutsuIds ?? []).slice(0, 15),
         jutsuMastery: parsed.jutsuMastery ?? [],
-        pets: (parsed.pets ?? []).map(normalizePet),
+        pets: (parsed.pets ?? []).slice(0, 5).map(normalizePet),
         activePetId: parsed.activePetId,
         boneCharms: parsed.boneCharms ?? 0,
         auraStones: parsed.auraStones ?? 0,
@@ -11573,10 +11573,12 @@ function AdminPanel({
         // Give pet
         if (pmGivePetId) {
             const pet = editablePets.find(p => p.id === pmGivePetId);
-            if (pet) {
+            const existing = (char.pets as unknown[] | undefined) ?? [];
+            if (pet && existing.length < 5) {
                 const cloned = { ...pet, id: `${pet.id}-${Date.now()}` };
-                const existing = (char.pets as unknown[] | undefined) ?? [];
                 char.pets = [...existing, cloned];
+            } else if (pet) {
+                alert(`${pmTargetName} already has 5 pets. Cannot give another.`);
             }
         }
         // Give currencies
@@ -20909,17 +20911,22 @@ function WorldMap({
                 <div className="menu">
                     <button
                         onClick={() => {
+                            // Re-read length inside the handler in case of fast double-click.
                             if (character.pets.length >= 5) {
                                 return alert("Your Pet Yard is full (5/5). Release a pet before befriending another.");
                             }
-                            const trait = rollPetTrait(activePetEncounter.rarity);
-                            const petWithTrait = applyPetTraitBonuses({ ...activePetEncounter, trait }, trait);
-                            updateCharacter({
-                                ...character,
-                                pets: [...character.pets, petWithTrait],
-                            });
-                            alert(`${activePetEncounter.name} joined you!\nTrait: ${trait} — ${petTraitDescriptions[trait]}`);
+                            // Capture the encounter and clear it immediately so a second
+                            // click before re-render finds no encounter and does nothing.
+                            const encounter = activePetEncounter;
                             setActivePetEncounter(null);
+                            const trait = rollPetTrait(encounter.rarity);
+                            const petWithTrait = applyPetTraitBonuses({ ...encounter, trait }, trait);
+                            const updatedChar = { ...character, pets: [...character.pets, petWithTrait] };
+                            setCharacter(updatedChar);
+                            // Explicitly push to server so the pet isn't lost on reload
+                            // before the 60-second auto-save interval fires.
+                            void pushSaveToServer(updatedChar, currentAccountName).catch(() => {});
+                            alert(`${encounter.name} joined you!\nTrait: ${trait} — ${petTraitDescriptions[trait]}`);
                         }}
                     >
                         Befriend Pet
