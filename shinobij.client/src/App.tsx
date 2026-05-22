@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode, type ChangeEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type ChangeEvent } from "react";
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect, react-hooks/purity */
 import type * as React from "react";
 import "./index.css";
@@ -5760,6 +5760,22 @@ export default function App() {
     useEffect(() => {
         setActivePlayer(character?.name ?? currentAccountName ?? null);
     }, [character?.name, currentAccountName]);
+
+    // ── Viewport size detector ──────────────────────────────────────────────
+    // Sets data-vp="xs|sm|md|lg|xl" on <html> so CSS can use attribute
+    // selectors for fine-grained layout control between media-query breakpoints.
+    useLayoutEffect(() => {
+        const vp = (w: number) =>
+            w < 560 ? "xs" : w < 980 ? "sm" : w < 1180 ? "md" : w < 1400 ? "lg" : "xl";
+        const apply = () =>
+            document.documentElement.setAttribute("data-vp", vp(window.innerWidth));
+        apply();
+        let raf = 0;
+        const onResize = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(apply); };
+        window.addEventListener("resize", onResize, { passive: true });
+        return () => { window.removeEventListener("resize", onResize); cancelAnimationFrame(raf); };
+    }, []);
+    // ───────────────────────────────────────────────────────────────────────
 
     const [sharedImages, setSharedImages] = useState<Record<string, string>>({});
     const [savedBloodlines, setSavedBloodlines] = useState<SavedBloodline[]>([]);
