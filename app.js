@@ -4,45 +4,71 @@
  * Passenger's node-loader uses require() to load this file.
  * This is plain CommonJS — no ESM import/export.
  *
- * 1. Forces IPv4 for all outbound fetch connections (CloudLinux has no IPv6 routing).
- * 2. Loads .env from the same directory.
- * 3. Requires the compiled Express server from dist/server.js.
+ * 1. Hardcodes DNS for Supabase (CageFS blocks outbound port 53).
+ * 2. Forces IPv4 for all outbound fetch/undici connections.
+ * 3. Loads .env from the same directory.
+ * 4. Requires the compiled Express server from dist/server.js.
  */
 
-// Override dns.lookup to use c-ares (dns.resolve4) with explicit DNS servers
-// instead of getaddrinfo, which is broken inside CloudLinux CageFS jails.
-try {
-    const dns = require('dns');
-    dns.setServers(['8.8.8.8', '1.1.1.1', '8.8.4.4']);
-    const _lookup = dns.lookup.bind(dns);
-    dns.lookup = function (hostname, options, callback) {
-        if (typeof options === 'function') { callback = options; options = {}; }
+// Hardcoded IPv4 addresses for hostnames that CageFS cannot resolve via DNS.
+// Resolved externally: nslookup soaychxshtbgwujhytsf.supabase.co 8.8.8.8
+// These are Cloudflare CDN IPs — update if Supabase changes their CDN.
+const HARDCODED_DNS = {
+    'soaychxshtbgwujhytsf.supabase.co': '172.64.149.246',
+};
+
+// Custom lookup function shared by dns.lookup patch and undici Agent.
+function customLookup(hostname, options, callback) {
+    if (typeof options === 'function') { callback = options; options = {}; }
+    if (HARDCODED_DNS[hostname]) {
+        console.log('[app] DNS hardcode hit:', hostname, '->', HARDCODED_DNS[hostname]);
+        return callback(null, HARDCODED_DNS[hostname], 4);
+    }
+    // Fallback: try c-ares with explicit public DNS servers.
+    try {
+        const dns = require('dns');
+        dns.setServers(['8.8.8.8', '1.1.1.1']);
         dns.resolve4(hostname, (err, addresses) => {
-            if (err) return _lookup(hostname, options, callback);
-            callback(null, addresses[0], 4);
+            if (err || !addresses || !addresses.length) {
+                require('dns').lookup(hostname, options, callback);
+            } else {
+                callback(null, addresses[0], 4);
+            }
         });
-    };
-    console.log('[app] DNS override applied: using 8.8.8.8 via c-ares.');
-} catch (e) {
-    console.warn('[app] Could not apply DNS override:', e.message);
+    } catch (_) {
+        require('dns').lookup(hostname, options, callback);
+    }
 }
 
-// Force IPv4 for all outbound fetch connections.
-// CloudLinux shared hosting has no IPv6 routing. We use node:undici (the
-// built-in module powering Node 22's fetch) so setGlobalDispatcher actually
-// affects the native fetch used by @supabase/supabase-js.
+// Patch dns.lookup globally so Node's https module uses hardcoded IPs.
+try {
+    const dns = require('dns');
+    dns.lookup = customLookup;
+    console.log('[app] dns.lookup patched with hardcoded IPs.');
+} catch (e) {
+    console.warn('[app] Could not patch dns.lookup:', e.message);
+}
+
+// Set global undici dispatcher so native fetch / Supabase client uses
+// hardcoded IPs + IPv4 only (CloudLinux has no IPv6 routing).
+const undiciAgentOptions = {
+    connect: {
+        lookup: customLookup,
+        family: 4,
+    },
+};
+
 try {
     const { Agent, setGlobalDispatcher } = require('node:undici');
-    setGlobalDispatcher(new Agent({ connect: { family: 4 } }));
-    console.log('[app] IPv4-only dispatcher set via node:undici.');
+    setGlobalDispatcher(new Agent(undiciAgentOptions));
+    console.log('[app] undici dispatcher set (node:undici) with hardcoded DNS.');
 } catch (e) {
-    // Fallback: try the npm undici package (older Node versions).
     try {
         const { Agent, setGlobalDispatcher } = require('undici');
-        setGlobalDispatcher(new Agent({ connect: { family: 4 } }));
-        console.log('[app] IPv4-only dispatcher set via npm undici.');
+        setGlobalDispatcher(new Agent(undiciAgentOptions));
+        console.log('[app] undici dispatcher set (npm undici) with hardcoded DNS.');
     } catch (e2) {
-        console.warn('[app] Could not set IPv4 dispatcher:', e2.message);
+        console.warn('[app] Could not set undici dispatcher:', e2.message);
     }
 }
 
