@@ -9405,20 +9405,23 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
         const expType = selectedPet.expedition.type;
         const durationHours = Math.max(1, selectedPet.expedition.durationMs / 3600000);
 
-        // Per-type multipliers
-        const ryoMult  = expType === "scout"  ? 1.35 : expType === "forage" ? 1.0 : 1.1;
-        const xpMult   = expType === "forage" ? 1.45 : expType === "ruins"  ? 1.2 : 1.0;
-        // Ruins best rare odds, forage moderate, scout lowest
-        const rareMult = expType === "ruins"  ? 1.65 : expType === "forage" ? 1.2 : 1.0;
+        // Per-type XP/ryo multipliers
+        const ryoMult = expType === "scout" ? 1.35 : expType === "forage" ? 1.0 : 1.1;
+        const xpMult  = expType === "forage" ? 1.45 : expType === "ruins"  ? 1.2 : 1.0;
 
-        const xp      = Math.round(120 * durationHours * xpMult);
-        const ryo     = Math.round(90  * durationHours * ryoMult + selectedPet.level * 6);
+        const xp       = Math.round(120 * durationHours * xpMult);
+        const ryo      = Math.round(90  * durationHours * ryoMult + selectedPet.level * 6);
         const statGain = Math.max(1, Math.round(durationHours));
 
-        // Independent rolls for each rare item (base chances: 40 / 22 / 10%)
-        const foundBone = Math.random() < 0.40 * rareMult ? 1 : 0;
-        const foundAura = Math.random() < 0.22 * rareMult ? 1 : 0;
-        const foundFate = Math.random() < 0.10 * rareMult ? 1 : 0;
+        // Per-type drop rates (independent rolls)
+        //                       scout   forage  ruins
+        const boneRate = expType === "scout" ? 0.25 : expType === "forage" ? 0.30 : 0.40;
+        const auraRate = expType === "scout" ? 0.00 : expType === "forage" ? 0.01 : 0.01;
+        const fateRate = expType === "scout" ? 0.05 : expType === "forage" ? 0.05 : 0.10;
+
+        const foundBone = Math.random() < boneRate ? 1 : 0;
+        const foundAura = Math.random() < auraRate ? 1 : 0;
+        const foundFate = Math.random() < fateRate ? 1 : 0;
 
         const levelBefore = selectedPet.level;
         const returnedPet = capPetStats(gainPetXp({
