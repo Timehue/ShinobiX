@@ -6996,6 +6996,33 @@ export default function App() {
         return () => clearInterval(id);
     }, []);
 
+    // Save on page unload (F5 / tab close / navigation away) so that progress
+    // made since the last 60-second auto-save is not lost.
+    // keepalive: true tells the browser to complete the fetch even after the
+    // page has been torn down. Auth headers are injected automatically by the
+    // global authFetch interceptor (window.fetch is patched at app boot and
+    // spreads all RequestInit properties — including keepalive — to the real fetch).
+    // The 64 KB keepalive body limit is respected because stripImages removes
+    // all base64 image strings before serialising.
+    useEffect(() => {
+        function stripImages(_key: string, value: unknown) {
+            return typeof value === 'string' && value.startsWith('data:image') ? '' : value;
+        }
+        function handleBeforeUnload() {
+            if (!charDirtyRef.current) return; // nothing changed — skip
+            const snap = latestSaveRef.current;
+            if (!snap) return;
+            fetch(`/api/save/${encodeURIComponent(snap.name.toLowerCase())}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                keepalive: true,
+                body: JSON.stringify(snap.payload, stripImages),
+            });
+        }
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, []);
+
     async function createPlayerAccount(newCharacter: Character, password: string) {
         const key = accountKey(newCharacter.name);
         try {
