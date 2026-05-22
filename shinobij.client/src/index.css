@@ -16778,3 +16778,136 @@ html[data-vp="xs"] .pmtab {
     padding: 7px 1px !important;
     min-height: 38px !important;
 }
+
+/* ===== Pet Expedition Result Modal ===================================== */
+.expedition-result-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: rgba(2, 6, 23, 0.82);
+    backdrop-filter: blur(6px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+
+.expedition-result-modal {
+    background: linear-gradient(145deg, rgba(15, 23, 42, 0.98), rgba(30, 41, 59, 0.96));
+    border: 1px solid rgba(250, 204, 21, 0.45);
+    border-radius: 18px;
+    padding: 28px 24px 22px;
+    width: 100%;
+    max-width: 420px;
+    box-shadow: 0 8px 48px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(250, 204, 21, 0.12);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.expedition-result-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.expedition-result-icon {
+    font-size: 2.4rem;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.expedition-result-title {
+    margin: 0 0 2px;
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #facc15;
+    letter-spacing: 0.01em;
+}
+
+.expedition-result-type {
+    margin: 0;
+    font-size: 0.78rem;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.expedition-result-story {
+    margin: 0;
+    font-size: 0.9rem;
+    color: #cbd5e1;
+    line-height: 1.6;
+    padding: 12px 14px;
+    background: rgba(248, 250, 252, 0.04);
+    border-radius: 10px;
+    border-left: 3px solid rgba(250, 204, 21, 0.5);
+}
+
+.expedition-level-up {
+    text-align: center;
+    background: linear-gradient(90deg, rgba(250,204,21,0.18), rgba(251,146,60,0.18));
+    border: 1px solid rgba(250, 204, 21, 0.55);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #fde68a;
+    letter-spacing: 0.02em;
+}
+
+.expedition-rewards-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.expedition-reward-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: 9px;
+    background: rgba(248, 250, 252, 0.04);
+    border: 1px solid rgba(100, 116, 139, 0.2);
+}
+
+.expedition-reward-row.expedition-reward-rare {
+    background: rgba(250, 204, 21, 0.07);
+    border-color: rgba(250, 204, 21, 0.3);
+}
+
+.expedition-reward-row.expedition-reward-legendary {
+    background: rgba(251, 146, 60, 0.1);
+    border-color: rgba(251, 146, 60, 0.45);
+}
+
+.expedition-reward-icon {
+    font-size: 1.2rem;
+    flex-shrink: 0;
+    width: 24px;
+    text-align: center;
+}
+
+.expedition-reward-label {
+    flex: 1;
+    font-size: 0.85rem;
+    color: #94a3b8;
+    font-weight: 600;
+}
+
+.expedition-reward-value {
+    font-size: 0.92rem;
+    font-weight: 800;
+    color: #f1f5f9;
+}
+
+@media (max-width: 480px) {
+    .expedition-result-modal {
+        padding: 20px 16px 18px;
+        border-radius: 14px;
+        gap: 12px;
+    }
+    .expedition-result-title { font-size: 1rem; }
+    .expedition-result-story { font-size: 0.84rem; }
+}
