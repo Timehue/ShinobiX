@@ -1333,8 +1333,8 @@ button {
 }
 
 .atlas-world-map {
-    height: min(76vw, 860px);
-    min-height: 660px;
+    height: min(76vw, 860px, calc(100dvh - 20px));
+    min-height: 560px;
     overflow: hidden;
     border-radius: 12px;
     border: 4px solid rgba(186,230,253,.7);
@@ -5372,6 +5372,10 @@ body {
     padding: 0px 0px !important;
     box-sizing: border-box !important;
     overflow-x: hidden !important;
+    /* Allow the center column to scroll independently so the world map
+       isn't clipped on short viewports — sidebars stay fixed. */
+    height: 100vh !important;
+    overflow-y: auto !important;
 }
 
     .center-game .hero,
