@@ -121,11 +121,18 @@ app.get(['/debug/storage', '/api/debug/storage'], async (_req, res) => {
         const dns = require('dns') as typeof import('dns');
         const supabaseHost = new URL(url).hostname;
         const dnsTest = await new Promise<string>((resolve) => {
-            dns.setServers(['8.8.8.8', '1.1.1.1']);
-            dns.resolve4(supabaseHost, (err, addrs) => {
-                if (err) resolve(`resolve4 Error: ${err.message} code=${err.code}`);
-                else resolve(`resolve4 OK: ${addrs.join(', ')}`);
-            });
+            const timer = setTimeout(() => resolve('resolve4 Timeout after 5s'), 5000);
+            try {
+                dns.setServers(['8.8.8.8', '1.1.1.1']);
+                dns.resolve4(supabaseHost, (err, addrs) => {
+                    clearTimeout(timer);
+                    if (err) resolve(`resolve4 Error: ${err.message} code=${err.code}`);
+                    else resolve(`resolve4 OK: ${addrs.join(', ')}`);
+                });
+            } catch (e: unknown) {
+                clearTimeout(timer);
+                resolve(`resolve4 threw: ${String(e)}`);
+            }
         });
 
         // Test raw HTTPS connectivity using Node's built-in https module
@@ -151,6 +158,7 @@ app.get(['/debug/storage', '/api/debug/storage'], async (_req, res) => {
         }
 
         res.json({
+            v: 4,
             ok: kvError === null,
             supabase_url: url,
             key_prefix: key.slice(0, 12) + '…',
