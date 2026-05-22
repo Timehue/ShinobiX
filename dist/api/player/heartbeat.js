@@ -1,5 +1,8 @@
-import { kv } from '../_storage.js';
-import { cors } from '../_utils.js';
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.default = handler;
+const _storage_js_1 = require("../_storage.js");
+const _utils_js_1 = require("../_utils.js");
 const REGISTRY_KEY = 'player:registry';
 // Individual TTL keys (presence:<name>) with 60s expiry.
 // Postgres expires them automatically — no JSONB hash merges, no CPU spike.
@@ -12,8 +15,8 @@ function normalizeSector(value, fallback = 40) {
         return fallback;
     return Math.max(0, Math.floor(sector));
 }
-export default async function handler(req, res) {
-    cors(res);
+async function handler(req, res) {
+    (0, _utils_js_1.cors)(res);
     if (req.method === 'OPTIONS')
         return res.status(200).end();
     if (req.method !== 'POST')
@@ -28,9 +31,9 @@ export default async function handler(req, res) {
         const resetSignalKey = `reset-signal:${name.toLowerCase().trim()}`;
         // Read this player's own presence (for pendingAttacker), challenges, and reset signal in parallel.
         const [existing, pendingChallenges, resetSignal] = await Promise.all([
-            kv.get(presenceKey),
-            kv.get(challengeKey),
-            kv.get(resetSignalKey),
+            _storage_js_1.kv.get(presenceKey),
+            _storage_js_1.kv.get(challengeKey),
+            _storage_js_1.kv.get(resetSignalKey),
         ]);
         if (resetSignal) {
             return res.status(200).json({ forceReload: true });
@@ -52,15 +55,15 @@ export default async function handler(req, res) {
         // Write only the individual TTL key — one cheap upsert, Postgres handles expiry.
         // No JSONB hash merge means no O(N-players) CPU work per heartbeat.
         await Promise.all([
-            kv.set(presenceKey, entry, { ex: PRESENCE_TTL_S }),
-            pendingChallenges?.length ? kv.del(challengeKey) : Promise.resolve(),
+            _storage_js_1.kv.set(presenceKey, entry, { ex: PRESENCE_TTL_S }),
+            pendingChallenges?.length ? _storage_js_1.kv.del(challengeKey) : Promise.resolve(),
         ]);
         // Fetch all active presence via keys + mget — 2 indexed queries, no large blob.
         // Expired keys are excluded by the kv.keys() query (expires_at filter in SQL).
-        const presenceKeys = await kv.keys(`${PRESENCE_KEY_PREFIX}*`);
+        const presenceKeys = await _storage_js_1.kv.keys(`${PRESENCE_KEY_PREFIX}*`);
         const otherKeys = presenceKeys.filter(k => k !== presenceKey);
         const otherValues = otherKeys.length
-            ? await kv.mget(...otherKeys)
+            ? await _storage_js_1.kv.mget(...otherKeys)
             : [];
         const allEntries = otherValues.filter((v) => Boolean(v?.name));
         const toRecord = ({ name: n, sector: s, character: c, travelingUntil: tu, inBattle: ib }) => {

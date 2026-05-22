@@ -1,5 +1,8 @@
-import { kv } from './_storage.js';
-import { cors } from './_utils.js';
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.default = handler;
+const _storage_js_1 = require("./_storage.js");
+const _utils_js_1 = require("./_utils.js");
 // Legacy single-blob key (kept for backward-compat reads during migration)
 const LEGACY_KEY = 'shared:images';
 // Old per-category JSON blob keys (kept for backward-compat reads)
@@ -24,8 +27,8 @@ function categoryFromId(id) {
     const prefix = id.split(':')[0];
     return KNOWN_PREFIXES[prefix] ?? 'misc';
 }
-export default async function handler(req, res) {
-    cors(res);
+async function handler(req, res) {
+    (0, _utils_js_1.cors)(res);
     if (req.method === 'OPTIONS')
         return res.status(200).end();
     if (req.method === 'GET') {
@@ -43,8 +46,8 @@ export default async function handler(req, res) {
                 // Skip the legacy single-blob key — it's empty after migration and
                 // is multi-MB; reading it on every request causes Vercel timeouts.
                 const [hashImages, catImages] = await Promise.all([
-                    withTimeout(kv.hgetall(catHashKey(cat))),
-                    withTimeout(kv.get(catKey(cat))),
+                    withTimeout(_storage_js_1.kv.hgetall(catHashKey(cat))),
+                    withTimeout(_storage_js_1.kv.get(catKey(cat))),
                 ]);
                 // Merge: old blob < new hash (newest always wins)
                 return res.status(200).json({
@@ -55,8 +58,8 @@ export default async function handler(req, res) {
             // No category param — return everything (admin / bulk use).
             // Run per-category fetches in parallel with individual timeouts.
             const categoryEntries = await Promise.all(KNOWN_CATEGORIES.flatMap((category) => [
-                withTimeout(kv.get(catKey(category))),
-                withTimeout(kv.hgetall(catHashKey(category))),
+                withTimeout(_storage_js_1.kv.get(catKey(category))),
+                withTimeout(_storage_js_1.kv.hgetall(catHashKey(category))),
             ]));
             return res.status(200).json(Object.assign({}, ...categoryEntries.map((entry) => entry ?? {})));
         }
@@ -74,7 +77,7 @@ export default async function handler(req, res) {
             const cat = categoryFromId(id);
             // Atomic HSET — sets exactly this one field without touching any other
             // image in the same category. Eliminates the race condition.
-            await kv.hset(catHashKey(cat), { [id]: image });
+            await _storage_js_1.kv.hset(catHashKey(cat), { [id]: image });
             return res.status(200).end();
         }
         catch (err) {

@@ -1,3 +1,4 @@
+"use strict";
 /**
  * Express server for cPanel / Phusion Passenger.
  *
@@ -9,48 +10,51 @@
  *   are registered so the app works regardless of whether Passenger strips
  *   the /api prefix before it reaches the Node process.
  */
-import express from 'express';
-import { createServer } from 'node:http';
-import { fileURLToPath } from 'node:url';
-import { dirname, join } from 'node:path';
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = __importDefault(require("express"));
+const node_http_1 = require("node:http");
+const node_path_1 = require("node:path");
 // ─── Handler imports ─────────────────────────────────────────────────────────
 // All handlers use import type { VercelRequest, VercelResponse } for TypeScript
 // only — those types are erased at compile time, so there is zero runtime
 // dependency on @vercel/node in the cPanel build.
-import saveHandler from './api/save/[name].js';
-import heartbeatHandler from './api/player/heartbeat.js';
-import challengeHandler from './api/player/challenge.js';
-import attackHandler from './api/player/attack.js';
-import clearAttackHandler from './api/player/clear-attack.js';
-import healHandler from './api/player/heal.js';
-import rosterHandler from './api/player/roster.js';
-import pvpSessionHandler from './api/pvp/session.js';
-import pvpMoveHandler from './api/pvp/move.js';
-import imagesHandler from './api/images.js';
-import playerAuthHandler from './api/player-auth.js';
-import adminAuthHandler from './api/admin-auth.js';
-import adminPlayersHandler from './api/admin/players.js';
-import serverResetHandler from './api/admin/server-reset.js';
-import clansListHandler from './api/clans/list.js';
-import chatHandler from './api/village/chat.js';
-import guardQueueHandler from './api/village-guard/queue.js';
-import guardDequeueHandler from './api/village-guard/dequeue.js';
-import guardListHandler from './api/village-guard/list.js';
-import guardChallengeHandler from './api/village-guard/challenge.js';
-import generateImageHandler from './api/generate-image.js';
-import gameStateHandler from './api/game-state.js';
-import worldStateHandler from './api/world-state.js';
-import kageHandler from './api/village/kage.js';
-import bloodlineReviewHandler from './api/admin/bloodline-review.js';
-import itemReviewHandler from './api/admin/item-review.js';
-import bloodlinesListHandler from './api/bloodlines/list.js';
-import rankedJoinHandler from './api/ranked-queue/join.js';
-import rankedLeaveHandler from './api/ranked-queue/leave.js';
+const _name__js_1 = __importDefault(require("./api/save/[name].js"));
+const heartbeat_js_1 = __importDefault(require("./api/player/heartbeat.js"));
+const challenge_js_1 = __importDefault(require("./api/player/challenge.js"));
+const attack_js_1 = __importDefault(require("./api/player/attack.js"));
+const clear_attack_js_1 = __importDefault(require("./api/player/clear-attack.js"));
+const heal_js_1 = __importDefault(require("./api/player/heal.js"));
+const roster_js_1 = __importDefault(require("./api/player/roster.js"));
+const session_js_1 = __importDefault(require("./api/pvp/session.js"));
+const move_js_1 = __importDefault(require("./api/pvp/move.js"));
+const images_js_1 = __importDefault(require("./api/images.js"));
+const player_auth_js_1 = __importDefault(require("./api/player-auth.js"));
+const admin_auth_js_1 = __importDefault(require("./api/admin-auth.js"));
+const players_js_1 = __importDefault(require("./api/admin/players.js"));
+const server_reset_js_1 = __importDefault(require("./api/admin/server-reset.js"));
+const list_js_1 = __importDefault(require("./api/clans/list.js"));
+const chat_js_1 = __importDefault(require("./api/village/chat.js"));
+const queue_js_1 = __importDefault(require("./api/village-guard/queue.js"));
+const dequeue_js_1 = __importDefault(require("./api/village-guard/dequeue.js"));
+const list_js_2 = __importDefault(require("./api/village-guard/list.js"));
+const challenge_js_2 = __importDefault(require("./api/village-guard/challenge.js"));
+const generate_image_js_1 = __importDefault(require("./api/generate-image.js"));
+const game_state_js_1 = __importDefault(require("./api/game-state.js"));
+const world_state_js_1 = __importDefault(require("./api/world-state.js"));
+const kage_js_1 = __importDefault(require("./api/village/kage.js"));
+const bloodline_review_js_1 = __importDefault(require("./api/admin/bloodline-review.js"));
+const item_review_js_1 = __importDefault(require("./api/admin/item-review.js"));
+const list_js_3 = __importDefault(require("./api/bloodlines/list.js"));
+const join_js_1 = __importDefault(require("./api/ranked-queue/join.js"));
+const leave_js_1 = __importDefault(require("./api/ranked-queue/leave.js"));
 // ─── App setup ───────────────────────────────────────────────────────────────
-const app = express();
+const app = (0, express_1.default)();
 // Parse JSON bodies up to 50 MB (needed for saves that include base64 images).
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(express_1.default.json({ limit: '50mb' }));
+app.use(express_1.default.urlencoded({ extended: true, limit: '50mb' }));
 // Global CORS — individual handlers also call cors(), but this catches
 // preflight OPTIONS requests before they reach any route handler.
 app.use((_req, res, next) => {
@@ -115,59 +119,57 @@ app.get(['/debug/storage', '/api/debug/storage'], async (_req, res) => {
 });
 // ─── API routes ───────────────────────────────────────────────────────────────
 // Save — dynamic :name param merged into req.query.name for the handler.
-route('/save/:name', saveHandler);
+route('/save/:name', _name__js_1.default);
 // Player
-route('/player/heartbeat', heartbeatHandler);
-route('/player/challenge', challengeHandler);
-route('/player/attack', attackHandler);
-route('/player/clear-attack', clearAttackHandler);
-route('/player/heal', healHandler);
-route('/player/roster', rosterHandler);
+route('/player/heartbeat', heartbeat_js_1.default);
+route('/player/challenge', challenge_js_1.default);
+route('/player/attack', attack_js_1.default);
+route('/player/clear-attack', clear_attack_js_1.default);
+route('/player/heal', heal_js_1.default);
+route('/player/roster', roster_js_1.default);
 // PvP
-route('/pvp/session', pvpSessionHandler);
-route('/pvp/move', pvpMoveHandler);
+route('/pvp/session', session_js_1.default);
+route('/pvp/move', move_js_1.default);
 // Images
-route('/images', imagesHandler);
+route('/images', images_js_1.default);
 // Auth
-route('/player-auth', playerAuthHandler);
-route('/admin-auth', adminAuthHandler);
+route('/player-auth', player_auth_js_1.default);
+route('/admin-auth', admin_auth_js_1.default);
 // Admin
-route('/admin/players', adminPlayersHandler);
-route('/admin/server-reset', serverResetHandler);
+route('/admin/players', players_js_1.default);
+route('/admin/server-reset', server_reset_js_1.default);
 // Clans
-route('/clans/list', clansListHandler);
+route('/clans/list', list_js_1.default);
 // Village
-route('/village/chat', chatHandler);
+route('/village/chat', chat_js_1.default);
 // Village guard
-route('/village-guard/queue', guardQueueHandler);
-route('/village-guard/dequeue', guardDequeueHandler);
-route('/village-guard/list', guardListHandler);
-route('/village-guard/challenge', guardChallengeHandler);
+route('/village-guard/queue', queue_js_1.default);
+route('/village-guard/dequeue', dequeue_js_1.default);
+route('/village-guard/list', list_js_2.default);
+route('/village-guard/challenge', challenge_js_2.default);
 // AI image generation
-route('/generate-image', generateImageHandler);
+route('/generate-image', generate_image_js_1.default);
 // Game / world state
-route('/game-state', gameStateHandler);
-route('/world-state', worldStateHandler);
+route('/game-state', game_state_js_1.default);
+route('/world-state', world_state_js_1.default);
 // Village
-route('/village/kage', kageHandler);
+route('/village/kage', kage_js_1.default);
 // Bloodlines
-route('/bloodlines/list', bloodlinesListHandler);
+route('/bloodlines/list', list_js_3.default);
 // Admin review queues
-route('/admin/bloodline-review', bloodlineReviewHandler);
-route('/admin/item-review', itemReviewHandler);
+route('/admin/bloodline-review', bloodline_review_js_1.default);
+route('/admin/item-review', item_review_js_1.default);
 // Ranked queue
-route('/ranked-queue/join', rankedJoinHandler);
-route('/ranked-queue/leave', rankedLeaveHandler);
+route('/ranked-queue/join', join_js_1.default);
+route('/ranked-queue/leave', leave_js_1.default);
 // ─── Static files (React SPA) ─────────────────────────────────────────────────
 // STATIC_DIR env var overrides the default so the same compiled server.js works
 // both in the repo (shinobij.client/dist) and in a manual cPanel upload (public/).
-const __filename = fileURLToPath(import.meta.url);
-const __serverDir = dirname(__filename);
-const staticDir = process.env.STATIC_DIR ?? join(__serverDir, '..', 'shinobij.client', 'dist');
-app.use(express.static(staticDir));
+const staticDir = process.env.STATIC_DIR ?? (0, node_path_1.join)(__dirname, '..', 'shinobij.client', 'dist');
+app.use(express_1.default.static(staticDir));
 // SPA fallback — any non-API path serves index.html so React Router handles it.
 app.get('*', (_req, res) => {
-    res.sendFile(join(staticDir, 'index.html'));
+    res.sendFile((0, node_path_1.join)(staticDir, 'index.html'));
 });
 // ─── Error handler ────────────────────────────────────────────────────────────
 app.use((err, _req, res, _next) => {
@@ -180,8 +182,8 @@ app.use((err, _req, res, _next) => {
 const PORT = Number(process.env.PORT ?? 3000);
 // Phusion Passenger sets the PORT env var automatically.
 // When running locally, defaults to 3000.
-const server = createServer(app);
+const server = (0, node_http_1.createServer)(app);
 server.listen(PORT, () => {
     console.log(`ShinobiX API listening on port ${PORT}`);
 });
-export default app;
+exports.default = app;

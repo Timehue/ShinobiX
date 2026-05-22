@@ -1,5 +1,8 @@
-import { kv } from '../_storage.js';
-import { cors } from '../_utils.js';
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.default = handler;
+const _storage_js_1 = require("../_storage.js");
+const _utils_js_1 = require("../_utils.js");
 // ─── Grid constants (match arena exactly) ─────────────────────────────────────
 const GRID_W = 12;
 const GRID_H = 10;
@@ -758,8 +761,8 @@ function endTurn(session) {
     return { ...s, activePlayer: next, ap: { ...s.ap, [next]: baseAp }, actionsThisTurn: 0 };
 }
 // ─── Handler ──────────────────────────────────────────────────────────────────
-export default async function handler(req, res) {
-    cors(res);
+async function handler(req, res) {
+    (0, _utils_js_1.cors)(res);
     if (req.method === 'OPTIONS')
         return res.status(200).end();
     if (req.method !== 'POST')
@@ -770,7 +773,7 @@ export default async function handler(req, res) {
         if (!battleId || !role || !action)
             return res.status(400).json({ error: 'Missing battleId, role, or action' });
         const key = `pvp:${battleId}`;
-        const sessionMaybe = await kv.get(key);
+        const sessionMaybe = await _storage_js_1.kv.get(key);
         if (!sessionMaybe)
             return res.status(404).json({ error: 'Battle session not found' });
         const session = sessionMaybe;
@@ -780,11 +783,11 @@ export default async function handler(req, res) {
             return res.status(200).json(session);
         const lockKey = `${key}:lock`;
         const lockToken = `${role}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
-        const lockResult = await kv.set(lockKey, lockToken, { nx: true, ex: 3 });
+        const lockResult = await _storage_js_1.kv.set(lockKey, lockToken, { nx: true, ex: 3 });
         if (!lockResult)
             return res.status(200).json(session);
         async function finish(payload) {
-            await kv.del(lockKey).catch(() => undefined);
+            await _storage_js_1.kv.del(lockKey).catch(() => undefined);
             return res.status(200).json(payload);
         }
         const me = role === 'p1' ? session.p1 : session.p2;
@@ -846,11 +849,11 @@ export default async function handler(req, res) {
                 if (!canAct(40))
                     return finish(session);
                 if (distance(me.pos, opp.pos) > 1) {
-                    await kv.set(key, { ...session, log: [...session.log, `${me.name}: too far for basic attack — move closer.`] }, { ex: SESSION_TTL });
+                    await _storage_js_1.kv.set(key, { ...session, log: [...session.log, `${me.name}: too far for basic attack — move closer.`] }, { ex: SESSION_TTL });
                     return finish({ ...session, log: [...session.log, `${me.name}: too far for basic attack.`] });
                 }
                 if (me.stamina < 10) {
-                    await kv.set(key, { ...session, log: [...session.log, `${me.name}: not enough stamina.`] }, { ex: SESSION_TTL });
+                    await _storage_js_1.kv.set(key, { ...session, log: [...session.log, `${me.name}: not enough stamina.`] }, { ex: SESSION_TTL });
                     return finish({ ...session, log: [...session.log, `${me.name}: not enough stamina.`] });
                 }
                 const specialty = me.character.specialty ?? 'Ninjutsu';
@@ -899,7 +902,7 @@ export default async function handler(req, res) {
             }
             case 'jutsu': {
                 if (!jutsuId) {
-                    await kv.del(lockKey).catch(() => undefined);
+                    await _storage_js_1.kv.del(lockKey).catch(() => undefined);
                     return res.status(400).json({ error: 'Missing jutsuId' });
                 }
                 const jutsuList = me.character.jutsu ?? [];
@@ -907,7 +910,7 @@ export default async function handler(req, res) {
                 if (!jutsu) {
                     const missingMsg = `${me.name}: selected jutsu is not available in this PvP session. Reopen the duel or re-equip your loadout.`;
                     const updated = { ...session, log: [...session.log, missingMsg] };
-                    await kv.set(key, updated, { ex: SESSION_TTL });
+                    await _storage_js_1.kv.set(key, updated, { ex: SESSION_TTL });
                     return finish(updated);
                 }
                 const apCost = jutsu.ap ?? 40;
@@ -919,7 +922,7 @@ export default async function handler(req, res) {
                 if (hasStatus(me, 'Elemental Seal', session.round) && jutsu.element && BASIC_ELEMENTS.has(jutsu.element)) {
                     const esMsg = `${me.name} is Elementally Sealed — cannot use ${jutsu.name} (${jutsu.element}).`;
                     const esState = { ...session, log: [...session.log, esMsg] };
-                    await kv.set(key, esState, { ex: SESSION_TTL });
+                    await _storage_js_1.kv.set(key, esState, { ex: SESSION_TTL });
                     return finish(esState);
                 }
                 const jChakraCost = jutsu.chakraCost ?? 0;
@@ -927,13 +930,13 @@ export default async function handler(req, res) {
                 if (jChakraCost > 0 && me.chakra < jChakraCost) {
                     const msg = `${me.name}: not enough chakra for ${jutsu.name} (need ${jChakraCost}).`;
                     const updated = { ...session, log: [...session.log, msg] };
-                    await kv.set(key, updated, { ex: SESSION_TTL });
+                    await _storage_js_1.kv.set(key, updated, { ex: SESSION_TTL });
                     return finish(updated);
                 }
                 if (jStaminaCost > 0 && me.stamina < jStaminaCost) {
                     const msg = `${me.name}: not enough stamina for ${jutsu.name} (need ${jStaminaCost}).`;
                     const updated = { ...session, log: [...session.log, msg] };
-                    await kv.set(key, updated, { ex: SESSION_TTL });
+                    await _storage_js_1.kv.set(key, updated, { ex: SESSION_TTL });
                     return finish(updated);
                 }
                 const tags = jutsu.tags ?? [];
@@ -946,7 +949,7 @@ export default async function handler(req, res) {
                 if (needsGroundTile && tile === undefined) {
                     const msg = `${me.name}: ${jutsu.name} needs a ground tile target.`;
                     const updated = { ...session, log: [...session.log, msg] };
-                    await kv.set(key, updated, { ex: SESSION_TTL });
+                    await _storage_js_1.kv.set(key, updated, { ex: SESSION_TTL });
                     return finish(updated);
                 }
                 if (!selfTarget && !groundTarget && !moveTag && affectsOpponent) {
@@ -954,7 +957,7 @@ export default async function handler(req, res) {
                     if (range > 0 && distance(me.pos, opp.pos) > range) {
                         const outOfRangeMsg = `${jutsu.name} is out of range (need ≤${range}, distance ${Math.round(distance(me.pos, opp.pos))}).`;
                         const updated = { ...session, log: [...session.log, outOfRangeMsg] };
-                        await kv.set(key, updated, { ex: SESSION_TTL });
+                        await _storage_js_1.kv.set(key, updated, { ex: SESSION_TTL });
                         return finish(updated);
                     }
                 }
@@ -971,7 +974,7 @@ export default async function handler(req, res) {
                     if (destTile < 0 || destTile >= GRID_W * GRID_H || distance(me.pos, destTile) > range || destTile === opp.pos || destTile === me.pos || tileBlocked(destTile, me, opp)) {
                         const msg = `${me.name}: ${jutsu.name} — destination out of range or occupied.`;
                         const updated = { ...session, log: [...session.log, msg] };
-                        await kv.set(key, updated, { ex: SESSION_TTL });
+                        await _storage_js_1.kv.set(key, updated, { ex: SESSION_TTL });
                         return finish(updated);
                     }
                     const movedSelf = { ...me, pos: destTile, chakra: Math.max(0, me.chakra - jChakraCost), stamina: Math.max(0, me.stamina - jStaminaCost) };
@@ -1000,7 +1003,7 @@ export default async function handler(req, res) {
                     if (targetTile < 0 || targetTile >= GRID_W * GRID_H || distance(me.pos, targetTile) > range || targetTile === opp.pos || targetTile === me.pos || tileBlocked(targetTile, me, opp)) {
                         const msg = `${me.name}: ${jutsu.name} — target tile out of range or occupied.`;
                         const updated = { ...session, log: [...session.log, msg] };
-                        await kv.set(key, updated, { ex: SESSION_TTL });
+                        await _storage_js_1.kv.set(key, updated, { ex: SESSION_TTL });
                         return finish(updated);
                     }
                     if (jutsuMethod === 'INSTANT_EFFECT') {
@@ -1008,7 +1011,7 @@ export default async function handler(req, res) {
                         if (!zoneTags.length) {
                             const msg = `${me.name}: ${jutsu.name} needs Decrease Damage Given, Recoil, or Poison for its ground effect.`;
                             const updated = { ...session, log: [...session.log, msg] };
-                            await kv.set(key, updated, { ex: SESSION_TTL });
+                            await _storage_js_1.kv.set(key, updated, { ex: SESSION_TTL });
                             return finish(updated);
                         }
                         const groundEffect = {
@@ -1054,7 +1057,7 @@ export default async function handler(req, res) {
             case 'weapon': {
                 const serverItem = equippedPvpItem(me, itemId, itemName);
                 if (!serverItem || !['hand', 'thrown'].includes(normalizeEquipmentSlot(serverItem.slot))) {
-                    await kv.del(lockKey).catch(() => undefined);
+                    await _storage_js_1.kv.del(lockKey).catch(() => undefined);
                     return res.status(400).json({ error: 'Weapon is not equipped for this fighter' });
                 }
                 const weapRange = serverItem.weaponRange ?? (normalizeEquipmentSlot(serverItem.slot) === 'thrown' ? 4 : 1);
@@ -1064,7 +1067,7 @@ export default async function handler(req, res) {
                 if (distance(me.pos, opp.pos) > weapRange) {
                     const msg = `${me.name}: ${itemName ?? 'Weapon'} is out of range (need ≤${weapRange}).`;
                     const updated = { ...session, log: [...session.log, msg] };
-                    await kv.set(key, updated, { ex: SESSION_TTL });
+                    await _storage_js_1.kv.set(key, updated, { ex: SESSION_TTL });
                     return finish(updated);
                 }
                 const wTags = [...(serverItem.weaponTags ?? [])];
@@ -1090,7 +1093,7 @@ export default async function handler(req, res) {
             case 'item': {
                 const serverItem = equippedPvpItem(me, itemId, itemName);
                 if (!serverItem || ['hand', 'thrown'].includes(normalizeEquipmentSlot(serverItem.slot))) {
-                    await kv.del(lockKey).catch(() => undefined);
+                    await _storage_js_1.kv.del(lockKey).catch(() => undefined);
                     return res.status(400).json({ error: 'Item is not equipped for this fighter' });
                 }
                 const iApCost = serverItem.apCost ?? 35;
@@ -1150,10 +1153,10 @@ export default async function handler(req, res) {
                 break;
             }
             default:
-                await kv.del(lockKey).catch(() => undefined);
+                await _storage_js_1.kv.del(lockKey).catch(() => undefined);
                 return res.status(400).json({ error: `Unknown action: ${action}` });
         }
-        await kv.set(key, result, { ex: SESSION_TTL });
+        await _storage_js_1.kv.set(key, result, { ex: SESSION_TTL });
         return finish(result);
     }
     catch (err) {

@@ -1,13 +1,16 @@
-import { kv } from '../_storage.js';
-import { cors } from '../_utils.js';
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.default = handler;
+const _storage_js_1 = require("../_storage.js");
+const _utils_js_1 = require("../_utils.js");
 const MSG_TTL_MS = 30 * 60 * 1000; // 30 minutes
 const MAX_MESSAGES = 60;
 const KV_TTL_SECONDS = 4 * 60 * 60; // 4-hour KV key TTL (refreshed on every POST)
 function chatKey(village) {
     return `chat:village:${village.toLowerCase().replace(/\s+/g, '-')}`;
 }
-export default async function handler(req, res) {
-    cors(res);
+async function handler(req, res) {
+    (0, _utils_js_1.cors)(res);
     if (req.method === 'OPTIONS')
         return res.status(200).end();
     const village = typeof req.query.village === 'string' ? req.query.village.trim() : '';
@@ -15,7 +18,7 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Missing village.' });
     const key = chatKey(village);
     if (req.method === 'GET') {
-        const messages = await kv.get(key) ?? [];
+        const messages = await _storage_js_1.kv.get(key) ?? [];
         const fresh = messages.filter(m => Date.now() - m.ts < MSG_TTL_MS);
         // X-Message-Count lets the client skip JSON parsing when nothing changed
         res.setHeader('X-Message-Count', String(fresh.length));
@@ -42,10 +45,10 @@ export default async function handler(req, res) {
             // to handle the vast majority of near-simultaneous posts.
             let updated = [];
             for (let attempt = 0; attempt < 2; attempt++) {
-                const existing = await kv.get(key) ?? [];
+                const existing = await _storage_js_1.kv.get(key) ?? [];
                 const fresh = existing.filter(m => Date.now() - m.ts < MSG_TTL_MS);
                 updated = [...fresh, newMsg].slice(-MAX_MESSAGES);
-                await kv.set(key, updated, { ex: KV_TTL_SECONDS });
+                await _storage_js_1.kv.set(key, updated, { ex: KV_TTL_SECONDS });
                 break; // succeed on first write; second slot used only if first throws
             }
             return res.status(200).json(updated);

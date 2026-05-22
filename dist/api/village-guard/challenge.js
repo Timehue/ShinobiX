@@ -1,8 +1,11 @@
-import { kv } from '../_storage.js';
-import { cors } from '../_utils.js';
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.default = handler;
+const _storage_js_1 = require("../_storage.js");
+const _utils_js_1 = require("../_utils.js");
 const CHALLENGE_TTL = 120; // seconds — survives two heartbeat cycles
-export default async function handler(req, res) {
-    cors(res);
+async function handler(req, res) {
+    (0, _utils_js_1.cors)(res);
     if (req.method === 'OPTIONS')
         return res.status(200).end();
     if (req.method !== 'POST')
@@ -13,8 +16,8 @@ export default async function handler(req, res) {
         if (!village)
             return res.status(400).json({ error: 'Missing village.' });
         // Find all active guards for this village
-        const keys = await kv.keys('guard:*');
-        const guards = (await kv.mget(...keys))
+        const keys = await _storage_js_1.kv.keys('guard:*');
+        const guards = (await _storage_js_1.kv.mget(...keys))
             .filter((g) => !!g && g.village === village);
         if (guards.length === 0) {
             return res.status(200).json({ noGuard: true });
@@ -23,7 +26,7 @@ export default async function handler(req, res) {
         const requestedGuard = guardName ? guards.find(g => g.name.toLowerCase().trim() === guardName.toLowerCase().trim()) : undefined;
         const guard = requestedGuard ?? guards[Math.floor(Math.random() * guards.length)];
         // Fetch guard's full character from their persistent save
-        const guardSave = await kv.get(`save:${guard.name.toLowerCase()}`);
+        const guardSave = await _storage_js_1.kv.get(`save:${guard.name.toLowerCase()}`);
         const guardCharacter = guardSave?.character ?? null;
         if (!guardCharacter) {
             // Guard's save is missing — fall back to AI
@@ -44,8 +47,8 @@ export default async function handler(req, res) {
                 ...(battleId ? { battleId } : {}),
             };
             const challengeKey = `challenges:${guard.name.toLowerCase().trim()}`;
-            const existing = await kv.get(challengeKey) ?? [];
-            await kv.set(challengeKey, [...existing, challenge].slice(-20), { ex: CHALLENGE_TTL });
+            const existing = await _storage_js_1.kv.get(challengeKey) ?? [];
+            await _storage_js_1.kv.set(challengeKey, [...existing, challenge].slice(-20), { ex: CHALLENGE_TTL });
         }
         return res.status(200).json({ pvp: true, guardCharacter, guardName: guard.name });
     }

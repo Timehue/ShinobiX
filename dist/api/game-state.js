@@ -1,5 +1,8 @@
-import { kv } from './_storage.js';
-import { cors } from './_utils.js';
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.default = handler;
+const _storage_js_1 = require("./_storage.js");
+const _utils_js_1 = require("./_utils.js");
 const LEADERSHIP_IMAGES_KEY = 'game:village-leadership-images';
 const VILLAGE_STATE_PREFIX = 'game:village-state:';
 const ARENA_TOURNAMENT_KEY = 'game:arena:tournament';
@@ -8,23 +11,23 @@ const CLAN_PET_BATTLE_PREFIX = 'game:clan-pet-battle:';
 function clanPetBattleKey(clanName) {
     return `${CLAN_PET_BATTLE_PREFIX}${clanName.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
 }
-export default async function handler(req, res) {
-    cors(res);
+async function handler(req, res) {
+    (0, _utils_js_1.cors)(res);
     if (req.method === 'OPTIONS')
         return res.status(200).end();
     if (req.method === 'GET') {
         try {
             const [villageStateKeys, leadershipImages, arenaTournament, arenaActiveFights, clanPetBattleKeys] = await Promise.all([
-                kv.keys(`${VILLAGE_STATE_PREFIX}*`),
-                kv.get(LEADERSHIP_IMAGES_KEY),
-                kv.get(ARENA_TOURNAMENT_KEY),
-                kv.get(ARENA_ACTIVE_FIGHTS_KEY),
-                kv.keys(`${CLAN_PET_BATTLE_PREFIX}*`),
+                _storage_js_1.kv.keys(`${VILLAGE_STATE_PREFIX}*`),
+                _storage_js_1.kv.get(LEADERSHIP_IMAGES_KEY),
+                _storage_js_1.kv.get(ARENA_TOURNAMENT_KEY),
+                _storage_js_1.kv.get(ARENA_ACTIVE_FIGHTS_KEY),
+                _storage_js_1.kv.keys(`${CLAN_PET_BATTLE_PREFIX}*`),
             ]);
             const villageStates = {};
             if (villageStateKeys.length > 0) {
                 // mget fetches all values in one round-trip instead of N individual gets.
-                const stateValues = await kv.mget(...villageStateKeys);
+                const stateValues = await _storage_js_1.kv.mget(...villageStateKeys);
                 villageStateKeys.forEach((k, i) => {
                     if (stateValues[i] != null) {
                         const name = k.slice(VILLAGE_STATE_PREFIX.length);
@@ -35,7 +38,7 @@ export default async function handler(req, res) {
             const clanPetBattles = {};
             if (clanPetBattleKeys.length > 0) {
                 // mget fetches all values in one round-trip instead of N individual gets.
-                const battleValues = await kv.mget(...clanPetBattleKeys);
+                const battleValues = await _storage_js_1.kv.mget(...clanPetBattleKeys);
                 clanPetBattleKeys.forEach((k, i) => {
                     if (battleValues[i] != null) {
                         const name = k.slice(CLAN_PET_BATTLE_PREFIX.length);
@@ -68,23 +71,23 @@ export default async function handler(req, res) {
                 if (!village || !state)
                     return res.status(400).json({ error: 'Missing village or state.' });
                 const key = `${VILLAGE_STATE_PREFIX}${village.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
-                await kv.set(key, state);
+                await _storage_js_1.kv.set(key, state);
                 return res.status(200).json({ ok: true });
             }
             if (kind === 'villageLeadershipImages') {
                 const { images } = body;
                 if (!images)
                     return res.status(400).json({ error: 'Missing images.' });
-                await kv.set(LEADERSHIP_IMAGES_KEY, images);
+                await _storage_js_1.kv.set(LEADERSHIP_IMAGES_KEY, images);
                 return res.status(200).json({ ok: true });
             }
             if (kind === 'arenaTournament') {
                 const { tournament } = body;
                 if (tournament == null) {
-                    await kv.del(ARENA_TOURNAMENT_KEY);
+                    await _storage_js_1.kv.del(ARENA_TOURNAMENT_KEY);
                 }
                 else {
-                    await kv.set(ARENA_TOURNAMENT_KEY, tournament);
+                    await _storage_js_1.kv.set(ARENA_TOURNAMENT_KEY, tournament);
                 }
                 return res.status(200).json({ ok: true });
             }
@@ -92,7 +95,7 @@ export default async function handler(req, res) {
                 const { fights } = body;
                 if (!Array.isArray(fights))
                     return res.status(400).json({ error: 'Missing fights array.' });
-                await kv.set(ARENA_ACTIVE_FIGHTS_KEY, fights.slice(0, 20));
+                await _storage_js_1.kv.set(ARENA_ACTIVE_FIGHTS_KEY, fights.slice(0, 20));
                 return res.status(200).json({ ok: true });
             }
             if (kind === 'pendingClanPetBattle') {
@@ -101,10 +104,10 @@ export default async function handler(req, res) {
                     return res.status(400).json({ error: 'Missing clanName.' });
                 const key = clanPetBattleKey(clanName);
                 if (battle == null) {
-                    await kv.del(key);
+                    await _storage_js_1.kv.del(key);
                 }
                 else {
-                    await kv.set(key, battle, { ex: 24 * 60 * 60 }); // 24-hour TTL
+                    await _storage_js_1.kv.set(key, battle, { ex: 24 * 60 * 60 }); // 24-hour TTL
                 }
                 return res.status(200).json({ ok: true });
             }

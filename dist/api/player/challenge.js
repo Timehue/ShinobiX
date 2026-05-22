@@ -1,5 +1,8 @@
-import { kv } from '../_storage.js';
-import { cors } from '../_utils.js';
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.default = handler;
+const _storage_js_1 = require("../_storage.js");
+const _utils_js_1 = require("../_utils.js");
 const CHALLENGE_TTL = 120; // seconds — long enough for two heartbeat cycles
 function challengeKey(name) {
     return `challenges:${name.toLowerCase().trim()}`;
@@ -17,8 +20,8 @@ function challengeFromName(challenge) {
         ? String(challenge.fromName ?? '').trim()
         : '';
 }
-export default async function handler(req, res) {
-    cors(res);
+async function handler(req, res) {
+    (0, _utils_js_1.cors)(res);
     if (req.method === 'OPTIONS')
         return res.status(200).end();
     try {
@@ -28,11 +31,11 @@ export default async function handler(req, res) {
             if (!targetName && !fromName)
                 return res.status(400).json({ error: 'Missing targetName or fromName.' });
             const pendingKey = targetName ? challengeKey(targetName) : '';
-            const existing = pendingKey ? await kv.get(pendingKey) ?? [] : [];
+            const existing = pendingKey ? await _storage_js_1.kv.get(pendingKey) ?? [] : [];
             const updated = id ? existing.filter(challenge => challengeId(challenge) !== id) : existing;
             await Promise.all([
-                pendingKey ? (updated.length ? kv.set(pendingKey, updated, { ex: CHALLENGE_TTL }) : kv.del(pendingKey)) : Promise.resolve(),
-                fromName ? kv.del(outgoingKey(fromName)) : Promise.resolve(),
+                pendingKey ? (updated.length ? _storage_js_1.kv.set(pendingKey, updated, { ex: CHALLENGE_TTL }) : _storage_js_1.kv.del(pendingKey)) : Promise.resolve(),
+                fromName ? _storage_js_1.kv.del(outgoingKey(fromName)) : Promise.resolve(),
             ]);
             return res.status(200).json({ ok: true });
         }
@@ -45,7 +48,7 @@ export default async function handler(req, res) {
         const fromName = challengeFromName(challenge);
         // For new challenges (not accept/decline/battle routing), gate on travel + battle state.
         if (!record.accepted && !record.declined && !record.battleId) {
-            const targetPresence = await kv.get(`presence:${targetName}`);
+            const targetPresence = await _storage_js_1.kv.get(`presence:${targetName}`);
             if (targetPresence) {
                 if (Number(targetPresence.travelingUntil ?? 0) > Date.now()) {
                     return res.status(409).json({ error: 'Target is traveling.' });
@@ -59,26 +62,26 @@ export default async function handler(req, res) {
             }
         }
         if (record.accepted || record.declined) {
-            await kv.del(outgoingKey(targetName));
+            await _storage_js_1.kv.del(outgoingKey(targetName));
         }
         else if (fromName && !record.battleId) {
             const senderKey = outgoingKey(fromName);
-            const existingOutgoing = await kv.get(senderKey);
+            const existingOutgoing = await _storage_js_1.kv.get(senderKey);
             if (existingOutgoing) {
                 return res.status(409).json({ error: 'You already have a pending challenge.' });
             }
-            await kv.set(senderKey, { targetName, challengeId: challengeId(challenge), createdAt: Date.now() }, { ex: CHALLENGE_TTL });
+            await _storage_js_1.kv.set(senderKey, { targetName, challengeId: challengeId(challenge), createdAt: Date.now() }, { ex: CHALLENGE_TTL });
         }
         // Retry loop reduces the chance of a concurrent challenger overwriting this
         // append. Without KV-level CAS this is best-effort, but covers the common case.
         const key = challengeKey(targetName);
         for (let attempt = 0; attempt < 3; attempt++) {
-            const existing = await kv.get(key) ?? [];
+            const existing = await _storage_js_1.kv.get(key) ?? [];
             // Deduplicate by id so a retry never inserts the same challenge twice
             const cid = challengeId(challenge);
             const deduped = cid ? existing.filter(c => challengeId(c) !== cid) : existing;
             const updated = [...deduped, challenge].slice(-20);
-            await kv.set(key, updated, { ex: CHALLENGE_TTL });
+            await _storage_js_1.kv.set(key, updated, { ex: CHALLENGE_TTL });
             break;
         }
         return res.status(200).json({ ok: true });

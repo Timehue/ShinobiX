@@ -1,18 +1,21 @@
-import { kv } from '../_storage.js';
-import { safeName, mergePreservingImages, cors } from '../_utils.js';
-export default async function handler(req, res) {
-    cors(res);
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.default = handler;
+const _storage_js_1 = require("../_storage.js");
+const _utils_js_1 = require("../_utils.js");
+async function handler(req, res) {
+    (0, _utils_js_1.cors)(res);
     if (req.method === 'OPTIONS')
         return res.status(200).end();
     if (req.method !== 'POST')
         return res.status(405).end();
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-        const targetName = safeName(String(body.targetName ?? ''));
+        const targetName = (0, _utils_js_1.safeName)(String(body.targetName ?? ''));
         if (!targetName)
             return res.status(400).json({ error: 'Invalid target name.' });
         const key = `save:${targetName}`;
-        const existing = await kv.get(key);
+        const existing = await _storage_js_1.kv.get(key);
         if (!existing)
             return res.status(404).json({ error: 'Player not found.' });
         const char = existing.character;
@@ -28,7 +31,7 @@ export default async function handler(req, res) {
                 hospitalized: false,
             },
         };
-        await kv.set(key, mergePreservingImages(healed, existing));
+        await _storage_js_1.kv.set(key, (0, _utils_js_1.mergePreservingImages)(healed, existing));
         return res.status(200).json({ ok: true });
     }
     catch (err) {

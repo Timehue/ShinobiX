@@ -1,5 +1,8 @@
-import { kv } from './_storage.js';
-import { cors } from './_utils.js';
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.default = handler;
+const _storage_js_1 = require("./_storage.js");
+const _utils_js_1 = require("./_utils.js");
 const TERRITORY_CONTROL_MAX = 20000;
 const TERRITORY_HP_MAX = 20000;
 const VILLAGE_WAR_HP_MAX = 5000;
@@ -67,19 +70,19 @@ function normalizeVillageWar(data) {
 }
 async function getByPrefix(prefix) {
     try {
-        const keys = await kv.keys(`${prefix}*`);
+        const keys = await _storage_js_1.kv.keys(`${prefix}*`);
         if (!keys.length)
             return [];
         // Use mget to fetch all values in one round-trip instead of N individual gets.
-        const values = await kv.mget(...keys);
+        const values = await _storage_js_1.kv.mget(...keys);
         return values.filter(Boolean);
     }
     catch {
         return [];
     }
 }
-export default async function handler(req, res) {
-    cors(res);
+async function handler(req, res) {
+    (0, _utils_js_1.cors)(res);
     if (req.method === 'OPTIONS')
         return res.status(200).end();
     if (req.method === 'GET') {
@@ -98,14 +101,14 @@ export default async function handler(req, res) {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
             if (body?.kind === 'territory') {
                 const territory = normalizeSectorTerritory({ ...body.territory, updatedAt: Date.now() });
-                await kv.set(`${TERRITORY_KEY_PREFIX}${territory.sector}`, territory);
+                await _storage_js_1.kv.set(`${TERRITORY_KEY_PREFIX}${territory.sector}`, territory);
                 return res.status(200).json({ territory });
             }
             if (body?.kind === 'war') {
                 const war = normalizeVillageWar({ ...body.war, updatedAt: Date.now() });
                 if (!war)
                     return res.status(400).json({ error: 'Invalid war.' });
-                await kv.set(`${VILLAGE_WAR_KEY_PREFIX}${war.id}`, war);
+                await _storage_js_1.kv.set(`${VILLAGE_WAR_KEY_PREFIX}${war.id}`, war);
                 return res.status(200).json({ war });
             }
             return res.status(400).json({ error: 'Invalid world state update.' });
