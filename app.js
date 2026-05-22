@@ -74,5 +74,21 @@ try {
 
 require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 
+// Diagnostic: log the size, mtime, and v: marker of dist/server.js so we can
+// verify what version is actually on disk (separate from any module cache).
+try {
+    const fs = require('fs');
+    const path = require('path');
+    const serverPath = path.join(__dirname, 'dist', 'server.js');
+    const stat = fs.statSync(serverPath);
+    const content = fs.readFileSync(serverPath, 'utf8');
+    const vMatch = content.match(/v:\s*(\d+)/);
+    const vMarker = vMatch ? `v:${vMatch[1]}` : 'NO v: marker';
+    const hasTcpTest = content.includes('tcpTest');
+    console.log('[app] dist/server.js size=' + stat.size + ' mtime=' + stat.mtime.toISOString() + ' ' + vMarker + ' tcpTest=' + hasTcpTest);
+} catch (e) {
+    console.warn('[app] Could not stat dist/server.js:', e.message);
+}
+
 // Start the compiled Express server.
 require('./dist/server.js');
