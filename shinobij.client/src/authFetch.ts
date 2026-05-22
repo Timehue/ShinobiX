@@ -21,8 +21,11 @@
  * No-op on the server side (no window).
  */
 
+// We deliberately use sessionStorage (not localStorage) because the rest of
+// the app strips passwords before persisting to localStorage. sessionStorage
+// keeps the credential alive for the current tab session only.
 const ACTIVE_PLAYER_KEY = 'shinobix:activePlayer';
-const ACCOUNTS_KEY = 'ninjav-player-accounts-v1';
+const ACTIVE_PASSWORD_KEY = 'shinobix:activePassword';
 
 function getActivePlayer(): string | null {
     try {
@@ -32,13 +35,9 @@ function getActivePlayer(): string | null {
     }
 }
 
-function getPasswordFor(name: string): string | null {
+function getActivePassword(): string | null {
     try {
-        const raw = localStorage.getItem(ACCOUNTS_KEY);
-        if (!raw) return null;
-        const accounts = JSON.parse(raw) as Record<string, { password?: string }>;
-        const lookup = name.trim().toLowerCase();
-        return accounts[lookup]?.password ?? null;
+        return sessionStorage.getItem(ACTIVE_PASSWORD_KEY);
     } catch {
         return null;
     }
@@ -66,10 +65,26 @@ function hasAuthHeader(init: RequestInit | undefined, input: RequestInfo | URL):
     );
 }
 
-export function setActivePlayer(name: string | null): void {
+/**
+ * Update the active session identity. Call:
+ *   - after a successful login        → setActivePlayer(name, password)
+ *   - after a successful registration → setActivePlayer(name, password)
+ *   - on logout / clear               → setActivePlayer(null)
+ *
+ * If `password` is omitted, only the name is updated (existing password kept).
+ * Pass `null` for name to clear both.
+ */
+export function setActivePlayer(name: string | null, password?: string | null): void {
     try {
-        if (name) sessionStorage.setItem(ACTIVE_PLAYER_KEY, name);
-        else sessionStorage.removeItem(ACTIVE_PLAYER_KEY);
+        if (name === null) {
+            sessionStorage.removeItem(ACTIVE_PLAYER_KEY);
+            sessionStorage.removeItem(ACTIVE_PASSWORD_KEY);
+            return;
+        }
+        sessionStorage.setItem(ACTIVE_PLAYER_KEY, name);
+        if (password !== undefined && password !== null) {
+            sessionStorage.setItem(ACTIVE_PASSWORD_KEY, password);
+        }
     } catch {
         /* sessionStorage disabled — ignore */
     }
@@ -89,9 +104,8 @@ export function installAuthFetch(): void {
             return originalFetch(input, init);
         }
         const activeName = getActivePlayer();
-        if (!activeName) return originalFetch(input, init);
-        const pw = getPasswordFor(activeName);
-        if (!pw) return originalFetch(input, init);
+        const pw = getActivePassword();
+        if (!activeName || !pw) return originalFetch(input, init);
 
         // Clone init and merge headers without clobbering anything the caller set.
         const newInit: RequestInit = { ...(init ?? {}) };
