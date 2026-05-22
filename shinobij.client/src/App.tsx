@@ -1359,6 +1359,35 @@ const petExpeditionOptions: { type: PetExpeditionType; label: string; durationMs
     { type: "forage", label: "Forage Wilds", durationMs: 2 * 60 * 60 * 1000, durationLabel: "2h", desc: "Balanced XP, stats, and material chance." },
     { type: "ruins", label: "Explore Old Ruins", durationMs: 4 * 60 * 60 * 1000, durationLabel: "4h", desc: "Long trip with best rare currency odds." },
 ];
+const petExpeditionStories: Record<PetExpeditionType, string[]> = {
+    scout: [
+        "darted between rooftops at dusk, trailing a suspicious courier across three districts",
+        "mapped every guard post along the eastern ridge, leaving claw marks only you'd recognize",
+        "tracked a faint chakra trail deep into the wetlands and found an abandoned supply cache",
+        "ran the outer wall circuit four times, timing every patrol rotation to the second",
+        "spotted a rival clan scout and shadowed them all the way back to their camp — undetected",
+        "intercepted a courier pigeon mid-flight and returned with the message still sealed",
+        "scouted the canyon pass at night, memorizing every shadow and hidden alcove",
+    ],
+    forage: [
+        "wrestled a river boar for its catch, won decisively, and came home smelling like adventure",
+        "found a hidden spring deep in the crimson forest, guarded by territorial serpents — still collected",
+        "spent the afternoon beneath a waterfall dodging falling rocks and rival scavengers",
+        "unearthed old battle-marked coins half-buried beneath a gnarled root near the northern ridge",
+        "dug through three collapsed burrows before finding a cache of strange glowing herbs",
+        "traded stares with a mountain wolf for twenty minutes, then calmly took what was needed",
+        "foraged through a fog-drenched valley, returning with roots and seeds no market stocks",
+    ],
+    ruins: [
+        "descended into a crumbling shrine and emerged carrying relics no map has ever marked",
+        "triggered an ancient ward trap, survived the blast, and looted whatever was sealed behind it",
+        "navigated collapsed stone corridors by instinct alone — and found something waiting at the end",
+        "spent hours reading sealing scripts carved into walls most shinobi are too afraid to approach",
+        "slipped through a flooded lower chamber and resurfaced holding something that hummed faintly",
+        "found a sealed door, opened it somehow, and returned with a look that says 'don't ask'",
+        "explored a forgotten battlefield beneath the ruins — the bones were old; the chakra was not",
+    ],
+};
 const balancedPetBaseStats: Record<PetRarity, { hp: number; attack: number; defense: number; speed: number; jutsuPower: number; moveRange: number }> = {
     standard: { hp: 320, attack: 40, defense: 28, speed: 30, jutsuPower: 50, moveRange: 3 },
     rare: { hp: 370, attack: 48, defense: 34, speed: 36, jutsuPower: 62, moveRange: 3 },
@@ -8145,7 +8174,7 @@ export default function App() {
                 )}
                 {!activeTriggeredEvent && screen === "storyBoss" && character && <StoryBoss character={character} updateCharacter={setCharacter} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "training" && character && <Training character={character} updateCharacter={setCharacter} activeTraining={activeTraining} setActiveTraining={setActiveTraining} />}
-                {!activeTriggeredEvent && screen === "pets" && character && <PetYard character={character} updateCharacter={setCharacter} setScreen={navigate} />}
+                {!activeTriggeredEvent && screen === "pets" && character && <PetYard character={character} updateCharacter={setCharacter} setScreen={navigate} onImmediateSave={(char) => { void pushSaveToServer(char, currentAccountName).catch(() => {}); }} />}
                 {!activeTriggeredEvent && screen === "petArena" && character && <PetArena character={character} updateCharacter={setCharacter} playerRoster={playerRoster} allServerPlayers={allServerPlayers} setScreen={setScreen} sharedImages={sharedImages} duelChallenges={duelChallenges} setDuelChallenges={setDuelChallenges} pendingPetBattleOpponent={pendingPetBattleOpponent} onPendingPetBattleStarted={() => setPendingPetBattleOpponent(null)} />}
                 {!activeTriggeredEvent && screen === "eventPetBattle" && character && pendingEventEncounter && (() => {
                     const sourcePet = editablePets.find((pet) => pet.id === pendingEventEncounter.battle?.petId) ?? editablePets[0] ?? petPool[0];
@@ -9321,11 +9350,16 @@ function AdminClearAuthLock({ adminPw }: { adminPw: string }) {
     );
 }
 
-function PetYard({ character, updateCharacter, setScreen }: { character: Character; updateCharacter: (c: Character) => void; setScreen: (s: Screen) => void }) {
+function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { character: Character; updateCharacter: (c: Character) => void; setScreen: (s: Screen) => void; onImmediateSave?: (c: Character) => void }) {
     const [selectedPetId, setSelectedPetId] = useState(character.pets[0]?.id ?? "");
     const [trainingType, setTrainingType] = useState<PetTrainingType>("strength");
     const [trainingDuration, setTrainingDuration] = useState(petTrainingDurations[0].ms);
     const [expeditionType, setExpeditionType] = useState<PetExpeditionType>("scout");
+    const [expeditionResult, setExpeditionResult] = useState<{
+        petName: string; summary: string; expType: PetExpeditionType;
+        ryo: number; xp: number; statGain: number;
+        foundFate: number; foundAura: number; foundBone: number; leveledUp: boolean;
+    } | null>(null);
     const [tick, setTick] = useState(0);
     const [petHeartBurst, setPetHeartBurst] = useState(0);
     const [nicknameInput, setNicknameInput] = useState("");
@@ -9365,32 +9399,57 @@ function PetYard({ character, updateCharacter, setScreen }: { character: Charact
 
     function collectExpedition() {
         if (!selectedPet?.expedition) return;
-        if (Date.now() < selectedPet.expedition.endsAt) return alert(`${petDisplayName(selectedPet)} returns in ${formatPetTimer(selectedPet.expedition.endsAt - Date.now())}.`);
+        if (Date.now() < selectedPet.expedition.endsAt)
+            return alert(`${petDisplayName(selectedPet)} returns in ${formatPetTimer(selectedPet.expedition.endsAt - Date.now())}.`);
+
+        const expType = selectedPet.expedition.type;
         const durationHours = Math.max(1, selectedPet.expedition.durationMs / 3600000);
-        const xp = Math.round(120 * durationHours);
-        const ryo = Math.round(90 * durationHours + selectedPet.level * 6);
+
+        // Per-type multipliers
+        const ryoMult  = expType === "scout"  ? 1.35 : expType === "forage" ? 1.0 : 1.1;
+        const xpMult   = expType === "forage" ? 1.45 : expType === "ruins"  ? 1.2 : 1.0;
+        // Ruins best rare odds, forage moderate, scout lowest
+        const rareMult = expType === "ruins"  ? 1.65 : expType === "forage" ? 1.2 : 1.0;
+
+        const xp      = Math.round(120 * durationHours * xpMult);
+        const ryo     = Math.round(90  * durationHours * ryoMult + selectedPet.level * 6);
         const statGain = Math.max(1, Math.round(durationHours));
-        const roll = Math.random();
-        const foundFate = roll > 0.88 ? 1 : 0;
-        const foundAura = roll > 0.72 ? 1 : 0;
-        const foundBone = roll > 0.55 ? 1 : 0;
+
+        // Independent rolls for each rare item (base chances: 40 / 22 / 10%)
+        const foundBone = Math.random() < 0.40 * rareMult ? 1 : 0;
+        const foundAura = Math.random() < 0.22 * rareMult ? 1 : 0;
+        const foundFate = Math.random() < 0.10 * rareMult ? 1 : 0;
+
+        const levelBefore = selectedPet.level;
         const returnedPet = capPetStats(gainPetXp({
             ...selectedPet,
-            attack: selectedPet.attack + statGain,
-            defense: selectedPet.defense + statGain,
-            speed: selectedPet.speed + (selectedPet.expedition.type === "scout" ? statGain : 0),
-            hp: selectedPet.hp + statGain * 5,
+            attack:  selectedPet.attack  + statGain,
+            defense: selectedPet.defense + statGain + (expType === "ruins" ? statGain : 0),
+            speed:   selectedPet.speed   + (expType === "scout"  ? statGain : 0),
+            hp:      selectedPet.hp      + statGain * 5,
             expedition: undefined,
         }, xp));
-        updateCharacter({
+        const leveledUp = returnedPet.level > levelBefore;
+
+        const stories = petExpeditionStories[expType];
+        const summary = stories[Math.floor(Math.random() * stories.length)];
+
+        const nextCharacter: Character = {
             ...character,
-            ryo: character.ryo + ryo,
+            ryo:        character.ryo + ryo,
             fateShards: (character.fateShards ?? 0) + foundFate,
             auraStones: (character.auraStones ?? 0) + foundAura,
             boneCharms: (character.boneCharms ?? 0) + foundBone,
             pets: character.pets.map((p) => p.id === selectedPet.id ? returnedPet : p),
+        };
+        updateCharacter(nextCharacter);
+        onImmediateSave?.(nextCharacter);
+
+        setExpeditionResult({
+            petName: petDisplayName(selectedPet),
+            summary, expType, ryo, xp, statGain,
+            foundFate, foundAura, foundBone, leveledUp,
         });
-        alert(`${petDisplayName(selectedPet)} returned. +${ryo} ryo, +${xp} pet XP, stats improved.${foundBone ? " +1 Bone Charm." : ""}${foundAura ? " +1 Aura Stone." : ""}${foundFate ? " +1 Fate Shard." : ""}`);
     }
 
     function collectTraining() {
@@ -9474,8 +9533,78 @@ function PetYard({ character, updateCharacter, setScreen }: { character: Charact
         setSelectedPetId(updatedPets[0]?.id ?? "");
     }
 
+    const expTypeLabel: Record<PetExpeditionType, string> = { scout: "Scout Routes", forage: "Forage Wilds", ruins: "Explore Old Ruins" };
+    const expTypeIcon:  Record<PetExpeditionType, string> = { scout: "🏃", forage: "🌿", ruins: "🏛️" };
+
     return (
         <div className="pet-yard-screen">
+
+            {/* ── Expedition reward modal ── */}
+            {expeditionResult && (
+                <div className="expedition-result-backdrop" onClick={() => setExpeditionResult(null)}>
+                    <div className="expedition-result-modal" onClick={(e) => e.stopPropagation()}>
+                        <div className="expedition-result-header">
+                            <span className="expedition-result-icon">{expTypeIcon[expeditionResult.expType]}</span>
+                            <div>
+                                <h3 className="expedition-result-title">{expeditionResult.petName} has returned!</h3>
+                                <p className="expedition-result-type">{expTypeLabel[expeditionResult.expType]}</p>
+                            </div>
+                        </div>
+
+                        <p className="expedition-result-story">
+                            <em>{expeditionResult.petName}</em> {expeditionResult.summary}.
+                        </p>
+
+                        {expeditionResult.leveledUp && (
+                            <div className="expedition-level-up">⭐ Level Up! Your pet grew stronger from this journey.</div>
+                        )}
+
+                        <div className="expedition-rewards-grid">
+                            <div className="expedition-reward-row">
+                                <span className="expedition-reward-icon">💰</span>
+                                <span className="expedition-reward-label">Ryo</span>
+                                <span className="expedition-reward-value">+{expeditionResult.ryo.toLocaleString()}</span>
+                            </div>
+                            <div className="expedition-reward-row">
+                                <span className="expedition-reward-icon">✨</span>
+                                <span className="expedition-reward-label">Pet XP</span>
+                                <span className="expedition-reward-value">+{expeditionResult.xp.toLocaleString()}</span>
+                            </div>
+                            <div className="expedition-reward-row">
+                                <span className="expedition-reward-icon">📈</span>
+                                <span className="expedition-reward-label">Stats</span>
+                                <span className="expedition-reward-value">+{expeditionResult.statGain} ATK / DEF / HP</span>
+                            </div>
+                            {expeditionResult.foundBone > 0 && (
+                                <div className="expedition-reward-row expedition-reward-rare">
+                                    <span className="expedition-reward-icon">🦴</span>
+                                    <span className="expedition-reward-label">Bone Charm</span>
+                                    <span className="expedition-reward-value">+{expeditionResult.foundBone}</span>
+                                </div>
+                            )}
+                            {expeditionResult.foundAura > 0 && (
+                                <div className="expedition-reward-row expedition-reward-rare">
+                                    <span className="expedition-reward-icon">💎</span>
+                                    <span className="expedition-reward-label">Aura Stone</span>
+                                    <span className="expedition-reward-value">+{expeditionResult.foundAura}</span>
+                                </div>
+                            )}
+                            {expeditionResult.foundFate > 0 && (
+                                <div className="expedition-reward-row expedition-reward-legendary">
+                                    <span className="expedition-reward-icon">🌟</span>
+                                    <span className="expedition-reward-label">Fate Shard</span>
+                                    <span className="expedition-reward-value">+{expeditionResult.foundFate}</span>
+                                </div>
+                            )}
+                        </div>
+
+                        <button className="admin-button" style={{ width: "100%", marginTop: 8 }} onClick={() => setExpeditionResult(null)}>
+                            Claim Rewards
+                        </button>
+                    </div>
+                </div>
+            )}
+
             <div className="pet-yard-overlay">
                 <div className="pet-yard-header">
                     <button className="back-btn" onClick={() => setScreen("village")}>? Village</button>
