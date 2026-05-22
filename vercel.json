@@ -5,7 +5,8 @@
   "framework": null,
   "functions": {
     "api/**/*.ts": {
-      "maxDuration": 30
+      "maxDuration": 30,
+      "memory": 256
     }
   },
   "rewrites": [
@@ -25,7 +26,7 @@
       ]
     },
     {
-      "source": "/api/(.*)",
+      "source": "/api/(auth|player-auth|save)/(.*)",
       "headers": [
         { "key": "Cache-Control", "value": "no-store" }
       ]

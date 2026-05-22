@@ -141,7 +141,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const toRecord = ({ name: n, sector: s, character: c, travelingUntil: tu, inBattle: ib }: PresenceEntry) => {
             const ch = c as Record<string, unknown> | null;
             return {
-                name: n, sector: s, character: c,
+                name: n, sector: s,
+                // Only include the avatar — full stats/jutsu/inventory are fetched fresh via
+                // fetchPlayerCombatSave() at attack/challenge time, so the full blob is wasteful here.
+                character: { avatarImage: (ch?.avatarImage as string) ?? '' },
                 level: ch?.level ?? 1,
                 village: ch?.village ?? '',
                 specialty: ch?.specialty ?? 'Ninjutsu',
