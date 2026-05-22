@@ -19257,6 +19257,7 @@ function CentralHub({
     const [showDungeonPanel, setShowDungeonPanel] = useState(false);
     const [showCrafter, setShowCrafter] = useState(false);
     const [crafterTab, setCrafterTab] = useState<"supplies" | "weapons">("supplies");
+    const [weaponInfoItem, setWeaponInfoItem] = useState<GameItem | null>(null);
 
     // Named Weapon forge state
     type NamedWeaponRoll = { ep: number; range: 3 | 4 | 5; offenseVal: number; tags: Array<{ name: string; percent: number }> };
@@ -19912,13 +19913,43 @@ function CentralHub({
 
                             {crafterTab === "weapons" && <><div className="crafter-material-list">
                                 <strong>Weapon Materials</strong>
-                                <div className="crafter-material-row"><span>Wolf Fang</span><span>{countInventory("hunt-wolf-fang")}Ã—</span></div>
-                                <div className="crafter-material-row"><span>Shadow Pelt</span><span>{countInventory("hunt-shadow-pelt")}Ã—</span></div>
-                                <div className="crafter-material-row"><span>Weekly Boss Core</span><span>{countInventory(WEEKLY_BOSS_CORE_ID)}Ã—</span></div>
-                                <div className="crafter-material-row"><span>Dungeon Legendary Relic</span><span>{countInventory(DUNGEON_LEGENDARY_RELIC_ID)}Ã—</span></div>
-                                <div className="crafter-material-row"><span>Warforged Relic</span><span>{countInventory(WARFORGED_RELIC_ID)}Ã—</span></div>
+                                <div className="crafter-material-row"><span>🐺 Wolf Fang</span><span>{countInventory("hunt-wolf-fang")} ×</span></div>
+                                <div className="crafter-material-row"><span>🐆 Shadow Pelt</span><span>{countInventory("hunt-shadow-pelt")} ×</span></div>
+                                <div className="crafter-material-row"><span>💠 Weekly Boss Core</span><span>{countInventory(WEEKLY_BOSS_CORE_ID)} ×</span></div>
+                                <div className="crafter-material-row"><span>💎 Dungeon Legendary Relic</span><span>{countInventory(DUNGEON_LEGENDARY_RELIC_ID)} ×</span></div>
+                                <div className="crafter-material-row"><span>⚔️ Warforged Relic</span><span>{countInventory(WARFORGED_RELIC_ID)} ×</span></div>
                             </div>
 
+                            {weaponInfoItem && (
+                                <div className="modal-overlay" onClick={() => setWeaponInfoItem(null)}>
+                                    <div className="modal-box weapon-info-modal" onClick={e => e.stopPropagation()}>
+                                        <button className="modal-close-btn" onClick={() => setWeaponInfoItem(null)}>✕</button>
+                                        {(sharedImages['item:' + weaponInfoItem.id] || weaponInfoItem.image) && (
+                                            <img
+                                                src={sharedImages['item:' + weaponInfoItem.id] || weaponInfoItem.image}
+                                                alt={weaponInfoItem.name}
+                                                className="weapon-info-img"
+                                            />
+                                        )}
+                                        <h3 className="weapon-info-name">{weaponInfoItem.name}</h3>
+                                        <div className="weapon-info-badge" data-rarity={weaponInfoItem.rarity}>{weaponInfoItem.rarity.toUpperCase()}</div>
+                                        <div className="weapon-info-stats">
+                                            <div><span>Level Req</span><span>{weaponInfoItem.levelReq ?? 1}</span></div>
+                                            <div><span>EP</span><span>{weaponInfoItem.weaponEp ?? 0}</span></div>
+                                            <div><span>Effect</span><span>{weaponInfoItem.weaponEffect ?? "—"}</span></div>
+                                            {weaponInfoItem.weaponEffectValue != null && (
+                                                <div><span>Effect Value</span><span>{weaponInfoItem.weaponEffectValue}</span></div>
+                                            )}
+                                            {weaponInfoItem.weaponRange != null && (
+                                                <div><span>Range</span><span>{weaponInfoItem.weaponRange}</span></div>
+                                            )}
+                                        </div>
+                                        {weaponInfoItem.description && (
+                                            <p className="weapon-info-desc">{weaponInfoItem.description}</p>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
                             <div className="crafter-recipe-grid">
                                 {craftableWeapons.map((item) => {
                                     const req = weaponCraftRequirements(item);
@@ -19926,7 +19957,10 @@ function CentralHub({
                                     const reqText = Object.entries(req.items).map(([id, qty]) => `${qty}x ${itemDisplayName(id, allHubItems)}`).join(", ");
                                     return (
                                         <div key={item.id} className="crafter-recipe-btn">
-                                            <strong>{item.name}</strong>
+                                            <div className="crafter-recipe-btn-header">
+                                                <strong>{item.name}</strong>
+                                                <button className="weapon-info-btn" onClick={() => setWeaponInfoItem(item)} title="View weapon info">?</button>
+                                            </div>
                                             <small>{item.rarity.toUpperCase()} | Lv {item.levelReq ?? 1} | {item.weaponEp ?? 0} EP | {item.weaponEffect ?? "Weapon"}</small>
                                             <small>{reqText} + {req.ryo.toLocaleString()} ryo</small>
                                             <button onClick={() => craftExistingWeapon(item)} disabled={!ready}>
