@@ -1,17 +1,20 @@
-import { kv } from '../_storage.js';
-import { safeName, mergePreservingImages, cors } from '../_utils.js';
-import { verifyPlayerPassword } from '../player-auth.js';
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.default = handler;
+const _storage_js_1 = require("../_storage.js");
+const _utils_js_1 = require("../_utils.js");
+const player_auth_js_1 = require("../player-auth.js");
 const REGISTRY_KEY = 'player:registry';
-export default async function handler(req, res) {
-    cors(res);
+async function handler(req, res) {
+    (0, _utils_js_1.cors)(res);
     if (req.method === 'OPTIONS')
         return res.status(200).end();
-    const name = safeName(String(req.query.name ?? ''));
+    const name = (0, _utils_js_1.safeName)(String(req.query.name ?? ''));
     if (!name)
         return res.status(400).json({ error: 'Invalid name.' });
     const key = `save:${name}`;
     if (req.method === 'GET') {
-        const data = await kv.get(key);
+        const data = await _storage_js_1.kv.get(key);
         if (data === null)
             return res.status(404).end();
         return res.status(200).json(data);
@@ -22,8 +25,8 @@ export default async function handler(req, res) {
             const adminLockKey = `admin-lock:${name.toLowerCase()}`;
             if (req.query.ack === '1') {
                 await Promise.all([
-                    kv.del(resetSignalKey),
-                    kv.del(adminLockKey),
+                    _storage_js_1.kv.del(resetSignalKey),
+                    _storage_js_1.kv.del(adminLockKey),
                 ]);
                 return res.status(200).json({ ok: true });
             }
@@ -44,13 +47,13 @@ export default async function handler(req, res) {
             const incoming = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
             if (!isAdminSave) {
                 const [pendingSignal, adminLock, existing] = await Promise.all([
-                    kv.get(resetSignalKey),
-                    kv.get(adminLockKey),
-                    kv.get(key),
+                    _storage_js_1.kv.get(resetSignalKey),
+                    _storage_js_1.kv.get(adminLockKey),
+                    _storage_js_1.kv.get(key),
                 ]);
                 if (pendingSignal || adminLock)
                     return res.status(200).end();
-                const payload = existing ? mergePreservingImages(incoming, existing) : incoming;
+                const payload = existing ? (0, _utils_js_1.mergePreservingImages)(incoming, existing) : incoming;
                 const char = incoming?.character;
                 const displayName = char?.name || name;
                 const registryEntry = {
@@ -61,15 +64,15 @@ export default async function handler(req, res) {
                     lastSeen: Date.now(),
                 };
                 await Promise.all([
-                    kv.set(key, payload),
-                    kv.hset(REGISTRY_KEY, { [name]: JSON.stringify(registryEntry) }),
+                    _storage_js_1.kv.set(key, payload),
+                    _storage_js_1.kv.hset(REGISTRY_KEY, { [name]: JSON.stringify(registryEntry) }),
                 ]);
                 return res.status(200).end();
             }
             // Admin save path — lock first, then read + write, then signal reload.
-            await kv.set(adminLockKey, 1, { ex: 300 });
-            const existing = await kv.get(key);
-            const payload = existing ? mergePreservingImages(incoming, existing) : incoming;
+            await _storage_js_1.kv.set(adminLockKey, 1, { ex: 300 });
+            const existing = await _storage_js_1.kv.get(key);
+            const payload = existing ? (0, _utils_js_1.mergePreservingImages)(incoming, existing) : incoming;
             const char = incoming?.character;
             const displayName = char?.name || name;
             const registryEntry = {
@@ -80,11 +83,11 @@ export default async function handler(req, res) {
                 lastSeen: Date.now(),
             };
             await Promise.all([
-                kv.set(key, payload),
-                kv.hset(REGISTRY_KEY, { [name]: JSON.stringify(registryEntry) }),
+                _storage_js_1.kv.set(key, payload),
+                _storage_js_1.kv.hset(REGISTRY_KEY, { [name]: JSON.stringify(registryEntry) }),
             ]);
             // Set reset-signal after the new save is committed so the client reloads that exact version.
-            await kv.set(resetSignalKey, 1, { ex: 300 });
+            await _storage_js_1.kv.set(resetSignalKey, 1, { ex: 300 });
             return res.status(200).end();
         }
         catch (err) {
@@ -101,10 +104,10 @@ export default async function handler(req, res) {
                 // Allow player to delete their own save by providing their own password.
                 if (!playerPw)
                     return res.status(401).json({ error: 'Authentication required.' });
-                const authRecord = await kv.get(`auth:${name.toLowerCase()}`);
+                const authRecord = await _storage_js_1.kv.get(`auth:${name.toLowerCase()}`);
                 if (authRecord) {
                     // Server-side password exists — must verify
-                    const valid = await verifyPlayerPassword(name, playerPw);
+                    const valid = await (0, player_auth_js_1.verifyPlayerPassword)(name, playerPw);
                     if (!valid)
                         return res.status(401).json({ error: 'Incorrect password.' });
                 }
@@ -113,12 +116,12 @@ export default async function handler(req, res) {
             }
             const lowered = name.toLowerCase();
             const adminLockKey = `admin-lock:${lowered}`;
-            await kv.set(adminLockKey, 1, { ex: 300 });
+            await _storage_js_1.kv.set(adminLockKey, 1, { ex: 300 });
             await Promise.all([
-                kv.del(key),
-                kv.hdel(REGISTRY_KEY, name),
+                _storage_js_1.kv.del(key),
+                _storage_js_1.kv.hdel(REGISTRY_KEY, name),
                 // Signal the player's client to reload on next heartbeat (5-min TTL)
-                kv.set(`reset-signal:${lowered}`, 1, { ex: 300 }),
+                _storage_js_1.kv.set(`reset-signal:${lowered}`, 1, { ex: 300 }),
             ]);
             return res.status(200).json({ ok: true });
         }

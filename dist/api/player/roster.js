@@ -1,5 +1,8 @@
-import { kv } from '../_storage.js';
-import { cors } from '../_utils.js';
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.default = handler;
+const _storage_js_1 = require("../_storage.js");
+const _utils_js_1 = require("../_utils.js");
 const REGISTRY_KEY = 'player:registry';
 const PRESENCE_KEY_PREFIX = 'presence:';
 const PRESENCE_TTL_MS = 65_000; // kept for belt-and-suspenders staleness check
@@ -9,8 +12,8 @@ function normalizeSector(value, fallback = 40) {
         return fallback;
     return Math.max(0, Math.floor(sector));
 }
-export default async function handler(req, res) {
-    cors(res);
+async function handler(req, res) {
+    (0, _utils_js_1.cors)(res);
     if (req.method === 'OPTIONS')
         return res.status(200).end();
     if (req.method !== 'GET')
@@ -18,21 +21,21 @@ export default async function handler(req, res) {
     try {
         // Read individual presence:<name> TTL keys written by heartbeat.ts.
         // kv.keys() only returns non-expired keys, so no manual TTL filter needed.
-        const presenceKeys = await kv.keys(`${PRESENCE_KEY_PREFIX}*`);
+        const presenceKeys = await _storage_js_1.kv.keys(`${PRESENCE_KEY_PREFIX}*`);
         const presenceValues = presenceKeys.length > 0
-            ? await kv.mget(...presenceKeys)
+            ? await _storage_js_1.kv.mget(...presenceKeys)
             : [];
         const now = Date.now();
         const presenceEntries = presenceValues.filter((v) => Boolean(v?.name) && now - (v.lastSeen ?? 0) <= PRESENCE_TTL_MS);
         const livePresenceByName = new Map(presenceEntries.map(entry => [entry.name.toLowerCase(), entry]));
         const onlineNames = new Set(livePresenceByName.keys());
         // Primary: persistent registry (every player who ever connected)
-        const rawRegistry = await kv.hgetall(REGISTRY_KEY) ?? {};
+        const rawRegistry = await _storage_js_1.kv.hgetall(REGISTRY_KEY) ?? {};
         const registryKeys = Object.keys(rawRegistry);
         // Batch-fetch all saves in one command instead of N sequential kv.get() calls.
         const saveKeys = registryKeys.map(k => `save:${k}`);
         const saves = saveKeys.length > 0
-            ? await kv.mget(...saveKeys)
+            ? await _storage_js_1.kv.mget(...saveKeys)
             : [];
         const players = [];
         for (let i = 0; i < registryKeys.length; i++) {
@@ -58,7 +61,7 @@ export default async function handler(req, res) {
         }
         // Supplement: any saves not yet in the registry — no extra get() calls needed,
         // just list their names so they show up; character data will arrive on next heartbeat.
-        const saveKeysFull = await kv.keys('save:*');
+        const saveKeysFull = await _storage_js_1.kv.keys('save:*');
         for (const key of saveKeysFull) {
             const name = key.replace('save:', '');
             if (players.some(p => p.name.toLowerCase() === name.toLowerCase()))

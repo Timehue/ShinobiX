@@ -1,5 +1,10 @@
+"use strict";
 // Shared utilities for Vercel API functions
-export function safeName(name) {
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.safeName = safeName;
+exports.mergePreservingImages = mergePreservingImages;
+exports.cors = cors;
+function safeName(name) {
     return name.toLowerCase().replace(/[^a-z0-9\-_]/g, '');
 }
 function recordId(value) {
@@ -13,7 +18,7 @@ function isImageField(key, value) {
         key === 'leftImage' ||
         key === 'rightImage') && typeof value === 'string';
 }
-export function mergePreservingImages(incoming, existing) {
+function mergePreservingImages(incoming, existing) {
     if (Array.isArray(incoming)) {
         return incoming.map((item, index) => {
             const existingArray = Array.isArray(existing) ? existing : [];
@@ -40,7 +45,7 @@ export function mergePreservingImages(incoming, existing) {
     }
     return merged;
 }
-export function cors(res) {
+function cors(res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-password, x-player-password');

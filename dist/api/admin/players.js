@@ -1,8 +1,11 @@
-import { kv } from '../_storage.js';
-import { cors } from '../_utils.js';
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.default = handler;
+const _storage_js_1 = require("../_storage.js");
+const _utils_js_1 = require("../_utils.js");
 const REGISTRY_KEY = 'player:registry';
-export default async function handler(req, res) {
-    cors(res);
+async function handler(req, res) {
+    (0, _utils_js_1.cors)(res);
     if (req.method === 'OPTIONS')
         return res.status(200).end();
     if (req.method !== 'POST')
@@ -15,10 +18,10 @@ export default async function handler(req, res) {
             return res.status(401).json({ error: 'Unauthorized.' });
         }
         // Pull presence keys to determine who is online right now
-        const presenceKeys = await kv.keys('presence:*');
+        const presenceKeys = await _storage_js_1.kv.keys('presence:*');
         const onlineNames = new Set(presenceKeys.map(k => k.replace('presence:', '').toLowerCase()));
         // Primary source: persistent player registry (hset by heartbeat + save API)
-        const rawRegistry = await kv.hgetall(REGISTRY_KEY) ?? {};
+        const rawRegistry = await _storage_js_1.kv.hgetall(REGISTRY_KEY) ?? {};
         const players = [];
         for (const [, value] of Object.entries(rawRegistry)) {
             try {
@@ -38,11 +41,11 @@ export default async function handler(req, res) {
         }
         // Scan all save:* keys — needed to catch accounts not yet in the registry
         // AND to collect player-submitted bloodlines.
-        const saveKeys = await kv.keys('save:*');
+        const saveKeys = await _storage_js_1.kv.keys('save:*');
         const bloodlineEntries = [];
         const saveSnaps = await Promise.all(saveKeys.map(async (key) => {
             try {
-                const snap = await kv.get(key);
+                const snap = await _storage_js_1.kv.get(key);
                 return { key, snap };
             }
             catch {
@@ -89,7 +92,7 @@ export default async function handler(req, res) {
         // (saveBloodline strips large data-urls on auto-save; they live in shared:imgfields:bloodline)
         if (bloodlineEntries.length > 0) {
             try {
-                const sharedImages = await kv.hgetall('shared:imgfields:bloodline') ?? {};
+                const sharedImages = await _storage_js_1.kv.hgetall('shared:imgfields:bloodline') ?? {};
                 for (const bl of bloodlineEntries) {
                     if (!bl.image && sharedImages[`bloodline:${bl.id}`]) {
                         bl.image = sharedImages[`bloodline:${bl.id}`];

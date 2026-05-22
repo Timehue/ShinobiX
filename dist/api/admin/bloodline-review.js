@@ -1,18 +1,21 @@
-import { kv } from '../_storage.js';
-import { cors, safeName } from '../_utils.js';
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.default = handler;
+const _storage_js_1 = require("../_storage.js");
+const _utils_js_1 = require("../_utils.js");
 const APPROVED_BLOODLINES_KEY = 'admin:approvedBloodlines';
 async function loadApprovedBloodlines() {
-    const approved = await kv.get(APPROVED_BLOODLINES_KEY);
+    const approved = await _storage_js_1.kv.get(APPROVED_BLOODLINES_KEY);
     return Array.isArray(approved) ? approved : [];
 }
 async function saveApprovedBloodlines(ids) {
-    await kv.set(APPROVED_BLOODLINES_KEY, Array.from(new Set(ids)));
+    await _storage_js_1.kv.set(APPROVED_BLOODLINES_KEY, Array.from(new Set(ids)));
 }
 function reviewKey(ownerKey, bloodlineId) {
     return `${ownerKey || 'admin'}:${bloodlineId}`;
 }
-export default async function handler(req, res) {
-    cors(res);
+async function handler(req, res) {
+    (0, _utils_js_1.cors)(res);
     if (req.method === 'OPTIONS')
         return res.status(200).end();
     if (req.method !== 'POST')
@@ -27,14 +30,14 @@ export default async function handler(req, res) {
         if (!bloodlineId || (action !== 'approve' && action !== 'delete' && action !== 'update')) {
             return res.status(400).json({ error: 'Missing action or bloodlineId.' });
         }
-        const cleanOwnerKey = safeName(ownerKey ?? '');
+        const cleanOwnerKey = (0, _utils_js_1.safeName)(ownerKey ?? '');
         const key = reviewKey(cleanOwnerKey || 'admin', bloodlineId);
         const approved = await loadApprovedBloodlines();
         if ((action === 'delete' || action === 'update') && cleanOwnerKey && cleanOwnerKey !== 'admin' && !cleanOwnerKey.startsWith('admin')) {
             const saveKey = `save:${cleanOwnerKey}`;
             const adminLockKey = `admin-lock:${cleanOwnerKey}`;
             const resetSignalKey = `reset-signal:${cleanOwnerKey}`;
-            const snap = await kv.get(saveKey);
+            const snap = await _storage_js_1.kv.get(saveKey);
             if (snap) {
                 const rawBloodlines = Array.isArray(snap.savedBloodlines) ? snap.savedBloodlines : [];
                 const nextBloodlines = action === 'delete'
@@ -47,9 +50,9 @@ export default async function handler(req, res) {
                         return { ...savedBloodline, ...bloodline, id: bloodlineId };
                     });
                 await Promise.all([
-                    kv.set(adminLockKey, 1, { ex: 300 }),
-                    kv.set(saveKey, { ...snap, savedBloodlines: nextBloodlines }),
-                    kv.set(resetSignalKey, 1, { ex: 300 }),
+                    _storage_js_1.kv.set(adminLockKey, 1, { ex: 300 }),
+                    _storage_js_1.kv.set(saveKey, { ...snap, savedBloodlines: nextBloodlines }),
+                    _storage_js_1.kv.set(resetSignalKey, 1, { ex: 300 }),
                 ]);
             }
         }
