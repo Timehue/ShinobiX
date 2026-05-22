@@ -11099,11 +11099,11 @@ textarea {
     .journey-banner {
         height: 120px !important;
         min-height: 120px !important;
-        background-position: 0% 35% !important;
+        background-position: left center !important;
     }
 
     .journey-banner-img {
-        object-position: 0% 35% !important;
+        object-position: left center !important;
     }
 
     .journey-live-stats {
@@ -11230,16 +11230,16 @@ button.combat-jutsu-button,
     min-height: var(--banner-h) !important;
     max-height: var(--banner-h) !important;
     overflow: hidden !important;
-    background-size: cover !important;
-    /* Left-anchored so the title text in the image is never clipped */
-    background-position: 0% 35% !important;
+    /* auto 100% scales the image to exactly fill the banner height — no vertical clipping */
+    background-size: auto 100% !important;
+    background-position: left center !important;
 }
 
 .journey-banner-img {
     width: 100% !important;
     height: 100% !important;
-    object-fit: cover !important;
-    object-position: 0% 35% !important;
+    object-fit: contain !important;
+    object-position: left center !important;
 }
 
 .journey-live-stats {
