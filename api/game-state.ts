@@ -8,6 +8,7 @@ const VILLAGE_STATE_PREFIX = 'game:village-state:';
 const ARENA_TOURNAMENT_KEY = 'game:arena:tournament';
 const ARENA_ACTIVE_FIGHTS_KEY = 'game:arena:active-fights';
 const CLAN_PET_BATTLE_PREFIX = 'game:clan-pet-battle:';
+const WEEKLY_BOSS_OVERRIDE_KEY = 'game:weekly-boss-override';
 
 function clanPetBattleKey(clanName: string) {
     return `${CLAN_PET_BATTLE_PREFIX}${clanName.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
@@ -19,12 +20,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (req.method === 'GET') {
         try {
-            const [villageStateKeys, leadershipImages, arenaTournament, arenaActiveFights, clanPetBattleKeys] = await Promise.all([
+            const [villageStateKeys, leadershipImages, arenaTournament, arenaActiveFights, clanPetBattleKeys, weeklyBossAiId] = await Promise.all([
                 kv.keys(`${VILLAGE_STATE_PREFIX}*`),
                 kv.get<Record<string, unknown>>(LEADERSHIP_IMAGES_KEY),
                 kv.get<unknown>(ARENA_TOURNAMENT_KEY),
                 kv.get<unknown[]>(ARENA_ACTIVE_FIGHTS_KEY),
                 kv.keys(`${CLAN_PET_BATTLE_PREFIX}*`),
+                kv.get<string>(WEEKLY_BOSS_OVERRIDE_KEY),
             ]);
 
             const villageStates: Record<string, unknown> = {};
@@ -61,6 +63,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 arenaTournament: arenaTournament ?? null,
                 arenaActiveFights: Array.isArray(arenaActiveFights) ? arenaActiveFights : [],
                 clanPetBattles,
+                weeklyBossAiId: weeklyBossAiId ?? null,
             });
         } catch (err) {
             console.error('[game-state]', err);
@@ -124,6 +127,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     await kv.del(key);
                 } else {
                     await kv.set(key, battle, { ex: 24 * 60 * 60 }); // 24-hour TTL
+                }
+                return res.status(200).json({ ok: true });
+            }
+
+            if (kind === 'weeklyBossOverride') {
+                if (!identity.admin) return res.status(403).json({ error: 'Admin only.' });
+                const { aiId } = body as { aiId?: string | null };
+                if (aiId) {
+                    await kv.set(WEEKLY_BOSS_OVERRIDE_KEY, aiId);
+                } else {
+                    await kv.del(WEEKLY_BOSS_OVERRIDE_KEY);
                 }
                 return res.status(200).json({ ok: true });
             }
