@@ -48,6 +48,8 @@ import itemReviewHandler   from './api/admin/item-review.js';
 import bloodlinesListHandler from './api/bloodlines/list.js';
 import rankedJoinHandler  from './api/ranked-queue/join.js';
 import rankedLeaveHandler from './api/ranked-queue/leave.js';
+import kvProxyHandler     from './api/kv-proxy.js';
+import migrateKvHandler   from './api/admin/migrate-kv.js';
 
 // ─── App setup ───────────────────────────────────────────────────────────────
 
@@ -278,6 +280,13 @@ route('/admin/item-review',      itemReviewHandler);
 // Ranked queue
 route('/ranked-queue/join',  rankedJoinHandler);
 route('/ranked-queue/leave', rankedLeaveHandler);
+
+// Internal KV proxy — Vercel forwards disk-routed keys here.
+// Mounted with a trailing :op param so /api/kv/get etc. all hit one handler.
+route('/kv/:op', kvProxyHandler);
+
+// Admin: migrate disk-routed keys from Supabase → disk overlay.
+route('/admin/migrate-kv', migrateKvHandler);
 
 // ─── Static files (React SPA) ─────────────────────────────────────────────────
 // STATIC_DIR env var overrides the default so the same compiled server.js works
