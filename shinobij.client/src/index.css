@@ -17154,3 +17154,65 @@ html[data-vp="sm"] .profile-overview-panel {
     max-height: none !important;
     overflow: visible !important;
 }
+
+/* =====================================================================
+   MOBILE SECTOR VIEW FIX — stack map above actions panel.
+
+   The 980px @media rule makes .instance-frame a fixed-height block with
+   aside.instance-actions absolutely positioned to the right of the map.
+   On phones this makes them appear side-by-side with wasted space below.
+
+   We override with data-vp specificity (0,2,0) to force a vertical flex
+   column so the map sits above the actions panel.
+   ===================================================================== */
+
+/* Frame: vertical flex column, height driven by content */
+html[data-vp="xs"] .map-instance .instance-frame,
+html[data-vp="sm"] .map-instance .instance-frame {
+    display: flex !important;
+    flex-direction: column !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    grid-template-areas: unset !important;
+    grid-template-columns: unset !important;
+    gap: 0 !important;
+}
+
+/* Map: full width, fixed viewport-proportional height */
+html[data-vp="xs"] .map-instance .instance-frame > main.tile-scene,
+html[data-vp="sm"] .map-instance .instance-frame > main.tile-scene {
+    width: 100% !important;
+    height: min(75vw, 360px) !important;
+    min-height: 200px !important;
+    overflow: hidden !important;
+    position: relative !important;
+    flex-shrink: 0 !important;
+}
+
+/* Actions panel: take full width, flow naturally below the map */
+html[data-vp="xs"] .map-instance .instance-frame > aside.instance-actions,
+html[data-vp="sm"] .map-instance .instance-frame > aside.instance-actions {
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow-y: visible !important;
+    flex-shrink: 0 !important;
+    padding: 8px 10px !important;
+}
+
+/* Let sector wrapper scroll vertically on mobile */
+html[data-vp="xs"] .sector-instance-wrap,
+html[data-vp="sm"] .sector-instance-wrap {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+}
+
+html[data-vp="xs"] .map-instance,
+html[data-vp="sm"] .map-instance {
+    height: auto !important;
+    overflow: visible !important;
+}
