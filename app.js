@@ -9,6 +9,24 @@
  * 3. Requires the compiled Express server from dist/server.js.
  */
 
+// Override dns.lookup to use c-ares (dns.resolve4) with explicit DNS servers
+// instead of getaddrinfo, which is broken inside CloudLinux CageFS jails.
+try {
+    const dns = require('dns');
+    dns.setServers(['8.8.8.8', '1.1.1.1', '8.8.4.4']);
+    const _lookup = dns.lookup.bind(dns);
+    dns.lookup = function (hostname, options, callback) {
+        if (typeof options === 'function') { callback = options; options = {}; }
+        dns.resolve4(hostname, (err, addresses) => {
+            if (err) return _lookup(hostname, options, callback);
+            callback(null, addresses[0], 4);
+        });
+    };
+    console.log('[app] DNS override applied: using 8.8.8.8 via c-ares.');
+} catch (e) {
+    console.warn('[app] Could not apply DNS override:', e.message);
+}
+
 // Force IPv4 for all outbound fetch connections.
 // CloudLinux shared hosting has no IPv6 routing. We use node:undici (the
 // built-in module powering Node 22's fetch) so setGlobalDispatcher actually
