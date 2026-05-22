@@ -19462,43 +19462,43 @@ function CentralHub({
     const centralOptions = [
         {
             name: "Arena District",
-            icon: "??",
+            icon: "⚔️",
             text: "Clan battles, ranked mode, tournaments, spectator boards, and pet battle challenges.",
             action: () => setScreen("arenaDistrict"),
         },
         {
             name: "Shinobi Council Hall",
-            icon: "??",
+            icon: "🏛️",
             text: "Active village wars, clan wars, HP of each side, and top contributors.",
             action: () => setScreen("shinobiCouncil"),
         },
         {
             name: "Grand Marketplace",
-            icon: "??",
+            icon: "🏪",
             text: "Rare items, trading stalls, cosmetics, limited event goods, and merchant contracts.",
             action: () => setScreen("grandMarketplace"),
         },
         {
             name: "Hunter Guild",
-            icon: "??",
+            icon: "🐉",
             text: "Beast hunt contracts, sector tracking, material drops, and hunter rank progression.",
             action: () => setScreen("hunting"),
         },
         {
             name: "Hall of Legends",
-            icon: "??",
+            icon: "🏆",
             text: "Ranked leaderboards, top clans, kill streaks, pet arena, endless waves, and village war records.",
             action: () => setScreen("hallOfLegends"),
         },
         {
             name: "Ancient Archives",
-            icon: "??",
+            icon: "📜",
             text: "Bloodline lore, forbidden jutsu research, hidden boss clues, and world history.",
             action: () => setShowArchives(true),
         },
         {
             name: "Awakening Stone",
-            icon: "??",
+            icon: "🔮",
             text: getCharacterElements(character).length
                 ? `Your elements: ${getCharacterElements(character).join(" / ")}. Reroll, or forge a bloodline using ancient materials.`
                 : "Discover your elemental nature. Free at level 2 and level 20.",
@@ -19506,25 +19506,25 @@ function CentralHub({
         },
         {
             name: "Pet Arena",
-            icon: "??",
+            icon: "🐾",
             text: "Choose one of your pets and watch it autobattle another player's pet using AI rule logic.",
             action: () => setScreen("petArena"),
         },
         {
             name: "Crafter",
-            icon: "??",
+            icon: "⚒️",
             text: "Convert hunting, boss, dungeon, and war materials into supplies and existing balanced weapons.",
             action: () => setShowCrafter(true),
         },
         {
             name: "Relic Dungeons",
-            icon: "DG",
+            icon: "🗝️",
             text: `Use Dungeon Keys to enter one of five same-strength relic dungeons. Keys: ${countInventory(DUNGEON_KEY_ID)}.`,
             action: () => setShowDungeonPanel(true),
         },
         {
             name: "Weekly Boss",
-            icon: weeklyBoss.bossIcon,
+            icon: weeklyBoss.status === "defeated" ? "💀" : weeklyBoss.status === "active" ? "👹" : weeklyBoss.status === "escaped" ? "🌀" : "🌑",
             text: weeklyBoss.status === "active"
                 ? `${weeklyBoss.bossName} is active until ${new Date(weeklyBoss.endsAt).toLocaleString()}.`
                 : weeklyBoss.status === "defeated"
@@ -19536,7 +19536,7 @@ function CentralHub({
         },
         {
             name: "Celestial Tower",
-            icon: "??",
+            icon: "🌌",
             text: "Endless PvE floors, boss rushes, element trials, bloodline trials, and ascension battles.",
             action: () => setShowCelestialPanel(true),
         },
