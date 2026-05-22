@@ -50,6 +50,8 @@ const item_review_js_1 = __importDefault(require("./api/admin/item-review.js"));
 const list_js_3 = __importDefault(require("./api/bloodlines/list.js"));
 const join_js_1 = __importDefault(require("./api/ranked-queue/join.js"));
 const leave_js_1 = __importDefault(require("./api/ranked-queue/leave.js"));
+const kv_proxy_js_1 = __importDefault(require("./api/kv-proxy.js"));
+const migrate_kv_js_1 = __importDefault(require("./api/admin/migrate-kv.js"));
 // ─── App setup ───────────────────────────────────────────────────────────────
 const app = (0, express_1.default)();
 // Parse JSON bodies up to 50 MB (needed for saves that include base64 images).
@@ -250,6 +252,11 @@ route('/admin/item-review', item_review_js_1.default);
 // Ranked queue
 route('/ranked-queue/join', join_js_1.default);
 route('/ranked-queue/leave', leave_js_1.default);
+// Internal KV proxy — Vercel forwards disk-routed keys here.
+// Mounted with a trailing :op param so /api/kv/get etc. all hit one handler.
+route('/kv/:op', kv_proxy_js_1.default);
+// Admin: migrate disk-routed keys from Supabase → disk overlay.
+route('/admin/migrate-kv', migrate_kv_js_1.default);
 // ─── Static files (React SPA) ─────────────────────────────────────────────────
 // STATIC_DIR env var overrides the default so the same compiled server.js works
 // both in the repo (shinobij.client/dist) and in a manual cPanel upload (public/).
