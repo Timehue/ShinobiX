@@ -1,6 +1,9 @@
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
-const LEGACY_IMAGE_KEY = 'shared:images';
+// NOTE: LEGACY_IMAGE_KEY ('shared:images') intentionally omitted here — it is a
+// multi-MB all-categories blob that causes connection-pool exhaustion when
+// fetched alongside N save reads.  Bloodline images migrated to the per-category
+// keys below, so the legacy blob is redundant for this endpoint.
 const bloodlineImageBlobKey = 'shared:images:bloodline';
 const bloodlineImageHashKey = 'shared:imgfields:bloodline';
 export default async function handler(req, res) {
@@ -10,30 +13,29 @@ export default async function handler(req, res) {
     if (req.method !== 'GET')
         return res.status(405).end();
     try {
-        const [saveKeys, legacyImages, bloodlineBlobImages, bloodlineHashImages] = await Promise.all([
+        // Fetch image maps and save keys in parallel — 3 queries total.
+        const [saveKeys, bloodlineBlobImages, bloodlineHashImages] = await Promise.all([
             kv.keys('save:*'),
-            kv.get(LEGACY_IMAGE_KEY),
             kv.get(bloodlineImageBlobKey),
             kv.hgetall(bloodlineImageHashKey),
         ]);
         const sharedBloodlineImages = {
-            ...(legacyImages ?? {}),
             ...(bloodlineBlobImages ?? {}),
             ...(bloodlineHashImages ?? {}),
         };
-        const saves = await Promise.all(saveKeys.map(async (key) => {
-            try {
-                return { key, snap: await kv.get(key) };
-            }
-            catch {
-                return { key, snap: null };
-            }
-        }));
+        // Batch-fetch all saves in a single mget instead of N individual get()
+        // calls. This keeps connection-pool usage to 1 query regardless of how
+        // many players exist, eliminating the N+1 pattern that caused pool
+        // exhaustion and high error rates under load.
+        const nonAdminKeys = saveKeys.filter(k => !k.replace('save:', '').toLowerCase().startsWith('admin'));
+        const snapshots = nonAdminKeys.length
+            ? await kv.mget(...nonAdminKeys)
+            : [];
         const bloodlines = [];
-        for (const { key, snap } of saves) {
+        for (let i = 0; i < nonAdminKeys.length; i++) {
+            const key = nonAdminKeys[i];
+            const snap = snapshots[i] ?? null;
             const ownerKey = key.replace('save:', '');
-            if (ownerKey.toLowerCase().startsWith('admin'))
-                continue;
             const char = snap?.character;
             const ownerName = char?.name ?? ownerKey;
             const rawBloodlines = snap?.savedBloodlines;
@@ -61,6 +63,9 @@ export default async function handler(req, res) {
         return res.status(200).json({ bloodlines });
     }
     catch (err) {
-        return res.status(500).json({ error: String(err) });
+        // Return empty list rather than 500 so the bloodline gallery degrades
+        // gracefully during transient DB outages instead of showing an error.
+        console.error('[bloodlines/list]', String(err));
+        return res.status(200).json({ bloodlines: [] });
     }
 }

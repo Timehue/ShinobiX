@@ -34,7 +34,10 @@ export default async function handler(req, res) {
             res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=120');
             // Helper: read a kv value with a per-call timeout so one slow Supabase
             // REST response never hangs the whole function.
-            const withTimeout = (p, ms = 25_000) => Promise.race([p, new Promise((resolve) => setTimeout(() => resolve(null), ms))]);
+            // 18s per KV call — Supabase client aborts at 20s, function maxDuration is 30s.
+            // This ordering (18 < 20 < 30) ensures: Promise.race fires, Supabase aborts,
+            // function returns cleanly — never hard-killed mid-flight by Vercel.
+            const withTimeout = (p, ms = 18_000) => Promise.race([p, new Promise((resolve) => setTimeout(() => resolve(null), ms))]);
             if (cat) {
                 // Fetch hash (primary) and old blob (backward-compat) in parallel.
                 // Skip the legacy single-blob key — it's empty after migration and
