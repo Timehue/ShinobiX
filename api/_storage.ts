@@ -591,22 +591,14 @@ function _makeRoutedKv(base: KvLike, disk: KvLike): KvLike {
         }
         return { diskKeys, baseKeys, order };
     }
-    // Read-through fallback: when a disk-routed key isn't on disk yet, look it
-    // up on the base backend (Supabase) — that's where it lived before we
-    // flipped on disk storage. Lets existing data keep working during the
-    // gradual migration.
-    //
-    // Base failures are tolerated for disk-routed reads: if Supabase/pg is
-    // unreachable or auth is broken on this deployment, we shouldn't take down
-    // disk-routed reads that don't actually need the base backend.
-    async function getWithFallback<T>(key: string): Promise<T | null> {
-        const v = await disk.get<T>(key);
-        if (v !== null) return v;
-        try { return await base.get<T>(key); } catch { return null; }
+    // Disk is now the source of truth for disk-routed prefixes — migration is
+    // complete (see /api/admin/migrate-kv). Reads go straight to the overlay.
+    async function diskGet<T>(key: string): Promise<T | null> {
+        return disk.get<T>(key);
     }
     return {
         async get<T = unknown>(key: string): Promise<T | null> {
-            return _routesToDisk(key) ? getWithFallback<T>(key) : base.get<T>(key);
+            return _routesToDisk(key) ? diskGet<T>(key) : base.get<T>(key);
         },
         async set(key, value, options) {
             return _routesToDisk(key) ? disk.set(key, value, options) : base.set(key, value, options);
@@ -622,25 +614,16 @@ function _makeRoutedKv(base: KvLike, disk: KvLike): KvLike {
             return a + b + c;
         },
         async keys(pattern) {
-            // Disk-routed pattern: union disk + base so legacy keys stay visible.
-            // Base failures don't fail the call — disk is authoritative after migration.
-            if (_routesToDisk(pattern)) {
-                const [a, b] = await Promise.all([
-                    disk.keys(pattern),
-                    base.keys(pattern).catch(() => [] as string[]),
-                ]);
-                return Array.from(new Set([...a, ...b]));
-            }
-            return base.keys(pattern);
+            return _routesToDisk(pattern) ? disk.keys(pattern) : base.keys(pattern);
         },
         async mget<T extends unknown[] = unknown[]>(...keys: string[]): Promise<(T[number] | null)[]> {
             // Use the per-key get path so disk-routed keys benefit from fallback.
             return Promise.all(keys.map((k) =>
-                _routesToDisk(k) ? getWithFallback<T[number]>(k) : base.get<T[number]>(k)
+                _routesToDisk(k) ? diskGet<T[number]>(k) : base.get<T[number]>(k)
             ));
         },
         async hgetall<T = Record<string, unknown>>(key: string): Promise<T | null> {
-            return _routesToDisk(key) ? getWithFallback<T>(key) : base.hgetall<T>(key);
+            return _routesToDisk(key) ? diskGet<T>(key) : base.hgetall<T>(key);
         },
         async hset(key, fields) {
             return _routesToDisk(key) ? disk.hset(key, fields) : base.hset(key, fields);
