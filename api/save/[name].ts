@@ -4,6 +4,21 @@ import { safeName, mergePreservingImages, cors } from '../_utils.js';
 import { verifyPlayerPassword } from '../player-auth.js';
 import { authedPlayerOrAdmin, isAdmin } from '../_auth.js';
 
+// Fields stripped from character objects when a non-owner reads another player's save.
+// Prevents ryo farming (reading other players' wallets) and inventory snooping.
+const PRIVATE_CHAR_FIELDS = [
+    'ryo', 'bankedRyo', 'inventory', 'missions', 'missionLog',
+    'completedMissions', 'activeMissions', 'questLog', 'bankLog',
+] as const;
+
+function stripPrivateFields(data: Record<string, unknown>): Record<string, unknown> {
+    const char = data.character as Record<string, unknown> | undefined;
+    if (!char || typeof char !== 'object') return data;
+    const sanitized = { ...char };
+    for (const field of PRIVATE_CHAR_FIELDS) delete sanitized[field];
+    return { ...data, character: sanitized };
+}
+
 const REGISTRY_KEY = 'player:registry';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -24,14 +39,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // player's save by guessing names. Logged-in players can still read
         // other players' saves (needed for PvP opponent loading, clan record
         // lookups, etc.) but at least we know who's doing it.
-        //
-        // TODO: strip sensitive fields (ryo, inventory, etc.) when the reader
-        // isn't the owner. For now just require any valid login.
+        // Sensitive economy fields (ryo, inventory, etc.) are stripped for non-owners.
         const identity = await authedPlayerOrAdmin(req, name);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
-        const data = await kv.get(key);
+        const data = await kv.get<Record<string, unknown>>(key);
         if (data === null) return res.status(404).end();
-        return res.status(200).json(data);
+
+        // Strip sensitive fields when someone reads another player's save.
+        // Owners and admins get the full save. Other players (e.g. loading a
+        // PvP opponent) get character data with private economy fields removed.
+        const isOwner = identity.admin || (isClanSave ? false : identity.name === name.toLowerCase().trim());
+        const payload = isOwner ? data : stripPrivateFields(data);
+        return res.status(200).json(payload);
     }
 
     if (req.method === 'POST') {
@@ -95,7 +114,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
                 await Promise.all([
                     kv.set(key, payload),
-                    kv.hset(REGISTRY_KEY, { [name]: JSON.stringify(registryEntry) }),
+                    kv.hset(REGISTRY_KEY, { [name]: registryEntry }),
                 ]);
                 return res.status(200).end();
             }
@@ -117,13 +136,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             await Promise.all([
                 kv.set(key, payload),
-                kv.hset(REGISTRY_KEY, { [name]: JSON.stringify(registryEntry) }),
+                kv.hset(REGISTRY_KEY, { [name]: registryEntry }),
             ]);
             // Set reset-signal after the new save is committed so the client reloads that exact version.
             await kv.set(resetSignalKey, 1, { ex: 300 });
             return res.status(200).end();
         } catch (err) {
-            return res.status(500).json({ error: String(err) });
+            console.error('[save POST]', err);
+            return res.status(500).json({ error: 'Internal server error.' });
         }
     }
 
@@ -157,7 +177,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ]);
             return res.status(200).json({ ok: true });
         } catch (err) {
-            return res.status(500).json({ error: String(err) });
+            console.error('[save DELETE]', err);
+            return res.status(500).json({ error: 'Internal server error.' });
         }
     }
 

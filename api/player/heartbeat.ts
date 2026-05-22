@@ -2,13 +2,25 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
+import { enforceRateLimit } from '../_ratelimit.js';
 
-const REGISTRY_KEY = 'player:registry';
 // Individual TTL keys (presence:<name>) with 60s expiry.
 // Postgres expires them automatically — no JSONB hash merges, no CPU spike.
 // Reads use kv.keys('presence:*') + kv.mget() = 2 indexed queries.
 const PRESENCE_KEY_PREFIX = 'presence:';
 const PRESENCE_TTL_S = 60;
+
+// In-process cache for the full presence list.
+// Refreshed at most once per PRESENCE_LIST_CACHE_TTL_MS.
+// Between refreshes, each heartbeat patches in its own updated entry —
+// so no player is invisible, but we skip the O(N) keys+mget on every request.
+type CachedPresenceList = { entries: PresenceEntry[]; at: number };
+let _presenceListCache: CachedPresenceList | null = null;
+const PRESENCE_LIST_CACHE_TTL_MS = 5_000;
+
+// Max time the client can claim to be traveling (10 min). Caps an exploited
+// travelingUntil that would make a player permanently unreachable.
+const MAX_TRAVEL_WINDOW_MS = 10 * 60_000;
 
 type PresenceEntry = {
     name: string;
@@ -30,6 +42,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res);
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).end();
+
+    // 1 heartbeat per 2 s per player (30/min). Authenticated name wins over IP for
+    // the rate-limit key so shared IPs (NAT) don't bleed into each other's quota.
+    const bodyPeek = typeof req.body === 'string' ? (() => { try { return JSON.parse(req.body); } catch { return {}; } })() : (req.body ?? {});
+    const peekName: string | undefined = typeof bodyPeek?.name === 'string' ? bodyPeek.name : undefined;
+    if (!enforceRateLimit(req, res, 'heartbeat', 30, 60_000, peekName)) return;
 
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
@@ -70,6 +88,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const entrySector = normalizeSector(sector, normalizeSector(existing?.sector, 40));
         const now = Date.now();
+
+        // Cap client-supplied travelingUntil so an exploit can't make a player
+        // permanently untouchable (e.g. client sends year 9999 epoch).
+        const safeTravelUntil = travelingUntil
+            ? Math.min(travelingUntil, now + MAX_TRAVEL_WINDOW_MS)
+            : undefined;
+
         const entry: PresenceEntry = {
             name,
             sector: entrySector,
@@ -77,7 +102,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             lastSeen: now,
             pendingAttacker: null,
             // Persist travel window so attack.ts / challenge.ts can reject mid-travel requests.
-            travelingUntil: (travelingUntil && travelingUntil > now) ? travelingUntil : undefined,
+            travelingUntil: (safeTravelUntil && safeTravelUntil > now) ? safeTravelUntil : undefined,
             // Persist battle flag so attack.ts can reject double-battle requests.
             inBattle: inBattle === true ? true : undefined,
         };
@@ -89,17 +114,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             pendingChallenges?.length ? kv.del(challengeKey) : Promise.resolve(),
         ]);
 
-        // Fetch all active presence via keys + mget — 2 indexed queries, no large blob.
-        // Expired keys are excluded by the kv.keys() query (expires_at filter in SQL).
-        const presenceKeys = await kv.keys(`${PRESENCE_KEY_PREFIX}*`);
-        const otherKeys = presenceKeys.filter(k => k !== presenceKey);
-        const otherValues = otherKeys.length
-            ? await kv.mget<PresenceEntry[]>(...otherKeys)
-            : [];
+        // Build the full presence list using an in-process cache (refreshed every 5 s).
+        // Between refreshes, each call patches its own updated entry into the cached list —
+        // so the caller always sees fresh data for themselves without an O(N) KV round-trip
+        // on every single heartbeat (which would be O(N²) total across all players).
+        let allEntries: PresenceEntry[];
+        const cacheAge = _presenceListCache ? now - _presenceListCache.at : Infinity;
 
-        const allEntries: PresenceEntry[] = otherValues.filter(
-            (v): v is PresenceEntry => Boolean(v?.name)
-        );
+        if (cacheAge < PRESENCE_LIST_CACHE_TTL_MS) {
+            // Splice caller's freshly-written entry into the cached list.
+            allEntries = _presenceListCache!.entries
+                .filter(e => e.name.toLowerCase() !== name.toLowerCase())
+                .concat([entry]);
+        } else {
+            // Cache stale — do the full O(N) refresh from KV.
+            const presenceKeys = await kv.keys(`${PRESENCE_KEY_PREFIX}*`);
+            const otherKeys = presenceKeys.filter(k => k !== presenceKey);
+            const otherValues = otherKeys.length
+                ? await kv.mget<PresenceEntry[]>(...otherKeys)
+                : [];
+            const otherEntries = otherValues.filter((v): v is PresenceEntry => Boolean(v?.name));
+            allEntries = [...otherEntries, entry];
+            _presenceListCache = { entries: allEntries, at: now };
+        }
 
         const toRecord = ({ name: n, sector: s, character: c, travelingUntil: tu, inBattle: ib }: PresenceEntry) => {
             const ch = c as Record<string, unknown> | null;
@@ -128,6 +165,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             pendingChallenges: pendingChallenges ?? [],
         });
     } catch (err) {
-        return res.status(500).json({ error: String(err) });
+        console.error('[heartbeat]', err);
+        return res.status(500).json({ error: 'Internal server error.' });
     }
 }

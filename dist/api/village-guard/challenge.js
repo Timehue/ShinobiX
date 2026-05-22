@@ -53,6 +53,7 @@ async function handler(req, res) {
         return res.status(200).json({ pvp: true, guardCharacter, guardName: guard.name });
     }
     catch (err) {
-        return res.status(500).json({ error: String(err) });
+        console.error('[village-guard/challenge]', err);
+        return res.status(500).json({ error: 'Internal server error.' });
     }
 }

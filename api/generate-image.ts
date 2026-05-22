@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { cors } from './_utils.js';
 import { authedPlayerOrAdmin } from './_auth.js';
+import { enforceRateLimit, clientKey } from './_ratelimit.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res);
@@ -11,6 +12,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // and would be trivially abused if left open.
     const identity = await authedPlayerOrAdmin(req);
     if (!identity) return res.status(401).json({ error: 'Authentication required.' });
+
+    // 2 images per 60 s per authenticated identity. Tight limit because each
+    // call costs real money ($0.02-0.04/image at gpt-image-1 low quality).
+    const authedName = identity.admin ? null : (identity as { name: string }).name;
+    if (!enforceRateLimit(req, res, 'generate-image', 2, 60_000, authedName)) return;
 
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
@@ -58,6 +64,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         return res.status(200).json({ image: `data:image/png;base64,${b64}` });
     } catch (err) {
-        return res.status(500).json({ error: String(err) });
+        console.error('[generate-image]', err);
+        return res.status(500).json({ error: 'Internal server error.' });
     }
 }

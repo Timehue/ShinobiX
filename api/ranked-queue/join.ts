@@ -83,6 +83,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         return res.status(200).json({ queued: true, queueSize: queue.length });
     } catch (err) {
-        return res.status(500).json({ error: String(err) });
+        console.error('[ranked-queue/join]', err);
+        return res.status(500).json({ error: 'Internal server error.' });
     }
 }

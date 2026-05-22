@@ -9,6 +9,7 @@ exports.verifyPlayerPassword = verifyPlayerPassword;
 exports.default = handler;
 const _storage_js_1 = require("./_storage.js");
 const _utils_js_1 = require("./_utils.js");
+const _ratelimit_js_1 = require("./_ratelimit.js");
 const crypto_1 = __importDefault(require("crypto"));
 function newSalt() {
     return crypto_1.default.randomBytes(16).toString('hex');
@@ -86,6 +87,12 @@ async function handler(req, res) {
         return res.status(200).end();
     if (req.method !== 'POST')
         return res.status(405).end();
+    // Rate-limit auth actions by IP: 20 attempts per 15 minutes.
+    // This defends against brute-force password guessing without locking
+    // out legitimate multi-account households (each account has its own name
+    // so they can't easily enumerate targets anyway).
+    if (!(0, _ratelimit_js_1.enforceRateLimit)(req, res, 'player-auth', 20, 15 * 60_000))
+        return;
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
     const { action, name, password, oldPassword, newPassword } = body;
     if (!name)
