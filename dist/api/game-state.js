@@ -9,6 +9,7 @@ const VILLAGE_STATE_PREFIX = 'game:village-state:';
 const ARENA_TOURNAMENT_KEY = 'game:arena:tournament';
 const ARENA_ACTIVE_FIGHTS_KEY = 'game:arena:active-fights';
 const CLAN_PET_BATTLE_PREFIX = 'game:clan-pet-battle:';
+const WEEKLY_BOSS_OVERRIDE_KEY = 'game:weekly-boss-override';
 function clanPetBattleKey(clanName) {
     return `${CLAN_PET_BATTLE_PREFIX}${clanName.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
 }
@@ -18,12 +19,13 @@ async function handler(req, res) {
         return res.status(200).end();
     if (req.method === 'GET') {
         try {
-            const [villageStateKeys, leadershipImages, arenaTournament, arenaActiveFights, clanPetBattleKeys] = await Promise.all([
+            const [villageStateKeys, leadershipImages, arenaTournament, arenaActiveFights, clanPetBattleKeys, weeklyBossAiId] = await Promise.all([
                 _storage_js_1.kv.keys(`${VILLAGE_STATE_PREFIX}*`),
                 _storage_js_1.kv.get(LEADERSHIP_IMAGES_KEY),
                 _storage_js_1.kv.get(ARENA_TOURNAMENT_KEY),
                 _storage_js_1.kv.get(ARENA_ACTIVE_FIGHTS_KEY),
                 _storage_js_1.kv.keys(`${CLAN_PET_BATTLE_PREFIX}*`),
+                _storage_js_1.kv.get(WEEKLY_BOSS_OVERRIDE_KEY),
             ]);
             const villageStates = {};
             if (villageStateKeys.length > 0) {
@@ -57,6 +59,7 @@ async function handler(req, res) {
                 arenaTournament: arenaTournament ?? null,
                 arenaActiveFights: Array.isArray(arenaActiveFights) ? arenaActiveFights : [],
                 clanPetBattles,
+                weeklyBossAiId: weeklyBossAiId ?? null,
             });
         }
         catch (err) {
@@ -121,6 +124,18 @@ async function handler(req, res) {
                 }
                 else {
                     await _storage_js_1.kv.set(key, battle, { ex: 24 * 60 * 60 }); // 24-hour TTL
+                }
+                return res.status(200).json({ ok: true });
+            }
+            if (kind === 'weeklyBossOverride') {
+                if (!identity.admin)
+                    return res.status(403).json({ error: 'Admin only.' });
+                const { aiId } = body;
+                if (aiId) {
+                    await _storage_js_1.kv.set(WEEKLY_BOSS_OVERRIDE_KEY, aiId);
+                }
+                else {
+                    await _storage_js_1.kv.del(WEEKLY_BOSS_OVERRIDE_KEY);
                 }
                 return res.status(200).json({ ok: true });
             }
