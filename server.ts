@@ -116,6 +116,18 @@ app.get(['/debug/storage', '/api/debug/storage'], async (_req, res) => {
             return;
         }
 
+        // Test DNS resolution directly via c-ares (dns.resolve4 with explicit servers).
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const dns = require('dns') as typeof import('dns');
+        const supabaseHost = new URL(url).hostname;
+        const dnsTest = await new Promise<string>((resolve) => {
+            dns.setServers(['8.8.8.8', '1.1.1.1']);
+            dns.resolve4(supabaseHost, (err, addrs) => {
+                if (err) resolve(`resolve4 Error: ${err.message} code=${err.code}`);
+                else resolve(`resolve4 OK: ${addrs.join(', ')}`);
+            });
+        });
+
         // Test raw HTTPS connectivity using Node's built-in https module
         // (bypasses fetch/undici to isolate the issue).
         const httpsTest = await new Promise<string>((resolve) => {
@@ -142,6 +154,7 @@ app.get(['/debug/storage', '/api/debug/storage'], async (_req, res) => {
             ok: kvError === null,
             supabase_url: url,
             key_prefix: key.slice(0, 12) + '…',
+            dnsTest,
             httpsTest,
             kvError,
         });
