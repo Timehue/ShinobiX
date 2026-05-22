@@ -105,8 +105,27 @@ function route(path: string, handler: AnyHandler) {
 
 // ─── Health / debug routes ───────────────────────────────────────────────────
 
+// Cached at module-load time so each request is a free read.
+const _BUILD_INFO = (() => {
+    try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const fs = require('node:fs') as typeof import('node:fs');
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const path = require('node:path') as typeof import('node:path');
+        const headPath = path.join(__dirname, '..', '.git', 'HEAD');
+        const head = fs.readFileSync(headPath, 'utf8').trim();
+        const ref = head.startsWith('ref: ') ? head.slice(5) : null;
+        const sha = ref
+            ? fs.readFileSync(path.join(__dirname, '..', '.git', ref), 'utf8').trim()
+            : head;
+        return { commit: sha.slice(0, 8), startedAt: new Date().toISOString() };
+    } catch {
+        return { commit: 'unknown', startedAt: new Date().toISOString() };
+    }
+})();
+
 app.get(['/health', '/api/health'], (_req, res) => {
-    res.json({ ok: true });
+    res.json({ ok: true, ..._BUILD_INFO });
 });
 
 // ─── API routes ───────────────────────────────────────────────────────────────
