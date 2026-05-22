@@ -13868,6 +13868,15 @@ button.combat-jutsu-button,
     .weekly-boss-current strong { color: #facc15; }
     .weekly-boss-current small  { color: #64748b; margin-left: auto; }
 
+.village-leader-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+.village-leader-section-header h3 { margin: 0; }
+
 .weapon-info-btn {
     flex-shrink: 0;
     width: 22px;

@@ -115,7 +115,10 @@ async function handler(req, res) {
         const toRecord = ({ name: n, sector: s, character: c, travelingUntil: tu, inBattle: ib }) => {
             const ch = c;
             return {
-                name: n, sector: s, character: c,
+                name: n, sector: s,
+                // Only include the avatar — full stats/jutsu/inventory are fetched fresh via
+                // fetchPlayerCombatSave() at attack/challenge time, so the full blob is wasteful here.
+                character: { avatarImage: ch?.avatarImage ?? '' },
                 level: ch?.level ?? 1,
                 village: ch?.village ?? '',
                 specialty: ch?.specialty ?? 'Ninjutsu',

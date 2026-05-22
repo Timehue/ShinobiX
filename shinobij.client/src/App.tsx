@@ -12627,46 +12627,90 @@ function AdminPanel({
                 </section>
             </div>
 
-            {activeAdminPanel === "villageLeaders" && (
-                <div className="admin-subpanel">
-                    <div className="admin-panel-heading">
-                        <h3>Village Leaders</h3>
-                        <p>Add portraits for every story Kage and important NPC. These appear in each village's Town Hall.</p>
-                    </div>
-                    {Object.entries(villageLeadership).map(([village, leadership]) => {
-                        const images = leadershipImages[village] ?? { kage: "", elders: ["", "", ""] };
-                        return (
-                            <section className="summary-box village-leader-section" key={village}>
-                                <h3>{village}</h3>
-                                <div className="leader-admin-grid">
-                                    <div className="leader-admin-card">
-                                        <h4>Kage</h4>
-                                        <strong>{leadership.kage}</strong>
-                                        {images.kage ? <img src={images.kage} alt={leadership.kage} /> : <div className="leader-image-placeholder">No Image</div>}
-                                        <input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) readImageFile(file, (image) => updateLeadershipImage(village, "kage", image), 100); }} />
-                                        <div className="menu">
-                                            <AiImagePrompt label="Kage Image" suggestedPrompt={`${leadership.kage}, shinobi village leader portrait`} onImage={(image) => updateLeadershipImage(village, "kage", image)} />
-                                            {images.kage && <button className="danger-button" onClick={() => updateLeadershipImage(village, "kage", "")}>Remove Image</button>}
-                                        </div>
+            {activeAdminPanel === "villageLeaders" && (() => {
+                const elderRoleLabels = ["War Elder", "Trade Elder", "Training Elder"];
+
+                async function generateLeaderImage(prompt: string, label: string): Promise<string | null> {
+                    const response = await fetch("/api/generate-image", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ prompt, label }),
+                    });
+                    if (!response.ok) return null;
+                    const data = await response.json() as { image?: string };
+                    return data.image ?? null;
+                }
+
+                async function generateAllMissing(village: string, leadership: { kage: string; elders: string[] }) {
+                    const images = leadershipImages[village] ?? { kage: "", elders: ["", "", ""] };
+                    const slots: { prompt: string; label: string; apply: (img: string) => void }[] = [];
+                    if (!images.kage)
+                        slots.push({ prompt: `${leadership.kage}, shinobi village Kage leader portrait`, label: "Kage Image", apply: (img) => updateLeadershipImage(village, "kage", img) });
+                    leadership.elders.forEach((elder, i) => {
+                        if (!images.elders?.[i])
+                            slots.push({ prompt: `${elder}, ${elderRoleLabels[i] ?? "elder"}, shinobi NPC portrait`, label: "Elder Image", apply: (img) => updateLeadershipImage(village, i, img) });
+                    });
+                    if (slots.length === 0) { alert("All portraits already have images."); return; }
+                    if (!confirm(`Generate ${slots.length} missing portrait${slots.length > 1 ? "s" : ""} for ${village}? This costs image credits.`)) return;
+                    for (let i = 0; i < slots.length; i++) {
+                        const slot = slots[i];
+                        const img = await generateLeaderImage(slot.prompt, slot.label);
+                        if (img) slot.apply(img);
+                        // Respect the 2/min rate limit — wait 35s between calls
+                        if (i < slots.length - 1) await new Promise(r => setTimeout(r, 35_000));
+                    }
+                    alert(`Done generating portraits for ${village}.`);
+                }
+
+                return (
+                    <div className="admin-subpanel">
+                        <div className="admin-panel-heading">
+                            <h3>Village Leaders</h3>
+                            <p>Add portraits for the Kage, War Elder, Trade Elder, and Training Elder. These appear in each village's Town Hall.</p>
+                        </div>
+                        {Object.entries(villageLeadership).map(([village, leadership]) => {
+                            const images = leadershipImages[village] ?? { kage: "", elders: ["", "", ""] };
+                            const missingCount = (!images.kage ? 1 : 0) + leadership.elders.filter((_, i) => !images.elders?.[i]).length;
+                            return (
+                                <section className="summary-box village-leader-section" key={village}>
+                                    <div className="village-leader-section-header">
+                                        <h3>{village}</h3>
+                                        {missingCount > 0 && (
+                                            <button onClick={() => void generateAllMissing(village, leadership)}>
+                                                ✨ Generate {missingCount} Missing Portrait{missingCount > 1 ? "s" : ""}
+                                            </button>
+                                        )}
                                     </div>
-                                    {leadership.elders.map((elder, index) => (
-                                        <div className="leader-admin-card" key={elder}>
-                                            <h4>{index === 0 ? "Important NPC 1" : index === 1 ? "Important NPC 2" : "Important NPC 3"}</h4>
-                                            <strong>{elder}</strong>
-                                            {images.elders?.[index] ? <img src={images.elders[index]} alt={elder} /> : <div className="leader-image-placeholder">No Image</div>}
-                                            <input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) readImageFile(file, (image) => updateLeadershipImage(village, index, image), 100); }} />
+                                    <div className="leader-admin-grid">
+                                        <div className="leader-admin-card">
+                                            <h4>Kage</h4>
+                                            <strong>{leadership.kage}</strong>
+                                            {images.kage ? <img src={images.kage} alt={leadership.kage} /> : <div className="leader-image-placeholder">No Image</div>}
+                                            <input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) readImageFile(file, (image) => updateLeadershipImage(village, "kage", image), 100); }} />
                                             <div className="menu">
-                                                <AiImagePrompt label="NPC Image" suggestedPrompt={`${elder}, shinobi story character portrait`} onImage={(image) => updateLeadershipImage(village, index, image)} />
-                                                {images.elders?.[index] && <button className="danger-button" onClick={() => updateLeadershipImage(village, index, "")}>Remove Image</button>}
+                                                <AiImagePrompt label="Kage Image" suggestedPrompt={`${leadership.kage}, shinobi village Kage leader portrait`} onImage={(image) => updateLeadershipImage(village, "kage", image)} />
+                                                {images.kage && <button className="danger-button" onClick={() => updateLeadershipImage(village, "kage", "")}>Remove Image</button>}
                                             </div>
                                         </div>
-                                    ))}
-                                </div>
-                            </section>
-                        );
-                    })}
-                </div>
-            )}
+                                        {leadership.elders.map((elder, index) => (
+                                            <div className="leader-admin-card" key={elder}>
+                                                <h4>{elderRoleLabels[index] ?? `Elder ${index + 1}`}</h4>
+                                                <strong>{elder}</strong>
+                                                {images.elders?.[index] ? <img src={images.elders[index]} alt={elder} /> : <div className="leader-image-placeholder">No Image</div>}
+                                                <input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) readImageFile(file, (image) => updateLeadershipImage(village, index, image), 100); }} />
+                                                <div className="menu">
+                                                    <AiImagePrompt label="Elder Image" suggestedPrompt={`${elder}, ${elderRoleLabels[index] ?? "elder"}, shinobi NPC portrait`} onImage={(image) => updateLeadershipImage(village, index, image)} />
+                                                    {images.elders?.[index] && <button className="danger-button" onClick={() => updateLeadershipImage(village, index, "")}>Remove Image</button>}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </section>
+                            );
+                        })}
+                    </div>
+                );
+            })()}
 
             {activeAdminPanel === "jutsuBloodlines" && (
                 <div className="admin-subpanel">
