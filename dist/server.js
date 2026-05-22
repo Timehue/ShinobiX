@@ -94,6 +94,7 @@ function route(path, handler) {
     });
 }
 // ─── Health / debug routes ───────────────────────────────────────────────────
+// (auto-deploy smoke test)
 // Cached at module-load time so each request is a free read.
 const _BUILD_INFO = (() => {
     try {
