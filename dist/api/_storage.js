@@ -560,11 +560,20 @@ function _makeRoutedKv(base, disk) {
     // up on the base backend (Supabase) — that's where it lived before we
     // flipped on disk storage. Lets existing data keep working during the
     // gradual migration.
+    //
+    // Base failures are tolerated for disk-routed reads: if Supabase/pg is
+    // unreachable or auth is broken on this deployment, we shouldn't take down
+    // disk-routed reads that don't actually need the base backend.
     async function getWithFallback(key) {
         const v = await disk.get(key);
         if (v !== null)
             return v;
-        return base.get(key);
+        try {
+            return await base.get(key);
+        }
+        catch {
+            return null;
+        }
     }
     return {
         async get(key) {
@@ -585,8 +594,12 @@ function _makeRoutedKv(base, disk) {
         },
         async keys(pattern) {
             // Disk-routed pattern: union disk + base so legacy keys stay visible.
+            // Base failures don't fail the call — disk is authoritative after migration.
             if (_routesToDisk(pattern)) {
-                const [a, b] = await Promise.all([disk.keys(pattern), base.keys(pattern)]);
+                const [a, b] = await Promise.all([
+                    disk.keys(pattern),
+                    base.keys(pattern).catch(() => []),
+                ]);
                 return Array.from(new Set([...a, ...b]));
             }
             return base.keys(pattern);
