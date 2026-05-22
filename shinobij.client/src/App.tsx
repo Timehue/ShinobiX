@@ -609,6 +609,7 @@ type CreatorAi = {
     loadoutId?: AiLoadoutId;
     jutsuIds: string[];
     rules: AiRule[];
+    isBossAi?: boolean;
 };
 
 type JutsuTag = { name: string; percent: number };
@@ -3095,11 +3096,14 @@ function weekKeyForDate(date = new Date()) {
     return `${thursday.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
 }
 
-function weeklyBossSchedule(character?: Character, now = Date.now()): WeeklyBossSchedule {
+function weeklyBossSchedule(character?: Character, now = Date.now(), overrideAi?: CreatorAi | null): WeeklyBossSchedule {
     const current = new Date(now);
     const weekKey = weekKeyForDate(current);
     const seed = seededHash(weekKey);
-    const boss = weeklyBossPool[seed % weeklyBossPool.length];
+    const poolBoss = weeklyBossPool[seed % weeklyBossPool.length];
+    const boss = overrideAi
+        ? { id: overrideAi.id, name: overrideAi.name, icon: overrideAi.icon }
+        : poolBoss;
     const dayOffset = (seed >>> 4) % 7;
     const hour = (seed >>> 9) % 24;
     const start = new Date(Date.UTC(current.getUTCFullYear(), current.getUTCMonth(), current.getUTCDate()));
@@ -7263,10 +7267,13 @@ export default function App() {
 
     function pickRandomEndlessAi(wave: number): string {
         if (playableAis.length === 0) return "";
-        // Scale difficulty: allow AIs up to player level + 5 per wave, capped at 100
+        // Scale difficulty: allow AIs up to player level + 5 per wave, capped at 100.
+        // Boss AIs are excluded — they can only be used in dungeons, VN, and boss fights.
         const cap = Math.min(100, (character?.level ?? 1) + wave * 5);
-        const pool = playableAis.filter(ai => (ai.level ?? 1) <= cap);
-        const chosen = pool.length > 0 ? pool[Math.floor(Math.random() * pool.length)] : playableAis[Math.floor(Math.random() * playableAis.length)];
+        const normalAis = playableAis.filter(ai => !ai.isBossAi);
+        const pool = normalAis.filter(ai => (ai.level ?? 1) <= cap);
+        const fallback = normalAis.length > 0 ? normalAis : playableAis;
+        const chosen = pool.length > 0 ? pool[Math.floor(Math.random() * pool.length)] : fallback[Math.floor(Math.random() * fallback.length)];
         return chosen.id;
     }
 
@@ -11475,6 +11482,8 @@ function AdminPanel({
     const [aiName, setAiName] = useState("Custom Arena AI");
     const [aiIcon, setAiIcon] = useState("EN");
     const [aiImage, setAiImage] = useState("");
+    const [aiIsBoss, setAiIsBoss] = useState(false);
+    const [adminWeeklyBossAiId, setAdminWeeklyBossAiId] = useState("");
     const [aiLevel, setAiLevel] = useState(10);
     const [aiVillage, setAiVillage] = useState("Admin Arena");
     const [aiHp, setAiHp] = useState(1200);
@@ -12411,6 +12420,7 @@ function AdminPanel({
             loadoutId: aiLoadoutId,
             jutsuIds: aiJutsuIds,
             rules: aiRules,
+            isBossAi: aiIsBoss || undefined,
         }, allGameJutsus);
     }
 
@@ -12420,6 +12430,7 @@ function AdminPanel({
         setAiName(normalized.name);
         setAiIcon(normalized.icon);
         setAiImage(normalized.image ?? "");
+        setAiIsBoss(normalized.isBossAi ?? false);
         setAiLevel(normalized.level);
         setAiVillage(normalized.village);
         setAiHp(normalized.hp);
@@ -13208,6 +13219,11 @@ function AdminPanel({
                             <div><label>Level</label><input type="number" min={1} max={MAX_LEVEL} value={aiLevel} onChange={(e) => setAiLevel(Math.max(1, Math.min(MAX_LEVEL, Number(e.target.value))))} /></div>
                             <div><label>Village / Faction</label><input value={aiVillage} onChange={(e) => setAiVillage(e.target.value)} /></div>
                         </div>
+                        <label>AI Type</label>
+                        <select value={aiIsBoss ? "boss" : "normal"} onChange={(e) => setAiIsBoss(e.target.value === "boss")}>
+                            <option value="normal">Normal AI — available in ambush, arena, and raid fights</option>
+                            <option value="boss">Boss AI — only usable in dungeons, VN events, and boss fights</option>
+                        </select>
                         <label>AI Image</label>
                         <p className="hint">Upload a portrait for this AI. It appears in the AI creator, mission battles, and combat HUD.</p>
                         <input
@@ -13435,6 +13451,70 @@ function AdminPanel({
                                         </button>
                                     </div>
                                 </div>
+                            );
+                        })()}
+                    </section>
+
+                    {/* ── Weekly Boss Override ── */}
+                    <h3>Weekly Boss</h3>
+                    <section className="summary-box">
+                        <p className="hint">Select a Boss AI to use as the active weekly boss. This overrides the seeded rotation for all players until cleared. Only AIs marked as <strong>Boss AI</strong> appear here.</p>
+                        {(() => {
+                            const bossAis = allAdminAis.filter(ai => ai.isBossAi);
+                            const currentOverride = allAdminAis.find(ai => ai.id === sharedWeeklyBossAiIdCache);
+                            const selectedBossAi = bossAis.find(ai => ai.id === adminWeeklyBossAiId);
+                            return (
+                                <>
+                                    {currentOverride ? (
+                                        <div className="weekly-boss-current">
+                                            <span>Current override:</span>
+                                            <strong>{currentOverride.icon} {currentOverride.name}</strong>
+                                            <small>Lv {currentOverride.level}</small>
+                                        </div>
+                                    ) : (
+                                        <p className="hint">No override — using seeded weekly rotation.</p>
+                                    )}
+                                    {bossAis.length === 0 ? (
+                                        <p className="hint">No Boss AIs saved yet. Create an AI and set its type to Boss AI.</p>
+                                    ) : (
+                                        <div className="inline-grid">
+                                            <div>
+                                                <label>Select Boss AI</label>
+                                                <select value={adminWeeklyBossAiId} onChange={(e) => setAdminWeeklyBossAiId(e.target.value)}>
+                                                    <option value="">— choose —</option>
+                                                    {bossAis.map(ai => (
+                                                        <option key={ai.id} value={ai.id}>{ai.icon} {ai.name} | Lv {ai.level}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        </div>
+                                    )}
+                                    <div className="menu">
+                                        <button
+                                            disabled={!selectedBossAi}
+                                            onClick={() => {
+                                                if (!selectedBossAi) return;
+                                                persistSharedGameState({ kind: "weeklyBossOverride", aiId: selectedBossAi.id });
+                                                sharedWeeklyBossAiIdCache = selectedBossAi.id;
+                                                alert(`Weekly boss set to ${selectedBossAi.name}. Players will see it on next game state refresh.`);
+                                            }}
+                                        >
+                                            Set as Weekly Boss
+                                        </button>
+                                        <button
+                                            className="danger-button"
+                                            disabled={!sharedWeeklyBossAiIdCache}
+                                            onClick={() => {
+                                                persistSharedGameState({ kind: "weeklyBossOverride", aiId: null });
+                                                sharedWeeklyBossAiIdCache = "";
+                                                setAdminWeeklyBossAiId("");
+                                                alert("Weekly boss override cleared. Seeded rotation restored.");
+                                            }}
+                                        >
+                                            Clear Override
+                                        </button>
+                                    </div>
+                                </>
                             );
                         })()}
                     </section>
@@ -19409,7 +19489,8 @@ function CentralHub({
 
     const hasFreeRoll = (character.level >= 2 && !triggeredEvents.includes(AWAKENING_FREE_LV2_ID))
         || (character.level >= 20 && !triggeredEvents.includes(AWAKENING_FREE_LV20_ID));
-    const weeklyBoss = weeklyBossSchedule(character);
+    const weeklyBossOverrideAi = sharedWeeklyBossAiIdCache ? playableAis.find(ai => ai.id === sharedWeeklyBossAiIdCache) ?? null : null;
+    const weeklyBoss = weeklyBossSchedule(character, Date.now(), weeklyBossOverrideAi);
     const allHubItems = getAllItems(creatorItems);
 
     function countInventory(itemId: string) {
@@ -19417,7 +19498,7 @@ function CentralHub({
     }
 
     function claimWeeklyBoss() {
-        const schedule = weeklyBossSchedule(character);
+        const schedule = weeklyBossSchedule(character, Date.now(), weeklyBossOverrideAi);
         if (schedule.status === "defeated") return alert("You already defeated this week's boss.");
         if (schedule.status === "dormant") return alert(`The weekly boss has not spawned yet. Spawn: ${new Date(schedule.startsAt).toLocaleString()}.`);
         if (schedule.status === "escaped") return alert("This week's boss has escaped.");
@@ -20636,9 +20717,12 @@ function WorldMap({
 
         const battleRoll = Math.random();
 
-        // 80% random AI battle chance — pick AI closest in level to the player
+        // 80% random AI battle chance — pick AI closest in level to the player.
+        // Boss AIs are excluded from ambush encounters.
         if (battleRoll <= 0.80 && playableAis.length > 0) {
-            const sorted = [...playableAis].sort((a, b) => Math.abs((a.level ?? 1) - character.level) - Math.abs((b.level ?? 1) - character.level));
+            const normalAis = playableAis.filter(ai => !ai.isBossAi);
+            const pool = normalAis.length > 0 ? normalAis : playableAis;
+            const sorted = [...pool].sort((a, b) => Math.abs((a.level ?? 1) - character.level) - Math.abs((b.level ?? 1) - character.level));
             const closestLevel = Math.abs((sorted[0].level ?? 1) - character.level);
             const levelMatches = sorted.filter(ai => Math.abs((ai.level ?? 1) - character.level) === closestLevel);
             const randomAi = levelMatches[Math.floor(Math.random() * levelMatches.length)];
@@ -23456,6 +23540,7 @@ let sharedArenaTournamentCache: ArenaTournament | null = null;
 let sharedArenaActiveFightsCache: ArenaSpectatorFight[] = [];
 let sharedPendingClanPetBattleCache: PendingClanPetBattle | null = null;
 let sharedGameStateOwnerName = "";
+let sharedWeeklyBossAiIdCache: string = "";
 
 function loadArenaTournament(): ArenaTournament | null {
     return sharedArenaTournamentCache;
@@ -23494,6 +23579,7 @@ function hydrateSharedGameState(data: {
     arenaTournament?: ArenaTournament | null;
     arenaActiveFights?: ArenaSpectatorFight[];
     pendingClanPetBattle?: PendingClanPetBattle | null;
+    weeklyBossAiId?: string | null;
 }) {
     const villageStates: Record<string, VillageState> = {};
     (data.villageStates ?? []).forEach((state) => {
@@ -23510,6 +23596,7 @@ function hydrateSharedGameState(data: {
     sharedPendingClanPetBattleCache = data.pendingClanPetBattle && Date.now() - data.pendingClanPetBattle.createdAt <= 24 * 60 * 60 * 1000
         ? data.pendingClanPetBattle
         : null;
+    sharedWeeklyBossAiIdCache = data.weeklyBossAiId ?? "";
 }
 
 function rankedDelta(winnerRating: number, loserRating: number) {
