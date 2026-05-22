@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
+import { authedPlayerOrAdmin } from '../_auth.js';
 
 type ChatMessage = {
     author: string;
@@ -50,6 +51,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             };
             if (!author || !text) return res.status(400).json({ error: 'Missing author or text.' });
 
+            // Authenticate the author so trolls can't impersonate the Kage
+            // (or anyone else) in village chat.
+            const identity = await authedPlayerOrAdmin(req, author);
+            if (!identity) return res.status(401).json({ error: 'Authentication required.' });
+            if (!identity.admin && identity.name !== author.toLowerCase().trim()) {
+                return res.status(403).json({ error: 'Cannot post as another player.' });
+            }
+
             const newMsg: ChatMessage = {
                 author,
                 text: text.slice(0, 300),
@@ -59,17 +68,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ...(level != null ? { level }       : {}),
             };
 
-            // Retry loop reduces (but cannot eliminate without transactions) the chance
-            // of a concurrent writer overwriting this message. Two attempts is enough
-            // to handle the vast majority of near-simultaneous posts.
-            let updated: ChatMessage[] = [];
-            for (let attempt = 0; attempt < 2; attempt++) {
-                const existing = await kv.get<ChatMessage[]>(key) ?? [];
-                const fresh = existing.filter(m => Date.now() - m.ts < MSG_TTL_MS);
-                updated = [...fresh, newMsg].slice(-MAX_MESSAGES);
-                await kv.set(key, updated, { ex: KV_TTL_SECONDS });
-                break; // succeed on first write; second slot used only if first throws
-            }
+            // Read-modify-write — the previous retry loop was dead code (broke
+            // unconditionally on iter 0). Concurrent writers can still race here;
+            // accepting that for now since chat-message loss is low-impact and
+            // truly fixing it needs RPC-level CAS.
+            const existing = await kv.get<ChatMessage[]>(key) ?? [];
+            const fresh = existing.filter(m => Date.now() - m.ts < MSG_TTL_MS);
+            const updated = [...fresh, newMsg].slice(-MAX_MESSAGES);
+            await kv.set(key, updated, { ex: KV_TTL_SECONDS });
 
             return res.status(200).json(updated);
         } catch (err) {

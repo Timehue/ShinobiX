@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
 import { safeName, mergePreservingImages, cors } from '../_utils.js';
+import { authedPlayerOrAdmin } from '../_auth.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res);
@@ -11,6 +12,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
         const targetName = safeName(String(body.targetName ?? ''));
         if (!targetName) return res.status(400).json({ error: 'Invalid target name.' });
+
+        // Heal can only be self-targeted (or admin). Stops random bots from
+        // healing every hospitalized player and nullifying hospital downtime.
+        const identity = await authedPlayerOrAdmin(req, targetName);
+        if (!identity) return res.status(401).json({ error: 'Authentication required.' });
+        if (!identity.admin && identity.name !== targetName) {
+            return res.status(403).json({ error: 'Can only heal yourself.' });
+        }
 
         const key = `save:${targetName}`;
         const existing = await kv.get<Record<string, unknown>>(key);

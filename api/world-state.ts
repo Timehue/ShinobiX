@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from './_storage.js';
 import { cors } from './_utils.js';
+import { authedPlayerOrAdmin } from './_auth.js';
 
 const TERRITORY_CONTROL_MAX = 20000;
 const TERRITORY_HP_MAX = 20000;
@@ -132,6 +133,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (req.method === 'POST') {
+        // Require a logged-in player at minimum. Cleaner gating per-kind would
+        // need game-rule validation (e.g. you can only update a sector you're
+        // attacking) — leaving that for a follow-up.
+        const identity = await authedPlayerOrAdmin(req);
+        if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
             if (body?.kind === 'territory') {

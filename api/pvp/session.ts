@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
+import { authedPlayerOrAdmin } from '../_auth.js';
 
 export type PvpStatus = {
     name: string;
@@ -89,6 +90,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (req.method === 'POST') {
+        // Require a logged-in player. The creator must be one of the two
+        // fighters (or admin) — otherwise anyone could fabricate a PvP session
+        // with arbitrary stats (e.g. 999999 HP god mode).
+        const identity = await authedPlayerOrAdmin(req);
+        if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
             const { p1Character, p2Character } = body as {
@@ -99,6 +105,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             const p1Name = (p1Character.name as string) ?? 'Player 1';
             const p2Name = (p2Character.name as string) ?? 'Player 2';
+
+            if (!identity.admin) {
+                const me = identity.name;
+                const p1 = String(p1Name).trim().toLowerCase();
+                const p2 = String(p2Name).trim().toLowerCase();
+                if (me !== p1 && me !== p2) {
+                    return res.status(403).json({ error: 'Can only create sessions you are a fighter in.' });
+                }
+            }
             const battleId = `pvp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
             const session: PvpSession = {
