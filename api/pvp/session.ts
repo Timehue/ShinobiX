@@ -106,20 +106,55 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const p1Name = (p1Character.name as string) ?? 'Player 1';
             const p2Name = (p2Character.name as string) ?? 'Player 2';
 
+            const p1Norm = String(p1Name).trim().toLowerCase();
+            const p2Norm = String(p2Name).trim().toLowerCase();
+
             if (!identity.admin) {
                 const me = identity.name;
-                const p1 = String(p1Name).trim().toLowerCase();
-                const p2 = String(p2Name).trim().toLowerCase();
-                if (me !== p1 && me !== p2) {
+                if (me !== p1Norm && me !== p2Norm) {
                     return res.status(403).json({ error: 'Can only create sessions you are a fighter in.' });
                 }
             }
+
+            // Fetch authoritative character data from KV to prevent client-side
+            // stat inflation (e.g. sending 999999 HP in the request body).
+            // The authed player's data is always loaded from KV; the opponent's
+            // data is also loaded from KV when they are a real registered player
+            // (falls back to client-supplied data for AI/NPC opponents).
+            let finalP1Character = p1Character!;
+            let finalP2Character = p2Character!;
+
+            const myName = identity.name;
+            const isP1 = myName === p1Norm;
+
+            // Load our own save — always required.
+            if (!identity.admin) {
+                const mySave = await kv.get<Record<string, unknown>>(`save:${myName}`);
+                if (!mySave?.character) {
+                    return res.status(400).json({ error: 'Your character save was not found on the server.' });
+                }
+                const myKvCharacter = mySave.character as Record<string, unknown>;
+                if (isP1) finalP1Character = myKvCharacter;
+                else finalP2Character = myKvCharacter;
+
+                // Try loading opponent from KV too (real player) — graceful fallback for NPCs.
+                const oppNorm = isP1 ? p2Norm : p1Norm;
+                if (oppNorm) {
+                    const oppSave = await kv.get<Record<string, unknown>>(`save:${oppNorm}`);
+                    if (oppSave?.character) {
+                        const oppKvChar = oppSave.character as Record<string, unknown>;
+                        if (isP1) finalP2Character = oppKvChar;
+                        else finalP1Character = oppKvChar;
+                    }
+                }
+            }
+
             const battleId = `pvp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
             const session: PvpSession = {
                 battleId,
-                p1: makeFighter(p1Character, P1_START),
-                p2: makeFighter(p2Character, P2_START),
+                p1: makeFighter(finalP1Character, P1_START),
+                p2: makeFighter(finalP2Character, P2_START),
                 round: 1,
                 activePlayer: 'p1',
                 ap: { p1: 100, p2: 100 },
