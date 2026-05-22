@@ -45,8 +45,31 @@ function mergePreservingImages(incoming, existing) {
     }
     return merged;
 }
-function cors(res) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
+// Origins we trust to call our API. Anything not on this list won't get
+// browser-side CORS approval — protects authenticated calls from XSRF via
+// random sites.
+const ALLOWED_ORIGINS = new Set([
+    'https://theravensark.com',
+    'https://www.theravensark.com',
+    'https://test-five-delta-37.vercel.app',
+    // Local dev — Vite default ports
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'http://127.0.0.1:5173',
+]);
+function cors(res, req) {
+    const originHeader = req?.headers?.origin;
+    const origin = Array.isArray(originHeader) ? originHeader[0] : originHeader;
+    if (origin && ALLOWED_ORIGINS.has(origin)) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+        res.setHeader('Vary', 'Origin');
+    }
+    else if (!origin) {
+        // Same-origin / curl / server-to-server — no Origin header sent.
+        // Allow with '*' since there are no credentials at risk here.
+        res.setHeader('Access-Control-Allow-Origin', '*');
+    }
+    // If origin is set but not allowed: no ACAO header. Browser blocks the request.
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-password, x-player-password');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-password, x-player-password, x-player-name, x-kv-token');
 }

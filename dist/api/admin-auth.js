@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = handler;
 const _utils_js_1 = require("./_utils.js");
+const _auth_js_1 = require("./_auth.js");
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res);
     if (req.method === 'OPTIONS')
@@ -14,7 +15,8 @@ async function handler(req, res) {
     if (!adminPassword) {
         return res.status(500).json({ success: false, error: 'ADMIN_PASSWORD not configured on server.' });
     }
-    if (password === adminPassword) {
+    // Constant-time compare so attackers can't byte-leak via response timing.
+    if (password && (0, _auth_js_1.safeEqual)(password, adminPassword)) {
         return res.status(200).json({ success: true });
     }
     return res.status(401).json({ success: false, error: 'Incorrect password.' });

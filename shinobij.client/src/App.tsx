@@ -2,6 +2,12 @@ import { useCallback, useEffect, useRef, useState, type ReactNode, type ChangeEv
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect, react-hooks/purity */
 import type * as React from "react";
 import "./index.css";
+import { installAuthFetch, setActivePlayer } from "./authFetch";
+
+// Install the global fetch interceptor once at module load. From here on,
+// every fetch('/api/...') call automatically picks up x-player-name and
+// x-player-password from the active session (managed via setActivePlayer).
+installAuthFetch();
 import worldMapBg from "./assets/Maps/world_map.png";
 import castleImg from "./assets/castle.png";
 import houseImg from "./assets/house1.png";
@@ -5604,6 +5610,12 @@ export default function App() {
     const [worldMapKey, setWorldMapKey] = useState(0);
     const [character, setCharacter] = useState<Character | null>(null);
     const [currentAccountName, setCurrentAccountName] = useState("");
+    // Mirror the active player into sessionStorage so the global authFetch
+    // interceptor (installed at module load) can pick up the correct
+    // x-player-name / x-player-password headers for every /api/ request.
+    useEffect(() => {
+        setActivePlayer(character?.name ?? currentAccountName ?? null);
+    }, [character?.name, currentAccountName]);
     const [sharedImages, setSharedImages] = useState<Record<string, string>>({});
     const [savedBloodlines, setSavedBloodlines] = useState<SavedBloodline[]>([]);
     const [publicPlayerBloodlines, setPublicPlayerBloodlines] = useState<ReviewBloodline[]>([]);

@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = handler;
 const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
+const _auth_js_1 = require("../_auth.js");
 const REGISTRY_KEY = 'player:registry';
 // Individual TTL keys (presence:<name>) with 60s expiry.
 // Postgres expires them automatically — no JSONB hash merges, no CPU spike.
@@ -26,6 +27,15 @@ async function handler(req, res) {
         const { name, sector, character, travelingUntil, inBattle } = body;
         if (!name)
             return res.status(400).json({ error: 'Missing name.' });
+        // Require that the heartbeat is from the named player (or admin).
+        // Stops attackers from spoofing presence: setting inBattle=true to be
+        // untouchable, faking travelingUntil, teleporting others, etc.
+        const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req, name);
+        if (!identity)
+            return res.status(401).json({ error: 'Authentication required.' });
+        if (!identity.admin && identity.name !== name.toLowerCase().trim()) {
+            return res.status(403).json({ error: 'Cannot heartbeat as another player.' });
+        }
         const challengeKey = `challenges:${name.toLowerCase().trim()}`;
         const presenceKey = `${PRESENCE_KEY_PREFIX}${name}`;
         const resetSignalKey = `reset-signal:${name.toLowerCase().trim()}`;

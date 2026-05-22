@@ -1,10 +1,16 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { cors } from './_utils.js';
+import { authedPlayerOrAdmin } from './_auth.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res);
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).end();
+
+    // Require a logged-in player or admin — this endpoint burns OpenAI credits
+    // and would be trivially abused if left open.
+    const identity = await authedPlayerOrAdmin(req);
+    if (!identity) return res.status(401).json({ error: 'Authentication required.' });
 
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {

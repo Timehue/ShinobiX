@@ -59,13 +59,28 @@ const app = express();
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Global CORS — individual handlers also call cors(), but this catches
-// preflight OPTIONS requests before they reach any route handler.
-app.use((_req: Request, res: Response, next: NextFunction) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
+// Global CORS — restrict to known origins so a malicious site can't initiate
+// authenticated requests from a visitor's browser. Same allowlist as
+// api/_utils.ts cors().
+const ALLOWED_ORIGINS = new Set<string>([
+    'https://theravensark.com',
+    'https://www.theravensark.com',
+    'https://test-five-delta-37.vercel.app',
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'http://127.0.0.1:5173',
+]);
+app.use((req: Request, res: Response, next: NextFunction) => {
+    const origin = (req.headers.origin as string | undefined) ?? '';
+    if (origin && ALLOWED_ORIGINS.has(origin)) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+        res.setHeader('Vary', 'Origin');
+    } else if (!origin) {
+        res.setHeader('Access-Control-Allow-Origin', '*');
+    }
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-password, x-player-password');
-    if (_req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-password, x-player-password, x-player-name, x-kv-token');
+    if (req.method === 'OPTIONS') {
         res.status(200).end();
         return;
     }

@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = handler;
 const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
+const _auth_js_1 = require("../_auth.js");
 const SESSION_TTL = 60 * 60;
 // Starting positions matching arena (p1 left side, p2 right side)
 const P1_START = 62;
@@ -39,6 +40,12 @@ async function handler(req, res) {
         return res.status(200).json(session);
     }
     if (req.method === 'POST') {
+        // Require a logged-in player. The creator must be one of the two
+        // fighters (or admin) — otherwise anyone could fabricate a PvP session
+        // with arbitrary stats (e.g. 999999 HP god mode).
+        const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req);
+        if (!identity)
+            return res.status(401).json({ error: 'Authentication required.' });
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
             const { p1Character, p2Character } = body;
@@ -46,6 +53,14 @@ async function handler(req, res) {
                 return res.status(400).json({ error: 'Missing characters' });
             const p1Name = p1Character.name ?? 'Player 1';
             const p2Name = p2Character.name ?? 'Player 2';
+            if (!identity.admin) {
+                const me = identity.name;
+                const p1 = String(p1Name).trim().toLowerCase();
+                const p2 = String(p2Name).trim().toLowerCase();
+                if (me !== p1 && me !== p2) {
+                    return res.status(403).json({ error: 'Can only create sessions you are a fighter in.' });
+                }
+            }
             const battleId = `pvp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
             const session = {
                 battleId,

@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
 import { safeName, mergePreservingImages, cors } from '../_utils.js';
 import { verifyPlayerPassword } from '../player-auth.js';
+import { authedPlayerOrAdmin, isAdmin } from '../_auth.js';
 
 const REGISTRY_KEY = 'player:registry';
 
@@ -13,8 +14,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!name) return res.status(400).json({ error: 'Invalid name.' });
 
     const key = `save:${name}`;
+    // Clan saves use `save:clan-<slug>` keys — they're shared per-clan, so any
+    // logged-in player may read/write them. Admin actions still flow through
+    // ?signal=1 which requires admin auth.
+    const isClanSave = name.startsWith('clan-');
 
     if (req.method === 'GET') {
+        // Reads require *some* auth — stops anonymous bots from scraping every
+        // player's save by guessing names. Logged-in players can still read
+        // other players' saves (needed for PvP opponent loading, clan record
+        // lookups, etc.) but at least we know who's doing it.
+        //
+        // TODO: strip sensitive fields (ryo, inventory, etc.) when the reader
+        // isn't the owner. For now just require any valid login.
+        const identity = await authedPlayerOrAdmin(req, name);
+        if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         const data = await kv.get(key);
         if (data === null) return res.status(404).end();
         return res.status(200).json(data);
@@ -25,6 +39,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const resetSignalKey = `reset-signal:${name.toLowerCase()}`;
             const adminLockKey = `admin-lock:${name.toLowerCase()}`;
             if (req.query.ack === '1') {
+                // Ack just clears two short-lived keys for this player.
+                const ackIdentity = await authedPlayerOrAdmin(req, name);
+                if (!ackIdentity) return res.status(401).json({ error: 'Authentication required.' });
+                if (!ackIdentity.admin && !isClanSave && ackIdentity.name !== name) {
+                    return res.status(403).json({ error: 'Cannot ack another player.' });
+                }
                 await Promise.all([
                     kv.del(resetSignalKey),
                     kv.del(adminLockKey),
@@ -34,13 +54,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             const isAdminSave = req.query.signal === '1';
 
-            // Admin-flagged writes require the admin password to prevent any client
-            // from force-reloading a player with arbitrary data.
+            // Admin-flagged writes require admin auth (constant-time compare in isAdmin).
             if (isAdminSave) {
-                const adminPassword = process.env.ADMIN_PASSWORD;
-                const providedPw = req.headers['x-admin-password'] as string | undefined;
-                if (!adminPassword || providedPw !== adminPassword) {
+                if (!isAdmin(req)) {
                     return res.status(401).json({ error: 'Admin authentication required.' });
+                }
+            } else {
+                // Non-admin saves: player can save their own; any logged-in
+                // player can write clan saves (shared per-clan record).
+                const identity = await authedPlayerOrAdmin(req, name);
+                if (!identity) return res.status(401).json({ error: 'Authentication required.' });
+                if (!identity.admin && !isClanSave && identity.name !== name) {
+                    return res.status(403).json({ error: 'Cannot save another player.' });
                 }
             }
 
@@ -104,21 +129,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (req.method === 'DELETE') {
         try {
-            const adminPassword = process.env.ADMIN_PASSWORD;
-            const adminPw = req.headers['x-admin-password'] as string | undefined;
-            const playerPw = req.headers['x-player-password'] as string | undefined;
-            const isAdmin = adminPassword && adminPw === adminPassword;
-            if (!isAdmin) {
-                // Allow player to delete their own save by providing their own password.
-                if (!playerPw) return res.status(401).json({ error: 'Authentication required.' });
-                const authRecord = await kv.get(`auth:${name.toLowerCase()}`);
-                if (authRecord) {
-                    // Server-side password exists — must verify
-                    const valid = await verifyPlayerPassword(name, playerPw);
-                    if (!valid) return res.status(401).json({ error: 'Incorrect password.' });
+            const adminAuth = isAdmin(req);
+            if (!adminAuth) {
+                // Player must auth via headers; clan saves allow any logged-in
+                // player (deletes are admin-gated UI in practice).
+                const identity = await authedPlayerOrAdmin(req, name);
+                if (!identity) return res.status(401).json({ error: 'Authentication required.' });
+                if (!identity.admin && !isClanSave && identity.name !== name) {
+                    // Backwards-compat: legacy body-supplied password also accepted.
+                    const playerPw = req.headers['x-player-password'] as string | undefined;
+                    const authRecord = await kv.get(`auth:${name.toLowerCase()}`);
+                    if (authRecord) {
+                        if (!playerPw || !(await verifyPlayerPassword(name, playerPw))) {
+                            return res.status(403).json({ error: 'Cannot delete another player\'s save.' });
+                        }
+                    }
                 }
-                // Legacy account (no server auth record) — allow delete; player is already
-                // authenticated client-side to reach this button.
             }
             const lowered = name.toLowerCase();
             const adminLockKey = `admin-lock:${lowered}`;

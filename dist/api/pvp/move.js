@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = handler;
 const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
+const _auth_js_1 = require("../_auth.js");
 // ─── Grid constants (match arena exactly) ─────────────────────────────────────
 const GRID_W = 12;
 const GRID_H = 10;
@@ -781,6 +782,18 @@ async function handler(req, res) {
             return res.status(200).json(session);
         if (session.activePlayer !== role)
             return res.status(200).json(session);
+        // Verify the requester actually owns the role they're moving as.
+        // Without this, anyone could submit moves on another player's behalf.
+        const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req);
+        if (!identity)
+            return res.status(401).json({ error: 'Authentication required.' });
+        if (!identity.admin) {
+            const claimedFighter = role === 'p1' ? session.p1 : session.p2;
+            const claimedName = String(claimedFighter.name ?? '').trim().toLowerCase();
+            if (claimedName !== identity.name) {
+                return res.status(403).json({ error: 'Cannot move as another player.' });
+            }
+        }
         const lockKey = `${key}:lock`;
         const lockToken = `${role}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
         const lockResult = await _storage_js_1.kv.set(lockKey, lockToken, { nx: true, ex: 3 });
