@@ -556,28 +556,14 @@ function _makeRoutedKv(base, disk) {
         }
         return { diskKeys, baseKeys, order };
     }
-    // Read-through fallback: when a disk-routed key isn't on disk yet, look it
-    // up on the base backend (Supabase) — that's where it lived before we
-    // flipped on disk storage. Lets existing data keep working during the
-    // gradual migration.
-    //
-    // Base failures are tolerated for disk-routed reads: if Supabase/pg is
-    // unreachable or auth is broken on this deployment, we shouldn't take down
-    // disk-routed reads that don't actually need the base backend.
-    async function getWithFallback(key) {
-        const v = await disk.get(key);
-        if (v !== null)
-            return v;
-        try {
-            return await base.get(key);
-        }
-        catch {
-            return null;
-        }
+    // Disk is now the source of truth for disk-routed prefixes — migration is
+    // complete (see /api/admin/migrate-kv). Reads go straight to the overlay.
+    async function diskGet(key) {
+        return disk.get(key);
     }
     return {
         async get(key) {
-            return _routesToDisk(key) ? getWithFallback(key) : base.get(key);
+            return _routesToDisk(key) ? diskGet(key) : base.get(key);
         },
         async set(key, value, options) {
             return _routesToDisk(key) ? disk.set(key, value, options) : base.set(key, value, options);
@@ -593,23 +579,14 @@ function _makeRoutedKv(base, disk) {
             return a + b + c;
         },
         async keys(pattern) {
-            // Disk-routed pattern: union disk + base so legacy keys stay visible.
-            // Base failures don't fail the call — disk is authoritative after migration.
-            if (_routesToDisk(pattern)) {
-                const [a, b] = await Promise.all([
-                    disk.keys(pattern),
-                    base.keys(pattern).catch(() => []),
-                ]);
-                return Array.from(new Set([...a, ...b]));
-            }
-            return base.keys(pattern);
+            return _routesToDisk(pattern) ? disk.keys(pattern) : base.keys(pattern);
         },
         async mget(...keys) {
             // Use the per-key get path so disk-routed keys benefit from fallback.
-            return Promise.all(keys.map((k) => _routesToDisk(k) ? getWithFallback(k) : base.get(k)));
+            return Promise.all(keys.map((k) => _routesToDisk(k) ? diskGet(k) : base.get(k)));
         },
         async hgetall(key) {
-            return _routesToDisk(key) ? getWithFallback(key) : base.hgetall(key);
+            return _routesToDisk(key) ? diskGet(key) : base.hgetall(key);
         },
         async hset(key, fields) {
             return _routesToDisk(key) ? disk.hset(key, fields) : base.hset(key, fields);
