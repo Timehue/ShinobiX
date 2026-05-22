@@ -522,6 +522,7 @@ type Character = {
     claimedMapControlDate?: string;
     hunterRank?: number;
     weeklyBossKills?: Record<string, string>;
+    claimedWarCrateIds?: string[];
     elderFocus?: "war" | "trade" | "training";
 };
 type RewardCurrencyKey = "fateShards" | "honorSeals" | "boneCharms" | "auraStones" | "auraDust" | "mythicSeals";
@@ -3012,6 +3013,51 @@ const DUNGEON_LEGENDARY_RELIC_ID = "dungeon-legendary-relic";
 const WARFORGED_RELIC_ID = "warforged-relic";
 const LEGENDARY_WAR_CRATE_ID = "legendary-war-crate";
 
+// How long a war crate stays claimable after the war ends.
+const WAR_CRATE_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+/**
+ * Check both clan war history and the village war cache for unclaimed war crates.
+ * Returns an updated character with any newly-found crates added, plus a count.
+ * Safe to call repeatedly — already-claimed IDs are tracked in claimedWarCrateIds.
+ */
+function claimPendingWarCrates(
+    character: Character,
+    clanData: { warHistory?: { result: string; warCrateId?: string; endedAt?: number }[] } | null,
+): { character: Character; count: number } {
+    const claimed = new Set(character.claimedWarCrateIds ?? []);
+    const toAdd: string[] = [];
+    const now = Date.now();
+
+    // Clan war crates — check the last 3 history entries in case of back-to-back wars
+    for (const record of (clanData?.warHistory ?? []).slice(0, 3)) {
+        if (!record.warCrateId || record.result !== "Won") continue;
+        if (claimed.has(record.warCrateId)) continue;
+        if (record.endedAt && now - record.endedAt > WAR_CRATE_EXPIRY_MS) continue;
+        toAdd.push(record.warCrateId);
+    }
+
+    // Village war crates — scan the shared in-memory cache
+    for (const war of Object.values(sharedVillageWarCache)) {
+        if (!war.warCrateId) continue;
+        if (war.winnerVillage !== character.village) continue;
+        if (claimed.has(war.warCrateId)) continue;
+        if (!war.endedAt || now - war.endedAt > WAR_CRATE_EXPIRY_MS) continue;
+        toAdd.push(war.warCrateId);
+    }
+
+    if (toAdd.length === 0) return { character, count: 0 };
+
+    return {
+        character: {
+            ...character,
+            inventory: [...character.inventory, ...toAdd.map(() => LEGENDARY_WAR_CRATE_ID)],
+            claimedWarCrateIds: [...(character.claimedWarCrateIds ?? []), ...toAdd],
+        },
+        count: toAdd.length,
+    };
+}
+
 type WeeklyBossStatus = "dormant" | "active" | "defeated" | "escaped";
 type WeeklyBossSchedule = {
     weekKey: string;
@@ -4657,6 +4703,7 @@ function normalizeCharacter(parsed: Character): Character {
         rankedWins: parsed.rankedWins ?? 0,
         rankedLosses: parsed.rankedLosses ?? 0,
         weeklyBossKills: parsed.weeklyBossKills ?? {},
+        claimedWarCrateIds: Array.isArray(parsed.claimedWarCrateIds) ? parsed.claimedWarCrateIds : [],
         clanContribMonth: parsed.clanContribMonth,
         guardQueued: parsed.guardQueued ?? false,
         hospitalized: parsed.hospitalized ?? false,
@@ -5709,10 +5756,21 @@ export default function App() {
     useEffect(() => {
         setActivePlayer(character?.name ?? currentAccountName ?? null);
     }, [character?.name, currentAccountName]);
+
     const [sharedImages, setSharedImages] = useState<Record<string, string>>({});
     const [savedBloodlines, setSavedBloodlines] = useState<SavedBloodline[]>([]);
     const [publicPlayerBloodlines, setPublicPlayerBloodlines] = useState<ReviewBloodline[]>([]);
-    const [, setWorldStateVersion] = useState(0);
+    const [worldStateVersion, setWorldStateVersion] = useState(0);
+    // Village war crates — check whenever the shared world state refreshes.
+    // Clan war crates are checked inside ClanHall where clanData is available.
+    useEffect(() => {
+        if (!character) return;
+        const { character: updated, count } = claimPendingWarCrates(character, null);
+        if (count === 0) return;
+        setCharacter(updated);
+        alert(`You received ${count} Legendary War Crate${count > 1 ? "s" : ""} from a recent village war victory! Check your inventory.`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [worldStateVersion]);
     const [, setSharedGameStateVersion] = useState(0);
     const [currentBiome, setCurrentBiome] = useState<Biome>("central");
     const [currentWeather, setCurrentWeather] =
@@ -15293,7 +15351,7 @@ type ClanUpgradeKey = "trainingGrounds" | "warRoom" | "treasury" | "petDen" | "m
 type ClanUpgradeLevels = Record<ClanUpgradeKey, number>;
 type ClanTreasury = { ryo: number; fateShards: number; boneCharms: number; auraStones: number; mythicSeals: number; warSupply: number; items: TreasuryItemStack[]; };
 type ClanTreasuryCurrencyKey = Exclude<keyof ClanTreasury, "items" | "warSupply">;
-type ClanWarRecord = { opponent: string; result: "Won" | "Lost" | "Draw"; finalScore: string; topAttacker: string; topDefender: string; mvpClan: string; reward: string; date: string; };
+type ClanWarRecord = { opponent: string; result: "Won" | "Lost" | "Draw"; finalScore: string; topAttacker: string; topDefender: string; mvpClan: string; reward: string; date: string; endedAt?: number; warCrateId?: string; };
 type EnhancedClanData = ClanData & { level: number; xp: number; treasury: ClanTreasury; upgrades: ClanUpgradeLevels; warHistory: ClanWarRecord[]; activeWar?: { opponentClan: string; enemyVillage: string; ourScore: number; enemyScore: number; startedAt: number; endsAt: number; }; roleOverrides?: Record<string, ClanRole>; joinRequests: ClanJoinRequest[]; notices: NoticePost[]; };
 const CLAN_UPGRADE_MAX_LEVEL = 50;
 const clanBoostTiers = [
@@ -15415,6 +15473,18 @@ function ClanHall({ character, updateCharacter, creatorItems }: { character: Cha
         if (character.clan) return;
         loadAvailableClans();
     }, [character.clan, character.name, character.village]);
+
+    // Clan war crate distribution — fires whenever clanData loads or updates.
+    // If the most recent war was a win and this player hasn't claimed the crate yet,
+    // add it to their inventory automatically.
+    useEffect(() => {
+        if (!clanData) return;
+        const { character: updated, count } = claimPendingWarCrates(character, clanData);
+        if (count === 0) return;
+        updateCharacter(updated);
+        alert(`You received ${count} Legendary War Crate${count > 1 ? "s" : ""} from a clan war victory! Check your inventory.`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [clanData?.warHistory?.[0]?.warCrateId]);
 
     useEffect(() => {
         if (!isInClan || view !== "guard") return;
@@ -15545,10 +15615,13 @@ function ClanHall({ character, updateCharacter, creatorItems }: { character: Cha
     }
     async function resolveClanWar() {
         if (!clanData?.activeWar) return; const war = clanData.activeWar; const result: ClanWarRecord["result"] = war.ourScore > war.enemyScore ? "Won" : war.ourScore < war.enemyScore ? "Lost" : "Draw";
-        const record: ClanWarRecord = { opponent: war.opponentClan, result, finalScore: `${war.ourScore} - ${war.enemyScore}`, topAttacker: character.name, topDefender: character.guardQueued ? character.name : "Village Guard", mvpClan: result === "Won" ? clanData.name : result === "Lost" ? war.opponentClan : "None", reward: result === "Won" ? "4,000 ryo / 800 Clan XP / War Crate" : result === "Draw" ? "1,500 ryo / 300 Clan XP" : "250 Clan XP", date: new Date().toLocaleDateString() };
+        const now = Date.now();
+        const record: ClanWarRecord = { opponent: war.opponentClan, result, finalScore: `${war.ourScore} - ${war.enemyScore}`, topAttacker: character.name, topDefender: character.guardQueued ? character.name : "Village Guard", mvpClan: result === "Won" ? clanData.name : result === "Lost" ? war.opponentClan : "None", reward: result === "Won" ? "4,000 ryo / 800 Clan XP / War Crate (all members)" : result === "Draw" ? "1,500 ryo / 300 Clan XP" : "250 Clan XP", date: new Date().toLocaleDateString(), endedAt: now, warCrateId: result === "Won" ? `clan-crate-${clanData.name}-${now}` : undefined };
         if (result === "Lost") loadAllSectorTerritories().filter(territory => territory.ownerClan === clanData.name).slice(0, 1).forEach(territory => damageSectorTerritory(territory.sector, 10000));
         await saveClan(addClanXp({ ...clanData, activeWar: undefined, warHistory: [record, ...clanData.warHistory].slice(0, 12), treasury: { ...clanData.treasury, ryo: clanData.treasury.ryo + (result === "Won" ? 4000 : result === "Draw" ? 1500 : 0) } }, result === "Won" ? 800 : result === "Draw" ? 300 : 250));
-        if (result === "Won") updateCharacter({ ...grantTerritoryScrolls(addInventoryItems(character, [LEGENDARY_WAR_CRATE_ID]), 25), auraDust: (character.auraDust ?? 0) + 5 });
+        // Territory scrolls + aura dust still go to the player who ends the war.
+        // The war crate itself is now distributed to ALL members via claimPendingWarCrates.
+        if (result === "Won") updateCharacter({ ...grantTerritoryScrolls(character, 25), auraDust: (character.auraDust ?? 0) + 5 });
     }
     function refreshTerritoryPanel() { setTerritoryRefresh(value => value + 1); }
     async function donateTerritoryScrolls(sector: number, count = 1) {
@@ -15815,6 +15888,7 @@ type VillageWar = {
     capturedAt?: number;
     winnerVillage?: string;
     endedAt?: number;
+    warCrateId?: string;
 };
 
 function villageWarId(villageA: string, villageB: string) {
@@ -15838,6 +15912,7 @@ function normalizeVillageWar(data: Partial<VillageWar> & { villages: [string, st
         capturedAt: data.capturedAt,
         winnerVillage: data.winnerVillage,
         endedAt: data.endedAt,
+        warCrateId: data.warCrateId,
     };
 }
 
@@ -15936,6 +16011,9 @@ function applyVillageWarDamage(war: VillageWar, damagedVillage: string, amount: 
         hp: { ...war.hp, [damagedVillage]: nextHp },
         winnerVillage: nextHp <= 0 ? war.villages.find(village => village !== damagedVillage) : war.winnerVillage,
         endedAt: nextHp <= 0 ? Date.now() : war.endedAt,
+        // Stamp a unique crate ID the moment the war ends so every winning-village
+        // player can claim it on next login. Only set once (preserve existing id).
+        warCrateId: war.warCrateId ?? (nextHp <= 0 ? `village-crate-${war.id}-${Date.now()}` : undefined),
     });
     saveVillageWar(next);
     return next;
