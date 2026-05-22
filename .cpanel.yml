@@ -2,5 +2,6 @@
 deployment:
   tasks:
     - export DEPLOYPATH=/home/theraven/apps/shinobix
+    - git -C $DEPLOYPATH reset --hard HEAD
     - git -C $DEPLOYPATH clean -fd
     - mkdir -p $DEPLOYPATH/tmp && touch $DEPLOYPATH/tmp/restart.txt
