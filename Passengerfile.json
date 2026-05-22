@@ -1,0 +1,4 @@
+{
+  "startup_file": "app.js",
+  "environment": "production"
+}
