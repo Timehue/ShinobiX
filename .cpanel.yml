@@ -2,5 +2,6 @@
 deployment:
   tasks:
     - export DEPLOYPATH=/home/theraven/apps/shinobix
+    - git -C $DEPLOYPATH clean -fd
     - cd $DEPLOYPATH && npm install --production
     - mkdir -p $DEPLOYPATH/tmp && touch $DEPLOYPATH/tmp/restart.txt
