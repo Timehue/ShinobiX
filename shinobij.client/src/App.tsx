@@ -1966,7 +1966,6 @@ function effectiveTagPercent(tag: JutsuTag, bloodlineRank?: Rank | null, level =
 
 const allTags = [
     "Absorb",
-    "Barrier",
     "Buff Prevent",
     "Cleanse Prevent",
     "Clear Prevent",
@@ -2022,10 +2021,10 @@ const nonBloodlineFortyApTagPairs: JutsuTag[][] = [
     [{ name: "Increase Damage Given", percent: 30 }, { name: "Recoil", percent: 30 }],
     [{ name: "Increase Damage Taken", percent: 30 }, { name: "Reflect", percent: 30 }],
     [{ name: "Decrease Damage Given", percent: 30 }, { name: "Absorb", percent: 30 }],
-    [{ name: "Decrease Damage Taken", percent: 30 }, { name: "Siphon", percent: 30 }],
+    [{ name: "Decrease Damage Taken", percent: 30 }, { name: "Lifesteal", percent: 30 }],
     [{ name: "Increase Heal", percent: 30 }, { name: "Absorb", percent: 30 }],
-    [{ name: "Barrier", percent: 0 }, { name: "Decrease Damage Taken", percent: 30 }],
-    [{ name: "Barrier", percent: 0 }, { name: "Siphon", percent: 30 }],
+    [{ name: "Shield", percent: 0 }, { name: "Decrease Damage Taken", percent: 30 }],
+    [{ name: "Reflect", percent: 30 }, { name: "Decrease Damage Given", percent: 30 }],
 ];
 
 const nonBloodlineSixtyApTags: JutsuTag[] = [
@@ -2038,7 +2037,6 @@ const nonBloodlineSixtyApTags: JutsuTag[] = [
     { name: "Siphon", percent: 30 },
     { name: "Reflect", percent: 30 },
     { name: "Recoil", percent: 30 },
-    { name: "Barrier", percent: 0 },
 ];
 
 function nonBloodlineBalanceIndex(jutsu: Jutsu) {
@@ -2108,7 +2106,7 @@ const starterJutsus: Jutsu[] = [
     makeJutsu("starter-tai-fire-1", "Burning Knuckle", "Taijutsu", 40, 1, 25, 1, 125, 125, [{ name: "Ignition", percent: 16 }], "Fire"),
     makeJutsu("starter-tai-fire-2", "Meteor Axe Kick", "Taijutsu", 60, 1, 30, 2, 250, 250, [{ name: "Recoil", percent: 10 }], "Fire"),
     makeJutsu("starter-tai-fire-3", "Cinder Rush", "Taijutsu", 40, 2, 26, 1, 125, 125, [{ name: "Wound", percent: 14 }], "Fire"),
-    makeJutsu("starter-tai-water-1", "Flowing Palm", "Taijutsu", 40, 1, 28, 1, 125, 125, [{ name: "Siphon", percent: 18 }], "Water"),
+    makeJutsu("starter-tai-water-1", "Flowing Palm", "Taijutsu", 40, 1, 28, 1, 125, 125, [{ name: "Lifesteal", percent: 18 }], "Water"),
     makeJutsu("starter-tai-water-2", "Tidal Shoulder Throw", "Taijutsu", 60, 1, 30, 2, 250, 250, [{ name: "Decrease Damage Given", percent: 18 }], "Water"),
     makeJutsu("starter-tai-water-3", "Ripple Guard Form", "Taijutsu", 40, 0, 0, 2, 125, 125, [{ name: "Shield", percent: 0 }, { name: "Cleanse Prevent", percent: 0 }], "Water"),
 
@@ -2142,7 +2140,7 @@ const starterJutsus: Jutsu[] = [
     makeJutsu("starter-buki-fire-3", "Searing Blade Toss", "Bukijutsu", 40, 3, 23, 1, 125, 125, [{ name: "Poison", percent: 14 }], "Fire"),
     makeJutsu("starter-buki-water-1", "Mist Needle Spread", "Bukijutsu", 40, 5, 24, 1, 125, 125, [{ name: "Drain", percent: 0 }], "Water"),
     makeJutsu("starter-buki-water-2", "Torrent Chain Slash", "Bukijutsu", 60, 4, 30, 2, 250, 250, [{ name: "Siphon", percent: 16 }], "Water"),
-    makeJutsu("starter-buki-water-3", "Hidden Current Guard", "Bukijutsu", 40, 0, 0, 2, 125, 125, [{ name: "Barrier", percent: 0 }, { name: "Cleanse Prevent", percent: 0 }], "Water"),
+    makeJutsu("starter-buki-water-3", "Hidden Current Guard", "Bukijutsu", 40, 0, 0, 2, 125, 125, [{ name: "Shield", percent: 0 }, { name: "Cleanse Prevent", percent: 0 }], "Water"),
     // Universal jutsus — no element, available to all
     normalizeJutsu({
         id: "starter-universal-flicker",
@@ -2194,10 +2192,10 @@ const starterSavedBloodlines: SavedBloodline[] = [
         specialElement: "Blood",
         lore: "A cursed kekkei genkai born from a clan that broke a forbidden pact with blood spirits. Those awakened by the Ashen Eyes see the world through a veil of crimson — perceiving every living being as a tapestry of veins and chakra pathways. The afflicted can shatter hallucinations directly into their opponent's bloodstream, weaponizing the very sight of life itself. Ancient texts warn that prolonged use slowly turns the user's own eyes the color of ash and bone.",
         jutsus: [
-            makeStarterBloodlineDamageJutsu("ashen-eyes-blood-gaze", "Blood Gaze Rupture", "Genjutsu", "Blood", { name: "Wound", percent: 20 }),
-            makeStarterBloodlineDamageJutsu("ashen-eyes-crimson-hall", "Crimson Hallucination", "Genjutsu", "Blood", { name: "Increase Damage Taken", percent: 20 }),
-            makeStarterBloodlineDamageJutsu("ashen-eyes-vein-mirror", "Vein Mirror Nightmare", "Genjutsu", "Blood", { name: "Poison", percent: 20 }),
-            makeStarterBloodlineUtilityJutsu("ashen-eyes-hematoma-veil", "Hematoma Veil", "Genjutsu", "Blood", [{ name: "Increase Damage Taken", percent: 20 }, { name: "Decrease Damage Given", percent: 20 }]),
+            makeStarterBloodlineDamageJutsu("ashen-eyes-blood-gaze", "Blood Gaze Rupture", "Genjutsu", "Blood", { name: "Wound", percent: 35 }),
+            makeStarterBloodlineDamageJutsu("ashen-eyes-crimson-hall", "Crimson Hallucination", "Genjutsu", "Blood", { name: "Increase Damage Taken", percent: 35 }),
+            makeStarterBloodlineDamageJutsu("ashen-eyes-vein-mirror", "Vein Mirror Nightmare", "Genjutsu", "Blood", { name: "Poison", percent: 30 }),
+            makeStarterBloodlineUtilityJutsu("ashen-eyes-hematoma-veil", "Hematoma Veil", "Genjutsu", "Blood", [{ name: "Increase Damage Taken", percent: 30 }, { name: "Decrease Damage Given", percent: 30 }]),
         ],
         totalPoints: 9,
     },
@@ -2208,10 +2206,10 @@ const starterSavedBloodlines: SavedBloodline[] = [
         specialElement: "Lava",
         lore: "Forged in the volcanic rifts of the Ember Wastes, the Inferno Cataclysm lineage merges fire and earth chakra at the cellular level. The wielder's body temperature runs far above human limits — surface veins glow faintly orange in darkness. In battle, they can compress molten rock and superheated gas into devastating projectiles or coffin-like formations that entomb the enemy in cooling lava. Survivors of their attacks are found encased in obsidian, preserved like dark statues.",
         jutsus: [
-            makeStarterBloodlineDamageJutsu("inferno-cataclysm-lava-burst", "Lava Burst Coffin", "Ninjutsu", "Lava", { name: "Ignition", percent: 20 }),
-            makeStarterBloodlineDamageJutsu("inferno-cataclysm-molten-rain", "Molten Rainfall", "Ninjutsu", "Lava", { name: "Increase Damage Given", percent: 20 }),
-            makeStarterBloodlineDamageJutsu("inferno-cataclysm-crater-lance", "Crater Lance", "Ninjutsu", "Lava", { name: "Wound", percent: 20 }),
-            makeStarterBloodlineUtilityJutsu("inferno-cataclysm-obsidian-afterglow", "Obsidian Afterglow", "Ninjutsu", "Lava", [{ name: "Ignition", percent: 20 }, { name: "Decrease Damage Given", percent: 20 }]),
+            makeStarterBloodlineDamageJutsu("inferno-cataclysm-lava-burst", "Lava Burst Coffin", "Ninjutsu", "Lava", { name: "Ignition", percent: 30 }),
+            makeStarterBloodlineDamageJutsu("inferno-cataclysm-molten-rain", "Molten Rainfall", "Ninjutsu", "Lava", { name: "Increase Damage Given", percent: 35 }),
+            makeStarterBloodlineDamageJutsu("inferno-cataclysm-crater-lance", "Crater Lance", "Ninjutsu", "Lava", { name: "Wound", percent: 35 }),
+            makeStarterBloodlineUtilityJutsu("inferno-cataclysm-obsidian-afterglow", "Obsidian Afterglow", "Ninjutsu", "Lava", [{ name: "Ignition", percent: 30 }, { name: "Decrease Damage Given", percent: 30 }]),
         ],
         totalPoints: 9,
     },
@@ -2222,10 +2220,10 @@ const starterSavedBloodlines: SavedBloodline[] = [
         specialElement: "Shadow",
         lore: "Descended from a sect of bukijutsu assassins who trained in perpetual darkness for generations, the Shadow Lotus bloodline channels shadow-natured chakra through weapons and thrown implements. Their techniques bloom like deadly flowers from the dark — blades that trail shadow-ribbons, senbon that multiply in dim light, and wires that vanish entirely in low visibility. Their clan temple has no lanterns. They say the darkness learned to fear them first.",
         jutsus: [
-            makeStarterBloodlineDamageJutsu("shadow-lotus-umbra-senbon", "Umbra Senbon Bloom", "Bukijutsu", "Shadow", { name: "Poison", percent: 20 }),
-            makeStarterBloodlineDamageJutsu("shadow-lotus-night-petal", "Night Petal Cutter", "Bukijutsu", "Shadow", { name: "Decrease Damage Taken", percent: 20 }),
-            makeStarterBloodlineDamageJutsu("shadow-lotus-eclipse-wire", "Eclipse Wire Blossom", "Bukijutsu", "Shadow", { name: "Absorb", percent: 20 }),
-            makeStarterBloodlineUtilityJutsu("shadow-lotus-black-petal-guard", "Black Petal Guard", "Bukijutsu", "Shadow", [{ name: "Decrease Damage Taken", percent: 20 }, { name: "Absorb", percent: 20 }]),
+            makeStarterBloodlineDamageJutsu("shadow-lotus-umbra-senbon", "Umbra Senbon Bloom", "Bukijutsu", "Shadow", { name: "Poison", percent: 30 }),
+            makeStarterBloodlineDamageJutsu("shadow-lotus-night-petal", "Night Petal Cutter", "Bukijutsu", "Shadow", { name: "Decrease Damage Taken", percent: 35 }),
+            makeStarterBloodlineDamageJutsu("shadow-lotus-eclipse-wire", "Eclipse Wire Blossom", "Bukijutsu", "Shadow", { name: "Absorb", percent: 35 }),
+            makeStarterBloodlineUtilityJutsu("shadow-lotus-black-petal-guard", "Black Petal Guard", "Bukijutsu", "Shadow", [{ name: "Decrease Damage Taken", percent: 30 }, { name: "Absorb", percent: 30 }]),
         ],
         totalPoints: 9,
     },
@@ -2236,10 +2234,10 @@ const starterSavedBloodlines: SavedBloodline[] = [
         specialElement: "Iron",
         lore: "A taijutsu bloodline born from miners who fused raw metallic chakra into their fighting style over ten generations. Iron Fang users can coat their limbs in magnetized iron-dense chakra, turning every punch and kick into a shattering impact that tears armor and breaks weapons. Their fists leave cracked stone. Some high-level users develop iron-grey patches on their knuckles, shins, and forearms — natural battle plating grown from within. The clan motto: 'The mountain doesn't dodge. It endures. Then it falls on you.'",
         jutsus: [
-            makeStarterBloodlineDamageJutsu("iron-fang-ferrous-crash", "Ferrous Fang Crash", "Taijutsu", "Iron", { name: "Wound", percent: 20 }),
-            makeStarterBloodlineDamageJutsu("iron-fang-steel-maw", "Steel Maw Breaker", "Taijutsu", "Iron", { name: "Increase Damage Given", percent: 20 }),
-            makeStarterBloodlineDamageJutsu("iron-fang-magnet-knuckle", "Magnet Knuckle Rend", "Taijutsu", "Iron", { name: "Decrease Damage Taken", percent: 20 }),
-            makeStarterBloodlineUtilityJutsu("iron-fang-anvil-breath", "Anvil Breath Guard", "Taijutsu", "Iron", [{ name: "Increase Damage Given", percent: 20 }, { name: "Decrease Damage Taken", percent: 20 }]),
+            makeStarterBloodlineDamageJutsu("iron-fang-ferrous-crash", "Ferrous Fang Crash", "Taijutsu", "Iron", { name: "Wound", percent: 35 }),
+            makeStarterBloodlineDamageJutsu("iron-fang-steel-maw", "Steel Maw Breaker", "Taijutsu", "Iron", { name: "Increase Damage Given", percent: 35 }),
+            makeStarterBloodlineDamageJutsu("iron-fang-magnet-knuckle", "Magnet Knuckle Rend", "Taijutsu", "Iron", { name: "Decrease Damage Taken", percent: 35 }),
+            makeStarterBloodlineUtilityJutsu("iron-fang-anvil-breath", "Anvil Breath Guard", "Taijutsu", "Iron", [{ name: "Increase Damage Given", percent: 30 }, { name: "Decrease Damage Taken", percent: 30 }]),
         ],
         totalPoints: 9,
     },
