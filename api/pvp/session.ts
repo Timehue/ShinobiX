@@ -118,9 +118,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             // Fetch authoritative character data from KV to prevent client-side
             // stat inflation (e.g. sending 999999 HP in the request body).
-            // The authed player's data is always loaded from KV; the opponent's
-            // data is also loaded from KV when they are a real registered player
-            // (falls back to client-supplied data for AI/NPC opponents).
+            // We merge KV base stats onto the client payload so computed
+            // combat fields (jutsu, pvpItems, bloodlineMult, armorFactor,
+            // armorRawDR, itemDamagePct) survive — those are built client-side
+            // from saved data and are not stored in the raw character save.
+            // Keys the client computes and we must preserve:
+            const COMBAT_FIELDS = ['jutsu', 'pvpItems', 'bloodlineMult', 'armorFactor', 'armorRawDR', 'itemDamagePct'];
             let finalP1Character = p1Character!;
             let finalP2Character = p2Character!;
 
@@ -134,8 +137,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return res.status(400).json({ error: 'Your character save was not found on the server.' });
                 }
                 const myKvCharacter = mySave.character as Record<string, unknown>;
-                if (isP1) finalP1Character = myKvCharacter;
-                else finalP2Character = myKvCharacter;
+                // Merge: KV stats override client stats, but preserve client combat fields
+                const myClientChar = isP1 ? p1Character! : p2Character!;
+                const myMerged: Record<string, unknown> = { ...myClientChar };
+                for (const [k, v] of Object.entries(myKvCharacter)) {
+                    if (!COMBAT_FIELDS.includes(k)) myMerged[k] = v;
+                }
+                if (isP1) finalP1Character = myMerged;
+                else finalP2Character = myMerged;
 
                 // Try loading opponent from KV too (real player) — graceful fallback for NPCs.
                 const oppNorm = isP1 ? p2Norm : p1Norm;
@@ -143,8 +152,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const oppSave = await kv.get<Record<string, unknown>>(`save:${oppNorm}`);
                     if (oppSave?.character) {
                         const oppKvChar = oppSave.character as Record<string, unknown>;
-                        if (isP1) finalP2Character = oppKvChar;
-                        else finalP1Character = oppKvChar;
+                        const oppClientChar = isP1 ? p2Character! : p1Character!;
+                        const oppMerged: Record<string, unknown> = { ...oppClientChar };
+                        for (const [k, v] of Object.entries(oppKvChar)) {
+                            if (!COMBAT_FIELDS.includes(k)) oppMerged[k] = v;
+                        }
+                        if (isP1) finalP2Character = oppMerged;
+                        else finalP1Character = oppMerged;
                     }
                 }
             }
