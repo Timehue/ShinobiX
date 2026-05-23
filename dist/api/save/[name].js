@@ -21,6 +21,67 @@ function stripPrivateFields(data) {
     return { ...data, character: sanitized };
 }
 const REGISTRY_KEY = 'player:registry';
+// ─── Save sanitization ────────────────────────────────────────────────────────
+// Applied to every non-admin player save to prevent client-side economy cheating.
+// Caps per-save *gains* rather than imposing hard ceilings, so legitimate large
+// values (high-level players with lots of ryo) are preserved while exploit spikes
+// (editing localStorage / fetch body) are clamped.
+const MAX_RYO_GAIN = 1_000_000; // max ryo a player can earn per save cycle
+const CURRENCY_CAPS = {
+    fateShards: 50,
+    boneCharms: 50,
+    auraStones: 50,
+    auraDust: 100,
+    mythicSeals: 50,
+    honorSeals: 200,
+};
+const MAX_STAT_GAIN = 500; // per individual stat per save cycle
+const MAX_LEVEL_GAIN = 5; // levels that can be gained between saves
+const LEVEL_CAP = 100;
+function sanitizeCharacterSave(incoming, existing) {
+    const inChar = incoming.character;
+    const exChar = existing.character;
+    // If either side is missing a character object we can't diff — return as-is
+    // and let the existing merge logic handle it.
+    if (!inChar || typeof inChar !== 'object')
+        return incoming;
+    if (!exChar || typeof exChar !== 'object')
+        return incoming;
+    const char = { ...inChar };
+    // Level: can't jump more than MAX_LEVEL_GAIN levels per save; hard cap at LEVEL_CAP.
+    const exLevel = Math.max(1, Number(exChar.level ?? 1));
+    const inLevel = Math.max(1, Number(char.level ?? 1));
+    char.level = Math.min(LEVEL_CAP, Math.min(inLevel, exLevel + MAX_LEVEL_GAIN));
+    // Ryo: cap the gain per cycle; can't go below zero.
+    const exRyo = Math.max(0, Number(exChar.ryo ?? 0));
+    const inRyo = Math.max(0, Number(char.ryo ?? 0));
+    char.ryo = Math.min(inRyo, exRyo + MAX_RYO_GAIN);
+    // Soft currencies: same gain-cap pattern.
+    for (const [key, maxGain] of Object.entries(CURRENCY_CAPS)) {
+        const exVal = Math.max(0, Number(exChar[key] ?? 0));
+        const inVal = Math.max(0, Number(char[key] ?? 0));
+        char[key] = Math.min(inVal, exVal + maxGain);
+    }
+    // Individual stats: can't gain more than MAX_STAT_GAIN per stat per save.
+    const inStats = char.stats;
+    const exStats = exChar.stats;
+    if (inStats && typeof inStats === 'object' && exStats && typeof exStats === 'object') {
+        const s = { ...inStats };
+        for (const k of Object.keys(s)) {
+            const exV = Math.max(0, Number(exStats[k] ?? 0));
+            s[k] = Math.min(Math.max(0, Number(s[k] ?? 0)), exV + MAX_STAT_GAIN);
+        }
+        char.stats = s;
+    }
+    // HP / chakra / stamina must not exceed their own max fields.
+    if (Number(char.hp ?? 0) > Number(char.maxHp ?? char.hp))
+        char.hp = char.maxHp;
+    if (Number(char.chakra ?? 0) > Number(char.maxChakra ?? char.chakra))
+        char.chakra = char.maxChakra;
+    if (Number(char.stamina ?? 0) > Number(char.maxStamina ?? char.stamina))
+        char.stamina = char.maxStamina;
+    return { ...incoming, character: char };
+}
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res);
     if (req.method === 'OPTIONS')
@@ -100,7 +161,13 @@ async function handler(req, res) {
                 ]);
                 if (pendingSignal || adminLock)
                     return res.status(200).end();
-                const payload = existing ? (0, _utils_js_1.mergePreservingImages)(incoming, existing) : incoming;
+                // Sanitize before merge: caps per-save gains to prevent exploit spikes.
+                // Clan saves are collaborative (no single "owner" baseline), so we skip
+                // sanitization for them — they're already admin-locked in the UI.
+                const safeIncoming = (existing && !isClanSave)
+                    ? sanitizeCharacterSave(incoming, existing)
+                    : incoming;
+                const payload = existing ? (0, _utils_js_1.mergePreservingImages)(safeIncoming, existing) : safeIncoming;
                 const char = incoming?.character;
                 const displayName = char?.name || name;
                 const registryEntry = {

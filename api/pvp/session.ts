@@ -124,11 +124,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             let finalP1Character = p1Character!;
             let finalP2Character = p2Character!;
 
-            const myName = identity.name;
-            const isP1 = myName === p1Norm;
-
-            // Load our own save — always required.
             if (!identity.admin) {
+                const myName = identity.name;
+                const isP1 = myName === p1Norm;
+
+                // Load our own save — always required.
                 const mySave = await kv.get<Record<string, unknown>>(`save:${myName}`);
                 if (!mySave?.character) {
                     return res.status(400).json({ error: 'Your character save was not found on the server.' });
