@@ -16617,9 +16617,15 @@ function TownHall({ character, updateCharacter, creatorItems, allServerPlayers, 
     const leadershipImages = loadVillageLeadershipImages()[character.village] ?? { kage: "", elders: ["", "", ""] };
     const upgrades = getVillageUpgrades(character);
 
-    // Helper to get leader image: shows real player avatar if seated, falls back to admin image
+    // Helper to get leader image: shows real player avatar if seated, falls back to admin image.
+    // Checks the current player first (they're filtered out of allServerPlayers), then the roster.
     const getLeaderImage = (playerName: string | undefined | null, fallbackImage: string | undefined): string => {
         if (!playerName) return fallbackImage ?? "";
+        // Check if the seated leader is the current player (excluded from allServerPlayers)
+        if (character.name.toLowerCase() === playerName.toLowerCase() && character.avatarImage) {
+            return character.avatarImage;
+        }
+        // Check other players in the roster
         const player = allServerPlayers.find(p => p.name.toLowerCase() === playerName.toLowerCase());
         if (player?.character && typeof player.character === 'object') {
             const char = player.character as Record<string, unknown>;
