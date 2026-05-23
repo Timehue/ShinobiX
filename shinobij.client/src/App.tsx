@@ -7468,12 +7468,12 @@ export default function App() {
     function navigate(nextScreen: Screen) {
         // Lock: cannot leave while in an active battle
         if (raidBattleKind !== "none") {
-            alert("?? You cannot leave during a battle. Finish the fight first!");
+            alert("⚔️ You cannot leave during a battle. Finish the fight first!");
             return;
         }
         // Lock: cannot leave hospital while still admitted
         if (character?.hospitalized && screen === "hospital" && nextScreen !== "hospital") {
-            alert("?? You are still admitted. Pay the discharge fee or wait for the free check-out timer.");
+            alert("🏥 You are still admitted. Pay the discharge fee or wait for the free check-out timer.");
             return;
         }
         // Set hospital entry time when arriving admitted
@@ -7901,7 +7901,7 @@ export default function App() {
                 const busy = processingChallengeIds.includes(c.id);
                 return (
                     <div className="incoming-attack-banner" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
-                        <span>?? <strong>{c.fromName}</strong> challenged you to a {label}!</span>
+                        <span>⚔️ <strong>{c.fromName}</strong> challenged you to a {label}!</span>
                         <div style={{ display: "flex", gap: 6 }}>
                             <button
                                 style={{ padding: "4px 14px", background: "#22c55e", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 700 }}
@@ -7913,12 +7913,12 @@ export default function App() {
                                         void acceptChallengeGlobal(c);
                                     }
                                 }}
-                            >{busy ? "Opening..." : "? Accept"}</button>
+                            >{busy ? "Opening..." : "✅ Accept"}</button>
                             <button
                                 style={{ padding: "4px 14px", background: "#ef4444", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 700 }}
                                 disabled={busy}
                                 onClick={() => declineChallengeGlobal(c)}
-                            >? Decline</button>
+                            >❌ Decline</button>
                         </div>
                         {pending.length > 1 && <span style={{ opacity: 0.7, fontSize: "0.85em" }}>+{pending.length - 1} more</span>}
                     </div>
@@ -7968,7 +7968,7 @@ export default function App() {
                                 <strong>{character.ryo}</strong>
                             </div>
                             <div className="stat-box" style={{ color: "#ce93d8" }}>
-                                <span>? SHARDS</span>
+                                <span>💎 SHARDS</span>
                                 <strong>{character.fateShards}</strong>
                             </div>
                         </div>
@@ -8820,11 +8820,11 @@ function RightMenu({
         setPwMsg("Saving…");
         const result = await changePassword(oldPw, newPw);
         if (result.ok) {
-            setPwMsg("? Password changed.");
+            setPwMsg("✅ Password changed.");
             setOldPw(""); setNewPw(""); setConfirmPw("");
             setTimeout(() => { setShowChangePw(false); setPwMsg(""); }, 1500);
         } else {
-            setPwMsg(`? ${result.error ?? "Failed."}`);
+            setPwMsg(`❌ ${result.error ?? "Failed."}`);
         }
     }
 
@@ -8867,7 +8867,7 @@ function RightMenu({
                             <input type="password" placeholder="Current password" value={oldPw} onChange={e => setOldPw(e.target.value)} style={{ width: "100%", marginBottom: 4 }} />
                             <input type="password" placeholder="New password (min 6)" value={newPw} onChange={e => setNewPw(e.target.value)} style={{ width: "100%", marginBottom: 4 }} />
                             <input type="password" placeholder="Confirm new password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} onKeyDown={e => e.key === "Enter" && submitChangePw()} style={{ width: "100%", marginBottom: 6 }} />
-                            {pwMsg && <p style={{ fontSize: "0.78rem", margin: "0 0 6px", color: pwMsg.startsWith("?") ? "#4ade80" : "#f87171" }}>{pwMsg}</p>}
+                            {pwMsg && <p style={{ fontSize: "0.78rem", margin: "0 0 6px", color: pwMsg.startsWith("✅") ? "#4ade80" : "#f87171" }}>{pwMsg}</p>}
                             <button onClick={submitChangePw} style={{ width: "100%" }}>Save Password</button>
                         </div>
                     )}
@@ -8908,11 +8908,11 @@ function MobileNav({
         setPwMsg("Saving…");
         const result = await changePassword(oldPw, newPw);
         if (result.ok) {
-            setPwMsg("? Password changed.");
+            setPwMsg("✅ Password changed.");
             setOldPw(""); setNewPw(""); setConfirmPw("");
             setTimeout(() => { setShowChangePw(false); setPwMsg(""); }, 1500);
         } else {
-            setPwMsg(`? ${result.error ?? "Failed."}`);
+            setPwMsg(`❌ ${result.error ?? "Failed."}`);
         }
     }
 
@@ -9000,7 +9000,7 @@ function MobileNav({
                             <input type="password" placeholder="Current password" value={oldPw} onChange={e => setOldPw(e.target.value)} style={{ width: "100%", marginBottom: 6 }} />
                             <input type="password" placeholder="New password (min 6)" value={newPw} onChange={e => setNewPw(e.target.value)} style={{ width: "100%", marginBottom: 6 }} />
                             <input type="password" placeholder="Confirm new password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} style={{ width: "100%", marginBottom: 8 }} />
-                            {pwMsg && <p style={{ fontSize: "0.82rem", margin: "0 0 8px", color: pwMsg.startsWith("?") ? "#4ade80" : "#f87171" }}>{pwMsg}</p>}
+                            {pwMsg && <p style={{ fontSize: "0.82rem", margin: "0 0 8px", color: pwMsg.startsWith("✅") ? "#4ade80" : "#f87171" }}>{pwMsg}</p>}
                             <button onClick={submitChangePw} style={{ width: "100%" }}>Save Password</button>
                         </div>
                     )}
@@ -9502,7 +9502,7 @@ function AdminPasswordReset({ adminPw }: { adminPw: string }) {
     async function submit() {
         if (!targetName.trim() || !newPw.trim()) { setMsg("Enter a player name and new password."); return; }
         if (newPw.length < 6) { setMsg("Password must be at least 6 characters."); return; }
-        if (!adminPw) { setMsg("? Admin password missing. Log out and back into admin."); return; }
+        if (!adminPw) { setMsg("❌ Admin password missing. Log out and back into admin."); return; }
         setMsg("Resetting…");
         const controller = new AbortController();
         const timeoutId = window.setTimeout(() => controller.abort(), 15000);
@@ -9514,10 +9514,10 @@ function AdminPasswordReset({ adminPw }: { adminPw: string }) {
                 signal: controller.signal,
             });
             const data = await res.json() as { ok: boolean; error?: string };
-            setMsg(data.ok ? `? Password reset for ${targetName.trim()}.` : `? ${data.error ?? `Failed with HTTP ${res.status}.`}`);
+            setMsg(data.ok ? `✅ Password reset for ${targetName.trim()}.` : `❌ ${data.error ?? `Failed with HTTP ${res.status}.`}`);
             if (data.ok) { setTargetName(""); setNewPw(""); }
         } catch (error) {
-            setMsg(error instanceof DOMException && error.name === "AbortError" ? "? Reset timed out. Check the API debug page and try again." : "? Network error.");
+            setMsg(error instanceof DOMException && error.name === "AbortError" ? "❌ Reset timed out. Check the API debug page and try again." : "❌ Network error.");
         } finally {
             window.clearTimeout(timeoutId);
         }
@@ -9531,7 +9531,7 @@ function AdminPasswordReset({ adminPw }: { adminPw: string }) {
                 <input type="password" placeholder="New password (min 6)" value={newPw} onChange={e => setNewPw(e.target.value)} style={{ flex: 1, minWidth: 160 }} />
                 <button onClick={submit}>Reset</button>
             </div>
-            {msg && <p className="hint" style={{ color: msg.startsWith("?") ? "#4ade80" : "#f87171", margin: 0 }}>{msg}</p>}
+            {msg && <p className="hint" style={{ color: msg.startsWith("✅") ? "#4ade80" : "#f87171", margin: 0 }}>{msg}</p>}
         </div>
     );
 }
@@ -9542,7 +9542,7 @@ function AdminClearAuthLock({ adminPw }: { adminPw: string }) {
 
     async function submit() {
         if (!targetName.trim()) { setMsg("Enter a player name."); return; }
-        if (!adminPw) { setMsg("? Admin password missing."); return; }
+        if (!adminPw) { setMsg("❌ Admin password missing."); return; }
         setMsg("Clearing…");
         try {
             const res = await fetch('/api/player-auth', {
@@ -9551,10 +9551,10 @@ function AdminClearAuthLock({ adminPw }: { adminPw: string }) {
                 body: JSON.stringify({ action: 'delete', name: targetName.trim().toLowerCase() }),
             });
             const data = await res.json() as { ok: boolean; error?: string };
-            setMsg(data.ok ? `? Auth lock cleared for ${targetName.trim()}. They can now create a fresh account.` : `? ${data.error ?? `Failed with HTTP ${res.status}.`}`);
+            setMsg(data.ok ? `✅ Auth lock cleared for ${targetName.trim()}. They can now create a fresh account.` : `❌ ${data.error ?? `Failed with HTTP ${res.status}.`}`);
             if (data.ok) setTargetName("");
         } catch {
-            setMsg("? Network error.");
+            setMsg("❌ Network error.");
         }
     }
 
@@ -9565,7 +9565,7 @@ function AdminClearAuthLock({ adminPw }: { adminPw: string }) {
                 <input placeholder="Player name" value={targetName} onChange={e => setTargetName(e.target.value)} style={{ flex: 1, minWidth: 140 }} />
                 <button onClick={submit}>Clear Auth Lock</button>
             </div>
-            {msg && <p className="hint" style={{ color: msg.startsWith("?") ? "#4ade80" : "#f87171", margin: 0 }}>{msg}</p>}
+            {msg && <p className="hint" style={{ color: msg.startsWith("✅") ? "#4ade80" : "#f87171", margin: 0 }}>{msg}</p>}
         </div>
     );
 }
@@ -9734,14 +9734,14 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
         const nick = nicknameInput.trim();
         if (!nick) { setNicknameMsg("Enter a nickname first."); return; }
         if (nick.length > 24) { setNicknameMsg("Max 24 characters."); return; }
-        if (character.fateShards < 10) { setNicknameMsg("? Need 10 Fate Shards."); return; }
+        if (character.fateShards < 10) { setNicknameMsg("❌ Need 10 Fate Shards."); return; }
         updateCharacter({
             ...character,
             fateShards: character.fateShards - 10,
             pets: character.pets.map(p => p.id === selectedPet.id ? { ...p, nickname: nick } : p),
         });
         setNicknameInput("");
-        setNicknameMsg(`? Nickname set to "${nick}"`);
+        setNicknameMsg(`✅ Nickname set to "${nick}"`);
     }
 
     function releasePet() {
@@ -9830,7 +9830,7 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
 
             <div className="pet-yard-overlay">
                 <div className="pet-yard-header">
-                    <button className="back-btn" onClick={() => setScreen("village")}>? Village</button>
+                    <button className="back-btn" onClick={() => setScreen("village")}>🏘️ Village</button>
                     <div>
                         <h2>Pet Yard</h2>
                         <p className="hint">{character.pets.length}/5 pets · Town Hall Pet XP Bonus: {petXpBonus.toFixed(2)}%</p>
@@ -9860,10 +9860,10 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
                                         {character.activePetId === pet.id && <span className="pet-active-tag">Active</span>}
                                         {isPetOnExpedition(pet) && <span className="pet-training-tag">Exploring {formatPetTimer(pet.expedition!.endsAt - Date.now())}</span>}
                                         {pet.training && Date.now() < pet.training.endsAt && (
-                                            <span className="pet-training-tag">? {formatPetTimer(pet.training.endsAt - Date.now())}</span>
+                                            <span className="pet-training-tag">⏳ {formatPetTimer(pet.training.endsAt - Date.now())}</span>
                                         )}
                                         {pet.training && Date.now() >= pet.training.endsAt && (
-                                            <span className="pet-ready-tag">? Ready</span>
+                                            <span className="pet-ready-tag">✅ Ready</span>
                                         )}
                                     </>
                                 ) : (
@@ -9900,7 +9900,7 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
                                         ?? 10 Shards
                                     </button>
                                 </div>
-                                {nicknameMsg && <p className="hint" style={{ fontSize: "0.72rem", color: nicknameMsg.startsWith("?") ? "#4ade80" : "#f87171" }}>{nicknameMsg}</p>}
+                                {nicknameMsg && <p className="hint" style={{ fontSize: "0.72rem", color: nicknameMsg.startsWith("✅") ? "#4ade80" : "#f87171" }}>{nicknameMsg}</p>}
                             </div>
                             <div className="pet-happiness-meter" style={{ ["--pet-happiness" as string]: `${petHappiness(selectedPet)}%` }}>
                                 <div className="pet-happiness-meter-top">
@@ -9937,7 +9937,7 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
                             </section>
                             <div className="menu">
                                 <button onClick={() => updateCharacter({ ...character, activePetId: selectedPet.id })}>
-                                    {character.activePetId === selectedPet.id ? "? Active Pet" : "Set as Active"}
+                                    {character.activePetId === selectedPet.id ? "⭐ Active Pet" : "Set as Active"}
                                 </button>
                                 <button className="danger-button" onClick={releasePet}>Release</button>
                             </div>
@@ -9947,12 +9947,12 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
                             <h4>Training</h4>
                             {selectedPet.training && Date.now() < selectedPet.training.endsAt ? (
                                 <div className="training-in-progress">
-                                    <p>? {petTrainingOptions.find((o) => o.type === selectedPet.training?.type)?.label}</p>
+                                    <p>⏳ {petTrainingOptions.find((o) => o.type === selectedPet.training?.type)?.label}</p>
                                     <p className="training-timer">{formatPetTimer(selectedPet.training.endsAt - Date.now())} remaining</p>
                                 </div>
                             ) : selectedPet.training ? (
                                 <div className="training-complete">
-                                    <p>? {petTrainingOptions.find((o) => o.type === selectedPet.training?.type)?.label} complete!</p>
+                                    <p>✅ {petTrainingOptions.find((o) => o.type === selectedPet.training?.type)?.label} complete!</p>
                                     <button className="admin-button" onClick={collectTraining}>Collect Results</button>
                                 </div>
                             ) : (
@@ -10767,9 +10767,9 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                 return;
             }
             if (res.ok && !duelChallenges.some((c: DuelChallenge) => c.id === challenge.id)) setDuelChallenges([...duelChallenges, challenge]);
-            setPetChallengeMsg(res.ok ? `? Pet challenge sent to ${toName}! They'll see it shortly.` : `? Could not reach ${toName}. Check the name and try again.`);
+            setPetChallengeMsg(res.ok ? `✅ Pet challenge sent to ${toName}! They'll see it shortly.` : `❌ Could not reach ${toName}. Check the name and try again.`);
         } catch {
-            setPetChallengeMsg(`? Network error sending challenge.`);
+            setPetChallengeMsg(`❌ Network error sending challenge.`);
         }
     }
     const playerOpponentPets: PetArenaOpponent[] = playerRoster
@@ -10863,7 +10863,7 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
 
             {duelChallenges.filter((c) => c.mode === "clanWarPet" && !c.clanWarPoints && c.toName.toLowerCase() === character.name.toLowerCase()).map((c) => (
                 <div key={c.id} className="summary-box" style={{ background: "#1e3a2f", border: "1px solid #4ade80", marginBottom: 8, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                    <span>?? <strong>{c.fromName}</strong> challenged you to a pet battle!</span>
+                    <span>🐾 <strong>{c.fromName}</strong> challenged you to a pet battle!</span>
                     <div className="menu" style={{ marginLeft: "auto" }}>
                         <button onClick={() => {
                             const challengerPet = c.challenger.pets.find(p => p.id === c.challengerPetId && !isPetOnExpedition(p)) ?? c.challenger.pets.find(p => !isPetOnExpedition(p));
@@ -10879,7 +10879,7 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                                 body: JSON.stringify({ targetName: c.fromName, challenge: { ...c, accepted: true, fromName: character.name, toName: c.fromName, responderPetId: selectedPet?.id, responderPet: selectedPet } }),
                             }).catch(() => {});
                             if (challengerPet) startBattle({ owner: c.fromName, pet: challengerPet, battleSeed: c.petBattleSeed });
-                        }}>? Accept & Fight</button>
+                        }}>✅ Accept & Fight</button>
                         <button className="danger-button" onClick={() => {
                             setDuelChallenges(duelChallenges.filter((x) => x.id !== c.id));
                             fetch('/api/player/challenge', {
@@ -10960,19 +10960,19 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                                                 {matches.map(p => (
                                                     <div key={p.name} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, flexWrap: "wrap" }}>
                                                         <strong>{p.name}</strong>
-                                                        <span className="hint">Lv {p.level} · {p.village || "Unknown"} · {p.online ? "?? Online" : "? Offline"}</span>
-                                                        <button onClick={() => sendDirectPetChallenge(p.name, selectedPet?.id)}>?? Challenge</button>
+                                                        <span className="hint">Lv {p.level} · {p.village || "Unknown"} · {p.online ? "🟢 Online" : "⚫ Offline"}</span>
+                                                        <button onClick={() => sendDirectPetChallenge(p.name, selectedPet?.id)}>⚔️ Challenge</button>
                                                     </div>
                                                 ))}
-                                                {petChallengeMsg && <p className="hint" style={{ color: petChallengeMsg.startsWith("?") ? "#4ade80" : "#f87171", marginTop: 6 }}>{petChallengeMsg}</p>}
+                                                {petChallengeMsg && <p className="hint" style={{ color: petChallengeMsg.startsWith("✅") ? "#4ade80" : "#f87171", marginTop: 6 }}>{petChallengeMsg}</p>}
                                             </>
                                         );
                                     }
                                     return (
                                         <>
                                             <p className="hint">No account found for "{opponentSearch.trim()}".</p>
-                                            <button onClick={() => sendDirectPetChallenge(opponentSearch.trim(), selectedPet?.id)}>?? Challenge "{opponentSearch.trim()}"</button>
-                                            {petChallengeMsg && <p className="hint" style={{ color: petChallengeMsg.startsWith("?") ? "#4ade80" : "#f87171", marginTop: 6 }}>{petChallengeMsg}</p>}
+                                            <button onClick={() => sendDirectPetChallenge(opponentSearch.trim(), selectedPet?.id)}>⚔️ Challenge "{opponentSearch.trim()}"</button>
+                                            {petChallengeMsg && <p className="hint" style={{ color: petChallengeMsg.startsWith("✅") ? "#4ade80" : "#f87171", marginTop: 6 }}>{petChallengeMsg}</p>}
                                         </>
                                     );
                                 })()}
@@ -11076,18 +11076,18 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, frame, recentFra
         frame?.actionKind === "movelock"  ? targetTile :
         frame?.actionKind === "result"    ? selfTile   : -1;
     const effectLabel =
-        frame?.actionKind === "buff"      ? "? Boost!"    :
-        frame?.actionKind === "basic"     ? "?? Hit!"     :
-        frame?.actionKind === "damage"    ? "? Strike!"   :
-        frame?.actionKind === "heal"      ? "?? Heal!"    :
-        frame?.actionKind === "dot"       ? "? Poison!"   :
-        frame?.actionKind === "move"      ? "?? Dash!"    :
-        frame?.actionKind === "barrier"   ? "?? Barrier!" :
-        frame?.actionKind === "shield"    ? "?? Shield!"  :
-        frame?.actionKind === "absorb"    ? "? Absorb!"  :
-        frame?.actionKind === "lifesteal" ? "?? Drain!"   :
-        frame?.actionKind === "movelock"  ? "?? Root!"    :
-        frame?.actionKind === "debuff"    ? "? Weaken!"  :
+        frame?.actionKind === "buff"      ? "⬆️ Boost!"    :
+        frame?.actionKind === "basic"     ? "👊 Hit!"     :
+        frame?.actionKind === "damage"    ? "💥 Strike!"   :
+        frame?.actionKind === "heal"      ? "💚 Heal!"    :
+        frame?.actionKind === "dot"       ? "☠️ Poison!"   :
+        frame?.actionKind === "move"      ? "💨 Dash!"    :
+        frame?.actionKind === "barrier"   ? "🛡️ Barrier!" :
+        frame?.actionKind === "shield"    ? "🛡️ Shield!"  :
+        frame?.actionKind === "absorb"    ? "🌀 Absorb!"  :
+        frame?.actionKind === "lifesteal" ? "🩸 Drain!"   :
+        frame?.actionKind === "movelock"  ? "⛓️ Root!"    :
+        frame?.actionKind === "debuff"    ? "⬇️ Weaken!"  :
         frame?.actionKind === "result"    ? result        : "";
 
     const winnerPet   = result === "Victory" ? playerPet : result === "Defeat" ? enemyPet : null;
@@ -11096,11 +11096,11 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, frame, recentFra
 
     // Trait flash label
     const traitLabel =
-        frame?.traitFlash?.trait === "Lucky"      ? "?? LUCKY DODGE!"      :
-        frame?.traitFlash?.trait === "Aggressive" ? "?? AGGRESSIVE CRIT!"  :
-        frame?.traitFlash?.trait === "Guardian"   ? "??? GUARDIAN BLOCK!"  :
-        frame?.traitFlash?.trait === "Battleborn" ? "?? BATTLEBORN BONUS!" :
-        frame?.traitFlash?.trait === "Swift"      ? "? SWIFT STRIKE!"     : "";
+        frame?.traitFlash?.trait === "Lucky"      ? "🍀 LUCKY DODGE!"      :
+        frame?.traitFlash?.trait === "Aggressive" ? "🔥 AGGRESSIVE CRIT!"  :
+        frame?.traitFlash?.trait === "Guardian"   ? "🛡️ GUARDIAN BLOCK!"  :
+        frame?.traitFlash?.trait === "Battleborn" ? "⚔️ BATTLEBORN BONUS!" :
+        frame?.traitFlash?.trait === "Swift"      ? "⚡ SWIFT STRIKE!"     : "";
 
     // Float color class — lifesteal shows a green +drain on the attacker's bar
     const playerFloatClass =
@@ -11932,18 +11932,18 @@ function AdminPanel({
             const res = await fetch(`/api/save/${encodeURIComponent(pmTargetName.trim().toLowerCase())}`, {
                 headers: adminPw ? { "x-admin-password": adminPw } : {},
             });
-            if (res.status === 404) { setPmMsg("?? No server save found for that name (player may use local-only save)."); return; }
-            if (!res.ok) { setPmMsg(`? Server error ${res.status} — check the player name and try again.`); return; }
+            if (res.status === 404) { setPmMsg("⚠️ No server save found for that name (player may use local-only save)."); return; }
+            if (!res.ok) { setPmMsg(`❌ Server error ${res.status} — check the player name and try again.`); return; }
             let data: Record<string, unknown>;
-            try { data = await res.json(); } catch { setPmMsg("? Save exists but response was not valid JSON."); return; }
+            try { data = await res.json(); } catch { setPmMsg("❌ Save exists but response was not valid JSON."); return; }
             setPmSnap(data);
             setPmMsg(`? Loaded: ${pmTargetName.trim()}`);
-        } catch { setPmMsg("? Network error — make sure you're on the deployed site, not local dev."); }
+        } catch { setPmMsg("❌ Network error — make sure you're on the deployed site, not local dev."); }
     }
 
     async function pmGive() {
         if (!pmSnap) { setPmMsg("Look up a player first."); return; }
-        if (!adminPw) { setPmMsg("? Admin password missing. Log out and back into admin."); return; }
+        if (!adminPw) { setPmMsg("❌ Admin password missing. Log out and back into admin."); return; }
         const char = pmSnap.character as Record<string, unknown>;
         // Give pet
         if (pmGivePetId) {
@@ -11972,7 +11972,7 @@ function AdminPanel({
                 setPmMsg(`? Save failed: ${detail}`);
                 return;
             }
-            setPmMsg("? Saved! Player will see changes on next login.");
+            setPmMsg("✅ Saved! Player will see changes on next login.");
             setPmSnap(updated);
             setPmGivePetId("");
             setPmGiveAmounts({ honorSeals: 0, fateShards: 0, boneCharms: 0, auraStones: 0, auraDust: 0, mythicSeals: 0 });
@@ -11992,8 +11992,8 @@ function AdminPanel({
             const res = await fetch(`/api/save/${encodeURIComponent(pmEditName.trim().toLowerCase())}`, {
                 headers: adminPw ? { "x-admin-password": adminPw } : {},
             });
-            if (res.status === 401) { setPmEditMsg("? Admin auth failed — log out and back in as admin."); return; }
-            if (!res.ok) { setPmEditMsg("? Player not found."); return; }
+            if (res.status === 401) { setPmEditMsg("❌ Admin auth failed — log out and back in as admin."); return; }
+            if (!res.ok) { setPmEditMsg("❌ Player not found."); return; }
             const data = await res.json() as Record<string, unknown>;
             const char = data.character as Record<string, unknown> ?? {};
             const stats = char.stats as Record<string, number> ?? {};
@@ -12017,12 +12017,12 @@ function AdminPanel({
                 genjutsuDefense: stats.genjutsuDefense ?? 0,
             });
             setPmEditMsg(`? Loaded ${pmEditName.trim()}`);
-        } catch { setPmEditMsg("? Network error."); }
+        } catch { setPmEditMsg("❌ Network error."); }
     }
 
     async function pmEditPatch(updatedSnap: Record<string, unknown>) {
         setPmEditMsg("Saving…");
-        if (!adminPw) { setPmEditMsg("? Admin password missing. Log out and back into admin."); return; }
+        if (!adminPw) { setPmEditMsg("❌ Admin password missing. Log out and back into admin."); return; }
         try {
             const res = await fetch(`/api/save/${encodeURIComponent(pmEditName.trim().toLowerCase())}?signal=1`, {
                 method: "POST", headers: { "Content-Type": "application/json", "x-admin-password": adminPw },
@@ -12035,7 +12035,7 @@ function AdminPanel({
                 return;
             }
             setPmEditSnap(updatedSnap);
-            setPmEditMsg("? Saved!");
+            setPmEditMsg("✅ Saved!");
             fetchAllKnownPlayers();
         } catch (err) { setPmEditMsg(`? Save failed: ${String(err)}`); }
     }
@@ -12059,11 +12059,11 @@ function AdminPanel({
         const name = pmTargetName.trim();
         if (!name) return;
         if (!window.confirm(`Soft-reset ${name}? Their name, village, specialty, and bloodline are kept. Everything else goes back to level 1 defaults.`)) return;
-        if (!adminPw) { setPmMsg("? Admin password missing. Log out and back into admin."); return; }
+        if (!adminPw) { setPmMsg("❌ Admin password missing. Log out and back into admin."); return; }
         setPmMsg("Soft-resetting…");
         try {
             const res = await fetch(`/api/save/${encodeURIComponent(name.toLowerCase())}`);
-            if (!res.ok) { setPmMsg("? Player not found."); return; }
+            if (!res.ok) { setPmMsg("❌ Player not found."); return; }
             const existing = await res.json() as Record<string, unknown>;
             const char = (existing.character ?? {}) as Record<string, unknown>;
             const fresh = createCharacter(
@@ -12092,7 +12092,7 @@ function AdminPanel({
     async function pmReset() {
         if (!pmTargetName.trim()) return;
         if (!window.confirm(`Reset ${pmTargetName.trim()}'s account to level 1? This cannot be undone.`)) return;
-        setPmMsg("? Resetting…");
+        setPmMsg("⏳ Resetting…");
         try {
             const res = await fetch(`/api/save/${encodeURIComponent(pmTargetName.trim().toLowerCase())}`, {
                 method: "DELETE",
@@ -12106,16 +12106,16 @@ function AdminPanel({
             }
             setPmSnap(null);
             setPmTargetName("");
-            setPmMsg("? Account reset. Player starts fresh on next login.");
+            setPmMsg("✅ Account reset. Player starts fresh on next login.");
             fetchAllKnownPlayers();
         } catch (e) { setPmMsg(`? Reset failed: ${String(e)}`); }
     }
 
     async function serverReset() {
         if (!window.confirm(
-            "?? FULL SERVER RESET ??\n\nThis will:\n• Delete ALL player saves — everyone starts fresh at Level 1 and chooses their village again\n• Reset Kage seats and village war history for every village\n• Clear all clans, village chats, presence, PvP sessions, and challenge data\n• Wipe player passwords (players set a new one on next login)\n\nThis will NOT delete:\n• Admin-created content (jutsus, missions, AIs, events, pets, cards, visual novels)\n• Any uploaded images (kage portraits, elder portraits, pets, weapons, avatars)\n• Village Leaders tab configuration (names and images)\n\nThis CANNOT be undone. Are you absolutely sure?"
+            "⚠️ FULL SERVER RESET ⚠️\n\nThis will:\n• Delete ALL player saves — everyone starts fresh at Level 1 and chooses their village again\n• Reset Kage seats and village war history for every village\n• Clear all clans, village chats, presence, PvP sessions, and challenge data\n• Wipe player passwords (players set a new one on next login)\n\nThis will NOT delete:\n• Admin-created content (jutsus, missions, AIs, events, pets, cards, visual novels)\n• Any uploaded images (kage portraits, elder portraits, pets, weapons, avatars)\n• Village Leaders tab configuration (names and images)\n\nThis CANNOT be undone. Are you absolutely sure?"
         )) return;
-        setServerResetMsg("? Wiping server…");
+        setServerResetMsg("⏳ Wiping server…");
         try {
             const res = await fetch('/api/admin/server-reset', {
                 method: 'POST',
@@ -12146,12 +12146,12 @@ function AdminPanel({
                 // Clear stale local player account cache
                 localStorage.removeItem(PLAYER_ACCOUNTS_STORAGE);
                 setAllKnownPlayers([]);
-                setServerResetMsg(`? Server reset complete — ${data.deletedCount ?? 0} keys wiped. All images and admin content preserved. Players start fresh on next login.`);
+                setServerResetMsg(`✅ Server reset complete — ${data.deletedCount ?? 0} keys wiped. All images and admin content preserved. Players start fresh on next login.`);
             } else {
-                setServerResetMsg(`? Reset failed: ${data.error ?? 'Unknown error'}`);
+                setServerResetMsg(`❌ Reset failed: ${data.error ?? 'Unknown error'}`);
             }
         } catch {
-            setServerResetMsg("? Network error during reset.");
+            setServerResetMsg("❌ Network error during reset.");
         }
     }
 
@@ -12167,7 +12167,7 @@ function AdminPanel({
             const data = await res.json() as { approvedItems?: string[] };
             if (data.approvedItems) setApprovedItemIds(data.approvedItems);
         } catch {
-            setPmMsg("?? Item review state did not save to server.");
+            setPmMsg("⚠️ Item review state did not save to server.");
         }
     }
 
@@ -12226,9 +12226,9 @@ function AdminPanel({
         setApprovedBloodlineIds(next);
         try {
             await saveBloodlineReviewAction("approve", bloodline);
-            setPmMsg(`? Approved ${bloodline.name}.`);
+            setPmMsg(`✅ Approved ${bloodline.name}.`);
         } catch {
-            setPmMsg("?? Approved locally, but server review state did not save.");
+            setPmMsg("⚠️ Approved locally, but server review state did not save.");
         }
     }
 
@@ -12242,10 +12242,10 @@ function AdminPanel({
         setPendingPlayerBloodlines(pendingPlayerBloodlines.filter((candidate) => bloodlineReviewKey(candidate) !== reviewKey));
         try {
             await saveBloodlineReviewAction("delete", bloodline);
-            setPmMsg(`? Deleted ${bloodline.name} from review${bloodline.ownerName ? ` and ${bloodline.ownerName}'s save` : ""}.`);
+            setPmMsg(`✅ Deleted ${bloodline.name} from review${bloodline.ownerName ? ` and ${bloodline.ownerName}'s save` : ""}.`);
             fetchAllKnownPlayers();
         } catch {
-            setPmMsg("?? Hidden locally, but server delete did not complete.");
+            setPmMsg("⚠️ Hidden locally, but server delete did not complete.");
         }
     }
 
@@ -12964,9 +12964,9 @@ function AdminPanel({
     return (
         <div className="card admin-panel global-menu-panel">
             <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                <h2 style={{ margin: 0 }}>??? Admin Panel</h2>
+                <h2 style={{ margin: 0 }}>⚙️ Admin Panel</h2>
                 <button className="village-save-btn" onClick={handleAdminSave} disabled={adminSaving} style={{ marginLeft: "auto" }}>
-                    {adminSaving ? "Saving…" : "?? Save"}
+                    {adminSaving ? "Saving…" : "💾 Save"}
                 </button>
                 {onReloadImages && (
                     <button className="village-save-btn" onClick={onReloadImages} style={{ background: "#2a6" }}>
@@ -12979,7 +12979,7 @@ function AdminPanel({
 
             <div className="admin-panel-switcher">
                 <button className={activeAdminPanel === "playerManagement" ? "active" : ""} onClick={() => setActiveAdminPanel("playerManagement")}>
-                    ?? Players
+                    👥 Players
                 </button>
                 <button className={activeAdminPanel === "jutsuBloodlines" ? "active" : ""} onClick={() => setActiveAdminPanel("jutsuBloodlines")}>
                     Jutsus + Bloodlines
@@ -13424,7 +13424,7 @@ function AdminPanel({
                                                             type="number"
                                                             min={1}
                                                             max={eventPageCount}
-                                                            placeholder="? Page"
+                                                            placeholder="📄 Page"
                                                             value={choice.nextPage + 1}
                                                             onChange={(e) => updateVnPage(index, { choices: page.choices.map((c, i) => i === ci ? { ...c, nextPage: Math.max(0, Number(e.target.value) - 1) } : c) })}
                                                         />
@@ -13538,7 +13538,7 @@ function AdminPanel({
                         </section>
 
                         <section className="summary-box">
-                            <h4>?? Pet Encounter VN (System)</h4>
+                            <h4>🐾 Pet Encounter VN (System)</h4>
                             <p className="hint">This VN plays every time a player discovers a wild pet. Edit it above and click "Save as Pet Encounter VN".</p>
                             <p><strong>{petEncounterVn.vnTitle || petEncounterVn.name}</strong> — {petEncounterVn.vnPages?.length ?? 1} page(s)</p>
                             {petEncounterVn.vnPages?.map((page, i) => (
@@ -13557,14 +13557,14 @@ function AdminPanel({
                                         setPreviewVnLine(0);
                                     }}
                                 >
-                                    ? Preview Pet VN
+                                    👁️ Preview Pet VN
                                 </button>
                                 <button onClick={() => { setPetEncounterVn(defaultPetEncounterVn); alert("Pet Encounter VN reset to default."); }}>Reset to Default</button>
                             </div>
                         </section>
 
                         <section className="summary-box">
-                            <h4>?? Ancient Chest VN (System)</h4>
+                            <h4>📦 Ancient Chest VN (System)</h4>
                             <p className="hint">This VN plays when a player opens an ancient chest. Load it above, edit, then click "Save as Ancient Chest VN".</p>
                             <p><strong>{ancientChestVn.vnTitle || ancientChestVn.name}</strong> — {ancientChestVn.vnPages?.length ?? 1} page(s)</p>
                             {ancientChestVn.vnPages?.map((page, i) => (
@@ -13609,8 +13609,8 @@ function AdminPanel({
                 <div className="vn-preview-overlay">
                     <div className="vn-preview-modal">
                         <div className="vn-preview-topbar">
-                            <span className="vn-preview-label">??? Preview Mode — this is how players will see it</span>
-                            <button className="danger-button" onClick={() => setPreviewVn(null)}>? Close Preview</button>
+                            <span className="vn-preview-label">👁️ Preview Mode — this is how players will see it</span>
+                            <button className="danger-button" onClick={() => setPreviewVn(null)}>✖️ Close Preview</button>
                         </div>
                         <TriggeredVisualNovel
                             event={previewVn}
@@ -13760,7 +13760,7 @@ function AdminPanel({
                     {/* -- AI Bulk Image Generator -- */}
                     <section className="summary-box bulk-image-section">
                         <div className="bulk-image-header" onClick={() => setAiBulkShowSection(v => !v)}>
-                            <span>??? Bulk AI Image Generator</span>
+                            <span>🖼️ Bulk AI Image Generator</span>
                             <span className="bulk-image-chevron">{aiBulkShowSection ? "?" : "?"}</span>
                         </div>
 
@@ -13831,8 +13831,8 @@ function AdminPanel({
                                                         <span className="bulk-card-name">{ai.name}</span>
                                                         <span className="bulk-card-element">Lv {ai.level}</span>
                                                         {ai.village && <span className="bulk-card-element">{ai.village}</span>}
-                                                        {isBuiltin && <span className="bulk-card-has-img">?? built-in</span>}
-                                                        {ai.image && <span className="bulk-card-has-img">??? has image</span>}
+                                                        {isBuiltin && <span className="bulk-card-has-img">📌 built-in</span>}
+                                                        {ai.image && <span className="bulk-card-has-img">🖼️ has image</span>}
                                                     </div>
                                                     {checked && (
                                                         <input
@@ -13865,7 +13865,7 @@ function AdminPanel({
                                         <div className="bulk-error-list">
                                             <strong style={{ color: "#f87171" }}>Errors ({aiBulkErrors.length}):</strong>
                                             {aiBulkErrors.map(e => (
-                                                <div key={e.id} className="bulk-error-row">? <strong>{e.name}</strong>: {e.error}</div>
+                                                <div key={e.id} className="bulk-error-row">❌ <strong>{e.name}</strong>: {e.error}</div>
                                             ))}
                                         </div>
                                     )}
@@ -14100,7 +14100,7 @@ function AdminPanel({
                             return (
                                 <div className="bulk-image-section" style={{ marginTop: 14 }}>
                                     <div className="bulk-image-header" onClick={() => setItemBulkShowSection(v => !v)}>
-                                        <span>??? Bulk Image Generator — Items / Armor / Weapons</span>
+                                        <span>🖼️ Bulk Image Generator — Items / Armor / Weapons</span>
                                         <span className="bulk-image-chevron">{itemBulkShowSection ? "?" : "?"}</span>
                                     </div>
 
@@ -14168,7 +14168,7 @@ function AdminPanel({
                                                                     {item.rarity}
                                                                 </span>
                                                                 <span className="bulk-card-element">{slotLabel}</span>
-                                                                {item.image && <span className="bulk-card-has-img">??? has image</span>}
+                                                                {item.image && <span className="bulk-card-has-img">🖼️ has image</span>}
                                                             </div>
                                                             {checked && (
                                                                 <input
@@ -14201,7 +14201,7 @@ function AdminPanel({
                                                 <div className="bulk-error-list">
                                                     <strong style={{ color: "#f87171" }}>Errors ({itemBulkErrors.length}):</strong>
                                                     {itemBulkErrors.map(e => (
-                                                        <div key={e.id} className="bulk-error-row">? <strong>{e.name}</strong>: {e.error}</div>
+                                                        <div key={e.id} className="bulk-error-row">❌ <strong>{e.name}</strong>: {e.error}</div>
                                                     ))}
                                                 </div>
                                             )}
@@ -14474,10 +14474,10 @@ function AdminPanel({
             {activeAdminPanel === "visualNovels" && (() => {
                 const galleryVns: { id: string; label: string; pages: { title: string; image?: string }[]; isPet?: boolean; isChest?: boolean }[] = [];
                 if (petEncounterVn.vnPages?.length) {
-                    galleryVns.push({ id: "sys-pet-encounter", label: "?? Pet Encounter VN", pages: petEncounterVn.vnPages, isPet: true });
+                    galleryVns.push({ id: "sys-pet-encounter", label: "🐾 Pet Encounter VN", pages: petEncounterVn.vnPages, isPet: true });
                 }
                 if (ancientChestVn.vnPages?.length) {
-                    galleryVns.push({ id: "sys-ancient-chest", label: "?? Ancient Chest VN", pages: ancientChestVn.vnPages, isChest: true });
+                    galleryVns.push({ id: "sys-ancient-chest", label: "📦 Ancient Chest VN", pages: ancientChestVn.vnPages, isChest: true });
                 }
                 sortedEditableEvents
                     .filter((ev) => (ev.eventKind ?? "reward") === "visualNovel")
@@ -14667,7 +14667,7 @@ function AdminPanel({
                                                 onClick={() => updatePet({ jutsus: pet.jutsus.filter((_, i) => i !== index) })}
                                                 style={{ position: "absolute", top: 6, right: 6, background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.4)", color: "#fca5a5", borderRadius: 4, padding: "1px 7px", fontSize: "0.75rem", cursor: "pointer" }}
                                                 title="Remove this jutsu"
-                                            >? Remove</button>
+                                            >🗑️ Remove</button>
 
                                             <label>Jutsu Name</label>
                                             <input value={jutsu.name} onChange={(e) => updatePetJutsu(index, { name: e.target.value })} />
@@ -14903,7 +14903,7 @@ function AdminPanel({
                     {/* -- Bulk Image Generator -- */}
                     <section className="summary-box bulk-image-section">
                         <div className="bulk-image-header" onClick={() => setBulkShowSection(v => !v)}>
-                            <span>??? Bulk Image Generator</span>
+                            <span>🖼️ Bulk Image Generator</span>
                             <span className="bulk-image-chevron">{bulkShowSection ? "?" : "?"}</span>
                         </div>
 
@@ -14968,7 +14968,7 @@ function AdminPanel({
                                                         <span className="bulk-card-name">{card.name}</span>
                                                         <span className={`bulk-card-rarity bulk-rarity-${card.rarity}`}>{card.rarity}</span>
                                                         {card.element !== "None" && <span className="bulk-card-element">{card.element}</span>}
-                                                        {card.image && <span className="bulk-card-has-img">??? has image</span>}
+                                                        {card.image && <span className="bulk-card-has-img">🖼️ has image</span>}
                                                     </div>
                                                     {checked && (
                                                         <input
@@ -15001,7 +15001,7 @@ function AdminPanel({
                                         <div className="bulk-error-list">
                                             <strong style={{ color: "#f87171" }}>Errors ({bulkErrors.length}):</strong>
                                             {bulkErrors.map(e => (
-                                                <div key={e.id} className="bulk-error-row">? <strong>{e.name}</strong>: {e.error}</div>
+                                                <div key={e.id} className="bulk-error-row">❌ <strong>{e.name}</strong>: {e.error}</div>
                                             ))}
                                         </div>
                                     )}
@@ -15058,10 +15058,10 @@ function AdminPanel({
                 return (
                     <div className="admin-subpanel">
                         <div className="admin-panel-heading">
-                            <h3>?? Player Management</h3>
+                            <h3>👥 Player Management</h3>
                             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                                 <p style={{ margin: 0 }}>Give items, manage weapons/bloodlines, and reset accounts.</p>
-                                <button style={{ fontSize: "0.8rem", padding: "3px 10px" }} onClick={fetchAllKnownPlayers}>?? Refresh Player List</button>
+                                <button style={{ fontSize: "0.8rem", padding: "3px 10px" }} onClick={fetchAllKnownPlayers}>🔄 Refresh Player List</button>
                                 {allKnownPlayers.length > 0 && <span className="hint" style={{ margin: 0 }}>{allKnownPlayers.length} accounts · {allKnownPlayers.filter(p => p.online).length} online</span>}
                             </div>
                         </div>
@@ -15078,7 +15078,7 @@ function AdminPanel({
                                 return dropdownPlayers.length > 0 ? (
                                     <div style={{ marginBottom: 8 }}>
                                         <label style={{ fontSize: "0.85rem", display: "block", marginBottom: 4 }}>
-                                            All server accounts ({dropdownPlayers.length}) — ?? online · sorted by recent activity:
+                                            All server accounts ({dropdownPlayers.length}) — 🟢 online · sorted by recent activity:
                                         </label>
                                         <select
                                             value={pmTargetName}
@@ -15092,7 +15092,7 @@ function AdminPanel({
                                                 const agoStr = ago === null ? "" : ago < 2 ? " · just now" : ago < 60 ? ` · ${ago}m ago` : ago < 1440 ? ` · ${Math.floor(ago / 60)}h ago` : ` · ${Math.floor(ago / 1440)}d ago`;
                                                 return (
                                                     <option key={p.name} value={p.name}>
-                                                        {p.online ? "?? " : ""}{p.name} (Lv {p.level} · {p.village || "No Village"}{agoStr})
+                                                        {p.online ? "🟢 " : ""}{p.name} (Lv {p.level} · {p.village || "No Village"}{agoStr})
                                                     </option>
                                                 );
                                             })}
@@ -15109,7 +15109,7 @@ function AdminPanel({
                                 />
                                 <button onClick={pmLookup}>Look Up</button>
                             </div>
-                            {pmMsg && <p className="hint" style={{ color: pmMsg.startsWith("?") ? "#4ade80" : pmMsg.startsWith("?") ? "#f87171" : pmMsg.startsWith("??") ? "#fbbf24" : undefined }}>{pmMsg}</p>}
+                            {pmMsg && <p className="hint" style={{ color: pmMsg.startsWith("✅") ? "#4ade80" : pmMsg.startsWith("❌") ? "#f87171" : pmMsg.startsWith("⚠️") ? "#fbbf24" : undefined }}>{pmMsg}</p>}
 
                             {pmChar && (
                                 <>
@@ -15135,7 +15135,7 @@ function AdminPanel({
                                     </div>
 
                                     <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-                                        <button onClick={pmGive}>? Give &amp; Save</button>
+                                        <button onClick={pmGive}>🎁 Give &amp; Save</button>
                                     </div>
                                 </>
                             )}
@@ -15143,24 +15143,24 @@ function AdminPanel({
 
                         {/* -- Password Reset -- */}
                         <section className="summary-box">
-                            <h4>?? Reset Player Password</h4>
+                            <h4>🔑 Reset Player Password</h4>
                             <AdminPasswordReset adminPw={adminPw} />
                         </section>
 
                         {/* -- Auth Lock Clear -- */}
                         <section className="summary-box">
-                            <h4>?? Clear Auth Lock</h4>
+                            <h4>🔓 Clear Auth Lock</h4>
                             <AdminClearAuthLock adminPw={adminPw} />
                         </section>
 
                         {/* -- Manual Stat Edit -- */}
                         <section className="summary-box">
-                            <h4>?? Edit Player Stats</h4>
+                            <h4>📊 Edit Player Stats</h4>
                             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 8 }}>
                                 <input style={{ flex: 1, minWidth: 160 }} value={pmEditName} onChange={e => { setPmEditName(e.target.value); setPmEditSnap(null); }} placeholder="Player name" />
                                 <button onClick={pmEditLookup} disabled={!pmEditName.trim()}>Look Up</button>
                             </div>
-                            {pmEditMsg && <p className="hint" style={{ color: pmEditMsg.startsWith("?") ? "#4ade80" : pmEditMsg.startsWith("?") ? "#f87171" : "#fcd34d", marginBottom: 8 }}>{pmEditMsg}</p>}
+                            {pmEditMsg && <p className="hint" style={{ color: pmEditMsg.startsWith("✅") ? "#4ade80" : pmEditMsg.startsWith("❌") ? "#f87171" : "#fcd34d", marginBottom: 8 }}>{pmEditMsg}</p>}
                             {pmEditSnap && (() => {
                                 const fields: { key: string; label: string }[] = [
                                     { key: "level", label: "Level" },
@@ -15195,7 +15195,7 @@ function AdminPanel({
                                                 </label>
                                             ))}
                                         </div>
-                                        <button onClick={pmEditSave} style={{ background: "linear-gradient(#1e3a5f,#0c1f3d)", borderColor: "#60a5fa" }}>?? Save Changes</button>
+                                        <button onClick={pmEditSave} style={{ background: "linear-gradient(#1e3a5f,#0c1f3d)", borderColor: "#60a5fa" }}>💾 Save Changes</button>
                                     </>
                                 );
                             })()}
@@ -15229,7 +15229,7 @@ function AdminPanel({
                                         {/* Equipment */}
                                         {Object.keys(equipment).length > 0 && (
                                             <div>
-                                                <p style={{ fontSize: "0.8rem", color: "#94a3b8", marginBottom: 4 }}>?? Equipment</p>
+                                                <p style={{ fontSize: "0.8rem", color: "#94a3b8", marginBottom: 4 }}>⚔️ Equipment</p>
                                                 <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                                                     {Object.entries(equipment).map(([slot, itemId]) => (
                                                         <div key={slot} style={{ display: "flex", alignItems: "center", gap: 4, background: "#1e293b", border: "1px solid #334155", borderRadius: 4, padding: "2px 6px", fontSize: "0.75rem" }}>
@@ -15244,7 +15244,7 @@ function AdminPanel({
                                         {/* Inventory — stacked by item ID */}
                                         {inventory.length > 0 && (
                                             <div>
-                                                <p style={{ fontSize: "0.8rem", color: "#94a3b8", marginBottom: 4 }}>?? Inventory ({inventory.length} items)</p>
+                                                <p style={{ fontSize: "0.8rem", color: "#94a3b8", marginBottom: 4 }}>🎒 Inventory ({inventory.length} items)</p>
                                                 <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                                                     {(() => {
                                                         const stacked: { itemId: string; indices: number[] }[] = [];
@@ -15267,8 +15267,8 @@ function AdminPanel({
                                                                 <div key={itemId} style={{ display: "flex", alignItems: "center", gap: 4, background: "#1e293b", border: "1px solid #334155", borderRadius: 4, padding: "2px 6px", fontSize: "0.75rem" }}>
                                                                     <span>{itemName(itemId)}</span>
                                                                     {count > 1 && <span style={{ background: "#334155", borderRadius: 8, padding: "0 5px", fontSize: "0.65rem", color: "#94a3b8" }}>×{count}</span>}
-                                                                    <button onClick={removeOne} title="Remove one" style={{ fontSize: "0.65rem", padding: "1px 5px", background: "#7f1d1d", borderColor: "#ef4444", color: "#fca5a5" }}>?1</button>
-                                                                    {count > 1 && <button onClick={removeAll} title={`Remove all ${count}`} style={{ fontSize: "0.65rem", padding: "1px 5px", background: "#7f1d1d", borderColor: "#ef4444", color: "#fca5a5" }}>?{count}</button>}
+                                                                    <button onClick={removeOne} title="Remove one" style={{ fontSize: "0.65rem", padding: "1px 5px", background: "#7f1d1d", borderColor: "#ef4444", color: "#fca5a5" }}>−1</button>
+                                                                    {count > 1 && <button onClick={removeAll} title={`Remove all ${count}`} style={{ fontSize: "0.65rem", padding: "1px 5px", background: "#7f1d1d", borderColor: "#ef4444", color: "#fca5a5" }}>−{count}</button>}
                                                                 </div>
                                                             );
                                                         });
@@ -15279,7 +15279,7 @@ function AdminPanel({
                                         {/* Pets */}
                                         {pets.length > 0 && (
                                             <div>
-                                                <p style={{ fontSize: "0.8rem", color: "#94a3b8", marginBottom: 4 }}>?? Pets</p>
+                                                <p style={{ fontSize: "0.8rem", color: "#94a3b8", marginBottom: 4 }}>🐾 Pets</p>
                                                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                                                     {pets.map(pet => (
                                                         <div key={pet.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "#1e293b", border: "1px solid #334155", borderRadius: 4, padding: "4px 8px", fontSize: "0.78rem" }}>
@@ -15297,7 +15297,7 @@ function AdminPanel({
 
                         {/* -- Reset Account -- */}
                         <section className="summary-box" style={{ borderColor: "#7f1d1d" }}>
-                            <h4>??? Reset Player Account</h4>
+                            <h4>🔄 Reset Player Account</h4>
                             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 8 }}>
                                 <input
                                     style={{ flex: 1, minWidth: 160 }}
@@ -15305,32 +15305,32 @@ function AdminPanel({
                                     onChange={e => setPmTargetName(e.target.value)}
                                     placeholder="Player name"
                                 />
-                                <button disabled={!pmTargetName.trim()} onClick={pmSoftReset} style={{ background: "#78350f", borderColor: "#f59e0b", color: "#fde68a" }}>? Soft Reset</button>
-                                <button className="danger-button" disabled={!pmTargetName.trim()} onClick={pmReset}>??? Full Wipe</button>
+                                <button disabled={!pmTargetName.trim()} onClick={pmSoftReset} style={{ background: "#78350f", borderColor: "#f59e0b", color: "#fde68a" }}>🔄 Soft Reset</button>
+                                <button className="danger-button" disabled={!pmTargetName.trim()} onClick={pmReset}>🗑️ Full Wipe</button>
                             </div>
-                            <p className="hint" style={{ marginBottom: 2 }}><strong style={{ color: "#fde68a" }}>? Soft Reset</strong> — keeps name, village, specialty & bloodline. Resets everything else to Lv 1 defaults.</p>
-                            <p className="hint"><strong style={{ color: "#fca5a5" }}>??? Full Wipe</strong> — deletes the save entirely. Player must create a new character.</p>
-                            {pmMsg && <p className="hint" style={{ color: pmMsg.startsWith("?") ? "#4ade80" : pmMsg.startsWith("?") ? "#f87171" : "#fcd34d", marginTop: 6 }}>{pmMsg}</p>}
+                            <p className="hint" style={{ marginBottom: 2 }}><strong style={{ color: "#fde68a" }}>🔄 Soft Reset</strong> — keeps name, village, specialty & bloodline. Resets everything else to Lv 1 defaults.</p>
+                            <p className="hint"><strong style={{ color: "#fca5a5" }}>🗑️ Full Wipe</strong> — deletes the save entirely. Player must create a new character.</p>
+                            {pmMsg && <p className="hint" style={{ color: pmMsg.startsWith("✅") ? "#4ade80" : pmMsg.startsWith("❌") ? "#f87171" : "#fcd34d", marginTop: 6 }}>{pmMsg}</p>}
                         </section>
 
                         {/* -- Full Server Reset -- */}
                         <section className="summary-box" style={{ borderColor: "#450a0a", background: "#1c0606" }}>
-                            <h4 style={{ color: "#fca5a5" }}>?? Full Server Reset</h4>
+                            <h4 style={{ color: "#fca5a5" }}>💀 Full Server Reset</h4>
                             <p className="hint">Wipes <strong>every player account</strong> back to Level 1. Everyone chooses their village fresh. Resets Kage seats, village wars, clans, village chats, presence, PvP sessions, and player passwords.</p>
-                            <p className="hint" style={{ color: "#4ade80" }}>? Preserved: All uploaded images (kage portraits, elder portraits, pets, weapons, avatars) and all admin-created game content (jutsus, missions, AIs, events, pets, cards, visual novels). Village Leaders tab configuration is kept.</p>
+                            <p className="hint" style={{ color: "#4ade80" }}>✅ Preserved: All uploaded images (kage portraits, elder portraits, pets, weapons, avatars) and all admin-created game content (jutsus, missions, AIs, events, pets, cards, visual novels). Village Leaders tab configuration is kept.</p>
                             {!adminPw && (
-                                <p className="hint" style={{ color: "#f87171", marginBottom: 6 }}>?? Session restored without password. Please log out and log back in to enable server actions.</p>
+                                <p className="hint" style={{ color: "#f87171", marginBottom: 6 }}>⚠️ Session restored without password. Please log out and log back in to enable server actions.</p>
                             )}
                             <button
                                 className="danger-button"
                                 style={{ marginTop: 8, width: "100%", padding: "10px", fontSize: "1rem", background: adminPw ? "#7f1d1d" : "#4a1a1a", opacity: adminPw ? 1 : 0.5 }}
                                 onClick={serverReset}
                                 disabled={!adminPw}
-                            >?? Reset Entire Server (All Players ? Level 0)</button>
+                            >💀 Reset Entire Server (All Players → Level 0)</button>
                             {serverResetMsg && (
                                 <p className="hint" style={{
                                     marginTop: 8,
-                                    color: serverResetMsg.startsWith("?") ? "#4ade80" : serverResetMsg.startsWith("?") ? "#f87171" : "#fbbf24"
+                                    color: serverResetMsg.startsWith("✅") ? "#4ade80" : serverResetMsg.startsWith("❌") ? "#f87171" : "#fbbf24"
                                 }}>{serverResetMsg}</p>
                             )}
                         </section>
@@ -15348,8 +15348,8 @@ function AdminPanel({
                                             <strong>{item.name}</strong>
                                             <p className="hint" style={{ margin: 0 }}>{item.slot} · {item.rarity}</p>
                                         </div>
-                                        <button onClick={() => pmApproveItem(item.id)}>? Approve</button>
-                                        <button className="danger-button" onClick={() => pmDeleteItem(item.id)}>??? Delete</button>
+                                        <button onClick={() => pmApproveItem(item.id)}>✅ Approve</button>
+                                        <button className="danger-button" onClick={() => pmDeleteItem(item.id)}>🗑️ Delete</button>
                                     </div>
                                 ))
                             }
@@ -15372,9 +15372,9 @@ function AdminPanel({
                                         <button onClick={() => {
                                             const base: SavedBloodline = { id: bl.id, name: bl.name, rank: bl.rank, image: bl.image, specialElement: bl.specialElement, lore: bl.lore, jutsus: bl.jutsus, totalPoints: bl.totalPoints };
                                             onEditBloodline?.(base);
-                                        }}>?? Edit</button>
-                                        <button onClick={() => pmApproveBloodline(bl)}>? Approve</button>
-                                        <button className="danger-button" onClick={() => pmDeleteBloodline(bl)}>??? Delete</button>
+                                        }}>✏️ Edit</button>
+                                        <button onClick={() => pmApproveBloodline(bl)}>✅ Approve</button>
+                                        <button className="danger-button" onClick={() => pmDeleteBloodline(bl)}>🗑️ Delete</button>
                                     </div>
                                 ))
                             }
@@ -15895,7 +15895,7 @@ function clanMemberBoostPercent(memberCount: number) { return clanBoostTiers.fin
 function clanUpgradeBonus(data: EnhancedClanData, key: ClanUpgradeKey) { if (key === "trainingGrounds" || key === "scoutNetwork") return clanMemberBoostPercent(data.members.length); return 0; }
 function clanRoleOf(member: ClanMemberEntry, data: EnhancedClanData): ClanRole { const override = data.roleOverrides?.[member.name]; if (override) return override; if (member.name === data.founderName || member.isFounder) return "Founder"; const sorted = [...data.members].filter(m => m.name !== data.founderName).sort((a, b) => clanContribTotal(b) - clanContribTotal(a)); const idx = sorted.findIndex(m => m.name === member.name); if (idx === 0) return "Leader"; if (idx > 0 && idx <= 2) return "Officer"; if (idx > 2 && idx <= 4) return "Elite Member"; if (clanContribTotal(member) <= 5) return "Recruit"; return "Member"; }
 function canManageClan(role: ClanRole) { return role === "Founder" || role === "Leader" || role === "Officer"; }
-function clanHallTier(level: number) { if (level >= 40) return { name: "Legendary Clan Citadel", icon: "🏰", desc: "A mythic fortress known across the shinobi world." }; if (level >= 25) return { name: "War Fortress", icon: "???", desc: "Walls, watchtowers, and banners built for war." }; if (level >= 15) return { name: "Hidden Clan Compound", icon: "🏯", desc: "A fortified compound with training yards and sealed rooms." }; if (level >= 7) return { name: "Fortified Dojo", icon: "🏠", desc: "A proper dojo with guard posts and a treasury room." }; return { name: "Empty Clan Camp", icon: "???", desc: "A small camp waiting to grow into a feared clan home." }; }
+function clanHallTier(level: number) { if (level >= 40) return { name: "Legendary Clan Citadel", icon: "🏰", desc: "A mythic fortress known across the shinobi world." }; if (level >= 25) return { name: "War Fortress", icon: "🏰", desc: "Walls, watchtowers, and banners built for war." }; if (level >= 15) return { name: "Hidden Clan Compound", icon: "🏯", desc: "A fortified compound with training yards and sealed rooms." }; if (level >= 7) return { name: "Fortified Dojo", icon: "🏠", desc: "A proper dojo with guard posts and a treasury room." }; return { name: "Empty Clan Camp", icon: "⛺", desc: "A small camp waiting to grow into a feared clan home." }; }
 function clanMissionProgress(data: EnhancedClanData, key: string) { const battle = data.members.reduce((s, m) => s + (m.battleContrib ?? 0), 0); const mission = data.members.reduce((s, m) => s + (m.missionContrib ?? 0), 0); const event = data.members.reduce((s, m) => s + (m.eventContrib ?? 0), 0); const territories = loadAllSectorTerritories().filter(territory => territory.ownerClan === data.name); if (key === "battle") return battle; if (key === "mission") return mission; if (key === "guard") return Math.min(10, territories.reduce((sum, territory) => sum + territory.guards.length, 0) + data.members.filter(m => m.level >= 5).length); if (key === "territory") return Math.min(20, Math.floor(territories.reduce((sum, territory) => sum + territory.controlScore, 0) / 1000)); if (key === "anbu") return Math.min(10, territories.reduce((sum, territory) => sum + territory.guards.length, 0) + Math.floor(battle / 5)); if (key === "donation") return data.treasury.ryo; if (key === "training") return Math.min(100, Math.floor((battle + mission + event) * 1.5)); if (key === "raid") return Math.min(5, Math.floor(event / 3)); return 0; }
 async function addClanWarPoints(clanName: string | undefined, playerName: string, points: number) {
     if (!clanName) return;
@@ -16260,16 +16260,16 @@ function ClanHall({ character, updateCharacter, creatorItems }: { character: Cha
     return <div className="card clan-hall-screen">
         <div className="clan-header"><div className="clan-title-block"><ClanImageMark image={clanData.image} name={clanData.name} village={clanData.village} /><div><h2 style={{ margin: 0 }}>{clanData.name}</h2><p className="hint" style={{ margin: "2px 0 0" }}>{clanData.village} · {clanData.members.length} members · Level {clanData.level}</p><div className="clan-xp-track"><span style={{ width: `${Math.min(100, (clanData.xp / xpNeed) * 100)}%` }} /></div><small>{clanData.xp.toLocaleString()} / {xpNeed.toLocaleString()} Clan XP</small></div></div><div className="clan-my-badge"><span className="clan-rank-badge" style={{ background: CLAN_RANK_COLOR[myRank] + "22", color: CLAN_RANK_COLOR[myRank], borderColor: CLAN_RANK_COLOR[myRank] + "55" }}>{CLAN_RANK_ICON[myRank]} {myRank}</span><span className="clan-role-badge">{CLAN_ROLE_ICON[myRole]} {myRole}</span><span className="clan-my-contrib">{myContrib} pts this month</span></div></div>
         <div className="clan-buff-banner"><strong>Active Clan Boosts</strong>{clanBuffs.length === 0 ? <span>No clan boosts yet — recruit at least 3 members.</span> : clanBuffs.map(buff => <span key={buff.label}>{buff.label} +{buff.value.toFixed(2)}%</span>)}</div>
-        <div className="clan-tabs expanded-tabs"><button className={view === "roster" ? "active" : ""} onClick={() => setView("roster")}>?? Roster</button><button className={view === "treasury" ? "active" : ""} onClick={() => setView("treasury")}>Treasury</button><button className={view === "boosts" ? "active" : ""} onClick={() => setView("boosts")}>? Boosts</button><button className={view === "missions" ? "active" : ""} onClick={() => setView("missions")}>?? Missions</button><button className={view === "wars" ? "active" : ""} onClick={() => setView("wars")}>?? Wars</button><button className={view === "territory" ? "active" : ""} onClick={() => setView("territory")}>??? Territory</button><button className={view === "guard" ? "active" : ""} onClick={() => setView("guard")}>Guard</button><button className={view === "notices" ? "active" : ""} onClick={() => setView("notices")}>?? Notices</button><button className={view === "hall" ? "active" : ""} onClick={() => setView("hall")}>?? Hall</button></div>
-        {view === "roster" && <div className="clan-roster">{canReviewJoinRequests && <section className="summary-box clan-join-requests"><h3>Join Requests</h3>{clanData.joinRequests.length === 0 ? <p className="hint">No pending join requests.</p> : <div className="clan-request-list">{clanData.joinRequests.map(request => <div className="clan-request-card" key={request.name}><div><strong>{request.name}</strong><small>Lv.{request.level} · {request.specialty} · {request.village}</small><small>Requested {new Date(request.requestedAt).toLocaleString()}</small></div><div className="menu"><button onClick={() => acceptJoinRequest(request)}>Accept</button><button className="danger-button" onClick={() => denyJoinRequest(request)}>Deny</button></div></div>)}</div>}</section>}<div className="clan-roster-header clan-roster-header-wide"><span>#</span><span>Member</span><span>Rank</span><span>Role</span><span>Contribution</span></div>{sortedMembers.map((member, idx) => { const rank = clanRankOf(member, clanData.members, clanData.founderName); const role = clanRoleOf(member, clanData); const contrib = clanContribTotal(member); const isMe = member.name === character.name; const rankColor = CLAN_RANK_COLOR[rank]; return <div key={member.name} className={`clan-member-row clan-member-row-wide${isMe ? " clan-member-me" : ""}`}><span className="clan-member-pos">#{idx + 1}</span><div className="clan-member-info"><span className="clan-member-name">{member.name}{isMe ? " ?" : ""}</span><span className="clan-member-sub">Lv.{member.level} · {member.specialty}</span></div><span className="clan-rank-badge" style={{ background: rankColor + "1a", color: rankColor, borderColor: rankColor + "44" }}>{CLAN_RANK_ICON[rank]} {rank}</span><span className="clan-role-badge">{CLAN_ROLE_ICON[role]} {role}</span><div className="clan-contrib-col"><span className="clan-contrib-total">{contrib} pts</span><span className="clan-contrib-breakdown">??{member.battleContrib} ?{member.eventContrib} ??{member.missionContrib}</span></div></div>; })}<div className="summary-box clan-rank-legend"><strong style={{ fontSize: "0.8rem", color: "#94a3b8" }}>Permissions</strong><p className="hint">Founder, Leader, and Clan Elders can approve join requests. Founder, Leader, and Officer can start clan wars.</p></div></div>}
-        {view === "treasury" && <div className="summary-box"><h3>?? Clan Treasury</h3><div className="treasury-grid"><p><strong>Ryo:</strong> {clanData.treasury.ryo.toLocaleString()}</p><p><strong>Fate Shards:</strong> {clanData.treasury.fateShards}</p><p><strong>Bone Charms:</strong> {clanData.treasury.boneCharms}</p><p><strong>Aura Stones:</strong> {clanData.treasury.auraStones}</p><p><strong>Mythic Seals:</strong> {clanData.treasury.mythicSeals}</p><p><strong>War Supply:</strong> {clanData.treasury.warSupply.toLocaleString()}</p></div><label>Donate Ryo</label><input type="number" value={donation} onChange={(e) => setDonation(Number(e.target.value))} /><div className="menu"><button onClick={donateRyo}>Donate Ryo</button><button onClick={() => donateSpecial("fateShards", 1)}>Donate 1 Fate Shard</button><button onClick={() => donateSpecial("boneCharms", 1)}>Donate 1 Bone Charm</button><button onClick={() => donateSpecial("auraStones", 1)}>Donate 1 Aura Stone</button><button onClick={() => donateSpecial("mythicSeals", 1)}>Donate 1 Mythic Seal</button></div><label>Donate Item</label><select value={clanDonateItemId} onChange={(e) => setClanDonateItemId(e.target.value)}><option value="">Choose item</option>{clanInventoryStacks.map(stack => <option key={stack.itemId} value={stack.itemId}>{stack.name} x{stack.count}</option>)}</select><button onClick={donateClanItem} disabled={!clanDonateItemId}>Donate Item</button><h4>Treasury Items</h4>{clanTreasuryItems.length === 0 ? <p className="hint">No donated items yet.</p> : <div className="treasury-grid">{clanTreasuryItems.map(stack => <p key={stack.itemId}><strong>{itemDisplayName(stack.itemId, allClanItems)}:</strong> x{stack.count}</p>)}</div>}{canManageClan(myRole) && <section className="summary-box"><h3>Send Treasury Resources</h3><p className="hint">Clan leadership can send donated resources or items to clan members.</p><label>Recipient</label><select value={clanSendPlayer} onChange={(e) => setClanSendPlayer(e.target.value)}><option value="">Choose clan member</option>{sortedMembers.map(member => <option key={member.name} value={member.name}>{member.name}</option>)}</select><label>Resource</label><select value={clanSendCurrency} onChange={(e) => setClanSendCurrency(e.target.value as ClanTreasuryCurrencyKey)}><option value="ryo">Ryo</option><option value="fateShards">Fate Shards</option><option value="boneCharms">Bone Charms</option><option value="auraStones">Aura Stones</option><option value="mythicSeals">Mythic Seals</option></select><input type="number" min={1} value={clanSendAmount} onChange={(e) => setClanSendAmount(Number(e.target.value))} /><div className="menu"><button onClick={sendClanCurrency}>Send Resource</button></div><label>Item</label><select value={clanSendItemId} onChange={(e) => setClanSendItemId(e.target.value)}><option value="">Choose treasury item</option>{clanTreasuryItems.map(stack => <option key={stack.itemId} value={stack.itemId}>{itemDisplayName(stack.itemId, allClanItems)} x{stack.count}</option>)}</select><button onClick={sendClanItem} disabled={!clanSendItemId}>Send Item</button></section>}<p className="hint">Donations add clan XP and treasury resources.</p></div>}
-        {view === "boosts" && <div className="clan-upgrade-grid">{clanBoostTiers.map(tier => { const active = clanData.members.length >= tier.min && clanData.members.length <= tier.max; const label = Number.isFinite(tier.max) ? `${tier.min}-${tier.max} members` : `${tier.min}+ members`; return <div key={label} className={`town-upgrade-card clan-upgrade-card ${active ? "active" : ""}`}><div className="town-upgrade-topline"><span className="town-upgrade-icon">?</span><div><strong>{label}</strong><p>{active ? "Active Boost" : "Recruitment Tier"}</p></div></div><div className="town-upgrade-bar"><span style={{ width: active ? "100%" : "0%" }} /></div><p className="town-upgrade-desc">Clan members receive +{tier.percent}% training XP, mission XP, and ryo gain at this roster size.</p><p className="town-upgrade-bonus">Boost: <strong>+{tier.percent}%</strong></p></div>; })}</div>}
+        <div className="clan-tabs expanded-tabs"><button className={view === "roster" ? "active" : ""} onClick={() => setView("roster")}>👥 Roster</button><button className={view === "treasury" ? "active" : ""} onClick={() => setView("treasury")}>Treasury</button><button className={view === "boosts" ? "active" : ""} onClick={() => setView("boosts")}>⬆️ Boosts</button><button className={view === "missions" ? "active" : ""} onClick={() => setView("missions")}>📜 Missions</button><button className={view === "wars" ? "active" : ""} onClick={() => setView("wars")}>⚔️ Wars</button><button className={view === "territory" ? "active" : ""} onClick={() => setView("territory")}>🗺️ Territory</button><button className={view === "guard" ? "active" : ""} onClick={() => setView("guard")}>Guard</button><button className={view === "notices" ? "active" : ""} onClick={() => setView("notices")}>📋 Notices</button><button className={view === "hall" ? "active" : ""} onClick={() => setView("hall")}>🏯 Hall</button></div>
+        {view === "roster" && <div className="clan-roster">{canReviewJoinRequests && <section className="summary-box clan-join-requests"><h3>Join Requests</h3>{clanData.joinRequests.length === 0 ? <p className="hint">No pending join requests.</p> : <div className="clan-request-list">{clanData.joinRequests.map(request => <div className="clan-request-card" key={request.name}><div><strong>{request.name}</strong><small>Lv.{request.level} · {request.specialty} · {request.village}</small><small>Requested {new Date(request.requestedAt).toLocaleString()}</small></div><div className="menu"><button onClick={() => acceptJoinRequest(request)}>Accept</button><button className="danger-button" onClick={() => denyJoinRequest(request)}>Deny</button></div></div>)}</div>}</section>}<div className="clan-roster-header clan-roster-header-wide"><span>#</span><span>Member</span><span>Rank</span><span>Role</span><span>Contribution</span></div>{sortedMembers.map((member, idx) => { const rank = clanRankOf(member, clanData.members, clanData.founderName); const role = clanRoleOf(member, clanData); const contrib = clanContribTotal(member); const isMe = member.name === character.name; const rankColor = CLAN_RANK_COLOR[rank]; return <div key={member.name} className={`clan-member-row clan-member-row-wide${isMe ? " clan-member-me" : ""}`}><span className="clan-member-pos">#{idx + 1}</span><div className="clan-member-info"><span className="clan-member-name">{member.name}{isMe ? " ⭐" : ""}</span><span className="clan-member-sub">Lv.{member.level} · {member.specialty}</span></div><span className="clan-rank-badge" style={{ background: rankColor + "1a", color: rankColor, borderColor: rankColor + "44" }}>{CLAN_RANK_ICON[rank]} {rank}</span><span className="clan-role-badge">{CLAN_ROLE_ICON[role]} {role}</span><div className="clan-contrib-col"><span className="clan-contrib-total">{contrib} pts</span><span className="clan-contrib-breakdown">⚔️{member.battleContrib} 🎯{member.eventContrib} 📜{member.missionContrib}</span></div></div>; })}<div className="summary-box clan-rank-legend"><strong style={{ fontSize: "0.8rem", color: "#94a3b8" }}>Permissions</strong><p className="hint">Founder, Leader, and Clan Elders can approve join requests. Founder, Leader, and Officer can start clan wars.</p></div></div>}
+        {view === "treasury" && <div className="summary-box"><h3>💰 Clan Treasury</h3><div className="treasury-grid"><p><strong>Ryo:</strong> {clanData.treasury.ryo.toLocaleString()}</p><p><strong>Fate Shards:</strong> {clanData.treasury.fateShards}</p><p><strong>Bone Charms:</strong> {clanData.treasury.boneCharms}</p><p><strong>Aura Stones:</strong> {clanData.treasury.auraStones}</p><p><strong>Mythic Seals:</strong> {clanData.treasury.mythicSeals}</p><p><strong>War Supply:</strong> {clanData.treasury.warSupply.toLocaleString()}</p></div><label>Donate Ryo</label><input type="number" value={donation} onChange={(e) => setDonation(Number(e.target.value))} /><div className="menu"><button onClick={donateRyo}>Donate Ryo</button><button onClick={() => donateSpecial("fateShards", 1)}>Donate 1 Fate Shard</button><button onClick={() => donateSpecial("boneCharms", 1)}>Donate 1 Bone Charm</button><button onClick={() => donateSpecial("auraStones", 1)}>Donate 1 Aura Stone</button><button onClick={() => donateSpecial("mythicSeals", 1)}>Donate 1 Mythic Seal</button></div><label>Donate Item</label><select value={clanDonateItemId} onChange={(e) => setClanDonateItemId(e.target.value)}><option value="">Choose item</option>{clanInventoryStacks.map(stack => <option key={stack.itemId} value={stack.itemId}>{stack.name} x{stack.count}</option>)}</select><button onClick={donateClanItem} disabled={!clanDonateItemId}>Donate Item</button><h4>Treasury Items</h4>{clanTreasuryItems.length === 0 ? <p className="hint">No donated items yet.</p> : <div className="treasury-grid">{clanTreasuryItems.map(stack => <p key={stack.itemId}><strong>{itemDisplayName(stack.itemId, allClanItems)}:</strong> x{stack.count}</p>)}</div>}{canManageClan(myRole) && <section className="summary-box"><h3>Send Treasury Resources</h3><p className="hint">Clan leadership can send donated resources or items to clan members.</p><label>Recipient</label><select value={clanSendPlayer} onChange={(e) => setClanSendPlayer(e.target.value)}><option value="">Choose clan member</option>{sortedMembers.map(member => <option key={member.name} value={member.name}>{member.name}</option>)}</select><label>Resource</label><select value={clanSendCurrency} onChange={(e) => setClanSendCurrency(e.target.value as ClanTreasuryCurrencyKey)}><option value="ryo">Ryo</option><option value="fateShards">Fate Shards</option><option value="boneCharms">Bone Charms</option><option value="auraStones">Aura Stones</option><option value="mythicSeals">Mythic Seals</option></select><input type="number" min={1} value={clanSendAmount} onChange={(e) => setClanSendAmount(Number(e.target.value))} /><div className="menu"><button onClick={sendClanCurrency}>Send Resource</button></div><label>Item</label><select value={clanSendItemId} onChange={(e) => setClanSendItemId(e.target.value)}><option value="">Choose treasury item</option>{clanTreasuryItems.map(stack => <option key={stack.itemId} value={stack.itemId}>{itemDisplayName(stack.itemId, allClanItems)} x{stack.count}</option>)}</select><button onClick={sendClanItem} disabled={!clanSendItemId}>Send Item</button></section>}<p className="hint">Donations add clan XP and treasury resources.</p></div>}
+        {view === "boosts" && <div className="clan-upgrade-grid">{clanBoostTiers.map(tier => { const active = clanData.members.length >= tier.min && clanData.members.length <= tier.max; const label = Number.isFinite(tier.max) ? `${tier.min}-${tier.max} members` : `${tier.min}+ members`; return <div key={label} className={`town-upgrade-card clan-upgrade-card ${active ? "active" : ""}`}><div className="town-upgrade-topline"><span className="town-upgrade-icon">⬆️</span><div><strong>{label}</strong><p>{active ? "Active Boost" : "Recruitment Tier"}</p></div></div><div className="town-upgrade-bar"><span style={{ width: active ? "100%" : "0%" }} /></div><p className="town-upgrade-desc">Clan members receive +{tier.percent}% training XP, mission XP, and ryo gain at this roster size.</p><p className="town-upgrade-bonus">Boost: <strong>+{tier.percent}%</strong></p></div>; })}</div>}
         {view === "missions" && <div className="clan-mission-grid">{clanMissionDefinitions.map(mission => { const progress = clanMissionProgress(clanData, mission.key); return <div key={mission.key} className="summary-box clan-mission-card"><h3>{mission.icon} {mission.name}</h3><p>{mission.description}</p><div className="town-upgrade-bar"><span style={{ width: `${Math.min(100, (progress / mission.target) * 100)}%` }} /></div><p><strong>{Math.min(progress, mission.target).toLocaleString()}</strong> / {mission.target.toLocaleString()}</p><p className="hint">Reward: {mission.reward}</p></div>; })}</div>}
-        {view === "wars" && <div className="summary-box"><h3>?? Clan Wars</h3><p className="hint">Owned sectors give +{territoryWarBonusPercent}% clan war point gain, full HP sectors start new wars with +{territoryStartingScore.toLocaleString()} score, and War Supply can be spent during active wars.</p>{clanData.activeWar ? <div className="clan-war-active"><h3>{clanData.name} vs {clanData.activeWar.opponentClan}</h3><p className="hint">Enemy Village: {clanData.activeWar.enemyVillage} · Ends: {new Date(clanData.activeWar.endsAt).toLocaleString()} · War Supply: {clanData.treasury.warSupply.toLocaleString()}</p><div className="war-score-board"><strong>{clanData.activeWar.ourScore}</strong><span>VS</span><strong>{clanData.activeWar.enemyScore}</strong></div><div className="menu"><button onClick={() => addWarScore(3)}>Log Arena Win +3</button><button onClick={() => addWarScore(2)}>Log Defense Win +2</button><button onClick={() => addWarScore(5)}>Log Raid Contribution +5</button><button disabled={clanData.treasury.warSupply < 100} onClick={spendWarSupplyOnActiveWar}>Spend 100 War Supply +10</button><button onClick={resolveClanWar}>Resolve War</button></div></div> : <button disabled={!canManageClan(myRole)} onClick={startClanWar}>{canManageClan(myRole) ? "Start Clan War" : "Officer+ can start wars"}</button>}<h4>Past War History</h4><div className="war-record-grid">{clanData.warHistory.map((war, idx) => <div key={`${war.opponent}-${idx}`} className="war-record-card"><strong>{war.result} vs {war.opponent}</strong><span>{war.finalScore}</span><small>{war.date} · MVP: {war.mvpClan}</small><small>Top Attacker: {war.topAttacker} · Top Defender: {war.topDefender}</small><small>Reward: {war.reward}</small></div>)}</div></div>}
+        {view === "wars" && <div className="summary-box"><h3>⚔️ Clan Wars</h3><p className="hint">Owned sectors give +{territoryWarBonusPercent}% clan war point gain, full HP sectors start new wars with +{territoryStartingScore.toLocaleString()} score, and War Supply can be spent during active wars.</p>{clanData.activeWar ? <div className="clan-war-active"><h3>{clanData.name} vs {clanData.activeWar.opponentClan}</h3><p className="hint">Enemy Village: {clanData.activeWar.enemyVillage} · Ends: {new Date(clanData.activeWar.endsAt).toLocaleString()} · War Supply: {clanData.treasury.warSupply.toLocaleString()}</p><div className="war-score-board"><strong>{clanData.activeWar.ourScore}</strong><span>VS</span><strong>{clanData.activeWar.enemyScore}</strong></div><div className="menu"><button onClick={() => addWarScore(3)}>Log Arena Win +3</button><button onClick={() => addWarScore(2)}>Log Defense Win +2</button><button onClick={() => addWarScore(5)}>Log Raid Contribution +5</button><button disabled={clanData.treasury.warSupply < 100} onClick={spendWarSupplyOnActiveWar}>Spend 100 War Supply +10</button><button onClick={resolveClanWar}>Resolve War</button></div></div> : <button disabled={!canManageClan(myRole)} onClick={startClanWar}>{canManageClan(myRole) ? "Start Clan War" : "Officer+ can start wars"}</button>}<h4>Past War History</h4><div className="war-record-grid">{clanData.warHistory.map((war, idx) => <div key={`${war.opponent}-${idx}`} className="war-record-card"><strong>{war.result} vs {war.opponent}</strong><span>{war.finalScore}</span><small>{war.date} · MVP: {war.mvpClan}</small><small>Top Attacker: {war.topAttacker} · Top Defender: {war.topDefender}</small><small>Reward: {war.reward}</small></div>)}</div></div>}
         {view === "territory" && <div className="summary-box"><h3>Clan Territory Control</h3><p className="hint">Members donate Territory Control Scrolls to the clan hall. Owned sectors generate War Supply, boost clan war scoring, and reduce raid damage when guarded.</p><p><strong>Your Scrolls:</strong> {personalTerritoryScrolls} · <strong>Clan Hall Scrolls:</strong> {clanTerritoryScrolls} · <strong>Clan War Supply:</strong> {clanData.treasury.warSupply.toLocaleString()} · <strong>Uncollected:</strong> {clanSectorWarSupply.toLocaleString()}</p><p className="hint">Your village owns {villageSectorCount} sector{villageSectorCount === 1 ? "" : "s"} with {villageSectorWarSupply.toLocaleString()} uncollected village-wide War Supply.</p><div className="menu"><button disabled={personalTerritoryScrolls < 1} onClick={donateAllTerritoryScrollsToClan}>Donate All Territory Scrolls To Clan Hall</button><button disabled={!canSpendTerritoryScrolls || clanSectorWarSupply < 1} onClick={collectTerritoryWarSupply}>Collect Sector War Supply</button></div><div className="treasury-grid"><div><label>Sector</label><input type="number" min={1} max={60} value={territorySector} onChange={(event) => setTerritorySector(clampNumber(Number(event.target.value), 1, 60))} /></div><div><label>Weather</label><select value={territoryWeather} onChange={(event) => setTerritoryWeather(event.target.value as WeatherType)}>{Object.entries(weatherEffects).map(([key, weather]) => <option key={key} value={key}>{weather.name}</option>)}</select></div><div><label>Terrain Bonus</label><select value={territoryBuffStat} onChange={(event) => setTerritoryBuffStat(event.target.value as TerritoryBuffStat)}><option value="bukijutsuOffense">Bukijutsu Offense +10%</option><option value="taijutsuOffense">Taijutsu Offense +10%</option><option value="ninjutsuOffense">Ninjutsu Offense +10%</option><option value="genjutsuOffense">Genjutsu Offense +10%</option></select></div></div><section className="summary-box"><h4>Sector {territorySector}</h4><p><strong>Owner:</strong> {selectedTerritory.ownerClan ? `${selectedTerritory.ownerClan} (${selectedTerritory.ownerVillage})` : "Unclaimed"}</p><div className="town-upgrade-bar"><span style={{ width: `${(selectedTerritory.controlScore / TERRITORY_CONTROL_MAX) * 100}%` }} /></div><p>Control Score: {selectedTerritory.controlScore.toLocaleString()} / {TERRITORY_CONTROL_MAX.toLocaleString()}</p><div className="bar enemy-bar"><span style={{ width: `${(selectedTerritory.hp / TERRITORY_HP_MAX) * 100}%` }} /></div><p>Sector HP: {selectedTerritory.hp.toLocaleString()} / {TERRITORY_HP_MAX.toLocaleString()}</p><p>War Supply: {selectedTerritory.warSupply.toLocaleString()} · Raid Damage Taken: {sectorRaidDamageAmount(territorySector).toLocaleString()}</p><p>Fixed Weather: {weatherEffects[selectedTerritory.weather ?? weatherForSector(territorySector, "central")].name} · Terrain: {selectedTerritory.terrainBuffStat.replace("Offense", " Offense")} +10%</p><p>Guards: {selectedTerritory.guards.length ? selectedTerritory.guards.join(", ") : "None"}</p><div className="menu"><button disabled={!canSpendTerritoryScrolls || clanTerritoryScrolls < 1 || Boolean(selectedTerritory.ownerClan && selectedTerritory.ownerClan !== clanData.name)} onClick={() => donateTerritoryScrolls(territorySector)}>Assign 1 Clan Scroll</button><button disabled={!canSpendTerritoryScrolls || clanTerritoryScrolls < 5 || Boolean(selectedTerritory.ownerClan && selectedTerritory.ownerClan !== clanData.name)} onClick={() => donateTerritoryScrolls(territorySector, 5)}>Assign 5 Clan Scrolls</button><button disabled={!canSpendTerritoryScrolls || selectedTerritory.ownerClan !== clanData.name} onClick={() => saveTerritorySettings(territorySector)}>Save Terrain / Weather</button><button disabled={!canGuardSelectedTerritory} onClick={() => toggleTerritoryGuard(territorySector)}>{selectedTerritory.guards.includes(character.name) ? "Leave Sector Guard" : "Queue Sector Guard"}</button><button className="danger-button" disabled={!selectedTerritory.ownerClan || selectedTerritory.ownerVillage === character.village} onClick={() => recordVillageWarDamage(territorySector)}>Village War Hit -5,000 HP</button></div></section><h4>Your Clan Sectors</h4>{ownedTerritories.length === 0 ? <p className="hint">Your clan does not own a sector yet.</p> : <div className="war-record-grid">{ownedTerritories.map(territory => <div key={territory.sector} className="war-record-card"><strong>Sector {territory.sector}</strong><span>HP {territory.hp.toLocaleString()} / {TERRITORY_HP_MAX.toLocaleString()}</span><small>{weatherEffects[territory.weather ?? "clear"].name} · {territory.terrainBuffStat.replace("Offense", " Offense")} +10%</small><small>War Supply: {territory.warSupply.toLocaleString()} · Guards: {territory.guards.length}</small></div>)}</div>}</div>}
         {view === "notices" && <div className="summary-box town-notice-board"><h3>Clan Notice Board</h3><p className="hint">Clan Head, leaders, officers, and Clan Elders can post tactical clan notices for members.</p><div className="treasury-grid"><div><label>Type</label><select value={clanNoticeType} onChange={(event) => setClanNoticeType(event.target.value as NoticePostType)}><option value="clan">Clan Notice</option><option value="raid">Raid Target</option><option value="guard">Guard Request</option><option value="trade">Trade / Supply</option><option value="general">General</option></select></div><div><label>Sector Optional</label><input type="number" min={1} max={60} value={clanNoticeSector} onChange={(event) => setClanNoticeSector(event.target.value)} placeholder="1-60" /></div></div><label>Title</label><input value={clanNoticeTitle} maxLength={70} onChange={(event) => setClanNoticeTitle(event.target.value)} placeholder="Example: Prepare Sector 33 raid team" /><label>Message</label><textarea value={clanNoticeBody} maxLength={500} onChange={(event) => setClanNoticeBody(event.target.value)} placeholder="Post clan plans, resource needs, guard rotations, or war instructions." /><button onClick={() => void postClanNotice()} disabled={!clanNoticeTitle.trim() || !clanNoticeBody.trim()}>Post Clan Notice</button><div className="notice-board-list">{clanData.notices.length === 0 ? <p className="hint">No clan notices posted yet.</p> : clanData.notices.map(notice => { const canEditNotice = canManageClan(myRole) || myRank === "Clan Elder" || notice.author === character.name; return <div key={notice.id} className={`notice-post ${notice.pinned ? "pinned" : ""}`}><div className="notice-post-head"><span>{notice.pinned ? "Pinned " : ""}{noticeTypeLabel(notice.type)}</span><small>{new Date(notice.createdAt).toLocaleString()} · {notice.author} · {notice.authorRole}</small></div><strong>{notice.title}</strong><p>{notice.body}</p>{notice.sector && <small>Sector {notice.sector}</small>}{canEditNotice && <div className="menu"><button onClick={() => void toggleClanNoticePin(notice.id)}>{notice.pinned ? "Unpin" : "Pin"}</button><button className="danger-button" onClick={() => void removeClanNotice(notice.id)}>Delete</button></div>}</div>; })}</div></div>}
-        {view === "guard" && <div className="summary-box"><h3>??? Village Guard</h3><p className="hint">Queue as a guard to defend <strong>{character.village}</strong>. Town Hall defense bonus applies while you are queued.</p><button className={character.guardQueued ? "danger-button" : ""} onClick={toggleGuard} disabled={guardBusy} style={{ marginBottom: 12 }}>{guardBusy ? "Updating…" : character.guardQueued ? "Leave Guard Queue" : "Queue as Village Guard"}</button><h4>Active Guards for {character.village} ({guardList.length})</h4>{guardList.length === 0 ? <p className="hint">No active guards. Village is undefended.</p> : <div className="clan-guard-list">{guardList.map(g => <div key={g.name} className="clan-guard-row"><span>??? <strong>{g.name}</strong></span><span className="clan-guard-lvl">Lv. {g.level}{g.defenseBonusPercent ? ` · DEF +${g.defenseBonusPercent.toFixed(1)}%` : ""}</span></div>)}</div>}</div>}
-        {view === "hall" && <div className="summary-box clan-visual-hall"><ClanImageMark image={clanData.image} name={clanData.name} village={clanData.village} /><span className="clan-hall-tier-icon">{hall.icon}</span><div><h3>{hall.name}</h3><p>{hall.desc}</p><p className="hint">Hall tier grows automatically from clan level: Camp ? Dojo ? Compound ? Fortress ? Citadel.</p></div></div>}
+        {view === "guard" && <div className="summary-box"><h3>🛡️ Village Guard</h3><p className="hint">Queue as a guard to defend <strong>{character.village}</strong>. Town Hall defense bonus applies while you are queued.</p><button className={character.guardQueued ? "danger-button" : ""} onClick={toggleGuard} disabled={guardBusy} style={{ marginBottom: 12 }}>{guardBusy ? "Updating…" : character.guardQueued ? "Leave Guard Queue" : "Queue as Village Guard"}</button><h4>Active Guards for {character.village} ({guardList.length})</h4>{guardList.length === 0 ? <p className="hint">No active guards. Village is undefended.</p> : <div className="clan-guard-list">{guardList.map(g => <div key={g.name} className="clan-guard-row"><span>🛡️ <strong>{g.name}</strong></span><span className="clan-guard-lvl">Lv. {g.level}{g.defenseBonusPercent ? ` · DEF +${g.defenseBonusPercent.toFixed(1)}%` : ""}</span></div>)}</div>}</div>}
+        {view === "hall" && <div className="summary-box clan-visual-hall"><ClanImageMark image={clanData.image} name={clanData.name} village={clanData.village} /><span className="clan-hall-tier-icon">{hall.icon}</span><div><h3>{hall.name}</h3><p>{hall.desc}</p><p className="hint">Hall tier grows automatically from clan level: Camp → Dojo → Compound → Fortress → Citadel.</p></div></div>}
         <div className="menu" style={{ marginTop: 12 }}>
             <button className="danger-button" onClick={leaveClan}>Leave Clan</button>
             {character.clanFounder && <button className="danger-button" onClick={deleteClan}>Delete Clan</button>}
@@ -16957,12 +16957,12 @@ function TownHall({ character, updateCharacter, creatorItems, allServerPlayers, 
     return <div className="card town-hall-screen">
         <div className="town-hall-hero"><div><p className="act-label">{character.village}</p><h2>Town Hall</h2><p className="hint">Village government, war records, guard defense, upgrades, treasury, and leadership.</p></div><div className="town-hall-wallet"><span>Honor Seals</span><strong>{(character.honorSeals ?? 0).toLocaleString()}</strong><small>Ryo {character.ryo.toLocaleString()}</small></div></div>
         <div className="clan-tabs expanded-tabs town-tabs"><button className={tab === "status" ? "active" : ""} onClick={() => setTab("status")}>Status</button><button className={tab === "upgrades" ? "active" : ""} onClick={() => setTab("upgrades")}>Upgrades</button><button className={tab === "treasury" ? "active" : ""} onClick={() => setTab("treasury")}>Treasury</button><button className={tab === "guard" ? "active" : ""} onClick={() => setTab("guard")}>Guard</button><button className={tab === "notices" ? "active" : ""} onClick={() => setTab("notices")}>Orders</button><button className={tab === "politics" ? "active" : ""} onClick={() => setTab("politics")}>Kage/Elders</button></div>
-        {tab === "status" && <><div className="town-hall-grid"><section className="summary-box town-hall-panel"><h3>Village Status</h3><div className="town-leader-row"><LeaderPortrait image={getLeaderImage(state.seatedKage, leadershipImages.kage)} name={state.seatedKage ?? leadership.kage} fallback="?" /><p><strong>Kage:</strong> {state.seatedKage ?? leadership.kage}</p></div><p><strong>Population:</strong> {population.toLocaleString()}</p><p><strong>Village Level:</strong> {villageLevel}</p><p><strong>Village Strength:</strong> {villageStrength.toLocaleString()}</p><p><strong>Guard Queue:</strong> {guardList.length} active defender{guardList.length === 1 ? "" : "s"}</p></section><section className="summary-box town-hall-panel"><h3>War Status</h3><div className={primaryVillageWar ? "war-status at-war" : "war-status peace"}>{primaryVillageWar ? `At War with ${activeWarEnemyVillage}` : "Not At War"}</div>{primaryVillageWar ? <><p><strong>{character.village} HP:</strong> {primaryVillageWar.hp[character.village].toLocaleString()} / {VILLAGE_WAR_HP_MAX.toLocaleString()}</p><div className="bar enemy-bar"><span style={{ width: `${(primaryVillageWar.hp[character.village] / VILLAGE_WAR_HP_MAX) * 100}%` }} /></div><p><strong>{activeWarEnemyVillage} HP:</strong> {activeWarEnemyVillage ? primaryVillageWar.hp[activeWarEnemyVillage].toLocaleString() : 0} / {VILLAGE_WAR_HP_MAX.toLocaleString()}</p><div className="town-upgrade-bar"><span style={{ width: `${activeWarEnemyVillage ? (primaryVillageWar.hp[activeWarEnemyVillage] / VILLAGE_WAR_HP_MAX) * 100 : 0}%` }} /></div><p><strong>War Ground:</strong> Sector {primaryVillageWar.warGroundSector} · HP {primaryVillageWar.warGroundHp.toLocaleString()} / {VILLAGE_WAR_GROUND_HP_MAX.toLocaleString()}</p><p className="hint">{primaryVillageWar.capturedBy ? `Captured by ${primaryVillageWar.capturedBy}.` : "Raid from the war ground to damage enemy village HP and the sector HP."}</p></> : <><p className="hint">Village wars start at 5,000 HP. PvP kills, war-ground raids, and daily war missions reduce enemy HP.</p><label>Enemy Village</label><select value={warTargetVillage} onChange={(event) => setWarTargetVillage(event.target.value)}>{villages.filter(village => village !== character.village).map(village => <option key={village} value={village}>{village}</option>)}</select><button disabled={!isSeatedKage} onClick={beginVillageWar}>{isSeatedKage ? "Start Village War" : "Kage Only"}</button></>}<h4>Current Village Buffs</h4><div className="village-buff-list"><span>Training +{getTrainingXpBonus(character).toFixed(2)}%</span><span>Jutsu Speed +{getJutsuTrainingSpeedBonus(character).toFixed(2)}%</span><span>Shop Discount +{getShopDiscountPercent(character).toFixed(2)}%</span><span>Guard DEF +{getTownDefenseGuardBonus(character).toFixed(2)}%</span><span>Pet XP +{getPetXpBonus(character).toFixed(2)}%</span><span>Bank Interest +{getBankInterestPercent(character).toFixed(2)}%</span><span>Mission Rewards +{getMissionRewardBonus(character).toFixed(2)}%</span><span>Hospital Discount +{getHospitalDiscountPercent(character).toFixed(2)}%</span>{character.elderFocus === "war" && <span>?? War Focus: -1% dmg taken (wartime)</span>}{character.elderFocus === "trade" && <span>?? Trade Focus: -5% shop costs</span>}{character.elderFocus === "training" && <span>?? Training Focus: +10% XP, +10% jutsu speed</span>}</div></section></div><section className="summary-box"><h3>Daily Village Agenda</h3><p className="hint">Three village goals refresh each day. If there is no player Kage, the board randomizes automatically.</p><div className="contrib-rank-grid">{agenda.tasks.map(task => <div key={task.id} className="clan-guard-row"><span><strong>{task.label}</strong></span><span>{Math.min(agendaProgress(task), task.target).toLocaleString()} / {task.target.toLocaleString()}</span></div>)}</div><div className="menu"><button disabled={!agendaComplete || agendaClaimed} onClick={claimVillageAgenda}>{agendaClaimed ? "Agenda Claimed" : agendaComplete ? "Claim Agenda Rewards" : "Agenda Incomplete"}</button></div><p className="hint">Rewards: village treasury +15 Honor Seals, +1,500 ryo, +2 Bone Charms. Player: +8 Honor Seals, +750 ryo, +1 Bone Charm.</p></section><section className="summary-box"><h3>Map Control Rewards</h3><p>Your village controls <strong>{ownedVillageSectors.length}</strong> sector{ownedVillageSectors.length === 1 ? "" : "s"}.</p><p className="hint">Daily player reward: +{mapControlRyo.toLocaleString()} ryo, +{mapControlHonor.toLocaleString()} Honor Seals, +{mapControlBone.toLocaleString()} Bone Charms.</p><button disabled={ownedVillageSectors.length <= 0 || mapControlClaimed} onClick={claimMapControlRewards}>{mapControlClaimed ? "Map Reward Claimed" : "Claim Map Control Reward"}</button></section><section className={state.kageSystemUnlocked ? "summary-box kage-unlock-panel unlocked" : "summary-box kage-unlock-panel"}><h3>{state.kageSystemUnlocked ? "Kage System Open" : "Kage System Sealed"}</h3><p>{state.kageSystemUnlocked ? "The false Kage has fallen. The village is no longer ruled by secrecy. The Kage seat is now open." : "Clear your village's level 100 Kage story fight to open elections, elder seats, village upgrades, war access, and policy control."}</p>{state.firstLiberator && <p><strong>First Liberator:</strong> {state.firstLiberator}</p>}{state.seatedKage && <p><strong>Seated Kage:</strong> {state.seatedKage}</p>}</section><section className="summary-box town-notice-board"><h3>Village Notice Board</h3>{state.notices.map((notice, idx) => <p key={`${notice}-${idx}`}>• {notice}</p>)}</section><section className="summary-box"><h3>Detailed War Records</h3><div className="war-record-grid">{state.warRecords.map((war, idx) => <div key={`${war.opponent}-${idx}`} className="war-record-card"><strong>{war.winner} vs {war.opponent}</strong><span>{war.finalScore}</span><small>{war.date} · MVP Clan: {war.mvpClan}</small><small>Top Attacker: {war.topAttacker}</small><small>Top Defender: {war.topDefender}</small><small>Rewards: {war.rewards}</small></div>)}</div></section></>}
+        {tab === "status" && <><div className="town-hall-grid"><section className="summary-box town-hall-panel"><h3>Village Status</h3><div className="town-leader-row"><LeaderPortrait image={getLeaderImage(state.seatedKage, leadershipImages.kage)} name={state.seatedKage ?? leadership.kage} fallback="?" /><p><strong>Kage:</strong> {state.seatedKage ?? leadership.kage}</p></div><p><strong>Population:</strong> {population.toLocaleString()}</p><p><strong>Village Level:</strong> {villageLevel}</p><p><strong>Village Strength:</strong> {villageStrength.toLocaleString()}</p><p><strong>Guard Queue:</strong> {guardList.length} active defender{guardList.length === 1 ? "" : "s"}</p></section><section className="summary-box town-hall-panel"><h3>War Status</h3><div className={primaryVillageWar ? "war-status at-war" : "war-status peace"}>{primaryVillageWar ? `At War with ${activeWarEnemyVillage}` : "Not At War"}</div>{primaryVillageWar ? <><p><strong>{character.village} HP:</strong> {primaryVillageWar.hp[character.village].toLocaleString()} / {VILLAGE_WAR_HP_MAX.toLocaleString()}</p><div className="bar enemy-bar"><span style={{ width: `${(primaryVillageWar.hp[character.village] / VILLAGE_WAR_HP_MAX) * 100}%` }} /></div><p><strong>{activeWarEnemyVillage} HP:</strong> {activeWarEnemyVillage ? primaryVillageWar.hp[activeWarEnemyVillage].toLocaleString() : 0} / {VILLAGE_WAR_HP_MAX.toLocaleString()}</p><div className="town-upgrade-bar"><span style={{ width: `${activeWarEnemyVillage ? (primaryVillageWar.hp[activeWarEnemyVillage] / VILLAGE_WAR_HP_MAX) * 100 : 0}%` }} /></div><p><strong>War Ground:</strong> Sector {primaryVillageWar.warGroundSector} · HP {primaryVillageWar.warGroundHp.toLocaleString()} / {VILLAGE_WAR_GROUND_HP_MAX.toLocaleString()}</p><p className="hint">{primaryVillageWar.capturedBy ? `Captured by ${primaryVillageWar.capturedBy}.` : "Raid from the war ground to damage enemy village HP and the sector HP."}</p></> : <><p className="hint">Village wars start at 5,000 HP. PvP kills, war-ground raids, and daily war missions reduce enemy HP.</p><label>Enemy Village</label><select value={warTargetVillage} onChange={(event) => setWarTargetVillage(event.target.value)}>{villages.filter(village => village !== character.village).map(village => <option key={village} value={village}>{village}</option>)}</select><button disabled={!isSeatedKage} onClick={beginVillageWar}>{isSeatedKage ? "Start Village War" : "Kage Only"}</button></>}<h4>Current Village Buffs</h4><div className="village-buff-list"><span>Training +{getTrainingXpBonus(character).toFixed(2)}%</span><span>Jutsu Speed +{getJutsuTrainingSpeedBonus(character).toFixed(2)}%</span><span>Shop Discount +{getShopDiscountPercent(character).toFixed(2)}%</span><span>Guard DEF +{getTownDefenseGuardBonus(character).toFixed(2)}%</span><span>Pet XP +{getPetXpBonus(character).toFixed(2)}%</span><span>Bank Interest +{getBankInterestPercent(character).toFixed(2)}%</span><span>Mission Rewards +{getMissionRewardBonus(character).toFixed(2)}%</span><span>Hospital Discount +{getHospitalDiscountPercent(character).toFixed(2)}%</span>{character.elderFocus === "war" && <span>⚔️ War Focus: -1% dmg taken (wartime)</span>}{character.elderFocus === "trade" && <span>💰 Trade Focus: -5% shop costs</span>}{character.elderFocus === "training" && <span>📚 Training Focus: +10% XP, +10% jutsu speed</span>}</div></section></div><section className="summary-box"><h3>Daily Village Agenda</h3><p className="hint">Three village goals refresh each day. If there is no player Kage, the board randomizes automatically.</p><div className="contrib-rank-grid">{agenda.tasks.map(task => <div key={task.id} className="clan-guard-row"><span><strong>{task.label}</strong></span><span>{Math.min(agendaProgress(task), task.target).toLocaleString()} / {task.target.toLocaleString()}</span></div>)}</div><div className="menu"><button disabled={!agendaComplete || agendaClaimed} onClick={claimVillageAgenda}>{agendaClaimed ? "Agenda Claimed" : agendaComplete ? "Claim Agenda Rewards" : "Agenda Incomplete"}</button></div><p className="hint">Rewards: village treasury +15 Honor Seals, +1,500 ryo, +2 Bone Charms. Player: +8 Honor Seals, +750 ryo, +1 Bone Charm.</p></section><section className="summary-box"><h3>Map Control Rewards</h3><p>Your village controls <strong>{ownedVillageSectors.length}</strong> sector{ownedVillageSectors.length === 1 ? "" : "s"}.</p><p className="hint">Daily player reward: +{mapControlRyo.toLocaleString()} ryo, +{mapControlHonor.toLocaleString()} Honor Seals, +{mapControlBone.toLocaleString()} Bone Charms.</p><button disabled={ownedVillageSectors.length <= 0 || mapControlClaimed} onClick={claimMapControlRewards}>{mapControlClaimed ? "Map Reward Claimed" : "Claim Map Control Reward"}</button></section><section className={state.kageSystemUnlocked ? "summary-box kage-unlock-panel unlocked" : "summary-box kage-unlock-panel"}><h3>{state.kageSystemUnlocked ? "Kage System Open" : "Kage System Sealed"}</h3><p>{state.kageSystemUnlocked ? "The false Kage has fallen. The village is no longer ruled by secrecy. The Kage seat is now open." : "Clear your village's level 100 Kage story fight to open elections, elder seats, village upgrades, war access, and policy control."}</p>{state.firstLiberator && <p><strong>First Liberator:</strong> {state.firstLiberator}</p>}{state.seatedKage && <p><strong>Seated Kage:</strong> {state.seatedKage}</p>}</section><section className="summary-box town-notice-board"><h3>Village Notice Board</h3>{state.notices.map((notice, idx) => <p key={`${notice}-${idx}`}>• {notice}</p>)}</section><section className="summary-box"><h3>Detailed War Records</h3><div className="war-record-grid">{state.warRecords.map((war, idx) => <div key={`${war.opponent}-${idx}`} className="war-record-card"><strong>{war.winner} vs {war.opponent}</strong><span>{war.finalScore}</span><small>{war.date} · MVP Clan: {war.mvpClan}</small><small>Top Attacker: {war.topAttacker}</small><small>Top Defender: {war.topDefender}</small><small>Rewards: {war.rewards}</small></div>)}</div></section></>}
         {tab === "upgrades" && <section className="summary-box town-upgrade-summary"><h3>Village Upgrades</h3><p className="hint">Village upgrades now spend <strong>Honor Seals</strong>. Only the seated Kage can upgrade village structures.</p><p className="hint">Current Kage: <strong>{state.seatedKage ?? "No player seated yet"}</strong>{isSeatedKage ? " — you can upgrade structures." : " — upgrades are locked for your account."}</p><p className="hint">Total Village Development: <strong>{totalUpgradeLevel}</strong> / {VILLAGE_UPGRADE_MAX_LEVEL * villageUpgradeDefinitions.length}</p><div className="town-upgrade-grid">{villageUpgradeDefinitions.map((upgrade) => { const level = upgrades[upgrade.key]; const bonus = level * upgrade.perLevel; const cost = villageUpgradeCost(upgrade.key, level); const maxed = level >= VILLAGE_UPGRADE_MAX_LEVEL; const canAfford = (character.honorSeals ?? 0) >= cost; return <div key={upgrade.key} className="town-upgrade-card"><div className="town-upgrade-topline"><span className="town-upgrade-icon">{upgrade.icon}</span><div><strong>{upgrade.name}</strong><p>Level {level}/{VILLAGE_UPGRADE_MAX_LEVEL}</p></div></div><div className="town-upgrade-bar"><span style={{ width: `${(level / VILLAGE_UPGRADE_MAX_LEVEL) * 100}%` }} /></div><p className="town-upgrade-desc">{upgrade.description}</p><p className="town-upgrade-bonus">Current Bonus: <strong>{bonus.toFixed(2)}{upgrade.unit}</strong></p><button disabled={!isSeatedKage || maxed || !canAfford} onClick={() => upgradeTownFeature(upgrade.key)}>{!isSeatedKage ? "Kage Only" : maxed ? "Max Level" : canAfford ? `Upgrade — ${cost.toLocaleString()} Honor Seals` : `Need ${cost.toLocaleString()} Honor Seals`}</button></div>; })}</div></section>}
-        {tab === "treasury" && <section className="summary-box"><h3>?? Village Treasury</h3><p className="hint">Honor Seals are the village war and boost reserve for Kage spending.</p><div className="treasury-grid"><p><strong>Ryo:</strong> {state.treasury.ryo.toLocaleString()}</p><p><strong>Honor Seals:</strong> {state.treasury.honorSeals.toLocaleString()}</p><p><strong>Fate Shards:</strong> {state.treasury.fateShards}</p><p><strong>Bone Charms:</strong> {state.treasury.boneCharms}</p><p><strong>Aura Stones:</strong> {state.treasury.auraStones}</p><p><strong>Mythic Seals:</strong> {state.treasury.mythicSeals}</p><p><strong>Your Contribution:</strong> {state.contributionPoints} pts</p></div><label>Donate Ryo</label><input type="number" value={donation} onChange={(e) => setDonation(Number(e.target.value))} /><div className="menu"><button onClick={donateVillageRyo}>Donate Ryo</button><button onClick={() => donateVillageSpecial("honorSeals")}>Donate 1 Honor Seal</button><button onClick={() => donateVillageSpecial("fateShards")}>Donate 1 Fate Shard</button><button onClick={() => donateVillageSpecial("boneCharms")}>Donate 1 Bone Charm</button><button onClick={() => donateVillageSpecial("auraStones")}>Donate 1 Aura Stone</button><button onClick={() => donateVillageSpecial("mythicSeals")}>Donate 1 Mythic Seal</button></div><label>Donate Item</label><select value={villageDonateItemId} onChange={(e) => setVillageDonateItemId(e.target.value)}><option value="">Choose item</option>{villageInventoryStacks.map(stack => <option key={stack.itemId} value={stack.itemId}>{stack.name} x{stack.count}</option>)}</select><button onClick={donateVillageItem} disabled={!villageDonateItemId}>Donate Item</button><h4>Treasury Items</h4>{villageTreasuryItems.length === 0 ? <p className="hint">No donated items yet.</p> : <div className="treasury-grid">{villageTreasuryItems.map(stack => <p key={stack.itemId}><strong>{itemDisplayName(stack.itemId, allVillageItems)}:</strong> x{stack.count}</p>)}</div>}{isSeatedKage && <section className="summary-box"><h3>Kage Gift Village Treasury</h3><p className="hint">The seated Kage can gift donated resources or items to village players.</p><label>Recipient</label><select value={villageSendPlayer} onChange={(e) => setVillageSendPlayer(e.target.value)}><option value="">Choose village player</option>{villagePlayers.map(name => <option key={name} value={name}>{name}</option>)}</select><label>Resource</label><select value={villageSendCurrency} onChange={(e) => setVillageSendCurrency(e.target.value as VillageTreasuryCurrencyKey)}><option value="ryo">Ryo</option><option value="honorSeals">Honor Seals</option><option value="fateShards">Fate Shards</option><option value="boneCharms">Bone Charms</option><option value="auraStones">Aura Stones</option><option value="mythicSeals">Mythic Seals</option></select><input type="number" min={1} value={villageSendAmount} onChange={(e) => setVillageSendAmount(Number(e.target.value))} /><div className="menu"><button onClick={sendVillageCurrency}>Gift Resource</button></div><label>Item</label><select value={villageSendItemId} onChange={(e) => setVillageSendItemId(e.target.value)}><option value="">Choose treasury item</option>{villageTreasuryItems.map(stack => <option key={stack.itemId} value={stack.itemId}>{itemDisplayName(stack.itemId, allVillageItems)} x{stack.count}</option>)}</select><button onClick={sendVillageItem} disabled={!villageSendItemId}>Gift Donated Item</button></section>}</section>}
-        {tab === "guard" && <section className="summary-box"><h3>Village Guard Queue</h3><p className="hint">Town Defense gives +0.1% defense per level vs Genjutsu, Taijutsu, Bukijutsu, and Ninjutsu while defending through this queue.</p><p>Current Town Defense Bonus: <strong>+{getTownDefenseGuardBonus(character).toFixed(2)}%</strong></p><button className={character.guardQueued ? "danger-button" : ""} onClick={toggleTownGuard} disabled={guardBusy}>{guardBusy ? "Updating…" : character.guardQueued ? "Leave Guard Queue" : "Queue as Village Guard"}</button><h4>Active Defenders</h4>{guardList.length === 0 ? <p className="hint">No active guards right now.</p> : <div className="clan-guard-list">{guardList.map(g => <div key={g.name} className="clan-guard-row"><span>??? <strong>{g.name}</strong></span><span className="clan-guard-lvl">Lv. {g.level}{g.defenseBonusPercent ? ` · DEF +${g.defenseBonusPercent.toFixed(1)}%` : ""}</span></div>)}</div>}</section>}
+        {tab === "treasury" && <section className="summary-box"><h3>💰 Village Treasury</h3><p className="hint">Honor Seals are the village war and boost reserve for Kage spending.</p><div className="treasury-grid"><p><strong>Ryo:</strong> {state.treasury.ryo.toLocaleString()}</p><p><strong>Honor Seals:</strong> {state.treasury.honorSeals.toLocaleString()}</p><p><strong>Fate Shards:</strong> {state.treasury.fateShards}</p><p><strong>Bone Charms:</strong> {state.treasury.boneCharms}</p><p><strong>Aura Stones:</strong> {state.treasury.auraStones}</p><p><strong>Mythic Seals:</strong> {state.treasury.mythicSeals}</p><p><strong>Your Contribution:</strong> {state.contributionPoints} pts</p></div><label>Donate Ryo</label><input type="number" value={donation} onChange={(e) => setDonation(Number(e.target.value))} /><div className="menu"><button onClick={donateVillageRyo}>Donate Ryo</button><button onClick={() => donateVillageSpecial("honorSeals")}>Donate 1 Honor Seal</button><button onClick={() => donateVillageSpecial("fateShards")}>Donate 1 Fate Shard</button><button onClick={() => donateVillageSpecial("boneCharms")}>Donate 1 Bone Charm</button><button onClick={() => donateVillageSpecial("auraStones")}>Donate 1 Aura Stone</button><button onClick={() => donateVillageSpecial("mythicSeals")}>Donate 1 Mythic Seal</button></div><label>Donate Item</label><select value={villageDonateItemId} onChange={(e) => setVillageDonateItemId(e.target.value)}><option value="">Choose item</option>{villageInventoryStacks.map(stack => <option key={stack.itemId} value={stack.itemId}>{stack.name} x{stack.count}</option>)}</select><button onClick={donateVillageItem} disabled={!villageDonateItemId}>Donate Item</button><h4>Treasury Items</h4>{villageTreasuryItems.length === 0 ? <p className="hint">No donated items yet.</p> : <div className="treasury-grid">{villageTreasuryItems.map(stack => <p key={stack.itemId}><strong>{itemDisplayName(stack.itemId, allVillageItems)}:</strong> x{stack.count}</p>)}</div>}{isSeatedKage && <section className="summary-box"><h3>Kage Gift Village Treasury</h3><p className="hint">The seated Kage can gift donated resources or items to village players.</p><label>Recipient</label><select value={villageSendPlayer} onChange={(e) => setVillageSendPlayer(e.target.value)}><option value="">Choose village player</option>{villagePlayers.map(name => <option key={name} value={name}>{name}</option>)}</select><label>Resource</label><select value={villageSendCurrency} onChange={(e) => setVillageSendCurrency(e.target.value as VillageTreasuryCurrencyKey)}><option value="ryo">Ryo</option><option value="honorSeals">Honor Seals</option><option value="fateShards">Fate Shards</option><option value="boneCharms">Bone Charms</option><option value="auraStones">Aura Stones</option><option value="mythicSeals">Mythic Seals</option></select><input type="number" min={1} value={villageSendAmount} onChange={(e) => setVillageSendAmount(Number(e.target.value))} /><div className="menu"><button onClick={sendVillageCurrency}>Gift Resource</button></div><label>Item</label><select value={villageSendItemId} onChange={(e) => setVillageSendItemId(e.target.value)}><option value="">Choose treasury item</option>{villageTreasuryItems.map(stack => <option key={stack.itemId} value={stack.itemId}>{itemDisplayName(stack.itemId, allVillageItems)} x{stack.count}</option>)}</select><button onClick={sendVillageItem} disabled={!villageSendItemId}>Gift Donated Item</button></section>}</section>}
+        {tab === "guard" && <section className="summary-box"><h3>Village Guard Queue</h3><p className="hint">Town Defense gives +0.1% defense per level vs Genjutsu, Taijutsu, Bukijutsu, and Ninjutsu while defending through this queue.</p><p>Current Town Defense Bonus: <strong>+{getTownDefenseGuardBonus(character).toFixed(2)}%</strong></p><button className={character.guardQueued ? "danger-button" : ""} onClick={toggleTownGuard} disabled={guardBusy}>{guardBusy ? "Updating…" : character.guardQueued ? "Leave Guard Queue" : "Queue as Village Guard"}</button><h4>Active Defenders</h4>{guardList.length === 0 ? <p className="hint">No active guards right now.</p> : <div className="clan-guard-list">{guardList.map(g => <div key={g.name} className="clan-guard-row"><span>🛡️ <strong>{g.name}</strong></span><span className="clan-guard-lvl">Lv. {g.level}{g.defenseBonusPercent ? ` · DEF +${g.defenseBonusPercent.toFixed(1)}%` : ""}</span></div>)}</div>}</section>}
         {tab === "notices" && <section className="summary-box town-notice-board"><h3>Official Village Orders</h3><p className="hint">Kage, ANBU, and Elders can post village-wide orders. Pinned orders stay at the top for everyone in {character.village}.</p>{canPostVillageOrder && <div className="summary-box"><div className="treasury-grid"><div><label>Type</label><select value={villageNoticeType} onChange={(event) => setVillageNoticeType(event.target.value as NoticePostType)}><option value="order">Kage / Elder Order</option><option value="raid">Raid Target</option><option value="guard">Guard Request</option><option value="medic">Medic Request</option><option value="trade">Trade / Supply</option><option value="general">General</option></select></div><div><label>Sector Optional</label><input type="number" min={1} max={60} value={villageNoticeSector} onChange={(event) => setVillageNoticeSector(event.target.value)} placeholder="1-60" /></div></div><label>Title</label><input value={villageNoticeTitle} maxLength={70} onChange={(event) => setVillageNoticeTitle(event.target.value)} placeholder="Example: Defend Sector 18 tonight" /><label>Message</label><textarea value={villageNoticeBody} maxLength={500} onChange={(event) => setVillageNoticeBody(event.target.value)} placeholder="Post orders, guard calls, raid targets, medic requests, or supply needs." /><button onClick={postVillageNotice} disabled={!villageNoticeTitle.trim() || !villageNoticeBody.trim()}>Post Village Order</button></div>}<div className="notice-board-list">{state.noticePosts.length === 0 ? <p className="hint">No village orders posted yet.</p> : state.noticePosts.map(notice => { const canEditNotice = isSeatedKage || notice.author === character.name; return <div key={notice.id} className={`notice-post ${notice.pinned ? "pinned" : ""}`}><div className="notice-post-head"><span>{notice.pinned ? "Pinned " : ""}{noticeTypeLabel(notice.type)}</span><small>{new Date(notice.createdAt).toLocaleString()} · {notice.author} · {notice.authorRole}</small></div><strong>{notice.title}</strong><p>{notice.body}</p>{notice.sector && <small>Sector {notice.sector}</small>}{canEditNotice && <div className="menu"><button onClick={() => toggleVillageNoticePin(notice.id)}>{notice.pinned ? "Unpin" : "Pin"}</button><button className="danger-button" onClick={() => removeVillageNotice(notice.id)}>Delete</button></div>}</div>; })}</div></section>}
-        {tab === "politics" && <><section className="summary-box"><h3>Kage & Elder Seats</h3><div className="town-leader-row town-kage-card"><LeaderPortrait image={getLeaderImage(state.seatedKage, leadershipImages.kage)} name={state.seatedKage ?? leadership.kage} fallback="?" /><p><strong>Current Kage:</strong> {state.seatedKage ?? leadership.kage}</p></div><div className="elder-seat-grid"><div className={`elder-card${character.elderFocus === "war" ? " elder-card-active" : ""}`}><LeaderPortrait image={leadershipImages.elders?.[0]} name={leadership.elders[0]} fallback="?" /><span>War Elder</span><strong>{leadership.elders[0]}</strong><small className="elder-focus-desc">+1% damage reduction during village wars (applied to incoming damage in combat)</small><button className={character.elderFocus === "war" ? "active" : ""} onClick={() => supportVillageFocus("War Elder", "war")}>{character.elderFocus === "war" ? "? War Focus Active" : "Select War Focus"}</button></div><div className={`elder-card${character.elderFocus === "trade" ? " elder-card-active" : ""}`}><LeaderPortrait image={leadershipImages.elders?.[1]} name={leadership.elders[1]} fallback="?" /><span>Trade Elder</span><strong>{leadership.elders[1]}</strong><small className="elder-focus-desc">5% discount on all items in the Shop and Grand Marketplace</small><button className={character.elderFocus === "trade" ? "active" : ""} onClick={() => supportVillageFocus("Trade Elder", "trade")}>{character.elderFocus === "trade" ? "? Trade Focus Active" : "Select Trade Focus"}</button></div><div className={`elder-card${character.elderFocus === "training" ? " elder-card-active" : ""}`}><LeaderPortrait image={leadershipImages.elders?.[2]} name={leadership.elders[2]} fallback="?" /><span>Training Elder</span><strong>{leadership.elders[2]}</strong><small className="elder-focus-desc">+10% XP from all sources and 10% faster jutsu training</small><button className={character.elderFocus === "training" ? "active" : ""} onClick={() => supportVillageFocus("Training Elder", "training")}>{character.elderFocus === "training" ? "? Training Focus Active" : "Select Training Focus"}</button></div></div></section><section className="summary-box"><h3>ANBU Black Ops</h3><p className="hint">Seats 1-3 are appointed by the seated Kage. Seats 4-10 are earned by PvP kills this month ({currentAnbuMonth}).</p><datalist id="anbu-player-options">{villagePlayers.map(name => <option key={name} value={name} />)}</datalist>{isSeatedKage && <div className="treasury-grid">{[0, 1, 2].map(index => <div key={`anbu-appoint-${index}`}><label>Appointed Seat {index + 1}</label><input list="anbu-player-options" value={anbuAppointmentInputs[index] ?? ""} onChange={(event) => updateAnbuAppointmentInput(index, event.target.value)} placeholder="Type or choose player" /><div className="menu"><button onClick={() => appointAnbu(index)}>Appoint</button><button className="danger-button" onClick={() => clearAnbuAppointment(index)}>Clear</button></div></div>)}</div>}<div className="contrib-rank-grid">{anbuSlots.map((slot, idx) => <div key={`anbu-${idx}-${slot?.name ?? "empty"}`} className="clan-guard-row"><span>#{idx + 1} <strong>{slot?.name ?? "Open ANBU Seat"}</strong>{slot ? ` — ${slot.rankTitle}` : idx < 3 ? " — Kage appointed seat" : " — No qualifying player yet"}</span><span>{slot ? `${idx < 3 ? "Appointed" : "Earned"} · ${slot.monthlyKills.toLocaleString()} monthly PvP kill${slot.monthlyKills === 1 ? "" : "s"}` : "0 kills"}</span></div>)}</div><h4>ANBU Missions</h4><div className="contrib-rank-grid"><div className="clan-guard-row"><span>Scout enemy-controlled sectors</span><span>Reveal owner, HP, guards</span></div><div className="clan-guard-row"><span>Queue as sector guard</span><span>ANBU may guard any village sector</span></div><div className="clan-guard-row"><span>Sabotage raids</span><span>Support clan raids and defense pressure</span></div></div></section><section className="summary-box"><h3>Kage Challenge Board</h3><p className="hint">Challenges run from {kageWindowLabel()}. Support required: {KAGE_CHALLENGE_SUPPORT_REQUIRED} vote. Contribution requirement: {KAGE_CHALLENGE_CONTRIBUTION_REQUIRED} village points.</p><div className="contrib-rank-grid">{contributionRankings.map((row, idx) => <div key={row.name} className="clan-guard-row"><span>#{idx + 1} <strong>{row.name}</strong> — {row.role}</span><span>{row.points.toLocaleString()} pts</span></div>)}</div><button onClick={declareKageChallenge} disabled={!state.kageSystemUnlocked || isSeatedKage}>Declare Kage Challenge</button><p className="hint">Window now: <strong>{kageWindowOpen ? "Open" : "Closed"}</strong>. The seated Kage accepting opens a 1-hour ready check; both players must ready before the official duel can be sent.</p><div className="notice-board-list">{kageChallenges.length === 0 ? <p className="hint">No Kage challenges posted yet.</p> : kageChallenges.map(challenge => { const isChallenger = challenge.challenger.toLowerCase() === character.name.toLowerCase(); const isTargetKage = challenge.seatedKage.toLowerCase() === character.name.toLowerCase(); const bothReady = Boolean(challenge.challengerReadyAt && challenge.kageReadyAt); return <div key={challenge.id} className={`notice-post ${challenge.status === "ready" ? "pinned" : ""}`}><div className="notice-post-head"><span>{challenge.status.toUpperCase()}</span><small>{new Date(challenge.createdAt).toLocaleString()}</small></div><strong>{challenge.challenger} vs {challenge.seatedKage}</strong><p>Support {challenge.support.length}/{KAGE_CHALLENGE_SUPPORT_REQUIRED} · Oppose {challenge.opposition.length} · Ready {bothReady ? "both players" : `${challenge.challengerReadyAt ? "challenger" : "waiting challenger"} / ${challenge.kageReadyAt ? "Kage" : "waiting Kage"}`}</p>{challenge.readyWindowEndsAt && <small>Ready window ends {new Date(challenge.readyWindowEndsAt).toLocaleString()}</small>}<div className="menu"><button disabled={challenge.status === "resolved" || challenge.support.includes(character.name)} onClick={() => supportKageChallenge(challenge.id, "support")}>Support</button><button disabled={challenge.status === "resolved" || challenge.opposition.includes(character.name)} onClick={() => supportKageChallenge(challenge.id, "oppose")}>Oppose</button>{isTargetKage && challenge.status === "supported" && <button disabled={!kageWindowOpen} onClick={() => acceptKageChallenge(challenge.id)}>Accept Challenge</button>}{(isChallenger || isTargetKage) && (challenge.status === "accepted" || challenge.status === "ready") && <button disabled={!kageWindowOpen} onClick={() => readyKageChallenge(challenge.id)}>Ready</button>}{isChallenger && challenge.status === "ready" && <button onClick={() => void sendKageDuelChallenge(challenge)}>Send Official Duel</button>}</div>{challenge.officialDuelSentAt && <p className="hint">Official duel sent {new Date(challenge.officialDuelSentAt).toLocaleString()}.</p>}{challenge.winner && <p className="hint">Winner: {challenge.winner}</p>}</div>; })}</div></section></>}
+        {tab === "politics" && <><section className="summary-box"><h3>Kage & Elder Seats</h3><div className="town-leader-row town-kage-card"><LeaderPortrait image={getLeaderImage(state.seatedKage, leadershipImages.kage)} name={state.seatedKage ?? leadership.kage} fallback="?" /><p><strong>Current Kage:</strong> {state.seatedKage ?? leadership.kage}</p></div><div className="elder-seat-grid"><div className={`elder-card${character.elderFocus === "war" ? " elder-card-active" : ""}`}><LeaderPortrait image={leadershipImages.elders?.[0]} name={leadership.elders[0]} fallback="?" /><span>War Elder</span><strong>{leadership.elders[0]}</strong><small className="elder-focus-desc">+1% damage reduction during village wars (applied to incoming damage in combat)</small><button className={character.elderFocus === "war" ? "active" : ""} onClick={() => supportVillageFocus("War Elder", "war")}>{character.elderFocus === "war" ? "✅ War Focus Active" : "Select War Focus"}</button></div><div className={`elder-card${character.elderFocus === "trade" ? " elder-card-active" : ""}`}><LeaderPortrait image={leadershipImages.elders?.[1]} name={leadership.elders[1]} fallback="?" /><span>Trade Elder</span><strong>{leadership.elders[1]}</strong><small className="elder-focus-desc">5% discount on all items in the Shop and Grand Marketplace</small><button className={character.elderFocus === "trade" ? "active" : ""} onClick={() => supportVillageFocus("Trade Elder", "trade")}>{character.elderFocus === "trade" ? "✅ Trade Focus Active" : "Select Trade Focus"}</button></div><div className={`elder-card${character.elderFocus === "training" ? " elder-card-active" : ""}`}><LeaderPortrait image={leadershipImages.elders?.[2]} name={leadership.elders[2]} fallback="?" /><span>Training Elder</span><strong>{leadership.elders[2]}</strong><small className="elder-focus-desc">+10% XP from all sources and 10% faster jutsu training</small><button className={character.elderFocus === "training" ? "active" : ""} onClick={() => supportVillageFocus("Training Elder", "training")}>{character.elderFocus === "training" ? "✅ Training Focus Active" : "Select Training Focus"}</button></div></div></section><section className="summary-box"><h3>ANBU Black Ops</h3><p className="hint">Seats 1-3 are appointed by the seated Kage. Seats 4-10 are earned by PvP kills this month ({currentAnbuMonth}).</p><datalist id="anbu-player-options">{villagePlayers.map(name => <option key={name} value={name} />)}</datalist>{isSeatedKage && <div className="treasury-grid">{[0, 1, 2].map(index => <div key={`anbu-appoint-${index}`}><label>Appointed Seat {index + 1}</label><input list="anbu-player-options" value={anbuAppointmentInputs[index] ?? ""} onChange={(event) => updateAnbuAppointmentInput(index, event.target.value)} placeholder="Type or choose player" /><div className="menu"><button onClick={() => appointAnbu(index)}>Appoint</button><button className="danger-button" onClick={() => clearAnbuAppointment(index)}>Clear</button></div></div>)}</div>}<div className="contrib-rank-grid">{anbuSlots.map((slot, idx) => <div key={`anbu-${idx}-${slot?.name ?? "empty"}`} className="clan-guard-row"><span>#{idx + 1} <strong>{slot?.name ?? "Open ANBU Seat"}</strong>{slot ? ` — ${slot.rankTitle}` : idx < 3 ? " — Kage appointed seat" : " — No qualifying player yet"}</span><span>{slot ? `${idx < 3 ? "Appointed" : "Earned"} · ${slot.monthlyKills.toLocaleString()} monthly PvP kill${slot.monthlyKills === 1 ? "" : "s"}` : "0 kills"}</span></div>)}</div><h4>ANBU Missions</h4><div className="contrib-rank-grid"><div className="clan-guard-row"><span>Scout enemy-controlled sectors</span><span>Reveal owner, HP, guards</span></div><div className="clan-guard-row"><span>Queue as sector guard</span><span>ANBU may guard any village sector</span></div><div className="clan-guard-row"><span>Sabotage raids</span><span>Support clan raids and defense pressure</span></div></div></section><section className="summary-box"><h3>Kage Challenge Board</h3><p className="hint">Challenges run from {kageWindowLabel()}. Support required: {KAGE_CHALLENGE_SUPPORT_REQUIRED} vote. Contribution requirement: {KAGE_CHALLENGE_CONTRIBUTION_REQUIRED} village points.</p><div className="contrib-rank-grid">{contributionRankings.map((row, idx) => <div key={row.name} className="clan-guard-row"><span>#{idx + 1} <strong>{row.name}</strong> — {row.role}</span><span>{row.points.toLocaleString()} pts</span></div>)}</div><button onClick={declareKageChallenge} disabled={!state.kageSystemUnlocked || isSeatedKage}>Declare Kage Challenge</button><p className="hint">Window now: <strong>{kageWindowOpen ? "Open" : "Closed"}</strong>. The seated Kage accepting opens a 1-hour ready check; both players must ready before the official duel can be sent.</p><div className="notice-board-list">{kageChallenges.length === 0 ? <p className="hint">No Kage challenges posted yet.</p> : kageChallenges.map(challenge => { const isChallenger = challenge.challenger.toLowerCase() === character.name.toLowerCase(); const isTargetKage = challenge.seatedKage.toLowerCase() === character.name.toLowerCase(); const bothReady = Boolean(challenge.challengerReadyAt && challenge.kageReadyAt); return <div key={challenge.id} className={`notice-post ${challenge.status === "ready" ? "pinned" : ""}`}><div className="notice-post-head"><span>{challenge.status.toUpperCase()}</span><small>{new Date(challenge.createdAt).toLocaleString()}</small></div><strong>{challenge.challenger} vs {challenge.seatedKage}</strong><p>Support {challenge.support.length}/{KAGE_CHALLENGE_SUPPORT_REQUIRED} · Oppose {challenge.opposition.length} · Ready {bothReady ? "both players" : `${challenge.challengerReadyAt ? "challenger" : "waiting challenger"} / ${challenge.kageReadyAt ? "Kage" : "waiting Kage"}`}</p>{challenge.readyWindowEndsAt && <small>Ready window ends {new Date(challenge.readyWindowEndsAt).toLocaleString()}</small>}<div className="menu"><button disabled={challenge.status === "resolved" || challenge.support.includes(character.name)} onClick={() => supportKageChallenge(challenge.id, "support")}>Support</button><button disabled={challenge.status === "resolved" || challenge.opposition.includes(character.name)} onClick={() => supportKageChallenge(challenge.id, "oppose")}>Oppose</button>{isTargetKage && challenge.status === "supported" && <button disabled={!kageWindowOpen} onClick={() => acceptKageChallenge(challenge.id)}>Accept Challenge</button>}{(isChallenger || isTargetKage) && (challenge.status === "accepted" || challenge.status === "ready") && <button disabled={!kageWindowOpen} onClick={() => readyKageChallenge(challenge.id)}>Ready</button>}{isChallenger && challenge.status === "ready" && <button onClick={() => void sendKageDuelChallenge(challenge)}>Send Official Duel</button>}</div>{challenge.officialDuelSentAt && <p className="hint">Official duel sent {new Date(challenge.officialDuelSentAt).toLocaleString()}.</p>}{challenge.winner && <p className="hint">Winner: {challenge.winner}</p>}</div>; })}</div></section></>}
     </div>;
 }
 
@@ -17326,7 +17326,7 @@ function CardPackSection({ character, updateCharacter, currency, creatorCards }:
 
     return (
         <div className="card" style={{ marginTop: "1rem" }}>
-            <h2>?? Card Packs</h2>
+            <h2>🃏 Card Packs</h2>
             <p style={{ color: "#aaa", marginBottom: "0.4rem" }}>Collect cards for the Shinobi Tiles card game at the Card Hall.</p>
             <p style={{ marginBottom: "0.8rem" }}>Collection: <strong>{character.tileCards.length}</strong> cards</p>
             {currency === "ryo" && (
@@ -17816,7 +17816,7 @@ function ShinobiTiles({ character, updateCharacter, creatorCards, dungeonMode = 
     const { player: pScore, enemy: eScore } = countScore(board);
     return (
         <div className="card">
-            <h2 style={{ marginBottom: "0.3rem" }}>?? Shinobi Tiles</h2>
+            <h2 style={{ marginBottom: "0.3rem" }}>🀄 Shinobi Tiles</h2>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.5rem", fontSize: 13 }}>
                 <span style={{ color: "#4fc3f7" }}>You: {pScore}</span>
                 <span style={{ color: isPlayerTurn ? "#a5d6a7" : "#ef9a9a" }}>{isPlayerTurn ? "Your Turn" : "Enemy thinking..."}</span>
@@ -17854,7 +17854,7 @@ function ShinobiTiles({ character, updateCharacter, creatorCards, dungeonMode = 
                 ))}
                 {playerHand.length === 0 && <span style={{ color: "#555", fontSize: 12 }}>No cards remaining</span>}
             </div>
-            {selectedCard && <p style={{ color: "#ffe082", fontSize: 12, marginTop: 4 }}>? {selectedCard.name} selected — tap a board cell to place it</p>}
+            {selectedCard && <p style={{ color: "#ffe082", fontSize: 12, marginTop: 4 }}>👆 {selectedCard.name} selected — tap a board cell to place it</p>}
         </div>
     );
 }
@@ -17892,16 +17892,16 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, hospita
     }
 
     async function healPlayer(targetName: string) {
-        setHealMsg(m => ({ ...m, [targetName]: "? Healing…" }));
+        setHealMsg(m => ({ ...m, [targetName]: "💚 Healing…" }));
         try {
             const res = await fetch('/api/player/heal', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ healerName: character.name, targetName }),
             });
-            setHealMsg(m => ({ ...m, [targetName]: res.ok ? "? Healed!" : "? Failed" }));
+            setHealMsg(m => ({ ...m, [targetName]: res.ok ? "✅ Healed!" : "❌ Failed" }));
         } catch {
-            setHealMsg(m => ({ ...m, [targetName]: "? Network error" }));
+            setHealMsg(m => ({ ...m, [targetName]: "❌ Network error" }));
         }
     }
 
@@ -17910,7 +17910,7 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, hospita
     if (character.hospitalized) {
         return (
             <div className="card">
-                <h2>?? Village Hospital</h2>
+                <h2>🏥 Village Hospital</h2>
                 <p className="hint">Town Hall Hospital Discount: <strong>{hospitalDiscount.toFixed(2)}%</strong></p>
                 <div className="hospital-admitted-banner">
                     <span className="hospital-admitted-icon">??</span>
@@ -17953,16 +17953,16 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, hospita
 
     return (
         <div className="card">
-            <h2>?? Village Hospital</h2>
+            <h2>🏥 Village Hospital</h2>
             <p style={{ color: "#94a3b8" }}>Rest, recover, and restore your vitals. Town Hall Hospital Discount: <strong>{hospitalDiscount.toFixed(2)}%</strong></p>
             <div className="summary-box" style={{ marginBottom: "1rem" }}>
                 <span>HP: <strong>{character.hp}/{character.maxHp}</strong></span>
                 <span style={{ marginLeft: "1.5rem" }}>Ryo: <strong>{character.ryo.toLocaleString()}</strong></span>
             </div>
-            <button onClick={topUp}>?? Full Heal — {topUpCost} ryo{hospitalDiscount > 0 ? " discounted" : ""}</button>
+            <button onClick={topUp}>💚 Full Heal — {topUpCost} ryo{hospitalDiscount > 0 ? " discounted" : ""}</button>
             {hospitalizedPlayers.length > 0 && (
                 <div style={{ marginTop: "1.5rem" }}>
-                    <h4 style={{ marginBottom: "0.5rem" }}>?? Admitted Players</h4>
+                    <h4 style={{ marginBottom: "0.5rem" }}>🛏️ Admitted Players</h4>
                     {hospitalizedPlayers.map(p => (
                         <div key={p.name} className="summary-box" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
                             <div style={{ flex: 1 }}>
@@ -17973,9 +17973,9 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, hospita
                                 </span>
                             </div>
                             <button onClick={() => healPlayer(p.name)} style={{ background: "linear-gradient(#14532d,#052e16)", borderColor: "#4ade80" }}>
-                                ?? Heal
+                                💚 Heal
                             </button>
-                            {healMsg[p.name] && <span className="hint" style={{ color: healMsg[p.name].startsWith("?") ? "#4ade80" : "#f87171" }}>{healMsg[p.name]}</span>}
+                            {healMsg[p.name] && <span className="hint" style={{ color: healMsg[p.name].startsWith("✅") ? "#4ade80" : "#f87171" }}>{healMsg[p.name]}</span>}
                         </div>
                     ))}
                 </div>
@@ -18086,18 +18086,18 @@ function ShinobiCouncilHall({ character, setScreen, playerRoster }: { character:
             <div className="council-header">
                 <button className="back-button" onClick={() => setScreen("centralHub")}>? Central Hub</button>
                 <div>
-                    <h2>?? Shinobi Council Hall</h2>
+                    <h2>🏛️ Shinobi Council Hall</h2>
                     <p className="council-subtitle">Live war status and the eternal record of village leaders.</p>
                 </div>
             </div>
 
             <div className="council-tabs">
-                <button className={`council-tab ${tab === "wars" ? "council-tab-active" : ""}`} onClick={() => setTab("wars")}>?? Active Wars</button>
+                <button className={`council-tab ${tab === "wars" ? "council-tab-active" : ""}`} onClick={() => setTab("wars")}>⚔️ Active Wars</button>
                 <button className={`council-tab ${tab === "kage" ? "council-tab-active" : ""}`} onClick={() => setTab("kage")}>? Kage Records</button>
             </div>
 
             {tab === "wars" && <><section className="council-section">
-                <h3 className="council-section-title">?? Village Wars</h3>
+                <h3 className="council-section-title">⚔️ Village Wars</h3>
                 {activeVillageWars.length === 0
                     ? <p className="council-empty">No active village wars. The world is at peace.</p>
                     : activeVillageWars.map(war => {
@@ -18134,7 +18134,7 @@ function ShinobiCouncilHall({ character, setScreen, playerRoster }: { character:
             </section>
 
             <section className="council-section">
-                <h3 className="council-section-title">?? Clan Wars</h3>
+                <h3 className="council-section-title">⚔️ Clan Wars</h3>
                 {clanWarsLoading
                     ? <p className="council-empty">Loading clan wars…</p>
                     : clanWars.length === 0
@@ -18267,7 +18267,7 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
             <div className="hol-header">
                 <button className="back-button" onClick={() => setScreen("centralHub")}>? Central Hub</button>
                 <div>
-                    <h2>?? Hall of Legends</h2>
+                    <h2>🏆 Hall of Legends</h2>
                     <p className="hol-subtitle">Eternal records of the world's greatest shinobi.</p>
                 </div>
             </div>
@@ -18449,7 +18449,7 @@ function VillageTavern({ character, setScreen, sharedImages }: { character: Char
             <div className="tavern-header">
                 <button className="back-button" onClick={() => setScreen("village")}>? Village</button>
                 <div>
-                    <h2>?? {character.village} Tavern</h2>
+                    <h2>🍶 {character.village} Tavern</h2>
                     <p className="tavern-subtitle">Village members only — speak freely.</p>
                 </div>
             </div>
@@ -18502,7 +18502,7 @@ function VillageTavern({ character, setScreen, sharedImages }: { character: Char
 
 function Cafeteria({ character, updateCharacter }: { character: Character; updateCharacter: (character: Character) => void }) {
     function eat(name: string, cost: number, hp: number, chakra: number, stamina: number) { if (character.ryo < cost) return alert("Not enough ryo."); updateCharacter({ ...character, ryo: character.ryo - cost, hp: Math.min(character.maxHp, character.hp + hp), chakra: Math.min(character.maxChakra, character.chakra + chakra), stamina: Math.min(character.maxStamina, character.stamina + stamina) }); alert(`${name} restored your resources.`); }
-    return <div className="card"><h2>Cafeteria</h2><p>Ryo: {character.ryo}</p><div className="location-grid"><button className="location-button" onClick={() => eat("Small Ramen", 20, 25, 10, 10)}>?? Small Ramen<br /><small>+25 HP +10 Chakra +10 Stamina</small></button><button className="location-button" onClick={() => eat("Shinobi Meal", 50, 75, 35, 35)}>?? Shinobi Meal<br /><small>+75 HP +35 Chakra +35 Stamina</small></button><button className="location-button" onClick={() => eat("Feast", 100, 9999, 9999, 9999)}>??? Feast<br /><small>Full restore</small></button></div></div>;
+    return <div className="card"><h2>Cafeteria</h2><p>Ryo: {character.ryo}</p><div className="location-grid"><button className="location-button" onClick={() => eat("Small Ramen", 20, 25, 10, 10)}>🍜 Small Ramen<br /><small>+25 HP +10 Chakra +10 Stamina</small></button><button className="location-button" onClick={() => eat("Shinobi Meal", 50, 75, 35, 35)}>🍱 Shinobi Meal<br /><small>+75 HP +35 Chakra +35 Stamina</small></button><button className="location-button" onClick={() => eat("Feast", 100, 9999, 9999, 9999)}>🎉 Feast<br /><small>Full restore</small></button></div></div>;
 }
 function Inventory({
     character,
@@ -19613,7 +19613,7 @@ function SunscarFestival({
         return (
             <div className="card">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.3rem" }}>
-                    <h2 style={{ margin: 0 }}>?? vs Miraa</h2>
+                    <h2 style={{ margin: 0 }}>⚔️ vs Miraa</h2>
                     <span style={{ color: "#ffe082", fontSize: 13 }}>Bet: {duelBet} ryo</span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.5rem", fontSize: 13 }}>
@@ -19649,7 +19649,7 @@ function SunscarFestival({
                         </div>
                     ))}
                 </div>
-                {selectedCard && <p style={{ color: "#ffe082", fontSize: 12, marginTop: 4 }}>? {selectedCard.name} selected — tap a board cell to place it</p>}
+                {selectedCard && <p style={{ color: "#ffe082", fontSize: 12, marginTop: 4 }}>👆 {selectedCard.name} selected — tap a board cell to place it</p>}
             </div>
         );
     }
@@ -19924,7 +19924,7 @@ function CentralHub({
 
     function awakeningPaidRoll() {
         if (character.fateShards < 10) {
-            setAwakeningMsg("? Not enough Fate Shards — you need 10 to reroll your element.");
+            setAwakeningMsg("❌ Not enough Fate Shards — you need 10 to reroll your element.");
             return;
         }
         const currentElements = getCharacterElements(character);
@@ -20085,7 +20085,7 @@ function CentralHub({
     return (
         <div className="central-hub">
             <div className="central-hero">
-                <h1>?? Central — The Thousand Gates</h1>
+                <h1>⛩️ Central — The Thousand Gates</h1>
                 <p>
                     A neutral fortress city where every village, clan, rogue, merchant,
                     hunter, and legend crosses paths.
@@ -20137,7 +20137,7 @@ function CentralHub({
             {showCelestialPanel && (
                 <div className="celestial-panel-overlay" onClick={() => setShowCelestialPanel(false)}>
                     <div className="celestial-panel" onClick={e => e.stopPropagation()}>
-                        <h2>?? Celestial Tower</h2>
+                        <h2>🗼 Celestial Tower</h2>
                         <p className="celestial-panel-sub">Choose your challenge, shinobi.</p>
                         <div className="celestial-panel-options">
                             <button className="celestial-option-btn" onClick={() => { setShowCelestialPanel(false); setCentralLog("Celestial Tower is open. Floor 1 trial begins in the Arena."); setScreen("arena"); }}>
@@ -20169,7 +20169,7 @@ function CentralHub({
                     <div className="archives-overlay">
                         <div className="archives-panel">
                             <div className="archives-header">
-                                <h2>?? Ancient Archives — Bloodline Codex</h2>
+                                <h2>📜 Ancient Archives — Bloodline Codex</h2>
                                 <button className="danger-button" onClick={() => setShowArchives(false)}>× Close</button>
                             </div>
                             <p className="archives-subtitle">
@@ -20224,7 +20224,7 @@ function CentralHub({
                 <div className="archives-overlay">
                     <div className="awakening-panel">
                         <div className="archives-header">
-                            <h2>?? Awakening Stone</h2>
+                            <h2>💎 Awakening Stone</h2>
                             <button className="danger-button" onClick={() => setShowAwakening(false)}>× Close</button>
                         </div>
 
@@ -20250,7 +20250,7 @@ function CentralHub({
                         </div>
 
                         {awakeningMsg && (
-                            <div className={`awakening-msg ${awakeningMsg.startsWith("?") ? "awakening-msg-error" : "awakening-msg-success"}`}>
+                            <div className={`awakening-msg ${awakeningMsg.startsWith("❌") ? "awakening-msg-error" : "awakening-msg-success"}`}>
                                 {awakeningMsg}
                             </div>
                         )}
@@ -20281,7 +20281,7 @@ function CentralHub({
 
                         {/* Material balances */}
                         <div className="awakening-section">
-                            <h3>?? Ancient Materials</h3>
+                            <h3>🔮 Ancient Materials</h3>
                             <div className="awakening-materials">
                                 <div className="awakening-material-row">
                                     <span className="awakening-material-icon">??</span>
@@ -20303,12 +20303,12 @@ function CentralHub({
 
                         {/* Bloodline forge section */}
                         <div className="awakening-section">
-                            <h3>?? Bloodline Forge</h3>
+                            <h3>🔥 Bloodline Forge</h3>
                             <p className="awakening-hint">Channel ancient materials through the stone to forge a new bloodline. The bloodline will carry your element and await further techniques.</p>
                             <div className="awakening-forge-grid">
                                 <div className="awakening-forge-card rank-b">
                                     <div className="awakening-forge-rank">B Rank</div>
-                                    <div className="awakening-forge-cost">?? 100 Bone Charms</div>
+                                    <div className="awakening-forge-cost">💀 100 Bone Charms</div>
                                     <div className="awakening-forge-have">You have: {character.boneCharms ?? 0}</div>
                                     <button
                                         className="awakening-forge-btn"
@@ -20320,7 +20320,7 @@ function CentralHub({
                                 </div>
                                 <div className="awakening-forge-card rank-a">
                                     <div className="awakening-forge-rank">A Rank</div>
-                                    <div className="awakening-forge-cost">?? 100 Aura Stones</div>
+                                    <div className="awakening-forge-cost">✨ 100 Aura Stones</div>
                                     <div className="awakening-forge-have">You have: {character.auraStones ?? 0}</div>
                                     <button
                                         className="awakening-forge-btn"
@@ -20332,7 +20332,7 @@ function CentralHub({
                                 </div>
                                 <div className="awakening-forge-card rank-s">
                                     <div className="awakening-forge-rank">S Rank</div>
-                                    <div className="awakening-forge-cost">?? 100 Mythic Seals</div>
+                                    <div className="awakening-forge-cost">🔮 100 Mythic Seals</div>
                                     <div className="awakening-forge-have">You have: {character.mythicSeals ?? 0}</div>
                                     <button
                                         className="awakening-forge-btn"
@@ -20408,7 +20408,7 @@ function CentralHub({
                     <div className="crafter-overlay" onClick={() => setShowCrafter(false)}>
                         <div className="crafter-panel" onClick={(e) => e.stopPropagation()}>
                             <div className="archives-header">
-                                <h2>?? Crafter</h2>
+                                <h2>🔨 Crafter</h2>
                                 <button className="danger-button" onClick={() => setShowCrafter(false)}>? Close</button>
                             </div>
                             <p className="crafter-subtitle">Convert hunting, boss, dungeon, and war materials into supplies or existing balanced weapons.</p>
@@ -20517,7 +20517,7 @@ function CentralHub({
                                 return (
                                     <div className="named-weapon-forge">
                                         <div className="named-weapon-forge-header">
-                                            <span className="named-weapon-forge-title">?? Named Weapon</span>
+                                            <span className="named-weapon-forge-title">⚔️ Named Weapon</span>
                                             <small>Roll a unique legendary hand weapon. Costs {NW_COST} forge pts.</small>
                                         </div>
 
@@ -21321,7 +21321,7 @@ function WorldMap({
                 <div className="visual-novel admin-vn-play">
                     <div className="vn-header">
                         <div>
-                            <p className="act-label">?? PET ENCOUNTER</p>
+                            <p className="act-label">🐾 PET ENCOUNTER</p>
                             <h2>{page.title || vn.vnTitle || "A Presence in the Shadows"}</h2>
                         </div>
                         <div className="vn-progress">Page {petVnPage + 1}/{pages.length} | Line {petVnLine + 1}/{Math.max(1, pageDialogue.length)}</div>
@@ -21348,7 +21348,7 @@ function WorldMap({
     if (activePetEncounter && petVnDone) {
         return (
             <div className="card cinematic-card">
-                <h2>?? {activePetEncounter.name} Wants to Join You!</h2>
+                <h2>🐾 {activePetEncounter.name} Wants to Join You!</h2>
 
                 <div className="summary-box">
                     <h3>{activePetEncounter.name}</h3>
@@ -21479,7 +21479,7 @@ function WorldMap({
                 <div className="visual-novel admin-vn-play">
                     <div className="vn-header">
                         <div>
-                            <p className="act-label">?? ANCIENT CHEST DISCOVERED</p>
+                            <p className="act-label">📦 ANCIENT CHEST DISCOVERED</p>
                             <h2>{page.title}</h2>
                         </div>
                         <div className="vn-progress">Page {chestVnPage + 1}/{vnPages.length} | Line {chestVnLine + 1}/{pageDialogue.length}</div>
@@ -22091,7 +22091,7 @@ function WorldMap({
                         <div className="visual-novel admin-vn-play">
                             <div className="vn-header">
                                 <div>
-                                    <p className="act-label">?? ANCIENT CHEST DISCOVERED</p>
+                                    <p className="act-label">📦 ANCIENT CHEST DISCOVERED</p>
                                     <h2>{page.title}</h2>
                                 </div>
                                 <div className="vn-progress">Page {chestVnPage + 1}/{vnPages.length} | Line {chestVnLine + 1}/{pageDialogue.length}</div>
