@@ -16618,15 +16618,15 @@ function TownHall({ character, updateCharacter, creatorItems, allServerPlayers, 
     const upgrades = getVillageUpgrades(character);
 
     // Helper to get leader image: shows real player avatar if seated, falls back to admin image
-    const getLeaderImage = (playerName: string | undefined | null, fallbackImage: string): string => {
-        if (!playerName) return fallbackImage;
+    const getLeaderImage = (playerName: string | undefined | null, fallbackImage: string | undefined): string => {
+        if (!playerName) return fallbackImage ?? "";
         const player = allServerPlayers.find(p => p.name.toLowerCase() === playerName.toLowerCase());
         if (player?.character && typeof player.character === 'object') {
             const char = player.character as Record<string, unknown>;
             const avatarImage = char.avatarImage as string | undefined;
             if (avatarImage) return avatarImage;
         }
-        return fallbackImage;
+        return fallbackImage ?? "";
     };
     const totalUpgradeLevel = Object.values(upgrades).reduce((sum, level) => sum + level, 0);
     const [tab, setTab] = useState<"status" | "upgrades" | "treasury" | "guard" | "politics" | "notices">("status");
