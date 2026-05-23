@@ -20303,10 +20303,10 @@ function CentralHub({
 
             {showArchives && (() => {
                 const allBloodlines = [
-                    ...starterSavedBloodlines,
-                    ...savedBloodlines.filter((b) => !starterSavedBloodlines.some((s) => s.id === b.id)),
+                    ...starterSavedBloodlines.map(b => ({ ...b, image: b.image || sharedImages['bloodline:' + b.id] || "" })),
+                    ...savedBloodlines.filter((b) => !starterSavedBloodlines.some((s) => s.id === b.id || s.name === b.name)),
                     ...publicPlayerBloodlines.filter((b) =>
-                        !starterSavedBloodlines.some((s) => s.id === b.id) &&
+                        !starterSavedBloodlines.some((s) => s.id === b.id || s.name === b.name) &&
                         !savedBloodlines.some((saved) => saved.id === b.id)
                     ),
                 ];
