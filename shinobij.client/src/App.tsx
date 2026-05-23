@@ -524,6 +524,7 @@ type Character = {
     weeklyBossKills?: Record<string, string>;
     claimedWarCrateIds?: string[];
     elderFocus?: "war" | "trade" | "training";
+    examsPassed?: string[];
 };
 type RewardCurrencyKey = "fateShards" | "honorSeals" | "boneCharms" | "auraStones" | "auraDust" | "mythicSeals";
 type CurrencyRewards = Partial<Record<RewardCurrencyKey, number>>;
@@ -4390,11 +4391,28 @@ function normalizeAdminCharacter(character: Character): Character {
     };
 }
 
+// Exam gates: players cannot level past these thresholds without passing the corresponding exam.
+const EXAM_LEVEL_GATES: { exam: string; level: number; label: string }[] = [
+    { exam: "genin", level: 11, label: "Genin Exam" },
+    { exam: "chunin", level: 21, label: "Chunin Exam" },
+    { exam: "jonin", level: 41, label: "Jonin Exam" },
+    { exam: "specialJonin", level: 80, label: "Special Jonin Exam" },
+];
+
+function examLevelCap(character: Character): number {
+    const passed = character.examsPassed ?? [];
+    for (const gate of EXAM_LEVEL_GATES) {
+        if (!passed.includes(gate.exam)) return gate.level;
+    }
+    return MAX_LEVEL;
+}
+
 function gainXp(character: Character, amount: number): Character {
     const totalAmount = effectiveCharacterXpGain(character, amount);
+    const levelCap = examLevelCap(character);
     let updated: Character = reconcileCharacterStatBudget(character);
     updated = { ...updated, xp: updated.level >= MAX_LEVEL ? 0 : updated.xp + totalAmount };
-    while (updated.level < MAX_LEVEL && updated.xp >= xpNeeded(updated.level)) {
+    while (updated.level < MAX_LEVEL && updated.level < levelCap && updated.xp >= xpNeeded(updated.level)) {
         const needed = xpNeeded(updated.level);
         const newLevel = updated.level + 1;
         const nextMaxHp = maxHpForLevel(newLevel);
@@ -4412,6 +4430,10 @@ function gainXp(character: Character, amount: number): Character {
             chakra: nextMaxChakra,
             stamina: nextMaxStamina,
         };
+    }
+    // If capped by exam gate, clamp XP so it doesn't overflow past the level threshold
+    if (updated.level >= levelCap && updated.level < MAX_LEVEL) {
+        updated = { ...updated, xp: Math.min(updated.xp, xpNeeded(updated.level) - 1) };
     }
     if (updated.level >= MAX_LEVEL) {
         updated = { ...updated, level: MAX_LEVEL, xp: 0, rankTitle: rankTitleForLevel(updated, MAX_LEVEL) };
@@ -4778,6 +4800,7 @@ function normalizeCharacter(parsed: Character): Character {
         dailyPetWins: parsed.lastDailyReset === currentDateKey() ? (parsed.dailyPetWins ?? 0) : 0,
         claimedVillageAgendaDate: parsed.claimedVillageAgendaDate,
         claimedMapControlDate: parsed.claimedMapControlDate,
+        examsPassed: Array.isArray(parsed.examsPassed) ? parsed.examsPassed.filter(Boolean) : [],
     };
 }
 
@@ -22891,7 +22914,7 @@ function Logbook({
     const examProctor = creatorAis.find((ai) => ai.id === "builtin-ai-exam-proctor");
     const rogueNinja = creatorAis.find((ai) => ai.id === "builtin-ai-rogue-ninja");
     type ExamRequirement = { label: string; progress: number; target: number; detail?: string; aiId?: string };
-    type ExamLogbookMission = { title: string; unlockLevel: number; requirements: ExamRequirement[] };
+    type ExamLogbookMission = { title: string; examKey: string; unlockLevel: number; requirements: ExamRequirement[] };
     const availableLogbookMissions = mergeBuiltinMissions(creatorMissions);
     const assignedMissions = acceptedMissionIds
         .map((id) => availableLogbookMissions.find((mission) => mission.id === id))
@@ -22913,6 +22936,7 @@ function Logbook({
     const maybeExamMissions: Array<ExamLogbookMission | null> = [
         character.level >= 11 ? {
             title: "Genin Exam",
+            examKey: "genin",
             unlockLevel: 11,
             requirements: [
                 { label: "Awaken your first element", progress: ownedElements.length, target: 1, detail: ownedElements[0] ?? "No element awakened" },
@@ -22924,6 +22948,7 @@ function Logbook({
         } : null,
         character.level >= 21 ? {
             title: "Chunin Exam",
+            examKey: "chunin",
             unlockLevel: 21,
             requirements: [
                 { label: "Awaken your second element", progress: ownedElements.length, target: 2, detail: ownedElements[1] ?? "Second element not awakened" },
@@ -22935,6 +22960,7 @@ function Logbook({
         } : null,
         character.level >= 41 ? {
             title: "Jonin Exam",
+            examKey: "jonin",
             unlockLevel: 41,
             requirements: [
                 { label: "Get 10 PvP kills", progress: character.totalPvpKills ?? 0, target: 10 },
@@ -22944,6 +22970,7 @@ function Logbook({
         } : null,
         character.level >= 80 ? {
             title: "Special Jonin Exam",
+            examKey: "specialJonin",
             unlockLevel: 80,
             requirements: [
                 { label: "Compete in 2 tournaments", progress: character.totalTournamentsCompleted ?? 0, target: 2, detail: "Tournament system coming soon" },
@@ -23063,12 +23090,22 @@ function Logbook({
                 <>
                     <h3>Rank Exams</h3>
                     {examMissions.map((exam) => {
+                        const passed = (character.examsPassed ?? []).includes(exam.examKey);
                         const complete = exam.requirements.every((requirement) => requirement.progress >= requirement.target);
+                        const gate = EXAM_LEVEL_GATES.find(g => g.exam === exam.examKey);
+                        const isBlocking = !passed && character.level >= (gate?.level ?? 999);
                         return (
                             <section className="summary-box mission-board-section" key={exam.title}>
-                                <h3>{exam.title}</h3>
-                                <p className="hint">Unlocked at level {exam.unlockLevel}. Status: <strong>{complete ? "Ready to pass" : "In progress"}</strong></p>
+                                <h3>{exam.title} {passed ? "✓" : ""}</h3>
+                                <p className="hint">Unlocked at level {exam.unlockLevel}. Status: <strong>{passed ? "Passed" : complete ? "Ready to pass" : "In progress"}</strong></p>
+                                {isBlocking && !complete && <p style={{ color: "#f87171", fontWeight: "bold" }}>You cannot level past {gate!.level} until you pass this exam.</p>}
                                 <div className="location-grid">{exam.requirements.map(renderRequirement)}</div>
+                                {!passed && <div className="menu">
+                                    <button disabled={!complete} onClick={() => {
+                                        updateCharacter({ ...character, examsPassed: [...(character.examsPassed ?? []), exam.examKey] });
+                                        alert(`${exam.title} passed! You have been promoted. Level cap removed.`);
+                                    }}>{complete ? `Pass ${exam.title}` : "Requirements Incomplete"}</button>
+                                </div>}
                             </section>
                         );
                     })}
