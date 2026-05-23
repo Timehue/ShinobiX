@@ -21,15 +21,30 @@
  * No-op on the server side (no window).
  */
 
-// We deliberately use sessionStorage (not localStorage) because the rest of
-// the app strips passwords before persisting to localStorage. sessionStorage
-// keeps the credential alive for the current tab session only.
+// Credentials are stored in both sessionStorage AND localStorage.
+//
+// sessionStorage: per-tab, cleared when the tab is closed or (in some mobile
+//   browsers) when the browser kills and restores the tab. Fast to read.
+//
+// localStorage: survives page refreshes (F5), new tabs, and browser restarts.
+//   Without this fallback the auto-load on startup fires fetch('/api/save/...')
+//   with no auth headers → 401 → the player is silently sent to the login screen
+//   even though they never intentionally logged out.
+//
+// Security note: sessionStorage and localStorage have the same XSS exposure
+// in a browser context, so using localStorage is not meaningfully less secure.
+// The password is transmitted over HTTPS and hashed server-side.
 const ACTIVE_PLAYER_KEY = 'shinobix:activePlayer';
 const ACTIVE_PASSWORD_KEY = 'shinobix:activePassword';
+// Separate localStorage keys so the rest of the app's localStorage blob
+// (which explicitly strips passwords) is unaffected.
+const ACTIVE_PLAYER_LS_KEY = 'shinobix:activePlayerPersist';
+const ACTIVE_PASSWORD_LS_KEY = 'shinobix:activePasswordPersist';
 
 function getActivePlayer(): string | null {
     try {
-        return sessionStorage.getItem(ACTIVE_PLAYER_KEY);
+        return sessionStorage.getItem(ACTIVE_PLAYER_KEY)
+            ?? localStorage.getItem(ACTIVE_PLAYER_LS_KEY);
     } catch {
         return null;
     }
@@ -37,7 +52,8 @@ function getActivePlayer(): string | null {
 
 function getActivePassword(): string | null {
     try {
-        return sessionStorage.getItem(ACTIVE_PASSWORD_KEY);
+        return sessionStorage.getItem(ACTIVE_PASSWORD_KEY)
+            ?? localStorage.getItem(ACTIVE_PASSWORD_LS_KEY);
     } catch {
         return null;
     }
@@ -77,16 +93,21 @@ function hasAuthHeader(init: RequestInit | undefined, input: RequestInfo | URL):
 export function setActivePlayer(name: string | null, password?: string | null): void {
     try {
         if (name === null) {
+            // Clear from both stores on logout.
             sessionStorage.removeItem(ACTIVE_PLAYER_KEY);
             sessionStorage.removeItem(ACTIVE_PASSWORD_KEY);
+            localStorage.removeItem(ACTIVE_PLAYER_LS_KEY);
+            localStorage.removeItem(ACTIVE_PASSWORD_LS_KEY);
             return;
         }
         sessionStorage.setItem(ACTIVE_PLAYER_KEY, name);
+        localStorage.setItem(ACTIVE_PLAYER_LS_KEY, name);
         if (password !== undefined && password !== null) {
             sessionStorage.setItem(ACTIVE_PASSWORD_KEY, password);
+            localStorage.setItem(ACTIVE_PASSWORD_LS_KEY, password);
         }
     } catch {
-        /* sessionStorage disabled — ignore */
+        /* storage disabled — ignore */
     }
 }
 
