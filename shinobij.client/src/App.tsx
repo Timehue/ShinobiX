@@ -864,6 +864,8 @@ type CreatorMission = {
     type: "fetchExplore";
     aiProfileId?: string;
     targetSector: number;
+    tileX?: number;  // tile position within sector (0-143)
+    tileY?: number;  // tile position within sector (0-143)
     exploreCount: number;
     raidCount?: number;
     levelReq: number;
@@ -879,6 +881,8 @@ type CreatorRaid = {
     name: string;
     biome: Biome;
     targetSector?: number;
+    tileX?: number;  // tile position within sector (0-143)
+    tileY?: number;  // tile position within sector (0-143)
     icon: string;
     levelReq: number;
     aiProfileId?: string;
@@ -12659,6 +12663,8 @@ function AdminPanel({
             type: "fetchExplore",
             aiProfileId: missionAiProfileId || undefined,
             targetSector: Math.max(1, Math.min(99, Number(missionTargetSector))),
+            tileX: Math.floor(Math.random() * 144),
+            tileY: Math.floor(Math.random() * 144),
             exploreCount: Math.max(1, Number(missionExploreCount)),
             raidCount: Math.max(0, Number(missionRaidCount)),
             levelReq: Math.max(1, Math.min(MAX_LEVEL, Number(missionLevelReq))),
@@ -12712,6 +12718,8 @@ function AdminPanel({
             id,
             name: raidName.trim() || "Shadow Boss Raid",
             targetSector,
+            tileX: Math.floor(Math.random() * 144),
+            tileY: Math.floor(Math.random() * 144),
             biome: biomeForWorldSector(targetSector),
             icon: raidIcon || "?",
             levelReq: Math.max(1, Number(raidLevelReq)),
