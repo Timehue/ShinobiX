@@ -21976,24 +21976,6 @@ function WorldMap({
             </div>
             </div>{/* end world-map-scroll */}
 
-            {creatorEvents.filter(e => e.eventKind !== "visualNovel").length > 0 && (
-                <div className="summary-box creator-event-list">
-                    <h3>Admin Events</h3>
-                    <div className="location-grid">
-                        {creatorEvents.filter(e => e.eventKind !== "visualNovel").map((event) => (
-                            <button
-                                key={event.id}
-                                className="location-button"
-                                onClick={() => triggerCreatorEvent(event)}
-                            >
-                                <CardVisual image={sharedImages['event:' + event.id + ':bg'] || event.image || event.avatarImage || ''} icon={event.icon} label={event.name} />
-                                <span>{event.name}</span>
-                                <small>Lvl {event.levelReq} | Sector {event.targetSector ?? 56} | {rewardSummary(event.xpReward, event.ryoReward, event.staminaReward, event.currencyRewards)}</small>
-                            </button>
-                        ))}
-                    </div>
-                </div>
-            )}
 
             {/* -- Ancient Chest — VN Scene ---------------------------- */}
             {activeChest && !chestVnDone && (() => {
