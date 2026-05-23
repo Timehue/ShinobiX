@@ -1841,7 +1841,7 @@ function normalizePet(pet: Pet): Pet {
         maxLevel: Math.max(1, Math.floor(merged.maxLevel ?? 100)),
         unlockedForPve: Boolean(merged.unlockedForPve || Math.floor(merged.level ?? 1) >= 50),
         happiness: petHappiness(merged),
-        expedition: merged.expedition && Number(merged.expedition.endsAt) > Date.now()
+        expedition: merged.expedition
             ? { type: merged.expedition.type ?? "scout", startedAt: Number(merged.expedition.startedAt ?? Date.now()), endsAt: Number(merged.expedition.endsAt), durationMs: Number(merged.expedition.durationMs ?? 60 * 60 * 1000) }
             : undefined,
     });
@@ -6809,7 +6809,7 @@ export default function App() {
             });
             // Also hydrate jutsu images stored inside bloodlines — the save strips base64
             // so these need the same KV lookup as creatorJutsus.
-            setSavedBloodlines(prev => prev.map(b => ({
+            setSavedBloodlines((prev: SavedBloodline[]) => prev.map(b => ({
                 ...b,
                 jutsus: b.jutsus.map(j =>
                     Object.prototype.hasOwnProperty.call(images, 'jutsu:' + j.id) ? { ...j, image: images['jutsu:' + j.id] } : j),
@@ -6888,7 +6888,7 @@ export default function App() {
         else if (cat === 'bloodline')
             // Restore the bloodline's own cover image (stripped by stripImages on save).
             // Jutsu images inside bloodlines are handled by loadCategory('jutsu').
-            setSavedBloodlines(prev => prev.map(b =>
+            setSavedBloodlines((prev: SavedBloodline[]) => prev.map(b =>
                 images['bloodline:' + b.id] ? { ...b, image: images['bloodline:' + b.id] } : b
             ));
         else if (cat === 'avatar')
@@ -7032,6 +7032,31 @@ export default function App() {
         latestSaveRef.current = { character, name: currentAccountName, payload: buildPlayerSavePayload(character) };
     });
 
+    // Debounced auto-save — whenever the character state changes, schedule a
+    // server save within 3 seconds. This ensures currency gains, mission
+    // completions, PvP wins, etc. are persisted quickly rather than waiting
+    // for the 15-second interval. The debounce prevents rapid-fire saves when
+    // multiple updates happen in quick succession (e.g. battle rewards).
+    const saveSoonTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    useEffect(() => {
+        if (!character || !currentAccountName) return;
+        if (!charDirtyRef.current) return;
+        if (saveSoonTimerRef.current) clearTimeout(saveSoonTimerRef.current);
+        saveSoonTimerRef.current = setTimeout(() => {
+            saveSoonTimerRef.current = null;
+            if (!charDirtyRef.current) return;
+            const snap = latestSaveRef.current;
+            if (!snap) return;
+            charDirtyRef.current = false;
+            fetch(`/api/save/${encodeURIComponent(snap.name.toLowerCase())}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(snap.payload, (_k: string, v: unknown) => typeof v === "string" && v.startsWith("data:image") ? "" : v),
+            }).catch(() => { charDirtyRef.current = true; });
+        }, 3000);
+        return () => { if (saveSoonTimerRef.current) clearTimeout(saveSoonTimerRef.current); };
+    }, [character, currentAccountName]);
+
     useEffect(() => {
         function stripAutosaveImages(_key: string, value: unknown) {
             return typeof value === "string" && value.startsWith("data:image") ? "" : value;
@@ -7051,12 +7076,12 @@ export default function App() {
             }).catch(() => {
                 charDirtyRef.current = true; // restore so next tick retries
             });
-        }, 60_000);
+        }, 15_000);
         return () => clearInterval(id);
     }, []);
 
     // Save on page unload (F5 / tab close / navigation away) so that progress
-    // made since the last 60-second auto-save is not lost.
+    // made since the last auto-save is not lost.
     // keepalive: true tells the browser to complete the fetch even after the
     // page has been torn down. Auth headers are injected automatically by the
     // global authFetch interceptor (window.fetch is patched at app boot and
@@ -8557,6 +8582,14 @@ function BannerMobileTimers({
                     <span className="bmt-value">{formatPetTimer(pet.expedition!.endsAt - Date.now())}</span>
                 </div>
             );
+        } else if (pet.expedition && Date.now() >= pet.expedition.endsAt) {
+            timerRows.push(
+                <div key={`pe-${pet.id}`} className="bmt-row">
+                    <span className="bmt-icon">🎁</span>
+                    <span className="bmt-label">{petDisplayName(pet)} · Exp</span>
+                    <span className="bmt-value" style={{ color: "#4ade80" }}>Ready!</span>
+                </div>
+            );
         }
     }
 
@@ -8717,7 +8750,7 @@ function LeftProfileCard({
               (activeJutsuTraining && Date.now() < activeJutsuTraining.endsAt) ||
               (character.pets ?? []).some(
                   (p) => (p.training && Date.now() < p.training.endsAt) ||
-                         (p.expedition && Date.now() < p.expedition.endsAt)
+                         (p.expedition)
               )) && (
                 <div className="left-active-timers">
                     {activeTraining && Date.now() < activeTraining.endsAt && (
@@ -8759,6 +8792,16 @@ function LeftProfileCard({
                                         <span className="left-timer-icon">🗺️</span>
                                         <span className="left-timer-label">{petDisplayName(pet)} · Expedition</span>
                                         <span className="left-timer-value">{formatPetTimer(pet.expedition!.endsAt - Date.now())}</span>
+                                    </div>
+                                </div>
+                            );
+                        } else if (pet.expedition && Date.now() >= pet.expedition.endsAt) {
+                            rows.push(
+                                <div key={`pe-${pet.id}`} className="left-timer-bar">
+                                    <div className="left-timer-row">
+                                        <span className="left-timer-icon">🎁</span>
+                                        <span className="left-timer-label">{petDisplayName(pet)} · Expedition</span>
+                                        <span className="left-timer-value" style={{ color: "#4ade80" }}>Ready!</span>
                                     </div>
                                 </div>
                             );
@@ -9588,7 +9631,7 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
     const petXpBonus = getPetXpBonus(character);
 
     useEffect(() => {
-        const hasActivePetTimer = character.pets.some((p) => (p.training && Date.now() < p.training.endsAt) || isPetOnExpedition(p));
+        const hasActivePetTimer = character.pets.some((p) => (p.training && Date.now() < p.training.endsAt) || Boolean(p.expedition));
         if (!hasActivePetTimer) return;
         const id = setInterval(() => setTick((t) => t + 1), 1000);
         return () => clearInterval(id);
@@ -9597,6 +9640,7 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
     function startTraining() {
         if (!selectedPet) return;
         if (isPetOnExpedition(selectedPet)) return alert(`${selectedPet.name} is away on an expedition.`);
+        if (selectedPet.expedition) return alert(`${petDisplayName(selectedPet)} has an unclaimed expedition. Collect it first!`);
         if (selectedPet.training && Date.now() < selectedPet.training.endsAt) return alert(`${selectedPet.name} is already training.`);
         updateCharacter({
             ...character,
@@ -9608,6 +9652,7 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
         if (!selectedPet) return;
         if (selectedPet.training && Date.now() < selectedPet.training.endsAt) return alert(`${selectedPet.name} is training right now.`);
         if (isPetOnExpedition(selectedPet)) return alert(`${selectedPet.name} is already exploring.`);
+        if (selectedPet.expedition) return alert(`${petDisplayName(selectedPet)} has an unclaimed expedition. Collect it first!`);
         const option = petExpeditionOptions.find(entry => entry.type === expeditionType) ?? petExpeditionOptions[0];
         updateCharacter({
             ...character,
@@ -9858,7 +9903,8 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
                                         <span className={`pet-rarity-tag rarity-${pet.rarity}`}>{pet.rarity}</span>
                                         {pet.trait && <span className="pet-trait-tag">{pet.trait}</span>}
                                         {character.activePetId === pet.id && <span className="pet-active-tag">Active</span>}
-                                        {isPetOnExpedition(pet) && <span className="pet-training-tag">Exploring {formatPetTimer(pet.expedition!.endsAt - Date.now())}</span>}
+                                        {pet.expedition && Date.now() < pet.expedition.endsAt && <span className="pet-training-tag">Exploring {formatPetTimer(pet.expedition!.endsAt - Date.now())}</span>}
+                                        {pet.expedition && Date.now() >= pet.expedition.endsAt && <span className="pet-ready-tag" onClick={(e) => { e.stopPropagation(); setSelectedPetId(pet.id); }}>🎁 Claim</span>}
                                         {pet.training && Date.now() < pet.training.endsAt && (
                                             <span className="pet-training-tag">⏳ {formatPetTimer(pet.training.endsAt - Date.now())}</span>
                                         )}
@@ -14444,7 +14490,7 @@ function AdminPanel({
                                         const data = await res.json();
                                         const image = await compressDataUrl(data.image as string);
                                         publishSharedImage('bloodline:' + bl.id, image);
-                                        setSavedBloodlines(prev => prev.map((b) => b.id === bl.id ? { ...b, image } : b));
+                                        setSavedBloodlines((prev: SavedBloodline[]) => prev.map((b) => b.id === bl.id ? { ...b, image } : b));
                                     }
                                 } catch { /* skip */ }
                                 done++;
@@ -21450,7 +21496,7 @@ function WorldMap({
                             const updatedChar = { ...character, pets: [...character.pets, petWithTrait] };
                             updateCharacter(updatedChar);
                             // Explicitly push to server so the pet isn't lost on reload
-                            // before the 60-second auto-save interval fires.
+                            // before the auto-save interval fires.
                             onImmediateSave?.(updatedChar);
                             alert(`${encounter.name} joined you!\nTrait: ${trait} — ${petTraitDescriptions[trait]}`);
                         }}
@@ -27215,27 +27261,8 @@ function Arena({
                     </div>
 
                     <div className="jutsu-layout-card combat-jutsu-bar">
-                        {pendingTargetJutsu && (
-                            <div className="summary-box combat-target-prompt">
-                                <strong>{pendingTargetJutsu.name} armed</strong>
-                                <span>
-                                    {isMoveJutsu(pendingTargetJutsu)
-                                        ? `Choose an open tile within ${moveJutsuRange(pendingTargetJutsu)} spaces.`
-                                        : isGroundEffectJutsu(pendingTargetJutsu)
-                                            ? `Choose an open ground tile within ${pendingTargetJutsu.range} spaces.`
-                                        : `Choose ${opponentName} on the battlefield to confirm.`}
-                                </span>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setPendingTargetJutsuId("");
-                                        setLog("Jutsu target selection cancelled.");
-                                    }}
-                                >
-                                    Cancel
-                                </button>
-                            </div>
-                        )}
+                        {/* Armed jutsu indicator removed — the jutsu card highlight
+                             and log message are enough feedback while targeting. */}
 
                         {equippedJutsus.length === 0 && combatEquippedItems.length === 0 ? (
                             <div className="summary-box">
@@ -28488,23 +28515,8 @@ function PvpBattleScreen({
                             </p>
                         ) : (
                             <>
-                                {(pendingJutsu || pendingWeapon || pendingBasicAttack) && (
-                                    <div className="summary-box combat-target-prompt">
-                                        <strong>{pendingJutsu?.name ?? pendingWeapon?.name ?? "Basic Attack"} armed</strong>
-                                        <span>
-                                            {pendingJutsu && pvpIsGroundTargetJutsu(pendingJutsu)
-                                                ? pvpIsMoveJutsu(pendingJutsu) && pendingJutsu.method === "AOE_CIRCLE"
-                                                    ? `Click an open tile in range ${pendingJutsu.range} to dash there. Surrounding hexes resolve instantly.`
-                                                    : pvpIsMoveJutsu(pendingJutsu)
-                                                        ? `Click any open tile in range ${pendingJutsu.range} to move there.`
-                                                        : pendingJutsu.method === "INSTANT_EFFECT"
-                                                            ? `Click an open ground tile in range ${pendingJutsu.range}. The ground effect lasts 2 rounds and applies immediately if the enemy is caught.`
-                                                            : `Click an open ground tile in range ${pendingJutsu.range}.`
-                                                : `Click ${opp.name} on the battlefield (range ${pendingJutsu?.range ?? pvpWeaponRange ?? 1}) to fire.`}
-                                        </span>
-                                        <button type="button" onClick={() => { clearPendingPvpJutsu(); setPendingWeaponId(""); setPendingBasicAttack(false); }}>Cancel</button>
-                                    </div>
-                                )}
+                                {/* Armed jutsu/weapon banner removed — card highlight
+                                     and log message provide targeting feedback. */}
                                 {sessionEquippedJutsu.length === 0 && pvpEquippedWeapons.length === 0 && pvpEquippedConsumables.length === 0 ? (
                                     <div className="summary-box">No equipped jutsus or items. Equip from Profile.</div>
                                 ) : (
