@@ -8026,6 +8026,7 @@ export default function App() {
                         setEditablePets={setEditablePets}
                         selectedPetId={selectedPetId}
                         setSelectedPetId={setSelectedPetId}
+                        currentSector={currentSector}
                         savedBloodlines={savedBloodlines}
                         setSavedBloodlines={setSavedBloodlines}
                         setAdminLoggedIn={setAdminLoggedIn}
@@ -11299,6 +11300,7 @@ function AdminPanel({
     setEditablePets,
     selectedPetId,
     setSelectedPetId,
+    currentSector,
     creatorItems,
     setCreatorItems,
     savedBloodlines,
@@ -11331,6 +11333,7 @@ function AdminPanel({
     ancientChestVn: CreatorEvent;
     setAncientChestVn: (vn: CreatorEvent) => void;
     editablePets: Pet[];
+    currentSector: number;
     setEditablePets: (pets: Pet[]) => void;
     selectedPetId: string;
     setSelectedPetId: (id: string) => void;
@@ -12685,6 +12688,8 @@ function AdminPanel({
     }
 
     function createAdminMission() {
+        // Auto-set target sector to current sector
+        setMissionTargetSector(currentSector);
         const mission = missionFromForm();
         setCreatorMissions([...creatorMissions, mission]);
         alert(`${mission.name} created and added to Mission Hall.`);
@@ -12739,6 +12744,8 @@ function AdminPanel({
     }
 
     function createAdminRaid() {
+        // Auto-set target sector to current sector
+        setRaidTargetSector(currentSector);
         const raid = raidFromForm();
         setCreatorRaids([...creatorRaids, raid]);
         alert(`${raid.name} created.`);
