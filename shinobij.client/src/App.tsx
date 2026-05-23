@@ -11878,6 +11878,8 @@ function AdminPanel({
     const [allKnownPlayers, setAllKnownPlayers] = useState<{ name: string; level: number; village: string; online: boolean }[]>([]);
     const [pendingPlayerBloodlines, setPendingPlayerBloodlines] = useState<ReviewBloodline[]>([]);
     const [serverResetMsg, setServerResetMsg] = useState("");
+    const [kageResetVillage, setKageResetVillage] = useState(villages[0]);
+    const [kageResetMsg, setKageResetMsg] = useState("");
 
     // Fetch all server-saved players (registry + presence)
     function fetchAllKnownPlayers() {
@@ -15313,6 +15315,34 @@ function AdminPanel({
                             <p className="hint" style={{ marginBottom: 2 }}><strong style={{ color: "#fde68a" }}>🔄 Soft Reset</strong> — keeps name, village, specialty & bloodline. Resets everything else to Lv 1 defaults.</p>
                             <p className="hint"><strong style={{ color: "#fca5a5" }}>🗑️ Full Wipe</strong> — deletes the save entirely. Player must create a new character.</p>
                             {pmMsg && <p className="hint" style={{ color: pmMsg.startsWith("✅") ? "#4ade80" : pmMsg.startsWith("❌") ? "#f87171" : "#fcd34d", marginTop: 6 }}>{pmMsg}</p>}
+                        </section>
+
+                        {/* -- Reset Kage -- */}
+                        <section className="summary-box" style={{ borderColor: "#78350f" }}>
+                            <h4>👑 Reset Village Kage</h4>
+                            <p className="hint">Resets the Kage system for a village back to NPC control. Clears seated Kage, first liberator, and re-seals the system so a player must complete the level-100 story fight again to unlock it.</p>
+                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 8 }}>
+                                <select value={kageResetVillage} onChange={e => setKageResetVillage(e.target.value)} style={{ flex: 1, minWidth: 180 }}>
+                                    {villages.map(v => <option key={v} value={v}>{v}</option>)}
+                                </select>
+                                <button
+                                    style={{ background: "#78350f", borderColor: "#f59e0b", color: "#fde68a" }}
+                                    disabled={!adminPw}
+                                    onClick={() => {
+                                        if (!confirm(`Reset Kage for ${kageResetVillage}? This will unseat the current player Kage and re-seal the system.`)) return;
+                                        setKageResetMsg("Resetting…");
+                                        fetch('/api/village/kage', {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPw },
+                                            body: JSON.stringify({ village: kageResetVillage, playerName: 'admin', action: 'reset' }),
+                                        })
+                                            .then(r => r.ok ? r.json() : r.json().then(d => Promise.reject(d.error ?? 'Failed')))
+                                            .then(() => setKageResetMsg(`✅ ${kageResetVillage} Kage reset to NPC.`))
+                                            .catch(err => setKageResetMsg(`❌ ${String(err)}`));
+                                    }}
+                                >👑 Reset Kage to NPC</button>
+                            </div>
+                            {kageResetMsg && <p className="hint" style={{ color: kageResetMsg.startsWith("✅") ? "#4ade80" : kageResetMsg.startsWith("❌") ? "#f87171" : "#fbbf24" }}>{kageResetMsg}</p>}
                         </section>
 
                         {/* -- Full Server Reset -- */}
