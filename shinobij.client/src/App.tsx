@@ -16693,7 +16693,7 @@ function claimVillageWarDailyMission(character: Character, missionIndex: number)
     const progress = character.villageWarMissionDate === today ? character.villageWarRaidProgress ?? 0 : 0;
     const completed = character.villageWarMissionDate === today ? character.villageWarMissionsCompleted ?? 0 : 0;
     if (missionIndex !== completed) return { character, note: "Claim earlier village war missions first." };
-    if (!hasDailyMissionSlot(character)) return { character, note: `Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.` };
+    // War missions do NOT count toward the daily mission cap — each can only be done once per day.
     const required = (missionIndex + 1) * VILLAGE_WAR_RAIDS_PER_MISSION;
     if (progress < required) return { character, note: `Raid the enemy village ${required - progress} more time(s).` };
     const war = activeVillageWarsFor(character.village)[0];
@@ -16703,7 +16703,11 @@ function claimVillageWarDailyMission(character: Character, missionIndex: number)
     const wonWar = updatedWar.endedAt && updatedWar.winnerVillage === character.village;
     return {
         character: {
-            ...markMissionCompleted(character),
+            ...character,
+            // Increment total + clan contrib but NOT dailyMissionsCompleted
+            clanMissionContrib: (character.clanMissionContrib ?? 0) + 1,
+            totalMissionsCompleted: (character.totalMissionsCompleted ?? 0) + 1,
+            clanContribMonth: currentMonthKey(),
             inventory: wonWar ? [...character.inventory, LEGENDARY_WAR_CRATE_ID] : character.inventory,
             villageWarMissionDate: today,
             villageWarRaidProgress: progress,
