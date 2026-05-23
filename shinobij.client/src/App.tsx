@@ -11412,7 +11412,7 @@ function AdminPanel({
     creatorItems: GameItem[];
     setCreatorItems: (items: GameItem[]) => void;
     savedBloodlines: SavedBloodline[];
-    setSavedBloodlines: (bloodlines: SavedBloodline[]) => void;
+    setSavedBloodlines: React.Dispatch<React.SetStateAction<SavedBloodline[]>>;
     setAdminLoggedIn: (value: boolean) => void;
     setScreen: (screen: Screen) => void;
     onSave: () => Promise<void>;
@@ -12305,6 +12305,7 @@ function AdminPanel({
         setTimeout(() => { onSaveRef.current().catch(() => {}); }, 150);
     }
     const [leadershipImages, setLeadershipImages] = useState<VillageLeadershipImages>(() => loadVillageLeadershipImages());
+    const [leaderSaveStatus, setLeaderSaveStatus] = useState("");
     useEffect(() => {
         if (activeAdminPanel !== "villageLeaders") return;
         const refreshLeadershipImages = () => setLeadershipImages(loadVillageLeadershipImages());
@@ -13101,6 +13102,32 @@ function AdminPanel({
                         <div className="admin-panel-heading">
                             <h3>Village Leaders</h3>
                             <p>Add portraits for the Kage, War Elder, Trade Elder, and Training Elder. These appear in each village's Town Hall.</p>
+                        </div>
+                        <div className="menu" style={{ marginBottom: "0.5rem" }}>
+                            <button onClick={async () => {
+                                setLeaderSaveStatus("Saving...");
+                                try {
+                                    const normalized = normalizeVillageLeadershipImages(leadershipImages);
+                                    // Save all individual images to shared images hash
+                                    const imagePromises: Promise<boolean>[] = [];
+                                    for (const [village, images] of Object.entries(normalized)) {
+                                        if (images.kage) imagePromises.push(publishSharedImage(`leader:${village}:kage`, images.kage));
+                                        (images.elders ?? []).forEach((elder, i) => {
+                                            if (elder) imagePromises.push(publishSharedImage(`leader:${village}:elder:${i}`, elder));
+                                        });
+                                    }
+                                    await Promise.all(imagePromises);
+                                    // Save the leadership images blob to game state
+                                    saveVillageLeadershipImages(normalized);
+                                    // Also trigger a full admin save
+                                    await onSaveRef.current();
+                                    setLeaderSaveStatus("Saved!");
+                                } catch {
+                                    setLeaderSaveStatus("Save failed — try again.");
+                                }
+                                setTimeout(() => setLeaderSaveStatus(""), 3000);
+                            }}>Save All Leader Images</button>
+                            {leaderSaveStatus && <span className="hint" style={{ color: leaderSaveStatus.includes("fail") ? "#ff7777" : "#a5d6a7" }}>{leaderSaveStatus}</span>}
                         </div>
                         {Object.entries(villageLeadership).map(([village, leadership]) => {
                             const images = leadershipImages[village] ?? { kage: "", elders: ["", "", ""] };
@@ -14335,6 +14362,8 @@ function AdminPanel({
                         <label>Rank</label><select value={bloodlineEditRank} onChange={(e) => setBloodlineEditRank(e.target.value as Rank)}><option>B Rank</option><option>A Rank</option><option>S Rank</option></select>
                         <label>Special Element</label><input value={bloodlineEditElement} onChange={(e) => setBloodlineEditElement(e.target.value)} />
                         <label>Bloodline Image URL</label><input value={bloodlineEditImage} onChange={(e) => applyBloodlineImage(e.target.value)} />
+                        <input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) readImageFile(file, applyBloodlineImage, 100); }} />
+                        {bloodlineEditImage && <div className="admin-event-list-preview"><img src={bloodlineEditImage} alt="Bloodline preview" /></div>}
                         <AiImagePrompt label="Bloodline Image" suggestedPrompt={`${bloodlineEditName || "Bloodline"} ${bloodlineEditElement || "chakra"} clan art`} onImage={applyBloodlineImage} />
                         <button onClick={saveAdminBloodlineEdit}>Save Loaded Bloodline</button>
                         {editingBloodlineId && <p className="hint">Editing bloodline: {editingBloodlineId}</p>}
@@ -23362,7 +23391,7 @@ function Profile({
     character: Character;
     updateCharacter: (character: Character) => void;
     savedBloodlines: SavedBloodline[];
-    setSavedBloodlines?: (bloodlines: SavedBloodline[]) => void;
+    setSavedBloodlines?: React.Dispatch<React.SetStateAction<SavedBloodline[]>>;
     onSaveBloodlines?: (bloodlines: SavedBloodline[], character: Character) => void;
     creatorJutsus: Jutsu[];
     creatorItems: GameItem[];
