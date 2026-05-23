@@ -10784,6 +10784,7 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
     const selectedPet = character.pets.find((pet) => pet.id === selectedPetId && !isPetOnExpedition(pet)) ?? character.pets.find((pet) => !isPetOnExpedition(pet));
     const selectedOpponent = opponentPets.find((entry) => `${entry.owner}:${entry.pet.id}` === selectedOpponentKey) ?? opponentPets[0];
     const [battleReady, setBattleReady] = useState(false);
+    const [battleOpponent, setBattleOpponent] = useState<PetArenaOpponent | null>(null);
     const [battleLog, setBattleLog] = useState<string[]>([]);
     const [battleFrames, setBattleFrames] = useState<PetArenaFrame[]>([]);
     const [battleObstacles, setBattleObstacles] = useState<number[]>([]);
@@ -10825,6 +10826,7 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
         const pendingClanPetBattle = loadPendingClanPetBattle();
         if (isPetOnExpedition(opponent.pet)) return alert(`${petDisplayName(opponent.pet)} is exploring and cannot battle right now.`);
         const battle = runPetArenaBattle(selectedPet, opponent.pet, opponent.owner, opponent.battleSeed ?? Date.now());
+        setBattleOpponent(opponent);
         setBattleReady(true);
         setBattleLog(battle.logs);
         setBattleFrames(battle.frames);
@@ -11014,11 +11016,11 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                 {battleReady && showResult && result && <strong className={result === "Victory" ? "pet-arena-win" : "pet-arena-loss"}>{result}</strong>}
             </div>
 
-            {battleReady && selectedPet && selectedOpponent && (
+            {battleReady && selectedPet && (battleOpponent ?? selectedOpponent) && (
                 <PetArenaBattlefield
                     playerPet={selectedPet}
-                    enemyPet={selectedOpponent.pet}
-                    enemyOwner={selectedOpponent.owner}
+                    enemyPet={(battleOpponent ?? selectedOpponent)!.pet}
+                    enemyOwner={(battleOpponent ?? selectedOpponent)!.owner}
                     frame={currentFrame}
                     recentFrames={battleFrames.slice(Math.max(0, frameIndex - 2), frameIndex + 1).filter(f => f.actionKind && f.actionKind !== "result")}
                     result={showResult ? result : ""}
@@ -11029,7 +11031,7 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                         setIsPlaying(true);
                     }}
                     onFightAgain={startBattle}
-                    onExit={() => setScreen("centralHub")}
+                    onExit={() => { setBattleOpponent(null); setBattleReady(false); setScreen("centralHub"); }}
                     sharedImages={sharedImages}
                 />
             )}
