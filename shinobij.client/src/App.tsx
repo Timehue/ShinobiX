@@ -1553,6 +1553,30 @@ function gainPetXp(pet: Pet, amount: number): Pet {
         jutsus: pet.jutsus.map((jutsu) => ({ ...jutsu, power: jutsu.power > 0 ? jutsu.power + Math.ceil(levelUps / 2) : jutsu.power })),
     });
 }
+// Shared timer hook so all components tick in sync. Prevents mobile and
+// desktop timers from drifting if their intervals initialize at different times.
+let sharedNowValue = Date.now();
+let sharedNowListeners: Set<() => void> = new Set();
+let sharedNowInterval: number | null = null;
+
+function startSharedNowTicker() {
+    if (sharedNowInterval) return; // already running
+    sharedNowInterval = window.setInterval(() => {
+        sharedNowValue = Date.now();
+        sharedNowListeners.forEach(cb => cb());
+    }, 1000);
+}
+
+function useSharedNow(): void {
+    const [, setNow] = useState(sharedNowValue);
+    useEffect(() => {
+        startSharedNowTicker();
+        const callback = () => setNow(sharedNowValue);
+        sharedNowListeners.add(callback);
+        return () => { sharedNowListeners.delete(callback); };
+    }, []);
+}
+
 function formatPetTimer(ms: number): string {
     if (ms <= 0) return "Done";
     const h = Math.floor(ms / 3600000);
@@ -8463,12 +8487,7 @@ function BannerMobileTimers({
     activeJutsuTraining: ActiveJutsuTraining | null;
     pets: Pet[];
 }) {
-    const [now, setNow] = useState(Date.now());
-    useEffect(() => {
-        const id = setInterval(() => setNow(Date.now()), 1000);
-        return () => clearInterval(id);
-    }, []);
-    void now;
+    useSharedNow(); // sync to global timer so desktop timers match mobile
 
     const t = new Date();
     const utcTime = `${String(t.getUTCHours()).padStart(2, "0")}:${String(t.getUTCMinutes()).padStart(2, "0")} UTC`;
@@ -8537,22 +8556,7 @@ function LeftProfileCard({
     activeTraining: ActiveTraining | null;
     activeJutsuTraining: ActiveJutsuTraining | null;
 }) {
-    const [now, setNow] = useState(Date.now());
-    useEffect(() => {
-        const pets = character.pets ?? [];
-        const hasPetTimer = pets.some(
-            (p) => (p.training && Date.now() < p.training.endsAt) ||
-                   (p.expedition && Date.now() < p.expedition.endsAt)
-        );
-        const hasTimer = (activeTraining && Date.now() < activeTraining.endsAt) ||
-                         (activeJutsuTraining && Date.now() < activeJutsuTraining.endsAt) ||
-                         hasPetTimer;
-        if (!hasTimer) return;
-        const id = setInterval(() => setNow(Date.now()), 1000);
-        return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [!!activeTraining, !!activeJutsuTraining, character.pets]);
-    void now;
+    useSharedNow(); // sync to global timer so mobile timers match desktop
 
     function uploadAvatar(e: ChangeEvent<HTMLInputElement>) {
         const file = e.target.files?.[0];
