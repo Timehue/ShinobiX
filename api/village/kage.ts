@@ -42,7 +42,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const { village: bodyVillage, playerName, action } = body as {
                 village?: string;
                 playerName?: string;
-                action?: 'unlock' | 'seat';
+                action?: 'unlock' | 'seat' | 'reset';
             };
             const v = (bodyVillage ?? '').trim() || village;
             if (!v || !playerName) return res.status(400).json({ error: 'Missing village or playerName.' });
@@ -60,11 +60,49 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // Already unlocked — return current without changing the seated kage
                     return res.status(200).json(current);
                 }
+
+                // ── Server-side requirement gate ──────────────────────────
+                // Only a player who has completed the level-100 Kage story
+                // fight should be able to unlock the Kage system. Verify
+                // their saved character data in KV to prevent exploits
+                // (e.g. calling this endpoint directly from devtools).
+                if (!identity.admin) {
+                    const save = await kv.get<Record<string, unknown>>(`save:${identity.name}`);
+                    const char = (save as Record<string, unknown> | null)?.character as Record<string, unknown> | undefined;
+                    if (!char) {
+                        return res.status(400).json({ error: 'Character save not found.' });
+                    }
+                    const level = Number(char.level ?? 0);
+                    const storyProgress = Number(char.storyProgress ?? 0);
+                    // The kage finale story step is the level-100 boss fight
+                    // (the 9th milestone at index 8). After defeating it the
+                    // client increments storyProgress to 9. Level must also
+                    // be ≥ 100.
+                    if (level < 100) {
+                        return res.status(403).json({ error: `Must be level 100 to unlock the Kage system (current: ${level}).` });
+                    }
+                    if (storyProgress < 9) {
+                        return res.status(403).json({ error: `Must complete the village story to unlock the Kage system (progress: ${storyProgress}/9).` });
+                    }
+                }
+
                 const next: VillageKageState = {
                     kageSystemUnlocked: true,
                     seatedKage: playerName,
                     firstLiberator: playerName,
                     unlockedAt: Date.now(),
+                };
+                await kv.set(key, next);
+                return res.status(200).json(next);
+            }
+
+            if (action === 'reset') {
+                // Admin-only: reset the Kage system back to NPC / sealed state.
+                if (!identity.admin) {
+                    return res.status(403).json({ error: 'Only admins can reset the Kage system.' });
+                }
+                const next: VillageKageState = {
+                    kageSystemUnlocked: false,
                 };
                 await kv.set(key, next);
                 return res.status(200).json(next);
