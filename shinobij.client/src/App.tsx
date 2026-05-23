@@ -4393,10 +4393,9 @@ function normalizeAdminCharacter(character: Character): Character {
 
 // Exam gates: players cannot level past these thresholds without passing the corresponding exam.
 const EXAM_LEVEL_GATES: { exam: string; level: number; label: string }[] = [
-    { exam: "genin", level: 11, label: "Genin Exam" },
-    { exam: "chunin", level: 21, label: "Chunin Exam" },
-    { exam: "jonin", level: 41, label: "Jonin Exam" },
-    { exam: "specialJonin", level: 80, label: "Special Jonin Exam" },
+    { exam: "genin", level: 20, label: "Genin Exam" },
+    { exam: "chunin", level: 39, label: "Chunin Exam" },
+    // Jonin and Special Jonin exams do not block XP — players can reach level 100 freely.
 ];
 
 function examLevelCap(character: Character): number {
@@ -22968,17 +22967,19 @@ function Logbook({
                 { label: "Defeat Rogue Ninja", progress: defeatedAiIds.includes("builtin-ai-rogue-ninja") ? 1 : 0, target: 1, detail: rogueNinja ? "Level 47 arena AI" : "Rogue Ninja missing", aiId: "builtin-ai-rogue-ninja" },
             ],
         } : null,
-        character.level >= 80 ? {
+        character.level >= 80 ? (() => {
+            const villageState = loadVillageState(character.village);
+            const isKage = villageState.seatedKage?.toLowerCase() === character.name.toLowerCase();
+            const isElder = Boolean(character.elderFocus);
+            return {
             title: "Special Jonin Exam",
             examKey: "specialJonin",
             unlockLevel: 80,
             requirements: [
-                { label: "Compete in 2 tournaments", progress: character.totalTournamentsCompleted ?? 0, target: 2, detail: "Tournament system coming soon" },
-                { label: "Kill 30 players in PvP", progress: character.totalPvpKills ?? 0, target: 30 },
-                { label: "Fight the Endless in Celestial Tower", progress: character.totalEndlessTowerWins ?? 0, target: 1 },
-                { label: "Have a B, A, or S Rank bloodline", progress: advancedBloodline ? 1 : 0, target: 1, detail: advancedBloodline ? `${advancedBloodline.name} (${advancedBloodline.rank})` : "No B/A/S Rank bloodline equipped or owned" },
+                { label: "Kill 100 players in PvP", progress: character.totalPvpKills ?? 0, target: 100 },
+                { label: "Become Kage or Elder", progress: (isKage || isElder) ? 1 : 0, target: 1, detail: isKage ? `Seated Kage of ${character.village}` : isElder ? `${character.elderFocus} Elder` : "Not a Kage or Elder" },
             ],
-        } : null,
+        };})() : null,
     ];
     const examMissions = maybeExamMissions.filter((mission): mission is ExamLogbookMission => mission !== null);
 
