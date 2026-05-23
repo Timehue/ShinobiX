@@ -17372,10 +17372,362 @@ html[data-vp="xl"] .banner-mobile-timers {
 }
 
 /* =========================================================
-   DESKTOP UI TIGHTENING — reduce bloat, shrink oversized
-   elements, and cut unnecessary scroll on wide viewports.
+   DESKTOP UI TIGHTENING — TIER 1: 1080p monitors
+   Moderate compacting that keeps readability on 1920×1080.
    ========================================================= */
 @media (min-width: 801px) {
+
+    /* ── Global button size ── */
+    button {
+        padding: 8px 13px;
+        font-size: 0.88rem;
+    }
+
+    /* ── Menus: less vertical margin ── */
+    .menu {
+        margin: 8px 0;
+        gap: 8px;
+    }
+
+    /* ── Summary boxes: tighter padding + less margin ── */
+    .summary-box,
+    .jutsu-card {
+        padding: 12px;
+        margin-top: 10px;
+    }
+
+    /* ── Headings: smaller margins ── */
+    h2 {
+        margin: 0 0 10px;
+        font-size: 1.2rem;
+        padding-bottom: 8px;
+    }
+
+    h3 {
+        margin-top: 0;
+        margin-bottom: 6px;
+        font-size: 1.0rem;
+    }
+
+    h4 {
+        margin-top: 0;
+        margin-bottom: 3px;
+        font-size: 0.92rem;
+    }
+
+    p {
+        margin: 4px 0;
+    }
+
+    label {
+        font-size: 0.86rem;
+        margin-bottom: 2px;
+    }
+
+    /* ── Location grid: compact tiles ── */
+    .location-grid {
+        grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
+        gap: 8px;
+    }
+
+    .location-button {
+        min-height: 72px;
+        padding: 10px 8px;
+        font-size: 0.86rem;
+        gap: 3px;
+    }
+
+    .tile-icon {
+        font-size: 24px;
+    }
+
+    /* ── Cards: tighter internal gap ── */
+    .card {
+        gap: 10px;
+        padding: 14px;
+    }
+
+    /* ── Town hall / clan hall ── */
+    .town-hall-screen,
+    .clan-hall-screen {
+        gap: 10px;
+    }
+
+    .town-hall-hero {
+        padding: 12px 16px;
+    }
+
+    .town-hall-wallet strong {
+        font-size: 20px;
+    }
+
+    .town-hall-grid {
+        gap: 10px;
+    }
+
+    /* ── Tab strips ── */
+    .expanded-tabs {
+        padding: 8px;
+        gap: 6px;
+    }
+
+    .expanded-tabs button {
+        min-height: 36px;
+        padding: 6px 12px;
+        font-size: 0.84rem;
+    }
+
+    .clan-tabs {
+        gap: 5px;
+        margin-bottom: 10px;
+        padding-bottom: 8px;
+    }
+
+    .clan-tabs button {
+        padding: 5px 12px;
+        font-size: 0.82rem;
+    }
+
+    /* ── Inline grid (selects, small button rows) ── */
+    .inline-grid {
+        gap: 6px;
+    }
+
+    /* ── Stat grid / jutsu list ── */
+    .stat-grid,
+    .jutsu-list,
+    .jutsu-combat-grid {
+        gap: 8px;
+    }
+
+    /* ── Inputs / selects ── */
+    input,
+    select,
+    textarea {
+        padding: 6px 10px;
+        font-size: 0.88rem;
+    }
+
+    /* ── Technique browser ── */
+    .technique-grid {
+        max-height: 320px;
+        gap: 6px;
+        padding: 6px;
+    }
+
+    .technique-card {
+        min-height: 110px;
+        grid-template-rows: 70px minmax(28px, auto);
+        padding: 5px;
+        gap: 4px;
+    }
+
+    /* ── Shop items ── */
+    .shop-item-button {
+        min-height: 130px !important;
+    }
+
+    /* ── Hints / subtitles ── */
+    .hint,
+    .subtitle {
+        font-size: 0.82rem;
+        line-height: 1.4;
+    }
+
+    /* ── Hero banner ── */
+    .hero {
+        padding: 16px 20px;
+        gap: 12px;
+    }
+
+    /* ── Card visual thumbs ── */
+    .card-visual-thumb {
+        width: 64px;
+        height: 64px;
+    }
+
+    /* ── Clan / leader portraits ── */
+    .clan-image-mark,
+    .leader-portrait-img {
+        width: 62px;
+        height: 62px;
+    }
+
+    /* ── Contribute / guard / rank grids ── */
+    .contrib-rank-grid,
+    .clan-guard-list {
+        gap: 5px;
+    }
+
+    .clan-guard-row {
+        padding: 6px 10px;
+    }
+
+    /* ── Town upgrade grid ── */
+    .town-upgrade-grid {
+        gap: 10px;
+    }
+
+    .town-upgrade-card {
+        padding: 12px;
+    }
+
+    /* ── Elder seat grid ── */
+    .elder-seat-grid {
+        gap: 10px;
+    }
+
+    .elder-card {
+        padding: 12px;
+    }
+
+    /* ── Training / hospital ── */
+    .training-in-progress {
+        padding: 12px;
+    }
+
+    /* ── Logbook / event cards ── */
+    .event-card,
+    .logbook-entry {
+        padding: 10px;
+    }
+
+    /* ── Profile page ── */
+    .profile-page-card {
+        gap: 14px;
+    }
+
+    .profile-overview-panel {
+        padding: 14px;
+    }
+
+    .profile-big-avatar {
+        width: 150px;
+        height: 150px;
+    }
+
+    .profile-info-grid {
+        gap: 12px;
+    }
+
+    /* ── War status / notice board ── */
+    .town-notice-board .notice-post {
+        padding: 10px;
+    }
+
+    /* ── Bars (HP, XP, etc.) ── */
+    .bar,
+    .town-upgrade-bar {
+        height: 12px;
+    }
+
+    /* ── Journey banner: tighter ── */
+    .journey-banner {
+        height: auto;
+        min-height: 200px;
+    }
+
+    /* ── Archives cards ── */
+    .archives-card {
+        padding: 12px;
+    }
+
+    .archives-card-img-wrap {
+        width: 110px;
+        min-width: 110px;
+    }
+
+    /* ── Bloodline maker ── */
+    .bloodline-save-card {
+        gap: 6px;
+    }
+
+    /* ── Danger / action buttons: slightly less padding ── */
+    .danger-button,
+    .admin-button {
+        padding: 6px 12px;
+    }
+
+    /* ── Top HUD ── */
+    .top-hud {
+        gap: 6px;
+    }
+
+    .top-hud span {
+        font-size: 11px;
+    }
+
+    /* ── Hospital admitted banner ── */
+    .hospital-admitted-banner {
+        padding: 10px 14px;
+        gap: 10px;
+    }
+
+    .hospital-admitted-icon {
+        font-size: 1.5rem;
+    }
+
+    /* ── Pet battle arena ── */
+    .pet-arena-grid {
+        gap: 8px;
+    }
+
+    /* ── Sector instance / map instance ── */
+    .instance-sidebar {
+        padding: 10px;
+    }
+
+    .instance-actions {
+        gap: 5px;
+    }
+
+    /* ── Nav (hidden on desktop, but in case it shows) ── */
+    .nav {
+        padding: 10px;
+        gap: 6px;
+        margin: 10px 0;
+    }
+
+    /* ── Treasury grid ── */
+    .treasury-grid {
+        gap: 8px;
+    }
+
+    /* ── Leader admin grid ── */
+    .leader-admin-grid {
+        gap: 10px;
+    }
+
+    .leader-admin-card {
+        padding: 10px;
+    }
+
+    /* ── War record grid ── */
+    .war-record-grid {
+        gap: 8px;
+    }
+
+    .war-record-card {
+        padding: 10px;
+    }
+
+    /* ── General card spacing reductions ── */
+    .card > .summary-box:first-child {
+        margin-top: 0;
+    }
+
+    /* ── Make select dropdowns compact ── */
+    select {
+        padding: 5px 10px;
+    }
+}
+
+/* =========================================================
+   DESKTOP UI TIGHTENING — TIER 2: 1440p+ monitors
+   Aggressive compacting for 2560×1440 and above.
+   Overrides the moderate tier with tighter values.
+   ========================================================= */
+@media (min-width: 2200px) {
 
     /* ── Global button size ── */
     button {
