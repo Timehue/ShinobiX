@@ -124,6 +124,25 @@ export function installAuthFetch(): void {
         if (!isApiUrl(input) || hasAuthHeader(init, input)) {
             return originalFetch(input, init);
         }
+
+        // Try admin auth first (higher priority when both exist)
+        let adminPw: string | null = null;
+        try {
+            adminPw = sessionStorage.getItem('admin:pw');
+        } catch {
+            /* storage disabled */
+        }
+
+        if (adminPw) {
+            // Clone init and merge admin auth header
+            const newInit: RequestInit = { ...(init ?? {}) };
+            const newHeaders = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
+            if (!newHeaders.has('x-admin-password')) newHeaders.set('x-admin-password', adminPw);
+            newInit.headers = newHeaders;
+            return originalFetch(input, newInit);
+        }
+
+        // Fall back to player auth
         const activeName = getActivePlayer();
         const pw = getActivePassword();
         if (!activeName || !pw) return originalFetch(input, init);
