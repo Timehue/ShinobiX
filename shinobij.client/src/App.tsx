@@ -6381,8 +6381,17 @@ export default function App() {
         }
 
         // Always try to pull full save from server (images live here, not in localStorage).
-        // localStorage only remembers the account name; KV/server provides the actual save.
+        // Re-prime the authFetch interceptor from localStorage so the auto-load fetch
+        // has credentials even on a fresh tab / mobile tab restore / browser restart
+        // (sessionStorage is tab-scoped and can be cleared, but the localStorage fallback
+        // in authFetch now makes credentials available; setActivePlayer here syncs them
+        // back into sessionStorage for the rest of this session).
         if (localAccountName) {
+            // getActivePlayer/Password already read from localStorage via the fallback,
+            // but we call setActivePlayer here to populate sessionStorage for the session.
+            const persistedPw = localStorage.getItem('shinobix:activePasswordPersist');
+            if (persistedPw) setActivePlayer(localAccountName, persistedPw);
+
             pullSaveFromServer(localAccountName).then((snap) => {
                 if (snap) applySnapshot(snap);
             }).finally(() => { void pullSharedAdminContent(); });
