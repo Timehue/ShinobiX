@@ -14321,6 +14321,7 @@ function AdminPanel({
                                         <strong>{selectedBloodline.name}</strong>
                                         <p>{selectedBloodline.rank} | {selectedBloodline.specialElement || "No special element"} | {selectedBloodline.jutsus.length} jutsus | Points {selectedBloodline.totalPoints}{starterSavedBloodlines.some((builtIn) => builtIn.id === selectedBloodline.id) ? " | Built-in" : ""}</p>
                                         {selectedBloodline.image && <div className="admin-event-list-preview"><img src={selectedBloodline.image} alt={selectedBloodline.name} /></div>}
+                                        {!selectedBloodline.image && <AiImagePrompt label="Bloodline Image" suggestedPrompt={`${selectedBloodline.name} ${selectedBloodline.specialElement || "chakra"} ${selectedBloodline.rank} bloodline kekkei genkai clan eye art`} onImage={(img) => { void compressDataUrl(img, 512, 0.82).then((image) => { publishSharedImage('bloodline:' + selectedBloodline.id, image); setSavedBloodlines(savedBloodlines.map((b) => b.id === selectedBloodline.id ? { ...b, image } : b)); }); }} />}
                                         <div className="menu">
                                             <button onClick={() => loadAdminBloodline(selectedBloodline)}>Edit Bloodline</button>
                                             {savedBloodlines.some((candidate) => candidate.id === selectedBloodline.id) ? (
@@ -14420,6 +14421,41 @@ function AdminPanel({
                         }}>
                             {jutsuIsGenerating ? "Working…" : "Recompress All Existing Jutsu Images"}
                         </button>
+                    </section>
+
+                    <section className="summary-box">
+                        <h4>Bulk Bloodline Image Generation</h4>
+                        <p className="hint">Generates AI images for all bloodlines that don't have an image yet.</p>
+                        <p className="hint">Bloodlines without images: <strong>{adminPanelBloodlines.filter((b) => !b.image).length}</strong> / {adminPanelBloodlines.length}</p>
+                        <button disabled={jutsuIsGenerating} onClick={async () => {
+                            const missing = adminPanelBloodlines.filter((b) => !b.image);
+                            if (missing.length === 0) { setJutsuGenStatus("All bloodlines already have images!"); return; }
+                            setJutsuIsGenerating(true);
+                            let done = 0;
+                            for (const bl of missing) {
+                                setJutsuGenStatus(`Generating bloodline ${bl.name}... (${done + 1}/${missing.length})`);
+                                try {
+                                    const res = await fetch("/api/generate-image", {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({ prompt: `${bl.name} ${bl.specialElement || "chakra"} ${bl.rank} bloodline kekkei genkai clan eye art`, label: "Bloodline Image" }),
+                                    });
+                                    if (res.ok) {
+                                        const data = await res.json();
+                                        const image = await compressDataUrl(data.image as string);
+                                        publishSharedImage('bloodline:' + bl.id, image);
+                                        setSavedBloodlines(prev => prev.map((b) => b.id === bl.id ? { ...b, image } : b));
+                                    }
+                                } catch { /* skip */ }
+                                done++;
+                            }
+                            setJutsuIsGenerating(false);
+                            setJutsuGenStatus(`Done! Generated images for ${done} bloodline(s).`);
+                            try { await onSaveRef.current(); } catch { /* ignore */ }
+                        }}>
+                            {jutsuIsGenerating ? "Generating..." : "Generate All Missing Bloodline Images"}
+                        </button>
+                        {jutsuGenStatus && <p className="hint" style={{ color: "#a5d6a7", marginTop: "0.4rem" }}>{jutsuGenStatus}</p>}
                     </section>
                 </div>
             )}
@@ -28135,8 +28171,14 @@ function PvpBattleScreen({
         if (!isMyTurn || submitting || done) return;
         setInspectedJutsuId(""); setDashMode(false); setSelectedActionId(undefined);
         setPendingBasicAttack(false); setPendingWeaponId("");
-        const selfTarget = jutsu.target === "SELF" ||
-            (jutsu.tags ?? []).some(t => ["Heal","Shield","Absorb","Reflect","Lifesteal","Debuff Prevent","Increase Damage Given","Decrease Damage Taken"].includes(t.name));
+        // A jutsu is truly self-target if explicitly marked SELF, OR if it is a
+        // pure buff/utility with no damage output (effectPower 0 and no offensive
+        // tags like Wound/Poison/Ignition/Drain). Damage jutsus that also carry a
+        // defensive tag (e.g. Absorb + 30 EP) must still arm-then-click the enemy.
+        const selfBuffTags = ["Heal","Shield","Absorb","Reflect","Lifesteal","Debuff Prevent","Increase Damage Given","Decrease Damage Taken"];
+        const hasSelfBuffTag = (jutsu.tags ?? []).some(t => selfBuffTags.includes(t.name));
+        const hasDamage = jutsu.effectPower > 0 || (jutsu.tags ?? []).some(t => ["Wound","Poison","Ignition","Drain","Siphon","Damage"].includes(t.name));
+        const selfTarget = jutsu.target === "SELF" || (hasSelfBuffTag && !hasDamage);
         if (pvpIsGroundTargetJutsu(jutsu)) armPendingPvpJutsu(jutsu);
         else if (selfTarget) submitAction("jutsu", undefined, jutsu.id);
         else armPendingPvpJutsu(jutsu);
