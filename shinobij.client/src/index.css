@@ -16794,6 +16794,32 @@ html[data-vp="xl"] .location-button small {
     display: none !important;
 }
 
+/* Village stormveil map: fit on 1080p without scrolling */
+html[data-vp="xl"] .stormveil-village-screen {
+    min-height: unset !important;
+    margin-top: 8px !important;
+}
+
+html[data-vp="xl"] .stormveil-map {
+    min-height: calc(100dvh - var(--banner-h) - 60px) !important;
+    max-height: calc(100dvh - var(--banner-h) - 60px) !important;
+}
+
+html[data-vp="xl"] .stormveil-map-button {
+    min-width: 90px !important;
+    padding: 4px 6px !important;
+    gap: 1px !important;
+    border-radius: 7px !important;
+}
+
+html[data-vp="xl"] .stormveil-map-button span {
+    font-size: 18px !important;
+}
+
+html[data-vp="xl"] .stormveil-map-button strong {
+    font-size: 10px !important;
+}
+
 /* ── xxl: 1440p+ desktop (≥2200px) — comfortable layout ── */
 html[data-vp="xxl"] {
     --side-rail-w: clamp(220px, 17vw, 280px);
