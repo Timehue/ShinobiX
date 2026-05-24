@@ -116,3 +116,37 @@
     }
     .journey-banner .stat-box strong { font-size: 11px !important; }
 }
+
+/* Make the banner a true full-width header pinned to the top of the viewport,
+   spanning across the sidebars. */
+.journey-banner {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    z-index: 10010 !important;        /* above sidebars (z 10000) */
+    margin: 0 !important;
+    border-bottom: 1px solid var(--bsv2-gold-faint, rgba(196,162,90,0.22)) !important;
+}
+
+/* Push the page content + sidebars down so they don't slide under the banner */
+.center-game {
+    padding-top: 92px !important;
+}
+@media (min-width: 1200px) {
+    .center-game { padding-top: 100px !important; }
+}
+@media (max-width: 800px) {
+    .center-game { padding-top: 120px !important; }
+}
+.left-profile-card,
+.right-menu {
+    top: calc(50% + 46px) !important;     /* nudge sidebars below banner */
+    height: calc(85vh - 92px) !important;
+}
+@media (min-width: 1200px) {
+    .left-profile-card,
+    .right-menu { top: calc(50% + 50px) !important; height: calc(85vh - 100px) !important; }
+}
