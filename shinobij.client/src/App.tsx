@@ -5835,6 +5835,14 @@ export default function App() {
     const [worldMapKey, setWorldMapKey] = useState(0);
     const [character, setCharacter] = useState<Character | null>(null);
     const [currentAccountName, setCurrentAccountName] = useState("");
+
+    // ── Tab visibility: pause all polling when the browser tab is hidden ──
+    const [tabVisible, setTabVisible] = useState(() => typeof document !== "undefined" ? document.visibilityState === "visible" : true);
+    useEffect(() => {
+        const handler = () => setTabVisible(document.visibilityState === "visible");
+        document.addEventListener("visibilitychange", handler);
+        return () => document.removeEventListener("visibilitychange", handler);
+    }, []);
     // Mirror the active player into sessionStorage so the global authFetch
     // interceptor (installed at module load) can pick up the correct
     // x-player-name / x-player-password headers for every /api/ request.
@@ -5900,6 +5908,7 @@ export default function App() {
     const [editablePets, setEditablePets] = useState<Pet[]>(petPool);
     const [selectedPetId, setSelectedPetId] = useState(petPool[0]?.id ?? "");
     useEffect(() => {
+        if (!tabVisible) return; // pause when tab hidden
         let alive = true;
         async function refreshWorldState() {
             try {
@@ -5913,14 +5922,15 @@ export default function App() {
                 // Offline/dev fallback keeps the current in-memory world state until the API is available.
             }
         }
-        refreshWorldState();
+        refreshWorldState(); // fetch fresh data on tab return
         const id = setInterval(refreshWorldState, 15000);
         return () => {
             alive = false;
             clearInterval(id);
         };
-    }, []);
+    }, [tabVisible]);
     useEffect(() => {
+        if (!tabVisible) return; // pause when tab hidden
         let alive = true;
         async function refreshSharedGameState() {
             try {
@@ -5936,13 +5946,13 @@ export default function App() {
                 // Shared game state will refresh again on the next heartbeat-sized poll.
             }
         }
-        refreshSharedGameState();
+        refreshSharedGameState(); // fetch fresh data on tab return
         const id = setInterval(refreshSharedGameState, 5000);
         return () => {
             alive = false;
             clearInterval(id);
         };
-    }, [currentAccountName, character?.name]);
+    }, [currentAccountName, character?.name, tabVisible]);
     // Daily reset countdown — updates every second, resets at midnight UTC
     useEffect(() => {
         function tick() {
@@ -6133,12 +6143,19 @@ export default function App() {
             }
         }
 
+        if (!tabVisible) return; // pause heartbeat when tab hidden
         heartbeat();
-        // 3-second interval so both players get routed to the battle screen within ~3s
-        // of a challenge being sent or accepted.
-        const id = setInterval(heartbeat, 3000);
+        // Adaptive heartbeat: fast in battle/arena (3s), moderate while exploring (5s),
+        // slow in village/sector 0 (15s) to reduce Vercel function invocations.
+        const currentScreen = screenRef.current;
+        const interval = currentScreen === "pvpBattle" || currentScreen === "arena" || currentScreen === "petArena"
+            ? 3000   // in combat — need fast challenge delivery
+            : currentSector === 0
+            ? 15000  // village — no urgent combat needs
+            : 5000;  // exploring sectors — moderate speed
+        const id = setInterval(heartbeat, interval);
         return () => clearInterval(id);
-    }, [character?.name, currentSector, isTraveling, travelingUntil]);
+    }, [character?.name, currentSector, isTraveling, travelingUntil, screen, tabVisible]);
 
     async function clearChallengeOnServer(challenge: DuelChallenge) {
         await fetch('/api/player/challenge', {
@@ -24508,11 +24525,12 @@ function Arena({
         const id = setInterval(refreshArenaState, 5000);
         return () => clearInterval(id);
     }, []);
-    /* ── Ranked queue polling ── */
+    /* ── Ranked queue polling (paused when tab hidden) ── */
     useEffect(() => {
         if (!rankedQueueActive) return;
         let active = true;
         const poll = () => {
+            if (document.visibilityState === "hidden") return;
             fetch("/api/pvp/ranked-queue", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -28077,6 +28095,11 @@ function PvpBattleScreen({
         let active = true;
         async function poll() {
             while (active) {
+                // Skip polling when tab is hidden to save function invocations
+                if (document.visibilityState === "hidden") {
+                    await new Promise<void>(r => setTimeout(r, 2000));
+                    continue;
+                }
                 try {
                     const res = await fetch(`/api/pvp/session?id=${encodeURIComponent(battleId)}`);
                     if (res.ok) {
@@ -28199,11 +28222,12 @@ function PvpBattleScreen({
     const [battleChatVisible, setBattleChatVisible] = useState(true);
     const battleChatRef = useRef<HTMLDivElement>(null);
 
-    /* Poll battle chat every 3s */
+    /* Poll battle chat every 3s (paused when tab hidden) */
     useEffect(() => {
         if (!battleId) return;
         let active = true;
         const poll = () => {
+            if (document.visibilityState === "hidden") return;
             fetch(`/api/pvp/chat?id=${encodeURIComponent(battleId)}`)
                 .then(r => r.json())
                 .then(msgs => { if (active && Array.isArray(msgs)) setBattleChatMessages(msgs); })
@@ -28252,6 +28276,7 @@ function PvpBattleScreen({
         if (!battleId) return;
         let active = true;
         const poll = () => {
+            if (document.visibilityState === "hidden") return;
             fetch(`/api/pvp/spectate?id=${encodeURIComponent(battleId)}`)
                 .then(r => r.json())
                 .then(specs => { if (active && Array.isArray(specs)) setSpectatorList(specs); })
