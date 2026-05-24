@@ -21975,7 +21975,7 @@ function Profile({
     const [statWarning, setStatWarning] = useState("");
     const [titleInput, setTitleInput] = useState(character.customTitle ?? "");
     const TITLE_COST = 10;
-    const [mobileTab, setMobileTab] = useState<'overview' | 'stats' | 'jutsu' | 'builds'>('overview');
+    const [mobileTab, setMobileTab] = useState<'overview' | 'stats' | 'jutsu' | 'achievements'>('overview');
 
     function formatStatLabel(name: string) {
         return name
@@ -22117,7 +22117,7 @@ function Profile({
                     { id: 'overview', label: '👤 Profile' },
                     { id: 'stats',    label: '💪 Stats'   },
                     { id: 'jutsu',    label: '⚡ Jutsu'   },
-                    { id: 'builds',   label: '🩸 Builds'  },
+                    { id: 'achievements', label: '🏆 Achievements' },
                 ] as const).map(({ id, label }) => (
                     <button
                         key={id}
@@ -22217,54 +22217,84 @@ function Profile({
                 </div>
             </section>
 
-            <section className="achievements-panel">
-                <div className="achievements-heading">
-                    <h3>Achievements</h3>
-                    <span className="achievements-count">
-                        {ACHIEVEMENTS.filter(a => a.check(character)).length}/{ACHIEVEMENTS.length} unlocked
-                    </span>
-                </div>
-                <div className="achievements-grid">
-                    {ACHIEVEMENTS.map(a => {
-                        const unlocked = a.check(character);
-                        const concealed = !!a.hidden && !unlocked;
-                        const displayName = concealed ? "???" : a.name;
-                        const displayDesc = concealed ? "Hidden achievement — keep playing to discover it." : a.desc;
-                        const displayIcon = concealed ? "❓" : a.icon;
-                        const unlockedAt = unlocked ? character.achievementUnlockedAt?.[a.id] : undefined;
-                        const unlockedAtLabel = unlockedAt ? new Date(unlockedAt).toLocaleDateString() : null;
-                        const classes = [
-                            "achievement-badge",
-                            unlocked ? "unlocked" : "locked",
-                            concealed ? "concealed" : "",
-                            a.hidden ? "is-secret" : "",
-                        ].filter(Boolean).join(" ");
-                        return (
-                            <div
-                                key={a.id}
-                                className={classes}
-                                title={`${displayName} — ${displayDesc}${unlockedAtLabel ? ` · Unlocked ${unlockedAtLabel}` : ""}`}
-                            >
-                                <div className="achievement-icon">
-                                    {!concealed && (
-                                        <img
-                                            src={`/badges/${a.id}.png`}
-                                            alt=""
-                                            onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }}
-                                        />
-                                    )}
-                                    <span className="achievement-emoji" aria-hidden>{displayIcon}</span>
-                                </div>
-                                <div className="achievement-meta">
-                                    <strong>{displayName}</strong>
-                                    <small>{displayDesc}</small>
-                                    {unlockedAtLabel && <small className="achievement-unlocked-at">Unlocked {unlockedAtLabel}</small>}
-                                </div>
-                            </div>
-                        );
-                    })}
+            <section className="summary-box profile-title-panel">
+                <div>
+                    <p className="act-label">Custom Title</p>
+                    <p style={{ color: "#94a3b8", fontSize: "0.85rem", margin: "0.2rem 0 0.75rem" }}>
+                        {character.customTitle
+                            ? <>Current: <span style={{ color: "#facc15", fontWeight: 700 }}>{character.customTitle}</span></>
+                            : "No title set."}
+                    </p>
+                    <div className="profile-title-row">
+                        <input
+                            className="profile-title-input"
+                            value={titleInput}
+                            onChange={(e: ChangeEvent<HTMLInputElement>) => setTitleInput(e.target.value.slice(0, 15))}
+                            placeholder="Up to 15 characters"
+                            maxLength={15}
+                        />
+                        <span className="profile-title-counter">{titleInput.length}/15</span>
+                        <button
+                            className="profile-title-btn"
+                            onClick={purchaseTitle}
+                            disabled={(character.fateShards ?? 0) < TITLE_COST || !titleInput.trim()}
+                        >
+                            Set Title — 🔮 {TITLE_COST}
+                        </button>
+                        {character.customTitle && (
+                            <button className="danger-button" onClick={clearTitle}>Clear</button>
+                        )}
+                    </div>
                 </div>
             </section>
+
+            <section className="profile-build-panel">
+                <h2>Equip Bloodline</h2>
+                {(() => {
+                    const starterBl = starterSavedBloodlines.find((bl) => bl.name === (character.bloodline === "Blue Blade Eyes" ? "Ashen Eyes" : character.bloodline));
+                    return starterBl ? (
+                        <div className="summary-box" style={{ marginBottom: 8 }}>
+                            <strong>Starter Bloodline:</strong> {starterBl.name} ({starterBl.specialElement} · {starterBl.rank}) — always active
+                        </div>
+                    ) : null;
+                })()}
+                <select
+                    value={character.equippedBloodlineId || ""}
+                    onChange={(e) => equipBloodline(e.target.value)}
+                >
+                    <option value="">No Custom Bloodline Equipped</option>
+                    {savedBloodlines.map((bloodline) => (
+                        <option key={bloodline.id} value={bloodline.id}>
+                            {bloodline.name} | {bloodline.specialElement ? `${bloodline.specialElement} | ` : ""}{bloodline.rank}
+                        </option>
+                    ))}
+                </select>
+                {savedBloodlines.length > 0 && (
+                    <div style={{ marginTop: 8 }}>
+                        <p className="hint">Remove bloodlines you no longer want:</p>
+                        {savedBloodlines.map((bl) => (
+                            <div key={bl.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                                <span style={{ flex: 1 }}>{bl.name} ({bl.rank})</span>
+                                <button className="danger-button" style={{ padding: "2px 8px", fontSize: "0.8rem" }} onClick={() => {
+                                    if (!confirm(`Remove "${bl.name}" from your bloodline list?`)) return;
+                                    const next = savedBloodlines.filter((b) => b.id !== bl.id);
+                                    setSavedBloodlines?.(next);
+                                    if (character.equippedBloodlineId === bl.id) equipBloodline("");
+                                    onSaveBloodlines?.(next, character);
+                                }}>Remove</button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </section>
+
+            {onDeleteCharacter && (
+                <section className="profile-build-panel">
+                    <h2>Account</h2>
+                    <button className="danger-button" onClick={onDeleteCharacter}>Delete Character</button>
+                    <p className="hint">Permanently deletes your character and save data. This cannot be undone.</p>
+                </section>
+            )}
 
             </div>{/* end overview tab */}
 
@@ -22358,87 +22388,57 @@ function Profile({
             </section>
             </div>{/* end jutsu tab */}
 
-            {/* ── Builds tab ───────────────────────────── */}
-            <div className={mobileTab !== 'builds' ? 'profile-tab-hidden' : ''}>
-            <section className="summary-box profile-title-panel">
-                <div>
-                    <p className="act-label">Custom Title</p>
-                    <p style={{ color: "#94a3b8", fontSize: "0.85rem", margin: "0.2rem 0 0.75rem" }}>
-                        {character.customTitle
-                            ? <>Current: <span style={{ color: "#facc15", fontWeight: 700 }}>{character.customTitle}</span></>
-                            : "No title set."}
-                    </p>
-                    <div className="profile-title-row">
-                        <input
-                            className="profile-title-input"
-                            value={titleInput}
-                            onChange={(e: ChangeEvent<HTMLInputElement>) => setTitleInput(e.target.value.slice(0, 15))}
-                            placeholder="Up to 15 characters"
-                            maxLength={15}
-                        />
-                        <span className="profile-title-counter">{titleInput.length}/15</span>
-                        <button
-                            className="profile-title-btn"
-                            onClick={purchaseTitle}
-                            disabled={(character.fateShards ?? 0) < TITLE_COST || !titleInput.trim()}
-                        >
-                            Set Title — 🔮 {TITLE_COST}
-                        </button>
-                        {character.customTitle && (
-                            <button className="danger-button" onClick={clearTitle}>Clear</button>
-                        )}
-                    </div>
+            {/* ── Achievements tab ─────────────────────── */}
+            <div className={mobileTab !== 'achievements' ? 'profile-tab-hidden' : ''}>
+            <section className="achievements-panel">
+                <div className="achievements-heading">
+                    <h3>Achievements</h3>
+                    <span className="achievements-count">
+                        {ACHIEVEMENTS.filter(a => a.check(character)).length}/{ACHIEVEMENTS.length} unlocked
+                    </span>
+                </div>
+                <div className="achievements-grid">
+                    {ACHIEVEMENTS.map(a => {
+                        const unlocked = a.check(character);
+                        const concealed = !!a.hidden && !unlocked;
+                        const displayName = concealed ? "???" : a.name;
+                        const displayDesc = concealed ? "Hidden achievement — keep playing to discover it." : a.desc;
+                        const displayIcon = concealed ? "❓" : a.icon;
+                        const unlockedAt = unlocked ? character.achievementUnlockedAt?.[a.id] : undefined;
+                        const unlockedAtLabel = unlockedAt ? new Date(unlockedAt).toLocaleDateString() : null;
+                        const classes = [
+                            "achievement-badge",
+                            unlocked ? "unlocked" : "locked",
+                            concealed ? "concealed" : "",
+                            a.hidden ? "is-secret" : "",
+                        ].filter(Boolean).join(" ");
+                        return (
+                            <div
+                                key={a.id}
+                                className={classes}
+                                title={`${displayName} — ${displayDesc}${unlockedAtLabel ? ` · Unlocked ${unlockedAtLabel}` : ""}`}
+                            >
+                                <div className="achievement-icon">
+                                    {!concealed && (
+                                        <img
+                                            src={`/badges/${a.id}.png`}
+                                            alt=""
+                                            onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }}
+                                        />
+                                    )}
+                                    <span className="achievement-emoji" aria-hidden>{displayIcon}</span>
+                                </div>
+                                <div className="achievement-meta">
+                                    <strong>{displayName}</strong>
+                                    <small>{displayDesc}</small>
+                                    {unlockedAtLabel && <small className="achievement-unlocked-at">Unlocked {unlockedAtLabel}</small>}
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
             </section>
-
-            <section className="profile-build-panel">
-                <h2>Equip Bloodline</h2>
-                {(() => {
-                    const starterBl = starterSavedBloodlines.find((bl) => bl.name === (character.bloodline === "Blue Blade Eyes" ? "Ashen Eyes" : character.bloodline));
-                    return starterBl ? (
-                        <div className="summary-box" style={{ marginBottom: 8 }}>
-                            <strong>Starter Bloodline:</strong> {starterBl.name} ({starterBl.specialElement} · {starterBl.rank}) — always active
-                        </div>
-                    ) : null;
-                })()}
-                <select
-                    value={character.equippedBloodlineId || ""}
-                    onChange={(e) => equipBloodline(e.target.value)}
-                >
-                    <option value="">No Custom Bloodline Equipped</option>
-                    {savedBloodlines.map((bloodline) => (
-                        <option key={bloodline.id} value={bloodline.id}>
-                            {bloodline.name} | {bloodline.specialElement ? `${bloodline.specialElement} | ` : ""}{bloodline.rank}
-                        </option>
-                    ))}
-                </select>
-                {savedBloodlines.length > 0 && (
-                    <div style={{ marginTop: 8 }}>
-                        <p className="hint">Remove bloodlines you no longer want:</p>
-                        {savedBloodlines.map((bl) => (
-                            <div key={bl.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                                <span style={{ flex: 1 }}>{bl.name} ({bl.rank})</span>
-                                <button className="danger-button" style={{ padding: "2px 8px", fontSize: "0.8rem" }} onClick={() => {
-                                    if (!confirm(`Remove "${bl.name}" from your bloodline list?`)) return;
-                                    const next = savedBloodlines.filter((b) => b.id !== bl.id);
-                                    setSavedBloodlines?.(next);
-                                    if (character.equippedBloodlineId === bl.id) equipBloodline("");
-                                    onSaveBloodlines?.(next, character);
-                                }}>Remove</button>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </section>
-
-            {onDeleteCharacter && (
-                <section className="profile-build-panel">
-                    <h2>Account</h2>
-                    <button className="danger-button" onClick={onDeleteCharacter}>Delete Character</button>
-                    <p className="hint">Permanently deletes your character and save data. This cannot be undone.</p>
-                </section>
-            )}
-            </div>{/* end builds tab */}
+            </div>{/* end achievements tab */}
         </div>
     );
 }
