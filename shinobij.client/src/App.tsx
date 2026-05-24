@@ -5843,7 +5843,7 @@ export default function App() {
     // selectors for fine-grained layout control between media-query breakpoints.
     useLayoutEffect(() => {
         const vp = (w: number) =>
-            w < 560 ? "xs" : w < 980 ? "sm" : w < 1180 ? "md" : w < 1400 ? "lg" : "xl";
+            w < 560 ? "xs" : w < 980 ? "sm" : w < 1180 ? "md" : w < 1400 ? "lg" : w < 2200 ? "xl" : "xxl";
         const apply = () =>
             document.documentElement.setAttribute("data-vp", vp(window.innerWidth));
         apply();
