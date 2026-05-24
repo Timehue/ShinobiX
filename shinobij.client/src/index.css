@@ -16879,13 +16879,19 @@ html[data-vp="xl"] .arena-fullscreen {
     box-sizing: border-box !important;
 }
 
-/* On xl, combat-layout becomes 3-column (main area + chat + enemy hud) — stretch grid wide */
+/* On xl, PvE combat-layout stays 2-column (main area + enemy hud) */
 html[data-vp="xl"] .arena-fullscreen .combat-layout {
-    grid-template-columns: minmax(0, 1fr) 140px minmax(150px, 200px) !important;
-    gap: 0 !important;
+    grid-template-columns: minmax(0, 1fr) minmax(150px, 200px) !important;
+    gap: 6px !important;
     width: 100% !important;
     max-width: 100% !important;
     padding: 0 !important;
+}
+
+/* On xl, PvP combat-layout becomes 3-column (main area + chat + enemy hud) */
+html[data-vp="xl"] .arena-fullscreen.pvp-battle-layout .combat-layout {
+    grid-template-columns: minmax(0, 1fr) 140px minmax(150px, 200px) !important;
+    gap: 0 !important;
 }
 
 /* Keep hex battlefield within bounds */
@@ -17092,12 +17098,18 @@ html[data-vp="xl"] .arena-fullscreen .combat-layout > .combat-main-area {
     grid-row: 1 !important;
 }
 
-html[data-vp="xl"] .arena-fullscreen .combat-layout > .battle-chat-col {
+html[data-vp="xl"] .arena-fullscreen .combat-layout > .combat-side-hud:last-child {
     grid-column: 2 !important;
     grid-row: 1 !important;
 }
 
-html[data-vp="xl"] .arena-fullscreen .combat-layout > .combat-side-hud:last-child {
+/* PvP 3-column: chat in col 2, enemy HUD pushed to col 3 */
+html[data-vp="xl"] .arena-fullscreen.pvp-battle-layout .combat-layout > .battle-chat-col {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
+}
+
+html[data-vp="xl"] .arena-fullscreen.pvp-battle-layout .combat-layout > .combat-side-hud:last-child {
     grid-column: 3 !important;
     grid-row: 1 !important;
 }
