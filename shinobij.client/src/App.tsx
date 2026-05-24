@@ -8500,6 +8500,8 @@ export default function App() {
                             currentWeather={currentWeather}
                             currentSector={currentSector}
                             sharedImages={sharedImages}
+                            isSpar={!pvpBattleContext?.mode || (pvpBattleContext.mode === "standard" && !pvpBattleContext.clanWarPoints && !pvpBattleContext.sectorAttack)}
+                            battleMode={pvpBattleContext?.mode ?? "standard"}
                             onWin={handlePvpWin}
                             onLoss={(opponent) => {
                                 if (pvpBattleContext?.mode !== "ranked" || !opponent) return;
@@ -24179,7 +24181,7 @@ type ArenaTournament = {
     participants: string[];
     advancedPlayers: string[];
 };
-type ArenaSpectatorFight = { id: string; title: string; mode: string; startedAt: number; fighters: string[] };
+type ArenaSpectatorFight = { id: string; title: string; mode: string; startedAt: number; fighters: string[]; battleId?: string; biome?: string };
 type PendingClanPetBattle = { clanName?: string; points: number; opponentName: string; createdAt: number };
 let sharedArenaTournamentCache: ArenaTournament | null = null;
 let sharedArenaActiveFightsCache: ArenaSpectatorFight[] = [];
@@ -26960,7 +26962,21 @@ function Arena({
                     <button onClick={() => setSpectatorFights(loadArenaActiveFights())}>Refresh Fights</button>
                     {spectatorFights.length === 0 && duelChallenges.filter((challenge) => !challenge.accepted && !challenge.declined && (Boolean(challenge.clanWarPoints) || challenge.mode === "ranked")).length === 0 ? <p className="hint">No active fights or open district challenges detected right now.</p> : (
                         <div className="jutsu-list">
-                            {spectatorFights.map((fight) => <div className="summary-box" key={fight.id}><strong>{fight.title}</strong><p>{fight.mode} | Started {new Date(fight.startedAt).toLocaleTimeString()}</p><button onClick={() => alert(`Spectating ${fight.title}. Live replay streams will use this fight feed.`)}>View Fight</button></div>)}
+                            {spectatorFights.map((fight) => <div className="summary-box" key={fight.id}><strong>{fight.title}</strong><p>{fight.mode}{fight.biome ? ` | ${fight.biome}` : ""} | Started {new Date(fight.startedAt).toLocaleTimeString()}</p><button onClick={() => {
+                                if (fight.battleId && setPvpBattleId && setPvpRole) {
+                                    // Join as spectator
+                                    fetch(`/api/pvp/spectate?id=${encodeURIComponent(fight.battleId)}`, {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json", "x-player-name": character.name, "x-player-password": localStorage.getItem("playerPassword") ?? "" },
+                                        body: JSON.stringify({ name: character.name, action: "join" }),
+                                    }).catch(() => {});
+                                    setPvpBattleId(fight.battleId);
+                                    setPvpRole("p1"); // spectator uses p1 view but can't act
+                                    setScreen("pvpBattle" as Screen);
+                                } else {
+                                    alert(`Spectating ${fight.title}. Live replay streams will use this fight feed.`);
+                                }
+                            }}>Spectate</button></div>)}
                             {duelChallenges.filter((challenge) => !challenge.accepted && !challenge.declined && (Boolean(challenge.clanWarPoints) || challenge.mode === "ranked")).map((challenge) => <div className="summary-box" key={`spectate-${challenge.id}`}><strong>{challenge.fromName} vs {challenge.toName}</strong><p>{challenge.mode ?? "standard"} challenge pending</p><button onClick={() => alert("This fight has not started yet.")}>View Challenge</button></div>)}
                         </div>
                     )}
@@ -27838,6 +27854,8 @@ function PvpBattleScreen({
     currentWeather,
     currentSector,
     sharedImages,
+    isSpar = false,
+    battleMode = "standard",
     onWin,
     onLoss,
 }: {
@@ -27851,6 +27869,8 @@ function PvpBattleScreen({
     currentWeather: WeatherType;
     currentSector: number;
     sharedImages: Record<string, string>;
+    isSpar?: boolean;
+    battleMode?: string;
     onWin?: (opponentName: string, opponent?: Character) => void;
     onLoss?: (opponent?: Character) => void;
 }) {
@@ -28039,6 +28059,89 @@ function PvpBattleScreen({
         }, 1000);
         return () => clearInterval(iv);
     }, [!!session, pvpDone, pvpPrefightCountdown, pvpIsMyTurn, pvpRoundTimerKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    /* ── Register non-spar PvP fight on spectator board ── */
+    useEffect(() => {
+        if (!session || isSpar) return;
+        const fight: ArenaSpectatorFight = {
+            id: `pvp-${battleId}`,
+            title: `${session.p1.name} vs ${session.p2.name}`,
+            mode: battleMode === "ranked" ? "Ranked" : battleMode === "clanWar1v1" ? "Clan War" : "PvP",
+            startedAt: session.createdAt ?? Date.now(),
+            fighters: [session.p1.name, session.p2.name],
+            battleId,
+            biome: currentBiome,
+        };
+        const next = [fight, ...loadArenaActiveFights().filter(f => f.id !== fight.id)];
+        saveArenaActiveFights(next);
+        return () => {
+            const remaining = loadArenaActiveFights().filter(f => f.id !== fight.id);
+            saveArenaActiveFights(remaining);
+        };
+    }, [!!session, isSpar, battleId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    /* ── Battle chat state ── */
+    type BattleChatMsg = { author: string; text: string; ts: number; role: "fighter" | "spectator" };
+    const [battleChatMessages, setBattleChatMessages] = useState<BattleChatMsg[]>([]);
+    const [battleChatInput, setBattleChatInput] = useState("");
+    const [battleChatVisible, setBattleChatVisible] = useState(true);
+    const battleChatRef = useRef<HTMLDivElement>(null);
+
+    /* Poll battle chat every 3s */
+    useEffect(() => {
+        if (!battleId) return;
+        let active = true;
+        const poll = () => {
+            fetch(`/api/pvp/chat?id=${encodeURIComponent(battleId)}`)
+                .then(r => r.json())
+                .then(msgs => { if (active) setBattleChatMessages(msgs); })
+                .catch(() => {});
+        };
+        poll();
+        const iv = setInterval(poll, 3000);
+        return () => { active = false; clearInterval(iv); };
+    }, [battleId]);
+
+    /* Auto-scroll chat */
+    useEffect(() => {
+        if (battleChatRef.current) battleChatRef.current.scrollTop = battleChatRef.current.scrollHeight;
+    }, [battleChatMessages]);
+
+    function sendBattleChat() {
+        const text = battleChatInput.trim();
+        if (!text || !battleId) return;
+        setBattleChatInput("");
+        fetch(`/api/pvp/chat?id=${encodeURIComponent(battleId)}`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "x-player-name": character.name,
+                "x-player-password": localStorage.getItem("playerPassword") ?? "",
+            },
+            body: JSON.stringify({ author: character.name, text, role: "fighter" }),
+        })
+            .then(r => r.json())
+            .then(msgs => setBattleChatMessages(msgs))
+            .catch(() => {});
+    }
+
+    /* ── Spectator list state ── */
+    type SpectatorEntry = { name: string; joinedAt: number };
+    const [spectatorList, setSpectatorList] = useState<SpectatorEntry[]>([]);
+
+    useEffect(() => {
+        if (!battleId || isSpar) return;
+        let active = true;
+        const poll = () => {
+            fetch(`/api/pvp/spectate?id=${encodeURIComponent(battleId)}`)
+                .then(r => r.json())
+                .then(specs => { if (active) setSpectatorList(specs); })
+                .catch(() => {});
+        };
+        poll();
+        const iv = setInterval(poll, 5000);
+        return () => { active = false; clearInterval(iv); };
+    }, [battleId, isSpar]);
 
     if (!session) return (
         <div className={`arena-fullscreen arena-bg-${currentBiome}${currentSector === 99 ? " arena-bg-deathsgate" : ""}`}>
@@ -28769,6 +28872,52 @@ function PvpBattleScreen({
                     statuses={opp.statuses}
                     isActive={!isMyTurn && !done}
                 />
+            </div>
+
+            {/* ── Spectator list (left dead space) ── */}
+            {!isSpar && spectatorList.length > 0 && (
+                <div className="battle-spectator-panel battle-side-left">
+                    <div className="battle-side-header">Spectators ({spectatorList.length})</div>
+                    <div className="battle-side-scroll">
+                        {spectatorList.map(s => (
+                            <div key={s.name} className="battle-spectator-name">{s.name}</div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* ── Battle chat (right dead space) ── */}
+            <div className={`battle-chat-panel battle-side-right${battleChatVisible ? "" : " battle-chat-hidden"}`}>
+                <div className="battle-side-header">
+                    <span>Chat</span>
+                    <button className="battle-chat-toggle" onClick={() => setBattleChatVisible(v => !v)} title={battleChatVisible ? "Hide chat" : "Show chat"}>
+                        {battleChatVisible ? "−" : "+"}
+                    </button>
+                </div>
+                {battleChatVisible && (
+                    <>
+                        <div className="battle-chat-messages" ref={battleChatRef}>
+                            {battleChatMessages.length === 0 ? (
+                                <p className="battle-chat-empty">No messages yet.</p>
+                            ) : battleChatMessages.map((msg, i) => (
+                                <div key={i} className={`battle-chat-msg ${msg.role === "fighter" ? "chat-fighter" : "chat-spectator"}`}>
+                                    <strong>{msg.author}</strong>
+                                    <span>{msg.text}</span>
+                                </div>
+                            ))}
+                        </div>
+                        <form className="battle-chat-input-row" onSubmit={e => { e.preventDefault(); sendBattleChat(); }}>
+                            <input
+                                type="text"
+                                value={battleChatInput}
+                                onChange={e => setBattleChatInput(e.target.value)}
+                                placeholder="Type a message…"
+                                maxLength={200}
+                            />
+                            <button type="submit" disabled={!battleChatInput.trim()}>Send</button>
+                        </form>
+                    </>
+                )}
             </div>
         </div>
     );
