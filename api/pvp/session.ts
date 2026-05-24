@@ -50,6 +50,12 @@ export type PvpSession = {
     winner: 'p1' | 'p2' | 'draw' | null;
     fleedBy?: 'p1' | 'p2';
     createdAt: number;
+    // Environment snapshot captured at create time. /api/pvp/move reads
+    // these from the session instead of trusting the request body — stops
+    // clients from changing biome / weather between rounds.
+    biome?: string;
+    weatherPositiveElement?: string;
+    weatherNegativeElement?: string;
 };
 
 const SESSION_TTL = 60 * 60;
@@ -57,6 +63,97 @@ const SESSION_TTL = 60 * 60;
 // Starting positions matching arena (p1 left side, p2 right side)
 const P1_START = 62;
 const P2_START = 33;
+
+// ─── Server-side sanitization of client-supplied combat data ─────────────────
+// Even with auth, the player can hand-edit their localStorage / save blob, so
+// the server clamps everything that matters for damage calculation to safe
+// defensive bounds before the session is sealed.
+
+function clampNumber(n: unknown, min: number, max: number, fallback: number): number {
+    const v = Number(n);
+    if (!Number.isFinite(v)) return fallback;
+    return Math.min(max, Math.max(min, v));
+}
+
+// Acceptable jutsu-tag names. Anything else is filtered out at session
+// hydration time so a poisoned save (or NPC payload) cannot inject novel
+// tag names that the move handler doesn't recognize but might still apply.
+// Keep this in sync with the tag handler switch in api/pvp/move.ts.
+const KNOWN_TAG_NAMES: ReadonlySet<string> = new Set([
+    'Heal', 'Shield', 'Barrier', 'Pierce', 'Stun', 'Poison', 'Drain', 'Absorb', 'Reflect',
+    'Lifesteal', 'Increase Damage Given', 'Decrease Damage Given', 'Increase Damage Taken',
+    'Decrease Damage Taken', 'Increase Heal', 'Debuff Prevent', 'Buff Prevent',
+    'Cleanse Prevent', 'Clear Prevent', 'Stun Prevent', 'Copy', 'Mirror', 'Push', 'Pull',
+    'Bloodline Seal', 'Seal', 'Elemental Seal', 'Wound', 'Recoil', 'Move',
+    // tag aliases that the move handler normalizes:
+    'Afterburn', 'Ignition', 'Time Compression', 'Lag', 'Time Dilation', 'Overclock',
+    'Vamp', 'Siphon',
+]);
+
+export function sanitizeJutsuList(rawList: unknown): unknown[] {
+    if (!Array.isArray(rawList)) return [];
+    return rawList
+        .filter((j): j is Record<string, unknown> => !!j && typeof j === 'object')
+        .map((j) => {
+            const out: Record<string, unknown> = { ...j };
+            // Hard caps so a tampered jutsu can't supply an instant-kill effect.
+            out.effectPower = clampNumber(out.effectPower, 0, 600, 0);
+            if (out.ap != null) out.ap = clampNumber(out.ap, 0, 200, 40);
+            if (out.cooldown != null) out.cooldown = clampNumber(out.cooldown, 0, 50, 0);
+            if (out.chakraCost != null) out.chakraCost = clampNumber(out.chakraCost, 0, 1000, 0);
+            if (out.staminaCost != null) out.staminaCost = clampNumber(out.staminaCost, 0, 1000, 0);
+            if (out.range != null) out.range = clampNumber(out.range, 0, 30, 1);
+            // Filter and cap tag list — at most 10 known tags per jutsu.
+            const rawTags = Array.isArray(out.tags) ? out.tags : [];
+            const cleanTags = (rawTags as unknown[])
+                .filter((t): t is Record<string, unknown> => !!t && typeof t === 'object')
+                .filter((t) => typeof t.name === 'string' && KNOWN_TAG_NAMES.has(String(t.name)))
+                .slice(0, 10);
+            out.tags = cleanTags;
+            return out;
+        });
+}
+
+function sanitizePvpItems(raw: unknown): unknown[] {
+    if (!Array.isArray(raw)) return [];
+    return raw.filter((i) => !!i && typeof i === 'object');
+}
+
+// Hydrate a fighter character from the authoritative save. The client payload
+// is only used as a fallback for fields the save lacks (e.g. computed
+// bloodlineMult on NPCs without a save).
+function hydrateCharacterFromSave(saveCharacter: Record<string, unknown>, clientCharacter: Record<string, unknown>): Record<string, unknown> {
+    // Start with the save (server is authority for HP, level, stats, etc.).
+    const merged: Record<string, unknown> = { ...saveCharacter };
+    // For derived fields the client computes, fall back to the client value
+    // only when the save doesn't have a usable value. All within safe bounds.
+    const pickClamped = (saveVal: unknown, clientVal: unknown, min: number, max: number, fb: number) => {
+        if (saveVal != null && Number.isFinite(Number(saveVal))) return clampNumber(saveVal, min, max, fb);
+        return clampNumber(clientVal, min, max, fb);
+    };
+    merged.bloodlineMult = pickClamped(saveCharacter.bloodlineMult, clientCharacter.bloodlineMult, 1.0, 3.0, 1.0);
+    merged.armorFactor = pickClamped(saveCharacter.armorFactor, clientCharacter.armorFactor, 0.25, 1.0, 1.0);
+    merged.armorRawDR = pickClamped(saveCharacter.armorRawDR, clientCharacter.armorRawDR, 0, 1.5, 0);
+    merged.itemDamagePct = pickClamped(saveCharacter.itemDamagePct, clientCharacter.itemDamagePct, 0, 200, 0);
+    // Sanitize loadout fields (jutsu list, pvpItems) — these ARE persisted.
+    merged.jutsu = sanitizeJutsuList(saveCharacter.jutsu ?? clientCharacter.jutsu);
+    merged.pvpItems = sanitizePvpItems(saveCharacter.pvpItems ?? clientCharacter.pvpItems);
+    return merged;
+}
+
+// For NPC opponents (no save key in KV), we still clamp the client payload
+// rather than trusting it as-is — caller already restricted this path to
+// arena PvP-vs-AI flows that don't persist.
+function hydrateNpcCharacter(clientCharacter: Record<string, unknown>): Record<string, unknown> {
+    const out: Record<string, unknown> = { ...clientCharacter };
+    out.bloodlineMult = clampNumber(out.bloodlineMult, 1.0, 3.0, 1.0);
+    out.armorFactor = clampNumber(out.armorFactor, 0.25, 1.0, 1.0);
+    out.armorRawDR = clampNumber(out.armorRawDR, 0, 1.5, 0);
+    out.itemDamagePct = clampNumber(out.itemDamagePct, 0, 200, 0);
+    out.jutsu = sanitizeJutsuList(out.jutsu);
+    out.pvpItems = sanitizePvpItems(out.pvpItems);
+    return out;
+}
 
 function makeFighter(char: Record<string, unknown>, pos: number): PvpFighter {
     const maxHp = Number((char.maxHp as number) ?? 100);
@@ -75,6 +172,17 @@ function makeFighter(char: Record<string, unknown>, pos: number): PvpFighter {
         character: char,
         pos,
     };
+}
+
+const VALID_BIOMES = new Set(['forest', 'snow', 'volcano', 'shadow', 'central']);
+const VALID_ELEMENTS = new Set(['', 'Earth', 'Wind', 'Water', 'Lightning', 'Fire', 'Yin', 'Yang']);
+function normalizeBiome(b: unknown): string {
+    if (typeof b === 'string' && VALID_BIOMES.has(b)) return b;
+    return 'central';
+}
+function normalizeElement(e: unknown): string {
+    if (typeof e === 'string' && VALID_ELEMENTS.has(e)) return e;
+    return '';
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -99,9 +207,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-            const { p1Character, p2Character } = body as {
+            const { p1Character, p2Character, biome, weatherPositiveElement, weatherNegativeElement } = body as {
                 p1Character?: Record<string, unknown>;
                 p2Character?: Record<string, unknown>;
+                biome?: string;
+                weatherPositiveElement?: string;
+                weatherNegativeElement?: string;
             };
             if (!p1Character || !p2Character) return res.status(400).json({ error: 'Missing characters' });
 
@@ -118,51 +229,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
             }
 
-            // Fetch authoritative character data from KV to prevent client-side
-            // stat inflation (e.g. sending 999999 HP in the request body).
-            // We merge KV base stats onto the client payload so computed
-            // combat fields (jutsu, pvpItems, bloodlineMult, armorFactor,
-            // armorRawDR, itemDamagePct) survive — those are built client-side
-            // from saved data and are not stored in the raw character save.
-            // Keys the client computes and we must preserve:
-            const COMBAT_FIELDS = ['jutsu', 'pvpItems', 'bloodlineMult', 'armorFactor', 'armorRawDR', 'itemDamagePct'];
-            let finalP1Character = p1Character!;
-            let finalP2Character = p2Character!;
+            // ── Hydrate both fighters from authoritative saves ───────────────
+            // The creator only really supplies the names (and an NPC payload
+            // for AI fights). We load each fighter's persisted save and pull
+            // jutsu / pvpItems / armor / bloodlineMult / itemDamagePct from
+            // there. The client's character body is only consulted as a
+            // fallback for fighters who don't have a save record (NPCs).
+            // Admins keep their override path (admin acts as anyone for tests).
+            let finalP1Character: Record<string, unknown>;
+            let finalP2Character: Record<string, unknown>;
 
-            if (!identity.admin) {
-                const myName = identity.name;
-                const isP1 = myName === p1Norm;
+            const [p1Save, p2Save] = await Promise.all([
+                p1Norm ? kv.get<Record<string, unknown>>(`save:${p1Norm}`) : Promise.resolve(null),
+                p2Norm ? kv.get<Record<string, unknown>>(`save:${p2Norm}`) : Promise.resolve(null),
+            ]);
 
-                // Load our own save — always required.
-                const mySave = await kv.get<Record<string, unknown>>(`save:${myName}`);
-                if (!mySave?.character) {
-                    return res.status(400).json({ error: 'Your character save was not found on the server.' });
-                }
-                const myKvCharacter = mySave.character as Record<string, unknown>;
-                // Merge: KV stats override client stats, but preserve client combat fields
-                const myClientChar = isP1 ? p1Character! : p2Character!;
-                const myMerged: Record<string, unknown> = { ...myClientChar };
-                for (const [k, v] of Object.entries(myKvCharacter)) {
-                    if (!COMBAT_FIELDS.includes(k)) myMerged[k] = v;
-                }
-                if (isP1) finalP1Character = myMerged;
-                else finalP2Character = myMerged;
+            if (p1Save?.character) {
+                finalP1Character = hydrateCharacterFromSave(p1Save.character as Record<string, unknown>, p1Character);
+            } else if (identity.admin) {
+                finalP1Character = hydrateNpcCharacter(p1Character);
+            } else if (identity.name === p1Norm) {
+                return res.status(400).json({ error: 'Your character save was not found on the server.' });
+            } else {
+                // Opponent has no save → NPC. Clamp client payload defensively.
+                finalP1Character = hydrateNpcCharacter(p1Character);
+            }
 
-                // Try loading opponent from KV too (real player) — graceful fallback for NPCs.
-                const oppNorm = isP1 ? p2Norm : p1Norm;
-                if (oppNorm) {
-                    const oppSave = await kv.get<Record<string, unknown>>(`save:${oppNorm}`);
-                    if (oppSave?.character) {
-                        const oppKvChar = oppSave.character as Record<string, unknown>;
-                        const oppClientChar = isP1 ? p2Character! : p1Character!;
-                        const oppMerged: Record<string, unknown> = { ...oppClientChar };
-                        for (const [k, v] of Object.entries(oppKvChar)) {
-                            if (!COMBAT_FIELDS.includes(k)) oppMerged[k] = v;
-                        }
-                        if (isP1) finalP2Character = oppMerged;
-                        else finalP1Character = oppMerged;
-                    }
-                }
+            if (p2Save?.character) {
+                finalP2Character = hydrateCharacterFromSave(p2Save.character as Record<string, unknown>, p2Character);
+            } else if (identity.admin) {
+                finalP2Character = hydrateNpcCharacter(p2Character);
+            } else if (identity.name === p2Norm) {
+                return res.status(400).json({ error: 'Your character save was not found on the server.' });
+            } else {
+                finalP2Character = hydrateNpcCharacter(p2Character);
             }
 
             const battleId = `pvp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -180,6 +280,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 status: 'active',
                 winner: null,
                 createdAt: Date.now(),
+                // Snapshot environment so /api/pvp/move can't be tricked into
+                // applying a different biome / weather mid-fight.
+                biome: normalizeBiome(biome),
+                weatherPositiveElement: normalizeElement(weatherPositiveElement),
+                weatherNegativeElement: normalizeElement(weatherNegativeElement),
             };
 
             await kv.set(`pvp:${battleId}`, session, { ex: SESSION_TTL });

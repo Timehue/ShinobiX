@@ -10,6 +10,36 @@ const GRID_H = 10;
 const MAX_ROUNDS = 25;
 const MAX_ACTIONS = 5;
 const SESSION_TTL = 60 * 60;
+// ─── Jutsu safety bounds (re-validated at move time) ──────────────────────────
+// session.ts clamps these when the fight is hydrated; we double-check at use
+// time so a saved-but-tampered jutsu is rejected even if it survived hydration.
+const MOVE_JUTSU_MAX_EFFECT_POWER = 600;
+const MOVE_JUTSU_MAX_TAGS = 10;
+const KNOWN_TAG_NAMES = new Set([
+    'Heal', 'Shield', 'Barrier', 'Pierce', 'Stun', 'Poison', 'Drain', 'Absorb', 'Reflect',
+    'Lifesteal', 'Increase Damage Given', 'Decrease Damage Given', 'Increase Damage Taken',
+    'Decrease Damage Taken', 'Increase Heal', 'Debuff Prevent', 'Buff Prevent',
+    'Cleanse Prevent', 'Clear Prevent', 'Stun Prevent', 'Copy', 'Mirror', 'Push', 'Pull',
+    'Bloodline Seal', 'Seal', 'Elemental Seal', 'Wound', 'Recoil', 'Move',
+    'Afterburn', 'Ignition', 'Time Compression', 'Lag', 'Time Dilation', 'Overclock',
+    'Vamp', 'Siphon',
+]);
+function jutsuIsSane(j) {
+    if (typeof j !== 'object' || !j)
+        return false;
+    if ((j.effectPower ?? 0) > MOVE_JUTSU_MAX_EFFECT_POWER)
+        return false;
+    const tags = Array.isArray(j.tags) ? j.tags : [];
+    if (tags.length > MOVE_JUTSU_MAX_TAGS)
+        return false;
+    for (const t of tags) {
+        if (!t || typeof t !== 'object')
+            return false;
+        if (typeof t.name !== 'string' || !KNOWN_TAG_NAMES.has(t.name))
+            return false;
+    }
+    return true;
+}
 // ─── Combat formula constants ─────────────────────────────────────────────────
 const MAX_STAT = 2500;
 const PVP_SCALE = 0.42; // Global PvP damage scale — tuned for ~10-round TTK in a mirror match
@@ -770,7 +800,10 @@ async function handler(req, res) {
         return res.status(405).end();
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-        const { battleId, role, action, tile, jutsuId, itemId, itemName, itemData, weatherPositiveElement = '', weatherNegativeElement = '', biome = 'central' } = body;
+        // NOTE: biome and weather* are intentionally NOT read from the body —
+        // they were a trust-the-client hole. We pull them from the session
+        // that was sealed at create time.
+        const { battleId, role, action, tile, jutsuId, itemId, itemName } = body;
         if (!battleId || !role || !action)
             return res.status(400).json({ error: 'Missing battleId, role, or action' });
         const key = `pvp:${battleId}`;
@@ -778,6 +811,10 @@ async function handler(req, res) {
         if (!sessionMaybe)
             return res.status(404).json({ error: 'Battle session not found' });
         const session = sessionMaybe;
+        // Environment is read from the session — clients can't override it.
+        const biome = session.biome ?? 'central';
+        const weatherPositiveElement = session.weatherPositiveElement ?? '';
+        const weatherNegativeElement = session.weatherNegativeElement ?? '';
         if (session.status === 'done')
             return res.status(200).json(session);
         if (session.activePlayer !== role)
@@ -923,6 +960,16 @@ async function handler(req, res) {
                 if (!jutsu) {
                     const missingMsg = `${me.name}: selected jutsu is not available in this PvP session. Reopen the duel or re-equip your loadout.`;
                     const updated = { ...session, log: [...session.log, missingMsg] };
+                    await _storage_js_1.kv.set(key, updated, { ex: SESSION_TTL });
+                    return finish(updated);
+                }
+                // Defense-in-depth: even though session.ts clamps the jutsu list
+                // at fight-create time, double-check the jutsu being USED falls
+                // inside known-safe bounds. Rejects anything tampered after
+                // hydration (e.g. via session-replay attacks).
+                if (!jutsuIsSane(jutsu)) {
+                    const rejectMsg = `${me.name}: ${jutsu.name} failed server validation (out-of-bounds effect or tag).`;
+                    const updated = { ...session, log: [...session.log, rejectMsg] };
                     await _storage_js_1.kv.set(key, updated, { ex: SESSION_TTL });
                     return finish(updated);
                 }
