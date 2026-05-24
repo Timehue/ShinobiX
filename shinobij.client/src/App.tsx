@@ -23154,18 +23154,37 @@ function WorldMap({
                     );
                 })}
 
-                {locations.map((location) => (
-                    <button
-                        key={location.name}
-                        className={"atlas-landmark atlas-" + location.type}
-                        style={{ left: location.x + "%", top: location.y + "%" }}
-                        onClick={() => enterLandmark(location)}
-                        title={location.name}
-                    >
-                        <strong>{location.icon}</strong>
-                        <span>{location.name}</span>
-                    </button>
-                ))}
+                {locations.map((location) => {
+                    // Hollow Gate POI consumes its admin-generated landmark image
+                    // as a button background. Other landmark types fall through to
+                    // the existing icon-only styling.
+                    const landmarkImage = location.type === "hollowGate"
+                        ? sharedImages["landmark:hollow-gate"]
+                        : undefined;
+                    return (
+                        <button
+                            key={location.name}
+                            className={"atlas-landmark atlas-" + location.type}
+                            style={{
+                                left: location.x + "%",
+                                top: location.y + "%",
+                                ...(landmarkImage
+                                    ? {
+                                        backgroundImage: `linear-gradient(180deg, rgba(8,4,18,0.20), rgba(8,4,18,0.55)), url(${landmarkImage})`,
+                                        backgroundSize: "cover",
+                                        backgroundPosition: "center",
+                                        textShadow: "0 1px 2px rgba(0,0,0,0.9)",
+                                    }
+                                    : {}),
+                            }}
+                            onClick={() => enterLandmark(location)}
+                            title={location.name}
+                        >
+                            <strong>{location.icon}</strong>
+                            <span>{location.name}</span>
+                        </button>
+                    );
+                })}
             </div>
             </div>{/* end world-map-scroll */}
 
