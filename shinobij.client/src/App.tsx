@@ -24233,19 +24233,32 @@ function savePendingClanPetBattle(battle: PendingClanPetBattle | null) {
 }
 
 function hydrateSharedGameState(data: {
-    villageStates?: (Partial<VillageState> & { village?: string })[];
+    villageStates?: Record<string, unknown> | (Partial<VillageState> & { village?: string })[];
     villageLeadershipImages?: VillageLeadershipImages;
     arenaTournament?: ArenaTournament | null;
     arenaActiveFights?: ArenaSpectatorFight[];
     pendingClanPetBattle?: PendingClanPetBattle | null;
+    clanPetBattles?: Record<string, PendingClanPetBattle>;
     weeklyBossAiId?: string | null;
 }) {
     const villageStates: Record<string, VillageState> = {};
-    (data.villageStates ?? []).forEach((state) => {
-        const village = String(state?.village ?? "").trim();
-        if (!village) return;
-        villageStates[sharedVillageStateKey(village)] = normalizeVillageState(village, state);
-    });
+    const rawVS = data.villageStates;
+    if (Array.isArray(rawVS)) {
+        // Legacy array format
+        rawVS.forEach((state) => {
+            const village = String(state?.village ?? "").trim();
+            if (!village) return;
+            villageStates[sharedVillageStateKey(village)] = normalizeVillageState(village, state);
+        });
+    } else if (rawVS && typeof rawVS === "object") {
+        // Server returns object keyed by village name
+        for (const [key, state] of Object.entries(rawVS)) {
+            if (!state || typeof state !== "object") continue;
+            const village = key.trim();
+            if (!village) continue;
+            villageStates[sharedVillageStateKey(village)] = normalizeVillageState(village, state as Partial<VillageState>);
+        }
+    }
     sharedVillageStateCache = villageStates;
     sharedVillageLeadershipImagesCache = normalizeVillageLeadershipImages(data.villageLeadershipImages);
     sharedArenaTournamentCache = data.arenaTournament ?? null;
@@ -24263,8 +24276,16 @@ function hydrateSharedGameState(data: {
         serverFights.push(f);
     }
     sharedArenaActiveFightsCache = serverFights.slice(0, 20);
-    sharedPendingClanPetBattleCache = data.pendingClanPetBattle && Date.now() - data.pendingClanPetBattle.createdAt <= 24 * 60 * 60 * 1000
-        ? data.pendingClanPetBattle
+    // Server returns clanPetBattles as object keyed by clan name; also support legacy singular field
+    let pendingBattle: PendingClanPetBattle | null = null;
+    if (data.pendingClanPetBattle) {
+        pendingBattle = data.pendingClanPetBattle;
+    } else if (data.clanPetBattles && typeof data.clanPetBattles === "object") {
+        const entries = Object.values(data.clanPetBattles) as PendingClanPetBattle[];
+        pendingBattle = entries.find(b => b && Date.now() - b.createdAt <= 24 * 60 * 60 * 1000) ?? null;
+    }
+    sharedPendingClanPetBattleCache = pendingBattle && Date.now() - pendingBattle.createdAt <= 24 * 60 * 60 * 1000
+        ? pendingBattle
         : null;
     sharedWeeklyBossAiIdCache = data.weeklyBossAiId ?? "";
 }
