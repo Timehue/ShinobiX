@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type ChangeEvent } from "react";
+import { createPortal } from "react-dom";
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect, react-hooks/purity */
 import type * as React from "react";
 import "./index.css";
@@ -7873,6 +7874,9 @@ export default function App() {
                         activeJutsuTraining={activeJutsuTraining}
                     />
                 )}
+
+            {/* Portal target for battle HUD — rendered outside center-game to escape stacking context */}
+            <div id="battle-hud-portal" />
 
             {screen !== "start" && character && (screen === "arena" || screen === "storyBoss") && <SectorBanner />}
 
@@ -27042,7 +27046,31 @@ function Arena({
                     </div>
                 </div>
             )}
+            {/* Portal player HUD to left sidebar on xl viewport */}
+            {(() => {
+                const portalTarget = document.getElementById("battle-hud-portal");
+                return portalTarget ? createPortal(
+                    <div className="battle-hud-sidebar">
+                        <CombatSideHud
+                            name={character.name}
+                            avatar={character.avatarImage || "🥷"}
+                            hp={playerHp}
+                            maxHp={character.maxHp}
+                            chakra={character.chakra}
+                            maxChakra={character.maxChakra}
+                            stamina={character.stamina}
+                            maxStamina={character.maxStamina}
+                            shield={playerShield}
+                            village={character.village}
+                            turn={turn}
+                            statuses={playerStatuses}
+                        />
+                    </div>,
+                    portalTarget
+                ) : null;
+            })()}
             <div className="combat-layout">
+                {/* In-grid player HUD — visible on non-xl, hidden on xl via CSS */}
                 <CombatSideHud
                     name={character.name}
                     avatar={character.avatarImage || "🥷"}
@@ -28274,7 +28302,29 @@ function PvpBattleScreen({
                     </div>
                 </div>
             )}
+            {/* Portal player HUD to left sidebar on xl viewport */}
+            {(() => {
+                const portalTarget = document.getElementById("battle-hud-portal");
+                return portalTarget ? createPortal(
+                    <div className="battle-hud-sidebar">
+                        <CombatSideHud
+                            name={`${me.name} (You)`}
+                            avatar={myAvatar || "🥷"}
+                            hp={me.hp} maxHp={me.maxHp}
+                            chakra={me.chakra} maxChakra={me.maxChakra}
+                            stamina={me.stamina} maxStamina={me.maxStamina}
+                            shield={me.shield}
+                            village={(me.character?.village as string) || ""}
+                            turn={session.round}
+                            statuses={me.statuses}
+                            isActive={isMyTurn && !done}
+                        />
+                    </div>,
+                    portalTarget
+                ) : null;
+            })()}
             <div className="combat-layout">
+                {/* In-grid player HUD — visible on non-xl, hidden on xl via CSS */}
                 <CombatSideHud
                     name={`${me.name} (You)`}
                     avatar={myAvatar || "🥷"}
