@@ -80,6 +80,8 @@ export type Screen =
     | "tavern"
     | "hallOfLegends"
     | "shinobiCouncil"
+    | "userHub"
+    | "userView"
     | "pvpBattle";
 
 export type Rank = "B Rank" | "A Rank" | "S Rank";
@@ -5956,6 +5958,7 @@ export default function App() {
     const [worldMapKey, setWorldMapKey] = useState(0);
     const [character, setCharacter] = useState<Character | null>(null);
     const [currentAccountName, setCurrentAccountName] = useState("");
+    const [viewingUserName, setViewingUserName] = useState<string | null>(null);
 
     // ── Tab visibility: pause all polling when the browser tab is hidden ──
     const [tabVisible, setTabVisible] = useState(() => typeof document !== "undefined" ? document.visibilityState === "visible" : true);
@@ -8548,6 +8551,26 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "tavern" && character && <VillageTavern character={character} setScreen={setScreen} sharedImages={sharedImages} />}
                 {!activeTriggeredEvent && screen === "hallOfLegends" && character && <HallOfLegends character={character} setScreen={setScreen} playerRoster={playerRoster} />}
                 {!activeTriggeredEvent && screen === "shinobiCouncil" && character && <ShinobiCouncilHall character={character} setScreen={setScreen} playerRoster={playerRoster} />}
+                {!activeTriggeredEvent && screen === "userHub" && character && (
+                    <UserHub
+                        currentName={character.name}
+                        allServerPlayers={allServerPlayers}
+                        playerRoster={playerRoster}
+                        sharedImages={sharedImages}
+                        onSelect={(name) => { setViewingUserName(name); setScreen("userView"); }}
+                        onBack={() => setScreen("centralHub")}
+                    />
+                )}
+                {!activeTriggeredEvent && screen === "userView" && character && viewingUserName && (
+                    <UserView
+                        viewingName={viewingUserName}
+                        allServerPlayers={allServerPlayers}
+                        playerRoster={playerRoster}
+                        savedBloodlines={savedBloodlines}
+                        sharedImages={sharedImages}
+                        onBack={() => setScreen("userHub")}
+                    />
+                )}
                 {!activeTriggeredEvent && screen === "profile" && character && (
                     <Profile
                         character={character}
@@ -9115,7 +9138,7 @@ function RightMenu({
                     <div className="right-menu-buttons">
                         <button onClick={() => navigate("village")} disabled={!atHome} title={atHome ? undefined : `Travel to ${characterVillage} to enter`}>Village</button>
                         <button onClick={() => navigate("worldMap")}>Travel</button>
-                        <button onClick={() => navigate("storyHall")}>Story</button>
+                        <button onClick={() => navigate("userHub")}>Users</button>
                         <button onClick={() => navigate("profile")}>Character</button>
                         <button onClick={() => navigate("logbook")}>Logbook</button>
                         <button onClick={() => navigate("inventory")}>Inventory</button>
@@ -9245,7 +9268,7 @@ function MobileNav({
                     <div className="mobile-menu-grid">
                         <button className="mobile-menu-btn" onClick={() => go("village")} disabled={!atHome}>🏯 Village</button>
                         <button className="mobile-menu-btn" onClick={() => go("worldMap")}>🗺️ Travel</button>
-                        <button className="mobile-menu-btn" onClick={() => go("storyHall")}>📖 Story</button>
+                        <button className="mobile-menu-btn" onClick={() => go("userHub")}>👥 Users</button>
                         <button className="mobile-menu-btn" onClick={() => go("profile")}>👤 Character</button>
                         <button className="mobile-menu-btn" onClick={() => go("logbook")}>📜 Logbook</button>
                         <button className="mobile-menu-btn" onClick={() => go("inventory")}>🎒 Inventory</button>
@@ -22491,6 +22514,325 @@ function Profile({
         </div>
     );
 }
+function UserHub({
+    currentName,
+    allServerPlayers,
+    playerRoster,
+    sharedImages,
+    onSelect,
+    onBack,
+}: {
+    currentName: string;
+    allServerPlayers: ServerPlayerSummary[];
+    playerRoster: PlayerRecord[];
+    sharedImages: Record<string, string>;
+    onSelect: (name: string) => void;
+    onBack: () => void;
+}) {
+    const [search, setSearch] = useState("");
+
+    // Merge roster + server list so we have avatars for as many players as possible.
+    const merged = (() => {
+        const byName = new Map<string, { name: string; level: number; village: string; online: boolean; lastSeenAt: number; avatar?: string; rank?: string; title?: string }>();
+        for (const p of playerRoster) {
+            byName.set(p.name.toLowerCase(), {
+                name: p.name,
+                level: p.level ?? p.character.level,
+                village: p.village || p.character.village,
+                online: false,
+                lastSeenAt: p.lastSeenAt ?? 0,
+                avatar: p.character.avatarImage,
+                rank: p.character.rankTitle,
+                title: p.character.customTitle,
+            });
+        }
+        for (const s of allServerPlayers) {
+            const key = s.name.toLowerCase();
+            const prior = byName.get(key);
+            byName.set(key, {
+                name: s.name,
+                level: s.level ?? prior?.level ?? 1,
+                village: s.village || prior?.village || "",
+                online: s.online,
+                lastSeenAt: s.lastSeenAt ?? prior?.lastSeenAt ?? 0,
+                avatar: s.character?.avatarImage ?? prior?.avatar,
+                rank: s.character?.rankTitle ?? prior?.rank,
+                title: s.character?.customTitle ?? prior?.title,
+            });
+        }
+        return [...byName.values()].filter(p => p.name.toLowerCase() !== currentName.toLowerCase());
+    })();
+
+    // Online first, then by most-recently-seen.
+    merged.sort((a, b) => {
+        if (a.online !== b.online) return a.online ? -1 : 1;
+        return (b.lastSeenAt ?? 0) - (a.lastSeenAt ?? 0);
+    });
+
+    const q = search.trim().toLowerCase();
+    const filtered = q ? merged.filter(p => p.name.toLowerCase().includes(q)) : merged;
+
+    function timeAgo(ts: number) {
+        if (!ts) return "unknown";
+        const diffSec = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+        if (diffSec < 60)     return `${diffSec}s ago`;
+        const diffMin = Math.floor(diffSec / 60);
+        if (diffMin < 60)     return `${diffMin}m ago`;
+        const diffHr  = Math.floor(diffMin / 60);
+        if (diffHr  < 24)     return `${diffHr}h ago`;
+        const diffDay = Math.floor(diffHr / 24);
+        return `${diffDay}d ago`;
+    }
+
+    return (
+        <div className="card user-hub-screen">
+            <div className="user-hub-header">
+                <button className="back-btn" onClick={onBack}>Back</button>
+                <div>
+                    <h2>Users</h2>
+                    <p className="hint">All shinobi in the world. Online players appear first; click any name to view their profile.</p>
+                </div>
+            </div>
+
+            <input
+                type="text"
+                className="user-hub-search"
+                placeholder="Search by name…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+            />
+
+            {filtered.length === 0 ? (
+                <p className="hint">No users found.</p>
+            ) : (
+                <div className="user-hub-list">
+                    {filtered.map(p => {
+                        const sharedAvatar = sharedImages['avatar:' + p.name.toLowerCase()];
+                        const avatar = sharedAvatar || p.avatar || "";
+                        return (
+                            <button
+                                key={p.name}
+                                type="button"
+                                className={`user-hub-row${p.online ? " online" : ""}`}
+                                onClick={() => onSelect(p.name)}
+                            >
+                                <div className="user-hub-avatar">
+                                    {avatar
+                                        ? <img src={avatar} alt={p.name} />
+                                        : <span>{p.name.slice(0, 2).toUpperCase()}</span>}
+                                </div>
+                                <div className="user-hub-meta">
+                                    <div className="user-hub-name">
+                                        <strong>{p.name}</strong>
+                                        {p.title && <span className="user-hub-title">{p.title}</span>}
+                                    </div>
+                                    <div className="user-hub-sub">
+                                        Lv {p.level} · {p.rank || "Shinobi"} · {p.village || "Unknown Village"}
+                                    </div>
+                                </div>
+                                <div className="user-hub-status">
+                                    <span className={`user-hub-dot ${p.online ? "online" : "offline"}`} />
+                                    <small>{p.online ? "Online" : timeAgo(p.lastSeenAt)}</small>
+                                </div>
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
+    );
+}
+
+function UserView({
+    viewingName,
+    allServerPlayers,
+    playerRoster,
+    savedBloodlines,
+    sharedImages,
+    onBack,
+}: {
+    viewingName: string;
+    allServerPlayers: ServerPlayerSummary[];
+    playerRoster: PlayerRecord[];
+    savedBloodlines: SavedBloodline[];
+    sharedImages: Record<string, string>;
+    onBack: () => void;
+}) {
+    const lower = viewingName.toLowerCase();
+    const rosterEntry = playerRoster.find(p => p.name.toLowerCase() === lower);
+    const serverEntry = allServerPlayers.find(p => p.name.toLowerCase() === lower);
+    const viewedCharacter: Character | null = rosterEntry?.character ?? serverEntry?.character ?? null;
+
+    const [tab, setTab] = useState<'overview' | 'achievements'>('overview');
+    const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);
+
+    useEffect(() => {
+        if (!selectedAchievement) return;
+        const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setSelectedAchievement(null); };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [selectedAchievement]);
+
+    if (!viewedCharacter) {
+        return (
+            <div className="card profile-page-card">
+                <div className="profile-page-header"><div>
+                    <h2>{viewingName}</h2>
+                    <p>Profile not yet loaded. The player's full data has not been fetched yet.</p>
+                </div></div>
+                <button className="back-btn" onClick={onBack}>Back to Users</button>
+            </div>
+        );
+    }
+
+    const equippedBloodline = savedBloodlines.find(b => b.id === viewedCharacter.equippedBloodlineId);
+    const ownedElements = getCharacterElements(viewedCharacter);
+    const sharedAvatar = sharedImages['avatar:' + viewingName.toLowerCase()];
+    const avatar = sharedAvatar || viewedCharacter.avatarImage || "";
+
+    return (
+        <div className="card profile-page-card">
+            <nav className="profile-mobile-tabs">
+                {([
+                    { id: 'overview',     label: '👤 Profile' },
+                    { id: 'achievements', label: '🏆 Achievements' },
+                ] as const).map(({ id, label }) => (
+                    <button
+                        key={id}
+                        className={`pmtab${tab === id ? ' pmtab-active' : ''}`}
+                        onClick={() => setTab(id)}
+                    >{label}</button>
+                ))}
+            </nav>
+
+            {/* ── Overview ─────────────────────────────── */}
+            <div className={tab !== 'overview' ? 'profile-tab-hidden' : ''}>
+                <div className="profile-page-header">
+                    <div>
+                        <h2>{viewedCharacter.name}</h2>
+                        <p>Viewing another shinobi's profile.</p>
+                    </div>
+                    <button className="back-btn" onClick={onBack}>Back to Users</button>
+                </div>
+
+                <section className="profile-overview-panel">
+                    <div className="profile-avatar-upload-box">
+                        <div className="profile-big-avatar">
+                            {avatar
+                                ? <img src={avatar} alt={viewedCharacter.name} />
+                                : <span>{viewedCharacter.name.slice(0, 2).toUpperCase()}</span>}
+                        </div>
+                    </div>
+
+                    <div className="profile-info-grid">
+                        <div>
+                            <h3>General</h3>
+                            <p><strong>Name:</strong> {viewedCharacter.name}</p>
+                            <p><strong>Village:</strong> {viewedCharacter.village}</p>
+                            <p><strong>Rank:</strong> {viewedCharacter.rankTitle}</p>
+                            {viewedCharacter.customTitle && <p><strong>Title:</strong> <span style={{ color: "#facc15" }}>{viewedCharacter.customTitle}</span></p>}
+                            <p><strong>Level:</strong> {viewedCharacter.level}/100</p>
+                            <p><strong>Bloodline:</strong> {equippedBloodline?.name || viewedCharacter.bloodline}</p>
+                            <p><strong>Elements:</strong> {ownedElements.length ? ownedElements.join(" / ") : "Not awakened"}</p>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            {/* ── Achievements ─────────────────────────── */}
+            <div className={tab !== 'achievements' ? 'profile-tab-hidden' : ''}>
+                <section className="achievements-panel">
+                    <div className="achievements-heading">
+                        <h3>Achievements</h3>
+                        <span className="achievements-count">
+                            {ACHIEVEMENTS.filter(a => a.check(viewedCharacter)).length}/{ACHIEVEMENTS.length} unlocked
+                        </span>
+                    </div>
+                    {(() => {
+                        const unlocked = ACHIEVEMENTS.filter(a => a.check(viewedCharacter));
+                        if (unlocked.length === 0) {
+                            return <p className="hint">This shinobi hasn't unlocked any achievements yet.</p>;
+                        }
+                        return (
+                            <div className="achievements-grid">
+                                {unlocked.map(a => {
+                                    const unlockedAt = viewedCharacter.achievementUnlockedAt?.[a.id];
+                                    const unlockedAtLabel = unlockedAt ? new Date(unlockedAt).toLocaleDateString() : null;
+                                    const classes = [
+                                        "achievement-badge",
+                                        "unlocked",
+                                        a.hidden ? "is-secret" : "",
+                                    ].filter(Boolean).join(" ");
+                                    return (
+                                        <button
+                                            key={a.id}
+                                            type="button"
+                                            className={classes}
+                                            onClick={() => setSelectedAchievement(a)}
+                                            title={`${a.name} — click for details`}
+                                        >
+                                            <div className="achievement-icon">
+                                                <img
+                                                    src={`/badges/${a.id}.png`}
+                                                    alt=""
+                                                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }}
+                                                />
+                                                <span className="achievement-emoji" aria-hidden>{a.icon}</span>
+                                            </div>
+                                            <div className="achievement-meta">
+                                                <strong>{a.name}</strong>
+                                                <small>{a.desc}</small>
+                                                {unlockedAtLabel && <small className="achievement-unlocked-at">Unlocked {unlockedAtLabel}</small>}
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        );
+                    })()}
+                </section>
+            </div>
+
+            {selectedAchievement && (
+                <div className="achievement-detail-overlay" onClick={() => setSelectedAchievement(null)}>
+                    <div
+                        className={`achievement-detail-card ${selectedAchievement.hidden ? "is-secret" : ""}`}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <button
+                            className="achievement-detail-close"
+                            type="button"
+                            onClick={() => setSelectedAchievement(null)}
+                            aria-label="Close"
+                        >×</button>
+                        <div className="achievement-detail-badge">
+                            <img
+                                src={`/badges/${selectedAchievement.id}.png`}
+                                alt=""
+                                onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }}
+                            />
+                            <span className="achievement-detail-emoji" aria-hidden>{selectedAchievement.icon}</span>
+                        </div>
+                        <p className="achievement-detail-category">
+                            {selectedAchievement.hidden ? "Secret · " : ""}{selectedAchievement.category}
+                        </p>
+                        <h2 className="achievement-detail-name">{selectedAchievement.name}</h2>
+                        <p className="achievement-detail-desc">{selectedAchievement.desc}</p>
+                        {(() => {
+                            const at = viewedCharacter.achievementUnlockedAt?.[selectedAchievement.id];
+                            return at ? (
+                                <p className="achievement-detail-date">
+                                    Unlocked {new Date(at).toLocaleString()}
+                                </p>
+                            ) : null;
+                        })()}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
 function BloodlineMaker({ initialRank, initialSpecialElement, character, updateCharacter, savedBloodlines, setSavedBloodlines, lockedRank, editingBloodline, onSaveBloodlines, onClose }: { initialRank: Rank; initialSpecialElement?: string; character: Character; updateCharacter: (character: Character) => void; savedBloodlines: SavedBloodline[]; setSavedBloodlines: (bloodlines: SavedBloodline[]) => void; lockedRank?: boolean; editingBloodline?: SavedBloodline | null; onSaveBloodlines?: (bloodlines: SavedBloodline[], character?: Character) => void; onClose?: () => void }) {
     const [rank, setRank] = useState<Rank>(editingBloodline?.rank ?? initialRank);
     const [bloodlineName, setBloodlineName] = useState(editingBloodline?.name ?? "Custom Bloodline");
