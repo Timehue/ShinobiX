@@ -16899,6 +16899,14 @@ html[data-vp="xl"] .arena-fullscreen .hex-battlefield {
     padding: 6px 4px !important;
 }
 
+/* ── Biome background colors — fill dead space on sides ── */
+.arena-bg-snow      { background-color: #1e3a5f !important; }
+.arena-bg-volcano   { background-color: #4a0e0e !important; }
+.arena-bg-forest    { background-color: #0f3d1e !important; }
+.arena-bg-shadow    { background-color: #2d1654 !important; }
+.arena-bg-central   { background-color: #1e293b !important; }
+.arena-bg-deathsgate { background-color: #0a1f0f !important; }
+
 html[data-vp="xl"] .arena-fullscreen .combat-layout > .combat-main-area {
     grid-column: 1 !important;
     grid-row: 1 !important;
