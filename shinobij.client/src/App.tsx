@@ -28060,13 +28060,13 @@ function PvpBattleScreen({
         return () => clearInterval(iv);
     }, [!!session, pvpDone, pvpPrefightCountdown, pvpIsMyTurn, pvpRoundTimerKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    /* ── Register non-spar PvP fight on spectator board ── */
+    /* ── Register ALL PvP fights on spectator board ── */
     useEffect(() => {
-        if (!session || isSpar) return;
+        if (!session) return;
         const fight: ArenaSpectatorFight = {
             id: `pvp-${battleId}`,
             title: `${session.p1.name} vs ${session.p2.name}`,
-            mode: battleMode === "ranked" ? "Ranked" : battleMode === "clanWar1v1" ? "Clan War" : "PvP",
+            mode: battleMode === "ranked" ? "Ranked" : battleMode === "clanWar1v1" ? "Clan War" : isSpar ? "Spar" : "PvP",
             startedAt: Date.now(),
             fighters: [session.p1.name, session.p2.name],
             battleId,
@@ -28078,7 +28078,7 @@ function PvpBattleScreen({
             const remaining = loadArenaActiveFights().filter(f => f.id !== fight.id);
             saveArenaActiveFights(remaining);
         };
-    }, [!!session, isSpar, battleId]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [!!session, battleId]); // eslint-disable-line react-hooks/exhaustive-deps
 
     /* ── Battle chat state ── */
     type BattleChatMsg = { author: string; text: string; ts: number; role: "fighter" | "spectator" };
@@ -28136,18 +28136,18 @@ function PvpBattleScreen({
     const [spectatorList, setSpectatorList] = useState<SpectatorEntry[]>([]);
 
     useEffect(() => {
-        if (!battleId || isSpar) return;
+        if (!battleId) return;
         let active = true;
         const poll = () => {
             fetch(`/api/pvp/spectate?id=${encodeURIComponent(battleId)}`)
                 .then(r => r.json())
-                .then(specs => { if (active) setSpectatorList(specs); })
+                .then(specs => { if (active && Array.isArray(specs)) setSpectatorList(specs); })
                 .catch(() => {});
         };
         poll();
         const iv = setInterval(poll, 5000);
         return () => { active = false; clearInterval(iv); };
-    }, [battleId, isSpar]);
+    }, [battleId]);
 
     if (!session) return (
         <div className={`arena-fullscreen arena-bg-${currentBiome}${currentSector === 99 ? " arena-bg-deathsgate" : ""}`}>
@@ -28942,7 +28942,7 @@ function PvpBattleScreen({
             </div>
 
             {/* ── Spectator list (left dead space) ── */}
-            {!isSpar && spectatorList.length > 0 && (
+            {spectatorList.length > 0 && (
                 <div className="battle-spectator-panel battle-side-left">
                     <div className="battle-side-header">Spectators ({spectatorList.length})</div>
                     <div className="battle-side-scroll">

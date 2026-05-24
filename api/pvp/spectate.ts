@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
-import { authedPlayerOrAdmin } from '../_auth.js';
+
 
 type Spectator = {
     name: string;
@@ -40,12 +40,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 action?: 'join' | 'leave';
             };
             if (!name || !action) return res.status(400).json({ error: 'Missing name or action.' });
-
-            const identity = await authedPlayerOrAdmin(req, name);
-            if (!identity) return res.status(401).json({ error: 'Authentication required.' });
-            if (!identity.admin && identity.name !== name.toLowerCase().trim()) {
-                return res.status(403).json({ error: 'Cannot spectate as another player.' });
-            }
 
             const existing = await kv.get<Spectator[]>(key) ?? [];
             // Remove stale + the named spectator (for both join and leave)
