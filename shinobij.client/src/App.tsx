@@ -28,7 +28,12 @@ import sectorBanner from "./assets/sectorbanner.png";
 import backgroundImage from "./assets/background-image.png";
 import { CombatSideHud } from "./components/CombatSideHud";
 import { Inventory } from "./screens/Inventory";
-type Screen =
+import { Bank } from "./screens/Bank";
+import { StartScreen } from "./screens/StartScreen";
+import { CharacterCreator } from "./screens/CharacterCreator";
+import { Hospital } from "./screens/Hospital";
+import { VillageTavern } from "./screens/VillageTavern";
+export type Screen =
     | "start"
     | "adminLogin"
     | "adminPanel"
@@ -535,7 +540,7 @@ export type Character = {
 type RewardCurrencyKey = "fateShards" | "honorSeals" | "boneCharms" | "auraStones" | "auraDust" | "mythicSeals";
 type CurrencyRewards = Partial<Record<RewardCurrencyKey, number>>;
 
-type PlayerRecord = {
+export type PlayerRecord = {
     name: string;
     level: number;
     village: string;
@@ -1216,7 +1221,7 @@ const HP_CAP = 10000;
 const CHAKRA_CAP = 5000;
 const STAMINA_CAP = 5000;
 
-const villages = ["Stormveil Village", "Ashen Leaf Village", "Frostfang Village", "Moonshadow Village"];
+export const villages = ["Stormveil Village", "Ashen Leaf Village", "Frostfang Village", "Moonshadow Village"];
 function villagePageImage(villageName: string): string {
     if (villageName === "Stormveil Village") return stormveilVillageImg;
     if (villageName === "Ashen Leaf Village") return houseImg;
@@ -1335,7 +1340,7 @@ const adminIconOptions: { value: string; label: string }[] = [
     { value: "STAR", label: "STAR — Star / Legendary Site" },
 ];
 const worldSectorOptions = [...Array.from({ length: 60 }, (_, index) => index + 1), 99];
-const starterBloodlines = ["Ashen Eyes", "Inferno Cataclysm", "Shadow Lotus", "Iron Fang"];
+export const starterBloodlines = ["Ashen Eyes", "Inferno Cataclysm", "Shadow Lotus", "Iron Fang"];
 const petTraits: PetTrait[] = ["Loyal", "Aggressive", "Guardian", "Swift", "Lucky", "Battleborn"];
 const petTraitDescriptions: Record<PetTrait, string> = {
     Loyal: "Pet trains 50% faster — gains more stats from every training session",
@@ -1873,7 +1878,7 @@ function scaleEventPetOpponent(pet: Pet, battle?: EventEncounterBattle): Pet {
         jutsus: pet.jutsus.map((jutsu) => ({ ...jutsu, power: Math.round(jutsu.power * mult), currentCooldown: 0 })),
     });
 }
-const starterBloodlineOffense: Record<string, JutsuType> = {
+export const starterBloodlineOffense: Record<string, JutsuType> = {
     "Ashen Eyes": "Genjutsu",
     "Inferno Cataclysm": "Ninjutsu",
     "Shadow Lotus": "Bukijutsu",
@@ -4662,7 +4667,7 @@ function getActiveAuraSphereBonuses(character: Pick<Character, "auraSphereLevel"
     return getAuraSphereBonuses(character);
 }
 
-function discountCost(cost: number, percent: number) {
+export function discountCost(cost: number, percent: number) {
     return Math.max(1, Math.floor(cost * Math.max(0, 1 - percent / 100)));
 }
 
@@ -4685,9 +4690,9 @@ function getJutsuTrainingSpeedBonus(character: Character) { return villageUpgrad
 function getShopDiscountPercent(character: Character) { return villageUpgradeBonus(character, "shop") + (character.elderFocus === "trade" ? 5 : 0); }
 function getTownDefenseGuardBonus(character: Character) { return villageUpgradeBonus(character, "townDefense"); }
 function getPetXpBonus(character: Character) { return villageUpgradeBonus(character, "petYard"); }
-function getBankInterestPercent(character: Character) { return villageUpgradeBonus(character, "bank"); }
+export function getBankInterestPercent(character: Character) { return villageUpgradeBonus(character, "bank"); }
 function getMissionRewardBonus(character: Character) { return villageUpgradeBonus(character, "missionHall"); }
-function getHospitalDiscountPercent(character: Character) { return villageUpgradeBonus(character, "hospital"); }
+export function getHospitalDiscountPercent(character: Character) { return villageUpgradeBonus(character, "hospital"); }
 
 function normalizeJutsu(jutsu: Partial<Jutsu> & Pick<Jutsu, "id" | "name" | "type">): Jutsu {
     const tags = normalizeJutsuTags(jutsu.tags);
@@ -5165,7 +5170,7 @@ function getCurrentStory(character: Character) {
     return storyLine[character.storyProgress] ?? null;
 }
 
-function createCharacter(name: string, village: string, specialty: JutsuType, bloodline: string): Character {
+export function createCharacter(name: string, village: string, specialty: JutsuType, bloodline: string): Character {
     return {
         name,
         village,
@@ -9087,38 +9092,6 @@ function MobileNav({
     );
 }
 
-function StartScreen({ onCreate, onLogin, onAdmin }: { onCreate: (character: Character, password: string) => void; onLogin: (name: string, password: string) => void; onAdmin: () => void }) {
-    const [loginName, setLoginName] = useState("");
-    const [loginPassword, setLoginPassword] = useState("");
-    const [loginStatus, setLoginStatus] = useState("");
-
-    async function submitLogin() {
-        if (loginName.trim().length < 2) return alert("Enter your player name.");
-        if (!loginPassword) return alert("Enter your password.");
-        setLoginStatus("Loading…");
-        try {
-            await onLogin(loginName.trim(), loginPassword);
-        } finally {
-            setLoginStatus("");
-        }
-    }
-
-    return (
-        <div className="start-grid">
-            <CharacterCreator onCreate={onCreate} />
-            <div className="card creator-card">
-                <h2>Player Login</h2>
-                <label>Name</label>
-                <input value={loginName} onChange={(e) => setLoginName(e.target.value)} placeholder="Enter your shinobi name" />
-                <label>Password</label>
-                <input type="password" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submitLogin()} placeholder="Enter your password" />
-                <button onClick={submitLogin} disabled={!!loginStatus}>{loginStatus || "Log Back In"}</button>
-                <p className="hint" style={{ marginTop: 8 }}>Logging in automatically restores your full save including images.</p>
-            </div>
-
-        </div>
-    );
-}
 function VillageLoreScreen({
     character,
     onBack,
@@ -9483,38 +9456,6 @@ function DungeonPetBattle({ character, updateCharacter, editablePets, onWin, onL
             onExit={result === "Victory" ? onWin : onLeave}
             sharedImages={sharedImages}
         />
-    );
-}
-
-function CharacterCreator({ onCreate }: { onCreate: (character: Character, password: string) => void }) {
-    const [name, setName] = useState("");
-    const [password, setPassword] = useState("");
-    const [confirmPassword, setConfirmPassword] = useState("");
-    const [village, setVillage] = useState(villages[0]);
-    const [bloodline, setBloodline] = useState(starterBloodlines[0]);
-
-    function submitCharacter() {
-        if (name.trim().length < 2) return alert("Enter a ninja name first.");
-        if (password.length < 4) return alert("Create a password with at least 4 characters.");
-        if (password !== confirmPassword) return alert("Passwords do not match.");
-        onCreate(createCharacter(name.trim(), village, starterBloodlineOffense[bloodline] ?? "Ninjutsu", bloodline), password);
-    }
-
-    return (
-        <div className="card creator-card">
-            <h2>Character Creator</h2>
-            <label>Name</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Enter your shinobi name" />
-            <label>Password</label>
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Create a login password" />
-            <label>Confirm Password</label>
-            <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Retype password" />
-            <label>Village</label>
-            <select value={village} onChange={(e) => setVillage(e.target.value)}>{villages.map((v) => <option key={v}>{v}</option>)}</select>
-            <label>Starter Bloodline</label>
-            <select value={bloodline} onChange={(e) => setBloodline(e.target.value)}>{starterBloodlines.map((b) => <option key={b} value={b}>{b} ({starterBloodlineOffense[b]})</option>)}</select>
-            <button onClick={submitCharacter}>Begin Your Shinobi Path</button>
-        </div>
     );
 }
 
@@ -17147,57 +17088,6 @@ function TownHall({ character, updateCharacter, creatorItems, allServerPlayers, 
     </div>;
 }
 
-function Bank({ character, updateCharacter }: { character: Character; updateCharacter: (character: Character) => void }) {
-    const [amount, setAmount] = useState(0);
-    const interestPercent = getBankInterestPercent(character);
-    const lastClaim = character.lastBankInterestAt ?? 0;
-    const nextClaimAt = lastClaim + 24 * 60 * 60 * 1000;
-    const canClaimInterest = character.bankRyo > 0 && interestPercent > 0 && Date.now() >= nextClaimAt;
-    const projectedInterest = Math.max(0, Math.floor(character.bankRyo * (interestPercent / 100)));
-
-    function deposit() {
-        const value = Math.max(0, Math.floor(amount));
-        if (value > character.ryo) return alert("Not enough ryo.");
-        updateCharacter({ ...character, ryo: character.ryo - value, bankRyo: character.bankRyo + value });
-    }
-
-    function withdraw() {
-        const value = Math.max(0, Math.floor(amount));
-        if (value > character.bankRyo) return alert("Not enough banked ryo.");
-        updateCharacter({ ...character, ryo: character.ryo + value, bankRyo: character.bankRyo - value });
-    }
-
-    function claimInterest() {
-        if (interestPercent <= 0) return alert("Upgrade the Bank in Town Hall to earn interest.");
-        if (character.bankRyo <= 0) return alert("Deposit ryo first.");
-        if (Date.now() < nextClaimAt) return alert(`Interest can be claimed again at ${new Date(nextClaimAt).toLocaleString()}.`);
-        if (projectedInterest <= 0) return alert("Your deposit is too small to earn interest yet.");
-        updateCharacter({ ...character, bankRyo: character.bankRyo + projectedInterest, lastBankInterestAt: Date.now() });
-        alert(`Bank interest claimed: +${projectedInterest.toLocaleString()} ryo.`);
-    }
-
-    return (
-        <div className="card">
-            <h2>Bank</h2>
-            <div className="summary-box profile-summary">
-                <p>Wallet: <strong>{character.ryo.toLocaleString()}</strong> ryo</p>
-                <p>Bank: <strong>{character.bankRyo.toLocaleString()}</strong> ryo</p>
-                <p>Interest Rate: <strong>{interestPercent.toFixed(2)}%</strong></p>
-                <p>Projected Claim: <strong>{projectedInterest.toLocaleString()}</strong> ryo</p>
-            </div>
-            <label>Amount</label>
-            <input type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))} />
-            <div className="menu">
-                <button onClick={deposit}>Deposit</button>
-                <button onClick={withdraw}>Withdraw</button>
-                <button onClick={claimInterest} disabled={!canClaimInterest}>Collect Interest</button>
-            </div>
-            <p className="hint">Town Hall Bank upgrade gives +0.25% interest per level. Interest can be collected once every 24 hours.</p>
-        </div>
-    );
-}
-
-
 function ShopBase({
     character, updateCharacter, creatorItems, title, subtitle, filterRarities, currency = "ryo",
 }: {
@@ -18040,130 +17930,6 @@ function ShinobiTiles({ character, updateCharacter, creatorCards, dungeonMode = 
     );
 }
 
-function Hospital({ character, updateCharacter, setScreen, playerRoster, hospitalEntryTime }: { character: Character; updateCharacter: (character: Character) => void; setScreen: (s: Screen) => void; playerRoster: PlayerRecord[]; hospitalEntryTime: number | null }) {
-    const hospitalDiscount = getHospitalDiscountPercent(character);
-    const dischargeCost = discountCost(1000, hospitalDiscount);
-    const topUpCost = discountCost(50, hospitalDiscount);
-    const [elapsed, setElapsed] = useState(0);
-    const [healMsg, setHealMsg] = useState<Record<string, string>>({});
-
-    useEffect(() => {
-        if (!character.hospitalized || hospitalEntryTime === null) return;
-        const id = setInterval(() => setElapsed(Math.floor((Date.now() - hospitalEntryTime) / 1000)), 1000);
-        return () => clearInterval(id);
-    }, [character.hospitalized, hospitalEntryTime]);
-
-    const freeCheckoutReady = character.hospitalized && elapsed >= 60;
-    const remaining = Math.max(0, 60 - elapsed);
-
-    function discharge() {
-        if (character.ryo < dischargeCost) return alert(`Not enough ryo. You need ${dischargeCost} ryo to be discharged.`);
-        updateCharacter({ ...character, ryo: character.ryo - dischargeCost, hp: character.maxHp, chakra: character.maxChakra, stamina: character.maxStamina, hospitalized: false });
-        setScreen("village");
-    }
-
-    function freeCheckout() {
-        updateCharacter({ ...character, hospitalized: false });
-        setScreen("village");
-    }
-
-    function topUp() {
-        if (character.ryo < topUpCost) return alert("Not enough ryo.");
-        updateCharacter({ ...character, ryo: character.ryo - topUpCost, hp: character.maxHp });
-    }
-
-    async function healPlayer(targetName: string) {
-        setHealMsg(m => ({ ...m, [targetName]: "💚 Healing…" }));
-        try {
-            const res = await fetch('/api/player/heal', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ healerName: character.name, targetName }),
-            });
-            setHealMsg(m => ({ ...m, [targetName]: res.ok ? "✅ Healed!" : "❌ Failed" }));
-        } catch {
-            setHealMsg(m => ({ ...m, [targetName]: "❌ Network error" }));
-        }
-    }
-
-    const hospitalizedPlayers = playerRoster.filter(p => p.character.hospitalized && p.name.toLowerCase() !== character.name.toLowerCase());
-
-    if (character.hospitalized) {
-        return (
-            <div className="card">
-                <h2>🏥 Village Hospital</h2>
-                <p className="hint">Town Hall Hospital Discount: <strong>{hospitalDiscount.toFixed(2)}%</strong></p>
-                <div className="hospital-admitted-banner">
-                    <span className="hospital-admitted-icon">??</span>
-                    <div>
-                        <strong>You are currently admitted</strong>
-                        <p>You were knocked out in battle. Pay the discharge fee or wait for the free check-out.</p>
-                    </div>
-                </div>
-                <div className="summary-box" style={{ marginBottom: "1rem" }}>
-                    <span>HP: <strong style={{ color: "#f87171" }}>{character.hp}/{character.maxHp}</strong></span>
-                    <span style={{ marginLeft: "1.5rem" }}>Ryo: <strong style={{ color: character.ryo >= dischargeCost ? "#4ade80" : "#f87171" }}>{character.ryo.toLocaleString()}</strong></span>
-                </div>
-                <button
-                    onClick={discharge}
-                    disabled={character.ryo < dischargeCost}
-                    style={{ background: "linear-gradient(#14532d,#052e16)", borderColor: "#4ade80", opacity: character.ryo < dischargeCost ? 0.5 : 1, width: "100%", marginBottom: "0.5rem" }}
-                >
-                    ?? Pay {dischargeCost.toLocaleString()} ryo — Full Heal &amp; Discharge
-                </button>
-                {freeCheckoutReady ? (
-                    <button
-                        onClick={freeCheckout}
-                        style={{ background: "linear-gradient(#1e3a5f,#0c1f3d)", borderColor: "#60a5fa", width: "100%", animation: "pulse 1.5s infinite" }}
-                    >
-                        ?? Check Out (Free — time served)
-                    </button>
-                ) : (
-                    <p className="hint" style={{ textAlign: "center" }}>
-                        Free check-out unlocks in <strong style={{ color: "#fcd34d" }}>{remaining}s</strong>
-                    </p>
-                )}
-                {character.ryo < dischargeCost && !freeCheckoutReady && (
-                    <p style={{ color: "#f87171", fontSize: "0.82rem", marginTop: "0.5rem", textAlign: "center" }}>
-                        You need {(dischargeCost - character.ryo).toLocaleString()} more ryo, or wait {remaining}s for the free check-out.
-                    </p>
-                )}
-            </div>
-        );
-    }
-
-    return (
-        <div className="card">
-            <h2>🏥 Village Hospital</h2>
-            <p style={{ color: "#94a3b8" }}>Rest, recover, and restore your vitals. Town Hall Hospital Discount: <strong>{hospitalDiscount.toFixed(2)}%</strong></p>
-            <div className="summary-box" style={{ marginBottom: "1rem" }}>
-                <span>HP: <strong>{character.hp}/{character.maxHp}</strong></span>
-                <span style={{ marginLeft: "1.5rem" }}>Ryo: <strong>{character.ryo.toLocaleString()}</strong></span>
-            </div>
-            <button onClick={topUp}>💚 Full Heal — {topUpCost} ryo{hospitalDiscount > 0 ? " discounted" : ""}</button>
-            {hospitalizedPlayers.length > 0 && (
-                <div style={{ marginTop: "1.5rem" }}>
-                    <h4 style={{ marginBottom: "0.5rem" }}>🛏️ Admitted Players</h4>
-                    {hospitalizedPlayers.map(p => (
-                        <div key={p.name} className="summary-box" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
-                            <div style={{ flex: 1 }}>
-                                <strong>{p.name}</strong>
-                                <span className="hint" style={{ marginLeft: 6 }}>Lv {p.level} · {p.village}</span>
-                                <span style={{ marginLeft: 8, color: "#f87171", fontSize: "0.8rem" }}>
-                                    HP {p.character.hp}/{p.character.maxHp}
-                                </span>
-                            </div>
-                            <button onClick={() => healPlayer(p.name)} style={{ background: "linear-gradient(#14532d,#052e16)", borderColor: "#4ade80" }}>
-                                💚 Heal
-                            </button>
-                            {healMsg[p.name] && <span className="hint" style={{ color: healMsg[p.name].startsWith("✅") ? "#4ade80" : "#f87171" }}>{healMsg[p.name]}</span>}
-                        </div>
-                    ))}
-                </div>
-            )}
-        </div>
-    );
-}
 
 // -- Shinobi Council Hall -----------------------------------------------------
 function ShinobiCouncilHall({ character, setScreen, playerRoster }: { character: Character; setScreen: (s: Screen) => void; playerRoster: PlayerRecord[] }) {
@@ -18549,137 +18315,8 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
     );
 }
 
-type TavernMessage = { author: string; text: string; ts: number; rank?: string; customTitle?: string; level?: number };
+export type TavernMessage = { author: string; text: string; ts: number; rank?: string; customTitle?: string; level?: number };
 
-function VillageTavern({ character, setScreen, sharedImages }: { character: Character; setScreen: (s: Screen) => void; sharedImages: Record<string, string> }) {
-    const [messages, setMessages] = useState<TavernMessage[]>([]);
-    const [input, setInput] = useState("");
-    const [sending, setSending] = useState(false);
-    const [loading, setLoading] = useState(true);
-    const bottomRef = useRef<HTMLDivElement>(null);
-    // Track last known message count so we skip re-renders when nothing changed
-    const lastCountRef = useRef<number>(-1);
-
-    async function fetchMessages() {
-        try {
-            const res = await fetch(`/api/village/chat?village=${encodeURIComponent(character.village)}`);
-            if (!res.ok) return;
-            // Server sends X-Message-Count so we can skip JSON parse when unchanged
-            const count = Number(res.headers.get("X-Message-Count") ?? -1);
-            if (count !== -1 && count === lastCountRef.current) return;
-            const data: TavernMessage[] = await res.json();
-            lastCountRef.current = data.length;
-            setMessages(data);
-        } catch { /* silently ignore network errors */ }
-        finally { setLoading(false); }
-    }
-
-    // Load on mount + poll every 30s; pause completely when tab is in the background
-    useEffect(() => {
-        void fetchMessages();
-        let interval: ReturnType<typeof setInterval> | null = setInterval(() => {
-            if (!document.hidden) void fetchMessages();
-        }, 30_000);
-
-        function handleVisibility() {
-            if (document.hidden) {
-                // Tab hidden — stop polling to save KV reads
-                if (interval) { clearInterval(interval); interval = null; }
-            } else {
-                // Tab visible again — fetch immediately then resume polling
-                void fetchMessages();
-                if (!interval) interval = setInterval(() => {
-                    if (!document.hidden) void fetchMessages();
-                }, 30_000);
-            }
-        }
-        document.addEventListener("visibilitychange", handleVisibility);
-        return () => {
-            if (interval) clearInterval(interval);
-            document.removeEventListener("visibilitychange", handleVisibility);
-        };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [character.village]);
-
-    useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
-
-    async function send() {
-        const text = input.trim();
-        if (!text || sending) return;
-        setSending(true);
-        setInput("");
-        try {
-            const res = await fetch(`/api/village/chat?village=${encodeURIComponent(character.village)}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    author: character.name,
-                    text,
-                    rank: character.rankTitle,
-                    customTitle: character.customTitle,
-                    level: character.level,
-                }),
-            });
-            if (res.ok) setMessages(await res.json());
-        } catch { /* ignore */ }
-        setSending(false);
-    }
-
-    return (
-        <div className="card tavern-screen">
-            <div className="tavern-header">
-                <button className="back-button" onClick={() => setScreen("village")}>? Village</button>
-                <div>
-                    <h2>🍶 {character.village} Tavern</h2>
-                    <p className="tavern-subtitle">Village members only — speak freely.</p>
-                </div>
-            </div>
-            <div className="tavern-log">
-                {loading && <p className="tavern-empty">Loading messages…</p>}
-                {!loading && messages.length === 0 && <p className="tavern-empty">The tavern is quiet. Be the first to speak.</p>}
-                {messages.map((m, i) => {
-                    const avatar = sharedImages['avatar:' + m.author.toLowerCase()] || (m.author === character.name ? character.avatarImage : '');
-                    return (
-                        <div key={i} className={`tavern-message ${m.author === character.name ? "tavern-mine" : ""}`}>
-                            <div className="tavern-avatar-col">
-                                <div className="tavern-avatar">
-                                    {avatar
-                                        ? <img src={avatar} alt={m.author} />
-                                        : <span>{m.author.slice(0, 2).toUpperCase()}</span>}
-                                </div>
-                                {m.level != null && <div className="tavern-level-badge">Lv{m.level}</div>}
-                            </div>
-                            <div className="tavern-body">
-                                <div className="tavern-meta">
-                                    <span className="tavern-author">{m.author}</span>
-                                    {m.customTitle && <span className="tavern-custom-title">?{m.customTitle}?</span>}
-                                    {m.rank && <span className="tavern-rank">{m.rank}</span>}
-                                    <span className="tavern-time">{new Date(m.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
-                                </div>
-                                <p className="tavern-text">{m.text}</p>
-                            </div>
-                        </div>
-                    );
-                })}
-                <div ref={bottomRef} />
-            </div>
-            <div className="tavern-input-row">
-                <input
-                    className="tavern-input"
-                    value={input}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) => setInput(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") void send(); }}
-                    placeholder={`Say something to ${character.village}...`}
-                    maxLength={300}
-                    disabled={sending}
-                />
-                <button className="tavern-send-btn" onClick={() => void send()} disabled={!input.trim() || sending}>
-                    {sending ? "…" : "? Send"}
-                </button>
-            </div>
-        </div>
-    );
-}
 
 function Cafeteria({ character, updateCharacter }: { character: Character; updateCharacter: (character: Character) => void }) {
     function eat(name: string, cost: number, hp: number, chakra: number, stamina: number) { if (character.ryo < cost) return alert("Not enough ryo."); updateCharacter({ ...character, ryo: character.ryo - cost, hp: Math.min(character.maxHp, character.hp + hp), chakra: Math.min(character.maxChakra, character.chakra + chakra), stamina: Math.min(character.maxStamina, character.stamina + stamina) }); alert(`${name} restored your resources.`); }
