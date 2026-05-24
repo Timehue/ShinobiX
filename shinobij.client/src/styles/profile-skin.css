@@ -1150,3 +1150,178 @@
         font-size: 18px;
     }
 }
+
+/* -------- User Hub (players list) -------- */
+.user-hub-screen {
+    background: linear-gradient(180deg, rgba(12,18,34,0.92) 0%, rgba(6,10,22,0.96) 100%) !important;
+    border: 1px solid rgba(196,162,90,0.22) !important;
+    border-radius: 8px !important;
+    padding: 20px !important;
+    color: #e8edf5 !important;
+    max-width: 980px;
+    margin: 0 auto;
+}
+.user-hub-screen .user-hub-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    border-bottom: 1px solid rgba(196,162,90,0.22);
+    padding-bottom: 12px;
+    margin-bottom: 14px;
+}
+.user-hub-screen .user-hub-header h2 {
+    margin: 0;
+    font: 700 18px Cinzel, serif !important;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: #e8d496 !important;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+}
+.user-hub-screen .user-hub-header .hint {
+    color: rgba(196,162,90,0.7);
+    font: 400 11px Inter, sans-serif;
+    margin: 4px 0 0 0;
+}
+.user-hub-screen .user-hub-search {
+    width: 100%;
+    padding: 10px 12px;
+    margin-bottom: 14px;
+    background: rgba(0,0,0,0.35);
+    border: 1px solid rgba(196,162,90,0.3);
+    border-radius: 6px;
+    color: #e8edf5;
+    font: 400 13px Inter, sans-serif;
+}
+.user-hub-screen .user-hub-search:focus {
+    outline: none;
+    border-color: rgba(196,162,90,0.7);
+    box-shadow: 0 0 0 2px rgba(196,162,90,0.15);
+}
+.user-hub-screen .user-hub-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 10px;
+}
+.user-hub-screen .user-hub-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    border: 1px solid rgba(196,162,90,0.2);
+    background: rgba(0,0,0,0.3);
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: transform 120ms, border-color 120ms, box-shadow 120ms;
+    min-width: 0;
+    width: 100%;
+}
+.user-hub-screen .user-hub-row:hover {
+    transform: translateY(-1px);
+    border-color: rgba(196,162,90,0.55);
+    box-shadow: 0 0 12px rgba(196,162,90,0.18);
+}
+.user-hub-screen .user-hub-row.online {
+    border-color: rgba(74,222,128,0.45);
+    box-shadow: 0 0 10px rgba(74,222,128,0.15), inset 0 1px 0 rgba(255,255,255,0.04);
+}
+.user-hub-screen .user-hub-row.online:hover {
+    box-shadow: 0 0 18px rgba(74,222,128,0.3);
+}
+.user-hub-screen .user-hub-avatar {
+    width: 48px;
+    height: 48px;
+    flex: 0 0 48px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: rgba(15,23,42,0.92);
+    border: 1px solid rgba(196,162,90,0.45);
+    display: grid;
+    place-items: center;
+    color: #facc15;
+    font: 700 14px Cinzel, serif;
+}
+.user-hub-screen .user-hub-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.user-hub-screen .user-hub-meta {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.user-hub-screen .user-hub-name {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
+    min-width: 0;
+}
+.user-hub-screen .user-hub-name strong {
+    font: 600 13px Cinzel, serif;
+    letter-spacing: 0.08em;
+    color: #e8d496;
+    text-transform: uppercase;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.user-hub-screen .user-hub-title {
+    font: 500 10px Inter, sans-serif;
+    color: #facc15;
+    background: rgba(250,204,21,0.1);
+    border: 1px solid rgba(250,204,21,0.3);
+    border-radius: 4px;
+    padding: 1px 6px;
+}
+.user-hub-screen .user-hub-sub {
+    font: 400 11px Inter, sans-serif;
+    color: #c8cfdc;
+    margin-top: 2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.user-hub-screen .user-hub-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 0 0 auto;
+    color: #94a3b8;
+}
+.user-hub-screen .user-hub-status small {
+    font: 500 10px Inter, sans-serif;
+    color: inherit;
+    white-space: nowrap;
+}
+.user-hub-screen .user-hub-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+.user-hub-screen .user-hub-dot.online {
+    background: #4ade80;
+    box-shadow: 0 0 8px rgba(74,222,128,0.7);
+}
+.user-hub-screen .user-hub-dot.offline {
+    background: #475569;
+}
+.user-hub-screen .back-btn {
+    padding: 6px 14px;
+    background: rgba(0,0,0,0.35);
+    border: 1px solid rgba(196,162,90,0.4);
+    border-radius: 4px;
+    color: #e8d496;
+    cursor: pointer;
+    font: 600 11px Cinzel, serif;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    transition: border-color 120ms, background 120ms;
+}
+.user-hub-screen .user-hub-row:focus-visible,
+.user-hub-screen .back-btn:focus-visible {
+    outline: 2px solid var(--bsv2-gold-bright);
+    outline-offset: 2px;
+}
