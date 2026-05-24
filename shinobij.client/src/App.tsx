@@ -27025,7 +27025,7 @@ function Arena({
     const activeGroundAffectedTiles = groundAffectedTiles(pendingTargetJutsu, hoveredBattleTile);
 
     return (
-        <div className="arena-fullscreen">
+        <div className={`arena-fullscreen arena-bg-${currentBiome}${currentSector === 99 ? " arena-bg-deathsgate" : ""}`}>
             {/* Pre-fight countdown overlay — shown for ALL battle types */}
             {prefightCountdown !== null && (
                 <div className="pvp-countdown-overlay">
@@ -28041,7 +28041,7 @@ function PvpBattleScreen({
     }, [!!session, pvpDone, pvpPrefightCountdown, pvpIsMyTurn, pvpRoundTimerKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
     if (!session) return (
-        <div className="arena-fullscreen">
+        <div className={`arena-fullscreen arena-bg-${currentBiome}${currentSector === 99 ? " arena-bg-deathsgate" : ""}`}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
                 <div className="card" style={{ textAlign: "center", padding: "2rem" }}>
                     <h2>PvP Battle</h2>
@@ -28276,7 +28276,7 @@ function PvpBattleScreen({
     const oppAvatar = (opp.character?.avatarImage as string) || sharedImages['avatar:' + opp.name.toLowerCase()] || "";
 
     return (
-        <div className="arena-fullscreen">
+        <div className={`arena-fullscreen arena-bg-${currentBiome}${currentSector === 99 ? " arena-bg-deathsgate" : ""}`}>
             {pvpPrefightCountdown !== null && (
                 <div className="pvp-countdown-overlay">
                     <div className="pvp-countdown-box">
