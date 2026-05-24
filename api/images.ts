@@ -36,6 +36,12 @@ const KNOWN_PREFIXES: Record<string, string> = {
     bloodline: 'bloodline',
     vn:        'event',   // visual-novel pages share the event category
     ai:        'ai',
+    // Hollow Gate Shrine assets: backgrounds + tile/scene illustrations + intro VN pages
+    // ride under their own 'shrine' bucket; world-map landmarks (like the Hollow Gate POI)
+    // ride under 'landmark'. Without these, both would fall into 'misc' and the bulk GET
+    // (which only walks KNOWN_CATEGORIES) would never return them.
+    shrine:    'shrine',
+    landmark:  'landmark',
 };
 const KNOWN_CATEGORIES = Array.from(new Set(Object.values(KNOWN_PREFIXES)));
 

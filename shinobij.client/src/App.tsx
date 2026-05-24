@@ -13596,8 +13596,10 @@ function AdminPanel({
     useEffect(() => {
         if (activeAdminPanel !== "hollowGate") return;
         // Seed current images from the shared image store so previews show up
-        // when the tab is opened. We fetch each known key.
-        const keys = [
+        // when the tab is opened. /api/images supports `?cat=<category>` (returns
+        // a {id: image} map) — NOT `?id=<key>`. We load the four categories the
+        // Hollow Gate assets live under and pick the relevant keys.
+        const keys = new Set<string>([
             "item:" + HOLLOW_GATE_KEY_ID,
             "item:" + DUNGEON_LEGENDARY_FRAGMENT_ID,
             "item:" + VEIL_OF_THE_HOLLOW_ID,
@@ -13614,16 +13616,19 @@ function AdminPanel({
             "shrine:intro-1",
             "shrine:intro-2",
             "shrine:intro-3",
-        ];
+        ]);
+        const categories = ["item", "ai", "landmark", "shrine"];
         let cancelled = false;
         (async () => {
             const next: Record<string, string> = {};
-            for (const id of keys) {
+            for (const cat of categories) {
                 try {
-                    const res = await fetch(`/api/images?id=${encodeURIComponent(id)}`);
+                    const res = await fetch(`/api/images?cat=${encodeURIComponent(cat)}`);
                     if (!res.ok) continue;
-                    const data = await res.json() as { image?: string };
-                    if (data?.image) next[id] = data.image;
+                    const data = await res.json() as Record<string, string>;
+                    for (const [id, image] of Object.entries(data)) {
+                        if (keys.has(id) && typeof image === "string" && image) next[id] = image;
+                    }
                 } catch { /* ignore individual fetch errors */ }
             }
             if (!cancelled) setHollowGateAssetImages(prev => ({ ...next, ...prev }));
