@@ -16907,6 +16907,173 @@ html[data-vp="xl"] .arena-fullscreen .hex-battlefield {
 .arena-bg-central   { background-color: #1e293b !important; }
 .arena-bg-deathsgate { background-color: #0a1f0f !important; }
 
+/* ── Battle spectator & chat side panels ── */
+.battle-side-left,
+.battle-side-right {
+    display: none;
+}
+
+html[data-vp="xl"] .battle-side-left,
+html[data-vp="xl"] .battle-side-right {
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    top: 0;
+    width: 140px;
+    height: 100%;
+    z-index: 10;
+    background: rgba(15, 23, 42, 0.85);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    box-sizing: border-box;
+    font-size: 0.78rem;
+    color: #cbd5e1;
+    backdrop-filter: blur(6px);
+}
+
+html[data-vp="xl"] .battle-side-left {
+    left: 0;
+    border-radius: 0 8px 8px 0;
+    border-left: none;
+}
+
+html[data-vp="xl"] .battle-side-right {
+    right: 0;
+    border-radius: 8px 0 0 8px;
+    border-right: none;
+}
+
+.battle-side-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 10px;
+    font-weight: 700;
+    font-size: 0.82rem;
+    color: #fbbf24;
+    background: rgba(0, 0, 0, 0.3);
+    border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+.battle-side-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 6px 8px;
+}
+
+.battle-spectator-name {
+    padding: 3px 0;
+    font-size: 0.76rem;
+    color: #94a3b8;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+}
+
+/* Chat panel */
+.battle-chat-panel.battle-chat-hidden {
+    width: 36px !important;
+    overflow: hidden;
+}
+
+.battle-chat-hidden .battle-side-header span { display: none; }
+.battle-chat-hidden .battle-side-header { justify-content: center; }
+
+.battle-chat-toggle {
+    background: none;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    color: #94a3b8;
+    font-size: 14px;
+    width: 22px;
+    height: 22px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    line-height: 1;
+}
+
+.battle-chat-toggle:hover { color: #fbbf24; border-color: #fbbf24; }
+
+.battle-chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 6px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.battle-chat-empty {
+    color: #475569;
+    font-size: 0.72rem;
+    font-style: italic;
+    text-align: center;
+    margin-top: 12px;
+}
+
+.battle-chat-msg {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding: 3px 0;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+}
+
+.battle-chat-msg strong {
+    font-size: 0.72rem;
+    color: #94a3b8;
+}
+
+.chat-fighter strong { color: #60a5fa; }
+.chat-spectator strong { color: #a78bfa; }
+
+.battle-chat-msg span {
+    font-size: 0.74rem;
+    color: #e2e8f0;
+    word-break: break-word;
+}
+
+.battle-chat-input-row {
+    display: flex;
+    gap: 4px;
+    padding: 6px 8px;
+    border-top: 1px solid rgba(148, 163, 184, 0.15);
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.battle-chat-input-row input {
+    flex: 1;
+    min-width: 0;
+    padding: 4px 6px;
+    font-size: 0.72rem;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 4px;
+    background: rgba(15, 23, 42, 0.8);
+    color: #e2e8f0;
+    outline: none;
+}
+
+.battle-chat-input-row input:focus {
+    border-color: #fbbf24;
+}
+
+.battle-chat-input-row button {
+    padding: 4px 8px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    border: 1px solid rgba(251, 191, 36, 0.4);
+    border-radius: 4px;
+    background: rgba(251, 191, 36, 0.15);
+    color: #fbbf24;
+    cursor: pointer;
+}
+
+.battle-chat-input-row button:disabled { opacity: 0.4; cursor: default; }
+.battle-chat-input-row button:hover:not(:disabled) { background: rgba(251, 191, 36, 0.3); }
+
+html[data-vp="xl"] .arena-fullscreen {
+    position: relative;
+}
+
 html[data-vp="xl"] .arena-fullscreen .combat-layout > .combat-main-area {
     grid-column: 1 !important;
     grid-row: 1 !important;
