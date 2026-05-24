@@ -1,6 +1,7 @@
 @import "./styles/battle-skin.css";
 @import "./styles/profile-skin.css";
 @import "./styles/training-skin.css";
+@import "./styles/central-skin.css";
 
 * {
     box-sizing: border-box;
