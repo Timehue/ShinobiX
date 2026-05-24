@@ -19427,7 +19427,7 @@ function WorldMap({
         // Moonshadow -> sector 11 (81, 67)
         { name: "Stormveil Village", type: "village", biome: "forest" as Biome, x: 20, y: 65, icon: "SV" },
         { name: "Ashen Leaf Village", type: "village", biome: "volcano" as Biome, x: 24, y: 18, icon: "AL" },
-        { name: "Frostfang Village", type: "village", biome: "snow" as Biome, x: 83, y: 20, icon: "FF" },
+        { name: "Frostfang Village", type: "village", biome: "snow" as Biome, x: 72, y: 27, icon: "FF" },
         { name: "Moonshadow Village", type: "village", biome: "shadow" as Biome, x: 81, y: 67, icon: "MS" },
         { name: "Central", type: "central", biome: "central" as Biome, x: 52, y: 42, icon: "C", staminaReward: 20, xpReward: 20 },
     ];
