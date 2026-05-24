@@ -17390,9 +17390,15 @@ function AdminPanel({
                         if (!response.ok) throw new Error((data.error as string) || `Status ${response.status}`);
                         if (!data.image) throw new Error("No image returned.");
                         const image = await compressDataUrl(data.image as string, 512, 0.82);
-                        await publishSharedImage(asset.key, image);
-                        // Mirror locally so the preview updates immediately.
+                        // Mirror locally first so the preview is responsive…
                         setHollowGateAssetImages(prev => ({ ...prev, [asset.key]: image }));
+                        // …then verify the KV publish actually succeeded. publishSharedImage
+                        // returns false on any non-OK response — without this check, a network
+                        // failure would still flip the status to ✅ even though nothing was saved.
+                        const published = await publishSharedImage(asset.key, image);
+                        if (!published) {
+                            throw new Error("KV publish failed. Image is generated locally but NOT saved to shared store. Use 'Save All Hollow Gate Assets' to retry.");
+                        }
                         asset.onSave?.(image);
                         setHollowGateAssetStatus(`✅ ${asset.name} saved.`);
                         try { await onSaveRef.current(); } catch { /* ignore if no account */ }
@@ -17400,6 +17406,39 @@ function AdminPanel({
                         setHollowGateAssetStatus(`❌ ${asset.name} — ${err instanceof Error ? err.message : "failed"}`);
                     } finally {
                         setHollowGateAssetBusy("");
+                    }
+                }
+
+                // Force-resync every locally-cached Hollow Gate image to the shared KV.
+                // Useful if (a) a previous publish failed silently, (b) you uploaded
+                // images via the asset rows before the persistence bug fix landed, or
+                // (c) you want a one-click "make sure everything is saved" affordance.
+                async function saveAllHollowGateAssets() {
+                    const haveImages = hollowGateAssets.filter(a => hollowGateAssetImages[a.key]);
+                    if (haveImages.length === 0) {
+                        alert("No Hollow Gate images to save. Generate some first.");
+                        return;
+                    }
+                    setHollowGateAssetBusy("__save_all__");
+                    setHollowGateAssetStatus(`Re-publishing ${haveImages.length} Hollow Gate image${haveImages.length === 1 ? "" : "s"}...`);
+                    const failures: string[] = [];
+                    for (const asset of haveImages) {
+                        const image = hollowGateAssetImages[asset.key];
+                        if (!image) continue;
+                        try {
+                            const ok = await publishSharedImage(asset.key, image);
+                            if (!ok) failures.push(asset.name);
+                            else asset.onSave?.(image); // re-mirror boss AI to creatorAis
+                        } catch {
+                            failures.push(asset.name);
+                        }
+                    }
+                    try { await onSaveRef.current(); } catch { /* no account */ }
+                    setHollowGateAssetBusy("");
+                    if (failures.length === 0) {
+                        setHollowGateAssetStatus(`✅ Saved ${haveImages.length} Hollow Gate image${haveImages.length === 1 ? "" : "s"} to shared KV.`);
+                    } else {
+                        setHollowGateAssetStatus(`⚠ Saved ${haveImages.length - failures.length}/${haveImages.length}. Failed: ${failures.join(", ")}`);
                     }
                 }
 
@@ -17422,9 +17461,17 @@ function AdminPanel({
                             <h3>⛩ Hollow Gate — Asset Manager</h3>
                             <p className="hint">Every Hollow Gate Shrine asset that needs an image. Edit the prompt then Generate. Images are saved to the shared KV and become visible to all players. Generations are rate-limited — ~35 seconds between calls in batch mode.</p>
                         </div>
-                        <div className="menu" style={{ marginBottom: 12 }}>
+                        <div className="menu" style={{ marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
                             <button onClick={generateAllMissing} disabled={Boolean(hollowGateAssetBusy)}>
                                 🪄 Generate All Missing
+                            </button>
+                            <button
+                                onClick={saveAllHollowGateAssets}
+                                disabled={Boolean(hollowGateAssetBusy)}
+                                style={{ background: "linear-gradient(135deg, #14532d, #22c55e)", borderColor: "#86efac", color: "#f0fdf4" }}
+                                title="Re-publish every locally-cached Hollow Gate image to the shared KV. Use this if a previous Generate silently failed, or to force-sync assets after a fix."
+                            >
+                                💾 Save All Hollow Gate Assets
                             </button>
                             {onTestHollowGate && (
                                 <button
