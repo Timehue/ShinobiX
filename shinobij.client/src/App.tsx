@@ -82,7 +82,8 @@ export type Screen =
     | "shinobiCouncil"
     | "userHub"
     | "userView"
-    | "pvpBattle";
+    | "pvpBattle"
+    | "hollowGateShrine";
 
 export type Rank = "B Rank" | "A Rank" | "S Rank";
 type Biome = "forest" | "snow" | "volcano" | "shadow" | "central";
@@ -549,6 +550,11 @@ export type Character = {
     examsPassed?: string[];
     unlockedAchievements?: string[];
     achievementUnlockedAt?: Record<string, number>;
+    // Hollow Gate Shrine — in-progress run saved per-character (so refresh keeps state)
+    // and a lifetime Warden-kill counter for telemetry / future achievements.
+    hollowGateRun?: HollowGateShrineRun | null;
+    hollowGateWardenKills?: number;
+    hollowGateIntroSeen?: boolean;
 };
 type RewardCurrencyKey = "fateShards" | "honorSeals" | "boneCharms" | "auraStones" | "auraDust" | "mythicSeals";
 type CurrencyRewards = Partial<Record<RewardCurrencyKey, number>>;
@@ -970,7 +976,404 @@ type PendingArenaStoryBattle =
     | {
         kind: "dungeonAi";
         returnScreen: Screen;
+    }
+    | {
+        kind: "hollowGateShrine";
+        returnScreen: Screen;
+        isBoss?: boolean;
+        isAmbush?: boolean;
     };
+
+// ── Hollow Gate Shrine — crawler dungeon ──────────────────────────────────────
+// A tile-based exploration screen revealed by the Kage's one-time Hollow Gate
+// unlock. The grid is procedurally generated each entry/floor. Each tile fires
+// its event exactly once on reveal; movement bumps a threat meter that can
+// trigger an ambush battle at 100. Boss tile fires the Hollow Gate Warden.
+
+type HollowGateTileKind =
+    | "empty"
+    | "battle"
+    | "elite"
+    | "trap"
+    | "chest"
+    | "pet_event"
+    | "shrine"
+    | "story"
+    | "boss"
+    | "exit"
+    | "locked"
+    | "npc"        // Shrine Keeper — once-per-floor blessing
+    | "descend";   // Staircase to next floor (Floors 1-4 only)
+
+type HollowGateTile = {
+    kind: HollowGateTileKind;
+    revealed: boolean;
+    resolved: boolean;
+    flavor?: string;
+};
+
+type HollowGateShrineRun = {
+    width: number;
+    height: number;
+    playerX: number;
+    playerY: number;
+    tiles: HollowGateTile[]; // length = width * height, row-major
+    floor: number;
+    threat: number; // 0..100
+    torch: number; // 0..10
+    keys: number;
+    completed: boolean;
+};
+
+// Grid dimensions stay const — changing them mid-run would break saved layouts.
+const HOLLOW_GATE_SHRINE_W = 9;
+const HOLLOW_GATE_SHRINE_H = 7;
+// Runtime-tunable from the admin panel.
+let HOLLOW_GATE_THREAT_PER_STEP = 7;
+let HOLLOW_GATE_THREAT_AMBUSH = 100;
+let HOLLOW_GATE_MAX_FLOOR = 5;
+
+const hollowGateFlavorPool: Record<HollowGateTileKind, string[]> = {
+    empty: [
+        "Dust drifts through shafts of pale light. Ancient seals glow faintly underfoot.",
+        "Broken shrine stones line the floor. A single glowing pawprint blinks out as you step past.",
+        "Chakra mist coils around your ankles. The silence here is older than memory.",
+        "The corridor breathes. Far below, something answers.",
+    ],
+    battle: [
+        "A corrupted shinobi rises from the chakra mist — eyes hollow, jutsu unstable.",
+        "Hollow Gate echoes shape themselves into a shadow-bound ronin.",
+        "Glowing pawprints stop here. From the dark, a shinobi steps forward, blade drawn.",
+    ],
+    elite: [
+        "A masked elite from the lost shrine guard blocks the path. Their seal still burns.",
+        "Ancient ANBU script winds across the floor — and the warrior who etched it remains.",
+    ],
+    trap: [
+        "Ancient seals flare beneath your feet — paper-thin runes ignite!",
+        "A sealed door slams behind you as venomous chakra mist hisses from the stones.",
+        "A pressure plate clicks. Shuriken fly from a broken shrine stone.",
+    ],
+    chest: [
+        "A shrine offering box rests in the dust, faintly humming with old chakra.",
+        "Glowing pawprints circle a small lacquered chest. Something wants you to find it.",
+    ],
+    pet_event: [
+        "Glowing pawprints trail toward a sleeping shrine spirit. Your pet's ears twitch.",
+        "A familiar scent drifts past — your pet pulls you toward a side passage.",
+    ],
+    shrine: [
+        "A broken shrine stone weeps cold chakra. Beyond it, a Hidden Chamber lies open.",
+        "A ritual circle pulses violet. The Hollow Gate echoes invite you inward.",
+    ],
+    story: [
+        "Stone tablets line the wall, etched with the names of the shrine's first guardians.",
+        "A shattered mural shows shinobi sealing the Hollow Gate from the inside.",
+    ],
+    boss: [
+        "The corridor opens into a vast chamber. The Hollow Gate Warden waits at its center.",
+    ],
+    exit: [
+        "A staircase descends further. The Hollow Gate echoes grow louder below.",
+    ],
+    locked: [
+        "A sealed door, bound by chakra chains. Without a Shrine Key it will not yield.",
+    ],
+    npc: [
+        "A hooded figure tends a flame in the corridor — the Shrine Keeper. Their eyes are old.",
+        "An old shinobi waits beside a chakra brazier. The Shrine Keeper bows in greeting.",
+        "The Shrine Keeper looks up from a worn scroll. \"Choose carefully, traveler.\"",
+    ],
+    descend: [
+        "A spiral staircase coils into the dark. The next floor breathes below.",
+        "Hollow Gate echoes spiral downward — the next floor lies open.",
+    ],
+};
+
+// Hollow Gate intro VN — 3 pages shown the first time a character enters the
+// shrine. Image keys map to admin-generated art (shrine:intro-1/2/3).
+const hollowGateIntroPages: Array<{ title: string; imageKey: string; lines: string[] }> = [
+    {
+        title: "The Broken Torii",
+        imageKey: "shrine:intro-1",
+        lines: [
+            "The Hollow Gate Key in your hand grows cold.",
+            "Ahead, a broken torii leans against itself, chained shut by chakra rope older than the village.",
+            "The seal cracks. The Hollow Gate echoes whisper your name in a voice you have never heard.",
+        ],
+    },
+    {
+        title: "The First Step",
+        imageKey: "shrine:intro-2",
+        lines: [
+            "Stone teeth bite the air. Glowing pawprints pulse violet down the corridor and vanish.",
+            "Behind you, the seal re-knits — there is no leaving by the way you came.",
+            "Only the Leave tile or your own corpse can carry you out of this place.",
+        ],
+    },
+    {
+        title: "What Waits Below",
+        imageKey: "shrine:intro-3",
+        lines: [
+            "Five floors descend into the shrine. Each is colder than the last.",
+            "On the deepest floor, the Hollow Gate Warden waits — sealed there by hands long dust.",
+            "Bring back his fragment. Or bring back nothing.",
+        ],
+    },
+];
+
+function hollowGateFlavorFor(kind: HollowGateTileKind): string {
+    const pool = hollowGateFlavorPool[kind];
+    return pool[Math.floor(Math.random() * pool.length)];
+}
+
+// BFS — returns the set of tile indices reachable from `start` if all tiles
+// in `blocked` are treated as walls. Used to validate that locked tiles never
+// stand on the only path to the boss or exit.
+function hollowGateReachableSet(w: number, h: number, start: number, blocked: Set<number>): Set<number> {
+    const seen = new Set<number>([start]);
+    const queue: number[] = [start];
+    while (queue.length) {
+        const idx = queue.shift()!;
+        const x = idx % w;
+        const y = Math.floor(idx / w);
+        const neighbors = [
+            [x, y - 1], [x, y + 1], [x - 1, y], [x + 1, y],
+        ];
+        for (const [nx, ny] of neighbors) {
+            if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+            const nIdx = ny * w + nx;
+            if (seen.has(nIdx) || blocked.has(nIdx)) continue;
+            seen.add(nIdx);
+            queue.push(nIdx);
+        }
+    }
+    return seen;
+}
+
+function generateHollowGateShrineRun(floor = 1): HollowGateShrineRun {
+    const w = HOLLOW_GATE_SHRINE_W;
+    const h = HOLLOW_GATE_SHRINE_H;
+    const total = w * h;
+    // Spawn in middle row, left edge.
+    const playerY = Math.floor(h / 2);
+    const playerX = 0;
+    const spawnIdx = playerY * w + playerX;
+    const kinds: HollowGateTileKind[] = new Array(total).fill("empty");
+    const isFinalFloor = floor >= HOLLOW_GATE_MAX_FLOOR;
+
+    // Reserved set: always reserves spawn + the leave (exit) tile. Floors 1-4 also
+    // reserve a "descend" tile (next-floor staircase). Floor 5 reserves the boss tile.
+    const reserved = new Set<number>([spawnIdx]);
+
+    // Pick the leave tile (exit) — random reachable position at least half the
+    // map away from spawn.
+    function distFromSpawn(idx: number) {
+        const cx = idx % w;
+        const cy = Math.floor(idx / w);
+        return Math.abs(cx - playerX) + Math.abs(cy - playerY);
+    }
+    function pickFarTile(): number {
+        const cand: number[] = [];
+        for (let i = 0; i < total; i += 1) {
+            if (reserved.has(i)) continue;
+            if (kinds[i] !== "empty") continue;
+            if (distFromSpawn(i) >= Math.floor((w + h) / 2)) cand.push(i);
+        }
+        return cand.length ? cand[Math.floor(Math.random() * cand.length)] : -1;
+    }
+
+    // Leave tile (exit) — always present.
+    const exitIdx = pickFarTile();
+    if (exitIdx >= 0) { kinds[exitIdx] = "exit"; reserved.add(exitIdx); }
+
+    // Floor 5: Boss tile (Hollow Gate Warden) in the rightmost column, random row.
+    // Floors 1-4: Descend tile far from spawn (not necessarily right column).
+    if (isFinalFloor) {
+        const bossY = Math.floor(Math.random() * h);
+        const bossIdx = bossY * w + (w - 1);
+        if (!reserved.has(bossIdx) && kinds[bossIdx] === "empty") {
+            kinds[bossIdx] = "boss";
+            reserved.add(bossIdx);
+        } else {
+            // Fallback: any far tile.
+            const fallback = pickFarTile();
+            if (fallback >= 0) { kinds[fallback] = "boss"; reserved.add(fallback); }
+        }
+    } else {
+        const descendIdx = pickFarTile();
+        if (descendIdx >= 0) { kinds[descendIdx] = "descend"; reserved.add(descendIdx); }
+    }
+
+    function placeMany(kind: HollowGateTileKind, count: number) {
+        let placed = 0;
+        let safety = 0;
+        while (placed < count && safety < 300) {
+            safety += 1;
+            const idx = Math.floor(Math.random() * total);
+            if (reserved.has(idx)) continue;
+            if (kinds[idx] !== "empty") continue;
+            kinds[idx] = kind;
+            placed += 1;
+        }
+    }
+
+    // Counts scale slightly with floor depth.
+    const battleCount = 4 + Math.min(3, floor);
+    placeMany("battle", battleCount);
+    placeMany("elite", 1 + Math.floor(floor / 2));
+    placeMany("trap", 3 + Math.floor(floor / 2));
+    placeMany("chest", 3);
+    placeMany("pet_event", 1);
+    placeMany("shrine", 1);
+    placeMany("story", 1);
+    placeMany("locked", 1);
+    placeMany("npc", 1);    // Shrine Keeper — one per floor
+
+    // Validate: any locked tile must NOT block the only path to boss + exit.
+    // We BFS from spawn treating locked tiles as walls; if boss or exit is
+    // unreachable we relocate the offending locked tile to a free empty cell.
+    function locateLockedTiles() {
+        const out: number[] = [];
+        for (let i = 0; i < kinds.length; i += 1) if (kinds[i] === "locked") out.push(i);
+        return out;
+    }
+    function freeEmptyCells(): number[] {
+        const out: number[] = [];
+        for (let i = 0; i < kinds.length; i += 1) if (kinds[i] === "empty" && !reserved.has(i)) out.push(i);
+        return out;
+    }
+    // Find the boss/descend index for reachability checks.
+    function findKindIdx(kind: HollowGateTileKind): number {
+        for (let i = 0; i < kinds.length; i += 1) if (kinds[i] === kind) return i;
+        return -1;
+    }
+    let attempts = 0;
+    while (attempts < 8) {
+        attempts += 1;
+        const lockedIndices = locateLockedTiles();
+        const blocked = new Set<number>(lockedIndices);
+        const reachable = hollowGateReachableSet(w, h, spawnIdx, blocked);
+        const targetIdx = isFinalFloor ? findKindIdx("boss") : findKindIdx("descend");
+        const exitOk = exitIdx < 0 || reachable.has(exitIdx);
+        const targetOk = targetIdx < 0 || reachable.has(targetIdx);
+        if (exitOk && targetOk) break;
+        // Relocate one blocking locked tile to a free empty.
+        const free = freeEmptyCells();
+        if (free.length === 0 || lockedIndices.length === 0) break;
+        const offending = lockedIndices[0];
+        kinds[offending] = "empty";
+        const newSpot = free[Math.floor(Math.random() * free.length)];
+        kinds[newSpot] = "locked";
+    }
+
+    const tiles: HollowGateTile[] = kinds.map((kind, i) => ({
+        kind,
+        revealed: i === spawnIdx, // spawn revealed
+        resolved: i === spawnIdx,
+        flavor: i === spawnIdx ? "You stand at the threshold of the Hollow Gate Shrine." : undefined,
+    }));
+
+    return {
+        width: w,
+        height: h,
+        playerX,
+        playerY,
+        tiles,
+        floor,
+        threat: 0,
+        torch: 10,
+        keys: 0,
+        completed: false,
+    };
+}
+
+function hollowGateTileAt(run: HollowGateShrineRun, x: number, y: number): HollowGateTile | undefined {
+    if (x < 0 || y < 0 || x >= run.width || y >= run.height) return undefined;
+    return run.tiles[y * run.width + x];
+}
+
+// Module-level Ancient Chest roll for the Hollow Gate Shrine. Mirrors the
+// WorldMap rollAncientChest behavior but is callable from the App-level shrine
+// handler. Floor scales the XP/ryo equivalent of the original "sector" input.
+type HollowGateChestLoot = {
+    xp: number;
+    ryo?: number;
+    itemId?: string;
+    fateShards?: number;
+    boneCharms?: number;
+    auraStones?: number;
+    auraDust?: number;
+};
+
+function rollHollowGateAncientChest(floor: number): HollowGateChestLoot {
+    // Treat floor as a "sector equivalent" of 30–50 so chests feel meaningful
+    // at any shrine depth.
+    const sectorEq = 25 + floor * 5;
+    const xp = 50 + Math.floor(sectorEq * 2);
+    const ryo = Math.random() < 0.5 ? 100 + Math.floor(Math.random() * 401) : undefined;
+
+    const lootRoll = Math.random();
+    let itemId: string | undefined;
+    let fateShards: number | undefined;
+    let boneCharms: number | undefined;
+    let auraStones: number | undefined;
+    const auraDust = Math.random() < 0.2 ? 5 + Math.floor(Math.random() * 11) : undefined;
+
+    if (lootRoll < 0.2) {
+        const treat = petTreatItems[Math.floor(Math.random() * petTreatItems.length)];
+        itemId = treat?.id;
+    } else if (lootRoll < 0.55) {
+        const commons = starterItems.filter((i) => i.rarity === "common" && i.slot !== "item");
+        if (commons.length) itemId = commons[Math.floor(Math.random() * commons.length)].id;
+    } else if (lootRoll < 0.65) {
+        const rares = starterItems.filter((i) => i.rarity === "rare" && i.slot !== "item");
+        if (rares.length) itemId = rares[Math.floor(Math.random() * rares.length)].id;
+    } else if (lootRoll < 0.92) {
+        // 27% — tile cards are skipped here (shrine doesn't expose card UI),
+        // so we promote them into extra currencies for variety.
+        fateShards = 1;
+    } else if (lootRoll < 0.97) {
+        fateShards = 1;
+    } else if (lootRoll < 0.99) {
+        boneCharms = 1;
+    } else {
+        auraStones = 1;
+    }
+    return { xp, ryo, itemId, fateShards, boneCharms, auraStones, auraDust };
+}
+
+// Pick a random pet from the player's available pool (editablePets) of the
+// given rarity, falling back to lower rarities if no template of that rarity
+// exists. Returns a cloned encounter copy ready to befriend.
+function pickHollowGateEncounterPet(pets: Pet[], rarity: PetRarity): Pet | null {
+    const rarityIndex = petRarityOrder.indexOf(rarity);
+    const fallbackRarities = petRarityOrder.slice(0, rarityIndex + 1).reverse();
+    for (const fallback of fallbackRarities) {
+        const pool = pets.filter((pet) => pet.rarity === fallback);
+        const chosen = pool[Math.floor(Math.random() * pool.length)];
+        if (chosen) return cloneEncounterPet(chosen);
+    }
+    return null;
+}
+
+function hollowGateTileIconForKind(kind: HollowGateTileKind): string {
+    switch (kind) {
+        case "battle": return "⚔";
+        case "elite": return "☠";
+        case "trap": return "▲";
+        case "chest": return "▣";
+        case "pet_event": return "🐾";
+        case "shrine": return "⛩";
+        case "story": return "📜";
+        case "boss": return "👹";
+        case "exit": return "⇩";     // Leave tile
+        case "locked": return "🔒";
+        case "npc": return "👤";      // Shrine Keeper
+        case "descend": return "▼";   // Staircase to next floor
+        default: return "·";
+    }
+}
 
 type EventEncounterBattle = NonNullable<NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number]["battle"]>;
 type PendingEventEncounter = {
@@ -1570,7 +1973,7 @@ const petFeedItems = [
     ...petTreatItems,
     { id: "golden-apple", name: "Golden Apple", xp: 2000 },
 ] as const;
-const stackableItemIds = new Set<string>([...petFeedItems.map((item) => item.id), TERRITORY_CONTROL_SCROLL_ID]);
+const stackableItemIds = new Set<string>([...petFeedItems.map((item) => item.id), TERRITORY_CONTROL_SCROLL_ID, "hollow-gate-key", "dungeon-legendary-fragment", "veil-of-the-hollow"]);
 export function petFeedXpForItem(itemId?: string): number | undefined {
     return petFeedItems.find((item) => item.id === itemId)?.xp;
 }
@@ -2588,6 +2991,9 @@ const starterItems: GameItem[] = [
     { id: "weekly-boss-core", name: "Weekly Boss Core", slot: "item", rarity: "legendary", cost: 0, description: "A time-gated core from the weekly boss. Used to forge epic and legendary weapons.", bonuses: {} },
     { id: "dungeon-key", name: "Dungeon Key", slot: "item", rarity: "rare", cost: 0, description: "A key that opens one Hidden Dungeon run. Drops from weekly bosses and war crates.", bonuses: {} },
     { id: "dungeon-legendary-relic", name: "Dungeon Legendary Relic", slot: "item", rarity: "legendary", cost: 0, description: "A relic recovered from a Hidden Dungeon. Used to forge legendary weapons.", bonuses: {} },
+    { id: "dungeon-legendary-fragment", name: "Dungeon Legendary Fragment", slot: "item", rarity: "epic", cost: 0, description: "A chakra-burnt fragment shed by the Hollow Gate Warden. Combine fragments to forge a Dungeon Legendary Relic.", bonuses: {} },
+    { id: "veil-of-the-hollow", name: "Veil of the Hollow", slot: "item", rarity: "legendary", cost: 0, description: "A relic claimed from a Hidden Chamber deep within the Hollow Gate Shrine. Whispers of corrupted shinobi cling to it.", bonuses: {} },
+    { id: "hollow-gate-key", name: "Hollow Gate Key", slot: "item", rarity: "rare", cost: 0, description: "A bone-pale key etched with Hollow Gate sigils. One-time use — consumed each time you enter the Hollow Gate Shrine. Your village Kage must also have purchased the Hollow Gate unlock. Crafted at the Crafter from 5 Dungeon Keys or 10 Fate Shards; granted on completing your village story.", bonuses: {} },
     { id: "warforged-relic", name: "Warforged Relic", slot: "item", rarity: "legendary", cost: 0, description: "A battle-marked relic from a war crate. Used to forge legendary weapons.", bonuses: {} },
     { id: "legendary-war-crate", name: "Legendary War Crate", slot: "item", rarity: "legendary", cost: 0, description: "A crate awarded for major clan or village war victories. Open it for a Warforged Relic and a chance at a Dungeon Key.", bonuses: {} },
     // -- Throwable weapons -------------------------------------------------------
@@ -3223,6 +3629,16 @@ function itemDisplayName(itemId: string, allItems: GameItem[]) {
 const WEEKLY_BOSS_CORE_ID = "weekly-boss-core";
 export const DUNGEON_KEY_ID = "dungeon-key";
 const DUNGEON_LEGENDARY_RELIC_ID = "dungeon-legendary-relic";
+const DUNGEON_LEGENDARY_FRAGMENT_ID = "dungeon-legendary-fragment";
+const VEIL_OF_THE_HOLLOW_ID = "veil-of-the-hollow";
+const HOLLOW_GATE_KEY_ID = "hollow-gate-key";
+let HOLLOW_GATE_KEY_DUNGEON_KEY_COST = 5;
+let HOLLOW_GATE_KEY_FATE_SHARD_COST = 10;
+// Damage taken per trap tile (and "Cursed Bind" sealed-door outcome), as a
+// percent of the player's max HP. Lethal-capable.
+let HOLLOW_GATE_TRAP_DMG_PCT = 0.33;
+// Per-floor reward multiplier for boss kills: total mult = 1 + (floor - 1) * this.
+let HOLLOW_GATE_BOSS_FLOOR_REWARD_MULT = 0.2;
 export const WARFORGED_RELIC_ID = "warforged-relic";
 export const LEGENDARY_WAR_CRATE_ID = "legendary-war-crate";
 
@@ -4644,6 +5060,9 @@ function rewardSummary(xp: number, ryo: number, stamina: number, rewards?: Curre
 }
 
 const VILLAGE_UPGRADE_MAX_LEVEL = 50;
+// Hollow Gate tunables — declared as `let` so the admin panel can override
+// them at runtime without rebuilding. Defaults are baked-in canonical values.
+let HOLLOW_GATE_UNLOCK_COST = 10_000;
 
 const villageUpgradeDefinitions: Array<{
     key: VillageUpgradeKey;
@@ -4951,6 +5370,9 @@ function normalizeCharacter(parsed: Character): Character {
         dailyFateSpins: parsed.lastDailyReset === currentDateKey() ? (parsed.dailyFateSpins ?? 0) : 0,
         dailyAiKills: parsed.lastDailyReset === currentDateKey() ? (parsed.dailyAiKills ?? 0) : 0,
         dailyPetWins: parsed.lastDailyReset === currentDateKey() ? (parsed.dailyPetWins ?? 0) : 0,
+        hollowGateRun: parsed.hollowGateRun ?? null,
+        hollowGateWardenKills: parsed.hollowGateWardenKills ?? 0,
+        hollowGateIntroSeen: parsed.hollowGateIntroSeen ?? false,
         claimedVillageAgendaDate: parsed.claimedVillageAgendaDate,
         claimedMapControlDate: parsed.claimedMapControlDate,
         examsPassed: Array.isArray(parsed.examsPassed) ? parsed.examsPassed.filter(Boolean) : [],
@@ -5890,6 +6312,15 @@ const builtinAis: CreatorAi[] = [
     makeBuiltinAi("hunt-ai-moon-serpent", "Moon Serpent", "🐍", 68, "Shadow Territory", aiJutsuLoadout("control"), 158, 13000, "control"),
     makeBuiltinAi("hunt-ai-ancient-chakra-beast", "Ancient Chakra Beast", "👺", 88, "Central Wilderness", aiJutsuLoadout("boss"), 205, 18000, "boss"),
     makeBuiltinAi("hunt-ai-worldstorm-dragon", "Worldstorm Dragon", "🐲", 92, "Central Wilderness", aiJutsuLoadout("boss"), 220, 20000, "boss"),
+    // -- Hollow Gate Shrine boss ---------------------------------------------
+    // The Hollow Gate Warden is the deepest seal of the shrine. It is flagged
+    // isBossAi so the shrine boss-tile picker selects it, and is built at a high
+    // base level — the runtime AI selection in startHollowGateBattle rebases
+    // its name and level to within ±15 of the player's level on use.
+    ((): CreatorAi => {
+        const base = makeBuiltinAi("boss-hollow-gate-warden", "Hollow Gate Warden", "👹", 60, "Hollow Gate Shrine", aiJutsuLoadout("boss"), 180, 22000, "boss");
+        return { ...base, isBossAi: true };
+    })(),
 ];
 
 const builtinHuntMissions: CreatorMission[] = [
@@ -6069,7 +6500,6 @@ export default function App() {
         document.body.classList.toggle("in-battle", isBattle);
         return () => { document.body.classList.remove("in-battle"); };
     }, [screen]);
-    // ───────────────────────────────────────────────────────────────────────
 
     const [sharedImages, setSharedImages] = useState<Record<string, string>>({});
     const [savedBloodlines, setSavedBloodlines] = useState<SavedBloodline[]>([]);
@@ -6192,6 +6622,56 @@ export default function App() {
     const [raidBattleKind, setRaidBattleKind] = useState<"none" | "raidAi" | "raidPlayer" | "defense">("none");
     const [endlessBattleActive, setEndlessBattleActive] = useState(false);
     const [endlessBattleWave, setEndlessBattleWave] = useState(0);
+
+    // ── Hollow Gate Shrine crawler state ──────────────────────────────────────
+    const [hollowGateRun, setHollowGateRun] = useState<HollowGateShrineRun | null>(null);
+    const [hollowGateLog, setHollowGateLog] = useState<string[]>([]);
+    type HollowGateEventModal = {
+        title: string;
+        body: string;
+        kind: HollowGateTileKind;
+        choices: Array<{ label: string; onSelect: () => void; tone?: "danger" | "safe" | "primary" }>;
+    } | null;
+    const [hollowGateEvent, setHollowGateEvent] = useState<HollowGateEventModal>(null);
+    type HiddenChamberState = {
+        searched: boolean;
+        relicTaken: boolean;
+    } | null;
+    const [hollowGateHiddenChamber, setHollowGateHiddenChamber] = useState<HiddenChamberState>(null);
+    // Intro VN page index — null = not showing, 0..N = pages of the intro sequence.
+    const [hollowGateIntroPage, setHollowGateIntroPage] = useState<number | null>(null);
+
+    // Hollow Gate Shrine — WASD / Arrow keys move the player one tile.
+    // Only active while the shrine screen is open, no event/chamber modal is up,
+    // and focus is not in a text field.
+    useEffect(() => {
+        if (screen !== "hollowGateShrine") return;
+        function handleKey(e: KeyboardEvent) {
+            const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+            if (tag === "input" || tag === "textarea" || tag === "select") return;
+            const k = e.key.toLowerCase();
+            if (k === "w" || k === "arrowup") { e.preventDefault(); moveHollowGatePlayer(0, -1); return; }
+            if (k === "s" || k === "arrowdown") { e.preventDefault(); moveHollowGatePlayer(0, 1); return; }
+            if (k === "a" || k === "arrowleft") { e.preventDefault(); moveHollowGatePlayer(-1, 0); return; }
+            if (k === "d" || k === "arrowright") { e.preventDefault(); moveHollowGatePlayer(1, 0); return; }
+        }
+        window.addEventListener("keydown", handleKey);
+        return () => window.removeEventListener("keydown", handleKey);
+    // moveHollowGatePlayer reads current state via closure — re-bind when run / modal state changes
+    // so the closure always sees the freshest values.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [screen, hollowGateRun, hollowGateEvent, hollowGateHiddenChamber]);
+
+    // Persist the in-progress shrine run to the character so it survives refresh.
+    // We mirror the local hollowGateRun state into character.hollowGateRun whenever
+    // it changes while inside the shrine.
+    useEffect(() => {
+        if (!character) return;
+        if (screen !== "hollowGateShrine") return;
+        if (character.hollowGateRun === hollowGateRun) return;
+        setCharacter({ ...character, hollowGateRun });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [hollowGateRun]);
 
     function savedJutsuPool(source: Partial<ReturnType<typeof buildPlayerSavePayload>>) {
         return [
@@ -6941,6 +7421,8 @@ export default function App() {
             setCharacter((prev) => {
                 if (!prev) return prev;
                 if (screen === "arena" || screen === "storyBoss" || screen === "pvpBattle") return prev;
+                // No passive recovery inside the Hollow Gate — the shrine forbids healing.
+                if (screen === "hollowGateShrine") return prev;
                 const auraBonuses = getActiveAuraSphereBonuses(prev);
 
                 return {
@@ -7200,7 +7682,7 @@ export default function App() {
     // Load ALL image categories at startup — ensures images from publishSharedImage
     // are always available regardless of which screen the player visits first.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    useEffect(() => { void loadCategory('item'); void loadCategory('pet'); void loadCategory('card'); void loadCategory('jutsu'); void loadCategory('event'); void loadCategory('avatar'); void loadCategory('ai'); void loadCategory('bloodline'); }, []);
+    useEffect(() => { void loadCategory('item'); void loadCategory('pet'); void loadCategory('card'); void loadCategory('jutsu'); void loadCategory('event'); void loadCategory('avatar'); void loadCategory('ai'); void loadCategory('bloodline'); void loadCategory('shrine'); void loadCategory('landmark'); }, []);
 
     // Screen ? image categories map
     useEffect(() => {
@@ -7725,6 +8207,12 @@ export default function App() {
             alert("🏥 You are still admitted. Pay the discharge fee or wait for the free check-out timer.");
             return;
         }
+        // Lock: the Hollow Gate forbids healing. You cannot reach healing screens
+        // mid-run — leave the shrine first (Leave Shrine button) to heal.
+        if (screen === "hollowGateShrine" && (nextScreen === "hospital" || nextScreen === "cafeteria")) {
+            alert("⛩ The Hollow Gate forbids healing. Leave the shrine first.");
+            return;
+        }
         // Set hospital entry time when arriving admitted
         if (nextScreen === "hospital" && character?.hospitalized) {
             setHospitalEntryTime(Date.now());
@@ -7976,15 +8464,17 @@ export default function App() {
             };
             if (step.kageFinale) {
                 unlockVillageKageSystem(character.village, character.name);
-                nextCharacter = {
+                // Story finale grants a Hollow Gate Key — a personal shrine pass
+                // that bypasses the village unlock and the daily run cap.
+                nextCharacter = addInventoryItems({
                     ...nextCharacter,
                     storyTitle: step.liberatorTitle ?? nextCharacter.storyTitle,
                     rankTitle: step.liberatorTitle ?? nextCharacter.rankTitle,
-                };
+                }, [HOLLOW_GATE_KEY_ID]);
             }
             setCharacter(nextCharacter);
             setPendingAiProfileId("");
-            return `${step.bossName} defeated. +${effectiveCharacterXpGain(character, step.rewardXp)} XP, +${step.rewardRyo} ryo, +12 Aura Dust. Story advanced.`;
+            return `${step.bossName} defeated. +${effectiveCharacterXpGain(character, step.rewardXp)} XP, +${step.rewardRyo} ryo, +12 Aura Dust${step.kageFinale ? ", +1 Hollow Gate Key" : ""}. Story advanced.`;
         }
 
         if (pendingArenaStoryBattle.kind === "dungeonAi") {
@@ -7993,6 +8483,46 @@ export default function App() {
             setTemporaryStoryAi(null);
             setPendingAiProfileId("");
             return "Dungeon Warden defeated. The second seal opens: win the shinobi tile game to continue.";
+        }
+
+        if (pendingArenaStoryBattle.kind === "hollowGateShrine") {
+            const isBoss = pendingArenaStoryBattle.isBoss;
+            const isAmbush = pendingArenaStoryBattle.isAmbush;
+            // Reward scales with role AND with floor depth for bosses.
+            //   Boss multiplier (tunable HOLLOW_GATE_BOSS_FLOOR_REWARD_MULT):
+            //   floor 1 = 1.0, floor 5 with default 0.2 = 1.8 (per-floor +0.2)
+            const runFloor = hollowGateRun?.floor ?? 1;
+            const bossFloorMult = isBoss ? 1 + Math.max(0, runFloor - 1) * HOLLOW_GATE_BOSS_FLOOR_REWARD_MULT : 1;
+            const xpReward = Math.floor((isBoss ? 600 : isAmbush ? 220 : 140) * bossFloorMult);
+            const ryoReward = Math.floor((isBoss ? 2400 : isAmbush ? 900 : 380) * bossFloorMult);
+            const auraDustReward = Math.floor((isBoss ? 30 : isAmbush ? 10 : 5) * bossFloorMult);
+            const honorReward = Math.floor((isBoss ? 25 : 0) * bossFloorMult);
+            const leveled = gainXp({ ...character, hp: survivingHp }, xpReward);
+            // Boss always drops a Dungeon Legendary Fragment. No floor in the Hollow Gate
+            // forbids healing — but we DO restore HP on win to keep the run survivable
+            // (the boss is a major roadblock, not a death sentence). Non-boss wins
+            // still get a small HP refund.
+            let nextCharacter: Character = {
+                ...leveled,
+                ryo: leveled.ryo + ryoReward,
+                auraDust: (leveled.auraDust ?? 0) + auraDustReward,
+                honorSeals: (leveled.honorSeals ?? 0) + honorReward,
+                hp: Math.min(leveled.maxHp, survivingHp + (isBoss ? 60 : 20)),
+            };
+            if (isBoss) {
+                nextCharacter = addInventoryItems(nextCharacter, [DUNGEON_LEGENDARY_FRAGMENT_ID]);
+                nextCharacter = {
+                    ...nextCharacter,
+                    hollowGateWardenKills: (nextCharacter.hollowGateWardenKills ?? 0) + 1,
+                };
+            }
+            setCharacter(nextCharacter);
+            setTemporaryStoryAi(null);
+            setPendingAiProfileId("");
+            onHollowGateBattleWin();
+            return isBoss
+                ? `Hollow Gate Warden defeated. +${effectiveCharacterXpGain(character, xpReward)} XP, +${ryoReward} ryo, +${auraDustReward} Aura Dust, +${honorReward} Honor Seals, +1 Dungeon Legendary Fragment.`
+                : `Corrupted shinobi defeated. +${effectiveCharacterXpGain(character, xpReward)} XP, +${ryoReward} ryo, +${auraDustReward} Aura Dust.`;
         }
 
         const { event, battle } = pendingArenaStoryBattle;
@@ -8014,11 +8544,12 @@ export default function App() {
         };
         if (event.kageFinale && event.village === character.village) {
             unlockVillageKageSystem(character.village, character.name);
-            nextCharacter = {
+            // Story finale grants a Hollow Gate Key — a personal shrine pass.
+            nextCharacter = addInventoryItems({
                 ...nextCharacter,
                 storyTitle: event.liberatorTitle ?? nextCharacter.storyTitle,
                 rankTitle: event.liberatorTitle ?? nextCharacter.rankTitle,
-            };
+            }, [HOLLOW_GATE_KEY_ID]);
         }
         // Story chapter battles (triggered via auto-VN) must advance storyProgress just
         // like kind:"storyBoss" does. The event id always starts with "story-" for these.
@@ -8036,9 +8567,10 @@ export default function App() {
         setCharacter(nextCharacter);
         setPendingAiProfileId("");
         const displayedXpReward = effectiveCharacterXpGain(character, xpReward);
+        const kageFinaleBonus = event.kageFinale && event.village === character.village ? ", +1 Hollow Gate Key" : "";
         return isStoryChapterBattle
-            ? `${battle?.bossName ?? event.name} defeated. +${displayedXpReward} XP, +${ryoReward} ryo, +12 Aura Dust. Story advanced.`
-            : `${battle?.bossName ?? event.name} defeated. +${displayedXpReward} XP, +${ryoReward} ryo. Event reward claimed.`;
+            ? `${battle?.bossName ?? event.name} defeated. +${displayedXpReward} XP, +${ryoReward} ryo, +12 Aura Dust${kageFinaleBonus}. Story advanced.`
+            : `${battle?.bossName ?? event.name} defeated. +${displayedXpReward} XP, +${ryoReward} ryo${kageFinaleBonus}. Event reward claimed.`;
     }
 
     function continuePendingArenaStoryBattle() {
@@ -8047,6 +8579,792 @@ export default function App() {
         setTemporaryStoryAi(null);
         setPendingAiProfileId("");
         setScreen(returnScreen);
+    }
+
+    // ── Hollow Gate Shrine — actions ──────────────────────────────────────────
+    function pushHollowGateLog(line: string) {
+        setHollowGateLog(prev => [line, ...prev].slice(0, 30));
+    }
+    function isActivePetEligibleForHollowGate(): boolean {
+        if (!character) return false;
+        const pet = character.pets?.find(p => p.id === character.activePetId);
+        if (!pet) return false;
+        if (isPetOnExpedition(pet)) return false;
+        return Boolean(pet.unlockedForPve);
+    }
+    function enterHollowGateShrine() {
+        if (!character) return;
+        // Restore an in-progress run, if any. Resuming a run is always free —
+        // the key was already consumed when the run was started. The Character
+        // normalizer resets daily counters at midnight UTC.
+        if (character.hollowGateRun && !character.hollowGateRun.completed) {
+            setHollowGateRun(character.hollowGateRun);
+            setHollowGateLog(prev => prev.length ? prev : ["You return to your unfinished run. The Hollow Gate echoes have not forgotten you."]);
+            setHollowGateEvent(null);
+            setHollowGateHiddenChamber(null);
+            setCurrentBiome("shadow");
+            setCurrentWeather(weatherForBiome("shadow"));
+            setScreen("hollowGateShrine");
+            return;
+        }
+
+        // Entry rules — BOTH conditions required to start a new run:
+        //   (1) The Kage has purchased the Hollow Gate upgrade for this village.
+        //   (2) The player owns a Hollow Gate Key, which is consumed on entry.
+        const village = loadVillageState(character.village);
+        if (!village.hollowGateUnlocked) {
+            alert("The Hollow Gate seal is still bound. Your village Kage must purchase the Hollow Gate upgrade from the Town Hall before anyone can enter.");
+            return;
+        }
+        const ownedKeys = character.inventory.filter(id => id === HOLLOW_GATE_KEY_ID).length;
+        if (ownedKeys <= 0) {
+            alert("You need a Hollow Gate Key to enter the shrine. Forge one at the Crafter (5 Dungeon Keys or 10 Fate Shards), or complete your village story.");
+            return;
+        }
+        const ok = window.confirm(`Enter the Hollow Gate Shrine?\n\nThis consumes 1 Hollow Gate Key (${ownedKeys} owned). Keys are one-time use.`);
+        if (!ok) return;
+
+        // Consume exactly one Hollow Gate Key.
+        const newInv = [...character.inventory];
+        const idx = newInv.indexOf(HOLLOW_GATE_KEY_ID);
+        if (idx >= 0) newInv.splice(idx, 1);
+
+        const run = generateHollowGateShrineRun(1);
+        setHollowGateRun(run);
+        setHollowGateLog([
+            "You press a Hollow Gate Key against the broken torii. The seal bends. You descend.",
+        ]);
+        setHollowGateEvent(null);
+        setHollowGateHiddenChamber(null);
+        // First-time entry shows the intro VN (3 pages) before the grid is interactable.
+        const isFirstEntry = !character.hollowGateIntroSeen;
+        setHollowGateIntroPage(isFirstEntry ? 0 : null);
+        setCharacter({
+            ...character,
+            inventory: newInv,
+            hollowGateRun: run,
+            hollowGateIntroSeen: true,
+            lastDailyReset: currentDateKey(),
+        });
+        setCurrentBiome("shadow");
+        setCurrentWeather(weatherForBiome("shadow"));
+        setScreen("hollowGateShrine");
+    }
+    // ── Admin-only ops for the Hollow Gate panel ──────────────────────────
+    function adminHollowGateForceUnlock(unlock: boolean) {
+        if (!character) return;
+        const v = loadVillageState(character.village);
+        saveVillageState(character.village, normalizeVillageState(character.village, { ...v, hollowGateUnlocked: unlock }));
+    }
+    function adminHollowGateResetIntro() {
+        if (!character) return;
+        setCharacter({ ...character, hollowGateIntroSeen: false });
+    }
+    function adminHollowGateClearRun() {
+        if (!character) return;
+        setHollowGateRun(null);
+        setHollowGateEvent(null);
+        setHollowGateHiddenChamber(null);
+        setHollowGateLog([]);
+        setHollowGateIntroPage(null);
+        setCharacter({ ...character, hollowGateRun: null });
+    }
+    function adminHollowGateGrantKey() {
+        if (!character) return;
+        setCharacter(addInventoryItems(character, [HOLLOW_GATE_KEY_ID]));
+    }
+
+    // Admin-only test entry: bypasses the village-unlock check AND the
+    // Hollow Gate Key requirement. Used by the Admin Panel's Hollow Gate tab
+    // to playtest the shrine without burning a real key or waiting for a Kage.
+    // Still uses the same generator / state setup as the normal entry, and
+    // still records the run on the character so resume / persistence works.
+    function adminTestEnterHollowGateShrine() {
+        if (!character) return;
+        // Resume an existing run if the admin has one — same behavior as
+        // the live entry. Otherwise start a fresh run with no gates.
+        if (character.hollowGateRun && !character.hollowGateRun.completed) {
+            setHollowGateRun(character.hollowGateRun);
+            setHollowGateLog(prev => prev.length ? prev : ["(Admin test) Resuming the unfinished run."]);
+            setHollowGateEvent(null);
+            setHollowGateHiddenChamber(null);
+            setCurrentBiome("shadow");
+            setCurrentWeather(weatherForBiome("shadow"));
+            setScreen("hollowGateShrine");
+            return;
+        }
+        const run = generateHollowGateShrineRun(1);
+        setHollowGateRun(run);
+        setHollowGateLog([
+            "(Admin test) You step through the broken torii — no seal, no key. The Hollow Gate echoes greet you anyway.",
+        ]);
+        setHollowGateEvent(null);
+        setHollowGateHiddenChamber(null);
+        setCharacter({
+            ...character,
+            hollowGateRun: run,
+            lastDailyReset: currentDateKey(),
+        });
+        setCurrentBiome("shadow");
+        setCurrentWeather(weatherForBiome("shadow"));
+        setScreen("hollowGateShrine");
+    }
+    function startHollowGateBattle(opts: { isBoss?: boolean; isAmbush?: boolean }) {
+        if (!character) return;
+        const LEVEL_BAND = 15;
+        const playerLevel = character.level;
+        const inBand = (ai: CreatorAi) => Math.abs((ai.level ?? 1) - playerLevel) <= LEVEL_BAND;
+
+        const normalAis = playableAis.filter(ai => !ai.isBossAi);
+        const bossAis = playableAis.filter(ai => ai.isBossAi);
+
+        // Boss tile prefers the dedicated Hollow Gate Warden; falls back to any
+        // boss-type AI within ±15 levels; finally to closest boss overall.
+        // Ambush + normal battles pick a random non-boss AI within ±15 levels.
+        let chosen: CreatorAi | undefined;
+        if (opts.isBoss) {
+            const warden = bossAis.find(ai => ai.id === "boss-hollow-gate-warden");
+            const bossBand = bossAis.filter(inBand);
+            if (warden) {
+                // Use the warden but rebase its level to the player's level so the
+                // fight scales to the player. The encounter wrapper below clones the AI.
+                chosen = warden;
+            } else if (bossBand.length > 0) {
+                chosen = bossBand[Math.floor(Math.random() * bossBand.length)];
+            } else if (bossAis.length > 0) {
+                // Fall back to the boss closest in level.
+                chosen = [...bossAis].sort((a, b) =>
+                    Math.abs((a.level ?? 1) - playerLevel) - Math.abs((b.level ?? 1) - playerLevel)
+                )[0];
+            }
+        } else {
+            const normalBand = normalAis.filter(inBand);
+            if (normalBand.length > 0) {
+                chosen = normalBand[Math.floor(Math.random() * normalBand.length)];
+            } else if (normalAis.length > 0) {
+                chosen = [...normalAis].sort((a, b) =>
+                    Math.abs((a.level ?? 1) - playerLevel) - Math.abs((b.level ?? 1) - playerLevel)
+                )[0];
+            }
+        }
+
+        if (!chosen) {
+            alert("The shrine refuses to reveal an opponent right now.");
+            return;
+        }
+        const baseAi = chosen;
+
+        // Wrap as a Hollow Gate themed encounter and rebase the AI's level
+        // to within the band of the player so the battle is fair.
+        const encounterName = opts.isBoss
+            ? "Hollow Gate Warden"
+            : opts.isAmbush
+                ? "Hollow Gate Ambush"
+                : `Corrupted ${baseAi.name}`;
+        // Boss difficulty scales with the floor of the run:
+        //   Floor 1 -> playerLevel - 5
+        //   Floor 2 -> playerLevel
+        //   Floor 3 -> playerLevel + 5
+        //   Floor 4 -> playerLevel + 10
+        //   Floor 5 -> playerLevel + 15
+        // (Currently bosses only exist on Floor 5 in fresh runs, but a legacy
+        // save with a non-final-floor boss tile still scales correctly.)
+        const floor = hollowGateRun?.floor ?? 1;
+        const bossFloorOffset = opts.isBoss ? Math.min(LEVEL_BAND, -5 + (floor - 1) * 5) : 0;
+        const targetLevel = playerLevel + bossFloorOffset;
+        const rebasedLevel = opts.isBoss
+            ? clampNumber(targetLevel, 1, MAX_LEVEL)
+            : clampNumber(baseAi.level ?? playerLevel, Math.max(1, playerLevel - LEVEL_BAND), playerLevel + LEVEL_BAND);
+        // Bosses also scale HP by floor (1.0x .. 1.4x).
+        const bossHpMultiplier = opts.isBoss ? 1 + Math.max(0, floor - 1) * 0.1 : 1;
+
+        // PET CO-COMBAT — multi-pronged simulation since Arena doesn't support
+        // a co-combatant slot. When the player has a battle-ready pet, we:
+        //   1) Restore player HP / chakra / stamina to full at battle start
+        //      (the pet "preps" the shinobi before the encounter).
+        //   2) Pre-damage the AI by 15-25% (normal fights, scaled by pet level)
+        //      or 10-15% (boss, scaled by pet level). Pet level / 10, capped at
+        //      1.5x, plus an extra 0.5x flat bond bump for being level-50+
+        //      eligible.
+        //   3) Log a clear "Pet assists in battle" line so the contribution is
+        //      visible. The shrine flavor reflects the pet's name.
+        const pet = character.pets?.find(p => p.id === character.activePetId);
+        const petAssists = pet && pet.unlockedForPve && !isPetOnExpedition(pet);
+        const baseHpShavePct = opts.isBoss ? 0.10 : 0.15;
+        const bondFactor = petAssists && pet ? Math.min(1.5, Math.max(0.5, pet.level / 10)) : 0;
+        const hpShavePct = petAssists ? baseHpShavePct * bondFactor : 0;
+        // Pre-battle player buff: full restore when pet assists.
+        if (petAssists && pet) {
+            setCharacter({
+                ...character,
+                hp: character.maxHp,
+                chakra: character.maxChakra,
+                stamina: character.maxStamina,
+            });
+        }
+        const scaledHp = Math.max(1, Math.floor(baseAi.hp * bossHpMultiplier));
+        const shrineAi: CreatorAi = {
+            ...baseAi,
+            id: `hollow-gate-${baseAi.id}-${Date.now()}`,
+            name: encounterName,
+            level: rebasedLevel,
+            isBossAi: Boolean(opts.isBoss),
+            hp: hpShavePct > 0 ? Math.max(1, Math.floor(scaledHp * (1 - hpShavePct))) : scaledHp,
+        } as CreatorAi;
+        if (petAssists && pet) {
+            pushHollowGateLog(`${pet.name} steadies you — HP, chakra, and stamina restored to full.`);
+            pushHollowGateLog(`${pet.name} draws first blood — the enemy enters with ${(hpShavePct * 100).toFixed(0)}% less HP.`);
+        }
+
+        setTemporaryStoryAi(shrineAi);
+        setPendingAiProfileId(shrineAi.id);
+        setPendingPvpOpponent(null);
+        setRaidBattleKind("none");
+        setPendingArenaStoryBattle({
+            kind: "hollowGateShrine",
+            returnScreen: "hollowGateShrine",
+            isBoss: opts.isBoss,
+            isAmbush: opts.isAmbush,
+        });
+        setCurrentBiome("shadow");
+        setCurrentWeather(weatherForBiome("shadow"));
+        setArenaKey((key) => key + 1);
+        const petLine = isActivePetEligibleForHollowGate()
+            ? ` ${character.pets.find(p => p.id === character.activePetId)?.name ?? "Your pet"} bristles beside you, ready to assist.`
+            : "";
+        pushHollowGateLog(`Encounter: ${encounterName}.${petLine}`);
+        setScreen("arena");
+    }
+    function resolveHollowGateTile(tile: HollowGateTile, x: number, y: number) {
+        if (!hollowGateRun || !character) return;
+        const idx = y * hollowGateRun.width + x;
+        const flavor = hollowGateFlavorFor(tile.kind);
+        // Mark resolved immediately so re-entering the tile doesn't fire it again.
+        function markResolved(nextRun?: HollowGateShrineRun) {
+            const base = nextRun ?? hollowGateRun!;
+            const tiles = base.tiles.slice();
+            tiles[idx] = { ...tiles[idx], resolved: true };
+            setHollowGateRun({ ...base, tiles });
+        }
+        switch (tile.kind) {
+            case "empty": {
+                pushHollowGateLog(flavor);
+                markResolved();
+                return;
+            }
+            case "battle": {
+                pushHollowGateLog(flavor);
+                startHollowGateBattle({});
+                markResolved();
+                return;
+            }
+            case "elite": {
+                pushHollowGateLog(`[Elite] ${flavor}`);
+                startHollowGateBattle({ isBoss: false });
+                markResolved();
+                return;
+            }
+            case "trap": {
+                // Hollow Gate traps deal a flat percent of the player's max HP
+                // (tunable: HOLLOW_GATE_TRAP_DMG_PCT). Healing is forbidden inside the
+                // shrine, so this damage is permanent until you leave or descend.
+                // A trap CAN kill you if HP is already low.
+                const dmgPct = HOLLOW_GATE_TRAP_DMG_PCT;
+                const dmg = Math.max(1, Math.floor(character.maxHp * dmgPct));
+                const nextHp = Math.max(0, character.hp - dmg);
+                const willDie = nextHp <= 0;
+                // On death, match the existing death pipeline used by Arena loss:
+                //   updateCharacter({ ...character, hp: 0, hospitalized: true })
+                setCharacter({
+                    ...character,
+                    hp: willDie ? 0 : nextHp,
+                    hospitalized: willDie ? true : character.hospitalized,
+                });
+                pushHollowGateLog(`${flavor} The seals tear ${dmg} HP from you (${Math.round(dmgPct * 100)}% of max).${willDie ? " You collapse — admitted to the village hospital." : ""}`);
+                if (willDie) {
+                    setHollowGateEvent({
+                        title: "You Have Fallen",
+                        body: `${flavor}\n\nThe trap drains your final breath. You are admitted to the village hospital and your shrine run ends.`,
+                        kind: "trap",
+                        choices: [{
+                            label: "Leave Shrine",
+                            tone: "danger",
+                            onSelect: () => {
+                                setHollowGateEvent(null);
+                                leaveHollowGateShrine();
+                                setScreen("hospital");
+                            },
+                        }],
+                    });
+                } else {
+                    setHollowGateEvent({
+                        title: "Ancient Seal Trap",
+                        body: `${flavor}\n\nYou take ${dmg} HP damage (${Math.round(dmgPct * 100)}% of max).`,
+                        kind: "trap",
+                        choices: [{ label: "Press On", onSelect: () => setHollowGateEvent(null), tone: "primary" }],
+                    });
+                }
+                markResolved();
+                return;
+            }
+            case "chest": {
+                const ryoGain = 80 + Math.floor(Math.random() * 200);
+                const xpGain = 25 + Math.floor(Math.random() * 30);
+                const auraDustGain = Math.random() < 0.4 ? 5 + Math.floor(Math.random() * 8) : 0;
+                // Hollow Gate Shrine chests always yield aura stones and bone charms.
+                const auraStoneGain = 1 + Math.floor(Math.random() * 10);  // 1..10
+                const boneCharmGain = 5 + Math.floor(Math.random() * 11);  // 5..15
+                const keyGain = Math.random() < 0.3 ? 1 : 0;
+                const leveled = gainXp(character, xpGain);
+                setCharacter({
+                    ...leveled,
+                    ryo: leveled.ryo + ryoGain,
+                    auraDust: (leveled.auraDust ?? 0) + auraDustGain,
+                    auraStones: (leveled.auraStones ?? 0) + auraStoneGain,
+                    boneCharms: (leveled.boneCharms ?? 0) + boneCharmGain,
+                });
+                // Chests also refill the Torch of Reiki by 2.
+                const torchRefill = 2;
+                pushHollowGateLog(`Chest opened. +${ryoGain} ryo, +${effectiveCharacterXpGain(character, xpGain)} XP${auraDustGain ? `, +${auraDustGain} Aura Dust` : ""}, +${auraStoneGain} Aura Stones, +${boneCharmGain} Bone Charms${keyGain ? ", +1 Shrine Key" : ""}, +${torchRefill} Torch.`);
+                const nextRun = {
+                    ...hollowGateRun,
+                    keys: hollowGateRun.keys + keyGain,
+                    torch: Math.min(10, hollowGateRun.torch + torchRefill),
+                };
+                markResolved(nextRun);
+                setHollowGateEvent({
+                    title: "Shrine Offering Chest",
+                    body: `${flavor}\n\n+${ryoGain} ryo\n+${effectiveCharacterXpGain(character, xpGain)} XP${auraDustGain ? `\n+${auraDustGain} Aura Dust` : ""}\n+${auraStoneGain} Aura Stones\n+${boneCharmGain} Bone Charms${keyGain ? "\n+1 Shrine Key" : ""}`,
+                    kind: "chest",
+                    choices: [{ label: "Continue", onSelect: () => setHollowGateEvent(null), tone: "primary" }],
+                });
+                return;
+            }
+            case "pet_event": {
+                const eligible = isActivePetEligibleForHollowGate();
+                const pet = character.pets.find(p => p.id === character.activePetId);
+                pushHollowGateLog(flavor);
+                if (eligible && pet) {
+                    const xp = 40 + Math.floor(Math.random() * 30);
+                    const updatedPets = character.pets.map(p => p.id === pet.id ? gainPetXp(p, xp) : p);
+                    setCharacter({ ...character, pets: updatedPets });
+                    setHollowGateEvent({
+                        title: "Glowing Pawprints",
+                        body: `${flavor}\n\n${pet.name} investigates the shrine spirit and gains +${xp} pet XP.`,
+                        kind: "pet_event",
+                        choices: [{ label: "Onward", onSelect: () => setHollowGateEvent(null), tone: "primary" }],
+                    });
+                } else {
+                    setHollowGateEvent({
+                        title: "Glowing Pawprints",
+                        body: `${flavor}\n\nWithout a battle-ready pet at your side, the spirit retreats into the dark.`,
+                        kind: "pet_event",
+                        choices: [{ label: "Onward", onSelect: () => setHollowGateEvent(null), tone: "primary" }],
+                    });
+                }
+                markResolved();
+                return;
+            }
+            case "shrine": {
+                // Shrine tile fully refills the Torch of Reiki.
+                pushHollowGateLog(`${flavor} The Torch of Reiki flares to full.`);
+                setHollowGateHiddenChamber({ searched: false, relicTaken: false });
+                markResolved({ ...hollowGateRun, torch: 10 });
+                return;
+            }
+            case "story": {
+                pushHollowGateLog(flavor);
+                const xp = 30 + Math.floor(Math.random() * 20);
+                const leveled = gainXp(character, xp);
+                setCharacter(leveled);
+                setHollowGateEvent({
+                    title: "Hollow Gate Echo",
+                    body: `${flavor}\n\nYou study the engraving. +${effectiveCharacterXpGain(character, xp)} XP.`,
+                    kind: "story",
+                    choices: [{ label: "Move On", onSelect: () => setHollowGateEvent(null), tone: "primary" }],
+                });
+                markResolved();
+                return;
+            }
+            case "boss": {
+                pushHollowGateLog(flavor);
+                startHollowGateBattle({ isBoss: true });
+                // Do NOT mark resolved here — boss tile is resolved on victory by the battle complete handler.
+                return;
+            }
+            case "descend": {
+                // Staircase to the next floor. Carries torch + keys forward and
+                // gives a small torch refill. Resolved on use.
+                pushHollowGateLog(flavor);
+                if (hollowGateRun.floor >= HOLLOW_GATE_MAX_FLOOR) {
+                    // Defensive — shouldn't happen since Floor 5 never spawns a
+                    // descend tile, but if it somehow does, treat as exit.
+                    setHollowGateEvent({
+                        title: "Bottomless Staircase",
+                        body: "The staircase coils into the dark, leading nowhere.\n\nThis is the deepest floor.",
+                        kind: "descend",
+                        choices: [{ label: "Continue", onSelect: () => setHollowGateEvent(null), tone: "primary" }],
+                    });
+                    markResolved();
+                    return;
+                }
+                setHollowGateEvent({
+                    title: "Descend the Staircase",
+                    body: `${flavor}\n\nDescend to Floor ${hollowGateRun.floor + 1}? You carry your keys and torch forward, with a small Reiki refill.`,
+                    kind: "descend",
+                    choices: [
+                        {
+                            label: "Descend Deeper",
+                            tone: "primary",
+                            onSelect: () => {
+                                const next = generateHollowGateShrineRun(hollowGateRun.floor + 1);
+                                setHollowGateRun({ ...next, keys: hollowGateRun.keys, torch: Math.min(10, hollowGateRun.torch + 4) });
+                                pushHollowGateLog(`You descend to Floor ${next.floor}. Torch flares: +4.`);
+                                setHollowGateEvent(null);
+                            },
+                        },
+                        { label: "Hold Position", onSelect: () => setHollowGateEvent(null) },
+                    ],
+                });
+                // Don't markResolved — player can stay on the floor and come back to the staircase.
+                return;
+            }
+            case "npc": {
+                // Shrine Keeper — one per floor. Offers a one-time blessing.
+                pushHollowGateLog(flavor);
+                setHollowGateEvent({
+                    title: "The Shrine Keeper",
+                    body: `${flavor}\n\n"Choose your gift, traveler. The shrine offers what it can spare."`,
+                    kind: "npc",
+                    choices: [
+                        {
+                            label: "Restore HP (33% of max)",
+                            tone: "primary",
+                            onSelect: () => {
+                                if (!character) return;
+                                // NOTE: healing is normally forbidden in the shrine, but a
+                                // Shrine Keeper blessing is the canonical exception.
+                                const heal = Math.floor(character.maxHp * 0.33);
+                                setCharacter({ ...character, hp: Math.min(character.maxHp, character.hp + heal) });
+                                pushHollowGateLog(`The Shrine Keeper restores ${heal} HP.`);
+                                setHollowGateEvent(null);
+                            },
+                        },
+                        {
+                            label: "Refill Torch of Reiki",
+                            onSelect: () => {
+                                setHollowGateRun({ ...hollowGateRun, torch: 10 });
+                                pushHollowGateLog("The Shrine Keeper rekindles the Torch of Reiki to full.");
+                                setHollowGateEvent(null);
+                            },
+                        },
+                        {
+                            label: "Gift a Shrine Key",
+                            onSelect: () => {
+                                setHollowGateRun({ ...hollowGateRun, keys: hollowGateRun.keys + 1 });
+                                pushHollowGateLog("The Shrine Keeper presses a Shrine Key into your palm. +1 Shrine Key.");
+                                setHollowGateEvent(null);
+                            },
+                        },
+                    ],
+                });
+                markResolved();
+                return;
+            }
+            case "exit": {
+                // The Exit tile is the LEAVE tile — the only voluntary way out of
+                // the shrine. Stepping on it ends the run and returns to worldMap.
+                // The saved run is cleared; re-entering costs another Hollow Gate Key.
+                pushHollowGateLog(flavor);
+                setHollowGateEvent({
+                    title: "Leave the Hollow Gate",
+                    body: `${flavor}\n\nThe broken torii on this tile opens back to the world map.\n\nLeaving ends this run — your progress is forfeit and you'll need another Hollow Gate Key to return.`,
+                    kind: "exit",
+                    choices: [
+                        {
+                            label: "Leave Shrine",
+                            tone: "danger",
+                            onSelect: () => {
+                                setHollowGateEvent(null);
+                                leaveHollowGateShrine();
+                            },
+                        },
+                        { label: "Step Back", onSelect: () => setHollowGateEvent(null) },
+                    ],
+                });
+                // Don't mark resolved — players can step back and approach later
+                // (the tile still works on re-entry).
+                return;
+            }
+            case "locked": {
+                if (hollowGateRun.keys > 0) {
+                    pushHollowGateLog(`${flavor} You spend a Shrine Key to open it.`);
+                    markResolved({ ...hollowGateRun, keys: hollowGateRun.keys - 1 });
+                    // Sealed-door table:
+                    //   50%   — Ancient Chest (uses module-level roll)
+                    //   25%   — Trap (33% maxHP damage, lethal-capable)
+                    //   24%   — Rare pet encounter
+                    //    0.8% — Legendary pet encounter
+                    //    0.2% — Mythic pet encounter
+                    const roll = Math.random();
+                    if (roll < 0.50) {
+                        // ANCIENT CHEST
+                        const loot = rollHollowGateAncientChest(hollowGateRun.floor);
+                        const leveled = gainXp(character, loot.xp);
+                        // Stack only items that are flagged stackable (most chest items
+                        // are unique gear); skip non-stackable items the player already has.
+                        const shouldAddItem = loot.itemId && (
+                            stackableItemIds.has(loot.itemId) || !character.inventory.includes(loot.itemId)
+                        );
+                        const next: Character = {
+                            ...leveled,
+                            ryo: leveled.ryo + (loot.ryo ?? 0),
+                            fateShards: (leveled.fateShards ?? 0) + (loot.fateShards ?? 0),
+                            boneCharms: (leveled.boneCharms ?? 0) + (loot.boneCharms ?? 0),
+                            auraStones: (leveled.auraStones ?? 0) + (loot.auraStones ?? 0),
+                            auraDust: (leveled.auraDust ?? 0) + (loot.auraDust ?? 0),
+                            inventory: shouldAddItem && loot.itemId ? [...leveled.inventory, loot.itemId] : leveled.inventory,
+                        };
+                        setCharacter(next);
+                        const lootLines: string[] = [
+                            `+${effectiveCharacterXpGain(character, loot.xp)} XP`,
+                        ];
+                        if (loot.ryo) lootLines.push(`+${loot.ryo} ryo`);
+                        if (loot.itemId && shouldAddItem) {
+                            const item = starterItems.find(it => it.id === loot.itemId) ?? petTreatItems.find(t => t.id === loot.itemId);
+                            lootLines.push(`+1 ${item?.name ?? loot.itemId}`);
+                        }
+                        if (loot.fateShards) lootLines.push(`+${loot.fateShards} Fate Shard`);
+                        if (loot.boneCharms) lootLines.push(`+${loot.boneCharms} Bone Charm`);
+                        if (loot.auraStones) lootLines.push(`+${loot.auraStones} Aura Stone`);
+                        if (loot.auraDust) lootLines.push(`+${loot.auraDust} Aura Dust`);
+                        pushHollowGateLog(`Ancient Chest opened. ${lootLines.join(", ")}.`);
+                        setHollowGateEvent({
+                            title: "Ancient Chest",
+                            body: `Behind the chains, an ancient chest creaks open.\n\n${lootLines.join("\n")}`,
+                            kind: "chest",
+                            choices: [{ label: "Continue", onSelect: () => setHollowGateEvent(null), tone: "primary" }],
+                        });
+                    } else if (roll < 0.75) {
+                        // TRAP — same formula as the trap tile (tunable HOLLOW_GATE_TRAP_DMG_PCT).
+                        const dmgPct = HOLLOW_GATE_TRAP_DMG_PCT;
+                        const dmg = Math.max(1, Math.floor(character.maxHp * dmgPct));
+                        const nextHp = Math.max(0, character.hp - dmg);
+                        const willDie = nextHp <= 0;
+                        setCharacter({
+                            ...character,
+                            hp: willDie ? 0 : nextHp,
+                            hospitalized: willDie ? true : character.hospitalized,
+                        });
+                        pushHollowGateLog(`Trap behind the door! You take ${dmg} HP damage (${Math.round(dmgPct * 100)}% of max).${willDie ? " You collapse — admitted to the hospital." : ""}`);
+                        if (willDie) {
+                            setHollowGateEvent({
+                                title: "Cursed Trap Door",
+                                body: `The chains were a binding seal. They drain the last of your chakra. You are admitted to the village hospital and your shrine run ends.`,
+                                kind: "trap",
+                                choices: [{
+                                    label: "Leave Shrine",
+                                    tone: "danger",
+                                    onSelect: () => {
+                                        setHollowGateEvent(null);
+                                        leaveHollowGateShrine();
+                                        setScreen("hospital");
+                                    },
+                                }],
+                            });
+                        } else {
+                            setHollowGateEvent({
+                                title: "Trap Door",
+                                body: `Behind the chains, a cursed seal lashes out.\n\nYou take ${dmg} HP damage (${Math.round(dmgPct * 100)}% of max).`,
+                                kind: "trap",
+                                choices: [{ label: "Press On", onSelect: () => setHollowGateEvent(null), tone: "danger" }],
+                            });
+                        }
+                    } else {
+                        // PET ENCOUNTER — rare (24%), legendary (0.8%), mythic (0.2%).
+                        // Roll within the [0.75, 1.0] band for relative weights:
+                        //   0.75 .. 0.99 (24%)  rare
+                        //   0.99 .. 0.998 (0.8%) legendary
+                        //   0.998 .. 1.0 (0.2%) mythic
+                        let rarity: PetRarity;
+                        if (roll < 0.99) rarity = "rare";
+                        else if (roll < 0.998) rarity = "legendary";
+                        else rarity = "mythic";
+
+                        // Use the canonical petPool (full built-in pool) rather than editablePets
+                        // so each rarity band always has variety even if admins haven't seeded
+                        // the editable pool yet.
+                        const encounter = pickHollowGateEncounterPet(petPool, rarity);
+                        if (!encounter) {
+                            // Defensive — should never happen with the standard pet pool, but bail safely.
+                            pushHollowGateLog("A presence stirs behind the door, then fades away.");
+                            setHollowGateEvent({
+                                title: "Empty Chamber",
+                                body: "Behind the chains, an empty chamber. The presence retreats.",
+                                kind: "locked",
+                                choices: [{ label: "Continue", onSelect: () => setHollowGateEvent(null), tone: "primary" }],
+                            });
+                        } else {
+                            pushHollowGateLog(`A ${rarity} pet emerges from behind the sealed door: ${encounter.name}.`);
+                            const rarityColor = rarity === "mythic" ? "#fbbf24" : rarity === "legendary" ? "#a855f7" : "#60a5fa";
+                            setHollowGateEvent({
+                                title: `${rarity.charAt(0).toUpperCase() + rarity.slice(1)} Pet Encounter`,
+                                body: `Behind the chains, a ${rarity} spirit-bound creature studies you.\n\n${encounter.name} — Lv. ${encounter.level}\nHP ${encounter.hp} | ATK ${encounter.attack} | DEF ${encounter.defense} | SPD ${encounter.speed}\n\nBefriend it? (Pet Yard ${character.pets.length}/5)`,
+                                kind: "pet_event",
+                                choices: [
+                                    {
+                                        label: `Befriend ${encounter.name}`,
+                                        tone: "primary",
+                                        onSelect: () => {
+                                            if (character.pets.length >= 5) {
+                                                alert("Your Pet Yard is full (5/5). Release a pet before befriending another.");
+                                                return;
+                                            }
+                                            const trait = rollPetTrait(encounter.rarity);
+                                            const petWithTrait = applyPetTraitBonuses({ ...encounter, trait }, trait);
+                                            setCharacter({ ...character, pets: [...character.pets, petWithTrait] });
+                                            pushHollowGateLog(`${encounter.name} joined you! Trait: ${trait}.`);
+                                            setHollowGateEvent(null);
+                                        },
+                                    },
+                                    { label: "Leave it", onSelect: () => { pushHollowGateLog(`You leave the ${rarity} spirit be.`); setHollowGateEvent(null); } },
+                                ],
+                            });
+                            // Subtle color hint via log
+                            pushHollowGateLog(`%c${rarity.toUpperCase()} aura detected.`);
+                            void rarityColor; // referenced for clarity; actual coloring not in this simple log
+                        }
+                    }
+                } else {
+                    pushHollowGateLog(`${flavor} Without a Shrine Key, the door will not open.`);
+                    setHollowGateEvent({
+                        title: "Sealed Door",
+                        body: `${flavor}\n\nYou need a Shrine Key to open this door.`,
+                        kind: "locked",
+                        choices: [{ label: "Step Back", onSelect: () => setHollowGateEvent(null) }],
+                    });
+                    // Don't mark resolved — player can try again with a key later.
+                }
+                return;
+            }
+        }
+    }
+    function moveHollowGatePlayer(dx: number, dy: number) {
+        if (!hollowGateRun || hollowGateEvent || hollowGateHiddenChamber) return;
+        if (hollowGateIntroPage !== null) return;
+        const nx = hollowGateRun.playerX + dx;
+        const ny = hollowGateRun.playerY + dy;
+        if (nx < 0 || ny < 0 || nx >= hollowGateRun.width || ny >= hollowGateRun.height) return;
+        const idx = ny * hollowGateRun.width + nx;
+        const tile = hollowGateRun.tiles[idx];
+        // Reveal + move first.
+        const tiles = hollowGateRun.tiles.slice();
+        const wasRevealed = tile.revealed;
+        tiles[idx] = { ...tile, revealed: true, flavor: tile.flavor ?? hollowGateFlavorFor(tile.kind) };
+        // Torch of Reiki: drains 1 every ~3 moves. At 0 torch, threat fills 2x faster.
+        const torchDrain = Math.random() < 0.33 ? 1 : 0;
+        const nextTorch = Math.max(0, hollowGateRun.torch - torchDrain);
+        const threatMultiplier = nextTorch === 0 ? 2 : 1;
+        const nextThreat = Math.min(100, hollowGateRun.threat + HOLLOW_GATE_THREAT_PER_STEP * threatMultiplier);
+        const nextRun: HollowGateShrineRun = {
+            ...hollowGateRun,
+            playerX: nx,
+            playerY: ny,
+            tiles,
+            threat: nextThreat,
+            torch: nextTorch,
+        };
+        setHollowGateRun(nextRun);
+        if (nextTorch === 0 && hollowGateRun.torch > 0) {
+            pushHollowGateLog("The Torch of Reiki sputters out. Threat builds faster in the dark.");
+        }
+        // Fire event only if newly revealed AND not already resolved.
+        // Ambush DEFERRAL: when a tile opens a modal or fires a battle, the ambush
+        // is deferred to the next move. Only "empty" and previously-resolved tiles
+        // trigger the ambush immediately.
+        const justResolved = !tile.resolved && !wasRevealed;
+        const modalFiringKinds: HollowGateTileKind[] = [
+            "battle", "elite", "boss",
+            "trap", "chest", "shrine", "pet_event", "story",
+            "locked", "exit", "npc", "descend",
+        ];
+        const tileWillOpenModal = modalFiringKinds.includes(tile.kind);
+        if (justResolved) {
+            setTimeout(() => {
+                resolveHollowGateTile({ ...tile, revealed: true }, nx, ny);
+                if (!tileWillOpenModal && nextThreat >= HOLLOW_GATE_THREAT_AMBUSH) {
+                    pushHollowGateLog("The Hollow Gate echoes converge — an ambush!");
+                    startHollowGateBattle({ isAmbush: true });
+                }
+            }, 0);
+        } else if (nextThreat >= HOLLOW_GATE_THREAT_AMBUSH) {
+            pushHollowGateLog("The Hollow Gate echoes converge — an ambush!");
+            setTimeout(() => startHollowGateBattle({ isAmbush: true }), 0);
+        }
+    }
+    function leaveHollowGateShrine() {
+        setHollowGateRun(null);
+        setHollowGateEvent(null);
+        setHollowGateHiddenChamber(null);
+        setHollowGateLog([]);
+        // Clear the saved run on the character so future entries start fresh.
+        if (character) setCharacter({ ...character, hollowGateRun: null });
+        setScreen("worldMap");
+    }
+    function onHollowGateBattleWin() {
+        if (!hollowGateRun) return;
+        const isBoss = pendingArenaStoryBattle?.kind === "hollowGateShrine" && pendingArenaStoryBattle.isBoss;
+        const isAmbush = pendingArenaStoryBattle?.kind === "hollowGateShrine" && pendingArenaStoryBattle.isAmbush;
+        if (isBoss) {
+            // Boss only appears on Floor 5 now — defeating it clears the shrine.
+            // (Boss-defeat on earlier floors would only fire if a legacy run still
+            // had a boss tile on Floor 1-4; defensively we still handle it.)
+            const tiles = hollowGateRun.tiles.map(t => t.kind === "boss" ? { ...t, resolved: true } : t);
+            const isFinalFloor = hollowGateRun.floor >= HOLLOW_GATE_MAX_FLOOR;
+            const nextRun: HollowGateShrineRun = { ...hollowGateRun, tiles, completed: isFinalFloor, threat: 0 };
+            setHollowGateRun(nextRun);
+            pushHollowGateLog(`The Hollow Gate Warden falls on Floor ${hollowGateRun.floor}. ${isFinalFloor ? "The shrine is cleared!" : "A staircase opens below."}`);
+            if (isFinalFloor) {
+                // Shrine-cleared bonus — extra fragment + honor seals + fate shard.
+                // No "Leave" choice — auto-returns to world map after rewards are claimed.
+                setHollowGateEvent({
+                    title: "Hollow Gate Shrine Cleared",
+                    body: `Floor ${hollowGateRun.floor} of ${HOLLOW_GATE_MAX_FLOOR} cleared.\n\nThe Hollow Gate echoes scatter. The shrine surrenders its final relic to you.`,
+                    kind: "boss",
+                    choices: [
+                        {
+                            label: "Take Final Rewards + Leave",
+                            tone: "primary",
+                            onSelect: () => {
+                                if (!character) return;
+                                const bonusHonor = 75;
+                                const bonusFate = 1;
+                                const next = addInventoryItems({
+                                    ...character,
+                                    honorSeals: (character.honorSeals ?? 0) + bonusHonor,
+                                    fateShards: (character.fateShards ?? 0) + bonusFate,
+                                }, [DUNGEON_LEGENDARY_FRAGMENT_ID, VEIL_OF_THE_HOLLOW_ID]);
+                                setCharacter(next);
+                                pushHollowGateLog(`Shrine cleared bonus: +${bonusHonor} Honor Seals, +${bonusFate} Fate Shard, +1 Dungeon Legendary Fragment, +1 Veil of the Hollow.`);
+                                setHollowGateEvent(null);
+                                leaveHollowGateShrine();
+                            },
+                        },
+                    ],
+                });
+            } else {
+                // Legacy / defensive: boss on a non-final floor auto-advances.
+                const next = generateHollowGateShrineRun(hollowGateRun.floor + 1);
+                setHollowGateRun({ ...next, keys: hollowGateRun.keys, torch: Math.min(10, hollowGateRun.torch + 4) });
+                pushHollowGateLog(`You descend to Floor ${next.floor}. Torch flares: +4.`);
+            }
+        } else if (isAmbush) {
+            setHollowGateRun({ ...hollowGateRun, threat: 0 });
+            pushHollowGateLog("The ambush ends. Threat dissipates.");
+        } else {
+            setHollowGateRun({ ...hollowGateRun, threat: Math.max(0, hollowGateRun.threat - 25) });
+            pushHollowGateLog("Corrupted shinobi defeated. Threat eases.");
+        }
     }
 
     function completeEventEncounter() {
@@ -8325,6 +9643,12 @@ export default function App() {
                             if (!adminSaveName) return;
                             await pushSaveToServer(character, adminSaveName);
                         }}
+                        onTestHollowGate={adminTestEnterHollowGateShrine}
+                        onHollowGateForceUnlock={adminHollowGateForceUnlock}
+                        onHollowGateResetIntro={adminHollowGateResetIntro}
+                        onHollowGateClearRun={adminHollowGateClearRun}
+                        onHollowGateGrantKey={adminHollowGateGrantKey}
+                        hollowGateVillageUnlocked={Boolean(loadVillageState(character.village).hollowGateUnlocked)}
                         onReloadImages={() => {
                             loadedCatsRef.current.clear();
                             clearImgCache();
@@ -8371,6 +9695,305 @@ export default function App() {
                         sharedImages={sharedImages}
                     />
                 )}
+
+                {/* ═══════════════════════════════════════════════════════════
+                    ⛩  HOLLOW GATE SHRINE VIEW  (start)
+                    ═══════════════════════════════════════════════════════════
+                    Inline view because it closes over many App-scoped values
+                    (state setters, helper functions, sharedImages, character).
+                    A true file extraction would require exporting 15+ types
+                    and helpers from App — deferred to avoid that churn.
+                    Sections inside this block:
+                      • Intro VN overlay (first-time-only)
+                      • Header (floor, threat, keys, torch)
+                      • Grid + side panel (objectives, legend, pet status)
+                      • Movement controls
+                      • Event log
+                      • Event modal overlay (per-tile)
+                      • Hidden Chamber overlay
+                    ═══════════════════════════════════════════════════════════ */}
+                {!activeTriggeredEvent && screen === "hollowGateShrine" && character && hollowGateRun && (() => {
+                    const run = hollowGateRun;
+                    const pet = character.pets.find(p => p.id === character.activePetId);
+                    const petEligible = isActivePetEligibleForHollowGate();
+                    // Image keys served from the shared KV by the Hollow Gate admin tab.
+                    const shrineBg = sharedImages["shrine:hollow-gate-background"];
+                    const cardBackground = shrineBg
+                        ? `linear-gradient(180deg, rgba(15,9,28,0.78), rgba(8,4,18,0.88)), url(${shrineBg}) center/cover no-repeat`
+                        : "linear-gradient(180deg, rgba(15,9,28,0.92), rgba(8,4,18,0.95))";
+                    return (
+                        <div className="card hollow-gate-shrine" style={{ background: cardBackground, color: "#e9d5ff", padding: 16, borderRadius: 12 }}>
+                            {/* First-entry Intro VN overlay — blocks interaction until dismissed. */}
+                            {hollowGateIntroPage !== null && (() => {
+                                const page = hollowGateIntroPages[hollowGateIntroPage] ?? hollowGateIntroPages[0];
+                                const introImage = sharedImages[page.imageKey];
+                                const isLast = hollowGateIntroPage >= hollowGateIntroPages.length - 1;
+                                return (
+                                    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.86)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100 }}>
+                                        <div style={{ background: "linear-gradient(180deg, rgba(15,9,28,0.97), rgba(8,4,18,0.99))", border: "2px solid rgba(168,85,247,0.6)", borderRadius: 12, padding: 24, maxWidth: 640, width: "92%", color: "#e9d5ff", boxShadow: "0 0 70px rgba(168,85,247,0.4)" }}>
+                                            <p className="act-label" style={{ color: "#a855f7", letterSpacing: 2 }}>HOLLOW GATE — INTRODUCTION</p>
+                                            <h2 style={{ margin: "0 0 12px", color: "#faf5ff" }}>{page.title}</h2>
+                                            {introImage && (
+                                                <img src={introImage} alt={page.title} style={{ width: "100%", maxHeight: 240, objectFit: "cover", borderRadius: 8, marginBottom: 12 }} />
+                                            )}
+                                            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
+                                                {page.lines.map((line, i) => (
+                                                    <p key={i} style={{ margin: 0, lineHeight: 1.55 }}>{line}</p>
+                                                ))}
+                                            </div>
+                                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                                <small style={{ color: "#a78bfa" }}>Page {hollowGateIntroPage + 1} / {hollowGateIntroPages.length}</small>
+                                                <div style={{ display: "flex", gap: 8 }}>
+                                                    {hollowGateIntroPage > 0 && (
+                                                        <button onClick={() => setHollowGateIntroPage(hollowGateIntroPage - 1)}>Back</button>
+                                                    )}
+                                                    <button
+                                                        onClick={() => {
+                                                            if (isLast) setHollowGateIntroPage(null);
+                                                            else setHollowGateIntroPage(hollowGateIntroPage + 1);
+                                                        }}
+                                                        style={{ background: "linear-gradient(135deg,#7c3aed,#a855f7)", borderColor: "#c4b5fd" }}
+                                                    >
+                                                        {isLast ? "Enter the Shrine" : "Next"}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
+                                <div>
+                                    <p className="act-label" style={{ color: "#a855f7", letterSpacing: 2 }}>⛩ HOLLOW GATE SHRINE</p>
+                                    <h2 style={{ margin: 0, color: "#faf5ff" }}>Floor {run.floor} / {HOLLOW_GATE_MAX_FLOOR} · {run.completed ? "Warden Defeated" : "Shadow Miasma"}</h2>
+                                </div>
+                                <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+                                    <div style={{ minWidth: 180 }}>
+                                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+                                            <span>Threat</span>
+                                            <span style={{ color: run.threat >= 80 ? "#fda4af" : "#c4b5fd" }}>{run.threat}%</span>
+                                        </div>
+                                        <div style={{ height: 8, background: "rgba(168,85,247,0.18)", borderRadius: 4, overflow: "hidden" }}>
+                                            <div style={{ width: `${run.threat}%`, height: "100%", background: run.threat >= 80 ? "linear-gradient(90deg,#a855f7,#fda4af)" : "linear-gradient(90deg,#7c3aed,#a855f7)" }} />
+                                        </div>
+                                    </div>
+                                    <div style={{ fontSize: 13 }}>
+                                        <span title="Shrine Keys">🔑 {run.keys}</span>
+                                        <span style={{ marginLeft: 12 }} title="Torch of Reiki">🔥 {run.torch}/10</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 240px", gap: 16 }}>
+                                {/* Grid */}
+                                <div className="hollow-gate-grid" style={{ display: "grid", gridTemplateColumns: `repeat(${run.width}, 1fr)`, gap: 4, background: "rgba(0,0,0,0.4)", padding: 8, borderRadius: 8 }}>
+                                    {run.tiles.map((tile, i) => {
+                                        const x = i % run.width;
+                                        const y = Math.floor(i / run.width);
+                                        const isPlayer = x === run.playerX && y === run.playerY;
+                                        const revealed = tile.revealed;
+                                        const bg = isPlayer
+                                            ? "linear-gradient(135deg, #2563eb, #7c3aed)"
+                                            : revealed
+                                                ? tile.kind === "boss" ? "linear-gradient(135deg, #7f1d1d, #b91c1c)"
+                                                : tile.kind === "trap" ? "rgba(239,68,68,0.18)"
+                                                : tile.kind === "chest" ? "rgba(234,179,8,0.18)"
+                                                : tile.kind === "shrine" ? "rgba(168,85,247,0.22)"
+                                                : tile.kind === "exit" ? "rgba(34,197,94,0.18)"
+                                                : tile.kind === "locked" ? "rgba(148,163,184,0.18)"
+                                                : tile.kind === "npc" ? "rgba(56,189,248,0.18)"
+                                                : tile.kind === "descend" ? "rgba(192,132,252,0.22)"
+                                                : "rgba(168,85,247,0.10)"
+                                            : "rgba(15,9,28,0.85)";
+                                        const icon = isPlayer ? "🥷" : revealed ? hollowGateTileIconForKind(tile.kind) : "·";
+                                        return (
+                                            <div
+                                                key={i}
+                                                title={revealed ? tile.kind : "Unrevealed"}
+                                                style={{
+                                                    aspectRatio: "1 / 1",
+                                                    background: bg,
+                                                    border: isPlayer ? "2px solid #60a5fa" : revealed ? "1px solid rgba(168,85,247,0.4)" : "1px solid rgba(168,85,247,0.12)",
+                                                    borderRadius: 4,
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    justifyContent: "center",
+                                                    fontSize: "clamp(12px, 2.2vw, 22px)",
+                                                    color: revealed ? "#f5f3ff" : "rgba(168,85,247,0.4)",
+                                                    boxShadow: isPlayer ? "0 0 12px rgba(96,165,250,0.6)" : undefined,
+                                                }}
+                                            >
+                                                {icon}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+
+                                {/* Side panel */}
+                                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                                    {/* Objectives panel — updates as the run progresses. */}
+                                    {(() => {
+                                        const reachedFloor5 = run.floor >= HOLLOW_GATE_MAX_FLOOR;
+                                        const wardenDefeated = Boolean(run.completed) || run.tiles.some(t => t.kind === "boss" && t.resolved);
+                                        const hiddenChamberFound = run.tiles.some(t => t.kind === "shrine" && t.resolved);
+                                        const objectives = [
+                                            { label: "Reach Floor 5", done: reachedFloor5 },
+                                            { label: "Defeat the Hollow Gate Warden", done: wardenDefeated },
+                                            { label: "Find a Hidden Chamber (optional)", done: hiddenChamberFound },
+                                        ];
+                                        return (
+                                            <div style={{ background: "rgba(15,9,28,0.7)", border: "1px solid rgba(168,85,247,0.3)", borderRadius: 8, padding: 10, fontSize: 12 }}>
+                                                <h4 style={{ margin: "0 0 6px", color: "#c4b5fd" }}>Objectives</h4>
+                                                {objectives.map((obj, i) => (
+                                                    <div key={i} style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 4 }}>
+                                                        <span style={{ color: obj.done ? "#86efac" : "#fda4af" }}>{obj.done ? "✓" : "○"}</span>
+                                                        <span style={{ textDecoration: obj.done ? "line-through" : undefined, color: obj.done ? "#86efac" : "#e9d5ff" }}>{obj.label}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        );
+                                    })()}
+                                    <div style={{ background: "rgba(15,9,28,0.7)", border: "1px solid rgba(168,85,247,0.3)", borderRadius: 8, padding: 10, fontSize: 12 }}>
+                                        <h4 style={{ margin: "0 0 6px", color: "#c4b5fd" }}>Map Legend</h4>
+                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
+                                            <span>🥷 You</span><span>⚔ Battle</span>
+                                            <span>☠ Elite</span><span>👹 Boss</span>
+                                            <span>▲ Trap</span><span>▣ Chest</span>
+                                            <span>⛩ Shrine</span><span>📜 Story</span>
+                                            <span>🐾 Pet</span><span>👤 Keeper</span>
+                                            <span>▼ Descend</span><span>⇩ Leave</span>
+                                            <span>🔒 Locked</span><span>· Unrevealed</span>
+                                        </div>
+                                    </div>
+                                    <div style={{ background: "rgba(15,9,28,0.7)", border: "1px solid rgba(168,85,247,0.3)", borderRadius: 8, padding: 10, fontSize: 12 }}>
+                                        <h4 style={{ margin: "0 0 6px", color: "#c4b5fd" }}>Active Pet</h4>
+                                        {pet ? (
+                                            <>
+                                                <div><strong>{pet.name}</strong> · Lv. {pet.level}</div>
+                                                <div style={{ color: petEligible ? "#86efac" : "#fda4af" }}>
+                                                    {petEligible ? "Joins shrine battles" : isPetOnExpedition(pet) ? "On expedition" : "Not PvE-ready (needs Lv. 50)"}
+                                                </div>
+                                            </>
+                                        ) : <div className="hint">No active pet selected.</div>}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Movement controls — note: there is no voluntary "Leave Shrine"
+                                button. You can only exit by stepping on the Exit (Leave) tile
+                                or by dying. Each entry consumes 1 Hollow Gate Key. */}
+                            <div style={{ marginTop: 12, display: "flex", justifyContent: "center", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
+                                <div style={{ fontSize: 12, color: "#c4b5fd" }}>WASD / Arrow Keys to move · or tap:</div>
+                                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 44px)", gap: 4 }}>
+                                    <div />
+                                    <button onClick={() => moveHollowGatePlayer(0, -1)} disabled={!!hollowGateEvent || !!hollowGateHiddenChamber}>▲</button>
+                                    <div />
+                                    <button onClick={() => moveHollowGatePlayer(-1, 0)} disabled={!!hollowGateEvent || !!hollowGateHiddenChamber}>◀</button>
+                                    <div />
+                                    <button onClick={() => moveHollowGatePlayer(1, 0)} disabled={!!hollowGateEvent || !!hollowGateHiddenChamber}>▶</button>
+                                    <div />
+                                    <button onClick={() => moveHollowGatePlayer(0, 1)} disabled={!!hollowGateEvent || !!hollowGateHiddenChamber}>▼</button>
+                                    <div />
+                                </div>
+                                <div style={{ fontSize: 11, color: "#fda4af", textAlign: "center" }}>
+                                    No retreat. Reach the<br/>Leave tile (⇩) or die.
+                                </div>
+                            </div>
+
+                            {/* Event log */}
+                            <div style={{ marginTop: 12, background: "rgba(0,0,0,0.45)", border: "1px solid rgba(168,85,247,0.25)", borderRadius: 8, padding: 10, maxHeight: 140, overflowY: "auto", fontSize: 13 }}>
+                                <h4 style={{ margin: "0 0 6px", color: "#c4b5fd" }}>Event Log</h4>
+                                {hollowGateLog.length === 0 ? <p className="hint">The shrine watches in silence.</p> : hollowGateLog.map((line, i) => (
+                                    <p key={i} style={{ margin: "2px 0" }}>• {line}</p>
+                                ))}
+                            </div>
+
+                            {/* Event modal overlay — shows a generated tile image header
+                                when the relevant 'shrine:tile-*' key has art. */}
+                            {hollowGateEvent && (() => {
+                                const tileImageKey =
+                                    hollowGateEvent.kind === "trap" ? "shrine:tile-trap"
+                                    : hollowGateEvent.kind === "chest" ? "shrine:tile-ancient-chest"
+                                    : hollowGateEvent.kind === "pet_event" ? "shrine:tile-pet-encounter"
+                                    : hollowGateEvent.kind === "locked" ? "shrine:tile-sealed-door"
+                                    : hollowGateEvent.kind === "npc" ? "shrine:tile-shrine-keeper"
+                                    : hollowGateEvent.kind === "battle" || hollowGateEvent.kind === "elite" ? "shrine:tile-corrupted-shinobi"
+                                    : null;
+                                const tileImage = tileImageKey ? sharedImages[tileImageKey] : null;
+                                return (
+                                    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }} onClick={() => {}}>
+                                        <div style={{ background: "linear-gradient(180deg, rgba(15,9,28,0.97), rgba(8,4,18,0.99))", border: "2px solid rgba(168,85,247,0.5)", borderRadius: 12, padding: 24, maxWidth: 520, width: "90%", color: "#e9d5ff" }}>
+                                            {tileImage && (
+                                                <img src={tileImage} alt={hollowGateEvent.title} style={{ width: "100%", height: 180, objectFit: "cover", borderRadius: 8, marginBottom: 12 }} />
+                                            )}
+                                            <h3 style={{ margin: "0 0 12px", color: "#faf5ff" }}>{hollowGateEvent.title}</h3>
+                                            <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{hollowGateEvent.body}</p>
+                                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 16 }}>
+                                                {hollowGateEvent.choices.map((c, i) => (
+                                                    <button key={i} className={c.tone === "danger" ? "danger-button" : ""} onClick={c.onSelect}>{c.label}</button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+
+                            {/* Hidden Chamber overlay — wears the chamber background art if generated. */}
+                            {hollowGateHiddenChamber && (() => {
+                                const chamberBg = sharedImages["shrine:hidden-chamber-background"];
+                                const chamberStyle = chamberBg
+                                    ? `linear-gradient(180deg, rgba(30,15,50,0.82), rgba(15,5,30,0.92)), url(${chamberBg}) center/cover no-repeat`
+                                    : "linear-gradient(180deg, rgba(30,15,50,0.97), rgba(15,5,30,0.99))";
+                                return (
+                                <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.78)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1001 }}>
+                                    <div style={{ background: chamberStyle, border: "2px solid rgba(168,85,247,0.6)", borderRadius: 12, padding: 28, maxWidth: 620, width: "92%", color: "#e9d5ff", boxShadow: "0 0 50px rgba(168,85,247,0.35)" }}>
+                                        <p className="act-label" style={{ color: "#a855f7", letterSpacing: 2 }}>HIDDEN CHAMBER</p>
+                                        <h2 style={{ margin: "0 0 12px", color: "#faf5ff" }}>Secret Area Discovered</h2>
+                                        <p style={{ lineHeight: 1.6 }}>A ritual circle pulses violet at the chamber's center. Spirit lanterns hover above a cracked altar. An ancient tablet hums with sealed chakra, and a shrine relic floats untouched within the seal.</p>
+                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, margin: "16px 0", fontSize: 13 }}>
+                                            <div style={{ background: "rgba(168,85,247,0.12)", padding: 10, borderRadius: 6 }}><strong>Shrine Relic</strong><br/>{hollowGateHiddenChamber.relicTaken ? "Claimed" : "Available"}</div>
+                                            <div style={{ background: "rgba(168,85,247,0.12)", padding: 10, borderRadius: 6 }}><strong>Spirit Lantern</strong><br/>Active</div>
+                                            <div style={{ background: "rgba(168,85,247,0.12)", padding: 10, borderRadius: 6 }}><strong>Ancient Tablet</strong><br/>{hollowGateHiddenChamber.searched ? "Read" : "Readable"}</div>
+                                        </div>
+                                        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                                            <button disabled={hollowGateHiddenChamber.searched} onClick={() => {
+                                                if (!hollowGateHiddenChamber) return;
+                                                const xp = 60 + Math.floor(Math.random() * 50);
+                                                const dust = 10 + Math.floor(Math.random() * 15);
+                                                const leveled = gainXp(character, xp);
+                                                setCharacter({ ...leveled, auraDust: (leveled.auraDust ?? 0) + dust });
+                                                pushHollowGateLog(`You decipher the Ancient Tablet. +${effectiveCharacterXpGain(character, xp)} XP, +${dust} Aura Dust.`);
+                                                setHollowGateHiddenChamber({ ...hollowGateHiddenChamber, searched: true });
+                                            }}>🔍 Search Chamber</button>
+                                            <button disabled={hollowGateHiddenChamber.relicTaken} onClick={() => {
+                                                if (!hollowGateHiddenChamber || !hollowGateRun) return;
+                                                const honor = 15 + Math.floor(Math.random() * 20);
+                                                const fate = Math.random() < 0.5 ? 1 : 0;
+                                                // Grant the Veil of the Hollow as a real inventory item
+                                                // (stacking duplicates is allowed — chamber relics are
+                                                // a meta progression resource, like dungeon relics).
+                                                const next = addInventoryItems({
+                                                    ...character,
+                                                    honorSeals: (character.honorSeals ?? 0) + honor,
+                                                    fateShards: (character.fateShards ?? 0) + fate,
+                                                }, [VEIL_OF_THE_HOLLOW_ID]);
+                                                setCharacter(next);
+                                                setHollowGateRun({ ...hollowGateRun, keys: hollowGateRun.keys + 1 });
+                                                pushHollowGateLog(`You claim the Veil of the Hollow. +${honor} Honor Seals${fate ? `, +${fate} Fate Shard` : ""}, +1 Shrine Key, +1 Veil of the Hollow.`);
+                                                setHollowGateHiddenChamber({ ...hollowGateHiddenChamber, relicTaken: true });
+                                            }}>🏺 Take Relic</button>
+                                            <button onClick={() => setHollowGateHiddenChamber(null)} className="danger-button">Return to Shrine</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                );
+                            })()}
+                        </div>
+                    );
+                })()}
+                {/* ═══════════════════════════════════════════════════════════
+                    ⛩  HOLLOW GATE SHRINE VIEW  (end)
+                    ═══════════════════════════════════════════════════════════ */}
 
                 {!activeTriggeredEvent && screen === "villageLore" && character && (
                     <VillageLoreScreen
@@ -8422,6 +10045,7 @@ export default function App() {
                             startTriggeredEventArenaBattle(event, battle);
                         }}
                         onDungeonFound={() => triggerDungeonEncounter("worldMap")}
+                        onEnterHollowGate={enterHollowGateShrine}
                         setPvpBattleId={setPvpBattleId}
                         setPvpRole={setPvpRole}
                         setPvpBattleContext={setPvpBattleContext}
@@ -11416,6 +13040,12 @@ function AdminPanel({
     onSave,
     onReloadImages,
     onEditBloodline,
+    onTestHollowGate,
+    onHollowGateForceUnlock,
+    onHollowGateResetIntro,
+    onHollowGateClearRun,
+    onHollowGateGrantKey,
+    hollowGateVillageUnlocked,
     playerRoster,
     allServerPlayers,
     adminPw,
@@ -11452,6 +13082,12 @@ function AdminPanel({
     onSave: () => Promise<void>;
     onReloadImages?: () => void;
     onEditBloodline?: (bloodline: SavedBloodline) => void;
+    onTestHollowGate?: () => void;
+    onHollowGateForceUnlock?: (unlock: boolean) => void;
+    onHollowGateResetIntro?: () => void;
+    onHollowGateClearRun?: () => void;
+    onHollowGateGrantKey?: () => void;
+    hollowGateVillageUnlocked?: boolean;
     playerRoster: PlayerRecord[];
     allServerPlayers: ServerPlayerSummary[];
     adminPw: string;
@@ -11947,7 +13583,53 @@ function AdminPanel({
     const [aiJutsuIds, setAiJutsuIds] = useState<string[]>(starterJutsus.slice(0, 4).map((jutsu) => jutsu.id));
     const [aiRules, setAiRules] = useState<AiRule[]>(starterAiProfile(starterJutsus).rules);
     const [selectedAiId, setSelectedAiId] = useState("");
-    const [activeAdminPanel, setActiveAdminPanel] = useState<"jutsuBloodlines" | "eventsRaids" | "visualNovels" | "aiCreator" | "petEditor" | "cardEditor" | "villageLeaders" | "playerManagement">("jutsuBloodlines");
+    const [activeAdminPanel, setActiveAdminPanel] = useState<"jutsuBloodlines" | "eventsRaids" | "visualNovels" | "aiCreator" | "petEditor" | "cardEditor" | "villageLeaders" | "playerManagement" | "hollowGate">("jutsuBloodlines");
+
+    // Hollow Gate admin tab state — prompts, current preview images, busy/status
+    // strings. Preview images are seeded from the existing shared KV on first
+    // tab open so we don't blank existing art on every render.
+    const [hollowGateAssetPrompts, setHollowGateAssetPrompts] = useState<Record<string, string>>({});
+    const [hollowGateAssetImages, setHollowGateAssetImages] = useState<Record<string, string>>({});
+    const [hollowGateAssetBusy, setHollowGateAssetBusy] = useState<string>("");
+    const [hollowGateAssetStatus, setHollowGateAssetStatus] = useState<string>("");
+
+    useEffect(() => {
+        if (activeAdminPanel !== "hollowGate") return;
+        // Seed current images from the shared image store so previews show up
+        // when the tab is opened. We fetch each known key.
+        const keys = [
+            "item:" + HOLLOW_GATE_KEY_ID,
+            "item:" + DUNGEON_LEGENDARY_FRAGMENT_ID,
+            "item:" + VEIL_OF_THE_HOLLOW_ID,
+            "ai:boss-hollow-gate-warden",
+            "landmark:hollow-gate",
+            "shrine:hollow-gate-background",
+            "shrine:hidden-chamber-background",
+            "shrine:tile-sealed-door",
+            "shrine:tile-trap",
+            "shrine:tile-ancient-chest",
+            "shrine:tile-pet-encounter",
+            "shrine:tile-corrupted-shinobi",
+            "shrine:tile-shrine-keeper",
+            "shrine:intro-1",
+            "shrine:intro-2",
+            "shrine:intro-3",
+        ];
+        let cancelled = false;
+        (async () => {
+            const next: Record<string, string> = {};
+            for (const id of keys) {
+                try {
+                    const res = await fetch(`/api/images?id=${encodeURIComponent(id)}`);
+                    if (!res.ok) continue;
+                    const data = await res.json() as { image?: string };
+                    if (data?.image) next[id] = data.image;
+                } catch { /* ignore individual fetch errors */ }
+            }
+            if (!cancelled) setHollowGateAssetImages(prev => ({ ...next, ...prev }));
+        })();
+        return () => { cancelled = true; };
+    }, [activeAdminPanel]);
 
     // --- Player Management tab state ---
     const [pmTargetName, setPmTargetName] = useState("");
@@ -13084,6 +14766,9 @@ function AdminPanel({
                 </button>
                 <button className={activeAdminPanel === "villageLeaders" ? "active" : ""} onClick={() => setActiveAdminPanel("villageLeaders")}>
                     Village Leaders
+                </button>
+                <button className={activeAdminPanel === "hollowGate" ? "active" : ""} onClick={() => setActiveAdminPanel("hollowGate")}>
+                    ⛩ Hollow Gate
                 </button>
             </div>
 
@@ -15558,6 +17243,379 @@ function AdminPanel({
                 );
             })()}
 
+            {activeAdminPanel === "hollowGate" && (() => {
+                // ── Hollow Gate admin panel ─────────────────────────────────────
+                // Lists every asset the Hollow Gate Shrine system needs an image for,
+                // with a one-click image generator wired to /api/generate-image and
+                // publishSharedImage. Each row shows the current preview (if any),
+                // an editable prompt (with a sensible default), and a Generate button.
+                // Rate-limited similar to the village-leaders flow — 35s between calls.
+
+                type HollowGateAsset = {
+                    key: string;          // shared image key, e.g. 'item:hollow-gate-key' or 'ai:boss-hollow-gate-warden'
+                    name: string;         // display name in the admin list
+                    category: "Item" | "Boss AI" | "Location" | "Tile / Scene";
+                    defaultPrompt: string;
+                    onSave?: (image: string) => void;   // optional extra side effect (e.g. write to creatorItems / creatorAis)
+                };
+
+                const hollowGateAssets: HollowGateAsset[] = [
+                    // ── Items (3) ─────────────────────────────────────────────
+                    {
+                        key: "item:" + HOLLOW_GATE_KEY_ID,
+                        name: "Hollow Gate Key (item)",
+                        category: "Item",
+                        defaultPrompt: "Hollow Gate Key, bone-pale key etched with violet shinobi sigils, glowing chakra runes, dark shrine background, RPG inventory icon, square framed game art",
+                    },
+                    {
+                        key: "item:" + DUNGEON_LEGENDARY_FRAGMENT_ID,
+                        name: "Dungeon Legendary Fragment (item)",
+                        category: "Item",
+                        defaultPrompt: "Dungeon Legendary Fragment, jagged broken relic shard with violet chakra burns, faint purple glow, dark stone background, epic rarity RPG inventory icon, square framed game art",
+                    },
+                    {
+                        key: "item:" + VEIL_OF_THE_HOLLOW_ID,
+                        name: "Veil of the Hollow (item)",
+                        category: "Item",
+                        defaultPrompt: "Veil of the Hollow, tattered shadow-violet shinobi veil cloth wrapped in glowing seals, legendary rarity, mystical purple aura, dark altar background, RPG inventory icon, square framed game art",
+                    },
+                    // ── Boss AI (1) ───────────────────────────────────────────
+                    {
+                        key: "ai:boss-hollow-gate-warden",
+                        name: "Hollow Gate Warden (boss portrait)",
+                        category: "Boss AI",
+                        defaultPrompt: "Hollow Gate Warden, hulking corrupted shinobi warden in black ritual armor, glowing purple shrine sigils across chest plate, violet chakra burning in cracked mask eyes, ancient torii gate burning behind, dark shadow-temple boss portrait, dramatic ninja RPG character art",
+                        onSave: (image) => {
+                            // Mirror to creatorAis so the existing AI image lookup picks it up.
+                            const next = creatorAis.some(a => a.id === "boss-hollow-gate-warden")
+                                ? creatorAis.map(a => a.id === "boss-hollow-gate-warden" ? { ...a, image } : a)
+                                : [...creatorAis, { id: "boss-hollow-gate-warden", name: "Hollow Gate Warden", icon: "👹", image } as CreatorAi];
+                            setCreatorAis(next);
+                        },
+                    },
+                    // ── Location / scene backgrounds ──────────────────────────
+                    {
+                        key: "landmark:hollow-gate",
+                        name: "Hollow Gate (world-map landmark)",
+                        category: "Location",
+                        defaultPrompt: "Hollow Gate shrine entrance on a world map, ancient broken torii gate bound with glowing violet chakra chains, perched on a black stone outcrop between forested sectors, hidden shinobi location, top-down map landmark art, painted RPG world icon",
+                    },
+                    {
+                        key: "shrine:hollow-gate-background",
+                        name: "Hollow Gate Shrine — main background",
+                        category: "Location",
+                        defaultPrompt: "Hollow Gate Shrine interior, dark ancient shadow temple with broken torii arches, glowing purple seal runes etched into stone floor, violet chakra mist drifting through corridors, dim spirit lanterns, dungeon crawler background, painted ninja RPG environment art",
+                    },
+                    {
+                        key: "shrine:hidden-chamber-background",
+                        name: "Hidden Chamber background",
+                        category: "Location",
+                        defaultPrompt: "Hidden Chamber inside the Hollow Gate Shrine, secret ritual circle pulsing violet, spirit lanterns hovering over a cracked altar, ancient tablet humming with sealed chakra, floating shrine relic surrounded by purple energy, mystical dungeon discovery scene, painted ninja RPG environment art",
+                    },
+                    // ── Tile / scene illustrations ────────────────────────────
+                    {
+                        key: "shrine:tile-sealed-door",
+                        name: "Sealed Door scene",
+                        category: "Tile / Scene",
+                        defaultPrompt: "Ancient sealed stone door inside a shadow shinobi shrine, bound by thick chakra chains and glowing purple seal kanji, faint torch light, painted ninja RPG event scene art",
+                    },
+                    {
+                        key: "shrine:tile-trap",
+                        name: "Ancient Seal Trap scene",
+                        category: "Tile / Scene",
+                        defaultPrompt: "Ancient seal trap inside a shadow shinobi shrine, paper-thin runes flaring red and violet underfoot, venomous chakra mist hissing from cracked stones, painted ninja RPG event scene art",
+                    },
+                    {
+                        key: "shrine:tile-ancient-chest",
+                        name: "Ancient Chest scene",
+                        category: "Tile / Scene",
+                        defaultPrompt: "Ancient lacquered shrine offering chest, glowing violet chakra runes around the lock, dim shrine torches, glowing pawprints leading toward it, painted ninja RPG event scene art",
+                    },
+                    {
+                        key: "shrine:tile-pet-encounter",
+                        name: "Glowing Pawprints / Pet encounter scene",
+                        category: "Tile / Scene",
+                        defaultPrompt: "Glowing violet pawprints leading toward a sleeping shrine spirit beast, ancient stone shadow temple corridor, mystical chakra aura, painted ninja RPG event scene art",
+                    },
+                    {
+                        key: "shrine:tile-corrupted-shinobi",
+                        name: "Corrupted Shinobi (normal battle scene)",
+                        category: "Tile / Scene",
+                        defaultPrompt: "Corrupted shinobi rising from violet chakra mist inside a shadow temple, glowing hollow eyes, fractured mask, broken kunai in hand, painted ninja RPG combat scene art",
+                    },
+                    {
+                        key: "shrine:tile-shrine-keeper",
+                        name: "Shrine Keeper (NPC portrait)",
+                        category: "Tile / Scene",
+                        defaultPrompt: "Shrine Keeper, ancient hooded shinobi tending a violet chakra brazier inside a Hollow Gate shrine corridor, lined face, kind eyes, simple grey robes with purple sigils, mystical NPC portrait, painted ninja RPG character art",
+                    },
+                    // ── Intro Visual Novel scenes (3 pages) ───────────────────
+                    {
+                        key: "shrine:intro-1",
+                        name: "Intro VN Page 1 — The Broken Torii",
+                        category: "Tile / Scene",
+                        defaultPrompt: "Broken torii arch leaning against itself, bound with glowing violet chakra rope and ancient seals, view from the player approaching with a Hollow Gate Key, dark cliffside path, cinematic painted ninja RPG scene art",
+                    },
+                    {
+                        key: "shrine:intro-2",
+                        name: "Intro VN Page 2 — The First Step",
+                        category: "Tile / Scene",
+                        defaultPrompt: "First step inside the Hollow Gate Shrine, stone teeth biting the air, glowing violet pawprints pulsing down a long corridor of ancient shadow temple, dim torch light, cinematic painted ninja RPG scene art",
+                    },
+                    {
+                        key: "shrine:intro-3",
+                        name: "Intro VN Page 3 — What Waits Below",
+                        category: "Tile / Scene",
+                        defaultPrompt: "Five descending floors of the Hollow Gate Shrine seen as a cross-section, with the silhouette of the Hollow Gate Warden waiting on the deepest floor, surrounded by violet chakra fire, cinematic painted ninja RPG scene art",
+                    },
+                ];
+
+                async function generateAssetImage(asset: HollowGateAsset, prompt: string) {
+                    setHollowGateAssetBusy(asset.key);
+                    setHollowGateAssetStatus(`Generating ${asset.name}...`);
+                    try {
+                        const response = await fetch("/api/generate-image", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ prompt, label: asset.name }),
+                        });
+                        const rawText = await response.text();
+                        let data: Record<string, unknown> = {};
+                        try { data = rawText ? JSON.parse(rawText) : {}; } catch { throw new Error(`Server error ${response.status}`); }
+                        if (!response.ok) throw new Error((data.error as string) || `Status ${response.status}`);
+                        if (!data.image) throw new Error("No image returned.");
+                        const image = await compressDataUrl(data.image as string, 512, 0.82);
+                        await publishSharedImage(asset.key, image);
+                        // Mirror locally so the preview updates immediately.
+                        setHollowGateAssetImages(prev => ({ ...prev, [asset.key]: image }));
+                        asset.onSave?.(image);
+                        setHollowGateAssetStatus(`✅ ${asset.name} saved.`);
+                        try { await onSaveRef.current(); } catch { /* ignore if no account */ }
+                    } catch (err) {
+                        setHollowGateAssetStatus(`❌ ${asset.name} — ${err instanceof Error ? err.message : "failed"}`);
+                    } finally {
+                        setHollowGateAssetBusy("");
+                    }
+                }
+
+                async function generateAllMissing() {
+                    const missing = hollowGateAssets.filter(a => !hollowGateAssetImages[a.key]);
+                    if (missing.length === 0) { alert("All Hollow Gate assets already have images."); return; }
+                    if (!confirm(`Generate ${missing.length} missing image${missing.length > 1 ? "s" : ""}? This costs image credits and waits 35s between calls for rate limits.`)) return;
+                    for (let i = 0; i < missing.length; i += 1) {
+                        const asset = missing[i];
+                        const prompt = hollowGateAssetPrompts[asset.key] ?? asset.defaultPrompt;
+                        await generateAssetImage(asset, prompt);
+                        if (i < missing.length - 1) await new Promise(r => setTimeout(r, 35_000));
+                    }
+                    alert("Done generating missing Hollow Gate images.");
+                }
+
+                return (
+                    <div className="admin-subpanel">
+                        <div className="admin-panel-heading">
+                            <h3>⛩ Hollow Gate — Asset Manager</h3>
+                            <p className="hint">Every Hollow Gate Shrine asset that needs an image. Edit the prompt then Generate. Images are saved to the shared KV and become visible to all players. Generations are rate-limited — ~35 seconds between calls in batch mode.</p>
+                        </div>
+                        <div className="menu" style={{ marginBottom: 12 }}>
+                            <button onClick={generateAllMissing} disabled={Boolean(hollowGateAssetBusy)}>
+                                🪄 Generate All Missing
+                            </button>
+                            {onTestHollowGate && (
+                                <button
+                                    onClick={onTestHollowGate}
+                                    style={{ background: "linear-gradient(135deg, #7c3aed, #a855f7)", borderColor: "#c4b5fd", color: "#faf5ff" }}
+                                    title="Drops you directly into the Hollow Gate Shrine. Skips the village-unlock check and does not consume a Hollow Gate Key. Admin / test only."
+                                >
+                                    ⛩ Test Hollow Gate (Admin)
+                                </button>
+                            )}
+                            {hollowGateAssetStatus && <span className="village-save-msg">{hollowGateAssetStatus}</span>}
+                        </div>
+                        <p className="hint" style={{ marginTop: -4 }}>
+                            <strong>Test Hollow Gate (Admin)</strong> drops you directly into the shrine —
+                            bypasses both the village-unlock requirement and the Hollow Gate Key. Useful for
+                            verifying tile generation, the boss fight, and image hookup without burning real keys.
+                        </p>
+                        <div style={{ display: "grid", gap: 12 }}>
+                            {(["Item", "Boss AI", "Location", "Tile / Scene"] as const).map(category => {
+                                const inCategory = hollowGateAssets.filter(a => a.category === category);
+                                if (inCategory.length === 0) return null;
+                                return (
+                                    <section key={category} className="summary-box">
+                                        <h4 style={{ margin: "0 0 8px" }}>{category}</h4>
+                                        <div style={{ display: "grid", gap: 10 }}>
+                                            {inCategory.map(asset => {
+                                                const currentImage = hollowGateAssetImages[asset.key];
+                                                const prompt = hollowGateAssetPrompts[asset.key] ?? asset.defaultPrompt;
+                                                const busy = hollowGateAssetBusy === asset.key;
+                                                return (
+                                                    <div key={asset.key} style={{ display: "grid", gridTemplateColumns: "120px 1fr auto", gap: 10, alignItems: "center", padding: 8, background: "rgba(15,9,28,0.4)", border: "1px solid rgba(168,85,247,0.25)", borderRadius: 6 }}>
+                                                        <div style={{ width: 120, height: 120, background: "rgba(0,0,0,0.45)", border: "1px dashed rgba(168,85,247,0.4)", borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                                                            {currentImage
+                                                                ? <img src={currentImage} alt={asset.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                                                                : <span style={{ color: "#a78bfa", fontSize: 11, textAlign: "center", padding: 6 }}>No image yet</span>}
+                                                        </div>
+                                                        <div style={{ display: "grid", gap: 6 }}>
+                                                            <div><strong>{asset.name}</strong> <small style={{ color: "#a78bfa" }}>· key: {asset.key}</small></div>
+                                                            <textarea
+                                                                rows={3}
+                                                                value={prompt}
+                                                                onChange={(e) => setHollowGateAssetPrompts(prev => ({ ...prev, [asset.key]: e.target.value }))}
+                                                                placeholder="Image generation prompt"
+                                                                style={{ width: "100%", fontSize: 12 }}
+                                                            />
+                                                        </div>
+                                                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                                            <button disabled={busy} onClick={() => generateAssetImage(asset, prompt)}>
+                                                                {busy ? "Generating…" : currentImage ? "Regenerate" : "Generate"}
+                                                            </button>
+                                                            {currentImage && (
+                                                                <button className="danger-button" onClick={async () => {
+                                                                    if (!confirm(`Clear the image for ${asset.name}? This unpublishes the shared image.`)) return;
+                                                                    setHollowGateAssetImages(prev => {
+                                                                        const next = { ...prev };
+                                                                        delete next[asset.key];
+                                                                        return next;
+                                                                    });
+                                                                    await publishSharedImage(asset.key, "");
+                                                                }}>Clear</button>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </section>
+                                );
+                            })}
+                        </div>
+                        <p className="hint" style={{ marginTop: 12 }}>
+                            Tip: images are looked up by their shared key. <code>item:&lt;id&gt;</code> for inventory icons,
+                            <code> ai:&lt;id&gt;</code> for AI portraits, and <code>landmark:</code> / <code>shrine:</code> keys for shrine scenes.
+                            The Hollow Gate Warden boss image is mirrored into creatorAis so the live battle picks it up.
+                        </p>
+
+                        {/* ── Admin Ops — Stats, Run/State Tools, Configuration ───────── */}
+                        <section className="summary-box" style={{ marginTop: 16 }}>
+                            <h3>📊 Stats</h3>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, fontSize: 13 }}>
+                                <div><strong>Warden Kills (this character):</strong><br/>{character.hollowGateWardenKills ?? 0}</div>
+                                <div><strong>Saved Run:</strong><br/>{character.hollowGateRun ? `Floor ${character.hollowGateRun.floor} · ${character.hollowGateRun.completed ? "completed" : "in progress"}` : "None"}</div>
+                                <div><strong>Intro VN Seen:</strong><br/>{character.hollowGateIntroSeen ? "Yes" : "No"}</div>
+                                <div><strong>Hollow Gate Keys:</strong><br/>{character.inventory.filter(id => id === HOLLOW_GATE_KEY_ID).length}</div>
+                                <div><strong>Fragments:</strong><br/>{character.inventory.filter(id => id === DUNGEON_LEGENDARY_FRAGMENT_ID).length}</div>
+                                <div><strong>Veils of the Hollow:</strong><br/>{character.inventory.filter(id => id === VEIL_OF_THE_HOLLOW_ID).length}</div>
+                            </div>
+                        </section>
+
+                        <section className="summary-box" style={{ marginTop: 12 }}>
+                            <h3>🛠 Run / State Tools</h3>
+                            <p className="hint">These act on the <strong>currently signed-in admin character</strong> (you: {character.name}, village: {character.village}).</p>
+                            <div className="menu" style={{ flexWrap: "wrap", gap: 8 }}>
+                                {onHollowGateForceUnlock && (
+                                    <button
+                                        onClick={() => onHollowGateForceUnlock(!hollowGateVillageUnlocked)}
+                                        style={{ background: hollowGateVillageUnlocked ? "linear-gradient(135deg,#7f1d1d,#b91c1c)" : "linear-gradient(135deg,#14532d,#22c55e)", borderColor: hollowGateVillageUnlocked ? "#fca5a5" : "#86efac" }}
+                                    >
+                                        {hollowGateVillageUnlocked ? "🔒 Re-lock Hollow Gate for village" : "🔓 Force-unlock Hollow Gate for village"}
+                                    </button>
+                                )}
+                                {onHollowGateGrantKey && (
+                                    <button onClick={onHollowGateGrantKey}>🗝 Grant 1 Hollow Gate Key</button>
+                                )}
+                                {onHollowGateResetIntro && (
+                                    <button onClick={onHollowGateResetIntro} disabled={!character.hollowGateIntroSeen}>
+                                        ↺ Reset Intro VN
+                                    </button>
+                                )}
+                                {onHollowGateClearRun && (
+                                    <button onClick={onHollowGateClearRun} disabled={!character.hollowGateRun} className="danger-button">
+                                        🗑 Clear Saved Run
+                                    </button>
+                                )}
+                            </div>
+                        </section>
+
+                        <section className="summary-box" style={{ marginTop: 12 }}>
+                            <h3>⚙ Configuration (runtime tunables)</h3>
+                            <p className="hint">
+                                These are live tunables. Changes apply immediately to your current session. They <strong>do not persist</strong> across page refresh — for permanent changes, edit the defaults in <code>App.tsx</code>.
+                            </p>
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, fontSize: 13 }}>
+                                <label style={{ display: "grid", gap: 4 }}>
+                                    <span>Kage unlock cost (Honor Seals)</span>
+                                    <input
+                                        type="number" min={0} step={100}
+                                        defaultValue={HOLLOW_GATE_UNLOCK_COST}
+                                        onChange={(e) => { HOLLOW_GATE_UNLOCK_COST = Math.max(0, Math.floor(Number(e.target.value) || 0)); }}
+                                    />
+                                </label>
+                                <label style={{ display: "grid", gap: 4 }}>
+                                    <span>Key craft cost — Dungeon Keys</span>
+                                    <input
+                                        type="number" min={0} step={1}
+                                        defaultValue={HOLLOW_GATE_KEY_DUNGEON_KEY_COST}
+                                        onChange={(e) => { HOLLOW_GATE_KEY_DUNGEON_KEY_COST = Math.max(0, Math.floor(Number(e.target.value) || 0)); }}
+                                    />
+                                </label>
+                                <label style={{ display: "grid", gap: 4 }}>
+                                    <span>Key craft cost — Fate Shards</span>
+                                    <input
+                                        type="number" min={0} step={1}
+                                        defaultValue={HOLLOW_GATE_KEY_FATE_SHARD_COST}
+                                        onChange={(e) => { HOLLOW_GATE_KEY_FATE_SHARD_COST = Math.max(0, Math.floor(Number(e.target.value) || 0)); }}
+                                    />
+                                </label>
+                                <label style={{ display: "grid", gap: 4 }}>
+                                    <span>Max floor</span>
+                                    <input
+                                        type="number" min={1} max={20} step={1}
+                                        defaultValue={HOLLOW_GATE_MAX_FLOOR}
+                                        onChange={(e) => { HOLLOW_GATE_MAX_FLOOR = Math.max(1, Math.min(20, Math.floor(Number(e.target.value) || 1))); }}
+                                    />
+                                </label>
+                                <label style={{ display: "grid", gap: 4 }}>
+                                    <span>Threat gained per step</span>
+                                    <input
+                                        type="number" min={0} max={100} step={1}
+                                        defaultValue={HOLLOW_GATE_THREAT_PER_STEP}
+                                        onChange={(e) => { HOLLOW_GATE_THREAT_PER_STEP = Math.max(0, Math.min(100, Math.floor(Number(e.target.value) || 0))); }}
+                                    />
+                                </label>
+                                <label style={{ display: "grid", gap: 4 }}>
+                                    <span>Threat ambush trigger</span>
+                                    <input
+                                        type="number" min={1} max={500} step={1}
+                                        defaultValue={HOLLOW_GATE_THREAT_AMBUSH}
+                                        onChange={(e) => { HOLLOW_GATE_THREAT_AMBUSH = Math.max(1, Math.min(500, Math.floor(Number(e.target.value) || 100))); }}
+                                    />
+                                </label>
+                                <label style={{ display: "grid", gap: 4 }}>
+                                    <span>Trap damage (% of max HP, 0-1)</span>
+                                    <input
+                                        type="number" min={0} max={1} step={0.01}
+                                        defaultValue={HOLLOW_GATE_TRAP_DMG_PCT}
+                                        onChange={(e) => { HOLLOW_GATE_TRAP_DMG_PCT = Math.max(0, Math.min(1, Number(e.target.value) || 0)); }}
+                                    />
+                                </label>
+                                <label style={{ display: "grid", gap: 4 }}>
+                                    <span>Boss reward boost per floor (mult)</span>
+                                    <input
+                                        type="number" min={0} max={2} step={0.05}
+                                        defaultValue={HOLLOW_GATE_BOSS_FLOOR_REWARD_MULT}
+                                        onChange={(e) => { HOLLOW_GATE_BOSS_FLOOR_REWARD_MULT = Math.max(0, Math.min(2, Number(e.target.value) || 0)); }}
+                                    />
+                                </label>
+                            </div>
+                            <p className="hint" style={{ marginTop: 10 }}>
+                                Default values: Unlock <strong>10,000</strong> · Key (DK) <strong>5</strong> · Key (FS) <strong>10</strong> · Max Floor <strong>5</strong> · Threat/Step <strong>7</strong> · Ambush <strong>100</strong> · Trap Dmg <strong>0.33</strong> · Boss Floor Mult <strong>0.2</strong>
+                            </p>
+                        </section>
+                    </div>
+                );
+            })()}
+
             <div className="menu">
                 <button onClick={() => setScreen("worldMap")}>Test World Map</button>
                 <button onClick={() => setScreen("profile")}>Test Profile</button>
@@ -16253,7 +18311,7 @@ type KageChallenge = {
     resolvedAt?: number;
     contributionRequired: number;
 };
-type VillageState = { treasury: VillageTreasury; contributionPoints: number; notices: string[]; noticePosts: NoticePost[]; warRecords: DetailedVillageWarRecord[]; kageSystemUnlocked: boolean; firstLiberator?: string; seatedKage?: string; anbuAppointees: string[]; kageHistory?: KageHistoryEntry[]; kageChallenges: KageChallenge[]; dailyAgenda: VillageDailyAgenda; };
+type VillageState = { treasury: VillageTreasury; contributionPoints: number; notices: string[]; noticePosts: NoticePost[]; warRecords: DetailedVillageWarRecord[]; kageSystemUnlocked: boolean; firstLiberator?: string; seatedKage?: string; anbuAppointees: string[]; kageHistory?: KageHistoryEntry[]; kageChallenges: KageChallenge[]; dailyAgenda: VillageDailyAgenda; hollowGateUnlocked?: boolean; };
 const villageAgendaTaskPool: Omit<VillageAgendaTask, "id">[] = [
     { kind: "missions", label: "Complete village missions", target: 3 },
     { kind: "explore", label: "Explore map tiles", target: 20 },
@@ -16314,10 +18372,10 @@ function normalizeAnbuAppointees(appointees?: string[]) {
         return name;
     });
 }
-function defaultVillageState(village: string): VillageState { const notices = ["Town Hall upgrades are open for donation funding.", "Village Guard queue is accepting defenders."]; return { treasury: defaultVillageTreasury(), contributionPoints: 0, notices, noticePosts: normalizeNoticePosts(undefined, notices), warRecords: defaultVillageWarRecords(village), kageSystemUnlocked: false, anbuAppointees: ["", "", ""], kageChallenges: [], dailyAgenda: makeVillageDailyAgenda(village) }; }
+function defaultVillageState(village: string): VillageState { const notices = ["Town Hall upgrades are open for donation funding.", "Village Guard queue is accepting defenders."]; return { treasury: defaultVillageTreasury(), contributionPoints: 0, notices, noticePosts: normalizeNoticePosts(undefined, notices), warRecords: defaultVillageWarRecords(village), kageSystemUnlocked: false, anbuAppointees: ["", "", ""], kageChallenges: [], dailyAgenda: makeVillageDailyAgenda(village), hollowGateUnlocked: false }; }
 function sharedVillageStateKey(village: string) { return village.toLowerCase().replace(/[^a-z0-9]/g, ""); }
 let sharedVillageStateCache: Record<string, VillageState> = {};
-function normalizeVillageState(village: string, state?: Partial<VillageState>): VillageState { const base = defaultVillageState(village); const notices = state?.notices?.length ? state.notices.slice(0, 8) : base.notices; return { treasury: cleanVillageTreasury(state?.treasury), contributionPoints: Math.max(0, Math.floor(Number(state?.contributionPoints ?? 0))), notices, noticePosts: normalizeNoticePosts(state?.noticePosts, state?.noticePosts?.length ? [] : notices), warRecords: state?.warRecords?.length ? state.warRecords : base.warRecords, kageSystemUnlocked: Boolean(state?.kageSystemUnlocked ?? base.kageSystemUnlocked), firstLiberator: state?.firstLiberator ?? base.firstLiberator, seatedKage: state?.seatedKage ?? base.seatedKage, anbuAppointees: normalizeAnbuAppointees(state?.anbuAppointees), kageHistory: state?.kageHistory ?? [], kageChallenges: normalizeKageChallenges(village, state?.kageChallenges), dailyAgenda: normalizeVillageDailyAgenda(village, state?.dailyAgenda) }; }
+function normalizeVillageState(village: string, state?: Partial<VillageState>): VillageState { const base = defaultVillageState(village); const notices = state?.notices?.length ? state.notices.slice(0, 8) : base.notices; return { treasury: cleanVillageTreasury(state?.treasury), contributionPoints: Math.max(0, Math.floor(Number(state?.contributionPoints ?? 0))), notices, noticePosts: normalizeNoticePosts(state?.noticePosts, state?.noticePosts?.length ? [] : notices), warRecords: state?.warRecords?.length ? state.warRecords : base.warRecords, kageSystemUnlocked: Boolean(state?.kageSystemUnlocked ?? base.kageSystemUnlocked), firstLiberator: state?.firstLiberator ?? base.firstLiberator, seatedKage: state?.seatedKage ?? base.seatedKage, anbuAppointees: normalizeAnbuAppointees(state?.anbuAppointees), kageHistory: state?.kageHistory ?? [], kageChallenges: normalizeKageChallenges(village, state?.kageChallenges), dailyAgenda: normalizeVillageDailyAgenda(village, state?.dailyAgenda), hollowGateUnlocked: Boolean(state?.hollowGateUnlocked ?? base.hollowGateUnlocked) }; }
 function loadVillageState(village: string): VillageState { return sharedVillageStateCache[sharedVillageStateKey(village)] ?? defaultVillageState(village); }
 function saveVillageState(village: string, state: VillageState) {
     const normalized = normalizeVillageState(village, state);
@@ -16684,6 +18742,14 @@ function TownHall({ character, updateCharacter, creatorItems, allServerPlayers, 
         alert(`Village war started. War ground: Sector ${war.warGroundSector}.`);
     }
     function upgradeTownFeature(key: VillageUpgradeKey) { if (!isSeatedKage) return alert("Only the seated Kage can upgrade village structures."); const currentLevel = upgrades[key]; if (currentLevel >= VILLAGE_UPGRADE_MAX_LEVEL) return alert("This village upgrade is already maxed at level 50."); const cost = villageUpgradeCost(key, currentLevel); if ((character.honorSeals ?? 0) < cost) return alert(`Not enough Honor Seals. You need ${cost.toLocaleString()} Honor Seals.`); updateCharacter({ ...character, honorSeals: (character.honorSeals ?? 0) - cost, villageUpgrades: { ...upgrades, [key]: currentLevel + 1 } }); updateVillageState(addNotice(`${character.name} spent ${cost.toLocaleString()} Honor Seals to upgrade ${villageUpgradeDefinitions.find(def => def.key === key)?.name ?? key} to level ${currentLevel + 1}.`, { ...state, contributionPoints: state.contributionPoints + 10 })); }
+    function purchaseHollowGateUnlock() {
+        if (!isSeatedKage) return alert("Only the seated Kage can open the Hollow Gate.");
+        if (state.hollowGateUnlocked) return alert("The Hollow Gate is already open for this village.");
+        const cost = HOLLOW_GATE_UNLOCK_COST;
+        if ((character.honorSeals ?? 0) < cost) return alert(`Not enough Honor Seals. The Hollow Gate seal demands ${cost.toLocaleString()} Honor Seals.`);
+        updateCharacter({ ...character, honorSeals: (character.honorSeals ?? 0) - cost });
+        updateVillageState(addNotice(`${character.name} broke the Hollow Gate seal for ${cost.toLocaleString()} Honor Seals. The shrine has revealed itself on the World Map.`, { ...state, hollowGateUnlocked: true, contributionPoints: state.contributionPoints + 25 }));
+    }
     function donateVillageRyo() { const amount = Math.max(1, Math.floor(donation)); if (character.ryo < amount) return alert("Not enough ryo."); updateCharacter({ ...character, ryo: character.ryo - amount }); updateVillageState(addNotice(`${character.name} donated ${amount.toLocaleString()} ryo to the village treasury.`, { ...state, treasury: { ...state.treasury, ryo: state.treasury.ryo + amount }, contributionPoints: state.contributionPoints + Math.max(1, Math.floor(amount / 1000)) })); }
     function donateVillageSpecial(currency: Exclude<VillageTreasuryCurrencyKey, "ryo">) { const current = character[currency] ?? 0; if (current < 1) return alert(`Not enough ${currency}.`); updateCharacter({ ...character, [currency]: current - 1 } as Character); updateVillageState(addNotice(`${character.name} donated 1 ${currency} to the village treasury.`, { ...state, treasury: { ...state.treasury, [currency]: state.treasury[currency] + 1 }, contributionPoints: state.contributionPoints + 5 })); }
     function donateVillageItem() {
@@ -16910,7 +18976,17 @@ function TownHall({ character, updateCharacter, creatorItems, allServerPlayers, 
         <div className="town-hall-hero"><div><p className="act-label">{character.village}</p><h2>Town Hall</h2><p className="hint">Village government, war records, guard defense, upgrades, treasury, and leadership.</p></div><div className="town-hall-wallet"><span>Honor Seals</span><strong>{(character.honorSeals ?? 0).toLocaleString()}</strong><small>Ryo {character.ryo.toLocaleString()}</small></div></div>
         <div className="clan-tabs expanded-tabs town-tabs"><button className={tab === "status" ? "active" : ""} onClick={() => setTab("status")}>Status</button><button className={tab === "upgrades" ? "active" : ""} onClick={() => setTab("upgrades")}>Upgrades</button><button className={tab === "treasury" ? "active" : ""} onClick={() => setTab("treasury")}>Treasury</button><button className={tab === "guard" ? "active" : ""} onClick={() => setTab("guard")}>Guard</button><button className={tab === "notices" ? "active" : ""} onClick={() => setTab("notices")}>Orders</button><button className={tab === "politics" ? "active" : ""} onClick={() => setTab("politics")}>Kage/Elders</button></div>
         {tab === "status" && <><div className="town-hall-grid"><section className="summary-box town-hall-panel"><h3>Village Status</h3><div className="town-leader-row"><LeaderPortrait image={getLeaderImage(state.seatedKage, leadershipImages.kage)} name={state.seatedKage ?? leadership.kage} fallback="?" /><p><strong>Kage:</strong> {state.seatedKage ?? leadership.kage}</p></div><p><strong>Population:</strong> {population.toLocaleString()}</p><p><strong>Village Level:</strong> {villageLevel}</p><p><strong>Village Strength:</strong> {villageStrength.toLocaleString()}</p><p><strong>Guard Queue:</strong> {guardList.length} active defender{guardList.length === 1 ? "" : "s"}</p></section><section className="summary-box town-hall-panel"><h3>War Status</h3><div className={primaryVillageWar ? "war-status at-war" : "war-status peace"}>{primaryVillageWar ? `At War with ${activeWarEnemyVillage}` : "Not At War"}</div>{primaryVillageWar ? <><p><strong>{character.village} HP:</strong> {primaryVillageWar.hp[character.village].toLocaleString()} / {VILLAGE_WAR_HP_MAX.toLocaleString()}</p><div className="bar enemy-bar"><span style={{ width: `${(primaryVillageWar.hp[character.village] / VILLAGE_WAR_HP_MAX) * 100}%` }} /></div><p><strong>{activeWarEnemyVillage} HP:</strong> {activeWarEnemyVillage ? primaryVillageWar.hp[activeWarEnemyVillage].toLocaleString() : 0} / {VILLAGE_WAR_HP_MAX.toLocaleString()}</p><div className="town-upgrade-bar"><span style={{ width: `${activeWarEnemyVillage ? (primaryVillageWar.hp[activeWarEnemyVillage] / VILLAGE_WAR_HP_MAX) * 100 : 0}%` }} /></div><p><strong>War Ground:</strong> Sector {primaryVillageWar.warGroundSector} · HP {primaryVillageWar.warGroundHp.toLocaleString()} / {VILLAGE_WAR_GROUND_HP_MAX.toLocaleString()}</p><p className="hint">{primaryVillageWar.capturedBy ? `Captured by ${primaryVillageWar.capturedBy}.` : "Raid from the war ground to damage enemy village HP and the sector HP."}</p></> : <><p className="hint">Village wars start at 5,000 HP. PvP kills, war-ground raids, and daily war missions reduce enemy HP.</p><label>Enemy Village</label><select value={warTargetVillage} onChange={(event) => setWarTargetVillage(event.target.value)}>{villages.filter(village => village !== character.village).map(village => <option key={village} value={village}>{village}</option>)}</select><button disabled={!isSeatedKage} onClick={beginVillageWar}>{isSeatedKage ? "Start Village War" : "Kage Only"}</button></>}<h4>Current Village Buffs</h4><div className="village-buff-list"><span>Training +{getTrainingXpBonus(character).toFixed(2)}%</span><span>Jutsu Speed +{getJutsuTrainingSpeedBonus(character).toFixed(2)}%</span><span>Shop Discount +{getShopDiscountPercent(character).toFixed(2)}%</span><span>Guard DEF +{getTownDefenseGuardBonus(character).toFixed(2)}%</span><span>Pet XP +{getPetXpBonus(character).toFixed(2)}%</span><span>Bank Interest +{getBankInterestPercent(character).toFixed(2)}%</span><span>Mission Rewards +{getMissionRewardBonus(character).toFixed(2)}%</span><span>Hospital Discount +{getHospitalDiscountPercent(character).toFixed(2)}%</span>{character.elderFocus === "war" && <span>⚔️ War Focus: -1% dmg taken (wartime)</span>}{character.elderFocus === "trade" && <span>💰 Trade Focus: -5% shop costs</span>}{character.elderFocus === "training" && <span>📚 Training Focus: +10% XP, +10% jutsu speed</span>}</div></section></div><section className="summary-box"><h3>Daily Village Agenda</h3><p className="hint">Three village goals refresh each day. If there is no player Kage, the board randomizes automatically.</p><div className="contrib-rank-grid">{agenda.tasks.map(task => <div key={task.id} className="clan-guard-row"><span><strong>{task.label}</strong></span><span>{Math.min(agendaProgress(task), task.target).toLocaleString()} / {task.target.toLocaleString()}</span></div>)}</div><div className="menu"><button disabled={!agendaComplete || agendaClaimed} onClick={claimVillageAgenda}>{agendaClaimed ? "Agenda Claimed" : agendaComplete ? "Claim Agenda Rewards" : "Agenda Incomplete"}</button></div><p className="hint">Rewards: village treasury +15 Honor Seals, +1,500 ryo, +2 Bone Charms. Player: +8 Honor Seals, +750 ryo, +1 Bone Charm.</p></section><section className="summary-box"><h3>Map Control Rewards</h3><p>Your village controls <strong>{ownedVillageSectors.length}</strong> sector{ownedVillageSectors.length === 1 ? "" : "s"}.</p><p className="hint">Daily player reward: +{mapControlRyo.toLocaleString()} ryo, +{mapControlHonor.toLocaleString()} Honor Seals, +{mapControlBone.toLocaleString()} Bone Charms.</p><button disabled={ownedVillageSectors.length <= 0 || mapControlClaimed} onClick={claimMapControlRewards}>{mapControlClaimed ? "Map Reward Claimed" : "Claim Map Control Reward"}</button></section><section className={state.kageSystemUnlocked ? "summary-box kage-unlock-panel unlocked" : "summary-box kage-unlock-panel"}><h3>{state.kageSystemUnlocked ? "Kage System Open" : "Kage System Sealed"}</h3><p>{state.kageSystemUnlocked ? "The false Kage has fallen. The village is no longer ruled by secrecy. The Kage seat is now open." : "Clear your village's level 100 Kage story fight to open elections, elder seats, village upgrades, war access, and policy control."}</p>{state.firstLiberator && <p><strong>First Liberator:</strong> {state.firstLiberator}</p>}{state.seatedKage && <p><strong>Seated Kage:</strong> {state.seatedKage}</p>}</section><section className="summary-box town-notice-board"><h3>Village Notice Board</h3>{state.notices.map((notice, idx) => <p key={`${notice}-${idx}`}>• {notice}</p>)}</section><section className="summary-box"><h3>Detailed War Records</h3><div className="war-record-grid">{state.warRecords.map((war, idx) => <div key={`${war.opponent}-${idx}`} className="war-record-card"><strong>{war.winner} vs {war.opponent}</strong><span>{war.finalScore}</span><small>{war.date} · MVP Clan: {war.mvpClan}</small><small>Top Attacker: {war.topAttacker}</small><small>Top Defender: {war.topDefender}</small><small>Rewards: {war.rewards}</small></div>)}</div></section></>}
-        {tab === "upgrades" && <section className="summary-box town-upgrade-summary"><h3>Village Upgrades</h3><p className="hint">Village upgrades now spend <strong>Honor Seals</strong>. Only the seated Kage can upgrade village structures.</p><p className="hint">Current Kage: <strong>{state.seatedKage ?? "No player seated yet"}</strong>{isSeatedKage ? " — you can upgrade structures." : " — upgrades are locked for your account."}</p><p className="hint">Total Village Development: <strong>{totalUpgradeLevel}</strong> / {VILLAGE_UPGRADE_MAX_LEVEL * villageUpgradeDefinitions.length}</p><div className="town-upgrade-grid">{villageUpgradeDefinitions.map((upgrade) => { const level = upgrades[upgrade.key]; const bonus = level * upgrade.perLevel; const cost = villageUpgradeCost(upgrade.key, level); const maxed = level >= VILLAGE_UPGRADE_MAX_LEVEL; const canAfford = (character.honorSeals ?? 0) >= cost; return <div key={upgrade.key} className="town-upgrade-card"><div className="town-upgrade-topline"><span className="town-upgrade-icon">{upgrade.icon}</span><div><strong>{upgrade.name}</strong><p>Level {level}/{VILLAGE_UPGRADE_MAX_LEVEL}</p></div></div><div className="town-upgrade-bar"><span style={{ width: `${(level / VILLAGE_UPGRADE_MAX_LEVEL) * 100}%` }} /></div><p className="town-upgrade-desc">{upgrade.description}</p><p className="town-upgrade-bonus">Current Bonus: <strong>{bonus.toFixed(2)}{upgrade.unit}</strong></p><button disabled={!isSeatedKage || maxed || !canAfford} onClick={() => upgradeTownFeature(upgrade.key)}>{!isSeatedKage ? "Kage Only" : maxed ? "Max Level" : canAfford ? `Upgrade — ${cost.toLocaleString()} Honor Seals` : `Need ${cost.toLocaleString()} Honor Seals`}</button></div>; })}</div></section>}
+        {tab === "upgrades" && <section className="summary-box town-upgrade-summary"><h3>Village Upgrades</h3><p className="hint">Village upgrades now spend <strong>Honor Seals</strong>. Only the seated Kage can upgrade village structures.</p><p className="hint">Current Kage: <strong>{state.seatedKage ?? "No player seated yet"}</strong>{isSeatedKage ? " — you can upgrade structures." : " — upgrades are locked for your account."}</p><p className="hint">Total Village Development: <strong>{totalUpgradeLevel}</strong> / {VILLAGE_UPGRADE_MAX_LEVEL * villageUpgradeDefinitions.length}</p>
+            <div className="town-upgrade-grid">
+                <div className="town-upgrade-card" style={{ borderColor: state.hollowGateUnlocked ? "#a855f7" : "#7c3aed", boxShadow: state.hollowGateUnlocked ? "0 0 16px rgba(168,85,247,0.35)" : undefined }}>
+                    <div className="town-upgrade-topline"><span className="town-upgrade-icon">⛩️</span><div><strong>Hollow Gate</strong><p>{state.hollowGateUnlocked ? "Sealed Door Opened" : "Sealed Door — One-Time Unlock"}</p></div></div>
+                    <p className="town-upgrade-desc">A forbidden shrine between Sectors 1, 52 and 57. Breaking its chained seal opens the Hollow Gate Shrine on the World Map — a crawler of corrupted shinobi, traps, hidden chambers, and the Hollow Gate Warden.</p>
+                    <p className="town-upgrade-bonus">{state.hollowGateUnlocked ? <span style={{ color: "#86efac" }}>Unlocked for the entire village.</span> : <>Cost: <strong>{HOLLOW_GATE_UNLOCK_COST.toLocaleString()} Honor Seals</strong></>}</p>
+                    <button disabled={!isSeatedKage || state.hollowGateUnlocked || (character.honorSeals ?? 0) < HOLLOW_GATE_UNLOCK_COST} onClick={purchaseHollowGateUnlock}>{state.hollowGateUnlocked ? "Already Open" : !isSeatedKage ? "Kage Only" : (character.honorSeals ?? 0) >= HOLLOW_GATE_UNLOCK_COST ? `Break the Seal — ${HOLLOW_GATE_UNLOCK_COST.toLocaleString()} Honor Seals` : `Need ${HOLLOW_GATE_UNLOCK_COST.toLocaleString()} Honor Seals`}</button>
+                </div>
+                {villageUpgradeDefinitions.map((upgrade) => { const level = upgrades[upgrade.key]; const bonus = level * upgrade.perLevel; const cost = villageUpgradeCost(upgrade.key, level); const maxed = level >= VILLAGE_UPGRADE_MAX_LEVEL; const canAfford = (character.honorSeals ?? 0) >= cost; return <div key={upgrade.key} className="town-upgrade-card"><div className="town-upgrade-topline"><span className="town-upgrade-icon">{upgrade.icon}</span><div><strong>{upgrade.name}</strong><p>Level {level}/{VILLAGE_UPGRADE_MAX_LEVEL}</p></div></div><div className="town-upgrade-bar"><span style={{ width: `${(level / VILLAGE_UPGRADE_MAX_LEVEL) * 100}%` }} /></div><p className="town-upgrade-desc">{upgrade.description}</p><p className="town-upgrade-bonus">Current Bonus: <strong>{bonus.toFixed(2)}{upgrade.unit}</strong></p><button disabled={!isSeatedKage || maxed || !canAfford} onClick={() => upgradeTownFeature(upgrade.key)}>{!isSeatedKage ? "Kage Only" : maxed ? "Max Level" : canAfford ? `Upgrade — ${cost.toLocaleString()} Honor Seals` : `Need ${cost.toLocaleString()} Honor Seals`}</button></div>; })}
+            </div>
+        </section>}
         {tab === "treasury" && <section className="summary-box"><h3>💰 Village Treasury</h3><p className="hint">Honor Seals are the village war and boost reserve for Kage spending.</p><div className="treasury-grid"><p><strong>Ryo:</strong> {state.treasury.ryo.toLocaleString()}</p><p><strong>Honor Seals:</strong> {state.treasury.honorSeals.toLocaleString()}</p><p><strong>Fate Shards:</strong> {state.treasury.fateShards}</p><p><strong>Bone Charms:</strong> {state.treasury.boneCharms}</p><p><strong>Aura Stones:</strong> {state.treasury.auraStones}</p><p><strong>Mythic Seals:</strong> {state.treasury.mythicSeals}</p><p><strong>Your Contribution:</strong> {state.contributionPoints} pts</p></div><label>Donate Ryo</label><input type="number" value={donation} onChange={(e) => setDonation(Number(e.target.value))} /><div className="menu"><button onClick={donateVillageRyo}>Donate Ryo</button><button onClick={() => donateVillageSpecial("honorSeals")}>Donate 1 Honor Seal</button><button onClick={() => donateVillageSpecial("fateShards")}>Donate 1 Fate Shard</button><button onClick={() => donateVillageSpecial("boneCharms")}>Donate 1 Bone Charm</button><button onClick={() => donateVillageSpecial("auraStones")}>Donate 1 Aura Stone</button><button onClick={() => donateVillageSpecial("mythicSeals")}>Donate 1 Mythic Seal</button></div><label>Donate Item</label><select value={villageDonateItemId} onChange={(e) => setVillageDonateItemId(e.target.value)}><option value="">Choose item</option>{villageInventoryStacks.map(stack => <option key={stack.itemId} value={stack.itemId}>{stack.name} x{stack.count}</option>)}</select><button onClick={donateVillageItem} disabled={!villageDonateItemId}>Donate Item</button><h4>Treasury Items</h4>{villageTreasuryItems.length === 0 ? <p className="hint">No donated items yet.</p> : <div className="treasury-grid">{villageTreasuryItems.map(stack => <p key={stack.itemId}><strong>{itemDisplayName(stack.itemId, allVillageItems)}:</strong> x{stack.count}</p>)}</div>}{isSeatedKage && <section className="summary-box"><h3>Kage Gift Village Treasury</h3><p className="hint">The seated Kage can gift donated resources or items to village players.</p><label>Recipient</label><select value={villageSendPlayer} onChange={(e) => setVillageSendPlayer(e.target.value)}><option value="">Choose village player</option>{villagePlayers.map(name => <option key={name} value={name}>{name}</option>)}</select><label>Resource</label><select value={villageSendCurrency} onChange={(e) => setVillageSendCurrency(e.target.value as VillageTreasuryCurrencyKey)}><option value="ryo">Ryo</option><option value="honorSeals">Honor Seals</option><option value="fateShards">Fate Shards</option><option value="boneCharms">Bone Charms</option><option value="auraStones">Aura Stones</option><option value="mythicSeals">Mythic Seals</option></select><input type="number" min={1} value={villageSendAmount} onChange={(e) => setVillageSendAmount(Number(e.target.value))} /><div className="menu"><button onClick={sendVillageCurrency}>Gift Resource</button></div><label>Item</label><select value={villageSendItemId} onChange={(e) => setVillageSendItemId(e.target.value)}><option value="">Choose treasury item</option>{villageTreasuryItems.map(stack => <option key={stack.itemId} value={stack.itemId}>{itemDisplayName(stack.itemId, allVillageItems)} x{stack.count}</option>)}</select><button onClick={sendVillageItem} disabled={!villageSendItemId}>Gift Donated Item</button></section>}</section>}
         {tab === "guard" && <section className="summary-box"><h3>Village Guard Queue</h3><p className="hint">Town Defense gives +0.1% defense per level vs Genjutsu, Taijutsu, Bukijutsu, and Ninjutsu while defending through this queue.</p><p>Current Town Defense Bonus: <strong>+{getTownDefenseGuardBonus(character).toFixed(2)}%</strong></p><button className={character.guardQueued ? "danger-button" : ""} onClick={toggleTownGuard} disabled={guardBusy}>{guardBusy ? "Updating…" : character.guardQueued ? "Leave Guard Queue" : "Queue as Village Guard"}</button><h4>Active Defenders</h4>{guardList.length === 0 ? <p className="hint">No active guards right now.</p> : <div className="clan-guard-list">{guardList.map(g => <div key={g.name} className="clan-guard-row"><span>🛡️ <strong>{g.name}</strong></span><span className="clan-guard-lvl">Lv. {g.level}{g.defenseBonusPercent ? ` · DEF +${g.defenseBonusPercent.toFixed(1)}%` : ""}</span></div>)}</div>}</section>}
         {tab === "notices" && <section className="summary-box town-notice-board"><h3>Official Village Orders</h3><p className="hint">Kage, ANBU, and Elders can post village-wide orders. Pinned orders stay at the top for everyone in {character.village}.</p>{canPostVillageOrder && <div className="summary-box"><div className="treasury-grid"><div><label>Type</label><select value={villageNoticeType} onChange={(event) => setVillageNoticeType(event.target.value as NoticePostType)}><option value="order">Kage / Elder Order</option><option value="raid">Raid Target</option><option value="guard">Guard Request</option><option value="medic">Medic Request</option><option value="trade">Trade / Supply</option><option value="general">General</option></select></div><div><label>Sector Optional</label><input type="number" min={1} max={60} value={villageNoticeSector} onChange={(event) => setVillageNoticeSector(event.target.value)} placeholder="1-60" /></div></div><label>Title</label><input value={villageNoticeTitle} maxLength={70} onChange={(event) => setVillageNoticeTitle(event.target.value)} placeholder="Example: Defend Sector 18 tonight" /><label>Message</label><textarea value={villageNoticeBody} maxLength={500} onChange={(event) => setVillageNoticeBody(event.target.value)} placeholder="Post orders, guard calls, raid targets, medic requests, or supply needs." /><button onClick={postVillageNotice} disabled={!villageNoticeTitle.trim() || !villageNoticeBody.trim()}>Post Village Order</button></div>}<div className="notice-board-list">{state.noticePosts.length === 0 ? <p className="hint">No village orders posted yet.</p> : state.noticePosts.map(notice => { const canEditNotice = isSeatedKage || notice.author === character.name; return <div key={notice.id} className={`notice-post ${notice.pinned ? "pinned" : ""}`}><div className="notice-post-head"><span>{notice.pinned ? "Pinned " : ""}{noticeTypeLabel(notice.type)}</span><small>{new Date(notice.createdAt).toLocaleString()} · {notice.author} · {notice.authorRole}</small></div><strong>{notice.title}</strong><p>{notice.body}</p>{notice.sector && <small>Sector {notice.sector}</small>}{canEditNotice && <div className="menu"><button onClick={() => toggleVillageNoticePin(notice.id)}>{notice.pinned ? "Unpin" : "Pin"}</button><button className="danger-button" onClick={() => removeVillageNotice(notice.id)}>Delete</button></div>}</div>; })}</div></section>}
@@ -19193,6 +21269,70 @@ function CentralHub({
                                 <div className="crafter-total-pts">Total craft points: <strong>{totalPts}</strong></div>
                             </div>
 
+                            {/* ── Hollow Gate Key forge ────────────────────────────────────
+                                Two craft paths, each consumes its requirement directly:
+                                  • 5 Dungeon Keys → 1 Hollow Gate Key
+                                  • 10 Fate Shards → 1 Hollow Gate Key
+                                The key bypasses the village unlock + 2/day cap when entering
+                                the Hollow Gate Shrine. */}
+                            {(() => {
+                                const dungeonKeyCount = character.inventory.filter(id => id === DUNGEON_KEY_ID).length;
+                                const fateShardCount = character.fateShards ?? 0;
+                                const canCraftWithKeys = dungeonKeyCount >= HOLLOW_GATE_KEY_DUNGEON_KEY_COST;
+                                const canCraftWithShards = fateShardCount >= HOLLOW_GATE_KEY_FATE_SHARD_COST;
+                                function craftHollowGateKeyWithDungeonKeys() {
+                                    if (dungeonKeyCount < HOLLOW_GATE_KEY_DUNGEON_KEY_COST) {
+                                        alert(`You need ${HOLLOW_GATE_KEY_DUNGEON_KEY_COST} Dungeon Keys. You have ${dungeonKeyCount}.`);
+                                        return;
+                                    }
+                                    const newInv = [...character.inventory];
+                                    let toRemove = HOLLOW_GATE_KEY_DUNGEON_KEY_COST;
+                                    for (let i = newInv.length - 1; i >= 0 && toRemove > 0; i -= 1) {
+                                        if (newInv[i] === DUNGEON_KEY_ID) {
+                                            newInv.splice(i, 1);
+                                            toRemove -= 1;
+                                        }
+                                    }
+                                    newInv.push(HOLLOW_GATE_KEY_ID);
+                                    updateCharacter({ ...character, inventory: newInv });
+                                    alert(`Hollow Gate Key forged. Consumed ${HOLLOW_GATE_KEY_DUNGEON_KEY_COST} Dungeon Keys.`);
+                                }
+                                function craftHollowGateKeyWithFateShards() {
+                                    if ((character.fateShards ?? 0) < HOLLOW_GATE_KEY_FATE_SHARD_COST) {
+                                        alert(`You need ${HOLLOW_GATE_KEY_FATE_SHARD_COST} Fate Shards. You have ${character.fateShards ?? 0}.`);
+                                        return;
+                                    }
+                                    updateCharacter({
+                                        ...character,
+                                        fateShards: (character.fateShards ?? 0) - HOLLOW_GATE_KEY_FATE_SHARD_COST,
+                                        inventory: [...character.inventory, HOLLOW_GATE_KEY_ID],
+                                    });
+                                    alert(`Hollow Gate Key forged. Consumed ${HOLLOW_GATE_KEY_FATE_SHARD_COST} Fate Shards.`);
+                                }
+                                const ownedKeys = character.inventory.filter(id => id === HOLLOW_GATE_KEY_ID).length;
+                                return (
+                                    <div className="crafter-recipe-grid" style={{ marginBottom: 12 }}>
+                                        <div className="crafter-recipe-btn" style={{ borderColor: "#a855f7", boxShadow: "0 0 12px rgba(168,85,247,0.25)" }}>
+                                            <strong>⛩ Hollow Gate Key</strong>
+                                            <small>Personal shrine pass. Bypasses village unlock and the 2/day cap.</small>
+                                            <small>You own: <strong>{ownedKeys}</strong></small>
+                                            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 6 }}>
+                                                <button onClick={craftHollowGateKeyWithDungeonKeys} disabled={!canCraftWithKeys}>
+                                                    {canCraftWithKeys
+                                                        ? `Forge — ${HOLLOW_GATE_KEY_DUNGEON_KEY_COST} Dungeon Keys (have ${dungeonKeyCount})`
+                                                        : `Need ${HOLLOW_GATE_KEY_DUNGEON_KEY_COST} Dungeon Keys (have ${dungeonKeyCount})`}
+                                                </button>
+                                                <button onClick={craftHollowGateKeyWithFateShards} disabled={!canCraftWithShards}>
+                                                    {canCraftWithShards
+                                                        ? `Forge — ${HOLLOW_GATE_KEY_FATE_SHARD_COST} Fate Shards (have ${fateShardCount})`
+                                                        : `Need ${HOLLOW_GATE_KEY_FATE_SHARD_COST} Fate Shards (have ${fateShardCount})`}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+
                             <div className="crafter-recipe-grid">
                                 {recipes.map((recipe) => {
                                     const fillPct = Math.min(100, Math.floor((totalPts / recipe.cost) * 100));
@@ -19518,6 +21658,7 @@ function WorldMap({
     sharedImages = {},
     onStartEventEncounter,
     onDungeonFound,
+    onEnterHollowGate,
     setPvpBattleId,
     setPvpRole,
     setPvpBattleContext,
@@ -19554,6 +21695,7 @@ function WorldMap({
     sharedImages?: Record<string, string>;
     onStartEventEncounter: (event: CreatorEvent, battle?: EventEncounterBattle) => void;
     onDungeonFound: () => void;
+    onEnterHollowGate?: () => void;
     setPvpBattleId: (id: string) => void;
     setPvpRole: (role: "p1" | "p2") => void;
     setPvpBattleContext: (context: SharedPvpBattleContext | null) => void;
@@ -19717,6 +21859,8 @@ function WorldMap({
         { name: "Frostfang Village", type: "village", biome: "snow" as Biome, x: 72, y: 27, icon: "FF" },
         { name: "Moonshadow Village", type: "village", biome: "shadow" as Biome, x: 81, y: 67, icon: "MS" },
         { name: "Central", type: "central", biome: "central" as Biome, x: 52, y: 42, icon: "C", staminaReward: 20, xpReward: 20 },
+        // Hollow Gate sits between sectors 1 (67,46), 57 (57,49), and 52 (65,25) — a hidden shrine entrance.
+        { name: "Hollow Gate", type: "hollowGate", biome: "shadow" as Biome, x: 62, y: 38, icon: "HG" },
     ];
     const [selectedLandmark, setSelectedLandmark] = useState<(typeof locations)[number] | null>(null);
     const sectorPoints = [
@@ -19757,6 +21901,13 @@ function WorldMap({
     function enterLandmark(location: typeof locations[number]) {
         setCurrentBiome(location.biome);
         setCurrentWeather(weatherForBiome(location.biome));
+        // Hollow Gate is a forbidden shrine. Entry is gated by either the Kage's
+        // village-wide unlock OR a Hollow Gate Key (handled inside the entry
+        // function — it shows its own prompts for missing unlock / daily cap).
+        if (location.type === "hollowGate") {
+            onEnterHollowGate?.();
+            return;
+        }
         // Enemy village ? territory exploration page; own village & Central ? normal landmark
         if (location.type === "village" && location.name !== character.village) {
             setSelectedVillageTerritory(location);
