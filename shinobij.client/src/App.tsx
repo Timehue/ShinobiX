@@ -9127,24 +9127,43 @@ export default function App() {
                 return;
             }
             case "npc": {
-                // Shrine Keeper — one per floor. Lore-only: tells you something
-                // about the shrine but offers no rewards. (Rewards come from the
-                // Warden, chests, and sealed doors only.) A keeper who handed out
-                // free HP / torch / keys would directly violate the user's rule.
+                // Shrine Keeper — one per floor. Offers a one-time blessing.
                 pushHollowGateLog(flavor);
-                const wisdoms = [
-                    "\"The Warden was never sealed in by us. He sealed himself.\"",
-                    "\"Trust the chests. Trust the chained doors. Trust nothing else.\"",
-                    "\"The Hollow Gate echoes wear your face when you sleep. Walk on, traveler.\"",
-                    "\"Every wrong turn ends in a trap. The shrine designed it that way.\"",
-                    "\"The Veil belongs to the shrine. Borrow it carefully.\"",
-                ];
-                const wisdom = wisdoms[Math.floor(Math.random() * wisdoms.length)];
                 setHollowGateEvent({
                     title: "The Shrine Keeper",
-                    body: `${flavor}\n\n${wisdom}`,
+                    body: `${flavor}\n\n"Choose your gift, traveler. The shrine offers what it can spare."`,
                     kind: "npc",
-                    choices: [{ label: "Bow and walk on", onSelect: () => setHollowGateEvent(null), tone: "primary" }],
+                    choices: [
+                        {
+                            label: "Restore HP (33% of max)",
+                            tone: "primary",
+                            onSelect: () => {
+                                if (!character) return;
+                                // NOTE: healing is normally forbidden in the shrine, but a
+                                // Shrine Keeper blessing is the canonical exception.
+                                const heal = Math.floor(character.maxHp * 0.33);
+                                setCharacter({ ...character, hp: Math.min(character.maxHp, character.hp + heal) });
+                                pushHollowGateLog(`The Shrine Keeper restores ${heal} HP.`);
+                                setHollowGateEvent(null);
+                            },
+                        },
+                        {
+                            label: "Refill Torch of Reiki",
+                            onSelect: () => {
+                                setHollowGateRun({ ...hollowGateRun, torch: 10 });
+                                pushHollowGateLog("The Shrine Keeper rekindles the Torch of Reiki to full.");
+                                setHollowGateEvent(null);
+                            },
+                        },
+                        {
+                            label: "Gift a Shrine Key",
+                            onSelect: () => {
+                                setHollowGateRun({ ...hollowGateRun, keys: hollowGateRun.keys + 1 });
+                                pushHollowGateLog("The Shrine Keeper presses a Shrine Key into your palm. +1 Shrine Key.");
+                                setHollowGateEvent(null);
+                            },
+                        },
+                    ],
                 });
                 markResolved();
                 return;
