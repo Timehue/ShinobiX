@@ -28067,7 +28067,7 @@ function PvpBattleScreen({
             id: `pvp-${battleId}`,
             title: `${session.p1.name} vs ${session.p2.name}`,
             mode: battleMode === "ranked" ? "Ranked" : battleMode === "clanWar1v1" ? "Clan War" : "PvP",
-            startedAt: session.createdAt ?? Date.now(),
+            startedAt: Date.now(),
             fighters: [session.p1.name, session.p2.name],
             battleId,
             biome: currentBiome,
