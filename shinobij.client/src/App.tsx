@@ -28094,7 +28094,7 @@ function PvpBattleScreen({
         const poll = () => {
             fetch(`/api/pvp/chat?id=${encodeURIComponent(battleId)}`)
                 .then(r => r.json())
-                .then(msgs => { if (active) setBattleChatMessages(msgs); })
+                .then(msgs => { if (active && Array.isArray(msgs)) setBattleChatMessages(msgs); })
                 .catch(() => {});
         };
         poll();
@@ -28121,7 +28121,7 @@ function PvpBattleScreen({
             body: JSON.stringify({ author: character.name, text, role: "fighter" }),
         })
             .then(r => r.json())
-            .then(msgs => setBattleChatMessages(msgs))
+            .then(msgs => { if (Array.isArray(msgs)) setBattleChatMessages(msgs); })
             .catch(() => {});
     }
 
@@ -28379,7 +28379,7 @@ function PvpBattleScreen({
     const oppAvatar = (opp.character?.avatarImage as string) || sharedImages['avatar:' + opp.name.toLowerCase()] || "";
 
     return (
-        <div className={`arena-fullscreen arena-bg-${currentBiome}${currentSector === 99 ? " arena-bg-deathsgate" : ""}`}>
+        <div className={`arena-fullscreen pvp-battle-layout arena-bg-${currentBiome}${currentSector === 99 ? " arena-bg-deathsgate" : ""}`}>
             {pvpPrefightCountdown !== null && (
                 <div className="pvp-countdown-overlay">
                     <div className="pvp-countdown-box">
