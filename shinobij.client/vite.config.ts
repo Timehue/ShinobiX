@@ -14,7 +14,7 @@ const isBuildMode = process.argv.includes('build');
 
 let httpsConfig: { key: Buffer; cert: Buffer } | undefined;
 
-if (!isBuildMode) {
+if (!isBuildMode && !env.VITE_SKIP_HTTPS) {
     try {
         const baseFolder =
             env.APPDATA !== undefined && env.APPDATA !== ''

@@ -6,6 +6,7 @@
 @import "./styles/banner-skin.css";
 @import "./styles/pet-skin.css";
 @import "./styles/atlas-skin.css";
+@import "./styles/start-skin.css";
 
 * {
     box-sizing: border-box;
