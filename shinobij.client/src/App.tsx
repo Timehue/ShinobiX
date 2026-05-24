@@ -24450,6 +24450,8 @@ function Arena({
     const [petChallengeSearch, setPetChallengeSearch] = useState("");
     const [opponentCharacter, setOpponentCharacter] = useState<Character | null>(null);
     const [rankedBattleActive, setRankedBattleActive] = useState(false);
+    const [rankedQueueActive, setRankedQueueActive] = useState(false);
+    const [rankedQueueSize, setRankedQueueSize] = useState(0);
     const [clanWarPointsActive, setClanWarPointsActive] = useState(0);
     const [arenaTournament, setArenaTournament] = useState<ArenaTournament | null>(() => loadArenaTournament());
     const [spectatorFights, setSpectatorFights] = useState<ArenaSpectatorFight[]>(() => loadArenaActiveFights());
@@ -24462,6 +24464,59 @@ function Arena({
         const id = setInterval(refreshArenaState, 10000);
         return () => clearInterval(id);
     }, []);
+    /* ── Ranked queue polling ── */
+    useEffect(() => {
+        if (!rankedQueueActive) return;
+        let active = true;
+        const poll = () => {
+            fetch("/api/pvp/ranked-queue", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: character.name, level: character.level, elo: character.rankedRating ?? 1000, action: "poll" }),
+            })
+                .then(r => r.json())
+                .then(data => {
+                    if (!active) return;
+                    setRankedQueueSize(data.queueSize ?? 0);
+                    if (data.match) {
+                        // Found a match — challenge that player
+                        setRankedQueueActive(false);
+                        const opName = data.match.opponent;
+                        const stub = { name: opName, level: data.match.opponentLevel ?? 1, village: "", specialty: "Ninjutsu", character: { ...character, name: opName, rankedRating: data.match.opponentElo ?? 1000 } as Character, currentSector: 0, lastSeenAt: Date.now() } as PlayerRecord;
+                        challengePlayer(stub, "ranked");
+                    }
+                    if (!data.inQueue) {
+                        setRankedQueueActive(false);
+                    }
+                })
+                .catch(() => {});
+        };
+        poll();
+        const iv = setInterval(poll, 3000);
+        return () => { active = false; clearInterval(iv); };
+    }, [rankedQueueActive]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    function joinRankedQueue() {
+        setRankedQueueActive(true);
+        fetch("/api/pvp/ranked-queue", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: character.name, level: character.level, elo: character.rankedRating ?? 1000, action: "join" }),
+        })
+            .then(r => r.json())
+            .then(data => setRankedQueueSize(data.queueSize ?? 0))
+            .catch(() => {});
+    }
+
+    function leaveRankedQueue() {
+        setRankedQueueActive(false);
+        fetch("/api/pvp/ranked-queue", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: character.name, action: "leave" }),
+        }).catch(() => {});
+    }
+
     const [opponentClanData, setOpponentClanData] = useState<EnhancedClanData | null>(null);
     const opponentLevel = opponentCharacter?.level ?? pendingAiProfile?.level ?? aiLevel;
     const enemyArmorFactor = opponentCharacter ? getCharacterArmorFactor(opponentCharacter, allItems) : aiArmorFactorForProfile(pendingAiProfile ?? { level: opponentLevel });
@@ -26755,13 +26810,13 @@ function Arena({
     enemyTurnRef.current    = enemyTurn;
 
     if (!battleStarted) {
-        const sparOpponents = playerRoster.filter((player) => playerSearchMatches(player, sparSearch));
-        const rankedOpponents = playerRoster
+        const sparOpponents = sparSearch.trim() ? playerRoster.filter((player) => playerSearchMatches(player, sparSearch)) : [];
+        const rankedOpponents = rankedSearch.trim() ? playerRoster
             .filter((player) => playerSearchMatches(player, rankedSearch))
-            .filter((player) => player.character.level >= Math.max(1, character.level - 20));
-        const petChallengeOpponents = playerRoster
+            .filter((player) => player.character.level >= Math.max(1, character.level - 20)) : [];
+        const petChallengeOpponents = petChallengeSearch.trim() ? playerRoster
             .filter((player) => playerSearchMatches(player, petChallengeSearch))
-            .filter((player) => player.character.pets.length > 0);
+            .filter((player) => player.character.pets.length > 0) : [];
         const clanWarOpponents = opponentClanData
             ? opponentClanData.members
                 .map((member) => playerRoster.find((player) => player.name === member.name))
@@ -26793,28 +26848,28 @@ function Arena({
                     <section className="summary-box">
                         <h3>Spar Requests</h3>
                         <label>Search Player Name</label>
-                        <input value={sparSearch} onChange={(e) => setSparSearch(e.target.value)} placeholder="Search by player name" />
-                        <div className="jutsu-list">
-                            {sparOpponents.length === 0 && sparSearch.trim() ? (
-                                <>
-                                    <p className="hint">No roster match. Send a challenge directly to "{sparSearch.trim()}" — they'll see it on their next heartbeat.</p>
-                                    <button onClick={() => {
-                                        const name = sparSearch.trim();
-                                        if (!name || name === character.name) return;
-                                        const stub = { name, level: 1, village: "", specialty: "Ninjutsu", character: { ...character, name } as Character, currentSector: 0, lastSeenAt: Date.now() } as PlayerRecord;
-                                        challengePlayer(stub);
-                                    }}>Send Spar Challenge to "{sparSearch.trim()}"</button>
-                                </>
-                            ) : sparOpponents.length === 0 ? (
-                                <p className="hint">No matching players yet — type a player's exact name to send them a direct challenge.</p>
-                            ) : sparOpponents.map((player) => (
-                                <div className="summary-box" key={`spar-${player.name}`}>
-                                    <strong>{player.name}</strong>
-                                    <p>Level {player.level} | {player.village} | {player.specialty}</p>
-                                    <button onClick={() => challengePlayer(player)}>Send Spar Challenge</button>
-                                </div>
-                            ))}
-                        </div>
+                        <input value={sparSearch} onChange={(e) => setSparSearch(e.target.value)} placeholder="Type a player name to challenge..." />
+                        {sparSearch.trim() && (
+                            <div className="jutsu-list">
+                                {sparOpponents.length === 0 ? (
+                                    <>
+                                        <p className="hint">No roster match. Send a challenge directly.</p>
+                                        <button onClick={() => {
+                                            const name = sparSearch.trim();
+                                            if (!name || name === character.name) return;
+                                            const stub = { name, level: 1, village: "", specialty: "Ninjutsu", character: { ...character, name } as Character, currentSector: 0, lastSeenAt: Date.now() } as PlayerRecord;
+                                            challengePlayer(stub);
+                                        }}>Send Spar Challenge to "{sparSearch.trim()}"</button>
+                                    </>
+                                ) : sparOpponents.map((player) => (
+                                    <div className="summary-box" key={`spar-${player.name}`}>
+                                        <strong>{player.name}</strong>
+                                        <p>Level {player.level} | {player.village} | {player.specialty}</p>
+                                        <button onClick={() => challengePlayer(player)}>Send Spar Challenge</button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </section>
 
                     <section className="summary-box">
@@ -26862,29 +26917,39 @@ function Arena({
                     <h3>Ranked Battles</h3>
                     <p>Rating: <strong>{character.rankedRating ?? 1000}</strong> Elo | Wins {character.rankedWins ?? 0} | Losses {character.rankedLosses ?? 0}</p>
                     <p className="hint">Ranked fights use neutral ground: no terrain or weather modifiers.</p>
-                    <label>Search Ranked Opponent</label>
-                    <input value={rankedSearch} onChange={(e) => setRankedSearch(e.target.value)} placeholder="Search by player name" />
-                    <div className="jutsu-list">
-                        {rankedOpponents.length === 0 && rankedSearch.trim() ? (
-                            <>
-                                <p className="hint">No roster match. Send a ranked challenge directly to "{rankedSearch.trim()}".</p>
-                                <button onClick={() => {
-                                    const name = rankedSearch.trim();
-                                    if (!name || name === character.name) return;
-                                    const stub = { name, level: 1, village: "", specialty: "Ninjutsu", character: { ...character, name } as Character, currentSector: 0, lastSeenAt: Date.now() } as PlayerRecord;
-                                    challengePlayer(stub, "ranked");
-                                }}>Send Ranked Challenge to "{rankedSearch.trim()}"</button>
-                            </>
-                        ) : rankedOpponents.length === 0 ? (
-                            <p className="hint">No ranked opponents found — type a player's exact name to challenge them directly.</p>
-                        ) : rankedOpponents.map((player) => (
-                            <div className="summary-box" key={`ranked-${player.name}`}>
-                                <strong>{player.name}</strong>
-                                <p>Level {player.level} | Elo {player.character.rankedRating ?? 1000}</p>
-                                <button onClick={() => challengePlayer(player, "ranked")}>Send Ranked Challenge</button>
-                            </div>
-                        ))}
+                    <div style={{ display: "flex", gap: "8px", margin: "8px 0" }}>
+                        {rankedQueueActive ? (
+                            <button className="danger-button" onClick={leaveRankedQueue}>
+                                Leave Queue ({rankedQueueSize} in queue)
+                            </button>
+                        ) : (
+                            <button onClick={joinRankedQueue}>Queue Up for Ranked</button>
+                        )}
                     </div>
+                    {rankedQueueActive && <p className="hint">Searching for opponent... ({rankedQueueSize} in queue)</p>}
+                    <label>Challenge a Specific Player</label>
+                    <input value={rankedSearch} onChange={(e) => setRankedSearch(e.target.value)} placeholder="Type a player name to challenge..." />
+                    {rankedSearch.trim() && (
+                        <div className="jutsu-list">
+                            {rankedOpponents.length === 0 ? (
+                                <>
+                                    <p className="hint">No roster match. Send a ranked challenge directly.</p>
+                                    <button onClick={() => {
+                                        const name = rankedSearch.trim();
+                                        if (!name || name === character.name) return;
+                                        const stub = { name, level: 1, village: "", specialty: "Ninjutsu", character: { ...character, name } as Character, currentSector: 0, lastSeenAt: Date.now() } as PlayerRecord;
+                                        challengePlayer(stub, "ranked");
+                                    }}>Send Ranked Challenge to "{rankedSearch.trim()}"</button>
+                                </>
+                            ) : rankedOpponents.map((player) => (
+                                <div className="summary-box" key={`ranked-${player.name}`}>
+                                    <strong>{player.name}</strong>
+                                    <p>Level {player.level} | Elo {player.character.rankedRating ?? 1000}</p>
+                                    <button onClick={() => challengePlayer(player, "ranked")}>Send Ranked Challenge</button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </section>
 
                 <section className="summary-box">
@@ -26932,28 +26997,28 @@ function Arena({
                     <h3>Pet Battles</h3>
                     <p className="hint">Search players with pets, send a pet battle challenge, or open the pet arena directly.</p>
                     <label>Search Player Name</label>
-                    <input value={petChallengeSearch} onChange={(e) => setPetChallengeSearch(e.target.value)} placeholder="Search by player name" />
-                    <div className="jutsu-list">
-                        {petChallengeOpponents.length === 0 && petChallengeSearch.trim() ? (
-                            <>
-                                <p className="hint">No roster match. Send a pet challenge directly to "{petChallengeSearch.trim()}".</p>
-                                <button onClick={() => {
-                                    const name = petChallengeSearch.trim();
-                                    if (!name || name === character.name) return;
-                                    const stub = { name, level: 1, village: "", specialty: "Ninjutsu", character: { ...character, name } as Character, currentSector: 0, lastSeenAt: Date.now() } as PlayerRecord;
-                                    challengePlayer(stub, "clanWarPet", 25);
-                                }}>?? Challenge "{petChallengeSearch.trim()}" to a Pet Battle</button>
-                            </>
-                        ) : petChallengeOpponents.length === 0 ? (
-                            <p className="hint">No matching players with pets found — type a player's exact name to challenge them directly.</p>
-                        ) : petChallengeOpponents.map((player) => (
-                            <div className="summary-box" key={`pet-challenge-${player.name}`}>
-                                <strong>{player.name}</strong>
-                                <p>Level {player.level} | Pets {player.character.pets.length}</p>
-                                <button onClick={() => challengePlayer(player, "clanWarPet", 25)}>Send Pet Challenge</button>
-                            </div>
-                        ))}
-                    </div>
+                    <input value={petChallengeSearch} onChange={(e) => setPetChallengeSearch(e.target.value)} placeholder="Type a player name to challenge..." />
+                    {petChallengeSearch.trim() && (
+                        <div className="jutsu-list">
+                            {petChallengeOpponents.length === 0 ? (
+                                <>
+                                    <p className="hint">No roster match. Send a pet challenge directly.</p>
+                                    <button onClick={() => {
+                                        const name = petChallengeSearch.trim();
+                                        if (!name || name === character.name) return;
+                                        const stub = { name, level: 1, village: "", specialty: "Ninjutsu", character: { ...character, name } as Character, currentSector: 0, lastSeenAt: Date.now() } as PlayerRecord;
+                                        challengePlayer(stub, "clanWarPet", 25);
+                                    }}>Challenge "{petChallengeSearch.trim()}" to a Pet Battle</button>
+                                </>
+                            ) : petChallengeOpponents.map((player) => (
+                                <div className="summary-box" key={`pet-challenge-${player.name}`}>
+                                    <strong>{player.name}</strong>
+                                    <p>Level {player.level} | Pets {player.character.pets.length}</p>
+                                    <button onClick={() => challengePlayer(player, "clanWarPet", 25)}>Send Pet Challenge</button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                     <button onClick={() => setScreen("petArena")}>Open Pet Battle Arena</button>
                 </section>
 
