@@ -1253,8 +1253,10 @@ function generateHollowGateShrineRun(floor = 1): HollowGateShrineRun {
             }
         }
     }
-    // Aim for ~22% of the grid as walls — varies a bit by floor for visual variety.
-    const targetWallTiles = Math.floor(total * 0.22) + Math.floor(floor / 2);
+    // Aim for ~32% of the grid as walls — this density produces real corridors
+    // and T-junctions instead of an open parking lot. More walls = more dead-ends
+    // = more opportunities to bait traps onto wrong turns.
+    const targetWallTiles = Math.floor(total * 0.32) + Math.floor(floor / 2);
     let wallsPlaced = 0;
     let wallSafety = 0;
     while (wallsPlaced < targetWallTiles && wallSafety < 50) {
@@ -1268,15 +1270,53 @@ function generateHollowGateShrineRun(floor = 1): HollowGateShrineRun {
 
     // Counts scale slightly with floor depth.
     const battleCount = 4 + Math.min(3, floor);
+    const trapCount = 3 + Math.floor(floor / 2);
+
+    // DEAD-END TRAP BIAS: walls produce natural dead-ends (tiles with 0-1
+    // walkable neighbors). We place ~67% of the floor's traps at those
+    // tiles first so a wrong turn always punishes the player. The rest
+    // fill in randomly the way they always did.
+    function walkableNeighbors(idx: number): number {
+        const x = idx % w;
+        const y = Math.floor(idx / w);
+        let n = 0;
+        for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+            const nx = x + dx;
+            const ny = y + dy;
+            if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+            if (kinds[ny * w + nx] !== "wall") n += 1;
+        }
+        return n;
+    }
+    function placeTrapsAtDeadEnds(maxTraps: number): number {
+        const deadEnds: number[] = [];
+        for (let i = 0; i < total; i += 1) {
+            if (reserved.has(i) || protectedRadius.has(i)) continue;
+            if (kinds[i] !== "empty") continue;
+            if (walkableNeighbors(i) <= 1) deadEnds.push(i);
+        }
+        // Shuffle so we don't always pick the same dead-ends.
+        deadEnds.sort(() => Math.random() - 0.5);
+        let placed = 0;
+        for (const idx of deadEnds) {
+            if (placed >= maxTraps) break;
+            kinds[idx] = "trap";
+            placed += 1;
+        }
+        return placed;
+    }
+    const deadEndTrapTarget = Math.ceil(trapCount * 0.67);
+    const deadEndTrapsPlaced = placeTrapsAtDeadEnds(deadEndTrapTarget);
+
     placeMany("battle", battleCount);
     placeMany("elite", 1 + Math.floor(floor / 2));
-    placeMany("trap", 3 + Math.floor(floor / 2));
+    placeMany("trap", Math.max(0, trapCount - deadEndTrapsPlaced));
     placeMany("chest", 3);
     placeMany("pet_event", 1);
     placeMany("shrine", 1);
     placeMany("story", 1);
     placeMany("locked", 1);
-    placeMany("npc", 1);    // Shrine Keeper — one per floor
+    placeMany("npc", 1);    // Shrine Keeper — lore-only per floor
 
     // Validate: any locked tile must NOT block the only path to boss + exit.
     // We BFS from spawn treating locked tiles as walls; if boss or exit is
@@ -9007,27 +9047,19 @@ export default function App() {
                 return;
             }
             case "pet_event": {
-                const eligible = isActivePetEligibleForHollowGate();
+                // Flavor only — pet pawprints are atmosphere, not a reward source.
+                // Real pet encounters are gated behind sealed doors (the "secret room"
+                // reward path) where the rare/legendary/mythic rolls live.
                 const pet = character.pets.find(p => p.id === character.activePetId);
                 pushHollowGateLog(flavor);
-                if (eligible && pet) {
-                    const xp = 40 + Math.floor(Math.random() * 30);
-                    const updatedPets = character.pets.map(p => p.id === pet.id ? gainPetXp(p, xp) : p);
-                    setCharacter({ ...character, pets: updatedPets });
-                    setHollowGateEvent({
-                        title: "Glowing Pawprints",
-                        body: `${flavor}\n\n${pet.name} investigates the shrine spirit and gains +${xp} pet XP.`,
-                        kind: "pet_event",
-                        choices: [{ label: "Onward", onSelect: () => setHollowGateEvent(null), tone: "primary" }],
-                    });
-                } else {
-                    setHollowGateEvent({
-                        title: "Glowing Pawprints",
-                        body: `${flavor}\n\nWithout a battle-ready pet at your side, the spirit retreats into the dark.`,
-                        kind: "pet_event",
-                        choices: [{ label: "Onward", onSelect: () => setHollowGateEvent(null), tone: "primary" }],
-                    });
-                }
+                setHollowGateEvent({
+                    title: "Glowing Pawprints",
+                    body: pet
+                        ? `${flavor}\n\n${pet.name} sniffs the air, then the trail fades into the dark.`
+                        : `${flavor}\n\nThe trail fades into the dark.`,
+                    kind: "pet_event",
+                    choices: [{ label: "Onward", onSelect: () => setHollowGateEvent(null), tone: "primary" }],
+                });
                 markResolved();
                 return;
             }
@@ -9039,13 +9071,12 @@ export default function App() {
                 return;
             }
             case "story": {
+                // Flavor only — story tiles teach you about the shrine. No rewards
+                // (rewards come from chests, secret doors, and the Warden).
                 pushHollowGateLog(flavor);
-                const xp = 30 + Math.floor(Math.random() * 20);
-                const leveled = gainXp(character, xp);
-                setCharacter(leveled);
                 setHollowGateEvent({
                     title: "Hollow Gate Echo",
-                    body: `${flavor}\n\nYou study the engraving. +${effectiveCharacterXpGain(character, xp)} XP.`,
+                    body: `${flavor}\n\nYou study the engraving. The shrine watches.`,
                     kind: "story",
                     choices: [{ label: "Move On", onSelect: () => setHollowGateEvent(null), tone: "primary" }],
                 });
@@ -9096,43 +9127,24 @@ export default function App() {
                 return;
             }
             case "npc": {
-                // Shrine Keeper — one per floor. Offers a one-time blessing.
+                // Shrine Keeper — one per floor. Lore-only: tells you something
+                // about the shrine but offers no rewards. (Rewards come from the
+                // Warden, chests, and sealed doors only.) A keeper who handed out
+                // free HP / torch / keys would directly violate the user's rule.
                 pushHollowGateLog(flavor);
+                const wisdoms = [
+                    "\"The Warden was never sealed in by us. He sealed himself.\"",
+                    "\"Trust the chests. Trust the chained doors. Trust nothing else.\"",
+                    "\"The Hollow Gate echoes wear your face when you sleep. Walk on, traveler.\"",
+                    "\"Every wrong turn ends in a trap. The shrine designed it that way.\"",
+                    "\"The Veil belongs to the shrine. Borrow it carefully.\"",
+                ];
+                const wisdom = wisdoms[Math.floor(Math.random() * wisdoms.length)];
                 setHollowGateEvent({
                     title: "The Shrine Keeper",
-                    body: `${flavor}\n\n"Choose your gift, traveler. The shrine offers what it can spare."`,
+                    body: `${flavor}\n\n${wisdom}`,
                     kind: "npc",
-                    choices: [
-                        {
-                            label: "Restore HP (33% of max)",
-                            tone: "primary",
-                            onSelect: () => {
-                                if (!character) return;
-                                // NOTE: healing is normally forbidden in the shrine, but a
-                                // Shrine Keeper blessing is the canonical exception.
-                                const heal = Math.floor(character.maxHp * 0.33);
-                                setCharacter({ ...character, hp: Math.min(character.maxHp, character.hp + heal) });
-                                pushHollowGateLog(`The Shrine Keeper restores ${heal} HP.`);
-                                setHollowGateEvent(null);
-                            },
-                        },
-                        {
-                            label: "Refill Torch of Reiki",
-                            onSelect: () => {
-                                setHollowGateRun({ ...hollowGateRun, torch: 10 });
-                                pushHollowGateLog("The Shrine Keeper rekindles the Torch of Reiki to full.");
-                                setHollowGateEvent(null);
-                            },
-                        },
-                        {
-                            label: "Gift a Shrine Key",
-                            onSelect: () => {
-                                setHollowGateRun({ ...hollowGateRun, keys: hollowGateRun.keys + 1 });
-                                pushHollowGateLog("The Shrine Keeper presses a Shrine Key into your palm. +1 Shrine Key.");
-                                setHollowGateEvent(null);
-                            },
-                        },
-                    ],
+                    choices: [{ label: "Bow and walk on", onSelect: () => setHollowGateEvent(null), tone: "primary" }],
                 });
                 markResolved();
                 return;
