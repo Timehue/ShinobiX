@@ -19324,41 +19324,32 @@ function WorldMap({
         setCurrentBiome(biome);
         setCurrentWeather(weather);
 
-        // Embed jutsu objects so server can resolve moves
-        const [selfSave, opponentSave] = await Promise.all([
-            fetchPlayerCombatSave(character.name),
-            fetchPlayerCombatSave(opponent.name),
-        ]);
-        const selfCharacter = selfSave?.character ?? character;
-        const selfBloodlines = selfSave?.savedBloodlines?.length ? selfSave.savedBloodlines : savedBloodlines;
-        const selfCreatorJutsus = selfSave?.creatorJutsus?.length ? [...wmCreatorJutsus, ...selfSave.creatorJutsus] : wmCreatorJutsus;
-        const selfAllItems = getAllItems(selfSave?.creatorItems?.length ? selfSave.creatorItems : wmCreatorItems);
+        // Generate the battleId client-side so we can navigate immediately
+        // and let the session POST + challenge notification fire in parallel.
+        const battleId = `pvp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+        // Use local character data — the server now hydrates both fighters from
+        // KV save records directly, so the redundant fetchPlayerCombatSave round
+        // trips that used to gate this flow are unnecessary. The payload is
+        // only consulted as a fallback for fighters without a save (NPCs).
+        const selfCharacter = character;
+        const selfBloodlines = savedBloodlines;
+        const selfCreatorJutsus = wmCreatorJutsus;
+        const selfAllItems = getAllItems(wmCreatorItems);
         const p1Jutsus = getPvpJutsuLoadout(selfBloodlines, selfCreatorJutsus, selfCharacter);
-        const opponentCharacter = opponentSave?.character ?? opponent;
-        const opponentBloodlines = opponentSave?.savedBloodlines?.length ? opponentSave.savedBloodlines : savedBloodlines;
-        const opponentCreatorJutsus = opponentSave?.creatorJutsus?.length ? [...wmCreatorJutsus, ...opponentSave.creatorJutsus] : wmCreatorJutsus;
-        const opponentAllItems = getAllItems(opponentSave?.creatorItems?.length ? opponentSave.creatorItems : wmCreatorItems);
+        const opponentCharacter = opponent;
+        const opponentBloodlines = savedBloodlines;
+        const opponentCreatorJutsus = wmCreatorJutsus;
+        const opponentAllItems = getAllItems(wmCreatorItems);
         const p2Jutsus = getPvpJutsuLoadout(opponentBloodlines, opponentCreatorJutsus, opponentCharacter);
 
-        let battleId = '';
-        try {
-            const sr = await fetch('/api/pvp/session', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: stringifyPvpSessionPayload({
-                    p1Character: { ...selfCharacter, jutsu: p1Jutsus, pvpItems: getPvpItemLoadout(selfCharacter, selfAllItems), bloodlineMult: getBloodlineMultiplier(selfCharacter, selfBloodlines), armorFactor: getCharacterArmorFactor(selfCharacter, selfAllItems), armorRawDR: getCharacterArmorRawDR(selfCharacter, selfAllItems), itemDamagePct: getEquippedItemBonus(selfCharacter, selfAllItems, "damagePercent") },
-                    p2Character: { ...opponentCharacter, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(opponentCharacter, opponentAllItems), bloodlineMult: getBloodlineMultiplier(opponentCharacter, opponentBloodlines), armorFactor: getCharacterArmorFactor(opponentCharacter, opponentAllItems), armorRawDR: getCharacterArmorRawDR(opponentCharacter, opponentAllItems), itemDamagePct: getEquippedItemBonus(opponentCharacter, opponentAllItems, "damagePercent") },
-                }),
-            });
-            if (sr.ok) ({ battleId } = await sr.json() as { battleId: string });
-        } catch { /* fallback below */ }
-
-        if (!battleId) {
-            setPendingPvpOpponent(normalizeCharacter(opponent));
-            setRaidBattleKind("raidPlayer");
-            setScreen("arena");
-            return;
-        }
+        // Optimistic navigation — set up the battle screen before the network
+        // round trips return. The PvP battle screen polls /api/pvp/session at
+        // 1s; once the session POST below lands it will pick it up.
+        setPvpBattleId(battleId);
+        setPvpRole("p1");
+        setPvpBattleContext({ mode: "standard", sectorAttack: true, raidKind: "raidPlayer", sector });
+        setScreen("pvpBattle");
 
         const challenge: DuelChallenge = {
             id: makeId(),
@@ -19372,20 +19363,41 @@ function WorldMap({
             sectorAttack: true,
             battleId,
         };
-        const notified = await fetch('/api/player/challenge', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ targetName: opponentCharacter.name, challenge }),
-        }).catch(() => null);
-        if (!notified?.ok) {
-            alert(`${opponentCharacter.name} is traveling and cannot be attacked right now.`);
+
+        // Fire both server calls in parallel — neither depends on the other's
+        // response.
+        const [sessionRes, challengeRes] = await Promise.all([
+            fetch('/api/pvp/session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: stringifyPvpSessionPayload({
+                    battleId,
+                    p1Character: { ...selfCharacter, jutsu: p1Jutsus, pvpItems: getPvpItemLoadout(selfCharacter, selfAllItems), bloodlineMult: getBloodlineMultiplier(selfCharacter, selfBloodlines), armorFactor: getCharacterArmorFactor(selfCharacter, selfAllItems), armorRawDR: getCharacterArmorRawDR(selfCharacter, selfAllItems), itemDamagePct: getEquippedItemBonus(selfCharacter, selfAllItems, "damagePercent") },
+                    p2Character: { ...opponentCharacter, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(opponentCharacter, opponentAllItems), bloodlineMult: getBloodlineMultiplier(opponentCharacter, opponentBloodlines), armorFactor: getCharacterArmorFactor(opponentCharacter, opponentAllItems), armorRawDR: getCharacterArmorRawDR(opponentCharacter, opponentAllItems), itemDamagePct: getEquippedItemBonus(opponentCharacter, opponentAllItems, "damagePercent") },
+                }),
+            }).catch(() => null),
+            fetch('/api/player/challenge', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ targetName: opponentCharacter.name, challenge }),
+            }).catch(() => null),
+        ]);
+
+        // If the session POST failed, bounce back to arena so the user isn't
+        // stranded on an empty battle screen.
+        if (!sessionRes?.ok) {
+            setPvpBattleId('');
+            setPendingPvpOpponent(normalizeCharacter(opponent));
+            setRaidBattleKind("raidPlayer");
+            setScreen("arena");
             return;
         }
-
-        setPvpBattleId(battleId);
-        setPvpRole("p1");
-        setPvpBattleContext({ mode: "standard", sectorAttack: true, raidKind: "raidPlayer", sector });
-        setScreen("pvpBattle");
+        if (!challengeRes?.ok) {
+            alert(`${opponentCharacter.name} is traveling and cannot be attacked right now.`);
+            setPvpBattleId('');
+            setScreen("village");
+            return;
+        }
     }
 
     function pickGuardAi(level: number, defenseBonusPercent = 0): string {
