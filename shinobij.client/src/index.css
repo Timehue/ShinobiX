@@ -17391,353 +17391,353 @@ html[data-vp="xxl"] .banner-mobile-timers {
 }
 
 /* =========================================================
-   DESKTOP UI TIGHTENING — TIER 1: 1080p monitors
-   Tight compacting tuned for 1920×1080 viewports.
+   DESKTOP UI TIGHTENING — applies to all desktop (≥801px).
+   Uses !important to override base styles and viewport rules.
    ========================================================= */
 @media (min-width: 801px) {
 
     /* ── Global button size ── */
     button {
-        padding: 6px 12px;
-        font-size: 0.84rem;
+        padding: 5px 10px !important;
+        font-size: 0.82rem !important;
     }
 
     /* ── Menus: less vertical margin ── */
     .menu {
-        margin: 6px 0;
-        gap: 6px;
+        margin: 4px 0 !important;
+        gap: 4px !important;
     }
 
     /* ── Summary boxes: tighter padding + less margin ── */
     .summary-box,
     .jutsu-card {
-        padding: 10px;
-        margin-top: 8px;
+        padding: 8px !important;
+        margin-top: 6px !important;
     }
 
     /* ── Headings: smaller margins ── */
     h2 {
-        margin: 0 0 8px;
-        font-size: 1.15rem;
-        padding-bottom: 6px;
+        margin: 0 0 6px !important;
+        font-size: 1.1rem !important;
+        padding-bottom: 4px !important;
     }
 
     h3 {
-        margin-top: 0;
-        margin-bottom: 4px;
-        font-size: 0.96rem;
+        margin-top: 0 !important;
+        margin-bottom: 3px !important;
+        font-size: 0.92rem !important;
     }
 
     h4 {
-        margin-top: 0;
-        margin-bottom: 2px;
-        font-size: 0.9rem;
+        margin-top: 0 !important;
+        margin-bottom: 2px !important;
+        font-size: 0.86rem !important;
     }
 
     p {
-        margin: 3px 0;
+        margin: 2px 0 !important;
     }
 
     label {
-        font-size: 0.84rem;
-        margin-bottom: 1px;
+        font-size: 0.82rem !important;
+        margin-bottom: 1px !important;
     }
 
     /* ── Location grid: compact tiles ── */
     .location-grid {
-        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-        gap: 6px;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)) !important;
+        gap: 5px !important;
     }
 
     .location-button {
-        min-height: 66px;
-        padding: 8px 6px;
-        font-size: 0.84rem;
-        gap: 2px;
+        min-height: 54px !important;
+        padding: 6px 4px !important;
+        font-size: 0.78rem !important;
+        gap: 1px !important;
     }
 
     .tile-icon {
-        font-size: 22px;
+        font-size: 18px !important;
     }
 
     /* ── Cards: tighter internal gap ── */
     .card {
-        gap: 8px;
-        padding: 12px;
+        gap: 6px !important;
+        padding: 10px !important;
     }
 
     /* ── Town hall / clan hall ── */
     .town-hall-screen,
     .clan-hall-screen {
-        gap: 8px;
+        gap: 6px !important;
     }
 
     .town-hall-hero {
-        padding: 10px 14px;
+        padding: 8px 12px !important;
     }
 
     .town-hall-wallet strong {
-        font-size: 18px;
+        font-size: 16px !important;
     }
 
     .town-hall-grid {
-        gap: 8px;
+        gap: 6px !important;
     }
 
     /* ── Tab strips ── */
     .expanded-tabs {
-        padding: 6px;
-        gap: 5px;
+        padding: 4px !important;
+        gap: 4px !important;
     }
 
     .expanded-tabs button {
-        min-height: 34px;
-        padding: 5px 10px;
-        font-size: 0.82rem;
+        min-height: 30px !important;
+        padding: 4px 8px !important;
+        font-size: 0.78rem !important;
     }
 
     .clan-tabs {
-        gap: 4px;
-        margin-bottom: 8px;
-        padding-bottom: 6px;
+        gap: 3px !important;
+        margin-bottom: 6px !important;
+        padding-bottom: 4px !important;
     }
 
     .clan-tabs button {
-        padding: 4px 10px;
-        font-size: 0.8rem;
+        padding: 3px 8px !important;
+        font-size: 0.76rem !important;
     }
 
     /* ── Inline grid (selects, small button rows) ── */
     .inline-grid {
-        gap: 5px;
+        gap: 4px !important;
     }
 
     /* ── Stat grid / jutsu list ── */
     .stat-grid,
     .jutsu-list,
     .jutsu-combat-grid {
-        gap: 6px;
+        gap: 5px !important;
     }
 
     /* ── Inputs / selects ── */
     input,
     select,
     textarea {
-        padding: 5px 8px;
-        font-size: 0.86rem;
+        padding: 4px 7px !important;
+        font-size: 0.84rem !important;
     }
 
     /* ── Technique browser ── */
     .technique-grid {
-        max-height: 290px;
-        gap: 5px;
-        padding: 5px;
+        max-height: 260px !important;
+        gap: 4px !important;
+        padding: 4px !important;
     }
 
     .technique-card {
-        min-height: 105px;
-        grid-template-rows: 66px minmax(26px, auto);
-        padding: 4px;
-        gap: 3px;
+        min-height: 90px !important;
+        grid-template-rows: 56px minmax(24px, auto) !important;
+        padding: 3px !important;
+        gap: 2px !important;
     }
 
     /* ── Shop items ── */
     .shop-item-button {
-        min-height: 120px !important;
+        min-height: 100px !important;
     }
 
     /* ── Hints / subtitles ── */
     .hint,
     .subtitle {
-        font-size: 0.8rem;
-        line-height: 1.35;
+        font-size: 0.76rem !important;
+        line-height: 1.3 !important;
     }
 
     /* ── Hero banner ── */
     .hero {
-        padding: 14px 18px;
-        gap: 10px;
+        padding: 10px 14px !important;
+        gap: 8px !important;
     }
 
     /* ── Card visual thumbs ── */
     .card-visual-thumb {
-        width: 60px;
-        height: 60px;
+        width: 52px !important;
+        height: 52px !important;
     }
 
     /* ── Clan / leader portraits ── */
     .clan-image-mark,
     .leader-portrait-img {
-        width: 58px;
-        height: 58px;
+        width: 50px !important;
+        height: 50px !important;
     }
 
     /* ── Contribute / guard / rank grids ── */
     .contrib-rank-grid,
     .clan-guard-list {
-        gap: 4px;
+        gap: 3px !important;
     }
 
     .clan-guard-row {
-        padding: 5px 8px;
+        padding: 4px 6px !important;
     }
 
     /* ── Town upgrade grid ── */
     .town-upgrade-grid {
-        gap: 8px;
+        gap: 6px !important;
     }
 
     .town-upgrade-card {
-        padding: 10px;
+        padding: 8px !important;
     }
 
     /* ── Elder seat grid ── */
     .elder-seat-grid {
-        gap: 8px;
+        gap: 6px !important;
     }
 
     .elder-card {
-        padding: 10px;
+        padding: 8px !important;
     }
 
     /* ── Training / hospital ── */
     .training-in-progress {
-        padding: 10px;
+        padding: 8px !important;
     }
 
     /* ── Logbook / event cards ── */
     .event-card,
     .logbook-entry {
-        padding: 8px;
+        padding: 6px !important;
     }
 
     /* ── Profile page ── */
     .profile-page-card {
-        gap: 12px;
+        gap: 10px !important;
     }
 
     .profile-overview-panel {
-        padding: 12px;
+        padding: 10px !important;
     }
 
     .profile-big-avatar {
-        width: 140px;
-        height: 140px;
+        width: 120px !important;
+        height: 120px !important;
     }
 
     .profile-info-grid {
-        gap: 10px;
+        gap: 8px !important;
     }
 
     /* ── War status / notice board ── */
     .town-notice-board .notice-post {
-        padding: 8px;
+        padding: 6px !important;
     }
 
     /* ── Bars (HP, XP, etc.) ── */
     .bar,
     .town-upgrade-bar {
-        height: 10px;
+        height: 8px !important;
     }
 
     /* ── Journey banner: tighter ── */
     .journey-banner {
-        height: auto;
-        min-height: 180px;
+        height: auto !important;
+        min-height: 160px !important;
     }
 
     /* ── Archives cards ── */
     .archives-card {
-        padding: 10px;
+        padding: 8px !important;
     }
 
     .archives-card-img-wrap {
-        width: 100px;
-        min-width: 100px;
+        width: 90px !important;
+        min-width: 90px !important;
     }
 
     /* ── Bloodline maker ── */
     .bloodline-save-card {
-        gap: 5px;
+        gap: 4px !important;
     }
 
-    /* ── Danger / action buttons: slightly less padding ── */
+    /* ── Danger / action buttons ── */
     .danger-button,
     .admin-button {
-        padding: 5px 10px;
+        padding: 4px 8px !important;
     }
 
     /* ── Top HUD ── */
     .top-hud {
-        gap: 5px;
+        gap: 4px !important;
     }
 
     .top-hud span {
-        font-size: 10px;
+        font-size: 9px !important;
     }
 
     /* ── Hospital admitted banner ── */
     .hospital-admitted-banner {
-        padding: 8px 12px;
-        gap: 8px;
+        padding: 6px 10px !important;
+        gap: 6px !important;
     }
 
     .hospital-admitted-icon {
-        font-size: 1.4rem;
+        font-size: 1.2rem !important;
     }
 
     /* ── Pet battle arena ── */
     .pet-arena-grid {
-        gap: 6px;
+        gap: 5px !important;
     }
 
     /* ── Sector instance / map instance ── */
     .instance-sidebar {
-        padding: 8px;
+        padding: 6px !important;
     }
 
     .instance-actions {
-        gap: 4px;
+        gap: 3px !important;
     }
 
-    /* ── Nav (hidden on desktop, but in case it shows) ── */
+    /* ── Nav ── */
     .nav {
-        padding: 8px;
-        gap: 5px;
-        margin: 8px 0;
+        padding: 6px !important;
+        gap: 4px !important;
+        margin: 6px 0 !important;
     }
 
     /* ── Treasury grid ── */
     .treasury-grid {
-        gap: 6px;
+        gap: 5px !important;
     }
 
     /* ── Leader admin grid ── */
     .leader-admin-grid {
-        gap: 8px;
+        gap: 6px !important;
     }
 
     .leader-admin-card {
-        padding: 8px;
+        padding: 6px !important;
     }
 
     /* ── War record grid ── */
     .war-record-grid {
-        gap: 6px;
+        gap: 5px !important;
     }
 
     .war-record-card {
-        padding: 8px;
+        padding: 6px !important;
     }
 
     /* ── General card spacing reductions ── */
     .card > .summary-box:first-child {
-        margin-top: 0;
+        margin-top: 0 !important;
     }
 
     /* ── Make select dropdowns compact ── */
     select {
-        padding: 4px 8px;
+        padding: 3px 7px !important;
     }
 }
 
