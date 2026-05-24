@@ -16743,6 +16743,51 @@ html[data-vp="xl"] .journey-live-stats .stat-box strong {
     font-size: clamp(12px, 1vw, 16px) !important;
 }
 
+/* Left profile card: prevent bottom cutoff on 1080p */
+html[data-vp="xl"] .left-profile-card {
+    height: 92vh !important;
+    padding: 50px 14px 16px !important;
+    gap: 6px !important;
+    font-size: 0.82rem !important;
+    overflow-y: auto !important;
+}
+
+html[data-vp="xl"] .left-profile-avatar {
+    width: 70px !important;
+    height: 70px !important;
+}
+
+html[data-vp="xl"] .left-profile-name {
+    font-size: 0.9rem !important;
+}
+
+html[data-vp="xl"] .left-profile-rank,
+html[data-vp="xl"] .left-profile-stat {
+    font-size: 0.78rem !important;
+    line-height: 1.3 !important;
+}
+
+/* Location tiles: smaller so all fit without scrolling on 1080p */
+html[data-vp="xl"] .location-grid {
+    grid-template-columns: repeat(auto-fit, minmax(115px, 1fr)) !important;
+    gap: 5px !important;
+}
+
+html[data-vp="xl"] .location-button {
+    min-height: 48px !important;
+    padding: 5px 4px !important;
+    font-size: 0.76rem !important;
+    gap: 1px !important;
+}
+
+html[data-vp="xl"] .tile-icon {
+    font-size: 16px !important;
+}
+
+html[data-vp="xl"] .location-button small {
+    font-size: 0.65rem !important;
+}
+
 /* ── xxl: 1440p+ desktop (≥2200px) — comfortable layout ── */
 html[data-vp="xxl"] {
     --side-rail-w: clamp(220px, 17vw, 280px);
