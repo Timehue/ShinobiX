@@ -16808,14 +16808,14 @@ html[data-vp="xl"] .battle-hud-sidebar {
     top: 50%;
     left: 0;
     transform: translateY(-50%);
-    width: 240px;
-    height: 92vh;
+    width: 195px;
+    height: 88vh;
     z-index: 10001;
     overflow-y: auto;
-    background: linear-gradient(180deg, rgba(15,23,42,0.97), rgba(30,41,59,0.95));
-    border-right: 2px solid rgba(148,163,184,0.18);
-    border-radius: 0 12px 12px 0;
-    padding: 16px 12px;
+    background: rgb(13, 20, 35);
+    border-right: 2px solid rgba(100,140,200,0.25);
+    border-radius: 0 10px 10px 0;
+    padding: 12px 10px;
     box-sizing: border-box;
 }
 
@@ -16833,9 +16833,14 @@ html[data-vp="xl"] .battle-hud-sidebar .combat-side-hud {
 }
 
 html[data-vp="xl"] .battle-hud-sidebar .combat-avatar {
-    max-width: 100px !important;
-    max-height: 100px !important;
-    margin: 0 auto 8px !important;
+    max-width: 80px !important;
+    max-height: 80px !important;
+    margin: 0 auto 6px !important;
+}
+
+html[data-vp="xl"] .battle-hud-sidebar .combat-avatar img {
+    max-width: 80px !important;
+    max-height: 80px !important;
 }
 
 /* Hide the first (player) combat-side-hud in the grid on xl — it's portaled to the sidebar */
