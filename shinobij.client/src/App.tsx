@@ -7864,7 +7864,8 @@ export default function App() {
             {character &&
                 screen !== "start" &&
                 screen !== "arena" &&
-                screen !== "storyBoss" && (
+                screen !== "storyBoss" &&
+                screen !== "pvpBattle" && (
                     <LeftProfileCard
                         character={character}
                         updateCharacter={setCharacter}
