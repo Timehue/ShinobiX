@@ -701,3 +701,9 @@
         grid-template-columns: 1fr !important;
     }
 }
+
+/* Tabs as page switchers: hide non-active tab content at every viewport.
+   Previously .profile-tab-hidden lived only inside @media (max-width:800px). */
+.profile-page-card .profile-tab-hidden {
+    display: none !important;
+}
