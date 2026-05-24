@@ -713,9 +713,28 @@
     transition: border-color 120ms, box-shadow 120ms !important;
 }
 .inventory-page .character-equip-slot:hover {
-    transform: none !important;
     border-color: rgba(78,168,255,0.85) !important;
     box-shadow: 0 0 10px rgba(78,168,255,0.25) !important;
+}
+/* Center-column slots keep their translateX(-50%) on hover/active states */
+.inventory-page .slot-head,
+.inventory-page .slot-chest,
+.inventory-page .slot-waist,
+.inventory-page .slot-legs,
+.inventory-page .slot-feet {
+    transform: translateX(-50%) !important;
+}
+.inventory-page .slot-head:hover,
+.inventory-page .slot-chest:hover,
+.inventory-page .slot-waist:hover,
+.inventory-page .slot-legs:hover,
+.inventory-page .slot-feet:hover,
+.inventory-page .slot-head.slot-filter-active,
+.inventory-page .slot-chest.slot-filter-active,
+.inventory-page .slot-waist.slot-filter-active,
+.inventory-page .slot-legs.slot-filter-active,
+.inventory-page .slot-feet.slot-filter-active {
+    transform: translateX(-50%) !important;
 }
 .inventory-page .character-equip-slot.slot-filter-active {
     border-color: #4ea8ff !important;
