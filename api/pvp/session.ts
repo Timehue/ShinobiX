@@ -86,6 +86,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!battleId) return res.status(400).json({ error: 'Missing id' });
         const session = await kv.get<PvpSession>(`pvp:${battleId}`);
         if (!session) return res.status(404).json({ error: 'Session not found' });
+        // Never cache battle state — both fighters poll every ~1s and need fresh data
+        res.setHeader('Cache-Control', 'no-store');
         return res.status(200).json(session);
     }
 

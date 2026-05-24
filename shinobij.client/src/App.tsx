@@ -5937,7 +5937,7 @@ export default function App() {
             }
         }
         refreshSharedGameState();
-        const id = setInterval(refreshSharedGameState, 10000);
+        const id = setInterval(refreshSharedGameState, 5000);
         return () => {
             alive = false;
             clearInterval(id);
@@ -24505,7 +24505,7 @@ function Arena({
             setSpectatorFights(loadArenaActiveFights());
         };
         refreshArenaState();
-        const id = setInterval(refreshArenaState, 10000);
+        const id = setInterval(refreshArenaState, 5000);
         return () => clearInterval(id);
     }, []);
     /* ── Ranked queue polling ── */
