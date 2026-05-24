@@ -40,6 +40,8 @@ import { HallOfLegends } from "./screens/HallOfLegends";
 import { JutsuEffectCards } from "./components/JutsuEffectCards";
 import { AiImagePrompt } from "./components/AiImagePrompt";
 import { PetBattleAvatar, PetArenaCard } from "./components/PetBattleAvatar";
+import { TagPicker } from "./components/TagPicker";
+import { Village } from "./screens/Village";
 export type Screen =
     | "start"
     | "adminLogin"
@@ -80,11 +82,11 @@ export type Screen =
     | "shinobiCouncil"
     | "pvpBattle";
 
-type Rank = "B Rank" | "A Rank" | "S Rank";
+export type Rank = "B Rank" | "A Rank" | "S Rank";
 type Biome = "forest" | "snow" | "volcano" | "shadow" | "central";
 type JutsuType = "Ninjutsu" | "Taijutsu" | "Genjutsu" | "Bukijutsu" | "Any";
 type JutsuElement = "Earth" | "Wind" | "Lightning" | "Fire" | "Water" | "None";
-type JutsuTarget = "SELF" | "OPPONENT" | "OTHER_USER" | "CHARACTER" | "EMPTY_GROUND";
+export type JutsuTarget = "SELF" | "OPPONENT" | "OTHER_USER" | "CHARACTER" | "EMPTY_GROUND";
 type JutsuMethod = "SINGLE" | "ALL" | "AOE_CIRCLE" | "INSTANT_EFFECT";
 type JutsuSort = "name" | "type" | "element" | "effect" | "ap" | "range" | "effectPower";
 type WeatherType =
@@ -1229,7 +1231,7 @@ const CHAKRA_CAP = 5000;
 const STAMINA_CAP = 5000;
 
 export const villages = ["Stormveil Village", "Ashen Leaf Village", "Frostfang Village", "Moonshadow Village"];
-function villagePageImage(villageName: string): string {
+export function villagePageImage(villageName: string): string {
     if (villageName === "Stormveil Village") return stormveilVillageImg;
     if (villageName === "Ashen Leaf Village") return houseImg;
     if (villageName === "Frostfang Village") return castleImg;
@@ -1892,7 +1894,7 @@ export const starterBloodlineOffense: Record<string, JutsuType> = {
     "Iron Fang": "Taijutsu",
 };
 
-const percentageTags = [
+export const percentageTags = [
     "Increase Damage Given",
     "Decrease Damage Given",
     "Increase Damage Taken",
@@ -1907,7 +1909,7 @@ const percentageTags = [
 ];
 
 // Tags whose percent is capped per source rank
-const cappedDamageTags = [
+export const cappedDamageTags = [
     "Increase Damage Given",
     "Decrease Damage Given",
     "Increase Damage Taken",
@@ -1921,7 +1923,7 @@ const cappedDamageTags = [
 ];
 
 // Tags that are binary (always apply, no percent-based hit chance)
-const binaryTags = [
+export const binaryTags = [
     "Stun",
     "Bloodline Seal",
     "Elemental Seal",
@@ -1966,7 +1968,7 @@ function normalizeJutsuTags(tags?: JutsuTag[]): JutsuTag[] {
         .map((tag) => binaryTags.includes(tag.name) ? { ...tag, percent: 0 } : tag);
 }
 
-function tagCapForRank(rank?: Rank | null): number {
+export function tagCapForRank(rank?: Rank | null): number {
     if (rank === "S Rank") return 40;
     if (rank === "A Rank" || rank === "B Rank") return 35;
     return 30; // global / no rank
@@ -1982,7 +1984,7 @@ function effectiveTagPercent(tag: JutsuTag, bloodlineRank?: Rank | null, level =
     return levelScaled;
 }
 
-const allTags = [
+export const allTags = [
     "Absorb",
     "Buff Prevent",
     "Cleanse Prevent",
@@ -4701,7 +4703,7 @@ export function getBankInterestPercent(character: Character) { return villageUpg
 function getMissionRewardBonus(character: Character) { return villageUpgradeBonus(character, "missionHall"); }
 export function getHospitalDiscountPercent(character: Character) { return villageUpgradeBonus(character, "hospital"); }
 
-function normalizeJutsu(jutsu: Partial<Jutsu> & Pick<Jutsu, "id" | "name" | "type">): Jutsu {
+export function normalizeJutsu(jutsu: Partial<Jutsu> & Pick<Jutsu, "id" | "name" | "type">): Jutsu {
     const tags = normalizeJutsuTags(jutsu.tags);
     const hasMoveTag = tags.some((tag) => tagMatchesName(tag.name, "Move"));
     return {
@@ -15297,45 +15299,6 @@ function AdminPanel({
     );
 }
 
-function TagPicker({ tag, setTag, percent, setPercent, rank, jutsuTarget, disabledTags = [], allowedTags }: { tag: string; setTag: (tag: string) => void; percent: number; setPercent: (percent: number) => void; rank?: Rank | null; jutsuTarget?: JutsuTarget; disabledTags?: string[]; allowedTags?: string[] }) {
-    const selectedTagInfo = tag
-        ? jutsuEffectInfo(normalizeJutsu({ id: "tag-preview", name: "Tag Preview", type: "Ninjutsu", effectPower: 100, tags: [{ name: tag, percent }] }), { name: tag, percent })
-        : null;
-    const isGroundTargeted = jutsuTarget === "EMPTY_GROUND";
-    const availableTags = allowedTags ?? (isGroundTargeted ? allTags.filter((t) => t !== "Increase Damage Taken") : allTags);
-    const disabledTagSet = new Set(disabledTags);
-
-    return (
-        <div className="tag-picker">
-            <select
-                value={tag}
-                onChange={(e) => {
-                    const nextTag = e.target.value;
-                    if (disabledTagSet.has(nextTag)) return;
-                    setTag(nextTag);
-                    // Auto-set percent based on tag type — no manual % input needed
-                    if (!nextTag || binaryTags.includes(nextTag)) setPercent(0);
-                    else if (cappedDamageTags.includes(nextTag)) setPercent(tagCapForRank(rank));
-                    else if (percentageTags.includes(nextTag)) setPercent(40);
-                    else setPercent(100);
-                }}
-            >
-                <option value="">No Tag</option>
-                {availableTags.map((tagName) => (
-                    <option key={tagName} value={tagName} disabled={disabledTagSet.has(tagName)}>
-                        {tagName}{disabledTagSet.has(tagName) ? " [already used]" : ""}
-                    </option>
-                ))}
-            </select>
-            {selectedTagInfo && (
-                <small className="tag-effect-help">
-                    {selectedTagInfo.summary} {selectedTagInfo.rule}
-                </small>
-            )}
-        </div>
-    );
-}
-
 function JutsuDropdownList({
     jutsus,
     label,
@@ -15446,57 +15409,6 @@ function JutsuDropdownList({
     );
 }
 
-function Village({ characterVillage, setScreen }: { characterVillage: string; setScreen: (screen: Screen) => void }) {
-    const [saveMsg] = useState("");
-    const locations = [
-        { name: "Battle Arena", icon: "⚔️", screen: "battleArena" as Screen, x: "10%", y: "31%" },
-        { name: "Story Hall", icon: "📖", screen: "storyHall" as Screen, x: "29%", y: "33%" },
-        { name: "Town Hall", icon: "🏯", screen: "townHall" as Screen, x: "50%", y: "22%" },
-        { name: "Bank", icon: "🏦", screen: "bank" as Screen, x: "68%", y: "31%" },
-        { name: "Shop", icon: "🛒", screen: "shop" as Screen, x: "18%", y: "79%" },
-        { name: "Clan Hall", icon: "⛩️", screen: "clan" as Screen, x: "13%", y: "57%" },
-        { name: "Hospital", icon: "🏥", screen: "hospital" as Screen, x: "66%", y: "56%" },
-        { name: "Mission Hall", icon: "📜", screen: "missions" as Screen, x: "68%", y: "75%" },
-        { name: "Cafeteria", icon: "🍜", screen: "cafeteria" as Screen, x: "82%", y: "45%" },
-        { name: "Tavern", icon: "🍺", screen: "tavern" as Screen, x: "82%", y: "63%" },
-        { name: "Stat Training", icon: "💪", screen: "training" as Screen, x: "83%", y: "25%" },
-        { name: "Jutsu Training", icon: "🔥", screen: "jutsuTraining" as Screen, x: "80%", y: "81%" },
-        { name: "World Map", icon: "🗺️", screen: "worldMap" as Screen, x: "45%", y: "68%" },
-        { name: "Pet Yard", icon: "🐾", screen: "pets" as Screen, x: "32%", y: "55%" },
-        { name: "Card Hall", icon: "🃏", screen: "shinobiTiles" as Screen, x: "52%", y: "55%" },
-    ];
-
-    return (
-        <div className="stormveil-village-screen">
-            <div className="village-save-bar">
-                <div className="village-safe-zone">🛡️ SAFE ZONE</div>
-                {saveMsg && <span className="village-save-msg">{saveMsg}</span>}
-            </div>
-
-            <div
-                className="stormveil-map"
-                style={{
-                    backgroundImage: `url(${villagePageImage(characterVillage)})`,
-                }}
-            >
-                {locations.map((location) => (
-                    <button
-                        key={location.name}
-                        className="stormveil-map-button"
-                        style={{
-                            left: location.x,
-                            top: location.y,
-                        }}
-                        onClick={() => setScreen(location.screen)}
-                    >
-                        <span>{location.icon}</span>
-                        <strong>{location.name}</strong>
-                    </button>
-                ))}
-            </div>
-        </div>
-    );
-}
 const clanLore: Record<string, { name: string; motto: string; lore: string }> = {
     "Frostfang Village": {
         name: "Frostfang Clan Halls",
