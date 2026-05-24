@@ -280,8 +280,11 @@ function persistSharedGameState(payload: Record<string, unknown>) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-    }).catch(() => {
-        // Local in-memory cache remains authoritative until the next successful shared-state refresh.
+    }).then(r => {
+        if (!r.ok) console.warn("[persistSharedGameState] POST failed:", r.status, payload.kind);
+        else if (payload.kind === "arenaActiveFights") console.log("[persistSharedGameState] fights saved OK");
+    }).catch(err => {
+        console.warn("[persistSharedGameState] error:", err);
     });
 }
 
@@ -24185,6 +24188,9 @@ type ArenaSpectatorFight = { id: string; title: string; mode: string; startedAt:
 type PendingClanPetBattle = { clanName?: string; points: number; opponentName: string; createdAt: number };
 let sharedArenaTournamentCache: ArenaTournament | null = null;
 let sharedArenaActiveFightsCache: ArenaSpectatorFight[] = [];
+/** Fights registered locally that haven't been confirmed by the server yet.
+ *  Kept for up to 60s so CDN cache staleness doesn't wipe them. */
+const locallyRegisteredFights = new Map<string, ArenaSpectatorFight>();
 let sharedPendingClanPetBattleCache: PendingClanPetBattle | null = null;
 let sharedGameStateOwnerName = "";
 let sharedWeeklyBossAiIdCache: string = "";
@@ -24204,7 +24210,13 @@ function loadArenaActiveFights(): ArenaSpectatorFight[] {
 
 function saveArenaActiveFights(fights: ArenaSpectatorFight[]) {
     sharedArenaActiveFightsCache = fights.slice(0, 20);
+    // Track locally-added fights so CDN-stale hydrations don't wipe them
+    for (const f of sharedArenaActiveFightsCache) locallyRegisteredFights.set(f.id, f);
     persistSharedGameState({ kind: "arenaActiveFights", fights: sharedArenaActiveFightsCache });
+}
+
+function unregisterLocalFight(fightId: string) {
+    locallyRegisteredFights.delete(fightId);
 }
 
 function loadPendingClanPetBattle(): PendingClanPetBattle | null {
@@ -24237,9 +24249,20 @@ function hydrateSharedGameState(data: {
     sharedVillageStateCache = villageStates;
     sharedVillageLeadershipImagesCache = normalizeVillageLeadershipImages(data.villageLeadershipImages);
     sharedArenaTournamentCache = data.arenaTournament ?? null;
-    sharedArenaActiveFightsCache = Array.isArray(data.arenaActiveFights)
-        ? data.arenaActiveFights.filter((fight) => Date.now() - fight.startedAt < 2 * 60 * 60 * 1000).slice(0, 20)
+    const serverFights = Array.isArray(data.arenaActiveFights)
+        ? data.arenaActiveFights.filter((fight: ArenaSpectatorFight) => Date.now() - fight.startedAt < 2 * 60 * 60 * 1000)
         : [];
+    // Merge locally-registered fights that the server hasn't reflected yet (CDN cache lag).
+    // Once a fight appears on the server, remove it from local tracking.
+    const serverFightIds = new Set(serverFights.map((f: ArenaSpectatorFight) => f.id));
+    const now = Date.now();
+    for (const [id, f] of locallyRegisteredFights) {
+        if (serverFightIds.has(id)) { locallyRegisteredFights.delete(id); continue; }
+        // Keep local fights for up to 60s to survive CDN staleness
+        if (now - f.startedAt > 60_000) { locallyRegisteredFights.delete(id); continue; }
+        serverFights.push(f);
+    }
+    sharedArenaActiveFightsCache = serverFights.slice(0, 20);
     sharedPendingClanPetBattleCache = data.pendingClanPetBattle && Date.now() - data.pendingClanPetBattle.createdAt <= 24 * 60 * 60 * 1000
         ? data.pendingClanPetBattle
         : null;
@@ -24664,6 +24687,7 @@ function Arena({
         saveArenaActiveFights(next);
         setSpectatorFights(next);
         return () => {
+            unregisterLocalFight(fight.id);
             const remaining = loadArenaActiveFights().filter((candidate) => candidate.id !== fight.id);
             saveArenaActiveFights(remaining);
             setSpectatorFights(remaining);
@@ -28140,6 +28164,7 @@ function PvpBattleScreen({
         const next = [fight, ...loadArenaActiveFights().filter(f => f.id !== fight.id)];
         saveArenaActiveFights(next);
         return () => {
+            unregisterLocalFight(fight.id);
             const remaining = loadArenaActiveFights().filter(f => f.id !== fight.id);
             saveArenaActiveFights(remaining);
         };

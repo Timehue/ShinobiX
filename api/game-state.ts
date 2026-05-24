@@ -80,8 +80,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const openKinds = new Set(['arenaActiveFights', 'villageState', 'pendingClanPetBattle']);
 
             // Everything else needs auth
+            let identity: { admin?: boolean; name?: string } | null = null;
             if (!openKinds.has(String(kind))) {
-                const identity = await authedPlayerOrAdmin(req);
+                identity = await authedPlayerOrAdmin(req);
                 if (!identity) return res.status(401).json({ error: 'Authentication required.' });
 
                 // Admin-only kinds — wholesale state writes
@@ -136,7 +137,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
 
             if (kind === 'weeklyBossOverride') {
-                if (!identity.admin) return res.status(403).json({ error: 'Admin only.' });
+                if (!identity?.admin) return res.status(403).json({ error: 'Admin only.' });
                 const { aiId } = body as { aiId?: string | null };
                 if (aiId) {
                     await kv.set(WEEKLY_BOSS_OVERRIDE_KEY, aiId);
