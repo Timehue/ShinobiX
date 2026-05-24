@@ -1,5 +1,5 @@
 /* =========================================================================
-   Atlas / World-map village marker Skin v2 — biome-tinted torii gates
+   Atlas / World-map village marker Skin v2 — heraldic shields
    ========================================================================= */
 
 .atlas-landmark.atlas-village,
@@ -9,131 +9,119 @@
     box-shadow: none !important;
     padding: 0 !important;
     min-width: 0 !important;
+    width: 56px !important;
+    height: 68px !important;
     display: flex !important;
-    flex-direction: column !important;
     align-items: center !important;
     justify-content: center !important;
     transition: transform 140ms ease, filter 140ms ease;
 }
 
-/* Hide the abbreviation letters; we draw a torii via ::before instead. */
+/* Hide the abbreviation letters and duplicate name pill — the painted
+   biome banner on the map already labels each village. */
 .atlas-landmark.atlas-village strong,
-.atlas-landmark.atlas-central strong {
-    width: 0 !important;
-    height: 0 !important;
-    font-size: 0 !important;
-    color: transparent !important;
-    overflow: hidden;
-    position: relative;
-    margin: 0 !important;
-    padding: 0 !important;
-    line-height: 0 !important;
-}
-
-/* Hide the duplicate village-name pill — the painted biome banner on the
-   map already labels every village. */
+.atlas-landmark.atlas-central strong,
 .atlas-landmark.atlas-village span,
 .atlas-landmark.atlas-central span {
     display: none !important;
 }
 
-/* Torii gate glyph via pseudo-element so we can tint per biome. */
+/* Shield body via ::before — uses clip-path for the heraldic shape.
+   Outer border-style achieved via filter drop-shadow + an inner ::after sigil. */
 .atlas-landmark.atlas-village::before,
 .atlas-landmark.atlas-central::before {
-    content: '⛩';
-    font-size: 40px;
-    line-height: 1;
-    display: block;
-    text-shadow:
-        0 2px 6px rgba(0,0,0,0.85),
-        0 0 14px rgba(255,255,255,0.15);
-    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
-    transition: filter 140ms ease, color 140ms ease;
-}
-
-/* Soft biome glow halo behind the torii via ::after. */
-.atlas-landmark.atlas-village::after,
-.atlas-landmark.atlas-central::after {
     content: '';
     position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    transform: translate(-50%, -50%);
-    z-index: -1;
-    pointer-events: none;
-    opacity: 0.7;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    clip-path: polygon(50% 0%, 100% 12%, 100% 60%, 50% 100%, 0% 60%, 0% 12%);
+    background: linear-gradient(180deg, var(--shield-top, #1e3a8a) 0%, var(--shield-bottom, #0a1428) 100%);
+    box-shadow:
+        0 4px 8px rgba(0,0,0,0.6),
+        0 0 18px var(--shield-glow, rgba(78,168,255,0.45));
+    filter: drop-shadow(0 0 0 #c4a25a);  /* gold rim via filter-drop */
+    z-index: 0;
 }
 
-/* ----- Biome palettes ----- */
-/* Frostfang — icy blue */
-.atlas-landmark[title*="Frostfang"]::before {
-    color: #93c5fd;
-    text-shadow:
-        0 2px 6px rgba(0,0,0,0.85),
-        0 0 18px rgba(78,168,255,0.65);
+/* Gold rim — fake it with an outer slightly larger shield underneath. */
+.atlas-landmark.atlas-village,
+.atlas-landmark.atlas-central {
+    position: relative;
 }
-.atlas-landmark[title*="Frostfang"]::after {
-    background: radial-gradient(circle, rgba(78,168,255,0.55) 0%, transparent 70%);
-    box-shadow: 0 0 22px 6px rgba(78,168,255,0.4);
-}
-
-/* Stormveil — storm green */
-.atlas-landmark[title*="Stormveil"]::before {
-    color: #86efac;
-    text-shadow:
-        0 2px 6px rgba(0,0,0,0.85),
-        0 0 18px rgba(74,222,128,0.65);
-}
-.atlas-landmark[title*="Stormveil"]::after {
-    background: radial-gradient(circle, rgba(74,222,128,0.55) 0%, transparent 70%);
-    box-shadow: 0 0 22px 6px rgba(74,222,128,0.4);
-}
-
-/* Ashen Leaf — ember red */
-.atlas-landmark[title*="Ashen Leaf"]::before {
-    color: #fca5a5;
-    text-shadow:
-        0 2px 6px rgba(0,0,0,0.85),
-        0 0 20px rgba(248,113,113,0.7);
-}
-.atlas-landmark[title*="Ashen Leaf"]::after {
-    background: radial-gradient(circle, rgba(248,113,113,0.55) 0%, transparent 70%);
-    box-shadow: 0 0 24px 7px rgba(249,115,22,0.35);
-}
-
-/* Moonshadow — violet */
-.atlas-landmark[title*="Moonshadow"]::before {
-    color: #c4b5fd;
-    text-shadow:
-        0 2px 6px rgba(0,0,0,0.85),
-        0 0 20px rgba(167,139,250,0.7);
-}
-.atlas-landmark[title*="Moonshadow"]::after {
-    background: radial-gradient(circle, rgba(167,139,250,0.55) 0%, transparent 70%);
-    box-shadow: 0 0 24px 7px rgba(167,139,250,0.35);
-}
-
-/* Central — warm gold */
-.atlas-landmark.atlas-central::before {
-    color: #fcd34d;
-    text-shadow:
-        0 2px 6px rgba(0,0,0,0.85),
-        0 0 22px rgba(252,211,77,0.7);
-    font-size: 46px;
-}
+.atlas-landmark.atlas-village::after,
 .atlas-landmark.atlas-central::after {
-    background: radial-gradient(circle, rgba(252,211,77,0.55) 0%, transparent 70%);
-    box-shadow: 0 0 26px 8px rgba(252,211,77,0.4);
-    width: 50px;
-    height: 50px;
+    content: var(--shield-sigil, '✦');
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    color: #ffffff;
+    text-shadow:
+        0 1px 2px rgba(0,0,0,0.9),
+        0 0 8px rgba(255,255,255,0.35);
+    z-index: 1;
+    padding-bottom: 12px;          /* nudge sigil up toward shield center */
+    pointer-events: none;
 }
 
-/* Hover — brighten + grow */
+/* Gold border on the shield — using a wrapper background trick:
+   render the shield over a slightly larger gold-tinted shield. */
+.atlas-landmark.atlas-village,
+.atlas-landmark.atlas-central {
+    background-image: linear-gradient(180deg, #c4a25a, #8a7440) !important;
+    background-color: transparent !important;
+    -webkit-mask-image: linear-gradient(#000,#000);
+    clip-path: polygon(50% 0%, 100% 12%, 100% 60%, 50% 100%, 0% 60%, 0% 12%);
+    padding: 2px !important;        /* this becomes the gold rim width */
+}
+
+/* ----- Biome palettes (set CSS vars per village) ----- */
+.atlas-landmark[title*="Frostfang"] {
+    --shield-top:    #3b82f6;
+    --shield-bottom: #0b274d;
+    --shield-glow:   rgba(78,168,255,0.55);
+    --shield-sigil:  '❄';
+}
+.atlas-landmark[title*="Stormveil"] {
+    --shield-top:    #16a34a;
+    --shield-bottom: #052e16;
+    --shield-glow:   rgba(74,222,128,0.55);
+    --shield-sigil:  '⚔';
+}
+.atlas-landmark[title*="Ashen Leaf"] {
+    --shield-top:    #dc2626;
+    --shield-bottom: #450a0a;
+    --shield-glow:   rgba(248,113,113,0.6);
+    --shield-sigil:  '🔥';
+}
+.atlas-landmark[title*="Moonshadow"] {
+    --shield-top:    #7c3aed;
+    --shield-bottom: #2e1065;
+    --shield-glow:   rgba(167,139,250,0.55);
+    --shield-sigil:  '🌙';
+}
+.atlas-landmark.atlas-central {
+    --shield-top:    #b45309;
+    --shield-bottom: #422006;
+    --shield-glow:   rgba(252,211,77,0.6);
+    --shield-sigil:  '⛩';
+    width: 64px !important;
+    height: 78px !important;
+}
+
+/* Tint the sigil so it reads against its biome-gradient backdrop */
+.atlas-landmark[title*="Frostfang"]::after  { color: #dbeafe; text-shadow: 0 1px 2px rgba(0,0,0,0.9), 0 0 10px rgba(78,168,255,0.6); }
+.atlas-landmark[title*="Stormveil"]::after  { color: #dcfce7; text-shadow: 0 1px 2px rgba(0,0,0,0.9), 0 0 10px rgba(74,222,128,0.6); }
+.atlas-landmark[title*="Ashen Leaf"]::after { text-shadow: 0 1px 2px rgba(0,0,0,0.9), 0 0 12px rgba(248,113,113,0.7); }
+.atlas-landmark[title*="Moonshadow"]::after { text-shadow: 0 1px 2px rgba(0,0,0,0.9), 0 0 12px rgba(167,139,250,0.65); }
+.atlas-landmark.atlas-central::after        { color: #fde68a; text-shadow: 0 1px 2px rgba(0,0,0,0.9), 0 0 14px rgba(252,211,77,0.7); font-size: 26px; }
+
+/* Hover */
 .atlas-landmark.atlas-village:hover,
 .atlas-landmark.atlas-central:hover {
-    transform: translate(-50%, -50%) scale(1.18) !important;
-    filter: brightness(1.15);
+    transform: translate(-50%, -50%) scale(1.12) !important;
+    filter: brightness(1.15) drop-shadow(0 0 12px var(--shield-glow, rgba(255,255,255,0.4)));
 }
