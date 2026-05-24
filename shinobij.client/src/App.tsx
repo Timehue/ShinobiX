@@ -23667,13 +23667,13 @@ function Profile({
                         <p><strong>XP:</strong> {character.level >= MAX_LEVEL ? "MAX" : `${character.xp}/${xpNeeded(character.level)}`}</p>
                         {CHARACTER_XP_GAIN_MULTIPLIER !== 1 && <p><strong>Testing XP:</strong> {CHARACTER_XP_GAIN_MULTIPLIER}x active</p>}
                         <p><strong>Ryo:</strong> {character.ryo}</p>
-                        <p><strong style={{ color: "#facc15" }}>?? Honor Seals:</strong> <span style={{ color: "#facc15" }}>{character.honorSeals ?? 0}</span></p>
-                        <p><strong style={{ color: "#fef3c7" }}>? Aura Dust:</strong> <span style={{ color: "#fef3c7" }}>{character.auraDust ?? 0}</span></p>
+                        <p><strong style={{ color: "#facc15" }}>🛡 Honor Seals:</strong> <span style={{ color: "#facc15" }}>{character.honorSeals ?? 0}</span></p>
+                        <p><strong style={{ color: "#fef3c7" }}>✨ Aura Dust:</strong> <span style={{ color: "#fef3c7" }}>{character.auraDust ?? 0}</span></p>
                         <p><strong>Bank:</strong> {character.bankRyo}</p>
                         <p><strong style={{ color: "#ce93d8" }}>🔮 Fate Shards:</strong> <span style={{ color: "#ce93d8" }}>{character.fateShards}</span></p>
                         <p><strong>Jutsu:</strong> {character.equippedJutsuIds.length}/15</p>
                         <p><strong>Equipment:</strong> {equippedItems.length}/3</p>
-                        <p><strong>Status:</strong> AWAKE ¤</p>
+                        <p><strong>Status:</strong> AWAKE</p>
                     </div>
 
                     <div>
