@@ -3,6 +3,7 @@
 @import "./styles/training-skin.css";
 @import "./styles/central-skin.css";
 @import "./styles/hub-screens-skin.css";
+@import "./styles/banner-skin.css";
 
 * {
     box-sizing: border-box;
