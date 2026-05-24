@@ -28111,6 +28111,9 @@ function PvpBattleScreen({
         const text = battleChatInput.trim();
         if (!text || !battleId) return;
         setBattleChatInput("");
+        // Optimistic local append so message shows immediately
+        const optimisticMsg = { author: character.name, text, ts: Date.now(), role: "fighter" as const };
+        setBattleChatMessages(prev => [...prev, optimisticMsg]);
         fetch(`/api/pvp/chat?id=${encodeURIComponent(battleId)}`, {
             method: "POST",
             headers: {
@@ -28120,9 +28123,12 @@ function PvpBattleScreen({
             },
             body: JSON.stringify({ author: character.name, text, role: "fighter" }),
         })
-            .then(r => r.json())
+            .then(r => {
+                if (!r.ok) { console.warn("[battle-chat] POST failed:", r.status); return null; }
+                return r.json();
+            })
             .then(msgs => { if (Array.isArray(msgs)) setBattleChatMessages(msgs); })
-            .catch(() => {});
+            .catch(err => console.warn("[battle-chat] POST error:", err));
     }
 
     /* ── Spectator list state ── */

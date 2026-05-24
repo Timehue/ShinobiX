@@ -16980,9 +16980,16 @@ html[data-vp="xl"] .battle-chat-col {
     font-size: 0.78rem;
     color: #cbd5e1;
     min-height: 0;
-    overflow: visible;
+    overflow: hidden;
     position: relative;
     z-index: 5;
+    align-self: stretch;
+}
+
+/* Make chat messages fill the available vertical space */
+html[data-vp="xl"] .battle-chat-col .battle-chat-messages {
+    flex: 1 1 0;
+    min-height: 200px;
 }
 
 html[data-vp="xl"] .battle-chat-col.battle-chat-hidden {
