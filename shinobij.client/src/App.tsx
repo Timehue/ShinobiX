@@ -8541,6 +8541,7 @@ export default function App() {
                         setScreen={setScreen}
                         onStartBattle={startStoryArenaBattle}
                         creatorEvents={creatorEvents}
+                        sharedImages={sharedImages}
                         onStartVisualNovel={(event) => {
                             const alreadyRead = triggeredEvents.includes(event.id);
                             if (!alreadyRead) {
@@ -20942,12 +20943,14 @@ function StoryHall({
     setScreen,
     onStartBattle,
     creatorEvents,
+    sharedImages,
     onStartVisualNovel,
 }: {
     character: Character;
     setScreen: (screen: Screen) => void;
     onStartBattle: (step: StoryStep) => void;
     creatorEvents: CreatorEvent[];
+    sharedImages: Record<string, string>;
     onStartVisualNovel: (event: CreatorEvent) => void;
 }) {
     const storyLine = storylines[character.storyVillage || character.village] || [];
@@ -20988,8 +20991,19 @@ function StoryHall({
         : character.village?.toLowerCase().includes("ember") || character.village?.toLowerCase().includes("ash") ? "volcano"
         : character.village?.toLowerCase().includes("verdant") ? "forest"
         : "central");
-    const storySceneBg = defaultVnScene(null, storyBiome);
-    const speakerPortrait = defaultVnPortrait(speaker);
+    // Match the eventId format used by the trigger flow at App.tsx:6881 so
+    // admin-uploaded images stored under the same KV keys are visible here too.
+    const storyVillage = character.storyVillage || character.village;
+    const chapterIndex = storyLine.findIndex(s => s.levelReq === current.levelReq);
+    const chapterId = `story-${storyVillage.toLowerCase().replace(/\W+/g, "-")}-${current.levelReq}-${Math.max(0, chapterIndex)}`;
+    // KV lookup first (admin-uploaded via VN editor), then the on-disk
+    // /scenes and /portraits fallbacks, then biome gradient / initials.
+    const storySceneBg = sharedImages[`event:${chapterId}:bg`]
+        || sharedImages[`vn:${chapterId}:page:0`]
+        || defaultVnScene(chapterId, storyBiome);
+    const speakerPortrait = sharedImages[`event:${chapterId}:avatar`]
+        || sharedImages[`vn:${chapterId}:page:0:right`]
+        || defaultVnPortrait(speaker);
     const hideSpeakerSlot = !speakerPortrait && speaker.trim().toLowerCase() === "narrator";
     return <div className="card cinematic-card"><div className="visual-novel"><div className="vn-header"><div><p className="act-label">{current.cinematicTitle}</p><h2>{current.title}</h2></div><div className="vn-progress">Chapter {character.storyProgress + 1}/{storyLine.length}</div></div><div className={"vn-stage vn-biome-" + storyBiome + (storySceneBg ? " vn-has-image" : "")} style={storySceneBg ? { backgroundImage: `linear-gradient(180deg, rgba(7,12,27,.18), rgba(7,12,27,.78)), url(${storySceneBg})` } : undefined}><div className="vn-backdrop"><span className="vn-moon"></span><span className="vn-village-silhouette"></span></div><div className="vn-character mentor-character">{character.avatarImage ? <img src={character.avatarImage} alt={character.name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} /> : null}<span className="vn-character-initials">{character.name.slice(0, 2).toUpperCase()}</span></div>{!hideSpeakerSlot && (<div className="vn-character hero-character">{speakerPortrait ? <img src={speakerPortrait} alt={speaker} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} /> : null}<span className="vn-character-initials">{speakerInitials}</span></div>)}<div className="vn-scene-card">{current.scene}</div><div className="vn-dialogue"><div className="vn-speaker">{speaker}</div><p>{spoken}</p><div className="vn-controls"><button disabled={lineIndex === 0} onClick={() => setLineIndex((index) => Math.max(0, index - 1))}>Back</button>{lineIndex < current.dialogue.length - 1 ? <button onClick={() => setLineIndex((index) => Math.min(current.dialogue.length - 1, index + 1))}>Next</button> : locked ? <button disabled>Requires Level {current.levelReq}</button> : <button onClick={() => onStartBattle(current)}>Face {current.bossName}</button>}</div></div></div><div className="vn-choice-row"><button onClick={() => setLineIndex(0)}>Replay Scene</button><button onClick={() => setScreen("worldMap")}>Investigate World Map</button><button disabled={locked} onClick={() => onStartBattle(current)}>{current.bossIcon} Boss: {current.bossName}</button></div><div className="vn-reward-strip"><span>Requirement: Level {current.levelReq}</span><span>Reward: {effectiveCharacterXpGain(character, current.rewardXp)} XP / {current.rewardRyo} ryo</span></div>{creatorVnShelf}</div></div>;
 }
