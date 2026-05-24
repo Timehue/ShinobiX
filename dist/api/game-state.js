@@ -52,7 +52,7 @@ async function handler(req, res) {
             // CDN caches this response for 20s so N players polling every 30s share
             // one KV hit per cache window instead of N individual hits.
             // stale-while-revalidate=10 keeps the response snappy while the next fetch runs.
-            res.setHeader('Cache-Control', 's-maxage=20, stale-while-revalidate=10');
+            res.setHeader('Cache-Control', 's-maxage=8, stale-while-revalidate=5');
             return res.status(200).json({
                 villageStates,
                 villageLeadershipImages: leadershipImages ?? null,
@@ -68,19 +68,22 @@ async function handler(req, res) {
         }
     }
     if (req.method === 'POST') {
-        // Mutations need at least a logged-in player. Admin-only kinds further
-        // gated below (villageLeadershipImages, arenaTournament).
-        const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req);
-        if (!identity)
-            return res.status(401).json({ error: 'Authentication required.' });
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
             const { kind } = body;
-            // Admin-only kinds — wholesale state writes that no individual
-            // player should drive (treasury wipes, tournament resets, etc.).
-            const adminOnlyKinds = new Set(['villageLeadershipImages', 'arenaTournament']);
-            if (adminOnlyKinds.has(String(kind)) && !identity.admin) {
-                return res.status(403).json({ error: 'Admin only.' });
+            // Non-sensitive kinds that any client can write (no auth needed)
+            const openKinds = new Set(['arenaActiveFights', 'villageState', 'pendingClanPetBattle']);
+            // Everything else needs auth
+            let identity = null;
+            if (!openKinds.has(String(kind))) {
+                identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req);
+                if (!identity)
+                    return res.status(401).json({ error: 'Authentication required.' });
+                // Admin-only kinds — wholesale state writes
+                const adminOnlyKinds = new Set(['villageLeadershipImages', 'arenaTournament', 'weeklyBossOverride']);
+                if (adminOnlyKinds.has(String(kind)) && !identity.admin) {
+                    return res.status(403).json({ error: 'Admin only.' });
+                }
             }
             if (kind === 'villageState') {
                 const { village, state } = body;
@@ -128,7 +131,7 @@ async function handler(req, res) {
                 return res.status(200).json({ ok: true });
             }
             if (kind === 'weeklyBossOverride') {
-                if (!identity.admin)
+                if (!identity?.admin)
                     return res.status(403).json({ error: 'Admin only.' });
                 const { aiId } = body;
                 if (aiId) {

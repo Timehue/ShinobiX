@@ -30,6 +30,16 @@ async function handler(req, res) {
         const char = existing.character;
         if (!char?.hospitalized)
             return res.status(400).json({ error: 'Player is not hospitalized.' });
+        // Enforce hospital timer: cannot heal out before the server-stamped
+        // hospitalizedUntil expires (unless the actor is admin).
+        const until = Number(char.hospitalizedUntil ?? 0);
+        if (!identity.admin && until && Date.now() < until) {
+            const remainingMs = until - Date.now();
+            return res.status(429).json({
+                error: 'Hospital timer not yet expired.',
+                retryAfterMs: remainingMs,
+            });
+        }
         const healed = {
             ...existing,
             character: {
@@ -38,6 +48,7 @@ async function handler(req, res) {
                 chakra: char.maxChakra,
                 stamina: char.maxStamina,
                 hospitalized: false,
+                hospitalizedUntil: 0,
             },
         };
         await _storage_js_1.kv.set(key, (0, _utils_js_1.mergePreservingImages)(healed, existing));

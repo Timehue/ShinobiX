@@ -17,6 +17,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = handler;
 const _storage_js_1 = require("./_storage.js");
+const _auth_js_1 = require("./_auth.js");
 async function handler(req, res) {
     if (req.method !== 'POST') {
         res.status(405).json({ error: 'POST only' });
@@ -27,8 +28,9 @@ async function handler(req, res) {
         res.status(500).json({ error: 'KV_PROXY_TOKEN not configured on server' });
         return;
     }
-    const provided = req.headers['x-kv-token'];
-    if (provided !== expectedToken) {
+    const providedRaw = req.headers['x-kv-token'];
+    const provided = Array.isArray(providedRaw) ? providedRaw[0] : providedRaw;
+    if (!provided || !(0, _auth_js_1.safeEqual)(provided, expectedToken)) {
         res.status(401).json({ error: 'invalid x-kv-token' });
         return;
     }

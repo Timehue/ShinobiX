@@ -31,6 +31,8 @@ const CURRENCY_CAPS = {
     fateShards: 50,
     boneCharms: 50,
     auraStones: 50,
+    // NOTE: auraDust may clip legitimate rewards from bosses / events that grant
+    // > 100 dust in a single save cycle. Tune this cap if players report missing dust.
     auraDust: 100,
     mythicSeals: 50,
     honorSeals: 200,
@@ -38,6 +40,8 @@ const CURRENCY_CAPS = {
 const MAX_STAT_GAIN = 500; // per individual stat per save cycle
 const MAX_LEVEL_GAIN = 5; // levels that can be gained between saves
 const LEVEL_CAP = 100;
+// Server-side hospital downtime — clients can't skip it by editing localStorage.
+const HOSPITAL_DURATION_MS = 60_000;
 function sanitizeCharacterSave(incoming, existing) {
     const inChar = incoming.character;
     const exChar = existing.character;
@@ -80,6 +84,35 @@ function sanitizeCharacterSave(incoming, existing) {
         char.chakra = char.maxChakra;
     if (Number(char.stamina ?? 0) > Number(char.maxStamina ?? char.stamina))
         char.stamina = char.maxStamina;
+    // Hospital timer enforcement.
+    //   - If save flips hospitalized false → true, server stamps hospitalizedUntil.
+    //   - If save flips hospitalized true → false before the timer expires, revert
+    //     (with HP at zero — exactly the state they were in when admitted).
+    const exHosp = !!exChar.hospitalized;
+    const inHosp = !!char.hospitalized;
+    const exHospUntil = Number(exChar.hospitalizedUntil ?? 0);
+    if (!exHosp && inHosp) {
+        char.hospitalizedUntil = Date.now() + HOSPITAL_DURATION_MS;
+    }
+    else if (exHosp && !inHosp) {
+        if (exHospUntil && Date.now() < exHospUntil) {
+            // Reject early discharge — force the player to wait out the timer
+            // (or pay the discharge fee, which is a client-side flow that
+            //  doesn't actually skip the timer either now).
+            char.hospitalized = true;
+            char.hospitalizedUntil = exHospUntil;
+            // Snap HP back to 0 so they can't farm hp during the lockout.
+            char.hp = 0;
+        }
+        else {
+            // Timer expired or unset — allow discharge and clear the stamp.
+            char.hospitalizedUntil = 0;
+        }
+    }
+    else if (exHosp && inHosp) {
+        // Preserve the original stamp — don't let the client refresh it.
+        char.hospitalizedUntil = exHospUntil || char.hospitalizedUntil;
+    }
     return { ...incoming, character: char };
 }
 async function handler(req, res) {
