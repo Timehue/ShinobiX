@@ -28742,7 +28742,7 @@ function PvpBattleScreen({
                         </div>
                     </div>
 
-                    {!done && (isMyTurn ? (
+                    {!done && !amSpectator && (isMyTurn ? (
                         <div className="basic-action-bar shinobi-command-bar">
                             <button className={pendingBasicAttack ? "selected-action" : ""}
                                 onClick={() => { clearPendingPvpJutsu(); setPendingWeaponId(""); setDashMode(false); setSelectedActionId(undefined); setPendingBasicAttack(v => !v); }}
@@ -28790,16 +28790,17 @@ function PvpBattleScreen({
                         {done ? (
                             <div className="battle-ended-overlay" style={{ position: "relative", inset: "unset", background: "none" }}>
                                 <div className="card battle-ended-card">
-                                    <h2 className={isDraw ? "" : iWon ? "battle-result-win" : session.fleedBy === role ? "battle-result-fled" : "battle-result-loss"}>
-                                        {isDraw ? "Draw" : iWon ? "Victory" : session.fleedBy === role ? "Escaped" : "?? Defeated"}
+                                    <h2 className={isDraw ? "" : amSpectator ? "" : iWon ? "battle-result-win" : session.fleedBy === role ? "battle-result-fled" : "battle-result-loss"}>
+                                        {isDraw ? "Draw" : amSpectator ? "Battle Over" : iWon ? "Victory" : session.fleedBy === role ? "Escaped" : "?? Defeated"}
                                     </h2>
                                     <p style={{ color: "#94a3b8", fontSize: "0.9rem", margin: "0.4rem 0 0.8rem" }}>
                                         {isDraw ? "The duel ended with equal honor."
+                                            : amSpectator ? `${session.winner === "p1" ? session.p1.name : session.winner === "p2" ? session.p2.name : "Nobody"} wins the duel!`
                                             : iWon ? `${me.name} wins the duel!`
                                             : session.fleedBy === role ? `${me.name} fled the battle.`
                                             : `${opp.name} wins the duel.`}
                                     </p>
-                                    {iWon && (() => {
+                                    {!amSpectator && iWon && (() => {
                                         const deathsGate = currentSector === 99;
                                         const xp = 100 * (deathsGate ? 2 : 1);
                                         const ryo = 75 * (deathsGate ? 2 : 1);
@@ -28815,6 +28816,10 @@ function PvpBattleScreen({
                                     </div>
                                 </div>
                             </div>
+                        ) : amSpectator ? (
+                            <p style={{ textAlign: "center", color: "#a78bfa", padding: "0.75rem", fontSize: "0.85em", margin: 0 }}>
+                                👁 Spectating — {session.activePlayer === "p1" ? session.p1.name : session.p2.name}'s turn (Round {session.round})
+                            </p>
                         ) : !isMyTurn ? (
                             <p style={{ textAlign: "center", color: "#94a3b8", padding: "0.75rem", fontSize: "0.85em", margin: 0 }}>
                                 Waiting for {opp.name} to act...
