@@ -29042,15 +29042,29 @@ function PvpBattleScreen({
                                 <div className="timeline-round-header">
                                     <span>Round {group.round}</span>
                                 </div>
-                                {group.entries.map((line, i) => (
-                                    <p key={i} className={`timeline-entry ${line.startsWith(me.name) ? "timeline-player" : line.startsWith(opp.name) ? "timeline-enemy" : "timeline-system"}`}
-                                        style={{ color: line.includes("wins!") ? "#fbbf24" : undefined }}>
-                                        {line}
-                                    </p>
-                                ))}
+                                {group.entries.map((line, i) => {
+                                    const trimmed = line.trim();
+                                    const actorRole = line.startsWith(me.name) ? "timeline-player" : line.startsWith(opp.name) ? "timeline-enemy" : "timeline-system";
+                                    const isHeader = / uses /.test(trimmed) || trimmed.endsWith(":") || line.startsWith(me.name) || line.startsWith(opp.name);
+                                    if (isHeader) {
+                                        return (
+                                            <p key={i} className={`timeline-entry-head ${actorRole}`}
+                                                style={{ color: line.includes("wins!") ? "#fbbf24" : undefined }}>
+                                                {trimmed}
+                                            </p>
+                                        );
+                                    }
+                                    const isDamage = /^Damage|takes [\d.]+ damage|wound damage/i.test(trimmed);
+                                    const isHeal = /^Heal:|restores [\d.]+ HP|heals \d|absorbs [\d.]+/i.test(trimmed);
+                                    const isShield = /^Shield:|^Barrier:|shield blocks|gains \d+ shield/i.test(trimmed);
+                                    const cls = isDamage ? "timeline-fx-damage" : isHeal ? "timeline-fx-heal" : isShield ? "timeline-fx-shield" : "timeline-fx-effect";
+                                    return (
+                                        <p key={i} className={`timeline-fx ${cls}`}>· {trimmed}</p>
+                                    );
+                                })}
                             </section>
                         )) : session.log.map((line, i) => (
-                            <p key={i} className="timeline-entry timeline-player" style={{ color: line.includes("wins!") ? "#fbbf24" : "#cbd5e1" }}>{line}</p>
+                            <p key={i} className="timeline-fx timeline-fx-effect">· {line}</p>
                         ))}
                     </div>
                 </main>
