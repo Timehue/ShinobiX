@@ -28601,7 +28601,6 @@ function PvpBattleScreen({
                                 {sessionEquippedJutsu.length === 0 && pvpEquippedWeapons.length === 0 && pvpEquippedConsumables.length === 0 ? (
                                     <div className="summary-box">No equipped jutsus or items. Equip from Profile.</div>
                                 ) : (
-                                    <>
                                     <div className="combat-equipped-jutsu-grid">
                                         {/* ── Jutsu cards ── */}
                                         {sessionEquippedJutsu.map(j => {
