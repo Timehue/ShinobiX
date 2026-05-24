@@ -88,6 +88,18 @@
         font-size: 15px !important;
     }
 
+    /* Hollow Gate stays small even inside the wider .world-map-scroll layout. */
+    .world-map-scroll .atlas-hollowGate {
+        min-width: 64px !important;
+        max-width: 88px !important;
+        padding: 4px 6px !important;
+        font-size: 11px !important;
+    }
+
+        .world-map-scroll .atlas-hollowGate strong {
+            font-size: 13px !important;
+        }
+
     .map-instance {
         width: 100% !important;
         max-width: 100% !important;
@@ -1535,6 +1547,22 @@ button {
 .atlas-central {
     background: rgba(22, 101, 52, .9);
 }
+
+/* Hollow Gate POI is a hidden shrine entrance — render small so it doesn't
+   compete with villages or the central hub on the world map. */
+.atlas-hollowGate {
+    min-width: 52px;
+    padding: 3px 5px;
+    font-size: 9px;
+    border-color: rgba(168, 85, 247, 0.75);
+    background: rgba(15, 9, 28, .85);
+    box-shadow: 0 2px 0 rgba(2,6,23,.6), 0 0 10px rgba(168, 85, 247, 0.35);
+}
+
+    .atlas-hollowGate strong {
+        font-size: 11px;
+        color: #c4b5fd;
+    }
 
 .atlas-landmark:hover {
     transform: translate(-50%, -50%) scale(1.06);
@@ -16315,6 +16343,18 @@ button.combat-jutsu-button,
         padding: 8px 10px !important;
         font-size: 15px !important;
     }
+
+    /* Hollow Gate stays small even inside the wider .world-map-scroll layout. */
+    .world-map-scroll .atlas-hollowGate {
+        min-width: 64px !important;
+        max-width: 88px !important;
+        padding: 4px 6px !important;
+        font-size: 11px !important;
+    }
+
+        .world-map-scroll .atlas-hollowGate strong {
+            font-size: 13px !important;
+        }
 
     .map-instance {
         width: 100% !important;
