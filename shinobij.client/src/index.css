@@ -16794,19 +16794,43 @@ html[data-vp="xl"] .location-button small {
     display: none !important;
 }
 
-/* Battle side huds: stretch to fill available height instead of
-   leaving a big empty gap below the stats on 1080p */
-html[data-vp="xl"] .combat-side-hud {
-    height: auto !important;
-    min-height: calc(100dvh - var(--banner-h) - 30px) !important;
-    max-height: none !important;
-    overflow: visible !important;
+/* Battle: move player hud into the left sidebar area on 1080p so
+   the battle grid gets more room. The player's combat-side-hud
+   (first child) is pulled out of the grid flow and positioned
+   over the left-profile-card. */
+html[data-vp="xl"] .arena-fullscreen .combat-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(140px, 200px) !important;
 }
 
-html[data-vp="xl"] .combat-avatar {
+html[data-vp="xl"] .arena-fullscreen .combat-layout > .combat-side-hud:first-child {
+    position: fixed !important;
+    left: 0 !important;
+    top: var(--banner-h) !important;
+    width: var(--side-rail-w) !important;
+    height: calc(100dvh - var(--banner-h)) !important;
+    max-height: none !important;
+    overflow-y: auto !important;
+    z-index: 10001 !important;
+    grid-column: unset !important;
+    grid-row: unset !important;
+    padding: 10px !important;
+    border-radius: 0 !important;
+    background: linear-gradient(180deg, rgba(5,7,13,0.97), rgba(10,14,28,0.97)) !important;
+    border-right: 2px solid #f59e0b !important;
+}
+
+html[data-vp="xl"] .arena-fullscreen .combat-layout > .combat-main-area {
+    grid-column: 1 !important;
+}
+
+html[data-vp="xl"] .arena-fullscreen .combat-layout > .combat-side-hud:last-child {
+    grid-column: 2 !important;
+}
+
+html[data-vp="xl"] .arena-fullscreen .combat-layout > .combat-side-hud:first-child .combat-avatar {
     width: 100% !important;
-    max-width: 180px !important;
-    aspect-ratio: 1 !important;
+    max-width: 160px !important;
+    margin: 0 auto !important;
 }
 
 /* Village stormveil map: fit on 1080p without scrolling */
