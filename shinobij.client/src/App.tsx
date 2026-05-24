@@ -23168,7 +23168,7 @@ function Arena({
         resetBattleRef.current(hp, firstActor);
         setLogRef.current(logMsg);
         setPrefightFirstActor(firstActor);
-        setPrefightCountdown(10);
+        setPrefightCountdown(3);
     }
 
     function beginRankedBattle(opponent: PlayerRecord) {
@@ -26356,13 +26356,22 @@ function PvpBattleScreen({
         return () => window.clearTimeout(timeout);
     }, [session?.p1.pos, session?.p2.pos]);
 
-    // Prefight countdown — triggers once when session first loads (skip for spectators)
+    // Prefight countdown — triggers once when session first loads (skip for spectators).
+    // The session is already live on the server; this is purely a UI delay before
+    // the player can act. Attacker (whoever initiated) starts immediately; defender
+    // gets a brief 2-second 'coin flip + go' window.
     useEffect(() => {
         if (!session || pvpSessionFirstLoadRef.current) return;
         pvpSessionFirstLoadRef.current = true;
         if (amSpectator) return; // spectators join mid-fight, no countdown
         setPvpPrefightFirstActor(session.activePlayer);
-        let count = 5;
+        const iAmFirstActor = session.activePlayer === role;
+        if (iAmFirstActor) {
+            // Attacker initiated — skip the countdown entirely.
+            setPvpPrefightCountdown(null);
+            return;
+        }
+        let count = 2;
         setPvpPrefightCountdown(count);
         const iv = setInterval(() => {
             count -= 1;
