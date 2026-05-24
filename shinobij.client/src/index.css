@@ -18721,10 +18721,11 @@ html[data-vp="xxl"] .banner-mobile-timers {
         transform: translateX(0);
     }
 }
-@media (max-width: 700px) {
+@media (max-width: 800px) {
+    /* Clear the fixed mobile nav bar (~112px tall, see .center-game padding-bottom) */
     .achievement-toast-stack {
         right: 10px;
-        bottom: 10px;
+        bottom: calc(120px + env(safe-area-inset-bottom, 0px));
         left: 10px;
     }
     .achievement-toast {
