@@ -18897,3 +18897,40 @@ html[data-vp="xxl"] .banner-mobile-timers {
         0 6px 18px rgba(0,0,0,0.85),
         inset 0 -8px 14px rgba(0,0,0,0.4) !important;
 }
+
+/* Battle Log — multi-line entry layout (Battle Skin v2) */
+.arena-fullscreen .combat-text-log .timeline-entry {
+    display: block;
+    padding: 8px 14px !important;
+    border-bottom: 1px solid rgba(196,162,90,0.08);
+    background: transparent !important;
+}
+.arena-fullscreen .combat-text-log .timeline-entry:last-child { border-bottom: none; }
+.arena-fullscreen .timeline-entry-head {
+    font: 600 11.5px/1.4 'Inter', system-ui, sans-serif !important;
+    color: #e8edf5 !important;
+    margin: 0 0 4px 0 !important;
+    padding: 0 !important;
+}
+.arena-fullscreen .timeline-entry-head strong {
+    color: var(--bsv2-gold-bright, #e8d496) !important;
+    font-family: 'Cinzel', serif;
+    margin-right: 4px;
+    letter-spacing: 0.04em;
+}
+.arena-fullscreen .timeline-entry.timeline-player .timeline-entry-head {
+    color: #93c5fd !important;
+}
+.arena-fullscreen .timeline-entry.timeline-enemy .timeline-entry-head {
+    color: #fca5a5 !important;
+}
+.arena-fullscreen .timeline-fx {
+    font: 400 11px/1.45 'Inter', system-ui, sans-serif !important;
+    padding: 1px 0 1px 14px !important;
+    margin: 0 !important;
+    color: #c8cfdc !important;
+}
+.arena-fullscreen .timeline-fx-damage { color: #fca5a5 !important; }
+.arena-fullscreen .timeline-fx-heal   { color: #86efac !important; }
+.arena-fullscreen .timeline-fx-shield { color: #93c5fd !important; }
+.arena-fullscreen .timeline-fx-effect { color: #d8b4fe !important; }
