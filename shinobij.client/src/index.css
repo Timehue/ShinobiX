@@ -16796,14 +16796,14 @@ html[data-vp="xl"] .location-button small {
 
 /* Battle on 1080p: expand the center-game leftward over the sidebar
    during battle so the 3-column layout has more room. Hide the
-   left-profile-card so it doesn't overlap. */
-html[data-vp="xl"] .center-game:has(.arena-fullscreen) {
+   left-profile-card so it doesn't overlap.
+   Uses .in-battle class toggled on body by JS (not :has() — more reliable). */
+html[data-vp="xl"] body.in-battle .center-game {
     margin-left: 8px !important;
     width: calc(100vw - var(--right-menu-w) - 24px) !important;
 }
 
-/* Hide the ornate left-profile-card when battle is active */
-html[data-vp="xl"]:has(.arena-fullscreen) .left-profile-card {
+html[data-vp="xl"] body.in-battle .left-profile-card {
     display: none !important;
 }
 
