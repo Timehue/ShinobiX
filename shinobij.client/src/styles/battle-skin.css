@@ -1,0 +1,661 @@
+
+/* =========================================================================
+   Battle Skin v2 — visual polish pass (CSS-only)
+   Scoped under .arena-fullscreen so nothing else is affected.
+   To revert: delete this block.
+   ========================================================================= */
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&display=swap');
+
+.arena-fullscreen {
+    --bsv2-gold:        #c4a25a;
+    --bsv2-gold-bright: #e8d496;
+    --bsv2-gold-soft:   rgba(196,162,90,0.45);
+    --bsv2-gold-faint:  rgba(196,162,90,0.22);
+    --bsv2-ink:         #050a18;
+    --bsv2-ink-2:       #0a1428;
+    --bsv2-player:      #4ea8ff;
+    --bsv2-enemy:       #e04444;
+}
+
+.arena-fullscreen .arena-title-panel,
+.arena-fullscreen .arena-title-panel h1,
+.arena-fullscreen .arena-title-panel h2 {
+    font-family: 'Cinzel', serif !important;
+    letter-spacing: 0.22em;
+    color: var(--bsv2-gold-bright);
+    text-shadow: 0 2px 4px rgba(0,0,0,0.8), 0 0 24px rgba(196,162,90,0.25);
+}
+
+.arena-fullscreen .arena-top-panel,
+.arena-fullscreen .battle-hud-sidebar,
+.arena-fullscreen .jutsu-layout-card,
+.arena-fullscreen .combat-jutsu-bar {
+    background: linear-gradient(180deg, rgba(12,18,34,0.92) 0%, rgba(6,10,22,0.96) 100%) !important;
+    border: 1px solid var(--bsv2-gold-faint) !important;
+    border-radius: 6px;
+    box-shadow:
+        0 8px 24px rgba(0,0,0,0.5),
+        inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+.arena-fullscreen .twp-strip {
+    border-top: 1px solid var(--bsv2-gold-faint);
+    border-bottom: 1px solid var(--bsv2-gold-faint);
+    font-family: 'Cinzel', serif;
+    letter-spacing: 0.05em;
+    color: rgba(232,212,150,0.85);
+}
+.arena-fullscreen .twp-strip-label {
+    color: rgba(196,162,90,0.7);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 0.85em;
+}
+.arena-fullscreen .twp-buff.twp-positive { color: #6fd47a; }
+.arena-fullscreen .twp-buff.twp-negative { color: var(--bsv2-enemy); }
+
+.arena-fullscreen .dual-ap-panel .hud-bar {
+    background: linear-gradient(180deg, var(--bsv2-ink-2) 0%, var(--bsv2-ink) 100%) !important;
+    border: 1px solid var(--bsv2-gold-soft) !important;
+    border-radius: 4px;
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.04),
+        inset 0 0 12px rgba(0,0,0,0.6);
+    overflow: hidden;
+}
+.arena-fullscreen .dual-ap-panel .ap-display-bar > span {
+    background: linear-gradient(180deg, #4ea8ff 0%, #1e5bbf 100%) !important;
+    box-shadow: 0 0 14px rgba(78,168,255,0.55), inset 0 1px 0 rgba(255,255,255,0.35);
+}
+.arena-fullscreen .dual-ap-panel .enemy-ap-display-bar > span {
+    background: linear-gradient(180deg, #ff5a5a 0%, #b51e1e 100%) !important;
+    box-shadow: 0 0 14px rgba(255,90,90,0.55), inset 0 1px 0 rgba(255,255,255,0.3);
+}
+
+.arena-fullscreen .round-timer-display .round-timer-ring {
+    border-color: var(--bsv2-gold-soft);
+}
+.arena-fullscreen .round-timer-display .round-timer-num {
+    font-family: 'Cinzel', serif;
+    color: var(--bsv2-gold-bright);
+}
+
+.arena-fullscreen .basic-action-bar button {
+    background: linear-gradient(180deg, #1a2238 0%, #0a1020 100%) !important;
+    border: 1px solid var(--bsv2-gold-soft) !important;
+    border-radius: 4px;
+    color: var(--bsv2-gold-bright) !important;
+    font-family: 'Cinzel', serif;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.06),
+        inset 0 -2px 0 rgba(0,0,0,0.5),
+        0 2px 4px rgba(0,0,0,0.5);
+    transition: transform 80ms, border-color 120ms, box-shadow 120ms;
+}
+.arena-fullscreen .basic-action-bar button:hover:not(:disabled) {
+    border-color: rgba(232,212,150,0.8) !important;
+    transform: translateY(-1px);
+}
+.arena-fullscreen .basic-action-bar button.selected-action {
+    border-color: var(--bsv2-player) !important;
+    box-shadow:
+        0 0 16px rgba(78,168,255,0.45),
+        inset 0 1px 0 rgba(255,255,255,0.1);
+}
+.arena-fullscreen .basic-action-bar button small {
+    font-family: 'Inter', system-ui, sans-serif;
+    text-transform: none;
+    letter-spacing: 0.06em;
+    color: rgba(196,162,90,0.7);
+}
+
+.arena-fullscreen .combat-jutsu-card-wrap,
+.arena-fullscreen .combat-jutsu-button {
+    background: linear-gradient(180deg, rgba(15,22,40,0.92) 0%, rgba(8,12,24,0.96) 100%) !important;
+    border: 1px solid var(--bsv2-gold-soft) !important;
+    border-radius: 6px;
+    box-shadow:
+        0 2px 0 rgba(0,0,0,0.6),
+        0 0 0 1px rgba(0,0,0,0.4),
+        inset 0 0 24px rgba(0,0,0,0.55);
+    transition: border-color 120ms, box-shadow 120ms, transform 120ms;
+}
+.arena-fullscreen .combat-jutsu-button:hover {
+    border-color: rgba(78,168,255,0.85) !important;
+    box-shadow:
+        0 0 18px rgba(78,168,255,0.35),
+        inset 0 0 24px rgba(0,0,0,0.55);
+    transform: translateY(-2px);
+}
+.arena-fullscreen .combat-jutsu-button.selected-action {
+    border-color: var(--bsv2-player) !important;
+    box-shadow:
+        0 0 18px rgba(78,168,255,0.55),
+        inset 0 0 24px rgba(0,0,0,0.55);
+}
+.arena-fullscreen .combat-jutsu-name {
+    font-family: 'Cinzel', serif !important;
+    color: #f4e6c4;
+    letter-spacing: 0.06em;
+    text-shadow: 0 1px 2px #000, 0 0 8px rgba(0,0,0,0.9);
+}
+.arena-fullscreen .combat-jutsu-info {
+    font-family: 'Inter', system-ui, sans-serif;
+    letter-spacing: 0.08em;
+    color: rgba(196,162,90,0.85) !important;
+}
+
+.arena-fullscreen .battle-hud-sidebar .hud-bar {
+    background: rgba(0,0,0,0.5);
+    border: 1px solid rgba(196,162,90,0.2);
+    border-radius: 3px;
+    box-shadow: inset 0 0 4px rgba(0,0,0,0.6);
+}
+
+/* Battle Log panel — Battle Skin v2 reskin */
+.arena-fullscreen .combat-text-log,
+.arena-fullscreen .combat-text-log.combat-timeline {
+    background: linear-gradient(180deg, rgba(12,18,34,0.92) 0%, rgba(6,10,22,0.96) 100%) !important;
+    border: 1px solid var(--bsv2-gold-faint, rgba(196,162,90,0.22)) !important;
+    border-radius: 6px !important;
+    box-shadow:
+        0 8px 24px rgba(0,0,0,0.5),
+        inset 0 1px 0 rgba(255,255,255,0.04) !important;
+    color: #e8edf5 !important;
+    max-height: 180px !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    overflow-y: auto;
+    margin-top: 8px;
+}
+.arena-fullscreen .combat-log-header {
+    background: linear-gradient(90deg, rgba(20,28,46,0.95), rgba(12,18,34,0.95)) !important;
+    color: var(--bsv2-gold-bright, #e8d496) !important;
+    border-bottom: 1px solid var(--bsv2-gold-faint, rgba(196,162,90,0.22));
+    padding: 8px 14px !important;
+    font-family: 'Cinzel', serif;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-size: 11px;
+}
+.arena-fullscreen .combat-log-header strong {
+    font-family: 'Cinzel', serif;
+    font-weight: 600;
+    color: var(--bsv2-gold-bright, #e8d496);
+}
+.arena-fullscreen .combat-log-header span {
+    color: rgba(196,162,90,0.75);
+    font-weight: 500;
+}
+.arena-fullscreen .combat-text-log p,
+.arena-fullscreen .combat-text-log .timeline-entry {
+    padding: 4px 14px !important;
+    font: 400 11px/1.4 'Inter', system-ui, sans-serif !important;
+    color: #c8cfdc !important;
+    margin: 0 !important;
+}
+.arena-fullscreen .timeline-round {
+    border-top: 1px solid rgba(196,162,90,0.08);
+    padding: 4px 0 !important;
+}
+.arena-fullscreen .timeline-round:first-child { border-top: none; }
+.arena-fullscreen .timeline-round-header {
+    background: rgba(196,162,90,0.06) !important;
+    color: var(--bsv2-gold-bright, #e8d496) !important;
+    padding: 4px 14px !important;
+    font: 600 10px 'Cinzel', serif !important;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    border: none !important;
+}
+
+/* Tighten gaps between the battle log and surrounding panels */
+.arena-fullscreen .combat-main-area > * + * {
+    margin-top: 8px;
+}
+.arena-fullscreen .battle-command-panel {
+    padding: 8px 14px !important;
+    background: linear-gradient(180deg, rgba(12,18,34,0.92) 0%, rgba(6,10,22,0.96) 100%) !important;
+    border: 1px solid var(--bsv2-gold-faint, rgba(196,162,90,0.22)) !important;
+    border-radius: 6px;
+    margin-top: 8px;
+}
+.arena-fullscreen .battle-command-panel span {
+    color: var(--bsv2-gold-bright, #e8d496);
+    font-family: 'Cinzel', serif;
+    letter-spacing: 0.12em;
+    font-size: 11px;
+    text-transform: uppercase;
+}
+
+/* Battle Skin v2 — biome backdrop neutralization
+   Replaces the harsh biome edge colors with a unified dark navy,
+   then layers a soft biome-tinted radial so the biome still reads. */
+.arena-fullscreen.arena-bg-snow,
+.arena-fullscreen.arena-bg-volcano,
+.arena-fullscreen.arena-bg-forest,
+.arena-fullscreen.arena-bg-shadow,
+.arena-fullscreen.arena-bg-central,
+.arena-fullscreen.arena-bg-deathsgate {
+    background-color: #050912 !important;
+}
+.arena-fullscreen.arena-bg-snow      { background-image: radial-gradient(ellipse at center, rgba(78,168,255,0.18) 0%, transparent 60%) !important; }
+.arena-fullscreen.arena-bg-volcano   { background-image: radial-gradient(ellipse at center, rgba(220,38,38,0.22) 0%, transparent 60%) !important; }
+.arena-fullscreen.arena-bg-forest    { background-image: radial-gradient(ellipse at center, rgba(74,222,128,0.18) 0%, transparent 60%) !important; }
+.arena-fullscreen.arena-bg-shadow    { background-image: radial-gradient(ellipse at center, rgba(167,139,250,0.22) 0%, transparent 60%) !important; }
+.arena-fullscreen.arena-bg-central   { background-image: radial-gradient(ellipse at center, rgba(148,163,184,0.18) 0%, transparent 60%) !important; }
+.arena-fullscreen.arena-bg-deathsgate{ background-image: radial-gradient(ellipse at center, rgba(134,239,172,0.22) 0%, transparent 60%) !important; }
+
+/* Tame the hex-battlefield border so it sits flush with the arena art
+   instead of glowing past the painted stone walls. */
+.arena-fullscreen .hex-battlefield,
+.arena-fullscreen .hex-battlefield.hex-snow,
+.arena-fullscreen .hex-battlefield.hex-volcano,
+.arena-fullscreen .hex-battlefield.hex-forest,
+.arena-fullscreen .hex-battlefield.hex-shadow,
+.arena-fullscreen .hex-battlefield.hex-central,
+.arena-fullscreen .hex-battlefield.hex-deathsgate {
+    border-color: rgba(196,162,90,0.25) !important;
+    border-width: 1px !important;
+    box-shadow:
+        inset 0 0 80px rgba(0,0,0,0.45),
+        0 8px 24px rgba(0,0,0,0.6) !important;
+}
+
+/* Jutsu range highlight — dark blue, and don't light up the enemy tile */
+.arena-fullscreen .hex-tile.jutsu-range-tile {
+    outline: 2px solid rgba(30, 64, 175, 0.9) !important;
+    box-shadow:
+        inset 0 0 18px rgba(23, 37, 84, 0.55),
+        0 0 10px rgba(30, 58, 138, 0.6) !important;
+    filter: none !important;
+}
+.arena-fullscreen .hex-tile.hex-enemy.jutsu-range-tile,
+.arena-fullscreen .hex-tile.hex-enemy.jutsu-target-tile {
+    outline: none !important;
+    box-shadow: none !important;
+    filter: none !important;
+}
+.arena-fullscreen .hex-tile.hex-enemy .avatar-orb.enemy-orb {
+    box-shadow:
+        0 0 0 3px rgba(255,160,80,0.9),
+        0 0 14px 4px rgba(255,80,30,0.6),
+        0 6px 18px rgba(0,0,0,0.85),
+        inset 0 -8px 14px rgba(0,0,0,0.4) !important;
+}
+
+/* Battle Log — multi-line entry layout (Battle Skin v2) */
+.arena-fullscreen .combat-text-log .timeline-entry {
+    display: block;
+    padding: 8px 14px !important;
+    border-bottom: 1px solid rgba(196,162,90,0.08);
+    background: transparent !important;
+}
+.arena-fullscreen .combat-text-log .timeline-entry:last-child { border-bottom: none; }
+.arena-fullscreen .timeline-entry-head {
+    font: 600 11.5px/1.4 'Inter', system-ui, sans-serif !important;
+    color: #e8edf5 !important;
+    margin: 0 0 4px 0 !important;
+    padding: 0 !important;
+}
+.arena-fullscreen .timeline-entry-head strong {
+    color: var(--bsv2-gold-bright, #e8d496) !important;
+    font-family: 'Cinzel', serif;
+    margin-right: 4px;
+    letter-spacing: 0.04em;
+}
+.arena-fullscreen .timeline-entry.timeline-player .timeline-entry-head {
+    color: #93c5fd !important;
+}
+.arena-fullscreen .timeline-entry.timeline-enemy .timeline-entry-head {
+    color: #fca5a5 !important;
+}
+.arena-fullscreen .timeline-fx {
+    font: 400 11px/1.45 'Inter', system-ui, sans-serif !important;
+    padding: 1px 0 1px 14px !important;
+    margin: 0 !important;
+    color: #c8cfdc !important;
+}
+.arena-fullscreen .timeline-fx-damage { color: #fca5a5 !important; }
+.arena-fullscreen .timeline-fx-heal   { color: #86efac !important; }
+.arena-fullscreen .timeline-fx-shield { color: #93c5fd !important; }
+.arena-fullscreen .timeline-fx-effect { color: #d8b4fe !important; }
+
+/* =========================================================================
+   Battle Skin v2 - Final cleanup pass
+   ========================================================================= */
+
+.arena-fullscreen .combat-side-hud {
+    background: linear-gradient(180deg, rgba(12,18,34,0.92) 0%, rgba(6,10,22,0.96) 100%) !important;
+    border: 1px solid var(--bsv2-gold-faint, rgba(196,162,90,0.22)) !important;
+    border-radius: 6px !important;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04) !important;
+    color: #e8edf5 !important;
+    padding: 12px !important;
+}
+.arena-fullscreen .combat-side-hud--active {
+    border-color: rgba(224,68,68,0.55) !important;
+    box-shadow: 0 0 16px rgba(224,68,68,0.25), 0 8px 24px rgba(0,0,0,0.5) !important;
+}
+.arena-fullscreen .combat-hud-header h3 {
+    font: 600 14px/1.2 Cinzel, serif !important;
+    color: var(--bsv2-gold-bright, #e8d496) !important;
+    letter-spacing: 0.1em;
+    margin: 0 !important;
+}
+.arena-fullscreen .combat-hud-village {
+    color: rgba(196,162,90,0.7) !important;
+    font: 400 10px Inter, sans-serif !important;
+    letter-spacing: 0.06em;
+}
+.arena-fullscreen .combat-hud-turn-badge {
+    font: 600 10px Cinzel, serif !important;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    padding: 3px 8px !important;
+    border-radius: 3px;
+    border: 1px solid rgba(196,162,90,0.4);
+    background: rgba(0,0,0,0.4);
+}
+.arena-fullscreen .combat-hud-turn-badge.turn-badge-active {
+    color: #fca5a5 !important;
+    border-color: rgba(224,68,68,0.6) !important;
+    background: rgba(224,68,68,0.12) !important;
+    box-shadow: 0 0 8px rgba(224,68,68,0.3);
+}
+.arena-fullscreen .combat-hud-turn-badge.turn-badge-waiting {
+    color: rgba(196,162,90,0.7) !important;
+}
+.arena-fullscreen .combat-avatar {
+    border: 2px solid rgba(224,68,68,0.5) !important;
+    border-radius: 50% !important;
+    overflow: hidden;
+    box-shadow: 0 0 18px rgba(224,68,68,0.25) !important;
+}
+.arena-fullscreen .resource-line { margin-bottom: 8px !important; }
+.arena-fullscreen .resource-label {
+    font: 500 10px/1 Cinzel, serif !important;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(232,212,150,0.85) !important;
+}
+.arena-fullscreen .resource-label small {
+    font-family: Inter, sans-serif !important;
+    letter-spacing: 0;
+    color: #f4e6c4 !important;
+    font-variant-numeric: tabular-nums;
+}
+.arena-fullscreen .hp-bar > span      { box-shadow: 0 0 6px rgba(111,212,122,0.5); }
+.arena-fullscreen .chakra-bar > span  { background: linear-gradient(90deg,#2a5cb8,#4ea8ff) !important; box-shadow: 0 0 6px rgba(78,168,255,0.5); }
+.arena-fullscreen .stamina-bar > span { background: linear-gradient(90deg,#3aa166,#6fd49a) !important; box-shadow: 0 0 6px rgba(111,212,154,0.5); }
+.arena-fullscreen .shield-bar > span  { background: linear-gradient(90deg,#7c5cff,#a78bfa) !important; box-shadow: 0 0 6px rgba(167,139,250,0.5); }
+.arena-fullscreen .combat-hud-meta {
+    font: 600 10px Cinzel, serif !important;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(196,162,90,0.7) !important;
+}
+.arena-fullscreen .combat-effect-panel {
+    background: transparent !important;
+    border-top: 1px solid rgba(196,162,90,0.15) !important;
+    padding-top: 8px !important;
+    margin-top: 8px !important;
+}
+.arena-fullscreen .combat-effect-panel h4 {
+    font: 600 10px Cinzel, serif !important;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(196,162,90,0.85) !important;
+    margin: 0 0 6px 0 !important;
+}
+.arena-fullscreen .empty-effects {
+    color: rgba(196,162,90,0.5) !important;
+    font: 400 10px Inter, sans-serif !important;
+    font-style: italic;
+    margin: 0 !important;
+}
+.arena-fullscreen .effect-pill {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    padding: 6px 10px !important;
+    background: linear-gradient(90deg, rgba(20,28,46,0.85), rgba(12,18,34,0.85)) !important;
+    border: 1px solid rgba(196,162,90,0.15) !important;
+    border-left: 3px solid #6fd47a !important;
+    border-radius: 4px !important;
+    margin-bottom: 4px !important;
+    font: 500 11px/1.3 Inter, sans-serif !important;
+    color: #c8cfdc !important;
+}
+.arena-fullscreen .effect-pill strong {
+    color: var(--bsv2-gold-bright, #e8d496) !important;
+    font-family: Cinzel, serif;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    font-size: 11px;
+}
+
+.arena-fullscreen .battle-chat-panel {
+    background: linear-gradient(180deg, rgba(12,18,34,0.92) 0%, rgba(6,10,22,0.96) 100%) !important;
+    border: 1px solid var(--bsv2-gold-faint, rgba(196,162,90,0.22)) !important;
+    border-radius: 6px !important;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5) !important;
+    color: #e8edf5 !important;
+    padding: 0 !important;
+    overflow: hidden;
+}
+.arena-fullscreen .battle-side-header {
+    background: linear-gradient(90deg, rgba(20,28,46,0.95), rgba(12,18,34,0.95)) !important;
+    color: var(--bsv2-gold-bright, #e8d496) !important;
+    border-bottom: 1px solid var(--bsv2-gold-faint, rgba(196,162,90,0.22)) !important;
+    padding: 8px 12px !important;
+    font: 600 11px Cinzel, serif !important;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.arena-fullscreen .battle-chat-toggle {
+    background: rgba(0,0,0,0.4) !important;
+    border: 1px solid var(--bsv2-gold-soft, rgba(196,162,90,0.45)) !important;
+    color: var(--bsv2-gold-bright, #e8d496) !important;
+    width: 22px; height: 22px;
+    padding: 0 !important;
+    border-radius: 3px !important;
+    font: 700 12px/1 Cinzel, serif;
+    cursor: pointer;
+}
+.arena-fullscreen .battle-chat-toggle:hover { border-color: #e8d496 !important; }
+.arena-fullscreen .battle-chat-spectators {
+    padding: 6px 12px !important;
+    font: 400 10px Inter, sans-serif !important;
+    color: rgba(196,162,90,0.8) !important;
+    border-bottom: 1px solid rgba(196,162,90,0.1);
+    background: rgba(0,0,0,0.25);
+}
+.arena-fullscreen .battle-chat-spectator-label {
+    color: rgba(196,162,90,0.55) !important;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-right: 4px;
+}
+.arena-fullscreen .battle-chat-messages {
+    padding: 8px 4px 8px 12px !important;
+    max-height: 220px;
+    overflow-y: auto;
+    background: transparent !important;
+}
+.arena-fullscreen .battle-chat-empty {
+    color: rgba(196,162,90,0.5) !important;
+    font: 400 11px Inter, sans-serif !important;
+    font-style: italic;
+    text-align: center;
+    margin: 8px 0 !important;
+}
+.arena-fullscreen .battle-chat-msg {
+    padding: 6px 8px !important;
+    border-bottom: 1px solid rgba(196,162,90,0.06);
+    font: 400 11px/1.4 Inter, sans-serif !important;
+    color: #c8cfdc !important;
+    background: transparent !important;
+}
+.arena-fullscreen .battle-chat-msg:last-child { border-bottom: none; }
+.arena-fullscreen .battle-chat-msg strong {
+    font: 600 11px Cinzel, serif !important;
+    letter-spacing: 0.06em;
+    margin-right: 6px;
+}
+.arena-fullscreen .battle-chat-msg.chat-fighter strong { color: #93c5fd !important; }
+.arena-fullscreen .battle-chat-msg.chat-spectator strong { color: var(--bsv2-gold-bright, #e8d496) !important; }
+.arena-fullscreen .battle-chat-input-row {
+    display: flex;
+    gap: 6px;
+    padding: 8px 12px !important;
+    border-top: 1px solid var(--bsv2-gold-faint, rgba(196,162,90,0.22)) !important;
+    background: rgba(0,0,0,0.25);
+}
+.arena-fullscreen .battle-chat-input-row input {
+    flex: 1;
+    background: rgba(0,0,0,0.4) !important;
+    border: 1px solid var(--bsv2-gold-soft, rgba(196,162,90,0.45)) !important;
+    border-radius: 3px !important;
+    color: #e8edf5 !important;
+    padding: 6px 10px !important;
+    font: 400 11px Inter, sans-serif !important;
+    outline: none;
+}
+.arena-fullscreen .battle-chat-input-row input:focus {
+    border-color: var(--bsv2-player, #4ea8ff) !important;
+    box-shadow: 0 0 8px rgba(78,168,255,0.3);
+}
+.arena-fullscreen .battle-chat-input-row input::placeholder { color: rgba(196,162,90,0.4); }
+.arena-fullscreen .battle-chat-input-row button {
+    background: linear-gradient(180deg, #1a2238 0%, #0a1020 100%) !important;
+    border: 1px solid var(--bsv2-gold-soft, rgba(196,162,90,0.45)) !important;
+    color: var(--bsv2-gold-bright, #e8d496) !important;
+    padding: 0 14px !important;
+    border-radius: 3px !important;
+    font: 600 10px Cinzel, serif !important;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+.arena-fullscreen .battle-chat-input-row button:hover { border-color: var(--bsv2-gold-bright, #e8d496) !important; }
+
+.pvp-countdown-overlay {
+    background: rgba(5,9,18,0.85) !important;
+    backdrop-filter: blur(8px);
+}
+.pvp-countdown-box {
+    background: linear-gradient(180deg, rgba(12,18,34,0.96) 0%, rgba(6,10,22,0.98) 100%) !important;
+    border: 1px solid var(--bsv2-gold-soft, rgba(196,162,90,0.45)) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.7), 0 0 32px rgba(196,162,90,0.15) !important;
+    color: var(--bsv2-gold-bright, #e8d496) !important;
+}
+.pvp-countdown-name {
+    font: 600 16px Cinzel, serif !important;
+    color: #e8edf5 !important;
+    letter-spacing: 0.06em;
+}
+.pvp-countdown-badge {
+    font: 700 20px Cinzel, serif !important;
+    color: var(--bsv2-gold-bright, #e8d496) !important;
+    letter-spacing: 0.2em;
+}
+.pvp-countdown-number {
+    font: 700 64px Cinzel, serif !important;
+    color: var(--bsv2-gold-bright, #e8d496) !important;
+    text-shadow: 0 0 24px rgba(196,162,90,0.55), 0 4px 8px rgba(0,0,0,0.8);
+}
+.pvp-countdown-label {
+    font: 500 12px Cinzel, serif !important;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: rgba(196,162,90,0.75) !important;
+}
+
+.arena-fullscreen .battle-ended-overlay {
+    background: rgba(5,9,18,0.85) !important;
+    backdrop-filter: blur(6px);
+}
+.arena-fullscreen .battle-ended-card {
+    background: linear-gradient(180deg, rgba(12,18,34,0.96) 0%, rgba(6,10,22,0.98) 100%) !important;
+    border: 1px solid var(--bsv2-gold-soft, rgba(196,162,90,0.45)) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.7), 0 0 32px rgba(196,162,90,0.15) !important;
+    color: #e8edf5 !important;
+}
+.arena-fullscreen .battle-result-win {
+    color: #6fd47a !important;
+    text-shadow: 0 0 18px rgba(111,212,122,0.45);
+    font-family: Cinzel, serif !important;
+    letter-spacing: 0.22em;
+}
+.arena-fullscreen .battle-result-loss {
+    color: var(--bsv2-enemy, #e04444) !important;
+    text-shadow: 0 0 18px rgba(224,68,68,0.45);
+    font-family: Cinzel, serif !important;
+    letter-spacing: 0.22em;
+}
+.arena-fullscreen .battle-result-fled {
+    color: var(--bsv2-gold-bright, #e8d496) !important;
+    font-family: Cinzel, serif !important;
+    letter-spacing: 0.22em;
+}
+
+.arena-fullscreen .hex-zoom-bar {
+    background: linear-gradient(180deg, rgba(12,18,34,0.85), rgba(6,10,22,0.9)) !important;
+    border: 1px solid var(--bsv2-gold-faint, rgba(196,162,90,0.22)) !important;
+    border-radius: 4px !important;
+    padding: 4px 8px !important;
+    color: var(--bsv2-gold-bright, #e8d496) !important;
+}
+.arena-fullscreen .hex-zoom-label {
+    font: 600 10px Cinzel, serif !important;
+    letter-spacing: 0.12em;
+    color: rgba(196,162,90,0.85) !important;
+}
+.arena-fullscreen .hex-zoom-reset {
+    background: rgba(0,0,0,0.4) !important;
+    border: 1px solid var(--bsv2-gold-soft, rgba(196,162,90,0.45)) !important;
+    color: var(--bsv2-gold-bright, #e8d496) !important;
+    width: 22px; height: 22px;
+    padding: 0 !important;
+    border-radius: 3px !important;
+}
+
+.arena-fullscreen .combat-jutsu-detail-popover,
+.arena-fullscreen .combat-item-detail-popover {
+    background: linear-gradient(180deg, rgba(12,18,34,0.96) 0%, rgba(6,10,22,0.98) 100%) !important;
+    border: 1px solid var(--bsv2-gold-soft, rgba(196,162,90,0.45)) !important;
+    border-radius: 6px !important;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.7) !important;
+    color: #e8edf5 !important;
+}
+.arena-fullscreen .combat-jutsu-detail-header {
+    color: var(--bsv2-gold-bright, #e8d496) !important;
+    font: 600 13px Cinzel, serif !important;
+    letter-spacing: 0.08em;
+    border-bottom: 1px solid var(--bsv2-gold-faint, rgba(196,162,90,0.22));
+}
+.arena-fullscreen .combat-jutsu-help {
+    background: rgba(0,0,0,0.5) !important;
+    border: 1px solid var(--bsv2-gold-soft, rgba(196,162,90,0.45)) !important;
+    color: var(--bsv2-gold-bright, #e8d496) !important;
+}
+
+.arena-fullscreen .battle-hud-sidebar .buff-list,
+.arena-fullscreen .battle-hud-sidebar .buff-banner {
+    background: transparent !important;
+}
+.arena-fullscreen .status-badge {
+    background: linear-gradient(90deg, rgba(20,28,46,0.85), rgba(12,18,34,0.85)) !important;
+    border: 1px solid rgba(196,162,90,0.18) !important;
+    border-left: 3px solid #6fd47a !important;
+    color: #c8cfdc !important;
+    font: 500 10px Inter, sans-serif !important;
+}
