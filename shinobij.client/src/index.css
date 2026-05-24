@@ -16965,35 +16965,61 @@ html[data-vp="xl"] .battle-side-left {
     border-bottom: 1px solid rgba(148, 163, 184, 0.08);
 }
 
-/* ── Chat as in-grid column (between battlefield and enemy HUD) on xl ── */
+/* ── Battle chat column ── */
+/* Non-xl: floating panel in top-right corner */
 .battle-chat-col {
-    display: none;
-}
-
-html[data-vp="xl"] .battle-chat-col {
     display: flex;
     flex-direction: column;
-    background: rgba(0, 0, 0, 0.45);
-    border-left: 1px solid rgba(148, 163, 184, 0.15);
-    border-right: 1px solid rgba(148, 163, 184, 0.15);
+    position: fixed;
+    top: 60px;
+    right: 8px;
+    width: 220px;
+    max-height: 320px;
+    background: rgba(0, 0, 0, 0.85);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 8px;
     box-sizing: border-box;
     font-size: 0.78rem;
     color: #cbd5e1;
-    min-height: 0;
     overflow: hidden;
+    z-index: 50;
+}
+.battle-chat-col .battle-chat-messages {
+    flex: 1 1 0;
+    min-height: 120px;
+    max-height: 220px;
+    overflow-y: auto;
+}
+.battle-chat-col.battle-chat-hidden {
+    width: 36px !important;
+    max-height: 32px !important;
+    overflow: hidden;
+}
+
+/* xl: in-grid column instead of floating */
+html[data-vp="xl"] .battle-chat-col {
     position: relative;
+    top: auto;
+    right: auto;
+    width: auto;
+    max-height: none;
+    background: rgba(0, 0, 0, 0.45);
+    border: none;
+    border-left: 1px solid rgba(148, 163, 184, 0.15);
+    border-right: 1px solid rgba(148, 163, 184, 0.15);
+    border-radius: 0;
+    min-height: 0;
     z-index: 5;
     align-self: stretch;
 }
-
-/* Make chat messages fill the available vertical space */
 html[data-vp="xl"] .battle-chat-col .battle-chat-messages {
     flex: 1 1 0;
     min-height: 200px;
+    max-height: none;
 }
-
 html[data-vp="xl"] .battle-chat-col.battle-chat-hidden {
     width: 36px !important;
+    max-height: none !important;
     overflow: hidden;
 }
 
