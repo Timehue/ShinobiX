@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
+import { authedPlayerOrAdmin } from '../_auth.js';
 
 type QueueEntry = {
     name: string;
@@ -30,13 +31,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'POST') {
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-            const { name, level, elo, action } = body as {
+            const { name, action } = body as {
                 name?: string;
                 level?: number;
                 elo?: number;
                 action?: 'join' | 'leave' | 'poll';
             };
             if (!name || !action) return res.status(400).json({ error: 'Missing name or action.' });
+
+            // Require auth, body name must match identity.
+            const identity = await authedPlayerOrAdmin(req, name);
+            if (!identity) return res.status(401).json({ error: 'Authentication required.' });
+            if (!identity.admin && identity.name !== name.toLowerCase().trim()) {
+                return res.status(403).json({ error: 'Cannot queue as another player.' });
+            }
 
             const queue = await kv.get<QueueEntry[]>(QUEUE_KEY) ?? [];
             // Remove stale entries
@@ -49,12 +57,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
 
             if (action === 'join') {
+                // Derive level + elo from the server-side save — never trust the body.
+                let serverLevel = 1;
+                let serverElo = 1000;
+                if (!identity.admin) {
+                    try {
+                        const save = await kv.get<Record<string, unknown>>(`save:${identity.name}`);
+                        const char = (save?.character ?? null) as Record<string, unknown> | null;
+                        if (char) {
+                            if (typeof char.level === 'number') serverLevel = char.level;
+                            if (typeof char.rankedRating === 'number') serverElo = char.rankedRating;
+                            else if (typeof char.elo === 'number') serverElo = char.elo;
+                        }
+                    } catch {
+                        // best-effort; defaults apply
+                    }
+                }
+
                 // Remove existing entry for this player, then add fresh
                 const filtered = active.filter(e => e.name !== name.toLowerCase().trim());
                 const entry: QueueEntry = {
                     name: name.toLowerCase().trim(),
-                    level: level ?? 1,
-                    elo: elo ?? 1000,
+                    level: serverLevel,
+                    elo: serverElo,
                     joinedAt: Date.now(),
                 };
                 filtered.push(entry);

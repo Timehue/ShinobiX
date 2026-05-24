@@ -1,6 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
+import { safeEqual } from '../_auth.js';
+import { enforceRateLimit } from '../_ratelimit.js';
 
 const APPROVED_ITEMS_KEY = 'admin:approvedItems';
 
@@ -28,6 +30,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (req.method === 'POST') {
+        if (!enforceRateLimit(req, res, 'admin-item-review', 60, 5 * 60_000)) return;
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
             const { password, action, itemId } = body as {
@@ -37,7 +40,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             };
 
             const adminPassword = process.env.ADMIN_PASSWORD;
-            if (!adminPassword || password !== adminPassword) {
+            if (!adminPassword || !password || !safeEqual(password, adminPassword)) {
                 return res.status(401).json({ error: 'Unauthorized.' });
             }
             if (!itemId || (action !== 'approve' && action !== 'hide')) {

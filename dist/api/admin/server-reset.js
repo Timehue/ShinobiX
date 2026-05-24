@@ -3,6 +3,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = handler;
 const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
+const _auth_js_1 = require("../_auth.js");
+const _ratelimit_js_1 = require("../_ratelimit.js");
 // Patterns wiped on full reset. Anything matching these is deleted.
 // shared:images / shared:imgfields are intentionally excluded — all uploaded
 // images (kage portraits, elder portraits, pets, weapons, avatars) survive.
@@ -44,11 +46,14 @@ async function handler(req, res) {
         return res.status(200).end();
     if (req.method !== 'POST')
         return res.status(405).end();
+    // Rate-limit: server-reset is destructive; allow only a handful per hour.
+    if (!(0, _ratelimit_js_1.enforceRateLimit)(req, res, 'admin-server-reset', 5, 60 * 60_000))
+        return;
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
         const { password } = body;
         const adminPassword = process.env.ADMIN_PASSWORD;
-        if (!adminPassword || password !== adminPassword) {
+        if (!adminPassword || !password || !(0, _auth_js_1.safeEqual)(password, adminPassword)) {
             return res.status(401).json({ error: 'Unauthorized.' });
         }
         const deleted = [];

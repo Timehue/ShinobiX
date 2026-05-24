@@ -1,7 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
-
+import { authedPlayerOrAdmin } from '../_auth.js';
+import type { PvpSession } from './session.js';
 
 type BattleChatMessage = {
     author: string;
@@ -38,18 +39,43 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'POST') {
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-            const { author, text, role } = body as {
+            const { author, text } = body as {
                 author?: string;
                 text?: string;
                 role?: 'fighter' | 'spectator';
             };
             if (!author || !text) return res.status(400).json({ error: 'Missing author or text.' });
 
+            // Auth required so spectators can't impersonate fighters in battle chat.
+            const identity = await authedPlayerOrAdmin(req, author);
+            if (!identity) return res.status(401).json({ error: 'Authentication required.' });
+            const authorNorm = author.toLowerCase().trim();
+            if (!identity.admin && identity.name !== authorNorm) {
+                return res.status(403).json({ error: 'Cannot post as another player.' });
+            }
+
+            // Derive role from the session: if the author is one of the two
+            // fighters, allow `fighter`; otherwise force `spectator` regardless
+            // of what the body claimed.
+            let derivedRole: 'fighter' | 'spectator' = 'spectator';
+            try {
+                const session = await kv.get<PvpSession>(`pvp:${battleId}`);
+                if (session) {
+                    const p1Norm = String(session.p1?.name ?? '').toLowerCase().trim();
+                    const p2Norm = String(session.p2?.name ?? '').toLowerCase().trim();
+                    if (authorNorm === p1Norm || authorNorm === p2Norm) {
+                        derivedRole = 'fighter';
+                    }
+                }
+            } catch {
+                // Session lookup failed — fall back to spectator.
+            }
+
             const newMsg: BattleChatMessage = {
                 author,
                 text: text.slice(0, 200),
                 ts: Date.now(),
-                role: role === 'fighter' ? 'fighter' : 'spectator',
+                role: derivedRole,
             };
 
             const existing = await kv.get<BattleChatMessage[]>(key) ?? [];

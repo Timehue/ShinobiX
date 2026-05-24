@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
+import { authedPlayerOrAdmin } from '../_auth.js';
 
 type QueueEntry = { name: string; rating: number; joinedAt: number };
 
@@ -13,6 +14,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
         const { name } = body as { name?: string };
         if (!name) return res.status(400).json({ error: 'Missing name.' });
+
+        const identity = await authedPlayerOrAdmin(req, name);
+        if (!identity) return res.status(401).json({ error: 'Authentication required.' });
+        if (!identity.admin && identity.name !== name.toLowerCase().trim()) {
+            return res.status(403).json({ error: 'Cannot leave queue as another player.' });
+        }
 
         const nameLower = name.toLowerCase().trim();
         const raw = await kv.get<QueueEntry[]>('ranked-queue') ?? [];

@@ -1,6 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
+import { safeEqual } from '../_auth.js';
+import { enforceRateLimit } from '../_ratelimit.js';
 
 const REGISTRY_KEY = 'player:registry';
 
@@ -9,12 +11,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).end();
 
+    // Rate-limit admin endpoints: 30 requests / 5 minutes per IP.
+    if (!enforceRateLimit(req, res, 'admin-players', 30, 5 * 60_000)) return;
+
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
         const { password } = body as { password?: string };
 
         const adminPassword = process.env.ADMIN_PASSWORD;
-        if (!adminPassword || password !== adminPassword) {
+        if (!adminPassword || !password || !safeEqual(password, adminPassword)) {
             return res.status(401).json({ error: 'Unauthorized.' });
         }
 

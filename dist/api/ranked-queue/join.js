@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = handler;
 const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
+const _auth_js_1 = require("../_auth.js");
 const QUEUE_KEY = 'ranked-queue';
 const NOTIFY_TTL = 120; // seconds
 const STALE_MS = 5 * 60 * 1000; // 5 minutes
@@ -14,18 +15,42 @@ async function handler(req, res) {
         return res.status(405).end();
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-        const { name, rating, peek } = body;
+        const { name, peek } = body;
         if (!name)
             return res.status(400).json({ error: 'Missing name.' });
-        // Peek-only: just return current queue size without mutating anything
+        // Peek-only: just return current queue size without mutating anything.
+        // Peek is open (no auth) to keep the lobby visible.
         if (peek || name.startsWith('__peek__')) {
             const rawPeek = await _storage_js_1.kv.get(QUEUE_KEY) ?? [];
             const nowPeek = Date.now();
             const activePeek = rawPeek.filter((e) => nowPeek - e.joinedAt < STALE_MS);
             return res.status(200).json({ queueSize: activePeek.length });
         }
-        const playerRating = rating ?? 1000;
+        // Joining the queue mutates state — require auth, body name must match identity.
+        const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req, name);
+        if (!identity)
+            return res.status(401).json({ error: 'Authentication required.' });
+        if (!identity.admin && identity.name !== name.toLowerCase().trim()) {
+            return res.status(403).json({ error: 'Cannot queue as another player.' });
+        }
         const nameLower = name.toLowerCase().trim();
+        // Derive rating from the server-side save — never trust the body.
+        let playerRating = 1000;
+        if (!identity.admin) {
+            try {
+                const save = await _storage_js_1.kv.get(`save:${identity.name}`);
+                const char = (save?.character ?? null);
+                if (char) {
+                    if (typeof char.rankedRating === 'number')
+                        playerRating = char.rankedRating;
+                    else if (typeof char.elo === 'number')
+                        playerRating = char.elo;
+                }
+            }
+            catch {
+                // best-effort; default applies
+            }
+        }
         // Check if this player already has a match notification waiting
         const notifyKey = `ranked-queue-notify:${nameLower}`;
         const notification = await _storage_js_1.kv.get(notifyKey);
