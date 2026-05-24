@@ -14,14 +14,24 @@
     --bsv2-ink-2:       #0a1428;
     --bsv2-player:      #4ea8ff;
     --bsv2-enemy:       #e04444;
+    color: #e8edf5 !important;
+}
 
+/* Preserve the original pet-yard background image, just darken it slightly */
+.pet-yard-screen {
+    background: url('/pet-yard.png') center/cover no-repeat !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+}
+.pet-arena-screen {
     background: linear-gradient(180deg, rgba(12,18,34,0.92) 0%, rgba(6,10,22,0.96) 100%) !important;
     border: 1px solid var(--bsv2-gold-faint) !important;
     border-radius: 8px !important;
     box-shadow:
         0 8px 24px rgba(0,0,0,0.5),
         inset 0 1px 0 rgba(255,255,255,0.04) !important;
-    color: #e8edf5 !important;
     padding: 20px !important;
 }
 
@@ -146,9 +156,11 @@
 }
 
 /* ----- Pet jutsu list ----- */
-.pet-yard-screen .pet-jutsu-row,
-.pet-yard-screen .pet-jutsu-stat {
-    display: flex; align-items: center; gap: 8px;
+.pet-yard-screen .pet-jutsu-row {
+    display: grid !important;
+    grid-template-columns: 64px 1fr auto auto !important;
+    align-items: center !important;
+    gap: 8px !important;
     padding: 6px 10px !important;
     background: rgba(10,16,32,0.5) !important;
     border: 1px solid var(--bsv2-gold-faint) !important;
@@ -157,16 +169,47 @@
     margin-bottom: 4px;
     font: 500 11px Inter, sans-serif !important;
     color: #c8cfdc !important;
+    min-width: 0;
+}
+.pet-yard-screen .pet-jutsu-row strong {
+    color: var(--bsv2-gold-bright) !important;
+    font: 600 11px Cinzel, serif !important;
+    letter-spacing: 0.04em !important;
+    word-break: normal !important;
+    overflow-wrap: anywhere !important;
+    line-height: 1.25 !important;
+    min-width: 0;
+    white-space: normal !important;
 }
 .pet-yard-screen .pet-jutsu-kind-badge {
-    background: rgba(78,168,255,0.18) !important;
-    color: var(--bsv2-player) !important;
-    border: 1px solid rgba(78,168,255,0.5) !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(10,16,32,0.85) !important;
+    padding: 2px 4px !important;
+    border-radius: 3px !important;
+    border-width: 1px !important;
+    border-style: solid !important;
+    font: 700 8px Cinzel, serif !important;
+    letter-spacing: 0.12em !important;
+    text-transform: uppercase !important;
+    line-height: 1.1 !important;
+    width: 58px !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.pet-yard-screen .pet-jutsu-stat {
+    background: linear-gradient(90deg, rgba(20,28,46,0.85), rgba(12,18,34,0.85)) !important;
+    border: 1px solid var(--bsv2-gold-faint) !important;
+    color: rgba(232,212,150,0.85) !important;
     padding: 2px 6px !important;
     border-radius: 3px !important;
-    font: 700 9px Cinzel, serif !important;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
+    font: 600 9px Inter, sans-serif !important;
+    letter-spacing: 0.04em !important;
+    white-space: nowrap !important;
+    font-variant-numeric: tabular-nums !important;
 }
 
 /* ----- Tags + chips ----- */
