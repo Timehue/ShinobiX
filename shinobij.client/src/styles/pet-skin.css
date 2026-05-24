@@ -105,7 +105,7 @@
     color: var(--bsv2-gold-bright) !important;
 }
 
-/* ----- Detail panel (selected pet) ----- */
+/* ----- Detail panel (selected pet) — translucent so pet-yard art shows ----- */
 .pet-yard-screen .pet-detail-panel,
 .pet-yard-screen .pet-detail-left,
 .pet-yard-screen .pet-profile-panel,
@@ -113,20 +113,32 @@
 .pet-yard-screen .pet-jutsu-panel,
 .pet-yard-screen .pet-training-panel,
 .pet-yard-screen .pet-feed-panel {
-    background: linear-gradient(180deg, rgba(20,28,46,0.65), rgba(10,16,32,0.75)) !important;
+    background: linear-gradient(180deg, rgba(8,12,24,0.45), rgba(5,9,18,0.55)) !important;
     border: 1px solid var(--bsv2-gold-faint) !important;
     border-radius: 6px !important;
     padding: 14px !important;
     margin-bottom: 12px;
     color: #e8edf5 !important;
+    backdrop-filter: blur(4px);
 }
 .pet-yard-screen .pet-detail-avatar {
     width: 120px; height: 120px;
     border: 2px solid var(--bsv2-gold-soft) !important;
     border-radius: 50% !important;
-    overflow: hidden;
+    overflow: hidden !important;
     box-shadow: 0 0 18px rgba(196,162,90,0.2), inset 0 0 12px rgba(0,0,0,0.5) !important;
     background: linear-gradient(135deg, #1a2238, #0a1020);
+    position: relative;
+}
+.pet-yard-screen .pet-detail-avatar img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    object-position: center !important;
+    border-radius: 50% !important;
+    display: block !important;
+    position: absolute !important;
+    inset: 0 !important;
 }
 .pet-yard-screen .pet-detail-initials,
 .pet-yard-screen .pet-initials {
