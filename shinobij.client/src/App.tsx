@@ -994,6 +994,22 @@ function defaultVnPortrait(name: string | undefined | null): string {
     return slug ? `/portraits/${slug}.png` : "";
 }
 
+// Lookup helper for VN scene backgrounds. Tries an event-specific image first,
+// then a biome-default. Drop PNGs into shinobij.client/public/scenes/ to enable.
+// CSS background-image silently ignores 404s, so absent files just fall through
+// to the biome gradient — no broken-image icon, no JS work needed.
+function defaultVnScene(eventId?: string | null, biome?: string | null): string {
+    if (eventId) {
+        const slug = eventId.trim().toLowerCase().replace(/[^a-z0-9-]/g, "");
+        if (slug) return `/scenes/${slug}.png`;
+    }
+    if (biome) {
+        const slug = biome.trim().toLowerCase().replace(/[^a-z0-9-]/g, "");
+        if (slug) return `/scenes/${slug}.png`;
+    }
+    return "";
+}
+
 type AchievementCategory =
     | "Progression" | "Combat" | "PvP" | "Ranked" | "Missions"
     | "Exploration" | "Wealth" | "Aura" | "Village" | "Trials"
@@ -9323,7 +9339,7 @@ function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, setPageI
     const splitLine = activeLine.includes(":") ? activeLine.split(":") : [page.speaker || event.vnSpeaker || "Narrator", activeLine];
     const speaker = splitLine[0].trim();
     const spoken = splitLine.slice(1).join(":").trim() || activeLine;
-    const pageImage = page.image || event.image;
+    const pageImage = page.image || event.image || defaultVnScene(event.id, event.biome);
     const savedRightWasPlayer = (page.rightName ?? "").trim().toLowerCase() === "player";
     const leftName = savedRightWasPlayer ? "Player" : (page.leftName || "Player");
     const rightName = savedRightWasPlayer ? (page.leftName || page.speaker || event.vnSpeaker || speaker) : (page.rightName || page.speaker || event.vnSpeaker || speaker);
@@ -9507,7 +9523,7 @@ function DungeonEncounter({
     const splitLine = activeLine.includes(":") ? activeLine.split(":") : [page.speaker || event.vnSpeaker || "Narrator", activeLine];
     const speaker = splitLine[0].trim();
     const spoken = splitLine.slice(1).join(":").trim() || activeLine;
-    const pageImage = page.image || event.image;
+    const pageImage = page.image || event.image || defaultVnScene(event.id, event.biome);
     const canBack = lineIndex > 0;
     const isLastLine = lineIndex >= pageDialogue.length - 1;
     const actionLabel = stage === "intro" ? "Challenge Seal One" : stage === "tile" ? "Start Tile Seal" : "Challenge Rare Pet";
@@ -20059,7 +20075,7 @@ function WorldMap({
         const speaker = splitLine[0].trim();
         const spoken = splitLine.slice(1).join(":").trim() || activeLine;
         const initials = speaker === "Narrator" ? "..." : speaker.split(" ").map((p) => p[0]).join("").slice(0, 2).toUpperCase();
-        const pageImage = page.image || vn.image || activePetEncounter.image;
+        const pageImage = page.image || vn.image || activePetEncounter.image || defaultVnScene(vn.id, "forest");
         const canBack = petVnLine > 0 || petVnPage > 0;
         const isLastPage = petVnPage >= pages.length - 1;
         const isLastLine = petVnLine >= pageDialogue.length - 1;
@@ -20169,7 +20185,7 @@ function WorldMap({
         const splitLine = activeLine.includes(":") ? activeLine.split(":") : [page.speaker || event.vnSpeaker || "Narrator", activeLine];
         const speaker = splitLine[0].trim();
         const spoken = splitLine.slice(1).join(":").trim() || activeLine;
-        const pageImage = page.image || event.image;
+        const pageImage = page.image || event.image || defaultVnScene(event.id, event.biome);
         const savedRightWasPlayer = (page.rightName ?? "").trim().toLowerCase() === "player";
         const leftName = savedRightWasPlayer ? "Player" : (page.leftName || "Player");
         const rightName = savedRightWasPlayer ? (page.leftName || page.speaker || event.vnSpeaker || speaker) : (page.rightName || page.speaker || event.vnSpeaker || speaker);
@@ -20231,7 +20247,7 @@ function WorldMap({
             setChestVnDone(true);
         }
 
-        const chestPageImage = ancientChestVn.vnPages?.[chestVnPage]?.image;
+        const chestPageImage = ancientChestVn.vnPages?.[chestVnPage]?.image || ancientChestVn.image || defaultVnScene(ancientChestVn.id, biome);
         return (
             <div className="card cinematic-card ancient-chest-vn-card">
                 <div className="visual-novel admin-vn-play">
@@ -20967,7 +20983,15 @@ function StoryHall({
     const speaker = splitLine[0].trim();
     const spoken = splitLine.slice(1).join(":").trim() || activeLine;
     const speakerInitials = speaker === "Narrator" ? "..." : speaker.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase();
-    return <div className="card cinematic-card"><div className="visual-novel"><div className="vn-header"><div><p className="act-label">{current.cinematicTitle}</p><h2>{current.title}</h2></div><div className="vn-progress">Chapter {character.storyProgress + 1}/{storyLine.length}</div></div><div className="vn-stage"><div className="vn-backdrop"><span className="vn-moon"></span><span className="vn-village-silhouette"></span></div><div className="vn-character mentor-character">{character.avatarImage ? <img src={character.avatarImage} alt={character.name} /> : character.name.slice(0, 2).toUpperCase()}</div><div className="vn-character hero-character">{speakerInitials}</div><div className="vn-scene-card">{current.scene}</div><div className="vn-dialogue"><div className="vn-speaker">{speaker}</div><p>{spoken}</p><div className="vn-controls"><button disabled={lineIndex === 0} onClick={() => setLineIndex((index) => Math.max(0, index - 1))}>Back</button>{lineIndex < current.dialogue.length - 1 ? <button onClick={() => setLineIndex((index) => Math.min(current.dialogue.length - 1, index + 1))}>Next</button> : locked ? <button disabled>Requires Level {current.levelReq}</button> : <button onClick={() => onStartBattle(current)}>Face {current.bossName}</button>}</div></div></div><div className="vn-choice-row"><button onClick={() => setLineIndex(0)}>Replay Scene</button><button onClick={() => setScreen("worldMap")}>Investigate World Map</button><button disabled={locked} onClick={() => onStartBattle(current)}>{current.bossIcon} Boss: {current.bossName}</button></div><div className="vn-reward-strip"><span>Requirement: Level {current.levelReq}</span><span>Reward: {effectiveCharacterXpGain(character, current.rewardXp)} XP / {current.rewardRyo} ryo</span></div>{creatorVnShelf}</div></div>;
+    const storyBiome: Biome = current.biome ?? (character.village?.toLowerCase().includes("frostfang") ? "snow"
+        : character.village?.toLowerCase().includes("stormveil") ? "shadow"
+        : character.village?.toLowerCase().includes("ember") || character.village?.toLowerCase().includes("ash") ? "volcano"
+        : character.village?.toLowerCase().includes("verdant") ? "forest"
+        : "central");
+    const storySceneBg = defaultVnScene(null, storyBiome);
+    const speakerPortrait = defaultVnPortrait(speaker);
+    const hideSpeakerSlot = !speakerPortrait && speaker.trim().toLowerCase() === "narrator";
+    return <div className="card cinematic-card"><div className="visual-novel"><div className="vn-header"><div><p className="act-label">{current.cinematicTitle}</p><h2>{current.title}</h2></div><div className="vn-progress">Chapter {character.storyProgress + 1}/{storyLine.length}</div></div><div className={"vn-stage vn-biome-" + storyBiome + (storySceneBg ? " vn-has-image" : "")} style={storySceneBg ? { backgroundImage: `linear-gradient(180deg, rgba(7,12,27,.18), rgba(7,12,27,.78)), url(${storySceneBg})` } : undefined}><div className="vn-backdrop"><span className="vn-moon"></span><span className="vn-village-silhouette"></span></div><div className="vn-character mentor-character">{character.avatarImage ? <img src={character.avatarImage} alt={character.name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} /> : null}<span className="vn-character-initials">{character.name.slice(0, 2).toUpperCase()}</span></div>{!hideSpeakerSlot && (<div className="vn-character hero-character">{speakerPortrait ? <img src={speakerPortrait} alt={speaker} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} /> : null}<span className="vn-character-initials">{speakerInitials}</span></div>)}<div className="vn-scene-card">{current.scene}</div><div className="vn-dialogue"><div className="vn-speaker">{speaker}</div><p>{spoken}</p><div className="vn-controls"><button disabled={lineIndex === 0} onClick={() => setLineIndex((index) => Math.max(0, index - 1))}>Back</button>{lineIndex < current.dialogue.length - 1 ? <button onClick={() => setLineIndex((index) => Math.min(current.dialogue.length - 1, index + 1))}>Next</button> : locked ? <button disabled>Requires Level {current.levelReq}</button> : <button onClick={() => onStartBattle(current)}>Face {current.bossName}</button>}</div></div></div><div className="vn-choice-row"><button onClick={() => setLineIndex(0)}>Replay Scene</button><button onClick={() => setScreen("worldMap")}>Investigate World Map</button><button disabled={locked} onClick={() => onStartBattle(current)}>{current.bossIcon} Boss: {current.bossName}</button></div><div className="vn-reward-strip"><span>Requirement: Level {current.levelReq}</span><span>Reward: {effectiveCharacterXpGain(character, current.rewardXp)} XP / {current.rewardRyo} ryo</span></div>{creatorVnShelf}</div></div>;
 }
 
 function StoryBoss({ character, updateCharacter, setScreen }: { character: Character; updateCharacter: (character: Character) => void; setScreen: (screen: Screen) => void }) {
