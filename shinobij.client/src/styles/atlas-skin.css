@@ -61,9 +61,9 @@
 }
 
 /* ----- Biome palettes ----- */
-.atlas-landmark[title*="Frostfang"]    { --sigil: '❄'; --glow: rgba(78,168,255,0.55);  color: #93c5fd !important; }
-.atlas-landmark[title*="Stormveil"]    { --sigil: '⚔'; --glow: rgba(74,222,128,0.5);   color: #86efac !important; }
-.atlas-landmark[title*="Ashen Leaf"]   { --sigil: '🔥'; --glow: rgba(248,113,113,0.55); }
+.atlas-landmark[title*="Frostfang"]    { --sigil: '❄'; --glow: rgba(78,168,255,0.55);   color: #93c5fd !important; }
+.atlas-landmark[title*="Stormveil"]    { --sigil: '⚡'; --glow: rgba(30,64,175,0.6);    color: #60a5fa !important; }
+.atlas-landmark[title*="Ashen Leaf"]   { --sigil: '🍃'; --glow: rgba(74,222,128,0.55);  color: #86efac !important; }
 .atlas-landmark[title*="Moonshadow"]   { --sigil: '🌙'; --glow: rgba(167,139,250,0.55); }
 .atlas-landmark.atlas-central          { --sigil: '⛩'; --glow: rgba(252,211,77,0.55);  color: #fcd34d !important; }
 .atlas-landmark.atlas-central {
