@@ -16847,10 +16847,26 @@ html[data-vp="xl"] .arena-fullscreen .combat-layout > .combat-side-hud:first-chi
     display: none !important;
 }
 
-/* On xl, combat-layout becomes 2-column (main area + enemy hud) */
+/* On xl, arena stretches to fill available width */
+html[data-vp="xl"] .arena-fullscreen {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+}
+
+/* On xl, combat-layout becomes 2-column (main area + enemy hud) — stretch grid wide */
 html[data-vp="xl"] .arena-fullscreen .combat-layout {
-    grid-template-columns: minmax(0, 1fr) minmax(130px, 170px) !important;
-    gap: 6px !important;
+    grid-template-columns: minmax(0, 1fr) minmax(120px, 155px) !important;
+    gap: 4px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+}
+
+/* Make the hex battlefield fill more of the available space */
+html[data-vp="xl"] .arena-fullscreen .hex-battlefield {
+    width: 100% !important;
+    max-width: 100% !important;
 }
 
 html[data-vp="xl"] .arena-fullscreen .combat-layout > .combat-main-area {
