@@ -33,6 +33,9 @@ import { StartScreen } from "./screens/StartScreen";
 import { CharacterCreator } from "./screens/CharacterCreator";
 import { Hospital } from "./screens/Hospital";
 import { VillageTavern } from "./screens/VillageTavern";
+import { AdminLogin, AdminPasswordReset, AdminClearAuthLock } from "./screens/AdminLogin";
+import { Cafeteria } from "./screens/Cafeteria";
+import { VillageLoreScreen } from "./screens/VillageLoreScreen";
 export type Screen =
     | "start"
     | "adminLogin"
@@ -416,7 +419,7 @@ export type Stats = {
 };
 
 type JutsuMastery = { jutsuId: string; level: number; xp: number };
-type AdminAccount = "Admin 1" | "Admin 2";
+export type AdminAccount = "Admin 1" | "Admin 2";
 type PetRarity = "standard" | "rare" | "legendary" | "mythic";
 type PetTrait = "Loyal" | "Aggressive" | "Guardian" | "Swift" | "Lucky" | "Battleborn";
 type PetTrainingType = "strength" | "endurance" | "agility" | "chakra" | "bond";
@@ -1239,7 +1242,7 @@ function villageOutskirtsSectorNumber(villageName: string): number {
 function villageForOutskirtsSector(sector: number): string | undefined {
     return villages.find((village) => villageOutskirtsSectorNumber(village) === sector);
 }
-const villageLore: Record<string, { icon: string; theme: string; lore: string }> = {
+export const villageLore: Record<string, { icon: string; theme: string; lore: string }> = {
     "Ashen Leaf Village": {
         icon: "⚔",
         theme: "The Traditional Path",
@@ -9092,58 +9095,6 @@ function MobileNav({
     );
 }
 
-function VillageLoreScreen({
-    character,
-    onBack,
-    onContinue,
-}: {
-    character: Character;
-    onBack: () => void;
-    onContinue: () => void;
-}) {
-    const loreData = villageLore[character.village] ?? {
-        icon: "⚔",
-        theme: "The Shinobi Path",
-        lore: "Your shinobi journey begins here.",
-    };
-
-    const [shownText, setShownText] = useState("");
-
-    useEffect(() => {
-        setShownText("");
-
-        let index = 0;
-        const timer = setInterval(() => {
-            index++;
-            setShownText(loreData.lore.slice(0, index));
-
-            if (index >= loreData.lore.length) {
-                clearInterval(timer);
-            }
-        }, 12);
-        return () => clearInterval(timer);
-    }, [character.village, loreData.lore]);
-
-    return (
-        <div className="card cinematic-card village-lore-screen">
-            <h1>{loreData.icon} {character.village}</h1>
-            <h3><em>{loreData.theme}</em></h3>
-
-            <div className="village-lore-text">
-                {shownText.split("\n").map((line, index) => (
-                    <p key={index}>{line}</p>
-                ))}
-            </div>
-
-            <div className="menu">
-                <button onClick={onBack}>Choose Another Village</button>
-                <button onClick={onContinue} className="admin-button">
-                    Begin Journey
-                </button>
-            </div>
-        </div>
-    );
-}
 function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, setPageIndex, setLineIndex, onCancel, onComplete, onBattle }: { event: CreatorEvent; character: Character; pageIndex: number; lineIndex: number; setPageIndex: (index: number | ((index: number) => number)) => void; setLineIndex: (index: number | ((index: number) => number)) => void; onCancel: () => void; onComplete: () => void; onBattle: (event: CreatorEvent, battle?: NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number]["battle"]) => void }) {
     const pages = event.vnPages && event.vnPages.length > 0 ? event.vnPages : [{ title: event.vnTitle || event.name, scene: event.vnScene || "", speaker: event.vnSpeaker || "Narrator", dialogue: event.dialogue, image: event.image }];
     const page = pages[Math.min(pageIndex, pages.length - 1)];
@@ -9456,135 +9407,6 @@ function DungeonPetBattle({ character, updateCharacter, editablePets, onWin, onL
             onExit={result === "Victory" ? onWin : onLeave}
             sharedImages={sharedImages}
         />
-    );
-}
-
-function AdminLogin({ onLogin, setScreen }: { onLogin: (account: AdminAccount, password: string) => void; setScreen: (screen: Screen) => void }) {
-    const [password, setPassword] = useState("");
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState("");
-
-    async function submit() {
-        const pw = password.trim();
-        if (!pw) return;
-        setLoading(true);
-        setError("");
-        try {
-            const res = await fetch('/api/admin-auth', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ password: pw }),
-            });
-            const data = await res.json() as { success: boolean; error?: string };
-            if (data.success) {
-                onLogin("Admin 1", pw);
-            } else {
-                setError("Incorrect password.");
-                setPassword("");
-            }
-        } catch {
-            setError("Could not reach server. Try again.");
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    return (
-        <div className="card creator-card">
-            <h2>Admin Login</h2>
-            <label>Password</label>
-            <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && submit()}
-                placeholder="Enter admin password"
-                disabled={loading}
-            />
-            {error && <p style={{ color: "var(--danger, #e55)", margin: "4px 0" }}>{error}</p>}
-            <div className="menu">
-                <button onClick={submit} disabled={loading || !password.trim()}>
-                    {loading ? "Checking…" : "Login"}
-                </button>
-                <button onClick={() => setScreen("start")} disabled={loading}>Back</button>
-            </div>
-        </div>
-    );
-}
-
-function AdminPasswordReset({ adminPw }: { adminPw: string }) {
-    const [targetName, setTargetName] = useState("");
-    const [newPw, setNewPw] = useState("");
-    const [msg, setMsg] = useState("");
-
-    async function submit() {
-        if (!targetName.trim() || !newPw.trim()) { setMsg("Enter a player name and new password."); return; }
-        if (newPw.length < 6) { setMsg("Password must be at least 6 characters."); return; }
-        if (!adminPw) { setMsg("❌ Admin password missing. Log out and back into admin."); return; }
-        setMsg("Resetting…");
-        const controller = new AbortController();
-        const timeoutId = window.setTimeout(() => controller.abort(), 15000);
-        try {
-            const res = await fetch('/api/player-auth', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPw },
-                body: JSON.stringify({ action: 'adminreset', name: targetName.trim().toLowerCase(), newPassword: newPw }),
-                signal: controller.signal,
-            });
-            const data = await res.json() as { ok: boolean; error?: string };
-            setMsg(data.ok ? `✅ Password reset for ${targetName.trim()}.` : `❌ ${data.error ?? `Failed with HTTP ${res.status}.`}`);
-            if (data.ok) { setTargetName(""); setNewPw(""); }
-        } catch (error) {
-            setMsg(error instanceof DOMException && error.name === "AbortError" ? "❌ Reset timed out. Check the API debug page and try again." : "❌ Network error.");
-        } finally {
-            window.clearTimeout(timeoutId);
-        }
-    }
-
-    return (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <p className="hint" style={{ margin: 0 }}>Set a new password for a player (e.g. for account recovery). The player's old password is not needed.</p>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <input placeholder="Player name" value={targetName} onChange={e => setTargetName(e.target.value)} style={{ flex: 1, minWidth: 140 }} />
-                <input type="password" placeholder="New password (min 6)" value={newPw} onChange={e => setNewPw(e.target.value)} style={{ flex: 1, minWidth: 160 }} />
-                <button onClick={submit}>Reset</button>
-            </div>
-            {msg && <p className="hint" style={{ color: msg.startsWith("✅") ? "#4ade80" : "#f87171", margin: 0 }}>{msg}</p>}
-        </div>
-    );
-}
-
-function AdminClearAuthLock({ adminPw }: { adminPw: string }) {
-    const [targetName, setTargetName] = useState("");
-    const [msg, setMsg] = useState("");
-
-    async function submit() {
-        if (!targetName.trim()) { setMsg("Enter a player name."); return; }
-        if (!adminPw) { setMsg("❌ Admin password missing."); return; }
-        setMsg("Clearing…");
-        try {
-            const res = await fetch('/api/player-auth', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPw },
-                body: JSON.stringify({ action: 'delete', name: targetName.trim().toLowerCase() }),
-            });
-            const data = await res.json() as { ok: boolean; error?: string };
-            setMsg(data.ok ? `✅ Auth lock cleared for ${targetName.trim()}. They can now create a fresh account.` : `❌ ${data.error ?? `Failed with HTTP ${res.status}.`}`);
-            if (data.ok) setTargetName("");
-        } catch {
-            setMsg("❌ Network error.");
-        }
-    }
-
-    return (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <p className="hint" style={{ margin: 0 }}>Use when a player has a password record but no save data (stuck in "account exists" loop). Clears the auth lock so they can re-register with the same name.</p>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <input placeholder="Player name" value={targetName} onChange={e => setTargetName(e.target.value)} style={{ flex: 1, minWidth: 140 }} />
-                <button onClick={submit}>Clear Auth Lock</button>
-            </div>
-            {msg && <p className="hint" style={{ color: msg.startsWith("✅") ? "#4ade80" : "#f87171", margin: 0 }}>{msg}</p>}
-        </div>
     );
 }
 
@@ -18318,10 +18140,6 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
 export type TavernMessage = { author: string; text: string; ts: number; rank?: string; customTitle?: string; level?: number };
 
 
-function Cafeteria({ character, updateCharacter }: { character: Character; updateCharacter: (character: Character) => void }) {
-    function eat(name: string, cost: number, hp: number, chakra: number, stamina: number) { if (character.ryo < cost) return alert("Not enough ryo."); updateCharacter({ ...character, ryo: character.ryo - cost, hp: Math.min(character.maxHp, character.hp + hp), chakra: Math.min(character.maxChakra, character.chakra + chakra), stamina: Math.min(character.maxStamina, character.stamina + stamina) }); alert(`${name} restored your resources.`); }
-    return <div className="card"><h2>Cafeteria</h2><p>Ryo: {character.ryo}</p><div className="location-grid"><button className="location-button" onClick={() => eat("Small Ramen", 20, 25, 10, 10)}>🍜 Small Ramen<br /><small>+25 HP +10 Chakra +10 Stamina</small></button><button className="location-button" onClick={() => eat("Shinobi Meal", 50, 75, 35, 35)}>🍱 Shinobi Meal<br /><small>+75 HP +35 Chakra +35 Stamina</small></button><button className="location-button" onClick={() => eat("Feast", 100, 9999, 9999, 9999)}>🎉 Feast<br /><small>Full restore</small></button></div></div>;
-}
 function SunscarFestival({
     character,
     updateCharacter,
