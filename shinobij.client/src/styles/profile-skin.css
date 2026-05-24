@@ -862,6 +862,16 @@
     background: rgba(0,0,0,0.28);
     transition: transform 120ms, border-color 120ms, box-shadow 120ms;
     min-width: 0;
+    /* Reset native <button> styling so the badge looks identical to before */
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    width: 100%;
+}
+.profile-page-card .achievement-badge:focus-visible {
+    outline: 2px solid var(--bsv2-gold-bright);
+    outline-offset: 2px;
 }
 .profile-page-card .achievement-badge.unlocked {
     border-color: rgba(196,162,90,0.55);
@@ -1009,4 +1019,134 @@
     font: 400 10px/1.4 Inter, sans-serif !important;
     color: rgba(200,207,220,0.7) !important;
     margin: 8px 0 0 0 !important;
+}
+
+/* -------- Achievement detail modal -------- */
+.achievement-detail-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10001;
+    background: rgba(2, 6, 23, 0.78);
+    backdrop-filter: blur(6px);
+    display: grid;
+    place-items: center;
+    padding: 20px;
+    animation: ach-overlay-fade 180ms ease-out;
+}
+.achievement-detail-card {
+    position: relative;
+    width: min(420px, 100%);
+    background: linear-gradient(180deg, rgba(12,18,34,0.98) 0%, rgba(6,10,22,1) 100%);
+    border: 1px solid rgba(196,162,90,0.6);
+    border-radius: 10px;
+    box-shadow: 0 24px 48px rgba(0,0,0,0.8), 0 0 32px rgba(196,162,90,0.3), inset 0 1px 0 rgba(255,255,255,0.06);
+    padding: 28px 24px 24px;
+    color: #e8edf5;
+    text-align: center;
+    animation: ach-card-in 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.achievement-detail-card.is-secret {
+    border-color: rgba(206,147,216,0.7);
+    box-shadow: 0 24px 48px rgba(0,0,0,0.8), 0 0 32px rgba(206,147,216,0.35), inset 0 1px 0 rgba(255,255,255,0.06);
+}
+.achievement-detail-close {
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    background: transparent;
+    border: none;
+    color: rgba(196,162,90,0.7);
+    font: 700 22px/1 Inter, sans-serif;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: color 120ms, background 120ms;
+}
+.achievement-detail-close:hover {
+    color: var(--bsv2-gold-bright);
+    background: rgba(196,162,90,0.12);
+}
+.achievement-detail-badge {
+    position: relative;
+    width: 180px;
+    height: 180px;
+    margin: 0 auto 18px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: radial-gradient(circle at 30% 30%, rgba(232,212,150,0.22), rgba(0,0,0,0.7) 70%);
+    display: grid;
+    place-items: center;
+    border: 2px solid rgba(196,162,90,0.6);
+    box-shadow: 0 0 32px rgba(196,162,90,0.4), inset 0 0 24px rgba(0,0,0,0.6);
+}
+.achievement-detail-card.is-secret .achievement-detail-badge {
+    border-color: rgba(206,147,216,0.7);
+    box-shadow: 0 0 32px rgba(206,147,216,0.45), inset 0 0 24px rgba(0,0,0,0.6);
+}
+.achievement-detail-badge img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 1;
+}
+.achievement-detail-emoji {
+    font-size: 72px;
+    line-height: 1;
+}
+.achievement-detail-category {
+    font: 600 10px Cinzel, serif;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--bsv2-gold);
+    margin: 0 0 6px 0;
+}
+.achievement-detail-card.is-secret .achievement-detail-category {
+    color: #ce93d8;
+}
+.achievement-detail-name {
+    font: 700 22px Cinzel, serif;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--bsv2-gold-bright);
+    margin: 0 0 12px 0;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.7);
+}
+.achievement-detail-card.is-secret .achievement-detail-name {
+    color: #f0c9ff;
+}
+.achievement-detail-desc {
+    font: 400 14px/1.5 Inter, sans-serif;
+    color: #c8cfdc;
+    margin: 0 0 16px 0;
+}
+.achievement-detail-date {
+    font: 500 11px Cinzel, serif;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--bsv2-gold);
+    margin: 0;
+    padding-top: 12px;
+    border-top: 1px solid rgba(196,162,90,0.22);
+}
+@keyframes ach-overlay-fade {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+@keyframes ach-card-in {
+    from { opacity: 0; transform: translateY(12px) scale(0.96); }
+    to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+@media (max-width: 480px) {
+    .achievement-detail-badge {
+        width: 140px;
+        height: 140px;
+    }
+    .achievement-detail-emoji {
+        font-size: 56px;
+    }
+    .achievement-detail-name {
+        font-size: 18px;
+    }
 }
