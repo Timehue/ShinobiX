@@ -56,7 +56,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // CDN caches this response for 20s so N players polling every 30s share
             // one KV hit per cache window instead of N individual hits.
             // stale-while-revalidate=10 keeps the response snappy while the next fetch runs.
-            res.setHeader('Cache-Control', 's-maxage=20, stale-while-revalidate=10');
+            res.setHeader('Cache-Control', 's-maxage=8, stale-while-revalidate=5');
             return res.status(200).json({
                 villageStates,
                 villageLeadershipImages: leadershipImages ?? null,
