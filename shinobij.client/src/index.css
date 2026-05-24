@@ -18610,3 +18610,158 @@ html[data-vp="xxl"] .banner-mobile-timers {
         padding: 4px 8px;
     }
 }
+
+/* =========================================================================
+   Battle Skin v2 — visual polish pass (CSS-only)
+   Scoped under .pvp-battle-layout so nothing else is affected.
+   To revert: delete this block.
+   ========================================================================= */
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&display=swap');
+
+.pvp-battle-layout {
+    --bsv2-gold:        #c4a25a;
+    --bsv2-gold-bright: #e8d496;
+    --bsv2-gold-soft:   rgba(196,162,90,0.45);
+    --bsv2-gold-faint:  rgba(196,162,90,0.22);
+    --bsv2-ink:         #050a18;
+    --bsv2-ink-2:       #0a1428;
+    --bsv2-player:      #4ea8ff;
+    --bsv2-enemy:       #e04444;
+}
+
+.pvp-battle-layout .arena-title-panel,
+.pvp-battle-layout .arena-title-panel h1,
+.pvp-battle-layout .arena-title-panel h2 {
+    font-family: 'Cinzel', serif !important;
+    letter-spacing: 0.22em;
+    color: var(--bsv2-gold-bright);
+    text-shadow: 0 2px 4px rgba(0,0,0,0.8), 0 0 24px rgba(196,162,90,0.25);
+}
+
+.pvp-battle-layout .arena-top-panel,
+.pvp-battle-layout .battle-hud-sidebar,
+.pvp-battle-layout .jutsu-layout-card,
+.pvp-battle-layout .combat-jutsu-bar {
+    background: linear-gradient(180deg, rgba(12,18,34,0.92) 0%, rgba(6,10,22,0.96) 100%) !important;
+    border: 1px solid var(--bsv2-gold-faint) !important;
+    border-radius: 6px;
+    box-shadow:
+        0 8px 24px rgba(0,0,0,0.5),
+        inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+.pvp-battle-layout .twp-strip {
+    border-top: 1px solid var(--bsv2-gold-faint);
+    border-bottom: 1px solid var(--bsv2-gold-faint);
+    font-family: 'Cinzel', serif;
+    letter-spacing: 0.05em;
+    color: rgba(232,212,150,0.85);
+}
+.pvp-battle-layout .twp-strip-label {
+    color: rgba(196,162,90,0.7);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-size: 0.85em;
+}
+.pvp-battle-layout .twp-buff.twp-positive { color: #6fd47a; }
+.pvp-battle-layout .twp-buff.twp-negative { color: var(--bsv2-enemy); }
+
+.pvp-battle-layout .dual-ap-panel .hud-bar {
+    background: linear-gradient(180deg, var(--bsv2-ink-2) 0%, var(--bsv2-ink) 100%) !important;
+    border: 1px solid var(--bsv2-gold-soft) !important;
+    border-radius: 4px;
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.04),
+        inset 0 0 12px rgba(0,0,0,0.6);
+    overflow: hidden;
+}
+.pvp-battle-layout .dual-ap-panel .ap-display-bar > span {
+    background: linear-gradient(180deg, #4ea8ff 0%, #1e5bbf 100%) !important;
+    box-shadow: 0 0 14px rgba(78,168,255,0.55), inset 0 1px 0 rgba(255,255,255,0.35);
+}
+.pvp-battle-layout .dual-ap-panel .enemy-ap-display-bar > span {
+    background: linear-gradient(180deg, #ff5a5a 0%, #b51e1e 100%) !important;
+    box-shadow: 0 0 14px rgba(255,90,90,0.55), inset 0 1px 0 rgba(255,255,255,0.3);
+}
+
+.pvp-battle-layout .round-timer-display .round-timer-ring {
+    border-color: var(--bsv2-gold-soft);
+}
+.pvp-battle-layout .round-timer-display .round-timer-num {
+    font-family: 'Cinzel', serif;
+    color: var(--bsv2-gold-bright);
+}
+
+.pvp-battle-layout .basic-action-bar button {
+    background: linear-gradient(180deg, #1a2238 0%, #0a1020 100%) !important;
+    border: 1px solid var(--bsv2-gold-soft) !important;
+    border-radius: 4px;
+    color: var(--bsv2-gold-bright) !important;
+    font-family: 'Cinzel', serif;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.06),
+        inset 0 -2px 0 rgba(0,0,0,0.5),
+        0 2px 4px rgba(0,0,0,0.5);
+    transition: transform 80ms, border-color 120ms, box-shadow 120ms;
+}
+.pvp-battle-layout .basic-action-bar button:hover:not(:disabled) {
+    border-color: rgba(232,212,150,0.8) !important;
+    transform: translateY(-1px);
+}
+.pvp-battle-layout .basic-action-bar button.selected-action {
+    border-color: var(--bsv2-player) !important;
+    box-shadow:
+        0 0 16px rgba(78,168,255,0.45),
+        inset 0 1px 0 rgba(255,255,255,0.1);
+}
+.pvp-battle-layout .basic-action-bar button small {
+    font-family: 'Inter', system-ui, sans-serif;
+    text-transform: none;
+    letter-spacing: 0.06em;
+    color: rgba(196,162,90,0.7);
+}
+
+.pvp-battle-layout .combat-jutsu-card-wrap,
+.pvp-battle-layout .combat-jutsu-button {
+    background: linear-gradient(180deg, rgba(15,22,40,0.92) 0%, rgba(8,12,24,0.96) 100%) !important;
+    border: 1px solid var(--bsv2-gold-soft) !important;
+    border-radius: 6px;
+    box-shadow:
+        0 2px 0 rgba(0,0,0,0.6),
+        0 0 0 1px rgba(0,0,0,0.4),
+        inset 0 0 24px rgba(0,0,0,0.55);
+    transition: border-color 120ms, box-shadow 120ms, transform 120ms;
+}
+.pvp-battle-layout .combat-jutsu-button:hover {
+    border-color: rgba(78,168,255,0.85) !important;
+    box-shadow:
+        0 0 18px rgba(78,168,255,0.35),
+        inset 0 0 24px rgba(0,0,0,0.55);
+    transform: translateY(-2px);
+}
+.pvp-battle-layout .combat-jutsu-button.selected-action {
+    border-color: var(--bsv2-player) !important;
+    box-shadow:
+        0 0 18px rgba(78,168,255,0.55),
+        inset 0 0 24px rgba(0,0,0,0.55);
+}
+.pvp-battle-layout .combat-jutsu-name {
+    font-family: 'Cinzel', serif !important;
+    color: #f4e6c4;
+    letter-spacing: 0.06em;
+    text-shadow: 0 1px 2px #000, 0 0 8px rgba(0,0,0,0.9);
+}
+.pvp-battle-layout .combat-jutsu-info {
+    font-family: 'Inter', system-ui, sans-serif;
+    letter-spacing: 0.08em;
+    color: rgba(196,162,90,0.85) !important;
+}
+
+.pvp-battle-layout .battle-hud-sidebar .hud-bar {
+    background: rgba(0,0,0,0.5);
+    border: 1px solid rgba(196,162,90,0.2);
+    border-radius: 3px;
+    box-shadow: inset 0 0 4px rgba(0,0,0,0.6);
+}
