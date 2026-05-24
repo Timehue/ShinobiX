@@ -659,3 +659,12 @@
     color: #c8cfdc !important;
     font: 500 10px Inter, sans-serif !important;
 }
+
+/* Hide the persistent LeftProfileCard whenever a battle screen is mounted.
+   Uses :has() so any screen that renders .arena-fullscreen (arena, battleArena,
+   pvpBattle, storyBoss, petArena, dungeon, etc.) hides the side card. */
+body:has(.arena-fullscreen) .left-profile-card,
+.game:has(.arena-fullscreen) .left-profile-card,
+#root:has(.arena-fullscreen) .left-profile-card {
+    display: none !important;
+}
