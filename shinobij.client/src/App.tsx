@@ -25408,7 +25408,7 @@ function Arena({
                                     // Join as spectator
                                     fetch(`/api/pvp/spectate?id=${encodeURIComponent(fight.battleId)}`, {
                                         method: "POST",
-                                        headers: { "Content-Type": "application/json", "x-player-name": character.name, "x-player-password": localStorage.getItem("playerPassword") ?? "" },
+                                        headers: { "Content-Type": "application/json" },
                                         body: JSON.stringify({ name: character.name, action: "join" }),
                                     }).catch(() => {});
                                     setPvpBattleId(fight.battleId);
@@ -26470,11 +26470,7 @@ function PvpBattleScreen({
         setBattleChatMessages(prev => [...prev, optimisticMsg]);
         fetch(`/api/pvp/chat?id=${encodeURIComponent(battleId)}`, {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "x-player-name": character.name,
-                "x-player-password": localStorage.getItem("playerPassword") ?? "",
-            },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ author: character.name, text, role: chatRole }),
         })
             .then(r => {
