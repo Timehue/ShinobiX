@@ -27685,11 +27685,11 @@ function Arena({
                     </div>
                     <div className="combat-text-log combat-timeline">
                         <div className="combat-log-header">
-                            <strong>Timeline</strong>
+                            <strong>Battle Log</strong>
                             <span>{activeActor === "player" ? `${character.name}'s turn` : `${opponentName}'s turn`}</span>
                         </div>
                         {battleHistory.length === 0 ? (
-                            <p>No timeline entries yet.</p>
+                            <p>No entries yet.</p>
                         ) : (
                             timelineRounds.map((roundGroup) => (
                                 <section className="timeline-round" key={roundGroup.round}>
@@ -27709,7 +27709,7 @@ function Arena({
 
                     <div className="battle-command-panel">
                         <button onClick={() => resetBattle()}>Reset Battle</button>
-                        <span>Timeline {battleHistory.length} actions</span>
+                        <span>Battle Log · {battleHistory.length} actions</span>
                         <div className="log">{log}</div>
                     </div>
                 </main>
@@ -29016,11 +29016,11 @@ function PvpBattleScreen({
 
                     <div ref={logRef} className="combat-text-log combat-timeline">
                         <div className="combat-log-header">
-                            <strong>Timeline</strong>
+                            <strong>Battle Log</strong>
                             <span>{isMyTurn ? "Your Turn" : `${opp.name}'s Turn`}</span>
                         </div>
                         {session.log.length === 0 ? (
-                            <p>No timeline entries yet.</p>
+                            <p>No entries yet.</p>
                         ) : pvpLogRounds.length > 0 ? pvpLogRounds.map(group => (
                             <section className="timeline-round" key={group.round}>
                                 <div className="timeline-round-header">
