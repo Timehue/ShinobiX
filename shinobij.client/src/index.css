@@ -16893,6 +16893,32 @@ html[data-vp="xl"] .arena-fullscreen .hex-battlefield {
     width: 100% !important;
     max-width: 100% !important;
     overflow: hidden !important;
+    grid-template-columns: repeat(12, 84px) !important;
+    grid-auto-rows: 64px !important;
+}
+
+html[data-vp="xl"] .arena-fullscreen .hex-tile {
+    width: 90px !important;
+    height: 77px !important;
+    margin-left: -6px !important;
+    margin-top: -2px !important;
+    font-size: 30px !important;
+}
+
+/* Offset rows: half of column width (84/2 = 42) */
+html[data-vp="xl"] .arena-fullscreen .hex-tile:nth-child(24n+13),
+html[data-vp="xl"] .arena-fullscreen .hex-tile:nth-child(24n+14),
+html[data-vp="xl"] .arena-fullscreen .hex-tile:nth-child(24n+15),
+html[data-vp="xl"] .arena-fullscreen .hex-tile:nth-child(24n+16),
+html[data-vp="xl"] .arena-fullscreen .hex-tile:nth-child(24n+17),
+html[data-vp="xl"] .arena-fullscreen .hex-tile:nth-child(24n+18),
+html[data-vp="xl"] .arena-fullscreen .hex-tile:nth-child(24n+19),
+html[data-vp="xl"] .arena-fullscreen .hex-tile:nth-child(24n+20),
+html[data-vp="xl"] .arena-fullscreen .hex-tile:nth-child(24n+21),
+html[data-vp="xl"] .arena-fullscreen .hex-tile:nth-child(24n+22),
+html[data-vp="xl"] .arena-fullscreen .hex-tile:nth-child(24n+23),
+html[data-vp="xl"] .arena-fullscreen .hex-tile:nth-child(24n+24) {
+    transform: translateX(42px) !important;
 }
 
 html[data-vp="xl"] .arena-fullscreen .combat-layout > .combat-main-area {
