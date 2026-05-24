@@ -2637,7 +2637,7 @@ function rebalanceNonBloodlineJutsu(jutsu: Jutsu): Jutsu {
 
 const starterJutsus: Jutsu[] = [
     // All jutsus: stored EP=28 (base). PvP/PvE scales +0.2 per mastery level ? EP 38 at mastery 50. Tags stored at 30% ? displays as 20% at mastery 0 via effectiveTagPercent.
-    makeJutsu("starter-nin-earth-1", "Stone Needle Volley", "Ninjutsu", 40, 4, 28, 1, 125, 125, [{ name: "Pierce", percent: 0 }], "Earth"),
+    makeJutsu("starter-nin-earth-1", "Stone Needle Volley", "Ninjutsu", 60, 4, 28, 1, 125, 125, [{ name: "Pierce", percent: 0 }], "Earth"),
     makeJutsu("starter-nin-earth-2", "Mud Coffin Bind", "Ninjutsu", 60, 3, 30, 3, 250, 250, [{ name: "Stun", percent: 0 }], "Earth"),
     makeJutsu("starter-nin-earth-3", "Iron Sand Burst", "Ninjutsu", 40, 3, 27, 2, 125, 125, [{ name: "Wound", percent: 18 }], "Earth"),
     makeJutsu("starter-nin-wind-1", "Vacuum Palm Wave", "Ninjutsu", 40, 5, 20, 1, 125, 125, [{ name: "Push", percent: 0 }], "Wind"),
@@ -2655,7 +2655,7 @@ const starterJutsus: Jutsu[] = [
 
     makeJutsu("starter-tai-earth-1", "Granite Elbow", "Taijutsu", 40, 1, 35, 1, 125, 125, [{ name: "Damage", percent: 100 }], "Earth"),
     makeJutsu("starter-tai-earth-2", "Boulder Heel Drop", "Taijutsu", 60, 1, 30, 2, 250, 250, [{ name: "Increase Damage Given", percent: 16 }], "Earth"),
-    makeJutsu("starter-tai-earth-3", "Rooted Guard Break", "Taijutsu", 40, 1, 26, 2, 125, 125, [{ name: "Pierce", percent: 0 }], "Earth"),
+    makeJutsu("starter-tai-earth-3", "Rooted Guard Break", "Taijutsu", 60, 1, 26, 2, 125, 125, [{ name: "Pierce", percent: 0 }], "Earth"),
     makeJutsu("starter-tai-wind-1", "Tempest Step Kick", "Taijutsu", 40, 2, 20, 1, 125, 125, [{ name: "Move", percent: 0 }], "Wind"),
     makeJutsu("starter-tai-wind-2", "Rising Gale Combo", "Taijutsu", 60, 1, 30, 2, 250, 250, [{ name: "Increase Damage Taken", percent: 16 }], "Wind"),
     makeJutsu("starter-tai-wind-3", "Spiral Backfist", "Taijutsu", 40, 1, 21, 1, 125, 125, [{ name: "Push", percent: 0 }], "Wind"),
@@ -2687,7 +2687,7 @@ const starterJutsus: Jutsu[] = [
 
     makeJutsu("starter-buki-earth-1", "Stone Kunai Rain", "Bukijutsu", 40, 4, 32, 1, 125, 125, [{ name: "Damage", percent: 100 }], "Earth"),
     makeJutsu("starter-buki-earth-2", "Adamant Chain Pull", "Bukijutsu", 60, 4, 30, 2, 250, 250, [{ name: "Push", percent: 0 }], "Earth"),
-    makeJutsu("starter-buki-earth-3", "Obsidian Edge", "Bukijutsu", 40, 2, 26, 1, 125, 125, [{ name: "Pierce", percent: 0 }], "Earth"),
+    makeJutsu("starter-buki-earth-3", "Obsidian Edge", "Bukijutsu", 60, 2, 26, 1, 125, 125, [{ name: "Pierce", percent: 0 }], "Earth"),
     makeJutsu("starter-buki-wind-1", "Windmill Shuriken Line", "Bukijutsu", 40, 5, 27, 1, 125, 125, [{ name: "Wound", percent: 14 }], "Wind"),
     makeJutsu("starter-buki-wind-2", "Aerial Blade Fan", "Bukijutsu", 60, 5, 30, 2, 250, 250, [{ name: "Increase Damage Given", percent: 16 }], "Wind"),
     makeJutsu("starter-buki-wind-3", "Crosswind Needle", "Bukijutsu", 40, 5, 22, 1, 125, 125, [{ name: "Decrease Damage Taken", percent: 16 }], "Wind"),
@@ -2751,7 +2751,7 @@ const starterSavedBloodlines: SavedBloodline[] = [
         specialElement: "Blood",
         lore: "A cursed kekkei genkai born from a clan that broke a forbidden pact with blood spirits. Those awakened by the Ashen Eyes see the world through a veil of crimson — perceiving every living being as a tapestry of veins and chakra pathways. The afflicted can shatter hallucinations directly into their opponent's bloodstream, weaponizing the very sight of life itself. Ancient texts warn that prolonged use slowly turns the user's own eyes the color of ash and bone.",
         jutsus: [
-            makeStarterBloodlineDamageJutsu("ashen-eyes-blood-gaze", "Blood Gaze Rupture", "Genjutsu", "Blood", { name: "Wound", percent: 35 }),
+            makeStarterBloodlineDamageJutsu("ashen-eyes-blood-gaze", "Blood Gaze Rupture", "Genjutsu", "Blood", { name: "Wound", percent: 30 }),
             makeStarterBloodlineDamageJutsu("ashen-eyes-crimson-hall", "Crimson Hallucination", "Genjutsu", "Blood", { name: "Increase Damage Taken", percent: 35 }),
             makeStarterBloodlineDamageJutsu("ashen-eyes-vein-mirror", "Vein Mirror Nightmare", "Genjutsu", "Blood", { name: "Poison", percent: 30 }),
             makeStarterBloodlineUtilityJutsu("ashen-eyes-hematoma-veil", "Hematoma Veil", "Genjutsu", "Blood", [{ name: "Increase Damage Taken", percent: 30 }, { name: "Decrease Damage Given", percent: 30 }]),
@@ -2767,7 +2767,7 @@ const starterSavedBloodlines: SavedBloodline[] = [
         jutsus: [
             makeStarterBloodlineDamageJutsu("inferno-cataclysm-lava-burst", "Lava Burst Coffin", "Ninjutsu", "Lava", { name: "Ignition", percent: 30 }),
             makeStarterBloodlineDamageJutsu("inferno-cataclysm-molten-rain", "Molten Rainfall", "Ninjutsu", "Lava", { name: "Increase Damage Given", percent: 35 }),
-            makeStarterBloodlineDamageJutsu("inferno-cataclysm-crater-lance", "Crater Lance", "Ninjutsu", "Lava", { name: "Wound", percent: 35 }),
+            makeStarterBloodlineDamageJutsu("inferno-cataclysm-crater-lance", "Crater Lance", "Ninjutsu", "Lava", { name: "Wound", percent: 30 }),
             makeStarterBloodlineUtilityJutsu("inferno-cataclysm-obsidian-afterglow", "Obsidian Afterglow", "Ninjutsu", "Lava", [{ name: "Ignition", percent: 30 }, { name: "Decrease Damage Given", percent: 30 }]),
         ],
         totalPoints: 9,
@@ -2793,7 +2793,7 @@ const starterSavedBloodlines: SavedBloodline[] = [
         specialElement: "Iron",
         lore: "A taijutsu bloodline born from miners who fused raw metallic chakra into their fighting style over ten generations. Iron Fang users can coat their limbs in magnetized iron-dense chakra, turning every punch and kick into a shattering impact that tears armor and breaks weapons. Their fists leave cracked stone. Some high-level users develop iron-grey patches on their knuckles, shins, and forearms — natural battle plating grown from within. The clan motto: 'The mountain doesn't dodge. It endures. Then it falls on you.'",
         jutsus: [
-            makeStarterBloodlineDamageJutsu("iron-fang-ferrous-crash", "Ferrous Fang Crash", "Taijutsu", "Iron", { name: "Wound", percent: 35 }),
+            makeStarterBloodlineDamageJutsu("iron-fang-ferrous-crash", "Ferrous Fang Crash", "Taijutsu", "Iron", { name: "Wound", percent: 30 }),
             makeStarterBloodlineDamageJutsu("iron-fang-steel-maw", "Steel Maw Breaker", "Taijutsu", "Iron", { name: "Increase Damage Given", percent: 35 }),
             makeStarterBloodlineDamageJutsu("iron-fang-magnet-knuckle", "Magnet Knuckle Rend", "Taijutsu", "Iron", { name: "Decrease Damage Taken", percent: 35 }),
             makeStarterBloodlineUtilityJutsu("iron-fang-anvil-breath", "Anvil Breath Guard", "Taijutsu", "Iron", [{ name: "Increase Damage Given", percent: 30 }, { name: "Decrease Damage Taken", percent: 30 }]),
@@ -5544,7 +5544,7 @@ export function jutsuEffectInfo(jutsu: Jutsu, tag: JutsuTag) {
     if (tag.name === "Stun Prevent") return { summary: "Prevents stun.", rule: "Always protects against incoming Stun.", duration: "2 rounds", value: "Always" };
     if (tag.name === "Poison") return { summary: `Poisons the target — deals ${pct}% of their max chakra as damage each round.`, rule: "Applies a 2-round negative status that deals damage based on the target's chakra pool.", duration: "2 rounds", value: `${pct}% chakra` };
     if (tag.name === "Drain") return { summary: "Drains the target of 250 HP, chakra, and stamina each round.", rule: "Applies a 2-round negative status that reduces HP, chakra, and stamina simultaneously.", duration: "2 rounds", value: "250/round" };
-    if (tag.name === "Pierce") return { summary: "True damage — 900 damage no matter what.", rule: "Ignores armor, shields, damage reduction, damage buffs, and damage debuffs. Bloodline builder only allows Pierce on 60 AP jutsus.", duration: "Instant", value: "900" };
+    if (tag.name === "Pierce") return { summary: "True damage — up to 900, scaled by offense + mastery.", rule: "Ignores armor, shields, damage reduction, damage buffs, and damage debuffs. Pierce jutsus must be 60 AP, and you can equip at most one Pierce jutsu in a loadout. At max stats the cap of 900 is always reached.", duration: "Instant", value: "≤900" };
     if (tag.name === "Copy") return { summary: "Copies enemy positive effects.", rule: "Always copies active positive statuses from the target to the user.", duration: "Up to 2 rounds", value: "Always" };
     if (tag.name === "Mirror") return { summary: "Mirrors negative effects back to the enemy.", rule: "Always transfers the user's non-damage-over-time negative statuses to the target.", duration: "Up to 2 rounds", value: "Always" };
     if (tagMatchesName(tag.name, "Lag")) return { summary: "Increases enemy AP costs.", rule: "Always adds a negative status that makes enemy actions cost more AP for 1 round.", duration: "1 round", value: "Always" };
@@ -5671,7 +5671,8 @@ export function scaleJutsuTagsForDisplay(jutsu: Jutsu, level: number): Jutsu {
 }
 
 function blankJutsu(index: number, rank: Rank): Jutsu {
-    const defaultPercent = rank === "S Rank" ? 40 : 35;
+    // v4.3: Wound rank caps — S Rank tops at 35%, A/B at 30%.
+    const defaultPercent = rank === "S Rank" ? 35 : 30;
     return makeJutsu(makeId(), `Jutsu ${index + 1}`, "Ninjutsu", 60, 4, 40, 7, 300, 300, [
         { name: "", percent: defaultPercent },
         { name: "", percent: defaultPercent },
@@ -5679,7 +5680,8 @@ function blankJutsu(index: number, rank: Rank): Jutsu {
 }
 function jutsuCountForRank(rank: Rank) { return rank === "B Rank" ? 4 : 5; }
 function pointBudgetForRank(rank: Rank) { return rank === "S Rank" ? 11 : rank === "A Rank" ? 10 : 7; }
-function bloodlineTagPercentChoices(rank: Rank) { return rank === "S Rank" ? [30, 40] : [30, 35]; }
+// v4.3: rank-based Wound percent caps — basic jutsus = 25, A/B bloodline = 30, S bloodline = 35.
+function bloodlineTagPercentChoices(rank: Rank) { return rank === "S Rank" ? [30, 35] : [25, 30]; }
 function normalizeBloodlineTagPercent(percent: number | undefined, rank: Rank) {
     const choices = bloodlineTagPercentChoices(rank);
     return choices.includes(Number(percent)) ? Number(percent) : choices[choices.length - 1];
@@ -5694,8 +5696,9 @@ function tagPointValue(tag: JutsuTag, rank?: Rank | null) {
         return 0;
     }
     if (percentageTags.includes(tagName)) { // Wound only remains here
-        if (tag.percent >= 40) return 1;
-        if (tag.percent >= 35) return 0.5;
+        // v4.3: shifted Wound % tiers (new caps are 25 / 30 / 35).
+        if (tag.percent >= 35) return 1;
+        if (tag.percent >= 30) return 0.5;
         return 0;
     }
     if (["Stun", "Bloodline Seal", "Copy", "Mirror", "Lag", "Overclock", "Debuff Prevent"].includes(tagName)) return 2;

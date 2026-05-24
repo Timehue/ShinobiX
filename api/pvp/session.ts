@@ -92,6 +92,8 @@ const KNOWN_TAG_NAMES: ReadonlySet<string> = new Set([
 
 export function sanitizeJutsuList(rawList: unknown): unknown[] {
     if (!Array.isArray(rawList)) return [];
+    // v4.3 Pierce rules: enforce ap=60 on any Pierce jutsu, and only ONE Pierce per loadout.
+    let piercesSeen = 0;
     return rawList
         .filter((j): j is Record<string, unknown> => !!j && typeof j === 'object')
         .map((j) => {
@@ -105,10 +107,21 @@ export function sanitizeJutsuList(rawList: unknown): unknown[] {
             if (out.range != null) out.range = clampNumber(out.range, 0, 30, 1);
             // Filter and cap tag list — at most 10 known tags per jutsu.
             const rawTags = Array.isArray(out.tags) ? out.tags : [];
-            const cleanTags = (rawTags as unknown[])
+            let cleanTags = (rawTags as unknown[])
                 .filter((t): t is Record<string, unknown> => !!t && typeof t === 'object')
                 .filter((t) => typeof t.name === 'string' && KNOWN_TAG_NAMES.has(String(t.name)))
                 .slice(0, 10);
+            // v4.3 Pierce: at most one Pierce per loadout; subsequent Pierces are stripped.
+            // Pierce jutsu AP is forced to 60.
+            const hasPierce = cleanTags.some(t => t.name === 'Pierce');
+            if (hasPierce) {
+                if (piercesSeen >= 1) {
+                    cleanTags = cleanTags.filter(t => t.name !== 'Pierce');
+                } else {
+                    piercesSeen += 1;
+                    out.ap = 60;
+                }
+            }
             out.tags = cleanTags;
             return out;
         });
