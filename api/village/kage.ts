@@ -117,7 +117,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!identity.admin && identity.name !== currentKage) {
                     return res.status(403).json({ error: 'Only the seated Kage or admin can change the Kage.' });
                 }
-                const next: VillageKageState = { ...current, seatedKage: playerName };
+
+                // Verify the candidate actually belongs to this village. Stops the
+                // seated Kage from installing someone from a different village.
+                const candidateNorm = playerName.toLowerCase().trim();
+                if (!identity.admin) {
+                    try {
+                        const candSave = await kv.get<Record<string, unknown>>(`save:${candidateNorm}`);
+                        const candChar = (candSave?.character ?? null) as Record<string, unknown> | null;
+                        if (!candChar) {
+                            return res.status(400).json({ error: 'Candidate save not found.' });
+                        }
+                        const candVillage = (candChar.village as string | undefined) ?? '';
+                        if (candVillage.trim() !== v.trim()) {
+                            return res.status(403).json({ error: 'Candidate is not a member of this village.' });
+                        }
+                    } catch {
+                        return res.status(500).json({ error: 'Unable to verify candidate.' });
+                    }
+                }
+
+                // firstLiberator gate: once a firstLiberator exists, only they
+                // (or the seated Kage who chose to step down) can be re-seated
+                // when the seat is empty. We accept the seated-Kage path above
+                // and ensure that admin / seated Kage actions still proceed
+                // here; the firstLiberator is preserved in the next-state.
+                const next: VillageKageState = {
+                    ...current,
+                    seatedKage: playerName,
+                    firstLiberator: current.firstLiberator ?? playerName,
+                };
                 await kv.set(key, next);
                 return res.status(200).json(next);
             }

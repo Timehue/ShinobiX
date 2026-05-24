@@ -3,12 +3,18 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = handler;
 const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
+const _auth_js_1 = require("../_auth.js");
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res);
     if (req.method === 'OPTIONS')
         return res.status(200).end();
     if (req.method !== 'POST')
         return res.status(405).end();
+    // Read-style endpoint but POST — require login at minimum so anonymous bots
+    // can't enumerate the guard roster.
+    const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req);
+    if (!identity)
+        return res.status(401).json({ error: 'Authentication required.' });
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
         const { village } = body;

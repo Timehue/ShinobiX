@@ -3,6 +3,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = handler;
 const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
+const _auth_js_1 = require("../_auth.js");
+const _ratelimit_js_1 = require("../_ratelimit.js");
 const CHALLENGE_TTL = 120; // seconds — survives two heartbeat cycles
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res);
@@ -10,11 +12,27 @@ async function handler(req, res) {
         return res.status(200).end();
     if (req.method !== 'POST')
         return res.status(405).end();
+    // Require auth + rate-limit per identity (1 challenge per 3s, max 30 / 5 min).
+    const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req);
+    if (!identity)
+        return res.status(401).json({ error: 'Authentication required.' });
+    const authedName = identity.admin ? null : identity.name;
+    if (!(0, _ratelimit_js_1.enforceRateLimit)(req, res, 'village-guard-challenge', 30, 5 * 60_000, authedName))
+        return;
+    if (!(0, _ratelimit_js_1.enforceRateLimit)(req, res, 'village-guard-challenge-burst', 1, 3_000, authedName))
+        return;
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
         const { attackerCharacter, village, battleId, guardName } = body;
         if (!village)
             return res.status(400).json({ error: 'Missing village.' });
+        // The attacker name in the body must match the authed identity (admins exempt).
+        if (!identity.admin && attackerCharacter) {
+            const attackerName = String(attackerCharacter.name ?? '').toLowerCase().trim();
+            if (attackerName && attackerName !== identity.name) {
+                return res.status(403).json({ error: 'Cannot attack as another player.' });
+            }
+        }
         // Find all active guards for this village
         const keys = await _storage_js_1.kv.keys('guard:*');
         const guards = (await _storage_js_1.kv.mget(...keys))
