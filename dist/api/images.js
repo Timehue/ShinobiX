@@ -43,7 +43,7 @@ function categoryFromId(id) {
     return KNOWN_PREFIXES[prefix] ?? 'misc';
 }
 async function handler(req, res) {
-    (0, _utils_js_1.cors)(res);
+    (0, _utils_js_1.cors)(res, req);
     if (req.method === 'OPTIONS')
         return res.status(200).end();
     if (req.method === 'GET') {
@@ -98,6 +98,18 @@ async function handler(req, res) {
                 return res.status(400).json({ error: 'Image must be a valid data URL or http(s) URL under 3 MB.' });
             }
             const cat = categoryFromId(id);
+            // Per-player cap on "misc" (uncategorized) uploads — stops a single
+            // account filling the shared bucket. Tracked by uploader; admins exempt.
+            const MAX_MISC_PER_PLAYER = 50;
+            if (cat === 'misc' && !identity.admin) {
+                const counterKey = `upload:misc-count:${identity.name}`;
+                const current = Number((await _storage_js_1.kv.get(counterKey)) ?? 0);
+                if (current >= MAX_MISC_PER_PLAYER) {
+                    return res.status(429).json({ error: `Per-player misc image cap reached (${MAX_MISC_PER_PLAYER}).` });
+                }
+                // Best-effort increment; counter resets only on admin tooling.
+                await _storage_js_1.kv.set(counterKey, current + 1).catch(() => undefined);
+            }
             // Atomic HSET — sets exactly this one field without touching any other
             // image in the same category. Eliminates the race condition.
             await _storage_js_1.kv.hset(catHashKey(cat), { [id]: image });

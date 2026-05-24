@@ -8,7 +8,7 @@ const QUEUE_KEY = 'pvp:ranked-queue';
 const KV_TTL_SECONDS = 2 * 60 * 60; // 2-hour TTL
 const STALE_MS = 60 * 1000; // Remove entries older than 60s (must re-queue)
 async function handler(req, res) {
-    (0, _utils_js_1.cors)(res);
+    (0, _utils_js_1.cors)(res, req);
     if (req.method === 'OPTIONS')
         return res.status(200).end();
     if (req.method === 'GET') {

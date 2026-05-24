@@ -14,7 +14,7 @@ function clanPetBattleKey(clanName) {
     return `${CLAN_PET_BATTLE_PREFIX}${clanName.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
 }
 async function handler(req, res) {
-    (0, _utils_js_1.cors)(res);
+    (0, _utils_js_1.cors)(res, req);
     if (req.method === 'OPTIONS')
         return res.status(200).end();
     if (req.method === 'GET') {
@@ -71,8 +71,11 @@ async function handler(req, res) {
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
             const { kind } = body;
-            // Non-sensitive kinds that any client can write (no auth needed)
-            const openKinds = new Set(['arenaActiveFights', 'villageState', 'pendingClanPetBattle']);
+            // Only pendingClanPetBattle remains "open" (still requires the actor
+            // to be in the clan, gated below in its handler). villageState and
+            // arenaActiveFights now require auth — both were trivially abusable
+            // by anonymous clients before this fix.
+            const openKinds = new Set(['pendingClanPetBattle']);
             // Everything else needs auth
             let identity = null;
             if (!openKinds.has(String(kind))) {
@@ -89,6 +92,20 @@ async function handler(req, res) {
                 const { village, state } = body;
                 if (!village || !state)
                     return res.status(400).json({ error: 'Missing village or state.' });
+                // Actor must be a member of the village they're writing for.
+                if (identity && !identity.admin) {
+                    try {
+                        const save = await _storage_js_1.kv.get(`save:${identity.name}`);
+                        const char = (save?.character ?? null);
+                        const myVillage = char?.village ?? '';
+                        if (myVillage.trim() !== village.trim()) {
+                            return res.status(403).json({ error: 'Cannot write state for a village you do not belong to.' });
+                        }
+                    }
+                    catch {
+                        return res.status(500).json({ error: 'Unable to verify village membership.' });
+                    }
+                }
                 const key = `${VILLAGE_STATE_PREFIX}${village.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
                 await _storage_js_1.kv.set(key, state);
                 return res.status(200).json({ ok: true });
@@ -114,6 +131,34 @@ async function handler(req, res) {
                 const { fights } = body;
                 if (!Array.isArray(fights))
                     return res.status(400).json({ error: 'Missing fights array.' });
+                // Non-admin actor must appear in at least one fight entry to
+                // write the active-fights list. Stops random players from
+                // wiping or polluting the arena fight list.
+                if (identity && !identity.admin) {
+                    const me = identity.name;
+                    const inAnyFight = fights.some((f) => {
+                        if (!f || typeof f !== 'object')
+                            return false;
+                        const rec = f;
+                        const names = [];
+                        if (typeof rec.p1Name === 'string')
+                            names.push(rec.p1Name);
+                        if (typeof rec.p2Name === 'string')
+                            names.push(rec.p2Name);
+                        const fighters = rec.fighters;
+                        if (Array.isArray(fighters)) {
+                            for (const ff of fighters) {
+                                if (ff && typeof ff === 'object' && typeof ff.name === 'string') {
+                                    names.push(String(ff.name));
+                                }
+                            }
+                        }
+                        return names.some((n) => n.toLowerCase().trim() === me);
+                    });
+                    if (!inAnyFight) {
+                        return res.status(403).json({ error: 'Actor must be one of the fighters to update the arena fight list.' });
+                    }
+                }
                 await _storage_js_1.kv.set(ARENA_ACTIVE_FIGHTS_KEY, fights.slice(0, 20));
                 return res.status(200).json({ ok: true });
             }

@@ -59,21 +59,30 @@ const ALLOWED_ORIGINS = new Set([
     'http://127.0.0.1:5173',
 ]);
 
+// Methods that browsers consider "safe" — these can't mutate state, so even
+// a CSRF-style attack from a third-party page can't do damage. For these we
+// allow the open '*' fallback when no Origin header is present.
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
 export function cors(
     res: { setHeader: (k: string, v: string) => void },
-    req?: { headers?: Record<string, string | string[] | undefined> },
+    req?: { headers?: Record<string, string | string[] | undefined>; method?: string },
 ): void {
     const originHeader = req?.headers?.origin;
     const origin = Array.isArray(originHeader) ? originHeader[0] : originHeader;
+    const method = (req?.method ?? 'GET').toUpperCase();
     if (origin && ALLOWED_ORIGINS.has(origin)) {
         res.setHeader('Access-Control-Allow-Origin', origin);
         res.setHeader('Vary', 'Origin');
-    } else if (!origin) {
-        // Same-origin / curl / server-to-server — no Origin header sent.
-        // Allow with '*' since there are no credentials at risk here.
+    } else if (!origin && SAFE_METHODS.has(method)) {
+        // Same-origin / curl / server-to-server — no Origin header sent, and
+        // the method itself is safe (cannot mutate state). Allowing '*' here
+        // is fine. For unsafe methods with no Origin we default-deny by
+        // omitting the ACAO header.
         res.setHeader('Access-Control-Allow-Origin', '*');
     }
-    // If origin is set but not allowed: no ACAO header. Browser blocks the request.
+    // If origin is set but not allowed, or method is unsafe without Origin:
+    // no ACAO header is emitted. Browser blocks the request.
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-password, x-player-password, x-player-name, x-kv-token');
 }
