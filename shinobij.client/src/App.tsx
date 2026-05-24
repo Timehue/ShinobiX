@@ -19419,10 +19419,16 @@ function WorldMap({
     const [chestVnLine, setChestVnLine] = useState(0);
     const [chestVnDone, setChestVnDone] = useState(false);
     const locations = [
+        // Each village sits on top of its outskirts-sector coordinate so the
+        // marker stamps the same point the engine treats as that village.
+        // Stormveil  -> sector 31 (20, 65)
+        // Ashen Leaf -> sector 38 (24, 18)
+        // Frostfang  -> sector 47 (62, 11)
+        // Moonshadow -> sector 11 (81, 67)
         { name: "Stormveil Village", type: "village", biome: "forest" as Biome, x: 20, y: 65, icon: "SV" },
-        { name: "Ashen Leaf Village", type: "village", biome: "volcano" as Biome, x: 24, y: 22, icon: "AL" },
-        { name: "Frostfang Village", type: "village", biome: "snow" as Biome, x: 76, y: 15, icon: "FF" },
-        { name: "Moonshadow Village", type: "village", biome: "shadow" as Biome, x: 76, y: 66, icon: "MS" },
+        { name: "Ashen Leaf Village", type: "village", biome: "volcano" as Biome, x: 24, y: 18, icon: "AL" },
+        { name: "Frostfang Village", type: "village", biome: "snow" as Biome, x: 62, y: 11, icon: "FF" },
+        { name: "Moonshadow Village", type: "village", biome: "shadow" as Biome, x: 81, y: 67, icon: "MS" },
         { name: "Central", type: "central", biome: "central" as Biome, x: 52, y: 42, icon: "C", staminaReward: 20, xpReward: 20 },
     ];
     const [selectedLandmark, setSelectedLandmark] = useState<(typeof locations)[number] | null>(null);
