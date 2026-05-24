@@ -9,7 +9,8 @@
         "build": "npm run build:server && npm run build:client",
         "build:cpanel": "npm run build",
         "start": "node app.js",
-        "dev": "node --watch app.js"
+        "dev": "node --watch app.js",
+        "slice-badges": "node scripts/slice-badges.mjs"
     },
     "dependencies": {
         "@supabase/supabase-js": "^2.106.1",
@@ -24,6 +25,7 @@
         "@types/node": "^22.0.0",
         "@types/pg": "^8.11.0",
         "ioredis": "^5.10.1",
+        "sharp": "^0.34.5",
         "typescript": "^5.7.0"
     }
 }

@@ -395,3 +395,6 @@ package-lock.json
 
 # Phusion Passenger restart file (created by .cpanel.yml deploy script)
 tmp/
+
+# Composite badge sources — re-export from AI tool if needed; sliced output in shinobij.client/public/badges/ is committed
+scripts/badge-sources/

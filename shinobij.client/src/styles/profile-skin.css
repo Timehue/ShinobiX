@@ -817,3 +817,196 @@
     font: 400 10px/1.3 Inter, sans-serif !important;
     color: #c8cfdc !important;
 }
+
+/* -------- Achievements panel -------- */
+.profile-page-card .achievements-panel {
+    background: linear-gradient(180deg, rgba(12,18,34,0.85) 0%, rgba(6,10,22,0.9) 100%) !important;
+    border: 1px solid var(--bsv2-gold-faint) !important;
+    border-radius: 8px !important;
+    padding: 16px 20px !important;
+    margin-top: 16px !important;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04) !important;
+}
+.profile-page-card .achievements-heading {
+    display: flex !important;
+    align-items: baseline;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--bsv2-gold-faint) !important;
+    padding-bottom: 8px;
+    margin-bottom: 14px;
+}
+.profile-page-card .achievements-heading h3 {
+    margin: 0 !important;
+    font: 600 12px Cinzel, serif !important;
+    letter-spacing: 0.22em !important;
+    text-transform: uppercase !important;
+    color: #e8d496 !important;
+}
+.profile-page-card .achievements-count {
+    font: 600 11px Cinzel, serif !important;
+    letter-spacing: 0.16em;
+    color: var(--bsv2-gold);
+}
+.profile-page-card .achievements-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 10px;
+}
+.profile-page-card .achievement-badge {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(196,162,90,0.18);
+    background: rgba(0,0,0,0.28);
+    transition: transform 120ms, border-color 120ms, box-shadow 120ms;
+    min-width: 0;
+}
+.profile-page-card .achievement-badge.unlocked {
+    border-color: rgba(196,162,90,0.55);
+    box-shadow: 0 0 12px rgba(196,162,90,0.15), inset 0 1px 0 rgba(255,255,255,0.05);
+}
+.profile-page-card .achievement-badge.unlocked:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 0 18px rgba(232,212,150,0.35), inset 0 1px 0 rgba(255,255,255,0.08);
+}
+.profile-page-card .achievement-badge.locked {
+    opacity: 0.42;
+    filter: grayscale(0.75);
+}
+.profile-page-card .achievement-badge.concealed {
+    opacity: 0.5;
+    border-style: dashed;
+    border-color: rgba(196,162,90,0.28);
+}
+.profile-page-card .achievement-badge.is-secret.unlocked {
+    border-color: rgba(206,147,216,0.55);
+    box-shadow: 0 0 14px rgba(206,147,216,0.22), inset 0 1px 0 rgba(255,255,255,0.05);
+}
+.profile-page-card .achievement-badge.is-secret.unlocked .achievement-meta strong {
+    color: #f0c9ff !important;
+}
+.profile-page-card .achievement-icon {
+    position: relative;
+    width: 42px;
+    height: 42px;
+    flex: 0 0 42px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: radial-gradient(circle at 30% 30%, rgba(232,212,150,0.18), rgba(0,0,0,0.6) 70%);
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--bsv2-gold-soft);
+}
+.profile-page-card .achievement-icon img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 1;
+}
+.profile-page-card .achievement-emoji {
+    font-size: 20px;
+    line-height: 1;
+}
+.profile-page-card .achievement-meta {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1 1 auto;
+}
+.profile-page-card .achievement-meta strong {
+    font: 600 11px Cinzel, serif !important;
+    letter-spacing: 0.08em;
+    color: #e8d496 !important;
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.profile-page-card .achievement-meta small {
+    font: 400 10px/1.35 Inter, sans-serif !important;
+    color: #c8cfdc !important;
+    margin-top: 2px;
+}
+.profile-page-card .achievement-unlocked-at {
+    font: 500 9px/1.35 Cinzel, serif !important;
+    color: var(--bsv2-gold) !important;
+    letter-spacing: 0.06em;
+    margin-top: 3px !important;
+    text-transform: uppercase;
+}
+
+@media (max-width: 700px) {
+    .profile-page-card .achievements-grid {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    }
+}
+
+/* -------- Aura Sphere inline (Resources column) -------- */
+.profile-page-card .aura-sphere-inline {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(196,162,90,0.22);
+}
+.profile-page-card .aura-sphere-inline .act-label {
+    font: 600 10px Cinzel, serif !important;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--bsv2-gold);
+    margin: 0 0 4px 0 !important;
+}
+.profile-page-card .aura-sphere-inline h4 {
+    font: 600 13px Cinzel, serif !important;
+    letter-spacing: 0.1em;
+    color: var(--bsv2-gold-bright) !important;
+    margin: 0 0 6px 0 !important;
+}
+.profile-page-card .aura-sphere-inline-level {
+    font: 400 11px Inter, sans-serif !important;
+    color: #c8cfdc !important;
+    margin: 0 0 8px 0 !important;
+}
+.profile-page-card .aura-sphere-inline-buffs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 10px;
+}
+.profile-page-card .aura-sphere-inline-buffs span {
+    font: 500 10px Inter, sans-serif !important;
+    color: #e8d496;
+    background: rgba(196,162,90,0.12);
+    border: 1px solid rgba(196,162,90,0.3);
+    border-radius: 4px;
+    padding: 2px 6px;
+    letter-spacing: 0.04em;
+}
+.profile-page-card .aura-sphere-inline-button {
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--bsv2-gold-soft);
+    background: linear-gradient(180deg, rgba(196,162,90,0.18), rgba(196,162,90,0.05));
+    color: var(--bsv2-gold-bright);
+    font: 600 11px Cinzel, serif;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 120ms, border-color 120ms, box-shadow 120ms;
+}
+.profile-page-card .aura-sphere-inline-button:hover:not(:disabled) {
+    border-color: var(--bsv2-gold-bright);
+    box-shadow: 0 0 12px rgba(232,212,150,0.25);
+}
+.profile-page-card .aura-sphere-inline-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+.profile-page-card .aura-sphere-inline-hint {
+    font: 400 10px/1.4 Inter, sans-serif !important;
+    color: rgba(200,207,220,0.7) !important;
+    margin: 8px 0 0 0 !important;
+}
