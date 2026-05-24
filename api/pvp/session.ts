@@ -207,12 +207,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-            const { p1Character, p2Character, biome, weatherPositiveElement, weatherNegativeElement } = body as {
+            const { p1Character, p2Character, biome, weatherPositiveElement, weatherNegativeElement, battleId: clientBattleId } = body as {
                 p1Character?: Record<string, unknown>;
                 p2Character?: Record<string, unknown>;
                 biome?: string;
                 weatherPositiveElement?: string;
                 weatherNegativeElement?: string;
+                battleId?: string;
             };
             if (!p1Character || !p2Character) return res.status(400).json({ error: 'Missing characters' });
 
@@ -265,7 +266,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 finalP2Character = hydrateNpcCharacter(p2Character);
             }
 
-            const battleId = `pvp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+            // Accept a client-supplied battleId so the attacker can navigate
+            // to the battle screen optimistically while this POST is in flight.
+            // Reject if the key already exists to prevent session-clobbering.
+            const battleId = (typeof clientBattleId === 'string'
+                && /^pvp-[a-z0-9-]{6,80}$/.test(clientBattleId)
+                && !(await kv.get(`pvp:${clientBattleId}`)))
+                ? clientBattleId
+                : `pvp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
             const session: PvpSession = {
                 battleId,
