@@ -16907,6 +16907,12 @@ html[data-vp="xl"] .arena-fullscreen .hex-battlefield {
 .arena-bg-central   { background-color: #1e293b !important; }
 .arena-bg-deathsgate { background-color: #0a1f0f !important; }
 
+/* ── PvP battle layout: inset combat area so side panels sit in the dead space ── */
+html[data-vp="xl"] .arena-fullscreen.pvp-battle-layout .combat-layout {
+    margin-left: 145px !important;
+    margin-right: 145px !important;
+}
+
 /* ── Battle spectator & chat side panels ── */
 .battle-side-left,
 .battle-side-right {
@@ -16922,12 +16928,11 @@ html[data-vp="xl"] .battle-side-right {
     width: 140px;
     height: 100%;
     z-index: 10;
-    background: rgba(15, 23, 42, 0.85);
-    border: 1px solid rgba(148, 163, 184, 0.2);
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(148, 163, 184, 0.15);
     box-sizing: border-box;
     font-size: 0.78rem;
     color: #cbd5e1;
-    backdrop-filter: blur(6px);
 }
 
 html[data-vp="xl"] .battle-side-left {
