@@ -16863,10 +16863,12 @@ html[data-vp="xl"] .arena-fullscreen .combat-layout {
     padding: 0 !important;
 }
 
-/* Make the hex battlefield fill more of the available space */
+/* Scale up the entire hex battlefield uniformly so tiles fill more space */
 html[data-vp="xl"] .arena-fullscreen .hex-battlefield {
     width: 100% !important;
     max-width: 100% !important;
+    transform: scale(1.25) !important;
+    transform-origin: center center !important;
 }
 
 html[data-vp="xl"] .arena-fullscreen .combat-layout > .combat-main-area {
