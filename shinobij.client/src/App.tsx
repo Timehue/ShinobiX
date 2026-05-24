@@ -9893,6 +9893,12 @@ export default function App() {
                                     Walls render as solid stone whether stepped on or not so the
                                     dungeon geometry is at least partially readable. Content tiles
                                     (battle, chest, trap, ambush, etc.) reveal ONLY on step. */}
+                                {(() => {
+                                    // Pull the admin-generated wall texture once per render so
+                                    // every wall tile uses it; falls back to the gradient if
+                                    // none has been generated yet.
+                                    const wallTexture = sharedImages["shrine:tile-wall"];
+                                    return (
                                 <div className="hollow-gate-grid" style={{ display: "grid", gridTemplateColumns: `repeat(${run.width}, 1fr)`, gap: 3, background: "rgba(0,0,0,0.55)", padding: 8, borderRadius: 8 }}>
                                     {run.tiles.map((tile, i) => {
                                         const x = i % run.width;
@@ -9906,8 +9912,11 @@ export default function App() {
                                         if (wall) {
                                             // Solid stone — visible at all times so the player can
                                             // see paths/forks. Walls aren't "rewards" or "surprises",
-                                            // they're permanent geometry.
-                                            bg = "linear-gradient(135deg, #1c1430 0%, #0e0820 40%, #2a1f3e 100%)";
+                                            // they're permanent geometry. Use the admin-generated
+                                            // wall texture if one exists; otherwise the dark gradient.
+                                            bg = wallTexture
+                                                ? `linear-gradient(135deg, rgba(15,9,28,0.35), rgba(8,4,18,0.55)), url(${wallTexture}) center/cover no-repeat`
+                                                : "linear-gradient(135deg, #1c1430 0%, #0e0820 40%, #2a1f3e 100%)";
                                         } else if (isPlayer) {
                                             bg = "linear-gradient(135deg, #2563eb, #7c3aed)";
                                         } else if (revealed) {
@@ -9964,6 +9973,8 @@ export default function App() {
                                         );
                                     })}
                                 </div>
+                                    );
+                                })()}
 
                                 {/* Side panel */}
                                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -13750,6 +13761,7 @@ function AdminPanel({
             "shrine:tile-pet-encounter",
             "shrine:tile-corrupted-shinobi",
             "shrine:tile-shrine-keeper",
+            "shrine:tile-wall",
             "shrine:intro-1",
             "shrine:intro-2",
             "shrine:intro-3",
@@ -17490,6 +17502,12 @@ function AdminPanel({
                         name: "Shrine Keeper (NPC portrait)",
                         category: "Tile / Scene",
                         defaultPrompt: "Shrine Keeper, ancient hooded shinobi tending a violet chakra brazier inside a Hollow Gate shrine corridor, lined face, kind eyes, simple grey robes with purple sigils, mystical NPC portrait, painted ninja RPG character art",
+                    },
+                    {
+                        key: "shrine:tile-wall",
+                        name: "Wall tile texture",
+                        category: "Tile / Scene",
+                        defaultPrompt: "Seamless dark stone shrine wall texture tile, weathered ancient masonry with violet chakra-burned cracks, faint purple seal runes faded into the stone, top-down dungeon tile, game-ready square tile art, painted ninja RPG environment art",
                     },
                     // ── Intro Visual Novel scenes (3 pages) ───────────────────
                     {
