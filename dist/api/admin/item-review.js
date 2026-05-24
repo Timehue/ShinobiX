@@ -14,7 +14,7 @@ async function saveApprovedItems(ids) {
     await _storage_js_1.kv.set(APPROVED_ITEMS_KEY, Array.from(new Set(ids)));
 }
 async function handler(req, res) {
-    (0, _utils_js_1.cors)(res);
+    (0, _utils_js_1.cors)(res, req);
     if (req.method === 'OPTIONS')
         return res.status(200).end();
     if (req.method === 'GET') {

@@ -21,7 +21,7 @@ function chatKey(village: string): string {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-    cors(res);
+    cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
 
     const village = typeof req.query.village === 'string' ? req.query.village.trim() : '';

@@ -10,6 +10,15 @@ const VILLAGE_WAR_HP_MAX = 5000;
 const VILLAGE_WAR_GROUND_HP_MAX = 1000;
 const TERRITORY_KEY_PREFIX = 'world:territory:';
 const VILLAGE_WAR_KEY_PREFIX = 'world:war:';
+const VALID_TERRAIN_BUFF_STATS = new Set([
+    'bukijutsuOffense', 'taijutsuOffense', 'ninjutsuOffense', 'genjutsuOffense',
+]);
+function normalizeTerrainBuffStat(value) {
+    if (typeof value === 'string' && VALID_TERRAIN_BUFF_STATS.has(value)) {
+        return value;
+    }
+    return 'bukijutsuOffense';
+}
 function clampNumber(value, min, max) {
     if (!Number.isFinite(value))
         return min;
@@ -36,7 +45,7 @@ function normalizeSectorTerritory(data) {
         hp: clampNumber(Math.floor(Number(data.hp ?? TERRITORY_HP_MAX)), 0, TERRITORY_HP_MAX),
         guards: Array.isArray(data.guards) ? data.guards.filter(Boolean).map(String).slice(0, 20) : [],
         warSupply: Math.max(0, Math.floor(Number(data.warSupply ?? 0))),
-        terrainBuffStat: (data.terrainBuffStat ?? 'bukijutsuOffense'),
+        terrainBuffStat: normalizeTerrainBuffStat(data.terrainBuffStat),
         updatedAt: data.updatedAt ?? Date.now(),
     };
 }
@@ -83,7 +92,7 @@ async function getByPrefix(prefix) {
     }
 }
 async function handler(req, res) {
-    (0, _utils_js_1.cors)(res);
+    (0, _utils_js_1.cors)(res, req);
     if (req.method === 'OPTIONS')
         return res.status(200).end();
     if (req.method === 'GET') {
