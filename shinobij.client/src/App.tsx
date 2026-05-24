@@ -5852,6 +5852,13 @@ export default function App() {
         window.addEventListener("resize", onResize, { passive: true });
         return () => { window.removeEventListener("resize", onResize); cancelAnimationFrame(raf); };
     }, []);
+
+    // Toggle body class during battle so CSS can hide the left sidebar
+    useEffect(() => {
+        const isBattle = screen === "arena" || screen === "storyBoss" || screen === "pvpBattle";
+        document.body.classList.toggle("in-battle", isBattle);
+        return () => { document.body.classList.remove("in-battle"); };
+    }, [screen]);
     // ───────────────────────────────────────────────────────────────────────
 
     const [sharedImages, setSharedImages] = useState<Record<string, string>>({});
