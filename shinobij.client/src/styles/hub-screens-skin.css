@@ -337,3 +337,47 @@
     border: 1px solid var(--bsv2-gold-faint);
     border-radius: 3px;
 }
+
+/* Field Missions — lay out rank groups side-by-side instead of stacked rows.
+   Each rank had its own grid that only contained one mission, leaving huge
+   empty space. Display .mh-fetch-group itself in a multi-column grid. */
+.mission-hall .mh-section:has(.mh-fetch-group) {
+    /* Wrap the rank groups in a column layout */
+}
+.mission-hall .mh-section > .mh-fetch-group + .mh-fetch-group {
+    /* Sit groups next to each other when there's space */
+}
+.mission-hall .mh-section > .mh-fetch-group {
+    display: block;
+}
+
+/* Lay out all the rank groups as columns of a parent grid */
+.mission-hall section.mh-section:has(.mh-fetch-group) {
+    /* Render rank groups in a responsive multi-column flow */
+    display: block;
+}
+.mission-hall .mh-section > .mh-fetch-group {
+    margin-bottom: 14px;
+}
+
+/* The key fix: each rank-group's inner grid should keep cards compact */
+.mission-hall .mh-fetch-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)) !important;
+    gap: 10px !important;
+}
+
+/* Wrap all rank groups into a responsive multi-column flow */
+.mission-hall .mh-section:has(.mh-fetch-group) {
+    column-gap: 14px;
+    column-count: auto;
+    column-width: 320px;
+}
+.mission-hall .mh-section:has(.mh-fetch-group) > .mh-section-title,
+.mission-hall .mh-section:has(.mh-fetch-group) > .hint {
+    column-span: all;
+}
+.mission-hall .mh-fetch-group {
+    break-inside: avoid;
+    page-break-inside: avoid;
+}
