@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
-import { authedPlayerOrAdmin } from '../_auth.js';
+
 
 type BattleChatMessage = {
     author: string;
@@ -44,12 +44,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 role?: 'fighter' | 'spectator';
             };
             if (!author || !text) return res.status(400).json({ error: 'Missing author or text.' });
-
-            const identity = await authedPlayerOrAdmin(req, author);
-            if (!identity) return res.status(401).json({ error: 'Authentication required.' });
-            if (!identity.admin && identity.name !== author.toLowerCase().trim()) {
-                return res.status(403).json({ error: 'Cannot post as another player.' });
-            }
 
             const newMsg: BattleChatMessage = {
                 author,

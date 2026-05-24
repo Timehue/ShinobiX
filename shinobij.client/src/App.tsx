@@ -28241,8 +28241,9 @@ function PvpBattleScreen({
             : []
     );
     const activeGroundEffects = session.groundEffects ?? [];
-    const pvpEquippedWeapons = sessionEquippedItems.filter(item => { const s = normalizeEquipmentSlot(item.slot); return s === "hand" || s === "thrown"; });
-    const pvpEquippedConsumables = sessionEquippedItems.filter(item => { const s = normalizeEquipmentSlot(item.slot); return s !== "hand" && s !== "thrown"; });
+    const pvpEquippedWeapons = sessionEquippedItems.filter(item => { const s = normalizeEquipmentSlot(item.slot); return s === "hand"; });
+    const pvpEquippedThrown = sessionEquippedItems.filter(item => { const s = normalizeEquipmentSlot(item.slot); return s === "thrown"; });
+    const pvpEquippedConsumables = sessionEquippedItems.filter(item => { const s = normalizeEquipmentSlot(item.slot); return s === "item"; });
     const pendingWeapon = pvpEquippedWeapons.find(w => w.id === pendingWeaponId) ?? null;
     const pvpWeaponRange = pendingWeapon ? (pendingWeapon.weaponRange ?? (normalizeEquipmentSlot(pendingWeapon.slot) === "thrown" ? 4 : 1)) : 0;
     const weaponRangeTilesSet = new Set(pendingWeapon ? allTiles.filter(t => t !== myPos && pvpDist(myPos, t) <= pvpWeaponRange) : []);
@@ -28707,7 +28708,7 @@ function PvpBattleScreen({
                             <>
                                 {/* Armed jutsu/weapon banner removed — card highlight
                                      and log message provide targeting feedback. */}
-                                {sessionEquippedJutsu.length === 0 && pvpEquippedWeapons.length === 0 && pvpEquippedConsumables.length === 0 ? (
+                                {sessionEquippedJutsu.length === 0 && pvpEquippedWeapons.length === 0 && pvpEquippedThrown.length === 0 && pvpEquippedConsumables.length === 0 ? (
                                     <div className="summary-box">No equipped jutsus or items. Equip from Profile.</div>
                                 ) : (
                                     <div className="combat-equipped-jutsu-grid">
@@ -28755,6 +28756,32 @@ function PvpBattleScreen({
                                                         disabled={submitting || myAp < apCost}>
                                                         <span className="combat-jutsu-thumb combat-item-thumb">
                                                             {item.image ? <img src={item.image} alt={item.name} /> : <strong>{slot === "thrown" ? "?" : "?"}</strong>}
+                                                        </span>
+                                                        <span className="combat-jutsu-name">{item.name}</span>
+                                                        <span className="combat-jutsu-info">{apCost} AP | R{wRange}</span>
+                                                    </button>
+                                                    <button type="button" className="combat-jutsu-help"
+                                                        onClick={() => setInspectedWeaponId(inspectedWeaponId === item.id ? "" : item.id)}
+                                                        title={`View ${item.name} details`}>?</button>
+                                                </div>
+                                            );
+                                        })}
+
+                                        {/* ── Thrown weapon cards (green) ── */}
+                                        {pvpEquippedThrown.map(item => {
+                                            const wRange = item.weaponRange ?? 4;
+                                            const apCost = item.apCost ?? 40;
+                                            const isArmed = pendingWeaponId === item.id;
+                                            return (
+                                                <div className={`combat-jutsu-card-wrap combat-item-card-wrap combat-weapon-card${isArmed ? " selected-action" : ""}`} key={item.id}>
+                                                    <button
+                                                        type="button"
+                                                        className={`combat-jutsu-button combat-item-button rarity-${item.rarity}${isArmed ? " selected-action" : ""}`}
+                                                        title={`${item.name} | ${apCost} AP | Range ${wRange} | Thrown`}
+                                                        onClick={() => { setInspectedJutsuId(""); setInspectedWeaponId(""); clearPendingPvpJutsu(); setDashMode(false); setSelectedActionId(undefined); setPendingBasicAttack(false); setPendingWeaponId(v => v === item.id ? "" : item.id); }}
+                                                        disabled={submitting || myAp < apCost}>
+                                                        <span className="combat-jutsu-thumb combat-item-thumb">
+                                                            {item.image ? <img src={item.image} alt={item.name} /> : <strong>🗡</strong>}
                                                         </span>
                                                         <span className="combat-jutsu-name">{item.name}</span>
                                                         <span className="combat-jutsu-info">{apCost} AP | R{wRange}</span>
