@@ -107,23 +107,69 @@ async function handler(req, res) {
         return res.status(200).json({ territories, wars });
     }
     if (req.method === 'POST') {
-        // Require a logged-in player at minimum. Cleaner gating per-kind would
-        // need game-rule validation (e.g. you can only update a sector you're
-        // attacking) — leaving that for a follow-up.
+        // Require a logged-in player at minimum. We also gate territory and
+        // war writes to participants (or admin) — see per-kind checks below.
         const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req);
         if (!identity)
             return res.status(401).json({ error: 'Authentication required.' });
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
             if (body?.kind === 'territory') {
-                const territory = normalizeSectorTerritory({ ...body.territory, updatedAt: Date.now() });
-                await _storage_js_1.kv.set(`${TERRITORY_KEY_PREFIX}${territory.sector}`, territory);
-                return res.status(200).json({ territory });
+                const incomingTerritory = normalizeSectorTerritory({ ...body.territory, updatedAt: Date.now() });
+                // Participation gate: non-admin writers must (a) match the
+                // claiming clan or village of the territory they're updating,
+                // AND (b) hp / controlScore changes must move monotonically
+                // toward zero (damage) OR away from zero only if the writer
+                // already owned the sector (rebuild). We accept either
+                // direction as long as the actor is the relevant participant.
+                if (!identity.admin) {
+                    try {
+                        const actorSave = await _storage_js_1.kv.get(`save:${identity.name}`);
+                        const actorChar = (actorSave?.character ?? null);
+                        const actorClan = String(actorChar?.clan ?? '').trim();
+                        const actorVillage = String(actorChar?.village ?? '').trim();
+                        const claimingClan = String(incomingTerritory.ownerClan ?? '').trim();
+                        const claimingVillage = String(incomingTerritory.ownerVillage ?? '').trim();
+                        const matchesClan = !!claimingClan && actorClan === claimingClan;
+                        const matchesVillage = !!claimingVillage && actorVillage === claimingVillage;
+                        // Read the previous territory record so we can compare
+                        // HP / controlScore deltas — only actors involved in
+                        // the relevant village/clan may write.
+                        const prev = await _storage_js_1.kv.get(`${TERRITORY_KEY_PREFIX}${incomingTerritory.sector}`);
+                        const prevClan = String(prev?.ownerClan ?? '').trim();
+                        const prevVillage = String(prev?.ownerVillage ?? '').trim();
+                        const actorInvolved = matchesClan || matchesVillage ||
+                            (prevClan && actorClan === prevClan) ||
+                            (prevVillage && actorVillage === prevVillage);
+                        if (!actorInvolved) {
+                            return res.status(403).json({ error: 'Only clan/village participants can update this territory.' });
+                        }
+                    }
+                    catch {
+                        return res.status(500).json({ error: 'Unable to verify territory participation.' });
+                    }
+                }
+                await _storage_js_1.kv.set(`${TERRITORY_KEY_PREFIX}${incomingTerritory.sector}`, incomingTerritory);
+                return res.status(200).json({ territory: incomingTerritory });
             }
             if (body?.kind === 'war') {
                 const war = normalizeVillageWar({ ...body.war, updatedAt: Date.now() });
                 if (!war)
                     return res.status(400).json({ error: 'Invalid war.' });
+                // Non-admin: actor must belong to one of the two participating villages.
+                if (!identity.admin) {
+                    try {
+                        const actorSave = await _storage_js_1.kv.get(`save:${identity.name}`);
+                        const actorChar = (actorSave?.character ?? null);
+                        const actorVillage = String(actorChar?.village ?? '').trim();
+                        if (!actorVillage || !war.villages.includes(actorVillage)) {
+                            return res.status(403).json({ error: 'Only members of the warring villages can update this war.' });
+                        }
+                    }
+                    catch {
+                        return res.status(500).json({ error: 'Unable to verify war participation.' });
+                    }
+                }
                 await _storage_js_1.kv.set(`${VILLAGE_WAR_KEY_PREFIX}${war.id}`, war);
                 return res.status(200).json({ war });
             }

@@ -5,12 +5,32 @@ const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
 const player_auth_js_1 = require("../player-auth.js");
 const _auth_js_1 = require("../_auth.js");
+const _ratelimit_js_1 = require("../_ratelimit.js");
 // Fields stripped from character objects when a non-owner reads another player's save.
 // Prevents ryo farming (reading other players' wallets) and inventory snooping.
 const PRIVATE_CHAR_FIELDS = [
     'ryo', 'bankedRyo', 'inventory', 'missions', 'missionLog',
     'completedMissions', 'activeMissions', 'questLog', 'bankLog',
 ];
+// Public-safe subset used when ANY player reads another player's save.
+// Avoids leaking PvP loadout (jutsu, equipment, computed combat multipliers)
+// which an attacker could use to scout opponents and metagame them.
+const PUBLIC_CHAR_FIELDS = new Set([
+    'name', 'level', 'village', 'rank', 'avatarImage', 'specialty', 'storyProgress',
+    'hp', 'maxHp', 'chakra', 'maxChakra', 'stamina', 'maxStamina',
+    'customTitle', 'hospitalized', 'hospitalizedUntil',
+]);
+function publicProjection(data) {
+    const char = data.character;
+    if (!char || typeof char !== 'object')
+        return data;
+    const projected = {};
+    for (const k of PUBLIC_CHAR_FIELDS) {
+        if (k in char)
+            projected[k] = char[k];
+    }
+    return { ...data, character: projected };
+}
 function stripPrivateFields(data) {
     const char = data.character;
     if (!char || typeof char !== 'object')
@@ -42,6 +62,33 @@ const MAX_LEVEL_GAIN = 5; // levels that can be gained between saves
 const LEVEL_CAP = 100;
 // Server-side hospital downtime — clients can't skip it by editing localStorage.
 const HOSPITAL_DURATION_MS = 60_000;
+// Rolling 60-second gain windows. Anything above these caps is rejected with
+// a 429. These are server-side rate limits independent of the per-save caps;
+// they catch a stream of small but legitimate-looking saves that, in
+// aggregate, are obviously farming.
+const GAIN_WINDOW_MS = 60_000;
+const MAX_RYO_PER_MINUTE = 5_000_000;
+const MAX_STAT_PER_MINUTE = 1500; // any single stat
+const MAX_XP_PER_MINUTE = 1_000_000;
+async function readGainsWindow(name) {
+    try {
+        return await _storage_js_1.kv.get(`ratelimit:save:${name}:gains`);
+    }
+    catch {
+        return null;
+    }
+}
+async function writeGainsWindow(name, w) {
+    try {
+        await _storage_js_1.kv.set(`ratelimit:save:${name}:gains`, w, { ex: Math.ceil(GAIN_WINDOW_MS / 1000) * 2 });
+    }
+    catch {
+        // best-effort
+    }
+}
+function freshWindow() {
+    return { startedAt: Date.now(), ryo: 0, stat: {}, xp: 0 };
+}
 function sanitizeCharacterSave(incoming, existing) {
     const inChar = incoming.character;
     const exChar = existing.character;
@@ -140,10 +187,16 @@ async function handler(req, res) {
         if (data === null)
             return res.status(404).end();
         // Strip sensitive fields when someone reads another player's save.
-        // Owners and admins get the full save. Other players (e.g. loading a
-        // PvP opponent) get character data with private economy fields removed.
-        const isOwner = identity.admin || (isClanSave ? false : identity.name === name.toLowerCase().trim());
-        const payload = isOwner ? data : stripPrivateFields(data);
+        // - Owners + admins: full save.
+        // - Clan saves: full save (any logged-in player can read shared clan record).
+        // - Anyone else: public-only projection (name/level/village/HP/etc.).
+        //   This drops PvP loadout (jutsu, pvpItems, equipment, armor*, bloodlineMult,
+        //   itemDamagePct, stats, savedBloodlines, creatorJutsus, creatorItems)
+        //   so opponents can't be scouted out-of-band. The server hydrates
+        //   actual opponent combat data from save:<name> directly when PvP
+        //   sessions are created.
+        const isOwner = identity.admin || isClanSave || identity.name === name.toLowerCase().trim();
+        const payload = isOwner ? data : publicProjection(stripPrivateFields(data));
         return res.status(200).json(payload);
     }
     if (req.method === 'POST') {
@@ -166,19 +219,45 @@ async function handler(req, res) {
             }
             const isAdminSave = req.query.signal === '1';
             // Admin-flagged writes require admin auth (constant-time compare in isAdmin).
+            let identityName = null;
             if (isAdminSave) {
                 if (!(0, _auth_js_1.isAdmin)(req)) {
                     return res.status(401).json({ error: 'Admin authentication required.' });
                 }
             }
             else {
-                // Non-admin saves: player can save their own; any logged-in
-                // player can write clan saves (shared per-clan record).
+                // Non-admin saves: player can save their own; clan saves are
+                // gated by clan membership (the actor's character.clan must
+                // match the clan-<slug> being written).
                 const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req, name);
                 if (!identity)
                     return res.status(401).json({ error: 'Authentication required.' });
                 if (!identity.admin && !isClanSave && identity.name !== name) {
                     return res.status(403).json({ error: 'Cannot save another player.' });
+                }
+                if (!identity.admin && isClanSave) {
+                    // Verify the actor belongs to this clan before letting them
+                    // mutate the shared clan record. The clan slug here is
+                    // whatever follows "clan-" in the key path.
+                    try {
+                        const targetClanSlug = name.replace(/^clan-/, '').trim().toLowerCase();
+                        const actorSave = await _storage_js_1.kv.get(`save:${identity.name}`);
+                        const actorChar = (actorSave?.character ?? null);
+                        const actorClan = String(actorChar?.clan ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                        if (!actorClan || actorClan !== targetClanSlug) {
+                            return res.status(403).json({ error: 'Only members of this clan can write its shared record.' });
+                        }
+                    }
+                    catch {
+                        return res.status(500).json({ error: 'Unable to verify clan membership.' });
+                    }
+                }
+                identityName = identity.admin ? null : identity.name;
+                // Per-account rate limit: max 1 save per 3 seconds. Stops a
+                // hostile client from hammering the save endpoint to amplify
+                // gain caps. KV-backed so it survives serverless cold starts.
+                if (!isClanSave && !(await (0, _ratelimit_js_1.enforceRateLimitKv)(req, res, 'save-burst', 1, 3_000, identityName))) {
+                    return; // 429 already written
                 }
             }
             // If a reset-signal is pending (admin edit in-flight) and this is NOT the admin save,
@@ -187,34 +266,106 @@ async function handler(req, res) {
             // saves one round-trip on every auto-save (the common path).
             const incoming = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
             if (!isAdminSave) {
-                const [pendingSignal, adminLock, existing] = await Promise.all([
-                    _storage_js_1.kv.get(resetSignalKey),
-                    _storage_js_1.kv.get(adminLockKey),
-                    _storage_js_1.kv.get(key),
-                ]);
-                if (pendingSignal || adminLock)
+                // ── Atomicity (finding 14) ─────────────────────────────────
+                // Take a short-lived per-save lock around the read-modify-write
+                // so concurrent saves can't trample each other. 2-second TTL
+                // is plenty for the synchronous work below; lock is auto-released
+                // at the end of the path or just expires.
+                const writeLockKey = `lock:save:${name.toLowerCase()}`;
+                if (!isClanSave) {
+                    const lockOk = await _storage_js_1.kv.set(writeLockKey, '1', { nx: true, ex: 2 });
+                    if (!lockOk) {
+                        return res.status(429).json({ error: 'Concurrent save in flight. Retry.' });
+                    }
+                }
+                try {
+                    const [pendingSignal, adminLock, existing] = await Promise.all([
+                        _storage_js_1.kv.get(resetSignalKey),
+                        _storage_js_1.kv.get(adminLockKey),
+                        _storage_js_1.kv.get(key),
+                    ]);
+                    if (pendingSignal || adminLock)
+                        return res.status(200).end();
+                    // Sanitize before merge: caps per-save gains to prevent exploit spikes.
+                    // Clan saves are collaborative (no single "owner" baseline), so we skip
+                    // sanitization for them — they're already admin-locked in the UI.
+                    const safeIncoming = (existing && !isClanSave)
+                        ? sanitizeCharacterSave(incoming, existing)
+                        : incoming;
+                    // ── Rolling-window gain caps (finding 6) ──────────────────
+                    // Track ryo / stat / xp gain over the last 60 seconds for
+                    // this account. If a save would push cumulative gains over
+                    // the threshold, reject with 429. Clan saves skipped.
+                    if (existing && !isClanSave && identityName) {
+                        const exChar = existing.character;
+                        const inChar = safeIncoming.character;
+                        if (exChar && inChar) {
+                            const exRyo = Math.max(0, Number(exChar.ryo ?? 0));
+                            const inRyo = Math.max(0, Number(inChar.ryo ?? 0));
+                            const ryoDelta = Math.max(0, inRyo - exRyo);
+                            const exXp = Math.max(0, Number(exChar.xp ?? exChar.experience ?? 0));
+                            const inXp = Math.max(0, Number(inChar.xp ?? inChar.experience ?? 0));
+                            const xpDelta = Math.max(0, inXp - exXp);
+                            const exStats = (exChar.stats ?? {});
+                            const inStats = (inChar.stats ?? {});
+                            const statDelta = {};
+                            for (const k of Object.keys(inStats)) {
+                                const ex = Number(exStats[k] ?? 0);
+                                const inv = Number(inStats[k] ?? 0);
+                                const d = Math.max(0, inv - ex);
+                                if (d > 0)
+                                    statDelta[k] = d;
+                            }
+                            const win = (await readGainsWindow(identityName)) ?? freshWindow();
+                            const ageMs = Date.now() - win.startedAt;
+                            const cur = (ageMs > GAIN_WINDOW_MS) ? freshWindow() : win;
+                            const nextRyo = cur.ryo + ryoDelta;
+                            const nextXp = cur.xp + xpDelta;
+                            const nextStat = { ...cur.stat };
+                            for (const [k, d] of Object.entries(statDelta))
+                                nextStat[k] = (nextStat[k] ?? 0) + d;
+                            if (nextRyo > MAX_RYO_PER_MINUTE) {
+                                return res.status(429).json({
+                                    error: `Ryo gain rate-limited (over ${MAX_RYO_PER_MINUTE} / 60s).`,
+                                });
+                            }
+                            if (nextXp > MAX_XP_PER_MINUTE) {
+                                return res.status(429).json({
+                                    error: `XP gain rate-limited (over ${MAX_XP_PER_MINUTE} / 60s).`,
+                                });
+                            }
+                            for (const [k, total] of Object.entries(nextStat)) {
+                                if (total > MAX_STAT_PER_MINUTE) {
+                                    return res.status(429).json({
+                                        error: `Stat ${k} gain rate-limited (over ${MAX_STAT_PER_MINUTE} / 60s).`,
+                                    });
+                                }
+                            }
+                            // Allowed — persist the updated window.
+                            await writeGainsWindow(identityName, { startedAt: cur.startedAt, ryo: nextRyo, stat: nextStat, xp: nextXp });
+                        }
+                    }
+                    const payload = existing ? (0, _utils_js_1.mergePreservingImages)(safeIncoming, existing) : safeIncoming;
+                    const char = incoming?.character;
+                    const displayName = char?.name || name;
+                    const registryEntry = {
+                        name: displayName,
+                        level: char?.level ?? 1,
+                        village: char?.village ?? '',
+                        specialty: char?.specialty ?? '',
+                        lastSeen: Date.now(),
+                    };
+                    await Promise.all([
+                        _storage_js_1.kv.set(key, payload),
+                        _storage_js_1.kv.hset(REGISTRY_KEY, { [name]: registryEntry }),
+                    ]);
                     return res.status(200).end();
-                // Sanitize before merge: caps per-save gains to prevent exploit spikes.
-                // Clan saves are collaborative (no single "owner" baseline), so we skip
-                // sanitization for them — they're already admin-locked in the UI.
-                const safeIncoming = (existing && !isClanSave)
-                    ? sanitizeCharacterSave(incoming, existing)
-                    : incoming;
-                const payload = existing ? (0, _utils_js_1.mergePreservingImages)(safeIncoming, existing) : safeIncoming;
-                const char = incoming?.character;
-                const displayName = char?.name || name;
-                const registryEntry = {
-                    name: displayName,
-                    level: char?.level ?? 1,
-                    village: char?.village ?? '',
-                    specialty: char?.specialty ?? '',
-                    lastSeen: Date.now(),
-                };
-                await Promise.all([
-                    _storage_js_1.kv.set(key, payload),
-                    _storage_js_1.kv.hset(REGISTRY_KEY, { [name]: registryEntry }),
-                ]);
-                return res.status(200).end();
+                }
+                finally {
+                    if (!isClanSave) {
+                        await _storage_js_1.kv.del(writeLockKey).catch(() => undefined);
+                    }
+                }
             }
             // Admin save path — lock first, then read + write, then signal reload.
             await _storage_js_1.kv.set(adminLockKey, 1, { ex: 300 });

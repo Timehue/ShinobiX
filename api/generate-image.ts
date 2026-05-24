@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { cors } from './_utils.js';
 import { authedPlayerOrAdmin } from './_auth.js';
-import { enforceRateLimit, clientKey } from './_ratelimit.js';
+import { enforceRateLimitKv } from './_ratelimit.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -15,8 +15,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // 2 images per 60 s per authenticated identity. Tight limit because each
     // call costs real money ($0.02-0.04/image at gpt-image-1 low quality).
+    // KV-backed so a stateless lambda hop can't reset the counter.
     const authedName = identity.admin ? null : (identity as { name: string }).name;
-    if (!enforceRateLimit(req, res, 'generate-image', 2, 60_000, authedName)) return;
+    if (!(await enforceRateLimitKv(req, res, 'generate-image', 2, 60_000, authedName))) return;
 
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
