@@ -1,0 +1,396 @@
+/* =========================================================================
+   Pet Yard + Pet Arena Skin v2 — match Battle / Profile palette
+   Scoped under .pet-yard-screen and .pet-arena-screen. Delete this file +
+   its @import to revert.
+   ========================================================================= */
+
+.pet-yard-screen,
+.pet-arena-screen {
+    --bsv2-gold:        #c4a25a;
+    --bsv2-gold-bright: #e8d496;
+    --bsv2-gold-soft:   rgba(196,162,90,0.45);
+    --bsv2-gold-faint:  rgba(196,162,90,0.22);
+    --bsv2-ink:         #050a18;
+    --bsv2-ink-2:       #0a1428;
+    --bsv2-player:      #4ea8ff;
+    --bsv2-enemy:       #e04444;
+
+    background: linear-gradient(180deg, rgba(12,18,34,0.92) 0%, rgba(6,10,22,0.96) 100%) !important;
+    border: 1px solid var(--bsv2-gold-faint) !important;
+    border-radius: 8px !important;
+    box-shadow:
+        0 8px 24px rgba(0,0,0,0.5),
+        inset 0 1px 0 rgba(255,255,255,0.04) !important;
+    color: #e8edf5 !important;
+    padding: 20px !important;
+}
+
+/* ----- Headers ----- */
+.pet-yard-screen .pet-yard-header,
+.pet-arena-screen .pet-arena-header {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px;
+    border-bottom: 1px solid var(--bsv2-gold-faint);
+    padding-bottom: 10px;
+    margin-bottom: 14px;
+}
+.pet-yard-screen .pet-yard-header h2,
+.pet-arena-screen .pet-arena-header h2,
+.pet-yard-screen > h2,
+.pet-arena-screen > h2 {
+    font: 700 18px Cinzel, serif !important;
+    letter-spacing: 0.22em !important;
+    text-transform: uppercase !important;
+    color: var(--bsv2-gold-bright) !important;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.8), 0 0 20px rgba(196,162,90,0.2);
+    margin: 0 !important;
+}
+.pet-yard-screen h3,
+.pet-arena-screen h3 {
+    font: 600 12px Cinzel, serif !important;
+    letter-spacing: 0.2em !important;
+    text-transform: uppercase !important;
+    color: var(--bsv2-player) !important;
+    margin: 14px 0 8px 0 !important;
+}
+.pet-yard-screen .hint,
+.pet-arena-screen .hint {
+    color: rgba(196,162,90,0.7) !important;
+    font: 400 11px Inter, sans-serif !important;
+    letter-spacing: 0.04em;
+}
+
+/* ----- Pet slots row ----- */
+.pet-yard-screen .pet-slots-row {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)) !important;
+    gap: 10px !important;
+    margin-bottom: 14px;
+}
+.pet-yard-screen .pet-slot-avatar {
+    background: linear-gradient(180deg, rgba(15,22,40,0.92) 0%, rgba(8,12,24,0.96) 100%) !important;
+    border: 1px solid var(--bsv2-gold-soft) !important;
+    border-radius: 6px !important;
+    padding: 10px !important;
+    color: #e8edf5 !important;
+    cursor: pointer;
+    box-shadow:
+        0 2px 0 rgba(0,0,0,0.6),
+        inset 0 0 12px rgba(0,0,0,0.4) !important;
+    transition: border-color 120ms, transform 120ms;
+}
+.pet-yard-screen .pet-slot-avatar:hover {
+    border-color: rgba(78,168,255,0.85) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 0 16px rgba(78,168,255,0.35);
+}
+.pet-yard-screen .pet-slot-avatar.is-active,
+.pet-yard-screen .pet-slot-avatar[aria-current="true"] {
+    border-color: var(--bsv2-player) !important;
+    box-shadow: 0 0 16px rgba(78,168,255,0.45) !important;
+}
+.pet-yard-screen .pet-slot-name {
+    font: 600 11px Cinzel, serif !important;
+    letter-spacing: 0.08em;
+    color: var(--bsv2-gold-bright) !important;
+}
+
+/* ----- Detail panel (selected pet) ----- */
+.pet-yard-screen .pet-detail-panel,
+.pet-yard-screen .pet-detail-left,
+.pet-yard-screen .pet-profile-panel,
+.pet-yard-screen .pet-info-panel,
+.pet-yard-screen .pet-jutsu-panel,
+.pet-yard-screen .pet-training-panel,
+.pet-yard-screen .pet-feed-panel {
+    background: linear-gradient(180deg, rgba(20,28,46,0.65), rgba(10,16,32,0.75)) !important;
+    border: 1px solid var(--bsv2-gold-faint) !important;
+    border-radius: 6px !important;
+    padding: 14px !important;
+    margin-bottom: 12px;
+    color: #e8edf5 !important;
+}
+.pet-yard-screen .pet-detail-avatar {
+    width: 120px; height: 120px;
+    border: 2px solid var(--bsv2-gold-soft) !important;
+    border-radius: 50% !important;
+    overflow: hidden;
+    box-shadow: 0 0 18px rgba(196,162,90,0.2), inset 0 0 12px rgba(0,0,0,0.5) !important;
+    background: linear-gradient(135deg, #1a2238, #0a1020);
+}
+.pet-yard-screen .pet-detail-initials,
+.pet-yard-screen .pet-initials {
+    font: 700 28px Cinzel, serif !important;
+    color: var(--bsv2-gold-bright) !important;
+    letter-spacing: 0.05em;
+}
+.pet-yard-screen .pet-description {
+    color: #c8cfdc !important;
+    font: 400 12px/1.5 Inter, sans-serif !important;
+}
+
+/* ----- Stats grid ----- */
+.pet-yard-screen .pet-stats-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)) !important;
+    gap: 8px !important;
+    margin: 8px 0;
+}
+.pet-yard-screen .pet-stats-grid > * {
+    background: linear-gradient(180deg, #1a2238 0%, #0a1020 100%) !important;
+    border: 1px solid var(--bsv2-gold-soft) !important;
+    border-radius: 4px !important;
+    padding: 8px 6px !important;
+    text-align: center;
+    color: #e8edf5 !important;
+}
+
+/* ----- Pet jutsu list ----- */
+.pet-yard-screen .pet-jutsu-row,
+.pet-yard-screen .pet-jutsu-stat {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 10px !important;
+    background: rgba(10,16,32,0.5) !important;
+    border: 1px solid var(--bsv2-gold-faint) !important;
+    border-left: 3px solid var(--bsv2-player) !important;
+    border-radius: 4px !important;
+    margin-bottom: 4px;
+    font: 500 11px Inter, sans-serif !important;
+    color: #c8cfdc !important;
+}
+.pet-yard-screen .pet-jutsu-kind-badge {
+    background: rgba(78,168,255,0.18) !important;
+    color: var(--bsv2-player) !important;
+    border: 1px solid rgba(78,168,255,0.5) !important;
+    padding: 2px 6px !important;
+    border-radius: 3px !important;
+    font: 700 9px Cinzel, serif !important;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+/* ----- Tags + chips ----- */
+.pet-yard-screen .pet-trait-tag,
+.pet-yard-screen .pet-active-tag,
+.pet-yard-screen .pet-ready-tag,
+.pet-yard-screen .pet-training-tag {
+    display: inline-block;
+    padding: 3px 10px !important;
+    border-radius: 999px !important;
+    font: 600 10px Cinzel, serif !important;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin-right: 4px;
+}
+.pet-yard-screen .pet-trait-tag {
+    background: rgba(196,162,90,0.15) !important;
+    color: var(--bsv2-gold-bright) !important;
+    border: 1px solid var(--bsv2-gold-soft) !important;
+}
+.pet-yard-screen .pet-active-tag {
+    background: rgba(111,212,122,0.15) !important;
+    color: #86efac !important;
+    border: 1px solid rgba(111,212,122,0.5) !important;
+}
+.pet-yard-screen .pet-ready-tag {
+    background: rgba(78,168,255,0.15) !important;
+    color: var(--bsv2-player) !important;
+    border: 1px solid rgba(78,168,255,0.5) !important;
+}
+.pet-yard-screen .pet-training-tag {
+    background: rgba(167,139,250,0.15) !important;
+    color: #c4b5fd !important;
+    border: 1px solid rgba(167,139,250,0.5) !important;
+}
+.pet-yard-screen .pet-trait-display {
+    color: #c8cfdc !important;
+    font: 400 11px Inter, sans-serif !important;
+}
+
+/* ----- Happiness meter ----- */
+.pet-yard-screen .pet-happiness-meter-top {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font: 500 10px/1 Cinzel, serif !important;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(232,212,150,0.85) !important;
+    margin-bottom: 4px;
+}
+.pet-yard-screen .pet-happiness-track {
+    height: 6px !important;
+    background: rgba(0,0,0,0.5) !important;
+    border: 1px solid var(--bsv2-gold-faint) !important;
+    border-radius: 3px !important;
+    overflow: hidden;
+}
+.pet-yard-screen .pet-happiness-meter span,
+.pet-yard-screen .pet-happiness-track > * {
+    background: linear-gradient(90deg, #d35a2a, #f97316) !important;
+    box-shadow: 0 0 6px rgba(249,115,22,0.4);
+}
+
+/* ----- Feed grid ----- */
+.pet-yard-screen .pet-feed-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important;
+    gap: 8px !important;
+}
+.pet-yard-screen .pet-feed-grid > button {
+    background: linear-gradient(180deg, #1a2238 0%, #0a1020 100%) !important;
+    border: 1px solid var(--bsv2-gold-soft) !important;
+    border-radius: 4px !important;
+    color: var(--bsv2-gold-bright) !important;
+    padding: 8px !important;
+    font: 600 10px Cinzel, serif !important;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: border-color 120ms, transform 80ms;
+}
+.pet-yard-screen .pet-feed-grid > button:hover:not(:disabled) {
+    border-color: rgba(232,212,150,0.85) !important;
+    transform: translateY(-1px);
+}
+.pet-yard-screen .pet-feed-grid > button:disabled {
+    opacity: 0.4; cursor: not-allowed;
+}
+
+/* ----- Care actions / general buttons ----- */
+.pet-yard-screen .pet-care-actions,
+.pet-yard-screen .menu {
+    display: flex; gap: 8px; flex-wrap: wrap;
+    margin: 8px 0;
+}
+.pet-yard-screen .pet-care-actions button,
+.pet-yard-screen .menu button,
+.pet-yard-screen .admin-button {
+    background: linear-gradient(180deg, #1e3a8a 0%, #1e40af 100%) !important;
+    border: 1px solid rgba(78,168,255,0.55) !important;
+    color: #fff !important;
+    padding: 6px 14px !important;
+    border-radius: 4px !important;
+    font: 600 11px Cinzel, serif !important;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(78,168,255,0.25);
+    transition: transform 80ms, box-shadow 120ms;
+}
+.pet-yard-screen .pet-care-actions button:hover:not(:disabled),
+.pet-yard-screen .menu button:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 0 16px rgba(78,168,255,0.45) !important;
+}
+.pet-yard-screen .danger-button,
+.pet-yard-screen .back-btn,
+.pet-arena-screen .back-btn,
+.pet-arena-screen .danger-button {
+    background: linear-gradient(180deg, #1a2238 0%, #0a1020 100%) !important;
+    border: 1px solid var(--bsv2-gold-soft) !important;
+    color: var(--bsv2-gold-bright) !important;
+    box-shadow: none !important;
+}
+
+/* ----- Training panel state ----- */
+.pet-yard-screen .training-in-progress {
+    color: #c4b5fd !important;
+    font: 500 12px Cinzel, serif !important;
+    letter-spacing: 0.08em;
+}
+.pet-yard-screen .training-complete {
+    color: #86efac !important;
+    font: 600 12px Cinzel, serif !important;
+    letter-spacing: 0.08em;
+}
+.pet-yard-screen .training-timer {
+    color: var(--bsv2-gold-bright) !important;
+    font-family: Inter, sans-serif !important;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ----- Empty state ----- */
+.pet-yard-screen .pet-empty-state,
+.pet-yard-screen .pet-empty-label {
+    text-align: center;
+    padding: 24px;
+    color: rgba(196,162,90,0.55) !important;
+    font: 400 12px Inter, sans-serif !important;
+    font-style: italic;
+}
+
+/* ----- Pet Arena ----- */
+.pet-arena-screen .pet-arena-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)) !important;
+    gap: 10px !important;
+    margin-top: 10px;
+}
+.pet-arena-screen .pet-arena-mode-toggle {
+    display: flex; gap: 4px;
+    background: rgba(0,0,0,0.3) !important;
+    border: 1px solid var(--bsv2-gold-faint) !important;
+    border-radius: 6px !important;
+    padding: 4px !important;
+}
+.pet-arena-screen .pet-arena-mode-toggle button {
+    background: transparent !important;
+    border: 1px solid transparent !important;
+    color: rgba(196,162,90,0.65) !important;
+    padding: 6px 14px !important;
+    font: 600 11px Cinzel, serif !important;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    border-radius: 4px !important;
+    cursor: pointer;
+    transition: color 120ms, background 120ms;
+}
+.pet-arena-screen .pet-arena-mode-toggle button.active,
+.pet-arena-screen .pet-arena-mode-toggle button[aria-selected="true"] {
+    color: var(--bsv2-player) !important;
+    background: linear-gradient(180deg, rgba(78,168,255,0.14), rgba(78,168,255,0.04)) !important;
+    border-color: rgba(78,168,255,0.5) !important;
+    box-shadow: inset 0 -2px 0 var(--bsv2-player), 0 0 10px rgba(78,168,255,0.2);
+}
+.pet-arena-screen .summary-box {
+    background: linear-gradient(180deg, rgba(20,28,46,0.85), rgba(12,18,34,0.85)) !important;
+    border: 1px solid var(--bsv2-gold-faint) !important;
+    border-left: 3px solid var(--bsv2-player) !important;
+    border-radius: 4px !important;
+    color: #c8cfdc !important;
+}
+
+/* Pet arena card (shared component) — tighten in arena context */
+.pet-arena-screen .pet-arena-card {
+    background: linear-gradient(180deg, rgba(15,22,40,0.92), rgba(8,12,24,0.96)) !important;
+    border: 1px solid var(--bsv2-gold-soft) !important;
+    border-radius: 6px !important;
+    padding: 12px !important;
+    color: #e8edf5 !important;
+    box-shadow: 0 2px 0 rgba(0,0,0,0.6), inset 0 0 16px rgba(0,0,0,0.4);
+    transition: border-color 120ms, transform 120ms;
+}
+.pet-arena-screen .pet-arena-card:hover {
+    border-color: rgba(78,168,255,0.85) !important;
+    transform: translateY(-2px);
+}
+.pet-arena-screen .pet-arena-card strong {
+    color: var(--bsv2-gold-bright) !important;
+    font: 600 13px Cinzel, serif !important;
+    letter-spacing: 0.08em;
+}
+.pet-arena-screen .pet-arena-jutsu-chip {
+    background: linear-gradient(90deg, rgba(20,28,46,0.85), rgba(12,18,34,0.85)) !important;
+    border-radius: 3px !important;
+    padding: 3px 8px !important;
+    font: 600 9px Cinzel, serif !important;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin: 2px;
+    display: inline-block;
+}
+
+/* ----- Modal overlay (e.g. pet yard popups) ----- */
+.pet-yard-overlay {
+    background: rgba(5,9,18,0.85) !important;
+    backdrop-filter: blur(6px);
+}
