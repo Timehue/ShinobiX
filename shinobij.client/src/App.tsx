@@ -27337,13 +27337,9 @@ function Arena({
                             </div>
                         ) : (
                             <>
-                                {equippedJutsus.length === 0 ? (
-                                    <div className="summary-box combat-no-jutsu-note">
-                                        No equipped jutsus. Equip trained jutsus from Profile.
-                                    </div>
-                                ) : (
-                                    <div className="combat-equipped-jutsu-grid">
-                                        {equippedJutsus.map((jutsu) => {
+                                <div className="combat-equipped-jutsu-grid">
+                                    {/* ── Jutsu cards ── */}
+                                    {equippedJutsus.map((jutsu) => {
                                         const isArmed = pendingTargetJutsuId === jutsu.id;
                                         const cooldown = jutsuCooldowns[jutsu.id] ?? 0;
                                         const isOnCooldown = cooldown > 0;
@@ -27402,65 +27398,61 @@ function Arena({
                                                 </button>
                                             </div>
                                         );
-                                        })}
-                                    </div>
-                                )}
+                                    })}
 
-                                {combatEquippedItems.length > 0 && (
-                                    <div className="combat-equipped-items-row">
-                                        {combatEquippedItems.map((item) => {
-                                            const slot = normalizeEquipmentSlot(item.slot);
-                                            const isWeapon = slot === "hand" || slot === "thrown";
-                                            const icon = slot === "thrown" ? "?" : slot === "hand" ? "?" : "?";
-                                            const itemAp = item.apCost ?? (slot === "thrown" ? 45 : slot === "hand" ? 40 : 35);
-                                            const weaponDisplayRange = item.weaponRange ?? (slot === "thrown" ? 4 : 1);
-                                            const actionText = isWeapon
-                                                ? `${itemAp} AP | R${weaponDisplayRange}`
-                                                : `${itemAp} AP | Use`;
-                                            const isArmed = pendingTargetWeapon?.id === item.id;
+                                    {/* ── Weapon & item cards (inline after jutsu) ── */}
+                                    {combatEquippedItems.map((item) => {
+                                        const slot = normalizeEquipmentSlot(item.slot);
+                                        const isWeapon = slot === "hand" || slot === "thrown";
+                                        const icon = slot === "thrown" ? "?" : slot === "hand" ? "?" : "?";
+                                        const itemAp = item.apCost ?? (slot === "thrown" ? 45 : slot === "hand" ? 40 : 35);
+                                        const weaponDisplayRange = item.weaponRange ?? (slot === "thrown" ? 4 : 1);
+                                        const actionText = isWeapon
+                                            ? `${itemAp} AP | R${weaponDisplayRange}`
+                                            : `${itemAp} AP | Use`;
+                                        const isArmed = pendingTargetWeapon?.id === item.id;
 
-                                            return (
-                                                <div className="combat-jutsu-card-wrap combat-item-card-wrap" key={item.id}>
-                                                    <button
-                                                        type="button"
-                                                        className={`combat-jutsu-button combat-item-button rarity-${item.rarity}${isArmed ? " jutsu-armed" : ""}`}
-                                                        title={isArmed ? `${item.name} armed — click ${opponentName} to fire` : `${item.name} | ${equipmentSlotLabel(item.slot)} | ${combatItemSummary(item)}`}
-                                                        onClick={(event) => {
-                                                            event.preventDefault();
-                                                            event.stopPropagation();
-                                                            setInspectedJutsuId("");
-                                                            activateEquippedCombatItem(item);
-                                                        }}
-                                                    >
-                                                        <span className="combat-jutsu-thumb combat-item-thumb">
-                                                            {item.image ? (
-                                                                <img src={item.image} alt={item.name} />
-                                                            ) : (
-                                                                <strong>{icon || combatItemInitials(item.name)}</strong>
-                                                            )}
-                                                        </span>
-                                                        <span className="combat-jutsu-name">{item.name}</span>
-                                                        <span className="combat-jutsu-info">{equipmentSlotLabel(item.slot)} | {actionText}</span>
-                                                    </button>
+                                        return (
+                                            <div className={`combat-jutsu-card-wrap combat-item-card-wrap ${isWeapon ? "combat-weapon-card" : "combat-consumable-card"}`} key={item.id}>
+                                                <button
+                                                    type="button"
+                                                    className={`combat-jutsu-button combat-item-button rarity-${item.rarity}${isArmed ? " jutsu-armed" : ""}`}
+                                                    title={isArmed ? `${item.name} armed — click ${opponentName} to fire` : `${item.name} | ${equipmentSlotLabel(item.slot)} | ${combatItemSummary(item)}`}
+                                                    onClick={(event) => {
+                                                        event.preventDefault();
+                                                        event.stopPropagation();
+                                                        setInspectedJutsuId("");
+                                                        activateEquippedCombatItem(item);
+                                                    }}
+                                                >
+                                                    <span className="combat-jutsu-thumb combat-item-thumb">
+                                                        {item.image ? (
+                                                            <img src={item.image} alt={item.name} />
+                                                        ) : (
+                                                            <strong>{icon || combatItemInitials(item.name)}</strong>
+                                                        )}
+                                                    </span>
+                                                    <span className="combat-jutsu-name">{item.name}</span>
+                                                    <span className="combat-jutsu-info">{equipmentSlotLabel(item.slot)} | {actionText}</span>
+                                                </button>
 
-                                                    <button
-                                                        type="button"
-                                                        className="combat-jutsu-help"
-                                                        onClick={(event) => {
-                                                            event.preventDefault();
-                                                            event.stopPropagation();
-                                                            setInspectedJutsuId("");
-                                                            setInspectedCombatItemId(item.id);
-                                                        }}
-                                                        title={`View ${item.name} details`}
-                                                    >
-                                                        ?
-                                                    </button>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
+                                                <button
+                                                    type="button"
+                                                    className="combat-jutsu-help"
+                                                    onClick={(event) => {
+                                                        event.preventDefault();
+                                                        event.stopPropagation();
+                                                        setInspectedJutsuId("");
+                                                        setInspectedCombatItemId(item.id);
+                                                    }}
+                                                    title={`View ${item.name} details`}
+                                                >
+                                                    ?
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
 
                                 {inspectedJutsu && (() => {
                                     const mastery = getJutsuMastery(character, inspectedJutsu.id);
@@ -28611,6 +28603,7 @@ function PvpBattleScreen({
                                 ) : (
                                     <>
                                     <div className="combat-equipped-jutsu-grid">
+                                        {/* ── Jutsu cards ── */}
                                         {sessionEquippedJutsu.map(j => {
                                             const mastery = getJutsuMastery(meCharacterSnapshot, j.id);
                                             const scaled = scaleJutsuByLevel(j, mastery.level);
@@ -28637,60 +28630,55 @@ function PvpBattleScreen({
                                                 </div>
                                             );
                                         })}
+
+                                        {/* ── Weapon cards (green) ── */}
+                                        {pvpEquippedWeapons.map(item => {
+                                            const slot = normalizeEquipmentSlot(item.slot);
+                                            const wRange = item.weaponRange ?? (slot === "thrown" ? 4 : 1);
+                                            const apCost = item.apCost ?? 40;
+                                            const isArmed = pendingWeaponId === item.id;
+                                            return (
+                                                <div className={`combat-jutsu-card-wrap combat-item-card-wrap combat-weapon-card${isArmed ? " selected-action" : ""}`} key={item.id}>
+                                                    <button
+                                                        type="button"
+                                                        className={`combat-jutsu-button combat-item-button rarity-${item.rarity}${isArmed ? " selected-action" : ""}`}
+                                                        title={`${item.name} | ${apCost} AP | Range ${wRange}`}
+                                                        onClick={() => { setInspectedJutsuId(""); setInspectedWeaponId(""); clearPendingPvpJutsu(); setDashMode(false); setSelectedActionId(undefined); setPendingBasicAttack(false); setPendingWeaponId(v => v === item.id ? "" : item.id); }}
+                                                        disabled={submitting || myAp < apCost}>
+                                                        <span className="combat-jutsu-thumb combat-item-thumb">
+                                                            {item.image ? <img src={item.image} alt={item.name} /> : <strong>{slot === "thrown" ? "?" : "?"}</strong>}
+                                                        </span>
+                                                        <span className="combat-jutsu-name">{item.name}</span>
+                                                        <span className="combat-jutsu-info">{apCost} AP | R{wRange}</span>
+                                                    </button>
+                                                    <button type="button" className="combat-jutsu-help"
+                                                        onClick={() => setInspectedWeaponId(inspectedWeaponId === item.id ? "" : item.id)}
+                                                        title={`View ${item.name} details`}>?</button>
+                                                </div>
+                                            );
+                                        })}
+
+                                        {/* ── Consumable cards (red) ── */}
+                                        {pvpEquippedConsumables.map(item => {
+                                            const apCost = item.apCost ?? 35;
+                                            return (
+                                                <div className="combat-jutsu-card-wrap combat-item-card-wrap combat-consumable-card" key={item.id}>
+                                                    <button
+                                                        type="button"
+                                                        className={`combat-jutsu-button combat-item-button rarity-${item.rarity}`}
+                                                        title={`${item.name} | ${apCost} AP | Use`}
+                                                        onClick={() => { setInspectedJutsuId(""); clearPendingPvpJutsu(); setPendingBasicAttack(false); setPendingWeaponId(""); submitAction("item", undefined, undefined, item); }}
+                                                        disabled={submitting || myAp < apCost}>
+                                                        <span className="combat-jutsu-thumb combat-item-thumb">
+                                                            {item.image ? <img src={item.image} alt={item.name} /> : <strong>?</strong>}
+                                                        </span>
+                                                        <span className="combat-jutsu-name">{item.name}</span>
+                                                        <span className="combat-jutsu-info">{apCost} AP | Use</span>
+                                                    </button>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
-                                    {pvpEquippedWeapons.length > 0 && (
-                                        <div className="combat-equipped-items-row">
-                                            {pvpEquippedWeapons.map(item => {
-                                                const slot = normalizeEquipmentSlot(item.slot);
-                                                const wRange = item.weaponRange ?? (slot === "thrown" ? 4 : 1);
-                                                const apCost = item.apCost ?? 40;
-                                                const isArmed = pendingWeaponId === item.id;
-                                                return (
-                                                    <div className={`combat-jutsu-card-wrap combat-item-card-wrap${isArmed ? " selected-action" : ""}`} key={item.id}>
-                                                        <button
-                                                            type="button"
-                                                            className={`combat-jutsu-button combat-item-button rarity-${item.rarity}${isArmed ? " selected-action" : ""}`}
-                                                            title={`${item.name} | ${apCost} AP | Range ${wRange}`}
-                                                            onClick={() => { setInspectedJutsuId(""); setInspectedWeaponId(""); clearPendingPvpJutsu(); setDashMode(false); setSelectedActionId(undefined); setPendingBasicAttack(false); setPendingWeaponId(v => v === item.id ? "" : item.id); }}
-                                                            disabled={submitting || myAp < apCost}>
-                                                            <span className="combat-jutsu-thumb combat-item-thumb">
-                                                                {item.image ? <img src={item.image} alt={item.name} /> : <strong>{slot === "thrown" ? "?" : "?"}</strong>}
-                                                            </span>
-                                                            <span className="combat-jutsu-name">{item.name}</span>
-                                                            <span className="combat-jutsu-info">{apCost} AP | R{wRange}</span>
-                                                        </button>
-                                                        <button type="button" className="combat-jutsu-help"
-                                                            onClick={() => setInspectedWeaponId(inspectedWeaponId === item.id ? "" : item.id)}
-                                                            title={`View ${item.name} details`}>?</button>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
-                                    {pvpEquippedConsumables.length > 0 && (
-                                        <div className="combat-equipped-items-row">
-                                            {pvpEquippedConsumables.map(item => {
-                                                const apCost = item.apCost ?? 35;
-                                                return (
-                                                    <div className="combat-jutsu-card-wrap combat-item-card-wrap" key={item.id}>
-                                                        <button
-                                                            type="button"
-                                                            className={`combat-jutsu-button combat-item-button rarity-${item.rarity}`}
-                                                            title={`${item.name} | ${apCost} AP | Use`}
-                                                            onClick={() => { setInspectedJutsuId(""); clearPendingPvpJutsu(); setPendingBasicAttack(false); setPendingWeaponId(""); submitAction("item", undefined, undefined, item); }}
-                                                            disabled={submitting || myAp < apCost}>
-                                                            <span className="combat-jutsu-thumb combat-item-thumb">
-                                                                {item.image ? <img src={item.image} alt={item.name} /> : <strong>?</strong>}
-                                                            </span>
-                                                            <span className="combat-jutsu-name">{item.name}</span>
-                                                            <span className="combat-jutsu-info">{apCost} AP | Use</span>
-                                                        </button>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
-                                    </>
                                 )}
                                 {inspectedWeaponId && (() => {
                                     const w = pvpEquippedWeapons.find(x => x.id === inspectedWeaponId);

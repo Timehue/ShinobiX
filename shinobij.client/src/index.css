@@ -9749,6 +9749,24 @@ textarea {
     background: radial-gradient(circle at 50% 35%, rgba(255, 255, 255, 0.34), transparent 28%), linear-gradient(135deg, #052e16, #164e63, #713f12) !important;
 }
 
+/* ── Weapon cards: green tint ── */
+.combat-weapon-card .combat-jutsu-button {
+    border-color: rgba(52, 211, 153, 0.72) !important;
+    background: linear-gradient(180deg, #064e3b, #052e2b) !important;
+}
+.combat-weapon-card .combat-jutsu-thumb {
+    background: radial-gradient(circle at 50% 35%, rgba(255, 255, 255, 0.25), transparent 28%), linear-gradient(135deg, #052e16, #0a4a2e, #064e3b) !important;
+}
+
+/* ── Consumable / item cards: red tint ── */
+.combat-consumable-card .combat-jutsu-button {
+    border-color: rgba(248, 113, 113, 0.72) !important;
+    background: linear-gradient(180deg, #4c1014, #2d0a0e) !important;
+}
+.combat-consumable-card .combat-jutsu-thumb {
+    background: radial-gradient(circle at 50% 35%, rgba(255, 255, 255, 0.25), transparent 28%), linear-gradient(135deg, #3b0e0e, #4c1014, #5a1a1a) !important;
+}
+
 /* Armed weapon — glows orange to signal "select a target" */
 .jutsu-armed {
     outline: 2px solid rgba(251, 146, 60, 0.95) !important;
@@ -16950,12 +16968,6 @@ html[data-vp="xl"] .arena-fullscreen .jutsu-layout-card {
     max-height: 200px !important;
     overflow-y: auto !important;
     padding: 4px !important;
-}
-
-/* Items row: compact */
-html[data-vp="xl"] .arena-fullscreen .combat-equipped-items-row {
-    grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)) !important;
-    gap: 4px !important;
 }
 
 /* Combat tabs (Jutsu/Weapons/Items tab buttons) */
