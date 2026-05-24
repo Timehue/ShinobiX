@@ -16814,7 +16814,7 @@ html[data-vp="xl"] .battle-hud-sidebar {
     background: transparent;
     border: none;
     border-radius: 0;
-    padding: 60px 10px 16px;
+    padding: 60px 18px 16px 14px;
     box-sizing: border-box;
 }
 
