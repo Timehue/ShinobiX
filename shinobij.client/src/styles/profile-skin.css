@@ -1,0 +1,703 @@
+/* =========================================================================
+   Profile + Inventory Skin v2 — Polish pass matching Battle screen
+   Scoped under .profile-page-card and .inventory-page so nothing else is
+   affected. To revert: delete this block.
+   ========================================================================= */
+
+.profile-page-card,
+.inventory-page {
+    --bsv2-gold:        #c4a25a;
+    --bsv2-gold-bright: #e8d496;
+    --bsv2-gold-soft:   rgba(196,162,90,0.45);
+    --bsv2-gold-faint:  rgba(196,162,90,0.22);
+    --bsv2-ink:         #050a18;
+    --bsv2-ink-2:       #0a1428;
+    --bsv2-player:      #4ea8ff;
+    --bsv2-enemy:       #e04444;
+}
+
+/* -------- Outer wrappers -------- */
+.profile-page-card,
+.inventory-page {
+    background: linear-gradient(180deg, rgba(12,18,34,0.92) 0%, rgba(6,10,22,0.96) 100%) !important;
+    border: 1px solid var(--bsv2-gold-faint) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04) !important;
+    color: #e8edf5 !important;
+}
+
+/* -------- Headings -------- */
+.profile-page-card h1,
+.profile-page-card h2,
+.profile-page-card h3,
+.inventory-page h1,
+.inventory-page h2,
+.inventory-page h3,
+.profile-page-header h1,
+.profile-page-header h2 {
+    font-family: Cinzel, serif !important;
+    letter-spacing: 0.14em;
+    color: var(--bsv2-gold-bright) !important;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+}
+.profile-page-header {
+    border-bottom: 1px solid var(--bsv2-gold-faint) !important;
+    padding-bottom: 12px;
+    margin-bottom: 16px;
+}
+
+/* -------- Tab strips -------- */
+.profile-mobile-tabs,
+.inventory-tabs {
+    display: flex;
+    gap: 4px !important;
+    background: rgba(0,0,0,0.3) !important;
+    border: 1px solid var(--bsv2-gold-faint) !important;
+    border-radius: 6px !important;
+    padding: 4px !important;
+}
+.profile-mobile-tabs button,
+.inventory-tabs button {
+    flex: 1;
+    background: transparent !important;
+    border: 1px solid transparent !important;
+    color: rgba(196,162,90,0.65) !important;
+    padding: 8px 14px !important;
+    font: 600 11px Cinzel, serif !important;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    border-radius: 4px !important;
+    cursor: pointer;
+    transition: color 120ms, background 120ms, border-color 120ms;
+}
+.profile-mobile-tabs button:hover,
+.inventory-tabs button:hover {
+    color: var(--bsv2-gold-bright) !important;
+}
+.profile-mobile-tabs button.active,
+.inventory-tabs button.active,
+.profile-mobile-tabs button[aria-selected="true"],
+.inventory-tabs button[aria-selected="true"] {
+    color: var(--bsv2-player) !important;
+    background: linear-gradient(180deg, rgba(78,168,255,0.12), rgba(78,168,255,0.04)) !important;
+    border-color: rgba(78,168,255,0.45) !important;
+    box-shadow: inset 0 -2px 0 var(--bsv2-player), 0 0 12px rgba(78,168,255,0.18);
+}
+
+/* -------- Inner panels -------- */
+.profile-panel,
+.profile-overview-panel,
+.profile-build-panel,
+.profile-title-panel,
+.inventory-equipped-panel,
+.inventory-backpack-panel,
+.profile-card {
+    background: linear-gradient(180deg, rgba(12,18,34,0.85) 0%, rgba(6,10,22,0.9) 100%) !important;
+    border: 1px solid var(--bsv2-gold-faint) !important;
+    border-radius: 6px !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.03) !important;
+    color: #e8edf5 !important;
+    padding: 14px !important;
+}
+.inventory-panel-header {
+    color: var(--bsv2-gold-bright) !important;
+    font: 600 12px Cinzel, serif !important;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--bsv2-gold-faint) !important;
+    padding-bottom: 8px;
+    margin-bottom: 10px;
+}
+
+/* -------- Profile summary / character card -------- */
+.profile-name {
+    font: 700 22px Cinzel, serif !important;
+    color: var(--bsv2-gold-bright) !important;
+    letter-spacing: 0.08em;
+}
+.profile-rank {
+    font: 500 12px Cinzel, serif !important;
+    color: var(--bsv2-player) !important;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+}
+.profile-avatar-wrap,
+.profile-avatar-upload-box {
+    border: 2px solid var(--bsv2-gold-soft) !important;
+    border-radius: 50% !important;
+    overflow: hidden;
+    box-shadow: 0 0 18px rgba(196,162,90,0.2);
+}
+.profile-info-grid,
+.profile-summary {
+    color: #c8cfdc !important;
+}
+.profile-stat {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+    font: 400 12px Inter, sans-serif !important;
+    color: #c8cfdc !important;
+    border-bottom: 1px solid rgba(196,162,90,0.08);
+}
+.profile-stat:last-child { border-bottom: none; }
+.profile-stat strong,
+.profile-stat b {
+    color: var(--bsv2-gold-bright) !important;
+    font-family: Inter, sans-serif !important;
+    font-variant-numeric: tabular-nums;
+}
+
+/* -------- Stat allocation cards -------- */
+.stat-grid {
+    display: grid !important;
+    gap: 10px !important;
+}
+.stat-group {
+    background: linear-gradient(180deg, rgba(12,18,34,0.7), rgba(6,10,22,0.8)) !important;
+    border: 1px solid var(--bsv2-gold-faint) !important;
+    border-radius: 6px !important;
+    padding: 12px !important;
+    margin-bottom: 10px !important;
+}
+.stat-group-heading {
+    font: 600 12px Cinzel, serif !important;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--bsv2-gold-bright) !important;
+    margin: 0 0 10px 0 !important;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--bsv2-gold-faint);
+}
+.stat-group-list {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) !important;
+    gap: 8px !important;
+}
+.stat-card,
+.stat-box {
+    background: linear-gradient(180deg, #1a2238 0%, #0a1020 100%) !important;
+    border: 1px solid var(--bsv2-gold-soft) !important;
+    border-radius: 6px !important;
+    padding: 10px !important;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), inset 0 -2px 0 rgba(0,0,0,0.5);
+    color: #e8edf5 !important;
+}
+.stat-card-label,
+.stat-label {
+    font: 600 10px Cinzel, serif !important;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(196,162,90,0.85) !important;
+}
+.stat-card-values,
+.stat-row {
+    color: #f4e6c4 !important;
+    font: 600 16px Cinzel, serif !important;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.04em;
+}
+.stat-current { color: var(--bsv2-gold-bright) !important; font-weight: 700; }
+.stat-max { color: rgba(196,162,90,0.6) !important; font-weight: 500; }
+.stat-value { color: #f4e6c4 !important; }
+.stat-bar-track {
+    height: 4px !important;
+    background: rgba(0,0,0,0.5) !important;
+    border: 1px solid rgba(196,162,90,0.18) !important;
+    border-radius: 2px !important;
+    overflow: hidden;
+}
+.stat-bar-fill {
+    height: 100% !important;
+    background: linear-gradient(90deg, #2a5cb8, var(--bsv2-player)) !important;
+    box-shadow: 0 0 6px rgba(78,168,255,0.5);
+}
+.stat-card-input-row {
+    display: flex !important;
+    gap: 4px !important;
+    align-items: center !important;
+    margin-top: 6px !important;
+}
+.stat-input,
+.stat-card-input-row input {
+    background: rgba(0,0,0,0.4) !important;
+    border: 1px solid var(--bsv2-gold-soft) !important;
+    color: #e8edf5 !important;
+    padding: 4px 6px !important;
+    width: 50px !important;
+    border-radius: 3px !important;
+    font: 600 12px Inter, sans-serif !important;
+    text-align: center;
+    outline: none;
+    font-variant-numeric: tabular-nums;
+}
+.stat-input:focus,
+.stat-card-input-row input:focus {
+    border-color: var(--bsv2-player) !important;
+    box-shadow: 0 0 6px rgba(78,168,255,0.3);
+}
+.stat-add-btn,
+.stat-card-input-row button {
+    background: linear-gradient(180deg, #1e3a8a 0%, #1e40af 100%) !important;
+    border: 1px solid rgba(78,168,255,0.55) !important;
+    color: #fff !important;
+    padding: 4px 10px !important;
+    border-radius: 3px !important;
+    font: 600 10px Cinzel, serif !important;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    cursor: pointer;
+    box-shadow: 0 0 8px rgba(78,168,255,0.25);
+}
+.stat-add-btn:hover,
+.stat-card-input-row button:hover {
+    background: linear-gradient(180deg, #2853a8 0%, #2e5bd0 100%) !important;
+    box-shadow: 0 0 12px rgba(78,168,255,0.45);
+}
+.stat-add-btn:disabled,
+.stat-card-input-row button:disabled {
+    opacity: 0.4; cursor: not-allowed;
+}
+.stat-warning {
+    color: var(--bsv2-enemy) !important;
+    font: 500 11px Inter, sans-serif !important;
+    padding: 6px 10px;
+    background: rgba(224,68,68,0.1);
+    border-left: 3px solid var(--bsv2-enemy);
+    border-radius: 3px;
+}
+.stat-header {
+    font: 600 11px Cinzel, serif !important;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--bsv2-gold-bright) !important;
+}
+.stat-chip {
+    background: rgba(196,162,90,0.1) !important;
+    border: 1px solid var(--bsv2-gold-soft) !important;
+    color: var(--bsv2-gold-bright) !important;
+    padding: 3px 8px !important;
+    border-radius: 3px !important;
+    font: 600 10px Cinzel, serif !important;
+    letter-spacing: 0.14em;
+}
+
+/* -------- Jutsu management — equipped row + collection grid -------- */
+.profile-page-card .equipped-jutsu-grid,
+.profile-page-card .jutsu-list,
+.profile-page-card .jutsu-combat-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)) !important;
+    gap: 8px !important;
+}
+.profile-page-card .jutsu-card,
+.profile-page-card .jutsu-effect-card {
+    background: linear-gradient(180deg, rgba(15,22,40,0.92) 0%, rgba(8,12,24,0.96) 100%) !important;
+    border: 1px solid var(--bsv2-gold-soft) !important;
+    border-radius: 6px !important;
+    box-shadow:
+        0 2px 0 rgba(0,0,0,0.6),
+        0 0 0 1px rgba(0,0,0,0.4),
+        inset 0 0 18px rgba(0,0,0,0.45) !important;
+    color: #e8edf5 !important;
+    transition: border-color 120ms, box-shadow 120ms, transform 120ms;
+}
+.profile-page-card .jutsu-card:hover {
+    border-color: rgba(78,168,255,0.85) !important;
+    box-shadow: 0 0 16px rgba(78,168,255,0.35), inset 0 0 18px rgba(0,0,0,0.45) !important;
+    transform: translateY(-2px);
+}
+.profile-page-card .jutsu-card.selected,
+.profile-page-card .jutsu-card.equipped,
+.profile-page-card .jutsu-card[aria-selected="true"] {
+    border-color: var(--bsv2-player) !important;
+    box-shadow: 0 0 18px rgba(78,168,255,0.55), inset 0 0 18px rgba(0,0,0,0.45) !important;
+}
+.profile-page-card .jutsu-name {
+    font-family: Cinzel, serif !important;
+    color: #f4e6c4 !important;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+}
+.profile-page-card .jutsu-meta,
+.profile-page-card .jutsu-stat {
+    color: rgba(196,162,90,0.85) !important;
+    font: 500 10px Inter, sans-serif !important;
+    letter-spacing: 0.08em;
+}
+.profile-page-card .jutsu-kind-badge {
+    background: rgba(78,168,255,0.18) !important;
+    color: var(--bsv2-player) !important;
+    border: 1px solid rgba(78,168,255,0.5) !important;
+    border-radius: 3px !important;
+    padding: 2px 6px !important;
+    font: 700 9px Cinzel, serif !important;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+}
+.profile-page-card .jutsu-icon,
+.profile-page-card .jutsu-img {
+    border-radius: 4px !important;
+    border: 1px solid var(--bsv2-gold-faint) !important;
+}
+
+/* -------- Filter / search row -------- */
+.profile-page-card input[type="search"],
+.profile-page-card input[type="text"],
+.profile-page-card select,
+.inventory-page input[type="search"],
+.inventory-page input[type="text"],
+.inventory-page select {
+    background: rgba(0,0,0,0.4) !important;
+    border: 1px solid var(--bsv2-gold-soft) !important;
+    color: #e8edf5 !important;
+    padding: 6px 10px !important;
+    border-radius: 4px !important;
+    font: 400 12px Inter, sans-serif !important;
+    outline: none;
+}
+.profile-page-card input:focus,
+.profile-page-card select:focus,
+.inventory-page input:focus,
+.inventory-page select:focus {
+    border-color: var(--bsv2-player) !important;
+    box-shadow: 0 0 8px rgba(78,168,255,0.3);
+}
+
+/* -------- Inventory backpack grid + item cards -------- */
+.inventory-page .inventory-grid,
+.inventory-page .backpack-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important;
+    gap: 10px !important;
+}
+.inventory-page .item-card-wrap,
+.inventory-page .backpack-item-art {
+    background: linear-gradient(180deg, rgba(15,22,40,0.92) 0%, rgba(8,12,24,0.96) 100%) !important;
+    border: 1px solid var(--bsv2-gold-soft) !important;
+    border-radius: 6px !important;
+    box-shadow:
+        0 2px 0 rgba(0,0,0,0.6),
+        0 0 0 1px rgba(0,0,0,0.4),
+        inset 0 0 16px rgba(0,0,0,0.45) !important;
+    color: #e8edf5 !important;
+    padding: 10px !important;
+    transition: border-color 120ms, box-shadow 120ms, transform 120ms;
+}
+.inventory-page .item-card-wrap:hover {
+    border-color: rgba(78,168,255,0.85) !important;
+    box-shadow: 0 0 16px rgba(78,168,255,0.35), inset 0 0 16px rgba(0,0,0,0.45) !important;
+    transform: translateY(-2px);
+}
+.inventory-page .item-card-wrap.selected,
+.inventory-page .item-card-wrap.active,
+.inventory-page .item-card-wrap[aria-selected="true"] {
+    border-color: var(--bsv2-player) !important;
+    box-shadow: 0 0 18px rgba(78,168,255,0.55), inset 0 0 16px rgba(0,0,0,0.45) !important;
+}
+.inventory-page .inventory-art,
+.inventory-page .inventory-silhouette {
+    background: radial-gradient(circle at center, rgba(78,168,255,0.08), transparent 70%) !important;
+    border-radius: 4px;
+}
+.inventory-page .inventory-empty {
+    color: rgba(196,162,90,0.5) !important;
+    font: 400 12px Inter, sans-serif !important;
+    font-style: italic;
+    text-align: center;
+}
+
+/* -------- Item detail popover -------- */
+.item-detail-popover {
+    background: linear-gradient(180deg, rgba(12,18,34,0.96) 0%, rgba(6,10,22,0.98) 100%) !important;
+    border: 1px solid var(--bsv2-gold-soft) !important;
+    border-radius: 6px !important;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.7) !important;
+    color: #e8edf5 !important;
+}
+
+/* -------- Buttons within profile/inventory -------- */
+.profile-page-card button,
+.inventory-page button {
+    transition: transform 80ms, border-color 120ms, box-shadow 120ms;
+}
+.profile-page-card .profile-title-btn,
+.profile-title-btn {
+    background: linear-gradient(180deg, #1a2238 0%, #0a1020 100%) !important;
+    border: 1px solid var(--bsv2-gold-soft) !important;
+    color: var(--bsv2-gold-bright) !important;
+    padding: 6px 14px !important;
+    border-radius: 4px !important;
+    font: 600 11px Cinzel, serif !important;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+.profile-page-card .profile-title-btn:hover {
+    border-color: var(--bsv2-gold-bright) !important;
+    transform: translateY(-1px);
+}
+.profile-title-input {
+    background: rgba(0,0,0,0.4) !important;
+    border: 1px solid var(--bsv2-gold-soft) !important;
+    color: #e8edf5 !important;
+    padding: 6px 10px !important;
+    border-radius: 3px !important;
+    font: 400 12px Inter, sans-serif !important;
+}
+.profile-title-counter {
+    color: rgba(196,162,90,0.65) !important;
+    font: 400 10px Inter, sans-serif !important;
+}
+
+/* -------- Pagination / pager (used in jutsu collection + backpack) -------- */
+.profile-page-card .pager,
+.profile-page-card .pagination,
+.inventory-page .pager,
+.inventory-page .pagination {
+    display: flex !important;
+    gap: 4px !important;
+    align-items: center !important;
+    justify-content: center !important;
+    margin-top: 10px !important;
+}
+.profile-page-card .pager button,
+.profile-page-card .pagination button,
+.inventory-page .pager button,
+.inventory-page .pagination button {
+    background: linear-gradient(180deg, #1a2238, #0a1020) !important;
+    border: 1px solid var(--bsv2-gold-soft) !important;
+    color: var(--bsv2-gold-bright) !important;
+    width: 28px; height: 28px;
+    padding: 0 !important;
+    border-radius: 3px !important;
+    font: 600 11px Cinzel, serif !important;
+    cursor: pointer;
+}
+.profile-page-card .pager button.active,
+.profile-page-card .pagination button.active,
+.inventory-page .pager button.active,
+.inventory-page .pagination button.active {
+    background: linear-gradient(180deg, #1e3a8a, #1e40af) !important;
+    border-color: var(--bsv2-player) !important;
+    color: #fff !important;
+    box-shadow: 0 0 10px rgba(78,168,255,0.45);
+}
+
+/* =========================================================================
+   Profile Skin v2 — fixes for tabs, avatar, layout
+   ========================================================================= */
+
+/* Avatar — circular only on the inner image, not the upload box wrapper */
+.profile-page-card .profile-avatar-upload-box {
+    border: none !important;
+    border-radius: 6px !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 8px !important;
+}
+.profile-page-card .profile-big-avatar {
+    width: 140px !important;
+    height: 140px !important;
+    border-radius: 50% !important;
+    border: 3px solid rgba(196,162,90,0.55) !important;
+    overflow: hidden !important;
+    box-shadow: 0 0 24px rgba(196,162,90,0.25), inset 0 0 18px rgba(0,0,0,0.4) !important;
+    background: linear-gradient(180deg, #1a2238, #0a1020) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+.profile-page-card .profile-big-avatar img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    border-radius: 50% !important;
+}
+.profile-page-card .profile-big-avatar span {
+    font: 700 32px Cinzel, serif !important;
+    color: #e8d496 !important;
+    letter-spacing: 0.06em;
+}
+.profile-page-card .avatar-upload-button {
+    display: inline-block !important;
+    background: linear-gradient(180deg, #1e3a8a 0%, #1e40af 100%) !important;
+    border: 1px solid rgba(78,168,255,0.5) !important;
+    color: #fff !important;
+    padding: 6px 14px !important;
+    border-radius: 4px !important;
+    font: 600 10px Cinzel, serif !important;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(78,168,255,0.3);
+}
+.profile-page-card .avatar-upload-button:hover {
+    background: linear-gradient(180deg, #2853a8 0%, #2e5bd0 100%) !important;
+}
+.profile-page-card .avatar-upload-button input {
+    display: none;
+}
+
+/* Profile mobile tabs — actual class names are .pmtab / .pmtab-active */
+.profile-page-card .profile-mobile-tabs {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+    background: rgba(0,0,0,0.3) !important;
+    border: 1px solid rgba(196,162,90,0.22) !important;
+    border-radius: 6px !important;
+    padding: 4px !important;
+    margin-bottom: 14px !important;
+}
+.profile-page-card .profile-mobile-tabs .pmtab {
+    flex: 1;
+    background: transparent !important;
+    border: 1px solid transparent !important;
+    color: rgba(196,162,90,0.65) !important;
+    padding: 10px 8px !important;
+    font: 600 11px Cinzel, serif !important;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    border-radius: 4px !important;
+    cursor: pointer;
+    transition: color 120ms, background 120ms, border-color 120ms;
+}
+.profile-page-card .profile-mobile-tabs .pmtab:hover {
+    color: #e8d496 !important;
+    background: rgba(196,162,90,0.06) !important;
+}
+.profile-page-card .profile-mobile-tabs .pmtab.pmtab-active {
+    color: #4ea8ff !important;
+    background: linear-gradient(180deg, rgba(78,168,255,0.14), rgba(78,168,255,0.04)) !important;
+    border-color: rgba(78,168,255,0.5) !important;
+    box-shadow: inset 0 -2px 0 #4ea8ff, 0 0 12px rgba(78,168,255,0.2);
+}
+
+/* Make sure tabs are visible on desktop too */
+@media (min-width: 0px) {
+    .profile-page-card .profile-mobile-tabs { display: grid !important; }
+}
+
+/* Profile overview panel — proper grid so avatar + info row out cleanly */
+.profile-page-card .profile-overview-panel {
+    display: grid !important;
+    grid-template-columns: minmax(160px, 200px) 1fr !important;
+    gap: 24px !important;
+    align-items: start !important;
+    padding: 20px !important;
+}
+.profile-page-card .profile-info-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) !important;
+    gap: 18px !important;
+}
+.profile-page-card .profile-info-grid h3 {
+    font: 600 12px Cinzel, serif !important;
+    letter-spacing: 0.22em !important;
+    text-transform: uppercase !important;
+    color: #e8d496 !important;
+    border-bottom: 1px solid rgba(196,162,90,0.22) !important;
+    padding-bottom: 6px;
+    margin: 0 0 8px 0 !important;
+}
+.profile-page-card .profile-info-grid p {
+    font: 400 12px Inter, sans-serif !important;
+    color: #c8cfdc !important;
+    margin: 4px 0 !important;
+    line-height: 1.5;
+}
+.profile-page-card .profile-info-grid p strong {
+    color: #e8d496 !important;
+    font-family: Inter, sans-serif !important;
+    margin-right: 4px;
+}
+
+/* User Stats section — make the row of group panels span full width and center */
+.profile-page-card section:has(> .stat-group),
+.profile-page-card .stat-allocation-grid {
+    width: 100% !important;
+    margin-top: 18px;
+}
+.profile-page-card .stat-group-list {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 14px !important;
+    margin: 12px 0 !important;
+}
+.profile-page-card .stat-group {
+    background: linear-gradient(180deg, rgba(20,28,46,0.65), rgba(10,16,32,0.75)) !important;
+    border: 1px solid rgba(196,162,90,0.25) !important;
+    border-radius: 6px !important;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.03), 0 4px 12px rgba(0,0,0,0.35) !important;
+    padding: 12px !important;
+}
+.profile-page-card .stat-group-heading {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+    gap: 4px !important;
+    border-bottom: 1px solid rgba(196,162,90,0.18) !important;
+    padding-bottom: 8px !important;
+    margin-bottom: 10px;
+}
+.profile-page-card .stat-group-heading h3,
+.profile-page-card .stat-group-heading > strong {
+    font: 700 12px Cinzel, serif !important;
+    letter-spacing: 0.22em !important;
+    text-transform: uppercase !important;
+    color: #e8d496 !important;
+    margin: 0 !important;
+}
+.profile-page-card .stat-group-heading span,
+.profile-page-card .stat-group-heading > small {
+    font: 400 10px Inter, sans-serif !important;
+    letter-spacing: 0.04em !important;
+    color: rgba(196,162,90,0.7) !important;
+    text-transform: none !important;
+}
+.profile-page-card .stat-group .stat-grid {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+}
+
+/* User Stats header */
+.profile-page-card h2:not(.profile-page-header h2) {
+    font: 700 14px Cinzel, serif !important;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: #e8d496 !important;
+}
+
+/* Points-available chip */
+.profile-page-card .points-available,
+.profile-page-card .stat-points-chip,
+.profile-page-card span[class*="points"] {
+    display: inline-block !important;
+    background: rgba(224,68,68,0.15) !important;
+    border: 1px solid rgba(224,68,68,0.5) !important;
+    color: #fca5a5 !important;
+    padding: 4px 12px !important;
+    border-radius: 999px !important;
+    font: 700 11px Cinzel, serif !important;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-left: 12px;
+}
+
+@media (max-width: 900px) {
+    .profile-page-card .profile-overview-panel {
+        grid-template-columns: 1fr !important;
+        justify-items: center;
+    }
+    .profile-page-card .stat-group-list {
+        grid-template-columns: 1fr !important;
+    }
+}
