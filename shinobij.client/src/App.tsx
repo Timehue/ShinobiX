@@ -24763,7 +24763,6 @@ function Arena({
         if (!battleStarted || battleEnded || activeActor !== "player" || actionsThisTurn === 0) return;
         const nextMoveCost = adjustedApCost(30);
         if (nextMoveCost > 0 && ap < nextMoveCost) {
-            addCombatLog(`${character.name} has ${ap} AP left and cannot afford another move. Round ends automatically.`, "autoEnd", character.name);
             enemyTurn();
         }
     }, [ap, actionsThisTurn, activeActor, battleStarted, battleEnded]);
@@ -26402,8 +26401,8 @@ function Arena({
             blocked > 0 ? `Shield: ${opponentName}'s shield blocks ${blocked} damage.` : "",
             healing > 0 ? `Heal: ${character.name} restores ${healing} HP.` : "",
             shield > 0 ? `Shield: ${character.name} gains ${shield} shield.` : "",
-            effectLines.length ? `Tags: ${effectLines.join(" ")}` : "",
-        ].filter(Boolean).join(" ");
+            ...effectLines,
+        ].filter(Boolean).join("\n");
 
         addCombatLog(
             timelineParts,
@@ -26631,8 +26630,8 @@ function Arena({
             blocked > 0 ? `Shield: ${character.name}'s shield blocks ${blocked} damage.` : "",
             healing > 0 ? `Heal: ${opponentName} restores ${healing} HP.` : "",
             shield > 0 ? `Shield: ${opponentName} gains ${shield} shield.` : "",
-            effectLines.length ? `Tags: ${effectLines.join(" ")}` : "",
-        ].filter(Boolean).join(" ");
+            ...effectLines,
+        ].filter(Boolean).join("\n");
 
         addCombatLog(enemyTimelineParts, jutsu.id, opponentName);
         setLog(`${opponentName} used ${jutsu.name}.`);
@@ -27697,11 +27696,28 @@ function Arena({
                                         <span>Round {roundGroup.round}</span>
                                         <small>{new Date(roundGroup.entries[0]?.createdAt ?? Date.now()).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" })}</small>
                                     </div>
-                                    {roundGroup.entries.map((entry) => (
-                                        <p className={`timeline-entry timeline-${entry.actorRole}`} key={`${entry.round}-${entry.actionId}-${entry.actionNumber}`}>
-                                            <strong>#{entry.actionNumber}</strong> {entry.actor}: {entry.description}
-                                        </p>
-                                    ))}
+                                    {roundGroup.entries.map((entry) => {
+                                        const lines = entry.description.split("\n");
+                                        const [headLine, ...effectLines] = lines;
+                                        return (
+                                            <div className={`timeline-entry timeline-${entry.actorRole}`} key={`${entry.round}-${entry.actionId}-${entry.actionNumber}`}>
+                                                <p className="timeline-entry-head">
+                                                    <strong>#{entry.actionNumber}</strong> {entry.actor}: {headLine}
+                                                </p>
+                                                {effectLines.map((line, i) => {
+                                                    const trimmed = line.trim();
+                                                    if (!trimmed) return null;
+                                                    const isDamage = /Damage Dealt|takes [\d.]+ damage|wound damage/i.test(trimmed);
+                                                    const isHeal = /\bHeal:|restores [\d.]+ HP|heals \d|absorbs [\d.]+ damage/i.test(trimmed);
+                                                    const isShield = /\bShield:|shield blocks|gains \d+ shield/i.test(trimmed);
+                                                    const cls = isDamage ? "timeline-fx-damage" : isHeal ? "timeline-fx-heal" : isShield ? "timeline-fx-shield" : "timeline-fx-effect";
+                                                    return (
+                                                        <p className={`timeline-fx ${cls}`} key={i}>· {trimmed}</p>
+                                                    );
+                                                })}
+                                            </div>
+                                        );
+                                    })}
                                 </section>
                             ))
                         )}
