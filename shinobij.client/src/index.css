@@ -18860,14 +18860,18 @@ html[data-vp="xxl"] .banner-mobile-timers {
 .arena-fullscreen.arena-bg-central   { background-image: radial-gradient(ellipse at center, rgba(148,163,184,0.18) 0%, transparent 60%) !important; }
 .arena-fullscreen.arena-bg-deathsgate{ background-image: radial-gradient(ellipse at center, rgba(134,239,172,0.22) 0%, transparent 60%) !important; }
 
-/* Soft vignette so any remaining gap blends into deep navy at the edges */
-.arena-fullscreen::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    box-shadow: inset 0 0 120px 40px rgba(5,9,18,0.85);
-    z-index: 0;
+/* Tame the hex-battlefield border so it sits flush with the arena art
+   instead of glowing past the painted stone walls. */
+.arena-fullscreen .hex-battlefield,
+.arena-fullscreen .hex-battlefield.hex-snow,
+.arena-fullscreen .hex-battlefield.hex-volcano,
+.arena-fullscreen .hex-battlefield.hex-forest,
+.arena-fullscreen .hex-battlefield.hex-shadow,
+.arena-fullscreen .hex-battlefield.hex-central,
+.arena-fullscreen .hex-battlefield.hex-deathsgate {
+    border-color: rgba(196,162,90,0.25) !important;
+    border-width: 1px !important;
+    box-shadow:
+        inset 0 0 80px rgba(0,0,0,0.45),
+        0 8px 24px rgba(0,0,0,0.6) !important;
 }
-.arena-fullscreen { position: relative; }
-.arena-fullscreen > * { position: relative; z-index: 1; }
