@@ -17058,6 +17058,18 @@ html[data-vp="xl"] .battle-chat-col.battle-chat-hidden {
     gap: 4px;
 }
 
+.battle-chat-spectators {
+    padding: 4px 8px;
+    font-size: 0.68rem;
+    color: #a78bfa;
+    background: rgba(139, 92, 246, 0.1);
+    border-bottom: 1px solid rgba(139, 92, 246, 0.2);
+    line-height: 1.3;
+}
+.battle-chat-spectator-label {
+    color: #7c3aed;
+    font-weight: 600;
+}
 .battle-chat-empty {
     color: #475569;
     font-size: 0.72rem;
