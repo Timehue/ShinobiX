@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
+import { authedPlayerOrAdmin } from '../_auth.js';
 
 type QueueEntry = {
     name: string;
@@ -19,10 +20,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-        const { name, rating, peek } = body as { name?: string; rating?: number; peek?: boolean };
+        const { name, peek } = body as { name?: string; rating?: number; peek?: boolean };
         if (!name) return res.status(400).json({ error: 'Missing name.' });
 
-        // Peek-only: just return current queue size without mutating anything
+        // Peek-only: just return current queue size without mutating anything.
+        // Peek is open (no auth) to keep the lobby visible.
         if (peek || name.startsWith('__peek__')) {
             const rawPeek = await kv.get<QueueEntry[]>(QUEUE_KEY) ?? [];
             const nowPeek = Date.now();
@@ -30,8 +32,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(200).json({ queueSize: activePeek.length });
         }
 
-        const playerRating = rating ?? 1000;
+        // Joining the queue mutates state — require auth, body name must match identity.
+        const identity = await authedPlayerOrAdmin(req, name);
+        if (!identity) return res.status(401).json({ error: 'Authentication required.' });
+        if (!identity.admin && identity.name !== name.toLowerCase().trim()) {
+            return res.status(403).json({ error: 'Cannot queue as another player.' });
+        }
+
         const nameLower = name.toLowerCase().trim();
+
+        // Derive rating from the server-side save — never trust the body.
+        let playerRating = 1000;
+        if (!identity.admin) {
+            try {
+                const save = await kv.get<Record<string, unknown>>(`save:${identity.name}`);
+                const char = (save?.character ?? null) as Record<string, unknown> | null;
+                if (char) {
+                    if (typeof char.rankedRating === 'number') playerRating = char.rankedRating;
+                    else if (typeof char.elo === 'number') playerRating = char.elo;
+                }
+            } catch {
+                // best-effort; default applies
+            }
+        }
 
         // Check if this player already has a match notification waiting
         const notifyKey = `ranked-queue-notify:${nameLower}`;

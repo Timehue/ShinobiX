@@ -42,12 +42,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'POST') {
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-            const { author, text, rank, customTitle, level } = body as {
+            const { author, text } = body as {
                 author?: string;
                 text?: string;
-                rank?: string;
-                customTitle?: string;
-                level?: number;
             };
             if (!author || !text) return res.status(400).json({ error: 'Missing author or text.' });
 
@@ -59,13 +56,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return res.status(403).json({ error: 'Cannot post as another player.' });
             }
 
+            // Derive rank/customTitle/level from the authed player's save so they
+            // can't be spoofed via the request body (no posing as "Kage" etc.).
+            let derivedRank: string | undefined;
+            let derivedCustomTitle: string | undefined;
+            let derivedLevel: number | undefined;
+            if (!identity.admin) {
+                try {
+                    const save = await kv.get<Record<string, unknown>>(`save:${identity.name}`);
+                    const char = (save?.character ?? null) as Record<string, unknown> | null;
+                    if (char) {
+                        if (typeof char.rank === 'string') derivedRank = char.rank;
+                        if (typeof char.customTitle === 'string') derivedCustomTitle = char.customTitle;
+                        if (typeof char.level === 'number') derivedLevel = char.level;
+                    }
+                } catch {
+                    // Best effort — fall through with no derived fields.
+                }
+            }
+
             const newMsg: ChatMessage = {
                 author,
                 text: text.slice(0, 300),
                 ts: Date.now(),
-                ...(rank         ? { rank }         : {}),
-                ...(customTitle  ? { customTitle }  : {}),
-                ...(level != null ? { level }       : {}),
+                ...(derivedRank        ? { rank: derivedRank }              : {}),
+                ...(derivedCustomTitle ? { customTitle: derivedCustomTitle } : {}),
+                ...(derivedLevel != null ? { level: derivedLevel }          : {}),
             };
 
             // Read-modify-write — the previous retry loop was dead code (broke

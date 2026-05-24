@@ -16,6 +16,7 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { _diskKvForProxy } from './_storage.js';
+import { safeEqual } from './_auth.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method !== 'POST') {
@@ -28,8 +29,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         res.status(500).json({ error: 'KV_PROXY_TOKEN not configured on server' });
         return;
     }
-    const provided = req.headers['x-kv-token'];
-    if (provided !== expectedToken) {
+    const providedRaw = req.headers['x-kv-token'];
+    const provided = Array.isArray(providedRaw) ? providedRaw[0] : providedRaw;
+    if (!provided || !safeEqual(provided, expectedToken)) {
         res.status(401).json({ error: 'invalid x-kv-token' });
         return;
     }

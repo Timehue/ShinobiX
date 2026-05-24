@@ -37,6 +37,8 @@ async function handler(req, res) {
         const session = await _storage_js_1.kv.get(`pvp:${battleId}`);
         if (!session)
             return res.status(404).json({ error: 'Session not found' });
+        // Never cache battle state — both fighters poll every ~1s and need fresh data
+        res.setHeader('Cache-Control', 'no-store');
         return res.status(200).json(session);
     }
     if (req.method === 'POST') {
@@ -63,9 +65,12 @@ async function handler(req, res) {
             }
             // Fetch authoritative character data from KV to prevent client-side
             // stat inflation (e.g. sending 999999 HP in the request body).
-            // The authed player's data is always loaded from KV; the opponent's
-            // data is also loaded from KV when they are a real registered player
-            // (falls back to client-supplied data for AI/NPC opponents).
+            // We merge KV base stats onto the client payload so computed
+            // combat fields (jutsu, pvpItems, bloodlineMult, armorFactor,
+            // armorRawDR, itemDamagePct) survive — those are built client-side
+            // from saved data and are not stored in the raw character save.
+            // Keys the client computes and we must preserve:
+            const COMBAT_FIELDS = ['jutsu', 'pvpItems', 'bloodlineMult', 'armorFactor', 'armorRawDR', 'itemDamagePct'];
             let finalP1Character = p1Character;
             let finalP2Character = p2Character;
             if (!identity.admin) {
@@ -77,20 +82,33 @@ async function handler(req, res) {
                     return res.status(400).json({ error: 'Your character save was not found on the server.' });
                 }
                 const myKvCharacter = mySave.character;
+                // Merge: KV stats override client stats, but preserve client combat fields
+                const myClientChar = isP1 ? p1Character : p2Character;
+                const myMerged = { ...myClientChar };
+                for (const [k, v] of Object.entries(myKvCharacter)) {
+                    if (!COMBAT_FIELDS.includes(k))
+                        myMerged[k] = v;
+                }
                 if (isP1)
-                    finalP1Character = myKvCharacter;
+                    finalP1Character = myMerged;
                 else
-                    finalP2Character = myKvCharacter;
+                    finalP2Character = myMerged;
                 // Try loading opponent from KV too (real player) — graceful fallback for NPCs.
                 const oppNorm = isP1 ? p2Norm : p1Norm;
                 if (oppNorm) {
                     const oppSave = await _storage_js_1.kv.get(`save:${oppNorm}`);
                     if (oppSave?.character) {
                         const oppKvChar = oppSave.character;
+                        const oppClientChar = isP1 ? p2Character : p1Character;
+                        const oppMerged = { ...oppClientChar };
+                        for (const [k, v] of Object.entries(oppKvChar)) {
+                            if (!COMBAT_FIELDS.includes(k))
+                                oppMerged[k] = v;
+                        }
                         if (isP1)
-                            finalP2Character = oppKvChar;
+                            finalP2Character = oppMerged;
                         else
-                            finalP1Character = oppKvChar;
+                            finalP1Character = oppMerged;
                     }
                 }
             }

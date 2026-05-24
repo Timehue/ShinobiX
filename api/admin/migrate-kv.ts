@@ -16,19 +16,23 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { migrateDiskRoutedKeysToOverlay } from '../_storage.js';
+import { safeEqual } from '../_auth.js';
+import { enforceRateLimit } from '../_ratelimit.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method !== 'POST') {
         res.status(405).json({ error: 'POST only' });
         return;
     }
+    if (!enforceRateLimit(req, res, 'admin-migrate-kv', 10, 60 * 60_000)) return;
     const expected = process.env.ADMIN_PASSWORD;
     if (!expected) {
         res.status(500).json({ error: 'ADMIN_PASSWORD not configured.' });
         return;
     }
-    const provided = req.headers['x-admin-password'];
-    if (provided !== expected) {
+    const providedRaw = req.headers['x-admin-password'];
+    const provided = Array.isArray(providedRaw) ? providedRaw[0] : providedRaw;
+    if (!provided || !safeEqual(provided, expected)) {
         res.status(401).json({ error: 'invalid admin password' });
         return;
     }
