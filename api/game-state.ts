@@ -153,7 +153,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         const fighters = rec.fighters as unknown[] | undefined;
                         if (Array.isArray(fighters)) {
                             for (const ff of fighters) {
-                                if (ff && typeof ff === 'object' && typeof (ff as Record<string, unknown>).name === 'string') {
+                                // ArenaSpectatorFight.fighters is string[] in the
+                                // client type; accept that plus the legacy
+                                // { name: string } shape for safety.
+                                if (typeof ff === 'string') {
+                                    names.push(ff);
+                                } else if (ff && typeof ff === 'object' && typeof (ff as Record<string, unknown>).name === 'string') {
                                     names.push(String((ff as Record<string, unknown>).name));
                                 }
                             }
