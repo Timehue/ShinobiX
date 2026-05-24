@@ -28222,8 +28222,9 @@ function PvpBattleScreen({
         const text = battleChatInput.trim();
         if (!text || !battleId) return;
         setBattleChatInput("");
+        const chatRole = amSpectator ? "spectator" : "fighter";
         // Optimistic local append so message shows immediately
-        const optimisticMsg = { author: character.name, text, ts: Date.now(), role: "fighter" as const };
+        const optimisticMsg = { author: character.name, text, ts: Date.now(), role: chatRole as "fighter" | "spectator" };
         setBattleChatMessages(prev => [...prev, optimisticMsg]);
         fetch(`/api/pvp/chat?id=${encodeURIComponent(battleId)}`, {
             method: "POST",
@@ -28232,7 +28233,7 @@ function PvpBattleScreen({
                 "x-player-name": character.name,
                 "x-player-password": localStorage.getItem("playerPassword") ?? "",
             },
-            body: JSON.stringify({ author: character.name, text, role: "fighter" }),
+            body: JSON.stringify({ author: character.name, text, role: chatRole }),
         })
             .then(r => {
                 if (!r.ok) { console.warn("[battle-chat] POST failed:", r.status); return null; }
@@ -28273,13 +28274,16 @@ function PvpBattleScreen({
 
     const me = role === "p1" ? session.p1 : session.p2;
     const opp = role === "p1" ? session.p2 : session.p1;
+    // Spectator detection: character name doesn't match either fighter
+    const amSpectator = character.name.trim().toLowerCase() !== session.p1.name.trim().toLowerCase()
+        && character.name.trim().toLowerCase() !== session.p2.name.trim().toLowerCase();
     const meCharacterSnapshot = normalizeCharacter(me.character as Character);
     const myPos = me.pos;
     const oppPos = opp.pos;
     const myAp = role === "p1" ? session.ap.p1 : session.ap.p2;
     const oppAp = role === "p1" ? session.ap.p2 : session.ap.p1;
     const myCooldowns = role === "p1" ? session.cooldowns.p1 : session.cooldowns.p2;
-    const isMyTurn = session.activePlayer === role;
+    const isMyTurn = amSpectator ? false : session.activePlayer === role;
     const done = session.status === "done";
     const iWon = (session.winner === "p1" && role === "p1") || (session.winner === "p2" && role === "p2");
     const isDraw = session.winner === "draw";
@@ -29007,13 +29011,18 @@ function PvpBattleScreen({
                 {/* ── Battle chat (in-grid, between battlefield and enemy HUD) ── */}
                 <div className={`battle-chat-panel battle-chat-col${battleChatVisible ? "" : " battle-chat-hidden"}`}>
                     <div className="battle-side-header">
-                        <span>Chat</span>
+                        <span>Chat{spectatorList.length > 0 ? ` · 👁 ${spectatorList.length}` : ""}</span>
                         <button className="battle-chat-toggle" onClick={() => setBattleChatVisible(v => !v)} title={battleChatVisible ? "Hide chat" : "Show chat"}>
                             {battleChatVisible ? "−" : "+"}
                         </button>
                     </div>
                     {battleChatVisible && (
                         <>
+                            {spectatorList.length > 0 && (
+                                <div className="battle-chat-spectators">
+                                    <span className="battle-chat-spectator-label">Watching:</span> {spectatorList.map(s => s.name).join(", ")}
+                                </div>
+                            )}
                             <div className="battle-chat-messages" ref={battleChatRef}>
                                 {battleChatMessages.length === 0 ? (
                                     <p className="battle-chat-empty">No messages yet.</p>
@@ -29029,7 +29038,7 @@ function PvpBattleScreen({
                                     type="text"
                                     value={battleChatInput}
                                     onChange={e => setBattleChatInput(e.target.value)}
-                                    placeholder="Type a message…"
+                                    placeholder={amSpectator ? "Chat as spectator…" : "Type a message…"}
                                     maxLength={200}
                                 />
                                 <button type="submit" disabled={!battleChatInput.trim()}>Send</button>
@@ -29052,17 +29061,7 @@ function PvpBattleScreen({
                 />
             </div>
 
-            {/* ── Spectator list (left dead space) ── */}
-            {spectatorList.length > 0 && (
-                <div className="battle-spectator-panel battle-side-left">
-                    <div className="battle-side-header">Spectators ({spectatorList.length})</div>
-                    <div className="battle-side-scroll">
-                        {spectatorList.map(s => (
-                            <div key={s.name} className="battle-spectator-name">{s.name}</div>
-                        ))}
-                    </div>
-                </div>
-            )}
+            {/* Spectator list is now shown inside the chat panel header */}
         </div>
     );
 }
