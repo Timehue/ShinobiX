@@ -981,6 +981,19 @@ type PendingEventEncounter = {
 const MAX_LEVEL = 100;
 const MAX_STAT = 2500;
 
+// Lookup helper for VN speaker portraits. Returns "" for Narrator/Player or empty
+// names so callers can decide whether to hide the slot entirely; otherwise returns
+// /portraits/<slug>.png. Files are loaded with onError so missing files degrade
+// silently to initials — drop new portrait PNGs into shinobij.client/public/portraits/
+// to enable them.
+function defaultVnPortrait(name: string | undefined | null): string {
+    if (!name) return "";
+    const n = name.trim().toLowerCase();
+    if (!n || n === "narrator" || n === "player") return "";
+    const slug = n.replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-");
+    return slug ? `/portraits/${slug}.png` : "";
+}
+
 type AchievementCategory =
     | "Progression" | "Combat" | "PvP" | "Ranked" | "Missions"
     | "Exploration" | "Wealth" | "Aura" | "Village" | "Trials"
@@ -9316,8 +9329,17 @@ function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, setPageI
     const rightName = savedRightWasPlayer ? (page.leftName || page.speaker || event.vnSpeaker || speaker) : (page.rightName || page.speaker || event.vnSpeaker || speaker);
     const leftInitials = leftName === "Narrator" ? "..." : leftName.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase();
     const rightInitials = rightName.toLowerCase() === "player" ? character.name.slice(0, 2).toUpperCase() : rightName.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase();
-    const leftImage = savedRightWasPlayer ? character.avatarImage : (page.leftImage || (leftName.toLowerCase() === "player" ? character.avatarImage : ""));
-    const rightImage = savedRightWasPlayer ? (page.leftImage || page.rightImage || event.avatarImage || "") : (page.rightImage || event.avatarImage || "");
+    const leftImage = savedRightWasPlayer
+        ? character.avatarImage
+        : (page.leftImage || (leftName.toLowerCase() === "player" ? character.avatarImage : "") || defaultVnPortrait(leftName));
+    const rightImage = savedRightWasPlayer
+        ? (page.leftImage || page.rightImage || event.avatarImage || "" || defaultVnPortrait(rightName))
+        : (page.rightImage || event.avatarImage || "" || defaultVnPortrait(rightName));
+    // Hide a portrait slot entirely when there is genuinely nothing to show
+    // (the Narrator or an NPC without a configured image AND no /portraits/<slug>.png
+    // on disk). The dialogue's <speaker> label already tells the player who's talking.
+    const hideLeft  = !leftImage  && leftName.trim().toLowerCase() === "narrator";
+    const hideRight = !rightImage && rightName.trim().toLowerCase() === "narrator";
     const canBack = lineIndex > 0 || pageIndex > 0;
     const isLastLine = pageIndex === pages.length - 1 && lineIndex >= pageDialogue.length - 1;
     const pageChoices = page.choices?.filter((c) => c.text);
@@ -9387,8 +9409,22 @@ function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, setPageI
                 </div>
                 <div className={"vn-stage vn-biome-" + event.biome + (pageImage ? " vn-has-image" : "")} style={pageImage ? { backgroundImage: `linear-gradient(180deg, rgba(7,12,27,.18), rgba(7,12,27,.78)), url(${pageImage})` } : undefined}>
                     <div className="vn-backdrop"><span className="vn-village-silhouette"></span></div>
-                    <div className="vn-character mentor-character">{leftImage ? <img src={leftImage} alt={leftName} /> : leftInitials}</div>
-                    <div className="vn-character hero-character">{rightImage ? <img src={rightImage} alt={rightName} /> : rightInitials}</div>
+                    {!hideLeft && (
+                        <div className="vn-character mentor-character">
+                            {leftImage
+                                ? <img src={leftImage} alt={leftName} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                                : null}
+                            <span className="vn-character-initials">{leftInitials}</span>
+                        </div>
+                    )}
+                    {!hideRight && (
+                        <div className="vn-character hero-character">
+                            {rightImage
+                                ? <img src={rightImage} alt={rightName} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                                : null}
+                            <span className="vn-character-initials">{rightInitials}</span>
+                        </div>
+                    )}
                     <div className="vn-scene-card">{page.scene || event.vnScene || "An event interrupts your path."}</div>
                     <div className="vn-dialogue">
                         <div className="vn-speaker">{speaker}</div>
@@ -9497,8 +9533,24 @@ function DungeonEncounter({
                 </div>
                 <div className={"vn-stage vn-biome-" + event.biome + (pageImage ? " vn-has-image" : "")} style={pageImage ? { backgroundImage: `linear-gradient(180deg, rgba(7,12,27,.18), rgba(7,12,27,.78)), url(${pageImage})` } : undefined}>
                     <div className="vn-backdrop"><span className="vn-village-silhouette"></span></div>
-                    <div className="vn-character mentor-character">{character.avatarImage ? <img src={character.avatarImage} alt={character.name} /> : character.name.slice(0, 2).toUpperCase()}</div>
-                    <div className="vn-character hero-character">{event.avatarImage ? <img src={event.avatarImage} alt={speaker} /> : "DG"}</div>
+                    <div className="vn-character mentor-character">
+                        {character.avatarImage
+                            ? <img src={character.avatarImage} alt={character.name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                            : null}
+                        <span className="vn-character-initials">{character.name.slice(0, 2).toUpperCase()}</span>
+                    </div>
+                    {(() => {
+                        const portrait = event.avatarImage || defaultVnPortrait(speaker);
+                        if (!portrait && speaker.trim().toLowerCase() === "narrator") return null;
+                        return (
+                            <div className="vn-character hero-character">
+                                {portrait
+                                    ? <img src={portrait} alt={speaker} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                                    : null}
+                                <span className="vn-character-initials">{speaker.trim().toLowerCase() === "narrator" ? "..." : (speaker.split(" ").map(p => p[0]).join("").slice(0, 2).toUpperCase() || "DG")}</span>
+                            </div>
+                        );
+                    })()}
                     <div className="vn-scene-card">{page.scene || event.vnScene || "A hidden dungeon opens underfoot."}</div>
                     <div className="vn-dialogue">
                         <div className="vn-speaker">{speaker}</div>
