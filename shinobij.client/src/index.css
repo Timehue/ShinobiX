@@ -16893,7 +16893,7 @@ html[data-vp="xl"] .arena-fullscreen .hex-battlefield {
     width: 100% !important;
     max-width: 100% !important;
     overflow: hidden !important;
-    background-size: calc(100% + 96px) 100% !important;
+    background-size: calc(100% + 96px) auto !important;
     background-position: center !important;
     background-repeat: no-repeat !important;
     padding: 6px 4px !important;
