@@ -5,6 +5,7 @@
 @import "./styles/hub-screens-skin.css";
 @import "./styles/banner-skin.css";
 @import "./styles/pet-skin.css";
+@import "./styles/atlas-skin.css";
 
 * {
     box-sizing: border-box;
