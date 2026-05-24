@@ -9887,13 +9887,18 @@ export default function App() {
                             </div>
 
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 240px", gap: 16 }}>
-                                {/* Grid — true fog-of-war. Two render states per tile:
-                                      • REVEALED (stepped on) → full opacity, full color, icon visible
-                                      • FOG (anything else)   → dark cell, just a dim dot
-                                    Walls render as solid stone whether stepped on or not so the
-                                    dungeon geometry is at least partially readable. Content tiles
-                                    (battle, chest, trap, ambush, etc.) reveal ONLY on step. */}
+                                {/* Grid — three render states per tile:
+                                      • REVEALED (stepped on)             → full opacity, full color
+                                      • VISIBLE (within Manhattan dist 2) → content icon at ~55% opacity
+                                                                            so the player can preview
+                                                                            nearby tiles without walking
+                                      • FOG (everything else)             → dark cell, dim dot
+                                    Walls render as solid stone in any state so the dungeon geometry
+                                    is always readable. The "step on it for the surprise" feel is
+                                    preserved because the icons at low opacity tell you *what* is
+                                    near you, but stepping is still what fires the modal / battle. */}
                                 {(() => {
+                                    const VISION_RADIUS = 2;
                                     // Pull the admin-generated wall texture once per render so
                                     // every wall tile uses it; falls back to the gradient if
                                     // none has been generated yet.
@@ -9905,21 +9910,26 @@ export default function App() {
                                         const y = Math.floor(i / run.width);
                                         const isPlayer = x === run.playerX && y === run.playerY;
                                         const revealed = tile.revealed;
+                                        const distFromPlayer = Math.abs(x - run.playerX) + Math.abs(y - run.playerY);
+                                        const visible = distFromPlayer <= VISION_RADIUS;
                                         const wall = tile.kind === "wall";
 
                                         // Compose background by tile state.
                                         let bg: string;
                                         if (wall) {
-                                            // Solid stone — visible at all times so the player can
-                                            // see paths/forks. Walls aren't "rewards" or "surprises",
-                                            // they're permanent geometry. Use the admin-generated
+                                            // Solid stone — visible at all times. Use the admin-generated
                                             // wall texture if one exists; otherwise the dark gradient.
+                                            // Slightly darker outside vision so the dungeon edge fades.
                                             bg = wallTexture
-                                                ? `linear-gradient(135deg, rgba(15,9,28,0.35), rgba(8,4,18,0.55)), url(${wallTexture}) center/cover no-repeat`
-                                                : "linear-gradient(135deg, #1c1430 0%, #0e0820 40%, #2a1f3e 100%)";
+                                                ? (visible
+                                                    ? `linear-gradient(135deg, rgba(15,9,28,0.35), rgba(8,4,18,0.55)), url(${wallTexture}) center/cover no-repeat`
+                                                    : `linear-gradient(135deg, rgba(8,4,18,0.65), rgba(4,2,10,0.8)), url(${wallTexture}) center/cover no-repeat`)
+                                                : (visible
+                                                    ? "linear-gradient(135deg, #1c1430 0%, #0e0820 40%, #2a1f3e 100%)"
+                                                    : "linear-gradient(135deg, #100a1c 0%, #07040f 100%)");
                                         } else if (isPlayer) {
                                             bg = "linear-gradient(135deg, #2563eb, #7c3aed)";
-                                        } else if (revealed) {
+                                        } else if (revealed || visible) {
                                             bg = tile.kind === "boss" ? "linear-gradient(135deg, #7f1d1d, #b91c1c)"
                                                 : tile.kind === "trap" ? "rgba(239,68,68,0.22)"
                                                 : tile.kind === "chest" ? "rgba(234,179,8,0.22)"
@@ -9934,38 +9944,44 @@ export default function App() {
                                                 : tile.kind === "story" ? "rgba(250,204,21,0.18)"
                                                 : "rgba(168,85,247,0.10)";
                                         } else {
-                                            bg = "rgba(7,4,15,0.92)"; // deep fog — same for every unrevealed tile
+                                            bg = "rgba(7,4,15,0.92)"; // deep fog
                                         }
 
                                         // Wall styling: brick-ish pattern via inset shadow.
                                         const wallShadow = wall ? "inset 0 0 0 1px rgba(168,85,247,0.18), inset 2px 2px 0 rgba(0,0,0,0.4)" : undefined;
 
-                                        // Icon: player first, then wall (none), then revealed kind, else fog dot.
+                                        // Icon by state.
                                         let icon: string;
                                         if (isPlayer) icon = "🥷";
                                         else if (wall) icon = "";
-                                        else if (revealed) icon = hollowGateTileIconForKind(tile.kind);
+                                        else if (revealed || visible) icon = hollowGateTileIconForKind(tile.kind);
                                         else icon = "·";
+
+                                        // Opacity: revealed = full, visible-only = dimmed,
+                                        // fog = dot at low opacity.
+                                        const iconOpacity = isPlayer || revealed ? 1 : visible ? 0.55 : 0.30;
 
                                         return (
                                             <div
                                                 key={i}
-                                                title={wall ? "Wall" : revealed ? tile.kind : "Unrevealed"}
+                                                title={wall ? "Wall" : revealed ? tile.kind : visible ? `${tile.kind} (in view)` : "Unrevealed"}
                                                 style={{
                                                     aspectRatio: "1 / 1",
                                                     background: bg,
                                                     border: isPlayer ? "2px solid #60a5fa"
                                                         : wall ? "1px solid rgba(0,0,0,0.5)"
                                                         : revealed ? "1px solid rgba(168,85,247,0.5)"
+                                                        : visible ? "1px solid rgba(168,85,247,0.28)"
                                                         : "1px solid rgba(168,85,247,0.08)",
                                                     borderRadius: 4,
                                                     display: "flex",
                                                     alignItems: "center",
                                                     justifyContent: "center",
                                                     fontSize: "clamp(16px, 2.6vw, 28px)",
-                                                    color: revealed || isPlayer ? "#f5f3ff" : "rgba(196,181,253,0.40)",
+                                                    color: revealed || isPlayer ? "#f5f3ff" : "rgba(196,181,253,0.85)",
+                                                    opacity: iconOpacity,
                                                     boxShadow: isPlayer ? "0 0 12px rgba(96,165,250,0.6)" : wallShadow,
-                                                    transition: "background 200ms",
+                                                    transition: "background 200ms, opacity 200ms",
                                                 }}
                                             >
                                                 {icon}
@@ -10010,7 +10026,7 @@ export default function App() {
                                             <span>🐾 Pet</span><span>👤 Keeper</span>
                                             <span>▼ Descend</span><span>⇩ Leave</span>
                                             <span>🔒 Locked</span><span>▦ Wall</span>
-                                            <span>· Unexplored</span><span style={{ opacity: 0.55 }}>Step on it to reveal</span>
+                                            <span>· Unexplored</span><span style={{ opacity: 0.55 }}>· In view (dim)</span>
                                         </div>
                                     </div>
                                     <div style={{ background: "rgba(15,9,28,0.7)", border: "1px solid rgba(168,85,247,0.3)", borderRadius: 8, padding: 10, fontSize: 12 }}>
@@ -10065,6 +10081,7 @@ export default function App() {
                                     : hollowGateEvent.kind === "pet_event" ? "shrine:tile-pet-encounter"
                                     : hollowGateEvent.kind === "locked" ? "shrine:tile-sealed-door"
                                     : hollowGateEvent.kind === "npc" ? "shrine:tile-shrine-keeper"
+                                    : hollowGateEvent.kind === "story" ? "shrine:tile-story"
                                     : hollowGateEvent.kind === "battle" || hollowGateEvent.kind === "elite" ? "shrine:tile-corrupted-shinobi"
                                     : null;
                                 const tileImage = tileImageKey ? sharedImages[tileImageKey] : null;
@@ -13762,6 +13779,7 @@ function AdminPanel({
             "shrine:tile-corrupted-shinobi",
             "shrine:tile-shrine-keeper",
             "shrine:tile-wall",
+            "shrine:tile-story",
             "shrine:intro-1",
             "shrine:intro-2",
             "shrine:intro-3",
@@ -17508,6 +17526,12 @@ function AdminPanel({
                         name: "Wall tile texture",
                         category: "Tile / Scene",
                         defaultPrompt: "Seamless dark stone shrine wall texture tile, weathered ancient masonry with violet chakra-burned cracks, faint purple seal runes faded into the stone, top-down dungeon tile, game-ready square tile art, painted ninja RPG environment art",
+                    },
+                    {
+                        key: "shrine:tile-story",
+                        name: "Hollow Gate Echo (story / engraving scene)",
+                        category: "Tile / Scene",
+                        defaultPrompt: "Hollow Gate Echo, ancient stone tablet inside a shadow shinobi shrine, etched with names of the shrine's first guardians, a shattered mural in the background depicts shinobi sealing the gate from the inside, glowing violet kanji bleeding faintly across the stone, painted ninja RPG event scene art",
                     },
                     // ── Intro Visual Novel scenes (3 pages) ───────────────────
                     {
