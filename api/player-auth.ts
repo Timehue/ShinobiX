@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from './_storage.js';
 import { cors } from './_utils.js';
-import { enforceRateLimit } from './_ratelimit.js';
+import { enforceRateLimitKv } from './_ratelimit.js';
 import crypto from 'crypto';
 
 // `hash` stores either the legacy HMAC-SHA256 hex (no version prefix) or the
@@ -91,11 +91,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).end();
 
-    // Rate-limit auth actions by IP: 20 attempts per 15 minutes.
-    // This defends against brute-force password guessing without locking
-    // out legitimate multi-account households (each account has its own name
-    // so they can't easily enumerate targets anyway).
-    if (!enforceRateLimit(req, res, 'player-auth', 20, 15 * 60_000)) return;
+    // Rate-limit auth actions by IP: 20 attempts per 15 minutes. KV-backed so
+    // attackers can't hop serverless instances to reset the counter.
+    if (!(await enforceRateLimitKv(req, res, 'player-auth', 20, 15 * 60_000))) return;
 
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
     const { action, name, password, oldPassword, newPassword } = body as {
@@ -115,6 +113,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         try {
             const existing = await kv.get<AuthRecord>(key);
             if (existing) return res.status(409).json({ ok: false, error: 'Account already has a password.' });
+
+            // Legacy-account takeover defense: if a save:<name> blob already
+            // exists but no auth:<name> record was ever created, refuse the
+            // registration. Otherwise anyone who saw a player's name on the
+            // leaderboard could call register and claim that account.
+            // Legitimate legacy reclaim still works via the admin reset flow
+            // (action='adminreset' with x-admin-password).
+            const saveBlob = await kv.get<Record<string, unknown>>(`save:${name.trim().toLowerCase()}`);
+            if (saveBlob) {
+                return res.status(409).json({
+                    ok: false,
+                    error: 'This account is a legacy account without a server password. Ask an admin to set it for you.',
+                    legacyNeedsAdmin: true,
+                });
+            }
+
             const salt = newSalt();
             await kv.set(key, { hash: hashPw(password, salt), salt });
         } catch (err) {
