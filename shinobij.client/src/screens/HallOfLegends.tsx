@@ -1,0 +1,168 @@
+import { useState } from "react";
+import {
+    type Character,
+    type LbTab,
+    type PlayerRecord,
+    type Screen,
+    loadArenaTournament,
+} from "../App";
+
+export 
+function HallOfLegends({ character, setScreen, playerRoster }: { character: Character; setScreen: (s: Screen) => void; playerRoster: PlayerRecord[] }) {
+    const [tab, setTab] = useState<LbTab>("ranked");
+
+    const all = playerRoster.length > 0
+        ? playerRoster.map(p => p.character)
+        : [character];
+    const me = character.name;
+
+    function Row({ rank, name, value, suffix = "", village }: { rank: number; name: string; value: number | string; suffix?: string; village?: string }) {
+        const isMe = name === me;
+        return (
+            <div className={`hol-row ${isMe ? "hol-row-me" : ""}`}>
+                <span className="hol-rank-num">{rank <= 3 ? ["🥇","🥈","🥉"][rank-1] : `#${rank}`}</span>
+                <span className="hol-name">{name}{village ? <span className="hol-village"> · {village}</span> : null}</span>
+                <span className="hol-value">{typeof value === "number" ? value.toLocaleString() : value}{suffix}</span>
+            </div>
+        );
+    }
+
+    function sortedTop(field: (c: Character) => number, n = 10) {
+        return [...all].sort((a, b) => field(b) - field(a)).slice(0, n);
+    }
+
+    // Clan aggregation
+    const clanMap = new Map<string, { score: number; members: number; topVillage: string }>();
+    for (const p of playerRoster) {
+        const c = p.character;
+        if (!c.clan) continue;
+        const existing = clanMap.get(c.clan) ?? { score: 0, members: 0, topVillage: p.village };
+        clanMap.set(c.clan, {
+            score: existing.score + (c.rankedWins ?? 0) + (c.totalPvpKills ?? 0),
+            members: existing.members + 1,
+            topVillage: existing.topVillage,
+        });
+    }
+    const topClans = [...clanMap.entries()]
+        .sort((a, b) => b[1].score - a[1].score)
+        .slice(0, 10);
+
+    // Tournament
+    const tournament = loadArenaTournament();
+
+    const tabs: { id: LbTab; label: string; icon: string }[] = [
+        { id: "ranked",      label: "Ranked",       icon: "🎖" },
+        { id: "kills",       label: "Kill Streaks",  icon: "🗡" },
+        { id: "xp",          label: "Most XP",       icon: "?" },
+        { id: "clans",       label: "Top Clans",     icon: "🏴" },
+        { id: "pets",        label: "Pet Wins",      icon: "🐾" },
+        { id: "endless",     label: "Endless",       icon: "🌀" },
+        { id: "villageWars", label: "Village Wars",  icon: "⚔" },
+        { id: "tournament",  label: "Tournament",    icon: "🏆" },
+    ];
+
+    return (
+        <div className="card hol-screen">
+            <div className="hol-header">
+                <button className="back-button" onClick={() => setScreen("centralHub")}>? Central Hub</button>
+                <div>
+                    <h2>🏆 Hall of Legends</h2>
+                    <p className="hol-subtitle">Eternal records of the world's greatest shinobi.</p>
+                </div>
+            </div>
+
+            <div className="hol-tabs">
+                {tabs.map(t => (
+                    <button key={t.id} className={`hol-tab ${tab === t.id ? "hol-tab-active" : ""}`} onClick={() => setTab(t.id)}>
+                        {t.icon} {t.label}
+                    </button>
+                ))}
+            </div>
+
+            <div className="hol-board">
+                {tab === "ranked" && (
+                    <>
+                        <p className="hol-board-label">Ranked Battle Rating (Elo)</p>
+                        {sortedTop(c => c.rankedRating ?? 1000).map((c, i) => (
+                            <Row key={c.name} rank={i+1} name={c.name} value={c.rankedRating ?? 1000} suffix=" Elo" village={c.village} />
+                        ))}
+                    </>
+                )}
+                {tab === "kills" && (
+                    <>
+                        <p className="hol-board-label">Total PvP Kills</p>
+                        {sortedTop(c => c.totalPvpKills ?? 0).map((c, i) => (
+                            <Row key={c.name} rank={i+1} name={c.name} value={c.totalPvpKills ?? 0} suffix=" kills" village={c.village} />
+                        ))}
+                    </>
+                )}
+                {tab === "xp" && (
+                    <>
+                        <p className="hol-board-label">Total XP Earned</p>
+                        {sortedTop(c => c.xp).map((c, i) => (
+                            <Row key={c.name} rank={i+1} name={c.name} value={c.xp} suffix=" XP" village={c.village} />
+                        ))}
+                    </>
+                )}
+                {tab === "clans" && (
+                    <>
+                        <p className="hol-board-label">Clan Power (Ranked Wins + PvP Kills)</p>
+                        {topClans.length === 0
+                            ? <p className="hol-empty">No clan data available yet.</p>
+                            : topClans.map(([clan, data], i) => (
+                                <div key={clan} className={`hol-row ${character.clan === clan ? "hol-row-me" : ""}`}>
+                                    <span className="hol-rank-num">{i <= 2 ? ["🥇","🥈","🥉"][i] : `#${i+1}`}</span>
+                                    <span className="hol-name">{clan}<span className="hol-village"> · {data.members} member{data.members !== 1 ? "s" : ""}</span></span>
+                                    <span className="hol-value">{data.score.toLocaleString()} pts</span>
+                                </div>
+                            ))
+                        }
+                    </>
+                )}
+                {tab === "pets" && (
+                    <>
+                        <p className="hol-board-label">Pet Arena Wins</p>
+                        {sortedTop(c => c.totalPetWins ?? 0).map((c, i) => (
+                            <Row key={c.name} rank={i+1} name={c.name} value={c.totalPetWins ?? 0} suffix=" wins" village={c.village} />
+                        ))}
+                    </>
+                )}
+                {tab === "endless" && (
+                    <>
+                        <p className="hol-board-label">Endless Tower — Waves Survived</p>
+                        {sortedTop(c => c.totalEndlessTowerWins ?? 0).map((c, i) => (
+                            <Row key={c.name} rank={i+1} name={c.name} value={c.totalEndlessTowerWins ?? 0} suffix=" waves" village={c.village} />
+                        ))}
+                    </>
+                )}
+                {tab === "villageWars" && (
+                    <>
+                        <p className="hol-board-label">Village War Raids Completed</p>
+                        {sortedTop(c => c.totalVillageRaids ?? 0).map((c, i) => (
+                            <Row key={c.name} rank={i+1} name={c.name} value={c.totalVillageRaids ?? 0} suffix=" raids" village={c.village} />
+                        ))}
+                    </>
+                )}
+                {tab === "tournament" && (
+                    <>
+                        <p className="hol-board-label">Last Tournament</p>
+                        {!tournament
+                            ? <p className="hol-empty">No tournament has been held yet.</p>
+                            : (
+                                <div className="hol-tournament-card">
+                                    <h3>{tournament.name}</h3>
+                                    <p><strong>Hosted by:</strong> {tournament.createdBy}</p>
+                                    <p><strong>Participants ({tournament.participants?.length ?? 0}):</strong> {(tournament.participants ?? []).join(", ") || "—"}</p>
+                                    {tournament.advancedPlayers?.length > 0 && (
+                                        <p><strong>Advanced Players:</strong> {tournament.advancedPlayers.join(", ")}</p>
+                                    )}
+                                    <p className="hol-tournament-ended">Ended {new Date(tournament.endsAt).toLocaleDateString()}</p>
+                                </div>
+                            )
+                        }
+                    </>
+                )}
+            </div>
+        </div>
+    );
+}
