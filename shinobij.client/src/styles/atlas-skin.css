@@ -1,155 +1,139 @@
 /* =========================================================================
-   Atlas / World-map village marker Skin v2 — biome-themed glowing crests
+   Atlas / World-map village marker Skin v2 — biome-tinted torii gates
    ========================================================================= */
 
 .atlas-landmark.atlas-village,
 .atlas-landmark.atlas-central {
-    --bsv2-gold:        #c4a25a;
-    --bsv2-gold-bright: #e8d496;
-    --bsv2-gold-soft:   rgba(196,162,90,0.55);
-    --bsv2-gold-faint:  rgba(196,162,90,0.25);
-
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    min-width: 0 !important;
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
     justify-content: center !important;
-    min-width: 0 !important;
-    padding: 0 !important;
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
     transition: transform 140ms ease, filter 140ms ease;
 }
 
-/* The circular crest holds the abbreviation. */
+/* Hide the abbreviation letters; we draw a torii via ::before instead. */
 .atlas-landmark.atlas-village strong,
 .atlas-landmark.atlas-central strong {
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    width: 56px !important;
-    height: 56px !important;
-    border-radius: 50% !important;
-    font: 700 18px/1 Cinzel, serif !important;
-    letter-spacing: 0.06em !important;
-    color: #ffffff !important;
-    text-shadow: 0 2px 6px rgba(0,0,0,0.85), 0 0 18px rgba(255,255,255,0.25) !important;
-    border: 2px solid var(--bsv2-gold-soft) !important;
-    box-shadow:
-        0 0 0 1px rgba(0,0,0,0.5),
-        0 4px 14px rgba(0,0,0,0.55),
-        inset 0 -6px 12px rgba(0,0,0,0.5),
-        inset 0 6px 12px rgba(255,255,255,0.12) !important;
+    width: 0 !important;
+    height: 0 !important;
+    font-size: 0 !important;
+    color: transparent !important;
+    overflow: hidden;
     position: relative;
-    z-index: 1;
+    margin: 0 !important;
+    padding: 0 !important;
+    line-height: 0 !important;
 }
 
-/* Outer glow ring per biome (using ::before so the inner crest stays clean) */
-.atlas-landmark.atlas-village strong::before,
-.atlas-landmark.atlas-central strong::before {
-    content: '';
-    position: absolute;
-    inset: -6px;
-    border-radius: 50%;
-    pointer-events: none;
-    z-index: -1;
-    opacity: 0.85;
-}
-
-/* Per-village biome palettes — keyed off the village abbreviation. */
-.atlas-landmark.atlas-village strong:where(:not(:empty)) {
-    background:
-        radial-gradient(circle at 30% 25%, rgba(255,255,255,0.18), transparent 55%),
-        linear-gradient(135deg, #1e3a5f, #0a1428);
-}
-
-/* Frostfang (FF) — icy blue */
-.atlas-landmark[title="Frostfang Village"] strong,
-.atlas-landmark[title*="Frostfang"] strong {
-    background:
-        radial-gradient(circle at 30% 25%, rgba(255,255,255,0.25), transparent 60%),
-        linear-gradient(135deg, #3b82f6, #0b274d) !important;
-    border-color: rgba(147,197,253,0.7) !important;
-}
-.atlas-landmark[title*="Frostfang"] strong::before {
-    box-shadow:
-        0 0 14px 4px rgba(78,168,255,0.55),
-        0 0 30px 8px rgba(78,168,255,0.25);
-}
-
-/* Stormveil (SV) — forest + lightning green */
-.atlas-landmark[title*="Stormveil"] strong {
-    background:
-        radial-gradient(circle at 30% 25%, rgba(255,255,255,0.22), transparent 60%),
-        linear-gradient(135deg, #16a34a, #052e16) !important;
-    border-color: rgba(134,239,172,0.7) !important;
-}
-.atlas-landmark[title*="Stormveil"] strong::before {
-    box-shadow:
-        0 0 14px 4px rgba(74,222,128,0.55),
-        0 0 30px 8px rgba(74,222,128,0.22);
-}
-
-/* Ashen Leaf (AL) — volcanic red/ember */
-.atlas-landmark[title*="Ashen Leaf"] strong {
-    background:
-        radial-gradient(circle at 30% 25%, rgba(255,225,180,0.28), transparent 60%),
-        linear-gradient(135deg, #dc2626, #450a0a) !important;
-    border-color: rgba(252,165,165,0.75) !important;
-}
-.atlas-landmark[title*="Ashen Leaf"] strong::before {
-    box-shadow:
-        0 0 14px 4px rgba(248,113,113,0.55),
-        0 0 32px 10px rgba(249,115,22,0.28);
-}
-
-/* Moonshadow (MS) — purple */
-.atlas-landmark[title*="Moonshadow"] strong {
-    background:
-        radial-gradient(circle at 30% 25%, rgba(255,255,255,0.22), transparent 60%),
-        linear-gradient(135deg, #7c3aed, #2e1065) !important;
-    border-color: rgba(196,181,253,0.75) !important;
-}
-.atlas-landmark[title*="Moonshadow"] strong::before {
-    box-shadow:
-        0 0 14px 4px rgba(167,139,250,0.55),
-        0 0 32px 10px rgba(167,139,250,0.25);
-}
-
-/* Central — gold/neutral */
-.atlas-landmark.atlas-central strong {
-    background:
-        radial-gradient(circle at 30% 25%, rgba(255,255,255,0.25), transparent 60%),
-        linear-gradient(135deg, #b45309, #422006) !important;
-    border-color: rgba(252,211,77,0.85) !important;
-}
-.atlas-landmark.atlas-central strong::before {
-    box-shadow:
-        0 0 16px 5px rgba(252,211,77,0.55),
-        0 0 36px 12px rgba(252,211,77,0.25);
-}
-
-/* Village name tag below the crest */
+/* Hide the duplicate village-name pill — the painted biome banner on the
+   map already labels every village. */
 .atlas-landmark.atlas-village span,
 .atlas-landmark.atlas-central span {
-    margin-top: 6px !important;
-    padding: 3px 10px !important;
-    background: linear-gradient(180deg, rgba(12,18,34,0.92) 0%, rgba(6,10,22,0.96) 100%) !important;
-    border: 1px solid var(--bsv2-gold-soft) !important;
-    border-radius: 999px !important;
-    color: var(--bsv2-gold-bright) !important;
-    font: 600 9px Cinzel, serif !important;
-    letter-spacing: 0.18em !important;
-    text-transform: uppercase !important;
-    white-space: nowrap !important;
-    box-shadow:
-        0 2px 4px rgba(0,0,0,0.6),
-        inset 0 1px 0 rgba(255,255,255,0.05) !important;
+    display: none !important;
 }
 
-/* Hover — gentle scale + extra glow */
+/* Torii gate glyph via pseudo-element so we can tint per biome. */
+.atlas-landmark.atlas-village::before,
+.atlas-landmark.atlas-central::before {
+    content: '⛩';
+    font-size: 40px;
+    line-height: 1;
+    display: block;
+    text-shadow:
+        0 2px 6px rgba(0,0,0,0.85),
+        0 0 14px rgba(255,255,255,0.15);
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
+    transition: filter 140ms ease, color 140ms ease;
+}
+
+/* Soft biome glow halo behind the torii via ::after. */
+.atlas-landmark.atlas-village::after,
+.atlas-landmark.atlas-central::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    z-index: -1;
+    pointer-events: none;
+    opacity: 0.7;
+}
+
+/* ----- Biome palettes ----- */
+/* Frostfang — icy blue */
+.atlas-landmark[title*="Frostfang"]::before {
+    color: #93c5fd;
+    text-shadow:
+        0 2px 6px rgba(0,0,0,0.85),
+        0 0 18px rgba(78,168,255,0.65);
+}
+.atlas-landmark[title*="Frostfang"]::after {
+    background: radial-gradient(circle, rgba(78,168,255,0.55) 0%, transparent 70%);
+    box-shadow: 0 0 22px 6px rgba(78,168,255,0.4);
+}
+
+/* Stormveil — storm green */
+.atlas-landmark[title*="Stormveil"]::before {
+    color: #86efac;
+    text-shadow:
+        0 2px 6px rgba(0,0,0,0.85),
+        0 0 18px rgba(74,222,128,0.65);
+}
+.atlas-landmark[title*="Stormveil"]::after {
+    background: radial-gradient(circle, rgba(74,222,128,0.55) 0%, transparent 70%);
+    box-shadow: 0 0 22px 6px rgba(74,222,128,0.4);
+}
+
+/* Ashen Leaf — ember red */
+.atlas-landmark[title*="Ashen Leaf"]::before {
+    color: #fca5a5;
+    text-shadow:
+        0 2px 6px rgba(0,0,0,0.85),
+        0 0 20px rgba(248,113,113,0.7);
+}
+.atlas-landmark[title*="Ashen Leaf"]::after {
+    background: radial-gradient(circle, rgba(248,113,113,0.55) 0%, transparent 70%);
+    box-shadow: 0 0 24px 7px rgba(249,115,22,0.35);
+}
+
+/* Moonshadow — violet */
+.atlas-landmark[title*="Moonshadow"]::before {
+    color: #c4b5fd;
+    text-shadow:
+        0 2px 6px rgba(0,0,0,0.85),
+        0 0 20px rgba(167,139,250,0.7);
+}
+.atlas-landmark[title*="Moonshadow"]::after {
+    background: radial-gradient(circle, rgba(167,139,250,0.55) 0%, transparent 70%);
+    box-shadow: 0 0 24px 7px rgba(167,139,250,0.35);
+}
+
+/* Central — warm gold */
+.atlas-landmark.atlas-central::before {
+    color: #fcd34d;
+    text-shadow:
+        0 2px 6px rgba(0,0,0,0.85),
+        0 0 22px rgba(252,211,77,0.7);
+    font-size: 46px;
+}
+.atlas-landmark.atlas-central::after {
+    background: radial-gradient(circle, rgba(252,211,77,0.55) 0%, transparent 70%);
+    box-shadow: 0 0 26px 8px rgba(252,211,77,0.4);
+    width: 50px;
+    height: 50px;
+}
+
+/* Hover — brighten + grow */
 .atlas-landmark.atlas-village:hover,
 .atlas-landmark.atlas-central:hover {
-    transform: translate(-50%, -50%) scale(1.08) !important;
-    filter: brightness(1.1);
+    transform: translate(-50%, -50%) scale(1.18) !important;
+    filter: brightness(1.15);
 }
