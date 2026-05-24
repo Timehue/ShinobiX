@@ -16842,6 +16842,11 @@ html[data-vp="xl"] .battle-hud-sidebar .combat-avatar img {
     max-height: 80px !important;
 }
 
+/* Hide the sector banner (ornate frame) on xl during battle — the portal HUD replaces it */
+html[data-vp="xl"] .sector-banner-panel {
+    display: none !important;
+}
+
 /* Hide the first (player) combat-side-hud in the grid on xl — it's portaled to the sidebar */
 html[data-vp="xl"] .arena-fullscreen .combat-layout > .combat-side-hud:first-child {
     display: none !important;
@@ -16863,20 +16868,13 @@ html[data-vp="xl"] .arena-fullscreen .combat-layout {
     padding: 0 !important;
 }
 
-/* Scale up the entire hex battlefield uniformly so tiles fill more space.
-   overflow:hidden on the battlefield clips the background image to its border.
-   Parent containers get overflow:visible so the scaled element isn't clipped. */
+/* Scale up hex battlefield to fill more space, clipped to its own border */
 html[data-vp="xl"] .arena-fullscreen .hex-battlefield {
     width: 100% !important;
     max-width: 100% !important;
-    transform: scale(1.15) !important;
+    transform: scale(1.08) !important;
     transform-origin: center center !important;
-    margin: -10px 0 !important;
     overflow: hidden !important;
-}
-
-html[data-vp="xl"] .arena-fullscreen .combat-main-area {
-    overflow: visible !important;
 }
 
 html[data-vp="xl"] .arena-fullscreen .combat-layout > .combat-main-area {
