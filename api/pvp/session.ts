@@ -78,7 +78,7 @@ function makeFighter(char: Record<string, unknown>, pos: number): PvpFighter {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-    cors(res);
+    cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
 
     if (req.method === 'GET') {

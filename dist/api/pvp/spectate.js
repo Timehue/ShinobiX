@@ -10,7 +10,7 @@ function specKey(battleId) {
     return `pvp:spectators:${battleId}`;
 }
 async function handler(req, res) {
-    (0, _utils_js_1.cors)(res);
+    (0, _utils_js_1.cors)(res, req);
     if (req.method === 'OPTIONS')
         return res.status(200).end();
     const battleId = typeof req.query.id === 'string' ? req.query.id.trim() : '';
