@@ -28379,7 +28379,7 @@ function PvpBattleScreen({
     const oppAvatar = (opp.character?.avatarImage as string) || sharedImages['avatar:' + opp.name.toLowerCase()] || "";
 
     return (
-        <div className={`arena-fullscreen pvp-battle-layout arena-bg-${currentBiome}${currentSector === 99 ? " arena-bg-deathsgate" : ""}`}>
+        <div className={`arena-fullscreen arena-bg-${currentBiome}${currentSector === 99 ? " arena-bg-deathsgate" : ""}`}>
             {pvpPrefightCountdown !== null && (
                 <div className="pvp-countdown-overlay">
                     <div className="pvp-countdown-box">
