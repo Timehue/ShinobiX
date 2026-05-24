@@ -707,3 +707,94 @@
 .profile-page-card .profile-tab-hidden {
     display: none !important;
 }
+
+/* ---- Inventory equip slots: kill hover transform, mark filter-active ---- */
+.inventory-page .character-equip-slot {
+    transition: border-color 120ms, box-shadow 120ms !important;
+}
+.inventory-page .character-equip-slot:hover {
+    transform: none !important;
+    border-color: rgba(78,168,255,0.85) !important;
+    box-shadow: 0 0 10px rgba(78,168,255,0.25) !important;
+}
+.inventory-page .character-equip-slot.slot-filter-active {
+    border-color: #4ea8ff !important;
+    border-style: solid !important;
+    box-shadow: 0 0 14px rgba(78,168,255,0.5), inset 0 0 8px rgba(78,168,255,0.25) !important;
+    background: linear-gradient(135deg, rgba(30,58,138,0.5), rgba(10,16,32,0.7)) !important;
+}
+
+/* ---- Slot filter bar (above backpack grid when a slot is selected) ---- */
+.inventory-page .slot-filter-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px;
+    padding: 8px 14px;
+    margin: 0 0 10px 0;
+    background: linear-gradient(90deg, rgba(20,28,46,0.85), rgba(12,18,34,0.85)) !important;
+    border: 1px solid rgba(196,162,90,0.18);
+    border-left: 3px solid #4ea8ff;
+    border-radius: 4px;
+    color: #e8edf5;
+    font: 400 12px Inter, sans-serif;
+}
+.inventory-page .slot-filter-bar strong {
+    color: #e8d496;
+    font-family: Cinzel, serif;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin: 0 4px;
+}
+.inventory-page .slot-filter-bar button {
+    background: rgba(0,0,0,0.4) !important;
+    border: 1px solid rgba(196,162,90,0.45) !important;
+    color: #e8d496 !important;
+    padding: 4px 10px !important;
+    border-radius: 3px !important;
+    font: 600 10px Cinzel, serif !important;
+    letter-spacing: 0.14em !important;
+    text-transform: uppercase !important;
+    cursor: pointer;
+}
+.inventory-page .slot-filter-bar button:hover {
+    border-color: #e8d496 !important;
+}
+
+/* ---- Backpack item cards: tighten image fit, reduce icon size ---- */
+.inventory-page .backpack-item {
+    padding: 8px !important;
+    grid-template-rows: 88px auto 1fr auto !important;
+    gap: 6px !important;
+}
+.inventory-page .backpack-item-art {
+    border: 1px solid rgba(196,162,90,0.25) !important;
+    border-radius: 4px !important;
+    background: linear-gradient(135deg, rgba(15,22,40,0.6), rgba(8,12,24,0.7)) !important;
+    font-size: 16px !important;
+    overflow: hidden;
+    position: relative;
+    min-height: 88px;
+    box-shadow: inset 0 0 12px rgba(0,0,0,0.4);
+}
+.inventory-page .backpack-item-art img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important;
+    border-radius: 3px !important;
+    padding: 0 !important;
+    display: block;
+}
+.inventory-page .backpack-item-art span {
+    font: 700 18px Cinzel, serif !important;
+    color: #e8d496 !important;
+    letter-spacing: 0.04em;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+}
+.inventory-page .backpack-item strong {
+    font: 600 11px Cinzel, serif !important;
+    color: #e8d496 !important;
+    letter-spacing: 0.04em;
+}
+.inventory-page .backpack-item p {
+    font: 400 10px/1.3 Inter, sans-serif !important;
+    color: #c8cfdc !important;
+}

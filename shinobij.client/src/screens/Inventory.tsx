@@ -41,6 +41,7 @@ export function Inventory({
     }>(null);
     const [inventoryTab, setInventoryTab] = useState<"items" | "tileCards">("items");
     const [selectedTileCard, setSelectedTileCard] = useState<{ card: TileCard; count: number } | null>(null);
+    const [slotFilter, setSlotFilter] = useState<EquipmentSlot | null>(null);
     const allItems = getAllItems(creatorItems);
     const allTileCards = getAllTileCards(creatorCards);
 
@@ -307,20 +308,25 @@ export function Inventory({
                                 <button
                                     key={slot.className}
                                     type="button"
-                                    className={`character-equip-slot ${slot.className} ${equipped ? `filled rarity-${equipped.rarity}` : ""}`}
+                                    className={`character-equip-slot ${slot.className} ${equipped ? `filled rarity-${equipped.rarity}` : ""}${slotFilter && slot.accepts === slotFilter ? " slot-filter-active" : ""}`}
                                     onClick={() => {
-                                        if (!slot.equipmentSlot || !equipped) return;
-
-                                        setSelectedInventoryItem({
-                                            entry: equipped.id,
-                                            item: equipped,
-                                            index: -1,
-                                            count: 1,
-                                            source: "equipped",
-                                            equipmentSlot: slot.equipmentSlot,
-                                        });
+                                        if (!slot.equipmentSlot && !slot.accepts) return;
+                                        const acceptSlot = slot.accepts ?? slot.equipmentSlot ?? null;
+                                        if (equipped) {
+                                            setSelectedInventoryItem({
+                                                entry: equipped.id,
+                                                item: equipped,
+                                                index: -1,
+                                                count: 1,
+                                                source: "equipped",
+                                                equipmentSlot: slot.equipmentSlot,
+                                            });
+                                        } else if (acceptSlot) {
+                                            setInventoryTab("items");
+                                            setSlotFilter((current) => (current === acceptSlot ? null : acceptSlot));
+                                        }
                                     }}
-                                    title={equipped ? `${equipped.name}: click to inspect` : slotHelp(slot)}
+                                    title={equipped ? `${equipped.name}: click to inspect` : `Show ${slot.label} items in backpack`}
                                 >
                                     {equipped?.image ? (
                                         <img
@@ -385,11 +391,22 @@ export function Inventory({
 
                     {inventoryTab === "items" && (
                         <>
-                            {backpackStacks.length === 0 ? (
-                                <p className="inventory-empty">No items in inventory.</p>
-                            ) : (
+                            {slotFilter && (
+                                <div className="slot-filter-bar">
+                                    <span>Showing <strong>{slotFilter.charAt(0).toUpperCase() + slotFilter.slice(1)}</strong> items</span>
+                                    <button type="button" onClick={() => setSlotFilter(null)}>✕ Clear</button>
+                                </div>
+                            )}
+                            {(() => {
+                                const visible = slotFilter
+                                    ? backpackStacks.filter(({ item }) => item && normalizeEquipmentSlot(item.slot) === slotFilter)
+                                    : backpackStacks;
+                                if (visible.length === 0) {
+                                    return <p className="inventory-empty">{slotFilter ? `No ${slotFilter} items in inventory.` : "No items in inventory."}</p>;
+                                }
+                                return (
                                 <div className="backpack-grid">
-                                    {backpackStacks.map(({ entry, item, indices, stackKey }) => (
+                                    {visible.map(({ entry, item, indices, stackKey }) => (
                                         <div
                                             className={`backpack-item ${item ? `rarity-${item.rarity}` : "rarity-common"}`}
                                             key={stackKey}
@@ -470,7 +487,8 @@ export function Inventory({
                                         </div>
                                     ))}
                                 </div>
-                            )}
+                                );
+                            })()}
                         </>
                     )}
 
