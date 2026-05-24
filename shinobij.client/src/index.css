@@ -88,6 +88,27 @@
         font-size: 15px !important;
     }
 
+    /* Hollow Gate stays tiny even inside the wider .world-map-scroll layout —
+       icon-only pill, no expanded label. */
+    .world-map-scroll .atlas-hollowGate {
+        min-width: 0 !important;
+        width: auto !important;
+        max-width: none !important;
+        padding: 2px 6px !important;
+        font-size: 0 !important;
+        line-height: 1 !important;
+        gap: 0 !important;
+    }
+
+        .world-map-scroll .atlas-hollowGate strong {
+            font-size: 12px !important;
+            line-height: 1 !important;
+        }
+
+        .world-map-scroll .atlas-hollowGate span {
+            display: none !important;
+        }
+
     .map-instance {
         width: 100% !important;
         max-width: 100% !important;
@@ -1535,6 +1556,32 @@ button {
 .atlas-central {
     background: rgba(22, 101, 52, .9);
 }
+
+/* Hollow Gate POI is a hidden shrine entrance — render TINY so it doesn't
+   compete with villages or the central hub on the world map. We hide the
+   'Hollow Gate' name label entirely and show only the 'HG' icon as a small
+   purple pill. The title tooltip still says 'Hollow Gate' on hover. */
+.atlas-hollowGate {
+    min-width: 0;
+    width: auto;
+    padding: 2px 5px;
+    font-size: 0;             /* collapses the (hidden) name line height */
+    line-height: 1;
+    gap: 0;
+    border-color: rgba(168, 85, 247, 0.75);
+    background: rgba(15, 9, 28, .85);
+    box-shadow: 0 1px 0 rgba(2,6,23,.5), 0 0 8px rgba(168, 85, 247, 0.35);
+}
+
+    .atlas-hollowGate strong {
+        font-size: 10px;
+        color: #c4b5fd;
+        line-height: 1;
+    }
+
+    .atlas-hollowGate span {
+        display: none;        /* drop the 'Hollow Gate' label — tooltip still shows it */
+    }
 
 .atlas-landmark:hover {
     transform: translate(-50%, -50%) scale(1.06);
@@ -16315,6 +16362,27 @@ button.combat-jutsu-button,
         padding: 8px 10px !important;
         font-size: 15px !important;
     }
+
+    /* Hollow Gate stays tiny even inside the wider .world-map-scroll layout —
+       icon-only pill, no expanded label. */
+    .world-map-scroll .atlas-hollowGate {
+        min-width: 0 !important;
+        width: auto !important;
+        max-width: none !important;
+        padding: 2px 6px !important;
+        font-size: 0 !important;
+        line-height: 1 !important;
+        gap: 0 !important;
+    }
+
+        .world-map-scroll .atlas-hollowGate strong {
+            font-size: 12px !important;
+            line-height: 1 !important;
+        }
+
+        .world-map-scroll .atlas-hollowGate span {
+            display: none !important;
+        }
 
     .map-instance {
         width: 100% !important;
