@@ -9887,36 +9887,30 @@ export default function App() {
                             </div>
 
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 240px", gap: 16 }}>
-                                {/* Grid — three render states per tile:
-                                      • REVEALED  (stepped on) → full opacity, full color
-                                      • VISIBLE   (within radius 2 of player) → content shown
-                                                  at reduced opacity so you can see what's
-                                                  nearby without having walked there yet
-                                      • FOG       (everything else) → dark, just a dim dot
-                                    Walls render as solid stone regardless of visibility. */}
-                                {(() => {
-                                    const VISION_RADIUS = 2;
-                                    return (
+                                {/* Grid — true fog-of-war. Two render states per tile:
+                                      • REVEALED (stepped on) → full opacity, full color, icon visible
+                                      • FOG (anything else)   → dark cell, just a dim dot
+                                    Walls render as solid stone whether stepped on or not so the
+                                    dungeon geometry is at least partially readable. Content tiles
+                                    (battle, chest, trap, ambush, etc.) reveal ONLY on step. */}
                                 <div className="hollow-gate-grid" style={{ display: "grid", gridTemplateColumns: `repeat(${run.width}, 1fr)`, gap: 3, background: "rgba(0,0,0,0.55)", padding: 8, borderRadius: 8 }}>
                                     {run.tiles.map((tile, i) => {
                                         const x = i % run.width;
                                         const y = Math.floor(i / run.width);
                                         const isPlayer = x === run.playerX && y === run.playerY;
                                         const revealed = tile.revealed;
-                                        const distFromPlayer = Math.abs(x - run.playerX) + Math.abs(y - run.playerY);
-                                        const visible = distFromPlayer <= VISION_RADIUS;
                                         const wall = tile.kind === "wall";
 
                                         // Compose background by tile state.
                                         let bg: string;
                                         if (wall) {
-                                            // Solid stone — always look the same. Slightly darker if not visible.
-                                            bg = visible
-                                                ? "linear-gradient(135deg, #1c1430 0%, #0e0820 40%, #2a1f3e 100%)"
-                                                : "linear-gradient(135deg, #100a1c 0%, #07040f 100%)";
+                                            // Solid stone — visible at all times so the player can
+                                            // see paths/forks. Walls aren't "rewards" or "surprises",
+                                            // they're permanent geometry.
+                                            bg = "linear-gradient(135deg, #1c1430 0%, #0e0820 40%, #2a1f3e 100%)";
                                         } else if (isPlayer) {
                                             bg = "linear-gradient(135deg, #2563eb, #7c3aed)";
-                                        } else if (revealed || visible) {
+                                        } else if (revealed) {
                                             bg = tile.kind === "boss" ? "linear-gradient(135deg, #7f1d1d, #b91c1c)"
                                                 : tile.kind === "trap" ? "rgba(239,68,68,0.22)"
                                                 : tile.kind === "chest" ? "rgba(234,179,8,0.22)"
@@ -9931,44 +9925,38 @@ export default function App() {
                                                 : tile.kind === "story" ? "rgba(250,204,21,0.18)"
                                                 : "rgba(168,85,247,0.10)";
                                         } else {
-                                            bg = "rgba(7,4,15,0.92)"; // deep fog
+                                            bg = "rgba(7,4,15,0.92)"; // deep fog — same for every unrevealed tile
                                         }
 
                                         // Wall styling: brick-ish pattern via inset shadow.
                                         const wallShadow = wall ? "inset 0 0 0 1px rgba(168,85,247,0.18), inset 2px 2px 0 rgba(0,0,0,0.4)" : undefined;
 
-                                        // Icon by state.
+                                        // Icon: player first, then wall (none), then revealed kind, else fog dot.
                                         let icon: string;
                                         if (isPlayer) icon = "🥷";
                                         else if (wall) icon = "";
-                                        else if (revealed || visible) icon = hollowGateTileIconForKind(tile.kind);
+                                        else if (revealed) icon = hollowGateTileIconForKind(tile.kind);
                                         else icon = "·";
-
-                                        // Opacity: revealed = full, visible-only = dimmed,
-                                        // fog = dot at very low opacity.
-                                        const iconOpacity = isPlayer || revealed ? 1 : visible ? 0.55 : 0.25;
 
                                         return (
                                             <div
                                                 key={i}
-                                                title={wall ? "Wall" : revealed ? tile.kind : visible ? `${tile.kind} (in view)` : "Unrevealed"}
+                                                title={wall ? "Wall" : revealed ? tile.kind : "Unrevealed"}
                                                 style={{
                                                     aspectRatio: "1 / 1",
                                                     background: bg,
                                                     border: isPlayer ? "2px solid #60a5fa"
                                                         : wall ? "1px solid rgba(0,0,0,0.5)"
                                                         : revealed ? "1px solid rgba(168,85,247,0.5)"
-                                                        : visible ? "1px solid rgba(168,85,247,0.28)"
                                                         : "1px solid rgba(168,85,247,0.08)",
                                                     borderRadius: 4,
                                                     display: "flex",
                                                     alignItems: "center",
                                                     justifyContent: "center",
                                                     fontSize: "clamp(16px, 2.6vw, 28px)",
-                                                    color: revealed || isPlayer ? "#f5f3ff" : "rgba(196,181,253,0.85)",
-                                                    opacity: iconOpacity,
+                                                    color: revealed || isPlayer ? "#f5f3ff" : "rgba(196,181,253,0.40)",
                                                     boxShadow: isPlayer ? "0 0 12px rgba(96,165,250,0.6)" : wallShadow,
-                                                    transition: "background 200ms, opacity 200ms",
+                                                    transition: "background 200ms",
                                                 }}
                                             >
                                                 {icon}
@@ -9976,8 +9964,6 @@ export default function App() {
                                         );
                                     })}
                                 </div>
-                                    );
-                                })()}
 
                                 {/* Side panel */}
                                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -10013,7 +9999,7 @@ export default function App() {
                                             <span>🐾 Pet</span><span>👤 Keeper</span>
                                             <span>▼ Descend</span><span>⇩ Leave</span>
                                             <span>🔒 Locked</span><span>▦ Wall</span>
-                                            <span>· Unrevealed</span><span style={{ opacity: 0.55 }}>· In view (dim)</span>
+                                            <span>· Unexplored</span><span style={{ opacity: 0.55 }}>Step on it to reveal</span>
                                         </div>
                                     </div>
                                     <div style={{ background: "rgba(15,9,28,0.7)", border: "1px solid rgba(168,85,247,0.3)", borderRadius: 8, padding: 10, fontSize: 12 }}>
