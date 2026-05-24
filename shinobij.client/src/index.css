@@ -18624,13 +18624,16 @@ html[data-vp="xxl"] .banner-mobile-timers {
 /* ── Achievement unlock toast ───────────────────────────────────── */
 .achievement-toast-stack {
     position: fixed;
-    right: 20px;
-    bottom: 20px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
     display: flex;
     flex-direction: column;
+    align-items: center;
     gap: 10px;
     z-index: 9999;
     pointer-events: none;
+    max-width: calc(100vw - 32px);
 }
 .achievement-toast {
     pointer-events: auto;
@@ -18714,22 +18717,16 @@ html[data-vp="xxl"] .banner-mobile-timers {
 @keyframes achievement-toast-in {
     from {
         opacity: 0;
-        transform: translateX(40px);
+        transform: translateY(12px) scale(0.96);
     }
     to {
         opacity: 1;
-        transform: translateX(0);
+        transform: translateY(0) scale(1);
     }
 }
 @media (max-width: 800px) {
-    /* Clear the fixed mobile nav bar (~112px tall, see .center-game padding-bottom) */
-    .achievement-toast-stack {
-        right: 10px;
-        bottom: calc(120px + env(safe-area-inset-bottom, 0px));
-        left: 10px;
-    }
     .achievement-toast {
-        width: auto;
+        width: 100%;
     }
 }
 
