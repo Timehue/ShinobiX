@@ -992,6 +992,7 @@ type PendingArenaStoryBattle =
 
 type HollowGateTileKind =
     | "empty"
+    | "wall"       // impassable stone — gives the dungeon real geometry
     | "battle"
     | "elite"
     | "trap"
@@ -1087,6 +1088,9 @@ const hollowGateFlavorPool: Record<HollowGateTileKind, string[]> = {
     descend: [
         "A spiral staircase coils into the dark. The next floor breathes below.",
         "Hollow Gate echoes spiral downward — the next floor lies open.",
+    ],
+    wall: [
+        "Solid shrine stone. The wall is sealed by old chakra and will not move.",
     ],
 };
 
@@ -1218,6 +1222,50 @@ function generateHollowGateShrineRun(floor = 1): HollowGateShrineRun {
         }
     }
 
+    // Walls first — give the dungeon real geometry. We place them in small
+    // 2-3 tile clusters so it looks like broken walls / pillars rather than
+    // random scattered cubes. Spawn tile + 4 surrounding tiles are protected so
+    // the player always starts in an open foyer.
+    const protectedRadius = new Set<number>([spawnIdx]);
+    for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0], [-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+        const nx = playerX + dx;
+        const ny = playerY + dy;
+        if (nx >= 0 && ny >= 0 && nx < w && ny < h) protectedRadius.add(ny * w + nx);
+    }
+    function placeWallCluster(seedIdx: number, size: number) {
+        const queue: number[] = [seedIdx];
+        let placed = 0;
+        while (queue.length > 0 && placed < size) {
+            const idx = queue.shift()!;
+            if (reserved.has(idx) || protectedRadius.has(idx)) continue;
+            if (kinds[idx] !== "empty") continue;
+            kinds[idx] = "wall";
+            placed += 1;
+            // Try to extend in a random direction so clusters are organic.
+            const x = idx % w;
+            const y = Math.floor(idx / w);
+            const dirs = [[0, -1], [0, 1], [-1, 0], [1, 0]].sort(() => Math.random() - 0.5);
+            for (const [dx, dy] of dirs) {
+                const nx = x + dx;
+                const ny = y + dy;
+                if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+                if (Math.random() < 0.55) queue.push(ny * w + nx);
+            }
+        }
+    }
+    // Aim for ~22% of the grid as walls — varies a bit by floor for visual variety.
+    const targetWallTiles = Math.floor(total * 0.22) + Math.floor(floor / 2);
+    let wallsPlaced = 0;
+    let wallSafety = 0;
+    while (wallsPlaced < targetWallTiles && wallSafety < 50) {
+        wallSafety += 1;
+        const seed = Math.floor(Math.random() * total);
+        const before = kinds.filter(k => k === "wall").length;
+        placeWallCluster(seed, 2 + Math.floor(Math.random() * 2)); // 2-3 tiles per cluster
+        const after = kinds.filter(k => k === "wall").length;
+        wallsPlaced += after - before;
+    }
+
     // Counts scale slightly with floor depth.
     const battleCount = 4 + Math.min(3, floor);
     placeMany("battle", battleCount);
@@ -1248,23 +1296,39 @@ function generateHollowGateShrineRun(floor = 1): HollowGateShrineRun {
         for (let i = 0; i < kinds.length; i += 1) if (kinds[i] === kind) return i;
         return -1;
     }
+    function locateWalls(): number[] {
+        const out: number[] = [];
+        for (let i = 0; i < kinds.length; i += 1) if (kinds[i] === "wall") out.push(i);
+        return out;
+    }
     let attempts = 0;
-    while (attempts < 8) {
+    while (attempts < 12) {
         attempts += 1;
         const lockedIndices = locateLockedTiles();
-        const blocked = new Set<number>(lockedIndices);
+        const wallIndices = locateWalls();
+        // Walls AND locked tiles both block path-validation. Locked is the
+        // most-recoverable so we relocate those first; if that fails we
+        // chip walls away too.
+        const blocked = new Set<number>([...lockedIndices, ...wallIndices]);
         const reachable = hollowGateReachableSet(w, h, spawnIdx, blocked);
         const targetIdx = isFinalFloor ? findKindIdx("boss") : findKindIdx("descend");
         const exitOk = exitIdx < 0 || reachable.has(exitIdx);
         const targetOk = targetIdx < 0 || reachable.has(targetIdx);
         if (exitOk && targetOk) break;
-        // Relocate one blocking locked tile to a free empty.
         const free = freeEmptyCells();
-        if (free.length === 0 || lockedIndices.length === 0) break;
-        const offending = lockedIndices[0];
-        kinds[offending] = "empty";
-        const newSpot = free[Math.floor(Math.random() * free.length)];
-        kinds[newSpot] = "locked";
+        if (free.length === 0) break;
+        // First try moving a locked tile out of the way.
+        if (lockedIndices.length > 0) {
+            const offending = lockedIndices[0];
+            kinds[offending] = "empty";
+            kinds[free[Math.floor(Math.random() * free.length)]] = "locked";
+            continue;
+        }
+        // No locked tiles left to move — chip a wall instead.
+        if (wallIndices.length > 0) {
+            const chip = wallIndices[Math.floor(Math.random() * wallIndices.length)];
+            kinds[chip] = "empty";
+        }
     }
 
     const tiles: HollowGateTile[] = kinds.map((kind, i) => ({
@@ -1371,6 +1435,8 @@ function hollowGateTileIconForKind(kind: HollowGateTileKind): string {
         case "locked": return "🔒";
         case "npc": return "👤";      // Shrine Keeper
         case "descend": return "▼";   // Staircase to next floor
+        case "wall": return "";       // walls render as solid stone, no icon
+        case "empty": return "·";
         default: return "·";
     }
 }
@@ -9257,6 +9323,11 @@ export default function App() {
         if (nx < 0 || ny < 0 || nx >= hollowGateRun.width || ny >= hollowGateRun.height) return;
         const idx = ny * hollowGateRun.width + nx;
         const tile = hollowGateRun.tiles[idx];
+        // Walls are impassable. Don't penalize threat/torch for bumping into them.
+        if (tile.kind === "wall") {
+            pushHollowGateLog("Solid shrine stone. You cannot pass.");
+            return;
+        }
         // Reveal + move first.
         const tiles = hollowGateRun.tiles.slice();
         const wasRevealed = tile.revealed;
@@ -9785,42 +9856,88 @@ export default function App() {
                             </div>
 
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 240px", gap: 16 }}>
-                                {/* Grid */}
-                                <div className="hollow-gate-grid" style={{ display: "grid", gridTemplateColumns: `repeat(${run.width}, 1fr)`, gap: 4, background: "rgba(0,0,0,0.4)", padding: 8, borderRadius: 8 }}>
+                                {/* Grid — three render states per tile:
+                                      • REVEALED  (stepped on) → full opacity, full color
+                                      • VISIBLE   (within radius 2 of player) → content shown
+                                                  at reduced opacity so you can see what's
+                                                  nearby without having walked there yet
+                                      • FOG       (everything else) → dark, just a dim dot
+                                    Walls render as solid stone regardless of visibility. */}
+                                {(() => {
+                                    const VISION_RADIUS = 2;
+                                    return (
+                                <div className="hollow-gate-grid" style={{ display: "grid", gridTemplateColumns: `repeat(${run.width}, 1fr)`, gap: 3, background: "rgba(0,0,0,0.55)", padding: 8, borderRadius: 8 }}>
                                     {run.tiles.map((tile, i) => {
                                         const x = i % run.width;
                                         const y = Math.floor(i / run.width);
                                         const isPlayer = x === run.playerX && y === run.playerY;
                                         const revealed = tile.revealed;
-                                        const bg = isPlayer
-                                            ? "linear-gradient(135deg, #2563eb, #7c3aed)"
-                                            : revealed
-                                                ? tile.kind === "boss" ? "linear-gradient(135deg, #7f1d1d, #b91c1c)"
-                                                : tile.kind === "trap" ? "rgba(239,68,68,0.18)"
-                                                : tile.kind === "chest" ? "rgba(234,179,8,0.18)"
-                                                : tile.kind === "shrine" ? "rgba(168,85,247,0.22)"
-                                                : tile.kind === "exit" ? "rgba(34,197,94,0.18)"
-                                                : tile.kind === "locked" ? "rgba(148,163,184,0.18)"
-                                                : tile.kind === "npc" ? "rgba(56,189,248,0.18)"
-                                                : tile.kind === "descend" ? "rgba(192,132,252,0.22)"
-                                                : "rgba(168,85,247,0.10)"
-                                            : "rgba(15,9,28,0.85)";
-                                        const icon = isPlayer ? "🥷" : revealed ? hollowGateTileIconForKind(tile.kind) : "·";
+                                        const distFromPlayer = Math.abs(x - run.playerX) + Math.abs(y - run.playerY);
+                                        const visible = distFromPlayer <= VISION_RADIUS;
+                                        const wall = tile.kind === "wall";
+
+                                        // Compose background by tile state.
+                                        let bg: string;
+                                        if (wall) {
+                                            // Solid stone — always look the same. Slightly darker if not visible.
+                                            bg = visible
+                                                ? "linear-gradient(135deg, #1c1430 0%, #0e0820 40%, #2a1f3e 100%)"
+                                                : "linear-gradient(135deg, #100a1c 0%, #07040f 100%)";
+                                        } else if (isPlayer) {
+                                            bg = "linear-gradient(135deg, #2563eb, #7c3aed)";
+                                        } else if (revealed || visible) {
+                                            bg = tile.kind === "boss" ? "linear-gradient(135deg, #7f1d1d, #b91c1c)"
+                                                : tile.kind === "trap" ? "rgba(239,68,68,0.22)"
+                                                : tile.kind === "chest" ? "rgba(234,179,8,0.22)"
+                                                : tile.kind === "shrine" ? "rgba(168,85,247,0.26)"
+                                                : tile.kind === "exit" ? "rgba(34,197,94,0.22)"
+                                                : tile.kind === "locked" ? "rgba(148,163,184,0.22)"
+                                                : tile.kind === "npc" ? "rgba(56,189,248,0.22)"
+                                                : tile.kind === "descend" ? "rgba(192,132,252,0.26)"
+                                                : tile.kind === "battle" ? "rgba(248,113,113,0.18)"
+                                                : tile.kind === "elite" ? "rgba(220,38,38,0.26)"
+                                                : tile.kind === "pet_event" ? "rgba(96,165,250,0.18)"
+                                                : tile.kind === "story" ? "rgba(250,204,21,0.18)"
+                                                : "rgba(168,85,247,0.10)";
+                                        } else {
+                                            bg = "rgba(7,4,15,0.92)"; // deep fog
+                                        }
+
+                                        // Wall styling: brick-ish pattern via inset shadow.
+                                        const wallShadow = wall ? "inset 0 0 0 1px rgba(168,85,247,0.18), inset 2px 2px 0 rgba(0,0,0,0.4)" : undefined;
+
+                                        // Icon by state.
+                                        let icon: string;
+                                        if (isPlayer) icon = "🥷";
+                                        else if (wall) icon = "";
+                                        else if (revealed || visible) icon = hollowGateTileIconForKind(tile.kind);
+                                        else icon = "·";
+
+                                        // Opacity: revealed = full, visible-only = dimmed,
+                                        // fog = dot at very low opacity.
+                                        const iconOpacity = isPlayer || revealed ? 1 : visible ? 0.55 : 0.25;
+
                                         return (
                                             <div
                                                 key={i}
-                                                title={revealed ? tile.kind : "Unrevealed"}
+                                                title={wall ? "Wall" : revealed ? tile.kind : visible ? `${tile.kind} (in view)` : "Unrevealed"}
                                                 style={{
                                                     aspectRatio: "1 / 1",
                                                     background: bg,
-                                                    border: isPlayer ? "2px solid #60a5fa" : revealed ? "1px solid rgba(168,85,247,0.4)" : "1px solid rgba(168,85,247,0.12)",
+                                                    border: isPlayer ? "2px solid #60a5fa"
+                                                        : wall ? "1px solid rgba(0,0,0,0.5)"
+                                                        : revealed ? "1px solid rgba(168,85,247,0.5)"
+                                                        : visible ? "1px solid rgba(168,85,247,0.28)"
+                                                        : "1px solid rgba(168,85,247,0.08)",
                                                     borderRadius: 4,
                                                     display: "flex",
                                                     alignItems: "center",
                                                     justifyContent: "center",
-                                                    fontSize: "clamp(12px, 2.2vw, 22px)",
-                                                    color: revealed ? "#f5f3ff" : "rgba(168,85,247,0.4)",
-                                                    boxShadow: isPlayer ? "0 0 12px rgba(96,165,250,0.6)" : undefined,
+                                                    fontSize: "clamp(16px, 2.6vw, 28px)",
+                                                    color: revealed || isPlayer ? "#f5f3ff" : "rgba(196,181,253,0.85)",
+                                                    opacity: iconOpacity,
+                                                    boxShadow: isPlayer ? "0 0 12px rgba(96,165,250,0.6)" : wallShadow,
+                                                    transition: "background 200ms, opacity 200ms",
                                                 }}
                                             >
                                                 {icon}
@@ -9828,6 +9945,8 @@ export default function App() {
                                         );
                                     })}
                                 </div>
+                                    );
+                                })()}
 
                                 {/* Side panel */}
                                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -9862,7 +9981,8 @@ export default function App() {
                                             <span>⛩ Shrine</span><span>📜 Story</span>
                                             <span>🐾 Pet</span><span>👤 Keeper</span>
                                             <span>▼ Descend</span><span>⇩ Leave</span>
-                                            <span>🔒 Locked</span><span>· Unrevealed</span>
+                                            <span>🔒 Locked</span><span>▦ Wall</span>
+                                            <span>· Unrevealed</span><span style={{ opacity: 0.55 }}>· In view (dim)</span>
                                         </div>
                                     </div>
                                     <div style={{ background: "rgba(15,9,28,0.7)", border: "1px solid rgba(168,85,247,0.3)", borderRadius: 8, padding: 10, fontSize: 12 }}>
