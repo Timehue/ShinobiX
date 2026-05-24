@@ -16726,18 +16726,36 @@ button.combat-jutsu-button,
    ===================================================================*/
 
 /* ── xl: large desktop (≥1400px) — give content a bit more breathing room ── */
+/* ── xl: 1080p desktop (1400–2199px) — tight layout ── */
 html[data-vp="xl"] {
+    --side-rail-w: clamp(190px, 14vw, 240px);
+    --right-menu-w: clamp(185px, 13vw, 230px);
+    --banner-h: clamp(100px, 10dvh, 140px);
+}
+
+html[data-vp="xl"] .right-menu-buttons button {
+    min-height: 32px !important;
+    padding: 4px 8px !important;
+    font-size: 0.8rem !important;
+}
+
+html[data-vp="xl"] .journey-live-stats .stat-box strong {
+    font-size: clamp(12px, 1vw, 16px) !important;
+}
+
+/* ── xxl: 1440p+ desktop (≥2200px) — comfortable layout ── */
+html[data-vp="xxl"] {
     --side-rail-w: clamp(220px, 17vw, 280px);
     --right-menu-w: clamp(210px, 16vw, 268px);
     --banner-h: clamp(130px, 13dvh, 175px);
 }
 
-html[data-vp="xl"] .right-menu-buttons button {
-    min-height: 38px !important;
-    font-size: 0.87rem !important;
+html[data-vp="xxl"] .right-menu-buttons button {
+    min-height: 36px !important;
+    font-size: 0.85rem !important;
 }
 
-html[data-vp="xl"] .journey-live-stats .stat-box strong {
+html[data-vp="xxl"] .journey-live-stats .stat-box strong {
     font-size: clamp(15px, 1.2vw, 20px) !important;
 }
 
@@ -17367,7 +17385,8 @@ html[data-vp="sm"] .sector-instance-wrap .instance-actions {
 /* Hide on desktop — left profile card covers this */
 html[data-vp="md"] .banner-mobile-timers,
 html[data-vp="lg"] .banner-mobile-timers,
-html[data-vp="xl"] .banner-mobile-timers {
+html[data-vp="xl"] .banner-mobile-timers,
+html[data-vp="xxl"] .banner-mobile-timers {
     display: none !important;
 }
 
