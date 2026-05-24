@@ -16768,25 +16768,29 @@ html[data-vp="xl"] .left-profile-stat {
 }
 
 /* Location tiles: fit all on screen without scrolling on 1080p */
-html[data-vp="xl"] .location-grid {
+html[data-vp="xl"] .location-grid,
+html[data-vp="xl"] .card .location-grid {
     grid-template-columns: repeat(5, 1fr) !important;
-    gap: 4px !important;
+    gap: 3px !important;
+    max-height: none !important;
 }
 
-html[data-vp="xl"] .location-button {
+html[data-vp="xl"] .location-button,
+html[data-vp="xl"] .card .location-button {
     min-height: 0 !important;
     height: auto !important;
-    padding: 4px 3px !important;
-    font-size: 0.72rem !important;
-    gap: 0px !important;
+    padding: 3px 2px !important;
+    font-size: 0.7rem !important;
+    gap: 0 !important;
 }
 
-html[data-vp="xl"] .tile-icon {
-    font-size: 14px !important;
+html[data-vp="xl"] .location-grid .tile-icon,
+html[data-vp="xl"] .location-button .tile-icon,
+html[data-vp="xl"] .card .tile-icon {
+    font-size: 13px !important;
 }
 
 html[data-vp="xl"] .location-button small {
-    font-size: 0.6rem !important;
     display: none !important;
 }
 
