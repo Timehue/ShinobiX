@@ -16805,17 +16805,16 @@ html[data-vp="xl"] .location-button small {
 html[data-vp="xl"] .battle-hud-sidebar {
     display: block;
     position: fixed;
-    top: 50%;
+    top: 0;
     left: 0;
-    transform: translateY(-50%);
     width: 195px;
-    height: 88vh;
+    height: 100vh;
     z-index: 10001;
-    overflow-y: auto;
-    background: rgb(13, 20, 35);
-    border-right: 2px solid rgba(100,140,200,0.25);
-    border-radius: 0 10px 10px 0;
-    padding: 12px 10px;
+    overflow: hidden;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 60px 10px 16px;
     box-sizing: border-box;
 }
 
