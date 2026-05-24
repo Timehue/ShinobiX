@@ -19757,3 +19757,205 @@ html[data-vp="xxl"] .banner-mobile-timers {
     color: #fff !important;
     box-shadow: 0 0 10px rgba(78,168,255,0.45);
 }
+
+/* =========================================================================
+   Training Grounds Skin v2 — center the layout, gold-rim panels, beveled buttons
+   Scoped under .card:has(.stat-group-list) so only Training Grounds is hit.
+   ========================================================================= */
+
+.card:has(.stat-group-list) {
+    background: linear-gradient(180deg, rgba(12,18,34,0.92) 0%, rgba(6,10,22,0.96) 100%) !important;
+    border: 1px solid rgba(196,162,90,0.25) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04) !important;
+    color: #e8edf5 !important;
+    padding: 20px !important;
+}
+
+.card:has(.stat-group-list) > h2 {
+    font: 700 18px Cinzel, serif !important;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: #e8d496 !important;
+    text-align: center;
+    border-bottom: 1px solid rgba(196,162,90,0.22);
+    padding-bottom: 10px;
+    margin: 0 0 12px 0;
+}
+.card:has(.stat-group-list) > p {
+    text-align: center;
+    color: rgba(232,212,150,0.85) !important;
+    font: 400 12px Inter, sans-serif !important;
+    margin: 0 0 18px 0;
+}
+.card:has(.stat-group-list) > p strong {
+    color: #e8d496 !important;
+}
+
+.card:has(.stat-group-list) > h3 {
+    font: 600 12px Cinzel, serif !important;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: #4ea8ff !important;
+    text-align: center;
+    margin: 18px 0 10px 0;
+    position: relative;
+}
+.card:has(.stat-group-list) > h3::before,
+.card:has(.stat-group-list) > h3::after {
+    content: "";
+    display: inline-block;
+    width: 60px;
+    height: 1px;
+    background: rgba(78,168,255,0.4);
+    vertical-align: middle;
+    margin: 0 14px;
+}
+
+/* Stat group list — three equal columns, centered */
+.card:has(.stat-group-list) > .stat-group-list {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 14px !important;
+    margin: 0 auto;
+    max-width: 1400px;
+}
+
+.card:has(.stat-group-list) .stat-group {
+    background: linear-gradient(180deg, rgba(20,28,46,0.6), rgba(10,16,32,0.7)) !important;
+    border: 1px solid rgba(196,162,90,0.25) !important;
+    border-radius: 6px !important;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.03), 0 4px 12px rgba(0,0,0,0.35) !important;
+    padding: 14px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+}
+
+.card:has(.stat-group-list) .stat-group-heading {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+    gap: 4px !important;
+    border-bottom: 1px solid rgba(196,162,90,0.18) !important;
+    padding-bottom: 8px !important;
+}
+.card:has(.stat-group-list) .stat-group-heading h3 {
+    font: 700 13px Cinzel, serif !important;
+    letter-spacing: 0.22em !important;
+    text-transform: uppercase !important;
+    color: #e8d496 !important;
+    margin: 0 !important;
+}
+.card:has(.stat-group-list) .stat-group-heading span {
+    font: 400 10px Inter, sans-serif !important;
+    letter-spacing: 0.04em !important;
+    color: rgba(196,162,90,0.7) !important;
+    text-transform: none !important;
+}
+
+/* Stat grid inside each group — 2x2 layout */
+.card:has(.stat-group-list) .stat-group .stat-grid {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+}
+
+/* Stat / timer buttons — beveled dark navy with gold rim */
+.card:has(.stat-group-list) .location-button {
+    background: linear-gradient(180deg, #1a2238 0%, #0a1020 100%) !important;
+    border: 1px solid rgba(196,162,90,0.45) !important;
+    border-radius: 4px !important;
+    color: #e8d496 !important;
+    padding: 12px 8px !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.06),
+        inset 0 -2px 0 rgba(0,0,0,0.5),
+        0 2px 4px rgba(0,0,0,0.5) !important;
+    font: 600 11px Cinzel, serif !important;
+    letter-spacing: 0.16em !important;
+    text-transform: uppercase !important;
+    cursor: pointer;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 4px !important;
+    transition: transform 80ms, border-color 120ms, box-shadow 120ms;
+}
+.card:has(.stat-group-list) .location-button:hover:not(:disabled) {
+    border-color: rgba(232,212,150,0.85) !important;
+    transform: translateY(-1px);
+}
+.card:has(.stat-group-list) .location-button.selected,
+.card:has(.stat-group-list) .location-button[aria-pressed="true"] {
+    border-color: #4ea8ff !important;
+    box-shadow:
+        0 0 16px rgba(78,168,255,0.45),
+        inset 0 1px 0 rgba(255,255,255,0.1) !important;
+    color: #fff !important;
+}
+.card:has(.stat-group-list) .location-button .tile-icon {
+    font-size: 18px;
+    line-height: 1;
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.7));
+}
+.card:has(.stat-group-list) .location-button small {
+    font: 500 9px Inter, sans-serif !important;
+    text-transform: none !important;
+    letter-spacing: 0.04em !important;
+    color: rgba(196,162,90,0.7) !important;
+}
+
+/* Timer row — centered 4-up grid */
+.card:has(.stat-group-list) > .location-grid {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+.card:has(.stat-group-list) > .location-grid .location-button {
+    min-height: 60px;
+}
+
+/* Active training summary box */
+.card:has(.stat-group-list) .summary-box {
+    background: linear-gradient(180deg, rgba(20,28,46,0.85), rgba(12,18,34,0.85)) !important;
+    border: 1px solid rgba(78,168,255,0.4) !important;
+    border-left: 3px solid #4ea8ff !important;
+    border-radius: 4px !important;
+    padding: 12px 14px !important;
+    margin-bottom: 14px;
+    color: #e8edf5 !important;
+}
+.card:has(.stat-group-list) .summary-box h3 {
+    font: 600 12px Cinzel, serif !important;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #4ea8ff !important;
+    margin: 0 0 6px 0 !important;
+}
+.card:has(.stat-group-list) .summary-box button {
+    background: linear-gradient(180deg, #1e3a8a 0%, #1e40af 100%) !important;
+    border: 1px solid rgba(78,168,255,0.55) !important;
+    color: #fff !important;
+    padding: 6px 14px !important;
+    border-radius: 3px !important;
+    font: 600 11px Cinzel, serif !important;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    cursor: pointer;
+    box-shadow: 0 0 12px rgba(78,168,255,0.3);
+    margin-top: 6px;
+}
+
+@media (max-width: 900px) {
+    .card:has(.stat-group-list) > .stat-group-list {
+        grid-template-columns: 1fr !important;
+    }
+    .card:has(.stat-group-list) > .location-grid {
+        grid-template-columns: 1fr 1fr !important;
+    }
+}
