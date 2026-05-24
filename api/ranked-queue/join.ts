@@ -14,7 +14,7 @@ const NOTIFY_TTL = 120; // seconds
 const STALE_MS = 5 * 60 * 1000; // 5 minutes
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-    cors(res);
+    cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).end();
 

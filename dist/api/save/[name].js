@@ -116,7 +116,7 @@ function sanitizeCharacterSave(incoming, existing) {
     return { ...incoming, character: char };
 }
 async function handler(req, res) {
-    (0, _utils_js_1.cors)(res);
+    (0, _utils_js_1.cors)(res, req);
     if (req.method === 'OPTIONS')
         return res.status(200).end();
     const name = (0, _utils_js_1.safeName)(String(req.query.name ?? ''));

@@ -13,6 +13,17 @@ const VILLAGE_WAR_KEY_PREFIX = 'world:war:';
 type TerritoryBuffStat = 'bukijutsuOffense' | 'taijutsuOffense' | 'ninjutsuOffense' | 'genjutsuOffense';
 type WeatherType = 'clear' | 'rain' | 'thunderstorm' | 'ashfall' | 'tornado' | 'desertHaze';
 
+const VALID_TERRAIN_BUFF_STATS: ReadonlySet<TerritoryBuffStat> = new Set<TerritoryBuffStat>([
+    'bukijutsuOffense', 'taijutsuOffense', 'ninjutsuOffense', 'genjutsuOffense',
+]);
+
+function normalizeTerrainBuffStat(value: unknown): TerritoryBuffStat {
+    if (typeof value === 'string' && VALID_TERRAIN_BUFF_STATS.has(value as TerritoryBuffStat)) {
+        return value as TerritoryBuffStat;
+    }
+    return 'bukijutsuOffense';
+}
+
 type SectorTerritory = {
     sector: number;
     ownerClan?: string;
@@ -70,7 +81,7 @@ function normalizeSectorTerritory(data: Partial<SectorTerritory>): SectorTerrito
         hp: clampNumber(Math.floor(Number(data.hp ?? TERRITORY_HP_MAX)), 0, TERRITORY_HP_MAX),
         guards: Array.isArray(data.guards) ? data.guards.filter(Boolean).map(String).slice(0, 20) : [],
         warSupply: Math.max(0, Math.floor(Number(data.warSupply ?? 0))),
-        terrainBuffStat: (data.terrainBuffStat ?? 'bukijutsuOffense') as TerritoryBuffStat,
+        terrainBuffStat: normalizeTerrainBuffStat(data.terrainBuffStat),
         updatedAt: data.updatedAt ?? Date.now(),
     };
 }
@@ -117,7 +128,7 @@ async function getByPrefix<T>(prefix: string) {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-    cors(res);
+    cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
 
     if (req.method === 'GET') {

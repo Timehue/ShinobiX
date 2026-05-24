@@ -5,7 +5,7 @@ const _utils_js_1 = require("./_utils.js");
 const _auth_js_1 = require("./_auth.js");
 const _ratelimit_js_1 = require("./_ratelimit.js");
 async function handler(req, res) {
-    (0, _utils_js_1.cors)(res);
+    (0, _utils_js_1.cors)(res, req);
     if (req.method === 'OPTIONS')
         return res.status(200).end();
     if (req.method !== 'POST')
