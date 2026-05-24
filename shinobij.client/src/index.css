@@ -16806,6 +16806,22 @@ html[data-vp="xxl"] .journey-live-stats .stat-box strong {
     font-size: clamp(15px, 1.2vw, 20px) !important;
 }
 
+html[data-vp="xxl"] .location-grid {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)) !important;
+    gap: 6px !important;
+}
+
+html[data-vp="xxl"] .location-button {
+    min-height: 64px !important;
+    padding: 8px 6px !important;
+    font-size: 0.82rem !important;
+    gap: 2px !important;
+}
+
+html[data-vp="xxl"] .tile-icon {
+    font-size: 22px !important;
+}
+
 /* ── md: small laptop / landscape tablet (980–1179px) ─────────────────────
    Sidebars are visible but tight.  Compact the right-menu and left-rail
    inner elements so they don't squeeze the center content.               ── */
@@ -17490,22 +17506,7 @@ html[data-vp="xxl"] .banner-mobile-timers {
         margin-bottom: 1px;
     }
 
-    /* ── Location grid: compact tiles ── */
-    .location-grid {
-        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-        gap: 6px;
-    }
-
-    .location-button {
-        min-height: 66px;
-        padding: 8px 6px;
-        font-size: 0.84rem;
-        gap: 2px;
-    }
-
-    .tile-icon {
-        font-size: 22px;
-    }
+    /* Location grid and tile sizing handled by data-vp viewport rules */
 
     /* ── Cards: tighter internal gap ── */
     .card {
@@ -17842,22 +17843,7 @@ html[data-vp="xxl"] .banner-mobile-timers {
         margin-bottom: 1px;
     }
 
-    /* ── Location grid: compact tiles ── */
-    .location-grid {
-        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-        gap: 6px;
-    }
-
-    .location-button {
-        min-height: 64px;
-        padding: 8px 6px;
-        font-size: 0.82rem;
-        gap: 2px;
-    }
-
-    .tile-icon {
-        font-size: 22px;
-    }
+    /* Location grid and tile sizing handled by data-vp viewport rules */
 
     /* ── Cards: tighter internal gap ── */
     .card {
