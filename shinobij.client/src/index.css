@@ -16897,6 +16897,79 @@ html[data-vp="xl"] .arena-fullscreen .combat-avatar {
     max-height: 140px !important;
 }
 
+/* ── Battle command bar & jutsu/item layout on 1080p ── */
+
+/* Basic action buttons: single row, all buttons visible */
+html[data-vp="xl"] .arena-fullscreen .shinobi-command-bar {
+    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)) !important;
+    gap: 4px !important;
+    padding: 4px !important;
+}
+
+html[data-vp="xl"] .arena-fullscreen .shinobi-command-bar button {
+    min-height: 40px !important;
+    padding: 3px 4px !important;
+    font-size: 12px !important;
+}
+
+html[data-vp="xl"] .arena-fullscreen .shinobi-command-bar button span {
+    font-size: 12px !important;
+}
+
+html[data-vp="xl"] .arena-fullscreen .shinobi-command-bar button small {
+    font-size: 8px !important;
+}
+
+/* Jutsu card grid: smaller cards, more columns */
+html[data-vp="xl"] .arena-fullscreen .combat-equipped-jutsu-grid {
+    grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)) !important;
+    gap: 4px !important;
+}
+
+html[data-vp="xl"] .arena-fullscreen .combat-jutsu-button {
+    min-height: 74px !important;
+    padding: 2px !important;
+    grid-template-rows: 46px auto auto !important;
+    gap: 1px !important;
+}
+
+html[data-vp="xl"] .arena-fullscreen .combat-jutsu-thumb {
+    height: 46px !important;
+}
+
+html[data-vp="xl"] .arena-fullscreen .combat-jutsu-name {
+    font-size: 8px !important;
+}
+
+html[data-vp="xl"] .arena-fullscreen .combat-jutsu-info {
+    font-size: 7px !important;
+}
+
+/* Jutsu layout card: tighter, less max-height so it doesn't dominate */
+html[data-vp="xl"] .arena-fullscreen .jutsu-layout-card {
+    max-height: 200px !important;
+    overflow-y: auto !important;
+    padding: 4px !important;
+}
+
+/* Items row: compact */
+html[data-vp="xl"] .arena-fullscreen .combat-equipped-items-row {
+    grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)) !important;
+    gap: 4px !important;
+}
+
+/* Combat tabs (Jutsu/Weapons/Items tab buttons) */
+html[data-vp="xl"] .arena-fullscreen .combat-tabs {
+    gap: 3px !important;
+    margin-top: 4px !important;
+}
+
+html[data-vp="xl"] .arena-fullscreen .combat-tabs button {
+    min-height: 28px !important;
+    font-size: 11px !important;
+    padding: 2px 6px !important;
+}
+
 /* Village stormveil map: fit on 1080p without scrolling */
 html[data-vp="xl"] .stormveil-village-screen {
     min-height: unset !important;
