@@ -1,0 +1,198 @@
+/* =========================================================================
+   Central Hub Skin v2 — match Battle / Profile dark glass + gold rim
+   Scoped under .central-hub. To revert: delete this file + its @import.
+   ========================================================================= */
+
+.central-hub {
+    --bsv2-gold:        #c4a25a;
+    --bsv2-gold-bright: #e8d496;
+    --bsv2-gold-soft:   rgba(196,162,90,0.45);
+    --bsv2-gold-faint:  rgba(196,162,90,0.22);
+    --bsv2-ink:         #050a18;
+    --bsv2-ink-2:       #0a1428;
+    --bsv2-player:      #4ea8ff;
+    --bsv2-enemy:       #e04444;
+    padding: 20px !important;
+}
+
+.central-hub .central-hero {
+    background: linear-gradient(180deg, rgba(12,18,34,0.92) 0%, rgba(6,10,22,0.96) 100%) !important;
+    border: 1px solid var(--bsv2-gold-faint) !important;
+    border-radius: 8px !important;
+    box-shadow:
+        0 8px 24px rgba(0,0,0,0.5),
+        inset 0 1px 0 rgba(255,255,255,0.04) !important;
+    padding: 24px 28px !important;
+    text-align: center;
+    margin-bottom: 14px;
+}
+.central-hub .central-hero h1 {
+    font: 700 36px/1.1 Cinzel, serif !important;
+    letter-spacing: 0.14em !important;
+    color: var(--bsv2-gold-bright) !important;
+    text-shadow:
+        0 2px 6px rgba(0,0,0,0.8),
+        0 0 32px rgba(196,162,90,0.3) !important;
+    margin: 0 0 8px 0 !important;
+}
+.central-hub .central-hero p {
+    font: 400 13px/1.5 Inter, sans-serif !important;
+    color: rgba(232,212,150,0.85) !important;
+    letter-spacing: 0.04em;
+    max-width: 760px;
+    margin: 0 auto !important;
+}
+
+.central-hub .central-log {
+    background: linear-gradient(90deg, rgba(20,28,46,0.85), rgba(12,18,34,0.85)) !important;
+    border: 1px solid var(--bsv2-gold-faint) !important;
+    border-left: 3px solid var(--bsv2-gold) !important;
+    border-radius: 4px !important;
+    color: var(--bsv2-gold-bright) !important;
+    font: 500 12px Inter, sans-serif !important;
+    letter-spacing: 0.04em;
+    padding: 12px 16px !important;
+    margin-bottom: 14px;
+}
+
+.central-hub .central-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+}
+
+.central-hub .central-card {
+    display: grid !important;
+    grid-template-columns: 60px 1fr !important;
+    grid-template-rows: auto auto !important;
+    column-gap: 16px !important;
+    row-gap: 4px !important;
+    align-items: center !important;
+    text-align: left !important;
+    padding: 16px 18px !important;
+    background: linear-gradient(180deg, rgba(15,22,40,0.92) 0%, rgba(8,12,24,0.96) 100%) !important;
+    border: 1px solid var(--bsv2-gold-soft) !important;
+    border-radius: 6px !important;
+    box-shadow:
+        0 2px 0 rgba(0,0,0,0.6),
+        0 0 0 1px rgba(0,0,0,0.4),
+        inset 0 0 24px rgba(0,0,0,0.45) !important;
+    color: #e8edf5 !important;
+    cursor: pointer;
+    transition: border-color 120ms, box-shadow 120ms, transform 120ms;
+}
+.central-hub .central-card:hover {
+    border-color: rgba(78,168,255,0.85) !important;
+    box-shadow:
+        0 0 18px rgba(78,168,255,0.35),
+        inset 0 0 24px rgba(0,0,0,0.45) !important;
+    transform: translateY(-2px);
+}
+.central-hub .central-card .central-icon {
+    grid-row: 1 / span 2;
+    font-size: 38px;
+    line-height: 1;
+    text-align: center;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.7));
+}
+.central-hub .central-card strong {
+    font: 600 14px/1.2 Cinzel, serif !important;
+    color: var(--bsv2-gold-bright) !important;
+    letter-spacing: 0.12em !important;
+    text-transform: uppercase !important;
+}
+.central-hub .central-card small {
+    font: 400 11px/1.5 Inter, sans-serif !important;
+    color: #c8cfdc !important;
+    letter-spacing: 0.02em;
+}
+
+/* Modal overlays (Celestial / Dungeon / Archives) */
+.celestial-panel-overlay {
+    background: rgba(5,9,18,0.85) !important;
+    backdrop-filter: blur(6px);
+}
+.celestial-panel {
+    background: linear-gradient(180deg, rgba(12,18,34,0.96) 0%, rgba(6,10,22,0.98) 100%) !important;
+    border: 1px solid var(--bsv2-gold-soft, rgba(196,162,90,0.45)) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.7), 0 0 32px rgba(196,162,90,0.15) !important;
+    color: #e8edf5 !important;
+    padding: 20px !important;
+}
+.celestial-panel h2 {
+    font: 700 18px Cinzel, serif !important;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--bsv2-gold-bright, #e8d496) !important;
+    text-align: center;
+    margin: 0 0 8px 0 !important;
+    border-bottom: 1px solid var(--bsv2-gold-faint, rgba(196,162,90,0.22));
+    padding-bottom: 10px;
+}
+.celestial-panel-sub {
+    color: rgba(232,212,150,0.75) !important;
+    font: 400 12px Inter, sans-serif !important;
+    text-align: center;
+    margin: 6px 0 14px 0 !important;
+}
+.celestial-panel-options {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) !important;
+    gap: 10px !important;
+}
+.celestial-option-btn {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 6px !important;
+    background: linear-gradient(180deg, #1a2238 0%, #0a1020 100%) !important;
+    border: 1px solid var(--bsv2-gold-soft, rgba(196,162,90,0.45)) !important;
+    border-radius: 6px !important;
+    color: var(--bsv2-gold-bright, #e8d496) !important;
+    padding: 14px 12px !important;
+    cursor: pointer;
+    transition: border-color 120ms, transform 80ms, box-shadow 120ms;
+}
+.celestial-option-btn:hover:not(:disabled) {
+    border-color: rgba(232,212,150,0.85) !important;
+    transform: translateY(-1px);
+    box-shadow: 0 0 16px rgba(196,162,90,0.2);
+}
+.celestial-option-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+.celestial-option-icon {
+    font-size: 28px;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.7));
+}
+.celestial-option-btn strong {
+    font: 600 12px Cinzel, serif !important;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--bsv2-gold-bright, #e8d496) !important;
+}
+.celestial-option-btn small {
+    font: 400 10px Inter, sans-serif !important;
+    color: #c8cfdc !important;
+    text-align: center;
+    line-height: 1.4;
+    letter-spacing: 0.02em;
+}
+.celestial-endless-btn {
+    border-color: rgba(78,168,255,0.5) !important;
+}
+.celestial-endless-btn:hover:not(:disabled) {
+    border-color: var(--bsv2-player, #4ea8ff) !important;
+    box-shadow: 0 0 18px rgba(78,168,255,0.35) !important;
+}
+
+@media (max-width: 800px) {
+    .central-hub .central-grid {
+        grid-template-columns: 1fr !important;
+    }
+    .central-hub .central-hero h1 {
+        font-size: 24px !important;
+    }
+}
