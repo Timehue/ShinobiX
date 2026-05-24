@@ -16794,23 +16794,69 @@ html[data-vp="xl"] .location-button small {
     display: none !important;
 }
 
-/* Battle on 1080p: expand the center-game leftward over the sidebar
-   during battle so the 3-column layout has more room. Hide the
-   left-profile-card so it doesn't overlap.
-   Uses .in-battle class toggled on body by JS (not :has() — more reliable). */
-html[data-vp="xl"] body.in-battle .center-game {
-    margin-left: 8px !important;
-    width: calc(100vw - var(--right-menu-w) - 24px) !important;
+/* ── Battle HUD portal: player HUD overlays left sidebar on xl ── */
+
+/* By default, the portaled sidebar HUD is hidden; the in-grid one shows */
+.battle-hud-sidebar {
+    display: none;
 }
 
-html[data-vp="xl"] body.in-battle .left-profile-card {
+/* On xl (1080p): show the portaled sidebar, hide the in-grid player hud */
+html[data-vp="xl"] .battle-hud-sidebar {
+    display: block;
+    position: fixed;
+    top: 50%;
+    left: 0;
+    transform: translateY(-50%);
+    width: 240px;
+    height: 92vh;
+    z-index: 10001;
+    overflow-y: auto;
+    background: linear-gradient(180deg, rgba(15,23,42,0.97), rgba(30,41,59,0.95));
+    border-right: 2px solid rgba(148,163,184,0.18);
+    border-radius: 0 12px 12px 0;
+    padding: 16px 12px;
+    box-sizing: border-box;
+}
+
+html[data-vp="xl"] .battle-hud-sidebar .combat-side-hud {
+    position: static !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    font-size: 0.82rem !important;
+}
+
+html[data-vp="xl"] .battle-hud-sidebar .combat-avatar {
+    max-width: 100px !important;
+    max-height: 100px !important;
+    margin: 0 auto 8px !important;
+}
+
+/* Hide the first (player) combat-side-hud in the grid on xl — it's portaled to the sidebar */
+html[data-vp="xl"] .arena-fullscreen .combat-layout > .combat-side-hud:first-child {
     display: none !important;
 }
 
-/* Compact the battle side huds to give more room to the grid */
+/* On xl, combat-layout becomes 2-column (main area + enemy hud) */
 html[data-vp="xl"] .arena-fullscreen .combat-layout {
-    grid-template-columns: minmax(130px, 170px) minmax(0, 1fr) minmax(130px, 170px) !important;
+    grid-template-columns: minmax(0, 1fr) minmax(130px, 170px) !important;
     gap: 6px !important;
+}
+
+html[data-vp="xl"] .arena-fullscreen .combat-layout > .combat-main-area {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+}
+
+html[data-vp="xl"] .arena-fullscreen .combat-layout > .combat-side-hud:last-child {
+    grid-column: 2 !important;
+    grid-row: 1 !important;
 }
 
 html[data-vp="xl"] .arena-fullscreen .combat-side-hud {
