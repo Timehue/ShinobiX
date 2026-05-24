@@ -6134,9 +6134,9 @@ export default function App() {
         }
 
         heartbeat();
-        // 5-second interval so both players get routed to the battle screen within ~5s
-        // of a challenge being sent or accepted (was 20s — too slow for real-time battles).
-        const id = setInterval(heartbeat, 5000);
+        // 3-second interval so both players get routed to the battle screen within ~3s
+        // of a challenge being sent or accepted.
+        const id = setInterval(heartbeat, 3000);
         return () => clearInterval(id);
     }, [character?.name, currentSector, isTraveling, travelingUntil]);
 
@@ -28116,10 +28116,11 @@ function PvpBattleScreen({
         return () => window.clearTimeout(timeout);
     }, [session?.p1.pos, session?.p2.pos]);
 
-    // Prefight countdown — triggers once when session first loads
+    // Prefight countdown — triggers once when session first loads (skip for spectators)
     useEffect(() => {
         if (!session || pvpSessionFirstLoadRef.current) return;
         pvpSessionFirstLoadRef.current = true;
+        if (amSpectator) return; // spectators join mid-fight, no countdown
         setPvpPrefightFirstActor(session.activePlayer);
         let count = 5;
         setPvpPrefightCountdown(count);
