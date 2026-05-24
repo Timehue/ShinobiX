@@ -150,3 +150,36 @@
     .left-profile-card,
     .right-menu { top: calc(50% + 50px) !important; height: calc(85vh - 100px) !important; }
 }
+
+/* Hide the redundant RANK/LVL/XP/RYO/SHARDS chips — these values are
+   already shown in the LeftProfileCard sidebar. Keeps the banner clean. */
+.journey-banner .journey-live-stats {
+    display: none !important;
+}
+
+/* Centered logo / title with a clean dark gradient background.
+   Background art is removed because it was clipping awkwardly between
+   the fixed sidebars; replaced with a subtle ember-tone gradient. */
+.journey-banner {
+    background-image: linear-gradient(90deg,
+        rgba(5,9,18,0.95) 0%,
+        rgba(20,28,46,0.92) 30%,
+        rgba(40,30,18,0.85) 50%,
+        rgba(20,28,46,0.92) 70%,
+        rgba(5,9,18,0.95) 100%) !important;
+    background-color: rgba(5,9,18,0.95) !important;
+    background-repeat: no-repeat !important;
+    justify-content: center !important;
+    text-align: center;
+}
+.journey-banner .journey-left {
+    justify-content: center;
+    flex: 1;
+}
+
+/* If the logo is rendered as an <img>, keep it modest in size */
+.journey-banner img:not(.stat-box img) {
+    max-height: 60px;
+    object-fit: contain;
+    filter: drop-shadow(0 2px 8px rgba(0,0,0,0.6));
+}
