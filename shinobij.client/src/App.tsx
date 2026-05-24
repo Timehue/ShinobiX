@@ -36,6 +36,10 @@ import { VillageTavern } from "./screens/VillageTavern";
 import { AdminLogin, AdminPasswordReset, AdminClearAuthLock } from "./screens/AdminLogin";
 import { Cafeteria } from "./screens/Cafeteria";
 import { VillageLoreScreen } from "./screens/VillageLoreScreen";
+import { HallOfLegends } from "./screens/HallOfLegends";
+import { JutsuEffectCards } from "./components/JutsuEffectCards";
+import { AiImagePrompt } from "./components/AiImagePrompt";
+import { PetBattleAvatar, PetArenaCard } from "./components/PetBattleAvatar";
 export type Screen =
     | "start"
     | "adminLogin"
@@ -629,7 +633,7 @@ type CreatorAi = {
 
 type JutsuTag = { name: string; percent: number };
 
-type Jutsu = {
+export type Jutsu = {
     id: string;
     name: string;
     type: JutsuType;
@@ -1211,7 +1215,7 @@ const craftDungeonEvents: CreatorEvent[] = [
     { ...hiddenDungeonVnEvent, id: "craft-dungeon-shadow", name: "Shadow Relic Dungeon", biome: "shadow", icon: "XD", vnTitle: "Shadow Relic Dungeon", vnScene: "A black shrine exhales old chakra and opens below." },
     { ...hiddenDungeonVnEvent, id: "craft-dungeon-central", name: "Central Relic Dungeon", biome: "central", icon: "CD", vnTitle: "Central Relic Dungeon", vnScene: "A neutral gate beneath Central hums with sealed relic power." },
 ];
-const JUTSU_MAX_LEVEL = 50;
+export const JUTSU_MAX_LEVEL = 50;
 const JUTSU_TRAINING_CAP = 30;
 const STORAGE = "ninjav-admin-build-v1";
 const jutsuResourceCostPercentByAp: Record<number, number> = {
@@ -1345,7 +1349,7 @@ const adminIconOptions: { value: string; label: string }[] = [
 const worldSectorOptions = [...Array.from({ length: 60 }, (_, index) => index + 1), 99];
 export const starterBloodlines = ["Ashen Eyes", "Inferno Cataclysm", "Shadow Lotus", "Iron Fang"];
 const petTraits: PetTrait[] = ["Loyal", "Aggressive", "Guardian", "Swift", "Lucky", "Battleborn"];
-const petTraitDescriptions: Record<PetTrait, string> = {
+export const petTraitDescriptions: Record<PetTrait, string> = {
     Loyal: "Pet trains 50% faster — gains more stats from every training session",
     Aggressive: "Pet spawns with +15% attack",
     Guardian: "Pet spawns with +20% HP & defense — reduces your incoming battle damage by 8% while active",
@@ -1432,7 +1436,7 @@ const stackableItemIds = new Set<string>([...petFeedItems.map((item) => item.id)
 export function petFeedXpForItem(itemId?: string): number | undefined {
     return petFeedItems.find((item) => item.id === itemId)?.xp;
 }
-function petDisplayName(pet: Pick<Pet, "name" | "nickname">) { return pet.nickname?.trim() || pet.name; }
+export function petDisplayName(pet: Pick<Pet, "name" | "nickname">) { return pet.nickname?.trim() || pet.name; }
 function petHappiness(pet: Pick<Pet, "happiness">) {
     return Math.max(0, Math.min(100, Math.floor(pet.happiness ?? 0)));
 }
@@ -4040,7 +4044,7 @@ function makeId() {
     return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
 }
 
-function compressDataUrl(dataUrl: string, maxPx = 512, quality = 0.82): Promise<string> {
+export function compressDataUrl(dataUrl: string, maxPx = 512, quality = 0.82): Promise<string> {
     return new Promise((resolve) => {
         const img = new Image();
         img.onload = () => {
@@ -4947,7 +4951,7 @@ function tagPower(tag: JutsuTag, fallback = 30) {
     return tag.percent > 0 ? tag.percent : fallback;
 }
 
-function jutsuEffectInfo(jutsu: Jutsu, tag: JutsuTag) {
+export function jutsuEffectInfo(jutsu: Jutsu, tag: JutsuTag) {
     const pct = tagPower(tag);
     const effectPower = jutsu.effectPower;
     const percentLabel = tag.percent > 0 ? `${tag.percent}%` : "Static";
@@ -4989,7 +4993,7 @@ function jutsuEffectInfo(jutsu: Jutsu, tag: JutsuTag) {
     return { summary: tag.name || "Unnamed effect", rule: "Custom effect tag.", duration: "Varies", value: percentLabel };
 }
 
-function jutsuDisplayAtLevel(jutsu: Jutsu, masteryLevel = JUTSU_MAX_LEVEL): Jutsu {
+export function jutsuDisplayAtLevel(jutsu: Jutsu, masteryLevel = JUTSU_MAX_LEVEL): Jutsu {
     const scaled = scaleJutsuByLevel(jutsu, masteryLevel);
     return scaleJutsuTagsForDisplay({ ...jutsu, effectPower: scaled.scaledEffectPower }, masteryLevel);
 }
@@ -5094,7 +5098,7 @@ function scaleJutsuCostsForCharacter(jutsu: Jutsu, level: number, character: Pic
 }
 // Returns a copy of the jutsu with tag percents scaled to the given mastery level for display.
 // The stored percent is the level-50 max; each level below 50 subtracts 0.2 (same rate as EP).
-function scaleJutsuTagsForDisplay(jutsu: Jutsu, level: number): Jutsu {
+export function scaleJutsuTagsForDisplay(jutsu: Jutsu, level: number): Jutsu {
     return {
         ...jutsu,
         tags: jutsu.tags.map(tag => ({
@@ -11107,47 +11111,6 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, frame, recentFra
     );
 }
 
-function PetBattleAvatar({ pet, side, active, status, sharedImages = {} }: { pet: Pet; side: "player" | "enemy"; active: boolean; status?: { poisoned?: number; atkBuff?: boolean; defBuff?: boolean }; sharedImages?: Record<string, string> }) {
-    const petBaseId = pet.id.replace(/-\d{10,}$/, '');
-    const img = sharedImages['pet:' + pet.id] || sharedImages['pet:' + petBaseId] || pet.image || '';
-    return (
-        <div className={`pet-battle-avatar ${side}${active ? " active" : ""}${status?.poisoned ? " poisoned" : ""}`}>
-            {img ? <img src={img} alt={pet.name} /> : <span>{pet.name.slice(0, 2).toUpperCase()}</span>}
-        </div>
-    );
-}
-
-function PetArenaCard({ owner, pet, sharedImages = {} }: { owner: string; pet: Pet; sharedImages?: Record<string, string> }) {
-    const petBaseId = pet.id.replace(/-\d{10,}$/, '');
-    const img = sharedImages['pet:' + pet.id] || sharedImages['pet:' + petBaseId] || pet.image || '';
-    return (
-        <div className="pet-arena-card">
-            <div className="pet-arena-avatar">
-                {img ? <img src={img} alt={petDisplayName(pet)} /> : <span>{petDisplayName(pet).slice(0, 2).toUpperCase()}</span>}
-            </div>
-            <div>
-                <strong>{petDisplayName(pet)}</strong>
-                <p>{owner} | {pet.rarity} | Lv {pet.level}</p>
-                <p>HP {pet.hp} | ATK {pet.attack} | DEF {pet.defense} | SPD {pet.speed}</p>
-                {pet.trait && <p><strong>Trait:</strong> {pet.trait} — {petTraitDescriptions[pet.trait]}</p>}
-                <div className="pet-arena-jutsu-list">
-                    {pet.jutsus.length ? pet.jutsus.map((jutsu) => {
-                        const kindColors: Record<string, string> = { damage: "#fca5a5", buff: "#86efac", heal: "#4ade80", debuff: "#f97316", dot: "#c084fc", move: "#93c5fd", barrier: "#7dd3fc", movelock: "#fbbf24" };
-                        const kindIcons:  Record<string, string> = { damage: "⚔", buff: "⬆", heal: "✚", debuff: "⬇", dot: "☠", move: "➡", barrier: "◇", movelock: "⛓" };
-                        const col  = kindColors[jutsu.kind] ?? "#aaa";
-                        const icon = kindIcons[jutsu.kind]  ?? "?";
-                        return (
-                            <span key={jutsu.name} className="pet-arena-jutsu-chip" style={{ borderColor: col, color: col }}>
-                                {icon} {jutsu.name}{jutsu.power > 0 ? ` · P${jutsu.power}` : ""} · CD{jutsu.cooldown}
-                            </span>
-                        );
-                    }) : <span style={{ color: "#555" }}>No jutsu</span>}
-                </div>
-            </div>
-        </div>
-    );
-}
-
 function AdminPanel({
     character,
     updateCharacter,
@@ -15373,102 +15336,6 @@ function TagPicker({ tag, setTag, percent, setPercent, rank, jutsuTarget, disabl
     );
 }
 
-function AiImagePrompt({
-    label,
-    suggestedPrompt,
-    onImage,
-}: {
-    label: string;
-    suggestedPrompt: string;
-    onImage: (image: string) => void;
-}) {
-    const [prompt, setPrompt] = useState(suggestedPrompt);
-    const [isGenerating, setIsGenerating] = useState(false);
-    const [error, setError] = useState("");
-
-    async function generateImage() {
-        const cleanPrompt = prompt.trim();
-
-        if (!cleanPrompt) {
-            setError("Type an image prompt first.");
-            return;
-        }
-
-        try {
-            setIsGenerating(true);
-            setError("");
-
-            const response = await fetch("/api/generate-image", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    prompt: cleanPrompt,
-                    label,
-                }),
-            });
-
-            const rawText = await response.text();
-
-            let data: { error?: string; detail?: string; title?: string; image?: string } = {};
-            try {
-                data = rawText ? JSON.parse(rawText) as typeof data : {};
-            } catch {
-                throw new Error(
-                    `Server did not return JSON. Status ${response.status}. Response: ${rawText.slice(0, 300)}`
-                );
-            }
-
-            if (!response.ok) {
-                throw new Error(
-                    data.error ||
-                    data.detail ||
-                    data.title ||
-                    `Image generation failed with status ${response.status}.`
-                );
-            }
-
-            if (!data.image) {
-                throw new Error("The server responded, but no image was returned.");
-            }
-
-            const compressed = await compressDataUrl(data.image);
-            onImage(compressed);
-        } catch (err) {
-            console.error("Image generation error:", err);
-            setError(err instanceof Error ? err.message : "Image generation failed.");
-        } finally {
-            setIsGenerating(false);
-        }
-    }
-
-    return (
-        <div className="ai-image-generator">
-            <label>{label} AI Prompt</label>
-
-            <div className="ai-image-prompt-row">
-                <input
-                    value={prompt}
-                    onChange={(e) => setPrompt(e.target.value)}
-                    placeholder="Small prompt for generated art"
-                    disabled={isGenerating}
-                />
-
-                <button type="button" onClick={generateImage} disabled={isGenerating}>
-                    {isGenerating ? "Generating..." : "Generate"}
-                </button>
-            </div>
-
-            {error && (
-                <p className="hint" style={{ color: "#ff7777", whiteSpace: "pre-wrap" }}>
-                    {error}
-                </p>
-            )}
-        </div>
-    );
-}
-
 function JutsuDropdownList({
     jutsus,
     label,
@@ -15575,47 +15442,6 @@ function JutsuDropdownList({
                     )}
                 </aside>
             </div>
-        </div>
-    );
-}
-
-function JutsuEffectCards({ jutsu, scaledEffectPower, masteryLevel }: { jutsu: Jutsu; scaledEffectPower?: number; masteryLevel?: number }) {
-    const tags = jutsu.tags.filter((tag) => tag.name);
-    if (tags.length === 0) {
-        return (
-            <div className="jutsu-effect-cards">
-                <div className="jutsu-effect-card">
-                    <strong>No special effects</strong>
-                    <p>This jutsu only uses its base effect power.</p>
-                </div>
-            </div>
-        );
-    }
-
-    const level = masteryLevel ?? JUTSU_MAX_LEVEL;
-    const effectJutsu = scaledEffectPower === undefined
-        ? jutsuDisplayAtLevel(jutsu, level)
-        : scaleJutsuTagsForDisplay({ ...jutsu, effectPower: scaledEffectPower }, level);
-
-    return (
-        <div className="jutsu-effect-cards">
-            {effectJutsu.tags.filter((tag) => tag.name).map((tag, index) => {
-                const info = jutsuEffectInfo(effectJutsu, tag);
-                return (
-                    <div className="jutsu-effect-card" key={`${tag.name}-${index}`}>
-                        <div className="jutsu-effect-card-head">
-                            <strong>{tag.name}</strong>
-                            <span>{info.duration}</span>
-                        </div>
-                        <p>{info.summary}</p>
-                        <div className="jutsu-effect-meta">
-                            <span><strong>Value:</strong> {info.value}</span>
-                            <span><strong>Target:</strong> {jutsu.target.toLowerCase().replaceAll("_", " ")}</span>
-                        </div>
-                        <small>{info.rule}</small>
-                    </div>
-                );
-            })}
         </div>
     );
 }
@@ -17976,166 +17802,8 @@ function ShinobiCouncilHall({ character, setScreen, playerRoster }: { character:
 }
 
 // -- Hall of Legends ---------------------------------------------------------
-type LbTab = "ranked" | "kills" | "xp" | "clans" | "pets" | "endless" | "villageWars" | "tournament";
+export type LbTab = "ranked" | "kills" | "xp" | "clans" | "pets" | "endless" | "villageWars" | "tournament";
 
-function HallOfLegends({ character, setScreen, playerRoster }: { character: Character; setScreen: (s: Screen) => void; playerRoster: PlayerRecord[] }) {
-    const [tab, setTab] = useState<LbTab>("ranked");
-
-    const all = playerRoster.length > 0
-        ? playerRoster.map(p => p.character)
-        : [character];
-    const me = character.name;
-
-    function Row({ rank, name, value, suffix = "", village }: { rank: number; name: string; value: number | string; suffix?: string; village?: string }) {
-        const isMe = name === me;
-        return (
-            <div className={`hol-row ${isMe ? "hol-row-me" : ""}`}>
-                <span className="hol-rank-num">{rank <= 3 ? ["🥇","🥈","🥉"][rank-1] : `#${rank}`}</span>
-                <span className="hol-name">{name}{village ? <span className="hol-village"> · {village}</span> : null}</span>
-                <span className="hol-value">{typeof value === "number" ? value.toLocaleString() : value}{suffix}</span>
-            </div>
-        );
-    }
-
-    function sortedTop(field: (c: Character) => number, n = 10) {
-        return [...all].sort((a, b) => field(b) - field(a)).slice(0, n);
-    }
-
-    // Clan aggregation
-    const clanMap = new Map<string, { score: number; members: number; topVillage: string }>();
-    for (const p of playerRoster) {
-        const c = p.character;
-        if (!c.clan) continue;
-        const existing = clanMap.get(c.clan) ?? { score: 0, members: 0, topVillage: p.village };
-        clanMap.set(c.clan, {
-            score: existing.score + (c.rankedWins ?? 0) + (c.totalPvpKills ?? 0),
-            members: existing.members + 1,
-            topVillage: existing.topVillage,
-        });
-    }
-    const topClans = [...clanMap.entries()]
-        .sort((a, b) => b[1].score - a[1].score)
-        .slice(0, 10);
-
-    // Tournament
-    const tournament = loadArenaTournament();
-
-    const tabs: { id: LbTab; label: string; icon: string }[] = [
-        { id: "ranked",      label: "Ranked",       icon: "🎖" },
-        { id: "kills",       label: "Kill Streaks",  icon: "🗡" },
-        { id: "xp",          label: "Most XP",       icon: "?" },
-        { id: "clans",       label: "Top Clans",     icon: "🏴" },
-        { id: "pets",        label: "Pet Wins",      icon: "🐾" },
-        { id: "endless",     label: "Endless",       icon: "🌀" },
-        { id: "villageWars", label: "Village Wars",  icon: "⚔" },
-        { id: "tournament",  label: "Tournament",    icon: "🏆" },
-    ];
-
-    return (
-        <div className="card hol-screen">
-            <div className="hol-header">
-                <button className="back-button" onClick={() => setScreen("centralHub")}>? Central Hub</button>
-                <div>
-                    <h2>🏆 Hall of Legends</h2>
-                    <p className="hol-subtitle">Eternal records of the world's greatest shinobi.</p>
-                </div>
-            </div>
-
-            <div className="hol-tabs">
-                {tabs.map(t => (
-                    <button key={t.id} className={`hol-tab ${tab === t.id ? "hol-tab-active" : ""}`} onClick={() => setTab(t.id)}>
-                        {t.icon} {t.label}
-                    </button>
-                ))}
-            </div>
-
-            <div className="hol-board">
-                {tab === "ranked" && (
-                    <>
-                        <p className="hol-board-label">Ranked Battle Rating (Elo)</p>
-                        {sortedTop(c => c.rankedRating ?? 1000).map((c, i) => (
-                            <Row key={c.name} rank={i+1} name={c.name} value={c.rankedRating ?? 1000} suffix=" Elo" village={c.village} />
-                        ))}
-                    </>
-                )}
-                {tab === "kills" && (
-                    <>
-                        <p className="hol-board-label">Total PvP Kills</p>
-                        {sortedTop(c => c.totalPvpKills ?? 0).map((c, i) => (
-                            <Row key={c.name} rank={i+1} name={c.name} value={c.totalPvpKills ?? 0} suffix=" kills" village={c.village} />
-                        ))}
-                    </>
-                )}
-                {tab === "xp" && (
-                    <>
-                        <p className="hol-board-label">Total XP Earned</p>
-                        {sortedTop(c => c.xp).map((c, i) => (
-                            <Row key={c.name} rank={i+1} name={c.name} value={c.xp} suffix=" XP" village={c.village} />
-                        ))}
-                    </>
-                )}
-                {tab === "clans" && (
-                    <>
-                        <p className="hol-board-label">Clan Power (Ranked Wins + PvP Kills)</p>
-                        {topClans.length === 0
-                            ? <p className="hol-empty">No clan data available yet.</p>
-                            : topClans.map(([clan, data], i) => (
-                                <div key={clan} className={`hol-row ${character.clan === clan ? "hol-row-me" : ""}`}>
-                                    <span className="hol-rank-num">{i <= 2 ? ["🥇","🥈","🥉"][i] : `#${i+1}`}</span>
-                                    <span className="hol-name">{clan}<span className="hol-village"> · {data.members} member{data.members !== 1 ? "s" : ""}</span></span>
-                                    <span className="hol-value">{data.score.toLocaleString()} pts</span>
-                                </div>
-                            ))
-                        }
-                    </>
-                )}
-                {tab === "pets" && (
-                    <>
-                        <p className="hol-board-label">Pet Arena Wins</p>
-                        {sortedTop(c => c.totalPetWins ?? 0).map((c, i) => (
-                            <Row key={c.name} rank={i+1} name={c.name} value={c.totalPetWins ?? 0} suffix=" wins" village={c.village} />
-                        ))}
-                    </>
-                )}
-                {tab === "endless" && (
-                    <>
-                        <p className="hol-board-label">Endless Tower — Waves Survived</p>
-                        {sortedTop(c => c.totalEndlessTowerWins ?? 0).map((c, i) => (
-                            <Row key={c.name} rank={i+1} name={c.name} value={c.totalEndlessTowerWins ?? 0} suffix=" waves" village={c.village} />
-                        ))}
-                    </>
-                )}
-                {tab === "villageWars" && (
-                    <>
-                        <p className="hol-board-label">Village War Raids Completed</p>
-                        {sortedTop(c => c.totalVillageRaids ?? 0).map((c, i) => (
-                            <Row key={c.name} rank={i+1} name={c.name} value={c.totalVillageRaids ?? 0} suffix=" raids" village={c.village} />
-                        ))}
-                    </>
-                )}
-                {tab === "tournament" && (
-                    <>
-                        <p className="hol-board-label">Last Tournament</p>
-                        {!tournament
-                            ? <p className="hol-empty">No tournament has been held yet.</p>
-                            : (
-                                <div className="hol-tournament-card">
-                                    <h3>{tournament.name}</h3>
-                                    <p><strong>Hosted by:</strong> {tournament.createdBy}</p>
-                                    <p><strong>Participants ({tournament.participants?.length ?? 0}):</strong> {(tournament.participants ?? []).join(", ") || "—"}</p>
-                                    {tournament.advancedPlayers?.length > 0 && (
-                                        <p><strong>Advanced Players:</strong> {tournament.advancedPlayers.join(", ")}</p>
-                                    )}
-                                    <p className="hol-tournament-ended">Ended {new Date(tournament.endsAt).toLocaleDateString()}</p>
-                                </div>
-                            )
-                        }
-                    </>
-                )}
-            </div>
-        </div>
-    );
-}
 
 export type TavernMessage = { author: string; text: string; ts: number; rank?: string; customTitle?: string; level?: number };
 
@@ -22940,7 +22608,7 @@ let sharedPendingClanPetBattleCache: PendingClanPetBattle | null = null;
 let sharedGameStateOwnerName = "";
 let sharedWeeklyBossAiIdCache: string = "";
 
-function loadArenaTournament(): ArenaTournament | null {
+export function loadArenaTournament(): ArenaTournament | null {
     return sharedArenaTournamentCache;
 }
 
