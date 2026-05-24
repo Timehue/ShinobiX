@@ -21976,6 +21976,14 @@ function Profile({
     const [titleInput, setTitleInput] = useState(character.customTitle ?? "");
     const TITLE_COST = 10;
     const [mobileTab, setMobileTab] = useState<'overview' | 'stats' | 'jutsu' | 'achievements'>('overview');
+    const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);
+
+    useEffect(() => {
+        if (!selectedAchievement) return;
+        const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setSelectedAchievement(null); };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [selectedAchievement]);
 
     function formatStatLabel(name: string) {
         return name
@@ -22397,48 +22405,89 @@ function Profile({
                         {ACHIEVEMENTS.filter(a => a.check(character)).length}/{ACHIEVEMENTS.length} unlocked
                     </span>
                 </div>
-                <div className="achievements-grid">
-                    {ACHIEVEMENTS.map(a => {
-                        const unlocked = a.check(character);
-                        const concealed = !!a.hidden && !unlocked;
-                        const displayName = concealed ? "???" : a.name;
-                        const displayDesc = concealed ? "Hidden achievement — keep playing to discover it." : a.desc;
-                        const displayIcon = concealed ? "❓" : a.icon;
-                        const unlockedAt = unlocked ? character.achievementUnlockedAt?.[a.id] : undefined;
-                        const unlockedAtLabel = unlockedAt ? new Date(unlockedAt).toLocaleDateString() : null;
-                        const classes = [
-                            "achievement-badge",
-                            unlocked ? "unlocked" : "locked",
-                            concealed ? "concealed" : "",
-                            a.hidden ? "is-secret" : "",
-                        ].filter(Boolean).join(" ");
-                        return (
-                            <div
-                                key={a.id}
-                                className={classes}
-                                title={`${displayName} — ${displayDesc}${unlockedAtLabel ? ` · Unlocked ${unlockedAtLabel}` : ""}`}
-                            >
-                                <div className="achievement-icon">
-                                    {!concealed && (
-                                        <img
-                                            src={`/badges/${a.id}.png`}
-                                            alt=""
-                                            onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }}
-                                        />
-                                    )}
-                                    <span className="achievement-emoji" aria-hidden>{displayIcon}</span>
-                                </div>
-                                <div className="achievement-meta">
-                                    <strong>{displayName}</strong>
-                                    <small>{displayDesc}</small>
-                                    {unlockedAtLabel && <small className="achievement-unlocked-at">Unlocked {unlockedAtLabel}</small>}
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
+                {(() => {
+                    const unlocked = ACHIEVEMENTS.filter(a => a.check(character));
+                    if (unlocked.length === 0) {
+                        return <p className="hint">No achievements unlocked yet. Earn one to see it appear here.</p>;
+                    }
+                    return (
+                        <div className="achievements-grid">
+                            {unlocked.map(a => {
+                                const unlockedAt = character.achievementUnlockedAt?.[a.id];
+                                const unlockedAtLabel = unlockedAt ? new Date(unlockedAt).toLocaleDateString() : null;
+                                const classes = [
+                                    "achievement-badge",
+                                    "unlocked",
+                                    a.hidden ? "is-secret" : "",
+                                ].filter(Boolean).join(" ");
+                                return (
+                                    <button
+                                        key={a.id}
+                                        type="button"
+                                        className={classes}
+                                        onClick={() => setSelectedAchievement(a)}
+                                        title={`${a.name} — click for details`}
+                                    >
+                                        <div className="achievement-icon">
+                                            <img
+                                                src={`/badges/${a.id}.png`}
+                                                alt=""
+                                                onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }}
+                                            />
+                                            <span className="achievement-emoji" aria-hidden>{a.icon}</span>
+                                        </div>
+                                        <div className="achievement-meta">
+                                            <strong>{a.name}</strong>
+                                            <small>{a.desc}</small>
+                                            {unlockedAtLabel && <small className="achievement-unlocked-at">Unlocked {unlockedAtLabel}</small>}
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    );
+                })()}
             </section>
             </div>{/* end achievements tab */}
+
+            {selectedAchievement && (
+                <div className="achievement-detail-overlay" onClick={() => setSelectedAchievement(null)}>
+                    <div
+                        className={`achievement-detail-card ${selectedAchievement.hidden ? "is-secret" : ""}`}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <button
+                            className="achievement-detail-close"
+                            type="button"
+                            onClick={() => setSelectedAchievement(null)}
+                            aria-label="Close"
+                        >×</button>
+
+                        <div className="achievement-detail-badge">
+                            <img
+                                src={`/badges/${selectedAchievement.id}.png`}
+                                alt=""
+                                onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }}
+                            />
+                            <span className="achievement-detail-emoji" aria-hidden>{selectedAchievement.icon}</span>
+                        </div>
+
+                        <p className="achievement-detail-category">
+                            {selectedAchievement.hidden ? "Secret · " : ""}{selectedAchievement.category}
+                        </p>
+                        <h2 className="achievement-detail-name">{selectedAchievement.name}</h2>
+                        <p className="achievement-detail-desc">{selectedAchievement.desc}</p>
+                        {(() => {
+                            const at = character.achievementUnlockedAt?.[selectedAchievement.id];
+                            return at ? (
+                                <p className="achievement-detail-date">
+                                    Unlocked {new Date(at).toLocaleString()}
+                                </p>
+                            ) : null;
+                        })()}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
