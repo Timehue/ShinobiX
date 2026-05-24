@@ -16867,8 +16867,9 @@ html[data-vp="xl"] .arena-fullscreen .combat-layout {
 html[data-vp="xl"] .arena-fullscreen .hex-battlefield {
     width: 100% !important;
     max-width: 100% !important;
-    transform: scale(1.25) !important;
+    transform: scale(1.15) !important;
     transform-origin: center center !important;
+    margin: -10px 0 !important;
 }
 
 html[data-vp="xl"] .arena-fullscreen .combat-layout > .combat-main-area {
