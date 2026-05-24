@@ -28860,6 +28860,40 @@ function PvpBattleScreen({
                     </div>
                 </main>
 
+                {/* ── Battle chat (in-grid, between battlefield and enemy HUD) ── */}
+                <div className={`battle-chat-panel battle-chat-col${battleChatVisible ? "" : " battle-chat-hidden"}`}>
+                    <div className="battle-side-header">
+                        <span>Chat</span>
+                        <button className="battle-chat-toggle" onClick={() => setBattleChatVisible(v => !v)} title={battleChatVisible ? "Hide chat" : "Show chat"}>
+                            {battleChatVisible ? "−" : "+"}
+                        </button>
+                    </div>
+                    {battleChatVisible && (
+                        <>
+                            <div className="battle-chat-messages" ref={battleChatRef}>
+                                {battleChatMessages.length === 0 ? (
+                                    <p className="battle-chat-empty">No messages yet.</p>
+                                ) : battleChatMessages.map((msg, i) => (
+                                    <div key={i} className={`battle-chat-msg ${msg.role === "fighter" ? "chat-fighter" : "chat-spectator"}`}>
+                                        <strong>{msg.author}</strong>
+                                        <span>{msg.text}</span>
+                                    </div>
+                                ))}
+                            </div>
+                            <form className="battle-chat-input-row" onSubmit={e => { e.preventDefault(); sendBattleChat(); }}>
+                                <input
+                                    type="text"
+                                    value={battleChatInput}
+                                    onChange={e => setBattleChatInput(e.target.value)}
+                                    placeholder="Type a message…"
+                                    maxLength={200}
+                                />
+                                <button type="submit" disabled={!battleChatInput.trim()}>Send</button>
+                            </form>
+                        </>
+                    )}
+                </div>
+
                 <CombatSideHud
                     name={opp.name}
                     avatar={oppAvatar || "EN"}
@@ -28885,40 +28919,6 @@ function PvpBattleScreen({
                     </div>
                 </div>
             )}
-
-            {/* ── Battle chat (right dead space) ── */}
-            <div className={`battle-chat-panel battle-side-right${battleChatVisible ? "" : " battle-chat-hidden"}`}>
-                <div className="battle-side-header">
-                    <span>Chat</span>
-                    <button className="battle-chat-toggle" onClick={() => setBattleChatVisible(v => !v)} title={battleChatVisible ? "Hide chat" : "Show chat"}>
-                        {battleChatVisible ? "−" : "+"}
-                    </button>
-                </div>
-                {battleChatVisible && (
-                    <>
-                        <div className="battle-chat-messages" ref={battleChatRef}>
-                            {battleChatMessages.length === 0 ? (
-                                <p className="battle-chat-empty">No messages yet.</p>
-                            ) : battleChatMessages.map((msg, i) => (
-                                <div key={i} className={`battle-chat-msg ${msg.role === "fighter" ? "chat-fighter" : "chat-spectator"}`}>
-                                    <strong>{msg.author}</strong>
-                                    <span>{msg.text}</span>
-                                </div>
-                            ))}
-                        </div>
-                        <form className="battle-chat-input-row" onSubmit={e => { e.preventDefault(); sendBattleChat(); }}>
-                            <input
-                                type="text"
-                                value={battleChatInput}
-                                onChange={e => setBattleChatInput(e.target.value)}
-                                placeholder="Type a message…"
-                                maxLength={200}
-                            />
-                            <button type="submit" disabled={!battleChatInput.trim()}>Send</button>
-                        </form>
-                    </>
-                )}
-            </div>
         </div>
     );
 }

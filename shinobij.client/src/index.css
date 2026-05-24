@@ -16879,10 +16879,10 @@ html[data-vp="xl"] .arena-fullscreen {
     box-sizing: border-box !important;
 }
 
-/* On xl, combat-layout becomes 2-column (main area + enemy hud) — stretch grid wide */
+/* On xl, combat-layout becomes 3-column (main area + chat + enemy hud) — stretch grid wide */
 html[data-vp="xl"] .arena-fullscreen .combat-layout {
-    grid-template-columns: minmax(0, 1fr) minmax(150px, 200px) !important;
-    gap: 6px !important;
+    grid-template-columns: minmax(0, 1fr) 140px minmax(150px, 200px) !important;
+    gap: 0 !important;
     width: 100% !important;
     max-width: 100% !important;
     padding: 0 !important;
@@ -16913,33 +16913,23 @@ html[data-vp="xl"] .arena-fullscreen .hex-battlefield {
     display: none;
 }
 
-html[data-vp="xl"] .battle-side-left,
-html[data-vp="xl"] .battle-side-right {
+html[data-vp="xl"] .battle-side-left {
     display: flex;
     flex-direction: column;
     position: absolute;
     top: 0;
+    left: 0;
     width: 140px;
     height: 100%;
     z-index: 10;
     background: rgba(15, 23, 42, 0.85);
     border: 1px solid rgba(148, 163, 184, 0.2);
+    border-left: none;
+    border-radius: 0 8px 8px 0;
     box-sizing: border-box;
     font-size: 0.78rem;
     color: #cbd5e1;
     backdrop-filter: blur(6px);
-}
-
-html[data-vp="xl"] .battle-side-left {
-    left: 0;
-    border-radius: 0 8px 8px 0;
-    border-left: none;
-}
-
-html[data-vp="xl"] .battle-side-right {
-    right: 0;
-    border-radius: 8px 0 0 8px;
-    border-right: none;
 }
 
 .battle-side-header {
@@ -16967,7 +16957,30 @@ html[data-vp="xl"] .battle-side-right {
     border-bottom: 1px solid rgba(148, 163, 184, 0.08);
 }
 
-/* Chat panel */
+/* ── Chat as in-grid column (between battlefield and enemy HUD) on xl ── */
+.battle-chat-col {
+    display: none;
+}
+
+html[data-vp="xl"] .battle-chat-col {
+    display: flex;
+    flex-direction: column;
+    background: rgba(0, 0, 0, 0.45);
+    border-left: 1px solid rgba(148, 163, 184, 0.15);
+    border-right: 1px solid rgba(148, 163, 184, 0.15);
+    box-sizing: border-box;
+    font-size: 0.78rem;
+    color: #cbd5e1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+html[data-vp="xl"] .battle-chat-col.battle-chat-hidden {
+    width: 36px !important;
+    overflow: hidden;
+}
+
+/* Chat panel (old absolute — keep for non-xl fallback) */
 .battle-chat-panel.battle-chat-hidden {
     width: 36px !important;
     overflow: hidden;
@@ -17079,8 +17092,13 @@ html[data-vp="xl"] .arena-fullscreen .combat-layout > .combat-main-area {
     grid-row: 1 !important;
 }
 
-html[data-vp="xl"] .arena-fullscreen .combat-layout > .combat-side-hud:last-child {
+html[data-vp="xl"] .arena-fullscreen .combat-layout > .battle-chat-col {
     grid-column: 2 !important;
+    grid-row: 1 !important;
+}
+
+html[data-vp="xl"] .arena-fullscreen .combat-layout > .combat-side-hud:last-child {
+    grid-column: 3 !important;
     grid-row: 1 !important;
 }
 
