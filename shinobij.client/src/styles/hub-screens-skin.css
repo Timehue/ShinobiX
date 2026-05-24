@@ -1,0 +1,339 @@
+/* =========================================================================
+   Hub Screens Skin v2 — Logbook, Jutsu Training, Missions, Inventory tweaks
+   Scoped to each screen's wrapper. To revert: delete this file + import.
+   ========================================================================= */
+
+.logbook-screen,
+.jutsu-training-screen,
+.mission-hall {
+    --bsv2-gold:        #c4a25a;
+    --bsv2-gold-bright: #e8d496;
+    --bsv2-gold-soft:   rgba(196,162,90,0.45);
+    --bsv2-gold-faint:  rgba(196,162,90,0.22);
+    --bsv2-ink:         #050a18;
+    --bsv2-ink-2:       #0a1428;
+    --bsv2-player:      #4ea8ff;
+    --bsv2-enemy:       #e04444;
+
+    background: linear-gradient(180deg, rgba(12,18,34,0.92) 0%, rgba(6,10,22,0.96) 100%) !important;
+    border: 1px solid var(--bsv2-gold-faint) !important;
+    border-radius: 8px !important;
+    box-shadow:
+        0 8px 24px rgba(0,0,0,0.5),
+        inset 0 1px 0 rgba(255,255,255,0.04) !important;
+    color: #e8edf5 !important;
+    padding: 20px !important;
+}
+
+/* ---- Headings shared across hub screens ---- */
+.logbook-screen > h2,
+.jutsu-training-screen > h2,
+.mission-hall .mh-header h2,
+.mission-hall > h2 {
+    font: 700 18px Cinzel, serif !important;
+    letter-spacing: 0.22em !important;
+    text-transform: uppercase !important;
+    color: var(--bsv2-gold-bright) !important;
+    text-align: center;
+    border-bottom: 1px solid var(--bsv2-gold-faint);
+    padding-bottom: 10px;
+    margin: 0 0 14px 0;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.8), 0 0 20px rgba(196,162,90,0.2);
+}
+.logbook-screen h3,
+.jutsu-training-screen h3,
+.mission-hall .mh-section-title,
+.mission-hall .hunt-rank-heading {
+    font: 600 13px Cinzel, serif !important;
+    letter-spacing: 0.22em !important;
+    text-transform: uppercase !important;
+    color: var(--bsv2-player) !important;
+    text-align: center;
+    margin: 18px 0 10px 0 !important;
+    position: relative;
+}
+.logbook-screen h3::before, .logbook-screen h3::after,
+.jutsu-training-screen h3::before, .jutsu-training-screen h3::after,
+.mission-hall .mh-section-title::before, .mission-hall .mh-section-title::after {
+    content: "";
+    display: inline-block;
+    width: 50px;
+    height: 1px;
+    background: rgba(78,168,255,0.4);
+    vertical-align: middle;
+    margin: 0 14px;
+}
+.logbook-screen p,
+.jutsu-training-screen > p,
+.mission-hall .mh-sub {
+    color: rgba(232,212,150,0.85) !important;
+    font: 400 12px/1.5 Inter, sans-serif !important;
+    text-align: center;
+    margin: 4px 0 14px 0;
+}
+.logbook-screen p strong,
+.jutsu-training-screen p strong {
+    color: var(--bsv2-gold-bright) !important;
+}
+
+/* ---- summary-box → dark glass notice ---- */
+.logbook-screen .summary-box,
+.jutsu-training-screen .summary-box {
+    background: linear-gradient(180deg, rgba(20,28,46,0.85), rgba(12,18,34,0.85)) !important;
+    border: 1px solid var(--bsv2-gold-faint) !important;
+    border-left: 3px solid var(--bsv2-player) !important;
+    border-radius: 4px !important;
+    color: #c8cfdc !important;
+    padding: 12px 14px !important;
+    margin: 8px 0 14px 0 !important;
+}
+.logbook-screen .summary-box p,
+.jutsu-training-screen .summary-box p {
+    text-align: left;
+    color: #c8cfdc !important;
+    margin: 4px 0 !important;
+}
+.logbook-screen .summary-box strong,
+.jutsu-training-screen .summary-box strong {
+    color: var(--bsv2-gold-bright) !important;
+}
+
+/* ---- location-button (mission cards / shared) ---- */
+.logbook-screen .location-grid,
+.jutsu-training-screen .location-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)) !important;
+    gap: 10px !important;
+    margin: 10px 0;
+}
+.logbook-screen .location-button,
+.jutsu-training-screen .location-button {
+    background: linear-gradient(180deg, #1a2238 0%, #0a1020 100%) !important;
+    border: 1px solid var(--bsv2-gold-soft) !important;
+    border-radius: 6px !important;
+    padding: 14px !important;
+    color: #e8edf5 !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.05),
+        inset 0 -2px 0 rgba(0,0,0,0.5),
+        0 2px 4px rgba(0,0,0,0.5);
+    text-align: left;
+    transition: transform 80ms, border-color 120ms, box-shadow 120ms;
+}
+.logbook-screen .location-button:hover:not(:disabled),
+.jutsu-training-screen .location-button:hover:not(:disabled) {
+    border-color: rgba(78,168,255,0.85) !important;
+    box-shadow: 0 0 16px rgba(78,168,255,0.35) !important;
+    transform: translateY(-1px);
+}
+.logbook-screen .location-button strong,
+.logbook-screen .location-button > span:first-child {
+    color: var(--bsv2-gold-bright) !important;
+    font: 600 12px Cinzel, serif !important;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+.logbook-screen .location-button small,
+.jutsu-training-screen .location-button small {
+    color: rgba(196,162,90,0.75) !important;
+    font: 400 10px Inter, sans-serif !important;
+    text-transform: none;
+}
+
+/* ---- Buttons (primary action) ---- */
+.logbook-screen .menu button,
+.jutsu-training-screen button,
+.mission-hall .mh-claim-btn,
+.mission-hall .mh-combat-btn,
+.mission-hall .rank-up-btn {
+    background: linear-gradient(180deg, #1e3a8a 0%, #1e40af 100%) !important;
+    border: 1px solid rgba(78,168,255,0.55) !important;
+    color: #fff !important;
+    padding: 8px 14px !important;
+    border-radius: 4px !important;
+    font: 600 11px Cinzel, serif !important;
+    letter-spacing: 0.16em !important;
+    text-transform: uppercase !important;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(78,168,255,0.25);
+    transition: transform 80ms, box-shadow 120ms;
+}
+.logbook-screen .menu button:hover:not(:disabled),
+.jutsu-training-screen button:hover:not(:disabled),
+.mission-hall .mh-claim-btn:hover:not(:disabled),
+.mission-hall .mh-combat-btn:hover:not(:disabled),
+.mission-hall .rank-up-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 0 16px rgba(78,168,255,0.45) !important;
+}
+.logbook-screen .danger-button,
+.logbook-screen .back-btn,
+.mission-hall .back-btn {
+    background: linear-gradient(180deg, #1a2238 0%, #0a1020 100%) !important;
+    border: 1px solid var(--bsv2-gold-soft) !important;
+    color: var(--bsv2-gold-bright) !important;
+    box-shadow: none !important;
+}
+
+/* ---- Logbook mission-card layout ---- */
+.logbook-screen .location-button.mission-card {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 4px !important;
+}
+.logbook-screen .mission-progress {
+    height: 6px;
+    background: rgba(0,0,0,0.5);
+    border: 1px solid var(--bsv2-gold-faint);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 6px;
+}
+.logbook-screen .mission-progress span {
+    display: block;
+    height: 100%;
+    background: linear-gradient(90deg, #2a5cb8, var(--bsv2-player));
+    box-shadow: 0 0 6px rgba(78,168,255,0.5);
+}
+.logbook-screen .hint {
+    color: rgba(196,162,90,0.7) !important;
+    font: 400 10px Inter, sans-serif !important;
+    letter-spacing: 0.04em;
+}
+
+/* ---- Missions: hunter board + contracts ---- */
+.mission-hall .hunter-board {
+    background: linear-gradient(180deg, rgba(20,28,46,0.65), rgba(10,16,32,0.75)) !important;
+    border: 1px solid var(--bsv2-gold-faint) !important;
+    border-radius: 6px !important;
+    padding: 14px !important;
+    margin-bottom: 14px;
+}
+.mission-hall .hunter-board-header {
+    border-bottom: 1px solid var(--bsv2-gold-faint);
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+    color: var(--bsv2-gold-bright) !important;
+}
+.mission-hall .hunter-rank-banner {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 14px !important;
+    background: linear-gradient(90deg, rgba(20,28,46,0.85), rgba(12,18,34,0.85)) !important;
+    border: 1px solid var(--bsv2-gold-soft) !important;
+    border-left: 3px solid var(--bsv2-gold) !important;
+    border-radius: 4px !important;
+    margin-bottom: 10px;
+}
+.mission-hall .hunter-rank-badge {
+    background: rgba(196,162,90,0.18) !important;
+    border: 1px solid var(--bsv2-gold-soft) !important;
+    color: var(--bsv2-gold-bright) !important;
+    font: 700 12px Cinzel, serif !important;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    padding: 4px 12px !important;
+    border-radius: 999px !important;
+}
+.mission-hall .hunter-rank-info { color: #e8edf5 !important; font-size: 13px; }
+.mission-hall .hunter-rank-sub {
+    color: rgba(196,162,90,0.65) !important;
+    font: 400 10px Inter, sans-serif !important;
+}
+.mission-hall .hunt-contract-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)) !important;
+    gap: 10px !important;
+}
+.mission-hall .hunt-contract-card {
+    background: linear-gradient(180deg, rgba(15,22,40,0.92) 0%, rgba(8,12,24,0.96) 100%) !important;
+    border: 1px solid var(--bsv2-gold-soft) !important;
+    border-radius: 6px !important;
+    padding: 12px 14px !important;
+    color: #e8edf5 !important;
+    box-shadow:
+        0 2px 0 rgba(0,0,0,0.6),
+        inset 0 0 18px rgba(0,0,0,0.4);
+    transition: border-color 120ms, transform 120ms;
+}
+.mission-hall .hunt-contract-card:hover { border-color: rgba(78,168,255,0.85) !important; transform: translateY(-2px); }
+.mission-hall .hunt-contract-top { color: var(--bsv2-gold-bright) !important; font: 600 12px Cinzel, serif !important; letter-spacing: 0.1em; }
+.mission-hall .hunt-description { color: #c8cfdc !important; font: 400 11px Inter, sans-serif !important; }
+.mission-hall .hunt-drops { color: rgba(196,162,90,0.75) !important; font: 400 10px Inter, sans-serif !important; }
+.mission-hall .hunt-progress-bar {
+    height: 6px;
+    background: rgba(0,0,0,0.5);
+    border: 1px solid var(--bsv2-gold-faint);
+    border-radius: 3px;
+    overflow: hidden;
+}
+.mission-hall .hunt-progress-fill {
+    background: linear-gradient(90deg, #2a5cb8, var(--bsv2-player)) !important;
+    box-shadow: 0 0 6px rgba(78,168,255,0.5);
+}
+.mission-hall .hunt-progress-label,
+.mission-hall .hunt-lock-label {
+    font: 500 10px Cinzel, serif !important;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(196,162,90,0.7) !important;
+}
+.mission-hall .hunt-beast-icon {
+    font-size: 24px;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.7));
+}
+.mission-hall .mh-section {
+    margin-bottom: 16px;
+}
+.mission-hall .mh-tag,
+.mission-hall .mh-stat-chip {
+    background: rgba(196,162,90,0.1) !important;
+    border: 1px solid var(--bsv2-gold-soft) !important;
+    color: var(--bsv2-gold-bright) !important;
+    padding: 3px 8px !important;
+    border-radius: 3px !important;
+    font: 600 9px Cinzel, serif !important;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+.mission-hall .mh-tag-req { border-left: 2px solid var(--bsv2-enemy); }
+.mission-hall .mh-tag-sta { border-left: 2px solid #6fd47a; }
+.mission-hall .mh-fetch-grid,
+.mission-hall .mh-combat-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)) !important;
+    gap: 10px !important;
+}
+.mission-hall .mh-fetch-group,
+.mission-hall .mh-combat-enemy {
+    background: linear-gradient(180deg, rgba(15,22,40,0.92), rgba(8,12,24,0.96)) !important;
+    border: 1px solid var(--bsv2-gold-soft) !important;
+    border-radius: 6px !important;
+    padding: 12px !important;
+    color: #e8edf5 !important;
+    box-shadow: 0 2px 0 rgba(0,0,0,0.6), inset 0 0 16px rgba(0,0,0,0.4);
+}
+.mission-hall .mh-fetch-group-label,
+.mission-hall .mh-combat-name {
+    color: var(--bsv2-gold-bright) !important;
+    font: 600 11px Cinzel, serif !important;
+    letter-spacing: 0.14em;
+}
+.mission-hall .mh-fetch-rewards,
+.mission-hall .mh-combat-rewards,
+.mission-hall .mh-fetch-meta,
+.mission-hall .mh-combat-tags,
+.mission-hall .mh-combat-rank {
+    color: rgba(196,162,90,0.75) !important;
+    font: 400 10px Inter, sans-serif !important;
+}
+.mission-hall .mh-stats {
+    display: flex; gap: 6px; flex-wrap: wrap;
+}
+.mission-hall .mh-stat-label { color: rgba(196,162,90,0.65) !important; }
+.mission-hall .mh-stat-value { color: var(--bsv2-gold-bright) !important; font-variant-numeric: tabular-nums; }
+.mission-hall .mh-fetch-progress-wrap,
+.mission-hall .mh-fetch-progress-label {
+    background: rgba(0,0,0,0.5);
+    border: 1px solid var(--bsv2-gold-faint);
+    border-radius: 3px;
+}
