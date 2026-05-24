@@ -16931,7 +16931,12 @@ function ShopBase({
     const shopSlots: EquipmentSlot[] = ["head", "body", "waist", "legs", "feet", "hand", "aura", "weapon", "thrown", "item", "accessory"];
     const shopItems = allItems.filter((item) => {
         const craftOnlyWeapon = item.slot === "hand" && item.weaponEp != null && ["rare", "epic", "legendary"].includes(item.rarity);
-        return shopSlots.includes(item.slot) && filterRarities.includes(item.rarity) && !craftOnlyWeapon;
+        // Drops, crafting materials, and keys ship with cost: 0 because they're
+        // earned in-game, not bought. Exclude them from shop listings.
+        return shopSlots.includes(item.slot)
+            && filterRarities.includes(item.rarity)
+            && !craftOnlyWeapon
+            && item.cost > 0;
     });
 
     const slotGroups: { label: string; slots: EquipmentSlot[] }[] = [
