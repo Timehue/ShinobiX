@@ -10402,7 +10402,19 @@ export default function App() {
                                                 terrainKind === "corridor_floor" ? bgFromTexture(corridorFloorTexture, "linear-gradient(135deg, rgba(40,28,72,0.7), rgba(28,18,54,0.85))")
                                                 : terrainKind === "door" ? bgFromTexture(doorTexture, "linear-gradient(135deg, rgba(120,72,32,0.5), rgba(64,40,18,0.75))", "rgba(40,20,8,0.3)")
                                                 : bgFromTexture(roomFloorTexture, "linear-gradient(135deg, rgba(50,38,82,0.7), rgba(34,24,60,0.85))");
-                                            const contentTint = tile.kind === "boss" ? "linear-gradient(135deg, rgba(127,29,29,0.7), rgba(185,28,28,0.7))"
+                                            // SURPRISE TILES — trap / battle / elite / pet_event — stay
+                                            // disguised as plain floor while only "visible". Their tint +
+                                            // icon ONLY appear after the player has actually stepped on
+                                            // them (revealed === true). This preserves the "did I just
+                                            // walk into a trap?" surprise even with the new room-flood
+                                            // visibility.
+                                            const isSurpriseKind = tile.kind === "trap"
+                                                || tile.kind === "battle"
+                                                || tile.kind === "elite"
+                                                || tile.kind === "pet_event";
+                                            const hideContent = isSurpriseKind && !revealed;
+                                            const contentTint = hideContent ? null
+                                                : tile.kind === "boss" ? "linear-gradient(135deg, rgba(127,29,29,0.7), rgba(185,28,28,0.7))"
                                                 : tile.kind === "trap" ? "rgba(239,68,68,0.22)"
                                                 : tile.kind === "chest" ? "rgba(234,179,8,0.22)"
                                                 : tile.kind === "shrine" ? "rgba(168,85,247,0.26)"
@@ -10425,10 +10437,18 @@ export default function App() {
                                         // Wall styling: brick-ish pattern via inset shadow.
                                         const wallShadow = wall ? "inset 0 0 0 1px rgba(168,85,247,0.18), inset 2px 2px 0 rgba(0,0,0,0.4)" : undefined;
 
-                                        // Icon by state.
+                                        // Icon by state. Same surprise rule as the tint: if it's a hidden
+                                        // surprise kind and the player hasn't stepped on it yet, render
+                                        // nothing (just empty floor). Once revealed, the icon appears
+                                        // even when the cell falls back into fog later (memory).
+                                        const isSurpriseKindIcon = !revealed && (tile.kind === "trap"
+                                            || tile.kind === "battle"
+                                            || tile.kind === "elite"
+                                            || tile.kind === "pet_event");
                                         let icon: string;
                                         if (isPlayer) icon = "🥷";
                                         else if (wall) icon = "";
+                                        else if (isSurpriseKindIcon) icon = ""; // hide trap/battle/etc. icons
                                         else if (revealed || visible) icon = hollowGateTileIconForKind(tile.kind);
                                         else icon = "·";
 
