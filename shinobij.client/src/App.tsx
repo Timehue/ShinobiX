@@ -1301,34 +1301,23 @@ function generateHollowGateShrineRun(floor = 1): HollowGateShrineRun {
     });
 
     // ── 2b. Cut corners off rooms to break up the all-rectangles look ──
-    // For each room that's at least 4×4, each of its 4 corners has a 30%
-    // chance to get a 1-2 tile chunk carved back to wall. Produces L-shapes,
-    // T-shapes, and notched rectangles — feels much less BSP-generated.
+    // 15% chance per corner of a single-tile cut. Bigger cuts (or higher
+    // chance) made rooms unidentifiable as rooms.
     rooms.forEach((room) => {
         if (room.w < 4 || room.h < 4) return;
-        const corners: Array<[number, number, number, number]> = [
-            [room.x, room.y, 1, 1],                               // top-left
-            [room.x + room.w - 1, room.y, -1, 1],                 // top-right
-            [room.x, room.y + room.h - 1, 1, -1],                 // bottom-left
-            [room.x + room.w - 1, room.y + room.h - 1, -1, -1],   // bottom-right
+        const corners: Array<[number, number]> = [
+            [room.x, room.y],                                 // top-left
+            [room.x + room.w - 1, room.y],                    // top-right
+            [room.x, room.y + room.h - 1],                    // bottom-left
+            [room.x + room.w - 1, room.y + room.h - 1],       // bottom-right
         ];
-        for (const [cx, cy, dx, dy] of corners) {
-            if (Math.random() >= 0.30) continue;
-            // Cut a 1x1 or 2x2 chunk
-            const size = Math.random() < 0.5 ? 1 : 2;
-            for (let oy = 0; oy < size; oy += 1) {
-                for (let ox = 0; ox < size; ox += 1) {
-                    const nx = cx + ox * dx;
-                    const ny = cy + oy * dy;
-                    if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
-                    // Don't cut so much that the room becomes < 3 cells wide/tall
-                    // in any dimension (would leave a sliver).
-                    const idx = ny * w + nx;
-                    if (terrain[idx] === "room_floor") {
-                        terrain[idx] = "wall";
-                        roomIds[idx] = -1;
-                    }
-                }
+        for (const [cx, cy] of corners) {
+            if (Math.random() >= 0.15) continue;
+            if (cx < 0 || cy < 0 || cx >= w || cy >= h) continue;
+            const idx = cy * w + cx;
+            if (terrain[idx] === "room_floor") {
+                terrain[idx] = "wall";
+                roomIds[idx] = -1;
             }
         }
     });
@@ -1352,22 +1341,35 @@ function generateHollowGateShrineRun(floor = 1): HollowGateShrineRun {
         if (a !== b) bspCarveCorridor(terrain, w, bspRoomCenter(a), bspRoomCenter(b));
     }
 
-    // ── 4. Mark doors where corridors meet rooms ─────────────────────────
-    // A corridor cell adjacent to a room cell stays as corridor_floor; the
-    // FIRST room cell that touches a corridor becomes a `door` for visual
-    // distinction. Same idea but seen from the room side.
-    for (let i = 0; i < total; i += 1) {
-        if (terrain[i] !== "room_floor") continue;
-        const x = i % w;
-        const y = Math.floor(i / w);
-        let touchesCorridor = false;
-        for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
-            const nx = x + dx;
-            const ny = y + dy;
-            if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
-            if (terrain[ny * w + nx] === "corridor_floor") { touchesCorridor = true; break; }
+    // ── 4. Mark doors where corridors enter rooms ────────────────────────
+    // Old logic converted EVERY room-floor cell that touched a corridor into
+    // a door — for a 4-tile-wide room edge this produced 4 adjacent door
+    // tiles, which read as a "wall of doors" rather than a doorway.
+    // New rule: a room-floor cell becomes a door ONLY if it is the unique
+    // entry point — i.e. the corridor cell is adjacent and that corridor
+    // cell does not extend further into the room. We process each corridor
+    // endpoint and mark exactly one room cell as the door.
+    {
+        const corridorEndsTouchingRoom = new Set<number>();
+        for (let i = 0; i < total; i += 1) {
+            if (terrain[i] !== "corridor_floor") continue;
+            const x = i % w;
+            const y = Math.floor(i / w);
+            for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+                const nx = x + dx;
+                const ny = y + dy;
+                if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+                const nIdx = ny * w + nx;
+                if (terrain[nIdx] === "room_floor") {
+                    // Only the FIRST room cell each corridor end touches becomes
+                    // a door — subsequent room cells stay as room floor.
+                    if (!corridorEndsTouchingRoom.has(nIdx)) {
+                        terrain[nIdx] = "door";
+                        corridorEndsTouchingRoom.add(nIdx);
+                    }
+                }
+            }
         }
-        if (touchesCorridor) terrain[i] = "door";
     }
 
     // ── 5. Pick spawn, exit (leave), and target (boss / descend) rooms ──
@@ -18405,6 +18407,9 @@ function AdminPanel({
                             The Hollow Gate Warden boss image is mirrored into creatorAis so the live battle picks it up.
                         </p>
 
+                        {/* ── Atlas Tile Picker — visual coord selector ──────────────── */}
+                        <KenneyAtlasPicker />
+
                         {/* ── Admin Ops — Stats, Run/State Tools, Configuration ───────── */}
                         <section className="summary-box" style={{ marginTop: 16 }}>
                             <h3>📊 Stats</h3>
@@ -18533,6 +18538,162 @@ function AdminPanel({
             </div>
             <p className="hint">Total available jutsus right now: {allGameJutsus.length}</p>
         </div>
+    );
+}
+
+// ── Kenney Atlas Tile Picker (Hollow Gate admin) ───────────────────────────
+// Loads /assets/dungeon/tilemap.png and renders the 29×18 tile grid as a
+// clickable scrollable preview. The user clicks a tile to copy its (col, row)
+// to the clipboard — then they edit the KENNEY_ATLAS const in App.tsx with
+// the picked coords. This finally lets a real human visually verify which
+// tile is at which atlas position, instead of me guessing blind.
+function KenneyAtlasPicker() {
+    const [atlas, setAtlas] = useState<{ url: string; w: number; h: number; tileSize: number; gap: number } | null>(null);
+    const [hoverCoord, setHoverCoord] = useState<{ x: number; y: number } | null>(null);
+    const [pickedCoord, setPickedCoord] = useState<{ x: number; y: number } | null>(null);
+    const [zoom, setZoom] = useState(3);
+
+    useEffect(() => {
+        const img = new Image();
+        img.onload = () => {
+            setAtlas({
+                url: img.src,
+                w: img.naturalWidth,
+                h: img.naturalHeight,
+                tileSize: 16,
+                gap: 1,
+            });
+        };
+        img.onerror = () => setAtlas(null);
+        img.src = "/assets/dungeon/tilemap.png";
+    }, []);
+
+    if (!atlas) {
+        return (
+            <section className="summary-box" style={{ marginTop: 12 }}>
+                <h3>🗂 Atlas Tile Picker</h3>
+                <p className="hint">
+                    Drop a Kenney atlas at <code>public/assets/dungeon/tilemap.png</code> to enable visual tile picking.
+                </p>
+            </section>
+        );
+    }
+
+    const stride = atlas.tileSize + atlas.gap;
+    const cols = Math.floor((atlas.w + atlas.gap) / stride);
+    const rows = Math.floor((atlas.h + atlas.gap) / stride);
+    const displayedTileSize = atlas.tileSize * zoom;
+
+    return (
+        <section className="summary-box" style={{ marginTop: 12 }}>
+            <h3>🗂 Atlas Tile Picker</h3>
+            <p className="hint">
+                Click any tile to copy its <code>(col, row)</code>. Paste those coords into the
+                <code> KENNEY_ATLAS</code> const at the top of the atlas slicer in
+                <code> App.tsx</code> to swap which tile is used for that role.
+                Atlas: <strong>{atlas.w}×{atlas.h}</strong> px,
+                <strong>{cols}×{rows}</strong> tiles ({atlas.tileSize}×{atlas.tileSize} with {atlas.gap}px gap).
+            </p>
+            <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 8, fontSize: 13 }}>
+                <label>Zoom:</label>
+                <input type="range" min={1} max={6} value={zoom} onChange={(e) => setZoom(Number(e.target.value))} />
+                <span><strong>{zoom}×</strong></span>
+                {hoverCoord && (
+                    <span style={{ marginLeft: 12, color: "#a78bfa" }}>
+                        Hovering: <code>{`{ x: ${hoverCoord.x}, y: ${hoverCoord.y} }`}</code>
+                    </span>
+                )}
+                {pickedCoord && (
+                    <span style={{ marginLeft: "auto", color: "#86efac" }}>
+                        ✅ Picked: <code style={{ background: "rgba(34,197,94,0.15)", padding: "2px 6px", borderRadius: 4 }}>
+                            {`{ x: ${pickedCoord.x}, y: ${pickedCoord.y} }`}
+                        </code>
+                    </span>
+                )}
+            </div>
+            <div
+                style={{
+                    position: "relative",
+                    overflow: "auto",
+                    maxHeight: 600,
+                    border: "1px solid rgba(168,85,247,0.3)",
+                    borderRadius: 6,
+                    background: "rgba(0,0,0,0.6)",
+                }}
+            >
+                <div
+                    style={{
+                        position: "relative",
+                        width: atlas.w * zoom,
+                        height: atlas.h * zoom,
+                        backgroundImage: `url(${atlas.url})`,
+                        backgroundSize: `${atlas.w * zoom}px ${atlas.h * zoom}px`,
+                        backgroundRepeat: "no-repeat",
+                        imageRendering: "pixelated",
+                    }}
+                    onMouseMove={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const px = (e.clientX - rect.left) / zoom;
+                        const py = (e.clientY - rect.top) / zoom;
+                        const x = Math.floor(px / stride);
+                        const y = Math.floor(py / stride);
+                        if (x >= 0 && y >= 0 && x < cols && y < rows) setHoverCoord({ x, y });
+                        else setHoverCoord(null);
+                    }}
+                    onMouseLeave={() => setHoverCoord(null)}
+                    onClick={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const px = (e.clientX - rect.left) / zoom;
+                        const py = (e.clientY - rect.top) / zoom;
+                        const x = Math.floor(px / stride);
+                        const y = Math.floor(py / stride);
+                        if (x < 0 || y < 0 || x >= cols || y >= rows) return;
+                        setPickedCoord({ x, y });
+                        const text = `{ x: ${x}, y: ${y} }`;
+                        try { void navigator.clipboard.writeText(text); } catch { /* ignore */ }
+                    }}
+                >
+                    {hoverCoord && (
+                        <div
+                            style={{
+                                position: "absolute",
+                                left: hoverCoord.x * stride * zoom,
+                                top: hoverCoord.y * stride * zoom,
+                                width: displayedTileSize,
+                                height: displayedTileSize,
+                                border: "2px solid #fbbf24",
+                                pointerEvents: "none",
+                                boxShadow: "0 0 8px rgba(251,191,36,0.6)",
+                            }}
+                        />
+                    )}
+                    {pickedCoord && (
+                        <div
+                            style={{
+                                position: "absolute",
+                                left: pickedCoord.x * stride * zoom,
+                                top: pickedCoord.y * stride * zoom,
+                                width: displayedTileSize,
+                                height: displayedTileSize,
+                                border: "3px solid #22c55e",
+                                pointerEvents: "none",
+                                boxShadow: "0 0 12px rgba(34,197,94,0.7)",
+                            }}
+                        />
+                    )}
+                </div>
+            </div>
+            <p className="hint" style={{ marginTop: 8 }}>
+                Current defaults in code (likely wrong — use the picker to find correct ones):
+                <br/>
+                • Wall: <code>{`{ x: 8, y: 2 }`}</code> · Room floor: <code>{`{ x: 10, y: 5 }`}</code>
+                <br/>
+                • Corridor floor: <code>{`{ x: 14, y: 6 }`}</code> · Door: <code>{`{ x: 27, y: 1 }`}</code>
+                <br/>
+                • Decorations: torch <code>{`{ x: 18, y: 0 }`}</code>, barrel <code>{`{ x: 2, y: 0 }`}</code>,
+                plant <code>{`{ x: 4, y: 11 }`}</code>, skull <code>{`{ x: 19, y: 8 }`}</code>
+            </p>
+        </section>
     );
 }
 
