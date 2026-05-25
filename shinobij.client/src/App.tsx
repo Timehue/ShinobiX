@@ -42,10 +42,17 @@ import { AiImagePrompt } from "./components/AiImagePrompt";
 import { PetBattleAvatar, PetArenaCard } from "./components/PetBattleAvatar";
 import { TagPicker } from "./components/TagPicker";
 import { Village } from "./screens/Village";
+import { ProfessionPicker } from "./screens/ProfessionPicker";
+import { DailyProfessionMissions } from "./screens/DailyProfessionMissions";
+import { ClanSealPool } from "./screens/ClanSealPool";
+
+export type Profession = "healer" | "vanguard" | "petTamer";
+
 export type Screen =
     | "start"
     | "adminLogin"
     | "adminPanel"
+    | "professionPicker"
     | "village"
     | "villageLore"
     | "profile"
@@ -512,6 +519,15 @@ export type Character = {
     mythicSeals: number;
     clan?: string;
     clanFounder?: boolean;
+    profession?: Profession;
+    professionRank?: number;
+    professionXp?: number;
+    professionChosenAt?: number;
+    // Vanguard daily tracking (separate reset date so Vanguard counters
+    // don't interfere with other daily counter resets).
+    dailyHonorSealsEarned?: number;
+    dailyHonorSealsByTarget?: Record<string, number>;
+    vanguardDailyResetDate?: string;
     clanBattleContrib: number;
     clanEventContrib: number;
     clanMissionContrib: number;
@@ -5927,6 +5943,111 @@ function gainXp(character: Character, amount: number): Character {
     return reconcileCharacterStatBudget(updated);
 }
 
+// ── Profession combat bonuses ────────────────────────────────────────────
+// Pet Tamer PvE pet damage multiplier: +5% at unlock, +1.5% per rank, capped
+// at +20% at Rank 10. PvE only — never apply in PvP per docs/professions.md.
+export function petTamerPveMultiplier(character: Character | null | undefined): number {
+    if (!character || character.profession !== "petTamer") return 1;
+    const rank = Math.max(0, Math.min(PROFESSION_MAX_RANK, character.professionRank ?? 1));
+    // Unlock = +5%; rank 1 = +6.5%; rank 10 = +20%.
+    const bonusPct = 5 + rank * 1.5;
+    return 1 + bonusPct / 100;
+}
+
+// ── Vanguard PvP rewards (Honor Seals + Vanguard XP) ──────────────────────
+// Strict-spec: only Vanguards earn Honor Seals from PvP. Non-Vanguards get 0.
+// Indexed by rank — idx 0 unused, rank 1..10 follows the docs/professions.md table.
+const VANGUARD_SEALS_PER_KILL = [0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5] as const;
+export const VANGUARD_DAILY_SEAL_CAP = 50;
+export const VANGUARD_PER_TARGET_DAILY_CAP = 3;
+
+// Vanguard XP per PvP kill: 100 base + 10 per target level above 30.
+export function vanguardXpForKill(opponent: Character | null | undefined): number {
+    if (!opponent) return 0;
+    const lvl = Number(opponent.level ?? 1);
+    return 100 + 10 * Math.max(0, lvl - 30);
+}
+
+// Apply level-gap rule from docs/professions.md anti-abuse table:
+//   within 10 levels = full reward; 10-20 below = 50%; >20 below = 0.
+// "Below" is from the attacker's perspective.
+function levelGapSealMultiplier(attackerLevel: number, opponentLevel: number): number {
+    const gap = attackerLevel - opponentLevel;
+    if (gap > 20) return 0;
+    if (gap > 10) return 0.5;
+    return 1;
+}
+
+// Compute Honor Seals earned for a PvP kill given Vanguard rank, level gap,
+// daily cap, and per-target cap. Returns {amount, byTarget} where byTarget is
+// the new count for that target today.
+export function vanguardSealsForKill(
+    killer: Character,
+    opponent: Character,
+    todayKey: string,
+): { amount: number; updatedByTarget: Record<string, number> } {
+    if (killer.profession !== "vanguard") return { amount: 0, updatedByTarget: killer.dailyHonorSealsByTarget ?? {} };
+
+    const rank = Math.max(1, Math.min(PROFESSION_MAX_RANK, killer.professionRank ?? 1));
+    const baseSeals = VANGUARD_SEALS_PER_KILL[rank];
+
+    const gapMult = levelGapSealMultiplier(killer.level, opponent.level);
+    let amount = Math.floor(baseSeals * gapMult);
+    if (amount <= 0) return { amount: 0, updatedByTarget: killer.dailyHonorSealsByTarget ?? {} };
+
+    // Daily cap.
+    const todayActive = killer.vanguardDailyResetDate === todayKey;
+    const dailySoFar = todayActive ? (killer.dailyHonorSealsEarned ?? 0) : 0;
+    const remainingDaily = Math.max(0, VANGUARD_DAILY_SEAL_CAP - dailySoFar);
+    amount = Math.min(amount, remainingDaily);
+
+    // Per-target daily cap.
+    const byTarget = todayActive ? (killer.dailyHonorSealsByTarget ?? {}) : {};
+    const targetName = opponent.name.toLowerCase();
+    const targetSoFar = byTarget[targetName] ?? 0;
+    const remainingForTarget = Math.max(0, VANGUARD_PER_TARGET_DAILY_CAP - targetSoFar);
+    amount = Math.min(amount, remainingForTarget);
+
+    if (amount <= 0) return { amount: 0, updatedByTarget: byTarget };
+
+    const updatedByTarget = { ...byTarget, [targetName]: targetSoFar + amount };
+    return { amount, updatedByTarget };
+}
+
+// ── Profession XP & rank progression ─────────────────────────────────────
+// Cumulative XP needed to reach each rank index (rank 1 = index 1, max = 10).
+// Baseline curve used by Vanguard and Pet Tamer; Healer scales by 1.5×.
+// See docs/professions.md "XP curves" section.
+const PROFESSION_XP_BASELINE = [0, 100, 350, 850, 1850, 3850, 7350, 12850, 20850, 32850, Infinity];
+const PROFESSION_XP_HEALER = PROFESSION_XP_BASELINE.map(v => v === Infinity ? v : Math.floor(v * 1.5));
+export const PROFESSION_MAX_RANK = 10;
+
+function professionThresholds(profession: Profession): readonly number[] {
+    return profession === "healer" ? PROFESSION_XP_HEALER : PROFESSION_XP_BASELINE;
+}
+
+export function getProfessionRankForXp(profession: Profession, xp: number): number {
+    const t = professionThresholds(profession);
+    let rank = 1;
+    for (let i = 1; i <= PROFESSION_MAX_RANK; i += 1) {
+        if (xp >= t[i]) rank = i + 1;
+    }
+    return Math.min(PROFESSION_MAX_RANK, rank);
+}
+
+// Award profession XP and auto-rank-up. No-op if the character has no
+// profession. Returns the updated character — caller should setCharacter().
+export function gainProfessionXp(character: Character, amount: number): Character {
+    if (!character.profession || amount <= 0) return character;
+    const nextXp = (character.professionXp ?? 0) + Math.floor(amount);
+    const nextRank = getProfessionRankForXp(character.profession, nextXp);
+    return {
+        ...character,
+        professionXp: nextXp,
+        professionRank: nextRank,
+    };
+}
+
 const rewardCurrencyOptions: Array<{ key: RewardCurrencyKey; label: string }> = [
     { key: "fateShards", label: "Fate Shards" },
     { key: "honorSeals", label: "Honor Seals" },
@@ -7402,6 +7523,17 @@ export default function App() {
         const t = setTimeout(() => setAchievementToasts(prev => prev.slice(1)), 4500);
         return () => clearTimeout(t);
     }, [achievementToasts]);
+
+    // ── Profession picker trigger ──────────────────────────────────────────
+    // Routes to the visual-novel profession picker when an eligible player
+    // (Level 13+, no profession set) lands on the village. We only intercept
+    // from "village" so we don't yank players out of battles, dungeons, etc.
+    useEffect(() => {
+        if (!character) return;
+        if (character.level >= 13 && !character.profession && screen === "village") {
+            setScreen("professionPicker");
+        }
+    }, [character?.level, character?.profession, screen]);
 
     // ── Viewport size detector ──────────────────────────────────────────────
     // Sets data-vp="xs|sm|md|lg|xl" on <html> so CSS can use attribute
@@ -11506,6 +11638,22 @@ export default function App() {
                     />
                 )}
 
+                {screen === "professionPicker" && character && (
+                    <ProfessionPicker
+                        character={character}
+                        setScreen={setScreen}
+                        onProfessionChosen={(profession) => {
+                            setCharacter({
+                                ...character,
+                                profession,
+                                professionRank: 1,
+                                professionXp: 0,
+                                professionChosenAt: Date.now(),
+                            });
+                        }}
+                    />
+                )}
+
                 {!activeTriggeredEvent && screen === "village" && character && (
                     <Village
                         characterVillage={character.village}
@@ -11860,21 +12008,55 @@ export default function App() {
                         const villageWarPvpPatch = opponent ? recordVillageWarPvp(character, opponent) : "";
                         const leveled = gainXp(character, xpGain);
                         const rewarded = grantTerritoryScrolls(leveled, 5);
+                        // Vanguard PvP rewards — Honor Seals + profession XP.
+                        // Strict spec: only Vanguards earn Seals from PvP kills.
+                        // PvpBattleScreen only runs for real human-vs-human PvP sessions
+                        // (AI battles use the Arena/storyBoss path), so reaching this
+                        // code already implies a human kill.
+                        const isFriendlyDuel = !context?.mode
+                            || (context.mode === "standard" && !context.clanWarPoints && !context.sectorAttack);
+                        const todayKey = currentDateKey();
+                        const sealResult = (opponent && !isFriendlyDuel)
+                            ? vanguardSealsForKill(rewarded, opponent, todayKey)
+                            : { amount: 0, updatedByTarget: rewarded.dailyHonorSealsByTarget ?? {} };
+                        const vanguardXpGain = (opponent && !isFriendlyDuel && rewarded.profession === "vanguard")
+                            ? vanguardXpForKill(opponent)
+                            : 0;
+                        const todayActive = rewarded.vanguardDailyResetDate === todayKey;
+                        const newDailySeals = (todayActive ? (rewarded.dailyHonorSealsEarned ?? 0) : 0) + sealResult.amount;
+                        const withProfXp = vanguardXpGain > 0 ? gainProfessionXp(rewarded, vanguardXpGain) : rewarded;
                         setCharacter({
-                            ...rewarded,
+                            ...withProfXp,
                             ...villageWarRaid.characterPatch,
-                            ryo: rewarded.ryo + ryoGain,
-                            honorSeals: (rewarded.honorSeals ?? 0) + 15,
-                            auraDust: (rewarded.auraDust ?? 0) + 6,
-                            inventory: villageWarRaid.warCrate ? [...rewarded.inventory, LEGENDARY_WAR_CRATE_ID] : rewarded.inventory,
-                            totalPvpKills: (rewarded.totalPvpKills ?? 0) + 1,
-                            monthlyPvpKills: (rewarded.monthlyPvpKills ?? 0) + 1,
+                            ryo: withProfXp.ryo + ryoGain,
+                            honorSeals: (withProfXp.honorSeals ?? 0) + sealResult.amount,
+                            auraDust: (withProfXp.auraDust ?? 0) + 6,
+                            inventory: villageWarRaid.warCrate ? [...withProfXp.inventory, LEGENDARY_WAR_CRATE_ID] : withProfXp.inventory,
+                            totalPvpKills: (withProfXp.totalPvpKills ?? 0) + 1,
+                            monthlyPvpKills: (withProfXp.monthlyPvpKills ?? 0) + 1,
                             pvpKillMonth: currentMonthKey(),
-                            rankedRating: (rewarded.rankedRating ?? 1000) + ratingGain,
-                            rankedWins: (rewarded.rankedWins ?? 0) + (ratingGain > 0 ? 1 : 0),
+                            rankedRating: (withProfXp.rankedRating ?? 1000) + ratingGain,
+                            rankedWins: (withProfXp.rankedWins ?? 0) + (ratingGain > 0 ? 1 : 0),
+                            dailyHonorSealsEarned: newDailySeals,
+                            dailyHonorSealsByTarget: sealResult.updatedByTarget,
+                            vanguardDailyResetDate: todayKey,
                         });
                         if (rewardSector > 0) recordMissionRaid(rewardSector);
                         if (villageWarPvpPatch) console.info(villageWarPvpPatch.trim());
+                        // Vanguard daily mission progress — server validates the
+                        // win against the actual PvpSession. Skipped for spar /
+                        // friendly duels (same gate as Honor Seal grant above).
+                        if (!isFriendlyDuel && opponent && rewarded.profession === "vanguard") {
+                            fetch('/api/missions/report-pvp-win', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    playerName: character.name,
+                                    battleId: pvpBattleId,
+                                    opponentName: opponent.name,
+                                }),
+                            }).catch(() => { /* mission progress is best-effort */ });
+                        }
                     }
                     return (
                         <PvpBattleScreen
@@ -12773,7 +12955,7 @@ function DungeonPetBattle({ character, updateCharacter, editablePets, onWin, onL
     function startBattle() {
         if (!selectedPet) return;
         if (isPetOnExpedition(selectedPet)) return alert(`${petDisplayName(selectedPet)} is exploring and cannot battle right now.`);
-        const battle = runPetArenaBattle(selectedPet, enemyPet, enemyOwner);
+        const battle = runPetArenaBattle(selectedPet, enemyPet, enemyOwner, Date.now(), petTamerPveMultiplier(character));
         setBattleFrames(battle.frames);
         setBattleObstacles(battle.obstacles);
         setFrameIndex(0);
@@ -13686,7 +13868,7 @@ function petBattleTieKey(pet: Pet) {
     return `${pet.speed}:${pet.id}:${pet.name}`;
 }
 
-function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: string, seed = Date.now()) {
+function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: string, seed = Date.now(), playerDamageMult = 1) {
     const rng = seededPetBattleRandom(seed);
     // 10×5 grid — player starts col 1 (tile 21), enemy starts col 8 (tile 28), distance = 7
     // Pick a random obstacle layout for this battle
@@ -13765,7 +13947,10 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
             const crit   = rng() < critChance;
             // Absorb stance reduces incoming damage by absorbPercent
             const absorbMult = target2.absorbRounds > 0 ? (1 - target2.absorbPercent) : 1;
-            const damage = Math.max(1, Math.floor(base * (crit ? 1.5 : 1) * dmgBonus * guardianBlock * absorbMult));
+            // Pet Tamer profession: +5–20% pet damage in PvE (player's pet only).
+            // Multiplier is computed at the call site and passed in via runPetArenaBattle.
+            const tamerMult = actorSide === "player" ? playerDamageMult : 1;
+            const damage = Math.max(1, Math.floor(base * (crit ? 1.5 : 1) * dmgBonus * guardianBlock * absorbMult * tamerMult));
             // Shield absorbs damage before HP
             const shieldAbsorb  = Math.min(target2.shieldHp, damage);
             const remainDamage  = damage - shieldAbsorb;
@@ -14093,7 +14278,7 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
         }
         const pendingClanPetBattle = loadPendingClanPetBattle();
         if (isPetOnExpedition(opponent.pet)) return alert(`${petDisplayName(opponent.pet)} is exploring and cannot battle right now.`);
-        const battle = runPetArenaBattle(selectedPet, opponent.pet, opponent.owner, opponent.battleSeed ?? Date.now());
+        const battle = runPetArenaBattle(selectedPet, opponent.pet, opponent.owner, opponent.battleSeed ?? Date.now(), petTamerPveMultiplier(character));
         setBattleOpponent(opponent);
         setBattleReady(true);
         setBattleLog(battle.logs);
@@ -20421,6 +20606,7 @@ function ClanHall({ character, updateCharacter, creatorItems }: { character: Cha
     return <div className="card clan-hall-screen">
         <div className="clan-header"><div className="clan-title-block"><ClanImageMark image={clanData.image} name={clanData.name} village={clanData.village} /><div><h2 style={{ margin: 0 }}>{clanData.name}</h2><p className="hint" style={{ margin: "2px 0 0" }}>{clanData.village} · {clanData.members.length} members · Level {clanData.level}</p><div className="clan-xp-track"><span style={{ width: `${Math.min(100, (clanData.xp / xpNeed) * 100)}%` }} /></div><small>{clanData.xp.toLocaleString()} / {xpNeed.toLocaleString()} Clan XP</small></div></div><div className="clan-my-badge"><span className="clan-rank-badge" style={{ background: CLAN_RANK_COLOR[myRank] + "22", color: CLAN_RANK_COLOR[myRank], borderColor: CLAN_RANK_COLOR[myRank] + "55" }}>{CLAN_RANK_ICON[myRank]} {myRank}</span><span className="clan-role-badge">{CLAN_ROLE_ICON[myRole]} {myRole}</span><span className="clan-my-contrib">{myContrib} pts this month</span></div></div>
         <div className="clan-buff-banner"><strong>Active Clan Boosts</strong>{clanBuffs.length === 0 ? <span>No clan boosts yet — recruit at least 3 members.</span> : clanBuffs.map(buff => <span key={buff.label}>{buff.label} +{buff.value.toFixed(2)}%</span>)}</div>
+        <ClanSealPool character={character} updateCharacter={updateCharacter} />
         <div className="clan-tabs expanded-tabs"><button className={view === "roster" ? "active" : ""} onClick={() => setView("roster")}>👥 Roster</button><button className={view === "treasury" ? "active" : ""} onClick={() => setView("treasury")}>Treasury</button><button className={view === "boosts" ? "active" : ""} onClick={() => setView("boosts")}>⬆️ Boosts</button><button className={view === "missions" ? "active" : ""} onClick={() => setView("missions")}>📜 Missions</button><button className={view === "wars" ? "active" : ""} onClick={() => setView("wars")}>⚔️ Wars</button><button className={view === "territory" ? "active" : ""} onClick={() => setView("territory")}>🗺️ Territory</button><button className={view === "guard" ? "active" : ""} onClick={() => setView("guard")}>Guard</button><button className={view === "notices" ? "active" : ""} onClick={() => setView("notices")}>📋 Notices</button><button className={view === "hall" ? "active" : ""} onClick={() => setView("hall")}>🏯 Hall</button></div>
         {view === "roster" && <div className="clan-roster">{canReviewJoinRequests && <section className="summary-box clan-join-requests"><h3>Join Requests</h3>{clanData.joinRequests.length === 0 ? <p className="hint">No pending join requests.</p> : <div className="clan-request-list">{clanData.joinRequests.map(request => <div className="clan-request-card" key={request.name}><div><strong>{request.name}</strong><small>Lv.{request.level} · {request.specialty} · {request.village}</small><small>Requested {new Date(request.requestedAt).toLocaleString()}</small></div><div className="menu"><button onClick={() => acceptJoinRequest(request)}>Accept</button><button className="danger-button" onClick={() => denyJoinRequest(request)}>Deny</button></div></div>)}</div>}</section>}<div className="clan-roster-header clan-roster-header-wide"><span>#</span><span>Member</span><span>Rank</span><span>Role</span><span>Contribution</span></div>{sortedMembers.map((member, idx) => { const rank = clanRankOf(member, clanData.members, clanData.founderName); const role = clanRoleOf(member, clanData); const contrib = clanContribTotal(member); const isMe = member.name === character.name; const rankColor = CLAN_RANK_COLOR[rank]; return <div key={member.name} className={`clan-member-row clan-member-row-wide${isMe ? " clan-member-me" : ""}`}><span className="clan-member-pos">#{idx + 1}</span><div className="clan-member-info"><span className="clan-member-name">{member.name}{isMe ? " ⭐" : ""}</span><span className="clan-member-sub">Lv.{member.level} · {member.specialty}</span></div><span className="clan-rank-badge" style={{ background: rankColor + "1a", color: rankColor, borderColor: rankColor + "44" }}>{CLAN_RANK_ICON[rank]} {rank}</span><span className="clan-role-badge">{CLAN_ROLE_ICON[role]} {role}</span><div className="clan-contrib-col"><span className="clan-contrib-total">{contrib} pts</span><span className="clan-contrib-breakdown">⚔️{member.battleContrib} 🎯{member.eventContrib} 📜{member.missionContrib}</span></div></div>; })}<div className="summary-box clan-rank-legend"><strong style={{ fontSize: "0.8rem", color: "#94a3b8" }}>Permissions</strong><p className="hint">Founder, Leader, and Clan Elders can approve join requests. Founder, Leader, and Officer can start clan wars.</p></div></div>}
         {view === "treasury" && <div className="summary-box"><h3>💰 Clan Treasury</h3><div className="treasury-grid"><p><strong>Ryo:</strong> {clanData.treasury.ryo.toLocaleString()}</p><p><strong>Fate Shards:</strong> {clanData.treasury.fateShards}</p><p><strong>Bone Charms:</strong> {clanData.treasury.boneCharms}</p><p><strong>Aura Stones:</strong> {clanData.treasury.auraStones}</p><p><strong>Mythic Seals:</strong> {clanData.treasury.mythicSeals}</p><p><strong>War Supply:</strong> {clanData.treasury.warSupply.toLocaleString()}</p></div><label>Donate Ryo</label><input type="number" value={donation} onChange={(e) => setDonation(Number(e.target.value))} /><div className="menu"><button onClick={donateRyo}>Donate Ryo</button><button onClick={() => donateSpecial("fateShards", 1)}>Donate 1 Fate Shard</button><button onClick={() => donateSpecial("boneCharms", 1)}>Donate 1 Bone Charm</button><button onClick={() => donateSpecial("auraStones", 1)}>Donate 1 Aura Stone</button><button onClick={() => donateSpecial("mythicSeals", 1)}>Donate 1 Mythic Seal</button></div><label>Donate Item</label><select value={clanDonateItemId} onChange={(e) => setClanDonateItemId(e.target.value)}><option value="">Choose item</option>{clanInventoryStacks.map(stack => <option key={stack.itemId} value={stack.itemId}>{stack.name} x{stack.count}</option>)}</select><button onClick={donateClanItem} disabled={!clanDonateItemId}>Donate Item</button><h4>Treasury Items</h4>{clanTreasuryItems.length === 0 ? <p className="hint">No donated items yet.</p> : <div className="treasury-grid">{clanTreasuryItems.map(stack => <p key={stack.itemId}><strong>{itemDisplayName(stack.itemId, allClanItems)}:</strong> x{stack.count}</p>)}</div>}{canManageClan(myRole) && <section className="summary-box"><h3>Send Treasury Resources</h3><p className="hint">Clan leadership can send donated resources or items to clan members.</p><label>Recipient</label><select value={clanSendPlayer} onChange={(e) => setClanSendPlayer(e.target.value)}><option value="">Choose clan member</option>{sortedMembers.map(member => <option key={member.name} value={member.name}>{member.name}</option>)}</select><label>Resource</label><select value={clanSendCurrency} onChange={(e) => setClanSendCurrency(e.target.value as ClanTreasuryCurrencyKey)}><option value="ryo">Ryo</option><option value="fateShards">Fate Shards</option><option value="boneCharms">Bone Charms</option><option value="auraStones">Aura Stones</option><option value="mythicSeals">Mythic Seals</option></select><input type="number" min={1} value={clanSendAmount} onChange={(e) => setClanSendAmount(Number(e.target.value))} /><div className="menu"><button onClick={sendClanCurrency}>Send Resource</button></div><label>Item</label><select value={clanSendItemId} onChange={(e) => setClanSendItemId(e.target.value)}><option value="">Choose treasury item</option>{clanTreasuryItems.map(stack => <option key={stack.itemId} value={stack.itemId}>{itemDisplayName(stack.itemId, allClanItems)} x{stack.count}</option>)}</select><button onClick={sendClanItem} disabled={!clanSendItemId}>Send Item</button></section>}<p className="hint">Donations add clan XP and treasury resources.</p></div>}
@@ -25492,6 +25678,158 @@ function Training({ character, updateCharacter, activeTraining, setActiveTrainin
     );
 }
 
+// Honor Seal sinks: Vanguards (and clan-donated recipients later) spend Seals
+// to (1) level a jutsu from 30→40 without grinding PvP, and (2) skip jutsu
+// training time. Both endpoints live in api/jutsu/ and apply the Vanguard
+// Rank 8+ 10% discount server-side. Server is source of truth for Seal
+// debits and jutsu levels; client mirrors locally on success.
+const SEAL_COST_BY_FROM_LEVEL: Record<number, number> = {
+    30: 20, 31: 25, 32: 30, 33: 35, 34: 40,
+    35: 45, 36: 50, 37: 55, 38: 60, 39: 65,
+};
+
+function previewSealCost(fromLevel: number, character: Character): number {
+    const base = SEAL_COST_BY_FROM_LEVEL[fromLevel] ?? 0;
+    if (base === 0) return 0;
+    if (character.profession === "vanguard" && (character.professionRank ?? 0) >= 8) {
+        return Math.ceil(base * 0.9);
+    }
+    return base;
+}
+
+function JutsuSealPanel({
+    character,
+    updateCharacter,
+    selectedJutsu,
+    selectedMastery,
+    activeJutsuTraining,
+    setActiveJutsuTraining,
+}: {
+    character: Character;
+    updateCharacter: (c: Character) => void;
+    selectedJutsu: Jutsu | null;
+    selectedMastery: JutsuMastery | null;
+    activeJutsuTraining: ActiveJutsuTraining | null;
+    setActiveJutsuTraining: (training: ActiveJutsuTraining | null) => void;
+}) {
+    const [busy, setBusy] = useState(false);
+    const [msg, setMsg] = useState<string | null>(null);
+
+    const hasDiscount = character.profession === "vanguard" && (character.professionRank ?? 0) >= 8;
+    const fromLevel = selectedMastery?.level ?? 0;
+    const eligibleForSealLevel = !!selectedJutsu && fromLevel >= 30 && fromLevel < 40;
+    const sealLevelCost = eligibleForSealLevel ? previewSealCost(fromLevel, character) : 0;
+    const balance = character.honorSeals ?? 0;
+
+    async function trainWithSeals() {
+        if (!selectedJutsu || !eligibleForSealLevel || busy) return;
+        setBusy(true);
+        setMsg(null);
+        try {
+            const res = await fetch('/api/jutsu/train-with-seals', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ playerName: character.name, jutsuId: selectedJutsu.id }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                setMsg(`❌ ${data.error ?? 'Failed'}`);
+                setBusy(false);
+                return;
+            }
+            // Mirror server-side mutations locally.
+            const existing = character.jutsuMastery?.length ? character.jutsuMastery : [];
+            const newMastery = [
+                ...existing.filter(m => m.jutsuId !== selectedJutsu.id),
+                { jutsuId: selectedJutsu.id, level: Number(data.newLevel), xp: 0 },
+            ];
+            updateCharacter({
+                ...character,
+                honorSeals: Number(data.honorSealsRemaining),
+                jutsuMastery: newMastery,
+            });
+            setMsg(`✅ ${selectedJutsu.name} → Lv ${data.newLevel} (spent ${data.sealsSpent} Seals)`);
+        } catch {
+            setMsg('❌ Network error');
+        }
+        setBusy(false);
+    }
+
+    async function speedUp(sealsRequested: number) {
+        if (!activeJutsuTraining || busy) return;
+        setBusy(true);
+        setMsg(null);
+        try {
+            const res = await fetch('/api/jutsu/speedup', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ playerName: character.name, seals: sealsRequested }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                setMsg(`❌ ${data.error ?? 'Failed'}`);
+                setBusy(false);
+                return;
+            }
+            const minutesReduced: number = Number(data.minutesReduced ?? 0);
+            const reductionMs = minutesReduced * 60 * 1000;
+            setActiveJutsuTraining({
+                ...activeJutsuTraining,
+                endsAt: Math.max(Date.now(), activeJutsuTraining.endsAt - reductionMs),
+            });
+            updateCharacter({ ...character, honorSeals: Number(data.honorSealsRemaining) });
+            setMsg(`✅ -${minutesReduced} min (spent ${data.sealsSpent} Seals)`);
+        } catch {
+            setMsg('❌ Network error');
+        }
+        setBusy(false);
+    }
+
+    return (
+        <div className="summary-box" style={{ background: "linear-gradient(180deg, rgba(250,204,21,0.10), rgba(8,10,22,0.4))", border: "1px solid rgba(250,204,21,0.45)", marginBottom: "0.75rem" }}>
+            <strong style={{ color: "#facc15" }}>🏅 Honor Seal Training</strong>
+            <span className="hint" style={{ marginLeft: 10 }}>
+                Balance: <strong style={{ color: "#facc15" }}>{balance.toLocaleString()}</strong>
+                {hasDiscount && <span style={{ marginLeft: 8, color: "#f97316" }}> · Vanguard 10% off</span>}
+            </span>
+            <p className="hint" style={{ margin: "6px 0 8px", fontSize: "0.8rem" }}>
+                Skip the PvP grind for jutsu levels 30→40, or shave time off active training.
+                Levels 40+ still require PvP.
+            </p>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {selectedJutsu && eligibleForSealLevel ? (
+                    <button
+                        onClick={() => void trainWithSeals()}
+                        disabled={busy || balance < sealLevelCost}
+                        style={{ background: "linear-gradient(#854d0e,#422006)", borderColor: "#facc15" }}
+                    >
+                        {busy ? "…" : `Pay ${sealLevelCost} Seals → Lv ${fromLevel + 1}`}
+                    </button>
+                ) : (
+                    <span className="hint" style={{ fontSize: "0.78rem" }}>
+                        {selectedJutsu
+                            ? (fromLevel < 30
+                                ? `Selected jutsu is Lv ${fromLevel} — train it to Lv 30 with ryo first.`
+                                : `Selected jutsu is at the Seal-training cap (Lv 40). PvP from here.`)
+                            : "Select a jutsu to see Seal training cost."}
+                    </span>
+                )}
+                {activeJutsuTraining && Date.now() < activeJutsuTraining.endsAt && (
+                    <>
+                        <button onClick={() => void speedUp(1)} disabled={busy || balance < (hasDiscount ? 1 : 1)} style={{ background: "linear-gradient(#422006,#1c1006)", borderColor: "#fde68a" }}>
+                            {busy ? "…" : "−10 min (1 Seal)"}
+                        </button>
+                        <button onClick={() => void speedUp(10)} disabled={busy || balance < (hasDiscount ? 9 : 10)} style={{ background: "linear-gradient(#422006,#1c1006)", borderColor: "#fde68a" }}>
+                            {busy ? "…" : `Finish now (${hasDiscount ? 9 : 10} Seals)`}
+                        </button>
+                    </>
+                )}
+            </div>
+            {msg && <p className="hint" style={{ margin: "8px 0 0", color: msg.startsWith("✅") ? "#facc15" : "#f87171" }}>{msg}</p>}
+        </div>
+    );
+}
+
 function JutsuTrainingHall({
     character,
     updateCharacter,
@@ -25604,7 +25942,7 @@ function JutsuTrainingHall({
     const selectedDuration = selectedMastery ? jutsuTrainingDuration(selectedMastery.level) : 0;
     const activeRemaining = activeJutsuTraining ? activeJutsuTraining.endsAt - now : 0;
 
-    return <div className="card jutsu-training-screen"><h2>Jutsu Training Hall</h2><p>Train jutsu to <strong>Level 30</strong> with ryo. Levels <strong>31-50</strong> must be earned from battles. Your elements: <strong>{ownedElements.length ? ownedElements.join(" / ") : "None awakened"}</strong>. Town Hall + Aura training bonus: <strong>{jutsuTrainingBonus.toFixed(2)}%</strong>.</p>{lockedElementCount > 0 && <p className="hint">{lockedElementCount} jutsu locked until you awaken their element.</p>}{activeJutsuTraining && <div className="summary-box"><h3>Active Jutsu Training</h3><p><strong>{activeJutsuTraining.label}</strong>: Level {activeJutsuTraining.fromLevel} ? {activeJutsuTraining.toLevel}</p><p>Cost paid: {activeJutsuTraining.ryoCost} ryo</p><p>{activeRemaining > 0 ? `Time remaining: ${formatTrainingTime(activeRemaining)}` : "Training complete. Claim your level."}</p><button onClick={completePaidJutsuTraining}>{activeRemaining > 0 ? "Check Training" : "Claim Jutsu Level"}</button></div>}<h3>Paid Ryo Training</h3><div className="summary-box"><p>{selectedJutsu ? <><strong>{selectedJutsu.name}</strong> will train from level {selectedMastery?.level ?? 0} to {Math.min(JUTSU_TRAINING_CAP, (selectedMastery?.level ?? 0) + 1)}.</> : "Choose a jutsu to train."}</p><p>{selectedMastery?.level === 0 ? <><strong>Free & Instant</strong> — Level 0 → 1</> : <>Cost: <strong>{selectedCost}</strong> ryo | Time: <strong>{selectedDuration / 60000}</strong> minutes | Reward: <strong>1 full jutsu level</strong></>}</p><button onClick={startPaidJutsuTraining} disabled={!selectedJutsu || !!activeJutsuTraining || !selectedMastery || selectedMastery.level >= JUTSU_TRAINING_CAP || (selectedMastery.level > 0 && character.ryo < selectedCost)}>{activeJutsuTraining ? "Training In Progress" : selectedMastery && selectedMastery.level >= JUTSU_TRAINING_CAP ? "Battle Training Required" : selectedMastery?.level === 0 ? "Unlock Level 1 (Free)" : `Pay ${selectedCost} Ryo & Train`}</button></div><JutsuDropdownList jutsus={availableJutsus} label="Choose Jutsu" emptyText={ownedElements.length ? "No jutsu match your awakened elements." : "Awaken an element at the Awakening Stone before training elemental jutsu."} renderDetails={(jutsu) => { const mastery = getJutsuMastery(character, jutsu.id); const scaled = scaleJutsuByLevel(jutsu, mastery.level); const cost = jutsuTrainingCost(mastery.level); const duration = jutsuTrainingDuration(mastery.level); const displayJutsu = jutsuDisplayAtLevel(jutsu, mastery.level); return <><p>Level: {mastery.level}/50 | XP: {mastery.xp}/{mastery.level >= 50 ? "MAX" : jutsuXpNeeded(mastery.level)}</p><p>Type: {jutsu.type} | Element: {jutsu.element} | AP: {jutsu.ap} | Range: {jutsu.range}</p><p>Scaled EP: {scaled.scaledEffectPower} | Chakra Cost: {scaled.chakraCost}% | Stamina Cost: {scaled.staminaCost}%</p><p>Tags: {displayJutsu.tags.map((tag) => `${tag.name}${tag.percent ? ` ${tag.percent}%` : ""}`).join(", ") || "None"}</p><p><strong>Paid Training:</strong> {mastery.level === 0 ? "Free & Instant — unlocks Level 1" : mastery.level < JUTSU_TRAINING_CAP ? `${cost} ryo | ${duration / 60000} minutes | +1 full level` : "Battle only from here"}</p><p><strong>Effects:</strong> {describeJutsuEffects(jutsu, mastery.level)}</p><JutsuEffectCards jutsu={jutsu} scaledEffectPower={scaled.scaledEffectPower} masteryLevel={mastery.level} /><p>{selectedJutsuId === jutsu.id ? "Selected for paid training." : mastery.level < 30 ? "Training Hall available." : mastery.level < 50 ? "Battle only." : "Mastered."}</p></>; }} onSelectJutsu={(jutsu) => setSelectedJutsuId(jutsu.id)} /></div>;
+    return <div className="card jutsu-training-screen"><JutsuSealPanel character={character} updateCharacter={updateCharacter} selectedJutsu={selectedJutsu ?? null} selectedMastery={selectedMastery} activeJutsuTraining={activeJutsuTraining} setActiveJutsuTraining={setActiveJutsuTraining} /><h2>Jutsu Training Hall</h2><p>Train jutsu to <strong>Level 30</strong> with ryo. Levels <strong>31-50</strong> must be earned from battles. Your elements: <strong>{ownedElements.length ? ownedElements.join(" / ") : "None awakened"}</strong>. Town Hall + Aura training bonus: <strong>{jutsuTrainingBonus.toFixed(2)}%</strong>.</p>{lockedElementCount > 0 && <p className="hint">{lockedElementCount} jutsu locked until you awaken their element.</p>}{activeJutsuTraining && <div className="summary-box"><h3>Active Jutsu Training</h3><p><strong>{activeJutsuTraining.label}</strong>: Level {activeJutsuTraining.fromLevel} ? {activeJutsuTraining.toLevel}</p><p>Cost paid: {activeJutsuTraining.ryoCost} ryo</p><p>{activeRemaining > 0 ? `Time remaining: ${formatTrainingTime(activeRemaining)}` : "Training complete. Claim your level."}</p><button onClick={completePaidJutsuTraining}>{activeRemaining > 0 ? "Check Training" : "Claim Jutsu Level"}</button></div>}<h3>Paid Ryo Training</h3><div className="summary-box"><p>{selectedJutsu ? <><strong>{selectedJutsu.name}</strong> will train from level {selectedMastery?.level ?? 0} to {Math.min(JUTSU_TRAINING_CAP, (selectedMastery?.level ?? 0) + 1)}.</> : "Choose a jutsu to train."}</p><p>{selectedMastery?.level === 0 ? <><strong>Free & Instant</strong> — Level 0 → 1</> : <>Cost: <strong>{selectedCost}</strong> ryo | Time: <strong>{selectedDuration / 60000}</strong> minutes | Reward: <strong>1 full jutsu level</strong></>}</p><button onClick={startPaidJutsuTraining} disabled={!selectedJutsu || !!activeJutsuTraining || !selectedMastery || selectedMastery.level >= JUTSU_TRAINING_CAP || (selectedMastery.level > 0 && character.ryo < selectedCost)}>{activeJutsuTraining ? "Training In Progress" : selectedMastery && selectedMastery.level >= JUTSU_TRAINING_CAP ? "Battle Training Required" : selectedMastery?.level === 0 ? "Unlock Level 1 (Free)" : `Pay ${selectedCost} Ryo & Train`}</button></div><JutsuDropdownList jutsus={availableJutsus} label="Choose Jutsu" emptyText={ownedElements.length ? "No jutsu match your awakened elements." : "Awaken an element at the Awakening Stone before training elemental jutsu."} renderDetails={(jutsu) => { const mastery = getJutsuMastery(character, jutsu.id); const scaled = scaleJutsuByLevel(jutsu, mastery.level); const cost = jutsuTrainingCost(mastery.level); const duration = jutsuTrainingDuration(mastery.level); const displayJutsu = jutsuDisplayAtLevel(jutsu, mastery.level); return <><p>Level: {mastery.level}/50 | XP: {mastery.xp}/{mastery.level >= 50 ? "MAX" : jutsuXpNeeded(mastery.level)}</p><p>Type: {jutsu.type} | Element: {jutsu.element} | AP: {jutsu.ap} | Range: {jutsu.range}</p><p>Scaled EP: {scaled.scaledEffectPower} | Chakra Cost: {scaled.chakraCost}% | Stamina Cost: {scaled.staminaCost}%</p><p>Tags: {displayJutsu.tags.map((tag) => `${tag.name}${tag.percent ? ` ${tag.percent}%` : ""}`).join(", ") || "None"}</p><p><strong>Paid Training:</strong> {mastery.level === 0 ? "Free & Instant — unlocks Level 1" : mastery.level < JUTSU_TRAINING_CAP ? `${cost} ryo | ${duration / 60000} minutes | +1 full level` : "Battle only from here"}</p><p><strong>Effects:</strong> {describeJutsuEffects(jutsu, mastery.level)}</p><JutsuEffectCards jutsu={jutsu} scaledEffectPower={scaled.scaledEffectPower} masteryLevel={mastery.level} /><p>{selectedJutsuId === jutsu.id ? "Selected for paid training." : mastery.level < 30 ? "Training Hall available." : mastery.level < 50 ? "Battle only." : "Mastered."}</p></>; }} onSelectJutsu={(jutsu) => setSelectedJutsuId(jutsu.id)} /></div>;
 }
 
 function CardVisual({ image, icon, label }: { image?: string; icon?: string; label: string }) {
@@ -25685,6 +26023,9 @@ function Missions({
                     </div>
                 </div>
             </div>
+
+            {/* -- Daily Profession Missions (Healer / Vanguard) -- */}
+            {character.profession && <DailyProfessionMissions character={character} />}
 
             {/* -- Combat Missions -- */}
             <section className="mh-section">
