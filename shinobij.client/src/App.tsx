@@ -7468,6 +7468,22 @@ export default function App() {
     const [currentAccountName, setCurrentAccountName] = useState("");
     const [viewingUserName, setViewingUserName] = useState<string | null>(null);
 
+    // ── Last-screen persistence ─────────────────────────────────────────
+    // Refresh used to dump the player back to the village every time because
+    // (1) the initial state is "start" and (2) the snapshot loader hard-codes
+    // setScreen("village") after login. Persisting the active screen to
+    // localStorage and letting the snapshot loader read it back keeps the
+    // player roughly where they left off after a refresh.
+    //
+    // Mid-encounter screens (arena, petArena, hollowGateTiles) hold ephemeral
+    // React state that can't actually resume from disk; for those we route to
+    // the safest parent (hollowGateShrine when a run is in progress; village
+    // otherwise) so the player never lands in a broken half-loaded battle.
+    const LAST_SCREEN_KEY = "lastScreen.v1";
+    useEffect(() => {
+        try { localStorage.setItem(LAST_SCREEN_KEY, screen); } catch { /* quota / SSR */ }
+    }, [screen]);
+
     // ── Tab visibility: pause all polling when the browser tab is hidden ──
     const [tabVisible, setTabVisible] = useState(() => typeof document !== "undefined" ? document.visibilityState === "visible" : true);
     useEffect(() => {
@@ -8158,7 +8174,43 @@ export default function App() {
             if (snap.petEncounterVn) setPetEncounterVn(snap.petEncounterVn);
             if (snap.ancientChestVn) setAncientChestVn(snap.ancientChestVn);
             if (snap.editablePets) setEditablePets(mergeMissingBuiltInPets(snap.editablePets));
-            setScreen("village");
+            // Restore the screen the player left off on instead of always
+            // dumping them back into the village. Mid-encounter screens are
+            // remapped because their React-only ephemeral state (battle
+            // frames, pending opponents, pending modals) can't actually
+            // resume from disk.
+            (() => {
+                let target: Screen = "village";
+                try {
+                    const persisted = localStorage.getItem(LAST_SCREEN_KEY) as Screen | null;
+                    if (persisted) {
+                        const inHollowGateRun = Boolean(normalized.hollowGateRun && !normalized.hollowGateRun.completed);
+                        // Battle screens (arena, petArena) can't resume cleanly.
+                        // hollowGateTiles likewise depends on ephemeral state.
+                        const UNSAFE: Screen[] = ["arena", "pvpBattle", "petArena", "hollowGateTiles"];
+                        if (UNSAFE.includes(persisted)) {
+                            target = inHollowGateRun ? "hollowGateShrine" : "village";
+                        } else if (persisted === "start") {
+                            target = "village";
+                        } else {
+                            target = persisted;
+                        }
+                    }
+                } catch { /* localStorage unavailable — default to village */ }
+                // If we're landing back on the shrine, hydrate the local run
+                // state from the character's saved run. Otherwise the screen
+                // renders blank because the gate guard requires hollowGateRun.
+                if (target === "hollowGateShrine" && normalized.hollowGateRun && !normalized.hollowGateRun.completed) {
+                    setHollowGateRun(normalized.hollowGateRun);
+                    setCurrentBiome("shadow");
+                    setCurrentWeather(weatherForBiome("shadow"));
+                } else if (target === "hollowGateShrine") {
+                    // No active run — bounce back to village rather than
+                    // staring at an empty shrine screen.
+                    target = "village";
+                }
+                setScreen(target);
+            })();
             // Re-hydrate images after KV restore — clears the loaded-cats guard so
             // loadCategory fires again and overwrites the empty image strings that
             // pushSaveToServer strips before sending to KV.
