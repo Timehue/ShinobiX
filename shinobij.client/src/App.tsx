@@ -18985,7 +18985,37 @@ function KenneyAtlasPicker({
     sharedImages: Record<string, string>;
     setSharedImages: Dispatch<SetStateAction<Record<string, string>>>;
 }) {
+    // ── Atlas registry ────────────────────────────────────────────────────
+    // Drop additional Kenney CC0 packs into shinobij.client/public/assets/
+    // dungeon/ and add them here. Each entry is a candidate the user can
+    // pick from the dropdown. The custom-URL field below also lets them
+    // load any URL ad-hoc without editing this list.
+    const KNOWN_ATLASES: Array<{ id: string; label: string; url: string; tileSize: number; gap: number }> = [
+        { id: "caves",        label: "Kenney — Roguelike Caves & Dungeons (terrain)", url: "/assets/dungeon/tilemap.png",      tileSize: 16, gap: 1 },
+        { id: "tiny-dungeon", label: "Kenney — Tiny Dungeon (chars + items)",         url: "/assets/dungeon/tiny-dungeon.png", tileSize: 16, gap: 1 },
+        { id: "characters",   label: "Kenney — Roguelike Characters",                 url: "/assets/dungeon/characters.png",   tileSize: 16, gap: 1 },
+    ];
+    const PICKER_LS_KEY = "hollowGate.atlasPicker.config.v1";
+
+    // Hydrate from localStorage so admin doesn't lose their atlas selection
+    // when the page reloads.
+    const loadInitial = (): { url: string; tileSize: number; gap: number } => {
+        try {
+            const raw = localStorage.getItem(PICKER_LS_KEY);
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (parsed.url && typeof parsed.tileSize === "number") return parsed;
+            }
+        } catch { /* ignore */ }
+        return { url: KNOWN_ATLASES[0].url, tileSize: 16, gap: 1 };
+    };
+
+    const initial = loadInitial();
+    const [atlasUrlInput, setAtlasUrlInput] = useState(initial.url);
+    const [atlasTileSize, setAtlasTileSize] = useState(initial.tileSize);
+    const [atlasGap, setAtlasGap] = useState(initial.gap);
     const [atlas, setAtlas] = useState<{ url: string; w: number; h: number; tileSize: number; gap: number; img: HTMLImageElement } | null>(null);
+    const [loadError, setLoadError] = useState<string>("");
     const [hoverCoord, setHoverCoord] = useState<{ x: number; y: number } | null>(null);
     const [pickedCoord, setPickedCoord] = useState<{ x: number; y: number } | null>(null);
     const [zoom, setZoom] = useState(3);
@@ -18995,28 +19025,104 @@ function KenneyAtlasPicker({
     const [busySlot, setBusySlot] = useState<string>("");
     const [savedToast, setSavedToast] = useState<{ slot: string; ts: number } | null>(null);
 
+    // Re-load whenever the URL / tile-size / gap inputs change. Debounce-free
+    // since each user action (Load click, dropdown change) updates state.
     useEffect(() => {
+        setLoadError("");
         const img = new Image();
         img.onload = () => {
             setAtlas({
                 url: img.src,
                 w: img.naturalWidth,
                 h: img.naturalHeight,
-                tileSize: 16,
-                gap: 1,
+                tileSize: atlasTileSize,
+                gap: atlasGap,
                 img,
             });
+            try {
+                localStorage.setItem(PICKER_LS_KEY, JSON.stringify({
+                    url: atlasUrlInput,
+                    tileSize: atlasTileSize,
+                    gap: atlasGap,
+                }));
+            } catch { /* ignore */ }
         };
-        img.onerror = () => setAtlas(null);
-        img.src = "/assets/dungeon/tilemap.png";
-    }, []);
+        img.onerror = () => {
+            setAtlas(null);
+            setLoadError(`Couldn't load "${atlasUrlInput}". Drop the PNG into shinobij.client/public/assets/dungeon/ first.`);
+        };
+        img.src = atlasUrlInput;
+    }, [atlasUrlInput, atlasTileSize, atlasGap]);
+
+    const atlasConfigBar = (
+        <div style={{ marginBottom: 10, padding: 10, background: "rgba(15,9,28,0.6)", borderRadius: 6, border: "1px solid rgba(168,85,247,0.25)" }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "end", flexWrap: "wrap", fontSize: 13 }}>
+                <label style={{ display: "grid", gap: 2, flex: "1 1 280px", minWidth: 240 }}>
+                    <span style={{ color: "#c4b5fd" }}>Atlas URL</span>
+                    <input
+                        type="text"
+                        value={atlasUrlInput}
+                        onChange={(e) => setAtlasUrlInput(e.target.value)}
+                        placeholder="/assets/dungeon/tilemap.png"
+                        style={{ padding: "4px 8px", background: "rgba(0,0,0,0.4)", color: "#e9d5ff", border: "1px solid rgba(168,85,247,0.4)", borderRadius: 4, fontFamily: "monospace", fontSize: 12 }}
+                    />
+                </label>
+                <label style={{ display: "grid", gap: 2 }}>
+                    <span style={{ color: "#c4b5fd" }}>Tile size</span>
+                    <input
+                        type="number" min={4} max={64}
+                        value={atlasTileSize}
+                        onChange={(e) => setAtlasTileSize(Math.max(4, Number(e.target.value) || 16))}
+                        style={{ width: 60, padding: "4px 6px", background: "rgba(0,0,0,0.4)", color: "#e9d5ff", border: "1px solid rgba(168,85,247,0.4)", borderRadius: 4 }}
+                    />
+                </label>
+                <label style={{ display: "grid", gap: 2 }}>
+                    <span style={{ color: "#c4b5fd" }}>Gap (px)</span>
+                    <input
+                        type="number" min={0} max={8}
+                        value={atlasGap}
+                        onChange={(e) => setAtlasGap(Math.max(0, Number(e.target.value) || 0))}
+                        style={{ width: 60, padding: "4px 6px", background: "rgba(0,0,0,0.4)", color: "#e9d5ff", border: "1px solid rgba(168,85,247,0.4)", borderRadius: 4 }}
+                    />
+                </label>
+                <label style={{ display: "grid", gap: 2, flex: "1 1 200px" }}>
+                    <span style={{ color: "#c4b5fd" }}>Known atlases</span>
+                    <select
+                        value=""
+                        onChange={(e) => {
+                            const pick = KNOWN_ATLASES.find(a => a.id === e.target.value);
+                            if (!pick) return;
+                            setAtlasUrlInput(pick.url);
+                            setAtlasTileSize(pick.tileSize);
+                            setAtlasGap(pick.gap);
+                        }}
+                        style={{ padding: "4px 8px", background: "rgba(0,0,0,0.4)", color: "#e9d5ff", border: "1px solid rgba(168,85,247,0.4)", borderRadius: 4 }}
+                    >
+                        <option value="">— Load preset —</option>
+                        {KNOWN_ATLASES.map(a => <option key={a.id} value={a.id}>{a.label}</option>)}
+                    </select>
+                </label>
+            </div>
+            {loadError && (
+                <p className="hint" style={{ marginTop: 6, color: "#fda4af", fontSize: 12 }}>{loadError}</p>
+            )}
+            {!loadError && atlas && (
+                <p className="hint" style={{ marginTop: 6, color: "#86efac", fontSize: 12 }}>
+                    Loaded <code>{atlas.url.split("/").pop()}</code> — {atlas.w}×{atlas.h} px.
+                </p>
+            )}
+        </div>
+    );
 
     if (!atlas) {
         return (
             <section className="summary-box" style={{ marginTop: 12 }}>
                 <h3>🗂 Atlas Tile Picker</h3>
+                {atlasConfigBar}
                 <p className="hint">
-                    Drop a Kenney atlas at <code>public/assets/dungeon/tilemap.png</code> to enable visual tile picking.
+                    Type an atlas URL or pick a preset above. Drop the PNG into
+                    <code> shinobij.client/public/assets/dungeon/</code> with a matching
+                    filename and it'll load automatically.
                 </p>
             </section>
         );
@@ -19091,12 +19197,15 @@ function KenneyAtlasPicker({
         <section className="summary-box" style={{ marginTop: 12 }}>
             <h3>🗂 Atlas Tile Picker</h3>
             <p className="hint">
-                Click any tile to copy its <code>(col, row)</code>. Paste those coords into the
-                <code> KENNEY_ATLAS</code> const at the top of the atlas slicer in
-                <code> App.tsx</code> to swap which tile is used for that role.
-                Atlas: <strong>{atlas.w}×{atlas.h}</strong> px,
-                <strong>{cols}×{rows}</strong> tiles ({atlas.tileSize}×{atlas.tileSize} with {atlas.gap}px gap).
+                Click any tile to copy its <code>(col, row)</code>. Atlas:
+                <strong> {atlas.w}×{atlas.h}</strong> px,
+                <strong> {cols}×{rows}</strong> tiles ({atlas.tileSize}×{atlas.tileSize} with {atlas.gap}px gap).
+                Use the URL field to swap between packs — assignments save under
+                <code> shrine:icon-&lt;slot&gt;</code> regardless of which atlas they came from.
             </p>
+
+            {/* ── Atlas selector + custom URL ───────────────────────────── */}
+            {atlasConfigBar}
 
             {/* ── Slot assign UI ────────────────────────────────────────── */}
             <div style={{ marginBottom: 10, padding: 8, background: "rgba(168,85,247,0.08)", borderRadius: 6, border: "1px solid rgba(168,85,247,0.2)" }}>
