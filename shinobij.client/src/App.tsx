@@ -7934,6 +7934,72 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => { void loadCategory('item'); void loadCategory('pet'); void loadCategory('card'); void loadCategory('jutsu'); void loadCategory('event'); void loadCategory('avatar'); void loadCategory('ai'); void loadCategory('bloodline'); void loadCategory('shrine'); void loadCategory('landmark'); }, []);
 
+    // ── Hollow Gate Shrine — Kenney atlas auto-slicer ─────────────────────
+    // If /public/assets/dungeon/tilemap.png exists, slice 4 tiles from it
+    // via Canvas and inject them into sharedImages as fallback shrine textures.
+    // Admin-generated images (from the admin panel) ALWAYS win over these
+    // — we only fill keys that aren't already set. If the file is missing
+    // (404), the fetch fails silently and the CSS gradient fallback kicks in.
+    //
+    // To swap which tiles get sliced, edit the X/Y coords below. The tile is
+    // (col, row) in the atlas grid; tileSize is the pixel size of one cell.
+    // Default coords target the Kenney "Roguelike Caves & Dungeons" pack.
+    useEffect(() => {
+        const KENNEY_ATLAS_TILES = {
+            tilemap: "/assets/dungeon/tilemap.png",
+            tileSize: 16,
+            wall:           { key: "shrine:tile-wall",           x: 8,  y: 2 },
+            roomFloor:      { key: "shrine:tile-room-floor",     x: 10, y: 5 },
+            corridorFloor:  { key: "shrine:tile-corridor-floor", x: 14, y: 6 },
+            door:           { key: "shrine:tile-door",           x: 26, y: 4 },
+        };
+
+        let cancelled = false;
+        const img = new Image();
+        // Fire & forget: only success path matters. A 404 just falls through.
+        img.onload = () => {
+            if (cancelled) return;
+            const ts = KENNEY_ATLAS_TILES.tileSize;
+            // Render at 4x so the upscaled tile doesn't look like a 16px blur.
+            // The shrine grid cells are ~50-80px so 4x (64px) is a good match.
+            const scale = 4;
+            const outSize = ts * scale;
+            function slice(x: number, y: number): string | null {
+                try {
+                    const canvas = document.createElement("canvas");
+                    canvas.width = outSize;
+                    canvas.height = outSize;
+                    const ctx = canvas.getContext("2d");
+                    if (!ctx) return null;
+                    ctx.imageSmoothingEnabled = false; // crisp pixel art
+                    ctx.drawImage(img, x * ts, y * ts, ts, ts, 0, 0, outSize, outSize);
+                    return canvas.toDataURL("image/png");
+                } catch (err) {
+                    console.warn("[Kenney atlas slice] failed", err);
+                    return null;
+                }
+            }
+            const slices: Record<string, string> = {};
+            for (const cfg of [KENNEY_ATLAS_TILES.wall, KENNEY_ATLAS_TILES.roomFloor, KENNEY_ATLAS_TILES.corridorFloor, KENNEY_ATLAS_TILES.door]) {
+                const dataUrl = slice(cfg.x, cfg.y);
+                if (dataUrl) slices[cfg.key] = dataUrl;
+            }
+            if (Object.keys(slices).length === 0) return;
+            // Inject ONLY for keys not already set by an admin-generated image.
+            // Admin assets in shared KV always win.
+            setSharedImages(prev => {
+                const next = { ...prev };
+                for (const [key, value] of Object.entries(slices)) {
+                    if (!next[key]) next[key] = value;
+                }
+                return next;
+            });
+        };
+        img.onerror = () => { /* no atlas drop-in — fine, CSS gradients show */ };
+        img.src = KENNEY_ATLAS_TILES.tilemap;
+        return () => { cancelled = true; };
+    }, []);
+
     // Screen ? image categories map
     useEffect(() => {
         if (screen === 'worldMap')                              { void loadCategory('avatar'); void loadCategory('event'); }
