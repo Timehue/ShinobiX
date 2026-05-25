@@ -8521,11 +8521,16 @@ export default function App() {
                 if (url) slices[deco.key] = url;
             }
             if (Object.keys(slices).length === 0) return;
-            // Inject ONLY for keys not already set by an admin-generated image.
+            // Atlas slices ALWAYS win for terrain + decoration keys. The user
+            // explicitly wants the Kenney atlas tiles for walls / floors /
+            // doors / decorations, not the per-tile AI-generated images.
+            // Popup-event art (chest / battle / boss / etc.) lives under
+            // different keys (shrine:chest, shrine:boss, …) so this overwrite
+            // never touches the user's generated event illustrations.
             setSharedImages(prev => {
                 const next = { ...prev };
                 for (const [key, value] of Object.entries(slices)) {
-                    if (!next[key]) next[key] = value;
+                    next[key] = value;
                 }
                 return next;
             });
@@ -10842,12 +10847,18 @@ export default function App() {
                                         // Compose background by tile state. Walls and floors both
                                         // pull from variant banks via bgForTerrain() — deterministic
                                         // per-cell so the dungeon stops looking like a photocopier.
+                                        //
+                                        // Visibility model: ONLY currently-visible tiles render their
+                                        // terrain. Past-walked (`revealed`) tiles fall back to deep
+                                        // fog — the player should see their current room and nothing
+                                        // more. Walls outside the lit area go dark too so the room
+                                        // shape reads as a discrete pool of light.
                                         let bg: string;
                                         if (wall) {
-                                            bg = bgForTerrain("wall", i);
+                                            bg = visible ? bgForTerrain("wall", i) : "rgba(7,4,15,0.92)";
                                         } else if (isPlayer) {
                                             bg = "linear-gradient(135deg, #2563eb, #7c3aed)";
-                                        } else if (revealed || visible) {
+                                        } else if (visible) {
                                             // Pick the terrain base layer (room / corridor / door),
                                             // then overlay a decoration sprite if assigned, then a
                                             // content-tint if this cell carries an event.
@@ -10858,7 +10869,6 @@ export default function App() {
                                             if (
                                                 tile.decoration != null
                                                 && decorations[tile.decoration]
-                                                && (revealed || visible)
                                             ) {
                                                 terrainBase = `url(${decorations[tile.decoration]}) center/80% no-repeat, ${terrainBase}`;
                                             }
@@ -10895,45 +10905,46 @@ export default function App() {
                                         }
 
                                         // Wall styling: brick-ish pattern via inset shadow.
-                                        const wallShadow = wall ? "inset 0 0 0 1px rgba(168,85,247,0.18), inset 2px 2px 0 rgba(0,0,0,0.4)" : undefined;
+                                        // Only walls that are CURRENTLY visible (perimeter of the lit
+                                        // room) get the shadow detail — fog walls stay flat dark.
+                                        const wallShadow = wall && visible ? "inset 0 0 0 1px rgba(168,85,247,0.18), inset 2px 2px 0 rgba(0,0,0,0.4)" : undefined;
 
-                                        // Icon by state. Same surprise rule as the tint: if it's a hidden
-                                        // surprise kind and the player hasn't stepped on it yet, render
-                                        // nothing (just empty floor). Once revealed, the icon appears
-                                        // even when the cell falls back into fog later (memory).
-                                        const isSurpriseKindIcon = !revealed && (tile.kind === "trap"
+                                        // Icon by state. Strict flashlight: only currently-visible
+                                        // tiles show their icon. Surprise tiles (trap/battle/elite/
+                                        // pet_event) further require `revealed` — they stay disguised
+                                        // as plain floor until the player has actually stepped on them.
+                                        const isSurpriseKind = tile.kind === "trap"
                                             || tile.kind === "battle"
                                             || tile.kind === "elite"
-                                            || tile.kind === "pet_event");
+                                            || tile.kind === "pet_event";
                                         let icon: string;
                                         if (isPlayer) icon = "🥷";
                                         else if (wall) icon = "";
-                                        else if (isSurpriseKindIcon) icon = ""; // hide trap/battle/etc. icons
-                                        else if (revealed || visible) icon = hollowGateTileIconForKind(tile.kind);
-                                        else icon = "·";
+                                        else if (!visible) icon = "·";                          // outside flashlight = fog dot
+                                        else if (isSurpriseKind && !revealed) icon = "";       // surprise still hidden
+                                        else icon = hollowGateTileIconForKind(tile.kind);
 
-                                        // Opacity: revealed = full, visible-only = dimmed,
-                                        // fog = dot at low opacity.
-                                        const iconOpacity = isPlayer || revealed ? 1 : visible ? 0.55 : 0.30;
+                                        // Opacity: player = full, visible cells = full so the lit
+                                        // room reads clearly, anything else = dim fog dot.
+                                        const iconOpacity = isPlayer || visible ? 1 : 0.30;
 
                                         return (
                                             <div
                                                 key={i}
-                                                title={wall ? "Wall" : revealed ? tile.kind : visible ? `${tile.kind} (in view)` : "Unrevealed"}
+                                                title={wall ? "Wall" : visible ? tile.kind : "Out of sight"}
                                                 style={{
                                                     aspectRatio: "1 / 1",
                                                     background: bg,
                                                     border: isPlayer ? "2px solid #60a5fa"
-                                                        : wall ? "1px solid rgba(0,0,0,0.5)"
-                                                        : revealed ? "1px solid rgba(168,85,247,0.5)"
-                                                        : visible ? "1px solid rgba(168,85,247,0.28)"
+                                                        : wall && visible ? "1px solid rgba(0,0,0,0.5)"
+                                                        : visible ? "1px solid rgba(168,85,247,0.5)"
                                                         : "1px solid rgba(168,85,247,0.08)",
                                                     borderRadius: 4,
                                                     display: "flex",
                                                     alignItems: "center",
                                                     justifyContent: "center",
                                                     fontSize: "clamp(16px, 2.6vw, 28px)",
-                                                    color: revealed || isPlayer ? "#f5f3ff" : "rgba(196,181,253,0.85)",
+                                                    color: isPlayer || visible ? "#f5f3ff" : "rgba(196,181,253,0.85)",
                                                     opacity: iconOpacity,
                                                     boxShadow: isPlayer ? "0 0 12px rgba(96,165,250,0.6)" : wallShadow,
                                                     transition: "background 200ms, opacity 200ms",
