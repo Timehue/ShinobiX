@@ -544,6 +544,10 @@ export type Character = {
     dailyFateSpins?: number;
     dailyAiKills?: number;
     dailyPetWins?: number;
+    // Hollow Gate Shrine runs entered today. Hard-capped at 2 regardless of
+    // how many Hollow Gate Keys the player has banked — the shrine itself
+    // refuses to open more than twice between dawns. Tied to lastDailyReset.
+    dailyHollowGateRuns?: number;
     lastDailyReset?: string;
     claimedVillageAgendaDate?: string;
     claimedMapControlDate?: string;
@@ -1612,7 +1616,11 @@ function buildRunFromParsedLayout(
     placeIn(["room_floor", "corridor_floor"], "trap", Math.max(0, trapCount - deadEndTrapsPlaced));
     placeIn(["room_floor"], "elite", 1 + Math.floor(floor / 2));
     placeIn(["room_floor"], "chest", 3);
-    placeIn(["room_floor"], "pet_event", 1);
+    // pet_event tile: deprecated. The old "glowing pawprints" flavor tile
+    // was atmospheric-only with no reward — superseded by pet_battle for
+    // real pet content. Kind kept in the union for legacy saved-run
+    // compatibility but the generator no longer places new ones.
+    // placeIn(["room_floor"], "pet_event", 1);  // removed
     placeIn(["room_floor"], "shrine", 1);
     placeIn(["room_floor"], "story", 1);
     placeIn(["room_floor"], "tile_game", 1);   // Shinobi Tile card-game encounter
@@ -1952,7 +1960,11 @@ function generateHollowGateShrineRunBSP(floor = 1): HollowGateShrineRun {
     // Room-only content: feels like guarded loot / shrines.
     placeIn(["room_floor"], "elite", 1 + Math.floor(floor / 2));
     placeIn(["room_floor"], "chest", 3);
-    placeIn(["room_floor"], "pet_event", 1);
+    // pet_event tile: deprecated. The old "glowing pawprints" flavor tile
+    // was atmospheric-only with no reward — superseded by pet_battle for
+    // real pet content. Kind kept in the union for legacy saved-run
+    // compatibility but the generator no longer places new ones.
+    // placeIn(["room_floor"], "pet_event", 1);  // removed
     placeIn(["room_floor"], "shrine", 1);
     placeIn(["room_floor"], "story", 1);
     placeIn(["room_floor"], "tile_game", 1);   // Shinobi Tile card-game encounter
@@ -6400,6 +6412,7 @@ function normalizeCharacter(parsed: Character): Character {
         dailyFateSpins: parsed.lastDailyReset === currentDateKey() ? (parsed.dailyFateSpins ?? 0) : 0,
         dailyAiKills: parsed.lastDailyReset === currentDateKey() ? (parsed.dailyAiKills ?? 0) : 0,
         dailyPetWins: parsed.lastDailyReset === currentDateKey() ? (parsed.dailyPetWins ?? 0) : 0,
+        dailyHollowGateRuns: parsed.lastDailyReset === currentDateKey() ? (parsed.dailyHollowGateRuns ?? 0) : 0,
         hollowGateRun: parsed.hollowGateRun ?? null,
         hollowGateWardenKills: parsed.hollowGateWardenKills ?? 0,
         hollowGateIntroSeen: parsed.hollowGateIntroSeen ?? false,
@@ -9841,7 +9854,17 @@ export default function App() {
             alert("You need a Hollow Gate Key to enter the shrine. Forge one at the Crafter (5 Dungeon Keys or 10 Fate Shards), or complete your village story.");
             return;
         }
-        const ok = window.confirm(`Enter the Hollow Gate Shrine?\n\nThis consumes 1 Hollow Gate Key (${ownedKeys} owned). Keys are one-time use.`);
+        // Daily run cap — hard-capped at 2 regardless of key inventory. The
+        // shrine itself refuses to open more than twice between dawns.
+        // Counter is reset when lastDailyReset != today.
+        const todayKey = currentDateKey();
+        const runsToday = character.lastDailyReset === todayKey ? (character.dailyHollowGateRuns ?? 0) : 0;
+        const DAILY_HOLLOW_GATE_CAP = 2;
+        if (runsToday >= DAILY_HOLLOW_GATE_CAP) {
+            alert(`The Hollow Gate Shrine refuses to open again today. You've already entered ${runsToday}/${DAILY_HOLLOW_GATE_CAP} times. Return at dawn.`);
+            return;
+        }
+        const ok = window.confirm(`Enter the Hollow Gate Shrine?\n\nThis consumes 1 Hollow Gate Key (${ownedKeys} owned). Keys are one-time use.\nDaily runs: ${runsToday}/${DAILY_HOLLOW_GATE_CAP}.`);
         if (!ok) return;
 
         // Consume exactly one Hollow Gate Key.
@@ -9864,7 +9887,8 @@ export default function App() {
             inventory: newInv,
             hollowGateRun: run,
             hollowGateIntroSeen: true,
-            lastDailyReset: currentDateKey(),
+            dailyHollowGateRuns: runsToday + 1,
+            lastDailyReset: todayKey,
         });
         setCurrentBiome("shadow");
         setCurrentWeather(weatherForBiome("shadow"));
@@ -10108,14 +10132,35 @@ export default function App() {
                 return;
             }
             case "tile_game": {
-                // Shinobi Tile card-game encounter. Player launches the 3x3
-                // card duel on the shrine table. Win → rewards + back to
-                // shrine. Lose → 20% maxHp + back to shrine. Abandon (leave
-                // before result) → back to shrine, no penalty.
+                // Shinobi Tile card-game encounter. Pre-modal shows the
+                // shadow-opponent scene art (shrine:tile-tile-game); Begin
+                // dives into the 3x3 card duel. Resolution callbacks back
+                // in the App body handle win/lose/abandon.
                 pushHollowGateLog(`[Tile Seal] ${flavor}`);
                 markResolved();
-                setHollowGateTileGameActive(true);
-                setScreen("hollowGateTiles");
+                setHollowGateEvent({
+                    title: "Shinobi Tile Seal",
+                    body: `${flavor}\n\nA shadow opponent waits across the stone table. Defeat them at the 3×3 tile duel to claim the seal. Loss costs 20% of your max HP. You can step away with no penalty before the result is reached.`,
+                    kind: "tile_game",
+                    choices: [
+                        {
+                            label: "Begin Tile Duel",
+                            tone: "primary",
+                            onSelect: () => {
+                                setHollowGateEvent(null);
+                                setHollowGateTileGameActive(true);
+                                setScreen("hollowGateTiles");
+                            },
+                        },
+                        {
+                            label: "Step Away",
+                            onSelect: () => {
+                                setHollowGateEvent(null);
+                                pushHollowGateLog("You leave the tile table untouched. The shadow opponent fades.");
+                            },
+                        },
+                    ],
+                });
                 return;
             }
             case "pet_battle": {
@@ -10175,21 +10220,41 @@ export default function App() {
                     image: hollowBeastImg || wildBase.image,
                 };
                 pushHollowGateLog(`[Hollow Beast] ${flavor} ${activePet.name} squares off against ${wild.name}.`);
-                // Resolve the tile FIRST so the run state advances correctly,
-                // then trigger the pet duel. Same battle-encounter reset rule
-                // as the regular Arena path: threat → 0, torch → 10. Done now
-                // because the PetArena exit doesn't fire onHollowGateBattleWin,
-                // so we apply the reward up-front; lose-cases bail out of the
-                // run anyway so the value doesn't matter on loss.
+                // Pre-encounter modal — shows the Hollow Beast scene art
+                // (shrine:tile-hollow-beast) before the player commits to
+                // the duel. Begin transitions to PetArena. Step Away bails
+                // with no penalty. Threat / torch reset applies whether the
+                // player engages (so leaving is the safer path).
                 markResolved({ setTorch: 10 });
                 setHollowGateRun(prev => prev ? { ...prev, threat: 0 } : prev);
-                setPendingPetBattleOpponent({
-                    owner: "Hollow Gate",
-                    pet: wild,
-                    battleSeed: Date.now(),
-                    returnScreen: "hollowGateShrine",
+                setHollowGateEvent({
+                    title: `Hollow Beast: ${wild.name}`,
+                    body: `${flavor}\n\n${activePet.name} (Lv ${activePet.level} ${activePet.rarity}) faces ${wild.name} (Lv ${wild.level} ${wild.rarity ?? "wild"}). Win to claim victory; lose to take 20% HP damage. Either way your run continues.`,
+                    kind: "pet_battle",
+                    choices: [
+                        {
+                            label: "Send Pet to Duel",
+                            tone: "primary",
+                            onSelect: () => {
+                                setHollowGateEvent(null);
+                                setPendingPetBattleOpponent({
+                                    owner: "Hollow Gate",
+                                    pet: wild,
+                                    battleSeed: Date.now(),
+                                    returnScreen: "hollowGateShrine",
+                                });
+                                setScreen("petArena");
+                            },
+                        },
+                        {
+                            label: "Step Away",
+                            onSelect: () => {
+                                setHollowGateEvent(null);
+                                pushHollowGateLog(`${activePet.name} pulls back. The Hollow Beast fades into mist.`);
+                            },
+                        },
+                    ],
                 });
-                setScreen("petArena");
                 return;
             }
             case "trap": {
@@ -10391,9 +10456,32 @@ export default function App() {
                 // the shrine. Stepping on it ends the run and returns to worldMap.
                 // The saved run is cleared; re-entering costs another Hollow Gate Key.
                 pushHollowGateLog(flavor);
+                // Build a run summary from resolved-tile counts so the player
+                // sees what they accomplished before exiting.
+                const stats = {
+                    floors: hollowGateRun.floor,
+                    chests: hollowGateRun.tiles.filter(t => t.kind === "chest" && t.resolved).length,
+                    battles: hollowGateRun.tiles.filter(t => (t.kind === "battle" || t.kind === "elite") && t.resolved).length,
+                    beasts: hollowGateRun.tiles.filter(t => t.kind === "pet_battle" && t.resolved).length,
+                    tileSeals: hollowGateRun.tiles.filter(t => t.kind === "tile_game" && t.resolved).length,
+                    hiddenChambers: hollowGateRun.tiles.filter(t => t.kind === "shrine" && t.resolved).length,
+                    traps: hollowGateRun.tiles.filter(t => t.kind === "trap" && t.resolved).length,
+                    keepers: hollowGateRun.tiles.filter(t => t.kind === "npc" && t.resolved).length,
+                };
+                const summaryLines = [
+                    `Floor reached: ${stats.floors} / ${HOLLOW_GATE_MAX_FLOOR}`,
+                    `Chests opened: ${stats.chests}`,
+                    `Shinobi defeated: ${stats.battles}`,
+                    `Hollow Beasts felled: ${stats.beasts}`,
+                    `Tile Seals claimed: ${stats.tileSeals}`,
+                    `Hidden Chambers: ${stats.hiddenChambers}`,
+                    `Keepers blessed by: ${stats.keepers}`,
+                    `Traps survived: ${stats.traps}`,
+                    `HP remaining: ${character.hp} / ${character.maxHp}`,
+                ];
                 setHollowGateEvent({
                     title: "Leave the Hollow Gate",
-                    body: `${flavor}\n\nThe broken torii on this tile opens back to the world map.\n\nLeaving ends this run — your progress is forfeit and you'll need another Hollow Gate Key to return.`,
+                    body: `${flavor}\n\nThe broken torii on this tile opens back to the world map.\n\n— RUN SUMMARY —\n${summaryLines.join("\n")}\n\nLeaving ends this run — your progress is forfeit and you'll need another Hollow Gate Key to return.`,
                     kind: "exit",
                     choices: [
                         {
@@ -11123,14 +11211,30 @@ export default function App() {
                                     <h2 style={{ margin: 0, color: "#faf5ff" }}>Floor {run.floor} / {HOLLOW_GATE_MAX_FLOOR} · {run.completed ? "Warden Defeated" : "Shadow Miasma"}</h2>
                                 </div>
                                 <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-                                    <div style={{ minWidth: 180 }}>
-                                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-                                            <span>Threat</span>
+                                    <div style={{ minWidth: 200 }}>
+                                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, alignItems: "center" }}>
+                                            <span>Threat{run.threat >= 80 && (
+                                                <span style={{
+                                                    marginLeft: 6,
+                                                    fontSize: 11,
+                                                    color: "#fda4af",
+                                                    fontWeight: 700,
+                                                    animation: "hgPulse 1s ease-in-out infinite",
+                                                }}>⚠ AMBUSH IMMINENT</span>
+                                            )}</span>
                                             <span style={{ color: run.threat >= 80 ? "#fda4af" : "#c4b5fd" }}>{run.threat}%</span>
                                         </div>
-                                        <div style={{ height: 8, background: "rgba(168,85,247,0.18)", borderRadius: 4, overflow: "hidden" }}>
+                                        <div style={{
+                                            height: 8,
+                                            background: "rgba(168,85,247,0.18)",
+                                            borderRadius: 4,
+                                            overflow: "hidden",
+                                            border: run.threat >= 80 ? "1px solid #fda4af" : undefined,
+                                            boxShadow: run.threat >= 80 ? "0 0 8px rgba(248,113,113,0.55)" : undefined,
+                                        }}>
                                             <div style={{ width: `${run.threat}%`, height: "100%", background: run.threat >= 80 ? "linear-gradient(90deg,#a855f7,#fda4af)" : "linear-gradient(90deg,#7c3aed,#a855f7)" }} />
                                         </div>
+                                        <style>{`@keyframes hgPulse { 0%,100%{opacity:1} 50%{opacity:0.35} }`}</style>
                                     </div>
                                     <div style={{ fontSize: 13 }}>
                                         <span title="Shrine Keys">🔑 {run.keys}</span>
@@ -11615,6 +11719,8 @@ export default function App() {
                                     hollowGateEvent.kind === "trap" ? "shrine:tile-trap"
                                     : hollowGateEvent.kind === "chest" ? "shrine:tile-ancient-chest"
                                     : hollowGateEvent.kind === "pet_event" ? "shrine:tile-pet-encounter"
+                                    : hollowGateEvent.kind === "pet_battle" ? "shrine:tile-hollow-beast"
+                                    : hollowGateEvent.kind === "tile_game" ? "shrine:tile-tile-game"
                                     : hollowGateEvent.kind === "locked" ? "shrine:tile-sealed-door"
                                     : hollowGateEvent.kind === "npc" ? "shrine:tile-shrine-keeper"
                                     : hollowGateEvent.kind === "story" ? "shrine:tile-story"
@@ -11915,6 +12021,7 @@ export default function App() {
                             // Win → small reward + back to shrine. Rewards
                             // are intentionally modest since chests cover the
                             // big loot. Floor-scaled ryo + aura dust.
+                            // Threat + torch reset per the post-encounter rule.
                             if (character) {
                                 const floor = hollowGateRun.floor;
                                 const ryoGain = 120 + floor * 40;
@@ -11924,25 +12031,29 @@ export default function App() {
                                     ryo: character.ryo + ryoGain,
                                     auraDust: (character.auraDust ?? 0) + auraDustGain,
                                 });
-                                pushHollowGateLog(`Tile Seal claimed. +${ryoGain} ryo, +${auraDustGain} Aura Dust.`);
+                                pushHollowGateLog(`Tile Seal claimed. +${ryoGain} ryo, +${auraDustGain} Aura Dust. Threat dissipates; Torch flares to full.`);
                             }
+                            setHollowGateRun(prev => prev ? { ...prev, threat: 0, torch: 10 } : prev);
                             setHollowGateTileGameActive(false);
                             setScreen("hollowGateShrine");
                         }}
                         onDungeonLose={() => {
                             // Loss → 20% maxHp penalty + back to shrine.
-                            // Run continues; not hospitalized.
+                            // Run continues; not hospitalized. Threat/torch
+                            // still reset — engaging counts as a battle.
                             if (character) {
                                 const dmg = Math.max(1, Math.floor(character.maxHp * 0.20));
                                 const nextHp = Math.max(1, character.hp - dmg);
                                 setCharacter({ ...character, hp: nextHp });
-                                pushHollowGateLog(`Tile Seal failed. The shadow opponent claims its price — ${dmg} HP torn from you (20% of max).`);
+                                pushHollowGateLog(`Tile Seal failed. The shadow opponent claims its price — ${dmg} HP torn from you (20% of max). Threat dissipates.`);
                             }
+                            setHollowGateRun(prev => prev ? { ...prev, threat: 0, torch: 10 } : prev);
                             setHollowGateTileGameActive(false);
                             setScreen("hollowGateShrine");
                         }}
                         onDungeonLeave={() => {
-                            // Abandoned before result → no penalty, just exit.
+                            // Abandoned before result → no penalty, no
+                            // reset (player didn't actually engage).
                             pushHollowGateLog("You step away from the stone table. The tiles dim.");
                             setHollowGateTileGameActive(false);
                             setScreen("hollowGateShrine");
@@ -14387,10 +14498,31 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
     return (
         <div className="card pet-arena-screen">
             <div className="pet-arena-header">
-                <button className="back-btn" onClick={() => setScreen("centralHub")}>Back to Central</button>
+                {/* Back button label adapts to context — Hollow Gate pet
+                    duels route back to the shrine, not the central hub. */}
+                <button
+                    className="back-btn"
+                    onClick={() => {
+                        const back = (pendingPetBattleOpponent?.returnScreen || battleOpponent?.returnScreen) ?? "centralHub";
+                        setScreen(back);
+                    }}
+                >
+                    {(pendingPetBattleOpponent?.owner === "Hollow Gate" || battleOpponent?.owner === "Hollow Gate")
+                        ? "Back to Shrine"
+                        : "Back to Central"}
+                </button>
                 <div>
-                    <h2>Pet Arena</h2>
-                    <p className="hint">{pendingClanPetBattle ? `Clan war pet battle pending against ${pendingClanPetBattle.opponentName}. Win to earn ${pendingClanPetBattle.points} clan points.` : "Autobattle only. Pets choose actions using ordered AI rules: low HP buff, opener, highest-power jutsu, then basic attack."}</p>
+                    {(pendingPetBattleOpponent?.owner === "Hollow Gate" || battleOpponent?.owner === "Hollow Gate") ? (
+                        <>
+                            <h2 style={{ color: "#a855f7" }}>⛩ Hollow Gate — Hollow Beast Duel</h2>
+                            <p className="hint" style={{ color: "#c4b5fd" }}>Your pet faces a corrupted Hollow Beast. Win to claim victory and continue the run; lose to take 20% HP damage and return to the shrine.</p>
+                        </>
+                    ) : (
+                        <>
+                            <h2>Pet Arena</h2>
+                            <p className="hint">{pendingClanPetBattle ? `Clan war pet battle pending against ${pendingClanPetBattle.opponentName}. Win to earn ${pendingClanPetBattle.points} clan points.` : "Autobattle only. Pets choose actions using ordered AI rules: low HP buff, opener, highest-power jutsu, then basic attack."}</p>
+                        </>
+                    )}
                 </div>
             </div>
 
