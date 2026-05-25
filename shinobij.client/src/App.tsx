@@ -84,6 +84,7 @@ export type Screen =
     | "userView"
     | "pvpBattle"
     | "hollowGateShrine"
+    | "hollowGateTiles"
     | "endlessTower"
     | "weeklyBoss"
     | "villageWar";
@@ -1011,6 +1012,7 @@ type HollowGateTileKind =
     | "chest"
     | "pet_event"
     | "pet_battle" // Wild Hollow Beast — animal/pet-themed PvE combat encounter
+    | "tile_game"  // Shinobi Tile card-game encounter; loss costs 20% maxHp
     | "shrine"
     | "story"
     | "boss"
@@ -1108,6 +1110,11 @@ const hollowGateFlavorPool: Record<HollowGateTileKind, string[]> = {
         "A corrupted Hollow Beast prowls the corridor — eyes burning chakra-blue, claws scoring stone.",
         "Glowing pawprints crystallize into a snarling shadow-bound beast, twisted by the gate's mist.",
         "A wild thing lunges from the dark — too fast for a normal animal, too old for a normal shadow.",
+    ],
+    tile_game: [
+        "A stone table rises from the floor, nine tile-shaped slots glowing with old chakra. A challenger sits across, smiling without a face.",
+        "The shrine offers a riddle disguised as a game. Cards float between you and the shadow opponent.",
+        "Ancient seals form a 3×3 grid in the air. The mist asks for tiles — bet wrong and it bites.",
     ],
     shrine: [
         "A broken shrine stone weeps cold chakra. Beyond it, a Hidden Chamber lies open.",
@@ -1608,6 +1615,7 @@ function buildRunFromParsedLayout(
     placeIn(["room_floor"], "pet_event", 1);
     placeIn(["room_floor"], "shrine", 1);
     placeIn(["room_floor"], "story", 1);
+    placeIn(["room_floor"], "tile_game", 1);   // Shinobi Tile card-game encounter
     placeIn(["room_floor"], "locked", 1);
     placeIn(["room_floor"], "npc", 1);
 
@@ -1947,6 +1955,7 @@ function generateHollowGateShrineRunBSP(floor = 1): HollowGateShrineRun {
     placeIn(["room_floor"], "pet_event", 1);
     placeIn(["room_floor"], "shrine", 1);
     placeIn(["room_floor"], "story", 1);
+    placeIn(["room_floor"], "tile_game", 1);   // Shinobi Tile card-game encounter
     placeIn(["room_floor"], "locked", 1);
     placeIn(["room_floor"], "npc", 1);    // Shrine Keeper — one per floor
 
@@ -2222,6 +2231,7 @@ function hollowGateTileIconForKind(kind: HollowGateTileKind): string {
         case "chest": return "▣";
         case "pet_event": return "🐾";
         case "pet_battle": return "🐺";
+        case "tile_game": return "🀄";
         case "shrine": return "⛩";
         case "story": return "📜";
         case "boss": return "👹";
@@ -2266,6 +2276,7 @@ const HOLLOW_GATE_ICON_ROLES: Record<string, HollowGateIconRoleCfg> = {
     story:   { label: "Story",   kind: "story",      count: 2 },
     pet:     { label: "Pet",     kind: "pet_event",  count: 3 },
     petbattle: { label: "Pet Battle", kind: "pet_battle", count: 3 },   // wild Hollow Beast encounters
+    tilegame:  { label: "Tile Game", kind: "tile_game", count: 2 },     // Shinobi Tile card-game encounter
     npc:     { label: "Keeper",  kind: "npc",        count: 3 },
     descend: { label: "Descend", kind: "descend",    count: 1 },
     exit:    { label: "Leave",   kind: "exit",       count: 1 },
@@ -7717,6 +7728,10 @@ export default function App() {
     const [duelChallenges, setDuelChallenges] = useState<DuelChallenge[]>([]);
     const [processingChallengeIds, setProcessingChallengeIds] = useState<string[]>([]);
     const [pendingPetBattleOpponent, setPendingPetBattleOpponent] = useState<PetArenaOpponent | null>(null);
+    // Tracks whether the player is mid-Shinobi-Tile card game launched from a
+    // Hollow Gate tile_game tile. Used to apply the -20% maxHp penalty on
+    // loss + route back to the shrine afterwards.
+    const [hollowGateTileGameActive, setHollowGateTileGameActive] = useState(false);
     const [triggeredEvents, setTriggeredEvents] = useState<string[]>([]);
     const [liveSectorPlayers, setLiveSectorPlayers] = useState<PlayerRecord[]>([]);
     const [incomingAttackBanner, setIncomingAttackBanner] = useState("");
@@ -10092,6 +10107,17 @@ export default function App() {
                 markResolved();
                 return;
             }
+            case "tile_game": {
+                // Shinobi Tile card-game encounter. Player launches the 3x3
+                // card duel on the shrine table. Win → rewards + back to
+                // shrine. Lose → 20% maxHp + back to shrine. Abandon (leave
+                // before result) → back to shrine, no penalty.
+                pushHollowGateLog(`[Tile Seal] ${flavor}`);
+                markResolved();
+                setHollowGateTileGameActive(true);
+                setScreen("hollowGateTiles");
+                return;
+            }
             case "pet_battle": {
                 // Wild Hollow Beast — pet vs pet autobattler using the existing
                 // PetArena. The player's active pet duels a random wild pet
@@ -10586,7 +10612,7 @@ export default function App() {
             const { tile, nx, ny, nextThreat } = outcome.justResolved;
             const modalFiringKinds: HollowGateTileKind[] = [
                 "battle", "elite", "boss",
-                "trap", "chest", "shrine", "pet_event", "pet_battle", "story",
+                "trap", "chest", "shrine", "pet_event", "pet_battle", "tile_game", "story",
                 "locked", "exit", "npc", "descend",
             ];
             const tileWillOpenModal = modalFiringKinds.includes(tile.kind);
@@ -11324,6 +11350,7 @@ export default function App() {
                                                 : tile.kind === "elite" ? "rgba(220,38,38,0.26)"
                                                 : tile.kind === "pet_event" ? "rgba(96,165,250,0.18)"
                                                 : tile.kind === "pet_battle" ? "rgba(251,146,60,0.24)"  // beast orange
+                                                : tile.kind === "tile_game" ? "rgba(45,212,191,0.22)"   // tile-game teal
                                                 : tile.kind === "story" ? "rgba(250,204,21,0.18)"
                                                 : null;
                                             bg = contentTint
@@ -11356,6 +11383,7 @@ export default function App() {
                                         function iconSlotIdFor(k: HollowGateTileKind): string | null {
                                             if (k === "pet_event") return "pet";
                                             if (k === "pet_battle") return "petbattle";
+                                            if (k === "tile_game") return "tilegame";
                                             // No slot for "empty" / "wall" / "shrine_descend"-style edges
                                             if (k === "empty" || k === "wall") return null;
                                             return k;
@@ -11469,7 +11497,8 @@ export default function App() {
                                             // Map slot id → emoji fallback. Keeps the legend self-contained.
                                             const fallbackEmoji: Record<string, string> = {
                                                 you: "🥷", battle: "⚔", elite: "☠", boss: "👹", trap: "▲",
-                                                chest: "▣", shrine: "⛩", story: "📜", pet: "🐾", petbattle: "🐺", npc: "👤",
+                                                chest: "▣", shrine: "⛩", story: "📜", pet: "🐾", petbattle: "🐺",
+                                                tilegame: "🀄", npc: "👤",
                                                 descend: "▼", exit: "⇩", locked: "🔒", wall: "▦",
                                             };
                                             // Walls use the atlas wall tile (terrain), not an icon slot.
@@ -11507,10 +11536,10 @@ export default function App() {
                                                     {legendCell("elite",   "Elite")}    {legendCell("boss",    "Boss")}
                                                     {legendCell("trap",    "Trap")}     {legendCell("chest",   "Chest")}
                                                     {legendCell("shrine",  "Shrine")}   {legendCell("story",   "Story")}
-                                                    {legendCell("pet",     "Pet")}      {legendCell("petbattle", "Hollow Beast")}
-                                                    {legendCell("npc",     "Keeper")}   {legendCell("descend",   "Descend")}
-                                                    {legendCell("exit",    "Leave")}    {legendCell("locked",    "Locked Door")}
-                                                    {legendCell("wall",    "Wall")}
+                                                    {legendCell("pet",      "Pet")}        {legendCell("petbattle", "Hollow Beast")}
+                                                    {legendCell("tilegame", "Tile Game")}  {legendCell("npc",       "Keeper")}
+                                                    {legendCell("descend",  "Descend")}    {legendCell("exit",      "Leave")}
+                                                    {legendCell("locked",   "Locked Door")}{legendCell("wall",      "Wall")}
                                                     <span>· Unexplored</span><span style={{ opacity: 0.55 }}>· In view (dim)</span>
                                                 </div>
                                             );
@@ -11855,6 +11884,54 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "grandMarketplace" && character && <GrandMarketplace character={character} updateCharacter={setCharacter} creatorItems={creatorItems} creatorCards={creatorCards} />}
                 {!activeTriggeredEvent && screen === "shinobiTiles" && character && <ShinobiTiles character={character} updateCharacter={setCharacter} creatorCards={creatorCards} />}
                 {!activeTriggeredEvent && screen === "eventTiles" && character && pendingEventEncounter && <ShinobiTiles character={character} updateCharacter={setCharacter} creatorCards={creatorCards} dungeonMode tileDifficulty={pendingEventEncounter.battle?.tileDifficulty ?? "normal"} onDungeonWin={completeEventEncounter} onDungeonLeave={leaveEventEncounter} />}
+                {/* Hollow Gate Shinobi Tile card-game tile. Win/lose/leave
+                    callbacks all route back to the shrine; loss applies
+                    the 20% maxHp penalty. Difficulty scales with floor. */}
+                {!activeTriggeredEvent && screen === "hollowGateTiles" && character && hollowGateRun && (
+                    <ShinobiTiles
+                        character={character}
+                        updateCharacter={setCharacter}
+                        creatorCards={creatorCards}
+                        dungeonMode
+                        tileDifficulty={hollowGateRun.floor >= 4 ? "hard" : hollowGateRun.floor >= 2 ? "normal" : "easy"}
+                        onDungeonWin={() => {
+                            // Win → small reward + back to shrine. Rewards
+                            // are intentionally modest since chests cover the
+                            // big loot. Floor-scaled ryo + aura dust.
+                            if (character) {
+                                const floor = hollowGateRun.floor;
+                                const ryoGain = 120 + floor * 40;
+                                const auraDustGain = 4 + floor * 2;
+                                setCharacter({
+                                    ...character,
+                                    ryo: character.ryo + ryoGain,
+                                    auraDust: (character.auraDust ?? 0) + auraDustGain,
+                                });
+                                pushHollowGateLog(`Tile Seal claimed. +${ryoGain} ryo, +${auraDustGain} Aura Dust.`);
+                            }
+                            setHollowGateTileGameActive(false);
+                            setScreen("hollowGateShrine");
+                        }}
+                        onDungeonLose={() => {
+                            // Loss → 20% maxHp penalty + back to shrine.
+                            // Run continues; not hospitalized.
+                            if (character) {
+                                const dmg = Math.max(1, Math.floor(character.maxHp * 0.20));
+                                const nextHp = Math.max(1, character.hp - dmg);
+                                setCharacter({ ...character, hp: nextHp });
+                                pushHollowGateLog(`Tile Seal failed. The shadow opponent claims its price — ${dmg} HP torn from you (20% of max).`);
+                            }
+                            setHollowGateTileGameActive(false);
+                            setScreen("hollowGateShrine");
+                        }}
+                        onDungeonLeave={() => {
+                            // Abandoned before result → no penalty, just exit.
+                            pushHollowGateLog("You step away from the stone table. The tiles dim.");
+                            setHollowGateTileGameActive(false);
+                            setScreen("hollowGateShrine");
+                        }}
+                    />
+                )}
                 {!activeTriggeredEvent && screen === "hospital" && character && <Hospital character={character} updateCharacter={setCharacter} setScreen={navigate} playerRoster={playerRoster} hospitalEntryTime={hospitalEntryTime} />}
                 {!activeTriggeredEvent && screen === "cafeteria" && character && <Cafeteria character={character} updateCharacter={setCharacter} />}
                 {!activeTriggeredEvent && screen === "tavern" && character && <VillageTavern character={character} setScreen={setScreen} sharedImages={sharedImages} />}
@@ -21691,7 +21768,13 @@ function GrandMarketplace({ character, updateCharacter, creatorItems, creatorCar
     );
 }
 
-function ShinobiTiles({ character, updateCharacter, creatorCards, dungeonMode = false, tileDifficulty = "normal", onDungeonWin, onDungeonLeave }: { character: Character; updateCharacter: (c: Character) => void; creatorCards: TileCard[]; dungeonMode?: boolean; tileDifficulty?: "easy" | "normal" | "hard"; onDungeonWin?: () => void; onDungeonLeave?: () => void }) {
+function ShinobiTiles({ character, updateCharacter, creatorCards, dungeonMode = false, tileDifficulty = "normal", onDungeonWin, onDungeonLeave, onDungeonLose }: { character: Character; updateCharacter: (c: Character) => void; creatorCards: TileCard[]; dungeonMode?: boolean; tileDifficulty?: "easy" | "normal" | "hard"; onDungeonWin?: () => void; onDungeonLeave?: () => void;
+    // Fired when the player exits the result screen after LOSING. Distinct
+    // from onDungeonLeave (which is also called for explicit abandons before
+    // a result was reached). Used by Hollow Gate to apply -20% maxHp penalty
+    // only when the player actually lost the card game.
+    onDungeonLose?: () => void;
+ }) {
     type BoardCell = { card: TileCard; owner: "player" | "enemy" } | null;
     type Phase = "collection" | "select" | "game" | "result";
 
@@ -22120,7 +22203,14 @@ function ShinobiTiles({ character, updateCharacter, creatorCards, dungeonMode = 
                 </div>
                 <div className="menu">
                     {dungeonMode && result === "win" ? <button className="admin-button" onClick={onDungeonWin}>Continue to Final Seal</button> : <button onClick={() => { setDeckPicks([]); setPhase("select"); }}>Play Again</button>}
-                    <button onClick={dungeonMode ? onDungeonLeave : () => setPhase("collection")}>{dungeonMode ? "Leave Dungeon" : "Collection"}</button>
+                    <button onClick={dungeonMode
+                        // In dungeon mode the result-screen Leave button routes:
+                        //   lose  → onDungeonLose (Hollow Gate uses this for -20% HP)
+                        //   win   → onDungeonLeave (no penalty, just exit)
+                        //   draw  → onDungeonLeave (no penalty)
+                        ? (result === "lose" && onDungeonLose ? onDungeonLose : onDungeonLeave)
+                        : () => setPhase("collection")
+                    }>{dungeonMode ? "Leave Dungeon" : "Collection"}</button>
                 </div>
             </div>
         );
@@ -30185,16 +30275,6 @@ function Arena({
             setLog(`${character.name} was defeated.`);
             addCombatLog(`${opponentName} defeats ${character.name}.`, "defeat", opponentName);
             if (rankedBattleActive) applyRankedLoss();
-            else if (pendingStoryBattle?.kind === "hollowGateShrine" && !pendingStoryBattle.isBoss) {
-                // Hollow Gate non-boss loss → 20% of max HP and the player
-                // continues the shrine run. Only the Warden (boss) carries
-                // the full death + hospital penalty. The run rewards survival
-                // over reload-spam, so a regular shinobi/elite KO costs HP
-                // but not the whole run.
-                const dmg = Math.max(1, Math.floor(character.maxHp * 0.20));
-                const nextHp = Math.max(1, character.hp - dmg);   // clamp ≥1 so the loss handler doesn't re-trigger
-                updateCharacter({ ...character, hp: nextHp });
-            }
             else updateCharacter({ ...character, hp: 0, hospitalized: true });
         }
         return true;
@@ -31341,28 +31421,14 @@ function Arena({
                                 </h2>
                                 <p>{log}</p>
                                 {battleResult === "loss" ? (
-                                    pendingStoryBattle?.kind === "hollowGateShrine" && !pendingStoryBattle.isBoss ? (
-                                        // Hollow Gate non-boss loss: 20% HP penalty already
-                                        // applied in the loss handler. Send the player back
-                                        // to the shrine to continue, not to the hospital.
-                                        <>
-                                            <p style={{ color: "#f87171", fontSize: "0.9rem", margin: "0.5rem 0" }}>
-                                                The Hollow Beast carved <strong style={{ color: "#fde047" }}>20%</strong> of your max HP before it fell silent. The shrine still breathes around you — the run goes on.
-                                            </p>
-                                            <button style={{ background: "linear-gradient(#1e1b4b,#0f0a2e)", borderColor: "#a78bfa" }} onClick={() => onPendingStoryBattleContinue?.()}>
-                                                Return to Shrine
-                                            </button>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <p style={{ color: "#f87171", fontSize: "0.9rem", margin: "0.5rem 0" }}>
-                                                You've been rushed to the village hospital. Pay <strong style={{ color: "#fde047" }}>1,000 ryo</strong> to be treated and released.
-                                            </p>
-                                            <button style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171" }} onClick={() => { if (pendingStoryBattle) onPendingStoryBattleContinue?.(); setScreen("hospital"); }}>
-                                                ?? Go to Hospital
-                                            </button>
-                                        </>
-                                    )
+                                    <>
+                                        <p style={{ color: "#f87171", fontSize: "0.9rem", margin: "0.5rem 0" }}>
+                                            You've been rushed to the village hospital. Pay <strong style={{ color: "#fde047" }}>1,000 ryo</strong> to be treated and released.
+                                        </p>
+                                        <button style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171" }} onClick={() => { if (pendingStoryBattle) onPendingStoryBattleContinue?.(); setScreen("hospital"); }}>
+                                            ?? Go to Hospital
+                                        </button>
+                                    </>
                                 ) : pendingStoryBattle ? (
                                     <div className="menu">
                                         <button className="admin-button" onClick={onPendingStoryBattleContinue}>
