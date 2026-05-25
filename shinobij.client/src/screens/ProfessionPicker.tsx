@@ -62,11 +62,16 @@ export function ProfessionPicker({
     character,
     setScreen,
     onProfessionChosen,
+    sharedImages = {},
 }: {
     character: Character;
     setScreen: (s: Screen) => void;
     onProfessionChosen: (profession: Profession) => void;
+    sharedImages?: Record<string, string>;
 }) {
+    const backdropImage = sharedImages["profession:backdrop"];
+    const elderImage = sharedImages["profession:elder-portrait"];
+    const portraitFor = (id: Profession) => sharedImages[`profession:portrait-${id}`];
     const [stage, setStage] = useState<Stage>("intro");
     const [pending, setPending] = useState<Profession | null>(null);
     const [submitting, setSubmitting] = useState(false);
@@ -102,7 +107,9 @@ export function ProfessionPicker({
     const backdrop: React.CSSProperties = {
         position: "fixed",
         inset: 0,
-        background: "linear-gradient(180deg, rgba(8,12,28,0.96), rgba(4,6,18,0.99))",
+        background: backdropImage
+            ? `linear-gradient(180deg, rgba(8,12,28,0.85), rgba(4,6,18,0.96)), url(${backdropImage}) center/cover no-repeat`
+            : "linear-gradient(180deg, rgba(8,12,28,0.96), rgba(4,6,18,0.99))",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -127,6 +134,13 @@ export function ProfessionPicker({
                         A CROSSROAD
                     </p>
                     <h2 style={{ margin: "0 0 16px", color: "#faf5ff" }}>The Elder Summons You</h2>
+                    {elderImage && (
+                        <img
+                            src={elderImage}
+                            alt="Village elder"
+                            style={{ width: "100%", maxHeight: 280, objectFit: "cover", borderRadius: 8, marginBottom: 16 }}
+                        />
+                    )}
                     <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 20 }}>
                         {INTRO_LINES.map((line, i) => (
                             <p key={i} style={{ margin: 0, lineHeight: 1.6 }}>{line}</p>
@@ -175,55 +189,65 @@ export function ProfessionPicker({
                         gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
                         gap: 16,
                     }}>
-                        {PROFESSIONS.map((p) => (
-                            <button
-                                key={p.id}
-                                onClick={() => { setPending(p.id); setStage("confirm"); }}
-                                style={{
-                                    background: "linear-gradient(180deg, rgba(15,18,34,0.97), rgba(8,10,22,0.99))",
-                                    border: `2px solid ${p.accent}`,
-                                    borderRadius: 12,
-                                    padding: 24,
-                                    textAlign: "left",
-                                    cursor: "pointer",
-                                    color: "#e9d5ff",
-                                    transition: "transform 120ms, box-shadow 120ms",
-                                    boxShadow: `0 0 20px ${p.accent}33`,
-                                    display: "flex",
-                                    flexDirection: "column",
-                                    gap: 12,
-                                }}
-                                onMouseEnter={(e) => {
-                                    e.currentTarget.style.transform = "translateY(-4px)";
-                                    e.currentTarget.style.boxShadow = `0 0 36px ${p.accent}66`;
-                                }}
-                                onMouseLeave={(e) => {
-                                    e.currentTarget.style.transform = "";
-                                    e.currentTarget.style.boxShadow = `0 0 20px ${p.accent}33`;
-                                }}
-                            >
-                                <div style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 12,
-                                }}>
-                                    <span style={{
-                                        fontSize: 36,
-                                        color: p.accent,
-                                        lineHeight: 1,
-                                    }}>{p.icon}</span>
-                                    <div>
-                                        <h3 style={{ margin: 0, color: p.accent, fontSize: 22 }}>{p.name}</h3>
-                                        <p style={{ margin: "2px 0 0", color: "#c4b5fd", fontStyle: "italic", fontSize: 13 }}>
-                                            {p.tagline}
-                                        </p>
+                        {PROFESSIONS.map((p) => {
+                            const portrait = portraitFor(p.id);
+                            return (
+                                <button
+                                    key={p.id}
+                                    onClick={() => { setPending(p.id); setStage("confirm"); }}
+                                    style={{
+                                        background: "linear-gradient(180deg, rgba(15,18,34,0.97), rgba(8,10,22,0.99))",
+                                        border: `2px solid ${p.accent}`,
+                                        borderRadius: 12,
+                                        padding: 24,
+                                        textAlign: "left",
+                                        cursor: "pointer",
+                                        color: "#e9d5ff",
+                                        transition: "transform 120ms, box-shadow 120ms",
+                                        boxShadow: `0 0 20px ${p.accent}33`,
+                                        display: "flex",
+                                        flexDirection: "column",
+                                        gap: 12,
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.transform = "translateY(-4px)";
+                                        e.currentTarget.style.boxShadow = `0 0 36px ${p.accent}66`;
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.transform = "";
+                                        e.currentTarget.style.boxShadow = `0 0 20px ${p.accent}33`;
+                                    }}
+                                >
+                                    {portrait && (
+                                        <img
+                                            src={portrait}
+                                            alt={p.name}
+                                            style={{ width: "100%", height: 180, objectFit: "cover", borderRadius: 8 }}
+                                        />
+                                    )}
+                                    <div style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: 12,
+                                    }}>
+                                        <span style={{
+                                            fontSize: 36,
+                                            color: p.accent,
+                                            lineHeight: 1,
+                                        }}>{p.icon}</span>
+                                        <div>
+                                            <h3 style={{ margin: 0, color: p.accent, fontSize: 22 }}>{p.name}</h3>
+                                            <p style={{ margin: "2px 0 0", color: "#c4b5fd", fontStyle: "italic", fontSize: 13 }}>
+                                                {p.tagline}
+                                            </p>
+                                        </div>
                                     </div>
-                                </div>
-                                <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.55, fontSize: 14 }}>
-                                    {p.bullets.map((b) => <li key={b}>{b}</li>)}
-                                </ul>
-                            </button>
-                        ))}
+                                    <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.55, fontSize: 14 }}>
+                                        {p.bullets.map((b) => <li key={b}>{b}</li>)}
+                                    </ul>
+                                </button>
+                            );
+                        })}
                     </div>
                 </div>
             </div>

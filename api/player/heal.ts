@@ -2,10 +2,16 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
 import { safeName, mergePreservingImages, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
-import { reportMissionEvent, awardProfessionXp } from '../missions/_progress.js';
+import { reportMissionEvent, awardProfessionXp, type CompletedMissionInfo } from '../missions/_progress.js';
 
 const HEAL_PER_TARGET_COOLDOWN_MS = 5 * 60 * 1000;
 const HEALER_MAX_XP_PER_HEAL = 100;
+// Healer assist synergy: +50% XP for healing a target who was hospitalized
+// within the last 10 minutes (recent-fight proxy — players are hospitalized
+// from PvP losses, so a fresh hospitalization means combat assist).
+const HEALER_RAID_ASSIST_WINDOW_MS = 10 * 60 * 1000;
+const HEALER_RAID_ASSIST_MULT = 1.5;
+const HOSPITAL_DURATION_MS = 60_000;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -33,11 +39,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!targetRecord) return res.status(404).json({ error: 'Player not found.' });
         const targetChar = targetRecord.character as Record<string, unknown> | undefined;
         if (!targetChar) return res.status(404).json({ error: 'Character not found.' });
-        if (!targetChar.hospitalized) return res.status(400).json({ error: 'Player is not hospitalized.' });
+
+        // Self-heals and Healer-rank-<10 cross-heals require the target to be
+        // hospitalized. Rank-10 Healers can also heal merely-injured (non-
+        // hospitalized) same-village players anywhere in the world.
+        const targetHospitalized = !!targetChar.hospitalized;
+        const targetHp = Number(targetChar.hp ?? 0);
+        const targetMaxHp = Number(targetChar.maxHp ?? 0);
+        const targetInjured = targetMaxHp > 0 && targetHp < targetMaxHp;
 
         if (isSelfHeal) {
             // Original behavior: self-heal only after the hospital timer expires
             // (admins bypass). No profession XP awarded for self-heals.
+            if (!targetHospitalized) return res.status(400).json({ error: 'Player is not hospitalized.' });
             const until = Number(targetChar.hospitalizedUntil ?? 0);
             if (!identity.admin && until && Date.now() < until) {
                 return res.status(429).json({
@@ -76,6 +90,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(403).json({ error: 'Healer and target must be in the same village.' });
         }
 
+        // Hospital vs world-wide rules:
+        //   Rank 1-9: target must be hospitalized.
+        //   Rank 10+: target may be merely injured (HP < maxHp) anywhere in the
+        //             world (same-village gate above still applies).
+        const healerRank = Number(healerChar.professionRank ?? 0);
+        if (!identity.admin && !targetHospitalized) {
+            if (healerRank < 10) {
+                return res.status(400).json({ error: 'Target is not hospitalized. World-wide healing unlocks at Rank 10.' });
+            }
+            if (!targetInjured) {
+                return res.status(400).json({ error: 'Target is at full HP — nothing to heal.' });
+            }
+        }
+
         // Per-target cooldown — any Healer touching the same target shares
         // the 5 min lockout (prevents two-Healer ping-pong farming).
         const cooldownKey = `heal:lastHealedAt:${targetName}`;
@@ -95,7 +123,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const curHp = Number(targetChar.hp ?? 0);
         const maxHp = Number(targetChar.maxHp ?? 1);
         const pctHealed = maxHp > 0 ? Math.max(0, Math.min(1, 1 - curHp / maxHp)) : 0;
-        const xpGained = Math.min(HEALER_MAX_XP_PER_HEAL, Math.floor(pctHealed * 100));
+        let xpGained = Math.min(HEALER_MAX_XP_PER_HEAL, Math.floor(pctHealed * 100));
+
+        // Healer raid-assist synergy: +50% XP if the target was hospitalized
+        // within the last 10 minutes (proxy for "fresh from a fight").
+        const hospitalizedUntilTs = Number(targetChar.hospitalizedUntil ?? 0);
+        const hospitalizedAt = hospitalizedUntilTs ? hospitalizedUntilTs - HOSPITAL_DURATION_MS : 0;
+        const raidAssist = hospitalizedAt > 0 && (Date.now() - hospitalizedAt) < HEALER_RAID_ASSIST_WINDOW_MS;
+        if (raidAssist) {
+            xpGained = Math.floor(xpGained * HEALER_RAID_ASSIST_MULT);
+        }
 
         // Restore target.
         const healedTarget = {
@@ -124,7 +161,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // healer if a mission completes. Both helpers re-read the character
         // each time so XP stacks correctly.
         let missionXpAwarded = 0;
-        let missionsCompleted: string[] = [];
+        let missionsCompleted: CompletedMissionInfo[] = [];
         try {
             const countResult = await reportMissionEvent({
                 playerName: actorName,
@@ -153,6 +190,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ok: true,
             kind: 'healer',
             xpGained,
+            raidAssist,
             missionXpAwarded,
             missionsCompleted,
             professionXp: finalXp,
