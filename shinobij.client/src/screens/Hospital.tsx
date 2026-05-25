@@ -18,6 +18,27 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, hospita
 
     const isHealer = character.profession === "healer";
     const healerRank = isHealer ? (character.professionRank ?? 1) : 0;
+    const hasWorldwideVision = isHealer && healerRank >= 10;
+    const [worldwideInjured, setWorldwideInjured] = useState<Array<{ name: string; level: number; hp: number; maxHp: number; hospitalized: boolean }>>([]);
+
+    useEffect(() => {
+        if (!hasWorldwideVision) {
+            setWorldwideInjured([]);
+            return;
+        }
+        let cancelled = false;
+        async function fetchInjured() {
+            try {
+                const res = await fetch(`/api/player/injured-villagers?healerName=${encodeURIComponent(character.name)}`);
+                if (!res.ok || cancelled) return;
+                const data = await res.json();
+                if (Array.isArray(data.injured)) setWorldwideInjured(data.injured);
+            } catch { /* ignore */ }
+        }
+        void fetchInjured();
+        const id = setInterval(fetchInjured, 20_000);
+        return () => { cancelled = true; clearInterval(id); };
+    }, [hasWorldwideVision, character.name]);
 
     useEffect(() => {
         if (!character.hospitalized || hospitalEntryTime === null) return;
@@ -59,7 +80,12 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, hospita
             }
             const xpGained = Number(data.xpGained ?? 0);
             const missionXp = Number(data.missionXpAwarded ?? 0);
-            const missionsCompleted: string[] = Array.isArray(data.missionsCompleted) ? data.missionsCompleted : [];
+            const missionsCompleted: Array<{ id: string; name: string; xpReward: number }> = Array.isArray(data.missionsCompleted) ? data.missionsCompleted : [];
+            for (const m of missionsCompleted) {
+                window.dispatchEvent(new CustomEvent('profession-mission-complete', {
+                    detail: { name: m.name, xp: m.xpReward, profession: 'healer' },
+                }));
+            }
             const prevRank = character.professionRank ?? 1;
             // Server returns the authoritative post-credit XP/rank (mission XP included).
             const finalXp = Number(data.professionXp ?? (character.professionXp ?? 0) + xpGained);
@@ -185,6 +211,48 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, hospita
                             )}
                         </div>
                     ))}
+                </div>
+            )}
+            {hasWorldwideVision && (
+                <div style={{ marginTop: "1.5rem" }}>
+                    <h4 style={{ marginBottom: "0.5rem", color: "#22d3ee" }}>
+                        🌍 Injured Villagers — World-Wide (Rank 10)
+                    </h4>
+                    <p className="hint" style={{ marginTop: 0 }}>
+                        Same-village shinobi anywhere in the world with HP below max. Sorted lowest HP first.
+                    </p>
+                    {worldwideInjured.filter(p => !healed.has(p.name)).length === 0 ? (
+                        <p className="hint">All villagers are at full health.</p>
+                    ) : (
+                        worldwideInjured.filter(p => !healed.has(p.name)).map(p => {
+                            const hpPct = Math.max(0, Math.min(100, Math.round((p.hp / p.maxHp) * 100)));
+                            return (
+                                <div key={p.name} className="summary-box" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
+                                    <div style={{ flex: 1 }}>
+                                        <strong>{p.name}</strong>
+                                        <span className="hint" style={{ marginLeft: 6 }}>Lv {p.level}</span>
+                                        {p.hospitalized && <span style={{ marginLeft: 8, color: "#facc15", fontSize: "0.75rem" }}>🛏️ Admitted</span>}
+                                        <div style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 6 }}>
+                                            <div style={{ flex: 1, maxWidth: 200, height: 6, background: "rgba(148,163,184,0.2)", borderRadius: 3, overflow: "hidden" }}>
+                                                <div style={{ width: `${hpPct}%`, height: "100%", background: hpPct < 30 ? "#f87171" : hpPct < 60 ? "#facc15" : "#84cc16" }} />
+                                            </div>
+                                            <span style={{ color: hpPct < 30 ? "#f87171" : "#94a3b8", fontSize: "0.78rem" }}>
+                                                {p.hp}/{p.maxHp}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <button onClick={() => healPlayer(p.name)} style={{ background: "linear-gradient(#0e7490,#155e75)", borderColor: "#22d3ee" }}>
+                                        ✚ Heal
+                                    </button>
+                                    {healMsg[p.name] && (
+                                        <span className="hint" style={{ color: healMsg[p.name].startsWith("✅") ? "#22d3ee" : "#f87171" }}>
+                                            {healMsg[p.name]}
+                                        </span>
+                                    )}
+                                </div>
+                            );
+                        })
+                    )}
                 </div>
             )}
         </div>

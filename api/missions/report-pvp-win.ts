@@ -4,6 +4,11 @@ import { safeName, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { reportMissionEvent } from './_progress.js';
 import type { PvpSession } from '../pvp/session.js';
+import { hasRecentIpOverlap } from '../_player-ips.js';
+
+// Quick-surrender protection: fights ending in <15s grant no mission progress.
+const MIN_FIGHT_DURATION_MS = 15_000;
+const ACCOUNT_AGE_MIN_MS = 72 * 60 * 60 * 1000;
 
 // Server-validated report channel for Vanguard PvP-win missions. The client
 // calls this after handlePvpWin fires. The server cross-checks the reported
@@ -51,6 +56,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Not a Vanguard — nothing to do, but return 200 so the client
             // doesn't treat it as an error.
             return res.status(200).json({ ok: true, vanguard: false });
+        }
+
+        // Anti-abuse checks (mission rewards only; Honor Seals are gated
+        // client-side until server-side rewards land).
+        const fightStarted = Number(session.createdAt ?? 0);
+        const fightDuration = fightStarted ? Date.now() - fightStarted : 0;
+        if (fightDuration < MIN_FIGHT_DURATION_MS) {
+            return res.status(200).json({ ok: true, vanguard: true, reason: 'quick-surrender', xpAwarded: 0, missionsCompleted: [] });
+        }
+
+        const opponentRecord = await kv.get<Record<string, unknown>>(`save:${opponentName}`);
+        const opponentChar = opponentRecord?.character as Record<string, unknown> | undefined;
+        const opponentCreated = Number(opponentChar?.createdAt ?? 0);
+        if (opponentCreated > 0 && (Date.now() - opponentCreated) < ACCOUNT_AGE_MIN_MS) {
+            return res.status(200).json({ ok: true, vanguard: true, reason: 'account-too-young', xpAwarded: 0, missionsCompleted: [] });
+        }
+
+        const sharesIp = await hasRecentIpOverlap(playerName, opponentName);
+        if (sharesIp) {
+            return res.status(200).json({ ok: true, vanguard: true, reason: 'same-ip', xpAwarded: 0, missionsCompleted: [] });
         }
 
         // Idempotency: stamp this battle as already-reported so a client retry

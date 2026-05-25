@@ -3,6 +3,7 @@ import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import type { PvpFighter, PvpGroundEffect, PvpSession, PvpStatus } from './session.js';
+import { grantVanguardRewardsForSession } from './_vanguard-rewards.js';
 
 // ─── Grid constants (match arena exactly) ─────────────────────────────────────
 const GRID_W = 12;
@@ -1082,6 +1083,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return res.status(400).json({ error: `Unknown action: ${action}` });
         }
 
+        // If this commit resolved the fight, grant server-side Vanguard
+        // rewards (Honor Seals + Vanguard XP) for the winner. Idempotent via
+        // session.vanguardRewardsGranted, so retries don't double-grant.
+        if (result.status === 'done' && result.winner && result.winner !== 'draw'
+            && !(result as PvpSession & { vanguardRewardsGranted?: boolean }).vanguardRewardsGranted) {
+            try {
+                const grant = await grantVanguardRewardsForSession(result);
+                if (grant.granted) {
+                    (result as PvpSession & { vanguardRewardsGranted?: boolean }).vanguardRewardsGranted = true;
+                    result = { ...result, log: [...result.log, `Vanguard rewards: +${grant.seals} Seals, +${grant.xp} XP`] };
+                }
+            } catch (err) {
+                console.error('[pvp/move] vanguard reward grant failed', err);
+            }
+        }
         await kv.set(key, result, { ex: SESSION_TTL });
         return finish(result);
     } catch (err) {
