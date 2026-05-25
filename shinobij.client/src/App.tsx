@@ -1010,6 +1010,7 @@ type HollowGateTileKind =
     | "trap"
     | "chest"
     | "pet_event"
+    | "pet_battle" // Wild Hollow Beast — animal/pet-themed PvE combat encounter
     | "shrine"
     | "story"
     | "boss"
@@ -1102,6 +1103,11 @@ const hollowGateFlavorPool: Record<HollowGateTileKind, string[]> = {
     pet_event: [
         "Glowing pawprints trail toward a sleeping shrine spirit. Your pet's ears twitch.",
         "A familiar scent drifts past — your pet pulls you toward a side passage.",
+    ],
+    pet_battle: [
+        "A corrupted Hollow Beast prowls the corridor — eyes burning chakra-blue, claws scoring stone.",
+        "Glowing pawprints crystallize into a snarling shadow-bound beast, twisted by the gate's mist.",
+        "A wild thing lunges from the dark — too fast for a normal animal, too old for a normal shadow.",
     ],
     shrine: [
         "A broken shrine stone weeps cold chakra. Beyond it, a Hidden Chamber lies open.",
@@ -1508,6 +1514,7 @@ function buildRunFromParsedLayout(
     const deadEndTrapsPlaced = placeTrapsAtDeadEnds(Math.ceil(trapCount * 0.67));
 
     placeIn(["room_floor", "corridor_floor"], "battle", battleCount);
+    placeIn(["room_floor", "corridor_floor"], "pet_battle", 1 + Math.floor(floor / 2));   // Hollow Beast encounters
     placeIn(["room_floor", "corridor_floor"], "trap", Math.max(0, trapCount - deadEndTrapsPlaced));
     placeIn(["room_floor"], "elite", 1 + Math.floor(floor / 2));
     placeIn(["room_floor"], "chest", 3);
@@ -1836,6 +1843,8 @@ function generateHollowGateShrineRunBSP(floor = 1): HollowGateShrineRun {
 
     // Battles can be in rooms (guards) or corridors (ambushes).
     placeIn(["room_floor", "corridor_floor"], "battle", battleCount);
+    // Hollow Beast encounters — wild pet-themed PvE; 1+floor/2 per floor.
+    placeIn(["room_floor", "corridor_floor"], "pet_battle", 1 + Math.floor(floor / 2));
     // Remaining traps fill anywhere walkable.
     placeIn(["room_floor", "corridor_floor"], "trap", Math.max(0, trapCount - deadEndTrapsPlaced));
     // Room-only content: feels like guarded loot / shrines.
@@ -2112,6 +2121,7 @@ function hollowGateTileIconForKind(kind: HollowGateTileKind): string {
         case "trap": return "▲";
         case "chest": return "▣";
         case "pet_event": return "🐾";
+        case "pet_battle": return "🐺";
         case "shrine": return "⛩";
         case "story": return "📜";
         case "boss": return "👹";
@@ -2155,6 +2165,7 @@ const HOLLOW_GATE_ICON_ROLES: Record<string, HollowGateIconRoleCfg> = {
     shrine:  { label: "Shrine",  kind: "shrine",     count: 2 },
     story:   { label: "Story",   kind: "story",      count: 2 },
     pet:     { label: "Pet",     kind: "pet_event",  count: 3 },
+    petbattle: { label: "Pet Battle", kind: "pet_battle", count: 3 },   // wild Hollow Beast encounters
     npc:     { label: "Keeper",  kind: "npc",        count: 3 },
     descend: { label: "Descend", kind: "descend",    count: 1 },
     exit:    { label: "Leave",   kind: "exit",       count: 1 },
@@ -9803,7 +9814,7 @@ export default function App() {
         setCurrentWeather(weatherForBiome("shadow"));
         setScreen("hollowGateShrine");
     }
-    function startHollowGateBattle(opts: { isBoss?: boolean; isAmbush?: boolean }) {
+    function startHollowGateBattle(opts: { isBoss?: boolean; isAmbush?: boolean; isBeast?: boolean }) {
         if (!character) return;
         const LEVEL_BAND = 15;
         const playerLevel = character.level;
@@ -9854,7 +9865,9 @@ export default function App() {
             ? "Hollow Gate Warden"
             : opts.isAmbush
                 ? "Hollow Gate Ambush"
-                : `Corrupted ${baseAi.name}`;
+                : opts.isBeast
+                    ? `Hollow Beast: ${baseAi.name}`
+                    : `Corrupted ${baseAi.name}`;
         // Boss difficulty scales with the floor of the run:
         //   Floor 1 -> playerLevel - 5
         //   Floor 2 -> playerLevel
@@ -9976,6 +9989,15 @@ export default function App() {
             case "elite": {
                 pushHollowGateLog(`[Elite] ${flavor}`);
                 startHollowGateBattle({ isBoss: false });
+                markResolved();
+                return;
+            }
+            case "pet_battle": {
+                // Wild Hollow Beast — animal/pet-themed encounter using the
+                // same arena pipeline but renamed in flavor + log. Active pet
+                // co-combat still applies, so a strong pet helps.
+                pushHollowGateLog(`[Hollow Beast] ${flavor}`);
+                startHollowGateBattle({ isBeast: true });
                 markResolved();
                 return;
             }
@@ -10416,7 +10438,7 @@ export default function App() {
             const { tile, nx, ny, nextThreat } = outcome.justResolved;
             const modalFiringKinds: HollowGateTileKind[] = [
                 "battle", "elite", "boss",
-                "trap", "chest", "shrine", "pet_event", "story",
+                "trap", "chest", "shrine", "pet_event", "pet_battle", "story",
                 "locked", "exit", "npc", "descend",
             ];
             const tileWillOpenModal = modalFiringKinds.includes(tile.kind);
@@ -11131,7 +11153,8 @@ export default function App() {
                                             const isSurpriseKind = tile.kind === "trap"
                                                 || tile.kind === "battle"
                                                 || tile.kind === "elite"
-                                                || tile.kind === "pet_event";
+                                                || tile.kind === "pet_event"
+                                                || tile.kind === "pet_battle";
                                             const hideContent = isSurpriseKind && !revealed;
                                             const contentTint = hideContent ? null
                                                 : tile.kind === "boss" ? "linear-gradient(135deg, rgba(127,29,29,0.7), rgba(185,28,28,0.7))"
@@ -11145,6 +11168,7 @@ export default function App() {
                                                 : tile.kind === "battle" ? "rgba(248,113,113,0.18)"
                                                 : tile.kind === "elite" ? "rgba(220,38,38,0.26)"
                                                 : tile.kind === "pet_event" ? "rgba(96,165,250,0.18)"
+                                                : tile.kind === "pet_battle" ? "rgba(251,146,60,0.24)"  // beast orange
                                                 : tile.kind === "story" ? "rgba(250,204,21,0.18)"
                                                 : null;
                                             bg = contentTint
@@ -11166,7 +11190,8 @@ export default function App() {
                                         const isSurpriseKind = tile.kind === "trap"
                                             || tile.kind === "battle"
                                             || tile.kind === "elite"
-                                            || tile.kind === "pet_event";
+                                            || tile.kind === "pet_event"
+                                            || tile.kind === "pet_battle";
                                         // Icon can be either:
                                         //   - an atlas image (shrine:icon-<slot>) if the admin assigned one
                                         //     via the Atlas Tile Picker — preferred whenever present
@@ -11175,6 +11200,7 @@ export default function App() {
                                         // mostly identical, except pet_event → "pet" and player → "you".
                                         function iconSlotIdFor(k: HollowGateTileKind): string | null {
                                             if (k === "pet_event") return "pet";
+                                            if (k === "pet_battle") return "petbattle";
                                             // No slot for "empty" / "wall" / "shrine_descend"-style edges
                                             if (k === "empty" || k === "wall") return null;
                                             return k;
@@ -11288,7 +11314,7 @@ export default function App() {
                                             // Map slot id → emoji fallback. Keeps the legend self-contained.
                                             const fallbackEmoji: Record<string, string> = {
                                                 you: "🥷", battle: "⚔", elite: "☠", boss: "👹", trap: "▲",
-                                                chest: "▣", shrine: "⛩", story: "📜", pet: "🐾", npc: "👤",
+                                                chest: "▣", shrine: "⛩", story: "📜", pet: "🐾", petbattle: "🐺", npc: "👤",
                                                 descend: "▼", exit: "⇩", locked: "🔒", wall: "▦",
                                             };
                                             // Walls use the atlas wall tile (terrain), not an icon slot.
@@ -11326,9 +11352,10 @@ export default function App() {
                                                     {legendCell("elite",   "Elite")}    {legendCell("boss",    "Boss")}
                                                     {legendCell("trap",    "Trap")}     {legendCell("chest",   "Chest")}
                                                     {legendCell("shrine",  "Shrine")}   {legendCell("story",   "Story")}
-                                                    {legendCell("pet",     "Pet")}      {legendCell("npc",     "Keeper")}
-                                                    {legendCell("descend", "Descend")}  {legendCell("exit",    "Leave")}
-                                                    {legendCell("locked",  "Locked Door")}{legendCell("wall",  "Wall")}
+                                                    {legendCell("pet",     "Pet")}      {legendCell("petbattle", "Hollow Beast")}
+                                                    {legendCell("npc",     "Keeper")}   {legendCell("descend",   "Descend")}
+                                                    {legendCell("exit",    "Leave")}    {legendCell("locked",    "Locked Door")}
+                                                    {legendCell("wall",    "Wall")}
                                                     <span>· Unexplored</span><span style={{ opacity: 0.55 }}>· In view (dim)</span>
                                                 </div>
                                             );
