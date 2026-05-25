@@ -138,5 +138,43 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
     }
 
+    if (req.method === 'DELETE') {
+        // Used by the admin tooling (atlas picker "clear slot", per-asset
+        // "clear image" buttons). POST with empty string used to be the way
+        // to nominally delete, but isValidImageString rejected empty strings,
+        // so server-side state never actually cleared. This branch does a
+        // real HDEL on the category's hash field so reloads no longer
+        // resurrect cleared slots.
+        const identity = await authedPlayerOrAdmin(req);
+        if (!identity) return res.status(401).json({ error: 'Authentication required.' });
+        try {
+            // Accept the id either as ?id= query param OR JSON body, for
+            // flexibility with fetch wrappers that strip DELETE bodies.
+            const queryId = typeof req.query.id === 'string' ? req.query.id : '';
+            let bodyId = '';
+            if (req.body) {
+                const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+                if (body && typeof body.id === 'string') bodyId = body.id;
+            }
+            const id = queryId || bodyId;
+            if (!id) return res.status(400).json({ error: 'Missing id.' });
+
+            const cat = categoryFromId(id);
+            await kv.hdel(catHashKey(cat), id);
+            // Also clear the legacy per-cat blob field in case the image
+            // lived there (pre-hash-migration uploads).
+            const blob = await kv.get<Record<string, string>>(catKey(cat));
+            if (blob && id in blob) {
+                const next = { ...blob };
+                delete next[id];
+                await kv.set(catKey(cat), next);
+            }
+            return res.status(200).end();
+        } catch (err) {
+            console.error('[images DELETE]', err);
+            return res.status(500).json({ error: 'Internal server error.' });
+        }
+    }
+
     return res.status(405).end();
 }
