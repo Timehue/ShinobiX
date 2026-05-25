@@ -1030,6 +1030,10 @@ type HollowGateTerrain = "wall" | "room_floor" | "corridor_floor" | "door";
 type HollowGateTile = {
     kind: HollowGateTileKind;
     terrain?: HollowGateTerrain;
+    // BSP room membership — every floor cell inside a room shares the same
+    // roomId so the renderer can light up the entire room when the player
+    // steps inside. Corridors and walls get roomId = null.
+    roomId?: number | null;
     revealed: boolean;
     resolved: boolean;
     flavor?: string;
@@ -1274,17 +1278,23 @@ function generateHollowGateShrineRun(floor = 1): HollowGateShrineRun {
 
     // ── 2. Initialize terrain to all walls ────────────────────────────────
     const terrain: HollowGateTerrain[] = new Array(total).fill("wall");
+    // Parallel array tagging each cell with its room ID (-1 = wall / corridor).
+    // The renderer uses this to light up the entire current room when the
+    // player walks into it, without revealing what's beyond doors.
+    const roomIds: number[] = new Array(total).fill(-1);
 
-    // Carve room floors.
-    for (const room of rooms) {
+    // Carve room floors and stamp each cell with the room index.
+    rooms.forEach((room, roomIndex) => {
         for (let ry = room.y; ry < room.y + room.h; ry += 1) {
             for (let rx = room.x; rx < room.x + room.w; rx += 1) {
                 if (rx >= 0 && ry >= 0 && rx < w && ry < h) {
-                    terrain[ry * w + rx] = "room_floor";
+                    const idx = ry * w + rx;
+                    terrain[idx] = "room_floor";
+                    roomIds[idx] = roomIndex;
                 }
             }
         }
-    }
+    });
 
     // ── 3. Connect adjacent rooms with corridors ──────────────────────────
     // Sort rooms by center x then y, then connect each to the next so every
@@ -1327,7 +1337,10 @@ function generateHollowGateShrineRun(floor = 1): HollowGateShrineRun {
     if (rooms.length === 0) {
         // Defensive: BSP failed to produce rooms (shouldn't happen at 15×11).
         // Fall back to a single big room covering the grid.
-        for (let i = 0; i < total; i += 1) terrain[i] = "room_floor";
+        for (let i = 0; i < total; i += 1) {
+            terrain[i] = "room_floor";
+            roomIds[i] = 0;
+        }
         rooms.push({ x: 1, y: 1, w: w - 2, h: h - 2 });
     }
 
@@ -1483,10 +1496,11 @@ function generateHollowGateShrineRun(floor = 1): HollowGateShrineRun {
         break;
     }
 
-    // ── 9. Build the final tile array, attaching both kind and terrain ───
+    // ── 9. Build the final tile array, attaching kind / terrain / roomId ──
     const tiles: HollowGateTile[] = kinds.map((kind, i) => ({
         kind,
         terrain: terrain[i],
+        roomId: roomIds[i] >= 0 ? roomIds[i] : null,
         revealed: i === spawnIdx, // spawn revealed
         resolved: i === spawnIdx,
         flavor: i === spawnIdx ? "You stand at the threshold of the Hollow Gate Shrine." : undefined,
@@ -1509,6 +1523,109 @@ function generateHollowGateShrineRun(floor = 1): HollowGateShrineRun {
 function hollowGateTileAt(run: HollowGateShrineRun, x: number, y: number): HollowGateTile | undefined {
     if (x < 0 || y < 0 || x >= run.width || y >= run.height) return undefined;
     return run.tiles[y * run.width + x];
+}
+
+// ── Room-flood visibility ───────────────────────────────────────────────────
+// Builds the set of tiles currently lit up around the player.
+//
+// Rules (matches your "light up the section you're in but not behind doors"
+// request):
+//   • Player's tile is always visible.
+//   • If the player is standing IN a room (tile has roomId), the entire room
+//     lights up at once — every cell with the same roomId becomes visible.
+//   • Doors at the edge of the lit room are visible (you can see the doorway),
+//     but vision STOPS at the door — what's beyond stays fogged. This is what
+//     makes choosing the wrong door risky.
+//   • If the player is in a corridor (no roomId), vision flood-fills along
+//     the corridor in all four directions until it hits a wall or a door.
+//     Doors at the end of a corridor are visible but don't reveal beyond.
+//   • Walls are NEVER walkable, but neighboring walls of a lit room ARE shown
+//     so the room reads as a discrete chamber (its walls trace the perimeter).
+function computeHollowGateVisible(run: HollowGateShrineRun): Set<number> {
+    const w = run.width;
+    const h = run.height;
+    const playerIdx = run.playerY * w + run.playerX;
+    const playerTile = run.tiles[playerIdx];
+    const visible = new Set<number>([playerIdx]);
+    if (!playerTile) return visible;
+
+    function addWallsAroundLitTiles() {
+        // Reveal the wall tiles that border any currently-lit cell so each
+        // room's perimeter is visible from the inside.
+        const litSnapshot = [...visible];
+        for (const idx of litSnapshot) {
+            const x = idx % w;
+            const y = Math.floor(idx / w);
+            for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0], [-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+                const nx = x + dx;
+                const ny = y + dy;
+                if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+                const nIdx = ny * w + nx;
+                if (run.tiles[nIdx]?.terrain === "wall") visible.add(nIdx);
+            }
+        }
+    }
+
+    if (playerTile.roomId != null) {
+        // Standing in a room — light up every cell of that room + bordering doors.
+        for (let i = 0; i < run.tiles.length; i += 1) {
+            if (run.tiles[i]?.roomId === playerTile.roomId) visible.add(i);
+        }
+        // Add doors adjacent to lit room cells (doors are 'room_floor' typed
+        // as 'door' terrain — they belong to the same roomId).
+        // They're already included above. But we also want to reveal doors
+        // that border the room from the corridor side; check cardinal neighbours.
+        const litSnapshot = [...visible];
+        for (const idx of litSnapshot) {
+            const x = idx % w;
+            const y = Math.floor(idx / w);
+            for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+                const nx = x + dx;
+                const ny = y + dy;
+                if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+                const nIdx = ny * w + nx;
+                if (run.tiles[nIdx]?.terrain === "door") visible.add(nIdx);
+            }
+        }
+        addWallsAroundLitTiles();
+        return visible;
+    }
+
+    // Standing in a corridor (or undefined terrain on legacy runs).
+    // Flood-fill: walk in 4 directions through corridor cells until we hit
+    // a wall or a door. Doors themselves get added but don't propagate further.
+    const queue: number[] = [playerIdx];
+    while (queue.length > 0) {
+        const idx = queue.shift()!;
+        const x = idx % w;
+        const y = Math.floor(idx / w);
+        for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+            const nx = x + dx;
+            const ny = y + dy;
+            if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+            const nIdx = ny * w + nx;
+            if (visible.has(nIdx)) continue;
+            const nTile = run.tiles[nIdx];
+            if (!nTile) continue;
+            if (nTile.terrain === "wall") continue; // walls handled at the end
+            if (nTile.terrain === "door") {
+                visible.add(nIdx);
+                continue; // can see the door, but vision stops here
+            }
+            if (nTile.terrain === "corridor_floor" || nTile.terrain == null) {
+                visible.add(nIdx);
+                queue.push(nIdx);
+            }
+            // If we somehow reach a room_floor (legacy runs without doors
+            // between corridor and room), reveal one tile but don't flood
+            // the whole room from a corridor position.
+            if (nTile.terrain === "room_floor") {
+                visible.add(nIdx);
+            }
+        }
+    }
+    addWallsAroundLitTiles();
+    return visible;
 }
 
 // Module-level Ancient Chest roll for the Hollow Gate Shrine. Mirrors the
@@ -10232,7 +10349,9 @@ export default function App() {
                                     preserved because the icons at low opacity tell you *what* is
                                     near you, but stepping is still what fires the modal / battle. */}
                                 {(() => {
-                                    const VISION_RADIUS = 2;
+                                    // Room-flood visibility — compute the set of currently-lit
+                                    // cells once per render. See computeHollowGateVisible().
+                                    const visibleSet = computeHollowGateVisible(run);
                                     // Pull all admin-generated terrain textures once per render. Each is
                                     // optional — the renderer falls through to a CSS gradient if missing.
                                     const wallTexture = sharedImages["shrine:tile-wall"];
@@ -10252,8 +10371,9 @@ export default function App() {
                                         const y = Math.floor(i / run.width);
                                         const isPlayer = x === run.playerX && y === run.playerY;
                                         const revealed = tile.revealed;
-                                        const distFromPlayer = Math.abs(x - run.playerX) + Math.abs(y - run.playerY);
-                                        const visible = distFromPlayer <= VISION_RADIUS;
+                                        // Lit when the room-flood visibility set includes this index.
+                                        // (Replaces the old Manhattan-distance flashlight model.)
+                                        const visible = visibleSet.has(i);
                                         // Wall test prefers terrain (BSP runs) but falls back to kind for
                                         // legacy saved runs that don't have terrain set.
                                         const wall = tile.terrain === "wall" || (tile.terrain == null && tile.kind === "wall");
