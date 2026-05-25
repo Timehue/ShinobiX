@@ -7690,15 +7690,22 @@ export default function App() {
     // PvP session storage hook — see PVP_SESSION_KEY note above. Saves a
     // breadcrumb whenever the local client enters/exits a PvP battle, so a
     // browser refresh can re-fetch the server-side session and resume.
+    // Also stores pvpBattleContext (mode/sector/clanWar/kage metadata) so
+    // win-handlers compute correct rewards on resume.
     useEffect(() => {
         try {
             if (pvpBattleId) {
-                localStorage.setItem(PVP_SESSION_KEY, JSON.stringify({ pvpBattleId, pvpRole, savedAt: Date.now() }));
+                localStorage.setItem(PVP_SESSION_KEY, JSON.stringify({
+                    pvpBattleId,
+                    pvpRole,
+                    pvpBattleContext,
+                    savedAt: Date.now(),
+                }));
             } else {
                 localStorage.removeItem(PVP_SESSION_KEY);
             }
         } catch { /* quota / SSR */ }
-    }, [pvpBattleId, pvpRole]);
+    }, [pvpBattleId, pvpRole, pvpBattleContext]);
     const [temporaryStoryAi, setTemporaryStoryAi] = useState<CreatorAi | null>(null);
     const [raidBattleKind, setRaidBattleKind] = useState<"none" | "raidAi" | "raidPlayer" | "defense">("none");
     const [endlessBattleActive, setEndlessBattleActive] = useState(false);
@@ -8201,16 +8208,48 @@ export default function App() {
             // Stale-check at 1hr in case the player walked away from a
             // crashed match. The PvpBattle component's mount fetches the
             // session and resyncs from server state.
+            //
+            // Forced re-entry rule: if the breadcrumb restores AND the
+            // server confirms the session is still alive, the player is
+            // FORCED back into the pvpBattle screen regardless of which
+            // screen they were on. PvP fairness — you can't refresh-flee
+            // a duel.
             let restoredPvpBattleId: string | null = null;
+            let pvpSessionAliveOnServer = false;
             try {
                 const raw = localStorage.getItem(PVP_SESSION_KEY);
                 if (raw) {
-                    const parsed = JSON.parse(raw) as { pvpBattleId?: string; pvpRole?: "p1" | "p2"; savedAt?: number };
+                    const parsed = JSON.parse(raw) as {
+                        pvpBattleId?: string;
+                        pvpRole?: "p1" | "p2";
+                        pvpBattleContext?: SharedPvpBattleContext;
+                        savedAt?: number;
+                    };
                     const age = Date.now() - (parsed.savedAt ?? 0);
                     if (parsed.pvpBattleId && age < 60 * 60 * 1000) {
                         restoredPvpBattleId = parsed.pvpBattleId;
                         setPvpBattleId(parsed.pvpBattleId);
                         if (parsed.pvpRole) setPvpRole(parsed.pvpRole);
+                        if (parsed.pvpBattleContext) setPvpBattleContext(parsed.pvpBattleContext);
+                        // Best-effort server check (non-blocking) — if the
+                        // session no longer exists or is "done", clear the
+                        // breadcrumb so a stale crash doesn't trap them.
+                        void fetch(`/api/pvp/session?id=${encodeURIComponent(parsed.pvpBattleId)}`)
+                            .then((r) => r.ok ? r.json() : null)
+                            .then((data: { status?: string } | null) => {
+                                if (!data || data.status === "done") {
+                                    try { localStorage.removeItem(PVP_SESSION_KEY); } catch { /* ignore */ }
+                                    setPvpBattleId(null);
+                                    setPvpRole(null);
+                                    setPvpBattleContext(null);
+                                }
+                            })
+                            .catch(() => { /* network blip; leave breadcrumb in place */ });
+                        // For routing purposes we trust the breadcrumb at
+                        // boot — server check is async and may resolve
+                        // after we've rendered. If it's stale, the
+                        // PvpBattleScreen itself will fall back.
+                        pvpSessionAliveOnServer = true;
                     } else {
                         localStorage.removeItem(PVP_SESSION_KEY);
                     }
@@ -8219,16 +8258,20 @@ export default function App() {
 
             (() => {
                 let target: Screen = "village";
+                // FORCE re-entry into a live PvP battle — overrides whatever
+                // the persisted screen was. Players cannot refresh-flee.
+                if (pvpSessionAliveOnServer && restoredPvpBattleId) {
+                    setScreen("pvpBattle");
+                    return;
+                }
                 try {
                     const persisted = localStorage.getItem(LAST_SCREEN_KEY) as Screen | null;
                     if (persisted) {
                         const inHollowGateRun = Boolean(normalized.hollowGateRun && !normalized.hollowGateRun.completed);
                         // Mid-encounter screens that can't resume from
-                        // local state alone. pvpBattle is now allowed if
-                        // we restored the session breadcrumb above — the
-                        // server holds the authoritative state. arena
-                        // also resumes via Arena-internal localStorage
-                        // restore, so it's allowed too.
+                        // local state alone. arena also resumes via
+                        // Arena-internal localStorage restore so it's
+                        // allowed too.
                         const UNSAFE: Screen[] = ["petArena", "hollowGateTiles"];
                         if (persisted === "pvpBattle" && !restoredPvpBattleId) {
                             // No PvP breadcrumb to restore — fall through
