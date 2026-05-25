@@ -10134,15 +10134,19 @@ export default function App() {
                     markResolved();
                     return;
                 }
-                // Pick a random wild pet from the canonical petPool, scaled to
-                // the player's level so the fight is fair. Higher floors push
-                // toward rarer pets.
+                // Pick a wild pet rarity capped to one tier above the player's
+                // pet — never a mythic vs standard mismatch. Floor weighting
+                // pushes toward the cap on deeper floors but still allows
+                // mirror / lower-tier matches so easier fights remain possible.
                 const floor = hollowGateRun?.floor ?? 1;
-                const rarityRoll = Math.random() + floor * 0.06;
-                const targetRarity: PetRarity = rarityRoll >= 0.92 ? "mythic"
-                    : rarityRoll >= 0.78 ? "legendary"
-                    : rarityRoll >= 0.55 ? "rare"
-                    : "standard";
+                const playerRarityIdx = petRarityOrder.indexOf(activePet.rarity);
+                const maxRarityIdx = Math.min(petRarityOrder.length - 1, playerRarityIdx + 1);
+                // bumpChance: F1=10%, F2=15%, ..., F5=30%. Probability of using
+                // the +1 tier; otherwise stay at player tier (or lower for
+                // standard players when bump isn't picked).
+                const bumpChance = Math.min(0.45, 0.10 + (floor - 1) * 0.05);
+                const targetIdx = Math.random() < bumpChance ? maxRarityIdx : playerRarityIdx;
+                const targetRarity: PetRarity = petRarityOrder[targetIdx];
                 const wildBase = pickHollowGateEncounterPet(petPool, targetRarity);
                 if (!wildBase) {
                     // Shouldn't happen with the canonical pool, but defensive.
@@ -10151,11 +10155,24 @@ export default function App() {
                     markResolved();
                     return;
                 }
-                // Rebase wild pet to the player's pet level so the duel is balanced.
+                // Rebase wild pet to the player's pet level so the duel is
+                // balanced on stats. On the hardest floors (F4-5) trim 10%
+                // off hp/attack/defense so the fight stays winnable —
+                // mythic-template stats can otherwise steamroll a standard
+                // player pet even at matched level.
+                const handicap = floor >= 4 ? 0.90 : 1.00;
+                // shrine:tile-hollow-beast is the admin-generated "wild pet"
+                // portrait. If set, override the wild pet's image so all
+                // Hollow Gate beast encounters share a consistent look.
+                const hollowBeastImg = sharedImages["shrine:tile-hollow-beast"];
                 const wild: Pet = {
                     ...wildBase,
                     level: Math.max(1, activePet.level),
                     name: `Hollow ${wildBase.name}`,
+                    hp: Math.max(1, Math.floor(wildBase.hp * handicap)),
+                    attack: Math.max(1, Math.floor(wildBase.attack * handicap)),
+                    defense: Math.max(1, Math.floor(wildBase.defense * handicap)),
+                    image: hollowBeastImg || wildBase.image,
                 };
                 pushHollowGateLog(`[Hollow Beast] ${flavor} ${activePet.name} squares off against ${wild.name}.`);
                 // Resolve the tile FIRST so the run state advances correctly,
@@ -11893,7 +11910,7 @@ export default function App() {
                         updateCharacter={setCharacter}
                         creatorCards={creatorCards}
                         dungeonMode
-                        tileDifficulty={hollowGateRun.floor >= 4 ? "hard" : hollowGateRun.floor >= 2 ? "normal" : "easy"}
+                        tileDifficulty={hollowGateRun.floor >= 4 ? "normal" : "easy"}
                         onDungeonWin={() => {
                             // Win → small reward + back to shrine. Rewards
                             // are intentionally modest since chests cover the
@@ -19141,6 +19158,25 @@ function AdminPanel({
                         name: "Shrine Keeper (NPC portrait)",
                         category: "Tile / Scene",
                         defaultPrompt: "Shrine Keeper, ancient hooded shinobi tending a violet chakra brazier inside a Hollow Gate shrine corridor, lined face, kind eyes, simple grey robes with purple sigils, mystical NPC portrait, painted ninja RPG character art",
+                    },
+                    {
+                        // Shared wild-pet portrait for Hollow Gate pet_battle
+                        // encounters. When set, overrides the individual pet
+                        // template's image so every Hollow Beast looks part
+                        // of the same shadow-corruption aesthetic.
+                        key: "shrine:tile-hollow-beast",
+                        name: "Hollow Beast (wild pet portrait)",
+                        category: "Tile / Scene",
+                        defaultPrompt: "Hollow Beast, corrupted spirit beast bound by violet chakra mist inside a shadow shinobi shrine, eyes burning chakra-blue, fractured shadow body, faint ancient sigils orbiting it, painted ninja RPG creature portrait",
+                    },
+                    {
+                        // Tile-game scene + the shadow NPC opponent who runs
+                        // the 3x3 card duel. Used as the modal/scene art for
+                        // the Shinobi Tile encounter tile.
+                        key: "shrine:tile-tile-game",
+                        name: "Shinobi Tile Game (NPC + table)",
+                        category: "Tile / Scene",
+                        defaultPrompt: "A hooded shadow opponent sits across a glowing stone table inside a Hollow Gate shrine, nine tile-shaped slots etched into the table glowing violet, faint chakra cards floating between them, painted ninja RPG card-game scene art",
                     },
                     {
                         key: "shrine:tile-wall",
