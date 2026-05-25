@@ -14268,6 +14268,16 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                 void addClanWarPoints(pendingClanPetBattle.clanName ?? character.clan, character.name, pendingClanPetBattle.points);
                 setBattleLog([...battle.logs, `${character.name} earned ${pendingClanPetBattle.points} clan war points by winning the pet battle against ${pendingClanPetBattle.opponentName}.`]);
             }
+        } else if (opponent.owner === "Hollow Gate") {
+            // Pet duel lost inside the Hollow Gate Shrine — trainer takes
+            // 20% maxHp damage as residual chakra burns through the seal.
+            // Mirrors the Arena loss rule for non-boss Hollow Gate fights.
+            // Player still returns to the shrine via the exit button's
+            // returnScreen; not hospitalized, not run-ending.
+            const dmg = Math.max(1, Math.floor(character.maxHp * 0.20));
+            const nextHp = Math.max(1, character.hp - dmg);
+            updateCharacter({ ...character, hp: nextHp });
+            setBattleLog([...battle.logs, `${character.name} took ${dmg} HP (20% of max) as the Hollow Beast's chakra recoiled through the seal.`]);
         }
         if (pendingClanPetBattle) savePendingClanPetBattle(null);
     }
@@ -30175,6 +30185,16 @@ function Arena({
             setLog(`${character.name} was defeated.`);
             addCombatLog(`${opponentName} defeats ${character.name}.`, "defeat", opponentName);
             if (rankedBattleActive) applyRankedLoss();
+            else if (pendingStoryBattle?.kind === "hollowGateShrine" && !pendingStoryBattle.isBoss) {
+                // Hollow Gate non-boss loss → 20% of max HP and the player
+                // continues the shrine run. Only the Warden (boss) carries
+                // the full death + hospital penalty. The run rewards survival
+                // over reload-spam, so a regular shinobi/elite KO costs HP
+                // but not the whole run.
+                const dmg = Math.max(1, Math.floor(character.maxHp * 0.20));
+                const nextHp = Math.max(1, character.hp - dmg);   // clamp ≥1 so the loss handler doesn't re-trigger
+                updateCharacter({ ...character, hp: nextHp });
+            }
             else updateCharacter({ ...character, hp: 0, hospitalized: true });
         }
         return true;
@@ -31321,14 +31341,28 @@ function Arena({
                                 </h2>
                                 <p>{log}</p>
                                 {battleResult === "loss" ? (
-                                    <>
-                                        <p style={{ color: "#f87171", fontSize: "0.9rem", margin: "0.5rem 0" }}>
-                                            You've been rushed to the village hospital. Pay <strong style={{ color: "#fde047" }}>1,000 ryo</strong> to be treated and released.
-                                        </p>
-                                        <button style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171" }} onClick={() => { if (pendingStoryBattle) onPendingStoryBattleContinue?.(); setScreen("hospital"); }}>
-                                            ?? Go to Hospital
-                                        </button>
-                                    </>
+                                    pendingStoryBattle?.kind === "hollowGateShrine" && !pendingStoryBattle.isBoss ? (
+                                        // Hollow Gate non-boss loss: 20% HP penalty already
+                                        // applied in the loss handler. Send the player back
+                                        // to the shrine to continue, not to the hospital.
+                                        <>
+                                            <p style={{ color: "#f87171", fontSize: "0.9rem", margin: "0.5rem 0" }}>
+                                                The Hollow Beast carved <strong style={{ color: "#fde047" }}>20%</strong> of your max HP before it fell silent. The shrine still breathes around you — the run goes on.
+                                            </p>
+                                            <button style={{ background: "linear-gradient(#1e1b4b,#0f0a2e)", borderColor: "#a78bfa" }} onClick={() => onPendingStoryBattleContinue?.()}>
+                                                Return to Shrine
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <p style={{ color: "#f87171", fontSize: "0.9rem", margin: "0.5rem 0" }}>
+                                                You've been rushed to the village hospital. Pay <strong style={{ color: "#fde047" }}>1,000 ryo</strong> to be treated and released.
+                                            </p>
+                                            <button style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171" }} onClick={() => { if (pendingStoryBattle) onPendingStoryBattleContinue?.(); setScreen("hospital"); }}>
+                                                ?? Go to Hospital
+                                            </button>
+                                        </>
+                                    )
                                 ) : pendingStoryBattle ? (
                                     <div className="menu">
                                         <button className="admin-button" onClick={onPendingStoryBattleContinue}>
