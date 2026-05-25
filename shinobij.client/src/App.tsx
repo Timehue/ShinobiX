@@ -9051,11 +9051,32 @@ export default function App() {
         const idx = y * hollowGateRun.width + x;
         const flavor = hollowGateFlavorFor(tile.kind);
         // Mark resolved immediately so re-entering the tile doesn't fire it again.
-        function markResolved(nextRun?: HollowGateShrineRun) {
-            const base = nextRun ?? hollowGateRun!;
-            const tiles = base.tiles.slice();
-            tiles[idx] = { ...tiles[idx], resolved: true };
-            setHollowGateRun({ ...base, tiles });
+        // CRITICAL: this MUST use the functional setHollowGateRun(prev => ...) form
+        // and apply only the patch fields you actually want to change. The earlier
+        // version of this helper accepted a full HollowGateShrineRun and spread it,
+        // which silently overwrote the player's CURRENT position with whatever
+        // position was in the closure at the time the deferred resolver ran. That
+        // produced the "WASD teleports back" bug — the move took, then a stale
+        // setTimeout fired markResolved with closure.hollowGateRun, snapping the
+        // player back. Patches now only touch resolved/keys/torch.
+        function markResolved(patch?: { keysDelta?: number; setKeys?: number; torchDelta?: number; setTorch?: number }) {
+            setHollowGateRun(prev => {
+                if (!prev) return prev;
+                const tiles = prev.tiles.slice();
+                if (tiles[idx]) tiles[idx] = { ...tiles[idx], resolved: true };
+                const keys = patch?.setKeys != null
+                    ? patch.setKeys
+                    : prev.keys + (patch?.keysDelta ?? 0);
+                const torchRaw = patch?.setTorch != null
+                    ? patch.setTorch
+                    : prev.torch + (patch?.torchDelta ?? 0);
+                return {
+                    ...prev,
+                    keys,
+                    torch: Math.max(0, Math.min(10, torchRaw)),
+                    tiles,
+                };
+            });
         }
         switch (tile.kind) {
             case "empty": {
@@ -9137,12 +9158,8 @@ export default function App() {
                 // Chests also refill the Torch of Reiki by 2.
                 const torchRefill = 2;
                 pushHollowGateLog(`Chest opened. +${ryoGain} ryo, +${effectiveCharacterXpGain(character, xpGain)} XP${auraDustGain ? `, +${auraDustGain} Aura Dust` : ""}, +${auraStoneGain} Aura Stones, +${boneCharmGain} Bone Charms${keyGain ? ", +1 Shrine Key" : ""}, +${torchRefill} Torch.`);
-                const nextRun = {
-                    ...hollowGateRun,
-                    keys: hollowGateRun.keys + keyGain,
-                    torch: Math.min(10, hollowGateRun.torch + torchRefill),
-                };
-                markResolved(nextRun);
+                // Patch-form: only touches keys/torch, never overwrites player position.
+                markResolved({ keysDelta: keyGain, torchDelta: torchRefill });
                 setHollowGateEvent({
                     title: "Shrine Offering Chest",
                     body: `${flavor}\n\n+${ryoGain} ryo\n+${effectiveCharacterXpGain(character, xpGain)} XP${auraDustGain ? `\n+${auraDustGain} Aura Dust` : ""}\n+${auraStoneGain} Aura Stones\n+${boneCharmGain} Bone Charms${keyGain ? "\n+1 Shrine Key" : ""}`,
@@ -9172,7 +9189,7 @@ export default function App() {
                 // Shrine tile fully refills the Torch of Reiki.
                 pushHollowGateLog(`${flavor} The Torch of Reiki flares to full.`);
                 setHollowGateHiddenChamber({ searched: false, relicTaken: false });
-                markResolved({ ...hollowGateRun, torch: 10 });
+                markResolved({ setTorch: 10 });
                 return;
             }
             case "story": {
@@ -9301,7 +9318,7 @@ export default function App() {
             case "locked": {
                 if (hollowGateRun.keys > 0) {
                     pushHollowGateLog(`${flavor} You spend a Shrine Key to open it.`);
-                    markResolved({ ...hollowGateRun, keys: hollowGateRun.keys - 1 });
+                    markResolved({ keysDelta: -1 });
                     // Sealed-door table:
                     //   50%   — Ancient Chest (uses module-level roll)
                     //   25%   — Trap (33% maxHP damage, lethal-capable)
@@ -9452,59 +9469,85 @@ export default function App() {
         }
     }
     function moveHollowGatePlayer(dx: number, dy: number) {
-        if (!hollowGateRun || hollowGateEvent || hollowGateHiddenChamber) return;
+        if (hollowGateEvent || hollowGateHiddenChamber) return;
         if (hollowGateIntroPage !== null) return;
-        const nx = hollowGateRun.playerX + dx;
-        const ny = hollowGateRun.playerY + dy;
-        if (nx < 0 || ny < 0 || nx >= hollowGateRun.width || ny >= hollowGateRun.height) return;
-        const idx = ny * hollowGateRun.width + nx;
-        const tile = hollowGateRun.tiles[idx];
-        // Walls are impassable. Don't penalize threat/torch for bumping into them.
-        if (tile.kind === "wall") {
+
+        // Use functional state update so rapid WASD presses queue correctly
+        // against the latest run state (the closure form lost presses if two
+        // happened within the same render tick — the second computed from the
+        // pre-move state and overwrote the first).
+        let outcome: {
+            wallBump: boolean;
+            torchSputtered: boolean;
+            justResolved: { tile: HollowGateTile; nx: number; ny: number; nextThreat: number } | null;
+            ambushImmediate: boolean;
+        } = { wallBump: false, torchSputtered: false, justResolved: null, ambushImmediate: false };
+
+        setHollowGateRun(prev => {
+            if (!prev) return prev;
+            const nx = prev.playerX + dx;
+            const ny = prev.playerY + dy;
+            if (nx < 0 || ny < 0 || nx >= prev.width || ny >= prev.height) return prev;
+            const idx = ny * prev.width + nx;
+            const tile = prev.tiles[idx];
+            // Walls are impassable. No state change, no threat/torch cost.
+            const isWall = tile.kind === "wall" || tile.terrain === "wall";
+            if (isWall) {
+                outcome = { ...outcome, wallBump: true };
+                return prev;
+            }
+            const tiles = prev.tiles.slice();
+            const wasRevealed = tile.revealed;
+            tiles[idx] = { ...tile, revealed: true, flavor: tile.flavor ?? hollowGateFlavorFor(tile.kind) };
+            // Torch of Reiki: drains 1 every ~3 moves. At 0 torch, threat fills 2x faster.
+            const torchDrain = Math.random() < 0.33 ? 1 : 0;
+            const nextTorch = Math.max(0, prev.torch - torchDrain);
+            const threatMultiplier = nextTorch === 0 ? 2 : 1;
+            const nextThreat = Math.min(100, prev.threat + HOLLOW_GATE_THREAT_PER_STEP * threatMultiplier);
+            const justResolved = !tile.resolved && !wasRevealed;
+            outcome = {
+                ...outcome,
+                torchSputtered: nextTorch === 0 && prev.torch > 0,
+                justResolved: justResolved ? { tile: { ...tile, revealed: true }, nx, ny, nextThreat } : null,
+                ambushImmediate: !justResolved && nextThreat >= HOLLOW_GATE_THREAT_AMBUSH,
+            };
+            return {
+                ...prev,
+                playerX: nx,
+                playerY: ny,
+                tiles,
+                threat: nextThreat,
+                torch: nextTorch,
+            };
+        });
+
+        // ── Side effects ──────────────────────────────────────────────────
+        if (outcome.wallBump) {
             pushHollowGateLog("Solid shrine stone. You cannot pass.");
             return;
         }
-        // Reveal + move first.
-        const tiles = hollowGateRun.tiles.slice();
-        const wasRevealed = tile.revealed;
-        tiles[idx] = { ...tile, revealed: true, flavor: tile.flavor ?? hollowGateFlavorFor(tile.kind) };
-        // Torch of Reiki: drains 1 every ~3 moves. At 0 torch, threat fills 2x faster.
-        const torchDrain = Math.random() < 0.33 ? 1 : 0;
-        const nextTorch = Math.max(0, hollowGateRun.torch - torchDrain);
-        const threatMultiplier = nextTorch === 0 ? 2 : 1;
-        const nextThreat = Math.min(100, hollowGateRun.threat + HOLLOW_GATE_THREAT_PER_STEP * threatMultiplier);
-        const nextRun: HollowGateShrineRun = {
-            ...hollowGateRun,
-            playerX: nx,
-            playerY: ny,
-            tiles,
-            threat: nextThreat,
-            torch: nextTorch,
-        };
-        setHollowGateRun(nextRun);
-        if (nextTorch === 0 && hollowGateRun.torch > 0) {
+        if (outcome.torchSputtered) {
             pushHollowGateLog("The Torch of Reiki sputters out. Threat builds faster in the dark.");
         }
-        // Fire event only if newly revealed AND not already resolved.
-        // Ambush DEFERRAL: when a tile opens a modal or fires a battle, the ambush
-        // is deferred to the next move. Only "empty" and previously-resolved tiles
-        // trigger the ambush immediately.
-        const justResolved = !tile.resolved && !wasRevealed;
-        const modalFiringKinds: HollowGateTileKind[] = [
-            "battle", "elite", "boss",
-            "trap", "chest", "shrine", "pet_event", "story",
-            "locked", "exit", "npc", "descend",
-        ];
-        const tileWillOpenModal = modalFiringKinds.includes(tile.kind);
-        if (justResolved) {
+        if (outcome.justResolved) {
+            const { tile, nx, ny, nextThreat } = outcome.justResolved;
+            const modalFiringKinds: HollowGateTileKind[] = [
+                "battle", "elite", "boss",
+                "trap", "chest", "shrine", "pet_event", "story",
+                "locked", "exit", "npc", "descend",
+            ];
+            const tileWillOpenModal = modalFiringKinds.includes(tile.kind);
+            // Deferred via 0ms timeout to let the state commit. resolveHollowGateTile
+            // uses markResolved's functional-setState form internally so the player
+            // position is preserved (fixes the WASD teleport-back bug).
             setTimeout(() => {
-                resolveHollowGateTile({ ...tile, revealed: true }, nx, ny);
+                resolveHollowGateTile(tile, nx, ny);
                 if (!tileWillOpenModal && nextThreat >= HOLLOW_GATE_THREAT_AMBUSH) {
                     pushHollowGateLog("The Hollow Gate echoes converge — an ambush!");
                     startHollowGateBattle({ isAmbush: true });
                 }
             }, 0);
-        } else if (nextThreat >= HOLLOW_GATE_THREAT_AMBUSH) {
+        } else if (outcome.ambushImmediate) {
             pushHollowGateLog("The Hollow Gate echoes converge — an ambush!");
             setTimeout(() => startHollowGateBattle({ isAmbush: true }), 0);
         }
