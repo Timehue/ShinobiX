@@ -5471,6 +5471,19 @@ export function compressDataUrl(dataUrl: string, maxPx = 512, quality = 0.82): P
 }
 
 // Module-level — callable from any component without prop drilling
+// Mirror of api/images.ts KNOWN_PREFIXES so the client can figure out which
+// category an image lives in without a round-trip. Used for sessionStorage
+// cache invalidation on publish.
+const CLIENT_KNOWN_PREFIXES: Record<string, string> = {
+    avatar: 'avatar', pet: 'pet', jutsu: 'jutsu', item: 'item',
+    card: 'card', event: 'event', bloodline: 'bloodline',
+    vn: 'event', ai: 'ai', shrine: 'shrine', landmark: 'landmark',
+};
+function categoryFromImageKey(id: string): string {
+    const prefix = id.split(':')[0];
+    return CLIENT_KNOWN_PREFIXES[prefix] ?? 'misc';
+}
+
 async function publishSharedImage(id: string, img: string): Promise<boolean> {
     if (!id) return false;
     try {
@@ -5480,6 +5493,14 @@ async function publishSharedImage(id: string, img: string): Promise<boolean> {
             body: JSON.stringify({ id, image: img }),
         });
         if (!res.ok) throw new Error(`Image publish failed: ${res.status}`);
+        // Bust the per-category sessionStorage cache so a page reload fetches
+        // fresh from KV instead of hydrating the pre-publish snapshot. Without
+        // this, the 10-minute IMG_CACHE_TTL would mask new assignments for
+        // up to 10 minutes after a publish.
+        try {
+            const cat = categoryFromImageKey(id);
+            sessionStorage.removeItem(`imgcat:${cat}`);
+        } catch { /* sessionStorage unavailable — ignore */ }
         return true;
     } catch (error) {
         console.warn(`Could not save shared image ${id}:`, error);
@@ -18993,7 +19014,14 @@ function AdminPanel({
                                                                         delete next[asset.key];
                                                                         return next;
                                                                     });
-                                                                    await publishSharedImage(asset.key, "");
+                                                                    // Real DELETE — empty-string POST used to silently fail
+                                                                    // server validation and leave the image in KV.
+                                                                    try {
+                                                                        await fetch(`/api/images?id=${encodeURIComponent(asset.key)}`, { method: 'DELETE' });
+                                                                        try { sessionStorage.removeItem(`imgcat:shrine`); } catch { /* ignore */ }
+                                                                    } catch (err) {
+                                                                        console.warn("[asset clear] DELETE failed", err);
+                                                                    }
                                                                 }}>Clear</button>
                                                             )}
                                                         </div>
@@ -19371,10 +19399,16 @@ function KenneyAtlasPicker({
             delete next[key];
             return next;
         });
-        // KV-side delete: we publish an empty string. The images.ts handler
-        // treats empty as a no-op currently, so the KV value stays — but the
-        // local app state shows the slot as unassigned until next page load.
-        await publishSharedImage(key, "");
+        // Real server-side delete via the new DELETE endpoint — used to be a
+        // POST with empty string which the validator rejected, leaving the
+        // KV record intact and resurrecting the assignment on reload.
+        try {
+            await fetch(`/api/images?id=${encodeURIComponent(key)}`, { method: 'DELETE' });
+            // Bust the cache so a reload re-fetches from KV.
+            try { sessionStorage.removeItem(`imgcat:shrine`); } catch { /* ignore */ }
+        } catch (err) {
+            console.warn("[clearSlot] DELETE failed", err);
+        }
         setBusySlot("");
     }
 
