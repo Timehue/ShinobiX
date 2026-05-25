@@ -10209,9 +10209,17 @@ export default function App() {
                 // shrine:tile-hollow-beast is the admin-generated "wild pet"
                 // portrait. If set, override the wild pet's image so all
                 // Hollow Gate beast encounters share a consistent look.
+                // CRITICAL: also rewrite the pet id with an "hg-beast-" prefix
+                // so the PetArenaCard / PetBattleAvatar image-lookup chain
+                // (sharedImages['pet:<id>'] → sharedImages['pet:<base>'] →
+                // pet.image) doesn't accidentally hit a user-generated
+                // pet:mythic-2 (or similar) image and override our shrine
+                // portrait. The synthetic id has no template match, so the
+                // chain falls through to pet.image where we want it.
                 const hollowBeastImg = sharedImages["shrine:tile-hollow-beast"];
                 const wild: Pet = {
                     ...wildBase,
+                    id: `hg-beast-${Date.now()}`,
                     level: Math.max(1, activePet.level),
                     name: `Hollow ${wildBase.name}`,
                     hp: Math.max(1, Math.floor(wildBase.hp * handicap)),
