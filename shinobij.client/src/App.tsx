@@ -1359,6 +1359,93 @@ type ParsedHollowGateLayout = {
     targetIdx: number;
 };
 
+// Post-process pass run by both generators: enforce "no door leads to a wall".
+// A door is a transition between two walkable cells (room ↔ corridor or
+// room ↔ room). If a door has exactly one room neighbour and walls on all
+// other sides, it visually leads nowhere — confusing and unfair.
+//
+// Fix policy: convert the wall cell directly opposite the room into a
+// single-tile floor alcove + stamp a random surprise on it (poison trap /
+// ambush battle / elite / chest). The alcove gets its own unique roomId
+// so the visibility flood treats it as its own pocket; the player has to
+// step onto the door first, then onto the alcove to discover what's there.
+//
+// Edge cases:
+// - Door on the grid edge with nowhere to expand → close the door (wall it up)
+// - Door with multiple room neighbours (room↔room door) → leave alone
+// - Door with any corridor neighbour → leave alone (it leads somewhere)
+// - Island door (no walkable neighbours at all) → close the door
+function fixDoorsLeadingToWalls(
+    width: number,
+    height: number,
+    terrain: HollowGateTerrain[],
+    roomIds: number[],
+    kinds: HollowGateTileKind[],
+    reserved: Set<number>,
+): void {
+    let nextRoomId = roomIds.reduce((max, id) => Math.max(max, id), -1) + 1;
+    const total = width * height;
+    const cardinals: Array<[number, number]> = [[0, -1], [0, 1], [-1, 0], [1, 0]];
+    // dirs: 0=N, 1=S, 2=W, 3=E. Opposite pairs: 0↔1, 2↔3.
+    const oppositeDir = (d: number) => d === 0 ? 1 : d === 1 ? 0 : d === 2 ? 3 : 2;
+
+    for (let i = 0; i < total; i += 1) {
+        if (terrain[i] !== "door") continue;
+        const x = i % width;
+        const y = Math.floor(i / width);
+
+        const roomSides: number[] = [];
+        const corridorSides: number[] = [];
+        for (let d = 0; d < 4; d += 1) {
+            const [dx, dy] = cardinals[d];
+            const nx = x + dx, ny = y + dy;
+            if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+            const t = terrain[ny * width + nx];
+            if (t === "room_floor") roomSides.push(d);
+            else if (t === "corridor_floor" || t === "door") corridorSides.push(d);
+        }
+
+        if (corridorSides.length > 0) continue;         // leads to a corridor — fine
+        if (roomSides.length === 0) {                    // island door — close it
+            terrain[i] = "wall";
+            kinds[i] = "wall";
+            continue;
+        }
+        if (roomSides.length >= 2) continue;             // between two rooms — fine
+
+        // Single room neighbour + walls on the other 3 sides. Carve an alcove.
+        const opp = oppositeDir(roomSides[0]);
+        const [odx, ody] = cardinals[opp];
+        const ox = x + odx, oy = y + ody;
+        if (ox < 0 || oy < 0 || ox >= width || oy >= height) {
+            // Outside the grid — close the door instead.
+            terrain[i] = "wall";
+            kinds[i] = "wall";
+            continue;
+        }
+        const oIdx = oy * width + ox;
+        if (terrain[oIdx] !== "wall") continue;          // already walkable somehow
+
+        terrain[oIdx] = "room_floor";
+        roomIds[oIdx] = nextRoomId;
+        nextRoomId += 1;
+
+        // Stamp content on the alcove. Skip if the cell was already reserved by
+        // spawn/exit/target (should never happen since walls are excluded from
+        // reservations, but defensive). Mix favours traps so blind-doors punish
+        // greed; chest is the small reward stinger.
+        if (!reserved.has(oIdx)) {
+            const roll = Math.random();
+            const kind: HollowGateTileKind = roll < 0.40 ? "trap"      // poison
+                : roll < 0.75 ? "battle"                                // ambush
+                : roll < 0.90 ? "elite"                                  // tougher ambush
+                : "chest";                                                // small reward
+            kinds[oIdx] = kind;
+            reserved.add(oIdx);
+        }
+    }
+}
+
 function parseHollowGateLayout(ascii: string): ParsedHollowGateLayout | null {
     const lines = ascii.split("\n").map(l => l.replace(/\s+$/, ""));
     while (lines.length && lines[0].length === 0) lines.shift();
@@ -1523,6 +1610,13 @@ function buildRunFromParsedLayout(
     placeIn(["room_floor"], "story", 1);
     placeIn(["room_floor"], "locked", 1);
     placeIn(["room_floor"], "npc", 1);
+
+    // Rule: no door leads to a wall. Convert any dead-end door's wall-side
+    // into a 1-tile alcove stamped with trap/battle/elite/chest.
+    // (Layouts often have hand-placed doors; this fixes accidental dead-ends.)
+    // Mutates terrain / roomIds / kinds / reserved in place — that's why the
+    // arrays from the parser are reused downstream untouched by this call.
+    fixDoorsLeadingToWalls(w, h, terrain, roomIds, kinds, reserved);
 
     // BFS validate spawn → exit AND spawn → target with locked tiles blocking.
     // Same logic as the BSP generator — relocate the offending locked tile if
@@ -1855,6 +1949,12 @@ function generateHollowGateShrineRunBSP(floor = 1): HollowGateShrineRun {
     placeIn(["room_floor"], "story", 1);
     placeIn(["room_floor"], "locked", 1);
     placeIn(["room_floor"], "npc", 1);    // Shrine Keeper — one per floor
+
+    // Rule: no door leads to a wall. BSP corridors usually terminate cleanly
+    // at room edges so this is mostly a safety net for irregular cuts, but
+    // it also adds extra reward/risk pockets behind doors that would
+    // otherwise lead nowhere.
+    fixDoorsLeadingToWalls(w, h, terrain, roomIds, kinds, reserved);
 
     // ── 8. BFS path-validation: spawn → exit + spawn → target ─────────────
     // Walls always block; locked tiles also block (player needs a Shrine Key).
