@@ -10093,12 +10093,56 @@ export default function App() {
                 return;
             }
             case "pet_battle": {
-                // Wild Hollow Beast — animal/pet-themed encounter using the
-                // same arena pipeline but renamed in flavor + log. Active pet
-                // co-combat still applies, so a strong pet helps.
-                pushHollowGateLog(`[Hollow Beast] ${flavor}`);
-                startHollowGateBattle({ isBeast: true });
+                // Wild Hollow Beast — pet vs pet autobattler using the existing
+                // PetArena. The player's active pet duels a random wild pet
+                // scaled to the player's level. Falls back to a themed shinobi
+                // fight if the player has no battle-ready pet (so the tile is
+                // never a dead-end).
+                const activePet = character.pets.find(p => p.id === character.activePetId);
+                const petReady = activePet && activePet.unlockedForPve && !isPetOnExpedition(activePet);
+                if (!petReady) {
+                    // No pet → fall back to the themed shinobi version of the
+                    // encounter so the tile still fires something on step.
+                    pushHollowGateLog(`[Hollow Beast] ${flavor} You have no pet ready — the beast comes for you instead.`);
+                    startHollowGateBattle({ isBeast: true });
+                    markResolved();
+                    return;
+                }
+                // Pick a random wild pet from the canonical petPool, scaled to
+                // the player's level so the fight is fair. Higher floors push
+                // toward rarer pets.
+                const floor = hollowGateRun?.floor ?? 1;
+                const rarityRoll = Math.random() + floor * 0.06;
+                const targetRarity: PetRarity = rarityRoll >= 0.92 ? "mythic"
+                    : rarityRoll >= 0.78 ? "legendary"
+                    : rarityRoll >= 0.55 ? "rare"
+                    : "standard";
+                const wildBase = pickHollowGateEncounterPet(petPool, targetRarity);
+                if (!wildBase) {
+                    // Shouldn't happen with the canonical pool, but defensive.
+                    pushHollowGateLog(`[Hollow Beast] ${flavor} The beast melts back into the mist.`);
+                    startHollowGateBattle({ isBeast: true });
+                    markResolved();
+                    return;
+                }
+                // Rebase wild pet to the player's pet level so the duel is balanced.
+                const wild: Pet = {
+                    ...wildBase,
+                    level: Math.max(1, activePet.level),
+                    name: `Hollow ${wildBase.name}`,
+                };
+                pushHollowGateLog(`[Hollow Beast] ${flavor} ${activePet.name} squares off against ${wild.name}.`);
+                // Resolve the tile FIRST so the run state advances correctly,
+                // then trigger the pet duel. returnScreen routes the player
+                // back to the shrine when the duel ends.
                 markResolved();
+                setPendingPetBattleOpponent({
+                    owner: "Hollow Gate",
+                    pet: wild,
+                    battleSeed: Date.now(),
+                    returnScreen: "hollowGateShrine",
+                });
+                setScreen("petArena");
                 return;
             }
             case "trap": {
@@ -13427,6 +13471,10 @@ type PetArenaOpponent = {
     owner: string;
     pet: Pet;
     battleSeed?: number;
+    // Optional override for the screen the player goes back to when the
+    // battle ends. Defaults to "centralHub" inside PetArena. Used by the
+    // Hollow Gate pet_battle tile to return the player to the shrine.
+    returnScreen?: Screen;
 };
 
 const genericPetArenaOpponents: PetArenaOpponent[] = [
@@ -14399,7 +14447,15 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                         setIsPlaying(true);
                     }}
                     onFightAgain={startBattle}
-                    onExit={() => { setBattleOpponent(null); setBattleReady(false); setScreen("centralHub"); }}
+                    onExit={() => {
+                        // Honour the opponent's returnScreen override if provided —
+                        // Hollow Gate pet_battle tiles set this to "hollowGateShrine"
+                        // so the duel sends you back to the dungeon, not the village hub.
+                        const back = battleOpponent?.returnScreen ?? "centralHub";
+                        setBattleOpponent(null);
+                        setBattleReady(false);
+                        setScreen(back);
+                    }}
                     sharedImages={sharedImages}
                 />
             )}
