@@ -8468,7 +8468,9 @@ export default function App() {
                 { key: "shrine:tile-corridor-floor", x: 16, y: 16 },
                 { key: "shrine:tile-door",           x: 25, y: 15 },
             ],
-            variants: [],
+            // Empty — annotated so TS doesn't infer `never[]` and break the
+            // group.tiles / group.keyPrefix reads in the loop below.
+            variants: [] as Array<{ keyPrefix: string; tiles: Array<{ x: number; y: number }> }>,
             decorations: [
                 { key: "shrine:deco-0", x: 13, y: 17 },  // torch
                 { key: "shrine:deco-1", x: 14, y: 15 },  // barrel
