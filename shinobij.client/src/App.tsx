@@ -7483,6 +7483,11 @@ export default function App() {
     useEffect(() => {
         try { localStorage.setItem(LAST_SCREEN_KEY, screen); } catch { /* quota / SSR */ }
     }, [screen]);
+    // ── PvP session persistence ─────────────────────────────────────────
+    // PvP keys are declared / used here, but the useEffect that consumes
+    // pvpBattleId is registered AFTER the pvp state hooks are declared
+    // (further down the App body — see "PvP session storage hook" below).
+    const PVP_SESSION_KEY = "pvpSession.v1";
 
     // ── Tab visibility: pause all polling when the browser tab is hidden ──
     const [tabVisible, setTabVisible] = useState(() => typeof document !== "undefined" ? document.visibilityState === "visible" : true);
@@ -7682,6 +7687,18 @@ export default function App() {
     const [pvpBattleId, setPvpBattleId] = useState<string | null>(null);
     const [pvpRole, setPvpRole] = useState<"p1" | "p2" | null>(null);
     const [pvpBattleContext, setPvpBattleContext] = useState<SharedPvpBattleContext | null>(null);
+    // PvP session storage hook — see PVP_SESSION_KEY note above. Saves a
+    // breadcrumb whenever the local client enters/exits a PvP battle, so a
+    // browser refresh can re-fetch the server-side session and resume.
+    useEffect(() => {
+        try {
+            if (pvpBattleId) {
+                localStorage.setItem(PVP_SESSION_KEY, JSON.stringify({ pvpBattleId, pvpRole, savedAt: Date.now() }));
+            } else {
+                localStorage.removeItem(PVP_SESSION_KEY);
+            }
+        } catch { /* quota / SSR */ }
+    }, [pvpBattleId, pvpRole]);
     const [temporaryStoryAi, setTemporaryStoryAi] = useState<CreatorAi | null>(null);
     const [raidBattleKind, setRaidBattleKind] = useState<"none" | "raidAi" | "raidPlayer" | "defense">("none");
     const [endlessBattleActive, setEndlessBattleActive] = useState(false);
@@ -8179,16 +8196,45 @@ export default function App() {
             // remapped because their React-only ephemeral state (battle
             // frames, pending opponents, pending modals) can't actually
             // resume from disk.
+            // Restore PvP session breadcrumb if any — lets the pvpBattle
+            // screen re-query the server's authoritative session state.
+            // Stale-check at 1hr in case the player walked away from a
+            // crashed match. The PvpBattle component's mount fetches the
+            // session and resyncs from server state.
+            let restoredPvpBattleId: string | null = null;
+            try {
+                const raw = localStorage.getItem(PVP_SESSION_KEY);
+                if (raw) {
+                    const parsed = JSON.parse(raw) as { pvpBattleId?: string; pvpRole?: "p1" | "p2"; savedAt?: number };
+                    const age = Date.now() - (parsed.savedAt ?? 0);
+                    if (parsed.pvpBattleId && age < 60 * 60 * 1000) {
+                        restoredPvpBattleId = parsed.pvpBattleId;
+                        setPvpBattleId(parsed.pvpBattleId);
+                        if (parsed.pvpRole) setPvpRole(parsed.pvpRole);
+                    } else {
+                        localStorage.removeItem(PVP_SESSION_KEY);
+                    }
+                }
+            } catch { /* corrupt or missing — ignore */ }
+
             (() => {
                 let target: Screen = "village";
                 try {
                     const persisted = localStorage.getItem(LAST_SCREEN_KEY) as Screen | null;
                     if (persisted) {
                         const inHollowGateRun = Boolean(normalized.hollowGateRun && !normalized.hollowGateRun.completed);
-                        // Battle screens (arena, petArena) can't resume cleanly.
-                        // hollowGateTiles likewise depends on ephemeral state.
-                        const UNSAFE: Screen[] = ["arena", "pvpBattle", "petArena", "hollowGateTiles"];
-                        if (UNSAFE.includes(persisted)) {
+                        // Mid-encounter screens that can't resume from
+                        // local state alone. pvpBattle is now allowed if
+                        // we restored the session breadcrumb above — the
+                        // server holds the authoritative state. arena
+                        // also resumes via Arena-internal localStorage
+                        // restore, so it's allowed too.
+                        const UNSAFE: Screen[] = ["petArena", "hollowGateTiles"];
+                        if (persisted === "pvpBattle" && !restoredPvpBattleId) {
+                            // No PvP breadcrumb to restore — fall through
+                            // to a safe screen.
+                            target = "village";
+                        } else if (UNSAFE.includes(persisted)) {
                             target = inHollowGateRun ? "hollowGateShrine" : "village";
                         } else if (persisted === "start") {
                             target = "village";
@@ -31026,6 +31072,142 @@ function Arena({
     const activeJutsuAoeTiles = jutsuAoeTiles(pendingTargetJutsu);
     const activeWeaponRangeTiles = weaponRangeTiles(pendingTargetWeapon);
     const activeGroundAffectedTiles = groundAffectedTiles(pendingTargetJutsu, hoveredBattleTile);
+
+    // ── Mid-battle PvE state persistence ─────────────────────────────────
+    // Save the core combat state to localStorage on every change so a
+    // browser refresh during a PvE fight resumes where it left off. Keyed
+    // by character name so two browsers/sessions don't collide. Cleared on
+    // battle end (win / loss / fled). 1-hour staleness window so a crashed
+    // tab from yesterday doesn't trap the player in a phantom battle.
+    //
+    // Limitations: skips PvP (server-authoritative), skips pet co-combat
+    // mid-action (rare), skips visual animation state. Restores enough
+    // state to make the fight winnable from the resume point.
+    const ARENA_SAVE_KEY = `arena.battle.v1.${character.name}`;
+    const ARENA_SAVE_TTL_MS = 60 * 60 * 1000;     // 1hr — drop after that
+    type SerializedArenaState = {
+        savedAt: number;
+        // Encounter signature — used to validate the save matches the
+        // currently-loaded battle context on restore.
+        opponentName?: string;
+        pendingStoryKind?: string;
+        isPvp: boolean;
+        // Core combat state
+        battleStarted: boolean;
+        playerHp: number;
+        enemyHp: number;
+        enemyChakra: number;
+        enemyStamina: number;
+        ap: number;
+        enemyAp: number;
+        turn: number;
+        activeActor: BattleActor;
+        actionsThisTurn: number;
+        playerStatuses: CombatStatus[];
+        enemyStatuses: CombatStatus[];
+        barrierTiles: { tile: number; rounds: number }[];
+        cooldowns: Record<string, number>;
+        jutsuCooldowns: Record<string, number>;
+        enemyJutsuCooldowns: Record<string, number>;
+        playerShield: number;
+        enemyShield: number;
+        playerPos: number;
+        enemyPos: number;
+        battleHistory: BattleActionEntry[];
+        summonedPetId: string;
+        rankedBattleActive: boolean;
+        clanWarPointsActive: number;
+    };
+    // Skip persistence for PvP-adjacent battles (raidPlayer + active ranked
+    // queue). The actual PvP-vs-player screen is a separate component and
+    // doesn't run through this Arena, so the rest of Arena state is PvE.
+    const isPvpFight = raidBattleKind === "raidPlayer" || rankedBattleActive;
+    // Save on every state change while the battle is in progress.
+    useEffect(() => {
+        if (!battleStarted || battleEnded || isPvpFight) return;
+        const snapshot: SerializedArenaState = {
+            savedAt: Date.now(),
+            opponentName: opponentCharacter?.name ?? pendingAiProfile?.name,
+            pendingStoryKind: pendingStoryBattle?.kind,
+            isPvp: false,
+            battleStarted, playerHp, enemyHp, enemyChakra, enemyStamina,
+            ap, enemyAp, turn, activeActor, actionsThisTurn,
+            playerStatuses, enemyStatuses, barrierTiles,
+            cooldowns, jutsuCooldowns, enemyJutsuCooldowns,
+            playerShield, enemyShield, playerPos, enemyPos,
+            battleHistory, summonedPetId,
+            rankedBattleActive, clanWarPointsActive,
+        };
+        try { localStorage.setItem(ARENA_SAVE_KEY, JSON.stringify(snapshot)); } catch { /* quota */ }
+    }, [
+        battleStarted, battleEnded, isPvpFight,
+        playerHp, enemyHp, enemyChakra, enemyStamina,
+        ap, enemyAp, turn, activeActor, actionsThisTurn,
+        playerStatuses, enemyStatuses, barrierTiles,
+        cooldowns, jutsuCooldowns, enemyJutsuCooldowns,
+        playerShield, enemyShield, playerPos, enemyPos,
+        battleHistory, summonedPetId,
+        rankedBattleActive, clanWarPointsActive,
+    ]);
+    // Clear the save when the battle ends, so a fresh entry starts clean.
+    useEffect(() => {
+        if (battleEnded) {
+            try { localStorage.removeItem(ARENA_SAVE_KEY); } catch { /* ignore */ }
+        }
+    }, [battleEnded, ARENA_SAVE_KEY]);
+    // Restore on Arena mount — one-time on first render. Validates the
+    // save's encounter signature matches the currently-loaded context
+    // so we don't accidentally pour an old story-boss fight's state
+    // into a fresh ambush.
+    const arenaRestoreAttempted = useRef(false);
+    useEffect(() => {
+        if (arenaRestoreAttempted.current) return;
+        arenaRestoreAttempted.current = true;
+        try {
+            const raw = localStorage.getItem(ARENA_SAVE_KEY);
+            if (!raw) return;
+            const saved = JSON.parse(raw) as SerializedArenaState;
+            if (!saved.battleStarted) return;
+            if (Date.now() - saved.savedAt > ARENA_SAVE_TTL_MS) {
+                localStorage.removeItem(ARENA_SAVE_KEY);
+                return;
+            }
+            // Validate context — encounter signature must match. Story
+            // battles match on kind, free fights match on opponent name.
+            const expectedOpponentName = opponentCharacter?.name ?? pendingAiProfile?.name;
+            if (saved.pendingStoryKind !== pendingStoryBattle?.kind) return;
+            if (expectedOpponentName && saved.opponentName !== expectedOpponentName) return;
+            // Apply.
+            setBattleStarted(saved.battleStarted);
+            setPlayerHp(saved.playerHp);
+            setEnemyHp(saved.enemyHp);
+            setEnemyChakra(saved.enemyChakra);
+            setEnemyStamina(saved.enemyStamina);
+            setAp(saved.ap);
+            setEnemyAp(saved.enemyAp);
+            setTurn(saved.turn);
+            setActiveActor(saved.activeActor);
+            setActionsThisTurn(saved.actionsThisTurn);
+            setPlayerStatuses(saved.playerStatuses);
+            setEnemyStatuses(saved.enemyStatuses);
+            setBarrierTiles(saved.barrierTiles);
+            setCooldowns(saved.cooldowns);
+            setJutsuCooldowns(saved.jutsuCooldowns);
+            setEnemyJutsuCooldowns(saved.enemyJutsuCooldowns);
+            setPlayerShield(saved.playerShield);
+            setEnemyShield(saved.enemyShield);
+            setPlayerPos(saved.playerPos);
+            setEnemyPos(saved.enemyPos);
+            setBattleHistory(saved.battleHistory);
+            setSummonedPetId(saved.summonedPetId);
+            setRankedBattleActive(saved.rankedBattleActive);
+            setClanWarPointsActive(saved.clanWarPointsActive);
+            setLog("Mid-battle state restored from previous session.");
+        } catch {
+            try { localStorage.removeItem(ARENA_SAVE_KEY); } catch { /* ignore */ }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     return (
         <div className={`arena-fullscreen arena-bg-${currentBiome}${currentSector === 99 ? " arena-bg-deathsgate" : ""}`}>
