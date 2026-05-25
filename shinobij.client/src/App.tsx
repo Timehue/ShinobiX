@@ -7945,9 +7945,13 @@ export default function App() {
     // (col, row) in the atlas grid; tileSize is the pixel size of one cell.
     // Default coords target the Kenney "Roguelike Caves & Dungeons" pack.
     useEffect(() => {
+        // Kenney's "Roguelike Caves & Dungeons" atlas is 492×305 px, which is
+        // 29 cols × 18 rows of 16×16 tiles with a 1px gap between every tile
+        // (stride = 17). Source pixel for (col, row) is (col * stride, row * stride).
         const KENNEY_ATLAS_TILES = {
             tilemap: "/assets/dungeon/tilemap.png",
             tileSize: 16,
+            gap: 1,
             wall:           { key: "shrine:tile-wall",           x: 8,  y: 2 },
             roomFloor:      { key: "shrine:tile-room-floor",     x: 10, y: 5 },
             corridorFloor:  { key: "shrine:tile-corridor-floor", x: 14, y: 6 },
@@ -7960,6 +7964,7 @@ export default function App() {
         img.onload = () => {
             if (cancelled) return;
             const ts = KENNEY_ATLAS_TILES.tileSize;
+            const stride = ts + KENNEY_ATLAS_TILES.gap;
             // Render at 4x so the upscaled tile doesn't look like a 16px blur.
             // The shrine grid cells are ~50-80px so 4x (64px) is a good match.
             const scale = 4;
@@ -7972,7 +7977,7 @@ export default function App() {
                     const ctx = canvas.getContext("2d");
                     if (!ctx) return null;
                     ctx.imageSmoothingEnabled = false; // crisp pixel art
-                    ctx.drawImage(img, x * ts, y * ts, ts, ts, 0, 0, outSize, outSize);
+                    ctx.drawImage(img, x * stride, y * stride, ts, ts, 0, 0, outSize, outSize);
                     return canvas.toDataURL("image/png");
                 } catch (err) {
                     console.warn("[Kenney atlas slice] failed", err);
