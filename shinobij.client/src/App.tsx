@@ -2160,6 +2160,12 @@ const HOLLOW_GATE_ICON_ROLES: Record<string, HollowGateIconRoleCfg> = {
     exit:    { label: "Leave",   kind: "exit",       count: 1 },
     locked:  { label: "Locked Door", kind: "locked", count: 2 },
     wall:    { label: "Wall",                        count: 1, legendOnly: true },
+    // Floor flavor — sprinkled by the generator on empty room cells, 12%
+    // chance. Assignable atlas tiles for bones / mushrooms / vines / dirt
+    // piles / cracks / banners / pillars / etc. The renderer also includes
+    // any per-theme deco slots (theme-X-deco-1, -deco-2) so themed rooms
+    // get themed flavor (Crypt skulls, Ember braziers, etc.).
+    deco:    { label: "Decoration",                  count: 8 },
 };
 type HollowGateIconSlot = {
     id: string;                 // shrine:icon-<id>
@@ -2210,6 +2216,8 @@ const HOLLOW_GATE_THEME_TILE_ROLES: Array<{ id: string; label: string }> = [
     { id: "floor",    label: "Floor"    },
     { id: "corridor", label: "Corridor" },
     { id: "door",     label: "Door"     },
+    { id: "deco-1",   label: "Deco 1"   },   // themed decoration (preferred in this room)
+    { id: "deco-2",   label: "Deco 2"   },
 ];
 // Flat slot list for the picker: 4 themes × 4 roles = 16 theme slots.
 const HOLLOW_GATE_THEME_SLOTS: HollowGateIconSlot[] = HOLLOW_GATE_THEMES.flatMap(theme =>
@@ -10948,12 +10956,46 @@ export default function App() {
                                     const roomFloorVariants = gatherVariants("shrine:tile-room-floor", 4);
                                     const corridorFloorVariants = gatherVariants("shrine:tile-corridor-floor", 4);
                                     // Decoration sprites — sprinkled on top of room floors by the generator.
-                                    const decorations = [
+                                    // Legacy 4 atlas decos (shrine:deco-0..3) — kept for back-compat with old
+                                    // saved runs that stored a 0-3 decoration index on tiles. New runs use
+                                    // the combined pool below.
+                                    const legacyDecorations = [
                                         sharedImages["shrine:deco-0"],
                                         sharedImages["shrine:deco-1"],
                                         sharedImages["shrine:deco-2"],
                                         sharedImages["shrine:deco-3"],
                                     ];
+                                    // User-picker decorations (shrine:icon-deco-1..8) — always available.
+                                    const userDecorations: string[] = [];
+                                    for (let i = 1; i <= 8; i += 1) {
+                                        const v = sharedImages[HOLLOW_GATE_ICON_KEY(`deco-${i}`)];
+                                        if (v) userDecorations.push(v);
+                                    }
+                                    // Per-theme decorations — preferred when the tile sits in a themed room.
+                                    function themedDecorations(theme: string | undefined): string[] {
+                                        if (!theme) return [];
+                                        const out: string[] = [];
+                                        for (const role of ["deco-1", "deco-2"]) {
+                                            const v = sharedImages[`shrine:icon-theme-${theme}-${role}`];
+                                            if (v) out.push(v);
+                                        }
+                                        return out;
+                                    }
+                                    // Build the decoration pool for a given cell: themed first (so themed
+                                    // rooms feel cohesive), then user picks, then atlas defaults. Returns
+                                    // the chosen image url or undefined if no decoration art exists at all.
+                                    function pickDecorationFor(idx: number, theme: string | undefined, hintIndex: number): string | undefined {
+                                        const pool = [
+                                            ...themedDecorations(theme),
+                                            ...userDecorations,
+                                            ...legacyDecorations.filter((x): x is string => Boolean(x)),
+                                        ];
+                                        if (pool.length === 0) return undefined;
+                                        // Mix the tile index with the legacy hint so old runs (which stamped
+                                        // a 0-3 index per tile) still get stable picks; new runs just pass 0.
+                                        const seed = ((idx * 2654435761) ^ (hintIndex * 16777619)) >>> 0;
+                                        return pool[seed % pool.length];
+                                    }
                                     // Deterministic cell-index hash so a given cell always picks the same
                                     // variant (no flicker between renders). Standard 32-bit mixing constant.
                                     function variantPick(idx: number, count: number): number {
@@ -11069,14 +11111,16 @@ export default function App() {
                                             // then overlay a decoration sprite if assigned, then a
                                             // content-tint if this cell carries an event.
                                             let terrainBase = bgForTerrain(terrainKind, i, cellTheme);
-                                            // Overlay decoration sprite if the generator assigned one
-                                            // to this cell (only on room_floor and only when not a
-                                            // hidden-surprise content tile).
-                                            if (
-                                                tile.decoration != null
-                                                && decorations[tile.decoration]
-                                            ) {
-                                                terrainBase = `url(${decorations[tile.decoration]}) center/80% no-repeat, ${terrainBase}`;
+                                            // Overlay decoration sprite if the generator marked this cell.
+                                            // pickDecorationFor draws from the combined pool: themed decos
+                                            // first (for themed-room cohesion), then user picker slots, then
+                                            // the 4 atlas defaults. tile.decoration's stored 0-3 index is
+                                            // used as a hint so old saved runs keep deterministic decos.
+                                            if (tile.decoration != null) {
+                                                const decoImg = pickDecorationFor(i, cellTheme, tile.decoration);
+                                                if (decoImg) {
+                                                    terrainBase = `url(${decoImg}) center/80% no-repeat, ${terrainBase}`;
+                                                }
                                             }
                                             // SURPRISE TILES — trap / battle / elite / pet_event — stay
                                             // disguised as plain floor while only "visible". Their tint +
