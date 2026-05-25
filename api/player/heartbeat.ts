@@ -3,6 +3,7 @@ import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
+import { stampPlayerIp } from '../_player-ips.js';
 
 // Individual TTL keys (presence:<name>) with 60s expiry.
 // Postgres expires them automatically — no JSONB hash merges, no CPU spike.
@@ -109,9 +110,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // Write only the individual TTL key — one cheap upsert, Postgres handles expiry.
         // No JSONB hash merge means no O(N-players) CPU work per heartbeat.
+        // Also stamp the current request IP for anti-alt overlap checks
+        // (player-ip:{name}:{ip} keys with 7-day TTL, idempotent).
         await Promise.all([
             kv.set(presenceKey, entry, { ex: PRESENCE_TTL_S }),
             pendingChallenges?.length ? kv.del(challengeKey) : Promise.resolve(),
+            stampPlayerIp(req, name),
         ]);
 
         // Build the full presence list using an in-process cache (refreshed every 5 s).

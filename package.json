@@ -10,7 +10,8 @@
         "build:cpanel": "npm run build",
         "start": "node app.js",
         "dev": "node --watch app.js",
-        "slice-badges": "node scripts/slice-badges.mjs"
+        "slice-badges": "node scripts/slice-badges.mjs",
+        "test": "node --import tsx --test api/missions/_pool.test.ts api/pvp/_vanguard-rewards.test.ts"
     },
     "dependencies": {
         "@supabase/supabase-js": "^2.106.1",
@@ -26,6 +27,7 @@
         "@types/pg": "^8.11.0",
         "ioredis": "^5.10.1",
         "sharp": "^0.34.5",
+        "tsx": "^4.22.3",
         "typescript": "^5.7.0"
     }
 }

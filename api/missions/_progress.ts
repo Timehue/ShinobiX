@@ -119,6 +119,12 @@ export async function loadOrIssueDailyMissions(
     return state;
 }
 
+export type CompletedMissionInfo = {
+    id: string;
+    name: string;
+    xpReward: number;
+};
+
 // Increment progress on all of a player's missions matching the given kind.
 // For unique-target missions, the target name dedupes within the day.
 // Returns the total profession XP awarded (auto-grant on completion).
@@ -129,14 +135,14 @@ export async function reportMissionEvent(opts: {
     /** For unique-target missions — must be lowercased. */
     targetName?: string;
     now?: Date;
-}): Promise<{ xpAwarded: number; missionsCompleted: string[] }> {
+}): Promise<{ xpAwarded: number; missionsCompleted: CompletedMissionInfo[] }> {
     const { playerName, profession, kind, targetName } = opts;
     const now = opts.now ?? new Date();
     const state = await loadOrIssueDailyMissions(playerName, profession, now);
     if (!state) return { xpAwarded: 0, missionsCompleted: [] };
 
     let xpAwarded = 0;
-    const completed: string[] = [];
+    const completed: CompletedMissionInfo[] = [];
     let changed = false;
 
     const next = state.missions.map(m => {
@@ -156,7 +162,7 @@ export async function reportMissionEvent(opts: {
         const justCompleted = nextProgress >= m.target;
         if (justCompleted) {
             xpAwarded += m.xpReward;
-            completed.push(m.id);
+            completed.push({ id: m.id, name: m.name, xpReward: m.xpReward });
             return { ...m, progress: m.target, uniqueTargets: nextUnique, completedAt: Date.now() };
         }
         return { ...m, progress: nextProgress, uniqueTargets: nextUnique };

@@ -61,6 +61,20 @@ const CURRENCY_CAPS: Record<string, number> = {
 const MAX_STAT_GAIN = 500;   // per individual stat per save cycle
 const MAX_LEVEL_GAIN = 5;    // levels that can be gained between saves
 const LEVEL_CAP = 100;
+const MAX_PROFESSION_XP_GAIN = 5000; // per save cycle (covers normal play + mission XP)
+const MAX_PROFESSION_RANK = 10;
+// Healer uses 1.5× the baseline. Cumulative threshold to enter each rank,
+// idx 1..10. Used to clamp client-reported rank against client-reported XP.
+const PROFESSION_XP_BASELINE_THRESHOLDS = [0, 100, 350, 850, 1850, 3850, 7350, 12850, 20850, 32850];
+const PROFESSION_XP_HEALER_THRESHOLDS = PROFESSION_XP_BASELINE_THRESHOLDS.map(v => Math.floor(v * 1.5));
+function rankFromXp(profession: unknown, xp: number): number {
+    const t = profession === 'healer' ? PROFESSION_XP_HEALER_THRESHOLDS : PROFESSION_XP_BASELINE_THRESHOLDS;
+    let rank = 1;
+    for (let i = 1; i <= MAX_PROFESSION_RANK; i += 1) {
+        if (xp >= t[i]) rank = Math.min(MAX_PROFESSION_RANK, i + 1);
+    }
+    return Math.min(MAX_PROFESSION_RANK, rank);
+}
 // Server-side hospital downtime — clients can't skip it by editing localStorage.
 const HOSPITAL_DURATION_MS = 60_000;
 
@@ -123,6 +137,32 @@ function sanitizeCharacterSave(
         const exVal = Math.max(0, Number(exChar[key] ?? 0));
         const inVal = Math.max(0, Number(char[key] ?? 0));
         char[key] = Math.min(inVal, exVal + maxGain);
+    }
+
+    // Account creation timestamp — backfill if missing so anti-alt checks
+    // have a stable reference. Existing characters get a "now" stamp the
+    // first time they save after this lands; new characters set it client-
+    // side at creation.
+    if (!exChar.createdAt && !char.createdAt) {
+        char.createdAt = Date.now();
+    } else if (exChar.createdAt) {
+        // Once stamped, the value is immutable — clients can't claim a fake old age.
+        char.createdAt = exChar.createdAt;
+    }
+
+    // Profession: lock the profession choice (server-side picker writes it
+    // via /api/profession/choose), cap XP gains per save, and recompute rank
+    // from XP so a malicious client can't claim higher rank than its XP earns.
+    if (exChar.profession) {
+        // Once chosen, profession is permanent — ignore any client attempt to swap.
+        char.profession = exChar.profession;
+    }
+    const exProfXp = Math.max(0, Number(exChar.professionXp ?? 0));
+    const inProfXp = Math.max(0, Number(char.professionXp ?? 0));
+    const cappedProfXp = Math.min(inProfXp, exProfXp + MAX_PROFESSION_XP_GAIN);
+    char.professionXp = cappedProfXp;
+    if (char.profession) {
+        char.professionRank = rankFromXp(char.profession, cappedProfXp);
     }
 
     // Individual stats: can't gain more than MAX_STAT_GAIN per stat per save.

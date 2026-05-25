@@ -1,0 +1,141 @@
+import { kv } from '../_storage.js';
+import { hasRecentIpOverlap } from '../_player-ips.js';
+import type { PvpSession } from './session.js';
+
+// Server-side Vanguard reward grant. Runs once per session when checkWinner
+// flips status to 'done' with a non-draw winner. Idempotent via the
+// `vanguardRewardsGranted` flag stamped on the session.
+//
+// Matches the client-side formula in shinobij.client/src/App.tsx
+// (vanguardSealsForKill / vanguardXpForKill) so removing the client-side
+// grant later won't change observable balance.
+
+const VANGUARD_SEALS_PER_KILL = [0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5] as const;
+const DAILY_SEAL_CAP = 50;
+const PER_TARGET_DAILY_CAP = 3;
+const ACCOUNT_AGE_MIN_MS = 72 * 60 * 60 * 1000;
+const MIN_FIGHT_DURATION_MS = 15_000;
+
+function todayKey(): string {
+    return new Date().toISOString().slice(0, 10);
+}
+
+export function levelGapMult(attackerLevel: number, opponentLevel: number): number {
+    const gap = attackerLevel - opponentLevel;
+    if (gap > 20) return 0;
+    if (gap > 10) return 0.5;
+    return 1;
+}
+
+export function vanguardXpForLevel(targetLevel: number): number {
+    return 100 + 10 * Math.max(0, targetLevel - 30);
+}
+
+export function vanguardSealsForRank(rank: number): number {
+    const r = Math.max(0, Math.min(MAX_RANK, rank));
+    return VANGUARD_SEALS_PER_KILL[r];
+}
+
+// Healer 1.5× / baseline thresholds — duplicated from save/[name].ts and
+// missions/_progress.ts. Kept in sync manually; eventually consolidate.
+const XP_BASELINE = [0, 100, 350, 850, 1850, 3850, 7350, 12850, 20850, 32850];
+const MAX_RANK = 10;
+export function rankFromXp(xp: number): number {
+    let rank = 1;
+    for (let i = 1; i <= MAX_RANK; i += 1) {
+        if (xp >= XP_BASELINE[i]) rank = Math.min(MAX_RANK, i + 1);
+    }
+    return Math.min(MAX_RANK, rank);
+}
+
+export type GrantResult = {
+    granted: boolean;
+    reason?: 'not-vanguard' | 'not-human-pvp' | 'too-quick' | 'too-young' | 'same-ip' | 'level-gap' | 'capped' | 'already-granted';
+    seals?: number;
+    xp?: number;
+};
+
+export async function grantVanguardRewardsForSession(session: PvpSession): Promise<GrantResult> {
+    if (session.status !== 'done') return { granted: false };
+    if (!session.winner || session.winner === 'draw') return { granted: false };
+    // Idempotency: bail if we already granted on a prior write of this session.
+    if ((session as PvpSession & { vanguardRewardsGranted?: boolean }).vanguardRewardsGranted) {
+        return { granted: false, reason: 'already-granted' };
+    }
+
+    const winnerSlot = session.winner === 'p1' ? session.p1 : session.p2;
+    const loserSlot = session.winner === 'p1' ? session.p2 : session.p1;
+    const winnerName = winnerSlot.name;
+    const loserName = loserSlot.name;
+
+    // Fight duration anti-abuse.
+    const started = Number(session.createdAt ?? 0);
+    if (started && (Date.now() - started) < MIN_FIGHT_DURATION_MS) {
+        return { granted: false, reason: 'too-quick' };
+    }
+
+    // Load winner save.
+    const winnerKey = `save:${winnerName}`;
+    const winnerRecord = await kv.get<Record<string, unknown>>(winnerKey);
+    const winnerChar = winnerRecord?.character as Record<string, unknown> | undefined;
+    if (!winnerChar) return { granted: false };
+    if (winnerChar.profession !== 'vanguard') return { granted: false, reason: 'not-vanguard' };
+
+    // Load loser save for anti-alt checks.
+    const loserRecord = await kv.get<Record<string, unknown>>(`save:${loserName}`);
+    const loserChar = loserRecord?.character as Record<string, unknown> | undefined;
+    if (!loserChar) return { granted: false };
+
+    // Anti-alt: account age and IP overlap.
+    const loserCreated = Number(loserChar.createdAt ?? 0);
+    if (loserCreated > 0 && (Date.now() - loserCreated) < ACCOUNT_AGE_MIN_MS) {
+        return { granted: false, reason: 'too-young' };
+    }
+    const sharesIp = await hasRecentIpOverlap(winnerName, loserName);
+    if (sharesIp) return { granted: false, reason: 'same-ip' };
+
+    // Level-gap rule.
+    const rank = Math.max(1, Math.min(MAX_RANK, Number(winnerChar.professionRank ?? 1)));
+    const baseSeals = VANGUARD_SEALS_PER_KILL[rank];
+    const gapMult = levelGapMult(Number(winnerChar.level ?? 1), Number(loserChar.level ?? 1));
+    let seals = Math.floor(baseSeals * gapMult);
+    if (seals <= 0) return { granted: false, reason: 'level-gap' };
+
+    // Daily + per-target caps.
+    const today = todayKey();
+    const dailyActive = winnerChar.vanguardDailyResetDate === today;
+    const dailySoFar = dailyActive ? Number(winnerChar.dailyHonorSealsEarned ?? 0) : 0;
+    const byTarget: Record<string, number> = dailyActive
+        ? ((winnerChar.dailyHonorSealsByTarget as Record<string, number>) ?? {})
+        : {};
+    const loserKey = loserName.toLowerCase();
+    const targetSoFar = byTarget[loserKey] ?? 0;
+    seals = Math.min(seals, Math.max(0, DAILY_SEAL_CAP - dailySoFar));
+    seals = Math.min(seals, Math.max(0, PER_TARGET_DAILY_CAP - targetSoFar));
+    if (seals <= 0) return { granted: false, reason: 'capped' };
+
+    // Profession XP (always granted when Vanguard wins a real human fight,
+    // regardless of seal cap — XP and Seals can decouple at the daily cap).
+    const xpGain = vanguardXpForLevel(Number(loserChar.level ?? 1));
+
+    const nextHonor = Number(winnerChar.honorSeals ?? 0) + seals;
+    const nextProfessionXp = Number(winnerChar.professionXp ?? 0) + xpGain;
+    const nextRank = rankFromXp(nextProfessionXp);
+    const nextByTarget = { ...byTarget, [loserKey]: targetSoFar + seals };
+
+    const updated = {
+        ...winnerRecord,
+        character: {
+            ...winnerChar,
+            honorSeals: nextHonor,
+            professionXp: nextProfessionXp,
+            professionRank: nextRank,
+            dailyHonorSealsEarned: dailySoFar + seals,
+            dailyHonorSealsByTarget: nextByTarget,
+            vanguardDailyResetDate: today,
+        },
+    };
+    await kv.set(winnerKey, updated);
+
+    return { granted: true, seals, xp: xpGain };
+}
