@@ -7,13 +7,17 @@ import {
     getHospitalDiscountPercent,
 } from "../App";
 
-export 
+export
 function Hospital({ character, updateCharacter, setScreen, playerRoster, hospitalEntryTime }: { character: Character; updateCharacter: (character: Character) => void; setScreen: (s: Screen) => void; playerRoster: PlayerRecord[]; hospitalEntryTime: number | null }) {
     const hospitalDiscount = getHospitalDiscountPercent(character);
     const dischargeCost = discountCost(1000, hospitalDiscount);
     const topUpCost = discountCost(50, hospitalDiscount);
     const [elapsed, setElapsed] = useState(0);
     const [healMsg, setHealMsg] = useState<Record<string, string>>({});
+    const [healed, setHealed] = useState<Set<string>>(new Set());
+
+    const isHealer = character.profession === "healer";
+    const healerRank = isHealer ? (character.professionRank ?? 1) : 0;
 
     useEffect(() => {
         if (!character.hospitalized || hospitalEntryTime === null) return;
@@ -48,13 +52,44 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, hospita
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ healerName: character.name, targetName }),
             });
-            setHealMsg(m => ({ ...m, [targetName]: res.ok ? "✅ Healed!" : "❌ Failed" }));
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                setHealMsg(m => ({ ...m, [targetName]: `❌ ${data.error ?? 'Failed'}` }));
+                return;
+            }
+            const xpGained = Number(data.xpGained ?? 0);
+            const missionXp = Number(data.missionXpAwarded ?? 0);
+            const missionsCompleted: string[] = Array.isArray(data.missionsCompleted) ? data.missionsCompleted : [];
+            const prevRank = character.professionRank ?? 1;
+            // Server returns the authoritative post-credit XP/rank (mission XP included).
+            const finalXp = Number(data.professionXp ?? (character.professionXp ?? 0) + xpGained);
+            const finalRank = Number(data.professionRank ?? prevRank);
+            updateCharacter({
+                ...character,
+                professionXp: finalXp,
+                professionRank: finalRank,
+            });
+            const rankedUp = finalRank > prevRank;
+            const totalXp = xpGained + missionXp;
+            let msg = `✅ Healed! +${totalXp} XP`;
+            if (missionsCompleted.length > 0) msg += ` (mission complete!)`;
+            if (rankedUp) msg += ` — Rank ${finalRank}!`;
+            setHealMsg(m => ({ ...m, [targetName]: msg }));
+            // Hide the row locally until next roster refresh confirms.
+            setHealed(s => new Set(s).add(targetName));
         } catch {
             setHealMsg(m => ({ ...m, [targetName]: "❌ Network error" }));
         }
     }
 
-    const hospitalizedPlayers = playerRoster.filter(p => p.character.hospitalized && p.name.toLowerCase() !== character.name.toLowerCase());
+    // Ranks 1–9: see hospitalized players in your village.
+    // Rank 10 (future): also see all injured villagers across the world.
+    const hospitalizedPlayers = playerRoster.filter(p =>
+        p.character.hospitalized
+        && p.name.toLowerCase() !== character.name.toLowerCase()
+        && !healed.has(p.name)
+        && (!isHealer || p.character.village === character.village)
+    );
 
     if (character.hospitalized) {
         return (
@@ -104,6 +139,19 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, hospita
         <div className="card">
             <h2>🏥 Village Hospital</h2>
             <p style={{ color: "#94a3b8" }}>Rest, recover, and restore your vitals. Town Hall Hospital Discount: <strong>{hospitalDiscount.toFixed(2)}%</strong></p>
+            {isHealer && (
+                <div className="summary-box" style={{ background: "linear-gradient(180deg,rgba(34,211,238,0.12),rgba(8,10,22,0.4))", border: "1px solid rgba(34,211,238,0.45)", marginBottom: "1rem" }}>
+                    <span style={{ color: "#22d3ee", fontWeight: 600 }}>✚ Healer</span>
+                    <span style={{ marginLeft: 12, color: "#cbd5e1" }}>
+                        Rank {healerRank} · {character.professionXp ?? 0} XP
+                    </span>
+                    <p className="hint" style={{ margin: "6px 0 0" }}>
+                        You can heal hospitalized allies in <strong>{character.village}</strong>.
+                        Each heal grants XP equal to the % of HP restored.
+                        {healerRank >= 10 && " At Rank 10 you can also see injured villagers anywhere in the world."}
+                    </p>
+                </div>
+            )}
             <div className="summary-box" style={{ marginBottom: "1rem" }}>
                 <span>HP: <strong>{character.hp}/{character.maxHp}</strong></span>
                 <span style={{ marginLeft: "1.5rem" }}>Ryo: <strong>{character.ryo.toLocaleString()}</strong></span>
@@ -111,7 +159,7 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, hospita
             <button onClick={topUp}>💚 Full Heal — {topUpCost} ryo{hospitalDiscount > 0 ? " discounted" : ""}</button>
             {hospitalizedPlayers.length > 0 && (
                 <div style={{ marginTop: "1.5rem" }}>
-                    <h4 style={{ marginBottom: "0.5rem" }}>🛏️ Admitted Players</h4>
+                    <h4 style={{ marginBottom: "0.5rem" }}>🛏️ Admitted Players{isHealer ? ` — ${character.village}` : ""}</h4>
                     {hospitalizedPlayers.map(p => (
                         <div key={p.name} className="summary-box" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
                             <div style={{ flex: 1 }}>
@@ -121,10 +169,20 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, hospita
                                     HP {p.character.hp}/{p.character.maxHp}
                                 </span>
                             </div>
-                            <button onClick={() => healPlayer(p.name)} style={{ background: "linear-gradient(#14532d,#052e16)", borderColor: "#4ade80" }}>
-                                💚 Heal
-                            </button>
-                            {healMsg[p.name] && <span className="hint" style={{ color: healMsg[p.name].startsWith("✅") ? "#4ade80" : "#f87171" }}>{healMsg[p.name]}</span>}
+                            {isHealer ? (
+                                <button onClick={() => healPlayer(p.name)} style={{ background: "linear-gradient(#0e7490,#155e75)", borderColor: "#22d3ee" }}>
+                                    ✚ Heal
+                                </button>
+                            ) : (
+                                <span className="hint" style={{ color: "#64748b", fontSize: "0.78rem" }}>
+                                    Healers only
+                                </span>
+                            )}
+                            {healMsg[p.name] && (
+                                <span className="hint" style={{ color: healMsg[p.name].startsWith("✅") ? "#22d3ee" : "#f87171" }}>
+                                    {healMsg[p.name]}
+                                </span>
+                            )}
                         </div>
                     ))}
                 </div>
