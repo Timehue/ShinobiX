@@ -23377,8 +23377,8 @@ function WorldMap({
 
                 {locations.map((location) => {
                     // Hollow Gate POI consumes its admin-generated landmark image
-                    // as a button background. Other landmark types fall through to
-                    // the existing icon-only styling.
+                    // as a full-bleed button background — no dark overlay, no text
+                    // overlay (the CSS hides strong + span). The image IS the marker.
                     const landmarkImage = location.type === "hollowGate"
                         ? sharedImages["landmark:hollow-gate"]
                         : undefined;
@@ -23391,10 +23391,9 @@ function WorldMap({
                                 top: location.y + "%",
                                 ...(landmarkImage
                                     ? {
-                                        backgroundImage: `linear-gradient(180deg, rgba(8,4,18,0.20), rgba(8,4,18,0.55)), url(${landmarkImage})`,
+                                        backgroundImage: `url(${landmarkImage})`,
                                         backgroundSize: "cover",
                                         backgroundPosition: "center",
-                                        textShadow: "0 1px 2px rgba(0,0,0,0.9)",
                                     }
                                     : {}),
                             }}

@@ -89,24 +89,19 @@
     }
 
     /* Hollow Gate marker inside the wider .world-map-scroll layout —
-       chunky dark purple torii-gate square with the 'HG' icon. */
+       same image-only treatment, slightly larger. */
     .world-map-scroll .atlas-hollowGate {
         min-width: 64px !important;
         width: 64px !important;
         height: 64px !important;
         max-width: 64px !important;
-        padding: 6px !important;
+        padding: 0 !important;
         font-size: 0 !important;
         line-height: 1 !important;
         gap: 0 !important;
     }
 
-        .world-map-scroll .atlas-hollowGate strong {
-            font-size: 22px !important;
-            font-weight: 800 !important;
-            line-height: 1 !important;
-        }
-
+        .world-map-scroll .atlas-hollowGate strong,
         .world-map-scroll .atlas-hollowGate span {
             display: none !important;
         }
@@ -1559,40 +1554,36 @@ button {
     background: rgba(22, 101, 52, .9);
 }
 
-/* Hollow Gate POI is a hidden shrine entrance — render as a chunky dark-purple
-   torii-gate marker with the 'HG' icon overlaid. The full 'Hollow Gate' name
-   label is hidden (tooltip still shows it on hover) so the marker stays
-   visually like a gate icon rather than a card. */
+/* Hollow Gate POI is a hidden shrine entrance — render as JUST the
+   admin-generated landmark image (set via inline background-image),
+   with no frame, no 'HG' text overlay, and no label. The image itself
+   is the marker. Tooltip still shows 'Hollow Gate' on hover.
+   A subtle violet drop-shadow on hover makes it feel interactive. */
 .atlas-hollowGate {
     min-width: 56px;
     width: 56px;
     height: 56px;
-    padding: 6px;
-    font-size: 0;             /* collapses the (hidden) name line height */
+    padding: 0;
+    font-size: 0;
     line-height: 1;
     gap: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-color: #a855f7;
-    border-width: 2px;
-    background: linear-gradient(180deg, #1e0b3a 0%, #2a103f 45%, #0e0420 100%);
-    box-shadow:
-        0 0 0 1px rgba(168, 85, 247, 0.35),
-        0 4px 0 rgba(2,6,23,.6),
-        0 0 18px rgba(168, 85, 247, 0.55);
+    display: block;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    border-radius: 6px;
+    overflow: hidden;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));
+    transition: filter .15s ease, transform .12s ease;
 }
 
-    .atlas-hollowGate strong {
-        font-size: 18px;
-        font-weight: 800;
-        color: #ddd6fe;
-        text-shadow: 0 1px 0 rgba(0,0,0,0.7), 0 0 8px rgba(168, 85, 247, 0.7);
-        line-height: 1;
+    .atlas-hollowGate strong,
+    .atlas-hollowGate span {
+        display: none;   /* hide both the 'HG' icon text and the 'Hollow Gate' label */
     }
 
-    .atlas-hollowGate span {
-        display: none;        /* drop the 'Hollow Gate' label — tooltip still shows it */
+    .atlas-hollowGate:hover {
+        filter: drop-shadow(0 0 10px rgba(168, 85, 247, 0.75)) drop-shadow(0 2px 4px rgba(0,0,0,0.6));
     }
 
 .atlas-landmark:hover {
@@ -16376,24 +16367,19 @@ button.combat-jutsu-button,
     }
 
     /* Hollow Gate marker inside the wider .world-map-scroll layout —
-       chunky dark purple torii-gate square with the 'HG' icon. */
+       same image-only treatment, slightly larger. */
     .world-map-scroll .atlas-hollowGate {
         min-width: 64px !important;
         width: 64px !important;
         height: 64px !important;
         max-width: 64px !important;
-        padding: 6px !important;
+        padding: 0 !important;
         font-size: 0 !important;
         line-height: 1 !important;
         gap: 0 !important;
     }
 
-        .world-map-scroll .atlas-hollowGate strong {
-            font-size: 22px !important;
-            font-weight: 800 !important;
-            line-height: 1 !important;
-        }
-
+        .world-map-scroll .atlas-hollowGate strong,
         .world-map-scroll .atlas-hollowGate span {
             display: none !important;
         }
