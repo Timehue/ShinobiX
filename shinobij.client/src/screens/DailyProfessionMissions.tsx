@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Character, Profession } from "../App";
 
 type DailyMission = {
@@ -37,6 +37,9 @@ export function DailyProfessionMissions({ character }: { character: Character })
     const [data, setData] = useState<Response | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    // Track which mission IDs we've already seen as completed so we don't
+    // double-toast on subsequent polls.
+    const seenCompletedRef = useRef<Set<string>>(new Set());
 
     useEffect(() => {
         if (!character.profession) {
@@ -47,12 +50,26 @@ export function DailyProfessionMissions({ character }: { character: Character })
         async function fetchMissions() {
             try {
                 const res = await fetch(`/api/missions/daily?playerName=${encodeURIComponent(character.name)}`);
-                const json = await res.json().catch(() => ({}));
+                const json: Response = await res.json().catch(() => ({} as Response));
                 if (cancelled) return;
                 if (!res.ok) {
-                    setError(json.error ?? `Failed to load missions (${res.status})`);
+                    setError((json as { error?: string }).error ?? `Failed to load missions (${res.status})`);
                     setLoading(false);
                     return;
+                }
+                // Detect newly-completed missions vs prior view and toast.
+                // First poll seeds the ref so existing completions don't fire.
+                const incoming = json.missions ?? [];
+                const isFirstPoll = seenCompletedRef.current.size === 0 && !data;
+                for (const m of incoming) {
+                    if (!m.completedAt) continue;
+                    if (seenCompletedRef.current.has(m.id)) continue;
+                    seenCompletedRef.current.add(m.id);
+                    if (!isFirstPoll) {
+                        window.dispatchEvent(new CustomEvent('profession-mission-complete', {
+                            detail: { name: m.name, xp: m.xpReward, profession: json.profession ?? undefined },
+                        }));
+                    }
                 }
                 setData(json);
                 setLoading(false);
@@ -68,6 +85,7 @@ export function DailyProfessionMissions({ character }: { character: Character })
         // shows up without requiring a full screen refresh.
         const id = setInterval(() => void fetchMissions(), 30_000);
         return () => { cancelled = true; clearInterval(id); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [character.profession, character.name]);
 
     if (!character.profession) return null;

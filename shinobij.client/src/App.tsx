@@ -45,6 +45,7 @@ import { Village } from "./screens/Village";
 import { ProfessionPicker } from "./screens/ProfessionPicker";
 import { DailyProfessionMissions } from "./screens/DailyProfessionMissions";
 import { ClanSealPool } from "./screens/ClanSealPool";
+import { ProfessionRankBar } from "./screens/ProfessionRankBar";
 
 export type Profession = "healer" | "vanguard" | "petTamer";
 
@@ -523,11 +524,18 @@ export type Character = {
     professionRank?: number;
     professionXp?: number;
     professionChosenAt?: number;
+    // Account creation timestamp (ms). Used to gate Vanguard rewards from
+    // killing brand-new alt accounts. Backfilled to Date.now() on first
+    // save if missing (existing characters get a "now" stamp on rollout).
+    createdAt?: number;
     // Vanguard daily tracking (separate reset date so Vanguard counters
     // don't interfere with other daily counter resets).
     dailyHonorSealsEarned?: number;
     dailyHonorSealsByTarget?: Record<string, number>;
     vanguardDailyResetDate?: string;
+    // Pet Tamer daily First Expedition tracking (UTC).
+    lastExpeditionClaimDate?: string;
+    expeditionsClaimedToday?: number;
     clanBattleContrib: number;
     clanEventContrib: number;
     clanMissionContrib: number;
@@ -5968,6 +5976,13 @@ export function vanguardXpForKill(opponent: Character | null | undefined): numbe
     return 100 + 10 * Math.max(0, lvl - 30);
 }
 
+// Anti-alt: zero rewards for killing targets whose account is <72 hours old.
+const ANTI_ALT_ACCOUNT_AGE_MS = 72 * 60 * 60 * 1000;
+function targetTooYoungForRewards(opponent: Character | null | undefined): boolean {
+    if (!opponent?.createdAt) return false;
+    return (Date.now() - opponent.createdAt) < ANTI_ALT_ACCOUNT_AGE_MS;
+}
+
 // Apply level-gap rule from docs/professions.md anti-abuse table:
 //   within 10 levels = full reward; 10-20 below = 50%; >20 below = 0.
 // "Below" is from the attacker's perspective.
@@ -5976,6 +5991,39 @@ function levelGapSealMultiplier(attackerLevel: number, opponentLevel: number): n
     if (gap > 20) return 0;
     if (gap > 10) return 0.5;
     return 1;
+}
+
+// Pet Tamer Phase 2 bonuses (client-side). Training speed % faster, expedition
+// reward multiplier, daily First Expedition 2x flag.
+export function petTamerTrainingSpeedPct(character: Character | null | undefined): number {
+    if (!character || character.profession !== "petTamer") return 0;
+    const rank = Math.max(0, Math.min(PROFESSION_MAX_RANK, character.professionRank ?? 1));
+    // Unlock 10%; +1% per rank to 20% at rank 10.
+    return 10 + rank;
+}
+
+export function petTamerExpeditionMult(character: Character | null | undefined): number {
+    if (!character || character.profession !== "petTamer") return 1;
+    const rank = Math.max(0, Math.min(PROFESSION_MAX_RANK, character.professionRank ?? 1));
+    // Unlock +10%; +1.5% per rank to +25% at rank 10.
+    return 1 + (10 + rank * 1.5) / 100;
+}
+
+// Returns true if this is the first expedition the player has claimed today
+// (UTC). Updates `lastExpeditionClaimDate` and `expeditionsClaimedToday` on
+// the returned character.
+export function petTamerClaimFirstExpeditionToday(character: Character, todayKey: string): { isFirst: boolean; nextCharacter: Character } {
+    const sameDay = character.lastExpeditionClaimDate === todayKey;
+    const count = sameDay ? (character.expeditionsClaimedToday ?? 0) : 0;
+    const isFirst = character.profession === "petTamer" && count === 0;
+    return {
+        isFirst,
+        nextCharacter: {
+            ...character,
+            lastExpeditionClaimDate: todayKey,
+            expeditionsClaimedToday: count + 1,
+        },
+    };
 }
 
 // Compute Honor Seals earned for a PvP kill given Vanguard rank, level gap,
@@ -5987,6 +6035,11 @@ export function vanguardSealsForKill(
     todayKey: string,
 ): { amount: number; updatedByTarget: Record<string, number> } {
     if (killer.profession !== "vanguard") return { amount: 0, updatedByTarget: killer.dailyHonorSealsByTarget ?? {} };
+
+    // Anti-alt: zero rewards for targets whose account is brand new.
+    if (targetTooYoungForRewards(opponent)) {
+        return { amount: 0, updatedByTarget: killer.dailyHonorSealsByTarget ?? {} };
+    }
 
     const rank = Math.max(1, Math.min(PROFESSION_MAX_RANK, killer.professionRank ?? 1));
     const baseSeals = VANGUARD_SEALS_PER_KILL[rank];
@@ -6022,7 +6075,7 @@ const PROFESSION_XP_BASELINE = [0, 100, 350, 850, 1850, 3850, 7350, 12850, 20850
 const PROFESSION_XP_HEALER = PROFESSION_XP_BASELINE.map(v => v === Infinity ? v : Math.floor(v * 1.5));
 export const PROFESSION_MAX_RANK = 10;
 
-function professionThresholds(profession: Profession): readonly number[] {
+export function professionThresholds(profession: Profession): readonly number[] {
     return profession === "healer" ? PROFESSION_XP_HEALER : PROFESSION_XP_BASELINE;
 }
 
@@ -6845,6 +6898,7 @@ export function createCharacter(name: string, village: string, specialty: JutsuT
         rankedLosses: 0,
         villageUpgrades: defaultVillageUpgrades(),
         lastBankInterestAt: 0,
+        createdAt: Date.now(),
     };
 }
 
@@ -7524,6 +7578,31 @@ export default function App() {
         return () => clearTimeout(t);
     }, [achievementToasts]);
 
+    // ── Profession mission completion toasts ──────────────────────────────
+    // Any component (Hospital heal response, DailyProfessionMissions poll,
+    // handlePvpWin) emits a `profession-mission-complete` CustomEvent; we
+    // collect and render them with the same auto-dismiss as achievements.
+    const [missionToasts, setMissionToasts] = useState<Array<{ id: string; name: string; xp: number; profession?: string }>>([]);
+    useEffect(() => {
+        function handler(e: Event) {
+            const detail = (e as CustomEvent<{ name: string; xp: number; profession?: string }>).detail;
+            if (!detail?.name) return;
+            setMissionToasts(prev => [...prev, {
+                id: `${detail.name}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                name: detail.name,
+                xp: detail.xp ?? 0,
+                profession: detail.profession,
+            }]);
+        }
+        window.addEventListener('profession-mission-complete', handler);
+        return () => window.removeEventListener('profession-mission-complete', handler);
+    }, []);
+    useEffect(() => {
+        if (missionToasts.length === 0) return;
+        const t = setTimeout(() => setMissionToasts(prev => prev.slice(1)), 4500);
+        return () => clearTimeout(t);
+    }, [missionToasts]);
+
     // ── Profession picker trigger ──────────────────────────────────────────
     // Routes to the visual-novel profession picker when an eligible player
     // (Level 13+, no profession set) lands on the village. We only intercept
@@ -7672,6 +7751,13 @@ export default function App() {
     const [pendingAiProfileId, setPendingAiProfileId] = useState("");
     const [pendingPvpOpponent, setPendingPvpOpponent] = useState<Character | null>(null);
     const [pvpBattleId, setPvpBattleId] = useState<string | null>(null);
+    // Tracks when the current PvP battle began, used for the <15s "quick
+    // surrender" anti-abuse check on Vanguard Seal rewards.
+    const pvpBattleStartedAtRef = useRef<number>(0);
+    useEffect(() => {
+        if (pvpBattleId) pvpBattleStartedAtRef.current = Date.now();
+        else pvpBattleStartedAtRef.current = 0;
+    }, [pvpBattleId]);
     const [pvpRole, setPvpRole] = useState<"p1" | "p2" | null>(null);
     const [pvpBattleContext, setPvpBattleContext] = useState<SharedPvpBattleContext | null>(null);
     const [temporaryStoryAi, setTemporaryStoryAi] = useState<CreatorAi | null>(null);
@@ -11642,6 +11728,7 @@ export default function App() {
                     <ProfessionPicker
                         character={character}
                         setScreen={setScreen}
+                        sharedImages={sharedImages}
                         onProfessionChosen={(profession) => {
                             setCharacter({
                                 ...character,
@@ -12015,11 +12102,27 @@ export default function App() {
                         // code already implies a human kill.
                         const isFriendlyDuel = !context?.mode
                             || (context.mode === "standard" && !context.clanWarPoints && !context.sectorAttack);
+                        const isRaid = context?.raidKind === "raidPlayer";
+                        // Quick-surrender protection: fights ending in <15s grant
+                        // no Vanguard Seals or XP. pvpBattleStartedAtRef is reset
+                        // each time pvpBattleId changes.
+                        const fightDurationMs = pvpBattleStartedAtRef.current
+                            ? Date.now() - pvpBattleStartedAtRef.current
+                            : 999999;
+                        const tooQuick = fightDurationMs < 15_000;
+                        // Pet escort synergy: Vanguard with an active pet on a raid
+                        // gets +5% Seals. (Pet Tamer's matching next-expedition
+                        // bonus needs a clan-pet-escort offer mechanic — deferred.)
+                        const petEscortBonus = isRaid && rewarded.profession === "vanguard" && rewarded.activePetId ? 1.05 : 1;
                         const todayKey = currentDateKey();
-                        const sealResult = (opponent && !isFriendlyDuel)
+                        const sealResultRaw = (opponent && !isFriendlyDuel && !tooQuick)
                             ? vanguardSealsForKill(rewarded, opponent, todayKey)
                             : { amount: 0, updatedByTarget: rewarded.dailyHonorSealsByTarget ?? {} };
-                        const vanguardXpGain = (opponent && !isFriendlyDuel && rewarded.profession === "vanguard")
+                        const sealResult = {
+                            amount: Math.floor(sealResultRaw.amount * petEscortBonus),
+                            updatedByTarget: sealResultRaw.updatedByTarget,
+                        };
+                        const vanguardXpGain = (opponent && !isFriendlyDuel && !tooQuick && rewarded.profession === "vanguard")
                             ? vanguardXpForKill(opponent)
                             : 0;
                         const todayActive = rewarded.vanguardDailyResetDate === todayKey;
@@ -12045,8 +12148,9 @@ export default function App() {
                         if (villageWarPvpPatch) console.info(villageWarPvpPatch.trim());
                         // Vanguard daily mission progress — server validates the
                         // win against the actual PvpSession. Skipped for spar /
-                        // friendly duels (same gate as Honor Seal grant above).
-                        if (!isFriendlyDuel && opponent && rewarded.profession === "vanguard") {
+                        // friendly duels and quick-surrender fights (same gates
+                        // as Honor Seal grant above).
+                        if (!isFriendlyDuel && !tooQuick && opponent && rewarded.profession === "vanguard") {
                             fetch('/api/missions/report-pvp-win', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
@@ -12055,6 +12159,13 @@ export default function App() {
                                     battleId: pvpBattleId,
                                     opponentName: opponent.name,
                                 }),
+                            }).then(r => r.json()).then(data => {
+                                const completed: Array<{ id: string; name: string; xpReward: number }> = Array.isArray(data?.missionsCompleted) ? data.missionsCompleted : [];
+                                for (const m of completed) {
+                                    window.dispatchEvent(new CustomEvent('profession-mission-complete', {
+                                        detail: { name: m.name, xp: m.xpReward, profession: 'vanguard' },
+                                    }));
+                                }
                             }).catch(() => { /* mission progress is best-effort */ });
                         }
                     }
@@ -12130,6 +12241,32 @@ export default function App() {
                             </div>
                         </div>
                     ))}
+                </div>
+            )}
+            {missionToasts.length > 0 && (
+                <div className="achievement-toast-stack" style={{ bottom: 80 }}>
+                    {missionToasts.slice(0, 3).map((t) => {
+                        const accent = t.profession === "healer" ? "#22d3ee" : t.profession === "vanguard" ? "#f97316" : "#facc15";
+                        return (
+                            <div
+                                key={t.id}
+                                className="achievement-toast"
+                                style={{ borderColor: accent, boxShadow: `0 0 20px ${accent}55` }}
+                                onClick={() => setMissionToasts(prev => prev.filter(x => x.id !== t.id))}
+                            >
+                                <div className="achievement-toast-icon">
+                                    <span className="achievement-toast-emoji" aria-hidden style={{ color: accent }}>📜</span>
+                                </div>
+                                <div className="achievement-toast-body">
+                                    <span className="achievement-toast-label" style={{ color: accent }}>
+                                        Mission Complete
+                                    </span>
+                                    <strong>{t.name}</strong>
+                                    <small>+{t.xp} {t.profession ? `${t.profession.charAt(0).toUpperCase() + t.profession.slice(1)} ` : ""}XP</small>
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
             )}
         </div>
@@ -13046,9 +13183,14 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
         if (isPetOnExpedition(selectedPet)) return alert(`${selectedPet.name} is away on an expedition.`);
         if (selectedPet.expedition) return alert(`${petDisplayName(selectedPet)} has an unclaimed expedition. Collect it first!`);
         if (selectedPet.training && Date.now() < selectedPet.training.endsAt) return alert(`${selectedPet.name} is already training.`);
+        // Pet Tamer training-speed bonus shortens the wait but the durationMs
+        // multiplier (which scales gains) stays at the picked tier so we
+        // don't accidentally double-dip on payouts.
+        const speedPct = petTamerTrainingSpeedPct(character);
+        const effectiveDuration = Math.max(60_000, Math.floor(trainingDuration * Math.max(0.5, 1 - speedPct / 100)));
         updateCharacter({
             ...character,
-            pets: character.pets.map((p) => p.id === selectedPet.id ? { ...p, training: { type: trainingType, endsAt: Date.now() + trainingDuration, durationMs: trainingDuration } } : p),
+            pets: character.pets.map((p) => p.id === selectedPet.id ? { ...p, training: { type: trainingType, endsAt: Date.now() + effectiveDuration, durationMs: trainingDuration } } : p),
         });
     }
 
@@ -13078,15 +13220,22 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
         const ryoMult = expType === "scout" ? 1.35 : expType === "forage" ? 1.0 : 1.1;
         const xpMult  = expType === "forage" ? 1.45 : expType === "ruins"  ? 1.2 : 1.0;
 
-        const xp       = Math.round(120 * durationHours * xpMult);
-        const ryo      = Math.round(90  * durationHours * ryoMult + selectedPet.level * 6);
+        // Pet Tamer Phase 2 — base expedition reward bonus + daily First Expedition 2x.
+        const tamerMult = petTamerExpeditionMult(character);
+        const todayKey = currentDateKey();
+        const firstResult = petTamerClaimFirstExpeditionToday(character, todayKey);
+        const firstBonus = firstResult.isFirst ? 2 : 1;
+        const dropBonus = (tamerMult - 1) + (firstResult.isFirst ? 0.5 : 0); // small bump to drop chances
+
+        const xp       = Math.round(120 * durationHours * xpMult * tamerMult * firstBonus);
+        const ryo      = Math.round((90  * durationHours * ryoMult + selectedPet.level * 6) * tamerMult * firstBonus);
         const statGain = Math.max(1, Math.round(durationHours));
 
-        // Per-type drop rates (independent rolls)
+        // Per-type drop rates (independent rolls). Pet Tamer adds dropBonus to each.
         //                       scout   forage  ruins
-        const boneRate = expType === "scout" ? 0.25 : expType === "forage" ? 0.30 : 0.40;
-        const auraRate = expType === "scout" ? 0.00 : expType === "forage" ? 0.01 : 0.01;
-        const fateRate = expType === "scout" ? 0.05 : expType === "forage" ? 0.05 : 0.10;
+        const boneRate = (expType === "scout" ? 0.25 : expType === "forage" ? 0.30 : 0.40) + dropBonus;
+        const auraRate = (expType === "scout" ? 0.00 : expType === "forage" ? 0.01 : 0.01) + dropBonus * 0.1;
+        const fateRate = (expType === "scout" ? 0.05 : expType === "forage" ? 0.05 : 0.10) + dropBonus * 0.1;
 
         const foundBone = Math.random() < boneRate ? 1 : 0;
         const foundAura = Math.random() < auraRate ? 1 : 0;
@@ -13107,12 +13256,12 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
         const summary = stories[Math.floor(Math.random() * stories.length)];
 
         const nextCharacter: Character = {
-            ...character,
-            ryo:        character.ryo + ryo,
-            fateShards: (character.fateShards ?? 0) + foundFate,
-            auraStones: (character.auraStones ?? 0) + foundAura,
-            boneCharms: (character.boneCharms ?? 0) + foundBone,
-            pets: character.pets.map((p) => p.id === selectedPet.id ? returnedPet : p),
+            ...firstResult.nextCharacter,
+            ryo:        firstResult.nextCharacter.ryo + ryo,
+            fateShards: (firstResult.nextCharacter.fateShards ?? 0) + foundFate,
+            auraStones: (firstResult.nextCharacter.auraStones ?? 0) + foundAura,
+            boneCharms: (firstResult.nextCharacter.boneCharms ?? 0) + foundBone,
+            pets: firstResult.nextCharacter.pets.map((p) => p.id === selectedPet.id ? returnedPet : p),
         };
         updateCharacter(nextCharacter);
         onImmediateSave?.(nextCharacter);
@@ -13122,6 +13271,21 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
             summary, expType, ryo, xp, statGain,
             foundFate, foundAura, foundBone, leveledUp,
         });
+
+        // Tamer XP from expedition (spec: 5 XP per minute of expedition,
+        // +50% for ≥1h, +100% for ≥4h; daily First Expedition is 2x).
+        if (character.profession === "petTamer") {
+            const minutes = selectedPet.expedition.durationMs / 60_000;
+            if (minutes >= 10) {
+                let tamerXp = Math.floor(minutes * 5);
+                if (minutes >= 60) tamerXp = Math.floor(tamerXp * 1.5);
+                if (minutes >= 240) tamerXp = Math.floor(tamerXp * 2 / 1.5); // composes to 2x over base
+                if (firstResult.isFirst) tamerXp *= 2;
+                const withXp = gainProfessionXp(nextCharacter, tamerXp);
+                updateCharacter(withXp);
+                onImmediateSave?.(withXp);
+            }
+        }
     }
 
     function collectTraining() {
@@ -15297,7 +15461,7 @@ function AdminPanel({
     const [aiJutsuIds, setAiJutsuIds] = useState<string[]>(starterJutsus.slice(0, 4).map((jutsu) => jutsu.id));
     const [aiRules, setAiRules] = useState<AiRule[]>(starterAiProfile(starterJutsus).rules);
     const [selectedAiId, setSelectedAiId] = useState("");
-    const [activeAdminPanel, setActiveAdminPanel] = useState<"jutsuBloodlines" | "eventsRaids" | "visualNovels" | "aiCreator" | "petEditor" | "cardEditor" | "villageLeaders" | "playerManagement" | "hollowGate">("jutsuBloodlines");
+    const [activeAdminPanel, setActiveAdminPanel] = useState<"jutsuBloodlines" | "eventsRaids" | "visualNovels" | "aiCreator" | "petEditor" | "cardEditor" | "villageLeaders" | "playerManagement" | "hollowGate" | "professions">("jutsuBloodlines");
 
     // Hollow Gate admin tab state — prompts, current preview images, busy/status
     // strings. Preview images are seeded from the existing shared KV on first
@@ -16493,6 +16657,9 @@ function AdminPanel({
                 </button>
                 <button className={activeAdminPanel === "hollowGate" ? "active" : ""} onClick={() => setActiveAdminPanel("hollowGate")}>
                     ⛩ Hollow Gate
+                </button>
+                <button className={activeAdminPanel === "professions" ? "active" : ""} onClick={() => setActiveAdminPanel("professions")}>
+                    🧑‍⚕️ Professions
                 </button>
             </div>
 
@@ -19423,6 +19590,81 @@ function AdminPanel({
                                 Default values: Unlock <strong>10,000</strong> · Key (DK) <strong>5</strong> · Key (FS) <strong>10</strong> · Max Floor <strong>5</strong> · Threat/Step <strong>7</strong> · Ambush <strong>100</strong> · Trap Dmg <strong>0.33</strong> · Boss Floor Mult <strong>0.2</strong>
                             </p>
                         </section>
+                    </div>
+                );
+            })()}
+
+            {activeAdminPanel === "professions" && (() => {
+                // Profession picker image slots. Each row is a key the picker
+                // reads from sharedImages; upload a file to publish to the
+                // shared KV. Picker falls back to color gradients when missing.
+                const slots: Array<{ key: string; label: string; hint: string }> = [
+                    { key: "profession:backdrop", label: "Village backdrop (intro + choose pages)", hint: "Wide landscape — village square or elder's hall. Used as the dim backdrop behind the picker." },
+                    { key: "profession:elder-portrait", label: "Elder portrait (intro page)", hint: "Square portrait of the village elder speaking to the player. ~512x512." },
+                    { key: "profession:portrait-petTamer", label: "Pet Tamer choice card", hint: "Square art — shinobi with a beast companion. ~512x512." },
+                    { key: "profession:portrait-healer", label: "Healer choice card", hint: "Square art — medical-nin tending to a patient. ~512x512." },
+                    { key: "profession:portrait-vanguard", label: "Vanguard choice card", hint: "Square art — shinobi leading a charge. ~512x512." },
+                ];
+
+                async function uploadProfessionImage(key: string, file: File) {
+                    const reader = new FileReader();
+                    reader.onload = async () => {
+                        try {
+                            const img = await compressDataUrl(reader.result as string, 512, 0.82);
+                            const ok = await publishSharedImage(key, img);
+                            if (!ok) alert(`Failed to publish ${key} to shared KV. Try again.`);
+                        } catch (err) {
+                            alert(`Upload failed: ${err instanceof Error ? err.message : "unknown"}`);
+                        }
+                    };
+                    reader.readAsDataURL(file);
+                }
+
+                return (
+                    <div className="admin-subpanel">
+                        <div className="admin-panel-heading">
+                            <h3>🧑‍⚕️ Profession Picker — Image Slots</h3>
+                            <p className="hint">
+                                Upload images shown in the Level-13 profession picker (visual novel + choice cards).
+                                Each slot is a shared image key; the picker falls back to a colored gradient when no
+                                image is set. Recommended size: square 512×512 for portraits, wide 1024×512 for the backdrop.
+                            </p>
+                        </div>
+                        <div style={{ display: "grid", gap: 10 }}>
+                            {slots.map(slot => {
+                                const currentImage = sharedImages[slot.key];
+                                return (
+                                    <div key={slot.key} className="summary-box" style={{ display: "grid", gridTemplateColumns: "120px 1fr auto", gap: 12, alignItems: "center" }}>
+                                        <div style={{ width: 120, height: 120, background: "rgba(0,0,0,0.45)", border: "1px dashed rgba(168,85,247,0.4)", borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                                            {currentImage
+                                                ? <img src={currentImage} alt={slot.label} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                                                : <span style={{ color: "#a78bfa", fontSize: 11, textAlign: "center", padding: 6 }}>No image yet</span>}
+                                        </div>
+                                        <div>
+                                            <strong>{slot.label}</strong>
+                                            <p className="hint" style={{ margin: "4px 0 0", fontSize: "0.78rem" }}>{slot.hint}</p>
+                                            <code style={{ fontSize: "0.72rem", color: "#94a3b8" }}>{slot.key}</code>
+                                        </div>
+                                        <label style={{ cursor: "pointer", padding: "6px 12px", background: "linear-gradient(135deg, #7c3aed, #a855f7)", borderRadius: 4, color: "#faf5ff", fontSize: "0.85rem" }}>
+                                            {currentImage ? "Replace" : "Upload"}
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                style={{ display: "none" }}
+                                                onChange={(e) => {
+                                                    const file = e.target.files?.[0];
+                                                    if (file) void uploadProfessionImage(slot.key, file);
+                                                }}
+                                            />
+                                        </label>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        <p className="hint" style={{ marginTop: 12 }}>
+                            Tip: portraits look best with the character centered and a transparent or color-matched background.
+                            The picker uses the profession's accent color (cyan / orange / lime) on top of the uploaded image.
+                        </p>
                     </div>
                 );
             })()}
@@ -27032,6 +27274,13 @@ function Profile({
                     </div>
                 </div>
             </section>
+
+            {character.profession && (
+                <section className="profile-build-panel">
+                    <h2>Profession</h2>
+                    <ProfessionRankBar character={character} />
+                </section>
+            )}
 
             <section className="profile-build-panel">
                 <h2>Equip Bloodline</h2>
