@@ -10094,6 +10094,77 @@ export default function App() {
         setCurrentWeather(weatherForBiome("shadow"));
         setScreen("hollowGateShrine");
     }
+    // Weighted-random ambush — triggered when the threat meter hits the
+    // ambush threshold (default 100). Picks one of three encounter types:
+    //   50% — shinobi AI battle (the classic ambush)
+    //   35% — pet duel (wild Hollow Beast) via PetArena autobattler
+    //   15% — Shinobi Tile card-game duel
+    // Each branch falls back to the shinobi battle if its prerequisites
+    // aren't met (no eligible pet / fewer than 5 cards) so the ambush
+    // ALWAYS fires something — the player never gets a free pass.
+    function triggerHollowGateAmbush() {
+        if (!character) return;
+        pushHollowGateLog("The Hollow Gate echoes converge — an ambush!");
+        const roll = Math.random() * 100;
+        // ── Branch A: Pet duel (35% slot, rolls 50-84) ────────────────
+        if (roll >= 50 && roll < 85) {
+            const activePet = character.pets.find(p => p.id === character.activePetId);
+            const petReady = activePet && activePet.unlockedForPve && !isPetOnExpedition(activePet);
+            if (petReady) {
+                // Use the same wild-pet picker / handicap rules as the
+                // pet_battle tile, including the shrine:tile-hollow-beast
+                // image override.
+                const floor = hollowGateRun?.floor ?? 1;
+                const playerRarityIdx = petRarityOrder.indexOf(activePet.rarity);
+                const maxRarityIdx = Math.min(petRarityOrder.length - 1, playerRarityIdx + 1);
+                const bumpChance = Math.min(0.45, 0.10 + (floor - 1) * 0.05);
+                const targetIdx = Math.random() < bumpChance ? maxRarityIdx : playerRarityIdx;
+                const wildBase = pickHollowGateEncounterPet(petPool, petRarityOrder[targetIdx]);
+                if (wildBase) {
+                    const handicap = floor >= 4 ? 0.90 : 1.00;
+                    const hollowBeastImg = sharedImages["shrine:tile-hollow-beast"];
+                    const wild: Pet = {
+                        ...wildBase,
+                        id: `hg-beast-${Date.now()}`,
+                        level: Math.max(1, activePet.level),
+                        name: `Ambush: Hollow ${wildBase.name}`,
+                        hp: Math.max(1, Math.floor(wildBase.hp * handicap)),
+                        attack: Math.max(1, Math.floor(wildBase.attack * handicap)),
+                        defense: Math.max(1, Math.floor(wildBase.defense * handicap)),
+                        image: hollowBeastImg || wildBase.image,
+                    };
+                    pushHollowGateLog(`[Ambush — Hollow Beast] ${activePet.name} squares off against ${wild.name}.`);
+                    // Threat / torch reset upfront (matches normal ambush behaviour).
+                    setHollowGateRun(prev => prev ? { ...prev, threat: 0, torch: 10 } : prev);
+                    setPendingPetBattleOpponent({
+                        owner: "Hollow Gate",
+                        pet: wild,
+                        battleSeed: Date.now(),
+                        returnScreen: "hollowGateShrine",
+                    });
+                    setScreen("petArena");
+                    return;
+                }
+                // Couldn't pick a pet → fall through to shinobi.
+            }
+            // No eligible pet → fall through to shinobi.
+            pushHollowGateLog("No pet stands at your side — corrupted shinobi close in instead.");
+        }
+        // ── Branch B: Tile-game duel (15% slot, rolls 85-99) ──────────
+        if (roll >= 85) {
+            const ownedCardCount = character.tileCards?.length ?? 0;
+            if (ownedCardCount >= 5) {
+                pushHollowGateLog("[Ambush — Tile Seal] A shadow opponent slams a stone table into the corridor.");
+                setHollowGateRun(prev => prev ? { ...prev, threat: 0, torch: 10 } : prev);
+                setHollowGateTileGameActive(true);
+                setScreen("hollowGateTiles");
+                return;
+            }
+            pushHollowGateLog("Your deck is too thin to seal the shadow — corrupted shinobi close in instead.");
+        }
+        // ── Default: Shinobi AI battle (50% slot, rolls 0-49 + all fallbacks) ──
+        startHollowGateBattle({ isAmbush: true });
+    }
     function startHollowGateBattle(opts: { isBoss?: boolean; isAmbush?: boolean; isBeast?: boolean }) {
         if (!character) return;
         const LEVEL_BAND = 15;
@@ -10876,13 +10947,14 @@ export default function App() {
             setTimeout(() => {
                 resolveHollowGateTile(tile, nx, ny);
                 if (!tileWillOpenModal && nextThreat >= HOLLOW_GATE_THREAT_AMBUSH) {
-                    pushHollowGateLog("The Hollow Gate echoes converge — an ambush!");
-                    startHollowGateBattle({ isAmbush: true });
+                    // Ambush at max threat — weighted roll between shinobi /
+                    // pet / tile-game encounter (50 / 35 / 15). See
+                    // triggerHollowGateAmbush for the branching + fallbacks.
+                    triggerHollowGateAmbush();
                 }
             }, 0);
         } else if (outcome.ambushImmediate) {
-            pushHollowGateLog("The Hollow Gate echoes converge — an ambush!");
-            setTimeout(() => startHollowGateBattle({ isAmbush: true }), 0);
+            setTimeout(() => triggerHollowGateAmbush(), 0);
         }
     }
     function leaveHollowGateShrine() {
