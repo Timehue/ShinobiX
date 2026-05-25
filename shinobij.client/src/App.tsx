@@ -18991,9 +18991,21 @@ function KenneyAtlasPicker({
     // pick from the dropdown. The custom-URL field below also lets them
     // load any URL ad-hoc without editing this list.
     const KNOWN_ATLASES: Array<{ id: string; label: string; url: string; tileSize: number; gap: number }> = [
-        { id: "caves",        label: "Kenney — Roguelike Caves & Dungeons (terrain)", url: "/assets/dungeon/tilemap.png",      tileSize: 16, gap: 1 },
-        { id: "tiny-dungeon", label: "Kenney — Tiny Dungeon (chars + items)",         url: "/assets/dungeon/tiny-dungeon.png", tileSize: 16, gap: 1 },
-        { id: "characters",   label: "Kenney — Roguelike Characters",                 url: "/assets/dungeon/characters.png",   tileSize: 16, gap: 1 },
+        // ── Already in the repo ──
+        { id: "caves",          label: "Kenney — Roguelike Caves & Dungeons (terrain)",  url: "/assets/dungeon/tilemap.png",                  tileSize: 16, gap: 1 },
+        // 0x72's Dungeon Tileset II — best single-atlas coverage: chests, monsters,
+        // wizards, knights, skeletons, demons, doors, stairs, traps, torches,
+        // weapons, potions. CC-BY-4.0 — credit "0x72" in README.
+        { id: "0x72",           label: "0x72 — Dungeon Tileset II (chars + chests + monsters)", url: "/assets/dungeon/0x72-dungeon-tileset-ii.png", tileSize: 16, gap: 0 },
+        // Companion atlases packaged alongside 0x72 (or similar community pack):
+        // floor/wall tilesets split into separate files. Useful if the user wants
+        // very specific dungeon surfaces.
+        { id: "atlas-floor",      label: "Atlas — Floor tiles (16×16)",     url: "/assets/dungeon/atlas-floor.png",      tileSize: 16, gap: 0 },
+        { id: "atlas-walls-low",  label: "Atlas — Low walls (16×16)",       url: "/assets/dungeon/atlas-walls-low.png",  tileSize: 16, gap: 0 },
+        { id: "atlas-walls-high", label: "Atlas — High walls (16×32)",      url: "/assets/dungeon/atlas-walls-high.png", tileSize: 16, gap: 0 },
+        // ── Drop-in slots for additional Kenney packs (file just needs to exist) ──
+        { id: "tiny-dungeon",   label: "Kenney — Tiny Dungeon (drop in tiny-dungeon.png)", url: "/assets/dungeon/tiny-dungeon.png", tileSize: 16, gap: 1 },
+        { id: "characters",     label: "Kenney — Roguelike Characters (drop in characters.png)", url: "/assets/dungeon/characters.png", tileSize: 16, gap: 1 },
     ];
     const PICKER_LS_KEY = "hollowGate.atlasPicker.config.v1";
 
