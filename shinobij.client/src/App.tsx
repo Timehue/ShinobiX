@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type ChangeEvent, type Dispatch, type SetStateAction } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type ChangeEvent, type Dispatch, type SetStateAction } from "react";
 import { createPortal } from "react-dom";
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect, react-hooks/purity */
 import type * as React from "react";
@@ -1054,6 +1054,14 @@ type HollowGateShrineRun = {
     torch: number; // 0..10
     keys: number;
     completed: boolean;
+    // Theme assignment per roomId — the renderer uses this to pick which
+    // shrine:icon-theme-<theme>-<role> tile to draw for room_floor / door /
+    // corridor / wall cells. Old saved runs without this field fall back to
+    // the base atlas tiles for terrain.
+    roomThemes?: Record<number, string>;
+    // Random seed baked into the run on creation. Used so the theme picker
+    // gives different rooms different themes per-run.
+    seed?: number;
 };
 
 // Grid dimensions stay const — changing them mid-run would break saved layouts.
@@ -1563,6 +1571,15 @@ function buildRunFromParsedLayout(
         flavor: i === spawnIdx ? "You stand at the threshold of the Hollow Gate Shrine." : undefined,
     }));
 
+    // Stamp each room with a deterministic theme. Same room within the run
+    // keeps its theme, but the run's seed shuffles which theme each room gets.
+    const seed = Math.floor(Math.random() * 0x7fffffff);
+    const roomThemes: Record<number, string> = {};
+    const uniqueRoomIds = new Set(roomIds.filter(id => id >= 0));
+    for (const rid of uniqueRoomIds) {
+        roomThemes[rid] = pickRoomTheme(rid, floor, seed);
+    }
+
     return {
         width: w,
         height: h,
@@ -1574,6 +1591,8 @@ function buildRunFromParsedLayout(
         torch: 10,
         keys: 0,
         completed: false,
+        roomThemes,
+        seed,
     };
 }
 
@@ -1890,6 +1909,14 @@ function generateHollowGateShrineRunBSP(floor = 1): HollowGateShrineRun {
         flavor: i === spawnIdx ? "You stand at the threshold of the Hollow Gate Shrine." : undefined,
     }));
 
+    // Per-room theme assignment — same logic as the layout-based builder so
+    // BSP runs also benefit from themed terrain when slots are assigned.
+    const bspSeed = Math.floor(Math.random() * 0x7fffffff);
+    const bspRoomThemes: Record<number, string> = {};
+    for (let i = 0; i < rooms.length; i += 1) {
+        bspRoomThemes[i] = pickRoomTheme(i, floor, bspSeed);
+    }
+
     return {
         width: w,
         height: h,
@@ -1901,6 +1928,8 @@ function generateHollowGateShrineRunBSP(floor = 1): HollowGateShrineRun {
         torch: 10,
         keys: 0,
         completed: false,
+        roomThemes: bspRoomThemes,
+        seed: bspSeed,
     };
 }
 
@@ -2101,27 +2130,104 @@ function hollowGateTileIconForKind(kind: HollowGateTileKind): string {
 // can be stored. When the renderer / legend find the corresponding image in
 // `sharedImages`, they overlay it instead of the emoji fallback above.
 //
-// Slots are filled via the Atlas Tile Picker (admin panel): the admin selects
-// a slot, clicks a tile in the atlas, and the picker slices that 16×16 tile
-// out of the atlas and publishes it under shrine:icon-<id>. So this list is
-// the source of truth for "which roles can be backed by atlas art".
-const HOLLOW_GATE_ICON_SLOTS: Array<{ id: string; label: string; kind?: HollowGateTileKind; legendOnly?: boolean }> = [
-    { id: "you",     label: "You (player)" },                       // overlays player tile + legend
-    { id: "battle",  label: "Battle",      kind: "battle" },
-    { id: "elite",   label: "Elite",       kind: "elite" },
-    { id: "boss",    label: "Boss",        kind: "boss" },
-    { id: "trap",    label: "Trap",        kind: "trap" },
-    { id: "chest",   label: "Chest",       kind: "chest" },
-    { id: "shrine",  label: "Shrine",      kind: "shrine" },
-    { id: "story",   label: "Story",       kind: "story" },
-    { id: "pet",     label: "Pet",         kind: "pet_event" },
-    { id: "npc",     label: "Keeper",      kind: "npc" },
-    { id: "descend", label: "Descend",     kind: "descend" },
-    { id: "exit",    label: "Leave",       kind: "exit" },
-    { id: "locked",  label: "Locked Door", kind: "locked" },
-    { id: "wall",    label: "Wall",        legendOnly: true },      // legend only; tile wall uses terrain texture
-];
+// Each content role can have multiple variants (battle-1, battle-2, ...) so
+// the dungeon stops looking like 6 photocopies of the same monster. The
+// renderer picks one of the assigned variants deterministically by tile
+// index hash — so each cell is stable across renders, but adjacent cells of
+// the same role show different sprites.
+//
+// Slots are filled via the Atlas Tile Picker (admin panel): the admin
+// selects a slot, clicks a tile in the atlas, and the picker slices that
+// 16×16 tile out of the atlas and publishes it under shrine:icon-<id>.
+type HollowGateIconRoleCfg = {
+    label: string;
+    kind?: HollowGateTileKind;
+    count: number;             // how many variant slots for this role
+    legendOnly?: boolean;
+};
+const HOLLOW_GATE_ICON_ROLES: Record<string, HollowGateIconRoleCfg> = {
+    you:     { label: "You (player)",                count: 1 },
+    battle:  { label: "Battle",  kind: "battle",     count: 4 },
+    elite:   { label: "Elite",   kind: "elite",      count: 4 },
+    boss:    { label: "Boss",    kind: "boss",       count: 2 },
+    trap:    { label: "Trap",    kind: "trap",       count: 4 },
+    chest:   { label: "Chest",   kind: "chest",      count: 4 },
+    shrine:  { label: "Shrine",  kind: "shrine",     count: 2 },
+    story:   { label: "Story",   kind: "story",      count: 2 },
+    pet:     { label: "Pet",     kind: "pet_event",  count: 3 },
+    npc:     { label: "Keeper",  kind: "npc",        count: 3 },
+    descend: { label: "Descend", kind: "descend",    count: 1 },
+    exit:    { label: "Leave",   kind: "exit",       count: 1 },
+    locked:  { label: "Locked Door", kind: "locked", count: 2 },
+    wall:    { label: "Wall",                        count: 1, legendOnly: true },
+};
+type HollowGateIconSlot = {
+    id: string;                 // shrine:icon-<id>
+    label: string;              // human-readable
+    kind?: HollowGateTileKind;
+    variantGroup: string;       // the role id this slot belongs to
+    variantIndex: number;       // 1..N within the group (1 if singleton)
+    legendOnly?: boolean;
+};
+const HOLLOW_GATE_ICON_SLOTS: HollowGateIconSlot[] = Object.entries(HOLLOW_GATE_ICON_ROLES).flatMap(([role, cfg]) => {
+    if (cfg.count === 1) {
+        return [{ id: role, label: cfg.label, kind: cfg.kind, variantGroup: role, variantIndex: 1, legendOnly: cfg.legendOnly }];
+    }
+    return Array.from({ length: cfg.count }, (_, i) => ({
+        id: `${role}-${i + 1}`,
+        label: `${cfg.label} ${i + 1}`,
+        kind: cfg.kind,
+        variantGroup: role,
+        variantIndex: i + 1,
+        legendOnly: cfg.legendOnly,
+    }));
+});
 const HOLLOW_GATE_ICON_KEY = (id: string) => `shrine:icon-${id}`;
+
+// ── Room themes ────────────────────────────────────────────────────────────
+// A "theme" bundles 4 terrain tiles (wall + floor + corridor + door) that
+// look good together. The generator stamps each room with a deterministic
+// theme based on the room's index + floor number, so consecutive runs and
+// rooms inside the same run feel different without exposing seams.
+//
+// Theme tile keys in shared KV:
+//   shrine:icon-theme-<theme>-wall
+//   shrine:icon-theme-<theme>-floor
+//   shrine:icon-theme-<theme>-corridor
+//   shrine:icon-theme-<theme>-door
+//
+// When a tile sits in a room with theme T, the renderer prefers the theme's
+// tile; if that slot isn't assigned it falls back to the base
+// shrine:tile-<terrain>-N variants (atlas-extracted Kenney textures).
+const HOLLOW_GATE_THEMES: Array<{ id: string; label: string }> = [
+    { id: "crypt",   label: "Crypt"   },   // grey stone + bone + skull
+    { id: "ember",   label: "Ember"   },   // orange brick + brazier
+    { id: "sanctum", label: "Sanctum" },   // gold + violet rune
+    { id: "ruins",   label: "Ruins"   },   // mossy + cracked + plant
+];
+const HOLLOW_GATE_THEME_TILE_ROLES: Array<{ id: string; label: string }> = [
+    { id: "wall",     label: "Wall"     },
+    { id: "floor",    label: "Floor"    },
+    { id: "corridor", label: "Corridor" },
+    { id: "door",     label: "Door"     },
+];
+// Flat slot list for the picker: 4 themes × 4 roles = 16 theme slots.
+const HOLLOW_GATE_THEME_SLOTS: HollowGateIconSlot[] = HOLLOW_GATE_THEMES.flatMap(theme =>
+    HOLLOW_GATE_THEME_TILE_ROLES.map(role => ({
+        id: `theme-${theme.id}-${role.id}`,
+        label: `${theme.label} — ${role.label}`,
+        variantGroup: `theme-${theme.id}`,
+        variantIndex: 1,
+    })),
+);
+
+// Deterministic theme pick for a given roomId on a given floor. Same room
+// keeps the same theme within a run; new runs reshuffle.
+function pickRoomTheme(roomId: number, floor: number, runSeed: number): string {
+    if (roomId < 0) return "";
+    const hash = ((roomId + 1) * 2654435761 + floor * 16777619 + runSeed) >>> 0;
+    return HOLLOW_GATE_THEMES[hash % HOLLOW_GATE_THEMES.length].id;
+}
 
 type EventEncounterBattle = NonNullable<NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number]["battle"]>;
 type PendingEventEncounter = {
@@ -10839,23 +10945,72 @@ export default function App() {
                                             ? `linear-gradient(135deg, ${overlay}, rgba(8,4,18,0.55)), url(${image}) center/cover no-repeat`
                                             : fallback;
                                     }
-                                    function bgForTerrain(terrainKind: HollowGateTerrain, idx: number): string {
+                                    // Room theme tile lookup. Each room has a theme stamped on it; for a
+                                    // given (theme, role) try shrine:icon-theme-<theme>-<role>. If absent
+                                    // we fall back to the base atlas tile. Themes only apply to tiles that
+                                    // belong to a room (room_floor + doors); corridors stay default.
+                                    function themedTileFor(role: "wall" | "floor" | "corridor" | "door", theme: string | undefined): string | undefined {
+                                        if (!theme) return undefined;
+                                        return sharedImages[`shrine:icon-theme-${theme}-${role}`];
+                                    }
+                                    function bgForTerrain(terrainKind: HollowGateTerrain, idx: number, theme?: string): string {
                                         if (terrainKind === "wall") {
-                                            const v = wallVariants[variantPick(idx, wallVariants.length)];
+                                            const themed = themedTileFor("wall", theme);
+                                            const v = themed ?? wallVariants[variantPick(idx, wallVariants.length)];
                                             return v
                                                 ? `linear-gradient(135deg, rgba(15,9,28,0.35), rgba(8,4,18,0.55)), url(${v}) center/cover no-repeat`
                                                 : "linear-gradient(135deg, #1c1430 0%, #0e0820 40%, #2a1f3e 100%)";
                                         }
                                         if (terrainKind === "corridor_floor") {
-                                            const v = corridorFloorVariants[variantPick(idx, corridorFloorVariants.length)];
+                                            const themed = themedTileFor("corridor", theme);
+                                            const v = themed ?? corridorFloorVariants[variantPick(idx, corridorFloorVariants.length)];
                                             return bgFromTexture(v, "linear-gradient(135deg, rgba(40,28,72,0.7), rgba(28,18,54,0.85))");
                                         }
                                         if (terrainKind === "door") {
-                                            return bgFromTexture(doorTexture, "linear-gradient(135deg, rgba(120,72,32,0.5), rgba(64,40,18,0.75))", "rgba(40,20,8,0.3)");
+                                            const themed = themedTileFor("door", theme);
+                                            return bgFromTexture(themed ?? doorTexture, "linear-gradient(135deg, rgba(120,72,32,0.5), rgba(64,40,18,0.75))", "rgba(40,20,8,0.3)");
                                         }
                                         // room_floor (default)
-                                        const v = roomFloorVariants[variantPick(idx, roomFloorVariants.length)];
+                                        const themed = themedTileFor("floor", theme);
+                                        const v = themed ?? roomFloorVariants[variantPick(idx, roomFloorVariants.length)];
                                         return bgFromTexture(v, "linear-gradient(135deg, rgba(50,38,82,0.7), rgba(34,24,60,0.85))");
+                                    }
+                                    // Per-cell theme resolver — null roomId (wall / corridor outside a room)
+                                    // gets the room theme of the nearest 4-neighbour room cell, so walls
+                                    // bordering a themed room pick up that theme. Falls back to "" if no
+                                    // neighbour has a theme.
+                                    function tileTheme(idx: number): string | undefined {
+                                        const tile = run.tiles[idx];
+                                        if (!tile) return undefined;
+                                        if (tile.roomId != null && run.roomThemes) return run.roomThemes[tile.roomId];
+                                        if (!run.roomThemes) return undefined;
+                                        // Look at 4-cardinal neighbours; first room neighbour wins.
+                                        const cx = idx % run.width;
+                                        const cy = Math.floor(idx / run.width);
+                                        for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+                                            const nx = cx + dx, ny = cy + dy;
+                                            if (nx < 0 || ny < 0 || nx >= run.width || ny >= run.height) continue;
+                                            const nTile = run.tiles[ny * run.width + nx];
+                                            if (nTile?.roomId != null && run.roomThemes[nTile.roomId]) {
+                                                return run.roomThemes[nTile.roomId];
+                                            }
+                                        }
+                                        return undefined;
+                                    }
+                                    // Variant-aware icon lookup for a content role (chest, battle, etc.).
+                                    // Tries shrine:icon-<role>-1..N in deterministic hash order, falls back
+                                    // to shrine:icon-<role> (legacy single-icon assignments).
+                                    function pickRoleIconImage(role: string, idx: number): string | undefined {
+                                        const cfg = HOLLOW_GATE_ICON_ROLES[role];
+                                        if (!cfg) return undefined;
+                                        if (cfg.count === 1) return sharedImages[HOLLOW_GATE_ICON_KEY(role)];
+                                        const assigned: string[] = [];
+                                        for (let i = 1; i <= cfg.count; i += 1) {
+                                            const v = sharedImages[HOLLOW_GATE_ICON_KEY(`${role}-${i}`)];
+                                            if (v) assigned.push(v);
+                                        }
+                                        if (assigned.length === 0) return sharedImages[HOLLOW_GATE_ICON_KEY(role)];
+                                        return assigned[variantPick(idx, assigned.length)];
                                     }
                                     return (
                                 <div className="hollow-gate-grid" style={{ display: "grid", gridTemplateColumns: `repeat(${run.width}, 1fr)`, gap: 3, background: "rgba(0,0,0,0.55)", padding: 8, borderRadius: 8 }}>
@@ -10882,16 +11037,17 @@ export default function App() {
                                         // fog — the player should see their current room and nothing
                                         // more. Walls outside the lit area go dark too so the room
                                         // shape reads as a discrete pool of light.
+                                        const cellTheme = tileTheme(i);
                                         let bg: string;
                                         if (wall) {
-                                            bg = visible ? bgForTerrain("wall", i) : "rgba(7,4,15,0.92)";
+                                            bg = visible ? bgForTerrain("wall", i, cellTheme) : "rgba(7,4,15,0.92)";
                                         } else if (isPlayer) {
                                             bg = "linear-gradient(135deg, #2563eb, #7c3aed)";
                                         } else if (visible) {
                                             // Pick the terrain base layer (room / corridor / door),
                                             // then overlay a decoration sprite if assigned, then a
                                             // content-tint if this cell carries an event.
-                                            let terrainBase = bgForTerrain(terrainKind, i);
+                                            let terrainBase = bgForTerrain(terrainKind, i, cellTheme);
                                             // Overlay decoration sprite if the generator assigned one
                                             // to this cell (only on room_floor and only when not a
                                             // hidden-surprise content tile).
@@ -10965,8 +11121,11 @@ export default function App() {
                                             : isSurpriseKind && !revealed ? false
                                             : true;
                                         const iconSlotId = isPlayer ? "you" : iconSlotIdFor(tile.kind);
+                                        // Variant-aware icon pick: tries shrine:icon-<role>-1..N first
+                                        // (so adjacent chests / monsters / traps show different sprites),
+                                        // falls back to legacy single-icon shrine:icon-<role>.
                                         const iconImage = showIcon && iconSlotId
-                                            ? sharedImages[HOLLOW_GATE_ICON_KEY(iconSlotId)]
+                                            ? pickRoleIconImage(iconSlotId, i)
                                             : undefined;
                                         let icon: string;
                                         if (!showIcon) icon = !visible && !wall ? "·" : "";       // fog dot or blank
@@ -11060,8 +11219,22 @@ export default function App() {
                                             };
                                             // Walls use the atlas wall tile (terrain), not an icon slot.
                                             const wallTileImg = sharedImages["shrine:tile-wall"] ?? sharedImages["shrine:tile-wall-0"];
+                                            // Legend picks any-variant: shrine:icon-<role>-1 first, then
+                                            // shrine:icon-<role>-2..N, then the legacy un-suffixed key.
+                                            // This way the legend reflects "an assignment exists" without
+                                            // caring which specific variant the admin filled.
+                                            const anyAssignedVariant = (role: string): string | undefined => {
+                                                const cfg = HOLLOW_GATE_ICON_ROLES[role];
+                                                if (cfg && cfg.count > 1) {
+                                                    for (let i = 1; i <= cfg.count; i += 1) {
+                                                        const v = sharedImages[HOLLOW_GATE_ICON_KEY(`${role}-${i}`)];
+                                                        if (v) return v;
+                                                    }
+                                                }
+                                                return sharedImages[HOLLOW_GATE_ICON_KEY(role)];
+                                            };
                                             const legendCell = (slotId: string, label: string) => {
-                                                const img = slotId === "wall" ? wallTileImg : sharedImages[HOLLOW_GATE_ICON_KEY(slotId)];
+                                                const img = slotId === "wall" ? wallTileImg : anyAssignedVariant(slotId);
                                                 return (
                                                     <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
                                                         {img ? (
@@ -19219,84 +19392,173 @@ function KenneyAtlasPicker({
             {/* ── Atlas selector + custom URL ───────────────────────────── */}
             {atlasConfigBar}
 
-            {/* ── Slot assign UI ────────────────────────────────────────── */}
-            <div style={{ marginBottom: 10, padding: 8, background: "rgba(168,85,247,0.08)", borderRadius: 6, border: "1px solid rgba(168,85,247,0.2)" }}>
-                <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", fontSize: 13 }}>
-                    <label><strong>Assign next click to slot:</strong></label>
-                    <select
-                        value={assignSlot}
-                        onChange={(e) => setAssignSlot(e.target.value)}
-                        style={{ padding: "4px 8px", background: "rgba(15,9,28,0.85)", color: "#e9d5ff", border: "1px solid rgba(168,85,247,0.4)", borderRadius: 4 }}
-                    >
-                        <option value="">— None (preview only) —</option>
-                        {HOLLOW_GATE_ICON_SLOTS.map(s => (
-                            <option key={s.id} value={s.id}>{s.label}</option>
-                        ))}
-                    </select>
-                    {assignSlot && (
-                        <span style={{ color: "#86efac" }}>
-                            ✓ Click any atlas tile to assign it to <strong>{HOLLOW_GATE_ICON_SLOTS.find(s => s.id === assignSlot)?.label}</strong>
-                        </span>
-                    )}
-                    {savedToast && (
-                        <span style={{ marginLeft: "auto", color: "#86efac", fontWeight: 600 }}>
-                            ✅ Saved {HOLLOW_GATE_ICON_SLOTS.find(s => s.id === savedToast.slot)?.label ?? savedToast.slot}!
-                        </span>
-                    )}
-                </div>
-                <p className="hint" style={{ margin: "6px 0 0", fontSize: 12 }}>
-                    Picks an atlas tile and stores it under <code>shrine:icon-&lt;slot&gt;</code> in shared KV.
-                    The dungeon renderer + Map Legend overlay this image on the matching role.
-                </p>
+            {/* ── Slot assign banner (current selection + saved toast) ──── */}
+            <div style={{ marginBottom: 10, padding: 8, background: "rgba(168,85,247,0.08)", borderRadius: 6, border: "1px solid rgba(168,85,247,0.2)", fontSize: 13 }}>
+                {assignSlot ? (
+                    <span style={{ color: "#86efac" }}>
+                        ✓ Click any atlas tile to assign it to <strong>{[...HOLLOW_GATE_ICON_SLOTS, ...HOLLOW_GATE_THEME_SLOTS].find(s => s.id === assignSlot)?.label ?? assignSlot}</strong>
+                        <button onClick={() => setAssignSlot("")} style={{ marginLeft: 10, fontSize: 11, padding: "1px 6px", background: "transparent", color: "#fda4af", border: "1px solid rgba(248,113,113,0.3)", borderRadius: 3 }}>cancel</button>
+                    </span>
+                ) : (
+                    <span style={{ color: "#c4b5fd" }}>
+                        Click a slot below to <strong>arm it</strong>, then click any atlas tile to assign that sprite.
+                        Content roles have 4 variants each — the dungeon picks one per tile so adjacent chests / monsters / traps differ.
+                        Themes bundle 4 tiles each; the generator stamps a theme on every room.
+                    </span>
+                )}
+                {savedToast && (
+                    <span style={{ marginLeft: 10, color: "#86efac", fontWeight: 600 }}>
+                        ✅ Saved!
+                    </span>
+                )}
             </div>
 
-            {/* ── Currently-assigned slots strip ────────────────────────── */}
-            <div style={{ marginBottom: 10, display: "flex", flexWrap: "wrap", gap: 6, fontSize: 11 }}>
-                {HOLLOW_GATE_ICON_SLOTS.map(s => {
+            {/* ── Slot picker, grouped ─────────────────────────────────── */}
+            {(() => {
+                // Per-slot tile box renderer — used by both groups below.
+                const SlotBox = ({ s }: { s: HollowGateIconSlot }) => {
                     const img = sharedImages[HOLLOW_GATE_ICON_KEY(s.id)];
+                    const armed = assignSlot === s.id;
                     return (
                         <div
-                            key={s.id}
+                            onClick={() => setAssignSlot(armed ? "" : s.id)}
+                            title={`${s.label} — click to ${armed ? "disarm" : "arm for assignment"}`}
                             style={{
+                                cursor: "pointer",
                                 display: "flex",
                                 flexDirection: "column",
                                 alignItems: "center",
-                                padding: "4px 6px",
+                                padding: "4px 4px 2px",
                                 borderRadius: 4,
-                                background: img ? "rgba(34,197,94,0.10)" : "rgba(15,9,28,0.5)",
-                                border: img ? "1px solid rgba(34,197,94,0.4)" : "1px dashed rgba(168,85,247,0.25)",
-                                width: 64,
+                                background: armed
+                                    ? "rgba(168,85,247,0.30)"
+                                    : img ? "rgba(34,197,94,0.10)" : "rgba(15,9,28,0.5)",
+                                border: armed
+                                    ? "2px solid #a855f7"
+                                    : img ? "1px solid rgba(34,197,94,0.4)" : "1px dashed rgba(168,85,247,0.25)",
+                                width: 56,
+                                boxShadow: armed ? "0 0 8px rgba(168,85,247,0.5)" : undefined,
                             }}
                         >
                             <div style={{
-                                width: 48,
-                                height: 48,
-                                background: img
-                                    ? `url(${img}) center/contain no-repeat`
-                                    : "rgba(0,0,0,0.3)",
+                                width: 42,
+                                height: 42,
+                                background: img ? `url(${img}) center/contain no-repeat` : "rgba(0,0,0,0.3)",
                                 imageRendering: "pixelated",
                                 display: "flex",
                                 alignItems: "center",
                                 justifyContent: "center",
                                 color: "#a78bfa",
-                                fontSize: 16,
+                                fontSize: 14,
                             }}>
-                                {!img && hollowGateTileIconForKind((s.kind ?? "empty") as HollowGateTileKind)}
+                                {!img && s.kind && hollowGateTileIconForKind(s.kind)}
                             </div>
-                            <div style={{ textAlign: "center", color: img ? "#86efac" : "#c4b5fd", marginTop: 2 }}>
-                                {s.label}
+                            <div style={{ textAlign: "center", color: img ? "#86efac" : "#c4b5fd", marginTop: 2, fontSize: 9, lineHeight: 1.1 }}>
+                                v{s.variantIndex}
                             </div>
                             {img && (
                                 <button
                                     disabled={busySlot === s.id}
-                                    onClick={() => clearSlot(s.id)}
-                                    style={{ fontSize: 10, padding: "1px 4px", marginTop: 2, background: "transparent", color: "#fda4af", border: "1px solid rgba(248,113,113,0.3)", borderRadius: 3, cursor: "pointer" }}
-                                >clear</button>
+                                    onClick={(e) => { e.stopPropagation(); void clearSlot(s.id); }}
+                                    style={{ fontSize: 9, padding: "0 3px", marginTop: 1, background: "transparent", color: "#fda4af", border: "1px solid rgba(248,113,113,0.3)", borderRadius: 3, cursor: "pointer" }}
+                                >×</button>
                             )}
                         </div>
                     );
-                })}
-            </div>
+                };
+
+                // Group icon slots by variantGroup (role)
+                const rolesGrouped = Object.entries(HOLLOW_GATE_ICON_ROLES).map(([role, cfg]) => ({
+                    role,
+                    cfg,
+                    slots: HOLLOW_GATE_ICON_SLOTS.filter(s => s.variantGroup === role),
+                }));
+
+                return (
+                    <>
+                        <div style={{ marginBottom: 6, fontSize: 12, color: "#c4b5fd", fontWeight: 600 }}>
+                            📍 Content icons — variants picked deterministically per tile
+                        </div>
+                        <div style={{ marginBottom: 12, display: "grid", gridTemplateColumns: "100px 1fr", gap: 6, alignItems: "center" }}>
+                            {rolesGrouped.map(({ role, cfg, slots }) => (
+                                <Fragment key={role}>
+                                    <div style={{ fontSize: 12, color: "#e9d5ff", textAlign: "right", paddingRight: 6 }}>
+                                        {cfg.label}<br/>
+                                        <span style={{ fontSize: 10, color: "#a78bfa" }}>{slots.length} variant{slots.length === 1 ? "" : "s"}</span>
+                                    </div>
+                                    <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                                        {slots.map(s => <SlotBox key={s.id} s={s} />)}
+                                    </div>
+                                </Fragment>
+                            ))}
+                        </div>
+
+                        <div style={{ marginBottom: 6, fontSize: 12, color: "#c4b5fd", fontWeight: 600 }}>
+                            🏛 Room themes — each theme bundles 4 tiles; rooms get a random theme per run
+                        </div>
+                        <div style={{ marginBottom: 12, display: "grid", gridTemplateColumns: "100px 1fr", gap: 6, alignItems: "center" }}>
+                            {HOLLOW_GATE_THEMES.map(theme => {
+                                const themeSlots = HOLLOW_GATE_THEME_SLOTS.filter(s => s.variantGroup === `theme-${theme.id}`);
+                                return (
+                                    <Fragment key={theme.id}>
+                                        <div style={{ fontSize: 12, color: "#e9d5ff", textAlign: "right", paddingRight: 6 }}>
+                                            {theme.label}<br/>
+                                            <span style={{ fontSize: 10, color: "#a78bfa" }}>wall · floor · corridor · door</span>
+                                        </div>
+                                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                                            {themeSlots.map(s => {
+                                                const img = sharedImages[HOLLOW_GATE_ICON_KEY(s.id)];
+                                                const armed = assignSlot === s.id;
+                                                const roleLabel = s.id.split("-").pop()!;
+                                                return (
+                                                    <div
+                                                        key={s.id}
+                                                        onClick={() => setAssignSlot(armed ? "" : s.id)}
+                                                        title={`${s.label} — click to ${armed ? "disarm" : "arm"}`}
+                                                        style={{
+                                                            cursor: "pointer",
+                                                            display: "flex",
+                                                            flexDirection: "column",
+                                                            alignItems: "center",
+                                                            padding: "4px 4px 2px",
+                                                            borderRadius: 4,
+                                                            background: armed
+                                                                ? "rgba(168,85,247,0.30)"
+                                                                : img ? "rgba(34,197,94,0.10)" : "rgba(15,9,28,0.5)",
+                                                            border: armed
+                                                                ? "2px solid #a855f7"
+                                                                : img ? "1px solid rgba(34,197,94,0.4)" : "1px dashed rgba(168,85,247,0.25)",
+                                                            width: 56,
+                                                            boxShadow: armed ? "0 0 8px rgba(168,85,247,0.5)" : undefined,
+                                                        }}
+                                                    >
+                                                        <div style={{
+                                                            width: 42,
+                                                            height: 42,
+                                                            background: img ? `url(${img}) center/contain no-repeat` : "rgba(0,0,0,0.3)",
+                                                            imageRendering: "pixelated",
+                                                        }} />
+                                                        <div style={{ textAlign: "center", color: img ? "#86efac" : "#c4b5fd", marginTop: 2, fontSize: 9, lineHeight: 1.1 }}>
+                                                            {roleLabel}
+                                                        </div>
+                                                        {img && (
+                                                            <button
+                                                                disabled={busySlot === s.id}
+                                                                onClick={(e) => { e.stopPropagation(); void clearSlot(s.id); }}
+                                                                style={{ fontSize: 9, padding: "0 3px", marginTop: 1, background: "transparent", color: "#fda4af", border: "1px solid rgba(248,113,113,0.3)", borderRadius: 3, cursor: "pointer" }}
+                                                            >×</button>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </Fragment>
+                                );
+                            })}
+                        </div>
+                    </>
+                );
+            })()}
 
             <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 8, fontSize: 13 }}>
                 <label>Zoom:</label>
