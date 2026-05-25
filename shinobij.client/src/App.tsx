@@ -10133,9 +10133,13 @@ export default function App() {
                 };
                 pushHollowGateLog(`[Hollow Beast] ${flavor} ${activePet.name} squares off against ${wild.name}.`);
                 // Resolve the tile FIRST so the run state advances correctly,
-                // then trigger the pet duel. returnScreen routes the player
-                // back to the shrine when the duel ends.
-                markResolved();
+                // then trigger the pet duel. Same battle-encounter reset rule
+                // as the regular Arena path: threat → 0, torch → 10. Done now
+                // because the PetArena exit doesn't fire onHollowGateBattleWin,
+                // so we apply the reward up-front; lose-cases bail out of the
+                // run anyway so the value doesn't matter on loss.
+                markResolved({ setTorch: 10 });
+                setHollowGateRun(prev => prev ? { ...prev, threat: 0 } : prev);
                 setPendingPetBattleOpponent({
                     owner: "Hollow Gate",
                     pet: wild,
@@ -10620,7 +10624,10 @@ export default function App() {
             // had a boss tile on Floor 1-4; defensively we still handle it.)
             const tiles = hollowGateRun.tiles.map(t => t.kind === "boss" ? { ...t, resolved: true } : t);
             const isFinalFloor = hollowGateRun.floor >= HOLLOW_GATE_MAX_FLOOR;
-            const nextRun: HollowGateShrineRun = { ...hollowGateRun, tiles, completed: isFinalFloor, threat: 0 };
+            // Every battle encounter resets both the threat meter (0) and the
+            // Torch of Reiki (10/10). The dungeon rewards survivors: clearing
+            // a fight earns you a fresh window before the next ambush builds.
+            const nextRun: HollowGateShrineRun = { ...hollowGateRun, tiles, completed: isFinalFloor, threat: 0, torch: 10 };
             setHollowGateRun(nextRun);
             pushHollowGateLog(`The Hollow Gate Warden falls on Floor ${hollowGateRun.floor}. ${isFinalFloor ? "The shrine is cleared!" : "A staircase opens below."}`);
             if (isFinalFloor) {
@@ -10658,11 +10665,15 @@ export default function App() {
                 pushHollowGateLog(`You descend to Floor ${next.floor}. Torch flares: +4.`);
             }
         } else if (isAmbush) {
-            setHollowGateRun({ ...hollowGateRun, threat: 0 });
-            pushHollowGateLog("The ambush ends. Threat dissipates.");
+            // Ambush survived → full reset of both meters.
+            setHollowGateRun({ ...hollowGateRun, threat: 0, torch: 10 });
+            pushHollowGateLog("The ambush ends. Threat dissipates and the Torch of Reiki flares back to full.");
         } else {
-            setHollowGateRun({ ...hollowGateRun, threat: Math.max(0, hollowGateRun.threat - 25) });
-            pushHollowGateLog("Corrupted shinobi defeated. Threat eases.");
+            // Regular battle / elite / pet_battle (themed-shinobi fallback)
+            // — also full reset. The previous "threat -= 25" partial reset
+            // made fights feel less rewarding than they should.
+            setHollowGateRun({ ...hollowGateRun, threat: 0, torch: 10 });
+            pushHollowGateLog("Corrupted shinobi defeated. Threat dissipates and the Torch of Reiki flares back to full.");
         }
     }
 
