@@ -1264,7 +1264,338 @@ function bspCarveCorridor(
     }
 }
 
+// ── Hand-designed ASCII layouts ─────────────────────────────────────────
+//
+// Each entry is a multi-line string parsed by `parseHollowGateLayout`.
+// Symbols (case-sensitive):
+//   #   wall (impassable)
+//   .   room floor — lights up the whole connected room when entered
+//   ,   corridor floor — single-tile visibility
+//   +   door (walkable; just decorative)
+//   P   spawn (room_floor underneath)            — exactly one per layout
+//   X   exit / leave tile (room_floor underneath) — exactly one per layout
+//   T   target — boss on F5, descend stairs F1-4  — exactly one per layout
+//   t   torch decoration   (room_floor underneath)
+//   b   barrel decoration  (room_floor underneath)
+//   p   plant decoration   (room_floor underneath)
+//   s   skull decoration   (room_floor underneath)
+//
+// Rules:
+// - Width auto-derived from the longest row; shorter rows are right-padded
+//   with '#'. So every row doesn't need to be the same length.
+// - Reachability (spawn→exit AND spawn→target) is validated; layouts that
+//   fail validation are silently skipped and the next one is tried. If none
+//   parse, the BSP generator runs as a fallback.
+// - To add a layout, just append another string to this array — no other
+//   code change required.
+const HOLLOW_GATE_LAYOUTS: string[] = [
+    // ── 1. Hollow Threshold ────────────────────────────────────────────
+    // Three rooms: spawn top-left, target top-right, exit bottom.
+    // Two doors funnel into the main east-west corridor.
+`###############
+#.t...#......t#
+#.....+.......#
+#..P..#...T...#
+#....s#......b#
+###+#######+###
+#,,,,,,,,,,,,,#
+#####+##+######
+#...........t.#
+#.X..p........#
+###############`,
+
+    // ── 2. Crossroads ──────────────────────────────────────────────────
+    // Six small rooms in a 3×2 grid around a central east-west corridor.
+`###############
+#.....#...#...#
+#..P..+.t.+.T.#
+#.....#...#...#
+######+...+####
+#,,,,,,,,,,,,,#
+######+...+####
+#.....#...#...#
+#.X.s.+.b.+.p.#
+#.....#...#...#
+###############`,
+
+    // ── 3. The Loop ────────────────────────────────────────────────────
+    // Outer corridor frames a central chamber holding the target.
+    // Bottom row has three small rooms (spawn / mid / exit).
+`###############
+#,,,,,,,,,,,,,#
+#,#####+#####,#
+#,#.........#,#
+#,+....T....+,#
+#,#.........#,#
+#,#####+#####,#
+#,,,,,,,,,,,,,#
+###+###,###+###
+#.P.#...#...X.#
+###############`,
+];
+
+type ParsedHollowGateLayout = {
+    width: number;
+    height: number;
+    terrain: HollowGateTerrain[];
+    roomIds: number[];      // -1 for non-room tiles
+    decorations: number[];  // -1 for none, 0-3 otherwise
+    spawnIdx: number;
+    exitIdx: number;
+    targetIdx: number;
+};
+
+function parseHollowGateLayout(ascii: string): ParsedHollowGateLayout | null {
+    const lines = ascii.split("\n").map(l => l.replace(/\s+$/, ""));
+    while (lines.length && lines[0].length === 0) lines.shift();
+    while (lines.length && lines[lines.length - 1].length === 0) lines.pop();
+    if (lines.length < 3) return null;
+    const width = Math.max(...lines.map(l => l.length));
+    const height = lines.length;
+    if (width < 3) return null;
+
+    const total = width * height;
+    const terrain: HollowGateTerrain[] = new Array(total).fill("wall");
+    const decorations: number[] = new Array(total).fill(-1);
+    let spawnIdx = -1;
+    let exitIdx = -1;
+    let targetIdx = -1;
+
+    for (let y = 0; y < height; y += 1) {
+        const row = lines[y].padEnd(width, "#");
+        for (let x = 0; x < width; x += 1) {
+            const ch = row[x];
+            const i = y * width + x;
+            switch (ch) {
+                case ".": terrain[i] = "room_floor"; break;
+                case ",": terrain[i] = "corridor_floor"; break;
+                case "+": terrain[i] = "door"; break;
+                case "P": terrain[i] = "room_floor"; spawnIdx = i; break;
+                case "X": terrain[i] = "room_floor"; exitIdx = i; break;
+                case "T": terrain[i] = "room_floor"; targetIdx = i; break;
+                case "t": terrain[i] = "room_floor"; decorations[i] = 0; break;
+                case "b": terrain[i] = "room_floor"; decorations[i] = 1; break;
+                case "p": terrain[i] = "room_floor"; decorations[i] = 2; break;
+                case "s": terrain[i] = "room_floor"; decorations[i] = 3; break;
+                // '#' and any unknown symbol fall through to wall.
+                default: terrain[i] = "wall"; break;
+            }
+        }
+    }
+    if (spawnIdx < 0 || exitIdx < 0 || targetIdx < 0) return null;
+
+    // Flood-fill connected room_floor regions to assign roomIds. Each blob of
+    // room_floor cells separated from others by walls/corridors/doors gets a
+    // unique id — the renderer uses this to light up the whole room when the
+    // player steps in.
+    const roomIds: number[] = new Array(total).fill(-1);
+    let nextRoom = 0;
+    for (let i = 0; i < total; i += 1) {
+        if (terrain[i] !== "room_floor" || roomIds[i] >= 0) continue;
+        const id = nextRoom;
+        nextRoom += 1;
+        const stack: number[] = [i];
+        while (stack.length) {
+            const cur = stack.pop()!;
+            if (roomIds[cur] >= 0) continue;
+            roomIds[cur] = id;
+            const cx = cur % width;
+            const cy = Math.floor(cur / width);
+            for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+                const nx = cx + dx;
+                const ny = cy + dy;
+                if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+                const nIdx = ny * width + nx;
+                if (terrain[nIdx] === "room_floor" && roomIds[nIdx] < 0) stack.push(nIdx);
+            }
+        }
+    }
+
+    // Validate reachability with walls as the only blockers (doors and
+    // corridors are walkable). Skip layouts where spawn can't reach exit/target.
+    const wallSet = new Set<number>();
+    for (let i = 0; i < total; i += 1) if (terrain[i] === "wall") wallSet.add(i);
+    const reachable = hollowGateReachableSet(width, height, spawnIdx, wallSet);
+    if (!reachable.has(exitIdx) || !reachable.has(targetIdx)) return null;
+
+    return { width, height, terrain, roomIds, decorations, spawnIdx, exitIdx, targetIdx };
+}
+
+// Overlay battle/trap/chest/etc. content on top of a parsed layout's terrain.
+// Same content rules as the BSP generator — keeps the dungeon experience
+// consistent regardless of whether geometry came from a layout or BSP.
+function buildRunFromParsedLayout(
+    parsed: ParsedHollowGateLayout,
+    floor: number,
+    isFinalFloor: boolean,
+): HollowGateShrineRun {
+    const { width: w, height: h, terrain, roomIds, decorations, spawnIdx, exitIdx, targetIdx } = parsed;
+    const total = w * h;
+
+    const kinds: HollowGateTileKind[] = new Array(total).fill("empty");
+    for (let i = 0; i < total; i += 1) if (terrain[i] === "wall") kinds[i] = "wall";
+
+    const reserved = new Set<number>([spawnIdx, exitIdx, targetIdx]);
+    kinds[exitIdx] = "exit";
+    kinds[targetIdx] = isFinalFloor ? "boss" : "descend";
+
+    const playerX = spawnIdx % w;
+    const playerY = Math.floor(spawnIdx / w);
+    const protectedRadius = new Set<number>([spawnIdx]);
+    for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+        const nx = playerX + dx;
+        const ny = playerY + dy;
+        if (nx >= 0 && ny >= 0 && nx < w && ny < h) {
+            const nIdx = ny * w + nx;
+            if (terrain[nIdx] !== "wall") protectedRadius.add(nIdx);
+        }
+    }
+
+    function placeIn(allowedTerrains: HollowGateTerrain[], kind: HollowGateTileKind, count: number) {
+        let placed = 0;
+        let safety = 0;
+        while (placed < count && safety < 400) {
+            safety += 1;
+            const idx = Math.floor(Math.random() * total);
+            if (reserved.has(idx) || protectedRadius.has(idx)) continue;
+            if (kinds[idx] !== "empty") continue;
+            if (!allowedTerrains.includes(terrain[idx])) continue;
+            kinds[idx] = kind;
+            placed += 1;
+        }
+    }
+
+    const battleCount = 4 + Math.min(3, floor);
+    const trapCount = 3 + Math.floor(floor / 2);
+
+    function walkableNeighbors(idx: number): number {
+        const x = idx % w;
+        const y = Math.floor(idx / w);
+        let n = 0;
+        for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+            const nx = x + dx;
+            const ny = y + dy;
+            if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+            if (terrain[ny * w + nx] !== "wall") n += 1;
+        }
+        return n;
+    }
+    function placeTrapsAtDeadEnds(maxTraps: number): number {
+        const deadEnds: number[] = [];
+        for (let i = 0; i < total; i += 1) {
+            if (reserved.has(i) || protectedRadius.has(i)) continue;
+            if (kinds[i] !== "empty") continue;
+            if (terrain[i] !== "corridor_floor" && terrain[i] !== "room_floor") continue;
+            if (walkableNeighbors(i) <= 1) deadEnds.push(i);
+        }
+        deadEnds.sort(() => Math.random() - 0.5);
+        let placed = 0;
+        for (const idx of deadEnds) {
+            if (placed >= maxTraps) break;
+            kinds[idx] = "trap";
+            placed += 1;
+        }
+        return placed;
+    }
+    const deadEndTrapsPlaced = placeTrapsAtDeadEnds(Math.ceil(trapCount * 0.67));
+
+    placeIn(["room_floor", "corridor_floor"], "battle", battleCount);
+    placeIn(["room_floor", "corridor_floor"], "trap", Math.max(0, trapCount - deadEndTrapsPlaced));
+    placeIn(["room_floor"], "elite", 1 + Math.floor(floor / 2));
+    placeIn(["room_floor"], "chest", 3);
+    placeIn(["room_floor"], "pet_event", 1);
+    placeIn(["room_floor"], "shrine", 1);
+    placeIn(["room_floor"], "story", 1);
+    placeIn(["room_floor"], "locked", 1);
+    placeIn(["room_floor"], "npc", 1);
+
+    // BFS validate spawn → exit AND spawn → target with locked tiles blocking.
+    // Same logic as the BSP generator — relocate the offending locked tile if
+    // it sits on the only path.
+    function locateLockedTiles(): number[] {
+        const out: number[] = [];
+        for (let i = 0; i < kinds.length; i += 1) if (kinds[i] === "locked") out.push(i);
+        return out;
+    }
+    function freeRoomCells(): number[] {
+        const out: number[] = [];
+        for (let i = 0; i < kinds.length; i += 1) {
+            if (kinds[i] === "empty" && !reserved.has(i) && terrain[i] === "room_floor") out.push(i);
+        }
+        return out;
+    }
+    let attempts = 0;
+    while (attempts < 12) {
+        attempts += 1;
+        const locked = locateLockedTiles();
+        const wallBlockers = new Set<number>();
+        for (let i = 0; i < total; i += 1) if (terrain[i] === "wall") wallBlockers.add(i);
+        const blocked = new Set<number>([...locked, ...wallBlockers]);
+        const reachable = hollowGateReachableSet(w, h, spawnIdx, blocked);
+        if (reachable.has(exitIdx) && reachable.has(targetIdx)) break;
+        const free = freeRoomCells();
+        if (locked.length > 0 && free.length > 0) {
+            kinds[locked[0]] = "empty";
+            kinds[free[Math.floor(Math.random() * free.length)]] = "locked";
+            continue;
+        }
+        break;
+    }
+
+    // Respect layout-supplied decorations, then sprinkle a few more on empty
+    // room cells that didn't get one explicitly. Same density as BSP path.
+    const finalDecorations: number[] = [...decorations];
+    for (let i = 0; i < total; i += 1) {
+        if (terrain[i] !== "room_floor") continue;
+        if (finalDecorations[i] >= 0) continue;
+        if (kinds[i] !== "empty") continue;
+        if (reserved.has(i) || protectedRadius.has(i)) continue;
+        if (Math.random() < 0.12) finalDecorations[i] = Math.floor(Math.random() * 4);
+    }
+
+    const tiles: HollowGateTile[] = kinds.map((kind, i) => ({
+        kind,
+        terrain: terrain[i],
+        roomId: roomIds[i] >= 0 ? roomIds[i] : null,
+        decoration: finalDecorations[i] >= 0 ? finalDecorations[i] : undefined,
+        revealed: i === spawnIdx,
+        resolved: i === spawnIdx,
+        flavor: i === spawnIdx ? "You stand at the threshold of the Hollow Gate Shrine." : undefined,
+    }));
+
+    return {
+        width: w,
+        height: h,
+        playerX,
+        playerY,
+        tiles,
+        floor,
+        threat: 0,
+        torch: 10,
+        keys: 0,
+        completed: false,
+    };
+}
+
 function generateHollowGateShrineRun(floor = 1): HollowGateShrineRun {
+    const isFinalFloor = floor >= HOLLOW_GATE_MAX_FLOOR;
+
+    // Try hand-designed layouts first — they're way more interesting than
+    // BSP-generated geometry. Shuffle order so consecutive floors rarely use
+    // the same one. Each is validated for reachability; bad layouts are
+    // silently skipped.
+    const shuffled = [...HOLLOW_GATE_LAYOUTS].sort(() => Math.random() - 0.5);
+    for (const layoutSrc of shuffled) {
+        const parsed = parseHollowGateLayout(layoutSrc);
+        if (!parsed) continue;
+        return buildRunFromParsedLayout(parsed, floor, isFinalFloor);
+    }
+
+    // Fallback: procedural BSP. Always works, just less visually distinctive.
+    return generateHollowGateShrineRunBSP(floor);
+}
+
+function generateHollowGateShrineRunBSP(floor = 1): HollowGateShrineRun {
     const w = HOLLOW_GATE_SHRINE_W;
     const h = HOLLOW_GATE_SHRINE_H;
     const total = w * h;
@@ -8125,33 +8456,24 @@ export default function App() {
         //
         // Coords are best-guess starting points; if any specific tile looks wrong
         // after the live deploy, just bump its x/y by 1-2 and rebuild.
+        // Coords picked by the user via the Atlas Tile Picker (admin panel).
+        // Variants intentionally empty — single tile per role until we tune more.
         const KENNEY_ATLAS = {
             tilemap: "/assets/dungeon/tilemap.png",
             tileSize: 16,
             gap: 1,
-            // Primary single-tile keys (back-compat with existing render code).
             singles: [
                 { key: "shrine:tile-wall",           x: 8,  y: 2 },
-                { key: "shrine:tile-room-floor",     x: 10, y: 5 },
-                { key: "shrine:tile-corridor-floor", x: 14, y: 6 },
-                { key: "shrine:tile-door",           x: 27, y: 1 },
+                { key: "shrine:tile-room-floor",     x: 9,  y: 7 },
+                { key: "shrine:tile-corridor-floor", x: 16, y: 16 },
+                { key: "shrine:tile-door",           x: 25, y: 15 },
             ],
-            // Variant lists — extracted into indexed keys (e.g. shrine:tile-wall-0).
-            variants: [
-                { keyPrefix: "shrine:tile-wall",
-                  tiles: [{ x: 8, y: 2 }, { x: 9, y: 2 }, { x: 10, y: 2 }] },
-                { keyPrefix: "shrine:tile-room-floor",
-                  tiles: [{ x: 10, y: 5 }, { x: 11, y: 5 }, { x: 12, y: 5 }, { x: 13, y: 5 }] },
-                { keyPrefix: "shrine:tile-corridor-floor",
-                  tiles: [{ x: 14, y: 6 }, { x: 15, y: 6 }, { x: 14, y: 7 }] },
-            ],
-            // Decoration sprites — torch, barrel, plant, skull. Sprinkled by the
-            // generator into empty room cells (~12% rate) for visual life.
+            variants: [],
             decorations: [
-                { key: "shrine:deco-0", x: 18, y: 0 },   // torch / candle column 1
-                { key: "shrine:deco-1", x: 2,  y: 0 },   // barrel / pot
-                { key: "shrine:deco-2", x: 4,  y: 11 },  // plant / mushroom
-                { key: "shrine:deco-3", x: 19, y: 8 },   // skull / debris
+                { key: "shrine:deco-0", x: 13, y: 17 },  // torch
+                { key: "shrine:deco-1", x: 14, y: 15 },  // barrel
+                { key: "shrine:deco-2", x: 2,  y: 1  },  // plant
+                { key: "shrine:deco-3", x: 2,  y: 2  },  // skull
             ],
         };
 
