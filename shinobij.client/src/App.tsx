@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type ChangeEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type ChangeEvent, type Dispatch, type SetStateAction } from "react";
 import { createPortal } from "react-dom";
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect, react-hooks/purity */
 import type * as React from "react";
@@ -2095,6 +2095,33 @@ function hollowGateTileIconForKind(kind: HollowGateTileKind): string {
         default: return "·";
     }
 }
+
+// ── Atlas icon slots ───────────────────────────────────────────────────────
+// Maps a "role" in the dungeon UI to a KV key under which an atlas sprite
+// can be stored. When the renderer / legend find the corresponding image in
+// `sharedImages`, they overlay it instead of the emoji fallback above.
+//
+// Slots are filled via the Atlas Tile Picker (admin panel): the admin selects
+// a slot, clicks a tile in the atlas, and the picker slices that 16×16 tile
+// out of the atlas and publishes it under shrine:icon-<id>. So this list is
+// the source of truth for "which roles can be backed by atlas art".
+const HOLLOW_GATE_ICON_SLOTS: Array<{ id: string; label: string; kind?: HollowGateTileKind; legendOnly?: boolean }> = [
+    { id: "you",     label: "You (player)" },                       // overlays player tile + legend
+    { id: "battle",  label: "Battle",      kind: "battle" },
+    { id: "elite",   label: "Elite",       kind: "elite" },
+    { id: "boss",    label: "Boss",        kind: "boss" },
+    { id: "trap",    label: "Trap",        kind: "trap" },
+    { id: "chest",   label: "Chest",       kind: "chest" },
+    { id: "shrine",  label: "Shrine",      kind: "shrine" },
+    { id: "story",   label: "Story",       kind: "story" },
+    { id: "pet",     label: "Pet",         kind: "pet_event" },
+    { id: "npc",     label: "Keeper",      kind: "npc" },
+    { id: "descend", label: "Descend",     kind: "descend" },
+    { id: "exit",    label: "Leave",       kind: "exit" },
+    { id: "locked",  label: "Locked Door", kind: "locked" },
+    { id: "wall",    label: "Wall",        legendOnly: true },      // legend only; tile wall uses terrain texture
+];
+const HOLLOW_GATE_ICON_KEY = (id: string) => `shrine:icon-${id}`;
 
 type EventEncounterBattle = NonNullable<NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number]["battle"]>;
 type PendingEventEncounter = {
@@ -10619,6 +10646,8 @@ export default function App() {
                         onHollowGateResetIntro={adminHollowGateResetIntro}
                         onHollowGateClearRun={adminHollowGateClearRun}
                         onHollowGateGrantKey={adminHollowGateGrantKey}
+                        sharedImages={sharedImages}
+                        setSharedImages={setSharedImages}
                         hollowGateVillageUnlocked={Boolean(loadVillageState(character.village).hollowGateUnlocked)}
                         onReloadImages={() => {
                             loadedCatsRef.current.clear();
@@ -10917,11 +10946,31 @@ export default function App() {
                                             || tile.kind === "battle"
                                             || tile.kind === "elite"
                                             || tile.kind === "pet_event";
+                                        // Icon can be either:
+                                        //   - an atlas image (shrine:icon-<slot>) if the admin assigned one
+                                        //     via the Atlas Tile Picker — preferred whenever present
+                                        //   - the emoji fallback otherwise
+                                        // The slot id for a given tile.kind mirrors HOLLOW_GATE_ICON_SLOTS:
+                                        // mostly identical, except pet_event → "pet" and player → "you".
+                                        function iconSlotIdFor(k: HollowGateTileKind): string | null {
+                                            if (k === "pet_event") return "pet";
+                                            // No slot for "empty" / "wall" / "shrine_descend"-style edges
+                                            if (k === "empty" || k === "wall") return null;
+                                            return k;
+                                        }
+                                        const showIcon =
+                                            isPlayer ? true
+                                            : wall ? false
+                                            : !visible ? false
+                                            : isSurpriseKind && !revealed ? false
+                                            : true;
+                                        const iconSlotId = isPlayer ? "you" : iconSlotIdFor(tile.kind);
+                                        const iconImage = showIcon && iconSlotId
+                                            ? sharedImages[HOLLOW_GATE_ICON_KEY(iconSlotId)]
+                                            : undefined;
                                         let icon: string;
-                                        if (isPlayer) icon = "🥷";
-                                        else if (wall) icon = "";
-                                        else if (!visible) icon = "·";                          // outside flashlight = fog dot
-                                        else if (isSurpriseKind && !revealed) icon = "";       // surprise still hidden
+                                        if (!showIcon) icon = !visible && !wall ? "·" : "";       // fog dot or blank
+                                        else if (isPlayer) icon = "🥷";
                                         else icon = hollowGateTileIconForKind(tile.kind);
 
                                         // Opacity: player = full, visible cells = full so the lit
@@ -10950,7 +10999,20 @@ export default function App() {
                                                     transition: "background 200ms, opacity 200ms",
                                                 }}
                                             >
-                                                {icon}
+                                                {iconImage ? (
+                                                    <img
+                                                        src={iconImage}
+                                                        alt={iconSlotId ?? ""}
+                                                        style={{
+                                                            width: "78%",
+                                                            height: "78%",
+                                                            objectFit: "contain",
+                                                            imageRendering: "pixelated",
+                                                            filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.7))",
+                                                            pointerEvents: "none",
+                                                        }}
+                                                    />
+                                                ) : icon}
                                             </div>
                                         );
                                     })}
@@ -10984,16 +11046,46 @@ export default function App() {
                                     })()}
                                     <div style={{ background: "rgba(15,9,28,0.7)", border: "1px solid rgba(168,85,247,0.3)", borderRadius: 8, padding: 10, fontSize: 12 }}>
                                         <h4 style={{ margin: "0 0 6px", color: "#c4b5fd" }}>Map Legend</h4>
-                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
-                                            <span>🥷 You</span><span>⚔ Battle</span>
-                                            <span>☠ Elite</span><span>👹 Boss</span>
-                                            <span>▲ Trap</span><span>▣ Chest</span>
-                                            <span>⛩ Shrine</span><span>📜 Story</span>
-                                            <span>🐾 Pet</span><span>👤 Keeper</span>
-                                            <span>▼ Descend</span><span>⇩ Leave</span>
-                                            <span>🔒 Locked Door</span><span>▦ Wall</span>
-                                            <span>· Unexplored</span><span style={{ opacity: 0.55 }}>· In view (dim)</span>
-                                        </div>
+                                        {/* Legend uses the same atlas icon as the dungeon when the admin
+                                            assigned one via the Atlas Tile Picker. Falls back to the
+                                            emoji glyph from hollowGateTileIconForKind otherwise. The
+                                            "wall" slot uses the room-floor/wall atlas tile instead since
+                                            walls render as terrain, not an icon. */}
+                                        {(() => {
+                                            // Map slot id → emoji fallback. Keeps the legend self-contained.
+                                            const fallbackEmoji: Record<string, string> = {
+                                                you: "🥷", battle: "⚔", elite: "☠", boss: "👹", trap: "▲",
+                                                chest: "▣", shrine: "⛩", story: "📜", pet: "🐾", npc: "👤",
+                                                descend: "▼", exit: "⇩", locked: "🔒", wall: "▦",
+                                            };
+                                            // Walls use the atlas wall tile (terrain), not an icon slot.
+                                            const wallTileImg = sharedImages["shrine:tile-wall"] ?? sharedImages["shrine:tile-wall-0"];
+                                            const legendCell = (slotId: string, label: string) => {
+                                                const img = slotId === "wall" ? wallTileImg : sharedImages[HOLLOW_GATE_ICON_KEY(slotId)];
+                                                return (
+                                                    <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                                        {img ? (
+                                                            <img src={img} alt="" style={{ width: 18, height: 18, objectFit: "contain", imageRendering: "pixelated" }} />
+                                                        ) : (
+                                                            <span style={{ width: 18, textAlign: "center" }}>{fallbackEmoji[slotId]}</span>
+                                                        )}
+                                                        <span>{label}</span>
+                                                    </span>
+                                                );
+                                            };
+                                            return (
+                                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
+                                                    {legendCell("you",     "You")}      {legendCell("battle",  "Battle")}
+                                                    {legendCell("elite",   "Elite")}    {legendCell("boss",    "Boss")}
+                                                    {legendCell("trap",    "Trap")}     {legendCell("chest",   "Chest")}
+                                                    {legendCell("shrine",  "Shrine")}   {legendCell("story",   "Story")}
+                                                    {legendCell("pet",     "Pet")}      {legendCell("npc",     "Keeper")}
+                                                    {legendCell("descend", "Descend")}  {legendCell("exit",    "Leave")}
+                                                    {legendCell("locked",  "Locked Door")}{legendCell("wall",  "Wall")}
+                                                    <span>· Unexplored</span><span style={{ opacity: 0.55 }}>· In view (dim)</span>
+                                                </div>
+                                            );
+                                        })()}
                                         <div style={{ marginTop: 6, paddingTop: 6, borderTop: "1px solid rgba(168,85,247,0.2)", fontSize: 11, color: "#a78bfa" }}>
                                             Layout: rooms connected by corridors; loot &amp; NPCs in rooms, ambushes in corridors.
                                         </div>
@@ -14208,6 +14300,8 @@ function AdminPanel({
     playerRoster,
     allServerPlayers,
     adminPw,
+    sharedImages,
+    setSharedImages,
 }: {
     character: Character;
     updateCharacter: (character: Character) => void;
@@ -14250,6 +14344,8 @@ function AdminPanel({
     playerRoster: PlayerRecord[];
     allServerPlayers: ServerPlayerSummary[];
     adminPw: string;
+    sharedImages: Record<string, string>;
+    setSharedImages: Dispatch<SetStateAction<Record<string, string>>>;
 }) {
     // Always-fresh ref to onSave so async callbacks don't capture a stale closure
     const onSaveRef = useRef(onSave);
@@ -18743,7 +18839,7 @@ function AdminPanel({
                         </p>
 
                         {/* ── Atlas Tile Picker — visual coord selector ──────────────── */}
-                        <KenneyAtlasPicker />
+                        <KenneyAtlasPicker sharedImages={sharedImages} setSharedImages={setSharedImages} />
 
                         {/* ── Admin Ops — Stats, Run/State Tools, Configuration ───────── */}
                         <section className="summary-box" style={{ marginTop: 16 }}>
@@ -18882,11 +18978,22 @@ function AdminPanel({
 // to the clipboard — then they edit the KENNEY_ATLAS const in App.tsx with
 // the picked coords. This finally lets a real human visually verify which
 // tile is at which atlas position, instead of me guessing blind.
-function KenneyAtlasPicker() {
-    const [atlas, setAtlas] = useState<{ url: string; w: number; h: number; tileSize: number; gap: number } | null>(null);
+function KenneyAtlasPicker({
+    sharedImages,
+    setSharedImages,
+}: {
+    sharedImages: Record<string, string>;
+    setSharedImages: Dispatch<SetStateAction<Record<string, string>>>;
+}) {
+    const [atlas, setAtlas] = useState<{ url: string; w: number; h: number; tileSize: number; gap: number; img: HTMLImageElement } | null>(null);
     const [hoverCoord, setHoverCoord] = useState<{ x: number; y: number } | null>(null);
     const [pickedCoord, setPickedCoord] = useState<{ x: number; y: number } | null>(null);
     const [zoom, setZoom] = useState(3);
+    // Currently-selected slot for one-click slot assignment. When set, clicking
+    // a tile in the atlas slices it + uploads to KV under shrine:icon-<id>.
+    const [assignSlot, setAssignSlot] = useState<string>("");
+    const [busySlot, setBusySlot] = useState<string>("");
+    const [savedToast, setSavedToast] = useState<{ slot: string; ts: number } | null>(null);
 
     useEffect(() => {
         const img = new Image();
@@ -18897,6 +19004,7 @@ function KenneyAtlasPicker() {
                 h: img.naturalHeight,
                 tileSize: 16,
                 gap: 1,
+                img,
             });
         };
         img.onerror = () => setAtlas(null);
@@ -18919,6 +19027,66 @@ function KenneyAtlasPicker() {
     const rows = Math.floor((atlas.h + atlas.gap) / stride);
     const displayedTileSize = atlas.tileSize * zoom;
 
+    // Slice a tile from the atlas at (x,y) and return a data URL.
+    // Mirrors the slicer logic in the App-level useEffect — kept here as a
+    // local helper so the picker can render previews + push to KV.
+    function sliceTile(x: number, y: number): string | null {
+        try {
+            const ts = atlas!.tileSize;
+            const stride = ts + atlas!.gap;
+            const scale = 4;
+            const outSize = ts * scale;
+            const canvas = document.createElement("canvas");
+            canvas.width = outSize;
+            canvas.height = outSize;
+            const ctx = canvas.getContext("2d");
+            if (!ctx) return null;
+            ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(atlas!.img, x * stride, y * stride, ts, ts, 0, 0, outSize, outSize);
+            return canvas.toDataURL("image/png");
+        } catch (err) {
+            console.warn("[Atlas picker slice] failed", err);
+            return null;
+        }
+    }
+
+    async function assignTileToSlot(slotId: string, x: number, y: number) {
+        const url = sliceTile(x, y);
+        if (!url) {
+            alert("Could not slice tile from atlas. Check console.");
+            return;
+        }
+        const key = HOLLOW_GATE_ICON_KEY(slotId);
+        setBusySlot(slotId);
+        // Optimistic: paint the slice into sharedImages immediately so the
+        // dungeon + legend update before the KV round-trip lands.
+        setSharedImages(prev => ({ ...prev, [key]: url }));
+        const ok = await publishSharedImage(key, url);
+        setBusySlot("");
+        if (ok) {
+            setSavedToast({ slot: slotId, ts: Date.now() });
+            setTimeout(() => setSavedToast(curr => (curr && curr.ts === Date.now() ? null : curr)), 2500);
+        } else {
+            alert(`Saved locally but the KV publish failed — refreshing the page will lose this assignment.`);
+        }
+    }
+
+    async function clearSlot(slotId: string) {
+        const key = HOLLOW_GATE_ICON_KEY(slotId);
+        if (!confirm(`Clear the atlas image for "${slotId}"? The legend + tile will fall back to the emoji icon.`)) return;
+        setBusySlot(slotId);
+        setSharedImages(prev => {
+            const next = { ...prev };
+            delete next[key];
+            return next;
+        });
+        // KV-side delete: we publish an empty string. The images.ts handler
+        // treats empty as a no-op currently, so the KV value stays — but the
+        // local app state shows the slot as unassigned until next page load.
+        await publishSharedImage(key, "");
+        setBusySlot("");
+    }
+
     return (
         <section className="summary-box" style={{ marginTop: 12 }}>
             <h3>🗂 Atlas Tile Picker</h3>
@@ -18929,6 +19097,86 @@ function KenneyAtlasPicker() {
                 Atlas: <strong>{atlas.w}×{atlas.h}</strong> px,
                 <strong>{cols}×{rows}</strong> tiles ({atlas.tileSize}×{atlas.tileSize} with {atlas.gap}px gap).
             </p>
+
+            {/* ── Slot assign UI ────────────────────────────────────────── */}
+            <div style={{ marginBottom: 10, padding: 8, background: "rgba(168,85,247,0.08)", borderRadius: 6, border: "1px solid rgba(168,85,247,0.2)" }}>
+                <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", fontSize: 13 }}>
+                    <label><strong>Assign next click to slot:</strong></label>
+                    <select
+                        value={assignSlot}
+                        onChange={(e) => setAssignSlot(e.target.value)}
+                        style={{ padding: "4px 8px", background: "rgba(15,9,28,0.85)", color: "#e9d5ff", border: "1px solid rgba(168,85,247,0.4)", borderRadius: 4 }}
+                    >
+                        <option value="">— None (preview only) —</option>
+                        {HOLLOW_GATE_ICON_SLOTS.map(s => (
+                            <option key={s.id} value={s.id}>{s.label}</option>
+                        ))}
+                    </select>
+                    {assignSlot && (
+                        <span style={{ color: "#86efac" }}>
+                            ✓ Click any atlas tile to assign it to <strong>{HOLLOW_GATE_ICON_SLOTS.find(s => s.id === assignSlot)?.label}</strong>
+                        </span>
+                    )}
+                    {savedToast && (
+                        <span style={{ marginLeft: "auto", color: "#86efac", fontWeight: 600 }}>
+                            ✅ Saved {HOLLOW_GATE_ICON_SLOTS.find(s => s.id === savedToast.slot)?.label ?? savedToast.slot}!
+                        </span>
+                    )}
+                </div>
+                <p className="hint" style={{ margin: "6px 0 0", fontSize: 12 }}>
+                    Picks an atlas tile and stores it under <code>shrine:icon-&lt;slot&gt;</code> in shared KV.
+                    The dungeon renderer + Map Legend overlay this image on the matching role.
+                </p>
+            </div>
+
+            {/* ── Currently-assigned slots strip ────────────────────────── */}
+            <div style={{ marginBottom: 10, display: "flex", flexWrap: "wrap", gap: 6, fontSize: 11 }}>
+                {HOLLOW_GATE_ICON_SLOTS.map(s => {
+                    const img = sharedImages[HOLLOW_GATE_ICON_KEY(s.id)];
+                    return (
+                        <div
+                            key={s.id}
+                            style={{
+                                display: "flex",
+                                flexDirection: "column",
+                                alignItems: "center",
+                                padding: "4px 6px",
+                                borderRadius: 4,
+                                background: img ? "rgba(34,197,94,0.10)" : "rgba(15,9,28,0.5)",
+                                border: img ? "1px solid rgba(34,197,94,0.4)" : "1px dashed rgba(168,85,247,0.25)",
+                                width: 64,
+                            }}
+                        >
+                            <div style={{
+                                width: 48,
+                                height: 48,
+                                background: img
+                                    ? `url(${img}) center/contain no-repeat`
+                                    : "rgba(0,0,0,0.3)",
+                                imageRendering: "pixelated",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                color: "#a78bfa",
+                                fontSize: 16,
+                            }}>
+                                {!img && hollowGateTileIconForKind((s.kind ?? "empty") as HollowGateTileKind)}
+                            </div>
+                            <div style={{ textAlign: "center", color: img ? "#86efac" : "#c4b5fd", marginTop: 2 }}>
+                                {s.label}
+                            </div>
+                            {img && (
+                                <button
+                                    disabled={busySlot === s.id}
+                                    onClick={() => clearSlot(s.id)}
+                                    style={{ fontSize: 10, padding: "1px 4px", marginTop: 2, background: "transparent", color: "#fda4af", border: "1px solid rgba(248,113,113,0.3)", borderRadius: 3, cursor: "pointer" }}
+                                >clear</button>
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+
             <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 8, fontSize: 13 }}>
                 <label>Zoom:</label>
                 <input type="range" min={1} max={6} value={zoom} onChange={(e) => setZoom(Number(e.target.value))} />
@@ -18986,6 +19234,11 @@ function KenneyAtlasPicker() {
                         setPickedCoord({ x, y });
                         const text = `{ x: ${x}, y: ${y} }`;
                         try { void navigator.clipboard.writeText(text); } catch { /* ignore */ }
+                        // If a slot is selected, also slice + upload — one click
+                        // to both preview AND assign the tile to its role.
+                        if (assignSlot) {
+                            void assignTileToSlot(assignSlot, x, y);
+                        }
                     }}
                 >
                     {hoverCoord && (
