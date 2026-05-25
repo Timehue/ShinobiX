@@ -83,7 +83,10 @@ export type Screen =
     | "userHub"
     | "userView"
     | "pvpBattle"
-    | "hollowGateShrine";
+    | "hollowGateShrine"
+    | "endlessTower"
+    | "weeklyBoss"
+    | "villageWar";
 
 export type Rank = "B Rank" | "A Rank" | "S Rank";
 type Biome = "forest" | "snow" | "volcano" | "shadow" | "central";
@@ -555,6 +558,15 @@ export type Character = {
     hollowGateRun?: HollowGateShrineRun | null;
     hollowGateWardenKills?: number;
     hollowGateIntroSeen?: boolean;
+    endlessTowerRun?: EndlessTowerRun | null;
+    endlessTowerBestWave?: number;
+};
+
+export type EndlessTowerRun = {
+    wave: number;
+    bankedRyo: number;
+    bankedXp: number;
+    startedAt: number;
 };
 type RewardCurrencyKey = "fateShards" | "honorSeals" | "boneCharms" | "auraStones" | "auraDust" | "mythicSeals";
 type CurrencyRewards = Partial<Record<RewardCurrencyKey, number>>;
@@ -4877,6 +4889,29 @@ function maxHpForLevel(level: number) {
     return Math.min(HP_CAP, 100 + (Math.max(1, level) - 1) * 100);
 }
 
+// Endless Tower scaling — wave 1 is baseline; each wave adds a small multiplier,
+// with milestone jumps every 5 and 10 waves.
+export function endlessScaleFactor(wave: number): number {
+    const w = Math.max(1, wave);
+    const base = 1 + (w - 1) * 0.08;
+    const fives = Math.floor(w / 5) * 0.10;
+    const tens = Math.floor(w / 10) * 0.15;
+    return Math.max(1, base + fives + tens);
+}
+
+export function endlessWaveReward(wave: number, playerLevel: number): { ryo: number; xp: number; isMilestone: boolean } {
+    const factor = endlessScaleFactor(wave);
+    const baseRyo = 40 + playerLevel * 6;
+    const baseXp = 15 + playerLevel * 2;
+    const isMilestone = wave % 5 === 0;
+    const milestoneBonus = isMilestone ? (wave % 10 === 0 ? 3 : 2) : 1;
+    return {
+        ryo: Math.floor(baseRyo * factor * milestoneBonus),
+        xp: Math.floor(baseXp * factor * milestoneBonus),
+        isMilestone,
+    };
+}
+
 function maxChakraForLevel(level: number) {
     return Math.min(CHAKRA_CAP, Math.floor(100 + (Math.max(1, level) - 1) * ((CHAKRA_CAP - 100) / (MAX_LEVEL - 1))));
 }
@@ -5560,6 +5595,8 @@ function normalizeCharacter(parsed: Character): Character {
         totalTilesExplored: parsed.totalTilesExplored ?? 0,
         totalTournamentsCompleted: parsed.totalTournamentsCompleted ?? 0,
         totalEndlessTowerWins: parsed.totalEndlessTowerWins ?? 0,
+        endlessTowerBestWave: parsed.endlessTowerBestWave ?? 0,
+        endlessTowerRun: parsed.endlessTowerRun ?? null,
         totalPetWins: parsed.totalPetWins ?? 0,
         defeatedAiIds: Array.isArray(parsed.defeatedAiIds) ? parsed.defeatedAiIds.filter(Boolean) : [],
         rankedRating: parsed.rankedRating ?? 1000,
@@ -6002,6 +6039,8 @@ export function createCharacter(name: string, village: string, specialty: JutsuT
         totalTilesExplored: 0,
         totalTournamentsCompleted: 0,
         totalEndlessTowerWins: 0,
+        endlessTowerBestWave: 0,
+        endlessTowerRun: null,
         totalPetWins: 0,
         dailyAiKills: 0,
         dailyPetWins: 0,
@@ -8374,37 +8413,113 @@ export default function App() {
         });
     }
 
+    function scaleEndlessAiClone(baseAi: CreatorAi, wave: number): CreatorAi {
+        const factor = endlessScaleFactor(wave);
+        // Clone stats and multiply offensive/defensive stats; cap HP/chakra/stamina at ×4 baseline.
+        const scaledStats: Stats = { ...baseAi.stats };
+        (Object.keys(scaledStats) as (keyof Stats)[]).forEach((k) => {
+            scaledStats[k] = Math.floor(scaledStats[k] * Math.min(4, factor));
+        });
+        return {
+            ...baseAi,
+            id: `endless-${baseAi.id}-w${wave}`,
+            name: wave % 10 === 0 ? `★ ${baseAi.name} (Floor ${wave})` : `${baseAi.name} (Floor ${wave})`,
+            hp: Math.floor(baseAi.hp * Math.min(5, factor)),
+            chakra: Math.floor(baseAi.chakra * Math.min(3, factor * 0.8)),
+            stamina: Math.floor(baseAi.stamina * Math.min(3, factor * 0.8)),
+            stats: scaledStats,
+        };
+    }
+
     function pickRandomEndlessAi(wave: number): string {
         if (playableAis.length === 0) return "";
         // Scale difficulty: allow AIs up to player level + 5 per wave, capped at 100.
-        // Boss AIs are excluded — they can only be used in dungeons, VN, and boss fights.
+        // Boss AIs only appear on milestone floors (every 10).
         const cap = Math.min(100, (character?.level ?? 1) + wave * 5);
-        const normalAis = playableAis.filter(ai => !ai.isBossAi);
-        const pool = normalAis.filter(ai => (ai.level ?? 1) <= cap);
-        const fallback = normalAis.length > 0 ? normalAis : playableAis;
+        const allowBoss = wave % 10 === 0;
+        const candidates = playableAis.filter(ai => allowBoss || !ai.isBossAi);
+        const pool = candidates.filter(ai => (ai.level ?? 1) <= cap);
+        const fallback = candidates.length > 0 ? candidates : playableAis;
         const chosen = pool.length > 0 ? pool[Math.floor(Math.random() * pool.length)] : fallback[Math.floor(Math.random() * fallback.length)];
-        return chosen.id;
+        // Build a scaled clone, register it as the temporary AI so the arena uses it.
+        const scaled = scaleEndlessAiClone(chosen, wave);
+        setTemporaryStoryAi(scaled);
+        return scaled.id;
     }
 
     function startEndlessBattle() {
+        if (!character) return;
+        // Restore in-progress run, or start a new one at wave 1.
+        const existing = character.endlessTowerRun;
+        const wave = existing && existing.wave > 0 ? existing.wave : 1;
+        const run: EndlessTowerRun = existing ?? {
+            wave: 1,
+            bankedRyo: 0,
+            bankedXp: 0,
+            startedAt: Date.now(),
+        };
+        setCharacter({ ...character, endlessTowerRun: run });
         setEndlessBattleActive(true);
-        setEndlessBattleWave(1);
-        setPendingAiProfileId(pickRandomEndlessAi(1));
+        setEndlessBattleWave(wave);
+        setPendingAiProfileId(pickRandomEndlessAi(wave));
         setArenaKey(k => k + 1);
         navigate("arena");
     }
 
     function handleEndlessWin(currentWave: number) {
-        setCharacter((current) => current ? { ...current, totalEndlessTowerWins: (current.totalEndlessTowerWins ?? 0) + 1 } : current);
+        const reward = endlessWaveReward(currentWave, character?.level ?? 1);
+        setCharacter((current) => {
+            if (!current) return current;
+            const nextWave = currentWave + 1;
+            const prevRun = current.endlessTowerRun ?? { wave: 1, bankedRyo: 0, bankedXp: 0, startedAt: Date.now() };
+            const updatedRun: EndlessTowerRun = {
+                ...prevRun,
+                wave: nextWave,
+                bankedRyo: prevRun.bankedRyo + reward.ryo,
+                bankedXp: prevRun.bankedXp + reward.xp,
+            };
+            return {
+                ...current,
+                totalEndlessTowerWins: (current.totalEndlessTowerWins ?? 0) + 1,
+                endlessTowerBestWave: Math.max(current.endlessTowerBestWave ?? 0, currentWave),
+                endlessTowerRun: updatedRun,
+            };
+        });
         const next = currentWave + 1;
         setEndlessBattleWave(next);
         setPendingAiProfileId(pickRandomEndlessAi(next));
         setArenaKey(k => k + 1);
     }
 
+    // Called when the player loses — banked rewards are lost on death.
     function endEndlessBattle() {
         setEndlessBattleActive(false);
         setEndlessBattleWave(0);
+        setTemporaryStoryAi(null);
+        setCharacter((current) => current ? { ...current, endlessTowerRun: null } : current);
+    }
+
+    // Retreat & bank: convert banked ryo/xp into actual progress, clear the run.
+    function bankEndlessRewards() {
+        if (!character) return;
+        const run = character.endlessTowerRun;
+        if (!run || (run.bankedRyo === 0 && run.bankedXp === 0)) {
+            setEndlessBattleActive(false);
+            setEndlessBattleWave(0);
+            setTemporaryStoryAi(null);
+            setCharacter({ ...character, endlessTowerRun: null });
+            return;
+        }
+        setCharacter({
+            ...character,
+            ryo: (character.ryo ?? 0) + run.bankedRyo,
+            xp: (character.xp ?? 0) + run.bankedXp,
+            endlessTowerBestWave: Math.max(character.endlessTowerBestWave ?? 0, run.wave),
+            endlessTowerRun: null,
+        });
+        setEndlessBattleActive(false);
+        setEndlessBattleWave(0);
+        setTemporaryStoryAi(null);
     }
 
     function navigate(nextScreen: Screen) {
@@ -10530,7 +10645,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "missions" && character && <Missions character={character} updateCharacter={setCharacter} creatorAis={playableAis} creatorMissions={creatorMissions} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} setPendingAiProfileId={setPendingAiProfileId} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "hunting" && character && <HunterBoard character={character} updateCharacter={setCharacter} creatorAis={playableAis} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} setPendingAiProfileId={setPendingAiProfileId} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "logbook" && character && <Logbook character={character} updateCharacter={setCharacter} creatorAis={playableAis} creatorMissions={creatorMissions} creatorEvents={creatorEvents} creatorRaids={creatorRaids} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} savedBloodlines={savedBloodlines} setPendingAiProfileId={setPendingAiProfileId} setRaidBattleKind={setRaidBattleKind} setCurrentSector={setCurrentSector} setCurrentBiome={setCurrentBiome} setCurrentWeather={setCurrentWeather} setScreen={setScreen} />}
-                {!activeTriggeredEvent && screen === "townHall" && character && <TownHall character={character} updateCharacter={setCharacter} creatorItems={creatorItems} allServerPlayers={allServerPlayers} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} sharedImages={sharedImages} />}
+                {!activeTriggeredEvent && screen === "townHall" && character && <TownHall character={character} updateCharacter={setCharacter} creatorItems={creatorItems} allServerPlayers={allServerPlayers} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} sharedImages={sharedImages} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "clan" && character && <ClanHall character={character} updateCharacter={setCharacter} creatorItems={creatorItems} />}
                 {!activeTriggeredEvent && screen === "bank" && character && <Bank character={character} updateCharacter={setCharacter} />}
                 {!activeTriggeredEvent && screen === "shop" && character && <Shop character={character} updateCharacter={setCharacter} creatorItems={creatorItems} creatorCards={creatorCards} />}
@@ -10541,6 +10656,31 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "cafeteria" && character && <Cafeteria character={character} updateCharacter={setCharacter} />}
                 {!activeTriggeredEvent && screen === "tavern" && character && <VillageTavern character={character} setScreen={setScreen} sharedImages={sharedImages} />}
                 {!activeTriggeredEvent && screen === "hallOfLegends" && character && <HallOfLegends character={character} setScreen={setScreen} playerRoster={playerRoster} />}
+                {!activeTriggeredEvent && screen === "endlessTower" && character && (
+                    <EndlessTowerLobby
+                        character={character}
+                        onEnter={startEndlessBattle}
+                        onBank={bankEndlessRewards}
+                        onBack={() => setScreen("centralHub")}
+                    />
+                )}
+                {!activeTriggeredEvent && screen === "weeklyBoss" && character && (
+                    <WeeklyBossArena
+                        character={character}
+                        updateCharacter={setCharacter}
+                        creatorAis={playableAis}
+                        setScreen={setScreen}
+                        playerRoster={playerRoster}
+                    />
+                )}
+                {!activeTriggeredEvent && screen === "villageWar" && character && (
+                    <VillageWarScreen
+                        character={character}
+                        updateCharacter={setCharacter}
+                        playerRoster={playerRoster}
+                        onBack={() => setScreen("centralHub")}
+                    />
+                )}
                 {!activeTriggeredEvent && screen === "shinobiCouncil" && character && <ShinobiCouncilHall character={character} setScreen={setScreen} playerRoster={playerRoster} />}
                 {!activeTriggeredEvent && screen === "userHub" && character && (
                     <UserHub
@@ -19068,7 +19208,7 @@ function unlockVillageKageSystem(village: string, playerName: string): VillageSt
     return next;
 }
 
-function TownHall({ character, updateCharacter, creatorItems, allServerPlayers, savedBloodlines, creatorJutsus, sharedImages }: { character: Character; updateCharacter: (character: Character) => void; creatorItems: GameItem[]; allServerPlayers: ServerPlayerSummary[]; savedBloodlines: SavedBloodline[]; creatorJutsus: Jutsu[]; sharedImages: Record<string, string> }) {
+function TownHall({ character, updateCharacter, creatorItems, allServerPlayers, savedBloodlines, creatorJutsus, sharedImages, setScreen }: { character: Character; updateCharacter: (character: Character) => void; creatorItems: GameItem[]; allServerPlayers: ServerPlayerSummary[]; savedBloodlines: SavedBloodline[]; creatorJutsus: Jutsu[]; sharedImages: Record<string, string>; setScreen: (s: Screen) => void }) {
     const leadership = villageLeadership[character.village] ?? { kage: "Acting Kage Council", elders: ["First Elder", "Second Elder", "Third Elder"], atWar: false, pastWars: ["No recorded wars yet."] };
     const leadershipImages = loadVillageLeadershipImages()[character.village] ?? { kage: "", elders: ["", "", ""] };
     const upgrades = getVillageUpgrades(character);
@@ -19399,7 +19539,7 @@ function TownHall({ character, updateCharacter, creatorItems, allServerPlayers, 
     return <div className="card town-hall-screen">
         <div className="town-hall-hero"><div><p className="act-label">{character.village}</p><h2>Town Hall</h2><p className="hint">Village government, war records, guard defense, upgrades, treasury, and leadership.</p></div><div className="town-hall-wallet"><span>Honor Seals</span><strong>{(character.honorSeals ?? 0).toLocaleString()}</strong><small>Ryo {character.ryo.toLocaleString()}</small></div></div>
         <div className="clan-tabs expanded-tabs town-tabs"><button className={tab === "status" ? "active" : ""} onClick={() => setTab("status")}>Status</button><button className={tab === "upgrades" ? "active" : ""} onClick={() => setTab("upgrades")}>Upgrades</button><button className={tab === "treasury" ? "active" : ""} onClick={() => setTab("treasury")}>Treasury</button><button className={tab === "guard" ? "active" : ""} onClick={() => setTab("guard")}>Guard</button><button className={tab === "notices" ? "active" : ""} onClick={() => setTab("notices")}>Orders</button><button className={tab === "politics" ? "active" : ""} onClick={() => setTab("politics")}>Kage/Elders</button></div>
-        {tab === "status" && <><div className="town-hall-grid"><section className="summary-box town-hall-panel"><h3>Village Status</h3><div className="town-leader-row"><LeaderPortrait image={getLeaderImage(state.seatedKage, leadershipImages.kage)} name={state.seatedKage ?? leadership.kage} fallback="?" /><p><strong>Kage:</strong> {state.seatedKage ?? leadership.kage}</p></div><p><strong>Population:</strong> {population.toLocaleString()}</p><p><strong>Village Level:</strong> {villageLevel}</p><p><strong>Village Strength:</strong> {villageStrength.toLocaleString()}</p><p><strong>Guard Queue:</strong> {guardList.length} active defender{guardList.length === 1 ? "" : "s"}</p></section><section className="summary-box town-hall-panel"><h3>War Status</h3><div className={primaryVillageWar ? "war-status at-war" : "war-status peace"}>{primaryVillageWar ? `At War with ${activeWarEnemyVillage}` : "Not At War"}</div>{primaryVillageWar ? <><p><strong>{character.village} HP:</strong> {primaryVillageWar.hp[character.village].toLocaleString()} / {VILLAGE_WAR_HP_MAX.toLocaleString()}</p><div className="bar enemy-bar"><span style={{ width: `${(primaryVillageWar.hp[character.village] / VILLAGE_WAR_HP_MAX) * 100}%` }} /></div><p><strong>{activeWarEnemyVillage} HP:</strong> {activeWarEnemyVillage ? primaryVillageWar.hp[activeWarEnemyVillage].toLocaleString() : 0} / {VILLAGE_WAR_HP_MAX.toLocaleString()}</p><div className="town-upgrade-bar"><span style={{ width: `${activeWarEnemyVillage ? (primaryVillageWar.hp[activeWarEnemyVillage] / VILLAGE_WAR_HP_MAX) * 100 : 0}%` }} /></div><p><strong>War Ground:</strong> Sector {primaryVillageWar.warGroundSector} · HP {primaryVillageWar.warGroundHp.toLocaleString()} / {VILLAGE_WAR_GROUND_HP_MAX.toLocaleString()}</p><p className="hint">{primaryVillageWar.capturedBy ? `Captured by ${primaryVillageWar.capturedBy}.` : "Raid from the war ground to damage enemy village HP and the sector HP."}</p></> : <><p className="hint">Village wars start at 5,000 HP. PvP kills, war-ground raids, and daily war missions reduce enemy HP.</p><label>Enemy Village</label><select value={warTargetVillage} onChange={(event) => setWarTargetVillage(event.target.value)}>{villages.filter(village => village !== character.village).map(village => <option key={village} value={village}>{village}</option>)}</select><button disabled={!isSeatedKage} onClick={beginVillageWar}>{isSeatedKage ? "Start Village War" : "Kage Only"}</button></>}<h4>Current Village Buffs</h4><div className="village-buff-list"><span>Training +{getTrainingXpBonus(character).toFixed(2)}%</span><span>Jutsu Speed +{getJutsuTrainingSpeedBonus(character).toFixed(2)}%</span><span>Shop Discount +{getShopDiscountPercent(character).toFixed(2)}%</span><span>Guard DEF +{getTownDefenseGuardBonus(character).toFixed(2)}%</span><span>Pet XP +{getPetXpBonus(character).toFixed(2)}%</span><span>Bank Interest +{getBankInterestPercent(character).toFixed(2)}%</span><span>Mission Rewards +{getMissionRewardBonus(character).toFixed(2)}%</span><span>Hospital Discount +{getHospitalDiscountPercent(character).toFixed(2)}%</span>{character.elderFocus === "war" && <span>⚔️ War Focus: -1% dmg taken (wartime)</span>}{character.elderFocus === "trade" && <span>💰 Trade Focus: -5% shop costs</span>}{character.elderFocus === "training" && <span>📚 Training Focus: +10% XP, +10% jutsu speed</span>}</div></section></div><section className="summary-box"><h3>Daily Village Agenda</h3><p className="hint">Three village goals refresh each day. If there is no player Kage, the board randomizes automatically.</p><div className="contrib-rank-grid">{agenda.tasks.map(task => <div key={task.id} className="clan-guard-row"><span><strong>{task.label}</strong></span><span>{Math.min(agendaProgress(task), task.target).toLocaleString()} / {task.target.toLocaleString()}</span></div>)}</div><div className="menu"><button disabled={!agendaComplete || agendaClaimed} onClick={claimVillageAgenda}>{agendaClaimed ? "Agenda Claimed" : agendaComplete ? "Claim Agenda Rewards" : "Agenda Incomplete"}</button></div><p className="hint">Rewards: village treasury +15 Honor Seals, +1,500 ryo, +2 Bone Charms. Player: +8 Honor Seals, +750 ryo, +1 Bone Charm.</p></section><section className="summary-box"><h3>Map Control Rewards</h3><p>Your village controls <strong>{ownedVillageSectors.length}</strong> sector{ownedVillageSectors.length === 1 ? "" : "s"}.</p><p className="hint">Daily player reward: +{mapControlRyo.toLocaleString()} ryo, +{mapControlHonor.toLocaleString()} Honor Seals, +{mapControlBone.toLocaleString()} Bone Charms.</p><button disabled={ownedVillageSectors.length <= 0 || mapControlClaimed} onClick={claimMapControlRewards}>{mapControlClaimed ? "Map Reward Claimed" : "Claim Map Control Reward"}</button></section><section className={state.kageSystemUnlocked ? "summary-box kage-unlock-panel unlocked" : "summary-box kage-unlock-panel"}><h3>{state.kageSystemUnlocked ? "Kage System Open" : "Kage System Sealed"}</h3><p>{state.kageSystemUnlocked ? "The false Kage has fallen. The village is no longer ruled by secrecy. The Kage seat is now open." : "Clear your village's level 100 Kage story fight to open elections, elder seats, village upgrades, war access, and policy control."}</p>{state.firstLiberator && <p><strong>First Liberator:</strong> {state.firstLiberator}</p>}{state.seatedKage && <p><strong>Seated Kage:</strong> {state.seatedKage}</p>}</section><section className="summary-box town-notice-board"><h3>Village Notice Board</h3>{state.notices.map((notice, idx) => <p key={`${notice}-${idx}`}>• {notice}</p>)}</section><section className="summary-box"><h3>Detailed War Records</h3><div className="war-record-grid">{state.warRecords.map((war, idx) => <div key={`${war.opponent}-${idx}`} className="war-record-card"><strong>{war.winner} vs {war.opponent}</strong><span>{war.finalScore}</span><small>{war.date} · MVP Clan: {war.mvpClan}</small><small>Top Attacker: {war.topAttacker}</small><small>Top Defender: {war.topDefender}</small><small>Rewards: {war.rewards}</small></div>)}</div></section></>}
+        {tab === "status" && <><div className="town-hall-grid"><section className="summary-box town-hall-panel"><h3>Village Status</h3><div className="town-leader-row"><LeaderPortrait image={getLeaderImage(state.seatedKage, leadershipImages.kage)} name={state.seatedKage ?? leadership.kage} fallback="?" /><p><strong>Kage:</strong> {state.seatedKage ?? leadership.kage}</p></div><p><strong>Population:</strong> {population.toLocaleString()}</p><p><strong>Village Level:</strong> {villageLevel}</p><p><strong>Village Strength:</strong> {villageStrength.toLocaleString()}</p><p><strong>Guard Queue:</strong> {guardList.length} active defender{guardList.length === 1 ? "" : "s"}</p></section><section className="summary-box town-hall-panel"><h3>War Status</h3><div className={primaryVillageWar ? "war-status at-war" : "war-status peace"}>{primaryVillageWar ? `At War with ${activeWarEnemyVillage}` : "Not At War"}</div>{primaryVillageWar ? <><p><strong>{character.village} HP:</strong> {primaryVillageWar.hp[character.village].toLocaleString()} / {VILLAGE_WAR_HP_MAX.toLocaleString()}</p><div className="bar enemy-bar"><span style={{ width: `${(primaryVillageWar.hp[character.village] / VILLAGE_WAR_HP_MAX) * 100}%` }} /></div><p><strong>{activeWarEnemyVillage} HP:</strong> {activeWarEnemyVillage ? primaryVillageWar.hp[activeWarEnemyVillage].toLocaleString() : 0} / {VILLAGE_WAR_HP_MAX.toLocaleString()}</p><div className="town-upgrade-bar"><span style={{ width: `${activeWarEnemyVillage ? (primaryVillageWar.hp[activeWarEnemyVillage] / VILLAGE_WAR_HP_MAX) * 100 : 0}%` }} /></div><p><strong>War Ground:</strong> Sector {primaryVillageWar.warGroundSector} · HP {primaryVillageWar.warGroundHp.toLocaleString()} / {VILLAGE_WAR_GROUND_HP_MAX.toLocaleString()}</p><p className="hint">{primaryVillageWar.capturedBy ? `Captured by ${primaryVillageWar.capturedBy}.` : "Raid from the war ground to damage enemy village HP and the sector HP."}</p></> : <><p className="hint">Village wars start at 5,000 HP. PvP kills, war-ground raids, and daily war missions reduce enemy HP.</p><label>Enemy Village</label><select value={warTargetVillage} onChange={(event) => setWarTargetVillage(event.target.value)}>{villages.filter(village => village !== character.village).map(village => <option key={village} value={village}>{village}</option>)}</select><button disabled={!isSeatedKage} onClick={beginVillageWar}>{isSeatedKage ? "Start Village War" : "Kage Only"}</button></>}<div className="menu" style={{ marginTop: "0.6rem" }}><button onClick={() => setScreen("villageWar")} style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171", fontWeight: 700 }}>⚔ Open Village War Hall →</button></div><h4>Current Village Buffs</h4><div className="village-buff-list"><span>Training +{getTrainingXpBonus(character).toFixed(2)}%</span><span>Jutsu Speed +{getJutsuTrainingSpeedBonus(character).toFixed(2)}%</span><span>Shop Discount +{getShopDiscountPercent(character).toFixed(2)}%</span><span>Guard DEF +{getTownDefenseGuardBonus(character).toFixed(2)}%</span><span>Pet XP +{getPetXpBonus(character).toFixed(2)}%</span><span>Bank Interest +{getBankInterestPercent(character).toFixed(2)}%</span><span>Mission Rewards +{getMissionRewardBonus(character).toFixed(2)}%</span><span>Hospital Discount +{getHospitalDiscountPercent(character).toFixed(2)}%</span>{character.elderFocus === "war" && <span>⚔️ War Focus: -1% dmg taken (wartime)</span>}{character.elderFocus === "trade" && <span>💰 Trade Focus: -5% shop costs</span>}{character.elderFocus === "training" && <span>📚 Training Focus: +10% XP, +10% jutsu speed</span>}</div></section></div><section className="summary-box"><h3>Daily Village Agenda</h3><p className="hint">Three village goals refresh each day. If there is no player Kage, the board randomizes automatically.</p><div className="contrib-rank-grid">{agenda.tasks.map(task => <div key={task.id} className="clan-guard-row"><span><strong>{task.label}</strong></span><span>{Math.min(agendaProgress(task), task.target).toLocaleString()} / {task.target.toLocaleString()}</span></div>)}</div><div className="menu"><button disabled={!agendaComplete || agendaClaimed} onClick={claimVillageAgenda}>{agendaClaimed ? "Agenda Claimed" : agendaComplete ? "Claim Agenda Rewards" : "Agenda Incomplete"}</button></div><p className="hint">Rewards: village treasury +15 Honor Seals, +1,500 ryo, +2 Bone Charms. Player: +8 Honor Seals, +750 ryo, +1 Bone Charm.</p></section><section className="summary-box"><h3>Map Control Rewards</h3><p>Your village controls <strong>{ownedVillageSectors.length}</strong> sector{ownedVillageSectors.length === 1 ? "" : "s"}.</p><p className="hint">Daily player reward: +{mapControlRyo.toLocaleString()} ryo, +{mapControlHonor.toLocaleString()} Honor Seals, +{mapControlBone.toLocaleString()} Bone Charms.</p><button disabled={ownedVillageSectors.length <= 0 || mapControlClaimed} onClick={claimMapControlRewards}>{mapControlClaimed ? "Map Reward Claimed" : "Claim Map Control Reward"}</button></section><section className={state.kageSystemUnlocked ? "summary-box kage-unlock-panel unlocked" : "summary-box kage-unlock-panel"}><h3>{state.kageSystemUnlocked ? "Kage System Open" : "Kage System Sealed"}</h3><p>{state.kageSystemUnlocked ? "The false Kage has fallen. The village is no longer ruled by secrecy. The Kage seat is now open." : "Clear your village's level 100 Kage story fight to open elections, elder seats, village upgrades, war access, and policy control."}</p>{state.firstLiberator && <p><strong>First Liberator:</strong> {state.firstLiberator}</p>}{state.seatedKage && <p><strong>Seated Kage:</strong> {state.seatedKage}</p>}</section><section className="summary-box town-notice-board"><h3>Village Notice Board</h3>{state.notices.map((notice, idx) => <p key={`${notice}-${idx}`}>• {notice}</p>)}</section><section className="summary-box"><h3>Detailed War Records</h3><div className="war-record-grid">{state.warRecords.map((war, idx) => <div key={`${war.opponent}-${idx}`} className="war-record-card"><strong>{war.winner} vs {war.opponent}</strong><span>{war.finalScore}</span><small>{war.date} · MVP Clan: {war.mvpClan}</small><small>Top Attacker: {war.topAttacker}</small><small>Top Defender: {war.topDefender}</small><small>Rewards: {war.rewards}</small></div>)}</div></section></>}
         {tab === "upgrades" && <section className="summary-box town-upgrade-summary"><h3>Village Upgrades</h3><p className="hint">Village upgrades now spend <strong>Honor Seals</strong>. Only the seated Kage can upgrade village structures.</p><p className="hint">Current Kage: <strong>{state.seatedKage ?? "No player seated yet"}</strong>{isSeatedKage ? " — you can upgrade structures." : " — upgrades are locked for your account."}</p><p className="hint">Total Village Development: <strong>{totalUpgradeLevel}</strong> / {VILLAGE_UPGRADE_MAX_LEVEL * villageUpgradeDefinitions.length}</p>
             <div className="town-upgrade-grid">
                 <div className="town-upgrade-card" style={{ borderColor: state.hollowGateUnlocked ? "#a855f7" : "#7c3aed", boxShadow: state.hollowGateUnlocked ? "0 0 16px rgba(168,85,247,0.35)" : undefined }}>
@@ -20489,11 +20629,17 @@ function ShinobiCouncilHall({ character, setScreen, playerRoster }: { character:
 }
 
 // -- Hall of Legends ---------------------------------------------------------
-export type LbTab = "ranked" | "kills" | "xp" | "clans" | "pets" | "endless" | "villageWars" | "tournament";
+export type LbTab = "ranked" | "kills" | "xp" | "clans" | "pets" | "endless" | "villageWars" | "weeklyBoss" | "tournament";
 
 
 export type TavernMessage = { author: string; text: string; ts: number; rank?: string; customTitle?: string; level?: number };
 
+
+function FestivalPortrait({ image, icon, name }: { image?: string; icon: string; name: string }) {
+    return image
+        ? <img className="sunscar-portrait" src={image} alt={name} />
+        : <div className="sunscar-npc" aria-label={name}>{icon}</div>;
+}
 
 function SunscarFestival({
     character,
@@ -20529,12 +20675,6 @@ function SunscarFestival({
     const ownedCards = character.tileCards.map((id) => allCards.find((c) => c.id === id)).filter(Boolean) as TileCard[];
     const kaelImage = "";
     const miraaImage = "";
-
-    function FestivalPortrait({ image, icon, name }: { image?: string; icon: string; name: string }) {
-        return image
-            ? <img className="sunscar-portrait" src={image} alt={name} />
-            : <div className="sunscar-npc" aria-label={name}>{icon}</div>;
-    }
 
     function adjPos(pos: number, dir: TileCardArrow): number | null {
         const r = Math.floor(pos / 3), c = pos % 3;
@@ -21024,7 +21164,7 @@ function CentralHub({
     publicPlayerBloodlines,
     triggeredEvents,
     setTriggeredEvents,
-    onStartEndlessBattle,
+    onStartEndlessBattle: _onStartEndlessBattle, // retained for backwards-compat with the prop site
     onStartDungeon,
     onOpenBloodlineMaker,
     creatorItems,
@@ -21326,15 +21466,9 @@ function CentralHub({
         },
         {
             name: "Weekly Boss",
-            icon: weeklyBoss.status === "defeated" ? "💀" : weeklyBoss.status === "active" ? "👹" : weeklyBoss.status === "escaped" ? "🌀" : "🌑",
-            text: weeklyBoss.status === "active"
-                ? `${weeklyBoss.bossName} is active until ${new Date(weeklyBoss.endsAt).toLocaleString()}.`
-                : weeklyBoss.status === "defeated"
-                    ? `${weeklyBoss.bossName} defeated this week.`
-                    : weeklyBoss.status === "escaped"
-                        ? `${weeklyBoss.bossName} escaped. Returns next week.`
-                        : `${weeklyBoss.bossName} spawns ${new Date(weeklyBoss.startsAt).toLocaleString()}.`,
-            action: claimWeeklyBoss,
+            icon: "👹",
+            text: "Server-wide boss with shared HP. Deal damage to earn a share of the kill reward — MVP gets double.",
+            action: () => setScreen("weeklyBoss"),
         },
         {
             name: "Celestial Tower",
@@ -21407,10 +21541,10 @@ function CentralHub({
                                 <strong>Floor Trial</strong>
                                 <small>Standard arena battle against a selected opponent.</small>
                             </button>
-                            <button className="celestial-option-btn celestial-endless-btn" onClick={() => { setShowCelestialPanel(false); onStartEndlessBattle(); }}>
-                                <span className="celestial-option-icon">??</span>
-                                <strong>Endless Battle</strong>
-                                <small>Fight wave after wave of random opponents. How far can you climb before you fall?</small>
+                            <button className="celestial-option-btn celestial-endless-btn" onClick={() => { setShowCelestialPanel(false); setScreen("endlessTower"); }}>
+                                <span className="celestial-option-icon">🗼</span>
+                                <strong>Endless Tower</strong>
+                                <small>Fight wave after wave of scaling opponents. Bank rewards or push higher.</small>
                             </button>
                         </div>
                         <button className="back-btn" style={{ marginTop: "1rem" }} onClick={() => setShowCelestialPanel(false)}>× Close</button>
@@ -30658,3 +30792,523 @@ function PvpBattleScreen({
         </div>
     );
 }
+
+// ─── Endless Tower Lobby ──────────────────────────────────────────────────────
+// Shows run state (current wave, banked rewards, best wave) and lets the player
+// start a fresh run, resume the existing one, or retreat to bank rewards.
+function EndlessTowerLobby({
+    character,
+    onEnter,
+    onBank,
+    onBack,
+}: {
+    character: Character;
+    onEnter: () => void;
+    onBank: () => void;
+    onBack: () => void;
+}) {
+    const run = character.endlessTowerRun;
+    const inProgress = !!run && run.wave > 1;
+    const nextWave = run?.wave ?? 1;
+    const preview = endlessWaveReward(nextWave, character.level ?? 1);
+    return (
+        <div className="card" style={{ maxWidth: 720, margin: "1rem auto", padding: "1.4rem" }}>
+            <h1 style={{ marginTop: 0 }}>🗼 Endless Tower</h1>
+            <p style={{ color: "#94a3b8", marginTop: 0 }}>
+                Each wave is harder than the last. Every 5th floor is a milestone (×2 rewards); every 10th is a boss floor (×3).
+                Banked rewards are lost if you die — retreat to bank what you've earned.
+            </p>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.8rem", margin: "1rem 0" }}>
+                <div className="card" style={{ padding: "0.8rem" }}>
+                    <div style={{ color: "#94a3b8", fontSize: "0.85rem" }}>Best floor</div>
+                    <div style={{ fontSize: "1.6rem", fontWeight: 700, color: "#facc15" }}>{character.endlessTowerBestWave ?? 0}</div>
+                </div>
+                <div className="card" style={{ padding: "0.8rem" }}>
+                    <div style={{ color: "#94a3b8", fontSize: "0.85rem" }}>Lifetime clears</div>
+                    <div style={{ fontSize: "1.6rem", fontWeight: 700, color: "#4ade80" }}>{character.totalEndlessTowerWins ?? 0}</div>
+                </div>
+            </div>
+            {inProgress && run ? (
+                <div className="card" style={{ padding: "0.9rem", background: "linear-gradient(#1a1a2e,#0a0a1a)", border: "1px solid #4ade80" }}>
+                    <div style={{ color: "#4ade80", fontWeight: 700, marginBottom: "0.3rem" }}>Run in progress</div>
+                    <div style={{ fontSize: "0.95rem" }}>Floor: <strong>{run.wave}</strong></div>
+                    <div style={{ fontSize: "0.95rem" }}>Banked ryo: <strong style={{ color: "#facc15" }}>{run.bankedRyo.toLocaleString()}</strong></div>
+                    <div style={{ fontSize: "0.95rem" }}>Banked xp: <strong style={{ color: "#a78bfa" }}>{run.bankedXp.toLocaleString()}</strong></div>
+                </div>
+            ) : (
+                <div style={{ color: "#94a3b8", fontStyle: "italic", padding: "0.6rem 0" }}>No active run.</div>
+            )}
+            <div style={{ display: "grid", gridTemplateColumns: inProgress ? "1fr 1fr" : "1fr", gap: "0.6rem", marginTop: "1rem" }}>
+                <button
+                    style={{ padding: "0.8rem 1rem", background: "linear-gradient(#1a3a1a,#0a2010)", borderColor: "#4ade80", fontWeight: 700 }}
+                    onClick={onEnter}
+                >
+                    {inProgress ? `▶ Resume — Floor ${nextWave}` : "▶ Enter Tower (Floor 1)"}
+                </button>
+                {inProgress && (
+                    <button
+                        style={{ padding: "0.8rem 1rem", background: "linear-gradient(#3a3a1a,#201a0a)", borderColor: "#facc15", fontWeight: 700 }}
+                        onClick={onBank}
+                    >
+                        💰 Retreat &amp; Bank
+                    </button>
+                )}
+            </div>
+            <p style={{ color: "#64748b", fontSize: "0.8rem", marginTop: "0.8rem" }}>
+                Next reward preview: {preview.ryo.toLocaleString()} ryo, {preview.xp.toLocaleString()} xp{preview.isMilestone ? " (milestone!)" : ""}.
+            </p>
+            <button className="back-btn" style={{ marginTop: "0.6rem" }} onClick={onBack}>× Back to Central</button>
+        </div>
+    );
+}
+
+// ─── Weekly Boss Arena ────────────────────────────────────────────────────────
+// Shared-HP boss fought by the whole server. Damage is tracked server-side;
+// when HP hits 0 every contributor is rewarded. New boss spawns each ISO week.
+// Combat is a simple "tap to attack" loop — each attack costs stamina and
+// rolls damage based on the player's combat stats. Keeps the system decoupled
+// from the full Arena.
+function WeeklyBossArena({
+    character,
+    updateCharacter,
+    creatorAis,
+    setScreen,
+    playerRoster,
+}: {
+    character: Character;
+    updateCharacter: (c: Character) => void;
+    creatorAis: CreatorAi[];
+    setPendingAiProfileId?: (id: string) => void;
+    setTemporaryStoryAi?: (ai: CreatorAi | null) => void;
+    setArenaKey?: (fn: (k: number) => number) => void;
+    setScreen: (s: Screen) => void;
+    playerRoster: PlayerRecord[];
+}) {
+    const [bossState, setBossState] = useState<WeeklyBossState | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
+
+    const refresh = useCallback(async () => {
+        try {
+            const r = await fetch("/api/weekly-boss", { method: "GET" });
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const data = await r.json();
+            setBossState(data.boss ?? null);
+        } catch (e) {
+            setError(String((e as Error).message || e));
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        void refresh();
+        const id = setInterval(refresh, 15000);
+        return () => clearInterval(id);
+    }, [refresh]);
+
+    const [attacking, setAttacking] = useState(false);
+    const [combatLog, setCombatLog] = useState<string[]>([]);
+
+    function rollAttackDamage(): number {
+        // Simple roll: best offensive stat * (1 + level/100) * random 0.7..1.3
+        const stats = character.stats;
+        const best = Math.max(stats.bukijutsuOffense, stats.taijutsuOffense, stats.ninjutsuOffense, stats.genjutsuOffense);
+        const lvlScale = 1 + (character.level ?? 1) / 100;
+        const roll = 0.7 + Math.random() * 0.6;
+        return Math.max(1, Math.floor(best * lvlScale * roll));
+    }
+
+    async function attackBoss() {
+        if (!bossState || attacking) return;
+        if ((character.stamina ?? 0) < 20) {
+            setError("You need at least 20 stamina to attack.");
+            return;
+        }
+        setAttacking(true);
+        const dmg = rollAttackDamage();
+        try {
+            const r = await fetch("/api/weekly-boss", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ kind: "damage", weekKey: bossState.weekKey, amount: dmg }),
+            });
+            const data = await r.json();
+            if (!r.ok) throw new Error(data.error ?? `HTTP ${r.status}`);
+            updateCharacter({
+                ...character,
+                stamina: Math.max(0, (character.stamina ?? 0) - 20),
+            });
+            setCombatLog(prev => [`+${dmg.toLocaleString()} damage dealt`, ...prev].slice(0, 8));
+            setBossState(data.boss ?? bossState);
+        } catch (e) {
+            setError(String((e as Error).message || e));
+        } finally {
+            setAttacking(false);
+        }
+    }
+    void creatorAis; // kept for future arena-integrated mode
+
+    if (loading) return <div className="card" style={{ padding: "1.4rem", maxWidth: 720, margin: "1rem auto" }}>Loading weekly boss…</div>;
+
+    if (!bossState || !bossState.aiId) {
+        return (
+            <div className="card" style={{ padding: "1.4rem", maxWidth: 720, margin: "1rem auto" }}>
+                <h1 style={{ marginTop: 0 }}>👹 Weekly Boss</h1>
+                <p style={{ color: "#94a3b8" }}>No boss has been summoned this week. Ask an admin to set the weekly boss AI.</p>
+                <button className="back-btn" onClick={() => setScreen("centralHub")}>× Back to Central</button>
+            </div>
+        );
+    }
+
+    const hpPct = Math.max(0, Math.min(100, (bossState.hpRemaining / Math.max(1, bossState.hpMax)) * 100));
+    const dead = bossState.hpRemaining <= 0;
+    const myDamage = bossState.damageByPlayer?.[character.name.toLowerCase()] ?? 0;
+    const top = Object.entries(bossState.damageByPlayer ?? {})
+        .sort(([, a], [, b]) => (b as number) - (a as number))
+        .slice(0, 10);
+
+    return (
+        <div className="card" style={{ maxWidth: 820, margin: "1rem auto", padding: "1.4rem" }}>
+            <h1 style={{ marginTop: 0 }}>👹 Weekly Boss</h1>
+            <p style={{ color: "#94a3b8", marginTop: 0 }}>Week: <strong>{bossState.weekKey}</strong></p>
+            {error && <div style={{ color: "#f87171", marginBottom: "0.5rem" }}>⚠ {error}</div>}
+            <div style={{ background: "#1a1a2e", border: "1px solid #f87171", borderRadius: 8, padding: "0.8rem", margin: "0.8rem 0" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                    <strong style={{ color: "#f87171" }}>{bossState.bossName ?? "Weekly Boss"}</strong>
+                    <span>{bossState.hpRemaining.toLocaleString()} / {bossState.hpMax.toLocaleString()} HP</span>
+                </div>
+                <div style={{ background: "#0a0a1a", borderRadius: 6, overflow: "hidden", height: 18 }}>
+                    <div style={{ width: `${hpPct}%`, height: "100%", background: "linear-gradient(90deg,#dc2626,#7f1d1d)" }} />
+                </div>
+            </div>
+            <p>Your damage this week: <strong style={{ color: "#facc15" }}>{myDamage.toLocaleString()}</strong></p>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.6rem", marginTop: "0.6rem" }}>
+                <button
+                    disabled={dead || attacking || (character.stamina ?? 0) < 20}
+                    style={{ padding: "0.8rem", background: dead ? "#333" : "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171", fontWeight: 700, opacity: dead || attacking ? 0.6 : 1 }}
+                    onClick={attackBoss}
+                >
+                    {dead ? "💀 Boss Defeated" : attacking ? "Attacking…" : `⚔ Attack (20 stamina)`}
+                </button>
+                <button className="back-btn" onClick={() => setScreen("centralHub")}>× Back</button>
+            </div>
+            {combatLog.length > 0 && (
+                <div style={{ background: "#0a0a1a", borderRadius: 6, padding: "0.5rem 0.8rem", margin: "0.6rem 0", fontFamily: "monospace", fontSize: "0.85rem" }}>
+                    {combatLog.map((line, i) => <div key={i} style={{ color: "#facc15" }}>{line}</div>)}
+                </div>
+            )}
+            <h3 style={{ marginTop: "1.2rem" }}>Top Contributors</h3>
+            <div style={{ display: "grid", gap: 4 }}>
+                {top.length === 0 && <em style={{ color: "#64748b" }}>No damage dealt yet.</em>}
+                {top.map(([name, dmg], i) => {
+                    const player = playerRoster.find(p => p.name.toLowerCase() === name);
+                    return (
+                        <div key={name} style={{ display: "flex", justifyContent: "space-between", padding: "0.3rem 0.5rem", background: i === 0 ? "rgba(250,204,21,0.1)" : "transparent", borderRadius: 4 }}>
+                            <span>#{i + 1} {player?.name ?? name} {player?.village ? `(${player.village})` : ""}</span>
+                            <strong>{(dmg as number).toLocaleString()}</strong>
+                        </div>
+                    );
+                })}
+            </div>
+            {dead && bossState.lastKillRewardedAt && bossState.killRewardedTo?.includes(character.name.toLowerCase()) && (
+                <p style={{ color: "#4ade80", marginTop: "0.8rem" }}>✓ Rewards already claimed for this kill.</p>
+            )}
+            {dead && !bossState.killRewardedTo?.includes(character.name.toLowerCase()) && myDamage > 0 && (
+                <button
+                    style={{ marginTop: "0.8rem", padding: "0.8rem", background: "linear-gradient(#1a3a1a,#0a2010)", borderColor: "#4ade80", fontWeight: 700 }}
+                    onClick={async () => {
+                        try {
+                            const r = await fetch("/api/weekly-boss", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ kind: "claim", weekKey: bossState.weekKey }),
+                            });
+                            const data = await r.json();
+                            if (data?.reward) {
+                                updateCharacter({
+                                    ...character,
+                                    ryo: (character.ryo ?? 0) + (data.reward.ryo ?? 0),
+                                    xp: (character.xp ?? 0) + (data.reward.xp ?? 0),
+                                    weeklyBossKills: { ...(character.weeklyBossKills ?? {}), [bossState.weekKey]: new Date().toISOString() },
+                                });
+                                alert(`Claimed: ${data.reward.ryo} ryo, ${data.reward.xp} xp${data.reward.isMvp ? " — MVP bonus!" : ""}`);
+                                await refresh();
+                            } else if (data?.error) {
+                                setError(data.error);
+                            }
+                        } catch (e) {
+                            setError(String((e as Error).message || e));
+                        }
+                    }}
+                >
+                    💰 Claim Rewards
+                </button>
+            )}
+        </div>
+    );
+}
+
+type WeeklyBossState = {
+    weekKey: string;
+    aiId: string;
+    bossName?: string;
+    hpMax: number;
+    hpRemaining: number;
+    scaleFactor?: number;
+    damageByPlayer: Record<string, number>;
+    startedAt: number;
+    lastKillRewardedAt?: number;
+    killRewardedTo?: string[];
+};
+
+// ─── Village War Screen ───────────────────────────────────────────────────────
+// Lets a village member view the active war (if any), raid enemy sectors, and
+// (if Kage / admin) declare a new war.
+function VillageWarScreen({
+    character,
+    updateCharacter,
+    playerRoster,
+    onBack,
+}: {
+    character: Character;
+    updateCharacter: (c: Character) => void;
+    playerRoster: PlayerRecord[];
+    onBack: () => void;
+}) {
+    const [wars, setWars] = useState<VillageWarRecord[]>([]);
+    const [territories, setTerritories] = useState<TerritoryRecord[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
+    const [declaring, setDeclaring] = useState(false);
+    const [declareTarget, setDeclareTarget] = useState("");
+    const [isKage, setIsKage] = useState(false);
+
+    useEffect(() => {
+        let alive = true;
+        fetch("/api/game-state").then(r => r.json()).then(data => {
+            if (!alive) return;
+            const myVillageNorm = (character.village ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+            const myState = (data.villageStates ?? {})[myVillageNorm] as { seatedKage?: string } | undefined;
+            setIsKage((myState?.seatedKage ?? "").toLowerCase() === character.name.toLowerCase());
+        }).catch(() => {});
+        return () => { alive = false; };
+    }, [character.name, character.village]);
+
+    const refresh = useCallback(async () => {
+        try {
+            const r = await fetch("/api/world-state", { method: "GET" });
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const data = await r.json();
+            setWars(Array.isArray(data.wars) ? data.wars : []);
+            setTerritories(Array.isArray(data.territories) ? data.territories : []);
+        } catch (e) {
+            setError(String((e as Error).message || e));
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => { void refresh(); const id = setInterval(refresh, 15000); return () => clearInterval(id); }, [refresh]);
+
+    const myVillage = (character.village ?? "").trim();
+    const activeWar = wars.find(w => !w.endedAt && Array.isArray(w.villages) && w.villages.includes(myVillage));
+    const enemyVillage = activeWar?.villages?.find((v: string) => v !== myVillage) ?? "";
+    const villages = Array.from(new Set(playerRoster.map(p => p.village).filter(Boolean))).filter(v => v !== myVillage);
+
+    async function declareWar() {
+        if (!declareTarget) return;
+        setDeclaring(true);
+        try {
+            const r = await fetch("/api/world-state", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    kind: "war",
+                    war: { villages: [myVillage, declareTarget], startedAt: Date.now() },
+                }),
+            });
+            if (!r.ok) {
+                const data = await r.json().catch(() => ({}));
+                throw new Error(data.error ?? `HTTP ${r.status}`);
+            }
+            await refresh();
+        } catch (e) {
+            setError(String((e as Error).message || e));
+        } finally {
+            setDeclaring(false);
+        }
+    }
+
+    async function raidSector(sector: number) {
+        if (!activeWar) return;
+        const territory = territories.find(t => t.sector === sector);
+        const newHp = Math.max(0, (territory?.hp ?? 20000) - 500);
+        try {
+            const r = await fetch("/api/world-state", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    kind: "territory",
+                    territory: {
+                        ...territory,
+                        sector,
+                        hp: newHp,
+                        ownerVillage: territory?.ownerVillage ?? enemyVillage,
+                        warSupply: (territory?.warSupply ?? 0) + 50,
+                    },
+                }),
+            });
+            if (!r.ok) {
+                const data = await r.json().catch(() => ({}));
+                throw new Error(data.error ?? `HTTP ${r.status}`);
+            }
+            updateCharacter({
+                ...character,
+                totalVillageRaids: (character.totalVillageRaids ?? 0) + 1,
+                villageWarRaidProgress: (character.villageWarRaidProgress ?? 0) + 1,
+            });
+            await refresh();
+            // If enemy hp hits 0, push the war record to mark capture and grant
+            // the final-blow player a Legendary War Crate + bigger reward.
+            if (newHp === 0) {
+                const crateId = `war-crate-${activeWar.id}`;
+                const updatedWar = { ...activeWar, capturedBy: myVillage, capturedAt: Date.now(), warGroundHp: 0, winnerVillage: myVillage, endedAt: Date.now(), warCrateId: crateId };
+                await fetch("/api/world-state", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ kind: "war", war: updatedWar }),
+                });
+                const alreadyClaimed = character.claimedWarCrateIds ?? [];
+                updateCharacter({
+                    ...character,
+                    ryo: (character.ryo ?? 0) + 2000,
+                    xp: (character.xp ?? 0) + 1000,
+                    villageWarMissionsCompleted: (character.villageWarMissionsCompleted ?? 0) + 1,
+                    inventory: alreadyClaimed.includes(crateId) ? character.inventory : [...character.inventory, LEGENDARY_WAR_CRATE_ID],
+                    claimedWarCrateIds: alreadyClaimed.includes(crateId) ? alreadyClaimed : [...alreadyClaimed, crateId],
+                });
+                await refresh();
+            }
+        } catch (e) {
+            setError(String((e as Error).message || e));
+        }
+    }
+
+    if (loading) return <div className="card" style={{ padding: "1.4rem", maxWidth: 720, margin: "1rem auto" }}>Loading village war…</div>;
+
+    // Wars my village won that I haven't claimed yet
+    const claimable = wars.filter(w =>
+        w.endedAt && w.winnerVillage === myVillage &&
+        !(character.claimedWarCrateIds ?? []).includes(`war-crate-${w.id}`)
+    );
+
+    function claimVictory(war: VillageWarRecord) {
+        const crateId = `war-crate-${war.id}`;
+        const claimed = character.claimedWarCrateIds ?? [];
+        if (claimed.includes(crateId)) return;
+        updateCharacter({
+            ...character,
+            ryo: (character.ryo ?? 0) + 500,
+            xp: (character.xp ?? 0) + 250,
+            inventory: [...character.inventory, LEGENDARY_WAR_CRATE_ID],
+            claimedWarCrateIds: [...claimed, crateId],
+        });
+    }
+
+    return (
+        <div className="card" style={{ maxWidth: 820, margin: "1rem auto", padding: "1.4rem" }}>
+            <h1 style={{ marginTop: 0 }}>⚔ Village War</h1>
+            {error && <div style={{ color: "#f87171", marginBottom: "0.5rem" }}>⚠ {error}</div>}
+            {claimable.length > 0 && (
+                <div style={{ background: "linear-gradient(#1a3a1a,#0a2010)", border: "1px solid #4ade80", borderRadius: 8, padding: "0.8rem", marginBottom: "1rem" }}>
+                    <strong style={{ color: "#4ade80" }}>🏆 Victory rewards available</strong>
+                    {claimable.map(w => (
+                        <div key={w.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
+                            <span>vs {w.villages.find(v => v !== myVillage) ?? "?"} — won {new Date(w.endedAt!).toLocaleDateString()}</span>
+                            <button onClick={() => claimVictory(w)} style={{ padding: "0.3rem 0.7rem", background: "linear-gradient(#1a3a1a,#0a2010)", borderColor: "#4ade80", fontSize: "0.85rem" }}>
+                                Claim Reward
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            )}
+            {activeWar ? (
+                <>
+                    <div style={{ background: "#1a1a2e", border: "1px solid #f87171", borderRadius: 8, padding: "0.8rem", marginBottom: "1rem" }}>
+                        <div style={{ fontWeight: 700, color: "#f87171", fontSize: "1.1rem" }}>{myVillage} vs {enemyVillage}</div>
+                        <div style={{ color: "#94a3b8", fontSize: "0.85rem" }}>Started {new Date(activeWar.startedAt).toLocaleDateString()}</div>
+                        <div style={{ marginTop: 8 }}>
+                            <div>My village HP: <strong style={{ color: "#4ade80" }}>{activeWar.hp?.[myVillage] ?? 0}</strong></div>
+                            <div>Enemy HP: <strong style={{ color: "#f87171" }}>{activeWar.hp?.[enemyVillage] ?? 0}</strong></div>
+                            <div>War Ground (sector {activeWar.warGroundSector}): {activeWar.warGroundHp}</div>
+                        </div>
+                    </div>
+                    <h3>Enemy Sectors — Raid to drain control</h3>
+                    <div style={{ display: "grid", gap: 6, maxHeight: 360, overflowY: "auto" }}>
+                        {territories
+                            .filter(t => (t.ownerVillage ?? "") === enemyVillage)
+                            .map(t => (
+                                <div key={t.sector} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.4rem 0.6rem", background: "#0a0a1a", borderRadius: 6 }}>
+                                    <span>Sector {t.sector} — HP {t.hp}/20000 — Supply {t.warSupply}</span>
+                                    <button
+                                        onClick={() => raidSector(t.sector)}
+                                        disabled={t.hp <= 0}
+                                        style={{ padding: "0.3rem 0.7rem", background: t.hp > 0 ? "linear-gradient(#7f1d1d,#450a0a)" : "#333", borderColor: "#f87171", fontSize: "0.85rem" }}
+                                    >
+                                        {t.hp > 0 ? "⚔ Raid (-500 HP)" : "Captured"}
+                                    </button>
+                                </div>
+                            ))}
+                        {territories.filter(t => (t.ownerVillage ?? "") === enemyVillage).length === 0 && (
+                            <em style={{ color: "#64748b" }}>No enemy-controlled sectors found.</em>
+                        )}
+                    </div>
+                </>
+            ) : (
+                <>
+                    <p style={{ color: "#94a3b8" }}>No active war involving <strong>{myVillage || "your village"}</strong>.</p>
+                    {isKage ? (
+                        <div style={{ marginTop: "1rem", padding: "0.8rem", background: "#0a0a1a", borderRadius: 8 }}>
+                            <h3 style={{ marginTop: 0 }}>Declare War (Kage)</h3>
+                            <select value={declareTarget} onChange={e => setDeclareTarget(e.target.value)} style={{ padding: "0.4rem", marginRight: "0.5rem" }}>
+                                <option value="">Select target village…</option>
+                                {villages.map(v => <option key={v} value={v}>{v}</option>)}
+                            </select>
+                            <button disabled={!declareTarget || declaring} onClick={declareWar} style={{ padding: "0.5rem 1rem", background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171" }}>
+                                {declaring ? "Declaring…" : "⚔ Declare War"}
+                            </button>
+                        </div>
+                    ) : (
+                        <p style={{ color: "#64748b", fontStyle: "italic" }}>Only the Kage of your village can declare war.</p>
+                    )}
+                </>
+            )}
+            <button className="back-btn" style={{ marginTop: "1rem" }} onClick={onBack}>× Back</button>
+        </div>
+    );
+}
+
+type VillageWarRecord = {
+    id: string;
+    villages: [string, string];
+    hp?: Record<string, number>;
+    warGroundSector: number;
+    warGroundHp: number;
+    startedAt: number;
+    updatedAt: number;
+    capturedBy?: string;
+    capturedAt?: number;
+    winnerVillage?: string;
+    endedAt?: number;
+    warCrateId?: string;
+};
+
+type TerritoryRecord = {
+    sector: number;
+    ownerClan?: string;
+    ownerVillage?: string;
+    hp: number;
+    controlScore?: number;
+    warSupply: number;
+};

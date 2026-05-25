@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
     type Character,
     type LbTab,
@@ -7,9 +7,26 @@ import {
     loadArenaTournament,
 } from "../App";
 
+type WeeklyBossLb = {
+    weekKey: string;
+    bossName?: string;
+    hpRemaining: number;
+    hpMax: number;
+    damageByPlayer?: Record<string, number>;
+};
+
 export 
 function HallOfLegends({ character, setScreen, playerRoster }: { character: Character; setScreen: (s: Screen) => void; playerRoster: PlayerRecord[] }) {
     const [tab, setTab] = useState<LbTab>("ranked");
+    const [weeklyBoss, setWeeklyBoss] = useState<WeeklyBossLb | null>(null);
+    useEffect(() => {
+        if (tab !== "weeklyBoss") return;
+        let alive = true;
+        fetch("/api/weekly-boss").then(r => r.json()).then(data => {
+            if (alive) setWeeklyBoss(data.boss ?? null);
+        }).catch(() => {});
+        return () => { alive = false; };
+    }, [tab]);
 
     const all = playerRoster.length > 0
         ? playerRoster.map(p => p.character)
@@ -58,6 +75,7 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
         { id: "pets",        label: "Pet Wins",      icon: "🐾" },
         { id: "endless",     label: "Endless",       icon: "🌀" },
         { id: "villageWars", label: "Village Wars",  icon: "⚔" },
+        { id: "weeklyBoss",  label: "Weekly Boss",   icon: "👹" },
         { id: "tournament",  label: "Tournament",    icon: "🏆" },
     ];
 
@@ -141,6 +159,32 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
                         {sortedTop(c => c.totalVillageRaids ?? 0).map((c, i) => (
                             <Row key={c.name} rank={i+1} name={c.name} value={c.totalVillageRaids ?? 0} suffix=" raids" village={c.village} />
                         ))}
+                    </>
+                )}
+                {tab === "weeklyBoss" && (
+                    <>
+                        <p className="hol-board-label">Weekly Boss — Top Damage Dealers</p>
+                        {!weeklyBoss
+                            ? <p className="hol-empty">Loading weekly boss…</p>
+                            : (
+                                <>
+                                    <div style={{ marginBottom: "0.6rem", padding: "0.5rem", background: "#0a0a1a", borderRadius: 6 }}>
+                                        <strong>{weeklyBoss.bossName ?? "Weekly Boss"}</strong> ({weeklyBoss.weekKey}) — {weeklyBoss.hpRemaining.toLocaleString()} / {weeklyBoss.hpMax.toLocaleString()} HP
+                                    </div>
+                                    {Object.entries(weeklyBoss.damageByPlayer ?? {})
+                                        .sort(([, a], [, b]) => (b as number) - (a as number))
+                                        .slice(0, 10)
+                                        .map(([name, dmg], i) => {
+                                            const playerChar = all.find(c => c.name.toLowerCase() === name);
+                                            return (
+                                                <Row key={name} rank={i + 1} name={playerChar?.name ?? name} value={dmg as number} suffix=" dmg" village={playerChar?.village} />
+                                            );
+                                        })
+                                    }
+                                    {Object.keys(weeklyBoss.damageByPlayer ?? {}).length === 0 && <p className="hol-empty">No damage dealt yet this week.</p>}
+                                </>
+                            )
+                        }
                     </>
                 )}
                 {tab === "tournament" && (
