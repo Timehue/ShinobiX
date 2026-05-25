@@ -11189,8 +11189,17 @@ export default function App() {
                                         // Variant-aware icon pick: tries shrine:icon-<role>-1..N first
                                         // (so adjacent chests / monsters / traps show different sprites),
                                         // falls back to legacy single-icon shrine:icon-<role>.
+                                        //
+                                        // Special case for the player tile: if no shrine:icon-you slot is
+                                        // assigned, fall back to the player's own avatar (character.avatarImage
+                                        // or sharedImages["avatar:<name>"]). This way the dungeon shows YOUR
+                                        // face by default instead of a generic ninja emoji. Admin can still
+                                        // override with an atlas tile assignment.
+                                        const playerAvatar = isPlayer
+                                            ? (character.avatarImage || sharedImages[`avatar:${character.name.toLowerCase()}`])
+                                            : undefined;
                                         const iconImage = showIcon && iconSlotId
-                                            ? pickRoleIconImage(iconSlotId, i)
+                                            ? (pickRoleIconImage(iconSlotId, i) ?? playerAvatar)
                                             : undefined;
                                         let icon: string;
                                         if (!showIcon) icon = !visible && !wall ? "·" : "";       // fog dot or blank
