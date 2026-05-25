@@ -1034,6 +1034,10 @@ type HollowGateTile = {
     // roomId so the renderer can light up the entire room when the player
     // steps inside. Corridors and walls get roomId = null.
     roomId?: number | null;
+    // Optional decoration sprite index (0-3). Purely visual — does not block
+    // movement, no event fires. Sprinkled by the generator into ~12% of empty
+    // room cells to break up the floor-texture monotony.
+    decoration?: number;
     revealed: boolean;
     resolved: boolean;
     flavor?: string;
@@ -1296,6 +1300,39 @@ function generateHollowGateShrineRun(floor = 1): HollowGateShrineRun {
         }
     });
 
+    // ── 2b. Cut corners off rooms to break up the all-rectangles look ──
+    // For each room that's at least 4×4, each of its 4 corners has a 30%
+    // chance to get a 1-2 tile chunk carved back to wall. Produces L-shapes,
+    // T-shapes, and notched rectangles — feels much less BSP-generated.
+    rooms.forEach((room) => {
+        if (room.w < 4 || room.h < 4) return;
+        const corners: Array<[number, number, number, number]> = [
+            [room.x, room.y, 1, 1],                               // top-left
+            [room.x + room.w - 1, room.y, -1, 1],                 // top-right
+            [room.x, room.y + room.h - 1, 1, -1],                 // bottom-left
+            [room.x + room.w - 1, room.y + room.h - 1, -1, -1],   // bottom-right
+        ];
+        for (const [cx, cy, dx, dy] of corners) {
+            if (Math.random() >= 0.30) continue;
+            // Cut a 1x1 or 2x2 chunk
+            const size = Math.random() < 0.5 ? 1 : 2;
+            for (let oy = 0; oy < size; oy += 1) {
+                for (let ox = 0; ox < size; ox += 1) {
+                    const nx = cx + ox * dx;
+                    const ny = cy + oy * dy;
+                    if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+                    // Don't cut so much that the room becomes < 3 cells wide/tall
+                    // in any dimension (would leave a sliver).
+                    const idx = ny * w + nx;
+                    if (terrain[idx] === "room_floor") {
+                        terrain[idx] = "wall";
+                        roomIds[idx] = -1;
+                    }
+                }
+            }
+        }
+    });
+
     // ── 3. Connect adjacent rooms with corridors ──────────────────────────
     // Sort rooms by center x then y, then connect each to the next so every
     // room is reachable. (Not the prettiest tour but reliably connected.)
@@ -1496,11 +1533,25 @@ function generateHollowGateShrineRun(floor = 1): HollowGateShrineRun {
         break;
     }
 
+    // ── 8b. Sprinkle decorations on empty room cells ───────────────────
+    // ~12% of empty room cells get a random decoration index (0-3). Purely
+    // visual — no event, no block, just breaks up the floor monotony.
+    const decorationOf: number[] = new Array(total).fill(-1);
+    for (let i = 0; i < total; i += 1) {
+        if (terrain[i] !== "room_floor") continue;
+        if (kinds[i] !== "empty") continue;          // don't put decos on content tiles
+        if (reserved.has(i) || protectedRadius.has(i)) continue;
+        if (Math.random() < 0.12) {
+            decorationOf[i] = Math.floor(Math.random() * 4);
+        }
+    }
+
     // ── 9. Build the final tile array, attaching kind / terrain / roomId ──
     const tiles: HollowGateTile[] = kinds.map((kind, i) => ({
         kind,
         terrain: terrain[i],
         roomId: roomIds[i] >= 0 ? roomIds[i] : null,
+        decoration: decorationOf[i] >= 0 ? decorationOf[i] : undefined,
         revealed: i === spawnIdx, // spawn revealed
         resolved: i === spawnIdx,
         flavor: i === spawnIdx ? "You stand at the threshold of the Hollow Gate Shrine." : undefined,
@@ -8062,28 +8113,52 @@ export default function App() {
     // (col, row) in the atlas grid; tileSize is the pixel size of one cell.
     // Default coords target the Kenney "Roguelike Caves & Dungeons" pack.
     useEffect(() => {
-        // Kenney's "Roguelike Caves & Dungeons" atlas is 492×305 px, which is
-        // 29 cols × 18 rows of 16×16 tiles with a 1px gap between every tile
-        // (stride = 17). Source pixel for (col, row) is (col * stride, row * stride).
-        const KENNEY_ATLAS_TILES = {
+        // Kenney's "Roguelike Caves & Dungeons" atlas is 492×305 px = 29 cols
+        // × 18 rows of 16×16 tiles with a 1px gap between every tile (stride 17).
+        // Source pixel for (col, row) is (col * stride, row * stride).
+        //
+        // Each entry can be a single tile { x, y } or an array of variants. The
+        // renderer picks a variant per-cell via deterministic hash so the dungeon
+        // doesn't look like 165 photocopies of the same texture.
+        //
+        // Coords are best-guess starting points; if any specific tile looks wrong
+        // after the live deploy, just bump its x/y by 1-2 and rebuild.
+        const KENNEY_ATLAS = {
             tilemap: "/assets/dungeon/tilemap.png",
             tileSize: 16,
             gap: 1,
-            wall:           { key: "shrine:tile-wall",           x: 8,  y: 2 },
-            roomFloor:      { key: "shrine:tile-room-floor",     x: 10, y: 5 },
-            corridorFloor:  { key: "shrine:tile-corridor-floor", x: 14, y: 6 },
-            door:           { key: "shrine:tile-door",           x: 26, y: 4 },
+            // Primary single-tile keys (back-compat with existing render code).
+            singles: [
+                { key: "shrine:tile-wall",           x: 8,  y: 2 },
+                { key: "shrine:tile-room-floor",     x: 10, y: 5 },
+                { key: "shrine:tile-corridor-floor", x: 14, y: 6 },
+                { key: "shrine:tile-door",           x: 27, y: 1 },
+            ],
+            // Variant lists — extracted into indexed keys (e.g. shrine:tile-wall-0).
+            variants: [
+                { keyPrefix: "shrine:tile-wall",
+                  tiles: [{ x: 8, y: 2 }, { x: 9, y: 2 }, { x: 10, y: 2 }] },
+                { keyPrefix: "shrine:tile-room-floor",
+                  tiles: [{ x: 10, y: 5 }, { x: 11, y: 5 }, { x: 12, y: 5 }, { x: 13, y: 5 }] },
+                { keyPrefix: "shrine:tile-corridor-floor",
+                  tiles: [{ x: 14, y: 6 }, { x: 15, y: 6 }, { x: 14, y: 7 }] },
+            ],
+            // Decoration sprites — torch, barrel, plant, skull. Sprinkled by the
+            // generator into empty room cells (~12% rate) for visual life.
+            decorations: [
+                { key: "shrine:deco-0", x: 18, y: 0 },   // torch / candle column 1
+                { key: "shrine:deco-1", x: 2,  y: 0 },   // barrel / pot
+                { key: "shrine:deco-2", x: 4,  y: 11 },  // plant / mushroom
+                { key: "shrine:deco-3", x: 19, y: 8 },   // skull / debris
+            ],
         };
 
         let cancelled = false;
         const img = new Image();
-        // Fire & forget: only success path matters. A 404 just falls through.
         img.onload = () => {
             if (cancelled) return;
-            const ts = KENNEY_ATLAS_TILES.tileSize;
-            const stride = ts + KENNEY_ATLAS_TILES.gap;
-            // Render at 4x so the upscaled tile doesn't look like a 16px blur.
-            // The shrine grid cells are ~50-80px so 4x (64px) is a good match.
+            const ts = KENNEY_ATLAS.tileSize;
+            const stride = ts + KENNEY_ATLAS.gap;
             const scale = 4;
             const outSize = ts * scale;
             function slice(x: number, y: number): string | null {
@@ -8093,7 +8168,7 @@ export default function App() {
                     canvas.height = outSize;
                     const ctx = canvas.getContext("2d");
                     if (!ctx) return null;
-                    ctx.imageSmoothingEnabled = false; // crisp pixel art
+                    ctx.imageSmoothingEnabled = false;
                     ctx.drawImage(img, x * stride, y * stride, ts, ts, 0, 0, outSize, outSize);
                     return canvas.toDataURL("image/png");
                 } catch (err) {
@@ -8102,13 +8177,25 @@ export default function App() {
                 }
             }
             const slices: Record<string, string> = {};
-            for (const cfg of [KENNEY_ATLAS_TILES.wall, KENNEY_ATLAS_TILES.roomFloor, KENNEY_ATLAS_TILES.corridorFloor, KENNEY_ATLAS_TILES.door]) {
-                const dataUrl = slice(cfg.x, cfg.y);
-                if (dataUrl) slices[cfg.key] = dataUrl;
+            // Single-tile keys (existing usage)
+            for (const cfg of KENNEY_ATLAS.singles) {
+                const url = slice(cfg.x, cfg.y);
+                if (url) slices[cfg.key] = url;
+            }
+            // Indexed variants
+            for (const group of KENNEY_ATLAS.variants) {
+                group.tiles.forEach((tile, idx) => {
+                    const url = slice(tile.x, tile.y);
+                    if (url) slices[`${group.keyPrefix}-${idx}`] = url;
+                });
+            }
+            // Decorations
+            for (const deco of KENNEY_ATLAS.decorations) {
+                const url = slice(deco.x, deco.y);
+                if (url) slices[deco.key] = url;
             }
             if (Object.keys(slices).length === 0) return;
             // Inject ONLY for keys not already set by an admin-generated image.
-            // Admin assets in shared KV always win.
             setSharedImages(prev => {
                 const next = { ...prev };
                 for (const [key, value] of Object.entries(slices)) {
@@ -8118,7 +8205,7 @@ export default function App() {
             });
         };
         img.onerror = () => { /* no atlas drop-in — fine, CSS gradients show */ };
-        img.src = KENNEY_ATLAS_TILES.tilemap;
+        img.src = KENNEY_ATLAS.tilemap;
         return () => { cancelled = true; };
     }, []);
 
@@ -10354,15 +10441,61 @@ export default function App() {
                                     const visibleSet = computeHollowGateVisible(run);
                                     // Pull all admin-generated terrain textures once per render. Each is
                                     // optional — the renderer falls through to a CSS gradient if missing.
-                                    const wallTexture = sharedImages["shrine:tile-wall"];
-                                    const roomFloorTexture = sharedImages["shrine:tile-room-floor"];
-                                    const corridorFloorTexture = sharedImages["shrine:tile-corridor-floor"];
                                     const doorTexture = sharedImages["shrine:tile-door"];
+                                    // Variant texture banks: per-terrain arrays. The atlas slicer fills
+                                    // `shrine:tile-X-0..N` entries; this fallback gathers them. If only
+                                    // the base (no -0 suffix) exists, we use that single tile everywhere.
+                                    function gatherVariants(prefix: string, limit = 4): string[] {
+                                        const variants: string[] = [];
+                                        for (let i = 0; i < limit; i += 1) {
+                                            const v = sharedImages[`${prefix}-${i}`];
+                                            if (v) variants.push(v);
+                                        }
+                                        if (variants.length === 0) {
+                                            const base = sharedImages[prefix];
+                                            if (base) variants.push(base);
+                                        }
+                                        return variants;
+                                    }
+                                    const wallVariants = gatherVariants("shrine:tile-wall", 4);
+                                    const roomFloorVariants = gatherVariants("shrine:tile-room-floor", 4);
+                                    const corridorFloorVariants = gatherVariants("shrine:tile-corridor-floor", 4);
+                                    // Decoration sprites — sprinkled on top of room floors by the generator.
+                                    const decorations = [
+                                        sharedImages["shrine:deco-0"],
+                                        sharedImages["shrine:deco-1"],
+                                        sharedImages["shrine:deco-2"],
+                                        sharedImages["shrine:deco-3"],
+                                    ];
+                                    // Deterministic cell-index hash so a given cell always picks the same
+                                    // variant (no flicker between renders). Standard 32-bit mixing constant.
+                                    function variantPick(idx: number, count: number): number {
+                                        if (count <= 1) return 0;
+                                        return ((idx * 2654435761) >>> 0) % count;
+                                    }
                                     // Helper: layered background for a terrain texture (returns CSS string).
                                     function bgFromTexture(image: string | undefined, fallback: string, overlay = "rgba(15,9,28,0.35)") {
                                         return image
                                             ? `linear-gradient(135deg, ${overlay}, rgba(8,4,18,0.55)), url(${image}) center/cover no-repeat`
                                             : fallback;
+                                    }
+                                    function bgForTerrain(terrainKind: HollowGateTerrain, idx: number): string {
+                                        if (terrainKind === "wall") {
+                                            const v = wallVariants[variantPick(idx, wallVariants.length)];
+                                            return v
+                                                ? `linear-gradient(135deg, rgba(15,9,28,0.35), rgba(8,4,18,0.55)), url(${v}) center/cover no-repeat`
+                                                : "linear-gradient(135deg, #1c1430 0%, #0e0820 40%, #2a1f3e 100%)";
+                                        }
+                                        if (terrainKind === "corridor_floor") {
+                                            const v = corridorFloorVariants[variantPick(idx, corridorFloorVariants.length)];
+                                            return bgFromTexture(v, "linear-gradient(135deg, rgba(40,28,72,0.7), rgba(28,18,54,0.85))");
+                                        }
+                                        if (terrainKind === "door") {
+                                            return bgFromTexture(doorTexture, "linear-gradient(135deg, rgba(120,72,32,0.5), rgba(64,40,18,0.75))", "rgba(40,20,8,0.3)");
+                                        }
+                                        // room_floor (default)
+                                        const v = roomFloorVariants[variantPick(idx, roomFloorVariants.length)];
+                                        return bgFromTexture(v, "linear-gradient(135deg, rgba(50,38,82,0.7), rgba(34,24,60,0.85))");
                                     }
                                     return (
                                 <div className="hollow-gate-grid" style={{ display: "grid", gridTemplateColumns: `repeat(${run.width}, 1fr)`, gap: 3, background: "rgba(0,0,0,0.55)", padding: 8, borderRadius: 8 }}>
@@ -10380,28 +10513,29 @@ export default function App() {
                                         const terrainKind: HollowGateTerrain =
                                             tile.terrain ?? (tile.kind === "wall" ? "wall" : "room_floor");
 
-                                        // Compose background by tile state.
+                                        // Compose background by tile state. Walls and floors both
+                                        // pull from variant banks via bgForTerrain() — deterministic
+                                        // per-cell so the dungeon stops looking like a photocopier.
                                         let bg: string;
                                         if (wall) {
-                                            // Solid stone — visible at all times. Use the admin-generated
-                                            // wall texture if one exists; otherwise the dark gradient.
-                                            // Slightly darker outside vision so the dungeon edge fades.
-                                            bg = wallTexture
-                                                ? (visible
-                                                    ? `linear-gradient(135deg, rgba(15,9,28,0.35), rgba(8,4,18,0.55)), url(${wallTexture}) center/cover no-repeat`
-                                                    : `linear-gradient(135deg, rgba(8,4,18,0.65), rgba(4,2,10,0.8)), url(${wallTexture}) center/cover no-repeat`)
-                                                : (visible
-                                                    ? "linear-gradient(135deg, #1c1430 0%, #0e0820 40%, #2a1f3e 100%)"
-                                                    : "linear-gradient(135deg, #100a1c 0%, #07040f 100%)");
+                                            bg = bgForTerrain("wall", i);
                                         } else if (isPlayer) {
                                             bg = "linear-gradient(135deg, #2563eb, #7c3aed)";
                                         } else if (revealed || visible) {
                                             // Pick the terrain base layer (room / corridor / door),
-                                            // then overlay a content-tint if this cell carries an event.
-                                            const terrainBase =
-                                                terrainKind === "corridor_floor" ? bgFromTexture(corridorFloorTexture, "linear-gradient(135deg, rgba(40,28,72,0.7), rgba(28,18,54,0.85))")
-                                                : terrainKind === "door" ? bgFromTexture(doorTexture, "linear-gradient(135deg, rgba(120,72,32,0.5), rgba(64,40,18,0.75))", "rgba(40,20,8,0.3)")
-                                                : bgFromTexture(roomFloorTexture, "linear-gradient(135deg, rgba(50,38,82,0.7), rgba(34,24,60,0.85))");
+                                            // then overlay a decoration sprite if assigned, then a
+                                            // content-tint if this cell carries an event.
+                                            let terrainBase = bgForTerrain(terrainKind, i);
+                                            // Overlay decoration sprite if the generator assigned one
+                                            // to this cell (only on room_floor and only when not a
+                                            // hidden-surprise content tile).
+                                            if (
+                                                tile.decoration != null
+                                                && decorations[tile.decoration]
+                                                && (revealed || visible)
+                                            ) {
+                                                terrainBase = `url(${decorations[tile.decoration]}) center/80% no-repeat, ${terrainBase}`;
+                                            }
                                             // SURPRISE TILES — trap / battle / elite / pet_event — stay
                                             // disguised as plain floor while only "visible". Their tint +
                                             // icon ONLY appear after the player has actually stepped on
