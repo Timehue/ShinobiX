@@ -17645,7 +17645,7 @@ function AdminPanel({
                         key: "landmark:hollow-gate",
                         name: "Hollow Gate (world-map landmark)",
                         category: "Location",
-                        defaultPrompt: "Hollow Gate shrine entrance on a world map, ancient broken torii gate bound with glowing violet chakra chains, perched on a black stone outcrop between forested sectors, hidden shinobi location, top-down map landmark art, painted RPG world icon",
+                        defaultPrompt: "Square game-icon of a single large dark-purple Japanese torii gate, front-on view, centered subject filling the frame, deep violet lacquered beams with glowing chakra-rune seals, faintly cracked stone base, no background buildings or trees, flat near-black background with subtle purple haze, painted RPG world icon, ninja shinobi map landmark art, no text, no border, no UI elements",
                     },
                     {
                         key: "shrine:hollow-gate-background",

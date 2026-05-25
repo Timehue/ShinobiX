@@ -88,20 +88,22 @@
         font-size: 15px !important;
     }
 
-    /* Hollow Gate stays tiny even inside the wider .world-map-scroll layout —
-       icon-only pill, no expanded label. */
+    /* Hollow Gate marker inside the wider .world-map-scroll layout —
+       chunky dark purple torii-gate square with the 'HG' icon. */
     .world-map-scroll .atlas-hollowGate {
-        min-width: 0 !important;
-        width: auto !important;
-        max-width: none !important;
-        padding: 2px 6px !important;
+        min-width: 64px !important;
+        width: 64px !important;
+        height: 64px !important;
+        max-width: 64px !important;
+        padding: 6px !important;
         font-size: 0 !important;
         line-height: 1 !important;
         gap: 0 !important;
     }
 
         .world-map-scroll .atlas-hollowGate strong {
-            font-size: 12px !important;
+            font-size: 22px !important;
+            font-weight: 800 !important;
             line-height: 1 !important;
         }
 
@@ -1557,25 +1559,35 @@ button {
     background: rgba(22, 101, 52, .9);
 }
 
-/* Hollow Gate POI is a hidden shrine entrance — render TINY so it doesn't
-   compete with villages or the central hub on the world map. We hide the
-   'Hollow Gate' name label entirely and show only the 'HG' icon as a small
-   purple pill. The title tooltip still says 'Hollow Gate' on hover. */
+/* Hollow Gate POI is a hidden shrine entrance — render as a chunky dark-purple
+   torii-gate marker with the 'HG' icon overlaid. The full 'Hollow Gate' name
+   label is hidden (tooltip still shows it on hover) so the marker stays
+   visually like a gate icon rather than a card. */
 .atlas-hollowGate {
-    min-width: 0;
-    width: auto;
-    padding: 2px 5px;
+    min-width: 56px;
+    width: 56px;
+    height: 56px;
+    padding: 6px;
     font-size: 0;             /* collapses the (hidden) name line height */
     line-height: 1;
     gap: 0;
-    border-color: rgba(168, 85, 247, 0.75);
-    background: rgba(15, 9, 28, .85);
-    box-shadow: 0 1px 0 rgba(2,6,23,.5), 0 0 8px rgba(168, 85, 247, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-color: #a855f7;
+    border-width: 2px;
+    background: linear-gradient(180deg, #1e0b3a 0%, #2a103f 45%, #0e0420 100%);
+    box-shadow:
+        0 0 0 1px rgba(168, 85, 247, 0.35),
+        0 4px 0 rgba(2,6,23,.6),
+        0 0 18px rgba(168, 85, 247, 0.55);
 }
 
     .atlas-hollowGate strong {
-        font-size: 10px;
-        color: #c4b5fd;
+        font-size: 18px;
+        font-weight: 800;
+        color: #ddd6fe;
+        text-shadow: 0 1px 0 rgba(0,0,0,0.7), 0 0 8px rgba(168, 85, 247, 0.7);
         line-height: 1;
     }
 
@@ -16363,20 +16375,22 @@ button.combat-jutsu-button,
         font-size: 15px !important;
     }
 
-    /* Hollow Gate stays tiny even inside the wider .world-map-scroll layout —
-       icon-only pill, no expanded label. */
+    /* Hollow Gate marker inside the wider .world-map-scroll layout —
+       chunky dark purple torii-gate square with the 'HG' icon. */
     .world-map-scroll .atlas-hollowGate {
-        min-width: 0 !important;
-        width: auto !important;
-        max-width: none !important;
-        padding: 2px 6px !important;
+        min-width: 64px !important;
+        width: 64px !important;
+        height: 64px !important;
+        max-width: 64px !important;
+        padding: 6px !important;
         font-size: 0 !important;
         line-height: 1 !important;
         gap: 0 !important;
     }
 
         .world-map-scroll .atlas-hollowGate strong {
-            font-size: 12px !important;
+            font-size: 22px !important;
+            font-weight: 800 !important;
             line-height: 1 !important;
         }
 
