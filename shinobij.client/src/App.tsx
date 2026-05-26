@@ -461,6 +461,10 @@ type PetJutsu = {
     // lifesteal/shield/absorb) keep their original behavior.
     kind: "damage" | "buff" | "heal" | "debuff" | "dot" | "move" | "barrier" | "movelock" | "lifesteal" | "shield" | "absorb"
         | "burn" | "freeze" | "confuse" | "stun";
+    // Optional duration override for status-effect kinds. Lets a Mythic
+    // freeze last 3 rounds while a Standard freeze lasts 1. Defaults are
+    // baked into each status handler if rounds is undefined.
+    rounds?: number;
 };
 
 export type Pet = {
@@ -3114,6 +3118,71 @@ const petElementByName: Record<string, JutsuElement> = {
     "Crystal Bear": "Earth", "Moon Serpent": "Earth", "Spirit Deer": "Earth",
 };
 
+// ── Elemental special jutsu per pet ────────────────────────────────────────
+// Every pet gets one element-themed signature jutsu in its kit. Element
+// drives the effect kind; rarity drives the strength:
+//   Fire     → burn    (DoT + ATK debuff)
+//   Water    → freeze  (50% turn skip)
+//   Wind     → confuse (50% self-hit)
+//   Lightning→ stun    (guaranteed turn skip)
+//   Earth    → debuff  (stripped ATK/DEF)  — earth doesn't get stun (taken
+//                                            by Lightning); stat-strip
+//                                            matches the "weight" feel.
+// Standard < Rare < Legendary < Mythic — both power and duration scale up.
+type ElementalSpecialKind = "burn" | "freeze" | "confuse" | "stun" | "debuff";
+const elementalSpecialKind: Record<Exclude<JutsuElement, "None">, ElementalSpecialKind> = {
+    Fire: "burn",
+    Water: "freeze",
+    Wind: "confuse",
+    Lightning: "stun",
+    Earth: "debuff",
+};
+type ElementalSpecialSpec = { name: string; power: number; cooldown: number; rounds: number };
+const elementalSpecialByRarityElement: Record<PetRarity, Record<Exclude<JutsuElement, "None">, ElementalSpecialSpec>> = {
+    standard: {
+        Fire:      { name: "Searing Mark",   power: 40,  cooldown: 5, rounds: 2 },
+        Water:     { name: "Frost Bite",     power: 40,  cooldown: 5, rounds: 1 },
+        Wind:      { name: "Whirling Daze",  power: 40,  cooldown: 5, rounds: 1 },
+        Lightning: { name: "Static Snap",    power: 40,  cooldown: 5, rounds: 1 },
+        Earth:     { name: "Heavy Stone",    power: 40,  cooldown: 5, rounds: 0 },
+    },
+    rare: {
+        Fire:      { name: "Ember Lash",     power: 70,  cooldown: 5, rounds: 3 },
+        Water:     { name: "Frozen Lash",    power: 70,  cooldown: 5, rounds: 2 },
+        Wind:      { name: "Cyclone Veil",   power: 70,  cooldown: 5, rounds: 2 },
+        Lightning: { name: "Shock Sigil",    power: 70,  cooldown: 5, rounds: 1 },
+        Earth:     { name: "Boulder Press",  power: 75,  cooldown: 5, rounds: 0 },
+    },
+    legendary: {
+        Fire:      { name: "Pyre Burst",          power: 110, cooldown: 5, rounds: 3 },
+        Water:     { name: "Glacial Coffin",      power: 105, cooldown: 5, rounds: 2 },
+        Wind:      { name: "Tempest Mirage",      power: 105, cooldown: 5, rounds: 2 },
+        Lightning: { name: "Thunderbreak",        power: 110, cooldown: 5, rounds: 2 },
+        Earth:     { name: "Mountain Crush",      power: 115, cooldown: 5, rounds: 0 },
+    },
+    mythic: {
+        Fire:      { name: "Solar Conflagration", power: 160, cooldown: 4, rounds: 4 },
+        Water:     { name: "Eternal Glacier",     power: 150, cooldown: 4, rounds: 3 },
+        Wind:      { name: "Heaven's Vortex",     power: 150, cooldown: 4, rounds: 3 },
+        Lightning: { name: "Worldfall Bolt",      power: 155, cooldown: 4, rounds: 2 },
+        Earth:     { name: "World-Ender Slab",    power: 170, cooldown: 4, rounds: 0 },
+    },
+};
+function elementalSpecialFor(element: JutsuElement | undefined, rarity: PetRarity): PetJutsu | null {
+    if (!element || element === "None") return null;
+    const tierTable = elementalSpecialByRarityElement[rarity] ?? elementalSpecialByRarityElement.standard;
+    const spec = tierTable[element as Exclude<JutsuElement, "None">];
+    if (!spec) return null;
+    return {
+        name: spec.name,
+        power: spec.power,
+        cooldown: spec.cooldown,
+        currentCooldown: 0,
+        kind: elementalSpecialKind[element as Exclude<JutsuElement, "None">],
+        ...(spec.rounds > 0 ? { rounds: spec.rounds } : {}),
+    };
+}
+
 function balanceBuiltInPetTemplate(pet: Pet): Pet {
     const base = balancedPetBaseStats[pet.rarity] ?? balancedPetBaseStats.standard;
     const variant = petVariantIndex(pet);
@@ -3133,7 +3202,14 @@ function balanceBuiltInPetTemplate(pet: Pet): Pet {
     // skip the lookup. Falls back to undefined for any unrecognized name,
     // which the engine treats as neutral.
     const element: JutsuElement | undefined = pet.element ?? petElementByName[pet.name];
-    return capPetStats({ ...pet, hp, attack, defense, speed, jutsus, moveRange: pet.moveRange ?? base.moveRange, element });
+    // Append the elemental special jutsu (one per pet, themed to its
+    // element + tier-scaled in power and duration). Deduped by name so a
+    // template that already declares the special doesn't get a duplicate.
+    const specialJutsu = elementalSpecialFor(element, pet.rarity);
+    const jutsusWithSpecial = specialJutsu && !jutsus.some(j => j.name === specialJutsu.name)
+        ? [...jutsus, specialJutsu]
+        : jutsus;
+    return capPetStats({ ...pet, hp, attack, defense, speed, jutsus: jutsusWithSpecial, moveRange: pet.moveRange ?? base.moveRange, element });
 }
 function petTrainingMultiplier(pet: Pet) {
     const durationMultiplier = petTrainingDurationMultipliers[pet.training?.durationMs ?? petTrainingDurations[0].ms] ?? 1;
@@ -3501,15 +3577,28 @@ function normalizePet(pet: Pet): Pet {
         // predate the element field. Pet's own element (if any) wins so a
         // future admin-edit override would still stick.
         element: pet.element ?? baseTemplate.element,
-        jutsus: (pet.jutsus?.length ? pet.jutsus : baseTemplate.jutsus).map((jutsu, i) => {
-            const baseJutsu = baseTemplate.jutsus[i];
-            return {
-                ...baseJutsu,
-                ...jutsu,
-                power: Math.max(jutsu.power ?? 0, baseJutsu?.power ?? 0),
-                currentCooldown: 0,
-            };
-        }),
+        // Backfill any NEW jutsu slots the template gained since this save
+        // was written (e.g. the elemental special jutsu added later). We
+        // iterate up to the larger of the two arrays and fall back to the
+        // template entry for any slot the player's save doesn't have.
+        jutsus: (() => {
+            const playerJutsus = pet.jutsus ?? [];
+            const maxLen = Math.max(playerJutsus.length, baseTemplate.jutsus.length);
+            return Array.from({ length: maxLen }, (_, i) => {
+                const baseJutsu = baseTemplate.jutsus[i];
+                const playerJutsu = playerJutsus[i];
+                if (!playerJutsu && baseJutsu) {
+                    // Slot is new — copy straight from the template.
+                    return { ...baseJutsu, currentCooldown: 0 };
+                }
+                return {
+                    ...(baseJutsu ?? {}),
+                    ...playerJutsu,
+                    power: Math.max(playerJutsu?.power ?? 0, baseJutsu?.power ?? 0),
+                    currentCooldown: 0,
+                };
+            });
+        })(),
     } : pet;
     return capPetStats({
         ...merged,
@@ -15273,8 +15362,9 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
                 const burnDmg = Math.max(1, Math.floor(jutsu.power * 0.15));
                 // Guardian halves DoT damage (its thematic resistance).
                 const effectiveBurn = target.pet.trait === "Guardian" ? Math.max(1, Math.floor(burnDmg * 0.5)) : burnDmg;
-                const burned = applyStatus(target, "burn", 3, effectiveBurn);
-                const msg = `Round ${round}: ${actor.pet.name} burns ${target.pet.name} for ${effectiveBurn}/round (3 rounds) — −2 ATK!${target.pet.trait === "Guardian" ? " (Guardian shrugs off half the burn.)" : ""}`;
+                const burnRoundsToApply = Math.max(1, jutsu.rounds ?? 3);
+                const burned = applyStatus(target, "burn", burnRoundsToApply, effectiveBurn);
+                const msg = `Round ${round}: ${actor.pet.name} burns ${target.pet.name} for ${effectiveBurn}/round (${burnRoundsToApply} rounds) — −2 ATK!${target.pet.trait === "Guardian" ? " (Guardian shrugs off half the burn.)" : ""}`;
                 logs.push(msg);
                 if (actorSide === "player") { player = nextActor; enemy = burned; } else { enemy = nextActor; player = burned; }
                 pushFrame(round, msg, actorSide, "dot");
@@ -15289,8 +15379,9 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
                     pushFrame(round, msg, targetSide, "buff", undefined, undefined, { actor: targetSide as "player" | "enemy", trait: "Swift" });
                     return [nextActor, target];
                 }
-                const frozen = applyStatus(target, "freeze", 2);
-                const msg = `Round ${round}: ${actor.pet.name} freezes ${target.pet.name} — 50% chance to skip turn for 2 rounds!`;
+                const freezeRoundsToApply = Math.max(1, jutsu.rounds ?? 2);
+                const frozen = applyStatus(target, "freeze", freezeRoundsToApply);
+                const msg = `Round ${round}: ${actor.pet.name} freezes ${target.pet.name} — 50% chance to skip turn for ${freezeRoundsToApply} round${freezeRoundsToApply === 1 ? "" : "s"}!`;
                 logs.push(msg);
                 if (actorSide === "player") { player = nextActor; enemy = frozen; } else { enemy = nextActor; player = frozen; }
                 pushFrame(round, msg, actorSide, "movelock");
@@ -15305,8 +15396,9 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
                     pushFrame(round, msg, targetSide, "buff", undefined, undefined, { actor: targetSide as "player" | "enemy", trait: "Lucky" });
                     return [nextActor, target];
                 }
-                const confused = applyStatus(target, "confuse", 2);
-                const msg = `Round ${round}: ${actor.pet.name} confuses ${target.pet.name} — 50% chance to self-hit for 2 rounds!`;
+                const confuseRoundsToApply = Math.max(1, jutsu.rounds ?? 2);
+                const confused = applyStatus(target, "confuse", confuseRoundsToApply);
+                const msg = `Round ${round}: ${actor.pet.name} confuses ${target.pet.name} — 50% chance to self-hit for ${confuseRoundsToApply} round${confuseRoundsToApply === 1 ? "" : "s"}!`;
                 logs.push(msg);
                 if (actorSide === "player") { player = nextActor; enemy = confused; } else { enemy = nextActor; player = confused; }
                 pushFrame(round, msg, actorSide, "debuff");
@@ -15315,7 +15407,7 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
 
             if (jutsu.kind === "stun") {
                 // Aggressive trait shrugs off one round of stun (so 1-round stuns are no-ops).
-                const baseRounds = 1;
+                const baseRounds = Math.max(1, jutsu.rounds ?? 1);
                 const reduced = target.pet.trait === "Aggressive" ? baseRounds - 1 : baseRounds;
                 if (reduced <= 0) {
                     const msg = `Round ${round}: ${actor.pet.name} tries to stun ${target.pet.name}, but Aggressive rage shrugs it off!`;
