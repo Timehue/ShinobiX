@@ -17073,13 +17073,15 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                 </section>
             </div>
 
-            {opponentMode === "ai" && character.pets.length >= 2 && (
+            {character.pets.length >= 2 && (
                 <div className="summary-box" style={{ marginTop: "0.4rem" }}>
                     <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", cursor: "pointer" }}>
                         <input type="checkbox" checked={partyMode} onChange={(e) => setPartyMode(e.target.checked)} />
                         <strong>🐾🐾 2v2 Party Battle</strong>
                         <span className="hint" style={{ marginLeft: "auto", fontSize: "0.85rem" }}>
-                            Lead vs lead, then reserve vs reserve. Best of 2 wins the set.
+                            {opponentMode === "player"
+                                ? "Challenges the target to a 2v2. They need 2 pets too — otherwise it falls back to 1v1."
+                                : "Lead vs lead, then reserve vs reserve. Best of 2 wins the set."}
                         </span>
                     </label>
                     {partyMode && (
