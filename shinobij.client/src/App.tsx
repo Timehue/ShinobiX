@@ -712,6 +712,9 @@ type SharedPvpBattleContext = {
     sector?: number;
     kageChallengeId?: string;
     kageVillage?: string;
+    // Set when the PvP session was launched via a new-system clan-war
+    // challenge so the battle screen can wire the post-battle report.
+    clanWarChallengeId?: string;
 };
 
 type AiCondition = "always" | "specific_round" | "distance_lower_than" | "distance_higher_than" | "hp_lower_than";
@@ -8600,6 +8603,72 @@ export default function App() {
     const [duelChallenges, setDuelChallenges] = useState<DuelChallenge[]>([]);
     const [processingChallengeIds, setProcessingChallengeIds] = useState<string[]>([]);
     const [pendingPetBattleOpponent, setPendingPetBattleOpponent] = useState<PetArenaOpponent | null>(null);
+
+    // Launch helper for clan-war challenges. ClanBattlesTab calls this
+    // when the player clicks "Launch Battle" on an accepted challenge.
+    // We thread it through ShinobiCouncilHall → ClanBattlesTab so the
+    // battle screen state is set BEFORE navigation (avoids the blank-
+    // screen bug from the audit). PvP routing maps fromPlayer→p1,
+    // acceptedPlayer→p2. Pet modes stash the shared seed in
+    // sessionStorage for the PetArena screen to pick up. Tile cards
+    // currently route to the tavern for manual play; cross-confirmation
+    // on report still keeps the result honest.
+    const launchClanWarBattle = useCallback((ch: CwChallenge, warId?: string) => {
+        if (!character) return;
+        const me = character.name.toLowerCase();
+        const onFromSide = (ch.fromPlayer ?? "").toLowerCase() === me
+            || (ch.fromPlayer2 ?? "").toLowerCase() === me;
+        // Stash the clan-war context for the battle screen + any return
+        // path. Kept in sessionStorage so it survives a tab refresh.
+        // warId is supplied by the caller (ClanBattlesTab knows it from
+        // myWar.id); on refresh we look it up via the cache.
+        const inferredWarId = warId ?? Object.values(sharedClanWarCache).find(w => w.pendingChallenges.some(c => c.id === ch.id))?.id ?? "";
+        try {
+            sessionStorage.setItem("clanWarChallenge.v1", JSON.stringify({
+                warId: inferredWarId,
+                challengeId: ch.id,
+                mode: ch.mode,
+                fromClan: ch.fromClan,
+                fromPlayer: ch.fromPlayer,
+                fromPlayer2: ch.fromPlayer2 ?? null,
+                acceptedPlayer: ch.acceptedPlayer ?? null,
+                acceptedPlayer2: ch.acceptedPlayer2 ?? null,
+                battleId: ch.battleId ?? null,
+                petBattleSeed: ch.petBattleSeed ?? null,
+                stashedAt: Date.now(),
+            }));
+        } catch { /* sessionStorage may be unavailable */ }
+
+        switch (ch.mode) {
+            case "pvp1v1":
+            case "pvp2v2": {
+                if (!ch.battleId) {
+                    alert("Battle session not ready yet — refresh and try again.");
+                    return;
+                }
+                // Determine role: senders are p1, defenders are p2.
+                setPvpBattleId(ch.battleId);
+                setPvpRole(onFromSide ? "p1" : "p2");
+                setPvpBattleContext({
+                    mode: ch.mode === "pvp2v2" ? "clanWar2v2" : "clanWar1v1",
+                    clanWarChallengeId: ch.id,
+                });
+                setScreen("pvpBattle");
+                break;
+            }
+            case "pet1v1":
+            case "pet2v2":
+                // PetArena reads sessionStorage on mount (Phase D) to
+                // configure the opponent + deterministic seed.
+                setScreen("petArena");
+                break;
+            case "tilecards":
+                // Tile cards: minimal flow — route to tavern, players
+                // launch a manual duel and come back to report.
+                setScreen("tavern");
+                break;
+        }
+    }, [character]);
     // Tracks whether the player is mid-Shinobi-Tile card game launched from a
     // Hollow Gate tile_game tile. Used to apply the -20% maxHp penalty on
     // loss + route back to the shrine afterwards.
@@ -13278,7 +13347,7 @@ export default function App() {
                         onBack={() => setScreen("townHall")}
                     />
                 )}
-                {!activeTriggeredEvent && screen === "shinobiCouncil" && character && <ShinobiCouncilHall character={character} setScreen={setScreen} playerRoster={playerRoster} />}
+                {!activeTriggeredEvent && screen === "shinobiCouncil" && character && <ShinobiCouncilHall character={character} setScreen={setScreen} playerRoster={playerRoster} launchClanWarBattle={launchClanWarBattle} />}
                 {!activeTriggeredEvent && screen === "userHub" && character && (
                     <UserHub
                         currentName={character.name}
@@ -26109,7 +26178,7 @@ async function cwChallengeAction(body: Record<string, unknown>): Promise<{ ok: b
     } catch (e) { return { ok: false, error: String((e as Error).message) }; }
 }
 
-function ShinobiCouncilHall({ character, setScreen, playerRoster }: { character: Character; setScreen: (s: Screen) => void; playerRoster: PlayerRecord[] }) {
+function ShinobiCouncilHall({ character, setScreen, playerRoster, launchClanWarBattle }: { character: Character; setScreen: (s: Screen) => void; playerRoster: PlayerRecord[]; launchClanWarBattle: (ch: CwChallenge, warId?: string) => void }) {
     const [tab, setTab] = useState<"wars" | "clanBattles" | "kage">("wars");
 
     // --- Village Wars ---
@@ -26292,7 +26361,7 @@ function ShinobiCouncilHall({ character, setScreen, playerRoster }: { character:
                 }
             </section></>}
 
-            {tab === "clanBattles" && <ClanBattlesTab character={character} playerRoster={playerRoster} setScreen={setScreen} />}
+            {tab === "clanBattles" && <ClanBattlesTab character={character} playerRoster={playerRoster} setScreen={setScreen} launchClanWarBattle={launchClanWarBattle} />}
 
             {tab === "kage" && <section className="council-section">
                 <h3 className="council-section-title">👑 Kage Records — All Villages</h3>
@@ -26337,7 +26406,8 @@ function ShinobiCouncilHall({ character, setScreen, playerRoster }: { character:
 // New server-managed clan-war system. Lives inside Shinobi Council
 // Hall as a dedicated tab. Owns its own polling loop + state; the
 // parent only needs to mount it.
-function ClanBattlesTab({ character, playerRoster, setScreen }: { character: Character; playerRoster: PlayerRecord[]; setScreen: (s: Screen) => void }) {
+function ClanBattlesTab({ character, playerRoster, setScreen, launchClanWarBattle }: { character: Character; playerRoster: PlayerRecord[]; setScreen: (s: Screen) => void; launchClanWarBattle: (ch: CwChallenge, warId?: string) => void }) {
+    void setScreen; // navigation now lives inside launchClanWarBattle
     const [wars, setWars] = useState<CwWar[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
@@ -26502,47 +26572,14 @@ function ClanBattlesTab({ character, playerRoster, setScreen }: { character: Cha
         await refresh();
     }
 
-    // Phase 3: route the actor to the matching battle screen. We stash
-    // a hint in sessionStorage so the battle screen knows it's running
-    // a clan-war challenge and can prefill any seed/opponent state.
-    // After the battle resolves, the actor returns here to report.
+    // Launch into the matching battle screen. The actual state plumbing
+    // (pvpBattleId/pvpRole/pvpBattleContext for PvP, sessionStorage
+    // stash for pet/tile-cards) is owned by the App component via the
+    // launchClanWarBattle prop so the PvP screen guard doesn't show a
+    // blank screen mid-route.
     function launchBattle(ch: CwChallenge) {
         if (!myWar) return;
-        try {
-            sessionStorage.setItem("clanWarChallenge.v1", JSON.stringify({
-                warId: myWar.id,
-                challengeId: ch.id,
-                mode: ch.mode,
-                fromClan: ch.fromClan,
-                fromPlayer: ch.fromPlayer,
-                fromPlayer2: ch.fromPlayer2 ?? null,
-                acceptedPlayer: ch.acceptedPlayer ?? null,
-                acceptedPlayer2: ch.acceptedPlayer2 ?? null,
-                battleId: ch.battleId ?? null,
-                petBattleSeed: ch.petBattleSeed ?? null,
-                stashedAt: Date.now(),
-            }));
-        } catch { /* sessionStorage unavailable — fall through */ }
-        switch (ch.mode) {
-            case "pvp1v1":
-                setScreen("pvpBattle");
-                break;
-            case "pvp2v2":
-                // Phase 4: 2v2 PvP wrapper. For now route to existing PvP
-                // and let the partners coordinate via tavern chat.
-                setScreen("pvpBattle");
-                break;
-            case "pet1v1":
-            case "pet2v2":
-                setScreen("petArena");
-                break;
-            case "tilecards":
-                // Tile cards live inside the Sunscar Festival; no
-                // standalone PvP duel screen yet. For Phase 3 we route
-                // there and rely on manual reporting.
-                setScreen("tavern");
-                break;
-        }
+        launchClanWarBattle(ch, myWar.id);
     }
 
     async function handleReport(ch: CwChallenge, result: CwChallengeResult) {
