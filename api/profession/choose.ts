@@ -23,8 +23,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(400).json({ error: 'Invalid profession.' });
         }
         // Admin accounts can't pick a profession — the picker UI also skips
-        // them, but block at the endpoint as defense-in-depth.
-        if (playerName.toLowerCase() === 'admin 1' || playerName.toLowerCase() === 'admin 2') {
+        // them, but block at the endpoint as defense-in-depth. safeName
+        // upstream strips whitespace, so the canonical forms are 'admin1'
+        // and 'admin2' (the prior 'admin 1' / 'admin 2' literals never
+        // matched after sanitization and silently let admins through).
+        const lower = playerName.toLowerCase();
+        if (lower === 'admin1' || lower === 'admin2') {
             return res.status(403).json({ error: 'Admin accounts do not pick professions.' });
         }
 
