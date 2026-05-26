@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
+import { enforceRateLimitKv } from '../_ratelimit.js';
 import { getActiveSilence } from '../admin/moderation.js';
 import { withKvLock } from '../_lock.js';
 import type { PvpSession } from './session.js';
@@ -39,6 +40,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (req.method === 'POST') {
+        // Cap chat posts at 20/min per IP — keeps the KV-lock R-M-W from
+        // being a DOS vector while still allowing fast banter.
+        if (!(await enforceRateLimitKv(req, res, 'pvp-chat-post', 20, 60_000))) return;
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
             const { author, text } = body as {
