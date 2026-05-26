@@ -33601,9 +33601,9 @@ function VillageWarScreen({
                 villageWarRaidProgress: (character.villageWarRaidProgress ?? 0) + 1,
             });
             await refresh();
-            // If enemy hp hits 0, push the war record to mark capture and grant
-            // the final-blow player a Legendary War Crate + bigger reward.
-            if (newHp === 0) {
+            // The war only ENDS when the war-ground sector's HP hits 0. Raids
+            // on other enemy sectors just grant war supply and dent control.
+            if (newHp === 0 && sector === activeWar.warGroundSector) {
                 const crateId = `war-crate-${activeWar.id}`;
                 const updatedWar = { ...activeWar, capturedBy: myVillage, capturedAt: Date.now(), warGroundHp: 0, winnerVillage: myVillage, endedAt: Date.now(), warCrateId: crateId };
                 await fetch("/api/world-state", {
@@ -33677,6 +33677,9 @@ function VillageWarScreen({
                         </div>
                     </div>
                     <h3>Enemy Sectors — Raid to drain control</h3>
+                    <p style={{ color: "#facc15", fontSize: "0.85rem", marginTop: -4 }}>
+                        ⚑ The war ends when the <strong>war-ground sector ({activeWar.warGroundSector})</strong> reaches 0 HP.
+                    </p>
                     <div style={{ display: "grid", gap: 6, maxHeight: 360, overflowY: "auto" }}>
                         {territories
                             .filter(t => (t.ownerVillage ?? "") === enemyVillage)

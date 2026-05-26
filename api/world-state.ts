@@ -9,6 +9,40 @@ const VILLAGE_WAR_HP_MAX = 5000;
 const VILLAGE_WAR_GROUND_HP_MAX = 1000;
 const TERRITORY_KEY_PREFIX = 'world:territory:';
 const VILLAGE_WAR_KEY_PREFIX = 'world:war:';
+// Anti-cheat: cap how much HP a single raid request can drain so a malicious
+// client can't drop a sector from full → 0 in one POST. Matches the 500/raid
+// hit the legitimate Village War client UI deals.
+const TERRITORY_HP_MAX_DELTA_PER_REQUEST = 1000;
+// Same idea for raising HP via rebuild — bound the per-request gain.
+const TERRITORY_HP_MAX_REPAIR_PER_REQUEST = 1000;
+const VILLAGE_STATE_KEY_PREFIX = 'game:village-state:';
+
+function normalizeVillageKey(village: string): string {
+    return village.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+async function isSeatedKageOf(playerName: string, village: string): Promise<boolean> {
+    if (!village) return false;
+    try {
+        const vs = await kv.get<Record<string, unknown>>(`${VILLAGE_STATE_KEY_PREFIX}${normalizeVillageKey(village)}`);
+        const seated = String(vs?.seatedKage ?? '').trim().toLowerCase();
+        return seated === playerName.trim().toLowerCase();
+    } catch {
+        return false;
+    }
+}
+
+async function hasActiveWarBetween(actorVillage: string, defenderVillage: string): Promise<boolean> {
+    if (!actorVillage || !defenderVillage) return false;
+    try {
+        const id = villageWarId(actorVillage, defenderVillage);
+        const war = await kv.get<VillageWar>(`${VILLAGE_WAR_KEY_PREFIX}${id}`);
+        if (!war || war.endedAt) return false;
+        return war.villages.includes(actorVillage) && war.villages.includes(defenderVillage);
+    } catch {
+        return false;
+    }
+}
 
 type TerritoryBuffStat = 'bukijutsuOffense' | 'taijutsuOffense' | 'ninjutsuOffense' | 'genjutsuOffense';
 type WeatherType = 'clear' | 'rain' | 'thunderstorm' | 'ashfall' | 'tornado' | 'desertHaze';
@@ -153,12 +187,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (body?.kind === 'territory') {
                 const incomingTerritory = normalizeSectorTerritory({ ...body.territory, updatedAt: Date.now() });
 
-                // Participation gate: non-admin writers must (a) match the
-                // claiming clan or village of the territory they're updating,
-                // AND (b) hp / controlScore changes must move monotonically
-                // toward zero (damage) OR away from zero only if the writer
-                // already owned the sector (rebuild). We accept either
-                // direction as long as the actor is the relevant participant.
+                // Participation gate. Three valid writer cases:
+                //   1. Actor matches the claiming clan/village (defender / claimant)
+                //   2. Actor matches the PREVIOUS owner (rebuilding own sector)
+                //   3. Actor's village has an active war with the current owner village
+                //      (raider during an active village war)
+                // After identity is confirmed we also enforce a per-request HP delta
+                // cap so a malicious client can't drop a sector to 0 in one POST.
+                let prev: SectorTerritory | null = null;
                 if (!identity.admin) {
                     try {
                         const actorSave = await kv.get<Record<string, unknown>>(`save:${identity.name}`);
@@ -170,18 +206,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         const matchesClan = !!claimingClan && actorClan === claimingClan;
                         const matchesVillage = !!claimingVillage && actorVillage === claimingVillage;
 
-                        // Read the previous territory record so we can compare
-                        // HP / controlScore deltas — only actors involved in
-                        // the relevant village/clan may write.
-                        const prev = await kv.get<SectorTerritory>(`${TERRITORY_KEY_PREFIX}${incomingTerritory.sector}`);
+                        prev = await kv.get<SectorTerritory>(`${TERRITORY_KEY_PREFIX}${incomingTerritory.sector}`);
                         const prevClan = String(prev?.ownerClan ?? '').trim();
                         const prevVillage = String(prev?.ownerVillage ?? '').trim();
-                        const actorInvolved =
-                            matchesClan || matchesVillage ||
+                        const actorOwnsPrev =
                             (prevClan && actorClan === prevClan) ||
                             (prevVillage && actorVillage === prevVillage);
+
+                        // Raider case: actor's village is currently AT WAR with the owner village.
+                        let raiderDuringWar = false;
+                        if (!matchesClan && !matchesVillage && !actorOwnsPrev && prevVillage && actorVillage && actorVillage !== prevVillage) {
+                            raiderDuringWar = await hasActiveWarBetween(actorVillage, prevVillage);
+                        }
+
+                        const actorInvolved = matchesClan || matchesVillage || actorOwnsPrev || raiderDuringWar;
                         if (!actorInvolved) {
-                            return res.status(403).json({ error: 'Only clan/village participants can update this territory.' });
+                            return res.status(403).json({ error: 'You are not a participant in this sector (no active war with the owner village).' });
+                        }
+
+                        // Per-request HP delta cap — applies to all non-admin writers.
+                        const prevHp = Number(prev?.hp ?? TERRITORY_HP_MAX);
+                        const newHp = incomingTerritory.hp;
+                        if (newHp < prevHp - TERRITORY_HP_MAX_DELTA_PER_REQUEST) {
+                            return res.status(400).json({ error: `HP can only drop by ${TERRITORY_HP_MAX_DELTA_PER_REQUEST} per request.` });
+                        }
+                        if (newHp > prevHp + TERRITORY_HP_MAX_REPAIR_PER_REQUEST) {
+                            return res.status(400).json({ error: `HP can only rise by ${TERRITORY_HP_MAX_REPAIR_PER_REQUEST} per request.` });
+                        }
+                        // Raiders may not increase HP (only defenders / owners may rebuild).
+                        if (raiderDuringWar && newHp > prevHp) {
+                            return res.status(400).json({ error: 'Raiders may not rebuild the enemy sector.' });
                         }
                     } catch {
                         return res.status(500).json({ error: 'Unable to verify territory participation.' });
@@ -196,7 +250,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const war = normalizeVillageWar({ ...body.war, updatedAt: Date.now() });
                 if (!war) return res.status(400).json({ error: 'Invalid war.' });
 
-                // Non-admin: actor must belong to one of the two participating villages.
+                // Non-admin rules:
+                //   • Creating or ENDING a war (winner / endedAt / capturedBy)
+                //     requires the actor to be the seated Kage of one of the
+                //     warring villages.
+                //   • Routine mid-war updates (HP changes from raids, etc.) are
+                //     allowed for any member of either warring village.
                 if (!identity.admin) {
                     try {
                         const actorSave = await kv.get<Record<string, unknown>>(`save:${identity.name}`);
@@ -204,6 +263,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         const actorVillage = String(actorChar?.village ?? '').trim();
                         if (!actorVillage || !war.villages.includes(actorVillage)) {
                             return res.status(403).json({ error: 'Only members of the warring villages can update this war.' });
+                        }
+
+                        const existing = await kv.get<VillageWar>(`${VILLAGE_WAR_KEY_PREFIX}${war.id}`);
+                        const isCreating = !existing;
+                        const isEnding = !existing?.endedAt && !!war.endedAt;
+                        const isClaimingWin = !existing?.winnerVillage && !!war.winnerVillage;
+                        const isClaimingCapture = !existing?.capturedBy && !!war.capturedBy;
+
+                        if (isCreating) {
+                            // Only Kage of a warring village may declare war.
+                            const kage = await isSeatedKageOf(identity.name, actorVillage);
+                            if (!kage) {
+                                return res.status(403).json({ error: 'Only the seated Kage of a warring village can declare a war.' });
+                            }
+                        } else if (isEnding || isClaimingWin || isClaimingCapture) {
+                            // Allow ending if the actor is Kage OR if the legitimate
+                            // win condition is satisfied — the war-ground sector's HP
+                            // is 0 in the persisted territory record. This lets the
+                            // final-blow raider claim victory without needing Kage
+                            // status, while still rejecting fake "I won" claims.
+                            const kage = await isSeatedKageOf(identity.name, actorVillage);
+                            if (!kage) {
+                                const groundSector = existing?.warGroundSector ?? war.warGroundSector;
+                                const groundTerritory = await kv.get<SectorTerritory>(`${TERRITORY_KEY_PREFIX}${groundSector}`);
+                                const groundHp = Number(groundTerritory?.hp ?? TERRITORY_HP_MAX);
+                                const winnerVillage = war.winnerVillage ?? war.capturedBy;
+                                const legitimateWin = groundHp <= 0 && winnerVillage === actorVillage;
+                                if (!legitimateWin) {
+                                    return res.status(403).json({ error: 'War can only be ended by the Kage or when the war ground is actually captured.' });
+                                }
+                            }
                         }
                     } catch {
                         return res.status(500).json({ error: 'Unable to verify war participation.' });
