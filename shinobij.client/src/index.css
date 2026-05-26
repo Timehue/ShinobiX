@@ -5859,11 +5859,18 @@ body {
     position: relative;
     width: 100%;
     min-height: 720px;
+    margin-top: 96px;
     overflow: hidden;
     border-radius: 18px;
     border: 2px solid rgba(255, 215, 0, 0.45);
     background: #07111f;
     box-shadow: 0 0 30px rgba(0,0,0,.65);
+}
+
+@media (max-width: 800px) {
+    .village-full-scene {
+        margin-top: 18px;
+    }
 }
 
     .village-full-scene img {
