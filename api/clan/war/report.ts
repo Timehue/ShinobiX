@@ -4,6 +4,7 @@ import { cors } from '../../_utils.js';
 import { authedPlayerOrAdmin } from '../../_auth.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
 import { withKvLock } from '../../_lock.js';
+import type { PvpSession } from '../../pvp/session.js';
 import {
     applyLazyClanWarExpiry,
     CHALLENGE_DAMAGE,
@@ -15,6 +16,39 @@ import {
     type ClanWar,
     type ClanChallenge,
 } from './_storage.js';
+
+// For PvP-mode challenges (mode includes a battleId), cross-check the
+// reported result against the authoritative PvpSession. Returns null when
+// the session validates the report, or an error tuple to short-circuit.
+//
+// Pet-mode challenges don't have a session to validate against — those rely
+// entirely on the existing two-phase opposite-side-confirmation defense.
+async function validateAgainstPvpSession(
+    ch: ClanChallenge,
+    result: ChallengeResult,
+): Promise<{ status: 409 | 404; body: { error: string } } | null> {
+    if (!ch.battleId) return null;
+    const session = await kv.get<PvpSession>(`pvp:${ch.battleId}`);
+    if (!session) {
+        // Session may have expired (24h TTL on pvp:* keys). Fall back to
+        // the two-phase reporting defense rather than blocking the report.
+        return null;
+    }
+    if (session.status !== 'done' || !session.winner) {
+        return { status: 409, body: { error: 'Battle session not yet decided — wait for the fight to finish before reporting.' } };
+    }
+    // Map the session winner back to challenge sides. fromPlayer / fromPlayer2
+    // are on the "from" side; the rest are on the "to" side.
+    const winnerName = session.winner === 'p1' ? session.p1.name : session.p2.name;
+    const winnerLower = (winnerName ?? '').toLowerCase();
+    const fromNames = [ch.fromPlayer, ch.fromPlayer2].filter(Boolean).map((n) => (n ?? '').toLowerCase());
+    const winnerOnFromSide = fromNames.includes(winnerLower);
+    const expected: ChallengeResult = winnerOnFromSide ? 'from-wins' : 'to-wins';
+    if (result !== expected) {
+        return { status: 409, body: { error: `Reported result disagrees with the PvP session. The session recorded ${expected}.` } };
+    }
+    return null;
+}
 
 // POST /api/clan/war/report
 // Body: { warId, challengeId, result: 'from-wins' | 'to-wins' | 'draw' }
@@ -145,6 +179,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Participant check (admin bypasses for both phases).
             if (!identity.admin && !isParticipant(identity.name, ch)) {
                 return { status: 403 as const, body: { error: 'Only a participant can report this result.' } };
+            }
+
+            // PvP-session cross-check (non-admin only). For challenges that
+            // produced a server-side PvP battle, refuse reports that
+            // disagree with the authoritative session winner. This blocks
+            // colluding-pair / sock-puppet fake wins. Pet modes (no
+            // battleId) skip this and rely on two-phase reporting alone.
+            if (!identity.admin && result !== 'draw') {
+                const sessionError = await validateAgainstPvpSession(ch, result);
+                if (sessionError) return sessionError;
             }
 
             const now = Date.now();

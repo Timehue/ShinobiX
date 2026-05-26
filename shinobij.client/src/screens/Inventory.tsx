@@ -13,8 +13,10 @@ import {
     getAllTileCards,
     getItemById,
     hasCharacterElement,
+    nonVanguardCharmSubstitute,
     normalizeEquipmentSlot,
     petFeedXpForItem,
+    vanguardOnlyHonorSeals,
 } from "../App";
 
 export function Inventory({
@@ -150,14 +152,23 @@ export function Inventory({
         if (entry === LEGENDARY_WAR_CRATE_ID) {
             const rewards = [WARFORGED_RELIC_ID];
             if (Math.random() < 0.35) rewards.push(DUNGEON_KEY_ID);
+            // Honor Seals are Vanguard-only. Non-Vanguards get the standard
+            // 8:1 Bone Charm substitute instead (matches every other grant
+            // site since 510f4cb).
+            const honorSealGain = vanguardOnlyHonorSeals(character, 10);
+            const charmGain = nonVanguardCharmSubstitute(character, 10);
             updateCharacter({
                 ...character,
                 inventory: [...removeInventoryIndex(index), ...rewards],
-                honorSeals: (character.honorSeals ?? 0) + 10,
+                honorSeals: (character.honorSeals ?? 0) + honorSealGain,
+                boneCharms: (character.boneCharms ?? 0) + charmGain,
                 ryo: character.ryo + 500,
             });
             setSelectedInventoryItem(null);
-            alert(`War crate opened. +1 Warforged Relic, +500 ryo, +10 Honor Seals${rewards.includes(DUNGEON_KEY_ID) ? ", +1 Dungeon Key" : ""}.`);
+            const honorMsg = honorSealGain > 0
+                ? `, +${honorSealGain} Honor Seals`
+                : charmGain > 0 ? `, +${charmGain} Bone Charms` : "";
+            alert(`War crate opened. +1 Warforged Relic, +500 ryo${honorMsg}${rewards.includes(DUNGEON_KEY_ID) ? ", +1 Dungeon Key" : ""}.`);
             return;
         }
 
