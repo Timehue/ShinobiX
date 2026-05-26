@@ -8620,6 +8620,70 @@ export default function App() {
     const [processingChallengeIds, setProcessingChallengeIds] = useState<string[]>([]);
     const [pendingPetBattleOpponent, setPendingPetBattleOpponent] = useState<PetArenaOpponent | null>(null);
 
+    // Auto-report a clan-war battle result on behalf of the actual
+    // battle systems. Reads the clan-war stash placed in
+    // sessionStorage by launchClanWarBattle; computes the canonical
+    // 'from-wins' / 'to-wins' / 'draw' result based on which side
+    // the current player is on. Both the winner's and the loser's
+    // clients call this when their respective battle screen
+    // resolves — the two-phase tentative+confirm logic on the
+    // server merges the matching reports into a single finalized
+    // outcome and only applies HP damage once. Players never need
+    // to click an "I won" button; the report flows through the
+    // game's own win/loss handlers.
+    const autoReportClanWarBattleResult = useCallback(async (youWon: boolean | "draw") => {
+        if (!character) return;
+        let stashed: unknown = null;
+        try {
+            const raw = sessionStorage.getItem("clanWarChallenge.v1");
+            if (!raw) return;
+            stashed = JSON.parse(raw);
+        } catch { return; }
+        const s = stashed as {
+            warId?: string;
+            challengeId?: string;
+            fromClan?: string;
+            fromPlayer?: string;
+            fromPlayer2?: string | null;
+            stashedAt?: number;
+        } | null;
+        if (!s?.warId || !s.challengeId || !s.fromClan) return;
+        // Safety: discard stale stashes (> 24h) so a forgotten
+        // sessionStorage entry can't auto-report against an unrelated
+        // future battle.
+        if (s.stashedAt && Date.now() - s.stashedAt > 24 * 60 * 60 * 1000) {
+            try { sessionStorage.removeItem("clanWarChallenge.v1"); } catch { /* ignore */ }
+            return;
+        }
+        const me = character.name.toLowerCase();
+        const onFromSide = (s.fromPlayer ?? "").toLowerCase() === me
+            || (s.fromPlayer2 ?? "").toLowerCase() === me;
+        let result: CwChallengeResult;
+        if (youWon === "draw") {
+            result = "draw";
+        } else if (youWon) {
+            result = onFromSide ? "from-wins" : "to-wins";
+        } else {
+            result = onFromSide ? "to-wins" : "from-wins";
+        }
+        try {
+            const r = await fetch("/api/clan/war/report", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ warId: s.warId, challengeId: s.challengeId, result }),
+            });
+            const data = await r.json().catch(() => ({}));
+            // Only clear the stash on a finalized report (both sides
+            // matched, or the tentative auto-confirmed). Leave it in
+            // place during the tentative phase so the OTHER side's
+            // client gets a chance to confirm/dispute without the
+            // launching player losing context.
+            if (r.ok && data?.tentative === false) {
+                try { sessionStorage.removeItem("clanWarChallenge.v1"); } catch { /* ignore */ }
+            }
+        } catch { /* network blip; the other side's report will still finalize */ }
+    }, [character]);
+
     // Launch helper for clan-war challenges. ClanBattlesTab calls this
     // when the player clicks "Launch Battle" on an accepted challenge.
     // We thread it through ShinobiCouncilHall → ClanBattlesTab so the
@@ -13548,6 +13612,15 @@ export default function App() {
                         }
                         if (rewardSector > 0) recordMissionRaid(rewardSector);
                         if (villageWarPvpPatch) console.info(villageWarPvpPatch.trim());
+                        // Clan-war auto-report on win: if this PvP session
+                        // was launched from a clan-war challenge (set by
+                        // launchClanWarBattle), tell the server we won.
+                        // The loser's client fires the matching call from
+                        // its onLoss handler; the two-phase report on the
+                        // server merges them into a single damage event.
+                        if (context?.clanWarChallengeId) {
+                            void autoReportClanWarBattleResult(true);
+                        }
                         // Vanguard daily mission progress — server validates the
                         // win against the actual PvpSession and enforces its own
                         // anti-abuse rules (quick-surrender, account age, IP),
@@ -13587,6 +13660,12 @@ export default function App() {
                             battleMode={pvpBattleContext?.mode ?? "standard"}
                             onWin={handlePvpWin}
                             onLoss={(opponent) => {
+                                // Clan-war auto-report on loss — mirror of
+                                // handlePvpWin's call so both clients
+                                // confirm the same outcome on the server.
+                                if (pvpBattleContext?.clanWarChallengeId) {
+                                    void autoReportClanWarBattleResult(false);
+                                }
                                 if (pvpBattleContext?.mode !== "ranked" || !opponent) return;
                                 const loss = rankedDelta(opponent.rankedRating ?? 1000, character.rankedRating ?? 1000);
                                 setCharacter({
@@ -23659,10 +23738,10 @@ function ClanWarManual({ onClose }: { onClose: () => void }) {
                 <br />• <strong>Accept queue:</strong> 1st defender clicks <em>Queue to Accept</em>; a 2nd defender clicks <em>Join Accept Queue</em> and the battle becomes ready. Anyone in the accept queue can leave at any time.
             </p>
             <p style={{ margin: "0 0 0.5rem" }}>
-                <strong style={{ color: "#60a5fa" }}>Launching + reporting battles.</strong> Once a challenge is fully accepted it appears in <em>Your Active Battles</em>. Click <strong>Launch Battle</strong> to route to the right screen (PvP arena / Pet arena / Tavern for Tile Cards) and play the match using the existing systems. Then come back and report.
+                <strong style={{ color: "#60a5fa" }}>Launching battles.</strong> Once a challenge is fully accepted it appears in <em>Your Active Battles</em>. Click <strong>Launch Battle</strong> to route to the right screen (PvP arena / Pet arena / Tavern for Tile Cards) and play the match using the existing systems. <strong>You don't need to report anything</strong> — the PvP / Pet Arena win &amp; loss handlers post the result to the server automatically when the fight ends.
             </p>
             <p style={{ margin: "0 0 0.5rem", fontSize: "0.82rem" }}>
-                <strong style={{ color: "#60a5fa" }}>Two-phase reports (anti-cheat).</strong> The first reporter submits a <em>tentative</em> result — no damage yet. The opposing side has <strong>15 minutes</strong> to <em>confirm</em> (damage applies) or <em>dispute</em> (recorded as a draw, no damage). After the window any participant can re-report to auto-confirm. This stops a loser from front-running the winner with a fake result.
+                <strong style={{ color: "#60a5fa" }}>Auto-report + two-phase confirm (anti-cheat).</strong> Both clients post the outcome they observed from the actual battle (the winner's client and the loser's client). The server treats the first arrival as <em>tentative</em>; the matching report from the opposing side <em>confirms</em> it and damage applies. If reports disagree (rare — both clients see the same fight), the challenge is recorded as a draw with no damage. If the opposing side never reports within <strong>15 minutes</strong>, the tentative auto-confirms on the next read. A manual "Battle disconnected? Report manually" fallback is hidden under each entry for emergency cases (network failure, tile-card duels which don't yet auto-report).
             </p>
             <p style={{ margin: "0 0 0.5rem" }}>
                 <strong style={{ color: "#60a5fa" }}>Winning the war.</strong> When one clan's HP hits <strong>0</strong>, the war ends and the other clan wins. The server also computes an MVP per clan (most wins; tiebreak by damage contributed) — visible on the war card and recent-war record.
@@ -26900,8 +26979,7 @@ function ClanBattlesTab({ character, playerRoster, setScreen, launchClanWarBattl
                             <div style={{ background: "#1f1606", border: "1px solid #fbbf24", borderRadius: 6, padding: "0.8rem", marginBottom: "1rem" }}>
                                 <strong style={{ color: "#fbbf24" }}>⚔ Your Active Battles ({myActive.length})</strong>
                                 <p style={{ fontSize: "0.78rem", color: "#fef3c7", margin: "4px 0 8px" }}>
-                                    Launch each battle from the right screen, then return here to report the result.
-                                    Reports are <strong>two-phase</strong> — the first reporter stamps a tentative; the opposing side has <strong>15 minutes</strong> to confirm (damage applies) or dispute (recorded as a draw). After the window, anyone can re-report to auto-confirm.
+                                    Launch each battle from the right screen — the PvP / Pet Arena win &amp; loss handlers <strong>auto-report</strong> the result to the server when the fight ends, so you don't have to do anything else. The two-phase tentative + confirm flow runs server-side between the two clients' reports, then the damage applies.
                                 </p>
                                 {myActive.map(ch => {
                                     const fromSide = (ch.fromPlayer ?? "").toLowerCase() === character.name.toLowerCase()
@@ -26941,17 +27019,28 @@ function ClanBattlesTab({ character, playerRoster, setScreen, launchClanWarBattl
                                                         : <span style={{ color: "#a7f3d0" }}>📨 Opposing side reported <strong>{tentativeLabel}</strong>. {tentativeStale ? "Window elapsed — clicking below will auto-confirm." : `Confirm to apply damage, or dispute to record a draw. ${tentativeMins}m remaining.`}</span>}
                                                 </div>
                                             )}
-                                            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                                                <button onClick={() => void handleReport(ch, myWinResult)} disabled={busy} style={{ padding: "0.3rem 0.6rem", background: "#15803d", borderColor: "#4ade80", fontSize: "0.85rem" }}>
-                                                    {hasTentative && !iAmTentative ? (tentativeMyWin ? "✅ Confirm: I won" : "⚠ Dispute → I won") : "✅ I won"}
-                                                </button>
-                                                <button onClick={() => void handleReport(ch, oppWinResult)} disabled={busy} className="danger-button" style={{ padding: "0.3rem 0.6rem", fontSize: "0.85rem" }}>
-                                                    {hasTentative && !iAmTentative ? (!tentativeMyWin && ch.tentativeResult !== "draw" ? "✅ Confirm: Opponent won" : "⚠ Dispute → Opp won") : "❌ Opponent won"}
-                                                </button>
-                                                <button onClick={() => void handleReport(ch, "draw")} disabled={busy} style={{ padding: "0.3rem 0.6rem", fontSize: "0.85rem" }}>
-                                                    {hasTentative && !iAmTentative ? (ch.tentativeResult === "draw" ? "✅ Confirm: Draw" : "⚠ Dispute → Draw") : "🤝 Draw"}
-                                                </button>
-                                            </div>
+                                            {/* Manual report — hidden by default. The PvP / Pet Arena
+                                                screens auto-report on win/loss, so players don't need
+                                                to touch this. Only surfaced as an emergency fallback for
+                                                disconnect / dispute cases. Tile-card duels currently
+                                                require manual reporting since their auto-report flow is
+                                                a follow-up. */}
+                                            <details style={{ marginTop: 4 }}>
+                                                <summary style={{ cursor: "pointer", color: "#64748b", fontSize: "0.78rem" }}>
+                                                    {hasTentative ? "Confirm or dispute the report ⚠" : "Battle disconnected? Report manually"}
+                                                </summary>
+                                                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
+                                                    <button onClick={() => void handleReport(ch, myWinResult)} disabled={busy} style={{ padding: "0.3rem 0.6rem", background: "#15803d", borderColor: "#4ade80", fontSize: "0.8rem" }}>
+                                                        {hasTentative && !iAmTentative ? (tentativeMyWin ? "✅ Confirm: I won" : "⚠ Dispute → I won") : "✅ I won"}
+                                                    </button>
+                                                    <button onClick={() => void handleReport(ch, oppWinResult)} disabled={busy} className="danger-button" style={{ padding: "0.3rem 0.6rem", fontSize: "0.8rem" }}>
+                                                        {hasTentative && !iAmTentative ? (!tentativeMyWin && ch.tentativeResult !== "draw" ? "✅ Confirm: Opponent won" : "⚠ Dispute → Opp won") : "❌ Opponent won"}
+                                                    </button>
+                                                    <button onClick={() => void handleReport(ch, "draw")} disabled={busy} style={{ padding: "0.3rem 0.6rem", fontSize: "0.8rem" }}>
+                                                        {hasTentative && !iAmTentative ? (ch.tentativeResult === "draw" ? "✅ Confirm: Draw" : "⚠ Dispute → Draw") : "🤝 Draw"}
+                                                    </button>
+                                                </div>
+                                            </details>
                                             {ch.battleId && <small style={{ display: "block", marginTop: 4, color: "#64748b" }}>Battle ID: {ch.battleId}</small>}
                                             {ch.petBattleSeed && <small style={{ display: "block", marginTop: 4, color: "#64748b" }}>Pet seed: {ch.petBattleSeed}</small>}
                                         </div>
