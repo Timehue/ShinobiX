@@ -74,7 +74,7 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
     const tabs: { id: LbTab; label: string; icon: string }[] = [
         { id: "ranked",      label: "Ranked",       icon: "🎖" },
         { id: "kills",       label: "Kill Streaks",  icon: "🗡" },
-        { id: "xp",          label: "Most XP",       icon: "?" },
+        { id: "xp",          label: "Most XP",       icon: "📈" },
         { id: "clans",       label: "Top Clans",     icon: "🏴" },
         { id: "pets",        label: "Pet Wins",      icon: "🐾" },
         { id: "endless",     label: "Endless",       icon: "🌀" },
@@ -185,9 +185,40 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
                 )}
                 {tab === "villageWars" && (
                     <>
-                        <p className="hol-board-label">Village War Raids Completed</p>
+                        {/* Four small boards under one tab: wars won, MVP wall,
+                            lifetime damage, raid count. All four read from
+                            character fields populated by claimPendingWarCrates
+                            at war-end time. */}
+                        <p className="hol-board-label">🏆 Wars Won</p>
+                        {(() => {
+                            const top = sortedTop(c => c.warsWon ?? 0).filter(c => (c.warsWon ?? 0) > 0);
+                            return top.length === 0
+                                ? <p className="hol-empty">No village war victories recorded yet.</p>
+                                : top.map((c, i) => (
+                                    <Row key={`won-${c.name}`} rank={i+1} name={c.name} value={c.warsWon ?? 0} suffix={` win${(c.warsWon ?? 0) === 1 ? "" : "s"}`} village={c.village} />
+                                ));
+                        })()}
+                        <p className="hol-board-label" style={{ marginTop: "1rem" }}>👑 MVP Wall</p>
+                        {(() => {
+                            const top = sortedTop(c => c.warMvpCount ?? 0).filter(c => (c.warMvpCount ?? 0) > 0);
+                            return top.length === 0
+                                ? <p className="hol-empty">No war MVPs crowned yet.</p>
+                                : top.map((c, i) => (
+                                    <Row key={`mvp-${c.name}`} rank={i+1} name={c.name} value={c.warMvpCount ?? 0} suffix={` MVP${(c.warMvpCount ?? 0) === 1 ? "" : "s"}`} village={c.village} />
+                                ));
+                        })()}
+                        <p className="hol-board-label" style={{ marginTop: "1rem" }}>💥 All-Time War Damage</p>
+                        {(() => {
+                            const top = sortedTop(c => c.lifetimeWarDamage ?? 0).filter(c => (c.lifetimeWarDamage ?? 0) > 0);
+                            return top.length === 0
+                                ? <p className="hol-empty">No war damage tallied yet.</p>
+                                : top.map((c, i) => (
+                                    <Row key={`dmg-${c.name}`} rank={i+1} name={c.name} value={c.lifetimeWarDamage ?? 0} suffix=" HP" village={c.village} />
+                                ));
+                        })()}
+                        <p className="hol-board-label" style={{ marginTop: "1rem" }}>⚔ Raids Completed</p>
                         {sortedTop(c => c.totalVillageRaids ?? 0).map((c, i) => (
-                            <Row key={c.name} rank={i+1} name={c.name} value={c.totalVillageRaids ?? 0} suffix=" raids" village={c.village} />
+                            <Row key={`raid-${c.name}`} rank={i+1} name={c.name} value={c.totalVillageRaids ?? 0} suffix=" raids" village={c.village} />
                         ))}
                     </>
                 )}
