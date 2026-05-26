@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import type * as React from "react";
 import "./index.css";
 import { installAuthFetch, setActivePlayer } from "./authFetch";
+import { GameAlertHost } from "./components/GameAlert";
 
 // Install the global fetch interceptor once at module load. From here on,
 // every fetch('/api/...') call automatically picks up x-player-name and
@@ -11523,6 +11524,7 @@ export default function App() {
                 backgroundImage: `linear-gradient(rgba(2, 6, 23, 0.38), rgba(2, 6, 23, 0.76)), url(${backgroundImage})`,
             }}
         >
+            <GameAlertHost />
             <div
                 className="app-background"
                 style={{ backgroundImage: `url(${backgroundImage})` }}
