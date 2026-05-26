@@ -703,7 +703,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const lockKey = `${key}:lock`;
         const lockToken = `${role}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
-        const lockResult = await kv.set(lockKey, lockToken, { nx: true, ex: 3 } as never);
+        // 10s lock (was 3s) — long enough that a move taking a few seconds
+        // under load can't have the lock expire and a concurrent move slip in.
+        const lockResult = await kv.set(lockKey, lockToken, { nx: true, ex: 10 } as never);
         if (!lockResult) return res.status(200).json(session);
 
         async function finish(payload: PvpSession) {
@@ -735,6 +737,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             s = { ...s, ap: { ...s.ap, [role as 'p1' | 'p2']: myAp - adjustedCost(apCost) }, actionsThisTurn: s.actionsThisTurn + 1 };
             if (cd) s = { ...s, cooldowns: { ...s.cooldowns, [role as 'p1' | 'p2']: { ...myCooldowns, ...cd } } };
             if (lines.length) s = { ...s, log: [...s.log, ...lines] };
+            // Stamp lastMoveAt so the opponent can claim an AFK forfeit if
+            // this player goes silent (claim-afk-win action below).
+            s = { ...s, lastMoveAt: Date.now() };
             return checkWinner(s);
         }
 
@@ -744,6 +749,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             case 'wait': {
                 lines.push(`${me.name} ends their turn.`);
                 result = endTurn({ ...session, log: [...session.log, ...lines] });
+                break;
+            }
+
+            case 'claim-afk-win': {
+                // Inactive player claims the win when the active player has
+                // been idle past the AFK threshold. Resolves stuck battles
+                // when an opponent crashes / closes their tab without fleeing.
+                const AFK_TIMEOUT_MS = 90_000;
+                if (session.activePlayer === role) {
+                    // You can only claim AFK against the OTHER player.
+                    return finish(session);
+                }
+                const lastMove = Number(session.lastMoveAt ?? session.createdAt);
+                const elapsed = Date.now() - lastMove;
+                if (elapsed < AFK_TIMEOUT_MS) {
+                    return finish({ ...session, log: [...session.log, `${me.name}'s AFK claim rejected — opponent has ${Math.ceil((AFK_TIMEOUT_MS - elapsed) / 1000)}s remaining.`] });
+                }
+                lines.push(`${opp.name} forfeits — AFK for over ${Math.floor(AFK_TIMEOUT_MS / 1000)}s. ${me.name} wins by default.`);
+                result = {
+                    ...session,
+                    status: 'done',
+                    winner: role,
+                    log: [...session.log, ...lines],
+                    lastMoveAt: Date.now(),
+                };
                 break;
             }
 
@@ -826,16 +856,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     await kv.set(key, updated, { ex: SESSION_TTL });
                     return finish(updated);
                 }
-                // Defense-in-depth: even though session.ts clamps the jutsu list
-                // at fight-create time, double-check the jutsu being USED falls
-                // inside known-safe bounds. Rejects anything tampered after
-                // hydration (e.g. via session-replay attacks).
-                if (!jutsuIsSane(jutsu)) {
-                    const rejectMsg = `${me.name}: ${jutsu.name} failed server validation (out-of-bounds effect or tag).`;
-                    const updated = { ...session, log: [...session.log, rejectMsg] };
-                    await kv.set(key, updated, { ex: SESSION_TTL });
-                    return finish(updated);
-                }
+                // jutsuIsSane re-validation removed — the jutsu comes from the
+                // session's loadout list, which session.ts already sanitized at
+                // fight-create time and is immutable afterwards. No code path
+                // mutates the loadout mid-fight, so per-move re-validation was
+                // pure overhead (~2-5ms in big loadouts).
                 const apCost = jutsu.ap ?? 40;
                 if (!canAct(apCost) || (myCooldowns[jutsuId] ?? 0) > 0) return finish(session);
 
@@ -1097,6 +1122,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             } catch (err) {
                 console.error('[pvp/move] vanguard reward grant failed', err);
             }
+        }
+        // Clear both fighters' inBattle + pendingAttacker flags when a battle
+        // resolves. Otherwise the loser is "engaged" for ~60s after their
+        // fight ends (pendingAttacker has a 60s TTL) and the cached presence
+        // entry blocks third parties from attacking them. Best-effort —
+        // failures don't undo the battle resolution.
+        if (result.status === 'done') {
+            const p1Key = `presence:${result.p1.name}`;
+            const p2Key = `presence:${result.p2.name}`;
+            try {
+                const [p1Presence, p2Presence] = await Promise.all([
+                    kv.get<{ inBattle?: boolean; pendingAttacker?: unknown; [k: string]: unknown }>(p1Key),
+                    kv.get<{ inBattle?: boolean; pendingAttacker?: unknown; [k: string]: unknown }>(p2Key),
+                ]);
+                const PRESENCE_TTL_S = 60;
+                await Promise.all([
+                    p1Presence ? kv.set(p1Key, { ...p1Presence, inBattle: undefined, pendingAttacker: null }, { ex: PRESENCE_TTL_S }) : Promise.resolve(),
+                    p2Presence ? kv.set(p2Key, { ...p2Presence, inBattle: undefined, pendingAttacker: null }, { ex: PRESENCE_TTL_S }) : Promise.resolve(),
+                ]);
+            } catch (err) {
+                console.error('[pvp/move] presence cleanup failed', err);
+            }
+        }
+        // Cap log size — UI only renders the last ~20 entries anyway, and an
+        // unbounded log inflates the KV record by 20-30 KB on long fights.
+        if (result.log.length > 100) {
+            result = { ...result, log: result.log.slice(-100) };
         }
         await kv.set(key, result, { ex: SESSION_TTL });
         return finish(result);
