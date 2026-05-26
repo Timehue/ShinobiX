@@ -24,6 +24,7 @@ import { withKvLock } from '../_lock.js';
 
 const ARENA_WIN_RATE_LIMIT = 5_000;   // ms — one win per 5s per player
 const DAILY_ARENA_WIN_CAP = 100;       // max server-validated wins per UTC day
+const REPORT_KEY_TTL_SECONDS = 10 * 60; // 10-min dedup window per reportKey
 
 type PetBattleOutcome = 'win' | 'loss';
 
@@ -52,6 +53,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const playerName = safeName(String(body.playerName ?? ''));
         const outcome = (body.outcome === 'win' || body.outcome === 'loss') ? body.outcome as PetBattleOutcome : null;
         const opponentLevel = Math.max(1, Math.min(100, Math.floor(Number(body.opponentLevel ?? 1))));
+        // Optional reportKey for refresh-replay dedup. Clients pass
+        // `${battleSeed}:1v1` or `${battleSeed}:match:${i}`; same key from
+        // the same player within REPORT_KEY_TTL_SECONDS is treated as a
+        // duplicate (the refresh-replay scenario for pet PvP). Sanitized
+        // to alphanumerics + : / - so it can't pollute the keyspace.
+        const reportKeyRaw = typeof body.reportKey === 'string' ? body.reportKey.slice(0, 64) : '';
+        const reportKey = /^[A-Za-z0-9:_-]+$/.test(reportKeyRaw) ? reportKeyRaw : '';
         if (!playerName) return res.status(400).json({ error: 'Invalid player name.' });
         if (!outcome) return res.status(400).json({ error: 'Invalid outcome.' });
 
@@ -59,6 +67,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) {
             return res.status(403).json({ error: 'Can only report your own battles.' });
+        }
+
+        // Refresh-replay dedup: NX-reserve the reportKey atomically. If it
+        // was already set, the client has already reported this exact
+        // battle outcome — return 200 alreadyReported so the caller's UI
+        // doesn't error out, but skip the ryo + counter increments.
+        // Only checked when both reportKey and outcome === 'win' (losses
+        // pay nothing so duplicates are harmless).
+        if (reportKey && outcome === 'win') {
+            const dedupKey = `pet:reported:${playerName}:${reportKey}`;
+            const placed = await kv.set(dedupKey, '1', { nx: true, ex: REPORT_KEY_TTL_SECONDS } as never).catch(() => null);
+            if (placed === null) {
+                // KV write errored — fail open to avoid denying real wins.
+            } else if (!placed) {
+                return res.status(200).json({ ok: true, alreadyReported: true, reward: 0 });
+            }
         }
 
         const saveKey = `save:${playerName}`;

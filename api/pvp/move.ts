@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
+import { enforceRateLimitKv } from '../_ratelimit.js';
 import type { PvpFighter, PvpGroundEffect, PvpSession, PvpStatus } from './session.js';
 import { grantVanguardRewardsForSession } from './_vanguard-rewards.js';
 
@@ -661,6 +662,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).end();
+
+    // Move cadence: legitimate gameplay caps at ~1 action/sec with the 45s
+    // round timer + 5 actions/round; 120/min is roughly 4× that, leaving
+    // headroom for retries and the AFK-fallback POSTs while blocking
+    // scripted spam (which would also tank the move-lock NX path).
+    // Keyed by IP here because we haven't auth'd yet — full per-player
+    // limit kicks in further down via the authedPlayerOrAdmin check.
+    if (!(await enforceRateLimitKv(req, res, 'pvp-move', 120, 60_000))) return;
 
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;

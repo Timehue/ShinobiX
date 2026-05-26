@@ -7985,6 +7985,14 @@ export default function App() {
     // pvpBattleId is registered AFTER the pvp state hooks are declared
     // (further down the App body — see "PvP session storage hook" below).
     const PVP_SESSION_KEY = "pvpSession.v1";
+    // Pet PvP battles are fully client-deterministic (same battleSeed →
+    // same outcome on both clients), so a refresh just means re-running the
+    // simulation locally. We persist the pending opponent + seed so the
+    // refresher can resume their pet PvP fight instead of vanishing.
+    // 5-min TTL: a 2v2 pet battle is ≤30 rounds × ~150ms per frame = <10s
+    // of animation, so anything past 5 min is stale.
+    const PENDING_PET_PVP_KEY = "pendingPetPvp.v1";
+    const PENDING_PET_PVP_TTL_MS = 5 * 60 * 1000;
 
     // ── Tab visibility: pause all polling when the browser tab is hidden ──
     const [tabVisible, setTabVisible] = useState(() => typeof document !== "undefined" ? document.visibilityState === "visible" : true);
@@ -8348,6 +8356,14 @@ export default function App() {
     useEffect(() => { characterRef.current = character; }, [character]);
     const screenRef = useRef<Screen>(screen);
     useEffect(() => { screenRef.current = screen; }, [screen]);
+    // Clear the pet-PvP resume breadcrumb whenever the player leaves the
+    // pet arena. Combined with the server-side reportKey dedup, this means
+    // refreshing mid-fight restores correctly, but refreshing AFTER the
+    // user navigates away can't re-trigger a stale battle replay.
+    useEffect(() => {
+        if (screen === "petArena") return;
+        try { localStorage.removeItem(PENDING_PET_PVP_KEY); } catch { /* ignore */ }
+    }, [screen]);
     const isTraveling = travelingUntil > travelNow;
 
     useEffect(() => {
@@ -8561,7 +8577,7 @@ export default function App() {
             } : {}),
         };
         const notified = await postPlayerChallengeNotice(challenge.fromName, acceptedNotice);
-        setPendingPetBattleOpponent({
+        const opponentForResume: PetArenaOpponent = {
             owner: challenge.fromName,
             pet: challengerPet,
             battleSeed: challenge.petBattleSeed,
@@ -8569,7 +8585,13 @@ export default function App() {
                 opponentParty: challengerParty,
                 challengerParty: myParty,
             } : {}),
-        });
+        };
+        // Persist so a mid-fight refresh restores the same deterministic
+        // battle on remount instead of silently abandoning it. 5-min TTL.
+        try {
+            localStorage.setItem(PENDING_PET_PVP_KEY, JSON.stringify({ opponent: opponentForResume, savedAt: Date.now() }));
+        } catch { /* private mode / quota — battle will just not resume on refresh */ }
+        setPendingPetBattleOpponent(opponentForResume);
         setScreen("petArena");
         setProcessingChallengeIds(prev => prev.filter(id => id !== challenge.id));
         if (!notified) alert(`${challenge.fromName} may not be pulled in automatically. Ask them to open Pet Arena if they do not see the fight.`);
@@ -8674,7 +8696,7 @@ export default function App() {
                         return (p1 && p2) ? [p1, p2] as [Pet, Pet] : undefined;
                     })()
                     : undefined;
-                setPendingPetBattleOpponent({
+                const opponentForResume: PetArenaOpponent = {
                     owner: accepted.fromName,
                     pet: accepted.responderPet,
                     battleSeed: accepted.petBattleSeed,
@@ -8682,7 +8704,13 @@ export default function App() {
                         opponentParty: accepted.responderParty,
                         challengerParty: myParty,
                     } : {}),
-                });
+                };
+                // Mirror of the accept-side persistence: store enough state
+                // so a refresh restores the deterministic battle.
+                try {
+                    localStorage.setItem(PENDING_PET_PVP_KEY, JSON.stringify({ opponent: opponentForResume, savedAt: Date.now() }));
+                } catch { /* ignore */ }
+                setPendingPetBattleOpponent(opponentForResume);
                 setScreen("petArena");
             } else {
                 alert(`${accepted.fromName} accepted your pet battle. Open Pet Arena if it does not start automatically.`);
@@ -8865,12 +8893,42 @@ export default function App() {
                 }
             } catch { /* corrupt or missing — ignore */ }
 
+            // Pet PvP refresh-resilience: a pet PvP battle is fully
+            // client-deterministic (same seed → same outcome on both
+            // clients) but lives only in React state. Without this
+            // restore, refreshing mid-fight silently abandons the battle
+            // and the player vanishes from the opponent's screen. We
+            // persist the pending opponent + seed on accept and restore
+            // it here so the simulation re-runs and the player still
+            // gets their win recorded.
+            let restoredPendingPetPvp: PetArenaOpponent | null = null;
+            try {
+                const raw = localStorage.getItem(PENDING_PET_PVP_KEY);
+                if (raw) {
+                    const parsed = JSON.parse(raw) as { opponent?: PetArenaOpponent; savedAt?: number };
+                    const age = Date.now() - (parsed.savedAt ?? 0);
+                    if (parsed.opponent && age < PENDING_PET_PVP_TTL_MS) {
+                        restoredPendingPetPvp = parsed.opponent;
+                        setPendingPetBattleOpponent(parsed.opponent);
+                    } else {
+                        localStorage.removeItem(PENDING_PET_PVP_KEY);
+                    }
+                }
+            } catch { /* corrupt or missing — ignore */ }
+
             (() => {
                 let target: Screen = "village";
                 // FORCE re-entry into a live PvP battle — overrides whatever
                 // the persisted screen was. Players cannot refresh-flee.
                 if (pvpSessionAliveOnServer && restoredPvpBattleId) {
                     setScreen("pvpBattle");
+                    return;
+                }
+                // FORCE re-entry into pet PvP if we restored a fresh
+                // pending battle. Same fairness rule as duel — refreshing
+                // shouldn't let you skip the fight.
+                if (restoredPendingPetPvp) {
+                    setScreen("petArena");
                     return;
                 }
                 try {
@@ -16759,7 +16817,10 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
             setPartyResult(party);
             // Award ryo once per match won — keeps the existing server cap
             // intact (each call is rate-limited and counts toward daily cap).
+            // Pass battleSeed + match-index so the server can dedup a
+            // refresh-replay (same seed → same reportKey → no double-claim).
             const matchesWon = party.matches.filter(m => m.result === "win").length;
+            const partySeed = opponent.battleSeed ?? null;
             for (let i = 0; i < matchesWon; i++) {
                 void (async () => {
                     try {
@@ -16770,6 +16831,7 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                                 playerName: character.name,
                                 outcome: "win",
                                 opponentLevel: opponent.pet.level,
+                                reportKey: partySeed != null ? `${partySeed}:match:${i}` : undefined,
                             }),
                         });
                     } catch { /* ignore */ }
@@ -16802,6 +16864,11 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                             playerName: character.name,
                             outcome: "win",
                             opponentLevel: opponent.pet.level,
+                            // Seed-based reportKey: a refresh-replay re-runs
+                            // the same deterministic battle and tries to
+                            // report again. Server rejects duplicates so the
+                            // player can't double-claim by refreshing.
+                            reportKey: opponent.battleSeed != null ? `${opponent.battleSeed}:1v1` : undefined,
                         }),
                     });
                     if (r.ok) {
@@ -35072,17 +35139,58 @@ function PvpBattleScreen({
     }, [!!session]);  
 
     // Apply completion rewards/penalties once per client when the shared fight ends.
+    // Refresh-resilience: the in-memory pvpRewardRef resets on every mount,
+    // and a refresh while session.status === 'done' would re-fire this
+    // effect and double-apply ryo / XP / monthlyPvpKills / ranked rating /
+    // village-war PvP delta / sector raid damage. We gate with both
+    //   • localStorage `pvp:rewarded:<battleId>` (instant, no network), and
+    //   • a server-side NX flag via /api/pvp/claim-rewards (authoritative —
+    //     covers cross-device refreshes and intentional localStorage clears).
+    // Server-side Vanguard seals/profession XP are already idempotent via
+    // _vanguard-rewards.ts; this fix covers everything the client applies.
     useEffect(() => {
         if (session?.status !== "done") return;
         const iWonNow = (session.winner === "p1" && role === "p1") || (session.winner === "p2" && role === "p2");
         const iLostNow = session.winner && session.winner !== "draw" && !iWonNow;
         if ((!iWonNow && !iLostNow) || pvpRewardRef.current) return;
+        const localKey = `pvp:rewarded:${battleId}`;
+        if (typeof window !== "undefined") {
+            try {
+                if (window.localStorage.getItem(localKey)) {
+                    pvpRewardRef.current = true;
+                    return;
+                }
+            } catch { /* private-mode localStorage can throw — fall through */ }
+        }
+        // Mark in-memory immediately so a fast re-render can't slip past
+        // while the server claim POST is in flight.
         pvpRewardRef.current = true;
         const oppFighter = role === "p1" ? session.p2 : session.p1;
         const opponent = normalizeCharacter(oppFighter.character as Character);
-        if (iWonNow) onWin?.(oppFighter.name, opponent);
-        else onLoss?.(opponent);
-    }, [session?.status, session?.winner]);  
+        const outcome: "win" | "loss" = iWonNow ? "win" : "loss";
+        (async () => {
+            let alreadyClaimed = false;
+            try {
+                const r = await fetch("/api/pvp/claim-rewards", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ playerName: character.name, battleId, outcome }),
+                });
+                if (r.ok) {
+                    const data = await r.json() as { alreadyClaimed?: boolean };
+                    alreadyClaimed = !!data.alreadyClaimed;
+                }
+            } catch {
+                // Network failure → treat as first claim (fail open). One
+                // duplicate during an outage is better than denying a real
+                // winner. localStorage still prevents re-fire on this tab.
+            }
+            try { window.localStorage.setItem(localKey, "1"); } catch {}
+            if (alreadyClaimed) return;
+            if (iWonNow) onWin?.(oppFighter.name, opponent);
+            else onLoss?.(opponent);
+        })();
+    }, [session?.status, session?.winner]);
 
     // Auto-pass when my turn starts but I can't afford the cheapest action
     const pvpMyAp = session ? (role === "p1" ? session.ap.p1 : session.ap.p2) : 100;
