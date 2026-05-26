@@ -12,11 +12,11 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, hospita
     const isHealer = character.profession === "healer";
     const healerRank = isHealer ? (character.professionRank ?? 1) : 0;
     const hospitalDiscount = getHospitalDiscountPercent(character);
-    // Discharge cost is bumped from 1000 to 2500 ryo for non-Healers — pay
-    // up or wait the 60-second free checkout. Healers still discharge at
-    // the original rate since hospital recovery is their trade.
-    const dischargeCost = discountCost(isHealer ? 1000 : 2500, hospitalDiscount);
-    const topUpCost = discountCost(50, hospitalDiscount);
+    // Healers heal themselves for free — both the topUp HP refill and the
+    // discharge action cost 0 ryo. Non-Healers pay a bumped 2,500 ryo to
+    // discharge (or wait the 60-second free checkout) and can't topUp at all.
+    const dischargeCost = isHealer ? 0 : discountCost(2500, hospitalDiscount);
+    const topUpCost = isHealer ? 0 : discountCost(50, hospitalDiscount);
     const [elapsed, setElapsed] = useState(0);
     const [healMsg, setHealMsg] = useState<Record<string, string>>({});
     const [healed, setHealed] = useState<Set<string>>(new Set());
@@ -150,7 +150,9 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, hospita
                     disabled={character.ryo < dischargeCost}
                     style={{ background: "linear-gradient(#14532d,#052e16)", borderColor: "#4ade80", opacity: character.ryo < dischargeCost ? 0.5 : 1, width: "100%", marginBottom: "0.5rem" }}
                 >
-                    ?? Pay {dischargeCost.toLocaleString()} ryo — Full Heal &amp; Discharge
+                    {isHealer
+                        ? "✚ Free Self-Heal & Discharge (Healer)"
+                        : `?? Pay ${dischargeCost.toLocaleString()} ryo — Full Heal & Discharge`}
                 </button>
                 {freeCheckoutReady ? (
                     <button
@@ -195,7 +197,7 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, hospita
                 <span style={{ marginLeft: "1.5rem" }}>Ryo: <strong>{character.ryo.toLocaleString()}</strong></span>
             </div>
             {isHealer ? (
-                <button onClick={topUp}>✚ Full Heal — {topUpCost} ryo{hospitalDiscount > 0 ? " discounted" : ""}</button>
+                <button onClick={topUp}>✚ Full Heal — Free (Healer)</button>
             ) : (
                 <p className="hint" style={{ margin: "0.4rem 0", color: "#94a3b8" }}>
                     🚫 Only Healers can heal at the hospital. If admitted, wait the 60-second timer or pay the discharge fee.
