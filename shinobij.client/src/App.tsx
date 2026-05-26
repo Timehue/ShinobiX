@@ -3058,6 +3058,62 @@ function capPetStats(pet: Pet): Pet {
         moveRange: Math.max(2, Math.min(5, Math.round(pet.moveRange ?? balancedPetBaseStats[pet.rarity]?.moveRange ?? 3))),
     };
 }
+// ── Pet element assignments ───────────────────────────────────────────────
+// Drives the Pet Arena type-effectiveness matchup (Fire > Wind > Lightning >
+// Earth > Water > Fire). Distribution across the player pet pool:
+//   • Standard (25 pets): 5 Fire, 5 Water, 5 Wind, 5 Lightning, 5 Earth
+//   • Rare     (25 pets): 5 each (same)
+//   • Legendary (15 pets): 3 each
+//   • Mythic    (5 pets):  1 each, set inline on the templates below
+// No "None" pets — every player pet plays the type chart so element matters
+// in every matchup. Elements were assigned thematically where the pet name
+// suggested one (Cinder Rat → Fire, Frost Cub → Water, etc.) and balanced
+// out across the more neutral names.
+const petElementByName: Record<string, JutsuElement> = {
+    // Standard — Fire
+    "Red Fox": "Fire", "Ashen Crow": "Fire", "Cinder Rat": "Fire",
+    "Desert Lizard": "Fire", "Sand Snake": "Fire",
+    // Standard — Water
+    "Snow Rabbit": "Water", "River Otter": "Water", "Blue Frog": "Water",
+    "Mist Ferret": "Water", "Frost Cub": "Water",
+    // Standard — Wind
+    "Forest Hawk": "Wind", "Pine Owl": "Wind", "White Crane": "Wind",
+    "Leaf Monkey": "Wind", "Storm Gull": "Wind",
+    // Standard — Lightning
+    "Iron Beetle": "Lightning", "Shadow Bat": "Lightning", "Tiny Wolf": "Lightning",
+    "Temple Gecko": "Lightning", "Meadow Deer": "Lightning",
+    // Standard — Earth
+    "Stone Turtle": "Earth", "Wild Boar": "Earth", "Mud Toad": "Earth",
+    "Rock Badger": "Earth", "Black Cat": "Earth",
+
+    // Rare — Fire
+    "Crimson Fox": "Fire", "Ashwing Raven": "Fire", "Cinder Weasel": "Fire",
+    "Shrine Salamander": "Fire", "Dune Viper": "Fire",
+    // Rare — Water
+    "Frost Hare": "Water", "Tide Otter": "Water", "Azure Toad": "Water",
+    "Mist Lynx": "Water", "Frostbite Cub": "Water",
+    // Rare — Wind
+    "Sky Falcon": "Wind", "Silver Owl": "Wind", "Pearl Crane": "Wind",
+    "Bamboo Ape": "Wind", "Stormfin Gull": "Wind",
+    // Rare — Lightning
+    "Glass Serpent": "Lightning", "Steel Beetle": "Lightning", "Duskwings Bat": "Lightning",
+    "Thorn Stag": "Lightning", "Young Direwolf": "Lightning",
+    // Rare — Earth
+    "Ironback Turtle": "Earth", "Bristle Boar": "Earth", "Mossback Toad": "Earth",
+    "Granite Badger": "Earth", "Night Panther": "Earth",
+
+    // Legendary — Fire
+    "Ember Phoenix": "Fire", "Ironfang Tiger": "Fire", "Golden Scarab": "Fire",
+    // Legendary — Water
+    "Glacier Wolf": "Water", "Azure Kirin": "Water", "Frost Lynx": "Water",
+    // Legendary — Wind
+    "Tempest Hawk": "Wind", "Ancient Crane": "Wind", "Umbra Fox": "Wind",
+    // Legendary — Lightning
+    "Storm Lion": "Lightning", "Thunder Drake": "Lightning", "Void Raven": "Lightning",
+    // Legendary — Earth
+    "Crystal Bear": "Earth", "Moon Serpent": "Earth", "Spirit Deer": "Earth",
+};
+
 function balanceBuiltInPetTemplate(pet: Pet): Pet {
     const base = balancedPetBaseStats[pet.rarity] ?? balancedPetBaseStats.standard;
     const variant = petVariantIndex(pet);
@@ -3072,7 +3128,12 @@ function balanceBuiltInPetTemplate(pet: Pet): Pet {
         const slotBonus = i * 5;
         return { ...jutsu, power: base.jutsuPower + variant + kindBonus + slotBonus };
     });
-    return capPetStats({ ...pet, hp, attack, defense, speed, jutsus, moveRange: pet.moveRange ?? base.moveRange });
+    // Inject the assigned element from the lookup table. Mythics get their
+    // element from the inline template directly (preserved via ...pet) and
+    // skip the lookup. Falls back to undefined for any unrecognized name,
+    // which the engine treats as neutral.
+    const element: JutsuElement | undefined = pet.element ?? petElementByName[pet.name];
+    return capPetStats({ ...pet, hp, attack, defense, speed, jutsus, moveRange: pet.moveRange ?? base.moveRange, element });
 }
 function petTrainingMultiplier(pet: Pet) {
     const durationMultiplier = petTrainingDurationMultipliers[pet.training?.durationMs ?? petTrainingDurations[0].ms] ?? 1;
@@ -3310,6 +3371,7 @@ const petPool: Pet[] = ([
         defense: 95,
         speed: 115,
         unlockedForPve: false,
+        element: "Wind",
         // Identity: trickster — debuffs enemy, heals self, two damage forms, fastest dash
         jutsus: [
             { name: "Nine Shadow Blessing", power: 25,  cooldown: 3, currentCooldown: 0, kind: "buff"   },
@@ -3332,6 +3394,7 @@ const petPool: Pet[] = ([
         defense: 90,
         speed: 100,
         unlockedForPve: false,
+        element: "Lightning",
         // Identity: storm striker — fast heavy attacks, poison pressure, storm lunge
         jutsus: [
             { name: "Storm King Aura",    power: 22,  cooldown: 3, currentCooldown: 0, kind: "buff"    },
@@ -3354,6 +3417,7 @@ const petPool: Pet[] = ([
         defense: 140,
         speed: 70,
         unlockedForPve: false,
+        element: "Water",
         // Identity: immovable fortress — massive sustain, debuffs opponent, slowest dash (tank)
         jutsus: [
             { name: "Absolute Zero Guard",  power: 30,  cooldown: 3, currentCooldown: 0, kind: "buff"   },
@@ -3375,6 +3439,7 @@ const petPool: Pet[] = ([
         defense: 100,
         speed: 140,
         unlockedForPve: false,
+        element: "Fire",
         // Identity: debuffer — strips enemy defense then punishes with heavy hits; fastest base speed
         jutsus: [
             { name: "Solar Spirit Blessing", power: 35,  cooldown: 3, currentCooldown: 0, kind: "buff"   },
@@ -3396,6 +3461,7 @@ const petPool: Pet[] = ([
         defense: 85,
         speed: 95,
         unlockedForPve: false,
+        element: "Earth",
         // Identity: glass cannon brawler — highest attack, fast strikes, venom, no heal (all-in)
         jutsus: [
             { name: "Oni Rage Howl",       power: 28,  cooldown: 3, currentCooldown: 0, kind: "buff"   },
@@ -3431,6 +3497,10 @@ function normalizePet(pet: Pet): Pet {
         defense: Math.max(pet.defense ?? 0, baseTemplate.defense),
         speed: Math.max(pet.speed ?? 0, baseTemplate.speed),
         moveRange: pet.moveRange ?? baseTemplate.moveRange,
+        // Backfill element from the template for existing saves whose pets
+        // predate the element field. Pet's own element (if any) wins so a
+        // future admin-edit override would still stick.
+        element: pet.element ?? baseTemplate.element,
         jutsus: (pet.jutsus?.length ? pet.jutsus : baseTemplate.jutsus).map((jutsu, i) => {
             const baseJutsu = baseTemplate.jutsus[i];
             return {
@@ -15941,7 +16011,7 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                         <p className="hint">You need a pet before entering the arena.</p>
                     ) : (
                         <select value={selectedPetId} onChange={(e) => setSelectedPetId(e.target.value)}>
-                            {character.pets.map((pet) => <option key={pet.id} value={pet.id}>{petDisplayName(pet)} | Lv {pet.level} | {pet.rarity}</option>)}
+                            {character.pets.map((pet) => <option key={pet.id} value={pet.id}>{petDisplayName(pet)} | Lv {pet.level} | {pet.rarity}{pet.element && pet.element !== "None" ? ` | ${pet.element}` : ""}</option>)}
                         </select>
                     )}
                     {selectedPet && <PetArenaCard owner="You" pet={selectedPet} sharedImages={sharedImages} />}
@@ -16047,7 +16117,7 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                             <select value={reservePetId} onChange={(e) => setReservePetId(e.target.value)} style={{ padding: "0.3rem" }}>
                                 <option value="">— auto-pick —</option>
                                 {character.pets.filter(p => p.id !== selectedPetId).map(p => (
-                                    <option key={p.id} value={p.id}>{petDisplayName(p)} (Lv {p.level})</option>
+                                    <option key={p.id} value={p.id}>{petDisplayName(p)} (Lv {p.level}{p.element && p.element !== "None" ? `, ${p.element}` : ""})</option>
                                 ))}
                             </select>
                         </div>
