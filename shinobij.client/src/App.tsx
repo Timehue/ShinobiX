@@ -4197,8 +4197,9 @@ const starterItems: GameItem[] = [
         name: "Territory Control Scroll",
         slot: "item",
         rarity: "rare",
-        cost: 1000,
-        description: "A clan war writ used to claim sectors, restore sector HP, and reinforce territory control.",
+        // cost: 0 → not sold in the shop. Earned only as a mission/raid drop.
+        cost: 0,
+        description: "A clan war writ used to claim sectors, restore sector HP, and reinforce territory control. Earned from missions and raids — not sold.",
         bonuses: {},
     },
     {
