@@ -23406,6 +23406,64 @@ async function addClanWarPoints(clanName: string | undefined, playerName: string
     await writeClanData(updated);
     console.info(`${playerName} earned ${boostedPoints} clan war points for ${clanName}.`);
 }
+// Shared tutorial popover — rendered inside both the Clan Hall →
+// Wars tab and the Shinobi Council Hall → Clan Battles tab via a "?"
+// button next to the title. Keeps the rules in one place so any
+// future balance change only has to update this manual.
+function ClanWarManual({ onClose }: { onClose: () => void }) {
+    return (
+        <div style={{ background: "#0b1220", border: "1px solid #334155", borderRadius: 8, padding: "1rem", marginBottom: "1rem", fontSize: "0.88rem", lineHeight: 1.55 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                <strong style={{ color: "#fde047", fontSize: "1rem" }}>📜 Clan War Manual</strong>
+                <button type="button" onClick={onClose} style={{ padding: "0.15rem 0.5rem", background: "#7f1d1d", borderColor: "#ef4444", color: "#fca5a5", fontSize: "0.75rem" }}>✕ Close</button>
+            </div>
+            <p style={{ margin: "0 0 0.5rem" }}>
+                <strong style={{ color: "#60a5fa" }}>Declaring war.</strong> Only your clan's <em>Founder, Leader, or Officer</em> can declare. Open the Shinobi Council Hall → Clan Battles tab and pick an eligible clan. Each clan can only be in <strong>one clan war at a time</strong>, and the same two clans have a <strong>7-day rematch cooldown</strong> after a war ends. Clan wars are completely independent of Village Wars — you can be in both simultaneously.
+            </p>
+            <p style={{ margin: "0 0 0.5rem" }}>
+                <strong style={{ color: "#60a5fa" }}>How damage works.</strong> Both clans start at <strong>1,000 HP</strong>. There's no open-world fighting — all damage comes from <em>completed challenges</em>. Wins do tiered HP damage; draws do nothing; losses do nothing to the winner.
+            </p>
+            <div style={{ display: "grid", gridTemplateColumns: "1.8fr 1fr", gap: 0, border: "1px solid #334155", borderRadius: 6, overflow: "hidden", marginBottom: "0.6rem", fontSize: "0.82rem" }}>
+                <div style={{ background: "#1e293b", padding: "0.35rem 0.6rem", fontWeight: 700, color: "#fde047" }}>Challenge mode</div>
+                <div style={{ background: "#1e293b", padding: "0.35rem 0.6rem", fontWeight: 700, color: "#f87171", textAlign: "right" }}>Damage on win</div>
+                <div style={{ padding: "0.3rem 0.6rem" }}>⚔ 1v1 PvP</div>
+                <div style={{ padding: "0.3rem 0.6rem", textAlign: "right", color: "#f87171" }}>−30 enemy HP</div>
+                <div style={{ padding: "0.3rem 0.6rem", background: "#0f172a" }}>⚔⚔ 2v2 PvP</div>
+                <div style={{ padding: "0.3rem 0.6rem", background: "#0f172a", textAlign: "right", color: "#f87171" }}>−60 enemy HP</div>
+                <div style={{ padding: "0.3rem 0.6rem" }}>🐾 Pet 1v1</div>
+                <div style={{ padding: "0.3rem 0.6rem", textAlign: "right", color: "#f87171" }}>−20 enemy HP</div>
+                <div style={{ padding: "0.3rem 0.6rem", background: "#0f172a" }}>🐾🐾 Pet 2v2</div>
+                <div style={{ padding: "0.3rem 0.6rem", background: "#0f172a", textAlign: "right", color: "#f87171" }}>−40 enemy HP</div>
+                <div style={{ padding: "0.3rem 0.6rem" }}>🃏 Tile Cards</div>
+                <div style={{ padding: "0.3rem 0.6rem", textAlign: "right", color: "#f87171" }}>−10 enemy HP</div>
+            </div>
+            <p style={{ margin: "0 0 0.5rem", fontSize: "0.82rem", color: "#94a3b8" }}>
+                Combat &gt; Pet &gt; Cards. 2v2 modes pay double the 1v1 of the same tier because they represent two sequential fights.
+            </p>
+            <p style={{ margin: "0 0 0.5rem" }}>
+                <strong style={{ color: "#60a5fa" }}>Sending an anonymous challenge.</strong> Any clan member can send. The enemy clan sees only your <em>clan name + mode</em> — your specific challenger name is hidden until they accept. Challenges expire after <strong>2 hours</strong> if no one accepts.
+            </p>
+            <p style={{ margin: "0 0 0.5rem" }}>
+                <strong style={{ color: "#60a5fa" }}>2v2 queues (both sides).</strong> 2v2 challenges use a queue model:
+                <br />• <strong>Send queue:</strong> the seed challenger opens a queue; a clanmate then clicks <em>Join as Partner</em> before the challenge is dispatched to the enemy. Either player can leave the queue at any time — if the seed leaves alone the challenge is cancelled; if a partner is queued they get promoted to seed.
+                <br />• <strong>Accept queue:</strong> 1st defender clicks <em>Queue to Accept</em>; a 2nd defender clicks <em>Join Accept Queue</em> and the battle becomes ready. Anyone in the accept queue can leave at any time.
+            </p>
+            <p style={{ margin: "0 0 0.5rem" }}>
+                <strong style={{ color: "#60a5fa" }}>Launching + reporting battles.</strong> Once a challenge is fully accepted it appears in <em>Your Active Battles</em>. Click <strong>Launch Battle</strong> to route to the right screen (PvP arena / Pet arena / Tavern for Tile Cards) and play the match using the existing systems. Then come back and click <strong>I won</strong>, <strong>Opponent won</strong>, or <strong>Draw</strong> — the server applies HP damage and only participants can submit a report.
+            </p>
+            <p style={{ margin: "0 0 0.5rem" }}>
+                <strong style={{ color: "#60a5fa" }}>Winning the war.</strong> When one clan's HP hits <strong>0</strong>, the war ends and the other clan wins. The server also computes an MVP per clan (most wins; tiebreak by damage contributed) — visible on the war card and recent-war record.
+            </p>
+            <p style={{ margin: "0 0 0.5rem", fontSize: "0.78rem", color: "#fbbf24" }}>
+                ⚠ <strong>Rate limits:</strong> 30 challenge actions per minute per player, 4 war declarations per hour per player, max 30 pending challenges per war, max 10 active challenges from a single clan at once.
+            </p>
+            <p style={{ margin: 0, color: "#94a3b8", fontSize: "0.8rem" }}>
+                A 14-day max duration auto-ends any war that drags on. After the war ends, recent results stay visible in the Clan Hall → Wars tab for spectating.
+            </p>
+        </div>
+    );
+}
+
 // Clan Wars panel — embedded inside Clan Hall's "Wars" tab. The full
 // challenge inbox + composer lives in the Shinobi Council Hall →
 // Clan Battles tab; this panel is a lightweight summary + jump-link
@@ -23415,6 +23473,7 @@ async function addClanWarPoints(clanName: string | undefined, playerName: string
 function ClanWarsPanel({ character, clanName, setScreen }: { character: Character; clanName: string; setScreen: (s: Screen) => void }) {
     const [wars, setWars] = useState<CwWar[]>([]);
     const [loading, setLoading] = useState(true);
+    const [showClanWarManual, setShowClanWarManual] = useState(false);
 
     const refresh = useCallback(async () => {
         const list = await cwListWars();
@@ -23436,11 +23495,23 @@ function ClanWarsPanel({ character, clanName, setScreen }: { character: Characte
 
     return (
         <div className="summary-box">
-            <h3>⚔️ Clan Wars</h3>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <h3 style={{ margin: 0 }}>⚔️ Clan Wars</h3>
+                <button
+                    type="button"
+                    onClick={() => setShowClanWarManual(v => !v)}
+                    title="How does Clan War work?"
+                    style={{ padding: "0.15rem 0.5rem", fontSize: "0.85rem", borderRadius: 999, border: "1px solid #60a5fa", background: "#1e293b", color: "#60a5fa", cursor: "pointer", width: 28, height: 28, display: "inline-flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}
+                >
+                    ?
+                </button>
+            </div>
             <p className="hint">
                 Clan wars are independent of Village Wars and run until one clan's HP hits 0.
                 Send anonymous challenges in the <strong>Shinobi Council Hall → Clan Battles</strong> tab.
             </p>
+
+            {showClanWarManual && <ClanWarManual onClose={() => setShowClanWarManual(false)} />}
 
             {loading && <p className="hint">Loading clan war state…</p>}
 
@@ -26137,6 +26208,9 @@ function ClanBattlesTab({ character, playerRoster, setScreen }: { character: Cha
     // composePartner is unused now that 2v2 is queue-based, but kept as
     // a no-op so existing handleSend reset-state lines compile cleanly.
     const [, setComposePartner] = useState("");
+    // Tutorial popover — toggled by the ? button next to the section
+    // title. Same UX pattern as the Village War manual.
+    const [showClanWarManual, setShowClanWarManual] = useState(false);
 
     const refresh = useCallback(async () => {
         const list = await cwListWars();
@@ -26377,7 +26451,18 @@ function ClanBattlesTab({ character, playerRoster, setScreen }: { character: Cha
 
     return (
         <section className="council-section">
-            <h3 className="council-section-title">🏴 Clan Battles</h3>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: "0.5rem" }}>
+                <h3 className="council-section-title" style={{ margin: 0 }}>🏴 Clan Battles</h3>
+                <button
+                    type="button"
+                    onClick={() => setShowClanWarManual(v => !v)}
+                    title="How does Clan War work?"
+                    style={{ padding: "0.15rem 0.5rem", fontSize: "0.85rem", borderRadius: 999, border: "1px solid #60a5fa", background: "#1e293b", color: "#60a5fa", cursor: "pointer", width: 28, height: 28, display: "inline-flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}
+                >
+                    ?
+                </button>
+            </div>
+            {showClanWarManual && <ClanWarManual onClose={() => setShowClanWarManual(false)} />}
             {error && <div style={{ color: "#f87171", marginBottom: "0.5rem", padding: "0.4rem 0.6rem", background: "#3b0a0a", borderRadius: 4 }}>⚠ {error}</div>}
             {loading && <p className="council-empty">Loading clan wars…</p>}
 
