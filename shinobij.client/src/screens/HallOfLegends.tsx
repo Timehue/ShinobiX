@@ -112,7 +112,7 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
     return (
         <div className="card hol-screen">
             <div className="hol-header">
-                <button className="back-button" onClick={() => setScreen("centralHub")}>? Central Hub</button>
+                <button className="back-button" onClick={() => setScreen("centralHub")}>← Central Hub</button>
                 <div>
                     <h2>🏆 Hall of Legends</h2>
                     <p className="hol-subtitle">Eternal records of the world's greatest shinobi.</p>
