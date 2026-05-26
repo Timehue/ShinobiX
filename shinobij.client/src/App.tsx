@@ -25809,7 +25809,7 @@ function VillagePill({ village, highlight = false }: { village: string; highligh
 // Damage tier kept inline so the UI can show "this challenge is worth
 // X HP" without round-tripping the server constants.
 type CwChallengeMode = "pvp1v1" | "pvp2v2" | "pet1v1" | "pet2v2" | "tilecards";
-type CwChallengeStatus = "pending" | "accepted" | "completed" | "expired" | "cancelled";
+type CwChallengeStatus = "queuing" | "pending" | "accepted" | "completed" | "expired" | "cancelled";
 type CwChallengeResult = "from-wins" | "to-wins" | "draw";
 type CwChallenge = {
     id: string;
@@ -26134,8 +26134,9 @@ function ClanBattlesTab({ character, playerRoster, setScreen }: { character: Cha
     const [busy, setBusy] = useState(false);
     const [declareTarget, setDeclareTarget] = useState("");
     const [composeMode, setComposeMode] = useState<CwChallengeMode>("pvp1v1");
-    const [composePartner, setComposePartner] = useState("");
-    const [acceptPartner, setAcceptPartner] = useState<Record<string, string>>({});
+    // composePartner is unused now that 2v2 is queue-based, but kept as
+    // a no-op so existing handleSend reset-state lines compile cleanly.
+    const [, setComposePartner] = useState("");
 
     const refresh = useCallback(async () => {
         const list = await cwListWars();
@@ -26194,16 +26195,16 @@ function ClanBattlesTab({ character, playerRoster, setScreen }: { character: Cha
         await refresh();
     }
 
+    // Send a new challenge. 1v1 modes go straight to pending; 2v2 modes
+    // create a 'queuing' challenge with just the current player as seed.
+    // A second clanmate has to call join-send to convert it to pending.
     async function handleSend() {
         if (!myWar) return;
-        const needsPartner = composeMode === "pvp2v2" || composeMode === "pet2v2";
-        if (needsPartner && !composePartner) { setError("Pick a partner for a 2v2 challenge."); return; }
         setBusy(true);
         const result = await cwChallengeAction({
             action: "send",
             warId: myWar.id,
             mode: composeMode,
-            fromPlayer2: needsPartner ? composePartner : undefined,
         });
         setBusy(false);
         if (!result.ok) { setError(result.error ?? "Failed."); return; }
@@ -26212,25 +26213,60 @@ function ClanBattlesTab({ character, playerRoster, setScreen }: { character: Cha
         await refresh();
     }
 
+    async function handleJoinSend(challengeId: string) {
+        if (!myWar) return;
+        setBusy(true);
+        const result = await cwChallengeAction({ action: "join-send", warId: myWar.id, challengeId });
+        setBusy(false);
+        if (!result.ok) { setError(result.error ?? "Failed."); return; }
+        setError("");
+        await refresh();
+    }
+
+    async function handleLeaveSend(challengeId: string) {
+        if (!myWar) return;
+        setBusy(true);
+        const result = await cwChallengeAction({ action: "leave-send", warId: myWar.id, challengeId });
+        setBusy(false);
+        if (!result.ok) { setError(result.error ?? "Failed."); return; }
+        setError("");
+        await refresh();
+    }
+
+    // 1v1: immediately accepts. 2v2: queues as the 1st defender — a
+    // clanmate has to call join-accept to fill the second slot.
     async function handleAccept(ch: CwChallenge) {
         if (!myWar) return;
-        const needsPartner = ch.mode === "pvp2v2" || ch.mode === "pet2v2";
-        const partner = acceptPartner[ch.id] ?? "";
-        if (needsPartner && !partner) { setError("Pick a partner before accepting a 2v2 challenge."); return; }
         setBusy(true);
         const result = await cwChallengeAction({
             action: "accept",
             warId: myWar.id,
             challengeId: ch.id,
-            acceptedPlayer2: needsPartner ? partner : undefined,
         });
         setBusy(false);
         if (!result.ok) { setError(result.error ?? "Failed."); return; }
         setError("");
         await refresh();
-        // Phase 3 will route both clients to the appropriate battle
-        // screen here. For now the accepted challenge stays in the
-        // pending list so testers can see the flow.
+    }
+
+    async function handleJoinAccept(challengeId: string) {
+        if (!myWar) return;
+        setBusy(true);
+        const result = await cwChallengeAction({ action: "join-accept", warId: myWar.id, challengeId });
+        setBusy(false);
+        if (!result.ok) { setError(result.error ?? "Failed."); return; }
+        setError("");
+        await refresh();
+    }
+
+    async function handleLeaveAccept(challengeId: string) {
+        if (!myWar) return;
+        setBusy(true);
+        const result = await cwChallengeAction({ action: "leave-accept", warId: myWar.id, challengeId });
+        setBusy(false);
+        if (!result.ok) { setError(result.error ?? "Failed."); return; }
+        setError("");
+        await refresh();
     }
 
     async function handleCancel(challengeId: string) {
@@ -26369,11 +26405,13 @@ function ClanBattlesTab({ character, playerRoster, setScreen }: { character: Cha
                         </div>
                     </div>
 
-                    {/* Send a challenge */}
+                    {/* Send a challenge — 1v1 sends immediately; 2v2 opens a queue */}
                     <div style={{ background: "#0b1220", border: "1px solid #334155", borderRadius: 6, padding: "0.8rem", marginBottom: "1rem" }}>
                         <strong style={{ color: "#60a5fa" }}>⚔ Send Anonymous Challenge to {enemyClan}</strong>
                         <p style={{ fontSize: "0.78rem", color: "#94a3b8", margin: "4px 0 8px" }}>
-                            {enemyClan} will see your clan but not the specific challenger until they accept.
+                            {composeMode === "pvp2v2" || composeMode === "pet2v2"
+                                ? `2v2 modes open a send queue — a clanmate has to join from Your Queued Challenges below before ${enemyClan} sees it.`
+                                : `${enemyClan} will see your clan but not the specific challenger until they accept.`}
                         </p>
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                             <select value={composeMode} onChange={e => setComposeMode(e.target.value as CwChallengeMode)} style={{ padding: "0.35rem" }} disabled={busy}>
@@ -26381,45 +26419,44 @@ function ClanBattlesTab({ character, playerRoster, setScreen }: { character: Cha
                                     <option key={m} value={m}>{CW_MODE_ICON[m]} {CW_MODE_LABEL[m]} (−{CW_DAMAGE[m]} HP)</option>
                                 ))}
                             </select>
-                            {(composeMode === "pvp2v2" || composeMode === "pet2v2") && (
-                                <select value={composePartner} onChange={e => setComposePartner(e.target.value)} style={{ padding: "0.35rem" }} disabled={busy}>
-                                    <option value="">Pick your partner…</option>
-                                    {myClanmates.map(n => <option key={n} value={n}>{n}</option>)}
-                                </select>
-                            )}
                             <button onClick={handleSend} disabled={busy} style={{ padding: "0.4rem 0.8rem", background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171" }}>
-                                {busy ? "Sending…" : "Send Challenge"}
+                                {busy ? "Sending…" : (composeMode === "pvp2v2" || composeMode === "pet2v2") ? "Open 2v2 Queue" : "Send Challenge"}
                             </button>
                         </div>
                         {myClanmates.length === 0 && (composeMode === "pvp2v2" || composeMode === "pet2v2") && (
-                            <p style={{ fontSize: "0.78rem", color: "#fbbf24", marginTop: 6 }}>You need at least one other active clanmate online for 2v2 challenges.</p>
+                            <p style={{ fontSize: "0.78rem", color: "#fbbf24", marginTop: 6 }}>You can still open a queue but no clanmates are online to fill the partner slot yet.</p>
                         )}
                     </div>
 
-                    {/* Incoming challenges — anonymous to defender */}
+                    {/* 2v2 Send Queues — challenges with status='queuing' that need a partner */}
                     {(() => {
-                        const incoming = myWar.pendingChallenges.filter(c => c.fromClan === enemyClan && c.status === "pending");
-                        if (incoming.length === 0) return null;
+                        const sendQueues = myWar.pendingChallenges.filter(c => c.fromClan === myClan && c.status === "queuing");
+                        if (sendQueues.length === 0) return null;
                         return (
-                            <div style={{ background: "#1f0a0a", border: "1px solid #f87171", borderRadius: 6, padding: "0.8rem", marginBottom: "1rem" }}>
-                                <strong style={{ color: "#f87171" }}>🚨 Incoming Challenges ({incoming.length})</strong>
-                                <p style={{ fontSize: "0.78rem", color: "#fcd34d", margin: "4px 0 8px" }}>
-                                    {enemyClan} sent these. Challenger names are hidden until you accept.
+                            <div style={{ background: "#0a1a2a", border: "1px solid #60a5fa", borderRadius: 6, padding: "0.8rem", marginBottom: "1rem" }}>
+                                <strong style={{ color: "#60a5fa" }}>🪑 Your Clan's Open 2v2 Send Queues ({sendQueues.length})</strong>
+                                <p style={{ fontSize: "0.78rem", color: "#bfdbfe", margin: "4px 0 8px" }}>
+                                    A clanmate must join as partner before {enemyClan} sees the challenge. 1/2 challengers queued.
                                 </p>
-                                {incoming.map(ch => {
-                                    const needsPartner = ch.mode === "pvp2v2" || ch.mode === "pet2v2";
+                                {sendQueues.map(ch => {
                                     const minsLeft = Math.max(1, Math.ceil((ch.expiresAt - Date.now()) / 60_000));
+                                    const isSeed = ch.fromPlayer.toLowerCase() === character.name.toLowerCase();
                                     return (
                                         <div key={ch.id} style={{ background: "#0b1220", padding: "0.5rem 0.7rem", borderRadius: 4, marginTop: 6, display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
-                                            <strong style={{ flex: 1, minWidth: 200 }}>{CW_MODE_ICON[ch.mode]} {CW_MODE_LABEL[ch.mode]} <span style={{ color: "#94a3b8", fontWeight: 400 }}>(worth −{CW_DAMAGE[ch.mode]} HP · expires in {minsLeft}m)</span></strong>
-                                            {needsPartner && (
-                                                <select value={acceptPartner[ch.id] ?? ""} onChange={e => setAcceptPartner({ ...acceptPartner, [ch.id]: e.target.value })} style={{ padding: "0.3rem" }} disabled={busy}>
-                                                    <option value="">Pick partner…</option>
-                                                    {myClanmates.map(n => <option key={n} value={n}>{n}</option>)}
-                                                </select>
+                                            <strong style={{ flex: 1, minWidth: 200 }}>
+                                                {CW_MODE_ICON[ch.mode]} {CW_MODE_LABEL[ch.mode]}
+                                                <span style={{ color: "#94a3b8", fontWeight: 400 }}> · seed: {ch.fromPlayer} · expires in {minsLeft}m</span>
+                                            </strong>
+                                            {!isSeed && (
+                                                <button onClick={() => handleJoinSend(ch.id)} disabled={busy} style={{ padding: "0.3rem 0.6rem", background: "#15803d", borderColor: "#4ade80", fontSize: "0.85rem" }}>
+                                                    🤝 Join as Partner
+                                                </button>
                                             )}
-                                            <button onClick={() => handleAccept(ch)} disabled={busy} style={{ padding: "0.3rem 0.6rem", background: "#15803d", borderColor: "#4ade80" }}>Accept</button>
-                                            <button onClick={() => handleDecline(ch.id)} disabled={busy} className="danger-button" style={{ padding: "0.3rem 0.6rem", fontSize: "0.8rem" }}>Decline</button>
+                                            {isSeed && (
+                                                <button onClick={() => handleLeaveSend(ch.id)} disabled={busy} className="danger-button" style={{ padding: "0.3rem 0.6rem", fontSize: "0.8rem" }}>
+                                                    ✕ Cancel Queue
+                                                </button>
+                                            )}
                                         </div>
                                     );
                                 })}
@@ -26427,22 +26464,91 @@ function ClanBattlesTab({ character, playerRoster, setScreen }: { character: Cha
                         );
                     })()}
 
-                    {/* My outgoing challenges (still pending) */}
+                    {/* Incoming challenges — pending only (hides 'queuing' from defender) */}
                     {(() => {
-                        const outgoing = myWar.pendingChallenges.filter(c => c.fromClan === myClan);
+                        const incoming = myWar.pendingChallenges.filter(c => c.fromClan === enemyClan && c.status === "pending");
+                        if (incoming.length === 0) return null;
+                        return (
+                            <div style={{ background: "#1f0a0a", border: "1px solid #f87171", borderRadius: 6, padding: "0.8rem", marginBottom: "1rem" }}>
+                                <strong style={{ color: "#f87171" }}>🚨 Incoming Challenges ({incoming.length})</strong>
+                                <p style={{ fontSize: "0.78rem", color: "#fcd34d", margin: "4px 0 8px" }}>
+                                    {enemyClan} sent these. Challenger names are hidden until your accept queue fills.
+                                    2v2 challenges need 2 defenders to queue before the battle is ready.
+                                </p>
+                                {incoming.map(ch => {
+                                    const isTwoV = ch.mode === "pvp2v2" || ch.mode === "pet2v2";
+                                    const minsLeft = Math.max(1, Math.ceil((ch.expiresAt - Date.now()) / 60_000));
+                                    const meIsFirstDefender = (ch.acceptedPlayer ?? "").toLowerCase() === character.name.toLowerCase();
+                                    const meIsSecondDefender = (ch.acceptedPlayer2 ?? "").toLowerCase() === character.name.toLowerCase();
+                                    const meQueued = meIsFirstDefender || meIsSecondDefender;
+                                    const queueCount = (ch.acceptedPlayer ? 1 : 0) + (ch.acceptedPlayer2 ? 1 : 0);
+                                    const queueLabel = isTwoV ? ` · accept queue ${queueCount}/2` : "";
+                                    return (
+                                        <div key={ch.id} style={{ background: "#0b1220", padding: "0.5rem 0.7rem", borderRadius: 4, marginTop: 6, display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+                                            <strong style={{ flex: 1, minWidth: 200 }}>
+                                                {CW_MODE_ICON[ch.mode]} {CW_MODE_LABEL[ch.mode]}
+                                                <span style={{ color: "#94a3b8", fontWeight: 400 }}> (−{CW_DAMAGE[ch.mode]} HP · {minsLeft}m{queueLabel})</span>
+                                                {isTwoV && ch.acceptedPlayer && <span style={{ color: "#a7f3d0", fontSize: "0.78rem", marginLeft: 6 }}>· queued: {ch.acceptedPlayer}{ch.acceptedPlayer2 ? ` + ${ch.acceptedPlayer2}` : ""}</span>}
+                                            </strong>
+                                            {!isTwoV && !meQueued && (
+                                                <button onClick={() => handleAccept(ch)} disabled={busy} style={{ padding: "0.3rem 0.6rem", background: "#15803d", borderColor: "#4ade80" }}>Accept</button>
+                                            )}
+                                            {isTwoV && !meQueued && !ch.acceptedPlayer && (
+                                                <button onClick={() => handleAccept(ch)} disabled={busy} style={{ padding: "0.3rem 0.6rem", background: "#15803d", borderColor: "#4ade80", fontSize: "0.85rem" }}>
+                                                    🪑 Queue to Accept (1st)
+                                                </button>
+                                            )}
+                                            {isTwoV && !meQueued && ch.acceptedPlayer && !ch.acceptedPlayer2 && (
+                                                <button onClick={() => handleJoinAccept(ch.id)} disabled={busy} style={{ padding: "0.3rem 0.6rem", background: "#15803d", borderColor: "#4ade80", fontSize: "0.85rem" }}>
+                                                    🤝 Join Accept Queue (2nd)
+                                                </button>
+                                            )}
+                                            {isTwoV && meQueued && (
+                                                <button onClick={() => handleLeaveAccept(ch.id)} disabled={busy} className="danger-button" style={{ padding: "0.3rem 0.6rem", fontSize: "0.8rem" }}>
+                                                    ✕ Leave Accept Queue
+                                                </button>
+                                            )}
+                                            {!meQueued && (
+                                                <button onClick={() => handleDecline(ch.id)} disabled={busy} className="danger-button" style={{ padding: "0.3rem 0.6rem", fontSize: "0.8rem" }}>
+                                                    Decline (clan)
+                                                </button>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        );
+                    })()}
+
+                    {/* My outgoing challenges (pending, queuing-aware) */}
+                    {(() => {
+                        const outgoing = myWar.pendingChallenges.filter(c => c.fromClan === myClan && c.status === "pending");
                         if (outgoing.length === 0) return null;
                         return (
                             <div style={{ background: "#0a1f0a", border: "1px solid #4ade80", borderRadius: 6, padding: "0.8rem", marginBottom: "1rem" }}>
-                                <strong style={{ color: "#4ade80" }}>📤 Your Clan's Pending Challenges ({outgoing.length})</strong>
+                                <strong style={{ color: "#4ade80" }}>📤 Your Clan's Sent Challenges ({outgoing.length})</strong>
                                 {outgoing.map(ch => {
+                                    const isTwoV = ch.mode === "pvp2v2" || ch.mode === "pet2v2";
                                     const minsLeft = Math.max(1, Math.ceil((ch.expiresAt - Date.now()) / 60_000));
                                     const mine = ch.fromPlayer.toLowerCase() === character.name.toLowerCase()
                                         || (ch.fromPlayer2 ?? "").toLowerCase() === character.name.toLowerCase();
+                                    const enemyQueueCount = (ch.acceptedPlayer ? 1 : 0) + (ch.acceptedPlayer2 ? 1 : 0);
+                                    const enemyQueueLabel = isTwoV ? ` · enemy accept queue ${enemyQueueCount}/2` : "";
                                     return (
                                         <div key={ch.id} style={{ background: "#0b1220", padding: "0.5rem 0.7rem", borderRadius: 4, marginTop: 6, display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
-                                            <strong style={{ flex: 1, minWidth: 200 }}>{CW_MODE_ICON[ch.mode]} {CW_MODE_LABEL[ch.mode]} <span style={{ color: "#94a3b8", fontWeight: 400 }}>· {ch.status} · {ch.fromPlayer}{ch.fromPlayer2 ? ` + ${ch.fromPlayer2}` : ""} · expires in {minsLeft}m</span></strong>
-                                            {ch.status === "pending" && mine && (
-                                                <button onClick={() => handleCancel(ch.id)} disabled={busy} className="danger-button" style={{ padding: "0.3rem 0.6rem", fontSize: "0.8rem" }}>Cancel</button>
+                                            <strong style={{ flex: 1, minWidth: 200 }}>
+                                                {CW_MODE_ICON[ch.mode]} {CW_MODE_LABEL[ch.mode]}
+                                                <span style={{ color: "#94a3b8", fontWeight: 400 }}> · {ch.fromPlayer}{ch.fromPlayer2 ? ` + ${ch.fromPlayer2}` : ""} · expires in {minsLeft}m{enemyQueueLabel}</span>
+                                            </strong>
+                                            {isTwoV && mine && (
+                                                <button onClick={() => handleLeaveSend(ch.id)} disabled={busy} style={{ padding: "0.3rem 0.6rem", fontSize: "0.8rem" }}>
+                                                    🚪 Leave Send Queue
+                                                </button>
+                                            )}
+                                            {mine && (
+                                                <button onClick={() => handleCancel(ch.id)} disabled={busy} className="danger-button" style={{ padding: "0.3rem 0.6rem", fontSize: "0.8rem" }}>
+                                                    Cancel (full)
+                                                </button>
                                             )}
                                         </div>
                                     );
