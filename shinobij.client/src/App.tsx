@@ -33782,14 +33782,25 @@ type TerritoryRecord = {
 type ModBanRecord = { until: number; reason: string; by: string; at: number; permanent?: boolean };
 type ModSilenceRecord = { until: number; reason: string; by: string; at: number };
 type ModIpRecord = { lastIp: string; ips: string[]; lastSeenAt: number };
+type ModFpRecord = { lastFp: string; fps: string[]; lastSeenAt: number };
 type ModAuditEntry = { ts: number; actor: string; action: string; target: string; detail?: string };
+type ModLookupResult = {
+    target: string;
+    ipRecord: ModIpRecord | null;
+    fpRecord: ModFpRecord | null;
+    linkedByIp: string[];
+    linkedByFp: string[];
+    linkedByBoth: string[];
+    perIp: Array<{ ip: string; names: string[] }>;
+    perFp: Array<{ fp: string; names: string[] }>;
+};
 
 function ModerationPanel({ adminPw }: { adminPw: string }) {
     const [bans, setBans] = useState<Array<{ name: string; record: ModBanRecord }>>([]);
     const [silences, setSilences] = useState<Array<{ name: string; record: ModSilenceRecord }>>([]);
     const [audit, setAudit] = useState<ModAuditEntry[]>([]);
     const [searchName, setSearchName] = useState("");
-    const [lookup, setLookup] = useState<{ target: string; ipRecord: ModIpRecord | null; linked: string[]; perIp: Array<{ ip: string; names: string[] }> } | null>(null);
+    const [lookup, setLookup] = useState<ModLookupResult | null>(null);
     const [reason, setReason] = useState("");
     const [status, setStatus] = useState("");
     const [loading, setLoading] = useState(false);
@@ -33838,8 +33849,10 @@ function ModerationPanel({ adminPw }: { adminPw: string }) {
 
     async function doLookup() {
         if (!searchName.trim()) return;
-        const data = await modAction("ip-lookup", { target: searchName.trim() });
-        if (data) setLookup(data);
+        // "lookup" is the combined IP + fingerprint version. Server still
+        // accepts the legacy "ip-lookup" kind as an alias.
+        const data = await modAction("lookup", { target: searchName.trim() });
+        if (data) setLookup(data as ModLookupResult);
     }
 
     async function ban(target: string, days: number | "permanent") {
@@ -33896,39 +33909,85 @@ function ModerationPanel({ adminPw }: { adminPw: string }) {
             {lookup && (
                 <section className="summary-box">
                     <h3>📍 {lookup.target}</h3>
-                    {lookup.ipRecord ? (
+                    {(lookup.ipRecord || lookup.fpRecord) ? (
                         <>
-                            <p><strong>Last IP:</strong> <code>{lookup.ipRecord.lastIp}</code></p>
-                            <p><strong>Last seen:</strong> {new Date(lookup.ipRecord.lastSeenAt).toLocaleString()}</p>
-                            <p><strong>IPs ever used:</strong> {lookup.ipRecord.ips.length}</p>
-                            <div style={{ background: "#0a0a1a", borderRadius: 6, padding: "0.5rem", marginTop: "0.5rem" }}>
-                                {lookup.perIp.map(({ ip, names }) => (
-                                    <div key={ip} style={{ marginBottom: "0.4rem" }}>
-                                        <code style={{ color: "#facc15" }}>{ip}</code>
-                                        {names.length > 0 ? (
-                                            <div style={{ paddingLeft: "1rem", fontSize: "0.9rem" }}>
-                                                also used by: {names.map(n => (
-                                                    <button
-                                                        key={n}
-                                                        onClick={() => { setSearchName(n); void modAction("ip-lookup", { target: n }).then((d) => d && setLookup(d)); }}
-                                                        style={{ marginLeft: 4, padding: "0 6px", fontSize: "0.85rem" }}
-                                                    >{n}</button>
-                                                ))}
-                                            </div>
-                                        ) : (
-                                            <span style={{ paddingLeft: "1rem", color: "#64748b" }}> — unique to {lookup.target}</span>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                            {lookup.linked.length > 0 && (
-                                <p className="hint" style={{ color: "#f87171", marginTop: "0.5rem" }}>
-                                    ⚠ {lookup.linked.length} linked account{lookup.linked.length === 1 ? "" : "s"} found.
-                                </p>
+                            {lookup.ipRecord && (
+                                <p><strong>Last IP:</strong> <code>{lookup.ipRecord.lastIp}</code> · <strong>Last seen:</strong> {new Date(lookup.ipRecord.lastSeenAt).toLocaleString()}</p>
                             )}
+                            {lookup.fpRecord && (
+                                <p><strong>Last fingerprint:</strong> <code>{lookup.fpRecord.lastFp.slice(0, 16)}…</code> · <strong>Fingerprints ever used:</strong> {lookup.fpRecord.fps.length}</p>
+                            )}
+
+                            {lookup.linkedByBoth.length > 0 && (
+                                <div style={{ background: "#1c0606", border: "1px solid #f87171", borderRadius: 6, padding: "0.6rem", margin: "0.6rem 0" }}>
+                                    <strong style={{ color: "#f87171" }}>⚠ Linked by IP AND Fingerprint — almost certainly the same person:</strong>
+                                    <div style={{ marginTop: 4 }}>
+                                        {lookup.linkedByBoth.map(n => (
+                                            <button
+                                                key={n}
+                                                onClick={() => { setSearchName(n); void modAction("lookup", { target: n }).then((d) => d && setLookup(d)); }}
+                                                style={{ margin: "2px", padding: "0.2rem 0.6rem", fontSize: "0.85rem", background: "#7f1d1d", borderColor: "#f87171" }}
+                                            >{n}</button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            <h4 style={{ marginTop: "0.8rem", marginBottom: "0.3rem" }}>🌐 Linked by IP ({lookup.linkedByIp.length})</h4>
+                            <p className="hint" style={{ marginTop: 0, fontSize: "0.8rem" }}>Same network. Weaker signal — shared cafe / home / corporate IPs trigger this.</p>
+                            <div style={{ background: "#0a0a1a", borderRadius: 6, padding: "0.5rem" }}>
+                                {lookup.perIp.length === 0
+                                    ? <em style={{ color: "#64748b" }}>No IPs recorded yet.</em>
+                                    : lookup.perIp.map(({ ip, names }) => (
+                                        <div key={ip} style={{ marginBottom: "0.4rem" }}>
+                                            <code style={{ color: "#facc15" }}>{ip}</code>
+                                            {names.length > 0 ? (
+                                                <div style={{ paddingLeft: "1rem", fontSize: "0.9rem" }}>
+                                                    also used by: {names.map(n => (
+                                                        <button
+                                                            key={n}
+                                                            onClick={() => { setSearchName(n); void modAction("lookup", { target: n }).then((d) => d && setLookup(d)); }}
+                                                            style={{ marginLeft: 4, padding: "0 6px", fontSize: "0.85rem", background: lookup.linkedByBoth.includes(n) ? "#7f1d1d" : undefined, borderColor: lookup.linkedByBoth.includes(n) ? "#f87171" : undefined }}
+                                                        >{n}{lookup.linkedByFp.includes(n) ? " ★" : ""}</button>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <span style={{ paddingLeft: "1rem", color: "#64748b" }}> — unique to {lookup.target}</span>
+                                            )}
+                                        </div>
+                                    ))
+                                }
+                            </div>
+
+                            <h4 style={{ marginTop: "0.8rem", marginBottom: "0.3rem" }}>🖥 Linked by Fingerprint ({lookup.linkedByFp.length})</h4>
+                            <p className="hint" style={{ marginTop: 0, fontSize: "0.8rem" }}>Same browser + machine. Survives VPNs / cookie clears / incognito. Strong signal.</p>
+                            <div style={{ background: "#0a0a1a", borderRadius: 6, padding: "0.5rem" }}>
+                                {lookup.perFp.length === 0
+                                    ? <em style={{ color: "#64748b" }}>No fingerprints recorded yet.</em>
+                                    : lookup.perFp.map(({ fp, names }) => (
+                                        <div key={fp} style={{ marginBottom: "0.4rem" }}>
+                                            <code style={{ color: "#a78bfa" }}>{fp.slice(0, 16)}…</code>
+                                            {names.length > 0 ? (
+                                                <div style={{ paddingLeft: "1rem", fontSize: "0.9rem" }}>
+                                                    also used by: {names.map(n => (
+                                                        <button
+                                                            key={n}
+                                                            onClick={() => { setSearchName(n); void modAction("lookup", { target: n }).then((d) => d && setLookup(d)); }}
+                                                            style={{ marginLeft: 4, padding: "0 6px", fontSize: "0.85rem", background: lookup.linkedByBoth.includes(n) ? "#7f1d1d" : undefined, borderColor: lookup.linkedByBoth.includes(n) ? "#f87171" : undefined }}
+                                                        >{n}{lookup.linkedByIp.includes(n) ? " ★" : ""}</button>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <span style={{ paddingLeft: "1rem", color: "#64748b" }}> — unique to {lookup.target}</span>
+                                            )}
+                                        </div>
+                                    ))
+                                }
+                            </div>
+                            <p className="hint" style={{ marginTop: "0.4rem", fontSize: "0.8rem" }}>★ = also linked by the other signal.</p>
                         </>
                     ) : (
-                        <p className="hint">No IP record yet — player must heartbeat / login at least once.</p>
+                        <p className="hint">No records yet — player must heartbeat / login at least once.</p>
                     )}
                     <h4 style={{ marginTop: "1rem" }}>Actions on {lookup.target}</h4>
                     <div style={{ display: "grid", gap: "0.3rem", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))" }}>
