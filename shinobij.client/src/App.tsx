@@ -452,7 +452,15 @@ type PetJutsu = {
     power: number;
     cooldown: number;
     currentCooldown: number;
-    kind: "damage" | "buff" | "heal" | "debuff" | "dot" | "move" | "barrier" | "movelock" | "lifesteal" | "shield" | "absorb";
+    // Combat effects. New status kinds added for variety:
+    //   burn   — DoT (15% of power per round) + small ATK debuff
+    //   freeze — chance to skip next turn each round (50%)
+    //   confuse — chance to hit yourself instead of the target (50%)
+    //   stun   — guaranteed skip of next turn (1 round)
+    // Existing kinds (damage/buff/heal/debuff/dot/move/barrier/movelock/
+    // lifesteal/shield/absorb) keep their original behavior.
+    kind: "damage" | "buff" | "heal" | "debuff" | "dot" | "move" | "barrier" | "movelock" | "lifesteal" | "shield" | "absorb"
+        | "burn" | "freeze" | "confuse" | "stun";
 };
 
 export type Pet = {
@@ -476,6 +484,10 @@ export type Pet = {
     expedition?: PetExpedition;
     moveRange?: number; // tiles moved per turn (2–5); defaults to 2
     nickname?: string;
+    // Optional elemental affinity. Drives the Pet Arena type-effectiveness
+    // matchup: Fire > Wind > Lightning > Earth > Water > Fire. Pets without
+    // an element (or with "None") fight neutral against everything.
+    element?: JutsuElement;
 };
 export type Character = {
     name: string;
@@ -14554,6 +14566,12 @@ type PetBattleFighter = {
     moveLocked: number;   // rounds remaining that this fighter cannot move
     absorbRounds: number; // rounds of damage-reduction stance active
     absorbPercent: number;// fraction of incoming damage reduced (0–1)
+    // Extended status effects. Each is a round counter; 0 = inactive.
+    burnRounds: number;   // burn = DoT each round + small ATK debuff
+    burnDamage: number;   // per-round burn damage applied during tick
+    freezeRounds: number; // each round of freeze, 50% chance to skip turn
+    confuseRounds: number;// each turn while confused, 50% chance to hit self
+    stunRounds: number;   // next N turns are auto-skip
 };
 
 type PetArenaFrame = {
@@ -14811,6 +14829,32 @@ function petBattleTieKey(pet: Pet) {
     return `${pet.speed}:${pet.id}:${pet.name}`;
 }
 
+// ── Pet Arena type-effectiveness ──────────────────────────────────────────
+// Classic chakra rock-paper-scissors loop:
+//   Fire > Wind > Lightning > Earth > Water > Fire
+// Damage multipliers: super-effective 1.25×, resisted 0.80×, otherwise 1.0.
+// Pets with no element (or element "None") fight neutral against everything.
+const PET_ELEMENT_BEATS: Partial<Record<JutsuElement, JutsuElement>> = {
+    Fire: "Wind",
+    Wind: "Lightning",
+    Lightning: "Earth",
+    Earth: "Water",
+    Water: "Fire",
+};
+function petElementMultiplier(attacker: Pet | undefined, defender: Pet | undefined): number {
+    const a = attacker?.element;
+    const d = defender?.element;
+    if (!a || a === "None" || !d || d === "None") return 1;
+    if (PET_ELEMENT_BEATS[a] === d) return 1.25;
+    if (PET_ELEMENT_BEATS[d] === a) return 0.80;
+    return 1;
+}
+function petElementLabel(mult: number): string {
+    if (mult > 1) return "🔆 Super effective!";
+    if (mult < 1) return "⛔ Not very effective…";
+    return "";
+}
+
 function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: string, seed = Date.now(), playerDamageMult = 1) {
     const rng = seededPetBattleRandom(seed);
     // 10×5 grid — player starts col 1 (tile 21), enemy starts col 8 (tile 28), distance = 7
@@ -14819,8 +14863,8 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
     const obstacles = new Set<number>(obstacleLayout);
 
     // 14×6 grid: player col 1 row 2 = tile 29; enemy col 12 row 2 = tile 40
-    let player: PetBattleFighter = { owner: "You",        pet: playerPet,   hp: playerPet.hp,   pos: 29, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: 0, moveLocked: 0, absorbRounds: 0, absorbPercent: 0 };
-    let enemy:  PetBattleFighter = { owner: opponentOwner, pet: opponentPet, hp: opponentPet.hp, pos: 40, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: 0, moveLocked: 0, absorbRounds: 0, absorbPercent: 0 };
+    let player: PetBattleFighter = { owner: "You",        pet: playerPet,   hp: playerPet.hp,   pos: 29, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: 0, moveLocked: 0, absorbRounds: 0, absorbPercent: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0 };
+    let enemy:  PetBattleFighter = { owner: opponentOwner, pet: opponentPet, hp: opponentPet.hp, pos: 40, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: 0, moveLocked: 0, absorbRounds: 0, absorbPercent: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0 };
     const logs: string[] = [`${player.pet.name} enters against ${enemy.owner}'s ${enemy.pet.name}.`];
     const frames: PetArenaFrame[] = [];
     let playerCombo = 0;
@@ -14848,7 +14892,32 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
             cooldowns:    Object.fromEntries(Object.entries(fighter.cooldowns).map(([name, value]) => [name, Math.max(0, value - 1)])),
             moveLocked:   Math.max(0, fighter.moveLocked   - 1),
             absorbRounds: Math.max(0, fighter.absorbRounds - 1),
+            burnRounds:   Math.max(0, fighter.burnRounds   - 1),
+            freezeRounds: Math.max(0, fighter.freezeRounds - 1),
+            confuseRounds:Math.max(0, fighter.confuseRounds - 1),
+            stunRounds:   Math.max(0, fighter.stunRounds   - 1),
         };
+    }
+
+    // Trait-based status resistance. Balanced so each trait gets ONE thematic
+    // resistance, keeping total trait power roughly equal:
+    //   Aggressive → resists stun  (it's too pissed off to be stunned)
+    //   Guardian   → resists burn/DoT (defensive — half-damage from over-time)
+    //   Swift      → immune to freeze (too fast to be frozen)
+    //   Lucky      → immune to confuse self-hit
+    //   Battleborn → halves stat-debuff durations
+    function applyStatus(target: PetBattleFighter, status: "burn" | "freeze" | "confuse" | "stun", rounds: number, burnDmgIfBurn = 0): PetBattleFighter {
+        const trait = target.pet.trait;
+        if (status === "stun"    && trait === "Aggressive") rounds = Math.max(0, rounds - 1);
+        if (status === "freeze"  && trait === "Swift") return target;        // immune
+        if (status === "confuse" && trait === "Lucky") return target;        // immune
+        if (rounds <= 0) return target;
+        switch (status) {
+            case "burn":    return { ...target, burnRounds: Math.max(target.burnRounds, rounds), burnDamage: Math.max(target.burnDamage, burnDmgIfBurn), attackBuff: Math.min(target.attackBuff, -2) };
+            case "freeze":  return { ...target, freezeRounds: Math.max(target.freezeRounds, rounds) };
+            case "confuse": return { ...target, confuseRounds: Math.max(target.confuseRounds, rounds) };
+            case "stun":    return { ...target, stunRounds: Math.max(target.stunRounds, rounds) };
+        }
     }
 
     function act(actor: PetBattleFighter, target: PetBattleFighter, round: number): [PetBattleFighter, PetBattleFighter] {
@@ -14856,6 +14925,33 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
         const actorSide: PetArenaFrame["actor"] = actor.owner === "You" ? "player" : "enemy";
         const targetSide: PetArenaFrame["actor"] = actorSide === "player" ? "enemy" : "player";
         const isFinisher = target.hp < target.pet.hp * 0.25;
+
+        // ── Pre-action status checks ───────────────────────────────────
+        // Stun: full skip, no choice. Decremented by tick() at round start
+        // so a stun applied last round is still active this turn.
+        if (actor.stunRounds > 0) {
+            const msg = `Round ${round}: ${actor.pet.name} is stunned — turn skipped.`;
+            logs.push(msg);
+            pushFrame(round, msg, actorSide, "movelock");
+            return [actor, target];
+        }
+        // Freeze: 50% chance to skip each round.
+        if (actor.freezeRounds > 0 && rng() < 0.5) {
+            const msg = `Round ${round}: ${actor.pet.name} is frozen solid — turn skipped.`;
+            logs.push(msg);
+            pushFrame(round, msg, actorSide, "movelock");
+            return [actor, target];
+        }
+        // Confuse: 50% chance to hit yourself for a small amount.
+        if (actor.confuseRounds > 0 && rng() < 0.5) {
+            const selfHit = Math.max(1, Math.floor(actor.pet.attack * 0.4));
+            const hurtSelf = { ...actor, hp: Math.max(0, actor.hp - selfHit) };
+            const msg = `Round ${round}: ${actor.pet.name} is confused and hits itself for ${selfHit}!`;
+            logs.push(msg);
+            if (actorSide === "player") player = hurtSelf; else enemy = hurtSelf;
+            pushFrame(round, msg, actorSide, "damage", selfHit);
+            return [hurtSelf, target];
+        }
 
         // Trait modifiers
         const critChance     = actor.pet.trait === "Aggressive" ? 0.30 : 0.15;
@@ -14893,7 +14989,10 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
             // Pet Tamer profession: +5–20% pet damage in PvE (player's pet only).
             // Multiplier is computed at the call site and passed in via runPetArenaBattle.
             const tamerMult = actorSide === "player" ? playerDamageMult : 1;
-            const damage = Math.max(1, Math.floor(base * (crit ? 1.5 : 1) * dmgBonus * guardianBlock * absorbMult * tamerMult));
+            // Element type effectiveness — Fire > Wind > Lightning > Earth > Water > Fire.
+            // Neutral if either pet has no element. Applies to all damage jutsus equally.
+            const elementMult = petElementMultiplier(actor2.pet, target2.pet);
+            const damage = Math.max(1, Math.floor(base * (crit ? 1.5 : 1) * dmgBonus * guardianBlock * absorbMult * tamerMult * elementMult));
             // Shield absorbs damage before HP
             const shieldAbsorb  = Math.min(target2.shieldHp, damage);
             const remainDamage  = damage - shieldAbsorb;
@@ -14907,7 +15006,8 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
                 (guardianBlock < 1)                         ? { actor: targetSide as "player" | "enemy", trait: "Guardian"   } :
                 (dmgBonus > 1 && actor2.pet.trait === "Battleborn") ? { actor: actorSide as "player" | "enemy", trait: "Battleborn" } :
                 undefined;
-            const msg = `Round ${round}: ${actor2.pet.name}${jutsuName ? ` uses ${jutsuName}` : " basic attacks"} for ${damage} damage${crit ? " — CRITICAL HIT!" : ""}.`;
+            const elementNote = petElementLabel(elementMult);
+            const msg = `Round ${round}: ${actor2.pet.name}${jutsuName ? ` uses ${jutsuName}` : " basic attacks"} for ${damage} damage${crit ? " — CRITICAL HIT!" : ""}${elementNote ? ` ${elementNote}` : ""}.`;
             logs.push(msg);
             if (actorSide === "player") { player = actor2; enemy = damagedTarget; } else { enemy = actor2; player = damagedTarget; }
             pushFrame(round, msg, actorSide, kind, damage, crit, traitFlash, currentCombo >= 3 ? currentCombo : undefined);
@@ -14978,10 +15078,13 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
             }
 
             if (jutsu.kind === "debuff") {
-                const atkCut   = Math.floor(jutsu.power / 4);
-                const defCut   = Math.floor(jutsu.power / 5);
+                // Battleborn trait halves stat-debuff magnitude (its thematic resistance).
+                const battlebornCut = target.pet.trait === "Battleborn" ? 0.5 : 1;
+                const atkCut   = Math.max(1, Math.floor((jutsu.power / 4) * battlebornCut));
+                const defCut   = Math.max(1, Math.floor((jutsu.power / 5) * battlebornCut));
                 const weakened = { ...target, attackBuff: target.attackBuff - atkCut, defenseBuff: target.defenseBuff - defCut };
-                const msg = `Round ${round}: ${actor.pet.name} uses ${jutsu.name} — ${target.pet.name} loses ${atkCut} ATK and ${defCut} DEF.`;
+                const battlebornNote = target.pet.trait === "Battleborn" ? " (Battleborn shrugs off half the debuff.)" : "";
+                const msg = `Round ${round}: ${actor.pet.name} uses ${jutsu.name} — ${target.pet.name} loses ${atkCut} ATK and ${defCut} DEF.${battlebornNote}`;
                 logs.push(msg);
                 if (actorSide === "player") { player = nextActor; enemy = weakened; } else { enemy = nextActor; player = weakened; }
                 pushFrame(round, msg, actorSide, "debuff");
@@ -14989,9 +15092,13 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
             }
 
             if (jutsu.kind === "dot") {
-                const dotDmg   = Math.max(1, Math.floor(jutsu.power * 0.28));
+                // Guardian halves DoT damage (its thematic resistance — applies to
+                // both poison and burn so the resistance is consistent).
+                const baseDot = Math.max(1, Math.floor(jutsu.power * 0.28));
+                const dotDmg  = target.pet.trait === "Guardian" ? Math.max(1, Math.floor(baseDot * 0.5)) : baseDot;
                 const poisoned = { ...target, dotDamage: dotDmg, dotRounds: 3 };
-                const msg = `Round ${round}: ${actor.pet.name} uses ${jutsu.name}, poisoning ${target.pet.name} for ${dotDmg}/round (3 rounds).`;
+                const guardianNote = target.pet.trait === "Guardian" ? " (Guardian halves the poison.)" : "";
+                const msg = `Round ${round}: ${actor.pet.name} uses ${jutsu.name}, poisoning ${target.pet.name} for ${dotDmg}/round (3 rounds).${guardianNote}`;
                 logs.push(msg);
                 if (actorSide === "player") { player = nextActor; enemy = poisoned; } else { enemy = nextActor; player = poisoned; }
                 pushFrame(round, msg, actorSide, "dot");
@@ -15017,6 +15124,69 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
                 if (actorSide === "player") player = absorbed; else enemy = absorbed;
                 pushFrame(round, msg, actorSide, "absorb");
                 return [absorbed, target];
+            }
+
+            if (jutsu.kind === "burn") {
+                const burnDmg = Math.max(1, Math.floor(jutsu.power * 0.15));
+                // Guardian halves DoT damage (its thematic resistance).
+                const effectiveBurn = target.pet.trait === "Guardian" ? Math.max(1, Math.floor(burnDmg * 0.5)) : burnDmg;
+                const burned = applyStatus(target, "burn", 3, effectiveBurn);
+                const msg = `Round ${round}: ${actor.pet.name} burns ${target.pet.name} for ${effectiveBurn}/round (3 rounds) — −2 ATK!${target.pet.trait === "Guardian" ? " (Guardian shrugs off half the burn.)" : ""}`;
+                logs.push(msg);
+                if (actorSide === "player") { player = nextActor; enemy = burned; } else { enemy = nextActor; player = burned; }
+                pushFrame(round, msg, actorSide, "dot");
+                return [nextActor, burned];
+            }
+
+            if (jutsu.kind === "freeze") {
+                if (target.pet.trait === "Swift") {
+                    const msg = `Round ${round}: ${actor.pet.name} tries to freeze ${target.pet.name}, but Swift speed shakes off the ice!`;
+                    logs.push(msg);
+                    if (actorSide === "player") { player = nextActor; } else { enemy = nextActor; }
+                    pushFrame(round, msg, targetSide, "buff", undefined, undefined, { actor: targetSide as "player" | "enemy", trait: "Swift" });
+                    return [nextActor, target];
+                }
+                const frozen = applyStatus(target, "freeze", 2);
+                const msg = `Round ${round}: ${actor.pet.name} freezes ${target.pet.name} — 50% chance to skip turn for 2 rounds!`;
+                logs.push(msg);
+                if (actorSide === "player") { player = nextActor; enemy = frozen; } else { enemy = nextActor; player = frozen; }
+                pushFrame(round, msg, actorSide, "movelock");
+                return [nextActor, frozen];
+            }
+
+            if (jutsu.kind === "confuse") {
+                if (target.pet.trait === "Lucky") {
+                    const msg = `Round ${round}: ${actor.pet.name} tries to confuse ${target.pet.name}, but Lucky instinct sees through it!`;
+                    logs.push(msg);
+                    if (actorSide === "player") { player = nextActor; } else { enemy = nextActor; }
+                    pushFrame(round, msg, targetSide, "buff", undefined, undefined, { actor: targetSide as "player" | "enemy", trait: "Lucky" });
+                    return [nextActor, target];
+                }
+                const confused = applyStatus(target, "confuse", 2);
+                const msg = `Round ${round}: ${actor.pet.name} confuses ${target.pet.name} — 50% chance to self-hit for 2 rounds!`;
+                logs.push(msg);
+                if (actorSide === "player") { player = nextActor; enemy = confused; } else { enemy = nextActor; player = confused; }
+                pushFrame(round, msg, actorSide, "debuff");
+                return [nextActor, confused];
+            }
+
+            if (jutsu.kind === "stun") {
+                // Aggressive trait shrugs off one round of stun (so 1-round stuns are no-ops).
+                const baseRounds = 1;
+                const reduced = target.pet.trait === "Aggressive" ? baseRounds - 1 : baseRounds;
+                if (reduced <= 0) {
+                    const msg = `Round ${round}: ${actor.pet.name} tries to stun ${target.pet.name}, but Aggressive rage shrugs it off!`;
+                    logs.push(msg);
+                    if (actorSide === "player") { player = nextActor; } else { enemy = nextActor; }
+                    pushFrame(round, msg, targetSide, "buff", undefined, undefined, { actor: targetSide as "player" | "enemy", trait: "Aggressive" });
+                    return [nextActor, target];
+                }
+                const stunned = applyStatus(target, "stun", reduced);
+                const msg = `Round ${round}: ${actor.pet.name} stuns ${target.pet.name} — skips next ${reduced} turn(s)!`;
+                logs.push(msg);
+                if (actorSide === "player") { player = nextActor; enemy = stunned; } else { enemy = nextActor; player = stunned; }
+                pushFrame(round, msg, actorSide, "movelock");
+                return [nextActor, stunned];
             }
 
             if (jutsu.kind === "lifesteal") {
@@ -15090,6 +15260,23 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
             if (enemy.hp <= 0) break;
         }
 
+        // Burn DoT — applied each round while burnRounds > 0, separate from
+        // poison so a pet can suffer both at once.
+        if (player.burnRounds > 0 && player.burnDamage > 0) {
+            player = { ...player, hp: Math.max(0, player.hp - player.burnDamage) };
+            const msg = `Round ${round}: 🔥 ${player.pet.name} burns for ${player.burnDamage} damage.`;
+            logs.push(msg);
+            pushFrame(round, msg, "player", "dot", player.burnDamage);
+            if (player.hp <= 0) break;
+        }
+        if (enemy.burnRounds > 0 && enemy.burnDamage > 0) {
+            enemy = { ...enemy, hp: Math.max(0, enemy.hp - enemy.burnDamage) };
+            const msg = `Round ${round}: 🔥 ${enemy.pet.name} burns for ${enemy.burnDamage} damage.`;
+            logs.push(msg);
+            pushFrame(round, msg, "enemy", "dot", enemy.burnDamage);
+            if (enemy.hp <= 0) break;
+        }
+
         const playerFirst = player.pet.speed > enemy.pet.speed || (player.pet.speed === enemy.pet.speed && petBattleTieKey(player.pet) <= petBattleTieKey(enemy.pet));
         // Swift bonus action scales with the actual speed gap instead of a
         // binary trigger at 1.2×:
@@ -15158,11 +15345,146 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
     return { result, player, enemy, logs, frames, obstacles: [...obstacles] };
 }
 
+// ── 2v2 Party Battle ──────────────────────────────────────────────────────
+// Sequential model: each pair (player lead vs opponent lead, then player
+// reserve vs opponent reserve) plays a full 1v1 battle using the existing
+// engine. Team that wins more individual matches takes the set. Tied 1-1
+// is broken by total surviving-HP %; equal totals → draw.
+//
+// Empty reserve slots are handled gracefully — if a player only brings one
+// pet, their second match auto-forfeits (the opponent's reserve wins by
+// default). This keeps the API simple and 2v2 strictly opt-in.
+export type PetPartyBattleMatch = {
+    playerPet: Pet | null;
+    opponentPet: Pet | null;
+    result: "win" | "loss" | "draw" | "forfeit-player" | "forfeit-opponent";
+    playerHpRemaining: number;
+    enemyHpRemaining: number;
+    logs: string[];
+    frames: PetArenaFrame[];
+    obstacles: number[];
+};
+
+export type PetPartyBattleResult = {
+    result: "win" | "loss" | "draw";
+    matches: PetPartyBattleMatch[];
+    playerWins: number;
+    opponentWins: number;
+    draws: number;
+    summaryLogs: string[];
+};
+
+function runPetArenaParty(
+    playerParty: [Pet | null, Pet | null],
+    opponentParty: [Pet | null, Pet | null],
+    opponentOwner: string,
+    seed = Date.now(),
+    playerDamageMult = 1,
+): PetPartyBattleResult {
+    const matches: PetPartyBattleMatch[] = [];
+    const summaryLogs: string[] = [];
+
+    let playerWins = 0;
+    let opponentWins = 0;
+    let draws = 0;
+
+    for (let slot = 0; slot < 2; slot++) {
+        const mine = playerParty[slot];
+        const theirs = opponentParty[slot];
+
+        // Forfeit cases — one side didn't bring a pet for this slot.
+        if (!mine && !theirs) {
+            matches.push({
+                playerPet: null, opponentPet: null, result: "draw",
+                playerHpRemaining: 0, enemyHpRemaining: 0,
+                logs: [`Slot ${slot + 1}: neither side fielded a pet.`],
+                frames: [], obstacles: [],
+            });
+            draws += 1;
+            summaryLogs.push(`Slot ${slot + 1}: neither side fielded a pet — draw.`);
+            continue;
+        }
+        if (!mine) {
+            matches.push({
+                playerPet: null, opponentPet: theirs, result: "forfeit-player",
+                playerHpRemaining: 0, enemyHpRemaining: theirs!.hp,
+                logs: [`Slot ${slot + 1}: ${character_safeName(theirs!.name)} wins by forfeit — you didn't field a reserve.`],
+                frames: [], obstacles: [],
+            });
+            opponentWins += 1;
+            summaryLogs.push(`Slot ${slot + 1}: ${theirs!.name} wins by forfeit (no reserve).`);
+            continue;
+        }
+        if (!theirs) {
+            matches.push({
+                playerPet: mine, opponentPet: null, result: "forfeit-opponent",
+                playerHpRemaining: mine.hp, enemyHpRemaining: 0,
+                logs: [`Slot ${slot + 1}: ${mine.name} wins by forfeit — opponent had no reserve.`],
+                frames: [], obstacles: [],
+            });
+            playerWins += 1;
+            summaryLogs.push(`Slot ${slot + 1}: ${mine.name} wins by forfeit (opponent had no reserve).`);
+            continue;
+        }
+
+        // Real match — derive a per-slot seed so matches are independent
+        // but the whole party battle is reproducible from the master seed.
+        const matchSeed = seed + slot * 7919;
+        const battle = runPetArenaBattle(mine, theirs, opponentOwner, matchSeed, playerDamageMult);
+        matches.push({
+            playerPet: mine, opponentPet: theirs, result: battle.result,
+            playerHpRemaining: battle.player.hp, enemyHpRemaining: battle.enemy.hp,
+            logs: battle.logs, frames: battle.frames, obstacles: battle.obstacles,
+        });
+        if (battle.result === "win") {
+            playerWins += 1;
+            summaryLogs.push(`Slot ${slot + 1}: ${mine.name} defeated ${theirs.name} (${battle.player.hp}/${mine.hp} HP).`);
+        } else if (battle.result === "loss") {
+            opponentWins += 1;
+            summaryLogs.push(`Slot ${slot + 1}: ${theirs.name} defeated ${mine.name} (${battle.enemy.hp}/${theirs.hp} HP).`);
+        } else {
+            draws += 1;
+            summaryLogs.push(`Slot ${slot + 1}: draw — neither pet could finish.`);
+        }
+    }
+
+    // Set winner. Most wins takes the set. 1-1 ties break on surviving HP%.
+    let result: "win" | "loss" | "draw";
+    if (playerWins > opponentWins) result = "win";
+    else if (opponentWins > playerWins) result = "loss";
+    else {
+        // Tie on wins (could be 0-0, 1-1, or 2-2 from draws). Use total
+        // surviving HP percentage across the party.
+        const playerHpPct = matches.reduce((acc, m) =>
+            acc + (m.playerPet ? m.playerHpRemaining / Math.max(1, m.playerPet.hp) : 0), 0);
+        const opponentHpPct = matches.reduce((acc, m) =>
+            acc + (m.opponentPet ? m.enemyHpRemaining / Math.max(1, m.opponentPet.hp) : 0), 0);
+        if (Math.abs(playerHpPct - opponentHpPct) < 0.05) result = "draw";
+        else result = playerHpPct > opponentHpPct ? "win" : "loss";
+    }
+
+    summaryLogs.push(`Set result: ${playerWins}–${opponentWins}${draws ? ` (${draws} draw${draws === 1 ? "" : "s"})` : ""}. ${result === "win" ? "You take the set!" : result === "loss" ? "Opponent takes the set." : "Set ends in a draw."}`);
+
+    return { result, matches, playerWins, opponentWins, draws, summaryLogs };
+}
+
+// Trivial helper so the forfeit log line doesn't fight with a global safeName.
+// Pet names are already user-facing strings; we just guard against undefined.
+function character_safeName(s: string | undefined): string { return s ?? "Pet"; }
+
 function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, setScreen, sharedImages, duelChallenges, setDuelChallenges, pendingPetBattleOpponent, onPendingPetBattleStarted }: { character: Character; updateCharacter: (character: Character) => void; playerRoster: PlayerRecord[]; allServerPlayers: ServerPlayerSummary[]; setScreen: (screen: Screen) => void; sharedImages: Record<string, string>; duelChallenges: DuelChallenge[]; setDuelChallenges: (c: DuelChallenge[]) => void; pendingPetBattleOpponent?: PetArenaOpponent | null; onPendingPetBattleStarted?: () => void }) {
     const [selectedPetId, setSelectedPetId] = useState(character.activePetId ?? character.pets[0]?.id ?? "");
     const [opponentMode, setOpponentMode] = useState<"player" | "ai">("player");
     const [opponentSearch, setOpponentSearch] = useState("");
     const [petChallengeMsg, setPetChallengeMsg] = useState("");
+    // 2v2 party mode (AI battles only for now). Auto-picks the player's
+    // second-best pet as reserve, and pulls a random second opponent pet
+    // from the AI pool. PvP party battles need a challenge-protocol update
+    // and are a future addition.
+    const [partyMode, setPartyMode] = useState(false);
+    const [reservePetId, setReservePetId] = useState<string>("");
+    // Last party result, shown as a summary block ("2–0 — You take the set!").
+    const [partyResult, setPartyResult] = useState<PetPartyBattleResult | null>(null);
 
     async function sendDirectPetChallenge(toName: string, fromPetId?: string) {
         if (duelChallenges.some((challenge) => challenge.fromName === character.name && !challenge.accepted && !challenge.declined && !challenge.battleId && Date.now() - challenge.createdAt < 120000)) {
@@ -15258,6 +15580,63 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
         }
         const pendingClanPetBattle = loadPendingClanPetBattle();
         if (isPetOnExpedition(opponent.pet)) return alert(`${petDisplayName(opponent.pet)} is exploring and cannot battle right now.`);
+        setPartyResult(null);
+
+        // 2v2 party path — AI battles only, both sides must have at least
+        // one reserve. Picks player's second pet from selector (or auto
+        // second-best) and a random other AI pet for the opponent's reserve.
+        const canParty = partyMode && opponentMode === "ai" && character.pets.length >= 2;
+        if (canParty) {
+            const reserveCandidate = character.pets.find(p => p.id === reservePetId && p.id !== selectedPet.id)
+                ?? character.pets.filter(p => p.id !== selectedPet.id && !isPetOnExpedition(p))[0]
+                ?? null;
+            if (!reserveCandidate) {
+                return alert("Need a reserve pet (a second pet not on expedition).");
+            }
+            // Pick a different opponent AI pet at random as their reserve.
+            const aiCandidates = genericPetArenaOpponents.filter(o => o.pet.id !== opponent.pet.id);
+            const enemyReserve = aiCandidates.length > 0
+                ? aiCandidates[Math.floor(Math.random() * aiCandidates.length)].pet
+                : opponent.pet; // fallback: re-use lead if pool is bare
+            const seed = opponent.battleSeed ?? Date.now();
+            const party = runPetArenaParty(
+                [selectedPet, reserveCandidate],
+                [opponent.pet, enemyReserve],
+                opponent.owner,
+                seed,
+                petTamerPveMultiplier(character),
+            );
+            setBattleOpponent(opponent);
+            setBattleReady(true);
+            // Concatenate match logs/frames into one continuous replay.
+            setBattleLog(party.matches.flatMap(m => m.logs).concat(party.summaryLogs));
+            setBattleFrames(party.matches.flatMap(m => m.frames));
+            setBattleObstacles(party.matches[0]?.obstacles ?? []);
+            setFrameIndex(0);
+            setIsPlaying(true);
+            setResult(party.result === "win" ? "Victory" : party.result === "draw" ? "Draw" : "Defeat");
+            setPartyResult(party);
+            // Award ryo once per match won — keeps the existing server cap
+            // intact (each call is rate-limited and counts toward daily cap).
+            const matchesWon = party.matches.filter(m => m.result === "win").length;
+            for (let i = 0; i < matchesWon; i++) {
+                void (async () => {
+                    try {
+                        await fetch("/api/pet/battle-result", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                playerName: character.name,
+                                outcome: "win",
+                                opponentLevel: opponent.pet.level,
+                            }),
+                        });
+                    } catch { /* ignore */ }
+                })();
+            }
+            return;
+        }
+
         const battle = runPetArenaBattle(selectedPet, opponent.pet, opponent.owner, opponent.battleSeed ?? Date.now(), petTamerPveMultiplier(character));
         setBattleOpponent(opponent);
         setBattleReady(true);
@@ -15506,9 +15885,34 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                 </section>
             </div>
 
+            {opponentMode === "ai" && character.pets.length >= 2 && (
+                <div className="summary-box" style={{ marginTop: "0.4rem" }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", cursor: "pointer" }}>
+                        <input type="checkbox" checked={partyMode} onChange={(e) => setPartyMode(e.target.checked)} />
+                        <strong>🐾🐾 2v2 Party Battle</strong>
+                        <span className="hint" style={{ marginLeft: "auto", fontSize: "0.85rem" }}>
+                            Lead vs lead, then reserve vs reserve. Best of 2 wins the set.
+                        </span>
+                    </label>
+                    {partyMode && (
+                        <div style={{ marginTop: "0.5rem", display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+                            <label>Reserve pet:</label>
+                            <select value={reservePetId} onChange={(e) => setReservePetId(e.target.value)} style={{ padding: "0.3rem" }}>
+                                <option value="">— auto-pick —</option>
+                                {character.pets.filter(p => p.id !== selectedPetId).map(p => (
+                                    <option key={p.id} value={p.id}>{petDisplayName(p)} (Lv {p.level})</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+                </div>
+            )}
+
             <div className="menu">
                 {opponentMode === "ai" && (
-                    <button onClick={() => startBattle()} disabled={!selectedPet || !selectedOpponent}>Start Battle</button>
+                    <button onClick={() => startBattle()} disabled={!selectedPet || !selectedOpponent}>
+                        {partyMode && character.pets.length >= 2 ? "Start 2v2 Set" : "Start Battle"}
+                    </button>
                 )}
                 {battleReady && battleFrames.length > 0 && (
                     <button onClick={() => {
@@ -15524,6 +15928,17 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                 )}
                 {battleReady && showResult && result && <strong className={result === "Victory" ? "pet-arena-win" : "pet-arena-loss"}>{result}</strong>}
             </div>
+
+            {partyResult && battleReady && showResult && (
+                <div className="summary-box" style={{ marginTop: "0.4rem", padding: "0.5rem 0.7rem" }}>
+                    <strong>Set: {partyResult.playerWins}–{partyResult.opponentWins}{partyResult.draws ? ` (${partyResult.draws} draw)` : ""}</strong>
+                    {partyResult.matches.map((m, i) => (
+                        <div key={i} style={{ fontSize: "0.85rem", color: "#94a3b8", marginTop: 2 }}>
+                            Match {i + 1}: {m.playerPet?.name ?? "—"} vs {m.opponentPet?.name ?? "—"} → <strong style={{ color: m.result === "win" ? "#4ade80" : m.result === "loss" ? "#f87171" : "#facc15" }}>{m.result}</strong>
+                        </div>
+                    ))}
+                </div>
+            )}
 
             {battleReady && selectedPet && (battleOpponent ?? selectedOpponent) && (
                 <PetArenaBattlefield
