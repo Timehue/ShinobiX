@@ -654,6 +654,15 @@ type DuelChallenge = {
     petBattleSeed?: number;
     responderPetId?: string;
     responderPet?: Pet;
+    // ── 2v2 Pet Party extensions ──────────────────────────────────────
+    // When set, the pet battle resolves as a 2-pet party set (lead + reserve)
+    // via runPetArenaParty. Both fields are optional so old 1v1 challenges
+    // remain valid. The responder's two pets are auto-selected at accept
+    // time (top two by level) — no protocol change needed for them.
+    petParty?: boolean;
+    challengerPetIds?: [string, string];
+    responderPetIds?: [string, string];
+    responderParty?: [Pet, Pet];
     createdAt: number;
     mode?: "standard" | "ranked" | "clanWar1v1" | "clanWar2v2" | "clanWarPet";
     clanWarPoints?: number;
@@ -8232,6 +8241,27 @@ export default function App() {
             alert("Both players need a pet before this pet battle can start.");
             return;
         }
+
+        // ── 2v2 party path ─────────────────────────────────────────────
+        // If the challenger flagged petParty, we auto-pick our top two
+        // available pets (highest level, not on expedition) so the player
+        // doesn't have to scramble through a picker mid-notification. We
+        // also need the challenger's reserve pet (sent as challengerPetIds).
+        const wantsParty = challenge.petParty === true && Array.isArray(challenge.challengerPetIds);
+        const myAvailable = character.pets.filter(p => !isPetOnExpedition(p));
+        let myParty: [Pet, Pet] | null = null;
+        let challengerParty: [Pet, Pet] | null = null;
+        if (wantsParty && myAvailable.length >= 2) {
+            const sortedByLvl = [...myAvailable].sort((a, b) => (b.level ?? 0) - (a.level ?? 0));
+            myParty = [sortedByLvl[0], sortedByLvl[1]] as [Pet, Pet];
+            const [chId1, chId2] = challenge.challengerPetIds!;
+            const ch1 = challenge.challenger.pets.find(p => p.id === chId1) ?? challengerPet;
+            const ch2 = challenge.challenger.pets.find(p => p.id === chId2 && p.id !== ch1.id)
+                ?? challenge.challenger.pets.find(p => p.id !== ch1.id);
+            if (ch1 && ch2) challengerParty = [ch1, ch2] as [Pet, Pet];
+        }
+        const doParty = !!(wantsParty && myParty && challengerParty);
+
         setProcessingChallengeIds(prev => [...prev, challenge.id]);
         setDuelChallenges(prev => prev.filter(candidate => candidate.id !== challenge.id));
         await clearChallengeOnServer(challenge);
@@ -8242,9 +8272,22 @@ export default function App() {
             toName: challenge.fromName,
             responderPetId: myPet.id,
             responderPet: myPet,
+            ...(doParty && myParty ? {
+                petParty: true,
+                responderPetIds: [myParty[0].id, myParty[1].id] as [string, string],
+                responderParty: myParty,
+            } : {}),
         };
         const notified = await postPlayerChallengeNotice(challenge.fromName, acceptedNotice);
-        setPendingPetBattleOpponent({ owner: challenge.fromName, pet: challengerPet, battleSeed: challenge.petBattleSeed });
+        setPendingPetBattleOpponent({
+            owner: challenge.fromName,
+            pet: challengerPet,
+            battleSeed: challenge.petBattleSeed,
+            ...(doParty && challengerParty && myParty ? {
+                opponentParty: challengerParty,
+                challengerParty: myParty,
+            } : {}),
+        });
         setScreen("petArena");
         setProcessingChallengeIds(prev => prev.filter(id => id !== challenge.id));
         if (!notified) alert(`${challenge.fromName} may not be pulled in automatically. Ask them to open Pet Arena if they do not see the fight.`);
@@ -8339,7 +8382,25 @@ export default function App() {
         setDuelChallenges(prev => prev.filter(c => c.id !== accepted.id));
         if (accepted.mode === "clanWarPet") {
             if (accepted.responderPet) {
-                setPendingPetBattleOpponent({ owner: accepted.fromName, pet: accepted.responderPet, battleSeed: accepted.petBattleSeed });
+                // Reconstruct the challenger's own party from the IDs they
+                // originally sent — character.pets is the authoritative source.
+                const myParty: [Pet, Pet] | undefined = (accepted.petParty && accepted.challengerPetIds && character)
+                    ? (() => {
+                        const [a, b] = accepted.challengerPetIds!;
+                        const p1 = character.pets.find(p => p.id === a);
+                        const p2 = character.pets.find(p => p.id === b && p.id !== a);
+                        return (p1 && p2) ? [p1, p2] as [Pet, Pet] : undefined;
+                    })()
+                    : undefined;
+                setPendingPetBattleOpponent({
+                    owner: accepted.fromName,
+                    pet: accepted.responderPet,
+                    battleSeed: accepted.petBattleSeed,
+                    ...(accepted.petParty && accepted.responderParty && myParty ? {
+                        opponentParty: accepted.responderParty,
+                        challengerParty: myParty,
+                    } : {}),
+                });
                 setScreen("petArena");
             } else {
                 alert(`${accepted.fromName} accepted your pet battle. Open Pet Arena if it does not start automatically.`);
@@ -14464,6 +14525,12 @@ type PetArenaOpponent = {
     // battle ends. Defaults to "centralHub" inside PetArena. Used by the
     // Hollow Gate pet_battle tile to return the player to the shrine.
     returnScreen?: Screen;
+    // ── Party (2v2) extensions ────────────────────────────────────────
+    // When opponentParty is set, the incoming battle should resolve as a
+    // 2-pet set. challengerParty is the player's locked-in pair (carried
+    // from a PvP party challenge so we don't re-pick on the player's side).
+    opponentParty?: [Pet, Pet];
+    challengerParty?: [Pet, Pet];
 };
 
 const genericPetArenaOpponents: PetArenaOpponent[] = [
@@ -14595,28 +14662,31 @@ type PetArenaFrame = {
 };
 
 const PET_GRID_COLS  = 14;
-const PET_GRID_ROWS  = 6;
-const PET_GRID_SIZE  = PET_GRID_COLS * PET_GRID_ROWS; // 84
+const PET_GRID_ROWS  = 7;
+const PET_GRID_SIZE  = PET_GRID_COLS * PET_GRID_ROWS; // 98
 
-// 8 hand-crafted obstacle layouts for the 14×6 arena. Picked randomly each battle.
-// Tile index = row * 14 + col.  Player always starts col 1 row 2 (=29), enemy col 12 row 2 (=40).
+// 8 hand-crafted obstacle layouts for the 14×7 arena. Picked randomly each battle.
+// Tile index = row * 14 + col.  Player always starts col 1 row 3 (=43), enemy col 12 row 3 (=54).
+// Row 0 is the new top-of-arena empty row (added for vertical breathing room);
+// all legacy obstacle indices are shifted +14 so the layouts keep their old shape
+// just one row lower visually.
 const PET_OBSTACLE_LAYOUTS: ReadonlyArray<ReadonlyArray<number>> = [
     // 0 — "Narrow Gate": centre-column wall forces pets through top/bottom passages
-    [21, 35, 49, 63,  22, 36],
+    [35, 49, 63, 77,  36, 50],
     // 1 — "Twin Boulders": two diagonal boulder clusters
-    [19, 33, 34,  51, 65, 64],
+    [33, 47, 48,  65, 79, 78],
     // 2 — "Side Walls": corner blocks funnel pets into the centre lane
-    [2, 3, 16, 17,  66, 67, 80, 81],
+    [16, 17, 30, 31,  80, 81, 94, 95],
     // 3 — "Central Rock": big impassable rock in the middle
-    [34, 35, 36,  48, 49, 50],
+    [48, 49, 50,  62, 63, 64],
     // 4 — "Half Walls": offset walls on each flank create asymmetric lanes
-    [32, 46, 60,  23, 37, 51],
+    [46, 60, 74,  37, 51, 65],
     // 5 — "Cross Bars": horizontal strips top and bottom force centre path
-    [18, 19, 20, 21,  63, 64, 65, 66],
+    [32, 33, 34, 35,  77, 78, 79, 80],
     // 6 — "Zigzag": diagonal stepping stones disrupt straight charges
-    [17, 33, 49, 65,  18, 46],
+    [31, 47, 63, 79,  32, 60],
     // 7 — "Fortress": enclosed square with two entry gaps on the sides
-    [33, 34, 47, 48,  21, 63],
+    [47, 48, 61, 62,  35, 77],
 ];
 
 /** BFS: returns the next tile to step onto when moving from `from` toward `to`, avoiding obstacles. */
@@ -14863,8 +14933,11 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
     const obstacles = new Set<number>(obstacleLayout);
 
     // 14×6 grid: player col 1 row 2 = tile 29; enemy col 12 row 2 = tile 40
-    let player: PetBattleFighter = { owner: "You",        pet: playerPet,   hp: playerPet.hp,   pos: 29, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: 0, moveLocked: 0, absorbRounds: 0, absorbPercent: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0 };
-    let enemy:  PetBattleFighter = { owner: opponentOwner, pet: opponentPet, hp: opponentPet.hp, pos: 40, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: 0, moveLocked: 0, absorbRounds: 0, absorbPercent: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0 };
+    // Starting positions on the 14×7 grid: player col 1 row 3 (=43),
+    // enemy col 12 row 3 (=54). Row 3 is the visual centre (row 0 = top
+    // breathing-room row, row 6 = bottom).
+    let player: PetBattleFighter = { owner: "You",        pet: playerPet,   hp: playerPet.hp,   pos: 43, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: 0, moveLocked: 0, absorbRounds: 0, absorbPercent: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0 };
+    let enemy:  PetBattleFighter = { owner: opponentOwner, pet: opponentPet, hp: opponentPet.hp, pos: 54, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: 0, moveLocked: 0, absorbRounds: 0, absorbPercent: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0 };
     const logs: string[] = [`${player.pet.name} enters against ${enemy.owner}'s ${enemy.pet.name}.`];
     const frames: PetArenaFrame[] = [];
     let playerCombo = 0;
@@ -15477,10 +15550,10 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
     const [opponentMode, setOpponentMode] = useState<"player" | "ai">("player");
     const [opponentSearch, setOpponentSearch] = useState("");
     const [petChallengeMsg, setPetChallengeMsg] = useState("");
-    // 2v2 party mode (AI battles only for now). Auto-picks the player's
-    // second-best pet as reserve, and pulls a random second opponent pet
-    // from the AI pool. PvP party battles need a challenge-protocol update
-    // and are a future addition.
+    // 2v2 party mode — works for both AI and PvP battles. AI auto-picks a
+    // random second opponent from the AI pool. PvP attaches both pet IDs to
+    // the duel challenge so the target's client knows to run the party variant
+    // (with their own top-2 pets auto-selected for them).
     const [partyMode, setPartyMode] = useState(false);
     const [reservePetId, setReservePetId] = useState<string>("");
     // Last party result, shown as a summary block ("2–0 — You take the set!").
@@ -15500,16 +15573,37 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
             setPetChallengeMsg("Choose one of your pets first.");
             return;
         }
+        // 2v2 challenge needs the player to have a reserve and the target
+        // to have at least 2 pets. If either fails, fall back to 1v1.
+        const wantsParty = partyMode && character.pets.length >= 2;
+        const reserveCandidate = wantsParty
+            ? (character.pets.find(p => p.id === reservePetId && p.id !== selectedPet.id)
+                ?? character.pets.filter(p => p.id !== selectedPet.id && !isPetOnExpedition(p))[0]
+                ?? null)
+            : null;
+        const targetCanParty = (targetRecord?.character?.pets?.length ?? 0) >= 2;
+        const doParty = wantsParty && !!reserveCandidate && targetCanParty;
+        if (wantsParty && !doParty) {
+            setPetChallengeMsg(
+                !reserveCandidate
+                    ? "Need a reserve pet (a second pet not on expedition). Sending a 1v1 challenge instead."
+                    : `${toName} only has one pet — sending a 1v1 challenge instead.`
+            );
+        }
         setBattleReady(false);
         const challenge: DuelChallenge = {
             id: makeId(),
             fromName: character.name,
             toName,
             challenger: character,
-            challengerPetId: fromPetId,
+            challengerPetId: doParty ? selectedPet.id : fromPetId,
             petBattleSeed: Date.now() + Math.floor(Math.random() * 100000),
             createdAt: Date.now(),
             mode: "clanWarPet",
+            ...(doParty && reserveCandidate ? {
+                petParty: true,
+                challengerPetIds: [selectedPet.id, reserveCandidate.id] as [string, string],
+            } : {}),
         };
         try {
             const res = await fetch('/api/player/challenge', {
@@ -15582,26 +15676,42 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
         if (isPetOnExpedition(opponent.pet)) return alert(`${petDisplayName(opponent.pet)} is exploring and cannot battle right now.`);
         setPartyResult(null);
 
-        // 2v2 party path — AI battles only, both sides must have at least
-        // one reserve. Picks player's second pet from selector (or auto
-        // second-best) and a random other AI pet for the opponent's reserve.
-        const canParty = partyMode && opponentMode === "ai" && character.pets.length >= 2;
-        if (canParty) {
-            const reserveCandidate = character.pets.find(p => p.id === reservePetId && p.id !== selectedPet.id)
-                ?? character.pets.filter(p => p.id !== selectedPet.id && !isPetOnExpedition(p))[0]
-                ?? null;
-            if (!reserveCandidate) {
-                return alert("Need a reserve pet (a second pet not on expedition).");
+        // 2v2 party path — two entry points:
+        //   • PvP party challenge: opponent already carries both parties (set
+        //     when the accept handler fired runPetArenaParty's data through).
+        //   • Local AI battle: in-component partyMode toggle, player picks
+        //     reserve, AI gets a random second pet from the pool.
+        const pvpParty = !!(opponent.opponentParty && opponent.challengerParty);
+        const canAiParty = partyMode && opponentMode === "ai" && character.pets.length >= 2;
+        if (pvpParty || canAiParty) {
+            let myLead: Pet;
+            let myReserve: Pet;
+            let enemyLead: Pet;
+            let enemyReserve: Pet;
+            if (pvpParty) {
+                [myLead, myReserve] = opponent.challengerParty!;
+                [enemyLead, enemyReserve] = opponent.opponentParty!;
+            } else {
+                const reserveCandidate = character.pets.find(p => p.id === reservePetId && p.id !== selectedPet.id)
+                    ?? character.pets.filter(p => p.id !== selectedPet.id && !isPetOnExpedition(p))[0]
+                    ?? null;
+                if (!reserveCandidate) {
+                    return alert("Need a reserve pet (a second pet not on expedition).");
+                }
+                // Pick a different opponent AI pet at random as their reserve.
+                const aiCandidates = genericPetArenaOpponents.filter(o => o.pet.id !== opponent.pet.id);
+                const enemyReserveCandidate = aiCandidates.length > 0
+                    ? aiCandidates[Math.floor(Math.random() * aiCandidates.length)].pet
+                    : opponent.pet; // fallback: re-use lead if pool is bare
+                myLead = selectedPet;
+                myReserve = reserveCandidate;
+                enemyLead = opponent.pet;
+                enemyReserve = enemyReserveCandidate;
             }
-            // Pick a different opponent AI pet at random as their reserve.
-            const aiCandidates = genericPetArenaOpponents.filter(o => o.pet.id !== opponent.pet.id);
-            const enemyReserve = aiCandidates.length > 0
-                ? aiCandidates[Math.floor(Math.random() * aiCandidates.length)].pet
-                : opponent.pet; // fallback: re-use lead if pool is bare
             const seed = opponent.battleSeed ?? Date.now();
             const party = runPetArenaParty(
-                [selectedPet, reserveCandidate],
-                [opponent.pet, enemyReserve],
+                [myLead, myReserve],
+                [enemyLead, enemyReserve],
                 opponent.owner,
                 seed,
                 petTamerPveMultiplier(character),
@@ -15753,10 +15863,28 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
 
             {duelChallenges.filter((c) => c.mode === "clanWarPet" && !c.clanWarPoints && c.toName.toLowerCase() === character.name.toLowerCase()).map((c) => (
                 <div key={c.id} className="summary-box" style={{ background: "#1e3a2f", border: "1px solid #4ade80", marginBottom: 8, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                    <span>🐾 <strong>{c.fromName}</strong> challenged you to a pet battle!</span>
+                    <span>{c.petParty ? "🐾🐾" : "🐾"} <strong>{c.fromName}</strong> challenged you to a {c.petParty ? "2v2 pet battle" : "pet battle"}!</span>
                     <div className="menu" style={{ marginLeft: "auto" }}>
                         <button onClick={() => {
                             const challengerPet = c.challenger.pets.find(p => p.id === c.challengerPetId && !isPetOnExpedition(p)) ?? c.challenger.pets.find(p => !isPetOnExpedition(p));
+                            // Party path: auto-pick our top 2 available pets by
+                            // level + reconstruct challenger's pair from the IDs
+                            // they sent. Fall back to 1v1 if either side can't
+                            // field two pets.
+                            const wantsParty = c.petParty === true && Array.isArray(c.challengerPetIds);
+                            const myAvailable = character.pets.filter(p => !isPetOnExpedition(p));
+                            let myParty: [Pet, Pet] | null = null;
+                            let chParty: [Pet, Pet] | null = null;
+                            if (wantsParty && myAvailable.length >= 2 && challengerPet) {
+                                const sorted = [...myAvailable].sort((a, b) => (b.level ?? 0) - (a.level ?? 0));
+                                myParty = [sorted[0], sorted[1]] as [Pet, Pet];
+                                const [chId1, chId2] = c.challengerPetIds!;
+                                const ch1 = c.challenger.pets.find(p => p.id === chId1) ?? challengerPet;
+                                const ch2 = c.challenger.pets.find(p => p.id === chId2 && p.id !== ch1.id)
+                                    ?? c.challenger.pets.find(p => p.id !== ch1.id);
+                                if (ch1 && ch2) chParty = [ch1, ch2] as [Pet, Pet];
+                            }
+                            const doParty = !!(wantsParty && myParty && chParty);
                             setDuelChallenges(duelChallenges.filter((x) => x.id !== c.id));
                             fetch('/api/player/challenge', {
                                 method: 'DELETE',
@@ -15766,10 +15894,29 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                             fetch('/api/player/challenge', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ targetName: c.fromName, challenge: { ...c, accepted: true, fromName: character.name, toName: c.fromName, responderPetId: selectedPet?.id, responderPet: selectedPet } }),
+                                body: JSON.stringify({ targetName: c.fromName, challenge: {
+                                    ...c, accepted: true,
+                                    fromName: character.name, toName: c.fromName,
+                                    responderPetId: selectedPet?.id, responderPet: selectedPet,
+                                    ...(doParty && myParty ? {
+                                        petParty: true,
+                                        responderPetIds: [myParty[0].id, myParty[1].id] as [string, string],
+                                        responderParty: myParty,
+                                    } : {}),
+                                } }),
                             }).catch(() => {});
-                            if (challengerPet) startBattle({ owner: c.fromName, pet: challengerPet, battleSeed: c.petBattleSeed });
-                        }}>✅ Accept & Fight</button>
+                            if (challengerPet) {
+                                startBattle({
+                                    owner: c.fromName,
+                                    pet: challengerPet,
+                                    battleSeed: c.petBattleSeed,
+                                    ...(doParty && chParty && myParty ? {
+                                        opponentParty: chParty,
+                                        challengerParty: myParty,
+                                    } : {}),
+                                });
+                            }
+                        }}>{c.petParty ? "✅ Accept & Fight (2v2)" : "✅ Accept & Fight"}</button>
                         <button className="danger-button" onClick={() => {
                             setDuelChallenges(duelChallenges.filter((x) => x.id !== c.id));
                             fetch('/api/player/challenge', {
@@ -16129,7 +16276,7 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, frame, recentFra
                         const occupiedByPlayer = index === playerPos;
                         const occupiedByEnemy  = index === enemyPos;
                         const isObstacle  = (obstacles ?? []).includes(index);
-                        const isTrail     = index >= 28 && index <= 41; // row 2 of 14-col grid
+                        const isTrail     = index >= 42 && index <= 55; // row 3 of 14-col, 7-row grid (centre lane)
                         const isActionTile = frame?.actionKind && (occupiedByPlayer || occupiedByEnemy);
                         const hasEffect   = index === effectTile && frame?.actionKind;
                         return (
