@@ -14566,8 +14566,10 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
                 {selectedPet ? (
                     <div className="pet-detail-panel">
                         <div className="pet-detail-left pet-profile-panel">
-                            <div className="pet-detail-avatar pet-heart-anchor">
-                                {selectedPet.image ? <img src={selectedPet.image} alt={selectedPet.name} /> : <span className="pet-detail-initials">{selectedPet.name.slice(0, 2).toUpperCase()}</span>}
+                            <div className="pet-heart-anchor">
+                                <div className="pet-detail-avatar">
+                                    {selectedPet.image ? <img src={selectedPet.image} alt={selectedPet.name} /> : <span className="pet-detail-initials">{selectedPet.name.slice(0, 2).toUpperCase()}</span>}
+                                </div>
                                 {petHeartBurst > 0 && <span key={petHeartBurst} className="pet-heart-pop">❤️</span>}
                             </div>
                             <h3>{petDisplayName(selectedPet)}</h3>

@@ -13701,9 +13701,14 @@ button.combat-jutsu-button,
     height: clamp(92px, 8vw, 124px) !important;
 }
 
+/* Wrapper around .pet-detail-avatar. Stays unclipped so the heart-pop can
+   float above the circular avatar without being chopped off by the
+   overflow:hidden that .pet-detail-avatar needs to keep the image rounded. */
 .pet-heart-anchor {
     position: relative !important;
     overflow: visible !important;
+    display: inline-block !important;
+    line-height: 0 !important;
 }
 
 .pet-heart-pop {
