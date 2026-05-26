@@ -10129,7 +10129,7 @@ export default function App() {
         const roll = Math.random() * 100;
         // ── Branch A: Pet duel (35% slot, rolls 50-84) ────────────────
         if (roll >= 50 && roll < 85) {
-            const activePet = character.pets.find(p => p.id === character.activePetId);
+            const activePet = (character.pets ?? []).find(p => p.id === character.activePetId);
             const petReady = activePet && activePet.unlockedForPve && !isPetOnExpedition(activePet);
             if (petReady) {
                 // Use the same wild-pet picker / handicap rules as the
@@ -10433,7 +10433,7 @@ export default function App() {
                 // scaled to the player's level. Falls back to a themed shinobi
                 // fight if the player has no battle-ready pet (so the tile is
                 // never a dead-end).
-                const activePet = character.pets.find(p => p.id === character.activePetId);
+                const activePet = (character.pets ?? []).find(p => p.id === character.activePetId);
                 const petReady = activePet && activePet.unlockedForPve && !isPetOnExpedition(activePet);
                 if (!petReady) {
                     // No pet → fall back to the themed shinobi version of the
@@ -22216,7 +22216,7 @@ function ShinobiTiles({ character, updateCharacter, creatorCards, dungeonMode = 
     type Phase = "collection" | "select" | "game" | "result";
 
     const allCards = getAllTileCards(creatorCards);
-    const ownedCards = character.tileCards.map((id) => allCards.find((c) => c.id === id)).filter(Boolean) as TileCard[];
+    const ownedCards = (character.tileCards ?? []).map((id) => allCards.find((c) => c.id === id)).filter(Boolean) as TileCard[];
 
     const [phase, setPhase] = useState<Phase>(dungeonMode ? "select" : "collection");
     const [deckPicks, setDeckPicks] = useState<TileCard[]>([]);
@@ -22995,7 +22995,7 @@ function SunscarFestival({
     const [duelResult, setDuelResult] = useState<"win" | "lose" | "draw" | null>(null);
 
     const allCards = getAllTileCards(creatorCards);
-    const ownedCards = character.tileCards.map((id) => allCards.find((c) => c.id === id)).filter(Boolean) as TileCard[];
+    const ownedCards = (character.tileCards ?? []).map((id) => allCards.find((c) => c.id === id)).filter(Boolean) as TileCard[];
     const kaelImage = "";
     const miraaImage = "";
 
