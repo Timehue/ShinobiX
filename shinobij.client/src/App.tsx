@@ -92,6 +92,7 @@ export type Screen =
     | "userView"
     | "pvpBattle"
     | "hollowGateShrine"
+    | "hollowGateTiles"
     | "endlessTower"
     | "weeklyBoss"
     | "villageWar";
@@ -575,6 +576,10 @@ export type Character = {
     dailyFateSpins?: number;
     dailyAiKills?: number;
     dailyPetWins?: number;
+    // Hollow Gate Shrine runs entered today. Hard-capped at 2 regardless of
+    // how many Hollow Gate Keys the player has banked — the shrine itself
+    // refuses to open more than twice between dawns. Tied to lastDailyReset.
+    dailyHollowGateRuns?: number;
     lastDailyReset?: string;
     claimedVillageAgendaDate?: string;
     claimedMapControlDate?: string;
@@ -1043,6 +1048,7 @@ type HollowGateTileKind =
     | "chest"
     | "pet_event"
     | "pet_battle" // Wild Hollow Beast — animal/pet-themed PvE combat encounter
+    | "tile_game"  // Shinobi Tile card-game encounter; loss costs 20% maxHp
     | "shrine"
     | "story"
     | "boss"
@@ -1140,6 +1146,11 @@ const hollowGateFlavorPool: Record<HollowGateTileKind, string[]> = {
         "A corrupted Hollow Beast prowls the corridor — eyes burning chakra-blue, claws scoring stone.",
         "Glowing pawprints crystallize into a snarling shadow-bound beast, twisted by the gate's mist.",
         "A wild thing lunges from the dark — too fast for a normal animal, too old for a normal shadow.",
+    ],
+    tile_game: [
+        "A stone table rises from the floor, nine tile-shaped slots glowing with old chakra. A challenger sits across, smiling without a face.",
+        "The shrine offers a riddle disguised as a game. Cards float between you and the shadow opponent.",
+        "Ancient seals form a 3×3 grid in the air. The mist asks for tiles — bet wrong and it bites.",
     ],
     shrine: [
         "A broken shrine stone weeps cold chakra. Beyond it, a Hidden Chamber lies open.",
@@ -1391,6 +1402,93 @@ type ParsedHollowGateLayout = {
     targetIdx: number;
 };
 
+// Post-process pass run by both generators: enforce "no door leads to a wall".
+// A door is a transition between two walkable cells (room ↔ corridor or
+// room ↔ room). If a door has exactly one room neighbour and walls on all
+// other sides, it visually leads nowhere — confusing and unfair.
+//
+// Fix policy: convert the wall cell directly opposite the room into a
+// single-tile floor alcove + stamp a random surprise on it (poison trap /
+// ambush battle / elite / chest). The alcove gets its own unique roomId
+// so the visibility flood treats it as its own pocket; the player has to
+// step onto the door first, then onto the alcove to discover what's there.
+//
+// Edge cases:
+// - Door on the grid edge with nowhere to expand → close the door (wall it up)
+// - Door with multiple room neighbours (room↔room door) → leave alone
+// - Door with any corridor neighbour → leave alone (it leads somewhere)
+// - Island door (no walkable neighbours at all) → close the door
+function fixDoorsLeadingToWalls(
+    width: number,
+    height: number,
+    terrain: HollowGateTerrain[],
+    roomIds: number[],
+    kinds: HollowGateTileKind[],
+    reserved: Set<number>,
+): void {
+    let nextRoomId = roomIds.reduce((max, id) => Math.max(max, id), -1) + 1;
+    const total = width * height;
+    const cardinals: Array<[number, number]> = [[0, -1], [0, 1], [-1, 0], [1, 0]];
+    // dirs: 0=N, 1=S, 2=W, 3=E. Opposite pairs: 0↔1, 2↔3.
+    const oppositeDir = (d: number) => d === 0 ? 1 : d === 1 ? 0 : d === 2 ? 3 : 2;
+
+    for (let i = 0; i < total; i += 1) {
+        if (terrain[i] !== "door") continue;
+        const x = i % width;
+        const y = Math.floor(i / width);
+
+        const roomSides: number[] = [];
+        const corridorSides: number[] = [];
+        for (let d = 0; d < 4; d += 1) {
+            const [dx, dy] = cardinals[d];
+            const nx = x + dx, ny = y + dy;
+            if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+            const t = terrain[ny * width + nx];
+            if (t === "room_floor") roomSides.push(d);
+            else if (t === "corridor_floor" || t === "door") corridorSides.push(d);
+        }
+
+        if (corridorSides.length > 0) continue;         // leads to a corridor — fine
+        if (roomSides.length === 0) {                    // island door — close it
+            terrain[i] = "wall";
+            kinds[i] = "wall";
+            continue;
+        }
+        if (roomSides.length >= 2) continue;             // between two rooms — fine
+
+        // Single room neighbour + walls on the other 3 sides. Carve an alcove.
+        const opp = oppositeDir(roomSides[0]);
+        const [odx, ody] = cardinals[opp];
+        const ox = x + odx, oy = y + ody;
+        if (ox < 0 || oy < 0 || ox >= width || oy >= height) {
+            // Outside the grid — close the door instead.
+            terrain[i] = "wall";
+            kinds[i] = "wall";
+            continue;
+        }
+        const oIdx = oy * width + ox;
+        if (terrain[oIdx] !== "wall") continue;          // already walkable somehow
+
+        terrain[oIdx] = "room_floor";
+        roomIds[oIdx] = nextRoomId;
+        nextRoomId += 1;
+
+        // Stamp content on the alcove. Skip if the cell was already reserved by
+        // spawn/exit/target (should never happen since walls are excluded from
+        // reservations, but defensive). Mix favours traps so blind-doors punish
+        // greed; chest is the small reward stinger.
+        if (!reserved.has(oIdx)) {
+            const roll = Math.random();
+            const kind: HollowGateTileKind = roll < 0.40 ? "trap"      // poison
+                : roll < 0.75 ? "battle"                                // ambush
+                : roll < 0.90 ? "elite"                                  // tougher ambush
+                : "chest";                                                // small reward
+            kinds[oIdx] = kind;
+            reserved.add(oIdx);
+        }
+    }
+}
+
 function parseHollowGateLayout(ascii: string): ParsedHollowGateLayout | null {
     const lines = ascii.split("\n").map(l => l.replace(/\s+$/, ""));
     while (lines.length && lines[0].length === 0) lines.shift();
@@ -1550,11 +1648,23 @@ function buildRunFromParsedLayout(
     placeIn(["room_floor", "corridor_floor"], "trap", Math.max(0, trapCount - deadEndTrapsPlaced));
     placeIn(["room_floor"], "elite", 1 + Math.floor(floor / 2));
     placeIn(["room_floor"], "chest", 3);
-    placeIn(["room_floor"], "pet_event", 1);
+    // pet_event tile: deprecated. The old "glowing pawprints" flavor tile
+    // was atmospheric-only with no reward — superseded by pet_battle for
+    // real pet content. Kind kept in the union for legacy saved-run
+    // compatibility but the generator no longer places new ones.
+    // placeIn(["room_floor"], "pet_event", 1);  // removed
     placeIn(["room_floor"], "shrine", 1);
     placeIn(["room_floor"], "story", 1);
+    placeIn(["room_floor"], "tile_game", 1);   // Shinobi Tile card-game encounter
     placeIn(["room_floor"], "locked", 1);
     placeIn(["room_floor"], "npc", 1);
+
+    // Rule: no door leads to a wall. Convert any dead-end door's wall-side
+    // into a 1-tile alcove stamped with trap/battle/elite/chest.
+    // (Layouts often have hand-placed doors; this fixes accidental dead-ends.)
+    // Mutates terrain / roomIds / kinds / reserved in place — that's why the
+    // arrays from the parser are reused downstream untouched by this call.
+    fixDoorsLeadingToWalls(w, h, terrain, roomIds, kinds, reserved);
 
     // BFS validate spawn → exit AND spawn → target with locked tiles blocking.
     // Same logic as the BSP generator — relocate the offending locked tile if
@@ -1882,11 +1992,22 @@ function generateHollowGateShrineRunBSP(floor = 1): HollowGateShrineRun {
     // Room-only content: feels like guarded loot / shrines.
     placeIn(["room_floor"], "elite", 1 + Math.floor(floor / 2));
     placeIn(["room_floor"], "chest", 3);
-    placeIn(["room_floor"], "pet_event", 1);
+    // pet_event tile: deprecated. The old "glowing pawprints" flavor tile
+    // was atmospheric-only with no reward — superseded by pet_battle for
+    // real pet content. Kind kept in the union for legacy saved-run
+    // compatibility but the generator no longer places new ones.
+    // placeIn(["room_floor"], "pet_event", 1);  // removed
     placeIn(["room_floor"], "shrine", 1);
     placeIn(["room_floor"], "story", 1);
+    placeIn(["room_floor"], "tile_game", 1);   // Shinobi Tile card-game encounter
     placeIn(["room_floor"], "locked", 1);
     placeIn(["room_floor"], "npc", 1);    // Shrine Keeper — one per floor
+
+    // Rule: no door leads to a wall. BSP corridors usually terminate cleanly
+    // at room edges so this is mostly a safety net for irregular cuts, but
+    // it also adds extra reward/risk pockets behind doors that would
+    // otherwise lead nowhere.
+    fixDoorsLeadingToWalls(w, h, terrain, roomIds, kinds, reserved);
 
     // ── 8. BFS path-validation: spawn → exit + spawn → target ─────────────
     // Walls always block; locked tiles also block (player needs a Shrine Key).
@@ -2154,6 +2275,7 @@ function hollowGateTileIconForKind(kind: HollowGateTileKind): string {
         case "chest": return "▣";
         case "pet_event": return "🐾";
         case "pet_battle": return "🐺";
+        case "tile_game": return "🀄";
         case "shrine": return "⛩";
         case "story": return "📜";
         case "boss": return "👹";
@@ -2198,6 +2320,7 @@ const HOLLOW_GATE_ICON_ROLES: Record<string, HollowGateIconRoleCfg> = {
     story:   { label: "Story",   kind: "story",      count: 2 },
     pet:     { label: "Pet",     kind: "pet_event",  count: 3 },
     petbattle: { label: "Pet Battle", kind: "pet_battle", count: 3 },   // wild Hollow Beast encounters
+    tilegame:  { label: "Tile Game", kind: "tile_game", count: 2 },     // Shinobi Tile card-game encounter
     npc:     { label: "Keeper",  kind: "npc",        count: 3 },
     descend: { label: "Descend", kind: "descend",    count: 1 },
     exit:    { label: "Leave",   kind: "exit",       count: 1 },
@@ -6483,6 +6606,7 @@ function normalizeCharacter(parsed: Character): Character {
         dailyFateSpins: parsed.lastDailyReset === currentDateKey() ? (parsed.dailyFateSpins ?? 0) : 0,
         dailyAiKills: parsed.lastDailyReset === currentDateKey() ? (parsed.dailyAiKills ?? 0) : 0,
         dailyPetWins: parsed.lastDailyReset === currentDateKey() ? (parsed.dailyPetWins ?? 0) : 0,
+        dailyHollowGateRuns: parsed.lastDailyReset === currentDateKey() ? (parsed.dailyHollowGateRuns ?? 0) : 0,
         hollowGateRun: parsed.hollowGateRun ?? null,
         hollowGateWardenKills: parsed.hollowGateWardenKills ?? 0,
         hollowGateIntroSeen: parsed.hollowGateIntroSeen ?? false,
@@ -7539,6 +7663,27 @@ export default function App() {
     const [currentAccountName, setCurrentAccountName] = useState("");
     const [viewingUserName, setViewingUserName] = useState<string | null>(null);
 
+    // ── Last-screen persistence ─────────────────────────────────────────
+    // Refresh used to dump the player back to the village every time because
+    // (1) the initial state is "start" and (2) the snapshot loader hard-codes
+    // setScreen("village") after login. Persisting the active screen to
+    // localStorage and letting the snapshot loader read it back keeps the
+    // player roughly where they left off after a refresh.
+    //
+    // Mid-encounter screens (arena, petArena, hollowGateTiles) hold ephemeral
+    // React state that can't actually resume from disk; for those we route to
+    // the safest parent (hollowGateShrine when a run is in progress; village
+    // otherwise) so the player never lands in a broken half-loaded battle.
+    const LAST_SCREEN_KEY = "lastScreen.v1";
+    useEffect(() => {
+        try { localStorage.setItem(LAST_SCREEN_KEY, screen); } catch { /* quota / SSR */ }
+    }, [screen]);
+    // ── PvP session persistence ─────────────────────────────────────────
+    // PvP keys are declared / used here, but the useEffect that consumes
+    // pvpBattleId is registered AFTER the pvp state hooks are declared
+    // (further down the App body — see "PvP session storage hook" below).
+    const PVP_SESSION_KEY = "pvpSession.v1";
+
     // ── Tab visibility: pause all polling when the browser tab is hidden ──
     const [tabVisible, setTabVisible] = useState(() => typeof document !== "undefined" ? document.visibilityState === "visible" : true);
     useEffect(() => {
@@ -7773,6 +7918,25 @@ export default function App() {
     }, [pvpBattleId]);
     const [pvpRole, setPvpRole] = useState<"p1" | "p2" | null>(null);
     const [pvpBattleContext, setPvpBattleContext] = useState<SharedPvpBattleContext | null>(null);
+    // PvP session storage hook — see PVP_SESSION_KEY note above. Saves a
+    // breadcrumb whenever the local client enters/exits a PvP battle, so a
+    // browser refresh can re-fetch the server-side session and resume.
+    // Also stores pvpBattleContext (mode/sector/clanWar/kage metadata) so
+    // win-handlers compute correct rewards on resume.
+    useEffect(() => {
+        try {
+            if (pvpBattleId) {
+                localStorage.setItem(PVP_SESSION_KEY, JSON.stringify({
+                    pvpBattleId,
+                    pvpRole,
+                    pvpBattleContext,
+                    savedAt: Date.now(),
+                }));
+            } else {
+                localStorage.removeItem(PVP_SESSION_KEY);
+            }
+        } catch { /* quota / SSR */ }
+    }, [pvpBattleId, pvpRole, pvpBattleContext]);
     const [temporaryStoryAi, setTemporaryStoryAi] = useState<CreatorAi | null>(null);
     const [raidBattleKind, setRaidBattleKind] = useState<"none" | "raidAi" | "raidPlayer" | "defense">("none");
     const [endlessBattleActive, setEndlessBattleActive] = useState(false);
@@ -7848,6 +8012,10 @@ export default function App() {
     const [duelChallenges, setDuelChallenges] = useState<DuelChallenge[]>([]);
     const [processingChallengeIds, setProcessingChallengeIds] = useState<string[]>([]);
     const [pendingPetBattleOpponent, setPendingPetBattleOpponent] = useState<PetArenaOpponent | null>(null);
+    // Tracks whether the player is mid-Shinobi-Tile card game launched from a
+    // Hollow Gate tile_game tile. Used to apply the -20% maxHp penalty on
+    // loss + route back to the shrine afterwards.
+    const [hollowGateTileGameActive, setHollowGateTileGameActive] = useState(false);
     const [triggeredEvents, setTriggeredEvents] = useState<string[]>([]);
     const [liveSectorPlayers, setLiveSectorPlayers] = useState<PlayerRecord[]>([]);
     const [incomingAttackBanner, setIncomingAttackBanner] = useState("");
@@ -8269,7 +8437,108 @@ export default function App() {
             if (snap.petEncounterVn) setPetEncounterVn(snap.petEncounterVn);
             if (snap.ancientChestVn) setAncientChestVn(snap.ancientChestVn);
             if (snap.editablePets) setEditablePets(mergeMissingBuiltInPets(snap.editablePets));
-            setScreen("village");
+            // Restore the screen the player left off on instead of always
+            // dumping them back into the village. Mid-encounter screens are
+            // remapped because their React-only ephemeral state (battle
+            // frames, pending opponents, pending modals) can't actually
+            // resume from disk.
+            // Restore PvP session breadcrumb if any — lets the pvpBattle
+            // screen re-query the server's authoritative session state.
+            // Stale-check at 1hr in case the player walked away from a
+            // crashed match. The PvpBattle component's mount fetches the
+            // session and resyncs from server state.
+            //
+            // Forced re-entry rule: if the breadcrumb restores AND the
+            // server confirms the session is still alive, the player is
+            // FORCED back into the pvpBattle screen regardless of which
+            // screen they were on. PvP fairness — you can't refresh-flee
+            // a duel.
+            let restoredPvpBattleId: string | null = null;
+            let pvpSessionAliveOnServer = false;
+            try {
+                const raw = localStorage.getItem(PVP_SESSION_KEY);
+                if (raw) {
+                    const parsed = JSON.parse(raw) as {
+                        pvpBattleId?: string;
+                        pvpRole?: "p1" | "p2";
+                        pvpBattleContext?: SharedPvpBattleContext;
+                        savedAt?: number;
+                    };
+                    const age = Date.now() - (parsed.savedAt ?? 0);
+                    if (parsed.pvpBattleId && age < 60 * 60 * 1000) {
+                        restoredPvpBattleId = parsed.pvpBattleId;
+                        setPvpBattleId(parsed.pvpBattleId);
+                        if (parsed.pvpRole) setPvpRole(parsed.pvpRole);
+                        if (parsed.pvpBattleContext) setPvpBattleContext(parsed.pvpBattleContext);
+                        // Best-effort server check (non-blocking) — if the
+                        // session no longer exists or is "done", clear the
+                        // breadcrumb so a stale crash doesn't trap them.
+                        void fetch(`/api/pvp/session?id=${encodeURIComponent(parsed.pvpBattleId)}`)
+                            .then((r) => r.ok ? r.json() : null)
+                            .then((data: { status?: string } | null) => {
+                                if (!data || data.status === "done") {
+                                    try { localStorage.removeItem(PVP_SESSION_KEY); } catch { /* ignore */ }
+                                    setPvpBattleId(null);
+                                    setPvpRole(null);
+                                    setPvpBattleContext(null);
+                                }
+                            })
+                            .catch(() => { /* network blip; leave breadcrumb in place */ });
+                        // For routing purposes we trust the breadcrumb at
+                        // boot — server check is async and may resolve
+                        // after we've rendered. If it's stale, the
+                        // PvpBattleScreen itself will fall back.
+                        pvpSessionAliveOnServer = true;
+                    } else {
+                        localStorage.removeItem(PVP_SESSION_KEY);
+                    }
+                }
+            } catch { /* corrupt or missing — ignore */ }
+
+            (() => {
+                let target: Screen = "village";
+                // FORCE re-entry into a live PvP battle — overrides whatever
+                // the persisted screen was. Players cannot refresh-flee.
+                if (pvpSessionAliveOnServer && restoredPvpBattleId) {
+                    setScreen("pvpBattle");
+                    return;
+                }
+                try {
+                    const persisted = localStorage.getItem(LAST_SCREEN_KEY) as Screen | null;
+                    if (persisted) {
+                        const inHollowGateRun = Boolean(normalized.hollowGateRun && !normalized.hollowGateRun.completed);
+                        // Mid-encounter screens that can't resume from
+                        // local state alone. arena also resumes via
+                        // Arena-internal localStorage restore so it's
+                        // allowed too.
+                        const UNSAFE: Screen[] = ["petArena", "hollowGateTiles"];
+                        if (persisted === "pvpBattle" && !restoredPvpBattleId) {
+                            // No PvP breadcrumb to restore — fall through
+                            // to a safe screen.
+                            target = "village";
+                        } else if (UNSAFE.includes(persisted)) {
+                            target = inHollowGateRun ? "hollowGateShrine" : "village";
+                        } else if (persisted === "start") {
+                            target = "village";
+                        } else {
+                            target = persisted;
+                        }
+                    }
+                } catch { /* localStorage unavailable — default to village */ }
+                // If we're landing back on the shrine, hydrate the local run
+                // state from the character's saved run. Otherwise the screen
+                // renders blank because the gate guard requires hollowGateRun.
+                if (target === "hollowGateShrine" && normalized.hollowGateRun && !normalized.hollowGateRun.completed) {
+                    setHollowGateRun(normalized.hollowGateRun);
+                    setCurrentBiome("shadow");
+                    setCurrentWeather(weatherForBiome("shadow"));
+                } else if (target === "hollowGateShrine") {
+                    // No active run — bounce back to village rather than
+                    // staring at an empty shrine screen.
+                    target = "village";
+                }
+                setScreen(target);
+            })();
             // Re-hydrate images after KV restore — clears the loaded-cats guard so
             // loadCategory fires again and overwrites the empty image strings that
             // pushSaveToServer strips before sending to KV.
@@ -9195,6 +9464,19 @@ export default function App() {
                     body: JSON.stringify({ action: 'verify', name: name.trim().toLowerCase(), password }),
                 }, 15000);
                 if (authRes.status === 503) continue; // storage unavailable — retry
+                if (authRes.status === 403) {
+                    // Account is banned. Show the ban detail and bail out — don't
+                    // fall back to local cache, the server explicitly refused.
+                    const banData = await authRes.json().catch(() => ({})) as { ban?: { until: number; reason: string; permanent?: boolean } };
+                    const b = banData.ban;
+                    if (b) {
+                        const when = b.permanent ? "permanently" : `until ${new Date(b.until).toLocaleString()}`;
+                        alert(`⛔ Your account is banned ${when}.\n\nReason: ${b.reason || "(no reason given)"}`);
+                    } else {
+                        alert("⛔ Your account is banned.");
+                    }
+                    return;
+                }
                 if (authRes.ok) {
                     const authData = await authRes.json() as { ok: boolean; legacy?: boolean };
                     authOk = authData.ok;
@@ -9983,7 +10265,17 @@ export default function App() {
             alert("You need a Hollow Gate Key to enter the shrine. Forge one at the Crafter (5 Dungeon Keys or 10 Fate Shards), or complete your village story.");
             return;
         }
-        const ok = window.confirm(`Enter the Hollow Gate Shrine?\n\nThis consumes 1 Hollow Gate Key (${ownedKeys} owned). Keys are one-time use.`);
+        // Daily run cap — hard-capped at 2 regardless of key inventory. The
+        // shrine itself refuses to open more than twice between dawns.
+        // Counter is reset when lastDailyReset != today.
+        const todayKey = currentDateKey();
+        const runsToday = character.lastDailyReset === todayKey ? (character.dailyHollowGateRuns ?? 0) : 0;
+        const DAILY_HOLLOW_GATE_CAP = 2;
+        if (runsToday >= DAILY_HOLLOW_GATE_CAP) {
+            alert(`The Hollow Gate Shrine refuses to open again today. You've already entered ${runsToday}/${DAILY_HOLLOW_GATE_CAP} times. Return at dawn.`);
+            return;
+        }
+        const ok = window.confirm(`Enter the Hollow Gate Shrine?\n\nThis consumes 1 Hollow Gate Key (${ownedKeys} owned). Keys are one-time use.\nDaily runs: ${runsToday}/${DAILY_HOLLOW_GATE_CAP}.`);
         if (!ok) return;
 
         // Consume exactly one Hollow Gate Key.
@@ -10006,7 +10298,8 @@ export default function App() {
             inventory: newInv,
             hollowGateRun: run,
             hollowGateIntroSeen: true,
-            lastDailyReset: currentDateKey(),
+            dailyHollowGateRuns: runsToday + 1,
+            lastDailyReset: todayKey,
         });
         setCurrentBiome("shadow");
         setCurrentWeather(weatherForBiome("shadow"));
@@ -10070,6 +10363,85 @@ export default function App() {
         setCurrentBiome("shadow");
         setCurrentWeather(weatherForBiome("shadow"));
         setScreen("hollowGateShrine");
+    }
+    // Weighted-random ambush — triggered when the threat meter hits the
+    // ambush threshold (default 100). Picks one of three encounter types:
+    //   50% — shinobi AI battle (the classic ambush)
+    //   35% — pet duel (wild Hollow Beast) via PetArena autobattler
+    //   15% — Shinobi Tile card-game duel
+    // Each branch falls back to the shinobi battle if its prerequisites
+    // aren't met (no eligible pet / fewer than 5 cards) so the ambush
+    // ALWAYS fires something — the player never gets a free pass.
+    function triggerHollowGateAmbush() {
+        if (!character) return;
+        // F5 ambush → boss fight. Avoids the climax getting cheated by a
+        // random ambush firing before the Warden tile. The player still
+        // sees the boss fight + the F5 shrine-cleared modal on win.
+        if ((hollowGateRun?.floor ?? 1) >= HOLLOW_GATE_MAX_FLOOR) {
+            pushHollowGateLog("The corridor itself tears open — the Hollow Gate Warden steps through the seal!");
+            startHollowGateBattle({ isBoss: true });
+            return;
+        }
+        pushHollowGateLog("The Hollow Gate echoes converge — an ambush!");
+        const roll = Math.random() * 100;
+        // ── Branch A: Pet duel (35% slot, rolls 50-84) ────────────────
+        if (roll >= 50 && roll < 85) {
+            const activePet = character.pets.find(p => p.id === character.activePetId);
+            const petReady = activePet && activePet.unlockedForPve && !isPetOnExpedition(activePet);
+            if (petReady) {
+                // Use the same wild-pet picker / handicap rules as the
+                // pet_battle tile, including the shrine:tile-hollow-beast
+                // image override.
+                const floor = hollowGateRun?.floor ?? 1;
+                const playerRarityIdx = petRarityOrder.indexOf(activePet.rarity);
+                const maxRarityIdx = Math.min(petRarityOrder.length - 1, playerRarityIdx + 1);
+                const bumpChance = Math.min(0.45, 0.10 + (floor - 1) * 0.05);
+                const targetIdx = Math.random() < bumpChance ? maxRarityIdx : playerRarityIdx;
+                const wildBase = pickHollowGateEncounterPet(petPool, petRarityOrder[targetIdx]);
+                if (wildBase) {
+                    const handicap = floor >= 4 ? 0.90 : 1.00;
+                    const hollowBeastImg = sharedImages["shrine:tile-hollow-beast"];
+                    const wild: Pet = {
+                        ...wildBase,
+                        id: `hg-beast-${Date.now()}`,
+                        level: Math.max(1, activePet.level),
+                        name: `Ambush: Hollow ${wildBase.name}`,
+                        hp: Math.max(1, Math.floor(wildBase.hp * handicap)),
+                        attack: Math.max(1, Math.floor(wildBase.attack * handicap)),
+                        defense: Math.max(1, Math.floor(wildBase.defense * handicap)),
+                        image: hollowBeastImg || wildBase.image,
+                    };
+                    pushHollowGateLog(`[Ambush — Hollow Beast] ${activePet.name} squares off against ${wild.name}.`);
+                    // Threat / torch reset upfront (matches normal ambush behaviour).
+                    setHollowGateRun(prev => prev ? { ...prev, threat: 0, torch: 10 } : prev);
+                    setPendingPetBattleOpponent({
+                        owner: "Hollow Gate",
+                        pet: wild,
+                        battleSeed: Date.now(),
+                        returnScreen: "hollowGateShrine",
+                    });
+                    setScreen("petArena");
+                    return;
+                }
+                // Couldn't pick a pet → fall through to shinobi.
+            }
+            // No eligible pet → fall through to shinobi.
+            pushHollowGateLog("No pet stands at your side — corrupted shinobi close in instead.");
+        }
+        // ── Branch B: Tile-game duel (15% slot, rolls 85-99) ──────────
+        if (roll >= 85) {
+            const ownedCardCount = character.tileCards?.length ?? 0;
+            if (ownedCardCount >= 5) {
+                pushHollowGateLog("[Ambush — Tile Seal] A shadow opponent slams a stone table into the corridor.");
+                setHollowGateRun(prev => prev ? { ...prev, threat: 0, torch: 10 } : prev);
+                setHollowGateTileGameActive(true);
+                setScreen("hollowGateTiles");
+                return;
+            }
+            pushHollowGateLog("Your deck is too thin to seal the shadow — corrupted shinobi close in instead.");
+        }
+        // ── Default: Shinobi AI battle (50% slot, rolls 0-49 + all fallbacks) ──
+        startHollowGateBattle({ isAmbush: true });
     }
     function startHollowGateBattle(opts: { isBoss?: boolean; isAmbush?: boolean; isBeast?: boolean }) {
         if (!character) return;
@@ -10199,6 +10571,37 @@ export default function App() {
         pushHollowGateLog(`Encounter: ${encounterName}.${petLine}`);
         setScreen("arena");
     }
+    // Shared run-summary builder — counts resolved tiles by kind and
+    // packs them into the multi-line summary block used by the Leave
+    // tile modal, the trap-death modal, and the F5 victory modal so a
+    // player gets a consistent post-run report regardless of how they
+    // exited.
+    function buildHollowGateRunSummary(): string {
+        if (!hollowGateRun || !character) return "";
+        const t = hollowGateRun.tiles;
+        const stats = {
+            floors: hollowGateRun.floor,
+            chests: t.filter(x => x.kind === "chest" && x.resolved).length,
+            battles: t.filter(x => (x.kind === "battle" || x.kind === "elite") && x.resolved).length,
+            beasts: t.filter(x => x.kind === "pet_battle" && x.resolved).length,
+            tileSeals: t.filter(x => x.kind === "tile_game" && x.resolved).length,
+            hiddenChambers: t.filter(x => x.kind === "shrine" && x.resolved).length,
+            traps: t.filter(x => x.kind === "trap" && x.resolved).length,
+            keepers: t.filter(x => x.kind === "npc" && x.resolved).length,
+        };
+        return [
+            `Floor reached: ${stats.floors} / ${HOLLOW_GATE_MAX_FLOOR}`,
+            `Chests opened: ${stats.chests}`,
+            `Shinobi defeated: ${stats.battles}`,
+            `Hollow Beasts felled: ${stats.beasts}`,
+            `Tile Seals claimed: ${stats.tileSeals}`,
+            `Hidden Chambers: ${stats.hiddenChambers}`,
+            `Keepers blessed by: ${stats.keepers}`,
+            `Traps survived: ${stats.traps}`,
+            `HP remaining: ${character.hp} / ${character.maxHp}`,
+        ].join("\n");
+    }
+
     function resolveHollowGateTile(tile: HollowGateTile, x: number, y: number) {
         if (!hollowGateRun || !character) return;
         const idx = y * hollowGateRun.width + x;
@@ -10249,13 +10652,138 @@ export default function App() {
                 markResolved();
                 return;
             }
-            case "pet_battle": {
-                // Wild Hollow Beast — animal/pet-themed encounter using the
-                // same arena pipeline but renamed in flavor + log. Active pet
-                // co-combat still applies, so a strong pet helps.
-                pushHollowGateLog(`[Hollow Beast] ${flavor}`);
-                startHollowGateBattle({ isBeast: true });
+            case "tile_game": {
+                // Shinobi Tile card-game encounter. Pre-modal shows the
+                // shadow-opponent scene art (shrine:tile-tile-game); Begin
+                // dives into the 3x3 card duel. Resolution callbacks back
+                // in the App body handle win/lose/abandon.
+                pushHollowGateLog(`[Tile Seal] ${flavor}`);
                 markResolved();
+                setHollowGateEvent({
+                    title: "Shinobi Tile Seal",
+                    body: `${flavor}\n\nA shadow opponent waits across the stone table. Defeat them at the 3×3 tile duel to claim the seal. Loss costs 20% of your max HP. You can step away with no penalty before the result is reached.`,
+                    kind: "tile_game",
+                    choices: [
+                        {
+                            label: "Begin Tile Duel",
+                            tone: "primary",
+                            onSelect: () => {
+                                setHollowGateEvent(null);
+                                setHollowGateTileGameActive(true);
+                                setScreen("hollowGateTiles");
+                            },
+                        },
+                        {
+                            label: "Step Away",
+                            onSelect: () => {
+                                setHollowGateEvent(null);
+                                pushHollowGateLog("You leave the tile table untouched. The shadow opponent fades.");
+                            },
+                        },
+                    ],
+                });
+                return;
+            }
+            case "pet_battle": {
+                // Wild Hollow Beast — pet vs pet autobattler using the existing
+                // PetArena. The player's active pet duels a random wild pet
+                // scaled to the player's level. Falls back to a themed shinobi
+                // fight if the player has no battle-ready pet (so the tile is
+                // never a dead-end).
+                const activePet = character.pets.find(p => p.id === character.activePetId);
+                const petReady = activePet && activePet.unlockedForPve && !isPetOnExpedition(activePet);
+                if (!petReady) {
+                    // No pet → fall back to the themed shinobi version of the
+                    // encounter so the tile still fires something on step.
+                    pushHollowGateLog(`[Hollow Beast] ${flavor} You have no pet ready — the beast comes for you instead.`);
+                    startHollowGateBattle({ isBeast: true });
+                    markResolved();
+                    return;
+                }
+                // Pick a wild pet rarity capped to one tier above the player's
+                // pet — never a mythic vs standard mismatch. Floor weighting
+                // pushes toward the cap on deeper floors but still allows
+                // mirror / lower-tier matches so easier fights remain possible.
+                const floor = hollowGateRun?.floor ?? 1;
+                const playerRarityIdx = petRarityOrder.indexOf(activePet.rarity);
+                const maxRarityIdx = Math.min(petRarityOrder.length - 1, playerRarityIdx + 1);
+                // bumpChance: F1=10%, F2=15%, ..., F5=30%. Probability of using
+                // the +1 tier; otherwise stay at player tier (or lower for
+                // standard players when bump isn't picked).
+                const bumpChance = Math.min(0.45, 0.10 + (floor - 1) * 0.05);
+                const targetIdx = Math.random() < bumpChance ? maxRarityIdx : playerRarityIdx;
+                const targetRarity: PetRarity = petRarityOrder[targetIdx];
+                const wildBase = pickHollowGateEncounterPet(petPool, targetRarity);
+                if (!wildBase) {
+                    // Shouldn't happen with the canonical pool, but defensive.
+                    pushHollowGateLog(`[Hollow Beast] ${flavor} The beast melts back into the mist.`);
+                    startHollowGateBattle({ isBeast: true });
+                    markResolved();
+                    return;
+                }
+                // Rebase wild pet to the player's pet level so the duel is
+                // balanced on stats. On the hardest floors (F4-5) trim 10%
+                // off hp/attack/defense so the fight stays winnable —
+                // mythic-template stats can otherwise steamroll a standard
+                // player pet even at matched level.
+                const handicap = floor >= 4 ? 0.90 : 1.00;
+                // shrine:tile-hollow-beast is the admin-generated "wild pet"
+                // portrait. If set, override the wild pet's image so all
+                // Hollow Gate beast encounters share a consistent look.
+                // CRITICAL: also rewrite the pet id with an "hg-beast-" prefix
+                // so the PetArenaCard / PetBattleAvatar image-lookup chain
+                // (sharedImages['pet:<id>'] → sharedImages['pet:<base>'] →
+                // pet.image) doesn't accidentally hit a user-generated
+                // pet:mythic-2 (or similar) image and override our shrine
+                // portrait. The synthetic id has no template match, so the
+                // chain falls through to pet.image where we want it.
+                const hollowBeastImg = sharedImages["shrine:tile-hollow-beast"];
+                const wild: Pet = {
+                    ...wildBase,
+                    id: `hg-beast-${Date.now()}`,
+                    level: Math.max(1, activePet.level),
+                    name: `Hollow ${wildBase.name}`,
+                    hp: Math.max(1, Math.floor(wildBase.hp * handicap)),
+                    attack: Math.max(1, Math.floor(wildBase.attack * handicap)),
+                    defense: Math.max(1, Math.floor(wildBase.defense * handicap)),
+                    image: hollowBeastImg || wildBase.image,
+                };
+                pushHollowGateLog(`[Hollow Beast] ${flavor} ${activePet.name} squares off against ${wild.name}.`);
+                // Pre-encounter modal — shows the Hollow Beast scene art
+                // (shrine:tile-hollow-beast) before the player commits to
+                // the duel. Begin transitions to PetArena. Step Away bails
+                // with no penalty. Threat / torch reset applies whether the
+                // player engages (so leaving is the safer path).
+                markResolved({ setTorch: 10 });
+                setHollowGateRun(prev => prev ? { ...prev, threat: 0 } : prev);
+                setHollowGateEvent({
+                    title: `Hollow Beast: ${wild.name}`,
+                    body: `${flavor}\n\n${activePet.name} (Lv ${activePet.level} ${activePet.rarity}) faces ${wild.name} (Lv ${wild.level} ${wild.rarity ?? "wild"}). Win to claim victory; lose to take 20% HP damage. Either way your run continues.`,
+                    kind: "pet_battle",
+                    choices: [
+                        {
+                            label: "Send Pet to Duel",
+                            tone: "primary",
+                            onSelect: () => {
+                                setHollowGateEvent(null);
+                                setPendingPetBattleOpponent({
+                                    owner: "Hollow Gate",
+                                    pet: wild,
+                                    battleSeed: Date.now(),
+                                    returnScreen: "hollowGateShrine",
+                                });
+                                setScreen("petArena");
+                            },
+                        },
+                        {
+                            label: "Step Away",
+                            onSelect: () => {
+                                setHollowGateEvent(null);
+                                pushHollowGateLog(`${activePet.name} pulls back. The Hollow Beast fades into mist.`);
+                            },
+                        },
+                    ],
+                });
                 return;
             }
             case "trap": {
@@ -10278,7 +10806,7 @@ export default function App() {
                 if (willDie) {
                     setHollowGateEvent({
                         title: "You Have Fallen",
-                        body: `${flavor}\n\nThe trap drains your final breath. You are admitted to the village hospital and your shrine run ends.`,
+                        body: `${flavor}\n\nThe trap drains your final breath. You are admitted to the village hospital and your shrine run ends.\n\n— RUN SUMMARY —\n${buildHollowGateRunSummary()}`,
                         kind: "trap",
                         choices: [{
                             label: "Leave Shrine",
@@ -10459,7 +10987,7 @@ export default function App() {
                 pushHollowGateLog(flavor);
                 setHollowGateEvent({
                     title: "Leave the Hollow Gate",
-                    body: `${flavor}\n\nThe broken torii on this tile opens back to the world map.\n\nLeaving ends this run — your progress is forfeit and you'll need another Hollow Gate Key to return.`,
+                    body: `${flavor}\n\nThe broken torii on this tile opens back to the world map.\n\n— RUN SUMMARY —\n${buildHollowGateRunSummary()}\n\nLeaving ends this run — your progress is forfeit and you'll need another Hollow Gate Key to return.`,
                     kind: "exit",
                     choices: [
                         {
@@ -10695,7 +11223,7 @@ export default function App() {
             const { tile, nx, ny, nextThreat } = outcome.justResolved;
             const modalFiringKinds: HollowGateTileKind[] = [
                 "battle", "elite", "boss",
-                "trap", "chest", "shrine", "pet_event", "pet_battle", "story",
+                "trap", "chest", "shrine", "pet_event", "pet_battle", "tile_game", "story",
                 "locked", "exit", "npc", "descend",
             ];
             const tileWillOpenModal = modalFiringKinds.includes(tile.kind);
@@ -10705,13 +11233,14 @@ export default function App() {
             setTimeout(() => {
                 resolveHollowGateTile(tile, nx, ny);
                 if (!tileWillOpenModal && nextThreat >= HOLLOW_GATE_THREAT_AMBUSH) {
-                    pushHollowGateLog("The Hollow Gate echoes converge — an ambush!");
-                    startHollowGateBattle({ isAmbush: true });
+                    // Ambush at max threat — weighted roll between shinobi /
+                    // pet / tile-game encounter (50 / 35 / 15). See
+                    // triggerHollowGateAmbush for the branching + fallbacks.
+                    triggerHollowGateAmbush();
                 }
             }, 0);
         } else if (outcome.ambushImmediate) {
-            pushHollowGateLog("The Hollow Gate echoes converge — an ambush!");
-            setTimeout(() => startHollowGateBattle({ isAmbush: true }), 0);
+            setTimeout(() => triggerHollowGateAmbush(), 0);
         }
     }
     function leaveHollowGateShrine() {
@@ -10733,7 +11262,10 @@ export default function App() {
             // had a boss tile on Floor 1-4; defensively we still handle it.)
             const tiles = hollowGateRun.tiles.map(t => t.kind === "boss" ? { ...t, resolved: true } : t);
             const isFinalFloor = hollowGateRun.floor >= HOLLOW_GATE_MAX_FLOOR;
-            const nextRun: HollowGateShrineRun = { ...hollowGateRun, tiles, completed: isFinalFloor, threat: 0 };
+            // Every battle encounter resets both the threat meter (0) and the
+            // Torch of Reiki (10/10). The dungeon rewards survivors: clearing
+            // a fight earns you a fresh window before the next ambush builds.
+            const nextRun: HollowGateShrineRun = { ...hollowGateRun, tiles, completed: isFinalFloor, threat: 0, torch: 10 };
             setHollowGateRun(nextRun);
             pushHollowGateLog(`The Hollow Gate Warden falls on Floor ${hollowGateRun.floor}. ${isFinalFloor ? "The shrine is cleared!" : "A staircase opens below."}`);
             if (isFinalFloor) {
@@ -10741,7 +11273,7 @@ export default function App() {
                 // No "Leave" choice — auto-returns to world map after rewards are claimed.
                 setHollowGateEvent({
                     title: "Hollow Gate Shrine Cleared",
-                    body: `Floor ${hollowGateRun.floor} of ${HOLLOW_GATE_MAX_FLOOR} cleared.\n\nThe Hollow Gate echoes scatter. The shrine surrenders its final relic to you.`,
+                    body: `Floor ${hollowGateRun.floor} of ${HOLLOW_GATE_MAX_FLOOR} cleared.\n\nThe Hollow Gate echoes scatter. The shrine surrenders its final relic to you.\n\n— RUN SUMMARY —\n${buildHollowGateRunSummary()}`,
                     kind: "boss",
                     choices: [
                         {
@@ -10771,11 +11303,15 @@ export default function App() {
                 pushHollowGateLog(`You descend to Floor ${next.floor}. Torch flares: +4.`);
             }
         } else if (isAmbush) {
-            setHollowGateRun({ ...hollowGateRun, threat: 0 });
-            pushHollowGateLog("The ambush ends. Threat dissipates.");
+            // Ambush survived → full reset of both meters.
+            setHollowGateRun({ ...hollowGateRun, threat: 0, torch: 10 });
+            pushHollowGateLog("The ambush ends. Threat dissipates and the Torch of Reiki flares back to full.");
         } else {
-            setHollowGateRun({ ...hollowGateRun, threat: Math.max(0, hollowGateRun.threat - 25) });
-            pushHollowGateLog("Corrupted shinobi defeated. Threat eases.");
+            // Regular battle / elite / pet_battle (themed-shinobi fallback)
+            // — also full reset. The previous "threat -= 25" partial reset
+            // made fights feel less rewarding than they should.
+            setHollowGateRun({ ...hollowGateRun, threat: 0, torch: 10 });
+            pushHollowGateLog("Corrupted shinobi defeated. Threat dissipates and the Torch of Reiki flares back to full.");
         }
     }
 
@@ -11182,14 +11718,30 @@ export default function App() {
                                     <h2 style={{ margin: 0, color: "#faf5ff" }}>Floor {run.floor} / {HOLLOW_GATE_MAX_FLOOR} · {run.completed ? "Warden Defeated" : "Shadow Miasma"}</h2>
                                 </div>
                                 <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-                                    <div style={{ minWidth: 180 }}>
-                                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-                                            <span>Threat</span>
+                                    <div style={{ minWidth: 200 }}>
+                                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, alignItems: "center" }}>
+                                            <span>Threat{run.threat >= 80 && (
+                                                <span style={{
+                                                    marginLeft: 6,
+                                                    fontSize: 11,
+                                                    color: "#fda4af",
+                                                    fontWeight: 700,
+                                                    animation: "hgPulse 1s ease-in-out infinite",
+                                                }}>⚠ AMBUSH IMMINENT</span>
+                                            )}</span>
                                             <span style={{ color: run.threat >= 80 ? "#fda4af" : "#c4b5fd" }}>{run.threat}%</span>
                                         </div>
-                                        <div style={{ height: 8, background: "rgba(168,85,247,0.18)", borderRadius: 4, overflow: "hidden" }}>
+                                        <div style={{
+                                            height: 8,
+                                            background: "rgba(168,85,247,0.18)",
+                                            borderRadius: 4,
+                                            overflow: "hidden",
+                                            border: run.threat >= 80 ? "1px solid #fda4af" : undefined,
+                                            boxShadow: run.threat >= 80 ? "0 0 8px rgba(248,113,113,0.55)" : undefined,
+                                        }}>
                                             <div style={{ width: `${run.threat}%`, height: "100%", background: run.threat >= 80 ? "linear-gradient(90deg,#a855f7,#fda4af)" : "linear-gradient(90deg,#7c3aed,#a855f7)" }} />
                                         </div>
+                                        <style>{`@keyframes hgPulse { 0%,100%{opacity:1} 50%{opacity:0.35} }`}</style>
                                     </div>
                                     <div style={{ fontSize: 13 }}>
                                         <span title="Shrine Keys">🔑 {run.keys}</span>
@@ -11426,6 +11978,7 @@ export default function App() {
                                                 : tile.kind === "elite" ? "rgba(220,38,38,0.26)"
                                                 : tile.kind === "pet_event" ? "rgba(96,165,250,0.18)"
                                                 : tile.kind === "pet_battle" ? "rgba(251,146,60,0.24)"  // beast orange
+                                                : tile.kind === "tile_game" ? "rgba(45,212,191,0.22)"   // tile-game teal
                                                 : tile.kind === "story" ? "rgba(250,204,21,0.18)"
                                                 : null;
                                             bg = contentTint
@@ -11458,6 +12011,7 @@ export default function App() {
                                         function iconSlotIdFor(k: HollowGateTileKind): string | null {
                                             if (k === "pet_event") return "pet";
                                             if (k === "pet_battle") return "petbattle";
+                                            if (k === "tile_game") return "tilegame";
                                             // No slot for "empty" / "wall" / "shrine_descend"-style edges
                                             if (k === "empty" || k === "wall") return null;
                                             return k;
@@ -11571,7 +12125,8 @@ export default function App() {
                                             // Map slot id → emoji fallback. Keeps the legend self-contained.
                                             const fallbackEmoji: Record<string, string> = {
                                                 you: "🥷", battle: "⚔", elite: "☠", boss: "👹", trap: "▲",
-                                                chest: "▣", shrine: "⛩", story: "📜", pet: "🐾", petbattle: "🐺", npc: "👤",
+                                                chest: "▣", shrine: "⛩", story: "📜", pet: "🐾", petbattle: "🐺",
+                                                tilegame: "🀄", npc: "👤",
                                                 descend: "▼", exit: "⇩", locked: "🔒", wall: "▦",
                                             };
                                             // Walls use the atlas wall tile (terrain), not an icon slot.
@@ -11609,10 +12164,10 @@ export default function App() {
                                                     {legendCell("elite",   "Elite")}    {legendCell("boss",    "Boss")}
                                                     {legendCell("trap",    "Trap")}     {legendCell("chest",   "Chest")}
                                                     {legendCell("shrine",  "Shrine")}   {legendCell("story",   "Story")}
-                                                    {legendCell("pet",     "Pet")}      {legendCell("petbattle", "Hollow Beast")}
-                                                    {legendCell("npc",     "Keeper")}   {legendCell("descend",   "Descend")}
-                                                    {legendCell("exit",    "Leave")}    {legendCell("locked",    "Locked Door")}
-                                                    {legendCell("wall",    "Wall")}
+                                                    {legendCell("pet",      "Pet")}        {legendCell("petbattle", "Hollow Beast")}
+                                                    {legendCell("tilegame", "Tile Game")}  {legendCell("npc",       "Keeper")}
+                                                    {legendCell("descend",  "Descend")}    {legendCell("exit",      "Leave")}
+                                                    {legendCell("locked",   "Locked Door")}{legendCell("wall",      "Wall")}
                                                     <span>· Unexplored</span><span style={{ opacity: 0.55 }}>· In view (dim)</span>
                                                 </div>
                                             );
@@ -11671,6 +12226,8 @@ export default function App() {
                                     hollowGateEvent.kind === "trap" ? "shrine:tile-trap"
                                     : hollowGateEvent.kind === "chest" ? "shrine:tile-ancient-chest"
                                     : hollowGateEvent.kind === "pet_event" ? "shrine:tile-pet-encounter"
+                                    : hollowGateEvent.kind === "pet_battle" ? "shrine:tile-hollow-beast"
+                                    : hollowGateEvent.kind === "tile_game" ? "shrine:tile-tile-game"
                                     : hollowGateEvent.kind === "locked" ? "shrine:tile-sealed-door"
                                     : hollowGateEvent.kind === "npc" ? "shrine:tile-shrine-keeper"
                                     : hollowGateEvent.kind === "story" ? "shrine:tile-story"
@@ -11973,6 +12530,60 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "grandMarketplace" && character && <GrandMarketplace character={character} updateCharacter={setCharacter} creatorItems={creatorItems} creatorCards={creatorCards} />}
                 {!activeTriggeredEvent && screen === "shinobiTiles" && character && <ShinobiTiles character={character} updateCharacter={setCharacter} creatorCards={creatorCards} />}
                 {!activeTriggeredEvent && screen === "eventTiles" && character && pendingEventEncounter && <ShinobiTiles character={character} updateCharacter={setCharacter} creatorCards={creatorCards} dungeonMode tileDifficulty={pendingEventEncounter.battle?.tileDifficulty ?? "normal"} onDungeonWin={completeEventEncounter} onDungeonLeave={leaveEventEncounter} />}
+                {/* Hollow Gate Shinobi Tile card-game tile. Win/lose/leave
+                    callbacks all route back to the shrine; loss applies
+                    the 20% maxHp penalty. Difficulty scales with floor. */}
+                {!activeTriggeredEvent && screen === "hollowGateTiles" && character && hollowGateRun && (
+                    <ShinobiTiles
+                        character={character}
+                        updateCharacter={setCharacter}
+                        creatorCards={creatorCards}
+                        dungeonMode
+                        dungeonSceneImage={sharedImages["shrine:tile-tile-game"]}
+                        tileDifficulty={hollowGateRun.floor >= 4 ? "normal" : "easy"}
+                        onDungeonWin={() => {
+                            // Win → small reward + back to shrine. Rewards
+                            // are intentionally modest since chests cover the
+                            // big loot. Floor-scaled ryo + aura dust.
+                            // Threat + torch reset per the post-encounter rule.
+                            if (character) {
+                                const floor = hollowGateRun.floor;
+                                const ryoGain = 120 + floor * 40;
+                                const auraDustGain = 4 + floor * 2;
+                                setCharacter({
+                                    ...character,
+                                    ryo: character.ryo + ryoGain,
+                                    auraDust: (character.auraDust ?? 0) + auraDustGain,
+                                });
+                                pushHollowGateLog(`Tile Seal claimed. +${ryoGain} ryo, +${auraDustGain} Aura Dust. Threat dissipates; Torch flares to full.`);
+                            }
+                            setHollowGateRun(prev => prev ? { ...prev, threat: 0, torch: 10 } : prev);
+                            setHollowGateTileGameActive(false);
+                            setScreen("hollowGateShrine");
+                        }}
+                        onDungeonLose={() => {
+                            // Loss → 20% maxHp penalty + back to shrine.
+                            // Run continues; not hospitalized. Threat/torch
+                            // still reset — engaging counts as a battle.
+                            if (character) {
+                                const dmg = Math.max(1, Math.floor(character.maxHp * 0.20));
+                                const nextHp = Math.max(1, character.hp - dmg);
+                                setCharacter({ ...character, hp: nextHp });
+                                pushHollowGateLog(`Tile Seal failed. The shadow opponent claims its price — ${dmg} HP torn from you (20% of max). Threat dissipates.`);
+                            }
+                            setHollowGateRun(prev => prev ? { ...prev, threat: 0, torch: 10 } : prev);
+                            setHollowGateTileGameActive(false);
+                            setScreen("hollowGateShrine");
+                        }}
+                        onDungeonLeave={() => {
+                            // Abandoned before result → no penalty, no
+                            // reset (player didn't actually engage).
+                            pushHollowGateLog("You step away from the stone table. The tiles dim.");
+                            setHollowGateTileGameActive(false);
+                            setScreen("hollowGateShrine");
+                        }}
+                    />
+                )}
                 {!activeTriggeredEvent && screen === "hospital" && character && <Hospital character={character} updateCharacter={setCharacter} setScreen={navigate} playerRoster={playerRoster} hospitalEntryTime={hospitalEntryTime} />}
                 {!activeTriggeredEvent && screen === "cafeteria" && character && <Cafeteria character={character} updateCharacter={setCharacter} />}
                 {!activeTriggeredEvent && screen === "tavern" && character && <VillageTavern character={character} setScreen={setScreen} sharedImages={sharedImages} />}
@@ -13811,6 +14422,10 @@ type PetArenaOpponent = {
     owner: string;
     pet: Pet;
     battleSeed?: number;
+    // Optional override for the screen the player goes back to when the
+    // battle ends. Defaults to "centralHub" inside PetArena. Used by the
+    // Hollow Gate pet_battle tile to return the player to the shrine.
+    returnScreen?: Screen;
 };
 
 const genericPetArenaOpponents: PetArenaOpponent[] = [
@@ -14596,6 +15211,16 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                 void addClanWarPoints(pendingClanPetBattle.clanName ?? character.clan, character.name, pendingClanPetBattle.points);
                 setBattleLog([...battle.logs, `${character.name} earned ${pendingClanPetBattle.points} clan war points by winning the pet battle against ${pendingClanPetBattle.opponentName}.`]);
             }
+        } else if (opponent.owner === "Hollow Gate") {
+            // Pet duel lost inside the Hollow Gate Shrine — trainer takes
+            // 20% maxHp damage as residual chakra burns through the seal.
+            // Mirrors the Arena loss rule for non-boss Hollow Gate fights.
+            // Player still returns to the shrine via the exit button's
+            // returnScreen; not hospitalized, not run-ending.
+            const dmg = Math.max(1, Math.floor(character.maxHp * 0.20));
+            const nextHp = Math.max(1, character.hp - dmg);
+            updateCharacter({ ...character, hp: nextHp });
+            setBattleLog([...battle.logs, `${character.name} took ${dmg} HP (20% of max) as the Hollow Beast's chakra recoiled through the seal.`]);
         }
         if (pendingClanPetBattle) savePendingClanPetBattle(null);
     }
@@ -14611,10 +15236,31 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
     return (
         <div className="card pet-arena-screen">
             <div className="pet-arena-header">
-                <button className="back-btn" onClick={() => setScreen("centralHub")}>Back to Central</button>
+                {/* Back button label adapts to context — Hollow Gate pet
+                    duels route back to the shrine, not the central hub. */}
+                <button
+                    className="back-btn"
+                    onClick={() => {
+                        const back = (pendingPetBattleOpponent?.returnScreen || battleOpponent?.returnScreen) ?? "centralHub";
+                        setScreen(back);
+                    }}
+                >
+                    {(pendingPetBattleOpponent?.owner === "Hollow Gate" || battleOpponent?.owner === "Hollow Gate")
+                        ? "Back to Shrine"
+                        : "Back to Central"}
+                </button>
                 <div>
-                    <h2>Pet Arena</h2>
-                    <p className="hint">{pendingClanPetBattle ? `Clan war pet battle pending against ${pendingClanPetBattle.opponentName}. Win to earn ${pendingClanPetBattle.points} clan points.` : "Autobattle only. Pets choose actions using ordered AI rules: low HP buff, opener, highest-power jutsu, then basic attack."}</p>
+                    {(pendingPetBattleOpponent?.owner === "Hollow Gate" || battleOpponent?.owner === "Hollow Gate") ? (
+                        <>
+                            <h2 style={{ color: "#a855f7" }}>⛩ Hollow Gate — Hollow Beast Duel</h2>
+                            <p className="hint" style={{ color: "#c4b5fd" }}>Your pet faces a corrupted Hollow Beast. Win to claim victory and continue the run; lose to take 20% HP damage and return to the shrine.</p>
+                        </>
+                    ) : (
+                        <>
+                            <h2>Pet Arena</h2>
+                            <p className="hint">{pendingClanPetBattle ? `Clan war pet battle pending against ${pendingClanPetBattle.opponentName}. Win to earn ${pendingClanPetBattle.points} clan points.` : "Autobattle only. Pets choose actions using ordered AI rules: low HP buff, opener, highest-power jutsu, then basic attack."}</p>
+                        </>
+                    )}
                 </div>
             </div>
 
@@ -14786,7 +15432,15 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                         setIsPlaying(true);
                     }}
                     onFightAgain={startBattle}
-                    onExit={() => { setBattleOpponent(null); setBattleReady(false); setScreen("centralHub"); }}
+                    onExit={() => {
+                        // Honour the opponent's returnScreen override if provided —
+                        // Hollow Gate pet_battle tiles set this to "hollowGateShrine"
+                        // so the duel sends you back to the dungeon, not the village hub.
+                        const back = battleOpponent?.returnScreen ?? "centralHub";
+                        setBattleOpponent(null);
+                        setBattleReady(false);
+                        setScreen(back);
+                    }}
                     sharedImages={sharedImages}
                 />
             )}
@@ -15599,7 +16253,7 @@ function AdminPanel({
     const [aiJutsuIds, setAiJutsuIds] = useState<string[]>(starterJutsus.slice(0, 4).map((jutsu) => jutsu.id));
     const [aiRules, setAiRules] = useState<AiRule[]>(starterAiProfile(starterJutsus).rules);
     const [selectedAiId, setSelectedAiId] = useState("");
-    const [activeAdminPanel, setActiveAdminPanel] = useState<"jutsuBloodlines" | "eventsRaids" | "visualNovels" | "aiCreator" | "petEditor" | "cardEditor" | "villageLeaders" | "playerManagement" | "hollowGate" | "professions">("jutsuBloodlines");
+    const [activeAdminPanel, setActiveAdminPanel] = useState<"jutsuBloodlines" | "eventsRaids" | "visualNovels" | "aiCreator" | "petEditor" | "cardEditor" | "villageLeaders" | "playerManagement" | "hollowGate" | "professions" | "moderation">("jutsuBloodlines");
 
     // Hollow Gate admin tab state — prompts, current preview images, busy/status
     // strings. Preview images are seeded from the existing shared KV on first
@@ -15918,7 +16572,6 @@ function AdminPanel({
                 // matches the fresh server. Preserve leadership images and admin session.
                 const preserve = new Set([
                     STORAGE,
-                    PLAYER_ACCOUNTS_STORAGE,
                 ]);
                 const toRemove: string[] = [];
                 for (let i = 0; i < localStorage.length; i++) {
@@ -15927,14 +16580,22 @@ function AdminPanel({
                     if (
                         key.startsWith("village-state-") ||
                         key.startsWith("shinobij-village-war-") ||
-                        key.startsWith("shinobij-sector-territory-")
+                        key.startsWith("shinobij-sector-territory-") ||
+                        key === PLAYER_ACCOUNTS_STORAGE
                     ) {
                         toRemove.push(key);
                     }
                 }
                 toRemove.forEach(k => localStorage.removeItem(k));
-                // Clear stale local player account cache
-                localStorage.removeItem(PLAYER_ACCOUNTS_STORAGE);
+                // Drop sessionStorage image-category caches so portraits re-fetch
+                // fresh from the server's re-seeded shared:imgfields:misc bucket.
+                try {
+                    for (let i = sessionStorage.length - 1; i >= 0; i--) {
+                        const key = sessionStorage.key(i);
+                        if (!key) continue;
+                        if (key.startsWith("imgcat:")) sessionStorage.removeItem(key);
+                    }
+                } catch { /* ignore */ }
                 setAllKnownPlayers([]);
                 setServerResetMsg(`✅ Server reset complete — ${data.deletedCount ?? 0} keys wiped. All images and admin content preserved. Players start fresh on next login.`);
             } else {
@@ -16798,6 +17459,9 @@ function AdminPanel({
                 </button>
                 <button className={activeAdminPanel === "professions" ? "active" : ""} onClick={() => setActiveAdminPanel("professions")}>
                     🧑‍⚕️ Professions
+                </button>
+                <button className={activeAdminPanel === "moderation" ? "active" : ""} onClick={() => setActiveAdminPanel("moderation")}>
+                    🛡 Moderation
                 </button>
             </div>
 
@@ -19379,6 +20043,25 @@ function AdminPanel({
                         defaultPrompt: "Shrine Keeper, ancient hooded shinobi tending a violet chakra brazier inside a Hollow Gate shrine corridor, lined face, kind eyes, simple grey robes with purple sigils, mystical NPC portrait, painted ninja RPG character art",
                     },
                     {
+                        // Shared wild-pet portrait for Hollow Gate pet_battle
+                        // encounters. When set, overrides the individual pet
+                        // template's image so every Hollow Beast looks part
+                        // of the same shadow-corruption aesthetic.
+                        key: "shrine:tile-hollow-beast",
+                        name: "Hollow Beast (wild pet portrait)",
+                        category: "Tile / Scene",
+                        defaultPrompt: "Hollow Beast, corrupted spirit beast bound by violet chakra mist inside a shadow shinobi shrine, eyes burning chakra-blue, fractured shadow body, faint ancient sigils orbiting it, painted ninja RPG creature portrait",
+                    },
+                    {
+                        // Tile-game scene + the shadow NPC opponent who runs
+                        // the 3x3 card duel. Used as the modal/scene art for
+                        // the Shinobi Tile encounter tile.
+                        key: "shrine:tile-tile-game",
+                        name: "Shinobi Tile Game (NPC + table)",
+                        category: "Tile / Scene",
+                        defaultPrompt: "A hooded shadow opponent sits across a glowing stone table inside a Hollow Gate shrine, nine tile-shaped slots etched into the table glowing violet, faint chakra cards floating between them, painted ninja RPG card-game scene art",
+                    },
+                    {
                         key: "shrine:tile-wall",
                         name: "Wall tile texture",
                         category: "Tile / Scene",
@@ -19806,6 +20489,10 @@ function AdminPanel({
                     </div>
                 );
             })()}
+
+            {activeAdminPanel === "moderation" && (
+                <ModerationPanel adminPw={adminPw} />
+            )}
 
             <div className="menu">
                 <button onClick={() => setScreen("worldMap")}>Test World Map</button>
@@ -22080,7 +22767,17 @@ function GrandMarketplace({ character, updateCharacter, creatorItems, creatorCar
     );
 }
 
-function ShinobiTiles({ character, updateCharacter, creatorCards, dungeonMode = false, tileDifficulty = "normal", onDungeonWin, onDungeonLeave }: { character: Character; updateCharacter: (c: Character) => void; creatorCards: TileCard[]; dungeonMode?: boolean; tileDifficulty?: "easy" | "normal" | "hard"; onDungeonWin?: () => void; onDungeonLeave?: () => void }) {
+function ShinobiTiles({ character, updateCharacter, creatorCards, dungeonMode = false, tileDifficulty = "normal", onDungeonWin, onDungeonLeave, onDungeonLose, dungeonSceneImage }: { character: Character; updateCharacter: (c: Character) => void; creatorCards: TileCard[]; dungeonMode?: boolean; tileDifficulty?: "easy" | "normal" | "hard"; onDungeonWin?: () => void; onDungeonLeave?: () => void;
+    // Fired when the player exits the result screen after LOSING. Distinct
+    // from onDungeonLeave (which is also called for explicit abandons before
+    // a result was reached). Used by Hollow Gate to apply -20% maxHp penalty
+    // only when the player actually lost the card game.
+    onDungeonLose?: () => void;
+    // Optional scene/opponent portrait shown as a banner in dungeon mode.
+    // Set by the Hollow Gate caller to shrine:tile-tile-game so the admin-
+    // generated card-game scene art actually appears during the duel.
+    dungeonSceneImage?: string;
+ }) {
     type BoardCell = { card: TileCard; owner: "player" | "enemy" } | null;
     type Phase = "collection" | "select" | "game" | "result";
 
@@ -22509,7 +23206,14 @@ function ShinobiTiles({ character, updateCharacter, creatorCards, dungeonMode = 
                 </div>
                 <div className="menu">
                     {dungeonMode && result === "win" ? <button className="admin-button" onClick={onDungeonWin}>Continue to Final Seal</button> : <button onClick={() => { setDeckPicks([]); setPhase("select"); }}>Play Again</button>}
-                    <button onClick={dungeonMode ? onDungeonLeave : () => setPhase("collection")}>{dungeonMode ? "Leave Dungeon" : "Collection"}</button>
+                    <button onClick={dungeonMode
+                        // In dungeon mode the result-screen Leave button routes:
+                        //   lose  → onDungeonLose (Hollow Gate uses this for -20% HP)
+                        //   win   → onDungeonLeave (no penalty, just exit)
+                        //   draw  → onDungeonLeave (no penalty)
+                        ? (result === "lose" && onDungeonLose ? onDungeonLose : onDungeonLeave)
+                        : () => setPhase("collection")
+                    }>{dungeonMode ? "Leave Dungeon" : "Collection"}</button>
                 </div>
             </div>
         );
@@ -22520,6 +23224,34 @@ function ShinobiTiles({ character, updateCharacter, creatorCards, dungeonMode = 
     return (
         <div className="card">
             <h2 style={{ marginBottom: "0.3rem" }}>🀄 Shinobi Tiles</h2>
+            {/* Dungeon-mode scene banner — shows the admin-generated
+                opponent / table art (shrine:tile-tile-game) so the
+                Hollow Gate card duel feels like an actual encounter
+                instead of a vanilla card screen. */}
+            {dungeonMode && dungeonSceneImage && (
+                <div style={{
+                    position: "relative",
+                    width: "100%",
+                    height: 130,
+                    marginBottom: 8,
+                    borderRadius: 8,
+                    overflow: "hidden",
+                    background: `linear-gradient(180deg, rgba(7,12,27,0.15), rgba(7,12,27,0.78)), url(${dungeonSceneImage}) center/cover no-repeat`,
+                    border: "1px solid rgba(168,85,247,0.45)",
+                }}>
+                    <div style={{
+                        position: "absolute",
+                        bottom: 6,
+                        left: 10,
+                        color: "#e9d5ff",
+                        fontSize: 12,
+                        fontWeight: 600,
+                        textShadow: "0 1px 4px rgba(0,0,0,0.85)",
+                    }}>
+                        ⛩ The shadow opponent waits across the stone table.
+                    </div>
+                </div>
+            )}
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.5rem", fontSize: 13 }}>
                 <span style={{ color: "#4fc3f7" }}>You: {pScore}</span>
                 <span style={{ color: isPlayerTurn ? "#a5d6a7" : "#ef9a9a" }}>{isPlayerTurn ? "Your Turn" : "Enemy thinking..."}</span>
@@ -31293,6 +32025,142 @@ function Arena({
     const activeWeaponRangeTiles = weaponRangeTiles(pendingTargetWeapon);
     const activeGroundAffectedTiles = groundAffectedTiles(pendingTargetJutsu, hoveredBattleTile);
 
+    // ── Mid-battle PvE state persistence ─────────────────────────────────
+    // Save the core combat state to localStorage on every change so a
+    // browser refresh during a PvE fight resumes where it left off. Keyed
+    // by character name so two browsers/sessions don't collide. Cleared on
+    // battle end (win / loss / fled). 1-hour staleness window so a crashed
+    // tab from yesterday doesn't trap the player in a phantom battle.
+    //
+    // Limitations: skips PvP (server-authoritative), skips pet co-combat
+    // mid-action (rare), skips visual animation state. Restores enough
+    // state to make the fight winnable from the resume point.
+    const ARENA_SAVE_KEY = `arena.battle.v1.${character.name}`;
+    const ARENA_SAVE_TTL_MS = 60 * 60 * 1000;     // 1hr — drop after that
+    type SerializedArenaState = {
+        savedAt: number;
+        // Encounter signature — used to validate the save matches the
+        // currently-loaded battle context on restore.
+        opponentName?: string;
+        pendingStoryKind?: string;
+        isPvp: boolean;
+        // Core combat state
+        battleStarted: boolean;
+        playerHp: number;
+        enemyHp: number;
+        enemyChakra: number;
+        enemyStamina: number;
+        ap: number;
+        enemyAp: number;
+        turn: number;
+        activeActor: BattleActor;
+        actionsThisTurn: number;
+        playerStatuses: CombatStatus[];
+        enemyStatuses: CombatStatus[];
+        barrierTiles: { tile: number; rounds: number }[];
+        cooldowns: Record<string, number>;
+        jutsuCooldowns: Record<string, number>;
+        enemyJutsuCooldowns: Record<string, number>;
+        playerShield: number;
+        enemyShield: number;
+        playerPos: number;
+        enemyPos: number;
+        battleHistory: BattleActionEntry[];
+        summonedPetId: string;
+        rankedBattleActive: boolean;
+        clanWarPointsActive: number;
+    };
+    // Skip persistence for PvP-adjacent battles (raidPlayer + active ranked
+    // queue). The actual PvP-vs-player screen is a separate component and
+    // doesn't run through this Arena, so the rest of Arena state is PvE.
+    const isPvpFight = raidBattleKind === "raidPlayer" || rankedBattleActive;
+    // Save on every state change while the battle is in progress.
+    useEffect(() => {
+        if (!battleStarted || battleEnded || isPvpFight) return;
+        const snapshot: SerializedArenaState = {
+            savedAt: Date.now(),
+            opponentName: opponentCharacter?.name ?? pendingAiProfile?.name,
+            pendingStoryKind: pendingStoryBattle?.kind,
+            isPvp: false,
+            battleStarted, playerHp, enemyHp, enemyChakra, enemyStamina,
+            ap, enemyAp, turn, activeActor, actionsThisTurn,
+            playerStatuses, enemyStatuses, barrierTiles,
+            cooldowns, jutsuCooldowns, enemyJutsuCooldowns,
+            playerShield, enemyShield, playerPos, enemyPos,
+            battleHistory, summonedPetId,
+            rankedBattleActive, clanWarPointsActive,
+        };
+        try { localStorage.setItem(ARENA_SAVE_KEY, JSON.stringify(snapshot)); } catch { /* quota */ }
+    }, [
+        battleStarted, battleEnded, isPvpFight,
+        playerHp, enemyHp, enemyChakra, enemyStamina,
+        ap, enemyAp, turn, activeActor, actionsThisTurn,
+        playerStatuses, enemyStatuses, barrierTiles,
+        cooldowns, jutsuCooldowns, enemyJutsuCooldowns,
+        playerShield, enemyShield, playerPos, enemyPos,
+        battleHistory, summonedPetId,
+        rankedBattleActive, clanWarPointsActive,
+    ]);
+    // Clear the save when the battle ends, so a fresh entry starts clean.
+    useEffect(() => {
+        if (battleEnded) {
+            try { localStorage.removeItem(ARENA_SAVE_KEY); } catch { /* ignore */ }
+        }
+    }, [battleEnded, ARENA_SAVE_KEY]);
+    // Restore on Arena mount — one-time on first render. Validates the
+    // save's encounter signature matches the currently-loaded context
+    // so we don't accidentally pour an old story-boss fight's state
+    // into a fresh ambush.
+    const arenaRestoreAttempted = useRef(false);
+    useEffect(() => {
+        if (arenaRestoreAttempted.current) return;
+        arenaRestoreAttempted.current = true;
+        try {
+            const raw = localStorage.getItem(ARENA_SAVE_KEY);
+            if (!raw) return;
+            const saved = JSON.parse(raw) as SerializedArenaState;
+            if (!saved.battleStarted) return;
+            if (Date.now() - saved.savedAt > ARENA_SAVE_TTL_MS) {
+                localStorage.removeItem(ARENA_SAVE_KEY);
+                return;
+            }
+            // Validate context — encounter signature must match. Story
+            // battles match on kind, free fights match on opponent name.
+            const expectedOpponentName = opponentCharacter?.name ?? pendingAiProfile?.name;
+            if (saved.pendingStoryKind !== pendingStoryBattle?.kind) return;
+            if (expectedOpponentName && saved.opponentName !== expectedOpponentName) return;
+            // Apply.
+            setBattleStarted(saved.battleStarted);
+            setPlayerHp(saved.playerHp);
+            setEnemyHp(saved.enemyHp);
+            setEnemyChakra(saved.enemyChakra);
+            setEnemyStamina(saved.enemyStamina);
+            setAp(saved.ap);
+            setEnemyAp(saved.enemyAp);
+            setTurn(saved.turn);
+            setActiveActor(saved.activeActor);
+            setActionsThisTurn(saved.actionsThisTurn);
+            setPlayerStatuses(saved.playerStatuses);
+            setEnemyStatuses(saved.enemyStatuses);
+            setBarrierTiles(saved.barrierTiles);
+            setCooldowns(saved.cooldowns);
+            setJutsuCooldowns(saved.jutsuCooldowns);
+            setEnemyJutsuCooldowns(saved.enemyJutsuCooldowns);
+            setPlayerShield(saved.playerShield);
+            setEnemyShield(saved.enemyShield);
+            setPlayerPos(saved.playerPos);
+            setEnemyPos(saved.enemyPos);
+            setBattleHistory(saved.battleHistory);
+            setSummonedPetId(saved.summonedPetId);
+            setRankedBattleActive(saved.rankedBattleActive);
+            setClanWarPointsActive(saved.clanWarPointsActive);
+            setLog("Mid-battle state restored from previous session.");
+        } catch {
+            try { localStorage.removeItem(ARENA_SAVE_KEY); } catch { /* ignore */ }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     return (
         <div className={`arena-fullscreen arena-bg-${currentBiome}${currentSector === 99 ? " arena-bg-deathsgate" : ""}`}>
             {/* Pre-fight countdown overlay — shown for ALL battle types */}
@@ -33521,9 +34389,9 @@ function VillageWarScreen({
                 villageWarRaidProgress: (character.villageWarRaidProgress ?? 0) + 1,
             });
             await refresh();
-            // If enemy hp hits 0, push the war record to mark capture and grant
-            // the final-blow player a Legendary War Crate + bigger reward.
-            if (newHp === 0) {
+            // The war only ENDS when the war-ground sector's HP hits 0. Raids
+            // on other enemy sectors just grant war supply and dent control.
+            if (newHp === 0 && sector === activeWar.warGroundSector) {
                 const crateId = `war-crate-${activeWar.id}`;
                 const updatedWar = { ...activeWar, capturedBy: myVillage, capturedAt: Date.now(), warGroundHp: 0, winnerVillage: myVillage, endedAt: Date.now(), warCrateId: crateId };
                 await fetch("/api/world-state", {
@@ -33597,6 +34465,9 @@ function VillageWarScreen({
                         </div>
                     </div>
                     <h3>Enemy Sectors — Raid to drain control</h3>
+                    <p style={{ color: "#facc15", fontSize: "0.85rem", marginTop: -4 }}>
+                        ⚑ The war ends when the <strong>war-ground sector ({activeWar.warGroundSector})</strong> reaches 0 HP.
+                    </p>
                     <div style={{ display: "grid", gap: 6, maxHeight: 360, overflowY: "auto" }}>
                         {territories
                             .filter(t => (t.ownerVillage ?? "") === enemyVillage)
@@ -33664,3 +34535,451 @@ type TerritoryRecord = {
     controlScore?: number;
     warSupply: number;
 };
+
+// ─── Admin Moderation Panel ───────────────────────────────────────────────────
+// Player search → IP history + linked accounts. Ban / silence (1d / 3d / 7d /
+// permanent for ban). Audit log of recent mod actions. Force-kick + delete a
+// specific village-chat message.
+type ModBanRecord = { until: number; reason: string; by: string; at: number; permanent?: boolean };
+type ModSilenceRecord = { until: number; reason: string; by: string; at: number };
+type ModIpRecord = { lastIp: string; ips: string[]; lastSeenAt: number };
+type ModFpRecord = { lastFp: string; fps: string[]; lastSeenAt: number };
+type ModAuditEntry = { ts: number; actor: string; action: string; target: string; detail?: string };
+type ModLookupResult = {
+    target: string;
+    ipRecord: ModIpRecord | null;
+    fpRecord: ModFpRecord | null;
+    linkedByIp: string[];
+    linkedByFp: string[];
+    linkedByBoth: string[];
+    perIp: Array<{ ip: string; names: string[] }>;
+    perFp: Array<{ fp: string; names: string[] }>;
+};
+type ModSnapshot = {
+    target: string;
+    exists: boolean;
+    snapshot?: {
+        level: number; village: string; clan: string; specialty: string; rank: string;
+        ryo: number; xp: number; totalPvpKills: number; totalAiKills: number;
+        hospitalized: boolean; createdAt: unknown; lastSeenAt: number; currentSector: number; online: boolean;
+    };
+    ban?: ModBanRecord | null;
+    silence?: ModSilenceRecord | null;
+};
+type ModChatMessage = { author: string; text: string; ts: number; rank?: string; level?: number };
+
+function ModerationPanel({ adminPw }: { adminPw: string }) {
+    const [bans, setBans] = useState<Array<{ name: string; record: ModBanRecord }>>([]);
+    const [silences, setSilences] = useState<Array<{ name: string; record: ModSilenceRecord }>>([]);
+    const [audit, setAudit] = useState<ModAuditEntry[]>([]);
+    const [searchName, setSearchName] = useState("");
+    const [searchSignal, setSearchSignal] = useState("");
+    const [signalKind, setSignalKind] = useState<"ip" | "fp">("ip");
+    const [signalResult, setSignalResult] = useState<{ kind: "ip" | "fp"; value: string; names: string[] } | null>(null);
+    const [lookup, setLookup] = useState<ModLookupResult | null>(null);
+    const [snapshot, setSnapshot] = useState<ModSnapshot | null>(null);
+    const [reason, setReason] = useState("");
+    const [status, setStatus] = useState("");
+    const [loading, setLoading] = useState(false);
+    // Village chat viewer
+    const [chatVillage, setChatVillage] = useState("");
+    const [chatMessages, setChatMessages] = useState<ModChatMessage[]>([]);
+
+    const refresh = useCallback(async () => {
+        if (!adminPw) return;
+        try {
+            const r = await fetch("/api/admin/moderation", {
+                method: "GET",
+                headers: { "x-admin-password": adminPw },
+            });
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const data = await r.json();
+            setBans(Array.isArray(data.bans) ? data.bans : []);
+            setSilences(Array.isArray(data.silences) ? data.silences : []);
+            setAudit(Array.isArray(data.audit) ? data.audit : []);
+        } catch (e) {
+            setStatus(`❌ ${(e as Error).message}`);
+        }
+    }, [adminPw]);
+
+    useEffect(() => { void refresh(); }, [refresh]);
+
+    async function modAction(kind: string, body: Record<string, unknown>) {
+        if (!adminPw) { setStatus("❌ Admin password missing."); return; }
+        setLoading(true);
+        setStatus("");
+        try {
+            const r = await fetch("/api/admin/moderation", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "x-admin-password": adminPw },
+                body: JSON.stringify({ kind, password: adminPw, actor: "admin", ...body }),
+            });
+            const data = await r.json();
+            if (!r.ok) throw new Error(data.error ?? `HTTP ${r.status}`);
+            setStatus(`✅ ${kind} ok`);
+            return data;
+        } catch (e) {
+            setStatus(`❌ ${(e as Error).message}`);
+            return null;
+        } finally {
+            setLoading(false);
+            await refresh();
+        }
+    }
+
+    // Pivot the whole lookup card to a different player. Used by Search button
+    // and by every linked-account / ban-list / audit-log button below.
+    async function pivotTo(name: string) {
+        const target = name.trim();
+        if (!target) return;
+        setSearchName(target);
+        const [lookupData, snapData] = await Promise.all([
+            modAction("lookup", { target }),
+            modAction("snapshot", { target }),
+        ]);
+        if (lookupData) setLookup(lookupData as ModLookupResult);
+        if (snapData) setSnapshot(snapData as ModSnapshot);
+    }
+
+    async function doLookup() {
+        await pivotTo(searchName.trim());
+    }
+
+    async function doSignalSearch() {
+        const v = searchSignal.trim();
+        if (!v) return;
+        const kind = signalKind === "ip" ? "reverse-ip" : "reverse-fp";
+        const body = signalKind === "ip" ? { ip: v } : { fp: v.toLowerCase() };
+        const data = await modAction(kind, body);
+        if (data) {
+            setSignalResult({ kind: signalKind, value: v, names: (data.names as string[]) ?? [] });
+        }
+    }
+
+    async function loadVillageChat(village: string) {
+        const v = village.trim();
+        if (!v) return;
+        const data = await modAction("fetch-village-chat", { village: v });
+        if (data) setChatMessages((data.messages as ModChatMessage[]) ?? []);
+    }
+
+    async function deleteChatMessage(village: string, author: string, ts: number) {
+        await modAction("delete-chat-message", { village, author, ts });
+        await loadVillageChat(village);
+    }
+
+    async function ban(target: string, days: number | "permanent") {
+        await modAction("ban", { target, days, reason: reason.slice(0, 500) });
+    }
+    async function unban(target: string) {
+        await modAction("unban", { target });
+    }
+    async function silence(target: string, days: number) {
+        await modAction("silence", { target, days, reason: reason.slice(0, 500) });
+    }
+    async function unsilence(target: string) {
+        await modAction("unsilence", { target });
+    }
+    async function kick(target: string) {
+        await modAction("kick", { target, reason: reason.slice(0, 200) });
+    }
+
+    function fmtUntil(rec: { until: number; permanent?: boolean }) {
+        if (rec.permanent) return "permanent";
+        const ms = rec.until - Date.now();
+        if (ms <= 0) return "expired";
+        const days = Math.floor(ms / 86400000);
+        const hours = Math.floor((ms % 86400000) / 3600000);
+        return days > 0 ? `${days}d ${hours}h` : `${hours}h`;
+    }
+
+    return (
+        <div style={{ display: "grid", gap: "1rem" }}>
+            <section className="summary-box">
+                <h3>🛡 Player Lookup</h3>
+                <p className="hint">Search by name to inspect a single account, or paste an IP / fingerprint hash to find every account using it.</p>
+                <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+                    <input
+                        value={searchName}
+                        onChange={(e) => setSearchName(e.target.value)}
+                        placeholder="Player name (e.g. Alice)"
+                        style={{ flex: 1, minWidth: 200, padding: "0.4rem" }}
+                        onKeyDown={(e) => { if (e.key === "Enter") void doLookup(); }}
+                    />
+                    <button onClick={doLookup} disabled={loading || !searchName.trim()}>Search Name</button>
+                </div>
+                <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", marginTop: "0.5rem" }}>
+                    <select value={signalKind} onChange={(e) => setSignalKind(e.target.value as "ip" | "fp")} style={{ padding: "0.4rem" }}>
+                        <option value="ip">IP</option>
+                        <option value="fp">Fingerprint</option>
+                    </select>
+                    <input
+                        value={searchSignal}
+                        onChange={(e) => setSearchSignal(e.target.value)}
+                        placeholder={signalKind === "ip" ? "Paste an IP (e.g. 203.0.113.42)" : "Paste a fingerprint hash"}
+                        style={{ flex: 1, minWidth: 200, padding: "0.4rem", fontFamily: "monospace" }}
+                        onKeyDown={(e) => { if (e.key === "Enter") void doSignalSearch(); }}
+                    />
+                    <button onClick={doSignalSearch} disabled={loading || !searchSignal.trim()}>Find accounts</button>
+                </div>
+                {signalResult && (
+                    <div style={{ background: "#0a0a1a", borderRadius: 6, padding: "0.5rem", marginTop: "0.5rem" }}>
+                        <strong>{signalResult.names.length}</strong> account{signalResult.names.length === 1 ? "" : "s"} on <code style={{ color: signalResult.kind === "ip" ? "#facc15" : "#a78bfa" }}>{signalResult.value}</code>:
+                        <div style={{ marginTop: 4 }}>
+                            {signalResult.names.length === 0
+                                ? <em style={{ color: "#64748b" }}>None recorded.</em>
+                                : signalResult.names.map(n => (
+                                    <button key={n} onClick={() => pivotTo(n)} style={{ margin: 2, padding: "0.2rem 0.6rem", fontSize: "0.85rem" }}>{n}</button>
+                                ))
+                            }
+                        </div>
+                    </div>
+                )}
+                <label style={{ display: "block", marginTop: "0.6rem" }}>Mod-action reason (saved to audit log)</label>
+                <input
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    placeholder="e.g. spamming chat, slur in name…"
+                    style={{ width: "100%", padding: "0.4rem" }}
+                    maxLength={500}
+                />
+                {status && <p className="hint" style={{ marginTop: "0.4rem" }}>{status}</p>}
+            </section>
+
+            {snapshot && snapshot.exists && snapshot.snapshot && (
+                <section className="summary-box">
+                    <h3>👤 {snapshot.target} — Account Snapshot</h3>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "0.5rem", marginTop: "0.4rem" }}>
+                        <div><strong>Level:</strong> {snapshot.snapshot.level}</div>
+                        <div><strong>Village:</strong> {snapshot.snapshot.village || <em style={{ color: "#64748b" }}>none</em>}</div>
+                        <div><strong>Clan:</strong> {snapshot.snapshot.clan || <em style={{ color: "#64748b" }}>none</em>}</div>
+                        <div><strong>Rank:</strong> {snapshot.snapshot.rank || <em style={{ color: "#64748b" }}>unknown</em>}</div>
+                        <div><strong>Specialty:</strong> {snapshot.snapshot.specialty || <em style={{ color: "#64748b" }}>n/a</em>}</div>
+                        <div><strong>Ryo:</strong> {snapshot.snapshot.ryo.toLocaleString()}</div>
+                        <div><strong>PvP kills:</strong> {snapshot.snapshot.totalPvpKills}</div>
+                        <div><strong>AI kills:</strong> {snapshot.snapshot.totalAiKills}</div>
+                        <div>
+                            <strong>Status:</strong>{" "}
+                            {snapshot.snapshot.online
+                                ? <span style={{ color: "#4ade80" }}>● online (sector {snapshot.snapshot.currentSector})</span>
+                                : <span style={{ color: "#64748b" }}>○ offline</span>}
+                        </div>
+                        {snapshot.snapshot.lastSeenAt > 0 && (
+                            <div><strong>Last seen:</strong> {new Date(snapshot.snapshot.lastSeenAt).toLocaleString()}</div>
+                        )}
+                        {snapshot.snapshot.hospitalized && (
+                            <div style={{ color: "#f87171" }}>🏥 Hospitalized</div>
+                        )}
+                    </div>
+                    {(snapshot.ban || snapshot.silence) && (
+                        <div style={{ marginTop: "0.6rem", padding: "0.5rem", background: "#1c0606", borderRadius: 6 }}>
+                            {snapshot.ban && (
+                                <div style={{ color: "#f87171" }}>
+                                    🚫 <strong>BANNED</strong> {snapshot.ban.permanent ? "permanently" : `until ${new Date(snapshot.ban.until).toLocaleString()}`} — {snapshot.ban.reason || <em>no reason</em>} <small>(by {snapshot.ban.by})</small>
+                                </div>
+                            )}
+                            {snapshot.silence && (
+                                <div style={{ color: "#fbbf24", marginTop: snapshot.ban ? 4 : 0 }}>
+                                    🔇 <strong>SILENCED</strong> until {new Date(snapshot.silence.until).toLocaleString()} — {snapshot.silence.reason || <em>no reason</em>} <small>(by {snapshot.silence.by})</small>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </section>
+            )}
+            {snapshot && !snapshot.exists && (
+                <section className="summary-box">
+                    <p className="hint">No save found for <strong>{snapshot.target}</strong>. The IP / fingerprint data below may still be useful.</p>
+                </section>
+            )}
+
+            {lookup && (
+                <section className="summary-box">
+                    <h3>📍 {lookup.target}</h3>
+                    {(lookup.ipRecord || lookup.fpRecord) ? (
+                        <>
+                            {lookup.ipRecord && (
+                                <p><strong>Last IP:</strong> <code>{lookup.ipRecord.lastIp}</code> · <strong>Last seen:</strong> {new Date(lookup.ipRecord.lastSeenAt).toLocaleString()}</p>
+                            )}
+                            {lookup.fpRecord && (
+                                <p><strong>Last fingerprint:</strong> <code>{lookup.fpRecord.lastFp.slice(0, 16)}…</code> · <strong>Fingerprints ever used:</strong> {lookup.fpRecord.fps.length}</p>
+                            )}
+
+                            {lookup.linkedByBoth.length > 0 && (
+                                <div style={{ background: "#1c0606", border: "1px solid #f87171", borderRadius: 6, padding: "0.6rem", margin: "0.6rem 0" }}>
+                                    <strong style={{ color: "#f87171" }}>⚠ Linked by IP AND Fingerprint — almost certainly the same person:</strong>
+                                    <div style={{ marginTop: 4 }}>
+                                        {lookup.linkedByBoth.map(n => (
+                                            <button
+                                                key={n}
+                                                onClick={() => pivotTo(n)}
+                                                style={{ margin: "2px", padding: "0.2rem 0.6rem", fontSize: "0.85rem", background: "#7f1d1d", borderColor: "#f87171" }}
+                                            >{n}</button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            <h4 style={{ marginTop: "0.8rem", marginBottom: "0.3rem" }}>🌐 Linked by IP ({lookup.linkedByIp.length})</h4>
+                            <p className="hint" style={{ marginTop: 0, fontSize: "0.8rem" }}>Same network. Weaker signal — shared cafe / home / corporate IPs trigger this.</p>
+                            <div style={{ background: "#0a0a1a", borderRadius: 6, padding: "0.5rem" }}>
+                                {lookup.perIp.length === 0
+                                    ? <em style={{ color: "#64748b" }}>No IPs recorded yet.</em>
+                                    : lookup.perIp.map(({ ip, names }) => (
+                                        <div key={ip} style={{ marginBottom: "0.4rem" }}>
+                                            <code style={{ color: "#facc15" }}>{ip}</code>
+                                            {names.length > 0 ? (
+                                                <div style={{ paddingLeft: "1rem", fontSize: "0.9rem" }}>
+                                                    also used by: {names.map(n => (
+                                                        <button
+                                                            key={n}
+                                                            onClick={() => pivotTo(n)}
+                                                            style={{ marginLeft: 4, padding: "0 6px", fontSize: "0.85rem", background: lookup.linkedByBoth.includes(n) ? "#7f1d1d" : undefined, borderColor: lookup.linkedByBoth.includes(n) ? "#f87171" : undefined }}
+                                                        >{n}{lookup.linkedByFp.includes(n) ? " ★" : ""}</button>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <span style={{ paddingLeft: "1rem", color: "#64748b" }}> — unique to {lookup.target}</span>
+                                            )}
+                                        </div>
+                                    ))
+                                }
+                            </div>
+
+                            <h4 style={{ marginTop: "0.8rem", marginBottom: "0.3rem" }}>🖥 Linked by Fingerprint ({lookup.linkedByFp.length})</h4>
+                            <p className="hint" style={{ marginTop: 0, fontSize: "0.8rem" }}>Same browser + machine. Survives VPNs / cookie clears / incognito. Strong signal.</p>
+                            <div style={{ background: "#0a0a1a", borderRadius: 6, padding: "0.5rem" }}>
+                                {lookup.perFp.length === 0
+                                    ? <em style={{ color: "#64748b" }}>No fingerprints recorded yet.</em>
+                                    : lookup.perFp.map(({ fp, names }) => (
+                                        <div key={fp} style={{ marginBottom: "0.4rem" }}>
+                                            <code style={{ color: "#a78bfa" }}>{fp.slice(0, 16)}…</code>
+                                            {names.length > 0 ? (
+                                                <div style={{ paddingLeft: "1rem", fontSize: "0.9rem" }}>
+                                                    also used by: {names.map(n => (
+                                                        <button
+                                                            key={n}
+                                                            onClick={() => pivotTo(n)}
+                                                            style={{ marginLeft: 4, padding: "0 6px", fontSize: "0.85rem", background: lookup.linkedByBoth.includes(n) ? "#7f1d1d" : undefined, borderColor: lookup.linkedByBoth.includes(n) ? "#f87171" : undefined }}
+                                                        >{n}{lookup.linkedByIp.includes(n) ? " ★" : ""}</button>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <span style={{ paddingLeft: "1rem", color: "#64748b" }}> — unique to {lookup.target}</span>
+                                            )}
+                                        </div>
+                                    ))
+                                }
+                            </div>
+                            <p className="hint" style={{ marginTop: "0.4rem", fontSize: "0.8rem" }}>★ = also linked by the other signal.</p>
+                        </>
+                    ) : (
+                        <p className="hint">No records yet — player must heartbeat / login at least once.</p>
+                    )}
+                    <h4 style={{ marginTop: "1rem" }}>Actions on {lookup.target}</h4>
+                    <div style={{ display: "grid", gap: "0.3rem", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))" }}>
+                        <button onClick={() => ban(lookup.target, 1)} disabled={loading}>🚫 Ban 1d</button>
+                        <button onClick={() => ban(lookup.target, 3)} disabled={loading}>🚫 Ban 3d</button>
+                        <button onClick={() => ban(lookup.target, 7)} disabled={loading}>🚫 Ban 7d</button>
+                        <button onClick={() => ban(lookup.target, "permanent")} disabled={loading} className="danger-button">⛔ Ban Forever</button>
+                        <button onClick={() => silence(lookup.target, 1)} disabled={loading}>🔇 Silence 1d</button>
+                        <button onClick={() => silence(lookup.target, 3)} disabled={loading}>🔇 Silence 3d</button>
+                        <button onClick={() => silence(lookup.target, 7)} disabled={loading}>🔇 Silence 7d</button>
+                        <button onClick={() => kick(lookup.target)} disabled={loading}>👢 Force Kick</button>
+                        <button onClick={() => unban(lookup.target)} disabled={loading} style={{ background: "#1e3a1e" }}>✅ Unban</button>
+                        <button onClick={() => unsilence(lookup.target)} disabled={loading} style={{ background: "#1e3a1e" }}>🔊 Unsilence</button>
+                    </div>
+                </section>
+            )}
+
+            <section className="summary-box">
+                <h3>💬 Village Chat Viewer</h3>
+                <p className="hint">Pick a village to see its current chat backlog. Click 🗑 to delete a message or 🔇 to silence the author for a day.</p>
+                <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+                    <select value={chatVillage} onChange={(e) => { setChatVillage(e.target.value); if (e.target.value) void loadVillageChat(e.target.value); }} style={{ padding: "0.4rem", flex: 1 }}>
+                        <option value="">— Choose a village —</option>
+                        {villages.map(v => <option key={v} value={v}>{v}</option>)}
+                    </select>
+                    <button onClick={() => loadVillageChat(chatVillage)} disabled={!chatVillage || loading}>Refresh</button>
+                </div>
+                {chatVillage && (
+                    <div style={{ maxHeight: 320, overflowY: "auto", background: "#0a0a1a", borderRadius: 6, padding: "0.5rem", marginTop: "0.5rem" }}>
+                        {chatMessages.length === 0
+                            ? <em style={{ color: "#64748b" }}>No recent messages in {chatVillage}.</em>
+                            : chatMessages.slice().reverse().map(m => (
+                                <div key={`${m.author}:${m.ts}`} style={{ padding: "0.3rem 0", borderBottom: "1px solid #1f2937", display: "flex", alignItems: "flex-start", gap: "0.4rem" }}>
+                                    <div style={{ flex: 1, fontFamily: "monospace", fontSize: "0.85rem" }}>
+                                        <span style={{ color: "#94a3b8" }}>{new Date(m.ts).toLocaleTimeString()}</span> ·{" "}
+                                        <button onClick={() => pivotTo(m.author)} style={{ background: "transparent", border: 0, color: "#facc15", cursor: "pointer", padding: 0, fontWeight: 700, textDecoration: "underline dotted" }}>{m.author}</button>
+                                        {m.level != null && <span style={{ color: "#94a3b8" }}> (lvl {m.level})</span>}: <span>{m.text}</span>
+                                    </div>
+                                    <button onClick={() => silence(m.author, 1)} disabled={loading} title="Silence author 1d" style={{ padding: "0.1rem 0.4rem", fontSize: "0.75rem", background: "#1a2a3a" }}>🔇</button>
+                                    <button onClick={() => deleteChatMessage(chatVillage, m.author, m.ts)} disabled={loading} title="Delete this message" style={{ padding: "0.1rem 0.4rem", fontSize: "0.75rem", background: "#3a1a1a" }}>🗑</button>
+                                </div>
+                            ))
+                        }
+                    </div>
+                )}
+            </section>
+
+            <section className="summary-box">
+                <h3>🚫 Active Bans ({bans.length})</h3>
+                {bans.length === 0
+                    ? <p className="hint">None.</p>
+                    : (
+                        <div style={{ display: "grid", gap: 4 }}>
+                            {bans.map(({ name, record }) => (
+                                <div key={name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.3rem 0.5rem", background: "#1c0606", borderRadius: 4 }}>
+                                    <span>
+                                        <button onClick={() => pivotTo(name)} style={{ background: "transparent", border: 0, color: "#fca5a5", cursor: "pointer", padding: 0, fontWeight: 700, textDecoration: "underline dotted" }}>{name}</button>
+                                        {" — "}{record.reason || <em>no reason</em>} <small style={{ color: "#94a3b8" }}>(by {record.by}, {fmtUntil(record)} left)</small>
+                                    </span>
+                                    <button onClick={() => unban(name)} disabled={loading} style={{ background: "#1e3a1e", fontSize: "0.85rem", padding: "0.2rem 0.6rem" }}>Unban</button>
+                                </div>
+                            ))}
+                        </div>
+                    )
+                }
+            </section>
+
+            <section className="summary-box">
+                <h3>🔇 Active Silences ({silences.length})</h3>
+                {silences.length === 0
+                    ? <p className="hint">None.</p>
+                    : (
+                        <div style={{ display: "grid", gap: 4 }}>
+                            {silences.map(({ name, record }) => (
+                                <div key={name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.3rem 0.5rem", background: "#0a1a2a", borderRadius: 4 }}>
+                                    <span>
+                                        <button onClick={() => pivotTo(name)} style={{ background: "transparent", border: 0, color: "#fde68a", cursor: "pointer", padding: 0, fontWeight: 700, textDecoration: "underline dotted" }}>{name}</button>
+                                        {" — "}{record.reason || <em>no reason</em>} <small style={{ color: "#94a3b8" }}>(by {record.by}, {fmtUntil(record)} left)</small>
+                                    </span>
+                                    <button onClick={() => unsilence(name)} disabled={loading} style={{ background: "#1e3a1e", fontSize: "0.85rem", padding: "0.2rem 0.6rem" }}>Unsilence</button>
+                                </div>
+                            ))}
+                        </div>
+                    )
+                }
+            </section>
+
+            <section className="summary-box">
+                <h3>📜 Audit Log (last {audit.length})</h3>
+                {audit.length === 0
+                    ? <p className="hint">No mod actions recorded yet.</p>
+                    : (
+                        <div style={{ maxHeight: 280, overflowY: "auto", fontFamily: "monospace", fontSize: "0.85rem" }}>
+                            {audit.slice(0, 50).map((entry, i) => (
+                                <div key={i} style={{ padding: "0.2rem 0", borderBottom: "1px solid #1f2937" }}>
+                                    <span style={{ color: "#94a3b8" }}>{new Date(entry.ts).toLocaleString()}</span> · <strong style={{ color: "#facc15" }}>{entry.action}</strong> ·{" "}
+                                    <button onClick={() => pivotTo(entry.target)} style={{ background: "transparent", border: 0, color: "#e2e8f0", cursor: "pointer", padding: 0, fontWeight: 700, textDecoration: "underline dotted", fontFamily: "monospace" }}>{entry.target}</button>
+                                    {" · "}<em style={{ color: "#94a3b8" }}>by {entry.actor}</em>
+                                    {entry.detail && <div style={{ paddingLeft: "1rem", color: "#cbd5e1" }}>{entry.detail}</div>}
+                                </div>
+                            ))}
+                        </div>
+                    )
+                }
+            </section>
+        </div>
+    );
+}

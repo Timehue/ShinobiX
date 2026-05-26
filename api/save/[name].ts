@@ -112,14 +112,33 @@ function freshWindow(): GainsWindow {
     return { startedAt: Date.now(), ryo: 0, stat: {}, xp: 0 };
 }
 
+// Baseline used to clamp a brand-new account's FIRST save. Without this, a
+// fresh registration could submit a character at level 100 / millions of ryo /
+// maxed stats because there's no `existing` baseline to diff against.
+const FIRST_SAVE_BASELINE_CHARACTER: Record<string, unknown> = {
+    level: 1,
+    ryo: 0,
+    xp: 0,
+    stats: {
+        strength: 0, speed: 0, intelligence: 0, willpower: 0,
+        bukijutsuOffense: 0, bukijutsuDefense: 0,
+        taijutsuOffense: 0, taijutsuDefense: 0,
+        genjutsuOffense: 0, genjutsuDefense: 0,
+        ninjutsuOffense: 0, ninjutsuDefense: 0,
+    },
+    honorSeals: 0, fateShards: 0, boneCharms: 0, auraStones: 0,
+    auraDust: 0, mythicSeals: 0,
+    hospitalized: false, hospitalizedUntil: 0,
+};
+
 function sanitizeCharacterSave(
     incoming: Record<string, unknown>,
-    existing: Record<string, unknown>,
+    existing: Record<string, unknown> | null,
 ): Record<string, unknown> {
     const inChar = incoming.character as Record<string, unknown> | undefined;
-    const exChar = existing.character as Record<string, unknown> | undefined;
-    // If either side is missing a character object we can't diff — return as-is
-    // and let the existing merge logic handle it.
+    // First-save case (no existing): clamp against a fresh baseline so a brand-
+    // new account can't submit absurd starting values.
+    const exChar = (existing?.character as Record<string, unknown> | undefined) ?? FIRST_SAVE_BASELINE_CHARACTER;
     if (!inChar || typeof inChar !== 'object') return incoming;
     if (!exChar || typeof exChar !== 'object') return incoming;
 
@@ -343,10 +362,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // Sanitize before merge: caps per-save gains to prevent exploit spikes.
                     // Clan saves are collaborative (no single "owner" baseline), so we skip
                     // sanitization for them — they're already admin-locked in the UI.
-                    const safeIncoming = (existing && !isClanSave)
+                    // For brand-new accounts (no existing), sanitize against a zeroed
+                    // baseline so a fresh registration can't submit absurd values.
+                    const safeIncoming = (!isClanSave)
                         ? sanitizeCharacterSave(
                             incoming as Record<string, unknown>,
-                            existing as Record<string, unknown>,
+                            (existing as Record<string, unknown> | null) ?? null,
                           )
                         : incoming;
 

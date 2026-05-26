@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
+import { getActiveSilence } from '../admin/moderation.js';
 import type { PvpSession } from './session.js';
 
 type BattleChatMessage = {
@@ -52,6 +53,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const authorNorm = author.toLowerCase().trim();
             if (!identity.admin && identity.name !== authorNorm) {
                 return res.status(403).json({ error: 'Cannot post as another player.' });
+            }
+
+            // Silenced players can spectate / fight but not chat. Admin bypasses.
+            if (!identity.admin) {
+                const sil = await getActiveSilence(identity.name);
+                if (sil) {
+                    return res.status(403).json({
+                        error: 'You are silenced.',
+                        silence: { until: sil.until, reason: sil.reason },
+                    });
+                }
             }
 
             // Derive role from the session: if the author is one of the two
