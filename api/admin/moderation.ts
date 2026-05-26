@@ -406,6 +406,75 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             });
         }
 
+        if (kind === 'snapshot') {
+            // Curated read-only summary of a player's save for the Mod tab.
+            // Excludes anything sensitive (no jutsu loadouts, no inventory) —
+            // just the bits a mod needs to decide what action to take.
+            if (!targetName) return res.status(400).json({ error: 'Missing target.' });
+            const [save, ban, sil, presence] = await Promise.all([
+                kv.get<Record<string, unknown>>(`save:${targetName}`),
+                kv.get<BanRecord>(banKey(targetName)),
+                kv.get<SilenceRecord>(silenceKey(targetName)),
+                kv.get<Record<string, unknown>>(`presence:${targetName}`),
+            ]);
+            if (!save) return res.status(200).json({ target: targetName, exists: false });
+            const ch = (save.character ?? {}) as Record<string, unknown>;
+            const created = save.createdAt ?? save.created ?? null;
+            return res.status(200).json({
+                target: targetName,
+                exists: true,
+                snapshot: {
+                    level: Number(ch.level ?? 1),
+                    village: String(ch.village ?? ''),
+                    clan: String(ch.clan ?? ''),
+                    specialty: String(ch.specialty ?? ''),
+                    rank: String(ch.rank ?? ''),
+                    ryo: Number(ch.ryo ?? 0),
+                    xp: Number(ch.xp ?? 0),
+                    totalPvpKills: Number(ch.totalPvpKills ?? 0),
+                    totalAiKills: Number(ch.totalAiKills ?? 0),
+                    hospitalized: Boolean(ch.hospitalized),
+                    createdAt: created,
+                    lastSeenAt: presence ? Number(presence.lastSeen ?? 0) : 0,
+                    currentSector: presence ? Number(presence.sector ?? 0) : 0,
+                    online: !!presence,
+                },
+                ban: ban && (ban.permanent || ban.until > Date.now()) ? ban : null,
+                silence: sil && sil.until > Date.now() ? sil : null,
+            });
+        }
+
+        if (kind === 'reverse-ip') {
+            // Given a raw IP, return every account that has used it.
+            const { ip } = body as { ip?: string };
+            if (!ip || typeof ip !== 'string') return res.status(400).json({ error: 'Missing ip.' });
+            const ipTrim = ip.trim();
+            const names = (await kv.get<string[]>(byIpKey(ipTrim))) ?? [];
+            return res.status(200).json({ ip: ipTrim, names: Array.isArray(names) ? names : [] });
+        }
+
+        if (kind === 'reverse-fp') {
+            // Given a fingerprint hash, return every account that has used it.
+            const { fp } = body as { fp?: string };
+            if (!fp || typeof fp !== 'string' || !FP_PATTERN.test(fp.trim().toLowerCase())) {
+                return res.status(400).json({ error: 'Missing or malformed fingerprint hash.' });
+            }
+            const norm = fp.trim().toLowerCase();
+            const names = (await kv.get<string[]>(byFpKey(norm))) ?? [];
+            return res.status(200).json({ fp: norm, names: Array.isArray(names) ? names : [] });
+        }
+
+        if (kind === 'fetch-village-chat') {
+            // Return the current chat backlog for a village so the mod can
+            // see context before acting. Same source as the player-facing
+            // chat endpoint — just exposed under admin auth for moderation.
+            const { village } = body as { village?: string };
+            if (!village) return res.status(400).json({ error: 'Missing village.' });
+            const chatKey = `chat:village:${village.toLowerCase().replace(/\s+/g, '-')}`;
+            const messages = (await kv.get<Array<{ author: string; text: string; ts: number; rank?: string; level?: number }>>(chatKey)) ?? [];
+            return res.status(200).json({ village, messages: Array.isArray(messages) ? messages : [] });
+        }
+
         if (kind === 'delete-chat-message') {
             // Remove a single message from a village chat. The chat blob is the
             // full message array — we filter out one by author+ts.
