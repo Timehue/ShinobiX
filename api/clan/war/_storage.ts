@@ -56,7 +56,7 @@ export type ClanWar = {
 };
 
 // ── Constants ───────────────────────────────────────────────────────
-export const CLAN_WAR_HP_MAX = 500;
+export const CLAN_WAR_HP_MAX = 1000;
 // Damage per challenge type on win. Tier: combat > pet battle > cards.
 // 2v2 modes pay double the 1v1 of the same tier — the wins represent
 // two real fights happening sequentially under the hood.
