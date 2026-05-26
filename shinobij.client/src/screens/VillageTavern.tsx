@@ -31,6 +31,7 @@ function VillageTavern({ character, setScreen, sharedImages }: { character: Char
 
     // Load on mount + poll every 30s; pause completely when tab is in the background
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- fetchMessages syncs to external system (server)
         void fetchMessages();
         let interval: ReturnType<typeof setInterval> | null = setInterval(() => {
             if (!document.hidden) void fetchMessages();

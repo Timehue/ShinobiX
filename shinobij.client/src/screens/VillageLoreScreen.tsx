@@ -19,6 +19,7 @@ export function VillageLoreScreen({
     const [shownText, setShownText] = useState("");
 
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional typewriter reset when village changes
         setShownText("");
 
         let index = 0;
