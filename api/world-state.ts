@@ -25,7 +25,24 @@ const VILLAGE_WAR_GROUND_HP_MAX_DELTA_PER_REQUEST = 100;
 // Auto-finalize wars that have been running this long with no end.
 // Two weeks is the sane upper bound for "Kages forgot about it" cleanup.
 const VILLAGE_WAR_MAX_DURATION_MS = 14 * 24 * 60 * 60 * 1000;
+// War decay: after this many days of war, both sides take a flat
+// VILLAGE_WAR_DECAY_PER_DAY HP loss at each UTC daily reset to push the
+// conflict toward natural resolution. Untouched wars drain at
+// 500/day/side starting day 4, so a war with no activity ends ~day 13
+// (5000 → 0 at 500/day = 10 decay days after the 3-day grace).
+const VILLAGE_WAR_DECAY_GRACE_DAYS = 3;
+const VILLAGE_WAR_DECAY_PER_DAY = 500;
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+const VILLAGE_WAR_DECAY_GRACE_MS = VILLAGE_WAR_DECAY_GRACE_DAYS * ONE_DAY_MS;
 const VILLAGE_STATE_KEY_PREFIX = 'game:village-state:';
+
+function utcDateKey(ms = Date.now()): string {
+    return new Date(ms).toISOString().slice(0, 10);
+}
+
+function utcDayIndex(ms: number): number {
+    return Math.floor(ms / ONE_DAY_MS);
+}
 
 function normalizeVillageKey(village: string): string {
     return village.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -101,6 +118,10 @@ type VillageWar = {
     // exact string equality, so a single ID = one crate per player per
     // war, no matter which client path triggers the grant.
     warCrateId?: string;
+    // YYYY-MM-DD of the last UTC day daily decay was applied. Used by
+    // applyWarDecay to avoid double-applying within the same day even
+    // if multiple readers / writers race.
+    lastDecayDate?: string;
 };
 
 function clampNumber(value: number, min: number, max: number) {
@@ -162,6 +183,87 @@ function normalizeVillageWar(data: Partial<VillageWar> & { villages?: [string, s
         winnerVillage: data.winnerVillage,
         endedAt: data.endedAt,
         warCrateId: data.warCrateId,
+        lastDecayDate: data.lastDecayDate,
+    };
+}
+
+/**
+ * Apply daily war decay. After VILLAGE_WAR_DECAY_GRACE_DAYS days of
+ * the war existing, both sides take VILLAGE_WAR_DECAY_PER_DAY HP at
+ * each UTC daily reset. Pushes inactive wars toward resolution so the
+ * leaderboard isn't perpetually clogged.
+ *
+ * Idempotent within a single UTC day (gated by `lastDecayDate`). Safe
+ * to call from both GET and POST paths — concurrent callers converge
+ * on the same post-decay state.
+ *
+ * If decay drives both sides to 0 → ends as a draw (no winner, no
+ * crate). If only one side hits 0 → ends with the other as winner.
+ *
+ * Returns the (possibly mutated) war and a `changed` flag so callers
+ * know whether to write it back to KV.
+ */
+function applyWarDecay(war: VillageWar, now: number = Date.now()): { war: VillageWar; changed: boolean } {
+    if (war.endedAt) return { war, changed: false };
+    const ageMs = now - war.startedAt;
+    if (ageMs < VILLAGE_WAR_DECAY_GRACE_MS) return { war, changed: false };
+
+    const todayKey = utcDateKey(now);
+    if (war.lastDecayDate === todayKey) return { war, changed: false };
+
+    // Count UTC day-boundaries we owe decay for. First decay tick
+    // happens on the first UTC day boundary at-or-after
+    // (startedAt + grace). Subsequent ticks happen at each UTC day
+    // boundary thereafter.
+    let referenceMs: number;
+    if (war.lastDecayDate) {
+        // Parse YYYY-MM-DD as a UTC midnight.
+        referenceMs = Date.parse(war.lastDecayDate + 'T00:00:00Z');
+        if (!Number.isFinite(referenceMs)) referenceMs = war.startedAt + VILLAGE_WAR_DECAY_GRACE_MS;
+    } else {
+        referenceMs = war.startedAt + VILLAGE_WAR_DECAY_GRACE_MS;
+    }
+    const daysOwed = utcDayIndex(now) - utcDayIndex(referenceMs);
+    if (daysOwed <= 0) return { war, changed: false };
+
+    const totalDamage = daysOwed * VILLAGE_WAR_DECAY_PER_DAY;
+    const newHp: Record<string, number> = {};
+    for (const v of war.villages) {
+        const before = Number(war.hp?.[v] ?? VILLAGE_WAR_HP_MAX);
+        newHp[v] = Math.max(0, before - totalDamage);
+    }
+
+    const a = newHp[war.villages[0]];
+    const b = newHp[war.villages[1]];
+    let endedAt = war.endedAt;
+    let winnerVillage = war.winnerVillage;
+    let capturedBy = war.capturedBy;
+    let capturedAt = war.capturedAt;
+    if (a <= 0 && b <= 0) {
+        // Mutual exhaustion → draw. No winner, no crate. Stamp endedAt.
+        endedAt = now;
+        winnerVillage = undefined;
+    } else if (a <= 0 || b <= 0) {
+        endedAt = now;
+        winnerVillage = a <= 0 ? war.villages[1] : war.villages[0];
+        if (!capturedBy) {
+            capturedBy = winnerVillage;
+            capturedAt = now;
+        }
+    }
+
+    return {
+        war: {
+            ...war,
+            hp: newHp,
+            endedAt,
+            winnerVillage,
+            capturedBy,
+            capturedAt,
+            lastDecayDate: todayKey,
+            updatedAt: now,
+        },
+        changed: true,
     };
 }
 
@@ -182,10 +284,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'OPTIONS') return res.status(200).end();
 
     if (req.method === 'GET') {
-        const [territories, wars] = await Promise.all([
+        const [territories, warsRaw] = await Promise.all([
             getByPrefix<SectorTerritory>(TERRITORY_KEY_PREFIX),
             getByPrefix<VillageWar>(VILLAGE_WAR_KEY_PREFIX),
         ]);
+        // Apply daily decay lazily on read. Wars that crossed a UTC day
+        // boundary since their last decay get -500 HP per side per day.
+        // Persist the result so subsequent reads (and the cached CDN
+        // response) reflect the decayed state. Fire-and-forget writes —
+        // GET shouldn't block on the persist, and concurrent GETs that
+        // both decay converge on the same idempotent result.
+        const now = Date.now();
+        const wars: VillageWar[] = [];
+        const writes: Promise<unknown>[] = [];
+        for (const w of warsRaw) {
+            const { war, changed } = applyWarDecay(w, now);
+            wars.push(war);
+            if (changed) {
+                writes.push(
+                    withKvLock(`${VILLAGE_WAR_KEY_PREFIX}${war.id}`, async () => {
+                        // Re-read under the lock so we don't clobber a
+                        // concurrent raid write that just landed.
+                        const fresh = await kv.get<VillageWar>(`${VILLAGE_WAR_KEY_PREFIX}${war.id}`);
+                        if (!fresh) return;
+                        const { war: redecayed, changed: stillChanged } = applyWarDecay(fresh, now);
+                        if (stillChanged) await kv.set(`${VILLAGE_WAR_KEY_PREFIX}${war.id}`, redecayed);
+                    }).catch(() => undefined),
+                );
+            }
+        }
+        // Don't block the GET response on the persist — let writes run in
+        // background. The response already shows the decayed state.
+        if (writes.length > 0) void Promise.all(writes);
         // CDN caches this for 15 s so all players polling every 15 s share
         // one Supabase round-trip per window instead of one per player.
         // stale-while-revalidate=10 keeps the response instant while revalidating.
@@ -284,7 +414,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // (per _lock.ts) — better to race than to drop the write.
                 const warKey = `${VILLAGE_WAR_KEY_PREFIX}${war.id}`;
                 const result = await withKvLock(warKey, async () => {
-                    const existing = await kv.get<VillageWar>(warKey);
+                    let existing = await kv.get<VillageWar>(warKey);
 
                     // Lazy-finalize stale wars (>14d, no end). Auto-end with
                     // no winner, no crate. Returned 409 so client refetches
@@ -298,6 +428,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         };
                         await kv.set(warKey, expired);
                         return { status: 409 as const, body: { error: 'War has timed out (14 days). Auto-finalized with no winner.', war: expired } };
+                    }
+
+                    // Apply daily decay to `existing` so the validation
+                    // (HP delta caps, freeze-on-end, win condition) runs
+                    // against the post-decay state. If decay just ended
+                    // the war, the freeze check below catches the in-
+                    // flight write and rejects it as "war has ended".
+                    if (existing) {
+                        const decayResult = applyWarDecay(existing);
+                        if (decayResult.changed) {
+                            existing = decayResult.war;
+                            await kv.set(warKey, existing);
+                        }
                     }
 
                     // Frozen-once-ended: any further mutation after endedAt
