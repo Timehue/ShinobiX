@@ -24513,9 +24513,21 @@ function CardPackSection({ character, updateCharacter, currency, creatorCards }:
                 </button>
             )}
             {currency === "fateShards" && (
-                <button onClick={() => openPack(1, ["epic"], 10)} disabled={character.fateShards < 10} style={{ color: "#ce93d8" }}>
-                    ? Epic Pack — 1 guaranteed Epic card — 10 Fate Shards
-                </button>
+                <>
+                    <button onClick={() => openPack(1, ["epic"], 10)} disabled={character.fateShards < 10} style={{ color: "#ce93d8" }}>
+                        ? Epic Pack — 1 guaranteed Epic card — 10 Fate Shards
+                    </button>
+                    {/* Legendary pack — sits right next to the Epic pack, costs
+                        3× as much for the corresponding tier jump. Same draw
+                        mechanic, just filtered to legendary rarity. */}
+                    <button
+                        onClick={() => openPack(1, ["legendary"], 30)}
+                        disabled={character.fateShards < 30}
+                        style={{ color: "#facc15", marginLeft: 8, borderColor: "rgba(250, 204, 21, 0.5)" }}
+                    >
+                        ★ Legendary Pack — 1 guaranteed Legendary card — 30 Fate Shards
+                    </button>
+                </>
             )}
         </div>
     );
