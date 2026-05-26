@@ -9,6 +9,14 @@ import { reportMissionEvent, awardProfessionXp, type CompletedMissionInfo } from
 // formula (5 XP/min base, +50% for >=1h, +100% for >=4h, x2 daily First
 // Expedition, x1.2 if petEscortBonusReady is consumed).
 const MIN_EXPEDITION_MINUTES = 10;
+// Longest legitimate expedition is 4 hours. Anything claimed beyond that is
+// either a bot or a buggy client — clip at 240 min so XP / Ryo formulas
+// can't be inflated by a forged body.
+const MAX_EXPEDITION_MINUTES = 240;
+// Hard daily ceiling on claims, even with PET_CAP = 5 pets each running
+// back-to-back short expeditions. Stops a 30s-spam attack from accumulating
+// thousands of claims/day.
+const MAX_EXPEDITIONS_PER_DAY = 12;
 function utcDateKey(): string {
     return new Date().toISOString().slice(0, 10);
 }
@@ -72,7 +80,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
         const playerName = safeName(String(body.playerName ?? ''));
         const event = String(body.event ?? '') as PetEvent;
-        const durationMinutes = Math.max(0, Math.min(60 * 24, Math.floor(Number(body.durationMinutes ?? 0))));
+        const durationMinutes = Math.max(0, Math.min(MAX_EXPEDITION_MINUTES, Math.floor(Number(body.durationMinutes ?? 0))));
         const expType = (body.expType && VALID_EXPEDITION_TYPES.includes(body.expType) ? body.expType : null) as ExpType | null;
         const petLevel = Math.max(1, Math.min(100, Math.floor(Number(body.petLevel ?? 1))));
         if (!playerName) return res.status(400).json({ error: 'Invalid player name.' });
@@ -105,6 +113,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const today = utcDateKey();
             const sameDay = char.lastExpeditionClaimDate === today;
             const claimedToday = sameDay ? Number(char.expeditionsClaimedToday ?? 0) : 0;
+            // Hard daily cap. Returns 200 with petTamer:true + reason so the
+            // client doesn't treat it as a network error, but no currency,
+            // no Tamer XP, no mission progress is granted past the cap.
+            if (claimedToday >= MAX_EXPEDITIONS_PER_DAY) {
+                return res.status(200).json({
+                    ok: true,
+                    petTamer: true,
+                    reason: 'daily-expedition-cap',
+                    expeditionXp: 0,
+                    ryoEarned: 0,
+                    foundBone: 0,
+                    foundAura: 0,
+                    foundFate: 0,
+                    missionsCompleted: [],
+                });
+            }
             const isFirstToday = claimedToday === 0;
             const escortReady = !!char.petEscortBonusReady;
             const rank = Number(char.professionRank ?? 1);
