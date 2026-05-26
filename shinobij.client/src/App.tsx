@@ -591,6 +591,11 @@ export type Character = {
     // war-ground raid of each UTC day; gates the inline +500 ryo +
     // 1 Fate Shard bounty so it can only be claimed once per day.
     warGroundBountyDate?: string;
+    // Lifetime village war stats — incremented at war-end claim time
+    // by claimPendingWarCrates. Drive the Hall of Legends leaderboards.
+    warsWon?: number;             // wars where this player qualified for the winner crate
+    warMvpCount?: number;         // wars where this player was MVP on either side
+    lifetimeWarDamage?: number;   // sum of contribution damage across all wars touched
     totalTilesExplored?: number;
     totalTournamentsCompleted?: number;
     totalEndlessTowerWins?: number;
@@ -4912,6 +4917,13 @@ function claimPendingWarCrates(
     let shardsBonus = 0;
     let mvpAwarded = false;
     let consolationAwarded = false;
+    // Lifetime stats — incremented per war, deduped via a `stats-${warId}`
+    // marker in claimedWarCrateIds so multiple claim paths (winner +
+    // MVP + consolation) all firing for the same war only count once
+    // toward the Hall of Legends leaderboards.
+    let warsWonDelta = 0;
+    let mvpCountDelta = 0;
+    let lifetimeDamageDelta = 0;
     const now = Date.now();
     const myName = character.name;
     const myVillage = character.village;
@@ -4934,6 +4946,7 @@ function claimPendingWarCrates(
         if (war.warCrateId && war.winnerVillage === myVillage && !claimed.has(war.warCrateId)) {
             cratesToAdd.push(war.warCrateId);
             idsToAdd.push(war.warCrateId);
+            warsWonDelta += 1;  // lifetime stat
         }
 
         // 2. MVP crate — top-contributor on EITHER side. Server stamps
@@ -4950,6 +4963,7 @@ function claimPendingWarCrates(
             honorBonus += 50;
             shardsBonus += 2;
             mvpAwarded = true;
+            mvpCountDelta += 1;  // lifetime stat
         }
 
         // 3. Loss-consolation — losing-side players who contributed
@@ -4968,9 +4982,23 @@ function claimPendingWarCrates(
                 }
             }
         }
+
+        // 4. Lifetime damage — credit the player's total contribution
+        //    to this war ONCE (deduped via `stats-${warId}` marker).
+        //    Fires regardless of which side won, so even losing-side
+        //    raiders see their lifetime damage climb on the HoL
+        //    leaderboard.
+        const statsId = `stats-${war.id}`;
+        if (!claimed.has(statsId) && war.villages.includes(myVillage)) {
+            const myContrib = war.contributions?.[myName.toLowerCase()];
+            if (myContrib && myContrib.damage > 0) {
+                lifetimeDamageDelta += myContrib.damage;
+                idsToAdd.push(statsId);
+            }
+        }
     }
 
-    if (cratesToAdd.length === 0 && idsToAdd.length === 0 && ryoBonus === 0 && honorBonus === 0 && shardsBonus === 0) {
+    if (cratesToAdd.length === 0 && idsToAdd.length === 0 && ryoBonus === 0 && honorBonus === 0 && shardsBonus === 0 && warsWonDelta === 0 && mvpCountDelta === 0 && lifetimeDamageDelta === 0) {
         return { character, count: 0 };
     }
 
@@ -4982,6 +5010,9 @@ function claimPendingWarCrates(
             fateShards: (character.fateShards ?? 0) + shardsBonus,
             inventory: [...character.inventory, ...cratesToAdd.map(() => LEGENDARY_WAR_CRATE_ID)],
             claimedWarCrateIds: [...(character.claimedWarCrateIds ?? []), ...idsToAdd],
+            warsWon: (character.warsWon ?? 0) + warsWonDelta,
+            warMvpCount: (character.warMvpCount ?? 0) + mvpCountDelta,
+            lifetimeWarDamage: (character.lifetimeWarDamage ?? 0) + lifetimeDamageDelta,
         },
         count: cratesToAdd.length,
         mvp: mvpAwarded,
@@ -13223,9 +13254,9 @@ export default function App() {
                             }));
                         }
                         const villageWarRaid = context?.raidKind === "raidPlayer"
-                            ? recordVillageWarRaid(character, rewardSector)
+                            ? recordVillageWarRaid(character, rewardSector, playerRoster)
                             : { note: "", characterPatch: {} as Partial<Character>, warCrate: false, warCrateId: undefined as string | undefined, bountyRyo: 0, bountyFateShards: 0 };
-                        const villageWarPvpPatch = opponent ? recordVillageWarPvp(character, opponent, rewardSector) : "";
+                        const villageWarPvpPatch = opponent ? recordVillageWarPvp(character, opponent, rewardSector, playerRoster) : "";
                         const leveled = gainXp(character, xpGain);
                         const rewarded = grantTerritoryScrolls(leveled, 5);
                         // Spar/friendly-duel detection for non-Vanguard local effects
@@ -24030,20 +24061,65 @@ function startVillageWar(attackerVillage: string, enemyVillage: string) {
     return war;
 }
 
-function villageWarRoleValue(character: Character) {
+// Minimum clan-member count required for clan-tier leadership titles
+// to unlock the +20 war-damage tier. Stops 1-person "clans" from
+// farming the bonus — you need at least 7 OTHER members (8 total
+// including yourself) to count as a real clan leader for war purposes.
+// Village-level seats (Kage, the 3 appointed Elders, ANBU) are NOT
+// affected by clan size — they're scoped to the village, not a clan.
+const VILLAGE_WAR_CLAN_LEADER_MIN_MEMBERS = 8;
+
+// Detect clan-tier leadership titles. Village Elder seats use titles
+// like "First Elder" / "Second Elder" / "Third Elder", which contain
+// "elder" but aren't clan leadership — they're explicitly excluded
+// here so they keep the +20 tier with no clan-size requirement.
+function isClanLeaderTitle(character: Character): boolean {
+    const title = `${character.rankTitle ?? ""} ${character.storyTitle ?? ""}`.toLowerCase();
+    if (character.clanFounder) return true;
+    if (title.includes("clan leader") || title.includes("clan head") || title.includes("clan elder")) return true;
+    return false;
+}
+
+function isVillageElderTitle(character: Character): boolean {
+    const title = `${character.rankTitle ?? ""} ${character.storyTitle ?? ""}`.toLowerCase();
+    return title.includes("first elder") || title.includes("second elder") || title.includes("third elder") || title.includes("village elder");
+}
+
+// Count active clanmates including the player themselves. Uses the
+// in-memory player roster as the source of truth. The roster may or
+// may not include the player (depends on call site), so we always add
+// 1 for self when the player is in the named clan and dedupe by name.
+function countClanMembers(clanName: string | undefined, characterName: string, roster: PlayerRecord[]): number {
+    if (!clanName) return 0;
+    const names = new Set<string>();
+    names.add(characterName.toLowerCase());
+    for (const p of roster) {
+        if ((p.character?.clan ?? "") === clanName) names.add(p.name.toLowerCase());
+    }
+    return names.size;
+}
+
+function villageWarRoleValue(character: Character, clanMemberCount = 0) {
     const title = `${character.rankTitle ?? ""} ${character.storyTitle ?? ""}`.toLowerCase();
     const state = loadVillageState(character.village);
     if (state.seatedKage?.toLowerCase() === character.name.toLowerCase() || title.includes("kage")) return 30;
-    if (title.includes("elder") || title.includes("clan leader") || title.includes("clan head") || character.clanFounder) return 20;
+    // Village Elder seats — fixed roles, unaffected by clan size.
+    if (isVillageElderTitle(character)) return 20;
+    // ANBU — fixed roles, unaffected by clan size.
     if (isVillageAnbu(character) || title.includes("anbu")) return 15;
+    // Clan leadership — gated by ≥8 total members so 1-person "clans"
+    // can't farm the +20 bonus. If under the threshold, fall through
+    // to the regular +5 contribution.
+    if (isClanLeaderTitle(character) && clanMemberCount >= VILLAGE_WAR_CLAN_LEADER_MIN_MEMBERS) return 20;
     return 5;
 }
 
-function villageWarLossPenalty(character: Character) {
+function villageWarLossPenalty(character: Character, clanMemberCount = 0) {
     const title = `${character.rankTitle ?? ""} ${character.storyTitle ?? ""}`.toLowerCase();
     const state = loadVillageState(character.village);
     if (state.seatedKage?.toLowerCase() === character.name.toLowerCase() || title.includes("kage")) return 50;
-    if (title.includes("elder") || title.includes("clan leader") || title.includes("clan head") || character.clanFounder) return 20;
+    if (isVillageElderTitle(character)) return 20;
+    if (isClanLeaderTitle(character) && clanMemberCount >= VILLAGE_WAR_CLAN_LEADER_MIN_MEMBERS) return 20;
     return 0;
 }
 
@@ -24112,7 +24188,7 @@ function recordWarOutcomeToVillages(war: VillageWar, loserVillage: string, winne
     }
 }
 
-function recordVillageWarPvp(winner: Character, loser: Character, sector?: number) {
+function recordVillageWarPvp(winner: Character, loser: Character, sector?: number, roster: PlayerRecord[] = []) {
     const war = activeVillageWarBetween(winner.village, loser.village);
     if (!war) return "";
     // No war damage during the pre-war pending window — the server
@@ -24122,7 +24198,12 @@ function recordVillageWarPvp(winner: Character, loser: Character, sector?: numbe
         const minsLeft = Math.max(1, Math.ceil((war.pendingUntil - Date.now()) / 60_000));
         return ` Village War starts in ${minsLeft} min — fight didn't count yet.`;
     }
-    let damage = villageWarRoleValue(winner) + villageWarLossPenalty(loser);
+    // Clan-size gate: clan-leadership titles only get the +20 tier
+    // when the clan has ≥8 total members. Computed from the roster
+    // for both winner and loser; small-clan leaders fall back to +5/+0.
+    const winnerClanSize = countClanMembers(winner.clan, winner.name, roster);
+    const loserClanSize = countClanMembers(loser.clan, loser.name, roster);
+    let damage = villageWarRoleValue(winner, winnerClanSize) + villageWarLossPenalty(loser, loserClanSize);
     // Home-defender bonus: when the WINNER is fighting in a sector
     // owned by their own village, scale war-credit damage 1.15×.
     // Notes: this ONLY affects the war HP ledger, not the actual PvP
@@ -24144,7 +24225,7 @@ function recordVillageWarPvp(winner: Character, loser: Character, sector?: numbe
     return ` Village War: ${loser.village} HP -${damage}${tag} (${updated.hp[loser.village]}/${VILLAGE_WAR_HP_MAX}).`;
 }
 
-function recordVillageWarRaid(character: Character, sector: number) {
+function recordVillageWarRaid(character: Character, sector: number, roster: PlayerRecord[] = []) {
     // Union return shape: every early return must declare the same
     // keys (with undefined values where needed) so the success path's
     // `warCrateId: string` access compiles against the inferred union.
@@ -24170,7 +24251,11 @@ function recordVillageWarRaid(character: Character, sector: number) {
     }
     const enemyVillage = war.villages.find(village => village !== character.village);
     if (!enemyVillage) return empty;
-    const damage = villageWarRoleValue(character);
+    // Apply the same clan-size gate to raid contributions — a 1-person
+    // "clan" leader chipping the war ground only deals their +5
+    // regular tier until the clan grows to ≥8 members.
+    const myClanSize = countClanMembers(character.clan, character.name, roster);
+    const damage = villageWarRoleValue(character, myClanSize);
     let next = normalizeVillageWar({
         ...war,
         warGroundHp: Math.max(0, war.warGroundHp - damage),
@@ -33170,8 +33255,8 @@ function Arena({
         // while no enemy is online — defeats the whole point of village
         // war as a player-vs-player meta. The win-condition is unchanged:
         // PvP raids still drive both warGroundHp and the enemy village HP.
-        const villageWarRaid = (raidBattleKind === "raidPlayer") ? recordVillageWarRaid(character, currentSector) : { note: "", characterPatch: {} as Partial<Character>, warCrate: false, warCrateId: undefined as string | undefined, bountyRyo: 0, bountyFateShards: 0 };
-        const villageWarPvpNote = opponentCharacter ? recordVillageWarPvp(character, opponentCharacter, currentSector) : "";
+        const villageWarRaid = (raidBattleKind === "raidPlayer") ? recordVillageWarRaid(character, currentSector, playerRoster) : { note: "", characterPatch: {} as Partial<Character>, warCrate: false, warCrateId: undefined as string | undefined, bountyRyo: 0, bountyFateShards: 0 };
+        const villageWarPvpNote = opponentCharacter ? recordVillageWarPvp(character, opponentCharacter, currentSector, playerRoster) : "";
         const rewarded = grantTerritoryScrolls(leveled, territoryScrollReward);
         const deathsGateBoneCharm = deathsGatePvp && Math.random() < 0.05 ? 1 : 0;
         updateCharacter({
@@ -37249,7 +37334,7 @@ function VillageWarScreen({
                         <div style={{ padding: "0.3rem 0.6rem" }}>Seated Kage</div>
                         <div style={{ padding: "0.3rem 0.6rem", textAlign: "right", color: "#4ade80" }}>+30 enemy HP</div>
                         <div style={{ padding: "0.3rem 0.6rem", textAlign: "right", color: "#f87171" }}>−50 your HP</div>
-                        <div style={{ padding: "0.3rem 0.6rem", background: "#0f172a" }}>Elder / Clan Head / Founder</div>
+                        <div style={{ padding: "0.3rem 0.6rem", background: "#0f172a" }}>Village Elder · Clan Head / Elder / Founder</div>
                         <div style={{ padding: "0.3rem 0.6rem", background: "#0f172a", textAlign: "right", color: "#4ade80" }}>+20 enemy HP</div>
                         <div style={{ padding: "0.3rem 0.6rem", background: "#0f172a", textAlign: "right", color: "#f87171" }}>−20 your HP</div>
                         <div style={{ padding: "0.3rem 0.6rem" }}>ANBU</div>
@@ -37261,6 +37346,9 @@ function VillageWarScreen({
                     </div>
                     <p style={{ margin: "0 0 0.5rem", fontSize: "0.82rem", color: "#94a3b8" }}>
                         Both columns stack on the same fight. Examples: a regular villager defeating a Kage = <strong style={{ color: "#4ade80" }}>+5 enemy HP</strong> (their win) AND <strong style={{ color: "#f87171" }}>−50 to the Kage's village</strong> (kill penalty) = <strong>55 total damage</strong>. Kage beats Elder = +30 +20 = 50. Regular vs regular = +5. PvP wins on the war-ground sector drain the sector AND the enemy village HP simultaneously.
+                    </p>
+                    <p style={{ margin: "0 0 0.5rem", fontSize: "0.78rem", color: "#fbbf24" }}>
+                        ⚠ <strong>Clan-leadership gate:</strong> Clan Head / Clan Elder / Clan Founder only get the <strong>+20</strong> tier when their clan has <strong>at least 8 total members</strong> (you + 7 others). Smaller clans drop to the regular <strong>+5/−0</strong> tier. Village Elder seats and ANBU are unaffected.
                     </p>
                     <p style={{ margin: "0 0 0.5rem" }}>
                         <strong style={{ color: "#60a5fa" }}>Home defender bonus.</strong> When you win a PvP fight in a sector your own village owns, you get <strong>+15%</strong> war HP credit. This only scales the war ledger — the actual fight is unchanged.
