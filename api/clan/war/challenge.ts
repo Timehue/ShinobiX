@@ -7,7 +7,6 @@ import { withKvLock } from '../../_lock.js';
 import {
     applyLazyClanWarExpiry,
     CHALLENGE_EXPIRY_MS,
-    clanWarKey,
     loadClanContext,
     MAX_PENDING_CHALLENGES,
     type ChallengeMode,
@@ -17,15 +16,32 @@ import {
 
 // POST /api/clan/war/challenge
 // Body shapes:
-//   { action: 'send',    warId, mode, fromPlayer2? }
-//   { action: 'accept',  warId, challengeId, acceptedPlayer2? }
-//   { action: 'decline', warId, challengeId }
-//   { action: 'cancel',  warId, challengeId }
+//   { action: 'send',         warId, mode }          — 1v1 creates 'pending'; 2v2 creates 'queuing'
+//   { action: 'join-send',    warId, challengeId }   — 2v2 only: 2nd challenger joins → flips to 'pending'
+//   { action: 'leave-send',   warId, challengeId }   — 2v2 only: leave the send queue
+//   { action: 'accept',       warId, challengeId }   — 1v1 → 'accepted'; 2v2 → adds 1st defender, stays 'pending'
+//   { action: 'join-accept',  warId, challengeId }   — 2v2 only: 2nd defender joins → flips to 'accepted'
+//   { action: 'leave-accept', warId, challengeId }   — 2v2 only: leave the accept queue
+//   { action: 'decline',      warId, challengeId }   — defender clan refuses entire challenge
+//   { action: 'cancel',       warId, challengeId }   — sender clan pulls the challenge
 //
-// All actions require auth + membership of the appropriate clan.
-// Server stamps challenge IDs, timestamps, expiresAt, status.
+// Queue rules (2v2):
+//   • Send queue: fromPlayer is the seed challenger (status='queuing').
+//     A second clanmate calls join-send → fromPlayer2 set, status → 'pending'.
+//     The defender clan only sees challenges with status 'pending'.
+//   • Accept queue: defender 1 calls accept → acceptedPlayer set, status stays 'pending'.
+//     Defender 2 calls join-accept → acceptedPlayer2 set, status → 'accepted'.
+//   • Anyone in either queue may leave at any time (leave-send / leave-accept).
+//     Leaving as the only queue member effectively cancels the queue slot
+//     (challenge cancelled if seed challenger leaves; accept queue reset if
+//     only defender leaves).
 
 const VALID_MODES: ReadonlySet<ChallengeMode> = new Set<ChallengeMode>(['pvp1v1', 'pvp2v2', 'pet1v1', 'pet2v2', 'tilecards']);
+const TWO_V_TWO: ReadonlySet<ChallengeMode> = new Set<ChallengeMode>(['pvp2v2', 'pet2v2']);
+
+function eq(a: string | undefined, b: string): boolean {
+    return (a ?? '').toLowerCase() === b.toLowerCase();
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -44,9 +60,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const warId = String(body?.warId ?? '').trim();
         if (!warId) return res.status(400).json({ error: 'Missing warId.' });
 
-        // The war key always uses the sorted-pair id, but the client
-        // only sends the id (which is already sorted). So we rebuild
-        // the key by prefix — the underlying KV key is `clan-war:<id>`.
         const key = `clan-war:${warId}`;
 
         const ctx = await loadClanContext(identity.admin ? '' : identity.name);
@@ -54,7 +67,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const result = await withKvLock(key, async () => {
             const fresh = await kv.get<ClanWar>(key);
             if (!fresh) return { status: 404 as const, body: { error: 'War not found.' } };
-            // Lazy-expire stale challenges + war before applying the action.
             const { war: war0, changed: didExpire } = applyLazyClanWarExpiry(fresh);
             let war = war0;
             if (war.endedAt) {
@@ -62,34 +74,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return { status: 409 as const, body: { error: 'War has ended.', war } };
             }
 
+            // ── send ──────────────────────────────────────────────────
             if (action === 'send') {
                 const mode = String(body?.mode ?? '') as ChallengeMode;
                 if (!VALID_MODES.has(mode)) return { status: 400 as const, body: { error: 'Invalid mode.' } };
                 if (!identity.admin && !ctx.clan) return { status: 403 as const, body: { error: 'You must be in a clan.' } };
                 const fromClan = identity.admin ? String(body?.fromClan ?? '') : ctx.clan;
                 if (!war.clans.includes(fromClan)) return { status: 403 as const, body: { error: 'Your clan is not in this war.' } };
-                if (war.pendingChallenges.filter(c => c.fromClan === fromClan && c.status === 'pending').length >= 10) {
-                    return { status: 429 as const, body: { error: 'Too many pending challenges from your clan. Wait for some to be accepted or expire.' } };
+                const myActiveFromClan = war.pendingChallenges.filter(c => c.fromClan === fromClan && (c.status === 'pending' || c.status === 'queuing')).length;
+                if (myActiveFromClan >= 10) {
+                    return { status: 429 as const, body: { error: 'Too many active challenges from your clan. Wait for some to resolve.' } };
                 }
                 if (war.pendingChallenges.length >= MAX_PENDING_CHALLENGES) {
                     return { status: 429 as const, body: { error: 'Challenge queue is full. Wait for some to resolve.' } };
                 }
-                const needsPartner = mode === 'pvp2v2' || mode === 'pet2v2';
+                const isTwoV = TWO_V_TWO.has(mode);
                 const fromPlayer = identity.admin ? String(body?.fromPlayer ?? '') : ctx.name;
-                const fromPlayer2Raw = needsPartner ? String(body?.fromPlayer2 ?? '').trim() : '';
-                if (needsPartner && !fromPlayer2Raw) return { status: 400 as const, body: { error: 'Partner required for 2v2 challenge.' } };
-                if (needsPartner && fromPlayer2Raw.toLowerCase() === fromPlayer.toLowerCase()) {
-                    return { status: 400 as const, body: { error: 'Partner cannot be yourself.' } };
-                }
                 const now = Date.now();
                 const challenge: ClanChallenge = {
                     id: `ch-${now}-${Math.random().toString(36).slice(2, 8)}`,
                     mode,
                     fromClan,
                     fromPlayer,
-                    fromPlayer2: needsPartner ? fromPlayer2Raw : undefined,
+                    fromPlayer2: undefined,
                     createdAt: now,
-                    status: 'pending',
+                    // 2v2 modes start in the 'queuing' state until a partner joins.
+                    status: isTwoV ? 'queuing' : 'pending',
                     expiresAt: now + CHALLENGE_EXPIRY_MS,
                     // Pet modes use a deterministic seed shared between both
                     // clients' simulations (matches the existing pet PvP flow).
@@ -104,38 +114,143 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return { status: 200 as const, body: { war, challenge } };
             }
 
+            // ── join-send (2v2 second challenger) ─────────────────────
+            if (action === 'join-send') {
+                const challengeId = String(body?.challengeId ?? '');
+                const ch = war.pendingChallenges.find(c => c.id === challengeId);
+                if (!ch) return { status: 404 as const, body: { error: 'Challenge not found.' } };
+                if (!TWO_V_TWO.has(ch.mode)) return { status: 400 as const, body: { error: 'Only 2v2 challenges have a send queue.' } };
+                if (ch.status !== 'queuing') return { status: 409 as const, body: { error: 'Send queue is already full.' } };
+                if (!identity.admin && ctx.clan !== ch.fromClan) {
+                    return { status: 403 as const, body: { error: 'Only the sending clan can join this queue.' } };
+                }
+                const joiner = identity.admin ? String(body?.fromPlayer2 ?? '') : ctx.name;
+                if (!joiner) return { status: 400 as const, body: { error: 'Missing player name.' } };
+                if (eq(ch.fromPlayer, joiner)) return { status: 400 as const, body: { error: 'You are already the seed challenger.' } };
+                const now = Date.now();
+                const updated: ClanChallenge = { ...ch, fromPlayer2: joiner, status: 'pending' };
+                war = {
+                    ...war,
+                    pendingChallenges: war.pendingChallenges.map(c => c.id === ch.id ? updated : c),
+                    updatedAt: now,
+                };
+                await kv.set(key, war);
+                return { status: 200 as const, body: { war, challenge: updated } };
+            }
+
+            // ── leave-send (2v2 challenger leaves the queue) ──────────
+            if (action === 'leave-send') {
+                const challengeId = String(body?.challengeId ?? '');
+                const ch = war.pendingChallenges.find(c => c.id === challengeId);
+                if (!ch) return { status: 404 as const, body: { error: 'Challenge not found.' } };
+                if (!TWO_V_TWO.has(ch.mode)) return { status: 400 as const, body: { error: 'Only 2v2 challenges have a send queue.' } };
+                if (ch.status !== 'queuing' && ch.status !== 'pending') {
+                    return { status: 409 as const, body: { error: 'Challenge is no longer in the send queue.' } };
+                }
+                if (!identity.admin && ctx.clan !== ch.fromClan) {
+                    return { status: 403 as const, body: { error: 'Only the sending clan can leave this queue.' } };
+                }
+                const me = identity.admin ? String(body?.player ?? '') : ctx.name;
+                const isSeed = eq(ch.fromPlayer, me);
+                const isPartner = eq(ch.fromPlayer2, me);
+                if (!isSeed && !isPartner) return { status: 403 as const, body: { error: 'You are not in this send queue.' } };
+
+                const now = Date.now();
+                // If the partner leaves: drop fromPlayer2, revert to 'queuing'.
+                // If the seed leaves with a partner present: promote partner → seed, revert to 'queuing'.
+                // If the seed leaves alone: cancel the entire challenge.
+                if (isPartner) {
+                    const updated: ClanChallenge = { ...ch, fromPlayer2: undefined, status: 'queuing' };
+                    war = {
+                        ...war,
+                        pendingChallenges: war.pendingChallenges.map(c => c.id === ch.id ? updated : c),
+                        updatedAt: now,
+                    };
+                    await kv.set(key, war);
+                    return { status: 200 as const, body: { war, challenge: updated } };
+                }
+                // isSeed
+                if (ch.fromPlayer2) {
+                    const updated: ClanChallenge = { ...ch, fromPlayer: ch.fromPlayer2, fromPlayer2: undefined, status: 'queuing' };
+                    war = {
+                        ...war,
+                        pendingChallenges: war.pendingChallenges.map(c => c.id === ch.id ? updated : c),
+                        updatedAt: now,
+                    };
+                    await kv.set(key, war);
+                    return { status: 200 as const, body: { war, challenge: updated } };
+                }
+                // seed leaves alone → cancel
+                const cancelled: ClanChallenge = { ...ch, status: 'cancelled', completedAt: now };
+                war = {
+                    ...war,
+                    pendingChallenges: war.pendingChallenges.filter(c => c.id !== ch.id),
+                    completedChallenges: [cancelled, ...war.completedChallenges].slice(0, 200),
+                    updatedAt: now,
+                };
+                await kv.set(key, war);
+                return { status: 200 as const, body: { war, challenge: cancelled } };
+            }
+
+            // ── accept ────────────────────────────────────────────────
+            // 1v1 modes: full accept in one call (status → 'accepted').
+            // 2v2 modes: first defender queues (acceptedPlayer set, status stays 'pending').
             if (action === 'accept') {
                 const challengeId = String(body?.challengeId ?? '');
-                const ch = war.pendingChallenges.find(c => c.id === challengeId && c.status === 'pending');
-                if (!ch) return { status: 404 as const, body: { error: 'Challenge not found or already resolved.' } };
+                const ch = war.pendingChallenges.find(c => c.id === challengeId);
+                if (!ch) return { status: 404 as const, body: { error: 'Challenge not found.' } };
+                if (ch.status !== 'pending') return { status: 409 as const, body: { error: 'Challenge is not currently acceptable.' } };
                 const toClan = war.clans.find(c => c !== ch.fromClan);
                 if (!toClan) return { status: 500 as const, body: { error: 'Invalid war record.' } };
                 if (!identity.admin && ctx.clan !== toClan) {
                     return { status: 403 as const, body: { error: 'Only the defending clan can accept this challenge.' } };
                 }
-                const needsPartner = ch.mode === 'pvp2v2' || ch.mode === 'pet2v2';
-                const acceptedPlayer = identity.admin ? String(body?.acceptedPlayer ?? '') : ctx.name;
-                const acceptedPlayer2Raw = needsPartner ? String(body?.acceptedPlayer2 ?? '').trim() : '';
-                if (needsPartner && !acceptedPlayer2Raw) return { status: 400 as const, body: { error: 'Partner required for 2v2 challenge.' } };
-                if (needsPartner && acceptedPlayer2Raw.toLowerCase() === acceptedPlayer.toLowerCase()) {
-                    return { status: 400 as const, body: { error: 'Partner cannot be yourself.' } };
+                const isTwoV = TWO_V_TWO.has(ch.mode);
+                const me = identity.admin ? String(body?.acceptedPlayer ?? '') : ctx.name;
+                if (!me) return { status: 400 as const, body: { error: 'Missing player name.' } };
+                if (isTwoV && ch.acceptedPlayer) {
+                    return { status: 409 as const, body: { error: 'Accept queue already has a defender — use join-accept to join as the second.' } };
                 }
                 const now = Date.now();
                 // For PvP modes, stamp a battleId that the clients use to
                 // optimistically open the PvpBattleScreen. The PvP session
-                // itself is still created by /api/pvp/session (one of the
-                // two players races to create it; the other follows via
-                // the breadcrumb).
+                // itself is still created by /api/pvp/session.
                 const battleId = (ch.mode === 'pvp1v1' || ch.mode === 'pvp2v2')
                     ? `pvp-clanwar-${ch.id}`
-                    : undefined;
+                    : ch.battleId;
+                const updated: ClanChallenge = isTwoV
+                    ? { ...ch, acceptedPlayer: me, battleId }     // queue 1/2
+                    : { ...ch, acceptedPlayer: me, status: 'accepted', acceptedAt: now, battleId };
+                war = {
+                    ...war,
+                    pendingChallenges: war.pendingChallenges.map(c => c.id === ch.id ? updated : c),
+                    updatedAt: now,
+                };
+                await kv.set(key, war);
+                return { status: 200 as const, body: { war, challenge: updated } };
+            }
+
+            // ── join-accept (2v2 second defender) ─────────────────────
+            if (action === 'join-accept') {
+                const challengeId = String(body?.challengeId ?? '');
+                const ch = war.pendingChallenges.find(c => c.id === challengeId);
+                if (!ch) return { status: 404 as const, body: { error: 'Challenge not found.' } };
+                if (!TWO_V_TWO.has(ch.mode)) return { status: 400 as const, body: { error: 'Only 2v2 challenges have an accept queue.' } };
+                if (ch.status !== 'pending') return { status: 409 as const, body: { error: 'Challenge is not currently joinable.' } };
+                if (!ch.acceptedPlayer) return { status: 409 as const, body: { error: 'No defender has queued yet — use accept first.' } };
+                const toClan = war.clans.find(c => c !== ch.fromClan);
+                if (!identity.admin && ctx.clan !== toClan) {
+                    return { status: 403 as const, body: { error: 'Only the defending clan can join the accept queue.' } };
+                }
+                const me = identity.admin ? String(body?.acceptedPlayer2 ?? '') : ctx.name;
+                if (!me) return { status: 400 as const, body: { error: 'Missing player name.' } };
+                if (eq(ch.acceptedPlayer, me)) return { status: 400 as const, body: { error: 'You are already the queued defender.' } };
+                const now = Date.now();
                 const updated: ClanChallenge = {
                     ...ch,
+                    acceptedPlayer2: me,
                     status: 'accepted',
                     acceptedAt: now,
-                    acceptedPlayer,
-                    acceptedPlayer2: needsPartner ? acceptedPlayer2Raw : undefined,
-                    battleId,
                 };
                 war = {
                     ...war,
@@ -146,17 +261,60 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return { status: 200 as const, body: { war, challenge: updated } };
             }
 
+            // ── leave-accept (2v2 defender leaves the accept queue) ───
+            if (action === 'leave-accept') {
+                const challengeId = String(body?.challengeId ?? '');
+                const ch = war.pendingChallenges.find(c => c.id === challengeId);
+                if (!ch) return { status: 404 as const, body: { error: 'Challenge not found.' } };
+                if (!TWO_V_TWO.has(ch.mode)) return { status: 400 as const, body: { error: 'Only 2v2 challenges have an accept queue.' } };
+                if (ch.status !== 'pending') return { status: 409 as const, body: { error: 'Accept queue is closed (challenge already accepted or resolved).' } };
+                const toClan = war.clans.find(c => c !== ch.fromClan);
+                if (!identity.admin && ctx.clan !== toClan) {
+                    return { status: 403 as const, body: { error: 'Only the defending clan can leave the accept queue.' } };
+                }
+                const me = identity.admin ? String(body?.player ?? '') : ctx.name;
+                const isFirst = eq(ch.acceptedPlayer, me);
+                const isSecond = eq(ch.acceptedPlayer2, me);
+                if (!isFirst && !isSecond) return { status: 403 as const, body: { error: 'You are not in this accept queue.' } };
+
+                // If the 2nd defender leaves: just clear acceptedPlayer2.
+                // If the 1st defender leaves with a 2nd present: promote 2nd → 1st.
+                // If the 1st defender leaves alone: clear both (queue resets to 0/2).
+                const now = Date.now();
+                let updated: ClanChallenge;
+                if (isSecond) {
+                    updated = { ...ch, acceptedPlayer2: undefined };
+                } else if (ch.acceptedPlayer2) {
+                    updated = { ...ch, acceptedPlayer: ch.acceptedPlayer2, acceptedPlayer2: undefined };
+                } else {
+                    updated = { ...ch, acceptedPlayer: undefined };
+                }
+                war = {
+                    ...war,
+                    pendingChallenges: war.pendingChallenges.map(c => c.id === ch.id ? updated : c),
+                    updatedAt: now,
+                };
+                await kv.set(key, war);
+                return { status: 200 as const, body: { war, challenge: updated } };
+            }
+
+            // ── decline / cancel ─────────────────────────────────────
             if (action === 'decline' || action === 'cancel') {
                 const challengeId = String(body?.challengeId ?? '');
                 const ch = war.pendingChallenges.find(c => c.id === challengeId);
                 if (!ch) return { status: 404 as const, body: { error: 'Challenge not found.' } };
-                if (ch.status !== 'pending') return { status: 409 as const, body: { error: 'Challenge already resolved.' } };
+                if (ch.status !== 'pending' && ch.status !== 'queuing') {
+                    return { status: 409 as const, body: { error: 'Challenge already resolved.' } };
+                }
                 // 'cancel' = sender pulls back. 'decline' = defender refuses.
                 if (action === 'cancel') {
                     if (!identity.admin && ctx.clan !== ch.fromClan) {
                         return { status: 403 as const, body: { error: 'Only the sending clan can cancel this challenge.' } };
                     }
                 } else {
+                    if (ch.status === 'queuing') {
+                        return { status: 409 as const, body: { error: 'Cannot decline a queue that is still being filled.' } };
+                    }
                     const toClan = war.clans.find(c => c !== ch.fromClan);
                     if (!identity.admin && ctx.clan !== toClan) {
                         return { status: 403 as const, body: { error: 'Only the defending clan can decline this challenge.' } };
