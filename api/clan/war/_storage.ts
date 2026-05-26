@@ -81,11 +81,21 @@ export const CHALLENGE_DAMAGE: Record<ChallengeMode, number> = {
     pet2v2: 40,
     tilecards: 10,
 };
-export const CHALLENGE_EXPIRY_MS = 2 * 60 * 60 * 1000;     // 2h to accept
+export const CHALLENGE_EXPIRY_MS = 60 * 60 * 1000;          // 1h to accept
 export const CLAN_WAR_MAX_DURATION_MS = 14 * 24 * 60 * 60 * 1000;
 export const CLAN_WAR_REMATCH_COOLDOWN_SEC = 7 * 24 * 60 * 60;
 export const MAX_PENDING_CHALLENGES = 30;
 export const MAX_COMPLETED_HISTORY = 200;
+// Anti-abuse: each player can have at most 2 in-flight challenges at
+// any given time, counted across BOTH the fromPlayer/fromPlayer2 slots
+// AND queuing vs pending status. Stops a single player from carpet-
+// bombing the defender with 10+ challenges and clogging the queue.
+export const MAX_PENDING_PER_PLAYER = 2;
+// Damage applied to the defending clan when a *pending* challenge
+// expires unaccepted. 'queuing' expiries do not apply this penalty —
+// the defender never saw the challenge so they can't be punished for
+// ignoring it.
+export const EXPIRY_PENALTY_HP = 5;
 // Two-phase report: first side stamps a tentative result; the OTHER
 // side has 15 min to confirm or dispute before the tentative
 // auto-confirms on next read. Stops a loser from front-running the
@@ -262,27 +272,55 @@ export function applyLazyClanWarExpiry(
         needsCooldownStamp = true;
     }
 
-    // Stale-challenge expiry: pending challenges past their TTL flip
-    // to 'expired' and move into completedChallenges. No damage.
+    // Stale-challenge expiry: pending+queuing challenges past their
+    // TTL flip to 'expired' and move into completedChallenges.
+    //   • 'queuing' expiries:  no damage — the defender never saw it.
+    //   • 'pending' expiries:  defender clan eats EXPIRY_PENALTY_HP per
+    //     ghosted challenge. Ghosting an opponent now costs HP, so
+    //     defenders are incentivized to accept or decline — not stall.
+    //   • 'accepted' challenges do not expire — they wait for a report.
     if (next.pendingChallenges.length > 0) {
         const stillPending: ClanChallenge[] = [];
         const newlyExpired: ClanChallenge[] = [];
+        const updatedHp = { ...next.hp };
+        let appliedExpiryDamage = false;
         for (const ch of next.pendingChallenges) {
-            // Both 'queuing' (still gathering 2v2 challengers) and
-            // 'pending' (visible to defender, possibly with partial
-            // accept-queue) honor the same TTL. 'accepted' challenges
-            // do not expire — they wait for a report.
             const inQueue = ch.status === 'pending' || ch.status === 'queuing';
             if (inQueue && ch.expiresAt < now) {
                 newlyExpired.push({ ...ch, status: 'expired' as const, completedAt: now });
+                if (ch.status === 'pending') {
+                    const defender = next.clans.find(c => c !== ch.fromClan);
+                    if (defender) {
+                        updatedHp[defender] = Math.max(0, (updatedHp[defender] ?? 0) - EXPIRY_PENALTY_HP);
+                        appliedExpiryDamage = true;
+                    }
+                }
             } else {
                 stillPending.push(ch);
             }
         }
         if (newlyExpired.length > 0) {
             const history = [...newlyExpired, ...next.completedChallenges].slice(0, MAX_COMPLETED_HISTORY);
-            next = { ...next, pendingChallenges: stillPending, completedChallenges: history, updatedAt: now };
+            next = {
+                ...next,
+                pendingChallenges: stillPending,
+                completedChallenges: history,
+                hp: appliedExpiryDamage ? updatedHp : next.hp,
+                updatedAt: now,
+            };
             changed = true;
+
+            // If expiry damage drove a clan to 0 HP, finalize the war.
+            // Caller stamps the cooldown via needsCooldownStamp parity
+            // with the 14-day timeout path.
+            if (appliedExpiryDamage && !next.endedAt) {
+                const dead = next.clans.find(c => (updatedHp[c] ?? 0) <= 0);
+                if (dead) {
+                    const winner = next.clans.find(c => c !== dead)!;
+                    next = finalizeClanWarEnd(next, { endedAt: now, winnerClan: winner, reason: 'hp-zero' });
+                    needsCooldownStamp = true;
+                }
+            }
         }
     }
 
