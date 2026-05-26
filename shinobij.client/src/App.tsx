@@ -465,10 +465,14 @@ type PetJutsu = {
     //   freeze — chance to skip next turn each round (50%)
     //   confuse — chance to hit yourself instead of the target (50%)
     //   stun   — guaranteed skip of next turn (1 round)
+    //   crush  — Earth special: direct damage + larger ATK/DEF strip.
+    //            Plain "debuff" feels numerically weak compared to stun/
+    //            freeze/confuse/burn because the player can't SEE the
+    //            prevented damage — crush adds an impact moment.
     // Existing kinds (damage/buff/heal/debuff/dot/move/barrier/movelock/
     // lifesteal/shield/absorb) keep their original behavior.
     kind: "damage" | "buff" | "heal" | "debuff" | "dot" | "move" | "barrier" | "movelock" | "lifesteal" | "shield" | "absorb"
-        | "burn" | "freeze" | "confuse" | "stun";
+        | "burn" | "freeze" | "confuse" | "stun" | "crush";
     // Optional duration override for status-effect kinds. Lets a Mythic
     // freeze last 3 rounds while a Standard freeze lasts 1. Defaults are
     // baked into each status handler if rounds is undefined.
@@ -3142,13 +3146,13 @@ const petElementByName: Record<string, JutsuElement> = {
 //                                            by Lightning); stat-strip
 //                                            matches the "weight" feel.
 // Standard < Rare < Legendary < Mythic — both power and duration scale up.
-type ElementalSpecialKind = "burn" | "freeze" | "confuse" | "stun" | "debuff";
+type ElementalSpecialKind = "burn" | "freeze" | "confuse" | "stun" | "crush";
 const elementalSpecialKind: Record<Exclude<JutsuElement, "None">, ElementalSpecialKind> = {
     Fire: "burn",
     Water: "freeze",
     Wind: "confuse",
     Lightning: "stun",
-    Earth: "debuff",
+    Earth: "crush",   // upgraded from "debuff" — direct hit + bigger stat strip
 };
 type ElementalSpecialSpec = { name: string; power: number; cooldown: number; rounds: number };
 // Elemental specials — power compressed so a mythic special is ~25-40%
@@ -14710,9 +14714,10 @@ function bfsNextStep(from: number, to: number, obstacles: ReadonlySet<number>): 
 
 function petJutsuInRange(kind: PetJutsu["kind"] | "basic", dist: number): boolean {
     if (kind === "buff" || kind === "heal" || kind === "move" || kind === "barrier" || kind === "shield" || kind === "absorb") return true;
-    if (kind === "dot" || kind === "movelock") return dist <= 4;
+    if (kind === "dot" || kind === "movelock" || kind === "burn" || kind === "freeze" || kind === "confuse" || kind === "stun") return dist <= 4;
     if (kind === "debuff") return dist <= 3;
-    if (kind === "damage" || kind === "lifesteal") return dist <= 2;
+    // crush is a melee slam — closer range than plain debuff, similar to lifesteal.
+    if (kind === "damage" || kind === "lifesteal" || kind === "crush") return dist <= 2;
     return dist <= 1; // basic attack
 }
 
@@ -15253,6 +15258,40 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
                 if (actorSide === "player") { player = nextActor; enemy = stunned; } else { enemy = nextActor; player = stunned; }
                 pushFrame(round, msg, actorSide, "movelock");
                 return [nextActor, stunned];
+            }
+
+            if (jutsu.kind === "crush") {
+                // Earth special — hybrid jutsu: deals real damage AND strips
+                // larger ATK/DEF than a plain debuff. Damage portion uses
+                // ~50% of jutsu power (so it's not as strong as a pure
+                // damage jutsu of the same number), and the strip is
+                // significantly larger to compensate.
+                // Battleborn halves the debuff portion (its thematic resist)
+                // but doesn't reduce the damage component, keeping Battleborn
+                // a partial counter — not a full immunity.
+                const battlebornCut = target.pet.trait === "Battleborn" ? 0.5 : 1;
+                const atkCut = Math.max(1, Math.floor((jutsu.power / 3) * battlebornCut));
+                const defCut = Math.max(1, Math.floor((jutsu.power / 4) * battlebornCut));
+                const battlebornNote = target.pet.trait === "Battleborn" ? " (Battleborn shrugs off half the strip.)" : "";
+
+                const rawDmg = actor.pet.attack + actor.attackBuff + (jutsu.power * 0.5) - (target.pet.defense + target.defenseBuff) * 0.5;
+                const [returnedActor, damagedTarget] = applyDamage(rawDmg, jutsu.name, "damage", nextActor, target);
+
+                // KO'd by the damage portion — skip the debuff write.
+                if (damagedTarget.hp <= 0) {
+                    return [returnedActor, damagedTarget];
+                }
+
+                const crushed = {
+                    ...damagedTarget,
+                    attackBuff: damagedTarget.attackBuff - atkCut,
+                    defenseBuff: damagedTarget.defenseBuff - defCut,
+                };
+                const msg = `Round ${round}: 🌍 ${actor.pet.name} crushes ${target.pet.name} — strips ${atkCut} ATK / ${defCut} DEF.${battlebornNote}`;
+                logs.push(msg);
+                if (actorSide === "player") { player = returnedActor; enemy = crushed; } else { enemy = returnedActor; player = crushed; }
+                pushFrame(round, msg, actorSide, "debuff");
+                return [returnedActor, crushed];
             }
 
             if (jutsu.kind === "lifesteal") {
