@@ -8782,14 +8782,18 @@ export default function App() {
                     deck = [...deck, ...fillerPool.slice(0, 5 - deck.length)];
                 }
                 const deckPayload = deck.map(c => ({ id: c.id, element: c.element, top: c.top, right: c.right, bottom: c.bottom, left: c.left }));
+                // Join the session with the auto-picked top-5 as our
+                // FALLBACK deck. The duel screen lets the player
+                // customize their actual deck during the 30s picking
+                // phase; if they time out, the fallback is promoted.
                 void fetch("/api/clan/war/tilecards", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                        action: "init",
+                        action: "join",
                         warId: inferredWarId,
                         challengeId: ch.id,
-                        deck: deckPayload,
+                        defaultDeck: deckPayload,
                     }),
                 }).catch(() => { /* the duel screen polls + retries */ });
                 setScreen("tilecardsDuel");
@@ -23834,7 +23838,11 @@ function ClanWarManual({ onClose }: { onClose: () => void }) {
                 <strong style={{ color: "#60a5fa" }}>Fully automated — no manual reporting.</strong> The moment a challenge is fully accepted (both defenders queued for 2v2), <em>both</em> participating clients are pulled into the matching battle screen automatically. When the fight ends, the win / loss handlers post the result to the server on their own. There are no "I won" buttons anywhere in the UI — the server is the source of truth. A small <em>Re-launch</em> link in <em>Your Active Battles</em> exists if you navigated away during the fight.
             </p>
             <p style={{ margin: "0 0 0.5rem", fontSize: "0.82rem" }}>
-                <strong style={{ color: "#60a5fa" }}>Tile-card duels are PvP too.</strong> Picking 🃏 Tile Cards opens a Triple-Triad-style 3x3 duel screen. Both clients connect to a server-managed session: each player auto-uses their top 5 tile cards by stat sum, the server validates every placement, applies capture rules (element counters + friendly-element boost), and ends the game when the board fills. The losing clan's HP is debited atomically with the final placement — no manual report ever fires. 60-second turn timer; stalls auto-skip.
+                <strong style={{ color: "#60a5fa" }}>Tile-card duels are PvP too.</strong> Picking 🃏 Tile Cards opens a Triple-Triad-style 3x3 duel.
+                <br />• <strong>Deck-picking phase (30s):</strong> both players pick exactly 5 cards from their owned collection, then click <em>Lock in deck</em>. If both lock in before the timer ends, the match starts immediately. If a player runs out of time, their auto-picked top-5 deck is used.
+                <br />• <strong>Coin flip:</strong> the server randomly decides who plays first, shown to both clients.
+                <br />• <strong>Match:</strong> 3x3 board, alternating turns (60s per turn — stalled turns auto-skip), Triple-Triad capture rules (element counters +20%, friendly-element adjacent boost +20%).
+                <br />• <strong>Result:</strong> when the board fills, the server tallies cells, picks the winner, and debits HP from the losing clan automatically. Forfeit hands the win to the opponent.
             </p>
             <p style={{ margin: "0 0 0.5rem", fontSize: "0.82rem" }}>
                 <strong style={{ color: "#60a5fa" }}>Three-layer anti-cheat.</strong> (1) The server cross-checks every PvP-mode report against the authoritative <code>pvp:&lt;battleId&gt;</code> session record — if the report disagrees with the actual session winner, it's rejected. (2) Both clients report independently from their own win/loss handlers; the server treats the first arrival as <em>tentative</em> and only applies damage once the opposing side's matching report <em>confirms</em> it. (3) Reports that disagree (rare — both clients see the same fight) are recorded as a draw with no damage. After 15 minutes of silence, the tentative auto-confirms.
@@ -26606,7 +26614,14 @@ function ShinobiCouncilHall({ character, setScreen, playerRoster, launchClanWarB
 // to the parent clan war atomically with the game-ending move, so no
 // manual report is ever called from here.
 type CwTileCardStat = { id: string; element: string; top: number; right: number; bottom: number; left: number };
-type CwTileCardSide = { name: string; clan: string; deck: CwTileCardStat[]; handIds: string[] };
+type CwTileCardSide = {
+    name: string;
+    clan: string;
+    defaultDeck: CwTileCardStat[];
+    deck?: CwTileCardStat[];
+    handIds?: string[];
+    ready: boolean;
+};
 type CwTileCardCell = { cardId: string; owner: "p1" | "p2" } | null;
 type CwTileCardSession = {
     warId: string;
@@ -26615,9 +26630,11 @@ type CwTileCardSession = {
     p2?: CwTileCardSide;
     board: CwTileCardCell[];
     turn: "p1" | "p2";
-    status: "awaiting-p2" | "active" | "done";
+    status: "awaiting-p2" | "picking" | "active" | "done";
     winner?: "p1" | "p2" | "draw";
     turnDeadline?: number;
+    pickingDeadline?: number;
+    coinFlip?: "p1" | "p2";
 };
 
 function ClanWarTileCardDuel({ character, setScreen, sharedImages }: { character: Character; setScreen: (s: Screen) => void; sharedImages: Record<string, string> }) {
@@ -26694,6 +26711,76 @@ function ClanWarTileCardDuel({ character, setScreen, sharedImages }: { character
     const opp = session && mySide ? (mySide === "p1" ? session.p2 : session.p1) : null;
     const isMyTurn = !!(session && mySide && session.status === "active" && session.turn === mySide);
     const secondsRemaining = session?.turnDeadline ? Math.max(0, Math.ceil((session.turnDeadline - Date.now()) / 1000)) : 0;
+    const pickingSecondsRemaining = session?.pickingDeadline ? Math.max(0, Math.ceil((session.pickingDeadline - Date.now()) / 1000)) : 0;
+
+    // Picking-phase state: the player's selected card IDs (max 5) and
+    // their full owned-card collection. Local-only until they click
+    // "Lock in deck" which submits to the server.
+    const ownedTileCards = useMemo(() => {
+        const all = getAllTileCards([]);
+        const owned = (character.tileCards ?? [])
+            .map(id => all.find(c => c.id === id))
+            .filter((c): c is TileCard => Boolean(c));
+        return owned;
+    }, [character.tileCards]);
+    const [pickedIds, setPickedIds] = useState<string[]>([]);
+    // Pre-populate the picker with the fallback deck once the session loads.
+    useEffect(() => {
+        if (session?.status === "picking" && pickedIds.length === 0 && me?.defaultDeck) {
+            setPickedIds(me.defaultDeck.map(c => c.id));
+        }
+    }, [session?.status, me?.defaultDeck, pickedIds.length]);
+
+    function togglePick(id: string) {
+        setPickedIds(prev => {
+            if (prev.includes(id)) return prev.filter(x => x !== id);
+            if (prev.length >= 5) return prev;
+            return [...prev, id];
+        });
+    }
+
+    async function lockInDeck() {
+        if (!session || pickedIds.length !== 5) return;
+        const all = getAllTileCards([]);
+        const cards = pickedIds.map(id => all.find(c => c.id === id)).filter((c): c is TileCard => Boolean(c));
+        if (cards.length !== 5) {
+            setError("Could not resolve all 5 cards in your selection.");
+            return;
+        }
+        const deckPayload = cards.map(c => ({ id: c.id, element: c.element, top: c.top, right: c.right, bottom: c.bottom, left: c.left }));
+        setBusy(true);
+        try {
+            const r = await fetch("/api/clan/war/tilecards", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "submit-deck", warId: session.warId, challengeId: session.challengeId, deck: deckPayload }),
+            });
+            const data = await r.json().catch(() => ({}));
+            if (r.ok && data.session) {
+                setSession(data.session as CwTileCardSession);
+                setError("");
+            } else {
+                setError(data.error ?? `HTTP ${r.status}`);
+            }
+        } catch (e) {
+            setError(String((e as Error).message));
+        }
+        setBusy(false);
+    }
+
+    // Coin-flip flash: shows for ~2 seconds when transitioning from
+    // picking → active so both clients see the same outcome.
+    const [showCoinFlip, setShowCoinFlip] = useState(false);
+    const lastStatusRef = useRef<typeof session extends null ? null : CwTileCardSession["status"] | null>(null);
+    useEffect(() => {
+        const prev = lastStatusRef.current;
+        lastStatusRef.current = (session?.status ?? null) as any;
+        if (prev === "picking" && session?.status === "active" && session.coinFlip) {
+            setShowCoinFlip(true);
+            const t = setTimeout(() => setShowCoinFlip(false), 2200);
+            return () => clearTimeout(t);
+        }
+    }, [session?.status, session?.coinFlip]);
 
     async function place(pos: number) {
         if (!isMyTurn || !selectedCardId || !session) return;
@@ -26740,9 +26827,11 @@ function ClanWarTileCardDuel({ character, setScreen, sharedImages }: { character
 
     function cardStats(cardId: string): CwTileCardStat | null {
         if (!session) return null;
-        return session.p1.deck.find(c => c.id === cardId)
-            ?? session.p2?.deck.find(c => c.id === cardId)
-            ?? null;
+        const p1Deck = session.p1.deck ?? session.p1.defaultDeck;
+        const hit = p1Deck.find(c => c.id === cardId);
+        if (hit) return hit;
+        const p2Deck = session.p2?.deck ?? session.p2?.defaultDeck ?? [];
+        return p2Deck.find(c => c.id === cardId) ?? null;
     }
 
     const score = useMemo(() => {
@@ -26772,6 +26861,92 @@ function ClanWarTileCardDuel({ character, setScreen, sharedImages }: { character
                 <div style={{ background: "#0b1220", border: "1px solid #fbbf24", borderRadius: 6, padding: "0.8rem" }}>
                     <strong style={{ color: "#fbbf24" }}>⏳ Waiting for the opposing clan's duelist to join…</strong>
                     <p className="hint" style={{ marginTop: 6 }}>They'll be auto-pulled in when the challenge accepts on their client.</p>
+                </div>
+            )}
+            {/* Picking phase — 30s for both players to lock in 5-card decks. */}
+            {session && session.status === "picking" && me && (() => {
+                const opponentReady = mySide === "p1" ? !!session.p2?.ready : !!session.p1.ready;
+                const meReady = !!me.ready;
+                return (
+                    <div>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.8rem", background: "#0b1220", padding: "0.6rem 0.8rem", borderRadius: 6 }}>
+                            <strong style={{ color: "#fbbf24" }}>🃏 Pick your 5-card deck</strong>
+                            <div style={{ textAlign: "right" }}>
+                                <div style={{ color: "#fbbf24", fontWeight: 700, fontSize: "1.4rem" }}>⏱ {pickingSecondsRemaining}s</div>
+                                <small style={{ color: "#94a3b8" }}>
+                                    You: {meReady ? "✅ Locked in" : `${pickedIds.length}/5 picked`} · Opponent: {opponentReady ? "✅ Locked in" : "Still picking…"}
+                                </small>
+                            </div>
+                        </div>
+                        {!meReady && (
+                            <>
+                                <p className="hint" style={{ marginBottom: 8 }}>
+                                    Tap up to 5 cards from your collection. If both players lock in before the timer runs out the match starts early; otherwise the auto-picked top-5 deck is used.
+                                </p>
+                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 8, maxHeight: 360, overflowY: "auto", padding: 6, background: "#0b1220", borderRadius: 6 }}>
+                                    {ownedTileCards.length === 0 ? (
+                                        <p className="hint">You don't own any tile cards — the auto-picked fallback deck will be used at timeout.</p>
+                                    ) : ownedTileCards.map(card => {
+                                        const picked = pickedIds.includes(card.id);
+                                        const disabled = !picked && pickedIds.length >= 5;
+                                        return (
+                                            <button
+                                                key={card.id}
+                                                onClick={() => togglePick(card.id)}
+                                                disabled={disabled}
+                                                style={{
+                                                    padding: "0.5rem 0.6rem", background: picked ? "#1e3a8a" : "#0f172a",
+                                                    border: `2px solid ${picked ? "#60a5fa" : "#334155"}`, borderRadius: 6,
+                                                    color: "#e5e7eb", fontSize: "0.78rem", cursor: disabled ? "not-allowed" : "pointer",
+                                                    opacity: disabled ? 0.5 : 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
+                                                }}
+                                            >
+                                                <strong style={{ fontSize: "0.78rem" }}>{card.name}</strong>
+                                                <small style={{ color: "#94a3b8" }}>{card.element} · {card.rarity}</small>
+                                                <div style={{ fontSize: "0.72rem", marginTop: 2 }}>
+                                                    ↑{card.top} ←{card.left} →{card.right} ↓{card.bottom}
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                                <div style={{ marginTop: 10, display: "flex", gap: 8, alignItems: "center" }}>
+                                    <button
+                                        onClick={() => void lockInDeck()}
+                                        disabled={busy || pickedIds.length !== 5}
+                                        style={{ padding: "0.5rem 1rem", background: pickedIds.length === 5 ? "linear-gradient(#15803d,#0a4019)" : "#1f2937", borderColor: pickedIds.length === 5 ? "#4ade80" : "#475569" }}
+                                    >
+                                        {busy ? "Locking in…" : pickedIds.length === 5 ? "✅ Ready — Lock in deck" : `Pick ${5 - pickedIds.length} more`}
+                                    </button>
+                                    <button onClick={() => void forfeit()} disabled={busy} className="danger-button" style={{ fontSize: "0.8rem" }}>Forfeit</button>
+                                </div>
+                            </>
+                        )}
+                        {meReady && (
+                            <div style={{ background: "#0a2010", border: "1px solid #4ade80", borderRadius: 6, padding: "0.8rem", textAlign: "center" }}>
+                                <strong style={{ color: "#4ade80" }}>✅ Your deck is locked in.</strong>
+                                <p className="hint" style={{ marginTop: 6 }}>
+                                    {opponentReady
+                                        ? "Both players ready — the match starts immediately after the coin flip."
+                                        : `Waiting for the opposing duelist to lock in… ${pickingSecondsRemaining}s remaining. If they time out, their auto-picked fallback deck is used.`}
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                );
+            })()}
+            {/* Coin-flip flash — shows for ~2s when the match starts. */}
+            {showCoinFlip && session?.coinFlip && mySide && (
+                <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, animation: "fadeIn 0.3s" }}>
+                    <div style={{ background: "linear-gradient(#1e3a8a,#172554)", border: "2px solid #fbbf24", borderRadius: 16, padding: "2rem 3rem", textAlign: "center", boxShadow: "0 0 40px rgba(251,191,36,0.5)" }}>
+                        <div style={{ fontSize: "3rem", marginBottom: 8 }}>🪙</div>
+                        <h2 style={{ color: "#fbbf24", margin: "0 0 8px" }}>Coin Flip</h2>
+                        <p style={{ fontSize: "1.1rem", color: "#e5e7eb" }}>
+                            <strong style={{ color: session.coinFlip === mySide ? "#4ade80" : "#f87171" }}>
+                                {session.coinFlip === mySide ? "You go first!" : `${opp?.name ?? "Opponent"} goes first.`}
+                            </strong>
+                        </p>
+                    </div>
                 </div>
             )}
             {session && session.status === "active" && mySide && me && opp && (
@@ -26827,9 +27002,9 @@ function ClanWarTileCardDuel({ character, setScreen, sharedImages }: { character
                     </div>
                     {/* My hand */}
                     <div>
-                        <strong style={{ color: "#94a3b8" }}>Your Hand ({me.handIds.length} cards)</strong>
+                        <strong style={{ color: "#94a3b8" }}>Your Hand ({(me.handIds ?? []).length} cards)</strong>
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 6 }}>
-                            {me.handIds.map(id => {
+                            {(me.handIds ?? []).map(id => {
                                 const card = cardStats(id);
                                 if (!card) return null;
                                 const sel = selectedCardId === id;
