@@ -6005,14 +6005,62 @@ async function publishSharedImage(id: string, img: string): Promise<boolean> {
     }
 }
 
+// Cap animated uploads tighter than still uploads — canvas compression
+// doesn't apply, so the raw bytes hit storage. 5 MB keeps a typical small
+// animated GIF / WebP feasible without bloating KV.
+const ANIMATED_MAX_MB = 5;
+
+/**
+ * Detect whether an upload contains animation. Canvas re-encoding flattens
+ * everything to a single frame, so we want to skip compressDataUrl for these
+ * formats and pass the original bytes through to preserve movement.
+ *
+ *   GIF, APNG          → assumed animated by MIME alone (single-frame GIFs are
+ *                        rare in practice and still render fine raw)
+ *   WebP               → may or may not be animated. Animated WebP files
+ *                        contain an "ANIM" chunk in the RIFF container — we
+ *                        scan the first 1 KB for that marker.
+ */
+async function isAnimatedImageFile(file: File): Promise<boolean> {
+    if (file.type === "image/gif" || file.type === "image/apng") return true;
+    if (file.type === "image/webp") {
+        try {
+            const header = await file.slice(0, 1024).arrayBuffer();
+            const bytes = new Uint8Array(header);
+            // Look for the literal ASCII "ANIM" chunk header.
+            for (let i = 0; i < bytes.length - 4; i++) {
+                if (bytes[i] === 0x41 && bytes[i + 1] === 0x4E && bytes[i + 2] === 0x49 && bytes[i + 3] === 0x4D) {
+                    return true;
+                }
+            }
+        } catch { /* fall through to non-animated */ }
+    }
+    return false;
+}
+
 function readImageFile(file: File, onLoad: (image: string) => void, maxSizeMb = 100) {
     if (!file.type.startsWith("image/")) return alert("Please upload an image file.");
-    if (file.size > maxSizeMb * 1024 * 1024) return alert(`Please upload an image under ${maxSizeMb} MB.`);
-    const reader = new FileReader();
-    reader.onload = () => {
-        compressDataUrl(String(reader.result)).then(onLoad);
-    };
-    reader.readAsDataURL(file);
+    void (async () => {
+        const animated = await isAnimatedImageFile(file);
+        const effectiveCap = animated ? ANIMATED_MAX_MB : maxSizeMb;
+        if (file.size > effectiveCap * 1024 * 1024) {
+            return alert(animated
+                ? `Animated images must be under ${ANIMATED_MAX_MB} MB so animation is preserved (we can't compress without flattening it). Yours is ${(file.size / 1024 / 1024).toFixed(1)} MB.`
+                : `Please upload an image under ${maxSizeMb} MB.`);
+        }
+        const reader = new FileReader();
+        reader.onload = () => {
+            const dataUrl = String(reader.result);
+            if (animated) {
+                // Pass the original bytes through — canvas compression would
+                // strip every frame after the first.
+                onLoad(dataUrl);
+            } else {
+                compressDataUrl(dataUrl).then(onLoad);
+            }
+        };
+        reader.readAsDataURL(file);
+    })();
 }
 
 function capStat(value: number) {
@@ -29855,15 +29903,29 @@ function Profile({
         if (!file) return;
         if (!file.type.startsWith("image/")) return alert("Please upload an image file.");
 
-        const reader = new FileReader();
-        reader.onload = () => {
-            // Compress to 256px — avatars are displayed at =84px so 512 is wasteful
-            void compressDataUrl(String(reader.result), 256, 0.80).then((img) => {
-                publishSharedImage('avatar:' + character.name.toLowerCase(), img);
-                updateCharacter({ ...character, avatarImage: img });
-            });
-        };
-        reader.readAsDataURL(file);
+        void (async () => {
+            const animated = await isAnimatedImageFile(file);
+            if (animated && file.size > ANIMATED_MAX_MB * 1024 * 1024) {
+                return alert(`Animated avatars must be under ${ANIMATED_MAX_MB} MB so animation is preserved (compressing would flatten it). Yours is ${(file.size / 1024 / 1024).toFixed(1)} MB.`);
+            }
+            const reader = new FileReader();
+            reader.onload = () => {
+                const apply = (img: string) => {
+                    publishSharedImage('avatar:' + character.name.toLowerCase(), img);
+                    updateCharacter({ ...character, avatarImage: img });
+                };
+                const dataUrl = String(reader.result);
+                if (animated) {
+                    // Skip canvas compression — it would strip every frame
+                    // after the first and turn the avatar back into a still.
+                    apply(dataUrl);
+                } else {
+                    // Compress to 256px — avatars are displayed at ≤84px so 512 is wasteful
+                    void compressDataUrl(dataUrl, 256, 0.80).then(apply);
+                }
+            };
+            reader.readAsDataURL(file);
+        })();
     }
 
     const [statInputs, setStatInputs] = useState<Partial<Record<keyof Stats, number>>>({});
