@@ -9225,6 +9225,19 @@ export default function App() {
                     body: JSON.stringify({ action: 'verify', name: name.trim().toLowerCase(), password }),
                 }, 15000);
                 if (authRes.status === 503) continue; // storage unavailable — retry
+                if (authRes.status === 403) {
+                    // Account is banned. Show the ban detail and bail out — don't
+                    // fall back to local cache, the server explicitly refused.
+                    const banData = await authRes.json().catch(() => ({})) as { ban?: { until: number; reason: string; permanent?: boolean } };
+                    const b = banData.ban;
+                    if (b) {
+                        const when = b.permanent ? "permanently" : `until ${new Date(b.until).toLocaleString()}`;
+                        alert(`⛔ Your account is banned ${when}.\n\nReason: ${b.reason || "(no reason given)"}`);
+                    } else {
+                        alert("⛔ Your account is banned.");
+                    }
+                    return;
+                }
                 if (authRes.ok) {
                     const authData = await authRes.json() as { ok: boolean; legacy?: boolean };
                     authOk = authData.ok;
@@ -15753,7 +15766,7 @@ function AdminPanel({
     const [aiJutsuIds, setAiJutsuIds] = useState<string[]>(starterJutsus.slice(0, 4).map((jutsu) => jutsu.id));
     const [aiRules, setAiRules] = useState<AiRule[]>(starterAiProfile(starterJutsus).rules);
     const [selectedAiId, setSelectedAiId] = useState("");
-    const [activeAdminPanel, setActiveAdminPanel] = useState<"jutsuBloodlines" | "eventsRaids" | "visualNovels" | "aiCreator" | "petEditor" | "cardEditor" | "villageLeaders" | "playerManagement" | "hollowGate">("jutsuBloodlines");
+    const [activeAdminPanel, setActiveAdminPanel] = useState<"jutsuBloodlines" | "eventsRaids" | "visualNovels" | "aiCreator" | "petEditor" | "cardEditor" | "villageLeaders" | "playerManagement" | "hollowGate" | "moderation">("jutsuBloodlines");
 
     // Hollow Gate admin tab state — prompts, current preview images, busy/status
     // strings. Preview images are seeded from the existing shared KV on first
@@ -16956,6 +16969,9 @@ function AdminPanel({
                 </button>
                 <button className={activeAdminPanel === "hollowGate" ? "active" : ""} onClick={() => setActiveAdminPanel("hollowGate")}>
                     ⛩ Hollow Gate
+                </button>
+                <button className={activeAdminPanel === "moderation" ? "active" : ""} onClick={() => setActiveAdminPanel("moderation")}>
+                    🛡 Moderation
                 </button>
             </div>
 
@@ -19908,6 +19924,10 @@ function AdminPanel({
                     </div>
                 );
             })()}
+
+            {activeAdminPanel === "moderation" && (
+                <ModerationPanel adminPw={adminPw} />
+            )}
 
             <div className="menu">
                 <button onClick={() => setScreen("worldMap")}>Test World Map</button>
@@ -33754,3 +33774,228 @@ type TerritoryRecord = {
     controlScore?: number;
     warSupply: number;
 };
+
+// ─── Admin Moderation Panel ───────────────────────────────────────────────────
+// Player search → IP history + linked accounts. Ban / silence (1d / 3d / 7d /
+// permanent for ban). Audit log of recent mod actions. Force-kick + delete a
+// specific village-chat message.
+type ModBanRecord = { until: number; reason: string; by: string; at: number; permanent?: boolean };
+type ModSilenceRecord = { until: number; reason: string; by: string; at: number };
+type ModIpRecord = { lastIp: string; ips: string[]; lastSeenAt: number };
+type ModAuditEntry = { ts: number; actor: string; action: string; target: string; detail?: string };
+
+function ModerationPanel({ adminPw }: { adminPw: string }) {
+    const [bans, setBans] = useState<Array<{ name: string; record: ModBanRecord }>>([]);
+    const [silences, setSilences] = useState<Array<{ name: string; record: ModSilenceRecord }>>([]);
+    const [audit, setAudit] = useState<ModAuditEntry[]>([]);
+    const [searchName, setSearchName] = useState("");
+    const [lookup, setLookup] = useState<{ target: string; ipRecord: ModIpRecord | null; linked: string[]; perIp: Array<{ ip: string; names: string[] }> } | null>(null);
+    const [reason, setReason] = useState("");
+    const [status, setStatus] = useState("");
+    const [loading, setLoading] = useState(false);
+
+    const refresh = useCallback(async () => {
+        if (!adminPw) return;
+        try {
+            const r = await fetch("/api/admin/moderation", {
+                method: "GET",
+                headers: { "x-admin-password": adminPw },
+            });
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const data = await r.json();
+            setBans(Array.isArray(data.bans) ? data.bans : []);
+            setSilences(Array.isArray(data.silences) ? data.silences : []);
+            setAudit(Array.isArray(data.audit) ? data.audit : []);
+        } catch (e) {
+            setStatus(`❌ ${(e as Error).message}`);
+        }
+    }, [adminPw]);
+
+    useEffect(() => { void refresh(); }, [refresh]);
+
+    async function modAction(kind: string, body: Record<string, unknown>) {
+        if (!adminPw) { setStatus("❌ Admin password missing."); return; }
+        setLoading(true);
+        setStatus("");
+        try {
+            const r = await fetch("/api/admin/moderation", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "x-admin-password": adminPw },
+                body: JSON.stringify({ kind, password: adminPw, actor: "admin", ...body }),
+            });
+            const data = await r.json();
+            if (!r.ok) throw new Error(data.error ?? `HTTP ${r.status}`);
+            setStatus(`✅ ${kind} ok`);
+            return data;
+        } catch (e) {
+            setStatus(`❌ ${(e as Error).message}`);
+            return null;
+        } finally {
+            setLoading(false);
+            await refresh();
+        }
+    }
+
+    async function doLookup() {
+        if (!searchName.trim()) return;
+        const data = await modAction("ip-lookup", { target: searchName.trim() });
+        if (data) setLookup(data);
+    }
+
+    async function ban(target: string, days: number | "permanent") {
+        await modAction("ban", { target, days, reason: reason.slice(0, 500) });
+    }
+    async function unban(target: string) {
+        await modAction("unban", { target });
+    }
+    async function silence(target: string, days: number) {
+        await modAction("silence", { target, days, reason: reason.slice(0, 500) });
+    }
+    async function unsilence(target: string) {
+        await modAction("unsilence", { target });
+    }
+    async function kick(target: string) {
+        await modAction("kick", { target, reason: reason.slice(0, 200) });
+    }
+
+    function fmtUntil(rec: { until: number; permanent?: boolean }) {
+        if (rec.permanent) return "permanent";
+        const ms = rec.until - Date.now();
+        if (ms <= 0) return "expired";
+        const days = Math.floor(ms / 86400000);
+        const hours = Math.floor((ms % 86400000) / 3600000);
+        return days > 0 ? `${days}d ${hours}h` : `${hours}h`;
+    }
+
+    return (
+        <div style={{ display: "grid", gap: "1rem" }}>
+            <section className="summary-box">
+                <h3>🛡 Player Lookup</h3>
+                <p className="hint">Find a player's IP history and every account that has used the same IPs (sock-puppet detection).</p>
+                <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+                    <input
+                        value={searchName}
+                        onChange={(e) => setSearchName(e.target.value)}
+                        placeholder="Player name (e.g. Alice)"
+                        style={{ flex: 1, minWidth: 200, padding: "0.4rem" }}
+                        onKeyDown={(e) => { if (e.key === "Enter") void doLookup(); }}
+                    />
+                    <button onClick={doLookup} disabled={loading || !searchName.trim()}>Search</button>
+                </div>
+                <label style={{ display: "block", marginTop: "0.6rem" }}>Mod-action reason (saved to audit log)</label>
+                <input
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    placeholder="e.g. spamming chat, slur in name…"
+                    style={{ width: "100%", padding: "0.4rem" }}
+                    maxLength={500}
+                />
+                {status && <p className="hint" style={{ marginTop: "0.4rem" }}>{status}</p>}
+            </section>
+
+            {lookup && (
+                <section className="summary-box">
+                    <h3>📍 {lookup.target}</h3>
+                    {lookup.ipRecord ? (
+                        <>
+                            <p><strong>Last IP:</strong> <code>{lookup.ipRecord.lastIp}</code></p>
+                            <p><strong>Last seen:</strong> {new Date(lookup.ipRecord.lastSeenAt).toLocaleString()}</p>
+                            <p><strong>IPs ever used:</strong> {lookup.ipRecord.ips.length}</p>
+                            <div style={{ background: "#0a0a1a", borderRadius: 6, padding: "0.5rem", marginTop: "0.5rem" }}>
+                                {lookup.perIp.map(({ ip, names }) => (
+                                    <div key={ip} style={{ marginBottom: "0.4rem" }}>
+                                        <code style={{ color: "#facc15" }}>{ip}</code>
+                                        {names.length > 0 ? (
+                                            <div style={{ paddingLeft: "1rem", fontSize: "0.9rem" }}>
+                                                also used by: {names.map(n => (
+                                                    <button
+                                                        key={n}
+                                                        onClick={() => { setSearchName(n); void modAction("ip-lookup", { target: n }).then((d) => d && setLookup(d)); }}
+                                                        style={{ marginLeft: 4, padding: "0 6px", fontSize: "0.85rem" }}
+                                                    >{n}</button>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <span style={{ paddingLeft: "1rem", color: "#64748b" }}> — unique to {lookup.target}</span>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                            {lookup.linked.length > 0 && (
+                                <p className="hint" style={{ color: "#f87171", marginTop: "0.5rem" }}>
+                                    ⚠ {lookup.linked.length} linked account{lookup.linked.length === 1 ? "" : "s"} found.
+                                </p>
+                            )}
+                        </>
+                    ) : (
+                        <p className="hint">No IP record yet — player must heartbeat / login at least once.</p>
+                    )}
+                    <h4 style={{ marginTop: "1rem" }}>Actions on {lookup.target}</h4>
+                    <div style={{ display: "grid", gap: "0.3rem", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))" }}>
+                        <button onClick={() => ban(lookup.target, 1)} disabled={loading}>🚫 Ban 1d</button>
+                        <button onClick={() => ban(lookup.target, 3)} disabled={loading}>🚫 Ban 3d</button>
+                        <button onClick={() => ban(lookup.target, 7)} disabled={loading}>🚫 Ban 7d</button>
+                        <button onClick={() => ban(lookup.target, "permanent")} disabled={loading} className="danger-button">⛔ Ban Forever</button>
+                        <button onClick={() => silence(lookup.target, 1)} disabled={loading}>🔇 Silence 1d</button>
+                        <button onClick={() => silence(lookup.target, 3)} disabled={loading}>🔇 Silence 3d</button>
+                        <button onClick={() => silence(lookup.target, 7)} disabled={loading}>🔇 Silence 7d</button>
+                        <button onClick={() => kick(lookup.target)} disabled={loading}>👢 Force Kick</button>
+                        <button onClick={() => unban(lookup.target)} disabled={loading} style={{ background: "#1e3a1e" }}>✅ Unban</button>
+                        <button onClick={() => unsilence(lookup.target)} disabled={loading} style={{ background: "#1e3a1e" }}>🔊 Unsilence</button>
+                    </div>
+                </section>
+            )}
+
+            <section className="summary-box">
+                <h3>🚫 Active Bans ({bans.length})</h3>
+                {bans.length === 0
+                    ? <p className="hint">None.</p>
+                    : (
+                        <div style={{ display: "grid", gap: 4 }}>
+                            {bans.map(({ name, record }) => (
+                                <div key={name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.3rem 0.5rem", background: "#1c0606", borderRadius: 4 }}>
+                                    <span><strong>{name}</strong> — {record.reason || <em>no reason</em>} <small style={{ color: "#94a3b8" }}>(by {record.by}, {fmtUntil(record)} left)</small></span>
+                                    <button onClick={() => unban(name)} disabled={loading} style={{ background: "#1e3a1e", fontSize: "0.85rem", padding: "0.2rem 0.6rem" }}>Unban</button>
+                                </div>
+                            ))}
+                        </div>
+                    )
+                }
+            </section>
+
+            <section className="summary-box">
+                <h3>🔇 Active Silences ({silences.length})</h3>
+                {silences.length === 0
+                    ? <p className="hint">None.</p>
+                    : (
+                        <div style={{ display: "grid", gap: 4 }}>
+                            {silences.map(({ name, record }) => (
+                                <div key={name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.3rem 0.5rem", background: "#0a1a2a", borderRadius: 4 }}>
+                                    <span><strong>{name}</strong> — {record.reason || <em>no reason</em>} <small style={{ color: "#94a3b8" }}>(by {record.by}, {fmtUntil(record)} left)</small></span>
+                                    <button onClick={() => unsilence(name)} disabled={loading} style={{ background: "#1e3a1e", fontSize: "0.85rem", padding: "0.2rem 0.6rem" }}>Unsilence</button>
+                                </div>
+                            ))}
+                        </div>
+                    )
+                }
+            </section>
+
+            <section className="summary-box">
+                <h3>📜 Audit Log (last {audit.length})</h3>
+                {audit.length === 0
+                    ? <p className="hint">No mod actions recorded yet.</p>
+                    : (
+                        <div style={{ maxHeight: 280, overflowY: "auto", fontFamily: "monospace", fontSize: "0.85rem" }}>
+                            {audit.slice(0, 50).map((entry, i) => (
+                                <div key={i} style={{ padding: "0.2rem 0", borderBottom: "1px solid #1f2937" }}>
+                                    <span style={{ color: "#94a3b8" }}>{new Date(entry.ts).toLocaleString()}</span> · <strong style={{ color: "#facc15" }}>{entry.action}</strong> · <strong>{entry.target}</strong> · <em style={{ color: "#94a3b8" }}>by {entry.actor}</em>
+                                    {entry.detail && <div style={{ paddingLeft: "1rem", color: "#cbd5e1" }}>{entry.detail}</div>}
+                                </div>
+                            ))}
+                        </div>
+                    )
+                }
+            </section>
+        </div>
+    );
+}
