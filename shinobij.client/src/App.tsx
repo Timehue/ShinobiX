@@ -12320,7 +12320,17 @@ export default function App() {
                     />
                 )}
 
-                {character && character.level >= 13 && !character.profession && (
+                {character
+                    && character.level >= 13
+                    && !character.profession
+                    // Admin accounts (Admin 1 / Admin 2) skip the picker
+                    // entirely. They're seeded at Level 100 with no real
+                    // game role, so forcing them into a profession would
+                    // lock them out of admin tooling whenever the picker
+                    // overlay fires.
+                    && character.name !== "Admin 1"
+                    && character.name !== "Admin 2"
+                    && (
                     <ProfessionPicker
                         character={character}
                         sharedImages={sharedImages}
