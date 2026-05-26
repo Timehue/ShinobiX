@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from './_storage.js';
 import { cors } from './_utils.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
+import { getActiveBan, recordClientIp, clientIpFrom } from './admin/moderation.js';
 import crypto from 'crypto';
 
 // `hash` stores either the legacy HMAC-SHA256 hex (no version prefix) or the
@@ -169,6 +170,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
         }
         if (!valid) return res.status(200).json({ ok: false });
+
+        // Refuse login for banned accounts. The client surfaces this so the
+        // user sees a clear "you are banned until X — reason: Y" message.
+        const ban = await getActiveBan(name);
+        if (ban) {
+            return res.status(403).json({
+                ok: false,
+                error: 'Account is banned.',
+                ban: { until: ban.until, reason: ban.reason, permanent: ban.permanent ?? false },
+            });
+        }
+
+        // Capture the login IP so the Moderation IP-lookup can link sock-puppets
+        // even before the player heartbeats.
+        void recordClientIp(name, clientIpFrom(req));
+
         return res.status(200).json({ ok: true });
     }
 

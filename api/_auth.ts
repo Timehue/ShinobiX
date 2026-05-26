@@ -11,6 +11,7 @@
 import { timingSafeEqual } from 'crypto';
 import { verifyPlayerPassword } from './player-auth.js';
 import { safeName } from './_utils.js';
+import { getActiveBan } from './admin/moderation.js';
 
 type ReqLike = { headers: Record<string, string | string[] | undefined> };
 
@@ -67,7 +68,13 @@ export async function authedPlayer(
     if (!name) return null;
     const canonical = name.trim().toLowerCase();
     try {
-        return (await verifyPlayerPassword(canonical, pw)) ? canonical : null;
+        if (!(await verifyPlayerPassword(canonical, pw))) return null;
+        // Banned players authenticate but lose access. authedPlayer is the
+        // single chokepoint for every player-only endpoint, so this one check
+        // freezes the account out of every game action until the ban lifts.
+        const ban = await getActiveBan(canonical);
+        if (ban) return null;
+        return canonical;
     } catch {
         return null;
     }
