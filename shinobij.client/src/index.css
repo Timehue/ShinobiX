@@ -14188,6 +14188,149 @@ button.combat-jutsu-button,
         border-color: #93c5fd;
     }
 
+/* ─── GameAlert (styled replacement for window.alert) ───────────────────── */
+.game-alert-backdrop {
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(ellipse at center, rgba(2, 6, 23, 0.72), rgba(2, 6, 23, 0.92));
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    animation: game-alert-fade 140ms ease-out;
+}
+
+@keyframes game-alert-fade {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+@keyframes game-alert-rise {
+    from { opacity: 0; transform: translateY(12px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.game-alert-card {
+    position: relative;
+    max-width: 460px;
+    width: 100%;
+    background: linear-gradient(160deg, #0b1224 0%, #131e3a 55%, #0b1224 100%);
+    border: 2px solid rgba(250, 204, 21, 0.75);
+    border-radius: 14px;
+    box-shadow:
+        0 24px 60px rgba(0, 0, 0, 0.65),
+        0 0 0 1px rgba(250, 204, 21, 0.18) inset,
+        0 0 32px rgba(250, 204, 21, 0.18);
+    padding: 22px 24px 18px;
+    color: #e2e8f0;
+    animation: game-alert-rise 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+    .game-alert-card::before {
+        content: '';
+        position: absolute;
+        inset: 4px;
+        border: 1px solid rgba(250, 204, 21, 0.18);
+        border-radius: 10px;
+        pointer-events: none;
+    }
+
+.game-alert-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(250, 204, 21, 0.22);
+}
+
+.game-alert-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    background: rgba(250, 204, 21, 0.14);
+    border: 1px solid rgba(250, 204, 21, 0.55);
+    color: #fcd34d;
+    font-size: 0.95rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.game-alert-title {
+    color: #fcd34d;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-size: 0.78rem;
+}
+
+.game-alert-message {
+    margin: 0;
+    font-size: 0.98rem;
+    line-height: 1.55;
+    color: #e2e8f0;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.game-alert-footer {
+    margin-top: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+.game-alert-more {
+    color: #94a3b8;
+    font-size: 0.78rem;
+    margin-right: auto;
+    font-style: italic;
+}
+
+.game-alert-ok {
+    background: linear-gradient(180deg, #fcd34d 0%, #f59e0b 100%);
+    border: 1px solid rgba(250, 204, 21, 0.9);
+    color: #0b1224;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 9px 28px;
+    border-radius: 8px;
+    cursor: pointer;
+    box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3), 0 0 12px rgba(250, 204, 21, 0.35);
+    transition: transform 80ms ease, box-shadow 120ms ease, filter 120ms ease;
+}
+
+    .game-alert-ok:hover {
+        filter: brightness(1.07);
+        box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3), 0 0 18px rgba(250, 204, 21, 0.55);
+    }
+
+    .game-alert-ok:active {
+        transform: translateY(1px);
+        box-shadow: 0 1px 0 rgba(0, 0, 0, 0.3), 0 0 12px rgba(250, 204, 21, 0.35);
+    }
+
+    .game-alert-ok:focus-visible {
+        outline: 2px solid #fcd34d;
+        outline-offset: 2px;
+    }
+
+@media (max-width: 600px) {
+    .game-alert-card {
+        padding: 18px 18px 14px;
+        border-radius: 12px;
+    }
+    .game-alert-message { font-size: 0.94rem; }
+}
+
 .modal-overlay {
     position: fixed;
     inset: 0;
