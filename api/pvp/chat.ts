@@ -2,6 +2,8 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
+import { getActiveSilence } from '../admin/moderation.js';
+import { withKvLock } from '../_lock.js';
 import type { PvpSession } from './session.js';
 
 type BattleChatMessage = {
@@ -54,6 +56,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return res.status(403).json({ error: 'Cannot post as another player.' });
             }
 
+            // Silenced players can spectate / fight but not chat. Admin bypasses.
+            if (!identity.admin) {
+                const sil = await getActiveSilence(identity.name);
+                if (sil) {
+                    return res.status(403).json({
+                        error: 'You are silenced.',
+                        silence: { until: sil.until, reason: sil.reason },
+                    });
+                }
+            }
+
             // Derive role from the session: if the author is one of the two
             // fighters, allow `fighter`; otherwise force `spectator` regardless
             // of what the body claimed.
@@ -78,10 +91,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 role: derivedRole,
             };
 
-            const existing = await kv.get<BattleChatMessage[]>(key) ?? [];
-            const fresh = existing.filter(m => Date.now() - m.ts < MSG_TTL_MS);
-            const updated = [...fresh, newMsg].slice(-MAX_MESSAGES);
-            await kv.set(key, updated, { ex: KV_TTL_SECONDS });
+            // Read-modify-write under a short KV lock so spectators + fighters
+            // posting at the same time can't overwrite each other's lines.
+            const updated = await withKvLock(key, async () => {
+                const existing = await kv.get<BattleChatMessage[]>(key) ?? [];
+                const fresh = existing.filter(m => Date.now() - m.ts < MSG_TTL_MS);
+                const next = [...fresh, newMsg].slice(-MAX_MESSAGES);
+                await kv.set(key, next, { ex: KV_TTL_SECONDS });
+                return next;
+            });
 
             return res.status(200).json(updated);
         } catch (err) {

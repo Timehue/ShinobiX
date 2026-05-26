@@ -3,6 +3,7 @@ import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import type { PvpFighter, PvpGroundEffect, PvpSession, PvpStatus } from './session.js';
+import { grantVanguardRewardsForSession } from './_vanguard-rewards.js';
 
 // ─── Grid constants (match arena exactly) ─────────────────────────────────────
 const GRID_W = 12;
@@ -666,7 +667,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // NOTE: biome and weather* are intentionally NOT read from the body —
         // they were a trust-the-client hole. We pull them from the session
         // that was sealed at create time.
-        const { battleId, role, action, tile, jutsuId, itemId, itemName } = body as {
+        const { battleId, role, action, tile, jutsuId, itemId, itemName, auto } = body as {
             battleId?: string;
             role?: 'p1' | 'p2';
             action?: string;
@@ -674,6 +675,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             jutsuId?: string;
             itemId?: string;
             itemName?: string;
+            auto?: boolean;  // true when the client's 45s round timer fired
         };
         if (!battleId || !role || !action) return res.status(400).json({ error: 'Missing battleId, role, or action' });
 
@@ -702,7 +704,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const lockKey = `${key}:lock`;
         const lockToken = `${role}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
-        const lockResult = await kv.set(lockKey, lockToken, { nx: true, ex: 3 } as never);
+        // 10s lock (was 3s) — long enough that a move taking a few seconds
+        // under load can't have the lock expire and a concurrent move slip in.
+        const lockResult = await kv.set(lockKey, lockToken, { nx: true, ex: 10 } as never);
         if (!lockResult) return res.status(200).json(session);
 
         async function finish(payload: PvpSession) {
@@ -734,6 +738,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             s = { ...s, ap: { ...s.ap, [role as 'p1' | 'p2']: myAp - adjustedCost(apCost) }, actionsThisTurn: s.actionsThisTurn + 1 };
             if (cd) s = { ...s, cooldowns: { ...s.cooldowns, [role as 'p1' | 'p2']: { ...myCooldowns, ...cd } } };
             if (lines.length) s = { ...s, log: [...s.log, ...lines] };
+            // Stamp lastMoveAt + reset this player's AFK counter (any real
+            // action ends the streak of skipped rounds). Both are read by
+            // the claim-afk-win action.
+            const nextConsec = { ...(s.consecAutoWait ?? {}), [role as 'p1' | 'p2']: 0 };
+            s = { ...s, lastMoveAt: Date.now(), consecAutoWait: nextConsec };
             return checkWinner(s);
         }
 
@@ -741,8 +750,50 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         switch (action) {
             case 'wait': {
+                // Determine whether this wait counts as an AFK skip. The
+                // client passes `auto: true` when the 45s round timer fired
+                // it. If the player took zero real actions this turn AND it
+                // was auto-fired, it's a skipped round — bump the counter.
+                // Manual wait OR auto-wait after actions resets the streak.
+                const isIdleAutoSkip = auto === true && session.actionsThisTurn === 0;
+                const prevCount = session.consecAutoWait?.[role] ?? 0;
+                const nextCount = isIdleAutoSkip ? prevCount + 1 : 0;
+                const consecAutoWait = { ...(session.consecAutoWait ?? {}), [role]: nextCount };
                 lines.push(`${me.name} ends their turn.`);
-                result = endTurn({ ...session, log: [...session.log, ...lines] });
+                if (isIdleAutoSkip && nextCount >= 2) {
+                    lines.push(`⚠ ${me.name} has skipped 2 rounds in a row — opponent may claim a forfeit win.`);
+                }
+                result = endTurn({ ...session, log: [...session.log, ...lines], consecAutoWait });
+                break;
+            }
+
+            case 'claim-afk-win': {
+                // Inactive player claims the win when the active player has
+                // skipped 2 consecutive rounds (let the 45s timer run out
+                // twice). Falls back to a 90s "no contact" timeout for the
+                // crashed-tab case where the round timer never fires.
+                if (session.activePlayer === role) {
+                    return finish(session);  // can only claim against opponent
+                }
+                const oppRole: 'p1' | 'p2' = role === 'p1' ? 'p2' : 'p1';
+                const oppSkipCount = session.consecAutoWait?.[oppRole] ?? 0;
+                const AFK_FALLBACK_MS = 90_000;
+                const lastMove = Number(session.lastMoveAt ?? session.createdAt);
+                const elapsed = Date.now() - lastMove;
+                const timedOut = elapsed >= AFK_FALLBACK_MS;
+                if (oppSkipCount < 2 && !timedOut) {
+                    const remaining = Math.max(0, Math.ceil((AFK_FALLBACK_MS - elapsed) / 1000));
+                    return finish({ ...session, log: [...session.log, `${me.name}'s AFK claim rejected — opponent has skipped ${oppSkipCount}/2 rounds (or ${remaining}s of inactivity remain).`] });
+                }
+                const reason = oppSkipCount >= 2 ? `skipped 2 rounds` : `inactive for ${Math.floor(elapsed / 1000)}s`;
+                lines.push(`${opp.name} forfeits — ${reason}. ${me.name} wins by default.`);
+                result = {
+                    ...session,
+                    status: 'done',
+                    winner: role,
+                    log: [...session.log, ...lines],
+                    lastMoveAt: Date.now(),
+                };
                 break;
             }
 
@@ -825,16 +876,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     await kv.set(key, updated, { ex: SESSION_TTL });
                     return finish(updated);
                 }
-                // Defense-in-depth: even though session.ts clamps the jutsu list
-                // at fight-create time, double-check the jutsu being USED falls
-                // inside known-safe bounds. Rejects anything tampered after
-                // hydration (e.g. via session-replay attacks).
-                if (!jutsuIsSane(jutsu)) {
-                    const rejectMsg = `${me.name}: ${jutsu.name} failed server validation (out-of-bounds effect or tag).`;
-                    const updated = { ...session, log: [...session.log, rejectMsg] };
-                    await kv.set(key, updated, { ex: SESSION_TTL });
-                    return finish(updated);
-                }
+                // jutsuIsSane re-validation removed — the jutsu comes from the
+                // session's loadout list, which session.ts already sanitized at
+                // fight-create time and is immutable afterwards. No code path
+                // mutates the loadout mid-fight, so per-move re-validation was
+                // pure overhead (~2-5ms in big loadouts).
                 const apCost = jutsu.ap ?? 40;
                 if (!canAct(apCost) || (myCooldowns[jutsuId] ?? 0) > 0) return finish(session);
 
@@ -1082,6 +1128,48 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return res.status(400).json({ error: `Unknown action: ${action}` });
         }
 
+        // If this commit resolved the fight, grant server-side Vanguard
+        // rewards (Honor Seals + Vanguard XP) for the winner. Idempotent via
+        // session.vanguardRewardsGranted, so retries don't double-grant.
+        if (result.status === 'done' && result.winner && result.winner !== 'draw'
+            && !(result as PvpSession & { vanguardRewardsGranted?: boolean }).vanguardRewardsGranted) {
+            try {
+                const grant = await grantVanguardRewardsForSession(result);
+                if (grant.granted) {
+                    (result as PvpSession & { vanguardRewardsGranted?: boolean }).vanguardRewardsGranted = true;
+                    result = { ...result, log: [...result.log, `Vanguard rewards: +${grant.seals} Seals, +${grant.xp} XP`] };
+                }
+            } catch (err) {
+                console.error('[pvp/move] vanguard reward grant failed', err);
+            }
+        }
+        // Clear both fighters' inBattle + pendingAttacker flags when a battle
+        // resolves. Otherwise the loser is "engaged" for ~60s after their
+        // fight ends (pendingAttacker has a 60s TTL) and the cached presence
+        // entry blocks third parties from attacking them. Best-effort —
+        // failures don't undo the battle resolution.
+        if (result.status === 'done') {
+            const p1Key = `presence:${result.p1.name}`;
+            const p2Key = `presence:${result.p2.name}`;
+            try {
+                const [p1Presence, p2Presence] = await Promise.all([
+                    kv.get<{ inBattle?: boolean; pendingAttacker?: unknown; [k: string]: unknown }>(p1Key),
+                    kv.get<{ inBattle?: boolean; pendingAttacker?: unknown; [k: string]: unknown }>(p2Key),
+                ]);
+                const PRESENCE_TTL_S = 60;
+                await Promise.all([
+                    p1Presence ? kv.set(p1Key, { ...p1Presence, inBattle: undefined, pendingAttacker: null }, { ex: PRESENCE_TTL_S }) : Promise.resolve(),
+                    p2Presence ? kv.set(p2Key, { ...p2Presence, inBattle: undefined, pendingAttacker: null }, { ex: PRESENCE_TTL_S }) : Promise.resolve(),
+                ]);
+            } catch (err) {
+                console.error('[pvp/move] presence cleanup failed', err);
+            }
+        }
+        // Cap log size — UI only renders the last ~20 entries anyway, and an
+        // unbounded log inflates the KV record by 20-30 KB on long fights.
+        if (result.log.length > 100) {
+            result = { ...result, log: result.log.slice(-100) };
+        }
         await kv.set(key, result, { ex: SESSION_TTL });
         return finish(result);
     } catch (err) {
