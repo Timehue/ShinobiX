@@ -2,6 +2,8 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../../_storage.js';
 import { safeName, mergePreservingImages, cors } from '../../_utils.js';
 import { authedPlayerOrAdmin } from '../../_auth.js';
+import { enforceRateLimitKv } from '../../_ratelimit.js';
+import { withKvLock } from '../../_lock.js';
 import { loadPool, savePool } from './_storage.js';
 
 // Clan leader (clanFounder = true) distributes Honor Seals from the clan
@@ -35,6 +37,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(403).json({ error: 'Can only distribute as yourself.' });
         }
 
+        // Rate limit AFTER auth so anonymous spam still hits the auth gate
+        // first. 10/min is generous for legit founder activity.
+        if (!identity.admin && !(await enforceRateLimitKv(req, res, 'clan-seal-distribute', 10, 60_000, identity.name))) return;
+
         // Verify leader status.
         const leaderRecord = await kv.get<Record<string, unknown>>(`save:${leaderName}`);
         const leaderChar = leaderRecord?.character as Record<string, unknown> | undefined;
@@ -53,26 +59,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(400).json({ error: 'Recipient is not in your clan.' });
         }
 
-        // Debit pool.
-        const pool = await loadPool(clanName);
-        if (pool.balance < amount) {
+        // Pool debit + recipient credit under a per-clan-pool lock so two
+        // simultaneous distributes can't both read pre-debit balance and
+        // double-spend. Lock keyed on the pool key so it doesn't collide
+        // with unrelated locks.
+        const poolKey = `clan-seal-pool:${clanName.toLowerCase()}`;
+        const result = await withKvLock(poolKey, async () => {
+            const pool = await loadPool(clanName);
+            if (pool.balance < amount) {
+                return { ok: false as const, available: pool.balance };
+            }
+            pool.balance -= amount;
+            pool.log.unshift({
+                kind: 'distribute',
+                by: leaderName,
+                to: recipientName,
+                amount,
+                at: Date.now(),
+            });
+            await savePool(pool);
+            return { ok: true as const, poolBalance: pool.balance };
+        });
+        if (!result.ok) {
             return res.status(400).json({
                 error: 'Not enough Seals in the clan pool.',
                 requested: amount,
-                available: pool.balance,
+                available: result.available,
             });
         }
-        pool.balance -= amount;
-        pool.log.unshift({
-            kind: 'distribute',
-            by: leaderName,
-            to: recipientName,
-            amount,
-            at: Date.now(),
-        });
-        await savePool(pool);
 
-        // Credit recipient.
+        // Credit recipient. (Outside the pool lock — the per-save write
+        // lock in api/save/[name].ts isn't held here because we're using
+        // kv.set directly; a recipient who happens to be writing their
+        // save concurrently could race, but it's a single-line read and
+        // re-write of one field. Acceptable trade-off vs. nesting locks.)
         const updatedRecipient = {
             ...recipientRecord,
             character: {
@@ -86,7 +106,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ok: true,
             distributed: amount,
             recipient: recipientName,
-            poolBalance: pool.balance,
+            poolBalance: result.poolBalance,
         });
     } catch (err) {
         console.error('[clan/seal-pool/distribute]', err);

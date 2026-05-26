@@ -44,6 +44,13 @@ type ValidatorContext = {
 
 const TREASURY_KEYS = ['ryo', 'honorSeals', 'fateShards', 'boneCharms', 'auraStones', 'mythicSeals'] as const;
 
+// Lazy-expiry window for kage challenges. A challenge that's been open
+// (not yet "resolved" / "expired") for more than 7 days is auto-expired
+// on the next write so an abandoned challenge doesn't block the village
+// forever. Picked 7 days because the official-duel ready window is
+// only minutes wide; anything older is dead.
+const KAGE_CHALLENGE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
 // Hard per-call ceilings on treasury currency *increases*. Without these a
 // bad actor could pump in fake currency the Kage then can't withdraw (Kage
 // withdrawal is bounded), but the inflated UI counters are still confusing.
@@ -292,6 +299,25 @@ export async function validateVillageStateWrite(
             }
         }
         next.kageChallenges = cleaned;
+    }
+
+    // ── Lazy-expire stale kage challenges ───────────────────────────
+    // Independent of the incoming write: if the resulting list contains
+    // any challenge that's been open more than KAGE_CHALLENGE_MAX_AGE_MS
+    // without resolving, flip its status to "expired" so the UI stops
+    // showing it as actionable. Idempotent on subsequent writes.
+    if (Array.isArray(next.kageChallenges) && next.kageChallenges.length > 0) {
+        const now = Date.now();
+        next.kageChallenges = next.kageChallenges.map((raw) => {
+            const c = (raw ?? {}) as Record<string, unknown>;
+            const status = String(c.status ?? '');
+            if (status === 'resolved' || status === 'expired') return c;
+            const created = num(c.createdAt, 0);
+            if (created > 0 && now - created > KAGE_CHALLENGE_MAX_AGE_MS) {
+                return { ...c, status: 'expired' };
+            }
+            return c;
+        });
     }
 
     // ── warRecords, kageHistory ─────────────────────────────────────

@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
+import { enforceRateLimitKv } from '../_ratelimit.js';
 
 type VillageKageState = {
     kageSystemUnlocked: boolean;
@@ -36,6 +37,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // All Kage mutations require authentication.
         const identity = await authedPlayerOrAdmin(req);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
+        // Tight per-player cap — legitimate kage actions are once-in-a-while.
+        // Admins skip (admin reset scripts may legitimately fire many fast).
+        if (!identity.admin && !(await enforceRateLimitKv(req, res, 'village-kage', 10, 60_000, identity.name))) return;
 
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
