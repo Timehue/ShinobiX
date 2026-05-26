@@ -7,6 +7,8 @@ import { withKvLock } from '../../_lock.js';
 import {
     applyLazyClanWarExpiry,
     CHALLENGE_EXPIRY_MS,
+    CLAN_WAR_REMATCH_COOLDOWN_SEC,
+    clanWarCooldownKey,
     loadClanContext,
     MAX_PENDING_CHALLENGES,
     type ChallengeMode,
@@ -67,10 +69,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const result = await withKvLock(key, async () => {
             const fresh = await kv.get<ClanWar>(key);
             if (!fresh) return { status: 404 as const, body: { error: 'War not found.' } };
-            const { war: war0, changed: didExpire } = applyLazyClanWarExpiry(fresh);
+            const { war: war0, changed: didExpire, needsCooldownStamp } = applyLazyClanWarExpiry(fresh);
             let war = war0;
             if (war.endedAt) {
-                if (didExpire) await kv.set(key, war);
+                if (didExpire) {
+                    await kv.set(key, war);
+                    // If the war just auto-finalized via 14-day timeout,
+                    // stamp the rematch cooldown so parity holds with
+                    // HP-driven war-end in report.ts.
+                    if (needsCooldownStamp) {
+                        await kv.set(clanWarCooldownKey(war.clans[0], war.clans[1]), war.endedAt, { ex: CLAN_WAR_REMATCH_COOLDOWN_SEC });
+                    }
+                }
                 return { status: 409 as const, body: { error: 'War has ended.', war } };
             }
 
@@ -159,8 +169,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // If the partner leaves: drop fromPlayer2, revert to 'queuing'.
                 // If the seed leaves with a partner present: promote partner → seed, revert to 'queuing'.
                 // If the seed leaves alone: cancel the entire challenge.
+                //
+                // When status regresses to 'queuing' the challenge becomes
+                // hidden from the defender clan, so any defenders queued
+                // for accept get stranded. Clear the accept queue so they
+                // re-queue if a new partner joins — no invisible state.
                 if (isPartner) {
-                    const updated: ClanChallenge = { ...ch, fromPlayer2: undefined, status: 'queuing' };
+                    const updated: ClanChallenge = {
+                        ...ch,
+                        fromPlayer2: undefined,
+                        status: 'queuing',
+                        acceptedPlayer: undefined,
+                        acceptedPlayer2: undefined,
+                    };
                     war = {
                         ...war,
                         pendingChallenges: war.pendingChallenges.map(c => c.id === ch.id ? updated : c),
@@ -171,7 +192,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
                 // isSeed
                 if (ch.fromPlayer2) {
-                    const updated: ClanChallenge = { ...ch, fromPlayer: ch.fromPlayer2, fromPlayer2: undefined, status: 'queuing' };
+                    const updated: ClanChallenge = {
+                        ...ch,
+                        fromPlayer: ch.fromPlayer2,
+                        fromPlayer2: undefined,
+                        status: 'queuing',
+                        acceptedPlayer: undefined,
+                        acceptedPlayer2: undefined,
+                    };
                     war = {
                         ...war,
                         pendingChallenges: war.pendingChallenges.map(c => c.id === ch.id ? updated : c),
