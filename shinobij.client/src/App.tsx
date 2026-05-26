@@ -274,6 +274,10 @@ type SectorTerritory = {
 
 let sharedSectorTerritoryCache: Record<number, SectorTerritory> = {};
 let sharedVillageWarCache: Record<string, VillageWar> = {};
+// Clan war cache — populated by ClanWarsPanel/ClanBattlesTab refreshes.
+// Used by claimPendingWarCrates to grant unclaimed clan-war rewards
+// (winner crate, MVP bonus, loser consolation) on next render.
+const sharedClanWarCache: Record<string, CwWar> = {};
 
 function defaultSectorTerritory(sector: number): SectorTerritory {
     return { sector, controlScore: 0, hp: TERRITORY_HP_MAX, terrainBuffStat: "bukijutsuOffense", guards: [], warSupply: 0, updatedAt: Date.now() };
@@ -4937,6 +4941,88 @@ function claimPendingWarCrates(
         idsToAdd.push(record.warCrateId);
     }
 
+    // Clan war crates — scan the shared in-memory cache. Independent
+    // of village wars: a player can be in both at once and earn from
+    // each.
+    for (const war of Object.values(sharedClanWarCache)) {
+        if (!war.endedAt || now - war.endedAt > WAR_CRATE_EXPIRY_MS) continue;
+        const myClan = character.clan;
+        if (!myClan || !war.clans.includes(myClan)) continue;
+
+        // 1. Winner crate — every player in the winning clan gets one.
+        if (war.winnerClan === myClan && war.warCrateId && !claimed.has(war.warCrateId)) {
+            cratesToAdd.push(war.warCrateId);
+            idsToAdd.push(war.warCrateId);
+            warsWonDelta += 1;
+        }
+
+        // 2. MVP bonus — top contributor on each side gets bonus
+        //    currency on top of the winner crate (if they're on the
+        //    winning side) or just the bonus (if on the losing side —
+        //    earned, but unrewarded by a crate).
+        const mvpName = war.mvpByClan?.[myClan];
+        const mvpId = `clan-war-mvp-${war.id}-${myClan.toLowerCase().replace(/[^a-z0-9]/g, "")}`;
+        if (mvpName && mvpName.toLowerCase() === myName.toLowerCase() && !claimed.has(mvpId)) {
+            idsToAdd.push(mvpId);
+            ryoBonus += 10_000;
+            honorBonus += 50;
+            shardsBonus += 2;
+            mvpAwarded = true;
+            mvpCountDelta += 1;
+        }
+
+        // 3. Loss consolation — losing-side participants who actually
+        //    contributed (sum of mode damages ≥ 20) get a small ryo +
+        //    honor seal grant. Threshold filters out passive members
+        //    who never queued.
+        if (war.winnerClan && war.winnerClan !== myClan) {
+            const consolId = `clan-war-consol-${war.id}-${myName.toLowerCase()}`;
+            if (!claimed.has(consolId)) {
+                let myDamage = 0;
+                for (const ch of war.completedChallenges) {
+                    if (ch.status !== "completed" || !ch.result || ch.result === "draw") continue;
+                    const won = (ch.result === "from-wins" && ch.fromClan === myClan)
+                        || (ch.result === "to-wins" && ch.fromClan !== myClan);
+                    if (!won) continue;
+                    const winners = ch.fromClan === myClan
+                        ? [ch.fromPlayer, ch.fromPlayer2].filter(Boolean) as string[]
+                        : [ch.acceptedPlayer, ch.acceptedPlayer2].filter(Boolean) as string[];
+                    if (winners.some(p => p.toLowerCase() === myName.toLowerCase())) {
+                        myDamage += CW_DAMAGE[ch.mode] ?? 0;
+                    }
+                }
+                if (myDamage >= 20) {
+                    idsToAdd.push(consolId);
+                    ryoBonus += 2_500;
+                    honorBonus += 10;
+                    consolationAwarded = true;
+                }
+            }
+        }
+
+        // 4. Lifetime clan-war damage — credit each player's total
+        //    contribution once per war for the HoL leaderboard.
+        const statsId = `clan-war-stats-${war.id}-${myName.toLowerCase()}`;
+        if (!claimed.has(statsId)) {
+            let totalDamage = 0;
+            for (const ch of war.completedChallenges) {
+                if (ch.status !== "completed" || !ch.result || ch.result === "draw") continue;
+                const winners = ch.fromClan === myClan
+                    ? [ch.fromPlayer, ch.fromPlayer2].filter(Boolean) as string[]
+                    : [ch.acceptedPlayer, ch.acceptedPlayer2].filter(Boolean) as string[];
+                const won = (ch.result === "from-wins" && ch.fromClan === myClan)
+                    || (ch.result === "to-wins" && ch.fromClan !== myClan);
+                if (won && winners.some(p => p.toLowerCase() === myName.toLowerCase())) {
+                    totalDamage += CW_DAMAGE[ch.mode] ?? 0;
+                }
+            }
+            if (totalDamage > 0) {
+                lifetimeDamageDelta += totalDamage;
+                idsToAdd.push(statsId);
+            }
+        }
+    }
+
     // Village war crates — scan the shared in-memory cache
     for (const war of Object.values(sharedVillageWarCache)) {
         // Skip wars older than expiry on either branch below.
@@ -8267,16 +8353,49 @@ export default function App() {
     const [savedBloodlines, setSavedBloodlines] = useState<SavedBloodline[]>([]);
     const [publicPlayerBloodlines, setPublicPlayerBloodlines] = useState<ReviewBloodline[]>([]);
     const [worldStateVersion, setWorldStateVersion] = useState(0);
+    // Bumped whenever the clan-war list is refreshed. Drives the
+    // reward auto-claim effect below (parallel to worldStateVersion
+    // for village wars).
+    const [clanWarStateVersion, setClanWarStateVersion] = useState(0);
     // Village war crates — check whenever the shared world state refreshes.
-    // Clan war crates are checked inside ClanHall where clanData is available.
+    // Also covers clan war crates now that claimPendingWarCrates scans
+    // sharedClanWarCache; ClanHall fires its own claim too once clanData
+    // is loaded.
     useEffect(() => {
         if (!character) return;
-        const { character: updated, count } = claimPendingWarCrates(character, null);
-        if (count === 0) return;
+        const { character: updated, count, mvp, consolation } = claimPendingWarCrates(character, null);
+        if (count === 0 && !mvp && !consolation) return;
         setCharacter(updated);
-        alert(`You received ${count} Legendary War Crate${count > 1 ? "s" : ""} from a recent village war victory! Check your inventory.`);
-     
-    }, [worldStateVersion]);
+        if (count > 0) {
+            alert(`You received ${count} Legendary War Crate${count > 1 ? "s" : ""} from a recent war victory! Check your inventory.`);
+        } else if (mvp) {
+            alert(`MVP rewards delivered: bonus ryo, honor seals, and fate shards added to your account.`);
+        } else if (consolation) {
+            alert(`Consolation rewards from a recent war loss have been added to your account.`);
+        }
+    }, [worldStateVersion, clanWarStateVersion]);
+
+    // Light-weight clan war polling — keeps sharedClanWarCache fresh so
+    // ended-war rewards auto-claim. 30s cadence is enough since
+    // rewards have a 7-day claim window.
+    useEffect(() => {
+        if (!tabVisible) return;
+        if (!character) return;
+        let alive = true;
+        async function refreshClanWars() {
+            try {
+                await cwListWars();
+                if (!alive) return;
+                setClanWarStateVersion(v => v + 1);
+            } catch { /* dev/offline fallback */ }
+        }
+        refreshClanWars();
+        const id = setInterval(refreshClanWars, 30_000);
+        return () => {
+            alive = false;
+            clearInterval(id);
+        };
+    }, [tabVisible, character?.name]);
     const [, setSharedGameStateVersion] = useState(0);
     const [currentBiome, setCurrentBiome] = useState<Biome>("central");
     const [currentWeather, setCurrentWeather] =
@@ -23457,6 +23576,13 @@ function ClanWarManual({ onClose }: { onClose: () => void }) {
             <p style={{ margin: "0 0 0.5rem" }}>
                 <strong style={{ color: "#60a5fa" }}>Winning the war.</strong> When one clan's HP hits <strong>0</strong>, the war ends and the other clan wins. The server also computes an MVP per clan (most wins; tiebreak by damage contributed) — visible on the war card and recent-war record.
             </p>
+            <p style={{ margin: "0 0 0.5rem" }}>
+                <strong style={{ color: "#60a5fa" }}>Rewards.</strong>
+                <br />• <strong>Every winning-clan member:</strong> 1× Legendary War Crate.
+                <br />• <strong>MVP each side</strong> (top wins; tiebreak by damage): +10,000 ryo, +50 Honor Seals, +2 Fate Shards. Winning- AND losing-side MVPs both earn this.
+                <br />• <strong>Losing-clan participants who dealt ≥ 20 damage:</strong> +2,500 ryo, +10 Honor Seals consolation. No reward on draws.
+                <br />Rewards auto-claim within a 7-day window from a clan-war refresh — no buttons to click.
+            </p>
             <p style={{ margin: "0 0 0.5rem", fontSize: "0.78rem", color: "#fbbf24" }}>
                 ⚠ <strong>Rate limits:</strong> 30 challenge actions per minute per player, 4 war declarations per hour per player, max 30 pending challenges per war, max 10 active challenges from a single clan at once.
             </p>
@@ -25951,7 +26077,11 @@ async function cwListWars(): Promise<CwWar[]> {
         const r = await fetch("/api/clan/war/list");
         if (!r.ok) return [];
         const data = await r.json() as { wars?: CwWar[] };
-        return data.wars ?? [];
+        const wars = data.wars ?? [];
+        // Populate the shared cache so claimPendingWarCrates can scan
+        // ended clan wars for unclaimed rewards on next render.
+        for (const w of wars) sharedClanWarCache[w.id] = w;
+        return wars;
     } catch { return []; }
 }
 async function cwDeclareWar(toClan: string): Promise<{ ok: boolean; error?: string; war?: CwWar }> {
