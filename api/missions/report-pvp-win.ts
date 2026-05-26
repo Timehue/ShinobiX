@@ -34,8 +34,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(403).json({ error: 'Can only report your own wins.' });
         }
 
-        // Validate the win against the actual PvP session.
-        const session = await kv.get<PvpSession>(`pvp:session:${battleId}`);
+        // Validate the win against the actual PvP session. Key is `pvp:${id}`
+        // — must match what session.ts writes and move.ts reads (an earlier
+        // mismatched `pvp:session:${id}` here silently 404'd every Vanguard
+        // PvP-win mission report).
+        const session = await kv.get<PvpSession>(`pvp:${battleId}`);
         if (!session) return res.status(404).json({ error: 'Battle session not found or expired.' });
         if (session.status !== 'done' || !session.winner) {
             return res.status(409).json({ error: 'Battle not yet decided.' });
