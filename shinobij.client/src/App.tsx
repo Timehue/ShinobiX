@@ -15231,8 +15231,53 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
         setIsPlaying(true);
         setResult(battle.result === "win" ? "Victory" : "Defeat");
         if (battle.result === "win") {
-            const reward = Math.max(20, opponent.pet.level * 5);
-            updateCharacter({ ...character, ryo: character.ryo + reward, totalPetWins: (character.totalPetWins ?? 0) + 1, dailyPetWins: (character.dailyPetWins ?? 0) + 1, lastDailyReset: currentDateKey() });
+            // Pet Arena rewards are server-validated: we POST the win and the
+            // server applies ryo + increments totalPetWins / dailyPetWins
+            // under a per-player lock + 5s rate-limit + daily cap. Client no
+            // longer touches ryo directly here. Falls back to old behavior if
+            // the endpoint is unreachable so existing saves don't get stuck.
+            void (async () => {
+                try {
+                    const r = await fetch("/api/pet/battle-result", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            playerName: character.name,
+                            outcome: "win",
+                            opponentLevel: opponent.pet.level,
+                        }),
+                    });
+                    if (r.ok) {
+                        const data = await r.json() as { reward?: number; totalPetWins?: number; dailyPetWins?: number; capped?: boolean };
+                        updateCharacter({
+                            ...character,
+                            ryo: character.ryo + (data.reward ?? 0),
+                            totalPetWins: data.totalPetWins ?? ((character.totalPetWins ?? 0) + 1),
+                            dailyPetWins: data.dailyPetWins ?? ((character.dailyPetWins ?? 0) + 1),
+                            lastDailyReset: currentDateKey(),
+                        });
+                        if (data.capped) {
+                            setBattleLog([...battle.logs, "Daily Pet Arena reward cap reached — wins still count, but no more ryo today."]);
+                        }
+                    } else {
+                        // Server refused — DON'T grant ryo locally. Stats stay client-side as before.
+                        updateCharacter({
+                            ...character,
+                            totalPetWins: (character.totalPetWins ?? 0) + 1,
+                            dailyPetWins: (character.dailyPetWins ?? 0) + 1,
+                            lastDailyReset: currentDateKey(),
+                        });
+                    }
+                } catch {
+                    // Network error — record the win locally for counter UX, skip ryo.
+                    updateCharacter({
+                        ...character,
+                        totalPetWins: (character.totalPetWins ?? 0) + 1,
+                        dailyPetWins: (character.dailyPetWins ?? 0) + 1,
+                        lastDailyReset: currentDateKey(),
+                    });
+                }
+            })();
             if (pendingClanPetBattle) {
                 void addClanWarPoints(pendingClanPetBattle.clanName ?? character.clan, character.name, pendingClanPetBattle.points);
                 setBattleLog([...battle.logs, `${character.name} earned ${pendingClanPetBattle.points} clan war points by winning the pet battle against ${pendingClanPetBattle.opponentName}.`]);
