@@ -33794,16 +33794,35 @@ type ModLookupResult = {
     perIp: Array<{ ip: string; names: string[] }>;
     perFp: Array<{ fp: string; names: string[] }>;
 };
+type ModSnapshot = {
+    target: string;
+    exists: boolean;
+    snapshot?: {
+        level: number; village: string; clan: string; specialty: string; rank: string;
+        ryo: number; xp: number; totalPvpKills: number; totalAiKills: number;
+        hospitalized: boolean; createdAt: unknown; lastSeenAt: number; currentSector: number; online: boolean;
+    };
+    ban?: ModBanRecord | null;
+    silence?: ModSilenceRecord | null;
+};
+type ModChatMessage = { author: string; text: string; ts: number; rank?: string; level?: number };
 
 function ModerationPanel({ adminPw }: { adminPw: string }) {
     const [bans, setBans] = useState<Array<{ name: string; record: ModBanRecord }>>([]);
     const [silences, setSilences] = useState<Array<{ name: string; record: ModSilenceRecord }>>([]);
     const [audit, setAudit] = useState<ModAuditEntry[]>([]);
     const [searchName, setSearchName] = useState("");
+    const [searchSignal, setSearchSignal] = useState("");
+    const [signalKind, setSignalKind] = useState<"ip" | "fp">("ip");
+    const [signalResult, setSignalResult] = useState<{ kind: "ip" | "fp"; value: string; names: string[] } | null>(null);
     const [lookup, setLookup] = useState<ModLookupResult | null>(null);
+    const [snapshot, setSnapshot] = useState<ModSnapshot | null>(null);
     const [reason, setReason] = useState("");
     const [status, setStatus] = useState("");
     const [loading, setLoading] = useState(false);
+    // Village chat viewer
+    const [chatVillage, setChatVillage] = useState("");
+    const [chatMessages, setChatMessages] = useState<ModChatMessage[]>([]);
 
     const refresh = useCallback(async () => {
         if (!adminPw) return;
@@ -33847,12 +33866,45 @@ function ModerationPanel({ adminPw }: { adminPw: string }) {
         }
     }
 
+    // Pivot the whole lookup card to a different player. Used by Search button
+    // and by every linked-account / ban-list / audit-log button below.
+    async function pivotTo(name: string) {
+        const target = name.trim();
+        if (!target) return;
+        setSearchName(target);
+        const [lookupData, snapData] = await Promise.all([
+            modAction("lookup", { target }),
+            modAction("snapshot", { target }),
+        ]);
+        if (lookupData) setLookup(lookupData as ModLookupResult);
+        if (snapData) setSnapshot(snapData as ModSnapshot);
+    }
+
     async function doLookup() {
-        if (!searchName.trim()) return;
-        // "lookup" is the combined IP + fingerprint version. Server still
-        // accepts the legacy "ip-lookup" kind as an alias.
-        const data = await modAction("lookup", { target: searchName.trim() });
-        if (data) setLookup(data as ModLookupResult);
+        await pivotTo(searchName.trim());
+    }
+
+    async function doSignalSearch() {
+        const v = searchSignal.trim();
+        if (!v) return;
+        const kind = signalKind === "ip" ? "reverse-ip" : "reverse-fp";
+        const body = signalKind === "ip" ? { ip: v } : { fp: v.toLowerCase() };
+        const data = await modAction(kind, body);
+        if (data) {
+            setSignalResult({ kind: signalKind, value: v, names: (data.names as string[]) ?? [] });
+        }
+    }
+
+    async function loadVillageChat(village: string) {
+        const v = village.trim();
+        if (!v) return;
+        const data = await modAction("fetch-village-chat", { village: v });
+        if (data) setChatMessages((data.messages as ModChatMessage[]) ?? []);
+    }
+
+    async function deleteChatMessage(village: string, author: string, ts: number) {
+        await modAction("delete-chat-message", { village, author, ts });
+        await loadVillageChat(village);
     }
 
     async function ban(target: string, days: number | "permanent") {
@@ -33884,7 +33936,7 @@ function ModerationPanel({ adminPw }: { adminPw: string }) {
         <div style={{ display: "grid", gap: "1rem" }}>
             <section className="summary-box">
                 <h3>🛡 Player Lookup</h3>
-                <p className="hint">Find a player's IP history and every account that has used the same IPs (sock-puppet detection).</p>
+                <p className="hint">Search by name to inspect a single account, or paste an IP / fingerprint hash to find every account using it.</p>
                 <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
                     <input
                         value={searchName}
@@ -33893,8 +33945,35 @@ function ModerationPanel({ adminPw }: { adminPw: string }) {
                         style={{ flex: 1, minWidth: 200, padding: "0.4rem" }}
                         onKeyDown={(e) => { if (e.key === "Enter") void doLookup(); }}
                     />
-                    <button onClick={doLookup} disabled={loading || !searchName.trim()}>Search</button>
+                    <button onClick={doLookup} disabled={loading || !searchName.trim()}>Search Name</button>
                 </div>
+                <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", marginTop: "0.5rem" }}>
+                    <select value={signalKind} onChange={(e) => setSignalKind(e.target.value as "ip" | "fp")} style={{ padding: "0.4rem" }}>
+                        <option value="ip">IP</option>
+                        <option value="fp">Fingerprint</option>
+                    </select>
+                    <input
+                        value={searchSignal}
+                        onChange={(e) => setSearchSignal(e.target.value)}
+                        placeholder={signalKind === "ip" ? "Paste an IP (e.g. 203.0.113.42)" : "Paste a fingerprint hash"}
+                        style={{ flex: 1, minWidth: 200, padding: "0.4rem", fontFamily: "monospace" }}
+                        onKeyDown={(e) => { if (e.key === "Enter") void doSignalSearch(); }}
+                    />
+                    <button onClick={doSignalSearch} disabled={loading || !searchSignal.trim()}>Find accounts</button>
+                </div>
+                {signalResult && (
+                    <div style={{ background: "#0a0a1a", borderRadius: 6, padding: "0.5rem", marginTop: "0.5rem" }}>
+                        <strong>{signalResult.names.length}</strong> account{signalResult.names.length === 1 ? "" : "s"} on <code style={{ color: signalResult.kind === "ip" ? "#facc15" : "#a78bfa" }}>{signalResult.value}</code>:
+                        <div style={{ marginTop: 4 }}>
+                            {signalResult.names.length === 0
+                                ? <em style={{ color: "#64748b" }}>None recorded.</em>
+                                : signalResult.names.map(n => (
+                                    <button key={n} onClick={() => pivotTo(n)} style={{ margin: 2, padding: "0.2rem 0.6rem", fontSize: "0.85rem" }}>{n}</button>
+                                ))
+                            }
+                        </div>
+                    </div>
+                )}
                 <label style={{ display: "block", marginTop: "0.6rem" }}>Mod-action reason (saved to audit log)</label>
                 <input
                     value={reason}
@@ -33905,6 +33984,53 @@ function ModerationPanel({ adminPw }: { adminPw: string }) {
                 />
                 {status && <p className="hint" style={{ marginTop: "0.4rem" }}>{status}</p>}
             </section>
+
+            {snapshot && snapshot.exists && snapshot.snapshot && (
+                <section className="summary-box">
+                    <h3>👤 {snapshot.target} — Account Snapshot</h3>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "0.5rem", marginTop: "0.4rem" }}>
+                        <div><strong>Level:</strong> {snapshot.snapshot.level}</div>
+                        <div><strong>Village:</strong> {snapshot.snapshot.village || <em style={{ color: "#64748b" }}>none</em>}</div>
+                        <div><strong>Clan:</strong> {snapshot.snapshot.clan || <em style={{ color: "#64748b" }}>none</em>}</div>
+                        <div><strong>Rank:</strong> {snapshot.snapshot.rank || <em style={{ color: "#64748b" }}>unknown</em>}</div>
+                        <div><strong>Specialty:</strong> {snapshot.snapshot.specialty || <em style={{ color: "#64748b" }}>n/a</em>}</div>
+                        <div><strong>Ryo:</strong> {snapshot.snapshot.ryo.toLocaleString()}</div>
+                        <div><strong>PvP kills:</strong> {snapshot.snapshot.totalPvpKills}</div>
+                        <div><strong>AI kills:</strong> {snapshot.snapshot.totalAiKills}</div>
+                        <div>
+                            <strong>Status:</strong>{" "}
+                            {snapshot.snapshot.online
+                                ? <span style={{ color: "#4ade80" }}>● online (sector {snapshot.snapshot.currentSector})</span>
+                                : <span style={{ color: "#64748b" }}>○ offline</span>}
+                        </div>
+                        {snapshot.snapshot.lastSeenAt > 0 && (
+                            <div><strong>Last seen:</strong> {new Date(snapshot.snapshot.lastSeenAt).toLocaleString()}</div>
+                        )}
+                        {snapshot.snapshot.hospitalized && (
+                            <div style={{ color: "#f87171" }}>🏥 Hospitalized</div>
+                        )}
+                    </div>
+                    {(snapshot.ban || snapshot.silence) && (
+                        <div style={{ marginTop: "0.6rem", padding: "0.5rem", background: "#1c0606", borderRadius: 6 }}>
+                            {snapshot.ban && (
+                                <div style={{ color: "#f87171" }}>
+                                    🚫 <strong>BANNED</strong> {snapshot.ban.permanent ? "permanently" : `until ${new Date(snapshot.ban.until).toLocaleString()}`} — {snapshot.ban.reason || <em>no reason</em>} <small>(by {snapshot.ban.by})</small>
+                                </div>
+                            )}
+                            {snapshot.silence && (
+                                <div style={{ color: "#fbbf24", marginTop: snapshot.ban ? 4 : 0 }}>
+                                    🔇 <strong>SILENCED</strong> until {new Date(snapshot.silence.until).toLocaleString()} — {snapshot.silence.reason || <em>no reason</em>} <small>(by {snapshot.silence.by})</small>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </section>
+            )}
+            {snapshot && !snapshot.exists && (
+                <section className="summary-box">
+                    <p className="hint">No save found for <strong>{snapshot.target}</strong>. The IP / fingerprint data below may still be useful.</p>
+                </section>
+            )}
 
             {lookup && (
                 <section className="summary-box">
@@ -33925,7 +34051,7 @@ function ModerationPanel({ adminPw }: { adminPw: string }) {
                                         {lookup.linkedByBoth.map(n => (
                                             <button
                                                 key={n}
-                                                onClick={() => { setSearchName(n); void modAction("lookup", { target: n }).then((d) => d && setLookup(d)); }}
+                                                onClick={() => pivotTo(n)}
                                                 style={{ margin: "2px", padding: "0.2rem 0.6rem", fontSize: "0.85rem", background: "#7f1d1d", borderColor: "#f87171" }}
                                             >{n}</button>
                                         ))}
@@ -33946,7 +34072,7 @@ function ModerationPanel({ adminPw }: { adminPw: string }) {
                                                     also used by: {names.map(n => (
                                                         <button
                                                             key={n}
-                                                            onClick={() => { setSearchName(n); void modAction("lookup", { target: n }).then((d) => d && setLookup(d)); }}
+                                                            onClick={() => pivotTo(n)}
                                                             style={{ marginLeft: 4, padding: "0 6px", fontSize: "0.85rem", background: lookup.linkedByBoth.includes(n) ? "#7f1d1d" : undefined, borderColor: lookup.linkedByBoth.includes(n) ? "#f87171" : undefined }}
                                                         >{n}{lookup.linkedByFp.includes(n) ? " ★" : ""}</button>
                                                     ))}
@@ -33972,7 +34098,7 @@ function ModerationPanel({ adminPw }: { adminPw: string }) {
                                                     also used by: {names.map(n => (
                                                         <button
                                                             key={n}
-                                                            onClick={() => { setSearchName(n); void modAction("lookup", { target: n }).then((d) => d && setLookup(d)); }}
+                                                            onClick={() => pivotTo(n)}
                                                             style={{ marginLeft: 4, padding: "0 6px", fontSize: "0.85rem", background: lookup.linkedByBoth.includes(n) ? "#7f1d1d" : undefined, borderColor: lookup.linkedByBoth.includes(n) ? "#f87171" : undefined }}
                                                         >{n}{lookup.linkedByIp.includes(n) ? " ★" : ""}</button>
                                                     ))}
@@ -34006,6 +34132,36 @@ function ModerationPanel({ adminPw }: { adminPw: string }) {
             )}
 
             <section className="summary-box">
+                <h3>💬 Village Chat Viewer</h3>
+                <p className="hint">Pick a village to see its current chat backlog. Click 🗑 to delete a message or 🔇 to silence the author for a day.</p>
+                <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+                    <select value={chatVillage} onChange={(e) => { setChatVillage(e.target.value); if (e.target.value) void loadVillageChat(e.target.value); }} style={{ padding: "0.4rem", flex: 1 }}>
+                        <option value="">— Choose a village —</option>
+                        {villages.map(v => <option key={v} value={v}>{v}</option>)}
+                    </select>
+                    <button onClick={() => loadVillageChat(chatVillage)} disabled={!chatVillage || loading}>Refresh</button>
+                </div>
+                {chatVillage && (
+                    <div style={{ maxHeight: 320, overflowY: "auto", background: "#0a0a1a", borderRadius: 6, padding: "0.5rem", marginTop: "0.5rem" }}>
+                        {chatMessages.length === 0
+                            ? <em style={{ color: "#64748b" }}>No recent messages in {chatVillage}.</em>
+                            : chatMessages.slice().reverse().map(m => (
+                                <div key={`${m.author}:${m.ts}`} style={{ padding: "0.3rem 0", borderBottom: "1px solid #1f2937", display: "flex", alignItems: "flex-start", gap: "0.4rem" }}>
+                                    <div style={{ flex: 1, fontFamily: "monospace", fontSize: "0.85rem" }}>
+                                        <span style={{ color: "#94a3b8" }}>{new Date(m.ts).toLocaleTimeString()}</span> ·{" "}
+                                        <button onClick={() => pivotTo(m.author)} style={{ background: "transparent", border: 0, color: "#facc15", cursor: "pointer", padding: 0, fontWeight: 700, textDecoration: "underline dotted" }}>{m.author}</button>
+                                        {m.level != null && <span style={{ color: "#94a3b8" }}> (lvl {m.level})</span>}: <span>{m.text}</span>
+                                    </div>
+                                    <button onClick={() => silence(m.author, 1)} disabled={loading} title="Silence author 1d" style={{ padding: "0.1rem 0.4rem", fontSize: "0.75rem", background: "#1a2a3a" }}>🔇</button>
+                                    <button onClick={() => deleteChatMessage(chatVillage, m.author, m.ts)} disabled={loading} title="Delete this message" style={{ padding: "0.1rem 0.4rem", fontSize: "0.75rem", background: "#3a1a1a" }}>🗑</button>
+                                </div>
+                            ))
+                        }
+                    </div>
+                )}
+            </section>
+
+            <section className="summary-box">
                 <h3>🚫 Active Bans ({bans.length})</h3>
                 {bans.length === 0
                     ? <p className="hint">None.</p>
@@ -34013,7 +34169,10 @@ function ModerationPanel({ adminPw }: { adminPw: string }) {
                         <div style={{ display: "grid", gap: 4 }}>
                             {bans.map(({ name, record }) => (
                                 <div key={name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.3rem 0.5rem", background: "#1c0606", borderRadius: 4 }}>
-                                    <span><strong>{name}</strong> — {record.reason || <em>no reason</em>} <small style={{ color: "#94a3b8" }}>(by {record.by}, {fmtUntil(record)} left)</small></span>
+                                    <span>
+                                        <button onClick={() => pivotTo(name)} style={{ background: "transparent", border: 0, color: "#fca5a5", cursor: "pointer", padding: 0, fontWeight: 700, textDecoration: "underline dotted" }}>{name}</button>
+                                        {" — "}{record.reason || <em>no reason</em>} <small style={{ color: "#94a3b8" }}>(by {record.by}, {fmtUntil(record)} left)</small>
+                                    </span>
                                     <button onClick={() => unban(name)} disabled={loading} style={{ background: "#1e3a1e", fontSize: "0.85rem", padding: "0.2rem 0.6rem" }}>Unban</button>
                                 </div>
                             ))}
@@ -34030,7 +34189,10 @@ function ModerationPanel({ adminPw }: { adminPw: string }) {
                         <div style={{ display: "grid", gap: 4 }}>
                             {silences.map(({ name, record }) => (
                                 <div key={name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.3rem 0.5rem", background: "#0a1a2a", borderRadius: 4 }}>
-                                    <span><strong>{name}</strong> — {record.reason || <em>no reason</em>} <small style={{ color: "#94a3b8" }}>(by {record.by}, {fmtUntil(record)} left)</small></span>
+                                    <span>
+                                        <button onClick={() => pivotTo(name)} style={{ background: "transparent", border: 0, color: "#fde68a", cursor: "pointer", padding: 0, fontWeight: 700, textDecoration: "underline dotted" }}>{name}</button>
+                                        {" — "}{record.reason || <em>no reason</em>} <small style={{ color: "#94a3b8" }}>(by {record.by}, {fmtUntil(record)} left)</small>
+                                    </span>
                                     <button onClick={() => unsilence(name)} disabled={loading} style={{ background: "#1e3a1e", fontSize: "0.85rem", padding: "0.2rem 0.6rem" }}>Unsilence</button>
                                 </div>
                             ))}
@@ -34047,7 +34209,9 @@ function ModerationPanel({ adminPw }: { adminPw: string }) {
                         <div style={{ maxHeight: 280, overflowY: "auto", fontFamily: "monospace", fontSize: "0.85rem" }}>
                             {audit.slice(0, 50).map((entry, i) => (
                                 <div key={i} style={{ padding: "0.2rem 0", borderBottom: "1px solid #1f2937" }}>
-                                    <span style={{ color: "#94a3b8" }}>{new Date(entry.ts).toLocaleString()}</span> · <strong style={{ color: "#facc15" }}>{entry.action}</strong> · <strong>{entry.target}</strong> · <em style={{ color: "#94a3b8" }}>by {entry.actor}</em>
+                                    <span style={{ color: "#94a3b8" }}>{new Date(entry.ts).toLocaleString()}</span> · <strong style={{ color: "#facc15" }}>{entry.action}</strong> ·{" "}
+                                    <button onClick={() => pivotTo(entry.target)} style={{ background: "transparent", border: 0, color: "#e2e8f0", cursor: "pointer", padding: 0, fontWeight: 700, textDecoration: "underline dotted", fontFamily: "monospace" }}>{entry.target}</button>
+                                    {" · "}<em style={{ color: "#94a3b8" }}>by {entry.actor}</em>
                                     {entry.detail && <div style={{ paddingLeft: "1rem", color: "#cbd5e1" }}>{entry.detail}</div>}
                                 </div>
                             ))}
