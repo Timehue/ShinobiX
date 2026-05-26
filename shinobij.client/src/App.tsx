@@ -8516,11 +8516,10 @@ export default function App() {
                     if (persisted) {
                         const inHollowGateRun = Boolean(normalized.hollowGateRun && !normalized.hollowGateRun.completed);
                         // Mid-encounter screens that can't resume from
-                        // local state alone. arena was previously allowed
-                        // here when Arena had localStorage restore, but
-                        // that was reverted (caused React #310) — so
-                        // arena goes back on the unsafe list.
-                        const UNSAFE: Screen[] = ["arena", "petArena", "hollowGateTiles"];
+                        // local state alone. arena CAN resume via its own
+                        // localStorage restore (added back with a smaller
+                        // hook footprint after the React #310 incident).
+                        const UNSAFE: Screen[] = ["petArena", "hollowGateTiles"];
                         if (persisted === "pvpBattle" && !restoredPvpBattleId) {
                             // No PvP breadcrumb to restore — fall through
                             // to a safe screen.
@@ -32045,15 +32044,84 @@ function Arena({
     const activeWeaponRangeTiles = weaponRangeTiles(pendingTargetWeapon);
     const activeGroundAffectedTiles = groundAffectedTiles(pendingTargetJutsu, hoveredBattleTile);
 
-    // Mid-battle PvE state persistence was REMOVED — it added 3 useEffect
-    // hooks at the bottom of this 50+-state-hook function, and the 24-item
-    // deps array on the save hook was triggering React error #310 (hook
-    // count mismatch) when paired with the new Hollow Gate ambush flow.
-    // PvP refresh resume still works via the App-level PVP_SESSION_KEY
-    // breadcrumb (the server holds authoritative PvP session state, so
-    // the client only needs to remember the battle id). PvE refresh
-    // mid-fight falls back to the village (acceptable trade-off — losing
-    // a couple of jutsu picks vs crashing the app).
+    // ── Mid-battle PvE state persistence (minimal-hook v2) ──────────────
+    // Players don't want a refresh to lose their fight. Earlier attempt
+    // used a useEffect with a 24-item deps array which the user reported
+    // crashed with React #310. This version saves only on turn boundaries
+    // (deps array of 3) so the hook is stable across renders.
+    //
+    // 3 hooks total: 1 useRef (restore guard) + 2 useEffects (save +
+    // restore). Save fires when `turn` changes or battleStarted/Ended
+    // flip — that's once per round, not once per state mutation.
+    const ARENA_SAVE_KEY = `arena.battle.v2.${character.name}`;
+    const ARENA_SAVE_TTL_MS = 60 * 60 * 1000;
+    const arenaRestoreAttempted = useRef(false);
+    useEffect(() => {
+        if (!battleStarted || battleEnded) {
+            try { localStorage.removeItem(ARENA_SAVE_KEY); } catch { /* ignore */ }
+            return;
+        }
+        try {
+            localStorage.setItem(ARENA_SAVE_KEY, JSON.stringify({
+                savedAt: Date.now(),
+                opponentName: opponentCharacter?.name ?? pendingAiProfile?.name,
+                pendingStoryKind: pendingStoryBattle?.kind,
+                battleStarted, playerHp, enemyHp, enemyChakra, enemyStamina,
+                ap, enemyAp, turn, activeActor, actionsThisTurn,
+                playerStatuses, enemyStatuses, barrierTiles,
+                cooldowns, jutsuCooldowns, enemyJutsuCooldowns,
+                playerShield, enemyShield, playerPos, enemyPos,
+                battleHistory, summonedPetId,
+                rankedBattleActive, clanWarPointsActive,
+            }));
+        } catch { /* quota — ignore */ }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [turn, battleStarted, battleEnded]);
+    useEffect(() => {
+        if (arenaRestoreAttempted.current) return;
+        arenaRestoreAttempted.current = true;
+        try {
+            const raw = localStorage.getItem(ARENA_SAVE_KEY);
+            if (!raw) return;
+            const saved = JSON.parse(raw);
+            if (!saved?.battleStarted) return;
+            if (Date.now() - (saved.savedAt ?? 0) > ARENA_SAVE_TTL_MS) {
+                localStorage.removeItem(ARENA_SAVE_KEY);
+                return;
+            }
+            const expectedOpponentName = opponentCharacter?.name ?? pendingAiProfile?.name;
+            if (saved.pendingStoryKind !== pendingStoryBattle?.kind) return;
+            if (expectedOpponentName && saved.opponentName !== expectedOpponentName) return;
+            setBattleStarted(saved.battleStarted);
+            setPlayerHp(saved.playerHp);
+            setEnemyHp(saved.enemyHp);
+            setEnemyChakra(saved.enemyChakra);
+            setEnemyStamina(saved.enemyStamina);
+            setAp(saved.ap);
+            setEnemyAp(saved.enemyAp);
+            setTurn(saved.turn);
+            setActiveActor(saved.activeActor);
+            setActionsThisTurn(saved.actionsThisTurn);
+            setPlayerStatuses(saved.playerStatuses);
+            setEnemyStatuses(saved.enemyStatuses);
+            setBarrierTiles(saved.barrierTiles);
+            setCooldowns(saved.cooldowns);
+            setJutsuCooldowns(saved.jutsuCooldowns);
+            setEnemyJutsuCooldowns(saved.enemyJutsuCooldowns);
+            setPlayerShield(saved.playerShield);
+            setEnemyShield(saved.enemyShield);
+            setPlayerPos(saved.playerPos);
+            setEnemyPos(saved.enemyPos);
+            setBattleHistory(saved.battleHistory);
+            setSummonedPetId(saved.summonedPetId);
+            setRankedBattleActive(saved.rankedBattleActive);
+            setClanWarPointsActive(saved.clanWarPointsActive);
+            setLog("Mid-battle state restored from previous session.");
+        } catch {
+            try { localStorage.removeItem(ARENA_SAVE_KEY); } catch { /* ignore */ }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     return (
         <div className={`arena-fullscreen arena-bg-${currentBiome}${currentSector === 99 ? " arena-bg-deathsgate" : ""}`}>
