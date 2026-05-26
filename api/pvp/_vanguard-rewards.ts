@@ -1,6 +1,12 @@
 import { kv } from '../_storage.js';
 import { hasRecentIpOverlap } from '../_player-ips.js';
+import { listActiveEscorters } from '../clan/pet-escort/_storage.js';
 import type { PvpSession } from './session.js';
+
+// Pet escort: Vanguard with an active pet on a PvP win gets +5% Seals AND
+// each Pet Tamer in their clan with an active escort offer gets a +20% Tamer
+// XP bonus on their next expedition (consumed via petEscortBonusReady flag).
+const PET_ESCORT_SEAL_BONUS = 1.05;
 
 // Server-side Vanguard reward grant. Runs once per session when checkWinner
 // flips status to 'done' with a non-draw winner. Idempotent via the
@@ -114,9 +120,26 @@ export async function grantVanguardRewardsForSession(session: PvpSession): Promi
     seals = Math.min(seals, Math.max(0, PER_TARGET_DAILY_CAP - targetSoFar));
     if (seals <= 0) return { granted: false, reason: 'capped' };
 
+    // Pet escort: if the Vanguard has an active pet and their clan has any
+    // Pet Tamer with an active escort offer, +5% Seals to Vanguard AND set
+    // a next-expedition bonus flag on each offering Pet Tamer.
+    const winnerClan = typeof winnerChar.clan === 'string' ? winnerChar.clan : '';
+    const hasActivePet = typeof winnerChar.activePetId === 'string' && winnerChar.activePetId.length > 0;
+    let escorters: string[] = [];
+    if (winnerClan && hasActivePet) {
+        try {
+            escorters = await listActiveEscorters(winnerClan);
+        } catch { /* best-effort */ }
+        if (escorters.length > 0) {
+            seals = Math.floor(seals * PET_ESCORT_SEAL_BONUS);
+        }
+    }
+
     // Profession XP (always granted when Vanguard wins a real human fight,
     // regardless of seal cap — XP and Seals can decouple at the daily cap).
-    const xpGain = vanguardXpForLevel(Number(loserChar.level ?? 1));
+    // Rank 2+ perk: +10% XP. Multiplier is based on rank BEFORE this grant.
+    const baseXpGain = vanguardXpForLevel(Number(loserChar.level ?? 1));
+    const xpGain = rank >= 2 ? Math.floor(baseXpGain * 1.1) : baseXpGain;
 
     const nextHonor = Number(winnerChar.honorSeals ?? 0) + seals;
     const nextProfessionXp = Number(winnerChar.professionXp ?? 0) + xpGain;
@@ -136,6 +159,23 @@ export async function grantVanguardRewardsForSession(session: PvpSession): Promi
         },
     };
     await kv.set(winnerKey, updated);
+
+    // Stamp each offering Pet Tamer with a one-shot expedition bonus flag.
+    // Best-effort: failures don't undo the Vanguard grant.
+    for (const escorterName of escorters) {
+        try {
+            const eKey = `save:${escorterName}`;
+            const eRecord = await kv.get<Record<string, unknown>>(eKey);
+            const eChar = eRecord?.character as Record<string, unknown> | undefined;
+            if (!eChar || eChar.profession !== 'petTamer') continue;
+            await kv.set(eKey, {
+                ...eRecord,
+                character: { ...eChar, petEscortBonusReady: true },
+            });
+        } catch (err) {
+            console.error('[vanguard-rewards] escort bonus stamp failed', err);
+        }
+    }
 
     return { granted: true, seals, xp: xpGain };
 }
