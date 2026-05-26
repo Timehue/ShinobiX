@@ -260,6 +260,20 @@ function sanitizeCharacterSave(
     if (Number(char.chakra ?? 0) > Number(char.maxChakra ?? char.chakra)) char.chakra = char.maxChakra;
     if (Number(char.stamina ?? 0) > Number(char.maxStamina ?? char.stamina)) char.stamina = char.maxStamina;
 
+    // Pet cap: client enforces "max 5 pets" at befriend time, but a tampered
+    // client could POST a save with 6+ pets. Server truncates so we don't
+    // silently lose the extras on next reload (which is what the old load-
+    // time .slice(0, 5) did). Preserve the active pet if it's in the cut.
+    const PET_CAP = 5;
+    const inPets = Array.isArray(char.pets) ? char.pets as Array<Record<string, unknown>> : null;
+    if (inPets && inPets.length > PET_CAP) {
+        const activeId = String(char.activePetId ?? '');
+        const active = activeId ? inPets.find(p => String(p?.id) === activeId) : null;
+        const others = inPets.filter(p => String(p?.id) !== activeId);
+        const kept = active ? [active, ...others.slice(0, PET_CAP - 1)] : others.slice(0, PET_CAP);
+        char.pets = kept;
+    }
+
     // Hospital timer enforcement.
     //   - If save flips hospitalized false → true, server stamps hospitalizedUntil.
     //   - If save flips hospitalized true → false before the timer expires, revert
