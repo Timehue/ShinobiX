@@ -9,7 +9,7 @@ import {
     CHALLENGE_DAMAGE,
     CLAN_WAR_REMATCH_COOLDOWN_SEC,
     clanWarCooldownKey,
-    loadClanContext,
+    finalizeClanWarEnd,
     type ChallengeResult,
     type ClanWar,
 } from './_storage.js';
@@ -58,8 +58,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const lockResult = await withKvLock(key, async () => {
             const fresh = await kv.get<ClanWar>(key);
             if (!fresh) return { status: 404 as const, body: { error: 'War not found.' } };
-            let war = applyLazyClanWarExpiry(fresh).war;
+            const expiry = applyLazyClanWarExpiry(fresh);
+            let war = expiry.war;
             if (war.endedAt) {
+                if (expiry.changed) {
+                    await kv.set(key, war);
+                    if (expiry.needsCooldownStamp) {
+                        await kv.set(clanWarCooldownKey(war.clans[0], war.clans[1]), war.endedAt, { ex: CLAN_WAR_REMATCH_COOLDOWN_SEC });
+                    }
+                }
                 return { status: 409 as const, body: { error: 'War has already ended.' } };
             }
 
@@ -93,44 +100,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             // Check for war end: one clan's HP hit 0.
             let warJustEnded = false;
+            let losingClan: string | undefined;
             for (const clan of war.clans) {
                 if (updatedHp[clan] <= 0 && !war.endedAt) {
-                    const otherClan = war.clans.find(c => c !== clan)!;
-                    war = {
-                        ...war,
-                        endedAt: now,
-                        winnerClan: otherClan,
-                    };
+                    losingClan = clan;
                     warJustEnded = true;
                     break;
                 }
             }
 
-            if (warJustEnded) {
-                // Compute MVP per clan from completed challenges — most
-                // wins on each side. Tiebreak by most damage contributed.
-                const mvpByClan: Record<string, string> = {};
-                for (const clan of war.clans) {
-                    const tallies = new Map<string, { wins: number; damage: number }>();
-                    for (const past of war.completedChallenges) {
-                        if (past.status !== 'completed' || !past.result || past.result === 'draw') continue;
-                        const won = (past.result === 'from-wins' && past.fromClan === clan) || (past.result === 'to-wins' && past.fromClan !== clan);
-                        if (!won) continue;
-                        const winners = past.fromClan === clan
-                            ? [past.fromPlayer, past.fromPlayer2].filter(Boolean) as string[]
-                            : [past.acceptedPlayer, past.acceptedPlayer2].filter(Boolean) as string[];
-                        const dealt = CHALLENGE_DAMAGE[past.mode] ?? 0;
-                        for (const p of winners) {
-                            const cur = tallies.get(p) ?? { wins: 0, damage: 0 };
-                            cur.wins += 1;
-                            cur.damage += dealt;
-                            tallies.set(p, cur);
-                        }
-                    }
-                    const top = [...tallies.entries()].sort(([, a], [, b]) => b.wins - a.wins || b.damage - a.damage)[0];
-                    if (top) mvpByClan[clan] = top[0];
-                }
-                war = { ...war, mvpByClan };
+            if (warJustEnded && losingClan) {
+                const winnerClanName = war.clans.find(c => c !== losingClan)!;
+                // Shared finalize: stamps endedAt + winnerClan, sweeps
+                // any in-flight challenges (pending/queuing/accepted) to
+                // history as cancelled, and computes MVP.
+                war = finalizeClanWarEnd(war, { endedAt: now, winnerClan: winnerClanName, reason: 'hp-zero' });
                 // 7-day rematch cooldown stamp.
                 await kv.set(clanWarCooldownKey(war.clans[0], war.clans[1]), now, { ex: CLAN_WAR_REMATCH_COOLDOWN_SEC });
             }
