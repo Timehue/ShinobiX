@@ -45,6 +45,12 @@ const MAX_TREASURY_INCREASE: Record<string, number> = {
     warSupply: 1_000,
 };
 const MAX_ACTIVE_WAR_SCORE_PER_WRITE = 100;
+// Auto-finalize stale clan wars. A war whose endsAt is more than 24h
+// in the past is treated as abandoned on the next write — moved into
+// warHistory as a draw and cleared from activeWar so the clan can
+// declare a new one. Without this, an abandoned war leaves activeWar
+// set forever, blocking new declarations.
+const ACTIVE_WAR_GRACE_MS = 24 * 60 * 60 * 1000;
 const MAX_MEMBERS = 50;
 const MAX_NOTICES = 24;
 const MAX_JOIN_REQUESTS = 30;
@@ -344,6 +350,40 @@ export function validateClanSaveWrite(
                 cleaned.push(post);
             }
             next.notices = cleaned;
+        }
+    }
+
+    // ── Lazy-finalize stale activeWar ───────────────────────────────
+    // Independent of the write: if the resulting blob has an activeWar
+    // whose endsAt is > ACTIVE_WAR_GRACE_MS in the past, move it into
+    // warHistory as a draw and clear activeWar. Idempotent — once
+    // moved, the next write sees no activeWar to expire.
+    const finalWar = next.activeWar as Record<string, unknown> | undefined;
+    if (finalWar && typeof finalWar === 'object') {
+        const endsAt = num(finalWar.endsAt, 0);
+        const now = Date.now();
+        if (endsAt > 0 && now - endsAt > ACTIVE_WAR_GRACE_MS) {
+            const ourScore = num(finalWar.ourScore, 0);
+            const enemyScore = num(finalWar.enemyScore, 0);
+            const result: 'Won' | 'Lost' | 'Draw' =
+                ourScore > enemyScore ? 'Won' :
+                ourScore < enemyScore ? 'Lost' :
+                'Draw';
+            const archived = {
+                opponent: String(finalWar.opponentClan ?? 'Unknown'),
+                result,
+                finalScore: `${ourScore} - ${enemyScore}`,
+                topAttacker: '',
+                topDefender: '',
+                mvpClan: '',
+                reward: 'Auto-finalized (no activity)',
+                date: new Date().toISOString().slice(0, 10),
+                endedAt: now,
+            };
+            const prevHistory = Array.isArray(next.warHistory) ? next.warHistory : [];
+            next.warHistory = [archived, ...prevHistory].slice(0, MAX_WAR_HISTORY);
+            delete next.activeWar;
+            suppressed.push('activeWar auto-finalized (stale: endsAt > 24h past)');
         }
     }
 
