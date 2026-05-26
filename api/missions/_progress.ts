@@ -49,6 +49,13 @@ export function utcDateKey(now = new Date()): string {
     return now.toISOString().slice(0, 10);
 }
 
+// Vanguard Rank 2+ perk: +10% XP on all Vanguard XP gains. Mirrored from the
+// client-side professionXpMultiplier in App.tsx so both grant paths agree.
+function xpMultiplierFor(profession: Profession, currentRank: number): number {
+    if (profession === 'vanguard' && currentRank >= 2) return 1.1;
+    return 1;
+}
+
 // Award profession XP directly to the player's character record. Returns
 // {xp, rank} after the credit. Used by both per-action XP grants and
 // mission-completion rewards.
@@ -62,7 +69,9 @@ export async function awardProfessionXp(
     const record = await kv.get<Record<string, unknown>>(saveKey);
     const char = record?.character as Record<string, unknown> | undefined;
     if (!char || char.profession !== profession) return null;
-    const nextXp = Number(char.professionXp ?? 0) + Math.floor(amount);
+    const currentRank = Number(char.professionRank ?? 1);
+    const boosted = Math.floor(amount * xpMultiplierFor(profession, currentRank));
+    const nextXp = Number(char.professionXp ?? 0) + boosted;
     const nextRank = rankFor(profession, nextXp);
     const updated = {
         ...record,

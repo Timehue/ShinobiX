@@ -28,10 +28,14 @@ export function ClanSealPool({
     const [donateAmount, setDonateAmount] = useState(10);
     const [distributeAmount, setDistributeAmount] = useState(10);
     const [recipient, setRecipient] = useState("");
+    const [escorters, setEscorters] = useState<string[]>([]);
+    const [escortBusy, setEscortBusy] = useState(false);
 
     const isVanguard = character.profession === "vanguard";
+    const isPetTamer = character.profession === "petTamer";
     const isLeader = !!character.clanFounder;
     const maxDonate = Math.floor((character.honorSeals ?? 0) * 0.5);
+    const iAmEscorting = escorters.some(n => n.toLowerCase() === character.name.toLowerCase());
 
     async function fetchPool() {
         if (!character.clan) return;
@@ -41,12 +45,42 @@ export function ClanSealPool({
         } catch { /* ignore */ }
     }
 
+    async function fetchEscorters() {
+        if (!character.clan) return;
+        try {
+            const res = await fetch(`/api/clan/pet-escort/list?clanName=${encodeURIComponent(character.clan)}`);
+            if (res.ok) {
+                const data = await res.json();
+                if (Array.isArray(data.escorters)) setEscorters(data.escorters);
+            }
+        } catch { /* ignore */ }
+    }
+
     useEffect(() => {
         void fetchPool();
-        const id = setInterval(fetchPool, 30_000);
+        void fetchEscorters();
+        const id = setInterval(() => { void fetchPool(); void fetchEscorters(); }, 30_000);
         return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [character.clan]);
+
+    async function toggleEscortOffer() {
+        if (escortBusy || !isPetTamer) return;
+        setEscortBusy(true); setMsg(null);
+        try {
+            const endpoint = iAmEscorting ? '/api/clan/pet-escort/cancel' : '/api/clan/pet-escort/offer';
+            const res = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ playerName: character.name }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) setMsg(`❌ ${data.error ?? 'Failed'}`);
+            else setMsg(iAmEscorting ? '✅ Escort offer canceled' : '✅ Escort offer active for 1 hour');
+            void fetchEscorters();
+        } catch { setMsg('❌ Network error'); }
+        setEscortBusy(false);
+    }
 
     async function donate() {
         if (busy || !isVanguard) return;
@@ -166,7 +200,41 @@ export function ClanSealPool({
                 </div>
             )}
 
-            {msg && <p className="hint" style={{ margin: "0 0 6px", color: msg.startsWith("✅") ? "#facc15" : "#f87171" }}>{msg}</p>}
+            {(isPetTamer || isVanguard || escorters.length > 0) && (
+                <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid rgba(132,204,22,0.25)" }}>
+                    <strong style={{ color: "#84cc16" }}>🐾 Pet Escort</strong>
+                    <p className="hint" style={{ margin: "4px 0 8px", fontSize: "0.78rem" }}>
+                        Pet Tamers can offer escort to their clan. Vanguard clan-mates raiding with an
+                        active pet get +5% Honor Seals, and the offering Pet Tamer earns +20% Tamer XP
+                        on their next expedition.
+                    </p>
+                    {escorters.length > 0 ? (
+                        <p className="hint" style={{ margin: "0 0 6px", fontSize: "0.78rem" }}>
+                            Active escorts: <strong style={{ color: "#84cc16" }}>{escorters.join(", ")}</strong>
+                        </p>
+                    ) : (
+                        <p className="hint" style={{ margin: "0 0 6px", fontSize: "0.78rem", color: "#94a3b8" }}>
+                            No active escort offers in your clan.
+                        </p>
+                    )}
+                    {isPetTamer && (
+                        <button
+                            onClick={() => void toggleEscortOffer()}
+                            disabled={escortBusy}
+                            style={{ background: iAmEscorting ? "linear-gradient(#4d7c0f,#365314)" : "linear-gradient(#365314,#1a2e05)", borderColor: "#84cc16" }}
+                        >
+                            {escortBusy ? "…" : iAmEscorting ? "Cancel escort offer" : "Offer escort (1h)"}
+                        </button>
+                    )}
+                    {character.petEscortBonusReady && (
+                        <p className="hint" style={{ margin: "6px 0 0", fontSize: "0.78rem", color: "#84cc16" }}>
+                            🎁 +20% Tamer XP ready for your next expedition.
+                        </p>
+                    )}
+                </div>
+            )}
+
+            {msg && <p className="hint" style={{ margin: "8px 0 6px", color: msg.startsWith("✅") ? "#facc15" : "#f87171" }}>{msg}</p>}
 
             {pool && pool.log.length > 0 && (
                 <details>
