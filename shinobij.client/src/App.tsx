@@ -16179,10 +16179,27 @@ function runPetArenaParty(
         if (!chosen) {
             // Movement fallback: advance toward damage target.
             if (actor.moveLocked === 0) {
+                // Dynamic blockers: static obstacles PLUS every other live
+                // fighter's tile, so two pets never stack on the same square.
+                // The damage target's own square stays walkable so BFS can
+                // route to it — the existing `next === damageTarget.pos`
+                // break stops the actor one tile short.
+                const blockers = new Set<number>(obstacles);
+                for (const s of ALL_SLOTS) {
+                    if (s === actorSlot) continue;
+                    const f = fighters[s];
+                    if (!f || f.hp <= 0) continue;
+                    if (f.pos === damageTarget.pos) continue;
+                    blockers.add(f.pos);
+                }
                 let newPos = actor.pos;
                 for (let s = 0; s < (actor.pet.moveRange ?? 2); s++) {
-                    const next = bfsNextStep(newPos, damageTarget.pos, obstacles);
+                    const next = bfsNextStep(newPos, damageTarget.pos, blockers);
                     if (next === newPos || next === damageTarget.pos) break;
+                    // Extra guard: never step onto a tile another live pet
+                    // already occupies, even if BFS somehow picked it
+                    // (e.g. if the target's tile is the only path).
+                    if (ALL_SLOTS.some(s2 => s2 !== actorSlot && fighters[s2] && fighters[s2]!.hp > 0 && fighters[s2]!.pos === next)) break;
                     newPos = next;
                 }
                 fighters[actorSlot] = { ...actor, pos: newPos };
