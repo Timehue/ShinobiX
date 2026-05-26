@@ -22,6 +22,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!VALID_PROFESSIONS.includes(profession)) {
             return res.status(400).json({ error: 'Invalid profession.' });
         }
+        // Admin accounts can't pick a profession — the picker UI also skips
+        // them, but block at the endpoint as defense-in-depth.
+        if (playerName.toLowerCase() === 'admin 1' || playerName.toLowerCase() === 'admin 2') {
+            return res.status(403).json({ error: 'Admin accounts do not pick professions.' });
+        }
 
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
