@@ -36,6 +36,12 @@ export type IpRecord = {
     lastSeenAt: number;
 };
 
+export type FpRecord = {
+    lastFp: string;
+    fps: string[];
+    lastSeenAt: number;
+};
+
 export type AuditEntry = {
     ts: number;
     actor: string;           // admin who took the action
@@ -48,11 +54,18 @@ const BAN_KEY_PREFIX = 'mod:ban:';
 const SILENCE_KEY_PREFIX = 'mod:silence:';
 const IP_KEY_PREFIX = 'mod:ip:';
 const BY_IP_KEY_PREFIX = 'mod:by-ip:';
+const FP_KEY_PREFIX = 'mod:fp:';
+const BY_FP_KEY_PREFIX = 'mod:by-fp:';
 const AUDIT_KEY = 'mod:audit';
 
 const MAX_AUDIT_ENTRIES = 200;
 const MAX_IPS_PER_ACCOUNT = 25;
 const MAX_NAMES_PER_IP = 50;
+const MAX_FPS_PER_ACCOUNT = 10;
+const MAX_NAMES_PER_FP = 50;
+// Reject fingerprints that don't match the expected hex format / length.
+// Stops the header from being abused to dump arbitrary garbage into KV.
+const FP_PATTERN = /^[0-9a-f]{16,64}$/;
 
 function normalizeName(name: string): string {
     return name.trim().toLowerCase();
@@ -62,6 +75,8 @@ function banKey(name: string): string { return `${BAN_KEY_PREFIX}${normalizeName
 function silenceKey(name: string): string { return `${SILENCE_KEY_PREFIX}${normalizeName(name)}`; }
 function ipKey(name: string): string { return `${IP_KEY_PREFIX}${normalizeName(name)}`; }
 function byIpKey(ip: string): string { return `${BY_IP_KEY_PREFIX}${ip}`; }
+function fpKey(name: string): string { return `${FP_KEY_PREFIX}${normalizeName(name)}`; }
+function byFpKey(fp: string): string { return `${BY_FP_KEY_PREFIX}${fp}`; }
 
 /** Returns the active ban record, or null if none / expired. */
 export async function getActiveBan(name: string): Promise<BanRecord | null> {
@@ -88,6 +103,15 @@ export async function getActiveSilence(name: string): Promise<SilenceRecord | nu
     return rec;
 }
 
+/** Extract the client browser fingerprint from the x-client-fp header. */
+export function clientFpFrom(req: VercelRequest): string {
+    const raw = req.headers['x-client-fp'];
+    const s = (Array.isArray(raw) ? raw[0] : raw) ?? '';
+    const trimmed = String(s).trim().toLowerCase();
+    if (!trimmed || !FP_PATTERN.test(trimmed)) return '';
+    return trimmed;
+}
+
 /** Extract the request's client IP, normalized (first XFF hop wins). */
 export function clientIpFrom(req: VercelRequest): string {
     const xff = req.headers['x-forwarded-for'];
@@ -97,6 +121,33 @@ export function clientIpFrom(req: VercelRequest): string {
     const real = req.headers['x-real-ip'];
     if (typeof real === 'string' && real.trim()) return real.trim();
     return (req.socket?.remoteAddress ?? 'unknown').trim();
+}
+
+/**
+ * Record that `name` was just observed with browser fingerprint `fp`.
+ * Mirrors recordClientIp but for fingerprints, which survive VPNs.
+ * Safe to call on every heartbeat / login.
+ */
+export async function recordClientFingerprint(name: string, fp: string): Promise<void> {
+    if (!name || !fp || !FP_PATTERN.test(fp)) return;
+    const n = normalizeName(name);
+    try {
+        const [existing, fpList] = await Promise.all([
+            kv.get<FpRecord>(fpKey(n)),
+            kv.get<string[]>(byFpKey(fp)),
+        ]);
+        const fps = existing?.fps ?? [];
+        const nextFps = [fp, ...fps.filter(x => x !== fp)].slice(0, MAX_FPS_PER_ACCOUNT);
+        const forward: FpRecord = { lastFp: fp, fps: nextFps, lastSeenAt: Date.now() };
+        const names = Array.isArray(fpList) ? fpList : [];
+        const nextNames = [n, ...names.filter(x => x !== n)].slice(0, MAX_NAMES_PER_FP);
+        await Promise.all([
+            kv.set(fpKey(n), forward),
+            kv.set(byFpKey(fp), nextNames),
+        ]);
+    } catch {
+        // Best-effort — never break the calling handler.
+    }
 }
 
 /**
@@ -301,28 +352,57 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(200).json({ ok: true });
         }
 
-        if (kind === 'ip-lookup') {
+        if (kind === 'ip-lookup' || kind === 'lookup') {
             if (!targetName) return res.status(400).json({ error: 'Missing target.' });
-            const ipRec = await kv.get<IpRecord>(ipKey(targetName));
-            if (!ipRec || !ipRec.ips?.length) {
-                return res.status(200).json({ target: targetName, ipRecord: null, linked: [] });
-            }
-            // For each IP this account used, look up everyone else who used it.
-            const reverseLists = await Promise.all(
-                ipRec.ips.slice(0, 10).map(ip => kv.get<string[]>(byIpKey(ip)).then(list => ({ ip, names: list ?? [] })))
-            );
-            const linkedSet = new Set<string>();
+
+            const [ipRec, fpRec] = await Promise.all([
+                kv.get<IpRecord>(ipKey(targetName)),
+                kv.get<FpRecord>(fpKey(targetName)),
+            ]);
+
+            // Build per-IP reverse listings (capped at 10 IPs to bound work).
+            const ipReverse = ipRec?.ips?.length
+                ? await Promise.all(
+                    ipRec.ips.slice(0, 10).map(ip => kv.get<string[]>(byIpKey(ip)).then(list => ({ ip, names: list ?? [] })))
+                  )
+                : [];
+            const linkedByIpSet = new Set<string>();
             const perIp: Array<{ ip: string; names: string[] }> = [];
-            for (const { ip, names } of reverseLists) {
+            for (const { ip, names } of ipReverse) {
                 const others = names.filter(n => n !== targetName);
                 perIp.push({ ip, names: others });
-                others.forEach(n => linkedSet.add(n));
+                others.forEach(n => linkedByIpSet.add(n));
             }
+
+            // Same for fingerprints. The fp signal survives VPNs, so a match
+            // here is much stronger evidence of the same person than a shared IP.
+            const fpReverse = fpRec?.fps?.length
+                ? await Promise.all(
+                    fpRec.fps.slice(0, 10).map(fp => kv.get<string[]>(byFpKey(fp)).then(list => ({ fp, names: list ?? [] })))
+                  )
+                : [];
+            const linkedByFpSet = new Set<string>();
+            const perFp: Array<{ fp: string; names: string[] }> = [];
+            for (const { fp, names } of fpReverse) {
+                const others = names.filter(n => n !== targetName);
+                perFp.push({ fp, names: others });
+                others.forEach(n => linkedByFpSet.add(n));
+            }
+
+            // Accounts linked by BOTH signals are almost certainly the same person.
+            const linkedByBoth = Array.from(linkedByIpSet).filter(n => linkedByFpSet.has(n)).sort();
+
             return res.status(200).json({
                 target: targetName,
                 ipRecord: ipRec,
-                linked: Array.from(linkedSet).sort(),
+                fpRecord: fpRec,
+                linkedByIp: Array.from(linkedByIpSet).sort(),
+                linkedByFp: Array.from(linkedByFpSet).sort(),
+                linkedByBoth,
                 perIp,
+                perFp,
+                // Back-compat for older clients that still read `linked`.
+                linked: Array.from(new Set([...linkedByIpSet, ...linkedByFpSet])).sort(),
             });
         }
 
