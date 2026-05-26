@@ -19,6 +19,9 @@ const PUBLIC_CHAR_FIELDS = new Set<string>([
     'name', 'level', 'village', 'rank', 'avatarImage', 'specialty', 'storyProgress',
     'hp', 'maxHp', 'chakra', 'maxChakra', 'stamina', 'maxStamina',
     'customTitle', 'hospitalized', 'hospitalizedUntil',
+    // Profession identity / progression — public so Hall of Legends and
+    // profile-view screens can render rank/XP for other players.
+    'profession', 'professionRank', 'professionXp',
 ]);
 
 function publicProjection(data: Record<string, unknown>): Record<string, unknown> {
@@ -37,6 +40,62 @@ function stripPrivateFields(data: Record<string, unknown>): Record<string, unkno
     const sanitized = { ...char };
     for (const field of PRIVATE_CHAR_FIELDS) delete sanitized[field];
     return { ...data, character: sanitized };
+}
+
+// Character-level fields stripped under ?combatOnly=1 — none of these affect
+// combat resolution (only meta progression / cosmetic / lifetime counters).
+// Whitelisting was considered but a blacklist is safer here since combat
+// touches many character fields and a missed whitelist entry would silently
+// break opponent rendering.
+const COMBAT_STRIP_CHAR_FIELDS = [
+    'inventory', 'tileCards', 'savedTileDeck',
+    'missions', 'missionLog', 'completedMissions', 'activeMissions', 'questLog', 'bankLog',
+    'storyTraits', 'storyTitle',
+    'weeklyBossKills', 'claimedWarCrateIds',
+    'unlockedAchievements', 'achievementUnlockedAt',
+    'hollowGateRun', 'hollowGateWardenKills', 'hollowGateIntroSeen',
+    'endlessTowerRun', 'endlessTowerBestWave',
+    'totalStatsTrained', 'totalMissionsCompleted', 'totalAiKills', 'totalVillageRaids',
+    'totalTilesExplored', 'totalTournamentsCompleted', 'totalEndlessTowerWins', 'totalPetWins',
+    'totalPvpKills', 'monthlyPvpKills', 'pvpKillMonth',
+    'dailyAiKills', 'dailyPetWins', 'dailyTilesExplored', 'dailyMissionsCompleted',
+    'dailyFateSpins', 'lastDailyReset',
+    'claimedVillageAgendaDate', 'claimedMapControlDate',
+    'defeatedAiIds', 'elderFocus', 'examsPassed',
+    'lastBankInterestAt', 'bankRyo',
+    'villageWarMissionDate', 'villageWarRaidProgress', 'villageWarMissionsCompleted',
+    'clanBattleContrib', 'clanEventContrib', 'clanMissionContrib', 'clanContribMonth',
+    'dailyHonorSealsEarned', 'dailyHonorSealsByTarget', 'vanguardDailyResetDate',
+    'lastExpeditionClaimDate', 'expeditionsClaimedToday',
+    'dailyDonatedSeals', 'dailyDonationDate',
+    'petEscortBonusReady', 'hunterRank',
+    // Currencies — combat doesn't read them, only post-fight reward grants do.
+    'ryo', 'honorSeals', 'fateShards', 'boneCharms', 'auraStones', 'mythicSeals', 'auraDust',
+    // Ranked stats are used elsewhere; only strip the rarely-needed ones.
+    'rankedWins', 'rankedLosses',
+    'createdAt', 'professionChosenAt',
+] as const;
+
+// Top-level (non-character) fields stripped under ?combatOnly=1. Keeps the
+// big chunks needed for rendering opponent jutsu/items/bloodlines.
+const COMBAT_STRIP_TOPLEVEL_FIELDS = [
+    'currentBiome', 'activeTraining', 'activeJutsuTraining',
+    'acceptedMissionIds', 'missionProgress',
+    'triggeredEvents', 'pendingAiProfileId', 'currentSector',
+    'creatorAis', 'creatorEvents', 'creatorMissions', 'creatorRaids', 'creatorCards',
+    'petEncounterVn', 'ancientChestVn', 'editablePets',
+] as const;
+
+function combatProjection(data: Record<string, unknown>): Record<string, unknown> {
+    const out: Record<string, unknown> = { ...data };
+    for (const f of COMBAT_STRIP_TOPLEVEL_FIELDS) delete out[f];
+    const char = out.character as Record<string, unknown> | undefined;
+    if (char && typeof char === 'object') {
+        const trimmed = { ...char };
+        for (const f of COMBAT_STRIP_CHAR_FIELDS) delete trimmed[f];
+        out.character = trimmed;
+    }
+    return out;
 }
 
 const REGISTRY_KEY = 'player:registry';
@@ -61,6 +120,20 @@ const CURRENCY_CAPS: Record<string, number> = {
 const MAX_STAT_GAIN = 500;   // per individual stat per save cycle
 const MAX_LEVEL_GAIN = 5;    // levels that can be gained between saves
 const LEVEL_CAP = 100;
+const MAX_PROFESSION_XP_GAIN = 5000; // per save cycle (covers normal play + mission XP)
+const MAX_PROFESSION_RANK = 10;
+// Healer uses 1.5× the baseline. Cumulative threshold to enter each rank,
+// idx 1..10. Used to clamp client-reported rank against client-reported XP.
+const PROFESSION_XP_BASELINE_THRESHOLDS = [0, 100, 350, 850, 1850, 3850, 7350, 12850, 20850, 32850];
+const PROFESSION_XP_HEALER_THRESHOLDS = PROFESSION_XP_BASELINE_THRESHOLDS.map(v => Math.floor(v * 1.5));
+function rankFromXp(profession: unknown, xp: number): number {
+    const t = profession === 'healer' ? PROFESSION_XP_HEALER_THRESHOLDS : PROFESSION_XP_BASELINE_THRESHOLDS;
+    let rank = 1;
+    for (let i = 1; i <= MAX_PROFESSION_RANK; i += 1) {
+        if (xp >= t[i]) rank = Math.min(MAX_PROFESSION_RANK, i + 1);
+    }
+    return Math.min(MAX_PROFESSION_RANK, rank);
+}
 // Server-side hospital downtime — clients can't skip it by editing localStorage.
 const HOSPITAL_DURATION_MS = 60_000;
 
@@ -95,14 +168,33 @@ function freshWindow(): GainsWindow {
     return { startedAt: Date.now(), ryo: 0, stat: {}, xp: 0 };
 }
 
+// Baseline used to clamp a brand-new account's FIRST save. Without this, a
+// fresh registration could submit a character at level 100 / millions of ryo /
+// maxed stats because there's no `existing` baseline to diff against.
+const FIRST_SAVE_BASELINE_CHARACTER: Record<string, unknown> = {
+    level: 1,
+    ryo: 0,
+    xp: 0,
+    stats: {
+        strength: 0, speed: 0, intelligence: 0, willpower: 0,
+        bukijutsuOffense: 0, bukijutsuDefense: 0,
+        taijutsuOffense: 0, taijutsuDefense: 0,
+        genjutsuOffense: 0, genjutsuDefense: 0,
+        ninjutsuOffense: 0, ninjutsuDefense: 0,
+    },
+    honorSeals: 0, fateShards: 0, boneCharms: 0, auraStones: 0,
+    auraDust: 0, mythicSeals: 0,
+    hospitalized: false, hospitalizedUntil: 0,
+};
+
 function sanitizeCharacterSave(
     incoming: Record<string, unknown>,
-    existing: Record<string, unknown>,
+    existing: Record<string, unknown> | null,
 ): Record<string, unknown> {
     const inChar = incoming.character as Record<string, unknown> | undefined;
-    const exChar = existing.character as Record<string, unknown> | undefined;
-    // If either side is missing a character object we can't diff — return as-is
-    // and let the existing merge logic handle it.
+    // First-save case (no existing): clamp against a fresh baseline so a brand-
+    // new account can't submit absurd starting values.
+    const exChar = (existing?.character as Record<string, unknown> | undefined) ?? FIRST_SAVE_BASELINE_CHARACTER;
     if (!inChar || typeof inChar !== 'object') return incoming;
     if (!exChar || typeof exChar !== 'object') return incoming;
 
@@ -125,6 +217,32 @@ function sanitizeCharacterSave(
         char[key] = Math.min(inVal, exVal + maxGain);
     }
 
+    // Account creation timestamp — backfill if missing so anti-alt checks
+    // have a stable reference. Existing characters get a "now" stamp the
+    // first time they save after this lands; new characters set it client-
+    // side at creation.
+    if (!exChar.createdAt && !char.createdAt) {
+        char.createdAt = Date.now();
+    } else if (exChar.createdAt) {
+        // Once stamped, the value is immutable — clients can't claim a fake old age.
+        char.createdAt = exChar.createdAt;
+    }
+
+    // Profession: lock the profession choice (server-side picker writes it
+    // via /api/profession/choose), cap XP gains per save, and recompute rank
+    // from XP so a malicious client can't claim higher rank than its XP earns.
+    if (exChar.profession) {
+        // Once chosen, profession is permanent — ignore any client attempt to swap.
+        char.profession = exChar.profession;
+    }
+    const exProfXp = Math.max(0, Number(exChar.professionXp ?? 0));
+    const inProfXp = Math.max(0, Number(char.professionXp ?? 0));
+    const cappedProfXp = Math.min(inProfXp, exProfXp + MAX_PROFESSION_XP_GAIN);
+    char.professionXp = cappedProfXp;
+    if (char.profession) {
+        char.professionRank = rankFromXp(char.profession, cappedProfXp);
+    }
+
     // Individual stats: can't gain more than MAX_STAT_GAIN per stat per save.
     const inStats = char.stats as Record<string, number> | undefined;
     const exStats = exChar.stats as Record<string, number> | undefined;
@@ -141,6 +259,20 @@ function sanitizeCharacterSave(
     if (Number(char.hp ?? 0) > Number(char.maxHp ?? char.hp)) char.hp = char.maxHp;
     if (Number(char.chakra ?? 0) > Number(char.maxChakra ?? char.chakra)) char.chakra = char.maxChakra;
     if (Number(char.stamina ?? 0) > Number(char.maxStamina ?? char.stamina)) char.stamina = char.maxStamina;
+
+    // Pet cap: client enforces "max 5 pets" at befriend time, but a tampered
+    // client could POST a save with 6+ pets. Server truncates so we don't
+    // silently lose the extras on next reload (which is what the old load-
+    // time .slice(0, 5) did). Preserve the active pet if it's in the cut.
+    const PET_CAP = 5;
+    const inPets = Array.isArray(char.pets) ? char.pets as Array<Record<string, unknown>> : null;
+    if (inPets && inPets.length > PET_CAP) {
+        const activeId = String(char.activePetId ?? '');
+        const active = activeId ? inPets.find(p => String(p?.id) === activeId) : null;
+        const others = inPets.filter(p => String(p?.id) !== activeId);
+        const kept = active ? [active, ...others.slice(0, PET_CAP - 1)] : others.slice(0, PET_CAP);
+        char.pets = kept;
+    }
 
     // Hospital timer enforcement.
     //   - If save flips hospitalized false → true, server stamps hospitalizedUntil.
@@ -205,8 +337,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         //   so opponents can't be scouted out-of-band. The server hydrates
         //   actual opponent combat data from save:<name> directly when PvP
         //   sessions are created.
+        //
+        // ?combatOnly=1 layers a second strip on top — drops mission /
+        // achievement / lifetime-counter fields that combat never reads.
+        // Used by client fetchPlayerCombatSave() to shave ~50–150KB per
+        // PvP fetch (challenge accept + village raid prep do 2 fetches each).
         const isOwner = identity.admin || isClanSave || identity.name === name.toLowerCase().trim();
-        const payload = isOwner ? data : publicProjection(stripPrivateFields(data));
+        const combatOnly = req.query.combatOnly === '1';
+        let payload = isOwner ? data : publicProjection(stripPrivateFields(data));
+        if (combatOnly) payload = combatProjection(payload);
         return res.status(200).json(payload);
     }
 
@@ -300,10 +439,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // Sanitize before merge: caps per-save gains to prevent exploit spikes.
                     // Clan saves are collaborative (no single "owner" baseline), so we skip
                     // sanitization for them — they're already admin-locked in the UI.
-                    const safeIncoming = (existing && !isClanSave)
+                    // For brand-new accounts (no existing), sanitize against a zeroed
+                    // baseline so a fresh registration can't submit absurd values.
+                    const safeIncoming = (!isClanSave)
                         ? sanitizeCharacterSave(
                             incoming as Record<string, unknown>,
-                            existing as Record<string, unknown>,
+                            (existing as Record<string, unknown> | null) ?? null,
                           )
                         : incoming;
 

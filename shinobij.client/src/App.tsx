@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type ChangeEvent } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type ChangeEvent, type Dispatch, type SetStateAction } from "react";
 import { createPortal } from "react-dom";
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect, react-hooks/purity */
 import type * as React from "react";
@@ -41,10 +41,18 @@ import { AiImagePrompt } from "./components/AiImagePrompt";
 import { PetBattleAvatar, PetArenaCard } from "./components/PetBattleAvatar";
 import { TagPicker } from "./components/TagPicker";
 import { Village } from "./screens/Village";
+import { ProfessionPicker } from "./screens/ProfessionPicker";
+import { DailyProfessionMissions } from "./screens/DailyProfessionMissions";
+import { ClanSealPool } from "./screens/ClanSealPool";
+import { ProfessionRankBar } from "./screens/ProfessionRankBar";
+
+export type Profession = "healer" | "vanguard" | "petTamer";
+
 export type Screen =
     | "start"
     | "adminLogin"
     | "adminPanel"
+    | "professionPicker"
     | "village"
     | "villageLore"
     | "profile"
@@ -82,7 +90,11 @@ export type Screen =
     | "userHub"
     | "userView"
     | "pvpBattle"
-    | "hollowGateShrine";
+    | "hollowGateShrine"
+    | "hollowGateTiles"
+    | "endlessTower"
+    | "weeklyBoss"
+    | "villageWar";
 
 export type Rank = "B Rank" | "A Rank" | "S Rank";
 type Biome = "forest" | "snow" | "volcano" | "shadow" | "central";
@@ -448,7 +460,19 @@ type PetJutsu = {
     power: number;
     cooldown: number;
     currentCooldown: number;
-    kind: "damage" | "buff" | "heal" | "debuff" | "dot" | "move" | "barrier" | "movelock" | "lifesteal" | "shield" | "absorb";
+    // Combat effects. New status kinds added for variety:
+    //   burn   — DoT (15% of power per round) + small ATK debuff
+    //   freeze — chance to skip next turn each round (50%)
+    //   confuse — chance to hit yourself instead of the target (50%)
+    //   stun   — guaranteed skip of next turn (1 round)
+    // Existing kinds (damage/buff/heal/debuff/dot/move/barrier/movelock/
+    // lifesteal/shield/absorb) keep their original behavior.
+    kind: "damage" | "buff" | "heal" | "debuff" | "dot" | "move" | "barrier" | "movelock" | "lifesteal" | "shield" | "absorb"
+        | "burn" | "freeze" | "confuse" | "stun";
+    // Optional duration override for status-effect kinds. Lets a Mythic
+    // freeze last 3 rounds while a Standard freeze lasts 1. Defaults are
+    // baked into each status handler if rounds is undefined.
+    rounds?: number;
 };
 
 export type Pet = {
@@ -472,6 +496,10 @@ export type Pet = {
     expedition?: PetExpedition;
     moveRange?: number; // tiles moved per turn (2–5); defaults to 2
     nickname?: string;
+    // Optional elemental affinity. Drives the Pet Arena type-effectiveness
+    // matchup: Fire > Wind > Lightning > Earth > Water > Fire. Pets without
+    // an element (or with "None") fight neutral against everything.
+    element?: JutsuElement;
 };
 export type Character = {
     name: string;
@@ -517,6 +545,30 @@ export type Character = {
     mythicSeals: number;
     clan?: string;
     clanFounder?: boolean;
+    profession?: Profession;
+    professionRank?: number;
+    professionXp?: number;
+    professionChosenAt?: number;
+    // Account creation timestamp (ms). Used to gate Vanguard rewards from
+    // killing brand-new alt accounts. Backfilled to Date.now() on first
+    // save if missing (existing characters get a "now" stamp on rollout).
+    createdAt?: number;
+    // Vanguard daily tracking (separate reset date so Vanguard counters
+    // don't interfere with other daily counter resets).
+    dailyHonorSealsEarned?: number;
+    dailyHonorSealsByTarget?: Record<string, number>;
+    vanguardDailyResetDate?: string;
+    // Pet Tamer daily First Expedition tracking (UTC).
+    lastExpeditionClaimDate?: string;
+    expeditionsClaimedToday?: number;
+    // Clan Seal donation per-day cumulative cap tracking (UTC).
+    dailyDonatedSeals?: number;
+    dailyDonationDate?: string;
+    // Pet escort one-shot bonus: when a Vanguard from this Pet Tamer's clan
+    // wins a raid with an active pet and this Pet Tamer has an open escort
+    // offer, server stamps this flag. Consumed (cleared) on next expedition
+    // collect, applying +20% Tamer XP for that one expedition.
+    petEscortBonusReady?: boolean;
     clanBattleContrib: number;
     clanEventContrib: number;
     clanMissionContrib: number;
@@ -548,6 +600,10 @@ export type Character = {
     dailyFateSpins?: number;
     dailyAiKills?: number;
     dailyPetWins?: number;
+    // Hollow Gate Shrine runs entered today. Hard-capped at 2 regardless of
+    // how many Hollow Gate Keys the player has banked — the shrine itself
+    // refuses to open more than twice between dawns. Tied to lastDailyReset.
+    dailyHollowGateRuns?: number;
     lastDailyReset?: string;
     claimedVillageAgendaDate?: string;
     claimedMapControlDate?: string;
@@ -563,6 +619,15 @@ export type Character = {
     hollowGateRun?: HollowGateShrineRun | null;
     hollowGateWardenKills?: number;
     hollowGateIntroSeen?: boolean;
+    endlessTowerRun?: EndlessTowerRun | null;
+    endlessTowerBestWave?: number;
+};
+
+export type EndlessTowerRun = {
+    wave: number;
+    bankedRyo: number;
+    bankedXp: number;
+    startedAt: number;
 };
 type RewardCurrencyKey = "fateShards" | "honorSeals" | "boneCharms" | "auraStones" | "auraDust" | "mythicSeals";
 type CurrencyRewards = Partial<Record<RewardCurrencyKey, number>>;
@@ -601,6 +666,15 @@ type DuelChallenge = {
     petBattleSeed?: number;
     responderPetId?: string;
     responderPet?: Pet;
+    // ── 2v2 Pet Party extensions ──────────────────────────────────────
+    // When set, the pet battle resolves as a 2-pet party set (lead + reserve)
+    // via runPetArenaParty. Both fields are optional so old 1v1 challenges
+    // remain valid. The responder's two pets are auto-selected at accept
+    // time (top two by level) — no protocol change needed for them.
+    petParty?: boolean;
+    challengerPetIds?: [string, string];
+    responderPetIds?: [string, string];
+    responderParty?: [Pet, Pet];
     createdAt: number;
     mode?: "standard" | "ranked" | "clanWar1v1" | "clanWar2v2" | "clanWarPet";
     clanWarPoints?: number;
@@ -1006,6 +1080,8 @@ type HollowGateTileKind =
     | "trap"
     | "chest"
     | "pet_event"
+    | "pet_battle" // Wild Hollow Beast — animal/pet-themed PvE combat encounter
+    | "tile_game"  // Shinobi Tile card-game encounter; loss costs 20% maxHp
     | "shrine"
     | "story"
     | "boss"
@@ -1014,8 +1090,26 @@ type HollowGateTileKind =
     | "npc"        // Shrine Keeper — once-per-floor blessing
     | "descend";   // Staircase to next floor (Floors 1-4 only)
 
+// Geometry layer — how a cell is *drawn*. Independent of `kind` (the event/
+// content on the cell). The BSP generator labels every walkable cell as one
+// of room_floor / corridor_floor / door; non-walkable cells get terrain:"wall".
+//
+// Old saved runs from the blob-wall generator don't have this field. The
+// renderer falls back to deriving terrain from `kind === "wall"` when
+// `terrain` is undefined, so saved-run resume still works.
+type HollowGateTerrain = "wall" | "room_floor" | "corridor_floor" | "door";
+
 type HollowGateTile = {
     kind: HollowGateTileKind;
+    terrain?: HollowGateTerrain;
+    // BSP room membership — every floor cell inside a room shares the same
+    // roomId so the renderer can light up the entire room when the player
+    // steps inside. Corridors and walls get roomId = null.
+    roomId?: number | null;
+    // Optional decoration sprite index (0-3). Purely visual — does not block
+    // movement, no event fires. Sprinkled by the generator into ~12% of empty
+    // room cells to break up the floor-texture monotony.
+    decoration?: number;
     revealed: boolean;
     resolved: boolean;
     flavor?: string;
@@ -1032,11 +1126,21 @@ type HollowGateShrineRun = {
     torch: number; // 0..10
     keys: number;
     completed: boolean;
+    // Theme assignment per roomId — the renderer uses this to pick which
+    // shrine:icon-theme-<theme>-<role> tile to draw for room_floor / door /
+    // corridor / wall cells. Old saved runs without this field fall back to
+    // the base atlas tiles for terrain.
+    roomThemes?: Record<number, string>;
+    // Random seed baked into the run on creation. Used so the theme picker
+    // gives different rooms different themes per-run.
+    seed?: number;
 };
 
 // Grid dimensions stay const — changing them mid-run would break saved layouts.
-const HOLLOW_GATE_SHRINE_W = 9;
-const HOLLOW_GATE_SHRINE_H = 7;
+// 15×11 = 165 cells gives enough room for the BSP generator to carve 5-7
+// distinct rooms of 3×3 to 4×5 connected by 1-tile corridors.
+const HOLLOW_GATE_SHRINE_W = 15;
+const HOLLOW_GATE_SHRINE_H = 11;
 // Runtime-tunable from the admin panel.
 let HOLLOW_GATE_THREAT_PER_STEP = 7;
 let HOLLOW_GATE_THREAT_AMBUSH = 100;
@@ -1070,6 +1174,16 @@ const hollowGateFlavorPool: Record<HollowGateTileKind, string[]> = {
     pet_event: [
         "Glowing pawprints trail toward a sleeping shrine spirit. Your pet's ears twitch.",
         "A familiar scent drifts past — your pet pulls you toward a side passage.",
+    ],
+    pet_battle: [
+        "A corrupted Hollow Beast prowls the corridor — eyes burning chakra-blue, claws scoring stone.",
+        "Glowing pawprints crystallize into a snarling shadow-bound beast, twisted by the gate's mist.",
+        "A wild thing lunges from the dark — too fast for a normal animal, too old for a normal shadow.",
+    ],
+    tile_game: [
+        "A stone table rises from the floor, nine tile-shaped slots glowing with old chakra. A challenger sits across, smiling without a face.",
+        "The shrine offers a riddle disguised as a game. Cards float between you and the shadow opponent.",
+        "Ancient seals form a 3×3 grid in the air. The mist asks for tiles — bet wrong and it bites.",
     ],
     shrine: [
         "A broken shrine stone weeps cold chakra. Beyond it, a Hidden Chamber lies open.",
@@ -1163,127 +1277,374 @@ function hollowGateReachableSet(w: number, h: number, start: number, blocked: Se
     return seen;
 }
 
-function generateHollowGateShrineRun(floor = 1): HollowGateShrineRun {
-    const w = HOLLOW_GATE_SHRINE_W;
-    const h = HOLLOW_GATE_SHRINE_H;
-    const total = w * h;
-    // Spawn in middle row, left edge.
-    const playerY = Math.floor(h / 2);
-    const playerX = 0;
-    const spawnIdx = playerY * w + playerX;
-    const kinds: HollowGateTileKind[] = new Array(total).fill("empty");
-    const isFinalFloor = floor >= HOLLOW_GATE_MAX_FLOOR;
+// ── BSP rooms-and-corridors helpers ──────────────────────────────────────────
+type BSPRect = { x: number; y: number; w: number; h: number };
 
-    // Reserved set: always reserves spawn + the leave (exit) tile. Floors 1-4 also
-    // reserve a "descend" tile (next-floor staircase). Floor 5 reserves the boss tile.
-    const reserved = new Set<number>([spawnIdx]);
-
-    // Pick the leave tile (exit) — random reachable position at least half the
-    // map away from spawn.
-    function distFromSpawn(idx: number) {
-        const cx = idx % w;
-        const cy = Math.floor(idx / w);
-        return Math.abs(cx - playerX) + Math.abs(cy - playerY);
-    }
-    function pickFarTile(): number {
-        const cand: number[] = [];
-        for (let i = 0; i < total; i += 1) {
-            if (reserved.has(i)) continue;
-            if (kinds[i] !== "empty") continue;
-            if (distFromSpawn(i) >= Math.floor((w + h) / 2)) cand.push(i);
-        }
-        return cand.length ? cand[Math.floor(Math.random() * cand.length)] : -1;
-    }
-
-    // Leave tile (exit) — always present.
-    const exitIdx = pickFarTile();
-    if (exitIdx >= 0) { kinds[exitIdx] = "exit"; reserved.add(exitIdx); }
-
-    // Floor 5: Boss tile (Hollow Gate Warden) in the rightmost column, random row.
-    // Floors 1-4: Descend tile far from spawn (not necessarily right column).
-    if (isFinalFloor) {
-        const bossY = Math.floor(Math.random() * h);
-        const bossIdx = bossY * w + (w - 1);
-        if (!reserved.has(bossIdx) && kinds[bossIdx] === "empty") {
-            kinds[bossIdx] = "boss";
-            reserved.add(bossIdx);
-        } else {
-            // Fallback: any far tile.
-            const fallback = pickFarTile();
-            if (fallback >= 0) { kinds[fallback] = "boss"; reserved.add(fallback); }
-        }
+function bspSplit(rect: BSPRect, depth: number, minLeaf: number): BSPRect[] {
+    if (depth <= 0) return [rect];
+    // Stop splitting if neither axis has room for two minLeaf-sized children.
+    const canSplitX = rect.w >= minLeaf * 2 + 1;
+    const canSplitY = rect.h >= minLeaf * 2 + 1;
+    if (!canSplitX && !canSplitY) return [rect];
+    // Prefer to split the longer axis 70% of the time so rooms stay roughly square.
+    let splitVertical: boolean;
+    if (canSplitX && canSplitY) {
+        const preferVertical = rect.w >= rect.h;
+        splitVertical = preferVertical ? Math.random() < 0.7 : Math.random() < 0.3;
     } else {
-        const descendIdx = pickFarTile();
-        if (descendIdx >= 0) { kinds[descendIdx] = "descend"; reserved.add(descendIdx); }
+        splitVertical = canSplitX;
+    }
+    if (splitVertical) {
+        const splitAt = minLeaf + Math.floor(Math.random() * (rect.w - minLeaf * 2));
+        return [
+            ...bspSplit({ x: rect.x, y: rect.y, w: splitAt, h: rect.h }, depth - 1, minLeaf),
+            ...bspSplit({ x: rect.x + splitAt, y: rect.y, w: rect.w - splitAt, h: rect.h }, depth - 1, minLeaf),
+        ];
+    } else {
+        const splitAt = minLeaf + Math.floor(Math.random() * (rect.h - minLeaf * 2));
+        return [
+            ...bspSplit({ x: rect.x, y: rect.y, w: rect.w, h: splitAt }, depth - 1, minLeaf),
+            ...bspSplit({ x: rect.x, y: rect.y + splitAt, w: rect.w, h: rect.h - splitAt }, depth - 1, minLeaf),
+        ];
+    }
+}
+
+function bspRoomInNode(node: BSPRect): BSPRect {
+    // Pad inward by 1 so rooms have wall borders inside the BSP node.
+    const padding = 1;
+    const maxW = Math.max(3, node.w - padding * 2);
+    const maxH = Math.max(3, node.h - padding * 2);
+    const minW = Math.min(3, maxW);
+    const minH = Math.min(3, maxH);
+    const roomW = minW + Math.floor(Math.random() * Math.max(1, maxW - minW + 1));
+    const roomH = minH + Math.floor(Math.random() * Math.max(1, maxH - minH + 1));
+    const roomX = node.x + padding + Math.floor(Math.random() * Math.max(1, node.w - padding * 2 - roomW + 1));
+    const roomY = node.y + padding + Math.floor(Math.random() * Math.max(1, node.h - padding * 2 - roomH + 1));
+    return { x: roomX, y: roomY, w: roomW, h: roomH };
+}
+
+function bspRoomCenter(r: BSPRect): { x: number; y: number } {
+    return { x: r.x + Math.floor(r.w / 2), y: r.y + Math.floor(r.h / 2) };
+}
+
+function bspCarveCorridor(
+    terrain: HollowGateTerrain[],
+    w: number,
+    from: { x: number; y: number },
+    to: { x: number; y: number },
+) {
+    // L-shape: horizontal then vertical (or vice versa), random choice.
+    const horizontalFirst = Math.random() < 0.5;
+    const cells: Array<{ x: number; y: number }> = [];
+    if (horizontalFirst) {
+        const [x1, x2] = from.x <= to.x ? [from.x, to.x] : [to.x, from.x];
+        for (let x = x1; x <= x2; x += 1) cells.push({ x, y: from.y });
+        const [y1, y2] = from.y <= to.y ? [from.y, to.y] : [to.y, from.y];
+        for (let y = y1; y <= y2; y += 1) cells.push({ x: to.x, y });
+    } else {
+        const [y1, y2] = from.y <= to.y ? [from.y, to.y] : [to.y, from.y];
+        for (let y = y1; y <= y2; y += 1) cells.push({ x: from.x, y });
+        const [x1, x2] = from.x <= to.x ? [from.x, to.x] : [to.x, from.x];
+        for (let x = x1; x <= x2; x += 1) cells.push({ x, y: to.y });
+    }
+    for (const c of cells) {
+        const idx = c.y * w + c.x;
+        // Only overwrite wall — never overwrite an existing room floor or door.
+        if (terrain[idx] === "wall") terrain[idx] = "corridor_floor";
+    }
+}
+
+// ── Hand-designed ASCII layouts ─────────────────────────────────────────
+//
+// Each entry is a multi-line string parsed by `parseHollowGateLayout`.
+// Symbols (case-sensitive):
+//   #   wall (impassable)
+//   .   room floor — lights up the whole connected room when entered
+//   ,   corridor floor — single-tile visibility
+//   +   door (walkable; just decorative)
+//   P   spawn (room_floor underneath)            — exactly one per layout
+//   X   exit / leave tile (room_floor underneath) — exactly one per layout
+//   T   target — boss on F5, descend stairs F1-4  — exactly one per layout
+//   t   torch decoration   (room_floor underneath)
+//   b   barrel decoration  (room_floor underneath)
+//   p   plant decoration   (room_floor underneath)
+//   s   skull decoration   (room_floor underneath)
+//
+// Rules:
+// - Width auto-derived from the longest row; shorter rows are right-padded
+//   with '#'. So every row doesn't need to be the same length.
+// - Reachability (spawn→exit AND spawn→target) is validated; layouts that
+//   fail validation are silently skipped and the next one is tried. If none
+//   parse, the BSP generator runs as a fallback.
+// - To add a layout, just append another string to this array — no other
+//   code change required.
+const HOLLOW_GATE_LAYOUTS: string[] = [
+    // ── 1. Hollow Threshold ────────────────────────────────────────────
+    // Three rooms: spawn top-left, target top-right, exit bottom.
+    // Two doors funnel into the main east-west corridor.
+`###############
+#.t...#......t#
+#.....+.......#
+#..P..#...T...#
+#....s#......b#
+###+#######+###
+#,,,,,,,,,,,,,#
+#####+##+######
+#...........t.#
+#.X..p........#
+###############`,
+
+    // ── 2. Crossroads ──────────────────────────────────────────────────
+    // Six small rooms in a 3×2 grid around a central east-west corridor.
+`###############
+#.....#...#...#
+#..P..+.t.+.T.#
+#.....#...#...#
+######+...+####
+#,,,,,,,,,,,,,#
+######+...+####
+#.....#...#...#
+#.X.s.+.b.+.p.#
+#.....#...#...#
+###############`,
+
+    // ── 3. The Loop ────────────────────────────────────────────────────
+    // Outer corridor frames a central chamber holding the target.
+    // Bottom row has three small rooms (spawn / mid / exit).
+`###############
+#,,,,,,,,,,,,,#
+#,#####+#####,#
+#,#.........#,#
+#,+....T....+,#
+#,#.........#,#
+#,#####+#####,#
+#,,,,,,,,,,,,,#
+###+###,###+###
+#.P.#...#...X.#
+###############`,
+];
+
+type ParsedHollowGateLayout = {
+    width: number;
+    height: number;
+    terrain: HollowGateTerrain[];
+    roomIds: number[];      // -1 for non-room tiles
+    decorations: number[];  // -1 for none, 0-3 otherwise
+    spawnIdx: number;
+    exitIdx: number;
+    targetIdx: number;
+};
+
+// Post-process pass run by both generators: enforce "no door leads to a wall".
+// A door is a transition between two walkable cells (room ↔ corridor or
+// room ↔ room). If a door has exactly one room neighbour and walls on all
+// other sides, it visually leads nowhere — confusing and unfair.
+//
+// Fix policy: convert the wall cell directly opposite the room into a
+// single-tile floor alcove + stamp a random surprise on it (poison trap /
+// ambush battle / elite / chest). The alcove gets its own unique roomId
+// so the visibility flood treats it as its own pocket; the player has to
+// step onto the door first, then onto the alcove to discover what's there.
+//
+// Edge cases:
+// - Door on the grid edge with nowhere to expand → close the door (wall it up)
+// - Door with multiple room neighbours (room↔room door) → leave alone
+// - Door with any corridor neighbour → leave alone (it leads somewhere)
+// - Island door (no walkable neighbours at all) → close the door
+function fixDoorsLeadingToWalls(
+    width: number,
+    height: number,
+    terrain: HollowGateTerrain[],
+    roomIds: number[],
+    kinds: HollowGateTileKind[],
+    reserved: Set<number>,
+): void {
+    let nextRoomId = roomIds.reduce((max, id) => Math.max(max, id), -1) + 1;
+    const total = width * height;
+    const cardinals: Array<[number, number]> = [[0, -1], [0, 1], [-1, 0], [1, 0]];
+    // dirs: 0=N, 1=S, 2=W, 3=E. Opposite pairs: 0↔1, 2↔3.
+    const oppositeDir = (d: number) => d === 0 ? 1 : d === 1 ? 0 : d === 2 ? 3 : 2;
+
+    for (let i = 0; i < total; i += 1) {
+        if (terrain[i] !== "door") continue;
+        const x = i % width;
+        const y = Math.floor(i / width);
+
+        const roomSides: number[] = [];
+        const corridorSides: number[] = [];
+        for (let d = 0; d < 4; d += 1) {
+            const [dx, dy] = cardinals[d];
+            const nx = x + dx, ny = y + dy;
+            if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+            const t = terrain[ny * width + nx];
+            if (t === "room_floor") roomSides.push(d);
+            else if (t === "corridor_floor" || t === "door") corridorSides.push(d);
+        }
+
+        if (corridorSides.length > 0) continue;         // leads to a corridor — fine
+        if (roomSides.length === 0) {                    // island door — close it
+            terrain[i] = "wall";
+            kinds[i] = "wall";
+            continue;
+        }
+        if (roomSides.length >= 2) continue;             // between two rooms — fine
+
+        // Single room neighbour + walls on the other 3 sides. Carve an alcove.
+        const opp = oppositeDir(roomSides[0]);
+        const [odx, ody] = cardinals[opp];
+        const ox = x + odx, oy = y + ody;
+        if (ox < 0 || oy < 0 || ox >= width || oy >= height) {
+            // Outside the grid — close the door instead.
+            terrain[i] = "wall";
+            kinds[i] = "wall";
+            continue;
+        }
+        const oIdx = oy * width + ox;
+        if (terrain[oIdx] !== "wall") continue;          // already walkable somehow
+
+        terrain[oIdx] = "room_floor";
+        roomIds[oIdx] = nextRoomId;
+        nextRoomId += 1;
+
+        // Stamp content on the alcove. Skip if the cell was already reserved by
+        // spawn/exit/target (should never happen since walls are excluded from
+        // reservations, but defensive). Mix favours traps so blind-doors punish
+        // greed; chest is the small reward stinger.
+        if (!reserved.has(oIdx)) {
+            const roll = Math.random();
+            const kind: HollowGateTileKind = roll < 0.40 ? "trap"      // poison
+                : roll < 0.75 ? "battle"                                // ambush
+                : roll < 0.90 ? "elite"                                  // tougher ambush
+                : "chest";                                                // small reward
+            kinds[oIdx] = kind;
+            reserved.add(oIdx);
+        }
+    }
+}
+
+function parseHollowGateLayout(ascii: string): ParsedHollowGateLayout | null {
+    const lines = ascii.split("\n").map(l => l.replace(/\s+$/, ""));
+    while (lines.length && lines[0].length === 0) lines.shift();
+    while (lines.length && lines[lines.length - 1].length === 0) lines.pop();
+    if (lines.length < 3) return null;
+    const width = Math.max(...lines.map(l => l.length));
+    const height = lines.length;
+    if (width < 3) return null;
+
+    const total = width * height;
+    const terrain: HollowGateTerrain[] = new Array(total).fill("wall");
+    const decorations: number[] = new Array(total).fill(-1);
+    let spawnIdx = -1;
+    let exitIdx = -1;
+    let targetIdx = -1;
+
+    for (let y = 0; y < height; y += 1) {
+        const row = lines[y].padEnd(width, "#");
+        for (let x = 0; x < width; x += 1) {
+            const ch = row[x];
+            const i = y * width + x;
+            switch (ch) {
+                case ".": terrain[i] = "room_floor"; break;
+                case ",": terrain[i] = "corridor_floor"; break;
+                case "+": terrain[i] = "door"; break;
+                case "P": terrain[i] = "room_floor"; spawnIdx = i; break;
+                case "X": terrain[i] = "room_floor"; exitIdx = i; break;
+                case "T": terrain[i] = "room_floor"; targetIdx = i; break;
+                case "t": terrain[i] = "room_floor"; decorations[i] = 0; break;
+                case "b": terrain[i] = "room_floor"; decorations[i] = 1; break;
+                case "p": terrain[i] = "room_floor"; decorations[i] = 2; break;
+                case "s": terrain[i] = "room_floor"; decorations[i] = 3; break;
+                // '#' and any unknown symbol fall through to wall.
+                default: terrain[i] = "wall"; break;
+            }
+        }
+    }
+    if (spawnIdx < 0 || exitIdx < 0 || targetIdx < 0) return null;
+
+    // Flood-fill connected room_floor regions to assign roomIds. Each blob of
+    // room_floor cells separated from others by walls/corridors/doors gets a
+    // unique id — the renderer uses this to light up the whole room when the
+    // player steps in.
+    const roomIds: number[] = new Array(total).fill(-1);
+    let nextRoom = 0;
+    for (let i = 0; i < total; i += 1) {
+        if (terrain[i] !== "room_floor" || roomIds[i] >= 0) continue;
+        const id = nextRoom;
+        nextRoom += 1;
+        const stack: number[] = [i];
+        while (stack.length) {
+            const cur = stack.pop()!;
+            if (roomIds[cur] >= 0) continue;
+            roomIds[cur] = id;
+            const cx = cur % width;
+            const cy = Math.floor(cur / width);
+            for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+                const nx = cx + dx;
+                const ny = cy + dy;
+                if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+                const nIdx = ny * width + nx;
+                if (terrain[nIdx] === "room_floor" && roomIds[nIdx] < 0) stack.push(nIdx);
+            }
+        }
     }
 
-    function placeMany(kind: HollowGateTileKind, count: number) {
+    // Validate reachability with walls as the only blockers (doors and
+    // corridors are walkable). Skip layouts where spawn can't reach exit/target.
+    const wallSet = new Set<number>();
+    for (let i = 0; i < total; i += 1) if (terrain[i] === "wall") wallSet.add(i);
+    const reachable = hollowGateReachableSet(width, height, spawnIdx, wallSet);
+    if (!reachable.has(exitIdx) || !reachable.has(targetIdx)) return null;
+
+    return { width, height, terrain, roomIds, decorations, spawnIdx, exitIdx, targetIdx };
+}
+
+// Overlay battle/trap/chest/etc. content on top of a parsed layout's terrain.
+// Same content rules as the BSP generator — keeps the dungeon experience
+// consistent regardless of whether geometry came from a layout or BSP.
+function buildRunFromParsedLayout(
+    parsed: ParsedHollowGateLayout,
+    floor: number,
+    isFinalFloor: boolean,
+): HollowGateShrineRun {
+    const { width: w, height: h, terrain, roomIds, decorations, spawnIdx, exitIdx, targetIdx } = parsed;
+    const total = w * h;
+
+    const kinds: HollowGateTileKind[] = new Array(total).fill("empty");
+    for (let i = 0; i < total; i += 1) if (terrain[i] === "wall") kinds[i] = "wall";
+
+    const reserved = new Set<number>([spawnIdx, exitIdx, targetIdx]);
+    kinds[exitIdx] = "exit";
+    kinds[targetIdx] = isFinalFloor ? "boss" : "descend";
+
+    const playerX = spawnIdx % w;
+    const playerY = Math.floor(spawnIdx / w);
+    const protectedRadius = new Set<number>([spawnIdx]);
+    for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+        const nx = playerX + dx;
+        const ny = playerY + dy;
+        if (nx >= 0 && ny >= 0 && nx < w && ny < h) {
+            const nIdx = ny * w + nx;
+            if (terrain[nIdx] !== "wall") protectedRadius.add(nIdx);
+        }
+    }
+
+    function placeIn(allowedTerrains: HollowGateTerrain[], kind: HollowGateTileKind, count: number) {
         let placed = 0;
         let safety = 0;
-        while (placed < count && safety < 300) {
+        while (placed < count && safety < 400) {
             safety += 1;
             const idx = Math.floor(Math.random() * total);
-            if (reserved.has(idx)) continue;
+            if (reserved.has(idx) || protectedRadius.has(idx)) continue;
             if (kinds[idx] !== "empty") continue;
+            if (!allowedTerrains.includes(terrain[idx])) continue;
             kinds[idx] = kind;
             placed += 1;
         }
     }
 
-    // Walls first — give the dungeon real geometry. We place them in small
-    // 2-3 tile clusters so it looks like broken walls / pillars rather than
-    // random scattered cubes. Spawn tile + 4 surrounding tiles are protected so
-    // the player always starts in an open foyer.
-    const protectedRadius = new Set<number>([spawnIdx]);
-    for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0], [-1, -1], [1, -1], [-1, 1], [1, 1]]) {
-        const nx = playerX + dx;
-        const ny = playerY + dy;
-        if (nx >= 0 && ny >= 0 && nx < w && ny < h) protectedRadius.add(ny * w + nx);
-    }
-    function placeWallCluster(seedIdx: number, size: number) {
-        const queue: number[] = [seedIdx];
-        let placed = 0;
-        while (queue.length > 0 && placed < size) {
-            const idx = queue.shift()!;
-            if (reserved.has(idx) || protectedRadius.has(idx)) continue;
-            if (kinds[idx] !== "empty") continue;
-            kinds[idx] = "wall";
-            placed += 1;
-            // Try to extend in a random direction so clusters are organic.
-            const x = idx % w;
-            const y = Math.floor(idx / w);
-            const dirs = [[0, -1], [0, 1], [-1, 0], [1, 0]].sort(() => Math.random() - 0.5);
-            for (const [dx, dy] of dirs) {
-                const nx = x + dx;
-                const ny = y + dy;
-                if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
-                if (Math.random() < 0.55) queue.push(ny * w + nx);
-            }
-        }
-    }
-    // Aim for ~32% of the grid as walls — this density produces real corridors
-    // and T-junctions instead of an open parking lot. More walls = more dead-ends
-    // = more opportunities to bait traps onto wrong turns.
-    const targetWallTiles = Math.floor(total * 0.32) + Math.floor(floor / 2);
-    let wallsPlaced = 0;
-    let wallSafety = 0;
-    while (wallsPlaced < targetWallTiles && wallSafety < 50) {
-        wallSafety += 1;
-        const seed = Math.floor(Math.random() * total);
-        const before = kinds.filter(k => k === "wall").length;
-        placeWallCluster(seed, 2 + Math.floor(Math.random() * 2)); // 2-3 tiles per cluster
-        const after = kinds.filter(k => k === "wall").length;
-        wallsPlaced += after - before;
-    }
-
-    // Counts scale slightly with floor depth.
     const battleCount = 4 + Math.min(3, floor);
     const trapCount = 3 + Math.floor(floor / 2);
 
-    // DEAD-END TRAP BIAS: walls produce natural dead-ends (tiles with 0-1
-    // walkable neighbors). We place ~67% of the floor's traps at those
-    // tiles first so a wrong turn always punishes the player. The rest
-    // fill in randomly the way they always did.
     function walkableNeighbors(idx: number): number {
         const x = idx % w;
         const y = Math.floor(idx / w);
@@ -1292,7 +1653,7 @@ function generateHollowGateShrineRun(floor = 1): HollowGateShrineRun {
             const nx = x + dx;
             const ny = y + dy;
             if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
-            if (kinds[ny * w + nx] !== "wall") n += 1;
+            if (terrain[ny * w + nx] !== "wall") n += 1;
         }
         return n;
     }
@@ -1301,9 +1662,9 @@ function generateHollowGateShrineRun(floor = 1): HollowGateShrineRun {
         for (let i = 0; i < total; i += 1) {
             if (reserved.has(i) || protectedRadius.has(i)) continue;
             if (kinds[i] !== "empty") continue;
+            if (terrain[i] !== "corridor_floor" && terrain[i] !== "room_floor") continue;
             if (walkableNeighbors(i) <= 1) deadEnds.push(i);
         }
-        // Shuffle so we don't always pick the same dead-ends.
         deadEnds.sort(() => Math.random() - 0.5);
         let placed = 0;
         for (const idx of deadEnds) {
@@ -1313,78 +1674,93 @@ function generateHollowGateShrineRun(floor = 1): HollowGateShrineRun {
         }
         return placed;
     }
-    const deadEndTrapTarget = Math.ceil(trapCount * 0.67);
-    const deadEndTrapsPlaced = placeTrapsAtDeadEnds(deadEndTrapTarget);
+    const deadEndTrapsPlaced = placeTrapsAtDeadEnds(Math.ceil(trapCount * 0.67));
 
-    placeMany("battle", battleCount);
-    placeMany("elite", 1 + Math.floor(floor / 2));
-    placeMany("trap", Math.max(0, trapCount - deadEndTrapsPlaced));
-    placeMany("chest", 3);
-    placeMany("pet_event", 1);
-    placeMany("shrine", 1);
-    placeMany("story", 1);
-    placeMany("locked", 1);
-    placeMany("npc", 1);    // Shrine Keeper — lore-only per floor
+    placeIn(["room_floor", "corridor_floor"], "battle", battleCount);
+    placeIn(["room_floor", "corridor_floor"], "pet_battle", 1 + Math.floor(floor / 2));   // Hollow Beast encounters
+    placeIn(["room_floor", "corridor_floor"], "trap", Math.max(0, trapCount - deadEndTrapsPlaced));
+    placeIn(["room_floor"], "elite", 1 + Math.floor(floor / 2));
+    placeIn(["room_floor"], "chest", 3);
+    // pet_event tile: deprecated. The old "glowing pawprints" flavor tile
+    // was atmospheric-only with no reward — superseded by pet_battle for
+    // real pet content. Kind kept in the union for legacy saved-run
+    // compatibility but the generator no longer places new ones.
+    // placeIn(["room_floor"], "pet_event", 1);  // removed
+    placeIn(["room_floor"], "shrine", 1);
+    placeIn(["room_floor"], "story", 1);
+    placeIn(["room_floor"], "tile_game", 1);   // Shinobi Tile card-game encounter
+    placeIn(["room_floor"], "locked", 1);
+    placeIn(["room_floor"], "npc", 1);
 
-    // Validate: any locked tile must NOT block the only path to boss + exit.
-    // We BFS from spawn treating locked tiles as walls; if boss or exit is
-    // unreachable we relocate the offending locked tile to a free empty cell.
-    function locateLockedTiles() {
+    // Rule: no door leads to a wall. Convert any dead-end door's wall-side
+    // into a 1-tile alcove stamped with trap/battle/elite/chest.
+    // (Layouts often have hand-placed doors; this fixes accidental dead-ends.)
+    // Mutates terrain / roomIds / kinds / reserved in place — that's why the
+    // arrays from the parser are reused downstream untouched by this call.
+    fixDoorsLeadingToWalls(w, h, terrain, roomIds, kinds, reserved);
+
+    // BFS validate spawn → exit AND spawn → target with locked tiles blocking.
+    // Same logic as the BSP generator — relocate the offending locked tile if
+    // it sits on the only path.
+    function locateLockedTiles(): number[] {
         const out: number[] = [];
         for (let i = 0; i < kinds.length; i += 1) if (kinds[i] === "locked") out.push(i);
         return out;
     }
-    function freeEmptyCells(): number[] {
+    function freeRoomCells(): number[] {
         const out: number[] = [];
-        for (let i = 0; i < kinds.length; i += 1) if (kinds[i] === "empty" && !reserved.has(i)) out.push(i);
-        return out;
-    }
-    // Find the boss/descend index for reachability checks.
-    function findKindIdx(kind: HollowGateTileKind): number {
-        for (let i = 0; i < kinds.length; i += 1) if (kinds[i] === kind) return i;
-        return -1;
-    }
-    function locateWalls(): number[] {
-        const out: number[] = [];
-        for (let i = 0; i < kinds.length; i += 1) if (kinds[i] === "wall") out.push(i);
+        for (let i = 0; i < kinds.length; i += 1) {
+            if (kinds[i] === "empty" && !reserved.has(i) && terrain[i] === "room_floor") out.push(i);
+        }
         return out;
     }
     let attempts = 0;
     while (attempts < 12) {
         attempts += 1;
-        const lockedIndices = locateLockedTiles();
-        const wallIndices = locateWalls();
-        // Walls AND locked tiles both block path-validation. Locked is the
-        // most-recoverable so we relocate those first; if that fails we
-        // chip walls away too.
-        const blocked = new Set<number>([...lockedIndices, ...wallIndices]);
+        const locked = locateLockedTiles();
+        const wallBlockers = new Set<number>();
+        for (let i = 0; i < total; i += 1) if (terrain[i] === "wall") wallBlockers.add(i);
+        const blocked = new Set<number>([...locked, ...wallBlockers]);
         const reachable = hollowGateReachableSet(w, h, spawnIdx, blocked);
-        const targetIdx = isFinalFloor ? findKindIdx("boss") : findKindIdx("descend");
-        const exitOk = exitIdx < 0 || reachable.has(exitIdx);
-        const targetOk = targetIdx < 0 || reachable.has(targetIdx);
-        if (exitOk && targetOk) break;
-        const free = freeEmptyCells();
-        if (free.length === 0) break;
-        // First try moving a locked tile out of the way.
-        if (lockedIndices.length > 0) {
-            const offending = lockedIndices[0];
-            kinds[offending] = "empty";
+        if (reachable.has(exitIdx) && reachable.has(targetIdx)) break;
+        const free = freeRoomCells();
+        if (locked.length > 0 && free.length > 0) {
+            kinds[locked[0]] = "empty";
             kinds[free[Math.floor(Math.random() * free.length)]] = "locked";
             continue;
         }
-        // No locked tiles left to move — chip a wall instead.
-        if (wallIndices.length > 0) {
-            const chip = wallIndices[Math.floor(Math.random() * wallIndices.length)];
-            kinds[chip] = "empty";
-        }
+        break;
+    }
+
+    // Respect layout-supplied decorations, then sprinkle a few more on empty
+    // room cells that didn't get one explicitly. Same density as BSP path.
+    const finalDecorations: number[] = [...decorations];
+    for (let i = 0; i < total; i += 1) {
+        if (terrain[i] !== "room_floor") continue;
+        if (finalDecorations[i] >= 0) continue;
+        if (kinds[i] !== "empty") continue;
+        if (reserved.has(i) || protectedRadius.has(i)) continue;
+        if (Math.random() < 0.12) finalDecorations[i] = Math.floor(Math.random() * 4);
     }
 
     const tiles: HollowGateTile[] = kinds.map((kind, i) => ({
         kind,
-        revealed: i === spawnIdx, // spawn revealed
+        terrain: terrain[i],
+        roomId: roomIds[i] >= 0 ? roomIds[i] : null,
+        decoration: finalDecorations[i] >= 0 ? finalDecorations[i] : undefined,
+        revealed: i === spawnIdx,
         resolved: i === spawnIdx,
         flavor: i === spawnIdx ? "You stand at the threshold of the Hollow Gate Shrine." : undefined,
     }));
+
+    // Stamp each room with a deterministic theme. Same room within the run
+    // keeps its theme, but the run's seed shuffles which theme each room gets.
+    const seed = Math.floor(Math.random() * 0x7fffffff);
+    const roomThemes: Record<number, string> = {};
+    const uniqueRoomIds = new Set(roomIds.filter(id => id >= 0));
+    for (const rid of uniqueRoomIds) {
+        roomThemes[rid] = pickRoomTheme(rid, floor, seed);
+    }
 
     return {
         width: w,
@@ -1397,7 +1773,462 @@ function generateHollowGateShrineRun(floor = 1): HollowGateShrineRun {
         torch: 10,
         keys: 0,
         completed: false,
+        roomThemes,
+        seed,
     };
+}
+
+function generateHollowGateShrineRun(floor = 1): HollowGateShrineRun {
+    const isFinalFloor = floor >= HOLLOW_GATE_MAX_FLOOR;
+
+    // Try hand-designed layouts first — they're way more interesting than
+    // BSP-generated geometry. Shuffle order so consecutive floors rarely use
+    // the same one. Each is validated for reachability; bad layouts are
+    // silently skipped.
+    const shuffled = [...HOLLOW_GATE_LAYOUTS].sort(() => Math.random() - 0.5);
+    for (const layoutSrc of shuffled) {
+        const parsed = parseHollowGateLayout(layoutSrc);
+        if (!parsed) continue;
+        return buildRunFromParsedLayout(parsed, floor, isFinalFloor);
+    }
+
+    // Fallback: procedural BSP. Always works, just less visually distinctive.
+    return generateHollowGateShrineRunBSP(floor);
+}
+
+function generateHollowGateShrineRunBSP(floor = 1): HollowGateShrineRun {
+    const w = HOLLOW_GATE_SHRINE_W;
+    const h = HOLLOW_GATE_SHRINE_H;
+    const total = w * h;
+    const isFinalFloor = floor >= HOLLOW_GATE_MAX_FLOOR;
+
+    // ── 1. BSP partition the grid into 5-7 rooms ──────────────────────────
+    const rootNode: BSPRect = { x: 0, y: 0, w, h };
+    // 3-4 levels of splits on a 15×11 grid produce ~5-7 leaves.
+    const splitDepth = 3;
+    const minLeaf = 4; // each leaf is at least 4×4 so rooms fit comfortably
+    const leaves = bspSplit(rootNode, splitDepth, minLeaf);
+    // Drop tiny leaves (BSP can over-split when grid is unbalanced).
+    const usableLeaves = leaves.filter(l => l.w >= 4 && l.h >= 4);
+    const rooms = usableLeaves.map(bspRoomInNode);
+
+    // ── 2. Initialize terrain to all walls ────────────────────────────────
+    const terrain: HollowGateTerrain[] = new Array(total).fill("wall");
+    // Parallel array tagging each cell with its room ID (-1 = wall / corridor).
+    // The renderer uses this to light up the entire current room when the
+    // player walks into it, without revealing what's beyond doors.
+    const roomIds: number[] = new Array(total).fill(-1);
+
+    // Carve room floors and stamp each cell with the room index.
+    rooms.forEach((room, roomIndex) => {
+        for (let ry = room.y; ry < room.y + room.h; ry += 1) {
+            for (let rx = room.x; rx < room.x + room.w; rx += 1) {
+                if (rx >= 0 && ry >= 0 && rx < w && ry < h) {
+                    const idx = ry * w + rx;
+                    terrain[idx] = "room_floor";
+                    roomIds[idx] = roomIndex;
+                }
+            }
+        }
+    });
+
+    // ── 2b. Cut corners off rooms to break up the all-rectangles look ──
+    // 15% chance per corner of a single-tile cut. Bigger cuts (or higher
+    // chance) made rooms unidentifiable as rooms.
+    rooms.forEach((room) => {
+        if (room.w < 4 || room.h < 4) return;
+        const corners: Array<[number, number]> = [
+            [room.x, room.y],                                 // top-left
+            [room.x + room.w - 1, room.y],                    // top-right
+            [room.x, room.y + room.h - 1],                    // bottom-left
+            [room.x + room.w - 1, room.y + room.h - 1],       // bottom-right
+        ];
+        for (const [cx, cy] of corners) {
+            if (Math.random() >= 0.15) continue;
+            if (cx < 0 || cy < 0 || cx >= w || cy >= h) continue;
+            const idx = cy * w + cx;
+            if (terrain[idx] === "room_floor") {
+                terrain[idx] = "wall";
+                roomIds[idx] = -1;
+            }
+        }
+    });
+
+    // ── 3. Connect adjacent rooms with corridors ──────────────────────────
+    // Sort rooms by center x then y, then connect each to the next so every
+    // room is reachable. (Not the prettiest tour but reliably connected.)
+    const sortedRooms = [...rooms].sort((a, b) => {
+        const ca = bspRoomCenter(a);
+        const cb = bspRoomCenter(b);
+        return ca.x !== cb.x ? ca.x - cb.x : ca.y - cb.y;
+    });
+    for (let i = 0; i + 1 < sortedRooms.length; i += 1) {
+        bspCarveCorridor(terrain, w, bspRoomCenter(sortedRooms[i]), bspRoomCenter(sortedRooms[i + 1]));
+    }
+    // Add 1-2 extra random connections so the layout isn't a strict chain.
+    const extraConnections = 1 + Math.floor(Math.random() * 2);
+    for (let i = 0; i < extraConnections && rooms.length >= 2; i += 1) {
+        const a = rooms[Math.floor(Math.random() * rooms.length)];
+        const b = rooms[Math.floor(Math.random() * rooms.length)];
+        if (a !== b) bspCarveCorridor(terrain, w, bspRoomCenter(a), bspRoomCenter(b));
+    }
+
+    // ── 4. Mark doors where corridors enter rooms ────────────────────────
+    // Old logic converted EVERY room-floor cell that touched a corridor into
+    // a door — for a 4-tile-wide room edge this produced 4 adjacent door
+    // tiles, which read as a "wall of doors" rather than a doorway.
+    // New rule: a room-floor cell becomes a door ONLY if it is the unique
+    // entry point — i.e. the corridor cell is adjacent and that corridor
+    // cell does not extend further into the room. We process each corridor
+    // endpoint and mark exactly one room cell as the door.
+    {
+        const corridorEndsTouchingRoom = new Set<number>();
+        for (let i = 0; i < total; i += 1) {
+            if (terrain[i] !== "corridor_floor") continue;
+            const x = i % w;
+            const y = Math.floor(i / w);
+            for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+                const nx = x + dx;
+                const ny = y + dy;
+                if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+                const nIdx = ny * w + nx;
+                if (terrain[nIdx] === "room_floor") {
+                    // Only the FIRST room cell each corridor end touches becomes
+                    // a door — subsequent room cells stay as room floor.
+                    if (!corridorEndsTouchingRoom.has(nIdx)) {
+                        terrain[nIdx] = "door";
+                        corridorEndsTouchingRoom.add(nIdx);
+                    }
+                }
+            }
+        }
+    }
+
+    // ── 5. Pick spawn, exit (leave), and target (boss / descend) rooms ──
+    if (rooms.length === 0) {
+        // Defensive: BSP failed to produce rooms (shouldn't happen at 15×11).
+        // Fall back to a single big room covering the grid.
+        for (let i = 0; i < total; i += 1) {
+            terrain[i] = "room_floor";
+            roomIds[i] = 0;
+        }
+        rooms.push({ x: 1, y: 1, w: w - 2, h: h - 2 });
+    }
+
+    // Spawn = first room in left-to-right order.
+    const spawnRoom = [...rooms].sort((a, b) => a.x - b.x)[0];
+    const spawnCenter = bspRoomCenter(spawnRoom);
+    const playerX = spawnCenter.x;
+    const playerY = spawnCenter.y;
+    const spawnIdx = playerY * w + playerX;
+
+    // Exit/Leave = room farthest from spawn.
+    function distRoom(r: BSPRect): number {
+        const c = bspRoomCenter(r);
+        return Math.abs(c.x - playerX) + Math.abs(c.y - playerY);
+    }
+    const remainingRooms = rooms.filter(r => r !== spawnRoom);
+    const sortedByDist = [...remainingRooms].sort((a, b) => distRoom(b) - distRoom(a));
+    const leaveRoom = sortedByDist[0] ?? spawnRoom;
+    const leaveCenter = bspRoomCenter(leaveRoom);
+    const exitIdx = leaveCenter.y * w + leaveCenter.x;
+
+    // Target room (boss on F5, descend on F1-4) = second-farthest, distinct
+    // from spawn AND leave. Fall back to mid-distance if needed.
+    const targetCandidates = remainingRooms.filter(r => r !== leaveRoom);
+    const targetRoom = targetCandidates[Math.floor(targetCandidates.length / 2)] ?? leaveRoom;
+    const targetCenter = bspRoomCenter(targetRoom);
+    const targetIdx = targetCenter.y * w + targetCenter.x;
+
+    // ── 6. Now build the content layer (kinds) on top of terrain ─────────
+    const kinds: HollowGateTileKind[] = new Array(total).fill("empty");
+    // Walls map to kind "wall" so existing event/movement code keeps working.
+    for (let i = 0; i < total; i += 1) if (terrain[i] === "wall") kinds[i] = "wall";
+
+    const reserved = new Set<number>([spawnIdx, exitIdx, targetIdx]);
+    kinds[exitIdx] = "exit";
+    kinds[targetIdx] = isFinalFloor ? "boss" : "descend";
+
+    // Spawn safety: spawn cell + 4 cardinal neighbors stay empty (no content,
+    // no walls — though walls were already excluded by the room shape).
+    const protectedRadius = new Set<number>([spawnIdx]);
+    for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+        const nx = playerX + dx;
+        const ny = playerY + dy;
+        if (nx >= 0 && ny >= 0 && nx < w && ny < h) {
+            const nIdx = ny * w + nx;
+            if (terrain[nIdx] !== "wall") protectedRadius.add(nIdx);
+        }
+    }
+
+    // ── 7. Place content tiles ────────────────────────────────────────────
+    // Room-only content: chest, npc, story, pet_event, shrine, locked, elite.
+    // Corridor-eligible: battle, trap (+ dead-end bias).
+    function placeIn(allowedTerrains: HollowGateTerrain[], kind: HollowGateTileKind, count: number) {
+        let placed = 0;
+        let safety = 0;
+        while (placed < count && safety < 400) {
+            safety += 1;
+            const idx = Math.floor(Math.random() * total);
+            if (reserved.has(idx) || protectedRadius.has(idx)) continue;
+            if (kinds[idx] !== "empty") continue;
+            if (!allowedTerrains.includes(terrain[idx])) continue;
+            kinds[idx] = kind;
+            placed += 1;
+        }
+    }
+
+    const battleCount = 4 + Math.min(3, floor);
+    const trapCount = 3 + Math.floor(floor / 2);
+
+    // Dead-end trap bias: corridors with only 1 walkable neighbor are natural
+    // ambush points. Bias most traps there so a wrong turn at a corridor fork
+    // punishes the player.
+    function walkableNeighbors(idx: number): number {
+        const x = idx % w;
+        const y = Math.floor(idx / w);
+        let n = 0;
+        for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+            const nx = x + dx;
+            const ny = y + dy;
+            if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+            if (terrain[ny * w + nx] !== "wall") n += 1;
+        }
+        return n;
+    }
+    function placeTrapsAtDeadEnds(maxTraps: number): number {
+        const deadEnds: number[] = [];
+        for (let i = 0; i < total; i += 1) {
+            if (reserved.has(i) || protectedRadius.has(i)) continue;
+            if (kinds[i] !== "empty") continue;
+            // Only corridor cells and small room corners qualify as dead-ends.
+            if (terrain[i] !== "corridor_floor" && terrain[i] !== "room_floor") continue;
+            if (walkableNeighbors(i) <= 1) deadEnds.push(i);
+        }
+        deadEnds.sort(() => Math.random() - 0.5);
+        let placed = 0;
+        for (const idx of deadEnds) {
+            if (placed >= maxTraps) break;
+            kinds[idx] = "trap";
+            placed += 1;
+        }
+        return placed;
+    }
+    const deadEndTrapsPlaced = placeTrapsAtDeadEnds(Math.ceil(trapCount * 0.67));
+
+    // Battles can be in rooms (guards) or corridors (ambushes).
+    placeIn(["room_floor", "corridor_floor"], "battle", battleCount);
+    // Hollow Beast encounters — wild pet-themed PvE; 1+floor/2 per floor.
+    placeIn(["room_floor", "corridor_floor"], "pet_battle", 1 + Math.floor(floor / 2));
+    // Remaining traps fill anywhere walkable.
+    placeIn(["room_floor", "corridor_floor"], "trap", Math.max(0, trapCount - deadEndTrapsPlaced));
+    // Room-only content: feels like guarded loot / shrines.
+    placeIn(["room_floor"], "elite", 1 + Math.floor(floor / 2));
+    placeIn(["room_floor"], "chest", 3);
+    // pet_event tile: deprecated. The old "glowing pawprints" flavor tile
+    // was atmospheric-only with no reward — superseded by pet_battle for
+    // real pet content. Kind kept in the union for legacy saved-run
+    // compatibility but the generator no longer places new ones.
+    // placeIn(["room_floor"], "pet_event", 1);  // removed
+    placeIn(["room_floor"], "shrine", 1);
+    placeIn(["room_floor"], "story", 1);
+    placeIn(["room_floor"], "tile_game", 1);   // Shinobi Tile card-game encounter
+    placeIn(["room_floor"], "locked", 1);
+    placeIn(["room_floor"], "npc", 1);    // Shrine Keeper — one per floor
+
+    // Rule: no door leads to a wall. BSP corridors usually terminate cleanly
+    // at room edges so this is mostly a safety net for irregular cuts, but
+    // it also adds extra reward/risk pockets behind doors that would
+    // otherwise lead nowhere.
+    fixDoorsLeadingToWalls(w, h, terrain, roomIds, kinds, reserved);
+
+    // ── 8. BFS path-validation: spawn → exit + spawn → target ─────────────
+    // Walls always block; locked tiles also block (player needs a Shrine Key).
+    // Doors are walkable (they're just decorative thresholds).
+    function locateLockedTiles() {
+        const out: number[] = [];
+        for (let i = 0; i < kinds.length; i += 1) if (kinds[i] === "locked") out.push(i);
+        return out;
+    }
+    function freeRoomCells(): number[] {
+        const out: number[] = [];
+        for (let i = 0; i < kinds.length; i += 1) {
+            if (kinds[i] === "empty" && !reserved.has(i) && terrain[i] === "room_floor") out.push(i);
+        }
+        return out;
+    }
+    let attempts = 0;
+    while (attempts < 12) {
+        attempts += 1;
+        const lockedIndices = locateLockedTiles();
+        const wallBlockers = new Set<number>();
+        for (let i = 0; i < total; i += 1) if (terrain[i] === "wall") wallBlockers.add(i);
+        const blocked = new Set<number>([...lockedIndices, ...wallBlockers]);
+        const reachable = hollowGateReachableSet(w, h, spawnIdx, blocked);
+        const exitOk = reachable.has(exitIdx);
+        const targetOk = reachable.has(targetIdx);
+        if (exitOk && targetOk) break;
+        // Relocate one offending locked tile if it's blocking the path.
+        const free = freeRoomCells();
+        if (lockedIndices.length > 0 && free.length > 0) {
+            const offending = lockedIndices[0];
+            kinds[offending] = "empty";
+            kinds[free[Math.floor(Math.random() * free.length)]] = "locked";
+            continue;
+        }
+        // If walls are blocking, the BSP is broken — bail and accept the run.
+        break;
+    }
+
+    // ── 8b. Sprinkle decorations on empty room cells ───────────────────
+    // ~12% of empty room cells get a random decoration index (0-3). Purely
+    // visual — no event, no block, just breaks up the floor monotony.
+    const decorationOf: number[] = new Array(total).fill(-1);
+    for (let i = 0; i < total; i += 1) {
+        if (terrain[i] !== "room_floor") continue;
+        if (kinds[i] !== "empty") continue;          // don't put decos on content tiles
+        if (reserved.has(i) || protectedRadius.has(i)) continue;
+        if (Math.random() < 0.12) {
+            decorationOf[i] = Math.floor(Math.random() * 4);
+        }
+    }
+
+    // ── 9. Build the final tile array, attaching kind / terrain / roomId ──
+    const tiles: HollowGateTile[] = kinds.map((kind, i) => ({
+        kind,
+        terrain: terrain[i],
+        roomId: roomIds[i] >= 0 ? roomIds[i] : null,
+        decoration: decorationOf[i] >= 0 ? decorationOf[i] : undefined,
+        revealed: i === spawnIdx, // spawn revealed
+        resolved: i === spawnIdx,
+        flavor: i === spawnIdx ? "You stand at the threshold of the Hollow Gate Shrine." : undefined,
+    }));
+
+    // Per-room theme assignment — same logic as the layout-based builder so
+    // BSP runs also benefit from themed terrain when slots are assigned.
+    const bspSeed = Math.floor(Math.random() * 0x7fffffff);
+    const bspRoomThemes: Record<number, string> = {};
+    for (let i = 0; i < rooms.length; i += 1) {
+        bspRoomThemes[i] = pickRoomTheme(i, floor, bspSeed);
+    }
+
+    return {
+        width: w,
+        height: h,
+        playerX,
+        playerY,
+        tiles,
+        floor,
+        threat: 0,
+        torch: 10,
+        keys: 0,
+        completed: false,
+        roomThemes: bspRoomThemes,
+        seed: bspSeed,
+    };
+}
+
+// ── Room-flood visibility ───────────────────────────────────────────────────
+// Builds the set of tiles currently lit up around the player.
+//
+// Rules (matches your "light up the section you're in but not behind doors"
+// request):
+//   • Player's tile is always visible.
+//   • If the player is standing IN a room (tile has roomId), the entire room
+//     lights up at once — every cell with the same roomId becomes visible.
+//   • Doors at the edge of the lit room are visible (you can see the doorway),
+//     but vision STOPS at the door — what's beyond stays fogged. This is what
+//     makes choosing the wrong door risky.
+//   • If the player is in a corridor (no roomId), vision flood-fills along
+//     the corridor in all four directions until it hits a wall or a door.
+//     Doors at the end of a corridor are visible but don't reveal beyond.
+//   • Walls are NEVER walkable, but neighboring walls of a lit room ARE shown
+//     so the room reads as a discrete chamber (its walls trace the perimeter).
+function computeHollowGateVisible(run: HollowGateShrineRun): Set<number> {
+    const w = run.width;
+    const h = run.height;
+    const playerIdx = run.playerY * w + run.playerX;
+    const playerTile = run.tiles[playerIdx];
+    const visible = new Set<number>([playerIdx]);
+    if (!playerTile) return visible;
+
+    function addWallsAroundLitTiles() {
+        // Reveal the wall tiles that border any currently-lit cell so each
+        // room's perimeter is visible from the inside.
+        const litSnapshot = [...visible];
+        for (const idx of litSnapshot) {
+            const x = idx % w;
+            const y = Math.floor(idx / w);
+            for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0], [-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+                const nx = x + dx;
+                const ny = y + dy;
+                if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+                const nIdx = ny * w + nx;
+                if (run.tiles[nIdx]?.terrain === "wall") visible.add(nIdx);
+            }
+        }
+    }
+
+    if (playerTile.roomId != null) {
+        // Standing in a room — light up every cell of that room + bordering doors.
+        for (let i = 0; i < run.tiles.length; i += 1) {
+            if (run.tiles[i]?.roomId === playerTile.roomId) visible.add(i);
+        }
+        // Add doors adjacent to lit room cells (doors are 'room_floor' typed
+        // as 'door' terrain — they belong to the same roomId).
+        // They're already included above. But we also want to reveal doors
+        // that border the room from the corridor side; check cardinal neighbours.
+        const litSnapshot = [...visible];
+        for (const idx of litSnapshot) {
+            const x = idx % w;
+            const y = Math.floor(idx / w);
+            for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+                const nx = x + dx;
+                const ny = y + dy;
+                if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+                const nIdx = ny * w + nx;
+                if (run.tiles[nIdx]?.terrain === "door") visible.add(nIdx);
+            }
+        }
+        addWallsAroundLitTiles();
+        return visible;
+    }
+
+    // Standing in a corridor (or undefined terrain on legacy runs).
+    // Flood-fill: walk in 4 directions through corridor cells until we hit
+    // a wall or a door. Doors themselves get added but don't propagate further.
+    const queue: number[] = [playerIdx];
+    while (queue.length > 0) {
+        const idx = queue.shift()!;
+        const x = idx % w;
+        const y = Math.floor(idx / w);
+        for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+            const nx = x + dx;
+            const ny = y + dy;
+            if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+            const nIdx = ny * w + nx;
+            if (visible.has(nIdx)) continue;
+            const nTile = run.tiles[nIdx];
+            if (!nTile) continue;
+            if (nTile.terrain === "wall") continue; // walls handled at the end
+            if (nTile.terrain === "door") {
+                visible.add(nIdx);
+                continue; // can see the door, but vision stops here
+            }
+            if (nTile.terrain === "corridor_floor" || nTile.terrain == null) {
+                visible.add(nIdx);
+                queue.push(nIdx);
+            }
+            // If we somehow reach a room_floor (legacy runs without doors
+            // between corridor and room), reveal one tile but don't flood
+            // the whole room from a corridor position.
+            if (nTile.terrain === "room_floor") {
+                visible.add(nIdx);
+            }
+        }
+    }
+    addWallsAroundLitTiles();
+    return visible;
 }
 
 // Module-level Ancient Chest roll for the Hollow Gate Shrine. Mirrors the
@@ -1471,6 +2302,8 @@ function hollowGateTileIconForKind(kind: HollowGateTileKind): string {
         case "trap": return "▲";
         case "chest": return "▣";
         case "pet_event": return "🐾";
+        case "pet_battle": return "🐺";
+        case "tile_game": return "🀄";
         case "shrine": return "⛩";
         case "story": return "📜";
         case "boss": return "👹";
@@ -1482,6 +2315,120 @@ function hollowGateTileIconForKind(kind: HollowGateTileKind): string {
         case "empty": return "·";
         default: return "·";
     }
+}
+
+// ── Atlas icon slots ───────────────────────────────────────────────────────
+// Maps a "role" in the dungeon UI to a KV key under which an atlas sprite
+// can be stored. When the renderer / legend find the corresponding image in
+// `sharedImages`, they overlay it instead of the emoji fallback above.
+//
+// Each content role can have multiple variants (battle-1, battle-2, ...) so
+// the dungeon stops looking like 6 photocopies of the same monster. The
+// renderer picks one of the assigned variants deterministically by tile
+// index hash — so each cell is stable across renders, but adjacent cells of
+// the same role show different sprites.
+//
+// Slots are filled via the Atlas Tile Picker (admin panel): the admin
+// selects a slot, clicks a tile in the atlas, and the picker slices that
+// 16×16 tile out of the atlas and publishes it under shrine:icon-<id>.
+type HollowGateIconRoleCfg = {
+    label: string;
+    kind?: HollowGateTileKind;
+    count: number;             // how many variant slots for this role
+    legendOnly?: boolean;
+};
+const HOLLOW_GATE_ICON_ROLES: Record<string, HollowGateIconRoleCfg> = {
+    you:     { label: "You (player)",                count: 1 },
+    battle:  { label: "Battle",  kind: "battle",     count: 4 },
+    elite:   { label: "Elite",   kind: "elite",      count: 4 },
+    boss:    { label: "Boss",    kind: "boss",       count: 2 },
+    trap:    { label: "Trap",    kind: "trap",       count: 4 },
+    chest:   { label: "Chest",   kind: "chest",      count: 4 },
+    shrine:  { label: "Shrine",  kind: "shrine",     count: 2 },
+    story:   { label: "Story",   kind: "story",      count: 2 },
+    pet:     { label: "Pet",     kind: "pet_event",  count: 3 },
+    petbattle: { label: "Pet Battle", kind: "pet_battle", count: 3 },   // wild Hollow Beast encounters
+    tilegame:  { label: "Tile Game", kind: "tile_game", count: 2 },     // Shinobi Tile card-game encounter
+    npc:     { label: "Keeper",  kind: "npc",        count: 3 },
+    descend: { label: "Descend", kind: "descend",    count: 1 },
+    exit:    { label: "Leave",   kind: "exit",       count: 1 },
+    locked:  { label: "Locked Door", kind: "locked", count: 2 },
+    wall:    { label: "Wall",                        count: 1, legendOnly: true },
+    // Floor flavor — sprinkled by the generator on empty room cells, 12%
+    // chance. Assignable atlas tiles for bones / mushrooms / vines / dirt
+    // piles / cracks / banners / pillars / etc. The renderer also includes
+    // any per-theme deco slots (theme-X-deco-1, -deco-2) so themed rooms
+    // get themed flavor (Crypt skulls, Ember braziers, etc.).
+    deco:    { label: "Decoration",                  count: 8 },
+};
+type HollowGateIconSlot = {
+    id: string;                 // shrine:icon-<id>
+    label: string;              // human-readable
+    kind?: HollowGateTileKind;
+    variantGroup: string;       // the role id this slot belongs to
+    variantIndex: number;       // 1..N within the group (1 if singleton)
+    legendOnly?: boolean;
+};
+const HOLLOW_GATE_ICON_SLOTS: HollowGateIconSlot[] = Object.entries(HOLLOW_GATE_ICON_ROLES).flatMap(([role, cfg]) => {
+    if (cfg.count === 1) {
+        return [{ id: role, label: cfg.label, kind: cfg.kind, variantGroup: role, variantIndex: 1, legendOnly: cfg.legendOnly }];
+    }
+    return Array.from({ length: cfg.count }, (_, i) => ({
+        id: `${role}-${i + 1}`,
+        label: `${cfg.label} ${i + 1}`,
+        kind: cfg.kind,
+        variantGroup: role,
+        variantIndex: i + 1,
+        legendOnly: cfg.legendOnly,
+    }));
+});
+const HOLLOW_GATE_ICON_KEY = (id: string) => `shrine:icon-${id}`;
+
+// ── Room themes ────────────────────────────────────────────────────────────
+// A "theme" bundles 4 terrain tiles (wall + floor + corridor + door) that
+// look good together. The generator stamps each room with a deterministic
+// theme based on the room's index + floor number, so consecutive runs and
+// rooms inside the same run feel different without exposing seams.
+//
+// Theme tile keys in shared KV:
+//   shrine:icon-theme-<theme>-wall
+//   shrine:icon-theme-<theme>-floor
+//   shrine:icon-theme-<theme>-corridor
+//   shrine:icon-theme-<theme>-door
+//
+// When a tile sits in a room with theme T, the renderer prefers the theme's
+// tile; if that slot isn't assigned it falls back to the base
+// shrine:tile-<terrain>-N variants (atlas-extracted Kenney textures).
+const HOLLOW_GATE_THEMES: Array<{ id: string; label: string }> = [
+    { id: "crypt",   label: "Crypt"   },   // grey stone + bone + skull
+    { id: "ember",   label: "Ember"   },   // orange brick + brazier
+    { id: "sanctum", label: "Sanctum" },   // gold + violet rune
+    { id: "ruins",   label: "Ruins"   },   // mossy + cracked + plant
+];
+const HOLLOW_GATE_THEME_TILE_ROLES: Array<{ id: string; label: string }> = [
+    { id: "wall",     label: "Wall"     },
+    { id: "floor",    label: "Floor"    },
+    { id: "corridor", label: "Corridor" },
+    { id: "door",     label: "Door"     },
+    { id: "deco-1",   label: "Deco 1"   },   // themed decoration (preferred in this room)
+    { id: "deco-2",   label: "Deco 2"   },
+];
+// Flat slot list for the picker: 4 themes × 4 roles = 16 theme slots.
+const HOLLOW_GATE_THEME_SLOTS: HollowGateIconSlot[] = HOLLOW_GATE_THEMES.flatMap(theme =>
+    HOLLOW_GATE_THEME_TILE_ROLES.map(role => ({
+        id: `theme-${theme.id}-${role.id}`,
+        label: `${theme.label} — ${role.label}`,
+        variantGroup: `theme-${theme.id}`,
+        variantIndex: 1,
+    })),
+);
+
+// Deterministic theme pick for a given roomId on a given floor. Same room
+// keeps the same theme within a run; new runs reshuffle.
+function pickRoomTheme(roomId: number, floor: number, runSeed: number): string {
+    if (roomId < 0) return "";
+    const hash = ((roomId + 1) * 2654435761 + floor * 16777619 + runSeed) >>> 0;
+    return HOLLOW_GATE_THEMES[hash % HOLLOW_GATE_THEMES.length].id;
 }
 
 type EventEncounterBattle = NonNullable<NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number]["battle"]>;
@@ -2061,17 +3008,27 @@ const petExpeditionStories: Record<PetExpeditionType, string[]> = {
         "explored a forgotten battlefield beneath the ruins — the bones were old; the chakra was not",
     ],
 };
+// Rarity scaling — compressed so mythic is ~25% above rare on every axis
+// (previously +35-55%, which made "have-a-mythic = auto-win"). Legendary
+// sits at ~12% above rare so the four tiers stay clearly distinct without
+// any one tier dominating. Standard and rare are unchanged (entry-level
+// experience stays the same).
+//
+// Per-stat target mythic-vs-rare gap:
+//   HP +25%   ATK +25%   DEF +26%   SPD +25%   JutsuPower +26%
+// Per-stat target legendary-vs-rare gap:
+//   HP +12%   ATK +13%   DEF +12%   SPD +14%   JutsuPower +13%
 const balancedPetBaseStats: Record<PetRarity, { hp: number; attack: number; defense: number; speed: number; jutsuPower: number; moveRange: number }> = {
     standard: { hp: 320, attack: 40, defense: 28, speed: 30, jutsuPower: 50, moveRange: 3 },
     rare: { hp: 370, attack: 48, defense: 34, speed: 36, jutsuPower: 62, moveRange: 3 },
-    legendary: { hp: 430, attack: 58, defense: 42, speed: 44, jutsuPower: 78, moveRange: 4 },
-    mythic: { hp: 500, attack: 70, defense: 52, speed: 52, jutsuPower: 96, moveRange: 4 },
+    legendary: { hp: 416, attack: 54, defense: 38, speed: 41, jutsuPower: 70, moveRange: 4 },
+    mythic: { hp: 462, attack: 60, defense: 43, speed: 45, jutsuPower: 78, moveRange: 4 },
 };
 const petStatCaps: Record<PetRarity, { hp: number; attack: number; defense: number; speed: number; jutsuPower: number }> = {
     standard: { hp: 1700, attack: 260, defense: 210, speed: 190, jutsuPower: 320 },
     rare: { hp: 1900, attack: 290, defense: 240, speed: 220, jutsuPower: 360 },
-    legendary: { hp: 2200, attack: 330, defense: 280, speed: 250, jutsuPower: 420 },
-    mythic: { hp: 2500, attack: 380, defense: 320, speed: 285, jutsuPower: 500 },
+    legendary: { hp: 2140, attack: 326, defense: 270, speed: 247, jutsuPower: 405 },
+    mythic: { hp: 2380, attack: 365, defense: 300, speed: 275, jutsuPower: 450 },
 };
 const petTreatItems = [
     { id: "pet-treat", name: "Treats", xp: 100 },
@@ -2118,6 +3075,133 @@ function capPetStats(pet: Pet): Pet {
         moveRange: Math.max(2, Math.min(5, Math.round(pet.moveRange ?? balancedPetBaseStats[pet.rarity]?.moveRange ?? 3))),
     };
 }
+// ── Pet element assignments ───────────────────────────────────────────────
+// Drives the Pet Arena type-effectiveness matchup (Fire > Wind > Lightning >
+// Earth > Water > Fire). Distribution across the player pet pool:
+//   • Standard (25 pets): 5 Fire, 5 Water, 5 Wind, 5 Lightning, 5 Earth
+//   • Rare     (25 pets): 5 each (same)
+//   • Legendary (15 pets): 3 each
+//   • Mythic    (5 pets):  1 each, set inline on the templates below
+// No "None" pets — every player pet plays the type chart so element matters
+// in every matchup. Elements were assigned thematically where the pet name
+// suggested one (Cinder Rat → Fire, Frost Cub → Water, etc.) and balanced
+// out across the more neutral names.
+const petElementByName: Record<string, JutsuElement> = {
+    // Standard — Fire
+    "Red Fox": "Fire", "Ashen Crow": "Fire", "Cinder Rat": "Fire",
+    "Desert Lizard": "Fire", "Sand Snake": "Fire",
+    // Standard — Water
+    "Snow Rabbit": "Water", "River Otter": "Water", "Blue Frog": "Water",
+    "Mist Ferret": "Water", "Frost Cub": "Water",
+    // Standard — Wind
+    "Forest Hawk": "Wind", "Pine Owl": "Wind", "White Crane": "Wind",
+    "Leaf Monkey": "Wind", "Storm Gull": "Wind",
+    // Standard — Lightning
+    "Iron Beetle": "Lightning", "Shadow Bat": "Lightning", "Tiny Wolf": "Lightning",
+    "Temple Gecko": "Lightning", "Meadow Deer": "Lightning",
+    // Standard — Earth
+    "Stone Turtle": "Earth", "Wild Boar": "Earth", "Mud Toad": "Earth",
+    "Rock Badger": "Earth", "Black Cat": "Earth",
+
+    // Rare — Fire
+    "Crimson Fox": "Fire", "Ashwing Raven": "Fire", "Cinder Weasel": "Fire",
+    "Shrine Salamander": "Fire", "Dune Viper": "Fire",
+    // Rare — Water
+    "Frost Hare": "Water", "Tide Otter": "Water", "Azure Toad": "Water",
+    "Mist Lynx": "Water", "Frostbite Cub": "Water",
+    // Rare — Wind
+    "Sky Falcon": "Wind", "Silver Owl": "Wind", "Pearl Crane": "Wind",
+    "Bamboo Ape": "Wind", "Stormfin Gull": "Wind",
+    // Rare — Lightning
+    "Glass Serpent": "Lightning", "Steel Beetle": "Lightning", "Duskwings Bat": "Lightning",
+    "Thorn Stag": "Lightning", "Young Direwolf": "Lightning",
+    // Rare — Earth
+    "Ironback Turtle": "Earth", "Bristle Boar": "Earth", "Mossback Toad": "Earth",
+    "Granite Badger": "Earth", "Night Panther": "Earth",
+
+    // Legendary — Fire
+    "Ember Phoenix": "Fire", "Ironfang Tiger": "Fire", "Golden Scarab": "Fire",
+    // Legendary — Water
+    "Glacier Wolf": "Water", "Azure Kirin": "Water", "Frost Lynx": "Water",
+    // Legendary — Wind
+    "Tempest Hawk": "Wind", "Ancient Crane": "Wind", "Umbra Fox": "Wind",
+    // Legendary — Lightning
+    "Storm Lion": "Lightning", "Thunder Drake": "Lightning", "Void Raven": "Lightning",
+    // Legendary — Earth
+    "Crystal Bear": "Earth", "Moon Serpent": "Earth", "Spirit Deer": "Earth",
+};
+
+// ── Elemental special jutsu per pet ────────────────────────────────────────
+// Every pet gets one element-themed signature jutsu in its kit. Element
+// drives the effect kind; rarity drives the strength:
+//   Fire     → burn    (DoT + ATK debuff)
+//   Water    → freeze  (50% turn skip)
+//   Wind     → confuse (50% self-hit)
+//   Lightning→ stun    (guaranteed turn skip)
+//   Earth    → debuff  (stripped ATK/DEF)  — earth doesn't get stun (taken
+//                                            by Lightning); stat-strip
+//                                            matches the "weight" feel.
+// Standard < Rare < Legendary < Mythic — both power and duration scale up.
+type ElementalSpecialKind = "burn" | "freeze" | "confuse" | "stun" | "debuff";
+const elementalSpecialKind: Record<Exclude<JutsuElement, "None">, ElementalSpecialKind> = {
+    Fire: "burn",
+    Water: "freeze",
+    Wind: "confuse",
+    Lightning: "stun",
+    Earth: "debuff",
+};
+type ElementalSpecialSpec = { name: string; power: number; cooldown: number; rounds: number };
+// Elemental specials — power compressed so a mythic special is ~25-40%
+// stronger than its rare counterpart (was 100-200%). Duration scaling
+// kept smaller too: mythic gets +1 round at most over rare for the
+// status effects so a mythic stun isn't a guaranteed kill window.
+// Cooldown stays 5 across all tiers (mythic no longer fires every 4
+// rounds — same cadence as rare so a mythic doesn't out-cycle).
+const elementalSpecialByRarityElement: Record<PetRarity, Record<Exclude<JutsuElement, "None">, ElementalSpecialSpec>> = {
+    standard: {
+        Fire:      { name: "Searing Mark",        power: 40,  cooldown: 5, rounds: 2 },
+        Water:     { name: "Frost Bite",          power: 40,  cooldown: 5, rounds: 1 },
+        Wind:      { name: "Whirling Daze",       power: 40,  cooldown: 5, rounds: 1 },
+        Lightning: { name: "Static Snap",         power: 40,  cooldown: 5, rounds: 1 },
+        Earth:     { name: "Heavy Stone",         power: 40,  cooldown: 5, rounds: 0 },
+    },
+    rare: {
+        Fire:      { name: "Ember Lash",          power: 60,  cooldown: 5, rounds: 2 },
+        Water:     { name: "Frozen Lash",         power: 60,  cooldown: 5, rounds: 2 },
+        Wind:      { name: "Cyclone Veil",        power: 60,  cooldown: 5, rounds: 2 },
+        Lightning: { name: "Shock Sigil",         power: 60,  cooldown: 5, rounds: 1 },
+        Earth:     { name: "Boulder Press",       power: 65,  cooldown: 5, rounds: 0 },
+    },
+    legendary: {
+        Fire:      { name: "Pyre Burst",          power: 75,  cooldown: 5, rounds: 3 },
+        Water:     { name: "Glacial Coffin",      power: 72,  cooldown: 5, rounds: 2 },
+        Wind:      { name: "Tempest Mirage",      power: 72,  cooldown: 5, rounds: 2 },
+        Lightning: { name: "Thunderbreak",        power: 75,  cooldown: 5, rounds: 2 },
+        Earth:     { name: "Mountain Crush",      power: 82,  cooldown: 5, rounds: 0 },
+    },
+    mythic: {
+        Fire:      { name: "Solar Conflagration", power: 90,  cooldown: 5, rounds: 3 },
+        Water:     { name: "Eternal Glacier",     power: 85,  cooldown: 5, rounds: 3 },
+        Wind:      { name: "Heaven's Vortex",     power: 85,  cooldown: 5, rounds: 3 },
+        Lightning: { name: "Worldfall Bolt",      power: 88,  cooldown: 5, rounds: 2 },
+        Earth:     { name: "World-Ender Slab",    power: 100, cooldown: 5, rounds: 0 },
+    },
+};
+function elementalSpecialFor(element: JutsuElement | undefined, rarity: PetRarity): PetJutsu | null {
+    if (!element || element === "None") return null;
+    const tierTable = elementalSpecialByRarityElement[rarity] ?? elementalSpecialByRarityElement.standard;
+    const spec = tierTable[element as Exclude<JutsuElement, "None">];
+    if (!spec) return null;
+    return {
+        name: spec.name,
+        power: spec.power,
+        cooldown: spec.cooldown,
+        currentCooldown: 0,
+        kind: elementalSpecialKind[element as Exclude<JutsuElement, "None">],
+        ...(spec.rounds > 0 ? { rounds: spec.rounds } : {}),
+    };
+}
+
 function balanceBuiltInPetTemplate(pet: Pet): Pet {
     const base = balancedPetBaseStats[pet.rarity] ?? balancedPetBaseStats.standard;
     const variant = petVariantIndex(pet);
@@ -2132,7 +3216,19 @@ function balanceBuiltInPetTemplate(pet: Pet): Pet {
         const slotBonus = i * 5;
         return { ...jutsu, power: base.jutsuPower + variant + kindBonus + slotBonus };
     });
-    return capPetStats({ ...pet, hp, attack, defense, speed, jutsus, moveRange: pet.moveRange ?? base.moveRange });
+    // Inject the assigned element from the lookup table. Mythics get their
+    // element from the inline template directly (preserved via ...pet) and
+    // skip the lookup. Falls back to undefined for any unrecognized name,
+    // which the engine treats as neutral.
+    const element: JutsuElement | undefined = pet.element ?? petElementByName[pet.name];
+    // Append the elemental special jutsu (one per pet, themed to its
+    // element + tier-scaled in power and duration). Deduped by name so a
+    // template that already declares the special doesn't get a duplicate.
+    const specialJutsu = elementalSpecialFor(element, pet.rarity);
+    const jutsusWithSpecial = specialJutsu && !jutsus.some(j => j.name === specialJutsu.name)
+        ? [...jutsus, specialJutsu]
+        : jutsus;
+    return capPetStats({ ...pet, hp, attack, defense, speed, jutsus: jutsusWithSpecial, moveRange: pet.moveRange ?? base.moveRange, element });
 }
 function petTrainingMultiplier(pet: Pet) {
     const durationMultiplier = petTrainingDurationMultipliers[pet.training?.durationMs ?? petTrainingDurations[0].ms] ?? 1;
@@ -2370,6 +3466,7 @@ const petPool: Pet[] = ([
         defense: 95,
         speed: 115,
         unlockedForPve: false,
+        element: "Wind",
         // Identity: trickster — debuffs enemy, heals self, two damage forms, fastest dash
         jutsus: [
             { name: "Nine Shadow Blessing", power: 25,  cooldown: 3, currentCooldown: 0, kind: "buff"   },
@@ -2392,6 +3489,7 @@ const petPool: Pet[] = ([
         defense: 90,
         speed: 100,
         unlockedForPve: false,
+        element: "Lightning",
         // Identity: storm striker — fast heavy attacks, poison pressure, storm lunge
         jutsus: [
             { name: "Storm King Aura",    power: 22,  cooldown: 3, currentCooldown: 0, kind: "buff"    },
@@ -2414,6 +3512,7 @@ const petPool: Pet[] = ([
         defense: 140,
         speed: 70,
         unlockedForPve: false,
+        element: "Water",
         // Identity: immovable fortress — massive sustain, debuffs opponent, slowest dash (tank)
         jutsus: [
             { name: "Absolute Zero Guard",  power: 30,  cooldown: 3, currentCooldown: 0, kind: "buff"   },
@@ -2435,6 +3534,7 @@ const petPool: Pet[] = ([
         defense: 100,
         speed: 140,
         unlockedForPve: false,
+        element: "Fire",
         // Identity: debuffer — strips enemy defense then punishes with heavy hits; fastest base speed
         jutsus: [
             { name: "Solar Spirit Blessing", power: 35,  cooldown: 3, currentCooldown: 0, kind: "buff"   },
@@ -2456,6 +3556,7 @@ const petPool: Pet[] = ([
         defense: 85,
         speed: 95,
         unlockedForPve: false,
+        element: "Earth",
         // Identity: glass cannon brawler — highest attack, fast strikes, venom, no heal (all-in)
         jutsus: [
             { name: "Oni Rage Howl",       power: 28,  cooldown: 3, currentCooldown: 0, kind: "buff"   },
@@ -2491,15 +3592,32 @@ function normalizePet(pet: Pet): Pet {
         defense: Math.max(pet.defense ?? 0, baseTemplate.defense),
         speed: Math.max(pet.speed ?? 0, baseTemplate.speed),
         moveRange: pet.moveRange ?? baseTemplate.moveRange,
-        jutsus: (pet.jutsus?.length ? pet.jutsus : baseTemplate.jutsus).map((jutsu, i) => {
-            const baseJutsu = baseTemplate.jutsus[i];
-            return {
-                ...baseJutsu,
-                ...jutsu,
-                power: Math.max(jutsu.power ?? 0, baseJutsu?.power ?? 0),
-                currentCooldown: 0,
-            };
-        }),
+        // Backfill element from the template for existing saves whose pets
+        // predate the element field. Pet's own element (if any) wins so a
+        // future admin-edit override would still stick.
+        element: pet.element ?? baseTemplate.element,
+        // Backfill any NEW jutsu slots the template gained since this save
+        // was written (e.g. the elemental special jutsu added later). We
+        // iterate up to the larger of the two arrays and fall back to the
+        // template entry for any slot the player's save doesn't have.
+        jutsus: (() => {
+            const playerJutsus = pet.jutsus ?? [];
+            const maxLen = Math.max(playerJutsus.length, baseTemplate.jutsus.length);
+            return Array.from({ length: maxLen }, (_, i) => {
+                const baseJutsu = baseTemplate.jutsus[i];
+                const playerJutsu = playerJutsus[i];
+                if (!playerJutsu && baseJutsu) {
+                    // Slot is new — copy straight from the template.
+                    return { ...baseJutsu, currentCooldown: 0 };
+                }
+                return {
+                    ...(baseJutsu ?? {}),
+                    ...playerJutsu,
+                    power: Math.max(playerJutsu?.power ?? 0, baseJutsu?.power ?? 0),
+                    currentCooldown: 0,
+                };
+            });
+        })(),
     } : pet;
     return capPetStats({
         ...merged,
@@ -4714,6 +5832,19 @@ export function compressDataUrl(dataUrl: string, maxPx = 512, quality = 0.82): P
 }
 
 // Module-level — callable from any component without prop drilling
+// Mirror of api/images.ts KNOWN_PREFIXES so the client can figure out which
+// category an image lives in without a round-trip. Used for sessionStorage
+// cache invalidation on publish.
+const CLIENT_KNOWN_PREFIXES: Record<string, string> = {
+    avatar: 'avatar', pet: 'pet', jutsu: 'jutsu', item: 'item',
+    card: 'card', event: 'event', bloodline: 'bloodline',
+    vn: 'event', ai: 'ai', shrine: 'shrine', landmark: 'landmark',
+};
+function categoryFromImageKey(id: string): string {
+    const prefix = id.split(':')[0];
+    return CLIENT_KNOWN_PREFIXES[prefix] ?? 'misc';
+}
+
 async function publishSharedImage(id: string, img: string): Promise<boolean> {
     if (!id) return false;
     try {
@@ -4723,6 +5854,14 @@ async function publishSharedImage(id: string, img: string): Promise<boolean> {
             body: JSON.stringify({ id, image: img }),
         });
         if (!res.ok) throw new Error(`Image publish failed: ${res.status}`);
+        // Bust the per-category sessionStorage cache so a page reload fetches
+        // fresh from KV instead of hydrating the pre-publish snapshot. Without
+        // this, the 10-minute IMG_CACHE_TTL would mask new assignments for
+        // up to 10 minutes after a publish.
+        try {
+            const cat = categoryFromImageKey(id);
+            sessionStorage.removeItem(`imgcat:${cat}`);
+        } catch { /* sessionStorage unavailable — ignore */ }
         return true;
     } catch (error) {
         console.warn(`Could not save shared image ${id}:`, error);
@@ -4764,6 +5903,29 @@ function totalXpForProgress(level: number, xp: number) {
 
 function maxHpForLevel(level: number) {
     return Math.min(HP_CAP, 100 + (Math.max(1, level) - 1) * 100);
+}
+
+// Endless Tower scaling — wave 1 is baseline; each wave adds a small multiplier,
+// with milestone jumps every 5 and 10 waves.
+export function endlessScaleFactor(wave: number): number {
+    const w = Math.max(1, wave);
+    const base = 1 + (w - 1) * 0.08;
+    const fives = Math.floor(w / 5) * 0.10;
+    const tens = Math.floor(w / 10) * 0.15;
+    return Math.max(1, base + fives + tens);
+}
+
+export function endlessWaveReward(wave: number, playerLevel: number): { ryo: number; xp: number; isMilestone: boolean } {
+    const factor = endlessScaleFactor(wave);
+    const baseRyo = 40 + playerLevel * 6;
+    const baseXp = 15 + playerLevel * 2;
+    const isMilestone = wave % 5 === 0;
+    const milestoneBonus = isMilestone ? (wave % 10 === 0 ? 3 : 2) : 1;
+    return {
+        ryo: Math.floor(baseRyo * factor * milestoneBonus),
+        xp: Math.floor(baseXp * factor * milestoneBonus),
+        isMilestone,
+    };
 }
 
 function maxChakraForLevel(level: number) {
@@ -5088,6 +6250,176 @@ function gainXp(character: Character, amount: number): Character {
         updated = { ...updated, level: MAX_LEVEL, xp: 0, rankTitle: rankTitleForLevel(updated, MAX_LEVEL) };
     }
     return reconcileCharacterStatBudget(updated);
+}
+
+// Honor Seals are exclusively a Vanguard reward. Every grant site (PvP,
+// raids, village agenda, map control, Hollow Gate, etc.) wraps the would-be
+// gain in this helper so non-Vanguards always earn 0.
+export function vanguardOnlyHonorSeals(character: Character | null | undefined, amount: number): number {
+    if (!character || character.profession !== "vanguard") return 0;
+    return Math.max(0, Math.floor(amount));
+}
+
+// ── Profession combat bonuses ────────────────────────────────────────────
+// Pet Tamer PvE pet damage multiplier: +5% at unlock, +1.5% per rank, capped
+// at +20% at Rank 10. PvE only — never apply in PvP per docs/professions.md.
+export function petTamerPveMultiplier(character: Character | null | undefined): number {
+    if (!character || character.profession !== "petTamer") return 1;
+    const rank = Math.max(0, Math.min(PROFESSION_MAX_RANK, character.professionRank ?? 1));
+    // Unlock = +5%; rank 1 = +6.5%; rank 10 = +20%.
+    const bonusPct = 5 + rank * 1.5;
+    return 1 + bonusPct / 100;
+}
+
+// ── Vanguard PvP rewards (Honor Seals + Vanguard XP) ──────────────────────
+// Strict-spec: only Vanguards earn Honor Seals from PvP. Non-Vanguards get 0.
+// Indexed by rank — idx 0 unused, rank 1..10 follows the docs/professions.md table.
+const VANGUARD_SEALS_PER_KILL = [0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5] as const;
+export const VANGUARD_DAILY_SEAL_CAP = 50;
+export const VANGUARD_PER_TARGET_DAILY_CAP = 3;
+
+// Vanguard XP per PvP kill: 100 base + 10 per target level above 30.
+export function vanguardXpForKill(opponent: Character | null | undefined): number {
+    if (!opponent) return 0;
+    const lvl = Number(opponent.level ?? 1);
+    return 100 + 10 * Math.max(0, lvl - 30);
+}
+
+// Anti-alt: zero rewards for killing targets whose account is <72 hours old.
+const ANTI_ALT_ACCOUNT_AGE_MS = 72 * 60 * 60 * 1000;
+function targetTooYoungForRewards(opponent: Character | null | undefined): boolean {
+    if (!opponent?.createdAt) return false;
+    return (Date.now() - opponent.createdAt) < ANTI_ALT_ACCOUNT_AGE_MS;
+}
+
+// Apply level-gap rule from docs/professions.md anti-abuse table:
+//   within 10 levels = full reward; 10-20 below = 50%; >20 below = 0.
+// "Below" is from the attacker's perspective.
+function levelGapSealMultiplier(attackerLevel: number, opponentLevel: number): number {
+    const gap = attackerLevel - opponentLevel;
+    if (gap > 20) return 0;
+    if (gap > 10) return 0.5;
+    return 1;
+}
+
+// Pet Tamer Phase 2 bonuses (client-side). Training speed % faster, expedition
+// reward multiplier, daily First Expedition 2x flag.
+export function petTamerTrainingSpeedPct(character: Character | null | undefined): number {
+    if (!character || character.profession !== "petTamer") return 0;
+    const rank = Math.max(0, Math.min(PROFESSION_MAX_RANK, character.professionRank ?? 1));
+    // Unlock 10%; +1% per rank to 20% at rank 10.
+    return 10 + rank;
+}
+
+export function petTamerExpeditionMult(character: Character | null | undefined): number {
+    if (!character || character.profession !== "petTamer") return 1;
+    const rank = Math.max(0, Math.min(PROFESSION_MAX_RANK, character.professionRank ?? 1));
+    // Unlock +10%; +1.5% per rank to +25% at rank 10.
+    return 1 + (10 + rank * 1.5) / 100;
+}
+
+// Returns true if this is the first expedition the player has claimed today
+// (UTC). Updates `lastExpeditionClaimDate` and `expeditionsClaimedToday` on
+// the returned character.
+export function petTamerClaimFirstExpeditionToday(character: Character, todayKey: string): { isFirst: boolean; nextCharacter: Character } {
+    const sameDay = character.lastExpeditionClaimDate === todayKey;
+    const count = sameDay ? (character.expeditionsClaimedToday ?? 0) : 0;
+    const isFirst = character.profession === "petTamer" && count === 0;
+    return {
+        isFirst,
+        nextCharacter: {
+            ...character,
+            lastExpeditionClaimDate: todayKey,
+            expeditionsClaimedToday: count + 1,
+        },
+    };
+}
+
+// Compute Honor Seals earned for a PvP kill given Vanguard rank, level gap,
+// daily cap, and per-target cap. Returns {amount, byTarget} where byTarget is
+// the new count for that target today.
+export function vanguardSealsForKill(
+    killer: Character,
+    opponent: Character,
+    todayKey: string,
+): { amount: number; updatedByTarget: Record<string, number> } {
+    if (killer.profession !== "vanguard") return { amount: 0, updatedByTarget: killer.dailyHonorSealsByTarget ?? {} };
+
+    // Anti-alt: zero rewards for targets whose account is brand new.
+    if (targetTooYoungForRewards(opponent)) {
+        return { amount: 0, updatedByTarget: killer.dailyHonorSealsByTarget ?? {} };
+    }
+
+    const rank = Math.max(1, Math.min(PROFESSION_MAX_RANK, killer.professionRank ?? 1));
+    const baseSeals = VANGUARD_SEALS_PER_KILL[rank];
+
+    const gapMult = levelGapSealMultiplier(killer.level, opponent.level);
+    let amount = Math.floor(baseSeals * gapMult);
+    if (amount <= 0) return { amount: 0, updatedByTarget: killer.dailyHonorSealsByTarget ?? {} };
+
+    // Daily cap.
+    const todayActive = killer.vanguardDailyResetDate === todayKey;
+    const dailySoFar = todayActive ? (killer.dailyHonorSealsEarned ?? 0) : 0;
+    const remainingDaily = Math.max(0, VANGUARD_DAILY_SEAL_CAP - dailySoFar);
+    amount = Math.min(amount, remainingDaily);
+
+    // Per-target daily cap.
+    const byTarget = todayActive ? (killer.dailyHonorSealsByTarget ?? {}) : {};
+    const targetName = opponent.name.toLowerCase();
+    const targetSoFar = byTarget[targetName] ?? 0;
+    const remainingForTarget = Math.max(0, VANGUARD_PER_TARGET_DAILY_CAP - targetSoFar);
+    amount = Math.min(amount, remainingForTarget);
+
+    if (amount <= 0) return { amount: 0, updatedByTarget: byTarget };
+
+    const updatedByTarget = { ...byTarget, [targetName]: targetSoFar + amount };
+    return { amount, updatedByTarget };
+}
+
+// ── Profession XP & rank progression ─────────────────────────────────────
+// Cumulative XP needed to reach each rank index (rank 1 = index 1, max = 10).
+// Baseline curve used by Vanguard and Pet Tamer; Healer scales by 1.5×.
+// See docs/professions.md "XP curves" section.
+const PROFESSION_XP_BASELINE = [0, 100, 350, 850, 1850, 3850, 7350, 12850, 20850, 32850, Infinity];
+const PROFESSION_XP_HEALER = PROFESSION_XP_BASELINE.map(v => v === Infinity ? v : Math.floor(v * 1.5));
+export const PROFESSION_MAX_RANK = 10;
+
+export function professionThresholds(profession: Profession): readonly number[] {
+    return profession === "healer" ? PROFESSION_XP_HEALER : PROFESSION_XP_BASELINE;
+}
+
+export function getProfessionRankForXp(profession: Profession, xp: number): number {
+    const t = professionThresholds(profession);
+    let rank = 1;
+    for (let i = 1; i <= PROFESSION_MAX_RANK; i += 1) {
+        if (xp >= t[i]) rank = i + 1;
+    }
+    return Math.min(PROFESSION_MAX_RANK, rank);
+}
+
+// Vanguard Rank 2+ perk: all Vanguard XP gains are +10%. Applies to per-kill
+// XP, mission completion XP, anything that flows through gainProfessionXp.
+// Multiplier is keyed off CURRENT rank (before this grant) so rank-up timing
+// doesn't matter — the bonus kicks in starting with the first gain at Rank 2.
+function professionXpMultiplier(character: Character): number {
+    if (character.profession === "vanguard" && (character.professionRank ?? 0) >= 2) {
+        return 1.1;
+    }
+    return 1;
+}
+
+// Award profession XP and auto-rank-up. No-op if the character has no
+// profession. Returns the updated character — caller should setCharacter().
+export function gainProfessionXp(character: Character, amount: number): Character {
+    if (!character.profession || amount <= 0) return character;
+    const boosted = Math.floor(amount * professionXpMultiplier(character));
+    const nextXp = (character.professionXp ?? 0) + boosted;
+    const nextRank = getProfessionRankForXp(character.profession, nextXp);
+    return {
+        ...character,
+        professionXp: nextXp,
+        professionRank: nextRank,
+    };
 }
 
 const rewardCurrencyOptions: Array<{ key: RewardCurrencyKey; label: string }> = [
@@ -5432,6 +6764,8 @@ function normalizeCharacter(parsed: Character): Character {
         totalTilesExplored: parsed.totalTilesExplored ?? 0,
         totalTournamentsCompleted: parsed.totalTournamentsCompleted ?? 0,
         totalEndlessTowerWins: parsed.totalEndlessTowerWins ?? 0,
+        endlessTowerBestWave: parsed.endlessTowerBestWave ?? 0,
+        endlessTowerRun: parsed.endlessTowerRun ?? null,
         totalPetWins: parsed.totalPetWins ?? 0,
         defeatedAiIds: Array.isArray(parsed.defeatedAiIds) ? parsed.defeatedAiIds.filter(Boolean) : [],
         rankedRating: parsed.rankedRating ?? 1000,
@@ -5450,6 +6784,7 @@ function normalizeCharacter(parsed: Character): Character {
         dailyFateSpins: parsed.lastDailyReset === currentDateKey() ? (parsed.dailyFateSpins ?? 0) : 0,
         dailyAiKills: parsed.lastDailyReset === currentDateKey() ? (parsed.dailyAiKills ?? 0) : 0,
         dailyPetWins: parsed.lastDailyReset === currentDateKey() ? (parsed.dailyPetWins ?? 0) : 0,
+        dailyHollowGateRuns: parsed.lastDailyReset === currentDateKey() ? (parsed.dailyHollowGateRuns ?? 0) : 0,
         hollowGateRun: parsed.hollowGateRun ?? null,
         hollowGateWardenKills: parsed.hollowGateWardenKills ?? 0,
         hollowGateIntroSeen: parsed.hollowGateIntroSeen ?? false,
@@ -5859,6 +7194,8 @@ export function createCharacter(name: string, village: string, specialty: JutsuT
         totalTilesExplored: 0,
         totalTournamentsCompleted: 0,
         totalEndlessTowerWins: 0,
+        endlessTowerBestWave: 0,
+        endlessTowerRun: null,
         totalPetWins: 0,
         dailyAiKills: 0,
         dailyPetWins: 0,
@@ -5868,6 +7205,7 @@ export function createCharacter(name: string, village: string, specialty: JutsuT
         rankedLosses: 0,
         villageUpgrades: defaultVillageUpgrades(),
         lastBankInterestAt: 0,
+        createdAt: Date.now(),
     };
 }
 
@@ -5941,7 +7279,10 @@ type PlayerCombatSave = {
 
 async function fetchPlayerCombatSave(name: string): Promise<PlayerCombatSave | null> {
     try {
-        const res = await fetch(`/api/save/${encodeURIComponent(name.toLowerCase())}`);
+        // ?combatOnly=1 asks the server to strip mission progress, lifetime
+        // counters, hollow gate state, etc. — none of which combat reads.
+        // Shaves ~50–150KB per fetch (×2 fetches per challenge accept / raid).
+        const res = await fetch(`/api/save/${encodeURIComponent(name.toLowerCase())}?combatOnly=1`);
         if (!res.ok) return null;
         const data = await res.json() as PlayerCombatSave;
         const saved = Array.isArray(data.savedBloodlines) ? data.savedBloodlines : [];
@@ -6488,6 +7829,27 @@ export default function App() {
     const [currentAccountName, setCurrentAccountName] = useState("");
     const [viewingUserName, setViewingUserName] = useState<string | null>(null);
 
+    // ── Last-screen persistence ─────────────────────────────────────────
+    // Refresh used to dump the player back to the village every time because
+    // (1) the initial state is "start" and (2) the snapshot loader hard-codes
+    // setScreen("village") after login. Persisting the active screen to
+    // localStorage and letting the snapshot loader read it back keeps the
+    // player roughly where they left off after a refresh.
+    //
+    // Mid-encounter screens (arena, petArena, hollowGateTiles) hold ephemeral
+    // React state that can't actually resume from disk; for those we route to
+    // the safest parent (hollowGateShrine when a run is in progress; village
+    // otherwise) so the player never lands in a broken half-loaded battle.
+    const LAST_SCREEN_KEY = "lastScreen.v1";
+    useEffect(() => {
+        try { localStorage.setItem(LAST_SCREEN_KEY, screen); } catch { /* quota / SSR */ }
+    }, [screen]);
+    // ── PvP session persistence ─────────────────────────────────────────
+    // PvP keys are declared / used here, but the useEffect that consumes
+    // pvpBattleId is registered AFTER the pvp state hooks are declared
+    // (further down the App body — see "PvP session storage hook" below).
+    const PVP_SESSION_KEY = "pvpSession.v1";
+
     // ── Tab visibility: pause all polling when the browser tab is hidden ──
     const [tabVisible, setTabVisible] = useState(() => typeof document !== "undefined" ? document.visibilityState === "visible" : true);
     useEffect(() => {
@@ -6546,6 +7908,35 @@ export default function App() {
         const t = setTimeout(() => setAchievementToasts(prev => prev.slice(1)), 4500);
         return () => clearTimeout(t);
     }, [achievementToasts]);
+
+    // ── Profession mission completion toasts ──────────────────────────────
+    // Any component (Hospital heal response, DailyProfessionMissions poll,
+    // handlePvpWin) emits a `profession-mission-complete` CustomEvent; we
+    // collect and render them with the same auto-dismiss as achievements.
+    const [missionToasts, setMissionToasts] = useState<Array<{ id: string; name: string; xp: number; profession?: string }>>([]);
+    useEffect(() => {
+        function handler(e: Event) {
+            const detail = (e as CustomEvent<{ name: string; xp: number; profession?: string }>).detail;
+            if (!detail?.name) return;
+            setMissionToasts(prev => [...prev, {
+                id: `${detail.name}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                name: detail.name,
+                xp: detail.xp ?? 0,
+                profession: detail.profession,
+            }]);
+        }
+        window.addEventListener('profession-mission-complete', handler);
+        return () => window.removeEventListener('profession-mission-complete', handler);
+    }, []);
+    useEffect(() => {
+        if (missionToasts.length === 0) return;
+        const t = setTimeout(() => setMissionToasts(prev => prev.slice(1)), 4500);
+        return () => clearTimeout(t);
+    }, [missionToasts]);
+
+    // ── Profession picker: rendered as an unconditional fullscreen overlay
+    // whenever Level >= 13 with no profession set. No screen trigger here —
+    // the render block at the bottom handles it. The picker cannot be skipped.
 
     // ── Viewport size detector ──────────────────────────────────────────────
     // Sets data-vp="xs|sm|md|lg|xl" on <html> so CSS can use attribute
@@ -6684,8 +8075,34 @@ export default function App() {
     const [pendingAiProfileId, setPendingAiProfileId] = useState("");
     const [pendingPvpOpponent, setPendingPvpOpponent] = useState<Character | null>(null);
     const [pvpBattleId, setPvpBattleId] = useState<string | null>(null);
+    // Tracks when the current PvP battle began, used for the <15s "quick
+    // surrender" anti-abuse check on Vanguard Seal rewards.
+    const pvpBattleStartedAtRef = useRef<number>(0);
+    useEffect(() => {
+        if (pvpBattleId) pvpBattleStartedAtRef.current = Date.now();
+        else pvpBattleStartedAtRef.current = 0;
+    }, [pvpBattleId]);
     const [pvpRole, setPvpRole] = useState<"p1" | "p2" | null>(null);
     const [pvpBattleContext, setPvpBattleContext] = useState<SharedPvpBattleContext | null>(null);
+    // PvP session storage hook — see PVP_SESSION_KEY note above. Saves a
+    // breadcrumb whenever the local client enters/exits a PvP battle, so a
+    // browser refresh can re-fetch the server-side session and resume.
+    // Also stores pvpBattleContext (mode/sector/clanWar/kage metadata) so
+    // win-handlers compute correct rewards on resume.
+    useEffect(() => {
+        try {
+            if (pvpBattleId) {
+                localStorage.setItem(PVP_SESSION_KEY, JSON.stringify({
+                    pvpBattleId,
+                    pvpRole,
+                    pvpBattleContext,
+                    savedAt: Date.now(),
+                }));
+            } else {
+                localStorage.removeItem(PVP_SESSION_KEY);
+            }
+        } catch { /* quota / SSR */ }
+    }, [pvpBattleId, pvpRole, pvpBattleContext]);
     const [temporaryStoryAi, setTemporaryStoryAi] = useState<CreatorAi | null>(null);
     const [raidBattleKind, setRaidBattleKind] = useState<"none" | "raidAi" | "raidPlayer" | "defense">("none");
     const [endlessBattleActive, setEndlessBattleActive] = useState(false);
@@ -6761,6 +8178,10 @@ export default function App() {
     const [duelChallenges, setDuelChallenges] = useState<DuelChallenge[]>([]);
     const [processingChallengeIds, setProcessingChallengeIds] = useState<string[]>([]);
     const [pendingPetBattleOpponent, setPendingPetBattleOpponent] = useState<PetArenaOpponent | null>(null);
+    // Tracks whether the player is mid-Shinobi-Tile card game launched from a
+    // Hollow Gate tile_game tile. Used to apply the -20% maxHp penalty on
+    // loss + route back to the shrine afterwards.
+    const [hollowGateTileGameActive, setHollowGateTileGameActive] = useState(false);
     const [triggeredEvents, setTriggeredEvents] = useState<string[]>([]);
     const [liveSectorPlayers, setLiveSectorPlayers] = useState<PlayerRecord[]>([]);
     const [incomingAttackBanner, setIncomingAttackBanner] = useState("");
@@ -6809,7 +8230,15 @@ export default function App() {
                 const res = await fetch('/api/player/heartbeat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: char.name, sector: currentSector, character: char, travelingUntil: isTraveling ? travelingUntil : 0, inBattle: screenRef.current === 'pvpBattle' }),
+                    body: JSON.stringify({
+                        name: char.name,
+                        sector: currentSector,
+                        character: char,
+                        travelingUntil: isTraveling ? travelingUntil : 0,
+                        // inBattle covers PvP AND PvE combat screens so Healers
+                        // can't heal a player who's actively fighting anything.
+                        inBattle: ['pvpBattle', 'arena', 'storyBoss', 'hollowGateShrine', 'weeklyBoss', 'eventPetBattle', 'petArena', 'dungeon'].includes(screenRef.current ?? ''),
+                    }),
                 });
                 if (!res.ok) return;
                 const data: { sectorMates?: PlayerRecord[]; allPlayers?: PlayerRecord[]; pendingAttacker?: Character | null; pendingChallenges?: DuelChallenge[]; forceReload?: boolean } = await res.json();
@@ -6892,16 +8321,20 @@ export default function App() {
         if (!tabVisible) return; // pause heartbeat when tab hidden
         heartbeat();
         // Adaptive heartbeat: fast in battle/arena (3s), moderate while exploring (5s),
-        // slow in village/sector 0 (15s) to reduce Vercel function invocations.
+        // slow in village/sector 0 (15s) to reduce serverless function invocations.
+        // EXCEPTION: village-queued guards drop to 3s so a raider's attack on the
+        // village reaches the defender within seconds, not 15.
         const currentScreen = screenRef.current;
         const interval = currentScreen === "pvpBattle" || currentScreen === "arena" || currentScreen === "petArena"
             ? 3000   // in combat — need fast challenge delivery
+            : character?.guardQueued
+            ? 3000   // queued for village defense — must respond to raids fast
             : currentSector === 0
             ? 15000  // village — no urgent combat needs
             : 5000;  // exploring sectors — moderate speed
         const id = setInterval(heartbeat, interval);
         return () => clearInterval(id);
-    }, [character?.name, currentSector, isTraveling, travelingUntil, screen, tabVisible]);
+    }, [character?.name, character?.guardQueued, currentSector, isTraveling, travelingUntil, screen, tabVisible]);
 
     async function clearChallengeOnServer(challenge: DuelChallenge) {
         await fetch('/api/player/challenge', {
@@ -6942,6 +8375,27 @@ export default function App() {
             alert("Both players need a pet before this pet battle can start.");
             return;
         }
+
+        // ── 2v2 party path ─────────────────────────────────────────────
+        // If the challenger flagged petParty, we auto-pick our top two
+        // available pets (highest level, not on expedition) so the player
+        // doesn't have to scramble through a picker mid-notification. We
+        // also need the challenger's reserve pet (sent as challengerPetIds).
+        const wantsParty = challenge.petParty === true && Array.isArray(challenge.challengerPetIds);
+        const myAvailable = character.pets.filter(p => !isPetOnExpedition(p));
+        let myParty: [Pet, Pet] | null = null;
+        let challengerParty: [Pet, Pet] | null = null;
+        if (wantsParty && myAvailable.length >= 2) {
+            const sortedByLvl = [...myAvailable].sort((a, b) => (b.level ?? 0) - (a.level ?? 0));
+            myParty = [sortedByLvl[0], sortedByLvl[1]] as [Pet, Pet];
+            const [chId1, chId2] = challenge.challengerPetIds!;
+            const ch1 = challenge.challenger.pets.find(p => p.id === chId1) ?? challengerPet;
+            const ch2 = challenge.challenger.pets.find(p => p.id === chId2 && p.id !== ch1.id)
+                ?? challenge.challenger.pets.find(p => p.id !== ch1.id);
+            if (ch1 && ch2) challengerParty = [ch1, ch2] as [Pet, Pet];
+        }
+        const doParty = !!(wantsParty && myParty && challengerParty);
+
         setProcessingChallengeIds(prev => [...prev, challenge.id]);
         setDuelChallenges(prev => prev.filter(candidate => candidate.id !== challenge.id));
         await clearChallengeOnServer(challenge);
@@ -6952,9 +8406,22 @@ export default function App() {
             toName: challenge.fromName,
             responderPetId: myPet.id,
             responderPet: myPet,
+            ...(doParty && myParty ? {
+                petParty: true,
+                responderPetIds: [myParty[0].id, myParty[1].id] as [string, string],
+                responderParty: myParty,
+            } : {}),
         };
         const notified = await postPlayerChallengeNotice(challenge.fromName, acceptedNotice);
-        setPendingPetBattleOpponent({ owner: challenge.fromName, pet: challengerPet, battleSeed: challenge.petBattleSeed });
+        setPendingPetBattleOpponent({
+            owner: challenge.fromName,
+            pet: challengerPet,
+            battleSeed: challenge.petBattleSeed,
+            ...(doParty && challengerParty && myParty ? {
+                opponentParty: challengerParty,
+                challengerParty: myParty,
+            } : {}),
+        });
         setScreen("petArena");
         setProcessingChallengeIds(prev => prev.filter(id => id !== challenge.id));
         if (!notified) alert(`${challenge.fromName} may not be pulled in automatically. Ask them to open Pet Arena if they do not see the fight.`);
@@ -7049,7 +8516,25 @@ export default function App() {
         setDuelChallenges(prev => prev.filter(c => c.id !== accepted.id));
         if (accepted.mode === "clanWarPet") {
             if (accepted.responderPet) {
-                setPendingPetBattleOpponent({ owner: accepted.fromName, pet: accepted.responderPet, battleSeed: accepted.petBattleSeed });
+                // Reconstruct the challenger's own party from the IDs they
+                // originally sent — character.pets is the authoritative source.
+                const myParty: [Pet, Pet] | undefined = (accepted.petParty && accepted.challengerPetIds && character)
+                    ? (() => {
+                        const [a, b] = accepted.challengerPetIds!;
+                        const p1 = character.pets.find(p => p.id === a);
+                        const p2 = character.pets.find(p => p.id === b && p.id !== a);
+                        return (p1 && p2) ? [p1, p2] as [Pet, Pet] : undefined;
+                    })()
+                    : undefined;
+                setPendingPetBattleOpponent({
+                    owner: accepted.fromName,
+                    pet: accepted.responderPet,
+                    battleSeed: accepted.petBattleSeed,
+                    ...(accepted.petParty && accepted.responderParty && myParty ? {
+                        opponentParty: accepted.responderParty,
+                        challengerParty: myParty,
+                    } : {}),
+                });
                 setScreen("petArena");
             } else {
                 alert(`${accepted.fromName} accepted your pet battle. Open Pet Arena if it does not start automatically.`);
@@ -7174,7 +8659,108 @@ export default function App() {
             if (snap.petEncounterVn) setPetEncounterVn(snap.petEncounterVn);
             if (snap.ancientChestVn) setAncientChestVn(snap.ancientChestVn);
             if (snap.editablePets) setEditablePets(mergeMissingBuiltInPets(snap.editablePets));
-            setScreen("village");
+            // Restore the screen the player left off on instead of always
+            // dumping them back into the village. Mid-encounter screens are
+            // remapped because their React-only ephemeral state (battle
+            // frames, pending opponents, pending modals) can't actually
+            // resume from disk.
+            // Restore PvP session breadcrumb if any — lets the pvpBattle
+            // screen re-query the server's authoritative session state.
+            // Stale-check at 1hr in case the player walked away from a
+            // crashed match. The PvpBattle component's mount fetches the
+            // session and resyncs from server state.
+            //
+            // Forced re-entry rule: if the breadcrumb restores AND the
+            // server confirms the session is still alive, the player is
+            // FORCED back into the pvpBattle screen regardless of which
+            // screen they were on. PvP fairness — you can't refresh-flee
+            // a duel.
+            let restoredPvpBattleId: string | null = null;
+            let pvpSessionAliveOnServer = false;
+            try {
+                const raw = localStorage.getItem(PVP_SESSION_KEY);
+                if (raw) {
+                    const parsed = JSON.parse(raw) as {
+                        pvpBattleId?: string;
+                        pvpRole?: "p1" | "p2";
+                        pvpBattleContext?: SharedPvpBattleContext;
+                        savedAt?: number;
+                    };
+                    const age = Date.now() - (parsed.savedAt ?? 0);
+                    if (parsed.pvpBattleId && age < 60 * 60 * 1000) {
+                        restoredPvpBattleId = parsed.pvpBattleId;
+                        setPvpBattleId(parsed.pvpBattleId);
+                        if (parsed.pvpRole) setPvpRole(parsed.pvpRole);
+                        if (parsed.pvpBattleContext) setPvpBattleContext(parsed.pvpBattleContext);
+                        // Best-effort server check (non-blocking) — if the
+                        // session no longer exists or is "done", clear the
+                        // breadcrumb so a stale crash doesn't trap them.
+                        void fetch(`/api/pvp/session?id=${encodeURIComponent(parsed.pvpBattleId)}`)
+                            .then((r) => r.ok ? r.json() : null)
+                            .then((data: { status?: string } | null) => {
+                                if (!data || data.status === "done") {
+                                    try { localStorage.removeItem(PVP_SESSION_KEY); } catch { /* ignore */ }
+                                    setPvpBattleId(null);
+                                    setPvpRole(null);
+                                    setPvpBattleContext(null);
+                                }
+                            })
+                            .catch(() => { /* network blip; leave breadcrumb in place */ });
+                        // For routing purposes we trust the breadcrumb at
+                        // boot — server check is async and may resolve
+                        // after we've rendered. If it's stale, the
+                        // PvpBattleScreen itself will fall back.
+                        pvpSessionAliveOnServer = true;
+                    } else {
+                        localStorage.removeItem(PVP_SESSION_KEY);
+                    }
+                }
+            } catch { /* corrupt or missing — ignore */ }
+
+            (() => {
+                let target: Screen = "village";
+                // FORCE re-entry into a live PvP battle — overrides whatever
+                // the persisted screen was. Players cannot refresh-flee.
+                if (pvpSessionAliveOnServer && restoredPvpBattleId) {
+                    setScreen("pvpBattle");
+                    return;
+                }
+                try {
+                    const persisted = localStorage.getItem(LAST_SCREEN_KEY) as Screen | null;
+                    if (persisted) {
+                        const inHollowGateRun = Boolean(normalized.hollowGateRun && !normalized.hollowGateRun.completed);
+                        // Mid-encounter screens that can't resume from
+                        // local state alone. arena CAN resume via its own
+                        // localStorage restore (added back with a smaller
+                        // hook footprint after the React #310 incident).
+                        const UNSAFE: Screen[] = ["petArena", "hollowGateTiles"];
+                        if (persisted === "pvpBattle" && !restoredPvpBattleId) {
+                            // No PvP breadcrumb to restore — fall through
+                            // to a safe screen.
+                            target = "village";
+                        } else if (UNSAFE.includes(persisted)) {
+                            target = inHollowGateRun ? "hollowGateShrine" : "village";
+                        } else if (persisted === "start") {
+                            target = "village";
+                        } else {
+                            target = persisted;
+                        }
+                    }
+                } catch { /* localStorage unavailable — default to village */ }
+                // If we're landing back on the shrine, hydrate the local run
+                // state from the character's saved run. Otherwise the screen
+                // renders blank because the gate guard requires hollowGateRun.
+                if (target === "hollowGateShrine" && normalized.hollowGateRun && !normalized.hollowGateRun.completed) {
+                    setHollowGateRun(normalized.hollowGateRun);
+                    setCurrentBiome("shadow");
+                    setCurrentWeather(weatherForBiome("shadow"));
+                } else if (target === "hollowGateShrine") {
+                    // No active run — bounce back to village rather than
+                    // staring at an empty shrine screen.
+                    target = "village";
+                }
+                setScreen(target);
+            })();
             // Re-hydrate images after KV restore — clears the loaded-cats guard so
             // loadCategory fires again and overwrites the empty image strings that
             // pushSaveToServer strips before sending to KV.
@@ -7752,6 +9338,111 @@ export default function App() {
      
     useEffect(() => { void loadCategory('item'); void loadCategory('pet'); void loadCategory('card'); void loadCategory('jutsu'); void loadCategory('event'); void loadCategory('avatar'); void loadCategory('ai'); void loadCategory('bloodline'); void loadCategory('shrine'); void loadCategory('landmark'); }, []);
 
+    // ── Hollow Gate Shrine — Kenney atlas auto-slicer ─────────────────────
+    // If /public/assets/dungeon/tilemap.png exists, slice 4 tiles from it
+    // via Canvas and inject them into sharedImages as fallback shrine textures.
+    // Admin-generated images (from the admin panel) ALWAYS win over these
+    // — we only fill keys that aren't already set. If the file is missing
+    // (404), the fetch fails silently and the CSS gradient fallback kicks in.
+    //
+    // To swap which tiles get sliced, edit the X/Y coords below. The tile is
+    // (col, row) in the atlas grid; tileSize is the pixel size of one cell.
+    // Default coords target the Kenney "Roguelike Caves & Dungeons" pack.
+    useEffect(() => {
+        // Kenney's "Roguelike Caves & Dungeons" atlas is 492×305 px = 29 cols
+        // × 18 rows of 16×16 tiles with a 1px gap between every tile (stride 17).
+        // Source pixel for (col, row) is (col * stride, row * stride).
+        //
+        // Each entry can be a single tile { x, y } or an array of variants. The
+        // renderer picks a variant per-cell via deterministic hash so the dungeon
+        // doesn't look like 165 photocopies of the same texture.
+        //
+        // Coords are best-guess starting points; if any specific tile looks wrong
+        // after the live deploy, just bump its x/y by 1-2 and rebuild.
+        // Coords picked by the user via the Atlas Tile Picker (admin panel).
+        // Variants intentionally empty — single tile per role until we tune more.
+        const KENNEY_ATLAS = {
+            tilemap: "/assets/dungeon/tilemap.png",
+            tileSize: 16,
+            gap: 1,
+            singles: [
+                { key: "shrine:tile-wall",           x: 8,  y: 2 },
+                { key: "shrine:tile-room-floor",     x: 9,  y: 7 },
+                { key: "shrine:tile-corridor-floor", x: 16, y: 16 },
+                { key: "shrine:tile-door",           x: 25, y: 15 },
+            ],
+            // Empty — annotated so TS doesn't infer `never[]` and break the
+            // group.tiles / group.keyPrefix reads in the loop below.
+            variants: [] as Array<{ keyPrefix: string; tiles: Array<{ x: number; y: number }> }>,
+            decorations: [
+                { key: "shrine:deco-0", x: 13, y: 17 },  // torch
+                { key: "shrine:deco-1", x: 14, y: 15 },  // barrel
+                { key: "shrine:deco-2", x: 2,  y: 1  },  // plant
+                { key: "shrine:deco-3", x: 2,  y: 2  },  // skull
+            ],
+        };
+
+        let cancelled = false;
+        const img = new Image();
+        img.onload = () => {
+            if (cancelled) return;
+            const ts = KENNEY_ATLAS.tileSize;
+            const stride = ts + KENNEY_ATLAS.gap;
+            const scale = 4;
+            const outSize = ts * scale;
+            function slice(x: number, y: number): string | null {
+                try {
+                    const canvas = document.createElement("canvas");
+                    canvas.width = outSize;
+                    canvas.height = outSize;
+                    const ctx = canvas.getContext("2d");
+                    if (!ctx) return null;
+                    ctx.imageSmoothingEnabled = false;
+                    ctx.drawImage(img, x * stride, y * stride, ts, ts, 0, 0, outSize, outSize);
+                    return canvas.toDataURL("image/png");
+                } catch (err) {
+                    console.warn("[Kenney atlas slice] failed", err);
+                    return null;
+                }
+            }
+            const slices: Record<string, string> = {};
+            // Single-tile keys (existing usage)
+            for (const cfg of KENNEY_ATLAS.singles) {
+                const url = slice(cfg.x, cfg.y);
+                if (url) slices[cfg.key] = url;
+            }
+            // Indexed variants
+            for (const group of KENNEY_ATLAS.variants) {
+                group.tiles.forEach((tile, idx) => {
+                    const url = slice(tile.x, tile.y);
+                    if (url) slices[`${group.keyPrefix}-${idx}`] = url;
+                });
+            }
+            // Decorations
+            for (const deco of KENNEY_ATLAS.decorations) {
+                const url = slice(deco.x, deco.y);
+                if (url) slices[deco.key] = url;
+            }
+            if (Object.keys(slices).length === 0) return;
+            // Atlas slices ALWAYS win for terrain + decoration keys. The user
+            // explicitly wants the Kenney atlas tiles for walls / floors /
+            // doors / decorations, not the per-tile AI-generated images.
+            // Popup-event art (chest / battle / boss / etc.) lives under
+            // different keys (shrine:chest, shrine:boss, …) so this overwrite
+            // never touches the user's generated event illustrations.
+            setSharedImages(prev => {
+                const next = { ...prev };
+                for (const [key, value] of Object.entries(slices)) {
+                    next[key] = value;
+                }
+                return next;
+            });
+        };
+        img.onerror = () => { /* no atlas drop-in — fine, CSS gradients show */ };
+        img.src = KENNEY_ATLAS.tilemap;
+        return () => { cancelled = true; };
+    }, []);
+
     // Screen ? image categories map
     useEffect(() => {
         if (screen === 'worldMap')                              { void loadCategory('avatar'); void loadCategory('event'); }
@@ -7983,6 +9674,19 @@ export default function App() {
                     body: JSON.stringify({ action: 'verify', name: name.trim().toLowerCase(), password }),
                 }, 15000);
                 if (authRes.status === 503) continue; // storage unavailable — retry
+                if (authRes.status === 403) {
+                    // Account is banned. Show the ban detail and bail out — don't
+                    // fall back to local cache, the server explicitly refused.
+                    const banData = await authRes.json().catch(() => ({})) as { ban?: { until: number; reason: string; permanent?: boolean } };
+                    const b = banData.ban;
+                    if (b) {
+                        const when = b.permanent ? "permanently" : `until ${new Date(b.until).toLocaleString()}`;
+                        alert(`⛔ Your account is banned ${when}.\n\nReason: ${b.reason || "(no reason given)"}`);
+                    } else {
+                        alert("⛔ Your account is banned.");
+                    }
+                    return;
+                }
                 if (authRes.ok) {
                     const authData = await authRes.json() as { ok: boolean; legacy?: boolean };
                     authOk = authData.ok;
@@ -8163,49 +9867,143 @@ export default function App() {
             missionRaidRequirement(mission) > 0
         );
 
-        if (matchingMissions.length === 0) return;
-
-        setMissionProgress((current) => {
-            const next = { ...current };
-            matchingMissions.forEach((mission) => {
-                const key = missionRaidProgressKey(mission.id);
-                next[key] = Math.min(missionRaidRequirement(mission), (next[key] ?? 0) + 1);
+        if (matchingMissions.length > 0) {
+            setMissionProgress((current) => {
+                const next = { ...current };
+                matchingMissions.forEach((mission) => {
+                    const key = missionRaidProgressKey(mission.id);
+                    next[key] = Math.min(missionRaidRequirement(mission), (next[key] ?? 0) + 1);
+                });
+                return next;
             });
-            return next;
+        }
+
+        // Vanguard daily raid-mission progress — every successful raid (human
+        // OR AI defender) counts. Server endpoint is rate-limited so a retry
+        // can't double-count.
+        if (character?.profession === "vanguard") {
+            fetch('/api/missions/report-raid', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ playerName: character.name }),
+            }).then(r => r.ok ? r.json() : null).then(data => {
+                const completed: Array<{ id: string; name: string; xpReward: number }> = Array.isArray(data?.missionsCompleted) ? data.missionsCompleted : [];
+                for (const m of completed) {
+                    window.dispatchEvent(new CustomEvent('profession-mission-complete', {
+                        detail: { name: m.name, xp: m.xpReward, profession: 'vanguard' },
+                    }));
+                }
+            }).catch(() => { /* best-effort */ });
+        }
+    }
+
+    function scaleEndlessAiClone(baseAi: CreatorAi, wave: number): CreatorAi {
+        const factor = endlessScaleFactor(wave);
+        // Clone stats and multiply offensive/defensive stats; cap HP/chakra/stamina at ×4 baseline.
+        const scaledStats: Stats = { ...baseAi.stats };
+        (Object.keys(scaledStats) as (keyof Stats)[]).forEach((k) => {
+            scaledStats[k] = Math.floor(scaledStats[k] * Math.min(4, factor));
         });
+        return {
+            ...baseAi,
+            id: `endless-${baseAi.id}-w${wave}`,
+            name: wave % 10 === 0 ? `★ ${baseAi.name} (Floor ${wave})` : `${baseAi.name} (Floor ${wave})`,
+            hp: Math.floor(baseAi.hp * Math.min(5, factor)),
+            chakra: Math.floor(baseAi.chakra * Math.min(3, factor * 0.8)),
+            stamina: Math.floor(baseAi.stamina * Math.min(3, factor * 0.8)),
+            stats: scaledStats,
+        };
     }
 
     function pickRandomEndlessAi(wave: number): string {
         if (playableAis.length === 0) return "";
         // Scale difficulty: allow AIs up to player level + 5 per wave, capped at 100.
-        // Boss AIs are excluded — they can only be used in dungeons, VN, and boss fights.
+        // Boss AIs only appear on milestone floors (every 10).
         const cap = Math.min(100, (character?.level ?? 1) + wave * 5);
-        const normalAis = playableAis.filter(ai => !ai.isBossAi);
-        const pool = normalAis.filter(ai => (ai.level ?? 1) <= cap);
-        const fallback = normalAis.length > 0 ? normalAis : playableAis;
+        const allowBoss = wave % 10 === 0;
+        const candidates = playableAis.filter(ai => allowBoss || !ai.isBossAi);
+        const pool = candidates.filter(ai => (ai.level ?? 1) <= cap);
+        const fallback = candidates.length > 0 ? candidates : playableAis;
         const chosen = pool.length > 0 ? pool[Math.floor(Math.random() * pool.length)] : fallback[Math.floor(Math.random() * fallback.length)];
-        return chosen.id;
+        // Build a scaled clone, register it as the temporary AI so the arena uses it.
+        const scaled = scaleEndlessAiClone(chosen, wave);
+        setTemporaryStoryAi(scaled);
+        return scaled.id;
     }
 
     function startEndlessBattle() {
+        if (!character) return;
+        // Restore in-progress run, or start a new one at wave 1.
+        const existing = character.endlessTowerRun;
+        const wave = existing && existing.wave > 0 ? existing.wave : 1;
+        const run: EndlessTowerRun = existing ?? {
+            wave: 1,
+            bankedRyo: 0,
+            bankedXp: 0,
+            startedAt: Date.now(),
+        };
+        setCharacter({ ...character, endlessTowerRun: run });
         setEndlessBattleActive(true);
-        setEndlessBattleWave(1);
-        setPendingAiProfileId(pickRandomEndlessAi(1));
+        setEndlessBattleWave(wave);
+        setPendingAiProfileId(pickRandomEndlessAi(wave));
         setArenaKey(k => k + 1);
         navigate("arena");
     }
 
     function handleEndlessWin(currentWave: number) {
-        setCharacter((current) => current ? { ...current, totalEndlessTowerWins: (current.totalEndlessTowerWins ?? 0) + 1 } : current);
+        const reward = endlessWaveReward(currentWave, character?.level ?? 1);
+        setCharacter((current) => {
+            if (!current) return current;
+            const nextWave = currentWave + 1;
+            const prevRun = current.endlessTowerRun ?? { wave: 1, bankedRyo: 0, bankedXp: 0, startedAt: Date.now() };
+            const updatedRun: EndlessTowerRun = {
+                ...prevRun,
+                wave: nextWave,
+                bankedRyo: prevRun.bankedRyo + reward.ryo,
+                bankedXp: prevRun.bankedXp + reward.xp,
+            };
+            return {
+                ...current,
+                totalEndlessTowerWins: (current.totalEndlessTowerWins ?? 0) + 1,
+                endlessTowerBestWave: Math.max(current.endlessTowerBestWave ?? 0, currentWave),
+                endlessTowerRun: updatedRun,
+            };
+        });
         const next = currentWave + 1;
         setEndlessBattleWave(next);
         setPendingAiProfileId(pickRandomEndlessAi(next));
         setArenaKey(k => k + 1);
     }
 
+    // Called when the player loses — banked rewards are lost on death.
     function endEndlessBattle() {
         setEndlessBattleActive(false);
         setEndlessBattleWave(0);
+        setTemporaryStoryAi(null);
+        setCharacter((current) => current ? { ...current, endlessTowerRun: null } : current);
+    }
+
+    // Retreat & bank: convert banked ryo/xp into actual progress, clear the run.
+    function bankEndlessRewards() {
+        if (!character) return;
+        const run = character.endlessTowerRun;
+        if (!run || (run.bankedRyo === 0 && run.bankedXp === 0)) {
+            setEndlessBattleActive(false);
+            setEndlessBattleWave(0);
+            setTemporaryStoryAi(null);
+            setCharacter({ ...character, endlessTowerRun: null });
+            return;
+        }
+        setCharacter({
+            ...character,
+            ryo: (character.ryo ?? 0) + run.bankedRyo,
+            xp: (character.xp ?? 0) + run.bankedXp,
+            endlessTowerBestWave: Math.max(character.endlessTowerBestWave ?? 0, run.wave),
+            endlessTowerRun: null,
+        });
+        setEndlessBattleActive(false);
+        setEndlessBattleWave(0);
+        setTemporaryStoryAi(null);
     }
 
     function navigate(nextScreen: Screen) {
@@ -8518,7 +10316,7 @@ export default function App() {
                 ...leveled,
                 ryo: leveled.ryo + ryoReward,
                 auraDust: (leveled.auraDust ?? 0) + auraDustReward,
-                honorSeals: (leveled.honorSeals ?? 0) + honorReward,
+                honorSeals: (leveled.honorSeals ?? 0) + vanguardOnlyHonorSeals(leveled, honorReward),
                 hp: Math.min(leveled.maxHp, survivingHp + (isBoss ? 60 : 20)),
             };
             if (isBoss) {
@@ -8633,7 +10431,17 @@ export default function App() {
             alert("You need a Hollow Gate Key to enter the shrine. Forge one at the Crafter (5 Dungeon Keys or 10 Fate Shards), or complete your village story.");
             return;
         }
-        const ok = window.confirm(`Enter the Hollow Gate Shrine?\n\nThis consumes 1 Hollow Gate Key (${ownedKeys} owned). Keys are one-time use.`);
+        // Daily run cap — hard-capped at 2 regardless of key inventory. The
+        // shrine itself refuses to open more than twice between dawns.
+        // Counter is reset when lastDailyReset != today.
+        const todayKey = currentDateKey();
+        const runsToday = character.lastDailyReset === todayKey ? (character.dailyHollowGateRuns ?? 0) : 0;
+        const DAILY_HOLLOW_GATE_CAP = 2;
+        if (runsToday >= DAILY_HOLLOW_GATE_CAP) {
+            alert(`The Hollow Gate Shrine refuses to open again today. You've already entered ${runsToday}/${DAILY_HOLLOW_GATE_CAP} times. Return at dawn.`);
+            return;
+        }
+        const ok = window.confirm(`Enter the Hollow Gate Shrine?\n\nThis consumes 1 Hollow Gate Key (${ownedKeys} owned). Keys are one-time use.\nDaily runs: ${runsToday}/${DAILY_HOLLOW_GATE_CAP}.`);
         if (!ok) return;
 
         // Consume exactly one Hollow Gate Key.
@@ -8656,7 +10464,8 @@ export default function App() {
             inventory: newInv,
             hollowGateRun: run,
             hollowGateIntroSeen: true,
-            lastDailyReset: currentDateKey(),
+            dailyHollowGateRuns: runsToday + 1,
+            lastDailyReset: todayKey,
         });
         setCurrentBiome("shadow");
         setCurrentWeather(weatherForBiome("shadow"));
@@ -8721,7 +10530,86 @@ export default function App() {
         setCurrentWeather(weatherForBiome("shadow"));
         setScreen("hollowGateShrine");
     }
-    function startHollowGateBattle(opts: { isBoss?: boolean; isAmbush?: boolean }) {
+    // Weighted-random ambush — triggered when the threat meter hits the
+    // ambush threshold (default 100). Picks one of three encounter types:
+    //   50% — shinobi AI battle (the classic ambush)
+    //   35% — pet duel (wild Hollow Beast) via PetArena autobattler
+    //   15% — Shinobi Tile card-game duel
+    // Each branch falls back to the shinobi battle if its prerequisites
+    // aren't met (no eligible pet / fewer than 5 cards) so the ambush
+    // ALWAYS fires something — the player never gets a free pass.
+    function triggerHollowGateAmbush() {
+        if (!character) return;
+        // F5 ambush → boss fight. Avoids the climax getting cheated by a
+        // random ambush firing before the Warden tile. The player still
+        // sees the boss fight + the F5 shrine-cleared modal on win.
+        if ((hollowGateRun?.floor ?? 1) >= HOLLOW_GATE_MAX_FLOOR) {
+            pushHollowGateLog("The corridor itself tears open — the Hollow Gate Warden steps through the seal!");
+            startHollowGateBattle({ isBoss: true });
+            return;
+        }
+        pushHollowGateLog("The Hollow Gate echoes converge — an ambush!");
+        const roll = Math.random() * 100;
+        // ── Branch A: Pet duel (35% slot, rolls 50-84) ────────────────
+        if (roll >= 50 && roll < 85) {
+            const activePet = (character.pets ?? []).find(p => p.id === character.activePetId);
+            const petReady = activePet && activePet.unlockedForPve && !isPetOnExpedition(activePet);
+            if (petReady) {
+                // Use the same wild-pet picker / handicap rules as the
+                // pet_battle tile, including the shrine:tile-hollow-beast
+                // image override.
+                const floor = hollowGateRun?.floor ?? 1;
+                const playerRarityIdx = petRarityOrder.indexOf(activePet.rarity);
+                const maxRarityIdx = Math.min(petRarityOrder.length - 1, playerRarityIdx + 1);
+                const bumpChance = Math.min(0.45, 0.10 + (floor - 1) * 0.05);
+                const targetIdx = Math.random() < bumpChance ? maxRarityIdx : playerRarityIdx;
+                const wildBase = pickHollowGateEncounterPet(petPool, petRarityOrder[targetIdx]);
+                if (wildBase) {
+                    const handicap = floor >= 4 ? 0.90 : 1.00;
+                    const hollowBeastImg = sharedImages["shrine:tile-hollow-beast"];
+                    const wild: Pet = {
+                        ...wildBase,
+                        id: `hg-beast-${Date.now()}`,
+                        level: Math.max(1, activePet.level),
+                        name: `Ambush: Hollow ${wildBase.name}`,
+                        hp: Math.max(1, Math.floor(wildBase.hp * handicap)),
+                        attack: Math.max(1, Math.floor(wildBase.attack * handicap)),
+                        defense: Math.max(1, Math.floor(wildBase.defense * handicap)),
+                        image: hollowBeastImg || wildBase.image,
+                    };
+                    pushHollowGateLog(`[Ambush — Hollow Beast] ${activePet.name} squares off against ${wild.name}.`);
+                    // Threat / torch reset upfront (matches normal ambush behaviour).
+                    setHollowGateRun(prev => prev ? { ...prev, threat: 0, torch: 10 } : prev);
+                    setPendingPetBattleOpponent({
+                        owner: "Hollow Gate",
+                        pet: wild,
+                        battleSeed: Date.now(),
+                        returnScreen: "hollowGateShrine",
+                    });
+                    setScreen("petArena");
+                    return;
+                }
+                // Couldn't pick a pet → fall through to shinobi.
+            }
+            // No eligible pet → fall through to shinobi.
+            pushHollowGateLog("No pet stands at your side — corrupted shinobi close in instead.");
+        }
+        // ── Branch B: Tile-game duel (15% slot, rolls 85-99) ──────────
+        if (roll >= 85) {
+            const ownedCardCount = character.tileCards?.length ?? 0;
+            if (ownedCardCount >= 5) {
+                pushHollowGateLog("[Ambush — Tile Seal] A shadow opponent slams a stone table into the corridor.");
+                setHollowGateRun(prev => prev ? { ...prev, threat: 0, torch: 10 } : prev);
+                setHollowGateTileGameActive(true);
+                setScreen("hollowGateTiles");
+                return;
+            }
+            pushHollowGateLog("Your deck is too thin to seal the shadow — corrupted shinobi close in instead.");
+        }
+        // ── Default: Shinobi AI battle (50% slot, rolls 0-49 + all fallbacks) ──
+        startHollowGateBattle({ isAmbush: true });
+    }
+    function startHollowGateBattle(opts: { isBoss?: boolean; isAmbush?: boolean; isBeast?: boolean }) {
         if (!character) return;
         const LEVEL_BAND = 15;
         const playerLevel = character.level;
@@ -8772,7 +10660,9 @@ export default function App() {
             ? "Hollow Gate Warden"
             : opts.isAmbush
                 ? "Hollow Gate Ambush"
-                : `Corrupted ${baseAi.name}`;
+                : opts.isBeast
+                    ? `Hollow Beast: ${baseAi.name}`
+                    : `Corrupted ${baseAi.name}`;
         // Boss difficulty scales with the floor of the run:
         //   Floor 1 -> playerLevel - 5
         //   Floor 2 -> playerLevel
@@ -8847,16 +10737,68 @@ export default function App() {
         pushHollowGateLog(`Encounter: ${encounterName}.${petLine}`);
         setScreen("arena");
     }
+    // Shared run-summary builder — counts resolved tiles by kind and
+    // packs them into the multi-line summary block used by the Leave
+    // tile modal, the trap-death modal, and the F5 victory modal so a
+    // player gets a consistent post-run report regardless of how they
+    // exited.
+    function buildHollowGateRunSummary(): string {
+        if (!hollowGateRun || !character) return "";
+        const t = hollowGateRun.tiles;
+        const stats = {
+            floors: hollowGateRun.floor,
+            chests: t.filter(x => x.kind === "chest" && x.resolved).length,
+            battles: t.filter(x => (x.kind === "battle" || x.kind === "elite") && x.resolved).length,
+            beasts: t.filter(x => x.kind === "pet_battle" && x.resolved).length,
+            tileSeals: t.filter(x => x.kind === "tile_game" && x.resolved).length,
+            hiddenChambers: t.filter(x => x.kind === "shrine" && x.resolved).length,
+            traps: t.filter(x => x.kind === "trap" && x.resolved).length,
+            keepers: t.filter(x => x.kind === "npc" && x.resolved).length,
+        };
+        return [
+            `Floor reached: ${stats.floors} / ${HOLLOW_GATE_MAX_FLOOR}`,
+            `Chests opened: ${stats.chests}`,
+            `Shinobi defeated: ${stats.battles}`,
+            `Hollow Beasts felled: ${stats.beasts}`,
+            `Tile Seals claimed: ${stats.tileSeals}`,
+            `Hidden Chambers: ${stats.hiddenChambers}`,
+            `Keepers blessed by: ${stats.keepers}`,
+            `Traps survived: ${stats.traps}`,
+            `HP remaining: ${character.hp} / ${character.maxHp}`,
+        ].join("\n");
+    }
+
     function resolveHollowGateTile(tile: HollowGateTile, x: number, y: number) {
         if (!hollowGateRun || !character) return;
         const idx = y * hollowGateRun.width + x;
         const flavor = hollowGateFlavorFor(tile.kind);
         // Mark resolved immediately so re-entering the tile doesn't fire it again.
-        function markResolved(nextRun?: HollowGateShrineRun) {
-            const base = nextRun ?? hollowGateRun!;
-            const tiles = base.tiles.slice();
-            tiles[idx] = { ...tiles[idx], resolved: true };
-            setHollowGateRun({ ...base, tiles });
+        // CRITICAL: this MUST use the functional setHollowGateRun(prev => ...) form
+        // and apply only the patch fields you actually want to change. The earlier
+        // version of this helper accepted a full HollowGateShrineRun and spread it,
+        // which silently overwrote the player's CURRENT position with whatever
+        // position was in the closure at the time the deferred resolver ran. That
+        // produced the "WASD teleports back" bug — the move took, then a stale
+        // setTimeout fired markResolved with closure.hollowGateRun, snapping the
+        // player back. Patches now only touch resolved/keys/torch.
+        function markResolved(patch?: { keysDelta?: number; setKeys?: number; torchDelta?: number; setTorch?: number }) {
+            setHollowGateRun(prev => {
+                if (!prev) return prev;
+                const tiles = prev.tiles.slice();
+                if (tiles[idx]) tiles[idx] = { ...tiles[idx], resolved: true };
+                const keys = patch?.setKeys != null
+                    ? patch.setKeys
+                    : prev.keys + (patch?.keysDelta ?? 0);
+                const torchRaw = patch?.setTorch != null
+                    ? patch.setTorch
+                    : prev.torch + (patch?.torchDelta ?? 0);
+                return {
+                    ...prev,
+                    keys,
+                    torch: Math.max(0, Math.min(10, torchRaw)),
+                    tiles,
+                };
+            });
         }
         switch (tile.kind) {
             case "empty": {
@@ -8874,6 +10816,140 @@ export default function App() {
                 pushHollowGateLog(`[Elite] ${flavor}`);
                 startHollowGateBattle({ isBoss: false });
                 markResolved();
+                return;
+            }
+            case "tile_game": {
+                // Shinobi Tile card-game encounter. Pre-modal shows the
+                // shadow-opponent scene art (shrine:tile-tile-game); Begin
+                // dives into the 3x3 card duel. Resolution callbacks back
+                // in the App body handle win/lose/abandon.
+                pushHollowGateLog(`[Tile Seal] ${flavor}`);
+                markResolved();
+                setHollowGateEvent({
+                    title: "Shinobi Tile Seal",
+                    body: `${flavor}\n\nA shadow opponent waits across the stone table. Defeat them at the 3×3 tile duel to claim the seal. Loss costs 20% of your max HP. You can step away with no penalty before the result is reached.`,
+                    kind: "tile_game",
+                    choices: [
+                        {
+                            label: "Begin Tile Duel",
+                            tone: "primary",
+                            onSelect: () => {
+                                setHollowGateEvent(null);
+                                setHollowGateTileGameActive(true);
+                                setScreen("hollowGateTiles");
+                            },
+                        },
+                        {
+                            label: "Step Away",
+                            onSelect: () => {
+                                setHollowGateEvent(null);
+                                pushHollowGateLog("You leave the tile table untouched. The shadow opponent fades.");
+                            },
+                        },
+                    ],
+                });
+                return;
+            }
+            case "pet_battle": {
+                // Wild Hollow Beast — pet vs pet autobattler using the existing
+                // PetArena. The player's active pet duels a random wild pet
+                // scaled to the player's level. Falls back to a themed shinobi
+                // fight if the player has no battle-ready pet (so the tile is
+                // never a dead-end).
+                const activePet = (character.pets ?? []).find(p => p.id === character.activePetId);
+                const petReady = activePet && activePet.unlockedForPve && !isPetOnExpedition(activePet);
+                if (!petReady) {
+                    // No pet → fall back to the themed shinobi version of the
+                    // encounter so the tile still fires something on step.
+                    pushHollowGateLog(`[Hollow Beast] ${flavor} You have no pet ready — the beast comes for you instead.`);
+                    startHollowGateBattle({ isBeast: true });
+                    markResolved();
+                    return;
+                }
+                // Pick a wild pet rarity capped to one tier above the player's
+                // pet — never a mythic vs standard mismatch. Floor weighting
+                // pushes toward the cap on deeper floors but still allows
+                // mirror / lower-tier matches so easier fights remain possible.
+                const floor = hollowGateRun?.floor ?? 1;
+                const playerRarityIdx = petRarityOrder.indexOf(activePet.rarity);
+                const maxRarityIdx = Math.min(petRarityOrder.length - 1, playerRarityIdx + 1);
+                // bumpChance: F1=10%, F2=15%, ..., F5=30%. Probability of using
+                // the +1 tier; otherwise stay at player tier (or lower for
+                // standard players when bump isn't picked).
+                const bumpChance = Math.min(0.45, 0.10 + (floor - 1) * 0.05);
+                const targetIdx = Math.random() < bumpChance ? maxRarityIdx : playerRarityIdx;
+                const targetRarity: PetRarity = petRarityOrder[targetIdx];
+                const wildBase = pickHollowGateEncounterPet(petPool, targetRarity);
+                if (!wildBase) {
+                    // Shouldn't happen with the canonical pool, but defensive.
+                    pushHollowGateLog(`[Hollow Beast] ${flavor} The beast melts back into the mist.`);
+                    startHollowGateBattle({ isBeast: true });
+                    markResolved();
+                    return;
+                }
+                // Rebase wild pet to the player's pet level so the duel is
+                // balanced on stats. On the hardest floors (F4-5) trim 10%
+                // off hp/attack/defense so the fight stays winnable —
+                // mythic-template stats can otherwise steamroll a standard
+                // player pet even at matched level.
+                const handicap = floor >= 4 ? 0.90 : 1.00;
+                // shrine:tile-hollow-beast is the admin-generated "wild pet"
+                // portrait. If set, override the wild pet's image so all
+                // Hollow Gate beast encounters share a consistent look.
+                // CRITICAL: also rewrite the pet id with an "hg-beast-" prefix
+                // so the PetArenaCard / PetBattleAvatar image-lookup chain
+                // (sharedImages['pet:<id>'] → sharedImages['pet:<base>'] →
+                // pet.image) doesn't accidentally hit a user-generated
+                // pet:mythic-2 (or similar) image and override our shrine
+                // portrait. The synthetic id has no template match, so the
+                // chain falls through to pet.image where we want it.
+                const hollowBeastImg = sharedImages["shrine:tile-hollow-beast"];
+                const wild: Pet = {
+                    ...wildBase,
+                    id: `hg-beast-${Date.now()}`,
+                    level: Math.max(1, activePet.level),
+                    name: `Hollow ${wildBase.name}`,
+                    hp: Math.max(1, Math.floor(wildBase.hp * handicap)),
+                    attack: Math.max(1, Math.floor(wildBase.attack * handicap)),
+                    defense: Math.max(1, Math.floor(wildBase.defense * handicap)),
+                    image: hollowBeastImg || wildBase.image,
+                };
+                pushHollowGateLog(`[Hollow Beast] ${flavor} ${activePet.name} squares off against ${wild.name}.`);
+                // Pre-encounter modal — shows the Hollow Beast scene art
+                // (shrine:tile-hollow-beast) before the player commits to
+                // the duel. Begin transitions to PetArena. Step Away bails
+                // with no penalty. Threat / torch reset applies whether the
+                // player engages (so leaving is the safer path).
+                markResolved({ setTorch: 10 });
+                setHollowGateRun(prev => prev ? { ...prev, threat: 0 } : prev);
+                setHollowGateEvent({
+                    title: `Hollow Beast: ${wild.name}`,
+                    body: `${flavor}\n\n${activePet.name} (Lv ${activePet.level} ${activePet.rarity}) faces ${wild.name} (Lv ${wild.level} ${wild.rarity ?? "wild"}). Win to claim victory; lose to take 20% HP damage. Either way your run continues.`,
+                    kind: "pet_battle",
+                    choices: [
+                        {
+                            label: "Send Pet to Duel",
+                            tone: "primary",
+                            onSelect: () => {
+                                setHollowGateEvent(null);
+                                setPendingPetBattleOpponent({
+                                    owner: "Hollow Gate",
+                                    pet: wild,
+                                    battleSeed: Date.now(),
+                                    returnScreen: "hollowGateShrine",
+                                });
+                                setScreen("petArena");
+                            },
+                        },
+                        {
+                            label: "Step Away",
+                            onSelect: () => {
+                                setHollowGateEvent(null);
+                                pushHollowGateLog(`${activePet.name} pulls back. The Hollow Beast fades into mist.`);
+                            },
+                        },
+                    ],
+                });
                 return;
             }
             case "trap": {
@@ -8896,7 +10972,7 @@ export default function App() {
                 if (willDie) {
                     setHollowGateEvent({
                         title: "You Have Fallen",
-                        body: `${flavor}\n\nThe trap drains your final breath. You are admitted to the village hospital and your shrine run ends.`,
+                        body: `${flavor}\n\nThe trap drains your final breath. You are admitted to the village hospital and your shrine run ends.\n\n— RUN SUMMARY —\n${buildHollowGateRunSummary()}`,
                         kind: "trap",
                         choices: [{
                             label: "Leave Shrine",
@@ -8938,12 +11014,8 @@ export default function App() {
                 // Chests also refill the Torch of Reiki by 2.
                 const torchRefill = 2;
                 pushHollowGateLog(`Chest opened. +${ryoGain} ryo, +${effectiveCharacterXpGain(character, xpGain)} XP${auraDustGain ? `, +${auraDustGain} Aura Dust` : ""}, +${auraStoneGain} Aura Stones, +${boneCharmGain} Bone Charms${keyGain ? ", +1 Shrine Key" : ""}, +${torchRefill} Torch.`);
-                const nextRun = {
-                    ...hollowGateRun,
-                    keys: hollowGateRun.keys + keyGain,
-                    torch: Math.min(10, hollowGateRun.torch + torchRefill),
-                };
-                markResolved(nextRun);
+                // Patch-form: only touches keys/torch, never overwrites player position.
+                markResolved({ keysDelta: keyGain, torchDelta: torchRefill });
                 setHollowGateEvent({
                     title: "Shrine Offering Chest",
                     body: `${flavor}\n\n+${ryoGain} ryo\n+${effectiveCharacterXpGain(character, xpGain)} XP${auraDustGain ? `\n+${auraDustGain} Aura Dust` : ""}\n+${auraStoneGain} Aura Stones\n+${boneCharmGain} Bone Charms${keyGain ? "\n+1 Shrine Key" : ""}`,
@@ -8973,7 +11045,7 @@ export default function App() {
                 // Shrine tile fully refills the Torch of Reiki.
                 pushHollowGateLog(`${flavor} The Torch of Reiki flares to full.`);
                 setHollowGateHiddenChamber({ searched: false, relicTaken: false });
-                markResolved({ ...hollowGateRun, torch: 10 });
+                markResolved({ setTorch: 10 });
                 return;
             }
             case "story": {
@@ -9081,7 +11153,7 @@ export default function App() {
                 pushHollowGateLog(flavor);
                 setHollowGateEvent({
                     title: "Leave the Hollow Gate",
-                    body: `${flavor}\n\nThe broken torii on this tile opens back to the world map.\n\nLeaving ends this run — your progress is forfeit and you'll need another Hollow Gate Key to return.`,
+                    body: `${flavor}\n\nThe broken torii on this tile opens back to the world map.\n\n— RUN SUMMARY —\n${buildHollowGateRunSummary()}\n\nLeaving ends this run — your progress is forfeit and you'll need another Hollow Gate Key to return.`,
                     kind: "exit",
                     choices: [
                         {
@@ -9102,7 +11174,7 @@ export default function App() {
             case "locked": {
                 if (hollowGateRun.keys > 0) {
                     pushHollowGateLog(`${flavor} You spend a Shrine Key to open it.`);
-                    markResolved({ ...hollowGateRun, keys: hollowGateRun.keys - 1 });
+                    markResolved({ keysDelta: -1 });
                     // Sealed-door table:
                     //   50%   — Ancient Chest (uses module-level roll)
                     //   25%   — Trap (33% maxHP damage, lethal-capable)
@@ -9253,61 +11325,88 @@ export default function App() {
         }
     }
     function moveHollowGatePlayer(dx: number, dy: number) {
-        if (!hollowGateRun || hollowGateEvent || hollowGateHiddenChamber) return;
+        if (hollowGateEvent || hollowGateHiddenChamber) return;
         if (hollowGateIntroPage !== null) return;
-        const nx = hollowGateRun.playerX + dx;
-        const ny = hollowGateRun.playerY + dy;
-        if (nx < 0 || ny < 0 || nx >= hollowGateRun.width || ny >= hollowGateRun.height) return;
-        const idx = ny * hollowGateRun.width + nx;
-        const tile = hollowGateRun.tiles[idx];
-        // Walls are impassable. Don't penalize threat/torch for bumping into them.
-        if (tile.kind === "wall") {
+
+        // Use functional state update so rapid WASD presses queue correctly
+        // against the latest run state (the closure form lost presses if two
+        // happened within the same render tick — the second computed from the
+        // pre-move state and overwrote the first).
+        let outcome: {
+            wallBump: boolean;
+            torchSputtered: boolean;
+            justResolved: { tile: HollowGateTile; nx: number; ny: number; nextThreat: number } | null;
+            ambushImmediate: boolean;
+        } = { wallBump: false, torchSputtered: false, justResolved: null, ambushImmediate: false };
+
+        setHollowGateRun(prev => {
+            if (!prev) return prev;
+            const nx = prev.playerX + dx;
+            const ny = prev.playerY + dy;
+            if (nx < 0 || ny < 0 || nx >= prev.width || ny >= prev.height) return prev;
+            const idx = ny * prev.width + nx;
+            const tile = prev.tiles[idx];
+            // Walls are impassable. No state change, no threat/torch cost.
+            const isWall = tile.kind === "wall" || tile.terrain === "wall";
+            if (isWall) {
+                outcome = { ...outcome, wallBump: true };
+                return prev;
+            }
+            const tiles = prev.tiles.slice();
+            const wasRevealed = tile.revealed;
+            tiles[idx] = { ...tile, revealed: true, flavor: tile.flavor ?? hollowGateFlavorFor(tile.kind) };
+            // Torch of Reiki: drains 1 every ~3 moves. At 0 torch, threat fills 2x faster.
+            const torchDrain = Math.random() < 0.33 ? 1 : 0;
+            const nextTorch = Math.max(0, prev.torch - torchDrain);
+            const threatMultiplier = nextTorch === 0 ? 2 : 1;
+            const nextThreat = Math.min(100, prev.threat + HOLLOW_GATE_THREAT_PER_STEP * threatMultiplier);
+            const justResolved = !tile.resolved && !wasRevealed;
+            outcome = {
+                ...outcome,
+                torchSputtered: nextTorch === 0 && prev.torch > 0,
+                justResolved: justResolved ? { tile: { ...tile, revealed: true }, nx, ny, nextThreat } : null,
+                ambushImmediate: !justResolved && nextThreat >= HOLLOW_GATE_THREAT_AMBUSH,
+            };
+            return {
+                ...prev,
+                playerX: nx,
+                playerY: ny,
+                tiles,
+                threat: nextThreat,
+                torch: nextTorch,
+            };
+        });
+
+        // ── Side effects ──────────────────────────────────────────────────
+        if (outcome.wallBump) {
             pushHollowGateLog("Solid shrine stone. You cannot pass.");
             return;
         }
-        // Reveal + move first.
-        const tiles = hollowGateRun.tiles.slice();
-        const wasRevealed = tile.revealed;
-        tiles[idx] = { ...tile, revealed: true, flavor: tile.flavor ?? hollowGateFlavorFor(tile.kind) };
-        // Torch of Reiki: drains 1 every ~3 moves. At 0 torch, threat fills 2x faster.
-        const torchDrain = Math.random() < 0.33 ? 1 : 0;
-        const nextTorch = Math.max(0, hollowGateRun.torch - torchDrain);
-        const threatMultiplier = nextTorch === 0 ? 2 : 1;
-        const nextThreat = Math.min(100, hollowGateRun.threat + HOLLOW_GATE_THREAT_PER_STEP * threatMultiplier);
-        const nextRun: HollowGateShrineRun = {
-            ...hollowGateRun,
-            playerX: nx,
-            playerY: ny,
-            tiles,
-            threat: nextThreat,
-            torch: nextTorch,
-        };
-        setHollowGateRun(nextRun);
-        if (nextTorch === 0 && hollowGateRun.torch > 0) {
+        if (outcome.torchSputtered) {
             pushHollowGateLog("The Torch of Reiki sputters out. Threat builds faster in the dark.");
         }
-        // Fire event only if newly revealed AND not already resolved.
-        // Ambush DEFERRAL: when a tile opens a modal or fires a battle, the ambush
-        // is deferred to the next move. Only "empty" and previously-resolved tiles
-        // trigger the ambush immediately.
-        const justResolved = !tile.resolved && !wasRevealed;
-        const modalFiringKinds: HollowGateTileKind[] = [
-            "battle", "elite", "boss",
-            "trap", "chest", "shrine", "pet_event", "story",
-            "locked", "exit", "npc", "descend",
-        ];
-        const tileWillOpenModal = modalFiringKinds.includes(tile.kind);
-        if (justResolved) {
+        if (outcome.justResolved) {
+            const { tile, nx, ny, nextThreat } = outcome.justResolved;
+            const modalFiringKinds: HollowGateTileKind[] = [
+                "battle", "elite", "boss",
+                "trap", "chest", "shrine", "pet_event", "pet_battle", "tile_game", "story",
+                "locked", "exit", "npc", "descend",
+            ];
+            const tileWillOpenModal = modalFiringKinds.includes(tile.kind);
+            // Deferred via 0ms timeout to let the state commit. resolveHollowGateTile
+            // uses markResolved's functional-setState form internally so the player
+            // position is preserved (fixes the WASD teleport-back bug).
             setTimeout(() => {
-                resolveHollowGateTile({ ...tile, revealed: true }, nx, ny);
+                resolveHollowGateTile(tile, nx, ny);
                 if (!tileWillOpenModal && nextThreat >= HOLLOW_GATE_THREAT_AMBUSH) {
-                    pushHollowGateLog("The Hollow Gate echoes converge — an ambush!");
-                    startHollowGateBattle({ isAmbush: true });
+                    // Ambush at max threat — weighted roll between shinobi /
+                    // pet / tile-game encounter (50 / 35 / 15). See
+                    // triggerHollowGateAmbush for the branching + fallbacks.
+                    triggerHollowGateAmbush();
                 }
             }, 0);
-        } else if (nextThreat >= HOLLOW_GATE_THREAT_AMBUSH) {
-            pushHollowGateLog("The Hollow Gate echoes converge — an ambush!");
-            setTimeout(() => startHollowGateBattle({ isAmbush: true }), 0);
+        } else if (outcome.ambushImmediate) {
+            setTimeout(() => triggerHollowGateAmbush(), 0);
         }
     }
     function leaveHollowGateShrine() {
@@ -9329,7 +11428,10 @@ export default function App() {
             // had a boss tile on Floor 1-4; defensively we still handle it.)
             const tiles = hollowGateRun.tiles.map(t => t.kind === "boss" ? { ...t, resolved: true } : t);
             const isFinalFloor = hollowGateRun.floor >= HOLLOW_GATE_MAX_FLOOR;
-            const nextRun: HollowGateShrineRun = { ...hollowGateRun, tiles, completed: isFinalFloor, threat: 0 };
+            // Every battle encounter resets both the threat meter (0) and the
+            // Torch of Reiki (10/10). The dungeon rewards survivors: clearing
+            // a fight earns you a fresh window before the next ambush builds.
+            const nextRun: HollowGateShrineRun = { ...hollowGateRun, tiles, completed: isFinalFloor, threat: 0, torch: 10 };
             setHollowGateRun(nextRun);
             pushHollowGateLog(`The Hollow Gate Warden falls on Floor ${hollowGateRun.floor}. ${isFinalFloor ? "The shrine is cleared!" : "A staircase opens below."}`);
             if (isFinalFloor) {
@@ -9337,7 +11439,7 @@ export default function App() {
                 // No "Leave" choice — auto-returns to world map after rewards are claimed.
                 setHollowGateEvent({
                     title: "Hollow Gate Shrine Cleared",
-                    body: `Floor ${hollowGateRun.floor} of ${HOLLOW_GATE_MAX_FLOOR} cleared.\n\nThe Hollow Gate echoes scatter. The shrine surrenders its final relic to you.`,
+                    body: `Floor ${hollowGateRun.floor} of ${HOLLOW_GATE_MAX_FLOOR} cleared.\n\nThe Hollow Gate echoes scatter. The shrine surrenders its final relic to you.\n\n— RUN SUMMARY —\n${buildHollowGateRunSummary()}`,
                     kind: "boss",
                     choices: [
                         {
@@ -9345,7 +11447,7 @@ export default function App() {
                             tone: "primary",
                             onSelect: () => {
                                 if (!character) return;
-                                const bonusHonor = 75;
+                                const bonusHonor = vanguardOnlyHonorSeals(character, 75);
                                 const bonusFate = 1;
                                 const next = addInventoryItems({
                                     ...character,
@@ -9353,7 +11455,7 @@ export default function App() {
                                     fateShards: (character.fateShards ?? 0) + bonusFate,
                                 }, [DUNGEON_LEGENDARY_FRAGMENT_ID, VEIL_OF_THE_HOLLOW_ID]);
                                 setCharacter(next);
-                                pushHollowGateLog(`Shrine cleared bonus: +${bonusHonor} Honor Seals, +${bonusFate} Fate Shard, +1 Dungeon Legendary Fragment, +1 Veil of the Hollow.`);
+                                pushHollowGateLog(`Shrine cleared bonus: ${bonusHonor > 0 ? `+${bonusHonor} Honor Seals, ` : ""}+${bonusFate} Fate Shard, +1 Dungeon Legendary Fragment, +1 Veil of the Hollow.`);
                                 setHollowGateEvent(null);
                                 leaveHollowGateShrine();
                             },
@@ -9367,11 +11469,15 @@ export default function App() {
                 pushHollowGateLog(`You descend to Floor ${next.floor}. Torch flares: +4.`);
             }
         } else if (isAmbush) {
-            setHollowGateRun({ ...hollowGateRun, threat: 0 });
-            pushHollowGateLog("The ambush ends. Threat dissipates.");
+            // Ambush survived → full reset of both meters.
+            setHollowGateRun({ ...hollowGateRun, threat: 0, torch: 10 });
+            pushHollowGateLog("The ambush ends. Threat dissipates and the Torch of Reiki flares back to full.");
         } else {
-            setHollowGateRun({ ...hollowGateRun, threat: Math.max(0, hollowGateRun.threat - 25) });
-            pushHollowGateLog("Corrupted shinobi defeated. Threat eases.");
+            // Regular battle / elite / pet_battle (themed-shinobi fallback)
+            // — also full reset. The previous "threat -= 25" partial reset
+            // made fights feel less rewarding than they should.
+            setHollowGateRun({ ...hollowGateRun, threat: 0, torch: 10 });
+            pushHollowGateLog("Corrupted shinobi defeated. Threat dissipates and the Torch of Reiki flares back to full.");
         }
     }
 
@@ -9653,6 +11759,8 @@ export default function App() {
                         onHollowGateResetIntro={adminHollowGateResetIntro}
                         onHollowGateClearRun={adminHollowGateClearRun}
                         onHollowGateGrantKey={adminHollowGateGrantKey}
+                        sharedImages={sharedImages}
+                        setSharedImages={setSharedImages}
                         hollowGateVillageUnlocked={Boolean(loadVillageState(character.village).hollowGateUnlocked)}
                         onReloadImages={() => {
                             loadedCatsRef.current.clear();
@@ -9773,14 +11881,30 @@ export default function App() {
                                     <h2 style={{ margin: 0, color: "#faf5ff" }}>Floor {run.floor} / {HOLLOW_GATE_MAX_FLOOR} · {run.completed ? "Warden Defeated" : "Shadow Miasma"}</h2>
                                 </div>
                                 <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-                                    <div style={{ minWidth: 180 }}>
-                                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-                                            <span>Threat</span>
+                                    <div style={{ minWidth: 200 }}>
+                                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, alignItems: "center" }}>
+                                            <span>Threat{run.threat >= 80 && (
+                                                <span style={{
+                                                    marginLeft: 6,
+                                                    fontSize: 11,
+                                                    color: "#fda4af",
+                                                    fontWeight: 700,
+                                                    animation: "hgPulse 1s ease-in-out infinite",
+                                                }}>⚠ AMBUSH IMMINENT</span>
+                                            )}</span>
                                             <span style={{ color: run.threat >= 80 ? "#fda4af" : "#c4b5fd" }}>{run.threat}%</span>
                                         </div>
-                                        <div style={{ height: 8, background: "rgba(168,85,247,0.18)", borderRadius: 4, overflow: "hidden" }}>
+                                        <div style={{
+                                            height: 8,
+                                            background: "rgba(168,85,247,0.18)",
+                                            borderRadius: 4,
+                                            overflow: "hidden",
+                                            border: run.threat >= 80 ? "1px solid #fda4af" : undefined,
+                                            boxShadow: run.threat >= 80 ? "0 0 8px rgba(248,113,113,0.55)" : undefined,
+                                        }}>
                                             <div style={{ width: `${run.threat}%`, height: "100%", background: run.threat >= 80 ? "linear-gradient(90deg,#a855f7,#fda4af)" : "linear-gradient(90deg,#7c3aed,#a855f7)" }} />
                                         </div>
+                                        <style>{`@keyframes hgPulse { 0%,100%{opacity:1} 50%{opacity:0.35} }`}</style>
                                     </div>
                                     <div style={{ fontSize: 13 }}>
                                         <span title="Shrine Keys">🔑 {run.keys}</span>
@@ -9801,11 +11925,150 @@ export default function App() {
                                     preserved because the icons at low opacity tell you *what* is
                                     near you, but stepping is still what fires the modal / battle. */}
                                 {(() => {
-                                    const VISION_RADIUS = 2;
-                                    // Pull the admin-generated wall texture once per render so
-                                    // every wall tile uses it; falls back to the gradient if
-                                    // none has been generated yet.
-                                    const wallTexture = sharedImages["shrine:tile-wall"];
+                                    // Room-flood visibility — compute the set of currently-lit
+                                    // cells once per render. See computeHollowGateVisible().
+                                    const visibleSet = computeHollowGateVisible(run);
+                                    // Pull all admin-generated terrain textures once per render. Each is
+                                    // optional — the renderer falls through to a CSS gradient if missing.
+                                    const doorTexture = sharedImages["shrine:tile-door"];
+                                    // Variant texture banks: per-terrain arrays. The atlas slicer fills
+                                    // `shrine:tile-X-0..N` entries; this fallback gathers them. If only
+                                    // the base (no -0 suffix) exists, we use that single tile everywhere.
+                                    function gatherVariants(prefix: string, limit = 4): string[] {
+                                        const variants: string[] = [];
+                                        for (let i = 0; i < limit; i += 1) {
+                                            const v = sharedImages[`${prefix}-${i}`];
+                                            if (v) variants.push(v);
+                                        }
+                                        if (variants.length === 0) {
+                                            const base = sharedImages[prefix];
+                                            if (base) variants.push(base);
+                                        }
+                                        return variants;
+                                    }
+                                    const wallVariants = gatherVariants("shrine:tile-wall", 4);
+                                    const roomFloorVariants = gatherVariants("shrine:tile-room-floor", 4);
+                                    const corridorFloorVariants = gatherVariants("shrine:tile-corridor-floor", 4);
+                                    // Decoration sprites — sprinkled on top of room floors by the generator.
+                                    // Legacy 4 atlas decos (shrine:deco-0..3) — kept for back-compat with old
+                                    // saved runs that stored a 0-3 decoration index on tiles. New runs use
+                                    // the combined pool below.
+                                    const legacyDecorations = [
+                                        sharedImages["shrine:deco-0"],
+                                        sharedImages["shrine:deco-1"],
+                                        sharedImages["shrine:deco-2"],
+                                        sharedImages["shrine:deco-3"],
+                                    ];
+                                    // User-picker decorations (shrine:icon-deco-1..8) — always available.
+                                    const userDecorations: string[] = [];
+                                    for (let i = 1; i <= 8; i += 1) {
+                                        const v = sharedImages[HOLLOW_GATE_ICON_KEY(`deco-${i}`)];
+                                        if (v) userDecorations.push(v);
+                                    }
+                                    // Per-theme decorations — preferred when the tile sits in a themed room.
+                                    function themedDecorations(theme: string | undefined): string[] {
+                                        if (!theme) return [];
+                                        const out: string[] = [];
+                                        for (const role of ["deco-1", "deco-2"]) {
+                                            const v = sharedImages[`shrine:icon-theme-${theme}-${role}`];
+                                            if (v) out.push(v);
+                                        }
+                                        return out;
+                                    }
+                                    // Build the decoration pool for a given cell: themed first (so themed
+                                    // rooms feel cohesive), then user picks, then atlas defaults. Returns
+                                    // the chosen image url or undefined if no decoration art exists at all.
+                                    function pickDecorationFor(idx: number, theme: string | undefined, hintIndex: number): string | undefined {
+                                        const pool = [
+                                            ...themedDecorations(theme),
+                                            ...userDecorations,
+                                            ...legacyDecorations.filter((x): x is string => Boolean(x)),
+                                        ];
+                                        if (pool.length === 0) return undefined;
+                                        // Mix the tile index with the legacy hint so old runs (which stamped
+                                        // a 0-3 index per tile) still get stable picks; new runs just pass 0.
+                                        const seed = ((idx * 2654435761) ^ (hintIndex * 16777619)) >>> 0;
+                                        return pool[seed % pool.length];
+                                    }
+                                    // Deterministic cell-index hash so a given cell always picks the same
+                                    // variant (no flicker between renders). Standard 32-bit mixing constant.
+                                    function variantPick(idx: number, count: number): number {
+                                        if (count <= 1) return 0;
+                                        return ((idx * 2654435761) >>> 0) % count;
+                                    }
+                                    // Helper: layered background for a terrain texture (returns CSS string).
+                                    function bgFromTexture(image: string | undefined, fallback: string, overlay = "rgba(15,9,28,0.35)") {
+                                        return image
+                                            ? `linear-gradient(135deg, ${overlay}, rgba(8,4,18,0.55)), url(${image}) center/cover no-repeat`
+                                            : fallback;
+                                    }
+                                    // Room theme tile lookup. Each room has a theme stamped on it; for a
+                                    // given (theme, role) try shrine:icon-theme-<theme>-<role>. If absent
+                                    // we fall back to the base atlas tile. Themes only apply to tiles that
+                                    // belong to a room (room_floor + doors); corridors stay default.
+                                    function themedTileFor(role: "wall" | "floor" | "corridor" | "door", theme: string | undefined): string | undefined {
+                                        if (!theme) return undefined;
+                                        return sharedImages[`shrine:icon-theme-${theme}-${role}`];
+                                    }
+                                    function bgForTerrain(terrainKind: HollowGateTerrain, idx: number, theme?: string): string {
+                                        if (terrainKind === "wall") {
+                                            const themed = themedTileFor("wall", theme);
+                                            const v = themed ?? wallVariants[variantPick(idx, wallVariants.length)];
+                                            return v
+                                                ? `linear-gradient(135deg, rgba(15,9,28,0.35), rgba(8,4,18,0.55)), url(${v}) center/cover no-repeat`
+                                                : "linear-gradient(135deg, #1c1430 0%, #0e0820 40%, #2a1f3e 100%)";
+                                        }
+                                        if (terrainKind === "corridor_floor") {
+                                            const themed = themedTileFor("corridor", theme);
+                                            const v = themed ?? corridorFloorVariants[variantPick(idx, corridorFloorVariants.length)];
+                                            return bgFromTexture(v, "linear-gradient(135deg, rgba(40,28,72,0.7), rgba(28,18,54,0.85))");
+                                        }
+                                        if (terrainKind === "door") {
+                                            const themed = themedTileFor("door", theme);
+                                            return bgFromTexture(themed ?? doorTexture, "linear-gradient(135deg, rgba(120,72,32,0.5), rgba(64,40,18,0.75))", "rgba(40,20,8,0.3)");
+                                        }
+                                        // room_floor (default)
+                                        const themed = themedTileFor("floor", theme);
+                                        const v = themed ?? roomFloorVariants[variantPick(idx, roomFloorVariants.length)];
+                                        return bgFromTexture(v, "linear-gradient(135deg, rgba(50,38,82,0.7), rgba(34,24,60,0.85))");
+                                    }
+                                    // Per-cell theme resolver — null roomId (wall / corridor outside a room)
+                                    // gets the room theme of the nearest 4-neighbour room cell, so walls
+                                    // bordering a themed room pick up that theme. Falls back to "" if no
+                                    // neighbour has a theme.
+                                    function tileTheme(idx: number): string | undefined {
+                                        const tile = run.tiles[idx];
+                                        if (!tile) return undefined;
+                                        if (tile.roomId != null && run.roomThemes) return run.roomThemes[tile.roomId];
+                                        if (!run.roomThemes) return undefined;
+                                        // Look at 4-cardinal neighbours; first room neighbour wins.
+                                        const cx = idx % run.width;
+                                        const cy = Math.floor(idx / run.width);
+                                        for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+                                            const nx = cx + dx, ny = cy + dy;
+                                            if (nx < 0 || ny < 0 || nx >= run.width || ny >= run.height) continue;
+                                            const nTile = run.tiles[ny * run.width + nx];
+                                            if (nTile?.roomId != null && run.roomThemes[nTile.roomId]) {
+                                                return run.roomThemes[nTile.roomId];
+                                            }
+                                        }
+                                        return undefined;
+                                    }
+                                    // Variant-aware icon lookup for a content role (chest, battle, etc.).
+                                    // Tries shrine:icon-<role>-1..N in deterministic hash order, falls back
+                                    // to shrine:icon-<role> (legacy single-icon assignments).
+                                    function pickRoleIconImage(role: string, idx: number): string | undefined {
+                                        const cfg = HOLLOW_GATE_ICON_ROLES[role];
+                                        if (!cfg) return undefined;
+                                        if (cfg.count === 1) return sharedImages[HOLLOW_GATE_ICON_KEY(role)];
+                                        const assigned: string[] = [];
+                                        for (let i = 1; i <= cfg.count; i += 1) {
+                                            const v = sharedImages[HOLLOW_GATE_ICON_KEY(`${role}-${i}`)];
+                                            if (v) assigned.push(v);
+                                        }
+                                        if (assigned.length === 0) return sharedImages[HOLLOW_GATE_ICON_KEY(role)];
+                                        return assigned[variantPick(idx, assigned.length)];
+                                    }
                                     return (
                                 <div className="hollow-gate-grid" style={{ display: "grid", gridTemplateColumns: `repeat(${run.width}, 1fr)`, gap: 3, background: "rgba(0,0,0,0.55)", padding: 8, borderRadius: 8 }}>
                                     {run.tiles.map((tile, i) => {
@@ -9813,27 +12076,60 @@ export default function App() {
                                         const y = Math.floor(i / run.width);
                                         const isPlayer = x === run.playerX && y === run.playerY;
                                         const revealed = tile.revealed;
-                                        const distFromPlayer = Math.abs(x - run.playerX) + Math.abs(y - run.playerY);
-                                        const visible = distFromPlayer <= VISION_RADIUS;
-                                        const wall = tile.kind === "wall";
+                                        // Lit when the room-flood visibility set includes this index.
+                                        // (Replaces the old Manhattan-distance flashlight model.)
+                                        const visible = visibleSet.has(i);
+                                        // Wall test prefers terrain (BSP runs) but falls back to kind for
+                                        // legacy saved runs that don't have terrain set.
+                                        const wall = tile.terrain === "wall" || (tile.terrain == null && tile.kind === "wall");
+                                        const terrainKind: HollowGateTerrain =
+                                            tile.terrain ?? (tile.kind === "wall" ? "wall" : "room_floor");
 
-                                        // Compose background by tile state.
+                                        // Compose background by tile state. Walls and floors both
+                                        // pull from variant banks via bgForTerrain() — deterministic
+                                        // per-cell so the dungeon stops looking like a photocopier.
+                                        //
+                                        // Visibility model: ONLY currently-visible tiles render their
+                                        // terrain. Past-walked (`revealed`) tiles fall back to deep
+                                        // fog — the player should see their current room and nothing
+                                        // more. Walls outside the lit area go dark too so the room
+                                        // shape reads as a discrete pool of light.
+                                        const cellTheme = tileTheme(i);
                                         let bg: string;
                                         if (wall) {
-                                            // Solid stone — visible at all times. Use the admin-generated
-                                            // wall texture if one exists; otherwise the dark gradient.
-                                            // Slightly darker outside vision so the dungeon edge fades.
-                                            bg = wallTexture
-                                                ? (visible
-                                                    ? `linear-gradient(135deg, rgba(15,9,28,0.35), rgba(8,4,18,0.55)), url(${wallTexture}) center/cover no-repeat`
-                                                    : `linear-gradient(135deg, rgba(8,4,18,0.65), rgba(4,2,10,0.8)), url(${wallTexture}) center/cover no-repeat`)
-                                                : (visible
-                                                    ? "linear-gradient(135deg, #1c1430 0%, #0e0820 40%, #2a1f3e 100%)"
-                                                    : "linear-gradient(135deg, #100a1c 0%, #07040f 100%)");
+                                            bg = visible ? bgForTerrain("wall", i, cellTheme) : "rgba(7,4,15,0.92)";
                                         } else if (isPlayer) {
                                             bg = "linear-gradient(135deg, #2563eb, #7c3aed)";
-                                        } else if (revealed || visible) {
-                                            bg = tile.kind === "boss" ? "linear-gradient(135deg, #7f1d1d, #b91c1c)"
+                                        } else if (visible) {
+                                            // Pick the terrain base layer (room / corridor / door),
+                                            // then overlay a decoration sprite if assigned, then a
+                                            // content-tint if this cell carries an event.
+                                            let terrainBase = bgForTerrain(terrainKind, i, cellTheme);
+                                            // Overlay decoration sprite if the generator marked this cell.
+                                            // pickDecorationFor draws from the combined pool: themed decos
+                                            // first (for themed-room cohesion), then user picker slots, then
+                                            // the 4 atlas defaults. tile.decoration's stored 0-3 index is
+                                            // used as a hint so old saved runs keep deterministic decos.
+                                            if (tile.decoration != null) {
+                                                const decoImg = pickDecorationFor(i, cellTheme, tile.decoration);
+                                                if (decoImg) {
+                                                    terrainBase = `url(${decoImg}) center/80% no-repeat, ${terrainBase}`;
+                                                }
+                                            }
+                                            // SURPRISE TILES — trap / battle / elite / pet_event — stay
+                                            // disguised as plain floor while only "visible". Their tint +
+                                            // icon ONLY appear after the player has actually stepped on
+                                            // them (revealed === true). This preserves the "did I just
+                                            // walk into a trap?" surprise even with the new room-flood
+                                            // visibility.
+                                            const isSurpriseKind = tile.kind === "trap"
+                                                || tile.kind === "battle"
+                                                || tile.kind === "elite"
+                                                || tile.kind === "pet_event"
+                                                || tile.kind === "pet_battle";
+                                            const hideContent = isSurpriseKind && !revealed;
+                                            const contentTint = hideContent ? null
+                                                : tile.kind === "boss" ? "linear-gradient(135deg, rgba(127,29,29,0.7), rgba(185,28,28,0.7))"
                                                 : tile.kind === "trap" ? "rgba(239,68,68,0.22)"
                                                 : tile.kind === "chest" ? "rgba(234,179,8,0.22)"
                                                 : tile.kind === "shrine" ? "rgba(168,85,247,0.26)"
@@ -9844,50 +12140,112 @@ export default function App() {
                                                 : tile.kind === "battle" ? "rgba(248,113,113,0.18)"
                                                 : tile.kind === "elite" ? "rgba(220,38,38,0.26)"
                                                 : tile.kind === "pet_event" ? "rgba(96,165,250,0.18)"
+                                                : tile.kind === "pet_battle" ? "rgba(251,146,60,0.24)"  // beast orange
+                                                : tile.kind === "tile_game" ? "rgba(45,212,191,0.22)"   // tile-game teal
                                                 : tile.kind === "story" ? "rgba(250,204,21,0.18)"
-                                                : "rgba(168,85,247,0.10)";
+                                                : null;
+                                            bg = contentTint
+                                                ? `linear-gradient(${contentTint}, ${contentTint}), ${terrainBase}`
+                                                : terrainBase;
                                         } else {
                                             bg = "rgba(7,4,15,0.92)"; // deep fog
                                         }
 
                                         // Wall styling: brick-ish pattern via inset shadow.
-                                        const wallShadow = wall ? "inset 0 0 0 1px rgba(168,85,247,0.18), inset 2px 2px 0 rgba(0,0,0,0.4)" : undefined;
+                                        // Only walls that are CURRENTLY visible (perimeter of the lit
+                                        // room) get the shadow detail — fog walls stay flat dark.
+                                        const wallShadow = wall && visible ? "inset 0 0 0 1px rgba(168,85,247,0.18), inset 2px 2px 0 rgba(0,0,0,0.4)" : undefined;
 
-                                        // Icon by state.
+                                        // Icon by state. Strict flashlight: only currently-visible
+                                        // tiles show their icon. Surprise tiles (trap/battle/elite/
+                                        // pet_event) further require `revealed` — they stay disguised
+                                        // as plain floor until the player has actually stepped on them.
+                                        const isSurpriseKind = tile.kind === "trap"
+                                            || tile.kind === "battle"
+                                            || tile.kind === "elite"
+                                            || tile.kind === "pet_event"
+                                            || tile.kind === "pet_battle";
+                                        // Icon can be either:
+                                        //   - an atlas image (shrine:icon-<slot>) if the admin assigned one
+                                        //     via the Atlas Tile Picker — preferred whenever present
+                                        //   - the emoji fallback otherwise
+                                        // The slot id for a given tile.kind mirrors HOLLOW_GATE_ICON_SLOTS:
+                                        // mostly identical, except pet_event → "pet" and player → "you".
+                                        function iconSlotIdFor(k: HollowGateTileKind): string | null {
+                                            if (k === "pet_event") return "pet";
+                                            if (k === "pet_battle") return "petbattle";
+                                            if (k === "tile_game") return "tilegame";
+                                            // No slot for "empty" / "wall" / "shrine_descend"-style edges
+                                            if (k === "empty" || k === "wall") return null;
+                                            return k;
+                                        }
+                                        const showIcon =
+                                            isPlayer ? true
+                                            : wall ? false
+                                            : !visible ? false
+                                            : isSurpriseKind && !revealed ? false
+                                            : true;
+                                        const iconSlotId = isPlayer ? "you" : iconSlotIdFor(tile.kind);
+                                        // Variant-aware icon pick: tries shrine:icon-<role>-1..N first
+                                        // (so adjacent chests / monsters / traps show different sprites),
+                                        // falls back to legacy single-icon shrine:icon-<role>.
+                                        //
+                                        // Special case for the player tile: if no shrine:icon-you slot is
+                                        // assigned, fall back to the player's own avatar (character.avatarImage
+                                        // or sharedImages["avatar:<name>"]). This way the dungeon shows YOUR
+                                        // face by default instead of a generic ninja emoji. Admin can still
+                                        // override with an atlas tile assignment.
+                                        const playerAvatar = isPlayer
+                                            ? (character.avatarImage || sharedImages[`avatar:${character.name.toLowerCase()}`])
+                                            : undefined;
+                                        const iconImage = showIcon && iconSlotId
+                                            ? (pickRoleIconImage(iconSlotId, i) ?? playerAvatar)
+                                            : undefined;
                                         let icon: string;
-                                        if (isPlayer) icon = "🥷";
-                                        else if (wall) icon = "";
-                                        else if (revealed || visible) icon = hollowGateTileIconForKind(tile.kind);
-                                        else icon = "·";
+                                        if (!showIcon) icon = !visible && !wall ? "·" : "";       // fog dot or blank
+                                        else if (isPlayer) icon = "🥷";
+                                        else icon = hollowGateTileIconForKind(tile.kind);
 
-                                        // Opacity: revealed = full, visible-only = dimmed,
-                                        // fog = dot at low opacity.
-                                        const iconOpacity = isPlayer || revealed ? 1 : visible ? 0.55 : 0.30;
+                                        // Opacity: player = full, visible cells = full so the lit
+                                        // room reads clearly, anything else = dim fog dot.
+                                        const iconOpacity = isPlayer || visible ? 1 : 0.30;
 
                                         return (
                                             <div
                                                 key={i}
-                                                title={wall ? "Wall" : revealed ? tile.kind : visible ? `${tile.kind} (in view)` : "Unrevealed"}
+                                                title={wall ? "Wall" : visible ? tile.kind : "Out of sight"}
                                                 style={{
                                                     aspectRatio: "1 / 1",
                                                     background: bg,
                                                     border: isPlayer ? "2px solid #60a5fa"
-                                                        : wall ? "1px solid rgba(0,0,0,0.5)"
-                                                        : revealed ? "1px solid rgba(168,85,247,0.5)"
-                                                        : visible ? "1px solid rgba(168,85,247,0.28)"
+                                                        : wall && visible ? "1px solid rgba(0,0,0,0.5)"
+                                                        : visible ? "1px solid rgba(168,85,247,0.5)"
                                                         : "1px solid rgba(168,85,247,0.08)",
                                                     borderRadius: 4,
                                                     display: "flex",
                                                     alignItems: "center",
                                                     justifyContent: "center",
                                                     fontSize: "clamp(16px, 2.6vw, 28px)",
-                                                    color: revealed || isPlayer ? "#f5f3ff" : "rgba(196,181,253,0.85)",
+                                                    color: isPlayer || visible ? "#f5f3ff" : "rgba(196,181,253,0.85)",
                                                     opacity: iconOpacity,
                                                     boxShadow: isPlayer ? "0 0 12px rgba(96,165,250,0.6)" : wallShadow,
                                                     transition: "background 200ms, opacity 200ms",
                                                 }}
                                             >
-                                                {icon}
+                                                {iconImage ? (
+                                                    <img
+                                                        src={iconImage}
+                                                        alt={iconSlotId ?? ""}
+                                                        style={{
+                                                            width: "78%",
+                                                            height: "78%",
+                                                            objectFit: "contain",
+                                                            imageRendering: "pixelated",
+                                                            filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.7))",
+                                                            pointerEvents: "none",
+                                                        }}
+                                                    />
+                                                ) : icon}
                                             </div>
                                         );
                                     })}
@@ -9921,15 +12279,64 @@ export default function App() {
                                     })()}
                                     <div style={{ background: "rgba(15,9,28,0.7)", border: "1px solid rgba(168,85,247,0.3)", borderRadius: 8, padding: 10, fontSize: 12 }}>
                                         <h4 style={{ margin: "0 0 6px", color: "#c4b5fd" }}>Map Legend</h4>
-                                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
-                                            <span>🥷 You</span><span>⚔ Battle</span>
-                                            <span>☠ Elite</span><span>👹 Boss</span>
-                                            <span>▲ Trap</span><span>▣ Chest</span>
-                                            <span>⛩ Shrine</span><span>📜 Story</span>
-                                            <span>🐾 Pet</span><span>👤 Keeper</span>
-                                            <span>▼ Descend</span><span>⇩ Leave</span>
-                                            <span>🔒 Locked</span><span>▦ Wall</span>
-                                            <span>· Unexplored</span><span style={{ opacity: 0.55 }}>· In view (dim)</span>
+                                        {/* Legend uses the same atlas icon as the dungeon when the admin
+                                            assigned one via the Atlas Tile Picker. Falls back to the
+                                            emoji glyph from hollowGateTileIconForKind otherwise. The
+                                            "wall" slot uses the room-floor/wall atlas tile instead since
+                                            walls render as terrain, not an icon. */}
+                                        {(() => {
+                                            // Map slot id → emoji fallback. Keeps the legend self-contained.
+                                            const fallbackEmoji: Record<string, string> = {
+                                                you: "🥷", battle: "⚔", elite: "☠", boss: "👹", trap: "▲",
+                                                chest: "▣", shrine: "⛩", story: "📜", pet: "🐾", petbattle: "🐺",
+                                                tilegame: "🀄", npc: "👤",
+                                                descend: "▼", exit: "⇩", locked: "🔒", wall: "▦",
+                                            };
+                                            // Walls use the atlas wall tile (terrain), not an icon slot.
+                                            const wallTileImg = sharedImages["shrine:tile-wall"] ?? sharedImages["shrine:tile-wall-0"];
+                                            // Legend picks any-variant: shrine:icon-<role>-1 first, then
+                                            // shrine:icon-<role>-2..N, then the legacy un-suffixed key.
+                                            // This way the legend reflects "an assignment exists" without
+                                            // caring which specific variant the admin filled.
+                                            const anyAssignedVariant = (role: string): string | undefined => {
+                                                const cfg = HOLLOW_GATE_ICON_ROLES[role];
+                                                if (cfg && cfg.count > 1) {
+                                                    for (let i = 1; i <= cfg.count; i += 1) {
+                                                        const v = sharedImages[HOLLOW_GATE_ICON_KEY(`${role}-${i}`)];
+                                                        if (v) return v;
+                                                    }
+                                                }
+                                                return sharedImages[HOLLOW_GATE_ICON_KEY(role)];
+                                            };
+                                            const legendCell = (slotId: string, label: string) => {
+                                                const img = slotId === "wall" ? wallTileImg : anyAssignedVariant(slotId);
+                                                return (
+                                                    <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                                        {img ? (
+                                                            <img src={img} alt="" style={{ width: 18, height: 18, objectFit: "contain", imageRendering: "pixelated" }} />
+                                                        ) : (
+                                                            <span style={{ width: 18, textAlign: "center" }}>{fallbackEmoji[slotId]}</span>
+                                                        )}
+                                                        <span>{label}</span>
+                                                    </span>
+                                                );
+                                            };
+                                            return (
+                                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
+                                                    {legendCell("you",     "You")}      {legendCell("battle",  "Battle")}
+                                                    {legendCell("elite",   "Elite")}    {legendCell("boss",    "Boss")}
+                                                    {legendCell("trap",    "Trap")}     {legendCell("chest",   "Chest")}
+                                                    {legendCell("shrine",  "Shrine")}   {legendCell("story",   "Story")}
+                                                    {legendCell("pet",      "Pet")}        {legendCell("petbattle", "Hollow Beast")}
+                                                    {legendCell("tilegame", "Tile Game")}  {legendCell("npc",       "Keeper")}
+                                                    {legendCell("descend",  "Descend")}    {legendCell("exit",      "Leave")}
+                                                    {legendCell("locked",   "Locked Door")}{legendCell("wall",      "Wall")}
+                                                    <span>· Unexplored</span><span style={{ opacity: 0.55 }}>· In view (dim)</span>
+                                                </div>
+                                            );
+                                        })()}
+                                        <div style={{ marginTop: 6, paddingTop: 6, borderTop: "1px solid rgba(168,85,247,0.2)", fontSize: 11, color: "#a78bfa" }}>
+                                            Layout: rooms connected by corridors; loot &amp; NPCs in rooms, ambushes in corridors.
                                         </div>
                                     </div>
                                     <div style={{ background: "rgba(15,9,28,0.7)", border: "1px solid rgba(168,85,247,0.3)", borderRadius: 8, padding: 10, fontSize: 12 }}>
@@ -9982,6 +12389,8 @@ export default function App() {
                                     hollowGateEvent.kind === "trap" ? "shrine:tile-trap"
                                     : hollowGateEvent.kind === "chest" ? "shrine:tile-ancient-chest"
                                     : hollowGateEvent.kind === "pet_event" ? "shrine:tile-pet-encounter"
+                                    : hollowGateEvent.kind === "pet_battle" ? "shrine:tile-hollow-beast"
+                                    : hollowGateEvent.kind === "tile_game" ? "shrine:tile-tile-game"
                                     : hollowGateEvent.kind === "locked" ? "shrine:tile-sealed-door"
                                     : hollowGateEvent.kind === "npc" ? "shrine:tile-shrine-keeper"
                                     : hollowGateEvent.kind === "story" ? "shrine:tile-story"
@@ -10035,7 +12444,8 @@ export default function App() {
                                             }}>🔍 Search Chamber</button>
                                             <button disabled={hollowGateHiddenChamber.relicTaken} onClick={() => {
                                                 if (!hollowGateHiddenChamber || !hollowGateRun) return;
-                                                const honor = 15 + Math.floor(Math.random() * 20);
+                                                const rawHonor = 15 + Math.floor(Math.random() * 20);
+                                                const honor = vanguardOnlyHonorSeals(character, rawHonor);
                                                 const fate = Math.random() < 0.5 ? 1 : 0;
                                                 // Grant the Veil of the Hollow as a real inventory item
                                                 // (stacking duplicates is allowed — chamber relics are
@@ -10047,7 +12457,7 @@ export default function App() {
                                                 }, [VEIL_OF_THE_HOLLOW_ID]);
                                                 setCharacter(next);
                                                 setHollowGateRun({ ...hollowGateRun, keys: hollowGateRun.keys + 1 });
-                                                pushHollowGateLog(`You claim the Veil of the Hollow. +${honor} Honor Seals${fate ? `, +${fate} Fate Shard` : ""}, +1 Shrine Key, +1 Veil of the Hollow.`);
+                                                pushHollowGateLog(`You claim the Veil of the Hollow.${honor > 0 ? ` +${honor} Honor Seals` : ""}${fate ? `, +${fate} Fate Shard` : ""}, +1 Shrine Key, +1 Veil of the Hollow.`);
                                                 setHollowGateHiddenChamber({ ...hollowGateHiddenChamber, relicTaken: true });
                                             }}>🏺 Take Relic</button>
                                             <button onClick={() => setHollowGateHiddenChamber(null)} className="danger-button">Return to Shrine</button>
@@ -10071,6 +12481,32 @@ export default function App() {
                             setScreen("start");
                         }}
                         onContinue={() => setScreen("village")}
+                    />
+                )}
+
+                {character
+                    && character.level >= 13
+                    && !character.profession
+                    // Admin accounts (Admin 1 / Admin 2) skip the picker
+                    // entirely. They're seeded at Level 100 with no real
+                    // game role, so forcing them into a profession would
+                    // lock them out of admin tooling whenever the picker
+                    // overlay fires.
+                    && character.name !== "Admin 1"
+                    && character.name !== "Admin 2"
+                    && (
+                    <ProfessionPicker
+                        character={character}
+                        sharedImages={sharedImages}
+                        onProfessionChosen={(profession) => {
+                            setCharacter({
+                                ...character,
+                                profession,
+                                professionRank: 1,
+                                professionXp: 0,
+                                professionChosenAt: Date.now(),
+                            });
+                        }}
                     />
                 )}
 
@@ -10261,17 +12697,96 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "missions" && character && <Missions character={character} updateCharacter={setCharacter} creatorAis={playableAis} creatorMissions={creatorMissions} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} setPendingAiProfileId={setPendingAiProfileId} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "hunting" && character && <HunterBoard character={character} updateCharacter={setCharacter} creatorAis={playableAis} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} setPendingAiProfileId={setPendingAiProfileId} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "logbook" && character && <Logbook character={character} updateCharacter={setCharacter} creatorAis={playableAis} creatorMissions={creatorMissions} creatorEvents={creatorEvents} creatorRaids={creatorRaids} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} savedBloodlines={savedBloodlines} setPendingAiProfileId={setPendingAiProfileId} setRaidBattleKind={setRaidBattleKind} setCurrentSector={setCurrentSector} setCurrentBiome={setCurrentBiome} setCurrentWeather={setCurrentWeather} setScreen={setScreen} />}
-                {!activeTriggeredEvent && screen === "townHall" && character && <TownHall character={character} updateCharacter={setCharacter} creatorItems={creatorItems} allServerPlayers={allServerPlayers} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} sharedImages={sharedImages} />}
+                {!activeTriggeredEvent && screen === "townHall" && character && <TownHall character={character} updateCharacter={setCharacter} creatorItems={creatorItems} allServerPlayers={allServerPlayers} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} sharedImages={sharedImages} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "clan" && character && <ClanHall character={character} updateCharacter={setCharacter} creatorItems={creatorItems} />}
                 {!activeTriggeredEvent && screen === "bank" && character && <Bank character={character} updateCharacter={setCharacter} />}
                 {!activeTriggeredEvent && screen === "shop" && character && <Shop character={character} updateCharacter={setCharacter} creatorItems={creatorItems} creatorCards={creatorCards} />}
                 {!activeTriggeredEvent && screen === "grandMarketplace" && character && <GrandMarketplace character={character} updateCharacter={setCharacter} creatorItems={creatorItems} creatorCards={creatorCards} />}
                 {!activeTriggeredEvent && screen === "shinobiTiles" && character && <ShinobiTiles character={character} updateCharacter={setCharacter} creatorCards={creatorCards} />}
                 {!activeTriggeredEvent && screen === "eventTiles" && character && pendingEventEncounter && <ShinobiTiles character={character} updateCharacter={setCharacter} creatorCards={creatorCards} dungeonMode tileDifficulty={pendingEventEncounter.battle?.tileDifficulty ?? "normal"} onDungeonWin={completeEventEncounter} onDungeonLeave={leaveEventEncounter} />}
+                {/* Hollow Gate Shinobi Tile card-game tile. Win/lose/leave
+                    callbacks all route back to the shrine; loss applies
+                    the 20% maxHp penalty. Difficulty scales with floor. */}
+                {!activeTriggeredEvent && screen === "hollowGateTiles" && character && hollowGateRun && (
+                    <ShinobiTiles
+                        character={character}
+                        updateCharacter={setCharacter}
+                        creatorCards={creatorCards}
+                        dungeonMode
+                        dungeonSceneImage={sharedImages["shrine:tile-tile-game"]}
+                        tileDifficulty={hollowGateRun.floor >= 4 ? "normal" : "easy"}
+                        onDungeonWin={() => {
+                            // Win → small reward + back to shrine. Rewards
+                            // are intentionally modest since chests cover the
+                            // big loot. Floor-scaled ryo + aura dust.
+                            // Threat + torch reset per the post-encounter rule.
+                            if (character) {
+                                const floor = hollowGateRun.floor;
+                                const ryoGain = 120 + floor * 40;
+                                const auraDustGain = 4 + floor * 2;
+                                setCharacter({
+                                    ...character,
+                                    ryo: character.ryo + ryoGain,
+                                    auraDust: (character.auraDust ?? 0) + auraDustGain,
+                                });
+                                pushHollowGateLog(`Tile Seal claimed. +${ryoGain} ryo, +${auraDustGain} Aura Dust. Threat dissipates; Torch flares to full.`);
+                            }
+                            setHollowGateRun(prev => prev ? { ...prev, threat: 0, torch: 10 } : prev);
+                            setHollowGateTileGameActive(false);
+                            setScreen("hollowGateShrine");
+                        }}
+                        onDungeonLose={() => {
+                            // Loss → 20% maxHp penalty + back to shrine.
+                            // Run continues; not hospitalized. Threat/torch
+                            // still reset — engaging counts as a battle.
+                            if (character) {
+                                const dmg = Math.max(1, Math.floor(character.maxHp * 0.20));
+                                const nextHp = Math.max(1, character.hp - dmg);
+                                setCharacter({ ...character, hp: nextHp });
+                                pushHollowGateLog(`Tile Seal failed. The shadow opponent claims its price — ${dmg} HP torn from you (20% of max). Threat dissipates.`);
+                            }
+                            setHollowGateRun(prev => prev ? { ...prev, threat: 0, torch: 10 } : prev);
+                            setHollowGateTileGameActive(false);
+                            setScreen("hollowGateShrine");
+                        }}
+                        onDungeonLeave={() => {
+                            // Abandoned before result → no penalty, no
+                            // reset (player didn't actually engage).
+                            pushHollowGateLog("You step away from the stone table. The tiles dim.");
+                            setHollowGateTileGameActive(false);
+                            setScreen("hollowGateShrine");
+                        }}
+                    />
+                )}
                 {!activeTriggeredEvent && screen === "hospital" && character && <Hospital character={character} updateCharacter={setCharacter} setScreen={navigate} playerRoster={playerRoster} hospitalEntryTime={hospitalEntryTime} />}
                 {!activeTriggeredEvent && screen === "cafeteria" && character && <Cafeteria character={character} updateCharacter={setCharacter} />}
                 {!activeTriggeredEvent && screen === "tavern" && character && <VillageTavern character={character} setScreen={setScreen} sharedImages={sharedImages} />}
                 {!activeTriggeredEvent && screen === "hallOfLegends" && character && <HallOfLegends character={character} setScreen={setScreen} playerRoster={playerRoster} />}
+                {!activeTriggeredEvent && screen === "endlessTower" && character && (
+                    <EndlessTowerLobby
+                        character={character}
+                        onEnter={startEndlessBattle}
+                        onBank={bankEndlessRewards}
+                        onBack={() => setScreen("centralHub")}
+                    />
+                )}
+                {!activeTriggeredEvent && screen === "weeklyBoss" && character && (
+                    <WeeklyBossArena
+                        character={character}
+                        updateCharacter={setCharacter}
+                        creatorAis={playableAis}
+                        setScreen={setScreen}
+                        playerRoster={playerRoster}
+                    />
+                )}
+                {!activeTriggeredEvent && screen === "villageWar" && character && (
+                    <VillageWarScreen
+                        character={character}
+                        updateCharacter={setCharacter}
+                        playerRoster={playerRoster}
+                        onBack={() => setScreen("centralHub")}
+                    />
+                )}
                 {!activeTriggeredEvent && screen === "shinobiCouncil" && character && <ShinobiCouncilHall character={character} setScreen={setScreen} playerRoster={playerRoster} />}
                 {!activeTriggeredEvent && screen === "userHub" && character && (
                     <UserHub
@@ -10403,11 +12918,21 @@ export default function App() {
                         const villageWarPvpPatch = opponent ? recordVillageWarPvp(character, opponent) : "";
                         const leveled = gainXp(character, xpGain);
                         const rewarded = grantTerritoryScrolls(leveled, 5);
+                        // Spar/friendly-duel detection for non-Vanguard local effects
+                        // (e.g., ranked rating still uses isFriendlyDuel implicitly).
+                        const isFriendlyDuel = !context?.mode
+                            || (context.mode === "standard" && !context.clanWarPoints && !context.sectorAttack);
+                        // Vanguard rewards (Honor Seals + profession XP + all the
+                        // daily-tracking fields) are granted server-side in
+                        // api/pvp/move.ts via grantVanguardRewardsForSession. The
+                        // server enforces level-gap, daily caps, per-target caps,
+                        // same-IP, account-age, quick-surrender, and pet-escort
+                        // bonus rules. Client doesn't touch those fields here —
+                        // the explicit refetch below pulls the server's values.
                         setCharacter({
                             ...rewarded,
                             ...villageWarRaid.characterPatch,
                             ryo: rewarded.ryo + ryoGain,
-                            honorSeals: (rewarded.honorSeals ?? 0) + 15,
                             auraDust: (rewarded.auraDust ?? 0) + 6,
                             inventory: villageWarRaid.warCrate ? [...rewarded.inventory, LEGENDARY_WAR_CRATE_ID] : rewarded.inventory,
                             totalPvpKills: (rewarded.totalPvpKills ?? 0) + 1,
@@ -10416,8 +12941,52 @@ export default function App() {
                             rankedRating: (rewarded.rankedRating ?? 1000) + ratingGain,
                             rankedWins: (rewarded.rankedWins ?? 0) + (ratingGain > 0 ? 1 : 0),
                         });
+                        // Refetch the player's own save to pick up server-side
+                        // Vanguard reward updates (honorSeals, professionXp,
+                        // professionRank, daily-cap counters, petEscortBonusReady
+                        // for clan-mates is on their saves not ours).
+                        if (rewarded.profession === "vanguard") {
+                            fetch(`/api/save/${encodeURIComponent(character.name)}`)
+                                .then(r => r.ok ? r.json() : null)
+                                .then(data => {
+                                    const serverChar = data?.character as Character | undefined;
+                                    if (!serverChar) return;
+                                    setCharacter(prev => prev ? ({
+                                        ...prev,
+                                        honorSeals: serverChar.honorSeals ?? prev.honorSeals,
+                                        professionXp: serverChar.professionXp ?? prev.professionXp,
+                                        professionRank: serverChar.professionRank ?? prev.professionRank,
+                                        dailyHonorSealsEarned: serverChar.dailyHonorSealsEarned ?? prev.dailyHonorSealsEarned,
+                                        dailyHonorSealsByTarget: serverChar.dailyHonorSealsByTarget ?? prev.dailyHonorSealsByTarget,
+                                        vanguardDailyResetDate: serverChar.vanguardDailyResetDate ?? prev.vanguardDailyResetDate,
+                                    }) : prev);
+                                })
+                                .catch(() => { /* server is still source of truth; brief UI lag is OK */ });
+                        }
                         if (rewardSector > 0) recordMissionRaid(rewardSector);
                         if (villageWarPvpPatch) console.info(villageWarPvpPatch.trim());
+                        // Vanguard daily mission progress — server validates the
+                        // win against the actual PvpSession and enforces its own
+                        // anti-abuse rules (quick-surrender, account age, IP),
+                        // so the client only needs to skip the spar case.
+                        if (!isFriendlyDuel && opponent && rewarded.profession === "vanguard") {
+                            fetch('/api/missions/report-pvp-win', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    playerName: character.name,
+                                    battleId: pvpBattleId,
+                                    opponentName: opponent.name,
+                                }),
+                            }).then(r => r.json()).then(data => {
+                                const completed: Array<{ id: string; name: string; xpReward: number }> = Array.isArray(data?.missionsCompleted) ? data.missionsCompleted : [];
+                                for (const m of completed) {
+                                    window.dispatchEvent(new CustomEvent('profession-mission-complete', {
+                                        detail: { name: m.name, xp: m.xpReward, profession: 'vanguard' },
+                                    }));
+                                }
+                            }).catch(() => { /* mission progress is best-effort */ });
+                        }
                     }
                     return (
                         <PvpBattleScreen
@@ -10491,6 +13060,32 @@ export default function App() {
                             </div>
                         </div>
                     ))}
+                </div>
+            )}
+            {missionToasts.length > 0 && (
+                <div className="achievement-toast-stack" style={{ bottom: 80 }}>
+                    {missionToasts.slice(0, 3).map((t) => {
+                        const accent = t.profession === "healer" ? "#22d3ee" : t.profession === "vanguard" ? "#f97316" : "#facc15";
+                        return (
+                            <div
+                                key={t.id}
+                                className="achievement-toast"
+                                style={{ borderColor: accent, boxShadow: `0 0 20px ${accent}55` }}
+                                onClick={() => setMissionToasts(prev => prev.filter(x => x.id !== t.id))}
+                            >
+                                <div className="achievement-toast-icon">
+                                    <span className="achievement-toast-emoji" aria-hidden style={{ color: accent }}>📜</span>
+                                </div>
+                                <div className="achievement-toast-body">
+                                    <span className="achievement-toast-label" style={{ color: accent }}>
+                                        Mission Complete
+                                    </span>
+                                    <strong>{t.name}</strong>
+                                    <small>+{t.xp} {t.profession ? `${t.profession.charAt(0).toUpperCase() + t.profession.slice(1)} ` : ""}XP</small>
+                                </div>
+                            </div>
+                        );
+                    })}
                 </div>
             )}
         </div>
@@ -11231,12 +13826,12 @@ function DungeonPetBattle({ character, updateCharacter, editablePets, onWin, onL
     function startBattle() {
         if (!selectedPet) return;
         if (isPetOnExpedition(selectedPet)) return alert(`${petDisplayName(selectedPet)} is exploring and cannot battle right now.`);
-        const battle = runPetArenaBattle(selectedPet, enemyPet, enemyOwner);
+        const battle = runPetArenaBattle(selectedPet, enemyPet, enemyOwner, Date.now(), petTamerPveMultiplier(character));
         setBattleFrames(battle.frames);
         setBattleObstacles(battle.obstacles);
         setFrameIndex(0);
         setIsPlaying(true);
-        setResult(battle.result === "win" ? "Victory" : "Defeat");
+        setResult(battle.result === "win" ? "Victory" : battle.result === "draw" ? "Draw" : "Defeat");
         if (battle.result === "win") updateCharacter({ ...character, totalPetWins: (character.totalPetWins ?? 0) + 1, dailyPetWins: (character.dailyPetWins ?? 0) + 1, lastDailyReset: currentDateKey() });
     }
     if (!selectedPet) {
@@ -11307,8 +13902,46 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
     const [petHeartBurst, setPetHeartBurst] = useState(0);
     const [nicknameInput, setNicknameInput] = useState("");
     const [nicknameMsg, setNicknameMsg] = useState("");
+    // Pet escort offer state (Pet Tamer in clan only).
+    const [escortOffered, setEscortOffered] = useState<boolean | null>(null);
+    const [escortBusy, setEscortBusy] = useState(false);
     const selectedPet = character.pets.find((p) => p.id === selectedPetId) ?? character.pets[0] ?? null;
     const petXpBonus = getPetXpBonus(character);
+    const canOfferEscort = character.profession === "petTamer" && !!character.clan;
+
+    useEffect(() => {
+        if (!canOfferEscort) return;
+        let cancelled = false;
+        async function fetchOffer() {
+            try {
+                const res = await fetch(`/api/clan/pet-escort/list?clanName=${encodeURIComponent(character.clan ?? "")}`);
+                if (!res.ok || cancelled) return;
+                const data = await res.json();
+                if (Array.isArray(data.escorters)) {
+                    setEscortOffered(data.escorters.some((n: string) => n.toLowerCase() === character.name.toLowerCase()));
+                }
+            } catch { /* ignore */ }
+        }
+        void fetchOffer();
+        const id = setInterval(fetchOffer, 60_000);
+        return () => { cancelled = true; clearInterval(id); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [canOfferEscort, character.clan, character.name]);
+
+    async function toggleEscort() {
+        if (!canOfferEscort || escortBusy) return;
+        setEscortBusy(true);
+        try {
+            const endpoint = escortOffered ? '/api/clan/pet-escort/cancel' : '/api/clan/pet-escort/offer';
+            const res = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ playerName: character.name }),
+            });
+            if (res.ok) setEscortOffered(!escortOffered);
+        } catch { /* ignore */ }
+        setEscortBusy(false);
+    }
 
     useEffect(() => {
         const hasActivePetTimer = character.pets.some((p) => (p.training && Date.now() < p.training.endsAt) || Boolean(p.expedition));
@@ -11322,9 +13955,14 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
         if (isPetOnExpedition(selectedPet)) return alert(`${selectedPet.name} is away on an expedition.`);
         if (selectedPet.expedition) return alert(`${petDisplayName(selectedPet)} has an unclaimed expedition. Collect it first!`);
         if (selectedPet.training && Date.now() < selectedPet.training.endsAt) return alert(`${selectedPet.name} is already training.`);
+        // Pet Tamer training-speed bonus shortens the wait but the durationMs
+        // multiplier (which scales gains) stays at the picked tier so we
+        // don't accidentally double-dip on payouts.
+        const speedPct = petTamerTrainingSpeedPct(character);
+        const effectiveDuration = Math.max(60_000, Math.floor(trainingDuration * Math.max(0.5, 1 - speedPct / 100)));
         updateCharacter({
             ...character,
-            pets: character.pets.map((p) => p.id === selectedPet.id ? { ...p, training: { type: trainingType, endsAt: Date.now() + trainingDuration, durationMs: trainingDuration } } : p),
+            pets: character.pets.map((p) => p.id === selectedPet.id ? { ...p, training: { type: trainingType, endsAt: Date.now() + effectiveDuration, durationMs: trainingDuration } } : p),
         });
     }
 
@@ -11354,19 +13992,16 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
         const ryoMult = expType === "scout" ? 1.35 : expType === "forage" ? 1.0 : 1.1;
         const xpMult  = expType === "forage" ? 1.45 : expType === "ruins"  ? 1.2 : 1.0;
 
-        const xp       = Math.round(120 * durationHours * xpMult);
-        const ryo      = Math.round(90  * durationHours * ryoMult + selectedPet.level * 6);
+        // Pet Tamer Phase 2 — base expedition reward bonus + daily First Expedition 2x.
+        // Pet XP gain stays client-side (per-pet state, not global currency).
+        // Ryo + drops are computed server-side via report-pet-event below.
+        const tamerMult = petTamerExpeditionMult(character);
+        const todayKey = currentDateKey();
+        const firstResult = petTamerClaimFirstExpeditionToday(character, todayKey);
+        const firstBonus = firstResult.isFirst ? 2 : 1;
+
+        const xp       = Math.round(120 * durationHours * xpMult * tamerMult * firstBonus);
         const statGain = Math.max(1, Math.round(durationHours));
-
-        // Per-type drop rates (independent rolls)
-        //                       scout   forage  ruins
-        const boneRate = expType === "scout" ? 0.25 : expType === "forage" ? 0.30 : 0.40;
-        const auraRate = expType === "scout" ? 0.00 : expType === "forage" ? 0.01 : 0.01;
-        const fateRate = expType === "scout" ? 0.05 : expType === "forage" ? 0.05 : 0.10;
-
-        const foundBone = Math.random() < boneRate ? 1 : 0;
-        const foundAura = Math.random() < auraRate ? 1 : 0;
-        const foundFate = Math.random() < fateRate ? 1 : 0;
 
         const levelBefore = selectedPet.level;
         const returnedPet = capPetStats(gainPetXp({
@@ -11382,22 +14017,73 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
         const stories = petExpeditionStories[expType];
         const summary = stories[Math.floor(Math.random() * stories.length)];
 
+        // Apply pet state changes immediately. Currencies (Ryo / drops) wait for
+        // server response below to avoid client-trusted reward farming.
         const nextCharacter: Character = {
-            ...character,
-            ryo:        character.ryo + ryo,
-            fateShards: (character.fateShards ?? 0) + foundFate,
-            auraStones: (character.auraStones ?? 0) + foundAura,
-            boneCharms: (character.boneCharms ?? 0) + foundBone,
-            pets: character.pets.map((p) => p.id === selectedPet.id ? returnedPet : p),
+            ...firstResult.nextCharacter,
+            pets: firstResult.nextCharacter.pets.map((p) => p.id === selectedPet.id ? returnedPet : p),
         };
         updateCharacter(nextCharacter);
         onImmediateSave?.(nextCharacter);
 
         setExpeditionResult({
             petName: petDisplayName(selectedPet),
-            summary, expType, ryo, xp, statGain,
-            foundFate, foundAura, foundBone, leveledUp,
+            summary, expType, ryo: 0, xp, statGain,
+            foundFate: 0, foundAura: 0, foundBone: 0, leveledUp,
         });
+
+        // Tamer XP + daily First Expedition tracking + escort consumption are
+        // all server-authoritative now. Client posts durationMinutes; server
+        // computes XP and returns the post-grant character snapshot, which we
+        // overlay onto local state to avoid a stale UI lag.
+        if (character.profession === "petTamer") {
+            const minutes = Math.floor(selectedPet.expedition.durationMs / 60_000);
+            const longExpedition = minutes >= 240;
+            fetch('/api/missions/report-pet-event', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    playerName: character.name,
+                    event: longExpedition ? 'long-expedition' : 'expedition',
+                    durationMinutes: minutes,
+                    expType,
+                    petLevel: selectedPet.level,
+                }),
+            }).then(r => r.ok ? r.json() : null).then(data => {
+                if (!data) return;
+                const completed: Array<{ id: string; name: string; xpReward: number }> = Array.isArray(data.missionsCompleted) ? data.missionsCompleted : [];
+                for (const m of completed) {
+                    window.dispatchEvent(new CustomEvent('profession-mission-complete', {
+                        detail: { name: m.name, xp: m.xpReward, profession: 'petTamer' },
+                    }));
+                }
+                // Apply server-granted currencies (Ryo + drops) on top of pet
+                // state changes that already landed above. Server is source of
+                // truth for currencies; client just mirrors.
+                const ryoEarned = Number(data.ryoEarned ?? 0);
+                const foundBone = Number(data.foundBone ?? 0);
+                const foundAura = Number(data.foundAura ?? 0);
+                const foundFate = Number(data.foundFate ?? 0);
+                const escortConsumed = character.petEscortBonusReady && data.expeditionXp > 0;
+                updateCharacter({
+                    ...character,
+                    ryo: (character.ryo ?? 0) + ryoEarned,
+                    boneCharms: (character.boneCharms ?? 0) + foundBone,
+                    auraStones: (character.auraStones ?? 0) + foundAura,
+                    fateShards: (character.fateShards ?? 0) + foundFate,
+                    professionXp: typeof data.professionXp === 'number' ? data.professionXp : (character.professionXp ?? 0),
+                    professionRank: typeof data.professionRank === 'number' ? data.professionRank : (character.professionRank ?? 1),
+                    petEscortBonusReady: escortConsumed ? false : character.petEscortBonusReady,
+                });
+                // Update the result modal so the player sees the actual Ryo/drops earned.
+                setExpeditionResult(prev => prev ? ({ ...prev, ryo: ryoEarned, foundBone, foundAura, foundFate }) : prev);
+                if (escortConsumed) {
+                    window.dispatchEvent(new CustomEvent('profession-mission-complete', {
+                        detail: { name: '🐾 Pet Escort Bonus', xp: Math.floor((data.expeditionXp ?? 0) * (1 - 1 / 1.2)), profession: 'petTamer' },
+                    }));
+                }
+            }).catch(() => { /* best-effort */ });
+        }
     }
 
     function collectTraining() {
@@ -11412,6 +14098,21 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
         const completed = bonusXp > 0 ? gainPetXp(completedBase, bonusXp) : completedBase;
         updateCharacter({ ...character, pets: character.pets.map((p) => p.id === selectedPet.id ? completed : p) });
         alert(`${selectedPet.name} completed ${selectedPet.training.type} training! Stats improved.${bonusXp > 0 ? ` +${bonusXp} bonus pet XP.` : ""}`);
+        // Pet Tamer mission progress for "pet-train" — rate-limited server-side.
+        if (character.profession === "petTamer") {
+            fetch('/api/missions/report-pet-event', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ playerName: character.name, event: 'pet-train' }),
+            }).then(r => r.ok ? r.json() : null).then(data => {
+                const completedMissions: Array<{ id: string; name: string; xpReward: number }> = Array.isArray(data?.missionsCompleted) ? data.missionsCompleted : [];
+                for (const m of completedMissions) {
+                    window.dispatchEvent(new CustomEvent('profession-mission-complete', {
+                        detail: { name: m.name, xp: m.xpReward, profession: 'petTamer' },
+                    }));
+                }
+            }).catch(() => { /* best-effort */ });
+        }
     }
 
     function removeInventoryItem(itemId: string) {
@@ -11671,6 +14372,31 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
 
                         <div className="pet-training-panel">
                             <h4>Training</h4>
+                            {character.profession === "petTamer" && (
+                                <p className="hint" style={{ color: "#84cc16", margin: "0 0 6px" }}>
+                                    🐾 Pet Tamer · training {petTamerTrainingSpeedPct(character)}% faster · expedition rewards ×{petTamerExpeditionMult(character).toFixed(2)}
+                                </p>
+                            )}
+                            {canOfferEscort && (
+                                <div className="summary-box" style={{ background: "rgba(132,204,22,0.08)", border: "1px solid rgba(132,204,22,0.35)", padding: 8, marginBottom: 8 }}>
+                                    <strong style={{ color: "#84cc16", fontSize: "0.85rem" }}>🐾 Clan Pet Escort</strong>
+                                    <p className="hint" style={{ margin: "4px 0 6px", fontSize: "0.75rem" }}>
+                                        Offer your pet's escort to clan-mates for 1 hour. Vanguards in your clan get +5% Seals on raids with an active pet, and you get +20% Tamer XP on your next expedition.
+                                    </p>
+                                    <button
+                                        onClick={() => void toggleEscort()}
+                                        disabled={escortBusy || escortOffered === null}
+                                        style={{ background: escortOffered ? "linear-gradient(#4d7c0f,#365314)" : "linear-gradient(#365314,#1a2e05)", borderColor: "#84cc16", fontSize: "0.8rem", padding: "4px 10px" }}
+                                    >
+                                        {escortBusy ? "…" : escortOffered ? "Cancel escort offer" : "Offer escort (1h)"}
+                                    </button>
+                                    {character.petEscortBonusReady && (
+                                        <p className="hint" style={{ margin: "6px 0 0", color: "#84cc16", fontSize: "0.78rem" }}>
+                                            🎁 +20% Tamer XP ready for your next expedition!
+                                        </p>
+                                    )}
+                                </div>
+                            )}
                             {selectedPet.training && Date.now() < selectedPet.training.endsAt ? (
                                 <div className="training-in-progress">
                                     <p>⏳ {petTrainingOptions.find((o) => o.type === selectedPet.training?.type)?.label}</p>
@@ -11785,6 +14511,16 @@ type PetArenaOpponent = {
     owner: string;
     pet: Pet;
     battleSeed?: number;
+    // Optional override for the screen the player goes back to when the
+    // battle ends. Defaults to "centralHub" inside PetArena. Used by the
+    // Hollow Gate pet_battle tile to return the player to the shrine.
+    returnScreen?: Screen;
+    // ── Party (2v2) extensions ────────────────────────────────────────
+    // When opponentParty is set, the incoming battle should resolve as a
+    // 2-pet set. challengerParty is the player's locked-in pair (carried
+    // from a PvP party challenge so we don't re-pick on the player's side).
+    opponentParty?: [Pet, Pet];
+    challengerParty?: [Pet, Pet];
 };
 
 const genericPetArenaOpponents: PetArenaOpponent[] = [
@@ -11887,6 +14623,12 @@ type PetBattleFighter = {
     moveLocked: number;   // rounds remaining that this fighter cannot move
     absorbRounds: number; // rounds of damage-reduction stance active
     absorbPercent: number;// fraction of incoming damage reduced (0–1)
+    // Extended status effects. Each is a round counter; 0 = inactive.
+    burnRounds: number;   // burn = DoT each round + small ATK debuff
+    burnDamage: number;   // per-round burn damage applied during tick
+    freezeRounds: number; // each round of freeze, 50% chance to skip turn
+    confuseRounds: number;// each turn while confused, 50% chance to hit self
+    stunRounds: number;   // next N turns are auto-skip
 };
 
 type PetArenaFrame = {
@@ -11910,28 +14652,31 @@ type PetArenaFrame = {
 };
 
 const PET_GRID_COLS  = 14;
-const PET_GRID_ROWS  = 6;
-const PET_GRID_SIZE  = PET_GRID_COLS * PET_GRID_ROWS; // 84
+const PET_GRID_ROWS  = 7;
+const PET_GRID_SIZE  = PET_GRID_COLS * PET_GRID_ROWS; // 98
 
-// 8 hand-crafted obstacle layouts for the 14×6 arena. Picked randomly each battle.
-// Tile index = row * 14 + col.  Player always starts col 1 row 2 (=29), enemy col 12 row 2 (=40).
+// 8 hand-crafted obstacle layouts for the 14×7 arena. Picked randomly each battle.
+// Tile index = row * 14 + col.  Player always starts col 1 row 3 (=43), enemy col 12 row 3 (=54).
+// Row 0 is the new top-of-arena empty row (added for vertical breathing room);
+// all legacy obstacle indices are shifted +14 so the layouts keep their old shape
+// just one row lower visually.
 const PET_OBSTACLE_LAYOUTS: ReadonlyArray<ReadonlyArray<number>> = [
     // 0 — "Narrow Gate": centre-column wall forces pets through top/bottom passages
-    [21, 35, 49, 63,  22, 36],
+    [35, 49, 63, 77,  36, 50],
     // 1 — "Twin Boulders": two diagonal boulder clusters
-    [19, 33, 34,  51, 65, 64],
+    [33, 47, 48,  65, 79, 78],
     // 2 — "Side Walls": corner blocks funnel pets into the centre lane
-    [2, 3, 16, 17,  66, 67, 80, 81],
+    [16, 17, 30, 31,  80, 81, 94, 95],
     // 3 — "Central Rock": big impassable rock in the middle
-    [34, 35, 36,  48, 49, 50],
+    [48, 49, 50,  62, 63, 64],
     // 4 — "Half Walls": offset walls on each flank create asymmetric lanes
-    [32, 46, 60,  23, 37, 51],
+    [46, 60, 74,  37, 51, 65],
     // 5 — "Cross Bars": horizontal strips top and bottom force centre path
-    [18, 19, 20, 21,  63, 64, 65, 66],
+    [32, 33, 34, 35,  77, 78, 79, 80],
     // 6 — "Zigzag": diagonal stepping stones disrupt straight charges
-    [17, 33, 49, 65,  18, 46],
+    [31, 47, 63, 79,  32, 60],
     // 7 — "Fortress": enclosed square with two entry gaps on the sides
-    [33, 34, 47, 48,  21, 63],
+    [47, 48, 61, 62,  35, 77],
 ];
 
 /** BFS: returns the next tile to step onto when moving from `from` toward `to`, avoiding obstacles. */
@@ -12144,7 +14889,33 @@ function petBattleTieKey(pet: Pet) {
     return `${pet.speed}:${pet.id}:${pet.name}`;
 }
 
-function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: string, seed = Date.now()) {
+// ── Pet Arena type-effectiveness ──────────────────────────────────────────
+// Classic chakra rock-paper-scissors loop:
+//   Fire > Wind > Lightning > Earth > Water > Fire
+// Damage multipliers: super-effective 1.25×, resisted 0.80×, otherwise 1.0.
+// Pets with no element (or element "None") fight neutral against everything.
+const PET_ELEMENT_BEATS: Partial<Record<JutsuElement, JutsuElement>> = {
+    Fire: "Wind",
+    Wind: "Lightning",
+    Lightning: "Earth",
+    Earth: "Water",
+    Water: "Fire",
+};
+function petElementMultiplier(attacker: Pet | undefined, defender: Pet | undefined): number {
+    const a = attacker?.element;
+    const d = defender?.element;
+    if (!a || a === "None" || !d || d === "None") return 1;
+    if (PET_ELEMENT_BEATS[a] === d) return 1.25;
+    if (PET_ELEMENT_BEATS[d] === a) return 0.80;
+    return 1;
+}
+function petElementLabel(mult: number): string {
+    if (mult > 1) return "🔆 Super effective!";
+    if (mult < 1) return "⛔ Not very effective…";
+    return "";
+}
+
+function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: string, seed = Date.now(), playerDamageMult = 1) {
     const rng = seededPetBattleRandom(seed);
     // 10×5 grid — player starts col 1 (tile 21), enemy starts col 8 (tile 28), distance = 7
     // Pick a random obstacle layout for this battle
@@ -12152,8 +14923,11 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
     const obstacles = new Set<number>(obstacleLayout);
 
     // 14×6 grid: player col 1 row 2 = tile 29; enemy col 12 row 2 = tile 40
-    let player: PetBattleFighter = { owner: "You",        pet: playerPet,   hp: playerPet.hp,   pos: 29, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: 0, moveLocked: 0, absorbRounds: 0, absorbPercent: 0 };
-    let enemy:  PetBattleFighter = { owner: opponentOwner, pet: opponentPet, hp: opponentPet.hp, pos: 40, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: 0, moveLocked: 0, absorbRounds: 0, absorbPercent: 0 };
+    // Starting positions on the 14×7 grid: player col 1 row 3 (=43),
+    // enemy col 12 row 3 (=54). Row 3 is the visual centre (row 0 = top
+    // breathing-room row, row 6 = bottom).
+    let player: PetBattleFighter = { owner: "You",        pet: playerPet,   hp: playerPet.hp,   pos: 43, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: 0, moveLocked: 0, absorbRounds: 0, absorbPercent: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0 };
+    let enemy:  PetBattleFighter = { owner: opponentOwner, pet: opponentPet, hp: opponentPet.hp, pos: 54, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: 0, moveLocked: 0, absorbRounds: 0, absorbPercent: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0 };
     const logs: string[] = [`${player.pet.name} enters against ${enemy.owner}'s ${enemy.pet.name}.`];
     const frames: PetArenaFrame[] = [];
     let playerCombo = 0;
@@ -12181,7 +14955,32 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
             cooldowns:    Object.fromEntries(Object.entries(fighter.cooldowns).map(([name, value]) => [name, Math.max(0, value - 1)])),
             moveLocked:   Math.max(0, fighter.moveLocked   - 1),
             absorbRounds: Math.max(0, fighter.absorbRounds - 1),
+            burnRounds:   Math.max(0, fighter.burnRounds   - 1),
+            freezeRounds: Math.max(0, fighter.freezeRounds - 1),
+            confuseRounds:Math.max(0, fighter.confuseRounds - 1),
+            stunRounds:   Math.max(0, fighter.stunRounds   - 1),
         };
+    }
+
+    // Trait-based status resistance. Balanced so each trait gets ONE thematic
+    // resistance, keeping total trait power roughly equal:
+    //   Aggressive → resists stun  (it's too pissed off to be stunned)
+    //   Guardian   → resists burn/DoT (defensive — half-damage from over-time)
+    //   Swift      → immune to freeze (too fast to be frozen)
+    //   Lucky      → immune to confuse self-hit
+    //   Battleborn → halves stat-debuff durations
+    function applyStatus(target: PetBattleFighter, status: "burn" | "freeze" | "confuse" | "stun", rounds: number, burnDmgIfBurn = 0): PetBattleFighter {
+        const trait = target.pet.trait;
+        if (status === "stun"    && trait === "Aggressive") rounds = Math.max(0, rounds - 1);
+        if (status === "freeze"  && trait === "Swift") return target;        // immune
+        if (status === "confuse" && trait === "Lucky") return target;        // immune
+        if (rounds <= 0) return target;
+        switch (status) {
+            case "burn":    return { ...target, burnRounds: Math.max(target.burnRounds, rounds), burnDamage: Math.max(target.burnDamage, burnDmgIfBurn), attackBuff: Math.min(target.attackBuff, -2) };
+            case "freeze":  return { ...target, freezeRounds: Math.max(target.freezeRounds, rounds) };
+            case "confuse": return { ...target, confuseRounds: Math.max(target.confuseRounds, rounds) };
+            case "stun":    return { ...target, stunRounds: Math.max(target.stunRounds, rounds) };
+        }
     }
 
     function act(actor: PetBattleFighter, target: PetBattleFighter, round: number): [PetBattleFighter, PetBattleFighter] {
@@ -12189,6 +14988,33 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
         const actorSide: PetArenaFrame["actor"] = actor.owner === "You" ? "player" : "enemy";
         const targetSide: PetArenaFrame["actor"] = actorSide === "player" ? "enemy" : "player";
         const isFinisher = target.hp < target.pet.hp * 0.25;
+
+        // ── Pre-action status checks ───────────────────────────────────
+        // Stun: full skip, no choice. Decremented by tick() at round start
+        // so a stun applied last round is still active this turn.
+        if (actor.stunRounds > 0) {
+            const msg = `Round ${round}: ${actor.pet.name} is stunned — turn skipped.`;
+            logs.push(msg);
+            pushFrame(round, msg, actorSide, "movelock");
+            return [actor, target];
+        }
+        // Freeze: 50% chance to skip each round.
+        if (actor.freezeRounds > 0 && rng() < 0.5) {
+            const msg = `Round ${round}: ${actor.pet.name} is frozen solid — turn skipped.`;
+            logs.push(msg);
+            pushFrame(round, msg, actorSide, "movelock");
+            return [actor, target];
+        }
+        // Confuse: 50% chance to hit yourself for a small amount.
+        if (actor.confuseRounds > 0 && rng() < 0.5) {
+            const selfHit = Math.max(1, Math.floor(actor.pet.attack * 0.4));
+            const hurtSelf = { ...actor, hp: Math.max(0, actor.hp - selfHit) };
+            const msg = `Round ${round}: ${actor.pet.name} is confused and hits itself for ${selfHit}!`;
+            logs.push(msg);
+            if (actorSide === "player") player = hurtSelf; else enemy = hurtSelf;
+            pushFrame(round, msg, actorSide, "damage", selfHit);
+            return [hurtSelf, target];
+        }
 
         // Trait modifiers
         const critChance     = actor.pet.trait === "Aggressive" ? 0.30 : 0.15;
@@ -12223,7 +15049,13 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
             const crit   = rng() < critChance;
             // Absorb stance reduces incoming damage by absorbPercent
             const absorbMult = target2.absorbRounds > 0 ? (1 - target2.absorbPercent) : 1;
-            const damage = Math.max(1, Math.floor(base * (crit ? 1.5 : 1) * dmgBonus * guardianBlock * absorbMult));
+            // Pet Tamer profession: +5–20% pet damage in PvE (player's pet only).
+            // Multiplier is computed at the call site and passed in via runPetArenaBattle.
+            const tamerMult = actorSide === "player" ? playerDamageMult : 1;
+            // Element type effectiveness — Fire > Wind > Lightning > Earth > Water > Fire.
+            // Neutral if either pet has no element. Applies to all damage jutsus equally.
+            const elementMult = petElementMultiplier(actor2.pet, target2.pet);
+            const damage = Math.max(1, Math.floor(base * (crit ? 1.5 : 1) * dmgBonus * guardianBlock * absorbMult * tamerMult * elementMult));
             // Shield absorbs damage before HP
             const shieldAbsorb  = Math.min(target2.shieldHp, damage);
             const remainDamage  = damage - shieldAbsorb;
@@ -12237,7 +15069,8 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
                 (guardianBlock < 1)                         ? { actor: targetSide as "player" | "enemy", trait: "Guardian"   } :
                 (dmgBonus > 1 && actor2.pet.trait === "Battleborn") ? { actor: actorSide as "player" | "enemy", trait: "Battleborn" } :
                 undefined;
-            const msg = `Round ${round}: ${actor2.pet.name}${jutsuName ? ` uses ${jutsuName}` : " basic attacks"} for ${damage} damage${crit ? " — CRITICAL HIT!" : ""}.`;
+            const elementNote = petElementLabel(elementMult);
+            const msg = `Round ${round}: ${actor2.pet.name}${jutsuName ? ` uses ${jutsuName}` : " basic attacks"} for ${damage} damage${crit ? " — CRITICAL HIT!" : ""}${elementNote ? ` ${elementNote}` : ""}.`;
             logs.push(msg);
             if (actorSide === "player") { player = actor2; enemy = damagedTarget; } else { enemy = actor2; player = damagedTarget; }
             pushFrame(round, msg, actorSide, kind, damage, crit, traitFlash, currentCombo >= 3 ? currentCombo : undefined);
@@ -12308,10 +15141,13 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
             }
 
             if (jutsu.kind === "debuff") {
-                const atkCut   = Math.floor(jutsu.power / 4);
-                const defCut   = Math.floor(jutsu.power / 5);
+                // Battleborn trait halves stat-debuff magnitude (its thematic resistance).
+                const battlebornCut = target.pet.trait === "Battleborn" ? 0.5 : 1;
+                const atkCut   = Math.max(1, Math.floor((jutsu.power / 4) * battlebornCut));
+                const defCut   = Math.max(1, Math.floor((jutsu.power / 5) * battlebornCut));
                 const weakened = { ...target, attackBuff: target.attackBuff - atkCut, defenseBuff: target.defenseBuff - defCut };
-                const msg = `Round ${round}: ${actor.pet.name} uses ${jutsu.name} — ${target.pet.name} loses ${atkCut} ATK and ${defCut} DEF.`;
+                const battlebornNote = target.pet.trait === "Battleborn" ? " (Battleborn shrugs off half the debuff.)" : "";
+                const msg = `Round ${round}: ${actor.pet.name} uses ${jutsu.name} — ${target.pet.name} loses ${atkCut} ATK and ${defCut} DEF.${battlebornNote}`;
                 logs.push(msg);
                 if (actorSide === "player") { player = nextActor; enemy = weakened; } else { enemy = nextActor; player = weakened; }
                 pushFrame(round, msg, actorSide, "debuff");
@@ -12319,9 +15155,13 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
             }
 
             if (jutsu.kind === "dot") {
-                const dotDmg   = Math.max(1, Math.floor(jutsu.power * 0.28));
+                // Guardian halves DoT damage (its thematic resistance — applies to
+                // both poison and burn so the resistance is consistent).
+                const baseDot = Math.max(1, Math.floor(jutsu.power * 0.28));
+                const dotDmg  = target.pet.trait === "Guardian" ? Math.max(1, Math.floor(baseDot * 0.5)) : baseDot;
                 const poisoned = { ...target, dotDamage: dotDmg, dotRounds: 3 };
-                const msg = `Round ${round}: ${actor.pet.name} uses ${jutsu.name}, poisoning ${target.pet.name} for ${dotDmg}/round (3 rounds).`;
+                const guardianNote = target.pet.trait === "Guardian" ? " (Guardian halves the poison.)" : "";
+                const msg = `Round ${round}: ${actor.pet.name} uses ${jutsu.name}, poisoning ${target.pet.name} for ${dotDmg}/round (3 rounds).${guardianNote}`;
                 logs.push(msg);
                 if (actorSide === "player") { player = nextActor; enemy = poisoned; } else { enemy = nextActor; player = poisoned; }
                 pushFrame(round, msg, actorSide, "dot");
@@ -12347,6 +15187,72 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
                 if (actorSide === "player") player = absorbed; else enemy = absorbed;
                 pushFrame(round, msg, actorSide, "absorb");
                 return [absorbed, target];
+            }
+
+            if (jutsu.kind === "burn") {
+                const burnDmg = Math.max(1, Math.floor(jutsu.power * 0.15));
+                // Guardian halves DoT damage (its thematic resistance).
+                const effectiveBurn = target.pet.trait === "Guardian" ? Math.max(1, Math.floor(burnDmg * 0.5)) : burnDmg;
+                const burnRoundsToApply = Math.max(1, jutsu.rounds ?? 3);
+                const burned = applyStatus(target, "burn", burnRoundsToApply, effectiveBurn);
+                const msg = `Round ${round}: ${actor.pet.name} burns ${target.pet.name} for ${effectiveBurn}/round (${burnRoundsToApply} rounds) — −2 ATK!${target.pet.trait === "Guardian" ? " (Guardian shrugs off half the burn.)" : ""}`;
+                logs.push(msg);
+                if (actorSide === "player") { player = nextActor; enemy = burned; } else { enemy = nextActor; player = burned; }
+                pushFrame(round, msg, actorSide, "dot");
+                return [nextActor, burned];
+            }
+
+            if (jutsu.kind === "freeze") {
+                if (target.pet.trait === "Swift") {
+                    const msg = `Round ${round}: ${actor.pet.name} tries to freeze ${target.pet.name}, but Swift speed shakes off the ice!`;
+                    logs.push(msg);
+                    if (actorSide === "player") { player = nextActor; } else { enemy = nextActor; }
+                    pushFrame(round, msg, targetSide, "buff", undefined, undefined, { actor: targetSide as "player" | "enemy", trait: "Swift" });
+                    return [nextActor, target];
+                }
+                const freezeRoundsToApply = Math.max(1, jutsu.rounds ?? 2);
+                const frozen = applyStatus(target, "freeze", freezeRoundsToApply);
+                const msg = `Round ${round}: ${actor.pet.name} freezes ${target.pet.name} — 50% chance to skip turn for ${freezeRoundsToApply} round${freezeRoundsToApply === 1 ? "" : "s"}!`;
+                logs.push(msg);
+                if (actorSide === "player") { player = nextActor; enemy = frozen; } else { enemy = nextActor; player = frozen; }
+                pushFrame(round, msg, actorSide, "movelock");
+                return [nextActor, frozen];
+            }
+
+            if (jutsu.kind === "confuse") {
+                if (target.pet.trait === "Lucky") {
+                    const msg = `Round ${round}: ${actor.pet.name} tries to confuse ${target.pet.name}, but Lucky instinct sees through it!`;
+                    logs.push(msg);
+                    if (actorSide === "player") { player = nextActor; } else { enemy = nextActor; }
+                    pushFrame(round, msg, targetSide, "buff", undefined, undefined, { actor: targetSide as "player" | "enemy", trait: "Lucky" });
+                    return [nextActor, target];
+                }
+                const confuseRoundsToApply = Math.max(1, jutsu.rounds ?? 2);
+                const confused = applyStatus(target, "confuse", confuseRoundsToApply);
+                const msg = `Round ${round}: ${actor.pet.name} confuses ${target.pet.name} — 50% chance to self-hit for ${confuseRoundsToApply} round${confuseRoundsToApply === 1 ? "" : "s"}!`;
+                logs.push(msg);
+                if (actorSide === "player") { player = nextActor; enemy = confused; } else { enemy = nextActor; player = confused; }
+                pushFrame(round, msg, actorSide, "debuff");
+                return [nextActor, confused];
+            }
+
+            if (jutsu.kind === "stun") {
+                // Aggressive trait shrugs off one round of stun (so 1-round stuns are no-ops).
+                const baseRounds = Math.max(1, jutsu.rounds ?? 1);
+                const reduced = target.pet.trait === "Aggressive" ? baseRounds - 1 : baseRounds;
+                if (reduced <= 0) {
+                    const msg = `Round ${round}: ${actor.pet.name} tries to stun ${target.pet.name}, but Aggressive rage shrugs it off!`;
+                    logs.push(msg);
+                    if (actorSide === "player") { player = nextActor; } else { enemy = nextActor; }
+                    pushFrame(round, msg, targetSide, "buff", undefined, undefined, { actor: targetSide as "player" | "enemy", trait: "Aggressive" });
+                    return [nextActor, target];
+                }
+                const stunned = applyStatus(target, "stun", reduced);
+                const msg = `Round ${round}: ${actor.pet.name} stuns ${target.pet.name} — skips next ${reduced} turn(s)!`;
+                logs.push(msg);
+                if (actorSide === "player") { player = nextActor; enemy = stunned; } else { enemy = nextActor; player = stunned; }
+                pushFrame(round, msg, actorSide, "movelock");
+                return [nextActor, stunned];
             }
 
             if (jutsu.kind === "lifesteal") {
@@ -12420,9 +15326,42 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
             if (enemy.hp <= 0) break;
         }
 
+        // Burn DoT — applied each round while burnRounds > 0, separate from
+        // poison so a pet can suffer both at once.
+        if (player.burnRounds > 0 && player.burnDamage > 0) {
+            player = { ...player, hp: Math.max(0, player.hp - player.burnDamage) };
+            const msg = `Round ${round}: 🔥 ${player.pet.name} burns for ${player.burnDamage} damage.`;
+            logs.push(msg);
+            pushFrame(round, msg, "player", "dot", player.burnDamage);
+            if (player.hp <= 0) break;
+        }
+        if (enemy.burnRounds > 0 && enemy.burnDamage > 0) {
+            enemy = { ...enemy, hp: Math.max(0, enemy.hp - enemy.burnDamage) };
+            const msg = `Round ${round}: 🔥 ${enemy.pet.name} burns for ${enemy.burnDamage} damage.`;
+            logs.push(msg);
+            pushFrame(round, msg, "enemy", "dot", enemy.burnDamage);
+            if (enemy.hp <= 0) break;
+        }
+
         const playerFirst = player.pet.speed > enemy.pet.speed || (player.pet.speed === enemy.pet.speed && petBattleTieKey(player.pet) <= petBattleTieKey(enemy.pet));
-        const playerSwift = player.pet.trait === "Swift" && player.pet.speed >= enemy.pet.speed * 1.2;
-        const enemySwift  = enemy.pet.trait  === "Swift" && enemy.pet.speed  >= player.pet.speed * 1.2;
+        // Swift bonus action scales with the actual speed gap instead of a
+        // binary trigger at 1.2×:
+        //   • ≥ 2.0× speed → bonus action every round (raw blitz)
+        //   • ≥ 1.5× speed → bonus action every other round
+        //   • ≥ 1.2× speed → bonus action every third round
+        // Below 1.2× Swift gives no bonus action — just normal turn order
+        // priority on tie. Prevents the old "1.2× → +100% damage output" gap
+        // while preserving Swift's identity as the speed trait.
+        const playerSpeedRatio = player.pet.speed / Math.max(1, enemy.pet.speed);
+        const enemySpeedRatio  = enemy.pet.speed  / Math.max(1, player.pet.speed);
+        function swiftFires(round: number, ratio: number): boolean {
+            if (ratio >= 2.0) return true;
+            if (ratio >= 1.5) return round % 2 === 1;       // every other round
+            if (ratio >= 1.2) return round % 3 === 1;       // every third round
+            return false;
+        }
+        const playerSwift = player.pet.trait === "Swift" && swiftFires(round, playerSpeedRatio);
+        const enemySwift  = enemy.pet.trait  === "Swift" && swiftFires(round, enemySpeedRatio);
 
         if (playerFirst) {
             [player, enemy] = act(player, enemy, round);
@@ -12442,20 +15381,176 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
         pushFrame(round, roundMessage, "system");
     }
 
+    // ── Result resolution ──────────────────────────────────────────────────
+    // Cases:
+    //   1. One pet down, the other alive → standard win / loss
+    //   2. Both pets at 0 HP same round (double KO from DoT, simultaneous
+    //      finishers, etc.) → DRAW (was: player auto-wins, unfair)
+    //   3. 30-round stalemate, both still alive → HP% tiebreak with a 5%
+    //      tolerance band that produces DRAW (was: equal HP gave player win)
     const playerWon = player.hp > 0 && enemy.hp <= 0;
     const enemyWon = enemy.hp > 0 && player.hp <= 0;
-    const result = playerWon ? "win" : enemyWon ? "loss" : player.hp >= enemy.hp ? "win" : "loss";
-    const finalMessage = result === "win" ? `${player.pet.name} wins the Pet Arena match.` : `${enemy.pet.name} wins the Pet Arena match.`;
+    let result: "win" | "loss" | "draw";
+    if (playerWon) result = "win";
+    else if (enemyWon) result = "loss";
+    else if (player.hp <= 0 && enemy.hp <= 0) result = "draw";
+    else {
+        // Stalemate after round cap. Compare remaining HP percent (fair
+        // across different max HP pools) with a 5% draw band.
+        const playerPct = player.hp / Math.max(1, player.pet.hp);
+        const enemyPct = enemy.hp / Math.max(1, enemy.pet.hp);
+        if (Math.abs(playerPct - enemyPct) < 0.05) result = "draw";
+        else result = playerPct > enemyPct ? "win" : "loss";
+    }
+    const finalMessage =
+        result === "win" ? `${player.pet.name} wins the Pet Arena match.` :
+        result === "loss" ? `${enemy.pet.name} wins the Pet Arena match.` :
+        `Draw — neither pet could finish the fight.`;
     logs.push(finalMessage);
     pushFrame(21, finalMessage, "system", "result");
     return { result, player, enemy, logs, frames, obstacles: [...obstacles] };
 }
+
+// ── 2v2 Party Battle ──────────────────────────────────────────────────────
+// Sequential model: each pair (player lead vs opponent lead, then player
+// reserve vs opponent reserve) plays a full 1v1 battle using the existing
+// engine. Team that wins more individual matches takes the set. Tied 1-1
+// is broken by total surviving-HP %; equal totals → draw.
+//
+// Empty reserve slots are handled gracefully — if a player only brings one
+// pet, their second match auto-forfeits (the opponent's reserve wins by
+// default). This keeps the API simple and 2v2 strictly opt-in.
+export type PetPartyBattleMatch = {
+    playerPet: Pet | null;
+    opponentPet: Pet | null;
+    result: "win" | "loss" | "draw" | "forfeit-player" | "forfeit-opponent";
+    playerHpRemaining: number;
+    enemyHpRemaining: number;
+    logs: string[];
+    frames: PetArenaFrame[];
+    obstacles: number[];
+};
+
+export type PetPartyBattleResult = {
+    result: "win" | "loss" | "draw";
+    matches: PetPartyBattleMatch[];
+    playerWins: number;
+    opponentWins: number;
+    draws: number;
+    summaryLogs: string[];
+};
+
+function runPetArenaParty(
+    playerParty: [Pet | null, Pet | null],
+    opponentParty: [Pet | null, Pet | null],
+    opponentOwner: string,
+    seed = Date.now(),
+    playerDamageMult = 1,
+): PetPartyBattleResult {
+    const matches: PetPartyBattleMatch[] = [];
+    const summaryLogs: string[] = [];
+
+    let playerWins = 0;
+    let opponentWins = 0;
+    let draws = 0;
+
+    for (let slot = 0; slot < 2; slot++) {
+        const mine = playerParty[slot];
+        const theirs = opponentParty[slot];
+
+        // Forfeit cases — one side didn't bring a pet for this slot.
+        if (!mine && !theirs) {
+            matches.push({
+                playerPet: null, opponentPet: null, result: "draw",
+                playerHpRemaining: 0, enemyHpRemaining: 0,
+                logs: [`Slot ${slot + 1}: neither side fielded a pet.`],
+                frames: [], obstacles: [],
+            });
+            draws += 1;
+            summaryLogs.push(`Slot ${slot + 1}: neither side fielded a pet — draw.`);
+            continue;
+        }
+        if (!mine) {
+            matches.push({
+                playerPet: null, opponentPet: theirs, result: "forfeit-player",
+                playerHpRemaining: 0, enemyHpRemaining: theirs!.hp,
+                logs: [`Slot ${slot + 1}: ${character_safeName(theirs!.name)} wins by forfeit — you didn't field a reserve.`],
+                frames: [], obstacles: [],
+            });
+            opponentWins += 1;
+            summaryLogs.push(`Slot ${slot + 1}: ${theirs!.name} wins by forfeit (no reserve).`);
+            continue;
+        }
+        if (!theirs) {
+            matches.push({
+                playerPet: mine, opponentPet: null, result: "forfeit-opponent",
+                playerHpRemaining: mine.hp, enemyHpRemaining: 0,
+                logs: [`Slot ${slot + 1}: ${mine.name} wins by forfeit — opponent had no reserve.`],
+                frames: [], obstacles: [],
+            });
+            playerWins += 1;
+            summaryLogs.push(`Slot ${slot + 1}: ${mine.name} wins by forfeit (opponent had no reserve).`);
+            continue;
+        }
+
+        // Real match — derive a per-slot seed so matches are independent
+        // but the whole party battle is reproducible from the master seed.
+        const matchSeed = seed + slot * 7919;
+        const battle = runPetArenaBattle(mine, theirs, opponentOwner, matchSeed, playerDamageMult);
+        matches.push({
+            playerPet: mine, opponentPet: theirs, result: battle.result,
+            playerHpRemaining: battle.player.hp, enemyHpRemaining: battle.enemy.hp,
+            logs: battle.logs, frames: battle.frames, obstacles: battle.obstacles,
+        });
+        if (battle.result === "win") {
+            playerWins += 1;
+            summaryLogs.push(`Slot ${slot + 1}: ${mine.name} defeated ${theirs.name} (${battle.player.hp}/${mine.hp} HP).`);
+        } else if (battle.result === "loss") {
+            opponentWins += 1;
+            summaryLogs.push(`Slot ${slot + 1}: ${theirs.name} defeated ${mine.name} (${battle.enemy.hp}/${theirs.hp} HP).`);
+        } else {
+            draws += 1;
+            summaryLogs.push(`Slot ${slot + 1}: draw — neither pet could finish.`);
+        }
+    }
+
+    // Set winner. Most wins takes the set. 1-1 ties break on surviving HP%.
+    let result: "win" | "loss" | "draw";
+    if (playerWins > opponentWins) result = "win";
+    else if (opponentWins > playerWins) result = "loss";
+    else {
+        // Tie on wins (could be 0-0, 1-1, or 2-2 from draws). Use total
+        // surviving HP percentage across the party.
+        const playerHpPct = matches.reduce((acc, m) =>
+            acc + (m.playerPet ? m.playerHpRemaining / Math.max(1, m.playerPet.hp) : 0), 0);
+        const opponentHpPct = matches.reduce((acc, m) =>
+            acc + (m.opponentPet ? m.enemyHpRemaining / Math.max(1, m.opponentPet.hp) : 0), 0);
+        if (Math.abs(playerHpPct - opponentHpPct) < 0.05) result = "draw";
+        else result = playerHpPct > opponentHpPct ? "win" : "loss";
+    }
+
+    summaryLogs.push(`Set result: ${playerWins}–${opponentWins}${draws ? ` (${draws} draw${draws === 1 ? "" : "s"})` : ""}. ${result === "win" ? "You take the set!" : result === "loss" ? "Opponent takes the set." : "Set ends in a draw."}`);
+
+    return { result, matches, playerWins, opponentWins, draws, summaryLogs };
+}
+
+// Trivial helper so the forfeit log line doesn't fight with a global safeName.
+// Pet names are already user-facing strings; we just guard against undefined.
+function character_safeName(s: string | undefined): string { return s ?? "Pet"; }
 
 function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, setScreen, sharedImages, duelChallenges, setDuelChallenges, pendingPetBattleOpponent, onPendingPetBattleStarted }: { character: Character; updateCharacter: (character: Character) => void; playerRoster: PlayerRecord[]; allServerPlayers: ServerPlayerSummary[]; setScreen: (screen: Screen) => void; sharedImages: Record<string, string>; duelChallenges: DuelChallenge[]; setDuelChallenges: (c: DuelChallenge[]) => void; pendingPetBattleOpponent?: PetArenaOpponent | null; onPendingPetBattleStarted?: () => void }) {
     const [selectedPetId, setSelectedPetId] = useState(character.activePetId ?? character.pets[0]?.id ?? "");
     const [opponentMode, setOpponentMode] = useState<"player" | "ai">("player");
     const [opponentSearch, setOpponentSearch] = useState("");
     const [petChallengeMsg, setPetChallengeMsg] = useState("");
+    // 2v2 party mode — works for both AI and PvP battles. AI auto-picks a
+    // random second opponent from the AI pool. PvP attaches both pet IDs to
+    // the duel challenge so the target's client knows to run the party variant
+    // (with their own top-2 pets auto-selected for them).
+    const [partyMode, setPartyMode] = useState(false);
+    const [reservePetId, setReservePetId] = useState<string>("");
+    // Last party result, shown as a summary block ("2–0 — You take the set!").
+    const [partyResult, setPartyResult] = useState<PetPartyBattleResult | null>(null);
 
     async function sendDirectPetChallenge(toName: string, fromPetId?: string) {
         if (duelChallenges.some((challenge) => challenge.fromName === character.name && !challenge.accepted && !challenge.declined && !challenge.battleId && Date.now() - challenge.createdAt < 120000)) {
@@ -12471,16 +15566,37 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
             setPetChallengeMsg("Choose one of your pets first.");
             return;
         }
+        // 2v2 challenge needs the player to have a reserve and the target
+        // to have at least 2 pets. If either fails, fall back to 1v1.
+        const wantsParty = partyMode && character.pets.length >= 2;
+        const reserveCandidate = wantsParty
+            ? (character.pets.find(p => p.id === reservePetId && p.id !== selectedPet.id)
+                ?? character.pets.filter(p => p.id !== selectedPet.id && !isPetOnExpedition(p))[0]
+                ?? null)
+            : null;
+        const targetCanParty = (targetRecord?.character?.pets?.length ?? 0) >= 2;
+        const doParty = wantsParty && !!reserveCandidate && targetCanParty;
+        if (wantsParty && !doParty) {
+            setPetChallengeMsg(
+                !reserveCandidate
+                    ? "Need a reserve pet (a second pet not on expedition). Sending a 1v1 challenge instead."
+                    : `${toName} only has one pet — sending a 1v1 challenge instead.`
+            );
+        }
         setBattleReady(false);
         const challenge: DuelChallenge = {
             id: makeId(),
             fromName: character.name,
             toName,
             challenger: character,
-            challengerPetId: fromPetId,
+            challengerPetId: doParty ? selectedPet.id : fromPetId,
             petBattleSeed: Date.now() + Math.floor(Math.random() * 100000),
             createdAt: Date.now(),
             mode: "clanWarPet",
+            ...(doParty && reserveCandidate ? {
+                petParty: true,
+                challengerPetIds: [selectedPet.id, reserveCandidate.id] as [string, string],
+            } : {}),
         };
         try {
             const res = await fetch('/api/player/challenge', {
@@ -12551,7 +15667,80 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
         }
         const pendingClanPetBattle = loadPendingClanPetBattle();
         if (isPetOnExpedition(opponent.pet)) return alert(`${petDisplayName(opponent.pet)} is exploring and cannot battle right now.`);
-        const battle = runPetArenaBattle(selectedPet, opponent.pet, opponent.owner, opponent.battleSeed ?? Date.now());
+        setPartyResult(null);
+
+        // 2v2 party path — two entry points:
+        //   • PvP party challenge: opponent already carries both parties (set
+        //     when the accept handler fired runPetArenaParty's data through).
+        //   • Local AI battle: in-component partyMode toggle, player picks
+        //     reserve, AI gets a random second pet from the pool.
+        const pvpParty = !!(opponent.opponentParty && opponent.challengerParty);
+        const canAiParty = partyMode && opponentMode === "ai" && character.pets.length >= 2;
+        if (pvpParty || canAiParty) {
+            let myLead: Pet;
+            let myReserve: Pet;
+            let enemyLead: Pet;
+            let enemyReserve: Pet;
+            if (pvpParty) {
+                [myLead, myReserve] = opponent.challengerParty!;
+                [enemyLead, enemyReserve] = opponent.opponentParty!;
+            } else {
+                const reserveCandidate = character.pets.find(p => p.id === reservePetId && p.id !== selectedPet.id)
+                    ?? character.pets.filter(p => p.id !== selectedPet.id && !isPetOnExpedition(p))[0]
+                    ?? null;
+                if (!reserveCandidate) {
+                    return alert("Need a reserve pet (a second pet not on expedition).");
+                }
+                // Pick a different opponent AI pet at random as their reserve.
+                const aiCandidates = genericPetArenaOpponents.filter(o => o.pet.id !== opponent.pet.id);
+                const enemyReserveCandidate = aiCandidates.length > 0
+                    ? aiCandidates[Math.floor(Math.random() * aiCandidates.length)].pet
+                    : opponent.pet; // fallback: re-use lead if pool is bare
+                myLead = selectedPet;
+                myReserve = reserveCandidate;
+                enemyLead = opponent.pet;
+                enemyReserve = enemyReserveCandidate;
+            }
+            const seed = opponent.battleSeed ?? Date.now();
+            const party = runPetArenaParty(
+                [myLead, myReserve],
+                [enemyLead, enemyReserve],
+                opponent.owner,
+                seed,
+                petTamerPveMultiplier(character),
+            );
+            setBattleOpponent(opponent);
+            setBattleReady(true);
+            // Concatenate match logs/frames into one continuous replay.
+            setBattleLog(party.matches.flatMap(m => m.logs).concat(party.summaryLogs));
+            setBattleFrames(party.matches.flatMap(m => m.frames));
+            setBattleObstacles(party.matches[0]?.obstacles ?? []);
+            setFrameIndex(0);
+            setIsPlaying(true);
+            setResult(party.result === "win" ? "Victory" : party.result === "draw" ? "Draw" : "Defeat");
+            setPartyResult(party);
+            // Award ryo once per match won — keeps the existing server cap
+            // intact (each call is rate-limited and counts toward daily cap).
+            const matchesWon = party.matches.filter(m => m.result === "win").length;
+            for (let i = 0; i < matchesWon; i++) {
+                void (async () => {
+                    try {
+                        await fetch("/api/pet/battle-result", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                playerName: character.name,
+                                outcome: "win",
+                                opponentLevel: opponent.pet.level,
+                            }),
+                        });
+                    } catch { /* ignore */ }
+                })();
+            }
+            return;
+        }
+
+        const battle = runPetArenaBattle(selectedPet, opponent.pet, opponent.owner, opponent.battleSeed ?? Date.now(), petTamerPveMultiplier(character));
         setBattleOpponent(opponent);
         setBattleReady(true);
         setBattleLog(battle.logs);
@@ -12559,14 +15748,69 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
         setBattleObstacles(battle.obstacles);
         setFrameIndex(0);
         setIsPlaying(true);
-        setResult(battle.result === "win" ? "Victory" : "Defeat");
+        setResult(battle.result === "win" ? "Victory" : battle.result === "draw" ? "Draw" : "Defeat");
         if (battle.result === "win") {
-            const reward = Math.max(20, opponent.pet.level * 5);
-            updateCharacter({ ...character, ryo: character.ryo + reward, totalPetWins: (character.totalPetWins ?? 0) + 1, dailyPetWins: (character.dailyPetWins ?? 0) + 1, lastDailyReset: currentDateKey() });
+            // Pet Arena rewards are server-validated: we POST the win and the
+            // server applies ryo + increments totalPetWins / dailyPetWins
+            // under a per-player lock + 5s rate-limit + daily cap. Client no
+            // longer touches ryo directly here. Falls back to old behavior if
+            // the endpoint is unreachable so existing saves don't get stuck.
+            void (async () => {
+                try {
+                    const r = await fetch("/api/pet/battle-result", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            playerName: character.name,
+                            outcome: "win",
+                            opponentLevel: opponent.pet.level,
+                        }),
+                    });
+                    if (r.ok) {
+                        const data = await r.json() as { reward?: number; totalPetWins?: number; dailyPetWins?: number; capped?: boolean };
+                        updateCharacter({
+                            ...character,
+                            ryo: character.ryo + (data.reward ?? 0),
+                            totalPetWins: data.totalPetWins ?? ((character.totalPetWins ?? 0) + 1),
+                            dailyPetWins: data.dailyPetWins ?? ((character.dailyPetWins ?? 0) + 1),
+                            lastDailyReset: currentDateKey(),
+                        });
+                        if (data.capped) {
+                            setBattleLog([...battle.logs, "Daily Pet Arena reward cap reached — wins still count, but no more ryo today."]);
+                        }
+                    } else {
+                        // Server refused — DON'T grant ryo locally. Stats stay client-side as before.
+                        updateCharacter({
+                            ...character,
+                            totalPetWins: (character.totalPetWins ?? 0) + 1,
+                            dailyPetWins: (character.dailyPetWins ?? 0) + 1,
+                            lastDailyReset: currentDateKey(),
+                        });
+                    }
+                } catch {
+                    // Network error — record the win locally for counter UX, skip ryo.
+                    updateCharacter({
+                        ...character,
+                        totalPetWins: (character.totalPetWins ?? 0) + 1,
+                        dailyPetWins: (character.dailyPetWins ?? 0) + 1,
+                        lastDailyReset: currentDateKey(),
+                    });
+                }
+            })();
             if (pendingClanPetBattle) {
                 void addClanWarPoints(pendingClanPetBattle.clanName ?? character.clan, character.name, pendingClanPetBattle.points);
                 setBattleLog([...battle.logs, `${character.name} earned ${pendingClanPetBattle.points} clan war points by winning the pet battle against ${pendingClanPetBattle.opponentName}.`]);
             }
+        } else if (opponent.owner === "Hollow Gate") {
+            // Pet duel lost inside the Hollow Gate Shrine — trainer takes
+            // 20% maxHp damage as residual chakra burns through the seal.
+            // Mirrors the Arena loss rule for non-boss Hollow Gate fights.
+            // Player still returns to the shrine via the exit button's
+            // returnScreen; not hospitalized, not run-ending.
+            const dmg = Math.max(1, Math.floor(character.maxHp * 0.20));
+            const nextHp = Math.max(1, character.hp - dmg);
+            updateCharacter({ ...character, hp: nextHp });
+            setBattleLog([...battle.logs, `${character.name} took ${dmg} HP (20% of max) as the Hollow Beast's chakra recoiled through the seal.`]);
         }
         if (pendingClanPetBattle) savePendingClanPetBattle(null);
     }
@@ -12582,19 +15826,58 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
     return (
         <div className="card pet-arena-screen">
             <div className="pet-arena-header">
-                <button className="back-btn" onClick={() => setScreen("centralHub")}>Back to Central</button>
+                {/* Back button label adapts to context — Hollow Gate pet
+                    duels route back to the shrine, not the central hub. */}
+                <button
+                    className="back-btn"
+                    onClick={() => {
+                        const back = (pendingPetBattleOpponent?.returnScreen || battleOpponent?.returnScreen) ?? "centralHub";
+                        setScreen(back);
+                    }}
+                >
+                    {(pendingPetBattleOpponent?.owner === "Hollow Gate" || battleOpponent?.owner === "Hollow Gate")
+                        ? "Back to Shrine"
+                        : "Back to Central"}
+                </button>
                 <div>
-                    <h2>Pet Arena</h2>
-                    <p className="hint">{pendingClanPetBattle ? `Clan war pet battle pending against ${pendingClanPetBattle.opponentName}. Win to earn ${pendingClanPetBattle.points} clan points.` : "Autobattle only. Pets choose actions using ordered AI rules: low HP buff, opener, highest-power jutsu, then basic attack."}</p>
+                    {(pendingPetBattleOpponent?.owner === "Hollow Gate" || battleOpponent?.owner === "Hollow Gate") ? (
+                        <>
+                            <h2 style={{ color: "#a855f7" }}>⛩ Hollow Gate — Hollow Beast Duel</h2>
+                            <p className="hint" style={{ color: "#c4b5fd" }}>Your pet faces a corrupted Hollow Beast. Win to claim victory and continue the run; lose to take 20% HP damage and return to the shrine.</p>
+                        </>
+                    ) : (
+                        <>
+                            <h2>Pet Arena</h2>
+                            <p className="hint">{pendingClanPetBattle ? `Clan war pet battle pending against ${pendingClanPetBattle.opponentName}. Win to earn ${pendingClanPetBattle.points} clan points.` : "Autobattle only. Pets choose actions using ordered AI rules: low HP buff, opener, highest-power jutsu, then basic attack."}</p>
+                        </>
+                    )}
                 </div>
             </div>
 
             {duelChallenges.filter((c) => c.mode === "clanWarPet" && !c.clanWarPoints && c.toName.toLowerCase() === character.name.toLowerCase()).map((c) => (
                 <div key={c.id} className="summary-box" style={{ background: "#1e3a2f", border: "1px solid #4ade80", marginBottom: 8, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                    <span>🐾 <strong>{c.fromName}</strong> challenged you to a pet battle!</span>
+                    <span>{c.petParty ? "🐾🐾" : "🐾"} <strong>{c.fromName}</strong> challenged you to a {c.petParty ? "2v2 pet battle" : "pet battle"}!</span>
                     <div className="menu" style={{ marginLeft: "auto" }}>
                         <button onClick={() => {
                             const challengerPet = c.challenger.pets.find(p => p.id === c.challengerPetId && !isPetOnExpedition(p)) ?? c.challenger.pets.find(p => !isPetOnExpedition(p));
+                            // Party path: auto-pick our top 2 available pets by
+                            // level + reconstruct challenger's pair from the IDs
+                            // they sent. Fall back to 1v1 if either side can't
+                            // field two pets.
+                            const wantsParty = c.petParty === true && Array.isArray(c.challengerPetIds);
+                            const myAvailable = character.pets.filter(p => !isPetOnExpedition(p));
+                            let myParty: [Pet, Pet] | null = null;
+                            let chParty: [Pet, Pet] | null = null;
+                            if (wantsParty && myAvailable.length >= 2 && challengerPet) {
+                                const sorted = [...myAvailable].sort((a, b) => (b.level ?? 0) - (a.level ?? 0));
+                                myParty = [sorted[0], sorted[1]] as [Pet, Pet];
+                                const [chId1, chId2] = c.challengerPetIds!;
+                                const ch1 = c.challenger.pets.find(p => p.id === chId1) ?? challengerPet;
+                                const ch2 = c.challenger.pets.find(p => p.id === chId2 && p.id !== ch1.id)
+                                    ?? c.challenger.pets.find(p => p.id !== ch1.id);
+                                if (ch1 && ch2) chParty = [ch1, ch2] as [Pet, Pet];
+                            }
+                            const doParty = !!(wantsParty && myParty && chParty);
                             setDuelChallenges(duelChallenges.filter((x) => x.id !== c.id));
                             fetch('/api/player/challenge', {
                                 method: 'DELETE',
@@ -12604,10 +15887,29 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                             fetch('/api/player/challenge', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ targetName: c.fromName, challenge: { ...c, accepted: true, fromName: character.name, toName: c.fromName, responderPetId: selectedPet?.id, responderPet: selectedPet } }),
+                                body: JSON.stringify({ targetName: c.fromName, challenge: {
+                                    ...c, accepted: true,
+                                    fromName: character.name, toName: c.fromName,
+                                    responderPetId: selectedPet?.id, responderPet: selectedPet,
+                                    ...(doParty && myParty ? {
+                                        petParty: true,
+                                        responderPetIds: [myParty[0].id, myParty[1].id] as [string, string],
+                                        responderParty: myParty,
+                                    } : {}),
+                                } }),
                             }).catch(() => {});
-                            if (challengerPet) startBattle({ owner: c.fromName, pet: challengerPet, battleSeed: c.petBattleSeed });
-                        }}>✅ Accept & Fight</button>
+                            if (challengerPet) {
+                                startBattle({
+                                    owner: c.fromName,
+                                    pet: challengerPet,
+                                    battleSeed: c.petBattleSeed,
+                                    ...(doParty && chParty && myParty ? {
+                                        opponentParty: chParty,
+                                        challengerParty: myParty,
+                                    } : {}),
+                                });
+                            }
+                        }}>{c.petParty ? "✅ Accept & Fight (2v2)" : "✅ Accept & Fight"}</button>
                         <button className="danger-button" onClick={() => {
                             setDuelChallenges(duelChallenges.filter((x) => x.id !== c.id));
                             fetch('/api/player/challenge', {
@@ -12632,7 +15934,7 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                         <p className="hint">You need a pet before entering the arena.</p>
                     ) : (
                         <select value={selectedPetId} onChange={(e) => setSelectedPetId(e.target.value)}>
-                            {character.pets.map((pet) => <option key={pet.id} value={pet.id}>{petDisplayName(pet)} | Lv {pet.level} | {pet.rarity}</option>)}
+                            {character.pets.map((pet) => <option key={pet.id} value={pet.id}>{petDisplayName(pet)} | Lv {pet.level} | {pet.rarity}{pet.element && pet.element !== "None" ? ` | ${pet.element}` : ""}</option>)}
                         </select>
                     )}
                     {selectedPet && <PetArenaCard owner="You" pet={selectedPet} sharedImages={sharedImages} />}
@@ -12723,9 +16025,34 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                 </section>
             </div>
 
+            {opponentMode === "ai" && character.pets.length >= 2 && (
+                <div className="summary-box" style={{ marginTop: "0.4rem" }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", cursor: "pointer" }}>
+                        <input type="checkbox" checked={partyMode} onChange={(e) => setPartyMode(e.target.checked)} />
+                        <strong>🐾🐾 2v2 Party Battle</strong>
+                        <span className="hint" style={{ marginLeft: "auto", fontSize: "0.85rem" }}>
+                            Lead vs lead, then reserve vs reserve. Best of 2 wins the set.
+                        </span>
+                    </label>
+                    {partyMode && (
+                        <div style={{ marginTop: "0.5rem", display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+                            <label>Reserve pet:</label>
+                            <select value={reservePetId} onChange={(e) => setReservePetId(e.target.value)} style={{ padding: "0.3rem" }}>
+                                <option value="">— auto-pick —</option>
+                                {character.pets.filter(p => p.id !== selectedPetId).map(p => (
+                                    <option key={p.id} value={p.id}>{petDisplayName(p)} (Lv {p.level}{p.element && p.element !== "None" ? `, ${p.element}` : ""})</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+                </div>
+            )}
+
             <div className="menu">
                 {opponentMode === "ai" && (
-                    <button onClick={() => startBattle()} disabled={!selectedPet || !selectedOpponent}>Start Battle</button>
+                    <button onClick={() => startBattle()} disabled={!selectedPet || !selectedOpponent}>
+                        {partyMode && character.pets.length >= 2 ? "Start 2v2 Set" : "Start Battle"}
+                    </button>
                 )}
                 {battleReady && battleFrames.length > 0 && (
                     <button onClick={() => {
@@ -12742,6 +16069,17 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                 {battleReady && showResult && result && <strong className={result === "Victory" ? "pet-arena-win" : "pet-arena-loss"}>{result}</strong>}
             </div>
 
+            {partyResult && battleReady && showResult && (
+                <div className="summary-box" style={{ marginTop: "0.4rem", padding: "0.5rem 0.7rem" }}>
+                    <strong>Set: {partyResult.playerWins}–{partyResult.opponentWins}{partyResult.draws ? ` (${partyResult.draws} draw)` : ""}</strong>
+                    {partyResult.matches.map((m, i) => (
+                        <div key={i} style={{ fontSize: "0.85rem", color: "#94a3b8", marginTop: 2 }}>
+                            Match {i + 1}: {m.playerPet?.name ?? "—"} vs {m.opponentPet?.name ?? "—"} → <strong style={{ color: m.result === "win" ? "#4ade80" : m.result === "loss" ? "#f87171" : "#facc15" }}>{m.result}</strong>
+                        </div>
+                    ))}
+                </div>
+            )}
+
             {battleReady && selectedPet && (battleOpponent ?? selectedOpponent) && (
                 <PetArenaBattlefield
                     playerPet={selectedPet}
@@ -12757,7 +16095,15 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                         setIsPlaying(true);
                     }}
                     onFightAgain={startBattle}
-                    onExit={() => { setBattleOpponent(null); setBattleReady(false); setScreen("centralHub"); }}
+                    onExit={() => {
+                        // Honour the opponent's returnScreen override if provided —
+                        // Hollow Gate pet_battle tiles set this to "hollowGateShrine"
+                        // so the duel sends you back to the dungeon, not the village hub.
+                        const back = battleOpponent?.returnScreen ?? "centralHub";
+                        setBattleOpponent(null);
+                        setBattleReady(false);
+                        setScreen(back);
+                    }}
                     sharedImages={sharedImages}
                 />
             )}
@@ -12923,7 +16269,7 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, frame, recentFra
                         const occupiedByPlayer = index === playerPos;
                         const occupiedByEnemy  = index === enemyPos;
                         const isObstacle  = (obstacles ?? []).includes(index);
-                        const isTrail     = index >= 28 && index <= 41; // row 2 of 14-col grid
+                        const isTrail     = index >= 42 && index <= 55; // row 3 of 14-col, 7-row grid (centre lane)
                         const isActionTile = frame?.actionKind && (occupiedByPlayer || occupiedByEnemy);
                         const hasEffect   = index === effectTile && frame?.actionKind;
                         return (
@@ -13032,6 +16378,8 @@ function AdminPanel({
     playerRoster,
     allServerPlayers,
     adminPw,
+    sharedImages,
+    setSharedImages,
 }: {
     character: Character;
     updateCharacter: (character: Character) => void;
@@ -13074,6 +16422,8 @@ function AdminPanel({
     playerRoster: PlayerRecord[];
     allServerPlayers: ServerPlayerSummary[];
     adminPw: string;
+    sharedImages: Record<string, string>;
+    setSharedImages: Dispatch<SetStateAction<Record<string, string>>>;
 }) {
     // Always-fresh ref to onSave so async callbacks don't capture a stale closure
     const onSaveRef = useRef(onSave);
@@ -13566,7 +16916,7 @@ function AdminPanel({
     const [aiJutsuIds, setAiJutsuIds] = useState<string[]>(starterJutsus.slice(0, 4).map((jutsu) => jutsu.id));
     const [aiRules, setAiRules] = useState<AiRule[]>(starterAiProfile(starterJutsus).rules);
     const [selectedAiId, setSelectedAiId] = useState("");
-    const [activeAdminPanel, setActiveAdminPanel] = useState<"jutsuBloodlines" | "eventsRaids" | "visualNovels" | "aiCreator" | "petEditor" | "cardEditor" | "villageLeaders" | "playerManagement" | "hollowGate">("jutsuBloodlines");
+    const [activeAdminPanel, setActiveAdminPanel] = useState<"jutsuBloodlines" | "eventsRaids" | "visualNovels" | "aiCreator" | "petEditor" | "cardEditor" | "villageLeaders" | "playerManagement" | "hollowGate" | "professions" | "moderation">("jutsuBloodlines");
 
     // Hollow Gate admin tab state — prompts, current preview images, busy/status
     // strings. Preview images are seeded from the existing shared KV on first
@@ -13597,6 +16947,9 @@ function AdminPanel({
             "shrine:tile-corrupted-shinobi",
             "shrine:tile-shrine-keeper",
             "shrine:tile-wall",
+            "shrine:tile-room-floor",
+            "shrine:tile-corridor-floor",
+            "shrine:tile-door",
             "shrine:tile-story",
             "shrine:intro-1",
             "shrine:intro-2",
@@ -13882,7 +17235,6 @@ function AdminPanel({
                 // matches the fresh server. Preserve leadership images and admin session.
                 const preserve = new Set([
                     STORAGE,
-                    PLAYER_ACCOUNTS_STORAGE,
                 ]);
                 const toRemove: string[] = [];
                 for (let i = 0; i < localStorage.length; i++) {
@@ -13891,14 +17243,22 @@ function AdminPanel({
                     if (
                         key.startsWith("village-state-") ||
                         key.startsWith("shinobij-village-war-") ||
-                        key.startsWith("shinobij-sector-territory-")
+                        key.startsWith("shinobij-sector-territory-") ||
+                        key === PLAYER_ACCOUNTS_STORAGE
                     ) {
                         toRemove.push(key);
                     }
                 }
                 toRemove.forEach(k => localStorage.removeItem(k));
-                // Clear stale local player account cache
-                localStorage.removeItem(PLAYER_ACCOUNTS_STORAGE);
+                // Drop sessionStorage image-category caches so portraits re-fetch
+                // fresh from the server's re-seeded shared:imgfields:misc bucket.
+                try {
+                    for (let i = sessionStorage.length - 1; i >= 0; i--) {
+                        const key = sessionStorage.key(i);
+                        if (!key) continue;
+                        if (key.startsWith("imgcat:")) sessionStorage.removeItem(key);
+                    }
+                } catch { /* ignore */ }
                 setAllKnownPlayers([]);
                 setServerResetMsg(`✅ Server reset complete — ${data.deletedCount ?? 0} keys wiped. All images and admin content preserved. Players start fresh on next login.`);
             } else {
@@ -14755,6 +18115,12 @@ function AdminPanel({
                 </button>
                 <button className={activeAdminPanel === "hollowGate" ? "active" : ""} onClick={() => setActiveAdminPanel("hollowGate")}>
                     ⛩ Hollow Gate
+                </button>
+                <button className={activeAdminPanel === "professions" ? "active" : ""} onClick={() => setActiveAdminPanel("professions")}>
+                    🧑‍⚕️ Professions
+                </button>
+                <button className={activeAdminPanel === "moderation" ? "active" : ""} onClick={() => setActiveAdminPanel("moderation")}>
+                    🛡 Moderation
                 </button>
             </div>
 
@@ -17280,7 +20646,7 @@ function AdminPanel({
                         key: "landmark:hollow-gate",
                         name: "Hollow Gate (world-map landmark)",
                         category: "Location",
-                        defaultPrompt: "Hollow Gate shrine entrance on a world map, ancient broken torii gate bound with glowing violet chakra chains, perched on a black stone outcrop between forested sectors, hidden shinobi location, top-down map landmark art, painted RPG world icon",
+                        defaultPrompt: "Square game-icon of a single large dark-purple Japanese torii gate, front-on view, centered subject filling the frame, deep violet lacquered beams with glowing chakra-rune seals, faintly cracked stone base, no background buildings or trees, flat near-black background with subtle purple haze, painted RPG world icon, ninja shinobi map landmark art, no text, no border, no UI elements",
                     },
                     {
                         key: "shrine:hollow-gate-background",
@@ -17332,10 +20698,47 @@ function AdminPanel({
                         defaultPrompt: "Shrine Keeper, ancient hooded shinobi tending a violet chakra brazier inside a Hollow Gate shrine corridor, lined face, kind eyes, simple grey robes with purple sigils, mystical NPC portrait, painted ninja RPG character art",
                     },
                     {
+                        // Shared wild-pet portrait for Hollow Gate pet_battle
+                        // encounters. When set, overrides the individual pet
+                        // template's image so every Hollow Beast looks part
+                        // of the same shadow-corruption aesthetic.
+                        key: "shrine:tile-hollow-beast",
+                        name: "Hollow Beast (wild pet portrait)",
+                        category: "Tile / Scene",
+                        defaultPrompt: "Hollow Beast, corrupted spirit beast bound by violet chakra mist inside a shadow shinobi shrine, eyes burning chakra-blue, fractured shadow body, faint ancient sigils orbiting it, painted ninja RPG creature portrait",
+                    },
+                    {
+                        // Tile-game scene + the shadow NPC opponent who runs
+                        // the 3x3 card duel. Used as the modal/scene art for
+                        // the Shinobi Tile encounter tile.
+                        key: "shrine:tile-tile-game",
+                        name: "Shinobi Tile Game (NPC + table)",
+                        category: "Tile / Scene",
+                        defaultPrompt: "A hooded shadow opponent sits across a glowing stone table inside a Hollow Gate shrine, nine tile-shaped slots etched into the table glowing violet, faint chakra cards floating between them, painted ninja RPG card-game scene art",
+                    },
+                    {
                         key: "shrine:tile-wall",
                         name: "Wall tile texture",
                         category: "Tile / Scene",
                         defaultPrompt: "Seamless dark stone shrine wall texture tile, weathered ancient masonry with violet chakra-burned cracks, faint purple seal runes faded into the stone, top-down dungeon tile, game-ready square tile art, painted ninja RPG environment art",
+                    },
+                    {
+                        key: "shrine:tile-room-floor",
+                        name: "Room floor tile texture",
+                        category: "Tile / Scene",
+                        defaultPrompt: "Seamless polished dark slate shrine room floor texture, faint violet chakra grout between stone tiles, scattered dust and old ash, gently glowing seal runes inset, top-down dungeon floor tile, game-ready square tile art, painted ninja RPG environment art",
+                    },
+                    {
+                        key: "shrine:tile-corridor-floor",
+                        name: "Corridor floor tile texture",
+                        category: "Tile / Scene",
+                        defaultPrompt: "Seamless narrow shrine corridor floor texture, dark rough cobblestone with violet chakra moss in the cracks, water-stained edges, dim, claustrophobic top-down dungeon corridor tile, game-ready square tile art, painted ninja RPG environment art",
+                    },
+                    {
+                        key: "shrine:tile-door",
+                        name: "Door / threshold tile texture",
+                        category: "Tile / Scene",
+                        defaultPrompt: "Top-down view of an open shrine doorway, warm warded wood threshold framed by violet seal kanji on the floor, between a dark corridor and a torchlit room, game-ready square tile art, painted ninja RPG environment art",
                     },
                     {
                         key: "shrine:tile-story",
@@ -17520,7 +20923,14 @@ function AdminPanel({
                                                                         delete next[asset.key];
                                                                         return next;
                                                                     });
-                                                                    await publishSharedImage(asset.key, "");
+                                                                    // Real DELETE — empty-string POST used to silently fail
+                                                                    // server validation and leave the image in KV.
+                                                                    try {
+                                                                        await fetch(`/api/images?id=${encodeURIComponent(asset.key)}`, { method: 'DELETE' });
+                                                                        try { sessionStorage.removeItem(`imgcat:shrine`); } catch { /* ignore */ }
+                                                                    } catch (err) {
+                                                                        console.warn("[asset clear] DELETE failed", err);
+                                                                    }
                                                                 }}>Clear</button>
                                                             )}
                                                         </div>
@@ -17537,6 +20947,9 @@ function AdminPanel({
                             <code> ai:&lt;id&gt;</code> for AI portraits, and <code>landmark:</code> / <code>shrine:</code> keys for shrine scenes.
                             The Hollow Gate Warden boss image is mirrored into creatorAis so the live battle picks it up.
                         </p>
+
+                        {/* ── Atlas Tile Picker — visual coord selector ──────────────── */}
+                        <KenneyAtlasPicker sharedImages={sharedImages} setSharedImages={setSharedImages} />
 
                         {/* ── Admin Ops — Stats, Run/State Tools, Configuration ───────── */}
                         <section className="summary-box" style={{ marginTop: 16 }}>
@@ -17658,6 +21071,85 @@ function AdminPanel({
                 );
             })()}
 
+            {activeAdminPanel === "professions" && (() => {
+                // Profession picker image slots. Each row is a key the picker
+                // reads from sharedImages; upload a file to publish to the
+                // shared KV. Picker falls back to color gradients when missing.
+                const slots: Array<{ key: string; label: string; hint: string }> = [
+                    { key: "profession:backdrop", label: "Village backdrop (intro + choose pages)", hint: "Wide landscape — village square or elder's hall. Used as the dim backdrop behind the picker." },
+                    { key: "profession:elder-portrait", label: "Elder portrait (intro page)", hint: "Square portrait of the village elder speaking to the player. ~512x512." },
+                    { key: "profession:portrait-petTamer", label: "Pet Tamer choice card", hint: "Square art — shinobi with a beast companion. ~512x512." },
+                    { key: "profession:portrait-healer", label: "Healer choice card", hint: "Square art — medical-nin tending to a patient. ~512x512." },
+                    { key: "profession:portrait-vanguard", label: "Vanguard choice card", hint: "Square art — shinobi leading a charge. ~512x512." },
+                ];
+
+                async function uploadProfessionImage(key: string, file: File) {
+                    const reader = new FileReader();
+                    reader.onload = async () => {
+                        try {
+                            const img = await compressDataUrl(reader.result as string, 512, 0.82);
+                            const ok = await publishSharedImage(key, img);
+                            if (!ok) alert(`Failed to publish ${key} to shared KV. Try again.`);
+                        } catch (err) {
+                            alert(`Upload failed: ${err instanceof Error ? err.message : "unknown"}`);
+                        }
+                    };
+                    reader.readAsDataURL(file);
+                }
+
+                return (
+                    <div className="admin-subpanel">
+                        <div className="admin-panel-heading">
+                            <h3>🧑‍⚕️ Profession Picker — Image Slots</h3>
+                            <p className="hint">
+                                Upload images shown in the Level-13 profession picker (visual novel + choice cards).
+                                Each slot is a shared image key; the picker falls back to a colored gradient when no
+                                image is set. Recommended size: square 512×512 for portraits, wide 1024×512 for the backdrop.
+                            </p>
+                        </div>
+                        <div style={{ display: "grid", gap: 10 }}>
+                            {slots.map(slot => {
+                                const currentImage = sharedImages[slot.key];
+                                return (
+                                    <div key={slot.key} className="summary-box" style={{ display: "grid", gridTemplateColumns: "120px 1fr auto", gap: 12, alignItems: "center" }}>
+                                        <div style={{ width: 120, height: 120, background: "rgba(0,0,0,0.45)", border: "1px dashed rgba(168,85,247,0.4)", borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                                            {currentImage
+                                                ? <img src={currentImage} alt={slot.label} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                                                : <span style={{ color: "#a78bfa", fontSize: 11, textAlign: "center", padding: 6 }}>No image yet</span>}
+                                        </div>
+                                        <div>
+                                            <strong>{slot.label}</strong>
+                                            <p className="hint" style={{ margin: "4px 0 0", fontSize: "0.78rem" }}>{slot.hint}</p>
+                                            <code style={{ fontSize: "0.72rem", color: "#94a3b8" }}>{slot.key}</code>
+                                        </div>
+                                        <label style={{ cursor: "pointer", padding: "6px 12px", background: "linear-gradient(135deg, #7c3aed, #a855f7)", borderRadius: 4, color: "#faf5ff", fontSize: "0.85rem" }}>
+                                            {currentImage ? "Replace" : "Upload"}
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                style={{ display: "none" }}
+                                                onChange={(e) => {
+                                                    const file = e.target.files?.[0];
+                                                    if (file) void uploadProfessionImage(slot.key, file);
+                                                }}
+                                            />
+                                        </label>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        <p className="hint" style={{ marginTop: 12 }}>
+                            Tip: portraits look best with the character centered and a transparent or color-matched background.
+                            The picker uses the profession's accent color (cyan / orange / lime) on top of the uploaded image.
+                        </p>
+                    </div>
+                );
+            })()}
+
+            {activeAdminPanel === "moderation" && (
+                <ModerationPanel adminPw={adminPw} />
+            )}
+
             <div className="menu">
                 <button onClick={() => setScreen("worldMap")}>Test World Map</button>
                 <button onClick={() => setScreen("profile")}>Test Profile</button>
@@ -17666,6 +21158,535 @@ function AdminPanel({
             </div>
             <p className="hint">Total available jutsus right now: {allGameJutsus.length}</p>
         </div>
+    );
+}
+
+// ── Kenney Atlas Tile Picker (Hollow Gate admin) ───────────────────────────
+// Loads /assets/dungeon/tilemap.png and renders the 29×18 tile grid as a
+// clickable scrollable preview. The user clicks a tile to copy its (col, row)
+// to the clipboard — then they edit the KENNEY_ATLAS const in App.tsx with
+// the picked coords. This finally lets a real human visually verify which
+// tile is at which atlas position, instead of me guessing blind.
+function KenneyAtlasPicker({
+    sharedImages,
+    setSharedImages,
+}: {
+    sharedImages: Record<string, string>;
+    setSharedImages: Dispatch<SetStateAction<Record<string, string>>>;
+}) {
+    // ── Atlas registry ────────────────────────────────────────────────────
+    // Drop additional Kenney CC0 packs into shinobij.client/public/assets/
+    // dungeon/ and add them here. Each entry is a candidate the user can
+    // pick from the dropdown. The custom-URL field below also lets them
+    // load any URL ad-hoc without editing this list.
+    const KNOWN_ATLASES: Array<{ id: string; label: string; url: string; tileSize: number; gap: number }> = [
+        // ── Already in the repo ──
+        { id: "caves",          label: "Kenney — Roguelike Caves & Dungeons (terrain)",  url: "/assets/dungeon/tilemap.png",                  tileSize: 16, gap: 1 },
+        // 0x72's Dungeon Tileset II — best single-atlas coverage: chests, monsters,
+        // wizards, knights, skeletons, demons, doors, stairs, traps, torches,
+        // weapons, potions. CC-BY-4.0 — credit "0x72" in README.
+        { id: "0x72",           label: "0x72 — Dungeon Tileset II (chars + chests + monsters)", url: "/assets/dungeon/0x72-dungeon-tileset-ii.png", tileSize: 16, gap: 0 },
+        // Companion atlases packaged alongside 0x72 (or similar community pack):
+        // floor/wall tilesets split into separate files. Useful if the user wants
+        // very specific dungeon surfaces.
+        { id: "atlas-floor",      label: "Atlas — Floor tiles (16×16)",     url: "/assets/dungeon/atlas-floor.png",      tileSize: 16, gap: 0 },
+        { id: "atlas-walls-low",  label: "Atlas — Low walls (16×16)",       url: "/assets/dungeon/atlas-walls-low.png",  tileSize: 16, gap: 0 },
+        { id: "atlas-walls-high", label: "Atlas — High walls (16×32)",      url: "/assets/dungeon/atlas-walls-high.png", tileSize: 16, gap: 0 },
+        // ── Drop-in slots for additional Kenney packs (file just needs to exist) ──
+        { id: "tiny-dungeon",   label: "Kenney — Tiny Dungeon (drop in tiny-dungeon.png)", url: "/assets/dungeon/tiny-dungeon.png", tileSize: 16, gap: 1 },
+        { id: "characters",     label: "Kenney — Roguelike Characters (drop in characters.png)", url: "/assets/dungeon/characters.png", tileSize: 16, gap: 1 },
+    ];
+    const PICKER_LS_KEY = "hollowGate.atlasPicker.config.v1";
+
+    // Hydrate from localStorage so admin doesn't lose their atlas selection
+    // when the page reloads.
+    const loadInitial = (): { url: string; tileSize: number; gap: number } => {
+        try {
+            const raw = localStorage.getItem(PICKER_LS_KEY);
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (parsed.url && typeof parsed.tileSize === "number") return parsed;
+            }
+        } catch { /* ignore */ }
+        return { url: KNOWN_ATLASES[0].url, tileSize: 16, gap: 1 };
+    };
+
+    const initial = loadInitial();
+    const [atlasUrlInput, setAtlasUrlInput] = useState(initial.url);
+    const [atlasTileSize, setAtlasTileSize] = useState(initial.tileSize);
+    const [atlasGap, setAtlasGap] = useState(initial.gap);
+    const [atlas, setAtlas] = useState<{ url: string; w: number; h: number; tileSize: number; gap: number; img: HTMLImageElement } | null>(null);
+    const [loadError, setLoadError] = useState<string>("");
+    const [hoverCoord, setHoverCoord] = useState<{ x: number; y: number } | null>(null);
+    const [pickedCoord, setPickedCoord] = useState<{ x: number; y: number } | null>(null);
+    const [zoom, setZoom] = useState(3);
+    // Currently-selected slot for one-click slot assignment. When set, clicking
+    // a tile in the atlas slices it + uploads to KV under shrine:icon-<id>.
+    const [assignSlot, setAssignSlot] = useState<string>("");
+    const [busySlot, setBusySlot] = useState<string>("");
+    const [savedToast, setSavedToast] = useState<{ slot: string; ts: number } | null>(null);
+
+    // Re-load whenever the URL / tile-size / gap inputs change. Debounce-free
+    // since each user action (Load click, dropdown change) updates state.
+    useEffect(() => {
+        setLoadError("");
+        const img = new Image();
+        img.onload = () => {
+            setAtlas({
+                url: img.src,
+                w: img.naturalWidth,
+                h: img.naturalHeight,
+                tileSize: atlasTileSize,
+                gap: atlasGap,
+                img,
+            });
+            try {
+                localStorage.setItem(PICKER_LS_KEY, JSON.stringify({
+                    url: atlasUrlInput,
+                    tileSize: atlasTileSize,
+                    gap: atlasGap,
+                }));
+            } catch { /* ignore */ }
+        };
+        img.onerror = () => {
+            setAtlas(null);
+            setLoadError(`Couldn't load "${atlasUrlInput}". Drop the PNG into shinobij.client/public/assets/dungeon/ first.`);
+        };
+        img.src = atlasUrlInput;
+    }, [atlasUrlInput, atlasTileSize, atlasGap]);
+
+    const atlasConfigBar = (
+        <div style={{ marginBottom: 10, padding: 10, background: "rgba(15,9,28,0.6)", borderRadius: 6, border: "1px solid rgba(168,85,247,0.25)" }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "end", flexWrap: "wrap", fontSize: 13 }}>
+                <label style={{ display: "grid", gap: 2, flex: "1 1 280px", minWidth: 240 }}>
+                    <span style={{ color: "#c4b5fd" }}>Atlas URL</span>
+                    <input
+                        type="text"
+                        value={atlasUrlInput}
+                        onChange={(e) => setAtlasUrlInput(e.target.value)}
+                        placeholder="/assets/dungeon/tilemap.png"
+                        style={{ padding: "4px 8px", background: "rgba(0,0,0,0.4)", color: "#e9d5ff", border: "1px solid rgba(168,85,247,0.4)", borderRadius: 4, fontFamily: "monospace", fontSize: 12 }}
+                    />
+                </label>
+                <label style={{ display: "grid", gap: 2 }}>
+                    <span style={{ color: "#c4b5fd" }}>Tile size</span>
+                    <input
+                        type="number" min={4} max={64}
+                        value={atlasTileSize}
+                        onChange={(e) => setAtlasTileSize(Math.max(4, Number(e.target.value) || 16))}
+                        style={{ width: 60, padding: "4px 6px", background: "rgba(0,0,0,0.4)", color: "#e9d5ff", border: "1px solid rgba(168,85,247,0.4)", borderRadius: 4 }}
+                    />
+                </label>
+                <label style={{ display: "grid", gap: 2 }}>
+                    <span style={{ color: "#c4b5fd" }}>Gap (px)</span>
+                    <input
+                        type="number" min={0} max={8}
+                        value={atlasGap}
+                        onChange={(e) => setAtlasGap(Math.max(0, Number(e.target.value) || 0))}
+                        style={{ width: 60, padding: "4px 6px", background: "rgba(0,0,0,0.4)", color: "#e9d5ff", border: "1px solid rgba(168,85,247,0.4)", borderRadius: 4 }}
+                    />
+                </label>
+                <label style={{ display: "grid", gap: 2, flex: "1 1 200px" }}>
+                    <span style={{ color: "#c4b5fd" }}>Known atlases</span>
+                    <select
+                        value=""
+                        onChange={(e) => {
+                            const pick = KNOWN_ATLASES.find(a => a.id === e.target.value);
+                            if (!pick) return;
+                            setAtlasUrlInput(pick.url);
+                            setAtlasTileSize(pick.tileSize);
+                            setAtlasGap(pick.gap);
+                        }}
+                        style={{ padding: "4px 8px", background: "rgba(0,0,0,0.4)", color: "#e9d5ff", border: "1px solid rgba(168,85,247,0.4)", borderRadius: 4 }}
+                    >
+                        <option value="">— Load preset —</option>
+                        {KNOWN_ATLASES.map(a => <option key={a.id} value={a.id}>{a.label}</option>)}
+                    </select>
+                </label>
+            </div>
+            {loadError && (
+                <p className="hint" style={{ marginTop: 6, color: "#fda4af", fontSize: 12 }}>{loadError}</p>
+            )}
+            {!loadError && atlas && (
+                <p className="hint" style={{ marginTop: 6, color: "#86efac", fontSize: 12 }}>
+                    Loaded <code>{atlas.url.split("/").pop()}</code> — {atlas.w}×{atlas.h} px.
+                </p>
+            )}
+        </div>
+    );
+
+    if (!atlas) {
+        return (
+            <section className="summary-box" style={{ marginTop: 12 }}>
+                <h3>🗂 Atlas Tile Picker</h3>
+                {atlasConfigBar}
+                <p className="hint">
+                    Type an atlas URL or pick a preset above. Drop the PNG into
+                    <code> shinobij.client/public/assets/dungeon/</code> with a matching
+                    filename and it'll load automatically.
+                </p>
+            </section>
+        );
+    }
+
+    const stride = atlas.tileSize + atlas.gap;
+    const cols = Math.floor((atlas.w + atlas.gap) / stride);
+    const rows = Math.floor((atlas.h + atlas.gap) / stride);
+    const displayedTileSize = atlas.tileSize * zoom;
+
+    // Slice a tile from the atlas at (x,y) and return a data URL.
+    // Mirrors the slicer logic in the App-level useEffect — kept here as a
+    // local helper so the picker can render previews + push to KV.
+    function sliceTile(x: number, y: number): string | null {
+        try {
+            const ts = atlas!.tileSize;
+            const stride = ts + atlas!.gap;
+            const scale = 4;
+            const outSize = ts * scale;
+            const canvas = document.createElement("canvas");
+            canvas.width = outSize;
+            canvas.height = outSize;
+            const ctx = canvas.getContext("2d");
+            if (!ctx) return null;
+            ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(atlas!.img, x * stride, y * stride, ts, ts, 0, 0, outSize, outSize);
+            return canvas.toDataURL("image/png");
+        } catch (err) {
+            console.warn("[Atlas picker slice] failed", err);
+            return null;
+        }
+    }
+
+    async function assignTileToSlot(slotId: string, x: number, y: number) {
+        const url = sliceTile(x, y);
+        if (!url) {
+            alert("Could not slice tile from atlas. Check console.");
+            return;
+        }
+        const key = HOLLOW_GATE_ICON_KEY(slotId);
+        setBusySlot(slotId);
+        // Optimistic: paint the slice into sharedImages immediately so the
+        // dungeon + legend update before the KV round-trip lands.
+        setSharedImages(prev => ({ ...prev, [key]: url }));
+        const ok = await publishSharedImage(key, url);
+        setBusySlot("");
+        if (ok) {
+            setSavedToast({ slot: slotId, ts: Date.now() });
+            setTimeout(() => setSavedToast(curr => (curr && curr.ts === Date.now() ? null : curr)), 2500);
+        } else {
+            alert(`Saved locally but the KV publish failed — refreshing the page will lose this assignment.`);
+        }
+    }
+
+    async function clearSlot(slotId: string) {
+        const key = HOLLOW_GATE_ICON_KEY(slotId);
+        if (!confirm(`Clear the atlas image for "${slotId}"? The legend + tile will fall back to the emoji icon.`)) return;
+        setBusySlot(slotId);
+        setSharedImages(prev => {
+            const next = { ...prev };
+            delete next[key];
+            return next;
+        });
+        // Real server-side delete via the new DELETE endpoint — used to be a
+        // POST with empty string which the validator rejected, leaving the
+        // KV record intact and resurrecting the assignment on reload.
+        try {
+            await fetch(`/api/images?id=${encodeURIComponent(key)}`, { method: 'DELETE' });
+            // Bust the cache so a reload re-fetches from KV.
+            try { sessionStorage.removeItem(`imgcat:shrine`); } catch { /* ignore */ }
+        } catch (err) {
+            console.warn("[clearSlot] DELETE failed", err);
+        }
+        setBusySlot("");
+    }
+
+    return (
+        <section className="summary-box" style={{ marginTop: 12 }}>
+            <h3>🗂 Atlas Tile Picker</h3>
+            <p className="hint">
+                Click any tile to copy its <code>(col, row)</code>. Atlas:
+                <strong> {atlas.w}×{atlas.h}</strong> px,
+                <strong> {cols}×{rows}</strong> tiles ({atlas.tileSize}×{atlas.tileSize} with {atlas.gap}px gap).
+                Use the URL field to swap between packs — assignments save under
+                <code> shrine:icon-&lt;slot&gt;</code> regardless of which atlas they came from.
+            </p>
+
+            {/* ── Atlas selector + custom URL ───────────────────────────── */}
+            {atlasConfigBar}
+
+            {/* ── Slot assign banner (current selection + saved toast) ──── */}
+            <div style={{ marginBottom: 10, padding: 8, background: "rgba(168,85,247,0.08)", borderRadius: 6, border: "1px solid rgba(168,85,247,0.2)", fontSize: 13 }}>
+                {assignSlot ? (
+                    <span style={{ color: "#86efac" }}>
+                        ✓ Click any atlas tile to assign it to <strong>{[...HOLLOW_GATE_ICON_SLOTS, ...HOLLOW_GATE_THEME_SLOTS].find(s => s.id === assignSlot)?.label ?? assignSlot}</strong>
+                        <button onClick={() => setAssignSlot("")} style={{ marginLeft: 10, fontSize: 11, padding: "1px 6px", background: "transparent", color: "#fda4af", border: "1px solid rgba(248,113,113,0.3)", borderRadius: 3 }}>cancel</button>
+                    </span>
+                ) : (
+                    <span style={{ color: "#c4b5fd" }}>
+                        Click a slot below to <strong>arm it</strong>, then click any atlas tile to assign that sprite.
+                        Content roles have 4 variants each — the dungeon picks one per tile so adjacent chests / monsters / traps differ.
+                        Themes bundle 4 tiles each; the generator stamps a theme on every room.
+                    </span>
+                )}
+                {savedToast && (
+                    <span style={{ marginLeft: 10, color: "#86efac", fontWeight: 600 }}>
+                        ✅ Saved!
+                    </span>
+                )}
+            </div>
+
+            {/* ── Slot picker, grouped ─────────────────────────────────── */}
+            {(() => {
+                // Per-slot tile box renderer — used by both groups below.
+                const SlotBox = ({ s }: { s: HollowGateIconSlot }) => {
+                    const img = sharedImages[HOLLOW_GATE_ICON_KEY(s.id)];
+                    const armed = assignSlot === s.id;
+                    return (
+                        <div
+                            onClick={() => setAssignSlot(armed ? "" : s.id)}
+                            title={`${s.label} — click to ${armed ? "disarm" : "arm for assignment"}`}
+                            style={{
+                                cursor: "pointer",
+                                display: "flex",
+                                flexDirection: "column",
+                                alignItems: "center",
+                                padding: "4px 4px 2px",
+                                borderRadius: 4,
+                                background: armed
+                                    ? "rgba(168,85,247,0.30)"
+                                    : img ? "rgba(34,197,94,0.10)" : "rgba(15,9,28,0.5)",
+                                border: armed
+                                    ? "2px solid #a855f7"
+                                    : img ? "1px solid rgba(34,197,94,0.4)" : "1px dashed rgba(168,85,247,0.25)",
+                                width: 56,
+                                boxShadow: armed ? "0 0 8px rgba(168,85,247,0.5)" : undefined,
+                            }}
+                        >
+                            <div style={{
+                                width: 42,
+                                height: 42,
+                                background: img ? `url(${img}) center/contain no-repeat` : "rgba(0,0,0,0.3)",
+                                imageRendering: "pixelated",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                color: "#a78bfa",
+                                fontSize: 14,
+                            }}>
+                                {!img && s.kind && hollowGateTileIconForKind(s.kind)}
+                            </div>
+                            <div style={{ textAlign: "center", color: img ? "#86efac" : "#c4b5fd", marginTop: 2, fontSize: 9, lineHeight: 1.1 }}>
+                                v{s.variantIndex}
+                            </div>
+                            {img && (
+                                <button
+                                    disabled={busySlot === s.id}
+                                    onClick={(e) => { e.stopPropagation(); void clearSlot(s.id); }}
+                                    style={{ fontSize: 9, padding: "0 3px", marginTop: 1, background: "transparent", color: "#fda4af", border: "1px solid rgba(248,113,113,0.3)", borderRadius: 3, cursor: "pointer" }}
+                                >×</button>
+                            )}
+                        </div>
+                    );
+                };
+
+                // Group icon slots by variantGroup (role)
+                const rolesGrouped = Object.entries(HOLLOW_GATE_ICON_ROLES).map(([role, cfg]) => ({
+                    role,
+                    cfg,
+                    slots: HOLLOW_GATE_ICON_SLOTS.filter(s => s.variantGroup === role),
+                }));
+
+                return (
+                    <>
+                        <div style={{ marginBottom: 6, fontSize: 12, color: "#c4b5fd", fontWeight: 600 }}>
+                            📍 Content icons — variants picked deterministically per tile
+                        </div>
+                        <div style={{ marginBottom: 12, display: "grid", gridTemplateColumns: "100px 1fr", gap: 6, alignItems: "center" }}>
+                            {rolesGrouped.map(({ role, cfg, slots }) => (
+                                <Fragment key={role}>
+                                    <div style={{ fontSize: 12, color: "#e9d5ff", textAlign: "right", paddingRight: 6 }}>
+                                        {cfg.label}<br/>
+                                        <span style={{ fontSize: 10, color: "#a78bfa" }}>{slots.length} variant{slots.length === 1 ? "" : "s"}</span>
+                                    </div>
+                                    <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                                        {slots.map(s => <SlotBox key={s.id} s={s} />)}
+                                    </div>
+                                </Fragment>
+                            ))}
+                        </div>
+
+                        <div style={{ marginBottom: 6, fontSize: 12, color: "#c4b5fd", fontWeight: 600 }}>
+                            🏛 Room themes — each theme bundles 4 tiles; rooms get a random theme per run
+                        </div>
+                        <div style={{ marginBottom: 12, display: "grid", gridTemplateColumns: "100px 1fr", gap: 6, alignItems: "center" }}>
+                            {HOLLOW_GATE_THEMES.map(theme => {
+                                const themeSlots = HOLLOW_GATE_THEME_SLOTS.filter(s => s.variantGroup === `theme-${theme.id}`);
+                                return (
+                                    <Fragment key={theme.id}>
+                                        <div style={{ fontSize: 12, color: "#e9d5ff", textAlign: "right", paddingRight: 6 }}>
+                                            {theme.label}<br/>
+                                            <span style={{ fontSize: 10, color: "#a78bfa" }}>wall · floor · corridor · door</span>
+                                        </div>
+                                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                                            {themeSlots.map(s => {
+                                                const img = sharedImages[HOLLOW_GATE_ICON_KEY(s.id)];
+                                                const armed = assignSlot === s.id;
+                                                const roleLabel = s.id.split("-").pop()!;
+                                                return (
+                                                    <div
+                                                        key={s.id}
+                                                        onClick={() => setAssignSlot(armed ? "" : s.id)}
+                                                        title={`${s.label} — click to ${armed ? "disarm" : "arm"}`}
+                                                        style={{
+                                                            cursor: "pointer",
+                                                            display: "flex",
+                                                            flexDirection: "column",
+                                                            alignItems: "center",
+                                                            padding: "4px 4px 2px",
+                                                            borderRadius: 4,
+                                                            background: armed
+                                                                ? "rgba(168,85,247,0.30)"
+                                                                : img ? "rgba(34,197,94,0.10)" : "rgba(15,9,28,0.5)",
+                                                            border: armed
+                                                                ? "2px solid #a855f7"
+                                                                : img ? "1px solid rgba(34,197,94,0.4)" : "1px dashed rgba(168,85,247,0.25)",
+                                                            width: 56,
+                                                            boxShadow: armed ? "0 0 8px rgba(168,85,247,0.5)" : undefined,
+                                                        }}
+                                                    >
+                                                        <div style={{
+                                                            width: 42,
+                                                            height: 42,
+                                                            background: img ? `url(${img}) center/contain no-repeat` : "rgba(0,0,0,0.3)",
+                                                            imageRendering: "pixelated",
+                                                        }} />
+                                                        <div style={{ textAlign: "center", color: img ? "#86efac" : "#c4b5fd", marginTop: 2, fontSize: 9, lineHeight: 1.1 }}>
+                                                            {roleLabel}
+                                                        </div>
+                                                        {img && (
+                                                            <button
+                                                                disabled={busySlot === s.id}
+                                                                onClick={(e) => { e.stopPropagation(); void clearSlot(s.id); }}
+                                                                style={{ fontSize: 9, padding: "0 3px", marginTop: 1, background: "transparent", color: "#fda4af", border: "1px solid rgba(248,113,113,0.3)", borderRadius: 3, cursor: "pointer" }}
+                                                            >×</button>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </Fragment>
+                                );
+                            })}
+                        </div>
+                    </>
+                );
+            })()}
+
+            <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 8, fontSize: 13 }}>
+                <label>Zoom:</label>
+                <input type="range" min={1} max={6} value={zoom} onChange={(e) => setZoom(Number(e.target.value))} />
+                <span><strong>{zoom}×</strong></span>
+                {hoverCoord && (
+                    <span style={{ marginLeft: 12, color: "#a78bfa" }}>
+                        Hovering: <code>{`{ x: ${hoverCoord.x}, y: ${hoverCoord.y} }`}</code>
+                    </span>
+                )}
+                {pickedCoord && (
+                    <span style={{ marginLeft: "auto", color: "#86efac" }}>
+                        ✅ Picked: <code style={{ background: "rgba(34,197,94,0.15)", padding: "2px 6px", borderRadius: 4 }}>
+                            {`{ x: ${pickedCoord.x}, y: ${pickedCoord.y} }`}
+                        </code>
+                    </span>
+                )}
+            </div>
+            <div
+                style={{
+                    position: "relative",
+                    overflow: "auto",
+                    maxHeight: 600,
+                    border: "1px solid rgba(168,85,247,0.3)",
+                    borderRadius: 6,
+                    background: "rgba(0,0,0,0.6)",
+                }}
+            >
+                <div
+                    style={{
+                        position: "relative",
+                        width: atlas.w * zoom,
+                        height: atlas.h * zoom,
+                        backgroundImage: `url(${atlas.url})`,
+                        backgroundSize: `${atlas.w * zoom}px ${atlas.h * zoom}px`,
+                        backgroundRepeat: "no-repeat",
+                        imageRendering: "pixelated",
+                    }}
+                    onMouseMove={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const px = (e.clientX - rect.left) / zoom;
+                        const py = (e.clientY - rect.top) / zoom;
+                        const x = Math.floor(px / stride);
+                        const y = Math.floor(py / stride);
+                        if (x >= 0 && y >= 0 && x < cols && y < rows) setHoverCoord({ x, y });
+                        else setHoverCoord(null);
+                    }}
+                    onMouseLeave={() => setHoverCoord(null)}
+                    onClick={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const px = (e.clientX - rect.left) / zoom;
+                        const py = (e.clientY - rect.top) / zoom;
+                        const x = Math.floor(px / stride);
+                        const y = Math.floor(py / stride);
+                        if (x < 0 || y < 0 || x >= cols || y >= rows) return;
+                        setPickedCoord({ x, y });
+                        const text = `{ x: ${x}, y: ${y} }`;
+                        try { void navigator.clipboard.writeText(text); } catch { /* ignore */ }
+                        // If a slot is selected, also slice + upload — one click
+                        // to both preview AND assign the tile to its role.
+                        if (assignSlot) {
+                            void assignTileToSlot(assignSlot, x, y);
+                        }
+                    }}
+                >
+                    {hoverCoord && (
+                        <div
+                            style={{
+                                position: "absolute",
+                                left: hoverCoord.x * stride * zoom,
+                                top: hoverCoord.y * stride * zoom,
+                                width: displayedTileSize,
+                                height: displayedTileSize,
+                                border: "2px solid #fbbf24",
+                                pointerEvents: "none",
+                                boxShadow: "0 0 8px rgba(251,191,36,0.6)",
+                            }}
+                        />
+                    )}
+                    {pickedCoord && (
+                        <div
+                            style={{
+                                position: "absolute",
+                                left: pickedCoord.x * stride * zoom,
+                                top: pickedCoord.y * stride * zoom,
+                                width: displayedTileSize,
+                                height: displayedTileSize,
+                                border: "3px solid #22c55e",
+                                pointerEvents: "none",
+                                boxShadow: "0 0 12px rgba(34,197,94,0.7)",
+                            }}
+                        />
+                    )}
+                </div>
+            </div>
+            <p className="hint" style={{ marginTop: 8 }}>
+                Current defaults in code (likely wrong — use the picker to find correct ones):
+                <br/>
+                • Wall: <code>{`{ x: 8, y: 2 }`}</code> · Room floor: <code>{`{ x: 10, y: 5 }`}</code>
+                <br/>
+                • Corridor floor: <code>{`{ x: 14, y: 6 }`}</code> · Door: <code>{`{ x: 27, y: 1 }`}</code>
+                <br/>
+                • Decorations: torch <code>{`{ x: 18, y: 0 }`}</code>, barrel <code>{`{ x: 2, y: 0 }`}</code>,
+                plant <code>{`{ x: 4, y: 11 }`}</code>, skull <code>{`{ x: 19, y: 8 }`}</code>
+            </p>
+        </section>
     );
 }
 
@@ -18308,6 +22329,7 @@ function ClanHall({ character, updateCharacter, creatorItems }: { character: Cha
     return <div className="card clan-hall-screen">
         <div className="clan-header"><div className="clan-title-block"><ClanImageMark image={clanData.image} name={clanData.name} village={clanData.village} /><div><h2 style={{ margin: 0 }}>{clanData.name}</h2><p className="hint" style={{ margin: "2px 0 0" }}>{clanData.village} · {clanData.members.length} members · Level {clanData.level}</p><div className="clan-xp-track"><span style={{ width: `${Math.min(100, (clanData.xp / xpNeed) * 100)}%` }} /></div><small>{clanData.xp.toLocaleString()} / {xpNeed.toLocaleString()} Clan XP</small></div></div><div className="clan-my-badge"><span className="clan-rank-badge" style={{ background: CLAN_RANK_COLOR[myRank] + "22", color: CLAN_RANK_COLOR[myRank], borderColor: CLAN_RANK_COLOR[myRank] + "55" }}>{CLAN_RANK_ICON[myRank]} {myRank}</span><span className="clan-role-badge">{CLAN_ROLE_ICON[myRole]} {myRole}</span><span className="clan-my-contrib">{myContrib} pts this month</span></div></div>
         <div className="clan-buff-banner"><strong>Active Clan Boosts</strong>{clanBuffs.length === 0 ? <span>No clan boosts yet — recruit at least 3 members.</span> : clanBuffs.map(buff => <span key={buff.label}>{buff.label} +{buff.value.toFixed(2)}%</span>)}</div>
+        <ClanSealPool character={character} updateCharacter={updateCharacter} />
         <div className="clan-tabs expanded-tabs"><button className={view === "roster" ? "active" : ""} onClick={() => setView("roster")}>👥 Roster</button><button className={view === "treasury" ? "active" : ""} onClick={() => setView("treasury")}>Treasury</button><button className={view === "boosts" ? "active" : ""} onClick={() => setView("boosts")}>⬆️ Boosts</button><button className={view === "missions" ? "active" : ""} onClick={() => setView("missions")}>📜 Missions</button><button className={view === "wars" ? "active" : ""} onClick={() => setView("wars")}>⚔️ Wars</button><button className={view === "territory" ? "active" : ""} onClick={() => setView("territory")}>🗺️ Territory</button><button className={view === "guard" ? "active" : ""} onClick={() => setView("guard")}>Guard</button><button className={view === "notices" ? "active" : ""} onClick={() => setView("notices")}>📋 Notices</button><button className={view === "hall" ? "active" : ""} onClick={() => setView("hall")}>🏯 Hall</button></div>
         {view === "roster" && <div className="clan-roster">{canReviewJoinRequests && <section className="summary-box clan-join-requests"><h3>Join Requests</h3>{clanData.joinRequests.length === 0 ? <p className="hint">No pending join requests.</p> : <div className="clan-request-list">{clanData.joinRequests.map(request => <div className="clan-request-card" key={request.name}><div><strong>{request.name}</strong><small>Lv.{request.level} · {request.specialty} · {request.village}</small><small>Requested {new Date(request.requestedAt).toLocaleString()}</small></div><div className="menu"><button onClick={() => acceptJoinRequest(request)}>Accept</button><button className="danger-button" onClick={() => denyJoinRequest(request)}>Deny</button></div></div>)}</div>}</section>}<div className="clan-roster-header clan-roster-header-wide"><span>#</span><span>Member</span><span>Rank</span><span>Role</span><span>Contribution</span></div>{sortedMembers.map((member, idx) => { const rank = clanRankOf(member, clanData.members, clanData.founderName); const role = clanRoleOf(member, clanData); const contrib = clanContribTotal(member); const isMe = member.name === character.name; const rankColor = CLAN_RANK_COLOR[rank]; return <div key={member.name} className={`clan-member-row clan-member-row-wide${isMe ? " clan-member-me" : ""}`}><span className="clan-member-pos">#{idx + 1}</span><div className="clan-member-info"><span className="clan-member-name">{member.name}{isMe ? " ⭐" : ""}</span><span className="clan-member-sub">Lv.{member.level} · {member.specialty}</span></div><span className="clan-rank-badge" style={{ background: rankColor + "1a", color: rankColor, borderColor: rankColor + "44" }}>{CLAN_RANK_ICON[rank]} {rank}</span><span className="clan-role-badge">{CLAN_ROLE_ICON[role]} {role}</span><div className="clan-contrib-col"><span className="clan-contrib-total">{contrib} pts</span><span className="clan-contrib-breakdown">⚔️{member.battleContrib} 🎯{member.eventContrib} 📜{member.missionContrib}</span></div></div>; })}<div className="summary-box clan-rank-legend"><strong style={{ fontSize: "0.8rem", color: "#94a3b8" }}>Permissions</strong><p className="hint">Founder, Leader, and Clan Elders can approve join requests. Founder, Leader, and Officer can start clan wars.</p></div></div>}
         {view === "treasury" && <div className="summary-box"><h3>💰 Clan Treasury</h3><div className="treasury-grid"><p><strong>Ryo:</strong> {clanData.treasury.ryo.toLocaleString()}</p><p><strong>Fate Shards:</strong> {clanData.treasury.fateShards}</p><p><strong>Bone Charms:</strong> {clanData.treasury.boneCharms}</p><p><strong>Aura Stones:</strong> {clanData.treasury.auraStones}</p><p><strong>Mythic Seals:</strong> {clanData.treasury.mythicSeals}</p><p><strong>War Supply:</strong> {clanData.treasury.warSupply.toLocaleString()}</p></div><label>Donate Ryo</label><input type="number" value={donation} onChange={(e) => setDonation(Number(e.target.value))} /><div className="menu"><button onClick={donateRyo}>Donate Ryo</button><button onClick={() => donateSpecial("fateShards", 1)}>Donate 1 Fate Shard</button><button onClick={() => donateSpecial("boneCharms", 1)}>Donate 1 Bone Charm</button><button onClick={() => donateSpecial("auraStones", 1)}>Donate 1 Aura Stone</button><button onClick={() => donateSpecial("mythicSeals", 1)}>Donate 1 Mythic Seal</button></div><label>Donate Item</label><select value={clanDonateItemId} onChange={(e) => setClanDonateItemId(e.target.value)}><option value="">Choose item</option>{clanInventoryStacks.map(stack => <option key={stack.itemId} value={stack.itemId}>{stack.name} x{stack.count}</option>)}</select><button onClick={donateClanItem} disabled={!clanDonateItemId}>Donate Item</button><h4>Treasury Items</h4>{clanTreasuryItems.length === 0 ? <p className="hint">No donated items yet.</p> : <div className="treasury-grid">{clanTreasuryItems.map(stack => <p key={stack.itemId}><strong>{itemDisplayName(stack.itemId, allClanItems)}:</strong> x{stack.count}</p>)}</div>}{canManageClan(myRole) && <section className="summary-box"><h3>Send Treasury Resources</h3><p className="hint">Clan leadership can send donated resources or items to clan members.</p><label>Recipient</label><select value={clanSendPlayer} onChange={(e) => setClanSendPlayer(e.target.value)}><option value="">Choose clan member</option>{sortedMembers.map(member => <option key={member.name} value={member.name}>{member.name}</option>)}</select><label>Resource</label><select value={clanSendCurrency} onChange={(e) => setClanSendCurrency(e.target.value as ClanTreasuryCurrencyKey)}><option value="ryo">Ryo</option><option value="fateShards">Fate Shards</option><option value="boneCharms">Bone Charms</option><option value="auraStones">Aura Stones</option><option value="mythicSeals">Mythic Seals</option></select><input type="number" min={1} value={clanSendAmount} onChange={(e) => setClanSendAmount(Number(e.target.value))} /><div className="menu"><button onClick={sendClanCurrency}>Send Resource</button></div><label>Item</label><select value={clanSendItemId} onChange={(e) => setClanSendItemId(e.target.value)}><option value="">Choose treasury item</option>{clanTreasuryItems.map(stack => <option key={stack.itemId} value={stack.itemId}>{itemDisplayName(stack.itemId, allClanItems)} x{stack.count}</option>)}</select><button onClick={sendClanItem} disabled={!clanSendItemId}>Send Item</button></section>}<p className="hint">Donations add clan XP and treasury resources.</p></div>}
@@ -18686,7 +22708,7 @@ function unlockVillageKageSystem(village: string, playerName: string): VillageSt
     return next;
 }
 
-function TownHall({ character, updateCharacter, creatorItems, allServerPlayers, savedBloodlines, creatorJutsus, sharedImages }: { character: Character; updateCharacter: (character: Character) => void; creatorItems: GameItem[]; allServerPlayers: ServerPlayerSummary[]; savedBloodlines: SavedBloodline[]; creatorJutsus: Jutsu[]; sharedImages: Record<string, string> }) {
+function TownHall({ character, updateCharacter, creatorItems, allServerPlayers, savedBloodlines, creatorJutsus, sharedImages, setScreen }: { character: Character; updateCharacter: (character: Character) => void; creatorItems: GameItem[]; allServerPlayers: ServerPlayerSummary[]; savedBloodlines: SavedBloodline[]; creatorJutsus: Jutsu[]; sharedImages: Record<string, string>; setScreen: (s: Screen) => void }) {
     const leadership = villageLeadership[character.village] ?? { kage: "Acting Kage Council", elders: ["First Elder", "Second Elder", "Third Elder"], atWar: false, pastWars: ["No recorded wars yet."] };
     const leadershipImages = loadVillageLeadershipImages()[character.village] ?? { kage: "", elders: ["", "", ""] };
     const upgrades = getVillageUpgrades(character);
@@ -19002,7 +23024,7 @@ function TownHall({ character, updateCharacter, creatorItems, allServerPlayers, 
         if (agendaClaimed) return alert("You already claimed today's village agenda.");
         const nextState = normalizeVillageState(character.village, { ...state, dailyAgenda: agenda, contributionPoints: state.contributionPoints + 15, treasury: { ...state.treasury, honorSeals: state.treasury.honorSeals + 15, ryo: state.treasury.ryo + 1500, boneCharms: state.treasury.boneCharms + 2 } });
         updateVillageState(addNotice(`${character.name} completed today's village agenda. Village treasury gained Honor Seals, ryo, and Bone Charms.`, nextState));
-        updateCharacter({ ...character, claimedVillageAgendaDate: agenda.date, honorSeals: (character.honorSeals ?? 0) + 8, ryo: character.ryo + 750, boneCharms: (character.boneCharms ?? 0) + 1 });
+        updateCharacter({ ...character, claimedVillageAgendaDate: agenda.date, honorSeals: (character.honorSeals ?? 0) + vanguardOnlyHonorSeals(character, 8), ryo: character.ryo + 750, boneCharms: (character.boneCharms ?? 0) + 1 });
     }
     const mapControlClaimed = character.claimedMapControlDate === currentDateKey();
     const mapControlRyo = ownedVillageSectors.length * 100;
@@ -19011,13 +23033,13 @@ function TownHall({ character, updateCharacter, creatorItems, allServerPlayers, 
     function claimMapControlRewards() {
         if (ownedVillageSectors.length <= 0) return alert("Your village does not control any sectors yet.");
         if (mapControlClaimed) return alert("You already claimed today's map control reward.");
-        updateCharacter({ ...character, claimedMapControlDate: currentDateKey(), ryo: character.ryo + mapControlRyo, honorSeals: (character.honorSeals ?? 0) + mapControlHonor, boneCharms: (character.boneCharms ?? 0) + mapControlBone });
+        updateCharacter({ ...character, claimedMapControlDate: currentDateKey(), ryo: character.ryo + mapControlRyo, honorSeals: (character.honorSeals ?? 0) + vanguardOnlyHonorSeals(character, mapControlHonor), boneCharms: (character.boneCharms ?? 0) + mapControlBone });
         updateVillageState(addNotice(`${character.name} claimed map control rewards from ${ownedVillageSectors.length} village sector${ownedVillageSectors.length === 1 ? "" : "s"}.`, { ...state, contributionPoints: state.contributionPoints + ownedVillageSectors.length }));
     }
     return <div className="card town-hall-screen">
         <div className="town-hall-hero"><div><p className="act-label">{character.village}</p><h2>Town Hall</h2><p className="hint">Village government, war records, guard defense, upgrades, treasury, and leadership.</p></div><div className="town-hall-wallet"><span>Honor Seals</span><strong>{(character.honorSeals ?? 0).toLocaleString()}</strong><small>Ryo {character.ryo.toLocaleString()}</small></div></div>
         <div className="clan-tabs expanded-tabs town-tabs"><button className={tab === "status" ? "active" : ""} onClick={() => setTab("status")}>Status</button><button className={tab === "upgrades" ? "active" : ""} onClick={() => setTab("upgrades")}>Upgrades</button><button className={tab === "treasury" ? "active" : ""} onClick={() => setTab("treasury")}>Treasury</button><button className={tab === "guard" ? "active" : ""} onClick={() => setTab("guard")}>Guard</button><button className={tab === "notices" ? "active" : ""} onClick={() => setTab("notices")}>Orders</button><button className={tab === "politics" ? "active" : ""} onClick={() => setTab("politics")}>Kage/Elders</button></div>
-        {tab === "status" && <><div className="town-hall-grid"><section className="summary-box town-hall-panel"><h3>Village Status</h3><div className="town-leader-row"><LeaderPortrait image={getLeaderImage(state.seatedKage, leadershipImages.kage)} name={state.seatedKage ?? leadership.kage} fallback="?" /><p><strong>Kage:</strong> {state.seatedKage ?? leadership.kage}</p></div><p><strong>Population:</strong> {population.toLocaleString()}</p><p><strong>Village Level:</strong> {villageLevel}</p><p><strong>Village Strength:</strong> {villageStrength.toLocaleString()}</p><p><strong>Guard Queue:</strong> {guardList.length} active defender{guardList.length === 1 ? "" : "s"}</p></section><section className="summary-box town-hall-panel"><h3>War Status</h3><div className={primaryVillageWar ? "war-status at-war" : "war-status peace"}>{primaryVillageWar ? `At War with ${activeWarEnemyVillage}` : "Not At War"}</div>{primaryVillageWar ? <><p><strong>{character.village} HP:</strong> {primaryVillageWar.hp[character.village].toLocaleString()} / {VILLAGE_WAR_HP_MAX.toLocaleString()}</p><div className="bar enemy-bar"><span style={{ width: `${(primaryVillageWar.hp[character.village] / VILLAGE_WAR_HP_MAX) * 100}%` }} /></div><p><strong>{activeWarEnemyVillage} HP:</strong> {activeWarEnemyVillage ? primaryVillageWar.hp[activeWarEnemyVillage].toLocaleString() : 0} / {VILLAGE_WAR_HP_MAX.toLocaleString()}</p><div className="town-upgrade-bar"><span style={{ width: `${activeWarEnemyVillage ? (primaryVillageWar.hp[activeWarEnemyVillage] / VILLAGE_WAR_HP_MAX) * 100 : 0}%` }} /></div><p><strong>War Ground:</strong> Sector {primaryVillageWar.warGroundSector} · HP {primaryVillageWar.warGroundHp.toLocaleString()} / {VILLAGE_WAR_GROUND_HP_MAX.toLocaleString()}</p><p className="hint">{primaryVillageWar.capturedBy ? `Captured by ${primaryVillageWar.capturedBy}.` : "Raid from the war ground to damage enemy village HP and the sector HP."}</p></> : <><p className="hint">Village wars start at 5,000 HP. PvP kills, war-ground raids, and daily war missions reduce enemy HP.</p><label>Enemy Village</label><select value={warTargetVillage} onChange={(event) => setWarTargetVillage(event.target.value)}>{villages.filter(village => village !== character.village).map(village => <option key={village} value={village}>{village}</option>)}</select><button disabled={!isSeatedKage} onClick={beginVillageWar}>{isSeatedKage ? "Start Village War" : "Kage Only"}</button></>}<h4>Current Village Buffs</h4><div className="village-buff-list"><span>Training +{getTrainingXpBonus(character).toFixed(2)}%</span><span>Jutsu Speed +{getJutsuTrainingSpeedBonus(character).toFixed(2)}%</span><span>Shop Discount +{getShopDiscountPercent(character).toFixed(2)}%</span><span>Guard DEF +{getTownDefenseGuardBonus(character).toFixed(2)}%</span><span>Pet XP +{getPetXpBonus(character).toFixed(2)}%</span><span>Bank Interest +{getBankInterestPercent(character).toFixed(2)}%</span><span>Mission Rewards +{getMissionRewardBonus(character).toFixed(2)}%</span><span>Hospital Discount +{getHospitalDiscountPercent(character).toFixed(2)}%</span>{character.elderFocus === "war" && <span>⚔️ War Focus: -1% dmg taken (wartime)</span>}{character.elderFocus === "trade" && <span>💰 Trade Focus: -5% shop costs</span>}{character.elderFocus === "training" && <span>📚 Training Focus: +10% XP, +10% jutsu speed</span>}</div></section></div><section className="summary-box"><h3>Daily Village Agenda</h3><p className="hint">Three village goals refresh each day. If there is no player Kage, the board randomizes automatically.</p><div className="contrib-rank-grid">{agenda.tasks.map(task => <div key={task.id} className="clan-guard-row"><span><strong>{task.label}</strong></span><span>{Math.min(agendaProgress(task), task.target).toLocaleString()} / {task.target.toLocaleString()}</span></div>)}</div><div className="menu"><button disabled={!agendaComplete || agendaClaimed} onClick={claimVillageAgenda}>{agendaClaimed ? "Agenda Claimed" : agendaComplete ? "Claim Agenda Rewards" : "Agenda Incomplete"}</button></div><p className="hint">Rewards: village treasury +15 Honor Seals, +1,500 ryo, +2 Bone Charms. Player: +8 Honor Seals, +750 ryo, +1 Bone Charm.</p></section><section className="summary-box"><h3>Map Control Rewards</h3><p>Your village controls <strong>{ownedVillageSectors.length}</strong> sector{ownedVillageSectors.length === 1 ? "" : "s"}.</p><p className="hint">Daily player reward: +{mapControlRyo.toLocaleString()} ryo, +{mapControlHonor.toLocaleString()} Honor Seals, +{mapControlBone.toLocaleString()} Bone Charms.</p><button disabled={ownedVillageSectors.length <= 0 || mapControlClaimed} onClick={claimMapControlRewards}>{mapControlClaimed ? "Map Reward Claimed" : "Claim Map Control Reward"}</button></section><section className={state.kageSystemUnlocked ? "summary-box kage-unlock-panel unlocked" : "summary-box kage-unlock-panel"}><h3>{state.kageSystemUnlocked ? "Kage System Open" : "Kage System Sealed"}</h3><p>{state.kageSystemUnlocked ? "The false Kage has fallen. The village is no longer ruled by secrecy. The Kage seat is now open." : "Clear your village's level 100 Kage story fight to open elections, elder seats, village upgrades, war access, and policy control."}</p>{state.firstLiberator && <p><strong>First Liberator:</strong> {state.firstLiberator}</p>}{state.seatedKage && <p><strong>Seated Kage:</strong> {state.seatedKage}</p>}</section><section className="summary-box town-notice-board"><h3>Village Notice Board</h3>{state.notices.map((notice, idx) => <p key={`${notice}-${idx}`}>• {notice}</p>)}</section><section className="summary-box"><h3>Detailed War Records</h3><div className="war-record-grid">{state.warRecords.map((war, idx) => <div key={`${war.opponent}-${idx}`} className="war-record-card"><strong>{war.winner} vs {war.opponent}</strong><span>{war.finalScore}</span><small>{war.date} · MVP Clan: {war.mvpClan}</small><small>Top Attacker: {war.topAttacker}</small><small>Top Defender: {war.topDefender}</small><small>Rewards: {war.rewards}</small></div>)}</div></section></>}
+        {tab === "status" && <><div className="town-hall-grid"><section className="summary-box town-hall-panel"><h3>Village Status</h3><div className="town-leader-row"><LeaderPortrait image={getLeaderImage(state.seatedKage, leadershipImages.kage)} name={state.seatedKage ?? leadership.kage} fallback="?" /><p><strong>Kage:</strong> {state.seatedKage ?? leadership.kage}</p></div><p><strong>Population:</strong> {population.toLocaleString()}</p><p><strong>Village Level:</strong> {villageLevel}</p><p><strong>Village Strength:</strong> {villageStrength.toLocaleString()}</p><p><strong>Guard Queue:</strong> {guardList.length} active defender{guardList.length === 1 ? "" : "s"}</p></section><section className="summary-box town-hall-panel"><h3>War Status</h3><div className={primaryVillageWar ? "war-status at-war" : "war-status peace"}>{primaryVillageWar ? `At War with ${activeWarEnemyVillage}` : "Not At War"}</div>{primaryVillageWar ? <><p><strong>{character.village} HP:</strong> {primaryVillageWar.hp[character.village].toLocaleString()} / {VILLAGE_WAR_HP_MAX.toLocaleString()}</p><div className="bar enemy-bar"><span style={{ width: `${(primaryVillageWar.hp[character.village] / VILLAGE_WAR_HP_MAX) * 100}%` }} /></div><p><strong>{activeWarEnemyVillage} HP:</strong> {activeWarEnemyVillage ? primaryVillageWar.hp[activeWarEnemyVillage].toLocaleString() : 0} / {VILLAGE_WAR_HP_MAX.toLocaleString()}</p><div className="town-upgrade-bar"><span style={{ width: `${activeWarEnemyVillage ? (primaryVillageWar.hp[activeWarEnemyVillage] / VILLAGE_WAR_HP_MAX) * 100 : 0}%` }} /></div><p><strong>War Ground:</strong> Sector {primaryVillageWar.warGroundSector} · HP {primaryVillageWar.warGroundHp.toLocaleString()} / {VILLAGE_WAR_GROUND_HP_MAX.toLocaleString()}</p><p className="hint">{primaryVillageWar.capturedBy ? `Captured by ${primaryVillageWar.capturedBy}.` : "Raid from the war ground to damage enemy village HP and the sector HP."}</p></> : <><p className="hint">Village wars start at 5,000 HP. PvP kills, war-ground raids, and daily war missions reduce enemy HP.</p><label>Enemy Village</label><select value={warTargetVillage} onChange={(event) => setWarTargetVillage(event.target.value)}>{villages.filter(village => village !== character.village).map(village => <option key={village} value={village}>{village}</option>)}</select><button disabled={!isSeatedKage} onClick={beginVillageWar}>{isSeatedKage ? "Start Village War" : "Kage Only"}</button></>}<div className="menu" style={{ marginTop: "0.6rem" }}><button onClick={() => setScreen("villageWar")} style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171", fontWeight: 700 }}>⚔ Open Village War Hall →</button></div><h4>Current Village Buffs</h4><div className="village-buff-list"><span>Training +{getTrainingXpBonus(character).toFixed(2)}%</span><span>Jutsu Speed +{getJutsuTrainingSpeedBonus(character).toFixed(2)}%</span><span>Shop Discount +{getShopDiscountPercent(character).toFixed(2)}%</span><span>Guard DEF +{getTownDefenseGuardBonus(character).toFixed(2)}%</span><span>Pet XP +{getPetXpBonus(character).toFixed(2)}%</span><span>Bank Interest +{getBankInterestPercent(character).toFixed(2)}%</span><span>Mission Rewards +{getMissionRewardBonus(character).toFixed(2)}%</span><span>Hospital Discount +{getHospitalDiscountPercent(character).toFixed(2)}%</span>{character.elderFocus === "war" && <span>⚔️ War Focus: -1% dmg taken (wartime)</span>}{character.elderFocus === "trade" && <span>💰 Trade Focus: -5% shop costs</span>}{character.elderFocus === "training" && <span>📚 Training Focus: +10% XP, +10% jutsu speed</span>}</div></section></div><section className="summary-box"><h3>Daily Village Agenda</h3><p className="hint">Three village goals refresh each day. If there is no player Kage, the board randomizes automatically.</p><div className="contrib-rank-grid">{agenda.tasks.map(task => <div key={task.id} className="clan-guard-row"><span><strong>{task.label}</strong></span><span>{Math.min(agendaProgress(task), task.target).toLocaleString()} / {task.target.toLocaleString()}</span></div>)}</div><div className="menu"><button disabled={!agendaComplete || agendaClaimed} onClick={claimVillageAgenda}>{agendaClaimed ? "Agenda Claimed" : agendaComplete ? "Claim Agenda Rewards" : "Agenda Incomplete"}</button></div><p className="hint">Rewards: village treasury +15 Honor Seals, +1,500 ryo, +2 Bone Charms. Player: +8 Honor Seals, +750 ryo, +1 Bone Charm.</p></section><section className="summary-box"><h3>Map Control Rewards</h3><p>Your village controls <strong>{ownedVillageSectors.length}</strong> sector{ownedVillageSectors.length === 1 ? "" : "s"}.</p><p className="hint">Daily player reward: +{mapControlRyo.toLocaleString()} ryo, +{mapControlHonor.toLocaleString()} Honor Seals, +{mapControlBone.toLocaleString()} Bone Charms.</p><button disabled={ownedVillageSectors.length <= 0 || mapControlClaimed} onClick={claimMapControlRewards}>{mapControlClaimed ? "Map Reward Claimed" : "Claim Map Control Reward"}</button></section><section className={state.kageSystemUnlocked ? "summary-box kage-unlock-panel unlocked" : "summary-box kage-unlock-panel"}><h3>{state.kageSystemUnlocked ? "Kage System Open" : "Kage System Sealed"}</h3><p>{state.kageSystemUnlocked ? "The false Kage has fallen. The village is no longer ruled by secrecy. The Kage seat is now open." : "Clear your village's level 100 Kage story fight to open elections, elder seats, village upgrades, war access, and policy control."}</p>{state.firstLiberator && <p><strong>First Liberator:</strong> {state.firstLiberator}</p>}{state.seatedKage && <p><strong>Seated Kage:</strong> {state.seatedKage}</p>}</section><section className="summary-box town-notice-board"><h3>Village Notice Board</h3>{state.notices.map((notice, idx) => <p key={`${notice}-${idx}`}>• {notice}</p>)}</section><section className="summary-box"><h3>Detailed War Records</h3><div className="war-record-grid">{state.warRecords.map((war, idx) => <div key={`${war.opponent}-${idx}`} className="war-record-card"><strong>{war.winner} vs {war.opponent}</strong><span>{war.finalScore}</span><small>{war.date} · MVP Clan: {war.mvpClan}</small><small>Top Attacker: {war.topAttacker}</small><small>Top Defender: {war.topDefender}</small><small>Rewards: {war.rewards}</small></div>)}</div></section></>}
         {tab === "upgrades" && <section className="summary-box town-upgrade-summary"><h3>Village Upgrades</h3><p className="hint">Village upgrades now spend <strong>Honor Seals</strong>. Only the seated Kage can upgrade village structures.</p><p className="hint">Current Kage: <strong>{state.seatedKage ?? "No player seated yet"}</strong>{isSeatedKage ? " — you can upgrade structures." : " — upgrades are locked for your account."}</p><p className="hint">Total Village Development: <strong>{totalUpgradeLevel}</strong> / {VILLAGE_UPGRADE_MAX_LEVEL * villageUpgradeDefinitions.length}</p>
             <div className="town-upgrade-grid">
                 <div className="town-upgrade-card" style={{ borderColor: state.hollowGateUnlocked ? "#a855f7" : "#7c3aed", boxShadow: state.hollowGateUnlocked ? "0 0 16px rgba(168,85,247,0.35)" : undefined }}>
@@ -19401,12 +23423,22 @@ function GrandMarketplace({ character, updateCharacter, creatorItems, creatorCar
     );
 }
 
-function ShinobiTiles({ character, updateCharacter, creatorCards, dungeonMode = false, tileDifficulty = "normal", onDungeonWin, onDungeonLeave }: { character: Character; updateCharacter: (c: Character) => void; creatorCards: TileCard[]; dungeonMode?: boolean; tileDifficulty?: "easy" | "normal" | "hard"; onDungeonWin?: () => void; onDungeonLeave?: () => void }) {
+function ShinobiTiles({ character, updateCharacter, creatorCards, dungeonMode = false, tileDifficulty = "normal", onDungeonWin, onDungeonLeave, onDungeonLose, dungeonSceneImage }: { character: Character; updateCharacter: (c: Character) => void; creatorCards: TileCard[]; dungeonMode?: boolean; tileDifficulty?: "easy" | "normal" | "hard"; onDungeonWin?: () => void; onDungeonLeave?: () => void;
+    // Fired when the player exits the result screen after LOSING. Distinct
+    // from onDungeonLeave (which is also called for explicit abandons before
+    // a result was reached). Used by Hollow Gate to apply -20% maxHp penalty
+    // only when the player actually lost the card game.
+    onDungeonLose?: () => void;
+    // Optional scene/opponent portrait shown as a banner in dungeon mode.
+    // Set by the Hollow Gate caller to shrine:tile-tile-game so the admin-
+    // generated card-game scene art actually appears during the duel.
+    dungeonSceneImage?: string;
+ }) {
     type BoardCell = { card: TileCard; owner: "player" | "enemy" } | null;
     type Phase = "collection" | "select" | "game" | "result";
 
     const allCards = getAllTileCards(creatorCards);
-    const ownedCards = character.tileCards.map((id) => allCards.find((c) => c.id === id)).filter(Boolean) as TileCard[];
+    const ownedCards = (character.tileCards ?? []).map((id) => allCards.find((c) => c.id === id)).filter(Boolean) as TileCard[];
 
     const [phase, setPhase] = useState<Phase>(dungeonMode ? "select" : "collection");
     const [deckPicks, setDeckPicks] = useState<TileCard[]>([]);
@@ -19830,7 +23862,14 @@ function ShinobiTiles({ character, updateCharacter, creatorCards, dungeonMode = 
                 </div>
                 <div className="menu">
                     {dungeonMode && result === "win" ? <button className="admin-button" onClick={onDungeonWin}>Continue to Final Seal</button> : <button onClick={() => { setDeckPicks([]); setPhase("select"); }}>Play Again</button>}
-                    <button onClick={dungeonMode ? onDungeonLeave : () => setPhase("collection")}>{dungeonMode ? "Leave Dungeon" : "Collection"}</button>
+                    <button onClick={dungeonMode
+                        // In dungeon mode the result-screen Leave button routes:
+                        //   lose  → onDungeonLose (Hollow Gate uses this for -20% HP)
+                        //   win   → onDungeonLeave (no penalty, just exit)
+                        //   draw  → onDungeonLeave (no penalty)
+                        ? (result === "lose" && onDungeonLose ? onDungeonLose : onDungeonLeave)
+                        : () => setPhase("collection")
+                    }>{dungeonMode ? "Leave Dungeon" : "Collection"}</button>
                 </div>
             </div>
         );
@@ -19841,6 +23880,34 @@ function ShinobiTiles({ character, updateCharacter, creatorCards, dungeonMode = 
     return (
         <div className="card">
             <h2 style={{ marginBottom: "0.3rem" }}>🀄 Shinobi Tiles</h2>
+            {/* Dungeon-mode scene banner — shows the admin-generated
+                opponent / table art (shrine:tile-tile-game) so the
+                Hollow Gate card duel feels like an actual encounter
+                instead of a vanilla card screen. */}
+            {dungeonMode && dungeonSceneImage && (
+                <div style={{
+                    position: "relative",
+                    width: "100%",
+                    height: 130,
+                    marginBottom: 8,
+                    borderRadius: 8,
+                    overflow: "hidden",
+                    background: `linear-gradient(180deg, rgba(7,12,27,0.15), rgba(7,12,27,0.78)), url(${dungeonSceneImage}) center/cover no-repeat`,
+                    border: "1px solid rgba(168,85,247,0.45)",
+                }}>
+                    <div style={{
+                        position: "absolute",
+                        bottom: 6,
+                        left: 10,
+                        color: "#e9d5ff",
+                        fontSize: 12,
+                        fontWeight: 600,
+                        textShadow: "0 1px 4px rgba(0,0,0,0.85)",
+                    }}>
+                        ⛩ The shadow opponent waits across the stone table.
+                    </div>
+                </div>
+            )}
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.5rem", fontSize: 13 }}>
                 <span style={{ color: "#4fc3f7" }}>You: {pScore}</span>
                 <span style={{ color: isPlayerTurn ? "#a5d6a7" : "#ef9a9a" }}>{isPlayerTurn ? "Your Turn" : "Enemy thinking..."}</span>
@@ -20107,7 +24174,7 @@ function ShinobiCouncilHall({ character, setScreen, playerRoster }: { character:
 }
 
 // -- Hall of Legends ---------------------------------------------------------
-export type LbTab = "ranked" | "kills" | "xp" | "clans" | "pets" | "endless" | "villageWars" | "tournament";
+export type LbTab = "ranked" | "kills" | "xp" | "clans" | "pets" | "endless" | "villageWars" | "weeklyBoss" | "tournament" | "professions";
 
 
 export type TavernMessage = { author: string; text: string; ts: number; rank?: string; customTitle?: string; level?: number };
@@ -20150,7 +24217,7 @@ function SunscarFestival({
     const [duelResult, setDuelResult] = useState<"win" | "lose" | "draw" | null>(null);
 
     const allCards = getAllTileCards(creatorCards);
-    const ownedCards = character.tileCards.map((id) => allCards.find((c) => c.id === id)).filter(Boolean) as TileCard[];
+    const ownedCards = (character.tileCards ?? []).map((id) => allCards.find((c) => c.id === id)).filter(Boolean) as TileCard[];
     const kaelImage = "";
     const miraaImage = "";
 
@@ -20642,7 +24709,7 @@ function CentralHub({
     publicPlayerBloodlines,
     triggeredEvents,
     setTriggeredEvents,
-    onStartEndlessBattle,
+    onStartEndlessBattle: _onStartEndlessBattle, // retained for backwards-compat with the prop site
     onStartDungeon,
     onOpenBloodlineMaker,
     creatorItems,
@@ -20944,15 +25011,9 @@ function CentralHub({
         },
         {
             name: "Weekly Boss",
-            icon: weeklyBoss.status === "defeated" ? "💀" : weeklyBoss.status === "active" ? "👹" : weeklyBoss.status === "escaped" ? "🌀" : "🌑",
-            text: weeklyBoss.status === "active"
-                ? `${weeklyBoss.bossName} is active until ${new Date(weeklyBoss.endsAt).toLocaleString()}.`
-                : weeklyBoss.status === "defeated"
-                    ? `${weeklyBoss.bossName} defeated this week.`
-                    : weeklyBoss.status === "escaped"
-                        ? `${weeklyBoss.bossName} escaped. Returns next week.`
-                        : `${weeklyBoss.bossName} spawns ${new Date(weeklyBoss.startsAt).toLocaleString()}.`,
-            action: claimWeeklyBoss,
+            icon: "👹",
+            text: "Server-wide boss with shared HP. Deal damage to earn a share of the kill reward — MVP gets double.",
+            action: () => setScreen("weeklyBoss"),
         },
         {
             name: "Celestial Tower",
@@ -21025,10 +25086,10 @@ function CentralHub({
                                 <strong>Floor Trial</strong>
                                 <small>Standard arena battle against a selected opponent.</small>
                             </button>
-                            <button className="celestial-option-btn celestial-endless-btn" onClick={() => { setShowCelestialPanel(false); onStartEndlessBattle(); }}>
-                                <span className="celestial-option-icon">??</span>
-                                <strong>Endless Battle</strong>
-                                <small>Fight wave after wave of random opponents. How far can you climb before you fall?</small>
+                            <button className="celestial-option-btn celestial-endless-btn" onClick={() => { setShowCelestialPanel(false); setScreen("endlessTower"); }}>
+                                <span className="celestial-option-icon">🗼</span>
+                                <strong>Endless Tower</strong>
+                                <small>Fight wave after wave of scaling opponents. Bank rewards or push higher.</small>
                             </button>
                         </div>
                         <button className="back-btn" style={{ marginTop: "1rem" }} onClick={() => setShowCelestialPanel(false)}>× Close</button>
@@ -22995,8 +27056,8 @@ function WorldMap({
 
                 {locations.map((location) => {
                     // Hollow Gate POI consumes its admin-generated landmark image
-                    // as a button background. Other landmark types fall through to
-                    // the existing icon-only styling.
+                    // as a full-bleed button background — no dark overlay, no text
+                    // overlay (the CSS hides strong + span). The image IS the marker.
                     const landmarkImage = location.type === "hollowGate"
                         ? sharedImages["landmark:hollow-gate"]
                         : undefined;
@@ -23009,10 +27070,9 @@ function WorldMap({
                                 top: location.y + "%",
                                 ...(landmarkImage
                                     ? {
-                                        backgroundImage: `linear-gradient(180deg, rgba(8,4,18,0.20), rgba(8,4,18,0.55)), url(${landmarkImage})`,
+                                        backgroundImage: `url(${landmarkImage})`,
                                         backgroundSize: "cover",
                                         backgroundPosition: "center",
-                                        textShadow: "0 1px 2px rgba(0,0,0,0.9)",
                                     }
                                     : {}),
                             }}
@@ -23386,6 +27446,158 @@ function Training({ character, updateCharacter, activeTraining, setActiveTrainin
     );
 }
 
+// Honor Seal sinks: Vanguards (and clan-donated recipients later) spend Seals
+// to (1) level a jutsu from 30→40 without grinding PvP, and (2) skip jutsu
+// training time. Both endpoints live in api/jutsu/ and apply the Vanguard
+// Rank 8+ 10% discount server-side. Server is source of truth for Seal
+// debits and jutsu levels; client mirrors locally on success.
+const SEAL_COST_BY_FROM_LEVEL: Record<number, number> = {
+    30: 20, 31: 25, 32: 30, 33: 35, 34: 40,
+    35: 45, 36: 50, 37: 55, 38: 60, 39: 65,
+};
+
+function previewSealCost(fromLevel: number, character: Character): number {
+    const base = SEAL_COST_BY_FROM_LEVEL[fromLevel] ?? 0;
+    if (base === 0) return 0;
+    if (character.profession === "vanguard" && (character.professionRank ?? 0) >= 8) {
+        return Math.ceil(base * 0.9);
+    }
+    return base;
+}
+
+function JutsuSealPanel({
+    character,
+    updateCharacter,
+    selectedJutsu,
+    selectedMastery,
+    activeJutsuTraining,
+    setActiveJutsuTraining,
+}: {
+    character: Character;
+    updateCharacter: (c: Character) => void;
+    selectedJutsu: Jutsu | null;
+    selectedMastery: JutsuMastery | null;
+    activeJutsuTraining: ActiveJutsuTraining | null;
+    setActiveJutsuTraining: (training: ActiveJutsuTraining | null) => void;
+}) {
+    const [busy, setBusy] = useState(false);
+    const [msg, setMsg] = useState<string | null>(null);
+
+    const hasDiscount = character.profession === "vanguard" && (character.professionRank ?? 0) >= 8;
+    const fromLevel = selectedMastery?.level ?? 0;
+    const eligibleForSealLevel = !!selectedJutsu && fromLevel >= 30 && fromLevel < 40;
+    const sealLevelCost = eligibleForSealLevel ? previewSealCost(fromLevel, character) : 0;
+    const balance = character.honorSeals ?? 0;
+
+    async function trainWithSeals() {
+        if (!selectedJutsu || !eligibleForSealLevel || busy) return;
+        setBusy(true);
+        setMsg(null);
+        try {
+            const res = await fetch('/api/jutsu/train-with-seals', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ playerName: character.name, jutsuId: selectedJutsu.id }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                setMsg(`❌ ${data.error ?? 'Failed'}`);
+                setBusy(false);
+                return;
+            }
+            // Mirror server-side mutations locally.
+            const existing = character.jutsuMastery?.length ? character.jutsuMastery : [];
+            const newMastery = [
+                ...existing.filter(m => m.jutsuId !== selectedJutsu.id),
+                { jutsuId: selectedJutsu.id, level: Number(data.newLevel), xp: 0 },
+            ];
+            updateCharacter({
+                ...character,
+                honorSeals: Number(data.honorSealsRemaining),
+                jutsuMastery: newMastery,
+            });
+            setMsg(`✅ ${selectedJutsu.name} → Lv ${data.newLevel} (spent ${data.sealsSpent} Seals)`);
+        } catch {
+            setMsg('❌ Network error');
+        }
+        setBusy(false);
+    }
+
+    async function speedUp(sealsRequested: number) {
+        if (!activeJutsuTraining || busy) return;
+        setBusy(true);
+        setMsg(null);
+        try {
+            const res = await fetch('/api/jutsu/speedup', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ playerName: character.name, seals: sealsRequested }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                setMsg(`❌ ${data.error ?? 'Failed'}`);
+                setBusy(false);
+                return;
+            }
+            const minutesReduced: number = Number(data.minutesReduced ?? 0);
+            const reductionMs = minutesReduced * 60 * 1000;
+            setActiveJutsuTraining({
+                ...activeJutsuTraining,
+                endsAt: Math.max(Date.now(), activeJutsuTraining.endsAt - reductionMs),
+            });
+            updateCharacter({ ...character, honorSeals: Number(data.honorSealsRemaining) });
+            setMsg(`✅ -${minutesReduced} min (spent ${data.sealsSpent} Seals)`);
+        } catch {
+            setMsg('❌ Network error');
+        }
+        setBusy(false);
+    }
+
+    return (
+        <div className="summary-box" style={{ background: "linear-gradient(180deg, rgba(250,204,21,0.10), rgba(8,10,22,0.4))", border: "1px solid rgba(250,204,21,0.45)", marginBottom: "0.75rem" }}>
+            <strong style={{ color: "#facc15" }}>🏅 Honor Seal Training</strong>
+            <span className="hint" style={{ marginLeft: 10 }}>
+                Balance: <strong style={{ color: "#facc15" }}>{balance.toLocaleString()}</strong>
+                {hasDiscount && <span style={{ marginLeft: 8, color: "#f97316" }}> · Vanguard 10% off</span>}
+            </span>
+            <p className="hint" style={{ margin: "6px 0 8px", fontSize: "0.8rem" }}>
+                Skip the PvP grind for jutsu levels 30→40, or shave time off active training.
+                Levels 40+ still require PvP.
+            </p>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {selectedJutsu && eligibleForSealLevel ? (
+                    <button
+                        onClick={() => void trainWithSeals()}
+                        disabled={busy || balance < sealLevelCost}
+                        style={{ background: "linear-gradient(#854d0e,#422006)", borderColor: "#facc15" }}
+                    >
+                        {busy ? "…" : `Pay ${sealLevelCost} Seals → Lv ${fromLevel + 1}`}
+                    </button>
+                ) : (
+                    <span className="hint" style={{ fontSize: "0.78rem" }}>
+                        {selectedJutsu
+                            ? (fromLevel < 30
+                                ? `Selected jutsu is Lv ${fromLevel} — train it to Lv 30 with ryo first.`
+                                : `Selected jutsu is at the Seal-training cap (Lv 40). PvP from here.`)
+                            : "Select a jutsu to see Seal training cost."}
+                    </span>
+                )}
+                {activeJutsuTraining && Date.now() < activeJutsuTraining.endsAt && (
+                    <>
+                        <button onClick={() => void speedUp(1)} disabled={busy || balance < (hasDiscount ? 1 : 1)} style={{ background: "linear-gradient(#422006,#1c1006)", borderColor: "#fde68a" }}>
+                            {busy ? "…" : "−10 min (1 Seal)"}
+                        </button>
+                        <button onClick={() => void speedUp(10)} disabled={busy || balance < (hasDiscount ? 9 : 10)} style={{ background: "linear-gradient(#422006,#1c1006)", borderColor: "#fde68a" }}>
+                            {busy ? "…" : `Finish now (${hasDiscount ? 9 : 10} Seals)`}
+                        </button>
+                    </>
+                )}
+            </div>
+            {msg && <p className="hint" style={{ margin: "8px 0 0", color: msg.startsWith("✅") ? "#facc15" : "#f87171" }}>{msg}</p>}
+        </div>
+    );
+}
+
 function JutsuTrainingHall({
     character,
     updateCharacter,
@@ -23498,7 +27710,7 @@ function JutsuTrainingHall({
     const selectedDuration = selectedMastery ? jutsuTrainingDuration(selectedMastery.level) : 0;
     const activeRemaining = activeJutsuTraining ? activeJutsuTraining.endsAt - now : 0;
 
-    return <div className="card jutsu-training-screen"><h2>Jutsu Training Hall</h2><p>Train jutsu to <strong>Level 30</strong> with ryo. Levels <strong>31-50</strong> must be earned from battles. Your elements: <strong>{ownedElements.length ? ownedElements.join(" / ") : "None awakened"}</strong>. Town Hall + Aura training bonus: <strong>{jutsuTrainingBonus.toFixed(2)}%</strong>.</p>{lockedElementCount > 0 && <p className="hint">{lockedElementCount} jutsu locked until you awaken their element.</p>}{activeJutsuTraining && <div className="summary-box"><h3>Active Jutsu Training</h3><p><strong>{activeJutsuTraining.label}</strong>: Level {activeJutsuTraining.fromLevel} ? {activeJutsuTraining.toLevel}</p><p>Cost paid: {activeJutsuTraining.ryoCost} ryo</p><p>{activeRemaining > 0 ? `Time remaining: ${formatTrainingTime(activeRemaining)}` : "Training complete. Claim your level."}</p><button onClick={completePaidJutsuTraining}>{activeRemaining > 0 ? "Check Training" : "Claim Jutsu Level"}</button></div>}<h3>Paid Ryo Training</h3><div className="summary-box"><p>{selectedJutsu ? <><strong>{selectedJutsu.name}</strong> will train from level {selectedMastery?.level ?? 0} to {Math.min(JUTSU_TRAINING_CAP, (selectedMastery?.level ?? 0) + 1)}.</> : "Choose a jutsu to train."}</p><p>{selectedMastery?.level === 0 ? <><strong>Free & Instant</strong> — Level 0 → 1</> : <>Cost: <strong>{selectedCost}</strong> ryo | Time: <strong>{selectedDuration / 60000}</strong> minutes | Reward: <strong>1 full jutsu level</strong></>}</p><button onClick={startPaidJutsuTraining} disabled={!selectedJutsu || !!activeJutsuTraining || !selectedMastery || selectedMastery.level >= JUTSU_TRAINING_CAP || (selectedMastery.level > 0 && character.ryo < selectedCost)}>{activeJutsuTraining ? "Training In Progress" : selectedMastery && selectedMastery.level >= JUTSU_TRAINING_CAP ? "Battle Training Required" : selectedMastery?.level === 0 ? "Unlock Level 1 (Free)" : `Pay ${selectedCost} Ryo & Train`}</button></div><JutsuDropdownList jutsus={availableJutsus} label="Choose Jutsu" emptyText={ownedElements.length ? "No jutsu match your awakened elements." : "Awaken an element at the Awakening Stone before training elemental jutsu."} renderDetails={(jutsu) => { const mastery = getJutsuMastery(character, jutsu.id); const scaled = scaleJutsuByLevel(jutsu, mastery.level); const cost = jutsuTrainingCost(mastery.level); const duration = jutsuTrainingDuration(mastery.level); const displayJutsu = jutsuDisplayAtLevel(jutsu, mastery.level); return <><p>Level: {mastery.level}/50 | XP: {mastery.xp}/{mastery.level >= 50 ? "MAX" : jutsuXpNeeded(mastery.level)}</p><p>Type: {jutsu.type} | Element: {jutsu.element} | AP: {jutsu.ap} | Range: {jutsu.range}</p><p>Scaled EP: {scaled.scaledEffectPower} | Chakra Cost: {scaled.chakraCost}% | Stamina Cost: {scaled.staminaCost}%</p><p>Tags: {displayJutsu.tags.map((tag) => `${tag.name}${tag.percent ? ` ${tag.percent}%` : ""}`).join(", ") || "None"}</p><p><strong>Paid Training:</strong> {mastery.level === 0 ? "Free & Instant — unlocks Level 1" : mastery.level < JUTSU_TRAINING_CAP ? `${cost} ryo | ${duration / 60000} minutes | +1 full level` : "Battle only from here"}</p><p><strong>Effects:</strong> {describeJutsuEffects(jutsu, mastery.level)}</p><JutsuEffectCards jutsu={jutsu} scaledEffectPower={scaled.scaledEffectPower} masteryLevel={mastery.level} /><p>{selectedJutsuId === jutsu.id ? "Selected for paid training." : mastery.level < 30 ? "Training Hall available." : mastery.level < 50 ? "Battle only." : "Mastered."}</p></>; }} onSelectJutsu={(jutsu) => setSelectedJutsuId(jutsu.id)} /></div>;
+    return <div className="card jutsu-training-screen"><JutsuSealPanel character={character} updateCharacter={updateCharacter} selectedJutsu={selectedJutsu ?? null} selectedMastery={selectedMastery} activeJutsuTraining={activeJutsuTraining} setActiveJutsuTraining={setActiveJutsuTraining} /><h2>Jutsu Training Hall</h2><p>Train jutsu to <strong>Level 30</strong> with ryo. Levels <strong>31-50</strong> must be earned from battles. Your elements: <strong>{ownedElements.length ? ownedElements.join(" / ") : "None awakened"}</strong>. Town Hall + Aura training bonus: <strong>{jutsuTrainingBonus.toFixed(2)}%</strong>.</p>{lockedElementCount > 0 && <p className="hint">{lockedElementCount} jutsu locked until you awaken their element.</p>}{activeJutsuTraining && <div className="summary-box"><h3>Active Jutsu Training</h3><p><strong>{activeJutsuTraining.label}</strong>: Level {activeJutsuTraining.fromLevel} ? {activeJutsuTraining.toLevel}</p><p>Cost paid: {activeJutsuTraining.ryoCost} ryo</p><p>{activeRemaining > 0 ? `Time remaining: ${formatTrainingTime(activeRemaining)}` : "Training complete. Claim your level."}</p><button onClick={completePaidJutsuTraining}>{activeRemaining > 0 ? "Check Training" : "Claim Jutsu Level"}</button></div>}<h3>Paid Ryo Training</h3><div className="summary-box"><p>{selectedJutsu ? <><strong>{selectedJutsu.name}</strong> will train from level {selectedMastery?.level ?? 0} to {Math.min(JUTSU_TRAINING_CAP, (selectedMastery?.level ?? 0) + 1)}.</> : "Choose a jutsu to train."}</p><p>{selectedMastery?.level === 0 ? <><strong>Free & Instant</strong> — Level 0 → 1</> : <>Cost: <strong>{selectedCost}</strong> ryo | Time: <strong>{selectedDuration / 60000}</strong> minutes | Reward: <strong>1 full jutsu level</strong></>}</p><button onClick={startPaidJutsuTraining} disabled={!selectedJutsu || !!activeJutsuTraining || !selectedMastery || selectedMastery.level >= JUTSU_TRAINING_CAP || (selectedMastery.level > 0 && character.ryo < selectedCost)}>{activeJutsuTraining ? "Training In Progress" : selectedMastery && selectedMastery.level >= JUTSU_TRAINING_CAP ? "Battle Training Required" : selectedMastery?.level === 0 ? "Unlock Level 1 (Free)" : `Pay ${selectedCost} Ryo & Train`}</button></div><JutsuDropdownList jutsus={availableJutsus} label="Choose Jutsu" emptyText={ownedElements.length ? "No jutsu match your awakened elements." : "Awaken an element at the Awakening Stone before training elemental jutsu."} renderDetails={(jutsu) => { const mastery = getJutsuMastery(character, jutsu.id); const scaled = scaleJutsuByLevel(jutsu, mastery.level); const cost = jutsuTrainingCost(mastery.level); const duration = jutsuTrainingDuration(mastery.level); const displayJutsu = jutsuDisplayAtLevel(jutsu, mastery.level); return <><p>Level: {mastery.level}/50 | XP: {mastery.xp}/{mastery.level >= 50 ? "MAX" : jutsuXpNeeded(mastery.level)}</p><p>Type: {jutsu.type} | Element: {jutsu.element} | AP: {jutsu.ap} | Range: {jutsu.range}</p><p>Scaled EP: {scaled.scaledEffectPower} | Chakra Cost: {scaled.chakraCost}% | Stamina Cost: {scaled.staminaCost}%</p><p>Tags: {displayJutsu.tags.map((tag) => `${tag.name}${tag.percent ? ` ${tag.percent}%` : ""}`).join(", ") || "None"}</p><p><strong>Paid Training:</strong> {mastery.level === 0 ? "Free & Instant — unlocks Level 1" : mastery.level < JUTSU_TRAINING_CAP ? `${cost} ryo | ${duration / 60000} minutes | +1 full level` : "Battle only from here"}</p><p><strong>Effects:</strong> {describeJutsuEffects(jutsu, mastery.level)}</p><JutsuEffectCards jutsu={jutsu} scaledEffectPower={scaled.scaledEffectPower} masteryLevel={mastery.level} /><p>{selectedJutsuId === jutsu.id ? "Selected for paid training." : mastery.level < 30 ? "Training Hall available." : mastery.level < 50 ? "Battle only." : "Mastered."}</p></>; }} onSelectJutsu={(jutsu) => setSelectedJutsuId(jutsu.id)} /></div>;
 }
 
 function CardVisual({ image, icon, label }: { image?: string; icon?: string; label: string }) {
@@ -23558,6 +27770,11 @@ function Missions({
     const groupedFetchMissions = missionRanks.map((rank) => ({ rank, missions: mergeBuiltinMissions(creatorMissions).filter((mission) => mission.rank === rank) })).filter((group) => group.missions.length > 0);
     const rankColor: Record<string, string> = { "D Rank": "#22c55e", "C Rank": "#3b82f6", "B Rank": "#a855f7", "A Rank": "#f97316", "S Rank": "#ef4444", "Daily": "#facc15" };
     const todayMissions = dailyMissionsCompleted(character);
+    // Tab state: default to Profession for players who have one, Combat otherwise.
+    const hasProfession = !!character.profession;
+    const [activeMissionTab, setActiveMissionTab] = useState<"profession" | "combat" | "field">(
+        hasProfession ? "profession" : "combat"
+    );
 
     return (
         <div className="card mission-hall">
@@ -23579,7 +27796,28 @@ function Missions({
                 </div>
             </div>
 
-            {/* -- Combat Missions -- */}
+            {/* -- Tabs -- */}
+            <div className="clan-tabs expanded-tabs" style={{ marginBottom: 12 }}>
+                {hasProfession && (
+                    <button className={activeMissionTab === "profession" ? "active" : ""} onClick={() => setActiveMissionTab("profession")}>
+                        📜 Profession
+                    </button>
+                )}
+                <button className={activeMissionTab === "combat" ? "active" : ""} onClick={() => setActiveMissionTab("combat")}>
+                    ⚔️ Combat
+                </button>
+                <button className={activeMissionTab === "field" ? "active" : ""} onClick={() => setActiveMissionTab("field")}>
+                    📍 Field
+                </button>
+            </div>
+
+            {/* -- Profession tab -- */}
+            {activeMissionTab === "profession" && hasProfession && (
+                <DailyProfessionMissions character={character} />
+            )}
+
+            {/* -- Combat Missions tab -- */}
+            {activeMissionTab === "combat" && (
             <section className="mh-section">
                 <h3 className="mh-section-title">⚔️ Combat Missions</h3>
                 <p className="hint">Defeat the assigned enemy to earn rewards. No shortcuts.</p>
@@ -23621,8 +27859,10 @@ function Missions({
                     })}
                 </div>
             </section>
+            )}
 
-            {/* -- Fetch Missions -- */}
+            {/* -- Field Missions tab -- */}
+            {activeMissionTab === "field" && (
             <section className="mh-section">
                 <h3 className="mh-section-title">📍 Field Missions</h3>
                 {groupedFetchMissions.length === 0
@@ -23690,6 +27930,7 @@ function Missions({
                     ))
                 }
             </section>
+            )}
         </div>
     );
 }
@@ -24495,6 +28736,13 @@ function Profile({
                         <p><strong>Level:</strong> {character.level}/100</p>
                         <p><strong>Bloodline:</strong> {equippedBloodline?.name || character.bloodline}</p>
                         <p><strong>Elements:</strong> {ownedElements.length ? ownedElements.join(" / ") : "Not awakened"}</p>
+                        {character.profession && (
+                            <p>
+                                <strong>Profession:</strong>{" "}
+                                {character.profession === "healer" ? "✚ Healer" : character.profession === "vanguard" ? "⚔ Vanguard" : "🐾 Pet Tamer"}
+                                <span style={{ marginLeft: 6, color: "#94a3b8" }}>· Rank {character.professionRank ?? 1} · {(character.professionXp ?? 0).toLocaleString()} XP</span>
+                            </p>
+                        )}
                         {equippedBloodline?.specialElement && <p><strong>Bloodline Element:</strong> {equippedBloodline.specialElement}</p>}
                         {equippedBloodline?.image && <div className="admin-event-list-preview"><img src={equippedBloodline.image} alt={equippedBloodline.name} /></div>}
                     </div>
@@ -24580,6 +28828,13 @@ function Profile({
                     </div>
                 </div>
             </section>
+
+            {character.profession && (
+                <section className="profile-build-panel">
+                    <h2>Profession</h2>
+                    <ProfessionRankBar character={character} />
+                </section>
+            )}
 
             <section className="profile-build-panel">
                 <h2>Equip Bloodline</h2>
@@ -25862,8 +30117,8 @@ function Arena({
 
     const [playerHp, setPlayerHp] = useState(character.hp);
     const [enemyHp, setEnemyHp] = useState(enemyMaxHp);
-    const [_enemyChakra, setEnemyChakra] = useState(enemyMaxChakra);
-    const [_enemyStamina, setEnemyStamina] = useState(enemyMaxStamina);
+    const [enemyChakra, setEnemyChakra] = useState(enemyMaxChakra);
+    const [enemyStamina, setEnemyStamina] = useState(enemyMaxStamina);
     const [enemyJutsuCooldowns, setEnemyJutsuCooldowns] = useState<Record<string, number>>({});
 
     const [playerShield, setPlayerShield] = useState(equippedShieldBonus);
@@ -27169,7 +31424,7 @@ function Arena({
             ...rewarded,
             ...villageWarRaid.characterPatch,
             ryo: rewarded.ryo + ryoGain,
-            honorSeals: (rewarded.honorSeals ?? 0) + honorSealGain,
+            honorSeals: (rewarded.honorSeals ?? 0) + vanguardOnlyHonorSeals(rewarded, honorSealGain),
             auraDust: (rewarded.auraDust ?? 0) + auraDustGain,
             stamina: Math.min(rewarded.maxStamina, rewarded.stamina + 15),
             boneCharms: (rewarded.boneCharms ?? 0) + deathsGateBoneCharm,
@@ -28411,8 +32666,67 @@ function Arena({
     const activeWeaponRangeTiles = weaponRangeTiles(pendingTargetWeapon);
     const activeGroundAffectedTiles = groundAffectedTiles(pendingTargetJutsu, hoveredBattleTile);
 
+    // ── Mid-battle PvE state persistence (isolated-component v3) ────────
+    // Previous two attempts added hooks DIRECTLY to Arena and tripped
+    // React #310. Even with a minimal deps array, something in Arena's
+    // 50+-hook footprint causes count mismatches when new hooks land.
+    //
+    // v3 fix: render an <ArenaBattlePersister/> child below — its hooks
+    // live in their own scope, so Arena's hook count is COMPLETELY
+    // UNCHANGED by the persistence feature. Save fires on turn-boundary
+    // (deps: 4), restore is one-shot on mount, and the child component
+    // takes all the state as props + an onRestore callback.
+
     return (
         <div className={`arena-fullscreen arena-bg-${currentBiome}${currentSector === 99 ? " arena-bg-deathsgate" : ""}`}>
+            {/* Mid-battle state persistence — isolated in a child component
+                so Arena's hook count is unchanged. Renders nothing visible. */}
+            <ArenaBattlePersister
+                characterName={character.name}
+                battleStarted={battleStarted}
+                battleEnded={battleEnded}
+                isPvpFight={raidBattleKind === "raidPlayer" || rankedBattleActive}
+                opponentName={opponentCharacter?.name ?? pendingAiProfile?.name}
+                pendingStoryKind={pendingStoryBattle?.kind}
+                playerHp={playerHp} enemyHp={enemyHp}
+                enemyChakra={enemyChakra} enemyStamina={enemyStamina}
+                ap={ap} enemyAp={enemyAp}
+                turn={turn} activeActor={activeActor} actionsThisTurn={actionsThisTurn}
+                playerStatuses={playerStatuses} enemyStatuses={enemyStatuses}
+                barrierTiles={barrierTiles}
+                cooldowns={cooldowns} jutsuCooldowns={jutsuCooldowns} enemyJutsuCooldowns={enemyJutsuCooldowns}
+                playerShield={playerShield} enemyShield={enemyShield}
+                playerPos={playerPos} enemyPos={enemyPos}
+                battleHistory={battleHistory} summonedPetId={summonedPetId}
+                rankedBattleActive={rankedBattleActive} clanWarPointsActive={clanWarPointsActive}
+                onRestore={(saved) => {
+                    setBattleStarted(saved.battleStarted);
+                    setPlayerHp(saved.playerHp);
+                    setEnemyHp(saved.enemyHp);
+                    setEnemyChakra(saved.enemyChakra);
+                    setEnemyStamina(saved.enemyStamina);
+                    setAp(saved.ap);
+                    setEnemyAp(saved.enemyAp);
+                    setTurn(saved.turn);
+                    setActiveActor(saved.activeActor);
+                    setActionsThisTurn(saved.actionsThisTurn);
+                    setPlayerStatuses(saved.playerStatuses as CombatStatus[]);
+                    setEnemyStatuses(saved.enemyStatuses as CombatStatus[]);
+                    setBarrierTiles(saved.barrierTiles);
+                    setCooldowns(saved.cooldowns);
+                    setJutsuCooldowns(saved.jutsuCooldowns);
+                    setEnemyJutsuCooldowns(saved.enemyJutsuCooldowns);
+                    setPlayerShield(saved.playerShield);
+                    setEnemyShield(saved.enemyShield);
+                    setPlayerPos(saved.playerPos);
+                    setEnemyPos(saved.enemyPos);
+                    setBattleHistory(saved.battleHistory as BattleActionEntry[]);
+                    setSummonedPetId(saved.summonedPetId);
+                    setRankedBattleActive(saved.rankedBattleActive);
+                    setClanWarPointsActive(saved.clanWarPointsActive);
+                    setLog("Mid-battle state restored from previous session.");
+                }}
+            />
             {/* Pre-fight countdown overlay — shown for ALL battle types */}
             {prefightCountdown !== null && (
                 <div className="pvp-countdown-overlay">
@@ -29109,6 +33423,9 @@ type PvpSessionState = {
     status: "active" | "done";
     winner: "p1" | "p2" | "draw" | null;
     fleedBy?: "p1" | "p2";
+    createdAt?: number;
+    lastMoveAt?: number;
+    consecAutoWait?: { p1?: number; p2?: number };
 };
 
 type PvpMotionFx = {
@@ -29117,6 +33434,133 @@ type PvpMotionFx = {
     from: number;
     to: number;
 };
+
+// ── ArenaBattlePersister ─────────────────────────────────────────────────
+// Headless child component (renders nothing) that serializes a PvE Arena
+// battle to localStorage on each turn boundary and rehydrates it on mount.
+//
+// Lives as a SEPARATE component to keep its hooks isolated from Arena —
+// previous attempts to put the hooks directly inside Arena tripped React
+// error #310 (hook count mismatch) because Arena has 50+ existing hooks
+// and the interaction was unstable. With this child, Arena's hook count
+// is untouched: the persister has its own consistent hook footprint
+// (2 useEffects), independent of the parent.
+type ArenaBattlePersisterProps = {
+    characterName: string;
+    battleStarted: boolean;
+    battleEnded: boolean;
+    isPvpFight: boolean;
+    opponentName?: string;
+    pendingStoryKind?: string;
+    playerHp: number; enemyHp: number;
+    enemyChakra: number; enemyStamina: number;
+    ap: number; enemyAp: number;
+    turn: number;
+    activeActor: "player" | "enemy";
+    actionsThisTurn: number;
+    playerStatuses: unknown[]; enemyStatuses: unknown[];
+    barrierTiles: { tile: number; rounds: number }[];
+    cooldowns: Record<string, number>;
+    jutsuCooldowns: Record<string, number>;
+    enemyJutsuCooldowns: Record<string, number>;
+    playerShield: number; enemyShield: number;
+    playerPos: number; enemyPos: number;
+    battleHistory: unknown[];
+    summonedPetId: string;
+    rankedBattleActive: boolean;
+    clanWarPointsActive: number;
+    onRestore: (saved: SavedArenaBattle) => void;
+};
+type SavedArenaBattle = {
+    savedAt: number;
+    opponentName?: string;
+    pendingStoryKind?: string;
+    battleStarted: boolean;
+    playerHp: number; enemyHp: number;
+    enemyChakra: number; enemyStamina: number;
+    ap: number; enemyAp: number;
+    turn: number;
+    activeActor: "player" | "enemy";
+    actionsThisTurn: number;
+    playerStatuses: unknown[]; enemyStatuses: unknown[];
+    barrierTiles: { tile: number; rounds: number }[];
+    cooldowns: Record<string, number>;
+    jutsuCooldowns: Record<string, number>;
+    enemyJutsuCooldowns: Record<string, number>;
+    playerShield: number; enemyShield: number;
+    playerPos: number; enemyPos: number;
+    battleHistory: unknown[];
+    summonedPetId: string;
+    rankedBattleActive: boolean;
+    clanWarPointsActive: number;
+};
+const ARENA_SAVE_TTL_MS = 60 * 60 * 1000;     // 1hr
+function ArenaBattlePersister(props: ArenaBattlePersisterProps) {
+    const key = `arena.battle.v3.${props.characterName}`;
+    // SAVE — fires on turn boundary or battle end. Reads state via the
+    // closure of `props`. Deps array tiny (4 items) so React can stably
+    // schedule the effect.
+    useEffect(() => {
+        if (!props.battleStarted || props.battleEnded || props.isPvpFight) {
+            try { localStorage.removeItem(key); } catch { /* ignore */ }
+            return;
+        }
+        try {
+            const snapshot: SavedArenaBattle = {
+                savedAt: Date.now(),
+                opponentName: props.opponentName,
+                pendingStoryKind: props.pendingStoryKind,
+                battleStarted: props.battleStarted,
+                playerHp: props.playerHp, enemyHp: props.enemyHp,
+                enemyChakra: props.enemyChakra, enemyStamina: props.enemyStamina,
+                ap: props.ap, enemyAp: props.enemyAp,
+                turn: props.turn,
+                activeActor: props.activeActor,
+                actionsThisTurn: props.actionsThisTurn,
+                playerStatuses: props.playerStatuses, enemyStatuses: props.enemyStatuses,
+                barrierTiles: props.barrierTiles,
+                cooldowns: props.cooldowns,
+                jutsuCooldowns: props.jutsuCooldowns,
+                enemyJutsuCooldowns: props.enemyJutsuCooldowns,
+                playerShield: props.playerShield, enemyShield: props.enemyShield,
+                playerPos: props.playerPos, enemyPos: props.enemyPos,
+                battleHistory: props.battleHistory,
+                summonedPetId: props.summonedPetId,
+                rankedBattleActive: props.rankedBattleActive,
+                clanWarPointsActive: props.clanWarPointsActive,
+            };
+            localStorage.setItem(key, JSON.stringify(snapshot));
+        } catch { /* quota — ignore */ }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [props.turn, props.battleStarted, props.battleEnded, props.isPvpFight]);
+
+    // RESTORE — one-shot on mount. No useRef needed — the component only
+    // mounts once per Arena entry, so a single useEffect with [] deps
+    // is enough.
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem(key);
+            if (!raw) return;
+            const saved = JSON.parse(raw) as SavedArenaBattle;
+            if (!saved?.battleStarted) return;
+            if (Date.now() - (saved.savedAt ?? 0) > ARENA_SAVE_TTL_MS) {
+                localStorage.removeItem(key);
+                return;
+            }
+            // Encounter signature validation — opponent + story kind must
+            // match, otherwise an old story-boss save could pour into a
+            // fresh ambush.
+            if (saved.pendingStoryKind !== props.pendingStoryKind) return;
+            if (props.opponentName && saved.opponentName !== props.opponentName) return;
+            props.onRestore(saved);
+        } catch {
+            try { localStorage.removeItem(key); } catch { /* ignore */ }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    return null;
+}
 
 function PvpBattleScreen({
     character,
@@ -29176,6 +33620,13 @@ function PvpBattleScreen({
     const [userScaleOffset, setUserScaleOffset] = useState(0);
     const [pvpRoundTimer, setPvpRoundTimer] = useState(45);
     const [pvpRoundTimerKey, setPvpRoundTimerKey] = useState(0);
+    // When the round timer hits 0 we queue an auto-wait. If the player has
+    // an action in flight at that moment (submitting === true), the wait
+    // can't fire immediately — a separate effect watches `submitting` and
+    // fires the queued wait once it clears. Without this, the timer would
+    // hit 0, clearInterval, the wait would silently bail, and the player's
+    // turn would never end.
+    const [pvpPendingAutoWait, setPvpPendingAutoWait] = useState(false);
     const [pvpPrefightCountdown, setPvpPrefightCountdown] = useState<number | null>(null);
     const [pvpPrefightFirstActor, setPvpPrefightFirstActor] = useState<"p1" | "p2" | null>(null);
     const [pvpMotionFx, setPvpMotionFx] = useState<PvpMotionFx[]>([]);
@@ -29338,17 +33789,38 @@ function PvpBattleScreen({
     const pvpIsMyTurn = session?.activePlayer === role;
     const pvpDone = session?.status === "done";
     useEffect(() => {
-        if (!session || pvpDone || pvpPrefightCountdown !== null) { setPvpRoundTimer(45); return; }
-        if (!pvpIsMyTurn) { setPvpRoundTimer(45); return; }
+        if (!session || pvpDone || pvpPrefightCountdown !== null) { setPvpRoundTimer(45); setPvpPendingAutoWait(false); return; }
+        if (!pvpIsMyTurn) { setPvpRoundTimer(45); setPvpPendingAutoWait(false); return; }
         let secs = 45;
         setPvpRoundTimer(45);
+        setPvpPendingAutoWait(false);
         const iv = setInterval(() => {
             secs -= 1;
             setPvpRoundTimer(secs);
-            if (secs <= 0) { clearInterval(iv); submitAction("wait"); }
+            // Timer hit 0 — queue the auto-wait. The actual submit happens in
+            // the pendingAutoWait effect below so it can wait for an in-flight
+            // action to complete first (avoids the "turn never ends because
+            // wait got dropped while submitting" race).
+            if (secs <= 0) { clearInterval(iv); setPvpPendingAutoWait(true); }
         }, 1000);
         return () => clearInterval(iv);
     }, [!!session, pvpDone, pvpPrefightCountdown, pvpIsMyTurn, pvpRoundTimerKey]);  
+
+    // Auto-wait queue — fires the wait action whenever the queue is set AND
+    // no other action is currently in flight. Re-checks on every submitting
+    // change so a queued wait isn't lost when the player's last action finishes.
+    useEffect(() => {
+        if (!pvpPendingAutoWait) return;
+        if (submitting) return;          // wait for in-flight action to finish
+        if (!pvpIsMyTurn || pvpDone) {   // turn already passed or fight ended — drop the queue
+            setPvpPendingAutoWait(false);
+            return;
+        }
+        setPvpPendingAutoWait(false);
+        // auto: true marks this as a timer-fired wait so the server counts it
+        // toward the AFK skip counter (vs a manual Wait click).
+        submitAction("wait", undefined, undefined, undefined, { auto: true });
+    }, [pvpPendingAutoWait, submitting, pvpIsMyTurn, pvpDone]); // eslint-disable-line react-hooks/exhaustive-deps
 
     /* ── Register ALL PvP fights on spectator board ── */
     useEffect(() => {
@@ -29576,8 +34048,9 @@ function PvpBattleScreen({
         return groups;
     })();
 
-    async function submitAction(pvpAction: string, pvpTile?: number, pvpJutsuId?: string, pvpItem?: GameItem) {
-        if (submitting || done || !isMyTurn) return;
+    async function submitAction(pvpAction: string, pvpTile?: number, pvpJutsuId?: string, pvpItem?: GameItem, opts?: { auto?: boolean; allowWhenNotMyTurn?: boolean }) {
+        if (submitting || done) return;
+        if (!isMyTurn && !opts?.allowWhenNotMyTurn) return;
         setSubmitting(true);
         try {
             const wfx = weatherEffects[currentWeather];
@@ -29587,6 +34060,7 @@ function PvpBattleScreen({
                 weatherNegativeElement: wfx.negativeElement ?? "",
                 biome: currentBiome,
             };
+            if (opts?.auto) body.auto = true;
             if (pvpTile !== undefined) body.tile = pvpTile;
             if (pvpJutsuId) body.jutsuId = pvpJutsuId;
             if (pvpItem) {
@@ -29954,13 +34428,44 @@ function PvpBattleScreen({
                                 <span>Wait</span><small>End turn</small>
                             </button>
                         </div>
-                    ) : (
-                        <div className="basic-action-bar shinobi-command-bar" style={{ justifyContent: "center" }}>
-                            <p style={{ color: "#94a3b8", padding: "0.5rem 1rem", margin: 0 }}>
-                                {opp.name} is taking their turn...
-                            </p>
-                        </div>
-                    ))}
+                    ) : (() => {
+                        // Two AFK signals:
+                        //  1) Opponent has skipped 2 consecutive rounds via the
+                        //     45s round timer auto-firing (server-tracked).
+                        //  2) No moves at all for 90s (crashed-tab fallback).
+                        // Either lets us claim the win — server validates both.
+                        const opponentRole: "p1" | "p2" = role === "p1" ? "p2" : "p1";
+                        const oppSkips = session.consecAutoWait?.[opponentRole] ?? 0;
+                        const lastMove = Number(session.lastMoveAt ?? session.createdAt);
+                        const idleMs = Date.now() - lastMove;
+                        const FALLBACK_MS = 90_000;
+                        const canClaim = oppSkips >= 2 || idleMs >= FALLBACK_MS;
+                        const fallbackSecs = Math.max(0, Math.ceil((FALLBACK_MS - idleMs) / 1000));
+                        return (
+                            <div className="basic-action-bar shinobi-command-bar" style={{ justifyContent: "center", flexDirection: "column", gap: 8 }}>
+                                <p style={{ color: "#94a3b8", padding: "0.5rem 1rem", margin: 0 }}>
+                                    {opp.name} is taking their turn...
+                                </p>
+                                {canClaim ? (
+                                    <button
+                                        onClick={() => submitAction("claim-afk-win", undefined, undefined, undefined, { allowWhenNotMyTurn: true })}
+                                        disabled={submitting}
+                                        style={{ background: "linear-gradient(#7c2d12, #422006)", borderColor: "#f97316", color: "#fed7aa" }}
+                                    >
+                                        ⏱ Claim Win (Opponent AFK)
+                                    </button>
+                                ) : oppSkips >= 1 ? (
+                                    <p className="hint" style={{ fontSize: "0.75rem", margin: 0, color: "#fcd34d" }}>
+                                        Opponent skipped {oppSkips}/2 rounds — one more for AFK forfeit
+                                    </p>
+                                ) : idleMs > 30_000 ? (
+                                    <p className="hint" style={{ fontSize: "0.75rem", margin: 0, color: "#fcd34d" }}>
+                                        AFK forfeit fallback available in {fallbackSecs}s
+                                    </p>
+                                ) : null}
+                            </div>
+                        );
+                    })())}
 
                     <div className="jutsu-layout-card combat-jutsu-bar">
                         {done ? (
@@ -30255,6 +34760,977 @@ function PvpBattleScreen({
             </div>
 
             {/* Spectator list is now shown inside the chat panel header */}
+        </div>
+    );
+}
+
+// ─── Endless Tower Lobby ──────────────────────────────────────────────────────
+// Shows run state (current wave, banked rewards, best wave) and lets the player
+// start a fresh run, resume the existing one, or retreat to bank rewards.
+function EndlessTowerLobby({
+    character,
+    onEnter,
+    onBank,
+    onBack,
+}: {
+    character: Character;
+    onEnter: () => void;
+    onBank: () => void;
+    onBack: () => void;
+}) {
+    const run = character.endlessTowerRun;
+    const inProgress = !!run && run.wave > 1;
+    const nextWave = run?.wave ?? 1;
+    const preview = endlessWaveReward(nextWave, character.level ?? 1);
+    return (
+        <div className="card" style={{ maxWidth: 720, margin: "1rem auto", padding: "1.4rem" }}>
+            <h1 style={{ marginTop: 0 }}>🗼 Endless Tower</h1>
+            <p style={{ color: "#94a3b8", marginTop: 0 }}>
+                Each wave is harder than the last. Every 5th floor is a milestone (×2 rewards); every 10th is a boss floor (×3).
+                Banked rewards are lost if you die — retreat to bank what you've earned.
+            </p>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.8rem", margin: "1rem 0" }}>
+                <div className="card" style={{ padding: "0.8rem" }}>
+                    <div style={{ color: "#94a3b8", fontSize: "0.85rem" }}>Best floor</div>
+                    <div style={{ fontSize: "1.6rem", fontWeight: 700, color: "#facc15" }}>{character.endlessTowerBestWave ?? 0}</div>
+                </div>
+                <div className="card" style={{ padding: "0.8rem" }}>
+                    <div style={{ color: "#94a3b8", fontSize: "0.85rem" }}>Lifetime clears</div>
+                    <div style={{ fontSize: "1.6rem", fontWeight: 700, color: "#4ade80" }}>{character.totalEndlessTowerWins ?? 0}</div>
+                </div>
+            </div>
+            {inProgress && run ? (
+                <div className="card" style={{ padding: "0.9rem", background: "linear-gradient(#1a1a2e,#0a0a1a)", border: "1px solid #4ade80" }}>
+                    <div style={{ color: "#4ade80", fontWeight: 700, marginBottom: "0.3rem" }}>Run in progress</div>
+                    <div style={{ fontSize: "0.95rem" }}>Floor: <strong>{run.wave}</strong></div>
+                    <div style={{ fontSize: "0.95rem" }}>Banked ryo: <strong style={{ color: "#facc15" }}>{run.bankedRyo.toLocaleString()}</strong></div>
+                    <div style={{ fontSize: "0.95rem" }}>Banked xp: <strong style={{ color: "#a78bfa" }}>{run.bankedXp.toLocaleString()}</strong></div>
+                </div>
+            ) : (
+                <div style={{ color: "#94a3b8", fontStyle: "italic", padding: "0.6rem 0" }}>No active run.</div>
+            )}
+            <div style={{ display: "grid", gridTemplateColumns: inProgress ? "1fr 1fr" : "1fr", gap: "0.6rem", marginTop: "1rem" }}>
+                <button
+                    style={{ padding: "0.8rem 1rem", background: "linear-gradient(#1a3a1a,#0a2010)", borderColor: "#4ade80", fontWeight: 700 }}
+                    onClick={onEnter}
+                >
+                    {inProgress ? `▶ Resume — Floor ${nextWave}` : "▶ Enter Tower (Floor 1)"}
+                </button>
+                {inProgress && (
+                    <button
+                        style={{ padding: "0.8rem 1rem", background: "linear-gradient(#3a3a1a,#201a0a)", borderColor: "#facc15", fontWeight: 700 }}
+                        onClick={onBank}
+                    >
+                        💰 Retreat &amp; Bank
+                    </button>
+                )}
+            </div>
+            <p style={{ color: "#64748b", fontSize: "0.8rem", marginTop: "0.8rem" }}>
+                Next reward preview: {preview.ryo.toLocaleString()} ryo, {preview.xp.toLocaleString()} xp{preview.isMilestone ? " (milestone!)" : ""}.
+            </p>
+            <button className="back-btn" style={{ marginTop: "0.6rem" }} onClick={onBack}>× Back to Central</button>
+        </div>
+    );
+}
+
+// ─── Weekly Boss Arena ────────────────────────────────────────────────────────
+// Shared-HP boss fought by the whole server. Damage is tracked server-side;
+// when HP hits 0 every contributor is rewarded. New boss spawns each ISO week.
+// Combat is a simple "tap to attack" loop — each attack costs stamina and
+// rolls damage based on the player's combat stats. Keeps the system decoupled
+// from the full Arena.
+function WeeklyBossArena({
+    character,
+    updateCharacter,
+    creatorAis,
+    setScreen,
+    playerRoster,
+}: {
+    character: Character;
+    updateCharacter: (c: Character) => void;
+    creatorAis: CreatorAi[];
+    setPendingAiProfileId?: (id: string) => void;
+    setTemporaryStoryAi?: (ai: CreatorAi | null) => void;
+    setArenaKey?: (fn: (k: number) => number) => void;
+    setScreen: (s: Screen) => void;
+    playerRoster: PlayerRecord[];
+}) {
+    const [bossState, setBossState] = useState<WeeklyBossState | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
+
+    const refresh = useCallback(async () => {
+        try {
+            const r = await fetch("/api/weekly-boss", { method: "GET" });
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const data = await r.json();
+            setBossState(data.boss ?? null);
+        } catch (e) {
+            setError(String((e as Error).message || e));
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        void refresh();
+        const id = setInterval(refresh, 15000);
+        return () => clearInterval(id);
+    }, [refresh]);
+
+    const [attacking, setAttacking] = useState(false);
+    const [combatLog, setCombatLog] = useState<string[]>([]);
+
+    function rollAttackDamage(): number {
+        // Simple roll: best offensive stat * (1 + level/100) * random 0.7..1.3
+        const stats = character.stats;
+        const best = Math.max(stats.bukijutsuOffense, stats.taijutsuOffense, stats.ninjutsuOffense, stats.genjutsuOffense);
+        const lvlScale = 1 + (character.level ?? 1) / 100;
+        const roll = 0.7 + Math.random() * 0.6;
+        return Math.max(1, Math.floor(best * lvlScale * roll));
+    }
+
+    async function attackBoss() {
+        if (!bossState || attacking) return;
+        if ((character.stamina ?? 0) < 20) {
+            setError("You need at least 20 stamina to attack.");
+            return;
+        }
+        setAttacking(true);
+        const dmg = rollAttackDamage();
+        try {
+            const r = await fetch("/api/weekly-boss", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ kind: "damage", weekKey: bossState.weekKey, amount: dmg }),
+            });
+            const data = await r.json();
+            if (!r.ok) throw new Error(data.error ?? `HTTP ${r.status}`);
+            updateCharacter({
+                ...character,
+                stamina: Math.max(0, (character.stamina ?? 0) - 20),
+            });
+            setCombatLog(prev => [`+${dmg.toLocaleString()} damage dealt`, ...prev].slice(0, 8));
+            setBossState(data.boss ?? bossState);
+        } catch (e) {
+            setError(String((e as Error).message || e));
+        } finally {
+            setAttacking(false);
+        }
+    }
+    void creatorAis; // kept for future arena-integrated mode
+
+    if (loading) return <div className="card" style={{ padding: "1.4rem", maxWidth: 720, margin: "1rem auto" }}>Loading weekly boss…</div>;
+
+    if (!bossState || !bossState.aiId) {
+        return (
+            <div className="card" style={{ padding: "1.4rem", maxWidth: 720, margin: "1rem auto" }}>
+                <h1 style={{ marginTop: 0 }}>👹 Weekly Boss</h1>
+                <p style={{ color: "#94a3b8" }}>No boss has been summoned this week. Ask an admin to set the weekly boss AI.</p>
+                <button className="back-btn" onClick={() => setScreen("centralHub")}>× Back to Central</button>
+            </div>
+        );
+    }
+
+    const hpPct = Math.max(0, Math.min(100, (bossState.hpRemaining / Math.max(1, bossState.hpMax)) * 100));
+    const dead = bossState.hpRemaining <= 0;
+    const myDamage = bossState.damageByPlayer?.[character.name.toLowerCase()] ?? 0;
+    const top = Object.entries(bossState.damageByPlayer ?? {})
+        .sort(([, a], [, b]) => (b as number) - (a as number))
+        .slice(0, 10);
+
+    return (
+        <div className="card" style={{ maxWidth: 820, margin: "1rem auto", padding: "1.4rem" }}>
+            <h1 style={{ marginTop: 0 }}>👹 Weekly Boss</h1>
+            <p style={{ color: "#94a3b8", marginTop: 0 }}>Week: <strong>{bossState.weekKey}</strong></p>
+            {error && <div style={{ color: "#f87171", marginBottom: "0.5rem" }}>⚠ {error}</div>}
+            <div style={{ background: "#1a1a2e", border: "1px solid #f87171", borderRadius: 8, padding: "0.8rem", margin: "0.8rem 0" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                    <strong style={{ color: "#f87171" }}>{bossState.bossName ?? "Weekly Boss"}</strong>
+                    <span>{bossState.hpRemaining.toLocaleString()} / {bossState.hpMax.toLocaleString()} HP</span>
+                </div>
+                <div style={{ background: "#0a0a1a", borderRadius: 6, overflow: "hidden", height: 18 }}>
+                    <div style={{ width: `${hpPct}%`, height: "100%", background: "linear-gradient(90deg,#dc2626,#7f1d1d)" }} />
+                </div>
+            </div>
+            <p>Your damage this week: <strong style={{ color: "#facc15" }}>{myDamage.toLocaleString()}</strong></p>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.6rem", marginTop: "0.6rem" }}>
+                <button
+                    disabled={dead || attacking || (character.stamina ?? 0) < 20}
+                    style={{ padding: "0.8rem", background: dead ? "#333" : "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171", fontWeight: 700, opacity: dead || attacking ? 0.6 : 1 }}
+                    onClick={attackBoss}
+                >
+                    {dead ? "💀 Boss Defeated" : attacking ? "Attacking…" : `⚔ Attack (20 stamina)`}
+                </button>
+                <button className="back-btn" onClick={() => setScreen("centralHub")}>× Back</button>
+            </div>
+            {combatLog.length > 0 && (
+                <div style={{ background: "#0a0a1a", borderRadius: 6, padding: "0.5rem 0.8rem", margin: "0.6rem 0", fontFamily: "monospace", fontSize: "0.85rem" }}>
+                    {combatLog.map((line, i) => <div key={i} style={{ color: "#facc15" }}>{line}</div>)}
+                </div>
+            )}
+            <h3 style={{ marginTop: "1.2rem" }}>Top Contributors</h3>
+            <div style={{ display: "grid", gap: 4 }}>
+                {top.length === 0 && <em style={{ color: "#64748b" }}>No damage dealt yet.</em>}
+                {top.map(([name, dmg], i) => {
+                    const player = playerRoster.find(p => p.name.toLowerCase() === name);
+                    return (
+                        <div key={name} style={{ display: "flex", justifyContent: "space-between", padding: "0.3rem 0.5rem", background: i === 0 ? "rgba(250,204,21,0.1)" : "transparent", borderRadius: 4 }}>
+                            <span>#{i + 1} {player?.name ?? name} {player?.village ? `(${player.village})` : ""}</span>
+                            <strong>{(dmg as number).toLocaleString()}</strong>
+                        </div>
+                    );
+                })}
+            </div>
+            {dead && bossState.lastKillRewardedAt && bossState.killRewardedTo?.includes(character.name.toLowerCase()) && (
+                <p style={{ color: "#4ade80", marginTop: "0.8rem" }}>✓ Rewards already claimed for this kill.</p>
+            )}
+            {dead && !bossState.killRewardedTo?.includes(character.name.toLowerCase()) && myDamage > 0 && (
+                <button
+                    style={{ marginTop: "0.8rem", padding: "0.8rem", background: "linear-gradient(#1a3a1a,#0a2010)", borderColor: "#4ade80", fontWeight: 700 }}
+                    onClick={async () => {
+                        try {
+                            const r = await fetch("/api/weekly-boss", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ kind: "claim", weekKey: bossState.weekKey }),
+                            });
+                            const data = await r.json();
+                            if (data?.reward) {
+                                updateCharacter({
+                                    ...character,
+                                    ryo: (character.ryo ?? 0) + (data.reward.ryo ?? 0),
+                                    xp: (character.xp ?? 0) + (data.reward.xp ?? 0),
+                                    weeklyBossKills: { ...(character.weeklyBossKills ?? {}), [bossState.weekKey]: new Date().toISOString() },
+                                });
+                                alert(`Claimed: ${data.reward.ryo} ryo, ${data.reward.xp} xp${data.reward.isMvp ? " — MVP bonus!" : ""}`);
+                                await refresh();
+                            } else if (data?.error) {
+                                setError(data.error);
+                            }
+                        } catch (e) {
+                            setError(String((e as Error).message || e));
+                        }
+                    }}
+                >
+                    💰 Claim Rewards
+                </button>
+            )}
+        </div>
+    );
+}
+
+type WeeklyBossState = {
+    weekKey: string;
+    aiId: string;
+    bossName?: string;
+    hpMax: number;
+    hpRemaining: number;
+    scaleFactor?: number;
+    damageByPlayer: Record<string, number>;
+    startedAt: number;
+    lastKillRewardedAt?: number;
+    killRewardedTo?: string[];
+};
+
+// ─── Village War Screen ───────────────────────────────────────────────────────
+// Lets a village member view the active war (if any), raid enemy sectors, and
+// (if Kage / admin) declare a new war.
+function VillageWarScreen({
+    character,
+    updateCharacter,
+    playerRoster,
+    onBack,
+}: {
+    character: Character;
+    updateCharacter: (c: Character) => void;
+    playerRoster: PlayerRecord[];
+    onBack: () => void;
+}) {
+    const [wars, setWars] = useState<VillageWarRecord[]>([]);
+    const [territories, setTerritories] = useState<TerritoryRecord[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
+    const [declaring, setDeclaring] = useState(false);
+    const [declareTarget, setDeclareTarget] = useState("");
+    const [isKage, setIsKage] = useState(false);
+
+    useEffect(() => {
+        let alive = true;
+        fetch("/api/game-state").then(r => r.json()).then(data => {
+            if (!alive) return;
+            const myVillageNorm = (character.village ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+            const myState = (data.villageStates ?? {})[myVillageNorm] as { seatedKage?: string } | undefined;
+            setIsKage((myState?.seatedKage ?? "").toLowerCase() === character.name.toLowerCase());
+        }).catch(() => {});
+        return () => { alive = false; };
+    }, [character.name, character.village]);
+
+    const refresh = useCallback(async () => {
+        try {
+            const r = await fetch("/api/world-state", { method: "GET" });
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const data = await r.json();
+            setWars(Array.isArray(data.wars) ? data.wars : []);
+            setTerritories(Array.isArray(data.territories) ? data.territories : []);
+        } catch (e) {
+            setError(String((e as Error).message || e));
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => { void refresh(); const id = setInterval(refresh, 15000); return () => clearInterval(id); }, [refresh]);
+
+    const myVillage = (character.village ?? "").trim();
+    const activeWar = wars.find(w => !w.endedAt && Array.isArray(w.villages) && w.villages.includes(myVillage));
+    const enemyVillage = activeWar?.villages?.find((v: string) => v !== myVillage) ?? "";
+    const villages = Array.from(new Set(playerRoster.map(p => p.village).filter(Boolean))).filter(v => v !== myVillage);
+
+    async function declareWar() {
+        if (!declareTarget) return;
+        setDeclaring(true);
+        try {
+            const r = await fetch("/api/world-state", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    kind: "war",
+                    war: { villages: [myVillage, declareTarget], startedAt: Date.now() },
+                }),
+            });
+            if (!r.ok) {
+                const data = await r.json().catch(() => ({}));
+                throw new Error(data.error ?? `HTTP ${r.status}`);
+            }
+            await refresh();
+        } catch (e) {
+            setError(String((e as Error).message || e));
+        } finally {
+            setDeclaring(false);
+        }
+    }
+
+    async function raidSector(sector: number) {
+        if (!activeWar) return;
+        const territory = territories.find(t => t.sector === sector);
+        const newHp = Math.max(0, (territory?.hp ?? 20000) - 500);
+        try {
+            const r = await fetch("/api/world-state", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    kind: "territory",
+                    territory: {
+                        ...territory,
+                        sector,
+                        hp: newHp,
+                        ownerVillage: territory?.ownerVillage ?? enemyVillage,
+                        warSupply: (territory?.warSupply ?? 0) + 50,
+                    },
+                }),
+            });
+            if (!r.ok) {
+                const data = await r.json().catch(() => ({}));
+                throw new Error(data.error ?? `HTTP ${r.status}`);
+            }
+            updateCharacter({
+                ...character,
+                totalVillageRaids: (character.totalVillageRaids ?? 0) + 1,
+                villageWarRaidProgress: (character.villageWarRaidProgress ?? 0) + 1,
+            });
+            await refresh();
+            // The war only ENDS when the war-ground sector's HP hits 0. Raids
+            // on other enemy sectors just grant war supply and dent control.
+            if (newHp === 0 && sector === activeWar.warGroundSector) {
+                const crateId = `war-crate-${activeWar.id}`;
+                const updatedWar = { ...activeWar, capturedBy: myVillage, capturedAt: Date.now(), warGroundHp: 0, winnerVillage: myVillage, endedAt: Date.now(), warCrateId: crateId };
+                await fetch("/api/world-state", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ kind: "war", war: updatedWar }),
+                });
+                const alreadyClaimed = character.claimedWarCrateIds ?? [];
+                updateCharacter({
+                    ...character,
+                    ryo: (character.ryo ?? 0) + 2000,
+                    xp: (character.xp ?? 0) + 1000,
+                    villageWarMissionsCompleted: (character.villageWarMissionsCompleted ?? 0) + 1,
+                    inventory: alreadyClaimed.includes(crateId) ? character.inventory : [...character.inventory, LEGENDARY_WAR_CRATE_ID],
+                    claimedWarCrateIds: alreadyClaimed.includes(crateId) ? alreadyClaimed : [...alreadyClaimed, crateId],
+                });
+                await refresh();
+            }
+        } catch (e) {
+            setError(String((e as Error).message || e));
+        }
+    }
+
+    if (loading) return <div className="card" style={{ padding: "1.4rem", maxWidth: 720, margin: "1rem auto" }}>Loading village war…</div>;
+
+    // Wars my village won that I haven't claimed yet
+    const claimable = wars.filter(w =>
+        w.endedAt && w.winnerVillage === myVillage &&
+        !(character.claimedWarCrateIds ?? []).includes(`war-crate-${w.id}`)
+    );
+
+    function claimVictory(war: VillageWarRecord) {
+        const crateId = `war-crate-${war.id}`;
+        const claimed = character.claimedWarCrateIds ?? [];
+        if (claimed.includes(crateId)) return;
+        updateCharacter({
+            ...character,
+            ryo: (character.ryo ?? 0) + 500,
+            xp: (character.xp ?? 0) + 250,
+            inventory: [...character.inventory, LEGENDARY_WAR_CRATE_ID],
+            claimedWarCrateIds: [...claimed, crateId],
+        });
+    }
+
+    return (
+        <div className="card" style={{ maxWidth: 820, margin: "1rem auto", padding: "1.4rem" }}>
+            <h1 style={{ marginTop: 0 }}>⚔ Village War</h1>
+            {error && <div style={{ color: "#f87171", marginBottom: "0.5rem" }}>⚠ {error}</div>}
+            {claimable.length > 0 && (
+                <div style={{ background: "linear-gradient(#1a3a1a,#0a2010)", border: "1px solid #4ade80", borderRadius: 8, padding: "0.8rem", marginBottom: "1rem" }}>
+                    <strong style={{ color: "#4ade80" }}>🏆 Victory rewards available</strong>
+                    {claimable.map(w => (
+                        <div key={w.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
+                            <span>vs {w.villages.find(v => v !== myVillage) ?? "?"} — won {new Date(w.endedAt!).toLocaleDateString()}</span>
+                            <button onClick={() => claimVictory(w)} style={{ padding: "0.3rem 0.7rem", background: "linear-gradient(#1a3a1a,#0a2010)", borderColor: "#4ade80", fontSize: "0.85rem" }}>
+                                Claim Reward
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            )}
+            {activeWar ? (
+                <>
+                    <div style={{ background: "#1a1a2e", border: "1px solid #f87171", borderRadius: 8, padding: "0.8rem", marginBottom: "1rem" }}>
+                        <div style={{ fontWeight: 700, color: "#f87171", fontSize: "1.1rem" }}>{myVillage} vs {enemyVillage}</div>
+                        <div style={{ color: "#94a3b8", fontSize: "0.85rem" }}>Started {new Date(activeWar.startedAt).toLocaleDateString()}</div>
+                        <div style={{ marginTop: 8 }}>
+                            <div>My village HP: <strong style={{ color: "#4ade80" }}>{activeWar.hp?.[myVillage] ?? 0}</strong></div>
+                            <div>Enemy HP: <strong style={{ color: "#f87171" }}>{activeWar.hp?.[enemyVillage] ?? 0}</strong></div>
+                            <div>War Ground (sector {activeWar.warGroundSector}): {activeWar.warGroundHp}</div>
+                        </div>
+                    </div>
+                    <h3>Enemy Sectors — Raid to drain control</h3>
+                    <p style={{ color: "#facc15", fontSize: "0.85rem", marginTop: -4 }}>
+                        ⚑ The war ends when the <strong>war-ground sector ({activeWar.warGroundSector})</strong> reaches 0 HP.
+                    </p>
+                    <div style={{ display: "grid", gap: 6, maxHeight: 360, overflowY: "auto" }}>
+                        {territories
+                            .filter(t => (t.ownerVillage ?? "") === enemyVillage)
+                            .map(t => (
+                                <div key={t.sector} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.4rem 0.6rem", background: "#0a0a1a", borderRadius: 6 }}>
+                                    <span>Sector {t.sector} — HP {t.hp}/20000 — Supply {t.warSupply}</span>
+                                    <button
+                                        onClick={() => raidSector(t.sector)}
+                                        disabled={t.hp <= 0}
+                                        style={{ padding: "0.3rem 0.7rem", background: t.hp > 0 ? "linear-gradient(#7f1d1d,#450a0a)" : "#333", borderColor: "#f87171", fontSize: "0.85rem" }}
+                                    >
+                                        {t.hp > 0 ? "⚔ Raid (-500 HP)" : "Captured"}
+                                    </button>
+                                </div>
+                            ))}
+                        {territories.filter(t => (t.ownerVillage ?? "") === enemyVillage).length === 0 && (
+                            <em style={{ color: "#64748b" }}>No enemy-controlled sectors found.</em>
+                        )}
+                    </div>
+                </>
+            ) : (
+                <>
+                    <p style={{ color: "#94a3b8" }}>No active war involving <strong>{myVillage || "your village"}</strong>.</p>
+                    {isKage ? (
+                        <div style={{ marginTop: "1rem", padding: "0.8rem", background: "#0a0a1a", borderRadius: 8 }}>
+                            <h3 style={{ marginTop: 0 }}>Declare War (Kage)</h3>
+                            <select value={declareTarget} onChange={e => setDeclareTarget(e.target.value)} style={{ padding: "0.4rem", marginRight: "0.5rem" }}>
+                                <option value="">Select target village…</option>
+                                {villages.map(v => <option key={v} value={v}>{v}</option>)}
+                            </select>
+                            <button disabled={!declareTarget || declaring} onClick={declareWar} style={{ padding: "0.5rem 1rem", background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171" }}>
+                                {declaring ? "Declaring…" : "⚔ Declare War"}
+                            </button>
+                        </div>
+                    ) : (
+                        <p style={{ color: "#64748b", fontStyle: "italic" }}>Only the Kage of your village can declare war.</p>
+                    )}
+                </>
+            )}
+            <button className="back-btn" style={{ marginTop: "1rem" }} onClick={onBack}>× Back</button>
+        </div>
+    );
+}
+
+type VillageWarRecord = {
+    id: string;
+    villages: [string, string];
+    hp?: Record<string, number>;
+    warGroundSector: number;
+    warGroundHp: number;
+    startedAt: number;
+    updatedAt: number;
+    capturedBy?: string;
+    capturedAt?: number;
+    winnerVillage?: string;
+    endedAt?: number;
+    warCrateId?: string;
+};
+
+type TerritoryRecord = {
+    sector: number;
+    ownerClan?: string;
+    ownerVillage?: string;
+    hp: number;
+    controlScore?: number;
+    warSupply: number;
+};
+
+// ─── Admin Moderation Panel ───────────────────────────────────────────────────
+// Player search → IP history + linked accounts. Ban / silence (1d / 3d / 7d /
+// permanent for ban). Audit log of recent mod actions. Force-kick + delete a
+// specific village-chat message.
+type ModBanRecord = { until: number; reason: string; by: string; at: number; permanent?: boolean };
+type ModSilenceRecord = { until: number; reason: string; by: string; at: number };
+type ModIpRecord = { lastIp: string; ips: string[]; lastSeenAt: number };
+type ModFpRecord = { lastFp: string; fps: string[]; lastSeenAt: number };
+type ModAuditEntry = { ts: number; actor: string; action: string; target: string; detail?: string };
+type ModLookupResult = {
+    target: string;
+    ipRecord: ModIpRecord | null;
+    fpRecord: ModFpRecord | null;
+    linkedByIp: string[];
+    linkedByFp: string[];
+    linkedByBoth: string[];
+    perIp: Array<{ ip: string; names: string[] }>;
+    perFp: Array<{ fp: string; names: string[] }>;
+};
+type ModSnapshot = {
+    target: string;
+    exists: boolean;
+    snapshot?: {
+        level: number; village: string; clan: string; specialty: string; rank: string;
+        ryo: number; xp: number; totalPvpKills: number; totalAiKills: number;
+        hospitalized: boolean; createdAt: unknown; lastSeenAt: number; currentSector: number; online: boolean;
+    };
+    ban?: ModBanRecord | null;
+    silence?: ModSilenceRecord | null;
+};
+type ModChatMessage = { author: string; text: string; ts: number; rank?: string; level?: number };
+
+function ModerationPanel({ adminPw }: { adminPw: string }) {
+    const [bans, setBans] = useState<Array<{ name: string; record: ModBanRecord }>>([]);
+    const [silences, setSilences] = useState<Array<{ name: string; record: ModSilenceRecord }>>([]);
+    const [audit, setAudit] = useState<ModAuditEntry[]>([]);
+    const [searchName, setSearchName] = useState("");
+    const [searchSignal, setSearchSignal] = useState("");
+    const [signalKind, setSignalKind] = useState<"ip" | "fp">("ip");
+    const [signalResult, setSignalResult] = useState<{ kind: "ip" | "fp"; value: string; names: string[] } | null>(null);
+    const [lookup, setLookup] = useState<ModLookupResult | null>(null);
+    const [snapshot, setSnapshot] = useState<ModSnapshot | null>(null);
+    const [reason, setReason] = useState("");
+    const [status, setStatus] = useState("");
+    const [loading, setLoading] = useState(false);
+    // Village chat viewer
+    const [chatVillage, setChatVillage] = useState("");
+    const [chatMessages, setChatMessages] = useState<ModChatMessage[]>([]);
+
+    const refresh = useCallback(async () => {
+        if (!adminPw) return;
+        try {
+            const r = await fetch("/api/admin/moderation", {
+                method: "GET",
+                headers: { "x-admin-password": adminPw },
+            });
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const data = await r.json();
+            setBans(Array.isArray(data.bans) ? data.bans : []);
+            setSilences(Array.isArray(data.silences) ? data.silences : []);
+            setAudit(Array.isArray(data.audit) ? data.audit : []);
+        } catch (e) {
+            setStatus(`❌ ${(e as Error).message}`);
+        }
+    }, [adminPw]);
+
+    useEffect(() => { void refresh(); }, [refresh]);
+
+    async function modAction(kind: string, body: Record<string, unknown>) {
+        if (!adminPw) { setStatus("❌ Admin password missing."); return; }
+        setLoading(true);
+        setStatus("");
+        try {
+            const r = await fetch("/api/admin/moderation", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "x-admin-password": adminPw },
+                body: JSON.stringify({ kind, password: adminPw, actor: "admin", ...body }),
+            });
+            const data = await r.json();
+            if (!r.ok) throw new Error(data.error ?? `HTTP ${r.status}`);
+            setStatus(`✅ ${kind} ok`);
+            return data;
+        } catch (e) {
+            setStatus(`❌ ${(e as Error).message}`);
+            return null;
+        } finally {
+            setLoading(false);
+            await refresh();
+        }
+    }
+
+    // Pivot the whole lookup card to a different player. Used by Search button
+    // and by every linked-account / ban-list / audit-log button below.
+    async function pivotTo(name: string) {
+        const target = name.trim();
+        if (!target) return;
+        setSearchName(target);
+        const [lookupData, snapData] = await Promise.all([
+            modAction("lookup", { target }),
+            modAction("snapshot", { target }),
+        ]);
+        if (lookupData) setLookup(lookupData as ModLookupResult);
+        if (snapData) setSnapshot(snapData as ModSnapshot);
+    }
+
+    async function doLookup() {
+        await pivotTo(searchName.trim());
+    }
+
+    async function doSignalSearch() {
+        const v = searchSignal.trim();
+        if (!v) return;
+        const kind = signalKind === "ip" ? "reverse-ip" : "reverse-fp";
+        const body = signalKind === "ip" ? { ip: v } : { fp: v.toLowerCase() };
+        const data = await modAction(kind, body);
+        if (data) {
+            setSignalResult({ kind: signalKind, value: v, names: (data.names as string[]) ?? [] });
+        }
+    }
+
+    async function loadVillageChat(village: string) {
+        const v = village.trim();
+        if (!v) return;
+        const data = await modAction("fetch-village-chat", { village: v });
+        if (data) setChatMessages((data.messages as ModChatMessage[]) ?? []);
+    }
+
+    async function deleteChatMessage(village: string, author: string, ts: number) {
+        await modAction("delete-chat-message", { village, author, ts });
+        await loadVillageChat(village);
+    }
+
+    async function ban(target: string, days: number | "permanent") {
+        await modAction("ban", { target, days, reason: reason.slice(0, 500) });
+    }
+    async function unban(target: string) {
+        await modAction("unban", { target });
+    }
+    async function silence(target: string, days: number) {
+        await modAction("silence", { target, days, reason: reason.slice(0, 500) });
+    }
+    async function unsilence(target: string) {
+        await modAction("unsilence", { target });
+    }
+    async function kick(target: string) {
+        await modAction("kick", { target, reason: reason.slice(0, 200) });
+    }
+
+    function fmtUntil(rec: { until: number; permanent?: boolean }) {
+        if (rec.permanent) return "permanent";
+        const ms = rec.until - Date.now();
+        if (ms <= 0) return "expired";
+        const days = Math.floor(ms / 86400000);
+        const hours = Math.floor((ms % 86400000) / 3600000);
+        return days > 0 ? `${days}d ${hours}h` : `${hours}h`;
+    }
+
+    return (
+        <div style={{ display: "grid", gap: "1rem" }}>
+            <section className="summary-box">
+                <h3>🛡 Player Lookup</h3>
+                <p className="hint">Search by name to inspect a single account, or paste an IP / fingerprint hash to find every account using it.</p>
+                <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+                    <input
+                        value={searchName}
+                        onChange={(e) => setSearchName(e.target.value)}
+                        placeholder="Player name (e.g. Alice)"
+                        style={{ flex: 1, minWidth: 200, padding: "0.4rem" }}
+                        onKeyDown={(e) => { if (e.key === "Enter") void doLookup(); }}
+                    />
+                    <button onClick={doLookup} disabled={loading || !searchName.trim()}>Search Name</button>
+                </div>
+                <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", marginTop: "0.5rem" }}>
+                    <select value={signalKind} onChange={(e) => setSignalKind(e.target.value as "ip" | "fp")} style={{ padding: "0.4rem" }}>
+                        <option value="ip">IP</option>
+                        <option value="fp">Fingerprint</option>
+                    </select>
+                    <input
+                        value={searchSignal}
+                        onChange={(e) => setSearchSignal(e.target.value)}
+                        placeholder={signalKind === "ip" ? "Paste an IP (e.g. 203.0.113.42)" : "Paste a fingerprint hash"}
+                        style={{ flex: 1, minWidth: 200, padding: "0.4rem", fontFamily: "monospace" }}
+                        onKeyDown={(e) => { if (e.key === "Enter") void doSignalSearch(); }}
+                    />
+                    <button onClick={doSignalSearch} disabled={loading || !searchSignal.trim()}>Find accounts</button>
+                </div>
+                {signalResult && (
+                    <div style={{ background: "#0a0a1a", borderRadius: 6, padding: "0.5rem", marginTop: "0.5rem" }}>
+                        <strong>{signalResult.names.length}</strong> account{signalResult.names.length === 1 ? "" : "s"} on <code style={{ color: signalResult.kind === "ip" ? "#facc15" : "#a78bfa" }}>{signalResult.value}</code>:
+                        <div style={{ marginTop: 4 }}>
+                            {signalResult.names.length === 0
+                                ? <em style={{ color: "#64748b" }}>None recorded.</em>
+                                : signalResult.names.map(n => (
+                                    <button key={n} onClick={() => pivotTo(n)} style={{ margin: 2, padding: "0.2rem 0.6rem", fontSize: "0.85rem" }}>{n}</button>
+                                ))
+                            }
+                        </div>
+                    </div>
+                )}
+                <label style={{ display: "block", marginTop: "0.6rem" }}>Mod-action reason (saved to audit log)</label>
+                <input
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                    placeholder="e.g. spamming chat, slur in name…"
+                    style={{ width: "100%", padding: "0.4rem" }}
+                    maxLength={500}
+                />
+                {status && <p className="hint" style={{ marginTop: "0.4rem" }}>{status}</p>}
+            </section>
+
+            {snapshot && snapshot.exists && snapshot.snapshot && (
+                <section className="summary-box">
+                    <h3>👤 {snapshot.target} — Account Snapshot</h3>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "0.5rem", marginTop: "0.4rem" }}>
+                        <div><strong>Level:</strong> {snapshot.snapshot.level}</div>
+                        <div><strong>Village:</strong> {snapshot.snapshot.village || <em style={{ color: "#64748b" }}>none</em>}</div>
+                        <div><strong>Clan:</strong> {snapshot.snapshot.clan || <em style={{ color: "#64748b" }}>none</em>}</div>
+                        <div><strong>Rank:</strong> {snapshot.snapshot.rank || <em style={{ color: "#64748b" }}>unknown</em>}</div>
+                        <div><strong>Specialty:</strong> {snapshot.snapshot.specialty || <em style={{ color: "#64748b" }}>n/a</em>}</div>
+                        <div><strong>Ryo:</strong> {snapshot.snapshot.ryo.toLocaleString()}</div>
+                        <div><strong>PvP kills:</strong> {snapshot.snapshot.totalPvpKills}</div>
+                        <div><strong>AI kills:</strong> {snapshot.snapshot.totalAiKills}</div>
+                        <div>
+                            <strong>Status:</strong>{" "}
+                            {snapshot.snapshot.online
+                                ? <span style={{ color: "#4ade80" }}>● online (sector {snapshot.snapshot.currentSector})</span>
+                                : <span style={{ color: "#64748b" }}>○ offline</span>}
+                        </div>
+                        {snapshot.snapshot.lastSeenAt > 0 && (
+                            <div><strong>Last seen:</strong> {new Date(snapshot.snapshot.lastSeenAt).toLocaleString()}</div>
+                        )}
+                        {snapshot.snapshot.hospitalized && (
+                            <div style={{ color: "#f87171" }}>🏥 Hospitalized</div>
+                        )}
+                    </div>
+                    {(snapshot.ban || snapshot.silence) && (
+                        <div style={{ marginTop: "0.6rem", padding: "0.5rem", background: "#1c0606", borderRadius: 6 }}>
+                            {snapshot.ban && (
+                                <div style={{ color: "#f87171" }}>
+                                    🚫 <strong>BANNED</strong> {snapshot.ban.permanent ? "permanently" : `until ${new Date(snapshot.ban.until).toLocaleString()}`} — {snapshot.ban.reason || <em>no reason</em>} <small>(by {snapshot.ban.by})</small>
+                                </div>
+                            )}
+                            {snapshot.silence && (
+                                <div style={{ color: "#fbbf24", marginTop: snapshot.ban ? 4 : 0 }}>
+                                    🔇 <strong>SILENCED</strong> until {new Date(snapshot.silence.until).toLocaleString()} — {snapshot.silence.reason || <em>no reason</em>} <small>(by {snapshot.silence.by})</small>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </section>
+            )}
+            {snapshot && !snapshot.exists && (
+                <section className="summary-box">
+                    <p className="hint">No save found for <strong>{snapshot.target}</strong>. The IP / fingerprint data below may still be useful.</p>
+                </section>
+            )}
+
+            {lookup && (
+                <section className="summary-box">
+                    <h3>📍 {lookup.target}</h3>
+                    {(lookup.ipRecord || lookup.fpRecord) ? (
+                        <>
+                            {lookup.ipRecord && (
+                                <p><strong>Last IP:</strong> <code>{lookup.ipRecord.lastIp}</code> · <strong>Last seen:</strong> {new Date(lookup.ipRecord.lastSeenAt).toLocaleString()}</p>
+                            )}
+                            {lookup.fpRecord && (
+                                <p><strong>Last fingerprint:</strong> <code>{lookup.fpRecord.lastFp.slice(0, 16)}…</code> · <strong>Fingerprints ever used:</strong> {lookup.fpRecord.fps.length}</p>
+                            )}
+
+                            {lookup.linkedByBoth.length > 0 && (
+                                <div style={{ background: "#1c0606", border: "1px solid #f87171", borderRadius: 6, padding: "0.6rem", margin: "0.6rem 0" }}>
+                                    <strong style={{ color: "#f87171" }}>⚠ Linked by IP AND Fingerprint — almost certainly the same person:</strong>
+                                    <div style={{ marginTop: 4 }}>
+                                        {lookup.linkedByBoth.map(n => (
+                                            <button
+                                                key={n}
+                                                onClick={() => pivotTo(n)}
+                                                style={{ margin: "2px", padding: "0.2rem 0.6rem", fontSize: "0.85rem", background: "#7f1d1d", borderColor: "#f87171" }}
+                                            >{n}</button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            <h4 style={{ marginTop: "0.8rem", marginBottom: "0.3rem" }}>🌐 Linked by IP ({lookup.linkedByIp.length})</h4>
+                            <p className="hint" style={{ marginTop: 0, fontSize: "0.8rem" }}>Same network. Weaker signal — shared cafe / home / corporate IPs trigger this.</p>
+                            <div style={{ background: "#0a0a1a", borderRadius: 6, padding: "0.5rem" }}>
+                                {lookup.perIp.length === 0
+                                    ? <em style={{ color: "#64748b" }}>No IPs recorded yet.</em>
+                                    : lookup.perIp.map(({ ip, names }) => (
+                                        <div key={ip} style={{ marginBottom: "0.4rem" }}>
+                                            <code style={{ color: "#facc15" }}>{ip}</code>
+                                            {names.length > 0 ? (
+                                                <div style={{ paddingLeft: "1rem", fontSize: "0.9rem" }}>
+                                                    also used by: {names.map(n => (
+                                                        <button
+                                                            key={n}
+                                                            onClick={() => pivotTo(n)}
+                                                            style={{ marginLeft: 4, padding: "0 6px", fontSize: "0.85rem", background: lookup.linkedByBoth.includes(n) ? "#7f1d1d" : undefined, borderColor: lookup.linkedByBoth.includes(n) ? "#f87171" : undefined }}
+                                                        >{n}{lookup.linkedByFp.includes(n) ? " ★" : ""}</button>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <span style={{ paddingLeft: "1rem", color: "#64748b" }}> — unique to {lookup.target}</span>
+                                            )}
+                                        </div>
+                                    ))
+                                }
+                            </div>
+
+                            <h4 style={{ marginTop: "0.8rem", marginBottom: "0.3rem" }}>🖥 Linked by Fingerprint ({lookup.linkedByFp.length})</h4>
+                            <p className="hint" style={{ marginTop: 0, fontSize: "0.8rem" }}>Same browser + machine. Survives VPNs / cookie clears / incognito. Strong signal.</p>
+                            <div style={{ background: "#0a0a1a", borderRadius: 6, padding: "0.5rem" }}>
+                                {lookup.perFp.length === 0
+                                    ? <em style={{ color: "#64748b" }}>No fingerprints recorded yet.</em>
+                                    : lookup.perFp.map(({ fp, names }) => (
+                                        <div key={fp} style={{ marginBottom: "0.4rem" }}>
+                                            <code style={{ color: "#a78bfa" }}>{fp.slice(0, 16)}…</code>
+                                            {names.length > 0 ? (
+                                                <div style={{ paddingLeft: "1rem", fontSize: "0.9rem" }}>
+                                                    also used by: {names.map(n => (
+                                                        <button
+                                                            key={n}
+                                                            onClick={() => pivotTo(n)}
+                                                            style={{ marginLeft: 4, padding: "0 6px", fontSize: "0.85rem", background: lookup.linkedByBoth.includes(n) ? "#7f1d1d" : undefined, borderColor: lookup.linkedByBoth.includes(n) ? "#f87171" : undefined }}
+                                                        >{n}{lookup.linkedByIp.includes(n) ? " ★" : ""}</button>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <span style={{ paddingLeft: "1rem", color: "#64748b" }}> — unique to {lookup.target}</span>
+                                            )}
+                                        </div>
+                                    ))
+                                }
+                            </div>
+                            <p className="hint" style={{ marginTop: "0.4rem", fontSize: "0.8rem" }}>★ = also linked by the other signal.</p>
+                        </>
+                    ) : (
+                        <p className="hint">No records yet — player must heartbeat / login at least once.</p>
+                    )}
+                    <h4 style={{ marginTop: "1rem" }}>Actions on {lookup.target}</h4>
+                    <div style={{ display: "grid", gap: "0.3rem", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))" }}>
+                        <button onClick={() => ban(lookup.target, 1)} disabled={loading}>🚫 Ban 1d</button>
+                        <button onClick={() => ban(lookup.target, 3)} disabled={loading}>🚫 Ban 3d</button>
+                        <button onClick={() => ban(lookup.target, 7)} disabled={loading}>🚫 Ban 7d</button>
+                        <button onClick={() => ban(lookup.target, "permanent")} disabled={loading} className="danger-button">⛔ Ban Forever</button>
+                        <button onClick={() => silence(lookup.target, 1)} disabled={loading}>🔇 Silence 1d</button>
+                        <button onClick={() => silence(lookup.target, 3)} disabled={loading}>🔇 Silence 3d</button>
+                        <button onClick={() => silence(lookup.target, 7)} disabled={loading}>🔇 Silence 7d</button>
+                        <button onClick={() => kick(lookup.target)} disabled={loading}>👢 Force Kick</button>
+                        <button onClick={() => unban(lookup.target)} disabled={loading} style={{ background: "#1e3a1e" }}>✅ Unban</button>
+                        <button onClick={() => unsilence(lookup.target)} disabled={loading} style={{ background: "#1e3a1e" }}>🔊 Unsilence</button>
+                    </div>
+                </section>
+            )}
+
+            <section className="summary-box">
+                <h3>💬 Village Chat Viewer</h3>
+                <p className="hint">Pick a village to see its current chat backlog. Click 🗑 to delete a message or 🔇 to silence the author for a day.</p>
+                <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+                    <select value={chatVillage} onChange={(e) => { setChatVillage(e.target.value); if (e.target.value) void loadVillageChat(e.target.value); }} style={{ padding: "0.4rem", flex: 1 }}>
+                        <option value="">— Choose a village —</option>
+                        {villages.map(v => <option key={v} value={v}>{v}</option>)}
+                    </select>
+                    <button onClick={() => loadVillageChat(chatVillage)} disabled={!chatVillage || loading}>Refresh</button>
+                </div>
+                {chatVillage && (
+                    <div style={{ maxHeight: 320, overflowY: "auto", background: "#0a0a1a", borderRadius: 6, padding: "0.5rem", marginTop: "0.5rem" }}>
+                        {chatMessages.length === 0
+                            ? <em style={{ color: "#64748b" }}>No recent messages in {chatVillage}.</em>
+                            : chatMessages.slice().reverse().map(m => (
+                                <div key={`${m.author}:${m.ts}`} style={{ padding: "0.3rem 0", borderBottom: "1px solid #1f2937", display: "flex", alignItems: "flex-start", gap: "0.4rem" }}>
+                                    <div style={{ flex: 1, fontFamily: "monospace", fontSize: "0.85rem" }}>
+                                        <span style={{ color: "#94a3b8" }}>{new Date(m.ts).toLocaleTimeString()}</span> ·{" "}
+                                        <button onClick={() => pivotTo(m.author)} style={{ background: "transparent", border: 0, color: "#facc15", cursor: "pointer", padding: 0, fontWeight: 700, textDecoration: "underline dotted" }}>{m.author}</button>
+                                        {m.level != null && <span style={{ color: "#94a3b8" }}> (lvl {m.level})</span>}: <span>{m.text}</span>
+                                    </div>
+                                    <button onClick={() => silence(m.author, 1)} disabled={loading} title="Silence author 1d" style={{ padding: "0.1rem 0.4rem", fontSize: "0.75rem", background: "#1a2a3a" }}>🔇</button>
+                                    <button onClick={() => deleteChatMessage(chatVillage, m.author, m.ts)} disabled={loading} title="Delete this message" style={{ padding: "0.1rem 0.4rem", fontSize: "0.75rem", background: "#3a1a1a" }}>🗑</button>
+                                </div>
+                            ))
+                        }
+                    </div>
+                )}
+            </section>
+
+            <section className="summary-box">
+                <h3>🚫 Active Bans ({bans.length})</h3>
+                {bans.length === 0
+                    ? <p className="hint">None.</p>
+                    : (
+                        <div style={{ display: "grid", gap: 4 }}>
+                            {bans.map(({ name, record }) => (
+                                <div key={name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.3rem 0.5rem", background: "#1c0606", borderRadius: 4 }}>
+                                    <span>
+                                        <button onClick={() => pivotTo(name)} style={{ background: "transparent", border: 0, color: "#fca5a5", cursor: "pointer", padding: 0, fontWeight: 700, textDecoration: "underline dotted" }}>{name}</button>
+                                        {" — "}{record.reason || <em>no reason</em>} <small style={{ color: "#94a3b8" }}>(by {record.by}, {fmtUntil(record)} left)</small>
+                                    </span>
+                                    <button onClick={() => unban(name)} disabled={loading} style={{ background: "#1e3a1e", fontSize: "0.85rem", padding: "0.2rem 0.6rem" }}>Unban</button>
+                                </div>
+                            ))}
+                        </div>
+                    )
+                }
+            </section>
+
+            <section className="summary-box">
+                <h3>🔇 Active Silences ({silences.length})</h3>
+                {silences.length === 0
+                    ? <p className="hint">None.</p>
+                    : (
+                        <div style={{ display: "grid", gap: 4 }}>
+                            {silences.map(({ name, record }) => (
+                                <div key={name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.3rem 0.5rem", background: "#0a1a2a", borderRadius: 4 }}>
+                                    <span>
+                                        <button onClick={() => pivotTo(name)} style={{ background: "transparent", border: 0, color: "#fde68a", cursor: "pointer", padding: 0, fontWeight: 700, textDecoration: "underline dotted" }}>{name}</button>
+                                        {" — "}{record.reason || <em>no reason</em>} <small style={{ color: "#94a3b8" }}>(by {record.by}, {fmtUntil(record)} left)</small>
+                                    </span>
+                                    <button onClick={() => unsilence(name)} disabled={loading} style={{ background: "#1e3a1e", fontSize: "0.85rem", padding: "0.2rem 0.6rem" }}>Unsilence</button>
+                                </div>
+                            ))}
+                        </div>
+                    )
+                }
+            </section>
+
+            <section className="summary-box">
+                <h3>📜 Audit Log (last {audit.length})</h3>
+                {audit.length === 0
+                    ? <p className="hint">No mod actions recorded yet.</p>
+                    : (
+                        <div style={{ maxHeight: 280, overflowY: "auto", fontFamily: "monospace", fontSize: "0.85rem" }}>
+                            {audit.slice(0, 50).map((entry, i) => (
+                                <div key={i} style={{ padding: "0.2rem 0", borderBottom: "1px solid #1f2937" }}>
+                                    <span style={{ color: "#94a3b8" }}>{new Date(entry.ts).toLocaleString()}</span> · <strong style={{ color: "#facc15" }}>{entry.action}</strong> ·{" "}
+                                    <button onClick={() => pivotTo(entry.target)} style={{ background: "transparent", border: 0, color: "#e2e8f0", cursor: "pointer", padding: 0, fontWeight: 700, textDecoration: "underline dotted", fontFamily: "monospace" }}>{entry.target}</button>
+                                    {" · "}<em style={{ color: "#94a3b8" }}>by {entry.actor}</em>
+                                    {entry.detail && <div style={{ paddingLeft: "1rem", color: "#cbd5e1" }}>{entry.detail}</div>}
+                                </div>
+                            ))}
+                        </div>
+                    )
+                }
+            </section>
         </div>
     );
 }
