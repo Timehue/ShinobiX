@@ -25,6 +25,48 @@ function challengeFromName(challenge: unknown) {
         : '';
 }
 
+// Server-clamp clanWarPoints to the mode's legal value. Without this,
+// a malicious challenger could set clanWarPoints: 9999 on the body and
+// the client's `addClanWarPoints` call after a win would credit the
+// inflated value to the clan leaderboard.
+//
+// Keep in sync with the client's challengePlayer() call sites
+// (App.tsx ~33901-33903):
+//   clanWar1v1 → +50
+//   clanWar2v2 → +100
+//   clanWarPet → +25
+//   anything else → 0
+const CLAN_WAR_POINTS_BY_MODE: Record<string, number> = {
+    clanWar1v1: 50,
+    clanWar2v2: 100,
+    clanWarPet: 25,
+};
+
+function clampClanWarPoints(challenge: unknown): unknown {
+    if (!challenge || typeof challenge !== 'object') return challenge;
+    const rec = challenge as Record<string, unknown>;
+    const mode = String(rec.mode ?? '');
+    const cap = CLAN_WAR_POINTS_BY_MODE[mode] ?? 0;
+    if (typeof rec.clanWarPoints !== 'number' && rec.clanWarPoints !== undefined) {
+        // Non-number — coerce to 0.
+        return { ...rec, clanWarPoints: 0 };
+    }
+    const pts = Number(rec.clanWarPoints ?? 0);
+    if (!Number.isFinite(pts) || pts <= 0) {
+        // Strip any falsy or NaN value so downstream UI doesn't choke.
+        if ('clanWarPoints' in rec) {
+            const { clanWarPoints: _drop, ...rest } = rec;
+            void _drop;
+            return rest;
+        }
+        return rec;
+    }
+    if (pts > cap) {
+        return { ...rec, clanWarPoints: cap };
+    }
+    return rec;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -89,6 +131,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             await kv.set(senderKey, { targetName, challengeId: challengeId(challenge), createdAt: Date.now() }, { ex: CHALLENGE_TTL });
         }
 
+        // Clamp clanWarPoints to the mode's legal value before persisting.
+        // The win-credit path (App.tsx handlePvpWin → addClanWarPoints)
+        // trusts whatever value sits on the stored challenge, so clamping
+        // here is the only chokepoint that prevents inflation.
+        const safeChallenge = clampClanWarPoints(challenge);
+
         // Read-modify-write — the previous retry loop was dead code (broke on
         // iter 0). Concurrent challenges to the same target can race; we
         // dedupe by id so retries don't duplicate, but a true CAS would need
@@ -97,7 +145,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const existing = await kv.get<unknown[]>(key) ?? [];
         const cid = challengeId(challenge);
         const deduped = cid ? existing.filter(c => challengeId(c) !== cid) : existing;
-        const updated = [...deduped, challenge].slice(-20);
+        const updated = [...deduped, safeChallenge].slice(-20);
         await kv.set(key, updated, { ex: CHALLENGE_TTL });
 
         return res.status(200).json({ ok: true });

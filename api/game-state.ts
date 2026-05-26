@@ -2,6 +2,9 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from './_storage.js';
 import { cors } from './_utils.js';
 import { authedPlayerOrAdmin } from './_auth.js';
+import { enforceRateLimitKv } from './_ratelimit.js';
+import { withKvLock } from './_lock.js';
+import { validateVillageStateWrite, loadAuthoritativeKage } from './_village-state-validate.js';
 
 const LEADERSHIP_IMAGES_KEY = 'game:village-leadership-images';
 const VILLAGE_STATE_PREFIX = 'game:village-state:';
@@ -97,7 +100,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             if (kind === 'villageState') {
                 const { village, state } = body as { village?: string; state?: unknown };
-                if (!village || !state) return res.status(400).json({ error: 'Missing village or state.' });
+                if (!village || !state || typeof state !== 'object') {
+                    return res.status(400).json({ error: 'Missing village or state.' });
+                }
+
+                // Rate-limit per-caller: legitimate gameplay writes village
+                // state on donate / notice / agenda / kage actions — far
+                // below 30/min. Higher cadence = abuse loop.
+                const rlName = identity?.admin ? undefined : identity?.name;
+                if (!identity?.admin && !(await enforceRateLimitKv(req, res, 'village-state-write', 30, 60_000, rlName))) return;
 
                 // Actor must be a member of the village they're writing for.
                 if (identity && !identity.admin) {
@@ -114,8 +125,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
 
                 const key = `${VILLAGE_STATE_PREFIX}${village.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
-                await kv.set(key, state);
-                return res.status(200).json({ ok: true });
+
+                // Read-validate-write under a lock so concurrent kage
+                // challenge / donation / notice writes can't race-overwrite
+                // each other. Audit-validate per field — see
+                // _village-state-validate.ts. Suppressed mutations fall
+                // back to the existing value (silently — admin can find
+                // them in server logs).
+                const suppressedLog = await withKvLock(key, async () => {
+                    const existing = await kv.get<Record<string, unknown>>(key);
+                    const kageState = await loadAuthoritativeKage(village);
+                    const { next, suppressed } = await validateVillageStateWrite(
+                        existing as never,
+                        state as never,
+                        {
+                            callerName: identity?.admin ? '' : (identity?.name ?? ''),
+                            isAdmin: !!identity?.admin,
+                            village,
+                        },
+                        kageState,
+                    );
+                    await kv.set(key, next);
+                    return suppressed;
+                });
+                if (suppressedLog.length > 0) {
+                    console.warn('[game-state villageState] suppressed:', identity?.admin ? 'admin' : identity?.name, suppressedLog.join('; '));
+                }
+                return res.status(200).json({ ok: true, suppressed: suppressedLog.length });
             }
 
             if (kind === 'villageLeadershipImages') {
