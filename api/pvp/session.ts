@@ -50,6 +50,10 @@ export type PvpSession = {
     winner: 'p1' | 'p2' | 'draw' | null;
     fleedBy?: 'p1' | 'p2';
     createdAt: number;
+    // Stamped every time a successful move commits. Used by the
+    // 'claim-afk-win' action — if the active player hasn't moved in 90s,
+    // the inactive player can claim the win.
+    lastMoveAt?: number;
     // Environment snapshot captured at create time. /api/pvp/move reads
     // these from the session instead of trusting the request body — stops
     // clients from changing biome / weather between rounds.
@@ -301,6 +305,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 status: 'active',
                 winner: null,
                 createdAt: Date.now(),
+                lastMoveAt: Date.now(),
                 // Snapshot environment so /api/pvp/move can't be tricked into
                 // applying a different biome / weather mid-fight.
                 biome: normalizeBiome(biome),
