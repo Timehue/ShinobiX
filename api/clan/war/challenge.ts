@@ -11,6 +11,7 @@ import {
     clanWarCooldownKey,
     loadClanContext,
     MAX_PENDING_CHALLENGES,
+    MAX_PENDING_PER_PLAYER,
     type ChallengeMode,
     type ClanChallenge,
     type ClanWar,
@@ -100,6 +101,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
                 const isTwoV = TWO_V_TWO.has(mode);
                 const fromPlayer = identity.admin ? String(body?.fromPlayer ?? '') : ctx.name;
+                // Per-player cap: count in-flight challenges (pending or
+                // queuing) where this player sits in EITHER challenger
+                // slot. Stops a single player from carpet-bombing the
+                // defender. 2v2 partners count too — joining a partner's
+                // queue eats one of your slots.
+                if (!identity.admin) {
+                    const myInFlight = war.pendingChallenges.filter(c => {
+                        if (c.status !== 'pending' && c.status !== 'queuing') return false;
+                        return (c.fromPlayer ?? '').toLowerCase() === fromPlayer.toLowerCase()
+                            || (c.fromPlayer2 ?? '').toLowerCase() === fromPlayer.toLowerCase();
+                    }).length;
+                    if (myInFlight >= MAX_PENDING_PER_PLAYER) {
+                        return { status: 429 as const, body: { error: `You already have ${MAX_PENDING_PER_PLAYER} active challenges. Wait for them to resolve, cancel one, or expire.` } };
+                    }
+                }
                 const now = Date.now();
                 const challenge: ClanChallenge = {
                     id: `ch-${now}-${Math.random().toString(36).slice(2, 8)}`,
@@ -137,6 +153,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const joiner = identity.admin ? String(body?.fromPlayer2 ?? '') : ctx.name;
                 if (!joiner) return { status: 400 as const, body: { error: 'Missing player name.' } };
                 if (eq(ch.fromPlayer, joiner)) return { status: 400 as const, body: { error: 'You are already the seed challenger.' } };
+                // Per-player cap also applies to joining a partner's
+                // queue — keeps the slot count honest across both
+                // challenger paths.
+                if (!identity.admin) {
+                    const myInFlight = war.pendingChallenges.filter(c => {
+                        if (c.id === ch.id) return false;
+                        if (c.status !== 'pending' && c.status !== 'queuing') return false;
+                        return (c.fromPlayer ?? '').toLowerCase() === joiner.toLowerCase()
+                            || (c.fromPlayer2 ?? '').toLowerCase() === joiner.toLowerCase();
+                    }).length;
+                    if (myInFlight >= MAX_PENDING_PER_PLAYER) {
+                        return { status: 429 as const, body: { error: `You already have ${MAX_PENDING_PER_PLAYER} active challenges. Wait for them to resolve, cancel one, or expire.` } };
+                    }
+                }
                 const now = Date.now();
                 const updated: ClanChallenge = { ...ch, fromPlayer2: joiner, status: 'pending' };
                 war = {
