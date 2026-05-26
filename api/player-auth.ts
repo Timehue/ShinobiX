@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from './_storage.js';
 import { cors } from './_utils.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
-import { getActiveBan, recordClientIp, clientIpFrom } from './admin/moderation.js';
+import { getActiveBan, recordClientIp, clientIpFrom, recordClientFingerprint, clientFpFrom } from './admin/moderation.js';
 import crypto from 'crypto';
 
 // `hash` stores either the legacy HMAC-SHA256 hex (no version prefix) or the
@@ -182,9 +182,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             });
         }
 
-        // Capture the login IP so the Moderation IP-lookup can link sock-puppets
-        // even before the player heartbeats.
+        // Capture the login IP + browser fingerprint so the Moderation lookup
+        // can link sock-puppets even before the player heartbeats — and even
+        // if they're hiding behind a VPN.
         void recordClientIp(name, clientIpFrom(req));
+        const fp = clientFpFrom(req);
+        if (fp) void recordClientFingerprint(name, fp);
 
         return res.status(200).json({ ok: true });
     }
