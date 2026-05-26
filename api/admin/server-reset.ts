@@ -3,6 +3,19 @@ import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
 import { safeEqual } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
+import { RESERVED_USERNAMES } from '../player-auth.js';
+
+// Usernames whose save, auth, and registry entries survive a full server
+// reset. Sourced from the same RESERVED_USERNAMES set that gates registration,
+// so adding a new protected account is a one-line change in player-auth.ts.
+const PROTECTED_NAMES = Array.from(RESERVED_USERNAMES); // already lowercase
+const PROTECTED_SAVE_KEYS = new Set(PROTECTED_NAMES.map((n) => `save:${n}`));
+const PROTECTED_AUTH_KEYS = new Set(PROTECTED_NAMES.map((n) => `auth:${n}`));
+
+function isProtectedKey(key: string): boolean {
+    const lower = key.toLowerCase();
+    return PROTECTED_SAVE_KEYS.has(lower) || PROTECTED_AUTH_KEYS.has(lower);
+}
 
 // Patterns wiped on full reset. Anything matching these is deleted.
 // shared:images / shared:imgfields are intentionally excluded — all uploaded
@@ -62,27 +75,55 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // 1. Wipe all player saves — admin saves are preserved so admin-created
         //    content (jutsus, AIs, missions, events, pets, cards, VNs) survives.
+        //    Reserved usernames (PROTECTED_NAMES, e.g. Rill) are also preserved.
         const saveKeys = await kv.keys('save:*');
-        const playerSaveKeys = saveKeys.filter(k => !k.toLowerCase().startsWith('save:admin'));
+        const playerSaveKeys = saveKeys.filter((k) => {
+            const lower = k.toLowerCase();
+            if (lower.startsWith('save:admin')) return false;
+            if (isProtectedKey(k)) return false;
+            return true;
+        });
         if (playerSaveKeys.length > 0) {
             await Promise.all(playerSaveKeys.map(k => kv.del(k)));
             deleted.push(...playerSaveKeys);
         }
 
-        // 2. Wipe all other reset patterns in parallel
+        // 2. Wipe all other reset patterns in parallel.
+        //    Protected auth records (auth:rill, etc.) skip the auth:* wipe so
+        //    the protected accounts don't have to re-register after a reset.
         await Promise.all(
             WIPE_PATTERNS.map(async (pattern) => {
                 const keys = await kv.keys(pattern);
-                if (keys.length > 0) {
-                    await Promise.all(keys.map(k => kv.del(k)));
-                    deleted.push(...keys);
+                const targets = keys.filter((k) => !isProtectedKey(k));
+                if (targets.length > 0) {
+                    await Promise.all(targets.map(k => kv.del(k)));
+                    deleted.push(...targets);
                 }
             })
         );
 
-        // 3. Clear the player registry
+        // 3. Clear the player registry, then re-seed entries for protected
+        //    accounts that still have a save blob so they show up in player
+        //    lists immediately rather than only after their next save.
         await kv.del('player:registry');
         deleted.push('player:registry');
+        for (const name of PROTECTED_NAMES) {
+            try {
+                const saveBlob = await kv.get<Record<string, unknown>>(`save:${name}`);
+                const char = (saveBlob?.character ?? null) as Record<string, unknown> | null;
+                if (!char) continue;
+                const registryEntry = {
+                    name: String(char.name ?? name),
+                    level: Number(char.level ?? 1),
+                    village: String(char.village ?? ''),
+                    specialty: String(char.specialty ?? ''),
+                    lastSeenAt: Date.now(),
+                };
+                await kv.hset('player:registry', { [name]: registryEntry });
+            } catch {
+                // Non-fatal — protected account will re-register itself on next save.
+            }
+        }
 
         // 4. Re-seed Kage portraits from the preserved game:village-leadership-images key
         //    into the shared:imgfields:misc hash so portraits load immediately for all players.
