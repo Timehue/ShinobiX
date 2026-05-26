@@ -10,6 +10,12 @@ import { authedPlayerOrAdmin } from './_auth.js';
 
 const WEEKLY_BOSS_STATE_KEY = 'game:weekly-boss-state';
 const WEEKLY_BOSS_OVERRIDE_KEY = 'game:weekly-boss-override';
+const WEEKLY_BOSS_COOLDOWN_KEY_PREFIX = 'rl:weekly-boss:';
+const WEEKLY_BOSS_COOLDOWN_SECONDS = 3;
+// Per-request damage hard ceiling. Even at high level the legitimate client
+// attack roll (best offensive stat × ~1.5 × random) tops out well under this.
+// Server still uses per-actor stats for a tighter cap; this is the absolute lid.
+const WEEKLY_BOSS_DMG_ABSOLUTE_CAP = 20000;
 
 type WeeklyBossState = {
     weekKey: string;
@@ -118,20 +124,60 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             if (kind === 'damage') {
                 if (boss.hpRemaining <= 0) return res.status(409).json({ error: 'Boss already defeated.' });
-                const dmg = Math.max(1, Math.min(boss.hpRemaining, Math.floor(Number(amount ?? 0))));
-                if (!Number.isFinite(dmg) || dmg <= 0) return res.status(400).json({ error: 'Invalid damage amount.' });
 
-                const nextHp = boss.hpRemaining - dmg;
+                // Per-player cooldown — prevents loop spamming damage POSTs.
+                if (!identity.admin) {
+                    const cdKey = `${WEEKLY_BOSS_COOLDOWN_KEY_PREFIX}${actorName}`;
+                    const placed = await kv.set(cdKey, '1', { nx: true, ex: WEEKLY_BOSS_COOLDOWN_SECONDS });
+                    if (!placed) {
+                        return res.status(429).json({ error: `Cooldown — wait ${WEEKLY_BOSS_COOLDOWN_SECONDS}s between attacks.` });
+                    }
+                }
+
+                // Look up actor stats to compute a server-trusted damage cap
+                // for this single request. Matches the legitimate client roll
+                // (best offensive stat × (1 + level/100) × max 1.3 multiplier).
+                let perActorCap = WEEKLY_BOSS_DMG_ABSOLUTE_CAP;
+                if (!identity.admin) {
+                    try {
+                        const actorSave = await kv.get<Record<string, unknown>>(`save:${actorName}`);
+                        const actorChar = (actorSave?.character ?? null) as Record<string, unknown> | null;
+                        const stats = (actorChar?.stats ?? {}) as Record<string, number>;
+                        const level = Math.max(1, Math.min(100, Math.floor(Number(actorChar?.level ?? 1))));
+                        const best = Math.max(
+                            Number(stats.bukijutsuOffense ?? 0),
+                            Number(stats.taijutsuOffense ?? 0),
+                            Number(stats.ninjutsuOffense ?? 0),
+                            Number(stats.genjutsuOffense ?? 0),
+                        );
+                        const fairMax = Math.max(50, Math.floor(best * (1 + level / 100) * 1.4));
+                        perActorCap = Math.min(WEEKLY_BOSS_DMG_ABSOLUTE_CAP, fairMax);
+                    } catch {
+                        // If we can't load stats, fall back to the absolute cap.
+                    }
+                }
+
+                const requested = Math.floor(Number(amount ?? 0));
+                if (!Number.isFinite(requested) || requested <= 0) return res.status(400).json({ error: 'Invalid damage amount.' });
+                const dmg = Math.max(1, Math.min(boss.hpRemaining, Math.min(perActorCap, requested)));
+
+                // Re-read boss state under cache invalidation so concurrent
+                // attackers don't clobber each other (KV cache is 15s).
+                const fresh = await kv.get<WeeklyBossState>(WEEKLY_BOSS_STATE_KEY) ?? boss;
+                if (fresh.weekKey !== boss.weekKey) return res.status(409).json({ error: 'Stale week — boss has reset.' });
+                if (fresh.hpRemaining <= 0) return res.status(409).json({ error: 'Boss already defeated.' });
+                const appliedDmg = Math.min(dmg, fresh.hpRemaining);
+
                 const updated: WeeklyBossState = {
-                    ...boss,
-                    hpRemaining: nextHp,
+                    ...fresh,
+                    hpRemaining: fresh.hpRemaining - appliedDmg,
                     damageByPlayer: {
-                        ...boss.damageByPlayer,
-                        [actorName]: (boss.damageByPlayer[actorName] ?? 0) + dmg,
+                        ...fresh.damageByPlayer,
+                        [actorName]: (fresh.damageByPlayer[actorName] ?? 0) + appliedDmg,
                     },
                 };
                 await kv.set(WEEKLY_BOSS_STATE_KEY, updated);
-                return res.status(200).json({ boss: updated, dealt: dmg });
+                return res.status(200).json({ boss: updated, dealt: appliedDmg });
             }
 
             if (kind === 'claim') {
