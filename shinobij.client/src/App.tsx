@@ -14740,13 +14740,65 @@ function bfsNextStep(from: number, to: number, obstacles: ReadonlySet<number>): 
     return from; // no path — stay put
 }
 
-function petJutsuInRange(kind: PetJutsu["kind"] | "basic", dist: number): boolean {
-    if (kind === "buff" || kind === "heal" || kind === "move" || kind === "barrier" || kind === "shield" || kind === "absorb") return true;
-    if (kind === "dot" || kind === "movelock" || kind === "burn" || kind === "freeze" || kind === "confuse" || kind === "stun") return dist <= 4;
-    if (kind === "debuff") return dist <= 3;
+// Bresenham's line algorithm — walks the tiles between from/to and returns
+// false if any intermediate tile is an obstacle. The from + to tiles
+// themselves are NOT checked (actor isn't on an obstacle by construction,
+// and the target tile isn't either). Adjacent tiles (Manhattan dist 1) are
+// always in sight by definition.
+function hasLineOfSight(from: number, to: number, obstacles: ReadonlySet<number>): boolean {
+    if (from === to) return true;
+    const x0 = from % PET_GRID_COLS;
+    const y0 = Math.floor(from / PET_GRID_COLS);
+    const x1 = to   % PET_GRID_COLS;
+    const y1 = Math.floor(to   / PET_GRID_COLS);
+    const dx = Math.abs(x1 - x0);
+    const dy = Math.abs(y1 - y0);
+    const sx = x0 < x1 ? 1 : -1;
+    const sy = y0 < y1 ? 1 : -1;
+    let err = dx - dy;
+    let x = x0, y = y0;
+    // Safety cap so a degenerate input can't infinite-loop.
+    for (let steps = 0; steps < PET_GRID_SIZE; steps++) {
+        if (x === x1 && y === y1) return true;
+        const e2 = 2 * err;
+        if (e2 > -dy) { err -= dy; x += sx; }
+        if (e2 <  dx) { err += dx; y += sy; }
+        if (x === x1 && y === y1) return true;
+        if (obstacles.has(y * PET_GRID_COLS + x)) return false;
+    }
+    return true;
+}
+
+// Does this jutsu kind need an unobstructed path to the target?
+// Self / ally targets and adjacent basic attacks don't.
+function petJutsuNeedsLineOfSight(kind: PetJutsu["kind"] | "basic"): boolean {
+    if (kind === "buff" || kind === "heal" || kind === "move" || kind === "barrier" || kind === "shield" || kind === "absorb") return false;
+    if (kind === "basic") return false; // adjacent, no LOS issue
+    return true;
+}
+
+function petJutsuInRange(
+    kind: PetJutsu["kind"] | "basic",
+    dist: number,
+    // Optional positional context — when provided, ranged kinds also
+    // require line-of-sight. AI callers pass these; legacy callers don't.
+    fromPos?: number,
+    toPos?: number,
+    obstacles?: ReadonlySet<number>,
+): boolean {
+    let inRange: boolean;
+    if (kind === "buff" || kind === "heal" || kind === "move" || kind === "barrier" || kind === "shield" || kind === "absorb") inRange = true;
+    else if (kind === "dot" || kind === "movelock" || kind === "burn" || kind === "freeze" || kind === "confuse" || kind === "stun") inRange = dist <= 4;
+    else if (kind === "debuff") inRange = dist <= 3;
     // crush is a melee slam — closer range than plain debuff, similar to lifesteal.
-    if (kind === "damage" || kind === "lifesteal" || kind === "crush") return dist <= 2;
-    return dist <= 1; // basic attack
+    else if (kind === "damage" || kind === "lifesteal" || kind === "crush") inRange = dist <= 2;
+    else inRange = dist <= 1; // basic attack
+    if (!inRange) return false;
+    // LOS check when caller supplied positional context.
+    if (fromPos !== undefined && toPos !== undefined && obstacles && petJutsuNeedsLineOfSight(kind)) {
+        return hasLineOfSight(fromPos, toPos, obstacles);
+    }
+    return true;
 }
 
 function tileDistance(a: number, b: number): number {
@@ -14831,6 +14883,11 @@ function choosePetActionSmart(
     target: PetBattleFighter,
     round: number,
     dist: number,
+    // Optional obstacles set — when provided, the AI excludes ranged jutsus
+    // that have no line-of-sight to the target. Without LOS the AI falls
+    // through to movement (which already routes around obstacles via BFS),
+    // so it naturally walks into a firing position.
+    obstacles?: ReadonlySet<number>,
 ): PetJutsu | "basic" | null {
     const hpPct     = (actor.hp / Math.max(1, actor.pet.hp)) * 100;
     const targetPct = (target.hp / Math.max(1, target.pet.hp)) * 100;
@@ -14856,11 +14913,13 @@ function choosePetActionSmart(
         return true;
     }
 
-    // Jutsus available this turn — off cooldown, in range, not the move jutsu
+    // Jutsus available this turn — off cooldown, in range, not the move jutsu.
+    // When obstacles are provided, ranged jutsus also require line-of-sight
+    // to the target (LOS check inside petJutsuInRange).
     const avail = actor.pet.jutsus.filter(j =>
         j.kind !== "move" &&
         (actor.cooldowns[j.name] ?? 0) <= 0 &&
-        petJutsuInRange(j.kind, dist),
+        petJutsuInRange(j.kind, dist, actor.pos, target.pos, obstacles),
     );
 
     // ── Lethal detection (highest-priority pre-check) ───────────────────
@@ -14869,6 +14928,8 @@ function choosePetActionSmart(
     // smallest-overkill option is preferred — save bigger hits for the
     // next opponent. Beats the entire trait-priority tree below because
     // a guaranteed KO is always the best play, regardless of personality.
+    // `avail` is already LOS-filtered for ranged kinds, so any candidate
+    // here can actually fire this turn.
     const lethal = findLethalAction(actor, target, avail, dist);
     if (lethal) return lethal;
 
@@ -15269,8 +15330,11 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
             return doMove("lunges in for the kill!");
         }
 
-        // Smart situational AI decision
-        const chosen = choosePetActionSmart(actor, target, round, dist);
+        // Smart situational AI decision — pass obstacles so the AI
+        // filters out ranged jutsus with no line-of-sight to the target.
+        // When LOS is blocked the AI falls through to movement (which
+        // routes around obstacles via BFS) and walks into firing position.
+        const chosen = choosePetActionSmart(actor, target, round, dist, obstacles);
 
         if (chosen === "basic") {
             return applyDamage(petBasicDamage(actor, target), "", "basic", actor, target);
@@ -15983,7 +16047,11 @@ function runPetArenaParty(
         const damageTarget = fighters[damageTargetSlot]!;
         const dist = tileDistance(actor.pos, damageTarget.pos);
 
-        const chosen = choosePetActionSmart(actor, damageTarget, round, dist);
+        // Pass obstacles so the AI filters out ranged jutsus blocked by
+        // line-of-sight. When all ranged options are blocked the AI gets
+        // null back and falls into the movement branch below, which uses
+        // BFS to route around obstacles into a firing position.
+        const chosen = choosePetActionSmart(actor, damageTarget, round, dist, obstacles);
         if (!chosen) {
             // Movement fallback: advance toward damage target.
             if (actor.moveLocked === 0) {
