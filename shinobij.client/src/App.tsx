@@ -2667,16 +2667,28 @@ function canEquipElementJutsu(character: Character, jutsu: Jutsu, savedBloodline
 }
 
 function replaceCharacterBloodline(character: Character, newBloodline: SavedBloodline, savedBloodlines: SavedBloodline[]) {
-    const oldBloodlineJutsuIds = new Set(getCharacterBloodlines(character, savedBloodlines).flatMap((bloodline) => bloodline.jutsus.map((jutsu) => jutsu.id)));
-    const newBloodlineJutsuIds = new Set(newBloodline.jutsus.map((jutsu) => jutsu.id));
+    // Only the previously-equipped *custom* bloodline's jutsus get stripped.
+    // Starter-bloodline jutsus stay — the starter is always active and its
+    // mastery progress should never be wiped just because the player remade
+    // their custom bloodline.
+    const previousCustom = savedBloodlines.find((b) => b.id === character.equippedBloodlineId);
+    const oldJutsuIds = new Set(previousCustom?.jutsus.map((j) => j.id) ?? []);
+    const filteredMastery = (character.jutsuMastery ?? []).filter((m) => !oldJutsuIds.has(m.jutsuId));
+    const existingMasteryIds = new Set(filteredMastery.map((m) => m.jutsuId));
     return {
         ...character,
         equippedBloodlineId: newBloodline.id,
-        equippedJutsuIds: character.equippedJutsuIds.filter((id) => !oldBloodlineJutsuIds.has(id)),
+        // Unequip every old-custom-bloodline jutsu from the player's combat
+        // slots so the next fight doesn't try to invoke a jutsu they no
+        // longer have. New jutsus aren't auto-equipped — player picks them
+        // from the Jutsu screen so they have full control of their loadout.
+        equippedJutsuIds: character.equippedJutsuIds.filter((id) => !oldJutsuIds.has(id)),
         jutsuMastery: [
-            ...(character.jutsuMastery ?? []).filter((mastery) => !oldBloodlineJutsuIds.has(mastery.jutsuId)),
+            ...filteredMastery,
+            // Seed level-1 mastery for the new bloodline's jutsus, but don't
+            // double-stamp jutsus that already have mastery from another source.
             ...newBloodline.jutsus
-                .filter((jutsu) => !oldBloodlineJutsuIds.has(jutsu.id) && newBloodlineJutsuIds.has(jutsu.id))
+                .filter((jutsu) => !existingMasteryIds.has(jutsu.id))
                 .map((jutsu) => ({ jutsuId: jutsu.id, level: 1, xp: 0 })),
         ],
     };
