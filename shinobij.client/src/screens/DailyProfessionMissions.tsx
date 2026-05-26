@@ -101,7 +101,7 @@ export function DailyProfessionMissions({ character }: { character: Character })
             {error && <p style={{ color: "#f87171" }}>{error}</p>}
             {!loading && !error && data && data.missions.length === 0 && (
                 <p className="hint" style={{ margin: 0 }}>
-                    No daily missions for {label}s {character.profession === "petTamer" ? "(Pet Tamers earn profession XP from expeditions instead)." : "yet."}
+                    No daily missions available right now.
                 </p>
             )}
             {!loading && !error && data && data.missions.length > 0 && (
