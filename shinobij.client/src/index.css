@@ -17611,12 +17611,13 @@ html[data-vp="xl"] .arena-fullscreen .combat-tabs button {
 /* Village stormveil map: fit on 1080p without scrolling */
 html[data-vp="xl"] .stormveil-village-screen {
     min-height: unset !important;
-    margin-top: 8px !important;
+    margin-top: 96px !important;
 }
 
 html[data-vp="xl"] .stormveil-map {
-    min-height: calc(100dvh - var(--banner-h) - 60px) !important;
-    max-height: calc(100dvh - var(--banner-h) - 60px) !important;
+    /* 156 = 60 prior pad + 96 new top margin, keeps the scene scroll-free */
+    min-height: calc(100dvh - var(--banner-h) - 156px) !important;
+    max-height: calc(100dvh - var(--banner-h) - 156px) !important;
 }
 
 html[data-vp="xl"] .stormveil-map-button {
