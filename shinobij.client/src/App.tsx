@@ -26459,10 +26459,26 @@ function CentralHub({
     const [crafterTab, setCrafterTab] = useState<"supplies" | "weapons">("supplies");
     const [weaponInfoItem, setWeaponInfoItem] = useState<GameItem | null>(null);
     // Active-war banner — fetches the world-state once on mount and
-    // refreshes every 60s so a player walking past Central knows their
-    // village is at war. Stays dismissable per-session via local state.
+    // refreshes every 15s so the banner doesn't lag the war screen.
+    // The dismiss is persistent per-war-ID via localStorage: once you
+    // dismiss the banner for war X you never see it again, but a NEW
+    // war (different war.id) gets a fresh banner that hasn't been
+    // dismissed yet. Storage key holds a JSON array of war IDs.
     const [activeWarBanner, setActiveWarBanner] = useState<VillageWarRecord | null>(null);
-    const [warBannerDismissed, setWarBannerDismissed] = useState(false);
+    const [dismissedWarIds, setDismissedWarIds] = useState<Set<string>>(() => {
+        try {
+            const raw = localStorage.getItem("dismissedWarBanners.v1");
+            if (!raw) return new Set();
+            const parsed = JSON.parse(raw) as unknown;
+            return new Set(Array.isArray(parsed) ? parsed.map(String) : []);
+        } catch { return new Set(); }
+    });
+    function dismissWarBanner(warId: string) {
+        const next = new Set(dismissedWarIds);
+        next.add(warId);
+        setDismissedWarIds(next);
+        try { localStorage.setItem("dismissedWarBanners.v1", JSON.stringify([...next])); } catch { /* ignore */ }
+    }
     useEffect(() => {
         let alive = true;
         async function fetchWar() {
@@ -26785,7 +26801,7 @@ function CentralHub({
                 this session. Click-through routes to the Town Hall, which
                 hosts the Village War button. Subtle pulse so it draws
                 the eye without being obnoxious. */}
-            {activeWarBanner && !warBannerDismissed && (() => {
+            {activeWarBanner && !dismissedWarIds.has(activeWarBanner.id) && (() => {
                 const myVillage = (character.village ?? "").trim();
                 const enemy = activeWarBanner.villages.find(v => v !== myVillage) ?? "?";
                 const myHp = activeWarBanner.hp?.[myVillage] ?? 0;
@@ -26841,9 +26857,9 @@ function CentralHub({
                                 Join the Fight →
                             </button>
                             <button
-                                onClick={() => setWarBannerDismissed(true)}
+                                onClick={() => dismissWarBanner(activeWarBanner.id)}
                                 style={{ background: "transparent", border: "1px solid #475569", color: "#94a3b8", padding: "0.15rem 0.5rem", fontSize: "0.7rem" }}
-                                title="Hide this banner until you reload"
+                                title="Hide this banner for this war (a new war will surface a fresh one)"
                             >
                                 Dismiss
                             </button>
@@ -28859,49 +28875,10 @@ function WorldMap({
                     </button>
                 ))}
 
-                {/* C — War Ground beacons. For every active war anywhere in
-                    the world, paint a 🔥 marker on its war-ground sector
-                    so players see at a glance where the action is. Color
-                    keys the current holder: green if my village holds it,
-                    red if the enemy does, amber if uncontested.
-                    Click → townHall route (war screen lives there). */}
-                {(() => {
-                    const activeWars = Object.values(sharedVillageWarCache).filter(w =>
-                        !w.endedAt && (!w.pendingUntil || w.pendingUntil <= Date.now())
-                    );
-                    if (activeWars.length === 0) return null;
-                    return activeWars.map(war => {
-                        const sector = sectorPoints.find(p => p.id === war.warGroundSector);
-                        if (!sector) return null;
-                        const myInWar = war.villages.includes(character.village);
-                        const heldByMe = war.capturedBy === character.village;
-                        const heldByEnemy = war.capturedBy && war.capturedBy !== character.village;
-                        const color = heldByMe ? "#4ade80" : heldByEnemy ? "#f87171" : "#fbbf24";
-                        const label = `War Ground — ${war.villages.join(" vs ")}${war.capturedBy ? ` (held by ${war.capturedBy})` : " (uncontested)"}`;
-                        return (
-                            <button
-                                key={`warground-${war.id}`}
-                                className="atlas-landmark atlas-event"
-                                style={{
-                                    left: sector.x + "%",
-                                    top: sector.y + "%",
-                                    transform: "translate(-50%, -160%)",
-                                    background: `linear-gradient(${color}33, ${color}11)`,
-                                    border: `2px solid ${color}`,
-                                    color,
-                                    fontWeight: 900,
-                                    animation: myInWar ? "pulse 2.5s infinite" : undefined,
-                                    boxShadow: `0 0 10px ${color}66`,
-                                }}
-                                onClick={() => setScreen?.(myInWar ? "villageWar" : "townHall")}
-                                title={label}
-                            >
-                                <strong>🔥</strong>
-                                <span>{war.villages.find(v => v !== character.village) ?? war.villages[0]}</span>
-                            </button>
-                        );
-                    });
-                })()}
+                {/* (War Ground beacons were removed from the world map.
+                    The Central Hub banner + the explicit Village War
+                    screen already surface active wars; a third overlay
+                    on the atlas was cluttering the village markers.) */}
 
                 {creatorEvents.filter((event) => event.eventKind !== "visualNovel" && event.targetSector).map((event) => {
                     const sector = sectorPoints.find((point) => point.id === event.targetSector);
