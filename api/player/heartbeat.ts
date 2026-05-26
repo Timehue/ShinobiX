@@ -3,6 +3,7 @@ import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
+import { recordClientIp, clientIpFrom } from '../admin/moderation.js';
 
 // Individual TTL keys (presence:<name>) with 60s expiry.
 // Postgres expires them automatically — no JSONB hash merges, no CPU spike.
@@ -67,6 +68,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== name.toLowerCase().trim()) {
             return res.status(403).json({ error: 'Cannot heartbeat as another player.' });
+        }
+
+        // Fire-and-forget IP capture so the admin Moderation tab has up-to-date
+        // IP history and can link sock-puppet accounts on the same IP. Never
+        // block the heartbeat on this.
+        if (!identity.admin) {
+            void recordClientIp(identity.name, clientIpFrom(req));
         }
 
         const challengeKey = `challenges:${name.toLowerCase().trim()}`;
