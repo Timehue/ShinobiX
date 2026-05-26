@@ -54,18 +54,46 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const char = record.character as Record<string, unknown> | undefined;
         if (!char) return res.status(404).json({ error: 'Character not found.' });
 
+        // Verify there's actually an active jutsu training that isn't already
+        // finished — otherwise the player would lose Seals for nothing. The
+        // training state lives at the top level of the save record (see
+        // buildPlayerSavePayload in App.tsx).
+        const activeJutsuTraining = record.activeJutsuTraining as { endsAt?: number; jutsuId?: string } | undefined | null;
+        if (!activeJutsuTraining || !activeJutsuTraining.endsAt) {
+            return res.status(400).json({ error: 'No active jutsu training to speed up.' });
+        }
+        const remainingMs = Number(activeJutsuTraining.endsAt) - Date.now();
+        if (remainingMs <= 0) {
+            return res.status(400).json({ error: 'Your training is already complete — collect it instead.' });
+        }
+
         const cost = effectiveCost(sealsRequested, char.profession, char.professionRank);
         const balance = Number(char.honorSeals ?? 0);
         if (balance < cost) {
             return res.status(402).json({ error: 'Not enough Honor Seals.', cost, balance });
         }
 
-        const minutesReduced = sealsRequested * MINUTES_PER_SEAL;
+        const requestedMinutes = sealsRequested * MINUTES_PER_SEAL;
+        // Don't sell more time than remains. Otherwise the player can over-pay.
+        const remainingMinutes = Math.ceil(remainingMs / 60_000);
+        if (requestedMinutes > remainingMinutes) {
+            return res.status(400).json({
+                error: `Only ${remainingMinutes} minute(s) of training left — buy fewer Seals.`,
+                remainingMinutes,
+                maxSeals: Math.ceil(remainingMinutes / MINUTES_PER_SEAL),
+            });
+        }
+
+        const minutesReduced = requestedMinutes;
         const updated = {
             ...record,
             character: {
                 ...char,
                 honorSeals: balance - cost,
+            },
+            activeJutsuTraining: {
+                ...activeJutsuTraining,
+                endsAt: Math.max(Date.now(), Number(activeJutsuTraining.endsAt) - minutesReduced * 60_000),
             },
         };
         await kv.set(key, mergePreservingImages(updated, record));
@@ -76,6 +104,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             sealsSpent: cost,
             minutesReduced,
             honorSealsRemaining: balance - cost,
+            newEndsAt: (updated.activeJutsuTraining as { endsAt: number }).endsAt,
         });
     } catch (err) {
         console.error('[jutsu/speedup]', err);
