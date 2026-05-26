@@ -4,6 +4,7 @@ import { safeName, mergePreservingImages, cors } from '../_utils.js';
 import { verifyPlayerPassword } from '../player-auth.js';
 import { authedPlayerOrAdmin, isAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
+import { validateClanSaveWrite } from '../_clan-save-validate.js';
 
 // Fields stripped from character objects when a non-owner reads another player's save.
 // Prevents ryo farming (reading other players' wallets) and inventory snooping.
@@ -421,12 +422,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // so concurrent saves can't trample each other. 2-second TTL
                 // is plenty for the synchronous work below; lock is auto-released
                 // at the end of the path or just expires.
+                //
+                // Clan saves were previously SKIPPING this lock, which let two
+                // members donating simultaneously race-overwrite each other's
+                // changes. Now they share the same lock as player saves.
                 const writeLockKey = `lock:save:${name.toLowerCase()}`;
-                if (!isClanSave) {
-                    const lockOk = await kv.set(writeLockKey, '1', { nx: true, ex: 2 });
-                    if (!lockOk) {
-                        return res.status(429).json({ error: 'Concurrent save in flight. Retry.' });
-                    }
+                const lockOk = await kv.set(writeLockKey, '1', { nx: true, ex: 2 });
+                if (!lockOk) {
+                    return res.status(429).json({ error: 'Concurrent save in flight. Retry.' });
                 }
 
                 try {
@@ -437,16 +440,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ]);
                     if (pendingSignal || adminLock) return res.status(200).end();
                     // Sanitize before merge: caps per-save gains to prevent exploit spikes.
-                    // Clan saves are collaborative (no single "owner" baseline), so we skip
-                    // sanitization for them — they're already admin-locked in the UI.
+                    // Clan saves go through a different validator (field-level
+                    // role gating + per-call deltas) instead of the player-save
+                    // sanitizer because the blob has different fields.
                     // For brand-new accounts (no existing), sanitize against a zeroed
                     // baseline so a fresh registration can't submit absurd values.
-                    const safeIncoming = (!isClanSave)
-                        ? sanitizeCharacterSave(
+                    let safeIncoming: unknown;
+                    if (isClanSave) {
+                        const { next, suppressed } = validateClanSaveWrite(
+                            (existing as Record<string, unknown> | null) ?? null,
+                            incoming as Record<string, unknown>,
+                            {
+                                callerName: identityName ?? '',
+                                isAdmin: identityName === null,
+                            },
+                        );
+                        safeIncoming = next;
+                        if (suppressed.length > 0) {
+                            console.warn('[save POST clan] suppressed:', identityName ?? 'admin', name, suppressed.join('; '));
+                        }
+                    } else {
+                        safeIncoming = sanitizeCharacterSave(
                             incoming as Record<string, unknown>,
                             (existing as Record<string, unknown> | null) ?? null,
-                          )
-                        : incoming;
+                        );
+                    }
 
                     // ── Rolling-window gain caps (finding 6) ──────────────────
                     // Track ryo / stat / xp gain over the last 60 seconds for
@@ -522,9 +540,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ]);
                     return res.status(200).end();
                 } finally {
-                    if (!isClanSave) {
-                        await kv.del(writeLockKey).catch(() => undefined);
-                    }
+                    // Always release the lock — player AND clan saves now
+                    // both serialize through it.
+                    await kv.del(writeLockKey).catch(() => undefined);
                 }
             }
 
