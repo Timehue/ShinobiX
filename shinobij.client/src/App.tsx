@@ -728,6 +728,11 @@ type CreatorAi = {
     jutsuIds: string[];
     rules: AiRule[];
     isBossAi?: boolean;
+    // When true, force the smart battle AI (lethal detection, DoT-aware
+    // KO, no-redundant status, full jutsu pool, multi-axis scoring) even
+    // if the AI is below the level-30 auto-threshold. Lets admins flag a
+    // low-level "elite" mob as a real fight without bumping its level.
+    masterAi?: boolean;
 };
 
 type JutsuTag = { name: string; percent: number };
@@ -5118,6 +5123,123 @@ const shinobiTileCards: TileCard[] = [
     { id: "tc-48", name: "Moonshadow Nine-Tail", element: "Shadow", top: 60, right: 80, bottom: 85, left: 80, rarity: "epic", description: "Dangerous bottom-row flipper." },
     { id: "tc-49", name: "Shrine Dragon Spirit", element: "Neutral", top: 80, right: 70, bottom: 55, left: 75, rarity: "epic", description: "Holy epic spirit card." },
     { id: "tc-50", name: "Crimson Tag Master",  element: "Fire",    top: 60, right: 55, bottom: 90, left: 80, rarity: "epic", description: "Big power, bottom-left angles." },
+
+    // ─── Expansion: +100 cards spread across all 4 rarities ───────────────
+    // Stat ranges per tier kept the same as the originals so existing balance
+    // holds: common 15–45, rare 30–65, epic 50–90, legendary 65–99.
+    // Elements use the full nine the engine supports (None, Fire, Water, Wind,
+    // Earth, Lightning, Shadow, Ice, Neutral). Each tier rotates through them
+    // for variety. Admin panel + image upload already supports all of these
+    // out of the box — editing a tc-NN card creates an override that lets
+    // an admin upload custom art via the Card Editor.
+
+    // Common +20 (tc-51 to tc-70) — values 15–45
+    { id: "tc-51", name: "Sapling Spirit",      element: "Earth",     top: 25, right: 25, bottom: 30, left: 25, rarity: "common", description: "Newborn forest sprite." },
+    { id: "tc-52", name: "Spark Mouse",         element: "Lightning", top: 30, right: 30, bottom: 20, left: 20, rarity: "common", description: "Twitchy little jolt." },
+    { id: "tc-53", name: "Tide Shrimp",         element: "Water",     top: 20, right: 30, bottom: 35, left: 25, rarity: "common", description: "Skitters with the surf." },
+    { id: "tc-54", name: "Ash Sparrow",         element: "Fire",      top: 35, right: 25, bottom: 20, left: 25, rarity: "common", description: "Tiny ember scout." },
+    { id: "tc-55", name: "Breeze Pixie",        element: "Wind",      top: 25, right: 30, bottom: 25, left: 30, rarity: "common", description: "Flighty wind spirit." },
+    { id: "tc-56", name: "Twilight Moth",       element: "Shadow",    top: 30, right: 20, bottom: 30, left: 35, rarity: "common", description: "Drifts on dusk wings." },
+    { id: "tc-57", name: "Snowflake Wisp",      element: "Ice",       top: 25, right: 25, bottom: 25, left: 35, rarity: "common", description: "Frigid mote of cold." },
+    { id: "tc-58", name: "Calm Stone Pebble",   element: "Neutral",   top: 30, right: 25, bottom: 30, left: 25, rarity: "common", description: "Meditation aide." },
+    { id: "tc-59", name: "Apprentice Genin",    element: "None",      top: 20, right: 30, bottom: 30, left: 30, rarity: "common", description: "Fresh out of the academy." },
+    { id: "tc-60", name: "Pebble Crab",         element: "Earth",     top: 20, right: 35, bottom: 20, left: 35, rarity: "common", description: "Tough shell, tiny pinch." },
+    { id: "tc-61", name: "Cinder Ant",          element: "Fire",      top: 35, right: 30, bottom: 25, left: 15, rarity: "common", description: "Burns where it bites." },
+    { id: "tc-62", name: "Mist Newt",           element: "Water",     top: 25, right: 30, bottom: 30, left: 30, rarity: "common", description: "Slippery little wisp." },
+    { id: "tc-63", name: "Static Beetle",       element: "Lightning", top: 30, right: 35, bottom: 20, left: 25, rarity: "common", description: "Sparks on its shell." },
+    { id: "tc-64", name: "Whisper Bat",         element: "Wind",      top: 35, right: 25, bottom: 25, left: 30, rarity: "common", description: "Hears the wind whisper." },
+    { id: "tc-65", name: "Hollow Imp",          element: "Shadow",    top: 25, right: 35, bottom: 35, left: 20, rarity: "common", description: "Mischievous shade." },
+    { id: "tc-66", name: "Frost Mouse",         element: "Ice",       top: 30, right: 25, bottom: 25, left: 35, rarity: "common", description: "Tiny chill-skitter." },
+    { id: "tc-67", name: "Zen Disciple",        element: "Neutral",   top: 30, right: 30, bottom: 30, left: 30, rarity: "common", description: "Perfectly balanced." },
+    { id: "tc-68", name: "Bandit Recruit",      element: "None",      top: 35, right: 20, bottom: 35, left: 20, rarity: "common", description: "Wields a rusty kunai." },
+    { id: "tc-69", name: "Clay Hatchling",      element: "Earth",     top: 25, right: 30, bottom: 35, left: 25, rarity: "common", description: "Tiny earth golem." },
+    { id: "tc-70", name: "Ember Cricket",       element: "Fire",      top: 30, right: 35, bottom: 25, left: 20, rarity: "common", description: "Chirps in flame." },
+
+    // Rare +25 (tc-71 to tc-95) — values 30–65
+    { id: "tc-71", name: "Granite Stag",        element: "Earth",     top: 55, right: 45, bottom: 55, left: 45, rarity: "rare", description: "Antlers like cliff-edges." },
+    { id: "tc-72", name: "Volt Hawk",           element: "Lightning", top: 60, right: 60, bottom: 35, left: 45, rarity: "rare", description: "Strikes from the storm." },
+    { id: "tc-73", name: "Riverstone Eel",      element: "Water",     top: 40, right: 60, bottom: 45, left: 55, rarity: "rare", description: "Shocks the current." },
+    { id: "tc-74", name: "Char-Blade Mantis",   element: "Fire",      top: 60, right: 55, bottom: 40, left: 45, rarity: "rare", description: "Glowing red scythes." },
+    { id: "tc-75", name: "Cyclone Falcon",      element: "Wind",      top: 50, right: 65, bottom: 40, left: 45, rarity: "rare", description: "Folds wind into a spiral." },
+    { id: "tc-76", name: "Dusk Wraith",         element: "Shadow",    top: 45, right: 50, bottom: 55, left: 60, rarity: "rare", description: "Slips through twilight." },
+    { id: "tc-77", name: "Glacier Pup",         element: "Ice",       top: 55, right: 40, bottom: 55, left: 50, rarity: "rare", description: "Walks the frostpaths." },
+    { id: "tc-78", name: "Sage Apprentice",     element: "Neutral",   top: 50, right: 50, bottom: 50, left: 50, rarity: "rare", description: "Master of fundamentals." },
+    { id: "tc-79", name: "Veteran Ronin",       element: "None",      top: 60, right: 35, bottom: 60, left: 35, rarity: "rare", description: "Wandering blade-for-hire." },
+    { id: "tc-80", name: "Mossback Boar",       element: "Earth",     top: 55, right: 50, bottom: 45, left: 50, rarity: "rare", description: "Tusks crusted with stone." },
+    { id: "tc-81", name: "Thunder Spider",      element: "Lightning", top: 45, right: 55, bottom: 55, left: 60, rarity: "rare", description: "Webs hum with charge." },
+    { id: "tc-82", name: "Coral Naga",          element: "Water",     top: 50, right: 60, bottom: 50, left: 40, rarity: "rare", description: "Reef-born serpent." },
+    { id: "tc-83", name: "Inferno Toad",        element: "Fire",      top: 55, right: 50, bottom: 60, left: 35, rarity: "rare", description: "Croaks burning oil." },
+    { id: "tc-84", name: "Gale Crane",          element: "Wind",      top: 60, right: 40, bottom: 45, left: 55, rarity: "rare", description: "Long-necked storm caller." },
+    { id: "tc-85", name: "Eclipse Cat",         element: "Shadow",    top: 50, right: 55, bottom: 45, left: 55, rarity: "rare", description: "Vanishes mid-pounce." },
+    { id: "tc-86", name: "Snowstorm Wolf",      element: "Ice",       top: 60, right: 45, bottom: 50, left: 50, rarity: "rare", description: "Howl freezes the breath." },
+    { id: "tc-87", name: "Twin Blade Monk",     element: "Neutral",   top: 50, right: 55, bottom: 50, left: 55, rarity: "rare", description: "Dual-wielding ascetic." },
+    { id: "tc-88", name: "Rogue Mercenary",     element: "None",      top: 55, right: 45, bottom: 55, left: 45, rarity: "rare", description: "Loyal only to the coin." },
+    { id: "tc-89", name: "Crystal Cobra",       element: "Earth",     top: 45, right: 60, bottom: 40, left: 60, rarity: "rare", description: "Fang of pure quartz." },
+    { id: "tc-90", name: "Plasma Fox",          element: "Lightning", top: 60, right: 55, bottom: 40, left: 50, rarity: "rare", description: "Tail trails arc-light." },
+    { id: "tc-91", name: "Abyss Octopus",       element: "Water",     top: 45, right: 50, bottom: 55, left: 60, rarity: "rare", description: "Deep-sea ambusher." },
+    { id: "tc-92", name: "Magma Bear",          element: "Fire",      top: 55, right: 60, bottom: 45, left: 45, rarity: "rare", description: "Fur smolders red." },
+    { id: "tc-93", name: "Sky Glider",          element: "Wind",      top: 45, right: 55, bottom: 60, left: 45, rarity: "rare", description: "Rides the high currents." },
+    { id: "tc-94", name: "Void Stalker",        element: "Shadow",    top: 55, right: 45, bottom: 50, left: 60, rarity: "rare", description: "Hunts in starless dark." },
+    { id: "tc-95", name: "Blizzard Owl",        element: "Ice",       top: 50, right: 50, bottom: 60, left: 45, rarity: "rare", description: "Silent in the snowfall." },
+
+    // Epic +25 (tc-96 to tc-120) — values 50–90
+    { id: "tc-96",  name: "Stoneheart Titan",       element: "Earth",     top: 85, right: 65, bottom: 85, left: 65, rarity: "epic", description: "Living mountain warrior." },
+    { id: "tc-97",  name: "Stormbreaker Drake",     element: "Lightning", top: 80, right: 85, bottom: 60, left: 60, rarity: "epic", description: "Wings split the thunder." },
+    { id: "tc-98",  name: "Tidal Lord Manta",       element: "Water",     top: 70, right: 80, bottom: 65, left: 80, rarity: "epic", description: "Glides the open sea." },
+    { id: "tc-99",  name: "Phoenix Warlord",        element: "Fire",      top: 85, right: 75, bottom: 55, left: 75, rarity: "epic", description: "Reborn in every battle." },
+    { id: "tc-100", name: "Tempest Marshal",        element: "Wind",      top: 75, right: 80, bottom: 70, left: 65, rarity: "epic", description: "Commands the storm." },
+    { id: "tc-101", name: "Nightveil Assassin",     element: "Shadow",    top: 60, right: 90, bottom: 80, left: 65, rarity: "epic", description: "One strike, one shadow." },
+    { id: "tc-102", name: "Frostlord Berserker",    element: "Ice",       top: 80, right: 70, bottom: 80, left: 60, rarity: "epic", description: "Frozen rage incarnate." },
+    { id: "tc-103", name: "Mountain Sage",          element: "Neutral",   top: 70, right: 75, bottom: 70, left: 75, rarity: "epic", description: "Speaks with the peak." },
+    { id: "tc-104", name: "Wandering Master",       element: "None",      top: 80, right: 60, bottom: 80, left: 60, rarity: "epic", description: "No village, all ways." },
+    { id: "tc-105", name: "Geode Behemoth",         element: "Earth",     top: 65, right: 80, bottom: 85, left: 65, rarity: "epic", description: "Crystal-spined leviathan." },
+    { id: "tc-106", name: "Plasma Hydra",           element: "Lightning", top: 75, right: 70, bottom: 75, left: 85, rarity: "epic", description: "Each head sparks fresh bolts." },
+    { id: "tc-107", name: "Krakenheart Diver",      element: "Water",     top: 85, right: 65, bottom: 75, left: 70, rarity: "epic", description: "Hunts the abyss." },
+    { id: "tc-108", name: "Volcanic Reaper",        element: "Fire",      top: 60, right: 90, bottom: 70, left: 75, rarity: "epic", description: "Scythe of molten obsidian." },
+    { id: "tc-109", name: "Sky Empress Roc",        element: "Wind",      top: 90, right: 65, bottom: 60, left: 75, rarity: "epic", description: "Wingspan blots out the sun." },
+    { id: "tc-110", name: "Wraithlord Necromancer", element: "Shadow",    top: 80, right: 70, bottom: 70, left: 75, rarity: "epic", description: "Master of stilled souls." },
+    { id: "tc-111", name: "Glacial Empress",        element: "Ice",       top: 70, right: 80, bottom: 75, left: 70, rarity: "epic", description: "Queen of the eternal frost." },
+    { id: "tc-112", name: "Balance Keeper",         element: "Neutral",   top: 75, right: 75, bottom: 75, left: 75, rarity: "epic", description: "Perfectly even in all things." },
+    { id: "tc-113", name: "Forgotten Champion",     element: "None",      top: 85, right: 60, bottom: 80, left: 65, rarity: "epic", description: "Hero of an unrecorded age." },
+    { id: "tc-114", name: "Crystal Dragon",         element: "Earth",     top: 75, right: 75, bottom: 70, left: 80, rarity: "epic", description: "Scales of cut diamond." },
+    { id: "tc-115", name: "Voltaic Knight",         element: "Lightning", top: 80, right: 75, bottom: 65, left: 75, rarity: "epic", description: "Armor crackles with charge." },
+    { id: "tc-116", name: "Deep Sea Leviathan",     element: "Water",     top: 60, right: 80, bottom: 85, left: 70, rarity: "epic", description: "Risen from the trench." },
+    { id: "tc-117", name: "Magma Colossus",         element: "Fire",      top: 85, right: 65, bottom: 70, left: 75, rarity: "epic", description: "Each step cracks the earth." },
+    { id: "tc-118", name: "Skyflame Archer",        element: "Wind",      top: 70, right: 85, bottom: 65, left: 70, rarity: "epic", description: "Arrows ignite mid-air." },
+    { id: "tc-119", name: "Phantom Reaper",         element: "Shadow",    top: 65, right: 75, bottom: 85, left: 80, rarity: "epic", description: "Soul-harvester from beyond." },
+    { id: "tc-120", name: "Eternal Frostgiant",     element: "Ice",       top: 80, right: 70, bottom: 80, left: 65, rarity: "epic", description: "Carved from a million winters." },
+
+    // Legendary +30 (tc-121 to tc-150) — values 65–99
+    { id: "tc-121", name: "Worldroot Behemoth",     element: "Earth",     top: 95, right: 80, bottom: 95, left: 80, rarity: "legendary", description: "Roots reach the planet's core." },
+    { id: "tc-122", name: "Stormgod Dragon",        element: "Lightning", top: 90, right: 95, bottom: 75, left: 80, rarity: "legendary", description: "Breath splits the sky." },
+    { id: "tc-123", name: "Ocean Sovereign",        element: "Water",     top: 85, right: 90, bottom: 85, left: 90, rarity: "legendary", description: "King of every tide." },
+    { id: "tc-124", name: "Inferno Sovereign",      element: "Fire",      top: 95, right: 85, bottom: 75, left: 85, rarity: "legendary", description: "Crowned in living flame." },
+    { id: "tc-125", name: "Sky King Garuda",        element: "Wind",      top: 95, right: 90, bottom: 75, left: 80, rarity: "legendary", description: "Wings beat hurricanes." },
+    { id: "tc-126", name: "Eclipse Sovereign",      element: "Shadow",    top: 80, right: 95, bottom: 90, left: 85, rarity: "legendary", description: "Eats the sun." },
+    { id: "tc-127", name: "Eternal Glacier King",   element: "Ice",       top: 90, right: 80, bottom: 90, left: 90, rarity: "legendary", description: "Frozen since the first age." },
+    { id: "tc-128", name: "Grand Sage of Balance",  element: "Neutral",   top: 85, right: 85, bottom: 85, left: 85, rarity: "legendary", description: "Equal in all dimensions." },
+    { id: "tc-129", name: "Forgotten Hokage",       element: "None",      top: 90, right: 85, bottom: 90, left: 80, rarity: "legendary", description: "Lost name, undying skill." },
+    { id: "tc-130", name: "World-Ender Titan",      element: "Earth",     top: 80, right: 95, bottom: 95, left: 75, rarity: "legendary", description: "A walking apocalypse." },
+    { id: "tc-131", name: "Heaven-Shatter Drake",   element: "Lightning", top: 90, right: 85, bottom: 80, left: 95, rarity: "legendary", description: "One bolt, one mountain." },
+    { id: "tc-132", name: "Abyssal Leviathan",      element: "Water",     top: 75, right: 95, bottom: 90, left: 90, rarity: "legendary", description: "Sleeps beneath the world." },
+    { id: "tc-133", name: "Phoenix Emperor",        element: "Fire",      top: 85, right: 90, bottom: 85, left: 90, rarity: "legendary", description: "Eternal in rebirth." },
+    { id: "tc-134", name: "Storm Empress",          element: "Wind",      top: 95, right: 80, bottom: 85, left: 90, rarity: "legendary", description: "Rules every cloud." },
+    { id: "tc-135", name: "Void Devourer",          element: "Shadow",    top: 90, right: 90, bottom: 85, left: 85, rarity: "legendary", description: "Hungers for all light." },
+    { id: "tc-136", name: "Frostfall Empress",      element: "Ice",       top: 95, right: 85, bottom: 80, left: 80, rarity: "legendary", description: "Snow obeys her hand." },
+    { id: "tc-137", name: "Zen Master Eternal",     element: "Neutral",   top: 90, right: 90, bottom: 90, left: 90, rarity: "legendary", description: "Unchanging through all wars." },
+    { id: "tc-138", name: "Legendary Wanderer",     element: "None",      top: 95, right: 75, bottom: 95, left: 75, rarity: "legendary", description: "Knows every blade and none." },
+    { id: "tc-139", name: "Primordial Dragon",      element: "Earth",     top: 85, right: 90, bottom: 90, left: 95, rarity: "legendary", description: "Older than the villages." },
+    { id: "tc-140", name: "Plasma God Beast",       element: "Lightning", top: 95, right: 80, bottom: 95, left: 75, rarity: "legendary", description: "Lightning made aware." },
+    { id: "tc-141", name: "Tidal God Beast",        element: "Water",     top: 90, right: 95, bottom: 80, left: 85, rarity: "legendary", description: "The ocean given will." },
+    { id: "tc-142", name: "Solar God Beast",        element: "Fire",      top: 99, right: 80, bottom: 80, left: 85, rarity: "legendary", description: "A fragment of the sun." },
+    { id: "tc-143", name: "Tempest God Beast",      element: "Wind",      top: 85, right: 99, bottom: 80, left: 85, rarity: "legendary", description: "Living tornado spirit." },
+    { id: "tc-144", name: "Shadow God Beast",       element: "Shadow",    top: 90, right: 85, bottom: 99, left: 80, rarity: "legendary", description: "Born in the eclipse." },
+    { id: "tc-145", name: "Frost God Beast",        element: "Ice",       top: 85, right: 80, bottom: 95, left: 99, rarity: "legendary", description: "Heart of the polar night." },
+    { id: "tc-146", name: "Equilibrium God",        element: "Neutral",   top: 88, right: 88, bottom: 88, left: 88, rarity: "legendary", description: "Perfect in every measure." },
+    { id: "tc-147", name: "Final Shinobi",          element: "None",      top: 99, right: 70, bottom: 99, left: 70, rarity: "legendary", description: "Last living blade of legend." },
+    { id: "tc-148", name: "Demon-King Slayer",      element: "Shadow",    top: 99, right: 99, bottom: 65, left: 70, rarity: "legendary", description: "The blade that ended the demon king." },
+    { id: "tc-149", name: "Cosmic Phoenix",         element: "Fire",      top: 75, right: 99, bottom: 99, left: 70, rarity: "legendary", description: "Soars between stars." },
+    { id: "tc-150", name: "World-Eater Naga",       element: "Water",     top: 70, right: 75, bottom: 99, left: 99, rarity: "legendary", description: "Coils swallow continents." },
 ];
 
 export function getAllTileCards(creatorCards: TileCard[]): TileCard[] {
@@ -17899,6 +18021,11 @@ function AdminPanel({
     const [aiIcon, setAiIcon] = useState("EN");
     const [aiImage, setAiImage] = useState("");
     const [aiIsBoss, setAiIsBoss] = useState(false);
+    // Admin toggle — when true, this AI uses the smart battle AI (lethal
+    // detection, DoT-aware KO, full jutsu pool, multi-axis scoring)
+    // regardless of its level. Useful for low-level "elite" mobs that
+    // should fight smart without bumping their level.
+    const [aiMasterAi, setAiMasterAi] = useState(false);
     const [adminWeeklyBossAiId, setAdminWeeklyBossAiId] = useState("");
     const [aiLevel, setAiLevel] = useState(10);
     const [aiVillage, setAiVillage] = useState("Admin Arena");
@@ -18914,6 +19041,7 @@ function AdminPanel({
             jutsuIds: aiJutsuIds,
             rules: aiRules,
             isBossAi: aiIsBoss || undefined,
+            masterAi: aiMasterAi || undefined,
         }, allGameJutsus);
     }
 
@@ -18924,6 +19052,7 @@ function AdminPanel({
         setAiIcon(normalized.icon);
         setAiImage(normalized.image ?? "");
         setAiIsBoss(normalized.isBossAi ?? false);
+        setAiMasterAi(normalized.masterAi ?? false);
         setAiLevel(normalized.level);
         setAiVillage(normalized.village);
         setAiHp(normalized.hp);
@@ -19797,6 +19926,15 @@ function AdminPanel({
                             <option value="normal">Normal AI — available in ambush, arena, and raid fights</option>
                             <option value="boss">Boss AI — only usable in dungeons, VN events, and boss fights</option>
                         </select>
+                        <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "0.5rem", cursor: "pointer", padding: "0.5rem 0.6rem", background: aiMasterAi ? "rgba(250, 204, 21, 0.15)" : "rgba(15, 23, 42, 0.3)", border: `1px solid ${aiMasterAi ? "#facc15" : "#334155"}`, borderRadius: 6 }}>
+                            <input type="checkbox" checked={aiMasterAi} onChange={(e) => setAiMasterAi(e.target.checked)} style={{ width: 18, height: 18, cursor: "pointer" }} />
+                            <span>
+                                <strong style={{ color: aiMasterAi ? "#facc15" : "#e2e8f0" }}>🧠 Master AI</strong>
+                                <span style={{ display: "block", fontSize: "0.82rem", color: "#94a3b8", marginTop: 2 }}>
+                                    Force the smart battle AI regardless of level — lethal detection, DoT-aware KO, no-redundant status, full game jutsu pool, multi-axis tactical scoring. Useful for elite low-level mobs that should play to win.
+                                </span>
+                            </span>
+                        </label>
                         <label>AI Image</label>
                         <p className="hint">Upload a portrait for this AI. It appears in the AI creator, mission battles, and combat HUD.</p>
                         <input
@@ -24375,9 +24513,21 @@ function CardPackSection({ character, updateCharacter, currency, creatorCards }:
                 </button>
             )}
             {currency === "fateShards" && (
-                <button onClick={() => openPack(1, ["epic"], 10)} disabled={character.fateShards < 10} style={{ color: "#ce93d8" }}>
-                    ? Epic Pack — 1 guaranteed Epic card — 10 Fate Shards
-                </button>
+                <>
+                    <button onClick={() => openPack(1, ["epic"], 10)} disabled={character.fateShards < 10} style={{ color: "#ce93d8" }}>
+                        💎 Epic Pack — 1 guaranteed Epic card — 10 Fate Shards
+                    </button>
+                    {/* Legendary pack — sits right next to the Epic pack, costs
+                        3× as much for the corresponding tier jump. Same draw
+                        mechanic, just filtered to legendary rarity. */}
+                    <button
+                        onClick={() => openPack(1, ["legendary"], 30)}
+                        disabled={character.fateShards < 30}
+                        style={{ color: "#facc15", marginLeft: 8, borderColor: "rgba(250, 204, 21, 0.5)" }}
+                    >
+                        👑 Legendary Pack — 1 guaranteed Legendary card — 30 Fate Shards
+                    </button>
+                </>
             )}
         </div>
     );
@@ -32938,65 +33088,163 @@ function Arena({
         }
     }
 
-    // SMART AI — used for opponents at level 30+. Adds:
-    //   1. LETHAL DETECTION — if any usable damage jutsu would KO the player
-    //      through their HP + shield, fire it immediately.
-    //   2. SUSTAIN TRIGGER — at HP < 35%, prefer heal/sustain jutsus over
-    //      offense. At HP < 70% allow heal in the normal scoring (vs the
-    //      base AI's >65% blanket penalty that effectively never heals
-    //      until critical).
-    //   3. AP-EFFICIENCY BONUS — score includes damage-per-AP so the AI
-    //      doesn't blow 80 AP on a slightly-stronger jutsu when a 40-AP
-    //      one would do close to the same.
-    //   4. RESERVES SIGNATURES — high-AP jutsus (≥60 AP) get a small
-    //      bonus only when they would land for >35% of player max HP, so
-    //      the AI saves big plays for high-value moments rather than
-    //      blowing them when the player is shielded / has Absorb up.
+    // Damage the player will take from ALREADY-ACTIVE DoT effects this turn
+    // (Wound + Poison + Drain). Folded into lethal detection so a single
+    // killing-blow jutsu doesn't need to do the full HP solo — if the player
+    // is bleeding 200/turn from a stacked Wound and is at 250 HP, a 60-damage
+    // jutsu can lethal.
+    function activePlayerDotThisTurn(): number {
+        let dot = 0;
+        for (const s of playerStatuses) {
+            if (s.name === "Wound")  dot += s.amount || 0;
+            if (s.name === "Drain")  dot += 250;
+            if (s.name === "Poison") dot += s.amount ?? Math.floor(character.maxHp * (s.percent ?? 6) / 100);
+        }
+        return dot;
+    }
+
+    // Expanded jutsu pool for level-30+ smart AI. Pulls from THE FULL game
+    // jutsu pool (allJutsus, includes starters + admin-created), filtered to
+    // what this AI could reasonably wield:
+    //   • No bloodline-locked jutsus (AI has no bloodline)
+    //   • Element compatibility — favor the AI's primary jutsu type's element
+    //     range over a random Lightning AI casting Water moves
+    //   • Rank cap by AI level so a level-30 mob doesn't pull a level-100
+    //     mythic Ninjutsu from the pool:
+    //         level 30-49  → AP ≤ 60  (rough B-rank cutoff)
+    //         level 50-79  → AP ≤ 80  (A-rank)
+    //         level 80+    → AP ≤ 100 (S-rank, full power)
+    //   • Chakra/stamina the AI can actually pay
+    //   • Always includes the AI's equipped loadout (enemyAiJutsus) — even
+    //     if it would otherwise be filtered out — so admin-curated AIs
+    //     still get their flavor moves.
+    function smartExpandedJutsuPool(): Jutsu[] {
+        const lvl = opponentLevel ?? 1;
+        const apCap = lvl >= 80 ? 100 : lvl >= 50 ? 80 : 60;
+        // Primary element of the AI's loadout — used to bias element
+        // matching (we don't HARD-filter so the AI keeps utility access).
+        const primaryType = aiPrimaryJutsuType(enemyAiJutsus);
+        const primaryEls = new Set<JutsuElement>();
+        for (const j of enemyAiJutsus) if (j.element && j.element !== "None") primaryEls.add(j.element);
+
+        const fromPool = allJutsus.filter((jutsu) => {
+            if (jutsu.bloodlineRank) return false;                          // bloodline-locked
+            if (jutsu.ap > apCap) return false;                             // rank cap
+            if (jutsu.chakraCost > enemyChakra) return false;               // can't pay chakra
+            if (jutsu.staminaCost > enemyStamina) return false;             // can't pay stamina
+            // Element bias — if the AI has a clear primary type AND this
+            // jutsu's type matches AND its element differs from the AI's
+            // pool elements, skip it. Keeps a Lightning AI from spamming
+            // Water moves. None-element + matching-type utility passes.
+            if (primaryType && jutsu.type !== "Any" && jutsu.type !== primaryType) {
+                // Allow cross-type if the AI has no jutsus of this type's
+                // element — small openness so the AI can grab a useful Stun
+                // or Heal it doesn't already have access to.
+                if (jutsu.tags.length === 0) return false;
+            }
+            if (primaryEls.size > 0 && jutsu.element && jutsu.element !== "None" && !primaryEls.has(jutsu.element)) {
+                return false;
+            }
+            return true;
+        });
+
+        // Merge with equipped loadout, dedup by id (loadout wins on ties).
+        const merged = new Map<string, Jutsu>();
+        for (const j of fromPool)       merged.set(j.id, j);
+        for (const j of enemyAiJutsus)  merged.set(j.id, j);
+        return Array.from(merged.values());
+    }
+
+    // SMART AI — used for opponents at level 30+. Pulls from the FULL game
+    // jutsu pool (filtered by element/rank/affordability), then scores with
+    // a multi-axis tactical model:
+    //   1. LETHAL — any jutsu (alone OR combined with active player DoT)
+    //      that KOs the player → fire immediately, cheapest first.
+    //   2. SUSTAIN — at HP < 35%, grab heal/sustain.
+    //   3. NO-REDUNDANT STATUS — skip a stun if player is already stunned,
+    //      a poison/wound/drain if that DoT is already stacking, etc.
+    //   4. ELEMENT MATCHUP — small bonus when the jutsu element matches a
+    //      gap in the player's defensive stat allocation.
+    //   5. SYNERGY — if I land a Stun, the player loses AP next turn → my
+    //      follow-up nuke gets a setup bonus. If player has Decrease
+    //      Damage Taken active → my big jutsus get penalized.
+    //   6. AP-EFFICIENCY + SIGNATURE-RESERVE (carried over).
     function smartAiJutsuPick(availableAp: number): Jutsu | undefined {
-        const usable = [...enemyAiJutsus]
+        const expanded = smartExpandedJutsuPool();
+        const usable = expanded
             .filter((jutsu) => jutsu.ap <= availableAp)
             .filter((jutsu) => (enemyJutsuCooldowns[jutsu.id] ?? 0) <= 0)
             .filter((jutsu) => jutsu.target === "SELF" || jutsu.range <= 0 || distance(playerPos, enemyPos) <= jutsu.range);
 
-        // 1. Lethal scan — first jutsu that KOs through HP+shield wins.
-        const requiredKo = playerHp + playerShield;
-        let bestLethal: { jutsu: Jutsu; dmg: number; ap: number } | null = null;
+        // 1. Lethal scan — include active DoT damage in the KO threshold so
+        // a setup jutsu can finish through chip damage. Cheapest lethal wins.
+        const dotThisTurn = activePlayerDotThisTurn();
+        const requiredKo = Math.max(0, playerHp + playerShield - dotThisTurn);
+        let bestLethal: { jutsu: Jutsu; ap: number } | null = null;
         for (const jutsu of usable) {
             const dmg = estimateAiJutsuDamage(jutsu);
-            if (dmg >= requiredKo) {
-                // Prefer the CHEAPEST lethal — save AP / cooldown for the next round.
-                if (!bestLethal || jutsu.ap < bestLethal.ap) {
-                    bestLethal = { jutsu, dmg, ap: jutsu.ap };
-                }
+            if (dmg >= requiredKo && dmg > 0) {
+                if (!bestLethal || jutsu.ap < bestLethal.ap) bestLethal = { jutsu, ap: jutsu.ap };
             }
         }
         if (bestLethal) return bestLethal.jutsu;
 
-        // 2. Sustain trigger — when very low HP, grab heal/sustain if available.
+        // 2. Sustain trigger — when very low HP, grab heal/sustain.
         const hpPct = enemyHp / Math.max(1, enemyMaxHp);
         if (hpPct < 0.35) {
             const healish = usable.find(j => isSelfSupportJutsu(j));
             if (healish) return healish;
         }
 
-        // 3. Tactical score (extends the base AI's score with AP-efficiency).
+        // Pre-compute facts the score function reuses.
         const playerMaxHp = Math.max(1, character.maxHp);
+        const playerStunned    = playerStatuses.some(s => s.name === "Stun");
+        const playerSealed     = playerStatuses.some(s => s.name === "Bloodline Seal" || s.name === "Seal" || s.name === "Elemental Seal");
+        const playerPoisoned   = playerStatuses.some(s => s.name === "Poison");
+        const playerWounded    = playerStatuses.some(s => s.name === "Wound");
+        const playerDrained    = playerStatuses.some(s => s.name === "Drain");
+        const playerDmgUp      = playerStatuses.some(s => s.name === "Increase Damage Taken" || s.name === "Ignition");
+        const playerDmgDown    = playerStatuses.some(s => s.name === "Decrease Damage Taken");
+        // Lower of player's two combat resources — a low-resource player is
+        // already throttled, so resource-drain jutsus lose value.
+        const playerLowAp      = ap < 50; // engine-side player AP
+
         return usable.sort((a, b) => {
             const tacticalScore = (jutsu: Jutsu) => {
                 let score = jutsu.effectPower;
-                // Self-support penalty — smarter threshold: only penalize when
-                // already healthy enough to not benefit.
+                const dmg = estimateAiJutsuDamage(jutsu);
+
+                // ── Self-support
                 if (isSelfSupportJutsu(jutsu) && hpPct > 0.70) score -= 50;
-                else if (isSelfSupportJutsu(jutsu) && hpPct < 0.50) score += 15; // actively seek heal mid-fight
+                else if (isSelfSupportJutsu(jutsu) && hpPct < 0.50) score += 15;
+
+                // ── Control / pressure baseline (unchanged)
                 if (isControlJutsu(jutsu)) score += 12;
                 if (isPressureJutsu(jutsu)) score += 8;
-                // AP-efficiency bonus: how much damage does each AP buy?
-                const dmg = estimateAiJutsuDamage(jutsu);
+
+                // ── No-redundant status — heavy penalty so the AI never
+                // re-applies a status already active on the player.
+                const tagNames = jutsu.tags.map(t => t.name);
+                if (playerStunned   && tagNames.includes("Stun"))           score -= 40;
+                if (playerSealed    && (tagNames.includes("Bloodline Seal") || tagNames.includes("Seal") || tagNames.includes("Elemental Seal"))) score -= 30;
+                if (playerPoisoned  && tagNames.includes("Poison"))         score -= 25;
+                if (playerWounded   && tagNames.includes("Wound"))          score -= 25;
+                if (playerDrained   && tagNames.includes("Drain"))          score -= 25;
+                if (playerLowAp     && tagNames.includes("Lag"))            score -= 20;
+
+                // ── Synergy bonuses — set up future damage / capitalize on
+                // player's current debuffs.
+                if (playerDmgUp && dmg > 0) score += 8;     // their Ignition / IDT is up — hit harder
+                if (playerDmgDown && dmg > 0) score -= 10;  // their DDT is up — save the AP
+                if (playerStunned && dmg > 0 && jutsu.ap >= 50) score += 12; // big hit while they can't react
+
+                // ── AP-efficiency bonus
                 if (dmg > 0) score += (dmg / Math.max(1, jutsu.ap)) * 1.5;
-                // Save signature jutsus (≥60 AP) for high-impact moments.
+
+                // ── Signature-reserve logic
                 if (jutsu.ap >= 60) {
-                    if (dmg / playerMaxHp >= 0.35) score += 10; // legit big hit — use it
-                    else                          score -= 20; // not worth the AP burn right now
+                    if (dmg / playerMaxHp >= 0.35) score += 10;
+                    else                          score -= 20;
                 }
                 return score;
             };
@@ -33005,10 +33253,11 @@ function Arena({
     }
 
     function highestPowerAiJutsu(availableAp = 100) {
-        // Level gating: opponents at level 30+ use the smart AI. Lower-level
-        // mobs stay on the base "highest tactical score" picker so the early
-        // game stays gentle and players can learn the system.
-        if ((opponentLevel ?? 1) >= 30) {
+        // Gating: opponents at level 30+ use the smart AI automatically.
+        // Admins can also flag an AI as masterAi to force-enable the smart
+        // logic at any level — for low-level "elite" / boss mobs that
+        // should play to win without bumping their level number.
+        if (pendingAiProfile?.masterAi || (opponentLevel ?? 1) >= 30) {
             return smartAiJutsuPick(availableAp);
         }
         return [...enemyAiJutsus]
