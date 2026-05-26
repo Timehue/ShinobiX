@@ -12,6 +12,7 @@ export type MissionKind =
     | 'healer-heal-unique'          // unique-target heal count
     | 'vanguard-pvp-wins'           // increment per PvP win
     | 'vanguard-pvp-unique'         // unique-opponent PvP wins
+    | 'vanguard-raids'              // count completed village raids (human OR AI defender)
     | 'pet-tamer-expeditions'       // count any completed expeditions
     | 'pet-tamer-long-expeditions'  // count completed expeditions ≥4 hours
     | 'pet-tamer-pet-train';        // count pet training sessions claimed
@@ -46,6 +47,12 @@ const VANGUARD_POOL: MissionTemplate[] = [
     { templateId: 'vanguard-headhunter', profession: 'vanguard', kind: 'vanguard-pvp-unique', name: 'Headhunter', description: 'Defeat 4 different players.', target: 4, xpReward: 125 },
     { templateId: 'vanguard-warpath', profession: 'vanguard', kind: 'vanguard-pvp-wins', name: 'Warpath', description: 'Win 7 PvP battles.', target: 7, xpReward: 150 },
     { templateId: 'vanguard-annihilator', profession: 'vanguard', kind: 'vanguard-pvp-unique', name: 'Annihilator', description: 'Defeat 5 different players.', target: 5, xpReward: 150 },
+    // Raid missions — any successful village raid counts, whether the defender
+    // was a human guard or AI fill-in.
+    { templateId: 'vanguard-raid-strike', profession: 'vanguard', kind: 'vanguard-raids', name: 'Raid Strike', description: 'Successfully raid 1 village.', target: 1, xpReward: 60 },
+    { templateId: 'vanguard-raid-pressure', profession: 'vanguard', kind: 'vanguard-raids', name: 'Pressure Raid', description: 'Successfully raid 3 villages.', target: 3, xpReward: 100 },
+    { templateId: 'vanguard-raid-onslaught', profession: 'vanguard', kind: 'vanguard-raids', name: 'Onslaught', description: 'Successfully raid 5 villages.', target: 5, xpReward: 150 },
+    { templateId: 'vanguard-raid-scourge', profession: 'vanguard', kind: 'vanguard-raids', name: 'Scourge', description: 'Successfully raid 7 villages.', target: 7, xpReward: 200 },
 ];
 
 const PET_TAMER_POOL: MissionTemplate[] = [
