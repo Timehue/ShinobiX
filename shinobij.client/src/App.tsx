@@ -536,6 +536,11 @@ export type Character = {
     // Pet Tamer daily First Expedition tracking (UTC).
     lastExpeditionClaimDate?: string;
     expeditionsClaimedToday?: number;
+    // Pet escort one-shot bonus: when a Vanguard from this Pet Tamer's clan
+    // wins a raid with an active pet and this Pet Tamer has an open escort
+    // offer, server stamps this flag. Consumed (cleared) on next expedition
+    // collect, applying +20% Tamer XP for that one expedition.
+    petEscortBonusReady?: boolean;
     clanBattleContrib: number;
     clanEventContrib: number;
     clanMissionContrib: number;
@@ -6088,11 +6093,23 @@ export function getProfessionRankForXp(profession: Profession, xp: number): numb
     return Math.min(PROFESSION_MAX_RANK, rank);
 }
 
+// Vanguard Rank 2+ perk: all Vanguard XP gains are +10%. Applies to per-kill
+// XP, mission completion XP, anything that flows through gainProfessionXp.
+// Multiplier is keyed off CURRENT rank (before this grant) so rank-up timing
+// doesn't matter — the bonus kicks in starting with the first gain at Rank 2.
+function professionXpMultiplier(character: Character): number {
+    if (character.profession === "vanguard" && (character.professionRank ?? 0) >= 2) {
+        return 1.1;
+    }
+    return 1;
+}
+
 // Award profession XP and auto-rank-up. No-op if the character has no
 // profession. Returns the updated character — caller should setCharacter().
 export function gainProfessionXp(character: Character, amount: number): Character {
     if (!character.profession || amount <= 0) return character;
-    const nextXp = (character.professionXp ?? 0) + Math.floor(amount);
+    const boosted = Math.floor(amount * professionXpMultiplier(character));
+    const nextXp = (character.professionXp ?? 0) + boosted;
     const nextRank = getProfessionRankForXp(character.profession, nextXp);
     return {
         ...character,
@@ -7603,16 +7620,9 @@ export default function App() {
         return () => clearTimeout(t);
     }, [missionToasts]);
 
-    // ── Profession picker trigger ──────────────────────────────────────────
-    // Routes to the visual-novel profession picker when an eligible player
-    // (Level 13+, no profession set) lands on the village. We only intercept
-    // from "village" so we don't yank players out of battles, dungeons, etc.
-    useEffect(() => {
-        if (!character) return;
-        if (character.level >= 13 && !character.profession && screen === "village") {
-            setScreen("professionPicker");
-        }
-    }, [character?.level, character?.profession, screen]);
+    // ── Profession picker: rendered as an unconditional fullscreen overlay
+    // whenever Level >= 13 with no profession set. No screen trigger here —
+    // the render block at the bottom handles it. The picker cannot be skipped.
 
     // ── Viewport size detector ──────────────────────────────────────────────
     // Sets data-vp="xs|sm|md|lg|xl" on <html> so CSS can use attribute
@@ -11724,10 +11734,9 @@ export default function App() {
                     />
                 )}
 
-                {screen === "professionPicker" && character && (
+                {character && character.level >= 13 && !character.profession && (
                     <ProfessionPicker
                         character={character}
-                        setScreen={setScreen}
                         sharedImages={sharedImages}
                         onProfessionChosen={(profession) => {
                             setCharacter({
@@ -12095,62 +12104,58 @@ export default function App() {
                         const villageWarPvpPatch = opponent ? recordVillageWarPvp(character, opponent) : "";
                         const leveled = gainXp(character, xpGain);
                         const rewarded = grantTerritoryScrolls(leveled, 5);
-                        // Vanguard PvP rewards — Honor Seals + profession XP.
-                        // Strict spec: only Vanguards earn Seals from PvP kills.
-                        // PvpBattleScreen only runs for real human-vs-human PvP sessions
-                        // (AI battles use the Arena/storyBoss path), so reaching this
-                        // code already implies a human kill.
+                        // Spar/friendly-duel detection for non-Vanguard local effects
+                        // (e.g., ranked rating still uses isFriendlyDuel implicitly).
                         const isFriendlyDuel = !context?.mode
                             || (context.mode === "standard" && !context.clanWarPoints && !context.sectorAttack);
-                        const isRaid = context?.raidKind === "raidPlayer";
-                        // Quick-surrender protection: fights ending in <15s grant
-                        // no Vanguard Seals or XP. pvpBattleStartedAtRef is reset
-                        // each time pvpBattleId changes.
-                        const fightDurationMs = pvpBattleStartedAtRef.current
-                            ? Date.now() - pvpBattleStartedAtRef.current
-                            : 999999;
-                        const tooQuick = fightDurationMs < 15_000;
-                        // Pet escort synergy: Vanguard with an active pet on a raid
-                        // gets +5% Seals. (Pet Tamer's matching next-expedition
-                        // bonus needs a clan-pet-escort offer mechanic — deferred.)
-                        const petEscortBonus = isRaid && rewarded.profession === "vanguard" && rewarded.activePetId ? 1.05 : 1;
-                        const todayKey = currentDateKey();
-                        const sealResultRaw = (opponent && !isFriendlyDuel && !tooQuick)
-                            ? vanguardSealsForKill(rewarded, opponent, todayKey)
-                            : { amount: 0, updatedByTarget: rewarded.dailyHonorSealsByTarget ?? {} };
-                        const sealResult = {
-                            amount: Math.floor(sealResultRaw.amount * petEscortBonus),
-                            updatedByTarget: sealResultRaw.updatedByTarget,
-                        };
-                        const vanguardXpGain = (opponent && !isFriendlyDuel && !tooQuick && rewarded.profession === "vanguard")
-                            ? vanguardXpForKill(opponent)
-                            : 0;
-                        const todayActive = rewarded.vanguardDailyResetDate === todayKey;
-                        const newDailySeals = (todayActive ? (rewarded.dailyHonorSealsEarned ?? 0) : 0) + sealResult.amount;
-                        const withProfXp = vanguardXpGain > 0 ? gainProfessionXp(rewarded, vanguardXpGain) : rewarded;
+                        // Vanguard rewards (Honor Seals + profession XP + all the
+                        // daily-tracking fields) are granted server-side in
+                        // api/pvp/move.ts via grantVanguardRewardsForSession. The
+                        // server enforces level-gap, daily caps, per-target caps,
+                        // same-IP, account-age, quick-surrender, and pet-escort
+                        // bonus rules. Client doesn't touch those fields here —
+                        // the explicit refetch below pulls the server's values.
                         setCharacter({
-                            ...withProfXp,
+                            ...rewarded,
                             ...villageWarRaid.characterPatch,
-                            ryo: withProfXp.ryo + ryoGain,
-                            honorSeals: (withProfXp.honorSeals ?? 0) + sealResult.amount,
-                            auraDust: (withProfXp.auraDust ?? 0) + 6,
-                            inventory: villageWarRaid.warCrate ? [...withProfXp.inventory, LEGENDARY_WAR_CRATE_ID] : withProfXp.inventory,
-                            totalPvpKills: (withProfXp.totalPvpKills ?? 0) + 1,
-                            monthlyPvpKills: (withProfXp.monthlyPvpKills ?? 0) + 1,
+                            ryo: rewarded.ryo + ryoGain,
+                            auraDust: (rewarded.auraDust ?? 0) + 6,
+                            inventory: villageWarRaid.warCrate ? [...rewarded.inventory, LEGENDARY_WAR_CRATE_ID] : rewarded.inventory,
+                            totalPvpKills: (rewarded.totalPvpKills ?? 0) + 1,
+                            monthlyPvpKills: (rewarded.monthlyPvpKills ?? 0) + 1,
                             pvpKillMonth: currentMonthKey(),
-                            rankedRating: (withProfXp.rankedRating ?? 1000) + ratingGain,
-                            rankedWins: (withProfXp.rankedWins ?? 0) + (ratingGain > 0 ? 1 : 0),
-                            dailyHonorSealsEarned: newDailySeals,
-                            dailyHonorSealsByTarget: sealResult.updatedByTarget,
-                            vanguardDailyResetDate: todayKey,
+                            rankedRating: (rewarded.rankedRating ?? 1000) + ratingGain,
+                            rankedWins: (rewarded.rankedWins ?? 0) + (ratingGain > 0 ? 1 : 0),
                         });
+                        // Refetch the player's own save to pick up server-side
+                        // Vanguard reward updates (honorSeals, professionXp,
+                        // professionRank, daily-cap counters, petEscortBonusReady
+                        // for clan-mates is on their saves not ours).
+                        if (rewarded.profession === "vanguard") {
+                            fetch(`/api/save/${encodeURIComponent(character.name)}`)
+                                .then(r => r.ok ? r.json() : null)
+                                .then(data => {
+                                    const serverChar = data?.character as Character | undefined;
+                                    if (!serverChar) return;
+                                    setCharacter(prev => prev ? ({
+                                        ...prev,
+                                        honorSeals: serverChar.honorSeals ?? prev.honorSeals,
+                                        professionXp: serverChar.professionXp ?? prev.professionXp,
+                                        professionRank: serverChar.professionRank ?? prev.professionRank,
+                                        dailyHonorSealsEarned: serverChar.dailyHonorSealsEarned ?? prev.dailyHonorSealsEarned,
+                                        dailyHonorSealsByTarget: serverChar.dailyHonorSealsByTarget ?? prev.dailyHonorSealsByTarget,
+                                        vanguardDailyResetDate: serverChar.vanguardDailyResetDate ?? prev.vanguardDailyResetDate,
+                                    }) : prev);
+                                })
+                                .catch(() => { /* server is still source of truth; brief UI lag is OK */ });
+                        }
                         if (rewardSector > 0) recordMissionRaid(rewardSector);
                         if (villageWarPvpPatch) console.info(villageWarPvpPatch.trim());
                         // Vanguard daily mission progress — server validates the
-                        // win against the actual PvpSession. Skipped for spar /
-                        // friendly duels and quick-surrender fights (same gates
-                        // as Honor Seal grant above).
-                        if (!isFriendlyDuel && !tooQuick && opponent && rewarded.profession === "vanguard") {
+                        // win against the actual PvpSession and enforces its own
+                        // anti-abuse rules (quick-surrender, account age, IP),
+                        // so the client only needs to skip the spar case.
+                        if (!isFriendlyDuel && opponent && rewarded.profession === "vanguard") {
                             fetch('/api/missions/report-pvp-win', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
@@ -13274,6 +13279,8 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
 
         // Tamer XP from expedition (spec: 5 XP per minute of expedition,
         // +50% for ≥1h, +100% for ≥4h; daily First Expedition is 2x).
+        // Pet escort bonus (one-shot): +20% if petEscortBonusReady is set,
+        // then clear the flag.
         if (character.profession === "petTamer") {
             const minutes = selectedPet.expedition.durationMs / 60_000;
             if (minutes >= 10) {
@@ -13281,7 +13288,11 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
                 if (minutes >= 60) tamerXp = Math.floor(tamerXp * 1.5);
                 if (minutes >= 240) tamerXp = Math.floor(tamerXp * 2 / 1.5); // composes to 2x over base
                 if (firstResult.isFirst) tamerXp *= 2;
-                const withXp = gainProfessionXp(nextCharacter, tamerXp);
+                if (nextCharacter.petEscortBonusReady) tamerXp = Math.floor(tamerXp * 1.2);
+                const consumedEscort = nextCharacter.petEscortBonusReady
+                    ? { ...nextCharacter, petEscortBonusReady: false }
+                    : nextCharacter;
+                const withXp = gainProfessionXp(consumedEscort, tamerXp);
                 updateCharacter(withXp);
                 onImmediateSave?.(withXp);
             }

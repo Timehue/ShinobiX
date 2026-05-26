@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Character, Screen, Profession } from "../App";
+import type { Character, Profession } from "../App";
 
 type Stage = "intro" | "choose" | "confirm";
 
@@ -60,12 +60,10 @@ const INTRO_LINES = [
 
 export function ProfessionPicker({
     character,
-    setScreen,
     onProfessionChosen,
     sharedImages = {},
 }: {
     character: Character;
-    setScreen: (s: Screen) => void;
     onProfessionChosen: (profession: Profession) => void;
     sharedImages?: Record<string, string>;
 }) {
@@ -96,8 +94,11 @@ export function ProfessionPicker({
                 setSubmitting(false);
                 return;
             }
+            // onProfessionChosen updates character.profession on the parent,
+            // which causes the overlay-condition in App.tsx to flip false and
+            // unmount this component. No setScreen redirect — the player stays
+            // on whatever screen they were on.
             onProfessionChosen(pending);
-            setScreen("village");
         } catch {
             setError("Network error. Try again.");
             setSubmitting(false);

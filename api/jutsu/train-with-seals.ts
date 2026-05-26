@@ -64,8 +64,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const current = mastery[idx];
         const fromLevel = Number(current.level ?? 0);
+        // Honor Seal training only opens once the jutsu has been hand-grinded
+        // to Lv 30 via ryo training. This prevents Seal-rich players from
+        // skipping the entire early jutsu progression. Bloodline-locked
+        // jutsu (and any element-gated jutsu) ARE eligible — once you've
+        // legitimately trained one to 30, Seals can carry it the rest of
+        // the way. The same-village / level / clan restrictions of the
+        // bloodline don't change anything for this endpoint.
         if (fromLevel < MIN_LEVEL) {
-            return res.status(400).json({ error: `Honor Seal training is only available at level ${MIN_LEVEL}+.` });
+            return res.status(400).json({ error: `Honor Seal training is only available at level ${MIN_LEVEL}+. Train this jutsu to ${MIN_LEVEL} with ryo first.` });
         }
         if (fromLevel >= MAX_LEVEL) {
             return res.status(400).json({ error: `Levels ${MAX_LEVEL}+ still require PvP training.` });
