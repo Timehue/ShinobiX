@@ -32810,6 +32810,7 @@ type PvpSessionState = {
     fleedBy?: "p1" | "p2";
     createdAt?: number;
     lastMoveAt?: number;
+    consecAutoWait?: { p1?: number; p2?: number };
 };
 
 type PvpMotionFx = {
@@ -33173,7 +33174,9 @@ function PvpBattleScreen({
         const iv = setInterval(() => {
             secs -= 1;
             setPvpRoundTimer(secs);
-            if (secs <= 0) { clearInterval(iv); submitAction("wait"); }
+            // auto: true marks this as a timer-fired wait, so the server can
+            // count it toward the AFK skip counter (vs a manual Wait click).
+            if (secs <= 0) { clearInterval(iv); submitAction("wait", undefined, undefined, undefined, { auto: true }); }
         }, 1000);
         return () => clearInterval(iv);
     }, [!!session, pvpDone, pvpPrefightCountdown, pvpIsMyTurn, pvpRoundTimerKey]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -33406,8 +33409,9 @@ function PvpBattleScreen({
         return groups;
     })();
 
-    async function submitAction(pvpAction: string, pvpTile?: number, pvpJutsuId?: string, pvpItem?: GameItem) {
-        if (submitting || done || !isMyTurn) return;
+    async function submitAction(pvpAction: string, pvpTile?: number, pvpJutsuId?: string, pvpItem?: GameItem, opts?: { auto?: boolean; allowWhenNotMyTurn?: boolean }) {
+        if (submitting || done) return;
+        if (!isMyTurn && !opts?.allowWhenNotMyTurn) return;
         setSubmitting(true);
         try {
             const wfx = weatherEffects[currentWeather];
@@ -33417,6 +33421,7 @@ function PvpBattleScreen({
                 weatherNegativeElement: wfx.negativeElement ?? "",
                 biome: currentBiome,
             };
+            if (opts?.auto) body.auto = true;
             if (pvpTile !== undefined) body.tile = pvpTile;
             if (pvpJutsuId) body.jutsuId = pvpJutsuId;
             if (pvpItem) {
@@ -33785,31 +33790,38 @@ function PvpBattleScreen({
                             </button>
                         </div>
                     ) : (() => {
-                        // Show "Claim AFK Win" when opponent has been idle past
-                        // the server's 90s AFK threshold. Server validates so
-                        // the button is safe to show optimistically — it just
-                        // gets rejected if the timer hasn't actually elapsed.
+                        // Two AFK signals:
+                        //  1) Opponent has skipped 2 consecutive rounds via the
+                        //     45s round timer auto-firing (server-tracked).
+                        //  2) No moves at all for 90s (crashed-tab fallback).
+                        // Either lets us claim the win — server validates both.
+                        const opponentRole: "p1" | "p2" = role === "p1" ? "p2" : "p1";
+                        const oppSkips = session.consecAutoWait?.[opponentRole] ?? 0;
                         const lastMove = Number(session.lastMoveAt ?? session.createdAt);
                         const idleMs = Date.now() - lastMove;
-                        const AFK_THRESHOLD_MS = 90_000;
-                        const canClaimAfk = idleMs >= AFK_THRESHOLD_MS;
-                        const secsUntilClaim = Math.max(0, Math.ceil((AFK_THRESHOLD_MS - idleMs) / 1000));
+                        const FALLBACK_MS = 90_000;
+                        const canClaim = oppSkips >= 2 || idleMs >= FALLBACK_MS;
+                        const fallbackSecs = Math.max(0, Math.ceil((FALLBACK_MS - idleMs) / 1000));
                         return (
                             <div className="basic-action-bar shinobi-command-bar" style={{ justifyContent: "center", flexDirection: "column", gap: 8 }}>
                                 <p style={{ color: "#94a3b8", padding: "0.5rem 1rem", margin: 0 }}>
                                     {opp.name} is taking their turn...
                                 </p>
-                                {canClaimAfk ? (
+                                {canClaim ? (
                                     <button
-                                        onClick={() => submitAction("claim-afk-win")}
+                                        onClick={() => submitAction("claim-afk-win", undefined, undefined, undefined, { allowWhenNotMyTurn: true })}
                                         disabled={submitting}
                                         style={{ background: "linear-gradient(#7c2d12, #422006)", borderColor: "#f97316", color: "#fed7aa" }}
                                     >
                                         ⏱ Claim Win (Opponent AFK)
                                     </button>
+                                ) : oppSkips >= 1 ? (
+                                    <p className="hint" style={{ fontSize: "0.75rem", margin: 0, color: "#fcd34d" }}>
+                                        Opponent skipped {oppSkips}/2 rounds — one more for AFK forfeit
+                                    </p>
                                 ) : idleMs > 30_000 ? (
                                     <p className="hint" style={{ fontSize: "0.75rem", margin: 0, color: "#fcd34d" }}>
-                                        AFK forfeit available in {secsUntilClaim}s
+                                        AFK forfeit fallback available in {fallbackSecs}s
                                     </p>
                                 ) : null}
                             </div>
