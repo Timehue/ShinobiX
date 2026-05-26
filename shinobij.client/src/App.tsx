@@ -32808,6 +32808,8 @@ type PvpSessionState = {
     status: "active" | "done";
     winner: "p1" | "p2" | "draw" | null;
     fleedBy?: "p1" | "p2";
+    createdAt?: number;
+    lastMoveAt?: number;
 };
 
 type PvpMotionFx = {
@@ -33782,13 +33784,37 @@ function PvpBattleScreen({
                                 <span>Wait</span><small>End turn</small>
                             </button>
                         </div>
-                    ) : (
-                        <div className="basic-action-bar shinobi-command-bar" style={{ justifyContent: "center" }}>
-                            <p style={{ color: "#94a3b8", padding: "0.5rem 1rem", margin: 0 }}>
-                                {opp.name} is taking their turn...
-                            </p>
-                        </div>
-                    ))}
+                    ) : (() => {
+                        // Show "Claim AFK Win" when opponent has been idle past
+                        // the server's 90s AFK threshold. Server validates so
+                        // the button is safe to show optimistically — it just
+                        // gets rejected if the timer hasn't actually elapsed.
+                        const lastMove = Number(session.lastMoveAt ?? session.createdAt);
+                        const idleMs = Date.now() - lastMove;
+                        const AFK_THRESHOLD_MS = 90_000;
+                        const canClaimAfk = idleMs >= AFK_THRESHOLD_MS;
+                        const secsUntilClaim = Math.max(0, Math.ceil((AFK_THRESHOLD_MS - idleMs) / 1000));
+                        return (
+                            <div className="basic-action-bar shinobi-command-bar" style={{ justifyContent: "center", flexDirection: "column", gap: 8 }}>
+                                <p style={{ color: "#94a3b8", padding: "0.5rem 1rem", margin: 0 }}>
+                                    {opp.name} is taking their turn...
+                                </p>
+                                {canClaimAfk ? (
+                                    <button
+                                        onClick={() => submitAction("claim-afk-win")}
+                                        disabled={submitting}
+                                        style={{ background: "linear-gradient(#7c2d12, #422006)", borderColor: "#f97316", color: "#fed7aa" }}
+                                    >
+                                        ⏱ Claim Win (Opponent AFK)
+                                    </button>
+                                ) : idleMs > 30_000 ? (
+                                    <p className="hint" style={{ fontSize: "0.75rem", margin: 0, color: "#fcd34d" }}>
+                                        AFK forfeit available in {secsUntilClaim}s
+                                    </p>
+                                ) : null}
+                            </div>
+                        );
+                    })())}
 
                     <div className="jutsu-layout-card combat-jutsu-bar">
                         {done ? (
