@@ -13189,6 +13189,11 @@ export default function App() {
                             ryo: rewarded.ryo + ryoGain,
                             auraDust: (rewarded.auraDust ?? 0) + 6,
                             inventory: villageWarRaid.warCrate ? [...rewarded.inventory, LEGENDARY_WAR_CRATE_ID] : rewarded.inventory,
+                            // Stamp the canonical crate ID so claimPendingWarCrates'
+                            // next sweep skips this war (already credited inline).
+                            claimedWarCrateIds: villageWarRaid.warCrate && villageWarRaid.warCrateId
+                                ? [...(rewarded.claimedWarCrateIds ?? []), villageWarRaid.warCrateId]
+                                : (rewarded.claimedWarCrateIds ?? []),
                             totalPvpKills: (rewarded.totalPvpKills ?? 0) + 1,
                             monthlyPvpKills: (rewarded.monthlyPvpKills ?? 0) + 1,
                             pvpKillMonth: currentMonthKey(),
@@ -23953,17 +23958,62 @@ function villageWarLossPenalty(character: Character) {
 
 function applyVillageWarDamage(war: VillageWar, damagedVillage: string, amount: number) {
     const nextHp = Math.max(0, (war.hp[damagedVillage] ?? VILLAGE_WAR_HP_MAX) - Math.max(0, Math.floor(amount)));
+    const ended = nextHp <= 0;
+    const winnerVillage = ended ? war.villages.find(village => village !== damagedVillage) : war.winnerVillage;
+    // Canonical crate ID format `war-crate-${war.id}` — matches what
+    // VillageWarScreen.claimVictory + claimPendingWarCrates check via
+    // claimedWarCrateIds. Previously this used `village-crate-${id}-${ts}`
+    // which slipped past dedup, letting winners triple-claim.
     const next = normalizeVillageWar({
         ...war,
         hp: { ...war.hp, [damagedVillage]: nextHp },
-        winnerVillage: nextHp <= 0 ? war.villages.find(village => village !== damagedVillage) : war.winnerVillage,
-        endedAt: nextHp <= 0 ? Date.now() : war.endedAt,
-        // Stamp a unique crate ID the moment the war ends so every winning-village
-        // player can claim it on next login. Only set once (preserve existing id).
-        warCrateId: war.warCrateId ?? (nextHp <= 0 ? `village-crate-${war.id}-${Date.now()}` : undefined),
+        winnerVillage,
+        endedAt: ended ? Date.now() : war.endedAt,
+        warCrateId: war.warCrateId ?? `war-crate-${war.id}`,
     });
     saveVillageWar(next);
+    // On war end, append to both villages' warRecords and post end-of-war
+    // notices so the village board reflects the outcome. Each village
+    // gets its own POV ("won vs X" / "lost to X"). Idempotent — guarded
+    // by checking the previous war state's endedAt.
+    if (ended && !war.endedAt && winnerVillage) {
+        try { recordWarOutcomeToVillages(next, damagedVillage, winnerVillage); } catch { /* best-effort */ }
+    }
     return next;
+}
+
+// Append a war-history entry + end-of-war notice to BOTH warring
+// villages so the outcome lands on each village's board. Called from
+// applyVillageWarDamage when a write actually flips the war to ended.
+function recordWarOutcomeToVillages(war: VillageWar, loserVillage: string, winnerVillage: string) {
+    const dateStr = new Date().toLocaleDateString();
+    const finalScore = `${war.hp[winnerVillage] ?? 0} – ${war.hp[loserVillage] ?? 0}`;
+    for (const village of war.villages) {
+        const isWinner = village === winnerVillage;
+        const state = loadVillageState(village);
+        const record: DetailedVillageWarRecord = {
+            opponent: village === war.villages[0] ? war.villages[1] : war.villages[0],
+            winner: winnerVillage,
+            finalScore,
+            topDefender: "—",
+            topAttacker: "—",
+            mvpClan: "—",
+            rewards: isWinner ? "Legendary War Crate" : "—",
+            date: dateStr,
+        };
+        const noticeTitle = isWinner ? "Village War Won" : "Village War Lost";
+        const noticeBody = isWinner
+            ? `Our forces defeated ${loserVillage}. Final score ${finalScore}. Surviving raiders may claim a Legendary War Crate.`
+            : `We have fallen to ${winnerVillage}. Final score ${finalScore}. Rebuild and rally — the next campaign begins.`;
+        saveVillageState(village, normalizeVillageState(village, {
+            ...state,
+            warRecords: [record, ...(state.warRecords ?? [])].slice(0, 24),
+            noticePosts: normalizeNoticePosts([
+                makeNoticePost("order", noticeTitle, noticeBody, "System", "System", true),
+                ...state.noticePosts,
+            ]),
+        }));
+    }
 }
 
 function recordVillageWarPvp(winner: Character, loser: Character) {
@@ -24006,6 +24056,11 @@ function recordVillageWarRaid(character: Character, sector: number) {
             villageWarMissionsCompleted: currentCompleted,
         } as Partial<Character>,
         warCrate: Boolean(next.endedAt && next.winnerVillage === character.village),
+        // Canonical crate ID the caller stamps into claimedWarCrateIds
+        // alongside the inline inventory grant — without this, the
+        // claimPendingWarCrates sweep on next login would scan the cache,
+        // see warCrateId is unclaimed, and grant a SECOND crate.
+        warCrateId: next.warCrateId,
     };
 }
 
@@ -24021,7 +24076,7 @@ function claimVillageWarDailyMission(character: Character, missionIndex: number)
     const enemyVillage = war?.villages.find(village => village !== character.village);
     if (!war || !enemyVillage) return { character, note: "Your village is not in an active war." };
     const updatedWar = applyVillageWarDamage(war, enemyVillage, VILLAGE_WAR_MISSION_DAMAGE);
-    const wonWar = updatedWar.endedAt && updatedWar.winnerVillage === character.village;
+    const wonWar = Boolean(updatedWar.endedAt && updatedWar.winnerVillage === character.village);
     return {
         character: {
             ...character,
@@ -24030,6 +24085,11 @@ function claimVillageWarDailyMission(character: Character, missionIndex: number)
             totalMissionsCompleted: (character.totalMissionsCompleted ?? 0) + 1,
             clanContribMonth: currentMonthKey(),
             inventory: wonWar ? [...character.inventory, LEGENDARY_WAR_CRATE_ID] : character.inventory,
+            // Stamp the canonical crate ID alongside the inline grant so
+            // claimPendingWarCrates can't double-credit on next sweep.
+            claimedWarCrateIds: wonWar && updatedWar.warCrateId
+                ? [...(character.claimedWarCrateIds ?? []), updatedWar.warCrateId]
+                : (character.claimedWarCrateIds ?? []),
             villageWarMissionDate: today,
             villageWarRaidProgress: progress,
             villageWarMissionsCompleted: completed + 1,
@@ -32768,7 +32828,12 @@ function Arena({
         const territoryScrollReward = clanWarPointsActive > 0 ? 25 : opponentCharacter ? 5 : 1;
         const territoryRaidDamageAmount = (raidBattleKind === "raidAi" || raidBattleKind === "raidPlayer") ? sectorRaidDamageAmount(currentSector) : 0;
         const territoryRaidDamage = territoryRaidDamageAmount > 0 ? damageSectorTerritory(currentSector, territoryRaidDamageAmount) : null;
-        const villageWarRaid = (raidBattleKind === "raidAi" || raidBattleKind === "raidPlayer") ? recordVillageWarRaid(character, currentSector) : { note: "", characterPatch: {} as Partial<Character>, warCrate: false };
+        // Village War HP/ground damage is gated to PvP raids only. AI raids
+        // would let a single player solo-grind enemy village HP to zero
+        // while no enemy is online — defeats the whole point of village
+        // war as a player-vs-player meta. The win-condition is unchanged:
+        // PvP raids still drive both warGroundHp and the enemy village HP.
+        const villageWarRaid = (raidBattleKind === "raidPlayer") ? recordVillageWarRaid(character, currentSector) : { note: "", characterPatch: {} as Partial<Character>, warCrate: false };
         const villageWarPvpNote = opponentCharacter ? recordVillageWarPvp(character, opponentCharacter) : "";
         const rewarded = grantTerritoryScrolls(leveled, territoryScrollReward);
         const deathsGateBoneCharm = deathsGatePvp && Math.random() < 0.05 ? 1 : 0;
@@ -32781,6 +32846,11 @@ function Arena({
             stamina: Math.min(rewarded.maxStamina, rewarded.stamina + 15),
             boneCharms: (rewarded.boneCharms ?? 0) + deathsGateBoneCharm,
             inventory: villageWarRaid.warCrate ? [...rewarded.inventory, LEGENDARY_WAR_CRATE_ID] : rewarded.inventory,
+            // Stamp canonical crate ID alongside the inline grant — see
+            // matching block in handlePvpWin (App.tsx ~13140).
+            claimedWarCrateIds: villageWarRaid.warCrate && villageWarRaid.warCrateId
+                ? [...(rewarded.claimedWarCrateIds ?? []), villageWarRaid.warCrateId]
+                : (rewarded.claimedWarCrateIds ?? []),
             clanBattleContrib: (rewarded.clanBattleContrib ?? 0) + 1,
             totalAiKills: (rewarded.totalAiKills ?? 0) + (!opponentCharacter ? 1 : 0),
             dailyAiKills: (rewarded.dailyAiKills ?? 0) + (!opponentCharacter ? 1 : 0),
