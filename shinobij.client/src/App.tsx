@@ -26273,6 +26273,30 @@ function CentralHub({
     const [showCrafter, setShowCrafter] = useState(false);
     const [crafterTab, setCrafterTab] = useState<"supplies" | "weapons">("supplies");
     const [weaponInfoItem, setWeaponInfoItem] = useState<GameItem | null>(null);
+    // Active-war banner — fetches the world-state once on mount and
+    // refreshes every 60s so a player walking past Central knows their
+    // village is at war. Stays dismissable per-session via local state.
+    const [activeWarBanner, setActiveWarBanner] = useState<VillageWarRecord | null>(null);
+    const [warBannerDismissed, setWarBannerDismissed] = useState(false);
+    useEffect(() => {
+        let alive = true;
+        async function fetchWar() {
+            try {
+                const r = await fetch("/api/world-state");
+                if (!r.ok) return;
+                const data = await r.json() as { wars?: VillageWarRecord[] };
+                if (!alive) return;
+                const myVillage = (character.village ?? "").trim();
+                const mine = (data.wars ?? []).find(w =>
+                    !w.endedAt && Array.isArray(w.villages) && w.villages.includes(myVillage)
+                );
+                setActiveWarBanner(mine ?? null);
+            } catch { /* silent */ }
+        }
+        void fetchWar();
+        const id = setInterval(fetchWar, 60_000);
+        return () => { alive = false; clearInterval(id); };
+    }, [character.village]);
 
     // Named Weapon forge state
     type NamedWeaponRoll = { ep: number; range: 3 | 4 | 5; offenseVal: number; tags: Array<{ name: string; percent: number }> };
@@ -26566,6 +26590,61 @@ function CentralHub({
             <div className="central-log">
                 {centralLog}
             </div>
+
+            {/* Active-war alert: only renders when the player's village
+                is in an active war and the banner hasn't been dismissed
+                this session. Click-through routes to the Town Hall, which
+                hosts the Village War button. Subtle pulse so it draws
+                the eye without being obnoxious. */}
+            {activeWarBanner && !warBannerDismissed && (() => {
+                const myVillage = (character.village ?? "").trim();
+                const enemy = activeWarBanner.villages.find(v => v !== myVillage) ?? "?";
+                const myHp = activeWarBanner.hp?.[myVillage] ?? 0;
+                const enemyHp = activeWarBanner.hp?.[enemy] ?? 0;
+                const ageDays = Math.floor((Date.now() - activeWarBanner.startedAt) / (24 * 60 * 60 * 1000));
+                return (
+                    <div
+                        style={{
+                            background: "linear-gradient(90deg, #450a0a, #1a1a2e, #450a0a)",
+                            border: "2px solid #f87171",
+                            borderRadius: 8,
+                            padding: "0.8rem 1rem",
+                            margin: "0 0 1rem",
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            gap: 12,
+                            boxShadow: "0 0 14px rgba(248, 113, 113, 0.25)",
+                            animation: "pulse 2.5s infinite",
+                        }}
+                    >
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <strong style={{ color: "#fca5a5", fontSize: "1.05rem" }}>⚔ {character.village} is at War with {enemy}</strong>
+                            <div style={{ fontSize: "0.82rem", color: "#fde047", marginTop: 4, display: "flex", gap: 16, flexWrap: "wrap" }}>
+                                <span>Day {ageDays + 1}</span>
+                                <span>{myVillage}: <strong>{myHp.toLocaleString()}</strong> HP</span>
+                                <span>{enemy}: <strong>{enemyHp.toLocaleString()}</strong> HP</span>
+                                <span>War Ground HP: <strong>{activeWarBanner.warGroundHp}</strong></span>
+                            </div>
+                        </div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                            <button
+                                onClick={() => setScreen("townHall")}
+                                style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171", color: "#fee2e2", padding: "0.4rem 0.8rem", fontSize: "0.85rem", fontWeight: 700 }}
+                            >
+                                Join the Fight →
+                            </button>
+                            <button
+                                onClick={() => setWarBannerDismissed(true)}
+                                style={{ background: "transparent", border: "1px solid #475569", color: "#94a3b8", padding: "0.15rem 0.5rem", fontSize: "0.7rem" }}
+                                title="Hide this banner until you reload"
+                            >
+                                Dismiss
+                            </button>
+                        </div>
+                    </div>
+                );
+            })()}
 
             <div className="central-grid">
                 {centralOptions.map((option) => (
@@ -36799,6 +36878,9 @@ function VillageWarScreen({
     const [declaring, setDeclaring] = useState(false);
     const [declareTarget, setDeclareTarget] = useState("");
     const [isKage, setIsKage] = useState(false);
+    // Tutorial popover — toggled by the ℹ button next to the page
+    // header. Same UX pattern as the per-jutsu info popovers in PvP.
+    const [showWarManual, setShowWarManual] = useState(false);
 
     useEffect(() => {
         let alive = true;
@@ -36934,7 +37016,49 @@ function VillageWarScreen({
 
     return (
         <div className="card" style={{ maxWidth: 820, margin: "1rem auto", padding: "1.4rem" }}>
-            <h1 style={{ marginTop: 0 }}>⚔ Village War</h1>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: "0.5rem" }}>
+                <h1 style={{ margin: 0 }}>⚔ Village War</h1>
+                <button
+                    type="button"
+                    onClick={() => setShowWarManual(v => !v)}
+                    title="How does Village War work?"
+                    style={{ padding: "0.2rem 0.55rem", fontSize: "0.85rem", borderRadius: 4, border: "1px solid #60a5fa", background: "#1e293b", color: "#60a5fa", cursor: "pointer" }}
+                >
+                    ℹ How it works
+                </button>
+            </div>
+            {showWarManual && (
+                <div style={{ background: "#0b1220", border: "1px solid #334155", borderRadius: 8, padding: "1rem", marginBottom: "1rem", fontSize: "0.88rem", lineHeight: 1.55 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                        <strong style={{ color: "#fde047", fontSize: "1rem" }}>📜 Village War Manual</strong>
+                        <button type="button" onClick={() => setShowWarManual(false)} style={{ padding: "0.15rem 0.5rem", background: "#7f1d1d", borderColor: "#ef4444", color: "#fca5a5", fontSize: "0.75rem" }}>✕ Close</button>
+                    </div>
+                    <p style={{ margin: "0 0 0.5rem" }}>
+                        <strong style={{ color: "#60a5fa" }}>Declaring war.</strong> Only your village's <em>seated Kage</em> can declare. Costs <strong>500 Honor Seals</strong> from the Kage's personal treasury. Same two villages have a <strong>7-day rematch cooldown</strong> after a war ends. Each village can only be in <strong>one war at a time</strong>.
+                    </p>
+                    <p style={{ margin: "0 0 0.5rem" }}>
+                        <strong style={{ color: "#60a5fa" }}>How damage works.</strong> Each village starts with <strong>5000 War HP</strong> + a shared <strong>1000-HP War Ground sector</strong>. PvP wins against an enemy villager drain their village's HP (Kage = 30 dmg, Elder/Clan Head/ANBU = 15–20, regular = 5; the loser's <em>rank</em> adds bonus damage too — defeating a Kage adds +50). Raiding the war-ground sector also drains both the sector and the enemy village.
+                    </p>
+                    <p style={{ margin: "0 0 0.5rem" }}>
+                        <strong style={{ color: "#60a5fa" }}>Home defender bonus.</strong> When you win a PvP fight in a sector your own village owns, you get <strong>+15%</strong> war HP credit. This only scales the war ledger — the actual fight is unchanged.
+                    </p>
+                    <p style={{ margin: "0 0 0.5rem" }}>
+                        <strong style={{ color: "#60a5fa" }}>Winning the war.</strong> A side wins when the <em>enemy village HP hits 0</em> OR the war-ground sector is captured. Pure PvP raids only drain war HP — capturing the war ground requires raiding that specific sector from this screen. The Kage may also call peace (ends the war with no winner, no crate).
+                    </p>
+                    <p style={{ margin: "0 0 0.5rem" }}>
+                        <strong style={{ color: "#60a5fa" }}>Decay.</strong> After 3 days, both sides lose <strong>500 war HP per UTC reset</strong> to push idle wars toward resolution. A war that nobody touches ends naturally around day 13.
+                    </p>
+                    <p style={{ margin: "0 0 0.5rem" }}>
+                        <strong style={{ color: "#60a5fa" }}>Rewards.</strong>
+                        <br />• <strong>Every winning villager:</strong> 1× Legendary War Crate.
+                        <br />• <strong>MVP each side</strong> (top damage on the leaderboard): +1 extra Legendary Crate, +10,000 ryo, +50 Honor Seals, +2 Fate Shards. Even the losing-side MVP earns this.
+                        <br />• <strong>Losing villagers who contributed ≥50 damage:</strong> 5,000 ryo, 25 Honor Seals, 1 Fate Shard consolation. No reward on draws.
+                    </p>
+                    <p style={{ margin: 0, color: "#94a3b8", fontSize: "0.8rem" }}>
+                        Rewards auto-claim on your next login or the next time you open this screen — no buttons to click for the standard crate.
+                    </p>
+                </div>
+            )}
             {error && <div style={{ color: "#f87171", marginBottom: "0.5rem" }}>⚠ {error}</div>}
             {claimable.length > 0 && (
                 <div style={{ background: "linear-gradient(#1a3a1a,#0a2010)", border: "1px solid #4ade80", borderRadius: 8, padding: "0.8rem", marginBottom: "1rem" }}>
@@ -37050,6 +37174,56 @@ function VillageWarScreen({
                     )}
                 </>
             )}
+            {/* Spectator section — any other active wars in the world.
+                Read-only HP bars + top-3 raiders per side so players
+                can keep an eye on cross-village politics even when
+                their own village isn't fighting. */}
+            {(() => {
+                const otherWars = wars.filter(w =>
+                    !w.endedAt
+                    && Array.isArray(w.villages)
+                    && (!myVillage || !w.villages.includes(myVillage))
+                );
+                if (otherWars.length === 0) return null;
+                return (
+                    <div style={{ marginTop: "1.5rem", paddingTop: "1rem", borderTop: "1px solid #334155" }}>
+                        <h3 style={{ marginTop: 0, marginBottom: "0.5rem", color: "#94a3b8" }}>👁 Other Active Wars</h3>
+                        <p style={{ fontSize: "0.78rem", color: "#64748b", marginTop: 0, marginBottom: "0.7rem" }}>
+                            Wars not involving your village. Spectate only.
+                        </p>
+                        <div style={{ display: "grid", gap: 10 }}>
+                            {otherWars.map(w => {
+                                const [vA, vB] = w.villages;
+                                const hpA = w.hp?.[vA] ?? 0;
+                                const hpB = w.hp?.[vB] ?? 0;
+                                const contribs = Object.values(w.contributions ?? {});
+                                const topA = contribs.filter(c => c.side === vA).sort((a, b) => b.damage - a.damage)[0];
+                                const topB = contribs.filter(c => c.side === vB).sort((a, b) => b.damage - a.damage)[0];
+                                const ageDays = Math.floor((Date.now() - w.startedAt) / (24 * 60 * 60 * 1000));
+                                return (
+                                    <div key={w.id} style={{ background: "#0b1220", border: "1px solid #334155", borderRadius: 6, padding: "0.65rem" }}>
+                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                                            <strong>{vA} <span style={{ color: "#64748b" }}>vs</span> {vB}</strong>
+                                            <small style={{ color: "#64748b" }}>Day {ageDays + 1}</small>
+                                        </div>
+                                        <div style={{ display: "flex", gap: 12, fontSize: "0.82rem", marginTop: 4 }}>
+                                            <span style={{ color: "#4ade80" }}>{vA}: <strong>{hpA}</strong></span>
+                                            <span style={{ color: "#f87171" }}>{vB}: <strong>{hpB}</strong></span>
+                                            <span style={{ color: "#94a3b8" }}>War Ground: {w.warGroundHp}/1000</span>
+                                        </div>
+                                        {(topA || topB) && (
+                                            <div style={{ display: "flex", gap: 16, fontSize: "0.78rem", marginTop: 4, color: "#94a3b8" }}>
+                                                {topA && <span>🏆 {vA}: <strong>{topA.name}</strong> ({topA.damage} dmg)</span>}
+                                                {topB && <span>🏆 {vB}: <strong>{topB.name}</strong> ({topB.damage} dmg)</span>}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                );
+            })()}
             <button className="back-btn" style={{ marginTop: "1rem" }} onClick={onBack}>× Back</button>
         </div>
     );
@@ -37068,6 +37242,9 @@ type VillageWarRecord = {
     winnerVillage?: string;
     endedAt?: number;
     warCrateId?: string;
+    contributions?: Record<string, { damage: number; raids: number; pvpKills: number; side: string; name: string }>;
+    mvpByVillage?: Record<string, string>;
+    loserCrateId?: string;
 };
 
 type TerritoryRecord = {
