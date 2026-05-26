@@ -6630,37 +6630,35 @@ export function vanguardOnlyHonorSeals(character: Character | null | undefined, 
     return Math.max(0, Math.floor(amount));
 }
 
-// Mirror of vanguardOnlyHonorSeals for non-Vanguards: every grant site that
-// would have paid Honor Seals instead pays the equivalent in Bone Charms at
-// roughly an 8:1 ratio (matches the existing implicit conversion in the
-// Village Agenda — Vanguards get 8 seals, non-Vanguards get 1 bone charm).
-// Vanguards always receive 0 charms from this helper — they already get the
-// honor seal version. Floor with a minimum of 1 charm whenever any seals
-// would have been earned so small grants still leave something behind.
-export function nonVanguardCharmSubstitute(character: Character | null | undefined, honorSealAmount: number): number {
-    if (!character) return 0;
-    if (character.profession === "vanguard") return 0;
+// Companion grants for any site that pays Honor Seals. Honor Seals are
+// Vanguard-only, but the bone-charm and fate-shard bonuses apply to
+// EVERY profession: Honor Seals end up being used for everyone in some
+// way, so Vanguards also receive the same charm + shard payout. The
+// `character` parameter is kept for signature stability with older
+// call sites but no longer filters by profession.
+//   • Bone Charms: 8:1 with a minimum of 1 if any seals were earned,
+//     so even tiny grants (daily Village Agenda) leave something
+//     behind.
+//   • Fate Shards: 25:1 with NO minimum, so small grants don't mint
+//     shards and inflate the rare-currency pile; big payouts
+//     (war MVP at 50 seals, boss kills, full-village map control)
+//     actually feed it.
+export function bonusBoneCharmsForHonor(_character: Character | null | undefined, honorSealAmount: number): number {
     const n = Math.max(0, Math.floor(honorSealAmount));
     if (n === 0) return 0;
     return Math.max(1, Math.floor(n / 8));
 }
 
-// Companion to the charm substitute: non-Vanguards also get a fraction
-// of would-be Honor Seals as Fate Shards. Used together with the charm
-// substitute so non-Vanguards receive BOTH currencies in place of seals
-// (per spec: "no honor seals for non-Vanguard — replace with bone charms
-// AND fate shards"). 25:1 ratio with NO minimum so small daily grants
-// (e.g. 8-seal Village Agenda) don't mint shards — keeps fate-shard
-// inflation in check while letting bigger payouts (war MVP at 50 seals,
-// boss kills, etc.) actually feed the rare-currency pile. Vanguards
-// always receive 0 from this helper.
-export function nonVanguardShardSubstitute(character: Character | null | undefined, honorSealAmount: number): number {
-    if (!character) return 0;
-    if (character.profession === "vanguard") return 0;
+export function bonusFateShardsForHonor(_character: Character | null | undefined, honorSealAmount: number): number {
     const n = Math.max(0, Math.floor(honorSealAmount));
     if (n === 0) return 0;
     return Math.floor(n / 25);
 }
+
+// Legacy aliases — preserved so prior call sites keep compiling while
+// the codebase migrates. New code should use the `bonus...` names.
+export const nonVanguardCharmSubstitute = bonusBoneCharmsForHonor;
+export const nonVanguardShardSubstitute = bonusFateShardsForHonor;
 
 // ── Profession combat bonuses ────────────────────────────────────────────
 // Pet Tamer PvE pet damage multiplier: +5% at unlock, +1.5% per rank, capped
@@ -23674,7 +23672,7 @@ function ClanWarManual({ onClose }: { onClose: () => void }) {
                 <br />Rewards auto-claim within a 7-day window from a clan-war refresh — no buttons to click.
             </p>
             <p style={{ margin: "0 0 0.5rem", fontSize: "0.78rem", color: "#94a3b8" }}>
-                Non-Vanguard professions don't earn Honor Seals — every seal grant is substituted with Bone Charms (8:1) and Fate Shards (25:1). MVP for a non-Vanguard = +10,000 ryo, +6 Bone Charms, +4 Fate Shards (2 base + 2 substituted).
+                Honor Seals are Vanguard-only, but every seal grant also pays Bone Charms (8:1) and Fate Shards (25:1) to <em>all</em> professions on top. Vanguard MVP = +50 Honor Seals + 6 Bone Charms + 4 Fate Shards (2 base + 2 bonus). Non-Vanguard MVP = +6 Bone Charms + 4 Fate Shards (no seals).
             </p>
             <p style={{ margin: "0 0 0.5rem", fontSize: "0.78rem", color: "#fbbf24" }}>
                 ⚠ <strong>Rate limits:</strong> 30 challenge actions per minute per player, 4 war declarations per hour per player, max 30 pending challenges per war, max 10 active challenges from a single clan at once.
