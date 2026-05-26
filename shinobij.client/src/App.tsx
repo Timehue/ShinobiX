@@ -8632,7 +8632,7 @@ export default function App() {
     // outcome and only applies HP damage once. Players never need
     // to click an "I won" button; the report flows through the
     // game's own win/loss handlers.
-    const autoReportClanWarBattleResult = useCallback(async (youWon: boolean | "draw") => {
+    const autoReportClanWarBattleResult = useCallback(async (youWon: boolean | "draw", opponentName?: string) => {
         if (!character) return;
         let stashed: unknown = null;
         try {
@@ -8646,6 +8646,8 @@ export default function App() {
             fromClan?: string;
             fromPlayer?: string;
             fromPlayer2?: string | null;
+            acceptedPlayer?: string | null;
+            acceptedPlayer2?: string | null;
             stashedAt?: number;
         } | null;
         if (!s?.warId || !s.challengeId || !s.fromClan) return;
@@ -8659,6 +8661,19 @@ export default function App() {
         const me = character.name.toLowerCase();
         const onFromSide = (s.fromPlayer ?? "").toLowerCase() === me
             || (s.fromPlayer2 ?? "").toLowerCase() === me;
+        // Opponent-match check: when the battle screen knows who the
+        // opponent was (pet arena passes this), require them to be one
+        // of the expected clan-war participants on the opposing side.
+        // Stops a stale stash from booking a false report against an
+        // unrelated random battle.
+        if (opponentName) {
+            const opp = opponentName.toLowerCase();
+            const expected = onFromSide
+                ? [s.acceptedPlayer, s.acceptedPlayer2]
+                : [s.fromPlayer, s.fromPlayer2];
+            const matches = expected.some(n => (n ?? "").toLowerCase() === opp);
+            if (!matches) return;
+        }
         let result: CwChallengeResult;
         if (youWon === "draw") {
             result = "draw";
@@ -13371,7 +13386,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "storyBoss" && character && <StoryBoss character={character} updateCharacter={setCharacter} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "training" && character && <Training character={character} updateCharacter={setCharacter} activeTraining={activeTraining} setActiveTraining={setActiveTraining} />}
                 {!activeTriggeredEvent && screen === "pets" && character && <PetYard character={character} updateCharacter={setCharacter} setScreen={navigate} onImmediateSave={(char) => { void pushSaveToServer(char, currentAccountName).catch(() => {}); }} />}
-                {!activeTriggeredEvent && screen === "petArena" && character && <PetArena character={character} updateCharacter={setCharacter} playerRoster={playerRoster} allServerPlayers={allServerPlayers} setScreen={setScreen} sharedImages={sharedImages} duelChallenges={duelChallenges} setDuelChallenges={setDuelChallenges} pendingPetBattleOpponent={pendingPetBattleOpponent} onPendingPetBattleStarted={() => setPendingPetBattleOpponent(null)} />}
+                {!activeTriggeredEvent && screen === "petArena" && character && <PetArena character={character} updateCharacter={setCharacter} playerRoster={playerRoster} allServerPlayers={allServerPlayers} setScreen={setScreen} sharedImages={sharedImages} duelChallenges={duelChallenges} setDuelChallenges={setDuelChallenges} pendingPetBattleOpponent={pendingPetBattleOpponent} onPendingPetBattleStarted={() => setPendingPetBattleOpponent(null)} onClanWarBattleEnd={autoReportClanWarBattleResult} />}
                 {!activeTriggeredEvent && screen === "eventPetBattle" && character && pendingEventEncounter && (() => {
                     const sourcePet = editablePets.find((pet) => pet.id === pendingEventEncounter.battle?.petId) ?? editablePets[0] ?? petPool[0];
                     const enemyPet = scaleEventPetOpponent(sourcePet, pendingEventEncounter.battle);
@@ -13660,7 +13675,7 @@ export default function App() {
                         // its onLoss handler; the two-phase report on the
                         // server merges them into a single damage event.
                         if (context?.clanWarChallengeId) {
-                            void autoReportClanWarBattleResult(true);
+                            void autoReportClanWarBattleResult(true, opponent?.name);
                         }
                         // Vanguard daily mission progress — server validates the
                         // win against the actual PvpSession and enforces its own
@@ -13705,7 +13720,7 @@ export default function App() {
                                 // handlePvpWin's call so both clients
                                 // confirm the same outcome on the server.
                                 if (pvpBattleContext?.clanWarChallengeId) {
-                                    void autoReportClanWarBattleResult(false);
+                                    void autoReportClanWarBattleResult(false, opponent?.name);
                                 }
                                 if (pvpBattleContext?.mode !== "ranked" || !opponent) return;
                                 const loss = rankedDelta(opponent.rankedRating ?? 1000, character.rankedRating ?? 1000);
@@ -17104,7 +17119,7 @@ function runPetArenaParty(
 // Pet names are already user-facing strings; we just guard against undefined.
 function character_safeName(s: string | undefined): string { return s ?? "Pet"; }
 
-function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, setScreen, sharedImages, duelChallenges, setDuelChallenges, pendingPetBattleOpponent, onPendingPetBattleStarted }: { character: Character; updateCharacter: (character: Character) => void; playerRoster: PlayerRecord[]; allServerPlayers: ServerPlayerSummary[]; setScreen: (screen: Screen) => void; sharedImages: Record<string, string>; duelChallenges: DuelChallenge[]; setDuelChallenges: (c: DuelChallenge[]) => void; pendingPetBattleOpponent?: PetArenaOpponent | null; onPendingPetBattleStarted?: () => void }) {
+function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, setScreen, sharedImages, duelChallenges, setDuelChallenges, pendingPetBattleOpponent, onPendingPetBattleStarted, onClanWarBattleEnd }: { character: Character; updateCharacter: (character: Character) => void; playerRoster: PlayerRecord[]; allServerPlayers: ServerPlayerSummary[]; setScreen: (screen: Screen) => void; sharedImages: Record<string, string>; duelChallenges: DuelChallenge[]; setDuelChallenges: (c: DuelChallenge[]) => void; pendingPetBattleOpponent?: PetArenaOpponent | null; onPendingPetBattleStarted?: () => void; onClanWarBattleEnd?: (youWon: boolean | "draw", opponentName?: string) => void }) {
     const [selectedPetId, setSelectedPetId] = useState(character.activePetId ?? character.pets[0]?.id ?? "");
     const [opponentMode, setOpponentMode] = useState<"player" | "ai">("player");
     const [opponentSearch, setOpponentSearch] = useState("");
@@ -17326,6 +17341,15 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
             setIsPlaying(true);
             setResult(party.result === "win" ? "Victory" : party.result === "draw" ? "Draw" : "Defeat");
             setPartyResult(party);
+            // Clan-war auto-report (pet 2v2): if this party battle was
+            // launched from a clan-war pet2v2 challenge, post the outcome
+            // to /api/clan/war/report so both clients converge on the
+            // same result. autoReportClanWarBattleResult no-ops when no
+            // clan-war stash is in sessionStorage AND the opponent name
+            // doesn't match the challenge — safe for every party battle.
+            if (onClanWarBattleEnd) {
+                onClanWarBattleEnd(party.result === "draw" ? "draw" : party.result === "win", opponent.owner);
+            }
             // Award ryo once per match won — keeps the existing server cap
             // intact (each call is rate-limited and counts toward daily cap).
             // Pass battleSeed + match-index so the server can dedup a
@@ -17360,6 +17384,12 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
         setFrameIndex(0);
         setIsPlaying(true);
         setResult(battle.result === "win" ? "Victory" : battle.result === "draw" ? "Draw" : "Defeat");
+        // Clan-war auto-report (pet 1v1): mirrors the party path. Safe
+        // for non-clan-war battles since the helper no-ops without a
+        // sessionStorage stash + opponent-name match.
+        if (onClanWarBattleEnd) {
+            onClanWarBattleEnd(battle.result === "draw" ? "draw" : battle.result === "win", opponent.owner);
+        }
         if (battle.result === "win") {
             // Pet Arena rewards are server-validated: we POST the win and the
             // server applies ryo + increments totalPetWins / dailyPetWins
