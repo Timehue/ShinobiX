@@ -25,10 +25,11 @@ const VILLAGE_WAR_GROUND_HP_MAX_DELTA_PER_REQUEST = 100;
 // Auto-finalize wars that have been running this long with no end.
 // Two weeks is the sane upper bound for "Kages forgot about it" cleanup.
 const VILLAGE_WAR_MAX_DURATION_MS = 14 * 24 * 60 * 60 * 1000;
-// Cost to declare a war. Charged to the declaring Kage. High enough that
-// Kages can't spam-declare for free crates, low enough that an
-// established Kage can afford one.
-const VILLAGE_WAR_DECLARATION_COST_RYO = 50_000;
+// Cost to declare a war. Charged to the declaring Kage. Priced in
+// Honor Seals (a Vanguard-profession currency, harder to amass than
+// ryo) so the cost actually bites — a Kage shouldn't be casually
+// declaring wars after a couple of grinding sessions.
+const VILLAGE_WAR_DECLARATION_COST_HONOR_SEALS = 500;
 // Rematch cooldown — same village-pair can't war again within 7 days
 // of the previous war ending. Prevents grudge-spamming the same enemy.
 const VILLAGE_WAR_REMATCH_COOLDOWN_SEC = 7 * 24 * 60 * 60;
@@ -535,21 +536,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                         return { status: 409 as const, body: { error: `${v} is already in an active war. Only one war at a time per village.` } };
                                     }
                                 }
-                                // 4. Cost check. Charge the declaring Kage VILLAGE_WAR_DECLARATION_COST_RYO ryo.
-                                const ryo = Number(actorChar?.ryo ?? 0);
-                                if (ryo < VILLAGE_WAR_DECLARATION_COST_RYO) {
-                                    return { status: 400 as const, body: { error: `Declaring war costs ${VILLAGE_WAR_DECLARATION_COST_RYO.toLocaleString()} ryo. You hold ${ryo.toLocaleString()}.` } };
+                                // 4. Cost check. Charge the declaring Kage VILLAGE_WAR_DECLARATION_COST_HONOR_SEALS honor seals.
+                                const honorSeals = Number(actorChar?.honorSeals ?? 0);
+                                if (honorSeals < VILLAGE_WAR_DECLARATION_COST_HONOR_SEALS) {
+                                    return { status: 400 as const, body: { error: `Declaring war costs ${VILLAGE_WAR_DECLARATION_COST_HONOR_SEALS} Honor Seals. You hold ${honorSeals}.` } };
                                 }
                                 // 5. Deduct under the Kage's save lock so a concurrent save can't double-spend.
                                 await withKvLock(`save:${identity.name}`, async () => {
                                     const fresh = await kv.get<Record<string, unknown>>(`save:${identity.name}`);
                                     const freshChar = (fresh?.character ?? null) as Record<string, unknown> | null;
                                     if (!fresh || !freshChar) return;
-                                    const freshRyo = Number(freshChar.ryo ?? 0);
-                                    if (freshRyo < VILLAGE_WAR_DECLARATION_COST_RYO) return; // raced, skip
+                                    const freshSeals = Number(freshChar.honorSeals ?? 0);
+                                    if (freshSeals < VILLAGE_WAR_DECLARATION_COST_HONOR_SEALS) return; // raced, skip
                                     await kv.set(`save:${identity.name}`, {
                                         ...fresh,
-                                        character: { ...freshChar, ryo: Math.max(0, freshRyo - VILLAGE_WAR_DECLARATION_COST_RYO) },
+                                        character: { ...freshChar, honorSeals: Math.max(0, freshSeals - VILLAGE_WAR_DECLARATION_COST_HONOR_SEALS) },
                                     });
                                 });
                                 // 6. Stamp canonical crate ID + initialize empty contributions map.
