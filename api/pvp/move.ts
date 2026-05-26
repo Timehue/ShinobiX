@@ -667,7 +667,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // NOTE: biome and weather* are intentionally NOT read from the body —
         // they were a trust-the-client hole. We pull them from the session
         // that was sealed at create time.
-        const { battleId, role, action, tile, jutsuId, itemId, itemName } = body as {
+        const { battleId, role, action, tile, jutsuId, itemId, itemName, auto } = body as {
             battleId?: string;
             role?: 'p1' | 'p2';
             action?: string;
@@ -675,6 +675,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             jutsuId?: string;
             itemId?: string;
             itemName?: string;
+            auto?: boolean;  // true when the client's 45s round timer fired
         };
         if (!battleId || !role || !action) return res.status(400).json({ error: 'Missing battleId, role, or action' });
 
@@ -737,9 +738,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             s = { ...s, ap: { ...s.ap, [role as 'p1' | 'p2']: myAp - adjustedCost(apCost) }, actionsThisTurn: s.actionsThisTurn + 1 };
             if (cd) s = { ...s, cooldowns: { ...s.cooldowns, [role as 'p1' | 'p2']: { ...myCooldowns, ...cd } } };
             if (lines.length) s = { ...s, log: [...s.log, ...lines] };
-            // Stamp lastMoveAt so the opponent can claim an AFK forfeit if
-            // this player goes silent (claim-afk-win action below).
-            s = { ...s, lastMoveAt: Date.now() };
+            // Stamp lastMoveAt + reset this player's AFK counter (any real
+            // action ends the streak of skipped rounds). Both are read by
+            // the claim-afk-win action.
+            const nextConsec = { ...(s.consecAutoWait ?? {}), [role as 'p1' | 'p2']: 0 };
+            s = { ...s, lastMoveAt: Date.now(), consecAutoWait: nextConsec };
             return checkWinner(s);
         }
 
@@ -747,26 +750,43 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         switch (action) {
             case 'wait': {
+                // Determine whether this wait counts as an AFK skip. The
+                // client passes `auto: true` when the 45s round timer fired
+                // it. If the player took zero real actions this turn AND it
+                // was auto-fired, it's a skipped round — bump the counter.
+                // Manual wait OR auto-wait after actions resets the streak.
+                const isIdleAutoSkip = auto === true && session.actionsThisTurn === 0;
+                const prevCount = session.consecAutoWait?.[role] ?? 0;
+                const nextCount = isIdleAutoSkip ? prevCount + 1 : 0;
+                const consecAutoWait = { ...(session.consecAutoWait ?? {}), [role]: nextCount };
                 lines.push(`${me.name} ends their turn.`);
-                result = endTurn({ ...session, log: [...session.log, ...lines] });
+                if (isIdleAutoSkip && nextCount >= 2) {
+                    lines.push(`⚠ ${me.name} has skipped 2 rounds in a row — opponent may claim a forfeit win.`);
+                }
+                result = endTurn({ ...session, log: [...session.log, ...lines], consecAutoWait });
                 break;
             }
 
             case 'claim-afk-win': {
                 // Inactive player claims the win when the active player has
-                // been idle past the AFK threshold. Resolves stuck battles
-                // when an opponent crashes / closes their tab without fleeing.
-                const AFK_TIMEOUT_MS = 90_000;
+                // skipped 2 consecutive rounds (let the 45s timer run out
+                // twice). Falls back to a 90s "no contact" timeout for the
+                // crashed-tab case where the round timer never fires.
                 if (session.activePlayer === role) {
-                    // You can only claim AFK against the OTHER player.
-                    return finish(session);
+                    return finish(session);  // can only claim against opponent
                 }
+                const oppRole: 'p1' | 'p2' = role === 'p1' ? 'p2' : 'p1';
+                const oppSkipCount = session.consecAutoWait?.[oppRole] ?? 0;
+                const AFK_FALLBACK_MS = 90_000;
                 const lastMove = Number(session.lastMoveAt ?? session.createdAt);
                 const elapsed = Date.now() - lastMove;
-                if (elapsed < AFK_TIMEOUT_MS) {
-                    return finish({ ...session, log: [...session.log, `${me.name}'s AFK claim rejected — opponent has ${Math.ceil((AFK_TIMEOUT_MS - elapsed) / 1000)}s remaining.`] });
+                const timedOut = elapsed >= AFK_FALLBACK_MS;
+                if (oppSkipCount < 2 && !timedOut) {
+                    const remaining = Math.max(0, Math.ceil((AFK_FALLBACK_MS - elapsed) / 1000));
+                    return finish({ ...session, log: [...session.log, `${me.name}'s AFK claim rejected — opponent has skipped ${oppSkipCount}/2 rounds (or ${remaining}s of inactivity remain).`] });
                 }
-                lines.push(`${opp.name} forfeits — AFK for over ${Math.floor(AFK_TIMEOUT_MS / 1000)}s. ${me.name} wins by default.`);
+                const reason = oppSkipCount >= 2 ? `skipped 2 rounds` : `inactive for ${Math.floor(elapsed / 1000)}s`;
+                lines.push(`${opp.name} forfeits — ${reason}. ${me.name} wins by default.`);
                 result = {
                     ...session,
                     status: 'done',
