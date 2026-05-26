@@ -28,7 +28,7 @@ export function PetArenaCard({ owner, pet, sharedImages = {} }: { owner: string;
                         const kindColors: Record<string, string> = { damage: "#fca5a5", buff: "#86efac", heal: "#4ade80", debuff: "#f97316", dot: "#c084fc", move: "#93c5fd", barrier: "#7dd3fc", movelock: "#fbbf24" };
                         const kindIcons:  Record<string, string> = { damage: "⚔", buff: "⬆", heal: "✚", debuff: "⬇", dot: "☠", move: "➡", barrier: "◇", movelock: "⛓" };
                         const col  = kindColors[jutsu.kind] ?? "#aaa";
-                        const icon = kindIcons[jutsu.kind]  ?? "?";
+                        const icon = kindIcons[jutsu.kind]  ?? "✦";
                         return (
                             <span key={jutsu.name} className="pet-arena-jutsu-chip" style={{ borderColor: col, color: col }}>
                                 {icon} {jutsu.name}{jutsu.power > 0 ? ` · P${jutsu.power}` : ""} · CD{jutsu.cooldown}
