@@ -13070,7 +13070,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "hunting" && character && <HunterBoard character={character} updateCharacter={setCharacter} creatorAis={playableAis} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} setPendingAiProfileId={setPendingAiProfileId} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "logbook" && character && <Logbook character={character} updateCharacter={setCharacter} creatorAis={playableAis} creatorMissions={creatorMissions} creatorEvents={creatorEvents} creatorRaids={creatorRaids} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} savedBloodlines={savedBloodlines} setPendingAiProfileId={setPendingAiProfileId} setRaidBattleKind={setRaidBattleKind} setCurrentSector={setCurrentSector} setCurrentBiome={setCurrentBiome} setCurrentWeather={setCurrentWeather} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "townHall" && character && <TownHall character={character} updateCharacter={setCharacter} creatorItems={creatorItems} allServerPlayers={allServerPlayers} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} sharedImages={sharedImages} setScreen={setScreen} />}
-                {!activeTriggeredEvent && screen === "clan" && character && <ClanHall character={character} updateCharacter={setCharacter} creatorItems={creatorItems} />}
+                {!activeTriggeredEvent && screen === "clan" && character && <ClanHall character={character} updateCharacter={setCharacter} creatorItems={creatorItems} setScreen={setScreen} />}
                 {!activeTriggeredEvent && screen === "bank" && character && <Bank character={character} updateCharacter={setCharacter} />}
                 {!activeTriggeredEvent && screen === "shop" && character && <Shop character={character} updateCharacter={setCharacter} creatorItems={creatorItems} creatorCards={creatorCards} />}
                 {!activeTriggeredEvent && screen === "grandMarketplace" && character && <GrandMarketplace character={character} updateCharacter={setCharacter} creatorItems={creatorItems} creatorCards={creatorCards} />}
@@ -23406,7 +23406,119 @@ async function addClanWarPoints(clanName: string | undefined, playerName: string
     await writeClanData(updated);
     console.info(`${playerName} earned ${boostedPoints} clan war points for ${clanName}.`);
 }
-function ClanHall({ character, updateCharacter, creatorItems }: { character: Character; updateCharacter: (c: Character) => void; creatorItems: GameItem[] }) {
+// Clan Wars panel — embedded inside Clan Hall's "Wars" tab. The full
+// challenge inbox + composer lives in the Shinobi Council Hall →
+// Clan Battles tab; this panel is a lightweight summary + jump-link
+// so clan-bound players know about an active war without leaving
+// the Clan Hall. Reads the same KV-backed war record via
+// /api/clan/war/list (10s CDN cache) so HP stays in sync.
+function ClanWarsPanel({ character, clanName, setScreen }: { character: Character; clanName: string; setScreen: (s: Screen) => void }) {
+    const [wars, setWars] = useState<CwWar[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    const refresh = useCallback(async () => {
+        const list = await cwListWars();
+        setWars(list);
+        setLoading(false);
+    }, []);
+    useEffect(() => {
+        void refresh();
+        const id = setInterval(refresh, 20_000);
+        return () => clearInterval(id);
+    }, [refresh]);
+
+    const activeWar = wars.find(w => !w.endedAt && w.clans.includes(clanName));
+    const enemyClan = activeWar?.clans.find(c => c !== clanName) ?? "";
+    const recentEnded = wars
+        .filter(w => w.endedAt && w.clans.includes(clanName))
+        .sort((a, b) => (b.endedAt ?? 0) - (a.endedAt ?? 0))
+        .slice(0, 3);
+
+    return (
+        <div className="summary-box">
+            <h3>⚔️ Clan Wars</h3>
+            <p className="hint">
+                Clan wars are independent of Village Wars and run until one clan's HP hits 0.
+                Send anonymous challenges in the <strong>Shinobi Council Hall → Clan Battles</strong> tab.
+            </p>
+
+            {loading && <p className="hint">Loading clan war state…</p>}
+
+            {!loading && activeWar && (
+                <div className="war-record-card" style={{ background: "#1f0a0a", borderColor: "#f87171", marginTop: 10 }}>
+                    <strong style={{ color: "#f87171" }}>🚨 Active Clan War vs {enemyClan}</strong>
+                    <div style={{ display: "grid", gap: 6, marginTop: 8 }}>
+                        <div>
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem" }}>
+                                <span>{clanName}</span>
+                                <span>{(activeWar.hp[clanName] ?? 0).toLocaleString()} / {CW_HP_MAX.toLocaleString()} HP</span>
+                            </div>
+                            <div className="bar" style={{ background: "#0b1220" }}>
+                                <span style={{ width: `${Math.max(0, Math.min(100, ((activeWar.hp[clanName] ?? 0) / CW_HP_MAX) * 100))}%`, background: "#22c55e" }} />
+                            </div>
+                        </div>
+                        <div>
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem" }}>
+                                <span>{enemyClan}</span>
+                                <span>{(activeWar.hp[enemyClan] ?? 0).toLocaleString()} / {CW_HP_MAX.toLocaleString()} HP</span>
+                            </div>
+                            <div className="bar enemy-bar" style={{ background: "#0b1220" }}>
+                                <span style={{ width: `${Math.max(0, Math.min(100, ((activeWar.hp[enemyClan] ?? 0) / CW_HP_MAX) * 100))}%`, background: "#ef4444" }} />
+                            </div>
+                        </div>
+                    </div>
+                    <small style={{ display: "block", marginTop: 6, color: "#94a3b8" }}>
+                        Started {new Date(activeWar.startedAt).toLocaleDateString()} · {activeWar.completedChallenges.length} battles completed · {activeWar.pendingChallenges.length} pending
+                    </small>
+                    <div className="menu" style={{ marginTop: 8 }}>
+                        <button onClick={() => setScreen("shinobiCouncil")}>🏯 Open Clan Battles</button>
+                    </div>
+                </div>
+            )}
+
+            {!loading && !activeWar && (
+                <div style={{ background: "#0b1220", border: "1px solid #334155", borderRadius: 6, padding: "0.8rem", marginTop: 10 }}>
+                    <p style={{ margin: 0 }}>{clanName} is not currently in a clan war.</p>
+                    <p className="hint" style={{ marginTop: 6 }}>
+                        Clan Founder, Leader, or Officer can declare war from the Shinobi Council Hall → Clan Battles tab.
+                        Wars run until one clan's 1,000 HP hits 0. 7-day rematch cooldown.
+                    </p>
+                    <div className="menu" style={{ marginTop: 8 }}>
+                        <button onClick={() => setScreen("shinobiCouncil")}>🏯 Open Clan Battles</button>
+                    </div>
+                </div>
+            )}
+
+            {!loading && recentEnded.length > 0 && (
+                <div style={{ marginTop: 14 }}>
+                    <h4 style={{ margin: "0 0 6px" }}>Recent Clan Wars</h4>
+                    <div className="war-record-grid">
+                        {recentEnded.map(w => {
+                            const opponent = w.clans.find(c => c !== clanName) ?? "?";
+                            const weWon = w.winnerClan === clanName;
+                            const mvp = w.mvpByClan?.[clanName];
+                            return (
+                                <div key={w.id} className="war-record-card">
+                                    <strong style={{ color: weWon ? "#4ade80" : "#f87171" }}>{weWon ? "🏆 Victory" : "💀 Defeat"} vs {opponent}</strong>
+                                    <small>HP: {clanName} {(w.hp[clanName] ?? 0).toLocaleString()} · {opponent} {(w.hp[opponent] ?? 0).toLocaleString()}</small>
+                                    <small>Battles: {w.completedChallenges.length} · Ended {w.endedAt ? new Date(w.endedAt).toLocaleDateString() : "—"}</small>
+                                    {mvp && <small>👑 MVP: {mvp}</small>}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
+            <p className="hint" style={{ marginTop: 14, fontSize: "0.78rem" }}>
+                Tip: Clan wars deal HP damage by challenge type — Combat ({CW_DAMAGE.pvp1v1} / {CW_DAMAGE.pvp2v2}) &gt; Pet ({CW_DAMAGE.pet1v1} / {CW_DAMAGE.pet2v2}) &gt; Tile Cards ({CW_DAMAGE.tilecards}). Drive the enemy clan to 0 HP to win.
+            </p>
+            <p className="hint" style={{ fontSize: "0.72rem", color: "#64748b" }}>You are playing as {character.name}.</p>
+        </div>
+    );
+}
+
+function ClanHall({ character, updateCharacter, creatorItems, setScreen }: { character: Character; updateCharacter: (c: Character) => void; creatorItems: GameItem[]; setScreen: (s: Screen) => void }) {
     const lore = clanLore[character.village];
     const isInClan = !!character.clan;
     const [clanName, setClanName] = useState("");
@@ -23823,7 +23935,7 @@ function ClanHall({ character, updateCharacter, creatorItems }: { character: Cha
         {view === "treasury" && <div className="summary-box"><h3>💰 Clan Treasury</h3><div className="treasury-grid"><p><strong>Ryo:</strong> {clanData.treasury.ryo.toLocaleString()}</p><p><strong>Fate Shards:</strong> {clanData.treasury.fateShards}</p><p><strong>Bone Charms:</strong> {clanData.treasury.boneCharms}</p><p><strong>Aura Stones:</strong> {clanData.treasury.auraStones}</p><p><strong>Mythic Seals:</strong> {clanData.treasury.mythicSeals}</p><p><strong>War Supply:</strong> {clanData.treasury.warSupply.toLocaleString()}</p></div><label>Donate Ryo</label><input type="number" value={donation} onChange={(e) => setDonation(Number(e.target.value))} /><div className="menu"><button onClick={donateRyo}>Donate Ryo</button><button onClick={() => donateSpecial("fateShards", 1)}>Donate 1 Fate Shard</button><button onClick={() => donateSpecial("boneCharms", 1)}>Donate 1 Bone Charm</button><button onClick={() => donateSpecial("auraStones", 1)}>Donate 1 Aura Stone</button><button onClick={() => donateSpecial("mythicSeals", 1)}>Donate 1 Mythic Seal</button></div><label>Donate Item</label><select value={clanDonateItemId} onChange={(e) => setClanDonateItemId(e.target.value)}><option value="">Choose item</option>{clanInventoryStacks.map(stack => <option key={stack.itemId} value={stack.itemId}>{stack.name} x{stack.count}</option>)}</select><button onClick={donateClanItem} disabled={!clanDonateItemId}>Donate Item</button><h4>Treasury Items</h4>{clanTreasuryItems.length === 0 ? <p className="hint">No donated items yet.</p> : <div className="treasury-grid">{clanTreasuryItems.map(stack => <p key={stack.itemId}><strong>{itemDisplayName(stack.itemId, allClanItems)}:</strong> x{stack.count}</p>)}</div>}{canManageClan(myRole) && <section className="summary-box"><h3>Send Treasury Resources</h3><p className="hint">Clan leadership can send donated resources or items to clan members.</p><label>Recipient</label><select value={clanSendPlayer} onChange={(e) => setClanSendPlayer(e.target.value)}><option value="">Choose clan member</option>{sortedMembers.map(member => <option key={member.name} value={member.name}>{member.name}</option>)}</select><label>Resource</label><select value={clanSendCurrency} onChange={(e) => setClanSendCurrency(e.target.value as ClanTreasuryCurrencyKey)}><option value="ryo">Ryo</option><option value="fateShards">Fate Shards</option><option value="boneCharms">Bone Charms</option><option value="auraStones">Aura Stones</option><option value="mythicSeals">Mythic Seals</option></select><input type="number" min={1} value={clanSendAmount} onChange={(e) => setClanSendAmount(Number(e.target.value))} /><div className="menu"><button onClick={sendClanCurrency}>Send Resource</button></div><label>Item</label><select value={clanSendItemId} onChange={(e) => setClanSendItemId(e.target.value)}><option value="">Choose treasury item</option>{clanTreasuryItems.map(stack => <option key={stack.itemId} value={stack.itemId}>{itemDisplayName(stack.itemId, allClanItems)} x{stack.count}</option>)}</select><button onClick={sendClanItem} disabled={!clanSendItemId}>Send Item</button></section>}<p className="hint">Donations add clan XP and treasury resources.</p><ClanSealPool character={character} updateCharacter={updateCharacter} /></div>}
         {view === "boosts" && <div className="clan-upgrade-grid">{clanBoostTiers.map(tier => { const active = clanData.members.length >= tier.min && clanData.members.length <= tier.max; const label = Number.isFinite(tier.max) ? `${tier.min}-${tier.max} members` : `${tier.min}+ members`; return <div key={label} className={`town-upgrade-card clan-upgrade-card ${active ? "active" : ""}`}><div className="town-upgrade-topline"><span className="town-upgrade-icon">⬆️</span><div><strong>{label}</strong><p>{active ? "Active Boost" : "Recruitment Tier"}</p></div></div><div className="town-upgrade-bar"><span style={{ width: active ? "100%" : "0%" }} /></div><p className="town-upgrade-desc">Clan members receive +{tier.percent}% training XP, mission XP, and ryo gain at this roster size.</p><p className="town-upgrade-bonus">Boost: <strong>+{tier.percent}%</strong></p></div>; })}</div>}
         {view === "missions" && <div className="clan-mission-grid">{clanMissionDefinitions.map(mission => { const progress = clanMissionProgress(clanData, mission.key); return <div key={mission.key} className="summary-box clan-mission-card"><h3>{mission.icon} {mission.name}</h3><p>{mission.description}</p><div className="town-upgrade-bar"><span style={{ width: `${Math.min(100, (progress / mission.target) * 100)}%` }} /></div><p><strong>{Math.min(progress, mission.target).toLocaleString()}</strong> / {mission.target.toLocaleString()}</p><p className="hint">Reward: {mission.reward}</p></div>; })}</div>}
-        {view === "wars" && <div className="summary-box"><h3>⚔️ Clan Wars</h3><p className="hint">Owned sectors give +{territoryWarBonusPercent}% clan war point gain, full HP sectors start new wars with +{territoryStartingScore.toLocaleString()} score, and War Supply can be spent during active wars.</p>{clanData.activeWar ? <div className="clan-war-active"><h3>{clanData.name} vs {clanData.activeWar.opponentClan}</h3><p className="hint">Enemy Village: {clanData.activeWar.enemyVillage} · Ends: {new Date(clanData.activeWar.endsAt).toLocaleString()} · War Supply: {clanData.treasury.warSupply.toLocaleString()}</p><div className="war-score-board"><strong>{clanData.activeWar.ourScore}</strong><span>VS</span><strong>{clanData.activeWar.enemyScore}</strong></div><div className="menu"><button onClick={() => addWarScore(3)}>Log Arena Win +3</button><button onClick={() => addWarScore(2)}>Log Defense Win +2</button><button onClick={() => addWarScore(5)}>Log Raid Contribution +5</button><button disabled={clanData.treasury.warSupply < 100} onClick={spendWarSupplyOnActiveWar}>Spend 100 War Supply +10</button><button onClick={resolveClanWar}>Resolve War</button></div></div> : <button disabled={!canManageClan(myRole)} onClick={startClanWar}>{canManageClan(myRole) ? "Start Clan War" : "Officer+ can start wars"}</button>}<h4>Past War History</h4><div className="war-record-grid">{clanData.warHistory.map((war, idx) => <div key={`${war.opponent}-${idx}`} className="war-record-card"><strong>{war.result} vs {war.opponent}</strong><span>{war.finalScore}</span><small>{war.date} · MVP: {war.mvpClan}</small><small>Top Attacker: {war.topAttacker} · Top Defender: {war.topDefender}</small><small>Reward: {war.reward}</small></div>)}</div></div>}
+        {view === "wars" && <ClanWarsPanel character={character} clanName={clanData.name} setScreen={setScreen} />}
         {view === "territory" && <div className="summary-box"><h3>Clan Territory Control</h3><p className="hint">Members donate Territory Control Scrolls to the clan hall. Owned sectors generate War Supply, boost clan war scoring, and reduce raid damage when guarded.</p><p><strong>Your Scrolls:</strong> {personalTerritoryScrolls} · <strong>Clan Hall Scrolls:</strong> {clanTerritoryScrolls} · <strong>Clan War Supply:</strong> {clanData.treasury.warSupply.toLocaleString()} · <strong>Uncollected:</strong> {clanSectorWarSupply.toLocaleString()}</p><p className="hint">Your village owns {villageSectorCount} sector{villageSectorCount === 1 ? "" : "s"} with {villageSectorWarSupply.toLocaleString()} uncollected village-wide War Supply.</p><div className="menu"><button disabled={personalTerritoryScrolls < 1} onClick={donateAllTerritoryScrollsToClan}>Donate All Territory Scrolls To Clan Hall</button><button disabled={!canSpendTerritoryScrolls || clanSectorWarSupply < 1} onClick={collectTerritoryWarSupply}>Collect Sector War Supply</button></div><div className="treasury-grid"><div><label>Sector</label><input type="number" min={1} max={60} value={territorySector} onChange={(event) => setTerritorySector(clampNumber(Number(event.target.value), 1, 60))} /></div><div><label>Weather</label><select value={territoryWeather} onChange={(event) => setTerritoryWeather(event.target.value as WeatherType)}>{Object.entries(weatherEffects).map(([key, weather]) => <option key={key} value={key}>{weather.name}</option>)}</select></div><div><label>Terrain Bonus</label><select value={territoryBuffStat} onChange={(event) => setTerritoryBuffStat(event.target.value as TerritoryBuffStat)}><option value="bukijutsuOffense">Bukijutsu Offense +10%</option><option value="taijutsuOffense">Taijutsu Offense +10%</option><option value="ninjutsuOffense">Ninjutsu Offense +10%</option><option value="genjutsuOffense">Genjutsu Offense +10%</option></select></div></div><section className="summary-box"><h4>Sector {territorySector}</h4><p><strong>Owner:</strong> {selectedTerritory.ownerClan ? `${selectedTerritory.ownerClan} (${selectedTerritory.ownerVillage})` : "Unclaimed"}</p><div className="town-upgrade-bar"><span style={{ width: `${(selectedTerritory.controlScore / TERRITORY_CONTROL_MAX) * 100}%` }} /></div><p>Control Score: {selectedTerritory.controlScore.toLocaleString()} / {TERRITORY_CONTROL_MAX.toLocaleString()}</p><div className="bar enemy-bar"><span style={{ width: `${(selectedTerritory.hp / TERRITORY_HP_MAX) * 100}%` }} /></div><p>Sector HP: {selectedTerritory.hp.toLocaleString()} / {TERRITORY_HP_MAX.toLocaleString()}</p><p>War Supply: {selectedTerritory.warSupply.toLocaleString()} · Raid Damage Taken: {sectorRaidDamageAmount(territorySector).toLocaleString()}</p><p>Fixed Weather: {weatherEffects[selectedTerritory.weather ?? weatherForSector(territorySector, "central")].name} · Terrain: {selectedTerritory.terrainBuffStat.replace("Offense", " Offense")} +10%</p><p>Guards: {selectedTerritory.guards.length ? selectedTerritory.guards.join(", ") : "None"}</p><div className="menu"><button disabled={!canSpendTerritoryScrolls || clanTerritoryScrolls < 1 || Boolean(selectedTerritory.ownerClan && selectedTerritory.ownerClan !== clanData.name)} onClick={() => donateTerritoryScrolls(territorySector)}>Assign 1 Clan Scroll</button><button disabled={!canSpendTerritoryScrolls || clanTerritoryScrolls < 5 || Boolean(selectedTerritory.ownerClan && selectedTerritory.ownerClan !== clanData.name)} onClick={() => donateTerritoryScrolls(territorySector, 5)}>Assign 5 Clan Scrolls</button><button disabled={!canSpendTerritoryScrolls || selectedTerritory.ownerClan !== clanData.name} onClick={() => saveTerritorySettings(territorySector)}>Save Terrain / Weather</button><button disabled={!canGuardSelectedTerritory} onClick={() => toggleTerritoryGuard(territorySector)}>{selectedTerritory.guards.includes(character.name) ? "Leave Sector Guard" : "Queue Sector Guard"}</button><button className="danger-button" disabled={!selectedTerritory.ownerClan || selectedTerritory.ownerVillage === character.village} onClick={() => recordVillageWarDamage(territorySector)}>Village War Hit -5,000 HP</button></div></section><h4>Your Clan Sectors</h4>{ownedTerritories.length === 0 ? <p className="hint">Your clan does not own a sector yet.</p> : <div className="war-record-grid">{ownedTerritories.map(territory => <div key={territory.sector} className="war-record-card"><strong>Sector {territory.sector}</strong><span>HP {territory.hp.toLocaleString()} / {TERRITORY_HP_MAX.toLocaleString()}</span><small>{weatherEffects[territory.weather ?? "clear"].name} · {territory.terrainBuffStat.replace("Offense", " Offense")} +10%</small><small>War Supply: {territory.warSupply.toLocaleString()} · Guards: {territory.guards.length}</small></div>)}</div>}</div>}
         {view === "notices" && <div className="summary-box town-notice-board"><h3>Clan Notice Board</h3><p className="hint">Clan Head, leaders, officers, and Clan Elders can post tactical clan notices for members.</p><div className="treasury-grid"><div><label>Type</label><select value={clanNoticeType} onChange={(event) => setClanNoticeType(event.target.value as NoticePostType)}><option value="clan">Clan Notice</option><option value="raid">Raid Target</option><option value="guard">Guard Request</option><option value="trade">Trade / Supply</option><option value="general">General</option></select></div><div><label>Sector Optional</label><input type="number" min={1} max={60} value={clanNoticeSector} onChange={(event) => setClanNoticeSector(event.target.value)} placeholder="1-60" /></div></div><label>Title</label><input value={clanNoticeTitle} maxLength={70} onChange={(event) => setClanNoticeTitle(event.target.value)} placeholder="Example: Prepare Sector 33 raid team" /><label>Message</label><textarea value={clanNoticeBody} maxLength={500} onChange={(event) => setClanNoticeBody(event.target.value)} placeholder="Post clan plans, resource needs, guard rotations, or war instructions." /><button onClick={() => void postClanNotice()} disabled={!clanNoticeTitle.trim() || !clanNoticeBody.trim()}>Post Clan Notice</button><div className="notice-board-list">{clanData.notices.length === 0 ? <p className="hint">No clan notices posted yet.</p> : clanData.notices.map(notice => { const canEditNotice = canManageClan(myRole) || myRank === "Clan Elder" || notice.author === character.name; return <div key={notice.id} className={`notice-post ${notice.pinned ? "pinned" : ""}`}><div className="notice-post-head"><span>{notice.pinned ? "Pinned " : ""}{noticeTypeLabel(notice.type)}</span><small>{new Date(notice.createdAt).toLocaleString()} · {notice.author} · {notice.authorRole}</small></div><strong>{notice.title}</strong><p>{notice.body}</p>{notice.sector && <small>Sector {notice.sector}</small>}{canEditNotice && <div className="menu"><button onClick={() => void toggleClanNoticePin(notice.id)}>{notice.pinned ? "Unpin" : "Pin"}</button><button className="danger-button" onClick={() => void removeClanNotice(notice.id)}>Delete</button></div>}</div>; })}</div></div>}
         {view === "guard" && <div className="summary-box"><h3>🛡️ Village Guard</h3><p className="hint">Queue as a guard to defend <strong>{character.village}</strong>. Town Hall defense bonus applies while you are queued.</p><button className={character.guardQueued ? "danger-button" : ""} onClick={toggleGuard} disabled={guardBusy} style={{ marginBottom: 12 }}>{guardBusy ? "Updating…" : character.guardQueued ? "Leave Guard Queue" : "Queue as Village Guard"}</button><h4>Active Guards for {character.village} ({guardList.length})</h4>{guardList.length === 0 ? <p className="hint">No active guards. Village is undefended.</p> : <div className="clan-guard-list">{guardList.map(g => <div key={g.name} className="clan-guard-row"><span>🛡️ <strong>{g.name}</strong></span><span className="clan-guard-lvl">Lv. {g.level}{g.defenseBonusPercent ? ` · DEF +${g.defenseBonusPercent.toFixed(1)}%` : ""}</span></div>)}</div>}</div>}
@@ -26016,7 +26128,6 @@ function ShinobiCouncilHall({ character, setScreen, playerRoster }: { character:
 // Hall as a dedicated tab. Owns its own polling loop + state; the
 // parent only needs to mount it.
 function ClanBattlesTab({ character, playerRoster, setScreen }: { character: Character; playerRoster: PlayerRecord[]; setScreen: (s: Screen) => void }) {
-    void setScreen; // reserved — battle routing wires in Phase 3
     const [wars, setWars] = useState<CwWar[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
@@ -26142,6 +26253,83 @@ function ClanBattlesTab({ character, playerRoster, setScreen }: { character: Cha
         await refresh();
     }
 
+    // Phase 3: route the actor to the matching battle screen. We stash
+    // a hint in sessionStorage so the battle screen knows it's running
+    // a clan-war challenge and can prefill any seed/opponent state.
+    // After the battle resolves, the actor returns here to report.
+    function launchBattle(ch: CwChallenge) {
+        if (!myWar) return;
+        try {
+            sessionStorage.setItem("clanWarChallenge.v1", JSON.stringify({
+                warId: myWar.id,
+                challengeId: ch.id,
+                mode: ch.mode,
+                fromClan: ch.fromClan,
+                fromPlayer: ch.fromPlayer,
+                fromPlayer2: ch.fromPlayer2 ?? null,
+                acceptedPlayer: ch.acceptedPlayer ?? null,
+                acceptedPlayer2: ch.acceptedPlayer2 ?? null,
+                battleId: ch.battleId ?? null,
+                petBattleSeed: ch.petBattleSeed ?? null,
+                stashedAt: Date.now(),
+            }));
+        } catch { /* sessionStorage unavailable — fall through */ }
+        switch (ch.mode) {
+            case "pvp1v1":
+                setScreen("pvpBattle");
+                break;
+            case "pvp2v2":
+                // Phase 4: 2v2 PvP wrapper. For now route to existing PvP
+                // and let the partners coordinate via tavern chat.
+                setScreen("pvpBattle");
+                break;
+            case "pet1v1":
+            case "pet2v2":
+                setScreen("petArena");
+                break;
+            case "tilecards":
+                // Tile cards live inside the Sunscar Festival; no
+                // standalone PvP duel screen yet. For Phase 3 we route
+                // there and rely on manual reporting.
+                setScreen("tavern");
+                break;
+        }
+    }
+
+    async function handleReport(ch: CwChallenge, result: CwChallengeResult) {
+        if (!myWar) return;
+        const youAreFromSide = (ch.fromPlayer ?? "").toLowerCase() === character.name.toLowerCase()
+            || (ch.fromPlayer2 ?? "").toLowerCase() === character.name.toLowerCase();
+        const youAreToSide = (ch.acceptedPlayer ?? "").toLowerCase() === character.name.toLowerCase()
+            || (ch.acceptedPlayer2 ?? "").toLowerCase() === character.name.toLowerCase();
+        if (!youAreFromSide && !youAreToSide) {
+            setError("Only a participant can report this result.");
+            return;
+        }
+        const youWon = (result === "from-wins" && youAreFromSide) || (result === "to-wins" && youAreToSide);
+        const verb = result === "draw" ? "report this as a draw" : (youWon ? "report that you won" : "report that the opponent won");
+        if (!window.confirm(`Are you sure you want to ${verb}? Reports are final.`)) return;
+        setBusy(true);
+        try {
+            const r = await fetch("/api/clan/war/report", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ warId: myWar.id, challengeId: ch.id, result }),
+            });
+            const data = await r.json().catch(() => ({}));
+            if (!r.ok) {
+                setError(data.error ?? `HTTP ${r.status}`);
+            } else {
+                setError("");
+                try { sessionStorage.removeItem("clanWarChallenge.v1"); } catch { /* ignore */ }
+            }
+        } catch (e) {
+            setError(String((e as Error).message));
+        }
+        setBusy(false);
+        await refresh();
+    }
+
     if (!myClan) {
         return (
             <section className="council-section">
@@ -26256,6 +26444,61 @@ function ClanBattlesTab({ character, playerRoster, setScreen }: { character: Cha
                                             {ch.status === "pending" && mine && (
                                                 <button onClick={() => handleCancel(ch.id)} disabled={busy} className="danger-button" style={{ padding: "0.3rem 0.6rem", fontSize: "0.8rem" }}>Cancel</button>
                                             )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        );
+                    })()}
+
+                    {/* Active battles — accepted challenges where the current player is a participant */}
+                    {(() => {
+                        const myActive = myWar.pendingChallenges.filter(c => c.status === "accepted" && (
+                            (c.fromPlayer ?? "").toLowerCase() === character.name.toLowerCase()
+                            || (c.fromPlayer2 ?? "").toLowerCase() === character.name.toLowerCase()
+                            || (c.acceptedPlayer ?? "").toLowerCase() === character.name.toLowerCase()
+                            || (c.acceptedPlayer2 ?? "").toLowerCase() === character.name.toLowerCase()
+                        ));
+                        if (myActive.length === 0) return null;
+                        return (
+                            <div style={{ background: "#1f1606", border: "1px solid #fbbf24", borderRadius: 6, padding: "0.8rem", marginBottom: "1rem" }}>
+                                <strong style={{ color: "#fbbf24" }}>⚔ Your Active Battles ({myActive.length})</strong>
+                                <p style={{ fontSize: "0.78rem", color: "#fef3c7", margin: "4px 0 8px" }}>
+                                    Launch each battle from the right screen, then come back here to report the result.
+                                    Damage applies to the loser's clan HP. Reports are final and only a participant can submit one.
+                                </p>
+                                {myActive.map(ch => {
+                                    const fromSide = (ch.fromPlayer ?? "").toLowerCase() === character.name.toLowerCase()
+                                        || (ch.fromPlayer2 ?? "").toLowerCase() === character.name.toLowerCase();
+                                    const opponents = fromSide
+                                        ? [ch.acceptedPlayer, ch.acceptedPlayer2].filter(Boolean) as string[]
+                                        : [ch.fromPlayer, ch.fromPlayer2].filter(Boolean) as string[];
+                                    const myWinResult: CwChallengeResult = fromSide ? "from-wins" : "to-wins";
+                                    const oppWinResult: CwChallengeResult = fromSide ? "to-wins" : "from-wins";
+                                    return (
+                                        <div key={ch.id} style={{ background: "#0b1220", padding: "0.6rem 0.7rem", borderRadius: 4, marginTop: 6 }}>
+                                            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 6 }}>
+                                                <strong style={{ flex: 1, minWidth: 200 }}>
+                                                    {CW_MODE_ICON[ch.mode]} {CW_MODE_LABEL[ch.mode]}
+                                                    <span style={{ color: "#94a3b8", fontWeight: 400 }}> · vs {opponents.join(" + ") || "?"} · −{CW_DAMAGE[ch.mode]} HP on win</span>
+                                                </strong>
+                                                <button onClick={() => launchBattle(ch)} disabled={busy} style={{ padding: "0.3rem 0.6rem", background: "linear-gradient(#1e3a8a,#172554)", borderColor: "#60a5fa" }}>
+                                                    🚪 Launch Battle
+                                                </button>
+                                            </div>
+                                            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                                                <button onClick={() => void handleReport(ch, myWinResult)} disabled={busy} style={{ padding: "0.3rem 0.6rem", background: "#15803d", borderColor: "#4ade80", fontSize: "0.85rem" }}>
+                                                    ✅ I won
+                                                </button>
+                                                <button onClick={() => void handleReport(ch, oppWinResult)} disabled={busy} className="danger-button" style={{ padding: "0.3rem 0.6rem", fontSize: "0.85rem" }}>
+                                                    ❌ Opponent won
+                                                </button>
+                                                <button onClick={() => void handleReport(ch, "draw")} disabled={busy} style={{ padding: "0.3rem 0.6rem", fontSize: "0.85rem" }}>
+                                                    🤝 Draw
+                                                </button>
+                                            </div>
+                                            {ch.battleId && <small style={{ display: "block", marginTop: 4, color: "#64748b" }}>Battle ID: {ch.battleId}</small>}
+                                            {ch.petBattleSeed && <small style={{ display: "block", marginTop: 4, color: "#64748b" }}>Pet seed: {ch.petBattleSeed}</small>}
                                         </div>
                                     );
                                 })}
