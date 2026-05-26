@@ -27756,7 +27756,11 @@ function WorldMap({
                             {!chestPageImage && <span className="vn-village-silhouette" />}
                         </div>
                         <div className="vn-character mentor-character">🧙</div>
-                        <div className="vn-character hero-character">{character.name.slice(0, 2).toUpperCase()}</div>
+                        <div className="vn-character hero-character">
+                            {character.avatarImage
+                                ? <img src={character.avatarImage} alt={character.name} />
+                                : character.name.slice(0, 2).toUpperCase()}
+                        </div>
                         <div className="vn-scene-card">{page.scene}</div>
                         <div className="vn-dialogue">
                             <div className="vn-speaker">{speaker === "Narrator" ? initials : speaker}</div>
