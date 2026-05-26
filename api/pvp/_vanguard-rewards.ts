@@ -146,6 +146,26 @@ export async function grantVanguardRewardsForSession(session: PvpSession): Promi
     const nextRank = rankFromXp(nextProfessionXp);
     const nextByTarget = { ...byTarget, [loserKey]: targetSoFar + seals };
 
+    // Transactional ordering: escort stamps go FIRST. Each escort stamp is
+    // idempotent (setting petEscortBonusReady=true twice is a no-op), so if
+    // we crash between escorts the next retry safely re-stamps any missed
+    // ones. The winner save commits LAST — that's the "transaction commit"
+    // and the only write that's hard to retry without double-grant. If the
+    // winner save fails, the session's vanguardRewardsGranted flag never
+    // gets set, so the next call retries the whole grant.
+    await Promise.all(escorters.map(async (escorterName) => {
+        const eKey = `save:${escorterName}`;
+        const eRecord = await kv.get<Record<string, unknown>>(eKey);
+        const eChar = eRecord?.character as Record<string, unknown> | undefined;
+        if (!eChar || eChar.profession !== 'petTamer') return;
+        await kv.set(eKey, {
+            ...eRecord,
+            character: { ...eChar, petEscortBonusReady: true },
+        });
+    }));
+
+    // Now commit the winner save. If this throws, the session flag isn't set
+    // and the next move's grant call retries cleanly (escorts already done = no-op).
     const updated = {
         ...winnerRecord,
         character: {
@@ -159,23 +179,6 @@ export async function grantVanguardRewardsForSession(session: PvpSession): Promi
         },
     };
     await kv.set(winnerKey, updated);
-
-    // Stamp each offering Pet Tamer with a one-shot expedition bonus flag.
-    // Best-effort: failures don't undo the Vanguard grant.
-    for (const escorterName of escorters) {
-        try {
-            const eKey = `save:${escorterName}`;
-            const eRecord = await kv.get<Record<string, unknown>>(eKey);
-            const eChar = eRecord?.character as Record<string, unknown> | undefined;
-            if (!eChar || eChar.profession !== 'petTamer') continue;
-            await kv.set(eKey, {
-                ...eRecord,
-                character: { ...eChar, petEscortBonusReady: true },
-            });
-        } catch (err) {
-            console.error('[vanguard-rewards] escort bonus stamp failed', err);
-        }
-    }
 
     return { granted: true, seals, xp: xpGain };
 }
