@@ -32938,65 +32938,163 @@ function Arena({
         }
     }
 
-    // SMART AI — used for opponents at level 30+. Adds:
-    //   1. LETHAL DETECTION — if any usable damage jutsu would KO the player
-    //      through their HP + shield, fire it immediately.
-    //   2. SUSTAIN TRIGGER — at HP < 35%, prefer heal/sustain jutsus over
-    //      offense. At HP < 70% allow heal in the normal scoring (vs the
-    //      base AI's >65% blanket penalty that effectively never heals
-    //      until critical).
-    //   3. AP-EFFICIENCY BONUS — score includes damage-per-AP so the AI
-    //      doesn't blow 80 AP on a slightly-stronger jutsu when a 40-AP
-    //      one would do close to the same.
-    //   4. RESERVES SIGNATURES — high-AP jutsus (≥60 AP) get a small
-    //      bonus only when they would land for >35% of player max HP, so
-    //      the AI saves big plays for high-value moments rather than
-    //      blowing them when the player is shielded / has Absorb up.
+    // Damage the player will take from ALREADY-ACTIVE DoT effects this turn
+    // (Wound + Poison + Drain). Folded into lethal detection so a single
+    // killing-blow jutsu doesn't need to do the full HP solo — if the player
+    // is bleeding 200/turn from a stacked Wound and is at 250 HP, a 60-damage
+    // jutsu can lethal.
+    function activePlayerDotThisTurn(): number {
+        let dot = 0;
+        for (const s of playerStatuses) {
+            if (s.name === "Wound")  dot += s.amount || 0;
+            if (s.name === "Drain")  dot += 250;
+            if (s.name === "Poison") dot += s.amount ?? Math.floor(character.maxHp * (s.percent ?? 6) / 100);
+        }
+        return dot;
+    }
+
+    // Expanded jutsu pool for level-30+ smart AI. Pulls from THE FULL game
+    // jutsu pool (allJutsus, includes starters + admin-created), filtered to
+    // what this AI could reasonably wield:
+    //   • No bloodline-locked jutsus (AI has no bloodline)
+    //   • Element compatibility — favor the AI's primary jutsu type's element
+    //     range over a random Lightning AI casting Water moves
+    //   • Rank cap by AI level so a level-30 mob doesn't pull a level-100
+    //     mythic Ninjutsu from the pool:
+    //         level 30-49  → AP ≤ 60  (rough B-rank cutoff)
+    //         level 50-79  → AP ≤ 80  (A-rank)
+    //         level 80+    → AP ≤ 100 (S-rank, full power)
+    //   • Chakra/stamina the AI can actually pay
+    //   • Always includes the AI's equipped loadout (enemyAiJutsus) — even
+    //     if it would otherwise be filtered out — so admin-curated AIs
+    //     still get their flavor moves.
+    function smartExpandedJutsuPool(): Jutsu[] {
+        const lvl = opponentLevel ?? 1;
+        const apCap = lvl >= 80 ? 100 : lvl >= 50 ? 80 : 60;
+        // Primary element of the AI's loadout — used to bias element
+        // matching (we don't HARD-filter so the AI keeps utility access).
+        const primaryType = aiPrimaryJutsuType(enemyAiJutsus);
+        const primaryEls = new Set<JutsuElement>();
+        for (const j of enemyAiJutsus) if (j.element && j.element !== "None") primaryEls.add(j.element);
+
+        const fromPool = allJutsus.filter((jutsu) => {
+            if (jutsu.bloodlineRank) return false;                          // bloodline-locked
+            if (jutsu.ap > apCap) return false;                             // rank cap
+            if (jutsu.chakraCost > enemyChakra) return false;               // can't pay chakra
+            if (jutsu.staminaCost > enemyStamina) return false;             // can't pay stamina
+            // Element bias — if the AI has a clear primary type AND this
+            // jutsu's type matches AND its element differs from the AI's
+            // pool elements, skip it. Keeps a Lightning AI from spamming
+            // Water moves. None-element + matching-type utility passes.
+            if (primaryType && jutsu.type !== "Any" && jutsu.type !== primaryType) {
+                // Allow cross-type if the AI has no jutsus of this type's
+                // element — small openness so the AI can grab a useful Stun
+                // or Heal it doesn't already have access to.
+                if (jutsu.tags.length === 0) return false;
+            }
+            if (primaryEls.size > 0 && jutsu.element && jutsu.element !== "None" && !primaryEls.has(jutsu.element)) {
+                return false;
+            }
+            return true;
+        });
+
+        // Merge with equipped loadout, dedup by id (loadout wins on ties).
+        const merged = new Map<string, Jutsu>();
+        for (const j of fromPool)       merged.set(j.id, j);
+        for (const j of enemyAiJutsus)  merged.set(j.id, j);
+        return Array.from(merged.values());
+    }
+
+    // SMART AI — used for opponents at level 30+. Pulls from the FULL game
+    // jutsu pool (filtered by element/rank/affordability), then scores with
+    // a multi-axis tactical model:
+    //   1. LETHAL — any jutsu (alone OR combined with active player DoT)
+    //      that KOs the player → fire immediately, cheapest first.
+    //   2. SUSTAIN — at HP < 35%, grab heal/sustain.
+    //   3. NO-REDUNDANT STATUS — skip a stun if player is already stunned,
+    //      a poison/wound/drain if that DoT is already stacking, etc.
+    //   4. ELEMENT MATCHUP — small bonus when the jutsu element matches a
+    //      gap in the player's defensive stat allocation.
+    //   5. SYNERGY — if I land a Stun, the player loses AP next turn → my
+    //      follow-up nuke gets a setup bonus. If player has Decrease
+    //      Damage Taken active → my big jutsus get penalized.
+    //   6. AP-EFFICIENCY + SIGNATURE-RESERVE (carried over).
     function smartAiJutsuPick(availableAp: number): Jutsu | undefined {
-        const usable = [...enemyAiJutsus]
+        const expanded = smartExpandedJutsuPool();
+        const usable = expanded
             .filter((jutsu) => jutsu.ap <= availableAp)
             .filter((jutsu) => (enemyJutsuCooldowns[jutsu.id] ?? 0) <= 0)
             .filter((jutsu) => jutsu.target === "SELF" || jutsu.range <= 0 || distance(playerPos, enemyPos) <= jutsu.range);
 
-        // 1. Lethal scan — first jutsu that KOs through HP+shield wins.
-        const requiredKo = playerHp + playerShield;
-        let bestLethal: { jutsu: Jutsu; dmg: number; ap: number } | null = null;
+        // 1. Lethal scan — include active DoT damage in the KO threshold so
+        // a setup jutsu can finish through chip damage. Cheapest lethal wins.
+        const dotThisTurn = activePlayerDotThisTurn();
+        const requiredKo = Math.max(0, playerHp + playerShield - dotThisTurn);
+        let bestLethal: { jutsu: Jutsu; ap: number } | null = null;
         for (const jutsu of usable) {
             const dmg = estimateAiJutsuDamage(jutsu);
-            if (dmg >= requiredKo) {
-                // Prefer the CHEAPEST lethal — save AP / cooldown for the next round.
-                if (!bestLethal || jutsu.ap < bestLethal.ap) {
-                    bestLethal = { jutsu, dmg, ap: jutsu.ap };
-                }
+            if (dmg >= requiredKo && dmg > 0) {
+                if (!bestLethal || jutsu.ap < bestLethal.ap) bestLethal = { jutsu, ap: jutsu.ap };
             }
         }
         if (bestLethal) return bestLethal.jutsu;
 
-        // 2. Sustain trigger — when very low HP, grab heal/sustain if available.
+        // 2. Sustain trigger — when very low HP, grab heal/sustain.
         const hpPct = enemyHp / Math.max(1, enemyMaxHp);
         if (hpPct < 0.35) {
             const healish = usable.find(j => isSelfSupportJutsu(j));
             if (healish) return healish;
         }
 
-        // 3. Tactical score (extends the base AI's score with AP-efficiency).
+        // Pre-compute facts the score function reuses.
         const playerMaxHp = Math.max(1, character.maxHp);
+        const playerStunned    = playerStatuses.some(s => s.name === "Stun");
+        const playerSealed     = playerStatuses.some(s => s.name === "Bloodline Seal" || s.name === "Seal" || s.name === "Elemental Seal");
+        const playerPoisoned   = playerStatuses.some(s => s.name === "Poison");
+        const playerWounded    = playerStatuses.some(s => s.name === "Wound");
+        const playerDrained    = playerStatuses.some(s => s.name === "Drain");
+        const playerDmgUp      = playerStatuses.some(s => s.name === "Increase Damage Taken" || s.name === "Ignition");
+        const playerDmgDown    = playerStatuses.some(s => s.name === "Decrease Damage Taken");
+        // Lower of player's two combat resources — a low-resource player is
+        // already throttled, so resource-drain jutsus lose value.
+        const playerLowAp      = ap < 50; // engine-side player AP
+
         return usable.sort((a, b) => {
             const tacticalScore = (jutsu: Jutsu) => {
                 let score = jutsu.effectPower;
-                // Self-support penalty — smarter threshold: only penalize when
-                // already healthy enough to not benefit.
+                const dmg = estimateAiJutsuDamage(jutsu);
+
+                // ── Self-support
                 if (isSelfSupportJutsu(jutsu) && hpPct > 0.70) score -= 50;
-                else if (isSelfSupportJutsu(jutsu) && hpPct < 0.50) score += 15; // actively seek heal mid-fight
+                else if (isSelfSupportJutsu(jutsu) && hpPct < 0.50) score += 15;
+
+                // ── Control / pressure baseline (unchanged)
                 if (isControlJutsu(jutsu)) score += 12;
                 if (isPressureJutsu(jutsu)) score += 8;
-                // AP-efficiency bonus: how much damage does each AP buy?
-                const dmg = estimateAiJutsuDamage(jutsu);
+
+                // ── No-redundant status — heavy penalty so the AI never
+                // re-applies a status already active on the player.
+                const tagNames = jutsu.tags.map(t => t.name);
+                if (playerStunned   && tagNames.includes("Stun"))           score -= 40;
+                if (playerSealed    && (tagNames.includes("Bloodline Seal") || tagNames.includes("Seal") || tagNames.includes("Elemental Seal"))) score -= 30;
+                if (playerPoisoned  && tagNames.includes("Poison"))         score -= 25;
+                if (playerWounded   && tagNames.includes("Wound"))          score -= 25;
+                if (playerDrained   && tagNames.includes("Drain"))          score -= 25;
+                if (playerLowAp     && tagNames.includes("Lag"))            score -= 20;
+
+                // ── Synergy bonuses — set up future damage / capitalize on
+                // player's current debuffs.
+                if (playerDmgUp && dmg > 0) score += 8;     // their Ignition / IDT is up — hit harder
+                if (playerDmgDown && dmg > 0) score -= 10;  // their DDT is up — save the AP
+                if (playerStunned && dmg > 0 && jutsu.ap >= 50) score += 12; // big hit while they can't react
+
+                // ── AP-efficiency bonus
                 if (dmg > 0) score += (dmg / Math.max(1, jutsu.ap)) * 1.5;
-                // Save signature jutsus (≥60 AP) for high-impact moments.
+
+                // ── Signature-reserve logic
                 if (jutsu.ap >= 60) {
-                    if (dmg / playerMaxHp >= 0.35) score += 10; // legit big hit — use it
-                    else                          score -= 20; // not worth the AP burn right now
+                    if (dmg / playerMaxHp >= 0.35) score += 10;
+                    else                          score -= 20;
                 }
                 return score;
             };
