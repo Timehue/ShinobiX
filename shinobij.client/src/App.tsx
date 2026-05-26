@@ -14535,7 +14535,7 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
                                         style={{ flex: 1, fontSize: "0.8rem", padding: "3px 6px" }}
                                     />
                                     <button onClick={setNickname} style={{ fontSize: "0.75rem", padding: "3px 8px", whiteSpace: "nowrap" }}>
-                                        ?? 10 Shards
+                                        🔮 10 Shards
                                     </button>
                                 </div>
                                 {nicknameMsg && <p className="hint" style={{ fontSize: "0.72rem", color: nicknameMsg.startsWith("✅") ? "#4ade80" : "#f87171" }}>{nicknameMsg}</p>}
@@ -15512,7 +15512,7 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
             pushFrame(round, msg, actorSide, kind, damage, crit, traitFlash, currentCombo >= 3 ? currentCombo : undefined);
             // KO frame
             if (damagedTarget.hp <= 0) {
-                const koMsg = `?? K.O.! ${actor2.pet.name} knocks out ${target2.pet.name}!`;
+                const koMsg = `💥 K.O.! ${actor2.pet.name} knocks out ${target2.pet.name}!`;
                 logs.push(koMsg);
                 pushFrame(round, koMsg, actorSide, "result", undefined, undefined, undefined, undefined, undefined, true);
             }
@@ -19302,7 +19302,7 @@ function AdminPanel({
                 </button>
                 {onReloadImages && (
                     <button className="village-save-btn" onClick={onReloadImages} style={{ background: "#2a6" }}>
-                        ?? Reload Images
+                        🔄 Reload Images
                     </button>
                 )}
                 {adminSaveMsg && <span className="village-save-msg">{adminSaveMsg}</span>}
@@ -19899,7 +19899,7 @@ function AdminPanel({
                                         alert("Pet Encounter VN saved! Players will see this scene when they find a pet.");
                                     }}
                                 >
-                                    ?? Save as Pet Encounter VN
+                                    💾 Save as Pet Encounter VN
                                 </button>
                             </div>
                             {editingEventId && <p className="hint">Editing VN: {editingEventId}</p>}
@@ -19953,7 +19953,7 @@ function AdminPanel({
                                         alert("Ancient Chest VN saved! Players will see this scene when they open ancient chests.");
                                     }}
                                 >
-                                    ?? Save as Ancient Chest VN
+                                    💾 Save as Ancient Chest VN
                                 </button>
                                 <button
                                     style={{ background: "#1e3a5f", borderColor: "#60a5fa" }}
@@ -20256,8 +20256,8 @@ function AdminPanel({
                                             onClick={runBulkAiGeneration}
                                         >
                                             {aiBulkRunning
-                                                ? `? Generating… ${aiBulkProgress ? `${aiBulkProgress.current}/${aiBulkProgress.total}` : ""}`
-                                                : `??? Generate Images for ${selectedCount} AI${selectedCount !== 1 ? "s" : ""}`}
+                                                ? `⏳ Generating… ${aiBulkProgress ? `${aiBulkProgress.current}/${aiBulkProgress.total}` : ""}`
+                                                : `🎨 Generate Images for ${selectedCount} AI${selectedCount !== 1 ? "s" : ""}`}
                                         </button>
                                     </div>
                                 </div>
@@ -20592,8 +20592,8 @@ function AdminPanel({
                                                     onClick={runBulkItemGeneration}
                                                 >
                                                     {itemBulkRunning
-                                                        ? `? Generating… ${itemBulkProgress ? `${itemBulkProgress.current}/${itemBulkProgress.total}` : ""}`
-                                                        : `??? Generate Images for ${selCount} Item${selCount !== 1 ? "s" : ""}`}
+                                                        ? `⏳ Generating… ${itemBulkProgress ? `${itemBulkProgress.current}/${itemBulkProgress.total}` : ""}`
+                                                        : `🎨 Generate Images for ${selCount} Item${selCount !== 1 ? "s" : ""}`}
                                                 </button>
                                                 <button
                                                     disabled={itemBulkRunning}
@@ -20619,7 +20619,7 @@ function AdminPanel({
                                                         setItemBulkRunning(false);
                                                     }}
                                                 >
-                                                    ??? Recompress All Existing Item Images
+                                                    🗜️ Recompress All Existing Item Images
                                                 </button>
                                             </div>
                                         </div>
@@ -21430,8 +21430,8 @@ function AdminPanel({
                                             onClick={runBulkGeneration}
                                         >
                                             {bulkRunning
-                                                ? `? Generating… ${bulkProgress ? `${bulkProgress.current}/${bulkProgress.total}` : ""}`
-                                                : `??? Generate Images for ${selectedCount} Card${selectedCount !== 1 ? "s" : ""}`}
+                                                ? `⏳ Generating… ${bulkProgress ? `${bulkProgress.current}/${bulkProgress.total}` : ""}`
+                                                : `🎨 Generate Images for ${selectedCount} Card${selectedCount !== 1 ? "s" : ""}`}
                                         </button>
                                     </div>
                                 </div>
@@ -26456,7 +26456,7 @@ function CentralHub({
                                         disabled={character.fateShards < 10}
                                         title={character.fateShards < 10 ? "Not enough Fate Shards" : ""}
                                     >
-                                        ?? Reroll Element — 10 Fate Shards
+                                        🔮 Reroll Element — 10 Fate Shards
                                         <small>You have {character.fateShards} Fate Shards</small>
                                     </button>
                                 )}
@@ -26859,7 +26859,7 @@ function CentralHub({
                                             onClick={rollNamedWeapon}
                                             disabled={nwPts < NW_COST}
                                         >
-                                            ?? Roll Named Weapon
+                                            🎲 Roll Named Weapon
                                         </button>
 
                                         {namedWeaponRoll && (
@@ -28008,7 +28008,7 @@ function WorldMap({
                                             setCurrentWeather(sectorWeather);
                                             sectorAttackPlayer(player);
                                             setScreen("arena");
-                                        }}>{player.travelingUntil && player.travelingUntil > Date.now() ? "Traveling" : "?? Attack"}</button>
+                                        }}>{player.travelingUntil && player.travelingUntil > Date.now() ? "Traveling" : "⚔️ Attack"}</button>
                                     </div>
                                 ))
                             )}
@@ -28158,7 +28158,7 @@ function WorldMap({
                                             setScreen("arena");
                                         }}
                                     >
-                                        ?? Challenge Guard
+                                        🛡️ Challenge Guard
                                     </button>
                                     <p className="hint" style={{ fontSize: "0.7rem", color: "#64748b", marginTop: 2 }}>
                                         Guard online? Real PvP. Guard offline? AI fight.
@@ -32650,7 +32650,7 @@ function Arena({
         }
 
         const bonusNote = activeTrait === "Swift" ? " (Swift +25% XP)" : activeTrait === "Lucky" ? " (Lucky +20% ryo)" : "";
-        const deathsGateNote = deathsGatePvp ? ` ?? Death's Gate 2× bonus!${deathsGateBoneCharm ? " +1 Bone Charm!" : ""}` : "";
+        const deathsGateNote = deathsGatePvp ? ` 💀 Death's Gate 2× bonus!${deathsGateBoneCharm ? " +1 Bone Charm!" : ""}` : "";
         const honorNote = honorSealGain > 0 ? ` +${honorSealGain} Honor Seals.` : "";
         const auraDustNote = auraDustGain > 0 ? ` +${auraDustGain} Aura Dust.` : "";
         setBattleEnded(true);
@@ -34726,7 +34726,7 @@ function Arena({
                                 </p>
                                 <div className="menu">
                                     <button style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171" }} onClick={() => { onEndlessBattleEnd?.(); setScreen("hospital"); }}>
-                                        ?? Go to Hospital
+                                        🏥 Go to Hospital
                                     </button>
                                     <button onClick={() => { onEndlessBattleEnd?.(); setScreen("centralHub"); }}>
                                         Return to Central
@@ -34736,7 +34736,7 @@ function Arena({
                         ) : (
                             <>
                                 <h2 className={battleResult === "win" ? "battle-result-win" : battleResult === "fled" ? "battle-result-fled" : "battle-result-loss"}>
-                                    {battleResult === "win" ? "Victory" : battleResult === "fled" ? "Escaped" : "?? Knocked Out"}
+                                    {battleResult === "win" ? "Victory" : battleResult === "fled" ? "Escaped" : "💥 Knocked Out"}
                                 </h2>
                                 <p>{log}</p>
                                 {battleResult === "loss" ? (
@@ -34745,7 +34745,7 @@ function Arena({
                                             You've been rushed to the village hospital. Pay <strong style={{ color: "#fde047" }}>1,000 ryo</strong> to be treated and released.
                                         </p>
                                         <button style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171" }} onClick={() => { if (pendingStoryBattle) onPendingStoryBattleContinue?.(); setScreen("hospital"); }}>
-                                            ?? Go to Hospital
+                                            🏥 Go to Hospital
                                         </button>
                                     </>
                                 ) : pendingStoryBattle ? (
@@ -35906,7 +35906,7 @@ function PvpBattleScreen({
                             <div className="battle-ended-overlay" style={{ position: "relative", inset: "unset", background: "none" }}>
                                 <div className="card battle-ended-card">
                                     <h2 className={isDraw ? "" : amSpectator ? "" : iWon ? "battle-result-win" : session.fleedBy === role ? "battle-result-fled" : "battle-result-loss"}>
-                                        {isDraw ? "Draw" : amSpectator ? "Battle Over" : iWon ? "Victory" : session.fleedBy === role ? "Escaped" : "?? Defeated"}
+                                        {isDraw ? "Draw" : amSpectator ? "Battle Over" : iWon ? "Victory" : session.fleedBy === role ? "Escaped" : "💥 Defeated"}
                                     </h2>
                                     <p style={{ color: "#94a3b8", fontSize: "0.9rem", margin: "0.4rem 0 0.8rem" }}>
                                         {isDraw ? "The duel ended with equal honor."
