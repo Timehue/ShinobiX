@@ -12955,11 +12955,6 @@ export default function App() {
                         character={character}
                         updateCharacter={setCharacter}
                         savedBloodlines={savedBloodlines}
-                        setSavedBloodlines={setSavedBloodlines}
-                        onSaveBloodlines={(next, char) => {
-                            if (!currentAccountName) return;
-                            void pushSaveToServer(char, currentAccountName, { savedBloodlines: next }).catch(() => {});
-                        }}
                         creatorJutsus={creatorJutsus}
                         creatorItems={creatorItems}
                         onDeleteCharacter={deleteCharacter}
@@ -29648,8 +29643,6 @@ function Profile({
     character,
     updateCharacter,
     savedBloodlines,
-    setSavedBloodlines,
-    onSaveBloodlines,
     creatorJutsus,
     creatorItems,
     onDeleteCharacter,
@@ -29657,8 +29650,6 @@ function Profile({
     character: Character;
     updateCharacter: (character: Character) => void;
     savedBloodlines: SavedBloodline[];
-    setSavedBloodlines?: React.Dispatch<React.SetStateAction<SavedBloodline[]>>;
-    onSaveBloodlines?: (bloodlines: SavedBloodline[], character: Character) => void;
     creatorJutsus: Jutsu[];
     creatorItems: GameItem[];
     onDeleteCharacter?: () => void;
@@ -29736,13 +29727,6 @@ function Profile({
             unspentStats: character.unspentStats - actualAdded,
             totalStatsTrained: (character.totalStatsTrained ?? 0) + actualAdded,
             stats: { ...character.stats, [stat]: newValue },
-        });
-    }
-
-    function equipBloodline(id: string) {
-        updateCharacter({
-            ...character,
-            equippedBloodlineId: id || undefined,
         });
     }
 
@@ -29997,46 +29981,6 @@ function Profile({
                     <ProfessionRankBar character={character} />
                 </section>
             )}
-
-            <section className="profile-build-panel">
-                <h2>Equip Bloodline</h2>
-                {(() => {
-                    const starterBl = starterSavedBloodlines.find((bl) => bl.name === (character.bloodline === "Blue Blade Eyes" ? "Ashen Eyes" : character.bloodline));
-                    return starterBl ? (
-                        <div className="summary-box" style={{ marginBottom: 8 }}>
-                            <strong>Starter Bloodline:</strong> {starterBl.name} ({starterBl.specialElement} · {starterBl.rank}) — always active
-                        </div>
-                    ) : null;
-                })()}
-                <select
-                    value={character.equippedBloodlineId || ""}
-                    onChange={(e) => equipBloodline(e.target.value)}
-                >
-                    <option value="">No Custom Bloodline Equipped</option>
-                    {savedBloodlines.map((bloodline) => (
-                        <option key={bloodline.id} value={bloodline.id}>
-                            {bloodline.name} | {bloodline.specialElement ? `${bloodline.specialElement} | ` : ""}{bloodline.rank}
-                        </option>
-                    ))}
-                </select>
-                {savedBloodlines.length > 0 && (
-                    <div style={{ marginTop: 8 }}>
-                        <p className="hint">Remove bloodlines you no longer want:</p>
-                        {savedBloodlines.map((bl) => (
-                            <div key={bl.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                                <span style={{ flex: 1 }}>{bl.name} ({bl.rank})</span>
-                                <button className="danger-button" style={{ padding: "2px 8px", fontSize: "0.8rem" }} onClick={() => {
-                                    if (!confirm(`Remove "${bl.name}" from your bloodline list?`)) return;
-                                    const next = savedBloodlines.filter((b) => b.id !== bl.id);
-                                    setSavedBloodlines?.(next);
-                                    if (character.equippedBloodlineId === bl.id) equipBloodline("");
-                                    onSaveBloodlines?.(next, character);
-                                }}>Remove</button>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </section>
 
             {onDeleteCharacter && (
                 <section className="profile-build-panel">
@@ -30738,9 +30682,14 @@ function BloodlineMaker({ initialRank, initialSpecialElement, character, updateC
         ]);
         const imageSaveFailed = imageResults.some((result) => result === false);
         const newBloodline = { id: finalId, name: bloodlineName, rank, image: bloodlineImage, specialElement: specialElement.trim(), lore: bloodlineLore.trim(), jutsus: finalizedJutsus, totalPoints: bloodlinePoints(finalizedJutsus) };
+        // When creating a NEW bloodline (not editing), discard every other
+        // user-saved bloodline — players keep at most one custom bloodline
+        // at a time, and the new one auto-equips below via
+        // replaceCharacterBloodline. Editing replaces the existing entry
+        // in place, preserving the previous id.
         const nextBloodlines = editingBloodline
             ? savedBloodlines.map((b) => b.id === finalId ? newBloodline : b)
-            : [...savedBloodlines, newBloodline];
+            : [newBloodline];
         const nextCharacter = replaceCharacterBloodline(character, newBloodline, savedBloodlines);
         setSavedBloodlines(nextBloodlines);
         updateCharacter(nextCharacter);
