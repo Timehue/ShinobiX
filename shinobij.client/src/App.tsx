@@ -6006,9 +6006,12 @@ async function publishSharedImage(id: string, img: string): Promise<boolean> {
 }
 
 // Cap animated uploads tighter than still uploads — canvas compression
-// doesn't apply, so the raw bytes hit storage. 5 MB keeps a typical small
-// animated GIF / WebP feasible without bloating KV.
-const ANIMATED_MAX_MB = 5;
+// doesn't apply, so the raw bytes hit storage as-is. The server-side
+// validator in /api/images caps the data URL at 3,000,000 chars
+// (≈ 2.15 MB raw after base64 overhead), so picking 2 MB here gives a
+// friendly client-side error before the upload, instead of a silent
+// HTTP 400 from the server.
+const ANIMATED_MAX_MB = 2;
 
 /**
  * Detect whether an upload contains animation. Canvas re-encoding flattens
