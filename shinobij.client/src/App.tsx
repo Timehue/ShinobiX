@@ -2878,7 +2878,7 @@ function villageForOutskirtsSector(sector: number): string | undefined {
 }
 export const villageLore: Record<string, { icon: string; theme: string; lore: string }> = {
     "Ashen Leaf Village": {
-        icon: "⚔",
+        icon: "🔥",
         theme: "The Traditional Path",
         lore: `Born from the remnants of a world once consumed by fire, Ashen Leaf rose where devastation met renewal.
 
@@ -2892,7 +2892,7 @@ To walk their path is to carry the weight of legacy… and the honor that comes 
     },
 
     "Stormveil Village": {
-        icon: "?",
+        icon: "⚡",
         theme: "The Chaotic Path",
         lore: `Stormveil was never meant to exist.
 
@@ -2908,7 +2908,7 @@ To join Stormveil is to abandon certainty… and become the storm.`
     },
 
     "Frostfang Village": {
-        icon: "⚔",
+        icon: "❄️",
         theme: "The Loyal Path",
         lore: `Far beyond the reach of warm lands lies Frostfang—a village carved into ice and bound by unbreakable unity.
 
@@ -2922,7 +2922,7 @@ To stand with Frostfang is to never stand alone… but to fall means you have fa
     },
 
     "Moonshadow Village": {
-        icon: "?",
+        icon: "🌙",
         theme: "The Selfish Path",
         lore: `Moonshadow exists in silence… and thrives in secrecy.
 
@@ -5503,47 +5503,47 @@ function milestone(village: string, level: number, title: string, bossName: stri
 
 const storylines: Record<string, StoryStep[]> = {
     "Stormveil Village": [
-        milestone("Stormveil Village", 4, "First Thunder", "Stormveil Training Scout", "?", [
+        milestone("Stormveil Village", 4, "First Thunder", "Stormveil Training Scout", "⚡", [
             storyPage("The Training Cliffs", "Storm clouds roll above jagged cliffs. Young shinobi spar while lightning flashes behind the village.", "Elder Vanta", ["Elder Vanta: Stormveil does not hold your hand.", "Elder Vanta: Here, the sky itself tests whether you deserve to stand.", "Elder Vanta: Your first lesson is simple: move before the thunder lands."]),
             storyPage("The New One", "Mira Volt watches from a broken stone rail, smiling like trouble found a name.", "Mira Volt", ["Mira Volt: You are the new one?", "Mira Volt: Try not to freeze. Around here, hesitation gets you buried.", "Mira Volt: The Kage says every rookie has to bleed once before being counted."]),
             storyPage("Hear the Thunder", "The training scout steps into the ring while the cliffs echo with thunder.", "Elder Vanta", ["Elder Vanta: Do not mistake chaos for stupidity.", "Elder Vanta: The storm is wild, yes, but it always knows where to strike.", "Elder Vanta: Defeat the training scout. Show me you can hear the thunder before it arrives."]),
         ], [{ text: "I'll strike first.", conclusion: "Mira grins. Stormveil respects boldness.", trait: "reckless" }, { text: "I'll watch before I move.", conclusion: "Elder Vanta nods. Even chaos has patterns.", trait: "suspicious" }, { text: "I don't need a lesson.", conclusion: "The training scout laughs and rushes you.", trait: "ambitious" }]),
-        milestone("Stormveil Village", 15, "The Riot Bell", "Tempest Guard Captain", "?", [
+        milestone("Stormveil Village", 15, "The Riot Bell", "Tempest Guard Captain", "⚡", [
             storyPage("The Riot Bell Rings", "A bronze bell screams through the village. Shinobi are fighting in the market.", "Narrator", ["Narrator: The bell is not used for invasion.", "Narrator: It is used when Stormveil begins attacking itself.", "Narrator: Tonight, it rings three times."]),
             storyPage("Planted Chaos", "Mira drags an injured duelist behind a stall as lightning cracks overhead.", "Mira Volt", ["Mira Volt: This was supposed to be a duel circle.", "Mira Volt: Then someone handed out Kage-sealed orders telling both sides the other cheated.", "Mira Volt: That is not normal chaos. That is planted chaos."]),
             storyPage("Punishment Wall", "The Tempest Guard forms a line in the market square.", "Tempest Guard Captain", ["Tempest Guard Captain: By order of Kage Raiko, all fighters are guilty.", "Tempest Guard Captain: Anyone interfering will be treated as a traitor.", "Tempest Guard Captain: Step aside, rookie, unless you want your name carved into the punishment wall."]),
         ], [{ text: "Protect the injured.", trait: "merciful" }, { text: "Challenge the Guard Captain.", trait: "reckless" }, { text: "Ask who gave the order.", trait: "suspicious" }]),
-        milestone("Stormveil Village", 25, "Orders Written in Lightning", "Lightning-Sealed Informant", "?", [
+        milestone("Stormveil Village", 25, "Orders Written in Lightning", "Lightning-Sealed Informant", "⚡", [
             storyPage("Burned Command", "You and Mira inspect a burned command scroll sealed by the Kage.", "Mira Volt", ["Mira Volt: This order is real.", "Mira Volt: The Kage's seal is not forged.", "Mira Volt: But why would he order his own guards to turn a duel into a riot?"]),
             storyPage("Old Storm", "Elder Vanta traces the scorched paper with shaking fingers.", "Elder Vanta", ["Elder Vanta: There is an old storm beneath Stormveil.", "Elder Vanta: The first exiles built the village above it because they thought no ruler could control it.", "Elder Vanta: Perhaps someone learned how."]),
             storyPage("Feed the Sky", "A voice speaks from inside the burned ink.", "Unknown Voice", ["Unknown Voice: Stormveil grows stronger when it breaks itself.", "Unknown Voice: Every argument. Every duel. Every betrayal.", "Unknown Voice: Feed the sky, and the sky will crown its master."]),
         ], [{ text: "Follow the voice into the storm tunnel.", trait: "reckless" }, { text: "Take the scroll to Elder Vanta first.", trait: "honorable" }, { text: "Hide the scroll and investigate alone.", trait: "suspicious" }]),
-        milestone("Stormveil Village", 35, "The Storm Engine", "Storm Engine Warden", "?", [
+        milestone("Stormveil Village", 35, "The Storm Engine", "Storm Engine Warden", "⚡", [
             storyPage("Ancient Engine", "Beneath the village, an ancient engine spins with blue-black lightning.", "Narrator", ["Narrator: The tunnel opens into a chamber older than Stormveil.", "Narrator: Metal rings rotate around a crystal heart.", "Narrator: Every time the village above erupts in violence, the crystal pulses."]),
             storyPage("Hunger Machine", "Elder Vanta stares at the crystal as if it is staring back.", "Elder Vanta", ["Elder Vanta: This is no defense system.", "Elder Vanta: It is a hunger machine.", "Elder Vanta: Someone has tied our people's rage to Central's old gates."]),
             storyPage("Raiko Appears", "Kage Raiko Veyr steps from the lightning, smiling.", "Kage Raiko Veyr", ["Kage Raiko Veyr: Careful, Elder.", "Kage Raiko Veyr: You speak as if chaos is a disease.", "Kage Raiko Veyr: Chaos is the only reason Stormveil was never conquered."]),
         ], [{ text: "Kage Raiko, explain this.", trait: "honorable" }, { text: "Destroy the engine now.", trait: "reckless" }, { text: "Stay silent and listen.", trait: "suspicious" }]),
-        milestone("Stormveil Village", 50, "Jonin of the Unchained Sky", "Jonin Rank Trial: Twin Tempest Duelists", "?", [
+        milestone("Stormveil Village", 50, "Jonin of the Unchained Sky", "Jonin Rank Trial: Twin Tempest Duelists", "⚡", [
             storyPage("Kage Tower Balcony", "The Kage tower balcony overlooks hundreds of shinobi.", "Kage Raiko Veyr", ["Kage Raiko Veyr: You have survived the village.", "Kage Raiko Veyr: You have challenged guards, spies, and machines.", "Kage Raiko Veyr: Stormveil does not promote obedience. It promotes impact."]),
             storyPage("Too Proud", "Mira watches the Kage from the edge of the crowd.", "Mira Volt", ["Mira Volt: He is smiling too much.", "Mira Volt: A normal Kage would be angry you found the engine.", "Mira Volt: Raiko looks proud."]),
             storyPage("Rise as Jonin", "Raiko raises one hand and the crowd falls silent.", "Kage Raiko Veyr", ["Kage Raiko Veyr: Kneel, shinobi.", "Kage Raiko Veyr: Rise as Jonin.", "Kage Raiko Veyr: And remember: the village belongs to whoever is strong enough to seize it."]),
         ], [{ text: "Accept the promotion with honor.", trait: "honorable" }, { text: "Ask about the Storm Engine publicly.", trait: "reckless" }, { text: "Accept, but watch Raiko closely.", trait: "suspicious" }]),
-        milestone("Stormveil Village", 65, "The Mission That Should Not Exist", "Tempest Execution Squad", "?", [
+        milestone("Stormveil Village", 65, "The Mission That Should Not Exist", "Tempest Execution Squad", "⚡", [
             storyPage("No Questions", "You are sent to silence a supposed rebel camp.", "Tempest Guard Captain", ["Tempest Guard Captain: Kage order.", "Tempest Guard Captain: No questions. No prisoners.", "Tempest Guard Captain: The camp is accused of plotting against Stormveil."]),
             storyPage("Not Rebels", "The camp is filled with wounded civilians and young shinobi.", "Rebel Medic", ["Rebel Medic: We are not rebels.", "Rebel Medic: We are the ones who refused to keep feeding the Storm Engine.", "Rebel Medic: Raiko sends loyal shinobi here so they become murderers without knowing."]),
             storyPage("Become Interesting", "Raiko appears on a ridge, watching.", "Kage Raiko Veyr", ["Kage Raiko Veyr: There it is.", "Kage Raiko Veyr: That beautiful moment when freedom becomes choice.", "Kage Raiko Veyr: Will you obey, or will you become interesting?"]),
         ], [{ text: "Protect the camp.", trait: "merciful" }, { text: "Demand the rebels surrender safely.", trait: "honorable" }, { text: "Pretend to obey while planning to betray Raiko.", trait: "suspicious" }]),
-        milestone("Stormveil Village", 75, "Mira's Betrayal", "Mira Volt, False Betrayer", "?", [
+        milestone("Stormveil Village", 75, "Mira's Betrayal", "Mira Volt, False Betrayer", "⚡", [
             storyPage("Night Meeting", "Mira meets you at night with Tempest Guard sigils on her cloak.", "Mira Volt", ["Mira Volt: I joined Raiko.", "Mira Volt: Before you say anything, listen.", "Mira Volt: He thinks I betrayed you. I needed him to think that."]),
             storyPage("Gate Key", "Mira reveals a cracked key humming with storm chakra.", "Mira Volt", ["Mira Volt: The Storm Engine is only one piece.", "Mira Volt: Raiko has a Hollow Gate Key.", "Mira Volt: When Stormveil hits peak chaos, he will open a path to Central and become something worse than Kage."]),
             storyPage("Betrayal Feeds", "The storm speaks through the key fragment.", "Hollow Gate Echo", ["Hollow Gate Echo: Betrayal is still chaos.", "Hollow Gate Echo: Friend against friend. Blade against promise.", "Hollow Gate Echo: Thank you for feeding us."]),
         ], [{ text: "Trust Mira.", trait: "loyal" }, { text: "Fight Mira to keep her cover believable.", trait: "reckless" }, { text: "Refuse both sides and go alone.", trait: "ambitious" }]),
-        milestone("Stormveil Village", 85, "The Kage's True Storm", "Hollow Tempest General", "?", [
+        milestone("Stormveil Village", 85, "The Kage's True Storm", "Hollow Tempest General", "⚡", [
             storyPage("Cyclone Tower", "A cyclone forms above the Kage tower.", "Elder Vanta", ["Elder Vanta: Raiko has stopped hiding.", "Elder Vanta: He is forcing every faction in Stormveil to fight at once.", "Elder Vanta: The storm is drinking us alive."]),
             storyPage("Eternal Conflict", "Raiko's voice rolls through every street with the thunder.", "Kage Raiko Veyr", ["Kage Raiko Veyr: Do you see it now?", "Kage Raiko Veyr: A village without conflict is a corpse.", "Kage Raiko Veyr: I will make Stormveil eternal by making it impossible to control."]),
             storyPage("Tyranny in Lightning", "Mira stands beside you under the cyclone.", "Mira Volt", ["Mira Volt: He does not love freedom.", "Mira Volt: He loves being the only one strong enough to survive the chaos.", "Mira Volt: That is not Stormveil. That is tyranny with lightning around it."]),
         ], [{ text: "Rally the factions together.", trait: "loyal" }, { text: "Challenge Raiko's strongest guard.", trait: "reckless" }, { text: "Destroy the storm anchors first.", trait: "suspicious" }]),
-        milestone("Stormveil Village", 100, "Break the False Thunder", "Kage Raiko Veyr, Hollow Storm Tyrant", "?", [
+        milestone("Stormveil Village", 100, "Break the False Thunder", "Kage Raiko Veyr, Hollow Storm Tyrant", "⚡", [
             storyPage("Storm Eye Throne", "The Kage tower floats inside a storm eye.", "Kage Raiko Veyr", ["Kage Raiko Veyr: You climbed all the way here.", "Kage Raiko Veyr: Good.", "Kage Raiko Veyr: Stormveil needs a final argument."]),
             storyPage("Chaos Waits", "Below, the village is silent for the first time.", "Narrator", ["Narrator: Below, the village is silent.", "Narrator: For the first time, chaos waits.", "Narrator: Every shinobi watches to see who the storm will answer."]),
             storyPage("False Thunder", "Raiko's body fractures with Hollow Gate lightning.", "Kage Raiko Veyr", ["Kage Raiko Veyr: I betrayed nothing.", "Kage Raiko Veyr: I became the truth Stormveil was too afraid to name.", "Kage Raiko Veyr: Power belongs to those who take it."]),
@@ -15208,7 +15208,7 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
                                         barrier:  { icon: "◇",  label: "Barrier",  color: "#7dd3fc" },
                                         movelock: { icon: "⛓",  label: "Rootlock", color: "#fbbf24" },
                                     };
-                                    const km = kindMeta[jutsu.kind] ?? { icon: "?", label: jutsu.kind, color: "#aaa" };
+                                    const km = kindMeta[jutsu.kind] ?? { icon: "✦", label: jutsu.kind, color: "#aaa" };
                                     return (
                                         <div key={i} className="pet-jutsu-row">
                                             <span className="pet-jutsu-kind-badge" style={{ color: km.color, borderColor: km.color }}>
@@ -18066,7 +18066,7 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerReservePet
                 <div className="pet-event-ticker">
                     {[...recentFrames].reverse().map((f, i) => (
                         <span key={`${f.message}-${i}`} className={`pet-event-chip ${f.actor} ${f.actionKind ?? ""} ${i === 0 ? "latest" : ""}`}>
-                            {f.actionKind === "dot" ? "?" : f.actionKind === "buff" ? "?" : f.actionKind === "heal" ? "✚" : f.actionKind === "move" ? "➡" : f.actionKind === "debuff" ? "⬇" : f.actionKind === "lifesteal" ? "🧛" : f.actionKind === "shield" ? "🛡" : f.actionKind === "absorb" ? "🌀" : f.actionKind === "barrier" ? "◇" : f.actionKind === "movelock" ? "⛓" : f.crit ? "?" : "?"}
+                            {f.actionKind === "dot" ? "☠" : f.actionKind === "buff" ? "⬆" : f.actionKind === "heal" ? "✚" : f.actionKind === "move" ? "➡" : f.actionKind === "debuff" ? "⬇" : f.actionKind === "lifesteal" ? "🧛" : f.actionKind === "shield" ? "🛡" : f.actionKind === "absorb" ? "🌀" : f.actionKind === "barrier" ? "◇" : f.actionKind === "movelock" ? "⛓" : f.crit ? "💥" : "⚔"}
                             {" "}{f.message.replace(/^Round \d+: /, "").slice(0, 42)}
                         </span>
                     ))}
@@ -18597,7 +18597,7 @@ function AdminPanel({
         rightImage: "",
         choices: [] as NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>,
     })));
-    const [eventIcon, setEventIcon] = useState("?");
+    const [eventIcon, setEventIcon] = useState("⭐");
     const [eventLevelReq, setEventLevelReq] = useState(1);
     const [eventXp, setEventXp] = useState(200);
     const [eventRyo, setEventRyo] = useState(100);
@@ -18624,7 +18624,7 @@ function AdminPanel({
     const [raidName, setRaidName] = useState("Shadow Boss Raid");
     const [_raidBiome, setRaidBiome] = useState<Biome>("shadow");
     const [raidTargetSector, setRaidTargetSector] = useState(8);
-    const [raidIcon, setRaidIcon] = useState("?");
+    const [raidIcon, setRaidIcon] = useState("⚔");
     const [raidLevelReq, setRaidLevelReq] = useState(20);
     const [raidAiProfileId, setRaidAiProfileId] = useState("");
     const [raidWaves, setRaidWaves] = useState(3);
@@ -18795,7 +18795,7 @@ function AdminPanel({
             let data: Record<string, unknown>;
             try { data = await res.json(); } catch { setPmMsg("❌ Save exists but response was not valid JSON."); return; }
             setPmSnap(data);
-            setPmMsg(`? Loaded: ${pmTargetName.trim()}`);
+            setPmMsg(`✅ Loaded: ${pmTargetName.trim()}`);
         } catch { setPmMsg("❌ Network error — make sure you're on the deployed site, not local dev."); }
     }
 
@@ -18827,7 +18827,7 @@ function AdminPanel({
             if (!res.ok) {
                 let detail = `HTTP ${res.status}`;
                 try { const data = await res.json() as { error?: string }; if (data.error) detail = data.error; } catch { /* response body not JSON */ }
-                setPmMsg(`? Save failed: ${detail}`);
+                setPmMsg(`❌ Save failed: ${detail}`);
                 return;
             }
             setPmMsg("✅ Saved! Player will see changes on next login.");
@@ -18874,7 +18874,7 @@ function AdminPanel({
                 genjutsuOffense: stats.genjutsuOffense ?? 0,
                 genjutsuDefense: stats.genjutsuDefense ?? 0,
             });
-            setPmEditMsg(`? Loaded ${pmEditName.trim()}`);
+            setPmEditMsg(`✅ Loaded ${pmEditName.trim()}`);
         } catch { setPmEditMsg("❌ Network error."); }
     }
 
@@ -18889,13 +18889,13 @@ function AdminPanel({
             if (!res.ok) {
                 let detail = `HTTP ${res.status}`;
                 try { const data = await res.json() as { error?: string }; if (data.error) detail = data.error; } catch { /* response body not JSON */ }
-                setPmEditMsg(`? Save failed: ${detail}`);
+                setPmEditMsg(`❌ Save failed: ${detail}`);
                 return;
             }
             setPmEditSnap(updatedSnap);
             setPmEditMsg("✅ Saved!");
             fetchAllKnownPlayers();
-        } catch (err) { setPmEditMsg(`? Save failed: ${String(err)}`); }
+        } catch (err) { setPmEditMsg(`❌ Save failed: ${String(err)}`); }
     }
 
     async function pmEditSave() {
@@ -18938,7 +18938,7 @@ function AdminPanel({
             if (!saveRes.ok) {
                 let detail = `HTTP ${saveRes.status}`;
                 try { const data = await saveRes.json() as { error?: string }; if (data.error) detail = data.error; } catch { /* response body not JSON */ }
-                setPmMsg(`? Save failed: ${detail}`);
+                setPmMsg(`❌ Save failed: ${detail}`);
                 return;
             }
             setPmSnap(null);
@@ -18959,14 +18959,14 @@ function AdminPanel({
             if (!res.ok) {
                 let errDetail = `HTTP ${res.status}`;
                 try { const d = await res.json() as { error?: string }; if (d.error) errDetail = d.error; } catch { /* no-op */ }
-                setPmMsg(`? Reset failed: ${errDetail}`);
+                setPmMsg(`❌ Reset failed: ${errDetail}`);
                 return;
             }
             setPmSnap(null);
             setPmTargetName("");
             setPmMsg("✅ Account reset. Player starts fresh on next login.");
             fetchAllKnownPlayers();
-        } catch (e) { setPmMsg(`? Reset failed: ${String(e)}`); }
+        } catch (e) { setPmMsg(`❌ Reset failed: ${String(e)}`); }
     }
 
     async function serverReset() {
@@ -19415,7 +19415,7 @@ function AdminPanel({
             name: eventName.trim() || "Admin Event",
             biome: targetBiome,
             targetSector,
-            icon: eventIcon || "?",
+            icon: eventIcon || "⭐",
             eventKind,
             trigger: eventTrigger || undefined,
             vnTitle: eventVnTitle.trim() || eventName.trim() || "Visual Novel Scene",
@@ -19605,7 +19605,7 @@ function AdminPanel({
             tileX: Math.floor(Math.random() * 144),
             tileY: Math.floor(Math.random() * 144),
             biome: biomeForWorldSector(targetSector),
-            icon: raidIcon || "?",
+            icon: raidIcon || "⚔",
             levelReq: Math.max(1, Number(raidLevelReq)),
             aiProfileId: raidAiProfileId || undefined,
             waves: Math.max(1, Math.min(10, Number(raidWaves))),
@@ -30860,7 +30860,7 @@ function JutsuTrainingHall({
     const selectedDuration = selectedMastery ? jutsuTrainingDuration(selectedMastery.level) : 0;
     const activeRemaining = activeJutsuTraining ? activeJutsuTraining.endsAt - now : 0;
 
-    return <div className="card jutsu-training-screen"><JutsuSealPanel character={character} updateCharacter={updateCharacter} selectedJutsu={selectedJutsu ?? null} selectedMastery={selectedMastery} activeJutsuTraining={activeJutsuTraining} setActiveJutsuTraining={setActiveJutsuTraining} /><h2>Jutsu Training Hall</h2><p>Train jutsu to <strong>Level 30</strong> with ryo. Levels <strong>31-50</strong> must be earned from battles. Your elements: <strong>{ownedElements.length ? ownedElements.join(" / ") : "None awakened"}</strong>. Town Hall + Aura training bonus: <strong>{jutsuTrainingBonus.toFixed(2)}%</strong>.</p>{lockedElementCount > 0 && <p className="hint">{lockedElementCount} jutsu locked until you awaken their element.</p>}{activeJutsuTraining && <div className="summary-box"><h3>Active Jutsu Training</h3><p><strong>{activeJutsuTraining.label}</strong>: Level {activeJutsuTraining.fromLevel} ? {activeJutsuTraining.toLevel}</p><p>Cost paid: {activeJutsuTraining.ryoCost} ryo</p><p>{activeRemaining > 0 ? `Time remaining: ${formatTrainingTime(activeRemaining)}` : "Training complete. Claim your level."}</p><button onClick={completePaidJutsuTraining}>{activeRemaining > 0 ? "Check Training" : "Claim Jutsu Level"}</button></div>}<h3>Paid Ryo Training</h3><div className="summary-box"><p>{selectedJutsu ? <><strong>{selectedJutsu.name}</strong> will train from level {selectedMastery?.level ?? 0} to {Math.min(JUTSU_TRAINING_CAP, (selectedMastery?.level ?? 0) + 1)}.</> : "Choose a jutsu to train."}</p><p>{selectedMastery?.level === 0 ? <><strong>Free & Instant</strong> — Level 0 → 1</> : <>Cost: <strong>{selectedCost}</strong> ryo | Time: <strong>{selectedDuration / 60000}</strong> minutes | Reward: <strong>1 full jutsu level</strong></>}</p><button onClick={startPaidJutsuTraining} disabled={!selectedJutsu || !!activeJutsuTraining || !selectedMastery || selectedMastery.level >= JUTSU_TRAINING_CAP || (selectedMastery.level > 0 && character.ryo < selectedCost)}>{activeJutsuTraining ? "Training In Progress" : selectedMastery && selectedMastery.level >= JUTSU_TRAINING_CAP ? "Battle Training Required" : selectedMastery?.level === 0 ? "Unlock Level 1 (Free)" : `Pay ${selectedCost} Ryo & Train`}</button></div><JutsuDropdownList jutsus={availableJutsus} label="Choose Jutsu" emptyText={ownedElements.length ? "No jutsu match your awakened elements." : "Awaken an element at the Awakening Stone before training elemental jutsu."} renderDetails={(jutsu) => { const mastery = getJutsuMastery(character, jutsu.id); const scaled = scaleJutsuByLevel(jutsu, mastery.level); const cost = jutsuTrainingCost(mastery.level); const duration = jutsuTrainingDuration(mastery.level); const displayJutsu = jutsuDisplayAtLevel(jutsu, mastery.level); return <><p>Level: {mastery.level}/50 | XP: {mastery.xp}/{mastery.level >= 50 ? "MAX" : jutsuXpNeeded(mastery.level)}</p><p>Type: {jutsu.type} | Element: {jutsu.element} | AP: {jutsu.ap} | Range: {jutsu.range}</p><p>Scaled EP: {scaled.scaledEffectPower} | Chakra Cost: {scaled.chakraCost}% | Stamina Cost: {scaled.staminaCost}%</p><p>Tags: {displayJutsu.tags.map((tag) => `${tag.name}${tag.percent ? ` ${tag.percent}%` : ""}`).join(", ") || "None"}</p><p><strong>Paid Training:</strong> {mastery.level === 0 ? "Free & Instant — unlocks Level 1" : mastery.level < JUTSU_TRAINING_CAP ? `${cost} ryo | ${duration / 60000} minutes | +1 full level` : "Battle only from here"}</p><p><strong>Effects:</strong> {describeJutsuEffects(jutsu, mastery.level)}</p><JutsuEffectCards jutsu={jutsu} scaledEffectPower={scaled.scaledEffectPower} masteryLevel={mastery.level} /><p>{selectedJutsuId === jutsu.id ? "Selected for paid training." : mastery.level < 30 ? "Training Hall available." : mastery.level < 50 ? "Battle only." : "Mastered."}</p></>; }} onSelectJutsu={(jutsu) => setSelectedJutsuId(jutsu.id)} /></div>;
+    return <div className="card jutsu-training-screen"><JutsuSealPanel character={character} updateCharacter={updateCharacter} selectedJutsu={selectedJutsu ?? null} selectedMastery={selectedMastery} activeJutsuTraining={activeJutsuTraining} setActiveJutsuTraining={setActiveJutsuTraining} /><h2>Jutsu Training Hall</h2><p>Train jutsu to <strong>Level 30</strong> with ryo. Levels <strong>31-50</strong> must be earned from battles. Your elements: <strong>{ownedElements.length ? ownedElements.join(" / ") : "None awakened"}</strong>. Town Hall + Aura training bonus: <strong>{jutsuTrainingBonus.toFixed(2)}%</strong>.</p>{lockedElementCount > 0 && <p className="hint">{lockedElementCount} jutsu locked until you awaken their element.</p>}{activeJutsuTraining && <div className="summary-box"><h3>Active Jutsu Training</h3><p><strong>{activeJutsuTraining.label}</strong>: Level {activeJutsuTraining.fromLevel} → {activeJutsuTraining.toLevel}</p><p>Cost paid: {activeJutsuTraining.ryoCost} ryo</p><p>{activeRemaining > 0 ? `Time remaining: ${formatTrainingTime(activeRemaining)}` : "Training complete. Claim your level."}</p><button onClick={completePaidJutsuTraining}>{activeRemaining > 0 ? "Check Training" : "Claim Jutsu Level"}</button></div>}<h3>Paid Ryo Training</h3><div className="summary-box"><p>{selectedJutsu ? <><strong>{selectedJutsu.name}</strong> will train from level {selectedMastery?.level ?? 0} to {Math.min(JUTSU_TRAINING_CAP, (selectedMastery?.level ?? 0) + 1)}.</> : "Choose a jutsu to train."}</p><p>{selectedMastery?.level === 0 ? <><strong>Free & Instant</strong> — Level 0 → 1</> : <>Cost: <strong>{selectedCost}</strong> ryo | Time: <strong>{selectedDuration / 60000}</strong> minutes | Reward: <strong>1 full jutsu level</strong></>}</p><button onClick={startPaidJutsuTraining} disabled={!selectedJutsu || !!activeJutsuTraining || !selectedMastery || selectedMastery.level >= JUTSU_TRAINING_CAP || (selectedMastery.level > 0 && character.ryo < selectedCost)}>{activeJutsuTraining ? "Training In Progress" : selectedMastery && selectedMastery.level >= JUTSU_TRAINING_CAP ? "Battle Training Required" : selectedMastery?.level === 0 ? "Unlock Level 1 (Free)" : `Pay ${selectedCost} Ryo & Train`}</button></div><JutsuDropdownList jutsus={availableJutsus} label="Choose Jutsu" emptyText={ownedElements.length ? "No jutsu match your awakened elements." : "Awaken an element at the Awakening Stone before training elemental jutsu."} renderDetails={(jutsu) => { const mastery = getJutsuMastery(character, jutsu.id); const scaled = scaleJutsuByLevel(jutsu, mastery.level); const cost = jutsuTrainingCost(mastery.level); const duration = jutsuTrainingDuration(mastery.level); const displayJutsu = jutsuDisplayAtLevel(jutsu, mastery.level); return <><p>Level: {mastery.level}/50 | XP: {mastery.xp}/{mastery.level >= 50 ? "MAX" : jutsuXpNeeded(mastery.level)}</p><p>Type: {jutsu.type} | Element: {jutsu.element} | AP: {jutsu.ap} | Range: {jutsu.range}</p><p>Scaled EP: {scaled.scaledEffectPower} | Chakra Cost: {scaled.chakraCost}% | Stamina Cost: {scaled.staminaCost}%</p><p>Tags: {displayJutsu.tags.map((tag) => `${tag.name}${tag.percent ? ` ${tag.percent}%` : ""}`).join(", ") || "None"}</p><p><strong>Paid Training:</strong> {mastery.level === 0 ? "Free & Instant — unlocks Level 1" : mastery.level < JUTSU_TRAINING_CAP ? `${cost} ryo | ${duration / 60000} minutes | +1 full level` : "Battle only from here"}</p><p><strong>Effects:</strong> {describeJutsuEffects(jutsu, mastery.level)}</p><JutsuEffectCards jutsu={jutsu} scaledEffectPower={scaled.scaledEffectPower} masteryLevel={mastery.level} /><p>{selectedJutsuId === jutsu.id ? "Selected for paid training." : mastery.level < 30 ? "Training Hall available." : mastery.level < 50 ? "Battle only." : "Mastered."}</p></>; }} onSelectJutsu={(jutsu) => setSelectedJutsuId(jutsu.id)} /></div>;
 }
 
 function CardVisual({ image, icon, label }: { image?: string; icon?: string; label: string }) {
@@ -31740,7 +31740,7 @@ function Profile({
     function purchaseTitle() {
         const trimmed = titleInput.trim().slice(0, 15);
         if (!trimmed) return alert("Enter a title first.");
-        if ((character.fateShards ?? 0) < TITLE_COST) return alert(`You need ${TITLE_COST} ? Fate Shards.`);
+        if ((character.fateShards ?? 0) < TITLE_COST) return alert(`You need ${TITLE_COST} 🔮 Fate Shards.`);
         updateCharacter({ ...character, customTitle: trimmed, fateShards: character.fateShards - TITLE_COST });
     }
 
@@ -35685,7 +35685,7 @@ function Arena({
     setLogRef.current       = setLog;
     autoEndTurnRef.current  = () => {
         if (!battleStarted || battleEnded || activeActor !== "player") return;
-        addCombatLog(`? ${character.name}'s turn timed out! Turn passes to ${opponentName}.`, "timeout", character.name);
+        addCombatLog(`⏱ ${character.name}'s turn timed out! Turn passes to ${opponentName}.`, "timeout", character.name);
         waitTurn();
     };
     enemyTurnRef.current    = enemyTurn;
@@ -36425,7 +36425,7 @@ function Arena({
                                     {combatEquippedItems.map((item) => {
                                         const slot = normalizeEquipmentSlot(item.slot);
                                         const isWeapon = slot === "hand" || slot === "thrown";
-                                        const icon = slot === "thrown" ? "?" : slot === "hand" ? "?" : "?";
+                                        const icon = slot === "thrown" ? "🎯" : slot === "hand" ? "⚔" : "💼";
                                         const itemAp = item.apCost ?? (slot === "thrown" ? 45 : slot === "hand" ? 40 : 35);
                                         const weaponDisplayRange = item.weaponRange ?? (slot === "thrown" ? 4 : 1);
                                         const actionText = isWeapon
