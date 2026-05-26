@@ -84,5 +84,5 @@ export function cors(
     // If origin is set but not allowed, or method is unsafe without Origin:
     // no ACAO header is emitted. Browser blocks the request.
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-password, x-player-password, x-player-name, x-kv-token');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-password, x-player-password, x-player-name, x-kv-token, x-client-fp');
 }
