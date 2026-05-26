@@ -24097,19 +24097,23 @@ function recordVillageWarPvp(winner: Character, loser: Character, sector?: numbe
     if (!war) return "";
     let damage = villageWarRoleValue(winner) + villageWarLossPenalty(loser);
     // Home-defender bonus: when the WINNER is fighting in a sector
-    // owned by their own village, scale damage 1.5×. Rewards defenders
-    // for repelling raiders on home turf and offsets the inherent
-    // attacker-advantage of getting to pick when to strike.
+    // owned by their own village, scale war-credit damage 1.15×.
+    // Notes: this ONLY affects the war HP ledger, not the actual PvP
+    // combat — defenders and attackers fight identically. The bonus
+    // gives organized defense a real-but-not-crushing edge (1-3 extra
+    // war HP per regular fight, ~12 extra on a Kage v Kage). At +50%
+    // this was big enough to swing wars on its own; +15% is a
+    // noticeable advantage without being decisive.
     let homeBonus = false;
     if (sector !== undefined) {
         const territory = sharedTerritoryCache[sector];
         if (territory?.ownerVillage === winner.village) {
-            damage = Math.floor(damage * 1.5);
+            damage = Math.floor(damage * 1.15);
             homeBonus = true;
         }
     }
     const updated = applyVillageWarDamage(war, loser.village, damage);
-    const tag = homeBonus ? " [Home Defender +50%]" : "";
+    const tag = homeBonus ? " [Home Defender +15%]" : "";
     return ` Village War: ${loser.village} HP -${damage}${tag} (${updated.hp[loser.village]}/${VILLAGE_WAR_HP_MAX}).`;
 }
 
@@ -37023,22 +37027,22 @@ function VillageWarScreen({
                         <div style={{ marginTop: "1rem", padding: "0.8rem", background: "#0a0a1a", borderRadius: 8 }}>
                             <h3 style={{ marginTop: 0 }}>Declare War (Kage)</h3>
                             <p style={{ fontSize: "0.8rem", color: "#fbbf24", marginTop: 0, marginBottom: "0.5rem" }}>
-                                Cost: <strong>50,000 ryo</strong> · Rematch cooldown: 7 days · One war per village at a time
+                                Cost: <strong>500 Honor Seals</strong> · Rematch cooldown: 7 days · One war per village at a time
                             </p>
                             <select value={declareTarget} onChange={e => setDeclareTarget(e.target.value)} style={{ padding: "0.4rem", marginRight: "0.5rem" }}>
                                 <option value="">Select target village…</option>
                                 {villages.map(v => <option key={v} value={v}>{v}</option>)}
                             </select>
                             <button
-                                disabled={!declareTarget || declaring || (character.ryo ?? 0) < 50_000}
+                                disabled={!declareTarget || declaring || (character.honorSeals ?? 0) < 500}
                                 onClick={() => {
-                                    if (!window.confirm(`Declare war on ${declareTarget}? This will cost 50,000 ryo from your treasury.`)) return;
+                                    if (!window.confirm(`Declare war on ${declareTarget}? This will cost 500 Honor Seals from your treasury.`)) return;
                                     void declareWar();
                                 }}
                                 style={{ padding: "0.5rem 1rem", background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171" }}
-                                title={(character.ryo ?? 0) < 50_000 ? "Need 50,000 ryo" : undefined}
+                                title={(character.honorSeals ?? 0) < 500 ? "Need 500 Honor Seals" : undefined}
                             >
-                                {declaring ? "Declaring…" : (character.ryo ?? 0) < 50_000 ? `⚔ Declare War (need 50k ryo — have ${(character.ryo ?? 0).toLocaleString()})` : "⚔ Declare War — 50k ryo"}
+                                {declaring ? "Declaring…" : (character.honorSeals ?? 0) < 500 ? `⚔ Declare War (need 500 Seals — have ${(character.honorSeals ?? 0)})` : "⚔ Declare War — 500 Honor Seals"}
                             </button>
                         </div>
                     ) : (
