@@ -25558,6 +25558,20 @@ function ShinobiTiles({ character, updateCharacter, creatorCards, dungeonMode = 
 }
 
 
+// Compact village pill — village panorama thumbnail + name on a dark capsule.
+// Reused in the Shinobi Council Hall (replaces the plain text village names
+// on war cards). The image comes from villagePageImage so each village ships
+// with its own visual identity automatically.
+function VillagePill({ village, highlight = false }: { village: string; highlight?: boolean }) {
+    if (!village) return null;
+    return (
+        <span className={`village-pill${highlight ? " village-pill-mine" : ""}`}>
+            <img className="village-pill-thumb" src={villagePageImage(village)} alt="" aria-hidden="true" />
+            <span className="village-pill-name">{village}</span>
+        </span>
+    );
+}
+
 // -- Shinobi Council Hall -----------------------------------------------------
 function ShinobiCouncilHall({ character, setScreen, playerRoster }: { character: Character; setScreen: (s: Screen) => void; playerRoster: PlayerRecord[] }) {
     const [tab, setTab] = useState<"wars" | "kage">("wars");
@@ -25684,14 +25698,14 @@ function ShinobiCouncilHall({ character, setScreen, playerRoster }: { character:
                             <div key={war.id} className="council-war-card">
                                 <div className="council-vs-row">
                                     <div className={`council-side ${character.village === vA ? "council-mine" : ""}`}>
-                                        <span className="council-village-name">{vA}</span>
+                                        <VillagePill village={vA} highlight={character.village === vA} />
                                         <span className="council-hp-label">{hpA.toLocaleString()} / {VILLAGE_WAR_HP_MAX.toLocaleString()} HP</span>
                                         <HpBar current={hpA} max={VILLAGE_WAR_HP_MAX} color="#22c55e" />
                                         <span className="council-top">🏆 {topA}</span>
                                     </div>
                                     <div className="council-vs">VS</div>
                                     <div className={`council-side council-side-right ${character.village === vB ? "council-mine" : ""}`}>
-                                        <span className="council-village-name">{vB}</span>
+                                        <VillagePill village={vB} highlight={character.village === vB} />
                                         <span className="council-hp-label">{hpB.toLocaleString()} / {VILLAGE_WAR_HP_MAX.toLocaleString()} HP</span>
                                         <HpBar current={hpB} max={VILLAGE_WAR_HP_MAX} color="#ef4444" />
                                         <span className="council-top">🏆 {topB}</span>
@@ -25754,7 +25768,7 @@ function ShinobiCouncilHall({ character, setScreen, playerRoster }: { character:
                                 <div className="council-kage-seal">👑</div>
                                 <div className="council-kage-info">
                                     <span className="council-kage-name">{entry.name}</span>
-                                    <span className="council-kage-village">{entry.village}</span>
+                                    <VillagePill village={entry.village} highlight={entry.village === character.village} />
                                 </div>
                                 <div className="council-kage-tenure">
                                     {isActive
