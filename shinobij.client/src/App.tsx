@@ -14666,6 +14666,21 @@ type PetArenaFrame = {
     isKO?: boolean;
     playerStatus?: { poisoned?: number; atkBuff?: boolean; defBuff?: boolean; shield?: number; moveLocked?: boolean; absorbing?: boolean };
     enemyStatus?: { poisoned?: number; atkBuff?: boolean; defBuff?: boolean; shield?: number; moveLocked?: boolean; absorbing?: boolean };
+    // ── 4-pet simultaneous fields (Pokémon-doubles style 2v2) ────────
+    // When present, the renderer shows 4 pet cards instead of 2, and
+    // places all 4 pets on the grid. The 1v1 fields above stay populated
+    // (with the most recently-acting pet of each side) so the existing
+    // status/trail logic keeps working.
+    party4v4?: {
+        playerLead:    { hp: number; maxHp: number; pos: number; name: string; rarity?: PetRarity; element?: JutsuElement; ko: boolean; status: { poisoned?: number; burn?: number; freeze?: number; confuse?: number; stun?: number; shield?: number; absorbing?: boolean } };
+        playerReserve: { hp: number; maxHp: number; pos: number; name: string; rarity?: PetRarity; element?: JutsuElement; ko: boolean; status: { poisoned?: number; burn?: number; freeze?: number; confuse?: number; stun?: number; shield?: number; absorbing?: boolean } };
+        enemyLead:     { hp: number; maxHp: number; pos: number; name: string; rarity?: PetRarity; element?: JutsuElement; ko: boolean; status: { poisoned?: number; burn?: number; freeze?: number; confuse?: number; stun?: number; shield?: number; absorbing?: boolean } };
+        enemyReserve:  { hp: number; maxHp: number; pos: number; name: string; rarity?: PetRarity; element?: JutsuElement; ko: boolean; status: { poisoned?: number; burn?: number; freeze?: number; confuse?: number; stun?: number; shield?: number; absorbing?: boolean } };
+        // Identifies which of the 4 slots just acted, for the actor halo.
+        actorSlot?: "playerLead" | "playerReserve" | "enemyLead" | "enemyReserve";
+        // Identifies which slot was the target, for the target glow.
+        targetSlot?: "playerLead" | "playerReserve" | "enemyLead" | "enemyReserve";
+    };
 };
 
 const PET_GRID_COLS  = 14;
@@ -15608,15 +15623,18 @@ function pickBestPartyOrder(
     return best?.pair ?? null;
 }
 
-// ── 2v2 Party Battle ──────────────────────────────────────────────────────
-// Sequential model: each pair (player lead vs opponent lead, then player
-// reserve vs opponent reserve) plays a full 1v1 battle using the existing
-// engine. Team that wins more individual matches takes the set. Tied 1-1
-// is broken by total surviving-HP %; equal totals → draw.
-//
-// Empty reserve slots are handled gracefully — if a player only brings one
-// pet, their second match auto-forfeits (the opponent's reserve wins by
-// default). This keeps the API simple and 2v2 strictly opt-in.
+// ── 2v2 Party Battle (simultaneous, Pokémon-doubles style) ────────────────
+// All 4 pets on the 14×7 grid at once:
+//   Player team in column 1 (rows 2 and 4 — tiles 29 and 57)
+//   Enemy team in column 12 (rows 2 and 4 — tiles 40 and 68)
+// Each round all living pets act in initiative order (speed desc).
+// Targeting: damage/status jutsus auto-target the highest-priority opposing
+// pet (lowest-HP-first, with element-matchup + trait-counter awareness from
+// scorePetMatchup). Heal/buff jutsus target the lowest-HP ally (which can
+// be self). Pets can NEVER target a teammate with a damaging jutsu — the
+// target picker only ever returns an opposing-team pet for damage/status
+// kinds, and heals always go to allies.
+// Win when one team has 0 living pets. 30-round cap → HP% tiebreak.
 export type PetPartyBattleMatch = {
     playerPet: Pet | null;
     opponentPet: Pet | null;
@@ -15637,6 +15655,17 @@ export type PetPartyBattleResult = {
     summaryLogs: string[];
 };
 
+// Slot identifier — one of 4 pet positions in a 2v2 simultaneous battle.
+type PartySlot = "playerLead" | "playerReserve" | "enemyLead" | "enemyReserve";
+const ALL_SLOTS: PartySlot[] = ["playerLead", "playerReserve", "enemyLead", "enemyReserve"];
+function isPlayerSlot(s: PartySlot): boolean { return s === "playerLead" || s === "playerReserve"; }
+function partnerSlot(s: PartySlot): PartySlot {
+    if (s === "playerLead")    return "playerReserve";
+    if (s === "playerReserve") return "playerLead";
+    if (s === "enemyLead")     return "enemyReserve";
+    return "enemyLead";
+}
+
 function runPetArenaParty(
     playerParty: [Pet | null, Pet | null],
     opponentParty: [Pet | null, Pet | null],
@@ -15644,91 +15673,529 @@ function runPetArenaParty(
     seed = Date.now(),
     playerDamageMult = 1,
 ): PetPartyBattleResult {
-    const matches: PetPartyBattleMatch[] = [];
     const summaryLogs: string[] = [];
+    const logs: string[] = [];
+    const frames: PetArenaFrame[] = [];
 
-    let playerWins = 0;
-    let opponentWins = 0;
-    let draws = 0;
+    // Forfeit short-circuit: a party battle needs at least one pet on each
+    // side. The picker upstream guarantees at least the lead is filled
+    // when both sides chose to engage, so the only true "forfeit" is when
+    // one side has zero pets at all. Otherwise empty slots just mean
+    // fewer fighters on the field.
+    const livePlayer = playerParty.filter(Boolean) as Pet[];
+    const liveEnemy  = opponentParty.filter(Boolean) as Pet[];
+    if (livePlayer.length === 0 && liveEnemy.length === 0) {
+        return { result: "draw", matches: [{ playerPet: null, opponentPet: null, result: "draw", playerHpRemaining: 0, enemyHpRemaining: 0, logs: ["Both sides forfeited."], frames: [], obstacles: [] }], playerWins: 0, opponentWins: 0, draws: 1, summaryLogs: ["Both sides forfeited."] };
+    }
+    if (livePlayer.length === 0) return { result: "loss", matches: [{ playerPet: null, opponentPet: liveEnemy[0] ?? null, result: "forfeit-player", playerHpRemaining: 0, enemyHpRemaining: liveEnemy[0]?.hp ?? 0, logs: ["You fielded no pets — auto-loss."], frames: [], obstacles: [] }], playerWins: 0, opponentWins: liveEnemy.length, draws: 0, summaryLogs: ["You fielded no pets — auto-loss."] };
+    if (liveEnemy.length === 0) return { result: "win", matches: livePlayer.map(p => ({ playerPet: p, opponentPet: null, result: "forfeit-opponent" as const, playerHpRemaining: p.hp, enemyHpRemaining: 0, logs: [`${p.name} wins by forfeit.`], frames: [], obstacles: [] })), playerWins: liveEnemy.length === 0 ? livePlayer.length : 0, opponentWins: 0, draws: 0, summaryLogs: ["Opponent fielded no pets — auto-win."] };
 
+    // ── Init RNG, obstacles, fighters ─────────────────────────────
+    const rng = seededPetBattleRandom(seed);
+    const obstacleLayout = PET_OBSTACLE_LAYOUTS[Math.floor(rng() * PET_OBSTACLE_LAYOUTS.length)];
+    const obstacles = new Set<number>(obstacleLayout);
+
+    // Starting positions on the 14×7 grid:
+    //   playerLead    = col 1, row 2 = 29
+    //   playerReserve = col 1, row 4 = 57
+    //   enemyLead     = col 12, row 2 = 40
+    //   enemyReserve  = col 12, row 4 = 68
+    function makeFighter(pet: Pet, owner: string, pos: number): PetBattleFighter {
+        return { owner, pet, hp: pet.hp, pos, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: 0, moveLocked: 0, absorbRounds: 0, absorbPercent: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0 };
+    }
+    const fighters: Partial<Record<PartySlot, PetBattleFighter>> = {};
+    if (playerParty[0])   fighters.playerLead    = makeFighter(playerParty[0],   "You",        29);
+    if (playerParty[1])   fighters.playerReserve = makeFighter(playerParty[1],   "You",        57);
+    if (opponentParty[0]) fighters.enemyLead     = makeFighter(opponentParty[0], opponentOwner, 40);
+    if (opponentParty[1]) fighters.enemyReserve  = makeFighter(opponentParty[1], opponentOwner, 68);
+
+    function isAlive(slot: PartySlot): boolean {
+        const f = fighters[slot];
+        return !!f && f.hp > 0;
+    }
+    function livingOpposing(actorSlot: PartySlot): PartySlot[] {
+        return ALL_SLOTS.filter(s => isAlive(s) && isPlayerSlot(s) !== isPlayerSlot(actorSlot));
+    }
+    function livingAllies(actorSlot: PartySlot): PartySlot[] {
+        return ALL_SLOTS.filter(s => isAlive(s) && isPlayerSlot(s) === isPlayerSlot(actorSlot));
+    }
+    function statusObj(f: PetBattleFighter | undefined) {
+        if (!f) return { poisoned: undefined, burn: undefined, freeze: undefined, confuse: undefined, stun: undefined, shield: undefined, absorbing: undefined };
+        return {
+            poisoned: f.dotRounds > 0 ? f.dotRounds : undefined,
+            burn:     f.burnRounds > 0 ? f.burnRounds : undefined,
+            freeze:   f.freezeRounds > 0 ? f.freezeRounds : undefined,
+            confuse:  f.confuseRounds > 0 ? f.confuseRounds : undefined,
+            stun:     f.stunRounds > 0 ? f.stunRounds : undefined,
+            shield:   f.shieldHp > 0 ? f.shieldHp : undefined,
+            absorbing: f.absorbRounds > 0 || undefined,
+        };
+    }
+    function slotSnapshot(slot: PartySlot) {
+        const f = fighters[slot];
+        if (!f) return { hp: 0, maxHp: 1, pos: 0, name: "", ko: true, status: statusObj(undefined) };
+        return {
+            hp: f.hp,
+            maxHp: f.pet.hp,
+            pos: f.pos,
+            name: f.pet.name,
+            rarity: f.pet.rarity,
+            element: f.pet.element,
+            ko: f.hp <= 0,
+            status: statusObj(f),
+        };
+    }
+    function pushPartyFrame(round: number, message: string, actorSlot: PartySlot | "system", actionKind: PetArenaFrame["actionKind"], damage?: number, crit?: boolean, traitFlash?: PetArenaFrame["traitFlash"], combo?: number, isKO?: boolean, targetSlot?: PartySlot) {
+        // Pick 1v1-style player/enemy "primary" pet for legacy fields:
+        // most recently-acting on each side, else lead, else reserve.
+        const primPlayer  = fighters.playerLead  ?? fighters.playerReserve;
+        const primEnemy   = fighters.enemyLead   ?? fighters.enemyReserve;
+        frames.push({
+            round, message,
+            playerHp: primPlayer?.hp ?? 0,
+            enemyHp:  primEnemy?.hp  ?? 0,
+            playerPos: primPlayer?.pos ?? 0,
+            enemyPos:  primEnemy?.pos  ?? 0,
+            actor: actorSlot === "system" ? "system" : (isPlayerSlot(actorSlot) ? "player" : "enemy"),
+            actionKind, damage, crit, traitFlash, combo,
+            isPrefight: false, isKO,
+            playerStatus: statusObj(primPlayer),
+            enemyStatus:  statusObj(primEnemy),
+            party4v4: {
+                playerLead:    slotSnapshot("playerLead"),
+                playerReserve: slotSnapshot("playerReserve"),
+                enemyLead:     slotSnapshot("enemyLead"),
+                enemyReserve:  slotSnapshot("enemyReserve"),
+                actorSlot: actorSlot === "system" ? undefined : actorSlot,
+                targetSlot,
+            },
+        });
+    }
+
+    // Pre-fight face-off frame.
+    logs.push("2v2 party battle begins — all 4 pets on the field!");
+    pushPartyFrame(0, "2v2 — FIGHT!", "system", undefined);
+
+    // ── Target selection ──────────────────────────────────────────
+    // For damage / status: prefer lowest-HP opposing pet, weighted by
+    // matchup score (super-effective + good trait counter raises priority).
+    // For heal / buff / barrier / shield / absorb: target lowest-HP ally
+    // (can be self).
+    function pickTargetSlot(actorSlot: PartySlot, jutsuKind: PetJutsu["kind"] | "basic"): PartySlot | null {
+        const self = fighters[actorSlot]!;
+        const allyKinds = new Set<string>(["heal", "buff", "barrier", "shield", "absorb"]);
+        if (allyKinds.has(jutsuKind)) {
+            // Heal/defensive targets an ally — the lowest-HP ally (incl. self).
+            const allies = livingAllies(actorSlot);
+            if (allies.length === 0) return null;
+            return allies.sort((a, b) => {
+                const fa = fighters[a]!, fb = fighters[b]!;
+                return (fa.hp / fa.pet.hp) - (fb.hp / fb.pet.hp);
+            })[0];
+        }
+        // Damage / status / debuff target opposing team.
+        const opps = livingOpposing(actorSlot);
+        if (opps.length === 0) return null;
+        // Score each opponent: lower HP% is more finishable; matchup score
+        // rewards super-effective + bad trait counters; trait Aggressive
+        // prefers the most threatening, Lucky prefers the weakest.
+        return opps.sort((a, b) => {
+            const fa = fighters[a]!, fb = fighters[b]!;
+            const hpA = fa.hp / fa.pet.hp;
+            const hpB = fb.hp / fb.pet.hp;
+            const mA = scorePetMatchup(self.pet, fa.pet);
+            const mB = scorePetMatchup(self.pet, fb.pet);
+            // Lower HP * higher matchup = best priority. Combine with
+            // inverse-HP weighting (finishability heuristic).
+            const scoreA = (mA) / Math.max(0.1, hpA);
+            const scoreB = (mB) / Math.max(0.1, hpB);
+            return scoreB - scoreA; // higher score first
+        })[0];
+    }
+
+    // ── tick + status helpers (cloned from 1v1 engine) ────────────
+    function tick(f: PetBattleFighter): PetBattleFighter {
+        return {
+            ...f,
+            attackBuff:   f.attackBuff  > 0 ? Math.max(0, f.attackBuff  - 1) : Math.min(0, f.attackBuff  + 1),
+            defenseBuff:  f.defenseBuff > 0 ? Math.max(0, f.defenseBuff - 1) : Math.min(0, f.defenseBuff + 1),
+            cooldowns:    Object.fromEntries(Object.entries(f.cooldowns).map(([n, v]) => [n, Math.max(0, v - 1)])),
+            moveLocked:   Math.max(0, f.moveLocked   - 1),
+            absorbRounds: Math.max(0, f.absorbRounds - 1),
+            burnRounds:   Math.max(0, f.burnRounds   - 1),
+            freezeRounds: Math.max(0, f.freezeRounds - 1),
+            confuseRounds: Math.max(0, f.confuseRounds - 1),
+            stunRounds:   Math.max(0, f.stunRounds   - 1),
+        };
+    }
+    function applyStatusToFighter(target: PetBattleFighter, status: "burn" | "freeze" | "confuse" | "stun", rounds: number, burnDmgIfBurn = 0): PetBattleFighter {
+        const trait = target.pet.trait;
+        if (status === "stun"    && trait === "Aggressive") rounds = Math.max(0, rounds - 1);
+        if (status === "freeze"  && trait === "Swift") return target;
+        if (status === "confuse" && trait === "Lucky") return target;
+        if (rounds <= 0) return target;
+        switch (status) {
+            case "burn":    return { ...target, burnRounds: Math.max(target.burnRounds, rounds), burnDamage: Math.max(target.burnDamage, burnDmgIfBurn), attackBuff: Math.min(target.attackBuff, -2) };
+            case "freeze":  return { ...target, freezeRounds: Math.max(target.freezeRounds, rounds) };
+            case "confuse": return { ...target, confuseRounds: Math.max(target.confuseRounds, rounds) };
+            case "stun":    return { ...target, stunRounds: Math.max(target.stunRounds, rounds) };
+        }
+    }
+
+    // ── Per-actor turn (4v4 act) ──────────────────────────────────
+    function act(actorSlot: PartySlot, round: number) {
+        const actor = fighters[actorSlot]!;
+        const actorIsPlayer = isPlayerSlot(actorSlot);
+
+        // Pre-action status checks (stun / freeze / confuse).
+        if (actor.stunRounds > 0) {
+            const msg = `Round ${round}: ${actor.pet.name} is stunned — turn skipped.`;
+            logs.push(msg);
+            pushPartyFrame(round, msg, actorSlot, "movelock");
+            return;
+        }
+        if (actor.freezeRounds > 0 && rng() < 0.5) {
+            const msg = `Round ${round}: ${actor.pet.name} is frozen solid — turn skipped.`;
+            logs.push(msg);
+            pushPartyFrame(round, msg, actorSlot, "movelock");
+            return;
+        }
+        if (actor.confuseRounds > 0 && rng() < 0.5) {
+            const selfHit = Math.max(1, Math.floor(actor.pet.attack * 0.4));
+            fighters[actorSlot] = { ...actor, hp: Math.max(0, actor.hp - selfHit) };
+            const msg = `Round ${round}: ${actor.pet.name} is confused and hits itself for ${selfHit}!`;
+            logs.push(msg);
+            pushPartyFrame(round, msg, actorSlot, "damage", selfHit, false, undefined, undefined, fighters[actorSlot]!.hp <= 0);
+            return;
+        }
+
+        // Pick a provisional target — used to filter "in range" jutsus.
+        // We pick a damage-target first (for the AI selection's purposes),
+        // then re-pick if the chosen jutsu is heal/buff (ally-targeted).
+        const damageTargetSlot = pickTargetSlot(actorSlot, "damage");
+        if (!damageTargetSlot) return; // no opposing pets left — shouldn't happen, loop checks first
+        const damageTarget = fighters[damageTargetSlot]!;
+        const dist = tileDistance(actor.pos, damageTarget.pos);
+
+        const chosen = choosePetActionSmart(actor, damageTarget, round, dist);
+        if (!chosen) {
+            // Movement fallback: advance toward damage target.
+            if (actor.moveLocked === 0) {
+                let newPos = actor.pos;
+                for (let s = 0; s < (actor.pet.moveRange ?? 2); s++) {
+                    const next = bfsNextStep(newPos, damageTarget.pos, obstacles);
+                    if (next === newPos || next === damageTarget.pos) break;
+                    newPos = next;
+                }
+                fighters[actorSlot] = { ...actor, pos: newPos };
+                const msg = `Round ${round}: ${actor.pet.name} advances toward ${damageTarget.pet.name}.`;
+                logs.push(msg);
+                pushPartyFrame(round, msg, actorSlot, "move", undefined, undefined, undefined, undefined, undefined, damageTargetSlot);
+            }
+            return;
+        }
+        if (chosen === "basic") {
+            const dmgRaw = actor.pet.attack + actor.attackBuff - (damageTarget.pet.defense + damageTarget.defenseBuff) * 0.45;
+            const tamerMult = actorIsPlayer ? playerDamageMult : 1;
+            const elementMult = petElementMultiplier(actor.pet, damageTarget.pet);
+            const dmg = Math.max(1, Math.floor(dmgRaw * tamerMult * elementMult));
+            fighters[damageTargetSlot] = { ...damageTarget, hp: Math.max(0, damageTarget.hp - dmg) };
+            const elementNote = elementMult > 1 ? " 🔆 Super effective!" : elementMult < 1 ? " ⛔ Resisted." : "";
+            const msg = `Round ${round}: ${actor.pet.name} basic-attacks ${damageTarget.pet.name} for ${dmg} damage.${elementNote}`;
+            logs.push(msg);
+            pushPartyFrame(round, msg, actorSlot, "basic", dmg, false, undefined, undefined, fighters[damageTargetSlot]!.hp <= 0, damageTargetSlot);
+            return;
+        }
+
+        // Resolve actual target slot based on jutsu kind.
+        const allyKinds = new Set<PetJutsu["kind"]>(["heal", "buff", "barrier", "shield", "absorb"]);
+        const targetSlot = allyKinds.has(chosen.kind) ? pickTargetSlot(actorSlot, chosen.kind) : damageTargetSlot;
+        if (!targetSlot) return;
+        const target = fighters[targetSlot]!;
+        const targetIsAlly = isPlayerSlot(targetSlot) === actorIsPlayer;
+        const cdActor = { ...actor, cooldowns: { ...actor.cooldowns, [chosen.name]: Math.max(1, chosen.cooldown) } };
+        fighters[actorSlot] = cdActor;
+
+        // Helper for damage application — mirrors the 1v1 engine path.
+        function applyDmg(rawDmg: number, jutsuName: string, kind: "damage" | "basic") {
+            const luckyDodgeRoll = target.pet.trait === "Lucky" && rng() < 0.10;
+            if (luckyDodgeRoll) {
+                const msg = `Round ${round}: ${target.pet.name}'s Lucky instinct dodges ${actor.pet.name}'s ${jutsuName}!`;
+                logs.push(msg);
+                pushPartyFrame(round, msg, targetSlot!, kind, undefined, undefined, { actor: isPlayerSlot(targetSlot!) ? "player" : "enemy", trait: "Lucky" }, undefined, undefined, targetSlot!);
+                return;
+            }
+            const critChance = actor.pet.trait === "Aggressive" ? 0.30 : 0.15;
+            const crit = rng() < critChance;
+            const dmgBonus = actor.pet.trait === "Battleborn" ? 1.10 : 1.0;
+            const guardianBlock = target.pet.trait === "Guardian" ? 0.85 : 1.0;
+            const absorbMult = target.absorbRounds > 0 ? (1 - target.absorbPercent) : 1;
+            const tamerMult = actorIsPlayer ? playerDamageMult : 1;
+            const elementMult = petElementMultiplier(actor.pet, target.pet);
+            const damage = Math.max(1, Math.floor(rawDmg * (crit ? 1.5 : 1) * dmgBonus * guardianBlock * absorbMult * tamerMult * elementMult));
+            const shieldAbsorb = Math.min(target.shieldHp, damage);
+            const remainDamage = damage - shieldAbsorb;
+            fighters[targetSlot!] = { ...target, hp: Math.max(0, target.hp - remainDamage), shieldHp: target.shieldHp - shieldAbsorb };
+            const elementNote = elementMult > 1 ? " 🔆 Super effective!" : elementMult < 1 ? " ⛔ Resisted." : "";
+            const msg = `Round ${round}: ${actor.pet.name} uses ${jutsuName} on ${target.pet.name} for ${damage} damage${crit ? " — CRITICAL HIT!" : ""}.${elementNote}`;
+            logs.push(msg);
+            const traitFlash: PetArenaFrame["traitFlash"] =
+                (crit && actor.pet.trait === "Aggressive") ? { actor: actorIsPlayer ? "player" : "enemy", trait: "Aggressive" } :
+                (guardianBlock < 1)                        ? { actor: isPlayerSlot(targetSlot!) ? "player" : "enemy", trait: "Guardian"   } :
+                (dmgBonus > 1 && actor.pet.trait === "Battleborn") ? { actor: actorIsPlayer ? "player" : "enemy", trait: "Battleborn" } :
+                undefined;
+            pushPartyFrame(round, msg, actorSlot, kind, damage, crit, traitFlash, undefined, fighters[targetSlot!]!.hp <= 0, targetSlot!);
+        }
+
+        switch (chosen.kind) {
+            case "heal": {
+                if (!targetIsAlly) return;
+                const healed = Math.min(target.pet.hp, target.hp + chosen.power);
+                fighters[targetSlot] = { ...target, hp: healed };
+                const msg = targetSlot === actorSlot
+                    ? `Round ${round}: ${actor.pet.name} heals itself for ${healed - target.hp} HP.`
+                    : `Round ${round}: ${actor.pet.name} heals ally ${target.pet.name} for ${healed - target.hp} HP.`;
+                logs.push(msg);
+                pushPartyFrame(round, msg, actorSlot, "heal", healed - target.hp, false, undefined, undefined, undefined, targetSlot);
+                return;
+            }
+            case "buff": {
+                fighters[actorSlot] = { ...cdActor, attackBuff: cdActor.attackBuff + chosen.power, defenseBuff: cdActor.defenseBuff + Math.floor(chosen.power / 2) };
+                const msg = `Round ${round}: ${actor.pet.name} buffs itself (+${chosen.power} ATK, +${Math.floor(chosen.power / 2)} DEF).`;
+                logs.push(msg);
+                pushPartyFrame(round, msg, actorSlot, "buff");
+                return;
+            }
+            case "barrier": {
+                fighters[actorSlot] = { ...cdActor, shieldHp: cdActor.shieldHp + chosen.power };
+                const msg = `Round ${round}: ${actor.pet.name} raises a barrier for ${chosen.power} HP.`;
+                logs.push(msg);
+                pushPartyFrame(round, msg, actorSlot, "barrier");
+                return;
+            }
+            case "shield": {
+                const shieldAmt = Math.max(5, Math.floor(chosen.power * 0.45));
+                fighters[actorSlot] = { ...cdActor, shieldHp: cdActor.shieldHp + shieldAmt };
+                const msg = `Round ${round}: ${actor.pet.name} forms a ward (${shieldAmt} HP).`;
+                logs.push(msg);
+                pushPartyFrame(round, msg, actorSlot, "shield");
+                return;
+            }
+            case "absorb": {
+                fighters[actorSlot] = { ...cdActor, absorbRounds: 3, absorbPercent: 0.35 };
+                const msg = `Round ${round}: ${actor.pet.name} enters absorb stance (3 rounds, −35% damage).`;
+                logs.push(msg);
+                pushPartyFrame(round, msg, actorSlot, "absorb");
+                return;
+            }
+            case "debuff": {
+                const battlebornCut = target.pet.trait === "Battleborn" ? 0.5 : 1;
+                const atkCut = Math.max(1, Math.floor((chosen.power / 4) * battlebornCut));
+                const defCut = Math.max(1, Math.floor((chosen.power / 5) * battlebornCut));
+                fighters[targetSlot] = { ...target, attackBuff: target.attackBuff - atkCut, defenseBuff: target.defenseBuff - defCut };
+                const msg = `Round ${round}: ${actor.pet.name} weakens ${target.pet.name} (−${atkCut} ATK, −${defCut} DEF).`;
+                logs.push(msg);
+                pushPartyFrame(round, msg, actorSlot, "debuff", undefined, undefined, undefined, undefined, undefined, targetSlot);
+                return;
+            }
+            case "movelock": {
+                fighters[targetSlot] = { ...target, moveLocked: target.moveLocked + 2 };
+                const msg = `Round ${round}: ${actor.pet.name} pins ${target.pet.name} (movelock 2 rounds).`;
+                logs.push(msg);
+                pushPartyFrame(round, msg, actorSlot, "movelock", undefined, undefined, undefined, undefined, undefined, targetSlot);
+                return;
+            }
+            case "dot": {
+                const baseDot = Math.max(1, Math.floor(chosen.power * 0.28));
+                const dotDmg = target.pet.trait === "Guardian" ? Math.max(1, Math.floor(baseDot * 0.5)) : baseDot;
+                fighters[targetSlot] = { ...target, dotDamage: dotDmg, dotRounds: 3 };
+                const msg = `Round ${round}: ${actor.pet.name} poisons ${target.pet.name} for ${dotDmg}/round (3 rounds).`;
+                logs.push(msg);
+                pushPartyFrame(round, msg, actorSlot, "dot", undefined, undefined, undefined, undefined, undefined, targetSlot);
+                return;
+            }
+            case "burn": {
+                const burnDmg = Math.max(1, Math.floor(chosen.power * 0.15));
+                const effectiveBurn = target.pet.trait === "Guardian" ? Math.max(1, Math.floor(burnDmg * 0.5)) : burnDmg;
+                const burnRounds = Math.max(1, chosen.rounds ?? 2);
+                fighters[targetSlot] = applyStatusToFighter(target, "burn", burnRounds, effectiveBurn);
+                const msg = `Round ${round}: 🔥 ${actor.pet.name} burns ${target.pet.name} for ${effectiveBurn}/round.`;
+                logs.push(msg);
+                pushPartyFrame(round, msg, actorSlot, "dot", undefined, undefined, undefined, undefined, undefined, targetSlot);
+                return;
+            }
+            case "freeze": {
+                const rounds = Math.max(1, chosen.rounds ?? 2);
+                fighters[targetSlot] = applyStatusToFighter(target, "freeze", rounds);
+                const msg = `Round ${round}: 🧊 ${actor.pet.name} freezes ${target.pet.name}.`;
+                logs.push(msg);
+                pushPartyFrame(round, msg, actorSlot, "movelock", undefined, undefined, undefined, undefined, undefined, targetSlot);
+                return;
+            }
+            case "confuse": {
+                const rounds = Math.max(1, chosen.rounds ?? 2);
+                fighters[targetSlot] = applyStatusToFighter(target, "confuse", rounds);
+                const msg = `Round ${round}: 🌀 ${actor.pet.name} confuses ${target.pet.name}.`;
+                logs.push(msg);
+                pushPartyFrame(round, msg, actorSlot, "debuff", undefined, undefined, undefined, undefined, undefined, targetSlot);
+                return;
+            }
+            case "stun": {
+                const baseRounds = Math.max(1, chosen.rounds ?? 1);
+                const reduced = target.pet.trait === "Aggressive" ? baseRounds - 1 : baseRounds;
+                if (reduced <= 0) {
+                    const msg = `Round ${round}: ${target.pet.name}'s Aggressive rage shrugs off ${actor.pet.name}'s ${chosen.name}.`;
+                    logs.push(msg);
+                    pushPartyFrame(round, msg, targetSlot, "buff", undefined, undefined, { actor: isPlayerSlot(targetSlot) ? "player" : "enemy", trait: "Aggressive" }, undefined, undefined, targetSlot);
+                    return;
+                }
+                fighters[targetSlot] = applyStatusToFighter(target, "stun", reduced);
+                const msg = `Round ${round}: 💤 ${actor.pet.name} stuns ${target.pet.name}.`;
+                logs.push(msg);
+                pushPartyFrame(round, msg, actorSlot, "movelock", undefined, undefined, undefined, undefined, undefined, targetSlot);
+                return;
+            }
+            case "crush": {
+                const battlebornCut = target.pet.trait === "Battleborn" ? 0.5 : 1;
+                const atkCut = Math.max(1, Math.floor((chosen.power / 3) * battlebornCut));
+                const defCut = Math.max(1, Math.floor((chosen.power / 4) * battlebornCut));
+                const rawDmg = actor.pet.attack + actor.attackBuff + (chosen.power * 0.5) - (target.pet.defense + target.defenseBuff) * 0.5;
+                applyDmg(rawDmg, chosen.name, "damage");
+                // Apply strip only if target survived the damage portion.
+                const after = fighters[targetSlot]!;
+                if (after.hp > 0) {
+                    fighters[targetSlot] = { ...after, attackBuff: after.attackBuff - atkCut, defenseBuff: after.defenseBuff - defCut };
+                    const msg2 = `Round ${round}: 🌍 ${actor.pet.name}'s crush strips ${atkCut} ATK / ${defCut} DEF.`;
+                    logs.push(msg2);
+                    pushPartyFrame(round, msg2, actorSlot, "debuff", undefined, undefined, undefined, undefined, undefined, targetSlot);
+                }
+                return;
+            }
+            case "lifesteal": {
+                const rawDmg = actor.pet.attack + actor.attackBuff + chosen.power - (target.pet.defense + target.defenseBuff) * 0.5;
+                const preHp = target.hp;
+                applyDmg(rawDmg, chosen.name, "damage");
+                const after = fighters[targetSlot]!;
+                const actualDmg = Math.max(0, preHp - after.hp);
+                const steal = Math.max(1, Math.floor(actualDmg * 0.40));
+                fighters[actorSlot] = { ...cdActor, hp: Math.min(cdActor.pet.hp, cdActor.hp + steal) };
+                return;
+            }
+            case "damage":
+            default: {
+                const rawDmg = actor.pet.attack + actor.attackBuff + chosen.power - (target.pet.defense + target.defenseBuff) * 0.5;
+                applyDmg(rawDmg, chosen.name, "damage");
+                return;
+            }
+        }
+    }
+
+    // ── Main round loop ───────────────────────────────────────────
+    const liveSlots = (): PartySlot[] => ALL_SLOTS.filter(isAlive);
+    const playerLiving = (): number => liveSlots().filter(isPlayerSlot).length;
+    const enemyLiving  = (): number => liveSlots().filter(s => !isPlayerSlot(s)).length;
+
+    for (let round = 1; round <= 30 && playerLiving() > 0 && enemyLiving() > 0; round += 1) {
+        // tick status counters on all live fighters
+        for (const s of liveSlots()) fighters[s] = tick(fighters[s]!);
+
+        // DoT (poison + burn) damage
+        for (const s of liveSlots()) {
+            const f = fighters[s]!;
+            if (f.dotRounds > 0) {
+                fighters[s] = { ...f, hp: Math.max(0, f.hp - f.dotDamage), dotRounds: f.dotRounds - 1 };
+                pushPartyFrame(round, `${f.pet.name} writhes in poison — ${f.dotDamage} damage.`, s, "dot", f.dotDamage);
+            }
+            const g = fighters[s]!;
+            if (g.burnRounds > 0 && g.burnDamage > 0) {
+                fighters[s] = { ...g, hp: Math.max(0, g.hp - g.burnDamage) };
+                pushPartyFrame(round, `🔥 ${g.pet.name} burns for ${g.burnDamage} damage.`, s, "dot", g.burnDamage);
+            }
+        }
+        if (playerLiving() === 0 || enemyLiving() === 0) break;
+
+        // Initiative — all living pets act in speed-desc order, with
+        // tie-breaker by petBattleTieKey for determinism.
+        const order = liveSlots().sort((a, b) => {
+            const fa = fighters[a]!, fb = fighters[b]!;
+            if (fa.pet.speed !== fb.pet.speed) return fb.pet.speed - fa.pet.speed;
+            return petBattleTieKey(fa.pet) < petBattleTieKey(fb.pet) ? -1 : 1;
+        });
+        for (const slot of order) {
+            if (!isAlive(slot)) continue;
+            const oppLiving = livingOpposing(slot);
+            if (oppLiving.length === 0) break;
+            act(slot, round);
+        }
+
+        // Round summary frame
+        const summary = `Round ${round} — You: ${playerLiving()} alive | Opponent: ${enemyLiving()} alive`;
+        logs.push(summary);
+        pushPartyFrame(round, summary, "system", undefined);
+    }
+
+    // ── Resolve set result ─────────────────────────────────────────
+    const playerAlive = playerLiving();
+    const enemyAlive  = enemyLiving();
+    let result: "win" | "loss" | "draw";
+    if (playerAlive > 0 && enemyAlive === 0) result = "win";
+    else if (enemyAlive > 0 && playerAlive === 0) result = "loss";
+    else if (playerAlive === 0 && enemyAlive === 0) result = "draw";
+    else {
+        // 30-round cap, both sides have living pets. HP% tiebreak.
+        const sumHpPct = (slots: PartySlot[]) => slots.reduce((acc, s) => {
+            const f = fighters[s]; if (!f) return acc;
+            return acc + (f.hp / Math.max(1, f.pet.hp));
+        }, 0);
+        const myPct = sumHpPct(ALL_SLOTS.filter(isPlayerSlot));
+        const enPct = sumHpPct(ALL_SLOTS.filter(s => !isPlayerSlot(s)));
+        if (Math.abs(myPct - enPct) < 0.1) result = "draw";
+        else result = myPct > enPct ? "win" : "loss";
+    }
+
+    // Wins-counted = number of opposing pets KO'd (drives reward grants).
+    const playerWins = (opponentParty.filter(Boolean).length) - enemyAlive;
+    const opponentWins = (playerParty.filter(Boolean).length) - playerAlive;
+
+    const finalMsg = result === "win" ? "You win the 2v2 set!" : result === "loss" ? "Opponent wins the 2v2 set." : "2v2 set ends in a draw.";
+    logs.push(finalMsg);
+    summaryLogs.push(finalMsg);
+    pushPartyFrame(31, finalMsg, "system", "result");
+
+    // Build matches[] — one entry per pet pairing (same slot index), with
+    // result reflecting whether the opposing slot survived. ALL logs+frames
+    // live in matches[0]; matches[1] is metadata-only. This preserves the
+    // existing PetPartyBattleResult shape so consumers (PetArena UI +
+    // /api/pet/battle-result loop) keep working.
+    const matches: PetPartyBattleMatch[] = [];
     for (let slot = 0; slot < 2; slot++) {
         const mine = playerParty[slot];
         const theirs = opponentParty[slot];
-
-        // Forfeit cases — one side didn't bring a pet for this slot.
-        if (!mine && !theirs) {
-            matches.push({
-                playerPet: null, opponentPet: null, result: "draw",
-                playerHpRemaining: 0, enemyHpRemaining: 0,
-                logs: [`Slot ${slot + 1}: neither side fielded a pet.`],
-                frames: [], obstacles: [],
-            });
-            draws += 1;
-            summaryLogs.push(`Slot ${slot + 1}: neither side fielded a pet — draw.`);
-            continue;
-        }
-        if (!mine) {
-            matches.push({
-                playerPet: null, opponentPet: theirs, result: "forfeit-player",
-                playerHpRemaining: 0, enemyHpRemaining: theirs!.hp,
-                logs: [`Slot ${slot + 1}: ${character_safeName(theirs!.name)} wins by forfeit — you didn't field a reserve.`],
-                frames: [], obstacles: [],
-            });
-            opponentWins += 1;
-            summaryLogs.push(`Slot ${slot + 1}: ${theirs!.name} wins by forfeit (no reserve).`);
-            continue;
-        }
-        if (!theirs) {
-            matches.push({
-                playerPet: mine, opponentPet: null, result: "forfeit-opponent",
-                playerHpRemaining: mine.hp, enemyHpRemaining: 0,
-                logs: [`Slot ${slot + 1}: ${mine.name} wins by forfeit — opponent had no reserve.`],
-                frames: [], obstacles: [],
-            });
-            playerWins += 1;
-            summaryLogs.push(`Slot ${slot + 1}: ${mine.name} wins by forfeit (opponent had no reserve).`);
-            continue;
-        }
-
-        // Real match — derive a per-slot seed so matches are independent
-        // but the whole party battle is reproducible from the master seed.
-        const matchSeed = seed + slot * 7919;
-        const battle = runPetArenaBattle(mine, theirs, opponentOwner, matchSeed, playerDamageMult);
+        const mineSlot: PartySlot = slot === 0 ? "playerLead" : "playerReserve";
+        const theirsSlot: PartySlot = slot === 0 ? "enemyLead" : "enemyReserve";
+        const mineAlive = mine ? isAlive(mineSlot) : false;
+        const theirsAlive = theirs ? isAlive(theirsSlot) : false;
+        let matchResult: PetPartyBattleMatch["result"];
+        if (!mine && !theirs) matchResult = "draw";
+        else if (!mine) matchResult = "forfeit-player";
+        else if (!theirs) matchResult = "forfeit-opponent";
+        else if (mineAlive && !theirsAlive) matchResult = "win";
+        else if (!mineAlive && theirsAlive) matchResult = "loss";
+        else matchResult = "draw";
         matches.push({
-            playerPet: mine, opponentPet: theirs, result: battle.result,
-            playerHpRemaining: battle.player.hp, enemyHpRemaining: battle.enemy.hp,
-            logs: battle.logs, frames: battle.frames, obstacles: battle.obstacles,
+            playerPet: mine ?? null,
+            opponentPet: theirs ?? null,
+            result: matchResult,
+            playerHpRemaining: mine && fighters[mineSlot] ? fighters[mineSlot]!.hp : 0,
+            enemyHpRemaining:  theirs && fighters[theirsSlot] ? fighters[theirsSlot]!.hp : 0,
+            // Put the entire battle's logs+frames on slot 0; slot 1 is empty.
+            logs:   slot === 0 ? logs   : [],
+            frames: slot === 0 ? frames : [],
+            obstacles: slot === 0 ? Array.from(obstacles) : [],
         });
-        if (battle.result === "win") {
-            playerWins += 1;
-            summaryLogs.push(`Slot ${slot + 1}: ${mine.name} defeated ${theirs.name} (${battle.player.hp}/${mine.hp} HP).`);
-        } else if (battle.result === "loss") {
-            opponentWins += 1;
-            summaryLogs.push(`Slot ${slot + 1}: ${theirs.name} defeated ${mine.name} (${battle.enemy.hp}/${theirs.hp} HP).`);
-        } else {
-            draws += 1;
-            summaryLogs.push(`Slot ${slot + 1}: draw — neither pet could finish.`);
-        }
     }
 
-    // Set winner. Most wins takes the set. 1-1 ties break on surviving HP%.
-    let result: "win" | "loss" | "draw";
-    if (playerWins > opponentWins) result = "win";
-    else if (opponentWins > playerWins) result = "loss";
-    else {
-        // Tie on wins (could be 0-0, 1-1, or 2-2 from draws). Use total
-        // surviving HP percentage across the party.
-        const playerHpPct = matches.reduce((acc, m) =>
-            acc + (m.playerPet ? m.playerHpRemaining / Math.max(1, m.playerPet.hp) : 0), 0);
-        const opponentHpPct = matches.reduce((acc, m) =>
-            acc + (m.opponentPet ? m.enemyHpRemaining / Math.max(1, m.opponentPet.hp) : 0), 0);
-        if (Math.abs(playerHpPct - opponentHpPct) < 0.05) result = "draw";
-        else result = playerHpPct > opponentHpPct ? "win" : "loss";
-    }
-
-    summaryLogs.push(`Set result: ${playerWins}–${opponentWins}${draws ? ` (${draws} draw${draws === 1 ? "" : "s"})` : ""}. ${result === "win" ? "You take the set!" : result === "loss" ? "Opponent takes the set." : "Set ends in a draw."}`);
-
-    return { result, matches, playerWins, opponentWins, draws, summaryLogs };
+    return { result, matches, playerWins, opponentWins, draws: 0, summaryLogs };
 }
 
 // Trivial helper so the forfeit log line doesn't fight with a global safeName.
@@ -16311,6 +16778,23 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                     playerPet={selectedPet}
                     enemyPet={(battleOpponent ?? selectedOpponent)!.pet}
                     enemyOwner={(battleOpponent ?? selectedOpponent)!.owner}
+                    // 2v2 mode — pass reserves so the renderer can place all
+                    // 4 pets on the grid and show 4 HP bars. partyResult
+                    // tracks them via matches[1] (or via the opponent's
+                    // carried challengerParty/opponentParty for PvP).
+                    playerReservePet={
+                        partyResult?.matches[1]?.playerPet
+                        ?? (battleOpponent?.challengerParty ? battleOpponent.challengerParty[1] : undefined)
+                        ?? (partyMode && opponentMode === "ai"
+                            ? (character.pets.find(p => p.id === reservePetId && p.id !== selectedPet.id)
+                                ?? character.pets.filter(p => p.id !== selectedPet.id && !isPetOnExpedition(p))[0])
+                            : undefined)
+                    }
+                    enemyReservePet={
+                        partyResult?.matches[1]?.opponentPet
+                        ?? (battleOpponent?.opponentParty ? battleOpponent.opponentParty[1] : undefined)
+                        ?? undefined
+                    }
                     frame={currentFrame}
                     recentFrames={battleFrames.slice(Math.max(0, frameIndex - 2), frameIndex + 1).filter(f => f.actionKind && f.actionKind !== "result")}
                     result={showResult ? result : ""}
@@ -16342,7 +16826,7 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
     );
 }
 
-function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, frame, recentFrames, result, obstacles, onReplay, onFightAgain, onExit, sharedImages = {} }: { playerPet: Pet; enemyPet: Pet; enemyOwner: string; frame?: PetArenaFrame; recentFrames?: PetArenaFrame[]; result: string; obstacles?: number[]; onReplay: () => void; onFightAgain: () => void; onExit: () => void; sharedImages?: Record<string, string> }) {
+function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerReservePet, enemyReservePet, frame, recentFrames, result, obstacles, onReplay, onFightAgain, onExit, sharedImages = {} }: { playerPet: Pet; enemyPet: Pet; enemyOwner: string; playerReservePet?: Pet; enemyReservePet?: Pet; frame?: PetArenaFrame; recentFrames?: PetArenaFrame[]; result: string; obstacles?: number[]; onReplay: () => void; onFightAgain: () => void; onExit: () => void; sharedImages?: Record<string, string> }) {
     const playerHp = frame?.playerHp ?? playerPet.hp;
     const enemyHp  = frame?.enemyHp  ?? enemyPet.hp;
     const playerPercent = Math.max(0, Math.min(100, (playerHp / Math.max(1, playerPet.hp)) * 100));
@@ -16439,7 +16923,59 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, frame, recentFra
                 <div key={`combo-${frame.message}`} className={`pet-combo-counter ${frame.actor}`}>COMBO ×{frame.combo}</div>
             )}
 
-            {/* HP bars with status badges */}
+            {/* HP bars with status badges. 4-pet mode (simultaneous 2v2)
+                renders four compact bars (lead + reserve per side). 1v1
+                mode keeps the original two big bars below. */}
+            {frame?.party4v4 ? (
+                <div className="pet-arena-bars" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem" }}>
+                    <div style={{ display: "grid", gap: "0.3rem" }}>
+                        {([
+                            { slot: "playerLead",    pet: playerPet,        snap: frame.party4v4.playerLead },
+                            { slot: "playerReserve", pet: playerReservePet, snap: frame.party4v4.playerReserve },
+                        ] as const).map(({ slot, pet, snap }) => pet && (
+                            <div key={slot} className={`pet-arena-fighter-bar${snap.ko ? " pet-arena-fighter-bar-ko" : ""}`} style={snap.ko ? { opacity: 0.45 } : undefined}>
+                                <strong>{pet.name}{pet.element && pet.element !== "None" ? ` · ${pet.element}` : ""}{snap.ko ? " 💀" : ""}</strong>
+                                <div className="pet-status-badges">
+                                    {snap.status.poisoned && <span className="pet-status-badge poison">☠️×{snap.status.poisoned}</span>}
+                                    {snap.status.burn     && <span className="pet-status-badge poison">🔥×{snap.status.burn}</span>}
+                                    {snap.status.freeze   && <span className="pet-status-badge movelock">🧊×{snap.status.freeze}</span>}
+                                    {snap.status.confuse  && <span className="pet-status-badge movelock">🌀×{snap.status.confuse}</span>}
+                                    {snap.status.stun     && <span className="pet-status-badge movelock">💤×{snap.status.stun}</span>}
+                                    {snap.status.shield   && <span className="pet-status-badge shield">🔰{snap.status.shield}</span>}
+                                    {snap.status.absorbing && <span className="pet-status-badge absorb">✨ABSORB</span>}
+                                </div>
+                                <span>{snap.hp}/{snap.maxHp} HP</span>
+                                <div className={`pet-arena-hpbar${(snap.hp / snap.maxHp * 100) <= 30 ? " pet-arena-hpbar-low" : ""}`}>
+                                    <i style={{ width: `${Math.max(0, Math.min(100, (snap.hp / snap.maxHp) * 100))}%` }} />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    <div style={{ display: "grid", gap: "0.3rem" }}>
+                        {([
+                            { slot: "enemyLead",    pet: enemyPet,        snap: frame.party4v4.enemyLead },
+                            { slot: "enemyReserve", pet: enemyReservePet, snap: frame.party4v4.enemyReserve },
+                        ] as const).map(({ slot, pet, snap }) => pet && (
+                            <div key={slot} className={`pet-arena-fighter-bar enemy${snap.ko ? " pet-arena-fighter-bar-ko" : ""}`} style={snap.ko ? { opacity: 0.45 } : undefined}>
+                                <strong>{enemyOwner}: {pet.name}{pet.element && pet.element !== "None" ? ` · ${pet.element}` : ""}{snap.ko ? " 💀" : ""}</strong>
+                                <div className="pet-status-badges">
+                                    {snap.status.poisoned && <span className="pet-status-badge poison">☠️×{snap.status.poisoned}</span>}
+                                    {snap.status.burn     && <span className="pet-status-badge poison">🔥×{snap.status.burn}</span>}
+                                    {snap.status.freeze   && <span className="pet-status-badge movelock">🧊×{snap.status.freeze}</span>}
+                                    {snap.status.confuse  && <span className="pet-status-badge movelock">🌀×{snap.status.confuse}</span>}
+                                    {snap.status.stun     && <span className="pet-status-badge movelock">💤×{snap.status.stun}</span>}
+                                    {snap.status.shield   && <span className="pet-status-badge shield">🔰{snap.status.shield}</span>}
+                                    {snap.status.absorbing && <span className="pet-status-badge absorb">✨ABSORB</span>}
+                                </div>
+                                <span>{snap.hp}/{snap.maxHp} HP</span>
+                                <div className={`pet-arena-hpbar${(snap.hp / snap.maxHp * 100) <= 30 ? " pet-arena-hpbar-low" : ""}`}>
+                                    <i style={{ width: `${Math.max(0, Math.min(100, (snap.hp / snap.maxHp) * 100))}%` }} />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            ) : (
             <div className="pet-arena-bars">
                 <div className={`pet-arena-fighter-bar${playerShake ? " pet-hp-shaking" : ""}`}>
                     <strong>{playerPet.name}</strong>
@@ -16483,6 +17019,7 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, frame, recentFra
                     </div>
                 </div>
             </div>
+            )}
 
             <div className="pet-park-stage">
                 {/* KO freeze overlay */}
@@ -16491,37 +17028,52 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, frame, recentFra
                 )}
 
                 <div className={`pet-park-grid pet-vfx-${frame?.actionKind ?? "idle"} pet-vfx-actor-${frame?.actor ?? "system"}`} aria-label="Pet arena park battlefield">
-                    {Array.from({ length: PET_GRID_SIZE }, (_, index) => {
-                        const occupiedByPlayer = index === playerPos;
-                        const occupiedByEnemy  = index === enemyPos;
-                        const isObstacle  = (obstacles ?? []).includes(index);
-                        const isTrail     = index >= 42 && index <= 55; // row 3 of 14-col, 7-row grid (centre lane)
-                        const isActionTile = frame?.actionKind && (occupiedByPlayer || occupiedByEnemy);
-                        const hasEffect   = index === effectTile && frame?.actionKind;
-                        return (
-                            <div
-                                key={index}
-                                className={`pet-park-tile${isObstacle ? " pet-obstacle" : ""}${isTrail && !isObstacle ? " pet-path" : ""}${isActionTile && !isObstacle ? " pet-action-tile" : ""}${hasEffect && !isObstacle ? ` pet-vfx-tile pet-vfx-tile-${frame?.actionKind}` : ""}${(occupiedByPlayer || occupiedByEnemy) && !isObstacle ? " pet-occupied" : ""}`}
-                            >
-                                {isObstacle && (
-                                    <div className="pet-obstacle-block">
-                                        <div className="pet-obstacle-top" />
-                                        <div className="pet-obstacle-face" />
-                                        <div className="pet-obstacle-side" />
-                                    </div>
-                                )}
-                                {hasEffect && (
-                                    <span className="pet-battle-vfx" key={`${frame?.message}-${index}`}>
-                                        <i />
-                                        <b>{effectLabel}</b>
-                                        <em />
-                                    </span>
-                                )}
-                                {occupiedByPlayer && <PetBattleAvatar pet={playerPet} side="player" active={frame?.actor === "player"} status={frame?.playerStatus} sharedImages={sharedImages} />}
-                                {occupiedByEnemy  && <PetBattleAvatar pet={enemyPet}  side="enemy"  active={frame?.actor === "enemy"}  status={frame?.enemyStatus}  sharedImages={sharedImages} />}
-                            </div>
-                        );
-                    })}
+                    {(() => {
+                        // 4-pet mode: build a position→pet map covering all
+                        // living party members. 1v1 mode keeps the old 2-pet
+                        // layout via playerPos / enemyPos.
+                        type GridPet = { pet: Pet; side: "player" | "enemy"; ko: boolean; isActor: boolean };
+                        const positionMap = new Map<number, GridPet>();
+                        if (frame?.party4v4) {
+                            const p4 = frame.party4v4;
+                            if (playerPet         && !p4.playerLead.ko)    positionMap.set(p4.playerLead.pos,    { pet: playerPet,        side: "player", ko: false, isActor: p4.actorSlot === "playerLead" });
+                            if (playerReservePet  && !p4.playerReserve.ko) positionMap.set(p4.playerReserve.pos, { pet: playerReservePet, side: "player", ko: false, isActor: p4.actorSlot === "playerReserve" });
+                            if (enemyPet          && !p4.enemyLead.ko)     positionMap.set(p4.enemyLead.pos,     { pet: enemyPet,         side: "enemy",  ko: false, isActor: p4.actorSlot === "enemyLead" });
+                            if (enemyReservePet   && !p4.enemyReserve.ko)  positionMap.set(p4.enemyReserve.pos,  { pet: enemyReservePet,  side: "enemy",  ko: false, isActor: p4.actorSlot === "enemyReserve" });
+                        } else {
+                            positionMap.set(playerPos, { pet: playerPet, side: "player", ko: false, isActor: frame?.actor === "player" });
+                            positionMap.set(enemyPos,  { pet: enemyPet,  side: "enemy",  ko: false, isActor: frame?.actor === "enemy" });
+                        }
+                        return Array.from({ length: PET_GRID_SIZE }, (_, index) => {
+                            const here = positionMap.get(index);
+                            const isObstacle  = (obstacles ?? []).includes(index);
+                            const isTrail     = index >= 42 && index <= 55; // row 3 of 14-col, 7-row grid (centre lane)
+                            const isActionTile = frame?.actionKind && !!here;
+                            const hasEffect   = index === effectTile && frame?.actionKind;
+                            return (
+                                <div
+                                    key={index}
+                                    className={`pet-park-tile${isObstacle ? " pet-obstacle" : ""}${isTrail && !isObstacle ? " pet-path" : ""}${isActionTile && !isObstacle ? " pet-action-tile" : ""}${hasEffect && !isObstacle ? ` pet-vfx-tile pet-vfx-tile-${frame?.actionKind}` : ""}${here && !isObstacle ? " pet-occupied" : ""}`}
+                                >
+                                    {isObstacle && (
+                                        <div className="pet-obstacle-block">
+                                            <div className="pet-obstacle-top" />
+                                            <div className="pet-obstacle-face" />
+                                            <div className="pet-obstacle-side" />
+                                        </div>
+                                    )}
+                                    {hasEffect && (
+                                        <span className="pet-battle-vfx" key={`${frame?.message}-${index}`}>
+                                            <i />
+                                            <b>{effectLabel}</b>
+                                            <em />
+                                        </span>
+                                    )}
+                                    {here && <PetBattleAvatar pet={here.pet} side={here.side} active={here.isActor} status={here.side === "player" ? frame?.playerStatus : frame?.enemyStatus} sharedImages={sharedImages} />}
+                                </div>
+                            );
+                        });
+                    })()}
                 </div>
 
                 {winnerPet && (
