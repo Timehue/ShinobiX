@@ -2,6 +2,8 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from './_storage.js';
 import { cors } from './_utils.js';
 import { authedPlayerOrAdmin } from './_auth.js';
+import { enforceRateLimitKv } from './_ratelimit.js';
+import { withKvLock } from './_lock.js';
 
 const TERRITORY_CONTROL_MAX = 20000;
 const TERRITORY_HP_MAX = 20000;
@@ -15,7 +17,45 @@ const VILLAGE_WAR_KEY_PREFIX = 'world:war:';
 const TERRITORY_HP_MAX_DELTA_PER_REQUEST = 1000;
 // Same idea for raising HP via rebuild — bound the per-request gain.
 const TERRITORY_HP_MAX_REPAIR_PER_REQUEST = 1000;
+// Village War damage per write — typical legit raid is 5–50 (role × 1).
+// 100 leaves plenty of headroom for elite raiders + the +750 capture
+// bonus, which is applied as a SECOND write rather than one fat one.
+const VILLAGE_WAR_HP_MAX_DELTA_PER_REQUEST = 100;
+const VILLAGE_WAR_GROUND_HP_MAX_DELTA_PER_REQUEST = 100;
+// Auto-finalize wars that have been running this long with no end.
+// Two weeks is the sane upper bound for "Kages forgot about it" cleanup.
+const VILLAGE_WAR_MAX_DURATION_MS = 14 * 24 * 60 * 60 * 1000;
+// Cost to declare a war. Charged to the declaring Kage. Priced in
+// Honor Seals (a Vanguard-profession currency, harder to amass than
+// ryo) so the cost actually bites — a Kage shouldn't be casually
+// declaring wars after a couple of grinding sessions.
+const VILLAGE_WAR_DECLARATION_COST_HONOR_SEALS = 500;
+// Rematch cooldown — same village-pair can't war again within 7 days
+// of the previous war ending. Prevents grudge-spamming the same enemy.
+const VILLAGE_WAR_REMATCH_COOLDOWN_SEC = 7 * 24 * 60 * 60;
+// Pre-war window. When a Kage declares, the war is stamped pending for
+// this long before HP can actually drop. Gives the defending village
+// time to wake up, log in, and rally — stops the "declare while enemy
+// is asleep, drain 5000 HP in PvP overnight" scenario.
+const VILLAGE_WAR_PENDING_WINDOW_MS = 60 * 60 * 1000; // 1 hour
+// War decay: after this many days of war, both sides take a flat
+// VILLAGE_WAR_DECAY_PER_DAY HP loss at each UTC daily reset to push the
+// conflict toward natural resolution. Untouched wars drain at
+// 500/day/side starting day 4, so a war with no activity ends ~day 13
+// (5000 → 0 at 500/day = 10 decay days after the 3-day grace).
+const VILLAGE_WAR_DECAY_GRACE_DAYS = 3;
+const VILLAGE_WAR_DECAY_PER_DAY = 500;
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+const VILLAGE_WAR_DECAY_GRACE_MS = VILLAGE_WAR_DECAY_GRACE_DAYS * ONE_DAY_MS;
 const VILLAGE_STATE_KEY_PREFIX = 'game:village-state:';
+
+function utcDateKey(ms = Date.now()): string {
+    return new Date(ms).toISOString().slice(0, 10);
+}
+
+function utcDayIndex(ms: number): number {
+    return Math.floor(ms / ONE_DAY_MS);
+}
 
 function normalizeVillageKey(village: string): string {
     return village.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -86,6 +126,36 @@ type VillageWar = {
     capturedAt?: number;
     winnerVillage?: string;
     endedAt?: number;
+    // Server-stamped at war-create so every grant path uses the same
+    // canonical ID. claimedWarCrateIds on each player save dedupes via
+    // exact string equality, so a single ID = one crate per player per
+    // war, no matter which client path triggers the grant.
+    warCrateId?: string;
+    // YYYY-MM-DD of the last UTC day daily decay was applied. Used by
+    // applyWarDecay to avoid double-applying within the same day even
+    // if multiple readers / writers race.
+    lastDecayDate?: string;
+    // Per-player contribution accumulator, populated server-side as
+    // damage deltas are detected on incoming writes. Keyed by lowercase
+    // player name → totals + display name + which village side they
+    // fought for. The MVP-per-side is computed from this on war end.
+    contributions?: Record<string, { damage: number; raids: number; pvpKills: number; side: string; name: string }>;
+    // Village → display name of the MVP for that side. Stamped server-
+    // side at the moment the war flips to ended. The MVP crate is keyed
+    // off `mvp-crate-${warId}-${village}` and granted client-side to
+    // whichever player matches the name on next claim sweep.
+    mvpByVillage?: Record<string, string>;
+    // Loss-consolation crate ID. Stamped at war end ONLY if a winner
+    // exists (i.e., draws give no consolation). Any losing-village
+    // player who contributed ≥ VILLAGE_WAR_LOSER_MIN_CONTRIB damage
+    // can claim it once. Client-side dedup via claimedWarCrateIds.
+    loserCrateId?: string;
+    // Pre-war window. While `pendingUntil > now`, HP can't drop, the
+    // war can't be ended, and the decay grace + 14-day max timers
+    // count from `pendingUntil` instead of `startedAt`. The Kage
+    // cannot cancel a pending war — declaration commits the cost,
+    // no refunds, war must run its course.
+    pendingUntil?: number;
 };
 
 function clampNumber(value: number, min: number, max: number) {
@@ -146,6 +216,129 @@ function normalizeVillageWar(data: Partial<VillageWar> & { villages?: [string, s
         capturedAt: data.capturedAt,
         winnerVillage: data.winnerVillage,
         endedAt: data.endedAt,
+        warCrateId: data.warCrateId,
+        lastDecayDate: data.lastDecayDate,
+        contributions: data.contributions,
+        mvpByVillage: data.mvpByVillage,
+        loserCrateId: data.loserCrateId,
+        pendingUntil: data.pendingUntil,
+    };
+}
+
+// Effective "war is live from" timestamp. While in the pre-war pending
+// window, no decay should accrue and the 14-day max-duration timer
+// shouldn't count down. After pendingUntil passes (or for legacy wars
+// without it), the war is hot starting from startedAt.
+function warEffectiveStartMs(war: VillageWar): number {
+    if (war.pendingUntil && war.pendingUntil > Date.now()) {
+        return war.pendingUntil; // still pending — counter starts at activation
+    }
+    if (war.pendingUntil) return war.pendingUntil;
+    return war.startedAt;
+}
+
+function warIsPending(war: VillageWar): boolean {
+    return !!war.pendingUntil && war.pendingUntil > Date.now();
+}
+
+// Cooldown key for the village pair. Set with 7-day TTL when a war
+// ends so the same two villages can't immediately re-declare.
+function warCooldownKey(villageA: string, villageB: string): string {
+    return `war:cooldown:${villageWarId(villageA, villageB)}`;
+}
+
+// Returns true if either village is currently in an active (non-ended)
+// war. Used to enforce the one-war-at-a-time rule on war creation.
+async function villageHasActiveWar(village: string): Promise<boolean> {
+    const wars = await getByPrefix<VillageWar>(VILLAGE_WAR_KEY_PREFIX);
+    return wars.some(w => !w.endedAt && w.villages.includes(village));
+}
+
+// Minimum damage contribution required to qualify for the loss-
+// consolation crate. Keeps the consolation away from AFK villagers.
+const VILLAGE_WAR_LOSER_MIN_CONTRIB = 50;
+
+/**
+ * Apply daily war decay. After VILLAGE_WAR_DECAY_GRACE_DAYS days of
+ * the war existing, both sides take VILLAGE_WAR_DECAY_PER_DAY HP at
+ * each UTC daily reset. Pushes inactive wars toward resolution so the
+ * leaderboard isn't perpetually clogged.
+ *
+ * Idempotent within a single UTC day (gated by `lastDecayDate`). Safe
+ * to call from both GET and POST paths — concurrent callers converge
+ * on the same post-decay state.
+ *
+ * If decay drives both sides to 0 → ends as a draw (no winner, no
+ * crate). If only one side hits 0 → ends with the other as winner.
+ *
+ * Returns the (possibly mutated) war and a `changed` flag so callers
+ * know whether to write it back to KV.
+ */
+function applyWarDecay(war: VillageWar, now: number = Date.now()): { war: VillageWar; changed: boolean } {
+    if (war.endedAt) return { war, changed: false };
+    // Pending wars don't decay — the grace clock starts at activation.
+    if (warIsPending(war)) return { war, changed: false };
+    const ageMs = now - warEffectiveStartMs(war);
+    if (ageMs < VILLAGE_WAR_DECAY_GRACE_MS) return { war, changed: false };
+
+    const todayKey = utcDateKey(now);
+    if (war.lastDecayDate === todayKey) return { war, changed: false };
+
+    // Count UTC day-boundaries we owe decay for. First decay tick
+    // happens on the first UTC day boundary at-or-after
+    // (effective-start + grace). Subsequent ticks happen at each UTC
+    // day boundary thereafter. "Effective start" is `pendingUntil` if
+    // the war went through a pre-war window, else `startedAt`.
+    const effectiveStart = warEffectiveStartMs(war);
+    let referenceMs: number;
+    if (war.lastDecayDate) {
+        // Parse YYYY-MM-DD as a UTC midnight.
+        referenceMs = Date.parse(war.lastDecayDate + 'T00:00:00Z');
+        if (!Number.isFinite(referenceMs)) referenceMs = effectiveStart + VILLAGE_WAR_DECAY_GRACE_MS;
+    } else {
+        referenceMs = effectiveStart + VILLAGE_WAR_DECAY_GRACE_MS;
+    }
+    const daysOwed = utcDayIndex(now) - utcDayIndex(referenceMs);
+    if (daysOwed <= 0) return { war, changed: false };
+
+    const totalDamage = daysOwed * VILLAGE_WAR_DECAY_PER_DAY;
+    const newHp: Record<string, number> = {};
+    for (const v of war.villages) {
+        const before = Number(war.hp?.[v] ?? VILLAGE_WAR_HP_MAX);
+        newHp[v] = Math.max(0, before - totalDamage);
+    }
+
+    const a = newHp[war.villages[0]];
+    const b = newHp[war.villages[1]];
+    let endedAt = war.endedAt;
+    let winnerVillage = war.winnerVillage;
+    let capturedBy = war.capturedBy;
+    let capturedAt = war.capturedAt;
+    if (a <= 0 && b <= 0) {
+        // Mutual exhaustion → draw. No winner, no crate. Stamp endedAt.
+        endedAt = now;
+        winnerVillage = undefined;
+    } else if (a <= 0 || b <= 0) {
+        endedAt = now;
+        winnerVillage = a <= 0 ? war.villages[1] : war.villages[0];
+        if (!capturedBy) {
+            capturedBy = winnerVillage;
+            capturedAt = now;
+        }
+    }
+
+    return {
+        war: {
+            ...war,
+            hp: newHp,
+            endedAt,
+            winnerVillage,
+            capturedBy,
+            capturedAt,
+            lastDecayDate: todayKey,
+            updatedAt: now,
+        },
+        changed: true,
     };
 }
 
@@ -166,10 +359,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'OPTIONS') return res.status(200).end();
 
     if (req.method === 'GET') {
-        const [territories, wars] = await Promise.all([
+        const [territories, warsRaw] = await Promise.all([
             getByPrefix<SectorTerritory>(TERRITORY_KEY_PREFIX),
             getByPrefix<VillageWar>(VILLAGE_WAR_KEY_PREFIX),
         ]);
+        // Apply daily decay lazily on read. Wars that crossed a UTC day
+        // boundary since their last decay get -500 HP per side per day.
+        // Persist the result so subsequent reads (and the cached CDN
+        // response) reflect the decayed state. Fire-and-forget writes —
+        // GET shouldn't block on the persist, and concurrent GETs that
+        // both decay converge on the same idempotent result.
+        const now = Date.now();
+        const wars: VillageWar[] = [];
+        const writes: Promise<unknown>[] = [];
+        for (const w of warsRaw) {
+            const { war, changed } = applyWarDecay(w, now);
+            wars.push(war);
+            if (changed) {
+                writes.push(
+                    withKvLock(`${VILLAGE_WAR_KEY_PREFIX}${war.id}`, async () => {
+                        // Re-read under the lock so we don't clobber a
+                        // concurrent raid write that just landed.
+                        const fresh = await kv.get<VillageWar>(`${VILLAGE_WAR_KEY_PREFIX}${war.id}`);
+                        if (!fresh) return;
+                        const { war: redecayed, changed: stillChanged } = applyWarDecay(fresh, now);
+                        if (stillChanged) await kv.set(`${VILLAGE_WAR_KEY_PREFIX}${war.id}`, redecayed);
+                    }).catch(() => undefined),
+                );
+            }
+        }
+        // Don't block the GET response on the persist — let writes run in
+        // background. The response already shows the decayed state.
+        if (writes.length > 0) void Promise.all(writes);
         // CDN caches this for 15 s so all players polling every 15 s share
         // one Supabase round-trip per window instead of one per player.
         // stale-while-revalidate=10 keeps the response instant while revalidating.
@@ -182,6 +403,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // war writes to participants (or admin) — see per-kind checks below.
         const identity = await authedPlayerOrAdmin(req);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
+        // Coarse rate limit on the whole endpoint. Legitimate gameplay
+        // generates at most ~1 write/sec under heavy raid grinding; 60/min
+        // gives a 2× safety margin and still blocks scripted attacks.
+        // Admins exempt for migration / repair scripts.
+        if (!identity.admin && !(await enforceRateLimitKv(req, res, 'world-state-write', 60, 60_000, identity.name))) return;
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
             if (body?.kind === 'territory') {
@@ -242,7 +468,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     }
                 }
 
-                await kv.set(`${TERRITORY_KEY_PREFIX}${incomingTerritory.sector}`, incomingTerritory);
+                // Serialize concurrent raid POSTs through a per-territory
+                // lock so two simultaneous writers can't lose each other's
+                // updates. The lock falls through to unlocked on contention
+                // (per _lock.ts behavior) — better to race occasionally
+                // than to drop a raid entirely.
+                await withKvLock(`${TERRITORY_KEY_PREFIX}${incomingTerritory.sector}`, async () => {
+                    await kv.set(`${TERRITORY_KEY_PREFIX}${incomingTerritory.sector}`, incomingTerritory);
+                });
                 return res.status(200).json({ territory: incomingTerritory });
             }
 
@@ -250,58 +483,269 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const war = normalizeVillageWar({ ...body.war, updatedAt: Date.now() });
                 if (!war) return res.status(400).json({ error: 'Invalid war.' });
 
-                // Non-admin rules:
-                //   • Creating or ENDING a war (winner / endedAt / capturedBy)
-                //     requires the actor to be the seated Kage of one of the
-                //     warring villages.
-                //   • Routine mid-war updates (HP changes from raids, etc.) are
-                //     allowed for any member of either warring village.
-                if (!identity.admin) {
-                    try {
-                        const actorSave = await kv.get<Record<string, unknown>>(`save:${identity.name}`);
-                        const actorChar = (actorSave?.character ?? null) as Record<string, unknown> | null;
-                        const actorVillage = String(actorChar?.village ?? '').trim();
-                        if (!actorVillage || !war.villages.includes(actorVillage)) {
-                            return res.status(403).json({ error: 'Only members of the warring villages can update this war.' });
+                // All war reads + validation + write are serialized through a
+                // per-war lock so concurrent raids / claim attempts can't
+                // race-overwrite. Lock falls through to unlocked on contention
+                // (per _lock.ts) — better to race than to drop the write.
+                const warKey = `${VILLAGE_WAR_KEY_PREFIX}${war.id}`;
+                const result = await withKvLock(warKey, async () => {
+                    let existing = await kv.get<VillageWar>(warKey);
+
+                    // Lazy-finalize stale wars (>14d active, no end). Counts
+                    // from `pendingUntil` if set, so the pre-war window
+                    // doesn't eat into the 14-day clock. Auto-end with no
+                    // winner, no crate.
+                    if (existing && !existing.endedAt) {
+                        const liveStart = warEffectiveStartMs(existing);
+                        if ((Date.now() - liveStart) > VILLAGE_WAR_MAX_DURATION_MS) {
+                            const expired: VillageWar = {
+                                ...existing,
+                                endedAt: liveStart + VILLAGE_WAR_MAX_DURATION_MS,
+                                updatedAt: Date.now(),
+                                // No winnerVillage — abandoned wars award nothing.
+                            };
+                            await kv.set(warKey, expired);
+                            return { status: 409 as const, body: { error: 'War has timed out (14 days). Auto-finalized with no winner.', war: expired } };
                         }
+                    }
 
-                        const existing = await kv.get<VillageWar>(`${VILLAGE_WAR_KEY_PREFIX}${war.id}`);
-                        const isCreating = !existing;
-                        const isEnding = !existing?.endedAt && !!war.endedAt;
-                        const isClaimingWin = !existing?.winnerVillage && !!war.winnerVillage;
-                        const isClaimingCapture = !existing?.capturedBy && !!war.capturedBy;
+                    // Apply daily decay to `existing` so the validation
+                    // (HP delta caps, freeze-on-end, win condition) runs
+                    // against the post-decay state. If decay just ended
+                    // the war, the freeze check below catches the in-
+                    // flight write and rejects it as "war has ended".
+                    if (existing) {
+                        const decayResult = applyWarDecay(existing);
+                        if (decayResult.changed) {
+                            existing = decayResult.war;
+                            await kv.set(warKey, existing);
+                        }
+                    }
 
-                        if (isCreating) {
-                            // Only Kage of a warring village may declare war.
-                            const kage = await isSeatedKageOf(identity.name, actorVillage);
-                            if (!kage) {
-                                return res.status(403).json({ error: 'Only the seated Kage of a warring village can declare a war.' });
+                    // Frozen-once-ended: any further mutation after endedAt
+                    // is set is rejected (except admin) so post-end actors
+                    // can't change winnerVillage / resurrect HP.
+                    if (existing?.endedAt && !identity.admin) {
+                        return { status: 409 as const, body: { error: 'War has already ended; no further updates accepted.', war: existing } };
+                    }
+
+                    // Pull actor's village+character once for both validation
+                    // (non-admin path) and contribution tracking (all paths).
+                    // Admins act on behalf of no village — their writes don't
+                    // attribute contributions.
+                    let actorChar: Record<string, unknown> | null = null;
+                    let actorVillage = '';
+                    if (!identity.admin) {
+                        try {
+                            const actorSave = await kv.get<Record<string, unknown>>(`save:${identity.name}`);
+                            actorChar = (actorSave?.character ?? null) as Record<string, unknown> | null;
+                            actorVillage = String(actorChar?.village ?? '').trim();
+                            if (!actorVillage || !war.villages.includes(actorVillage)) {
+                                return { status: 403 as const, body: { error: 'Only members of the warring villages can update this war.' } };
                             }
-                        } else if (isEnding || isClaimingWin || isClaimingCapture) {
-                            // Allow ending if the actor is Kage OR if the legitimate
-                            // win condition is satisfied — the war-ground sector's HP
-                            // is 0 in the persisted territory record. This lets the
-                            // final-blow raider claim victory without needing Kage
-                            // status, while still rejecting fake "I won" claims.
-                            const kage = await isSeatedKageOf(identity.name, actorVillage);
-                            if (!kage) {
-                                const groundSector = existing?.warGroundSector ?? war.warGroundSector;
-                                const groundTerritory = await kv.get<SectorTerritory>(`${TERRITORY_KEY_PREFIX}${groundSector}`);
-                                const groundHp = Number(groundTerritory?.hp ?? TERRITORY_HP_MAX);
-                                const winnerVillage = war.winnerVillage ?? war.capturedBy;
-                                const legitimateWin = groundHp <= 0 && winnerVillage === actorVillage;
-                                if (!legitimateWin) {
-                                    return res.status(403).json({ error: 'War can only be ended by the Kage or when the war ground is actually captured.' });
+                        } catch {
+                            return { status: 500 as const, body: { error: 'Unable to verify war participation.' } };
+                        }
+                    }
+
+                    const isCreating = !existing;
+                    const isEnding = !existing?.endedAt && !!war.endedAt;
+                    const isClaimingWin = !existing?.winnerVillage && !!war.winnerVillage;
+                    const isClaimingCapture = !existing?.capturedBy && !!war.capturedBy;
+
+                    if (!identity.admin) {
+                        try {
+                            if (isCreating) {
+                                // 1. Only Kage of a warring village may declare war.
+                                const kage = await isSeatedKageOf(identity.name, actorVillage);
+                                if (!kage) {
+                                    return { status: 403 as const, body: { error: 'Only the seated Kage of a warring village can declare a war.' } };
+                                }
+                                // 2. Cooldown: same village-pair can't re-war within 7 days.
+                                const cd = await kv.get(warCooldownKey(war.villages[0], war.villages[1]));
+                                if (cd) {
+                                    return { status: 409 as const, body: { error: 'These two villages were at war within the last 7 days. Rematch cooldown active.' } };
+                                }
+                                // 3. Single-war rule: neither village may already be in an active war.
+                                for (const v of war.villages) {
+                                    if (await villageHasActiveWar(v)) {
+                                        return { status: 409 as const, body: { error: `${v} is already in an active war. Only one war at a time per village.` } };
+                                    }
+                                }
+                                // 4. Cost check. Charge the declaring Kage VILLAGE_WAR_DECLARATION_COST_HONOR_SEALS honor seals.
+                                const honorSeals = Number(actorChar?.honorSeals ?? 0);
+                                if (honorSeals < VILLAGE_WAR_DECLARATION_COST_HONOR_SEALS) {
+                                    return { status: 400 as const, body: { error: `Declaring war costs ${VILLAGE_WAR_DECLARATION_COST_HONOR_SEALS} Honor Seals. You hold ${honorSeals}.` } };
+                                }
+                                // 5. Deduct under the Kage's save lock so a concurrent save can't double-spend.
+                                await withKvLock(`save:${identity.name}`, async () => {
+                                    const fresh = await kv.get<Record<string, unknown>>(`save:${identity.name}`);
+                                    const freshChar = (fresh?.character ?? null) as Record<string, unknown> | null;
+                                    if (!fresh || !freshChar) return;
+                                    const freshSeals = Number(freshChar.honorSeals ?? 0);
+                                    if (freshSeals < VILLAGE_WAR_DECLARATION_COST_HONOR_SEALS) return; // raced, skip
+                                    await kv.set(`save:${identity.name}`, {
+                                        ...fresh,
+                                        character: { ...freshChar, honorSeals: Math.max(0, freshSeals - VILLAGE_WAR_DECLARATION_COST_HONOR_SEALS) },
+                                    });
+                                });
+                                // 6. Stamp canonical crate ID + initialize empty contributions map.
+                                war.warCrateId = `war-crate-${war.id}`;
+                                war.contributions = {};
+                                // 7. Set the pre-war pending window. HP cannot
+                                //    drop and the war cannot be ended until
+                                //    `pendingUntil` has passed. Gives the
+                                //    defending village time to rally. No
+                                //    cancellation — the Kage has already paid
+                                //    the 500 Honor Seals and the war commits
+                                //    at this moment.
+                                war.pendingUntil = Date.now() + VILLAGE_WAR_PENDING_WINDOW_MS;
+                            } else if (isClaimingWin) {
+                                // Naming a winner REQUIRES the enemy village's
+                                // HP to actually be 0 in the persisted record.
+                                // The war ground is a contestable tug-of-war
+                                // objective that pays bonus damage but does
+                                // NOT end the war on its own — without this
+                                // check a Kage of the LOSING village could
+                                // declare themselves winner.
+                                const winnerVillage = war.winnerVillage;
+                                const enemyVillage = war.villages.find(v => v !== winnerVillage);
+                                const persistedEnemyHp = enemyVillage ? Number(existing?.hp?.[enemyVillage] ?? VILLAGE_WAR_HP_MAX) : VILLAGE_WAR_HP_MAX;
+                                const hpWin = persistedEnemyHp <= 0 && winnerVillage === actorVillage;
+                                if (!hpWin) {
+                                    return { status: 403 as const, body: { error: 'Cannot declare a winner — the enemy village HP is not depleted.' } };
+                                }
+                            } else if (isClaimingCapture) {
+                                // Capturing the war ground is now a flippable
+                                // event — anyone in a warring village can
+                                // claim the capture flag as long as it isn't
+                                // already theirs (the client checks current
+                                // capturedBy). No HP-depletion gate.
+                                if (existing?.capturedBy === actorVillage) {
+                                    return { status: 409 as const, body: { error: 'Your village already holds the war ground.' } };
+                                }
+                            } else if (isEnding) {
+                                // Ending WITHOUT a winner = "call peace".
+                                // Allowed only by Kage (either side). Anyone
+                                // else who wants to end the war needs to also
+                                // satisfy the win-condition gate above.
+                                const kage = await isSeatedKageOf(identity.name, actorVillage);
+                                if (!kage) {
+                                    return { status: 403 as const, body: { error: 'Only the Kage may call peace; otherwise win the war legitimately.' } };
                                 }
                             }
-                        }
-                    } catch {
-                        return res.status(500).json({ error: 'Unable to verify war participation.' });
-                    }
-                }
 
-                await kv.set(`${VILLAGE_WAR_KEY_PREFIX}${war.id}`, war);
-                return res.status(200).json({ war });
+                            // Pre-war pending gate. While `pendingUntil`
+                            // hasn't passed, no HP write, no end / win /
+                            // capture call. The Kage who declared the war
+                            // cannot cancel it during this window either —
+                            // declaration committed the cost and the war
+                            // must run its course. Non-mutating updates
+                            // (e.g. lazy decay/contribution merges from
+                            // earlier in this handler) are allowed; only
+                            // an actively-attempted state change errors.
+                            if (existing && warIsPending(existing)) {
+                                const wantsDamage = existing.villages.some(v => {
+                                    const prev = Number(existing.hp?.[v] ?? VILLAGE_WAR_HP_MAX);
+                                    const next = Number(war.hp?.[v] ?? prev);
+                                    return next !== prev;
+                                }) || Number(war.warGroundHp ?? existing.warGroundHp) !== Number(existing.warGroundHp);
+                                if (wantsDamage || isEnding || isClaimingWin || isClaimingCapture) {
+                                    const minsLeft = Math.max(1, Math.ceil(((existing.pendingUntil ?? 0) - Date.now()) / 60_000));
+                                    return { status: 409 as const, body: { error: `War is still pending — fighting begins in ${minsLeft} min.` } };
+                                }
+                            }
+
+                            // Per-write HP delta cap. Cap each direction
+                            // independently so a write touching both sides
+                            // can't bypass via offset.
+                            if (existing) {
+                                for (const village of existing.villages) {
+                                    const prev = Number(existing.hp?.[village] ?? VILLAGE_WAR_HP_MAX);
+                                    const next = Number(war.hp?.[village] ?? prev);
+                                    if (prev - next > VILLAGE_WAR_HP_MAX_DELTA_PER_REQUEST) {
+                                        return { status: 400 as const, body: { error: `Village HP can drop by at most ${VILLAGE_WAR_HP_MAX_DELTA_PER_REQUEST} per request.` } };
+                                    }
+                                    if (next - prev > VILLAGE_WAR_HP_MAX_DELTA_PER_REQUEST) {
+                                        return { status: 400 as const, body: { error: `Village HP can rise by at most ${VILLAGE_WAR_HP_MAX_DELTA_PER_REQUEST} per request.` } };
+                                    }
+                                }
+                                const prevGround = Number(existing.warGroundHp ?? VILLAGE_WAR_GROUND_HP_MAX);
+                                const nextGround = Number(war.warGroundHp ?? prevGround);
+                                if (prevGround - nextGround > VILLAGE_WAR_GROUND_HP_MAX_DELTA_PER_REQUEST) {
+                                    return { status: 400 as const, body: { error: `War ground HP can drop by at most ${VILLAGE_WAR_GROUND_HP_MAX_DELTA_PER_REQUEST} per request.` } };
+                                }
+                            }
+                        } catch {
+                            return { status: 500 as const, body: { error: 'Unable to verify war participation.' } };
+                        }
+                    }
+
+                    // ── Contribution tracking ─────────────────────────────
+                    // Contributions are server-managed. Clients cannot write
+                    // them directly — we always overwrite with the merged
+                    // server-derived map. The damage delta is the actor's
+                    // contribution for THIS write. Skip for admin writes
+                    // (no real attribution).
+                    if (existing && !identity.admin && actorVillage) {
+                        const enemyVillage = war.villages.find(v => v !== actorVillage);
+                        const prevEnemyHp = enemyVillage ? Number(existing.hp?.[enemyVillage] ?? VILLAGE_WAR_HP_MAX) : VILLAGE_WAR_HP_MAX;
+                        const newEnemyHp = enemyVillage ? Number(war.hp?.[enemyVillage] ?? prevEnemyHp) : prevEnemyHp;
+                        const enemyDmg = Math.max(0, prevEnemyHp - newEnemyHp);
+                        const prevGround = Number(existing.warGroundHp ?? VILLAGE_WAR_GROUND_HP_MAX);
+                        const newGround = Number(war.warGroundHp ?? prevGround);
+                        const groundDmg = Math.max(0, prevGround - newGround);
+                        const totalDmg = enemyDmg + groundDmg;
+                        const contribs = { ...(existing.contributions ?? {}) };
+                        if (totalDmg > 0) {
+                            const key = identity.name;
+                            const prev = contribs[key] ?? { damage: 0, raids: 0, pvpKills: 0, side: actorVillage, name: String(actorChar?.name ?? identity.name) };
+                            contribs[key] = {
+                                damage: prev.damage + totalDmg,
+                                raids: prev.raids + 1,
+                                pvpKills: prev.pvpKills,
+                                side: actorVillage,
+                                name: String(actorChar?.name ?? prev.name),
+                            };
+                        }
+                        war.contributions = contribs;
+                    } else if (existing) {
+                        // Preserve server-owned contributions for admin writes too.
+                        war.contributions = existing.contributions ?? {};
+                    }
+
+                    // ── On-end stamping ──────────────────────────────────
+                    // When this write flips the war from active → ended,
+                    // compute MVP-per-side from contributions, stamp the
+                    // loser-consolation crate ID (only if there's a real
+                    // winner — draws give no consolation), and set the
+                    // 7-day rematch cooldown. Idempotent on subsequent
+                    // writes because the frozen-once-ended check above
+                    // rejects them.
+                    if (isEnding) {
+                        const contribs = war.contributions ?? {};
+                        const mvpByVillage: Record<string, string> = {};
+                        for (const village of war.villages) {
+                            const sideEntries = Object.values(contribs).filter(c => c.side === village);
+                            if (sideEntries.length === 0) continue;
+                            sideEntries.sort((a, b) => b.damage - a.damage);
+                            mvpByVillage[village] = sideEntries[0].name;
+                        }
+                        war.mvpByVillage = mvpByVillage;
+                        if (war.winnerVillage) {
+                            war.loserCrateId = `loser-crate-${war.id}`;
+                        }
+                        await kv.set(
+                            warCooldownKey(war.villages[0], war.villages[1]),
+                            Date.now(),
+                            { ex: VILLAGE_WAR_REMATCH_COOLDOWN_SEC },
+                        );
+                    }
+
+                    await kv.set(warKey, war);
+                    return { status: 200 as const, body: { war } };
+                });
+                return res.status(result.status).json(result.body);
             }
 
             return res.status(400).json({ error: 'Invalid world state update.' });
