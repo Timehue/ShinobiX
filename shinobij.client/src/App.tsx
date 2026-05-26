@@ -11993,6 +11993,7 @@ export default function App() {
                         onCancel={() => setActiveTriggeredEvent(null)}
                         onComplete={() => completeTriggeredEvent(activeTriggeredEvent)}
                         onBattle={startTriggeredEventArenaBattle}
+                        sharedImages={sharedImages}
                     />
                 )}
 
@@ -13739,7 +13740,15 @@ function MobileNav({
     );
 }
 
-function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, setPageIndex, setLineIndex, onCancel, onComplete, onBattle }: { event: CreatorEvent; character: Character; pageIndex: number; lineIndex: number; setPageIndex: (index: number | ((index: number) => number)) => void; setLineIndex: (index: number | ((index: number) => number)) => void; onCancel: () => void; onComplete: () => void; onBattle: (event: CreatorEvent, battle?: NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number]["battle"]) => void }) {
+function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, setPageIndex, setLineIndex, onCancel, onComplete, onBattle, sharedImages }: { event: CreatorEvent; character: Character; pageIndex: number; lineIndex: number; setPageIndex: (index: number | ((index: number) => number)) => void; setLineIndex: (index: number | ((index: number) => number)) => void; onCancel: () => void; onComplete: () => void; onBattle: (event: CreatorEvent, battle?: NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number]["battle"]) => void; sharedImages?: Record<string, string> }) {
+    // The local character object can drift out of sync with the freshly-
+    // uploaded avatar (server saves strip images and re-hydrate from the
+    // shared image store). Resolve once via the same path the Tavern uses:
+    // shared store first, then the character's own field.
+    const playerAvatar =
+        (sharedImages?.['avatar:' + character.name.trim().toLowerCase()]) ||
+        character.avatarImage ||
+        "";
     const pages = event.vnPages && event.vnPages.length > 0 ? event.vnPages : [{ title: event.vnTitle || event.name, scene: event.vnScene || "", speaker: event.vnSpeaker || "Narrator", dialogue: event.dialogue, image: event.image }];
     const page = pages[Math.min(pageIndex, pages.length - 1)];
     const pageDialogue = page.dialogue.length > 0 ? page.dialogue : event.dialogue;
@@ -13754,8 +13763,8 @@ function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, setPageI
     const leftInitials = leftName === "Narrator" ? "..." : leftName.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase();
     const rightInitials = rightName.toLowerCase() === "player" ? character.name.slice(0, 2).toUpperCase() : rightName.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase();
     const leftImage = savedRightWasPlayer
-        ? character.avatarImage
-        : (page.leftImage || (leftName.toLowerCase() === "player" ? character.avatarImage : "") || defaultVnPortrait(leftName));
+        ? playerAvatar
+        : (page.leftImage || (leftName.toLowerCase() === "player" ? playerAvatar : "") || defaultVnPortrait(leftName));
     const rightImage = savedRightWasPlayer
         ? (page.leftImage || page.rightImage || event.avatarImage || "" || defaultVnPortrait(rightName))
         : (page.rightImage || event.avatarImage || "" || defaultVnPortrait(rightName));
@@ -19981,6 +19990,7 @@ function AdminPanel({
                             onCancel={() => setPreviewVn(null)}
                             onComplete={() => setPreviewVn(null)}
                             onBattle={() => setPreviewVn(null)}
+                            sharedImages={sharedImages}
                         />
                     </div>
                 </div>
@@ -27668,7 +27678,7 @@ function WorldMap({
         );
     }
     if (selectedCreatorEvent) {
-        return <TriggeredVisualNovel event={selectedCreatorEvent} character={character} pageIndex={creatorEventPage} lineIndex={creatorEventLine} setPageIndex={setCreatorEventPage} setLineIndex={setCreatorEventLine} onCancel={() => setSelectedCreatorEvent(null)} onComplete={() => completeCreatorEvent(selectedCreatorEvent)} onBattle={onStartEventEncounter} />;
+        return <TriggeredVisualNovel event={selectedCreatorEvent} character={character} pageIndex={creatorEventPage} lineIndex={creatorEventLine} setPageIndex={setCreatorEventPage} setLineIndex={setCreatorEventLine} onCancel={() => setSelectedCreatorEvent(null)} onComplete={() => completeCreatorEvent(selectedCreatorEvent)} onBattle={onStartEventEncounter} sharedImages={sharedImages} />;
         const event = selectedCreatorEvent!;
         const eventPages = event.vnPages ?? [];
         const pages = (eventPages.length > 0 ? eventPages : [{ title: event.vnTitle || event.name, scene: event.vnScene || "", speaker: event.vnSpeaker || "Narrator", dialogue: event.dialogue, image: event.image }]) as NonNullable<CreatorEvent["vnPages"]>;
@@ -27757,9 +27767,12 @@ function WorldMap({
                         </div>
                         <div className="vn-character mentor-character">🧙</div>
                         <div className="vn-character hero-character">
-                            {character.avatarImage
-                                ? <img src={character.avatarImage} alt={character.name} />
-                                : character.name.slice(0, 2).toUpperCase()}
+                            {(() => {
+                                const playerAvatar = sharedImages?.['avatar:' + character.name.trim().toLowerCase()] || character.avatarImage || "";
+                                return playerAvatar
+                                    ? <img src={playerAvatar} alt={character.name} />
+                                    : character.name.slice(0, 2).toUpperCase();
+                            })()}
                         </div>
                         <div className="vn-scene-card">{page.scene}</div>
                         <div className="vn-dialogue">
