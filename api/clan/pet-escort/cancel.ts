@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../../_storage.js';
 import { safeName, cors } from '../../_utils.js';
 import { authedPlayerOrAdmin } from '../../_auth.js';
+import { enforceRateLimitKv } from '../../_ratelimit.js';
 import { cancelEscort } from './_storage.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -19,6 +20,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && identity.name !== playerName) {
             return res.status(403).json({ error: 'Can only cancel your own offer.' });
         }
+        if (!identity.admin && !(await enforceRateLimitKv(req, res, 'pet-escort-cancel', 15, 60_000, identity.name))) return;
 
         const record = await kv.get<Record<string, unknown>>(`save:${playerName}`);
         const char = record?.character as Record<string, unknown> | undefined;
