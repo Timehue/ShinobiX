@@ -587,6 +587,10 @@ export type Character = {
     villageWarMissionDate?: string;
     villageWarRaidProgress?: number;
     villageWarMissionsCompleted?: number;
+    // Per-day bounty for raiding the war ground. Set on the first
+    // war-ground raid of each UTC day; gates the inline +500 ryo +
+    // 1 Fate Shard bounty so it can only be claimed once per day.
+    warGroundBountyDate?: string;
     totalTilesExplored?: number;
     totalTournamentsCompleted?: number;
     totalEndlessTowerWins?: number;
@@ -4899,37 +4903,89 @@ const WAR_CRATE_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 function claimPendingWarCrates(
     character: Character,
     clanData: { warHistory?: { result: string; warCrateId?: string; endedAt?: number }[] } | null,
-): { character: Character; count: number } {
+): { character: Character; count: number; mvp?: boolean; consolation?: boolean } {
     const claimed = new Set(character.claimedWarCrateIds ?? []);
-    const toAdd: string[] = [];
+    const cratesToAdd: string[] = [];   // LEGENDARY_WAR_CRATE_ID inventory pushes
+    const idsToAdd: string[] = [];      // claimedWarCrateIds bookkeeping
+    let ryoBonus = 0;
+    let honorBonus = 0;
+    let shardsBonus = 0;
+    let mvpAwarded = false;
+    let consolationAwarded = false;
     const now = Date.now();
+    const myName = character.name;
+    const myVillage = character.village;
 
     // Clan war crates — check the last 3 history entries in case of back-to-back wars
     for (const record of (clanData?.warHistory ?? []).slice(0, 3)) {
         if (!record.warCrateId || record.result !== "Won") continue;
         if (claimed.has(record.warCrateId)) continue;
         if (record.endedAt && now - record.endedAt > WAR_CRATE_EXPIRY_MS) continue;
-        toAdd.push(record.warCrateId);
+        cratesToAdd.push(record.warCrateId);
+        idsToAdd.push(record.warCrateId);
     }
 
     // Village war crates — scan the shared in-memory cache
     for (const war of Object.values(sharedVillageWarCache)) {
-        if (!war.warCrateId) continue;
-        if (war.winnerVillage !== character.village) continue;
-        if (claimed.has(war.warCrateId)) continue;
+        // Skip wars older than expiry on either branch below.
         if (!war.endedAt || now - war.endedAt > WAR_CRATE_EXPIRY_MS) continue;
-        toAdd.push(war.warCrateId);
+
+        // 1. Winner crate — every player in the winning village.
+        if (war.warCrateId && war.winnerVillage === myVillage && !claimed.has(war.warCrateId)) {
+            cratesToAdd.push(war.warCrateId);
+            idsToAdd.push(war.warCrateId);
+        }
+
+        // 2. MVP crate — top-contributor on EITHER side. Server stamps
+        //    mvpByVillage[village] = display name; if it matches the
+        //    current player and we haven't already claimed, grant an
+        //    extra Legendary Crate + bonus currency. Recognizes the
+        //    best raider per side even on the losing side.
+        const mvpName = war.mvpByVillage?.[myVillage];
+        const mvpId = `mvp-crate-${war.id}`;
+        if (mvpName && mvpName === myName && !claimed.has(mvpId)) {
+            cratesToAdd.push(mvpId);
+            idsToAdd.push(mvpId);
+            ryoBonus += 10_000;
+            honorBonus += 50;
+            shardsBonus += 2;
+            mvpAwarded = true;
+        }
+
+        // 3. Loss-consolation — losing-side players who contributed
+        //    ≥50 damage get a small inline grant (no inventory item).
+        //    Server only stamps loserCrateId when a real winner exists,
+        //    so draws skip this.
+        if (war.loserCrateId && war.winnerVillage && war.winnerVillage !== myVillage && war.villages.includes(myVillage)) {
+            if (!claimed.has(war.loserCrateId)) {
+                const myContrib = war.contributions?.[myName.toLowerCase()];
+                if (myContrib && myContrib.damage >= 50) {
+                    idsToAdd.push(war.loserCrateId);
+                    ryoBonus += 5_000;
+                    honorBonus += 25;
+                    shardsBonus += 1;
+                    consolationAwarded = true;
+                }
+            }
+        }
     }
 
-    if (toAdd.length === 0) return { character, count: 0 };
+    if (cratesToAdd.length === 0 && idsToAdd.length === 0 && ryoBonus === 0 && honorBonus === 0 && shardsBonus === 0) {
+        return { character, count: 0 };
+    }
 
     return {
         character: {
             ...character,
-            inventory: [...character.inventory, ...toAdd.map(() => LEGENDARY_WAR_CRATE_ID)],
-            claimedWarCrateIds: [...(character.claimedWarCrateIds ?? []), ...toAdd],
+            ryo: (character.ryo ?? 0) + ryoBonus,
+            honorSeals: (character.honorSeals ?? 0) + honorBonus,
+            fateShards: (character.fateShards ?? 0) + shardsBonus,
+            inventory: [...character.inventory, ...cratesToAdd.map(() => LEGENDARY_WAR_CRATE_ID)],
+            claimedWarCrateIds: [...(character.claimedWarCrateIds ?? []), ...idsToAdd],
         },
-        count: toAdd.length,
+        count: cratesToAdd.length,
+        mvp: mvpAwarded,
+        consolation: consolationAwarded,
     };
 }
 
@@ -13168,8 +13224,8 @@ export default function App() {
                         }
                         const villageWarRaid = context?.raidKind === "raidPlayer"
                             ? recordVillageWarRaid(character, rewardSector)
-                            : { characterPatch: {} as Partial<Character>, warCrate: false };
-                        const villageWarPvpPatch = opponent ? recordVillageWarPvp(character, opponent) : "";
+                            : { note: "", characterPatch: {} as Partial<Character>, warCrate: false, warCrateId: undefined as string | undefined, bountyRyo: 0, bountyFateShards: 0 };
+                        const villageWarPvpPatch = opponent ? recordVillageWarPvp(character, opponent, rewardSector) : "";
                         const leveled = gainXp(character, xpGain);
                         const rewarded = grantTerritoryScrolls(leveled, 5);
                         // Spar/friendly-duel detection for non-Vanguard local effects
@@ -13186,9 +13242,18 @@ export default function App() {
                         setCharacter({
                             ...rewarded,
                             ...villageWarRaid.characterPatch,
-                            ryo: rewarded.ryo + ryoGain,
+                            // ryo / fateShards include the war-ground bounty
+                            // when it fires; bountyRyo+bountyFateShards are 0
+                            // for non-raid wins or when already claimed today.
+                            ryo: rewarded.ryo + ryoGain + villageWarRaid.bountyRyo,
+                            fateShards: (rewarded.fateShards ?? 0) + villageWarRaid.bountyFateShards,
                             auraDust: (rewarded.auraDust ?? 0) + 6,
                             inventory: villageWarRaid.warCrate ? [...rewarded.inventory, LEGENDARY_WAR_CRATE_ID] : rewarded.inventory,
+                            // Stamp the canonical crate ID so claimPendingWarCrates'
+                            // next sweep skips this war (already credited inline).
+                            claimedWarCrateIds: villageWarRaid.warCrate && villageWarRaid.warCrateId
+                                ? [...(rewarded.claimedWarCrateIds ?? []), villageWarRaid.warCrateId]
+                                : (rewarded.claimedWarCrateIds ?? []),
                             totalPvpKills: (rewarded.totalPvpKills ?? 0) + 1,
                             monthlyPvpKills: (rewarded.monthlyPvpKills ?? 0) + 1,
                             pvpKillMonth: currentMonthKey(),
@@ -23825,6 +23890,13 @@ const VILLAGE_WAR_RAIDS_PER_MISSION = 3;
 const VILLAGE_WAR_MISSION_DAMAGE = 30;
 const VILLAGE_WAR_GROUND_CAPTURE_DAMAGE = 750;
 
+type VillageWarContribution = {
+    damage: number;
+    raids: number;
+    pvpKills: number;
+    side: string;       // village name
+    name: string;       // display name (for rendering leaderboard)
+};
 type VillageWar = {
     id: string;
     villages: [string, string];
@@ -23838,6 +23910,19 @@ type VillageWar = {
     winnerVillage?: string;
     endedAt?: number;
     warCrateId?: string;
+    // Server-managed: keyed by lowercase player name. Drives the live
+    // raid leaderboard during war and the MVP-stamp on war end.
+    contributions?: Record<string, VillageWarContribution>;
+    // village → MVP display name. Stamped server-side at war end.
+    mvpByVillage?: Record<string, string>;
+    // Set at war end ONLY if there's a winner (draws give nothing).
+    // Each losing-village player who contributed ≥50 damage can claim
+    // it once via claimedWarCrateIds dedup.
+    loserCrateId?: string;
+    // Pre-war pending window. While > now, HP can't drop and the war
+    // can't be ended. Both villages get a notice + banner during this
+    // window so defenders can rally. No cancellation.
+    pendingUntil?: number;
 };
 
 function villageWarId(villageA: string, villageB: string) {
@@ -23862,6 +23947,9 @@ function normalizeVillageWar(data: Partial<VillageWar> & { villages: [string, st
         winnerVillage: data.winnerVillage,
         endedAt: data.endedAt,
         warCrateId: data.warCrateId,
+        contributions: data.contributions,
+        mvpByVillage: data.mvpByVillage,
+        loserCrateId: data.loserCrateId,
     };
 }
 
@@ -23955,32 +24043,127 @@ function villageWarLossPenalty(character: Character) {
 
 function applyVillageWarDamage(war: VillageWar, damagedVillage: string, amount: number) {
     const nextHp = Math.max(0, (war.hp[damagedVillage] ?? VILLAGE_WAR_HP_MAX) - Math.max(0, Math.floor(amount)));
+    const ended = nextHp <= 0;
+    const winnerVillage = ended ? war.villages.find(village => village !== damagedVillage) : war.winnerVillage;
+    // Canonical crate ID format `war-crate-${war.id}` — matches what
+    // VillageWarScreen.claimVictory + claimPendingWarCrates check via
+    // claimedWarCrateIds. Previously this used `village-crate-${id}-${ts}`
+    // which slipped past dedup, letting winners triple-claim.
     const next = normalizeVillageWar({
         ...war,
         hp: { ...war.hp, [damagedVillage]: nextHp },
-        winnerVillage: nextHp <= 0 ? war.villages.find(village => village !== damagedVillage) : war.winnerVillage,
-        endedAt: nextHp <= 0 ? Date.now() : war.endedAt,
-        // Stamp a unique crate ID the moment the war ends so every winning-village
-        // player can claim it on next login. Only set once (preserve existing id).
-        warCrateId: war.warCrateId ?? (nextHp <= 0 ? `village-crate-${war.id}-${Date.now()}` : undefined),
+        winnerVillage,
+        endedAt: ended ? Date.now() : war.endedAt,
+        warCrateId: war.warCrateId ?? `war-crate-${war.id}`,
     });
     saveVillageWar(next);
+    // On war end, append to both villages' warRecords and post end-of-war
+    // notices so the village board reflects the outcome. Each village
+    // gets its own POV ("won vs X" / "lost to X"). Idempotent — guarded
+    // by checking the previous war state's endedAt.
+    if (ended && !war.endedAt && winnerVillage) {
+        try { recordWarOutcomeToVillages(next, damagedVillage, winnerVillage); } catch { /* best-effort */ }
+    }
     return next;
 }
 
-function recordVillageWarPvp(winner: Character, loser: Character) {
+// Append a war-history entry + end-of-war notice to BOTH warring
+// villages so the outcome lands on each village's board. Called from
+// applyVillageWarDamage when a write actually flips the war to ended.
+function recordWarOutcomeToVillages(war: VillageWar, loserVillage: string, winnerVillage: string) {
+    const dateStr = new Date().toLocaleDateString();
+    const finalScore = `${war.hp[winnerVillage] ?? 0} – ${war.hp[loserVillage] ?? 0}`;
+    // Server-stamped MVPs (set in api/world-state.ts at the moment the
+    // war flips to ended). Fall back to "—" only if the server didn't
+    // record any contributions for that side (e.g. AFK village).
+    const winnerMvp = war.mvpByVillage?.[winnerVillage] ?? "—";
+    const loserMvp = war.mvpByVillage?.[loserVillage] ?? "—";
+    for (const village of war.villages) {
+        const isWinner = village === winnerVillage;
+        const state = loadVillageState(village);
+        const record: DetailedVillageWarRecord = {
+            opponent: village === war.villages[0] ? war.villages[1] : war.villages[0],
+            winner: winnerVillage,
+            finalScore,
+            topDefender: isWinner ? winnerMvp : loserMvp,
+            topAttacker: isWinner ? winnerMvp : loserMvp,
+            mvpClan: "—",
+            rewards: isWinner ? "Legendary War Crate (MVP: +1 extra crate, +10k ryo, +50 Honor Seals, +2 Fate Shards)" : "Loss consolation: +5k ryo, +25 Honor Seals, +1 Fate Shard (contributors only)",
+            date: dateStr,
+        };
+        const noticeTitle = isWinner ? "Village War Won" : "Village War Lost";
+        const noticeBody = isWinner
+            ? `Our forces defeated ${loserVillage}. Final score ${finalScore}. Surviving raiders may claim a Legendary War Crate.`
+            : `We have fallen to ${winnerVillage}. Final score ${finalScore}. Rebuild and rally — the next campaign begins.`;
+        saveVillageState(village, normalizeVillageState(village, {
+            ...state,
+            warRecords: [record, ...(state.warRecords ?? [])].slice(0, 24),
+            noticePosts: normalizeNoticePosts([
+                makeNoticePost("order", noticeTitle, noticeBody, "System", "System", true),
+                ...state.noticePosts,
+            ]),
+        }));
+    }
+}
+
+function recordVillageWarPvp(winner: Character, loser: Character, sector?: number) {
     const war = activeVillageWarBetween(winner.village, loser.village);
     if (!war) return "";
-    const damage = villageWarRoleValue(winner) + villageWarLossPenalty(loser);
+    // No war damage during the pre-war pending window — the server
+    // would reject the write anyway, but skipping client-side keeps
+    // the UI quiet and saves a round-trip.
+    if (war.pendingUntil && war.pendingUntil > Date.now()) {
+        const minsLeft = Math.max(1, Math.ceil((war.pendingUntil - Date.now()) / 60_000));
+        return ` Village War starts in ${minsLeft} min — fight didn't count yet.`;
+    }
+    let damage = villageWarRoleValue(winner) + villageWarLossPenalty(loser);
+    // Home-defender bonus: when the WINNER is fighting in a sector
+    // owned by their own village, scale war-credit damage 1.15×.
+    // Notes: this ONLY affects the war HP ledger, not the actual PvP
+    // combat — defenders and attackers fight identically. The bonus
+    // gives organized defense a real-but-not-crushing edge (1-3 extra
+    // war HP per regular fight, ~12 extra on a Kage v Kage). At +50%
+    // this was big enough to swing wars on its own; +15% is a
+    // noticeable advantage without being decisive.
+    let homeBonus = false;
+    if (sector !== undefined) {
+        const territory = sharedSectorTerritoryCache[sector];
+        if (territory?.ownerVillage === winner.village) {
+            damage = Math.floor(damage * 1.15);
+            homeBonus = true;
+        }
+    }
     const updated = applyVillageWarDamage(war, loser.village, damage);
-    return ` Village War: ${loser.village} HP -${damage} (${updated.hp[loser.village]}/${VILLAGE_WAR_HP_MAX}).`;
+    const tag = homeBonus ? " [Home Defender +15%]" : "";
+    return ` Village War: ${loser.village} HP -${damage}${tag} (${updated.hp[loser.village]}/${VILLAGE_WAR_HP_MAX}).`;
 }
 
 function recordVillageWarRaid(character: Character, sector: number) {
+    // Union return shape: every early return must declare the same
+    // keys (with undefined values where needed) so the success path's
+    // `warCrateId: string` access compiles against the inferred union.
+    // bountyRyo / bountyFateShards are extras the caller adds to its
+    // own ryo/fateShards assignment AFTER spreading characterPatch
+    // (because the call sites explicitly set `ryo: rewarded.ryo + ryoGain`
+    // which would otherwise clobber any bounty we tried to bake in).
+    const empty = {
+        note: "",
+        characterPatch: {} as Partial<Character>,
+        warCrate: false,
+        warCrateId: undefined as string | undefined,
+        bountyRyo: 0,
+        bountyFateShards: 0,
+    };
     const war = activeVillageWarsFor(character.village).find(candidate => candidate.warGroundSector === sector);
-    if (!war || war.warGroundHp <= 0) return { note: "", characterPatch: {} as Partial<Character>, warCrate: false };
+    if (!war || war.warGroundHp <= 0) return empty;
+    // Pre-war pending window — server rejects damage writes anyway, so
+    // bail early to avoid the noisy 409 in the console + UI.
+    if (war.pendingUntil && war.pendingUntil > Date.now()) {
+        const minsLeft = Math.max(1, Math.ceil((war.pendingUntil - Date.now()) / 60_000));
+        return { ...empty, note: ` Village War starts in ${minsLeft} min — raid didn't damage HP yet.` };
+    }
     const enemyVillage = war.villages.find(village => village !== character.village);
-    if (!enemyVillage) return { note: "", characterPatch: {} as Partial<Character>, warCrate: false };
+    if (!enemyVillage) return empty;
     const damage = villageWarRoleValue(character);
     let next = normalizeVillageWar({
         ...war,
@@ -23988,10 +24171,28 @@ function recordVillageWarRaid(character: Character, sector: number) {
     });
     next = applyVillageWarDamage(next, enemyVillage, damage);
     let captureNote = "";
-    if (next.warGroundHp <= 0 && !next.capturedBy) {
-        next = normalizeVillageWar({ ...next, capturedBy: character.village, capturedAt: Date.now() });
-        next = applyVillageWarDamage(next, enemyVillage, VILLAGE_WAR_GROUND_CAPTURE_DAMAGE);
-        captureNote = ` War ground captured: ${enemyVillage} HP -${VILLAGE_WAR_GROUND_CAPTURE_DAMAGE}.`;
+    // B (tug of war): the war ground is a contestable, recurring objective.
+    // When warGroundHp hits 0, fire the capture event — but instead of
+    // locking `capturedBy` forever, flip ownership to whichever village
+    // landed the blow and reset warGroundHp to 500 so the other side can
+    // push it back. Each capture/recapture pays the +750 enemy HP bonus.
+    // The war only ends via enemy village HP reaching 0 (or Kage peace).
+    if (next.warGroundHp <= 0) {
+        const ownerChanged = next.capturedBy !== character.village;
+        if (ownerChanged) {
+            next = normalizeVillageWar({
+                ...next,
+                capturedBy: character.village,
+                capturedAt: Date.now(),
+                warGroundHp: 500, // reset for the next push from the other side
+            });
+            next = applyVillageWarDamage(next, enemyVillage, VILLAGE_WAR_GROUND_CAPTURE_DAMAGE);
+            captureNote = next.capturedBy === character.village && (war.capturedBy && war.capturedBy !== character.village)
+                ? ` War ground RECAPTURED by ${character.village}: ${enemyVillage} HP -${VILLAGE_WAR_GROUND_CAPTURE_DAMAGE}.`
+                : ` War ground captured by ${character.village}: ${enemyVillage} HP -${VILLAGE_WAR_GROUND_CAPTURE_DAMAGE}.`;
+        } else {
+            saveVillageWar(next);
+        }
     } else {
         saveVillageWar(next);
     }
@@ -24000,14 +24201,36 @@ function recordVillageWarRaid(character: Character, sector: number) {
     const currentProgress = sameDay ? character.villageWarRaidProgress ?? 0 : 0;
     const currentCompleted = sameDay ? character.villageWarMissionsCompleted ?? 0 : 0;
     const nextProgress = Math.min(VILLAGE_WAR_DAILY_MISSIONS * VILLAGE_WAR_RAIDS_PER_MISSION, currentProgress + 1);
+    // A (bounty): every successful war-ground raid pays an inline reward,
+    // capped at one per UTC day per player. Independent of war outcome —
+    // even if you lose, you got paid for showing up. Honor Seals are a
+    // Vanguard-only currency so we use 1 Fate Shard + 500 ryo instead.
+    // Returned as bountyRyo / bountyFateShards rather than baked into
+    // characterPatch because the call sites explicitly set `ryo:` and
+    // `fateShards:` after spreading the patch, which would otherwise
+    // clobber the bounty.
+    const bountyAvailable = character.warGroundBountyDate !== today;
+    const characterPatch: Partial<Character> = {
+        villageWarMissionDate: today,
+        villageWarRaidProgress: nextProgress,
+        villageWarMissionsCompleted: currentCompleted,
+    };
+    let bountyNote = "";
+    if (bountyAvailable) {
+        characterPatch.warGroundBountyDate = today;
+        bountyNote = ` 💰 War Ground bounty: +500 ryo, +1 Fate Shard (daily).`;
+    }
     return {
-        note: ` Village War raid: ${enemyVillage} HP -${damage}, War Ground HP -${damage}.${captureNote}`,
-        characterPatch: {
-            villageWarMissionDate: today,
-            villageWarRaidProgress: nextProgress,
-            villageWarMissionsCompleted: currentCompleted,
-        } as Partial<Character>,
+        note: ` Village War raid: ${enemyVillage} HP -${damage}, War Ground HP -${damage}.${captureNote}${bountyNote}`,
+        characterPatch,
         warCrate: Boolean(next.endedAt && next.winnerVillage === character.village),
+        // Canonical crate ID the caller stamps into claimedWarCrateIds
+        // alongside the inline inventory grant — without this, the
+        // claimPendingWarCrates sweep on next login would scan the cache,
+        // see warCrateId is unclaimed, and grant a SECOND crate.
+        warCrateId: next.warCrateId,
+        bountyRyo: bountyAvailable ? 500 : 0,
+        bountyFateShards: bountyAvailable ? 1 : 0,
     };
 }
 
@@ -24023,7 +24246,7 @@ function claimVillageWarDailyMission(character: Character, missionIndex: number)
     const enemyVillage = war?.villages.find(village => village !== character.village);
     if (!war || !enemyVillage) return { character, note: "Your village is not in an active war." };
     const updatedWar = applyVillageWarDamage(war, enemyVillage, VILLAGE_WAR_MISSION_DAMAGE);
-    const wonWar = updatedWar.endedAt && updatedWar.winnerVillage === character.village;
+    const wonWar = Boolean(updatedWar.endedAt && updatedWar.winnerVillage === character.village);
     return {
         character: {
             ...character,
@@ -24032,6 +24255,11 @@ function claimVillageWarDailyMission(character: Character, missionIndex: number)
             totalMissionsCompleted: (character.totalMissionsCompleted ?? 0) + 1,
             clanContribMonth: currentMonthKey(),
             inventory: wonWar ? [...character.inventory, LEGENDARY_WAR_CRATE_ID] : character.inventory,
+            // Stamp the canonical crate ID alongside the inline grant so
+            // claimPendingWarCrates can't double-credit on next sweep.
+            claimedWarCrateIds: wonWar && updatedWar.warCrateId
+                ? [...(character.claimedWarCrateIds ?? []), updatedWar.warCrateId]
+                : (character.claimedWarCrateIds ?? []),
             villageWarMissionDate: today,
             villageWarRaidProgress: progress,
             villageWarMissionsCompleted: completed + 1,
@@ -26122,6 +26350,30 @@ function CentralHub({
     const [showCrafter, setShowCrafter] = useState(false);
     const [crafterTab, setCrafterTab] = useState<"supplies" | "weapons">("supplies");
     const [weaponInfoItem, setWeaponInfoItem] = useState<GameItem | null>(null);
+    // Active-war banner — fetches the world-state once on mount and
+    // refreshes every 60s so a player walking past Central knows their
+    // village is at war. Stays dismissable per-session via local state.
+    const [activeWarBanner, setActiveWarBanner] = useState<VillageWarRecord | null>(null);
+    const [warBannerDismissed, setWarBannerDismissed] = useState(false);
+    useEffect(() => {
+        let alive = true;
+        async function fetchWar() {
+            try {
+                const r = await fetch("/api/world-state");
+                if (!r.ok) return;
+                const data = await r.json() as { wars?: VillageWarRecord[] };
+                if (!alive) return;
+                const myVillage = (character.village ?? "").trim();
+                const mine = (data.wars ?? []).find(w =>
+                    !w.endedAt && Array.isArray(w.villages) && w.villages.includes(myVillage)
+                );
+                setActiveWarBanner(mine ?? null);
+            } catch { /* silent */ }
+        }
+        void fetchWar();
+        const id = setInterval(fetchWar, 60_000);
+        return () => { alive = false; clearInterval(id); };
+    }, [character.village]);
 
     // Named Weapon forge state
     type NamedWeaponRoll = { ep: number; range: 3 | 4 | 5; offenseVal: number; tags: Array<{ name: string; percent: number }> };
@@ -26415,6 +26667,78 @@ function CentralHub({
             <div className="central-log">
                 {centralLog}
             </div>
+
+            {/* Active-war alert: only renders when the player's village
+                is in an active war and the banner hasn't been dismissed
+                this session. Click-through routes to the Town Hall, which
+                hosts the Village War button. Subtle pulse so it draws
+                the eye without being obnoxious. */}
+            {activeWarBanner && !warBannerDismissed && (() => {
+                const myVillage = (character.village ?? "").trim();
+                const enemy = activeWarBanner.villages.find(v => v !== myVillage) ?? "?";
+                const myHp = activeWarBanner.hp?.[myVillage] ?? 0;
+                const enemyHp = activeWarBanner.hp?.[enemy] ?? 0;
+                const isPending = !!activeWarBanner.pendingUntil && activeWarBanner.pendingUntil > Date.now();
+                const minsToWar = isPending ? Math.max(1, Math.ceil((activeWarBanner.pendingUntil! - Date.now()) / 60_000)) : 0;
+                const ageDays = Math.floor((Date.now() - (activeWarBanner.pendingUntil ?? activeWarBanner.startedAt)) / (24 * 60 * 60 * 1000));
+                return (
+                    <div
+                        style={{
+                            background: isPending
+                                ? "linear-gradient(90deg, #3b2a05, #1a1a2e, #3b2a05)"
+                                : "linear-gradient(90deg, #450a0a, #1a1a2e, #450a0a)",
+                            border: `2px solid ${isPending ? "#fbbf24" : "#f87171"}`,
+                            borderRadius: 8,
+                            padding: "0.8rem 1rem",
+                            margin: "0 0 1rem",
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            gap: 12,
+                            boxShadow: isPending
+                                ? "0 0 14px rgba(251, 191, 36, 0.25)"
+                                : "0 0 14px rgba(248, 113, 113, 0.25)",
+                            animation: "pulse 2.5s infinite",
+                        }}
+                    >
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            {isPending ? (
+                                <>
+                                    <strong style={{ color: "#fde047", fontSize: "1.05rem" }}>⏳ {character.village} vs {enemy} — War starts in {minsToWar} min</strong>
+                                    <div style={{ fontSize: "0.82rem", color: "#fcd34d", marginTop: 4 }}>
+                                        Pre-war window. Rally your village, queue guards, gather pre-fight buffs. No HP can drop until the timer expires.
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <strong style={{ color: "#fca5a5", fontSize: "1.05rem" }}>⚔ {character.village} is at War with {enemy}</strong>
+                                    <div style={{ fontSize: "0.82rem", color: "#fde047", marginTop: 4, display: "flex", gap: 16, flexWrap: "wrap" }}>
+                                        <span>Day {ageDays + 1}</span>
+                                        <span>{myVillage}: <strong>{myHp.toLocaleString()}</strong> HP</span>
+                                        <span>{enemy}: <strong>{enemyHp.toLocaleString()}</strong> HP</span>
+                                        <span>War Ground HP: <strong>{activeWarBanner.warGroundHp}</strong></span>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                            <button
+                                onClick={() => setScreen("townHall")}
+                                style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171", color: "#fee2e2", padding: "0.4rem 0.8rem", fontSize: "0.85rem", fontWeight: 700 }}
+                            >
+                                Join the Fight →
+                            </button>
+                            <button
+                                onClick={() => setWarBannerDismissed(true)}
+                                style={{ background: "transparent", border: "1px solid #475569", color: "#94a3b8", padding: "0.15rem 0.5rem", fontSize: "0.7rem" }}
+                                title="Hide this banner until you reload"
+                            >
+                                Dismiss
+                            </button>
+                        </div>
+                    </div>
+                );
+            })()}
 
             <div className="central-grid">
                 {centralOptions.map((option) => (
@@ -28422,6 +28746,50 @@ function WorldMap({
                         {sector.id === 99 ? "💀" : sector.id === 35 ? "☀️" : sector.id}
                     </button>
                 ))}
+
+                {/* C — War Ground beacons. For every active war anywhere in
+                    the world, paint a 🔥 marker on its war-ground sector
+                    so players see at a glance where the action is. Color
+                    keys the current holder: green if my village holds it,
+                    red if the enemy does, amber if uncontested.
+                    Click → townHall route (war screen lives there). */}
+                {(() => {
+                    const activeWars = Object.values(sharedVillageWarCache).filter(w =>
+                        !w.endedAt && (!w.pendingUntil || w.pendingUntil <= Date.now())
+                    );
+                    if (activeWars.length === 0) return null;
+                    return activeWars.map(war => {
+                        const sector = sectorPoints.find(p => p.id === war.warGroundSector);
+                        if (!sector) return null;
+                        const myInWar = war.villages.includes(character.village);
+                        const heldByMe = war.capturedBy === character.village;
+                        const heldByEnemy = war.capturedBy && war.capturedBy !== character.village;
+                        const color = heldByMe ? "#4ade80" : heldByEnemy ? "#f87171" : "#fbbf24";
+                        const label = `War Ground — ${war.villages.join(" vs ")}${war.capturedBy ? ` (held by ${war.capturedBy})` : " (uncontested)"}`;
+                        return (
+                            <button
+                                key={`warground-${war.id}`}
+                                className="atlas-landmark atlas-event"
+                                style={{
+                                    left: sector.x + "%",
+                                    top: sector.y + "%",
+                                    transform: "translate(-50%, -160%)",
+                                    background: `linear-gradient(${color}33, ${color}11)`,
+                                    border: `2px solid ${color}`,
+                                    color,
+                                    fontWeight: 900,
+                                    animation: myInWar ? "pulse 2.5s infinite" : undefined,
+                                    boxShadow: `0 0 10px ${color}66`,
+                                }}
+                                onClick={() => setScreen?.(myInWar ? "villageWar" : "townHall")}
+                                title={label}
+                            >
+                                <strong>🔥</strong>
+                                <span>{war.villages.find(v => v !== character.village) ?? war.villages[0]}</span>
+                            </button>
+                        );
+                    });
+                })()}
 
                 {creatorEvents.filter((event) => event.eventKind !== "visualNovel" && event.targetSector).map((event) => {
                     const sector = sectorPoints.find((point) => point.id === event.targetSector);
@@ -32770,19 +33138,32 @@ function Arena({
         const territoryScrollReward = clanWarPointsActive > 0 ? 25 : opponentCharacter ? 5 : 1;
         const territoryRaidDamageAmount = (raidBattleKind === "raidAi" || raidBattleKind === "raidPlayer") ? sectorRaidDamageAmount(currentSector) : 0;
         const territoryRaidDamage = territoryRaidDamageAmount > 0 ? damageSectorTerritory(currentSector, territoryRaidDamageAmount) : null;
-        const villageWarRaid = (raidBattleKind === "raidAi" || raidBattleKind === "raidPlayer") ? recordVillageWarRaid(character, currentSector) : { note: "", characterPatch: {} as Partial<Character>, warCrate: false };
-        const villageWarPvpNote = opponentCharacter ? recordVillageWarPvp(character, opponentCharacter) : "";
+        // Village War HP/ground damage is gated to PvP raids only. AI raids
+        // would let a single player solo-grind enemy village HP to zero
+        // while no enemy is online — defeats the whole point of village
+        // war as a player-vs-player meta. The win-condition is unchanged:
+        // PvP raids still drive both warGroundHp and the enemy village HP.
+        const villageWarRaid = (raidBattleKind === "raidPlayer") ? recordVillageWarRaid(character, currentSector) : { note: "", characterPatch: {} as Partial<Character>, warCrate: false, warCrateId: undefined as string | undefined, bountyRyo: 0, bountyFateShards: 0 };
+        const villageWarPvpNote = opponentCharacter ? recordVillageWarPvp(character, opponentCharacter, currentSector) : "";
         const rewarded = grantTerritoryScrolls(leveled, territoryScrollReward);
         const deathsGateBoneCharm = deathsGatePvp && Math.random() < 0.05 ? 1 : 0;
         updateCharacter({
             ...rewarded,
             ...villageWarRaid.characterPatch,
-            ryo: rewarded.ryo + ryoGain,
+            // ryo / fateShards include the war-ground bounty if eligible
+            // (daily-capped, see recordVillageWarRaid). Zero otherwise.
+            ryo: rewarded.ryo + ryoGain + villageWarRaid.bountyRyo,
+            fateShards: (rewarded.fateShards ?? 0) + villageWarRaid.bountyFateShards,
             honorSeals: (rewarded.honorSeals ?? 0) + vanguardOnlyHonorSeals(rewarded, honorSealGain),
             auraDust: (rewarded.auraDust ?? 0) + auraDustGain,
             stamina: Math.min(rewarded.maxStamina, rewarded.stamina + 15),
             boneCharms: (rewarded.boneCharms ?? 0) + deathsGateBoneCharm,
             inventory: villageWarRaid.warCrate ? [...rewarded.inventory, LEGENDARY_WAR_CRATE_ID] : rewarded.inventory,
+            // Stamp canonical crate ID alongside the inline grant — see
+            // matching block in handlePvpWin (App.tsx ~13140).
+            claimedWarCrateIds: villageWarRaid.warCrate && villageWarRaid.warCrateId
+                ? [...(rewarded.claimedWarCrateIds ?? []), villageWarRaid.warCrateId]
+                : (rewarded.claimedWarCrateIds ?? []),
             clanBattleContrib: (rewarded.clanBattleContrib ?? 0) + 1,
             totalAiKills: (rewarded.totalAiKills ?? 0) + (!opponentCharacter ? 1 : 0),
             dailyAiKills: (rewarded.dailyAiKills ?? 0) + (!opponentCharacter ? 1 : 0),
@@ -36638,6 +37019,9 @@ function VillageWarScreen({
     const [declaring, setDeclaring] = useState(false);
     const [declareTarget, setDeclareTarget] = useState("");
     const [isKage, setIsKage] = useState(false);
+    // Tutorial popover — toggled by the ℹ button next to the page
+    // header. Same UX pattern as the per-jutsu info popovers in PvP.
+    const [showWarManual, setShowWarManual] = useState(false);
 
     useEffect(() => {
         let alive = true;
@@ -36718,30 +37102,61 @@ function VillageWarScreen({
                 const data = await r.json().catch(() => ({}));
                 throw new Error(data.error ?? `HTTP ${r.status}`);
             }
+            // A: war-ground bounty — +500 ryo + 1 Fate Shard, once per day,
+            // for raiding the war-ground sector specifically. Applies whether
+            // you reduce the sector's HP all the way to 0 or just chip it.
+            const today = currentDateKey();
+            const isWarGround = sector === activeWar.warGroundSector;
+            const bountyEligible = isWarGround && character.warGroundBountyDate !== today;
             updateCharacter({
                 ...character,
                 totalVillageRaids: (character.totalVillageRaids ?? 0) + 1,
                 villageWarRaidProgress: (character.villageWarRaidProgress ?? 0) + 1,
+                ryo: (character.ryo ?? 0) + (bountyEligible ? 500 : 0),
+                fateShards: (character.fateShards ?? 0) + (bountyEligible ? 1 : 0),
+                warGroundBountyDate: bountyEligible ? today : character.warGroundBountyDate,
             });
             await refresh();
-            // The war only ENDS when the war-ground sector's HP hits 0. Raids
-            // on other enemy sectors just grant war supply and dent control.
-            if (newHp === 0 && sector === activeWar.warGroundSector) {
-                const crateId = `war-crate-${activeWar.id}`;
-                const updatedWar = { ...activeWar, capturedBy: myVillage, capturedAt: Date.now(), warGroundHp: 0, winnerVillage: myVillage, endedAt: Date.now(), warCrateId: crateId };
+            // B (tug of war): capturing the war ground no longer ends the
+            // war. Instead it flips ownership (capturedBy), refreshes the
+            // sector territory HP, drains the enemy's village HP, and
+            // resets warGroundHp so the OTHER side can push back. The war
+            // itself only ends via enemy village HP reaching 0 (or Kage
+            // peace / decay timeout).
+            if (newHp === 0 && isWarGround) {
+                const refreshedTerritory = {
+                    ...territory,
+                    sector,
+                    hp: TERRITORY_HP_MAX,             // reset sector HP for the next push
+                    ownerVillage: myVillage,          // flip ownership
+                    warSupply: 0,                     // captured supply is consumed
+                };
                 await fetch("/api/world-state", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ kind: "war", war: updatedWar }),
+                    body: JSON.stringify({ kind: "territory", territory: refreshedTerritory }),
                 });
-                const alreadyClaimed = character.claimedWarCrateIds ?? [];
-                updateCharacter({
-                    ...character,
-                    ryo: (character.ryo ?? 0) + 2000,
-                    xp: (character.xp ?? 0) + 1000,
-                    villageWarMissionsCompleted: (character.villageWarMissionsCompleted ?? 0) + 1,
-                    inventory: alreadyClaimed.includes(crateId) ? character.inventory : [...character.inventory, LEGENDARY_WAR_CRATE_ID],
-                    claimedWarCrateIds: alreadyClaimed.includes(crateId) ? alreadyClaimed : [...alreadyClaimed, crateId],
+                // Capture event on the war record. Pass capturedBy + reset
+                // warGroundHp + apply the +750 capture damage to enemy HP.
+                // Server's HP delta cap permits a 100-HP swing per write,
+                // so we do two writes: one for the ownership flip + HP
+                // reset, then a separate damage write.
+                const enemyHpNow = activeWar.hp?.[enemyVillage] ?? VILLAGE_WAR_HP_MAX;
+                const enemyHpAfterCapture = Math.max(0, enemyHpNow - 100); // capped per server rule
+                const capturedAt = Date.now();
+                await fetch("/api/world-state", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        kind: "war",
+                        war: {
+                            ...activeWar,
+                            capturedBy: myVillage,
+                            capturedAt,
+                            warGroundHp: 500, // tug-of-war: reset, not zero
+                            hp: { ...activeWar.hp, [enemyVillage]: enemyHpAfterCapture },
+                        },
+                    }),
                 });
                 await refresh();
             }
@@ -36773,7 +37188,74 @@ function VillageWarScreen({
 
     return (
         <div className="card" style={{ maxWidth: 820, margin: "1rem auto", padding: "1.4rem" }}>
-            <h1 style={{ marginTop: 0 }}>⚔ Village War</h1>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: "0.5rem" }}>
+                <h1 style={{ margin: 0 }}>⚔ Village War</h1>
+                <button
+                    type="button"
+                    onClick={() => setShowWarManual(v => !v)}
+                    title="How does Village War work?"
+                    style={{ padding: "0.2rem 0.55rem", fontSize: "0.85rem", borderRadius: 4, border: "1px solid #60a5fa", background: "#1e293b", color: "#60a5fa", cursor: "pointer" }}
+                >
+                    ℹ How it works
+                </button>
+            </div>
+            {showWarManual && (
+                <div style={{ background: "#0b1220", border: "1px solid #334155", borderRadius: 8, padding: "1rem", marginBottom: "1rem", fontSize: "0.88rem", lineHeight: 1.55 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                        <strong style={{ color: "#fde047", fontSize: "1rem" }}>📜 Village War Manual</strong>
+                        <button type="button" onClick={() => setShowWarManual(false)} style={{ padding: "0.15rem 0.5rem", background: "#7f1d1d", borderColor: "#ef4444", color: "#fca5a5", fontSize: "0.75rem" }}>✕ Close</button>
+                    </div>
+                    <p style={{ margin: "0 0 0.5rem" }}>
+                        <strong style={{ color: "#60a5fa" }}>Declaring war.</strong> Only your village's <em>seated Kage</em> can declare. Costs <strong>500 Honor Seals</strong> from the Kage's personal treasury. Same two villages have a <strong>7-day rematch cooldown</strong> after a war ends. Each village can only be in <strong>one war at a time</strong>.
+                    </p>
+                    <p style={{ margin: "0 0 0.5rem" }}>
+                        <strong style={{ color: "#60a5fa" }}>How damage works.</strong> Each village starts with <strong>5000 War HP</strong> + a shared <strong>1000-HP War Ground sector</strong>. Each PvP fight moves both villages' HP — the winner contributes damage from <em>their</em> position; the loser's village takes extra damage if <em>they</em> were a high-value target.
+                    </p>
+                    <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr", gap: 0, border: "1px solid #334155", borderRadius: 6, overflow: "hidden", marginBottom: "0.6rem", fontSize: "0.82rem" }}>
+                        <div style={{ background: "#1e293b", padding: "0.35rem 0.6rem", fontWeight: 700, color: "#fde047" }}>Position</div>
+                        <div style={{ background: "#1e293b", padding: "0.35rem 0.6rem", fontWeight: 700, color: "#4ade80", textAlign: "right" }}>You win</div>
+                        <div style={{ background: "#1e293b", padding: "0.35rem 0.6rem", fontWeight: 700, color: "#f87171", textAlign: "right" }}>You lose</div>
+                        <div style={{ padding: "0.3rem 0.6rem" }}>Seated Kage</div>
+                        <div style={{ padding: "0.3rem 0.6rem", textAlign: "right", color: "#4ade80" }}>+30 enemy HP</div>
+                        <div style={{ padding: "0.3rem 0.6rem", textAlign: "right", color: "#f87171" }}>−50 your HP</div>
+                        <div style={{ padding: "0.3rem 0.6rem", background: "#0f172a" }}>Elder / Clan Head / Founder</div>
+                        <div style={{ padding: "0.3rem 0.6rem", background: "#0f172a", textAlign: "right", color: "#4ade80" }}>+20 enemy HP</div>
+                        <div style={{ padding: "0.3rem 0.6rem", background: "#0f172a", textAlign: "right", color: "#f87171" }}>−20 your HP</div>
+                        <div style={{ padding: "0.3rem 0.6rem" }}>ANBU</div>
+                        <div style={{ padding: "0.3rem 0.6rem", textAlign: "right", color: "#4ade80" }}>+15 enemy HP</div>
+                        <div style={{ padding: "0.3rem 0.6rem", textAlign: "right", color: "#64748b" }}>−0</div>
+                        <div style={{ padding: "0.3rem 0.6rem", background: "#0f172a" }}>Regular villager</div>
+                        <div style={{ padding: "0.3rem 0.6rem", background: "#0f172a", textAlign: "right", color: "#4ade80" }}>+5 enemy HP</div>
+                        <div style={{ padding: "0.3rem 0.6rem", background: "#0f172a", textAlign: "right", color: "#64748b" }}>−0</div>
+                    </div>
+                    <p style={{ margin: "0 0 0.5rem", fontSize: "0.82rem", color: "#94a3b8" }}>
+                        Both columns stack on the same fight. Examples: a regular villager defeating a Kage = <strong style={{ color: "#4ade80" }}>+5 enemy HP</strong> (their win) AND <strong style={{ color: "#f87171" }}>−50 to the Kage's village</strong> (kill penalty) = <strong>55 total damage</strong>. Kage beats Elder = +30 +20 = 50. Regular vs regular = +5. PvP wins on the war-ground sector drain the sector AND the enemy village HP simultaneously.
+                    </p>
+                    <p style={{ margin: "0 0 0.5rem" }}>
+                        <strong style={{ color: "#60a5fa" }}>Home defender bonus.</strong> When you win a PvP fight in a sector your own village owns, you get <strong>+15%</strong> war HP credit. This only scales the war ledger — the actual fight is unchanged.
+                    </p>
+                    <p style={{ margin: "0 0 0.5rem" }}>
+                        <strong style={{ color: "#60a5fa" }}>The war ground (tug of war).</strong> The war-ground sector is a contestable objective — capture it from this screen by raiding it to 0 HP, or drain its war-HP via PvP wins inside it. Each capture flips ownership, deals an extra <strong>+750 enemy HP</strong>, and resets the war ground HP to 500 so the other side can push back. The war ground can change hands repeatedly during a war.</p>
+                    <p style={{ margin: "0 0 0.5rem" }}>
+                        <strong style={{ color: "#60a5fa" }}>War Ground Bounty.</strong> Every successful war-ground raid pays <strong>+500 ryo + 1 Fate Shard</strong>, once per UTC day per player. Independent of who wins the war — even losers get paid for showing up.
+                    </p>
+                    <p style={{ margin: "0 0 0.5rem" }}>
+                        <strong style={{ color: "#60a5fa" }}>Winning the war.</strong> A side wins when the <em>enemy village HP hits 0</em>. Capturing the war ground only deals bonus damage — it doesn't end the war alone. The Kage may also call peace (ends with no winner, no crate).
+                    </p>
+                    <p style={{ margin: "0 0 0.5rem" }}>
+                        <strong style={{ color: "#60a5fa" }}>Decay.</strong> After 3 days, both sides lose <strong>500 war HP per UTC reset</strong> to push idle wars toward resolution. A war that nobody touches ends naturally around day 13.
+                    </p>
+                    <p style={{ margin: "0 0 0.5rem" }}>
+                        <strong style={{ color: "#60a5fa" }}>Rewards.</strong>
+                        <br />• <strong>Every winning villager:</strong> 1× Legendary War Crate.
+                        <br />• <strong>MVP each side</strong> (top damage on the leaderboard): +1 extra Legendary Crate, +10,000 ryo, +50 Honor Seals, +2 Fate Shards. Even the losing-side MVP earns this.
+                        <br />• <strong>Losing villagers who contributed ≥50 damage:</strong> 5,000 ryo, 25 Honor Seals, 1 Fate Shard consolation. No reward on draws.
+                    </p>
+                    <p style={{ margin: 0, color: "#94a3b8", fontSize: "0.8rem" }}>
+                        Rewards auto-claim on your next login or the next time you open this screen — no buttons to click for the standard crate.
+                    </p>
+                </div>
+            )}
             {error && <div style={{ color: "#f87171", marginBottom: "0.5rem" }}>⚠ {error}</div>}
             {claimable.length > 0 && (
                 <div style={{ background: "linear-gradient(#1a3a1a,#0a2010)", border: "1px solid #4ade80", borderRadius: 8, padding: "0.8rem", marginBottom: "1rem" }}>
@@ -36793,12 +37275,56 @@ function VillageWarScreen({
                     <div style={{ background: "#1a1a2e", border: "1px solid #f87171", borderRadius: 8, padding: "0.8rem", marginBottom: "1rem" }}>
                         <div style={{ fontWeight: 700, color: "#f87171", fontSize: "1.1rem" }}>{myVillage} vs {enemyVillage}</div>
                         <div style={{ color: "#94a3b8", fontSize: "0.85rem" }}>Started {new Date(activeWar.startedAt).toLocaleDateString()}</div>
+                        {activeWar.pendingUntil && activeWar.pendingUntil > Date.now() && (
+                            <div style={{ marginTop: 8, padding: "0.5rem 0.7rem", background: "linear-gradient(#3b2a05, #1f1402)", border: "1px solid #fbbf24", borderRadius: 6 }}>
+                                <strong style={{ color: "#fde047" }}>⏳ War starts in {Math.max(1, Math.ceil((activeWar.pendingUntil - Date.now()) / 60_000))} min</strong>
+                                <p style={{ fontSize: "0.78rem", color: "#fcd34d", margin: "4px 0 0" }}>
+                                    Pre-war window. No HP can drop, no PvP raid will count yet. Use this time to rally your village, queue guards, and gather pre-fight buffs.
+                                </p>
+                            </div>
+                        )}
                         <div style={{ marginTop: 8 }}>
                             <div>My village HP: <strong style={{ color: "#4ade80" }}>{activeWar.hp?.[myVillage] ?? 0}</strong></div>
                             <div>Enemy HP: <strong style={{ color: "#f87171" }}>{activeWar.hp?.[enemyVillage] ?? 0}</strong></div>
                             <div>War Ground (sector {activeWar.warGroundSector}): {activeWar.warGroundHp}</div>
                         </div>
                     </div>
+                    {/* Per-village live contribution leaderboard. Server
+                        accumulates damage on every raid/PvP write; we
+                        show top-3 on each side so MVP is visible at a
+                        glance. Read-only — no editable state. */}
+                    {(() => {
+                        const contribs = Object.values(activeWar.contributions ?? {});
+                        if (contribs.length === 0) return null;
+                        const mySide = contribs.filter(c => c.side === myVillage).sort((a, b) => b.damage - a.damage).slice(0, 3);
+                        const enemySide = contribs.filter(c => c.side === enemyVillage).sort((a, b) => b.damage - a.damage).slice(0, 3);
+                        return (
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: "1rem" }}>
+                                <div style={{ background: "#0a1f0a", border: "1px solid #4ade80", borderRadius: 6, padding: "0.6rem" }}>
+                                    <strong style={{ color: "#4ade80" }}>🏆 {myVillage} Top Raiders</strong>
+                                    {mySide.length === 0
+                                        ? <p style={{ fontSize: "0.8rem", color: "#94a3b8", margin: "0.4rem 0 0" }}>No raids yet. Be the first.</p>
+                                        : mySide.map((c, i) => (
+                                            <div key={c.name} style={{ fontSize: "0.85rem", marginTop: 4, display: "flex", justifyContent: "space-between" }}>
+                                                <span>{i + 1}. <strong>{c.name}</strong></span>
+                                                <span style={{ color: "#fde047" }}>{c.damage} dmg · {c.raids} raids</span>
+                                            </div>
+                                        ))}
+                                </div>
+                                <div style={{ background: "#1f0a0a", border: "1px solid #f87171", borderRadius: 6, padding: "0.6rem" }}>
+                                    <strong style={{ color: "#f87171" }}>⚔ {enemyVillage} Top Raiders</strong>
+                                    {enemySide.length === 0
+                                        ? <p style={{ fontSize: "0.8rem", color: "#94a3b8", margin: "0.4rem 0 0" }}>Enemy hasn't raided yet.</p>
+                                        : enemySide.map((c, i) => (
+                                            <div key={c.name} style={{ fontSize: "0.85rem", marginTop: 4, display: "flex", justifyContent: "space-between" }}>
+                                                <span>{i + 1}. <strong>{c.name}</strong></span>
+                                                <span style={{ color: "#fde047" }}>{c.damage} dmg · {c.raids} raids</span>
+                                            </div>
+                                        ))}
+                                </div>
+                            </div>
+                        );
+                    })()}
                     <h3>Enemy Sectors — Raid to drain control</h3>
                     <p style={{ color: "#facc15", fontSize: "0.85rem", marginTop: -4 }}>
                         ⚑ The war ends when the <strong>war-ground sector ({activeWar.warGroundSector})</strong> reaches 0 HP.
@@ -36829,12 +37355,23 @@ function VillageWarScreen({
                     {isKage ? (
                         <div style={{ marginTop: "1rem", padding: "0.8rem", background: "#0a0a1a", borderRadius: 8 }}>
                             <h3 style={{ marginTop: 0 }}>Declare War (Kage)</h3>
+                            <p style={{ fontSize: "0.8rem", color: "#fbbf24", marginTop: 0, marginBottom: "0.5rem" }}>
+                                Cost: <strong>500 Honor Seals</strong> · Rematch cooldown: 7 days · One war per village at a time
+                            </p>
                             <select value={declareTarget} onChange={e => setDeclareTarget(e.target.value)} style={{ padding: "0.4rem", marginRight: "0.5rem" }}>
                                 <option value="">Select target village…</option>
                                 {villages.map(v => <option key={v} value={v}>{v}</option>)}
                             </select>
-                            <button disabled={!declareTarget || declaring} onClick={declareWar} style={{ padding: "0.5rem 1rem", background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171" }}>
-                                {declaring ? "Declaring…" : "⚔ Declare War"}
+                            <button
+                                disabled={!declareTarget || declaring || (character.honorSeals ?? 0) < 500}
+                                onClick={() => {
+                                    if (!window.confirm(`Declare war on ${declareTarget}? This will cost 500 Honor Seals from your treasury.`)) return;
+                                    void declareWar();
+                                }}
+                                style={{ padding: "0.5rem 1rem", background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171" }}
+                                title={(character.honorSeals ?? 0) < 500 ? "Need 500 Honor Seals" : undefined}
+                            >
+                                {declaring ? "Declaring…" : (character.honorSeals ?? 0) < 500 ? `⚔ Declare War (need 500 Seals — have ${(character.honorSeals ?? 0)})` : "⚔ Declare War — 500 Honor Seals"}
                             </button>
                         </div>
                     ) : (
@@ -36842,6 +37379,56 @@ function VillageWarScreen({
                     )}
                 </>
             )}
+            {/* Spectator section — any other active wars in the world.
+                Read-only HP bars + top-3 raiders per side so players
+                can keep an eye on cross-village politics even when
+                their own village isn't fighting. */}
+            {(() => {
+                const otherWars = wars.filter(w =>
+                    !w.endedAt
+                    && Array.isArray(w.villages)
+                    && (!myVillage || !w.villages.includes(myVillage))
+                );
+                if (otherWars.length === 0) return null;
+                return (
+                    <div style={{ marginTop: "1.5rem", paddingTop: "1rem", borderTop: "1px solid #334155" }}>
+                        <h3 style={{ marginTop: 0, marginBottom: "0.5rem", color: "#94a3b8" }}>👁 Other Active Wars</h3>
+                        <p style={{ fontSize: "0.78rem", color: "#64748b", marginTop: 0, marginBottom: "0.7rem" }}>
+                            Wars not involving your village. Spectate only.
+                        </p>
+                        <div style={{ display: "grid", gap: 10 }}>
+                            {otherWars.map(w => {
+                                const [vA, vB] = w.villages;
+                                const hpA = w.hp?.[vA] ?? 0;
+                                const hpB = w.hp?.[vB] ?? 0;
+                                const contribs = Object.values(w.contributions ?? {});
+                                const topA = contribs.filter(c => c.side === vA).sort((a, b) => b.damage - a.damage)[0];
+                                const topB = contribs.filter(c => c.side === vB).sort((a, b) => b.damage - a.damage)[0];
+                                const ageDays = Math.floor((Date.now() - w.startedAt) / (24 * 60 * 60 * 1000));
+                                return (
+                                    <div key={w.id} style={{ background: "#0b1220", border: "1px solid #334155", borderRadius: 6, padding: "0.65rem" }}>
+                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                                            <strong>{vA} <span style={{ color: "#64748b" }}>vs</span> {vB}</strong>
+                                            <small style={{ color: "#64748b" }}>Day {ageDays + 1}</small>
+                                        </div>
+                                        <div style={{ display: "flex", gap: 12, fontSize: "0.82rem", marginTop: 4 }}>
+                                            <span style={{ color: "#4ade80" }}>{vA}: <strong>{hpA}</strong></span>
+                                            <span style={{ color: "#f87171" }}>{vB}: <strong>{hpB}</strong></span>
+                                            <span style={{ color: "#94a3b8" }}>War Ground: {w.warGroundHp}/1000</span>
+                                        </div>
+                                        {(topA || topB) && (
+                                            <div style={{ display: "flex", gap: 16, fontSize: "0.78rem", marginTop: 4, color: "#94a3b8" }}>
+                                                {topA && <span>🏆 {vA}: <strong>{topA.name}</strong> ({topA.damage} dmg)</span>}
+                                                {topB && <span>🏆 {vB}: <strong>{topB.name}</strong> ({topB.damage} dmg)</span>}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                );
+            })()}
             <button className="back-btn" style={{ marginTop: "1rem" }} onClick={onBack}>× Back</button>
         </div>
     );
@@ -36860,6 +37447,10 @@ type VillageWarRecord = {
     winnerVillage?: string;
     endedAt?: number;
     warCrateId?: string;
+    contributions?: Record<string, { damage: number; raids: number; pvpKills: number; side: string; name: string }>;
+    mvpByVillage?: Record<string, string>;
+    loserCrateId?: string;
+    pendingUntil?: number;
 };
 
 type TerritoryRecord = {
