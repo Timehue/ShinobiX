@@ -361,7 +361,7 @@ export function Inventory({
                                 className={inventoryTab === "items" ? "active" : ""}
                                 onClick={() => setInventoryTab("items")}
                             >
-                                ?? Items
+                                🎒 Items
                             </button>
 
                             <button
@@ -369,7 +369,7 @@ export function Inventory({
                                 className={inventoryTab === "tileCards" ? "active" : ""}
                                 onClick={() => setInventoryTab("tileCards")}
                             >
-                                ?? Tile Cards
+                                🃏 Tile Cards
                             </button>
                         </div>
                     </div>
@@ -505,7 +505,7 @@ export function Inventory({
                                                 {card?.image ? (
                                                     <img src={card.image} alt={card.name} />
                                                 ) : (
-                                                    <span>??</span>
+                                                    <span>🃏</span>
                                                 )}
                                             </div>
 
