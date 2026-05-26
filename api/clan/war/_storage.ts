@@ -13,7 +13,14 @@ import { kv } from '../../_storage.js';
 
 export type ChallengeMode = 'pvp1v1' | 'pvp2v2' | 'pet1v1' | 'pet2v2' | 'tilecards';
 
-export type ChallengeStatus = 'pending' | 'accepted' | 'completed' | 'expired' | 'cancelled';
+// 'queuing'  — only used for 2v2 modes while the sending clan is still
+//              gathering a second challenger. Hidden from the defender.
+// 'pending'  — challenge is queue-complete on the sender side and
+//              visible to the defender. For 2v2, defenders may have
+//              partially queued (acceptedPlayer set, acceptedPlayer2
+//              still empty) — status stays 'pending' until 2/2.
+// 'accepted' — both sides fully queued; battle is ready.
+export type ChallengeStatus = 'queuing' | 'pending' | 'accepted' | 'completed' | 'expired' | 'cancelled';
 
 export type ChallengeResult = 'from-wins' | 'to-wins' | 'draw';
 
@@ -173,7 +180,11 @@ export function applyLazyClanWarExpiry(war: ClanWar, now: number = Date.now()): 
         const stillPending: ClanChallenge[] = [];
         const newlyExpired: ClanChallenge[] = [];
         for (const ch of next.pendingChallenges) {
-            if (ch.status === 'pending' && ch.expiresAt < now) {
+            // Both 'queuing' (still gathering 2v2 challengers) and
+            // 'pending' (visible to defender, possibly with partial
+            // accept-queue) honor the same TTL.
+            const inQueue = ch.status === 'pending' || ch.status === 'queuing';
+            if (inQueue && ch.expiresAt < now) {
                 newlyExpired.push({ ...ch, status: 'expired' as const, completedAt: now });
             } else {
                 stillPending.push(ch);
