@@ -13768,7 +13768,7 @@ function DungeonPetBattle({ character, updateCharacter, editablePets, onWin, onL
         setBattleObstacles(battle.obstacles);
         setFrameIndex(0);
         setIsPlaying(true);
-        setResult(battle.result === "win" ? "Victory" : "Defeat");
+        setResult(battle.result === "win" ? "Victory" : battle.result === "draw" ? "Draw" : "Defeat");
         if (battle.result === "win") updateCharacter({ ...character, totalPetWins: (character.totalPetWins ?? 0) + 1, dailyPetWins: (character.dailyPetWins ?? 0) + 1, lastDailyReset: currentDateKey() });
     }
     if (!selectedPet) {
@@ -15091,8 +15091,24 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
         }
 
         const playerFirst = player.pet.speed > enemy.pet.speed || (player.pet.speed === enemy.pet.speed && petBattleTieKey(player.pet) <= petBattleTieKey(enemy.pet));
-        const playerSwift = player.pet.trait === "Swift" && player.pet.speed >= enemy.pet.speed * 1.2;
-        const enemySwift  = enemy.pet.trait  === "Swift" && enemy.pet.speed  >= player.pet.speed * 1.2;
+        // Swift bonus action scales with the actual speed gap instead of a
+        // binary trigger at 1.2×:
+        //   • ≥ 2.0× speed → bonus action every round (raw blitz)
+        //   • ≥ 1.5× speed → bonus action every other round
+        //   • ≥ 1.2× speed → bonus action every third round
+        // Below 1.2× Swift gives no bonus action — just normal turn order
+        // priority on tie. Prevents the old "1.2× → +100% damage output" gap
+        // while preserving Swift's identity as the speed trait.
+        const playerSpeedRatio = player.pet.speed / Math.max(1, enemy.pet.speed);
+        const enemySpeedRatio  = enemy.pet.speed  / Math.max(1, player.pet.speed);
+        function swiftFires(round: number, ratio: number): boolean {
+            if (ratio >= 2.0) return true;
+            if (ratio >= 1.5) return round % 2 === 1;       // every other round
+            if (ratio >= 1.2) return round % 3 === 1;       // every third round
+            return false;
+        }
+        const playerSwift = player.pet.trait === "Swift" && swiftFires(round, playerSpeedRatio);
+        const enemySwift  = enemy.pet.trait  === "Swift" && swiftFires(round, enemySpeedRatio);
 
         if (playerFirst) {
             [player, enemy] = act(player, enemy, round);
@@ -15112,10 +15128,31 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
         pushFrame(round, roundMessage, "system");
     }
 
+    // ── Result resolution ──────────────────────────────────────────────────
+    // Cases:
+    //   1. One pet down, the other alive → standard win / loss
+    //   2. Both pets at 0 HP same round (double KO from DoT, simultaneous
+    //      finishers, etc.) → DRAW (was: player auto-wins, unfair)
+    //   3. 30-round stalemate, both still alive → HP% tiebreak with a 5%
+    //      tolerance band that produces DRAW (was: equal HP gave player win)
     const playerWon = player.hp > 0 && enemy.hp <= 0;
     const enemyWon = enemy.hp > 0 && player.hp <= 0;
-    const result = playerWon ? "win" : enemyWon ? "loss" : player.hp >= enemy.hp ? "win" : "loss";
-    const finalMessage = result === "win" ? `${player.pet.name} wins the Pet Arena match.` : `${enemy.pet.name} wins the Pet Arena match.`;
+    let result: "win" | "loss" | "draw";
+    if (playerWon) result = "win";
+    else if (enemyWon) result = "loss";
+    else if (player.hp <= 0 && enemy.hp <= 0) result = "draw";
+    else {
+        // Stalemate after round cap. Compare remaining HP percent (fair
+        // across different max HP pools) with a 5% draw band.
+        const playerPct = player.hp / Math.max(1, player.pet.hp);
+        const enemyPct = enemy.hp / Math.max(1, enemy.pet.hp);
+        if (Math.abs(playerPct - enemyPct) < 0.05) result = "draw";
+        else result = playerPct > enemyPct ? "win" : "loss";
+    }
+    const finalMessage =
+        result === "win" ? `${player.pet.name} wins the Pet Arena match.` :
+        result === "loss" ? `${enemy.pet.name} wins the Pet Arena match.` :
+        `Draw — neither pet could finish the fight.`;
     logs.push(finalMessage);
     pushFrame(21, finalMessage, "system", "result");
     return { result, player, enemy, logs, frames, obstacles: [...obstacles] };
@@ -15229,7 +15266,7 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
         setBattleObstacles(battle.obstacles);
         setFrameIndex(0);
         setIsPlaying(true);
-        setResult(battle.result === "win" ? "Victory" : "Defeat");
+        setResult(battle.result === "win" ? "Victory" : battle.result === "draw" ? "Draw" : "Defeat");
         if (battle.result === "win") {
             // Pet Arena rewards are server-validated: we POST the win and the
             // server applies ryo + increments totalPetWins / dailyPetWins
