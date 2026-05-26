@@ -26,8 +26,18 @@ import {
 //   • Target clan cannot be the same as actor's clan
 //   • Pair-cooldown: same two clans cannot re-war within 7 days of
 //     the previous war ending
+//   • Declaring player must hold ≥ CLAN_WAR_DECLARATION_COST honor seals
+//     (charged off their save on success — same model as the Village War
+//     declaration in api/world-state.ts). Free clan wars previously let
+//     officers grief-pair every other clan into 7-day cooldowns.
 //
 // Server-managed: war record + HP (500/500), war crate ID, declaredBy.
+
+// Honor-seal cost to declare. 100 is lower than the 500-seal village war
+// cost — clan wars are more frequent and at a smaller scale — but enough
+// to make grief-locking a clan into the 7-day cooldown carry real economic
+// weight. Admin bypasses (testing).
+const CLAN_WAR_DECLARATION_COST = 100;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -69,6 +79,39 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Single-war-per-clan rule (each clan).
         if (await clanInActiveWar(fromClan)) return res.status(409).json({ error: `${fromClan} is already in a clan war.` });
         if (await clanInActiveWar(toClan)) return res.status(409).json({ error: `${toClan} is already in a clan war.` });
+
+        // Honor-seal cost (non-admin). Charged off the declaring player's
+        // save. Read-modify-write held under lock:save:<name> so a
+        // concurrent auto-save can't undo the debit.
+        if (!identity.admin) {
+            const saveKey = `save:${identity.name}`;
+            const debitError = await withKvLock(saveKey, async () => {
+                const record = await kv.get<Record<string, unknown>>(saveKey);
+                const char = record?.character as Record<string, unknown> | undefined;
+                if (!char) return { status: 404 as const, body: { error: 'Declaring character not found.' } };
+                const balance = Number(char.honorSeals ?? 0);
+                if (balance < CLAN_WAR_DECLARATION_COST) {
+                    return {
+                        status: 400 as const,
+                        body: {
+                            error: `Declaring war costs ${CLAN_WAR_DECLARATION_COST} Honor Seals. You hold ${balance}.`,
+                            cost: CLAN_WAR_DECLARATION_COST,
+                            balance,
+                        },
+                    };
+                }
+                const updated = {
+                    ...record,
+                    character: {
+                        ...char,
+                        honorSeals: balance - CLAN_WAR_DECLARATION_COST,
+                    },
+                };
+                await kv.set(saveKey, updated);
+                return null;
+            });
+            if (debitError) return res.status(debitError.status).json(debitError.body);
+        }
 
         const sortedClans: [string, string] = [fromClan, toClan].sort((a, b) => a.localeCompare(b)) as [string, string];
         const id = clanWarPairId(fromClan, toClan);

@@ -119,6 +119,11 @@ const CURRENCY_CAPS: Record<string, number> = {
     honorSeals: 200,
 };
 const MAX_STAT_GAIN = 500;   // per individual stat per save cycle
+// Total stat-points (sum across all 12 stats) a single save can grant.
+// Without this, the per-stat cap could be multiplied by 12 stats = 6000
+// total points per save. 1000 is generous — legitimate training tops out
+// well below that per save cycle.
+const MAX_TOTAL_STAT_GAIN = 1000;
 const MAX_LEVEL_GAIN = 5;    // levels that can be gained between saves
 const LEVEL_CAP = 100;
 const MAX_PROFESSION_XP_GAIN = 5000; // per save cycle (covers normal play + mission XP)
@@ -245,6 +250,8 @@ function sanitizeCharacterSave(
     }
 
     // Individual stats: can't gain more than MAX_STAT_GAIN per stat per save.
+    // Then a second pass clamps the TOTAL across-all-stats gain to
+    // MAX_TOTAL_STAT_GAIN so the per-stat cap can't be multiplied by 12.
     const inStats = char.stats as Record<string, number> | undefined;
     const exStats = exChar.stats as Record<string, number> | undefined;
     if (inStats && typeof inStats === 'object' && exStats && typeof exStats === 'object') {
@@ -252,6 +259,22 @@ function sanitizeCharacterSave(
         for (const k of Object.keys(s)) {
             const exV = Math.max(0, Number(exStats[k] ?? 0));
             s[k] = Math.min(Math.max(0, Number(s[k] ?? 0)), exV + MAX_STAT_GAIN);
+        }
+        // Total-across-all-stats clamp. If the proposed delta is over
+        // MAX_TOTAL_STAT_GAIN, scale every stat's delta proportionally
+        // so the total fits. Existing values aren't touched.
+        let totalDelta = 0;
+        for (const k of Object.keys(s)) {
+            const exV = Math.max(0, Number(exStats[k] ?? 0));
+            totalDelta += Math.max(0, s[k] - exV);
+        }
+        if (totalDelta > MAX_TOTAL_STAT_GAIN) {
+            const scale = MAX_TOTAL_STAT_GAIN / totalDelta;
+            for (const k of Object.keys(s)) {
+                const exV = Math.max(0, Number(exStats[k] ?? 0));
+                const delta = Math.max(0, s[k] - exV);
+                s[k] = exV + Math.floor(delta * scale);
+            }
         }
         char.stats = s;
     }
@@ -464,6 +487,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             if (!allowCreate) {
                                 return res.status(403).json({ error: 'Only members of this clan can write its shared record.' });
                             }
+                            // Per-player rate limit on first-time clan creation
+                            // to stop name-squatting / spam after a server
+                            // reset. 3 new clans per hour is plenty for
+                            // legitimate "I created the wrong name" recovery.
+                            if (!(await enforceRateLimitKv(req, res, 'clan-create', 3, 60 * 60_000, identity.name))) return;
                         }
                     } catch {
                         return res.status(500).json({ error: 'Unable to verify clan membership.' });
