@@ -14653,7 +14653,7 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
         void fetchOffer();
         const id = setInterval(fetchOffer, 60_000);
         return () => { cancelled = true; clearInterval(id); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
     }, [canOfferEscort, character.clan, character.name]);
 
     async function toggleEscort() {
@@ -36765,7 +36765,7 @@ function ArenaBattlePersister(props: ArenaBattlePersisterProps) {
             };
             localStorage.setItem(key, JSON.stringify(snapshot));
         } catch { /* quota — ignore */ }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+         
     }, [props.turn, props.battleStarted, props.battleEnded, props.isPvpFight]);
 
     // RESTORE — one-shot on mount. No useRef needed — the component only
@@ -36790,7 +36790,7 @@ function ArenaBattlePersister(props: ArenaBattlePersisterProps) {
         } catch {
             try { localStorage.removeItem(key); } catch { /* ignore */ }
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+         
     }, []);
 
     return null;
@@ -37095,7 +37095,7 @@ function PvpBattleScreen({
         // auto: true marks this as a timer-fired wait so the server counts it
         // toward the AFK skip counter (vs a manual Wait click).
         submitAction("wait", undefined, undefined, undefined, { auto: true });
-    }, [pvpPendingAutoWait, submitting, pvpIsMyTurn, pvpDone]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [pvpPendingAutoWait, submitting, pvpIsMyTurn, pvpDone]);  
 
     /* ── Register ALL PvP fights on spectator board ── */
     useEffect(() => {
