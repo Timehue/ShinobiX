@@ -32044,87 +32044,67 @@ function Arena({
     const activeWeaponRangeTiles = weaponRangeTiles(pendingTargetWeapon);
     const activeGroundAffectedTiles = groundAffectedTiles(pendingTargetJutsu, hoveredBattleTile);
 
-    // ── Mid-battle PvE state persistence (minimal-hook v2) ──────────────
-    // Players don't want a refresh to lose their fight. Earlier attempt
-    // used a useEffect with a 24-item deps array which the user reported
-    // crashed with React #310. This version saves only on turn boundaries
-    // (deps array of 3) so the hook is stable across renders.
+    // ── Mid-battle PvE state persistence (isolated-component v3) ────────
+    // Previous two attempts added hooks DIRECTLY to Arena and tripped
+    // React #310. Even with a minimal deps array, something in Arena's
+    // 50+-hook footprint causes count mismatches when new hooks land.
     //
-    // 3 hooks total: 1 useRef (restore guard) + 2 useEffects (save +
-    // restore). Save fires when `turn` changes or battleStarted/Ended
-    // flip — that's once per round, not once per state mutation.
-    const ARENA_SAVE_KEY = `arena.battle.v2.${character.name}`;
-    const ARENA_SAVE_TTL_MS = 60 * 60 * 1000;
-    const arenaRestoreAttempted = useRef(false);
-    useEffect(() => {
-        if (!battleStarted || battleEnded) {
-            try { localStorage.removeItem(ARENA_SAVE_KEY); } catch { /* ignore */ }
-            return;
-        }
-        try {
-            localStorage.setItem(ARENA_SAVE_KEY, JSON.stringify({
-                savedAt: Date.now(),
-                opponentName: opponentCharacter?.name ?? pendingAiProfile?.name,
-                pendingStoryKind: pendingStoryBattle?.kind,
-                battleStarted, playerHp, enemyHp, enemyChakra, enemyStamina,
-                ap, enemyAp, turn, activeActor, actionsThisTurn,
-                playerStatuses, enemyStatuses, barrierTiles,
-                cooldowns, jutsuCooldowns, enemyJutsuCooldowns,
-                playerShield, enemyShield, playerPos, enemyPos,
-                battleHistory, summonedPetId,
-                rankedBattleActive, clanWarPointsActive,
-            }));
-        } catch { /* quota — ignore */ }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [turn, battleStarted, battleEnded]);
-    useEffect(() => {
-        if (arenaRestoreAttempted.current) return;
-        arenaRestoreAttempted.current = true;
-        try {
-            const raw = localStorage.getItem(ARENA_SAVE_KEY);
-            if (!raw) return;
-            const saved = JSON.parse(raw);
-            if (!saved?.battleStarted) return;
-            if (Date.now() - (saved.savedAt ?? 0) > ARENA_SAVE_TTL_MS) {
-                localStorage.removeItem(ARENA_SAVE_KEY);
-                return;
-            }
-            const expectedOpponentName = opponentCharacter?.name ?? pendingAiProfile?.name;
-            if (saved.pendingStoryKind !== pendingStoryBattle?.kind) return;
-            if (expectedOpponentName && saved.opponentName !== expectedOpponentName) return;
-            setBattleStarted(saved.battleStarted);
-            setPlayerHp(saved.playerHp);
-            setEnemyHp(saved.enemyHp);
-            setEnemyChakra(saved.enemyChakra);
-            setEnemyStamina(saved.enemyStamina);
-            setAp(saved.ap);
-            setEnemyAp(saved.enemyAp);
-            setTurn(saved.turn);
-            setActiveActor(saved.activeActor);
-            setActionsThisTurn(saved.actionsThisTurn);
-            setPlayerStatuses(saved.playerStatuses);
-            setEnemyStatuses(saved.enemyStatuses);
-            setBarrierTiles(saved.barrierTiles);
-            setCooldowns(saved.cooldowns);
-            setJutsuCooldowns(saved.jutsuCooldowns);
-            setEnemyJutsuCooldowns(saved.enemyJutsuCooldowns);
-            setPlayerShield(saved.playerShield);
-            setEnemyShield(saved.enemyShield);
-            setPlayerPos(saved.playerPos);
-            setEnemyPos(saved.enemyPos);
-            setBattleHistory(saved.battleHistory);
-            setSummonedPetId(saved.summonedPetId);
-            setRankedBattleActive(saved.rankedBattleActive);
-            setClanWarPointsActive(saved.clanWarPointsActive);
-            setLog("Mid-battle state restored from previous session.");
-        } catch {
-            try { localStorage.removeItem(ARENA_SAVE_KEY); } catch { /* ignore */ }
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    // v3 fix: render an <ArenaBattlePersister/> child below — its hooks
+    // live in their own scope, so Arena's hook count is COMPLETELY
+    // UNCHANGED by the persistence feature. Save fires on turn-boundary
+    // (deps: 4), restore is one-shot on mount, and the child component
+    // takes all the state as props + an onRestore callback.
 
     return (
         <div className={`arena-fullscreen arena-bg-${currentBiome}${currentSector === 99 ? " arena-bg-deathsgate" : ""}`}>
+            {/* Mid-battle state persistence — isolated in a child component
+                so Arena's hook count is unchanged. Renders nothing visible. */}
+            <ArenaBattlePersister
+                characterName={character.name}
+                battleStarted={battleStarted}
+                battleEnded={battleEnded}
+                isPvpFight={raidBattleKind === "raidPlayer" || rankedBattleActive}
+                opponentName={opponentCharacter?.name ?? pendingAiProfile?.name}
+                pendingStoryKind={pendingStoryBattle?.kind}
+                playerHp={playerHp} enemyHp={enemyHp}
+                enemyChakra={enemyChakra} enemyStamina={enemyStamina}
+                ap={ap} enemyAp={enemyAp}
+                turn={turn} activeActor={activeActor} actionsThisTurn={actionsThisTurn}
+                playerStatuses={playerStatuses} enemyStatuses={enemyStatuses}
+                barrierTiles={barrierTiles}
+                cooldowns={cooldowns} jutsuCooldowns={jutsuCooldowns} enemyJutsuCooldowns={enemyJutsuCooldowns}
+                playerShield={playerShield} enemyShield={enemyShield}
+                playerPos={playerPos} enemyPos={enemyPos}
+                battleHistory={battleHistory} summonedPetId={summonedPetId}
+                rankedBattleActive={rankedBattleActive} clanWarPointsActive={clanWarPointsActive}
+                onRestore={(saved) => {
+                    setBattleStarted(saved.battleStarted);
+                    setPlayerHp(saved.playerHp);
+                    setEnemyHp(saved.enemyHp);
+                    setEnemyChakra(saved.enemyChakra);
+                    setEnemyStamina(saved.enemyStamina);
+                    setAp(saved.ap);
+                    setEnemyAp(saved.enemyAp);
+                    setTurn(saved.turn);
+                    setActiveActor(saved.activeActor);
+                    setActionsThisTurn(saved.actionsThisTurn);
+                    setPlayerStatuses(saved.playerStatuses as CombatStatus[]);
+                    setEnemyStatuses(saved.enemyStatuses as CombatStatus[]);
+                    setBarrierTiles(saved.barrierTiles);
+                    setCooldowns(saved.cooldowns);
+                    setJutsuCooldowns(saved.jutsuCooldowns);
+                    setEnemyJutsuCooldowns(saved.enemyJutsuCooldowns);
+                    setPlayerShield(saved.playerShield);
+                    setEnemyShield(saved.enemyShield);
+                    setPlayerPos(saved.playerPos);
+                    setEnemyPos(saved.enemyPos);
+                    setBattleHistory(saved.battleHistory as BattleActionEntry[]);
+                    setSummonedPetId(saved.summonedPetId);
+                    setRankedBattleActive(saved.rankedBattleActive);
+                    setClanWarPointsActive(saved.clanWarPointsActive);
+                    setLog("Mid-battle state restored from previous session.");
+                }}
+            />
             {/* Pre-fight countdown overlay — shown for ALL battle types */}
             {prefightCountdown !== null && (
                 <div className="pvp-countdown-overlay">
@@ -32829,6 +32809,133 @@ type PvpMotionFx = {
     from: number;
     to: number;
 };
+
+// ── ArenaBattlePersister ─────────────────────────────────────────────────
+// Headless child component (renders nothing) that serializes a PvE Arena
+// battle to localStorage on each turn boundary and rehydrates it on mount.
+//
+// Lives as a SEPARATE component to keep its hooks isolated from Arena —
+// previous attempts to put the hooks directly inside Arena tripped React
+// error #310 (hook count mismatch) because Arena has 50+ existing hooks
+// and the interaction was unstable. With this child, Arena's hook count
+// is untouched: the persister has its own consistent hook footprint
+// (2 useEffects), independent of the parent.
+type ArenaBattlePersisterProps = {
+    characterName: string;
+    battleStarted: boolean;
+    battleEnded: boolean;
+    isPvpFight: boolean;
+    opponentName?: string;
+    pendingStoryKind?: string;
+    playerHp: number; enemyHp: number;
+    enemyChakra: number; enemyStamina: number;
+    ap: number; enemyAp: number;
+    turn: number;
+    activeActor: "player" | "enemy";
+    actionsThisTurn: number;
+    playerStatuses: unknown[]; enemyStatuses: unknown[];
+    barrierTiles: { tile: number; rounds: number }[];
+    cooldowns: Record<string, number>;
+    jutsuCooldowns: Record<string, number>;
+    enemyJutsuCooldowns: Record<string, number>;
+    playerShield: number; enemyShield: number;
+    playerPos: number; enemyPos: number;
+    battleHistory: unknown[];
+    summonedPetId: string;
+    rankedBattleActive: boolean;
+    clanWarPointsActive: number;
+    onRestore: (saved: SavedArenaBattle) => void;
+};
+type SavedArenaBattle = {
+    savedAt: number;
+    opponentName?: string;
+    pendingStoryKind?: string;
+    battleStarted: boolean;
+    playerHp: number; enemyHp: number;
+    enemyChakra: number; enemyStamina: number;
+    ap: number; enemyAp: number;
+    turn: number;
+    activeActor: "player" | "enemy";
+    actionsThisTurn: number;
+    playerStatuses: unknown[]; enemyStatuses: unknown[];
+    barrierTiles: { tile: number; rounds: number }[];
+    cooldowns: Record<string, number>;
+    jutsuCooldowns: Record<string, number>;
+    enemyJutsuCooldowns: Record<string, number>;
+    playerShield: number; enemyShield: number;
+    playerPos: number; enemyPos: number;
+    battleHistory: unknown[];
+    summonedPetId: string;
+    rankedBattleActive: boolean;
+    clanWarPointsActive: number;
+};
+const ARENA_SAVE_TTL_MS = 60 * 60 * 1000;     // 1hr
+function ArenaBattlePersister(props: ArenaBattlePersisterProps) {
+    const key = `arena.battle.v3.${props.characterName}`;
+    // SAVE — fires on turn boundary or battle end. Reads state via the
+    // closure of `props`. Deps array tiny (4 items) so React can stably
+    // schedule the effect.
+    useEffect(() => {
+        if (!props.battleStarted || props.battleEnded || props.isPvpFight) {
+            try { localStorage.removeItem(key); } catch { /* ignore */ }
+            return;
+        }
+        try {
+            const snapshot: SavedArenaBattle = {
+                savedAt: Date.now(),
+                opponentName: props.opponentName,
+                pendingStoryKind: props.pendingStoryKind,
+                battleStarted: props.battleStarted,
+                playerHp: props.playerHp, enemyHp: props.enemyHp,
+                enemyChakra: props.enemyChakra, enemyStamina: props.enemyStamina,
+                ap: props.ap, enemyAp: props.enemyAp,
+                turn: props.turn,
+                activeActor: props.activeActor,
+                actionsThisTurn: props.actionsThisTurn,
+                playerStatuses: props.playerStatuses, enemyStatuses: props.enemyStatuses,
+                barrierTiles: props.barrierTiles,
+                cooldowns: props.cooldowns,
+                jutsuCooldowns: props.jutsuCooldowns,
+                enemyJutsuCooldowns: props.enemyJutsuCooldowns,
+                playerShield: props.playerShield, enemyShield: props.enemyShield,
+                playerPos: props.playerPos, enemyPos: props.enemyPos,
+                battleHistory: props.battleHistory,
+                summonedPetId: props.summonedPetId,
+                rankedBattleActive: props.rankedBattleActive,
+                clanWarPointsActive: props.clanWarPointsActive,
+            };
+            localStorage.setItem(key, JSON.stringify(snapshot));
+        } catch { /* quota — ignore */ }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [props.turn, props.battleStarted, props.battleEnded, props.isPvpFight]);
+
+    // RESTORE — one-shot on mount. No useRef needed — the component only
+    // mounts once per Arena entry, so a single useEffect with [] deps
+    // is enough.
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem(key);
+            if (!raw) return;
+            const saved = JSON.parse(raw) as SavedArenaBattle;
+            if (!saved?.battleStarted) return;
+            if (Date.now() - (saved.savedAt ?? 0) > ARENA_SAVE_TTL_MS) {
+                localStorage.removeItem(key);
+                return;
+            }
+            // Encounter signature validation — opponent + story kind must
+            // match, otherwise an old story-boss save could pour into a
+            // fresh ambush.
+            if (saved.pendingStoryKind !== props.pendingStoryKind) return;
+            if (props.opponentName && saved.opponentName !== props.opponentName) return;
+            props.onRestore(saved);
+        } catch {
+            try { localStorage.removeItem(key); } catch { /* ignore */ }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    return null;
+}
 
 function PvpBattleScreen({
     character,
