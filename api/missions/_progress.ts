@@ -106,7 +106,8 @@ function fromTemplate(t: MissionTemplate, dateKey: string): DailyMission {
 }
 
 // Load (or issue) today's missions for a player. Returns null if profession
-// doesn't have missions (e.g., Pet Tamer).
+// doesn't have missions. Vanguard Rank 6+ gets 4 missions instead of 3
+// (the Rank 6 even-rank perk).
 export async function loadOrIssueDailyMissions(
     playerName: string,
     profession: Profession,
@@ -117,7 +118,13 @@ export async function loadOrIssueDailyMissions(
     if (existing && existing.date === today && existing.profession === profession) {
         return existing;
     }
-    const picks = pickDailyMissions(profession, playerName, today, 3);
+    // Look up current rank to determine daily mission slot count.
+    const record = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+    const char = record?.character as Record<string, unknown> | undefined;
+    const currentRank = Number(char?.professionRank ?? 1);
+    const slotCount = (profession === 'vanguard' && currentRank >= 6) ? 4 : 3;
+
+    const picks = pickDailyMissions(profession, playerName, today, slotCount);
     if (picks.length === 0) return null;
     const state: DailyMissionsState = {
         date: today,
