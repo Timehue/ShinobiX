@@ -3,10 +3,7 @@ import {
     type Character,
     type EquipmentSlot,
     type GameItem,
-    type Pet,
-    type Stats,
     type TileCard,
-    type TileCardArrow,
     DUNGEON_KEY_ID,
     LEGENDARY_WAR_CRATE_ID,
     WARFORGED_RELIC_ID,
@@ -62,13 +59,6 @@ export function Inventory({
         }, {})
     );
 
-    function arrowSymbol(arrow: TileCardArrow) {
-        if (arrow === "up") return "?";
-        if (arrow === "down") return "?";
-        if (arrow === "left") return "?";
-        if (arrow === "right") return "?";
-        return "?";
-    }
     const inventoryEntries = character.inventory.map((entry, index) => {
         const item = getItemById(allItems, entry) ?? allItems.find((candidate) => candidate.name === entry);
         return { entry, index, item, stackKey: item?.id ?? entry };
@@ -267,11 +257,6 @@ export function Inventory({
                 stat: statLabel(stat),
                 value: value as number,
             }));
-    }
-
-    function slotHelp(slot: typeof visualSlots[number]) {
-        if (!slot.accepts) return "Future equipment slot";
-        return `${equipmentSlotLabel(slot.accepts)} slot`;
     }
 
     function itemInitials(name: string) {

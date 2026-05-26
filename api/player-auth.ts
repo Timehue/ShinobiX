@@ -2,7 +2,19 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from './_storage.js';
 import { cors } from './_utils.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
+import { safeEqual } from './_auth.js';
 import crypto from 'crypto';
+
+// Usernames reserved for the protected admin account. New `register` requests
+// for these names are refused unless the caller passes the admin password via
+// the `x-admin-password` header. The first-time owner registers themselves by
+// supplying that header once; after that, the existing auth record blocks any
+// further registration anyway. Server reset also preserves their save + auth.
+// Keep in sync with PROTECTED_ADMIN_USERNAME in shinobij.client/src/App.tsx.
+export const RESERVED_USERNAMES = new Set<string>(['rill']);
+export function isReservedUsername(name: string): boolean {
+    return RESERVED_USERNAMES.has(name.trim().toLowerCase());
+}
 
 // `hash` stores either the legacy HMAC-SHA256 hex (no version prefix) or the
 // new scrypt format `scrypt:N:r:p:hex`. New writes always use scrypt.
@@ -110,6 +122,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'register') {
         // Register a new password. Fails if one already exists — use 'change' to update.
         if (!password) return res.status(400).json({ ok: false, error: 'Missing password.' });
+
+        // Reserved-username defense: the protected admin account can only be
+        // claimed once, and only by someone holding the admin password. This
+        // prevents random players from grabbing the privileged username after
+        // a fresh server-reset. The reservation is on the *first* registration
+        // only — once the auth record exists, the `existing` check below
+        // refuses any further registration anyway.
+        if (isReservedUsername(name)) {
+            const adminPassword = process.env.ADMIN_PASSWORD;
+            const adminPw = req.headers['x-admin-password'] as string | undefined;
+            if (!adminPassword || !adminPw || !safeEqual(adminPw, adminPassword)) {
+                return res.status(403).json({
+                    ok: false,
+                    error: 'This username is reserved. Ask an admin to register it.',
+                });
+            }
+        }
+
         try {
             const existing = await kv.get<AuthRecord>(key);
             if (existing) return res.status(409).json({ ok: false, error: 'Account already has a password.' });

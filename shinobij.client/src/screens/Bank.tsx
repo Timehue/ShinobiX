@@ -6,6 +6,7 @@ export function Bank({ character, updateCharacter }: { character: Character; upd
     const interestPercent = getBankInterestPercent(character);
     const lastClaim = character.lastBankInterestAt ?? 0;
     const nextClaimAt = lastClaim + 24 * 60 * 60 * 1000;
+    // eslint-disable-next-line react-hooks/purity -- claim-eligibility is time-sensitive; re-evaluated on every re-render is intentional
     const canClaimInterest = character.bankRyo > 0 && interestPercent > 0 && Date.now() >= nextClaimAt;
     const projectedInterest = Math.max(0, Math.floor(character.bankRyo * (interestPercent / 100)));
 

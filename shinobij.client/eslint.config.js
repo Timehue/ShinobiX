@@ -18,5 +18,17 @@ export default defineConfig([
     languageOptions: {
       globals: globals.browser,
     },
+    rules: {
+      '@typescript-eslint/no-unused-vars': ['error', {
+        argsIgnorePattern: '^_',
+        varsIgnorePattern: '^_',
+        caughtErrorsIgnorePattern: '^_',
+        destructuredArrayIgnorePattern: '^_',
+      }],
+      // App.tsx is intentionally a single-file game with components + helpers
+      // colocated. This rule is HMR-only ergonomics; downgrade so it's visible
+      // without blocking CI. Re-promote to 'error' if the file is ever split.
+      'react-refresh/only-export-components': 'warn',
+    },
   },
 ])

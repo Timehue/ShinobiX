@@ -30,7 +30,6 @@ import { CombatSideHud } from "./components/CombatSideHud";
 import { Inventory } from "./screens/Inventory";
 import { Bank } from "./screens/Bank";
 import { StartScreen } from "./screens/StartScreen";
-import { CharacterCreator } from "./screens/CharacterCreator";
 import { Hospital } from "./screens/Hospital";
 import { VillageTavern } from "./screens/VillageTavern";
 import { AdminLogin, AdminPasswordReset, AdminClearAuthLock } from "./screens/AdminLogin";
@@ -429,6 +428,15 @@ export type Stats = {
 
 type JutsuMastery = { jutsuId: string; level: number; xp: number };
 export type AdminAccount = "Admin 1" | "Admin 2";
+
+// The protected admin account. The Admin button is only visible to this
+// username, the name is reserved server-side (no one else can register it),
+// and the save survives server reset. Keep in sync with the same constant
+// in api/_auth.ts.
+export const PROTECTED_ADMIN_USERNAME = "Rill";
+export function isProtectedAdminName(name: string | undefined | null): boolean {
+    return !!name && name.trim().toLowerCase() === PROTECTED_ADMIN_USERNAME.toLowerCase();
+}
 type PetRarity = "standard" | "rare" | "legendary" | "mythic";
 type PetTrait = "Loyal" | "Aggressive" | "Guardian" | "Swift" | "Lucky" | "Battleborn";
 type PetTrainingType = "strength" | "endurance" | "agility" | "chakra" | "bond";
@@ -1392,11 +1400,6 @@ function generateHollowGateShrineRun(floor = 1): HollowGateShrineRun {
     };
 }
 
-function hollowGateTileAt(run: HollowGateShrineRun, x: number, y: number): HollowGateTile | undefined {
-    if (x < 0 || y < 0 || x >= run.width || y >= run.height) return undefined;
-    return run.tiles[y * run.width + x];
-}
-
 // Module-level Ancient Chest roll for the Hollow Gate Shrine. Mirrors the
 // WorldMap rollAncientChest behavior but is callable from the App-level shrine
 // handler. Floor scales the XP/ryo equivalent of the original "sector" input.
@@ -2226,7 +2229,7 @@ function gainPetXp(pet: Pet, amount: number): Pet {
 // Shared timer hook so all components tick in sync. Prevents mobile and
 // desktop timers from drifting if their intervals initialize at different times.
 let sharedNowValue = Date.now();
-let sharedNowListeners: Set<() => void> = new Set();
+const sharedNowListeners: Set<() => void> = new Set();
 let sharedNowInterval: number | null = null;
 
 function startSharedNowTicker() {
@@ -4061,18 +4064,6 @@ function milestone(village: string, level: number, title: string, bossName: stri
     };
 }
 
-function compactArc(village: string, themeNpc: string, ally: string, kage: string, echo: string, entries: Array<{ level: number; title: string; boss: string; icon: string; scene: string; a: string; b: string; c: string }>): StoryStep[] {
-    return entries.map((entry) => milestone(village, entry.level, entry.title, entry.boss, entry.icon, [
-        storyPage(entry.title, entry.scene, themeNpc, [`${themeNpc}: ${entry.a}`, `${themeNpc}: The Hollow Gate Pact is moving beneath this village.`, `${themeNpc}: Watch what the village calls virtue; that is where corruption hides.`]),
-        storyPage("The Warning", entry.scene, ally, [`${ally}: ${entry.b}`, `${ally}: The Kage's people are twisting our village into fuel.`, `${ally}: If we ignore this, Central's gates wake with our chakra inside them.`]),
-        storyPage("The Kage's Shadow", entry.scene, entry.level === 100 ? kage : echo, [`${entry.level === 100 ? kage : echo}: ${entry.c}`, `${entry.level === 100 ? kage : echo}: The pact was made to protect us.`, `${entry.level === 100 ? kage : echo}: Now prove your village deserves another future.`]),
-    ], [
-        { text: "Protect the people.", trait: "merciful" },
-        { text: "Demand the truth.", trait: "honorable" },
-        { text: "Move in secret.", trait: "suspicious" },
-    ]));
-}
-
 const storylines: Record<string, StoryStep[]> = {
     "Stormveil Village": [
         milestone("Stormveil Village", 4, "First Thunder", "Stormveil Training Scout", "?", [
@@ -4930,23 +4921,6 @@ function reconcileCharacterStatBudget(character: Character): Character {
     return { ...character, stats, unspentStats: available };
 }
 
-function enemyStats(): Stats {
-    return {
-        strength: 25,
-        speed: 25,
-        intelligence: 25,
-        willpower: 25,
-        bukijutsuOffense: 25,
-        bukijutsuDefense: 25,
-        taijutsuOffense: 25,
-        taijutsuDefense: 25,
-        genjutsuOffense: 25,
-        genjutsuDefense: 25,
-        ninjutsuOffense: 25,
-        ninjutsuDefense: 25,
-    };
-}
-
 function scaleStat(value: number) {
     return capStat(Math.floor(value));
 }
@@ -5511,21 +5485,6 @@ function savePlayerAccounts(accounts: PlayerAccounts) {
     } catch {
         // If it still fails for some reason, silently skip — server save is the source of truth
     }
-}
-
-function rosterFromAccounts(accounts: PlayerAccounts): PlayerRecord[] {
-    return Object.values(accounts).filter((account): account is PlayerAccountSave & { snapshot: NonNullable<PlayerAccountSave["snapshot"]> } => Boolean(account.snapshot)).map((account) => {
-        const character = normalizeCharacter(account.snapshot.character);
-        return {
-            name: character.name,
-            level: character.level,
-            village: character.village,
-            specialty: character.specialty,
-            character,
-            currentSector: account.snapshot.currentSector ?? 40,
-            lastSeenAt: Date.now(),
-        };
-    });
 }
 
 function sameSector(a?: number, b?: number) {
@@ -6622,7 +6581,7 @@ export default function App() {
         if (count === 0) return;
         setCharacter(updated);
         alert(`You received ${count} Legendary War Crate${count > 1 ? "s" : ""} from a recent village war victory! Check your inventory.`);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
     }, [worldStateVersion]);
     const [, setSharedGameStateVersion] = useState(0);
     const [currentBiome, setCurrentBiome] = useState<Biome>("central");
@@ -6632,7 +6591,7 @@ export default function App() {
     const [adminLoggedIn, setAdminLoggedIn] = useState(false);
     const [adminAccount, setAdminAccount] = useState<AdminAccount | "">("");
     const [adminPw, setAdminPw] = useState(() => sessionStorage.getItem("admin:pw") ?? "");
-    const [resetCountdown, setResetCountdown] = useState("--:--:--");
+    const [_resetCountdown, setResetCountdown] = useState("--:--:--");
     const [creatorJutsus, setCreatorJutsus] = useState<Jutsu[]>([]);
     const [creatorEvents, setCreatorEvents] = useState<CreatorEvent[]>([]);
     const [creatorItems, setCreatorItems] = useState<GameItem[]>([]);
@@ -6768,7 +6727,7 @@ export default function App() {
         return () => window.removeEventListener("keydown", handleKey);
     // moveHollowGatePlayer reads current state via closure — re-bind when run / modal state changes
     // so the closure always sees the freshest values.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
     }, [screen, hollowGateRun, hollowGateEvent, hollowGateHiddenChamber]);
 
     // Persist the in-progress shrine run to the character so it survives refresh.
@@ -6779,7 +6738,7 @@ export default function App() {
         if (screen !== "hollowGateShrine") return;
         if (character.hollowGateRun === hollowGateRun) return;
         setCharacter({ ...character, hollowGateRun });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
     }, [hollowGateRun]);
 
     function savedJutsuPool(source: Partial<ReturnType<typeof buildPlayerSavePayload>>) {
@@ -7790,7 +7749,7 @@ export default function App() {
 
     // Load ALL image categories at startup — ensures images from publishSharedImage
     // are always available regardless of which screen the player visits first.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
     useEffect(() => { void loadCategory('item'); void loadCategory('pet'); void loadCategory('card'); void loadCategory('jutsu'); void loadCategory('event'); void loadCategory('avatar'); void loadCategory('ai'); void loadCategory('bloodline'); void loadCategory('shrine'); void loadCategory('landmark'); }, []);
 
     // Screen ? image categories map
@@ -7808,20 +7767,8 @@ export default function App() {
         else if (screen === 'bloodlineMaker')                   { void loadCategory('bloodline'); void loadCategory('jutsu'); }
         else if (screen === 'storyHall')                        { void loadCategory('event'); }
         else if (screen === 'logbook')                          { void loadCategory('event'); void loadCategory('ai'); }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
     }, [screen]);
-
-    // Publish one image to the shared store (updates local state + fires API)
-    function publishImage(id: string, img: string) {
-        if (!id || !img) return;
-        setSharedImages(prev => ({ ...prev, [id]: img }));
-        publishSharedImage(id, img);
-    }
-
-    // Resolve an image: shared store first, then entity's own stored value
-    function sImg(key: string, fallback = '') {
-        return sharedImages[key] || fallback;
-    }
 
     // Keep a ref to the latest save payload so the interval always uses current data.
     const latestSaveRef = useRef<{ character: Character; name: string; payload: ReturnType<typeof buildPlayerSavePayload> } | null>(null);
@@ -8185,50 +8132,6 @@ export default function App() {
         setCurrentSector(40);
         setActiveTriggeredEvent(null);
         setScreen("start");
-    }
-
-    async function changePassword(oldPassword: string, newPassword: string): Promise<{ ok: boolean; error?: string }> {
-        const accountName = currentAccountName || character?.name || "";
-        try {
-            const res = await fetch('/api/player-auth', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'change', name: accountName.toLowerCase(), oldPassword, newPassword }),
-            });
-            const data = await res.json() as { ok: boolean; error?: string };
-            return data;
-        } catch {
-            return { ok: false, error: 'Network error. Try again.' };
-        }
-    }
-
-    function resetGame() {
-        localStorage.removeItem(STORAGE);
-        localStorage.removeItem(PLAYER_ACCOUNTS_STORAGE);
-        setCharacter(null);
-        setCurrentAccountName("");
-        setSavedBloodlines([]);
-        setCurrentBiome("central");
-        setActiveTraining(null);
-        setActiveJutsuTraining(null);
-        setAdminLoggedIn(false);
-        setAdminAccount("");
-        sessionStorage.removeItem("admin:pw");
-        setAdminPw("");
-        setCreatorJutsus([]);
-        setCreatorAis([]);
-        setPendingAiProfileId("");
-        setPendingPvpOpponent(null);
-        setCurrentSector(40);
-        setCreatorEvents([]);
-        setCreatorMissions([]);
-        setAcceptedMissionIds([]);
-        setMissionProgress({});
-        setTriggeredEvents([]);
-        setPlayerRoster([]);
-        setDuelChallenges([]);
-        setScreen("start");
-        setCreatorItems([]);
     }
 
     function recordMissionExplore(sector: number) {
@@ -9526,10 +9429,9 @@ export default function App() {
                 <RightMenu
                     navigate={navigate}
                     adminLoggedIn={adminLoggedIn}
-                    resetGame={resetGame}
                     logoutPlayer={logoutPlayer}
-                    changePassword={changePassword}
                     currentBiome={currentBiome}
+                    characterName={character?.name ?? ""}
                     characterVillage={character?.village ?? ""}
                     screen={screen}
                 />
@@ -9548,8 +9450,6 @@ export default function App() {
                         navigate={navigate}
                         adminLoggedIn={adminLoggedIn}
                         logoutPlayer={logoutPlayer}
-                        resetGame={resetGame}
-                        changePassword={changePassword}
                         character={character}
                         currentSector={currentSector}
                         atHome={mobileAtHome}
@@ -10689,21 +10589,6 @@ function LeftProfileCard({
 }) {
     useSharedNow(); // sync to global timer so mobile timers match desktop
 
-    function uploadAvatar(e: ChangeEvent<HTMLInputElement>) {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = () => {
-            // Compress to 256px — avatars are displayed at =84px so 512 is wasteful
-            void compressDataUrl(reader.result as string, 256, 0.80).then((img) => {
-                publishSharedImage('avatar:' + character.name.toLowerCase(), img);
-                updateCharacter({ ...character, avatarImage: img });
-            });
-        };
-        reader.readAsDataURL(file);
-    }
-
     return (
         <aside className="left-profile-card">
             <div className="left-profile-avatar-wrap">
@@ -10902,45 +10787,24 @@ const villageBiomes: Record<string, Biome> = {
 function RightMenu({
     navigate,
     adminLoggedIn,
-    resetGame,
     logoutPlayer,
-    changePassword,
     currentBiome,
+    characterName,
     characterVillage,
     screen,
 }: {
     navigate: (screen: Screen) => void;
     adminLoggedIn: boolean;
-    resetGame: () => void;
     logoutPlayer: () => void;
-    changePassword: (oldPw: string, newPw: string) => Promise<{ ok: boolean; error?: string }>;
     currentBiome: Biome;
+    characterName: string;
     characterVillage: string;
     screen: Screen;
 }) {
     const [menuOpen, setMenuOpen] = useState(true);
-    const [showChangePw, setShowChangePw] = useState(false);
-    const [oldPw, setOldPw] = useState("");
-    const [newPw, setNewPw] = useState("");
-    const [confirmPw, setConfirmPw] = useState("");
-    const [pwMsg, setPwMsg] = useState("");
     const homeBiome = villageBiomes[characterVillage];
     const atHome = screen !== "worldMap" || currentBiome === homeBiome;
-
-    async function submitChangePw() {
-        if (!oldPw || !newPw) { setPwMsg("Fill in all fields."); return; }
-        if (newPw.length < 6) { setPwMsg("New password must be at least 6 characters."); return; }
-        if (newPw !== confirmPw) { setPwMsg("New passwords do not match."); return; }
-        setPwMsg("Saving…");
-        const result = await changePassword(oldPw, newPw);
-        if (result.ok) {
-            setPwMsg("✅ Password changed.");
-            setOldPw(""); setNewPw(""); setConfirmPw("");
-            setTimeout(() => { setShowChangePw(false); setPwMsg(""); }, 1500);
-        } else {
-            setPwMsg(`❌ ${result.error ?? "Failed."}`);
-        }
-    }
+    const isAdminAccount = isProtectedAdminName(characterName);
 
     return (
         <aside
@@ -10970,21 +10834,11 @@ function RightMenu({
                         <button onClick={() => navigate("pets")}>Pets</button>
                         <button onClick={() => navigate("arena")}>Arena</button>
                         <button onClick={() => navigate("bloodlineMaker")}>Bloodline</button>
-                        <button onClick={() => navigate(adminLoggedIn ? "adminPanel" : "adminLogin")}>Admin</button>
-                        <button onClick={() => { setShowChangePw(v => !v); setPwMsg(""); }}>🔑 Change Password</button>
+                        {isAdminAccount && (
+                            <button onClick={() => navigate(adminLoggedIn ? "adminPanel" : "adminLogin")}>Admin</button>
+                        )}
                         <button onClick={logoutPlayer}>Logout + Save</button>
-                        <button className="danger-button" onClick={resetGame}>Reset</button>
                     </div>
-
-                    {showChangePw && (
-                        <div style={{ padding: "8px 4px", borderTop: "1px solid rgba(255,255,255,0.1)", marginTop: 6 }}>
-                            <input type="password" placeholder="Current password" value={oldPw} onChange={e => setOldPw(e.target.value)} style={{ width: "100%", marginBottom: 4 }} />
-                            <input type="password" placeholder="New password (min 6)" value={newPw} onChange={e => setNewPw(e.target.value)} style={{ width: "100%", marginBottom: 4 }} />
-                            <input type="password" placeholder="Confirm new password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} onKeyDown={e => e.key === "Enter" && submitChangePw()} style={{ width: "100%", marginBottom: 6 }} />
-                            {pwMsg && <p style={{ fontSize: "0.78rem", margin: "0 0 6px", color: pwMsg.startsWith("✅") ? "#4ade80" : "#f87171" }}>{pwMsg}</p>}
-                            <button onClick={submitChangePw} style={{ width: "100%" }}>Save Password</button>
-                        </div>
-                    )}
                 </>
             )}
         </aside>
@@ -10994,41 +10848,18 @@ function MobileNav({
     navigate,
     adminLoggedIn,
     logoutPlayer,
-    resetGame,
-    changePassword,
     character,
     atHome,
 }: {
     navigate: (screen: Screen) => void;
     adminLoggedIn: boolean;
     logoutPlayer: () => void;
-    resetGame: () => void;
-    changePassword: (oldPw: string, newPw: string) => Promise<{ ok: boolean; error?: string }>;
     character: Character;
     currentSector: number;
     atHome: boolean;
 }) {
     const [open, setOpen] = useState(false);
-    const [showChangePw, setShowChangePw] = useState(false);
-    const [oldPw, setOldPw] = useState("");
-    const [newPw, setNewPw] = useState("");
-    const [confirmPw, setConfirmPw] = useState("");
-    const [pwMsg, setPwMsg] = useState("");
-
-    async function submitChangePw() {
-        if (!oldPw || !newPw) { setPwMsg("Fill in all fields."); return; }
-        if (newPw.length < 6) { setPwMsg("New password must be at least 6 characters."); return; }
-        if (newPw !== confirmPw) { setPwMsg("Passwords do not match."); return; }
-        setPwMsg("Saving…");
-        const result = await changePassword(oldPw, newPw);
-        if (result.ok) {
-            setPwMsg("✅ Password changed.");
-            setOldPw(""); setNewPw(""); setConfirmPw("");
-            setTimeout(() => { setShowChangePw(false); setPwMsg(""); }, 1500);
-        } else {
-            setPwMsg(`❌ ${result.error ?? "Failed."}`);
-        }
-    }
+    const isAdminAccount = isProtectedAdminName(character.name);
 
     const xpPct = character.level >= MAX_LEVEL
         ? 100
@@ -11100,24 +10931,11 @@ function MobileNav({
                         <button className="mobile-menu-btn" onClick={() => go("pets")}>🐾 Pets</button>
                         <button className="mobile-menu-btn" onClick={() => go("arena")}>⚔️ Arena</button>
                         <button className="mobile-menu-btn" onClick={() => go("bloodlineMaker")}>🧬 Bloodline</button>
-                        {adminLoggedIn && (
-                            <button className="mobile-menu-btn" onClick={() => go("adminPanel")}>🛠️ Admin</button>
+                        {isAdminAccount && (
+                            <button className="mobile-menu-btn" onClick={() => go(adminLoggedIn ? "adminPanel" : "adminLogin")}>🛠️ Admin</button>
                         )}
-                        <button className="mobile-menu-btn" onClick={() => { setShowChangePw(v => !v); setPwMsg(""); }}>🔑 Change Password</button>
                         <button className="mobile-menu-btn" onClick={() => { logoutPlayer(); setOpen(false); }}>💾 Logout + Save</button>
-                        <button className="mobile-menu-btn danger" onClick={() => { resetGame(); setOpen(false); }}>⚠️ Reset</button>
                     </div>
-
-                    {showChangePw && (
-                        <div style={{ padding: "12px 16px", borderTop: "1px solid rgba(255,255,255,0.1)", marginTop: 8 }}>
-                            <p style={{ fontWeight: 600, marginBottom: 8, fontSize: "0.9rem" }}>Change Password</p>
-                            <input type="password" placeholder="Current password" value={oldPw} onChange={e => setOldPw(e.target.value)} style={{ width: "100%", marginBottom: 6 }} />
-                            <input type="password" placeholder="New password (min 6)" value={newPw} onChange={e => setNewPw(e.target.value)} style={{ width: "100%", marginBottom: 6 }} />
-                            <input type="password" placeholder="Confirm new password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} style={{ width: "100%", marginBottom: 8 }} />
-                            {pwMsg && <p style={{ fontSize: "0.82rem", margin: "0 0 8px", color: pwMsg.startsWith("✅") ? "#4ade80" : "#f87171" }}>{pwMsg}</p>}
-                            <button onClick={submitChangePw} style={{ width: "100%" }}>Save Password</button>
-                        </div>
-                    )}
                 </div>
             )}
         </>
@@ -11282,9 +11100,7 @@ function DungeonEncounter({
     creatorCards,
     editablePets,
     stage,
-    pageIndex,
     lineIndex,
-    setPageIndex,
     setLineIndex,
     onStartAiFight,
     onTileWin,
@@ -11403,7 +11219,6 @@ function DungeonPetBattle({ character, updateCharacter, editablePets, onWin, onL
     const [isPlaying, setIsPlaying] = useState(false);
     const [result, setResult] = useState("");
     const currentFrame = battleFrames[frameIndex];
-    const visibleLog = battleFrames.length ? battleFrames.slice(0, frameIndex + 1).map((frame) => frame.message) : [];
     useEffect(() => {
         if (!isPlaying) return;
         if (frameIndex >= battleFrames.length - 1) {
@@ -13711,7 +13526,7 @@ function AdminPanel({
     const [missionRankFilter, setMissionRankFilter] = useState<"All" | MissionRank>("All");
     const [editingRaidId, setEditingRaidId] = useState("");
     const [raidName, setRaidName] = useState("Shadow Boss Raid");
-    const [raidBiome, setRaidBiome] = useState<Biome>("shadow");
+    const [_raidBiome, setRaidBiome] = useState<Biome>("shadow");
     const [raidTargetSector, setRaidTargetSector] = useState(8);
     const [raidIcon, setRaidIcon] = useState("?");
     const [raidLevelReq, setRaidLevelReq] = useState(20);
@@ -13815,6 +13630,8 @@ function AdminPanel({
     const [serverResetMsg, setServerResetMsg] = useState("");
     const [kageResetVillage, setKageResetVillage] = useState(villages[0]);
     const [kageResetMsg, setKageResetMsg] = useState("");
+    const [approvedItemIds, setApprovedItemIds] = useState<string[]>([]);
+    const [approvedBloodlineIds, setApprovedBloodlineIds] = useState<string[]>([]);
 
     // Fetch all server-saved players (registry + presence)
     function fetchAllKnownPlayers() {
@@ -13860,8 +13677,6 @@ function AdminPanel({
     }, [activeAdminPanel, adminPw]);
     const [pmGivePetId, setPmGivePetId] = useState("");
     const [pmGiveAmounts, setPmGiveAmounts] = useState<Record<string, number>>({ honorSeals: 0, fateShards: 0, boneCharms: 0, auraStones: 0, auraDust: 0, mythicSeals: 0 });
-    const [approvedItemIds, setApprovedItemIds] = useState<string[]>([]);
-    const [approvedBloodlineIds, setApprovedBloodlineIds] = useState<string[]>([]);
 
     async function pmLookup() {
         if (!pmTargetName.trim()) return;
@@ -13883,7 +13698,7 @@ function AdminPanel({
     async function pmGive() {
         if (!pmSnap) { setPmMsg("Look up a player first."); return; }
         if (!adminPw) { setPmMsg("❌ Admin password missing. Log out and back into admin."); return; }
-        const char = pmSnap.character as Record<string, unknown>;
+        const char: Record<string, unknown> = { ...(pmSnap.character as Record<string, unknown>) };
         // Give pet
         if (pmGivePetId) {
             const pet = editablePets.find(p => p.id === pmGivePetId);
@@ -13907,7 +13722,7 @@ function AdminPanel({
             });
             if (!res.ok) {
                 let detail = `HTTP ${res.status}`;
-                try { const data = await res.json() as { error?: string }; if (data.error) detail = data.error; } catch {}
+                try { const data = await res.json() as { error?: string }; if (data.error) detail = data.error; } catch { /* response body not JSON */ }
                 setPmMsg(`? Save failed: ${detail}`);
                 return;
             }
@@ -13969,7 +13784,7 @@ function AdminPanel({
             });
             if (!res.ok) {
                 let detail = `HTTP ${res.status}`;
-                try { const data = await res.json() as { error?: string }; if (data.error) detail = data.error; } catch {}
+                try { const data = await res.json() as { error?: string }; if (data.error) detail = data.error; } catch { /* response body not JSON */ }
                 setPmEditMsg(`? Save failed: ${detail}`);
                 return;
             }
@@ -14018,7 +13833,7 @@ function AdminPanel({
             });
             if (!saveRes.ok) {
                 let detail = `HTTP ${saveRes.status}`;
-                try { const data = await saveRes.json() as { error?: string }; if (data.error) detail = data.error; } catch {}
+                try { const data = await saveRes.json() as { error?: string }; if (data.error) detail = data.error; } catch { /* response body not JSON */ }
                 setPmMsg(`? Save failed: ${detail}`);
                 return;
             }
@@ -14117,10 +13932,6 @@ function AdminPanel({
 
     function bloodlineReviewKey(bloodline: ReviewBloodline) {
         return `${bloodline.ownerKey ?? "admin"}:${bloodline.id}`;
-    }
-
-    function isBloodlineApproved(bloodline: ReviewBloodline) {
-        return approvedBloodlineIds.includes(bloodline.id) || approvedBloodlineIds.includes(bloodlineReviewKey(bloodline));
     }
 
     async function saveBloodlineReviewAction(action: "approve" | "delete", bloodline: ReviewBloodline) {
@@ -15014,6 +14825,7 @@ function AdminPanel({
                                     // Save the leadership images blob to game state
                                     saveVillageLeadershipImages(normalized);
                                     // Also trigger a full admin save
+                                    // eslint-disable-next-line react-hooks/refs -- ref read inside onClick handler, not during render
                                     await onSaveRef.current();
                                     setLeaderSaveStatus("Saved!");
                                 } catch {
@@ -17214,11 +17026,6 @@ function AdminPanel({
                                 const allItems = getAllItems(creatorItems);
                                 const itemName = (id: string) => allItems.find(i => i.id === id)?.name ?? id;
 
-                                function removeInventoryItem(idx: number) {
-                                    const newInv = inventory.filter((_, i) => i !== idx);
-                                    const updated = { ...pmEditSnap!, character: { ...char, inventory: newInv } };
-                                    void pmEditPatch(updated);
-                                }
                                 function unequipSlot(slot: string) {
                                     const newEquip = { ...equipment };
                                     delete newEquip[slot];
@@ -17583,6 +17390,7 @@ function AdminPanel({
                         }
                         asset.onSave?.(image);
                         setHollowGateAssetStatus(`✅ ${asset.name} saved.`);
+                        // eslint-disable-next-line react-hooks/refs -- ref read inside async handler, not during render
                         try { await onSaveRef.current(); } catch { /* ignore if no account */ }
                     } catch (err) {
                         setHollowGateAssetStatus(`❌ ${asset.name} — ${err instanceof Error ? err.message : "failed"}`);
@@ -18235,7 +18043,7 @@ function ClanHall({ character, updateCharacter, creatorItems }: { character: Cha
         if (count === 0) return;
         updateCharacter(updated);
         alert(`You received ${count} Legendary War Crate${count > 1 ? "s" : ""} from a clan war victory! Check your inventory.`);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
     }, [clanData?.warHistory?.[0]?.warCrateId]);
 
     useEffect(() => {
@@ -20305,6 +20113,12 @@ export type LbTab = "ranked" | "kills" | "xp" | "clans" | "pets" | "endless" | "
 export type TavernMessage = { author: string; text: string; ts: number; rank?: string; customTitle?: string; level?: number };
 
 
+function FestivalPortrait({ image, icon, name }: { image?: string; icon: string; name: string }) {
+    return image
+        ? <img className="sunscar-portrait" src={image} alt={name} />
+        : <div className="sunscar-npc" aria-label={name}>{icon}</div>;
+}
+
 function SunscarFestival({
     character,
     updateCharacter,
@@ -20339,12 +20153,6 @@ function SunscarFestival({
     const ownedCards = character.tileCards.map((id) => allCards.find((c) => c.id === id)).filter(Boolean) as TileCard[];
     const kaelImage = "";
     const miraaImage = "";
-
-    function FestivalPortrait({ image, icon, name }: { image?: string; icon: string; name: string }) {
-        return image
-            ? <img className="sunscar-portrait" src={image} alt={name} />
-            : <div className="sunscar-npc" aria-label={name}>{icon}</div>;
-    }
 
     function adjPos(pos: number, dir: TileCardArrow): number | null {
         const r = Math.floor(pos / 3), c = pos % 3;
@@ -21442,7 +21250,7 @@ function CentralHub({
 
                 function consumeMaterials(costPts: number): string[] {
                     const ordered = Object.entries(CRAFT_POINTS).sort((a, b) => a[1] - b[1]);
-                    let inv = [...character.inventory];
+                    const inv = [...character.inventory];
                     let remaining = costPts;
                     for (const [id, pts] of ordered) {
                         while (remaining > 0 && inv.includes(id)) {
@@ -23735,7 +23543,6 @@ function Missions({
     setScreen: (screen: Screen) => void;
 }) {
     const missionRewardBonus = getMissionRewardBonus(character) + getActiveAuraSphereBonuses(character).missionRewardPercent;
-    function completeMission(name: string, xp: number, ryo: number, staminaCost: number, staminaReward: number, minLevel: number) { if (character.level < minLevel) return alert(`Requires level ${minLevel}.`); if (character.stamina < staminaCost) return alert("Not enough stamina."); if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`); const boostedXp = boostAmount(xp, missionRewardBonus); const boostedRyo = boostAmount(ryo, missionRewardBonus); const boostedStamina = boostAmount(staminaReward, missionRewardBonus); const leveled = grantTerritoryScrolls(gainXp({ ...character, stamina: character.stamina - staminaCost }, boostedXp), 3); updateCharacter(markMissionCompleted({ ...leveled, ryo: leveled.ryo + boostedRyo, stamina: Math.min(leveled.maxStamina, leveled.stamina + boostedStamina) })); alert(`${name} complete. +${effectiveCharacterXpGain(character, boostedXp)} XP, +${boostedRyo} ryo, +${boostedStamina} stamina, +3 Territory Control Scrolls.`); }
     function startMissionBattle(mission: { min: number; cost: number; aiProfileId: string }) { if (character.level < mission.min) return alert(`Requires level ${mission.min}.`); if (character.stamina < mission.cost) return alert("Not enough stamina."); if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`); const ai = creatorAis.find((candidate) => candidate.id === mission.aiProfileId); if (!ai) return alert("Mission AI is not available."); updateCharacter(markMissionCompleted({ ...character, stamina: character.stamina - mission.cost })); setPendingAiProfileId(ai.id); setScreen("arena"); }
     function startCreatorMissionBattle(mission: CreatorMission) { if (!mission.aiProfileId) return alert("No AI assigned to this mission."); if (character.level < mission.levelReq) return alert(`Requires level ${mission.levelReq}.`); if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`); const ai = creatorAis.find((candidate) => candidate.id === mission.aiProfileId); if (!ai) return alert("Mission AI is not available."); updateCharacter(markMissionCompleted(character)); setPendingAiProfileId(ai.id); setScreen("arena"); }
     function acceptFetchMission(mission: CreatorMission) { if (character.level < mission.levelReq) return alert(`Requires level ${mission.levelReq}.`); if (acceptedMissionIds.includes(mission.id)) return; const raidKey = missionRaidProgressKey(mission.id); setAcceptedMissionIds([...acceptedMissionIds, mission.id]); setMissionProgress({ ...missionProgress, [mission.id]: missionProgress[mission.id] ?? 0, [raidKey]: missionProgress[raidKey] ?? 0 }); const raidReq = missionRaidRequirement(mission); alert(`${mission.name} accepted. Explore Sector ${mission.targetSector} ${mission.exploreCount} times${raidReq > 0 ? ` and raid the village ${raidReq} time(s)` : ""}.`); }
@@ -23913,7 +23720,6 @@ function HunterBoard({
     setAcceptedMissionIds,
     missionProgress,
     setMissionProgress,
-    setPendingAiProfileId,
     setScreen,
 }: {
     character: Character;
@@ -24081,7 +23887,6 @@ function Logbook({
     setAcceptedMissionIds,
     missionProgress,
     setMissionProgress,
-    savedBloodlines,
     setPendingAiProfileId,
     setRaidBattleKind,
     setCurrentSector,
@@ -24109,8 +23914,6 @@ function Logbook({
 }) {
     const missionRewardBonus = getMissionRewardBonus(character) + getActiveAuraSphereBonuses(character).missionRewardPercent;
     const ownedElements = getCharacterElements(character);
-    const ownedBloodlines = getCharacterBloodlines(character, savedBloodlines);
-    const advancedBloodline = ownedBloodlines.find((bloodline) => ["B Rank", "A Rank", "S Rank"].includes(bloodline.rank));
     const baseStatTotal = Object.values(baseStats()).reduce((sum, value) => sum + value, 0);
     const currentStatTotal = Object.values(character.stats).reduce((sum, value) => sum + value, 0);
     const statsTrained = Math.max(character.totalStatsTrained ?? 0, Math.max(0, currentStatTotal - baseStatTotal));
@@ -25332,7 +25135,7 @@ function UserView({
     );
 }
 
-function BloodlineMaker({ initialRank, initialSpecialElement, character, updateCharacter, savedBloodlines, setSavedBloodlines, lockedRank, editingBloodline, onSaveBloodlines, onClose }: { initialRank: Rank; initialSpecialElement?: string; character: Character; updateCharacter: (character: Character) => void; savedBloodlines: SavedBloodline[]; setSavedBloodlines: (bloodlines: SavedBloodline[]) => void; lockedRank?: boolean; editingBloodline?: SavedBloodline | null; onSaveBloodlines?: (bloodlines: SavedBloodline[], character?: Character) => void; onClose?: () => void }) {
+function BloodlineMaker({ initialRank, initialSpecialElement, character, updateCharacter, savedBloodlines, setSavedBloodlines, lockedRank, editingBloodline, onSaveBloodlines }: { initialRank: Rank; initialSpecialElement?: string; character: Character; updateCharacter: (character: Character) => void; savedBloodlines: SavedBloodline[]; setSavedBloodlines: (bloodlines: SavedBloodline[]) => void; lockedRank?: boolean; editingBloodline?: SavedBloodline | null; onSaveBloodlines?: (bloodlines: SavedBloodline[], character?: Character) => void; onClose?: () => void }) {
     const [rank, setRank] = useState<Rank>(editingBloodline?.rank ?? initialRank);
     const [bloodlineName, setBloodlineName] = useState(editingBloodline?.name ?? "Custom Bloodline");
     const [bloodlineLore, setBloodlineLore] = useState(editingBloodline?.lore ?? "");
@@ -26007,7 +25810,7 @@ function Arena({
         poll();
         const iv = setInterval(poll, 3000);
         return () => { active = false; clearInterval(iv); };
-    }, [rankedQueueActive]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [rankedQueueActive]);  
 
     function joinRankedQueue() {
         setRankedQueueActive(true);
@@ -26059,8 +25862,8 @@ function Arena({
 
     const [playerHp, setPlayerHp] = useState(character.hp);
     const [enemyHp, setEnemyHp] = useState(enemyMaxHp);
-    const [enemyChakra, setEnemyChakra] = useState(enemyMaxChakra);
-    const [enemyStamina, setEnemyStamina] = useState(enemyMaxStamina);
+    const [_enemyChakra, setEnemyChakra] = useState(enemyMaxChakra);
+    const [_enemyStamina, setEnemyStamina] = useState(enemyMaxStamina);
     const [enemyJutsuCooldowns, setEnemyJutsuCooldowns] = useState<Record<string, number>>({});
 
     const [playerShield, setPlayerShield] = useState(equippedShieldBonus);
@@ -26306,16 +26109,6 @@ function Arena({
         setLogRef.current(logMsg);
         setPrefightFirstActor(firstActor);
         setPrefightCountdown(3);
-    }
-
-    function beginRankedBattle(opponent: PlayerRecord) {
-        setPendingAiProfileId("");
-        setRaidBattleKind("none");
-        setRankedBattleActive(true);
-        setClanWarPointsActive(0);
-        setOpponentCharacter(normalizeCharacter(opponent.character));
-        setEnemyHp(opponent.character.maxHp);
-        startPrefight(opponent.character.maxHp, `Ranked battle started against ${opponent.name}. Neutral ground: no terrain or weather modifiers.`);
     }
 
     function beginAiBattle() {
@@ -26651,7 +26444,7 @@ function Arena({
         if (lastPetActionKeyRef.current === key) return;
         lastPetActionKeyRef.current = key;
         runSummonedPetAction();
-    }, [actionsThisTurn, activeActor, battleEnded, battleStarted, opponentCharacter, summonedPet?.id, turn]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [actionsThisTurn, activeActor, battleEnded, battleStarted, opponentCharacter, summonedPet?.id, turn]);  
 
     function reduceCooldowns() {
         setCooldowns((current) => {
@@ -27779,7 +27572,7 @@ function Arena({
 
         const blocked = pierce ? 0 : Math.min(enemyShield, damage);
         const finalDamage = Math.max(0, damage - blocked);
-        let extraEnemyDamage = 0;
+        const extraEnemyDamage = 0;
         let recoilDamage = 0;
 
         postDamageTags.forEach((tag) => {
@@ -29442,7 +29235,7 @@ function PvpBattleScreen({
         window.addEventListener("resize", updateScale);
         const cleanup = () => { observer.disconnect(); window.removeEventListener("resize", updateScale); };
         (el as HTMLDivElement & { _roCleanup?: () => void })._roCleanup = cleanup;
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    }, []);  
     const effectiveScale = Math.max(0.15, Math.min(1.5, boardScale + userScaleOffset));
 
     useEffect(() => {
@@ -29516,7 +29309,7 @@ function PvpBattleScreen({
             if (count <= 0) clearInterval(iv);
         }, 1000);
         return () => clearInterval(iv);
-    }, [!!session]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [!!session]);  
 
     // Apply completion rewards/penalties once per client when the shared fight ends.
     useEffect(() => {
@@ -29529,7 +29322,7 @@ function PvpBattleScreen({
         const opponent = normalizeCharacter(oppFighter.character as Character);
         if (iWonNow) onWin?.(oppFighter.name, opponent);
         else onLoss?.(opponent);
-    }, [session?.status, session?.winner]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [session?.status, session?.winner]);  
 
     // Auto-pass when my turn starts but I can't afford the cheapest action
     const pvpMyAp = session ? (role === "p1" ? session.ap.p1 : session.ap.p2) : 100;
@@ -29539,7 +29332,7 @@ function PvpBattleScreen({
             const t = setTimeout(() => submitAction("wait"), 500);
             return () => clearTimeout(t);
         }
-    }, [session?.activePlayer, pvpMyAp]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [session?.activePlayer, pvpMyAp]);  
 
     // Per-turn round timer — auto-passes turn at 0
     const pvpIsMyTurn = session?.activePlayer === role;
@@ -29555,7 +29348,7 @@ function PvpBattleScreen({
             if (secs <= 0) { clearInterval(iv); submitAction("wait"); }
         }, 1000);
         return () => clearInterval(iv);
-    }, [!!session, pvpDone, pvpPrefightCountdown, pvpIsMyTurn, pvpRoundTimerKey]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [!!session, pvpDone, pvpPrefightCountdown, pvpIsMyTurn, pvpRoundTimerKey]);  
 
     /* ── Register ALL PvP fights on spectator board ── */
     useEffect(() => {
@@ -29576,7 +29369,7 @@ function PvpBattleScreen({
             const remaining = loadArenaActiveFights().filter(f => f.id !== fight.id);
             saveArenaActiveFights(remaining);
         };
-    }, [!!session, battleId]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [!!session, battleId]);  
 
     /* ── Battle chat state ── */
     type BattleChatMsg = { author: string; text: string; ts: number; role: "fighter" | "spectator" };
@@ -29662,7 +29455,6 @@ function PvpBattleScreen({
     // Spectator detection: character name doesn't match either fighter
     const amSpectator = character.name.trim().toLowerCase() !== session.p1.name.trim().toLowerCase()
         && character.name.trim().toLowerCase() !== session.p2.name.trim().toLowerCase();
-    const meCharacterSnapshot = normalizeCharacter(me.character as Character);
     const myPos = me.pos;
     const oppPos = opp.pos;
     const myAp = role === "p1" ? session.ap.p1 : session.ap.p2;
@@ -29697,7 +29489,6 @@ function PvpBattleScreen({
     const latestPendingJutsu = sessionEquippedJutsu.find(j => j.id === pendingJutsuId) ?? null;
     const pendingJutsu = latestPendingJutsu ?? pendingJutsuDirect;
     const inspectedJutsu = sessionEquippedJutsu.find(j => j.id === inspectedJutsuId) ?? null;
-    const isAdjacent = pvpDist(myPos, oppPos) <= 1;
     const pvpIsMoveJutsu = (jutsu: Jutsu | null | undefined) => Boolean(jutsu?.tags?.some(tag => tagMatchesName(tag.name, "Move")));
     const pvpIsGroundTargetJutsu = (jutsu: Jutsu | null | undefined) => Boolean(jutsu && (jutsu.target === "EMPTY_GROUND" || pvpIsMoveJutsu(jutsu)));
     const pvpGroundEffectClass = (jutsu: Jutsu | null | undefined, tileUse: "target" | "affected") => {
@@ -30219,8 +30010,6 @@ function PvpBattleScreen({
                                     <div className="combat-equipped-jutsu-grid">
                                         {/* ── Jutsu cards ── */}
                                         {sessionEquippedJutsu.map(j => {
-                                            const mastery = getJutsuMastery(meCharacterSnapshot, j.id);
-                                            const scaled = scaleJutsuByLevel(j, mastery.level);
                                             const onCooldown = (myCooldowns[j.id] ?? 0) > 0;
                                             const isArmed = pendingJutsuId === j.id;
                                             return (
