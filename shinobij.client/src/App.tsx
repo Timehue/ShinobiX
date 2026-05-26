@@ -23449,7 +23449,10 @@ function ClanWarManual({ onClose }: { onClose: () => void }) {
                 <br />• <strong>Accept queue:</strong> 1st defender clicks <em>Queue to Accept</em>; a 2nd defender clicks <em>Join Accept Queue</em> and the battle becomes ready. Anyone in the accept queue can leave at any time.
             </p>
             <p style={{ margin: "0 0 0.5rem" }}>
-                <strong style={{ color: "#60a5fa" }}>Launching + reporting battles.</strong> Once a challenge is fully accepted it appears in <em>Your Active Battles</em>. Click <strong>Launch Battle</strong> to route to the right screen (PvP arena / Pet arena / Tavern for Tile Cards) and play the match using the existing systems. Then come back and click <strong>I won</strong>, <strong>Opponent won</strong>, or <strong>Draw</strong> — the server applies HP damage and only participants can submit a report.
+                <strong style={{ color: "#60a5fa" }}>Launching + reporting battles.</strong> Once a challenge is fully accepted it appears in <em>Your Active Battles</em>. Click <strong>Launch Battle</strong> to route to the right screen (PvP arena / Pet arena / Tavern for Tile Cards) and play the match using the existing systems. Then come back and report.
+            </p>
+            <p style={{ margin: "0 0 0.5rem", fontSize: "0.82rem" }}>
+                <strong style={{ color: "#60a5fa" }}>Two-phase reports (anti-cheat).</strong> The first reporter submits a <em>tentative</em> result — no damage yet. The opposing side has <strong>15 minutes</strong> to <em>confirm</em> (damage applies) or <em>dispute</em> (recorded as a draw, no damage). After the window any participant can re-report to auto-confirm. This stops a loser from front-running the winner with a fake result.
             </p>
             <p style={{ margin: "0 0 0.5rem" }}>
                 <strong style={{ color: "#60a5fa" }}>Winning the war.</strong> When one clan's HP hits <strong>0</strong>, the war ends and the other clan wins. The server also computes an MVP per clan (most wins; tiebreak by damage contributed) — visible on the war card and recent-war record.
@@ -25898,6 +25901,12 @@ type CwChallenge = {
     result?: CwChallengeResult;
     battleId?: string;
     petBattleSeed?: number;
+    // Two-phase reporting: first reporter stamps a tentative result;
+    // the opposing side has 15 min to confirm or dispute. After the
+    // window, any participant re-calling report auto-confirms.
+    tentativeResult?: CwChallengeResult;
+    tentativeBy?: string;
+    tentativeAt?: number;
 };
 type CwWar = {
     id: string;
@@ -26417,8 +26426,28 @@ function ClanBattlesTab({ character, playerRoster, setScreen }: { character: Cha
             return;
         }
         const youWon = (result === "from-wins" && youAreFromSide) || (result === "to-wins" && youAreToSide);
-        const verb = result === "draw" ? "report this as a draw" : (youWon ? "report that you won" : "report that the opponent won");
-        if (!window.confirm(`Are you sure you want to ${verb}? Reports are final.`)) return;
+        // Two-phase reporting: the first reporter stamps a tentative;
+        // the opposing side must confirm or dispute within 15 minutes
+        // before damage is applied. After the window, any participant
+        // can re-call /api/clan/war/report to auto-confirm.
+        const hasTentative = !!ch.tentativeResult;
+        const iAmTentative = (ch.tentativeBy ?? "").toLowerCase() === character.name.toLowerCase();
+        let verb: string;
+        if (hasTentative && !iAmTentative) {
+            const matches = ch.tentativeResult === result;
+            verb = matches
+                ? "CONFIRM the opposing side's report — damage will apply now"
+                : "DISPUTE the opposing side's report — the result will be recorded as a draw with no damage";
+        } else if (hasTentative && iAmTentative) {
+            verb = "re-submit your tentative report (auto-confirm if the 15-minute window has elapsed)";
+        } else {
+            verb = result === "draw"
+                ? "submit a tentative draw — the opposing side has 15 minutes to confirm or dispute"
+                : (youWon
+                    ? "submit a tentative report that you won — the opposing side has 15 minutes to confirm or dispute"
+                    : "submit a tentative report that the opponent won — the opposing side has 15 minutes to confirm or dispute");
+        }
+        if (!window.confirm(`Are you sure you want to ${verb}?`)) return;
         setBusy(true);
         try {
             const r = await fetch("/api/clan/war/report", {
@@ -26431,7 +26460,13 @@ function ClanBattlesTab({ character, playerRoster, setScreen }: { character: Cha
                 setError(data.error ?? `HTTP ${r.status}`);
             } else {
                 setError("");
-                try { sessionStorage.removeItem("clanWarChallenge.v1"); } catch { /* ignore */ }
+                // Only clear the stash once the challenge fully finalizes
+                // (tentative=false in the response). Keep the stash
+                // around during tentative so the player can come back
+                // and confirm without losing context.
+                if (data.tentative === false) {
+                    try { sessionStorage.removeItem("clanWarChallenge.v1"); } catch { /* ignore */ }
+                }
             }
         } catch (e) {
             setError(String((e as Error).message));
@@ -26655,8 +26690,8 @@ function ClanBattlesTab({ character, playerRoster, setScreen }: { character: Cha
                             <div style={{ background: "#1f1606", border: "1px solid #fbbf24", borderRadius: 6, padding: "0.8rem", marginBottom: "1rem" }}>
                                 <strong style={{ color: "#fbbf24" }}>⚔ Your Active Battles ({myActive.length})</strong>
                                 <p style={{ fontSize: "0.78rem", color: "#fef3c7", margin: "4px 0 8px" }}>
-                                    Launch each battle from the right screen, then come back here to report the result.
-                                    Damage applies to the loser's clan HP. Reports are final and only a participant can submit one.
+                                    Launch each battle from the right screen, then return here to report the result.
+                                    Reports are <strong>two-phase</strong> — the first reporter stamps a tentative; the opposing side has <strong>15 minutes</strong> to confirm (damage applies) or dispute (recorded as a draw). After the window, anyone can re-report to auto-confirm.
                                 </p>
                                 {myActive.map(ch => {
                                     const fromSide = (ch.fromPlayer ?? "").toLowerCase() === character.name.toLowerCase()
@@ -26666,6 +26701,18 @@ function ClanBattlesTab({ character, playerRoster, setScreen }: { character: Cha
                                         : [ch.fromPlayer, ch.fromPlayer2].filter(Boolean) as string[];
                                     const myWinResult: CwChallengeResult = fromSide ? "from-wins" : "to-wins";
                                     const oppWinResult: CwChallengeResult = fromSide ? "to-wins" : "from-wins";
+                                    // Two-phase state. A tentative claim
+                                    // by someone shows differently for the
+                                    // opposing side (confirm/dispute) vs.
+                                    // the tentative reporter (waiting).
+                                    const hasTentative = !!ch.tentativeResult;
+                                    const iAmTentative = (ch.tentativeBy ?? "").toLowerCase() === character.name.toLowerCase();
+                                    const tentativeMins = ch.tentativeAt
+                                        ? Math.max(0, 15 - Math.floor((Date.now() - ch.tentativeAt) / 60_000))
+                                        : 15;
+                                    const tentativeStale = ch.tentativeAt ? (Date.now() - ch.tentativeAt) >= 15 * 60_000 : false;
+                                    const tentativeMyWin = ch.tentativeResult === myWinResult;
+                                    const tentativeLabel = ch.tentativeResult === "draw" ? "draw" : (tentativeMyWin ? "you won" : "opponent won");
                                     return (
                                         <div key={ch.id} style={{ background: "#0b1220", padding: "0.6rem 0.7rem", borderRadius: 4, marginTop: 6 }}>
                                             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 6 }}>
@@ -26677,15 +26724,22 @@ function ClanBattlesTab({ character, playerRoster, setScreen }: { character: Cha
                                                     🚪 Launch Battle
                                                 </button>
                                             </div>
+                                            {hasTentative && (
+                                                <div style={{ background: "#0f1a2a", border: "1px solid #60a5fa", borderRadius: 4, padding: "0.4rem 0.6rem", marginBottom: 6, fontSize: "0.82rem" }}>
+                                                    {iAmTentative
+                                                        ? <span style={{ color: "#fbbf24" }}>⏳ Your tentative report (<strong>{tentativeLabel}</strong>) is awaiting opposing-side confirmation. {tentativeStale ? "Window elapsed — click any button below to auto-confirm." : `${tentativeMins}m remaining.`}</span>
+                                                        : <span style={{ color: "#a7f3d0" }}>📨 Opposing side reported <strong>{tentativeLabel}</strong>. {tentativeStale ? "Window elapsed — clicking below will auto-confirm." : `Confirm to apply damage, or dispute to record a draw. ${tentativeMins}m remaining.`}</span>}
+                                                </div>
+                                            )}
                                             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                                                 <button onClick={() => void handleReport(ch, myWinResult)} disabled={busy} style={{ padding: "0.3rem 0.6rem", background: "#15803d", borderColor: "#4ade80", fontSize: "0.85rem" }}>
-                                                    ✅ I won
+                                                    {hasTentative && !iAmTentative ? (tentativeMyWin ? "✅ Confirm: I won" : "⚠ Dispute → I won") : "✅ I won"}
                                                 </button>
                                                 <button onClick={() => void handleReport(ch, oppWinResult)} disabled={busy} className="danger-button" style={{ padding: "0.3rem 0.6rem", fontSize: "0.85rem" }}>
-                                                    ❌ Opponent won
+                                                    {hasTentative && !iAmTentative ? (!tentativeMyWin && ch.tentativeResult !== "draw" ? "✅ Confirm: Opponent won" : "⚠ Dispute → Opp won") : "❌ Opponent won"}
                                                 </button>
                                                 <button onClick={() => void handleReport(ch, "draw")} disabled={busy} style={{ padding: "0.3rem 0.6rem", fontSize: "0.85rem" }}>
-                                                    🤝 Draw
+                                                    {hasTentative && !iAmTentative ? (ch.tentativeResult === "draw" ? "✅ Confirm: Draw" : "⚠ Dispute → Draw") : "🤝 Draw"}
                                                 </button>
                                             </div>
                                             {ch.battleId && <small style={{ display: "block", marginTop: 4, color: "#64748b" }}>Battle ID: {ch.battleId}</small>}
