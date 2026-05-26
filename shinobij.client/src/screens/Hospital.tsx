@@ -9,15 +9,17 @@ import {
 
 export
 function Hospital({ character, updateCharacter, setScreen, playerRoster, hospitalEntryTime }: { character: Character; updateCharacter: (character: Character) => void; setScreen: (s: Screen) => void; playerRoster: PlayerRecord[]; hospitalEntryTime: number | null }) {
+    const isHealer = character.profession === "healer";
+    const healerRank = isHealer ? (character.professionRank ?? 1) : 0;
     const hospitalDiscount = getHospitalDiscountPercent(character);
-    const dischargeCost = discountCost(1000, hospitalDiscount);
+    // Discharge cost is bumped from 1000 to 2500 ryo for non-Healers — pay
+    // up or wait the 60-second free checkout. Healers still discharge at
+    // the original rate since hospital recovery is their trade.
+    const dischargeCost = discountCost(isHealer ? 1000 : 2500, hospitalDiscount);
     const topUpCost = discountCost(50, hospitalDiscount);
     const [elapsed, setElapsed] = useState(0);
     const [healMsg, setHealMsg] = useState<Record<string, string>>({});
     const [healed, setHealed] = useState<Set<string>>(new Set());
-
-    const isHealer = character.profession === "healer";
-    const healerRank = isHealer ? (character.professionRank ?? 1) : 0;
     const hasWorldwideVision = isHealer && healerRank >= 10;
     const [worldwideInjured, setWorldwideInjured] = useState<Array<{ name: string; level: number; hp: number; maxHp: number; hospitalized: boolean }>>([]);
 
@@ -61,6 +63,7 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, hospita
     }
 
     function topUp() {
+        if (!isHealer) return alert("Only Healers can heal at the hospital. Non-Healers must wait the 60-second admission timer or pay the discharge fee.");
         if (character.ryo < topUpCost) return alert("Not enough ryo.");
         updateCharacter({ ...character, ryo: character.ryo - topUpCost, hp: character.maxHp });
     }
@@ -191,7 +194,13 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, hospita
                 <span>HP: <strong>{character.hp}/{character.maxHp}</strong></span>
                 <span style={{ marginLeft: "1.5rem" }}>Ryo: <strong>{character.ryo.toLocaleString()}</strong></span>
             </div>
-            <button onClick={topUp}>💚 Full Heal — {topUpCost} ryo{hospitalDiscount > 0 ? " discounted" : ""}</button>
+            {isHealer ? (
+                <button onClick={topUp}>✚ Full Heal — {topUpCost} ryo{hospitalDiscount > 0 ? " discounted" : ""}</button>
+            ) : (
+                <p className="hint" style={{ margin: "0.4rem 0", color: "#94a3b8" }}>
+                    🚫 Only Healers can heal at the hospital. If admitted, wait the 60-second timer or pay the discharge fee.
+                </p>
+            )}
             {hospitalizedPlayers.length > 0 && (
                 <div style={{ marginTop: "1.5rem" }}>
                     <h4 style={{ marginBottom: "0.5rem" }}>🛏️ Admitted Players{isHealer ? ` — ${character.village}` : ""}</h4>

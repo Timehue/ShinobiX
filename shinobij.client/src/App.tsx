@@ -6082,6 +6082,14 @@ function gainXp(character: Character, amount: number): Character {
     return reconcileCharacterStatBudget(updated);
 }
 
+// Honor Seals are exclusively a Vanguard reward. Every grant site (PvP,
+// raids, village agenda, map control, Hollow Gate, etc.) wraps the would-be
+// gain in this helper so non-Vanguards always earn 0.
+export function vanguardOnlyHonorSeals(character: Character | null | undefined, amount: number): number {
+    if (!character || character.profession !== "vanguard") return 0;
+    return Math.max(0, Math.floor(amount));
+}
+
 // ── Profession combat bonuses ────────────────────────────────────────────
 // Pet Tamer PvE pet damage multiplier: +5% at unlock, +1.5% per rank, capped
 // at +20% at Rank 10. PvE only — never apply in PvP per docs/professions.md.
@@ -10150,7 +10158,7 @@ export default function App() {
                 ...leveled,
                 ryo: leveled.ryo + ryoReward,
                 auraDust: (leveled.auraDust ?? 0) + auraDustReward,
-                honorSeals: (leveled.honorSeals ?? 0) + honorReward,
+                honorSeals: (leveled.honorSeals ?? 0) + vanguardOnlyHonorSeals(leveled, honorReward),
                 hp: Math.min(leveled.maxHp, survivingHp + (isBoss ? 60 : 20)),
             };
             if (isBoss) {
@@ -11281,7 +11289,7 @@ export default function App() {
                             tone: "primary",
                             onSelect: () => {
                                 if (!character) return;
-                                const bonusHonor = 75;
+                                const bonusHonor = vanguardOnlyHonorSeals(character, 75);
                                 const bonusFate = 1;
                                 const next = addInventoryItems({
                                     ...character,
@@ -11289,7 +11297,7 @@ export default function App() {
                                     fateShards: (character.fateShards ?? 0) + bonusFate,
                                 }, [DUNGEON_LEGENDARY_FRAGMENT_ID, VEIL_OF_THE_HOLLOW_ID]);
                                 setCharacter(next);
-                                pushHollowGateLog(`Shrine cleared bonus: +${bonusHonor} Honor Seals, +${bonusFate} Fate Shard, +1 Dungeon Legendary Fragment, +1 Veil of the Hollow.`);
+                                pushHollowGateLog(`Shrine cleared bonus: ${bonusHonor > 0 ? `+${bonusHonor} Honor Seals, ` : ""}+${bonusFate} Fate Shard, +1 Dungeon Legendary Fragment, +1 Veil of the Hollow.`);
                                 setHollowGateEvent(null);
                                 leaveHollowGateShrine();
                             },
@@ -12281,7 +12289,8 @@ export default function App() {
                                             }}>🔍 Search Chamber</button>
                                             <button disabled={hollowGateHiddenChamber.relicTaken} onClick={() => {
                                                 if (!hollowGateHiddenChamber || !hollowGateRun) return;
-                                                const honor = 15 + Math.floor(Math.random() * 20);
+                                                const rawHonor = 15 + Math.floor(Math.random() * 20);
+                                                const honor = vanguardOnlyHonorSeals(character, rawHonor);
                                                 const fate = Math.random() < 0.5 ? 1 : 0;
                                                 // Grant the Veil of the Hollow as a real inventory item
                                                 // (stacking duplicates is allowed — chamber relics are
@@ -12293,7 +12302,7 @@ export default function App() {
                                                 }, [VEIL_OF_THE_HOLLOW_ID]);
                                                 setCharacter(next);
                                                 setHollowGateRun({ ...hollowGateRun, keys: hollowGateRun.keys + 1 });
-                                                pushHollowGateLog(`You claim the Veil of the Hollow. +${honor} Honor Seals${fate ? `, +${fate} Fate Shard` : ""}, +1 Shrine Key, +1 Veil of the Hollow.`);
+                                                pushHollowGateLog(`You claim the Veil of the Hollow.${honor > 0 ? ` +${honor} Honor Seals` : ""}${fate ? `, +${fate} Fate Shard` : ""}, +1 Shrine Key, +1 Veil of the Hollow.`);
                                                 setHollowGateHiddenChamber({ ...hollowGateHiddenChamber, relicTaken: true });
                                             }}>🏺 Take Relic</button>
                                             <button onClick={() => setHollowGateHiddenChamber(null)} className="danger-button">Return to Shrine</button>
@@ -22378,7 +22387,7 @@ function TownHall({ character, updateCharacter, creatorItems, allServerPlayers, 
         if (agendaClaimed) return alert("You already claimed today's village agenda.");
         const nextState = normalizeVillageState(character.village, { ...state, dailyAgenda: agenda, contributionPoints: state.contributionPoints + 15, treasury: { ...state.treasury, honorSeals: state.treasury.honorSeals + 15, ryo: state.treasury.ryo + 1500, boneCharms: state.treasury.boneCharms + 2 } });
         updateVillageState(addNotice(`${character.name} completed today's village agenda. Village treasury gained Honor Seals, ryo, and Bone Charms.`, nextState));
-        updateCharacter({ ...character, claimedVillageAgendaDate: agenda.date, honorSeals: (character.honorSeals ?? 0) + 8, ryo: character.ryo + 750, boneCharms: (character.boneCharms ?? 0) + 1 });
+        updateCharacter({ ...character, claimedVillageAgendaDate: agenda.date, honorSeals: (character.honorSeals ?? 0) + vanguardOnlyHonorSeals(character, 8), ryo: character.ryo + 750, boneCharms: (character.boneCharms ?? 0) + 1 });
     }
     const mapControlClaimed = character.claimedMapControlDate === currentDateKey();
     const mapControlRyo = ownedVillageSectors.length * 100;
@@ -22387,7 +22396,7 @@ function TownHall({ character, updateCharacter, creatorItems, allServerPlayers, 
     function claimMapControlRewards() {
         if (ownedVillageSectors.length <= 0) return alert("Your village does not control any sectors yet.");
         if (mapControlClaimed) return alert("You already claimed today's map control reward.");
-        updateCharacter({ ...character, claimedMapControlDate: currentDateKey(), ryo: character.ryo + mapControlRyo, honorSeals: (character.honorSeals ?? 0) + mapControlHonor, boneCharms: (character.boneCharms ?? 0) + mapControlBone });
+        updateCharacter({ ...character, claimedMapControlDate: currentDateKey(), ryo: character.ryo + mapControlRyo, honorSeals: (character.honorSeals ?? 0) + vanguardOnlyHonorSeals(character, mapControlHonor), boneCharms: (character.boneCharms ?? 0) + mapControlBone });
         updateVillageState(addNotice(`${character.name} claimed map control rewards from ${ownedVillageSectors.length} village sector${ownedVillageSectors.length === 1 ? "" : "s"}.`, { ...state, contributionPoints: state.contributionPoints + ownedVillageSectors.length }));
     }
     return <div className="card town-hall-screen">
@@ -30793,7 +30802,7 @@ function Arena({
             ...rewarded,
             ...villageWarRaid.characterPatch,
             ryo: rewarded.ryo + ryoGain,
-            honorSeals: (rewarded.honorSeals ?? 0) + honorSealGain,
+            honorSeals: (rewarded.honorSeals ?? 0) + vanguardOnlyHonorSeals(rewarded, honorSealGain),
             auraDust: (rewarded.auraDust ?? 0) + auraDustGain,
             stamina: Math.min(rewarded.maxStamina, rewarded.stamina + 15),
             boneCharms: (rewarded.boneCharms ?? 0) + deathsGateBoneCharm,
