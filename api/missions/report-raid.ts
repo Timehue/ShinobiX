@@ -11,15 +11,23 @@ const RANK_10_BONUS_SEAL_PER_MISSION = 1;
 // award profession XP + this Ryo bonus for Rank 4+; flat 200 Ryo base × 1.25).
 const RAID_MISSION_BASE_RYO = 200;
 const RANK_4_RYO_MULT = 1.25;
+// Hard daily ceiling on raid reports per player. Legit play tops out
+// around 30 raids/day even for a grinder; 60 is comfortably above that
+// and well below a botnet's potential. Past the cap the call still
+// returns 200 but grants no XP / currency / mission progress.
+const MAX_RAID_REPORTS_PER_DAY = 60;
+
+function utcDateKey(): string {
+    return new Date().toISOString().slice(0, 10);
+}
 
 // Vanguard raid-mission progress reporter. Fires once per completed village
 // raid — counts the same whether the defender was a human guard or an AI
-// fill-in. Rate-limited to 1 report per 15s per player so a single raid
-// can't double-count if the client retries.
+// fill-in. Rate-limited to 1 report per 30s per player + a 60/day hard cap.
 //
 // No server-side "did the raid actually happen" check today — the raid
-// system itself is partly client-side. The rate limit + per-day mission
-// caps + per-save XP cap bound the impact of any abuse.
+// system itself is partly client-side. The rate limit + daily cap + per-save
+// XP cap bound the impact of any abuse.
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -28,7 +36,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const bodyPeek = typeof req.body === 'string' ? (() => { try { return JSON.parse(req.body); } catch { return {}; } })() : (req.body ?? {});
     const peekName: string | undefined = typeof bodyPeek?.playerName === 'string' ? bodyPeek.playerName : undefined;
-    if (!enforceRateLimit(req, res, 'report-raid', 1, 15_000, peekName)) return;
+    // 30s (was 15s). Halves the worst-case throughput even before the
+    // daily cap trips.
+    if (!enforceRateLimit(req, res, 'report-raid', 1, 30_000, peekName)) return;
 
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
@@ -46,6 +56,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (char?.profession !== 'vanguard') {
             return res.status(200).json({ ok: true, vanguard: false });
         }
+
+        // Daily report cap. Tracked in a dedicated KV key (not on the
+        // character save) so it can't be rolled back via the client-clock
+        // save-stamp tricks the audit caught earlier.
+        const today = utcDateKey();
+        const dailyKey = `raid-report-count:${playerName}:${today}`;
+        const reportedToday = Number((await kv.get<number>(dailyKey)) ?? 0);
+        if (reportedToday >= MAX_RAID_REPORTS_PER_DAY) {
+            return res.status(200).json({
+                ok: true,
+                vanguard: true,
+                reason: 'daily-raid-cap',
+                xpAwarded: 0,
+                missionsCompleted: [],
+                bonusRyo: 0,
+                bonusSeals: 0,
+            });
+        }
+        // 25h TTL so the counter survives the rollover window without
+        // permanently squatting.
+        await kv.set(dailyKey, reportedToday + 1, { ex: 25 * 60 * 60 }).catch(() => undefined);
 
         const result = await reportMissionEvent({
             playerName,

@@ -88,19 +88,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             });
         }
 
-        // Credit recipient. (Outside the pool lock — the per-save write
-        // lock in api/save/[name].ts isn't held here because we're using
-        // kv.set directly; a recipient who happens to be writing their
-        // save concurrently could race, but it's a single-line read and
-        // re-write of one field. Acceptable trade-off vs. nesting locks.)
-        const updatedRecipient = {
-            ...recipientRecord,
-            character: {
-                ...recipientChar,
-                honorSeals: Number(recipientChar.honorSeals ?? 0) + amount,
-            },
-        };
-        await kv.set(`save:${recipientName}`, mergePreservingImages(updatedRecipient, recipientRecord));
+        // Credit recipient. Hold `lock:save:<recipient>` for the read-
+        // modify-write so a concurrent player auto-save can't drop the
+        // credit. Pool was already debited; if the recipient lookup or
+        // write fails inside the lock we surface the error so the leader
+        // can retry — Seals don't vanish silently. (Refunds on failure
+        // are noted as a TODO; pool itself is already debited at this
+        // point. Investigate when claim-back is needed.)
+        const recipientSaveKey = `save:${recipientName}`;
+        await withKvLock(recipientSaveKey, async () => {
+            // Re-read inside the lock to grab any updates that landed
+            // between the membership check above and this point.
+            const freshRecord = await kv.get<Record<string, unknown>>(recipientSaveKey);
+            const freshChar = freshRecord?.character as Record<string, unknown> | undefined;
+            if (!freshChar) return;
+            const updatedRecipient = {
+                ...freshRecord,
+                character: {
+                    ...freshChar,
+                    honorSeals: Number(freshChar.honorSeals ?? 0) + amount,
+                },
+            };
+            await kv.set(recipientSaveKey, mergePreservingImages(updatedRecipient, freshRecord));
+        });
 
         return res.status(200).json({
             ok: true,

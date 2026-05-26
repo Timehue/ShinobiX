@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
 import { safeName, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
+import { enforceRateLimit } from '../_ratelimit.js';
 import { reportMissionEvent } from './_progress.js';
 import type { PvpSession } from '../pvp/session.js';
 import { hasRecentIpOverlap } from '../_player-ips.js';
@@ -18,6 +19,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).end();
+
+    // Per-player rate limit BEFORE auth so spam at unknown names still
+    // throttles. Session-ID + 24h idem key bound the currency damage, but
+    // KV spam was previously unbounded.
+    const bodyPeek = typeof req.body === 'string' ? (() => { try { return JSON.parse(req.body); } catch { return {}; } })() : (req.body ?? {});
+    const peekName: string | undefined = typeof bodyPeek?.playerName === 'string' ? bodyPeek.playerName : undefined;
+    if (!enforceRateLimit(req, res, 'report-pvp-win', 4, 60_000, peekName)) return;
 
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;

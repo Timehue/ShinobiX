@@ -3,6 +3,7 @@ import { kv } from '../../_storage.js';
 import { safeName, mergePreservingImages, cors } from '../../_utils.js';
 import { authedPlayerOrAdmin } from '../../_auth.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
+import { withKvLock } from '../../_lock.js';
 import { loadPool, savePool } from './_storage.js';
 
 // Vanguards donate Honor Seals to their clan's pool. Per-day cumulative cap
@@ -43,63 +44,77 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'clan-seal-donate', 20, 60_000, identity.name))) return;
 
         const saveKey = `save:${playerName}`;
-        const record = await kv.get<Record<string, unknown>>(saveKey);
-        const char = record?.character as Record<string, unknown> | undefined;
-        if (!char) return res.status(404).json({ error: 'Character not found.' });
+        // Wrap the donor's read-modify-write inside the same `lock:save:<name>`
+        // that api/save/[name].ts uses for the player's regular auto-saves, so
+        // a concurrent auto-save can't drop the donation debit. (Previously
+        // the donor save was an unlocked kv.set; an auto-save landing on the
+        // pre-debit balance would silently undo the spend.)
+        const lockResult = await withKvLock(saveKey, async () => {
+            const record = await kv.get<Record<string, unknown>>(saveKey);
+            const char = record?.character as Record<string, unknown> | undefined;
+            if (!char) return { status: 404 as const, body: { error: 'Character not found.' } };
 
-        if (char.profession !== 'vanguard') {
-            return res.status(403).json({ error: 'Only Vanguards can donate Honor Seals.' });
-        }
+            if (char.profession !== 'vanguard') {
+                return { status: 403 as const, body: { error: 'Only Vanguards can donate Honor Seals.' } };
+            }
 
-        const clanName = typeof char.clan === 'string' ? char.clan : '';
-        if (!clanName) return res.status(400).json({ error: 'You must be in a clan to donate.' });
+            const clanName = typeof char.clan === 'string' ? char.clan : '';
+            if (!clanName) return { status: 400 as const, body: { error: 'You must be in a clan to donate.' } };
 
-        const balance = Number(char.honorSeals ?? 0);
-        // Per-day cumulative cap. Lazy-reset: if the stamped date != today,
-        // dailyDonatedToday is effectively zero. Cap = 50% of (currentBalance
-        // + dailyDonatedToday) — i.e. the cap is computed against the "if you
-        // hadn't donated today" balance so it doesn't tighten as you spend.
-        const today = utcDateKey();
-        const stampedDate = typeof char.dailyDonationDate === 'string' ? char.dailyDonationDate : '';
-        const donatedToday = stampedDate === today ? Number(char.dailyDonatedSeals ?? 0) : 0;
-        const dailyCap = Math.floor((balance + donatedToday) * DONATE_FRACTION_CAP);
-        const remaining = Math.max(0, dailyCap - donatedToday);
-        if (amount > remaining) {
-            return res.status(400).json({
-                error: `Daily donation cap is 50% of your "start of day" Seal balance. You can donate ${remaining} more today.`,
-                dailyCap,
-                donatedToday,
-                remaining,
-                balance,
-            });
-        }
+            const balance = Number(char.honorSeals ?? 0);
+            // Per-day cumulative cap. Lazy-reset: if the stamped date != today,
+            // dailyDonatedToday is effectively zero. Cap = 50% of (currentBalance
+            // + dailyDonatedToday) — i.e. the cap is computed against the "if you
+            // hadn't donated today" balance so it doesn't tighten as you spend.
+            const today = utcDateKey();
+            const stampedDate = typeof char.dailyDonationDate === 'string' ? char.dailyDonationDate : '';
+            const donatedToday = stampedDate === today ? Number(char.dailyDonatedSeals ?? 0) : 0;
+            const dailyCap = Math.floor((balance + donatedToday) * DONATE_FRACTION_CAP);
+            const remaining = Math.max(0, dailyCap - donatedToday);
+            if (amount > remaining) {
+                return {
+                    status: 400 as const,
+                    body: {
+                        error: `Daily donation cap is 50% of your "start of day" Seal balance. You can donate ${remaining} more today.`,
+                        dailyCap,
+                        donatedToday,
+                        remaining,
+                        balance,
+                    },
+                };
+            }
 
-        // Debit donor + bump daily tracking.
-        const updatedRecord = {
-            ...record,
-            character: {
-                ...char,
-                honorSeals: balance - amount,
-                dailyDonatedSeals: donatedToday + amount,
-                dailyDonationDate: today,
-            },
-        };
-        await kv.set(saveKey, mergePreservingImages(updatedRecord, record));
+            // Debit donor + bump daily tracking.
+            const updatedRecord = {
+                ...record,
+                character: {
+                    ...char,
+                    honorSeals: balance - amount,
+                    dailyDonatedSeals: donatedToday + amount,
+                    dailyDonationDate: today,
+                },
+            };
+            await kv.set(saveKey, mergePreservingImages(updatedRecord, record));
 
-        // Credit pool.
-        const pool = await loadPool(clanName);
-        pool.balance += amount;
-        pool.log.unshift({ kind: 'donate', by: playerName, amount, at: Date.now() });
-        await savePool(pool);
+            // Credit pool. Pool itself has its own internal lock inside savePool.
+            const pool = await loadPool(clanName);
+            pool.balance += amount;
+            pool.log.unshift({ kind: 'donate', by: playerName, amount, at: Date.now() });
+            await savePool(pool);
 
-        return res.status(200).json({
-            ok: true,
-            donated: amount,
-            honorSealsRemaining: balance - amount,
-            poolBalance: pool.balance,
-            dailyDonatedToday: donatedToday + amount,
-            dailyCap,
+            return {
+                status: 200 as const,
+                body: {
+                    ok: true,
+                    donated: amount,
+                    honorSealsRemaining: balance - amount,
+                    poolBalance: pool.balance,
+                    dailyDonatedToday: donatedToday + amount,
+                    dailyCap,
+                },
+            };
         });
+        return res.status(lockResult.status).json(lockResult.body);
     } catch (err) {
         console.error('[clan/seal-pool/donate]', err);
         return res.status(500).json({ error: 'Internal server error.' });

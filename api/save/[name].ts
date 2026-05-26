@@ -275,6 +275,54 @@ function sanitizeCharacterSave(
         char.pets = kept;
     }
 
+    // Inventory + tile-card collection size caps. A tampered client could
+    // submit thousands of items, both bloating KV and inflating foreign-read
+    // payloads. 500 is well above any realistic veteran's working inventory
+    // and matches what the client UI can scroll through cleanly.
+    const INVENTORY_CAP = 500;
+    if (Array.isArray(char.inventory) && (char.inventory as unknown[]).length > INVENTORY_CAP) {
+        char.inventory = (char.inventory as unknown[]).slice(0, INVENTORY_CAP);
+    }
+    const TILE_CARD_CAP = 500;
+    if (Array.isArray(char.tileCards) && (char.tileCards as unknown[]).length > TILE_CARD_CAP) {
+        char.tileCards = (char.tileCards as unknown[]).slice(0, TILE_CARD_CAP);
+    }
+
+    // Admin-only "creator" content (jutsus / items / AIs / missions / events /
+    // cards / raids) should NEVER live on a player save. The legitimate
+    // source of truth is save:admin*. If a tampered client tries to inject
+    // these fields into a non-admin save, strip them outright so they can't
+    // round-trip into anyone's gameplay state.
+    delete char.creatorJutsus;
+    delete char.creatorItems;
+    delete char.creatorAis;
+    delete char.creatorMissions;
+    delete char.creatorEvents;
+    delete char.creatorCards;
+    delete char.creatorRaids;
+
+    // Daily-claim date stamps (claimedVillageAgendaDate / claimedMapControlDate)
+    // gate once-per-UTC-day rewards on the client. If the client could write
+    // any string here, a player rolling their system clock could "claim,
+    // unclaim, claim again" by setting the stamp to a different date. Lock
+    // these to the server's actual UTC today: incoming may either be empty
+    // (no claim today) or exactly the server's date string. Any other value
+    // (a future date, last week, "1970-01-01", etc.) is forced back to
+    // whatever was previously stored, so the legitimate-today claim still
+    // survives but backdating doesn't.
+    const SERVER_UTC_DATE = new Date().toISOString().slice(0, 10);
+    const DAILY_CLAIM_DATE_FIELDS = ['claimedVillageAgendaDate', 'claimedMapControlDate'] as const;
+    for (const field of DAILY_CLAIM_DATE_FIELDS) {
+        const incomingDate = char[field];
+        if (typeof incomingDate !== 'string' || incomingDate === '') continue;
+        if (incomingDate !== SERVER_UTC_DATE) {
+            // Either a forged future date or a backdated reset. Revert to
+            // the existing server-side value (which itself can only have
+            // been set by a legit prior pass through this same check).
+            char[field] = exChar[field] ?? '';
+        }
+    }
+
     // Hospital timer enforcement.
     //   - If save flips hospitalized false → true, server stamps hospitalizedUntil.
     //   - If save flips hospitalized true → false before the timer expires, revert
