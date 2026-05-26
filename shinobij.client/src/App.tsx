@@ -13220,7 +13220,7 @@ export default function App() {
                         }
                         const villageWarRaid = context?.raidKind === "raidPlayer"
                             ? recordVillageWarRaid(character, rewardSector)
-                            : { characterPatch: {} as Partial<Character>, warCrate: false };
+                            : { note: "", characterPatch: {} as Partial<Character>, warCrate: false, warCrateId: undefined as string | undefined };
                         const villageWarPvpPatch = opponent ? recordVillageWarPvp(character, opponent, rewardSector) : "";
                         const leveled = gainXp(character, xpGain);
                         const rewarded = grantTerritoryScrolls(leveled, 5);
@@ -24117,7 +24117,7 @@ function recordVillageWarPvp(winner: Character, loser: Character, sector?: numbe
     // noticeable advantage without being decisive.
     let homeBonus = false;
     if (sector !== undefined) {
-        const territory = sharedTerritoryCache[sector];
+        const territory = sharedSectorTerritoryCache[sector];
         if (territory?.ownerVillage === winner.village) {
             damage = Math.floor(damage * 1.15);
             homeBonus = true;
@@ -24129,16 +24129,20 @@ function recordVillageWarPvp(winner: Character, loser: Character, sector?: numbe
 }
 
 function recordVillageWarRaid(character: Character, sector: number) {
+    // Union return shape: every early return must declare the same
+    // keys (with undefined values where needed) so the success path's
+    // `warCrateId: string` access compiles against the inferred union.
+    const empty = { note: "", characterPatch: {} as Partial<Character>, warCrate: false, warCrateId: undefined as string | undefined };
     const war = activeVillageWarsFor(character.village).find(candidate => candidate.warGroundSector === sector);
-    if (!war || war.warGroundHp <= 0) return { note: "", characterPatch: {} as Partial<Character>, warCrate: false };
+    if (!war || war.warGroundHp <= 0) return empty;
     // Pre-war pending window — server rejects damage writes anyway, so
     // bail early to avoid the noisy 409 in the console + UI.
     if (war.pendingUntil && war.pendingUntil > Date.now()) {
         const minsLeft = Math.max(1, Math.ceil((war.pendingUntil - Date.now()) / 60_000));
-        return { note: ` Village War starts in ${minsLeft} min — raid didn't damage HP yet.`, characterPatch: {} as Partial<Character>, warCrate: false };
+        return { ...empty, note: ` Village War starts in ${minsLeft} min — raid didn't damage HP yet.` };
     }
     const enemyVillage = war.villages.find(village => village !== character.village);
-    if (!enemyVillage) return { note: "", characterPatch: {} as Partial<Character>, warCrate: false };
+    if (!enemyVillage) return empty;
     const damage = villageWarRoleValue(character);
     let next = normalizeVillageWar({
         ...war,
@@ -33039,7 +33043,7 @@ function Arena({
         // while no enemy is online — defeats the whole point of village
         // war as a player-vs-player meta. The win-condition is unchanged:
         // PvP raids still drive both warGroundHp and the enemy village HP.
-        const villageWarRaid = (raidBattleKind === "raidPlayer") ? recordVillageWarRaid(character, currentSector) : { note: "", characterPatch: {} as Partial<Character>, warCrate: false };
+        const villageWarRaid = (raidBattleKind === "raidPlayer") ? recordVillageWarRaid(character, currentSector) : { note: "", characterPatch: {} as Partial<Character>, warCrate: false, warCrateId: undefined as string | undefined };
         const villageWarPvpNote = opponentCharacter ? recordVillageWarPvp(character, opponentCharacter, currentSector) : "";
         const rewarded = grantTerritoryScrolls(leveled, territoryScrollReward);
         const deathsGateBoneCharm = deathsGatePvp && Math.random() < 0.05 ? 1 : 0;
@@ -37287,6 +37291,7 @@ type VillageWarRecord = {
     contributions?: Record<string, { damage: number; raids: number; pvpKills: number; side: string; name: string }>;
     mvpByVillage?: Record<string, string>;
     loserCrateId?: string;
+    pendingUntil?: number;
 };
 
 type TerritoryRecord = {
