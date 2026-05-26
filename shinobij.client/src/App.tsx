@@ -23648,7 +23648,10 @@ function ClanWarManual({ onClose }: { onClose: () => void }) {
                 Combat &gt; Pet &gt; Cards. 2v2 modes pay double the 1v1 of the same tier because they represent two sequential fights.
             </p>
             <p style={{ margin: "0 0 0.5rem" }}>
-                <strong style={{ color: "#60a5fa" }}>Sending an anonymous challenge.</strong> Any clan member can send. The enemy clan sees only your <em>clan name + mode</em> — your specific challenger name is hidden until they accept. Challenges expire after <strong>2 hours</strong> if no one accepts.
+                <strong style={{ color: "#60a5fa" }}>Sending an anonymous challenge.</strong> Any clan member can send. The enemy clan sees only your <em>clan name + mode</em> — your specific challenger name is hidden until they accept. Each player can have at most <strong>2 in-flight challenges</strong> at a time (counted across both seed-challenger and 2v2-partner slots). Cancel a challenge to free a slot.
+            </p>
+            <p style={{ margin: "0 0 0.5rem", fontSize: "0.82rem", color: "#fbbf24" }}>
+                ⏳ <strong>Ghosting penalty.</strong> Pending challenges expire after <strong>1 hour</strong> if the defender does nothing. Each expired-unaccepted challenge deals <strong>−5 HP</strong> to the defender's clan. <em>Queuing</em> challenges (2v2 still gathering a partner) expire silently — they never reached the defender, so no penalty applies.
             </p>
             <p style={{ margin: "0 0 0.5rem" }}>
                 <strong style={{ color: "#60a5fa" }}>2v2 queues (both sides).</strong> 2v2 challenges use a queue model:
@@ -26464,6 +26467,16 @@ function ClanBattlesTab({ character, playerRoster, setScreen, launchClanWarBattl
     }, [playerRoster, myClan, character.name]);
     const myWar = wars.find(w => !w.endedAt && w.clans.includes(myClan));
     const enemyClan = myWar?.clans.find(c => c !== myClan) ?? "";
+    // Per-player slot count: in-flight challenges (pending or queuing)
+    // where I sit in EITHER challenger slot. Caps at 2 per the server.
+    const CW_MAX_PER_PLAYER = 2;
+    const mySlotCount = myWar ? myWar.pendingChallenges.filter(c => {
+        if (c.status !== "pending" && c.status !== "queuing") return false;
+        const me = character.name.toLowerCase();
+        return (c.fromPlayer ?? "").toLowerCase() === me
+            || (c.fromPlayer2 ?? "").toLowerCase() === me;
+    }).length : 0;
+    const atSlotCap = mySlotCount >= CW_MAX_PER_PLAYER;
 
     // Eligible clans to declare war on: any clan that exists in the
     // roster, isn't mine, and isn't currently in a clan war.
@@ -26716,11 +26729,16 @@ function ClanBattlesTab({ character, playerRoster, setScreen, launchClanWarBattl
 
                     {/* Send a challenge — 1v1 sends immediately; 2v2 opens a queue */}
                     <div style={{ background: "#0b1220", border: "1px solid #334155", borderRadius: 6, padding: "0.8rem", marginBottom: "1rem" }}>
-                        <strong style={{ color: "#60a5fa" }}>⚔ Send Anonymous Challenge to {enemyClan}</strong>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                            <strong style={{ color: "#60a5fa" }}>⚔ Send Anonymous Challenge to {enemyClan}</strong>
+                            <span style={{ fontSize: "0.78rem", color: atSlotCap ? "#f87171" : "#94a3b8" }}>
+                                Your slots: <strong>{mySlotCount}/{CW_MAX_PER_PLAYER}</strong>
+                            </span>
+                        </div>
                         <p style={{ fontSize: "0.78rem", color: "#94a3b8", margin: "4px 0 8px" }}>
                             {composeMode === "pvp2v2" || composeMode === "pet2v2"
                                 ? `2v2 modes open a send queue — a clanmate has to join from Your Queued Challenges below before ${enemyClan} sees it.`
-                                : `${enemyClan} will see your clan but not the specific challenger until they accept.`}
+                                : `${enemyClan} will see your clan but not the specific challenger until they accept. Challenges expire in 1h — ignored ones cost the defender ${5} HP.`}
                         </p>
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                             <select value={composeMode} onChange={e => setComposeMode(e.target.value as CwChallengeMode)} style={{ padding: "0.35rem" }} disabled={busy}>
@@ -26728,11 +26746,14 @@ function ClanBattlesTab({ character, playerRoster, setScreen, launchClanWarBattl
                                     <option key={m} value={m}>{CW_MODE_ICON[m]} {CW_MODE_LABEL[m]} (−{CW_DAMAGE[m]} HP)</option>
                                 ))}
                             </select>
-                            <button onClick={handleSend} disabled={busy} style={{ padding: "0.4rem 0.8rem", background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171" }}>
-                                {busy ? "Sending…" : (composeMode === "pvp2v2" || composeMode === "pet2v2") ? "Open 2v2 Queue" : "Send Challenge"}
+                            <button onClick={handleSend} disabled={busy || atSlotCap} style={{ padding: "0.4rem 0.8rem", background: atSlotCap ? "#1f2937" : "linear-gradient(#7f1d1d,#450a0a)", borderColor: atSlotCap ? "#475569" : "#f87171" }}>
+                                {busy ? "Sending…" : atSlotCap ? "Slot cap reached" : (composeMode === "pvp2v2" || composeMode === "pet2v2") ? "Open 2v2 Queue" : "Send Challenge"}
                             </button>
                         </div>
-                        {myClanmates.length === 0 && (composeMode === "pvp2v2" || composeMode === "pet2v2") && (
+                        {atSlotCap && (
+                            <p style={{ fontSize: "0.78rem", color: "#f87171", marginTop: 6 }}>You're at the {CW_MAX_PER_PLAYER}-slot cap. Cancel one of your active challenges or wait for them to resolve / expire.</p>
+                        )}
+                        {!atSlotCap && myClanmates.length === 0 && (composeMode === "pvp2v2" || composeMode === "pet2v2") && (
                             <p style={{ fontSize: "0.78rem", color: "#fbbf24", marginTop: 6 }}>You can still open a queue but no clanmates are online to fill the partner slot yet.</p>
                         )}
                     </div>
