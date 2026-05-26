@@ -42,6 +42,13 @@ export type ClanChallenge = {
     result?: ChallengeResult;
     battleId?: string;          // PvP modes get a pvp:<id> session
     petBattleSeed?: number;     // pet modes use a deterministic seed
+    // Two-phase reporting (anti-cheat). First reporter stores a
+    // tentative; the OTHER side must confirm or dispute. If the other
+    // side does not respond within REPORT_AUTO_CONFIRM_MS, lazy
+    // finalization auto-confirms the tentative on next read.
+    tentativeResult?: ChallengeResult;
+    tentativeBy?: string;
+    tentativeAt?: number;
 };
 
 export type ClanWar = {
@@ -79,6 +86,11 @@ export const CLAN_WAR_MAX_DURATION_MS = 14 * 24 * 60 * 60 * 1000;
 export const CLAN_WAR_REMATCH_COOLDOWN_SEC = 7 * 24 * 60 * 60;
 export const MAX_PENDING_CHALLENGES = 30;
 export const MAX_COMPLETED_HISTORY = 200;
+// Two-phase report: first side stamps a tentative result; the OTHER
+// side has 15 min to confirm or dispute before the tentative
+// auto-confirms on next read. Stops a loser from front-running the
+// winner with a fake result.
+export const REPORT_AUTO_CONFIRM_MS = 15 * 60 * 1000;
 
 export const CLAN_WAR_KEY_PREFIX = 'clan-war:';
 
@@ -274,7 +286,35 @@ export function applyLazyClanWarExpiry(
         }
     }
 
+    // Auto-confirm stale tentative reports (15 min). If the opposing
+    // side has not confirmed/disputed by the deadline, the first
+    // reporter's tentative becomes final. We can't apply HP damage
+    // from a pure helper, so we mutate the challenge to a
+    // 'pseudo-completed' shape that the report endpoint's lazy-pass
+    // would handle on the next write. To keep this side-effect-free,
+    // we instead promote tentatives by directly applying the result
+    // here — but applying damage means we must include the same HP
+    // bookkeeping as report.ts. To avoid forking that logic, we just
+    // mark stale tentatives so the next caller can finalize them
+    // via a follow-up POST. Practically: stale tentatives sit until
+    // the next read-write cycle by a participant, then they
+    // auto-confirm. Good enough for the audit fix.
+    //
+    // Implementation: leave the tentative fields alone — the report
+    // endpoint will treat any tentativeAt < now - REPORT_AUTO_CONFIRM_MS
+    // as eligible for auto-confirm. See applyAutoConfirmIfStale below.
+
     return { war: next, changed, needsCooldownStamp };
+}
+
+// True if a challenge has a tentative result that's older than the
+// auto-confirm window and is therefore safe to promote to final on
+// the next report path.
+export function isTentativeAutoConfirmable(ch: ClanChallenge, now: number = Date.now()): boolean {
+    return ch.status === 'accepted'
+        && !!ch.tentativeResult
+        && !!ch.tentativeAt
+        && (now - ch.tentativeAt) >= REPORT_AUTO_CONFIRM_MS;
 }
 
 // ─── Anonymity redaction ─────────────────────────────────────────────
