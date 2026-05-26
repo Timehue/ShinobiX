@@ -118,6 +118,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
         }
 
+        // No healing during active battle — presence:{name} carries an
+        // inBattle flag stamped by heartbeat while a PvP session is open.
+        // This is mainly relevant at Rank 10 (where targets aren't required
+        // to be hospitalized); Rank 1-9 heals are blocked earlier by the
+        // hospitalized check (KO'd players aren't in a live battle).
+        if (!identity.admin) {
+            const presence = await kv.get<{ inBattle?: boolean }>(`presence:${targetName}`);
+            if (presence?.inBattle) {
+                return res.status(409).json({ error: 'Target is in an active battle.' });
+            }
+        }
+
         // Compute XP from % HP restored (cap 100 XP/heal). HP is restored to
         // full, so XP = (1 - currentHp/maxHp) * 100.
         const curHp = Number(targetChar.hp ?? 0);

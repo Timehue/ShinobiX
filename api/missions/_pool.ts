@@ -8,10 +8,13 @@
 export type Profession = 'healer' | 'vanguard' | 'petTamer';
 
 export type MissionKind =
-    | 'healer-heal-count'        // increment per successful heal (caller passes targetName for unique)
-    | 'healer-heal-unique'       // unique-target heal count
-    | 'vanguard-pvp-wins'        // increment per PvP win
-    | 'vanguard-pvp-unique';     // unique-opponent PvP wins
+    | 'healer-heal-count'           // increment per successful heal
+    | 'healer-heal-unique'          // unique-target heal count
+    | 'vanguard-pvp-wins'           // increment per PvP win
+    | 'vanguard-pvp-unique'         // unique-opponent PvP wins
+    | 'pet-tamer-expeditions'       // count any completed expeditions
+    | 'pet-tamer-long-expeditions'  // count completed expeditions ≥4 hours
+    | 'pet-tamer-pet-train';        // count pet training sessions claimed
 
 export type MissionTemplate = {
     templateId: string;
@@ -45,9 +48,21 @@ const VANGUARD_POOL: MissionTemplate[] = [
     { templateId: 'vanguard-annihilator', profession: 'vanguard', kind: 'vanguard-pvp-unique', name: 'Annihilator', description: 'Defeat 5 different players.', target: 5, xpReward: 150 },
 ];
 
+const PET_TAMER_POOL: MissionTemplate[] = [
+    { templateId: 'tamer-short-walk', profession: 'petTamer', kind: 'pet-tamer-expeditions', name: 'Short Walk', description: 'Complete 1 expedition.', target: 1, xpReward: 30 },
+    { templateId: 'tamer-routine-patrol', profession: 'petTamer', kind: 'pet-tamer-expeditions', name: 'Routine Patrol', description: 'Complete 2 expeditions.', target: 2, xpReward: 50 },
+    { templateId: 'tamer-busy-day', profession: 'petTamer', kind: 'pet-tamer-expeditions', name: 'Busy Day', description: 'Complete 3 expeditions.', target: 3, xpReward: 75 },
+    { templateId: 'tamer-long-haul', profession: 'petTamer', kind: 'pet-tamer-long-expeditions', name: 'Long Haul', description: 'Complete 1 expedition of 4 hours or more.', target: 1, xpReward: 100 },
+    { templateId: 'tamer-deep-dive', profession: 'petTamer', kind: 'pet-tamer-long-expeditions', name: 'Deep Dive', description: 'Complete 2 expeditions of 4 hours or more.', target: 2, xpReward: 150 },
+    { templateId: 'tamer-coach', profession: 'petTamer', kind: 'pet-tamer-pet-train', name: 'Coach', description: 'Claim 2 pet training sessions.', target: 2, xpReward: 60 },
+    { templateId: 'tamer-conditioning', profession: 'petTamer', kind: 'pet-tamer-pet-train', name: 'Conditioning', description: 'Claim 4 pet training sessions.', target: 4, xpReward: 100 },
+    { templateId: 'tamer-marathon', profession: 'petTamer', kind: 'pet-tamer-expeditions', name: 'Marathon', description: 'Complete 5 expeditions.', target: 5, xpReward: 150 },
+];
+
 export function getMissionPool(profession: Profession): MissionTemplate[] {
     if (profession === 'healer') return HEALER_POOL;
     if (profession === 'vanguard') return VANGUARD_POOL;
+    if (profession === 'petTamer') return PET_TAMER_POOL;
     return [];
 }
 
