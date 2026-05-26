@@ -32920,7 +32920,97 @@ function Arena({
         return false;
     }
 
+    // Reused damage estimator — calls calculateDamage with the AI's current
+    // stats / multipliers so the AI scores jutsus the same way it'd actually
+    // resolve them. Skips self-support jutsus (returns 0 for those).
+    function estimateAiJutsuDamage(jutsu: Jutsu): number {
+        if (isSelfSupportJutsu(jutsu)) return 0;
+        try {
+            return calculateDamage(
+                jutsu, enemyCombatStats, characterCombatStats,
+                character.maxHp,
+                activeBloodlineMultiplier(opponentCharacter, enemyStatuses),
+                playerArmorFactor, 1.0,
+                weatherDamageMultiplier(jutsu),
+            );
+        } catch {
+            return jutsu.effectPower;
+        }
+    }
+
+    // SMART AI — used for opponents at level 30+. Adds:
+    //   1. LETHAL DETECTION — if any usable damage jutsu would KO the player
+    //      through their HP + shield, fire it immediately.
+    //   2. SUSTAIN TRIGGER — at HP < 35%, prefer heal/sustain jutsus over
+    //      offense. At HP < 70% allow heal in the normal scoring (vs the
+    //      base AI's >65% blanket penalty that effectively never heals
+    //      until critical).
+    //   3. AP-EFFICIENCY BONUS — score includes damage-per-AP so the AI
+    //      doesn't blow 80 AP on a slightly-stronger jutsu when a 40-AP
+    //      one would do close to the same.
+    //   4. RESERVES SIGNATURES — high-AP jutsus (≥60 AP) get a small
+    //      bonus only when they would land for >35% of player max HP, so
+    //      the AI saves big plays for high-value moments rather than
+    //      blowing them when the player is shielded / has Absorb up.
+    function smartAiJutsuPick(availableAp: number): Jutsu | undefined {
+        const usable = [...enemyAiJutsus]
+            .filter((jutsu) => jutsu.ap <= availableAp)
+            .filter((jutsu) => (enemyJutsuCooldowns[jutsu.id] ?? 0) <= 0)
+            .filter((jutsu) => jutsu.target === "SELF" || jutsu.range <= 0 || distance(playerPos, enemyPos) <= jutsu.range);
+
+        // 1. Lethal scan — first jutsu that KOs through HP+shield wins.
+        const requiredKo = playerHp + playerShield;
+        let bestLethal: { jutsu: Jutsu; dmg: number; ap: number } | null = null;
+        for (const jutsu of usable) {
+            const dmg = estimateAiJutsuDamage(jutsu);
+            if (dmg >= requiredKo) {
+                // Prefer the CHEAPEST lethal — save AP / cooldown for the next round.
+                if (!bestLethal || jutsu.ap < bestLethal.ap) {
+                    bestLethal = { jutsu, dmg, ap: jutsu.ap };
+                }
+            }
+        }
+        if (bestLethal) return bestLethal.jutsu;
+
+        // 2. Sustain trigger — when very low HP, grab heal/sustain if available.
+        const hpPct = enemyHp / Math.max(1, enemyMaxHp);
+        if (hpPct < 0.35) {
+            const healish = usable.find(j => isSelfSupportJutsu(j));
+            if (healish) return healish;
+        }
+
+        // 3. Tactical score (extends the base AI's score with AP-efficiency).
+        const playerMaxHp = Math.max(1, character.maxHp);
+        return usable.sort((a, b) => {
+            const tacticalScore = (jutsu: Jutsu) => {
+                let score = jutsu.effectPower;
+                // Self-support penalty — smarter threshold: only penalize when
+                // already healthy enough to not benefit.
+                if (isSelfSupportJutsu(jutsu) && hpPct > 0.70) score -= 50;
+                else if (isSelfSupportJutsu(jutsu) && hpPct < 0.50) score += 15; // actively seek heal mid-fight
+                if (isControlJutsu(jutsu)) score += 12;
+                if (isPressureJutsu(jutsu)) score += 8;
+                // AP-efficiency bonus: how much damage does each AP buy?
+                const dmg = estimateAiJutsuDamage(jutsu);
+                if (dmg > 0) score += (dmg / Math.max(1, jutsu.ap)) * 1.5;
+                // Save signature jutsus (≥60 AP) for high-impact moments.
+                if (jutsu.ap >= 60) {
+                    if (dmg / playerMaxHp >= 0.35) score += 10; // legit big hit — use it
+                    else                          score -= 20; // not worth the AP burn right now
+                }
+                return score;
+            };
+            return tacticalScore(b) - tacticalScore(a) || b.ap - a.ap;
+        })[0];
+    }
+
     function highestPowerAiJutsu(availableAp = 100) {
+        // Level gating: opponents at level 30+ use the smart AI. Lower-level
+        // mobs stay on the base "highest tactical score" picker so the early
+        // game stays gentle and players can learn the system.
+        if ((opponentLevel ?? 1) >= 30) {
+            return smartAiJutsuPick(availableAp);
+        }
         return [...enemyAiJutsus]
             .filter((jutsu) => jutsu.ap <= availableAp)
             .filter((jutsu) => (enemyJutsuCooldowns[jutsu.id] ?? 0) <= 0)
