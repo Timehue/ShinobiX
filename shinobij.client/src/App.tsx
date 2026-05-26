@@ -3155,12 +3155,13 @@ const elementalSpecialKind: Record<Exclude<JutsuElement, "None">, ElementalSpeci
     Earth: "crush",   // upgraded from "debuff" — direct hit + bigger stat strip
 };
 type ElementalSpecialSpec = { name: string; power: number; cooldown: number; rounds: number };
-// Elemental specials — power compressed so a mythic special is ~25-40%
-// stronger than its rare counterpart (was 100-200%). Duration scaling
-// kept smaller too: mythic gets +1 round at most over rare for the
-// status effects so a mythic stun isn't a guaranteed kill window.
-// Cooldown stays 5 across all tiers (mythic no longer fires every 4
-// rounds — same cadence as rare so a mythic doesn't out-cycle).
+// Elemental specials — duration is now capped to prevent runaway lockouts:
+//   • burn / freeze / confuse — max 2 rounds at any tier
+//   • stun                   — max 1 round at any tier
+// Tier strength now comes almost entirely from the POWER number, which still
+// scales standard → mythic at +25% per tier. Mythic specials still feel
+// signature (higher damage component, bigger debuff) but they can't lock
+// an opponent out for 3 full rounds anymore.
 const elementalSpecialByRarityElement: Record<PetRarity, Record<Exclude<JutsuElement, "None">, ElementalSpecialSpec>> = {
     standard: {
         Fire:      { name: "Searing Mark",        power: 40,  cooldown: 5, rounds: 2 },
@@ -3177,17 +3178,17 @@ const elementalSpecialByRarityElement: Record<PetRarity, Record<Exclude<JutsuEle
         Earth:     { name: "Boulder Press",       power: 65,  cooldown: 5, rounds: 0 },
     },
     legendary: {
-        Fire:      { name: "Pyre Burst",          power: 75,  cooldown: 5, rounds: 3 },
+        Fire:      { name: "Pyre Burst",          power: 75,  cooldown: 5, rounds: 2 },
         Water:     { name: "Glacial Coffin",      power: 72,  cooldown: 5, rounds: 2 },
         Wind:      { name: "Tempest Mirage",      power: 72,  cooldown: 5, rounds: 2 },
-        Lightning: { name: "Thunderbreak",        power: 75,  cooldown: 5, rounds: 2 },
+        Lightning: { name: "Thunderbreak",        power: 75,  cooldown: 5, rounds: 1 },
         Earth:     { name: "Mountain Crush",      power: 82,  cooldown: 5, rounds: 0 },
     },
     mythic: {
-        Fire:      { name: "Solar Conflagration", power: 90,  cooldown: 5, rounds: 3 },
-        Water:     { name: "Eternal Glacier",     power: 85,  cooldown: 5, rounds: 3 },
-        Wind:      { name: "Heaven's Vortex",     power: 85,  cooldown: 5, rounds: 3 },
-        Lightning: { name: "Worldfall Bolt",      power: 88,  cooldown: 5, rounds: 2 },
+        Fire:      { name: "Solar Conflagration", power: 90,  cooldown: 5, rounds: 2 },
+        Water:     { name: "Eternal Glacier",     power: 85,  cooldown: 5, rounds: 2 },
+        Wind:      { name: "Heaven's Vortex",     power: 85,  cooldown: 5, rounds: 2 },
+        Lightning: { name: "Worldfall Bolt",      power: 88,  cooldown: 5, rounds: 1 },
         Earth:     { name: "World-Ender Slab",    power: 100, cooldown: 5, rounds: 0 },
     },
 };
