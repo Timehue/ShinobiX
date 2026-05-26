@@ -9411,16 +9411,34 @@ export default function App() {
             missionRaidRequirement(mission) > 0
         );
 
-        if (matchingMissions.length === 0) return;
-
-        setMissionProgress((current) => {
-            const next = { ...current };
-            matchingMissions.forEach((mission) => {
-                const key = missionRaidProgressKey(mission.id);
-                next[key] = Math.min(missionRaidRequirement(mission), (next[key] ?? 0) + 1);
+        if (matchingMissions.length > 0) {
+            setMissionProgress((current) => {
+                const next = { ...current };
+                matchingMissions.forEach((mission) => {
+                    const key = missionRaidProgressKey(mission.id);
+                    next[key] = Math.min(missionRaidRequirement(mission), (next[key] ?? 0) + 1);
+                });
+                return next;
             });
-            return next;
-        });
+        }
+
+        // Vanguard daily raid-mission progress — every successful raid (human
+        // OR AI defender) counts. Server endpoint is rate-limited so a retry
+        // can't double-count.
+        if (character?.profession === "vanguard") {
+            fetch('/api/missions/report-raid', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ playerName: character.name }),
+            }).then(r => r.ok ? r.json() : null).then(data => {
+                const completed: Array<{ id: string; name: string; xpReward: number }> = Array.isArray(data?.missionsCompleted) ? data.missionsCompleted : [];
+                for (const m of completed) {
+                    window.dispatchEvent(new CustomEvent('profession-mission-complete', {
+                        detail: { name: m.name, xp: m.xpReward, profession: 'vanguard' },
+                    }));
+                }
+            }).catch(() => { /* best-effort */ });
+        }
     }
 
     function scaleEndlessAiClone(baseAi: CreatorAi, wave: number): CreatorAi {
