@@ -536,6 +536,9 @@ export type Character = {
     // Pet Tamer daily First Expedition tracking (UTC).
     lastExpeditionClaimDate?: string;
     expeditionsClaimedToday?: number;
+    // Clan Seal donation per-day cumulative cap tracking (UTC).
+    dailyDonatedSeals?: number;
+    dailyDonationDate?: string;
     // Pet escort one-shot bonus: when a Vanguard from this Pet Tamer's clan
     // wins a raid with an active pet and this Pet Tamer has an open escort
     // offer, server stamps this flag. Consumed (cleared) on next expedition
@@ -13277,25 +13280,40 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
             foundFate, foundAura, foundBone, leveledUp,
         });
 
-        // Tamer XP from expedition (spec: 5 XP per minute of expedition,
-        // +50% for ≥1h, +100% for ≥4h; daily First Expedition is 2x).
-        // Pet escort bonus (one-shot): +20% if petEscortBonusReady is set,
-        // then clear the flag.
+        // Tamer XP + daily First Expedition tracking + escort consumption are
+        // all server-authoritative now. Client posts durationMinutes; server
+        // computes XP and returns the post-grant character snapshot, which we
+        // overlay onto local state to avoid a stale UI lag.
         if (character.profession === "petTamer") {
-            const minutes = selectedPet.expedition.durationMs / 60_000;
-            if (minutes >= 10) {
-                let tamerXp = Math.floor(minutes * 5);
-                if (minutes >= 60) tamerXp = Math.floor(tamerXp * 1.5);
-                if (minutes >= 240) tamerXp = Math.floor(tamerXp * 2 / 1.5); // composes to 2x over base
-                if (firstResult.isFirst) tamerXp *= 2;
-                if (nextCharacter.petEscortBonusReady) tamerXp = Math.floor(tamerXp * 1.2);
-                const consumedEscort = nextCharacter.petEscortBonusReady
-                    ? { ...nextCharacter, petEscortBonusReady: false }
-                    : nextCharacter;
-                const withXp = gainProfessionXp(consumedEscort, tamerXp);
-                updateCharacter(withXp);
-                onImmediateSave?.(withXp);
-            }
+            const minutes = Math.floor(selectedPet.expedition.durationMs / 60_000);
+            const longExpedition = minutes >= 240;
+            fetch('/api/missions/report-pet-event', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    playerName: character.name,
+                    event: longExpedition ? 'long-expedition' : 'expedition',
+                    durationMinutes: minutes,
+                }),
+            }).then(r => r.ok ? r.json() : null).then(data => {
+                if (!data) return;
+                const completed: Array<{ id: string; name: string; xpReward: number }> = Array.isArray(data.missionsCompleted) ? data.missionsCompleted : [];
+                for (const m of completed) {
+                    window.dispatchEvent(new CustomEvent('profession-mission-complete', {
+                        detail: { name: m.name, xp: m.xpReward, profession: 'petTamer' },
+                    }));
+                }
+                // Overlay server's post-grant fields so UI updates immediately.
+                // (collectExpedition is inside a component that uses
+                // updateCharacter; we don't have access to a setCharacter
+                // setter here so we read latest via character + apply patch.)
+                updateCharacter({
+                    ...character,
+                    professionXp: typeof data.professionXp === 'number' ? data.professionXp : (character.professionXp ?? 0),
+                    professionRank: typeof data.professionRank === 'number' ? data.professionRank : (character.professionRank ?? 1),
+                    petEscortBonusReady: character.petEscortBonusReady && data.expeditionXp > 0 ? false : character.petEscortBonusReady,
+                });
+            }).catch(() => { /* best-effort */ });
         }
     }
 
@@ -13311,6 +13329,21 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
         const completed = bonusXp > 0 ? gainPetXp(completedBase, bonusXp) : completedBase;
         updateCharacter({ ...character, pets: character.pets.map((p) => p.id === selectedPet.id ? completed : p) });
         alert(`${selectedPet.name} completed ${selectedPet.training.type} training! Stats improved.${bonusXp > 0 ? ` +${bonusXp} bonus pet XP.` : ""}`);
+        // Pet Tamer mission progress for "pet-train" — rate-limited server-side.
+        if (character.profession === "petTamer") {
+            fetch('/api/missions/report-pet-event', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ playerName: character.name, event: 'pet-train' }),
+            }).then(r => r.ok ? r.json() : null).then(data => {
+                const completedMissions: Array<{ id: string; name: string; xpReward: number }> = Array.isArray(data?.missionsCompleted) ? data.missionsCompleted : [];
+                for (const m of completedMissions) {
+                    window.dispatchEvent(new CustomEvent('profession-mission-complete', {
+                        detail: { name: m.name, xp: m.xpReward, profession: 'petTamer' },
+                    }));
+                }
+            }).catch(() => { /* best-effort */ });
+        }
     }
 
     function removeInventoryItem(itemId: string) {
@@ -22659,7 +22692,7 @@ function ShinobiCouncilHall({ character, setScreen, playerRoster }: { character:
 }
 
 // -- Hall of Legends ---------------------------------------------------------
-export type LbTab = "ranked" | "kills" | "xp" | "clans" | "pets" | "endless" | "villageWars" | "weeklyBoss" | "tournament";
+export type LbTab = "ranked" | "kills" | "xp" | "clans" | "pets" | "endless" | "villageWars" | "weeklyBoss" | "tournament" | "professions";
 
 
 export type TavernMessage = { author: string; text: string; ts: number; rank?: string; customTitle?: string; level?: number };
@@ -26256,6 +26289,11 @@ function Missions({
     const groupedFetchMissions = missionRanks.map((rank) => ({ rank, missions: mergeBuiltinMissions(creatorMissions).filter((mission) => mission.rank === rank) })).filter((group) => group.missions.length > 0);
     const rankColor: Record<string, string> = { "D Rank": "#22c55e", "C Rank": "#3b82f6", "B Rank": "#a855f7", "A Rank": "#f97316", "S Rank": "#ef4444", "Daily": "#facc15" };
     const todayMissions = dailyMissionsCompleted(character);
+    // Tab state: default to Profession for players who have one, Combat otherwise.
+    const hasProfession = !!character.profession;
+    const [activeMissionTab, setActiveMissionTab] = useState<"profession" | "combat" | "field">(
+        hasProfession ? "profession" : "combat"
+    );
 
     return (
         <div className="card mission-hall">
@@ -26277,10 +26315,28 @@ function Missions({
                 </div>
             </div>
 
-            {/* -- Daily Profession Missions (Healer / Vanguard) -- */}
-            {character.profession && <DailyProfessionMissions character={character} />}
+            {/* -- Tabs -- */}
+            <div className="clan-tabs expanded-tabs" style={{ marginBottom: 12 }}>
+                {hasProfession && (
+                    <button className={activeMissionTab === "profession" ? "active" : ""} onClick={() => setActiveMissionTab("profession")}>
+                        📜 Profession
+                    </button>
+                )}
+                <button className={activeMissionTab === "combat" ? "active" : ""} onClick={() => setActiveMissionTab("combat")}>
+                    ⚔️ Combat
+                </button>
+                <button className={activeMissionTab === "field" ? "active" : ""} onClick={() => setActiveMissionTab("field")}>
+                    📍 Field
+                </button>
+            </div>
 
-            {/* -- Combat Missions -- */}
+            {/* -- Profession tab -- */}
+            {activeMissionTab === "profession" && hasProfession && (
+                <DailyProfessionMissions character={character} />
+            )}
+
+            {/* -- Combat Missions tab -- */}
+            {activeMissionTab === "combat" && (
             <section className="mh-section">
                 <h3 className="mh-section-title">⚔️ Combat Missions</h3>
                 <p className="hint">Defeat the assigned enemy to earn rewards. No shortcuts.</p>
@@ -26322,8 +26378,10 @@ function Missions({
                     })}
                 </div>
             </section>
+            )}
 
-            {/* -- Fetch Missions -- */}
+            {/* -- Field Missions tab -- */}
+            {activeMissionTab === "field" && (
             <section className="mh-section">
                 <h3 className="mh-section-title">📍 Field Missions</h3>
                 {groupedFetchMissions.length === 0
@@ -26391,6 +26449,7 @@ function Missions({
                     ))
                 }
             </section>
+            )}
         </div>
     );
 }

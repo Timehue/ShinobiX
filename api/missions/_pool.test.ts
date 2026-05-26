@@ -9,8 +9,11 @@ describe('getMissionPool', () => {
     it('vanguard pool has at least 8 missions', () => {
         assert.ok(getMissionPool('vanguard').length >= 8);
     });
-    it('petTamer has no pool (spec)', () => {
-        assert.equal(getMissionPool('petTamer').length, 0);
+    it('petTamer pool has at least 3 missions', () => {
+        assert.ok(getMissionPool('petTamer').length >= 3);
+    });
+    it('every petTamer mission is profession=petTamer', () => {
+        for (const m of getMissionPool('petTamer')) assert.equal(m.profession, 'petTamer');
     });
     it('every healer mission is profession=healer', () => {
         for (const m of getMissionPool('healer')) assert.equal(m.profession, 'healer');
@@ -38,8 +41,10 @@ describe('pickDailyMissions', () => {
         assert.equal(new Set(ids).size, ids.length);
     });
 
-    it('returns no missions for petTamer', () => {
-        assert.equal(pickDailyMissions('petTamer', 'dave', '2026-05-25').length, 0);
+    it('returns 3 missions for petTamer', () => {
+        const picks = pickDailyMissions('petTamer', 'dave', '2026-05-25');
+        assert.equal(picks.length, 3);
+        for (const m of picks) assert.equal(m.profession, 'petTamer');
     });
 
     it('different players on the same day usually get different picks', () => {

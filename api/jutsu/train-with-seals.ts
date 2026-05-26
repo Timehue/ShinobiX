@@ -2,6 +2,11 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
 import { safeName, mergePreservingImages, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
+import { enforceRateLimit } from '../_ratelimit.js';
+
+// jutsuId must be a sane slug — lowercase letters/digits/dashes only, length-
+// bounded. Stops injection of weird KV keys or path-traversal-ish values.
+const JUTSU_ID_PATTERN = /^[a-z0-9][a-z0-9-]{1,63}$/;
 
 // Honor Seal cost per jutsu-level increment, indexed by the *current* level
 // (the one you're leveling FROM). 30→31 = 20 Seals, etc. Per docs/professions.md.
@@ -39,12 +44,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).end();
 
+    // Rate limit: 1 Seal-train per 30s per player. Going faster would let a
+    // player race through 30→40 (10 levels) in five minutes flat which trivializes
+    // the spec's "skip the PvP grind" intent. 30s also keeps the per-save XP cap
+    // meaningful.
+    const bodyPeek = typeof req.body === 'string' ? (() => { try { return JSON.parse(req.body); } catch { return {}; } })() : (req.body ?? {});
+    const peekName: string | undefined = typeof bodyPeek?.playerName === 'string' ? bodyPeek.playerName : undefined;
+    if (!enforceRateLimit(req, res, 'train-with-seals', 1, 30_000, peekName)) return;
+
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
         const playerName = safeName(String(body.playerName ?? ''));
-        const jutsuId = String(body.jutsuId ?? '').trim();
+        const jutsuId = String(body.jutsuId ?? '').trim().toLowerCase();
         if (!playerName) return res.status(400).json({ error: 'Invalid player name.' });
         if (!jutsuId) return res.status(400).json({ error: 'Missing jutsuId.' });
+        if (!JUTSU_ID_PATTERN.test(jutsuId)) {
+            return res.status(400).json({ error: 'Invalid jutsuId format.' });
+        }
 
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
