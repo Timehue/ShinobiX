@@ -7896,7 +7896,15 @@ export default function App() {
                 const res = await fetch('/api/player/heartbeat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name: char.name, sector: currentSector, character: char, travelingUntil: isTraveling ? travelingUntil : 0, inBattle: screenRef.current === 'pvpBattle' }),
+                    body: JSON.stringify({
+                        name: char.name,
+                        sector: currentSector,
+                        character: char,
+                        travelingUntil: isTraveling ? travelingUntil : 0,
+                        // inBattle covers PvP AND PvE combat screens so Healers
+                        // can't heal a player who's actively fighting anything.
+                        inBattle: ['pvpBattle', 'arena', 'storyBoss', 'hollowGateShrine', 'weeklyBoss', 'eventPetBattle', 'petArena', 'dungeon'].includes(screenRef.current ?? ''),
+                    }),
                 });
                 if (!res.ok) return;
                 const data: { sectorMates?: PlayerRecord[]; allPlayers?: PlayerRecord[]; pendingAttacker?: Character | null; pendingChallenges?: DuelChallenge[]; forceReload?: boolean } = await res.json();
@@ -13194,8 +13202,46 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
     const [petHeartBurst, setPetHeartBurst] = useState(0);
     const [nicknameInput, setNicknameInput] = useState("");
     const [nicknameMsg, setNicknameMsg] = useState("");
+    // Pet escort offer state (Pet Tamer in clan only).
+    const [escortOffered, setEscortOffered] = useState<boolean | null>(null);
+    const [escortBusy, setEscortBusy] = useState(false);
     const selectedPet = character.pets.find((p) => p.id === selectedPetId) ?? character.pets[0] ?? null;
     const petXpBonus = getPetXpBonus(character);
+    const canOfferEscort = character.profession === "petTamer" && !!character.clan;
+
+    useEffect(() => {
+        if (!canOfferEscort) return;
+        let cancelled = false;
+        async function fetchOffer() {
+            try {
+                const res = await fetch(`/api/clan/pet-escort/list?clanName=${encodeURIComponent(character.clan ?? "")}`);
+                if (!res.ok || cancelled) return;
+                const data = await res.json();
+                if (Array.isArray(data.escorters)) {
+                    setEscortOffered(data.escorters.some((n: string) => n.toLowerCase() === character.name.toLowerCase()));
+                }
+            } catch { /* ignore */ }
+        }
+        void fetchOffer();
+        const id = setInterval(fetchOffer, 60_000);
+        return () => { cancelled = true; clearInterval(id); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [canOfferEscort, character.clan, character.name]);
+
+    async function toggleEscort() {
+        if (!canOfferEscort || escortBusy) return;
+        setEscortBusy(true);
+        try {
+            const endpoint = escortOffered ? '/api/clan/pet-escort/cancel' : '/api/clan/pet-escort/offer';
+            const res = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ playerName: character.name }),
+            });
+            if (res.ok) setEscortOffered(!escortOffered);
+        } catch { /* ignore */ }
+        setEscortBusy(false);
+    }
 
     useEffect(() => {
         const hasActivePetTimer = character.pets.some((p) => (p.training && Date.now() < p.training.endsAt) || Boolean(p.expedition));
@@ -13247,25 +13293,15 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
         const xpMult  = expType === "forage" ? 1.45 : expType === "ruins"  ? 1.2 : 1.0;
 
         // Pet Tamer Phase 2 — base expedition reward bonus + daily First Expedition 2x.
+        // Pet XP gain stays client-side (per-pet state, not global currency).
+        // Ryo + drops are computed server-side via report-pet-event below.
         const tamerMult = petTamerExpeditionMult(character);
         const todayKey = currentDateKey();
         const firstResult = petTamerClaimFirstExpeditionToday(character, todayKey);
         const firstBonus = firstResult.isFirst ? 2 : 1;
-        const dropBonus = (tamerMult - 1) + (firstResult.isFirst ? 0.5 : 0); // small bump to drop chances
 
         const xp       = Math.round(120 * durationHours * xpMult * tamerMult * firstBonus);
-        const ryo      = Math.round((90  * durationHours * ryoMult + selectedPet.level * 6) * tamerMult * firstBonus);
         const statGain = Math.max(1, Math.round(durationHours));
-
-        // Per-type drop rates (independent rolls). Pet Tamer adds dropBonus to each.
-        //                       scout   forage  ruins
-        const boneRate = (expType === "scout" ? 0.25 : expType === "forage" ? 0.30 : 0.40) + dropBonus;
-        const auraRate = (expType === "scout" ? 0.00 : expType === "forage" ? 0.01 : 0.01) + dropBonus * 0.1;
-        const fateRate = (expType === "scout" ? 0.05 : expType === "forage" ? 0.05 : 0.10) + dropBonus * 0.1;
-
-        const foundBone = Math.random() < boneRate ? 1 : 0;
-        const foundAura = Math.random() < auraRate ? 1 : 0;
-        const foundFate = Math.random() < fateRate ? 1 : 0;
 
         const levelBefore = selectedPet.level;
         const returnedPet = capPetStats(gainPetXp({
@@ -13281,12 +13317,10 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
         const stories = petExpeditionStories[expType];
         const summary = stories[Math.floor(Math.random() * stories.length)];
 
+        // Apply pet state changes immediately. Currencies (Ryo / drops) wait for
+        // server response below to avoid client-trusted reward farming.
         const nextCharacter: Character = {
             ...firstResult.nextCharacter,
-            ryo:        firstResult.nextCharacter.ryo + ryo,
-            fateShards: (firstResult.nextCharacter.fateShards ?? 0) + foundFate,
-            auraStones: (firstResult.nextCharacter.auraStones ?? 0) + foundAura,
-            boneCharms: (firstResult.nextCharacter.boneCharms ?? 0) + foundBone,
             pets: firstResult.nextCharacter.pets.map((p) => p.id === selectedPet.id ? returnedPet : p),
         };
         updateCharacter(nextCharacter);
@@ -13294,8 +13328,8 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
 
         setExpeditionResult({
             petName: petDisplayName(selectedPet),
-            summary, expType, ryo, xp, statGain,
-            foundFate, foundAura, foundBone, leveledUp,
+            summary, expType, ryo: 0, xp, statGain,
+            foundFate: 0, foundAura: 0, foundBone: 0, leveledUp,
         });
 
         // Tamer XP + daily First Expedition tracking + escort consumption are
@@ -13312,6 +13346,8 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
                     playerName: character.name,
                     event: longExpedition ? 'long-expedition' : 'expedition',
                     durationMinutes: minutes,
+                    expType,
+                    petLevel: selectedPet.level,
                 }),
             }).then(r => r.ok ? r.json() : null).then(data => {
                 if (!data) return;
@@ -13321,16 +13357,31 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
                         detail: { name: m.name, xp: m.xpReward, profession: 'petTamer' },
                     }));
                 }
-                // Overlay server's post-grant fields so UI updates immediately.
-                // (collectExpedition is inside a component that uses
-                // updateCharacter; we don't have access to a setCharacter
-                // setter here so we read latest via character + apply patch.)
+                // Apply server-granted currencies (Ryo + drops) on top of pet
+                // state changes that already landed above. Server is source of
+                // truth for currencies; client just mirrors.
+                const ryoEarned = Number(data.ryoEarned ?? 0);
+                const foundBone = Number(data.foundBone ?? 0);
+                const foundAura = Number(data.foundAura ?? 0);
+                const foundFate = Number(data.foundFate ?? 0);
+                const escortConsumed = character.petEscortBonusReady && data.expeditionXp > 0;
                 updateCharacter({
                     ...character,
+                    ryo: (character.ryo ?? 0) + ryoEarned,
+                    boneCharms: (character.boneCharms ?? 0) + foundBone,
+                    auraStones: (character.auraStones ?? 0) + foundAura,
+                    fateShards: (character.fateShards ?? 0) + foundFate,
                     professionXp: typeof data.professionXp === 'number' ? data.professionXp : (character.professionXp ?? 0),
                     professionRank: typeof data.professionRank === 'number' ? data.professionRank : (character.professionRank ?? 1),
-                    petEscortBonusReady: character.petEscortBonusReady && data.expeditionXp > 0 ? false : character.petEscortBonusReady,
+                    petEscortBonusReady: escortConsumed ? false : character.petEscortBonusReady,
                 });
+                // Update the result modal so the player sees the actual Ryo/drops earned.
+                setExpeditionResult(prev => prev ? ({ ...prev, ryo: ryoEarned, foundBone, foundAura, foundFate }) : prev);
+                if (escortConsumed) {
+                    window.dispatchEvent(new CustomEvent('profession-mission-complete', {
+                        detail: { name: '🐾 Pet Escort Bonus', xp: Math.floor((data.expeditionXp ?? 0) * (1 - 1 / 1.2)), profession: 'petTamer' },
+                    }));
+                }
             }).catch(() => { /* best-effort */ });
         }
     }
@@ -13621,6 +13672,31 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
 
                         <div className="pet-training-panel">
                             <h4>Training</h4>
+                            {character.profession === "petTamer" && (
+                                <p className="hint" style={{ color: "#84cc16", margin: "0 0 6px" }}>
+                                    🐾 Pet Tamer · training {petTamerTrainingSpeedPct(character)}% faster · expedition rewards ×{petTamerExpeditionMult(character).toFixed(2)}
+                                </p>
+                            )}
+                            {canOfferEscort && (
+                                <div className="summary-box" style={{ background: "rgba(132,204,22,0.08)", border: "1px solid rgba(132,204,22,0.35)", padding: 8, marginBottom: 8 }}>
+                                    <strong style={{ color: "#84cc16", fontSize: "0.85rem" }}>🐾 Clan Pet Escort</strong>
+                                    <p className="hint" style={{ margin: "4px 0 6px", fontSize: "0.75rem" }}>
+                                        Offer your pet's escort to clan-mates for 1 hour. Vanguards in your clan get +5% Seals on raids with an active pet, and you get +20% Tamer XP on your next expedition.
+                                    </p>
+                                    <button
+                                        onClick={() => void toggleEscort()}
+                                        disabled={escortBusy || escortOffered === null}
+                                        style={{ background: escortOffered ? "linear-gradient(#4d7c0f,#365314)" : "linear-gradient(#365314,#1a2e05)", borderColor: "#84cc16", fontSize: "0.8rem", padding: "4px 10px" }}
+                                    >
+                                        {escortBusy ? "…" : escortOffered ? "Cancel escort offer" : "Offer escort (1h)"}
+                                    </button>
+                                    {character.petEscortBonusReady && (
+                                        <p className="hint" style={{ margin: "6px 0 0", color: "#84cc16", fontSize: "0.78rem" }}>
+                                            🎁 +20% Tamer XP ready for your next expedition!
+                                        </p>
+                                    )}
+                                </div>
+                            )}
                             {selectedPet.training && Date.now() < selectedPet.training.endsAt ? (
                                 <div className="training-in-progress">
                                     <p>⏳ {petTrainingOptions.find((o) => o.type === selectedPet.training?.type)?.label}</p>
@@ -27277,6 +27353,13 @@ function Profile({
                         <p><strong>Level:</strong> {character.level}/100</p>
                         <p><strong>Bloodline:</strong> {equippedBloodline?.name || character.bloodline}</p>
                         <p><strong>Elements:</strong> {ownedElements.length ? ownedElements.join(" / ") : "Not awakened"}</p>
+                        {character.profession && (
+                            <p>
+                                <strong>Profession:</strong>{" "}
+                                {character.profession === "healer" ? "✚ Healer" : character.profession === "vanguard" ? "⚔ Vanguard" : "🐾 Pet Tamer"}
+                                <span style={{ marginLeft: 6, color: "#94a3b8" }}>· Rank {character.professionRank ?? 1} · {(character.professionXp ?? 0).toLocaleString()} XP</span>
+                            </p>
+                        )}
                         {equippedBloodline?.specialElement && <p><strong>Bloodline Element:</strong> {equippedBloodline.specialElement}</p>}
                         {equippedBloodline?.image && <div className="admin-event-list-preview"><img src={equippedBloodline.image} alt={equippedBloodline.name} /></div>}
                     </div>

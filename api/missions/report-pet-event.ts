@@ -42,6 +42,21 @@ const EVENT_TO_KIND: Record<PetEvent, 'pet-tamer-expeditions' | 'pet-tamer-long-
     'pet-train': 'pet-tamer-pet-train',
 };
 
+const VALID_EXPEDITION_TYPES = ['scout', 'forage', 'ruins'] as const;
+type ExpType = typeof VALID_EXPEDITION_TYPES[number];
+
+// Per-type Ryo/drop tables (mirrors client formula in PetYard.collectExpedition).
+const RYO_MULT: Record<ExpType, number> = { scout: 1.35, forage: 1.0, ruins: 1.1 };
+const BONE_RATE: Record<ExpType, number> = { scout: 0.25, forage: 0.30, ruins: 0.40 };
+const AURA_RATE: Record<ExpType, number> = { scout: 0.00, forage: 0.01, ruins: 0.01 };
+const FATE_RATE: Record<ExpType, number> = { scout: 0.05, forage: 0.05, ruins: 0.10 };
+
+function petTamerExpeditionMultFromRank(rank: number, profession: unknown): number {
+    if (profession !== 'petTamer') return 1;
+    const r = Math.max(0, Math.min(10, rank));
+    return 1 + (10 + r * 1.5) / 100;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -58,6 +73,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const playerName = safeName(String(body.playerName ?? ''));
         const event = String(body.event ?? '') as PetEvent;
         const durationMinutes = Math.max(0, Math.min(60 * 24, Math.floor(Number(body.durationMinutes ?? 0))));
+        const expType = (body.expType && VALID_EXPEDITION_TYPES.includes(body.expType) ? body.expType : null) as ExpType | null;
+        const petLevel = Math.max(1, Math.min(100, Math.floor(Number(body.petLevel ?? 1))));
         if (!playerName) return res.status(400).json({ error: 'Invalid player name.' });
         if (!VALID_EVENTS.includes(event)) return res.status(400).json({ error: 'Invalid event.' });
 
@@ -75,11 +92,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(200).json({ ok: true, petTamer: false });
         }
 
-        // For expedition events, server computes and grants Tamer XP using the
-        // canonical formula. Daily First Expedition bonus + petEscortBonusReady
-        // tracked server-side via character fields. Long-expedition fires both
-        // counters AND grants XP for the underlying expedition.
+        // For expedition events, server computes Tamer XP AND the Ryo + drop
+        // currencies (previously client-trusted). Pet stat/XP gains stay
+        // client-side since they're per-pet state not global currency.
         let expeditionXp = 0;
+        let ryoEarned = 0;
+        let foundBone = 0;
+        let foundAura = 0;
+        let foundFate = 0;
         const isExpedition = event === 'expedition' || event === 'long-expedition';
         if (isExpedition && durationMinutes > 0) {
             const today = utcDateKey();
@@ -87,22 +107,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const claimedToday = sameDay ? Number(char.expeditionsClaimedToday ?? 0) : 0;
             const isFirstToday = claimedToday === 0;
             const escortReady = !!char.petEscortBonusReady;
+            const rank = Number(char.professionRank ?? 1);
 
             expeditionXp = tamerXpForExpedition(durationMinutes, { isFirstToday, escortReady });
 
-            // Stamp daily tracking + consume escort bonus.
+            // Ryo + drop calculation (mirrors client formula). Requires expType.
+            if (expType) {
+                const durationHours = Math.max(1, durationMinutes / 60);
+                const tamerMult = petTamerExpeditionMultFromRank(rank, char.profession);
+                const firstBonus = isFirstToday ? 2 : 1;
+                const dropBonus = (tamerMult - 1) + (isFirstToday ? 0.5 : 0);
+
+                ryoEarned = Math.round((90 * durationHours * RYO_MULT[expType] + petLevel * 6) * tamerMult * firstBonus);
+                foundBone = Math.random() < (BONE_RATE[expType] + dropBonus) ? 1 : 0;
+                foundAura = Math.random() < (AURA_RATE[expType] + dropBonus * 0.1) ? 1 : 0;
+                foundFate = Math.random() < (FATE_RATE[expType] + dropBonus * 0.1) ? 1 : 0;
+            }
+
+            // Stamp daily tracking + consume escort bonus + apply currencies.
             const updated = {
                 ...record,
                 character: {
                     ...char,
                     lastExpeditionClaimDate: today,
                     expeditionsClaimedToday: claimedToday + 1,
+                    ryo: Number(char.ryo ?? 0) + ryoEarned,
+                    boneCharms: Number(char.boneCharms ?? 0) + foundBone,
+                    auraStones: Number(char.auraStones ?? 0) + foundAura,
+                    fateShards: Number(char.fateShards ?? 0) + foundFate,
                     ...(escortReady ? { petEscortBonusReady: false } : {}),
                 },
             };
             await kv.set(saveKey, mergePreservingImages(updated, record));
 
-            // Grant XP (subject to per-save cap and Rank-2 multiplier).
+            // Grant Tamer XP (subject to per-save cap and Rank-2 multiplier).
             if (expeditionXp > 0) {
                 await awardProfessionXp(playerName, 'petTamer', expeditionXp);
             }
@@ -137,6 +175,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ok: true,
             petTamer: true,
             expeditionXp,
+            ryoEarned,
+            foundBone,
+            foundAura,
+            foundFate,
             missionXpAwarded: result.xpAwarded,
             missionsCompleted: [...missionsCompleted, ...extraCompleted],
             professionXp: Number(finalChar?.professionXp ?? 0),

@@ -80,10 +80,18 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, hospita
             }
             const xpGained = Number(data.xpGained ?? 0);
             const missionXp = Number(data.missionXpAwarded ?? 0);
+            const raidAssist = !!data.raidAssist;
             const missionsCompleted: Array<{ id: string; name: string; xpReward: number }> = Array.isArray(data.missionsCompleted) ? data.missionsCompleted : [];
             for (const m of missionsCompleted) {
                 window.dispatchEvent(new CustomEvent('profession-mission-complete', {
                     detail: { name: m.name, xp: m.xpReward, profession: 'healer' },
+                }));
+            }
+            // Raid assist toast — distinct from regular heal so the player
+            // notices the +50% bonus when it triggers.
+            if (raidAssist && xpGained > 0) {
+                window.dispatchEvent(new CustomEvent('profession-mission-complete', {
+                    detail: { name: '⚔ Raid Assist!', xp: xpGained, profession: 'healer' },
                 }));
             }
             const prevRank = character.professionRank ?? 1;
@@ -98,6 +106,7 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, hospita
             const rankedUp = finalRank > prevRank;
             const totalXp = xpGained + missionXp;
             let msg = `✅ Healed! +${totalXp} XP`;
+            if (raidAssist) msg += ` ⚔ Raid Assist +50%`;
             if (missionsCompleted.length > 0) msg += ` (mission complete!)`;
             if (rankedUp) msg += ` — Rank ${finalRank}!`;
             setHealMsg(m => ({ ...m, [targetName]: msg }));
