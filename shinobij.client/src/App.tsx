@@ -23365,6 +23365,37 @@ function ClanHall({ character, updateCharacter, creatorItems }: { character: Cha
         if (!character.clan) return; const data = await fetchClanData(character.clan); if (data) await writeClanData(enhanceClanData({ ...data, members: data.members.filter(m => m.name !== character.name) }));
         updateCharacter({ ...character, clan: undefined, clanFounder: false, guardQueued: false }); setClanData(null);
     }
+    // Reclaim a clan name that exists on the player's character but has been
+    // wiped from the server (e.g. by a server reset). One-click recreate:
+    // skip the dead-record write that leaveClan does, then immediately write
+    // a fresh clan record with this player as founder and update local state.
+    async function reclaimClan() {
+        if (!character.clan) return;
+        const targetName = character.clan;
+        // Belt-and-suspenders: make sure nothing currently exists under that
+        // name before we recreate. If somehow a record reappeared between
+        // load and click, fall through to a regular reload rather than
+        // clobbering it.
+        const existing = await fetchClanData(targetName);
+        if (existing) {
+            setClanData(enhanceClanData(existing));
+            setClanLoadStatus("ok");
+            return;
+        }
+        const founderCharacter = { ...character, clan: targetName, clanFounder: true };
+        const newClan = enhanceClanData({
+            name: targetName,
+            image: "",
+            village: character.village,
+            founderName: character.name,
+            createdAt: Date.now(),
+            members: [{ ...myMemberEntry(), isFounder: true }],
+        });
+        await writeClanData(newClan);
+        updateCharacter(founderCharacter);
+        setClanData(newClan);
+        setClanLoadStatus("ok");
+    }
     async function deleteClan() {
         if (!character.clan || !character.clanFounder) return;
         if (!window.confirm(`Delete "${character.clan}"? This permanently removes the clan for all members and cannot be undone.`)) return;
@@ -23560,7 +23591,7 @@ function ClanHall({ character, updateCharacter, creatorItems }: { character: Cha
                 {isMissing ? (
                     <>
                         <p>The clan <strong>{character.clan}</strong> no longer exists on the server. It may have been deleted by its founder or wiped during a server reset.</p>
-                        <p className="hint">Leave the clan to free up your clan slot — then you can join another clan or create a new one from the Clan Hall.</p>
+                        <p className="hint">Reclaim the name to instantly recreate the clan with you as founder, or leave it to free up your slot for a different clan.</p>
                     </>
                 ) : (
                     <>
@@ -23569,6 +23600,9 @@ function ClanHall({ character, updateCharacter, creatorItems }: { character: Cha
                     </>
                 )}
                 <div className="menu">
+                    {isMissing && (
+                        <button onClick={reclaimClan}>Reclaim "{character.clan}"</button>
+                    )}
                     {!isMissing && (
                         <button onClick={() => { if (character.clan) { setLoading(true); void fetchClanDataDetailed(character.clan).then(r => { if (r.ok) { setClanData(enhanceClanData(r.data)); setClanLoadStatus("ok"); } else { setClanLoadStatus(r.reason); } setLoading(false); }); } }}>Retry</button>
                     )}
