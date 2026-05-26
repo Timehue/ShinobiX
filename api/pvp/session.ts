@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
+import { enforceRateLimitKv } from '../_ratelimit.js';
 
 export type PvpStatus = {
     name: string;
@@ -213,6 +214,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'OPTIONS') return res.status(200).end();
 
     if (req.method === 'GET') {
+        // Poll endpoint — clients hit this every ~1s while the battle screen
+        // is open. Generous budget per IP so two players + spectators can
+        // share an IP, but block obvious abuse (≥10 polls/sec sustained).
+        if (!(await enforceRateLimitKv(req, res, 'pvp-session-get', 360, 60_000))) return;
         const battleId = String(req.query.id ?? '');
         if (!battleId) return res.status(400).json({ error: 'Missing id' });
         const session = await kv.get<PvpSession>(`pvp:${battleId}`);
@@ -228,6 +233,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // with arbitrary stats (e.g. 999999 HP god mode).
         const identity = await authedPlayerOrAdmin(req);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
+        // Cap session creation. A legit player starts a duel maybe every
+        // 30s in heavy play; 6/min is comfortable headroom and stops
+        // KV-fill attacks that spam-create sessions. Admins skip the cap
+        // (testing scripts may legitimately create many sessions fast).
+        const rlName = identity.admin ? undefined : identity.name;
+        if (!identity.admin && !(await enforceRateLimitKv(req, res, 'pvp-session-create', 6, 60_000, rlName))) return;
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
             const { p1Character, p2Character, biome, weatherPositiveElement, weatherNegativeElement, battleId: clientBattleId } = body as {
