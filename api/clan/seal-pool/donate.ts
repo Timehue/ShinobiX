@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../../_storage.js';
 import { safeName, mergePreservingImages, cors } from '../../_utils.js';
 import { authedPlayerOrAdmin } from '../../_auth.js';
+import { enforceRateLimitKv } from '../../_ratelimit.js';
 import { loadPool, savePool } from './_storage.js';
 
 // Vanguards donate Honor Seals to their clan's pool. Per-day cumulative cap
@@ -38,6 +39,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && identity.name !== playerName) {
             return res.status(403).json({ error: 'Can only donate your own Seals.' });
         }
+        // 20 donate calls/min per player is plenty for a UI clicker.
+        if (!identity.admin && !(await enforceRateLimitKv(req, res, 'clan-seal-donate', 20, 60_000, identity.name))) return;
 
         const saveKey = `save:${playerName}`;
         const record = await kv.get<Record<string, unknown>>(saveKey);
