@@ -14872,6 +14872,51 @@ button.combat-jutsu-button,
     color: #e5e7eb;
 }
 
+/* Compact village pill — village panorama thumbnail + name on a dark
+   capsule. Used in the Shinobi Council Hall and anywhere else a village
+   needs visual identity instead of plain text. */
+.village-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 12px 4px 4px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.92), rgba(30, 41, 59, 0.92));
+    border: 1px solid rgba(250, 204, 21, 0.35);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(250, 204, 21, 0.08) inset;
+    color: #f1f5f9;
+    font-weight: 700;
+    font-size: 0.85rem;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    max-width: 100%;
+    transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.village-pill-thumb {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid rgba(250, 204, 21, 0.45);
+    background: rgba(2, 6, 23, 0.6);
+    flex-shrink: 0;
+}
+
+.village-pill-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.village-pill-mine {
+    border-color: rgba(250, 204, 21, 0.85);
+    box-shadow: 0 2px 14px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(250, 204, 21, 0.18) inset, 0 0 12px rgba(250, 204, 21, 0.35);
+}
+
+.village-pill-mine .village-pill-name {
+    color: #fcd34d;
+}
+
 .council-hp-label {
     font-size: 0.76rem;
     color: #6b7280;
