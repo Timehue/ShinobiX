@@ -5002,11 +5002,17 @@ function claimPendingWarCrates(
         return { character, count: 0 };
     }
 
+    // Honor Seals are Vanguard-only. For non-Vanguards, redirect what would
+    // have been seals into Bone Charms at the standard 8:1 rate.
+    const honorSealGain = vanguardOnlyHonorSeals(character, honorBonus);
+    const charmSubstitute = nonVanguardCharmSubstitute(character, honorBonus);
+
     return {
         character: {
             ...character,
             ryo: (character.ryo ?? 0) + ryoBonus,
-            honorSeals: (character.honorSeals ?? 0) + honorBonus,
+            honorSeals: (character.honorSeals ?? 0) + honorSealGain,
+            boneCharms: (character.boneCharms ?? 0) + charmSubstitute,
             fateShards: (character.fateShards ?? 0) + shardsBonus,
             inventory: [...character.inventory, ...cratesToAdd.map(() => LEGENDARY_WAR_CRATE_ID)],
             claimedWarCrateIds: [...(character.claimedWarCrateIds ?? []), ...idsToAdd],
@@ -6532,6 +6538,21 @@ function gainXp(character: Character, amount: number): Character {
 export function vanguardOnlyHonorSeals(character: Character | null | undefined, amount: number): number {
     if (!character || character.profession !== "vanguard") return 0;
     return Math.max(0, Math.floor(amount));
+}
+
+// Mirror of vanguardOnlyHonorSeals for non-Vanguards: every grant site that
+// would have paid Honor Seals instead pays the equivalent in Bone Charms at
+// roughly an 8:1 ratio (matches the existing implicit conversion in the
+// Village Agenda — Vanguards get 8 seals, non-Vanguards get 1 bone charm).
+// Vanguards always receive 0 charms from this helper — they already get the
+// honor seal version. Floor with a minimum of 1 charm whenever any seals
+// would have been earned so small grants still leave something behind.
+export function nonVanguardCharmSubstitute(character: Character | null | undefined, honorSealAmount: number): number {
+    if (!character) return 0;
+    if (character.profession === "vanguard") return 0;
+    const n = Math.max(0, Math.floor(honorSealAmount));
+    if (n === 0) return 0;
+    return Math.max(1, Math.floor(n / 8));
 }
 
 // ── Profession combat bonuses ────────────────────────────────────────────
@@ -10661,6 +10682,7 @@ export default function App() {
                 ryo: leveled.ryo + ryoReward,
                 auraDust: (leveled.auraDust ?? 0) + auraDustReward,
                 honorSeals: (leveled.honorSeals ?? 0) + vanguardOnlyHonorSeals(leveled, honorReward),
+                boneCharms: (leveled.boneCharms ?? 0) + nonVanguardCharmSubstitute(leveled, honorReward),
                 hp: Math.min(leveled.maxHp, survivingHp + (isBoss ? 60 : 20)),
             };
             if (isBoss) {
@@ -11792,14 +11814,16 @@ export default function App() {
                             onSelect: () => {
                                 if (!character) return;
                                 const bonusHonor = vanguardOnlyHonorSeals(character, 75);
+                                const bonusCharms = nonVanguardCharmSubstitute(character, 75);
                                 const bonusFate = 1;
                                 const next = addInventoryItems({
                                     ...character,
                                     honorSeals: (character.honorSeals ?? 0) + bonusHonor,
+                                    boneCharms: (character.boneCharms ?? 0) + bonusCharms,
                                     fateShards: (character.fateShards ?? 0) + bonusFate,
                                 }, [DUNGEON_LEGENDARY_FRAGMENT_ID, VEIL_OF_THE_HOLLOW_ID]);
                                 setCharacter(next);
-                                pushHollowGateLog(`Shrine cleared bonus: ${bonusHonor > 0 ? `+${bonusHonor} Honor Seals, ` : ""}+${bonusFate} Fate Shard, +1 Dungeon Legendary Fragment, +1 Veil of the Hollow.`);
+                                pushHollowGateLog(`Shrine cleared bonus: ${bonusHonor > 0 ? `+${bonusHonor} Honor Seals, ` : bonusCharms > 0 ? `+${bonusCharms} Bone Charms, ` : ""}+${bonusFate} Fate Shard, +1 Dungeon Legendary Fragment, +1 Veil of the Hollow.`);
                                 setHollowGateEvent(null);
                                 leaveHollowGateShrine();
                             },
@@ -12792,6 +12816,7 @@ export default function App() {
                                                 if (!hollowGateHiddenChamber || !hollowGateRun) return;
                                                 const rawHonor = 15 + Math.floor(Math.random() * 20);
                                                 const honor = vanguardOnlyHonorSeals(character, rawHonor);
+                                                const charms = nonVanguardCharmSubstitute(character, rawHonor);
                                                 const fate = Math.random() < 0.5 ? 1 : 0;
                                                 // Grant the Veil of the Hollow as a real inventory item
                                                 // (stacking duplicates is allowed — chamber relics are
@@ -12799,11 +12824,12 @@ export default function App() {
                                                 const next = addInventoryItems({
                                                     ...character,
                                                     honorSeals: (character.honorSeals ?? 0) + honor,
+                                                    boneCharms: (character.boneCharms ?? 0) + charms,
                                                     fateShards: (character.fateShards ?? 0) + fate,
                                                 }, [VEIL_OF_THE_HOLLOW_ID]);
                                                 setCharacter(next);
                                                 setHollowGateRun({ ...hollowGateRun, keys: hollowGateRun.keys + 1 });
-                                                pushHollowGateLog(`You claim the Veil of the Hollow.${honor > 0 ? ` +${honor} Honor Seals` : ""}${fate ? `, +${fate} Fate Shard` : ""}, +1 Shrine Key, +1 Veil of the Hollow.`);
+                                                pushHollowGateLog(`You claim the Veil of the Hollow.${honor > 0 ? ` +${honor} Honor Seals` : charms > 0 ? ` +${charms} Bone Charms` : ""}${fate ? `, +${fate} Fate Shard` : ""}, +1 Shrine Key, +1 Veil of the Hollow.`);
                                                 setHollowGateHiddenChamber({ ...hollowGateHiddenChamber, relicTaken: true });
                                             }}>🏺 Take Relic</button>
                                             <button onClick={() => setHollowGateHiddenChamber(null)} className="danger-button">Return to Shrine</button>
@@ -33669,7 +33695,7 @@ function Arena({
             honorSeals: (rewarded.honorSeals ?? 0) + vanguardOnlyHonorSeals(rewarded, honorSealGain),
             auraDust: (rewarded.auraDust ?? 0) + auraDustGain,
             stamina: Math.min(rewarded.maxStamina, rewarded.stamina + 15),
-            boneCharms: (rewarded.boneCharms ?? 0) + deathsGateBoneCharm,
+            boneCharms: (rewarded.boneCharms ?? 0) + deathsGateBoneCharm + nonVanguardCharmSubstitute(rewarded, honorSealGain),
             inventory: villageWarRaid.warCrate ? [...rewarded.inventory, LEGENDARY_WAR_CRATE_ID] : rewarded.inventory,
             // Stamp canonical crate ID alongside the inline grant — see
             // matching block in handlePvpWin (App.tsx ~13140).
