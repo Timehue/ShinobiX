@@ -16437,7 +16437,29 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
             setIsPlaying(false);
             return;
         }
-        const timer = window.setTimeout(() => setFrameIndex((index) => Math.min(index + 1, battleFrames.length - 1)), 1200);
+        // Cinematic pacing — let dramatic frames breathe, snap through
+        // routine ones. Uniform 1200ms makes every action read the same;
+        // variable timing tells the player when to lean in.
+        const f = battleFrames[frameIndex];
+        const ms =
+            f?.isKO                       ? 2200 :  // KO — slow-mo, let it land
+            f?.actionKind === "result"    ? 2800 :  // final outcome — biggest pause
+            f?.crit                       ? 1600 :  // crit — savor the hit
+            f?.actionKind === "damage"    ? 1100 :
+            f?.actionKind === "basic"     ? 750  :
+            f?.actionKind === "move"      ? 600  :  // movement — snappy
+            f?.actionKind === "dot"       ? 850  :
+            f?.actionKind === "movelock"  ? 900  :
+            f?.actionKind === "heal"      ? 950  :
+            f?.actionKind === "buff"      ? 700  :
+            f?.actionKind === "shield"    ? 800  :
+            f?.actionKind === "barrier"   ? 800  :
+            f?.actionKind === "absorb"    ? 800  :
+            f?.actionKind === "debuff"    ? 950  :
+            f?.actionKind === "lifesteal" ? 1100 :
+            f?.traitFlash                 ? 1300 :  // trait proc — show off
+                                            1000;
+        const timer = window.setTimeout(() => setFrameIndex((index) => Math.min(index + 1, battleFrames.length - 1)), ms);
         return () => window.clearTimeout(timer);
     }, [battleFrames.length, frameIndex, isPlaying]);
 
@@ -17142,7 +17164,10 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerReservePet
             </div>
             )}
 
-            <div className="pet-park-stage">
+            <div className={`pet-park-stage${
+                frame?.isKO ? " pet-stage-shake-heavy" :
+                frame?.crit ? " pet-stage-shake-light" : ""
+            }`}>
                 {/* KO freeze overlay */}
                 {frame?.isKO && !winnerPet && (
                     <div className="pet-ko-overlay">K.O. ??</div>
