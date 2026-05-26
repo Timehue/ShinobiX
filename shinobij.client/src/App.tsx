@@ -33050,6 +33050,13 @@ function PvpBattleScreen({
     const [userScaleOffset, setUserScaleOffset] = useState(0);
     const [pvpRoundTimer, setPvpRoundTimer] = useState(45);
     const [pvpRoundTimerKey, setPvpRoundTimerKey] = useState(0);
+    // When the round timer hits 0 we queue an auto-wait. If the player has
+    // an action in flight at that moment (submitting === true), the wait
+    // can't fire immediately — a separate effect watches `submitting` and
+    // fires the queued wait once it clears. Without this, the timer would
+    // hit 0, clearInterval, the wait would silently bail, and the player's
+    // turn would never end.
+    const [pvpPendingAutoWait, setPvpPendingAutoWait] = useState(false);
     const [pvpPrefightCountdown, setPvpPrefightCountdown] = useState<number | null>(null);
     const [pvpPrefightFirstActor, setPvpPrefightFirstActor] = useState<"p1" | "p2" | null>(null);
     const [pvpMotionFx, setPvpMotionFx] = useState<PvpMotionFx[]>([]);
@@ -33212,19 +33219,38 @@ function PvpBattleScreen({
     const pvpIsMyTurn = session?.activePlayer === role;
     const pvpDone = session?.status === "done";
     useEffect(() => {
-        if (!session || pvpDone || pvpPrefightCountdown !== null) { setPvpRoundTimer(45); return; }
-        if (!pvpIsMyTurn) { setPvpRoundTimer(45); return; }
+        if (!session || pvpDone || pvpPrefightCountdown !== null) { setPvpRoundTimer(45); setPvpPendingAutoWait(false); return; }
+        if (!pvpIsMyTurn) { setPvpRoundTimer(45); setPvpPendingAutoWait(false); return; }
         let secs = 45;
         setPvpRoundTimer(45);
+        setPvpPendingAutoWait(false);
         const iv = setInterval(() => {
             secs -= 1;
             setPvpRoundTimer(secs);
-            // auto: true marks this as a timer-fired wait, so the server can
-            // count it toward the AFK skip counter (vs a manual Wait click).
-            if (secs <= 0) { clearInterval(iv); submitAction("wait", undefined, undefined, undefined, { auto: true }); }
+            // Timer hit 0 — queue the auto-wait. The actual submit happens in
+            // the pendingAutoWait effect below so it can wait for an in-flight
+            // action to complete first (avoids the "turn never ends because
+            // wait got dropped while submitting" race).
+            if (secs <= 0) { clearInterval(iv); setPvpPendingAutoWait(true); }
         }, 1000);
         return () => clearInterval(iv);
     }, [!!session, pvpDone, pvpPrefightCountdown, pvpIsMyTurn, pvpRoundTimerKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Auto-wait queue — fires the wait action whenever the queue is set AND
+    // no other action is currently in flight. Re-checks on every submitting
+    // change so a queued wait isn't lost when the player's last action finishes.
+    useEffect(() => {
+        if (!pvpPendingAutoWait) return;
+        if (submitting) return;          // wait for in-flight action to finish
+        if (!pvpIsMyTurn || pvpDone) {   // turn already passed or fight ended — drop the queue
+            setPvpPendingAutoWait(false);
+            return;
+        }
+        setPvpPendingAutoWait(false);
+        // auto: true marks this as a timer-fired wait so the server counts it
+        // toward the AFK skip counter (vs a manual Wait click).
+        submitAction("wait", undefined, undefined, undefined, { auto: true });
+    }, [pvpPendingAutoWait, submitting, pvpIsMyTurn, pvpDone]); // eslint-disable-line react-hooks/exhaustive-deps
 
     /* ── Register ALL PvP fights on spectator board ── */
     useEffect(() => {
