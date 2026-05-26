@@ -14768,6 +14768,64 @@ function tileDistance(a: number, b: number): number {
  *   Battleborn — mandatory early buff ? debuff ? finisher
  *   (none)     — balanced generalist
  */
+// Estimate damage dealt this turn for lethal-detection. Mirrors applyDamage
+// modifiers (dmgBonus, guardianBlock, absorbMult, elementMult) but skips
+// Lucky-dodge (it's a coinflip — if it lands, it's lethal) and crit
+// (treat as non-crit baseline; crit is a free upside). Returns 0 for
+// non-damaging kinds (burn/freeze/etc don't kill this turn).
+function estimatePetActionDamage(
+    actor: PetBattleFighter,
+    target: PetBattleFighter,
+    action: PetJutsu | "basic",
+): number {
+    const dmgBonus     = actor.pet.trait === "Battleborn" ? 1.10 : 1.0;
+    const guardianBlock = target.pet.trait === "Guardian"   ? 0.85 : 1.0;
+    const elementMult  = petElementMultiplier(actor.pet, target.pet);
+    const absorbMult   = target.absorbRounds > 0 ? (1 - target.absorbPercent) : 1;
+    if (action === "basic") {
+        const raw = actor.pet.attack + actor.attackBuff - (target.pet.defense + target.defenseBuff) * 0.45;
+        return Math.max(1, Math.floor(raw * dmgBonus * guardianBlock * absorbMult * elementMult));
+    }
+    const jutsu = action;
+    if (jutsu.kind === "damage" || jutsu.kind === "lifesteal") {
+        const raw = actor.pet.attack + actor.attackBuff + jutsu.power - (target.pet.defense + target.defenseBuff) * 0.5;
+        return Math.max(1, Math.floor(raw * dmgBonus * guardianBlock * absorbMult * elementMult));
+    }
+    if (jutsu.kind === "crush") {
+        // Crush damage component is power × 0.5 (the other half is the
+        // ATK/DEF strip, which doesn't help with KO this turn).
+        const raw = actor.pet.attack + actor.attackBuff + (jutsu.power * 0.5) - (target.pet.defense + target.defenseBuff) * 0.5;
+        return Math.max(1, Math.floor(raw * dmgBonus * guardianBlock * absorbMult * elementMult));
+    }
+    return 0; // burn/freeze/confuse/stun/heal/buff/etc — no immediate damage
+}
+
+// Lethal-detection: returns the action that KOs the target this turn,
+// preferring the smallest "overkill" so the AI saves bigger jutsus for
+// later if a smaller one is enough. Returns null when no action lethals.
+function findLethalAction(
+    actor: PetBattleFighter,
+    target: PetBattleFighter,
+    avail: PetJutsu[],
+    dist: number,
+): PetJutsu | "basic" | null {
+    const requiredHp = target.hp + target.shieldHp;
+    const candidates: Array<{ action: PetJutsu | "basic"; dmg: number }> = [];
+    for (const j of avail) {
+        if (j.kind !== "damage" && j.kind !== "lifesteal" && j.kind !== "crush") continue;
+        const dmg = estimatePetActionDamage(actor, target, j);
+        if (dmg >= requiredHp) candidates.push({ action: j, dmg });
+    }
+    if (dist <= 1) {
+        const basicDmg = estimatePetActionDamage(actor, target, "basic");
+        if (basicDmg >= requiredHp) candidates.push({ action: "basic", dmg: basicDmg });
+    }
+    if (candidates.length === 0) return null;
+    // Pick the smallest overkill — save the bigger hit for the next opponent.
+    candidates.sort((a, b) => a.dmg - b.dmg);
+    return candidates[0].action;
+}
+
 function choosePetActionSmart(
     actor: PetBattleFighter,
     target: PetBattleFighter,
@@ -14804,6 +14862,15 @@ function choosePetActionSmart(
         (actor.cooldowns[j.name] ?? 0) <= 0 &&
         petJutsuInRange(j.kind, dist),
     );
+
+    // ── Lethal detection (highest-priority pre-check) ───────────────────
+    // If any damage/lifesteal/crush/basic action available this turn would
+    // KO the target through their HP + shield, take it immediately. The
+    // smallest-overkill option is preferred — save bigger hits for the
+    // next opponent. Beats the entire trait-priority tree below because
+    // a guaranteed KO is always the best play, regardless of personality.
+    const lethal = findLethalAction(actor, target, avail, dist);
+    if (lethal) return lethal;
 
     const heal      = avail.find(j => j.kind === "heal");
     const buff      = avail.find(j => j.kind === "buff");
@@ -14860,6 +14927,9 @@ function choosePetActionSmart(
         if (critical && shield)                      return shield;
         if (earlyGame && absorb && !alreadyAbsorbing) return absorb; // defensive opener
         if (earlyGame && buff && !alreadyBuffed)     return buff;
+        // Element pivot — when damage matchup is bad, status pressure bypasses
+        // the elemental resistance and chips the target down regardless.
+        if (resisted && bestStatus && !finishing)    return bestStatus;
         if (burn && !targetPoisoned)                 return burn;    // stack burn early for chip pressure
         if (crush && dist <= 2)                      return crush;
         if (bestStatus)                              return bestStatus;
@@ -14879,6 +14949,10 @@ function choosePetActionSmart(
         if (critical && heal)                        return heal;
         // If we're super-effective, skip the status setup — just hit hard.
         if (superEffective && heavy)                 return heavy;
+        // If we're RESISTED, status pressure bypasses the multiplier — don't
+        // waste the cooldown swinging 0.8× damage attacks. Bad-matchup
+        // recognition for the offensive personalities, not just Default.
+        if (resisted && bestStatus)                  return bestStatus;
         if (earlyGame && bestStatus)                 return bestStatus;
         if (earlyGame && crush && dist <= 2)         return crush;
         if (earlyGame && debuff)                     return debuff;
@@ -14898,6 +14972,7 @@ function choosePetActionSmart(
         if (critical && heal)                        return heal;
         if (critical && shield)                      return shield; // quick defensive dash
         if (superEffective && heavy)                 return heavy;  // capitalize on advantage
+        if (resisted && bestStatus)                  return bestStatus; // bad matchup → pivot
         if (bestStatus)                              return bestStatus;
         if (crush && dist <= 2)                      return crush;
         if (debuff)                                  return debuff;
@@ -14918,6 +14993,7 @@ function choosePetActionSmart(
         if (hurting && barrier)                      return barrier;
         if (hurting && shield)                       return shield;
         if (superEffective && heavy)                 return heavy;
+        if (resisted && bestStatus)                  return bestStatus; // bad matchup → pivot
         if (earlyGame && bestStatus)                 return bestStatus;
         if (earlyGame && crush && dist <= 2)         return crush;
         if (earlyGame && debuff)                     return debuff;
@@ -14937,6 +15013,7 @@ function choosePetActionSmart(
         if (earlyGame && buff && !alreadyBuffed)     return buff;
         if (earlyGame && absorb && !alreadyAbsorbing) return absorb; // tanky opener
         if (superEffective && heavy)                 return heavy;
+        if (resisted && bestStatus)                  return bestStatus; // bad matchup → pivot
         if (midGame && bestStatus)                   return bestStatus;
         if (midGame && crush && dist <= 2)           return crush;
         if (midGame && debuff)                       return debuff;
@@ -15781,7 +15858,14 @@ function runPetArenaParty(
     // matchup score (super-effective + good trait counter raises priority).
     // For heal / buff / barrier / shield / absorb: target lowest-HP ally
     // (can be self).
-    function pickTargetSlot(actorSlot: PartySlot, jutsuKind: PetJutsu["kind"] | "basic"): PartySlot | null {
+    function pickTargetSlot(
+        actorSlot: PartySlot,
+        jutsuKind: PetJutsu["kind"] | "basic",
+        // Optional: which target the actor's TEAMMATE just attacked this round.
+        // If that slot is still alive, the actor weights it higher so the two
+        // partners converge on focus-fire (guaranteed KO > spreading damage).
+        partnerFocusSlot?: PartySlot,
+    ): PartySlot | null {
         const self = fighters[actorSlot]!;
         const allyKinds = new Set<string>(["heal", "buff", "barrier", "shield", "absorb"]);
         if (allyKinds.has(jutsuKind)) {
@@ -15797,18 +15881,20 @@ function runPetArenaParty(
         const opps = livingOpposing(actorSlot);
         if (opps.length === 0) return null;
         // Score each opponent: lower HP% is more finishable; matchup score
-        // rewards super-effective + bad trait counters; trait Aggressive
-        // prefers the most threatening, Lucky prefers the weakest.
+        // rewards super-effective + bad trait counters; focus-fire on the
+        // teammate's last target adds a +50% bonus weight so two partners
+        // tend to converge on the same KO instead of splitting damage across
+        // two targets and KO'ing neither.
         return opps.sort((a, b) => {
             const fa = fighters[a]!, fb = fighters[b]!;
             const hpA = fa.hp / fa.pet.hp;
             const hpB = fb.hp / fb.pet.hp;
             const mA = scorePetMatchup(self.pet, fa.pet);
             const mB = scorePetMatchup(self.pet, fb.pet);
-            // Lower HP * higher matchup = best priority. Combine with
-            // inverse-HP weighting (finishability heuristic).
-            const scoreA = (mA) / Math.max(0.1, hpA);
-            const scoreB = (mB) / Math.max(0.1, hpB);
+            const focusBonusA = partnerFocusSlot === a ? 1.5 : 1.0;
+            const focusBonusB = partnerFocusSlot === b ? 1.5 : 1.0;
+            const scoreA = (mA * focusBonusA) / Math.max(0.1, hpA);
+            const scoreB = (mB * focusBonusB) / Math.max(0.1, hpB);
             return scoreB - scoreA; // higher score first
         })[0];
     }
@@ -15842,10 +15928,28 @@ function runPetArenaParty(
         }
     }
 
+    // Outer-scope memory of the opposing slot most recently attacked by
+    // each side. Updated as a side-effect of act() so the round loop can
+    // pass it as partnerFocusSlot for the same side's next actor.
+    let lastOpposingAttacked: PartySlot | undefined;
+
     // ── Per-actor turn (4v4 act) ──────────────────────────────────
-    function act(actorSlot: PartySlot, round: number) {
+    // partnerFocusSlot: the opposing-team slot that the actor's TEAMMATE
+    // just attacked this round. Adds a focus-fire bias to the target
+    // picker so partners converge on a single KO instead of splitting
+    // damage. Caller passes whichever opponent the same-side ally last
+    // attacked (undefined for the first actor of each side).
+    function act(actorSlot: PartySlot, round: number, partnerFocusSlot?: PartySlot): void {
+        lastOpposingAttacked = undefined; // reset for this actor
         const actor = fighters[actorSlot]!;
         const actorIsPlayer = isPlayerSlot(actorSlot);
+
+        // Helper: call when an opposing slot is the target of this action.
+        // Sets the closure-level variable that the round loop reads after
+        // act() returns to thread focus-fire to the partner.
+        function noteAttack(slot: PartySlot) {
+            if (isPlayerSlot(slot) !== actorIsPlayer) lastOpposingAttacked = slot;
+        }
 
         // Pre-action status checks (stun / freeze / confuse).
         if (actor.stunRounds > 0) {
@@ -15872,7 +15976,9 @@ function runPetArenaParty(
         // Pick a provisional target — used to filter "in range" jutsus.
         // We pick a damage-target first (for the AI selection's purposes),
         // then re-pick if the chosen jutsu is heal/buff (ally-targeted).
-        const damageTargetSlot = pickTargetSlot(actorSlot, "damage");
+        // partnerFocusSlot weights the picker toward the slot our teammate
+        // just attacked, so partners converge on focus-fire.
+        const damageTargetSlot = pickTargetSlot(actorSlot, "damage", partnerFocusSlot);
         if (!damageTargetSlot) return; // no opposing pets left — shouldn't happen, loop checks first
         const damageTarget = fighters[damageTargetSlot]!;
         const dist = tileDistance(actor.pos, damageTarget.pos);
@@ -15895,6 +16001,7 @@ function runPetArenaParty(
             return;
         }
         if (chosen === "basic") {
+            noteAttack(damageTargetSlot);
             const dmgRaw = actor.pet.attack + actor.attackBuff - (damageTarget.pet.defense + damageTarget.defenseBuff) * 0.45;
             const tamerMult = actorIsPlayer ? playerDamageMult : 1;
             const elementMult = petElementMultiplier(actor.pet, damageTarget.pet);
@@ -15909,10 +16016,12 @@ function runPetArenaParty(
 
         // Resolve actual target slot based on jutsu kind.
         const allyKinds = new Set<PetJutsu["kind"]>(["heal", "buff", "barrier", "shield", "absorb"]);
-        const targetSlot = allyKinds.has(chosen.kind) ? pickTargetSlot(actorSlot, chosen.kind) : damageTargetSlot;
+        const targetSlot = allyKinds.has(chosen.kind) ? pickTargetSlot(actorSlot, chosen.kind, partnerFocusSlot) : damageTargetSlot;
         if (!targetSlot) return;
         const target = fighters[targetSlot]!;
         const targetIsAlly = isPlayerSlot(targetSlot) === actorIsPlayer;
+        // Mark for partner focus-fire if this action hits an opponent.
+        noteAttack(targetSlot);
         const cdActor = { ...actor, cooldowns: { ...actor.cooldowns, [chosen.name]: Math.max(1, chosen.cooldown) } };
         fighters[actorSlot] = cdActor;
 
@@ -16121,11 +16230,23 @@ function runPetArenaParty(
             if (fa.pet.speed !== fb.pet.speed) return fb.pet.speed - fa.pet.speed;
             return petBattleTieKey(fa.pet) < petBattleTieKey(fb.pet) ? -1 : 1;
         });
+        // Track the last opposing slot each side attacked this round.
+        // Passed to subsequent same-side actors as partnerFocusSlot so
+        // partners converge their focus-fire on the same target.
+        const lastTargetBySide: { player?: PartySlot; enemy?: PartySlot } = {};
         for (const slot of order) {
             if (!isAlive(slot)) continue;
             const oppLiving = livingOpposing(slot);
             if (oppLiving.length === 0) break;
-            act(slot, round);
+            const sideKey: "player" | "enemy" = isPlayerSlot(slot) ? "player" : "enemy";
+            const focusHint = lastTargetBySide[sideKey];
+            // act() sets lastOpposingAttacked as a side-effect when it
+            // attacks an opposing slot. Reset before the call (act does
+            // this internally too) and read after.
+            act(slot, round, focusHint);
+            if (lastOpposingAttacked) {
+                lastTargetBySide[sideKey] = lastOpposingAttacked;
+            }
         }
 
         // Round summary frame
