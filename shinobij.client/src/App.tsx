@@ -8759,9 +8759,10 @@ export default function App() {
                 setScreen("petArena");
                 break;
             case "tilecards":
-                // Tile cards: minimal flow — route to tavern, players
-                // launch a manual duel and come back to report.
-                setScreen("tavern");
+                // Tile cards mode is hidden from the player picker and
+                // has no auto-report path. Admin-created tile-card
+                // challenges fall through here without navigation —
+                // admin must resolve them via the API directly.
                 break;
         }
     }, [character]);
@@ -13584,8 +13585,9 @@ export default function App() {
                         const ratingGain = context?.mode === "ranked" && opponent
                             ? rankedDelta(character.rankedRating ?? 1000, opponent.rankedRating ?? 1000)
                             : 0;
-                        const clanWarPoints = context?.clanWarPoints ?? 0;
-                        if (clanWarPoints > 0) addClanWarPoints(character.clan, character.name, clanWarPoints);
+                        // Old point-based clan war system removed — the new
+                        // server-managed Clan War system auto-reports via
+                        // autoReportClanWarBattleResult below.
                         if (context?.raidKind === "raidPlayer") {
                             damageSectorTerritory(rewardSector, sectorRaidDamageAmount(rewardSector));
                         }
@@ -17443,10 +17445,11 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                     });
                 }
             })();
-            if (pendingClanPetBattle) {
-                void addClanWarPoints(pendingClanPetBattle.clanName ?? character.clan, character.name, pendingClanPetBattle.points);
-                setBattleLog([...battle.logs, `${character.name} earned ${pendingClanPetBattle.points} clan war points by winning the pet battle against ${pendingClanPetBattle.opponentName}.`]);
-            }
+            // Old point-based clan war pet-battle credit removed — the new
+            // server-managed Clan War system handles pet battles via the
+            // onClanWarBattleEnd auto-report path above. The pendingClanPetBattle
+            // helper is still cleared below for backwards compatibility with
+            // saves that have the legacy breadcrumb.
         } else if (opponent.owner === "Hollow Gate") {
             // Pet duel lost inside the Hollow Gate Shrine — trainer takes
             // 20% maxHp damage as residual chakra burns through the seal.
@@ -23745,24 +23748,10 @@ function clanRoleOf(member: ClanMemberEntry, data: EnhancedClanData): ClanRole {
 function canManageClan(role: ClanRole) { return role === "Founder" || role === "Leader" || role === "Officer"; }
 function clanHallTier(level: number) { if (level >= 40) return { name: "Legendary Clan Citadel", icon: "🏰", desc: "A mythic fortress known across the shinobi world." }; if (level >= 25) return { name: "War Fortress", icon: "🏰", desc: "Walls, watchtowers, and banners built for war." }; if (level >= 15) return { name: "Hidden Clan Compound", icon: "🏯", desc: "A fortified compound with training yards and sealed rooms." }; if (level >= 7) return { name: "Fortified Dojo", icon: "🏠", desc: "A proper dojo with guard posts and a treasury room." }; return { name: "Empty Clan Camp", icon: "⛺", desc: "A small camp waiting to grow into a feared clan home." }; }
 function clanMissionProgress(data: EnhancedClanData, key: string) { const battle = data.members.reduce((s, m) => s + (m.battleContrib ?? 0), 0); const mission = data.members.reduce((s, m) => s + (m.missionContrib ?? 0), 0); const event = data.members.reduce((s, m) => s + (m.eventContrib ?? 0), 0); const territories = loadAllSectorTerritories().filter(territory => territory.ownerClan === data.name); if (key === "battle") return battle; if (key === "mission") return mission; if (key === "guard") return Math.min(10, territories.reduce((sum, territory) => sum + territory.guards.length, 0) + data.members.filter(m => m.level >= 5).length); if (key === "territory") return Math.min(20, Math.floor(territories.reduce((sum, territory) => sum + territory.controlScore, 0) / 1000)); if (key === "anbu") return Math.min(10, territories.reduce((sum, territory) => sum + territory.guards.length, 0) + Math.floor(battle / 5)); if (key === "donation") return data.treasury.ryo; if (key === "training") return Math.min(100, Math.floor((battle + mission + event) * 1.5)); if (key === "raid") return Math.min(5, Math.floor(event / 3)); return 0; }
-async function addClanWarPoints(clanName: string | undefined, playerName: string, points: number) {
-    if (!clanName) return;
-    const data = await fetchClanData(clanName);
-    if (!data) return;
-    const enhanced = enhanceClanData(data);
-    if (!enhanced.activeWar) return;
-    const boostedPoints = Math.max(1, Math.round(points * clanTerritoryWarMultiplier(clanName)));
-    const updated = enhanceClanData({
-        ...enhanced,
-        activeWar: {
-            ...enhanced.activeWar,
-            ourScore: enhanced.activeWar.ourScore + boostedPoints,
-        },
-        warHistory: enhanced.warHistory,
-    });
-    await writeClanData(updated);
-    console.info(`${playerName} earned ${boostedPoints} clan war points for ${clanName}.`);
-}
+// addClanWarPoints removed — replaced by the server-managed Clan War
+// system (see api/clan/war/_storage.ts + autoReportClanWarBattleResult
+// on the client). The old point-based score tracking lived in
+// clanData.activeWar.ourScore and is no longer authoritative.
 // Shared tutorial popover — rendered inside both the Clan Hall →
 // Wars tab and the Shinobi Council Hall → Clan Battles tab via a "?"
 // button next to the title. Keeps the rules in one place so any
@@ -23809,10 +23798,10 @@ function ClanWarManual({ onClose }: { onClose: () => void }) {
                 <br />• <strong>Accept queue:</strong> 1st defender clicks <em>Queue to Accept</em>; a 2nd defender clicks <em>Join Accept Queue</em> and the battle becomes ready. Anyone in the accept queue can leave at any time.
             </p>
             <p style={{ margin: "0 0 0.5rem" }}>
-                <strong style={{ color: "#60a5fa" }}>Auto-launch + auto-report.</strong> As soon as a challenge is fully accepted (both defenders queued for 2v2), the server marks it ready and <em>both</em> participating clients are pulled into the matching battle screen automatically — no <em>Launch</em> button to click. When the fight ends, the PvP / Pet Arena win &amp; loss handlers post the result to the server on their own. You don't have to click anything. A small <em>Re-launch</em> link in <em>Your Active Battles</em> exists as a fallback if you navigated away.
+                <strong style={{ color: "#60a5fa" }}>Fully automated — no manual reporting.</strong> The moment a challenge is fully accepted (both defenders queued for 2v2), <em>both</em> participating clients are pulled into the matching battle screen automatically. When the fight ends, the PvP / Pet Arena win &amp; loss handlers post the result to the server on their own. There are no "I won" buttons anywhere in the UI — the server is the source of truth. A small <em>Re-launch</em> link in <em>Your Active Battles</em> exists if you navigated away during the fight.
             </p>
             <p style={{ margin: "0 0 0.5rem", fontSize: "0.82rem" }}>
-                <strong style={{ color: "#60a5fa" }}>Auto-report + two-phase confirm (anti-cheat).</strong> Both clients post the outcome they observed from the actual battle (the winner's client and the loser's client). The server treats the first arrival as <em>tentative</em>; the matching report from the opposing side <em>confirms</em> it and damage applies. If reports disagree (rare — both clients see the same fight), the challenge is recorded as a draw with no damage. If the opposing side never reports within <strong>15 minutes</strong>, the tentative auto-confirms on the next read. A manual "Battle disconnected? Report manually" fallback is hidden under each entry for emergency cases (network failure, tile-card duels which don't yet auto-report).
+                <strong style={{ color: "#60a5fa" }}>Three-layer anti-cheat.</strong> (1) The server cross-checks every PvP-mode report against the authoritative <code>pvp:&lt;battleId&gt;</code> session record — if the report disagrees with the actual session winner, it's rejected. (2) Both clients report independently from their own win/loss handlers; the server treats the first arrival as <em>tentative</em> and only applies damage once the opposing side's matching report <em>confirms</em> it. (3) Reports that disagree (rare — both clients see the same fight) are recorded as a draw with no damage. After 15 minutes of silence, the tentative auto-confirms.
             </p>
             <p style={{ margin: "0 0 0.5rem" }}>
                 <strong style={{ color: "#60a5fa" }}>Winning the war.</strong> When one clan's HP hits <strong>0</strong>, the war ends and the other clan wins. The server also computes an MVP per clan (most wins; tiebreak by damage contributed) — visible on the war card and recent-war record.
@@ -24279,15 +24268,6 @@ function ClanHall({ character, updateCharacter, creatorItems, setScreen }: { cha
         saveSectorTerritory({ ...territory, guards });
         refreshTerritoryPanel();
     }
-    function recordVillageWarDamage(sector: number) {
-        const territory = loadSectorTerritory(sector);
-        if (!territory.ownerClan) return alert("That sector is not claimed.");
-        if (territory.ownerVillage === character.village) return alert("Village war damage is for enemy-held sectors.");
-        damageSectorTerritory(sector, 5000);
-        refreshTerritoryPanel();
-        alert(`Village war pressure damaged Sector ${sector} for 5,000 HP.`);
-    }
-
     async function postClanNotice() {
         if (!clanData) return;
         const title = clanNoticeTitle.trim();
@@ -24380,7 +24360,7 @@ function ClanHall({ character, updateCharacter, creatorItems, setScreen }: { cha
         {view === "boosts" && <div className="clan-upgrade-grid">{clanBoostTiers.map(tier => { const active = clanData.members.length >= tier.min && clanData.members.length <= tier.max; const label = Number.isFinite(tier.max) ? `${tier.min}-${tier.max} members` : `${tier.min}+ members`; return <div key={label} className={`town-upgrade-card clan-upgrade-card ${active ? "active" : ""}`}><div className="town-upgrade-topline"><span className="town-upgrade-icon">⬆️</span><div><strong>{label}</strong><p>{active ? "Active Boost" : "Recruitment Tier"}</p></div></div><div className="town-upgrade-bar"><span style={{ width: active ? "100%" : "0%" }} /></div><p className="town-upgrade-desc">Clan members receive +{tier.percent}% training XP, mission XP, and ryo gain at this roster size.</p><p className="town-upgrade-bonus">Boost: <strong>+{tier.percent}%</strong></p></div>; })}</div>}
         {view === "missions" && <div className="clan-mission-grid">{clanMissionDefinitions.map(mission => { const progress = clanMissionProgress(clanData, mission.key); return <div key={mission.key} className="summary-box clan-mission-card"><h3>{mission.icon} {mission.name}</h3><p>{mission.description}</p><div className="town-upgrade-bar"><span style={{ width: `${Math.min(100, (progress / mission.target) * 100)}%` }} /></div><p><strong>{Math.min(progress, mission.target).toLocaleString()}</strong> / {mission.target.toLocaleString()}</p><p className="hint">Reward: {mission.reward}</p></div>; })}</div>}
         {view === "wars" && <ClanWarsPanel character={character} clanName={clanData.name} setScreen={setScreen} />}
-        {view === "territory" && <div className="summary-box"><h3>Clan Territory Control</h3><p className="hint">Members donate Territory Control Scrolls to the clan hall. Owned sectors generate War Supply, boost clan war scoring, and reduce raid damage when guarded.</p><p><strong>Your Scrolls:</strong> {personalTerritoryScrolls} · <strong>Clan Hall Scrolls:</strong> {clanTerritoryScrolls} · <strong>Clan War Supply:</strong> {clanData.treasury.warSupply.toLocaleString()} · <strong>Uncollected:</strong> {clanSectorWarSupply.toLocaleString()}</p><p className="hint">Your village owns {villageSectorCount} sector{villageSectorCount === 1 ? "" : "s"} with {villageSectorWarSupply.toLocaleString()} uncollected village-wide War Supply.</p><div className="menu"><button disabled={personalTerritoryScrolls < 1} onClick={donateAllTerritoryScrollsToClan}>Donate All Territory Scrolls To Clan Hall</button><button disabled={!canSpendTerritoryScrolls || clanSectorWarSupply < 1} onClick={collectTerritoryWarSupply}>Collect Sector War Supply</button></div><div className="treasury-grid"><div><label>Sector</label><input type="number" min={1} max={60} value={territorySector} onChange={(event) => setTerritorySector(clampNumber(Number(event.target.value), 1, 60))} /></div><div><label>Weather</label><select value={territoryWeather} onChange={(event) => setTerritoryWeather(event.target.value as WeatherType)}>{Object.entries(weatherEffects).map(([key, weather]) => <option key={key} value={key}>{weather.name}</option>)}</select></div><div><label>Terrain Bonus</label><select value={territoryBuffStat} onChange={(event) => setTerritoryBuffStat(event.target.value as TerritoryBuffStat)}><option value="bukijutsuOffense">Bukijutsu Offense +10%</option><option value="taijutsuOffense">Taijutsu Offense +10%</option><option value="ninjutsuOffense">Ninjutsu Offense +10%</option><option value="genjutsuOffense">Genjutsu Offense +10%</option></select></div></div><section className="summary-box"><h4>Sector {territorySector}</h4><p><strong>Owner:</strong> {selectedTerritory.ownerClan ? `${selectedTerritory.ownerClan} (${selectedTerritory.ownerVillage})` : "Unclaimed"}</p><div className="town-upgrade-bar"><span style={{ width: `${(selectedTerritory.controlScore / TERRITORY_CONTROL_MAX) * 100}%` }} /></div><p>Control Score: {selectedTerritory.controlScore.toLocaleString()} / {TERRITORY_CONTROL_MAX.toLocaleString()}</p><div className="bar enemy-bar"><span style={{ width: `${(selectedTerritory.hp / TERRITORY_HP_MAX) * 100}%` }} /></div><p>Sector HP: {selectedTerritory.hp.toLocaleString()} / {TERRITORY_HP_MAX.toLocaleString()}</p><p>War Supply: {selectedTerritory.warSupply.toLocaleString()} · Raid Damage Taken: {sectorRaidDamageAmount(territorySector).toLocaleString()}</p><p>Fixed Weather: {weatherEffects[selectedTerritory.weather ?? weatherForSector(territorySector, "central")].name} · Terrain: {selectedTerritory.terrainBuffStat.replace("Offense", " Offense")} +10%</p><p>Guards: {selectedTerritory.guards.length ? selectedTerritory.guards.join(", ") : "None"}</p><div className="menu"><button disabled={!canSpendTerritoryScrolls || clanTerritoryScrolls < 1 || Boolean(selectedTerritory.ownerClan && selectedTerritory.ownerClan !== clanData.name)} onClick={() => donateTerritoryScrolls(territorySector)}>Assign 1 Clan Scroll</button><button disabled={!canSpendTerritoryScrolls || clanTerritoryScrolls < 5 || Boolean(selectedTerritory.ownerClan && selectedTerritory.ownerClan !== clanData.name)} onClick={() => donateTerritoryScrolls(territorySector, 5)}>Assign 5 Clan Scrolls</button><button disabled={!canSpendTerritoryScrolls || selectedTerritory.ownerClan !== clanData.name} onClick={() => saveTerritorySettings(territorySector)}>Save Terrain / Weather</button><button disabled={!canGuardSelectedTerritory} onClick={() => toggleTerritoryGuard(territorySector)}>{selectedTerritory.guards.includes(character.name) ? "Leave Sector Guard" : "Queue Sector Guard"}</button><button className="danger-button" disabled={!selectedTerritory.ownerClan || selectedTerritory.ownerVillage === character.village} onClick={() => recordVillageWarDamage(territorySector)}>Village War Hit -5,000 HP</button></div></section><h4>Your Clan Sectors</h4>{ownedTerritories.length === 0 ? <p className="hint">Your clan does not own a sector yet.</p> : <div className="war-record-grid">{ownedTerritories.map(territory => <div key={territory.sector} className="war-record-card"><strong>Sector {territory.sector}</strong><span>HP {territory.hp.toLocaleString()} / {TERRITORY_HP_MAX.toLocaleString()}</span><small>{weatherEffects[territory.weather ?? "clear"].name} · {territory.terrainBuffStat.replace("Offense", " Offense")} +10%</small><small>War Supply: {territory.warSupply.toLocaleString()} · Guards: {territory.guards.length}</small></div>)}</div>}</div>}
+        {view === "territory" && <div className="summary-box"><h3>Clan Territory Control</h3><p className="hint">Members donate Territory Control Scrolls to the clan hall. Owned sectors generate War Supply, boost clan war scoring, and reduce raid damage when guarded.</p><p><strong>Your Scrolls:</strong> {personalTerritoryScrolls} · <strong>Clan Hall Scrolls:</strong> {clanTerritoryScrolls} · <strong>Clan War Supply:</strong> {clanData.treasury.warSupply.toLocaleString()} · <strong>Uncollected:</strong> {clanSectorWarSupply.toLocaleString()}</p><p className="hint">Your village owns {villageSectorCount} sector{villageSectorCount === 1 ? "" : "s"} with {villageSectorWarSupply.toLocaleString()} uncollected village-wide War Supply.</p><div className="menu"><button disabled={personalTerritoryScrolls < 1} onClick={donateAllTerritoryScrollsToClan}>Donate All Territory Scrolls To Clan Hall</button><button disabled={!canSpendTerritoryScrolls || clanSectorWarSupply < 1} onClick={collectTerritoryWarSupply}>Collect Sector War Supply</button></div><div className="treasury-grid"><div><label>Sector</label><input type="number" min={1} max={60} value={territorySector} onChange={(event) => setTerritorySector(clampNumber(Number(event.target.value), 1, 60))} /></div><div><label>Weather</label><select value={territoryWeather} onChange={(event) => setTerritoryWeather(event.target.value as WeatherType)}>{Object.entries(weatherEffects).map(([key, weather]) => <option key={key} value={key}>{weather.name}</option>)}</select></div><div><label>Terrain Bonus</label><select value={territoryBuffStat} onChange={(event) => setTerritoryBuffStat(event.target.value as TerritoryBuffStat)}><option value="bukijutsuOffense">Bukijutsu Offense +10%</option><option value="taijutsuOffense">Taijutsu Offense +10%</option><option value="ninjutsuOffense">Ninjutsu Offense +10%</option><option value="genjutsuOffense">Genjutsu Offense +10%</option></select></div></div><section className="summary-box"><h4>Sector {territorySector}</h4><p><strong>Owner:</strong> {selectedTerritory.ownerClan ? `${selectedTerritory.ownerClan} (${selectedTerritory.ownerVillage})` : "Unclaimed"}</p><div className="town-upgrade-bar"><span style={{ width: `${(selectedTerritory.controlScore / TERRITORY_CONTROL_MAX) * 100}%` }} /></div><p>Control Score: {selectedTerritory.controlScore.toLocaleString()} / {TERRITORY_CONTROL_MAX.toLocaleString()}</p><div className="bar enemy-bar"><span style={{ width: `${(selectedTerritory.hp / TERRITORY_HP_MAX) * 100}%` }} /></div><p>Sector HP: {selectedTerritory.hp.toLocaleString()} / {TERRITORY_HP_MAX.toLocaleString()}</p><p>War Supply: {selectedTerritory.warSupply.toLocaleString()} · Raid Damage Taken: {sectorRaidDamageAmount(territorySector).toLocaleString()}</p><p>Fixed Weather: {weatherEffects[selectedTerritory.weather ?? weatherForSector(territorySector, "central")].name} · Terrain: {selectedTerritory.terrainBuffStat.replace("Offense", " Offense")} +10%</p><p>Guards: {selectedTerritory.guards.length ? selectedTerritory.guards.join(", ") : "None"}</p><div className="menu"><button disabled={!canSpendTerritoryScrolls || clanTerritoryScrolls < 1 || Boolean(selectedTerritory.ownerClan && selectedTerritory.ownerClan !== clanData.name)} onClick={() => donateTerritoryScrolls(territorySector)}>Assign 1 Clan Scroll</button><button disabled={!canSpendTerritoryScrolls || clanTerritoryScrolls < 5 || Boolean(selectedTerritory.ownerClan && selectedTerritory.ownerClan !== clanData.name)} onClick={() => donateTerritoryScrolls(territorySector, 5)}>Assign 5 Clan Scrolls</button><button disabled={!canSpendTerritoryScrolls || selectedTerritory.ownerClan !== clanData.name} onClick={() => saveTerritorySettings(territorySector)}>Save Terrain / Weather</button><button disabled={!canGuardSelectedTerritory} onClick={() => toggleTerritoryGuard(territorySector)}>{selectedTerritory.guards.includes(character.name) ? "Leave Sector Guard" : "Queue Sector Guard"}</button></div></section><h4>Your Clan Sectors</h4>{ownedTerritories.length === 0 ? <p className="hint">Your clan does not own a sector yet.</p> : <div className="war-record-grid">{ownedTerritories.map(territory => <div key={territory.sector} className="war-record-card"><strong>Sector {territory.sector}</strong><span>HP {territory.hp.toLocaleString()} / {TERRITORY_HP_MAX.toLocaleString()}</span><small>{weatherEffects[territory.weather ?? "clear"].name} · {territory.terrainBuffStat.replace("Offense", " Offense")} +10%</small><small>War Supply: {territory.warSupply.toLocaleString()} · Guards: {territory.guards.length}</small></div>)}</div>}</div>}
         {view === "notices" && <div className="summary-box town-notice-board"><h3>Clan Notice Board</h3><p className="hint">Clan Head, leaders, officers, and Clan Elders can post tactical clan notices for members.</p><div className="treasury-grid"><div><label>Type</label><select value={clanNoticeType} onChange={(event) => setClanNoticeType(event.target.value as NoticePostType)}><option value="clan">Clan Notice</option><option value="raid">Raid Target</option><option value="guard">Guard Request</option><option value="trade">Trade / Supply</option><option value="general">General</option></select></div><div><label>Sector Optional</label><input type="number" min={1} max={60} value={clanNoticeSector} onChange={(event) => setClanNoticeSector(event.target.value)} placeholder="1-60" /></div></div><label>Title</label><input value={clanNoticeTitle} maxLength={70} onChange={(event) => setClanNoticeTitle(event.target.value)} placeholder="Example: Prepare Sector 33 raid team" /><label>Message</label><textarea value={clanNoticeBody} maxLength={500} onChange={(event) => setClanNoticeBody(event.target.value)} placeholder="Post clan plans, resource needs, guard rotations, or war instructions." /><button onClick={() => void postClanNotice()} disabled={!clanNoticeTitle.trim() || !clanNoticeBody.trim()}>Post Clan Notice</button><div className="notice-board-list">{clanData.notices.length === 0 ? <p className="hint">No clan notices posted yet.</p> : clanData.notices.map(notice => { const canEditNotice = canManageClan(myRole) || myRank === "Clan Elder" || notice.author === character.name; return <div key={notice.id} className={`notice-post ${notice.pinned ? "pinned" : ""}`}><div className="notice-post-head"><span>{notice.pinned ? "Pinned " : ""}{noticeTypeLabel(notice.type)}</span><small>{new Date(notice.createdAt).toLocaleString()} · {notice.author} · {notice.authorRole}</small></div><strong>{notice.title}</strong><p>{notice.body}</p>{notice.sector && <small>Sector {notice.sector}</small>}{canEditNotice && <div className="menu"><button onClick={() => void toggleClanNoticePin(notice.id)}>{notice.pinned ? "Unpin" : "Pin"}</button><button className="danger-button" onClick={() => void removeClanNotice(notice.id)}>Delete</button></div>}</div>; })}</div></div>}
         {view === "guard" && <div className="summary-box"><h3>🛡️ Village Guard</h3><p className="hint">Queue as a guard to defend <strong>{character.village}</strong>. Town Hall defense bonus applies while you are queued.</p><button className={character.guardQueued ? "danger-button" : ""} onClick={toggleGuard} disabled={guardBusy} style={{ marginBottom: 12 }}>{guardBusy ? "Updating…" : character.guardQueued ? "Leave Guard Queue" : "Queue as Village Guard"}</button><h4>Active Guards for {character.village} ({guardList.length})</h4>{guardList.length === 0 ? <p className="hint">No active guards. Village is undefended.</p> : <div className="clan-guard-list">{guardList.map(g => <div key={g.name} className="clan-guard-row"><span>🛡️ <strong>{g.name}</strong></span><span className="clan-guard-lvl">Lv. {g.level}{g.defenseBonusPercent ? ` · DEF +${g.defenseBonusPercent.toFixed(1)}%` : ""}</span></div>)}</div>}</div>}
         {view === "hall" && <div className="summary-box clan-visual-hall"><ClanImageMark image={clanData.image} name={clanData.name} village={clanData.village} /><span className="clan-hall-tier-icon">{hall.icon}</span><div><h3>{hall.name}</h3><p>{hall.desc}</p><p className="hint">Hall tier grows automatically from clan level: Camp → Dojo → Compound → Fortress → Citadel.</p></div></div>}
@@ -26767,65 +26747,12 @@ function ClanBattlesTab({ character, playerRoster, setScreen, launchClanWarBattl
         launchClanWarBattle(ch, myWar.id);
     }
 
-    async function handleReport(ch: CwChallenge, result: CwChallengeResult) {
-        if (!myWar) return;
-        const youAreFromSide = (ch.fromPlayer ?? "").toLowerCase() === character.name.toLowerCase()
-            || (ch.fromPlayer2 ?? "").toLowerCase() === character.name.toLowerCase();
-        const youAreToSide = (ch.acceptedPlayer ?? "").toLowerCase() === character.name.toLowerCase()
-            || (ch.acceptedPlayer2 ?? "").toLowerCase() === character.name.toLowerCase();
-        if (!youAreFromSide && !youAreToSide) {
-            setError("Only a participant can report this result.");
-            return;
-        }
-        const youWon = (result === "from-wins" && youAreFromSide) || (result === "to-wins" && youAreToSide);
-        // Two-phase reporting: the first reporter stamps a tentative;
-        // the opposing side must confirm or dispute within 15 minutes
-        // before damage is applied. After the window, any participant
-        // can re-call /api/clan/war/report to auto-confirm.
-        const hasTentative = !!ch.tentativeResult;
-        const iAmTentative = (ch.tentativeBy ?? "").toLowerCase() === character.name.toLowerCase();
-        let verb: string;
-        if (hasTentative && !iAmTentative) {
-            const matches = ch.tentativeResult === result;
-            verb = matches
-                ? "CONFIRM the opposing side's report — damage will apply now"
-                : "DISPUTE the opposing side's report — the result will be recorded as a draw with no damage";
-        } else if (hasTentative && iAmTentative) {
-            verb = "re-submit your tentative report (auto-confirm if the 15-minute window has elapsed)";
-        } else {
-            verb = result === "draw"
-                ? "submit a tentative draw — the opposing side has 15 minutes to confirm or dispute"
-                : (youWon
-                    ? "submit a tentative report that you won — the opposing side has 15 minutes to confirm or dispute"
-                    : "submit a tentative report that the opponent won — the opposing side has 15 minutes to confirm or dispute");
-        }
-        if (!window.confirm(`Are you sure you want to ${verb}?`)) return;
-        setBusy(true);
-        try {
-            const r = await fetch("/api/clan/war/report", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ warId: myWar.id, challengeId: ch.id, result }),
-            });
-            const data = await r.json().catch(() => ({}));
-            if (!r.ok) {
-                setError(data.error ?? `HTTP ${r.status}`);
-            } else {
-                setError("");
-                // Only clear the stash once the challenge fully finalizes
-                // (tentative=false in the response). Keep the stash
-                // around during tentative so the player can come back
-                // and confirm without losing context.
-                if (data.tentative === false) {
-                    try { sessionStorage.removeItem("clanWarChallenge.v1"); } catch { /* ignore */ }
-                }
-            }
-        } catch (e) {
-            setError(String((e as Error).message));
-        }
-        setBusy(false);
-        await refresh();
-    }
+    // handleReport removed — reporting is fully automatic via the
+    // PvP win/loss handlers and PetArena onClanWarBattleEnd hook,
+    // both routed through autoReportClanWarBattleResult at the App
+    // level. Server-side: two-phase tentative+confirm + the new
+    // validateAgainstPvpSession check in report.ts catch any drift.
+
 
     if (!myClan) {
         return (
@@ -26892,7 +26819,10 @@ function ClanBattlesTab({ character, playerRoster, setScreen, launchClanWarBattl
                         </p>
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                             <select value={composeMode} onChange={e => setComposeMode(e.target.value as CwChallengeMode)} style={{ padding: "0.35rem" }} disabled={busy}>
-                                {(Object.keys(CW_MODE_LABEL) as CwChallengeMode[]).map(m => (
+                                {/* Tile-cards is omitted from the player picker — it has no
+                                    auto-report path (no integrated 1v1 duel screen). Mode is
+                                    kept server-side for admin use + future build. */}
+                                {(Object.keys(CW_MODE_LABEL) as CwChallengeMode[]).filter(m => m !== "tilecards").map(m => (
                                     <option key={m} value={m}>{CW_MODE_ICON[m]} {CW_MODE_LABEL[m]} (−{CW_DAMAGE[m]} HP)</option>
                                 ))}
                             </select>
@@ -27090,28 +27020,11 @@ function ClanBattlesTab({ character, playerRoster, setScreen, launchClanWarBattl
                                                         : <span style={{ color: "#a7f3d0" }}>📨 Opposing side reported <strong>{tentativeLabel}</strong>. {tentativeStale ? "Window elapsed — clicking below will auto-confirm." : `Confirm to apply damage, or dispute to record a draw. ${tentativeMins}m remaining.`}</span>}
                                                 </div>
                                             )}
-                                            {/* Manual report — hidden by default. The PvP / Pet Arena
-                                                screens auto-report on win/loss, so players don't need
-                                                to touch this. Only surfaced as an emergency fallback for
-                                                disconnect / dispute cases. Tile-card duels currently
-                                                require manual reporting since their auto-report flow is
-                                                a follow-up. */}
-                                            <details style={{ marginTop: 4 }}>
-                                                <summary style={{ cursor: "pointer", color: "#64748b", fontSize: "0.78rem" }}>
-                                                    {hasTentative ? "Confirm or dispute the report ⚠" : "Battle disconnected? Report manually"}
-                                                </summary>
-                                                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
-                                                    <button onClick={() => void handleReport(ch, myWinResult)} disabled={busy} style={{ padding: "0.3rem 0.6rem", background: "#15803d", borderColor: "#4ade80", fontSize: "0.8rem" }}>
-                                                        {hasTentative && !iAmTentative ? (tentativeMyWin ? "✅ Confirm: I won" : "⚠ Dispute → I won") : "✅ I won"}
-                                                    </button>
-                                                    <button onClick={() => void handleReport(ch, oppWinResult)} disabled={busy} className="danger-button" style={{ padding: "0.3rem 0.6rem", fontSize: "0.8rem" }}>
-                                                        {hasTentative && !iAmTentative ? (!tentativeMyWin && ch.tentativeResult !== "draw" ? "✅ Confirm: Opponent won" : "⚠ Dispute → Opp won") : "❌ Opponent won"}
-                                                    </button>
-                                                    <button onClick={() => void handleReport(ch, "draw")} disabled={busy} style={{ padding: "0.3rem 0.6rem", fontSize: "0.8rem" }}>
-                                                        {hasTentative && !iAmTentative ? (ch.tentativeResult === "draw" ? "✅ Confirm: Draw" : "⚠ Dispute → Draw") : "🤝 Draw"}
-                                                    </button>
-                                                </div>
-                                            </details>
+                                            {/* No manual reporting. PvP win/loss handlers + the
+                                                Pet Arena onClanWarBattleEnd hook post the result
+                                                automatically when the battle resolves. The two-
+                                                phase server merge + the PvpSession cross-check
+                                                cover correctness without player input. */}
                                             {ch.battleId && <small style={{ display: "block", marginTop: 4, color: "#64748b" }}>Battle ID: {ch.battleId}</small>}
                                             {ch.petBattleSeed && <small style={{ display: "block", marginTop: 4, color: "#64748b" }}>Pet seed: {ch.petBattleSeed}</small>}
                                         </div>
@@ -34528,9 +34441,10 @@ function Arena({
             ? [...(character.defeatedAiIds ?? []), pendingAiProfile.id]
             : character.defeatedAiIds ?? [];
         const ratingGain = rankedBattleActive && opponentCharacter ? rankedDelta(character.rankedRating ?? 1000, opponentCharacter.rankedRating ?? 1000) : 0;
-        if (clanWarPointsActive > 0) {
-            addClanWarPoints(character.clan, character.name, clanWarPointsActive);
-        }
+        // Old point-based clan war scoring removed — territoryScrollReward
+        // below still gates on clanWarPointsActive > 0 to preserve the
+        // "extra scroll yield on clan-war flagged fights" behavior even
+        // without the score writeback.
         const territoryScrollReward = clanWarPointsActive > 0 ? 25 : opponentCharacter ? 5 : 1;
         const territoryRaidDamageAmount = (raidBattleKind === "raidAi" || raidBattleKind === "raidPlayer") ? sectorRaidDamageAmount(currentSector) : 0;
         const territoryRaidDamage = territoryRaidDamageAmount > 0 ? damageSectorTerritory(currentSector, territoryRaidDamageAmount) : null;
