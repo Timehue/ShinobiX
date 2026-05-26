@@ -4899,37 +4899,89 @@ const WAR_CRATE_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 function claimPendingWarCrates(
     character: Character,
     clanData: { warHistory?: { result: string; warCrateId?: string; endedAt?: number }[] } | null,
-): { character: Character; count: number } {
+): { character: Character; count: number; mvp?: boolean; consolation?: boolean } {
     const claimed = new Set(character.claimedWarCrateIds ?? []);
-    const toAdd: string[] = [];
+    const cratesToAdd: string[] = [];   // LEGENDARY_WAR_CRATE_ID inventory pushes
+    const idsToAdd: string[] = [];      // claimedWarCrateIds bookkeeping
+    let ryoBonus = 0;
+    let honorBonus = 0;
+    let shardsBonus = 0;
+    let mvpAwarded = false;
+    let consolationAwarded = false;
     const now = Date.now();
+    const myName = character.name;
+    const myVillage = character.village;
 
     // Clan war crates — check the last 3 history entries in case of back-to-back wars
     for (const record of (clanData?.warHistory ?? []).slice(0, 3)) {
         if (!record.warCrateId || record.result !== "Won") continue;
         if (claimed.has(record.warCrateId)) continue;
         if (record.endedAt && now - record.endedAt > WAR_CRATE_EXPIRY_MS) continue;
-        toAdd.push(record.warCrateId);
+        cratesToAdd.push(record.warCrateId);
+        idsToAdd.push(record.warCrateId);
     }
 
     // Village war crates — scan the shared in-memory cache
     for (const war of Object.values(sharedVillageWarCache)) {
-        if (!war.warCrateId) continue;
-        if (war.winnerVillage !== character.village) continue;
-        if (claimed.has(war.warCrateId)) continue;
+        // Skip wars older than expiry on either branch below.
         if (!war.endedAt || now - war.endedAt > WAR_CRATE_EXPIRY_MS) continue;
-        toAdd.push(war.warCrateId);
+
+        // 1. Winner crate — every player in the winning village.
+        if (war.warCrateId && war.winnerVillage === myVillage && !claimed.has(war.warCrateId)) {
+            cratesToAdd.push(war.warCrateId);
+            idsToAdd.push(war.warCrateId);
+        }
+
+        // 2. MVP crate — top-contributor on EITHER side. Server stamps
+        //    mvpByVillage[village] = display name; if it matches the
+        //    current player and we haven't already claimed, grant an
+        //    extra Legendary Crate + bonus currency. Recognizes the
+        //    best raider per side even on the losing side.
+        const mvpName = war.mvpByVillage?.[myVillage];
+        const mvpId = `mvp-crate-${war.id}`;
+        if (mvpName && mvpName === myName && !claimed.has(mvpId)) {
+            cratesToAdd.push(mvpId);
+            idsToAdd.push(mvpId);
+            ryoBonus += 10_000;
+            honorBonus += 50;
+            shardsBonus += 2;
+            mvpAwarded = true;
+        }
+
+        // 3. Loss-consolation — losing-side players who contributed
+        //    ≥50 damage get a small inline grant (no inventory item).
+        //    Server only stamps loserCrateId when a real winner exists,
+        //    so draws skip this.
+        if (war.loserCrateId && war.winnerVillage && war.winnerVillage !== myVillage && war.villages.includes(myVillage)) {
+            if (!claimed.has(war.loserCrateId)) {
+                const myContrib = war.contributions?.[myName.toLowerCase()];
+                if (myContrib && myContrib.damage >= 50) {
+                    idsToAdd.push(war.loserCrateId);
+                    ryoBonus += 5_000;
+                    honorBonus += 25;
+                    shardsBonus += 1;
+                    consolationAwarded = true;
+                }
+            }
+        }
     }
 
-    if (toAdd.length === 0) return { character, count: 0 };
+    if (cratesToAdd.length === 0 && idsToAdd.length === 0 && ryoBonus === 0 && honorBonus === 0 && shardsBonus === 0) {
+        return { character, count: 0 };
+    }
 
     return {
         character: {
             ...character,
-            inventory: [...character.inventory, ...toAdd.map(() => LEGENDARY_WAR_CRATE_ID)],
-            claimedWarCrateIds: [...(character.claimedWarCrateIds ?? []), ...toAdd],
+            ryo: (character.ryo ?? 0) + ryoBonus,
+            honorSeals: (character.honorSeals ?? 0) + honorBonus,
+            fateShards: (character.fateShards ?? 0) + shardsBonus,
+            inventory: [...character.inventory, ...cratesToAdd.map(() => LEGENDARY_WAR_CRATE_ID)],
+            claimedWarCrateIds: [...(character.claimedWarCrateIds ?? []), ...idsToAdd],
         },
-        count: toAdd.length,
+        count: cratesToAdd.length,
+        mvp: mvpAwarded,
+        consolation: consolationAwarded,
     };
 }
 
@@ -13169,7 +13221,7 @@ export default function App() {
                         const villageWarRaid = context?.raidKind === "raidPlayer"
                             ? recordVillageWarRaid(character, rewardSector)
                             : { characterPatch: {} as Partial<Character>, warCrate: false };
-                        const villageWarPvpPatch = opponent ? recordVillageWarPvp(character, opponent) : "";
+                        const villageWarPvpPatch = opponent ? recordVillageWarPvp(character, opponent, rewardSector) : "";
                         const leveled = gainXp(character, xpGain);
                         const rewarded = grantTerritoryScrolls(leveled, 5);
                         // Spar/friendly-duel detection for non-Vanguard local effects
@@ -23828,6 +23880,13 @@ const VILLAGE_WAR_RAIDS_PER_MISSION = 3;
 const VILLAGE_WAR_MISSION_DAMAGE = 30;
 const VILLAGE_WAR_GROUND_CAPTURE_DAMAGE = 750;
 
+type VillageWarContribution = {
+    damage: number;
+    raids: number;
+    pvpKills: number;
+    side: string;       // village name
+    name: string;       // display name (for rendering leaderboard)
+};
 type VillageWar = {
     id: string;
     villages: [string, string];
@@ -23841,6 +23900,15 @@ type VillageWar = {
     winnerVillage?: string;
     endedAt?: number;
     warCrateId?: string;
+    // Server-managed: keyed by lowercase player name. Drives the live
+    // raid leaderboard during war and the MVP-stamp on war end.
+    contributions?: Record<string, VillageWarContribution>;
+    // village → MVP display name. Stamped server-side at war end.
+    mvpByVillage?: Record<string, string>;
+    // Set at war end ONLY if there's a winner (draws give nothing).
+    // Each losing-village player who contributed ≥50 damage can claim
+    // it once via claimedWarCrateIds dedup.
+    loserCrateId?: string;
 };
 
 function villageWarId(villageA: string, villageB: string) {
@@ -23865,6 +23933,9 @@ function normalizeVillageWar(data: Partial<VillageWar> & { villages: [string, st
         winnerVillage: data.winnerVillage,
         endedAt: data.endedAt,
         warCrateId: data.warCrateId,
+        contributions: data.contributions,
+        mvpByVillage: data.mvpByVillage,
+        loserCrateId: data.loserCrateId,
     };
 }
 
@@ -23988,6 +24059,11 @@ function applyVillageWarDamage(war: VillageWar, damagedVillage: string, amount: 
 function recordWarOutcomeToVillages(war: VillageWar, loserVillage: string, winnerVillage: string) {
     const dateStr = new Date().toLocaleDateString();
     const finalScore = `${war.hp[winnerVillage] ?? 0} – ${war.hp[loserVillage] ?? 0}`;
+    // Server-stamped MVPs (set in api/world-state.ts at the moment the
+    // war flips to ended). Fall back to "—" only if the server didn't
+    // record any contributions for that side (e.g. AFK village).
+    const winnerMvp = war.mvpByVillage?.[winnerVillage] ?? "—";
+    const loserMvp = war.mvpByVillage?.[loserVillage] ?? "—";
     for (const village of war.villages) {
         const isWinner = village === winnerVillage;
         const state = loadVillageState(village);
@@ -23995,10 +24071,10 @@ function recordWarOutcomeToVillages(war: VillageWar, loserVillage: string, winne
             opponent: village === war.villages[0] ? war.villages[1] : war.villages[0],
             winner: winnerVillage,
             finalScore,
-            topDefender: "—",
-            topAttacker: "—",
+            topDefender: isWinner ? winnerMvp : loserMvp,
+            topAttacker: isWinner ? winnerMvp : loserMvp,
             mvpClan: "—",
-            rewards: isWinner ? "Legendary War Crate" : "—",
+            rewards: isWinner ? "Legendary War Crate (MVP: +1 extra crate, +10k ryo, +50 Honor Seals, +2 Fate Shards)" : "Loss consolation: +5k ryo, +25 Honor Seals, +1 Fate Shard (contributors only)",
             date: dateStr,
         };
         const noticeTitle = isWinner ? "Village War Won" : "Village War Lost";
@@ -24016,12 +24092,25 @@ function recordWarOutcomeToVillages(war: VillageWar, loserVillage: string, winne
     }
 }
 
-function recordVillageWarPvp(winner: Character, loser: Character) {
+function recordVillageWarPvp(winner: Character, loser: Character, sector?: number) {
     const war = activeVillageWarBetween(winner.village, loser.village);
     if (!war) return "";
-    const damage = villageWarRoleValue(winner) + villageWarLossPenalty(loser);
+    let damage = villageWarRoleValue(winner) + villageWarLossPenalty(loser);
+    // Home-defender bonus: when the WINNER is fighting in a sector
+    // owned by their own village, scale damage 1.5×. Rewards defenders
+    // for repelling raiders on home turf and offsets the inherent
+    // attacker-advantage of getting to pick when to strike.
+    let homeBonus = false;
+    if (sector !== undefined) {
+        const territory = sharedTerritoryCache[sector];
+        if (territory?.ownerVillage === winner.village) {
+            damage = Math.floor(damage * 1.5);
+            homeBonus = true;
+        }
+    }
     const updated = applyVillageWarDamage(war, loser.village, damage);
-    return ` Village War: ${loser.village} HP -${damage} (${updated.hp[loser.village]}/${VILLAGE_WAR_HP_MAX}).`;
+    const tag = homeBonus ? " [Home Defender +50%]" : "";
+    return ` Village War: ${loser.village} HP -${damage}${tag} (${updated.hp[loser.village]}/${VILLAGE_WAR_HP_MAX}).`;
 }
 
 function recordVillageWarRaid(character: Character, sector: number) {
@@ -32834,7 +32923,7 @@ function Arena({
         // war as a player-vs-player meta. The win-condition is unchanged:
         // PvP raids still drive both warGroundHp and the enemy village HP.
         const villageWarRaid = (raidBattleKind === "raidPlayer") ? recordVillageWarRaid(character, currentSector) : { note: "", characterPatch: {} as Partial<Character>, warCrate: false };
-        const villageWarPvpNote = opponentCharacter ? recordVillageWarPvp(character, opponentCharacter) : "";
+        const villageWarPvpNote = opponentCharacter ? recordVillageWarPvp(character, opponentCharacter, currentSector) : "";
         const rewarded = grantTerritoryScrolls(leveled, territoryScrollReward);
         const deathsGateBoneCharm = deathsGatePvp && Math.random() < 0.05 ? 1 : 0;
         updateCharacter({
@@ -36867,6 +36956,42 @@ function VillageWarScreen({
                             <div>War Ground (sector {activeWar.warGroundSector}): {activeWar.warGroundHp}</div>
                         </div>
                     </div>
+                    {/* Per-village live contribution leaderboard. Server
+                        accumulates damage on every raid/PvP write; we
+                        show top-3 on each side so MVP is visible at a
+                        glance. Read-only — no editable state. */}
+                    {(() => {
+                        const contribs = Object.values(activeWar.contributions ?? {});
+                        if (contribs.length === 0) return null;
+                        const mySide = contribs.filter(c => c.side === myVillage).sort((a, b) => b.damage - a.damage).slice(0, 3);
+                        const enemySide = contribs.filter(c => c.side === enemyVillage).sort((a, b) => b.damage - a.damage).slice(0, 3);
+                        return (
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: "1rem" }}>
+                                <div style={{ background: "#0a1f0a", border: "1px solid #4ade80", borderRadius: 6, padding: "0.6rem" }}>
+                                    <strong style={{ color: "#4ade80" }}>🏆 {myVillage} Top Raiders</strong>
+                                    {mySide.length === 0
+                                        ? <p style={{ fontSize: "0.8rem", color: "#94a3b8", margin: "0.4rem 0 0" }}>No raids yet. Be the first.</p>
+                                        : mySide.map((c, i) => (
+                                            <div key={c.name} style={{ fontSize: "0.85rem", marginTop: 4, display: "flex", justifyContent: "space-between" }}>
+                                                <span>{i + 1}. <strong>{c.name}</strong></span>
+                                                <span style={{ color: "#fde047" }}>{c.damage} dmg · {c.raids} raids</span>
+                                            </div>
+                                        ))}
+                                </div>
+                                <div style={{ background: "#1f0a0a", border: "1px solid #f87171", borderRadius: 6, padding: "0.6rem" }}>
+                                    <strong style={{ color: "#f87171" }}>⚔ {enemyVillage} Top Raiders</strong>
+                                    {enemySide.length === 0
+                                        ? <p style={{ fontSize: "0.8rem", color: "#94a3b8", margin: "0.4rem 0 0" }}>Enemy hasn't raided yet.</p>
+                                        : enemySide.map((c, i) => (
+                                            <div key={c.name} style={{ fontSize: "0.85rem", marginTop: 4, display: "flex", justifyContent: "space-between" }}>
+                                                <span>{i + 1}. <strong>{c.name}</strong></span>
+                                                <span style={{ color: "#fde047" }}>{c.damage} dmg · {c.raids} raids</span>
+                                            </div>
+                                        ))}
+                                </div>
+                            </div>
+                        );
+                    })()}
                     <h3>Enemy Sectors — Raid to drain control</h3>
                     <p style={{ color: "#facc15", fontSize: "0.85rem", marginTop: -4 }}>
                         ⚑ The war ends when the <strong>war-ground sector ({activeWar.warGroundSector})</strong> reaches 0 HP.
@@ -36897,12 +37022,23 @@ function VillageWarScreen({
                     {isKage ? (
                         <div style={{ marginTop: "1rem", padding: "0.8rem", background: "#0a0a1a", borderRadius: 8 }}>
                             <h3 style={{ marginTop: 0 }}>Declare War (Kage)</h3>
+                            <p style={{ fontSize: "0.8rem", color: "#fbbf24", marginTop: 0, marginBottom: "0.5rem" }}>
+                                Cost: <strong>50,000 ryo</strong> · Rematch cooldown: 7 days · One war per village at a time
+                            </p>
                             <select value={declareTarget} onChange={e => setDeclareTarget(e.target.value)} style={{ padding: "0.4rem", marginRight: "0.5rem" }}>
                                 <option value="">Select target village…</option>
                                 {villages.map(v => <option key={v} value={v}>{v}</option>)}
                             </select>
-                            <button disabled={!declareTarget || declaring} onClick={declareWar} style={{ padding: "0.5rem 1rem", background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171" }}>
-                                {declaring ? "Declaring…" : "⚔ Declare War"}
+                            <button
+                                disabled={!declareTarget || declaring || (character.ryo ?? 0) < 50_000}
+                                onClick={() => {
+                                    if (!window.confirm(`Declare war on ${declareTarget}? This will cost 50,000 ryo from your treasury.`)) return;
+                                    void declareWar();
+                                }}
+                                style={{ padding: "0.5rem 1rem", background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171" }}
+                                title={(character.ryo ?? 0) < 50_000 ? "Need 50,000 ryo" : undefined}
+                            >
+                                {declaring ? "Declaring…" : (character.ryo ?? 0) < 50_000 ? `⚔ Declare War (need 50k ryo — have ${(character.ryo ?? 0).toLocaleString()})` : "⚔ Declare War — 50k ryo"}
                             </button>
                         </div>
                     ) : (
