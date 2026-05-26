@@ -6480,7 +6480,7 @@ body {
 .stormveil-village-screen {
     position: relative;
     min-height: 820px;
-    margin-top: 18px;
+    margin-top: 96px;
     overflow: hidden;
     border: 3px solid rgba(250, 204, 21, 0.65);
     border-radius: 14px;
@@ -15479,6 +15479,7 @@ button.combat-jutsu-button,
 @media (max-width: 800px) {
   .stormveil-village-screen {
     min-height: unset !important;
+    margin-top: 18px !important; /* tight on mobile — vertical space is scarce */
   }
 
   /* Keep the inline-style background image visible;
