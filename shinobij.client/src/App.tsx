@@ -23141,6 +23141,22 @@ async function fetchClanData(name: string): Promise<ClanData | null> {
         return res.json();
     } catch { return null; }
 }
+// Same as fetchClanData but tells the caller whether the failure was a
+// definitive "clan doesn't exist" (HTTP 404) or just a transient network /
+// auth error. The Clan Hall uses this to auto-clear a player's stale clan
+// reference when the clan was wiped (e.g. by a server reset) while leaving
+// transient failures alone so the player isn't booted by a flaky request.
+async function fetchClanDataDetailed(name: string): Promise<{ ok: true; data: ClanData } | { ok: false; reason: "notFound" | "error" }> {
+    try {
+        const res = await fetch(`/api/save/${clanSlug(name)}`);
+        if (res.status === 404) return { ok: false, reason: "notFound" };
+        if (!res.ok) return { ok: false, reason: "error" };
+        const data = await res.json() as ClanData;
+        return { ok: true, data };
+    } catch {
+        return { ok: false, reason: "error" };
+    }
+}
 async function writeClanData(data: ClanData): Promise<void> {
     await fetch(`/api/save/${clanSlug(data.name)}`, {
         method: "POST",
@@ -23223,6 +23239,10 @@ function ClanHall({ character, updateCharacter, creatorItems }: { character: Cha
     const [view, setView] = useState<"roster" | "guard" | "treasury" | "boosts" | "missions" | "wars" | "territory" | "notices" | "hall">("roster");
     const [loading, setLoading] = useState(false);
     const [clanData, setClanData] = useState<EnhancedClanData | null>(null);
+    // "ok" while data loaded fine, "notFound" when the server has no record
+    // for this clan (e.g. it was wiped by a reset), "error" for transient
+    // failures (network down, 5xx). Used to pick a clearer error UI.
+    const [clanLoadStatus, setClanLoadStatus] = useState<"ok" | "notFound" | "error">("ok");
     const [availableClans, setAvailableClans] = useState<EnhancedClanData[]>([]);
     const [clanListLoading, setClanListLoading] = useState(false);
     const [guardList, setGuardList] = useState<{ name: string; level: number; defenseBonusPercent?: number }[]>([]);
@@ -23269,15 +23289,20 @@ function ClanHall({ character, updateCharacter, creatorItems }: { character: Cha
     }
 
     useEffect(() => {
-        if (!character.clan) { setClanData(null); return; }
+        if (!character.clan) { setClanData(null); setClanLoadStatus("ok"); return; }
         setLoading(true);
-        fetchClanData(character.clan).then(async data => {
-            if (!data) { setClanData(null); setLoading(false); return; }
-            const enhanced = enhanceClanData(data);
+        fetchClanDataDetailed(character.clan).then(async result => {
+            if (!result.ok) {
+                setClanData(null);
+                setClanLoadStatus(result.reason);
+                setLoading(false);
+                return;
+            }
+            const enhanced = enhanceClanData(result.data);
             const myEntry = myMemberEntry();
             const exists = enhanced.members.find(m => m.name === character.name);
             const synced = enhanceClanData({ ...enhanced, members: exists ? enhanced.members.map(m => m.name === character.name ? { ...m, ...myEntry, isFounder: m.isFounder || myEntry.isFounder } : m) : [...enhanced.members, myEntry] });
-            setClanData(synced); await writeClanData(synced); setLoading(false);
+            setClanData(synced); setClanLoadStatus("ok"); await writeClanData(synced); setLoading(false);
         });
     }, [character.clan, character.name, character.level, character.village, character.specialty, character.clanBattleContrib, character.clanEventContrib, character.clanMissionContrib]);
 
@@ -23527,7 +23552,31 @@ function ClanHall({ character, updateCharacter, creatorItems }: { character: Cha
 
     if (!isInClan) return <div className="card clan-hall-screen"><div className="clan-create-hero"><div><p className="act-label">{character.village}</p><h2>Clan Hall</h2><p className="hint">{lore?.motto}</p></div><ClanImageMark image={clanImage} name={clanName || "Clan"} village={character.village} /></div><p>{lore?.lore}</p><div className="clan-join-grid"><div className="summary-box"><h3>Create Clan</h3><p className="hint">Become founder, open a clan treasury, unlock member-count boosts, missions, wars, and a growing clan hall.</p><label>Clan Name</label><input value={clanName} onChange={e => setClanName(e.target.value)} placeholder="Example: Fated Reunion" /><label>Clan Image</label><input type="file" accept="image/*" onChange={(event) => { const file = event.target.files?.[0]; if (file) readImageFile(file, setClanImage, 100); }} />{clanImage && <div className="admin-event-list-preview"><img src={clanImage} alt={clanName || "Clan"} /></div>}<button onClick={createClan}>Create Clan</button></div><div className="summary-box clan-browse-panel"><div className="clan-section-title"><div><h3>Current Clans</h3><p className="hint">Request to join any clan from your village. Leaders and Clan Elders approve requests in their Clan Hall.</p></div><button onClick={loadAvailableClans} disabled={clanListLoading}>{clanListLoading ? "Loading..." : "Refresh"}</button></div>{availableClans.length === 0 ? <p className="hint">{clanListLoading ? "Loading clans..." : "No clans from your village exist yet."}</p> : <div className="clan-request-list">{availableClans.map(clan => { const requested = clan.joinRequests.some(request => request.name === character.name); return <div className="clan-request-card" key={clan.name}><ClanImageMark image={clan.image} name={clan.name} village={clan.village} /><div><strong>{clan.name}</strong><small>{clan.village} · Lv.{clan.level} · {clan.members.length} members</small><small>Founder: {clan.founderName}</small></div><button disabled={requested} onClick={() => requestJoinClan(clan)}>{requested ? "Request Sent" : "Request Join"}</button></div>; })}</div>}</div></div></div>;
     if (loading) return <div className="card"><p style={{ color: "#94a3b8" }}>Loading clan data…</p></div>;
-    if (!clanData) return <div className="card"><h2>Clan Hall</h2><p>Could not load clan data for <strong>{character.clan}</strong>.</p><button className="danger-button" onClick={leaveClan}>Leave Clan</button></div>;
+    if (!clanData) {
+        const isMissing = clanLoadStatus === "notFound";
+        return (
+            <div className="card">
+                <h2>Clan Hall</h2>
+                {isMissing ? (
+                    <>
+                        <p>The clan <strong>{character.clan}</strong> no longer exists on the server. It may have been deleted by its founder or wiped during a server reset.</p>
+                        <p className="hint">Leave the clan to free up your clan slot — then you can join another clan or create a new one from the Clan Hall.</p>
+                    </>
+                ) : (
+                    <>
+                        <p>Could not reach the clan server. This is usually a temporary network or storage hiccup.</p>
+                        <p className="hint">Try refreshing in a moment. If the problem persists, leaving the clan will clear it from your character so you can rejoin or create another.</p>
+                    </>
+                )}
+                <div className="menu">
+                    {!isMissing && (
+                        <button onClick={() => { if (character.clan) { setLoading(true); void fetchClanDataDetailed(character.clan).then(r => { if (r.ok) { setClanData(enhanceClanData(r.data)); setClanLoadStatus("ok"); } else { setClanLoadStatus(r.reason); } setLoading(false); }); } }}>Retry</button>
+                    )}
+                    <button className="danger-button" onClick={leaveClan}>Leave Clan</button>
+                </div>
+            </div>
+        );
+    }
 
     const founderEntry = clanData.members.find(m => m.name === clanData.founderName);
     const nonFounders = [...clanData.members].filter(m => m.name !== clanData.founderName).sort((a, b) => clanContribTotal(b) - clanContribTotal(a));
