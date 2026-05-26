@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type ChangeEvent, type Dispatch, type SetStateAction } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type ChangeEvent, type Dispatch, type SetStateAction } from "react";
 import { createPortal } from "react-dom";
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect, react-hooks/purity */
 import type * as React from "react";
@@ -25667,8 +25667,103 @@ function VillagePill({ village, highlight = false }: { village: string; highligh
 }
 
 // -- Shinobi Council Hall -----------------------------------------------------
+// ── Clan War (new server-managed system) types + client helpers ────
+// Mirror server-side ClanWar / ClanChallenge so the UI binds cleanly.
+// Damage tier kept inline so the UI can show "this challenge is worth
+// X HP" without round-tripping the server constants.
+type CwChallengeMode = "pvp1v1" | "pvp2v2" | "pet1v1" | "pet2v2" | "tilecards";
+type CwChallengeStatus = "pending" | "accepted" | "completed" | "expired" | "cancelled";
+type CwChallengeResult = "from-wins" | "to-wins" | "draw";
+type CwChallenge = {
+    id: string;
+    mode: CwChallengeMode;
+    fromClan: string;
+    fromPlayer: string;
+    fromPlayer2?: string;
+    createdAt: number;
+    status: CwChallengeStatus;
+    expiresAt: number;
+    acceptedAt?: number;
+    acceptedPlayer?: string;
+    acceptedPlayer2?: string;
+    completedAt?: number;
+    result?: CwChallengeResult;
+    battleId?: string;
+    petBattleSeed?: number;
+};
+type CwWar = {
+    id: string;
+    clans: [string, string];
+    villages: Record<string, string>;
+    hp: Record<string, number>;
+    startedAt: number;
+    updatedAt: number;
+    endedAt?: number;
+    winnerClan?: string;
+    declaredBy: string;
+    pendingChallenges: CwChallenge[];
+    completedChallenges: CwChallenge[];
+    warCrateId?: string;
+    mvpByClan?: Record<string, string>;
+};
+const CW_HP_MAX = 1000;
+const CW_DAMAGE: Record<CwChallengeMode, number> = {
+    pvp1v1: 30,
+    pvp2v2: 60,
+    pet1v1: 20,
+    pet2v2: 40,
+    tilecards: 10,
+};
+const CW_MODE_LABEL: Record<CwChallengeMode, string> = {
+    pvp1v1: "1v1 PvP",
+    pvp2v2: "2v2 PvP",
+    pet1v1: "Pet 1v1",
+    pet2v2: "Pet 2v2",
+    tilecards: "Tile Cards",
+};
+const CW_MODE_ICON: Record<CwChallengeMode, string> = {
+    pvp1v1: "⚔",
+    pvp2v2: "⚔⚔",
+    pet1v1: "🐾",
+    pet2v2: "🐾🐾",
+    tilecards: "🃏",
+};
+
+async function cwListWars(): Promise<CwWar[]> {
+    try {
+        const r = await fetch("/api/clan/war/list");
+        if (!r.ok) return [];
+        const data = await r.json() as { wars?: CwWar[] };
+        return data.wars ?? [];
+    } catch { return []; }
+}
+async function cwDeclareWar(toClan: string): Promise<{ ok: boolean; error?: string; war?: CwWar }> {
+    try {
+        const r = await fetch("/api/clan/war/declare", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ toClan }),
+        });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) return { ok: false, error: data.error ?? `HTTP ${r.status}` };
+        return { ok: true, war: data.war };
+    } catch (e) { return { ok: false, error: String((e as Error).message) }; }
+}
+async function cwChallengeAction(body: Record<string, unknown>): Promise<{ ok: boolean; error?: string; war?: CwWar; challenge?: CwChallenge }> {
+    try {
+        const r = await fetch("/api/clan/war/challenge", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+        });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) return { ok: false, error: data.error ?? `HTTP ${r.status}` };
+        return { ok: true, war: data.war, challenge: data.challenge };
+    } catch (e) { return { ok: false, error: String((e as Error).message) }; }
+}
+
 function ShinobiCouncilHall({ character, setScreen, playerRoster }: { character: Character; setScreen: (s: Screen) => void; playerRoster: PlayerRecord[] }) {
-    const [tab, setTab] = useState<"wars" | "kage">("wars");
+    const [tab, setTab] = useState<"wars" | "clanBattles" | "kage">("wars");
 
     // --- Village Wars ---
     const allVillagePairs: [string, string][] = [];
@@ -25775,6 +25870,7 @@ function ShinobiCouncilHall({ character, setScreen, playerRoster }: { character:
 
             <div className="council-tabs">
                 <button className={`council-tab ${tab === "wars" ? "council-tab-active" : ""}`} onClick={() => setTab("wars")}>⚔️ Active Wars</button>
+                <button className={`council-tab ${tab === "clanBattles" ? "council-tab-active" : ""}`} onClick={() => setTab("clanBattles")}>🏴 Clan Battles</button>
                 <button className={`council-tab ${tab === "kage" ? "council-tab-active" : ""}`} onClick={() => setTab("kage")}>👑 Kage Records</button>
             </div>
 
@@ -25849,6 +25945,8 @@ function ShinobiCouncilHall({ character, setScreen, playerRoster }: { character:
                 }
             </section></>}
 
+            {tab === "clanBattles" && <ClanBattlesTab character={character} playerRoster={playerRoster} setScreen={setScreen} />}
+
             {tab === "kage" && <section className="council-section">
                 <h3 className="council-section-title">👑 Kage Records — All Villages</h3>
                 {sortedKageHistory.length === 0
@@ -25885,6 +25983,332 @@ function ShinobiCouncilHall({ character, setScreen, playerRoster }: { character:
                 }
             </section>}
         </div>
+    );
+}
+
+// ── ClanBattlesTab ──────────────────────────────────────────────────
+// New server-managed clan-war system. Lives inside Shinobi Council
+// Hall as a dedicated tab. Owns its own polling loop + state; the
+// parent only needs to mount it.
+function ClanBattlesTab({ character, playerRoster, setScreen }: { character: Character; playerRoster: PlayerRecord[]; setScreen: (s: Screen) => void }) {
+    void setScreen; // reserved — battle routing wires in Phase 3
+    const [wars, setWars] = useState<CwWar[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
+    const [busy, setBusy] = useState(false);
+    const [declareTarget, setDeclareTarget] = useState("");
+    const [composeMode, setComposeMode] = useState<CwChallengeMode>("pvp1v1");
+    const [composePartner, setComposePartner] = useState("");
+    const [acceptPartner, setAcceptPartner] = useState<Record<string, string>>({});
+
+    const refresh = useCallback(async () => {
+        const list = await cwListWars();
+        setWars(list);
+        setLoading(false);
+    }, []);
+    useEffect(() => {
+        void refresh();
+        const id = setInterval(refresh, 15_000);
+        return () => clearInterval(id);
+    }, [refresh]);
+
+    const myClan = (character.clan ?? "").trim();
+    const myClanmates: string[] = useMemo(() => {
+        if (!myClan) return [];
+        return playerRoster
+            .filter(p => (p.character?.clan ?? "") === myClan && p.name.toLowerCase() !== character.name.toLowerCase())
+            .map(p => p.name)
+            .sort((a: string, b: string) => a.localeCompare(b));
+    }, [playerRoster, myClan, character.name]);
+    const myWar = wars.find(w => !w.endedAt && w.clans.includes(myClan));
+    const enemyClan = myWar?.clans.find(c => c !== myClan) ?? "";
+
+    // Eligible clans to declare war on: any clan that exists in the
+    // roster, isn't mine, and isn't currently in a clan war.
+    const clansInWar = new Set<string>();
+    for (const w of wars) if (!w.endedAt) for (const c of w.clans) clansInWar.add(c);
+    const eligibleTargets: string[] = useMemo(() => {
+        const set = new Set<string>();
+        for (const p of playerRoster) {
+            const clan = (p.character?.clan ?? "").trim();
+            if (!clan) continue;
+            if (clan === myClan) continue;
+            if (clansInWar.has(clan)) continue;
+            set.add(clan);
+        }
+        return [...set].sort((a: string, b: string) => a.localeCompare(b));
+    }, [playerRoster, myClan, clansInWar]);
+
+    // Leadership gate — mirror the server's loadClanContext. Founder
+    // flag is on the character; Leader/Officer come from clan record's
+    // roleOverrides. We optimistically allow Founder via clanFounder
+    // flag; if the role check fails server-side the API surfaces the
+    // error.
+    const canLead = character.clanFounder === true;
+
+    async function handleDeclare() {
+        if (!declareTarget) return;
+        if (!window.confirm(`Declare clan war on ${declareTarget}? Both clans will see this in the Shinobi Council Hall.`)) return;
+        setBusy(true);
+        const result = await cwDeclareWar(declareTarget);
+        setBusy(false);
+        if (!result.ok) { setError(result.error ?? "Failed."); return; }
+        setError("");
+        setDeclareTarget("");
+        await refresh();
+    }
+
+    async function handleSend() {
+        if (!myWar) return;
+        const needsPartner = composeMode === "pvp2v2" || composeMode === "pet2v2";
+        if (needsPartner && !composePartner) { setError("Pick a partner for a 2v2 challenge."); return; }
+        setBusy(true);
+        const result = await cwChallengeAction({
+            action: "send",
+            warId: myWar.id,
+            mode: composeMode,
+            fromPlayer2: needsPartner ? composePartner : undefined,
+        });
+        setBusy(false);
+        if (!result.ok) { setError(result.error ?? "Failed."); return; }
+        setError("");
+        setComposePartner("");
+        await refresh();
+    }
+
+    async function handleAccept(ch: CwChallenge) {
+        if (!myWar) return;
+        const needsPartner = ch.mode === "pvp2v2" || ch.mode === "pet2v2";
+        const partner = acceptPartner[ch.id] ?? "";
+        if (needsPartner && !partner) { setError("Pick a partner before accepting a 2v2 challenge."); return; }
+        setBusy(true);
+        const result = await cwChallengeAction({
+            action: "accept",
+            warId: myWar.id,
+            challengeId: ch.id,
+            acceptedPlayer2: needsPartner ? partner : undefined,
+        });
+        setBusy(false);
+        if (!result.ok) { setError(result.error ?? "Failed."); return; }
+        setError("");
+        await refresh();
+        // Phase 3 will route both clients to the appropriate battle
+        // screen here. For now the accepted challenge stays in the
+        // pending list so testers can see the flow.
+    }
+
+    async function handleCancel(challengeId: string) {
+        if (!myWar) return;
+        setBusy(true);
+        const result = await cwChallengeAction({ action: "cancel", warId: myWar.id, challengeId });
+        setBusy(false);
+        if (!result.ok) { setError(result.error ?? "Failed."); return; }
+        setError("");
+        await refresh();
+    }
+
+    async function handleDecline(challengeId: string) {
+        if (!myWar) return;
+        setBusy(true);
+        const result = await cwChallengeAction({ action: "decline", warId: myWar.id, challengeId });
+        setBusy(false);
+        if (!result.ok) { setError(result.error ?? "Failed."); return; }
+        setError("");
+        await refresh();
+    }
+
+    if (!myClan) {
+        return (
+            <section className="council-section">
+                <h3 className="council-section-title">🏴 Clan Battles</h3>
+                <p className="council-empty">Join a clan to participate in clan wars.</p>
+            </section>
+        );
+    }
+
+    return (
+        <section className="council-section">
+            <h3 className="council-section-title">🏴 Clan Battles</h3>
+            {error && <div style={{ color: "#f87171", marginBottom: "0.5rem", padding: "0.4rem 0.6rem", background: "#3b0a0a", borderRadius: 4 }}>⚠ {error}</div>}
+            {loading && <p className="council-empty">Loading clan wars…</p>}
+
+            {!loading && myWar && (
+                <>
+                    {/* My active war — HP bars + challenge composer + inbox */}
+                    <div className="council-war-card" style={{ marginBottom: "1rem" }}>
+                        <div className="council-vs-row">
+                            <div className={`council-side ${character.clan === myClan ? "council-mine" : ""}`}>
+                                <span className="council-village-name">{myClan}</span>
+                                <span className="council-hp-label">{(myWar.hp[myClan] ?? 0).toLocaleString()} / {CW_HP_MAX.toLocaleString()} HP</span>
+                                <div className="council-hp-track"><div className="council-hp-fill" style={{ width: `${Math.max(0, Math.min(100, ((myWar.hp[myClan] ?? 0) / CW_HP_MAX) * 100))}%`, background: "#22c55e" }} /></div>
+                                {myWar.mvpByClan?.[myClan] && <span className="council-top">👑 MVP: {myWar.mvpByClan[myClan]}</span>}
+                            </div>
+                            <div className="council-vs">VS</div>
+                            <div className="council-side council-side-right">
+                                <span className="council-village-name">{enemyClan}</span>
+                                <span className="council-hp-label">{(myWar.hp[enemyClan] ?? 0).toLocaleString()} / {CW_HP_MAX.toLocaleString()} HP</span>
+                                <div className="council-hp-track"><div className="council-hp-fill" style={{ width: `${Math.max(0, Math.min(100, ((myWar.hp[enemyClan] ?? 0) / CW_HP_MAX) * 100))}%`, background: "#ef4444" }} /></div>
+                                {myWar.mvpByClan?.[enemyClan] && <span className="council-top">👑 MVP: {myWar.mvpByClan[enemyClan]}</span>}
+                            </div>
+                        </div>
+                        <div className="council-war-meta">
+                            Started {new Date(myWar.startedAt).toLocaleDateString()} · {myWar.completedChallenges.length} battles completed
+                        </div>
+                    </div>
+
+                    {/* Send a challenge */}
+                    <div style={{ background: "#0b1220", border: "1px solid #334155", borderRadius: 6, padding: "0.8rem", marginBottom: "1rem" }}>
+                        <strong style={{ color: "#60a5fa" }}>⚔ Send Anonymous Challenge to {enemyClan}</strong>
+                        <p style={{ fontSize: "0.78rem", color: "#94a3b8", margin: "4px 0 8px" }}>
+                            {enemyClan} will see your clan but not the specific challenger until they accept.
+                        </p>
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                            <select value={composeMode} onChange={e => setComposeMode(e.target.value as CwChallengeMode)} style={{ padding: "0.35rem" }} disabled={busy}>
+                                {(Object.keys(CW_MODE_LABEL) as CwChallengeMode[]).map(m => (
+                                    <option key={m} value={m}>{CW_MODE_ICON[m]} {CW_MODE_LABEL[m]} (−{CW_DAMAGE[m]} HP)</option>
+                                ))}
+                            </select>
+                            {(composeMode === "pvp2v2" || composeMode === "pet2v2") && (
+                                <select value={composePartner} onChange={e => setComposePartner(e.target.value)} style={{ padding: "0.35rem" }} disabled={busy}>
+                                    <option value="">Pick your partner…</option>
+                                    {myClanmates.map(n => <option key={n} value={n}>{n}</option>)}
+                                </select>
+                            )}
+                            <button onClick={handleSend} disabled={busy} style={{ padding: "0.4rem 0.8rem", background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171" }}>
+                                {busy ? "Sending…" : "Send Challenge"}
+                            </button>
+                        </div>
+                        {myClanmates.length === 0 && (composeMode === "pvp2v2" || composeMode === "pet2v2") && (
+                            <p style={{ fontSize: "0.78rem", color: "#fbbf24", marginTop: 6 }}>You need at least one other active clanmate online for 2v2 challenges.</p>
+                        )}
+                    </div>
+
+                    {/* Incoming challenges — anonymous to defender */}
+                    {(() => {
+                        const incoming = myWar.pendingChallenges.filter(c => c.fromClan === enemyClan && c.status === "pending");
+                        if (incoming.length === 0) return null;
+                        return (
+                            <div style={{ background: "#1f0a0a", border: "1px solid #f87171", borderRadius: 6, padding: "0.8rem", marginBottom: "1rem" }}>
+                                <strong style={{ color: "#f87171" }}>🚨 Incoming Challenges ({incoming.length})</strong>
+                                <p style={{ fontSize: "0.78rem", color: "#fcd34d", margin: "4px 0 8px" }}>
+                                    {enemyClan} sent these. Challenger names are hidden until you accept.
+                                </p>
+                                {incoming.map(ch => {
+                                    const needsPartner = ch.mode === "pvp2v2" || ch.mode === "pet2v2";
+                                    const minsLeft = Math.max(1, Math.ceil((ch.expiresAt - Date.now()) / 60_000));
+                                    return (
+                                        <div key={ch.id} style={{ background: "#0b1220", padding: "0.5rem 0.7rem", borderRadius: 4, marginTop: 6, display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+                                            <strong style={{ flex: 1, minWidth: 200 }}>{CW_MODE_ICON[ch.mode]} {CW_MODE_LABEL[ch.mode]} <span style={{ color: "#94a3b8", fontWeight: 400 }}>(worth −{CW_DAMAGE[ch.mode]} HP · expires in {minsLeft}m)</span></strong>
+                                            {needsPartner && (
+                                                <select value={acceptPartner[ch.id] ?? ""} onChange={e => setAcceptPartner({ ...acceptPartner, [ch.id]: e.target.value })} style={{ padding: "0.3rem" }} disabled={busy}>
+                                                    <option value="">Pick partner…</option>
+                                                    {myClanmates.map(n => <option key={n} value={n}>{n}</option>)}
+                                                </select>
+                                            )}
+                                            <button onClick={() => handleAccept(ch)} disabled={busy} style={{ padding: "0.3rem 0.6rem", background: "#15803d", borderColor: "#4ade80" }}>Accept</button>
+                                            <button onClick={() => handleDecline(ch.id)} disabled={busy} className="danger-button" style={{ padding: "0.3rem 0.6rem", fontSize: "0.8rem" }}>Decline</button>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        );
+                    })()}
+
+                    {/* My outgoing challenges (still pending) */}
+                    {(() => {
+                        const outgoing = myWar.pendingChallenges.filter(c => c.fromClan === myClan);
+                        if (outgoing.length === 0) return null;
+                        return (
+                            <div style={{ background: "#0a1f0a", border: "1px solid #4ade80", borderRadius: 6, padding: "0.8rem", marginBottom: "1rem" }}>
+                                <strong style={{ color: "#4ade80" }}>📤 Your Clan's Pending Challenges ({outgoing.length})</strong>
+                                {outgoing.map(ch => {
+                                    const minsLeft = Math.max(1, Math.ceil((ch.expiresAt - Date.now()) / 60_000));
+                                    const mine = ch.fromPlayer.toLowerCase() === character.name.toLowerCase()
+                                        || (ch.fromPlayer2 ?? "").toLowerCase() === character.name.toLowerCase();
+                                    return (
+                                        <div key={ch.id} style={{ background: "#0b1220", padding: "0.5rem 0.7rem", borderRadius: 4, marginTop: 6, display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+                                            <strong style={{ flex: 1, minWidth: 200 }}>{CW_MODE_ICON[ch.mode]} {CW_MODE_LABEL[ch.mode]} <span style={{ color: "#94a3b8", fontWeight: 400 }}>· {ch.status} · {ch.fromPlayer}{ch.fromPlayer2 ? ` + ${ch.fromPlayer2}` : ""} · expires in {minsLeft}m</span></strong>
+                                            {ch.status === "pending" && mine && (
+                                                <button onClick={() => handleCancel(ch.id)} disabled={busy} className="danger-button" style={{ padding: "0.3rem 0.6rem", fontSize: "0.8rem" }}>Cancel</button>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        );
+                    })()}
+
+                    {/* Recent battles log */}
+                    {myWar.completedChallenges.length > 0 && (
+                        <div style={{ background: "#0b1220", border: "1px solid #334155", borderRadius: 6, padding: "0.8rem", marginBottom: "1rem" }}>
+                            <strong style={{ color: "#94a3b8" }}>📜 Recent Battles</strong>
+                            <div style={{ display: "grid", gap: 4, marginTop: 6, fontSize: "0.82rem" }}>
+                                {myWar.completedChallenges.slice(0, 10).map(ch => {
+                                    const winnerSide = ch.result === "from-wins" ? ch.fromClan : ch.result === "to-wins" ? (myWar.clans.find(c => c !== ch.fromClan) ?? "?") : null;
+                                    const tag = ch.status === "expired" ? "⏳ expired" :
+                                                ch.status === "cancelled" ? "✕ cancelled" :
+                                                ch.result === "draw" ? "🤝 draw" :
+                                                winnerSide ? `🏆 ${winnerSide} won (−${CW_DAMAGE[ch.mode]} enemy HP)` : "?";
+                                    return (
+                                        <div key={ch.id} style={{ color: winnerSide === myClan ? "#4ade80" : winnerSide === enemyClan ? "#f87171" : "#94a3b8" }}>
+                                            {CW_MODE_ICON[ch.mode]} {CW_MODE_LABEL[ch.mode]} — {tag}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+                </>
+            )}
+
+            {/* No active war — show declare form if I'm leadership */}
+            {!loading && !myWar && (
+                <div style={{ background: "#0b1220", border: "1px solid #334155", borderRadius: 6, padding: "0.8rem", marginBottom: "1rem" }}>
+                    <p style={{ marginTop: 0 }}>Your clan ({myClan}) is not currently in a clan war.</p>
+                    {canLead ? (
+                        <>
+                            <p style={{ fontSize: "0.82rem", color: "#fbbf24" }}>Wars run until one clan's 1,000 HP hits 0. 7-day rematch cooldown.</p>
+                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                <select value={declareTarget} onChange={e => setDeclareTarget(e.target.value)} style={{ padding: "0.35rem" }} disabled={busy}>
+                                    <option value="">Pick enemy clan…</option>
+                                    {eligibleTargets.map(c => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                                <button onClick={handleDeclare} disabled={busy || !declareTarget} style={{ padding: "0.4rem 0.8rem", background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171" }}>
+                                    {busy ? "Declaring…" : "⚔ Declare Clan War"}
+                                </button>
+                            </div>
+                            {eligibleTargets.length === 0 && <p style={{ fontSize: "0.78rem", color: "#94a3b8", marginTop: 6 }}>No eligible clans right now — all known clans are already in wars or unavailable.</p>}
+                        </>
+                    ) : (
+                        <p style={{ fontSize: "0.82rem", color: "#64748b", fontStyle: "italic" }}>Only your Clan Founder / Leader / Officer can declare a clan war.</p>
+                    )}
+                </div>
+            )}
+
+            {/* Spectator: other active clan wars */}
+            {(() => {
+                const others = wars.filter(w => !w.endedAt && !w.clans.includes(myClan));
+                if (others.length === 0) return null;
+                return (
+                    <div style={{ marginTop: "1rem", paddingTop: "0.8rem", borderTop: "1px solid #334155" }}>
+                        <h4 style={{ color: "#94a3b8", marginTop: 0, marginBottom: 8 }}>👁 Other Active Clan Wars</h4>
+                        <div style={{ display: "grid", gap: 8 }}>
+                            {others.map(w => {
+                                const [cA, cB] = w.clans;
+                                return (
+                                    <div key={w.id} style={{ background: "#0b1220", padding: "0.5rem 0.7rem", borderRadius: 4, fontSize: "0.85rem" }}>
+                                        <strong>{cA}</strong> <span style={{ color: "#64748b" }}>vs</span> <strong>{cB}</strong>
+                                        <div style={{ color: "#94a3b8", fontSize: "0.78rem", marginTop: 2 }}>
+                                            {cA}: {(w.hp[cA] ?? 0).toLocaleString()} HP · {cB}: {(w.hp[cB] ?? 0).toLocaleString()} HP · {w.completedChallenges.length} battles
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                );
+            })()}
+        </section>
     );
 }
 
