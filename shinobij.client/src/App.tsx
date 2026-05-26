@@ -23909,6 +23909,10 @@ type VillageWar = {
     // Each losing-village player who contributed ≥50 damage can claim
     // it once via claimedWarCrateIds dedup.
     loserCrateId?: string;
+    // Pre-war pending window. While > now, HP can't drop and the war
+    // can't be ended. Both villages get a notice + banner during this
+    // window so defenders can rally. No cancellation.
+    pendingUntil?: number;
 };
 
 function villageWarId(villageA: string, villageB: string) {
@@ -24095,6 +24099,13 @@ function recordWarOutcomeToVillages(war: VillageWar, loserVillage: string, winne
 function recordVillageWarPvp(winner: Character, loser: Character, sector?: number) {
     const war = activeVillageWarBetween(winner.village, loser.village);
     if (!war) return "";
+    // No war damage during the pre-war pending window — the server
+    // would reject the write anyway, but skipping client-side keeps
+    // the UI quiet and saves a round-trip.
+    if (war.pendingUntil && war.pendingUntil > Date.now()) {
+        const minsLeft = Math.max(1, Math.ceil((war.pendingUntil - Date.now()) / 60_000));
+        return ` Village War starts in ${minsLeft} min — fight didn't count yet.`;
+    }
     let damage = villageWarRoleValue(winner) + villageWarLossPenalty(loser);
     // Home-defender bonus: when the WINNER is fighting in a sector
     // owned by their own village, scale war-credit damage 1.15×.
@@ -24120,6 +24131,12 @@ function recordVillageWarPvp(winner: Character, loser: Character, sector?: numbe
 function recordVillageWarRaid(character: Character, sector: number) {
     const war = activeVillageWarsFor(character.village).find(candidate => candidate.warGroundSector === sector);
     if (!war || war.warGroundHp <= 0) return { note: "", characterPatch: {} as Partial<Character>, warCrate: false };
+    // Pre-war pending window — server rejects damage writes anyway, so
+    // bail early to avoid the noisy 409 in the console + UI.
+    if (war.pendingUntil && war.pendingUntil > Date.now()) {
+        const minsLeft = Math.max(1, Math.ceil((war.pendingUntil - Date.now()) / 60_000));
+        return { note: ` Village War starts in ${minsLeft} min — raid didn't damage HP yet.`, characterPatch: {} as Partial<Character>, warCrate: false };
+    }
     const enemyVillage = war.villages.find(village => village !== character.village);
     if (!enemyVillage) return { note: "", characterPatch: {} as Partial<Character>, warCrate: false };
     const damage = villageWarRoleValue(character);
@@ -26601,12 +26618,16 @@ function CentralHub({
                 const enemy = activeWarBanner.villages.find(v => v !== myVillage) ?? "?";
                 const myHp = activeWarBanner.hp?.[myVillage] ?? 0;
                 const enemyHp = activeWarBanner.hp?.[enemy] ?? 0;
-                const ageDays = Math.floor((Date.now() - activeWarBanner.startedAt) / (24 * 60 * 60 * 1000));
+                const isPending = !!activeWarBanner.pendingUntil && activeWarBanner.pendingUntil > Date.now();
+                const minsToWar = isPending ? Math.max(1, Math.ceil((activeWarBanner.pendingUntil! - Date.now()) / 60_000)) : 0;
+                const ageDays = Math.floor((Date.now() - (activeWarBanner.pendingUntil ?? activeWarBanner.startedAt)) / (24 * 60 * 60 * 1000));
                 return (
                     <div
                         style={{
-                            background: "linear-gradient(90deg, #450a0a, #1a1a2e, #450a0a)",
-                            border: "2px solid #f87171",
+                            background: isPending
+                                ? "linear-gradient(90deg, #3b2a05, #1a1a2e, #3b2a05)"
+                                : "linear-gradient(90deg, #450a0a, #1a1a2e, #450a0a)",
+                            border: `2px solid ${isPending ? "#fbbf24" : "#f87171"}`,
                             borderRadius: 8,
                             padding: "0.8rem 1rem",
                             margin: "0 0 1rem",
@@ -26614,18 +26635,31 @@ function CentralHub({
                             justifyContent: "space-between",
                             alignItems: "center",
                             gap: 12,
-                            boxShadow: "0 0 14px rgba(248, 113, 113, 0.25)",
+                            boxShadow: isPending
+                                ? "0 0 14px rgba(251, 191, 36, 0.25)"
+                                : "0 0 14px rgba(248, 113, 113, 0.25)",
                             animation: "pulse 2.5s infinite",
                         }}
                     >
                         <div style={{ flex: 1, minWidth: 0 }}>
-                            <strong style={{ color: "#fca5a5", fontSize: "1.05rem" }}>⚔ {character.village} is at War with {enemy}</strong>
-                            <div style={{ fontSize: "0.82rem", color: "#fde047", marginTop: 4, display: "flex", gap: 16, flexWrap: "wrap" }}>
-                                <span>Day {ageDays + 1}</span>
-                                <span>{myVillage}: <strong>{myHp.toLocaleString()}</strong> HP</span>
-                                <span>{enemy}: <strong>{enemyHp.toLocaleString()}</strong> HP</span>
-                                <span>War Ground HP: <strong>{activeWarBanner.warGroundHp}</strong></span>
-                            </div>
+                            {isPending ? (
+                                <>
+                                    <strong style={{ color: "#fde047", fontSize: "1.05rem" }}>⏳ {character.village} vs {enemy} — War starts in {minsToWar} min</strong>
+                                    <div style={{ fontSize: "0.82rem", color: "#fcd34d", marginTop: 4 }}>
+                                        Pre-war window. Rally your village, queue guards, gather pre-fight buffs. No HP can drop until the timer expires.
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <strong style={{ color: "#fca5a5", fontSize: "1.05rem" }}>⚔ {character.village} is at War with {enemy}</strong>
+                                    <div style={{ fontSize: "0.82rem", color: "#fde047", marginTop: 4, display: "flex", gap: 16, flexWrap: "wrap" }}>
+                                        <span>Day {ageDays + 1}</span>
+                                        <span>{myVillage}: <strong>{myHp.toLocaleString()}</strong> HP</span>
+                                        <span>{enemy}: <strong>{enemyHp.toLocaleString()}</strong> HP</span>
+                                        <span>War Ground HP: <strong>{activeWarBanner.warGroundHp}</strong></span>
+                                    </div>
+                                </>
+                            )}
                         </div>
                         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                             <button
@@ -37078,6 +37112,14 @@ function VillageWarScreen({
                     <div style={{ background: "#1a1a2e", border: "1px solid #f87171", borderRadius: 8, padding: "0.8rem", marginBottom: "1rem" }}>
                         <div style={{ fontWeight: 700, color: "#f87171", fontSize: "1.1rem" }}>{myVillage} vs {enemyVillage}</div>
                         <div style={{ color: "#94a3b8", fontSize: "0.85rem" }}>Started {new Date(activeWar.startedAt).toLocaleDateString()}</div>
+                        {activeWar.pendingUntil && activeWar.pendingUntil > Date.now() && (
+                            <div style={{ marginTop: 8, padding: "0.5rem 0.7rem", background: "linear-gradient(#3b2a05, #1f1402)", border: "1px solid #fbbf24", borderRadius: 6 }}>
+                                <strong style={{ color: "#fde047" }}>⏳ War starts in {Math.max(1, Math.ceil((activeWar.pendingUntil - Date.now()) / 60_000))} min</strong>
+                                <p style={{ fontSize: "0.78rem", color: "#fcd34d", margin: "4px 0 0" }}>
+                                    Pre-war window. No HP can drop, no PvP raid will count yet. Use this time to rally your village, queue guards, and gather pre-fight buffs.
+                                </p>
+                            </div>
+                        )}
                         <div style={{ marginTop: 8 }}>
                             <div>My village HP: <strong style={{ color: "#4ade80" }}>{activeWar.hp?.[myVillage] ?? 0}</strong></div>
                             <div>Enemy HP: <strong style={{ color: "#f87171" }}>{activeWar.hp?.[enemyVillage] ?? 0}</strong></div>

@@ -33,6 +33,11 @@ const VILLAGE_WAR_DECLARATION_COST_HONOR_SEALS = 500;
 // Rematch cooldown — same village-pair can't war again within 7 days
 // of the previous war ending. Prevents grudge-spamming the same enemy.
 const VILLAGE_WAR_REMATCH_COOLDOWN_SEC = 7 * 24 * 60 * 60;
+// Pre-war window. When a Kage declares, the war is stamped pending for
+// this long before HP can actually drop. Gives the defending village
+// time to wake up, log in, and rally — stops the "declare while enemy
+// is asleep, drain 5000 HP in PvP overnight" scenario.
+const VILLAGE_WAR_PENDING_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 // War decay: after this many days of war, both sides take a flat
 // VILLAGE_WAR_DECAY_PER_DAY HP loss at each UTC daily reset to push the
 // conflict toward natural resolution. Untouched wars drain at
@@ -145,6 +150,12 @@ type VillageWar = {
     // player who contributed ≥ VILLAGE_WAR_LOSER_MIN_CONTRIB damage
     // can claim it once. Client-side dedup via claimedWarCrateIds.
     loserCrateId?: string;
+    // Pre-war window. While `pendingUntil > now`, HP can't drop, the
+    // war can't be ended, and the decay grace + 14-day max timers
+    // count from `pendingUntil` instead of `startedAt`. The Kage
+    // cannot cancel a pending war — declaration commits the cost,
+    // no refunds, war must run its course.
+    pendingUntil?: number;
 };
 
 function clampNumber(value: number, min: number, max: number) {
@@ -210,7 +221,24 @@ function normalizeVillageWar(data: Partial<VillageWar> & { villages?: [string, s
         contributions: data.contributions,
         mvpByVillage: data.mvpByVillage,
         loserCrateId: data.loserCrateId,
+        pendingUntil: data.pendingUntil,
     };
+}
+
+// Effective "war is live from" timestamp. While in the pre-war pending
+// window, no decay should accrue and the 14-day max-duration timer
+// shouldn't count down. After pendingUntil passes (or for legacy wars
+// without it), the war is hot starting from startedAt.
+function warEffectiveStartMs(war: VillageWar): number {
+    if (war.pendingUntil && war.pendingUntil > Date.now()) {
+        return war.pendingUntil; // still pending — counter starts at activation
+    }
+    if (war.pendingUntil) return war.pendingUntil;
+    return war.startedAt;
+}
+
+function warIsPending(war: VillageWar): boolean {
+    return !!war.pendingUntil && war.pendingUntil > Date.now();
 }
 
 // Cooldown key for the village pair. Set with 7-day TTL when a war
@@ -248,7 +276,9 @@ const VILLAGE_WAR_LOSER_MIN_CONTRIB = 50;
  */
 function applyWarDecay(war: VillageWar, now: number = Date.now()): { war: VillageWar; changed: boolean } {
     if (war.endedAt) return { war, changed: false };
-    const ageMs = now - war.startedAt;
+    // Pending wars don't decay — the grace clock starts at activation.
+    if (warIsPending(war)) return { war, changed: false };
+    const ageMs = now - warEffectiveStartMs(war);
     if (ageMs < VILLAGE_WAR_DECAY_GRACE_MS) return { war, changed: false };
 
     const todayKey = utcDateKey(now);
@@ -256,15 +286,17 @@ function applyWarDecay(war: VillageWar, now: number = Date.now()): { war: Villag
 
     // Count UTC day-boundaries we owe decay for. First decay tick
     // happens on the first UTC day boundary at-or-after
-    // (startedAt + grace). Subsequent ticks happen at each UTC day
-    // boundary thereafter.
+    // (effective-start + grace). Subsequent ticks happen at each UTC
+    // day boundary thereafter. "Effective start" is `pendingUntil` if
+    // the war went through a pre-war window, else `startedAt`.
+    const effectiveStart = warEffectiveStartMs(war);
     let referenceMs: number;
     if (war.lastDecayDate) {
         // Parse YYYY-MM-DD as a UTC midnight.
         referenceMs = Date.parse(war.lastDecayDate + 'T00:00:00Z');
-        if (!Number.isFinite(referenceMs)) referenceMs = war.startedAt + VILLAGE_WAR_DECAY_GRACE_MS;
+        if (!Number.isFinite(referenceMs)) referenceMs = effectiveStart + VILLAGE_WAR_DECAY_GRACE_MS;
     } else {
-        referenceMs = war.startedAt + VILLAGE_WAR_DECAY_GRACE_MS;
+        referenceMs = effectiveStart + VILLAGE_WAR_DECAY_GRACE_MS;
     }
     const daysOwed = utcDayIndex(now) - utcDayIndex(referenceMs);
     if (daysOwed <= 0) return { war, changed: false };
@@ -459,18 +491,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const result = await withKvLock(warKey, async () => {
                     let existing = await kv.get<VillageWar>(warKey);
 
-                    // Lazy-finalize stale wars (>14d, no end). Auto-end with
-                    // no winner, no crate. Returned 409 so client refetches
-                    // and shows the now-finalized state.
-                    if (existing && !existing.endedAt && (Date.now() - existing.startedAt) > VILLAGE_WAR_MAX_DURATION_MS) {
-                        const expired: VillageWar = {
-                            ...existing,
-                            endedAt: existing.startedAt + VILLAGE_WAR_MAX_DURATION_MS,
-                            updatedAt: Date.now(),
-                            // No winnerVillage — abandoned wars award nothing.
-                        };
-                        await kv.set(warKey, expired);
-                        return { status: 409 as const, body: { error: 'War has timed out (14 days). Auto-finalized with no winner.', war: expired } };
+                    // Lazy-finalize stale wars (>14d active, no end). Counts
+                    // from `pendingUntil` if set, so the pre-war window
+                    // doesn't eat into the 14-day clock. Auto-end with no
+                    // winner, no crate.
+                    if (existing && !existing.endedAt) {
+                        const liveStart = warEffectiveStartMs(existing);
+                        if ((Date.now() - liveStart) > VILLAGE_WAR_MAX_DURATION_MS) {
+                            const expired: VillageWar = {
+                                ...existing,
+                                endedAt: liveStart + VILLAGE_WAR_MAX_DURATION_MS,
+                                updatedAt: Date.now(),
+                                // No winnerVillage — abandoned wars award nothing.
+                            };
+                            await kv.set(warKey, expired);
+                            return { status: 409 as const, body: { error: 'War has timed out (14 days). Auto-finalized with no winner.', war: expired } };
+                        }
                     }
 
                     // Apply daily decay to `existing` so the validation
@@ -556,6 +592,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 // 6. Stamp canonical crate ID + initialize empty contributions map.
                                 war.warCrateId = `war-crate-${war.id}`;
                                 war.contributions = {};
+                                // 7. Set the pre-war pending window. HP cannot
+                                //    drop and the war cannot be ended until
+                                //    `pendingUntil` has passed. Gives the
+                                //    defending village time to rally. No
+                                //    cancellation — the Kage has already paid
+                                //    the 500 Honor Seals and the war commits
+                                //    at this moment.
+                                war.pendingUntil = Date.now() + VILLAGE_WAR_PENDING_WINDOW_MS;
                             } else if (isClaimingWin || isClaimingCapture) {
                                 // Naming a winner / capturing the war ground REQUIRES
                                 // a real win condition in the persisted record —
@@ -582,6 +626,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 const kage = await isSeatedKageOf(identity.name, actorVillage);
                                 if (!kage) {
                                     return { status: 403 as const, body: { error: 'Only the Kage may call peace; otherwise win the war legitimately.' } };
+                                }
+                            }
+
+                            // Pre-war pending gate. While `pendingUntil`
+                            // hasn't passed, no HP write, no end / win /
+                            // capture call. The Kage who declared the war
+                            // cannot cancel it during this window either —
+                            // declaration committed the cost and the war
+                            // must run its course. Non-mutating updates
+                            // (e.g. lazy decay/contribution merges from
+                            // earlier in this handler) are allowed; only
+                            // an actively-attempted state change errors.
+                            if (existing && warIsPending(existing)) {
+                                const wantsDamage = existing.villages.some(v => {
+                                    const prev = Number(existing.hp?.[v] ?? VILLAGE_WAR_HP_MAX);
+                                    const next = Number(war.hp?.[v] ?? prev);
+                                    return next !== prev;
+                                }) || Number(war.warGroundHp ?? existing.warGroundHp) !== Number(existing.warGroundHp);
+                                if (wantsDamage || isEnding || isClaimingWin || isClaimingCapture) {
+                                    const minsLeft = Math.max(1, Math.ceil(((existing.pendingUntil ?? 0) - Date.now()) / 60_000));
+                                    return { status: 409 as const, body: { error: `War is still pending — fighting begins in ${minsLeft} min.` } };
                                 }
                             }
 
