@@ -23125,11 +23125,11 @@ const CLAN_RANK_COLOR: Record<string, string> = {
     "Clan Initiate": "#64748b",
 };
 const CLAN_RANK_ICON: Record<string, string> = {
-    "Clan Head": "?",
-    "Clan Elder": "?",
-    "Clan Enforcer": "?",
-    "Clan Shinobi": "?",
-    "Clan Initiate": "?",
+    "Clan Head": "🌟",
+    "Clan Elder": "🏯",
+    "Clan Enforcer": "⚔",
+    "Clan Shinobi": "🥷",
+    "Clan Initiate": "🌱",
 };
 function clanSlug(name: string): string {
     return "clan-" + name.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -23198,7 +23198,7 @@ const clanMissionDefinitions = [
     { key: "training", icon: "💪", name: "Train 100 Hours", description: "Long-term clan discipline objective.", target: 100, reward: "+600 Clan XP" },
     { key: "raid", icon: "🗡", name: "Defeat 5 Raid Bosses", description: "Raid contribution objective for future PvE events.", target: 5, reward: "+900 Clan XP / +1 Mythic Seal" },
 ] as const;
-const CLAN_ROLE_ICON: Record<ClanRole, string> = { Founder: "?", Leader: "?", Officer: "?", "Elite Member": "?", Member: "?", Recruit: "?" };
+const CLAN_ROLE_ICON: Record<ClanRole, string> = { Founder: "⛩", Leader: "👑", Officer: "🎖", "Elite Member": "💎", Member: "🛡", Recruit: "📜" };
 function defaultClanTreasury(): ClanTreasury { return { ryo: 0, fateShards: 0, boneCharms: 0, auraStones: 0, mythicSeals: 0, warSupply: 0, items: [] }; }
 function defaultClanUpgrades(): ClanUpgradeLevels { return { trainingGrounds: 0, warRoom: 0, treasury: 0, petDen: 0, medicalWing: 0, blacksmith: 0, scoutNetwork: 0 }; }
 function cleanClanTreasury(t?: Partial<ClanTreasury>): ClanTreasury { const base = defaultClanTreasury(); return { ryo: Math.max(0, Math.floor(Number(t?.ryo ?? base.ryo))), fateShards: Math.max(0, Math.floor(Number(t?.fateShards ?? base.fateShards))), boneCharms: Math.max(0, Math.floor(Number(t?.boneCharms ?? base.boneCharms))), auraStones: Math.max(0, Math.floor(Number(t?.auraStones ?? base.auraStones))), mythicSeals: Math.max(0, Math.floor(Number(t?.mythicSeals ?? base.mythicSeals))), warSupply: Math.max(0, Math.floor(Number(t?.warSupply ?? base.warSupply))), items: cleanTreasuryItems(t?.items ?? base.items) }; }
