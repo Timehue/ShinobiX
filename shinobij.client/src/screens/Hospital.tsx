@@ -135,7 +135,7 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, hospita
                 <h2>🏥 Village Hospital</h2>
                 <p className="hint">Town Hall Hospital Discount: <strong>{hospitalDiscount.toFixed(2)}%</strong></p>
                 <div className="hospital-admitted-banner">
-                    <span className="hospital-admitted-icon">??</span>
+                    <span className="hospital-admitted-icon">🩹</span>
                     <div>
                         <strong>You are currently admitted</strong>
                         <p>You were knocked out in battle. Pay the discharge fee or wait for the free check-out.</p>
@@ -152,14 +152,14 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, hospita
                 >
                     {isHealer
                         ? "✚ Free Self-Heal & Discharge (Healer)"
-                        : `?? Pay ${dischargeCost.toLocaleString()} ryo — Full Heal & Discharge`}
+                        : `💰 Pay ${dischargeCost.toLocaleString()} ryo — Full Heal & Discharge`}
                 </button>
                 {freeCheckoutReady ? (
                     <button
                         onClick={freeCheckout}
                         style={{ background: "linear-gradient(#1e3a5f,#0c1f3d)", borderColor: "#60a5fa", width: "100%", animation: "pulse 1.5s infinite" }}
                     >
-                        ?? Check Out (Free — time served)
+                        🚪 Check Out (Free — time served)
                     </button>
                 ) : (
                     <p className="hint" style={{ textAlign: "center" }}>
