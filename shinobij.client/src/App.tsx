@@ -16072,7 +16072,6 @@ function AdminPanel({
                 // matches the fresh server. Preserve leadership images and admin session.
                 const preserve = new Set([
                     STORAGE,
-                    PLAYER_ACCOUNTS_STORAGE,
                 ]);
                 const toRemove: string[] = [];
                 for (let i = 0; i < localStorage.length; i++) {
@@ -16081,14 +16080,22 @@ function AdminPanel({
                     if (
                         key.startsWith("village-state-") ||
                         key.startsWith("shinobij-village-war-") ||
-                        key.startsWith("shinobij-sector-territory-")
+                        key.startsWith("shinobij-sector-territory-") ||
+                        key === PLAYER_ACCOUNTS_STORAGE
                     ) {
                         toRemove.push(key);
                     }
                 }
                 toRemove.forEach(k => localStorage.removeItem(k));
-                // Clear stale local player account cache
-                localStorage.removeItem(PLAYER_ACCOUNTS_STORAGE);
+                // Drop sessionStorage image-category caches so portraits re-fetch
+                // fresh from the server's re-seeded shared:imgfields:misc bucket.
+                try {
+                    for (let i = sessionStorage.length - 1; i >= 0; i--) {
+                        const key = sessionStorage.key(i);
+                        if (!key) continue;
+                        if (key.startsWith("imgcat:")) sessionStorage.removeItem(key);
+                    }
+                } catch { /* ignore */ }
                 setAllKnownPlayers([]);
                 setServerResetMsg(`✅ Server reset complete — ${data.deletedCount ?? 0} keys wiped. All images and admin content preserved. Players start fresh on next login.`);
             } else {
