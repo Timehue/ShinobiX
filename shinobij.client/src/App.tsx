@@ -13430,7 +13430,7 @@ function LeftProfileCard({
                                 className="left-levelup-btn"
                                 onClick={() => updateCharacter(gainXp(character, 0))}
                             >
-                                ? Level Up!
+                                ⬆️ Level Up!
                             </button>
                         )}
                     </>
@@ -19698,7 +19698,7 @@ function AdminPanel({
                                                             value={choice.nextPage + 1}
                                                             onChange={(e) => updateVnPage(index, { choices: page.choices.map((c, i) => i === ci ? { ...c, nextPage: Math.max(0, Number(e.target.value) - 1) } : c) })}
                                                         />
-                                                        <button className="danger-button" onClick={() => updateVnPage(index, { choices: page.choices.filter((_, i) => i !== ci) })}>?</button>
+                                                        <button className="danger-button" onClick={() => updateVnPage(index, { choices: page.choices.filter((_, i) => i !== ci) })}>🗑️</button>
                                                     </div>
                                                     <textarea
                                                         rows={2}
@@ -19789,7 +19789,7 @@ function AdminPanel({
                                         setPreviewVnLine(0);
                                     }}
                                 >
-                                    ? Play Preview
+                                    ▶️ Play Preview
                                 </button>
                                 <button
                                     style={{ background: "#2e4a1e", borderColor: "#a5d6a7" }}
@@ -19865,7 +19865,7 @@ function AdminPanel({
                                         setPreviewVnLine(0);
                                     }}
                                 >
-                                    ? Preview Chest VN
+                                    ▶️ Preview Chest VN
                                 </button>
                                 <button onClick={() => { setAncientChestVn(defaultAncientChestVn); alert("Ancient Chest VN reset to default."); }}>Reset to Default</button>
                             </div>
@@ -20439,7 +20439,7 @@ function AdminPanel({
                                                             </label>
                                                             {item.image
                                                                 ? <img src={item.image} alt={item.name} className="bulk-card-thumb" />
-                                                                : <div className="bulk-card-thumb bulk-card-thumb--empty">?</div>
+                                                                : <div className="bulk-card-thumb bulk-card-thumb--empty">🖼️</div>
                                                             }
                                                             <div className="bulk-card-info">
                                                                 <span className="bulk-card-name">{item.name}</span>
@@ -20538,7 +20538,7 @@ function AdminPanel({
                                     {item.image
                                         ? <img src={item.image} alt={item.name}
                                             style={{ width: 48, height: 48, objectFit: "cover", borderRadius: 6, flexShrink: 0, border: "1px solid #334155" }} />
-                                        : <div style={{ width: 48, height: 48, borderRadius: 6, background: "#0f172a", border: "1px dashed #334155", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>???</div>
+                                        : <div style={{ width: 48, height: 48, borderRadius: 6, background: "#0f172a", border: "1px dashed #334155", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>🖼️</div>
                                     }
                                     <div style={{ flex: 1, minWidth: 0 }}>
                                         <strong>{item.name}</strong>
@@ -21279,7 +21279,7 @@ function AdminPanel({
                                                     </label>
                                                     {card.image
                                                         ? <img src={card.image} alt={card.name} className="bulk-card-thumb" />
-                                                        : <div className="bulk-card-thumb bulk-card-thumb--empty">?</div>
+                                                        : <div className="bulk-card-thumb bulk-card-thumb--empty">🖼️</div>
                                                     }
                                                     <div className="bulk-card-info">
                                                         <span className="bulk-card-name">{card.name}</span>
@@ -21547,7 +21547,7 @@ function AdminPanel({
                                                         <div key={slot} style={{ display: "flex", alignItems: "center", gap: 4, background: "#1e293b", border: "1px solid #334155", borderRadius: 4, padding: "2px 6px", fontSize: "0.75rem" }}>
                                                             <span style={{ color: "#94a3b8" }}>{slot}:</span>
                                                             <span>{itemName(itemId)}</span>
-                                                            <button onClick={() => unequipSlot(slot)} style={{ fontSize: "0.65rem", padding: "1px 5px", background: "#7f1d1d", borderColor: "#ef4444", color: "#fca5a5" }}>?</button>
+                                                            <button onClick={() => unequipSlot(slot)} style={{ fontSize: "0.65rem", padding: "1px 5px", background: "#7f1d1d", borderColor: "#ef4444", color: "#fca5a5" }}>✕</button>
                                                         </div>
                                                     ))}
                                                 </div>
@@ -24754,7 +24754,7 @@ function ShinobiTiles({ character, updateCharacter, creatorCards, dungeonMode = 
                 <div style={{ position: "relative", width: "100%", height: ih, background: "#07111f", overflow: "hidden" }}>
                     {card.image
                         ? <img src={card.image} alt={card.name} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                        : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, opacity: 0.25 }}>??</div>
+                        : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, opacity: 0.25 }}>🖼️</div>
                     }
                     {/* Top */}
                     <span style={{
@@ -25195,7 +25195,7 @@ function ShinobiCouncilHall({ character, setScreen, playerRoster }: { character:
     return (
         <div className="card council-screen">
             <div className="council-header">
-                <button className="back-button" onClick={() => setScreen("centralHub")}>? Central Hub</button>
+                <button className="back-button" onClick={() => setScreen("centralHub")}>← Central Hub</button>
                 <div>
                     <h2>🏛️ Shinobi Council Hall</h2>
                     <p className="council-subtitle">Live war status and the eternal record of village leaders.</p>
@@ -25204,7 +25204,7 @@ function ShinobiCouncilHall({ character, setScreen, playerRoster }: { character:
 
             <div className="council-tabs">
                 <button className={`council-tab ${tab === "wars" ? "council-tab-active" : ""}`} onClick={() => setTab("wars")}>⚔️ Active Wars</button>
-                <button className={`council-tab ${tab === "kage" ? "council-tab-active" : ""}`} onClick={() => setTab("kage")}>? Kage Records</button>
+                <button className={`council-tab ${tab === "kage" ? "council-tab-active" : ""}`} onClick={() => setTab("kage")}>👑 Kage Records</button>
             </div>
 
             {tab === "wars" && <><section className="council-section">
@@ -25224,14 +25224,14 @@ function ShinobiCouncilHall({ character, setScreen, playerRoster }: { character:
                                         <span className="council-village-name">{vA}</span>
                                         <span className="council-hp-label">{hpA.toLocaleString()} / {VILLAGE_WAR_HP_MAX.toLocaleString()} HP</span>
                                         <HpBar current={hpA} max={VILLAGE_WAR_HP_MAX} color="#22c55e" />
-                                        <span className="council-top">? {topA}</span>
+                                        <span className="council-top">🏆 {topA}</span>
                                     </div>
                                     <div className="council-vs">VS</div>
                                     <div className={`council-side council-side-right ${character.village === vB ? "council-mine" : ""}`}>
                                         <span className="council-village-name">{vB}</span>
                                         <span className="council-hp-label">{hpB.toLocaleString()} / {VILLAGE_WAR_HP_MAX.toLocaleString()} HP</span>
                                         <HpBar current={hpB} max={VILLAGE_WAR_HP_MAX} color="#ef4444" />
-                                        <span className="council-top">? {topB}</span>
+                                        <span className="council-top">🏆 {topB}</span>
                                     </div>
                                 </div>
                                 <div className="council-war-meta">
@@ -25259,14 +25259,14 @@ function ShinobiCouncilHall({ character, setScreen, playerRoster }: { character:
                                             <span className="council-village-name">{cw.clanA}</span>
                                             <span className="council-hp-label">{cw.villageA} · {cw.scoreA.toLocaleString()} pts</span>
                                             <HpBar current={cw.scoreA} max={totalMax} color="#a78bfa" />
-                                            <span className="council-top">? {cw.topA}</span>
+                                            <span className="council-top">🏆 {cw.topA}</span>
                                         </div>
                                         <div className="council-vs">VS</div>
                                         <div className={`council-side council-side-right ${character.clan === cw.clanB ? "council-mine" : ""}`}>
                                             <span className="council-village-name">{cw.clanB}</span>
                                             <span className="council-hp-label">{cw.villageB} · {cw.scoreB.toLocaleString()} pts</span>
                                             <HpBar current={cw.scoreB} max={totalMax} color="#fb923c" />
-                                            <span className="council-top">? {cw.topB}</span>
+                                            <span className="council-top">🏆 {cw.topB}</span>
                                         </div>
                                     </div>
                                     <div className="council-war-meta">
@@ -25279,7 +25279,7 @@ function ShinobiCouncilHall({ character, setScreen, playerRoster }: { character:
             </section></>}
 
             {tab === "kage" && <section className="council-section">
-                <h3 className="council-section-title">? Kage Records — All Villages</h3>
+                <h3 className="council-section-title">👑 Kage Records — All Villages</h3>
                 {sortedKageHistory.length === 0
                     ? <p className="council-empty">No Kage have been seated yet. Defeat your village's story boss to open the Kage system.</p>
                     : sortedKageHistory.map((entry, i) => {
@@ -25288,14 +25288,14 @@ function ShinobiCouncilHall({ character, setScreen, playerRoster }: { character:
                         const isMe = entry.name === character.name;
                         return (
                             <div key={`${entry.name}-${entry.village}-${i}`} className={`council-kage-row ${isMe ? "council-kage-me" : ""} ${isActive ? "council-kage-active" : ""}`}>
-                                <div className="council-kage-seal">?</div>
+                                <div className="council-kage-seal">👑</div>
                                 <div className="council-kage-info">
                                     <span className="council-kage-name">{entry.name}</span>
                                     <span className="council-kage-village">{entry.village}</span>
                                 </div>
                                 <div className="council-kage-tenure">
                                     {isActive
-                                        ? <span className="council-kage-current">? Current Kage</span>
+                                        ? <span className="council-kage-current">⭐ Current Kage</span>
                                         : <span className="council-kage-former">Former</span>
                                     }
                                     <span className="council-kage-time">
@@ -25512,7 +25512,7 @@ function SunscarFestival({
                 <div style={{ position: "relative", width: "100%", height: ih, background: "#07111f", overflow: "hidden" }}>
                     {card.image
                         ? <img src={card.image} alt={card.name} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                        : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, opacity: 0.35 }}>??</div>
+                        : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, opacity: 0.35 }}>🖼️</div>
                     }
                     {/* Top */}
                     <span style={{
@@ -25642,7 +25642,7 @@ function SunscarFestival({
     if (duelPhase === "bet") {
         return (
             <div className="card" style={{ maxWidth: 480, margin: "0 auto" }}>
-                <div style={{ fontSize: "2rem", textAlign: "center", marginBottom: "0.4rem" }}>??</div>
+                <div style={{ fontSize: "2rem", textAlign: "center", marginBottom: "0.4rem" }}>🔮</div>
                 <h2 style={{ textAlign: "center", marginBottom: "0.2rem" }}>Miraa the Card Seer</h2>
                 <p style={{ color: "#aaa", textAlign: "center", marginBottom: "1rem" }}>"Place your wager and we shall see whose fate runs deeper."</p>
                 <p style={{ marginBottom: "0.8rem" }}>Your ryo: <strong>{character.ryo}</strong></p>
@@ -26226,7 +26226,7 @@ function CentralHub({
                         <p className="celestial-panel-sub">Choose your challenge, shinobi.</p>
                         <div className="celestial-panel-options">
                             <button className="celestial-option-btn" onClick={() => { setShowCelestialPanel(false); setCentralLog("Celestial Tower is open. Floor 1 trial begins in the Arena."); setScreen("arena"); }}>
-                                <span className="celestial-option-icon">??</span>
+                                <span className="celestial-option-icon">⚔️</span>
                                 <strong>Floor Trial</strong>
                                 <small>Standard arena battle against a selected opponent.</small>
                             </button>
@@ -26266,7 +26266,7 @@ function CentralHub({
                                         <div className="archives-card-img-wrap">
                                             {bl.image
                                                 ? <img src={bl.image} alt={bl.name} className="archives-card-img" />
-                                                : <div className="archives-card-no-img">??</div>
+                                                : <div className="archives-card-no-img">🖼️</div>
                                             }
                                         </div>
                                         <div className="archives-card-body">
@@ -26278,7 +26278,7 @@ function CentralHub({
                                                 <span className="archives-element-tag">Created by {(bl as ReviewBloodline).ownerName}</span>
                                             )}
                                             {bl.specialElement && (
-                                                <span className="archives-element-tag">? {bl.specialElement} Release</span>
+                                                <span className="archives-element-tag">🌀 {bl.specialElement} Release</span>
                                             )}
                                             {bl.lore
                                                 ? <p className="archives-lore">{bl.lore}</p>
@@ -26342,12 +26342,12 @@ function CentralHub({
 
                         {/* Element roll section */}
                         <div className="awakening-section">
-                            <h3>? Elemental Awakening</h3>
-                            <p className="awakening-hint">The stone randomly reveals one of five elements: ?? Water · ??? Wind · ?? Earth · ? Lightning · ?? Fire</p>
+                            <h3>✨ Elemental Awakening</h3>
+                            <p className="awakening-hint">The stone randomly reveals one of five elements: 💧 Water · 💨 Wind · 🌍 Earth · ⚡ Lightning · 🔥 Fire</p>
                             <div className="awakening-roll-row">
                                 {hasFreeRoll ? (
                                     <button className="awakening-free-btn" onClick={awakeningFreeRoll}>
-                                        ? Awaken Element — FREE
+                                        ✨ Awaken Element — FREE
                                         <small>{character.level >= 20 && !triggeredEvents.includes(AWAKENING_FREE_LV20_ID) ? "(Level 20 reward)" : "(Level 2 reward)"}</small>
                                     </button>
                                 ) : (
@@ -26369,17 +26369,17 @@ function CentralHub({
                             <h3>🔮 Ancient Materials</h3>
                             <div className="awakening-materials">
                                 <div className="awakening-material-row">
-                                    <span className="awakening-material-icon">??</span>
+                                    <span className="awakening-material-icon">🦴</span>
                                     <span className="awakening-material-name">Bone Charms</span>
                                     <span className="awakening-material-count">{character.boneCharms ?? 0}</span>
                                 </div>
                                 <div className="awakening-material-row">
-                                    <span className="awakening-material-icon">??</span>
+                                    <span className="awakening-material-icon">💎</span>
                                     <span className="awakening-material-name">Aura Stones</span>
                                     <span className="awakening-material-count">{character.auraStones ?? 0}</span>
                                 </div>
                                 <div className="awakening-material-row">
-                                    <span className="awakening-material-icon">??</span>
+                                    <span className="awakening-material-icon">📜</span>
                                     <span className="awakening-material-name">Mythic Seals</span>
                                     <span className="awakening-material-count">{character.mythicSeals ?? 0}</span>
                                 </div>
@@ -26494,7 +26494,7 @@ function CentralHub({
                         <div className="crafter-panel" onClick={(e) => e.stopPropagation()}>
                             <div className="archives-header">
                                 <h2>🔨 Crafter</h2>
-                                <button className="danger-button" onClick={() => setShowCrafter(false)}>? Close</button>
+                                <button className="danger-button" onClick={() => setShowCrafter(false)}>✕ Close</button>
                             </div>
                             <p className="crafter-subtitle">Convert hunting, boss, dungeon, and war materials into supplies or existing balanced weapons.</p>
                             <div className="inventory-tabs" style={{ marginBottom: 12 }}>
@@ -26647,7 +26647,7 @@ function CentralHub({
                                         <div key={item.id} className="crafter-recipe-btn">
                                             <div className="crafter-recipe-btn-header">
                                                 <strong>{item.name}</strong>
-                                                <button className="weapon-info-btn" onClick={() => setWeaponInfoItem(item)} title="View weapon info">?</button>
+                                                <button className="weapon-info-btn" onClick={() => setWeaponInfoItem(item)} title="View weapon info">ℹ️</button>
                                             </div>
                                             <small>{item.rarity.toUpperCase()} | Lv {item.levelReq ?? 1} | {item.weaponEp ?? 0} EP | {item.weaponEffect ?? "Weapon"}</small>
                                             <small>{reqText} + {req.ryo.toLocaleString()} ryo</small>
@@ -26749,7 +26749,7 @@ function CentralHub({
                                                         <div className="nwo-row"><span>🩸 Siphon</span><span className="nwo-pct">Restores HP = rolled% × weapon hit damage</span></div>
                                                         <div className="nwo-row"><span>🔥 Afterburn</span><span className="nwo-pct">2-round status: next 2 attacks deal +rolled% damage</span></div>
                                                         <div className="nwo-row"><span>☠️ Poison / Drain</span><span className="nwo-pct">Deals rolled% of enemy chakra as damage per round</span></div>
-                                                        <div className="nwo-row"><span>? Damage / IDG / DDT / Reflect / Absorb</span><span className="nwo-pct">Flat % modifier for 2 rounds</span></div>
+                                                        <div className="nwo-row"><span>💥 Damage / IDG / DDT / Reflect / Absorb</span><span className="nwo-pct">Flat % modifier for 2 rounds</span></div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -26821,10 +26821,10 @@ function CentralHub({
 
                                                 <div className="named-weapon-forge-actions">
                                                     <button className="named-weapon-forge-btn" onClick={forgeNamedWeapon}>
-                                                        ?? Forge Weapon
+                                                        🔨 Forge Weapon
                                                     </button>
                                                     <button className="danger-button" onClick={() => setNamedWeaponRoll(null)}>
-                                                        ? Discard Roll
+                                                        🗑️ Discard Roll
                                                     </button>
                                                 </div>
                                             </div>
@@ -27666,7 +27666,7 @@ function WorldMap({
                         <div className="vn-backdrop">
                             {!chestPageImage && <span className="vn-village-silhouette" />}
                         </div>
-                        <div className="vn-character mentor-character">??</div>
+                        <div className="vn-character mentor-character">🧙</div>
                         <div className="vn-character hero-character">{character.name.slice(0, 2).toUpperCase()}</div>
                         <div className="vn-scene-card">{page.scene}</div>
                         <div className="vn-dialogue">
@@ -27719,7 +27719,7 @@ function WorldMap({
                         ))}
                     </div>
                     <button className="chest-claim-btn" onClick={() => claimChest(activeChest)}>
-                        ? Claim All Rewards
+                        🎁 Claim All Rewards
                     </button>
                 </div>
             </div>
@@ -27804,7 +27804,7 @@ function WorldMap({
                                                     <div key={p.name} className="other-player-map-dot" title={`${p.name} Lv ${p.level}`}>
                                                         {(sharedImages['avatar:' + p.name.toLowerCase()] || (p.character.avatarImage as string) || '')
                                                             ? <img className="tiny-map-avatar other-player-map-avatar" src={sharedImages['avatar:' + p.name.toLowerCase()] || (p.character.avatarImage as string) || ''} alt={p.name} />
-                                                            : <span className="other-player-map-emoji">??</span>
+                                                            : <span className="other-player-map-emoji">🥷</span>
                                                         }
                                                         <span className="other-player-map-name">{p.name}</span>
                                                     </div>
@@ -27827,7 +27827,7 @@ function WorldMap({
                                 const msLeft = TERRITORY_REBUILD_COOLDOWN_MS - (Date.now() - territory.rebuiltAt);
                                 if (msLeft <= 0) return null;
                                 const minsLeft = Math.ceil(msLeft / 60000);
-                                return <p style={{ color: "#e88", fontWeight: 600 }}>? Recovering — capturable in {minsLeft}m</p>;
+                                return <p style={{ color: "#e88", fontWeight: 600 }}>⏳ Recovering — capturable in {minsLeft}m</p>;
                             })()}
                             <div className="town-upgrade-bar"><span style={{ width: `${(territory.controlScore / TERRITORY_CONTROL_MAX) * 100}%` }} /></div>
                             <p>Control: {territory.controlScore.toLocaleString()} / {TERRITORY_CONTROL_MAX.toLocaleString()}</p>
@@ -27964,7 +27964,7 @@ function WorldMap({
 
                     <aside className="instance-actions">
                         <h3>{loc.name}</h3>
-                        <p className="territory-hostile-tag">?? Hostile Territory</p>
+                        <p className="territory-hostile-tag">⚠️ Hostile Territory</p>
                         <p>{weatherEffects[weather].effect}</p>
                         <button onClick={() => exploreSector(virtualSector)}>Explore Territory</button>
                         <button onClick={() => restInSector(virtualSector)}>Recover</button>
@@ -27973,7 +27973,7 @@ function WorldMap({
                         <div className="territory-guard-section">
                             {territoryGuards.length > 0 ? (
                                 <>
-                                    <p className="territory-guard-label">??? Village Guarded</p>
+                                    <p className="territory-guard-label">🛡️ Village Guarded</p>
                                     {territoryGuards.map(g => (
                                         <p key={g.name} className="territory-guard-name">
                                             {g.name} <span className="territory-guard-lvl">Lv.{g.level}</span>{g.defenseBonusPercent ? <span className="territory-guard-lvl"> DEF +{g.defenseBonusPercent.toFixed(1)}%</span> : null}
@@ -28296,7 +28296,7 @@ function WorldMap({
                                 <div className="vn-backdrop">
                                     {!chestPageImg && <span className="vn-village-silhouette" />}
                                 </div>
-                                <div className="vn-character mentor-character">??</div>
+                                <div className="vn-character mentor-character">🧙</div>
                                 <div className="vn-character hero-character">{character.name.slice(0, 2).toUpperCase()}</div>
                                 <div className="vn-scene-card">{page.scene}</div>
                                 <div className="vn-dialogue">
@@ -28349,7 +28349,7 @@ function WorldMap({
                                 ))}
                             </div>
                             <button className="chest-claim-btn" onClick={() => claimChest(activeChest)}>
-                                ? Claim All Rewards
+                                🎁 Claim All Rewards
                             </button>
                         </div>
                     </div>
@@ -28494,7 +28494,7 @@ function StoryBoss({ character, updateCharacter, setScreen }: { character: Chara
     function bossCounter() { if (bossHp <= 0) return; const damage = Math.max(5, storyStep.bossDamage + Math.floor(turn * 2)); const afterHit = Math.max(0, playerHp - damage); setPlayerHp(afterHit); updateCharacter({ ...character, hp: afterHit }); if (afterHit <= 0) return setLog(`${storyStep.bossName} defeated you. Visit the Hospital and try again.`); setTurn((t) => t + 1); setAp(100); setLog(`${storyStep.bossName} counters for ${damage} damage.`); }
     function basicAttack() { if (ap < 40) return setLog("Not enough AP."); const newBossHp = Math.max(0, bossHp - basicAttackDamage); setBossHp(newBossHp); setAp((c) => c - 40); setEffect("💥"); if (newBossHp <= 0) return winBossFight(playerHp); setLog(`You strike ${storyStep.bossName} for ${basicAttackDamage} damage.`); bossPetFollowUp(newBossHp, playerHp); }
     function chakraStrike() { if (ap < 60) return setLog("Not enough AP."); if (character.chakra < 20) return setLog("Not enough chakra."); const newBossHp = Math.max(0, bossHp - chakraStrikeDamage); setBossHp(newBossHp); setAp((c) => c - 60); setEffect("💥"); updateCharacter({ ...character, chakra: Math.max(0, character.chakra - 20) }); if (newBossHp <= 0) return winBossFight(playerHp); setLog(`You unleash a chakra strike for ${chakraStrikeDamage} damage. -20 chakra.`); bossPetFollowUp(newBossHp, playerHp); }
-    function guard() { if (ap < 30) return setLog("Not enough AP."); const reducedDamage = Math.max(1, Math.floor(storyStep.bossDamage * 0.45)); const afterHit = Math.max(0, playerHp - reducedDamage); setPlayerHp(afterHit); setAp(100); setTurn((t) => t + 1); setEffect("???"); updateCharacter({ ...character, hp: afterHit }); setLog(`You guard. ${storyStep.bossName} only deals ${reducedDamage} damage.`); bossPetFollowUp(bossHp, afterHit); }
+    function guard() { if (ap < 30) return setLog("Not enough AP."); const reducedDamage = Math.max(1, Math.floor(storyStep.bossDamage * 0.45)); const afterHit = Math.max(0, playerHp - reducedDamage); setPlayerHp(afterHit); setAp(100); setTurn((t) => t + 1); setEffect("🛡️"); updateCharacter({ ...character, hp: afterHit }); setLog(`You guard. ${storyStep.bossName} only deals ${reducedDamage} damage.`); bossPetFollowUp(bossHp, afterHit); }
     function recover() { if (ap < 50) return setLog("Not enough AP."); const heal = 35 + Math.floor(character.stats.willpower * 0.05); const newHp = Math.min(character.maxHp, playerHp + heal); setPlayerHp(newHp); setAp((c) => c - 50); setEffect("💥"); updateCharacter({ ...character, hp: newHp, chakra: Math.min(character.maxChakra, character.chakra + 15) }); setLog(`You recover your breathing. +${heal} HP and +15 chakra.`); bossPetFollowUp(bossHp, newHp); }
     return <div className="card cinematic-card"><div className="boss-stage">{effect && <div className="combat-effect">{effect}</div>}<div className="cinematic-panel"><p className="act-label">{storyStep.cinematicTitle}</p><h2>{storyStep.bossIcon} {storyStep.bossName}</h2><p className="scene-text">{storyStep.scene}</p></div><div className="combat-stats"><div><strong>{character.name}</strong><div className="bar-label">HP {playerHp}/{character.maxHp}</div><div className="bar"><span style={{ width: `${(playerHp / character.maxHp) * 100}%` }}></span></div><div className="bar-label">Chakra {character.chakra}/{character.maxChakra}</div><div className="bar ap-bar"><span style={{ width: `${(character.chakra / character.maxChakra) * 100}%` }}></span></div><p>AP: {ap}/100</p>{summonedPet && <p>Pet: {petDisplayName(summonedPet)} · Happy {petHappiness(summonedPet)}%</p>}</div><div><strong>{storyStep.bossName}</strong><div className="bar-label">HP {bossHp}/{storyStep.bossHp}</div><div className="bar enemy-bar"><span style={{ width: `${(bossHp / storyStep.bossHp) * 100}%` }}></span></div><p>Boss Damage: {storyStep.bossDamage}</p><p>Turn: {turn}</p></div></div><div className="jutsu-combat-grid"><button onClick={basicAttack}><span className="jutsu-icon">⚔</span><strong>Basic Attack</strong><small>40 AP / no chakra</small></button><button onClick={chakraStrike}><span className="jutsu-icon">🌀</span><strong>Chakra Strike</strong><small>60 AP / -20 chakra</small></button><button onClick={guard}><span className="jutsu-icon">🛡</span><strong>Guard</strong><small>30 AP / reduce damage</small></button><button onClick={recover}><span className="jutsu-icon">✚</span><strong>Recover</strong><small>50 AP / heal + chakra</small></button><button onClick={summonBossPet} disabled={!activeBattlePet || Boolean(summonedPet)}><span className="jutsu-icon">🐾</span><strong>Summon Pet</strong><small>{summonedPet ? `${petDisplayName(summonedPet)} active` : activeBattlePet ? petDisplayName(activeBattlePet) : "No active pet"}</small></button></div><div className="menu"><button onClick={bossCounter}>End Turn</button><button onClick={() => setScreen("storyHall")}>Back to Story</button></div><div className="log">{log}</div></div></div>;
 }
@@ -29178,8 +29178,8 @@ function HunterBoard({
     return (
         <div className="hunter-board">
             <div className="hunter-board-header">
-                <button className="back-btn" onClick={() => setScreen("centralHub")}>? Central</button>
-                <h2>?? Hunter Guild — Contract Board</h2>
+                <button className="back-btn" onClick={() => setScreen("centralHub")}>← Central</button>
+                <h2>🎯 Hunter Guild — Contract Board</h2>
             </div>
 
             <div className="hunter-rank-banner">
@@ -29212,7 +29212,7 @@ function HunterBoard({
                     <section key={rank} className={`hunt-rank-section ${locked ? "hunt-rank-locked" : ""}`}>
                         <h3 className="hunt-rank-heading">
                             <span className="hunter-rank-badge" style={{ background: HUNTER_RANK_COLORS[minRank] }}>{rank}</span>
-                            {locked && <span className="hunt-lock-label">?? Requires {HUNTER_RANK_LABELS[minRank]}</span>}
+                            {locked && <span className="hunt-lock-label">🔒 Requires {HUNTER_RANK_LABELS[minRank]}</span>}
                         </h3>
                         {!locked && (
                             <div className="hunt-contract-grid">
@@ -30742,7 +30742,7 @@ function BloodlineMaker({ initialRank, initialSpecialElement, character, updateC
             {bloodlineImage && <div className="admin-event-list-preview"><img src={bloodlineImage} alt={bloodlineName} /></div>}
             <label>Rank</label>
             {lockedRank
-                ? <div className="bloodline-rank-locked">{rank} <span className="rank-lock-badge">?? Locked</span></div>
+                ? <div className="bloodline-rank-locked">{rank} <span className="rank-lock-badge">🔒 Locked</span></div>
                 : <select value={rank} onChange={(e) => changeRank(e.target.value as Rank)}><option>B Rank</option><option>A Rank</option><option>S Rank</option></select>
             }
             <div className="summary-box"><p>Total Points: {totalPoints} / {recommendedMax}</p>{specialElement.trim() && <p>Special Element: {specialElement.trim()}</p>}</div>
@@ -33767,7 +33767,7 @@ function Arena({
                     </section>
 
                     <section className="summary-box">
-                        <h3>?? Incoming Pet Challenges</h3>
+                        <h3>🐾 Incoming Pet Challenges</h3>
                         {incomingChallenges.filter((c) => c.mode === "clanWarPet" && !c.clanWarPoints).length === 0
                             ? <p className="hint">No incoming pet challenges.</p>
                             : incomingChallenges.filter((c) => c.mode === "clanWarPet" && !c.clanWarPoints).map((challenge) => (
@@ -33776,7 +33776,7 @@ function Arena({
                                     <div className="menu">
                                         <button onClick={() => {
                                             setScreen("petArena");
-                                        }}>?? Go to Pet Arena</button>
+                                        }}>🐾 Go to Pet Arena</button>
                                         <button className="danger-button" onClick={() => declineChallenge(challenge)}>Decline</button>
                                     </div>
                                 </div>
@@ -33802,7 +33802,7 @@ function Arena({
         return (
             <div className="card arena-lobby">
                 <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
-                    <button className="back-to-hub-btn" onClick={() => setScreen("centralHub")}>? Central Hub</button>
+                    <button className="back-to-hub-btn" onClick={() => setScreen("centralHub")}>← Central Hub</button>
                     <h2 style={{ margin: 0 }}>Arena District</h2>
                 </div>
                 <p>Clan battles, ranked mode, tournaments, spectator view, and pet battles are handled here.</p>
@@ -34141,10 +34141,10 @@ function Arena({
                         <span className="twp-strip-label">Weather</span>
                         <span className="twp-strip-value">{weatherEffects[currentWeather].name}</span>
                         {weatherEffects[currentWeather].positiveElement && (
-                            <span className="twp-buff twp-positive">? {weatherEffects[currentWeather].positiveElement} +5%</span>
+                            <span className="twp-buff twp-positive">🔺 {weatherEffects[currentWeather].positiveElement} +5%</span>
                         )}
                         {weatherEffects[currentWeather].negativeElement && (
-                            <span className="twp-buff twp-negative">? {weatherEffects[currentWeather].negativeElement} -2%</span>
+                            <span className="twp-buff twp-negative">🔻 {weatherEffects[currentWeather].negativeElement} -2%</span>
                         )}
                     </div>
 
@@ -34185,7 +34185,7 @@ function Arena({
                     </div>
 
                     <div className="hex-zoom-bar">
-                        <span className="hex-zoom-label">??</span>
+                        <span className="hex-zoom-label">🔍</span>
                         <input
                             type="range"
                             className="hex-zoom-slider"
@@ -34199,7 +34199,7 @@ function Arena({
                             className="hex-zoom-reset"
                             onClick={() => setUserScaleOffset(0)}
                             title="Reset zoom"
-                        >?</button>
+                        >↺</button>
                     </div>
                     <div className={`hex-battlefield hex-${currentBiome}${currentSector === 99 ? " hex-deathsgate" : ""}`} ref={battlefieldCallbackRef}>
                         {/*
@@ -34381,8 +34381,8 @@ function Arena({
 
                                         const fallbackIcon =
                                             jutsu.type === "Taijutsu" ? "👊" :
-                                                jutsu.type === "Bukijutsu" ? "???" :
-                                                    jutsu.type === "Genjutsu" ? "???" :
+                                                jutsu.type === "Bukijutsu" ? "⚔️" :
+                                                    jutsu.type === "Genjutsu" ? "👁️" :
                                                         "🌀";
 
                                         return (
@@ -34641,7 +34641,7 @@ function Arena({
                     <div className="card battle-ended-card">
                         {endlessBattleActive && battleResult === "win" ? (
                             <>
-                                <h2 className="battle-result-win">? Wave {endlessBattleWave} Clear!</h2>
+                                <h2 className="battle-result-win">🏆 Wave {endlessBattleWave} Clear!</h2>
                                 <p>{log}</p>
                                 <p style={{ color: "#94a3b8", fontSize: "0.85rem", margin: "0.4rem 0" }}>
                                     HP carried into next wave. Stay alive as long as you can.
@@ -34651,12 +34651,12 @@ function Arena({
                                     style={{ background: "linear-gradient(#1a3a1a,#0a2010)", borderColor: "#4ade80", fontSize: "1rem", padding: "0.7rem 1.5rem" }}
                                     onClick={() => onEndlessWin?.(endlessBattleWave)}
                                 >
-                                    ? Next Wave
+                                    ▶️ Next Wave
                                 </button>
                             </>
                         ) : endlessBattleActive && battleResult === "loss" ? (
                             <>
-                                <h2 className="battle-result-loss">?? Tower Collapsed</h2>
+                                <h2 className="battle-result-loss">💀 Tower Collapsed</h2>
                                 <p style={{ color: "#fde047", fontSize: "1.1rem", fontWeight: 800 }}>
                                     You reached Wave {endlessBattleWave}
                                 </p>
@@ -35559,10 +35559,10 @@ function PvpBattleScreen({
                         <span className="twp-strip-label">Weather</span>
                         <span className="twp-strip-value">{weatherEffects[currentWeather].name}</span>
                         {weatherEffects[currentWeather].positiveElement && (
-                            <span className="twp-buff twp-positive">? {weatherEffects[currentWeather].positiveElement} +5%</span>
+                            <span className="twp-buff twp-positive">🔺 {weatherEffects[currentWeather].positiveElement} +5%</span>
                         )}
                         {weatherEffects[currentWeather].negativeElement && (
-                            <span className="twp-buff twp-negative">? {weatherEffects[currentWeather].negativeElement} -2%</span>
+                            <span className="twp-buff twp-negative">🔻 {weatherEffects[currentWeather].negativeElement} -2%</span>
                         )}
                     </div>
 
@@ -35595,10 +35595,10 @@ function PvpBattleScreen({
                     </div>
 
                     <div className="hex-zoom-bar">
-                        <span className="hex-zoom-label">??</span>
+                        <span className="hex-zoom-label">🔍</span>
                         <input type="range" className="hex-zoom-slider" min={-0.4} max={0.5} step={0.02}
                             value={userScaleOffset} onChange={e => setUserScaleOffset(Number(e.target.value))} />
-                        <button className="hex-zoom-reset" onClick={() => setUserScaleOffset(0)} title="Reset zoom">?</button>
+                        <button className="hex-zoom-reset" onClick={() => setUserScaleOffset(0)} title="Reset zoom">↺</button>
                     </div>
 
                     <div className={`hex-battlefield hex-${currentBiome}${currentSector === 99 ? " hex-deathsgate" : ""}`}
@@ -35867,7 +35867,7 @@ function PvpBattleScreen({
                                                     </button>
                                                     <button type="button" className="combat-jutsu-help"
                                                         onClick={() => setInspectedJutsuId(inspectedJutsuId === j.id ? "" : j.id)}
-                                                        title={`View ${j.name} details`}>?</button>
+                                                        title={`View ${j.name} details`}>ℹ️</button>
                                                 </div>
                                             );
                                         })}
@@ -35887,14 +35887,14 @@ function PvpBattleScreen({
                                                         onClick={() => { setInspectedJutsuId(""); setInspectedWeaponId(""); clearPendingPvpJutsu(); setDashMode(false); setSelectedActionId(undefined); setPendingBasicAttack(false); setPendingWeaponId(v => v === item.id ? "" : item.id); }}
                                                         disabled={submitting || myAp < apCost}>
                                                         <span className="combat-jutsu-thumb combat-item-thumb">
-                                                            {item.image ? <img src={item.image} alt={item.name} /> : <strong>{slot === "thrown" ? "?" : "?"}</strong>}
+                                                            {item.image ? <img src={item.image} alt={item.name} /> : <strong>🗡</strong>}
                                                         </span>
                                                         <span className="combat-jutsu-name">{item.name}</span>
                                                         <span className="combat-jutsu-info">{apCost} AP | R{wRange}</span>
                                                     </button>
                                                     <button type="button" className="combat-jutsu-help"
                                                         onClick={() => setInspectedWeaponId(inspectedWeaponId === item.id ? "" : item.id)}
-                                                        title={`View ${item.name} details`}>?</button>
+                                                        title={`View ${item.name} details`}>ℹ️</button>
                                                 </div>
                                             );
                                         })}
@@ -35920,7 +35920,7 @@ function PvpBattleScreen({
                                                     </button>
                                                     <button type="button" className="combat-jutsu-help"
                                                         onClick={() => setInspectedWeaponId(inspectedWeaponId === item.id ? "" : item.id)}
-                                                        title={`View ${item.name} details`}>?</button>
+                                                        title={`View ${item.name} details`}>ℹ️</button>
                                                 </div>
                                             );
                                         })}
@@ -35937,7 +35937,7 @@ function PvpBattleScreen({
                                                         onClick={() => { setInspectedJutsuId(""); clearPendingPvpJutsu(); setPendingBasicAttack(false); setPendingWeaponId(""); submitAction("item", undefined, undefined, item); }}
                                                         disabled={submitting || myAp < apCost}>
                                                         <span className="combat-jutsu-thumb combat-item-thumb">
-                                                            {item.image ? <img src={item.image} alt={item.name} /> : <strong>?</strong>}
+                                                            {item.image ? <img src={item.image} alt={item.name} /> : <strong>🧪</strong>}
                                                         </span>
                                                         <span className="combat-jutsu-name">{item.name}</span>
                                                         <span className="combat-jutsu-info">{apCost} AP | Use</span>
