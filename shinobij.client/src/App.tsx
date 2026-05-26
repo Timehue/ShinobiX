@@ -3005,17 +3005,27 @@ const petExpeditionStories: Record<PetExpeditionType, string[]> = {
         "explored a forgotten battlefield beneath the ruins — the bones were old; the chakra was not",
     ],
 };
+// Rarity scaling — compressed so mythic is ~25% above rare on every axis
+// (previously +35-55%, which made "have-a-mythic = auto-win"). Legendary
+// sits at ~12% above rare so the four tiers stay clearly distinct without
+// any one tier dominating. Standard and rare are unchanged (entry-level
+// experience stays the same).
+//
+// Per-stat target mythic-vs-rare gap:
+//   HP +25%   ATK +25%   DEF +26%   SPD +25%   JutsuPower +26%
+// Per-stat target legendary-vs-rare gap:
+//   HP +12%   ATK +13%   DEF +12%   SPD +14%   JutsuPower +13%
 const balancedPetBaseStats: Record<PetRarity, { hp: number; attack: number; defense: number; speed: number; jutsuPower: number; moveRange: number }> = {
     standard: { hp: 320, attack: 40, defense: 28, speed: 30, jutsuPower: 50, moveRange: 3 },
     rare: { hp: 370, attack: 48, defense: 34, speed: 36, jutsuPower: 62, moveRange: 3 },
-    legendary: { hp: 430, attack: 58, defense: 42, speed: 44, jutsuPower: 78, moveRange: 4 },
-    mythic: { hp: 500, attack: 70, defense: 52, speed: 52, jutsuPower: 96, moveRange: 4 },
+    legendary: { hp: 416, attack: 54, defense: 38, speed: 41, jutsuPower: 70, moveRange: 4 },
+    mythic: { hp: 462, attack: 60, defense: 43, speed: 45, jutsuPower: 78, moveRange: 4 },
 };
 const petStatCaps: Record<PetRarity, { hp: number; attack: number; defense: number; speed: number; jutsuPower: number }> = {
     standard: { hp: 1700, attack: 260, defense: 210, speed: 190, jutsuPower: 320 },
     rare: { hp: 1900, attack: 290, defense: 240, speed: 220, jutsuPower: 360 },
-    legendary: { hp: 2200, attack: 330, defense: 280, speed: 250, jutsuPower: 420 },
-    mythic: { hp: 2500, attack: 380, defense: 320, speed: 285, jutsuPower: 500 },
+    legendary: { hp: 2140, attack: 326, defense: 270, speed: 247, jutsuPower: 405 },
+    mythic: { hp: 2380, attack: 365, defense: 300, speed: 275, jutsuPower: 450 },
 };
 const petTreatItems = [
     { id: "pet-treat", name: "Treats", xp: 100 },
@@ -3138,34 +3148,40 @@ const elementalSpecialKind: Record<Exclude<JutsuElement, "None">, ElementalSpeci
     Earth: "debuff",
 };
 type ElementalSpecialSpec = { name: string; power: number; cooldown: number; rounds: number };
+// Elemental specials — power compressed so a mythic special is ~25-40%
+// stronger than its rare counterpart (was 100-200%). Duration scaling
+// kept smaller too: mythic gets +1 round at most over rare for the
+// status effects so a mythic stun isn't a guaranteed kill window.
+// Cooldown stays 5 across all tiers (mythic no longer fires every 4
+// rounds — same cadence as rare so a mythic doesn't out-cycle).
 const elementalSpecialByRarityElement: Record<PetRarity, Record<Exclude<JutsuElement, "None">, ElementalSpecialSpec>> = {
     standard: {
-        Fire:      { name: "Searing Mark",   power: 40,  cooldown: 5, rounds: 2 },
-        Water:     { name: "Frost Bite",     power: 40,  cooldown: 5, rounds: 1 },
-        Wind:      { name: "Whirling Daze",  power: 40,  cooldown: 5, rounds: 1 },
-        Lightning: { name: "Static Snap",    power: 40,  cooldown: 5, rounds: 1 },
-        Earth:     { name: "Heavy Stone",    power: 40,  cooldown: 5, rounds: 0 },
+        Fire:      { name: "Searing Mark",        power: 40,  cooldown: 5, rounds: 2 },
+        Water:     { name: "Frost Bite",          power: 40,  cooldown: 5, rounds: 1 },
+        Wind:      { name: "Whirling Daze",       power: 40,  cooldown: 5, rounds: 1 },
+        Lightning: { name: "Static Snap",         power: 40,  cooldown: 5, rounds: 1 },
+        Earth:     { name: "Heavy Stone",         power: 40,  cooldown: 5, rounds: 0 },
     },
     rare: {
-        Fire:      { name: "Ember Lash",     power: 70,  cooldown: 5, rounds: 3 },
-        Water:     { name: "Frozen Lash",    power: 70,  cooldown: 5, rounds: 2 },
-        Wind:      { name: "Cyclone Veil",   power: 70,  cooldown: 5, rounds: 2 },
-        Lightning: { name: "Shock Sigil",    power: 70,  cooldown: 5, rounds: 1 },
-        Earth:     { name: "Boulder Press",  power: 75,  cooldown: 5, rounds: 0 },
+        Fire:      { name: "Ember Lash",          power: 60,  cooldown: 5, rounds: 2 },
+        Water:     { name: "Frozen Lash",         power: 60,  cooldown: 5, rounds: 2 },
+        Wind:      { name: "Cyclone Veil",        power: 60,  cooldown: 5, rounds: 2 },
+        Lightning: { name: "Shock Sigil",         power: 60,  cooldown: 5, rounds: 1 },
+        Earth:     { name: "Boulder Press",       power: 65,  cooldown: 5, rounds: 0 },
     },
     legendary: {
-        Fire:      { name: "Pyre Burst",          power: 110, cooldown: 5, rounds: 3 },
-        Water:     { name: "Glacial Coffin",      power: 105, cooldown: 5, rounds: 2 },
-        Wind:      { name: "Tempest Mirage",      power: 105, cooldown: 5, rounds: 2 },
-        Lightning: { name: "Thunderbreak",        power: 110, cooldown: 5, rounds: 2 },
-        Earth:     { name: "Mountain Crush",      power: 115, cooldown: 5, rounds: 0 },
+        Fire:      { name: "Pyre Burst",          power: 75,  cooldown: 5, rounds: 3 },
+        Water:     { name: "Glacial Coffin",      power: 72,  cooldown: 5, rounds: 2 },
+        Wind:      { name: "Tempest Mirage",      power: 72,  cooldown: 5, rounds: 2 },
+        Lightning: { name: "Thunderbreak",        power: 75,  cooldown: 5, rounds: 2 },
+        Earth:     { name: "Mountain Crush",      power: 82,  cooldown: 5, rounds: 0 },
     },
     mythic: {
-        Fire:      { name: "Solar Conflagration", power: 160, cooldown: 4, rounds: 4 },
-        Water:     { name: "Eternal Glacier",     power: 150, cooldown: 4, rounds: 3 },
-        Wind:      { name: "Heaven's Vortex",     power: 150, cooldown: 4, rounds: 3 },
-        Lightning: { name: "Worldfall Bolt",      power: 155, cooldown: 4, rounds: 2 },
-        Earth:     { name: "World-Ender Slab",    power: 170, cooldown: 4, rounds: 0 },
+        Fire:      { name: "Solar Conflagration", power: 90,  cooldown: 5, rounds: 3 },
+        Water:     { name: "Eternal Glacier",     power: 85,  cooldown: 5, rounds: 3 },
+        Wind:      { name: "Heaven's Vortex",     power: 85,  cooldown: 5, rounds: 3 },
+        Lightning: { name: "Worldfall Bolt",      power: 88,  cooldown: 5, rounds: 2 },
+        Earth:     { name: "World-Ender Slab",    power: 100, cooldown: 5, rounds: 0 },
     },
 };
 function elementalSpecialFor(element: JutsuElement | undefined, rarity: PetRarity): PetJutsu | null {
