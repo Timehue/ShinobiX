@@ -84,7 +84,7 @@ function VillageTavern({ character, setScreen, sharedImages }: { character: Char
     return (
         <div className="card tavern-screen">
             <div className="tavern-header">
-                <button className="back-button" onClick={() => setScreen("village")}>? Village</button>
+                <button className="back-button" onClick={() => setScreen("village")}>← Village</button>
                 <div>
                     <h2>🍶 {character.village} Tavern</h2>
                     <p className="tavern-subtitle">Village members only — speak freely.</p>
@@ -108,7 +108,7 @@ function VillageTavern({ character, setScreen, sharedImages }: { character: Char
                             <div className="tavern-body">
                                 <div className="tavern-meta">
                                     <span className="tavern-author">{m.author}</span>
-                                    {m.customTitle && <span className="tavern-custom-title">?{m.customTitle}?</span>}
+                                    {m.customTitle && <span className="tavern-custom-title">«{m.customTitle}»</span>}
                                     {m.rank && <span className="tavern-rank">{m.rank}</span>}
                                     <span className="tavern-time">{new Date(m.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
                                 </div>
@@ -130,7 +130,7 @@ function VillageTavern({ character, setScreen, sharedImages }: { character: Char
                     disabled={sending}
                 />
                 <button className="tavern-send-btn" onClick={() => void send()} disabled={!input.trim() || sending}>
-                    {sending ? "…" : "? Send"}
+                    {sending ? "…" : "→ Send"}
                 </button>
             </div>
         </div>
