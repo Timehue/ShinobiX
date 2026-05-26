@@ -10104,6 +10104,14 @@ export default function App() {
     // ALWAYS fires something — the player never gets a free pass.
     function triggerHollowGateAmbush() {
         if (!character) return;
+        // F5 ambush → boss fight. Avoids the climax getting cheated by a
+        // random ambush firing before the Warden tile. The player still
+        // sees the boss fight + the F5 shrine-cleared modal on win.
+        if ((hollowGateRun?.floor ?? 1) >= HOLLOW_GATE_MAX_FLOOR) {
+            pushHollowGateLog("The corridor itself tears open — the Hollow Gate Warden steps through the seal!");
+            startHollowGateBattle({ isBoss: true });
+            return;
+        }
         pushHollowGateLog("The Hollow Gate echoes converge — an ambush!");
         const roll = Math.random() * 100;
         // ── Branch A: Pet duel (35% slot, rolls 50-84) ────────────────
@@ -10293,6 +10301,37 @@ export default function App() {
         pushHollowGateLog(`Encounter: ${encounterName}.${petLine}`);
         setScreen("arena");
     }
+    // Shared run-summary builder — counts resolved tiles by kind and
+    // packs them into the multi-line summary block used by the Leave
+    // tile modal, the trap-death modal, and the F5 victory modal so a
+    // player gets a consistent post-run report regardless of how they
+    // exited.
+    function buildHollowGateRunSummary(): string {
+        if (!hollowGateRun || !character) return "";
+        const t = hollowGateRun.tiles;
+        const stats = {
+            floors: hollowGateRun.floor,
+            chests: t.filter(x => x.kind === "chest" && x.resolved).length,
+            battles: t.filter(x => (x.kind === "battle" || x.kind === "elite") && x.resolved).length,
+            beasts: t.filter(x => x.kind === "pet_battle" && x.resolved).length,
+            tileSeals: t.filter(x => x.kind === "tile_game" && x.resolved).length,
+            hiddenChambers: t.filter(x => x.kind === "shrine" && x.resolved).length,
+            traps: t.filter(x => x.kind === "trap" && x.resolved).length,
+            keepers: t.filter(x => x.kind === "npc" && x.resolved).length,
+        };
+        return [
+            `Floor reached: ${stats.floors} / ${HOLLOW_GATE_MAX_FLOOR}`,
+            `Chests opened: ${stats.chests}`,
+            `Shinobi defeated: ${stats.battles}`,
+            `Hollow Beasts felled: ${stats.beasts}`,
+            `Tile Seals claimed: ${stats.tileSeals}`,
+            `Hidden Chambers: ${stats.hiddenChambers}`,
+            `Keepers blessed by: ${stats.keepers}`,
+            `Traps survived: ${stats.traps}`,
+            `HP remaining: ${character.hp} / ${character.maxHp}`,
+        ].join("\n");
+    }
+
     function resolveHollowGateTile(tile: HollowGateTile, x: number, y: number) {
         if (!hollowGateRun || !character) return;
         const idx = y * hollowGateRun.width + x;
@@ -10497,7 +10536,7 @@ export default function App() {
                 if (willDie) {
                     setHollowGateEvent({
                         title: "You Have Fallen",
-                        body: `${flavor}\n\nThe trap drains your final breath. You are admitted to the village hospital and your shrine run ends.`,
+                        body: `${flavor}\n\nThe trap drains your final breath. You are admitted to the village hospital and your shrine run ends.\n\n— RUN SUMMARY —\n${buildHollowGateRunSummary()}`,
                         kind: "trap",
                         choices: [{
                             label: "Leave Shrine",
@@ -10676,32 +10715,9 @@ export default function App() {
                 // the shrine. Stepping on it ends the run and returns to worldMap.
                 // The saved run is cleared; re-entering costs another Hollow Gate Key.
                 pushHollowGateLog(flavor);
-                // Build a run summary from resolved-tile counts so the player
-                // sees what they accomplished before exiting.
-                const stats = {
-                    floors: hollowGateRun.floor,
-                    chests: hollowGateRun.tiles.filter(t => t.kind === "chest" && t.resolved).length,
-                    battles: hollowGateRun.tiles.filter(t => (t.kind === "battle" || t.kind === "elite") && t.resolved).length,
-                    beasts: hollowGateRun.tiles.filter(t => t.kind === "pet_battle" && t.resolved).length,
-                    tileSeals: hollowGateRun.tiles.filter(t => t.kind === "tile_game" && t.resolved).length,
-                    hiddenChambers: hollowGateRun.tiles.filter(t => t.kind === "shrine" && t.resolved).length,
-                    traps: hollowGateRun.tiles.filter(t => t.kind === "trap" && t.resolved).length,
-                    keepers: hollowGateRun.tiles.filter(t => t.kind === "npc" && t.resolved).length,
-                };
-                const summaryLines = [
-                    `Floor reached: ${stats.floors} / ${HOLLOW_GATE_MAX_FLOOR}`,
-                    `Chests opened: ${stats.chests}`,
-                    `Shinobi defeated: ${stats.battles}`,
-                    `Hollow Beasts felled: ${stats.beasts}`,
-                    `Tile Seals claimed: ${stats.tileSeals}`,
-                    `Hidden Chambers: ${stats.hiddenChambers}`,
-                    `Keepers blessed by: ${stats.keepers}`,
-                    `Traps survived: ${stats.traps}`,
-                    `HP remaining: ${character.hp} / ${character.maxHp}`,
-                ];
                 setHollowGateEvent({
                     title: "Leave the Hollow Gate",
-                    body: `${flavor}\n\nThe broken torii on this tile opens back to the world map.\n\n— RUN SUMMARY —\n${summaryLines.join("\n")}\n\nLeaving ends this run — your progress is forfeit and you'll need another Hollow Gate Key to return.`,
+                    body: `${flavor}\n\nThe broken torii on this tile opens back to the world map.\n\n— RUN SUMMARY —\n${buildHollowGateRunSummary()}\n\nLeaving ends this run — your progress is forfeit and you'll need another Hollow Gate Key to return.`,
                     kind: "exit",
                     choices: [
                         {
@@ -10987,7 +11003,7 @@ export default function App() {
                 // No "Leave" choice — auto-returns to world map after rewards are claimed.
                 setHollowGateEvent({
                     title: "Hollow Gate Shrine Cleared",
-                    body: `Floor ${hollowGateRun.floor} of ${HOLLOW_GATE_MAX_FLOOR} cleared.\n\nThe Hollow Gate echoes scatter. The shrine surrenders its final relic to you.`,
+                    body: `Floor ${hollowGateRun.floor} of ${HOLLOW_GATE_MAX_FLOOR} cleared.\n\nThe Hollow Gate echoes scatter. The shrine surrenders its final relic to you.\n\n— RUN SUMMARY —\n${buildHollowGateRunSummary()}`,
                     kind: "boss",
                     choices: [
                         {
@@ -12237,6 +12253,7 @@ export default function App() {
                         updateCharacter={setCharacter}
                         creatorCards={creatorCards}
                         dungeonMode
+                        dungeonSceneImage={sharedImages["shrine:tile-tile-game"]}
                         tileDifficulty={hollowGateRun.floor >= 4 ? "normal" : "easy"}
                         onDungeonWin={() => {
                             // Win → small reward + back to shrine. Rewards
@@ -22157,12 +22174,16 @@ function GrandMarketplace({ character, updateCharacter, creatorItems, creatorCar
     );
 }
 
-function ShinobiTiles({ character, updateCharacter, creatorCards, dungeonMode = false, tileDifficulty = "normal", onDungeonWin, onDungeonLeave, onDungeonLose }: { character: Character; updateCharacter: (c: Character) => void; creatorCards: TileCard[]; dungeonMode?: boolean; tileDifficulty?: "easy" | "normal" | "hard"; onDungeonWin?: () => void; onDungeonLeave?: () => void;
+function ShinobiTiles({ character, updateCharacter, creatorCards, dungeonMode = false, tileDifficulty = "normal", onDungeonWin, onDungeonLeave, onDungeonLose, dungeonSceneImage }: { character: Character; updateCharacter: (c: Character) => void; creatorCards: TileCard[]; dungeonMode?: boolean; tileDifficulty?: "easy" | "normal" | "hard"; onDungeonWin?: () => void; onDungeonLeave?: () => void;
     // Fired when the player exits the result screen after LOSING. Distinct
     // from onDungeonLeave (which is also called for explicit abandons before
     // a result was reached). Used by Hollow Gate to apply -20% maxHp penalty
     // only when the player actually lost the card game.
     onDungeonLose?: () => void;
+    // Optional scene/opponent portrait shown as a banner in dungeon mode.
+    // Set by the Hollow Gate caller to shrine:tile-tile-game so the admin-
+    // generated card-game scene art actually appears during the duel.
+    dungeonSceneImage?: string;
  }) {
     type BoardCell = { card: TileCard; owner: "player" | "enemy" } | null;
     type Phase = "collection" | "select" | "game" | "result";
@@ -22610,6 +22631,34 @@ function ShinobiTiles({ character, updateCharacter, creatorCards, dungeonMode = 
     return (
         <div className="card">
             <h2 style={{ marginBottom: "0.3rem" }}>🀄 Shinobi Tiles</h2>
+            {/* Dungeon-mode scene banner — shows the admin-generated
+                opponent / table art (shrine:tile-tile-game) so the
+                Hollow Gate card duel feels like an actual encounter
+                instead of a vanilla card screen. */}
+            {dungeonMode && dungeonSceneImage && (
+                <div style={{
+                    position: "relative",
+                    width: "100%",
+                    height: 130,
+                    marginBottom: 8,
+                    borderRadius: 8,
+                    overflow: "hidden",
+                    background: `linear-gradient(180deg, rgba(7,12,27,0.15), rgba(7,12,27,0.78)), url(${dungeonSceneImage}) center/cover no-repeat`,
+                    border: "1px solid rgba(168,85,247,0.45)",
+                }}>
+                    <div style={{
+                        position: "absolute",
+                        bottom: 6,
+                        left: 10,
+                        color: "#e9d5ff",
+                        fontSize: 12,
+                        fontWeight: 600,
+                        textShadow: "0 1px 4px rgba(0,0,0,0.85)",
+                    }}>
+                        ⛩ The shadow opponent waits across the stone table.
+                    </div>
+                </div>
+            )}
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.5rem", fontSize: 13 }}>
                 <span style={{ color: "#4fc3f7" }}>You: {pScore}</span>
                 <span style={{ color: isPlayerTurn ? "#a5d6a7" : "#ef9a9a" }}>{isPlayerTurn ? "Your Turn" : "Enemy thinking..."}</span>
