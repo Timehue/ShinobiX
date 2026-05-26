@@ -12991,7 +12991,7 @@ export default function App() {
                         character={character}
                         updateCharacter={setCharacter}
                         playerRoster={playerRoster}
-                        onBack={() => setScreen("centralHub")}
+                        onBack={() => setScreen("townHall")}
                     />
                 )}
                 {!activeTriggeredEvent && screen === "shinobiCouncil" && character && <ShinobiCouncilHall character={character} setScreen={setScreen} playerRoster={playerRoster} />}
