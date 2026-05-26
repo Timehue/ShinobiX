@@ -395,7 +395,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         const actorChar = (actorSave?.character ?? null) as Record<string, unknown> | null;
                         const actorClan = String(actorChar?.clan ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
                         if (!actorClan || actorClan !== targetClanSlug) {
-                            return res.status(403).json({ error: 'Only members of this clan can write its shared record.' });
+                            // Membership check failed — but allow the write
+                            // through if the clan record doesn't yet exist
+                            // AND the incoming body declares this player as
+                            // its founder. This covers two legitimate cases
+                            // the membership check would otherwise reject:
+                            //
+                            //   • First-time creation via "Create Clan" —
+                            //     the clan record is written before the
+                            //     character's clan field syncs server-side.
+                            //   • Reclaim after a server reset wiped the
+                            //     previous save:clan-<slug> record.
+                            //
+                            // First-claimer-wins semantics. Once a record
+                            // exists, the membership check is the only path.
+                            const existingClan = await kv.get<Record<string, unknown>>(key);
+                            const incomingBody = (typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {})) as Record<string, unknown>;
+                            const bodyFounder = String(incomingBody?.founderName ?? '').toLowerCase();
+                            const allowCreate = !existingClan && bodyFounder && bodyFounder === identity.name.toLowerCase();
+                            if (!allowCreate) {
+                                return res.status(403).json({ error: 'Only members of this clan can write its shared record.' });
+                            }
                         }
                     } catch {
                         return res.status(500).json({ error: 'Unable to verify clan membership.' });
