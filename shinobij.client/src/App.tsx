@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type ChangeEvent, type Dispatch, type SetStateAction } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type ChangeEvent, type Dispatch, type SetStateAction } from "react";
 import { createPortal } from "react-dom";
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect, react-hooks/purity */
 import type * as React from "react";
@@ -591,6 +591,11 @@ export type Character = {
     // war-ground raid of each UTC day; gates the inline +500 ryo +
     // 1 Fate Shard bounty so it can only be claimed once per day.
     warGroundBountyDate?: string;
+    // Lifetime village war stats — incremented at war-end claim time
+    // by claimPendingWarCrates. Drive the Hall of Legends leaderboards.
+    warsWon?: number;             // wars where this player qualified for the winner crate
+    warMvpCount?: number;         // wars where this player was MVP on either side
+    lifetimeWarDamage?: number;   // sum of contribution damage across all wars touched
     totalTilesExplored?: number;
     totalTournamentsCompleted?: number;
     totalEndlessTowerWins?: number;
@@ -4912,6 +4917,13 @@ function claimPendingWarCrates(
     let shardsBonus = 0;
     let mvpAwarded = false;
     let consolationAwarded = false;
+    // Lifetime stats — incremented per war, deduped via a `stats-${warId}`
+    // marker in claimedWarCrateIds so multiple claim paths (winner +
+    // MVP + consolation) all firing for the same war only count once
+    // toward the Hall of Legends leaderboards.
+    let warsWonDelta = 0;
+    let mvpCountDelta = 0;
+    let lifetimeDamageDelta = 0;
     const now = Date.now();
     const myName = character.name;
     const myVillage = character.village;
@@ -4934,6 +4946,7 @@ function claimPendingWarCrates(
         if (war.warCrateId && war.winnerVillage === myVillage && !claimed.has(war.warCrateId)) {
             cratesToAdd.push(war.warCrateId);
             idsToAdd.push(war.warCrateId);
+            warsWonDelta += 1;  // lifetime stat
         }
 
         // 2. MVP crate — top-contributor on EITHER side. Server stamps
@@ -4950,6 +4963,7 @@ function claimPendingWarCrates(
             honorBonus += 50;
             shardsBonus += 2;
             mvpAwarded = true;
+            mvpCountDelta += 1;  // lifetime stat
         }
 
         // 3. Loss-consolation — losing-side players who contributed
@@ -4968,9 +4982,23 @@ function claimPendingWarCrates(
                 }
             }
         }
+
+        // 4. Lifetime damage — credit the player's total contribution
+        //    to this war ONCE (deduped via `stats-${warId}` marker).
+        //    Fires regardless of which side won, so even losing-side
+        //    raiders see their lifetime damage climb on the HoL
+        //    leaderboard.
+        const statsId = `stats-${war.id}`;
+        if (!claimed.has(statsId) && war.villages.includes(myVillage)) {
+            const myContrib = war.contributions?.[myName.toLowerCase()];
+            if (myContrib && myContrib.damage > 0) {
+                lifetimeDamageDelta += myContrib.damage;
+                idsToAdd.push(statsId);
+            }
+        }
     }
 
-    if (cratesToAdd.length === 0 && idsToAdd.length === 0 && ryoBonus === 0 && honorBonus === 0 && shardsBonus === 0) {
+    if (cratesToAdd.length === 0 && idsToAdd.length === 0 && ryoBonus === 0 && honorBonus === 0 && shardsBonus === 0 && warsWonDelta === 0 && mvpCountDelta === 0 && lifetimeDamageDelta === 0) {
         return { character, count: 0 };
     }
 
@@ -4982,6 +5010,9 @@ function claimPendingWarCrates(
             fateShards: (character.fateShards ?? 0) + shardsBonus,
             inventory: [...character.inventory, ...cratesToAdd.map(() => LEGENDARY_WAR_CRATE_ID)],
             claimedWarCrateIds: [...(character.claimedWarCrateIds ?? []), ...idsToAdd],
+            warsWon: (character.warsWon ?? 0) + warsWonDelta,
+            warMvpCount: (character.warMvpCount ?? 0) + mvpCountDelta,
+            lifetimeWarDamage: (character.lifetimeWarDamage ?? 0) + lifetimeDamageDelta,
         },
         count: cratesToAdd.length,
         mvp: mvpAwarded,
@@ -13223,9 +13254,9 @@ export default function App() {
                             }));
                         }
                         const villageWarRaid = context?.raidKind === "raidPlayer"
-                            ? recordVillageWarRaid(character, rewardSector)
+                            ? recordVillageWarRaid(character, rewardSector, playerRoster)
                             : { note: "", characterPatch: {} as Partial<Character>, warCrate: false, warCrateId: undefined as string | undefined, bountyRyo: 0, bountyFateShards: 0 };
-                        const villageWarPvpPatch = opponent ? recordVillageWarPvp(character, opponent, rewardSector) : "";
+                        const villageWarPvpPatch = opponent ? recordVillageWarPvp(character, opponent, rewardSector, playerRoster) : "";
                         const leveled = gainXp(character, xpGain);
                         const rewarded = grantTerritoryScrolls(leveled, 5);
                         // Spar/friendly-duel detection for non-Vanguard local effects
@@ -23887,7 +23918,13 @@ const VILLAGE_WAR_GROUND_HP_MAX = 1000;
 const VILLAGE_WAR_DAILY_MISSIONS = 2;
 const VILLAGE_WAR_RAIDS_PER_MISSION = 3;
 const VILLAGE_WAR_MISSION_DAMAGE = 30;
-const VILLAGE_WAR_GROUND_CAPTURE_DAMAGE = 750;
+// Capture damage per flip. Capped at the server's per-write HP delta
+// (VILLAGE_WAR_HP_MAX_DELTA_PER_REQUEST = 100) so the single applyVillageWarDamage
+// call doesn't bounce off the anti-cheat. With the tug-of-war model
+// each war typically sees several captures, so 100/flip stacks up while
+// staying inside the cap and matching the per-write damage profile of
+// the territory-raid path (VillageWarScreen.raidSector does the same).
+const VILLAGE_WAR_GROUND_CAPTURE_DAMAGE = 100;
 
 type VillageWarContribution = {
     damage: number;
@@ -24023,20 +24060,65 @@ function startVillageWar(attackerVillage: string, enemyVillage: string) {
     return war;
 }
 
-function villageWarRoleValue(character: Character) {
+// Minimum clan-member count required for clan-tier leadership titles
+// to unlock the +20 war-damage tier. Stops 1-person "clans" from
+// farming the bonus — you need at least 7 OTHER members (8 total
+// including yourself) to count as a real clan leader for war purposes.
+// Village-level seats (Kage, the 3 appointed Elders, ANBU) are NOT
+// affected by clan size — they're scoped to the village, not a clan.
+const VILLAGE_WAR_CLAN_LEADER_MIN_MEMBERS = 8;
+
+// Detect clan-tier leadership titles. Village Elder seats use titles
+// like "First Elder" / "Second Elder" / "Third Elder", which contain
+// "elder" but aren't clan leadership — they're explicitly excluded
+// here so they keep the +20 tier with no clan-size requirement.
+function isClanLeaderTitle(character: Character): boolean {
+    const title = `${character.rankTitle ?? ""} ${character.storyTitle ?? ""}`.toLowerCase();
+    if (character.clanFounder) return true;
+    if (title.includes("clan leader") || title.includes("clan head") || title.includes("clan elder")) return true;
+    return false;
+}
+
+function isVillageElderTitle(character: Character): boolean {
+    const title = `${character.rankTitle ?? ""} ${character.storyTitle ?? ""}`.toLowerCase();
+    return title.includes("first elder") || title.includes("second elder") || title.includes("third elder") || title.includes("village elder");
+}
+
+// Count active clanmates including the player themselves. Uses the
+// in-memory player roster as the source of truth. The roster may or
+// may not include the player (depends on call site), so we always add
+// 1 for self when the player is in the named clan and dedupe by name.
+function countClanMembers(clanName: string | undefined, characterName: string, roster: PlayerRecord[]): number {
+    if (!clanName) return 0;
+    const names = new Set<string>();
+    names.add(characterName.toLowerCase());
+    for (const p of roster) {
+        if ((p.character?.clan ?? "") === clanName) names.add(p.name.toLowerCase());
+    }
+    return names.size;
+}
+
+function villageWarRoleValue(character: Character, clanMemberCount = 0) {
     const title = `${character.rankTitle ?? ""} ${character.storyTitle ?? ""}`.toLowerCase();
     const state = loadVillageState(character.village);
     if (state.seatedKage?.toLowerCase() === character.name.toLowerCase() || title.includes("kage")) return 30;
-    if (title.includes("elder") || title.includes("clan leader") || title.includes("clan head") || character.clanFounder) return 20;
+    // Village Elder seats — fixed roles, unaffected by clan size.
+    if (isVillageElderTitle(character)) return 20;
+    // ANBU — fixed roles, unaffected by clan size.
     if (isVillageAnbu(character) || title.includes("anbu")) return 15;
+    // Clan leadership — gated by ≥8 total members so 1-person "clans"
+    // can't farm the +20 bonus. If under the threshold, fall through
+    // to the regular +5 contribution.
+    if (isClanLeaderTitle(character) && clanMemberCount >= VILLAGE_WAR_CLAN_LEADER_MIN_MEMBERS) return 20;
     return 5;
 }
 
-function villageWarLossPenalty(character: Character) {
+function villageWarLossPenalty(character: Character, clanMemberCount = 0) {
     const title = `${character.rankTitle ?? ""} ${character.storyTitle ?? ""}`.toLowerCase();
     const state = loadVillageState(character.village);
     if (state.seatedKage?.toLowerCase() === character.name.toLowerCase() || title.includes("kage")) return 50;
-    if (title.includes("elder") || title.includes("clan leader") || title.includes("clan head") || character.clanFounder) return 20;
+    if (isVillageElderTitle(character)) return 20;
+    if (isClanLeaderTitle(character) && clanMemberCount >= VILLAGE_WAR_CLAN_LEADER_MIN_MEMBERS) return 20;
     return 0;
 }
 
@@ -24105,7 +24187,7 @@ function recordWarOutcomeToVillages(war: VillageWar, loserVillage: string, winne
     }
 }
 
-function recordVillageWarPvp(winner: Character, loser: Character, sector?: number) {
+function recordVillageWarPvp(winner: Character, loser: Character, sector?: number, roster: PlayerRecord[] = []) {
     const war = activeVillageWarBetween(winner.village, loser.village);
     if (!war) return "";
     // No war damage during the pre-war pending window — the server
@@ -24115,7 +24197,12 @@ function recordVillageWarPvp(winner: Character, loser: Character, sector?: numbe
         const minsLeft = Math.max(1, Math.ceil((war.pendingUntil - Date.now()) / 60_000));
         return ` Village War starts in ${minsLeft} min — fight didn't count yet.`;
     }
-    let damage = villageWarRoleValue(winner) + villageWarLossPenalty(loser);
+    // Clan-size gate: clan-leadership titles only get the +20 tier
+    // when the clan has ≥8 total members. Computed from the roster
+    // for both winner and loser; small-clan leaders fall back to +5/+0.
+    const winnerClanSize = countClanMembers(winner.clan, winner.name, roster);
+    const loserClanSize = countClanMembers(loser.clan, loser.name, roster);
+    let damage = villageWarRoleValue(winner, winnerClanSize) + villageWarLossPenalty(loser, loserClanSize);
     // Home-defender bonus: when the WINNER is fighting in a sector
     // owned by their own village, scale war-credit damage 1.15×.
     // Notes: this ONLY affects the war HP ledger, not the actual PvP
@@ -24137,7 +24224,7 @@ function recordVillageWarPvp(winner: Character, loser: Character, sector?: numbe
     return ` Village War: ${loser.village} HP -${damage}${tag} (${updated.hp[loser.village]}/${VILLAGE_WAR_HP_MAX}).`;
 }
 
-function recordVillageWarRaid(character: Character, sector: number) {
+function recordVillageWarRaid(character: Character, sector: number, roster: PlayerRecord[] = []) {
     // Union return shape: every early return must declare the same
     // keys (with undefined values where needed) so the success path's
     // `warCrateId: string` access compiles against the inferred union.
@@ -24163,7 +24250,11 @@ function recordVillageWarRaid(character: Character, sector: number) {
     }
     const enemyVillage = war.villages.find(village => village !== character.village);
     if (!enemyVillage) return empty;
-    const damage = villageWarRoleValue(character);
+    // Apply the same clan-size gate to raid contributions — a 1-person
+    // "clan" leader chipping the war ground only deals their +5
+    // regular tier until the clan grows to ≥8 members.
+    const myClanSize = countClanMembers(character.clan, character.name, roster);
+    const damage = villageWarRoleValue(character, myClanSize);
     let next = normalizeVillageWar({
         ...war,
         warGroundHp: Math.max(0, war.warGroundHp - damage),
@@ -24340,7 +24431,11 @@ function TownHall({ character, updateCharacter, creatorItems, allServerPlayers, 
     const [villageSendCurrency, setVillageSendCurrency] = useState<VillageTreasuryCurrencyKey>("ryo");
     const [villageSendAmount, setVillageSendAmount] = useState(1);
     const [anbuAppointmentInputs, setAnbuAppointmentInputs] = useState<string[]>(() => normalizeAnbuAppointees(loadVillageState(character.village).anbuAppointees));
-    const [warTargetVillage, setWarTargetVillage] = useState(villages.find(village => village !== character.village) ?? villages[0]);
+    // (Removed: warTargetVillage state — Town Hall no longer has its own
+    // "Start Village War" bypass. The single canonical declare flow lives
+    // in VillageWarScreen, gated by 500 Honor Seals + 7-day cooldown +
+    // 1-hour pending window + single-war rule. Players click "Open
+    // Village War Hall →" below to reach it.)
     const [villageNoticeType, setVillageNoticeType] = useState<NoticePostType>("order");
     const [villageNoticeTitle, setVillageNoticeTitle] = useState("");
     const [villageNoticeBody, setVillageNoticeBody] = useState("");
@@ -24392,13 +24487,12 @@ function TownHall({ character, updateCharacter, creatorItems, allServerPlayers, 
     useEffect(() => { if (tab !== "guard" && tab !== "status") return; fetch("/api/village-guard/list", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ village: character.village }) }).then(r => r.ok ? r.json() : []).then(list => setGuardList(Array.isArray(list) ? list : [])).catch(() => setGuardList([])); }, [tab, character.village, character.guardQueued]);
     function updateVillageState(next: VillageState) { const normalized = normalizeVillageState(character.village, next); setState(normalized); saveVillageState(character.village, normalized); }
     function addNotice(text: string, nextState: VillageState = state) { const post = makeNoticePost("general", "Village Notice", text, "System", "System"); return { ...nextState, notices: [text, ...nextState.notices].slice(0, 8), noticePosts: normalizeNoticePosts([post, ...nextState.noticePosts]) }; }
-    function beginVillageWar() {
-        if (!isSeatedKage) return alert("Only the seated Kage can start a village war.");
-        if (warTargetVillage === character.village) return alert("Choose an enemy village.");
-        const war = startVillageWar(character.village, warTargetVillage);
-        updateVillageState(addNotice(`${character.name} started a village war against ${warTargetVillage}. War ground: Sector ${war.warGroundSector}.`));
-        alert(`Village war started. War ground: Sector ${war.warGroundSector}.`);
-    }
+    // (Removed: beginVillageWar — Town Hall's bypass declare path. The
+    // canonical declare flow is VillageWarScreen.declareWar which POSTs
+    // through /api/world-state with all the new server-side gates
+    // applied: 500 Honor Seals cost, 7-day cooldown, single-war rule,
+    // 1-hour pending window. The old function wrote straight to KV via
+    // the cache and silently swallowed server rejections.)
     function upgradeTownFeature(key: VillageUpgradeKey) { if (!isSeatedKage) return alert("Only the seated Kage can upgrade village structures."); const currentLevel = upgrades[key]; if (currentLevel >= VILLAGE_UPGRADE_MAX_LEVEL) return alert("This village upgrade is already maxed at level 50."); const cost = villageUpgradeCost(key, currentLevel); if ((character.honorSeals ?? 0) < cost) return alert(`Not enough Honor Seals. You need ${cost.toLocaleString()} Honor Seals.`); updateCharacter({ ...character, honorSeals: (character.honorSeals ?? 0) - cost, villageUpgrades: { ...upgrades, [key]: currentLevel + 1 } }); updateVillageState(addNotice(`${character.name} spent ${cost.toLocaleString()} Honor Seals to upgrade ${villageUpgradeDefinitions.find(def => def.key === key)?.name ?? key} to level ${currentLevel + 1}.`, { ...state, contributionPoints: state.contributionPoints + 10 })); }
     function purchaseHollowGateUnlock() {
         if (!isSeatedKage) return alert("Only the seated Kage can open the Hollow Gate.");
@@ -24633,7 +24727,7 @@ function TownHall({ character, updateCharacter, creatorItems, allServerPlayers, 
     return <div className="card town-hall-screen">
         <div className="town-hall-hero"><div><p className="act-label">{character.village}</p><h2>Town Hall</h2><p className="hint">Village government, war records, guard defense, upgrades, treasury, and leadership.</p></div><div className="town-hall-wallet"><span>Honor Seals</span><strong>{(character.honorSeals ?? 0).toLocaleString()}</strong></div></div>
         <div className="clan-tabs expanded-tabs town-tabs"><button className={tab === "status" ? "active" : ""} onClick={() => setTab("status")}>Status</button><button className={tab === "upgrades" ? "active" : ""} onClick={() => setTab("upgrades")}>Upgrades</button><button className={tab === "treasury" ? "active" : ""} onClick={() => setTab("treasury")}>Treasury</button><button className={tab === "guard" ? "active" : ""} onClick={() => setTab("guard")}>Guard</button><button className={tab === "notices" ? "active" : ""} onClick={() => setTab("notices")}>Orders</button><button className={tab === "politics" ? "active" : ""} onClick={() => setTab("politics")}>Kage/Elders</button></div>
-        {tab === "status" && <><div className="town-hall-grid"><section className="summary-box town-hall-panel"><h3>Village Status</h3><div className="town-leader-row"><LeaderPortrait image={getLeaderImage(state.seatedKage, leadershipImages.kage)} name={state.seatedKage ?? leadership.kage} fallback="?" /><p><strong>Kage:</strong> {state.seatedKage ?? leadership.kage}</p></div><p><strong>Population:</strong> {population.toLocaleString()}</p><p><strong>Village Level:</strong> {villageLevel}</p><p><strong>Village Strength:</strong> {villageStrength.toLocaleString()}</p><p><strong>Guard Queue:</strong> {guardList.length} active defender{guardList.length === 1 ? "" : "s"}</p></section><section className="summary-box town-hall-panel"><h3>War Status</h3><div className={primaryVillageWar ? "war-status at-war" : "war-status peace"}>{primaryVillageWar ? `At War with ${activeWarEnemyVillage}` : "Not At War"}</div>{primaryVillageWar ? <><p><strong>{character.village} HP:</strong> {primaryVillageWar.hp[character.village].toLocaleString()} / {VILLAGE_WAR_HP_MAX.toLocaleString()}</p><div className="bar enemy-bar"><span style={{ width: `${(primaryVillageWar.hp[character.village] / VILLAGE_WAR_HP_MAX) * 100}%` }} /></div><p><strong>{activeWarEnemyVillage} HP:</strong> {activeWarEnemyVillage ? primaryVillageWar.hp[activeWarEnemyVillage].toLocaleString() : 0} / {VILLAGE_WAR_HP_MAX.toLocaleString()}</p><div className="town-upgrade-bar"><span style={{ width: `${activeWarEnemyVillage ? (primaryVillageWar.hp[activeWarEnemyVillage] / VILLAGE_WAR_HP_MAX) * 100 : 0}%` }} /></div><p><strong>War Ground:</strong> Sector {primaryVillageWar.warGroundSector} · HP {primaryVillageWar.warGroundHp.toLocaleString()} / {VILLAGE_WAR_GROUND_HP_MAX.toLocaleString()}</p><p className="hint">{primaryVillageWar.capturedBy ? `Captured by ${primaryVillageWar.capturedBy}.` : "Raid from the war ground to damage enemy village HP and the sector HP."}</p></> : <><p className="hint">Village wars start at 5,000 HP. PvP kills, war-ground raids, and daily war missions reduce enemy HP.</p><label>Enemy Village</label><select value={warTargetVillage} onChange={(event) => setWarTargetVillage(event.target.value)}>{villages.filter(village => village !== character.village).map(village => <option key={village} value={village}>{village}</option>)}</select><button disabled={!isSeatedKage} onClick={beginVillageWar}>{isSeatedKage ? "Start Village War" : "Kage Only"}</button></>}<div className="menu" style={{ marginTop: "0.6rem" }}><button onClick={() => setScreen("villageWar")} style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171", fontWeight: 700 }}>⚔ Open Village War Hall →</button></div><h4>Current Village Buffs</h4><div className="village-buff-list"><span>Training +{getTrainingXpBonus(character).toFixed(2)}%</span><span>Jutsu Speed +{getJutsuTrainingSpeedBonus(character).toFixed(2)}%</span><span>Shop Discount +{getShopDiscountPercent(character).toFixed(2)}%</span><span>Guard DEF +{getTownDefenseGuardBonus(character).toFixed(2)}%</span><span>Pet XP +{getPetXpBonus(character).toFixed(2)}%</span><span>Bank Interest +{getBankInterestPercent(character).toFixed(2)}%</span><span>Mission Rewards +{getMissionRewardBonus(character).toFixed(2)}%</span><span>Hospital Discount +{getHospitalDiscountPercent(character).toFixed(2)}%</span>{character.elderFocus === "war" && <span>⚔️ War Focus: -1% dmg taken (wartime)</span>}{character.elderFocus === "trade" && <span>💰 Trade Focus: -5% shop costs</span>}{character.elderFocus === "training" && <span>📚 Training Focus: +10% XP, +10% jutsu speed</span>}</div></section></div><section className="summary-box"><h3>Daily Village Agenda</h3><p className="hint">Three village goals refresh each day. If there is no player Kage, the board randomizes automatically.</p><div className="contrib-rank-grid">{agenda.tasks.map(task => <div key={task.id} className="clan-guard-row"><span><strong>{task.label}</strong></span><span>{Math.min(agendaProgress(task), task.target).toLocaleString()} / {task.target.toLocaleString()}</span></div>)}</div><div className="menu"><button disabled={!agendaComplete || agendaClaimed} onClick={claimVillageAgenda}>{agendaClaimed ? "Agenda Claimed" : agendaComplete ? "Claim Agenda Rewards" : "Agenda Incomplete"}</button></div><p className="hint">Rewards: village treasury +15 Honor Seals, +1,500 ryo, +2 Bone Charms. Player: +8 Honor Seals, +750 ryo, +1 Bone Charm.</p></section><section className="summary-box"><h3>Map Control Rewards</h3><p>Your village controls <strong>{ownedVillageSectors.length}</strong> sector{ownedVillageSectors.length === 1 ? "" : "s"}.</p><p className="hint">Daily player reward: +{mapControlRyo.toLocaleString()} ryo, +{mapControlHonor.toLocaleString()} Honor Seals, +{mapControlBone.toLocaleString()} Bone Charms.</p><button disabled={ownedVillageSectors.length <= 0 || mapControlClaimed} onClick={claimMapControlRewards}>{mapControlClaimed ? "Map Reward Claimed" : "Claim Map Control Reward"}</button></section><section className={state.kageSystemUnlocked ? "summary-box kage-unlock-panel unlocked" : "summary-box kage-unlock-panel"}><h3>{state.kageSystemUnlocked ? "Kage System Open" : "Kage System Sealed"}</h3><p>{state.kageSystemUnlocked ? "The false Kage has fallen. The village is no longer ruled by secrecy. The Kage seat is now open." : "Clear your village's level 100 Kage story fight to open elections, elder seats, village upgrades, war access, and policy control."}</p>{state.firstLiberator && <p><strong>First Liberator:</strong> {state.firstLiberator}</p>}{state.seatedKage && <p><strong>Seated Kage:</strong> {state.seatedKage}</p>}</section><section className="summary-box town-notice-board"><h3>Village Notice Board</h3>{state.notices.map((notice, idx) => <p key={`${notice}-${idx}`}>• {notice}</p>)}</section><section className="summary-box"><h3>Detailed War Records</h3><div className="war-record-grid">{state.warRecords.map((war, idx) => <div key={`${war.opponent}-${idx}`} className="war-record-card"><strong>{war.winner} vs {war.opponent}</strong><span>{war.finalScore}</span><small>{war.date} · MVP Clan: {war.mvpClan}</small><small>Top Attacker: {war.topAttacker}</small><small>Top Defender: {war.topDefender}</small><small>Rewards: {war.rewards}</small></div>)}</div></section></>}
+        {tab === "status" && <><div className="town-hall-grid"><section className="summary-box town-hall-panel"><h3>Village Status</h3><div className="town-leader-row"><LeaderPortrait image={getLeaderImage(state.seatedKage, leadershipImages.kage)} name={state.seatedKage ?? leadership.kage} fallback="?" /><p><strong>Kage:</strong> {state.seatedKage ?? leadership.kage}</p></div><p><strong>Population:</strong> {population.toLocaleString()}</p><p><strong>Village Level:</strong> {villageLevel}</p><p><strong>Village Strength:</strong> {villageStrength.toLocaleString()}</p><p><strong>Guard Queue:</strong> {guardList.length} active defender{guardList.length === 1 ? "" : "s"}</p></section><section className="summary-box town-hall-panel"><h3>War Status</h3><div className={primaryVillageWar ? "war-status at-war" : "war-status peace"}>{primaryVillageWar ? `At War with ${activeWarEnemyVillage}` : "Not At War"}</div>{primaryVillageWar ? <><p><strong>{character.village} HP:</strong> {primaryVillageWar.hp[character.village].toLocaleString()} / {VILLAGE_WAR_HP_MAX.toLocaleString()}</p><div className="bar enemy-bar"><span style={{ width: `${(primaryVillageWar.hp[character.village] / VILLAGE_WAR_HP_MAX) * 100}%` }} /></div><p><strong>{activeWarEnemyVillage} HP:</strong> {activeWarEnemyVillage ? primaryVillageWar.hp[activeWarEnemyVillage].toLocaleString() : 0} / {VILLAGE_WAR_HP_MAX.toLocaleString()}</p><div className="town-upgrade-bar"><span style={{ width: `${activeWarEnemyVillage ? (primaryVillageWar.hp[activeWarEnemyVillage] / VILLAGE_WAR_HP_MAX) * 100 : 0}%` }} /></div><p><strong>War Ground:</strong> Sector {primaryVillageWar.warGroundSector} · HP {primaryVillageWar.warGroundHp.toLocaleString()} / {VILLAGE_WAR_GROUND_HP_MAX.toLocaleString()}</p><p className="hint">{primaryVillageWar.capturedBy ? `Captured by ${primaryVillageWar.capturedBy}.` : "Raid from the war ground to damage enemy village HP and the sector HP."}</p></> : <><p className="hint">Village wars start at 5,000 HP. Declare from the War Hall — costs 500 Honor Seals, 7-day cooldown between rematches, one war per village at a time.</p></>}<div className="menu" style={{ marginTop: "0.6rem" }}><button onClick={() => setScreen("villageWar")} style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171", fontWeight: 700 }}>⚔ Open Village War Hall →</button></div><h4>Current Village Buffs</h4><div className="village-buff-list"><span>Training +{getTrainingXpBonus(character).toFixed(2)}%</span><span>Jutsu Speed +{getJutsuTrainingSpeedBonus(character).toFixed(2)}%</span><span>Shop Discount +{getShopDiscountPercent(character).toFixed(2)}%</span><span>Guard DEF +{getTownDefenseGuardBonus(character).toFixed(2)}%</span><span>Pet XP +{getPetXpBonus(character).toFixed(2)}%</span><span>Bank Interest +{getBankInterestPercent(character).toFixed(2)}%</span><span>Mission Rewards +{getMissionRewardBonus(character).toFixed(2)}%</span><span>Hospital Discount +{getHospitalDiscountPercent(character).toFixed(2)}%</span>{character.elderFocus === "war" && <span>⚔️ War Focus: -1% dmg taken (wartime)</span>}{character.elderFocus === "trade" && <span>💰 Trade Focus: -5% shop costs</span>}{character.elderFocus === "training" && <span>📚 Training Focus: +10% XP, +10% jutsu speed</span>}</div></section></div><section className="summary-box"><h3>Daily Village Agenda</h3><p className="hint">Three village goals refresh each day. If there is no player Kage, the board randomizes automatically.</p><div className="contrib-rank-grid">{agenda.tasks.map(task => <div key={task.id} className="clan-guard-row"><span><strong>{task.label}</strong></span><span>{Math.min(agendaProgress(task), task.target).toLocaleString()} / {task.target.toLocaleString()}</span></div>)}</div><div className="menu"><button disabled={!agendaComplete || agendaClaimed} onClick={claimVillageAgenda}>{agendaClaimed ? "Agenda Claimed" : agendaComplete ? "Claim Agenda Rewards" : "Agenda Incomplete"}</button></div><p className="hint">Rewards: village treasury +15 Honor Seals, +1,500 ryo, +2 Bone Charms. Player: +8 Honor Seals, +750 ryo, +1 Bone Charm.</p></section><section className="summary-box"><h3>Map Control Rewards</h3><p>Your village controls <strong>{ownedVillageSectors.length}</strong> sector{ownedVillageSectors.length === 1 ? "" : "s"}.</p><p className="hint">Daily player reward: +{mapControlRyo.toLocaleString()} ryo, +{mapControlHonor.toLocaleString()} Honor Seals, +{mapControlBone.toLocaleString()} Bone Charms.</p><button disabled={ownedVillageSectors.length <= 0 || mapControlClaimed} onClick={claimMapControlRewards}>{mapControlClaimed ? "Map Reward Claimed" : "Claim Map Control Reward"}</button></section><section className={state.kageSystemUnlocked ? "summary-box kage-unlock-panel unlocked" : "summary-box kage-unlock-panel"}><h3>{state.kageSystemUnlocked ? "Kage System Open" : "Kage System Sealed"}</h3><p>{state.kageSystemUnlocked ? "The false Kage has fallen. The village is no longer ruled by secrecy. The Kage seat is now open." : "Clear your village's level 100 Kage story fight to open elections, elder seats, village upgrades, war access, and policy control."}</p>{state.firstLiberator && <p><strong>First Liberator:</strong> {state.firstLiberator}</p>}{state.seatedKage && <p><strong>Seated Kage:</strong> {state.seatedKage}</p>}</section><section className="summary-box town-notice-board"><h3>Village Notice Board</h3>{state.notices.map((notice, idx) => <p key={`${notice}-${idx}`}>• {notice}</p>)}</section><section className="summary-box"><h3>Detailed War Records</h3><div className="war-record-grid">{state.warRecords.map((war, idx) => <div key={`${war.opponent}-${idx}`} className="war-record-card"><strong>{war.winner} vs {war.opponent}</strong><span>{war.finalScore}</span><small>{war.date} · MVP Clan: {war.mvpClan}</small><small>Top Attacker: {war.topAttacker}</small><small>Top Defender: {war.topDefender}</small><small>Rewards: {war.rewards}</small></div>)}</div></section></>}
         {tab === "upgrades" && <section className="summary-box town-upgrade-summary"><h3>Village Upgrades</h3><p className="hint">Village upgrades now spend <strong>Honor Seals</strong>. Only the seated Kage can upgrade village structures.</p><p className="hint">Current Kage: <strong>{state.seatedKage ?? "No player seated yet"}</strong>{isSeatedKage ? " — you can upgrade structures." : " — upgrades are locked for your account."}</p><p className="hint">Total Village Development: <strong>{totalUpgradeLevel}</strong> / {VILLAGE_UPGRADE_MAX_LEVEL * villageUpgradeDefinitions.length}</p>
             <div className="town-upgrade-grid">
                 <div className="town-upgrade-card" style={{ borderColor: state.hollowGateUnlocked ? "#a855f7" : "#7c3aed", boxShadow: state.hollowGateUnlocked ? "0 0 16px rgba(168,85,247,0.35)" : undefined }}>
@@ -25572,8 +25666,103 @@ function VillagePill({ village, highlight = false }: { village: string; highligh
 }
 
 // -- Shinobi Council Hall -----------------------------------------------------
+// ── Clan War (new server-managed system) types + client helpers ────
+// Mirror server-side ClanWar / ClanChallenge so the UI binds cleanly.
+// Damage tier kept inline so the UI can show "this challenge is worth
+// X HP" without round-tripping the server constants.
+type CwChallengeMode = "pvp1v1" | "pvp2v2" | "pet1v1" | "pet2v2" | "tilecards";
+type CwChallengeStatus = "pending" | "accepted" | "completed" | "expired" | "cancelled";
+type CwChallengeResult = "from-wins" | "to-wins" | "draw";
+type CwChallenge = {
+    id: string;
+    mode: CwChallengeMode;
+    fromClan: string;
+    fromPlayer: string;
+    fromPlayer2?: string;
+    createdAt: number;
+    status: CwChallengeStatus;
+    expiresAt: number;
+    acceptedAt?: number;
+    acceptedPlayer?: string;
+    acceptedPlayer2?: string;
+    completedAt?: number;
+    result?: CwChallengeResult;
+    battleId?: string;
+    petBattleSeed?: number;
+};
+type CwWar = {
+    id: string;
+    clans: [string, string];
+    villages: Record<string, string>;
+    hp: Record<string, number>;
+    startedAt: number;
+    updatedAt: number;
+    endedAt?: number;
+    winnerClan?: string;
+    declaredBy: string;
+    pendingChallenges: CwChallenge[];
+    completedChallenges: CwChallenge[];
+    warCrateId?: string;
+    mvpByClan?: Record<string, string>;
+};
+const CW_HP_MAX = 1000;
+const CW_DAMAGE: Record<CwChallengeMode, number> = {
+    pvp1v1: 30,
+    pvp2v2: 60,
+    pet1v1: 20,
+    pet2v2: 40,
+    tilecards: 10,
+};
+const CW_MODE_LABEL: Record<CwChallengeMode, string> = {
+    pvp1v1: "1v1 PvP",
+    pvp2v2: "2v2 PvP",
+    pet1v1: "Pet 1v1",
+    pet2v2: "Pet 2v2",
+    tilecards: "Tile Cards",
+};
+const CW_MODE_ICON: Record<CwChallengeMode, string> = {
+    pvp1v1: "⚔",
+    pvp2v2: "⚔⚔",
+    pet1v1: "🐾",
+    pet2v2: "🐾🐾",
+    tilecards: "🃏",
+};
+
+async function cwListWars(): Promise<CwWar[]> {
+    try {
+        const r = await fetch("/api/clan/war/list");
+        if (!r.ok) return [];
+        const data = await r.json() as { wars?: CwWar[] };
+        return data.wars ?? [];
+    } catch { return []; }
+}
+async function cwDeclareWar(toClan: string): Promise<{ ok: boolean; error?: string; war?: CwWar }> {
+    try {
+        const r = await fetch("/api/clan/war/declare", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ toClan }),
+        });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) return { ok: false, error: data.error ?? `HTTP ${r.status}` };
+        return { ok: true, war: data.war };
+    } catch (e) { return { ok: false, error: String((e as Error).message) }; }
+}
+async function cwChallengeAction(body: Record<string, unknown>): Promise<{ ok: boolean; error?: string; war?: CwWar; challenge?: CwChallenge }> {
+    try {
+        const r = await fetch("/api/clan/war/challenge", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+        });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) return { ok: false, error: data.error ?? `HTTP ${r.status}` };
+        return { ok: true, war: data.war, challenge: data.challenge };
+    } catch (e) { return { ok: false, error: String((e as Error).message) }; }
+}
+
 function ShinobiCouncilHall({ character, setScreen, playerRoster }: { character: Character; setScreen: (s: Screen) => void; playerRoster: PlayerRecord[] }) {
-    const [tab, setTab] = useState<"wars" | "kage">("wars");
+    const [tab, setTab] = useState<"wars" | "clanBattles" | "kage">("wars");
 
     // --- Village Wars ---
     const allVillagePairs: [string, string][] = [];
@@ -25680,6 +25869,7 @@ function ShinobiCouncilHall({ character, setScreen, playerRoster }: { character:
 
             <div className="council-tabs">
                 <button className={`council-tab ${tab === "wars" ? "council-tab-active" : ""}`} onClick={() => setTab("wars")}>⚔️ Active Wars</button>
+                <button className={`council-tab ${tab === "clanBattles" ? "council-tab-active" : ""}`} onClick={() => setTab("clanBattles")}>🏴 Clan Battles</button>
                 <button className={`council-tab ${tab === "kage" ? "council-tab-active" : ""}`} onClick={() => setTab("kage")}>👑 Kage Records</button>
             </div>
 
@@ -25754,6 +25944,8 @@ function ShinobiCouncilHall({ character, setScreen, playerRoster }: { character:
                 }
             </section></>}
 
+            {tab === "clanBattles" && <ClanBattlesTab character={character} playerRoster={playerRoster} setScreen={setScreen} />}
+
             {tab === "kage" && <section className="council-section">
                 <h3 className="council-section-title">👑 Kage Records — All Villages</h3>
                 {sortedKageHistory.length === 0
@@ -25790,6 +25982,332 @@ function ShinobiCouncilHall({ character, setScreen, playerRoster }: { character:
                 }
             </section>}
         </div>
+    );
+}
+
+// ── ClanBattlesTab ──────────────────────────────────────────────────
+// New server-managed clan-war system. Lives inside Shinobi Council
+// Hall as a dedicated tab. Owns its own polling loop + state; the
+// parent only needs to mount it.
+function ClanBattlesTab({ character, playerRoster, setScreen }: { character: Character; playerRoster: PlayerRecord[]; setScreen: (s: Screen) => void }) {
+    void setScreen; // reserved — battle routing wires in Phase 3
+    const [wars, setWars] = useState<CwWar[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
+    const [busy, setBusy] = useState(false);
+    const [declareTarget, setDeclareTarget] = useState("");
+    const [composeMode, setComposeMode] = useState<CwChallengeMode>("pvp1v1");
+    const [composePartner, setComposePartner] = useState("");
+    const [acceptPartner, setAcceptPartner] = useState<Record<string, string>>({});
+
+    const refresh = useCallback(async () => {
+        const list = await cwListWars();
+        setWars(list);
+        setLoading(false);
+    }, []);
+    useEffect(() => {
+        void refresh();
+        const id = setInterval(refresh, 15_000);
+        return () => clearInterval(id);
+    }, [refresh]);
+
+    const myClan = (character.clan ?? "").trim();
+    const myClanmates: string[] = useMemo(() => {
+        if (!myClan) return [];
+        return playerRoster
+            .filter(p => (p.character?.clan ?? "") === myClan && p.name.toLowerCase() !== character.name.toLowerCase())
+            .map(p => p.name)
+            .sort((a: string, b: string) => a.localeCompare(b));
+    }, [playerRoster, myClan, character.name]);
+    const myWar = wars.find(w => !w.endedAt && w.clans.includes(myClan));
+    const enemyClan = myWar?.clans.find(c => c !== myClan) ?? "";
+
+    // Eligible clans to declare war on: any clan that exists in the
+    // roster, isn't mine, and isn't currently in a clan war.
+    const clansInWar = new Set<string>();
+    for (const w of wars) if (!w.endedAt) for (const c of w.clans) clansInWar.add(c);
+    const eligibleTargets: string[] = useMemo(() => {
+        const set = new Set<string>();
+        for (const p of playerRoster) {
+            const clan = (p.character?.clan ?? "").trim();
+            if (!clan) continue;
+            if (clan === myClan) continue;
+            if (clansInWar.has(clan)) continue;
+            set.add(clan);
+        }
+        return [...set].sort((a: string, b: string) => a.localeCompare(b));
+    }, [playerRoster, myClan, clansInWar]);
+
+    // Leadership gate — mirror the server's loadClanContext. Founder
+    // flag is on the character; Leader/Officer come from clan record's
+    // roleOverrides. We optimistically allow Founder via clanFounder
+    // flag; if the role check fails server-side the API surfaces the
+    // error.
+    const canLead = character.clanFounder === true;
+
+    async function handleDeclare() {
+        if (!declareTarget) return;
+        if (!window.confirm(`Declare clan war on ${declareTarget}? Both clans will see this in the Shinobi Council Hall.`)) return;
+        setBusy(true);
+        const result = await cwDeclareWar(declareTarget);
+        setBusy(false);
+        if (!result.ok) { setError(result.error ?? "Failed."); return; }
+        setError("");
+        setDeclareTarget("");
+        await refresh();
+    }
+
+    async function handleSend() {
+        if (!myWar) return;
+        const needsPartner = composeMode === "pvp2v2" || composeMode === "pet2v2";
+        if (needsPartner && !composePartner) { setError("Pick a partner for a 2v2 challenge."); return; }
+        setBusy(true);
+        const result = await cwChallengeAction({
+            action: "send",
+            warId: myWar.id,
+            mode: composeMode,
+            fromPlayer2: needsPartner ? composePartner : undefined,
+        });
+        setBusy(false);
+        if (!result.ok) { setError(result.error ?? "Failed."); return; }
+        setError("");
+        setComposePartner("");
+        await refresh();
+    }
+
+    async function handleAccept(ch: CwChallenge) {
+        if (!myWar) return;
+        const needsPartner = ch.mode === "pvp2v2" || ch.mode === "pet2v2";
+        const partner = acceptPartner[ch.id] ?? "";
+        if (needsPartner && !partner) { setError("Pick a partner before accepting a 2v2 challenge."); return; }
+        setBusy(true);
+        const result = await cwChallengeAction({
+            action: "accept",
+            warId: myWar.id,
+            challengeId: ch.id,
+            acceptedPlayer2: needsPartner ? partner : undefined,
+        });
+        setBusy(false);
+        if (!result.ok) { setError(result.error ?? "Failed."); return; }
+        setError("");
+        await refresh();
+        // Phase 3 will route both clients to the appropriate battle
+        // screen here. For now the accepted challenge stays in the
+        // pending list so testers can see the flow.
+    }
+
+    async function handleCancel(challengeId: string) {
+        if (!myWar) return;
+        setBusy(true);
+        const result = await cwChallengeAction({ action: "cancel", warId: myWar.id, challengeId });
+        setBusy(false);
+        if (!result.ok) { setError(result.error ?? "Failed."); return; }
+        setError("");
+        await refresh();
+    }
+
+    async function handleDecline(challengeId: string) {
+        if (!myWar) return;
+        setBusy(true);
+        const result = await cwChallengeAction({ action: "decline", warId: myWar.id, challengeId });
+        setBusy(false);
+        if (!result.ok) { setError(result.error ?? "Failed."); return; }
+        setError("");
+        await refresh();
+    }
+
+    if (!myClan) {
+        return (
+            <section className="council-section">
+                <h3 className="council-section-title">🏴 Clan Battles</h3>
+                <p className="council-empty">Join a clan to participate in clan wars.</p>
+            </section>
+        );
+    }
+
+    return (
+        <section className="council-section">
+            <h3 className="council-section-title">🏴 Clan Battles</h3>
+            {error && <div style={{ color: "#f87171", marginBottom: "0.5rem", padding: "0.4rem 0.6rem", background: "#3b0a0a", borderRadius: 4 }}>⚠ {error}</div>}
+            {loading && <p className="council-empty">Loading clan wars…</p>}
+
+            {!loading && myWar && (
+                <>
+                    {/* My active war — HP bars + challenge composer + inbox */}
+                    <div className="council-war-card" style={{ marginBottom: "1rem" }}>
+                        <div className="council-vs-row">
+                            <div className={`council-side ${character.clan === myClan ? "council-mine" : ""}`}>
+                                <span className="council-village-name">{myClan}</span>
+                                <span className="council-hp-label">{(myWar.hp[myClan] ?? 0).toLocaleString()} / {CW_HP_MAX.toLocaleString()} HP</span>
+                                <div className="council-hp-track"><div className="council-hp-fill" style={{ width: `${Math.max(0, Math.min(100, ((myWar.hp[myClan] ?? 0) / CW_HP_MAX) * 100))}%`, background: "#22c55e" }} /></div>
+                                {myWar.mvpByClan?.[myClan] && <span className="council-top">👑 MVP: {myWar.mvpByClan[myClan]}</span>}
+                            </div>
+                            <div className="council-vs">VS</div>
+                            <div className="council-side council-side-right">
+                                <span className="council-village-name">{enemyClan}</span>
+                                <span className="council-hp-label">{(myWar.hp[enemyClan] ?? 0).toLocaleString()} / {CW_HP_MAX.toLocaleString()} HP</span>
+                                <div className="council-hp-track"><div className="council-hp-fill" style={{ width: `${Math.max(0, Math.min(100, ((myWar.hp[enemyClan] ?? 0) / CW_HP_MAX) * 100))}%`, background: "#ef4444" }} /></div>
+                                {myWar.mvpByClan?.[enemyClan] && <span className="council-top">👑 MVP: {myWar.mvpByClan[enemyClan]}</span>}
+                            </div>
+                        </div>
+                        <div className="council-war-meta">
+                            Started {new Date(myWar.startedAt).toLocaleDateString()} · {myWar.completedChallenges.length} battles completed
+                        </div>
+                    </div>
+
+                    {/* Send a challenge */}
+                    <div style={{ background: "#0b1220", border: "1px solid #334155", borderRadius: 6, padding: "0.8rem", marginBottom: "1rem" }}>
+                        <strong style={{ color: "#60a5fa" }}>⚔ Send Anonymous Challenge to {enemyClan}</strong>
+                        <p style={{ fontSize: "0.78rem", color: "#94a3b8", margin: "4px 0 8px" }}>
+                            {enemyClan} will see your clan but not the specific challenger until they accept.
+                        </p>
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                            <select value={composeMode} onChange={e => setComposeMode(e.target.value as CwChallengeMode)} style={{ padding: "0.35rem" }} disabled={busy}>
+                                {(Object.keys(CW_MODE_LABEL) as CwChallengeMode[]).map(m => (
+                                    <option key={m} value={m}>{CW_MODE_ICON[m]} {CW_MODE_LABEL[m]} (−{CW_DAMAGE[m]} HP)</option>
+                                ))}
+                            </select>
+                            {(composeMode === "pvp2v2" || composeMode === "pet2v2") && (
+                                <select value={composePartner} onChange={e => setComposePartner(e.target.value)} style={{ padding: "0.35rem" }} disabled={busy}>
+                                    <option value="">Pick your partner…</option>
+                                    {myClanmates.map(n => <option key={n} value={n}>{n}</option>)}
+                                </select>
+                            )}
+                            <button onClick={handleSend} disabled={busy} style={{ padding: "0.4rem 0.8rem", background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171" }}>
+                                {busy ? "Sending…" : "Send Challenge"}
+                            </button>
+                        </div>
+                        {myClanmates.length === 0 && (composeMode === "pvp2v2" || composeMode === "pet2v2") && (
+                            <p style={{ fontSize: "0.78rem", color: "#fbbf24", marginTop: 6 }}>You need at least one other active clanmate online for 2v2 challenges.</p>
+                        )}
+                    </div>
+
+                    {/* Incoming challenges — anonymous to defender */}
+                    {(() => {
+                        const incoming = myWar.pendingChallenges.filter(c => c.fromClan === enemyClan && c.status === "pending");
+                        if (incoming.length === 0) return null;
+                        return (
+                            <div style={{ background: "#1f0a0a", border: "1px solid #f87171", borderRadius: 6, padding: "0.8rem", marginBottom: "1rem" }}>
+                                <strong style={{ color: "#f87171" }}>🚨 Incoming Challenges ({incoming.length})</strong>
+                                <p style={{ fontSize: "0.78rem", color: "#fcd34d", margin: "4px 0 8px" }}>
+                                    {enemyClan} sent these. Challenger names are hidden until you accept.
+                                </p>
+                                {incoming.map(ch => {
+                                    const needsPartner = ch.mode === "pvp2v2" || ch.mode === "pet2v2";
+                                    const minsLeft = Math.max(1, Math.ceil((ch.expiresAt - Date.now()) / 60_000));
+                                    return (
+                                        <div key={ch.id} style={{ background: "#0b1220", padding: "0.5rem 0.7rem", borderRadius: 4, marginTop: 6, display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+                                            <strong style={{ flex: 1, minWidth: 200 }}>{CW_MODE_ICON[ch.mode]} {CW_MODE_LABEL[ch.mode]} <span style={{ color: "#94a3b8", fontWeight: 400 }}>(worth −{CW_DAMAGE[ch.mode]} HP · expires in {minsLeft}m)</span></strong>
+                                            {needsPartner && (
+                                                <select value={acceptPartner[ch.id] ?? ""} onChange={e => setAcceptPartner({ ...acceptPartner, [ch.id]: e.target.value })} style={{ padding: "0.3rem" }} disabled={busy}>
+                                                    <option value="">Pick partner…</option>
+                                                    {myClanmates.map(n => <option key={n} value={n}>{n}</option>)}
+                                                </select>
+                                            )}
+                                            <button onClick={() => handleAccept(ch)} disabled={busy} style={{ padding: "0.3rem 0.6rem", background: "#15803d", borderColor: "#4ade80" }}>Accept</button>
+                                            <button onClick={() => handleDecline(ch.id)} disabled={busy} className="danger-button" style={{ padding: "0.3rem 0.6rem", fontSize: "0.8rem" }}>Decline</button>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        );
+                    })()}
+
+                    {/* My outgoing challenges (still pending) */}
+                    {(() => {
+                        const outgoing = myWar.pendingChallenges.filter(c => c.fromClan === myClan);
+                        if (outgoing.length === 0) return null;
+                        return (
+                            <div style={{ background: "#0a1f0a", border: "1px solid #4ade80", borderRadius: 6, padding: "0.8rem", marginBottom: "1rem" }}>
+                                <strong style={{ color: "#4ade80" }}>📤 Your Clan's Pending Challenges ({outgoing.length})</strong>
+                                {outgoing.map(ch => {
+                                    const minsLeft = Math.max(1, Math.ceil((ch.expiresAt - Date.now()) / 60_000));
+                                    const mine = ch.fromPlayer.toLowerCase() === character.name.toLowerCase()
+                                        || (ch.fromPlayer2 ?? "").toLowerCase() === character.name.toLowerCase();
+                                    return (
+                                        <div key={ch.id} style={{ background: "#0b1220", padding: "0.5rem 0.7rem", borderRadius: 4, marginTop: 6, display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+                                            <strong style={{ flex: 1, minWidth: 200 }}>{CW_MODE_ICON[ch.mode]} {CW_MODE_LABEL[ch.mode]} <span style={{ color: "#94a3b8", fontWeight: 400 }}>· {ch.status} · {ch.fromPlayer}{ch.fromPlayer2 ? ` + ${ch.fromPlayer2}` : ""} · expires in {minsLeft}m</span></strong>
+                                            {ch.status === "pending" && mine && (
+                                                <button onClick={() => handleCancel(ch.id)} disabled={busy} className="danger-button" style={{ padding: "0.3rem 0.6rem", fontSize: "0.8rem" }}>Cancel</button>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        );
+                    })()}
+
+                    {/* Recent battles log */}
+                    {myWar.completedChallenges.length > 0 && (
+                        <div style={{ background: "#0b1220", border: "1px solid #334155", borderRadius: 6, padding: "0.8rem", marginBottom: "1rem" }}>
+                            <strong style={{ color: "#94a3b8" }}>📜 Recent Battles</strong>
+                            <div style={{ display: "grid", gap: 4, marginTop: 6, fontSize: "0.82rem" }}>
+                                {myWar.completedChallenges.slice(0, 10).map(ch => {
+                                    const winnerSide = ch.result === "from-wins" ? ch.fromClan : ch.result === "to-wins" ? (myWar.clans.find(c => c !== ch.fromClan) ?? "?") : null;
+                                    const tag = ch.status === "expired" ? "⏳ expired" :
+                                                ch.status === "cancelled" ? "✕ cancelled" :
+                                                ch.result === "draw" ? "🤝 draw" :
+                                                winnerSide ? `🏆 ${winnerSide} won (−${CW_DAMAGE[ch.mode]} enemy HP)` : "?";
+                                    return (
+                                        <div key={ch.id} style={{ color: winnerSide === myClan ? "#4ade80" : winnerSide === enemyClan ? "#f87171" : "#94a3b8" }}>
+                                            {CW_MODE_ICON[ch.mode]} {CW_MODE_LABEL[ch.mode]} — {tag}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+                </>
+            )}
+
+            {/* No active war — show declare form if I'm leadership */}
+            {!loading && !myWar && (
+                <div style={{ background: "#0b1220", border: "1px solid #334155", borderRadius: 6, padding: "0.8rem", marginBottom: "1rem" }}>
+                    <p style={{ marginTop: 0 }}>Your clan ({myClan}) is not currently in a clan war.</p>
+                    {canLead ? (
+                        <>
+                            <p style={{ fontSize: "0.82rem", color: "#fbbf24" }}>Wars run until one clan's 1,000 HP hits 0. 7-day rematch cooldown.</p>
+                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                <select value={declareTarget} onChange={e => setDeclareTarget(e.target.value)} style={{ padding: "0.35rem" }} disabled={busy}>
+                                    <option value="">Pick enemy clan…</option>
+                                    {eligibleTargets.map(c => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                                <button onClick={handleDeclare} disabled={busy || !declareTarget} style={{ padding: "0.4rem 0.8rem", background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171" }}>
+                                    {busy ? "Declaring…" : "⚔ Declare Clan War"}
+                                </button>
+                            </div>
+                            {eligibleTargets.length === 0 && <p style={{ fontSize: "0.78rem", color: "#94a3b8", marginTop: 6 }}>No eligible clans right now — all known clans are already in wars or unavailable.</p>}
+                        </>
+                    ) : (
+                        <p style={{ fontSize: "0.82rem", color: "#64748b", fontStyle: "italic" }}>Only your Clan Founder / Leader / Officer can declare a clan war.</p>
+                    )}
+                </div>
+            )}
+
+            {/* Spectator: other active clan wars */}
+            {(() => {
+                const others = wars.filter(w => !w.endedAt && !w.clans.includes(myClan));
+                if (others.length === 0) return null;
+                return (
+                    <div style={{ marginTop: "1rem", paddingTop: "0.8rem", borderTop: "1px solid #334155" }}>
+                        <h4 style={{ color: "#94a3b8", marginTop: 0, marginBottom: 8 }}>👁 Other Active Clan Wars</h4>
+                        <div style={{ display: "grid", gap: 8 }}>
+                            {others.map(w => {
+                                const [cA, cB] = w.clans;
+                                return (
+                                    <div key={w.id} style={{ background: "#0b1220", padding: "0.5rem 0.7rem", borderRadius: 4, fontSize: "0.85rem" }}>
+                                        <strong>{cA}</strong> <span style={{ color: "#64748b" }}>vs</span> <strong>{cB}</strong>
+                                        <div style={{ color: "#94a3b8", fontSize: "0.78rem", marginTop: 2 }}>
+                                            {cA}: {(w.hp[cA] ?? 0).toLocaleString()} HP · {cB}: {(w.hp[cB] ?? 0).toLocaleString()} HP · {w.completedChallenges.length} battles
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                );
+            })()}
+        </section>
     );
 }
 
@@ -26364,10 +26882,26 @@ function CentralHub({
     const [crafterTab, setCrafterTab] = useState<"supplies" | "weapons">("supplies");
     const [weaponInfoItem, setWeaponInfoItem] = useState<GameItem | null>(null);
     // Active-war banner — fetches the world-state once on mount and
-    // refreshes every 60s so a player walking past Central knows their
-    // village is at war. Stays dismissable per-session via local state.
+    // refreshes every 15s so the banner doesn't lag the war screen.
+    // The dismiss is persistent per-war-ID via localStorage: once you
+    // dismiss the banner for war X you never see it again, but a NEW
+    // war (different war.id) gets a fresh banner that hasn't been
+    // dismissed yet. Storage key holds a JSON array of war IDs.
     const [activeWarBanner, setActiveWarBanner] = useState<VillageWarRecord | null>(null);
-    const [warBannerDismissed, setWarBannerDismissed] = useState(false);
+    const [dismissedWarIds, setDismissedWarIds] = useState<Set<string>>(() => {
+        try {
+            const raw = localStorage.getItem("dismissedWarBanners.v1");
+            if (!raw) return new Set();
+            const parsed = JSON.parse(raw) as unknown;
+            return new Set(Array.isArray(parsed) ? parsed.map(String) : []);
+        } catch { return new Set(); }
+    });
+    function dismissWarBanner(warId: string) {
+        const next = new Set(dismissedWarIds);
+        next.add(warId);
+        setDismissedWarIds(next);
+        try { localStorage.setItem("dismissedWarBanners.v1", JSON.stringify([...next])); } catch { /* ignore */ }
+    }
     useEffect(() => {
         let alive = true;
         async function fetchWar() {
@@ -26384,7 +26918,11 @@ function CentralHub({
             } catch { /* silent */ }
         }
         void fetchWar();
-        const id = setInterval(fetchWar, 60_000);
+        // 15s matches the war screen's poll cadence so the banner doesn't
+        // lag the actual state by up to a minute (previously 60s, which
+        // meant winners could sit on a stale "at war" banner for a full
+        // poll cycle after victory).
+        const id = setInterval(fetchWar, 15_000);
         return () => { alive = false; clearInterval(id); };
     }, [character.village]);
 
@@ -26686,7 +27224,7 @@ function CentralHub({
                 this session. Click-through routes to the Town Hall, which
                 hosts the Village War button. Subtle pulse so it draws
                 the eye without being obnoxious. */}
-            {activeWarBanner && !warBannerDismissed && (() => {
+            {activeWarBanner && !dismissedWarIds.has(activeWarBanner.id) && (() => {
                 const myVillage = (character.village ?? "").trim();
                 const enemy = activeWarBanner.villages.find(v => v !== myVillage) ?? "?";
                 const myHp = activeWarBanner.hp?.[myVillage] ?? 0;
@@ -26742,9 +27280,9 @@ function CentralHub({
                                 Join the Fight →
                             </button>
                             <button
-                                onClick={() => setWarBannerDismissed(true)}
+                                onClick={() => dismissWarBanner(activeWarBanner.id)}
                                 style={{ background: "transparent", border: "1px solid #475569", color: "#94a3b8", padding: "0.15rem 0.5rem", fontSize: "0.7rem" }}
-                                title="Hide this banner until you reload"
+                                title="Hide this banner for this war (a new war will surface a fresh one)"
                             >
                                 Dismiss
                             </button>
@@ -28760,49 +29298,10 @@ function WorldMap({
                     </button>
                 ))}
 
-                {/* C — War Ground beacons. For every active war anywhere in
-                    the world, paint a 🔥 marker on its war-ground sector
-                    so players see at a glance where the action is. Color
-                    keys the current holder: green if my village holds it,
-                    red if the enemy does, amber if uncontested.
-                    Click → townHall route (war screen lives there). */}
-                {(() => {
-                    const activeWars = Object.values(sharedVillageWarCache).filter(w =>
-                        !w.endedAt && (!w.pendingUntil || w.pendingUntil <= Date.now())
-                    );
-                    if (activeWars.length === 0) return null;
-                    return activeWars.map(war => {
-                        const sector = sectorPoints.find(p => p.id === war.warGroundSector);
-                        if (!sector) return null;
-                        const myInWar = war.villages.includes(character.village);
-                        const heldByMe = war.capturedBy === character.village;
-                        const heldByEnemy = war.capturedBy && war.capturedBy !== character.village;
-                        const color = heldByMe ? "#4ade80" : heldByEnemy ? "#f87171" : "#fbbf24";
-                        const label = `War Ground — ${war.villages.join(" vs ")}${war.capturedBy ? ` (held by ${war.capturedBy})` : " (uncontested)"}`;
-                        return (
-                            <button
-                                key={`warground-${war.id}`}
-                                className="atlas-landmark atlas-event"
-                                style={{
-                                    left: sector.x + "%",
-                                    top: sector.y + "%",
-                                    transform: "translate(-50%, -160%)",
-                                    background: `linear-gradient(${color}33, ${color}11)`,
-                                    border: `2px solid ${color}`,
-                                    color,
-                                    fontWeight: 900,
-                                    animation: myInWar ? "pulse 2.5s infinite" : undefined,
-                                    boxShadow: `0 0 10px ${color}66`,
-                                }}
-                                onClick={() => setScreen?.(myInWar ? "villageWar" : "townHall")}
-                                title={label}
-                            >
-                                <strong>🔥</strong>
-                                <span>{war.villages.find(v => v !== character.village) ?? war.villages[0]}</span>
-                            </button>
-                        );
-                    });
-                })()}
+                {/* (War Ground beacons were removed from the world map.
+                    The Central Hub banner + the explicit Village War
+                    screen already surface active wars; a third overlay
+                    on the atlas was cluttering the village markers.) */}
 
                 {creatorEvents.filter((event) => event.eventKind !== "visualNovel" && event.targetSector).map((event) => {
                     const sector = sectorPoints.find((point) => point.id === event.targetSector);
@@ -33156,8 +33655,8 @@ function Arena({
         // while no enemy is online — defeats the whole point of village
         // war as a player-vs-player meta. The win-condition is unchanged:
         // PvP raids still drive both warGroundHp and the enemy village HP.
-        const villageWarRaid = (raidBattleKind === "raidPlayer") ? recordVillageWarRaid(character, currentSector) : { note: "", characterPatch: {} as Partial<Character>, warCrate: false, warCrateId: undefined as string | undefined, bountyRyo: 0, bountyFateShards: 0 };
-        const villageWarPvpNote = opponentCharacter ? recordVillageWarPvp(character, opponentCharacter, currentSector) : "";
+        const villageWarRaid = (raidBattleKind === "raidPlayer") ? recordVillageWarRaid(character, currentSector, playerRoster) : { note: "", characterPatch: {} as Partial<Character>, warCrate: false, warCrateId: undefined as string | undefined, bountyRyo: 0, bountyFateShards: 0 };
+        const villageWarPvpNote = opponentCharacter ? recordVillageWarPvp(character, opponentCharacter, currentSector, playerRoster) : "";
         const rewarded = grantTerritoryScrolls(leveled, territoryScrollReward);
         const deathsGateBoneCharm = deathsGatePvp && Math.random() < 0.05 ? 1 : 0;
         updateCharacter({
@@ -37187,13 +37686,17 @@ function VillageWarScreen({
     );
 
     function claimVictory(war: VillageWarRecord) {
+        // Canonical winner reward: 1× Legendary War Crate, dedup via
+        // claimedWarCrateIds. Matches claimPendingWarCrates exactly so
+        // whichever path the player triggers first delivers the same
+        // payout — previously this button also gave +500 ryo + 250 XP
+        // that the auto-sweep didn't, so first-touch silently locked
+        // the other side out of the discrepancy.
         const crateId = `war-crate-${war.id}`;
         const claimed = character.claimedWarCrateIds ?? [];
         if (claimed.includes(crateId)) return;
         updateCharacter({
             ...character,
-            ryo: (character.ryo ?? 0) + 500,
-            xp: (character.xp ?? 0) + 250,
             inventory: [...character.inventory, LEGENDARY_WAR_CRATE_ID],
             claimedWarCrateIds: [...claimed, crateId],
         });
@@ -37231,7 +37734,7 @@ function VillageWarScreen({
                         <div style={{ padding: "0.3rem 0.6rem" }}>Seated Kage</div>
                         <div style={{ padding: "0.3rem 0.6rem", textAlign: "right", color: "#4ade80" }}>+30 enemy HP</div>
                         <div style={{ padding: "0.3rem 0.6rem", textAlign: "right", color: "#f87171" }}>−50 your HP</div>
-                        <div style={{ padding: "0.3rem 0.6rem", background: "#0f172a" }}>Elder / Clan Head / Founder</div>
+                        <div style={{ padding: "0.3rem 0.6rem", background: "#0f172a" }}>Village Elder · Clan Head / Elder / Founder</div>
                         <div style={{ padding: "0.3rem 0.6rem", background: "#0f172a", textAlign: "right", color: "#4ade80" }}>+20 enemy HP</div>
                         <div style={{ padding: "0.3rem 0.6rem", background: "#0f172a", textAlign: "right", color: "#f87171" }}>−20 your HP</div>
                         <div style={{ padding: "0.3rem 0.6rem" }}>ANBU</div>
@@ -37243,6 +37746,9 @@ function VillageWarScreen({
                     </div>
                     <p style={{ margin: "0 0 0.5rem", fontSize: "0.82rem", color: "#94a3b8" }}>
                         Both columns stack on the same fight. Examples: a regular villager defeating a Kage = <strong style={{ color: "#4ade80" }}>+5 enemy HP</strong> (their win) AND <strong style={{ color: "#f87171" }}>−50 to the Kage's village</strong> (kill penalty) = <strong>55 total damage</strong>. Kage beats Elder = +30 +20 = 50. Regular vs regular = +5. PvP wins on the war-ground sector drain the sector AND the enemy village HP simultaneously.
+                    </p>
+                    <p style={{ margin: "0 0 0.5rem", fontSize: "0.78rem", color: "#fbbf24" }}>
+                        ⚠ <strong>Clan-leadership gate:</strong> Clan Head / Clan Elder / Clan Founder only get the <strong>+20</strong> tier when their clan has <strong>at least 8 total members</strong> (you + 7 others). Smaller clans drop to the regular <strong>+5/−0</strong> tier. Village Elder seats and ANBU are unaffected.
                     </p>
                     <p style={{ margin: "0 0 0.5rem" }}>
                         <strong style={{ color: "#60a5fa" }}>Home defender bonus.</strong> When you win a PvP fight in a sector your own village owns, you get <strong>+15%</strong> war HP credit. This only scales the war ledger — the actual fight is unchanged.
@@ -37340,7 +37846,7 @@ function VillageWarScreen({
                     })()}
                     <h3>Enemy Sectors — Raid to drain control</h3>
                     <p style={{ color: "#facc15", fontSize: "0.85rem", marginTop: -4 }}>
-                        ⚑ The war ends when the <strong>war-ground sector ({activeWar.warGroundSector})</strong> reaches 0 HP.
+                        ⚑ Raiding the <strong>war-ground sector ({activeWar.warGroundSector})</strong> flips capture + drains enemy HP +500 ryo +1 Fate Shard daily bounty. The war ends when the enemy village HP hits 0.
                     </p>
                     <div style={{ display: "grid", gap: 6, maxHeight: 360, overflowY: "auto" }}>
                         {territories
