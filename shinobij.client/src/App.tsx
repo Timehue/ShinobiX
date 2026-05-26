@@ -37207,34 +37207,27 @@ function VillageWarScreen({
                         <strong style={{ color: "#60a5fa" }}>Declaring war.</strong> Only your village's <em>seated Kage</em> can declare. Costs <strong>500 Honor Seals</strong> from the Kage's personal treasury. Same two villages have a <strong>7-day rematch cooldown</strong> after a war ends. Each village can only be in <strong>one war at a time</strong>.
                     </p>
                     <p style={{ margin: "0 0 0.5rem" }}>
-                        <strong style={{ color: "#60a5fa" }}>How damage works.</strong> Each village starts with <strong>5000 War HP</strong> + a shared <strong>1000-HP War Ground sector</strong>. A PvP win against an enemy villager drains their village's HP. The damage is two numbers added together:
+                        <strong style={{ color: "#60a5fa" }}>How damage works.</strong> Each village starts with <strong>5000 War HP</strong> + a shared <strong>1000-HP War Ground sector</strong>. Each PvP fight moves both villages' HP — the winner contributes damage from <em>their</em> position; the loser's village takes extra damage if <em>they</em> were a high-value target.
                     </p>
-                    <ul style={{ margin: "0 0 0.5rem 1rem", padding: 0, fontSize: "0.85rem" }}>
-                        <li><strong style={{ color: "#4ade80" }}>Your contribution</strong> — based on <em>your</em> position (how much damage your win deals).</li>
-                        <li><strong style={{ color: "#fbbf24" }}>Kill bonus</strong> — based on the <em>loser's</em> position (extra damage for taking down someone important).</li>
-                    </ul>
                     <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr", gap: 0, border: "1px solid #334155", borderRadius: 6, overflow: "hidden", marginBottom: "0.6rem", fontSize: "0.82rem" }}>
                         <div style={{ background: "#1e293b", padding: "0.35rem 0.6rem", fontWeight: 700, color: "#fde047" }}>Position</div>
-                        <div style={{ background: "#1e293b", padding: "0.35rem 0.6rem", fontWeight: 700, color: "#4ade80", textAlign: "right" }}>You win → damage</div>
-                        <div style={{ background: "#1e293b", padding: "0.35rem 0.6rem", fontWeight: 700, color: "#fbbf24", textAlign: "right" }}>You lose → bonus to enemy</div>
+                        <div style={{ background: "#1e293b", padding: "0.35rem 0.6rem", fontWeight: 700, color: "#4ade80", textAlign: "right" }}>You win</div>
+                        <div style={{ background: "#1e293b", padding: "0.35rem 0.6rem", fontWeight: 700, color: "#f87171", textAlign: "right" }}>You lose</div>
                         <div style={{ padding: "0.3rem 0.6rem" }}>Seated Kage</div>
-                        <div style={{ padding: "0.3rem 0.6rem", textAlign: "right", color: "#4ade80" }}>+30</div>
-                        <div style={{ padding: "0.3rem 0.6rem", textAlign: "right", color: "#fbbf24" }}>+50</div>
+                        <div style={{ padding: "0.3rem 0.6rem", textAlign: "right", color: "#4ade80" }}>+30 enemy HP</div>
+                        <div style={{ padding: "0.3rem 0.6rem", textAlign: "right", color: "#f87171" }}>−50 your HP</div>
                         <div style={{ padding: "0.3rem 0.6rem", background: "#0f172a" }}>Elder / Clan Head / Founder</div>
-                        <div style={{ padding: "0.3rem 0.6rem", background: "#0f172a", textAlign: "right", color: "#4ade80" }}>+20</div>
-                        <div style={{ padding: "0.3rem 0.6rem", background: "#0f172a", textAlign: "right", color: "#fbbf24" }}>+20</div>
+                        <div style={{ padding: "0.3rem 0.6rem", background: "#0f172a", textAlign: "right", color: "#4ade80" }}>+20 enemy HP</div>
+                        <div style={{ padding: "0.3rem 0.6rem", background: "#0f172a", textAlign: "right", color: "#f87171" }}>−20 your HP</div>
                         <div style={{ padding: "0.3rem 0.6rem" }}>ANBU</div>
-                        <div style={{ padding: "0.3rem 0.6rem", textAlign: "right", color: "#4ade80" }}>+15</div>
-                        <div style={{ padding: "0.3rem 0.6rem", textAlign: "right", color: "#64748b" }}>+0</div>
+                        <div style={{ padding: "0.3rem 0.6rem", textAlign: "right", color: "#4ade80" }}>+15 enemy HP</div>
+                        <div style={{ padding: "0.3rem 0.6rem", textAlign: "right", color: "#64748b" }}>−0</div>
                         <div style={{ padding: "0.3rem 0.6rem", background: "#0f172a" }}>Regular villager</div>
-                        <div style={{ padding: "0.3rem 0.6rem", background: "#0f172a", textAlign: "right", color: "#4ade80" }}>+5</div>
-                        <div style={{ padding: "0.3rem 0.6rem", background: "#0f172a", textAlign: "right", color: "#64748b" }}>+0</div>
+                        <div style={{ padding: "0.3rem 0.6rem", background: "#0f172a", textAlign: "right", color: "#4ade80" }}>+5 enemy HP</div>
+                        <div style={{ padding: "0.3rem 0.6rem", background: "#0f172a", textAlign: "right", color: "#64748b" }}>−0</div>
                     </div>
-                    <p style={{ margin: "0 0 0.2rem", fontSize: "0.82rem", color: "#94a3b8" }}>
-                        Read it like a kill bounty — defeating a Kage adds <strong>+50</strong> enemy HP drained on top of your own contribution, because the loss of a Kage costs the enemy village dearly. Defeating an ANBU or regular adds no extra bonus.
-                    </p>
                     <p style={{ margin: "0 0 0.5rem", fontSize: "0.82rem", color: "#94a3b8" }}>
-                        Examples: Kage beats Elder = <strong style={{ color: "#4ade80" }}>30 + 20 = 50</strong>. Regular beats Kage = <strong style={{ color: "#4ade80" }}>5 + 50 = 55</strong>. Regular vs regular = <strong style={{ color: "#4ade80" }}>5</strong>. ANBU vs ANBU = <strong style={{ color: "#4ade80" }}>15 + 0 = 15</strong>. PvP wins on the war-ground sector drain the sector AND the enemy village HP simultaneously.
+                        Both columns stack on the same fight. Examples: a regular villager defeating a Kage = <strong style={{ color: "#4ade80" }}>+5 enemy HP</strong> (their win) AND <strong style={{ color: "#f87171" }}>−50 to the Kage's village</strong> (kill penalty) = <strong>55 total damage</strong>. Kage beats Elder = +30 +20 = 50. Regular vs regular = +5. PvP wins on the war-ground sector drain the sector AND the enemy village HP simultaneously.
                     </p>
                     <p style={{ margin: "0 0 0.5rem" }}>
                         <strong style={{ color: "#60a5fa" }}>Home defender bonus.</strong> When you win a PvP fight in a sector your own village owns, you get <strong>+15%</strong> war HP credit. This only scales the war ledger — the actual fight is unchanged.
