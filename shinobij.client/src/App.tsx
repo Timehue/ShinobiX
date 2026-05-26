@@ -728,6 +728,11 @@ type CreatorAi = {
     jutsuIds: string[];
     rules: AiRule[];
     isBossAi?: boolean;
+    // When true, force the smart battle AI (lethal detection, DoT-aware
+    // KO, no-redundant status, full jutsu pool, multi-axis scoring) even
+    // if the AI is below the level-30 auto-threshold. Lets admins flag a
+    // low-level "elite" mob as a real fight without bumping its level.
+    masterAi?: boolean;
 };
 
 type JutsuTag = { name: string; percent: number };
@@ -17899,6 +17904,11 @@ function AdminPanel({
     const [aiIcon, setAiIcon] = useState("EN");
     const [aiImage, setAiImage] = useState("");
     const [aiIsBoss, setAiIsBoss] = useState(false);
+    // Admin toggle — when true, this AI uses the smart battle AI (lethal
+    // detection, DoT-aware KO, full jutsu pool, multi-axis scoring)
+    // regardless of its level. Useful for low-level "elite" mobs that
+    // should fight smart without bumping their level.
+    const [aiMasterAi, setAiMasterAi] = useState(false);
     const [adminWeeklyBossAiId, setAdminWeeklyBossAiId] = useState("");
     const [aiLevel, setAiLevel] = useState(10);
     const [aiVillage, setAiVillage] = useState("Admin Arena");
@@ -18914,6 +18924,7 @@ function AdminPanel({
             jutsuIds: aiJutsuIds,
             rules: aiRules,
             isBossAi: aiIsBoss || undefined,
+            masterAi: aiMasterAi || undefined,
         }, allGameJutsus);
     }
 
@@ -18924,6 +18935,7 @@ function AdminPanel({
         setAiIcon(normalized.icon);
         setAiImage(normalized.image ?? "");
         setAiIsBoss(normalized.isBossAi ?? false);
+        setAiMasterAi(normalized.masterAi ?? false);
         setAiLevel(normalized.level);
         setAiVillage(normalized.village);
         setAiHp(normalized.hp);
@@ -19797,6 +19809,15 @@ function AdminPanel({
                             <option value="normal">Normal AI — available in ambush, arena, and raid fights</option>
                             <option value="boss">Boss AI — only usable in dungeons, VN events, and boss fights</option>
                         </select>
+                        <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "0.5rem", cursor: "pointer", padding: "0.5rem 0.6rem", background: aiMasterAi ? "rgba(250, 204, 21, 0.15)" : "rgba(15, 23, 42, 0.3)", border: `1px solid ${aiMasterAi ? "#facc15" : "#334155"}`, borderRadius: 6 }}>
+                            <input type="checkbox" checked={aiMasterAi} onChange={(e) => setAiMasterAi(e.target.checked)} style={{ width: 18, height: 18, cursor: "pointer" }} />
+                            <span>
+                                <strong style={{ color: aiMasterAi ? "#facc15" : "#e2e8f0" }}>🧠 Master AI</strong>
+                                <span style={{ display: "block", fontSize: "0.82rem", color: "#94a3b8", marginTop: 2 }}>
+                                    Force the smart battle AI regardless of level — lethal detection, DoT-aware KO, no-redundant status, full game jutsu pool, multi-axis tactical scoring. Useful for elite low-level mobs that should play to win.
+                                </span>
+                            </span>
+                        </label>
                         <label>AI Image</label>
                         <p className="hint">Upload a portrait for this AI. It appears in the AI creator, mission battles, and combat HUD.</p>
                         <input
@@ -33103,10 +33124,11 @@ function Arena({
     }
 
     function highestPowerAiJutsu(availableAp = 100) {
-        // Level gating: opponents at level 30+ use the smart AI. Lower-level
-        // mobs stay on the base "highest tactical score" picker so the early
-        // game stays gentle and players can learn the system.
-        if ((opponentLevel ?? 1) >= 30) {
+        // Gating: opponents at level 30+ use the smart AI automatically.
+        // Admins can also flag an AI as masterAi to force-enable the smart
+        // logic at any level — for low-level "elite" / boss mobs that
+        // should play to win without bumping their level number.
+        if (pendingAiProfile?.masterAi || (opponentLevel ?? 1) >= 30) {
             return smartAiJutsuPick(availableAp);
         }
         return [...enemyAiJutsus]
