@@ -14751,6 +14751,26 @@ function choosePetActionSmart(
     const targetPct = (target.hp / Math.max(1, target.pet.hp)) * 100;
     const trait     = actor.pet.trait ?? "";
 
+    // ── Status counter-play awareness ──────────────────────────────────
+    // Skip statuses whose target trait fully resists them. Otherwise
+    // we'd cast freeze on Swift (immune), 1-round stun on Aggressive
+    // (shrugged off), confuse on Lucky (immune) — wasting cooldowns.
+    function statusIsWorthwhile(jutsu: PetJutsu | undefined): jutsu is PetJutsu {
+        if (!jutsu) return false;
+        const targetTrait = target.pet.trait;
+        if (jutsu.kind === "freeze"  && targetTrait === "Swift") return false;
+        if (jutsu.kind === "confuse" && targetTrait === "Lucky") return false;
+        if (jutsu.kind === "stun"    && targetTrait === "Aggressive" && (jutsu.rounds ?? 1) <= 1) return false;
+        // burn vs Guardian: still half-damage, still useful — don't skip
+        // crush vs Battleborn: half-strip, still useful (damage portion lands) — don't skip
+        // Don't re-apply a status that's already active on the target.
+        if (jutsu.kind === "burn"    && target.burnRounds    > 0) return false;
+        if (jutsu.kind === "freeze"  && target.freezeRounds  > 0) return false;
+        if (jutsu.kind === "confuse" && target.confuseRounds > 0) return false;
+        if (jutsu.kind === "stun"    && target.stunRounds    > 0) return false;
+        return true;
+    }
+
     // Jutsus available this turn — off cooldown, in range, not the move jutsu
     const avail = actor.pet.jutsus.filter(j =>
         j.kind !== "move" &&
@@ -14766,7 +14786,25 @@ function choosePetActionSmart(
     const absorb    = avail.find(j => j.kind === "absorb");
     const lifesteal = avail.find(j => j.kind === "lifesteal");
     const movelock  = avail.find(j => j.kind === "movelock");
-    const dot    = avail.find(j => j.kind === "dot");
+    const dot       = avail.find(j => j.kind === "dot");
+    // New status kinds — gated through statusIsWorthwhile so the AI skips
+    // them when the target's trait fully resists or the status already ticks.
+    const rawBurn    = avail.find(j => j.kind === "burn");
+    const rawFreeze  = avail.find(j => j.kind === "freeze");
+    const rawConfuse = avail.find(j => j.kind === "confuse");
+    const rawStun    = avail.find(j => j.kind === "stun");
+    const burn    = statusIsWorthwhile(rawBurn)    ? rawBurn    : undefined;
+    const freeze  = statusIsWorthwhile(rawFreeze)  ? rawFreeze  : undefined;
+    const confuse = statusIsWorthwhile(rawConfuse) ? rawConfuse : undefined;
+    const stun    = statusIsWorthwhile(rawStun)    ? rawStun    : undefined;
+    // Crush is hybrid damage+debuff — always worth casting (the damage
+    // portion lands even when Battleborn halves the strip).
+    const crush   = avail.find(j => j.kind === "crush");
+
+    // Pre-compute the strongest non-wasted disruption status for quick
+    // priority slotting. Stun > Freeze ≈ Confuse > Burn (raw value order).
+    const bestStatus = stun ?? freeze ?? confuse ?? burn;
+
     const dmgs   = avail.filter(j => j.kind === "damage").sort((a, b) => b.power - a.power);
     const heavy  = dmgs[0];                                                      // highest power
     const fast   = dmgs.find(j => j.cooldown <= 2) ?? dmgs[dmgs.length - 1];   // fastest cooldown
@@ -14780,6 +14818,14 @@ function choosePetActionSmart(
     const alreadyBuffed  = actor.attackBuff > 0 || actor.defenseBuff > 0;
     const targetPoisoned = target.dotRounds > 0;
 
+    // ── Element matchup awareness ──────────────────────────────────────
+    // If the actor is super-effective vs the target, prefer damage and crush
+    // (they multiply through type chart). If resisted, lean on status pressure
+    // and DoT — those bypass the multiplier and still chip the target down.
+    const elementMult     = petElementMultiplier(actor.pet, target.pet);
+    const superEffective  = elementMult > 1;
+    const resisted        = elementMult < 1;
+
     // -- GUARDIAN: outlast and wear down ---------------------------------------
     if (trait === "Guardian") {
         if (critical && heal)                        return heal;
@@ -14787,6 +14833,9 @@ function choosePetActionSmart(
         if (critical && shield)                      return shield;
         if (earlyGame && absorb && !alreadyAbsorbing) return absorb; // defensive opener
         if (earlyGame && buff && !alreadyBuffed)     return buff;
+        if (burn && !targetPoisoned)                 return burn;    // stack burn early for chip pressure
+        if (crush && dist <= 2)                      return crush;
+        if (bestStatus)                              return bestStatus;
         if (debuff && !finishing && dist <= 3)       return debuff;
         if (movelock && !finishing && dist <= 4)     return movelock;
         if (hurting && heal)                         return heal;
@@ -14798,11 +14847,16 @@ function choosePetActionSmart(
         return null;
     }
 
-    // -- AGGRESSIVE: debuff ? lifesteal spam ? nuke ----------------------------
+    // -- AGGRESSIVE: status disruption → lifesteal sustain → nuke --------------
     if (trait === "Aggressive") {
         if (critical && heal)                        return heal;
+        // If we're super-effective, skip the status setup — just hit hard.
+        if (superEffective && heavy)                 return heavy;
+        if (earlyGame && bestStatus)                 return bestStatus;
+        if (earlyGame && crush && dist <= 2)         return crush;
         if (earlyGame && debuff)                     return debuff;
         if (earlyGame && movelock)                   return movelock;
+        if (burn && !targetPoisoned)                 return burn;
         if (dot && !targetPoisoned)                  return dot;
         if (lifesteal && dist <= 2)                  return lifesteal; // drain to sustain aggression
         if (finishing && heavy)                      return heavy;
@@ -14812,13 +14866,17 @@ function choosePetActionSmart(
         return null;
     }
 
-    // -- SWIFT: constant harassment, debuff every window -----------------------
+    // -- SWIFT: constant harassment, status every window -----------------------
     if (trait === "Swift") {
         if (critical && heal)                        return heal;
         if (critical && shield)                      return shield; // quick defensive dash
+        if (superEffective && heavy)                 return heavy;  // capitalize on advantage
+        if (bestStatus)                              return bestStatus;
+        if (crush && dist <= 2)                      return crush;
         if (debuff)                                  return debuff;
         if (movelock)                                return movelock;
         if (lifesteal && dist <= 2)                  return lifesteal; // drain on the move
+        if (burn && !targetPoisoned)                 return burn;
         if (fast)                                    return fast;
         if (dot && !targetPoisoned)                  return dot;
         if (hurting && heal)                         return heal;
@@ -14832,9 +14890,13 @@ function choosePetActionSmart(
         if (hurting && heal)                         return heal;
         if (hurting && barrier)                      return barrier;
         if (hurting && shield)                       return shield;
+        if (superEffective && heavy)                 return heavy;
+        if (earlyGame && bestStatus)                 return bestStatus;
+        if (earlyGame && crush && dist <= 2)         return crush;
         if (earlyGame && debuff)                     return debuff;
         if (earlyGame && movelock)                   return movelock;
         if (lifesteal && dist <= 2)                  return lifesteal; // lucky drain
+        if (burn && !targetPoisoned)                 return burn;
         if (dot && !targetPoisoned)                  return dot;
         if (finishing && heavy)                      return heavy;
         if (fast)                                    return fast;
@@ -14843,14 +14905,18 @@ function choosePetActionSmart(
         return null;
     }
 
-    // -- BATTLEBORN: front-load buff ? absorb ? debuff ? heavy finishers -------
+    // -- BATTLEBORN: front-load buff → absorb → status → finishers -------------
     if (trait === "Battleborn") {
         if (earlyGame && buff && !alreadyBuffed)     return buff;
         if (earlyGame && absorb && !alreadyAbsorbing) return absorb; // tanky opener
+        if (superEffective && heavy)                 return heavy;
+        if (midGame && bestStatus)                   return bestStatus;
+        if (midGame && crush && dist <= 2)           return crush;
         if (midGame && debuff)                       return debuff;
         if (midGame && movelock)                     return movelock;
         if (finishing && heavy)                      return heavy;
         if (lifesteal && dist <= 2)                  return lifesteal;
+        if (burn && !targetPoisoned)                 return burn;
         if (dot && !targetPoisoned)                  return dot;
         if (fast)                                    return fast;
         if (critical && heal)                        return heal;
@@ -14866,13 +14932,18 @@ function choosePetActionSmart(
     if (critical && shield)                          return shield;
     if (earlyGame && buff && !alreadyBuffed)         return buff;
     if (earlyGame && absorb && !alreadyAbsorbing)    return absorb;
+    if (superEffective && heavy)                     return heavy;
+    if (earlyGame && bestStatus)                     return bestStatus;
+    if (earlyGame && crush && dist <= 2)             return crush;
     if (earlyGame && debuff)                         return debuff;
     if (earlyGame && movelock)                       return movelock;
     if (hurting && heal)                             return heal;
     if (hurting && barrier)                          return barrier;
+    if (burn && !targetPoisoned)                     return burn;
     if (dot && !targetPoisoned)                      return dot;
     if (lifesteal && dist <= 2)                      return lifesteal;
     if (movelock && dist <= 4)                       return movelock;
+    if (resisted && bestStatus)                      return bestStatus; // pivot from damage when matchup is bad
     if (heavy)                                       return heavy;
     if (fast && fast !== heavy)                      return fast;
     if (dist <= 1)                                   return "basic";
