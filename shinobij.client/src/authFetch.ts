@@ -111,18 +111,42 @@ export function setActivePlayer(name: string | null, password?: string | null): 
     }
 }
 
+import { getFingerprintSync, primeFingerprint } from './fingerprint';
+
+/** Helper to attach the browser fingerprint header if one has been computed. */
+function attachFingerprint(headers: Headers): void {
+    if (headers.has('x-client-fp')) return;
+    const fp = getFingerprintSync();
+    if (fp) headers.set('x-client-fp', fp);
+}
+
 let installed = false;
 export function installAuthFetch(): void {
     if (installed || typeof window === 'undefined' || !window.fetch) return;
     installed = true;
+    // Kick off fingerprint computation in the background so it's ready for
+    // the second + subsequent requests. First request may not carry the
+    // header, which is fine — server only uses fp opportunistically.
+    primeFingerprint();
     const originalFetch = window.fetch.bind(window);
 
     window.fetch = async function patchedFetch(
         input: RequestInfo | URL,
         init?: RequestInit,
     ): Promise<Response> {
-        if (!isApiUrl(input) || hasAuthHeader(init, input)) {
+        if (!isApiUrl(input)) {
             return originalFetch(input, init);
+        }
+        // Always attach fingerprint on /api/ calls (regardless of auth mode)
+        // so the server can record the device used even for unauthenticated
+        // probes (registration, etc).
+        const newInit: RequestInit = { ...(init ?? {}) };
+        const newHeaders = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
+        attachFingerprint(newHeaders);
+
+        if (hasAuthHeader(init, input)) {
+            newInit.headers = newHeaders;
+            return originalFetch(input, newInit);
         }
 
         // Try admin auth first (higher priority when both exist)
@@ -134,9 +158,6 @@ export function installAuthFetch(): void {
         }
 
         if (adminPw) {
-            // Clone init and merge admin auth header
-            const newInit: RequestInit = { ...(init ?? {}) };
-            const newHeaders = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
             if (!newHeaders.has('x-admin-password')) newHeaders.set('x-admin-password', adminPw);
             newInit.headers = newHeaders;
             return originalFetch(input, newInit);
@@ -145,11 +166,11 @@ export function installAuthFetch(): void {
         // Fall back to player auth
         const activeName = getActivePlayer();
         const pw = getActivePassword();
-        if (!activeName || !pw) return originalFetch(input, init);
+        if (!activeName || !pw) {
+            newInit.headers = newHeaders;
+            return originalFetch(input, newInit);
+        }
 
-        // Clone init and merge headers without clobbering anything the caller set.
-        const newInit: RequestInit = { ...(init ?? {}) };
-        const newHeaders = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
         if (!newHeaders.has('x-player-name')) newHeaders.set('x-player-name', activeName);
         if (!newHeaders.has('x-player-password')) newHeaders.set('x-player-password', pw);
         newInit.headers = newHeaders;
