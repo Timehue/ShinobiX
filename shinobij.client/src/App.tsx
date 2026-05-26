@@ -8415,6 +8415,7 @@ export default function App() {
             clearInterval(id);
         };
     }, [tabVisible, character?.name]);
+
     const [, setSharedGameStateVersion] = useState(0);
     const [currentBiome, setCurrentBiome] = useState<Biome>("central");
     const [currentWeather, setCurrentWeather] =
@@ -8749,6 +8750,46 @@ export default function App() {
                 break;
         }
     }, [character]);
+
+    // Clan-war auto-launch: when a challenge in sharedClanWarCache
+    // flips to 'accepted' and the current player is a participant,
+    // pull them into the appropriate battle screen automatically.
+    // Both sides hit this path — the accepter at the moment they
+    // accept (via the refresh that handleAccept triggers) and the
+    // challenger when the next polling tick brings the cache up to
+    // date. The ref prevents re-launching the same challenge twice
+    // in one session; on hard refresh the ref resets, which is
+    // correct (the player needs to be put back in the fight if it
+    // hasn't completed yet — server status is the source of truth).
+    const autoLaunchedClanWarChallenges = useRef<Set<string>>(new Set());
+    useEffect(() => {
+        if (!character) return;
+        // Don't yank players out of an active battle / story / boss
+        // screen — they're already committed to something.
+        const inBattleScreen = screen === "pvpBattle" || screen === "petArena" || screen === "arena"
+            || screen === "storyBoss" || screen === "weeklyBoss" || screen === "villageWar"
+            || screen === "hollowGateShrine" || screen === "hollowGateTiles"
+            || screen === "endlessTower" || screen === "dungeon" || screen === "eventTiles";
+        if (inBattleScreen) return;
+
+        const me = character.name.toLowerCase();
+        for (const war of Object.values(sharedClanWarCache)) {
+            if (war.endedAt) continue;
+            for (const ch of war.pendingChallenges) {
+                if (ch.status !== "accepted") continue;
+                if (autoLaunchedClanWarChallenges.current.has(ch.id)) continue;
+                const iAmParticipant = (ch.fromPlayer ?? "").toLowerCase() === me
+                    || (ch.fromPlayer2 ?? "").toLowerCase() === me
+                    || (ch.acceptedPlayer ?? "").toLowerCase() === me
+                    || (ch.acceptedPlayer2 ?? "").toLowerCase() === me;
+                if (!iAmParticipant) continue;
+                autoLaunchedClanWarChallenges.current.add(ch.id);
+                launchClanWarBattle(ch, war.id);
+                return; // launch one at a time
+            }
+        }
+    }, [character, screen, clanWarStateVersion, launchClanWarBattle]);
+
     // Tracks whether the player is mid-Shinobi-Tile card game launched from a
     // Hollow Gate tile_game tile. Used to apply the -20% maxHp penalty on
     // loss + route back to the shrine afterwards.
@@ -23738,7 +23779,7 @@ function ClanWarManual({ onClose }: { onClose: () => void }) {
                 <br />• <strong>Accept queue:</strong> 1st defender clicks <em>Queue to Accept</em>; a 2nd defender clicks <em>Join Accept Queue</em> and the battle becomes ready. Anyone in the accept queue can leave at any time.
             </p>
             <p style={{ margin: "0 0 0.5rem" }}>
-                <strong style={{ color: "#60a5fa" }}>Launching battles.</strong> Once a challenge is fully accepted it appears in <em>Your Active Battles</em>. Click <strong>Launch Battle</strong> to route to the right screen (PvP arena / Pet arena / Tavern for Tile Cards) and play the match using the existing systems. <strong>You don't need to report anything</strong> — the PvP / Pet Arena win &amp; loss handlers post the result to the server automatically when the fight ends.
+                <strong style={{ color: "#60a5fa" }}>Auto-launch + auto-report.</strong> As soon as a challenge is fully accepted (both defenders queued for 2v2), the server marks it ready and <em>both</em> participating clients are pulled into the matching battle screen automatically — no <em>Launch</em> button to click. When the fight ends, the PvP / Pet Arena win &amp; loss handlers post the result to the server on their own. You don't have to click anything. A small <em>Re-launch</em> link in <em>Your Active Battles</em> exists as a fallback if you navigated away.
             </p>
             <p style={{ margin: "0 0 0.5rem", fontSize: "0.82rem" }}>
                 <strong style={{ color: "#60a5fa" }}>Auto-report + two-phase confirm (anti-cheat).</strong> Both clients post the outcome they observed from the actual battle (the winner's client and the loser's client). The server treats the first arrival as <em>tentative</em>; the matching report from the opposing side <em>confirms</em> it and damage applies. If reports disagree (rare — both clients see the same fight), the challenge is recorded as a draw with no damage. If the opposing side never reports within <strong>15 minutes</strong>, the tentative auto-confirms on the next read. A manual "Battle disconnected? Report manually" fallback is hidden under each entry for emergency cases (network failure, tile-card duels which don't yet auto-report).
@@ -26979,7 +27020,7 @@ function ClanBattlesTab({ character, playerRoster, setScreen, launchClanWarBattl
                             <div style={{ background: "#1f1606", border: "1px solid #fbbf24", borderRadius: 6, padding: "0.8rem", marginBottom: "1rem" }}>
                                 <strong style={{ color: "#fbbf24" }}>⚔ Your Active Battles ({myActive.length})</strong>
                                 <p style={{ fontSize: "0.78rem", color: "#fef3c7", margin: "4px 0 8px" }}>
-                                    Launch each battle from the right screen — the PvP / Pet Arena win &amp; loss handlers <strong>auto-report</strong> the result to the server when the fight ends, so you don't have to do anything else. The two-phase tentative + confirm flow runs server-side between the two clients' reports, then the damage applies.
+                                    When a challenge is accepted, both clients are <strong>auto-pulled</strong> into the matching battle screen — no buttons to click. The win &amp; loss handlers post the result to the server when the fight ends, the opposing client's report confirms it, and damage applies. If you navigated away, use <em>Re-launch</em> below to jump back in.
                                 </p>
                                 {myActive.map(ch => {
                                     const fromSide = (ch.fromPlayer ?? "").toLowerCase() === character.name.toLowerCase()
@@ -27008,8 +27049,8 @@ function ClanBattlesTab({ character, playerRoster, setScreen, launchClanWarBattl
                                                     {CW_MODE_ICON[ch.mode]} {CW_MODE_LABEL[ch.mode]}
                                                     <span style={{ color: "#94a3b8", fontWeight: 400 }}> · vs {opponents.join(" + ") || "?"} · −{CW_DAMAGE[ch.mode]} HP on win</span>
                                                 </strong>
-                                                <button onClick={() => launchBattle(ch)} disabled={busy} style={{ padding: "0.3rem 0.6rem", background: "linear-gradient(#1e3a8a,#172554)", borderColor: "#60a5fa" }}>
-                                                    🚪 Launch Battle
+                                                <button onClick={() => launchBattle(ch)} disabled={busy} style={{ padding: "0.25rem 0.55rem", background: "#0f172a", borderColor: "#475569", color: "#94a3b8", fontSize: "0.78rem" }}>
+                                                    ↻ Re-launch
                                                 </button>
                                             </div>
                                             {hasTentative && (
