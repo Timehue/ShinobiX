@@ -23795,76 +23795,54 @@ function clanMissionProgress(data: EnhancedClanData, key: string) { const battle
 // future balance change only has to update this manual.
 function ClanWarManual({ onClose }: { onClose: () => void }) {
     return (
-        <div style={{ background: "#0b1220", border: "1px solid #334155", borderRadius: 8, padding: "1rem", marginBottom: "1rem", fontSize: "0.88rem", lineHeight: 1.55 }}>
+        <div style={{ background: "#0b1220", border: "1px solid #334155", borderRadius: 8, padding: "1rem", marginBottom: "1rem", fontSize: "0.9rem", lineHeight: 1.55 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                <strong style={{ color: "#fde047", fontSize: "1rem" }}>📜 Clan War Manual</strong>
+                <strong style={{ color: "#fde047", fontSize: "1rem" }}>📜 Clan War — Quick Guide</strong>
                 <button type="button" onClick={onClose} style={{ padding: "0.15rem 0.5rem", background: "#7f1d1d", borderColor: "#ef4444", color: "#fca5a5", fontSize: "0.75rem" }}>✕ Close</button>
             </div>
-            <p style={{ margin: "0 0 0.5rem" }}>
-                <strong style={{ color: "#60a5fa" }}>Declaring war.</strong> Only your clan's <em>Founder, Leader, or Officer</em> can declare. Open the Shinobi Council Hall → Clan Battles tab and pick an eligible clan. Each clan can only be in <strong>one clan war at a time</strong>, and the same two clans have a <strong>7-day rematch cooldown</strong> after a war ends. Clan wars are completely independent of Village Wars — you can be in both simultaneously.
+            <p style={{ margin: "0 0 0.6rem" }}>
+                <strong style={{ color: "#60a5fa" }}>Goal:</strong> drop the enemy clan's HP to <strong>0</strong>. Both clans start at <strong>1,000 HP</strong>. All damage comes from completed challenges — no open-world fighting.
             </p>
-            <p style={{ margin: "0 0 0.5rem" }}>
-                <strong style={{ color: "#60a5fa" }}>How damage works.</strong> Both clans start at <strong>1,000 HP</strong>. There's no open-world fighting — all damage comes from <em>completed challenges</em>. Wins do tiered HP damage; draws do nothing; losses do nothing to the winner.
+            <p style={{ margin: "0 0 0.6rem" }}>
+                <strong style={{ color: "#60a5fa" }}>1. Declare war.</strong> Your clan's <em>Founder, Leader, or Officer</em> opens this tab, picks an enemy clan, and clicks <em>Declare</em>. One war per clan; 7-day cooldown between the same two clans.
             </p>
-            <div style={{ display: "grid", gridTemplateColumns: "1.8fr 1fr", gap: 0, border: "1px solid #334155", borderRadius: 6, overflow: "hidden", marginBottom: "0.6rem", fontSize: "0.82rem" }}>
-                <div style={{ background: "#1e293b", padding: "0.35rem 0.6rem", fontWeight: 700, color: "#fde047" }}>Challenge mode</div>
-                <div style={{ background: "#1e293b", padding: "0.35rem 0.6rem", fontWeight: 700, color: "#f87171", textAlign: "right" }}>Damage on win</div>
+            <p style={{ margin: "0 0 0.6rem" }}>
+                <strong style={{ color: "#60a5fa" }}>2. Send a challenge.</strong> Pick a mode and click <em>Send</em>. The enemy clan sees the mode but not your name — challenges are anonymous until accepted. Each player can have up to <strong>2 challenges in flight</strong>. Cancel any time to free a slot.
+            </p>
+            <div style={{ display: "grid", gridTemplateColumns: "1.8fr 1fr", gap: 0, border: "1px solid #334155", borderRadius: 6, overflow: "hidden", margin: "0 0 0.6rem", fontSize: "0.82rem" }}>
+                <div style={{ background: "#1e293b", padding: "0.35rem 0.6rem", fontWeight: 700, color: "#fde047" }}>Mode</div>
+                <div style={{ background: "#1e293b", padding: "0.35rem 0.6rem", fontWeight: 700, color: "#f87171", textAlign: "right" }}>Win damage</div>
                 <div style={{ padding: "0.3rem 0.6rem" }}>⚔ 1v1 PvP</div>
-                <div style={{ padding: "0.3rem 0.6rem", textAlign: "right", color: "#f87171" }}>−30 enemy HP</div>
+                <div style={{ padding: "0.3rem 0.6rem", textAlign: "right", color: "#f87171" }}>−30 HP</div>
                 <div style={{ padding: "0.3rem 0.6rem", background: "#0f172a" }}>⚔⚔ 2v2 PvP</div>
-                <div style={{ padding: "0.3rem 0.6rem", background: "#0f172a", textAlign: "right", color: "#f87171" }}>−60 enemy HP</div>
+                <div style={{ padding: "0.3rem 0.6rem", background: "#0f172a", textAlign: "right", color: "#f87171" }}>−60 HP</div>
                 <div style={{ padding: "0.3rem 0.6rem" }}>🐾 Pet 1v1</div>
-                <div style={{ padding: "0.3rem 0.6rem", textAlign: "right", color: "#f87171" }}>−20 enemy HP</div>
+                <div style={{ padding: "0.3rem 0.6rem", textAlign: "right", color: "#f87171" }}>−20 HP</div>
                 <div style={{ padding: "0.3rem 0.6rem", background: "#0f172a" }}>🐾🐾 Pet 2v2</div>
-                <div style={{ padding: "0.3rem 0.6rem", background: "#0f172a", textAlign: "right", color: "#f87171" }}>−40 enemy HP</div>
+                <div style={{ padding: "0.3rem 0.6rem", background: "#0f172a", textAlign: "right", color: "#f87171" }}>−40 HP</div>
                 <div style={{ padding: "0.3rem 0.6rem" }}>🃏 Tile Cards</div>
-                <div style={{ padding: "0.3rem 0.6rem", textAlign: "right", color: "#f87171" }}>−10 enemy HP</div>
+                <div style={{ padding: "0.3rem 0.6rem", textAlign: "right", color: "#f87171" }}>−10 HP</div>
             </div>
-            <p style={{ margin: "0 0 0.5rem", fontSize: "0.82rem", color: "#94a3b8" }}>
-                Combat &gt; Pet &gt; Cards. 2v2 modes pay double the 1v1 of the same tier because they represent two sequential fights.
+            <p style={{ margin: "0 0 0.6rem" }}>
+                <strong style={{ color: "#60a5fa" }}>3. 2v2 needs 2 players per side.</strong> Both sending and accepting use a quick queue: one player opens the slot, a clanmate joins as partner, and the match goes live. Anyone can leave the queue before it fills.
             </p>
-            <p style={{ margin: "0 0 0.5rem" }}>
-                <strong style={{ color: "#60a5fa" }}>Sending an anonymous challenge.</strong> Any clan member can send. The enemy clan sees only your <em>clan name + mode</em> — your specific challenger name is hidden until they accept. Each player can have at most <strong>2 in-flight challenges</strong> at a time (counted across both seed-challenger and 2v2-partner slots). Cancel a challenge to free a slot.
+            <p style={{ margin: "0 0 0.6rem" }}>
+                <strong style={{ color: "#60a5fa" }}>4. Accept = play.</strong> When the defender accepts, <em>both clients are auto-pulled into the battle</em>. PvP / Pet / Tile-Card screens open on their own. Fight, and the server records the result — no buttons to click after the win.
             </p>
-            <p style={{ margin: "0 0 0.5rem", fontSize: "0.82rem", color: "#fbbf24" }}>
-                ⏳ <strong>Ghosting penalty.</strong> Pending challenges expire after <strong>1 hour</strong> if the defender does nothing. Each expired-unaccepted challenge deals <strong>−5 HP</strong> to the defender's clan. <em>Queuing</em> challenges (2v2 still gathering a partner) expire silently — they never reached the defender, so no penalty applies.
+            <p style={{ margin: "0 0 0.6rem", fontSize: "0.85rem", background: "#0a1a2a", border: "1px solid #60a5fa", borderRadius: 6, padding: "0.5rem 0.7rem" }}>
+                <strong style={{ color: "#60a5fa" }}>🃏 Tile-card duels:</strong> after accept you get <strong>30 seconds</strong> to pick 5 cards from your collection and hit <em>Lock in deck</em>. If both players ready up early the match starts immediately; otherwise the auto-picked top-5 deck is used. Then a <strong>coin flip</strong> decides who goes first. Place cards on a 3x3 board, capture by edge strength. Board full → winner gets credited.
             </p>
-            <p style={{ margin: "0 0 0.5rem" }}>
-                <strong style={{ color: "#60a5fa" }}>2v2 queues (both sides).</strong> 2v2 challenges use a queue model:
-                <br />• <strong>Send queue:</strong> the seed challenger opens a queue; a clanmate then clicks <em>Join as Partner</em> before the challenge is dispatched to the enemy. Either player can leave the queue at any time — if the seed leaves alone the challenge is cancelled; if a partner is queued they get promoted to seed.
-                <br />• <strong>Accept queue:</strong> 1st defender clicks <em>Queue to Accept</em>; a 2nd defender clicks <em>Join Accept Queue</em> and the battle becomes ready. Anyone in the accept queue can leave at any time.
+            <p style={{ margin: "0 0 0.6rem", fontSize: "0.85rem", color: "#fbbf24" }}>
+                ⏳ <strong>Don't ghost.</strong> Pending challenges expire after <strong>1 hour</strong> if the defender does nothing — each expired challenge takes <strong>−5 HP</strong> off the defender's clan.
             </p>
-            <p style={{ margin: "0 0 0.5rem" }}>
-                <strong style={{ color: "#60a5fa" }}>Fully automated — no manual reporting.</strong> The moment a challenge is fully accepted (both defenders queued for 2v2), <em>both</em> participating clients are pulled into the matching battle screen automatically. When the fight ends, the win / loss handlers post the result to the server on their own. There are no "I won" buttons anywhere in the UI — the server is the source of truth. A small <em>Re-launch</em> link in <em>Your Active Battles</em> exists if you navigated away during the fight.
+            <p style={{ margin: "0 0 0.6rem" }}>
+                <strong style={{ color: "#60a5fa" }}>5. Winning.</strong> First clan to drive the enemy to 0 HP wins. Each side gets an MVP (most wins).
             </p>
-            <p style={{ margin: "0 0 0.5rem", fontSize: "0.82rem" }}>
-                <strong style={{ color: "#60a5fa" }}>Tile-card duels are PvP too.</strong> Picking 🃏 Tile Cards opens a Triple-Triad-style 3x3 duel.
-                <br />• <strong>Deck-picking phase (30s):</strong> both players pick exactly 5 cards from their owned collection, then click <em>Lock in deck</em>. If both lock in before the timer ends, the match starts immediately. If a player runs out of time, their auto-picked top-5 deck is used.
-                <br />• <strong>Coin flip:</strong> the server randomly decides who plays first, shown to both clients.
-                <br />• <strong>Match:</strong> 3x3 board, alternating turns (60s per turn — stalled turns auto-skip), Triple-Triad capture rules (element counters +20%, friendly-element adjacent boost +20%).
-                <br />• <strong>Result:</strong> when the board fills, the server tallies cells, picks the winner, and debits HP from the losing clan automatically. Forfeit hands the win to the opponent.
-            </p>
-            <p style={{ margin: "0 0 0.5rem", fontSize: "0.82rem" }}>
-                <strong style={{ color: "#60a5fa" }}>Three-layer anti-cheat.</strong> (1) The server cross-checks every PvP-mode report against the authoritative <code>pvp:&lt;battleId&gt;</code> session record — if the report disagrees with the actual session winner, it's rejected. (2) Both clients report independently from their own win/loss handlers; the server treats the first arrival as <em>tentative</em> and only applies damage once the opposing side's matching report <em>confirms</em> it. (3) Reports that disagree (rare — both clients see the same fight) are recorded as a draw with no damage. After 15 minutes of silence, the tentative auto-confirms.
-            </p>
-            <p style={{ margin: "0 0 0.5rem" }}>
-                <strong style={{ color: "#60a5fa" }}>Winning the war.</strong> When one clan's HP hits <strong>0</strong>, the war ends and the other clan wins. The server also computes an MVP per clan (most wins; tiebreak by damage contributed) — visible on the war card and recent-war record.
-            </p>
-            <p style={{ margin: "0 0 0.5rem" }}>
-                <strong style={{ color: "#60a5fa" }}>Rewards.</strong>
-                <br />• <strong>Every winning-clan member:</strong> 1× Legendary War Crate.
-                <br />• <strong>MVP each side</strong> (top wins; tiebreak by damage): +10,000 ryo, +50 Honor Seals, +2 Fate Shards. Winning- AND losing-side MVPs both earn this.
-                <br />• <strong>Losing-clan participants who dealt ≥ 20 damage:</strong> +2,500 ryo, +10 Honor Seals consolation. No reward on draws.
-                <br />Rewards auto-claim within a 7-day window from a clan-war refresh — no buttons to click.
-            </p>
-            <p style={{ margin: "0 0 0.5rem", fontSize: "0.78rem", color: "#94a3b8" }}>
-                Honor Seals are Vanguard-only, but every seal grant also pays Bone Charms (8:1) and Fate Shards (25:1) to <em>all</em> professions on top. Vanguard MVP = +50 Honor Seals + 6 Bone Charms + 4 Fate Shards (2 base + 2 bonus). Non-Vanguard MVP = +6 Bone Charms + 4 Fate Shards (no seals).
-            </p>
-            <p style={{ margin: "0 0 0.5rem", fontSize: "0.78rem", color: "#fbbf24" }}>
-                ⚠ <strong>Rate limits:</strong> 30 challenge actions per minute per player, 4 war declarations per hour per player, max 30 pending challenges per war, max 10 active challenges from a single clan at once.
-            </p>
-            <p style={{ margin: 0, color: "#94a3b8", fontSize: "0.8rem" }}>
-                A 14-day max duration auto-ends any war that drags on. After the war ends, recent results stay visible in the Clan Hall → Wars tab for spectating.
+            <p style={{ margin: 0 }}>
+                <strong style={{ color: "#60a5fa" }}>Rewards (auto-claimed):</strong>
+                <br />• <strong>Winning clan:</strong> 1× Legendary War Crate per member.
+                <br />• <strong>MVP each side:</strong> +10,000 ryo, +50 Honor Seals (or 6 Bone Charms + 4 Fate Shards for non-Vanguards), +2 Fate Shards.
+                <br />• <strong>Losing-side participants:</strong> consolation ryo + seals/charms if you contributed.
             </p>
         </div>
     );
