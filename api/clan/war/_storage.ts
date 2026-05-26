@@ -158,20 +158,96 @@ export function canActAsClanLeadership(role: string): boolean {
     return role === 'founder' || role === 'leader' || role === 'officer';
 }
 
+// ─── MVP computation ─────────────────────────────────────────────────
+// Per-clan: most wins, tiebreak by most damage contributed. Returns a
+// `{clan → playerName}` map. Used both at HP-driven war-end and at
+// 14-day auto-finalize so the leaderboard stays consistent.
+export function computeMvpByClan(war: ClanWar): Record<string, string> {
+    const mvp: Record<string, string> = {};
+    for (const clan of war.clans) {
+        const tallies = new Map<string, { wins: number; damage: number }>();
+        for (const past of war.completedChallenges) {
+            if (past.status !== 'completed' || !past.result || past.result === 'draw') continue;
+            const won = (past.result === 'from-wins' && past.fromClan === clan)
+                || (past.result === 'to-wins' && past.fromClan !== clan);
+            if (!won) continue;
+            const winners = past.fromClan === clan
+                ? [past.fromPlayer, past.fromPlayer2].filter(Boolean) as string[]
+                : [past.acceptedPlayer, past.acceptedPlayer2].filter(Boolean) as string[];
+            const dealt = CHALLENGE_DAMAGE[past.mode] ?? 0;
+            for (const p of winners) {
+                const cur = tallies.get(p) ?? { wins: 0, damage: 0 };
+                cur.wins += 1;
+                cur.damage += dealt;
+                tallies.set(p, cur);
+            }
+        }
+        const top = [...tallies.entries()].sort(([, a], [, b]) => b.wins - a.wins || b.damage - a.damage)[0];
+        if (top) mvp[clan] = top[0];
+    }
+    return mvp;
+}
+
+// ─── Finalize war end ────────────────────────────────────────────────
+// Sets endedAt + winnerClan (if a side is below 0 HP), computes MVP,
+// and sweeps any pending/queuing/accepted challenges to history as
+// 'cancelled'. Called from both report.ts (HP-driven end) and from
+// applyLazyClanWarExpiry (14-day timeout). The caller is responsible
+// for kv.set'ing the result and stamping the rematch cooldown key.
+export function finalizeClanWarEnd(
+    war: ClanWar,
+    opts: { endedAt: number; winnerClan?: string; reason: 'hp-zero' | 'timeout' }
+): ClanWar {
+    const { endedAt, winnerClan, reason } = opts;
+    // Sweep any in-flight challenges → cancelled, move to history.
+    const sweep = war.pendingChallenges.map(ch => ({
+        ...ch,
+        status: 'cancelled' as const,
+        completedAt: endedAt,
+    }));
+    const history = [...sweep, ...war.completedChallenges].slice(0, MAX_COMPLETED_HISTORY);
+    const finalWar: ClanWar = {
+        ...war,
+        endedAt,
+        winnerClan: winnerClan ?? war.winnerClan,
+        pendingChallenges: [],
+        completedChallenges: history,
+        updatedAt: endedAt,
+    };
+    // MVP from the full completed-challenge history.
+    finalWar.mvpByClan = computeMvpByClan(finalWar);
+    void reason; // reserved for future telemetry / reward variants
+    return finalWar;
+}
+
 // Lazy-expire stale wars + stale challenges on any read or write.
 // Idempotent: an already-expired record passes through unchanged.
-export function applyLazyClanWarExpiry(war: ClanWar, now: number = Date.now()): { war: ClanWar; changed: boolean } {
+//
+// Returns:
+//   • war:                    projected war state
+//   • changed:                set when anything moved (caller may persist)
+//   • needsCooldownStamp:     set when we just auto-finalized via 14d
+//                             timeout — caller must kv.set the
+//                             clanWarCooldownKey to keep parity with
+//                             HP-driven war-end in report.ts
+export function applyLazyClanWarExpiry(
+    war: ClanWar,
+    now: number = Date.now()
+): { war: ClanWar; changed: boolean; needsCooldownStamp: boolean } {
     let changed = false;
+    let needsCooldownStamp = false;
     let next = war;
 
-    // Stale-war auto-finalize (14d max).
+    // Stale-war auto-finalize (14d max). Routes through the shared
+    // finalize helper so MVP + challenge sweep + bookkeeping match the
+    // HP-driven path exactly.
     if (!next.endedAt && (now - next.startedAt) > CLAN_WAR_MAX_DURATION_MS) {
-        next = {
-            ...next,
+        next = finalizeClanWarEnd(next, {
             endedAt: next.startedAt + CLAN_WAR_MAX_DURATION_MS,
-            updatedAt: now,
-        };
+            reason: 'timeout',
+        });
         changed = true;
+        needsCooldownStamp = true;
     }
 
     // Stale-challenge expiry: pending challenges past their TTL flip
@@ -182,7 +258,8 @@ export function applyLazyClanWarExpiry(war: ClanWar, now: number = Date.now()): 
         for (const ch of next.pendingChallenges) {
             // Both 'queuing' (still gathering 2v2 challengers) and
             // 'pending' (visible to defender, possibly with partial
-            // accept-queue) honor the same TTL.
+            // accept-queue) honor the same TTL. 'accepted' challenges
+            // do not expire — they wait for a report.
             const inQueue = ch.status === 'pending' || ch.status === 'queuing';
             if (inQueue && ch.expiresAt < now) {
                 newlyExpired.push({ ...ch, status: 'expired' as const, completedAt: now });
@@ -197,5 +274,21 @@ export function applyLazyClanWarExpiry(war: ClanWar, now: number = Date.now()): 
         }
     }
 
-    return { war: next, changed };
+    return { war: next, changed, needsCooldownStamp };
+}
+
+// ─── Anonymity redaction ─────────────────────────────────────────────
+// Returns a war record with challenger names redacted for any caller
+// who is NOT a member of the sending clan. Defenders only see clan +
+// mode for pending/queuing challenges — the names appear once status
+// flips to 'accepted' (battle is committed and anonymity ends).
+export function redactClanWarForViewer(war: ClanWar, viewerClan: string): ClanWar {
+    const redactedPending = war.pendingChallenges.map(ch => {
+        if (ch.status !== 'pending' && ch.status !== 'queuing') return ch;
+        // Caller is on the sending side → see everything.
+        if (viewerClan && ch.fromClan === viewerClan) return ch;
+        // Otherwise drop fromPlayer/fromPlayer2 from the wire response.
+        return { ...ch, fromPlayer: '', fromPlayer2: undefined };
+    });
+    return { ...war, pendingChallenges: redactedPending };
 }
