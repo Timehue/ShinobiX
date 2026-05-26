@@ -52,6 +52,13 @@ const WIPE_PATTERNS = [
     'world:territory:*',            // sector territory ownership
     'world:war:*',                  // active village wars
     'kageChallenge:*',              // pending Kage-seat challenges
+    // Authoritative Kage record per village. Lives separately from the
+    // village-state view above — validateVillageStateWrite re-injects the
+    // seated Kage from THIS key on every write, so unless we wipe it the
+    // village-state's seatedKage field gets rehydrated right back after
+    // every game:village-state:* clear. (This is what kept a stale Kage
+    // seated through a server reset.)
+    'village:kage:*',
 ];
 
 // Villages with NPC Kage + 3 Elders configured on the Village Leaders admin tab.
