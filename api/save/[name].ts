@@ -42,6 +42,62 @@ function stripPrivateFields(data: Record<string, unknown>): Record<string, unkno
     return { ...data, character: sanitized };
 }
 
+// Character-level fields stripped under ?combatOnly=1 — none of these affect
+// combat resolution (only meta progression / cosmetic / lifetime counters).
+// Whitelisting was considered but a blacklist is safer here since combat
+// touches many character fields and a missed whitelist entry would silently
+// break opponent rendering.
+const COMBAT_STRIP_CHAR_FIELDS = [
+    'inventory', 'tileCards', 'savedTileDeck',
+    'missions', 'missionLog', 'completedMissions', 'activeMissions', 'questLog', 'bankLog',
+    'storyTraits', 'storyTitle',
+    'weeklyBossKills', 'claimedWarCrateIds',
+    'unlockedAchievements', 'achievementUnlockedAt',
+    'hollowGateRun', 'hollowGateWardenKills', 'hollowGateIntroSeen',
+    'endlessTowerRun', 'endlessTowerBestWave',
+    'totalStatsTrained', 'totalMissionsCompleted', 'totalAiKills', 'totalVillageRaids',
+    'totalTilesExplored', 'totalTournamentsCompleted', 'totalEndlessTowerWins', 'totalPetWins',
+    'totalPvpKills', 'monthlyPvpKills', 'pvpKillMonth',
+    'dailyAiKills', 'dailyPetWins', 'dailyTilesExplored', 'dailyMissionsCompleted',
+    'dailyFateSpins', 'lastDailyReset',
+    'claimedVillageAgendaDate', 'claimedMapControlDate',
+    'defeatedAiIds', 'elderFocus', 'examsPassed',
+    'lastBankInterestAt', 'bankRyo',
+    'villageWarMissionDate', 'villageWarRaidProgress', 'villageWarMissionsCompleted',
+    'clanBattleContrib', 'clanEventContrib', 'clanMissionContrib', 'clanContribMonth',
+    'dailyHonorSealsEarned', 'dailyHonorSealsByTarget', 'vanguardDailyResetDate',
+    'lastExpeditionClaimDate', 'expeditionsClaimedToday',
+    'dailyDonatedSeals', 'dailyDonationDate',
+    'petEscortBonusReady', 'hunterRank',
+    // Currencies — combat doesn't read them, only post-fight reward grants do.
+    'ryo', 'honorSeals', 'fateShards', 'boneCharms', 'auraStones', 'mythicSeals', 'auraDust',
+    // Ranked stats are used elsewhere; only strip the rarely-needed ones.
+    'rankedWins', 'rankedLosses',
+    'createdAt', 'professionChosenAt',
+] as const;
+
+// Top-level (non-character) fields stripped under ?combatOnly=1. Keeps the
+// big chunks needed for rendering opponent jutsu/items/bloodlines.
+const COMBAT_STRIP_TOPLEVEL_FIELDS = [
+    'currentBiome', 'activeTraining', 'activeJutsuTraining',
+    'acceptedMissionIds', 'missionProgress',
+    'triggeredEvents', 'pendingAiProfileId', 'currentSector',
+    'creatorAis', 'creatorEvents', 'creatorMissions', 'creatorRaids', 'creatorCards',
+    'petEncounterVn', 'ancientChestVn', 'editablePets',
+] as const;
+
+function combatProjection(data: Record<string, unknown>): Record<string, unknown> {
+    const out: Record<string, unknown> = { ...data };
+    for (const f of COMBAT_STRIP_TOPLEVEL_FIELDS) delete out[f];
+    const char = out.character as Record<string, unknown> | undefined;
+    if (char && typeof char === 'object') {
+        const trimmed = { ...char };
+        for (const f of COMBAT_STRIP_CHAR_FIELDS) delete trimmed[f];
+        out.character = trimmed;
+    }
+    return out;
+}
+
 const REGISTRY_KEY = 'player:registry';
 
 // ─── Save sanitization ────────────────────────────────────────────────────────
@@ -267,8 +323,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         //   so opponents can't be scouted out-of-band. The server hydrates
         //   actual opponent combat data from save:<name> directly when PvP
         //   sessions are created.
+        //
+        // ?combatOnly=1 layers a second strip on top — drops mission /
+        // achievement / lifetime-counter fields that combat never reads.
+        // Used by client fetchPlayerCombatSave() to shave ~50–150KB per
+        // PvP fetch (challenge accept + village raid prep do 2 fetches each).
         const isOwner = identity.admin || isClanSave || identity.name === name.toLowerCase().trim();
-        const payload = isOwner ? data : publicProjection(stripPrivateFields(data));
+        const combatOnly = req.query.combatOnly === '1';
+        let payload = isOwner ? data : publicProjection(stripPrivateFields(data));
+        if (combatOnly) payload = combatProjection(payload);
         return res.status(200).json(payload);
     }
 

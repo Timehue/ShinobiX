@@ -7124,7 +7124,10 @@ type PlayerCombatSave = {
 
 async function fetchPlayerCombatSave(name: string): Promise<PlayerCombatSave | null> {
     try {
-        const res = await fetch(`/api/save/${encodeURIComponent(name.toLowerCase())}`);
+        // ?combatOnly=1 asks the server to strip mission progress, lifetime
+        // counters, hollow gate state, etc. — none of which combat reads.
+        // Shaves ~50–150KB per fetch (×2 fetches per challenge accept / raid).
+        const res = await fetch(`/api/save/${encodeURIComponent(name.toLowerCase())}?combatOnly=1`);
         if (!res.ok) return null;
         const data = await res.json() as PlayerCombatSave;
         const saved = Array.isArray(data.savedBloodlines) ? data.savedBloodlines : [];
@@ -8163,16 +8166,20 @@ export default function App() {
         if (!tabVisible) return; // pause heartbeat when tab hidden
         heartbeat();
         // Adaptive heartbeat: fast in battle/arena (3s), moderate while exploring (5s),
-        // slow in village/sector 0 (15s) to reduce Vercel function invocations.
+        // slow in village/sector 0 (15s) to reduce serverless function invocations.
+        // EXCEPTION: village-queued guards drop to 3s so a raider's attack on the
+        // village reaches the defender within seconds, not 15.
         const currentScreen = screenRef.current;
         const interval = currentScreen === "pvpBattle" || currentScreen === "arena" || currentScreen === "petArena"
             ? 3000   // in combat — need fast challenge delivery
+            : character?.guardQueued
+            ? 3000   // queued for village defense — must respond to raids fast
             : currentSector === 0
             ? 15000  // village — no urgent combat needs
             : 5000;  // exploring sectors — moderate speed
         const id = setInterval(heartbeat, interval);
         return () => clearInterval(id);
-    }, [character?.name, currentSector, isTraveling, travelingUntil, screen, tabVisible]);
+    }, [character?.name, character?.guardQueued, currentSector, isTraveling, travelingUntil, screen, tabVisible]);
 
     async function clearChallengeOnServer(challenge: DuelChallenge) {
         await fetch('/api/player/challenge', {
