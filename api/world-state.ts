@@ -600,23 +600,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 //    the 500 Honor Seals and the war commits
                                 //    at this moment.
                                 war.pendingUntil = Date.now() + VILLAGE_WAR_PENDING_WINDOW_MS;
-                            } else if (isClaimingWin || isClaimingCapture) {
-                                // Naming a winner / capturing the war ground REQUIRES
-                                // a real win condition in the persisted record —
-                                // either the war-ground sector's HP is 0 OR the
-                                // enemy village's HP is 0. Kage status alone is
-                                // not enough; without this check a Kage of the
-                                // LOSING village could declare themselves winner.
-                                const groundSector = existing?.warGroundSector ?? war.warGroundSector;
-                                const groundTerritory = await kv.get<SectorTerritory>(`${TERRITORY_KEY_PREFIX}${groundSector}`);
-                                const groundHp = Number(groundTerritory?.hp ?? TERRITORY_HP_MAX);
-                                const winnerVillage = war.winnerVillage ?? war.capturedBy;
+                            } else if (isClaimingWin) {
+                                // Naming a winner REQUIRES the enemy village's
+                                // HP to actually be 0 in the persisted record.
+                                // The war ground is a contestable tug-of-war
+                                // objective that pays bonus damage but does
+                                // NOT end the war on its own — without this
+                                // check a Kage of the LOSING village could
+                                // declare themselves winner.
+                                const winnerVillage = war.winnerVillage;
                                 const enemyVillage = war.villages.find(v => v !== winnerVillage);
                                 const persistedEnemyHp = enemyVillage ? Number(existing?.hp?.[enemyVillage] ?? VILLAGE_WAR_HP_MAX) : VILLAGE_WAR_HP_MAX;
-                                const groundWin = groundHp <= 0 && winnerVillage === actorVillage;
                                 const hpWin = persistedEnemyHp <= 0 && winnerVillage === actorVillage;
-                                if (!groundWin && !hpWin) {
-                                    return { status: 403 as const, body: { error: 'Cannot declare a winner — the enemy village HP and war ground are not both depleted.' } };
+                                if (!hpWin) {
+                                    return { status: 403 as const, body: { error: 'Cannot declare a winner — the enemy village HP is not depleted.' } };
+                                }
+                            } else if (isClaimingCapture) {
+                                // Capturing the war ground is now a flippable
+                                // event — anyone in a warring village can
+                                // claim the capture flag as long as it isn't
+                                // already theirs (the client checks current
+                                // capturedBy). No HP-depletion gate.
+                                if (existing?.capturedBy === actorVillage) {
+                                    return { status: 409 as const, body: { error: 'Your village already holds the war ground.' } };
                                 }
                             } else if (isEnding) {
                                 // Ending WITHOUT a winner = "call peace".

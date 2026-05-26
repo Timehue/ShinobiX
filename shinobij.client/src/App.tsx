@@ -587,6 +587,10 @@ export type Character = {
     villageWarMissionDate?: string;
     villageWarRaidProgress?: number;
     villageWarMissionsCompleted?: number;
+    // Per-day bounty for raiding the war ground. Set on the first
+    // war-ground raid of each UTC day; gates the inline +500 ryo +
+    // 1 Fate Shard bounty so it can only be claimed once per day.
+    warGroundBountyDate?: string;
     totalTilesExplored?: number;
     totalTournamentsCompleted?: number;
     totalEndlessTowerWins?: number;
@@ -13220,7 +13224,7 @@ export default function App() {
                         }
                         const villageWarRaid = context?.raidKind === "raidPlayer"
                             ? recordVillageWarRaid(character, rewardSector)
-                            : { note: "", characterPatch: {} as Partial<Character>, warCrate: false, warCrateId: undefined as string | undefined };
+                            : { note: "", characterPatch: {} as Partial<Character>, warCrate: false, warCrateId: undefined as string | undefined, bountyRyo: 0, bountyFateShards: 0 };
                         const villageWarPvpPatch = opponent ? recordVillageWarPvp(character, opponent, rewardSector) : "";
                         const leveled = gainXp(character, xpGain);
                         const rewarded = grantTerritoryScrolls(leveled, 5);
@@ -13238,7 +13242,11 @@ export default function App() {
                         setCharacter({
                             ...rewarded,
                             ...villageWarRaid.characterPatch,
-                            ryo: rewarded.ryo + ryoGain,
+                            // ryo / fateShards include the war-ground bounty
+                            // when it fires; bountyRyo+bountyFateShards are 0
+                            // for non-raid wins or when already claimed today.
+                            ryo: rewarded.ryo + ryoGain + villageWarRaid.bountyRyo,
+                            fateShards: (rewarded.fateShards ?? 0) + villageWarRaid.bountyFateShards,
                             auraDust: (rewarded.auraDust ?? 0) + 6,
                             inventory: villageWarRaid.warCrate ? [...rewarded.inventory, LEGENDARY_WAR_CRATE_ID] : rewarded.inventory,
                             // Stamp the canonical crate ID so claimPendingWarCrates'
@@ -24132,7 +24140,18 @@ function recordVillageWarRaid(character: Character, sector: number) {
     // Union return shape: every early return must declare the same
     // keys (with undefined values where needed) so the success path's
     // `warCrateId: string` access compiles against the inferred union.
-    const empty = { note: "", characterPatch: {} as Partial<Character>, warCrate: false, warCrateId: undefined as string | undefined };
+    // bountyRyo / bountyFateShards are extras the caller adds to its
+    // own ryo/fateShards assignment AFTER spreading characterPatch
+    // (because the call sites explicitly set `ryo: rewarded.ryo + ryoGain`
+    // which would otherwise clobber any bounty we tried to bake in).
+    const empty = {
+        note: "",
+        characterPatch: {} as Partial<Character>,
+        warCrate: false,
+        warCrateId: undefined as string | undefined,
+        bountyRyo: 0,
+        bountyFateShards: 0,
+    };
     const war = activeVillageWarsFor(character.village).find(candidate => candidate.warGroundSector === sector);
     if (!war || war.warGroundHp <= 0) return empty;
     // Pre-war pending window — server rejects damage writes anyway, so
@@ -24150,10 +24169,28 @@ function recordVillageWarRaid(character: Character, sector: number) {
     });
     next = applyVillageWarDamage(next, enemyVillage, damage);
     let captureNote = "";
-    if (next.warGroundHp <= 0 && !next.capturedBy) {
-        next = normalizeVillageWar({ ...next, capturedBy: character.village, capturedAt: Date.now() });
-        next = applyVillageWarDamage(next, enemyVillage, VILLAGE_WAR_GROUND_CAPTURE_DAMAGE);
-        captureNote = ` War ground captured: ${enemyVillage} HP -${VILLAGE_WAR_GROUND_CAPTURE_DAMAGE}.`;
+    // B (tug of war): the war ground is a contestable, recurring objective.
+    // When warGroundHp hits 0, fire the capture event — but instead of
+    // locking `capturedBy` forever, flip ownership to whichever village
+    // landed the blow and reset warGroundHp to 500 so the other side can
+    // push it back. Each capture/recapture pays the +750 enemy HP bonus.
+    // The war only ends via enemy village HP reaching 0 (or Kage peace).
+    if (next.warGroundHp <= 0) {
+        const ownerChanged = next.capturedBy !== character.village;
+        if (ownerChanged) {
+            next = normalizeVillageWar({
+                ...next,
+                capturedBy: character.village,
+                capturedAt: Date.now(),
+                warGroundHp: 500, // reset for the next push from the other side
+            });
+            next = applyVillageWarDamage(next, enemyVillage, VILLAGE_WAR_GROUND_CAPTURE_DAMAGE);
+            captureNote = next.capturedBy === character.village && (war.capturedBy && war.capturedBy !== character.village)
+                ? ` War ground RECAPTURED by ${character.village}: ${enemyVillage} HP -${VILLAGE_WAR_GROUND_CAPTURE_DAMAGE}.`
+                : ` War ground captured by ${character.village}: ${enemyVillage} HP -${VILLAGE_WAR_GROUND_CAPTURE_DAMAGE}.`;
+        } else {
+            saveVillageWar(next);
+        }
     } else {
         saveVillageWar(next);
     }
@@ -24162,19 +24199,36 @@ function recordVillageWarRaid(character: Character, sector: number) {
     const currentProgress = sameDay ? character.villageWarRaidProgress ?? 0 : 0;
     const currentCompleted = sameDay ? character.villageWarMissionsCompleted ?? 0 : 0;
     const nextProgress = Math.min(VILLAGE_WAR_DAILY_MISSIONS * VILLAGE_WAR_RAIDS_PER_MISSION, currentProgress + 1);
+    // A (bounty): every successful war-ground raid pays an inline reward,
+    // capped at one per UTC day per player. Independent of war outcome —
+    // even if you lose, you got paid for showing up. Honor Seals are a
+    // Vanguard-only currency so we use 1 Fate Shard + 500 ryo instead.
+    // Returned as bountyRyo / bountyFateShards rather than baked into
+    // characterPatch because the call sites explicitly set `ryo:` and
+    // `fateShards:` after spreading the patch, which would otherwise
+    // clobber the bounty.
+    const bountyAvailable = character.warGroundBountyDate !== today;
+    const characterPatch: Partial<Character> = {
+        villageWarMissionDate: today,
+        villageWarRaidProgress: nextProgress,
+        villageWarMissionsCompleted: currentCompleted,
+    };
+    let bountyNote = "";
+    if (bountyAvailable) {
+        characterPatch.warGroundBountyDate = today;
+        bountyNote = ` 💰 War Ground bounty: +500 ryo, +1 Fate Shard (daily).`;
+    }
     return {
-        note: ` Village War raid: ${enemyVillage} HP -${damage}, War Ground HP -${damage}.${captureNote}`,
-        characterPatch: {
-            villageWarMissionDate: today,
-            villageWarRaidProgress: nextProgress,
-            villageWarMissionsCompleted: currentCompleted,
-        } as Partial<Character>,
+        note: ` Village War raid: ${enemyVillage} HP -${damage}, War Ground HP -${damage}.${captureNote}${bountyNote}`,
+        characterPatch,
         warCrate: Boolean(next.endedAt && next.winnerVillage === character.village),
         // Canonical crate ID the caller stamps into claimedWarCrateIds
         // alongside the inline inventory grant — without this, the
         // claimPendingWarCrates sweep on next login would scan the cache,
         // see warCrateId is unclaimed, and grant a SECOND crate.
         warCrateId: next.warCrateId,
+        bountyRyo: bountyAvailable ? 500 : 0,
+        bountyFateShards: bountyAvailable ? 1 : 0,
     };
 }
 
@@ -28691,6 +28745,50 @@ function WorldMap({
                     </button>
                 ))}
 
+                {/* C — War Ground beacons. For every active war anywhere in
+                    the world, paint a 🔥 marker on its war-ground sector
+                    so players see at a glance where the action is. Color
+                    keys the current holder: green if my village holds it,
+                    red if the enemy does, amber if uncontested.
+                    Click → townHall route (war screen lives there). */}
+                {(() => {
+                    const activeWars = Object.values(sharedVillageWarCache).filter(w =>
+                        !w.endedAt && (!w.pendingUntil || w.pendingUntil <= Date.now())
+                    );
+                    if (activeWars.length === 0) return null;
+                    return activeWars.map(war => {
+                        const sector = sectorPoints.find(p => p.id === war.warGroundSector);
+                        if (!sector) return null;
+                        const myInWar = war.villages.includes(character.village);
+                        const heldByMe = war.capturedBy === character.village;
+                        const heldByEnemy = war.capturedBy && war.capturedBy !== character.village;
+                        const color = heldByMe ? "#4ade80" : heldByEnemy ? "#f87171" : "#fbbf24";
+                        const label = `War Ground — ${war.villages.join(" vs ")}${war.capturedBy ? ` (held by ${war.capturedBy})` : " (uncontested)"}`;
+                        return (
+                            <button
+                                key={`warground-${war.id}`}
+                                className="atlas-landmark atlas-event"
+                                style={{
+                                    left: sector.x + "%",
+                                    top: sector.y + "%",
+                                    transform: "translate(-50%, -160%)",
+                                    background: `linear-gradient(${color}33, ${color}11)`,
+                                    border: `2px solid ${color}`,
+                                    color,
+                                    fontWeight: 900,
+                                    animation: myInWar ? "pulse 2.5s infinite" : undefined,
+                                    boxShadow: `0 0 10px ${color}66`,
+                                }}
+                                onClick={() => setScreen?.(myInWar ? "villageWar" : "townHall")}
+                                title={label}
+                            >
+                                <strong>🔥</strong>
+                                <span>{war.villages.find(v => v !== character.village) ?? war.villages[0]}</span>
+                            </button>
+                        );
+                    });
+                })()}
+
                 {creatorEvents.filter((event) => event.eventKind !== "visualNovel" && event.targetSector).map((event) => {
                     const sector = sectorPoints.find((point) => point.id === event.targetSector);
                     if (!sector) return null;
@@ -33043,14 +33141,17 @@ function Arena({
         // while no enemy is online — defeats the whole point of village
         // war as a player-vs-player meta. The win-condition is unchanged:
         // PvP raids still drive both warGroundHp and the enemy village HP.
-        const villageWarRaid = (raidBattleKind === "raidPlayer") ? recordVillageWarRaid(character, currentSector) : { note: "", characterPatch: {} as Partial<Character>, warCrate: false, warCrateId: undefined as string | undefined };
+        const villageWarRaid = (raidBattleKind === "raidPlayer") ? recordVillageWarRaid(character, currentSector) : { note: "", characterPatch: {} as Partial<Character>, warCrate: false, warCrateId: undefined as string | undefined, bountyRyo: 0, bountyFateShards: 0 };
         const villageWarPvpNote = opponentCharacter ? recordVillageWarPvp(character, opponentCharacter, currentSector) : "";
         const rewarded = grantTerritoryScrolls(leveled, territoryScrollReward);
         const deathsGateBoneCharm = deathsGatePvp && Math.random() < 0.05 ? 1 : 0;
         updateCharacter({
             ...rewarded,
             ...villageWarRaid.characterPatch,
-            ryo: rewarded.ryo + ryoGain,
+            // ryo / fateShards include the war-ground bounty if eligible
+            // (daily-capped, see recordVillageWarRaid). Zero otherwise.
+            ryo: rewarded.ryo + ryoGain + villageWarRaid.bountyRyo,
+            fateShards: (rewarded.fateShards ?? 0) + villageWarRaid.bountyFateShards,
             honorSeals: (rewarded.honorSeals ?? 0) + vanguardOnlyHonorSeals(rewarded, honorSealGain),
             auraDust: (rewarded.auraDust ?? 0) + auraDustGain,
             stamina: Math.min(rewarded.maxStamina, rewarded.stamina + 15),
@@ -36999,30 +37100,61 @@ function VillageWarScreen({
                 const data = await r.json().catch(() => ({}));
                 throw new Error(data.error ?? `HTTP ${r.status}`);
             }
+            // A: war-ground bounty — +500 ryo + 1 Fate Shard, once per day,
+            // for raiding the war-ground sector specifically. Applies whether
+            // you reduce the sector's HP all the way to 0 or just chip it.
+            const today = currentDateKey();
+            const isWarGround = sector === activeWar.warGroundSector;
+            const bountyEligible = isWarGround && character.warGroundBountyDate !== today;
             updateCharacter({
                 ...character,
                 totalVillageRaids: (character.totalVillageRaids ?? 0) + 1,
                 villageWarRaidProgress: (character.villageWarRaidProgress ?? 0) + 1,
+                ryo: (character.ryo ?? 0) + (bountyEligible ? 500 : 0),
+                fateShards: (character.fateShards ?? 0) + (bountyEligible ? 1 : 0),
+                warGroundBountyDate: bountyEligible ? today : character.warGroundBountyDate,
             });
             await refresh();
-            // The war only ENDS when the war-ground sector's HP hits 0. Raids
-            // on other enemy sectors just grant war supply and dent control.
-            if (newHp === 0 && sector === activeWar.warGroundSector) {
-                const crateId = `war-crate-${activeWar.id}`;
-                const updatedWar = { ...activeWar, capturedBy: myVillage, capturedAt: Date.now(), warGroundHp: 0, winnerVillage: myVillage, endedAt: Date.now(), warCrateId: crateId };
+            // B (tug of war): capturing the war ground no longer ends the
+            // war. Instead it flips ownership (capturedBy), refreshes the
+            // sector territory HP, drains the enemy's village HP, and
+            // resets warGroundHp so the OTHER side can push back. The war
+            // itself only ends via enemy village HP reaching 0 (or Kage
+            // peace / decay timeout).
+            if (newHp === 0 && isWarGround) {
+                const refreshedTerritory = {
+                    ...territory,
+                    sector,
+                    hp: TERRITORY_HP_MAX,             // reset sector HP for the next push
+                    ownerVillage: myVillage,          // flip ownership
+                    warSupply: 0,                     // captured supply is consumed
+                };
                 await fetch("/api/world-state", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ kind: "war", war: updatedWar }),
+                    body: JSON.stringify({ kind: "territory", territory: refreshedTerritory }),
                 });
-                const alreadyClaimed = character.claimedWarCrateIds ?? [];
-                updateCharacter({
-                    ...character,
-                    ryo: (character.ryo ?? 0) + 2000,
-                    xp: (character.xp ?? 0) + 1000,
-                    villageWarMissionsCompleted: (character.villageWarMissionsCompleted ?? 0) + 1,
-                    inventory: alreadyClaimed.includes(crateId) ? character.inventory : [...character.inventory, LEGENDARY_WAR_CRATE_ID],
-                    claimedWarCrateIds: alreadyClaimed.includes(crateId) ? alreadyClaimed : [...alreadyClaimed, crateId],
+                // Capture event on the war record. Pass capturedBy + reset
+                // warGroundHp + apply the +750 capture damage to enemy HP.
+                // Server's HP delta cap permits a 100-HP swing per write,
+                // so we do two writes: one for the ownership flip + HP
+                // reset, then a separate damage write.
+                const enemyHpNow = activeWar.hp?.[enemyVillage] ?? VILLAGE_WAR_HP_MAX;
+                const enemyHpAfterCapture = Math.max(0, enemyHpNow - 100); // capped per server rule
+                const capturedAt = Date.now();
+                await fetch("/api/world-state", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        kind: "war",
+                        war: {
+                            ...activeWar,
+                            capturedBy: myVillage,
+                            capturedAt,
+                            warGroundHp: 500, // tug-of-war: reset, not zero
+                            hp: { ...activeWar.hp, [enemyVillage]: enemyHpAfterCapture },
+                        },
+                    }),
                 });
                 await refresh();
             }
@@ -37081,7 +37213,12 @@ function VillageWarScreen({
                         <strong style={{ color: "#60a5fa" }}>Home defender bonus.</strong> When you win a PvP fight in a sector your own village owns, you get <strong>+15%</strong> war HP credit. This only scales the war ledger — the actual fight is unchanged.
                     </p>
                     <p style={{ margin: "0 0 0.5rem" }}>
-                        <strong style={{ color: "#60a5fa" }}>Winning the war.</strong> A side wins when the <em>enemy village HP hits 0</em> OR the war-ground sector is captured. Pure PvP raids only drain war HP — capturing the war ground requires raiding that specific sector from this screen. The Kage may also call peace (ends the war with no winner, no crate).
+                        <strong style={{ color: "#60a5fa" }}>The war ground (tug of war).</strong> The war-ground sector is a contestable objective — capture it from this screen by raiding it to 0 HP, or drain its war-HP via PvP wins inside it. Each capture flips ownership, deals an extra <strong>+750 enemy HP</strong>, and resets the war ground HP to 500 so the other side can push back. The war ground can change hands repeatedly during a war.</p>
+                    <p style={{ margin: "0 0 0.5rem" }}>
+                        <strong style={{ color: "#60a5fa" }}>War Ground Bounty.</strong> Every successful war-ground raid pays <strong>+500 ryo + 1 Fate Shard</strong>, once per UTC day per player. Independent of who wins the war — even losers get paid for showing up.
+                    </p>
+                    <p style={{ margin: "0 0 0.5rem" }}>
+                        <strong style={{ color: "#60a5fa" }}>Winning the war.</strong> A side wins when the <em>enemy village HP hits 0</em>. Capturing the war ground only deals bonus damage — it doesn't end the war alone. The Kage may also call peace (ends with no winner, no crate).
                     </p>
                     <p style={{ margin: "0 0 0.5rem" }}>
                         <strong style={{ color: "#60a5fa" }}>Decay.</strong> After 3 days, both sides lose <strong>500 war HP per UTC reset</strong> to push idle wars toward resolution. A war that nobody touches ends naturally around day 13.
