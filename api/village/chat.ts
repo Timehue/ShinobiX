@@ -2,6 +2,8 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
+import { getActiveSilence } from '../admin/moderation.js';
+import { withKvLock } from '../_lock.js';
 
 type ChatMessage = {
     author: string;
@@ -56,6 +58,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return res.status(403).json({ error: 'Cannot post as another player.' });
             }
 
+            // Silenced players can read but not post. Admin bypasses.
+            if (!identity.admin) {
+                const sil = await getActiveSilence(identity.name);
+                if (sil) {
+                    return res.status(403).json({
+                        error: 'You are silenced.',
+                        silence: { until: sil.until, reason: sil.reason },
+                    });
+                }
+            }
+
             // Derive rank/customTitle/level from the authed player's save so they
             // can't be spoofed via the request body (no posing as "Kage" etc.).
             let derivedRank: string | undefined;
@@ -84,14 +97,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ...(derivedLevel != null ? { level: derivedLevel }          : {}),
             };
 
-            // Read-modify-write — the previous retry loop was dead code (broke
-            // unconditionally on iter 0). Concurrent writers can still race here;
-            // accepting that for now since chat-message loss is low-impact and
-            // truly fixing it needs RPC-level CAS.
-            const existing = await kv.get<ChatMessage[]>(key) ?? [];
-            const fresh = existing.filter(m => Date.now() - m.ts < MSG_TTL_MS);
-            const updated = [...fresh, newMsg].slice(-MAX_MESSAGES);
-            await kv.set(key, updated, { ex: KV_TTL_SECONDS });
+            // Read-modify-write under a short-lived KV lock so two concurrent
+            // posters can't silently overwrite each other's message. Lock TTL
+            // is bounded so a crashed lambda releases the key after a second
+            // or two; under sustained contention (lock acquire fails) we fall
+            // through and run unlocked rather than dropping the write.
+            const updated = await withKvLock(key, async () => {
+                const existing = await kv.get<ChatMessage[]>(key) ?? [];
+                const fresh = existing.filter(m => Date.now() - m.ts < MSG_TTL_MS);
+                const next = [...fresh, newMsg].slice(-MAX_MESSAGES);
+                await kv.set(key, next, { ex: KV_TTL_SECONDS });
+                return next;
+            });
 
             return res.status(200).json(updated);
         } catch (err) {

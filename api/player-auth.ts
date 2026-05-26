@@ -3,6 +3,7 @@ import { kv } from './_storage.js';
 import { cors } from './_utils.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
 import { safeEqual } from './_auth.js';
+import { getActiveBan, recordClientIp, clientIpFrom, recordClientFingerprint, clientFpFrom } from './admin/moderation.js';
 import crypto from 'crypto';
 
 // Usernames reserved for the protected admin account. New `register` requests
@@ -199,6 +200,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
         }
         if (!valid) return res.status(200).json({ ok: false });
+
+        // Refuse login for banned accounts. The client surfaces this so the
+        // user sees a clear "you are banned until X — reason: Y" message.
+        const ban = await getActiveBan(name);
+        if (ban) {
+            return res.status(403).json({
+                ok: false,
+                error: 'Account is banned.',
+                ban: { until: ban.until, reason: ban.reason, permanent: ban.permanent ?? false },
+            });
+        }
+
+        // Capture the login IP + browser fingerprint so the Moderation lookup
+        // can link sock-puppets even before the player heartbeats — and even
+        // if they're hiding behind a VPN.
+        void recordClientIp(name, clientIpFrom(req));
+        const fp = clientFpFrom(req);
+        if (fp) void recordClientFingerprint(name, fp);
+
         return res.status(200).json({ ok: true });
     }
 
