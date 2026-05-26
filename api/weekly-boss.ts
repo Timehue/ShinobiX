@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from './_storage.js';
 import { cors } from './_utils.js';
 import { authedPlayerOrAdmin } from './_auth.js';
+import { withKvLock } from './_lock.js';
 
 // One weekly boss state per ISO week. Players damage the shared HP pool;
 // when it hits 0 the boss is dead and each contributor can claim rewards.
@@ -161,23 +162,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!Number.isFinite(requested) || requested <= 0) return res.status(400).json({ error: 'Invalid damage amount.' });
                 const dmg = Math.max(1, Math.min(boss.hpRemaining, Math.min(perActorCap, requested)));
 
-                // Re-read boss state under cache invalidation so concurrent
-                // attackers don't clobber each other (KV cache is 15s).
-                const fresh = await kv.get<WeeklyBossState>(WEEKLY_BOSS_STATE_KEY) ?? boss;
-                if (fresh.weekKey !== boss.weekKey) return res.status(409).json({ error: 'Stale week — boss has reset.' });
-                if (fresh.hpRemaining <= 0) return res.status(409).json({ error: 'Boss already defeated.' });
-                const appliedDmg = Math.min(dmg, fresh.hpRemaining);
+                // Serialize concurrent damage writes via a KV lock so two
+                // attackers can't both read the same hpRemaining and both
+                // write back, silently dropping one player's damage. Inside
+                // the lock we still do a fresh read so we always work on the
+                // newest state.
+                const result = await withKvLock(WEEKLY_BOSS_STATE_KEY, async () => {
+                    const fresh = await kv.get<WeeklyBossState>(WEEKLY_BOSS_STATE_KEY) ?? boss;
+                    if (fresh.weekKey !== boss.weekKey) return { error: 'stale-week' as const };
+                    if (fresh.hpRemaining <= 0) return { error: 'defeated' as const };
+                    const appliedDmg = Math.min(dmg, fresh.hpRemaining);
+                    const updated: WeeklyBossState = {
+                        ...fresh,
+                        hpRemaining: fresh.hpRemaining - appliedDmg,
+                        damageByPlayer: {
+                            ...fresh.damageByPlayer,
+                            [actorName]: (fresh.damageByPlayer[actorName] ?? 0) + appliedDmg,
+                        },
+                    };
+                    await kv.set(WEEKLY_BOSS_STATE_KEY, updated);
+                    return { boss: updated, dealt: appliedDmg };
+                });
 
-                const updated: WeeklyBossState = {
-                    ...fresh,
-                    hpRemaining: fresh.hpRemaining - appliedDmg,
-                    damageByPlayer: {
-                        ...fresh.damageByPlayer,
-                        [actorName]: (fresh.damageByPlayer[actorName] ?? 0) + appliedDmg,
-                    },
-                };
-                await kv.set(WEEKLY_BOSS_STATE_KEY, updated);
-                return res.status(200).json({ boss: updated, dealt: appliedDmg });
+                if ('error' in result) {
+                    if (result.error === 'stale-week') return res.status(409).json({ error: 'Stale week — boss has reset.' });
+                    return res.status(409).json({ error: 'Boss already defeated.' });
+                }
+                return res.status(200).json(result);
             }
 
             if (kind === 'claim') {
