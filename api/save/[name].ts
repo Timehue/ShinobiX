@@ -19,6 +19,9 @@ const PUBLIC_CHAR_FIELDS = new Set<string>([
     'name', 'level', 'village', 'rank', 'avatarImage', 'specialty', 'storyProgress',
     'hp', 'maxHp', 'chakra', 'maxChakra', 'stamina', 'maxStamina',
     'customTitle', 'hospitalized', 'hospitalizedUntil',
+    // Profession identity / progression — public so Hall of Legends and
+    // profile-view screens can render rank/XP for other players.
+    'profession', 'professionRank', 'professionXp',
 ]);
 
 function publicProjection(data: Record<string, unknown>): Record<string, unknown> {

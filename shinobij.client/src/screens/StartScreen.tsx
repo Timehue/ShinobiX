@@ -210,6 +210,7 @@ function PublicLeaderboard({ onBack }: { onBack: () => void }) {
             case "pets": return Number(c.totalPetWins ?? 0);
             case "endless": return Number(c.totalEndlessTowerWins ?? 0);
             case "villageWars": return Number(c.totalVillageRaids ?? 0);
+            case "professions": return Number(c.professionXp ?? 0);
             case "weeklyBoss":
             case "clans":
             case "tournament":
@@ -226,6 +227,7 @@ function PublicLeaderboard({ onBack }: { onBack: () => void }) {
             case "endless": return " waves";
             case "villageWars": return " raids";
             case "weeklyBoss": return " dmg";
+            case "professions": return " XP";
             case "clans":
             case "tournament":
                 return "";
@@ -243,6 +245,7 @@ function PublicLeaderboard({ onBack }: { onBack: () => void }) {
             case "weeklyBoss": return "Weekly Boss — Top Damage";
             case "clans": return "Clan Power (Ranked Wins + PvP Kills)";
             case "tournament": return "Last Tournament";
+            case "professions": return "Top Profession XP (all professions)";
         }
     }
 

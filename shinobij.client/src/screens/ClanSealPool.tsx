@@ -34,7 +34,12 @@ export function ClanSealPool({
     const isVanguard = character.profession === "vanguard";
     const isPetTamer = character.profession === "petTamer";
     const isLeader = !!character.clanFounder;
-    const maxDonate = Math.floor((character.honorSeals ?? 0) * 0.5);
+    // Daily-cumulative cap: 50% of (balance + already-donated-today). Resets
+    // at UTC midnight. Lazy reset — if dailyDonationDate isn't today, count is 0.
+    const todayUtc = new Date().toISOString().slice(0, 10);
+    const donatedToday = character.dailyDonationDate === todayUtc ? (character.dailyDonatedSeals ?? 0) : 0;
+    const dailyCap = Math.floor(((character.honorSeals ?? 0) + donatedToday) * 0.5);
+    const remainingToday = Math.max(0, dailyCap - donatedToday);
     const iAmEscorting = escorters.some(n => n.toLowerCase() === character.name.toLowerCase());
 
     async function fetchPool() {
@@ -149,20 +154,20 @@ export function ClanSealPool({
                     <input
                         type="number"
                         min={1}
-                        max={maxDonate}
+                        max={remainingToday}
                         value={donateAmount}
                         onChange={(e) => setDonateAmount(Math.max(1, Number(e.target.value)))}
                         style={{ width: 80 }}
                     />
                     <button
                         onClick={() => void donate()}
-                        disabled={busy || donateAmount > maxDonate || donateAmount < 1}
+                        disabled={busy || donateAmount > remainingToday || donateAmount < 1}
                         style={{ background: "linear-gradient(#854d0e,#422006)", borderColor: "#facc15" }}
                     >
                         {busy ? "…" : `Donate ${donateAmount} Seals`}
                     </button>
                     <span className="hint" style={{ fontSize: "0.75rem" }}>
-                        Cap: {maxDonate} (50% of {character.honorSeals ?? 0})
+                        Today: {donatedToday}/{dailyCap} (resets midnight UTC) · {remainingToday} left
                     </span>
                 </div>
             )}

@@ -3,8 +3,11 @@ import {
     type Character,
     type LbTab,
     type PlayerRecord,
+    type Profession,
     type Screen,
+    PROFESSION_MAX_RANK,
     loadArenaTournament,
+    professionThresholds,
 } from "../App";
 
 type WeeklyBossLb = {
@@ -18,6 +21,7 @@ type WeeklyBossLb = {
 export 
 function HallOfLegends({ character, setScreen, playerRoster }: { character: Character; setScreen: (s: Screen) => void; playerRoster: PlayerRecord[] }) {
     const [tab, setTab] = useState<LbTab>("ranked");
+    const [professionFilter, setProfessionFilter] = useState<Profession>("healer");
     const [weeklyBoss, setWeeklyBoss] = useState<WeeklyBossLb | null>(null);
     useEffect(() => {
         if (tab !== "weeklyBoss") return;
@@ -77,7 +81,33 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
         { id: "villageWars", label: "Village Wars",  icon: "⚔" },
         { id: "weeklyBoss",  label: "Weekly Boss",   icon: "👹" },
         { id: "tournament",  label: "Tournament",    icon: "🏆" },
+        { id: "professions", label: "Professions",   icon: "🧑‍⚕️" },
     ];
+
+    // Profession leaderboard helpers. XP keeps accruing past the Rank 10
+    // threshold (rank just clamps at 10), so a maxed Healer who keeps healing
+    // shows higher than one who just hit max — leaderboards stay meaningful.
+    const professionTabs: { id: Profession; label: string; accent: string; icon: string }[] = [
+        { id: "healer", label: "Healer", accent: "#22d3ee", icon: "✚" },
+        { id: "vanguard", label: "Vanguard", accent: "#f97316", icon: "⚔" },
+        { id: "petTamer", label: "Pet Tamer", accent: "#84cc16", icon: "🐾" },
+    ];
+    function topByProfession(p: Profession, n = 10) {
+        return all
+            .filter(c => c.profession === p)
+            .sort((a, b) => (b.professionXp ?? 0) - (a.professionXp ?? 0))
+            .slice(0, n);
+    }
+    function rankLabel(c: Character): string {
+        const rank = Math.max(1, Math.min(PROFESSION_MAX_RANK, c.professionRank ?? 1));
+        const xp = c.professionXp ?? 0;
+        const thresholds = c.profession ? professionThresholds(c.profession) : [];
+        const maxXp = thresholds[PROFESSION_MAX_RANK] ?? 0;
+        if (rank >= PROFESSION_MAX_RANK && xp > maxXp) {
+            return `R${PROFESSION_MAX_RANK}+${Math.floor((xp - maxXp) / 1000)}k`;
+        }
+        return `R${rank}`;
+    }
 
     return (
         <div className="card hol-screen">
@@ -204,6 +234,51 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
                                 </div>
                             )
                         }
+                    </>
+                )}
+                {tab === "professions" && (
+                    <>
+                        <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
+                            {professionTabs.map(p => (
+                                <button
+                                    key={p.id}
+                                    onClick={() => setProfessionFilter(p.id)}
+                                    style={{
+                                        background: professionFilter === p.id ? p.accent : "rgba(15,18,34,0.6)",
+                                        color: professionFilter === p.id ? "#0a0a1a" : p.accent,
+                                        border: `1px solid ${p.accent}88`,
+                                        padding: "6px 12px",
+                                        borderRadius: 4,
+                                        fontWeight: 600,
+                                        cursor: "pointer",
+                                    }}
+                                >
+                                    {p.icon} {p.label}
+                                </button>
+                            ))}
+                        </div>
+                        <p className="hol-board-label">
+                            Top {professionTabs.find(p => p.id === professionFilter)?.label}s by Profession XP
+                        </p>
+                        {(() => {
+                            const top = topByProfession(professionFilter);
+                            if (top.length === 0) {
+                                return <p className="hol-empty">No {professionTabs.find(p => p.id === professionFilter)?.label}s in the world yet.</p>;
+                            }
+                            return top.map((c, i) => (
+                                <Row
+                                    key={c.name}
+                                    rank={i + 1}
+                                    name={`${c.name}  · ${rankLabel(c)}`}
+                                    value={c.professionXp ?? 0}
+                                    suffix=" XP"
+                                    village={c.village}
+                                />
+                            ));
+                        })()}
+                        <p className="hint" style={{ marginTop: 8, fontSize: "0.78rem" }}>
+                            Profession XP keeps accruing past Rank 10 — no more rank rewards, but the leaderboard stays competitive.
+                        </p>
                     </>
                 )}
             </div>
