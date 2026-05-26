@@ -355,6 +355,55 @@ export function isTentativeAutoConfirmable(ch: ClanChallenge, now: number = Date
         && (now - ch.tentativeAt) >= REPORT_AUTO_CONFIRM_MS;
 }
 
+// Apply a confirmed result: HP damage based on the challenge's mode
+// tier, move the challenge to completed history, check for war end.
+// Shared between report.ts (player-driven path) and tilecards.ts
+// (server-driven game outcome). Caller is responsible for kv.set'ing
+// the result and stamping the rematch cooldown when warJustEnded.
+export function applyFinalResult(war: ClanWar, ch: ClanChallenge, result: ChallengeResult, now: number): { war: ClanWar; completed: ClanChallenge; warJustEnded: boolean } {
+    const dmg = CHALLENGE_DAMAGE[ch.mode] ?? 0;
+    const winnerClanName = result === 'from-wins' ? ch.fromClan : result === 'to-wins' ? war.clans.find(c => c !== ch.fromClan) : undefined;
+    const loserClanName = winnerClanName ? war.clans.find(c => c !== winnerClanName) : undefined;
+
+    const updatedHp = { ...war.hp };
+    if (loserClanName && dmg > 0 && result !== 'draw') {
+        updatedHp[loserClanName] = Math.max(0, (war.hp[loserClanName] ?? 0) - dmg);
+    }
+
+    const completed: ClanChallenge = {
+        ...ch,
+        status: 'completed',
+        result,
+        completedAt: now,
+        // Clear tentative fields once finalized.
+        tentativeResult: undefined,
+        tentativeBy: undefined,
+        tentativeAt: undefined,
+    };
+    let next: ClanWar = {
+        ...war,
+        hp: updatedHp,
+        pendingChallenges: war.pendingChallenges.filter(c => c.id !== ch.id),
+        completedChallenges: [completed, ...war.completedChallenges].slice(0, MAX_COMPLETED_HISTORY),
+        updatedAt: now,
+    };
+
+    let warJustEnded = false;
+    let losingClan: string | undefined;
+    for (const clan of next.clans) {
+        if (updatedHp[clan] <= 0 && !next.endedAt) {
+            losingClan = clan;
+            warJustEnded = true;
+            break;
+        }
+    }
+    if (warJustEnded && losingClan) {
+        const wc = next.clans.find(c => c !== losingClan)!;
+        next = finalizeClanWarEnd(next, { endedAt: now, winnerClan: wc, reason: 'hp-zero' });
+    }
+    return { war: next, completed, warJustEnded };
+}
+
 // ─── Anonymity redaction ─────────────────────────────────────────────
 // Returns a war record with challenger names redacted for any caller
 // who is NOT a member of the sending clan. Defenders only see clan +
