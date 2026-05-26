@@ -95,7 +95,8 @@ export type Screen =
     | "hollowGateTiles"
     | "endlessTower"
     | "weeklyBoss"
-    | "villageWar";
+    | "villageWar"
+    | "tilecardsDuel";
 
 export type Rank = "B Rank" | "A Rank" | "S Rank";
 type Biome = "forest" | "snow" | "volcano" | "shadow" | "central";
@@ -8758,12 +8759,42 @@ export default function App() {
                 // configure the opponent + deterministic seed.
                 setScreen("petArena");
                 break;
-            case "tilecards":
-                // Tile cards mode is hidden from the player picker and
-                // has no auto-report path. Admin-created tile-card
-                // challenges fall through here without navigation —
-                // admin must resolve them via the API directly.
+            case "tilecards": {
+                // PvP tile card duel — server-managed session, auto-init
+                // with the player's top 5 cards by stat sum, then route
+                // to the duel screen. Both clients race to init; server
+                // is idempotent and stitches both decks into one session.
+                const allCards = getAllTileCards([]);
+                const ownedIds: string[] = character.tileCards ?? [];
+                const ownedCards = ownedIds
+                    .map(id => allCards.find(c => c.id === id))
+                    .filter((c): c is TileCard => Boolean(c));
+                // Pick top 5 by stat sum. If fewer than 5 owned, pad
+                // with the strongest canonical cards available so the
+                // duel can still start. Players with no tile-card
+                // collection at all get a basic deck.
+                const sortedOwned = [...ownedCards].sort((a, b) => (b.top + b.right + b.bottom + b.left) - (a.top + a.right + a.bottom + a.left));
+                let deck = sortedOwned.slice(0, 5);
+                if (deck.length < 5) {
+                    const fillerPool = allCards
+                        .filter(c => !deck.some(d => d.id === c.id))
+                        .sort((a, b) => (a.top + a.right + a.bottom + a.left) - (b.top + b.right + b.bottom + b.left));
+                    deck = [...deck, ...fillerPool.slice(0, 5 - deck.length)];
+                }
+                const deckPayload = deck.map(c => ({ id: c.id, element: c.element, top: c.top, right: c.right, bottom: c.bottom, left: c.left }));
+                void fetch("/api/clan/war/tilecards", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        action: "init",
+                        warId: inferredWarId,
+                        challengeId: ch.id,
+                        deck: deckPayload,
+                    }),
+                }).catch(() => { /* the duel screen polls + retries */ });
+                setScreen("tilecardsDuel");
                 break;
+            }
         }
     }, [character]);
 
@@ -8785,7 +8816,8 @@ export default function App() {
         const inBattleScreen = screen === "pvpBattle" || screen === "petArena" || screen === "arena"
             || screen === "storyBoss" || screen === "weeklyBoss" || screen === "villageWar"
             || screen === "hollowGateShrine" || screen === "hollowGateTiles"
-            || screen === "endlessTower" || screen === "dungeon" || screen === "eventTiles";
+            || screen === "endlessTower" || screen === "dungeon" || screen === "eventTiles"
+            || screen === "tilecardsDuel";
         if (inBattleScreen) return;
 
         const me = character.name.toLowerCase();
@@ -13488,6 +13520,7 @@ export default function App() {
                     />
                 )}
                 {!activeTriggeredEvent && screen === "shinobiCouncil" && character && <ShinobiCouncilHall character={character} setScreen={setScreen} playerRoster={playerRoster} launchClanWarBattle={launchClanWarBattle} />}
+                {!activeTriggeredEvent && screen === "tilecardsDuel" && character && <ClanWarTileCardDuel character={character} setScreen={setScreen} sharedImages={sharedImages} />}
                 {!activeTriggeredEvent && screen === "userHub" && character && (
                     <UserHub
                         currentName={character.name}
@@ -23798,7 +23831,10 @@ function ClanWarManual({ onClose }: { onClose: () => void }) {
                 <br />• <strong>Accept queue:</strong> 1st defender clicks <em>Queue to Accept</em>; a 2nd defender clicks <em>Join Accept Queue</em> and the battle becomes ready. Anyone in the accept queue can leave at any time.
             </p>
             <p style={{ margin: "0 0 0.5rem" }}>
-                <strong style={{ color: "#60a5fa" }}>Fully automated — no manual reporting.</strong> The moment a challenge is fully accepted (both defenders queued for 2v2), <em>both</em> participating clients are pulled into the matching battle screen automatically. When the fight ends, the PvP / Pet Arena win &amp; loss handlers post the result to the server on their own. There are no "I won" buttons anywhere in the UI — the server is the source of truth. A small <em>Re-launch</em> link in <em>Your Active Battles</em> exists if you navigated away during the fight.
+                <strong style={{ color: "#60a5fa" }}>Fully automated — no manual reporting.</strong> The moment a challenge is fully accepted (both defenders queued for 2v2), <em>both</em> participating clients are pulled into the matching battle screen automatically. When the fight ends, the win / loss handlers post the result to the server on their own. There are no "I won" buttons anywhere in the UI — the server is the source of truth. A small <em>Re-launch</em> link in <em>Your Active Battles</em> exists if you navigated away during the fight.
+            </p>
+            <p style={{ margin: "0 0 0.5rem", fontSize: "0.82rem" }}>
+                <strong style={{ color: "#60a5fa" }}>Tile-card duels are PvP too.</strong> Picking 🃏 Tile Cards opens a Triple-Triad-style 3x3 duel screen. Both clients connect to a server-managed session: each player auto-uses their top 5 tile cards by stat sum, the server validates every placement, applies capture rules (element counters + friendly-element boost), and ends the game when the board fills. The losing clan's HP is debited atomically with the final placement — no manual report ever fires. 60-second turn timer; stalls auto-skip.
             </p>
             <p style={{ margin: "0 0 0.5rem", fontSize: "0.82rem" }}>
                 <strong style={{ color: "#60a5fa" }}>Three-layer anti-cheat.</strong> (1) The server cross-checks every PvP-mode report against the authoritative <code>pvp:&lt;battleId&gt;</code> session record — if the report disagrees with the actual session winner, it's rejected. (2) Both clients report independently from their own win/loss handlers; the server treats the first arrival as <em>tentative</em> and only applies damage once the opposing side's matching report <em>confirms</em> it. (3) Reports that disagree (rare — both clients see the same fight) are recorded as a draw with no damage. After 15 minutes of silence, the tentative auto-confirms.
@@ -26561,6 +26597,288 @@ function ShinobiCouncilHall({ character, setScreen, playerRoster, launchClanWarB
 // New server-managed clan-war system. Lives inside Shinobi Council
 // Hall as a dedicated tab. Owns its own polling loop + state; the
 // parent only needs to mount it.
+// ── Clan-war PvP tile-card duel screen ──────────────────────────────
+// Server-managed Triple-Triad-style 3x3 duel. Both players' decks +
+// the board live in cw-tilecards:<challengeId> on the server. This
+// component polls /api/clan/war/tilecards?action=state every 1.5s,
+// renders the board + the current player's hand, submits placements
+// via action=move, and detects game-end. The server applies HP damage
+// to the parent clan war atomically with the game-ending move, so no
+// manual report is ever called from here.
+type CwTileCardStat = { id: string; element: string; top: number; right: number; bottom: number; left: number };
+type CwTileCardSide = { name: string; clan: string; deck: CwTileCardStat[]; handIds: string[] };
+type CwTileCardCell = { cardId: string; owner: "p1" | "p2" } | null;
+type CwTileCardSession = {
+    warId: string;
+    challengeId: string;
+    p1: CwTileCardSide;
+    p2?: CwTileCardSide;
+    board: CwTileCardCell[];
+    turn: "p1" | "p2";
+    status: "awaiting-p2" | "active" | "done";
+    winner?: "p1" | "p2" | "draw";
+    turnDeadline?: number;
+};
+
+function ClanWarTileCardDuel({ character, setScreen, sharedImages }: { character: Character; setScreen: (s: Screen) => void; sharedImages: Record<string, string> }) {
+    void sharedImages;
+    const [session, setSession] = useState<CwTileCardSession | null>(null);
+    const [error, setError] = useState("");
+    const [selectedCardId, setSelectedCardId] = useState<string>("");
+    const [busy, setBusy] = useState(false);
+    // Read the clan-war stash for warId + challengeId. If missing,
+    // we can't proceed — kick the player back.
+    const stash = useMemo(() => {
+        try {
+            const raw = sessionStorage.getItem("clanWarChallenge.v1");
+            if (!raw) return null;
+            return JSON.parse(raw) as { warId: string; challengeId: string; mode: string };
+        } catch { return null; }
+    }, []);
+
+    const refresh = useCallback(async () => {
+        if (!stash?.challengeId || !stash?.warId) return;
+        try {
+            const r = await fetch("/api/clan/war/tilecards", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "state", warId: stash.warId, challengeId: stash.challengeId }),
+            });
+            const data = await r.json().catch(() => ({}));
+            if (r.ok && data.session) {
+                setSession(data.session as CwTileCardSession);
+                setError("");
+            } else if (r.status === 404) {
+                // Session not initialized yet on this client. Trigger init.
+                // launchClanWarBattle already fired init, but in resume cases
+                // (refresh after navigation) we may need to retry.
+                setError("Waiting for duel to start…");
+            } else {
+                setError(data.error ?? `HTTP ${r.status}`);
+            }
+        } catch (e) {
+            setError(String((e as Error).message));
+        }
+    }, [stash?.challengeId, stash?.warId]);
+
+    useEffect(() => {
+        if (!stash) return;
+        void refresh();
+        const id = setInterval(refresh, 1500);
+        return () => clearInterval(id);
+    }, [refresh, stash]);
+
+    // Clear the sessionStorage stash when the duel finishes — the
+    // server has already applied HP damage by then.
+    useEffect(() => {
+        if (session?.status === "done") {
+            try { sessionStorage.removeItem("clanWarChallenge.v1"); } catch { /* ignore */ }
+        }
+    }, [session?.status]);
+
+    if (!stash) {
+        return (
+            <div className="card" style={{ maxWidth: 700, margin: "1rem auto", padding: "1.4rem" }}>
+                <h2>⚠ No active clan-war tile-card duel</h2>
+                <p>The duel context was lost. Return to the Shinobi Council Hall.</p>
+                <button onClick={() => setScreen("shinobiCouncil")}>Back to Council Hall</button>
+            </div>
+        );
+    }
+
+    const mySide: "p1" | "p2" | null = !session ? null
+        : session.p1.name.toLowerCase() === character.name.toLowerCase() ? "p1"
+        : session.p2 && session.p2.name.toLowerCase() === character.name.toLowerCase() ? "p2"
+        : null;
+    const me = session && mySide ? (mySide === "p1" ? session.p1 : session.p2!) : null;
+    const opp = session && mySide ? (mySide === "p1" ? session.p2 : session.p1) : null;
+    const isMyTurn = !!(session && mySide && session.status === "active" && session.turn === mySide);
+    const secondsRemaining = session?.turnDeadline ? Math.max(0, Math.ceil((session.turnDeadline - Date.now()) / 1000)) : 0;
+
+    async function place(pos: number) {
+        if (!isMyTurn || !selectedCardId || !session) return;
+        if (session.board[pos] !== null) return;
+        setBusy(true);
+        try {
+            const r = await fetch("/api/clan/war/tilecards", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    action: "move",
+                    warId: session.warId,
+                    challengeId: session.challengeId,
+                    pos,
+                    cardId: selectedCardId,
+                }),
+            });
+            const data = await r.json().catch(() => ({}));
+            if (r.ok && data.session) {
+                setSession(data.session as CwTileCardSession);
+                setSelectedCardId("");
+            } else {
+                setError(data.error ?? `HTTP ${r.status}`);
+            }
+        } catch (e) {
+            setError(String((e as Error).message));
+        }
+        setBusy(false);
+    }
+
+    async function forfeit() {
+        if (!session || !window.confirm("Forfeit the duel? The opposing clan wins and deals damage to your clan.")) return;
+        setBusy(true);
+        try {
+            await fetch("/api/clan/war/tilecards", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "forfeit", warId: session.warId, challengeId: session.challengeId }),
+            });
+        } catch { /* ignore */ }
+        setBusy(false);
+        void refresh();
+    }
+
+    function cardStats(cardId: string): CwTileCardStat | null {
+        if (!session) return null;
+        return session.p1.deck.find(c => c.id === cardId)
+            ?? session.p2?.deck.find(c => c.id === cardId)
+            ?? null;
+    }
+
+    const score = useMemo(() => {
+        if (!session) return { p1: 0, p2: 0 };
+        let p1 = 0, p2 = 0;
+        for (const c of session.board) {
+            if (!c) continue;
+            if (c.owner === "p1") p1++; else p2++;
+        }
+        return { p1, p2 };
+    }, [session]);
+
+    const myScore = mySide === "p1" ? score.p1 : score.p2;
+    const oppScore = mySide === "p1" ? score.p2 : score.p1;
+    const youWon = session?.status === "done" && session.winner === mySide;
+    const isDraw = session?.status === "done" && session.winner === "draw";
+
+    return (
+        <div className="card" style={{ maxWidth: 820, margin: "1rem auto", padding: "1.4rem" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: "0.8rem" }}>
+                <h2 style={{ margin: 0 }}>🃏 Clan War Tile Card Duel</h2>
+                <button type="button" onClick={() => setScreen("shinobiCouncil")} style={{ marginLeft: "auto", padding: "0.3rem 0.7rem", fontSize: "0.85rem" }}>← Back</button>
+            </div>
+            {error && <div style={{ color: "#f87171", marginBottom: "0.5rem", padding: "0.4rem 0.6rem", background: "#3b0a0a", borderRadius: 4 }}>⚠ {error}</div>}
+            {!session && <p className="hint">Connecting to duel session…</p>}
+            {session && session.status === "awaiting-p2" && (
+                <div style={{ background: "#0b1220", border: "1px solid #fbbf24", borderRadius: 6, padding: "0.8rem" }}>
+                    <strong style={{ color: "#fbbf24" }}>⏳ Waiting for the opposing clan's duelist to join…</strong>
+                    <p className="hint" style={{ marginTop: 6 }}>They'll be auto-pulled in when the challenge accepts on their client.</p>
+                </div>
+            )}
+            {session && session.status === "active" && mySide && me && opp && (
+                <>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.8rem", background: "#0b1220", padding: "0.6rem 0.8rem", borderRadius: 6 }}>
+                        <div>
+                            <strong style={{ color: "#4ade80" }}>{me.name} ({me.clan})</strong>
+                            <div style={{ fontSize: "0.85rem", color: "#94a3b8" }}>Score: <strong style={{ color: "#4ade80" }}>{myScore}</strong></div>
+                        </div>
+                        <div style={{ textAlign: "center" }}>
+                            <div style={{ color: "#fbbf24", fontWeight: 700 }}>{isMyTurn ? "🟢 YOUR TURN" : "⏳ OPPONENT'S TURN"}</div>
+                            <small style={{ color: "#94a3b8" }}>{secondsRemaining}s</small>
+                        </div>
+                        <div style={{ textAlign: "right" }}>
+                            <strong style={{ color: "#f87171" }}>{opp.name} ({opp.clan})</strong>
+                            <div style={{ fontSize: "0.85rem", color: "#94a3b8" }}>Score: <strong style={{ color: "#f87171" }}>{oppScore}</strong></div>
+                        </div>
+                    </div>
+                    {/* 3x3 board */}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, maxWidth: 420, margin: "0 auto 1rem" }}>
+                        {session.board.map((cell, idx) => {
+                            const card = cell ? cardStats(cell.cardId) : null;
+                            const owner = cell?.owner;
+                            const isMine = owner === mySide;
+                            const bg = !cell ? (isMyTurn && selectedCardId ? "#1e293b" : "#0b1220") : isMine ? "#15803d" : "#7f1d1d";
+                            return (
+                                <button
+                                    key={idx}
+                                    disabled={!isMyTurn || !selectedCardId || cell !== null || busy}
+                                    onClick={() => void place(idx)}
+                                    style={{
+                                        aspectRatio: "1", padding: 8, background: bg, border: "1px solid #475569",
+                                        borderRadius: 6, color: "#e5e7eb", fontSize: "0.78rem", cursor: cell || !isMyTurn || !selectedCardId ? "default" : "pointer",
+                                        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2,
+                                        position: "relative", minHeight: 80,
+                                    }}
+                                >
+                                    {card && (
+                                        <>
+                                            <strong style={{ fontSize: "0.7rem" }}>{card.id}</strong>
+                                            <div style={{ fontSize: "0.65rem", opacity: 0.85 }}>{card.element}</div>
+                                            <div style={{ fontSize: "0.7rem", marginTop: 2 }}>
+                                                <span style={{ position: "absolute", top: 4, left: "50%", transform: "translateX(-50%)" }}>{card.top}</span>
+                                                <span style={{ position: "absolute", left: 4, top: "50%", transform: "translateY(-50%)" }}>{card.left}</span>
+                                                <span style={{ position: "absolute", right: 4, top: "50%", transform: "translateY(-50%)" }}>{card.right}</span>
+                                                <span style={{ position: "absolute", bottom: 4, left: "50%", transform: "translateX(-50%)" }}>{card.bottom}</span>
+                                            </div>
+                                        </>
+                                    )}
+                                </button>
+                            );
+                        })}
+                    </div>
+                    {/* My hand */}
+                    <div>
+                        <strong style={{ color: "#94a3b8" }}>Your Hand ({me.handIds.length} cards)</strong>
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 6 }}>
+                            {me.handIds.map(id => {
+                                const card = cardStats(id);
+                                if (!card) return null;
+                                const sel = selectedCardId === id;
+                                return (
+                                    <button
+                                        key={id}
+                                        disabled={!isMyTurn || busy}
+                                        onClick={() => setSelectedCardId(sel ? "" : id)}
+                                        style={{
+                                            padding: "0.5rem 0.7rem", background: sel ? "#1e3a8a" : "#0b1220",
+                                            border: `2px solid ${sel ? "#60a5fa" : "#334155"}`, borderRadius: 6,
+                                            color: "#e5e7eb", fontSize: "0.78rem", cursor: isMyTurn ? "pointer" : "default",
+                                            display: "flex", flexDirection: "column", alignItems: "center", gap: 2, minWidth: 90,
+                                        }}
+                                    >
+                                        <strong style={{ fontSize: "0.78rem" }}>{card.id}</strong>
+                                        <small style={{ color: "#94a3b8" }}>{card.element}</small>
+                                        <div style={{ fontSize: "0.72rem", marginTop: 2 }}>
+                                            ↑{card.top} ←{card.left} →{card.right} ↓{card.bottom}
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        {!isMyTurn && <p className="hint" style={{ marginTop: 6 }}>Wait for {opp.name} to place a card.</p>}
+                        {isMyTurn && !selectedCardId && <p className="hint" style={{ marginTop: 6 }}>Pick a card from your hand, then click an empty cell.</p>}
+                    </div>
+                    <div style={{ marginTop: "1rem", display: "flex", gap: 8 }}>
+                        <button onClick={() => void forfeit()} disabled={busy} className="danger-button" style={{ fontSize: "0.8rem" }}>Forfeit</button>
+                    </div>
+                </>
+            )}
+            {session && session.status === "done" && (
+                <div style={{ background: youWon ? "#0a2010" : isDraw ? "#1f1606" : "#1f0a0a", border: `1px solid ${youWon ? "#4ade80" : isDraw ? "#fbbf24" : "#f87171"}`, borderRadius: 8, padding: "1.2rem", textAlign: "center" }}>
+                    <h2 style={{ color: youWon ? "#4ade80" : isDraw ? "#fbbf24" : "#f87171", marginTop: 0 }}>
+                        {youWon ? "🏆 Victory" : isDraw ? "🤝 Draw" : "💀 Defeat"}
+                    </h2>
+                    <p>Final score — You: <strong>{myScore}</strong> · Opponent: <strong>{oppScore}</strong></p>
+                    {!isDraw && <p className="hint">Clan-war HP damage applied to the losing clan automatically.</p>}
+                    {isDraw && <p className="hint">No damage on a draw.</p>}
+                    <button onClick={() => setScreen("shinobiCouncil")} style={{ marginTop: 12, padding: "0.5rem 1rem", background: "linear-gradient(#1e3a8a,#172554)", borderColor: "#60a5fa" }}>
+                        🏯 Return to Council Hall
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}
+
 function ClanBattlesTab({ character, playerRoster, setScreen, launchClanWarBattle }: { character: Character; playerRoster: PlayerRecord[]; setScreen: (s: Screen) => void; launchClanWarBattle: (ch: CwChallenge, warId?: string) => void }) {
     void setScreen; // navigation now lives inside launchClanWarBattle
     const [wars, setWars] = useState<CwWar[]>([]);
@@ -26819,10 +27137,10 @@ function ClanBattlesTab({ character, playerRoster, setScreen, launchClanWarBattl
                         </p>
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                             <select value={composeMode} onChange={e => setComposeMode(e.target.value as CwChallengeMode)} style={{ padding: "0.35rem" }} disabled={busy}>
-                                {/* Tile-cards is omitted from the player picker — it has no
-                                    auto-report path (no integrated 1v1 duel screen). Mode is
-                                    kept server-side for admin use + future build. */}
-                                {(Object.keys(CW_MODE_LABEL) as CwChallengeMode[]).filter(m => m !== "tilecards").map(m => (
+                                {/* All five modes are picker-eligible. Tile cards uses a
+                                    server-managed Triple-Triad-style duel; both clients are
+                                    auto-pulled into ClanWarTileCardDuel on accept. */}
+                                {(Object.keys(CW_MODE_LABEL) as CwChallengeMode[]).map(m => (
                                     <option key={m} value={m}>{CW_MODE_ICON[m]} {CW_MODE_LABEL[m]} (−{CW_DAMAGE[m]} HP)</option>
                                 ))}
                             </select>

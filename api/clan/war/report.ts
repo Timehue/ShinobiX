@@ -6,11 +6,10 @@ import { enforceRateLimitKv } from '../../_ratelimit.js';
 import { withKvLock } from '../../_lock.js';
 import type { PvpSession } from '../../pvp/session.js';
 import {
+    applyFinalResult,
     applyLazyClanWarExpiry,
-    CHALLENGE_DAMAGE,
     CLAN_WAR_REMATCH_COOLDOWN_SEC,
     clanWarCooldownKey,
-    finalizeClanWarEnd,
     isTentativeAutoConfirmable,
     type ChallengeResult,
     type ClanWar,
@@ -88,53 +87,8 @@ function playerOnFromSide(playerName: string, ch: { fromPlayer: string; fromPlay
         || (ch.fromPlayer2 ?? '').toLowerCase() === n;
 }
 
-// Apply a confirmed result: HP damage, move to completed history,
-// check for war end. Returns the updated war + the completed
-// challenge entry. Caller is responsible for kv.set + cooldown stamp.
-function applyFinalResult(war: ClanWar, ch: ClanChallenge, result: ChallengeResult, now: number): { war: ClanWar; completed: ClanChallenge; warJustEnded: boolean } {
-    const dmg = CHALLENGE_DAMAGE[ch.mode] ?? 0;
-    const winnerClanName = result === 'from-wins' ? ch.fromClan : result === 'to-wins' ? war.clans.find(c => c !== ch.fromClan) : undefined;
-    const loserClanName = winnerClanName ? war.clans.find(c => c !== winnerClanName) : undefined;
-
-    const updatedHp = { ...war.hp };
-    if (loserClanName && dmg > 0 && result !== 'draw') {
-        updatedHp[loserClanName] = Math.max(0, (war.hp[loserClanName] ?? 0) - dmg);
-    }
-
-    const completed: ClanChallenge = {
-        ...ch,
-        status: 'completed',
-        result,
-        completedAt: now,
-        // Clear tentative fields once finalized.
-        tentativeResult: undefined,
-        tentativeBy: undefined,
-        tentativeAt: undefined,
-    };
-    let next: ClanWar = {
-        ...war,
-        hp: updatedHp,
-        pendingChallenges: war.pendingChallenges.filter(c => c.id !== ch.id),
-        completedChallenges: [completed, ...war.completedChallenges].slice(0, 200),
-        updatedAt: now,
-    };
-
-    // Check for war end: one clan's HP hit 0.
-    let warJustEnded = false;
-    let losingClan: string | undefined;
-    for (const clan of next.clans) {
-        if (updatedHp[clan] <= 0 && !next.endedAt) {
-            losingClan = clan;
-            warJustEnded = true;
-            break;
-        }
-    }
-    if (warJustEnded && losingClan) {
-        const wc = next.clans.find(c => c !== losingClan)!;
-        next = finalizeClanWarEnd(next, { endedAt: now, winnerClan: wc, reason: 'hp-zero' });
-    }
-    return { war: next, completed, warJustEnded };
-}
+// applyFinalResult moved to _storage.ts so the tilecards endpoint
+// can share the same HP/MVP/cooldown logic.
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
