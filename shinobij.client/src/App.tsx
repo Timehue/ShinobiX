@@ -8391,13 +8391,25 @@ export default function App() {
         let myParty: [Pet, Pet] | null = null;
         let challengerParty: [Pet, Pet] | null = null;
         if (wantsParty && myAvailable.length >= 2) {
-            const sortedByLvl = [...myAvailable].sort((a, b) => (b.level ?? 0) - (a.level ?? 0));
-            myParty = [sortedByLvl[0], sortedByLvl[1]] as [Pet, Pet];
             const [chId1, chId2] = challenge.challengerPetIds!;
             const ch1 = challenge.challenger.pets.find(p => p.id === chId1) ?? challengerPet;
             const ch2 = challenge.challenger.pets.find(p => p.id === chId2 && p.id !== ch1.id)
                 ?? challenge.challenger.pets.find(p => p.id !== ch1.id);
-            if (ch1 && ch2) challengerParty = [ch1, ch2] as [Pet, Pet];
+            if (ch1 && ch2) {
+                challengerParty = [ch1, ch2] as [Pet, Pet];
+                // Smart 2v2 picker: given the challenger's locked-in lead+reserve,
+                // pick MY lead+reserve to maximize summed matchup score (stat
+                // ratio × element edge × trait counter penalty). Falls back to
+                // top-2-by-level if the picker can't decide (shouldn't happen
+                // with 2+ available pets).
+                const smart = pickBestPartyOrder(myAvailable, challengerParty);
+                if (smart) {
+                    myParty = smart;
+                } else {
+                    const sortedByLvl = [...myAvailable].sort((a, b) => (b.level ?? 0) - (a.level ?? 0));
+                    myParty = [sortedByLvl[0], sortedByLvl[1]] as [Pet, Pet];
+                }
+            }
         }
         const doParty = !!(wantsParty && myParty && challengerParty);
 
@@ -15522,6 +15534,80 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
     return { result, player, enemy, logs, frames, obstacles: [...obstacles] };
 }
 
+// ── 2v2 Party Battle AI: matchup scoring and party ordering ───────────────
+//
+// 2v2 matches play out as two SEQUENTIAL 1v1s (lead vs lead, reserve vs
+// reserve, both fresh HP). The team that wins more matches takes the set.
+// That means the order you put your pets in matters: a Fire pet on a Wind
+// opponent (super-effective) is far stronger than the same Fire pet on a
+// Water opponent (resisted).
+//
+// scorePetMatchup → numeric "expected edge" of one pet vs another:
+//   • stat ratio (HP × ATK power roughly)
+//   • element multiplier (1.25 super-effective, 0.80 resisted, else 1.0)
+//   • trait counter penalty (my element's signature wasted against
+//     a counter-trait — e.g. Lightning vs Aggressive)
+//
+// pickBestPartyOrder → given my available pets and the opponent's locked
+// [lead, reserve] order, try every combination of [lead, reserve] from my
+// roster and pick the ordering with the highest summed matchup score. So
+// the AI deliberately puts a Fire pet against a Wind opposing lead and
+// holds back a Water pet for the opponent's Fire reserve, even if Water
+// is the higher-level pet.
+function scorePetMatchup(me: Pet, them: Pet): number {
+    // Raw stat power — attack × hp/100 to favor both offense and survivability.
+    const myPower = (me.attack ?? 1) * Math.max(1, (me.hp ?? 1) / 100);
+    const theirPower = (them.attack ?? 1) * Math.max(1, (them.hp ?? 1) / 100);
+    const statRatio = myPower / Math.max(1, theirPower);
+
+    // Element multiplier — apply both directions: my advantage vs me, and
+    // their advantage vs them. A double-good matchup (super-effective AND
+    // they're resisted hitting me) is the strongest pick.
+    const mineToThem = petElementMultiplier(me, them);
+    const themToMine = petElementMultiplier(them, me);
+    const elementEdge = mineToThem / Math.max(0.01, themToMine);
+
+    // Trait counter penalty — if my elemental special is fully resisted
+    // by the opponent's trait, my signature is wasted.
+    //   Fire/burn → no full counter (Guardian only halves)
+    //   Water/freeze vs Swift → wasted
+    //   Wind/confuse vs Lucky → wasted
+    //   Lightning/stun vs Aggressive → 1-round stuns wasted (most tiers)
+    //   Earth/crush → no full counter (Battleborn only halves strip)
+    let traitPenalty = 1.0;
+    if (me.element === "Water" && them.trait === "Swift") traitPenalty *= 0.85;
+    if (me.element === "Wind" && them.trait === "Lucky") traitPenalty *= 0.85;
+    if (me.element === "Lightning" && them.trait === "Aggressive") traitPenalty *= 0.85;
+    // Inverse: their special is wasted against MY trait → I get a bonus
+    if (them.element === "Water" && me.trait === "Swift") traitPenalty *= 1.15;
+    if (them.element === "Wind" && me.trait === "Lucky") traitPenalty *= 1.15;
+    if (them.element === "Lightning" && me.trait === "Aggressive") traitPenalty *= 1.15;
+
+    return statRatio * elementEdge * traitPenalty;
+}
+
+function pickBestPartyOrder(
+    available: Pet[],
+    opposingLeadReserve: [Pet, Pet],
+): [Pet, Pet] | null {
+    if (available.length < 2) return null;
+    const [theirLead, theirReserve] = opposingLeadReserve;
+    let best: { pair: [Pet, Pet]; score: number } | null = null;
+    // Try every ordered pair (mineLead, mineReserve) with distinct ids.
+    for (const myLead of available) {
+        for (const myReserve of available) {
+            if (myLead.id === myReserve.id) continue;
+            const score =
+                scorePetMatchup(myLead, theirLead) +
+                scorePetMatchup(myReserve, theirReserve);
+            if (!best || score > best.score) {
+                best = { pair: [myLead, myReserve], score };
+            }
+        }
+    }
+    return best?.pair ?? null;
+}
+
 // ── 2v2 Party Battle ──────────────────────────────────────────────────────
 // Sequential model: each pair (player lead vs opponent lead, then player
 // reserve vs opponent reserve) plays a full 1v1 battle using the existing
@@ -15802,14 +15888,33 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                 if (!reserveCandidate) {
                     return alert("Need a reserve pet (a second pet not on expedition).");
                 }
-                // Pick a different opponent AI pet at random as their reserve.
-                const aiCandidates = genericPetArenaOpponents.filter(o => o.pet.id !== opponent.pet.id);
-                const enemyReserveCandidate = aiCandidates.length > 0
-                    ? aiCandidates[Math.floor(Math.random() * aiCandidates.length)].pet
-                    : opponent.pet; // fallback: re-use lead if pool is bare
+                // Player's order is locked (they chose lead + reserve).
                 myLead = selectedPet;
                 myReserve = reserveCandidate;
                 enemyLead = opponent.pet;
+                // AI reserve pick: try to pick a pet that scores best against
+                // the player's RESERVE (since AI's reserve will face it in
+                // match 2). The AI is forced to use the originally-selected
+                // opponent as its LEAD (the player picked the lead matchup),
+                // but it gets to pick its own counter-pick for the reserve
+                // slot — same as the player picking strategically.
+                const aiPool = genericPetArenaOpponents
+                    .map(o => o.pet)
+                    .filter(p => p.id !== opponent.pet.id);
+                let enemyReserveCandidate: Pet = opponent.pet; // safe fallback
+                if (aiPool.length > 0) {
+                    let bestScore = -Infinity;
+                    let bestPick: Pet = aiPool[0];
+                    for (const candidate of aiPool) {
+                        // Score the candidate against the player's reserve.
+                        const score = scorePetMatchup(candidate, reserveCandidate);
+                        if (score > bestScore) {
+                            bestScore = score;
+                            bestPick = candidate;
+                        }
+                    }
+                    enemyReserveCandidate = bestPick;
+                }
                 enemyReserve = enemyReserveCandidate;
             }
             const seed = opponent.battleSeed ?? Date.now();
@@ -15980,13 +16085,23 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                             let myParty: [Pet, Pet] | null = null;
                             let chParty: [Pet, Pet] | null = null;
                             if (wantsParty && myAvailable.length >= 2 && challengerPet) {
-                                const sorted = [...myAvailable].sort((a, b) => (b.level ?? 0) - (a.level ?? 0));
-                                myParty = [sorted[0], sorted[1]] as [Pet, Pet];
                                 const [chId1, chId2] = c.challengerPetIds!;
                                 const ch1 = c.challenger.pets.find(p => p.id === chId1) ?? challengerPet;
                                 const ch2 = c.challenger.pets.find(p => p.id === chId2 && p.id !== ch1.id)
                                     ?? c.challenger.pets.find(p => p.id !== ch1.id);
-                                if (ch1 && ch2) chParty = [ch1, ch2] as [Pet, Pet];
+                                if (ch1 && ch2) {
+                                    chParty = [ch1, ch2] as [Pet, Pet];
+                                    // Smart matchup picker — see acceptPetChallengeGlobal
+                                    // for the rationale. Falls back to top-2-by-level
+                                    // if pickBestPartyOrder can't decide.
+                                    const smart = pickBestPartyOrder(myAvailable, chParty);
+                                    if (smart) {
+                                        myParty = smart;
+                                    } else {
+                                        const sorted = [...myAvailable].sort((a, b) => (b.level ?? 0) - (a.level ?? 0));
+                                        myParty = [sorted[0], sorted[1]] as [Pet, Pet];
+                                    }
+                                }
                             }
                             const doParty = !!(wantsParty && myParty && chParty);
                             setDuelChallenges(duelChallenges.filter((x) => x.id !== c.id));
