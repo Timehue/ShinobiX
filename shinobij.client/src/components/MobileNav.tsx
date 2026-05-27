@@ -99,7 +99,7 @@ export const MobileNav = memo(function MobileNav({
                         <button className="mobile-menu-btn" onClick={() => go("profile")}>👤 Character</button>
                         <button className="mobile-menu-btn" onClick={() => go("logbook")}>📜 Logbook</button>
                         <button className="mobile-menu-btn" onClick={() => go("inventory")}>🎒 Inventory</button>
-                        <button className="mobile-menu-btn" onClick={() => go("training")}>💪 Stats</button>
+                        <button className="mobile-menu-btn" onClick={() => go("training")}>💪 Training</button>
                         <button className="mobile-menu-btn" onClick={() => go("jutsuTraining")}>⚡ Jutsu</button>
                         <button className="mobile-menu-btn" onClick={() => go("missions")}>📋 Missions</button>
                         <button className="mobile-menu-btn" onClick={() => go("pets")}>🐾 Pets</button>
