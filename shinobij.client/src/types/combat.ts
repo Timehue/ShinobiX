@@ -64,7 +64,7 @@ export type GameItem = {
     id: string;
     name: string;
     slot: EquipmentSlot;
-    rarity: "common" | "rare" | "epic" | "legendary" | "mythic";
+    rarity: "common" | "uncommon" | "rare" | "epic" | "legendary" | "mythic";
     cost: number;
     description: string;
     armorQuality?: ArmorQuality;

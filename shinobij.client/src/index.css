@@ -2301,6 +2301,11 @@ button {
     color: #94a3b8;
 }
 
+.rarity-uncommon {
+    background: rgba(132,204,22,.22);
+    color: #bef264;
+}
+
 .rarity-rare {
     background: rgba(56,189,248,.22);
     color: #7dd3fc;
@@ -4041,6 +4046,12 @@ button {
     border-color: #94a3b8;
 }
 
+.backpack-item.rarity-uncommon,
+.character-equip-slot.rarity-uncommon {
+    border-color: #84cc16;
+    background: linear-gradient(135deg, #365314, #1a2e05);
+}
+
 .backpack-item.rarity-rare,
 .character-equip-slot.rarity-rare {
     border-color: #38bdf8;
@@ -4204,6 +4215,10 @@ button {
 
 .rarity-common {
     border-color: rgba(226,232,240,.65);
+}
+
+.rarity-uncommon {
+    border-color: #84cc16;
 }
 
 .rarity-rare {
@@ -10414,6 +10429,11 @@ textarea {
 .rarity-common {
     background: rgba(148, 163, 184, 0.25);
     color: #e2e8f0;
+}
+
+.rarity-uncommon {
+    background: rgba(132, 204, 22, 0.25);
+    color: #d9f99d;
 }
 
 .rarity-rare {
