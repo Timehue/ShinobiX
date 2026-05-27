@@ -37404,9 +37404,13 @@ function PvpBattleScreen({
 
     useEffect(() => {
         let active = true;
-        async function poll() {
+        let es: EventSource | null = null;
+        let pollTimer: number | null = null;
+
+        // Long-poll fallback used when EventSource isn't available
+        // (very old browsers) or the SSE stream errors out.
+        async function pollFallback() {
             while (active) {
-                // Skip polling when tab is hidden to save function invocations
                 if (document.visibilityState === "hidden") {
                     await new Promise<void>(r => setTimeout(r, 2000));
                     continue;
@@ -37422,8 +37426,64 @@ function PvpBattleScreen({
                 await new Promise<void>(r => setTimeout(r, 1000));
             }
         }
-        poll();
-        return () => { active = false; };
+
+        // Primary path: SSE. Server pushes a `session` event every
+        // time the KV record changes (≤250ms latency vs. up to 1s
+        // for the old polling loop) and an `end` event when the
+        // fight resolves or the session TTL expires.
+        function startStream() {
+            if (!active) return;
+            if (typeof EventSource === "undefined") {
+                void pollFallback();
+                return;
+            }
+            try {
+                es = new EventSource(`/api/pvp/stream?id=${encodeURIComponent(battleId)}`);
+                es.addEventListener("session", (e) => {
+                    if (!active) return;
+                    try {
+                        const data = JSON.parse((e as MessageEvent).data) as PvpSessionState;
+                        setSession(data);
+                    } catch { /* ignore malformed chunk */ }
+                });
+                es.addEventListener("end", () => {
+                    es?.close();
+                    es = null;
+                    // Don't reconnect on `end` — the fight is over
+                    // or the session expired. The session state is
+                    // already in our local React state.
+                });
+                es.onerror = () => {
+                    // Network error or stream closed by server. EventSource
+                    // would auto-reconnect on its own, but our 4.5min server
+                    // window means we want to reconnect a new stream with
+                    // fresh KV reads. Close, then re-open after a short
+                    // backoff (skip reconnect if the tab is hidden — saves
+                    // function invocations).
+                    es?.close();
+                    es = null;
+                    if (!active) return;
+                    pollTimer = window.setTimeout(() => {
+                        if (!active) return;
+                        if (document.visibilityState === "hidden") {
+                            startStream();
+                            return;
+                        }
+                        startStream();
+                    }, 1500);
+                };
+            } catch {
+                // EventSource ctor threw (very unusual) — fall back.
+                void pollFallback();
+            }
+        }
+
+        startStream();
+        return () => {
+            active = false;
+            if (es) { try { es.close(); } catch { /* noop */ } es = null; }
+            if (pollTimer !== null) { window.clearTimeout(pollTimer); pollTimer = null; }
+        };
     }, [battleId]);
 
     useEffect(() => {
@@ -37808,11 +37868,18 @@ function PvpBattleScreen({
         setSubmitting(true);
         try {
             const wfx = weatherEffects[currentWeather];
+            // Per-move idempotency token. If this request retries (network
+            // blip, double-tap), the server's recentMoveTokens check
+            // short-circuits the second arrival without re-applying.
+            const moveToken = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+                ? crypto.randomUUID()
+                : `mt-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
             const body: Record<string, unknown> = {
                 battleId, role, action: pvpAction,
                 weatherPositiveElement: wfx.positiveElement ?? "",
                 weatherNegativeElement: wfx.negativeElement ?? "",
                 biome: currentBiome,
+                moveToken,
             };
             if (opts?.auto) body.auto = true;
             if (pvpTile !== undefined) body.tile = pvpTile;
