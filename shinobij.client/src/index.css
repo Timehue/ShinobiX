@@ -18399,6 +18399,12 @@ html[data-vp="xxl"] .arena-fullscreen {
     width: 100% !important;
     max-width: 100% !important;
     margin: 0 !important;
+    /* Mirror xl's overflow:hidden — without it, the base padded
+       layout pokes outside the grid container on a wide viewport
+       and the browser collapses the 1fr column to its min content
+       width (~250px in this codebase), which is the squish the user
+       saw on a 2560×1440 monitor. */
+    overflow: hidden !important;
     box-sizing: border-box !important;
 }
 
@@ -18407,6 +18413,10 @@ html[data-vp="xxl"] .arena-fullscreen .combat-layout {
     gap: 12px !important;
     width: 100% !important;
     max-width: 100% !important;
+    /* Zero out the base 14px container padding so the 1fr column
+       actually has the full arena width to expand into. Same reason
+       xl works — see html[data-vp="xl"] .arena-fullscreen .combat-layout. */
+    padding: 0 !important;
 }
 
 html[data-vp="xxl"] .arena-fullscreen.pvp-battle-layout .combat-layout {
