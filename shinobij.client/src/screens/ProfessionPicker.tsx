@@ -123,11 +123,15 @@ export function ProfessionPicker({
         background: backdropImage
             ? `linear-gradient(180deg, rgba(8,12,28,0.85), rgba(4,6,18,0.96)), url(${backdropImage}) center/cover no-repeat`
             : "linear-gradient(180deg, rgba(8,12,28,0.96), rgba(4,6,18,0.99))",
+        // Allow scrolling when the inner card is taller than the viewport
+        // (was the mobile cut-off cause — fixed + alignItems:center clips
+        // anything past the viewport edges with no way to scroll).
+        overflowY: "auto",
         display: "flex",
-        alignItems: "center",
+        alignItems: "flex-start",
         justifyContent: "center",
         zIndex: 1100,
-        padding: 16,
+        padding: "16px 16px max(16px, env(safe-area-inset-bottom, 16px))",
     };
 
     if (stage === "intro") {
