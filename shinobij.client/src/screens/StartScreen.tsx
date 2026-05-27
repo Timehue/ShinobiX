@@ -32,10 +32,10 @@ type PublicTournament = {
     advancedPlayers?: string[];
 } | null;
 
-export function StartScreen({ onCreate, onLogin }: {
+export function StartScreen({ onCreate, onLogin, onAdmin }: {
     onCreate: (character: Character, password: string) => void;
     onLogin: (name: string, password: string) => void;
-    onAdmin: () => void;
+    onAdmin: (prefilledPassword?: string) => void;
 }) {
     const [view, setView] = useState<StartView>("main");
     const [loginName, setLoginName] = useState("");
@@ -43,9 +43,31 @@ export function StartScreen({ onCreate, onLogin }: {
     const [showLoginPw, setShowLoginPw] = useState(false);
     const [loginStatus, setLoginStatus] = useState("");
 
+    // Detect admin names typed in the player login field. "Admin 1", "admin1",
+    // "ADMIN 1", "Admin 2", "admin2" — anything that normalizes to admin1/admin2
+    // routes through the admin auth flow instead of the player auth flow. This
+    // matches the muscle memory of typing "Admin 1" + password to log in as
+    // admin, without exposing a dedicated Admin button on the start screen.
+    function normalizeAdminName(raw: string): "admin1" | "admin2" | null {
+        const n = raw.trim().toLowerCase().replace(/\s+/g, "");
+        if (n === "admin1") return "admin1";
+        if (n === "admin2") return "admin2";
+        return null;
+    }
+
     async function submitLogin() {
         if (loginName.trim().length < 2) return alert("Enter your player name.");
         if (!loginPassword) return alert("Enter your password.");
+
+        // Admin name? Route to the admin login screen with the password already
+        // filled in so they don't have to retype it. The Admin Login screen
+        // verifies the password against ADMIN_PASSWORD (Admin 1) or
+        // ADMIN_CONTENT_PASSWORD (Admin 2) and lands on the right account.
+        if (normalizeAdminName(loginName)) {
+            onAdmin(loginPassword);
+            return;
+        }
+
         setLoginStatus("Loading...");
         try {
             await onLogin(loginName.trim(), loginPassword);

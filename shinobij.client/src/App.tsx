@@ -12452,7 +12452,15 @@ export default function App() {
                     <StartScreen
                         onCreate={createPlayerAccount}
                         onLogin={loginPlayerAccount}
-                        onAdmin={() => {
+                        onAdmin={(prefilledPassword) => {
+                            // If the user typed "Admin 1" / "Admin 2" in the
+                            // player login form, the StartScreen forwards the
+                            // password they typed so they don't have to retype
+                            // it on the admin screen. Stash it in
+                            // sessionStorage where AdminLogin reads it.
+                            if (prefilledPassword) {
+                                sessionStorage.setItem("admin:prefill-pw", prefilledPassword);
+                            }
                             navigate(adminLoggedIn ? "adminPanel" : "adminLogin");
                         }}
                     />
