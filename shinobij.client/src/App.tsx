@@ -22840,7 +22840,7 @@ function CardPackSection({ character, updateCharacter, currency, creatorCards }:
             <p style={{ color: "#aaa", marginBottom: "0.4rem" }}>Collect cards for the Shinobi Tiles card game at the Card Hall.</p>
             <p style={{ marginBottom: "0.8rem" }}>Collection: <strong>{character.tileCards.length}</strong> cards</p>
             {currency === "ryo" && (
-                <button onClick={() => openPack(5, ["common", "uncommon", "rare"], 250)} disabled={character.ryo < packCost(250)}>
+                <button onClick={() => openPack(5, ["common", "rare"], 250)} disabled={character.ryo < packCost(250)}>
                     Standard Pack — 5 cards (Common / Rare) — {packCost(250)} ryo{shopDiscountPercent > 0 ? " discounted" : ""}
                 </button>
             )}
