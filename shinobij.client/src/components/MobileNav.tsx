@@ -9,13 +9,16 @@
  * Extracted from App.tsx.
  */
 
-import { useState } from "react";
+import { memo, useState } from "react";
 import { xpNeeded } from "../App";
 import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
 import { MAX_LEVEL, isProtectedAdminName } from "../constants/game";
 
-export function MobileNav({
+// Memo'd — the bottom nav only depends on character.xp/level (immutable
+// snapshots from App), the navigate callback (stable), and a boolean.
+// Skips re-renders triggered by unrelated App state churn.
+export const MobileNav = memo(function MobileNav({
     navigate,
     adminLoggedIn,
     logoutPlayer,
@@ -111,4 +114,4 @@ export function MobileNav({
             )}
         </>
     );
-}
+});

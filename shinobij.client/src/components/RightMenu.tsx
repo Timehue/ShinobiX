@@ -11,13 +11,17 @@
  * Extracted from App.tsx.
  */
 
-import { useState } from "react";
+import { memo, useState } from "react";
 import rightMenuBg from "../assets/rightmenu.png";
 import { villageBiomes } from "../App";
 import type { Screen, Biome } from "../types/core";
 import { isProtectedAdminName } from "../constants/game";
 
-export function RightMenu({
+// Memo'd — `navigate`/`logoutPlayer` are stable callbacks from App's
+// useCallback hooks (or the navigate wrapper). All other props are
+// primitive (strings/booleans). Shallow compare safely skips the
+// re-render whenever the side rail's props are unchanged.
+export const RightMenu = memo(function RightMenu({
     navigate,
     adminLoggedIn,
     logoutPlayer,
@@ -76,4 +80,4 @@ export function RightMenu({
             )}
         </aside>
     );
-}
+});

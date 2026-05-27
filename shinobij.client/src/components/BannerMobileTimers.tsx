@@ -17,9 +17,14 @@ import type { ActiveTraining, ActiveJutsuTraining } from "../types/combat";
 import type { Pet } from "../types/pet";
 import { formatPetTimer } from "../lib/utils";
 import { petDisplayName } from "../lib/pet";
-import type { ReactNode } from "react";
+import { memo, type ReactNode } from "react";
 
-export function BannerMobileTimers({
+// React.memo wraps the function so unrelated App re-renders don't repaint
+// the mobile banner — the only scheduled refresh is the every-second
+// useSharedNow tick. `activeTraining`, `activeJutsuTraining`, and `pets`
+// are passed by reference and replaced immutably from App, so shallow
+// compare still catches every real change.
+export const BannerMobileTimers = memo(function BannerMobileTimers({
     activeTraining,
     activeJutsuTraining,
     pets,
@@ -88,4 +93,4 @@ export function BannerMobileTimers({
             {timerRows.length > 0 && <div className="bmt-timers">{timerRows}</div>}
         </div>
     );
-}
+});
