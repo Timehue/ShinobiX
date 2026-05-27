@@ -387,30 +387,42 @@ function sanitizeCharacterSave(
     }
 
     // Hospital timer enforcement.
-    //   - If save flips hospitalized false → true, server stamps hospitalizedUntil.
+    //   - If save flips hospitalized false → true, server stamps both
+    //     hospitalizedUntil AND hospitalizedAt. The latter is read by
+    //     api/player/heal.ts to award the +50% Healer raid-assist XP
+    //     bonus when a Healer reaches a freshly-hospitalized friendly.
     //   - If save flips hospitalized true → false before the timer expires, revert
     //     (with HP at zero — exactly the state they were in when admitted).
+    //   - Discharge (genuine or rejected) always goes through api/player/heal,
+    //     not this validator — see Hospital.tsx::discharge(). This validator
+    //     is the fallback that catches client-only attempts to flip the flag.
     const exHosp = !!exChar.hospitalized;
     const inHosp = !!char.hospitalized;
     const exHospUntil = Number(exChar.hospitalizedUntil ?? 0);
+    const exHospAt = Number(exChar.hospitalizedAt ?? 0);
     if (!exHosp && inHosp) {
-        char.hospitalizedUntil = Date.now() + HOSPITAL_DURATION_MS;
+        const now = Date.now();
+        char.hospitalizedUntil = now + HOSPITAL_DURATION_MS;
+        char.hospitalizedAt = now;
     } else if (exHosp && !inHosp) {
         if (exHospUntil && Date.now() < exHospUntil) {
             // Reject early discharge — force the player to wait out the timer
-            // (or pay the discharge fee, which is a client-side flow that
-            //  doesn't actually skip the timer either now).
+            // or go through /api/player/heal (which charges ryo server-side
+            // when paySkip=true, or applies the Healer rank-shortened timer).
             char.hospitalized = true;
             char.hospitalizedUntil = exHospUntil;
+            char.hospitalizedAt = exHospAt;
             // Snap HP back to 0 so they can't farm hp during the lockout.
             char.hp = 0;
         } else {
-            // Timer expired or unset — allow discharge and clear the stamp.
+            // Timer expired or unset — allow discharge and clear both stamps.
             char.hospitalizedUntil = 0;
+            char.hospitalizedAt = 0;
         }
     } else if (exHosp && inHosp) {
-        // Preserve the original stamp — don't let the client refresh it.
+        // Preserve the original stamps — don't let the client refresh them.
         char.hospitalizedUntil = exHospUntil || char.hospitalizedUntil;
+        char.hospitalizedAt = exHospAt || char.hospitalizedAt;
     }
 
     return { ...incoming, character: char };

@@ -46,6 +46,35 @@ function rankFor(profession: Profession, xp: number): number {
     return Math.min(MAX_RANK, rank);
 }
 
+// Exported so security-sensitive endpoints (injured-villagers, heal,
+// anywhere a rank gates a privileged action) can derive the trustworthy
+// rank from professionXp instead of trusting a potentially-tampered
+// professionRank field on the character record.
+export function professionRankForXp(profession: Profession, xp: number): number {
+    return rankFor(profession, xp);
+}
+
+// ── Healer rank perks — server-side mirror of shinobij.client/src/professionLogic.ts ──
+// Keep arrays IN SYNC with the client file. Idx = rank (0 unused).
+export const HEALER_PER_TARGET_COOLDOWN_SEC = [0, 300, 285, 270, 240, 210, 180, 150, 120, 105, 90] as const;
+export const HEALER_HEAL_XP_BONUS_PCT = [0, 0, 5, 10, 15, 20, 25, 30, 35, 40, 50] as const;
+export const HEALER_HOSPITAL_TIMER_SEC = [0, 60, 55, 50, 45, 40, 35, 30, 25, 20, 15] as const;
+export const HEALER_WORLDWIDE_RANK = 10;
+function clampRank(rank: number): number {
+    if (!Number.isFinite(rank) || rank < 1) return 1;
+    if (rank > MAX_RANK) return MAX_RANK;
+    return Math.floor(rank);
+}
+export function healerHealXpBonusPct(rank: number): number {
+    return HEALER_HEAL_XP_BONUS_PCT[clampRank(rank)];
+}
+export function healerPerTargetCooldownMs(rank: number): number {
+    return HEALER_PER_TARGET_COOLDOWN_SEC[clampRank(rank)] * 1000;
+}
+export function healerHospitalTimerMs(rank: number): number {
+    return HEALER_HOSPITAL_TIMER_SEC[clampRank(rank)] * 1000;
+}
+
 export function utcDateKey(now = new Date()): string {
     return now.toISOString().slice(0, 10);
 }
