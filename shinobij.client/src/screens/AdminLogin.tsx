@@ -21,7 +21,11 @@ export function AdminLogin({ onLogin, setScreen }: { onLogin: (account: AdminAcc
             if (data.success) {
                 onLogin("Admin 1", pw);
             } else {
-                setError("Incorrect password.");
+                // Surface the server's specific error when present (e.g.
+                // "Rate limited", "Account suspended"). Falls back to the
+                // generic message for plain wrong-password 401s where
+                // the server intentionally doesn't say more.
+                setError(data.error ?? `Incorrect password.`);
                 setPassword("");
             }
         } catch {

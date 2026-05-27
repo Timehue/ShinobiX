@@ -37973,12 +37973,18 @@ function PvpBattleScreen({
     }
 
     function pvpMinActionCost() {
+        // Every action cost MUST flow through pvpAdjustedApCost so the
+        // client's "can I afford anything?" check agrees with the server's
+        // adjustedCost in api/pvp/move.ts. Under Lag (+50% AP cost), the
+        // bare 40 / j.ap / i.apCost numbers don't match what the server
+        // will actually charge — leading to "send move, server rejects,
+        // UI looks frozen" before the round timer fires auto-wait.
         const costs = [
             pvpAdjustedApCost(30), // move / dash
-            40,                    // basic attack
-            ...sessionEquippedJutsu.map(j => j.ap ?? 40),
-            ...pvpEquippedWeapons.map(i => i.apCost ?? 40),
-            ...pvpEquippedConsumables.map(i => i.apCost ?? 35),
+            pvpAdjustedApCost(40), // basic attack
+            ...sessionEquippedJutsu.map(j => pvpAdjustedApCost(j.ap ?? 40)),
+            ...pvpEquippedWeapons.map(i => pvpAdjustedApCost(i.apCost ?? 40)),
+            ...pvpEquippedConsumables.map(i => pvpAdjustedApCost(i.apCost ?? 35)),
         ];
         return Math.min(...costs);
     }
