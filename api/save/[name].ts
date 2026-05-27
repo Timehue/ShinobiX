@@ -253,16 +253,25 @@ function sanitizeCharacterSave(
     // Profession: lock the profession choice (server-side picker writes it
     // via /api/profession/choose), cap XP gains per save, and recompute rank
     // from XP so a malicious client can't claim higher rank than its XP earns.
-    if (exChar.profession) {
-        // Once chosen, profession is permanent — ignore any client attempt to swap.
-        char.profession = exChar.profession;
-    }
+    //
+    // Two-state lockdown:
+    //   • exChar HAS a profession  → preserve it (permanent choice).
+    //   • exChar has NO profession → ALSO preserve `undefined`. The dedicated
+    //     /api/profession/choose endpoint is the only path that may set the
+    //     initial value. Without this branch a fresh-account save POST could
+    //     self-grant `profession: 'vanguard'` and immediately unlock the
+    //     Vanguard discount path on jutsu/speedup / train-with-seals, or
+    //     profession: 'healer' to unlock cross-village healing, etc.
+    char.profession = exChar.profession;
     const exProfXp = Math.max(0, Number(exChar.professionXp ?? 0));
     const inProfXp = Math.max(0, Number(char.professionXp ?? 0));
     const cappedProfXp = Math.min(inProfXp, exProfXp + MAX_PROFESSION_XP_GAIN);
     char.professionXp = cappedProfXp;
     if (char.profession) {
         char.professionRank = rankFromXp(char.profession, cappedProfXp);
+    } else {
+        // No profession yet → strip any client-supplied rank too.
+        char.professionRank = 0;
     }
 
     // Individual stats: can't gain more than MAX_STAT_GAIN per stat per save.

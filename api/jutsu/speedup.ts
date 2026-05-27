@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
 import { safeName, mergePreservingImages, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
+import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 
 // Honor Seal training speedup. Each Seal reduces the current training timer
@@ -48,6 +49,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && identity.name !== playerName) {
             return res.status(403).json({ error: 'Can only spend your own Seals.' });
         }
+
+        // Per-player rate limit. Legit use is "click the speedup button a
+        // handful of times to skip a training" — 10/min is generous. Without
+        // this gate, a leaked password lets an attacker burst-spam the
+        // endpoint and drain the victim's Honor Seals balance even though
+        // the per-call lock + balance check prevents over-spending in any
+        // single call. (Each call still costs Seals up to the call cap.)
+        if (!identity.admin && !(await enforceRateLimitKv(req, res, 'jutsu-speedup', 10, 60_000, identity.name))) return;
 
         const key = `save:${playerName}`;
         // Wrap the read-modify-write under lock:save:<name> so two concurrent

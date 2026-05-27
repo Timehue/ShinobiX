@@ -36,13 +36,21 @@ type ClanContext = {
 };
 
 const TREASURY_KEYS = ['ryo', 'fateShards', 'boneCharms', 'auraStones', 'mythicSeals', 'warSupply'] as const;
+// SECURITY NOTE: same trust-the-caller-debited model as the village-state
+// validator — a caller can credit the clan treasury without debiting their
+// save. Honor Seals are already protected by the dedicated
+// /api/clan/seal-pool/donate.ts atomic endpoint; ryo / fate / bone / aura /
+// mythic / warSupply still flow through the trust-the-debit path here.
+// Per-call ceilings below cap the per-request blast radius; a full fix
+// needs a generic /api/clan/treasury/donate endpoint that does both halves
+// atomically. Tightened ~10× from prior values.
 const MAX_TREASURY_INCREASE: Record<string, number> = {
-    ryo: 500_000,        // clan donations are larger than village ones
-    fateShards: 500,
-    boneCharms: 500,
-    auraStones: 500,
-    mythicSeals: 200,
-    warSupply: 1_000,
+    ryo: 50_000,         // was 500_000
+    fateShards: 50,      // was 500
+    boneCharms: 50,      // was 500
+    auraStones: 50,      // was 500
+    mythicSeals: 20,     // was 200
+    warSupply: 100,      // was 1_000
 };
 const MAX_ACTIVE_WAR_SCORE_PER_WRITE = 100;
 // Auto-finalize stale clan wars. A war whose endsAt is more than 24h

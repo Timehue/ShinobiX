@@ -502,15 +502,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         if (kind === 'delete-chat-message') {
             // Remove a single message from a village chat. The chat blob is the
-            // full message array — we filter out one by author+ts.
+            // full message array — we filter out one by author+ts. Wrap the
+            // read/filter/write under the same lock api/village/chat.ts uses
+            // so a concurrent legitimate chat append doesn't race-lose its
+            // new message to our admin delete.
             const { village, author, ts } = body as { village?: string; author?: string; ts?: number };
             if (!village || !author || !Number.isFinite(ts)) {
                 return res.status(400).json({ error: 'Missing village, author, or ts.' });
             }
             const chatBlobKey = `chat:village:${village.toLowerCase().replace(/\s+/g, '-')}`;
-            const list = (await kv.get<Array<{ author: string; ts: number }>>(chatBlobKey)) ?? [];
-            const next = list.filter(m => !(m.author === author && m.ts === ts));
-            await kv.set(chatBlobKey, next, { ex: 4 * 60 * 60 });
+            await withKvLock(chatBlobKey, async () => {
+                const list = (await kv.get<Array<{ author: string; ts: number }>>(chatBlobKey)) ?? [];
+                const next = list.filter(m => !(m.author === author && m.ts === ts));
+                await kv.set(chatBlobKey, next, { ex: 4 * 60 * 60 });
+            });
             await appendAudit({
                 ts: Date.now(),
                 actor: actorName,
@@ -524,6 +529,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(400).json({ error: 'Unknown kind.' });
     } catch (err) {
         console.error('[admin/moderation]', err);
-        return res.status(500).json({ error: String(err) });
+        return res.status(500).json({ error: 'Internal server error.' });
     }
 }
