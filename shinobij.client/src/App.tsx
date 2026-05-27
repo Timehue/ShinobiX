@@ -231,6 +231,11 @@ import {
     PET_ELEMENT_BEATS,
 } from "./constants/pet-arena";
 
+// Tiny presentational mark / portrait components moved to ./components/Marks.
+import { CardVisual, ClanImageMark, LeaderPortrait } from "./components/Marks";
+import { FestivalPortrait, VillagePill } from "./components/Pills";
+import { ClanWarManual } from "./components/ClanWarManual";
+
 const terrainEffects: Record<
     Biome,
     {
@@ -23545,60 +23550,7 @@ function clanMissionProgress(data: EnhancedClanData, key: string) { const battle
 // Wars tab and the Shinobi Council Hall → Clan Battles tab via a "?"
 // button next to the title. Keeps the rules in one place so any
 // future balance change only has to update this manual.
-function ClanWarManual({ onClose }: { onClose: () => void }) {
-    return (
-        <div style={{ background: "#0b1220", border: "1px solid #334155", borderRadius: 8, padding: "1rem", marginBottom: "1rem", fontSize: "0.9rem", lineHeight: 1.55 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                <strong style={{ color: "#fde047", fontSize: "1rem" }}>📜 Clan War — Quick Guide</strong>
-                <button type="button" onClick={onClose} style={{ padding: "0.15rem 0.5rem", background: "#7f1d1d", borderColor: "#ef4444", color: "#fca5a5", fontSize: "0.75rem" }}>✕ Close</button>
-            </div>
-            <p style={{ margin: "0 0 0.6rem" }}>
-                <strong style={{ color: "#60a5fa" }}>Goal:</strong> drop the enemy clan's HP to <strong>0</strong>. Both clans start at <strong>1,000 HP</strong>. All damage comes from completed challenges — no open-world fighting.
-            </p>
-            <p style={{ margin: "0 0 0.6rem" }}>
-                <strong style={{ color: "#60a5fa" }}>1. Declare war.</strong> Your clan's <em>Founder, Leader, or Officer</em> opens this tab, picks an enemy clan, and clicks <em>Declare</em>. One war per clan; 7-day cooldown between the same two clans.
-            </p>
-            <p style={{ margin: "0 0 0.6rem" }}>
-                <strong style={{ color: "#60a5fa" }}>2. Send a challenge.</strong> Pick a mode and click <em>Send</em>. The enemy clan sees the mode but not your name — challenges are anonymous until accepted. Each player can have up to <strong>2 challenges in flight</strong>. Cancel any time to free a slot.
-            </p>
-            <div style={{ display: "grid", gridTemplateColumns: "1.8fr 1fr", gap: 0, border: "1px solid #334155", borderRadius: 6, overflow: "hidden", margin: "0 0 0.6rem", fontSize: "0.82rem" }}>
-                <div style={{ background: "#1e293b", padding: "0.35rem 0.6rem", fontWeight: 700, color: "#fde047" }}>Mode</div>
-                <div style={{ background: "#1e293b", padding: "0.35rem 0.6rem", fontWeight: 700, color: "#f87171", textAlign: "right" }}>Win damage</div>
-                <div style={{ padding: "0.3rem 0.6rem" }}>⚔ 1v1 PvP</div>
-                <div style={{ padding: "0.3rem 0.6rem", textAlign: "right", color: "#f87171" }}>−30 HP</div>
-                <div style={{ padding: "0.3rem 0.6rem", background: "#0f172a" }}>⚔⚔ 2v2 PvP</div>
-                <div style={{ padding: "0.3rem 0.6rem", background: "#0f172a", textAlign: "right", color: "#f87171" }}>−60 HP</div>
-                <div style={{ padding: "0.3rem 0.6rem" }}>🐾 Pet 1v1</div>
-                <div style={{ padding: "0.3rem 0.6rem", textAlign: "right", color: "#f87171" }}>−20 HP</div>
-                <div style={{ padding: "0.3rem 0.6rem", background: "#0f172a" }}>🐾🐾 Pet 2v2</div>
-                <div style={{ padding: "0.3rem 0.6rem", background: "#0f172a", textAlign: "right", color: "#f87171" }}>−40 HP</div>
-                <div style={{ padding: "0.3rem 0.6rem" }}>🃏 Tile Cards</div>
-                <div style={{ padding: "0.3rem 0.6rem", textAlign: "right", color: "#f87171" }}>−10 HP</div>
-            </div>
-            <p style={{ margin: "0 0 0.6rem" }}>
-                <strong style={{ color: "#60a5fa" }}>3. 2v2 needs 2 players per side.</strong> Both sending and accepting use a quick queue: one player opens the slot, a clanmate joins as partner, and the match goes live. Anyone can leave the queue before it fills.
-            </p>
-            <p style={{ margin: "0 0 0.6rem" }}>
-                <strong style={{ color: "#60a5fa" }}>4. Accept = play.</strong> When the defender accepts, <em>both clients are auto-pulled into the battle</em>. PvP / Pet / Tile-Card screens open on their own. Fight, and the server records the result — no buttons to click after the win.
-            </p>
-            <p style={{ margin: "0 0 0.6rem", fontSize: "0.85rem", background: "#0a1a2a", border: "1px solid #60a5fa", borderRadius: 6, padding: "0.5rem 0.7rem" }}>
-                <strong style={{ color: "#60a5fa" }}>🃏 Tile-card duels:</strong> after accept you get <strong>30 seconds</strong> to pick 5 cards from your collection and hit <em>Lock in deck</em>. If both players ready up early the match starts immediately; otherwise the auto-picked top-5 deck is used. Then a <strong>coin flip</strong> decides who goes first. Place cards on a 3x3 board, capture by edge strength. Board full → winner gets credited.
-            </p>
-            <p style={{ margin: "0 0 0.6rem", fontSize: "0.85rem", color: "#fbbf24" }}>
-                ⏳ <strong>Don't ghost.</strong> Pending challenges expire after <strong>1 hour</strong> if the defender does nothing — each expired challenge takes <strong>−5 HP</strong> off the defender's clan.
-            </p>
-            <p style={{ margin: "0 0 0.6rem" }}>
-                <strong style={{ color: "#60a5fa" }}>5. Winning.</strong> First clan to drive the enemy to 0 HP wins. Each side gets an MVP (most wins).
-            </p>
-            <p style={{ margin: 0 }}>
-                <strong style={{ color: "#60a5fa" }}>Rewards (auto-claimed):</strong>
-                <br />• <strong>Winning clan:</strong> 1× Legendary War Crate per member.
-                <br />• <strong>MVP each side:</strong> +10,000 ryo, +50 Honor Seals (or 6 Bone Charms + 4 Fate Shards for non-Vanguards), +2 Fate Shards.
-                <br />• <strong>Losing-side participants:</strong> consolation ryo + seals/charms if you contributed.
-            </p>
-        </div>
-    );
-}
+// ClanWarManual moved to ./components/ClanWarManual.
 
 // Clan Wars panel — embedded inside Clan Hall's "Wars" tab. The full
 // challenge inbox + composer lives in the Shinobi Council Hall →
@@ -26061,19 +26013,7 @@ function ShinobiTiles({ character, updateCharacter, creatorCards, dungeonMode = 
 }
 
 
-// Compact village pill — village panorama thumbnail + name on a dark capsule.
-// Reused in the Shinobi Council Hall (replaces the plain text village names
-// on war cards). The image comes from villagePageImage so each village ships
-// with its own visual identity automatically.
-function VillagePill({ village, highlight = false }: { village: string; highlight?: boolean }) {
-    if (!village) return null;
-    return (
-        <span className={`village-pill${highlight ? " village-pill-mine" : ""}`}>
-            <img className="village-pill-thumb" src={villagePageImage(village)} alt="" aria-hidden="true" />
-            <span className="village-pill-name">{village}</span>
-        </span>
-    );
-}
+// VillagePill moved to ./components/Pills.
 
 // -- Shinobi Council Hall -----------------------------------------------------
 // ── Clan War (new server-managed system) types + client helpers ────
@@ -27427,11 +27367,7 @@ export type LbTab = "ranked" | "kills" | "xp" | "clans" | "pets" | "endless" | "
 export type TavernMessage = { author: string; text: string; ts: number; rank?: string; customTitle?: string; level?: number };
 
 
-function FestivalPortrait({ image, icon, name }: { image?: string; icon: string; name: string }) {
-    return image
-        ? <img className="sunscar-portrait" src={image} alt={name} />
-        : <div className="sunscar-npc" aria-label={name}>{icon}</div>;
-}
+// FestivalPortrait moved to ./components/Pills.
 
 function SunscarFestival({
     character,
@@ -31092,23 +31028,7 @@ function JutsuTrainingHall({
     return <div className="card jutsu-training-screen"><JutsuSealPanel character={character} updateCharacter={updateCharacter} selectedJutsu={selectedJutsu ?? null} selectedMastery={selectedMastery} activeJutsuTraining={activeJutsuTraining} setActiveJutsuTraining={setActiveJutsuTraining} /><h2>Jutsu Training Hall</h2><p>Train jutsu to <strong>Level 30</strong> with ryo. Levels <strong>31-50</strong> must be earned from battles. Your elements: <strong>{ownedElements.length ? ownedElements.join(" / ") : "None awakened"}</strong>. Town Hall + Aura training bonus: <strong>{jutsuTrainingBonus.toFixed(2)}%</strong>.</p>{lockedElementCount > 0 && <p className="hint">{lockedElementCount} jutsu locked until you awaken their element.</p>}{activeJutsuTraining && <div className="summary-box"><h3>Active Jutsu Training</h3><p><strong>{activeJutsuTraining.label}</strong>: Level {activeJutsuTraining.fromLevel} → {activeJutsuTraining.toLevel}</p><p>Cost paid: {activeJutsuTraining.ryoCost} ryo</p><p>{activeRemaining > 0 ? `Time remaining: ${formatTrainingTime(activeRemaining)}` : "Training complete. Claim your level."}</p><button onClick={completePaidJutsuTraining}>{activeRemaining > 0 ? "Check Training" : "Claim Jutsu Level"}</button></div>}<h3>Paid Ryo Training</h3><div className="summary-box"><p>{selectedJutsu ? <><strong>{selectedJutsu.name}</strong> will train from level {selectedMastery?.level ?? 0} to {Math.min(JUTSU_TRAINING_CAP, (selectedMastery?.level ?? 0) + 1)}.</> : "Choose a jutsu to train."}</p><p>{selectedMastery?.level === 0 ? <><strong>Free & Instant</strong> — Level 0 → 1</> : <>Cost: <strong>{selectedCost}</strong> ryo | Time: <strong>{selectedDuration / 60000}</strong> minutes | Reward: <strong>1 full jutsu level</strong></>}</p><button onClick={startPaidJutsuTraining} disabled={!selectedJutsu || !!activeJutsuTraining || !selectedMastery || selectedMastery.level >= JUTSU_TRAINING_CAP || (selectedMastery.level > 0 && character.ryo < selectedCost)}>{activeJutsuTraining ? "Training In Progress" : selectedMastery && selectedMastery.level >= JUTSU_TRAINING_CAP ? "Battle Training Required" : selectedMastery?.level === 0 ? "Unlock Level 1 (Free)" : `Pay ${selectedCost} Ryo & Train`}</button></div><JutsuDropdownList jutsus={availableJutsus} label="Choose Jutsu" emptyText={ownedElements.length ? "No jutsu match your awakened elements." : "Awaken an element at the Awakening Stone before training elemental jutsu."} renderDetails={(jutsu) => { const mastery = getJutsuMastery(character, jutsu.id); const scaled = scaleJutsuByLevel(jutsu, mastery.level); const cost = jutsuTrainingCost(mastery.level); const duration = jutsuTrainingDuration(mastery.level); const displayJutsu = jutsuDisplayAtLevel(jutsu, mastery.level); return <><p>Level: {mastery.level}/50 | XP: {mastery.xp}/{mastery.level >= 50 ? "MAX" : jutsuXpNeeded(mastery.level)}</p><p>Type: {jutsu.type} | Element: {jutsu.element} | AP: {jutsu.ap} | Range: {jutsu.range}</p><p>Scaled EP: {scaled.scaledEffectPower} | Chakra Cost: {scaled.chakraCost}% | Stamina Cost: {scaled.staminaCost}%</p><p>Tags: {displayJutsu.tags.map((tag) => `${tag.name}${tag.percent ? ` ${tag.percent}%` : ""}`).join(", ") || "None"}</p><p><strong>Paid Training:</strong> {mastery.level === 0 ? "Free & Instant — unlocks Level 1" : mastery.level < JUTSU_TRAINING_CAP ? `${cost} ryo | ${duration / 60000} minutes | +1 full level` : "Battle only from here"}</p><p><strong>Effects:</strong> {describeJutsuEffects(jutsu, mastery.level)}</p><JutsuEffectCards jutsu={jutsu} scaledEffectPower={scaled.scaledEffectPower} masteryLevel={mastery.level} /><p>{selectedJutsuId === jutsu.id ? "Selected for paid training." : mastery.level < 30 ? "Training Hall available." : mastery.level < 50 ? "Battle only." : "Mastered."}</p></>; }} onSelectJutsu={(jutsu) => setSelectedJutsuId(jutsu.id)} /></div>;
 }
 
-function CardVisual({ image, icon, label }: { image?: string; icon?: string; label: string }) {
-    return image
-        ? <img className="card-visual-thumb" src={image} alt={label} />
-        : <span className="tile-icon">{icon || "?"}</span>;
-}
-
-function ClanImageMark({ image, name, village }: { image?: string; name: string; village?: string }) {
-    return image
-        ? <img className="clan-image-mark" src={image} alt={name} />
-        : <div className="clan-image-mark clan-image-fallback">{name.slice(0, 2).toUpperCase() || village?.slice(0, 2).toUpperCase() || "CL"}</div>;
-}
-
-function LeaderPortrait({ image, name, fallback = "?" }: { image?: string; name: string; fallback?: string }) {
-    return image
-        ? <img className="leader-portrait-img" src={image} alt={name} />
-        : <div className="leader-portrait-img leader-portrait-fallback" aria-label={name}>{fallback}</div>;
-}
+// CardVisual / ClanImageMark / LeaderPortrait moved to ./components/Marks.
 
 function Missions({
     character,
