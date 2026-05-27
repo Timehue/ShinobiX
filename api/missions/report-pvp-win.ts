@@ -10,6 +10,11 @@ import { hasRecentIpOverlap } from '../_player-ips.js';
 // Quick-surrender protection: fights ending in <15s grant no mission progress.
 const MIN_FIGHT_DURATION_MS = 15_000;
 const ACCOUNT_AGE_MIN_MS = 72 * 60 * 60 * 1000;
+// Replay window: only sessions created in the last 24h can be reported.
+// PvP session KV records typically have a 60-min TTL, but a player could
+// re-submit a battleId pulled from browser history / logs much later if
+// we didn't enforce a recency check.
+const SESSION_REPLAY_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 // Server-validated report channel for Vanguard PvP-win missions. The client
 // calls this after handlePvpWin fires. The server cross-checks the reported
@@ -50,6 +55,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!session) return res.status(404).json({ error: 'Battle session not found or expired.' });
         if (session.status !== 'done' || !session.winner) {
             return res.status(409).json({ error: 'Battle not yet decided.' });
+        }
+        // Recency check — reject replays of stale sessions. The KV TTL
+        // is the primary guard but this defense-in-depth check covers
+        // any future TTL bump or admin-revived session.
+        const sessionAge = Date.now() - Number(session.createdAt ?? 0);
+        if (sessionAge > SESSION_REPLAY_WINDOW_MS) {
+            return res.status(409).json({ error: 'Battle session is too old to report.' });
         }
         const winnerName = session.winner === 'p1' ? session.p1.name : session.winner === 'p2' ? session.p2.name : '';
         const loserName = session.winner === 'p1' ? session.p2.name : session.winner === 'p2' ? session.p1.name : '';
