@@ -16,6 +16,7 @@
 
 import { kv } from './_storage.js';
 import { getActiveSilence } from './admin/moderation.js';
+import { sanitizeUserText, TEXT_LIMITS } from './_text-moderation.js';
 
 // Loose shape — we don't want to depend on the client's exact union of
 // nested types here, just enough structure for the rule engine.
@@ -252,6 +253,21 @@ export async function validateVillageStateWrite(
                     }
                     if (type === 'order' && !callerIsSeatedKage) {
                         suppressed.push('noticePost type=order rejected (only seatedKage)');
+                        continue;
+                    }
+                }
+                // Moderate user-supplied notice text. Admin bypasses (so
+                // System / Narrator posts with intentional URLs survive).
+                if (!ctx.isAdmin) {
+                    if (typeof post.title === 'string') {
+                        post.title = sanitizeUserText(post.title, TEXT_LIMITS.noticeTitle);
+                    }
+                    if (typeof post.body === 'string') {
+                        post.body = sanitizeUserText(post.body, TEXT_LIMITS.noticeBody);
+                    }
+                    // Drop empty post that's been fully redacted to nothing.
+                    if ((!post.title || !String(post.title).trim()) && (!post.body || !String(post.body).trim())) {
+                        suppressed.push('noticePost rejected (empty after moderation)');
                         continue;
                     }
                 }
