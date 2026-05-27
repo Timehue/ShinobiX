@@ -50,6 +50,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
     } catch (err) {
         console.error('[admin/migrate-kv] failed:', err);
-        res.status(500).json({ ok: false, error: String(err) });
+        res.status(500).json({ ok: false, error: 'Internal server error.' });
     }
 }

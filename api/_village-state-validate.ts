@@ -51,17 +51,29 @@ const TREASURY_KEYS = ['ryo', 'honorSeals', 'fateShards', 'boneCharms', 'auraSto
 // only minutes wide; anything older is dead.
 const KAGE_CHALLENGE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
-// Hard per-call ceilings on treasury currency *increases*. Without these a
-// bad actor could pump in fake currency the Kage then can't withdraw (Kage
-// withdrawal is bounded), but the inflated UI counters are still confusing.
-// A real donation is rarely > 50k ryo / 25 seals at a time.
+// Hard per-call ceilings on treasury currency *increases*.
+//
+// SECURITY NOTE: this validator trusts the caller debited their own save in
+// a separate /api/save POST. A malicious caller can skip the debit and the
+// treasury still credits, letting the seatedKage extract the inflated balance
+// to a sock-puppet via the legitimate withdrawal path. The proper fix is a
+// dedicated /api/village/donate endpoint that does both halves (debit donor
+// save + credit treasury) atomically under a save-lock — same pattern as
+// api/clan/seal-pool/donate.ts. Until that endpoint exists, the per-call
+// ceilings below bound the per-request blast radius. Combined with the
+// 30/min village-state-write rate limit, the worst-case injection is roughly:
+//   ryo:        20_000  × 30/min = 600K/min
+//   honorSeals:     25  × 30/min = 750/min
+// These are bounded enough that a seatedKage laundering attempt would be
+// loud (and easily caught in admin logs) — but it IS still exploitable.
+// TODO: build /api/village/donate and lock down treasury deltas to it.
 const MAX_TREASURY_INCREASE: Record<string, number> = {
-    ryo: 200_000,
-    honorSeals: 200,
-    fateShards: 200,
-    boneCharms: 200,
-    auraStones: 200,
-    mythicSeals: 100,
+    ryo: 20_000,          // was 200_000 — tightened 10×
+    honorSeals: 25,       // was 200 — tightened 8×
+    fateShards: 25,
+    boneCharms: 25,
+    auraStones: 25,
+    mythicSeals: 10,
 };
 
 const MAX_CONTRIBUTION_INCREASE_PER_CALL = 5_000;

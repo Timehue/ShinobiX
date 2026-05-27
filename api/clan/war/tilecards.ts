@@ -117,6 +117,22 @@ function validateDeck(deck: unknown): ServerTileCard[] | null {
     return cleaned;
 }
 
+// Verify every card in the submitted deck actually exists in the caller's
+// owned collection. Without this, validateDeck only checks stat shape,
+// which lets a malicious client submit 5 forged cards with max-legal
+// stats (e.g. 85/85/85/85 each) and trivially win every tilecard duel.
+// Admin bypasses (so tests can throw any deck at the engine).
+async function deckIsOwned(playerName: string, deck: ServerTileCard[], isAdminCaller: boolean): Promise<boolean> {
+    if (isAdminCaller) return true;
+    if (!playerName) return false;
+    const save = await kv.get<Record<string, unknown>>(`save:${playerName.toLowerCase()}`);
+    const char = save?.character as Record<string, unknown> | undefined;
+    const owned = char?.tileCards;
+    if (!Array.isArray(owned)) return false;
+    const ownedSet = new Set(owned.map((c) => String(c)));
+    return deck.every((card) => ownedSet.has(card.id));
+}
+
 function adjPos(pos: number, dir: 'up' | 'down' | 'left' | 'right'): number | null {
     const r = Math.floor(pos / 3), c = pos % 3;
     if (dir === 'up' && r > 0) return pos - 3;
@@ -338,6 +354,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
                 const defaultDeck = validateDeck(body?.defaultDeck);
                 if (!defaultDeck) return { status: 400 as const, body: { error: 'Invalid defaultDeck.' } };
+                if (!(await deckIsOwned(me, defaultDeck, identity.admin))) {
+                    return { status: 403 as const, body: { error: 'Your defaultDeck contains cards you do not own.' } };
+                }
 
                 const now = Date.now();
                 const newSide: TilecardsSide = { name: me, clan: myClan, defaultDeck, ready: false };
@@ -397,6 +416,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (existing.status !== 'picking') return { status: 409 as const, body: { error: 'Deck-picking phase is closed.' } };
                 const deck = validateDeck(body?.deck);
                 if (!deck) return { status: 400 as const, body: { error: 'Invalid deck: must be exactly 5 cards with stats 1-99 each and total 60-340.' } };
+                if (!(await deckIsOwned(me, deck, identity.admin))) {
+                    return { status: 403 as const, body: { error: 'Your deck contains cards you do not own.' } };
+                }
 
                 const now = Date.now();
                 const updatedSide: TilecardsSide = {
