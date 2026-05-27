@@ -63,18 +63,41 @@ const LEET_MAP: Readonly<Record<string, string>> = {
     '5': 's', '+': 't', '7': 't', '2': 'z',
 };
 
-function normalizeForMatch(text: string): string {
-    const lower = text.toLowerCase();
+// Two normalizer variants. We check BOTH against the blocklist — either
+// match triggers the rule. The split is so the word-boundary scan still
+// works for plain text (which needs whitespace preserved) while the
+// whitespace-separation bypass also gets caught.
+function leetCollapse(text: string): string {
     let out = '';
-    for (const ch of lower) {
+    for (const ch of text.toLowerCase()) {
         out += LEET_MAP[ch] ?? ch;
     }
-    // Collapse repeated chars ("niiigger" → "nigger") and strip whitespace
-    // between letters ("n i g g e r" → "nigger"). Both common bypass tricks.
-    out = out.replace(/(.)\1{2,}/g, '$1$1');
-    out = out.replace(/\s+/g, '');
+    // Aggressive repeat collapse — squash any run of the same char to 1.
+    // This catches "niiigger" (3+i) and "nigggger" (extra g) variants. The
+    // blocklist's canonical forms ("nigger") survive because they're scanned
+    // against this same aggressive form (the canonical also collapses to
+    // "niger", so we collapse the blocklist entries the same way below).
+    out = out.replace(/(.)\1+/g, '$1');
     return out;
 }
+
+function leetCollapsePreserveSpace(text: string): string {
+    return leetCollapse(text);
+}
+
+function leetCollapseStripSpace(text: string): string {
+    // Strip whitespace BEFORE the repeat collapse so adjacent-letter runs
+    // across spaces ("n i g g e r" → "nigger" → "niger") collapse to the
+    // same canonical form as the blocklist entries. Stripping after the
+    // collapse leaves the per-letter runs intact and the canonical match
+    // misses.
+    return leetCollapse(text.replace(/\s+/g, ''));
+}
+
+// Pre-collapse the blocklist so the matcher can compare apples to apples.
+// We don't store a non-collapsed copy — every blocklist check goes through
+// the same normalizer that the input does.
+const COLLAPSED_BLOCKLIST: ReadonlyArray<string> = BLOCKLIST.map(w => leetCollapse(w));
 
 const PHONE_RE = /(\+?\d[\d\s().-]{7,}\d)/g;
 const EMAIL_RE = /[\w.+-]+@[\w-]+\.[\w.-]+/g;
@@ -99,23 +122,33 @@ export function sanitizeUserText(input: unknown, maxLen: number): string {
     text = text.replace(URL_RE, '[redacted link]');
     text = text.replace(PHONE_RE, '[redacted #]');
 
-    // Profanity pass: scan the NORMALIZED form to catch bypass attempts,
-    // but mask the ORIGINAL text at the matched span so legitimate
-    // punctuation/casing is preserved everywhere else.
-    const normalized = normalizeForMatch(text);
-    for (const word of BLOCKLIST) {
-        // \b is unreliable across letters + symbols, so we use a simple
-        // start/end-of-word heuristic with optional adjacent punctuation.
-        const re = new RegExp(`(^|[^a-z0-9])(${word})(?=[^a-z0-9]|$)`, 'gi');
-        if (re.test(normalized)) {
-            // Replace every occurrence in the original text with asterisks
-            // of equal length. Because the normalized form may have collapsed
-            // characters, we do the masking on the original by length.
-            const mask = '*'.repeat(word.length);
-            // Mask using a simpler case-insensitive substring scan on the
-            // original (sufficient for the common case; bypass-by-spacing
-            // is already caught by the normalized check above).
-            text = text.replace(new RegExp(word, 'gi'), mask);
+    // Profanity pass: two checks against the blocklist.
+    //   • word-boundary scan on a space-preserving collapse (catches plain
+    //     prose: "you are a whore" → "you are a whore" → match)
+    //   • word-boundary scan on a space-stripped collapse (catches the
+    //     "n i g g e r" bypass)
+    // Both normalizations also fold leetspeak (@→a, 1→i, etc.) and squash
+    // repeat-character runs so "niiigger" / "n!gger" / "n1gger" all collapse
+    // to the same canonical form the blocklist stores.
+    const collapsedWithSpace = leetCollapsePreserveSpace(text);
+    const collapsedNoSpace = leetCollapseStripSpace(text);
+    for (let i = 0; i < BLOCKLIST.length; i++) {
+        const original = BLOCKLIST[i]!;
+        const canonical = COLLAPSED_BLOCKLIST[i]!;
+        const re = new RegExp(`(^|[^a-z0-9])(${canonical})(?=[^a-z0-9]|$)`, 'i');
+        const hit = re.test(collapsedWithSpace) || re.test(collapsedNoSpace);
+        if (hit) {
+            // Mask the original word form in the visible string. If it doesn't
+            // appear literally (bypass attempt), the redacted output still
+            // includes the offensive content in some altered form, but the
+            // boolean isCleanText path is what callers use to outright reject.
+            const mask = '*'.repeat(Math.max(3, original.length));
+            text = text.replace(new RegExp(original, 'gi'), mask);
+            // Also redact any contiguous letter-run that collapses to the
+            // canonical form (catches "whooore" etc. where the original
+            // literal regex misses).
+            const fuzzy = new RegExp(canonical.split('').map(c => `${c}+`).join('\\W*'), 'gi');
+            text = text.replace(fuzzy, mask);
         }
     }
 
@@ -131,10 +164,11 @@ export function sanitizeUserText(input: unknown, maxLen: number): string {
  */
 export function isCleanText(input: unknown): boolean {
     if (typeof input !== 'string') return true;
-    const normalized = normalizeForMatch(input);
-    for (const word of BLOCKLIST) {
-        const re = new RegExp(`(^|[^a-z0-9])(${word})(?=[^a-z0-9]|$)`, 'i');
-        if (re.test(normalized)) return false;
+    const collapsedWithSpace = leetCollapsePreserveSpace(input);
+    const collapsedNoSpace = leetCollapseStripSpace(input);
+    for (const canonical of COLLAPSED_BLOCKLIST) {
+        const re = new RegExp(`(^|[^a-z0-9])(${canonical})(?=[^a-z0-9]|$)`, 'i');
+        if (re.test(collapsedWithSpace) || re.test(collapsedNoSpace)) return false;
     }
     return true;
 }
