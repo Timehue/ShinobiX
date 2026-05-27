@@ -46,6 +46,12 @@ export function DailyProfessionMissions({ character }: { character: Character })
             setLoading(false);
             return;
         }
+        // Reset the "already toasted" set whenever profession or player
+        // name changes. Otherwise the set carries stale ids from a
+        // previous profession (or a different account on the same device)
+        // and new completions silently fail to toast because they're
+        // marked as "already seen".
+        seenCompletedRef.current = new Set();
         let cancelled = false;
         async function fetchMissions() {
             try {

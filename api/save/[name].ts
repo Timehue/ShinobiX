@@ -402,6 +402,29 @@ function sanitizeCharacterSave(
         }
     }
 
+    // Bank-interest claim window enforcement.
+    //   The Bank screen (shinobij.client/src/screens/Bank.tsx) uses
+    //   Date.now() to gate the "claim interest" button — a player who
+    //   sets their system clock forward can claim multiple times per
+    //   real day, banking interest that wasn't earned. Server clamps:
+    //   if the client tries to advance lastBankInterestAt by less than
+    //   24h (per the SERVER's clock vs the prior stamp), revert the
+    //   stamp. The implied bankRyo gain isn't surgically reverted —
+    //   any abuse is bounded by the per-save ryo gain cap (1M) and
+    //   the 60s rolling-window limiter when the player tries to
+    //   withdraw the inflated bankRyo back to wallet ryo.
+    const BANK_INTEREST_WINDOW_MS = 24 * 60 * 60 * 1000;
+    const exBankAt = Number(exChar.lastBankInterestAt ?? 0);
+    const inBankAt = Number(char.lastBankInterestAt ?? 0);
+    if (inBankAt > exBankAt) {
+        const elapsed = Date.now() - exBankAt;
+        if (exBankAt > 0 && elapsed < BANK_INTEREST_WINDOW_MS) {
+            // Reject the stamp advance. Existing bankRyo stays as-is
+            // (the abuse-bound caveats above apply).
+            char.lastBankInterestAt = exBankAt;
+        }
+    }
+
     // Hospital timer enforcement.
     //   - If save flips hospitalized false → true, server stamps both
     //     hospitalizedUntil AND hospitalizedAt. The latter is read by
