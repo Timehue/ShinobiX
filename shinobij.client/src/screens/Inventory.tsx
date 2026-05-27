@@ -545,8 +545,9 @@ export function Inventory({
                                         className="item-popup-close"
                                         onClick={() => setSelectedTileCard(null)}
                                         title="Close card details"
+                                        aria-label="Close"
                                     >
-                                        x
+                                        ×
                                     </button>
                                     <strong>{selectedTileCard.card.name}</strong>
                                     <p className="hint">
@@ -566,8 +567,9 @@ export function Inventory({
                             type="button"
                             className="item-popup-close"
                             onClick={() => setSelectedInventoryItem(null)}
+                            aria-label="Close"
                         >
-                            ?
+                            ×
                         </button>
 
                         <div className="item-popup-top">

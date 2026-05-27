@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
 import { safeName, mergePreservingImages, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
+import { withKvLock } from '../_lock.js';
 
 // Honor Seal training speedup. Each Seal reduces the current training timer
 // by 10 minutes. 10 Seals = effectively instant (cap at 100 minutes per call
@@ -49,63 +50,77 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         const key = `save:${playerName}`;
-        const record = await kv.get<Record<string, unknown>>(key);
-        if (!record) return res.status(404).json({ error: 'Player not found.' });
-        const char = record.character as Record<string, unknown> | undefined;
-        if (!char) return res.status(404).json({ error: 'Character not found.' });
+        // Wrap the read-modify-write under lock:save:<name> so two concurrent
+        // speedup calls can't both read the same balance + endsAt, both
+        // deduct the cost, and the player end up paying 2× Seals for one
+        // skip (or, conversely, losing the debit when a concurrent auto-
+        // save lands between the read and write).
+        const lockResult = await withKvLock(key, async () => {
+            const record = await kv.get<Record<string, unknown>>(key);
+            if (!record) return { status: 404 as const, body: { error: 'Player not found.' } };
+            const char = record.character as Record<string, unknown> | undefined;
+            if (!char) return { status: 404 as const, body: { error: 'Character not found.' } };
 
-        // Verify there's actually an active jutsu training that isn't already
-        // finished — otherwise the player would lose Seals for nothing. The
-        // training state lives at the top level of the save record (see
-        // buildPlayerSavePayload in App.tsx).
-        const activeJutsuTraining = record.activeJutsuTraining as { endsAt?: number; jutsuId?: string } | undefined | null;
-        if (!activeJutsuTraining || !activeJutsuTraining.endsAt) {
-            return res.status(400).json({ error: 'No active jutsu training to speed up.' });
-        }
-        const remainingMs = Number(activeJutsuTraining.endsAt) - Date.now();
-        if (remainingMs <= 0) {
-            return res.status(400).json({ error: 'Your training is already complete — collect it instead.' });
-        }
+            // Verify there's actually an active jutsu training that isn't already
+            // finished — otherwise the player would lose Seals for nothing. The
+            // training state lives at the top level of the save record (see
+            // buildPlayerSavePayload in App.tsx).
+            const activeJutsuTraining = record.activeJutsuTraining as { endsAt?: number; jutsuId?: string } | undefined | null;
+            if (!activeJutsuTraining || !activeJutsuTraining.endsAt) {
+                return { status: 400 as const, body: { error: 'No active jutsu training to speed up.' } };
+            }
+            const remainingMs = Number(activeJutsuTraining.endsAt) - Date.now();
+            if (remainingMs <= 0) {
+                return { status: 400 as const, body: { error: 'Your training is already complete — collect it instead.' } };
+            }
 
-        const cost = effectiveCost(sealsRequested, char.profession, char.professionRank);
-        const balance = Number(char.honorSeals ?? 0);
-        if (balance < cost) {
-            return res.status(402).json({ error: 'Not enough Honor Seals.', cost, balance });
-        }
+            const cost = effectiveCost(sealsRequested, char.profession, char.professionRank);
+            const balance = Number(char.honorSeals ?? 0);
+            if (balance < cost) {
+                return { status: 402 as const, body: { error: 'Not enough Honor Seals.', cost, balance } };
+            }
 
-        const requestedMinutes = sealsRequested * MINUTES_PER_SEAL;
-        // Don't sell more time than remains. Otherwise the player can over-pay.
-        const remainingMinutes = Math.ceil(remainingMs / 60_000);
-        if (requestedMinutes > remainingMinutes) {
-            return res.status(400).json({
-                error: `Only ${remainingMinutes} minute(s) of training left — buy fewer Seals.`,
-                remainingMinutes,
-                maxSeals: Math.ceil(remainingMinutes / MINUTES_PER_SEAL),
-            });
-        }
+            const requestedMinutes = sealsRequested * MINUTES_PER_SEAL;
+            // Don't sell more time than remains. Otherwise the player can over-pay.
+            const remainingMinutes = Math.ceil(remainingMs / 60_000);
+            if (requestedMinutes > remainingMinutes) {
+                return {
+                    status: 400 as const,
+                    body: {
+                        error: `Only ${remainingMinutes} minute(s) of training left — buy fewer Seals.`,
+                        remainingMinutes,
+                        maxSeals: Math.ceil(remainingMinutes / MINUTES_PER_SEAL),
+                    },
+                };
+            }
 
-        const minutesReduced = requestedMinutes;
-        const updated = {
-            ...record,
-            character: {
-                ...char,
-                honorSeals: balance - cost,
-            },
-            activeJutsuTraining: {
-                ...activeJutsuTraining,
-                endsAt: Math.max(Date.now(), Number(activeJutsuTraining.endsAt) - minutesReduced * 60_000),
-            },
-        };
-        await kv.set(key, mergePreservingImages(updated, record));
+            const minutesReduced = requestedMinutes;
+            const updated = {
+                ...record,
+                character: {
+                    ...char,
+                    honorSeals: balance - cost,
+                },
+                activeJutsuTraining: {
+                    ...activeJutsuTraining,
+                    endsAt: Math.max(Date.now(), Number(activeJutsuTraining.endsAt) - minutesReduced * 60_000),
+                },
+            };
+            await kv.set(key, mergePreservingImages(updated, record));
 
-        return res.status(200).json({
-            ok: true,
-            sealsRequested,
-            sealsSpent: cost,
-            minutesReduced,
-            honorSealsRemaining: balance - cost,
-            newEndsAt: (updated.activeJutsuTraining as { endsAt: number }).endsAt,
+            return {
+                status: 200 as const,
+                body: {
+                    ok: true,
+                    sealsRequested,
+                    sealsSpent: cost,
+                    minutesReduced,
+                    honorSealsRemaining: balance - cost,
+                    newEndsAt: (updated.activeJutsuTraining as { endsAt: number }).endsAt,
+                },
+            };
         });
+        return res.status(lockResult.status).json(lockResult.body);
     } catch (err) {
         console.error('[jutsu/speedup]', err);
         return res.status(500).json({ error: 'Internal server error.' });
