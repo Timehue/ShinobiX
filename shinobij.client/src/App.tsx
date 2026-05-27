@@ -13713,8 +13713,12 @@ export default function App() {
                         // The loser's client fires the matching call from
                         // its onLoss handler; the two-phase report on the
                         // server merges them into a single damage event.
+                        // Clear clanWarChallengeId after reporting so the
+                        // next PvP fight on the same screen doesn't fire
+                        // a stale clan-war report.
                         if (context?.clanWarChallengeId) {
                             void autoReportClanWarBattleResult(true, opponent?.name);
+                            setPvpBattleContext(prev => prev ? { ...prev, clanWarChallengeId: undefined } : prev);
                         }
                         // Vanguard daily mission progress — server validates the
                         // win against the actual PvpSession and enforces its own
@@ -13758,8 +13762,12 @@ export default function App() {
                                 // Clan-war auto-report on loss — mirror of
                                 // handlePvpWin's call so both clients
                                 // confirm the same outcome on the server.
+                                // Clear clanWarChallengeId after reporting so
+                                // the next PvP fight doesn't fire a stale
+                                // clan-war report.
                                 if (pvpBattleContext?.clanWarChallengeId) {
                                     void autoReportClanWarBattleResult(false, opponent?.name);
+                                    setPvpBattleContext(prev => prev ? { ...prev, clanWarChallengeId: undefined } : prev);
                                 }
                                 if (pvpBattleContext?.mode !== "ranked" || !opponent) return;
                                 const loss = rankedDelta(opponent.rankedRating ?? 1000, character.rankedRating ?? 1000);
