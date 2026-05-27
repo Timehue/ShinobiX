@@ -304,6 +304,9 @@ import { BannerMobileTimers } from "./components/BannerMobileTimers";
 import { LeftProfileCard } from "./components/LeftProfileCard";
 // Static world-map side banner moved to ./components/SectorBanner.
 import { SectorBanner } from "./components/SectorBanner";
+// Desktop right-rail navigation + mobile bottom nav moved out.
+import { RightMenu } from "./components/RightMenu";
+import { MobileNav } from "./components/MobileNav";
 
 const terrainEffects: Record<
     Biome,
@@ -13609,170 +13612,14 @@ export default function App() {
 // LeftProfileCard moved to ./components/LeftProfileCard.
 
 // SectorBanner moved to ./components/SectorBanner.
-const villageBiomes: Record<string, Biome> = {
+export const villageBiomes: Record<string, Biome> = {
     "Stormveil Village": "forest",
     "Ashen Leaf Village": "volcano",
     "Frostfang Village": "snow",
     "Moonshadow Village": "shadow",
 };
 
-function RightMenu({
-    navigate,
-    adminLoggedIn,
-    logoutPlayer,
-    currentBiome,
-    characterName,
-    characterVillage,
-    screen,
-}: {
-    navigate: (screen: Screen) => void;
-    adminLoggedIn: boolean;
-    logoutPlayer: () => void;
-    currentBiome: Biome;
-    characterName: string;
-    characterVillage: string;
-    screen: Screen;
-}) {
-    const [menuOpen, setMenuOpen] = useState(true);
-    const homeBiome = villageBiomes[characterVillage];
-    const atHome = screen !== "worldMap" || currentBiome === homeBiome;
-    const isAdminAccount = isProtectedAdminName(characterName);
-
-    return (
-        <aside
-            className={`right-menu-panel ${menuOpen ? "open" : "closed"}`}
-            style={{
-                backgroundImage: `url(${rightMenuBg})`,
-            }}
-        >
-            <button onClick={() => setMenuOpen((open) => !open)}>
-                {menuOpen ? "Hide Menu" : "Menu"}
-            </button>
-
-            {menuOpen && (
-                <>
-                    <h3>Main Menu</h3>
-
-                    <div className="right-menu-buttons">
-                        <button onClick={() => navigate("village")} disabled={!atHome} title={atHome ? undefined : `Travel to ${characterVillage} to enter`}>Village</button>
-                        <button onClick={() => navigate("worldMap")}>Travel</button>
-                        <button onClick={() => navigate("userHub")}>Users</button>
-                        <button onClick={() => navigate("profile")}>Character</button>
-                        <button onClick={() => navigate("logbook")}>Logbook</button>
-                        <button onClick={() => navigate("inventory")}>Inventory</button>
-                        <button onClick={() => navigate("training")}>Stats</button>
-                        <button onClick={() => navigate("jutsuTraining")}>Jutsu</button>
-                        <button onClick={() => navigate("missions")}>Missions</button>
-                        <button onClick={() => navigate("pets")}>Pets</button>
-                        <button onClick={() => navigate("arena")}>Arena</button>
-                        <button onClick={() => navigate("bloodlineMaker")}>Bloodline</button>
-                        {isAdminAccount && (
-                            <button onClick={() => navigate(adminLoggedIn ? "adminPanel" : "adminLogin")}>Admin</button>
-                        )}
-                        <button onClick={logoutPlayer}>Logout + Save</button>
-                    </div>
-                </>
-            )}
-        </aside>
-    );
-}
-function MobileNav({
-    navigate,
-    adminLoggedIn,
-    logoutPlayer,
-    character,
-    atHome,
-}: {
-    navigate: (screen: Screen) => void;
-    adminLoggedIn: boolean;
-    logoutPlayer: () => void;
-    character: Character;
-    currentSector: number;
-    atHome: boolean;
-}) {
-    const [open, setOpen] = useState(false);
-    const isAdminAccount = isProtectedAdminName(character.name);
-
-    const xpPct = character.level >= MAX_LEVEL
-        ? 100
-        : Math.min(100, Math.round((character.xp / xpNeeded(character.level)) * 100));
-
-    function go(screen: Screen) {
-        navigate(screen);
-        setOpen(false);
-    }
-
-    return (
-        <>
-            <nav className="mobile-bottom-nav">
-                <button className="mobile-nav-btn" onClick={() => go("worldMap")}>
-                    <span className="mnb-icon">🗺️</span>
-                    Travel
-                </button>
-                <button className="mobile-nav-btn" onClick={() => go("village")} disabled={!atHome}>
-                    <span className="mnb-icon">🏯</span>
-                    Village
-                </button>
-                <button className="mobile-nav-btn" onClick={() => go("profile")}>
-                    <span className="mnb-icon">👤</span>
-                    Char
-                </button>
-                <button className="mobile-nav-btn" onClick={() => go("inventory")}>
-                    <span className="mnb-icon">🎒</span>
-                    Items
-                </button>
-                <button className="mobile-nav-btn menu-btn" onClick={() => setOpen(true)}>
-                    <span className="mnb-icon">☰</span>
-                    Menu
-                </button>
-            </nav>
-
-            {open && (
-                <div className="mobile-menu-overlay">
-                    <div className="mobile-menu-header">
-                        <span className="mobile-menu-title">🥷 SHINOBI MENU</span>
-                        <button className="mobile-menu-close" onClick={() => setOpen(false)}>✕</button>
-                    </div>
-
-                    <div className="mobile-char-card">
-                        <div className="mobile-char-avatar">
-                            {character.avatarImage
-                                ? <img src={character.avatarImage} alt={character.name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
-                                : character.name.slice(0, 2).toUpperCase()
-                            }
-                        </div>
-                        <div className="mobile-char-info">
-                            <div className="mobile-char-name">{character.name}</div>
-                            <div className="mobile-char-sub">Lv {character.level} · {character.rankTitle} · {character.village}</div>
-                            <div className="mobile-xp-bar-track">
-                                <div className="mobile-xp-bar-fill" style={{ width: `${xpPct}%` }} />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="mobile-menu-grid">
-                        <button className="mobile-menu-btn" onClick={() => go("village")} disabled={!atHome}>🏯 Village</button>
-                        <button className="mobile-menu-btn" onClick={() => go("worldMap")}>🗺️ Travel</button>
-                        <button className="mobile-menu-btn" onClick={() => go("userHub")}>👥 Users</button>
-                        <button className="mobile-menu-btn" onClick={() => go("profile")}>👤 Character</button>
-                        <button className="mobile-menu-btn" onClick={() => go("logbook")}>📜 Logbook</button>
-                        <button className="mobile-menu-btn" onClick={() => go("inventory")}>🎒 Inventory</button>
-                        <button className="mobile-menu-btn" onClick={() => go("training")}>💪 Stats</button>
-                        <button className="mobile-menu-btn" onClick={() => go("jutsuTraining")}>⚡ Jutsu</button>
-                        <button className="mobile-menu-btn" onClick={() => go("missions")}>📋 Missions</button>
-                        <button className="mobile-menu-btn" onClick={() => go("pets")}>🐾 Pets</button>
-                        <button className="mobile-menu-btn" onClick={() => go("arena")}>⚔️ Arena</button>
-                        <button className="mobile-menu-btn" onClick={() => go("bloodlineMaker")}>🧬 Bloodline</button>
-                        {isAdminAccount && (
-                            <button className="mobile-menu-btn" onClick={() => go(adminLoggedIn ? "adminPanel" : "adminLogin")}>🛠️ Admin</button>
-                        )}
-                        <button className="mobile-menu-btn" onClick={() => { logoutPlayer(); setOpen(false); }}>💾 Logout + Save</button>
-                    </div>
-                </div>
-            )}
-        </>
-    );
-}
+// RightMenu + MobileNav moved to ./components/RightMenu and ./components/MobileNav.
 
 function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, setPageIndex, setLineIndex, onCancel, onComplete, onBattle, sharedImages }: { event: CreatorEvent; character: Character; pageIndex: number; lineIndex: number; setPageIndex: (index: number | ((index: number) => number)) => void; setLineIndex: (index: number | ((index: number) => number)) => void; onCancel: () => void; onComplete: () => void; onBattle: (event: CreatorEvent, battle?: NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number]["battle"]) => void; sharedImages?: Record<string, string> }) {
     // The local character object can drift out of sync with the freshly-
