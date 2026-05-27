@@ -117,6 +117,26 @@ function validateDeck(deck: unknown): ServerTileCard[] | null {
     return cleaned;
 }
 
+// Verify every card in the submitted deck is actually owned by the player.
+// Without this, a client could synthesize a 99/99/99/99 default deck made up
+// of cards they don't own — the picking-phase deadline elapse then promotes
+// the synthesized deck to live. We don't have canonical card stats on the
+// server (the data lives in the client bundle), so stat correctness still
+// relies on the existing 1-99 / sum 60-340 bounds in validateDeck above,
+// but ID ownership is now enforced.
+async function verifyDeckOwnership(deck: ServerTileCard[], playerName: string): Promise<boolean> {
+    if (!playerName) return false;
+    const save = await kv.get<Record<string, unknown>>(`save:${playerName.toLowerCase()}`);
+    const char = (save?.character ?? null) as Record<string, unknown> | null;
+    if (!char) return false;
+    const owned = Array.isArray(char.tileCards) ? (char.tileCards as unknown[]) : [];
+    const ownedIds = new Set<string>(owned.map(v => String(v)));
+    for (const c of deck) {
+        if (!ownedIds.has(c.id)) return false;
+    }
+    return true;
+}
+
 function adjPos(pos: number, dir: 'up' | 'down' | 'left' | 'right'): number | null {
     const r = Math.floor(pos / 3), c = pos % 3;
     if (dir === 'up' && r > 0) return pos - 3;
@@ -338,6 +358,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
                 const defaultDeck = validateDeck(body?.defaultDeck);
                 if (!defaultDeck) return { status: 400 as const, body: { error: 'Invalid defaultDeck.' } };
+                if (!identity.admin && !(await verifyDeckOwnership(defaultDeck, me))) {
+                    return { status: 403 as const, body: { error: 'Default deck contains cards you do not own.' } };
+                }
 
                 const now = Date.now();
                 const newSide: TilecardsSide = { name: me, clan: myClan, defaultDeck, ready: false };
@@ -397,6 +420,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (existing.status !== 'picking') return { status: 409 as const, body: { error: 'Deck-picking phase is closed.' } };
                 const deck = validateDeck(body?.deck);
                 if (!deck) return { status: 400 as const, body: { error: 'Invalid deck: must be exactly 5 cards with stats 1-99 each and total 60-340.' } };
+                if (!identity.admin && !(await verifyDeckOwnership(deck, me))) {
+                    return { status: 403 as const, body: { error: 'Deck contains cards you do not own.' } };
+                }
 
                 const now = Date.now();
                 const updatedSide: TilecardsSide = {
