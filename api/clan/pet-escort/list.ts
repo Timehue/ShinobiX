@@ -1,11 +1,19 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { cors } from '../../_utils.js';
+import { authedPlayerOrAdmin } from '../../_auth.js';
 import { listActiveEscorters } from './_storage.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'GET') return res.status(405).end();
+
+    // Auth gate: previously anon-readable. Active escorter names + their
+    // stamps leak presence intel. Any logged-in player can read; the
+    // underlying _storage helper does best-effort stale-cleanup writes
+    // so we also avoid anonymous write-induction.
+    const identity = await authedPlayerOrAdmin(req);
+    if (!identity) return res.status(401).json({ error: 'Authentication required.' });
 
     try {
         const clanName = String(req.query.clanName ?? '').trim();

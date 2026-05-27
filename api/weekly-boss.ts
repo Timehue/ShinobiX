@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from './_storage.js';
-import { cors } from './_utils.js';
+import { cors, mergePreservingImages } from './_utils.js';
 import { authedPlayerOrAdmin } from './_auth.js';
 import { withKvLock } from './_lock.js';
 
@@ -242,6 +242,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (claimResult.error === 'already-claimed') return res.status(409).json({ error: 'Already claimed.' });
                     return res.status(403).json({ error: 'You did not damage this boss.' });
                 }
+
+                // Server-side reward credit. Previously this endpoint just
+                // returned { reward } and let the client apply ryo/XP via
+                // /api/save. The save sanitizer caps gains, but routing the
+                // grant through the client is unnecessary trust — credit it
+                // here under save:<actor>'s own lock so it stacks correctly
+                // with any concurrent legitimate save. We still return the
+                // reward in the response so the UI can show the toast.
+                if (!identity.admin) {
+                    const saveKey = `save:${actorName}`;
+                    await withKvLock(saveKey, async () => {
+                        const fresh = await kv.get<Record<string, unknown>>(saveKey);
+                        const freshChar = fresh?.character as Record<string, unknown> | undefined;
+                        if (!fresh || !freshChar) return;
+                        const updated = {
+                            ...fresh,
+                            character: {
+                                ...freshChar,
+                                ryo: Math.max(0, Number(freshChar.ryo ?? 0)) + claimResult.reward.ryo,
+                                xp: Math.max(0, Number(freshChar.xp ?? 0)) + claimResult.reward.xp,
+                            },
+                        };
+                        await kv.set(saveKey, mergePreservingImages(updated, fresh));
+                    });
+                }
+
                 return res.status(200).json(claimResult);
             }
 

@@ -269,16 +269,25 @@ function sanitizeCharacterSave(
     // Profession: lock the profession choice (server-side picker writes it
     // via /api/profession/choose), cap XP gains per save, and recompute rank
     // from XP so a malicious client can't claim higher rank than its XP earns.
-    if (exChar.profession) {
-        // Once chosen, profession is permanent — ignore any client attempt to swap.
-        char.profession = exChar.profession;
-    }
+    //
+    // Two-state lockdown:
+    //   • exChar HAS a profession  → preserve it (permanent choice).
+    //   • exChar has NO profession → ALSO preserve `undefined`. The dedicated
+    //     /api/profession/choose endpoint is the only path that may set the
+    //     initial value. Without this branch a fresh-account save POST could
+    //     self-grant `profession: 'vanguard'` and immediately unlock the
+    //     Vanguard discount path on jutsu/speedup / train-with-seals, or
+    //     profession: 'healer' to unlock cross-village healing, etc.
+    char.profession = exChar.profession;
     const exProfXp = Math.max(0, Number(exChar.professionXp ?? 0));
     const inProfXp = Math.max(0, Number(char.professionXp ?? 0));
     const cappedProfXp = Math.min(inProfXp, exProfXp + MAX_PROFESSION_XP_GAIN);
     char.professionXp = cappedProfXp;
     if (char.profession) {
         char.professionRank = rankFromXp(char.profession, cappedProfXp);
+    } else {
+        // No profession yet → strip any client-supplied rank too.
+        char.professionRank = 0;
     }
 
     // Individual stats: can't gain more than MAX_STAT_GAIN per stat per save.
@@ -333,13 +342,23 @@ function sanitizeCharacterSave(
         dailyAiKills: 30,
         // Leaderboard / Hall-of-Legends counters — feed Hall pages directly,
         // so a tampered save can pad them to claim top spots. All are
-        // upward-only by gameplay design.
+        // upward-only by gameplay design. Server-side win endpoints
+        // (api/pet/battle-result, etc.) are the legitimate increment path;
+        // these caps stop a direct save POST from spoofing.
         totalPetWins: 30,
         totalEndlessTowerWins: 5,
         totalTournamentsCompleted: 3,
         totalTilesExplored: 200,
         rankedWins: 20,
         rankedLosses: 20,
+        // Village-war mission counter (drives the "War Veteran" achievement
+        // path). Without a clamp, a tampered save can jump 0 → 999K in one
+        // POST. 5/save matches the raid cap pacing.
+        villageWarMissionsCompleted: 5,
+        // Stats trained + missions completed lifetime counters — used by
+        // achievements but never decreased through legitimate play.
+        totalStatsTrained: 100,
+        totalMissionsCompleted: 5,
     };
     for (const [field, maxDelta] of Object.entries(LIFETIME_COUNTERS)) {
         const inV = Math.max(0, Number((char as Record<string, unknown>)[field] ?? 0));
@@ -390,6 +409,133 @@ function sanitizeCharacterSave(
     if (Array.isArray(char.inventory) && (char.inventory as unknown[]).length > INVENTORY_CAP) {
         char.inventory = (char.inventory as unknown[]).slice(0, INVENTORY_CAP);
     }
+    // ─── examsPassed validation ───────────────────────────────────────────────
+    // Rank exams: genin/chunin/jonin/specialJonin gate level progression
+    // (EXAM_LEVEL_GATES in App.tsx). A forged save could POST
+    // examsPassed:["genin","chunin","jonin","specialJonin"] to skip every
+    // exam and the level cap. Rules:
+    //   - Only the 4 known exam keys are accepted
+    //   - Cap length at 4 (one of each)
+    //   - Dedupe
+    //   - Level-gate: genin needs level ≥20, chunin needs level ≥39
+    //   - Don't shrink an existing entry (legitimate veterans keep their list)
+    const KNOWN_EXAMS = new Set(['genin', 'chunin', 'jonin', 'specialJonin']);
+    const EXAM_LEVEL_GATES_SERVER: Record<string, number> = {
+        genin: 20,
+        chunin: 39,
+        // jonin / specialJonin don't have level gates per App.tsx EXAM_LEVEL_GATES
+    };
+    const exExams = Array.isArray(exChar.examsPassed) ? (exChar.examsPassed as unknown[]).map(String) : [];
+    const inExams = Array.isArray(char.examsPassed) ? (char.examsPassed as unknown[]).map(String) : [];
+    const charLevel = Number(char.level ?? exChar.level ?? 1);
+    const validatedExams: string[] = [];
+    const seenExams = new Set<string>();
+    // Preserve every exam already on the existing save (don't penalize legit veterans).
+    for (const e of exExams) {
+        if (KNOWN_EXAMS.has(e) && !seenExams.has(e)) {
+            validatedExams.push(e);
+            seenExams.add(e);
+        }
+    }
+    // Accept NEW exam additions only if they pass the level gate.
+    for (const e of inExams) {
+        if (!KNOWN_EXAMS.has(e) || seenExams.has(e)) continue;
+        const required = EXAM_LEVEL_GATES_SERVER[e];
+        if (required != null && charLevel < required) continue;
+        validatedExams.push(e);
+        seenExams.add(e);
+    }
+    char.examsPassed = validatedExams.slice(0, 4);
+
+    // ─── savedBloodlines normalization ────────────────────────────────────────
+    // Players author custom bloodlines client-side; without server validation
+    // a forged save can POST bloodlines with jutsus { effectPower: 9999, ap: 0,
+    // cooldown: 0 } that the equip path then makes usable in combat.
+    // Rules:
+    //   - Cap savedBloodlines.length at 5 (client UI keeps 1, but be generous
+    //     for migration / multi-bloodline rosters)
+    //   - For each bloodline: cap jutsus at 15, clamp per-jutsu numerics
+    //   - Strip inline data:image/svg URIs from the bloodline image (SVG can
+    //     carry <script>; only the /api/images endpoint is supposed to enforce
+    //     this and inline saves bypass it)
+    const BLOODLINE_CAP = 5;
+    const JUTSU_PER_BLOODLINE_CAP = 15;
+    const RAW_BLOODLINE_IMAGE_MAX_BYTES = 250_000;  // 250 KB inline cap
+    const KNOWN_BLOODLINE_RANKS = new Set(['B Rank', 'A Rank', 'S Rank']);
+    if (Array.isArray(char.savedBloodlines)) {
+        const inBloodlines = (char.savedBloodlines as Array<Record<string, unknown>>).slice(0, BLOODLINE_CAP);
+        char.savedBloodlines = inBloodlines.map((bl) => {
+            if (!bl || typeof bl !== 'object') return {};
+            const out: Record<string, unknown> = { ...bl };
+            // Rank — fall back to B Rank if unknown.
+            const rawRank = String(out.rank ?? '');
+            if (!KNOWN_BLOODLINE_RANKS.has(rawRank)) out.rank = 'B Rank';
+            // Strip inline SVG / oversized image data — let shared image
+            // storage host real images via the /api/images allowlist.
+            if (typeof out.image === 'string') {
+                const img = out.image;
+                if (/^data:image\/svg/i.test(img) || img.length > RAW_BLOODLINE_IMAGE_MAX_BYTES) {
+                    out.image = undefined;
+                }
+            }
+            // Numeric totalPoints — informational; the equip-side math
+            // doesn't rely on it but clamp anyway so leaderboards/UI don't
+            // see absurd values.
+            out.totalPoints = Math.max(0, Math.min(20, Number(out.totalPoints ?? 0) || 0));
+            // Jutsus list — cap count + clamp per-jutsu numerics.
+            const rawJutsus = Array.isArray(out.jutsus) ? out.jutsus as Array<Record<string, unknown>> : [];
+            out.jutsus = rawJutsus.slice(0, JUTSU_PER_BLOODLINE_CAP).map((j) => {
+                if (!j || typeof j !== 'object') return j;
+                const jOut: Record<string, unknown> = { ...j };
+                if (jOut.effectPower != null) {
+                    jOut.effectPower = Math.max(0, Math.min(200, Number(jOut.effectPower) || 0));
+                }
+                if (jOut.ap != null) {
+                    // AP values in bloodline jutsus are 40 / 60 / 80 normally.
+                    jOut.ap = Math.max(20, Math.min(200, Number(jOut.ap) || 40));
+                }
+                if (jOut.cooldown != null) {
+                    jOut.cooldown = Math.max(0, Math.min(50, Number(jOut.cooldown) || 0));
+                }
+                if (jOut.chakraCost != null) {
+                    jOut.chakraCost = Math.max(0, Math.min(1000, Number(jOut.chakraCost) || 0));
+                }
+                if (jOut.staminaCost != null) {
+                    jOut.staminaCost = Math.max(0, Math.min(1000, Number(jOut.staminaCost) || 0));
+                }
+                if (jOut.range != null) {
+                    jOut.range = Math.max(0, Math.min(30, Number(jOut.range) || 1));
+                }
+                return jOut;
+            });
+            return out;
+        });
+    }
+
+    // ─── endlessTowerRun shape validation ─────────────────────────────────────
+    // Run state is client-tracked then collected via save. Forged saves can
+    // POST {wave: 9999, bankedRyo: 999999999, bankedXp: 999999999}. The
+    // existing per-save ryo cap catches absurd ryo on the COLLECT step but
+    // XP only has a rolling-window guard. Clamp the in-flight banked values
+    // so the collect step can't ever credit more than these ceilings.
+    const ET_BANKED_RYO_CAP = 100_000;
+    const ET_BANKED_XP_CAP = 50_000;
+    const ET_WAVE_CAP = 200;
+    if (char.endlessTowerRun && typeof char.endlessTowerRun === 'object') {
+        const run = char.endlessTowerRun as Record<string, unknown>;
+        if (run.bankedRyo != null) run.bankedRyo = Math.max(0, Math.min(ET_BANKED_RYO_CAP, Number(run.bankedRyo) || 0));
+        if (run.bankedXp != null) run.bankedXp = Math.max(0, Math.min(ET_BANKED_XP_CAP, Number(run.bankedXp) || 0));
+        if (run.wave != null) run.wave = Math.max(0, Math.min(ET_WAVE_CAP, Math.floor(Number(run.wave) || 0)));
+    }
+
+    // ─── defeatedAiIds length cap ─────────────────────────────────────────────
+    // Drives "AI Hunter" achievement variants. Hard cap so a forged save
+    // can't push the array to enormous lengths and bloat KV.
+    const DEFEATED_AI_IDS_CAP = 5000;
+    if (Array.isArray(char.defeatedAiIds) && (char.defeatedAiIds as unknown[]).length > DEFEATED_AI_IDS_CAP) {
+        char.defeatedAiIds = (char.defeatedAiIds as unknown[]).slice(-DEFEATED_AI_IDS_CAP);
+    }
+
     const TILE_CARD_CAP = 500;
     if (Array.isArray(char.tileCards) && (char.tileCards as unknown[]).length > TILE_CARD_CAP) {
         char.tileCards = (char.tileCards as unknown[]).slice(0, TILE_CARD_CAP);
@@ -430,34 +576,153 @@ function sanitizeCharacterSave(
         }
     }
 
+    // Bank-interest claim window enforcement.
+    //   The Bank screen (shinobij.client/src/screens/Bank.tsx) uses
+    //   Date.now() to gate the "claim interest" button — a player who
+    //   sets their system clock forward can claim multiple times per
+    //   real day, banking interest that wasn't earned. Server clamps:
+    //   if the client tries to advance lastBankInterestAt by less than
+    //   24h (per the SERVER's clock vs the prior stamp), revert the
+    //   stamp. The implied bankRyo gain isn't surgically reverted —
+    //   any abuse is bounded by the per-save ryo gain cap (1M) and
+    //   the 60s rolling-window limiter when the player tries to
+    //   withdraw the inflated bankRyo back to wallet ryo.
+    const BANK_INTEREST_WINDOW_MS = 24 * 60 * 60 * 1000;
+    const exBankAt = Number(exChar.lastBankInterestAt ?? 0);
+    const inBankAt = Number(char.lastBankInterestAt ?? 0);
+    if (inBankAt > exBankAt) {
+        const elapsed = Date.now() - exBankAt;
+        if (exBankAt > 0 && elapsed < BANK_INTEREST_WINDOW_MS) {
+            // Reject the stamp advance. Existing bankRyo stays as-is
+            // (the abuse-bound caveats above apply).
+            char.lastBankInterestAt = exBankAt;
+        }
+    }
+
     // Hospital timer enforcement.
-    //   - If save flips hospitalized false → true, server stamps hospitalizedUntil.
+    //   - If save flips hospitalized false → true, server stamps both
+    //     hospitalizedUntil AND hospitalizedAt. The latter is read by
+    //     api/player/heal.ts to award the +50% Healer raid-assist XP
+    //     bonus when a Healer reaches a freshly-hospitalized friendly.
     //   - If save flips hospitalized true → false before the timer expires, revert
     //     (with HP at zero — exactly the state they were in when admitted).
+    //   - Discharge (genuine or rejected) always goes through api/player/heal,
+    //     not this validator — see Hospital.tsx::discharge(). This validator
+    //     is the fallback that catches client-only attempts to flip the flag.
     const exHosp = !!exChar.hospitalized;
     const inHosp = !!char.hospitalized;
     const exHospUntil = Number(exChar.hospitalizedUntil ?? 0);
+    const exHospAt = Number(exChar.hospitalizedAt ?? 0);
     if (!exHosp && inHosp) {
-        char.hospitalizedUntil = Date.now() + HOSPITAL_DURATION_MS;
+        const now = Date.now();
+        char.hospitalizedUntil = now + HOSPITAL_DURATION_MS;
+        char.hospitalizedAt = now;
     } else if (exHosp && !inHosp) {
         if (exHospUntil && Date.now() < exHospUntil) {
             // Reject early discharge — force the player to wait out the timer
-            // (or pay the discharge fee, which is a client-side flow that
-            //  doesn't actually skip the timer either now).
+            // or go through /api/player/heal (which charges ryo server-side
+            // when paySkip=true, or applies the Healer rank-shortened timer).
             char.hospitalized = true;
             char.hospitalizedUntil = exHospUntil;
+            char.hospitalizedAt = exHospAt;
             // Snap HP back to 0 so they can't farm hp during the lockout.
             char.hp = 0;
         } else {
-            // Timer expired or unset — allow discharge and clear the stamp.
+            // Timer expired or unset — allow discharge and clear both stamps.
             char.hospitalizedUntil = 0;
+            char.hospitalizedAt = 0;
         }
     } else if (exHosp && inHosp) {
-        // Preserve the original stamp — don't let the client refresh it.
+        // Preserve the original stamps — don't let the client refresh them.
         char.hospitalizedUntil = exHospUntil || char.hospitalizedUntil;
+        char.hospitalizedAt = exHospAt || char.hospitalizedAt;
     }
 
     return { ...incoming, character: char };
+}
+
+// ── Clan / village identity lockdown ──────────────────────────────────────
+// Three character fields gate critical permissions and were previously
+// trusted blindly from the client save POST:
+//   - `clanFounder` is read by api/clan/seal-pool/distribute.ts to authorise
+//     pool drains. A client POST with { clanFounder: true, clan: "TARGET" }
+//     used to be enough to take over any clan's distribution.
+//   - `clan` decides which clan you contribute to, vote in, and donate to.
+//   - `village` decides which sealed pools, kage finales, and same-village
+//     gates apply to you.
+//
+// We can't lock these outright — there are legitimate transitions (joining /
+// founding / leaving a clan) — so this helper cross-checks any change
+// against the canonical `save:clan-<slug>` record and the originating
+// village. Async because it reads other KV keys; called AFTER the sync
+// sanitizer so all other fields are already clamped.
+function clanRecordSlug(name: string): string {
+    return 'clan-' + name.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+type MinimalClanRec = { name?: string; founderName?: string; members?: Array<{ name?: string }> };
+
+async function validateClanAndVillageIdentity(
+    safeIncoming: Record<string, unknown>,
+    existing: Record<string, unknown> | null,
+    playerName: string,
+): Promise<Record<string, unknown>> {
+    const inChar = safeIncoming.character as Record<string, unknown> | undefined;
+    if (!inChar) return safeIncoming;
+    const exChar = (existing?.character as Record<string, unknown> | undefined) ?? {};
+    const out: Record<string, unknown> = { ...inChar };
+
+    // Village: locked. Set at registration; no relocation flow exists today.
+    // If the client tries to change village post-registration, revert to the
+    // server-side value. (If a relocate endpoint is ever added, it should
+    // mutate the save server-side and this check will still pass because
+    // exChar.village will already reflect the new value.)
+    if (exChar.village && out.village !== exChar.village) {
+        out.village = exChar.village;
+    }
+
+    // Clan / clanFounder cross-validation.
+    const exClan = String(exChar.clan ?? '').trim();
+    const inClan = String(out.clan ?? '').trim();
+    const exFounder = !!exChar.clanFounder;
+    const inFounder = !!out.clanFounder;
+
+    if (inClan === exClan) {
+        // Clan unchanged — but founder flag may still be flipping. A client
+        // can't unilaterally promote itself to founder of its existing clan.
+        if (inFounder !== exFounder) {
+            if (inFounder && inClan) {
+                const rec = await kv.get<MinimalClanRec>(`save:${clanRecordSlug(inClan)}`);
+                const isFounder = (rec?.founderName ?? '').toLowerCase() === playerName.toLowerCase();
+                if (!isFounder) out.clanFounder = exFounder;
+            } else {
+                // Demoting self (inFounder=false): always allowed.
+            }
+        }
+    } else if (!inClan) {
+        // Leaving — always allowed; force founder false.
+        out.clan = undefined;
+        out.clanFounder = false;
+    } else {
+        // Joining or switching — require the target clan record to exist
+        // AND list this player among its members. The clan flow writes
+        // membership server-side BEFORE the character flip, so a legit
+        // join will pass; a forged save POST will not.
+        const rec = await kv.get<MinimalClanRec>(`save:${clanRecordSlug(inClan)}`);
+        const lower = playerName.toLowerCase();
+        const isMember = !!rec?.members?.some(m => (m?.name ?? '').toLowerCase() === lower);
+        if (!isMember) {
+            // Reject the clan change entirely.
+            out.clan = exClan || undefined;
+            out.clanFounder = exFounder;
+        } else {
+            // Membership confirmed. Founder flag is authoritative from the
+            // clan record, not the client.
+            out.clanFounder = (rec?.founderName ?? '').toLowerCase() === lower;
+        }
+    }
+
+    return { ...safeIncoming, character: out };
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -654,6 +919,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             incoming as Record<string, unknown>,
                             (existing as Record<string, unknown> | null) ?? null,
                         );
+                        // Cross-validate clan / clanFounder / village against
+                        // canonical clan records. This is the gate that stops
+                        // a forged save POST from promoting itself to
+                        // clanFounder of any clan (and then draining its
+                        // seal pool via clan/seal-pool/distribute).
+                        if (identityName) {
+                            safeIncoming = await validateClanAndVillageIdentity(
+                                safeIncoming as Record<string, unknown>,
+                                (existing as Record<string, unknown> | null) ?? null,
+                                identityName,
+                            );
+                        }
                     }
 
                     // ── Rolling-window gain caps (finding 6) ──────────────────

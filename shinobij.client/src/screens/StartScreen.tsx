@@ -32,10 +32,10 @@ type PublicTournament = {
     advancedPlayers?: string[];
 } | null;
 
-export function StartScreen({ onCreate, onLogin }: {
+export function StartScreen({ onCreate, onLogin, onAdmin }: {
     onCreate: (character: Character, password: string) => void;
     onLogin: (name: string, password: string) => void;
-    onAdmin: () => void;
+    onAdmin: (prefilledPassword?: string) => void;
 }) {
     const [view, setView] = useState<StartView>("main");
     const [loginName, setLoginName] = useState("");
@@ -43,9 +43,34 @@ export function StartScreen({ onCreate, onLogin }: {
     const [showLoginPw, setShowLoginPw] = useState(false);
     const [loginStatus, setLoginStatus] = useState("");
 
+    // Only "Admin 2" / "admin2" auto-routes to the admin login from the
+    // player form. Admin 1 is intentionally NOT detected here — Admin 1
+    // access flows through:
+    //   1. Log in as player Rill (normal player auth, Rill's password)
+    //   2. Click the in-game "Admin" button (visible to protected admin names)
+    //   3. Enter the admin password on the admin login screen
+    // This keeps Admin 1 powers gated behind both Rill's player password AND
+    // the admin password, instead of giving anyone with the admin password a
+    // direct route on the public start screen.
+    function normalizeAdminName(raw: string): "admin2" | null {
+        const n = raw.trim().toLowerCase().replace(/\s+/g, "");
+        if (n === "admin2") return "admin2";
+        return null;
+    }
+
     async function submitLogin() {
         if (loginName.trim().length < 2) return alert("Enter your player name.");
         if (!loginPassword) return alert("Enter your password.");
+
+        // Admin name? Route to the admin login screen with the password already
+        // filled in so they don't have to retype it. The Admin Login screen
+        // verifies the password against ADMIN_PASSWORD (Admin 1) or
+        // ADMIN_CONTENT_PASSWORD (Admin 2) and lands on the right account.
+        if (normalizeAdminName(loginName)) {
+            onAdmin(loginPassword);
+            return;
+        }
+
         setLoginStatus("Loading...");
         try {
             await onLogin(loginName.trim(), loginPassword);

@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
+import { enforceRateLimit } from '../_ratelimit.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -18,6 +19,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && identity.name !== name.toLowerCase().trim()) {
             return res.status(403).json({ error: 'Cannot queue as another player.' });
         }
+
+        // Per-actor rate limit. The legit flow is "queue once when you go
+        // AFK as a guard" — 6/min is comfortable for re-queuing across
+        // disconnects but kills any KV-churn attack that hammers
+        // guard:<name> writes (each refreshes the 5min TTL).
+        const rlName = identity.admin ? undefined : identity.name;
+        if (!identity.admin && !enforceRateLimit(req, res, 'village-guard-queue', 6, 60_000, rlName)) return;
 
         // Derive level (and verify village) from the server-side save.
         let serverLevel = 1;

@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
 import { safeName, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
+import { professionRankForXp } from '../missions/_progress.js';
 
 // Rank 10 Healer perk: see all injured players in your village anywhere in
 // the world (HP < maxHp), not just those in the hospital. Returns a small
@@ -40,7 +41,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && healerChar.profession !== 'healer') {
             return res.status(403).json({ error: 'Healers only.' });
         }
-        if (!identity.admin && Number(healerChar.professionRank ?? 0) < HEALER_WORLDWIDE_RANK) {
+        // Derive rank from professionXp server-side instead of trusting
+        // the saved professionRank field. A corrupted save / admin edit
+        // setting professionRank=10 directly would otherwise leak
+        // world-wide injured-villager data without the player earning it.
+        const trustedRank = professionRankForXp('healer', Number(healerChar.professionXp ?? 0));
+        if (!identity.admin && trustedRank < HEALER_WORLDWIDE_RANK) {
             return res.status(403).json({ error: `World-wide visibility unlocks at Rank ${HEALER_WORLDWIDE_RANK}.` });
         }
 
