@@ -5030,6 +5030,142 @@ button {
         transform: translateY(0);
     }
 }
+
+/* Mobile: shrink lore text and stack the Begin/Back buttons so the
+   whole screen fits comfortably without the menu hiding behind the
+   bottom mobile nav. */
+@media (max-width: 800px) {
+    .village-lore-screen {
+        margin: 12px auto !important;
+    }
+
+    .village-lore-screen h1 {
+        font-size: 26px !important;
+        margin-bottom: 4px !important;
+    }
+
+    .village-lore-screen h3 {
+        margin-bottom: 16px !important;
+        font-size: 15px !important;
+    }
+
+    .village-lore-text {
+        font-size: 15px !important;
+        line-height: 1.55 !important;
+        margin: 0 auto 20px !important;
+    }
+
+    .village-lore-text p {
+        margin-bottom: 12px !important;
+    }
+
+    .village-lore-screen .menu {
+        flex-direction: column !important;
+        gap: 8px !important;
+        margin-bottom: 12px !important;
+    }
+
+    .village-lore-screen .menu button {
+        width: 100% !important;
+    }
+}
+
+/* =========================================================
+   MOBILE LIST + ACTION PATTERN — Jutsu / Technique browser
+   On desktop this is a 2-column layout (grid left, filter+action
+   panel right). Stacking it on mobile (existing rule) put the
+   Equip button below the entire grid + filter form, so on long
+   lists it gets buried.
+   Fix: turn the filter panel into a sticky "header" at the top
+   of the screen with the action button at the very top of it
+   (CSS order: -1), so the primary action stays one tap away no
+   matter how far the user scrolls.
+   ========================================================= */
+@media (max-width: 800px) {
+    .technique-shell {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 8px !important;
+    }
+
+    /* Grid: pushed below the sticky filter panel */
+    .technique-shell .technique-grid {
+        order: 2 !important;
+    }
+
+    /* Filter panel: pinned to the top of the viewport */
+    .technique-shell .technique-filter-panel {
+        order: 1 !important;
+        position: sticky !important;
+        top: 4px !important;
+        z-index: 50 !important;
+        background: rgba(2, 6, 23, 0.94) !important;
+        backdrop-filter: blur(6px) !important;
+        padding: 8px 10px !important;
+        border-radius: 10px !important;
+        border: 1px solid rgba(250, 204, 21, 0.28) !important;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45) !important;
+        max-height: 55vh !important;
+        overflow-y: auto !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+
+    /* Filter labels + inputs compact on mobile */
+    .technique-shell .technique-filter-panel > label {
+        font-size: 11px !important;
+        margin: 4px 0 1px !important;
+        color: #94a3b8 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.5px !important;
+    }
+
+    .technique-shell .technique-filter-panel > input,
+    .technique-shell .technique-filter-panel > select {
+        padding: 5px 8px !important;
+        font-size: 13px !important;
+        margin: 0 !important;
+    }
+
+    /* Selected jutsu panel: PROMOTED to the top of the flex column
+       (above the filter inputs) so the Equip/Unequip button is the
+       first thing the player sees. */
+    .technique-shell .technique-selected-panel {
+        order: -1 !important;
+        margin: 0 0 6px !important;
+        padding: 0 0 6px !important;
+        border-bottom: 1px solid rgba(250, 204, 21, 0.22) !important;
+    }
+
+    /* Action button (Equip/Unequip) — big, full-width, unmistakable */
+    .technique-shell .technique-selected-panel .menu {
+        margin: 0 0 4px !important;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 4px !important;
+    }
+
+    .technique-shell .technique-selected-panel .menu button {
+        width: 100% !important;
+        min-height: 44px !important;
+        font-size: 14px !important;
+        font-weight: 600 !important;
+        letter-spacing: 0.3px !important;
+    }
+
+    /* Selected-jutsu details: kept but compact so the Equip button
+       doesn't get pushed off the sticky panel by a long description. */
+    .technique-shell .technique-selected-panel h4 {
+        margin: 2px 0 !important;
+        font-size: 14px !important;
+    }
+
+    .technique-shell .technique-selected-panel p {
+        font-size: 12px !important;
+        margin: 2px 0 !important;
+        line-height: 1.35 !important;
+    }
+}
 /* ===== Cleaner image/UI pass ===== */
 
 body {
@@ -6119,9 +6255,13 @@ body {
     position: fixed;
     inset: 0;
     background: rgba(0, 0, 0, 0.72);
+    /* Allow scrolling when the inner panel is taller than the viewport
+       (phones). align-items:center + no overflow = scroll trap. */
+    overflow-y: auto;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
+    padding: 16px;
     z-index: 2000;
 }
 
@@ -10356,7 +10496,7 @@ textarea {
         min-width: 160px;
     }
 
-@media (max-width: 780px) {
+@media (max-width: 800px) {
     .item-popup-top {
         grid-template-columns: 1fr;
     }
@@ -10368,6 +10508,55 @@ textarea {
     .item-popup-detail-grid,
     .item-popup-effect-grid {
         grid-template-columns: 1fr;
+    }
+
+    /* The popup card has a *lot* of content on a complex weapon item
+       (image + 12-row detail grid + weapon tags + effect boxes + bonus
+       boxes), so the Equip/Sell/Close buttons end up far below the fold.
+       Pin them to the bottom of the scrollable popup so the player's
+       primary action is always one tap away — same pattern as iOS
+       share-sheet / App Store install button. */
+    .item-popup-card {
+        padding: 14px 14px 0 !important;
+    }
+
+    .item-popup-actions {
+        position: sticky !important;
+        bottom: 0 !important;
+        margin: 12px -14px 0 !important;
+        padding: 10px 14px max(10px, env(safe-area-inset-bottom, 10px)) !important;
+        background: linear-gradient(180deg, rgba(51, 65, 85, 0), rgba(51, 65, 85, 0.96) 30%, rgba(51, 65, 85, 1)) !important;
+        border-top: 1px solid rgba(250, 204, 21, 0.3) !important;
+        z-index: 5 !important;
+        flex-direction: column !important;
+        gap: 6px !important;
+    }
+
+    /* Override the desktop min-width: 160px so each button takes the
+       full popup width — bigger tap target, cleaner stack. */
+    .item-popup-actions button {
+        width: 100% !important;
+        min-width: 0 !important;
+        min-height: 42px !important;
+        font-size: 14px !important;
+    }
+
+    /* Tighten the detail rows so the buttons aren't pushed off-screen
+       by the detail dump on tall items. */
+    .item-popup-detail-grid p,
+    .item-popup-effect-grid p {
+        margin: 2px 0 !important;
+        font-size: 13px !important;
+    }
+
+    .item-popup-effect-box {
+        padding: 8px !important;
+        margin-top: 6px !important;
+    }
+
+    .item-popup-effect-box h4 {
+        font-size: 13px !important;
+        margin: 0 0 4px !important;
     }
 }
 
@@ -10764,8 +10953,10 @@ textarea {
     inset: 0;
     background: rgba(0, 0, 0, 0.6);
     z-index: 9999;
+    /* Scroll when the inner panel exceeds viewport height. */
+    overflow-y: auto;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
     padding: 16px;
 }
@@ -11181,17 +11372,30 @@ textarea {
         margin-right: 0 !important;
         width: 100vw !important;
         max-width: 100vw !important;
-        padding: 8px !important;
+        /* No top padding — MobileStatusHUD lives at the top edge with
+           its own safe-area inset. Horizontal padding starts after the
+           HUD via the inner content. Bottom padding clears the fixed
+           bottom nav (handled by the bottom-nav rule). */
+        padding: 0 8px 8px !important;
     }
 
+    /* Slim mobile banner — top chrome is now the persistent
+       MobileStatusHUD (sticky bar above), so the banner is
+       reduced to a thin atmospheric strip instead of taking
+       120px of vertical real estate. overflow: visible lets
+       the BMT training-timer pills (anchored to banner top-right)
+       extend downward over content — each pill has its own
+       background so it stays readable. */
     .journey-banner {
-        height: 120px !important;
-        min-height: 120px !important;
-        background-position: left center !important;
+        height: 60px !important;
+        min-height: 60px !important;
+        background-position: center 35% !important;
+        overflow: visible !important;
+        position: relative !important;
     }
 
     .journey-banner-img {
-        object-position: left center !important;
+        object-position: center 35% !important;
     }
 
     .journey-live-stats {
@@ -11199,29 +11403,75 @@ textarea {
     }
 
     .arena-fullscreen {
-        padding: 6px !important;
-        border-width: 3px !important;
+        padding: 5px !important;
+        border-width: 2px !important;
     }
 
+        /* Scale hex board to viewport height so it doesn't dominate
+           the scrollable battle page on phones. ~36vh keeps it the
+           biggest single element without pushing everything else
+           offscreen. Min 240 protects very short landscape phones. */
         .arena-fullscreen .hex-battlefield {
-            height: 360px !important;
-            min-height: 360px !important;
+            height: clamp(240px, 36vh, 340px) !important;
+            min-height: clamp(240px, 36vh, 340px) !important;
             padding: 4px !important;
         }
 
     .dual-ap-panel {
         grid-template-columns: 1fr !important;
         font-size: 12px !important;
+        gap: 4px !important;
     }
 
     .shinobi-command-bar,
     .basic-action-bar {
         grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 4px !important;
+        padding: 4px !important;
     }
 
+    /* Tighten command-bar buttons on phones — base styles target a
+       roomier landscape size and waste vertical space when stacked. */
+    .arena-fullscreen .shinobi-command-bar button,
+    .arena-fullscreen .basic-action-bar button {
+        min-height: 40px !important;
+        padding: 4px 6px !important;
+        font-size: 12px !important;
+    }
+
+    /* Jutsu layout card already scrolls internally — keep it small
+       so the player can see the hex board without scrolling the page. */
     .arena-fullscreen .jutsu-layout-card {
-        max-height: 260px !important;
+        max-height: clamp(160px, 22vh, 220px) !important;
         overflow-y: auto !important;
+        padding: 4px !important;
+    }
+
+    /* Player HUD: compact horizontal strip rather than a tall card. */
+    .arena-fullscreen .combat-side-hud {
+        padding: 6px !important;
+        font-size: 12px !important;
+    }
+
+    .arena-fullscreen .combat-avatar {
+        width: 64px !important;
+        height: 64px !important;
+        min-width: 64px !important;
+    }
+
+    /* Equipped jutsu grid: 3-up on phones so cards aren't postage-stamps. */
+    .arena-fullscreen .combat-equipped-jutsu-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        gap: 4px !important;
+    }
+
+    .arena-fullscreen .combat-jutsu-button {
+        min-height: 78px !important;
+        padding: 3px !important;
+    }
+
+    .arena-fullscreen .combat-jutsu-thumb {
+        height: 44px !important;
     }
 }
 
@@ -14208,6 +14458,7 @@ button.combat-jutsu-button,
     backdrop-filter: blur(3px);
     -webkit-backdrop-filter: blur(3px);
     z-index: 2000;
+    overflow-y: auto;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -15555,6 +15806,201 @@ button.combat-jutsu-button,
 .item-card-legendary-reflect { box-shadow: 0 0 8px rgba(192, 132, 252, .40); }
 
 /* =============================================
+   MOBILE TOP STATUS HUD
+   Persistent resource bar — fills the gap left by the
+   desktop-only LeftProfileCard and JourneyLiveStats.
+   Pattern from Genshin/Clash/Marvel SNAP: avatar +
+   bars + currency always visible at the top of the
+   viewport, even while scrolling the content below.
+   ============================================= */
+
+.mobile-top-hud {
+  display: none; /* hidden on desktop — LeftProfileCard covers this role */
+}
+
+@media (max-width: 800px) {
+  .mobile-top-hud {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    position: sticky;
+    top: 0;
+    z-index: 999;
+    padding: 6px 10px;
+    padding-top: calc(6px + env(safe-area-inset-top, 0px));
+    background: linear-gradient(180deg, rgba(7, 17, 31, 0.97) 0%, rgba(2, 6, 15, 0.92) 100%);
+    border-bottom: 1px solid rgba(250, 204, 21, 0.32);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+
+  /* Back arrow — only shown when the parent passes onBack (i.e. there's
+     somewhere in history to pop to). 36×36 tap target sits at the far
+     left of the HUD, separated from the identity zone. */
+  .mthd-back {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    min-height: 36px;
+    padding: 0;
+    border: 1px solid rgba(250, 204, 21, 0.4);
+    background: rgba(2, 6, 23, 0.6);
+    color: #facc15;
+    border-radius: 50%;
+    font-size: 20px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    cursor: pointer;
+    transition: background 120ms, transform 120ms;
+  }
+
+  .mthd-back:active {
+    background: rgba(250, 204, 21, 0.18);
+    transform: translateX(-2px);
+  }
+
+  .mthd-identity {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    max-width: 38%;
+  }
+
+  .mthd-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 1px solid rgba(250, 204, 21, 0.55);
+    background: #1e293b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: bold;
+    color: #facc15;
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  .mthd-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .mthd-name-row {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    line-height: 1.1;
+    min-width: 0;
+  }
+
+  .mthd-name {
+    font-size: 11px;
+    color: #e8eef8;
+    max-width: 90px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+  }
+
+  .mthd-level {
+    font-size: 10px;
+    color: #facc15;
+    font-weight: 600;
+  }
+
+  .mthd-bars {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .mthd-bar {
+    position: relative;
+    height: 11px;
+    background: rgba(2, 6, 23, 0.75);
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+  }
+
+  .mthd-bar-fill {
+    height: 100%;
+    transition: width 220ms ease-out;
+  }
+
+  .mthd-bar-hp .mthd-bar-fill {
+    background: linear-gradient(90deg, #b91c1c 0%, #f87171 100%);
+    box-shadow: 0 0 6px rgba(248, 113, 113, 0.35);
+  }
+
+  .mthd-bar-chakra .mthd-bar-fill {
+    background: linear-gradient(90deg, #0369a1 0%, #38bdf8 100%);
+    box-shadow: 0 0 6px rgba(56, 189, 248, 0.35);
+  }
+
+  .mthd-bar-stamina .mthd-bar-fill {
+    background: linear-gradient(90deg, #65a30d 0%, #a3e635 100%);
+    box-shadow: 0 0 6px rgba(163, 230, 53, 0.35);
+  }
+
+  .mthd-bar-label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-weight: 700;
+    color: #ffffff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+    line-height: 1;
+    letter-spacing: 0.2px;
+  }
+
+  .mthd-resources {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+    flex-shrink: 0;
+    font-size: 11px;
+    line-height: 1.15;
+    font-weight: 600;
+  }
+
+  .mthd-resource {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    white-space: nowrap;
+  }
+
+  .mthd-ryo {
+    color: #facc15;
+  }
+
+  .mthd-shards {
+    color: #ce93d8;
+  }
+
+  .mthd-resource-icon {
+    font-size: 11px;
+    line-height: 1;
+  }
+}
+
+/* =============================================
    MOBILE BOTTOM NAV + MENU OVERLAY
    ============================================= */
 
@@ -15952,6 +16398,124 @@ button.combat-jutsu-button,
     position: absolute !important;
     transform-origin: top left !important;
     margin: 0 !important;
+  }
+
+  /* ───── Compactification: reclaim vertical space for the action zone ─────
+     Before this block, mobile battle stacked: HUDs + arena title + terrain
+     strip + AP panel + hex (~340px) + command bar + jutsu cards + 220px
+     combat log = often 900–1000px. Phones are ~700–800px usable. Result:
+     constant scrolling between hex and jutsu mid-fight.
+     The full game-style fix is a tabbed bottom panel (Jutsu/Log/Status)
+     which requires JSX changes in two places (PvE + PvP) — high risk.
+     This CSS-only pass instead compresses the auxiliary panels so the
+     core action loop (hex + AP + command bar + jutsu) all fit one
+     viewport on most phones. The log stays available as a small strip
+     with internal scroll instead of dominating the page. */
+
+  /* Arena title panel — was decorative-large on desktop, on phones it's
+     just consuming vertical space that the player needs for action. */
+  .arena-fullscreen .arena-top-panel {
+    padding: 4px 8px !important;
+    margin-bottom: 4px !important;
+  }
+  .arena-fullscreen .arena-title-panel h2 {
+    font-size: 14px !important;
+    margin: 0 !important;
+    line-height: 1.1 !important;
+    letter-spacing: 0.1em !important;
+  }
+  .arena-fullscreen .arena-title-panel p {
+    font-size: 10px !important;
+    margin: 1px 0 0 !important;
+    line-height: 1 !important;
+  }
+
+  /* Terrain/Weather strip — single condensed line, wrap labels off */
+  .arena-fullscreen .twp-strip {
+    padding: 3px 6px !important;
+    gap: 4px !important;
+    margin-bottom: 3px !important;
+    font-size: 10px !important;
+  }
+  .arena-fullscreen .twp-strip-label,
+  .arena-fullscreen .twp-strip-sep {
+    display: none !important; /* labels and dot separators eat width */
+  }
+  .arena-fullscreen .twp-strip-biome,
+  .arena-fullscreen .twp-strip-value,
+  .arena-fullscreen .twp-buff {
+    font-size: 10px !important;
+  }
+
+  /* AP panel — single row instead of 3-stack, compact bars */
+  .arena-fullscreen .dual-ap-panel {
+    grid-template-columns: 1fr auto 1fr !important;
+    gap: 6px !important;
+    padding: 4px 6px !important;
+    margin-bottom: 4px !important;
+  }
+  .arena-fullscreen .dual-ap-panel .hud-bar {
+    height: 8px !important;
+  }
+  .arena-fullscreen .dual-ap-panel strong {
+    font-size: 11px !important;
+  }
+  .arena-fullscreen .dual-ap-panel small {
+    font-size: 9px !important;
+    line-height: 1.1 !important;
+  }
+
+  /* Round timer — shrink to fit beside the AP bars */
+  .arena-fullscreen .round-timer-display .round-timer-ring {
+    width: 36px !important;
+    height: 36px !important;
+  }
+  .arena-fullscreen .round-timer-display .round-timer-num {
+    font-size: 14px !important;
+  }
+  .arena-fullscreen .round-timer-display small {
+    font-size: 9px !important;
+  }
+
+  /* Combat log — collapse to a short strip that still shows the most
+     recent entries. The log scrolls internally, so making it tall is
+     wasteful on phones. ~90px shows ~3-4 lines, good for "what just
+     happened" without dominating the viewport. */
+  .arena-fullscreen .combat-text-log {
+    max-height: 90px !important;
+    margin-top: 6px !important;
+    padding: 4px 8px !important;
+    border-width: 2px !important;
+    font-size: 11px !important;
+    line-height: 1.25 !important;
+  }
+  .arena-fullscreen .combat-text-log p {
+    margin: 2px 0 !important;
+  }
+  .arena-fullscreen .combat-log-header {
+    font-size: 11px !important;
+    padding: 2px 6px !important;
+  }
+  .arena-fullscreen .timeline-round {
+    margin: 3px 0 !important;
+  }
+  .arena-fullscreen .timeline-round-header {
+    font-size: 10px !important;
+    padding: 2px 4px !important;
+  }
+
+  /* HUD inner bits — bars, name, level — compact stack */
+  .arena-fullscreen .combat-side-hud .hud-bar {
+    height: 8px !important;
+    margin: 2px 0 !important;
+  }
+  .arena-fullscreen .combat-side-hud strong {
+    font-size: 11px !important;
+    line-height: 1.15 !important;
+  }
+  .arena-fullscreen .combat-side-hud small {
+    font-size: 9px !important;
+    line-height: 1.1 !important;
   }
 }
 
@@ -17601,61 +18165,61 @@ html[data-vp="xl"] .arena-fullscreen .shinobi-command-bar {
 }
 
 html[data-vp="xl"] .arena-fullscreen .shinobi-command-bar button {
-    min-height: 40px !important;
-    padding: 3px 4px !important;
-    font-size: 12px !important;
+    min-height: clamp(44px, 2.85vw, 58px) !important;
+    padding: clamp(4px, 0.4vw, 9px) clamp(6px, 0.55vw, 12px) !important;
+    font-size: clamp(13px, 0.85vw, 17px) !important;
 }
 
 html[data-vp="xl"] .arena-fullscreen .shinobi-command-bar button span {
-    font-size: 12px !important;
+    font-size: clamp(13px, 0.85vw, 17px) !important;
 }
 
 html[data-vp="xl"] .arena-fullscreen .shinobi-command-bar button small {
-    font-size: 8px !important;
+    font-size: clamp(10px, 0.65vw, 13px) !important;
 }
 
 /* Jutsu card grid: smaller cards, more columns */
 html[data-vp="xl"] .arena-fullscreen .combat-equipped-jutsu-grid {
-    grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)) !important;
-    gap: 4px !important;
+    grid-template-columns: repeat(auto-fill, minmax(clamp(80px, 5.5vw, 108px), 1fr)) !important;
+    gap: clamp(4px, 0.45vw, 9px) !important;
 }
 
 html[data-vp="xl"] .arena-fullscreen .combat-jutsu-button {
-    min-height: 74px !important;
-    padding: 2px !important;
-    grid-template-rows: 46px auto auto !important;
-    gap: 1px !important;
+    min-height: clamp(82px, 5.7vw, 112px) !important;
+    padding: clamp(3px, 0.3vw, 6px) !important;
+    grid-template-rows: clamp(52px, 3.6vw, 72px) auto auto !important;
+    gap: clamp(1px, 0.18vw, 3px) !important;
 }
 
 html[data-vp="xl"] .arena-fullscreen .combat-jutsu-thumb {
-    height: 46px !important;
+    height: clamp(52px, 3.6vw, 72px) !important;
 }
 
 html[data-vp="xl"] .arena-fullscreen .combat-jutsu-name {
-    font-size: 8px !important;
+    font-size: clamp(11px, 0.78vw, 15px) !important;
 }
 
 html[data-vp="xl"] .arena-fullscreen .combat-jutsu-info {
-    font-size: 7px !important;
+    font-size: clamp(10px, 0.65vw, 13px) !important;
 }
 
 /* Jutsu layout card: tighter, less max-height so it doesn't dominate */
 html[data-vp="xl"] .arena-fullscreen .jutsu-layout-card {
-    max-height: 200px !important;
+    max-height: clamp(220px, 24vh, 320px) !important;
     overflow-y: auto !important;
-    padding: 4px !important;
+    padding: clamp(5px, 0.55vw, 11px) !important;
 }
 
 /* Combat tabs (Jutsu/Weapons/Items tab buttons) */
 html[data-vp="xl"] .arena-fullscreen .combat-tabs {
-    gap: 3px !important;
-    margin-top: 4px !important;
+    gap: 4px !important;
+    margin-top: 5px !important;
 }
 
 html[data-vp="xl"] .arena-fullscreen .combat-tabs button {
-    min-height: 28px !important;
-    font-size: 11px !important;
-    padding: 2px 6px !important;
+    min-height: clamp(32px, 2.2vw, 42px) !important;
+    font-size: clamp(12px, 0.78vw, 15px) !important;
+    padding: clamp(3px, 0.35vw, 7px) clamp(8px, 0.65vw, 14px) !important;
 }
 
 /* Village stormveil map: fit on 1080p without scrolling */
@@ -17715,6 +18279,156 @@ html[data-vp="xxl"] .location-button {
 
 html[data-vp="xxl"] .tile-icon {
     font-size: 22px !important;
+}
+
+/* ── xxl arena: widescreen battle UI (≥2200px) ───────────────────────────
+   The xl arena rules stop applying above 2199px, leaving widescreens with
+   the base (mobile-ish) sizing. Mirror the xl behaviour with larger numbers
+   so 1440p/4K/ultrawide users get a battle UI that fills the real estate
+   instead of stranding the HUD in a corner.                              ── */
+html[data-vp="xxl"] .arena-fullscreen {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+}
+
+html[data-vp="xxl"] .arena-fullscreen .combat-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 280px) !important;
+    gap: 12px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
+html[data-vp="xxl"] .arena-fullscreen.pvp-battle-layout .combat-layout {
+    grid-template-columns: minmax(0, 1fr) 200px minmax(220px, 280px) !important;
+    gap: 8px !important;
+}
+
+html[data-vp="xxl"] .arena-fullscreen .hex-battlefield {
+    height: clamp(640px, 70vh, 880px) !important;
+    min-height: clamp(640px, 70vh, 880px) !important;
+}
+
+/* Portaled player HUD — show + size for widescreen */
+html[data-vp="xxl"] .battle-hud-sidebar {
+    display: block !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: var(--side-rail-w, 260px) !important;
+    height: 100vh !important;
+    z-index: 10001 !important;
+    overflow: hidden !important;
+    background: linear-gradient(180deg, rgba(120,53,15,.72), rgba(15,23,42,.96) 18%, rgba(15,23,42,.96) 82%, rgba(120,53,15,.72)) !important;
+    border: 4px solid #7c3f11 !important;
+    border-image: linear-gradient(#f59e0b, #7c2d12) 1 !important;
+    border-left: none !important;
+    box-shadow: inset 0 0 0 2px rgba(250,204,21,.4), 4px 0 16px rgba(0,0,0,.5) !important;
+    padding: 64px 22px 18px 18px !important;
+    box-sizing: border-box !important;
+}
+
+html[data-vp="xxl"] .battle-hud-sidebar .combat-side-hud {
+    position: static !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    font-size: 0.95rem !important;
+}
+
+html[data-vp="xxl"] .battle-hud-sidebar .combat-avatar,
+html[data-vp="xxl"] .battle-hud-sidebar .combat-avatar img {
+    max-width: 110px !important;
+    max-height: 110px !important;
+    margin: 0 auto 8px !important;
+}
+
+/* Hide the in-grid player HUD — it's portaled to the sidebar */
+html[data-vp="xxl"] .arena-fullscreen .combat-layout > .combat-side-hud:first-child {
+    display: none !important;
+}
+
+html[data-vp="xxl"] .arena-fullscreen .combat-avatar {
+    max-width: 180px !important;
+    max-height: 180px !important;
+}
+
+/* Command bar: bigger, more comfortable tap targets */
+html[data-vp="xxl"] .arena-fullscreen .shinobi-command-bar {
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)) !important;
+    gap: 8px !important;
+    padding: 8px !important;
+}
+
+html[data-vp="xxl"] .arena-fullscreen .shinobi-command-bar button {
+    min-height: 56px !important;
+    padding: 8px 12px !important;
+    font-size: 15px !important;
+}
+
+html[data-vp="xxl"] .arena-fullscreen .shinobi-command-bar button span {
+    font-size: 15px !important;
+}
+
+html[data-vp="xxl"] .arena-fullscreen .shinobi-command-bar button small {
+    font-size: 12px !important;
+}
+
+/* Jutsu cards: roomier on widescreen */
+html[data-vp="xxl"] .arena-fullscreen .combat-equipped-jutsu-grid {
+    grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)) !important;
+    gap: 8px !important;
+}
+
+html[data-vp="xxl"] .arena-fullscreen .combat-jutsu-button {
+    min-height: 116px !important;
+    padding: 6px !important;
+    grid-template-rows: 72px auto auto !important;
+    gap: 3px !important;
+}
+
+html[data-vp="xxl"] .arena-fullscreen .combat-jutsu-thumb {
+    height: 72px !important;
+}
+
+html[data-vp="xxl"] .arena-fullscreen .combat-jutsu-thumb strong {
+    font-size: 32px !important;
+}
+
+html[data-vp="xxl"] .arena-fullscreen .combat-jutsu-name {
+    font-size: 13px !important;
+}
+
+html[data-vp="xxl"] .arena-fullscreen .combat-jutsu-info {
+    font-size: 11px !important;
+}
+
+html[data-vp="xxl"] .arena-fullscreen .jutsu-layout-card {
+    max-height: 320px !important;
+    overflow-y: auto !important;
+    padding: 10px !important;
+}
+
+html[data-vp="xxl"] .arena-fullscreen .combat-tabs {
+    gap: 6px !important;
+    margin-top: 6px !important;
+}
+
+html[data-vp="xxl"] .arena-fullscreen .combat-tabs button {
+    min-height: 38px !important;
+    font-size: 14px !important;
+    padding: 6px 12px !important;
+}
+
+/* Sector banner: match the wider sidebar */
+html[data-vp="xxl"] .sector-banner-panel {
+    width: var(--side-rail-w) !important;
 }
 
 /* ── md: small laptop / landscape tablet (980–1179px) ─────────────────────
@@ -17781,8 +18495,11 @@ html[data-vp="xs"] .pmtab {
     z-index: 1000;
     background: rgba(2, 6, 23, 0.82);
     backdrop-filter: blur(6px);
+    /* Scroll when the inner result modal is taller than the viewport
+       (long story text + rewards on phones). */
+    overflow-y: auto;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
     padding: 16px;
 }
@@ -18349,328 +19066,331 @@ html[data-vp="xxl"] .banner-mobile-timers {
 }
 
 /* =========================================================
-   DESKTOP UI TIGHTENING — TIER 1: 1080p monitors
-   Tight compacting tuned for 1920×1080 viewports.
+   DESKTOP UI SCALING — TIER 1: 1080p monitors (801–2199px)
+   Tuned for 1920×1080 viewports — relaxed ~10% from the
+   original "tightening" pass after feedback that 100% zoom
+   felt cramped vs 110%+ zoom. Original values are in git
+   history if a smaller pass is needed again.
    ========================================================= */
 @media (min-width: 801px) {
 
     /* ── Global button size ── */
     button {
-        padding: 6px 12px;
-        font-size: 0.84rem;
+        padding: 7px 14px;
+        font-size: 0.92rem;
     }
 
     /* ── Menus: less vertical margin ── */
     .menu {
-        margin: 6px 0;
-        gap: 6px;
+        margin: 8px 0;
+        gap: 7px;
     }
 
     /* ── Summary boxes: tighter padding + less margin ── */
     .summary-box,
     .jutsu-card {
-        padding: 10px;
-        margin-top: 8px;
+        padding: 12px;
+        margin-top: 9px;
     }
 
     /* ── Headings: smaller margins ── */
     h2 {
-        margin: 0 0 8px;
-        font-size: 1.15rem;
-        padding-bottom: 6px;
+        margin: 0 0 9px;
+        font-size: 1.26rem;
+        padding-bottom: 7px;
     }
 
     h3 {
         margin-top: 0;
-        margin-bottom: 4px;
-        font-size: 0.96rem;
+        margin-bottom: 5px;
+        font-size: 1.06rem;
     }
 
     h4 {
         margin-top: 0;
-        margin-bottom: 2px;
-        font-size: 0.9rem;
+        margin-bottom: 3px;
+        font-size: 0.99rem;
     }
 
     p {
-        margin: 3px 0;
+        margin: 4px 0;
     }
 
     label {
-        font-size: 0.84rem;
-        margin-bottom: 1px;
+        font-size: 0.92rem;
+        margin-bottom: 2px;
     }
 
     /* Location grid and tile sizing handled by data-vp viewport rules */
 
     /* ── Cards: tighter internal gap ── */
     .card {
-        gap: 8px;
-        padding: 12px;
+        gap: 9px;
+        padding: 14px;
     }
 
     /* ── Town hall / clan hall ── */
     .town-hall-screen,
     .clan-hall-screen {
-        gap: 8px;
+        gap: 9px;
     }
 
     .town-hall-hero {
-        padding: 10px 14px;
+        padding: 11px 16px;
     }
 
     .town-hall-wallet strong {
-        font-size: 18px;
+        font-size: 20px;
     }
 
     .town-hall-grid {
-        gap: 8px;
+        gap: 9px;
     }
 
     /* ── Tab strips ── */
     .expanded-tabs {
-        padding: 6px;
-        gap: 5px;
+        padding: 7px;
+        gap: 6px;
     }
 
     .expanded-tabs button {
-        min-height: 34px;
-        padding: 5px 10px;
-        font-size: 0.82rem;
+        min-height: 38px;
+        padding: 6px 12px;
+        font-size: 0.9rem;
     }
 
     .clan-tabs {
-        gap: 4px;
-        margin-bottom: 8px;
-        padding-bottom: 6px;
+        gap: 5px;
+        margin-bottom: 9px;
+        padding-bottom: 7px;
     }
 
     .clan-tabs button {
-        padding: 4px 10px;
-        font-size: 0.8rem;
+        padding: 5px 12px;
+        font-size: 0.88rem;
     }
 
     /* ── Inline grid (selects, small button rows) ── */
     .inline-grid {
-        gap: 5px;
+        gap: 6px;
     }
 
     /* ── Stat grid / jutsu list ── */
     .stat-grid,
     .jutsu-list,
     .jutsu-combat-grid {
-        gap: 6px;
+        gap: 7px;
     }
 
     /* ── Inputs / selects ── */
     input,
     select,
     textarea {
-        padding: 5px 8px;
-        font-size: 0.86rem;
+        padding: 6px 10px;
+        font-size: 0.94rem;
     }
 
     /* ── Technique browser ── */
     .technique-grid {
-        max-height: 290px;
-        gap: 5px;
-        padding: 5px;
+        max-height: 320px;
+        gap: 6px;
+        padding: 6px;
     }
 
     .technique-card {
-        min-height: 105px;
-        grid-template-rows: 66px minmax(26px, auto);
-        padding: 4px;
-        gap: 3px;
+        min-height: 115px;
+        grid-template-rows: 72px minmax(28px, auto);
+        padding: 5px;
+        gap: 4px;
     }
 
     /* ── Shop items ── */
     .shop-item-button {
-        min-height: 120px !important;
+        min-height: 132px !important;
     }
 
     /* ── Hints / subtitles ── */
     .hint,
     .subtitle {
-        font-size: 0.8rem;
-        line-height: 1.35;
+        font-size: 0.88rem;
+        line-height: 1.4;
     }
 
     /* ── Hero banner ── */
     .hero {
-        padding: 14px 18px;
-        gap: 10px;
+        padding: 16px 20px;
+        gap: 11px;
     }
 
     /* ── Card visual thumbs ── */
     .card-visual-thumb {
-        width: 60px;
-        height: 60px;
+        width: 66px;
+        height: 66px;
     }
 
     /* ── Clan / leader portraits ── */
     .clan-image-mark,
     .leader-portrait-img {
-        width: 58px;
-        height: 58px;
+        width: 64px;
+        height: 64px;
     }
 
     /* ── Contribute / guard / rank grids ── */
     .contrib-rank-grid,
     .clan-guard-list {
-        gap: 4px;
+        gap: 5px;
     }
 
     .clan-guard-row {
-        padding: 5px 8px;
+        padding: 6px 10px;
     }
 
     /* ── Town upgrade grid ── */
     .town-upgrade-grid {
-        gap: 8px;
+        gap: 9px;
     }
 
     .town-upgrade-card {
-        padding: 10px;
+        padding: 12px;
     }
 
     /* ── Elder seat grid ── */
     .elder-seat-grid {
-        gap: 8px;
+        gap: 9px;
     }
 
     .elder-card {
-        padding: 10px;
+        padding: 12px;
     }
 
     /* ── Training / hospital ── */
     .training-in-progress {
-        padding: 10px;
+        padding: 12px;
     }
 
     /* ── Logbook / event cards ── */
     .event-card,
     .logbook-entry {
-        padding: 8px;
+        padding: 10px;
     }
 
     /* ── Profile page ── */
     .profile-page-card {
-        gap: 12px;
+        gap: 14px;
     }
 
     .profile-overview-panel {
-        padding: 12px;
+        padding: 14px;
     }
 
     .profile-big-avatar {
-        width: 140px;
-        height: 140px;
+        width: 156px;
+        height: 156px;
     }
 
     .profile-info-grid {
-        gap: 10px;
+        gap: 12px;
     }
 
     /* ── War status / notice board ── */
     .town-notice-board .notice-post {
-        padding: 8px;
+        padding: 10px;
     }
 
     /* ── Bars (HP, XP, etc.) ── */
     .bar,
     .town-upgrade-bar {
-        height: 10px;
+        height: 12px;
     }
 
     /* ── Journey banner: tighter ── */
     .journey-banner {
         height: auto;
-        min-height: 180px;
+        min-height: 200px;
     }
 
     /* ── Archives cards ── */
     .archives-card {
-        padding: 10px;
+        padding: 12px;
     }
 
     .archives-card-img-wrap {
-        width: 100px;
-        min-width: 100px;
+        width: 112px;
+        min-width: 112px;
     }
 
     /* ── Bloodline maker ── */
     .bloodline-save-card {
-        gap: 5px;
+        gap: 6px;
     }
 
     /* ── Danger / action buttons: slightly less padding ── */
     .danger-button,
     .admin-button {
-        padding: 5px 10px;
+        padding: 6px 12px;
     }
 
     /* ── Top HUD ── */
     .top-hud {
-        gap: 5px;
+        gap: 6px;
     }
 
     .top-hud span {
-        font-size: 10px;
+        font-size: 11px;
     }
 
     /* ── Hospital admitted banner ── */
     .hospital-admitted-banner {
-        padding: 8px 12px;
-        gap: 8px;
+        padding: 10px 14px;
+        gap: 10px;
     }
 
     .hospital-admitted-icon {
-        font-size: 1.4rem;
+        font-size: 1.55rem;
     }
 
     /* ── Pet battle arena ── */
     .pet-arena-grid {
-        gap: 6px;
+        gap: 7px;
     }
 
     /* ── Sector instance / map instance ── */
     .instance-sidebar {
-        padding: 8px;
+        padding: 10px;
     }
 
     .instance-actions {
-        gap: 4px;
+        gap: 5px;
     }
 
     /* ── Nav (hidden on desktop, but in case it shows) ── */
     .nav {
-        padding: 8px;
-        gap: 5px;
-        margin: 8px 0;
+        padding: 10px;
+        gap: 6px;
+        margin: 10px 0;
     }
 
     /* ── Treasury grid ── */
     .treasury-grid {
-        gap: 6px;
+        gap: 7px;
     }
 
     /* ── Leader admin grid ── */
     .leader-admin-grid {
-        gap: 8px;
+        gap: 9px;
     }
 
     .leader-admin-card {
-        padding: 8px;
+        padding: 10px;
     }
 
     /* ── War record grid ── */
     .war-record-grid {
-        gap: 6px;
+        gap: 7px;
     }
 
     .war-record-card {
-        padding: 8px;
+        padding: 10px;
     }
 
     /* ── General card spacing reductions ── */
@@ -18680,334 +19400,336 @@ html[data-vp="xxl"] .banner-mobile-timers {
 
     /* ── Make select dropdowns compact ── */
     select {
-        padding: 4px 8px;
+        padding: 5px 10px;
     }
 }
 
 /* =========================================================
-   DESKTOP UI TIGHTENING — TIER 2: 1440p+ monitors
-   Aggressive compacting for 2560×1440 and above.
-   Overrides the moderate tier with tighter values.
+   DESKTOP UI SCALING — TIER 2: 1440p+ widescreen monitors
+   For 2560×1440 and above. Originally this tier *compacted*
+   further than Tier 1, which was the wrong direction —
+   widescreens have *more* real estate, not less. Now this
+   tier scales *up* from Tier 1 by another ~6–8%.
    ========================================================= */
 @media (min-width: 2200px) {
 
     /* ── Global button size ── */
     button {
-        padding: 6px 11px;
-        font-size: 0.82rem;
+        padding: 8px 16px;
+        font-size: 0.98rem;
     }
 
     /* ── Menus: less vertical margin ── */
     .menu {
-        margin: 6px 0;
-        gap: 6px;
+        margin: 9px 0;
+        gap: 8px;
     }
 
     /* ── Summary boxes: tighter padding + less margin ── */
     .summary-box,
     .jutsu-card {
-        padding: 10px;
-        margin-top: 8px;
+        padding: 14px;
+        margin-top: 11px;
     }
 
     /* ── Headings: smaller margins ── */
     h2 {
-        margin: 0 0 8px;
-        font-size: 1.15rem;
-        padding-bottom: 6px;
+        margin: 0 0 11px;
+        font-size: 1.38rem;
+        padding-bottom: 8px;
     }
 
     h3 {
         margin-top: 0;
-        margin-bottom: 4px;
-        font-size: 0.95rem;
+        margin-bottom: 6px;
+        font-size: 1.14rem;
     }
 
     h4 {
         margin-top: 0;
-        margin-bottom: 2px;
-        font-size: 0.88rem;
+        margin-bottom: 4px;
+        font-size: 1.06rem;
     }
 
     p {
-        margin: 3px 0;
+        margin: 5px 0;
     }
 
     label {
-        font-size: 0.82rem;
-        margin-bottom: 1px;
+        font-size: 0.98rem;
+        margin-bottom: 2px;
     }
 
     /* Location grid and tile sizing handled by data-vp viewport rules */
 
     /* ── Cards: tighter internal gap ── */
     .card {
-        gap: 8px;
-        padding: 12px;
+        gap: 11px;
+        padding: 16px;
     }
 
     /* ── Town hall / clan hall ── */
     .town-hall-screen,
     .clan-hall-screen {
-        gap: 8px;
+        gap: 11px;
     }
 
     .town-hall-hero {
-        padding: 10px 14px;
+        padding: 12px 18px;
     }
 
     .town-hall-wallet strong {
-        font-size: 18px;
+        font-size: 22px;
     }
 
     .town-hall-grid {
-        gap: 8px;
+        gap: 11px;
     }
 
     /* ── Tab strips ── */
     .expanded-tabs {
-        padding: 6px;
-        gap: 5px;
+        padding: 8px;
+        gap: 7px;
     }
 
     .expanded-tabs button {
-        min-height: 34px;
-        padding: 5px 10px;
-        font-size: 0.8rem;
+        min-height: 42px;
+        padding: 7px 14px;
+        font-size: 0.96rem;
     }
 
     .clan-tabs {
-        gap: 4px;
-        margin-bottom: 8px;
-        padding-bottom: 6px;
+        gap: 6px;
+        margin-bottom: 11px;
+        padding-bottom: 8px;
     }
 
     .clan-tabs button {
-        padding: 4px 10px;
-        font-size: 0.78rem;
+        padding: 6px 14px;
+        font-size: 0.94rem;
     }
 
     /* ── Inline grid (selects, small button rows) ── */
     .inline-grid {
-        gap: 5px;
+        gap: 7px;
     }
 
     /* ── Stat grid / jutsu list ── */
     .stat-grid,
     .jutsu-list,
     .jutsu-combat-grid {
-        gap: 6px;
+        gap: 8px;
     }
 
     /* ── Inputs / selects ── */
     input,
     select,
     textarea {
-        padding: 5px 8px;
-        font-size: 0.85rem;
+        padding: 7px 12px;
+        font-size: 1rem;
     }
 
     /* ── Technique browser ── */
     .technique-grid {
-        max-height: 280px;
-        gap: 5px;
-        padding: 5px;
+        max-height: 350px;
+        gap: 7px;
+        padding: 7px;
     }
 
     .technique-card {
-        min-height: 100px;
-        grid-template-rows: 64px minmax(26px, auto);
-        padding: 4px;
-        gap: 3px;
+        min-height: 125px;
+        grid-template-rows: 78px minmax(30px, auto);
+        padding: 6px;
+        gap: 5px;
     }
 
     /* ── Shop items ── */
     .shop-item-button {
-        min-height: 120px !important;
+        min-height: 144px !important;
     }
 
     /* ── Hints / subtitles ── */
     .hint,
     .subtitle {
-        font-size: 0.78rem;
-        line-height: 1.35;
+        font-size: 0.94rem;
+        line-height: 1.45;
     }
 
     /* ── Hero banner ── */
     .hero {
-        padding: 14px 18px;
-        gap: 10px;
+        padding: 18px 22px;
+        gap: 13px;
     }
 
     /* ── Card visual thumbs ── */
     .card-visual-thumb {
-        width: 58px;
-        height: 58px;
+        width: 72px;
+        height: 72px;
     }
 
     /* ── Clan / leader portraits ── */
     .clan-image-mark,
     .leader-portrait-img {
-        width: 56px;
-        height: 56px;
+        width: 70px;
+        height: 70px;
     }
 
     /* ── Contribute / guard / rank grids ── */
     .contrib-rank-grid,
     .clan-guard-list {
-        gap: 4px;
+        gap: 6px;
     }
 
     .clan-guard-row {
-        padding: 5px 8px;
+        padding: 7px 12px;
     }
 
     /* ── Town upgrade grid ── */
     .town-upgrade-grid {
-        gap: 8px;
+        gap: 11px;
     }
 
     .town-upgrade-card {
-        padding: 10px;
+        padding: 14px;
     }
 
     /* ── Elder seat grid ── */
     .elder-seat-grid {
-        gap: 8px;
+        gap: 11px;
     }
 
     .elder-card {
-        padding: 10px;
+        padding: 14px;
     }
 
     /* ── Training / hospital ── */
     .training-in-progress {
-        padding: 10px;
+        padding: 14px;
     }
 
     /* ── Logbook / event cards ── */
     .event-card,
     .logbook-entry {
-        padding: 8px;
+        padding: 12px;
     }
 
     /* ── Profile page ── */
     .profile-page-card {
-        gap: 12px;
+        gap: 16px;
     }
 
     .profile-overview-panel {
-        padding: 12px;
+        padding: 16px;
     }
 
     .profile-big-avatar {
-        width: 140px;
-        height: 140px;
+        width: 172px;
+        height: 172px;
     }
 
     .profile-info-grid {
-        gap: 10px;
+        gap: 14px;
     }
 
     /* ── War status / notice board ── */
     .town-notice-board .notice-post {
-        padding: 8px;
+        padding: 12px;
     }
 
     /* ── Bars (HP, XP, etc.) ── */
     .bar,
     .town-upgrade-bar {
-        height: 10px;
+        height: 14px;
     }
 
     /* ── Journey banner: tighter ── */
     .journey-banner {
         height: auto;
-        min-height: 180px;
+        min-height: 220px;
     }
 
     /* ── Archives cards ── */
     .archives-card {
-        padding: 10px;
+        padding: 14px;
     }
 
     .archives-card-img-wrap {
-        width: 100px;
-        min-width: 100px;
+        width: 124px;
+        min-width: 124px;
     }
 
     /* ── Bloodline maker ── */
     .bloodline-save-card {
-        gap: 5px;
+        gap: 7px;
     }
 
     /* ── Danger / action buttons: slightly less padding ── */
     .danger-button,
     .admin-button {
-        padding: 5px 10px;
+        padding: 7px 14px;
     }
 
     /* ── Top HUD ── */
     .top-hud {
-        gap: 5px;
+        gap: 7px;
     }
 
     .top-hud span {
-        font-size: 10px;
+        font-size: 12px;
     }
 
     /* ── Hospital admitted banner ── */
     .hospital-admitted-banner {
-        padding: 8px 12px;
-        gap: 8px;
+        padding: 12px 16px;
+        gap: 12px;
     }
 
     .hospital-admitted-icon {
-        font-size: 1.4rem;
+        font-size: 1.7rem;
     }
 
     /* ── Pet battle arena ── */
     .pet-arena-grid {
-        gap: 6px;
+        gap: 8px;
     }
 
     /* ── Sector instance / map instance ── */
     .instance-sidebar {
-        padding: 8px;
+        padding: 12px;
     }
 
     .instance-actions {
-        gap: 4px;
+        gap: 6px;
     }
 
     /* ── Nav (hidden on desktop, but in case it shows) ── */
     .nav {
-        padding: 8px;
-        gap: 5px;
-        margin: 8px 0;
+        padding: 12px;
+        gap: 7px;
+        margin: 12px 0;
     }
 
     /* ── Treasury grid ── */
     .treasury-grid {
-        gap: 6px;
+        gap: 8px;
     }
 
     /* ── Leader admin grid ── */
     .leader-admin-grid {
-        gap: 8px;
+        gap: 11px;
     }
 
     .leader-admin-card {
-        padding: 8px;
+        padding: 12px;
     }
 
     /* ── War record grid ── */
     .war-record-grid {
-        gap: 6px;
+        gap: 8px;
     }
 
     .war-record-card {
-        padding: 8px;
+        padding: 12px;
     }
 
     /* ── General card spacing reductions ── */
@@ -19017,7 +19739,7 @@ html[data-vp="xxl"] .banner-mobile-timers {
 
     /* ── Make select dropdowns compact ── */
     select {
-        padding: 4px 8px;
+        padding: 6px 12px;
     }
 }
 
