@@ -5,6 +5,7 @@ import { verifyPlayerPassword } from '../player-auth.js';
 import { authedPlayerOrAdmin, isAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { validateClanSaveWrite } from '../_clan-save-validate.js';
+import { sanitizeUserText, TEXT_LIMITS } from '../_text-moderation.js';
 
 // Fields stripped from character objects when a non-owner reads another player's save.
 // Prevents ryo farming (reading other players' wallets) and inventory snooping.
@@ -227,6 +228,15 @@ function sanitizeCharacterSave(
     if (!exChar || typeof exChar !== 'object') return incoming;
 
     const char: Record<string, unknown> = { ...inChar };
+
+    // ── Free-form user text moderation ──────────────────────────────
+    // customTitle is the only character-level field a player can put
+    // arbitrary text into. Mask profanity, redact PII, cap length so a
+    // tampered save can't park a slur as their public title or stuff
+    // a 10 KB string into the field.
+    if (typeof char.customTitle === 'string' && char.customTitle.trim()) {
+        char.customTitle = sanitizeUserText(char.customTitle, TEXT_LIMITS.customTitle);
+    }
 
     // Level: can't jump more than MAX_LEVEL_GAIN levels per save; hard cap at LEVEL_CAP.
     const exLevel = Math.max(1, Number(exChar.level ?? 1));
