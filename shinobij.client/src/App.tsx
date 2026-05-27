@@ -285,6 +285,15 @@ import {
     currentDateKey,
 } from "./lib/utils";
 
+// XP / ranked progression helpers extracted to ./lib/progression. The
+// bigger gainXp driver stays in App.tsx because it chains through other
+// App-scope helpers (xpNeeded, maxHpForLevel, etc.) not yet extracted.
+import {
+    effectiveCharacterXpGain,
+    displayCharacterXpGain,
+    rankedDelta,
+} from "./lib/progression";
+
 const terrainEffects: Record<
     Biome,
     {
@@ -5945,16 +5954,7 @@ function statPointBudgetForProgress(level: number, xp: number) {
     return Math.min(TOTAL_STAT_POINTS_TO_CAP, STARTING_STAT_POINTS + earnedFromXp);
 }
 
-function effectiveCharacterXpGain(character: Pick<Character, "elderFocus">, amount: number) {
-    const baseAmount = Math.max(0, Math.floor(amount));
-    const testingBoostedAmount = Math.floor(baseAmount * CHARACTER_XP_GAIN_MULTIPLIER);
-    const trainingFocusBonus = character.elderFocus === "training" ? Math.floor(testingBoostedAmount * 0.1) : 0;
-    return testingBoostedAmount + trainingFocusBonus;
-}
-
-function displayCharacterXpGain(amount: number, character?: Pick<Character, "elderFocus">) {
-    return character ? effectiveCharacterXpGain(character, amount) : Math.floor(Math.max(0, amount) * CHARACTER_XP_GAIN_MULTIPLIER);
-}
+// effectiveCharacterXpGain / displayCharacterXpGain moved to ./lib/progression.
 
 function progressAfterXp(level: number, xp: number, amount: number) {
     let nextLevel = Math.max(1, Math.min(MAX_LEVEL, Math.floor(level)));
@@ -33117,10 +33117,7 @@ function hydrateSharedGameState(data: {
     sharedWeeklyBossAiIdCache = data.weeklyBossAiId ?? "";
 }
 
-function rankedDelta(winnerRating: number, loserRating: number) {
-    const expected = 1 / (1 + Math.pow(10, (loserRating - winnerRating) / 400));
-    return Math.max(8, Math.round(24 * (1 - expected)));
-}
+// rankedDelta moved to ./lib/progression.
 
 function Arena({
     lobbyMode = "battleArena",
