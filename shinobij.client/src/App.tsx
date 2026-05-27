@@ -10705,7 +10705,7 @@ export default function App() {
         });
     }
 
-    function recordMissionRaid(_sector: number) {
+    function recordMissionRaid(_sector: number, battleId?: string) {
         // Sector filter removed: village territory raids use a virtual offset sector that
         // doesn't match mission.targetSector, so any raid win counts toward accepted raid
         // missions. The explore requirement still pins the player to the correct location.
@@ -10729,11 +10729,19 @@ export default function App() {
         // Vanguard daily raid-mission progress — every successful raid (human
         // OR AI defender) counts. Server endpoint is rate-limited so a retry
         // can't double-count.
+        //
+        // When the raid was PvP-flavored (human defender), we pass `battleId`
+        // so the server can cross-validate the win against the actual
+        // PvpSession record and idempotency-gate the report. AI raids don't
+        // have a server-side session, so they skip the battleId and fall
+        // back to the rate-limit-only path on the server.
         if (character?.profession === "vanguard") {
+            const requestBody: { playerName: string; battleId?: string } = { playerName: character.name };
+            if (battleId) requestBody.battleId = battleId;
             fetch('/api/missions/report-raid', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ playerName: character.name }),
+                body: JSON.stringify(requestBody),
             }).then(r => r.ok ? r.json() : null).then(data => {
                 const completed: Array<{ id: string; name: string; xpReward: number }> = Array.isArray(data?.missionsCompleted) ? data.missionsCompleted : [];
                 for (const m of completed) {
@@ -13827,7 +13835,9 @@ export default function App() {
                                 })
                                 .catch(() => { /* server is still source of truth; brief UI lag is OK */ });
                         }
-                        if (rewardSector > 0) recordMissionRaid(rewardSector);
+                        // PvP raid completion — pass pvpBattleId so the server
+                        // can cross-validate the win against the real PvpSession.
+                        if (rewardSector > 0) recordMissionRaid(rewardSector, pvpBattleId ?? undefined);
                         if (villageWarPvpPatch) console.info(villageWarPvpPatch.trim());
                         // Clan-war auto-report on win: if this PvP session
                         // was launched from a clan-war challenge (set by
@@ -33613,7 +33623,7 @@ function Arena({
     pendingStoryBattle?: PendingArenaStoryBattle | null;
     onPendingStoryBattleWin?: (survivingHp: number) => string;
     onPendingStoryBattleContinue?: () => void;
-    onMissionRaidComplete?: (sector: number) => void;
+    onMissionRaidComplete?: (sector: number, battleId?: string) => void;
     setPvpBattleId?: (id: string) => void;
     setPvpRole?: (role: "p1" | "p2") => void;
     setPvpBattleContext?: (context: SharedPvpBattleContext | null) => void;
