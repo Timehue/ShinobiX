@@ -5,6 +5,7 @@ import type * as React from "react";
 import "./index.css";
 import { installAuthFetch, setActivePlayer } from "./authFetch";
 import { GameAlertHost } from "./components/GameAlert";
+import { subscribeKvKey, realtimeAvailable } from "./lib/realtime";
 
 // Install the global fetch interceptor once at module load. From here on,
 // every fetch('/api/...') call automatically picks up x-player-name and
@@ -26700,9 +26701,29 @@ function ClanWarTileCardDuel({ character, setScreen, sharedImages }: { character
 
     useEffect(() => {
         if (!stash) return;
+        // Always do an initial fetch — subscriptions only push NEW
+        // writes, so we need the current state to render anything.
         void refresh();
-        const id = setInterval(refresh, 1500);
-        return () => clearInterval(id);
+        // Realtime path: subscribe to the cw-tilecards:<id> KV row.
+        // Supabase pushes the updated session on every server commit
+        // (~30-80ms). Falls back to the 1.5s polling loop when
+        // VITE_SUPABASE_* env vars aren't configured.
+        let unsubscribe: (() => void) | null = null;
+        if (realtimeAvailable()) {
+            unsubscribe = subscribeKvKey<CwTileCardSession>(
+                `cw-tilecards:${stash.challengeId}`,
+                (next) => { setSession(next); setError(""); },
+            );
+        }
+        // Keep a low-frequency poll as belt-and-braces — picks up
+        // server-driven transitions that don't directly write the
+        // row (e.g., the picking-deadline auto-start) and provides a
+        // fallback when Realtime is unconfigured.
+        const id = setInterval(refresh, unsubscribe ? 5000 : 1500);
+        return () => {
+            clearInterval(id);
+            if (unsubscribe) { try { unsubscribe(); } catch { /* noop */ } }
+        };
     }, [refresh, stash]);
 
     // Clear the sessionStorage stash when the duel finishes — the
@@ -37440,9 +37461,26 @@ function PvpBattleScreen({
         let active = true;
         let es: EventSource | null = null;
         let pollTimer: number | null = null;
+        let unsubscribeRealtime: (() => void) | null = null;
 
-        // Long-poll fallback used when EventSource isn't available
-        // (very old browsers) or the SSE stream errors out.
+        // Tier 0 fetch — even with Realtime/SSE pushing changes, we
+        // need an initial snapshot since subscriptions only fire on
+        // NEW writes. Without this the screen would render blank
+        // until the first move.
+        async function fetchInitial(): Promise<PvpSessionState | null> {
+            try {
+                const res = await fetch(`/api/pvp/session?id=${encodeURIComponent(battleId)}`);
+                if (res.ok) {
+                    const data = await res.json() as PvpSessionState;
+                    if (active) setSession(data);
+                    return data;
+                }
+            } catch { /* ignore */ }
+            return null;
+        }
+
+        // Long-poll fallback used when neither Realtime nor SSE is
+        // available (very old browser or both failed).
         async function pollFallback() {
             while (active) {
                 if (document.visibilityState === "hidden") {
@@ -37461,10 +37499,9 @@ function PvpBattleScreen({
             }
         }
 
-        // Primary path: SSE. Server pushes a `session` event every
-        // time the KV record changes (≤250ms latency vs. up to 1s
-        // for the old polling loop) and an `end` event when the
-        // fight resolves or the session TTL expires.
+        // SSE fallback. Server pushes `session` events every ~100ms
+        // when the KV record changes. Used when Realtime isn't
+        // configured (env vars missing) or fails.
         function startStream() {
             if (!active) return;
             if (typeof EventSource === "undefined") {
@@ -37483,38 +37520,43 @@ function PvpBattleScreen({
                 es.addEventListener("end", () => {
                     es?.close();
                     es = null;
-                    // Don't reconnect on `end` — the fight is over
-                    // or the session expired. The session state is
-                    // already in our local React state.
                 });
                 es.onerror = () => {
-                    // Network error or stream closed by server. EventSource
-                    // would auto-reconnect on its own, but our 4.5min server
-                    // window means we want to reconnect a new stream with
-                    // fresh KV reads. Close, then re-open after a short
-                    // backoff (skip reconnect if the tab is hidden — saves
-                    // function invocations).
                     es?.close();
                     es = null;
                     if (!active) return;
                     pollTimer = window.setTimeout(() => {
                         if (!active) return;
-                        if (document.visibilityState === "hidden") {
-                            startStream();
-                            return;
-                        }
                         startStream();
                     }, 1500);
                 };
             } catch {
-                // EventSource ctor threw (very unusual) — fall back.
                 void pollFallback();
             }
         }
 
-        startStream();
+        // Primary path: Supabase Realtime. Subscribes directly to the
+        // kv_store row for this battle — Supabase pushes the new
+        // session JSON via WebSocket the moment Postgres commits the
+        // write. Latency: ~30-80ms vs. ~100ms for SSE vs. up to 1s
+        // for old polling.
+        if (realtimeAvailable()) {
+            unsubscribeRealtime = subscribeKvKey<PvpSessionState>(
+                `pvp:${battleId}`,
+                (next) => { if (active) setSession(next); },
+            );
+        }
+        void fetchInitial();
+        // If Realtime didn't initialize (env vars missing or client
+        // construct failed), fall back to SSE. We don't run both —
+        // they'd both setSession with the same data, wasting cycles.
+        if (!unsubscribeRealtime) {
+            startStream();
+        }
+
         return () => {
             active = false;
+            if (unsubscribeRealtime) { try { unsubscribeRealtime(); } catch { /* noop */ } unsubscribeRealtime = null; }
             if (es) { try { es.close(); } catch { /* noop */ } es = null; }
             if (pollTimer !== null) { window.clearTimeout(pollTimer); pollTimer = null; }
         };
