@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
+import { authedPlayerOrAdmin } from '../_auth.js';
 
 // NOTE: LEGACY_IMAGE_KEY ('shared:images') intentionally omitted here — it is a
 // multi-MB all-categories blob that causes connection-pool exhaustion when
@@ -27,6 +28,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'GET') return res.status(405).end();
+
+    // Auth gate: this endpoint mget's EVERY player save in the registry
+    // (expensive) and returns the full list of (ownerName, ownerKey,
+    // bloodlines) — useful for stalking and player enumeration. Auth
+    // required so the cost can't be triggered by anonymous traffic.
+    const identity = await authedPlayerOrAdmin(req);
+    if (!identity) return res.status(401).json({ error: 'Authentication required.' });
 
     try {
         // Fetch image maps and save keys in parallel — 3 queries total.

@@ -331,6 +331,16 @@ function sanitizeCharacterSave(
         totalPetWins: 20,
         // totalEndlessTowerWins similarly drives a HoL leaderboard.
         totalEndlessTowerWins: 5,
+        // Village-war mission counter (drives the "War Veteran" achievement
+        // path). Without a clamp, a tampered save can jump 0 → 999K in one
+        // POST. 5/save matches the raid cap pacing.
+        villageWarMissionsCompleted: 5,
+        // Tournament completion counter (rare event — at most one per save).
+        totalTournamentsCompleted: 1,
+        // Stats trained + missions completed lifetime counters — used by
+        // achievements but never decreased through legitimate play.
+        totalStatsTrained: 100,
+        totalMissionsCompleted: 5,
     };
     for (const [field, maxDelta] of Object.entries(LIFETIME_COUNTERS)) {
         const inV = Math.max(0, Number((char as Record<string, unknown>)[field] ?? 0));
@@ -362,6 +372,133 @@ function sanitizeCharacterSave(
     if (Array.isArray(char.inventory) && (char.inventory as unknown[]).length > INVENTORY_CAP) {
         char.inventory = (char.inventory as unknown[]).slice(0, INVENTORY_CAP);
     }
+    // ─── examsPassed validation ───────────────────────────────────────────────
+    // Rank exams: genin/chunin/jonin/specialJonin gate level progression
+    // (EXAM_LEVEL_GATES in App.tsx). A forged save could POST
+    // examsPassed:["genin","chunin","jonin","specialJonin"] to skip every
+    // exam and the level cap. Rules:
+    //   - Only the 4 known exam keys are accepted
+    //   - Cap length at 4 (one of each)
+    //   - Dedupe
+    //   - Level-gate: genin needs level ≥20, chunin needs level ≥39
+    //   - Don't shrink an existing entry (legitimate veterans keep their list)
+    const KNOWN_EXAMS = new Set(['genin', 'chunin', 'jonin', 'specialJonin']);
+    const EXAM_LEVEL_GATES_SERVER: Record<string, number> = {
+        genin: 20,
+        chunin: 39,
+        // jonin / specialJonin don't have level gates per App.tsx EXAM_LEVEL_GATES
+    };
+    const exExams = Array.isArray(exChar.examsPassed) ? (exChar.examsPassed as unknown[]).map(String) : [];
+    const inExams = Array.isArray(char.examsPassed) ? (char.examsPassed as unknown[]).map(String) : [];
+    const charLevel = Number(char.level ?? exChar.level ?? 1);
+    const validatedExams: string[] = [];
+    const seenExams = new Set<string>();
+    // Preserve every exam already on the existing save (don't penalize legit veterans).
+    for (const e of exExams) {
+        if (KNOWN_EXAMS.has(e) && !seenExams.has(e)) {
+            validatedExams.push(e);
+            seenExams.add(e);
+        }
+    }
+    // Accept NEW exam additions only if they pass the level gate.
+    for (const e of inExams) {
+        if (!KNOWN_EXAMS.has(e) || seenExams.has(e)) continue;
+        const required = EXAM_LEVEL_GATES_SERVER[e];
+        if (required != null && charLevel < required) continue;
+        validatedExams.push(e);
+        seenExams.add(e);
+    }
+    char.examsPassed = validatedExams.slice(0, 4);
+
+    // ─── savedBloodlines normalization ────────────────────────────────────────
+    // Players author custom bloodlines client-side; without server validation
+    // a forged save can POST bloodlines with jutsus { effectPower: 9999, ap: 0,
+    // cooldown: 0 } that the equip path then makes usable in combat.
+    // Rules:
+    //   - Cap savedBloodlines.length at 5 (client UI keeps 1, but be generous
+    //     for migration / multi-bloodline rosters)
+    //   - For each bloodline: cap jutsus at 15, clamp per-jutsu numerics
+    //   - Strip inline data:image/svg URIs from the bloodline image (SVG can
+    //     carry <script>; only the /api/images endpoint is supposed to enforce
+    //     this and inline saves bypass it)
+    const BLOODLINE_CAP = 5;
+    const JUTSU_PER_BLOODLINE_CAP = 15;
+    const RAW_BLOODLINE_IMAGE_MAX_BYTES = 250_000;  // 250 KB inline cap
+    const KNOWN_BLOODLINE_RANKS = new Set(['B Rank', 'A Rank', 'S Rank']);
+    if (Array.isArray(char.savedBloodlines)) {
+        const inBloodlines = (char.savedBloodlines as Array<Record<string, unknown>>).slice(0, BLOODLINE_CAP);
+        char.savedBloodlines = inBloodlines.map((bl) => {
+            if (!bl || typeof bl !== 'object') return {};
+            const out: Record<string, unknown> = { ...bl };
+            // Rank — fall back to B Rank if unknown.
+            const rawRank = String(out.rank ?? '');
+            if (!KNOWN_BLOODLINE_RANKS.has(rawRank)) out.rank = 'B Rank';
+            // Strip inline SVG / oversized image data — let shared image
+            // storage host real images via the /api/images allowlist.
+            if (typeof out.image === 'string') {
+                const img = out.image;
+                if (/^data:image\/svg/i.test(img) || img.length > RAW_BLOODLINE_IMAGE_MAX_BYTES) {
+                    out.image = undefined;
+                }
+            }
+            // Numeric totalPoints — informational; the equip-side math
+            // doesn't rely on it but clamp anyway so leaderboards/UI don't
+            // see absurd values.
+            out.totalPoints = Math.max(0, Math.min(20, Number(out.totalPoints ?? 0) || 0));
+            // Jutsus list — cap count + clamp per-jutsu numerics.
+            const rawJutsus = Array.isArray(out.jutsus) ? out.jutsus as Array<Record<string, unknown>> : [];
+            out.jutsus = rawJutsus.slice(0, JUTSU_PER_BLOODLINE_CAP).map((j) => {
+                if (!j || typeof j !== 'object') return j;
+                const jOut: Record<string, unknown> = { ...j };
+                if (jOut.effectPower != null) {
+                    jOut.effectPower = Math.max(0, Math.min(200, Number(jOut.effectPower) || 0));
+                }
+                if (jOut.ap != null) {
+                    // AP values in bloodline jutsus are 40 / 60 / 80 normally.
+                    jOut.ap = Math.max(20, Math.min(200, Number(jOut.ap) || 40));
+                }
+                if (jOut.cooldown != null) {
+                    jOut.cooldown = Math.max(0, Math.min(50, Number(jOut.cooldown) || 0));
+                }
+                if (jOut.chakraCost != null) {
+                    jOut.chakraCost = Math.max(0, Math.min(1000, Number(jOut.chakraCost) || 0));
+                }
+                if (jOut.staminaCost != null) {
+                    jOut.staminaCost = Math.max(0, Math.min(1000, Number(jOut.staminaCost) || 0));
+                }
+                if (jOut.range != null) {
+                    jOut.range = Math.max(0, Math.min(30, Number(jOut.range) || 1));
+                }
+                return jOut;
+            });
+            return out;
+        });
+    }
+
+    // ─── endlessTowerRun shape validation ─────────────────────────────────────
+    // Run state is client-tracked then collected via save. Forged saves can
+    // POST {wave: 9999, bankedRyo: 999999999, bankedXp: 999999999}. The
+    // existing per-save ryo cap catches absurd ryo on the COLLECT step but
+    // XP only has a rolling-window guard. Clamp the in-flight banked values
+    // so the collect step can't ever credit more than these ceilings.
+    const ET_BANKED_RYO_CAP = 100_000;
+    const ET_BANKED_XP_CAP = 50_000;
+    const ET_WAVE_CAP = 200;
+    if (char.endlessTowerRun && typeof char.endlessTowerRun === 'object') {
+        const run = char.endlessTowerRun as Record<string, unknown>;
+        if (run.bankedRyo != null) run.bankedRyo = Math.max(0, Math.min(ET_BANKED_RYO_CAP, Number(run.bankedRyo) || 0));
+        if (run.bankedXp != null) run.bankedXp = Math.max(0, Math.min(ET_BANKED_XP_CAP, Number(run.bankedXp) || 0));
+        if (run.wave != null) run.wave = Math.max(0, Math.min(ET_WAVE_CAP, Math.floor(Number(run.wave) || 0)));
+    }
+
+    // ─── defeatedAiIds length cap ─────────────────────────────────────────────
+    // Drives "AI Hunter" achievement variants. Hard cap so a forged save
+    // can't push the array to enormous lengths and bloat KV.
+    const DEFEATED_AI_IDS_CAP = 5000;
+    if (Array.isArray(char.defeatedAiIds) && (char.defeatedAiIds as unknown[]).length > DEFEATED_AI_IDS_CAP) {
+        char.defeatedAiIds = (char.defeatedAiIds as unknown[]).slice(-DEFEATED_AI_IDS_CAP);
+    }
+
     const TILE_CARD_CAP = 500;
     if (Array.isArray(char.tileCards) && (char.tileCards as unknown[]).length > TILE_CARD_CAP) {
         char.tileCards = (char.tileCards as unknown[]).slice(0, TILE_CARD_CAP);

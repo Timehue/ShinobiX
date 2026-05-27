@@ -1,11 +1,20 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { cors } from '../../_utils.js';
+import { authedPlayerOrAdmin } from '../../_auth.js';
 import { loadPool } from './_storage.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'GET') return res.status(405).end();
+
+    // Auth gate: previously anon-readable. The pool balance + recent
+    // donation log (donor names + amounts + timestamps) is useful intel
+    // for griefing campaigns. Any logged-in player can read; we don't
+    // restrict to clan members because the in-game UI shows other clans'
+    // pools in the Clan Hall comparison view.
+    const identity = await authedPlayerOrAdmin(req);
+    if (!identity) return res.status(401).json({ error: 'Authentication required.' });
 
     try {
         const clanName = String(req.query.clanName ?? '').trim();
