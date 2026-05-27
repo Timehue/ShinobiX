@@ -8569,6 +8569,14 @@ export default function App() {
     }, [pvpBattleId, pvpRole, pvpBattleContext]);
     const [temporaryStoryAi, setTemporaryStoryAi] = useState<CreatorAi | null>(null);
     const [raidBattleKind, setRaidBattleKind] = useState<"none" | "raidAi" | "raidPlayer" | "defense">("none");
+
+    // Active AI-raid token issued by /api/missions/raid-start. Held in a
+    // ref (not state) because changes don't need to trigger re-renders —
+    // recordMissionRaid reads it at the end of the battle. Cleared on
+    // use by the server (and locally cleared after a report is fired).
+    const activeRaidTokenRef = useRef<string | null>(null);
+    // Effect that mints the token lives below currentSector's declaration
+    // so it can read the latest sector value in its closure.
     const [endlessBattleActive, setEndlessBattleActive] = useState(false);
     const [endlessBattleWave, setEndlessBattleWave] = useState(0);
 
@@ -8634,6 +8642,39 @@ export default function App() {
     const [bloodlineMakerRankLocked, setBloodlineMakerRankLocked] = useState(false);
     const [bloodlineMakerEditingBloodline, setBloodlineMakerEditingBloodline] = useState<SavedBloodline | null>(null);
     const [currentSector, setCurrentSector] = useState(40);
+
+    // Mint a raid token when an AI raid kicks off. Watches raidBattleKind
+    // transitions to "raidAi". Falls back to a null token on network errors
+    // — the server then takes the legacy rate-limit-only path, same as a
+    // stale client. Placed here (rather than next to the raidBattleKind
+    // state above) so `currentSector` is in scope.
+    const prevRaidKindRef = useRef<typeof raidBattleKind>("none");
+    useEffect(() => {
+        const prev = prevRaidKindRef.current;
+        prevRaidKindRef.current = raidBattleKind;
+        if (prev === raidBattleKind) return;
+        if (raidBattleKind !== "raidAi") return;
+        if (!character || character.profession !== "vanguard") return;
+        void (async () => {
+            try {
+                const r = await fetch("/api/missions/raid-start", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        playerName: character.name,
+                        aiId: pendingAiProfileId || undefined,
+                        sector: currentSector || undefined,
+                    }),
+                });
+                if (!r.ok) { activeRaidTokenRef.current = null; return; }
+                const data = await r.json() as { token?: string | null };
+                activeRaidTokenRef.current = typeof data.token === "string" ? data.token : null;
+            } catch {
+                activeRaidTokenRef.current = null;
+            }
+        })();
+    }, [raidBattleKind, character, pendingAiProfileId, currentSector]);
+
     const [travelingUntil, setTravelingUntil] = useState(0);
     const [travelNow, setTravelNow] = useState(Date.now());
     const [playerRoster, setPlayerRoster] = useState<PlayerRecord[]>([]);
@@ -10730,14 +10771,22 @@ export default function App() {
         // OR AI defender) counts. Server endpoint is rate-limited so a retry
         // can't double-count.
         //
-        // When the raid was PvP-flavored (human defender), we pass `battleId`
-        // so the server can cross-validate the win against the actual
-        // PvpSession record and idempotency-gate the report. AI raids don't
-        // have a server-side session, so they skip the battleId and fall
-        // back to the rate-limit-only path on the server.
+        // PvP raid: pass `battleId` so the server cross-validates the win
+        // against the actual PvpSession record.
+        // AI raid: pass `raidToken` minted by /api/missions/raid-start when
+        // the raid began (held in activeRaidTokenRef). The server consumes
+        // the token atomically, so each minted token grants at most one
+        // mission credit.
         if (character?.profession === "vanguard") {
-            const requestBody: { playerName: string; battleId?: string } = { playerName: character.name };
-            if (battleId) requestBody.battleId = battleId;
+            const requestBody: { playerName: string; battleId?: string; raidToken?: string } = { playerName: character.name };
+            if (battleId) {
+                requestBody.battleId = battleId;
+            } else if (activeRaidTokenRef.current) {
+                requestBody.raidToken = activeRaidTokenRef.current;
+            }
+            // Clear the token locally regardless of report success — the
+            // server's single-use consume means a retry won't help.
+            activeRaidTokenRef.current = null;
             fetch('/api/missions/report-raid', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
