@@ -11,6 +11,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const clanName = String(req.query.clanName ?? '').trim();
         if (!clanName) return res.status(400).json({ error: 'Missing clanName.' });
         const escorters = await listActiveEscorters(clanName);
+        // 15s edge cache. List changes when a Pet Tamer toggles their
+        // escort offer; minute-scale latency would be too laggy for
+        // the UI but 15s is fine.
+        res.setHeader('Cache-Control', 's-maxage=15, stale-while-revalidate=30');
         return res.status(200).json({ clanName, escorters });
     } catch (err) {
         console.error('[clan/pet-escort/list]', err);
