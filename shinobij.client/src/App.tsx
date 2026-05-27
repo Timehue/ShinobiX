@@ -375,24 +375,24 @@ import {
 } from "./data/hollow-gate-atlas";
 
 
-function weatherForBiome(biome: Biome) {
-    return biomeWeatherTables[biome][0] ?? "clear";
-}
+// weatherForBiome + biomeForWorldSector moved to ./data/sectors. They're
+// pure lookups so they relocate cleanly. weatherForSector stays here
+// because it reads dynamic territory state via loadSectorTerritory.
+import {
+    villages,
+    worldSectorOptions,
+    weatherForBiome,
+    biomeForWorldSector,
+    villageOutskirtsSectorNumber,
+    villageForOutskirtsSector,
+} from "./data/sectors";
+export { villages, weatherForBiome };
 
 function weatherForSector(sector: number, biome: Biome) {
     const territory = loadSectorTerritory(sector);
     if (territory.ownerClan && territory.weather) return territory.weather;
     const table = biomeWeatherTables[biome];
     return table[(sector - 1) % table.length] ?? "clear";
-}
-
-function biomeForWorldSector(sector: number): Biome {
-    if (sector === 99) return "volcano";
-    if (sector >= 56) return "central";
-    if (sector <= 20) return "shadow";
-    if (sector <= 35) return "forest";
-    if (sector <= 45) return "volcano";
-    return "snow";
 }
 
 // Territory + API constants moved to ./constants/game — imported above.
@@ -1968,23 +1968,15 @@ const jutsuResourceCostPercentByAp: Record<number, number> = {
     60: 5,
 };
 
-export const villages = ["Stormveil Village", "Ashen Leaf Village", "Frostfang Village", "Moonshadow Village"];
+// villages + villageOutskirtsSectorNumber + villageForOutskirtsSector moved
+// to ./data/sectors. villagePageImage stays here because it pulls in image
+// asset imports that the lib shouldn't pollute.
 export function villagePageImage(villageName: string): string {
     if (villageName === "Stormveil Village") return stormveilVillageImg;
     if (villageName === "Ashen Leaf Village") return houseImg;
     if (villageName === "Frostfang Village") return castleImg;
     if (villageName === "Moonshadow Village") return moonshadowImage;
     return stormveilVillageImg;
-}
-function villageOutskirtsSectorNumber(villageName: string): number {
-    if (villageName === "Stormveil Village") return 31;
-    if (villageName === "Ashen Leaf Village") return 38;
-    if (villageName === "Frostfang Village") return 47;
-    if (villageName === "Moonshadow Village") return 11;
-    return 40;
-}
-function villageForOutskirtsSector(sector: number): string | undefined {
-    return villages.find((village) => villageOutskirtsSectorNumber(village) === sector);
 }
 export const villageLore: Record<string, { icon: string; theme: string; lore: string }> = {
     "Ashen Leaf Village": {
@@ -2086,7 +2078,7 @@ const adminIconOptions: { value: string; label: string }[] = [
     { value: "MOON", label: "MOON — Moon / Night Event" },
     { value: "STAR", label: "STAR — Star / Legendary Site" },
 ];
-const worldSectorOptions = [...Array.from({ length: 60 }, (_, index) => index + 1), 99];
+// worldSectorOptions moved to ./data/sectors (imported at top).
 export const starterBloodlines = ["Ashen Eyes", "Inferno Cataclysm", "Shadow Lotus", "Iron Fang"];
 // petDisplayName / petHappiness / isPetOnExpedition / petCombatDamage /
 // increasePetHappiness / petVariantIndex moved to ./lib/pet.
