@@ -157,7 +157,7 @@ export function ClanSealPool({
                         max={remainingToday}
                         value={donateAmount}
                         onChange={(e) => setDonateAmount(Math.max(1, Number(e.target.value)))}
-                        style={{ width: 80 }}
+                        style={{ flex: "0 1 100px", minWidth: 70, maxWidth: 120 }}
                     />
                     <button
                         onClick={() => void donate()}
@@ -185,7 +185,7 @@ export function ClanSealPool({
                         min={1}
                         value={distributeAmount}
                         onChange={(e) => setDistributeAmount(Math.max(1, Number(e.target.value)))}
-                        style={{ width: 80 }}
+                        style={{ flex: "0 1 100px", minWidth: 70, maxWidth: 120 }}
                     />
                     <span className="hint">to</span>
                     <input
@@ -193,7 +193,7 @@ export function ClanSealPool({
                         placeholder="Clan-mate name"
                         value={recipient}
                         onChange={(e) => setRecipient(e.target.value)}
-                        style={{ width: 160 }}
+                        style={{ flex: "1 1 160px", minWidth: 140 }}
                     />
                     <button
                         onClick={() => void distribute()}

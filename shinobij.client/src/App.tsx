@@ -309,6 +309,8 @@ const UserHub = lazy(() => import("./screens/UserHub").then(m => ({ default: m.U
 const UserView = lazy(() => import("./screens/UserView").then(m => ({ default: m.UserView })));
 // Mobile banner timer widget moved to ./components/BannerMobileTimers.
 import { BannerMobileTimers } from "./components/BannerMobileTimers";
+// Mobile-only persistent top status HUD (avatar + bars + Ryo/Shards).
+import { MobileStatusHUD } from "./components/MobileStatusHUD";
 // Desktop left-rail profile card moved to ./components/LeftProfileCard.
 import { LeftProfileCard } from "./components/LeftProfileCard";
 // Static world-map side banner moved to ./components/SectorBanner.
@@ -5345,6 +5347,15 @@ function normalizeAiProfile(ai: Partial<CreatorAi>, allJutsus: Jutsu[] = starter
 }
 export default function App() {
     const [screen, setScreen] = useState<Screen>("start");
+    // ── Mobile back-navigation history stack ─────────────────────────────
+    // Captures every screen change so the MobileStatusHUD can render a
+    // back button. We track via a useEffect (below) rather than wrapping
+    // setScreen because there are ~50 direct setScreen() call sites
+    // scattered through this file — a single effect catches them all.
+    // The ref blocks the effect from re-pushing the target screen we just
+    // popped during a back navigation (which would create an infinite loop).
+    const [screenHistory, setScreenHistory] = useState<Screen[]>([]);
+    const isGoingBackRef = useRef(false);
     const [worldMapKey, setWorldMapKey] = useState(0);
     const [character, setCharacter] = useState<Character | null>(null);
     const [currentAccountName, setCurrentAccountName] = useState("");
@@ -8036,6 +8047,50 @@ export default function App() {
         setTemporaryStoryAi(null);
     }
 
+    // ── Back-navigation history capture ─────────────────────────────────
+    // Pushes the current screen onto a capped 20-deep stack whenever it
+    // changes, EXCEPT during a back-navigation (the ref short-circuits the
+    // push so we don't immediately re-record the screen we just popped).
+    // "start" resets history — login means a fresh session.
+    useEffect(() => {
+        if (isGoingBackRef.current) {
+            isGoingBackRef.current = false;
+            return;
+        }
+        if (screen === "start") {
+            setScreenHistory([]);
+            return;
+        }
+        setScreenHistory(prev => {
+            const last = prev[prev.length - 1];
+            if (last === screen) return prev; // dedupe consecutive
+            return [...prev.slice(-19), screen];
+        });
+    }, [screen]);
+
+    const canGoBack = screenHistory.length > 1;
+
+    // Pop history and navigate to the previous screen. The same locks as
+    // navigate() apply — can't back-out of an active battle or hospital
+    // admission.
+    const goBack = useCallback(() => {
+        if (raidBattleKind !== "none") {
+            alert("⚔️ You cannot leave during a battle. Finish the fight first!");
+            return;
+        }
+        if (character?.hospitalized && screen === "hospital") {
+            alert("🏥 You are still admitted. Pay the discharge fee or wait for the free check-out timer.");
+            return;
+        }
+        setScreenHistory(prev => {
+            if (prev.length <= 1) return prev;
+            const target = prev[prev.length - 2];
+            isGoingBackRef.current = true;
+            setScreen(target);
+            return prev.slice(0, -1);
+        });
+    }, [raidBattleKind, character?.hospitalized, screen]);
+
     function navigate(nextScreen: Screen) {
         // Lock: cannot leave while in an active battle
         if (raidBattleKind !== "none") {
@@ -9654,6 +9709,12 @@ export default function App() {
                     minimal — screen transitions are quick after first lazy fetch,
                     and a heavy spinner here would flash on every navigation. */}
                 <Suspense fallback={<div className="lazy-screen-fallback" style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>Loading…</div>}>
+                {character && screen !== "start" && (
+                    <MobileStatusHUD
+                        character={character}
+                        onBack={canGoBack ? goBack : undefined}
+                    />
+                )}
                 <div
                     className="journey-banner"
                     style={{ backgroundImage: `url(${shinobiBanner})` }}
@@ -9897,7 +9958,7 @@ export default function App() {
                                 const introImage = sharedImages[page.imageKey];
                                 const isLast = hollowGateIntroPage >= hollowGateIntroPages.length - 1;
                                 return (
-                                    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.86)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100 }}>
+                                    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.86)", overflowY: "auto", display: "flex", alignItems: "flex-start", justifyContent: "center", zIndex: 1100, padding: "16px 12px max(16px, env(safe-area-inset-bottom, 16px))" }}>
                                         <div style={{ background: "linear-gradient(180deg, rgba(15,9,28,0.97), rgba(8,4,18,0.99))", border: "2px solid rgba(168,85,247,0.6)", borderRadius: 12, padding: 24, maxWidth: 640, width: "92%", color: "#e9d5ff", boxShadow: "0 0 70px rgba(168,85,247,0.4)" }}>
                                             <p className="act-label" style={{ color: "#a855f7", letterSpacing: 2 }}>HOLLOW GATE — INTRODUCTION</p>
                                             <h2 style={{ margin: "0 0 12px", color: "#faf5ff" }}>{page.title}</h2>
@@ -10453,7 +10514,7 @@ export default function App() {
                                     : null;
                                 const tileImage = tileImageKey ? sharedImages[tileImageKey] : null;
                                 return (
-                                    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }} onClick={() => {}}>
+                                    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", overflowY: "auto", display: "flex", alignItems: "flex-start", justifyContent: "center", zIndex: 1000, padding: "16px 12px max(16px, env(safe-area-inset-bottom, 16px))" }} onClick={() => {}}>
                                         <div style={{ background: "linear-gradient(180deg, rgba(15,9,28,0.97), rgba(8,4,18,0.99))", border: "2px solid rgba(168,85,247,0.5)", borderRadius: 12, padding: 24, maxWidth: 520, width: "90%", color: "#e9d5ff" }}>
                                             {tileImage && (
                                                 <img src={tileImage} alt={hollowGateEvent.title} style={{ width: "100%", height: 180, objectFit: "cover", borderRadius: 8, marginBottom: 12 }} />
@@ -10477,7 +10538,7 @@ export default function App() {
                                     ? `linear-gradient(180deg, rgba(30,15,50,0.82), rgba(15,5,30,0.92)), url(${chamberBg}) center/cover no-repeat`
                                     : "linear-gradient(180deg, rgba(30,15,50,0.97), rgba(15,5,30,0.99))";
                                 return (
-                                <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.78)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1001 }}>
+                                <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.78)", overflowY: "auto", display: "flex", alignItems: "flex-start", justifyContent: "center", zIndex: 1001, padding: "16px 12px max(16px, env(safe-area-inset-bottom, 16px))" }}>
                                     <div style={{ background: chamberStyle, border: "2px solid rgba(168,85,247,0.6)", borderRadius: 12, padding: 28, maxWidth: 620, width: "92%", color: "#e9d5ff", boxShadow: "0 0 50px rgba(168,85,247,0.35)" }}>
                                         <p className="act-label" style={{ color: "#a855f7", letterSpacing: 2 }}>HIDDEN CHAMBER</p>
                                         <h2 style={{ margin: "0 0 12px", color: "#faf5ff" }}>Secret Area Discovered</h2>
