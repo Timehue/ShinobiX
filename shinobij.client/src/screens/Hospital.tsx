@@ -51,15 +51,66 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, hospita
     const freeCheckoutReady = character.hospitalized && elapsed >= 60;
     const remaining = Math.max(0, 60 - elapsed);
 
-    function discharge() {
+    // Pay-skip discharge. Previously this was a client-only mutation that
+    // deducted ryo + flipped hospitalized=false locally, but the save
+    // validator reverts early discharge — so players paid ryo for nothing.
+    // Now we POST to /api/player/heal with paySkip=true; the server charges
+    // ryo AND performs the discharge in one atomic write, then we mirror
+    // the post-charge state locally.
+    async function discharge() {
         if (character.ryo < dischargeCost) return alert(`Not enough ryo. You need ${dischargeCost} ryo to be discharged.`);
-        updateCharacter({ ...character, ryo: character.ryo - dischargeCost, hp: character.maxHp, chakra: character.maxChakra, stamina: character.maxStamina, hospitalized: false });
-        setScreen("village");
+        try {
+            const res = await fetch('/api/player/heal', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ targetName: character.name, paySkip: !isHealer }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                alert(data.error ?? 'Failed to discharge.');
+                return;
+            }
+            const chargedRyo = Number(data.chargedRyo ?? (isHealer ? 0 : dischargeCost));
+            updateCharacter({
+                ...character,
+                ryo: Math.max(0, character.ryo - chargedRyo),
+                hp: character.maxHp,
+                chakra: character.maxChakra,
+                stamina: character.maxStamina,
+                hospitalized: false,
+            });
+            setScreen("village");
+        } catch {
+            alert('Network error — discharge failed.');
+        }
     }
 
-    function freeCheckout() {
-        updateCharacter({ ...character, hospitalized: false });
-        setScreen("village");
+    // Free check-out after timer expires. Server still owns the discharge
+    // decision (validator will reject if timer hasn't actually expired), so
+    // we route through the same endpoint with paySkip=false.
+    async function freeCheckout() {
+        try {
+            const res = await fetch('/api/player/heal', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ targetName: character.name, paySkip: false }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                alert(data.error ?? 'Failed to check out.');
+                return;
+            }
+            updateCharacter({
+                ...character,
+                hp: character.maxHp,
+                chakra: character.maxChakra,
+                stamina: character.maxStamina,
+                hospitalized: false,
+            });
+            setScreen("village");
+        } catch {
+            alert('Network error — check-out failed.');
+        }
     }
 
     function topUp() {

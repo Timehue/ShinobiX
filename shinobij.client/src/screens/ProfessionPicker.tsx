@@ -30,9 +30,9 @@ const PROFESSIONS: ProfessionInfo[] = [
         name: "Healer",
         tagline: "Mend what war breaks.",
         bullets: [
-            "Heal allies from the hospital",
-            "See injured villagers at Rank 10",
-            "No healing cooldown",
+            "Heal allies for XP (% HP restored)",
+            "Faster per-target cooldown & shorter hospital timer with rank",
+            "Rank 10: see & heal injured villagers anywhere in the world",
         ],
         accent: "#22d3ee",
         icon: "✚",
