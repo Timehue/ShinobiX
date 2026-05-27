@@ -177,6 +177,43 @@ export {
     LEGENDARY_WAR_CRATE_ID,
 };
 
+// Profession + Vanguard constants extracted to src/constants/profession.ts.
+import {
+    VANGUARD_SEALS_PER_KILL,
+    VANGUARD_DAILY_SEAL_CAP,
+    VANGUARD_PER_TARGET_DAILY_CAP,
+    ANTI_ALT_ACCOUNT_AGE_MS,
+    PROFESSION_XP_BASELINE,
+    PROFESSION_XP_HEALER,
+    PROFESSION_MAX_RANK,
+} from "./constants/profession";
+export {
+    VANGUARD_DAILY_SEAL_CAP,
+    VANGUARD_PER_TARGET_DAILY_CAP,
+    PROFESSION_MAX_RANK,
+};
+
+// Hunter rank tables extracted to src/constants/hunter.ts.
+import {
+    HUNTER_RANK_LABELS,
+    HUNTER_RANK_COLORS,
+    HUNT_MIN_RANK,
+    HUNTER_RANKUP,
+    HUNT_MATERIAL_NAMES,
+} from "./constants/hunter";
+
+// Clan + clan-war lookup tables extracted to src/constants/clan.ts.
+import {
+    CLAN_RANK_COLOR,
+    CLAN_RANK_ICON,
+    CLAN_ROLE_ICON,
+    CLAN_UPGRADE_MAX_LEVEL,
+    CW_HP_MAX,
+    CW_DAMAGE,
+    CW_MODE_LABEL,
+    CW_MODE_ICON,
+} from "./constants/clan";
+
 const terrainEffects: Record<
     Biome,
     {
@@ -6311,12 +6348,8 @@ export function petTamerPveMultiplier(character: Character | null | undefined): 
     return 1 + bonusPct / 100;
 }
 
-// ── Vanguard PvP rewards (Honor Seals + Vanguard XP) ──────────────────────
-// Strict-spec: only Vanguards earn Honor Seals from PvP. Non-Vanguards get 0.
-// Indexed by rank — idx 0 unused, rank 1..10 follows the docs/professions.md table.
-const VANGUARD_SEALS_PER_KILL = [0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5] as const;
-export const VANGUARD_DAILY_SEAL_CAP = 50;
-export const VANGUARD_PER_TARGET_DAILY_CAP = 3;
+// VANGUARD_SEALS_PER_KILL / VANGUARD_DAILY_SEAL_CAP /
+// VANGUARD_PER_TARGET_DAILY_CAP moved to ./constants/profession.
 
 // Vanguard XP per PvP kill: 100 base + 10 per target level above 30.
 export function vanguardXpForKill(opponent: Character | null | undefined): number {
@@ -6325,8 +6358,7 @@ export function vanguardXpForKill(opponent: Character | null | undefined): numbe
     return 100 + 10 * Math.max(0, lvl - 30);
 }
 
-// Anti-alt: zero rewards for killing targets whose account is <72 hours old.
-const ANTI_ALT_ACCOUNT_AGE_MS = 72 * 60 * 60 * 1000;
+// ANTI_ALT_ACCOUNT_AGE_MS moved to ./constants/profession.
 function targetTooYoungForRewards(opponent: Character | null | undefined): boolean {
     if (!opponent?.createdAt) return false;
     return (Date.now() - opponent.createdAt) < ANTI_ALT_ACCOUNT_AGE_MS;
@@ -6416,13 +6448,8 @@ export function vanguardSealsForKill(
     return { amount, updatedByTarget };
 }
 
-// ── Profession XP & rank progression ─────────────────────────────────────
-// Cumulative XP needed to reach each rank index (rank 1 = index 1, max = 10).
-// Baseline curve used by Vanguard and Pet Tamer; Healer scales by 1.5×.
-// See docs/professions.md "XP curves" section.
-const PROFESSION_XP_BASELINE = [0, 100, 350, 850, 1850, 3850, 7350, 12850, 20850, 32850, Infinity];
-const PROFESSION_XP_HEALER = PROFESSION_XP_BASELINE.map(v => v === Infinity ? v : Math.floor(v * 1.5));
-export const PROFESSION_MAX_RANK = 10;
+// PROFESSION_XP_BASELINE / PROFESSION_XP_HEALER / PROFESSION_MAX_RANK
+// moved to ./constants/profession.
 
 export function professionThresholds(profession: Profession): readonly number[] {
     return profession === "healer" ? PROFESSION_XP_HEALER : PROFESSION_XP_BASELINE;
@@ -23547,20 +23574,7 @@ function clanRankOf(member: ClanMemberEntry, members: ClanMemberEntry[], founder
     if (idx < 10) return "Clan Shinobi";
     return "Clan Initiate";
 }
-const CLAN_RANK_COLOR: Record<string, string> = {
-    "Clan Head": "#fde047",
-    "Clan Elder": "#c084fc",
-    "Clan Enforcer": "#60a5fa",
-    "Clan Shinobi": "#4ade80",
-    "Clan Initiate": "#64748b",
-};
-const CLAN_RANK_ICON: Record<string, string> = {
-    "Clan Head": "🌟",
-    "Clan Elder": "🏯",
-    "Clan Enforcer": "⚔",
-    "Clan Shinobi": "🥷",
-    "Clan Initiate": "🌱",
-};
+// CLAN_RANK_COLOR / CLAN_RANK_ICON moved to ./constants/clan.
 function clanSlug(name: string): string {
     return "clan-" + name.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
@@ -23611,7 +23625,7 @@ type ClanTreasury = { ryo: number; fateShards: number; boneCharms: number; auraS
 type ClanTreasuryCurrencyKey = Exclude<keyof ClanTreasury, "items" | "warSupply">;
 type ClanWarRecord = { opponent: string; result: "Won" | "Lost" | "Draw"; finalScore: string; topAttacker: string; topDefender: string; mvpClan: string; reward: string; date: string; endedAt?: number; warCrateId?: string; };
 type EnhancedClanData = ClanData & { level: number; xp: number; treasury: ClanTreasury; upgrades: ClanUpgradeLevels; warHistory: ClanWarRecord[]; activeWar?: { opponentClan: string; enemyVillage: string; ourScore: number; enemyScore: number; startedAt: number; endsAt: number; }; roleOverrides?: Record<string, ClanRole>; joinRequests: ClanJoinRequest[]; notices: NoticePost[]; };
-const CLAN_UPGRADE_MAX_LEVEL = 50;
+// CLAN_UPGRADE_MAX_LEVEL moved to ./constants/clan.
 const clanBoostTiers = [
     { min: 3, max: 5, percent: 2 },
     { min: 6, max: 10, percent: 5 },
@@ -23628,7 +23642,7 @@ const clanMissionDefinitions = [
     { key: "training", icon: "💪", name: "Train 100 Hours", description: "Long-term clan discipline objective.", target: 100, reward: "+600 Clan XP" },
     { key: "raid", icon: "🗡", name: "Defeat 5 Raid Bosses", description: "Raid contribution objective for future PvE events.", target: 5, reward: "+900 Clan XP / +1 Mythic Seal" },
 ] as const;
-const CLAN_ROLE_ICON: Record<ClanRole, string> = { Founder: "⛩", Leader: "👑", Officer: "🎖", "Elite Member": "💎", Member: "🛡", Recruit: "📜" };
+// CLAN_ROLE_ICON moved to ./constants/clan.
 function defaultClanTreasury(): ClanTreasury { return { ryo: 0, fateShards: 0, boneCharms: 0, auraStones: 0, mythicSeals: 0, warSupply: 0, items: [] }; }
 function defaultClanUpgrades(): ClanUpgradeLevels { return { trainingGrounds: 0, warRoom: 0, treasury: 0, petDen: 0, medicalWing: 0, blacksmith: 0, scoutNetwork: 0 }; }
 function cleanClanTreasury(t?: Partial<ClanTreasury>): ClanTreasury { const base = defaultClanTreasury(); return { ryo: Math.max(0, Math.floor(Number(t?.ryo ?? base.ryo))), fateShards: Math.max(0, Math.floor(Number(t?.fateShards ?? base.fateShards))), boneCharms: Math.max(0, Math.floor(Number(t?.boneCharms ?? base.boneCharms))), auraStones: Math.max(0, Math.floor(Number(t?.auraStones ?? base.auraStones))), mythicSeals: Math.max(0, Math.floor(Number(t?.mythicSeals ?? base.mythicSeals))), warSupply: Math.max(0, Math.floor(Number(t?.warSupply ?? base.warSupply))), items: cleanTreasuryItems(t?.items ?? base.items) }; }
@@ -26227,28 +26241,7 @@ type CwWar = {
     warCrateId?: string;
     mvpByClan?: Record<string, string>;
 };
-const CW_HP_MAX = 1000;
-const CW_DAMAGE: Record<CwChallengeMode, number> = {
-    pvp1v1: 30,
-    pvp2v2: 60,
-    pet1v1: 20,
-    pet2v2: 40,
-    tilecards: 10,
-};
-const CW_MODE_LABEL: Record<CwChallengeMode, string> = {
-    pvp1v1: "1v1 PvP",
-    pvp2v2: "2v2 PvP",
-    pet1v1: "Pet 1v1",
-    pet2v2: "Pet 2v2",
-    tilecards: "Tile Cards",
-};
-const CW_MODE_ICON: Record<CwChallengeMode, string> = {
-    pvp1v1: "⚔",
-    pvp2v2: "⚔⚔",
-    pet1v1: "🐾",
-    pet2v2: "🐾🐾",
-    tilecards: "🃏",
-};
+// CW_HP_MAX / CW_DAMAGE / CW_MODE_LABEL / CW_MODE_ICON moved to ./constants/clan.
 
 async function cwListWars(): Promise<CwWar[]> {
     try {
@@ -31441,23 +31434,7 @@ function Missions({
     );
 }
 
-const HUNTER_RANK_LABELS = ["Novice Hunter", "Tracker", "Beast Slayer", "Monster Hunter", "Elite Huntsman", "Chakra Beast Warden"];
-const HUNTER_RANK_COLORS = ["#22c55e", "#3b82f6", "#a855f7", "#f97316", "#ef4444", "#facc15"];
-const HUNT_MIN_RANK: Record<MissionRank, number> = { "Daily": 0, "D Rank": 0, "C Rank": 1, "B Rank": 2, "A Rank": 3, "S Rank": 4 };
-const HUNTER_RANKUP: { itemId: string; qty: number }[] = [
-    { itemId: "hunt-beast-meat", qty: 5 },
-    { itemId: "hunt-wolf-fang", qty: 5 },
-    { itemId: "hunt-ash-scale", qty: 5 },
-    { itemId: "hunt-shadow-pelt", qty: 5 },
-    { itemId: "hunt-legendary-material", qty: 3 },
-];
-const HUNT_MATERIAL_NAMES: Record<string, string> = {
-    "hunt-beast-meat": "Beast Meat",
-    "hunt-wolf-fang": "Wolf Fang",
-    "hunt-ash-scale": "Ash Scale",
-    "hunt-shadow-pelt": "Shadow Pelt",
-    "hunt-legendary-material": "Legendary Material",
-};
+// Hunter rank tables moved to ./constants/hunter.
 
 function HunterBoard({
     character,
