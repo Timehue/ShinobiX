@@ -180,13 +180,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const { fights } = body as { fights?: unknown[] };
                 if (!Array.isArray(fights)) return res.status(400).json({ error: 'Missing fights array.' });
 
-                // Non-admin actor must appear in at least one fight entry to
-                // write the active-fights list. Stops random players from
-                // wiping or polluting the arena fight list.
+                // Non-admin actor must have been in the OLD list OR be in the
+                // NEW list. Without the "old list" check, the legitimate
+                // cleanup case 403'd: when a player's own fight ends they
+                // POST the list minus their fight, and the new list no
+                // longer contains them. Comparing against the prior KV
+                // value lets that cleanup through while still rejecting
+                // strangers who try to wipe or pollute the list.
                 if (!identity.admin) {
                     const me = identity.name;
-                    const inAnyFight = fights.some((f) => {
-                        if (!f || typeof f !== 'object') return false;
+                    function fighterNames(f: unknown): string[] {
+                        if (!f || typeof f !== 'object') return [];
                         const rec = f as Record<string, unknown>;
                         const names: string[] = [];
                         if (typeof rec.p1Name === 'string') names.push(rec.p1Name);
@@ -204,9 +208,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 }
                             }
                         }
-                        return names.some((n) => n.toLowerCase().trim() === me);
-                    });
-                    if (!inAnyFight) {
+                        return names;
+                    }
+                    function listIncludesMe(list: unknown[]): boolean {
+                        return list.some((f) => fighterNames(f).some((n) => n.toLowerCase().trim() === me));
+                    }
+                    const inNewList = listIncludesMe(fights);
+                    let inOldList = false;
+                    if (!inNewList) {
+                        const oldFights = await kv.get<unknown[]>(ARENA_ACTIVE_FIGHTS_KEY);
+                        inOldList = Array.isArray(oldFights) ? listIncludesMe(oldFights) : false;
+                    }
+                    if (!inNewList && !inOldList) {
                         return res.status(403).json({ error: 'Actor must be one of the fighters to update the arena fight list.' });
                     }
                 }
