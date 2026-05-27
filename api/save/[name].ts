@@ -43,7 +43,7 @@ function stripPrivateFields(data: Record<string, unknown>): Record<string, unkno
     // _saveVersion / _saveAt are server bookkeeping for the multi-tab autosave
     // guard. Owners need to see them (so they can echo `_baseSaveVersion`
     // back on the next POST), but non-owners shouldn't get internal metadata.
-    const stripped = { ...data, character: sanitized };
+    const stripped: Record<string, unknown> = { ...data, character: sanitized };
     delete stripped._saveVersion;
     delete stripped._saveAt;
     return stripped;

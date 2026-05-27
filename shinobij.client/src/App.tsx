@@ -25297,7 +25297,36 @@ function TownHall({ character, updateCharacter, creatorItems, allServerPlayers, 
         const amount = Math.max(1, Math.floor(villageSendAmount));
         if (!villageSendPlayer) return alert("Choose a village player.");
         if ((state.treasury[villageSendCurrency] ?? 0) < amount) return alert("Not enough village treasury resources.");
-        if (!(await grantCurrencyToPlayer(villageSendPlayer, villageSendCurrency, amount, character, updateCharacter))) return alert("Could not find that player account.");
+        // Route through the dedicated server-side endpoint instead of the old
+        // 2-write client flow (deduct-treasury + patch-recipient). The new
+        // endpoint impersonates both ends under per-row locks and emits an
+        // audit log, and is the only Kage-gift path that actually works for
+        // non-admin Kages (cross-player save POSTs 403 outside this route).
+        try {
+            const r = await fetch("/api/village/treasury/transfer", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    village: character.village,
+                    recipientName: villageSendPlayer,
+                    currency: villageSendCurrency,
+                    amount,
+                }),
+            });
+            if (!r.ok) {
+                const data = await r.json().catch(() => ({}));
+                return alert(data?.error ?? `Transfer failed (HTTP ${r.status}).`);
+            }
+        } catch (err) {
+            return alert(`Transfer failed: ${(err as Error).message}`);
+        }
+        // Reflect the deduction in the local cache + drop a notice. The
+        // server has already persisted both sides; this is purely UX.
+        // If the recipient is the actor (Kage gifting themselves), credit
+        // their in-memory character too so the UI updates immediately.
+        if (villageSendPlayer === character.name) {
+            updateCharacter({ ...character, [villageSendCurrency]: (character[villageSendCurrency] ?? 0) + amount } as Character);
+        }
         updateVillageState(addNotice(`${character.name} gifted ${amount.toLocaleString()} ${villageSendCurrency} to ${villageSendPlayer}.`, { ...state, treasury: { ...state.treasury, [villageSendCurrency]: state.treasury[villageSendCurrency] - amount } }));
     }
     async function sendVillageItem() {
@@ -25305,7 +25334,26 @@ function TownHall({ character, updateCharacter, creatorItems, allServerPlayers, 
         if (!villageSendPlayer) return alert("Choose a village player.");
         if (!villageSendItemId) return alert("Choose an item.");
         if (!state.treasury.items.some(stack => stack.itemId === villageSendItemId && stack.count > 0)) return alert("That item is not in the village treasury.");
-        if (!(await grantInventoryItemToPlayer(villageSendPlayer, villageSendItemId, character, updateCharacter))) return alert("Could not find that player account.");
+        try {
+            const r = await fetch("/api/village/treasury/transfer", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    village: character.village,
+                    recipientName: villageSendPlayer,
+                    itemId: villageSendItemId,
+                }),
+            });
+            if (!r.ok) {
+                const data = await r.json().catch(() => ({}));
+                return alert(data?.error ?? `Transfer failed (HTTP ${r.status}).`);
+            }
+        } catch (err) {
+            return alert(`Transfer failed: ${(err as Error).message}`);
+        }
+        if (villageSendPlayer === character.name) {
+            updateCharacter({ ...character, inventory: [...character.inventory, villageSendItemId] });
+        }
         updateVillageState(addNotice(`${character.name} gifted ${itemDisplayName(villageSendItemId, allVillageItems)} to ${villageSendPlayer}.`, { ...state, treasury: { ...state.treasury, items: removeTreasuryItem(state.treasury.items, villageSendItemId) } }));
     }
     async function toggleTownGuard() { const queued = character.guardQueued ?? false; setGuardBusy(true); if (queued) { await postGuardQueue("dequeue", { name: character.name, village: character.village }); updateCharacter({ ...character, guardQueued: false }); updateVillageState(addNotice(`${character.name} left the Village Guard queue.`)); } else { await postGuardQueue("queue", { name: character.name, village: character.village, level: character.level, defenseBonusPercent: getTownDefenseGuardBonus(character) }); updateCharacter({ ...character, guardQueued: true }); updateVillageState(addNotice(`${character.name} joined the Village Guard queue with +${getTownDefenseGuardBonus(character).toFixed(1)}% defense.`)); } setGuardBusy(false); }
