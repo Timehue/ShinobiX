@@ -2,9 +2,19 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
 import { safeName, mergePreservingImages, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
-import { reportMissionEvent, awardProfessionXp, type CompletedMissionInfo } from '../missions/_progress.js';
+import {
+    reportMissionEvent,
+    awardProfessionXp,
+    professionRankForXp,
+    healerHealXpBonusPct,
+    healerPerTargetCooldownMs,
+    healerHospitalTimerMs,
+    HEALER_WORLDWIDE_RANK,
+    type CompletedMissionInfo,
+} from '../missions/_progress.js';
 
-const HEAL_PER_TARGET_COOLDOWN_MS = 5 * 60 * 1000;
+// Per-target cooldown is now rank-scaled via healerPerTargetCooldownMs(rank).
+// Baseline (rank 1) is 5 min; rank 10 is 1.5 min. See api/missions/_progress.ts.
 const HEALER_MAX_XP_PER_HEAL = 100;
 // Healer assist synergy: +50% XP for healing a target who was hospitalized
 // within the last 10 minutes (recent-fight proxy — players are hospitalized
@@ -12,6 +22,9 @@ const HEALER_MAX_XP_PER_HEAL = 100;
 const HEALER_RAID_ASSIST_WINDOW_MS = 10 * 60 * 1000;
 const HEALER_RAID_ASSIST_MULT = 1.5;
 const HOSPITAL_DURATION_MS = 60_000;
+// Pay-to-skip discharge cost (matches client-side dischargeCost in Hospital.tsx).
+// Charged server-side when paySkip=true and the hospital timer hasn't expired.
+const PAY_SKIP_DISCHARGE_COST = 2500;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -22,6 +35,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
         const targetName = safeName(String(body.targetName ?? ''));
         const healerName = safeName(String(body.healerName ?? ''));
+        const paySkip = body.paySkip === true;
         if (!targetName) return res.status(400).json({ error: 'Invalid target name.' });
 
         // Caller identity. For self-heal, identity must match targetName.
@@ -49,15 +63,57 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const targetInjured = targetMaxHp > 0 && targetHp < targetMaxHp;
 
         if (isSelfHeal) {
-            // Original behavior: self-heal only after the hospital timer expires
-            // (admins bypass). No profession XP awarded for self-heals.
+            // Self-heal / hospital checkout. Three flavors:
+            //   (a) Healer's free checkout — Healers always discharge free.
+            //   (b) Wait-out checkout — anyone, after hospital timer expires.
+            //   (c) Pay-skip discharge — pay PAY_SKIP_DISCHARGE_COST ryo to
+            //       skip the remaining timer. Charged SERVER-side here.
+            //       Previously this was a client-only flow that deducted ryo
+            //       locally but the save validator reverted the discharge,
+            //       so players paid ryo for nothing. Now the server applies
+            //       both the charge AND the discharge in one transaction.
             if (!targetHospitalized) return res.status(400).json({ error: 'Player is not hospitalized.' });
             const until = Number(targetChar.hospitalizedUntil ?? 0);
-            if (!identity.admin && until && Date.now() < until) {
-                return res.status(429).json({
-                    error: 'Hospital timer not yet expired.',
-                    retryAfterMs: until - Date.now(),
-                });
+            const timerExpired = !until || Date.now() >= until;
+            const selfIsHealer = targetChar.profession === 'healer';
+            let chargedRyo = 0;
+            if (!identity.admin && !timerExpired) {
+                if (selfIsHealer) {
+                    // Healer rank-scaled timer: r1=60s, r10=15s. If the
+                    // healer's shortened timer also hasn't expired, fall
+                    // through to the pay-skip / wait-it-out checks.
+                    const xp = Number(targetChar.professionXp ?? 0);
+                    const healerRank = professionRankForXp('healer', xp);
+                    const fullTimer = HOSPITAL_DURATION_MS;
+                    const healerTimer = healerHospitalTimerMs(healerRank);
+                    const healerEligibleAt = until - fullTimer + healerTimer;
+                    if (Date.now() >= healerEligibleAt) {
+                        // Healer rank-shortened timer is satisfied — let it discharge for free.
+                    } else if (paySkip) {
+                        // Pay to skip the remaining (already-shortened) wait.
+                        const curRyo = Number(targetChar.ryo ?? 0);
+                        if (curRyo < PAY_SKIP_DISCHARGE_COST) {
+                            return res.status(402).json({ error: `Need ${PAY_SKIP_DISCHARGE_COST} ryo to pay-skip discharge.` });
+                        }
+                        chargedRyo = PAY_SKIP_DISCHARGE_COST;
+                    } else {
+                        return res.status(429).json({
+                            error: 'Hospital timer not yet expired.',
+                            retryAfterMs: healerEligibleAt - Date.now(),
+                        });
+                    }
+                } else if (paySkip) {
+                    const curRyo = Number(targetChar.ryo ?? 0);
+                    if (curRyo < PAY_SKIP_DISCHARGE_COST) {
+                        return res.status(402).json({ error: `Need ${PAY_SKIP_DISCHARGE_COST} ryo to pay-skip discharge.` });
+                    }
+                    chargedRyo = PAY_SKIP_DISCHARGE_COST;
+                } else {
+                    return res.status(429).json({
+                        error: 'Hospital timer not yet expired.',
+                        retryAfterMs: until - Date.now(),
+                    });
+                }
             }
             const healed = {
                 ...targetRecord,
@@ -68,10 +124,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     stamina: targetChar.maxStamina,
                     hospitalized: false,
                     hospitalizedUntil: 0,
+                    hospitalizedAt: 0,
+                    ryo: Math.max(0, Number(targetChar.ryo ?? 0) - chargedRyo),
                 },
             };
             await kv.set(targetKey, mergePreservingImages(healed, targetRecord));
-            return res.status(200).json({ ok: true, kind: 'self' });
+            return res.status(200).json({ ok: true, kind: 'self', chargedRyo });
         }
 
         // Cross-player heal — requires Healer profession.
@@ -94,10 +152,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         //   Rank 1-9: target must be hospitalized.
         //   Rank 10+: target may be merely injured (HP < maxHp) anywhere in the
         //             world (same-village gate above still applies).
-        const healerRank = Number(healerChar.professionRank ?? 0);
+        // Rank derived from professionXp via the canonical threshold table —
+        // never from the saved professionRank field (which a corrupted save
+        // or admin edit could trivially set to 10).
+        const healerRank = professionRankForXp('healer', Number(healerChar.professionXp ?? 0));
         if (!identity.admin && !targetHospitalized) {
-            if (healerRank < 10) {
-                return res.status(400).json({ error: 'Target is not hospitalized. World-wide healing unlocks at Rank 10.' });
+            if (healerRank < HEALER_WORLDWIDE_RANK) {
+                return res.status(400).json({ error: `Target is not hospitalized. World-wide healing unlocks at Rank ${HEALER_WORLDWIDE_RANK}.` });
             }
             if (!targetInjured) {
                 return res.status(400).json({ error: 'Target is at full HP — nothing to heal.' });
@@ -105,15 +166,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         // Per-target cooldown — any Healer touching the same target shares
-        // the 5 min lockout (prevents two-Healer ping-pong farming).
+        // the same lockout (prevents two-Healer ping-pong farming). Rank-
+        // scaled: r1=5min, r10=1.5min. Higher-rank Healers can ping-pong
+        // a single target faster (still bounded so they can't farm one
+        // hospitalized friend for unlimited XP).
         const cooldownKey = `heal:lastHealedAt:${targetName}`;
         const cooldownEntry = await kv.get<{ at: number; by: string }>(cooldownKey);
+        const effectiveCooldownMs = healerPerTargetCooldownMs(healerRank);
         if (!identity.admin && cooldownEntry?.at) {
             const elapsed = Date.now() - cooldownEntry.at;
-            if (elapsed < HEAL_PER_TARGET_COOLDOWN_MS) {
+            if (elapsed < effectiveCooldownMs) {
                 return res.status(429).json({
                     error: 'Target was healed recently. Try again later.',
-                    retryAfterMs: HEAL_PER_TARGET_COOLDOWN_MS - elapsed,
+                    retryAfterMs: effectiveCooldownMs - elapsed,
                 });
             }
         }
@@ -137,16 +202,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const pctHealed = maxHp > 0 ? Math.max(0, Math.min(1, 1 - curHp / maxHp)) : 0;
         let xpGained = Math.min(HEALER_MAX_XP_PER_HEAL, Math.floor(pctHealed * 100));
 
+        // Rank-scaled heal XP bonus: r2=+5%, r3=+10%, …, r10=+50%. Applied
+        // BEFORE the raid-assist multiplier so the two perks stack cleanly.
+        const xpBonusPct = healerHealXpBonusPct(healerRank);
+        if (xpBonusPct > 0) {
+            xpGained = Math.floor(xpGained * (1 + xpBonusPct / 100));
+        }
+
         // Healer raid-assist synergy: +50% XP if the target was hospitalized
         // within the last 10 minutes (proxy for "fresh from a fight").
+        // Prefer the directly-stamped hospitalizedAt timestamp (added by the
+        // save endpoint when a player flips into hospitalization); fall back
+        // to reconstructing it from hospitalizedUntil for older saves that
+        // pre-date the dedicated stamp.
+        const hospitalizedAtStamp = Number(targetChar.hospitalizedAt ?? 0);
         const hospitalizedUntilTs = Number(targetChar.hospitalizedUntil ?? 0);
-        const hospitalizedAt = hospitalizedUntilTs ? hospitalizedUntilTs - HOSPITAL_DURATION_MS : 0;
+        const hospitalizedAt = hospitalizedAtStamp > 0
+            ? hospitalizedAtStamp
+            : (hospitalizedUntilTs ? hospitalizedUntilTs - HOSPITAL_DURATION_MS : 0);
         const raidAssist = hospitalizedAt > 0 && (Date.now() - hospitalizedAt) < HEALER_RAID_ASSIST_WINDOW_MS;
         if (raidAssist) {
             xpGained = Math.floor(xpGained * HEALER_RAID_ASSIST_MULT);
         }
 
-        // Restore target.
+        // Restore target. Clear hospitalizedAt alongside hospitalizedUntil
+        // so a freshly-healed target isn't still "fresh from a fight" for
+        // raid-assist purposes.
         const healedTarget = {
             ...targetRecord,
             character: {
@@ -156,6 +237,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 stamina: targetChar.maxStamina,
                 hospitalized: false,
                 hospitalizedUntil: 0,
+                hospitalizedAt: 0,
             },
         };
         await kv.set(targetKey, mergePreservingImages(healedTarget, targetRecord));
@@ -163,9 +245,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Award Healer XP for the heal itself (% HP restored).
         const heralded = await awardProfessionXp(actorName, 'healer', xpGained);
 
-        // Stamp cooldown.
+        // Stamp cooldown. TTL matches the rank-scaled lockout above so the
+        // KV row self-expires; the in-handler comparison still wins if a
+        // late-firing TTL hasn't reaped the row yet.
         await kv.set(cooldownKey, { at: Date.now(), by: actorName }, {
-            ex: Math.ceil(HEAL_PER_TARGET_COOLDOWN_MS / 1000),
+            ex: Math.max(1, Math.ceil(effectiveCooldownMs / 1000)),
         });
 
         // Report daily mission progress (best-effort — don't fail the heal
