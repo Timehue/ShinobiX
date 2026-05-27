@@ -1202,6 +1202,43 @@
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 10px;
 }
+.user-hub-screen .user-hub-list + .user-hub-section-header {
+    margin-top: 22px;
+}
+
+/* ── Section headers (Online / Offline) ── */
+.user-hub-screen .user-hub-section-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 6px 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(196,162,90,0.18);
+}
+.user-hub-screen .user-hub-section-label {
+    font: 600 11px Cinzel, serif;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: #c4a25a;
+}
+.user-hub-screen .user-hub-section-count {
+    font: 500 10px Inter, sans-serif;
+    color: #94a3b8;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid rgba(148,163,184,0.3);
+    border-radius: 999px;
+    padding: 1px 8px;
+    min-width: 22px;
+    text-align: center;
+}
+.user-hub-screen .user-hub-section-online .user-hub-section-label {
+    color: #4ade80;
+}
+.user-hub-screen .user-hub-section-online .user-hub-section-count {
+    color: #4ade80;
+    border-color: rgba(74,222,128,0.4);
+    background: rgba(74,222,128,0.08);
+}
 .user-hub-screen .user-hub-row {
     display: flex;
     align-items: center;
