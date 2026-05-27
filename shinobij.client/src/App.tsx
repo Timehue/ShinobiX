@@ -6088,6 +6088,45 @@ export default function App() {
     useEffect(() => { characterRef.current = character; }, [character]);
     const screenRef = useRef<Screen>(screen);
     useEffect(() => { screenRef.current = screen; }, [screen]);
+    // Travel rubber-banding guard — applySnapshot used to clobber a freshly
+    // travelled-to sector with the server's stale value (409 refetch, admin
+    // forceReload, etc.). Two refs work together to fix it:
+    //   - currentSectorRef: lets the snapshot appliers compare against the
+    //     live value without going through stale closures.
+    //   - lastLocalSectorChangeRef: timestamp of the most recent local
+    //     sector change; the snapshot appliers honor a 30s "local wins"
+    //     guard so a save round-trip can't replace your new sector with
+    //     the server's previous one.
+    //   - lastSnapshotAppliedSectorRef: tag set by applySnapshot/
+    //     applyServerSnapshot right before they call setCurrentSector, so
+    //     the dirty-mark effect below can distinguish a snapshot-driven
+    //     sector change from a real user-initiated one.
+    const currentSectorRef = useRef(currentSector);
+    useEffect(() => { currentSectorRef.current = currentSector; }, [currentSector]);
+    const lastLocalSectorChangeRef = useRef(0);
+    const lastSnapshotAppliedSectorRef = useRef<number | null>(null);
+    // (The save-dirty effect that consumes these refs is defined further
+    // down where charDirtyRef is in scope — see "Mark the save dirty when
+    // sector changes locally" below.)
+    // 30s window during which a fresh local sector change overrides a
+    // snapshot's stored sector. Long enough to ride out a save round-trip
+    // (autosave 3-15s + network latency), short enough that legitimate
+    // multi-tab/admin reset snapshots still apply within a few seconds of
+    // the player being idle.
+    const SECTOR_LOCAL_GUARD_MS = 30_000;
+    function applySnapshotSectorWithGuard(snapshotSector: number) {
+        const localFresh = (Date.now() - lastLocalSectorChangeRef.current) < SECTOR_LOCAL_GUARD_MS;
+        if (localFresh && snapshotSector !== currentSectorRef.current) {
+            // Local change wins — keep current value, refresh the timestamp
+            // so the guard slides forward as long as snapshots keep arriving.
+            lastLocalSectorChangeRef.current = Date.now();
+            return;
+        }
+        // No fresh local change (or values already aligned) — adopt the
+        // server's view. Tag the change so the dirty-mark effect skips it.
+        lastSnapshotAppliedSectorRef.current = snapshotSector;
+        setCurrentSector(snapshotSector);
+    }
     // Clear the pet-PvP resume breadcrumb whenever the player leaves the
     // pet arena. Combined with the server-side reportKey dedup, this means
     // refreshing mid-fight restores correctly, but refreshing AFTER the
@@ -6567,7 +6606,7 @@ export default function App() {
             setMissionProgress(snap.missionProgress ?? {});
             setTriggeredEvents(snap.triggeredEvents ?? []);
             setPendingAiProfileId(snap.pendingAiProfileId ?? "");
-            setCurrentSector(snap.currentSector ?? 40);
+            applySnapshotSectorWithGuard(snap.currentSector ?? 40);
             if (snap.savedBloodlines) setSavedBloodlines(snap.savedBloodlines.map((bloodline: SavedBloodline) => ({ ...bloodline, jutsus: bloodline.jutsus.map(normalizeJutsu) })));
             if (snap.creatorJutsus) setCreatorJutsus(snap.creatorJutsus.map(normalizeJutsu));
             if (snap.creatorAis) setCreatorAis(balanceExistingAiProfiles(snap.creatorAis, savedJutsuPool(snap)));
@@ -7467,6 +7506,22 @@ export default function App() {
         latestSaveRef.current = { character, name: currentAccountName, payload: buildPlayerSavePayload(character) };
     });
 
+    // Mark the save dirty when sector changes locally. Without this the
+    // 15s/3s autosave only fires on character-reference changes, so a fresh
+    // sector wasn't persisted promptly — a 409 refetch returned the server's
+    // stale value and the player visibly rubber-banded to the previous sector.
+    // Snapshot-driven changes are tagged via lastSnapshotAppliedSectorRef so
+    // they don't falsely flip charDirtyRef.
+    useEffect(() => {
+        if (!character || !currentAccountName) return;
+        if (lastSnapshotAppliedSectorRef.current === currentSector) {
+            lastSnapshotAppliedSectorRef.current = null;
+            return;
+        }
+        charDirtyRef.current = true;
+        lastLocalSectorChangeRef.current = Date.now();
+    }, [currentSector, character, currentAccountName]);
+
     // Debounced auto-save — whenever the character state changes, schedule a
     // server save within 3 seconds. This ensures currency gains, mission
     // completions, PvP wins, etc. are persisted quickly rather than waiting
@@ -7641,7 +7696,7 @@ export default function App() {
         setMissionProgress(snap.missionProgress ?? {});
         setTriggeredEvents(snap.triggeredEvents ?? []);
         setPendingAiProfileId(snap.pendingAiProfileId ?? "");
-        setCurrentSector(snap.currentSector ?? 40);
+        applySnapshotSectorWithGuard(snap.currentSector ?? 40);
         if (snap.savedBloodlines) setSavedBloodlines(snap.savedBloodlines.map((bloodline: SavedBloodline) => ({ ...bloodline, jutsus: bloodline.jutsus.map(normalizeJutsu) })));
         if (snap.creatorJutsus) setCreatorJutsus(snap.creatorJutsus.map(normalizeJutsu));
         if (snap.creatorAis) setCreatorAis(balanceExistingAiProfiles(snap.creatorAis, savedJutsuPool(snap)));
