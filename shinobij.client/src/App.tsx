@@ -25,8 +25,8 @@ import meadow2SectorImg from "./assets/sectors/meadow2.png";
 import meadowSectorImg from "./assets/sectors/meadow.png";
 import stormveilVillageImg from "./assets/sectors/stormveil-village.png";
 import shinobiBanner from './assets/shinobi-banner.png'
-import rightMenuBg from "./assets/rightmenu.png";
-import sectorBanner from "./assets/sectorbanner.png";
+// rightMenuBg + sectorBanner asset imports moved into ./components/RightMenu
+// and ./components/SectorBanner alongside the components that use them.
 import backgroundImage from "./assets/background-image.png";
 import { CombatSideHud } from "./components/CombatSideHud";
 import { Inventory } from "./screens/Inventory";
