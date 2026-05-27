@@ -9,6 +9,12 @@
       "memory": 256
     }
   },
+  "crons": [
+    {
+      "path": "/api/cron/snapshot-saves",
+      "schedule": "0 3 * * *"
+    }
+  ],
   "rewrites": [
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
