@@ -382,14 +382,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 finalP2Character = hydrateNpcCharacter(p2Character);
             }
 
-            // Accept a client-supplied battleId so the attacker can navigate
-            // to the battle screen optimistically while this POST is in flight.
-            // Reject if the key already exists to prevent session-clobbering.
-            const battleId = (typeof clientBattleId === 'string'
-                && /^pvp-[a-z0-9-]{6,80}$/.test(clientBattleId)
-                && !(await kv.get(`pvp:${clientBattleId}`)))
-                ? clientBattleId
-                : `pvp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+            // Server-generated battleId. We used to accept a client-supplied
+            // id (for optimistic navigation) — but that let an attacker
+            // pre-claim guessable ids to later scrape via /api/pvp/stream
+            // (which is unauth by design for EventSource compat). Server-only
+            // ids close that scrape vector. The client just waits the ~50ms
+            // round trip for the id before navigating; UX impact is invisible.
+            void clientBattleId; // intentionally ignored
+            const battleId = `pvp-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
             // True 50/50 coin flip — going first is a meaningful turn-based
             // advantage and previously the attacker (always p1) won by default.
