@@ -1908,57 +1908,16 @@ const STAT_KEYS: Array<keyof Stats> = [
 ];
 // rollAwakeningElement / elementIcon / uniqueElements /
 // getCharacterElements / hasCharacterElement moved to ./lib/elements.
-function getCharacterBloodlines(character: Pick<Character, "bloodline" | "equippedBloodlineId">, savedBloodlines: SavedBloodline[]) {
-    const starterBloodlineName = character.bloodline === "Blue Blade Eyes" ? "Ashen Eyes" : character.bloodline;
-    const starterBloodline = starterSavedBloodlines.find((bloodline) => bloodline.name === starterBloodlineName);
-    const equippedBloodline = [...savedBloodlines, ...starterSavedBloodlines].find((bloodline) => bloodline.id === character.equippedBloodlineId);
-    return [starterBloodline, equippedBloodline]
-        .filter((bloodline): bloodline is SavedBloodline => Boolean(bloodline))
-        .filter((bloodline, index, bloodlines) => bloodlines.findIndex((candidate) => candidate.id === bloodline.id) === index);
-}
-function isBloodlineSpecialElementJutsu(character: Character, jutsu: Jutsu, savedBloodlines: SavedBloodline[]) {
-    return getCharacterBloodlines(character, savedBloodlines).some((bloodline) =>
-        Boolean(bloodline.specialElement) &&
-        bloodline.specialElement?.toLowerCase() === jutsu.element.toLowerCase() &&
-        bloodline.jutsus.some((bloodlineJutsu) => bloodlineJutsu.id === jutsu.id)
-    );
-}
-function isBloodlineJutsu(character: Character, jutsu: Jutsu, savedBloodlines: SavedBloodline[]) {
-    return getCharacterBloodlines(character, savedBloodlines).some((bloodline) =>
-        bloodline.jutsus.some((bloodlineJutsu) => bloodlineJutsu.id === jutsu.id)
-    );
-}
-function canEquipElementJutsu(character: Character, jutsu: Jutsu, savedBloodlines: SavedBloodline[]) {
-    // No element (or explicit "None") — universal jutsu, always accessible.
-    if (!jutsu.element || jutsu.element === "None") return true;
-    // Bloodline jutsu — accessible regardless of owned elements since the bloodline itself grants access.
-    if (isBloodlineJutsu(character, jutsu, savedBloodlines)) return true;
-    // Elemental jutsu — character must own the element (or have it via bloodline special element).
-    return hasCharacterElement(character, jutsu.element) || isBloodlineSpecialElementJutsu(character, jutsu, savedBloodlines);
-}
-
-function replaceCharacterBloodline(character: Character, newBloodline: SavedBloodline, savedBloodlines: SavedBloodline[]) {
-    // On a bloodline swap, treat every bloodline-derived jutsu as a clean
-    // slate: strip the player's starter-bloodline jutsus, the previously-
-    // equipped custom-bloodline jutsus, and any pre-existing mastery on
-    // the NEW bloodline's jutsu ids too. The new bloodline grants access
-    // to its jutsus but does NOT auto-master them — the player retrains
-    // each jutsu up from scratch via Jutsu Training.
-    const previousCustom = savedBloodlines.find((b) => b.id === character.equippedBloodlineId);
-    const starterBloodlineName = character.bloodline === "Blue Blade Eyes" ? "Ashen Eyes" : character.bloodline;
-    const starter = starterSavedBloodlines.find((b) => b.name === starterBloodlineName);
-    const bloodlineJutsuIds = new Set<string>([
-        ...(previousCustom?.jutsus.map((j) => j.id) ?? []),
-        ...(starter?.jutsus.map((j) => j.id) ?? []),
-        ...newBloodline.jutsus.map((j) => j.id),
-    ]);
-    return {
-        ...character,
-        equippedBloodlineId: newBloodline.id,
-        equippedJutsuIds: character.equippedJutsuIds.filter((id) => !bloodlineJutsuIds.has(id)),
-        jutsuMastery: (character.jutsuMastery ?? []).filter((m) => !bloodlineJutsuIds.has(m.jutsuId)),
-    };
-}
+// Bloodline lookup + access-control helpers moved to ./lib/bloodline.
+// They import starterSavedBloodlines back from this file (re-exported
+// above the table). All call sites in App.tsx keep the same names.
+import {
+    getCharacterBloodlines,
+    isBloodlineSpecialElementJutsu,
+    isBloodlineJutsu,
+    canEquipElementJutsu,
+    replaceCharacterBloodline,
+} from "./lib/bloodline";
 // rollNewAwakeningElement / rollAwakeningElements moved to ./lib/elements.
 // JUTSU_MAX_LEVEL / JUTSU_TRAINING_CAP / STORAGE / PLAYER_ACCOUNTS_STORAGE /
 // HP_CAP / CHAKRA_CAP / STAMINA_CAP moved to ./constants/game.
@@ -2733,7 +2692,10 @@ function makeStarterBloodlineUtilityJutsu(id: string, name: string, type: JutsuT
     return makeJutsu(id, name, type, 40, 4, 0, 7, 100, 100, tags, element as JutsuElement);
 }
 
-const starterSavedBloodlines: SavedBloodline[] = [
+// Exported so ./lib/bloodline can resolve the starter list without
+// pulling the whole App module. The table itself stays here because
+// it depends on makeJutsu / makeStarter* helpers in this file.
+export const starterSavedBloodlines: SavedBloodline[] = [
     {
         id: "starter-bloodline-ashen-eyes",
         name: "Ashen Eyes",
