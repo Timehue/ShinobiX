@@ -33656,7 +33656,7 @@ function Arena({
                         </div>
                         {prefightFirstActor && (
                             <div className={`pvp-coinflip-result${prefightFirstActor === "player" ? " coinflip-win" : " coinflip-lose"}`}>
-                                ?? {prefightFirstActor === "player"
+                                {prefightFirstActor === "player"
                                     ? `${character.name} goes first!`
                                     : `${opponentName} goes first!`}
                             </div>
@@ -35227,7 +35227,7 @@ function PvpBattleScreen({
                         </div>
                         {pvpPrefightFirstActor && (
                             <div className={`pvp-coinflip-result${pvpPrefightFirstActor === role ? " coinflip-win" : " coinflip-lose"}`}>
-                                ?? {pvpPrefightFirstActor === role ? `${me.name} goes first!` : `${opp.name} goes first!`}
+                                {pvpPrefightFirstActor === role ? `${me.name} goes first!` : `${opp.name} goes first!`}
                             </div>
                         )}
                         <div className="pvp-countdown-number">{pvpPrefightCountdown}</div>
