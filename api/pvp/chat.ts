@@ -32,6 +32,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const key = chatKey(battleId);
 
     if (req.method === 'GET') {
+        // Auth gate: previously this was wide open and anyone who could
+        // guess `pvp-<ms-epoch>-<5-base36>` could read private fighter +
+        // spectator chat. Logged-in players only. (We could further restrict
+        // to participants/spectators-of-this-battle, but that requires a
+        // session lookup on every GET and the chat itself is short-lived
+        // and low-stakes — the auth gate alone closes the unauthenticated
+        // scrape vector that was the actual finding.)
+        const identity = await authedPlayerOrAdmin(req);
+        if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         const messages = await kv.get<BattleChatMessage[]>(key) ?? [];
         const fresh = messages.filter(m => Date.now() - m.ts < MSG_TTL_MS);
         res.setHeader('X-Message-Count', String(fresh.length));

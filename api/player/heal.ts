@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
 import { safeName, mergePreservingImages, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
+import { withKvLock } from '../_lock.js';
 import {
     reportMissionEvent,
     awardProfessionXp,
@@ -47,7 +48,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const isSelfHeal = identity.admin || identity.name === targetName;
         const actorName = identity.admin ? (healerName || targetName) : identity.name;
 
-        // Fetch target.
+        // Fetch target. The full self-heal / cross-heal flow below does
+        // read-modify-write on save:<target>; that's serialized under a
+        // lock further down to keep a concurrent auto-save from clobbering
+        // the heal write. The initial read here is fine outside the lock
+        // because we re-read inside before mutating.
         const targetKey = `save:${targetName}`;
         const targetRecord = await kv.get<Record<string, unknown>>(targetKey);
         if (!targetRecord) return res.status(404).json({ error: 'Player not found.' });
@@ -115,20 +120,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     });
                 }
             }
-            const healed = {
-                ...targetRecord,
-                character: {
-                    ...targetChar,
-                    hp: targetChar.maxHp,
-                    chakra: targetChar.maxChakra,
-                    stamina: targetChar.maxStamina,
-                    hospitalized: false,
-                    hospitalizedUntil: 0,
-                    hospitalizedAt: 0,
-                    ryo: Math.max(0, Number(targetChar.ryo ?? 0) - chargedRyo),
-                },
-            };
-            await kv.set(targetKey, mergePreservingImages(healed, targetRecord));
+            // Wrap the discharge write under the save lock. Without it a
+            // concurrent /api/save POST (auto-save fired in the same tick
+            // as the discharge button press) can wipe the ryo charge or
+            // re-set the hospitalized flag using its stale snapshot. We
+            // re-read inside the lock to fold in any fresh ryo gains.
+            await withKvLock(targetKey, async () => {
+                const fresh = await kv.get<Record<string, unknown>>(targetKey) ?? targetRecord;
+                const freshChar = (fresh.character as Record<string, unknown> | undefined) ?? targetChar;
+                const healed = {
+                    ...fresh,
+                    character: {
+                        ...freshChar,
+                        hp: freshChar.maxHp,
+                        chakra: freshChar.maxChakra,
+                        stamina: freshChar.maxStamina,
+                        hospitalized: false,
+                        hospitalizedUntil: 0,
+                        hospitalizedAt: 0,
+                        ryo: Math.max(0, Number(freshChar.ryo ?? 0) - chargedRyo),
+                    },
+                };
+                await kv.set(targetKey, mergePreservingImages(healed, fresh));
+            });
             return res.status(200).json({ ok: true, kind: 'self', chargedRyo });
         }
 
@@ -170,15 +184,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // scaled: r1=5min, r10=1.5min. Higher-rank Healers can ping-pong
         // a single target faster (still bounded so they can't farm one
         // hospitalized friend for unlimited XP).
+        //
+        // Use NX-set-with-TTL as the cooldown gate instead of get-then-set:
+        // the previous pattern let two healers (or one healer firing twice)
+        // both pass the "no entry" check and both heal before either
+        // stamped the cooldown. NX-set is atomic in Redis/our KV shim, so
+        // exactly one of N racing healers wins the reservation; the others
+        // see placed=false and get 429'd. Admins bypass the gate.
         const cooldownKey = `heal:lastHealedAt:${targetName}`;
-        const cooldownEntry = await kv.get<{ at: number; by: string }>(cooldownKey);
         const effectiveCooldownMs = healerPerTargetCooldownMs(healerRank);
-        if (!identity.admin && cooldownEntry?.at) {
-            const elapsed = Date.now() - cooldownEntry.at;
-            if (elapsed < effectiveCooldownMs) {
+        if (!identity.admin) {
+            const placed = await kv.set(
+                cooldownKey,
+                { at: Date.now(), by: actorName },
+                { nx: true, ex: Math.max(1, Math.ceil(effectiveCooldownMs / 1000)) } as never,
+            );
+            if (!placed) {
+                // Reservation lost — read the existing entry to compute the
+                // retry-after hint. Read-after-fail is purely informational;
+                // the gate is still safe because NX already rejected us.
+                const existing = await kv.get<{ at: number; by: string }>(cooldownKey);
+                const elapsed = existing?.at ? Date.now() - existing.at : 0;
                 return res.status(429).json({
                     error: 'Target was healed recently. Try again later.',
-                    retryAfterMs: effectiveCooldownMs - elapsed,
+                    retryAfterMs: Math.max(0, effectiveCooldownMs - elapsed),
                 });
             }
         }
@@ -225,32 +254,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             xpGained = Math.floor(xpGained * HEALER_RAID_ASSIST_MULT);
         }
 
-        // Restore target. Clear hospitalizedAt alongside hospitalizedUntil
-        // so a freshly-healed target isn't still "fresh from a fight" for
-        // raid-assist purposes.
-        const healedTarget = {
-            ...targetRecord,
-            character: {
-                ...targetChar,
-                hp: targetChar.maxHp,
-                chakra: targetChar.maxChakra,
-                stamina: targetChar.maxStamina,
-                hospitalized: false,
-                hospitalizedUntil: 0,
-                hospitalizedAt: 0,
-            },
-        };
-        await kv.set(targetKey, mergePreservingImages(healedTarget, targetRecord));
+        // Restore target under the save lock. The cross-heal write is just
+        // as race-prone as the self-heal discharge above — a concurrent
+        // auto-save of the target could wipe our hp/chakra/stamina/hosp
+        // restore using its stale snapshot. Re-read inside the lock and
+        // merge on top so any genuine concurrent gains survive.
+        await withKvLock(targetKey, async () => {
+            const fresh = await kv.get<Record<string, unknown>>(targetKey) ?? targetRecord;
+            const freshChar = (fresh.character as Record<string, unknown> | undefined) ?? targetChar;
+            const healedTarget = {
+                ...fresh,
+                character: {
+                    ...freshChar,
+                    hp: freshChar.maxHp,
+                    chakra: freshChar.maxChakra,
+                    stamina: freshChar.maxStamina,
+                    hospitalized: false,
+                    hospitalizedUntil: 0,
+                    hospitalizedAt: 0,
+                },
+            };
+            await kv.set(targetKey, mergePreservingImages(healedTarget, fresh));
+        });
 
         // Award Healer XP for the heal itself (% HP restored).
         const heralded = await awardProfessionXp(actorName, 'healer', xpGained);
 
-        // Stamp cooldown. TTL matches the rank-scaled lockout above so the
-        // KV row self-expires; the in-handler comparison still wins if a
-        // late-firing TTL hasn't reaped the row yet.
-        await kv.set(cooldownKey, { at: Date.now(), by: actorName }, {
-            ex: Math.max(1, Math.ceil(effectiveCooldownMs / 1000)),
-        });
+        // Cooldown was already placed by the NX-reservation above (admin
+        // path took no reservation, so no stamp is needed either — admins
+        // bypass the gate). Nothing further to write here.
 
         // Report daily mission progress (best-effort — don't fail the heal
         // if mission storage hiccups). Auto-grants additional XP onto the
