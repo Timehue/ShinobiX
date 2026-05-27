@@ -35,8 +35,16 @@ import type { PvpSession } from './session.js';
 // EventSource works without custom headers. Session state is
 // shareable — both fighters + any spectator can read it.
 
-const STREAM_DURATION_MS = 4.5 * 60 * 1000;  // 4.5 minutes
-const POLL_INTERVAL_MS = 250;
+// Vercel Pro lets streaming functions live up to 900s. Bumped from
+// 4.5min → 13min so most fights finish in a single stream with no
+// mid-fight reconnect. Server-side poll interval dropped from 250ms
+// → 100ms — Supabase Pro has unlimited API requests so the extra
+// reads are free, and the latency improvement is the difference
+// between "responsive" and "instant" from the player's perspective
+// (sub-100ms means human reaction time can't tell the move was
+// server-mediated).
+const STREAM_DURATION_MS = 13 * 60 * 1000;  // 13 minutes
+const POLL_INTERVAL_MS = 100;
 const HEARTBEAT_INTERVAL_MS = 15_000;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
