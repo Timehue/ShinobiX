@@ -20,6 +20,9 @@ function isImageField(key: string, value: unknown) {
 }
 
 export function mergePreservingImages(incoming: unknown, existing: unknown): unknown {
+    // Arrays: take the incoming sequence verbatim (preserving order +
+    // intentional deletions), but per-item recurse so embedded images and
+    // nested objects merge cleanly with the matching existing entry.
     if (Array.isArray(incoming)) {
         return incoming.map((item, index) => {
             const existingArray = Array.isArray(existing) ? existing : [];
@@ -33,7 +36,15 @@ export function mergePreservingImages(incoming: unknown, existing: unknown): unk
     if (!incoming || typeof incoming !== 'object') return incoming;
     const inc = incoming as Record<string, unknown>;
     const ex = existing && typeof existing === 'object' ? existing as Record<string, unknown> : {};
-    const merged: Record<string, unknown> = {};
+    // Objects: start with `existing` so any field present on the stored
+    // record but ABSENT from the incoming payload is preserved. The incoming
+    // payload then overrides field-by-field. This defends against partial-
+    // payload writes (e.g. a foreign-save fetch returning a public projection
+    // of ~19 fields then being POSTed back, which used to silently wipe the
+    // remaining ~30 fields of the recipient's save — inventory, pets,
+    // jutsuMastery, equipment, stats, etc.). Players send their full state on
+    // normal auto-save, so this change is a no-op there.
+    const merged: Record<string, unknown> = { ...ex };
     for (const [key, value] of Object.entries(inc)) {
         if (isImageField(key, value) && value === '' && typeof ex[key] === 'string' && String(ex[key]).startsWith('data:image')) {
             merged[key] = ex[key];
