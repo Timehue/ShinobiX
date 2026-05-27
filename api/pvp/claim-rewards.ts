@@ -3,6 +3,12 @@ import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
+import type { PvpSession } from './session.js';
+
+// Session-replay window — must roughly match SESSION_REPLAY_WINDOW_MS in
+// report-pvp-win.ts. A battleId older than this can't be claimed even if
+// somebody dredges it out of browser history.
+const SESSION_REPLAY_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 // One-shot idempotency gate for the CLIENT-side PvP reward payout.
 //
@@ -55,6 +61,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName.toLowerCase()) {
             return res.status(403).json({ error: 'Can only claim your own rewards.' });
+        }
+
+        // Authoritative outcome check — load the actual session and verify
+        // that the caller really is the recorded winner/loser. Without this,
+        // a malicious client could POST { battleId: '<any-old-id>',
+        // outcome: 'win' } and the NX reserve alone would let it pass,
+        // unlocking the client-applied ryo / XP / ranked-rating / clan-war
+        // grants on the next save flush. Mirrors the verification regime
+        // already used by api/missions/report-pvp-win.ts.
+        const session = await kv.get<PvpSession>(`pvp:${battleId}`);
+        if (!session) return res.status(404).json({ error: 'Battle session not found or expired.' });
+        if (session.status !== 'done' || !session.winner) {
+            return res.status(409).json({ error: 'Battle not yet decided.' });
+        }
+        const sessionAge = Date.now() - Number(session.createdAt ?? 0);
+        if (sessionAge > SESSION_REPLAY_WINDOW_MS) {
+            return res.status(409).json({ error: 'Battle session is too old to claim.' });
+        }
+        const winnerName = (session.winner === 'p1' ? session.p1.name : session.p2.name) ?? '';
+        const loserName = (session.winner === 'p1' ? session.p2.name : session.p1.name) ?? '';
+        const callerLower = playerName.toLowerCase();
+        const expectedSide = outcome === 'win' ? winnerName : loserName;
+        if (!identity.admin && expectedSide.toLowerCase() !== callerLower) {
+            return res.status(403).json({
+                error: `Recorded ${outcome === 'win' ? 'winner' : 'loser'} of this battle is not you.`,
+            });
         }
 
         const key = claimKey(playerName, battleId);
