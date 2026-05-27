@@ -277,6 +277,14 @@ import {
 } from "./lib/equipment";
 export { normalizeEquipmentSlot, equipmentSlotLabel, armorReductionForQuality };
 
+// Generic utility helpers (clamp, time format, date keys) extracted to ./lib/utils.
+import {
+    clampNumber,
+    formatPetTimer,
+    currentMonthKey,
+    currentDateKey,
+} from "./lib/utils";
+
 const terrainEffects: Record<
     Biome,
     {
@@ -2938,15 +2946,7 @@ function useSharedNow(): void {
     }, []);
 }
 
-function formatPetTimer(ms: number): string {
-    if (ms <= 0) return "Done";
-    const h = Math.floor(ms / 3600000);
-    const m = Math.floor((ms % 3600000) / 60000);
-    const s = Math.floor((ms % 60000) / 1000);
-    if (h > 0) return `${h}h ${m}m`;
-    if (m > 0) return `${m}m ${s}s`;
-    return `${s}s`;
-}
+// formatPetTimer moved to ./lib/utils.
 const petPool: Pet[] = ([
     // STANDARD PETS — damage + move. Simple kit, mobile enough to close the gap.
     ...[
@@ -5877,13 +5877,7 @@ const levelOnlyRankTitles = new Set([
     "Legendary Kage",
 ]);
 
-function currentMonthKey() {
-    return new Date().toISOString().slice(0, 7);
-}
-
-function currentDateKey() {
-    return new Date().toISOString().slice(0, 10);
-}
+// currentMonthKey / currentDateKey moved to ./lib/utils.
 
 // DAILY_MISSION_LIMIT moved to ./constants/game.
 
@@ -6794,9 +6788,7 @@ function getDefenseStat(stats: Stats, type: JutsuType | string) {
     return stats.ninjutsuDefense + stats.willpower + stats.speed;
 }
 
-function clampNumber(value: number, min: number, max: number) {
-    return Math.min(max, Math.max(min, value));
-}
+// clampNumber moved to ./lib/utils.
 
 function diminishingPercent(percent: number, stackIndex: number) {
     const raw = Math.max(0, percent) / 100;
