@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
-import { enforceRateLimit } from '../_ratelimit.js';
+import { enforceRateLimitKv } from '../_ratelimit.js';
 import { stampPlayerIp } from '../_player-ips.js';
 import { recordClientIp, clientIpFrom, recordClientFingerprint, clientFpFrom } from '../admin/moderation.js';
 
@@ -45,11 +45,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).end();
 
-    // 1 heartbeat per 2 s per player (30/min). Authenticated name wins over IP for
-    // the rate-limit key so shared IPs (NAT) don't bleed into each other's quota.
+    // 30/min per player heartbeat. Use the KV-backed limiter so the window
+    // is authoritative across all Vercel lambda instances. The previous
+    // in-process limiter let a player triggering parallel invocations
+    // (cold-start fan-out) blow past the 30/min cap on individual instances,
+    // which let the IP/fingerprint capture in this handler be hammered.
     const bodyPeek = typeof req.body === 'string' ? (() => { try { return JSON.parse(req.body); } catch { return {}; } })() : (req.body ?? {});
     const peekName: string | undefined = typeof bodyPeek?.name === 'string' ? bodyPeek.name : undefined;
-    if (!enforceRateLimit(req, res, 'heartbeat', 30, 60_000, peekName)) return;
+    if (!(await enforceRateLimitKv(req, res, 'heartbeat', 30, 60_000, peekName))) return;
 
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;

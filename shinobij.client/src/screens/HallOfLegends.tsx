@@ -236,7 +236,10 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
                                         .sort(([, a], [, b]) => (b as number) - (a as number))
                                         .slice(0, 10)
                                         .map(([name, dmg], i) => {
-                                            const playerChar = all.find(c => c.name.toLowerCase() === name);
+                                            // damageByPlayer keys come from the server with mixed
+                                            // casing; the prior compare missed every time and the
+                                            // village suffix never rendered. Lowercase both sides.
+                                            const playerChar = all.find(c => c.name.toLowerCase() === name.toLowerCase());
                                             return (
                                                 <Row key={name} rank={i + 1} name={playerChar?.name ?? name} value={dmg as number} suffix=" dmg" village={playerChar?.village} />
                                             );

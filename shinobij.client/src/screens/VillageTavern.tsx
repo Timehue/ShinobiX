@@ -76,8 +76,21 @@ function VillageTavern({ character, setScreen, sharedImages }: { character: Char
                     level: character.level,
                 }),
             });
-            if (res.ok) setMessages(await res.json());
-        } catch { /* ignore */ }
+            if (res.ok) {
+                setMessages(await res.json());
+            } else {
+                // Surface the server rejection (silenced, rate-limited, 5xx)
+                // AND restore the typed text so the player can edit/retry.
+                // Previously the cleared input + silent failure made it
+                // look like the message just vanished.
+                const errData = await res.json().catch(() => ({} as { error?: string }));
+                alert(errData?.error ?? `Failed to send (${res.status}).`);
+                setInput(text);
+            }
+        } catch {
+            alert("Network error — message not sent.");
+            setInput(text);
+        }
         setSending(false);
     }
 

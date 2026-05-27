@@ -60,6 +60,43 @@ export const VANGUARD_SEALS_PER_KILL = [0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5] as cons
 export const VANGUARD_DAILY_SEAL_CAP = 50;
 export const VANGUARD_PER_TARGET_DAILY_CAP = 3;
 
+// ── Healer rank perks ─────────────────────────────────────────────────────
+// Idx = rank (0 unused). Three perk axes that scale across ranks 1-10:
+//   1. HEAL_XP_BONUS_PCT: extra % XP on every successful cross-player heal.
+//      Stacks with the existing raid-assist +50% bonus.
+//   2. PER_TARGET_COOLDOWN_SEC: the shared "same target was healed recently"
+//      lockout. Base 5 min at rank 1, reduced to 1.5 min at rank 10.
+//      Higher-rank Healers can ping-pong heal more efficiently.
+//   3. HOSPITAL_TIMER_SEC: how long a HEALER personally has to wait for the
+//      free-checkout button when they're admitted (non-healers always 60s).
+//      Lets Healers get back into the fight faster — a Healer-specific recovery.
+export const HEALER_HEAL_XP_BONUS_PCT = [0, 0, 5, 10, 15, 20, 25, 30, 35, 40, 50] as const;
+export const HEALER_PER_TARGET_COOLDOWN_SEC = [0, 300, 285, 270, 240, 210, 180, 150, 120, 105, 90] as const;
+export const HEALER_HOSPITAL_TIMER_SEC = [0, 60, 55, 50, 45, 40, 35, 30, 25, 20, 15] as const;
+// Rank 10 unlocks world-wide injured-villager visibility (existing perk;
+// see api/player/injured-villagers.ts).
+export const HEALER_WORLDWIDE_RANK = 10;
+
+// Convenience accessors. Clamp rank into [1, MAX_RANK] so an unset/bogus
+// rank degrades to the rank-1 floor rather than throwing.
+function clampRank(rank: number): number {
+    if (!Number.isFinite(rank) || rank < 1) return 1;
+    if (rank > PROFESSION_MAX_RANK) return PROFESSION_MAX_RANK;
+    return Math.floor(rank);
+}
+export function healerHealXpBonusPct(profession: Profession | undefined, rank: number): number {
+    if (profession !== "healer") return 0;
+    return HEALER_HEAL_XP_BONUS_PCT[clampRank(rank)];
+}
+export function healerPerTargetCooldownSec(profession: Profession | undefined, rank: number): number {
+    if (profession !== "healer") return 300; // non-healers fall through to base
+    return HEALER_PER_TARGET_COOLDOWN_SEC[clampRank(rank)];
+}
+export function healerHospitalTimerSec(profession: Profession | undefined, rank: number): number {
+    if (profession !== "healer") return 60;
+    return HEALER_HOSPITAL_TIMER_SEC[clampRank(rank)];
+}
+
 // Anti-abuse: zero rewards for targets whose account is <72 hours old.
 const ANTI_ALT_ACCOUNT_AGE_MS = 72 * 60 * 60 * 1000;
 export function targetTooYoungForRewards(opponentCreatedAt?: number, nowMs = Date.now()): boolean {
