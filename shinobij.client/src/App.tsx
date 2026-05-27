@@ -22411,6 +22411,7 @@ function ShopBase({
 
     const rarityIcon: Record<string, string> = {
         common: "○",
+        uncommon: "◔",
         rare: "✦",
         epic: "✦",
         legendary: "✦",
@@ -22696,7 +22697,7 @@ function CardPackSection({ character, updateCharacter, currency, creatorCards }:
             <p style={{ color: "#aaa", marginBottom: "0.4rem" }}>Collect cards for the Shinobi Tiles card game at the Card Hall.</p>
             <p style={{ marginBottom: "0.8rem" }}>Collection: <strong>{character.tileCards.length}</strong> cards</p>
             {currency === "ryo" && (
-                <button onClick={() => openPack(5, ["common", "rare"], 250)} disabled={character.ryo < packCost(250)}>
+                <button onClick={() => openPack(5, ["common", "uncommon", "rare"], 250)} disabled={character.ryo < packCost(250)}>
                     Standard Pack — 5 cards (Common / Rare) — {packCost(250)} ryo{shopDiscountPercent > 0 ? " discounted" : ""}
                 </button>
             )}
@@ -22730,7 +22731,7 @@ function Shop({ character, updateCharacter, creatorItems, creatorCards }: { char
                 creatorItems={creatorItems}
                 title="Shop"
                 subtitle="Standard gear for everyday shinobi."
-                filterRarities={["common", "rare", "epic"]}
+                filterRarities={["common", "uncommon", "rare", "epic"]}
                 currency="ryo"
             />
             <CardPackSection character={character} updateCharacter={updateCharacter} currency="ryo" creatorCards={creatorCards} />
@@ -25468,7 +25469,7 @@ function CentralHub({
     const craftableWeapons = allHubItems
         .filter((item) => item.slot === "hand" && item.weaponEp != null && ["rare", "epic", "legendary"].includes(item.rarity) && !item.id.startsWith("named-weapon-"))
         .sort((a, b) => {
-            const rank = { rare: 1, epic: 2, legendary: 3, common: 0, mythic: 4 } as Record<string, number>;
+            const rank = { common: 0, uncommon: 0.5, rare: 1, epic: 2, legendary: 3, mythic: 4 } as Record<string, number>;
             return (rank[a.rarity] ?? 0) - (rank[b.rarity] ?? 0) || a.name.localeCompare(b.name);
         });
 
