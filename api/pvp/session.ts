@@ -67,9 +67,28 @@ export type PvpSession = {
     biome?: string;
     weatherPositiveElement?: string;
     weatherNegativeElement?: string;
+    // Idempotency for move retries. Client generates a per-move UUID
+    // and includes it in every POST /api/pvp/move. Server appends to
+    // this ring buffer (capped at PVP_MOVE_TOKEN_HISTORY) after a
+    // successful move. A retry that arrives with a token already in
+    // the list short-circuits with the current session state instead
+    // of re-applying the move.
+    recentMoveTokens?: string[];
 };
+export const PVP_MOVE_TOKEN_HISTORY = 20;
 
 const SESSION_TTL = 60 * 60;
+// Cap the combat log at the last N lines. Without this the log grows
+// unbounded over a long fight (typical: 1-3 lines per move × 30+
+// moves = 50+ KB of payload that both clients re-download every
+// state poll). Recent context is what matters; historians can scroll
+// the live ticker, but the wire payload stays small.
+export const PVP_LOG_MAX_LINES = 60;
+export function trimPvpLog(log: string[]): string[] {
+    if (log.length <= PVP_LOG_MAX_LINES) return log;
+    const dropped = log.length - PVP_LOG_MAX_LINES + 1;
+    return [`… (${dropped} earlier lines trimmed)`, ...log.slice(-PVP_LOG_MAX_LINES + 1)];
+}
 
 // Starting positions matching arena (p1 left side, p2 right side)
 const P1_START = 62;

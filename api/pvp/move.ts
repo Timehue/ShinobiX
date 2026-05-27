@@ -4,7 +4,26 @@ import { cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import type { PvpFighter, PvpGroundEffect, PvpSession, PvpStatus } from './session.js';
+import { trimPvpLog, PVP_MOVE_TOKEN_HISTORY } from './session.js';
 import { grantVanguardRewardsForSession } from './_vanguard-rewards.js';
+
+// All session writes flow through here so the combat log gets capped
+// + the idempotency token ring buffer is appended before it hits KV.
+// Without log trim the payload bloats unbounded across a long fight;
+// without the token append, retries from network blips could
+// double-apply moves.
+async function saveSession(
+    key: string,
+    session: PvpSession,
+    opts: { ex?: number; moveToken?: string } = {},
+): Promise<void> {
+    const trimmedLog = trimPvpLog(session.log);
+    const tokens = opts.moveToken
+        ? [...(session.recentMoveTokens ?? []), opts.moveToken].slice(-PVP_MOVE_TOKEN_HISTORY)
+        : session.recentMoveTokens;
+    const next: PvpSession = { ...session, log: trimmedLog, recentMoveTokens: tokens };
+    await kv.set(key, next, { ex: opts.ex ?? SESSION_TTL });
+}
 
 // ─── Grid constants (match arena exactly) ─────────────────────────────────────
 const GRID_W = 12;
@@ -676,7 +695,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // NOTE: biome and weather* are intentionally NOT read from the body —
         // they were a trust-the-client hole. We pull them from the session
         // that was sealed at create time.
-        const { battleId, role, action, tile, jutsuId, itemId, itemName, auto } = body as {
+        const { battleId, role, action, tile, jutsuId, itemId, itemName, auto, moveToken } = body as {
             battleId?: string;
             role?: 'p1' | 'p2';
             action?: string;
@@ -685,6 +704,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             itemId?: string;
             itemName?: string;
             auto?: boolean;  // true when the client's 45s round timer fired
+            moveToken?: string;  // client-generated UUID for idempotency
         };
         if (!battleId || !role || !action) return res.status(400).json({ error: 'Missing battleId, role, or action' });
 
@@ -692,6 +712,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const sessionMaybe = await kv.get<PvpSession>(key);
         if (!sessionMaybe) return res.status(404).json({ error: 'Battle session not found' });
         const session: PvpSession = sessionMaybe;
+
+        // Idempotency: if the client's moveToken matches a recently
+        // applied move, return the current session without re-applying.
+        // Stops a retried request (network blip, double-tap) from
+        // double-applying the move.
+        if (moveToken && Array.isArray(session.recentMoveTokens) && session.recentMoveTokens.includes(moveToken)) {
+            return res.status(200).json(session);
+        }
         // Environment is read from the session — clients can't override it.
         const biome: string = session.biome ?? 'central';
         const weatherPositiveElement: string = session.weatherPositiveElement ?? '';
@@ -715,7 +743,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const lockToken = `${role}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
         // 10s lock (was 3s) — long enough that a move taking a few seconds
         // under load can't have the lock expire and a concurrent move slip in.
-        const lockResult = await kv.set(lockKey, lockToken, { nx: true, ex: 10 } as never);
+        // Lock TTL: 3s. The critical section is <50ms in 99% of cases;
+        // 10s used to be the budget for "what if the lambda crashed
+        // holding the lock?" but 3s is plenty for that recovery while
+        // letting legitimate retries proceed faster.
+        const lockResult = await kv.set(lockKey, lockToken, { nx: true, ex: 3 } as never);
         if (!lockResult) return res.status(200).json(session);
 
         async function finish(payload: PvpSession) {
@@ -825,11 +857,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             case 'basicAttack': {
                 if (!canAct(40)) return finish(session);
                 if (distance(me.pos, opp.pos) > 1) {
-                    await kv.set(key, { ...session, log: [...session.log, `${me.name}: too far for basic attack — move closer.`] }, { ex: SESSION_TTL });
+                    await saveSession(key, { ...session, log: [...session.log, `${me.name}: too far for basic attack — move closer.`] });
                     return finish({ ...session, log: [...session.log, `${me.name}: too far for basic attack.`] });
                 }
                 if (me.stamina < 10) {
-                    await kv.set(key, { ...session, log: [...session.log, `${me.name}: not enough stamina.`] }, { ex: SESSION_TTL });
+                    await saveSession(key, { ...session, log: [...session.log, `${me.name}: not enough stamina.`] });
                     return finish({ ...session, log: [...session.log, `${me.name}: not enough stamina.`] });
                 }
                 const specialty = (me.character.specialty as string) ?? 'Ninjutsu';
@@ -882,7 +914,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!jutsu) {
                     const missingMsg = `${me.name}: selected jutsu is not available in this PvP session. Reopen the duel or re-equip your loadout.`;
                     const updated = { ...session, log: [...session.log, missingMsg] };
-                    await kv.set(key, updated, { ex: SESSION_TTL });
+                    await saveSession(key, updated);
                     return finish(updated);
                 }
                 // jutsuIsSane re-validation removed — the jutsu comes from the
@@ -899,7 +931,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (hasStatus(me, 'Elemental Seal', session.round) && jutsu.element && BASIC_ELEMENTS.has(jutsu.element)) {
                     const esMsg = `${me.name} is Elementally Sealed — cannot use ${jutsu.name} (${jutsu.element}).`;
                     const esState = { ...session, log: [...session.log, esMsg] };
-                    await kv.set(key, esState, { ex: SESSION_TTL });
+                    await saveSession(key, esState);
                     return finish(esState);
                 }
 
@@ -908,13 +940,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (jChakraCost > 0 && me.chakra < jChakraCost) {
                     const msg = `${me.name}: not enough chakra for ${jutsu.name} (need ${jChakraCost}).`;
                     const updated = { ...session, log: [...session.log, msg] };
-                    await kv.set(key, updated, { ex: SESSION_TTL });
+                    await saveSession(key, updated);
                     return finish(updated);
                 }
                 if (jStaminaCost > 0 && me.stamina < jStaminaCost) {
                     const msg = `${me.name}: not enough stamina for ${jutsu.name} (need ${jStaminaCost}).`;
                     const updated = { ...session, log: [...session.log, msg] };
-                    await kv.set(key, updated, { ex: SESSION_TTL });
+                    await saveSession(key, updated);
                     return finish(updated);
                 }
 
@@ -928,7 +960,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (needsGroundTile && tile === undefined) {
                     const msg = `${me.name}: ${jutsu.name} needs a ground tile target.`;
                     const updated = { ...session, log: [...session.log, msg] };
-                    await kv.set(key, updated, { ex: SESSION_TTL });
+                    await saveSession(key, updated);
                     return finish(updated);
                 }
                 if (!selfTarget && !groundTarget && !moveTag && affectsOpponent) {
@@ -936,7 +968,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (range > 0 && distance(me.pos, opp.pos) > range) {
                         const outOfRangeMsg = `${jutsu.name} is out of range (need ≤${range}, distance ${Math.round(distance(me.pos, opp.pos))}).`;
                         const updated = { ...session, log: [...session.log, outOfRangeMsg] };
-                        await kv.set(key, updated, { ex: SESSION_TTL });
+                        await saveSession(key, updated);
                         return finish(updated);
                     }
                 }
@@ -955,7 +987,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (destTile < 0 || destTile >= GRID_W * GRID_H || distance(me.pos, destTile) > range || destTile === opp.pos || destTile === me.pos || tileBlocked(destTile, me, opp)) {
                         const msg = `${me.name}: ${jutsu.name} — destination out of range or occupied.`;
                         const updated = { ...session, log: [...session.log, msg] };
-                        await kv.set(key, updated, { ex: SESSION_TTL });
+                        await saveSession(key, updated);
                         return finish(updated);
                     }
                     const movedSelf = { ...me, pos: destTile, chakra: Math.max(0, me.chakra - jChakraCost), stamina: Math.max(0, me.stamina - jStaminaCost) };
@@ -983,7 +1015,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (targetTile < 0 || targetTile >= GRID_W * GRID_H || distance(me.pos, targetTile) > range || targetTile === opp.pos || targetTile === me.pos || tileBlocked(targetTile, me, opp)) {
                         const msg = `${me.name}: ${jutsu.name} — target tile out of range or occupied.`;
                         const updated = { ...session, log: [...session.log, msg] };
-                        await kv.set(key, updated, { ex: SESSION_TTL });
+                        await saveSession(key, updated);
                         return finish(updated);
                     }
                     if (jutsuMethod === 'INSTANT_EFFECT') {
@@ -991,7 +1023,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         if (!zoneTags.length) {
                             const msg = `${me.name}: ${jutsu.name} needs Decrease Damage Given, Recoil, or Poison for its ground effect.`;
                             const updated = { ...session, log: [...session.log, msg] };
-                            await kv.set(key, updated, { ex: SESSION_TTL });
+                            await saveSession(key, updated);
                             return finish(updated);
                         }
                         const groundEffect: PvpGroundEffect = {
@@ -1047,7 +1079,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (distance(me.pos, opp.pos) > weapRange) {
                     const msg = `${me.name}: ${itemName ?? 'Weapon'} is out of range (need ≤${weapRange}).`;
                     const updated = { ...session, log: [...session.log, msg] };
-                    await kv.set(key, updated, { ex: SESSION_TTL });
+                    await saveSession(key, updated);
                     return finish(updated);
                 }
                 const wTags: JutsuTag[] = [...(serverItem.weaponTags ?? [])];
@@ -1175,11 +1207,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
         }
         // Cap log size — UI only renders the last ~20 entries anyway, and an
-        // unbounded log inflates the KV record by 20-30 KB on long fights.
-        if (result.log.length > 100) {
-            result = { ...result, log: result.log.slice(-100) };
-        }
-        await kv.set(key, result, { ex: SESSION_TTL });
+        // Final commit also threads the moveToken into the recent-tokens
+        // ring buffer so a retry of this same request (network blip,
+        // double-tap) short-circuits at the top of the handler instead
+        // of re-applying the move. (Note: saveSession already trims
+        // the log internally; the manual 100-line cap below was a
+        // legacy guard now subsumed by trimPvpLog.)
+        await saveSession(key, result, { moveToken });
         return finish(result);
     } catch (err) {
         console.error('[pvp/move]', err);
