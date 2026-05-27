@@ -242,6 +242,13 @@ function hydrateCharacterFromSave(saveCharacter: Record<string, unknown>, client
     merged.armorFactor = pickClamped(saveCharacter.armorFactor, clientCharacter.armorFactor, 0.25, 1.0, 1.0);
     merged.armorRawDR = pickClamped(saveCharacter.armorRawDR, clientCharacter.armorRawDR, 0, 1.5, 0);
     merged.itemDamagePct = pickClamped(saveCharacter.itemDamagePct, clientCharacter.itemDamagePct, 0, 200, 0);
+    // Named-armor passives. Percentage values cap at 100 (no point allowing
+    // 100%+ absorb/reflect/lifesteal). Shield is flat HP — capped at 5000
+    // to prevent a degenerate equipment stack from making a fighter unkillable.
+    merged.itemAbsorbPct    = pickClamped(saveCharacter.itemAbsorbPct,    clientCharacter.itemAbsorbPct,    0, 100, 0);
+    merged.itemReflectPct   = pickClamped(saveCharacter.itemReflectPct,   clientCharacter.itemReflectPct,   0, 100, 0);
+    merged.itemLifeStealPct = pickClamped(saveCharacter.itemLifeStealPct, clientCharacter.itemLifeStealPct, 0, 100, 0);
+    merged.itemShield       = pickClamped(saveCharacter.itemShield,       clientCharacter.itemShield,       0, 5000, 0);
     // Sanitize loadout fields (jutsu list, pvpItems) — these ARE persisted.
     merged.jutsu = sanitizeJutsuList(saveCharacter.jutsu ?? clientCharacter.jutsu);
     merged.pvpItems = sanitizePvpItems(saveCharacter.pvpItems ?? clientCharacter.pvpItems);
@@ -259,7 +266,11 @@ function hydrateNpcCharacter(clientCharacter: Record<string, unknown>): Record<s
     out.bloodlineMult = clampNumber(out.bloodlineMult, 1.0, 3.0, 1.0);
     out.armorFactor = clampNumber(out.armorFactor, 0.25, 1.0, 1.0);
     out.armorRawDR = clampNumber(out.armorRawDR, 0, 1.5, 0);
-    out.itemDamagePct = clampNumber(out.itemDamagePct, 0, 200, 0);
+    out.itemDamagePct    = clampNumber(out.itemDamagePct,    0, 200, 0);
+    out.itemAbsorbPct    = clampNumber(out.itemAbsorbPct,    0, 100, 0);
+    out.itemReflectPct   = clampNumber(out.itemReflectPct,   0, 100, 0);
+    out.itemLifeStealPct = clampNumber(out.itemLifeStealPct, 0, 100, 0);
+    out.itemShield       = clampNumber(out.itemShield,       0, 5000, 0);
     out.jutsu = sanitizeJutsuList(out.jutsu);
     out.pvpItems = sanitizePvpItems(out.pvpItems);
     // Same strip as real characters — NPCs can have arbitrary client-
@@ -272,6 +283,9 @@ function makeFighter(char: Record<string, unknown>, pos: number): PvpFighter {
     const maxHp = Number((char.maxHp as number) ?? 100);
     const maxChakra = Number((char.maxChakra as number) ?? 50);
     const maxStamina = Number((char.maxStamina as number) ?? 50);
+    // Named-armor "Shield" passive: starting flat shield, already clamped
+    // to [0, 5000] during character merge.
+    const startingShield = Math.max(0, Math.min(5000, Number((char.itemShield as number) ?? 0)));
     return {
         name: (char.name as string) ?? 'Unknown',
         hp: Math.min(Number((char.hp as number) ?? maxHp), maxHp),
@@ -280,7 +294,7 @@ function makeFighter(char: Record<string, unknown>, pos: number): PvpFighter {
         maxChakra,
         stamina: Math.min(Number((char.stamina as number) ?? maxStamina), maxStamina),
         maxStamina,
-        shield: 0,
+        shield: startingShield,
         statuses: [],
         character: char,
         pos,
