@@ -25354,6 +25354,136 @@ function CentralHub({
         alert(`${item.name} has been forged and added to your inventory!`);
     }
 
+    // ── Named Armor forge ───────────────────────────────────────────────
+    // Mirrors the Named Weapon flow but produces a master-forged armor
+    // piece. Player picks a slot from a dropdown; rolling fills in
+    // randomized stats. Forge cost is shared with named weapons (1000
+    // pts, same currency conversion) so both top-tier crafts use the
+    // same currency sink.
+    type NamedArmorRoll = {
+        slot: EquipmentSlot;
+        armorQuality: ArmorQuality; // Elite / Legendary / Mythic (6 / 7 / 8 %)
+        offenseVal: number;         // 25 – 35, applied to all 4 offense stats
+        defenseVal: number;         // 25 – 35, applied to all 4 defense stats
+        special: { kind: string; value: number; bonusKey: string };
+    };
+    const [namedArmorRoll, setNamedArmorRoll] = useState<NamedArmorRoll | null>(null);
+    const [namedArmorName, setNamedArmorName] = useState("Unnamed Vestige");
+    const [namedArmorImage, setNamedArmorImage] = useState("");
+    const [namedArmorFlavorText, setNamedArmorFlavorText] = useState("");
+    const [namedArmorSlot, setNamedArmorSlot] = useState<EquipmentSlot>("body");
+
+    const NAMED_ARMOR_SLOTS: Array<{ value: EquipmentSlot; label: string }> = [
+        { value: "head",  label: "Head" },
+        { value: "body",  label: "Chest" },
+        { value: "waist", label: "Waist" },
+        { value: "legs",  label: "Legs" },
+        { value: "feet",  label: "Feet" },
+        // Gloves ride the hand slot — isArmorOrGloveItem checks for
+        // /glove|gauntlet/i in the name, so forgeNamedArmor enforces a
+        // "Gauntlets" suffix when this slot is chosen.
+        { value: "hand",  label: "Gloves" },
+    ];
+
+    const NAMED_ARMOR_SPECIALS: Array<{ kind: string; bonusKey: string; valueRoll: () => number }> = [
+        { kind: "Absorb",          bonusKey: "absorbPercent",    valueRoll: () => 10 + Math.floor(Math.random() * 11) },         // 10 – 20 %
+        { kind: "Shield",          bonusKey: "shield",           valueRoll: () => 75 + Math.floor(Math.random() * 76) },         // 75 – 150 HP
+        { kind: "Reflect",         bonusKey: "reflectPercent",   valueRoll: () => 10 + Math.floor(Math.random() * 11) },         // 10 – 20 %
+        { kind: "Life Steal",      bonusKey: "lifeStealPercent", valueRoll: () => 10 + Math.floor(Math.random() * 11) },         // 10 – 20 %
+        { kind: "Increase Damage", bonusKey: "damagePercent",    valueRoll: () => +(0.75 + Math.random() * 0.75).toFixed(2) },   // 0.75 – 1.50 %
+    ];
+
+    function rollNamedArmor() {
+        const qualities: ArmorQuality[] = ["Elite", "Legendary", "Mythic"];
+        const armorQuality = qualities[Math.floor(Math.random() * qualities.length)];
+        const offenseVal = 25 + Math.floor(Math.random() * 11); // 25 – 35
+        const defenseVal = 25 + Math.floor(Math.random() * 11);
+        const tpl = NAMED_ARMOR_SPECIALS[Math.floor(Math.random() * NAMED_ARMOR_SPECIALS.length)];
+        const special = { kind: tpl.kind, bonusKey: tpl.bonusKey, value: tpl.valueRoll() };
+        setNamedArmorRoll({ slot: namedArmorSlot, armorQuality, offenseVal, defenseVal, special });
+    }
+
+    function forgeNamedArmor() {
+        if (!namedArmorRoll) return;
+        const available = namedWeaponCurrencyPts(); // shared cost pool with Named Weapon
+        if (available < NW_COST) {
+            alert(`Not enough materials. Need ${NW_COST} forge pts, you have ${available}.`);
+            return;
+        }
+        // Greedy consume identical to forgeNamedWeapon — spend cheapest first.
+        let remaining = NW_COST;
+        let bc = character.boneCharms ?? 0;
+        let fs = character.fateShards ?? 0;
+        let as_ = character.auraStones ?? 0;
+        let ms = character.mythicSeals ?? 0;
+        const spend = (cur: number, pts: number): [number, number] => {
+            const use = Math.min(cur, Math.ceil(remaining / pts));
+            const actual = Math.min(use, cur);
+            return [cur - actual, remaining - actual * pts];
+        };
+        [bc, remaining]  = spend(bc,  NW_CURRENCY_PTS.boneCharms);
+        [fs, remaining]  = spend(fs,  NW_CURRENCY_PTS.fateShards);
+        [as_, remaining] = spend(as_, NW_CURRENCY_PTS.auraStones);
+        [ms, remaining]  = spend(ms,  NW_CURRENCY_PTS.mythicSeals);
+
+        const slotLabel = NAMED_ARMOR_SLOTS.find((s) => s.value === namedArmorRoll.slot)?.label ?? "Armor";
+        // Hand-slot pieces must contain "glove" or "gauntlet" in their name for
+        // isArmorOrGloveItem to treat them as armor — auto-append if missing.
+        let finalName = namedArmorName.trim() || `Named ${slotLabel}`;
+        if (namedArmorRoll.slot === "hand" && !/glove|gauntlet/i.test(finalName)) {
+            finalName = `${finalName} Gauntlets`;
+        }
+
+        const bonuses: GameItem["bonuses"] = {
+            ninjutsuOffense: namedArmorRoll.offenseVal,
+            taijutsuOffense: namedArmorRoll.offenseVal,
+            bukijutsuOffense: namedArmorRoll.offenseVal,
+            genjutsuOffense: namedArmorRoll.offenseVal,
+            ninjutsuDefense: namedArmorRoll.defenseVal,
+            taijutsuDefense: namedArmorRoll.defenseVal,
+            bukijutsuDefense: namedArmorRoll.defenseVal,
+            genjutsuDefense: namedArmorRoll.defenseVal,
+            [namedArmorRoll.special.bonusKey]: namedArmorRoll.special.value,
+        };
+
+        const reductionPct = Math.round(armorReductionForQuality(namedArmorRoll.armorQuality) * 100);
+        const specialDesc = namedArmorRoll.special.kind === "Shield"
+            ? `Shield +${namedArmorRoll.special.value}`
+            : namedArmorRoll.special.kind === "Increase Damage"
+                ? `${namedArmorRoll.special.kind} ${namedArmorRoll.special.value}%`
+                : `${namedArmorRoll.special.kind} ${namedArmorRoll.special.value}%`;
+
+        const id = `named-armor-${makeId()}`;
+        const item: GameItem = {
+            id,
+            name: finalName,
+            slot: namedArmorRoll.slot,
+            rarity: "legendary",
+            armorQuality: namedArmorRoll.armorQuality,
+            cost: 0,
+            description: namedArmorFlavorText.trim() ||
+                `A master-forged ${slotLabel.toLowerCase()} piece. ${reductionPct}% damage reduction. ${specialDesc}.`,
+            image: namedArmorImage || undefined,
+            levelReq: 30,
+            flavorText: namedArmorFlavorText.trim() || undefined,
+            bonuses,
+        };
+        setCreatorItems([...creatorItems, item]);
+        updateCharacter({
+            ...character,
+            inventory: [...character.inventory, id],
+            boneCharms: bc,
+            fateShards: fs,
+            auraStones: as_,
+            mythicSeals: ms,
+        });
+        setNamedArmorRoll(null);
+        setNamedArmorName("Unnamed Vestige");
+        setNamedArmorImage("");
+        setNamedArmorFlavorText("");
+        alert(`${finalName} has been forged and added to your inventory!`);
+    }
+
     function awakeningFreeRoll() {
         const isFreeAtLv2 = character.level >= 2 && !triggeredEvents.includes(AWAKENING_FREE_LV2_ID);
         const isFreeAtLv20 = character.level >= 20 && !triggeredEvents.includes(AWAKENING_FREE_LV20_ID);
@@ -26152,6 +26282,165 @@ function CentralHub({
                                     })
                                 )}
                             </div></>}
+
+                            {/* -- Named Armor Forge -- */}
+                            {crafterTab === "armor" && (() => {
+                                const naPts = namedWeaponCurrencyPts();
+                                const naFill = Math.min(100, Math.floor((naPts / NW_COST) * 100));
+                                return (
+                                    <div className="named-weapon-forge">
+                                        <div className="named-weapon-forge-header">
+                                            <span className="named-weapon-forge-title">🛡️ Named Armor</span>
+                                            <small>Roll a unique legendary armor piece. Costs {NW_COST} forge pts.</small>
+                                        </div>
+
+                                        {/* Currency display — same pool as named weapons */}
+                                        <div className="named-weapon-currencies">
+                                            <div className="named-weapon-currency-row">
+                                                <span>🪬 Bone Charms</span>
+                                                <span>{character.boneCharms ?? 0} × {NW_CURRENCY_PTS.boneCharms} pts = <strong>{(character.boneCharms ?? 0) * NW_CURRENCY_PTS.boneCharms}</strong></span>
+                                            </div>
+                                            <div className="named-weapon-currency-row">
+                                                <span>🔮 Fate Shards</span>
+                                                <span>{character.fateShards ?? 0} × {NW_CURRENCY_PTS.fateShards} pts = <strong>{(character.fateShards ?? 0) * NW_CURRENCY_PTS.fateShards}</strong></span>
+                                            </div>
+                                            <div className="named-weapon-currency-row">
+                                                <span>💠 Aura Stones</span>
+                                                <span>{character.auraStones ?? 0} × {NW_CURRENCY_PTS.auraStones} pts = <strong>{(character.auraStones ?? 0) * NW_CURRENCY_PTS.auraStones}</strong></span>
+                                            </div>
+                                            <div className="named-weapon-currency-row">
+                                                <span>🔱 Mythic Seals</span>
+                                                <span>{character.mythicSeals ?? 0} × {NW_CURRENCY_PTS.mythicSeals} pts = <strong>{(character.mythicSeals ?? 0) * NW_CURRENCY_PTS.mythicSeals}</strong></span>
+                                            </div>
+                                            <div className="named-weapon-currency-total">
+                                                Total forge pts: <strong>{naPts}</strong> / {NW_COST}
+                                            </div>
+                                        </div>
+
+                                        <div className="crafter-progress-bar" style={{ margin: "4px 0 8px" }}>
+                                            <div className="crafter-progress-fill named-weapon-fill" style={{ width: `${naFill}%` }} />
+                                        </div>
+
+                                        {/* Slot selector */}
+                                        <label className="named-weapon-label">Armor Slot</label>
+                                        <select
+                                            className="named-weapon-input"
+                                            value={namedArmorSlot}
+                                            onChange={(e) => setNamedArmorSlot(e.target.value as EquipmentSlot)}
+                                        >
+                                            {NAMED_ARMOR_SLOTS.map((s) => (
+                                                <option key={s.value} value={s.value}>{s.label}</option>
+                                            ))}
+                                        </select>
+
+                                        <div className="named-weapon-odds">
+                                            <div className="named-weapon-odds-title">🎲 Roll Odds</div>
+                                            <div className="named-weapon-odds-grid">
+                                                <div className="nwo-section">
+                                                    <div className="nwo-label">Damage Reduction</div>
+                                                    <div className="nwo-rows">
+                                                        <div className="nwo-row"><span>6% (Elite)</span><span className="nwo-pct">33.3%</span></div>
+                                                        <div className="nwo-row"><span>7% (Legendary)</span><span className="nwo-pct">33.3%</span></div>
+                                                        <div className="nwo-row"><span>8% (Mythic)</span><span className="nwo-pct">33.3%</span></div>
+                                                    </div>
+                                                </div>
+                                                <div className="nwo-section">
+                                                    <div className="nwo-label">All Offense</div>
+                                                    <div className="nwo-rows">
+                                                        <div className="nwo-row"><span>+25 to +35</span><span className="nwo-pct">~9.1% each</span></div>
+                                                    </div>
+                                                </div>
+                                                <div className="nwo-section">
+                                                    <div className="nwo-label">All Defense</div>
+                                                    <div className="nwo-rows">
+                                                        <div className="nwo-row"><span>+25 to +35</span><span className="nwo-pct">~9.1% each</span></div>
+                                                    </div>
+                                                </div>
+                                                <div className="nwo-section nwo-section-wide">
+                                                    <div className="nwo-label">Special Effect (each {(100 / NAMED_ARMOR_SPECIALS.length).toFixed(1)}% to roll)</div>
+                                                    <div className="nwo-rows">
+                                                        <div className="nwo-row"><span>🛡 Absorb</span><span className="nwo-pct">10–20%</span></div>
+                                                        <div className="nwo-row"><span>🔰 Shield</span><span className="nwo-pct">+75 to +150 HP</span></div>
+                                                        <div className="nwo-row"><span>↩️ Reflect</span><span className="nwo-pct">10–20%</span></div>
+                                                        <div className="nwo-row"><span>🩸 Life Steal</span><span className="nwo-pct">10–20%</span></div>
+                                                        <div className="nwo-row"><span>💥 Increase Damage</span><span className="nwo-pct">0.75–1.50%</span></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            className="named-weapon-roll-btn"
+                                            onClick={rollNamedArmor}
+                                            disabled={naPts < NW_COST}
+                                        >
+                                            🎲 Roll Named Armor
+                                        </button>
+
+                                        {namedArmorRoll && (
+                                            <div className="named-weapon-result">
+                                                <div className="named-weapon-stats">
+                                                    <div className="named-weapon-stat-row"><span>Slot</span><strong>{NAMED_ARMOR_SLOTS.find(s => s.value === namedArmorRoll.slot)?.label}</strong></div>
+                                                    <div className="named-weapon-stat-row"><span>Damage Reduction</span><strong>{Math.round(armorReductionForQuality(namedArmorRoll.armorQuality) * 100)}% ({namedArmorRoll.armorQuality})</strong></div>
+                                                    <div className="named-weapon-stat-row"><span>All Offense</span><strong>+{namedArmorRoll.offenseVal}</strong></div>
+                                                    <div className="named-weapon-stat-row"><span>All Defense</span><strong>+{namedArmorRoll.defenseVal}</strong></div>
+                                                    <div className="named-weapon-stat-row named-weapon-tag-row">
+                                                        <span>Special</span>
+                                                        <strong>
+                                                            {namedArmorRoll.special.kind}
+                                                            {namedArmorRoll.special.kind === "Shield"
+                                                                ? ` +${namedArmorRoll.special.value} HP`
+                                                                : ` ${namedArmorRoll.special.value}%`}
+                                                        </strong>
+                                                    </div>
+                                                </div>
+
+                                                <label className="named-weapon-label">Armor Name</label>
+                                                <input
+                                                    className="named-weapon-input"
+                                                    value={namedArmorName}
+                                                    onChange={(e) => setNamedArmorName(e.target.value)}
+                                                    placeholder="e.g. Stormveil Plate"
+                                                />
+
+                                                <label className="named-weapon-label">Flavor Text</label>
+                                                <textarea
+                                                    className="named-weapon-input"
+                                                    rows={3}
+                                                    value={namedArmorFlavorText}
+                                                    onChange={(e) => setNamedArmorFlavorText(e.target.value)}
+                                                    placeholder="Forged from the scales of the Ash Lizard king…"
+                                                />
+
+                                                <label className="named-weapon-label">Armor Image</label>
+                                                <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    onChange={(e) => {
+                                                        const file = e.target.files?.[0];
+                                                        if (file) readImageFile(file, setNamedArmorImage, 100);
+                                                    }}
+                                                />
+                                                {namedArmorImage && (
+                                                    <div className="named-weapon-image-preview">
+                                                        <img src={namedArmorImage} alt="armor preview" />
+                                                        <button className="danger-button" onClick={() => setNamedArmorImage("")}>Remove</button>
+                                                    </div>
+                                                )}
+
+                                                <div className="named-weapon-forge-actions">
+                                                    <button className="named-weapon-forge-btn" onClick={forgeNamedArmor}>
+                                                        🔨 Forge Armor
+                                                    </button>
+                                                    <button className="danger-button" onClick={() => setNamedArmorRoll(null)}>
+                                                        🗑️ Discard Roll
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })()}
 
                             {/* -- Named Weapon Forge -- */}
                             {crafterTab === "weapons" && (() => {
