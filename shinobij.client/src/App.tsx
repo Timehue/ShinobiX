@@ -893,112 +893,16 @@ let HOLLOW_GATE_THREAT_PER_STEP = 7;
 let HOLLOW_GATE_THREAT_AMBUSH = 100;
 let HOLLOW_GATE_MAX_FLOOR = 5;
 
-const hollowGateFlavorPool: Record<HollowGateTileKind, string[]> = {
-    empty: [
-        "Dust drifts through shafts of pale light. Ancient seals glow faintly underfoot.",
-        "Broken shrine stones line the floor. A single glowing pawprint blinks out as you step past.",
-        "Chakra mist coils around your ankles. The silence here is older than memory.",
-        "The corridor breathes. Far below, something answers.",
-    ],
-    battle: [
-        "A corrupted shinobi rises from the chakra mist — eyes hollow, jutsu unstable.",
-        "Hollow Gate echoes shape themselves into a shadow-bound ronin.",
-        "Glowing pawprints stop here. From the dark, a shinobi steps forward, blade drawn.",
-    ],
-    elite: [
-        "A masked elite from the lost shrine guard blocks the path. Their seal still burns.",
-        "Ancient ANBU script winds across the floor — and the warrior who etched it remains.",
-    ],
-    trap: [
-        "Ancient seals flare beneath your feet — paper-thin runes ignite!",
-        "A sealed door slams behind you as venomous chakra mist hisses from the stones.",
-        "A pressure plate clicks. Shuriken fly from a broken shrine stone.",
-    ],
-    chest: [
-        "A shrine offering box rests in the dust, faintly humming with old chakra.",
-        "Glowing pawprints circle a small lacquered chest. Something wants you to find it.",
-    ],
-    pet_event: [
-        "Glowing pawprints trail toward a sleeping shrine spirit. Your pet's ears twitch.",
-        "A familiar scent drifts past — your pet pulls you toward a side passage.",
-    ],
-    pet_battle: [
-        "A corrupted Hollow Beast prowls the corridor — eyes burning chakra-blue, claws scoring stone.",
-        "Glowing pawprints crystallize into a snarling shadow-bound beast, twisted by the gate's mist.",
-        "A wild thing lunges from the dark — too fast for a normal animal, too old for a normal shadow.",
-    ],
-    tile_game: [
-        "A stone table rises from the floor, nine tile-shaped slots glowing with old chakra. A challenger sits across, smiling without a face.",
-        "The shrine offers a riddle disguised as a game. Cards float between you and the shadow opponent.",
-        "Ancient seals form a 3×3 grid in the air. The mist asks for tiles — bet wrong and it bites.",
-    ],
-    shrine: [
-        "A broken shrine stone weeps cold chakra. Beyond it, a Hidden Chamber lies open.",
-        "A ritual circle pulses violet. The Hollow Gate echoes invite you inward.",
-    ],
-    story: [
-        "Stone tablets line the wall, etched with the names of the shrine's first guardians.",
-        "A shattered mural shows shinobi sealing the Hollow Gate from the inside.",
-    ],
-    boss: [
-        "The corridor opens into a vast chamber. The Hollow Gate Warden waits at its center.",
-    ],
-    exit: [
-        "A staircase descends further. The Hollow Gate echoes grow louder below.",
-    ],
-    locked: [
-        "A sealed door, bound by chakra chains. Without a Shrine Key it will not yield.",
-    ],
-    npc: [
-        "A hooded figure tends a flame in the corridor — the Shrine Keeper. Their eyes are old.",
-        "An old shinobi waits beside a chakra brazier. The Shrine Keeper bows in greeting.",
-        "The Shrine Keeper looks up from a worn scroll. \"Choose carefully, traveler.\"",
-    ],
-    descend: [
-        "A spiral staircase coils into the dark. The next floor breathes below.",
-        "Hollow Gate echoes spiral downward — the next floor lies open.",
-    ],
-    wall: [
-        "Solid shrine stone. The wall is sealed by old chakra and will not move.",
-    ],
-};
-
-// Hollow Gate intro VN — 3 pages shown the first time a character enters the
-// shrine. Image keys map to admin-generated art (shrine:intro-1/2/3).
-const hollowGateIntroPages: Array<{ title: string; imageKey: string; lines: string[] }> = [
-    {
-        title: "The Broken Torii",
-        imageKey: "shrine:intro-1",
-        lines: [
-            "The Hollow Gate Key in your hand grows cold.",
-            "Ahead, a broken torii leans against itself, chained shut by chakra rope older than the village.",
-            "The seal cracks. The Hollow Gate echoes whisper your name in a voice you have never heard.",
-        ],
-    },
-    {
-        title: "The First Step",
-        imageKey: "shrine:intro-2",
-        lines: [
-            "Stone teeth bite the air. Glowing pawprints pulse violet down the corridor and vanish.",
-            "Behind you, the seal re-knits — there is no leaving by the way you came.",
-            "Only the Leave tile or your own corpse can carry you out of this place.",
-        ],
-    },
-    {
-        title: "What Waits Below",
-        imageKey: "shrine:intro-3",
-        lines: [
-            "Five floors descend into the shrine. Each is colder than the last.",
-            "On the deepest floor, the Hollow Gate Warden waits — sealed there by hands long dust.",
-            "Bring back his fragment. Or bring back nothing.",
-        ],
-    },
-];
-
-function hollowGateFlavorFor(kind: HollowGateTileKind): string {
-    const pool = hollowGateFlavorPool[kind];
-    return pool[Math.floor(Math.random() * pool.length)];
-}
+// Hollow Gate flavor pool + intro pages + hollowGateFlavorFor moved to
+// ./data/hollow-gate-flavor. We re-export them so existing callers
+// (and the legend renderer) keep resolving the same names.
+import {
+    hollowGateFlavorPool,
+    hollowGateIntroPages,
+    hollowGateFlavorFor,
+    hollowGateTileIconForKind,
+} from "./data/hollow-gate-flavor";
+export { hollowGateFlavorPool, hollowGateIntroPages, hollowGateFlavorFor, hollowGateTileIconForKind };
 
 // BFS — returns the set of tile indices reachable from `start` if all tiles
 // in `blocked` are treated as walls. Used to validate that locked tiles never
@@ -2042,27 +1946,7 @@ function pickHollowGateEncounterPet(pets: Pet[], rarity: PetRarity): Pet | null 
     return null;
 }
 
-function hollowGateTileIconForKind(kind: HollowGateTileKind): string {
-    switch (kind) {
-        case "battle": return "⚔";
-        case "elite": return "☠";
-        case "trap": return "▲";
-        case "chest": return "▣";
-        case "pet_event": return "🐾";
-        case "pet_battle": return "🐺";
-        case "tile_game": return "🀄";
-        case "shrine": return "⛩";
-        case "story": return "📜";
-        case "boss": return "👹";
-        case "exit": return "⇩";     // Leave tile
-        case "locked": return "🔒";
-        case "npc": return "👤";      // Shrine Keeper
-        case "descend": return "▼";   // Staircase to next floor
-        case "wall": return "";       // walls render as solid stone, no icon
-        case "empty": return "·";
-        default: return "·";
-    }
-}
+// hollowGateTileIconForKind moved to ./data/hollow-gate-flavor.
 
 // ── Atlas icon slots ───────────────────────────────────────────────────────
 // Maps a "role" in the dungeon UI to a KV key under which an atlas sprite
@@ -2087,34 +1971,8 @@ type PendingEventEncounter = {
 
 // MAX_LEVEL / MAX_STAT moved to ./constants/game.
 
-// Lookup helper for VN speaker portraits. Returns "" for Narrator/Player or empty
-// names so callers can decide whether to hide the slot entirely; otherwise returns
-// /portraits/<slug>.png. Files are loaded with onError so missing files degrade
-// silently to initials — drop new portrait PNGs into shinobij.client/public/portraits/
-// to enable them.
-function defaultVnPortrait(name: string | undefined | null): string {
-    if (!name) return "";
-    const n = name.trim().toLowerCase();
-    if (!n || n === "narrator" || n === "player") return "";
-    const slug = n.replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-");
-    return slug ? `/portraits/${slug}.png` : "";
-}
-
-// Lookup helper for VN scene backgrounds. Tries an event-specific image first,
-// then a biome-default. Drop PNGs into shinobij.client/public/scenes/ to enable.
-// CSS background-image silently ignores 404s, so absent files just fall through
-// to the biome gradient — no broken-image icon, no JS work needed.
-function defaultVnScene(eventId?: string | null, biome?: string | null): string {
-    if (eventId) {
-        const slug = eventId.trim().toLowerCase().replace(/[^a-z0-9-]/g, "");
-        if (slug) return `/scenes/${slug}.png`;
-    }
-    if (biome) {
-        const slug = biome.trim().toLowerCase().replace(/[^a-z0-9-]/g, "");
-        if (slug) return `/scenes/${slug}.png`;
-    }
-    return "";
-}
+// defaultVnPortrait + defaultVnScene moved to ./lib/vn.
+import { defaultVnPortrait, defaultVnScene } from "./lib/vn";
 
 // Achievement / AchievementCategory types + ACHIEVEMENTS table moved to
 // ./constants/achievements — imported at the top of this file.
