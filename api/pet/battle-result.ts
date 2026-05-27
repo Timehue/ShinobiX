@@ -69,12 +69,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(403).json({ error: 'Can only report your own battles.' });
         }
 
+        // reportKey is REQUIRED for wins. Previously optional, which let a
+        // botted client omit it (or randomize per call) and farm the daily
+        // cap with zero real battles. Admins and 'loss' outcomes are exempt
+        // because losses don't pay out so duplicates are harmless. The key
+        // must look like a real battle id (alphanumerics + : _ -) so
+        // attackers can't supply a single static value.
+        if (outcome === 'win' && !identity.admin && !reportKey) {
+            return res.status(400).json({ error: 'Missing or invalid reportKey for win.' });
+        }
+
         // Refresh-replay dedup: NX-reserve the reportKey atomically. If it
         // was already set, the client has already reported this exact
         // battle outcome — return 200 alreadyReported so the caller's UI
         // doesn't error out, but skip the ryo + counter increments.
-        // Only checked when both reportKey and outcome === 'win' (losses
-        // pay nothing so duplicates are harmless).
         if (reportKey && outcome === 'win') {
             const dedupKey = `pet:reported:${playerName}:${reportKey}`;
             const placed = await kv.set(dedupKey, '1', { nx: true, ex: REPORT_KEY_TTL_SECONDS } as never).catch(() => null);

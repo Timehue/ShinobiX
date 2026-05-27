@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
 import { safeName, mergePreservingImages, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
+import { withKvLock } from '../_lock.js';
 
 const VALID_PROFESSIONS = ['healer', 'vanguard', 'petTamer'] as const;
 type Profession = typeof VALID_PROFESSIONS[number];
@@ -39,39 +40,43 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         const key = `save:${playerName}`;
-        const existing = await kv.get<Record<string, unknown>>(key);
-        if (!existing) return res.status(404).json({ error: 'Player not found.' });
+        // Wrap the whole read-check-write in a lock — without it two concurrent
+        // POSTs both read profession=undefined, both pass the "already chosen"
+        // check, both write a different profession, and last-writer-wins. Also
+        // serializes against any concurrent /api/save auto-save so the
+        // profession flip doesn't get clobbered by a stale character body.
+        const outcome = await withKvLock(key, async () => {
+            const existing = await kv.get<Record<string, unknown>>(key);
+            if (!existing) return { status: 404 as const, body: { error: 'Player not found.' } };
 
-        const char = existing.character as Record<string, unknown> | undefined;
-        if (!char) return res.status(404).json({ error: 'Character not found.' });
+            const char = existing.character as Record<string, unknown> | undefined;
+            if (!char) return { status: 404 as const, body: { error: 'Character not found.' } };
 
-        const level = Number(char.level ?? 0);
-        if (level < PROFESSION_UNLOCK_LEVEL) {
-            return res.status(403).json({
-                error: `Profession unlocks at Level ${PROFESSION_UNLOCK_LEVEL}.`,
-            });
-        }
+            const level = Number(char.level ?? 0);
+            if (level < PROFESSION_UNLOCK_LEVEL) {
+                return { status: 403 as const, body: { error: `Profession unlocks at Level ${PROFESSION_UNLOCK_LEVEL}.` } };
+            }
 
-        if (char.profession) {
-            return res.status(409).json({
-                error: 'Profession already chosen and cannot be changed.',
-                current: char.profession,
-            });
-        }
+            if (char.profession) {
+                return { status: 409 as const, body: { error: 'Profession already chosen and cannot be changed.', current: char.profession } };
+            }
 
-        const updated = {
-            ...existing,
-            character: {
-                ...char,
-                profession,
-                professionRank: 1,
-                professionXp: 0,
-                professionChosenAt: Date.now(),
-            },
-        };
+            const updated = {
+                ...existing,
+                character: {
+                    ...char,
+                    profession,
+                    professionRank: 1,
+                    professionXp: 0,
+                    professionChosenAt: Date.now(),
+                },
+            };
 
-        await kv.set(key, mergePreservingImages(updated, existing));
-        return res.status(200).json({ ok: true, profession });
+            await kv.set(key, mergePreservingImages(updated, existing));
+            return { status: 200 as const, body: { ok: true, profession } };
+        });
+
+        return res.status(outcome.status).json(outcome.body);
     } catch (err) {
         console.error('[profession/choose]', err);
         return res.status(500).json({ error: 'Internal server error.' });

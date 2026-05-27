@@ -162,6 +162,63 @@ function sanitizePvpItems(raw: unknown): unknown[] {
     return raw.filter((i) => !!i && typeof i === 'object');
 }
 
+// Fields STRIPPED from the character before it's sealed into the PvP
+// session record. The session is then exposed via /api/pvp/session GET
+// + /api/pvp/stream (both unauthenticated for spectator/EventSource
+// compatibility), so anything not strictly needed for combat resolution
+// is a leak surface. Combat needs: stats, jutsu, pvpItems, equipment,
+// bloodlines/armor multipliers, specialty, name/level/village/avatar.
+// It does NOT need: ryo / bankRyo / honorSeals / fateShards / boneCharms
+// / mythicSeals / auraStones / auraDust, inventory, daily ledgers,
+// mission journals, achievement state, creator content.
+const SESSION_STRIP_CHAR_FIELDS = new Set<string>([
+    // Currencies
+    'ryo', 'bankRyo', 'honorSeals', 'fateShards', 'boneCharms',
+    'auraStones', 'mythicSeals', 'auraDust',
+    // Non-combat inventory (pvpItems and equipment ARE used by combat)
+    'inventory', 'tileCards', 'savedTileDeck',
+    // Daily / weekly ledgers
+    'dailyAiKills', 'dailyPetWins', 'dailyTilesExplored', 'dailyMissionsCompleted',
+    'dailyFateSpins', 'lastDailyReset',
+    'dailyHonorSealsEarned', 'dailyHonorSealsByTarget', 'vanguardDailyResetDate',
+    'lastExpeditionClaimDate', 'expeditionsClaimedToday',
+    'dailyDonatedSeals', 'dailyDonationDate',
+    'claimedVillageAgendaDate', 'claimedMapControlDate',
+    // Mission / quest journals
+    'missions', 'missionLog', 'completedMissions', 'activeMissions',
+    'questLog', 'bankLog',
+    'totalMissionsCompleted', 'totalStatsTrained',
+    // Lifetime counters (not needed mid-fight; UI reads them from save endpoint)
+    'totalPvpKills', 'monthlyPvpKills', 'pvpKillMonth',
+    'totalAiKills', 'totalVillageRaids',
+    'totalPetWins', 'totalEndlessTowerWins', 'totalTilesExplored',
+    'totalTournamentsCompleted', 'warsWon', 'warMvpCount', 'lifetimeWarDamage',
+    'unlockedAchievements', 'achievementUnlockedAt',
+    // Run state for solo modes
+    'hollowGateRun', 'hollowGateWardenKills', 'hollowGateIntroSeen',
+    'endlessTowerRun', 'endlessTowerBestWave',
+    'weeklyBossKills', 'claimedWarCrateIds',
+    'villageWarMissionDate', 'villageWarRaidProgress', 'villageWarMissionsCompleted',
+    'clanBattleContrib', 'clanEventContrib', 'clanMissionContrib', 'clanContribMonth',
+    'petEscortBonusReady', 'hunterRank',
+    'lastBankInterestAt',
+    'creatorAis', 'creatorEvents', 'creatorMissions', 'creatorRaids', 'creatorCards',
+    'defeatedAiIds', 'elderFocus', 'examsPassed',
+    'triggeredEvents',
+    // Story-only persistence
+    'storyTraits', 'storyTitle', 'storyProgress',
+    // Pets are huge and not needed for a 1v1 PvP fight
+    'pets', 'editablePets',
+]);
+function stripNonCombatFields(character: Record<string, unknown>): Record<string, unknown> {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(character)) {
+        if (SESSION_STRIP_CHAR_FIELDS.has(k)) continue;
+        out[k] = v;
+    }
+    return out;
+}
+
 // Hydrate a fighter character from the authoritative save. The client payload
 // is only used as a fallback for fields the save lacks (e.g. computed
 // bloodlineMult on NPCs without a save).
@@ -181,7 +238,10 @@ function hydrateCharacterFromSave(saveCharacter: Record<string, unknown>, client
     // Sanitize loadout fields (jutsu list, pvpItems) — these ARE persisted.
     merged.jutsu = sanitizeJutsuList(saveCharacter.jutsu ?? clientCharacter.jutsu);
     merged.pvpItems = sanitizePvpItems(saveCharacter.pvpItems ?? clientCharacter.pvpItems);
-    return merged;
+    // Strip everything that isn't combat-relevant. The session is read by
+    // spectators (and by the unauth /api/pvp/stream endpoint) so anything
+    // sensitive (ryo, currencies, inventory, journals) would leak otherwise.
+    return stripNonCombatFields(merged);
 }
 
 // For NPC opponents (no save key in KV), we still clamp the client payload
@@ -195,7 +255,10 @@ function hydrateNpcCharacter(clientCharacter: Record<string, unknown>): Record<s
     out.itemDamagePct = clampNumber(out.itemDamagePct, 0, 200, 0);
     out.jutsu = sanitizeJutsuList(out.jutsu);
     out.pvpItems = sanitizePvpItems(out.pvpItems);
-    return out;
+    // Same strip as real characters — NPCs can have arbitrary client-
+    // supplied fields and we don't want any of the sensitive ones to land
+    // in the session record either.
+    return stripNonCombatFields(out);
 }
 
 function makeFighter(char: Record<string, unknown>, pos: number): PvpFighter {
