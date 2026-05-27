@@ -8,6 +8,7 @@ import {
     LEGENDARY_WAR_CRATE_ID,
     WARFORGED_RELIC_ID,
     armorReductionForQuality,
+    consolidateItemBonuses,
     equipmentSlotLabel,
     getAllItems,
     getAllTileCards,
@@ -247,27 +248,25 @@ export function Inventory({
         setSelectedInventoryItem(null);
     }
 
-    function statLabel(stat: string) {
-        return stat
-            .replace(/([A-Z])/g, " $1")
-            .replace(/^./, (c) => c.toUpperCase());
-    }
-
     function describeBonuses(item: GameItem) {
         const petXp = petFeedXpForItem(item.id);
         if (petXp) return `Pet XP +${petXp}`;
-        const bonuses = Object.entries(item.bonuses).filter(([, value]) => Number(value) !== 0);
-        return bonuses.length ? bonuses.map(([stat, value]) => `${statLabel(stat)} +${value}`).join(", ") : "No bonuses";
+        // Use the shared consolidation helper so the inline card summary
+        // matches what the popup shows — "All Offense +30" instead of
+        // four near-identical ninjutsu/taijutsu/buki/genjutsu lines.
+        const bonuses = consolidateItemBonuses(item.bonuses);
+        return bonuses.length
+            ? bonuses.map((b) => `${b.stat} +${b.value}`).join(", ")
+            : "No bonuses";
     }
 
     function itemBonusLines(item: GameItem) {
-        const armorExclude = new Set(["maxChakra", "maxStamina"]);
-        return Object.entries(item.bonuses)
-            .filter(([stat, value]) => typeof value === "number" && value !== 0 && !(item.armorQuality && armorExclude.has(stat)))
-            .map(([stat, value]) => ({
-                stat: statLabel(stat),
-                value: value as number,
-            }));
+        // Armor hides maxChakra/maxStamina in the popup to avoid
+        // double-reporting against the armor reduction effect.
+        const armorExclude = item.armorQuality
+            ? new Set(["maxChakra", "maxStamina"])
+            : undefined;
+        return consolidateItemBonuses(item.bonuses, { excludeStats: armorExclude });
     }
 
     function itemInitials(name: string) {
