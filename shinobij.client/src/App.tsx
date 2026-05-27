@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type ChangeEvent, type Dispatch, type SetStateAction } from "react";
+import { Fragment, Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type ChangeEvent, type Dispatch, type SetStateAction } from "react";
 import { createPortal } from "react-dom";
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect, react-hooks/purity */
 import type * as React from "react";
@@ -29,23 +29,30 @@ import shinobiBanner from './assets/shinobi-banner.png'
 // and ./components/SectorBanner alongside the components that use them.
 import backgroundImage from "./assets/background-image.png";
 import { CombatSideHud } from "./components/CombatSideHud";
-import { Inventory } from "./screens/Inventory";
+// Route-based code-splitting: heavy/rarely-used screens load on demand so
+// they stay out of the initial JS bundle. The eager imports below are kept
+// for the screens that render on first paint or are tiny / common.
+// (Wrapped in a <Suspense> boundary inside <main> further down.)
+const Inventory = lazy(() => import("./screens/Inventory").then(m => ({ default: m.Inventory })));
+const Hospital = lazy(() => import("./screens/Hospital").then(m => ({ default: m.Hospital })));
+const VillageTavern = lazy(() => import("./screens/VillageTavern").then(m => ({ default: m.VillageTavern })));
+const AdminLogin = lazy(() => import("./screens/AdminLogin").then(m => ({ default: m.AdminLogin })));
+const AdminPasswordReset = lazy(() => import("./screens/AdminLogin").then(m => ({ default: m.AdminPasswordReset })));
+const AdminClearAuthLock = lazy(() => import("./screens/AdminLogin").then(m => ({ default: m.AdminClearAuthLock })));
+const Cafeteria = lazy(() => import("./screens/Cafeteria").then(m => ({ default: m.Cafeteria })));
+const VillageLoreScreen = lazy(() => import("./screens/VillageLoreScreen").then(m => ({ default: m.VillageLoreScreen })));
+const HallOfLegends = lazy(() => import("./screens/HallOfLegends").then(m => ({ default: m.HallOfLegends })));
+const ProfessionPicker = lazy(() => import("./screens/ProfessionPicker").then(m => ({ default: m.ProfessionPicker })));
+const DailyProfessionMissions = lazy(() => import("./screens/DailyProfessionMissions").then(m => ({ default: m.DailyProfessionMissions })));
+const ClanSealPool = lazy(() => import("./screens/ClanSealPool").then(m => ({ default: m.ClanSealPool })));
+
 import { Bank } from "./screens/Bank";
 import { StartScreen } from "./screens/StartScreen";
-import { Hospital } from "./screens/Hospital";
-import { VillageTavern } from "./screens/VillageTavern";
-import { AdminLogin, AdminPasswordReset, AdminClearAuthLock } from "./screens/AdminLogin";
-import { Cafeteria } from "./screens/Cafeteria";
-import { VillageLoreScreen } from "./screens/VillageLoreScreen";
-import { HallOfLegends } from "./screens/HallOfLegends";
 import { JutsuEffectCards } from "./components/JutsuEffectCards";
 import { AiImagePrompt } from "./components/AiImagePrompt";
 import { PetBattleAvatar, PetArenaCard } from "./components/PetBattleAvatar";
 import { TagPicker } from "./components/TagPicker";
 import { Village } from "./screens/Village";
-import { ProfessionPicker } from "./screens/ProfessionPicker";
-import { DailyProfessionMissions } from "./screens/DailyProfessionMissions";
-import { ClanSealPool } from "./screens/ClanSealPool";
 import { ProfessionRankBar } from "./screens/ProfessionRankBar";
 
 // ─── Core game types ─────────────────────────────────────────────────────
@@ -294,10 +301,12 @@ import {
     rankedDelta,
 } from "./lib/progression";
 
-// All-users directory screen moved to ./screens/UserHub.
-import { UserHub } from "./screens/UserHub";
+// All-users directory screen moved to ./screens/UserHub. Lazy-loaded — accessed
+// from the Central Hub menu, not on first paint.
+const UserHub = lazy(() => import("./screens/UserHub").then(m => ({ default: m.UserHub })));
 // Read-only profile screen for viewing other players moved to ./screens/UserView.
-import { UserView } from "./screens/UserView";
+// Lazy-loaded — only mounts when the player clicks into another player's profile.
+const UserView = lazy(() => import("./screens/UserView").then(m => ({ default: m.UserView })));
 // Mobile banner timer widget moved to ./components/BannerMobileTimers.
 import { BannerMobileTimers } from "./components/BannerMobileTimers";
 // Desktop left-rail profile card moved to ./components/LeftProfileCard.
@@ -10137,6 +10146,11 @@ export default function App() {
                     backgroundImage: `linear-gradient(rgba(2, 6, 23, 0.30), rgba(2, 6, 23, 0.72)), url(${backgroundImage})`,
                 }}
             >
+                {/* Suspense boundary for lazy-loaded screens (Inventory, Hospital,
+                    HallOfLegends, AdminLogin, etc.). The fallback is intentionally
+                    minimal — screen transitions are quick after first lazy fetch,
+                    and a heavy spinner here would flash on every navigation. */}
+                <Suspense fallback={<div className="lazy-screen-fallback" style={{ padding: "2rem", textAlign: "center", color: "#94a3b8" }}>Loading…</div>}>
                 <div
                     className="journey-banner"
                     style={{ backgroundImage: `url(${shinobiBanner})` }}
@@ -11605,6 +11619,7 @@ export default function App() {
                         onClose={() => { setBloodlineMakerRankLocked(false); setBloodlineMakerEditingBloodline(null); setScreen(isAdminAccountName(character.name) ? "adminPanel" : "centralHub"); }}
                     />
                 )}
+                </Suspense>
             </main>
 
             {achievementToasts.length > 0 && (
