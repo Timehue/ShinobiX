@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
-import { safeEqual } from '../_auth.js';
+import { isAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 
 const APPROVED_ITEMS_KEY = 'admin:approvedItems';
@@ -25,24 +25,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             res.setHeader('Cache-Control', 'no-store');
             return res.status(200).json({ approvedItems: approved });
         } catch (err) {
-            return res.status(500).json({ error: String(err) });
+            console.error('[admin/item-review GET]', err);
+            return res.status(500).json({ error: 'Internal server error.' });
         }
     }
 
     if (req.method === 'POST') {
         if (!enforceRateLimit(req, res, 'admin-item-review', 60, 5 * 60_000)) return;
+        // Admin password via header (was body). See players.ts.
+        if (!isAdmin(req)) {
+            return res.status(401).json({ error: 'Unauthorized.' });
+        }
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-            const { password, action, itemId } = body as {
-                password?: string;
+            const { action, itemId } = body as {
                 action?: 'approve' | 'hide';
                 itemId?: string;
             };
-
-            const adminPassword = process.env.ADMIN_PASSWORD;
-            if (!adminPassword || !password || !safeEqual(password, adminPassword)) {
-                return res.status(401).json({ error: 'Unauthorized.' });
-            }
             if (!itemId || (action !== 'approve' && action !== 'hide')) {
                 return res.status(400).json({ error: 'Missing action or itemId.' });
             }
@@ -53,7 +52,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             return res.status(200).json({ ok: true, approvedItems: next });
         } catch (err) {
-            return res.status(500).json({ error: String(err) });
+            console.error('[admin/item-review POST]', err);
+            return res.status(500).json({ error: 'Internal server error.' });
         }
     }
 
