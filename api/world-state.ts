@@ -463,6 +463,58 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         if (raiderDuringWar && newHp > prevHp) {
                             return res.status(400).json({ error: 'Raiders may not rebuild the enemy sector.' });
                         }
+                        // Raider scope: restrict raider writes to the HP
+                        // field only. Without this clamp a raider could
+                        // POST a full sector blob overwriting ownerVillage,
+                        // controlScore, guards, terrainBuffStat, weather,
+                        // backgroundImage, rebuiltAt etc. — flipping the
+                        // sector to a different owner or changing the
+                        // terrain buff stat for their own next raid.
+                        // We also block ownerVillage/ownerClan changes on
+                        // ANY non-claimingClan/Village write so an
+                        // attacker can't sneak an ownership flip through
+                        // the raider or rebuild path.
+                        if (raiderDuringWar && prev) {
+                            // Preserve every field from prev except hp + updatedAt
+                            // (the only legitimate raider mutation). Sector id is
+                            // already preserved by the incoming key.
+                            const raiderClampedHp = incomingTerritory.hp;
+                            Object.assign(incomingTerritory, prev, {
+                                hp: raiderClampedHp,
+                                updatedAt: Date.now(),
+                            });
+                        } else if (!matchesClan && !matchesVillage && prev) {
+                            // Owner-rebuild path (case 2 — actorOwnsPrev): same
+                            // clamp pattern. Don't allow this writer to flip
+                            // ownership; only HP + a small set of recovery
+                            // fields can change.
+                            const ownerClampedHp = incomingTerritory.hp;
+                            const ownerClampedRebuilt = Number(incomingTerritory.rebuiltAt ?? prev.rebuiltAt ?? 0);
+                            Object.assign(incomingTerritory, prev, {
+                                hp: ownerClampedHp,
+                                rebuiltAt: ownerClampedRebuilt,
+                                updatedAt: Date.now(),
+                            });
+                        }
+                        // Claiming clan/village path (matchesClan || matchesVillage):
+                        // The original code passed the full incomingTerritory
+                        // through. We additionally guard against the
+                        // "drop-HP-and-claim-in-one-write" gambit: a fresh
+                        // claimant cannot flip ownerVillage/ownerClan unless
+                        // either there was no prior owner OR the prior HP
+                        // was already 0 (i.e., a defender flipped the sector
+                        // to contested state on an EARLIER write).
+                        else if ((matchesClan || matchesVillage) && prev) {
+                            const prevOwnerVillage = String(prev.ownerVillage ?? '').trim();
+                            const prevOwnerClan = String(prev.ownerClan ?? '').trim();
+                            const ownershipFlipping =
+                                (claimingVillage && claimingVillage !== prevOwnerVillage) ||
+                                (claimingClan && claimingClan !== prevOwnerClan);
+                            const prevHpZero = Number(prev.hp ?? 0) <= 0;
+                            if (ownershipFlipping && !prevHpZero && (prevOwnerVillage || prevOwnerClan)) {
+                                return res.status(400).json({ error: 'Owner can only change after the sector reaches 0 HP.' });
+                            }
+                        }
                     } catch {
                         return res.status(500).json({ error: 'Unable to verify territory participation.' });
                     }
@@ -572,23 +624,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                         return { status: 409 as const, body: { error: `${v} is already in an active war. Only one war at a time per village.` } };
                                     }
                                 }
-                                // 4. Cost check. Charge the declaring Kage VILLAGE_WAR_DECLARATION_COST_HONOR_SEALS honor seals.
+                                // 4. Cost check. Charge the declaring Kage
+                                //    VILLAGE_WAR_DECLARATION_COST_HONOR_SEALS honor seals.
+                                //    The snapshot read at line ~540 is OUTSIDE
+                                //    the save lock; a concurrent save can
+                                //    drop honorSeals between the snapshot and
+                                //    the deduct below. The deduct re-reads
+                                //    inside the lock and PROPAGATES a failure
+                                //    back to the outer handler so we don't
+                                //    create a war for free when the deduct
+                                //    silently skipped.
                                 const honorSeals = Number(actorChar?.honorSeals ?? 0);
                                 if (honorSeals < VILLAGE_WAR_DECLARATION_COST_HONOR_SEALS) {
                                     return { status: 400 as const, body: { error: `Declaring war costs ${VILLAGE_WAR_DECLARATION_COST_HONOR_SEALS} Honor Seals. You hold ${honorSeals}.` } };
                                 }
                                 // 5. Deduct under the Kage's save lock so a concurrent save can't double-spend.
-                                await withKvLock(`save:${identity.name}`, async () => {
+                                const deductOk = await withKvLock(`save:${identity.name}`, async () => {
                                     const fresh = await kv.get<Record<string, unknown>>(`save:${identity.name}`);
                                     const freshChar = (fresh?.character ?? null) as Record<string, unknown> | null;
-                                    if (!fresh || !freshChar) return;
+                                    if (!fresh || !freshChar) return false;
                                     const freshSeals = Number(freshChar.honorSeals ?? 0);
-                                    if (freshSeals < VILLAGE_WAR_DECLARATION_COST_HONOR_SEALS) return; // raced, skip
+                                    if (freshSeals < VILLAGE_WAR_DECLARATION_COST_HONOR_SEALS) return false; // raced
                                     await kv.set(`save:${identity.name}`, {
                                         ...fresh,
                                         character: { ...freshChar, honorSeals: Math.max(0, freshSeals - VILLAGE_WAR_DECLARATION_COST_HONOR_SEALS) },
                                     });
+                                    return true;
                                 });
+                                if (!deductOk) {
+                                    return { status: 400 as const, body: { error: `Honor Seal balance changed under you; declaration was not charged and the war was not created. Retry.` } };
+                                }
                                 // 6. Stamp canonical crate ID + initialize empty contributions map.
                                 war.warCrateId = `war-crate-${war.id}`;
                                 war.contributions = {};
