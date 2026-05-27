@@ -79,23 +79,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
             const { kind } = body as { kind?: string };
 
-            // Only pendingClanPetBattle remains "open" (still requires the actor
-            // to be in the clan, gated below in its handler). villageState and
-            // arenaActiveFights now require auth — both were trivially abusable
-            // by anonymous clients before this fix.
-            const openKinds = new Set(['pendingClanPetBattle']);
+            // Every kind now requires auth. The previous "openKinds" branch
+            // that exempted `pendingClanPetBattle` let any anonymous caller
+            // write or delete the pet-battle slot for any clan (since the
+            // body provides the clanName) — blocking legit battles or
+            // injecting fake records.
+            const identity = await authedPlayerOrAdmin(req);
+            if (!identity) return res.status(401).json({ error: 'Authentication required.' });
 
-            // Everything else needs auth
-            let identity: { admin: true } | { admin: false; name: string } | null = null;
-            if (!openKinds.has(String(kind))) {
-                identity = await authedPlayerOrAdmin(req);
-                if (!identity) return res.status(401).json({ error: 'Authentication required.' });
-
-                // Admin-only kinds — wholesale state writes
-                const adminOnlyKinds = new Set(['villageLeadershipImages', 'arenaTournament', 'weeklyBossOverride']);
-                if (adminOnlyKinds.has(String(kind)) && !identity.admin) {
-                    return res.status(403).json({ error: 'Admin only.' });
-                }
+            // Admin-only kinds — wholesale state writes.
+            const adminOnlyKinds = new Set(['villageLeadershipImages', 'arenaTournament', 'weeklyBossOverride']);
+            if (adminOnlyKinds.has(String(kind)) && !identity.admin) {
+                return res.status(403).json({ error: 'Admin only.' });
             }
 
             if (kind === 'villageState') {
@@ -107,11 +102,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // Rate-limit per-caller: legitimate gameplay writes village
                 // state on donate / notice / agenda / kage actions — far
                 // below 30/min. Higher cadence = abuse loop.
-                const rlName = identity?.admin ? undefined : identity?.name;
-                if (!identity?.admin && !(await enforceRateLimitKv(req, res, 'village-state-write', 30, 60_000, rlName))) return;
+                const rlName = identity.admin ? undefined : identity.name;
+                if (!identity.admin && !(await enforceRateLimitKv(req, res, 'village-state-write', 30, 60_000, rlName))) return;
 
                 // Actor must be a member of the village they're writing for.
-                if (identity && !identity.admin) {
+                if (!identity.admin) {
                     try {
                         const save = await kv.get<Record<string, unknown>>(`save:${identity.name}`);
                         const char = (save?.character ?? null) as Record<string, unknown> | null;
@@ -139,8 +134,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         existing as never,
                         state as never,
                         {
-                            callerName: identity?.admin ? '' : (identity?.name ?? ''),
-                            isAdmin: !!identity?.admin,
+                            callerName: identity.admin ? '' : identity.name,
+                            isAdmin: identity.admin,
                             village,
                         },
                         kageState,
@@ -149,7 +144,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return suppressed;
                 });
                 if (suppressedLog.length > 0) {
-                    console.warn('[game-state villageState] suppressed:', identity?.admin ? 'admin' : identity?.name, suppressedLog.join('; '));
+                    console.warn('[game-state villageState] suppressed:', identity.admin ? 'admin' : identity.name, suppressedLog.join('; '));
                 }
                 return res.status(200).json({ ok: true, suppressed: suppressedLog.length });
             }
@@ -178,7 +173,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // Non-admin actor must appear in at least one fight entry to
                 // write the active-fights list. Stops random players from
                 // wiping or polluting the arena fight list.
-                if (identity && !identity.admin) {
+                if (!identity.admin) {
                     const me = identity.name;
                     const inAnyFight = fights.some((f) => {
                         if (!f || typeof f !== 'object') return false;
@@ -213,6 +208,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (kind === 'pendingClanPetBattle') {
                 const { clanName, battle } = body as { clanName?: string; battle?: unknown };
                 if (!clanName) return res.status(400).json({ error: 'Missing clanName.' });
+
+                // Membership gate: only members of the named clan (or admin)
+                // can write or delete its pet-battle slot. Previously this
+                // was wide open (the kind was in `openKinds`), so any
+                // anonymous caller could clobber any clan's battle slot.
+                if (!identity.admin) {
+                    try {
+                        const save = await kv.get<Record<string, unknown>>(`save:${identity.name}`);
+                        const char = (save?.character ?? null) as Record<string, unknown> | null;
+                        const myClan = String(char?.clan ?? '').trim();
+                        if (!myClan || myClan !== clanName.trim()) {
+                            return res.status(403).json({ error: 'Can only set the pet battle slot for your own clan.' });
+                        }
+                    } catch {
+                        return res.status(500).json({ error: 'Unable to verify clan membership.' });
+                    }
+                    // Rate limit so a member can't griefly thrash their own
+                    // clan's battle slot either.
+                    if (!(await enforceRateLimitKv(req, res, 'clan-pet-battle-write', 10, 60_000, identity.name))) return;
+                }
+
                 const key = clanPetBattleKey(clanName);
                 if (battle == null) {
                     await kv.del(key);
@@ -223,7 +239,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
 
             if (kind === 'weeklyBossOverride') {
-                if (!identity?.admin) return res.status(403).json({ error: 'Admin only.' });
+                if (!identity.admin) return res.status(403).json({ error: 'Admin only.' });
                 const { aiId } = body as { aiId?: string | null };
                 if (aiId) {
                     await kv.set(WEEKLY_BOSS_OVERRIDE_KEY, aiId);

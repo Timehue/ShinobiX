@@ -24,6 +24,11 @@ import {
 //   • Their clan must not be in an active war
 //   • Target clan must exist, must not be in an active war
 //   • Target clan cannot be the same as actor's clan
+//   • Target clan's canonical name must MATCH what the caller typed (case-
+//     insensitive). The slug derivation strips spaces and punctuation
+//     destructively (`"Clan A"` and `"ClanA"` both map to `clan-clana`),
+//     so without this check two clans with similar names could end up at
+//     war when only one of them was intended.
 //   • Pair-cooldown: same two clans cannot re-war within 7 days of
 //     the previous war ending
 //   • Declaring player must hold ≥ CLAN_WAR_DECLARATION_COST honor seals
@@ -50,8 +55,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-        const toClan = String(body?.toClan ?? '').trim();
-        if (!toClan) return res.status(400).json({ error: 'Missing toClan.' });
+        const requestedToClan = String(body?.toClan ?? '').trim();
+        if (!requestedToClan) return res.status(400).json({ error: 'Missing toClan.' });
 
         // Pull actor's clan context. Admin may declare on behalf of any
         // clan via the `fromClan` body field (testing); regular players
@@ -59,7 +64,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const ctx = await loadClanContext(identity.admin ? String(body?.fromClan ?? '') : identity.name);
         const fromClan = identity.admin ? (String(body?.fromClan ?? '') || ctx.clan) : ctx.clan;
         if (!fromClan) return res.status(400).json({ error: 'You must be in a clan to declare war.' });
-        if (fromClan === toClan) return res.status(400).json({ error: 'Cannot declare war on your own clan.' });
+        if (fromClan === requestedToClan) return res.status(400).json({ error: 'Cannot declare war on your own clan.' });
 
         if (!identity.admin && !canActAsClanLeadership(ctx.role)) {
             return res.status(403).json({ error: 'Only Clan Founder, Leader, or Officer can declare war.' });
@@ -67,9 +72,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // Resolve the target clan record + its village. This also acts
         // as the "does the clan exist?" check.
-        const toClanSlug = `clan-${toClan.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
-        const toClanRecord = await kv.get<{ village?: string; members?: unknown[] }>(`save:${toClanSlug}`);
+        //
+        // Slug strips spaces and punctuation destructively. We re-read the
+        // canonical `name` field from the record and verify it matches what
+        // the caller typed. This blocks `"Clan-A"` from accidentally
+        // declaring war on `"ClanA"` because both share `clan-clana`.
+        const toClanSlug = `clan-${requestedToClan.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+        const toClanRecord = await kv.get<{ name?: string; village?: string; members?: unknown[] }>(`save:${toClanSlug}`);
         if (!toClanRecord) return res.status(404).json({ error: 'Target clan not found.' });
+        const canonicalToClan = String(toClanRecord.name ?? '').trim();
+        if (!canonicalToClan) return res.status(409).json({ error: 'Target clan record is missing its canonical name.' });
+        if (canonicalToClan.toLowerCase() !== requestedToClan.toLowerCase()) {
+            return res.status(409).json({
+                error: `Clan name "${requestedToClan}" does not match the canonical record "${canonicalToClan}".`,
+            });
+        }
+        // Use the canonical name from here on so the war record, cooldowns,
+        // and pair-id all key against the real clan identity.
+        const toClan = canonicalToClan;
         const toVillage = String(toClanRecord.village ?? '');
 
         // Cooldown check.
