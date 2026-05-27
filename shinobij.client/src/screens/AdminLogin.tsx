@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { type AdminAccount, type Screen } from "../App";
+import { type AdminAccount, type AdminRole, type Screen } from "../App";
 
-export function AdminLogin({ onLogin, setScreen }: { onLogin: (account: AdminAccount, password: string) => void; setScreen: (screen: Screen) => void }) {
+export function AdminLogin({ onLogin, setScreen }: { onLogin: (account: AdminAccount, password: string, role: AdminRole) => void; setScreen: (screen: Screen) => void }) {
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
@@ -17,9 +17,19 @@ export function AdminLogin({ onLogin, setScreen }: { onLogin: (account: AdminAcc
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ password: pw }),
             });
-            const data = await res.json() as { success: boolean; error?: string };
+            const data = await res.json() as {
+                success: boolean;
+                error?: string;
+                account?: AdminAccount;
+                role?: AdminRole;
+            };
             if (data.success) {
-                onLogin("Admin 1", pw);
+                // Trust the server's choice of account + role. ADMIN_PASSWORD
+                // returns Admin 1 / full; ADMIN_CONTENT_PASSWORD returns
+                // Admin 2 / content (restricted tabs). Fall back to the
+                // legacy "Admin 1 / full" combo if the server is on an old
+                // version that doesn't return these fields.
+                onLogin(data.account ?? "Admin 1", pw, data.role ?? "full");
             } else {
                 // Surface the server's specific error when present (e.g.
                 // "Rate limited", "Account suspended"). Falls back to the
