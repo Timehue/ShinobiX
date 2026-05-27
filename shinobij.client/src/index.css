@@ -18410,16 +18410,92 @@ html[data-vp="xxl"] .tile-icon {
     font-size: 22px !important;
 }
 
-/* ── xxl arena rules removed — they were causing the widescreen squish.
-   When my Slice-A "battle UI sizing on 1080p+" pass added these, the
-   structural rules (combat-layout grid-template-columns + display:none
-   on first child + portaled battle-hud-sidebar) didn't work the same
-   way at xxl as they do at xl, and the 1fr column collapsed to ~300px
-   on a 2560p monitor. Without these overrides, the base 3-column rule
-   applies at xxl (player | main | enemy) — same as md/lg tiers — which
-   is a known-good layout. Widescreen users lose the bigger jutsu cards
-   / command buttons that the deleted block provided, but the layout
-   actually works. ── */
+/* ── xxl arena scaling — content-only (no structural overrides) ───────────
+   The previous xxl arena block included structural rules (grid-template-
+   columns override + display:none on the in-grid player HUD + a portaled
+   battle-hud-sidebar) that broke the layout because the portal mount
+   didn't always fire on xxl. That whole block was removed.
+
+   This pass restores the *content scaling* — bigger jutsu cards, bigger
+   command-bar buttons, bigger AP/HUD text — without touching the grid
+   structure. The base 3-column layout (player | main | enemy) is the
+   working layout users see now; these rules just make the things inside
+   each column bigger so the UI doesn't feel cramped at 100% zoom on a
+   2560p monitor (which is what the user reported — felt right at 125-150%
+   browser zoom because that drops the viewport into the xl tier).      ── */
+
+/* Hex board — bigger on widescreen so the player/enemy figures aren't dots. */
+html[data-vp="xxl"] .arena-fullscreen .hex-battlefield {
+    height: clamp(560px, 60vh, 760px) !important;
+    min-height: clamp(560px, 60vh, 760px) !important;
+}
+
+/* Title strip + AP panel — bigger labels. */
+html[data-vp="xxl"] .arena-fullscreen .arena-title-panel h2 {
+    font-size: 22px !important;
+    letter-spacing: 0.24em !important;
+}
+html[data-vp="xxl"] .arena-fullscreen .dual-ap-panel strong {
+    font-size: 14px !important;
+}
+html[data-vp="xxl"] .arena-fullscreen .dual-ap-panel small {
+    font-size: 12px !important;
+}
+html[data-vp="xxl"] .arena-fullscreen .dual-ap-panel .hud-bar {
+    height: 14px !important;
+}
+
+/* HUD avatars — small on the basic 3-column layout; bump for visibility. */
+html[data-vp="xxl"] .arena-fullscreen .combat-side-hud .combat-avatar,
+html[data-vp="xxl"] .arena-fullscreen .combat-side-hud .combat-avatar img {
+    width: 120px !important;
+    height: 120px !important;
+    max-width: 120px !important;
+    max-height: 120px !important;
+}
+html[data-vp="xxl"] .arena-fullscreen .combat-side-hud .resource-label {
+    font-size: 13px !important;
+}
+html[data-vp="xxl"] .arena-fullscreen .combat-side-hud .hud-bar {
+    height: 12px !important;
+}
+
+/* Command bar — bigger tap/click targets + readable labels. */
+html[data-vp="xxl"] .arena-fullscreen .shinobi-command-bar button,
+html[data-vp="xxl"] .arena-fullscreen .basic-action-bar button {
+    min-height: 60px !important;
+    padding: 10px 14px !important;
+    font-size: 16px !important;
+}
+html[data-vp="xxl"] .arena-fullscreen .shinobi-command-bar button small,
+html[data-vp="xxl"] .arena-fullscreen .basic-action-bar button small {
+    font-size: 13px !important;
+}
+
+/* Jutsu cards — roomier so the names are readable. */
+html[data-vp="xxl"] .arena-fullscreen .combat-equipped-jutsu-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)) !important;
+    gap: 10px !important;
+}
+html[data-vp="xxl"] .arena-fullscreen .combat-jutsu-button {
+    min-height: 130px !important;
+    padding: 8px !important;
+    grid-template-rows: 80px auto auto !important;
+}
+html[data-vp="xxl"] .arena-fullscreen .combat-jutsu-thumb {
+    height: 80px !important;
+}
+html[data-vp="xxl"] .arena-fullscreen .combat-jutsu-name {
+    font-size: 14px !important;
+}
+html[data-vp="xxl"] .arena-fullscreen .combat-jutsu-info {
+    font-size: 12px !important;
+}
+html[data-vp="xxl"] .arena-fullscreen .combat-tabs button {
+    min-height: 40px !important;
+    font-size: 14px !important;
+    padding: 8px 14px !important;
+}
 
 /* ── md: small laptop / landscape tablet (980–1179px) ─────────────────────
    Sidebars are visible but tight.  Compact the right-menu and left-rail
