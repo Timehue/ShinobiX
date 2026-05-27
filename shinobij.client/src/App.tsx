@@ -8257,6 +8257,26 @@ export default function App() {
     // 5-min TTL: a 2v2 pet battle is ≤30 rounds × ~150ms per frame = <10s
     // of animation, so anything past 5 min is stale.
     const PENDING_PET_PVP_KEY = "pendingPetPvp.v1";
+    // Strip image data URLs from anywhere in the serialized resume payload
+    // before writing to localStorage. The opponent + party objects carry full
+    // Pet records, and a 2MB data URL × N pets will blow the ~5MB quota — the
+    // try/catch around setItem swallowed the failure silently so the player
+    // had no idea their other localStorage writes were also failing. Images
+    // are recoverable from sharedImages on remount anyway.
+    function stripDataUrlImages(value: unknown): unknown {
+        if (typeof value === "string") {
+            return value.startsWith("data:image") ? "" : value;
+        }
+        if (Array.isArray(value)) return value.map(stripDataUrlImages);
+        if (value && typeof value === "object") {
+            const out: Record<string, unknown> = {};
+            for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+                out[k] = stripDataUrlImages(v);
+            }
+            return out;
+        }
+        return value;
+    }
     const PENDING_PET_PVP_TTL_MS = 5 * 60 * 1000;
 
     // ── Tab visibility: pause all polling when the browser tab is hidden ──
@@ -9108,8 +9128,10 @@ export default function App() {
         };
         // Persist so a mid-fight refresh restores the same deterministic
         // battle on remount instead of silently abandoning it. 5-min TTL.
+        // stripDataUrlImages keeps the payload bounded — pet/avatar art
+        // gets re-hydrated from sharedImages on remount.
         try {
-            localStorage.setItem(PENDING_PET_PVP_KEY, JSON.stringify({ opponent: opponentForResume, savedAt: Date.now() }));
+            localStorage.setItem(PENDING_PET_PVP_KEY, JSON.stringify({ opponent: stripDataUrlImages(opponentForResume), savedAt: Date.now() }));
         } catch { /* private mode / quota — battle will just not resume on refresh */ }
         setPendingPetBattleOpponent(opponentForResume);
         setScreen("petArena");
@@ -9226,9 +9248,10 @@ export default function App() {
                     } : {}),
                 };
                 // Mirror of the accept-side persistence: store enough state
-                // so a refresh restores the deterministic battle.
+                // so a refresh restores the deterministic battle. Strip data
+                // URLs before serializing — pet art rehydrates from sharedImages.
                 try {
-                    localStorage.setItem(PENDING_PET_PVP_KEY, JSON.stringify({ opponent: opponentForResume, savedAt: Date.now() }));
+                    localStorage.setItem(PENDING_PET_PVP_KEY, JSON.stringify({ opponent: stripDataUrlImages(opponentForResume), savedAt: Date.now() }));
                 } catch { /* ignore */ }
                 setPendingPetBattleOpponent(opponentForResume);
                 setScreen("petArena");
@@ -24112,8 +24135,18 @@ function ClanHall({ character, updateCharacter, creatorItems, setScreen }: { cha
         await saveClan({ ...clanData, joinRequests: clanData.joinRequests.filter(joinRequest => joinRequest.name !== request.name) });
     }
     async function leaveClan() {
-        if (!character.clan) return; const data = await fetchClanData(character.clan); if (data) await writeClanData(enhanceClanData({ ...data, members: data.members.filter(m => m.name !== character.name) }));
-        updateCharacter({ ...character, clan: undefined, clanFounder: false, guardQueued: false }); setClanData(null);
+        if (!character.clan) return;
+        // Guard against the one-click mis-tap. Founders especially can't undo
+        // this — leaving clears clanFounder, and reclaim requires going
+        // through the founder-bootstrap path again.
+        const founderWarning = character.clanFounder ? "\n\nYou're the founder — leaving doesn't transfer ownership. You can recreate the clan but anyone else can claim the name first." : "";
+        if (!window.confirm(`Leave "${character.clan}"?${founderWarning}\n\nThis can't be undone with one click — you'd need to re-request to join, or be re-invited.`)) {
+            return;
+        }
+        const data = await fetchClanData(character.clan);
+        if (data) await writeClanData(enhanceClanData({ ...data, members: data.members.filter(m => m.name !== character.name) }));
+        updateCharacter({ ...character, clan: undefined, clanFounder: false, guardQueued: false });
+        setClanData(null);
     }
     // Reclaim a clan name that exists on the player's character but has been
     // wiped from the server (e.g. by a server reset). One-click recreate:
@@ -25501,8 +25534,9 @@ function ShopBase({
                             type="button"
                             className="item-popup-close"
                             onClick={() => setSelectedItem(null)}
+                            aria-label="Close"
                         >
-                            ?
+                            ×
                         </button>
 
                         <div className="item-popup-top">

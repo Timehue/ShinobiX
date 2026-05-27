@@ -192,33 +192,48 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
 
             if (kind === 'claim') {
-                if (boss.hpRemaining > 0) return res.status(409).json({ error: 'Boss is still alive.' });
-                const claimed = boss.killRewardedTo ?? [];
-                if (claimed.includes(actorName)) return res.status(409).json({ error: 'Already claimed.' });
-                const myDamage = boss.damageByPlayer[actorName] ?? 0;
-                if (myDamage <= 0) return res.status(403).json({ error: 'You did not damage this boss.' });
+                // Serialize the read-modify-write of killRewardedTo under
+                // the same lock the damage path uses. Two concurrent claims
+                // by the same player used to both pass the `includes` check,
+                // both compute a reward, both write. With the NX-style
+                // double-check inside the lock, only the first commits the
+                // claim and returns a reward.
+                const claimResult = await withKvLock(WEEKLY_BOSS_STATE_KEY, async () => {
+                    const fresh = await kv.get<WeeklyBossState>(WEEKLY_BOSS_STATE_KEY) ?? boss;
+                    if (fresh.hpRemaining > 0) return { error: 'alive' as const };
+                    const claimed = fresh.killRewardedTo ?? [];
+                    if (claimed.includes(actorName)) return { error: 'already-claimed' as const };
+                    const myDamage = fresh.damageByPlayer[actorName] ?? 0;
+                    if (myDamage <= 0) return { error: 'no-damage' as const };
 
-                // Reward formula: participation share + flat completion.
-                // Top damage dealer gets MVP bonus (×2).
-                const totalDmg = Object.values(boss.damageByPlayer).reduce((a, b) => a + b, 0) || 1;
-                const share = myDamage / totalDmg;
-                const baseRyo = Math.floor(boss.hpMax * 0.5);
-                const baseXp = Math.floor(boss.hpMax * 0.25);
-                const top = Object.entries(boss.damageByPlayer).sort(([, a], [, b]) => b - a)[0];
-                const isMvp = top?.[0] === actorName;
-                const reward = {
-                    ryo: Math.max(100, Math.floor(baseRyo * share * (isMvp ? 2 : 1) + 200)),
-                    xp: Math.max(50, Math.floor(baseXp * share * (isMvp ? 2 : 1) + 100)),
-                    isMvp,
-                };
+                    // Reward formula: participation share + flat completion.
+                    // Top damage dealer gets MVP bonus (×2).
+                    const totalDmg = Object.values(fresh.damageByPlayer).reduce((a, b) => a + b, 0) || 1;
+                    const share = myDamage / totalDmg;
+                    const baseRyo = Math.floor(fresh.hpMax * 0.5);
+                    const baseXp = Math.floor(fresh.hpMax * 0.25);
+                    const top = Object.entries(fresh.damageByPlayer).sort(([, a], [, b]) => b - a)[0];
+                    const isMvp = top?.[0] === actorName;
+                    const reward = {
+                        ryo: Math.max(100, Math.floor(baseRyo * share * (isMvp ? 2 : 1) + 200)),
+                        xp: Math.max(50, Math.floor(baseXp * share * (isMvp ? 2 : 1) + 100)),
+                        isMvp,
+                    };
 
-                const updated: WeeklyBossState = {
-                    ...boss,
-                    lastKillRewardedAt: boss.lastKillRewardedAt ?? Date.now(),
-                    killRewardedTo: [...claimed, actorName],
-                };
-                await kv.set(WEEKLY_BOSS_STATE_KEY, updated);
-                return res.status(200).json({ boss: updated, reward });
+                    const updated: WeeklyBossState = {
+                        ...fresh,
+                        lastKillRewardedAt: fresh.lastKillRewardedAt ?? Date.now(),
+                        killRewardedTo: [...claimed, actorName],
+                    };
+                    await kv.set(WEEKLY_BOSS_STATE_KEY, updated);
+                    return { boss: updated, reward };
+                });
+                if ('error' in claimResult) {
+                    if (claimResult.error === 'alive') return res.status(409).json({ error: 'Boss is still alive.' });
+                    if (claimResult.error === 'already-claimed') return res.status(409).json({ error: 'Already claimed.' });
+                    return res.status(403).json({ error: 'You did not damage this boss.' });
+                }
+                return res.status(200).json(claimResult);
             }
 
             if (kind === 'reset') {

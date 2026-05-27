@@ -284,6 +284,30 @@ function sanitizeCharacterSave(
     if (Number(char.chakra ?? 0) > Number(char.maxChakra ?? char.chakra)) char.chakra = char.maxChakra;
     if (Number(char.stamina ?? 0) > Number(char.maxStamina ?? char.stamina)) char.stamina = char.maxStamina;
 
+    // Lifetime / leaderboard counters: per-save delta cap. Hall of Legends
+    // and achievement gates read these directly, so a tampered client could
+    // jump `totalPvpKills` from 0 → 999999 in one save. Cap each at a
+    // generous-but-bounded delta per save cycle. The 60s rolling-window
+    // limiter further bounds aggregate growth. Counters can never decrease
+    // (clients legitimately don't reset these).
+    const LIFETIME_COUNTERS: Record<string, number> = {
+        totalPvpKills: 10,
+        totalAiKills: 30,
+        totalVillageRaids: 10,
+        warsWon: 3,
+        warMvpCount: 3,
+        lifetimeWarDamage: 50_000,
+        monthlyPvpKills: 10,
+        dailyAiKills: 30,
+    };
+    for (const [field, maxDelta] of Object.entries(LIFETIME_COUNTERS)) {
+        const inV = Math.max(0, Number((char as Record<string, unknown>)[field] ?? 0));
+        const exV = Math.max(0, Number((exChar as Record<string, unknown>)[field] ?? 0));
+        // Disallow shrinking the counter, and clamp growth to maxDelta.
+        const clamped = Math.max(exV, Math.min(inV, exV + maxDelta));
+        (char as Record<string, unknown>)[field] = clamped;
+    }
+
     // Pet cap: client enforces "max 5 pets" at befriend time, but a tampered
     // client could POST a save with 6+ pets. Server truncates so we don't
     // silently lose the extras on next reload (which is what the old load-
