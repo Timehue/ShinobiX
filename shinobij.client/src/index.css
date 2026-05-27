@@ -16372,35 +16372,84 @@ button.combat-jutsu-button,
     grid-row: 1 !important;
   }
 
-  /* Compact both HUDs — show only essentials */
+  /* Compact both HUDs — show HP + Chakra + Stamina (+ Shield if present).
+     Buffs/Debuffs panels stay clipped via max-height; they're useful but
+     not essential for tap-to-act decisions, and the bars are. */
   .arena-fullscreen .combat-side-hud {
     position: static !important;
     width: 100% !important;
     max-width: 100% !important;
-    max-height: 160px !important;
+    /* Tall enough to fit: header (~22) + avatar (40+6) + 3 bars (~22 ea)
+       + a fourth shield bar when present (~22) + a tiny round-counter
+       line. Buffs / Debuffs scroll past this and are intentionally
+       hidden via the overflow below. */
+    max-height: 220px !important;
     overflow: hidden !important;
     padding: 6px 8px !important;
     font-size: 11px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 3px !important;
   }
 
   .arena-fullscreen .combat-side-hud h3 {
     font-size: 11px !important;
-    margin-bottom: 4px !important;
+    margin: 0 !important;
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
   }
 
+  /* Header row: name + village + waiting/acting pill — pack tightly. */
+  .arena-fullscreen .combat-side-hud .combat-hud-header {
+    gap: 4px !important;
+    margin-bottom: 2px !important;
+  }
+  .arena-fullscreen .combat-side-hud .combat-hud-village,
+  .arena-fullscreen .combat-side-hud .combat-hud-turn-badge {
+    font-size: 9px !important;
+    padding: 1px 5px !important;
+  }
+
   .arena-fullscreen .combat-avatar {
-    width: 44px !important;
-    height: 44px !important;
-    font-size: 22px !important;
-    margin: 0 auto 4px !important;
+    width: 40px !important;
+    height: 40px !important;
+    font-size: 20px !important;
+    margin: 0 auto 2px !important;
   }
 
   .arena-fullscreen .combat-avatar img {
-    width: 44px !important;
-    height: 44px !important;
+    width: 40px !important;
+    height: 40px !important;
+  }
+
+  /* Resource lines — tight stack, label inline, bar full-width below. */
+  .arena-fullscreen .combat-side-hud .resource-line {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 1px !important;
+    margin: 0 !important;
+  }
+  .arena-fullscreen .combat-side-hud .resource-label {
+    font-size: 9px !important;
+    line-height: 1.1 !important;
+    color: #cbd5e1 !important;
+  }
+  .arena-fullscreen .combat-side-hud .resource-label small {
+    font-size: 9px !important;
+    margin-left: 3px !important;
+    color: #94a3b8 !important;
+  }
+  .arena-fullscreen .combat-side-hud .hud-bar {
+    height: 6px !important;
+    margin: 0 !important;
+  }
+
+  /* Round counter / "Round N" line at the bottom — keep small. */
+  .arena-fullscreen .combat-side-hud .combat-hud-meta {
+    font-size: 9px !important;
+    margin-top: 2px !important;
+    color: #94a3b8 !important;
   }
 
   /* Hex battlefield — block layout so JS margin-centering works reliably */
@@ -16548,14 +16597,17 @@ button.combat-jutsu-button,
   }
 
   .arena-fullscreen .combat-side-hud {
-    max-height: 130px !important;
+    /* Still fits 3 bars on a 360px-wide phone — header (~20) + avatar
+       (32+4) + 3 bars (~20 ea) = ~116px; bump to 200 to leave room for
+       Shield when it spawns. */
+    max-height: 200px !important;
     font-size: 10px !important;
   }
 
   .arena-fullscreen .combat-avatar {
-    width: 36px !important;
-    height: 36px !important;
-    font-size: 18px !important;
+    width: 32px !important;
+    height: 32px !important;
+    font-size: 16px !important;
   }
 
   /* ── World map scroll fix ── */
