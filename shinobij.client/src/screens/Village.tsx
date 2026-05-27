@@ -1,8 +1,8 @@
-import { useState } from "react";
 import { type Screen, villagePageImage } from "../App";
 
 export function Village({ characterVillage, setScreen }: { characterVillage: string; setScreen: (screen: Screen) => void }) {
-    const [saveMsg] = useState("");
+    // `saveMsg` was destructured without a setter and stayed "" forever —
+    // the conditional render at line 28 was dead code. Removed.
     const locations = [
         { name: "Battle Arena", icon: "⚔️", screen: "battleArena" as Screen, x: "10%", y: "31%" },
         { name: "Story Hall", icon: "📖", screen: "storyHall" as Screen, x: "29%", y: "33%" },
@@ -25,7 +25,6 @@ export function Village({ characterVillage, setScreen }: { characterVillage: str
         <div className="stormveil-village-screen">
             <div className="village-save-bar">
                 <div className="village-safe-zone">🛡️ SAFE ZONE</div>
-                {saveMsg && <span className="village-save-msg">{saveMsg}</span>}
             </div>
 
             <div

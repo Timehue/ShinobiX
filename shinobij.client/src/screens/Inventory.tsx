@@ -418,7 +418,10 @@ export function Inventory({
                                                 })
                                             }
                                             onKeyDown={(e) => {
-                                                if (e.key === "Enter") {
+                                                // Accept both Enter and Space — Space is required
+                                                // for accessibility on a non-<button> role="button".
+                                                if (e.key === "Enter" || e.key === " ") {
+                                                    e.preventDefault(); // stop Space from page-scrolling
                                                     setSelectedInventoryItem({
                                                         entry,
                                                         item,
