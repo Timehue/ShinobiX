@@ -171,13 +171,18 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, hospita
         }
     }
 
-    // Ranks 1–9: see hospitalized players in your village.
-    // Rank 10 (future): also see all injured villagers across the world.
+    // Same-village admitted players are listed for ANY caller (the UI
+    // renders the "Heal" button only for healers, but non-healers can
+    // see who's down — useful for picking who to send heal-pings to).
+    // The previous predicate `(!isHealer || sameVillage)` was inverted:
+    // non-healers saw admits from every village (useless clutter), and
+    // healers — the only ones who can actually heal — were restricted
+    // to their own village.
     const hospitalizedPlayers = playerRoster.filter(p =>
         p.character.hospitalized
         && p.name.toLowerCase() !== character.name.toLowerCase()
         && !healed.has(p.name)
-        && (!isHealer || p.character.village === character.village)
+        && p.character.village === character.village
     );
 
     if (character.hospitalized) {

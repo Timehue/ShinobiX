@@ -17,6 +17,9 @@ const CHALLENGER_PUBLIC_FIELDS = new Set<string>([
     'avatarImage', 'rankTitle', 'customTitle',
     'profession', 'professionRank', 'rankedRating',
     'clan',
+    // Keep parity with api/player/challenge.ts — pet-challenge accept
+    // handlers read challenge.challenger.pets to find the matching pet.
+    'pets',
 ]);
 function projectChallengerCharacter(c: Record<string, unknown> | undefined): Record<string, unknown> {
     if (!c) return {};

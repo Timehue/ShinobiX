@@ -15974,8 +15974,16 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
     // Starting positions on the 14×7 grid: player col 1 row 3 (=43),
     // enemy col 12 row 3 (=54). Row 3 is the visual centre (row 0 = top
     // breathing-room row, row 6 = bottom).
-    let player: PetBattleFighter = { owner: "You",        pet: playerPet,   hp: playerPet.hp,   pos: 43, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: 0, moveLocked: 0, absorbRounds: 0, absorbPercent: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0 };
-    let enemy:  PetBattleFighter = { owner: opponentOwner, pet: opponentPet, hp: opponentPet.hp, pos: 54, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: 0, moveLocked: 0, absorbRounds: 0, absorbPercent: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0 };
+    //
+    // Defensive clamp: pet.hp can be undefined for custom/creator pets,
+    // or for opponent pets that were stripped by an earlier roster
+    // projection (now restored — but the clamp stays as belt-and-
+    // suspenders). Without this, NaN propagates through the damage
+    // pipeline and the KO check `fighter.hp <= 0` is never true,
+    // looping the fight to the round cap with no resolution.
+    const safeHp = (h: unknown): number => Math.max(1, Number(h) || 100);
+    let player: PetBattleFighter = { owner: "You",        pet: playerPet,   hp: safeHp(playerPet.hp),   pos: 43, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: 0, moveLocked: 0, absorbRounds: 0, absorbPercent: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0 };
+    let enemy:  PetBattleFighter = { owner: opponentOwner, pet: opponentPet, hp: safeHp(opponentPet.hp), pos: 54, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: 0, moveLocked: 0, absorbRounds: 0, absorbPercent: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0 };
     // One-time coin flip for first-move advantage, consistent with
     // PvP and tile-card duels. Previously this was decided every round
     // by raw speed comparison, which guaranteed the faster pet always
@@ -17469,8 +17477,17 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
             // intact (each call is rate-limited and counts toward daily cap).
             // Pass battleSeed + match-index so the server can dedup a
             // refresh-replay (same seed → same reportKey → no double-claim).
+            //
+            // Tier-2 security fix made reportKey REQUIRED for wins. The
+            // static genericPetArenaOpponents array doesn't have battleSeed,
+            // and the roster-opponent constructor doesn't stamp one either.
+            // Without a fallback, every AI-arena and roster-opponent win
+            // was rejected with 400 (silent — wrapped in try/catch). Stamp
+            // a click-stable fallback so honest wins still pay out. Refresh-
+            // replay dedup is weakened for unseeded opponents, but the
+            // server's 5s/12-per-min/100-per-day caps still bound damage.
             const matchesWon = party.matches.filter(m => m.result === "win").length;
-            const partySeed = opponent.battleSeed ?? null;
+            const partySeed = opponent.battleSeed ?? `party-${opponent.owner}-${opponent.pet.id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
             for (let i = 0; i < matchesWon; i++) {
                 void (async () => {
                     try {
@@ -17481,7 +17498,7 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                                 playerName: character.name,
                                 outcome: "win",
                                 opponentLevel: opponent.pet.level,
-                                reportKey: partySeed != null ? `${partySeed}:match:${i}` : undefined,
+                                reportKey: `${partySeed}:match:${i}`,
                             }),
                         });
                     } catch { /* ignore */ }
@@ -17513,6 +17530,14 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
             // the endpoint is unreachable so existing saves don't get stuck.
             void (async () => {
                 try {
+                    // reportKey: seed-based when we have a battleSeed (refresh-
+                    // replay dedupes server-side). When the opponent has no
+                    // battleSeed (the static genericPetArenaOpponents AI list,
+                    // or any roster opponent lacking a stamp), fall back to a
+                    // click-stable key so the server doesn't 400 — Tier-2
+                    // security fix made reportKey REQUIRED for wins. The
+                    // server's daily cap + rate limits still bound damage.
+                    const effectiveSeed = opponent.battleSeed ?? `1v1-${opponent.owner}-${opponent.pet.id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
                     const r = await fetch("/api/pet/battle-result", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
@@ -17520,11 +17545,7 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                             playerName: character.name,
                             outcome: "win",
                             opponentLevel: opponent.pet.level,
-                            // Seed-based reportKey: a refresh-replay re-runs
-                            // the same deterministic battle and tries to
-                            // report again. Server rejects duplicates so the
-                            // player can't double-claim by refreshing.
-                            reportKey: opponent.battleSeed != null ? `${opponent.battleSeed}:1v1` : undefined,
+                            reportKey: `${effectiveSeed}:1v1`,
                         }),
                     });
                     if (r.ok) {
@@ -38033,8 +38054,23 @@ function PvpBattleScreen({
                         setTimeout(() => submitAction("wait"), 500);
                     }
                 }
+            } else {
+                // Server rejected the move (400/409/429/etc.). Previously
+                // this was silently swallowed — the UI looked frozen until
+                // the round timer expired. Now: surface the error in the
+                // combat log AND clear pending selections so the player
+                // can pick a different action immediately.
+                const errData = await res.json().catch(() => ({} as Record<string, unknown>));
+                const errMsg = typeof errData?.error === "string" ? errData.error : `Server rejected move (${res.status})`;
+                console.warn("[pvp/move]", res.status, errMsg);
+                setSession(prev => prev ? { ...prev, log: [...prev.log, `⚠️ ${errMsg}`].slice(-60) } : prev);
+                clearPendingPvpJutsu();
+                setDashMode(false);
+                setSelectedActionId(undefined);
+                setPendingBasicAttack(false);
+                setPendingWeaponId("");
             }
-        } catch { /* ignore */ }
+        } catch { /* network error — leave selections so the player can retry */ }
         finally { setSubmitting(false); }
     }
 

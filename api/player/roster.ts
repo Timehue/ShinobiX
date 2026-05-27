@@ -58,11 +58,21 @@ const ROSTER_STRIP_CHAR_FIELDS = new Set<string>([
     'createdAt', 'professionChosenAt',
 ]);
 
-// Pet entries also leak combat stats. Keep enough to render avatars and
-// run the "has pets > 0" gate used by sparring picker, but strip everything
-// that helps an attacker metagame a pet battle.
+// Pet entries: keep enough for the arena to use the OPPONENT'S actual
+// level-scaled stats (not the rarity-base template) AND for
+// isPetOnExpedition() to work for opponent pets. Without hp/attack/
+// defense/speed/jutsus, the client's normalizePet() backfills from
+// the petPool template — which uses base rarity stats, NOT level-
+// scaled — so every opponent pet fights at base stats regardless of
+// training. The metagame concern from the audit is real but secondary
+// to "opponent pets actually fight at their actual level". expedition
+// is a {expeditionId, endsAt} stamp — not sensitive, just needed for
+// the "available to battle" filter.
 const PET_PUBLIC_FIELDS = new Set<string>([
     'id', 'name', 'image', 'rarity', 'level', 'element', 'trait', 'species',
+    'hp', 'attack', 'defense', 'speed',
+    'jutsus', 'xp', 'unlockedForPve',
+    'expedition',
 ]);
 function projectPet(p: unknown): unknown {
     if (!p || typeof p !== 'object') return p;
