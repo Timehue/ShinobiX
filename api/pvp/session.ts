@@ -77,7 +77,14 @@ export type PvpSession = {
 };
 export const PVP_MOVE_TOKEN_HISTORY = 20;
 
-const SESSION_TTL = 60 * 60;
+// Shorter TTL than the 60-min ceiling — most PvP matches finish in 5-15
+// minutes, so a 15-min TTL covers the live fight plus a buffer for the
+// claim flow. Each move/state action via `move.ts` refreshes the TTL via
+// `writeSession`, so an actively-played match never expires; only
+// abandoned sessions (a tab closed mid-fight) decay. Keeps KV usage
+// proportional to actual live matches instead of accumulating an hour
+// of stale rows per started fight.
+const SESSION_TTL = 15 * 60;
 // Cap the combat log at the last N lines. Without this the log grows
 // unbounded over a long fight (typical: 1-3 lines per move × 30+
 // moves = 50+ KB of payload that both clients re-download every
