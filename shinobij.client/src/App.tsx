@@ -25188,7 +25188,7 @@ function CentralHub({
     const [showCelestialPanel, setShowCelestialPanel] = useState(false);
     const [showDungeonPanel, setShowDungeonPanel] = useState(false);
     const [showCrafter, setShowCrafter] = useState(false);
-    const [crafterTab, setCrafterTab] = useState<"supplies" | "weapons">("supplies");
+    const [crafterTab, setCrafterTab] = useState<"supplies" | "weapons" | "armor">("supplies");
     const [weaponInfoItem, setWeaponInfoItem] = useState<GameItem | null>(null);
     // Active-war banner — fetches the world-state once on mount and
     // refreshes every 15s so the banner doesn't lag the war screen.
@@ -25434,8 +25434,41 @@ function CentralHub({
         alert(`${item.name} forged and added to your inventory.`);
     }
 
+    // Armor crafting mirrors the weapon recipe shape but uses
+    // armor-appropriate materials (hides / pelts / scales — natural
+    // counterparts to the weapon-side fangs/claws).
+    function armorCraftRequirements(item: GameItem): { items: Record<string, number>; ryo: number } {
+        if (item.rarity === "rare") return { items: { "hunt-torn-hide": 2 }, ryo: 600 };
+        if (item.rarity === "epic") return { items: { "hunt-frost-pelt": 2, [WEEKLY_BOSS_CORE_ID]: 1 }, ryo: 1400 };
+        return { items: { "hunt-ash-scale": 1, [DUNGEON_LEGENDARY_RELIC_ID]: 1, [WARFORGED_RELIC_ID]: 1 }, ryo: 3500 };
+    }
+
+    function craftExistingArmor(item: GameItem) {
+        const requirements = armorCraftRequirements(item);
+        if (character.level < (item.levelReq ?? 1)) return alert(`Requires level ${item.levelReq ?? 1}.`);
+        if (character.ryo < requirements.ryo) return alert(`Not enough ryo. Need ${requirements.ryo.toLocaleString()}.`);
+        if (!hasInventoryRequirements(character, requirements.items)) return alert("Missing required armor materials.");
+        updateCharacter({
+            ...character,
+            ryo: character.ryo - requirements.ryo,
+            inventory: [...removeInventoryItems(character.inventory, requirements.items), item.id],
+        });
+        alert(`${item.name} forged and added to your inventory.`);
+    }
+
     const craftableWeapons = allHubItems
         .filter((item) => item.slot === "hand" && item.weaponEp != null && ["rare", "epic", "legendary"].includes(item.rarity) && !item.id.startsWith("named-weapon-"))
+        .sort((a, b) => {
+            const rank = { rare: 1, epic: 2, legendary: 3, common: 0, mythic: 4 } as Record<string, number>;
+            return (rank[a.rarity] ?? 0) - (rank[b.rarity] ?? 0) || a.name.localeCompare(b.name);
+        });
+
+    // Armor items: anything with armorQuality set in one of the body slots.
+    // Mirrors the weapon filter so rarity rare/epic/legendary appear in the
+    // craft list; commons aren't worth forging.
+    const ARMOR_SLOTS = new Set(["body", "head", "waist", "legs", "feet"]);
+    const craftableArmor = allHubItems
+        .filter((item) => ARMOR_SLOTS.has(normalizeEquipmentSlot(item.slot)) && item.armorQuality && ["rare", "epic", "legendary"].includes(item.rarity))
         .sort((a, b) => {
             const rank = { rare: 1, epic: 2, legendary: 3, common: 0, mythic: 4 } as Record<string, number>;
             return (rank[a.rarity] ?? 0) - (rank[b.rarity] ?? 0) || a.name.localeCompare(b.name);
@@ -25919,10 +25952,11 @@ function CentralHub({
                                 <h2>🔨 Crafter</h2>
                                 <button className="danger-button" onClick={() => setShowCrafter(false)}>✕ Close</button>
                             </div>
-                            <p className="crafter-subtitle">Convert hunting, boss, dungeon, and war materials into supplies or existing balanced weapons.</p>
+                            <p className="crafter-subtitle">Convert hunting, boss, dungeon, and war materials into supplies, weapons, or armor.</p>
                             <div className="inventory-tabs" style={{ marginBottom: 12 }}>
                                 <button className={crafterTab === "supplies" ? "active" : ""} onClick={() => setCrafterTab("supplies")}>Supplies</button>
                                 <button className={crafterTab === "weapons" ? "active" : ""} onClick={() => setCrafterTab("weapons")}>Weapons</button>
+                                <button className={crafterTab === "armor" ? "active" : ""} onClick={() => setCrafterTab("armor")}>Armor</button>
                             </div>
 
                             {crafterTab === "supplies" && <><div className="crafter-material-list">
@@ -26080,6 +26114,39 @@ function CentralHub({
                                         </div>
                                     );
                                 })}
+                            </div></>}
+
+                            {crafterTab === "armor" && <><div className="crafter-material-list">
+                                <strong>Armor Materials</strong>
+                                <div className="crafter-material-row"><span>🦬 Torn Hide</span><span>{countInventory("hunt-torn-hide")} ×</span></div>
+                                <div className="crafter-material-row"><span>🐺 Frost Pelt</span><span>{countInventory("hunt-frost-pelt")} ×</span></div>
+                                <div className="crafter-material-row"><span>🦎 Ash Scale</span><span>{countInventory("hunt-ash-scale")} ×</span></div>
+                                <div className="crafter-material-row"><span>💠 Weekly Boss Core</span><span>{countInventory(WEEKLY_BOSS_CORE_ID)} ×</span></div>
+                                <div className="crafter-material-row"><span>💎 Dungeon Legendary Relic</span><span>{countInventory(DUNGEON_LEGENDARY_RELIC_ID)} ×</span></div>
+                                <div className="crafter-material-row"><span>⚔️ Warforged Relic</span><span>{countInventory(WARFORGED_RELIC_ID)} ×</span></div>
+                            </div>
+                            <div className="crafter-recipe-grid">
+                                {craftableArmor.length === 0 ? (
+                                    <p className="hint">No armor recipes available yet — add craftable armor items via the admin item creator.</p>
+                                ) : (
+                                    craftableArmor.map((item) => {
+                                        const req = armorCraftRequirements(item);
+                                        const ready = character.level >= (item.levelReq ?? 1) && character.ryo >= req.ryo && hasInventoryRequirements(character, req.items);
+                                        const reqText = Object.entries(req.items).map(([id, qty]) => `${qty}x ${itemDisplayName(id, allHubItems)}`).join(", ");
+                                        return (
+                                            <div key={item.id} className="crafter-recipe-btn">
+                                                <div className="crafter-recipe-btn-header">
+                                                    <strong>{item.name}</strong>
+                                                </div>
+                                                <small>{item.rarity.toUpperCase()} | Lv {item.levelReq ?? 1} | {equipmentSlotLabel(item.slot)} | {item.armorQuality ?? "—"}</small>
+                                                <small>{reqText} + {req.ryo.toLocaleString()} ryo</small>
+                                                <button onClick={() => craftExistingArmor(item)} disabled={!ready}>
+                                                    Forge
+                                                </button>
+                                            </div>
+                                        );
+                                    })
+                                )}
                             </div></>}
 
                             {/* -- Named Weapon Forge -- */}
