@@ -68,12 +68,41 @@ import {
     type VillageUpgrades,
     type AdminAccount,
 } from "./types/core";
+import {
+    type PetRarity,
+    type PetTrait,
+    type PetTrainingType,
+    type PetExpeditionType,
+    type PetExpedition,
+    type PetJutsu,
+    type Pet,
+} from "./types/pet";
+import {
+    type Stats,
+    type JutsuMastery,
+    type JutsuTag,
+    type Jutsu,
+    type EquipmentSlot,
+    type ArmorQuality,
+    type GameItem,
+    type EquipmentSlots,
+    type SavedBloodline,
+    type ReviewBloodline,
+    type ActiveTraining,
+    type ActiveJutsuTraining,
+} from "./types/combat";
 export type {
     Profession,
     Screen,
     Rank,
     JutsuTarget,
     AdminAccount,
+    Pet,
+    Stats,
+    Jutsu,
+    EquipmentSlot,
+    ArmorQuality,
+    GameItem,
 };
 
 const terrainEffects: Record<
@@ -380,22 +409,7 @@ function damageSectorTerritory(sector: number, amount: number) {
     saveSectorTerritory(next);
     return next;
 }
-export type Stats = {
-    strength: number;
-    speed: number;
-    intelligence: number;
-    willpower: number;
-    bukijutsuOffense: number;
-    bukijutsuDefense: number;
-    taijutsuOffense: number;
-    taijutsuDefense: number;
-    genjutsuOffense: number;
-    genjutsuDefense: number;
-    ninjutsuOffense: number;
-    ninjutsuDefense: number;
-};
-
-type JutsuMastery = { jutsuId: string; level: number; xp: number };
+// Stats / JutsuMastery moved to ./types/combat.
 // AdminAccount moved to ./types/core — re-exported at the top of this file.
 
 // The protected admin account. The Admin button is only visible to this
@@ -406,62 +420,7 @@ export const PROTECTED_ADMIN_USERNAME = "Rill";
 export function isProtectedAdminName(name: string | undefined | null): boolean {
     return !!name && name.trim().toLowerCase() === PROTECTED_ADMIN_USERNAME.toLowerCase();
 }
-type PetRarity = "standard" | "rare" | "legendary" | "mythic";
-type PetTrait = "Loyal" | "Aggressive" | "Guardian" | "Swift" | "Lucky" | "Battleborn";
-type PetTrainingType = "strength" | "endurance" | "agility" | "chakra" | "bond";
-type PetExpeditionType = "scout" | "forage" | "ruins";
-type PetExpedition = { type: PetExpeditionType; endsAt: number; startedAt: number; durationMs: number };
-
-type PetJutsu = {
-    name: string;
-    power: number;
-    cooldown: number;
-    currentCooldown: number;
-    // Combat effects. New status kinds added for variety:
-    //   burn   — DoT (15% of power per round) + small ATK debuff
-    //   freeze — chance to skip next turn each round (50%)
-    //   confuse — chance to hit yourself instead of the target (50%)
-    //   stun   — guaranteed skip of next turn (1 round)
-    //   crush  — Earth special: direct damage + larger ATK/DEF strip.
-    //            Plain "debuff" feels numerically weak compared to stun/
-    //            freeze/confuse/burn because the player can't SEE the
-    //            prevented damage — crush adds an impact moment.
-    // Existing kinds (damage/buff/heal/debuff/dot/move/barrier/movelock/
-    // lifesteal/shield/absorb) keep their original behavior.
-    kind: "damage" | "buff" | "heal" | "debuff" | "dot" | "move" | "barrier" | "movelock" | "lifesteal" | "shield" | "absorb"
-        | "burn" | "freeze" | "confuse" | "stun" | "crush";
-    // Optional duration override for status-effect kinds. Lets a Mythic
-    // freeze last 3 rounds while a Standard freeze lasts 1. Defaults are
-    // baked into each status handler if rounds is undefined.
-    rounds?: number;
-};
-
-export type Pet = {
-    id: string;
-    name: string;
-    rarity: PetRarity;
-    level: number;
-    xp: number;
-    maxLevel: number;
-    hp: number;
-    attack: number;
-    defense: number;
-    speed: number;
-    image?: string;
-    description?: string;
-    jutsus: PetJutsu[];
-    unlockedForPve: boolean;
-    trait?: PetTrait;
-    happiness?: number;
-    training?: { type: PetTrainingType; endsAt: number; durationMs?: number };
-    expedition?: PetExpedition;
-    moveRange?: number; // tiles moved per turn (2–5); defaults to 2
-    nickname?: string;
-    // Optional elemental affinity. Drives the Pet Arena type-effectiveness
-    // matchup: Fire > Wind > Lightning > Earth > Water > Fire. Pets without
-    // an element (or with "None") fight neutral against everything.
-    element?: JutsuElement;
-};
+// Pet-related types moved to ./types/pet — imported + re-exported above.
 export type Character = {
     name: string;
     village: string;
@@ -703,33 +662,7 @@ type CreatorAi = {
     masterAi?: boolean;
 };
 
-type JutsuTag = { name: string; percent: number };
-
-export type Jutsu = {
-    id: string;
-    name: string;
-    type: JutsuType;
-    element: JutsuElement;
-    ap: number;
-    range: number;
-    effectPower: number;
-    cooldown: number;
-    currentCooldown: number;
-    chakraCost: number;
-    staminaCost: number;
-    healthCost: number;
-    target: JutsuTarget;
-    method: JutsuMethod;
-    battleDescription: string;
-    healthCostReducePerLvl: number;
-    chakraCostReducePerLvl: number;
-    staminaCostReducePerLvl: number;
-    tags: JutsuTag[];
-    description?: string;
-    image?: string;
-    bloodlineRank?: Rank; // set on bloodline jutsus; absent = global/starter
-};
-export type EquipmentSlot = "aura" | "hand" | "body" | "waist" | "legs" | "feet" | "head" | "item" | "thrown" | "weapon" | "armor" | "accessory";
+// JutsuTag / Jutsu / EquipmentSlot moved to ./types/combat.
 
 const itemSectionOptions: Array<{ value: EquipmentSlot; label: string }> = [
     { value: "aura", label: "Aura" },
@@ -755,8 +688,7 @@ export function equipmentSlotLabel(slot: EquipmentSlot) {
     return itemSectionOptions.find((option) => option.value === normalized)?.label ?? normalized;
 }
 
-export type ArmorQuality = "Standard" | "Reinforced" | "Rare" | "Elite" | "Legendary";
-
+// ArmorQuality moved to ./types/combat.
 const armorQualityTiers: { quality: ArmorQuality; reduction: number; label: string }[] = [
     { quality: "Standard", reduction: 0.01, label: "Standard — 1% damage reduction" },
     { quality: "Reinforced", reduction: 0.03, label: "Reinforced — 3% damage reduction" },
@@ -822,72 +754,8 @@ function getPvpItemLoadout(character: Character, allItems: GameItem[]): GameItem
     return allItems.filter((item) => equippedIds.has(item.id));
 }
 
-export type GameItem = {
-    id: string;
-    name: string;
-    slot: EquipmentSlot;
-    rarity: "common" | "rare" | "epic" | "legendary" | "mythic";
-    cost: number;
-    description: string;
-    armorQuality?: ArmorQuality;
-    levelReq?: number;
-    image?: string;
-    weaponElement?: JutsuElement;
-    weaponRange?: number;
-    weaponCooldown?: number;
-    weaponEp?: number;
-    weaponEffect?: "Absorb" | "Lifesteal" | "Reflect" | "Increase Damage Given" | "Decrease Damage Given" | "Decrease Damage Taken" | "Increase Damage Taken" | "Shield" | "Wound" | "Poison";
-    weaponEffectValue?: number;
-    weaponEffectTarget?: "enemy" | "both"; // "both" = applies effect to both player and enemy (e.g. Smoke Bomb)
-    apCost?: number; // override the default AP cost for this item in combat
-    weaponTags?: Array<{ name: string; percent: number }>; // Named Weapon multi-tag support
-    flavorText?: string; // Player-written flavor text on Named Weapons
-    bonuses: Partial<Stats> & {
-        maxHp?: number;
-        maxChakra?: number;
-        maxStamina?: number;
-        damagePercent?: number;
-        absorbPercent?: number;
-        lifeStealPercent?: number;
-        shield?: number;
-        reflectPercent?: number;
-    };
-};
-
-type EquipmentSlots = Partial<Record<EquipmentSlot, string>>;
-type SavedBloodline = {
-    id: string;
-    name: string;
-    rank: Rank;
-    image?: string;
-    specialElement?: string;
-    lore?: string;
-    jutsus: Jutsu[];
-    totalPoints: number;
-};
-type ReviewBloodline = SavedBloodline & {
-    ownerName?: string;
-    ownerKey?: string;
-};
-
-type ActiveTraining = {
-    label: string;
-    stat: keyof Stats;
-    xp: number;
-    statGain: number;
-    staminaCost: number;
-    endsAt: number;
-};
-
-type ActiveJutsuTraining = {
-    jutsuId: string;
-    label: string;
-    fromLevel: number;
-    toLevel: number;
-    ryoCost: number;
-    startedAt: number;
-    endsAt: number;
-};
+// GameItem / EquipmentSlots / SavedBloodline / ReviewBloodline /
+// ActiveTraining / ActiveJutsuTraining moved to ./types/combat.
 
 type CreatorEvent = {
     id: string;
