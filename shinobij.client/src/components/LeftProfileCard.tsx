@@ -12,7 +12,7 @@
  * Extracted from App.tsx.
  */
 
-import type { ReactNode } from "react";
+import { memo, type ReactNode } from "react";
 import {
     useSharedNow,
     petTrainingOptions,
@@ -28,7 +28,13 @@ import { DAILY_MISSION_LIMIT, MAX_LEVEL } from "../constants/game";
 import { formatPetTimer } from "../lib/utils";
 import { petDisplayName } from "../lib/pet";
 
-export function LeftProfileCard({
+// Wrapped in React.memo so the every-second useSharedNow re-render is the
+// ONLY scheduled refresh — parent (App) state churn no longer triggers a
+// repaint of the left rail when the props are referentially unchanged.
+// `character`, `activeTraining`, `activeJutsuTraining` are all replaced
+// immutably from App so the shallow prop compare still catches real
+// changes (hp swap, training start/end, sector hop, etc).
+export const LeftProfileCard = memo(function LeftProfileCard({
     character,
     updateCharacter,
     currentSector,
@@ -224,4 +230,4 @@ export function LeftProfileCard({
             )}
         </aside>
     );
-}
+});
