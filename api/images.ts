@@ -50,6 +50,46 @@ function categoryFromId(id: string): string {
     return KNOWN_PREFIXES[prefix] ?? 'misc';
 }
 
+// Admin-only image prefixes. The admin tooling owns these (jutsus, items,
+// AIs, events, cards, bloodlines, VN backdrops, shrine assets, world-map
+// landmarks). Players can't add or replace them — without this gate, any
+// authed player can POST id="jutsu:fireball" with an arbitrary image and
+// overwrite the actual jutsu icon shown to everyone.
+const ADMIN_ONLY_PREFIXES = new Set(['jutsu', 'item', 'card', 'event', 'vn', 'ai', 'shrine', 'landmark', 'bloodline']);
+
+// Returns null if the identity may write to this image id; otherwise an
+// HTTP { status, error } describing the rejection.
+function ownershipReject(
+    id: string,
+    identity: { admin: true } | { admin: false; name: string },
+): { status: number; error: string } | null {
+    if (identity.admin) return null;
+    const colon = id.indexOf(':');
+    if (colon < 0) {
+        return { status: 400, error: 'Image id must use the "<category>:<key>" format.' };
+    }
+    const prefix = id.slice(0, colon).toLowerCase();
+    const rest = id.slice(colon + 1);
+    if (ADMIN_ONLY_PREFIXES.has(prefix)) {
+        return { status: 403, error: `${prefix} images are admin-only.` };
+    }
+    if (prefix === 'avatar') {
+        // avatar:<lowercased player name>. Only the player themselves may
+        // upload or replace their own avatar.
+        if (rest.toLowerCase() !== identity.name.toLowerCase()) {
+            return { status: 403, error: 'You can only set your own avatar.' };
+        }
+    }
+    if (prefix === 'pet') {
+        // pet:<petId>. We don't have a fast pet-ownership lookup here —
+        // pet IDs are client-generated. The misc-per-player cap covers
+        // abuse magnitude, but per-pet ownership would need a save read.
+        // For now, allow any authed player to write pet images. Future:
+        // optionally cross-check char.pets.some(p => p.id === rest).
+    }
+    return null;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -108,9 +148,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
             const { id, image } = body as { id?: string; image?: string };
             if (!id || typeof image !== 'string') return res.status(400).json({ error: 'Missing id or image.' });
+            if (id.length > 256) return res.status(400).json({ error: 'Image id too long.' });
             if (!isValidImageString(image)) {
                 return res.status(400).json({ error: 'Image must be a valid data URL or http(s) URL under 3 MB.' });
             }
+            // Ownership: non-admins can't overwrite admin-prefixed images
+            // (jutsu/item/event/etc) and can only write avatar:<their-name>.
+            const reject = ownershipReject(id, identity);
+            if (reject) return res.status(reject.status).json({ error: reject.error });
 
             const cat = categoryFromId(id);
 
@@ -158,6 +203,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             const id = queryId || bodyId;
             if (!id) return res.status(400).json({ error: 'Missing id.' });
+            if (id.length > 256) return res.status(400).json({ error: 'Image id too long.' });
+            // Same ownership rules as POST — players can't HDEL admin-owned
+            // assets or other players' avatars.
+            const reject = ownershipReject(id, identity);
+            if (reject) return res.status(reject.status).json({ error: reject.error });
 
             const cat = categoryFromId(id);
             await kv.hdel(catHashKey(cat), id);
