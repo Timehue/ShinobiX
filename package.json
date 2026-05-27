@@ -11,7 +11,7 @@
         "start": "node app.js",
         "dev": "node --watch app.js",
         "slice-badges": "node scripts/slice-badges.mjs",
-        "test": "node --import tsx --test api/missions/_pool.test.ts api/pvp/_vanguard-rewards.test.ts shinobij.client/src/professionLogic.test.ts"
+        "test": "node --import tsx --test api/missions/_pool.test.ts api/pvp/_vanguard-rewards.test.ts api/_text-moderation.test.ts api/_utils.test.ts shinobij.client/src/professionLogic.test.ts"
     },
     "dependencies": {
         "@supabase/supabase-js": "^2.106.1",
