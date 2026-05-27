@@ -17,6 +17,23 @@ export function isReservedUsername(name: string): boolean {
     return RESERVED_USERNAMES.has(name.trim().toLowerCase());
 }
 
+// Storage-layer name prefixes that must NOT be allowed as player usernames.
+// `save:<name>` routes saves through different validators depending on the
+// name prefix — `save:clan-*` goes through validateClanSaveWrite (designed for
+// shared clan records) instead of sanitizeCharacterSave (designed for
+// individual players), so a player who registered as `clan-cheat` would
+// bypass every character-level cap. `system` / `admin` / `server` are
+// reserved for internal use. Reject these at the registration gate so the
+// situation never arises.
+const RESERVED_NAME_PREFIXES = ['clan-', 'admin-', 'system-', 'server-'];
+const RESERVED_NAME_LITERALS = new Set(['admin', 'admin1', 'admin2', 'system', 'server', 'kage', 'narrator', 'player']);
+export function isReservedNameShape(name: string): boolean {
+    const n = name.trim().toLowerCase();
+    if (!n) return true;
+    if (RESERVED_NAME_LITERALS.has(n)) return true;
+    return RESERVED_NAME_PREFIXES.some((p) => n.startsWith(p));
+}
+
 // `hash` stores either the legacy HMAC-SHA256 hex (no version prefix) or the
 // new scrypt format `scrypt:N:r:p:hex`. New writes always use scrypt.
 type AuthRecord = { hash: string; salt: string };
@@ -123,6 +140,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'register') {
         // Register a new password. Fails if one already exists — use 'change' to update.
         if (!password) return res.status(400).json({ ok: false, error: 'Missing password.' });
+
+        // Reserved-shape defense: storage-layer prefixes like `clan-` route
+        // saves through the wrong validator (`validateClanSaveWrite` instead
+        // of `sanitizeCharacterSave`), bypassing every character-level cap.
+        // Names like `admin` / `system` / `server` are reserved for internal
+        // use. Refuse these at the gate so the bad code path never runs.
+        if (isReservedNameShape(name)) {
+            return res.status(403).json({
+                ok: false,
+                error: 'That username is reserved. Pick a different name.',
+            });
+        }
 
         // Reserved-username defense: the protected admin account can only be
         // claimed once, and only by someone holding the admin password. This
