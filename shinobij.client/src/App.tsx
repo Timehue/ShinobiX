@@ -2041,225 +2041,31 @@ const adminIconOptions: { value: string; label: string }[] = [
 export const starterBloodlines = ["Ashen Eyes", "Inferno Cataclysm", "Shadow Lotus", "Iron Fang"];
 // petDisplayName / petHappiness / isPetOnExpedition / petCombatDamage /
 // increasePetHappiness / petVariantIndex moved to ./lib/pet.
-function capPetStats(pet: Pet): Pet {
-    const caps = petStatCaps[pet.rarity] ?? petStatCaps.standard;
-    return {
-        ...pet,
-        hp: Math.min(caps.hp, Math.max(1, Math.round(pet.hp))),
-        attack: Math.min(caps.attack, Math.max(1, Math.round(pet.attack))),
-        defense: Math.min(caps.defense, Math.max(1, Math.round(pet.defense))),
-        speed: Math.min(caps.speed, Math.max(1, Math.round(pet.speed))),
-        jutsus: pet.jutsus.map((jutsu) => ({
-            ...jutsu,
-            power: jutsu.power > 0 ? Math.min(caps.jutsuPower, Math.max(1, Math.round(jutsu.power))) : 0,
-        })),
-        moveRange: Math.max(2, Math.min(5, Math.round(pet.moveRange ?? balancedPetBaseStats[pet.rarity]?.moveRange ?? 3))),
-    };
-}
-// ── Pet element assignments ───────────────────────────────────────────────
-// Drives the Pet Arena type-effectiveness matchup (Fire > Wind > Lightning >
-// Earth > Water > Fire). Distribution across the player pet pool:
-//   • Standard (25 pets): 5 Fire, 5 Water, 5 Wind, 5 Lightning, 5 Earth
-//   • Rare     (25 pets): 5 each (same)
-//   • Legendary (15 pets): 3 each
-//   • Mythic    (5 pets):  1 each, set inline on the templates below
-// No "None" pets — every player pet plays the type chart so element matters
-// in every matchup. Elements were assigned thematically where the pet name
-// suggested one (Cinder Rat → Fire, Frost Cub → Water, etc.) and balanced
-// out across the more neutral names.
-
-// ── Elemental special jutsu per pet ────────────────────────────────────────
-// Every pet gets one element-themed signature jutsu in its kit. Element
-// drives the effect kind; rarity drives the strength:
-//   Fire     → burn    (DoT + ATK debuff)
-//   Water    → freeze  (50% turn skip)
-//   Wind     → confuse (50% self-hit)
-//   Lightning→ stun    (guaranteed turn skip)
-//   Earth    → debuff  (stripped ATK/DEF)  — earth doesn't get stun (taken
-//                                            by Lightning); stat-strip
-//                                            matches the "weight" feel.
-// Standard < Rare < Legendary < Mythic — both power and duration scale up.
-type ElementalSpecialKind = "burn" | "freeze" | "confuse" | "stun" | "crush";
-const elementalSpecialKind: Record<Exclude<JutsuElement, "None">, ElementalSpecialKind> = {
-    Fire: "burn",
-    Water: "freeze",
-    Wind: "confuse",
-    Lightning: "stun",
-    Earth: "crush",   // upgraded from "debuff" — direct hit + bigger stat strip
-};
-type ElementalSpecialSpec = { name: string; power: number; cooldown: number; rounds: number };
-// Elemental specials — duration is now capped to prevent runaway lockouts:
-//   • burn / freeze / confuse — max 2 rounds at any tier
-//   • stun                   — max 1 round at any tier
-// Tier strength now comes almost entirely from the POWER number, which still
-// scales standard → mythic at +25% per tier. Mythic specials still feel
-// signature (higher damage component, bigger debuff) but they can't lock
-// an opponent out for 3 full rounds anymore.
-const elementalSpecialByRarityElement: Record<PetRarity, Record<Exclude<JutsuElement, "None">, ElementalSpecialSpec>> = {
-    standard: {
-        Fire:      { name: "Searing Mark",        power: 40,  cooldown: 5, rounds: 2 },
-        Water:     { name: "Frost Bite",          power: 40,  cooldown: 5, rounds: 1 },
-        Wind:      { name: "Whirling Daze",       power: 40,  cooldown: 5, rounds: 1 },
-        Lightning: { name: "Static Snap",         power: 40,  cooldown: 5, rounds: 1 },
-        Earth:     { name: "Heavy Stone",         power: 40,  cooldown: 5, rounds: 0 },
-    },
-    rare: {
-        Fire:      { name: "Ember Lash",          power: 60,  cooldown: 5, rounds: 2 },
-        Water:     { name: "Frozen Lash",         power: 60,  cooldown: 5, rounds: 2 },
-        Wind:      { name: "Cyclone Veil",        power: 60,  cooldown: 5, rounds: 2 },
-        Lightning: { name: "Shock Sigil",         power: 60,  cooldown: 5, rounds: 1 },
-        Earth:     { name: "Boulder Press",       power: 65,  cooldown: 5, rounds: 0 },
-    },
-    legendary: {
-        Fire:      { name: "Pyre Burst",          power: 75,  cooldown: 5, rounds: 2 },
-        Water:     { name: "Glacial Coffin",      power: 72,  cooldown: 5, rounds: 2 },
-        Wind:      { name: "Tempest Mirage",      power: 72,  cooldown: 5, rounds: 2 },
-        Lightning: { name: "Thunderbreak",        power: 75,  cooldown: 5, rounds: 1 },
-        Earth:     { name: "Mountain Crush",      power: 82,  cooldown: 5, rounds: 0 },
-    },
-    mythic: {
-        Fire:      { name: "Solar Conflagration", power: 90,  cooldown: 5, rounds: 2 },
-        Water:     { name: "Eternal Glacier",     power: 85,  cooldown: 5, rounds: 2 },
-        Wind:      { name: "Heaven's Vortex",     power: 85,  cooldown: 5, rounds: 2 },
-        Lightning: { name: "Worldfall Bolt",      power: 88,  cooldown: 5, rounds: 1 },
-        Earth:     { name: "World-Ender Slab",    power: 100, cooldown: 5, rounds: 0 },
-    },
-};
-function elementalSpecialFor(element: JutsuElement | undefined, rarity: PetRarity): PetJutsu | null {
-    if (!element || element === "None") return null;
-    const tierTable = elementalSpecialByRarityElement[rarity] ?? elementalSpecialByRarityElement.standard;
-    const spec = tierTable[element as Exclude<JutsuElement, "None">];
-    if (!spec) return null;
-    return {
-        name: spec.name,
-        power: spec.power,
-        cooldown: spec.cooldown,
-        currentCooldown: 0,
-        kind: elementalSpecialKind[element as Exclude<JutsuElement, "None">],
-        ...(spec.rounds > 0 ? { rounds: spec.rounds } : {}),
-    };
-}
-
-function balanceBuiltInPetTemplate(pet: Pet): Pet {
-    const base = balancedPetBaseStats[pet.rarity] ?? balancedPetBaseStats.standard;
-    const variant = petVariantIndex(pet);
-    const kitBonus = Math.max(0, pet.jutsus.length - 3);
-    const hp = base.hp + variant * (pet.rarity === "standard" ? 6 : pet.rarity === "rare" ? 7 : pet.rarity === "legendary" ? 9 : 11) - kitBonus * 18;
-    const attack = base.attack + Math.floor(variant * (pet.rarity === "standard" ? 0.7 : pet.rarity === "rare" ? 0.8 : pet.rarity === "legendary" ? 1 : 1.2)) - kitBonus * 2;
-    const defense = base.defense + Math.floor(variant * (pet.rarity === "standard" ? 0.55 : pet.rarity === "rare" ? 0.65 : pet.rarity === "legendary" ? 0.85 : 1)) - kitBonus * 2;
-    const speed = base.speed + Math.floor(variant * (pet.rarity === "standard" ? 0.5 : pet.rarity === "rare" ? 0.6 : pet.rarity === "legendary" ? 0.75 : 0.9));
-    const jutsus = pet.jutsus.map((jutsu, i) => {
-        if (jutsu.power <= 0) return { ...jutsu };
-        const kindBonus = jutsu.kind === "damage" ? 8 : jutsu.kind === "heal" || jutsu.kind === "barrier" ? 4 : 0;
-        const slotBonus = i * 5;
-        return { ...jutsu, power: base.jutsuPower + variant + kindBonus + slotBonus };
-    });
-    // Inject the assigned element from the lookup table. Mythics get their
-    // element from the inline template directly (preserved via ...pet) and
-    // skip the lookup. Falls back to undefined for any unrecognized name,
-    // which the engine treats as neutral.
-    const element: JutsuElement | undefined = pet.element ?? petElementByName[pet.name];
-    // Append the elemental special jutsu (one per pet, themed to its
-    // element + tier-scaled in power and duration). Deduped by name so a
-    // template that already declares the special doesn't get a duplicate.
-    const specialJutsu = elementalSpecialFor(element, pet.rarity);
-    const jutsusWithSpecial = specialJutsu && !jutsus.some(j => j.name === specialJutsu.name)
-        ? [...jutsus, specialJutsu]
-        : jutsus;
-    return capPetStats({ ...pet, hp, attack, defense, speed, jutsus: jutsusWithSpecial, moveRange: pet.moveRange ?? base.moveRange, element });
-}
-function petTrainingMultiplier(pet: Pet) {
-    const durationMultiplier = petTrainingDurationMultipliers[pet.training?.durationMs ?? petTrainingDurations[0].ms] ?? 1;
-    const loyalMultiplier = pet.trait === "Loyal" ? 1.5 : 1;
-    const happinessMultiplier = petHappiness(pet) >= 80 ? 1.15 : petHappiness(pet) >= 50 ? 1.05 : 1;
-    return durationMultiplier * loyalMultiplier * happinessMultiplier;
-}
-function petTrainingGains(pet: Pet) {
-    const mult = petTrainingMultiplier(pet);
-    return {
-        attack: Math.max(1, Math.round(3 * mult)),
-        hp: Math.max(5, Math.round(16 * mult)),
-        defense: Math.max(1, Math.round(2 * mult)),
-        speed: Math.max(1, Math.round(2 * mult)),
-        jutsuPower: Math.max(1, Math.round(2 * mult)),
-        xp: Math.max(15, Math.round(45 * mult)),
-        bondHp: Math.max(4, Math.round(8 * mult)),
-        bondStat: Math.max(1, Math.round(1 * mult)),
-    };
-}
-function petTrainingPreview(pet: Pet, type: PetTrainingType, durationMs: number) {
-    const previewPet = { ...pet, training: { type, endsAt: Date.now() + durationMs, durationMs } };
-    const gains = petTrainingGains(previewPet);
-    if (type === "strength") return `+${gains.attack} ATK, +${gains.xp} XP`;
-    if (type === "endurance") return `+${gains.hp} HP, +${gains.defense} DEF, +${gains.xp} XP`;
-    if (type === "agility") return `+${gains.speed} SPD, +${gains.xp} XP`;
-    if (type === "chakra") return `+${gains.jutsuPower} jutsu power, +${gains.xp} XP`;
-    return `+${gains.bondHp} HP, +${gains.bondStat} all battle stats, +${gains.xp + Math.round(gains.xp * 0.35)} XP, +5 happiness`;
-}
-function rollPetTrait(rarity: PetRarity): PetTrait {
-    const pool = rarity === "mythic" ? petTraits : petTraits.filter((t) => t !== "Guardian");
-    return pool[Math.floor(Math.random() * pool.length)];
-}
-function applyPetTraitBonuses(pet: Pet, trait: PetTrait): Pet {
-    switch (trait) {
-        case "Aggressive": return { ...pet, attack: Math.round(pet.attack * 1.15) };
-        case "Battleborn": return { ...pet, attack: Math.round(pet.attack * 1.1), hp: Math.round(pet.hp * 1.1), defense: Math.round(pet.defense * 1.1), speed: Math.round(pet.speed * 1.1) };
-        case "Guardian": return { ...pet, hp: Math.round(pet.hp * 1.2), defense: Math.round(pet.defense * 1.2) };
-        case "Swift": return { ...pet, speed: Math.round(pet.speed * 1.2) };
-        default: return pet;
-    }
-}
-function collectPetTraining(pet: Pet): Pet {
-    if (!pet.training) return pet;
-    const gains = petTrainingGains(pet);
-    switch (pet.training.type) {
-        case "strength": return capPetStats(gainPetXp({ ...pet, attack: pet.attack + gains.attack, training: undefined }, gains.xp));
-        case "endurance": return capPetStats(gainPetXp({ ...pet, hp: pet.hp + gains.hp, defense: pet.defense + gains.defense, training: undefined }, gains.xp));
-        case "agility": return capPetStats(gainPetXp({ ...pet, speed: pet.speed + gains.speed, training: undefined }, gains.xp));
-        case "chakra": return capPetStats(gainPetXp({ ...pet, jutsus: pet.jutsus.map(j => ({ ...j, power: j.power > 0 ? j.power + gains.jutsuPower : j.power })), training: undefined }, gains.xp));
-        case "bond": return capPetStats(gainPetXp(increasePetHappiness({
-            ...pet,
-            hp: pet.hp + gains.bondHp,
-            attack: pet.attack + gains.bondStat,
-            defense: pet.defense + gains.bondStat,
-            speed: pet.speed + gains.bondStat,
-            training: undefined,
-        }, 5), gains.xp + Math.round(gains.xp * 0.35)));
-    }
-}
-function petXpNeeded(level: number): number {
-    return Math.max(100, Math.floor(level * 100));
-}
-function gainPetXp(pet: Pet, amount: number): Pet {
-    let level = pet.level;
-    let xp = pet.xp + Math.max(0, Math.floor(amount));
-    let levelUps = 0;
-
-    while (level < pet.maxLevel && xp >= petXpNeeded(level)) {
-        xp -= petXpNeeded(level);
-        level += 1;
-        levelUps += 1;
-    }
-
-    if (level >= pet.maxLevel) {
-        level = pet.maxLevel;
-        xp = 0;
-    }
-
-    const unlockedForPve = Boolean(pet.unlockedForPve || level >= 50);
-    if (levelUps <= 0) return { ...pet, level, xp, unlockedForPve };
-    return capPetStats({
-        ...pet,
-        level,
-        xp,
-        unlockedForPve,
-        hp: pet.hp + levelUps * 6,
-        attack: pet.attack + levelUps * 1,
-        defense: pet.defense + levelUps * 1,
-        speed: pet.speed + (levelUps % 2),
-        jutsus: pet.jutsus.map((jutsu) => ({ ...jutsu, power: jutsu.power > 0 ? jutsu.power + Math.ceil(levelUps / 2) : jutsu.power })),
-    });
-}
+// Pet balance + training + XP + cloning + event scaling helpers moved to
+// ./lib/pet-balance. petPool / mergeMissingBuiltInPets / normalizePet
+// stay here because they close over the petPool array (which itself is
+// derived via balanceBuiltInPetTemplate from the imported lib).
+import {
+    capPetStats,
+    elementalSpecialFor,
+    balanceBuiltInPetTemplate,
+    petTrainingMultiplier,
+    petTrainingGains,
+    petTrainingPreview,
+    rollPetTrait,
+    applyPetTraitBonuses,
+    collectPetTraining,
+    petXpNeeded,
+    gainPetXp,
+    cloneEncounterPet,
+    builtInPetTemplateId,
+    eventPetDifficultyMultiplier,
+    scaleEventPetOpponent,
+} from "./lib/pet-balance";
+export { gainPetXp, collectPetTraining };
+// Pet element/special jutsu tables + balance/training/XP helpers all
+// moved to ./lib/pet-balance — imported above. See that file for the
+// element → effect mapping and the per-rarity special jutsu spec tables.
 // Shared timer hook so all components tick in sync. Prevents mobile and
 // desktop timers from drifting if their intervals initialize at different times.
 let sharedNowValue = Date.now();
@@ -2295,16 +2101,7 @@ function mergeMissingBuiltInPets(currentPets: Pet[]): Pet[] {
 
     return [...currentPets, ...missingBuiltInPets];
 }
-function cloneEncounterPet(pet: Pet): Pet {
-    return {
-        ...pet,
-        id: `${pet.id}-${Date.now()}`,
-        jutsus: pet.jutsus.map((jutsu) => ({ ...jutsu })),
-    };
-}
-function builtInPetTemplateId(id: string) {
-    return id.match(/^(standard|rare|legendary|mythic)-\d+/)?.[0] ?? id;
-}
+// cloneEncounterPet + builtInPetTemplateId moved to ./lib/pet-balance.
 function normalizePet(pet: Pet): Pet {
     const baseTemplate = petPool.find((template) => template.id === builtInPetTemplateId(pet.id));
     const merged = baseTemplate ? {
@@ -2354,27 +2151,7 @@ function normalizePet(pet: Pet): Pet {
             : undefined,
     });
 }
-function eventPetDifficultyMultiplier(difficulty?: EventEncounterBattle["difficulty"]) {
-    if (difficulty === "easy") return 0.75;
-    if (difficulty === "hard") return 1.35;
-    if (difficulty === "impossible") return 2.1;
-    return 1;
-}
-function scaleEventPetOpponent(pet: Pet, battle?: EventEncounterBattle): Pet {
-    const mult = eventPetDifficultyMultiplier(battle?.difficulty);
-    return capPetStats({
-        ...pet,
-        id: `event-${pet.id}-${Date.now()}`,
-        name: battle?.bossName?.trim() || pet.name,
-        image: pet.image || battle?.backgroundImage,
-        level: Math.max(1, Math.round(pet.level * mult)),
-        hp: Math.round(pet.hp * mult),
-        attack: Math.round(pet.attack * mult),
-        defense: Math.round(pet.defense * mult),
-        speed: Math.round(pet.speed * Math.min(1.5, mult)),
-        jutsus: pet.jutsus.map((jutsu) => ({ ...jutsu, power: Math.round(jutsu.power * mult), currentCooldown: 0 })),
-    });
-}
+// eventPetDifficultyMultiplier + scaleEventPetOpponent moved to ./lib/pet-balance.
 export const starterBloodlineOffense: Record<string, JutsuType> = {
     "Ashen Eyes": "Genjutsu",
     "Inferno Cataclysm": "Ninjutsu",
