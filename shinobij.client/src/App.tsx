@@ -2445,22 +2445,6 @@ const starterJutsus: Jutsu[] = [
         tags: [{ name: "Move", percent: 0 }],
         battleDescription: "%user vanishes and reappears on a nearby open tile.",
     }),
-    normalizeJutsu({
-        id: "starter-universal-blitz",
-        name: "Blitz",
-        type: "Any",
-        element: "None",
-        ap: 60,
-        range: 5,
-        effectPower: 38,
-        cooldown: 7,
-        chakraCost: 250,
-        staminaCost: 250,
-        target: "EMPTY_GROUND",
-        method: "AOE_CIRCLE",
-        tags: [{ name: "Move", percent: 0 }, { name: "Damage", percent: 100 }, { name: "Increase Damage Given", percent: 30 }],
-        battleDescription: "%user surges forward with explosive speed, moving to the target tile and obliterating everything adjacent.",
-    }),
 ].map(rebalanceNonBloodlineJutsu);
 
 function makeStarterBloodlineDamageJutsu(id: string, name: string, type: JutsuType, element: string, secondaryTag: JutsuTag): Jutsu {
@@ -4204,7 +4188,10 @@ export function normalizeJutsu(jutsu: Partial<Jutsu> & Pick<Jutsu, "id" | "name"
         type: jutsu.type,
         element: (jutsu.element != null ? jutsu.element : "Fire") as JutsuElement,
         ap: jutsu.ap ?? 40,
-        range: jutsu.range ?? 3,
+        // Floor range to 1 — `??` doesn't catch 0/NaN/"" which any of the
+        // save/import/form paths can produce, and range:0 silently turns
+        // off the on-board range highlight (jutsuRangeTiles bails on <=0).
+        range: Math.max(1, Number(jutsu.range) || 3),
         effectPower: jutsu.effectPower ?? 50,
         cooldown: jutsu.cooldown ?? 1,
         currentCooldown: jutsu.currentCooldown ?? 0,
@@ -17119,7 +17106,7 @@ function AdminPanel({
                                 <select value={jutsuMethod} onChange={(e) => setJutsuMethod(e.target.value as JutsuMethod)}>{jutsuMethods.map((method) => <option key={method}>{method}</option>)}</select>
                             </div>
                             <label>AP / Range / Effect Power / Cooldown</label>
-                            <div className="inline-grid"><input type="number" value={jutsuAp} onChange={(e) => setJutsuAp(Number(e.target.value))} /><input type="number" value={jutsuRange} onChange={(e) => setJutsuRange(Number(e.target.value))} /><input type="number" value={jutsuEp} onChange={(e) => setJutsuEp(Number(e.target.value))} /><input type="number" value={jutsuCooldown} onChange={(e) => setJutsuCooldown(Number(e.target.value))} /></div>
+                            <div className="inline-grid"><input type="number" min={1} value={jutsuAp} onChange={(e) => setJutsuAp(Math.max(1, Number(e.target.value)))} /><input type="number" min={1} value={jutsuRange} onChange={(e) => setJutsuRange(Math.max(1, Number(e.target.value)))} /><input type="number" min={1} value={jutsuEp} onChange={(e) => setJutsuEp(Math.max(1, Number(e.target.value)))} /><input type="number" min={0} value={jutsuCooldown} onChange={(e) => setJutsuCooldown(Math.max(0, Number(e.target.value)))} /></div>
                             <label>Health / Chakra / Stamina Cost</label>
                             <div className="inline-grid"><input type="number" value={healthCost} onChange={(e) => setHealthCost(Number(e.target.value))} /><input type="number" value={chakraCost} onChange={(e) => setChakraCost(Number(e.target.value))} /><input type="number" value={staminaCost} onChange={(e) => setStaminaCost(Number(e.target.value))} /></div>
                             <label>Health / Chakra / Stamina Cost Reduction Per Level</label>
@@ -30765,7 +30752,9 @@ function Arena({
 
     function jutsuRangeTiles(jutsu: Jutsu | null | undefined) {
         if (!jutsu || jutsu.target === "SELF") return new Set<number>();
-        const range = isMoveJutsu(jutsu) ? moveJutsuRange(jutsu) : Math.max(0, Number(jutsu.range) || 0);
+        // Floor non-Move range to 1 — protects against malformed jutsu data
+        // (range:0 from a stale save) silently disabling the targeting overlay.
+        const range = isMoveJutsu(jutsu) ? moveJutsuRange(jutsu) : Math.max(1, Number(jutsu.range) || 1);
         if (range <= 0) return new Set<number>();
         return new Set(
             Array.from({ length: gridWidth * gridHeight }, (_, tile) => tile)
@@ -33367,9 +33356,10 @@ function Arena({
                                         ((pendingTargetJutsu != null && !isGroundEffectJutsu(pendingTargetJutsu) && !isMoveJutsu(pendingTargetJutsu)) || Boolean(pendingTargetWeapon)) &&
                                         i === enemyPos;
                                     // Ground-target jutsu: highlight valid open landing tiles in range.
+                                    // Floor to 1 — see normalizeJutsu comment.
                                     const isGroundTargetTile = pendingTargetJutsu != null &&
                                         isGroundEffectJutsu(pendingTargetJutsu) &&
-                                        distance(playerPos, i) <= Math.max(0, Number(pendingTargetJutsu.range) || 0) &&
+                                        distance(playerPos, i) <= Math.max(1, Number(pendingTargetJutsu.range) || 1) &&
                                         i !== playerPos &&
                                         i !== enemyPos &&
                                         !isBarrierTile;
@@ -34520,7 +34510,7 @@ function PvpBattleScreen({
     const allTiles = Array.from({ length: gridWidth * gridHeight }, (_, i) => i);
     const dashRangeTiles = new Set(dashMode ? allTiles.filter(t => t !== myPos && t !== oppPos && pvpDist(myPos, t) <= 3) : []);
     const moveAdjacentTiles = new Set(selectedActionId === "move" ? pvpHexNeighbors(myPos).filter(t => t !== oppPos) : []);
-    const jutsuRange = pendingJutsu ? Math.max(0, Number(pendingJutsu.range) || 0) : 0;
+    const jutsuRange = pendingJutsu ? Math.max(1, Number(pendingJutsu.range) || 1) : 0;
     const jutsuRangeTiles = new Set(pendingJutsu ? allTiles.filter(t => t !== myPos && pvpDist(myPos, t) <= jutsuRange) : []);
     const groundJutsuTiles = new Set(pvpIsGroundTargetJutsu(pendingJutsu) ? allTiles.filter(t => t !== myPos && t !== oppPos && pvpDist(myPos, t) <= jutsuRange) : []);
     const groundJutsuAffectedTiles = new Set(
