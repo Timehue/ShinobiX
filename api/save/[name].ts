@@ -315,6 +315,13 @@ function sanitizeCharacterSave(
         lifetimeWarDamage: 50_000,
         monthlyPvpKills: 10,
         dailyAiKills: 30,
+        // totalPetWins is incremented server-side by api/pet/battle-result
+        // (under a per-player lock + daily cap). Without this clamp a
+        // tampered client save could POST `totalPetWins: 9999` directly
+        // and spoof the Hall-of-Legends Pet Arena leaderboard.
+        totalPetWins: 20,
+        // totalEndlessTowerWins similarly drives a HoL leaderboard.
+        totalEndlessTowerWins: 5,
     };
     for (const [field, maxDelta] of Object.entries(LIFETIME_COUNTERS)) {
         const inV = Math.max(0, Number((char as Record<string, unknown>)[field] ?? 0));

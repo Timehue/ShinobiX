@@ -410,9 +410,31 @@ const _nodePath = require('node:path') as typeof import('node:path');
 
 // Encode a colon-separated key as a filesystem path. Each segment is
 // URL-encoded so weird characters can't escape the storage root.
+//
+// Defense-in-depth: encodeURIComponent does NOT encode `.`, so a key like
+// `save:..:..:..:etc:passwd` would `join` to `<root>/save/../../../etc/passwd.json`
+// and traverse out of the storage root. Two guards:
+//   1. Reject any segment that is exactly `.` or `..` (the only segments
+//      that have path-traversal meaning when joined).
+//   2. After join, assert the resolved path is still under `root` — covers
+//      any future filesystem oddity we didn't anticipate.
+// A compromised KV_PROXY_TOKEN combined with this bug would otherwise be
+// arbitrary disk read/write under the storage root's parent.
 function _keyToPath(root: string, key: string): string {
     const segs = key.split(':').map((s) => encodeURIComponent(s));
-    return _nodePath.join(root, ...segs) + '.json';
+    for (const seg of segs) {
+        if (seg === '.' || seg === '..') {
+            throw new Error(`_keyToPath: refusing path-traversal segment in key "${key}"`);
+        }
+    }
+    const joined = _nodePath.join(root, ...segs) + '.json';
+    const resolvedRoot = _nodePath.resolve(root);
+    const resolvedTarget = _nodePath.resolve(joined);
+    // Allow exact root or any descendant; reject anything that escapes.
+    if (resolvedTarget !== resolvedRoot && !resolvedTarget.startsWith(resolvedRoot + _nodePath.sep)) {
+        throw new Error(`_keyToPath: resolved path escapes root for key "${key}"`);
+    }
+    return joined;
 }
 function _pathToKey(root: string, fullPath: string): string {
     let rel = _nodePath.relative(root, fullPath);
