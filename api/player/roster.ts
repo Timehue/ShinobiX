@@ -6,6 +6,87 @@ const REGISTRY_KEY = 'player:registry';
 const PRESENCE_KEY_PREFIX = 'presence:';
 const PRESENCE_TTL_MS = 65_000; // kept for belt-and-suspenders staleness check
 
+// Fields stripped from EVERY character before the roster goes out the door.
+// Previously this endpoint returned `save.character` verbatim, leaking ryo,
+// inventory, equipment, jutsu loadouts, currencies, daily-claim ledgers,
+// and lifetime mission ledgers to any anonymous caller. The full character
+// blob is needed by api/save/[name].ts when the OWNER reads their own save;
+// the roster never returns own-save data, so we can safely strip everything
+// here.
+//
+// Blacklist (not whitelist) because the field set grows as new features land
+// and a forgotten whitelist entry would silently break opponent rendering.
+// Keep this list aligned with the "sensitive" half of save/[name].ts's
+// COMBAT_STRIP_CHAR_FIELDS — anything that hands an attacker scouting info
+// (jutsu, equipment, stats) OR an economic target (currencies, inventory)
+// belongs here.
+const ROSTER_STRIP_CHAR_FIELDS = new Set<string>([
+    // Currencies
+    'ryo', 'bankRyo', 'honorSeals', 'fateShards', 'boneCharms',
+    'auraStones', 'mythicSeals', 'auraDust',
+    // Loadout / scouting surface
+    'inventory', 'tileCards', 'savedTileDeck',
+    'jutsu', 'jutsuMastery', 'equippedJutsu', 'signatureJutsu',
+    'equipment', 'equippedSet',
+    'stats', 'trainedStats', 'statPoints',
+    'bloodlines', 'activeBloodline',
+    // Daily / weekly ledgers
+    'dailyAiKills', 'dailyPetWins', 'dailyTilesExplored', 'dailyMissionsCompleted',
+    'dailyFateSpins', 'lastDailyReset',
+    'dailyHonorSealsEarned', 'dailyHonorSealsByTarget', 'vanguardDailyResetDate',
+    'lastExpeditionClaimDate', 'expeditionsClaimedToday',
+    'dailyDonatedSeals', 'dailyDonationDate',
+    'claimedVillageAgendaDate', 'claimedMapControlDate',
+    // Mission / quest journals
+    'missions', 'missionLog', 'completedMissions', 'activeMissions',
+    'questLog', 'bankLog',
+    'totalMissionsCompleted', 'totalStatsTrained',
+    // Story-only persistence
+    'storyTraits', 'storyTitle', 'storyProgress',
+    'defeatedAiIds', 'elderFocus', 'examsPassed',
+    'triggeredEvents',
+    // Run-state for solo modes
+    'hollowGateRun', 'hollowGateWardenKills', 'hollowGateIntroSeen',
+    'endlessTowerRun', 'endlessTowerBestWave',
+    'weeklyBossKills', 'claimedWarCrateIds',
+    'unlockedAchievements', 'achievementUnlockedAt',
+    'villageWarMissionDate', 'villageWarRaidProgress', 'villageWarMissionsCompleted',
+    'clanBattleContrib', 'clanEventContrib', 'clanMissionContrib', 'clanContribMonth',
+    'petEscortBonusReady', 'hunterRank',
+    'lastBankInterestAt',
+    'creatorAis', 'creatorEvents', 'creatorMissions', 'creatorRaids', 'creatorCards',
+    'createdAt', 'professionChosenAt',
+]);
+
+// Pet entries also leak combat stats. Keep enough to render avatars and
+// run the "has pets > 0" gate used by sparring picker, but strip everything
+// that helps an attacker metagame a pet battle.
+const PET_PUBLIC_FIELDS = new Set<string>([
+    'id', 'name', 'image', 'rarity', 'level', 'element', 'trait', 'species',
+]);
+function projectPet(p: unknown): unknown {
+    if (!p || typeof p !== 'object') return p;
+    const src = p as Record<string, unknown>;
+    const out: Record<string, unknown> = {};
+    for (const k of PET_PUBLIC_FIELDS) if (k in src) out[k] = src[k];
+    return out;
+}
+
+function rosterProjection(character: unknown): unknown {
+    if (!character || typeof character !== 'object') return character;
+    const src = character as Record<string, unknown>;
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(src)) {
+        if (ROSTER_STRIP_CHAR_FIELDS.has(k)) continue;
+        if (k === 'pets' && Array.isArray(v)) {
+            out[k] = v.map(projectPet);
+            continue;
+        }
+        out[k] = v;
+    }
+    return out;
+}
+
 type RosterPlayer = {
     name: string;
     level: number;
@@ -34,6 +115,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'GET') return res.status(405).end();
+
+    // Intentionally unauthenticated — StartScreen renders the public
+    // leaderboard pre-login. The security boundary for this endpoint is
+    // `rosterProjection` below, NOT an auth gate. Anything sensitive
+    // (ryo, inventory, jutsu, stats, currencies, daily ledgers) MUST be
+    // listed in ROSTER_STRIP_CHAR_FIELDS — and pet entries get their own
+    // PET_PUBLIC_FIELDS whitelist before going out.
 
     try {
         // Read individual presence:<name> TTL keys written by heartbeat.ts.
@@ -68,7 +156,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const entry = typeof value === 'string' ? JSON.parse(value) : value;
                 const save = saves[i] ?? null;
                 const livePresence = livePresenceByName.get((entry.name ?? '').toLowerCase());
-                const character = livePresence?.character ?? save?.character;
+                const rawCharacter = livePresence?.character ?? save?.character;
+                const character = rosterProjection(rawCharacter);
                 players.push({
                     name: entry.name ?? '',
                     level: entry.level ?? 1,
@@ -91,12 +180,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const livePresence = livePresenceByName.get(name.toLowerCase());
             // Only include if they have live presence (character data available without a save read).
             if (!livePresence?.character) continue;
-            const character = livePresence.character as Record<string, unknown>;
+            const rawCharacter = livePresence.character as Record<string, unknown>;
+            const character = rosterProjection(rawCharacter) as Record<string, unknown>;
             players.push({
-                name: (character.name as string) ?? name,
-                level: (character.level as number) ?? 1,
-                village: (character.village as string) ?? '',
-                specialty: (character.specialty as string) ?? '',
+                name: (rawCharacter.name as string) ?? name,
+                level: (rawCharacter.level as number) ?? 1,
+                village: (rawCharacter.village as string) ?? '',
+                specialty: (rawCharacter.specialty as string) ?? '',
                 online: true,
                 character,
                 currentSector: normalizeSector(livePresence.sector, 40),

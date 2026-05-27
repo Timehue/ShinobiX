@@ -428,6 +428,90 @@ function sanitizeCharacterSave(
     return { ...incoming, character: char };
 }
 
+// ── Clan / village identity lockdown ──────────────────────────────────────
+// Three character fields gate critical permissions and were previously
+// trusted blindly from the client save POST:
+//   - `clanFounder` is read by api/clan/seal-pool/distribute.ts to authorise
+//     pool drains. A client POST with { clanFounder: true, clan: "TARGET" }
+//     used to be enough to take over any clan's distribution.
+//   - `clan` decides which clan you contribute to, vote in, and donate to.
+//   - `village` decides which sealed pools, kage finales, and same-village
+//     gates apply to you.
+//
+// We can't lock these outright — there are legitimate transitions (joining /
+// founding / leaving a clan) — so this helper cross-checks any change
+// against the canonical `save:clan-<slug>` record and the originating
+// village. Async because it reads other KV keys; called AFTER the sync
+// sanitizer so all other fields are already clamped.
+function clanRecordSlug(name: string): string {
+    return 'clan-' + name.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+type MinimalClanRec = { name?: string; founderName?: string; members?: Array<{ name?: string }> };
+
+async function validateClanAndVillageIdentity(
+    safeIncoming: Record<string, unknown>,
+    existing: Record<string, unknown> | null,
+    playerName: string,
+): Promise<Record<string, unknown>> {
+    const inChar = safeIncoming.character as Record<string, unknown> | undefined;
+    if (!inChar) return safeIncoming;
+    const exChar = (existing?.character as Record<string, unknown> | undefined) ?? {};
+    const out: Record<string, unknown> = { ...inChar };
+
+    // Village: locked. Set at registration; no relocation flow exists today.
+    // If the client tries to change village post-registration, revert to the
+    // server-side value. (If a relocate endpoint is ever added, it should
+    // mutate the save server-side and this check will still pass because
+    // exChar.village will already reflect the new value.)
+    if (exChar.village && out.village !== exChar.village) {
+        out.village = exChar.village;
+    }
+
+    // Clan / clanFounder cross-validation.
+    const exClan = String(exChar.clan ?? '').trim();
+    const inClan = String(out.clan ?? '').trim();
+    const exFounder = !!exChar.clanFounder;
+    const inFounder = !!out.clanFounder;
+
+    if (inClan === exClan) {
+        // Clan unchanged — but founder flag may still be flipping. A client
+        // can't unilaterally promote itself to founder of its existing clan.
+        if (inFounder !== exFounder) {
+            if (inFounder && inClan) {
+                const rec = await kv.get<MinimalClanRec>(`save:${clanRecordSlug(inClan)}`);
+                const isFounder = (rec?.founderName ?? '').toLowerCase() === playerName.toLowerCase();
+                if (!isFounder) out.clanFounder = exFounder;
+            } else {
+                // Demoting self (inFounder=false): always allowed.
+            }
+        }
+    } else if (!inClan) {
+        // Leaving — always allowed; force founder false.
+        out.clan = undefined;
+        out.clanFounder = false;
+    } else {
+        // Joining or switching — require the target clan record to exist
+        // AND list this player among its members. The clan flow writes
+        // membership server-side BEFORE the character flip, so a legit
+        // join will pass; a forged save POST will not.
+        const rec = await kv.get<MinimalClanRec>(`save:${clanRecordSlug(inClan)}`);
+        const lower = playerName.toLowerCase();
+        const isMember = !!rec?.members?.some(m => (m?.name ?? '').toLowerCase() === lower);
+        if (!isMember) {
+            // Reject the clan change entirely.
+            out.clan = exClan || undefined;
+            out.clanFounder = exFounder;
+        } else {
+            // Membership confirmed. Founder flag is authoritative from the
+            // clan record, not the client.
+            out.clanFounder = (rec?.founderName ?? '').toLowerCase() === lower;
+        }
+    }
+
+    return { ...safeIncoming, character: out };
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -622,6 +706,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             incoming as Record<string, unknown>,
                             (existing as Record<string, unknown> | null) ?? null,
                         );
+                        // Cross-validate clan / clanFounder / village against
+                        // canonical clan records. This is the gate that stops
+                        // a forged save POST from promoting itself to
+                        // clanFounder of any clan (and then draining its
+                        // seal pool via clan/seal-pool/distribute).
+                        if (identityName) {
+                            safeIncoming = await validateClanAndVillageIdentity(
+                                safeIncoming as Record<string, unknown>,
+                                (existing as Record<string, unknown> | null) ?? null,
+                                identityName,
+                            );
+                        }
                     }
 
                     // ── Rolling-window gain caps (finding 6) ──────────────────
