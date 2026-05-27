@@ -8640,6 +8640,30 @@ export default function App() {
     const [allServerPlayers, setAllServerPlayers] = useState<ServerPlayerSummary[]>([]);
     const [hospitalEntryTime, setHospitalEntryTime] = useState<number | null>(null);
     const [duelChallenges, setDuelChallenges] = useState<DuelChallenge[]>([]);
+
+    // Realtime push for incoming duel challenges. Listens on the
+    // KV key `challenges:<myName>` and merges new entries the
+    // moment Postgres commits the write — instead of waiting up
+    // to the heartbeat interval (3-15s depending on screen). The
+    // heartbeat continues to handle presence + roster + pendingAttacker
+    // since those need separate logic; this is a parallel low-latency
+    // channel just for incoming challenges.
+    useEffect(() => {
+        if (!character?.name || !realtimeAvailable()) return;
+        const myKey = `challenges:${character.name.toLowerCase().trim()}`;
+        const unsubscribe = subscribeKvKey<DuelChallenge[]>(myKey, (next) => {
+            if (!Array.isArray(next)) return;
+            const myNameLower = character.name.toLowerCase();
+            const incoming = next
+                .filter((c) => (c?.toName ?? "").toLowerCase() === myNameLower)
+                .map((c) => ({ ...c, challenger: normalizeCharacter(c.challenger) }));
+            setDuelChallenges((current) => {
+                const merged = current.filter((existing) => !incoming.some((c) => c.id === existing.id));
+                return [...merged, ...incoming];
+            });
+        });
+        return () => { if (unsubscribe) unsubscribe(); };
+    }, [character?.name]);
     const [processingChallengeIds, setProcessingChallengeIds] = useState<string[]>([]);
     const [pendingPetBattleOpponent, setPendingPetBattleOpponent] = useState<PetArenaOpponent | null>(null);
 
@@ -16024,7 +16048,19 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
     // breathing-room row, row 6 = bottom).
     let player: PetBattleFighter = { owner: "You",        pet: playerPet,   hp: playerPet.hp,   pos: 43, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: 0, moveLocked: 0, absorbRounds: 0, absorbPercent: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0 };
     let enemy:  PetBattleFighter = { owner: opponentOwner, pet: opponentPet, hp: opponentPet.hp, pos: 54, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: 0, moveLocked: 0, absorbRounds: 0, absorbPercent: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0 };
-    const logs: string[] = [`${player.pet.name} enters against ${enemy.owner}'s ${enemy.pet.name}.`];
+    // One-time coin flip for first-move advantage, consistent with
+    // PvP and tile-card duels. Previously this was decided every round
+    // by raw speed comparison, which guaranteed the faster pet always
+    // struck first (and made Speed a dual-purpose stat: initiative
+    // + Swift bonus). Now: 50/50 random opener; speed only drives
+    // Swift bonus actions (≥1.2× / 1.5× / 2.0× thresholds below).
+    // Uses the seeded RNG so the result is deterministic per battle
+    // seed — both clients in a synced battle see the same coin flip.
+    const playerFirstSeeded = rng() < 0.5;
+    const logs: string[] = [
+        `${player.pet.name} enters against ${enemy.owner}'s ${enemy.pet.name}.`,
+        `🪙 ${playerFirstSeeded ? player.pet.name : enemy.pet.name} wins the coin flip and strikes first.`,
+    ];
     const frames: PetArenaFrame[] = [];
     let playerCombo = 0;
     let enemyCombo = 0;
@@ -16476,7 +16512,11 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
             if (enemy.hp <= 0) break;
         }
 
-        const playerFirst = player.pet.speed > enemy.pet.speed || (player.pet.speed === enemy.pet.speed && petBattleTieKey(player.pet) <= petBattleTieKey(enemy.pet));
+        // Initiative is set ONCE at battle start via playerFirstSeeded
+        // (coin flip), and holds for every round of this duel. Speed
+        // still matters — see swiftFires() below — but no longer
+        // determines first-strike.
+        const playerFirst = playerFirstSeeded;
         // Swift bonus action scales with the actual speed gap instead of a
         // binary trigger at 1.2×:
         //   • ≥ 2.0× speed → bonus action every round (raw blitz)
@@ -17162,13 +17202,17 @@ function runPetArenaParty(
         }
         if (playerLiving() === 0 || enemyLiving() === 0) break;
 
-        // Initiative — all living pets act in speed-desc order, with
-        // tie-breaker by petBattleTieKey for determinism.
-        const order = liveSlots().sort((a, b) => {
-            const fa = fighters[a]!, fb = fighters[b]!;
-            if (fa.pet.speed !== fb.pet.speed) return fb.pet.speed - fa.pet.speed;
-            return petBattleTieKey(fa.pet) < petBattleTieKey(fb.pet) ? -1 : 1;
-        });
+        // Initiative — all living pets act in a randomized order this
+        // round. Previously sorted speed-desc, which guaranteed the
+        // faster pets always struck first. Fair-shuffle via seeded RNG
+        // (Fisher-Yates) so both clients in a synced battle compute
+        // the same order. Speed still gates Swift bonus actions
+        // elsewhere; it just no longer rigs initiative.
+        const order = liveSlots();
+        for (let i = order.length - 1; i > 0; i -= 1) {
+            const j = Math.floor(rng() * (i + 1));
+            [order[i], order[j]] = [order[j]!, order[i]!];
+        }
         // Track the last opposing slot each side attacked this round.
         // Passed to subsequent same-side actors as partnerFocusSlot so
         // partners converge their focus-fire on the same target.
@@ -37658,22 +37702,18 @@ function PvpBattleScreen({
         return () => window.clearTimeout(timeout);
     }, [session?.p1.pos, session?.p2.pos]);
 
-    // Prefight countdown — triggers once when session first loads (skip for spectators).
-    // The session is already live on the server; this is purely a UI delay before
-    // the player can act. Attacker (whoever initiated) starts immediately; defender
-    // gets a brief 2-second 'coin flip + go' window.
+    // Prefight countdown — fires once when the session first loads
+    // (skipped for spectators, who join mid-fight). 10-second window
+    // shows the "VS" splash + coin-flip result so BOTH players have
+    // time to load in, register the opponent, and read who goes
+    // first. The session is already live on the server during this
+    // window; we just gate the player's first action behind it.
     useEffect(() => {
         if (!session || pvpSessionFirstLoadRef.current) return;
         pvpSessionFirstLoadRef.current = true;
-        if (amSpectator) return; // spectators join mid-fight, no countdown
+        if (amSpectator) return;
         setPvpPrefightFirstActor(session.activePlayer);
-        const iAmFirstActor = session.activePlayer === role;
-        if (iAmFirstActor) {
-            // Attacker initiated — skip the countdown entirely.
-            setPvpPrefightCountdown(null);
-            return;
-        }
-        let count = 2;
+        let count = 10;
         setPvpPrefightCountdown(count);
         const iv = setInterval(() => {
             count -= 1;
@@ -37681,7 +37721,7 @@ function PvpBattleScreen({
             if (count <= 0) clearInterval(iv);
         }, 1000);
         return () => clearInterval(iv);
-    }, [!!session]);  
+    }, [!!session]);
 
     // Apply completion rewards/penalties once per client when the shared fight ends.
     // Refresh-resilience: the in-memory pvpRewardRef resets on every mount,
