@@ -60,17 +60,26 @@ export function UserHub({
                 title: s.character?.customTitle ?? prior?.title,
             });
         }
-        return [...byName.values()].filter(p => p.name.toLowerCase() !== currentName.toLowerCase());
+        return [...byName.values()]
+            .filter(p => p.name.toLowerCase() !== currentName.toLowerCase())
+            // Hide admin accounts — they aren't player-facing characters.
+            .filter(p => (p.rank ?? "").toLowerCase() !== "admin")
+            // Hide entries whose name is a clan slug (e.g. "Clan-Meow") —
+            // these get registered as accounts but shouldn't appear in
+            // the player directory.
+            .filter(p => !/^clan[-\s]/i.test(p.name.trim()));
     })();
 
-    // Online first, then by most-recently-seen.
-    merged.sort((a, b) => {
-        if (a.online !== b.online) return a.online ? -1 : 1;
-        return (b.lastSeenAt ?? 0) - (a.lastSeenAt ?? 0);
-    });
+    // Sort offline group by most-recently-seen; online ones grouped first via render below.
+    merged.sort((a, b) => (b.lastSeenAt ?? 0) - (a.lastSeenAt ?? 0));
 
     const q = search.trim().toLowerCase();
     const filtered = q ? merged.filter(p => p.name.toLowerCase().includes(q)) : merged;
+
+    // Split into online + offline so we can render section headers.
+    // Cleaner than a flat list — players know at a glance who's actually around.
+    const online = filtered.filter(p => p.online);
+    const offline = filtered.filter(p => !p.online);
 
     function timeAgo(ts: number) {
         if (!ts) return "unknown";
@@ -105,40 +114,71 @@ export function UserHub({
             {filtered.length === 0 ? (
                 <p className="hint">No users found.</p>
             ) : (
-                <div className="user-hub-list">
-                    {filtered.map(p => {
-                        const sharedAvatar = sharedImages['avatar:' + p.name.toLowerCase()];
-                        const avatar = sharedAvatar || p.avatar || "";
-                        return (
-                            <button
-                                key={p.name}
-                                type="button"
-                                className={`user-hub-row${p.online ? " online" : ""}`}
-                                onClick={() => onSelect(p.name)}
-                            >
-                                <div className="user-hub-avatar">
-                                    {avatar
-                                        ? <img src={avatar} alt={p.name} />
-                                        : <span>{p.name.slice(0, 2).toUpperCase()}</span>}
-                                </div>
-                                <div className="user-hub-meta">
-                                    <div className="user-hub-name">
-                                        <strong>{p.name}</strong>
-                                        {p.title && <span className="user-hub-title">{p.title}</span>}
-                                    </div>
-                                    <div className="user-hub-sub">
-                                        Lv {p.level} · {p.rank || "Shinobi"} · {p.village || "Unknown Village"}
-                                    </div>
-                                </div>
-                                <div className="user-hub-status">
-                                    <span className={`user-hub-dot ${p.online ? "online" : "offline"}`} />
-                                    <small>{p.online ? "Online" : timeAgo(p.lastSeenAt)}</small>
-                                </div>
-                            </button>
-                        );
-                    })}
-                </div>
+                <>
+                    {online.length > 0 && (
+                        <>
+                            <div className="user-hub-section-header user-hub-section-online">
+                                <span className="user-hub-section-label">Online Now</span>
+                                <span className="user-hub-section-count">{online.length}</span>
+                            </div>
+                            <div className="user-hub-list">
+                                {online.map(p => renderRow(p, sharedImages, timeAgo, onSelect))}
+                            </div>
+                        </>
+                    )}
+
+                    {offline.length > 0 && (
+                        <>
+                            <div className="user-hub-section-header user-hub-section-offline">
+                                <span className="user-hub-section-label">Offline</span>
+                                <span className="user-hub-section-count">{offline.length}</span>
+                            </div>
+                            <div className="user-hub-list">
+                                {offline.map(p => renderRow(p, sharedImages, timeAgo, onSelect))}
+                            </div>
+                        </>
+                    )}
+                </>
             )}
         </div>
+    );
+}
+
+// Row renderer extracted so the online/offline sections share the same
+// markup without duplication.
+function renderRow(
+    p: { name: string; level: number; village: string; online: boolean; lastSeenAt: number; avatar?: string; rank?: string; title?: string },
+    sharedImages: Record<string, string>,
+    timeAgo: (ts: number) => string,
+    onSelect: (name: string) => void,
+) {
+    const sharedAvatar = sharedImages['avatar:' + p.name.toLowerCase()];
+    const avatar = sharedAvatar || p.avatar || "";
+    return (
+        <button
+            key={p.name}
+            type="button"
+            className={`user-hub-row${p.online ? " online" : ""}`}
+            onClick={() => onSelect(p.name)}
+        >
+            <div className="user-hub-avatar">
+                {avatar
+                    ? <img src={avatar} alt={p.name} />
+                    : <span>{p.name.slice(0, 2).toUpperCase()}</span>}
+            </div>
+            <div className="user-hub-meta">
+                <div className="user-hub-name">
+                    <strong>{p.name}</strong>
+                    {p.title && <span className="user-hub-title">{p.title}</span>}
+                </div>
+                <div className="user-hub-sub">
+                    Lv {p.level} · {p.rank || "Shinobi"} · {p.village || "Unknown Village"}
+                </div>
+            </div>
+            <div className="user-hub-status">
+                <span className={`user-hub-dot ${p.online ? "online" : "offline"}`} />
+                <small>{p.online ? "Online" : timeAgo(p.lastSeenAt)}</small>
+            </div>
+        </button>
     );
 }
