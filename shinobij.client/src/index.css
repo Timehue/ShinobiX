@@ -17880,13 +17880,50 @@ html[data-vp="xl"] .arena-fullscreen .hex-battlefield {
     padding: 6px 4px !important;
 }
 
-/* ── Biome background colors — fill dead space on sides ── */
-.arena-bg-snow      { background-color: #1e3a5f !important; }
-.arena-bg-volcano   { background-color: #4a0e0e !important; }
-.arena-bg-forest    { background-color: #0f3d1e !important; }
-.arena-bg-shadow    { background-color: #2d1654 !important; }
-.arena-bg-central   { background-color: #1e293b !important; }
-.arena-bg-deathsgate { background-color: #0a1f0f !important; }
+/* ── Biome backgrounds — full image on .arena-fullscreen so the 14px
+   padding zone between border and hex-battlefield shows the biome
+   scene instead of a flat dark gradient. The hex-battlefield still
+   has its own image + glow on top as the focal arena floor; this
+   layer is the "barrier ring" around it. Tint is softer than the
+   base .arena-fullscreen gradient (.55 vs .97) so the image is
+   visible while keeping content above readable. Fallback color
+   preserved in case the image fails to load. ── */
+.arena-fullscreen.arena-bg-snow {
+    background:
+        linear-gradient(135deg, rgba(2,6,23,.55), rgba(15,23,42,.5)),
+        url('/arena-snow.png') center center / cover no-repeat !important;
+    background-color: #1e3a5f !important;
+}
+.arena-fullscreen.arena-bg-volcano {
+    background:
+        linear-gradient(135deg, rgba(2,6,23,.55), rgba(15,23,42,.5)),
+        url('/arena-volcano.png') center center / cover no-repeat !important;
+    background-color: #4a0e0e !important;
+}
+.arena-fullscreen.arena-bg-forest {
+    background:
+        linear-gradient(135deg, rgba(2,6,23,.55), rgba(15,23,42,.5)),
+        url('/arena-forest.png') center center / cover no-repeat !important;
+    background-color: #0f3d1e !important;
+}
+.arena-fullscreen.arena-bg-shadow {
+    background:
+        linear-gradient(135deg, rgba(2,6,23,.55), rgba(15,23,42,.5)),
+        url('/arena-shadow.png') center center / cover no-repeat !important;
+    background-color: #2d1654 !important;
+}
+.arena-fullscreen.arena-bg-central {
+    background:
+        linear-gradient(135deg, rgba(2,6,23,.55), rgba(15,23,42,.5)),
+        url('/arena-central.png') center center / cover no-repeat !important;
+    background-color: #1e293b !important;
+}
+.arena-fullscreen.arena-bg-deathsgate {
+    background:
+        linear-gradient(135deg, rgba(2,6,23,.55), rgba(15,23,42,.5)),
+        url('/deathsgate-arena.png') center center / cover no-repeat !important;
+    background-color: #0a1f0f !important;
+}
 
 /* ── Battle spectator & chat side panels ── */
 .battle-side-left,
