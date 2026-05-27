@@ -328,16 +328,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ? clientBattleId
                 : `pvp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
+            // True 50/50 coin flip — going first is a meaningful turn-based
+            // advantage and previously the attacker (always p1) won by default.
+            // Now both sides have an equal shot at the opening move; the
+            // prefight overlay's "X goes first!" reveal matches the server roll.
+            const firstActor: 'p1' | 'p2' = Math.random() < 0.5 ? 'p1' : 'p2';
+            const firstActorName = firstActor === 'p1' ? p1Name : p2Name;
             const session: PvpSession = {
                 battleId,
                 p1: makeFighter(finalP1Character, P1_START),
                 p2: makeFighter(finalP2Character, P2_START),
                 round: 1,
-                activePlayer: 'p1',
+                activePlayer: firstActor,
                 ap: { p1: 100, p2: 100 },
                 actionsThisTurn: 0,
                 cooldowns: { p1: {}, p2: {} },
-                log: [`⚔️ ${p1Name} vs ${p2Name} — Battle begins! ${p1Name} goes first.`],
+                log: [`⚔️ ${p1Name} vs ${p2Name} — Battle begins! 🪙 ${firstActorName} wins the coin flip and goes first.`],
                 status: 'active',
                 winner: null,
                 createdAt: Date.now(),
