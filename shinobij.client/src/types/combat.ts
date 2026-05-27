@@ -58,7 +58,7 @@ export type EquipmentSlot =
     | "aura" | "hand" | "body" | "waist" | "legs" | "feet" | "head"
     | "item" | "thrown" | "weapon" | "armor" | "accessory";
 
-export type ArmorQuality = "Standard" | "Reinforced" | "Rare" | "Elite" | "Legendary";
+export type ArmorQuality = "Standard" | "Reinforced" | "Rare" | "Elite" | "Legendary" | "Mythic";
 
 export type GameItem = {
     id: string;
