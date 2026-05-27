@@ -43,14 +43,17 @@ export function StartScreen({ onCreate, onLogin, onAdmin }: {
     const [showLoginPw, setShowLoginPw] = useState(false);
     const [loginStatus, setLoginStatus] = useState("");
 
-    // Detect admin names typed in the player login field. "Admin 1", "admin1",
-    // "ADMIN 1", "Admin 2", "admin2" — anything that normalizes to admin1/admin2
-    // routes through the admin auth flow instead of the player auth flow. This
-    // matches the muscle memory of typing "Admin 1" + password to log in as
-    // admin, without exposing a dedicated Admin button on the start screen.
-    function normalizeAdminName(raw: string): "admin1" | "admin2" | null {
+    // Only "Admin 2" / "admin2" auto-routes to the admin login from the
+    // player form. Admin 1 is intentionally NOT detected here — Admin 1
+    // access flows through:
+    //   1. Log in as player Rill (normal player auth, Rill's password)
+    //   2. Click the in-game "Admin" button (visible to protected admin names)
+    //   3. Enter the admin password on the admin login screen
+    // This keeps Admin 1 powers gated behind both Rill's player password AND
+    // the admin password, instead of giving anyone with the admin password a
+    // direct route on the public start screen.
+    function normalizeAdminName(raw: string): "admin2" | null {
         const n = raw.trim().toLowerCase().replace(/\s+/g, "");
-        if (n === "admin1") return "admin1";
         if (n === "admin2") return "admin2";
         return null;
     }
