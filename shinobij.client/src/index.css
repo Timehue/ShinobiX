@@ -16469,6 +16469,26 @@ button.combat-jutsu-button,
     margin: 0 !important;
   }
 
+  /* ───── Reorder: move AP/turn-timer panel under the hex board ───────────
+     User request — top-of-screen real estate is more valuable for the hex
+     board (the targeting surface) than the AP bars. The .dual-ap-panel
+     normally sits between the terrain strip and the hex; on phones we
+     flex-reorder it to sit just below the hex instead. Keeps the rest of
+     the column in source order via a baseline order: 5. */
+  .arena-fullscreen .combat-main-area {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  .arena-fullscreen .combat-main-area > * {
+    order: 5;
+  }
+  .arena-fullscreen .combat-main-area > .arena-top-panel { order: 1; }
+  .arena-fullscreen .combat-main-area > .twp-strip       { order: 2; }
+  .arena-fullscreen .combat-main-area > .hex-battlefield { order: 3; }
+  .arena-fullscreen .combat-main-area > .dual-ap-panel   { order: 4; }
+  /* Command bar / jutsu / log etc. keep order: 5 (baseline) so they fall
+     into place after the AP panel in their natural source order. */
+
   /* ───── Compactification: reclaim vertical space for the action zone ─────
      Before this block, mobile battle stacked: HUDs + arena title + terrain
      strip + AP panel + hex (~340px) + command bar + jutsu cards + 220px
