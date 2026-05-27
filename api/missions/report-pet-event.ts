@@ -3,8 +3,8 @@ import { kv } from '../_storage.js';
 import { safeName, mergePreservingImages, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
-import { reportMissionEvent, awardProfessionXp, type CompletedMissionInfo } from './_progress.js';
 import { withKvLock } from '../_lock.js';
+import { reportMissionEvent, awardProfessionXp, type CompletedMissionInfo } from './_progress.js';
 
 // Server-side Tamer XP for completed expeditions. Matches the client-side
 // formula (5 XP/min base, +50% for >=1h, +100% for >=4h, x2 daily First
@@ -105,6 +105,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // For expedition events, server computes Tamer XP AND the Ryo + drop
         // currencies (previously client-trusted). Pet stat/XP gains stay
         // client-side since they're per-pet state not global currency.
+        //
+        // Wrap the whole daily-counter check + currency credit in
+        // withKvLock(save:<player>) so a concurrent /api/save auto-save can't
+        // clobber the credit (previously an unlocked RMW — concurrent saves
+        // could lose ryo / bone / aura / fate, or double-consume the escort
+        // bonus). awardProfessionXp + reportMissionEvent run OUTSIDE the
+        // lock because they take their own save lock.
         let expeditionXp = 0;
         let ryoEarned = 0;
         let foundBone = 0;

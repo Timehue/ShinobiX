@@ -689,9 +689,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // round timer + 5 actions/round; 120/min is roughly 4× that, leaving
     // headroom for retries and the AFK-fallback POSTs while blocking
     // scripted spam (which would also tank the move-lock NX path).
-    // Keyed by IP here because we haven't auth'd yet — full per-player
-    // limit kicks in further down via the authedPlayerOrAdmin check.
-    if (!(await enforceRateLimitKv(req, res, 'pvp-move', 120, 60_000))) return;
+    //
+    // Peek the body for a player name BEFORE the limiter so the budget is
+    // keyed per-name when available — IP-only keys mean a NAT'd / mobile-
+    // tower IP shares the 120/min budget across every real user behind it.
+    // The actual auth check happens further down; this peek only feeds the
+    // limiter key, it's not a trust signal.
+    const moveBodyPeek = typeof req.body === 'string' ? (() => { try { return JSON.parse(req.body); } catch { return {}; } })() : (req.body ?? {});
+    const movePeekName: string | undefined = typeof moveBodyPeek?.playerName === 'string' ? moveBodyPeek.playerName : undefined;
+    if (!(await enforceRateLimitKv(req, res, 'pvp-move', 120, 60_000, movePeekName))) return;
 
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
