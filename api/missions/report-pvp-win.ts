@@ -83,9 +83,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // Anti-abuse checks (mission rewards only; Honor Seals are gated
         // client-side until server-side rewards land).
-        const fightStarted = Number(session.createdAt ?? 0);
-        const fightDuration = fightStarted ? Date.now() - fightStarted : 0;
-        if (fightDuration < MIN_FIGHT_DURATION_MS) {
+        //
+        // Quick-surrender check: require that the LAST committed move was
+        // at least MIN_FIGHT_DURATION_MS after session creation. The naive
+        // "Date.now() - createdAt" check could be passed by waiting 15s in
+        // the lobby then firing a win-report after a single move — the
+        // actual fighting had ~0 duration. session.lastMoveAt is server-
+        // stamped on every successful api/pvp/move call, so spoofing it
+        // requires real moves landing 15s apart (which IS legitimate play).
+        const sessionCreatedAt = Number(session.createdAt ?? 0);
+        const sessionLastMove = Number(session.lastMoveAt ?? 0);
+        const inSessionDuration = sessionLastMove > sessionCreatedAt
+            ? sessionLastMove - sessionCreatedAt
+            : (sessionCreatedAt ? Date.now() - sessionCreatedAt : 0);
+        if (inSessionDuration < MIN_FIGHT_DURATION_MS) {
             return res.status(200).json({ ok: true, vanguard: true, reason: 'quick-surrender', xpAwarded: 0, missionsCompleted: [] });
         }
 

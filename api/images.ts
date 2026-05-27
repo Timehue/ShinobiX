@@ -9,8 +9,14 @@ import { authedPlayerOrAdmin } from './_auth.js';
 const MAX_IMAGE_BYTES = 3_000_000;
 function isValidImageString(s: string): boolean {
     if (s.length > MAX_IMAGE_BYTES) return false;
-    // Accept data URLs for png/jpeg/webp/gif/svg, or http(s) URLs.
-    if (/^data:image\/(png|jpe?g|webp|gif|svg\+xml);base64,/i.test(s)) return true;
+    // Accept ONLY raster-image data URLs (png/jpeg/webp/gif) or http(s) URLs.
+    // SVG is intentionally rejected: SVG can carry <script> tags. The current
+    // client only ever renders avatar/pet/jutsu images via <img src>, which
+    // browsers treat as opaque raster — so SVG is technically safe today, but
+    // it's a XSS time-bomb the moment any future code uses an image URL in
+    // dangerouslySetInnerHTML / <object> / <iframe>. Better to lock it down
+    // now than to discover it later.
+    if (/^data:image\/(png|jpe?g|webp|gif);base64,/i.test(s)) return true;
     if (/^https?:\/\//i.test(s)) return true;
     return false;
 }
