@@ -281,8 +281,9 @@ import {
     equipmentSlotLabel,
     armorQualityTiers,
     armorReductionForQuality,
+    consolidateItemBonuses,
 } from "./lib/equipment";
-export { normalizeEquipmentSlot, equipmentSlotLabel, armorReductionForQuality };
+export { normalizeEquipmentSlot, equipmentSlotLabel, armorReductionForQuality, consolidateItemBonuses };
 
 // Generic utility helpers (clamp, time format, date keys) extracted to ./lib/utils.
 import {
@@ -22452,13 +22453,12 @@ function ShopBase({
     }
 
     function itemBonusLines(item: GameItem) {
-        const armorExclude = new Set(["maxChakra", "maxStamina"]);
-        return Object.entries(item.bonuses)
-            .filter(([stat, value]) => typeof value === "number" && value !== 0 && !(item.armorQuality && armorExclude.has(stat)))
-            .map(([stat, value]) => ({
-                stat: statLabel(stat),
-                value: value as number
-            }));
+        // Armor blocks maxChakra/maxStamina visually so the popup doesn't
+        // double-report them alongside the armor reduction effect.
+        const armorExclude = item.armorQuality
+            ? new Set(["maxChakra", "maxStamina"])
+            : undefined;
+        return consolidateItemBonuses(item.bonuses, { excludeStats: armorExclude });
     }
 
     return (
