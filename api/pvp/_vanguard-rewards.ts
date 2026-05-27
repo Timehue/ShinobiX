@@ -1,4 +1,5 @@
 import { kv } from '../_storage.js';
+import { withKvLock } from '../_lock.js';
 import { hasRecentIpOverlap } from '../_player-ips.js';
 import { listActiveEscorters } from '../clan/pet-escort/_storage.js';
 import type { PvpSession } from './session.js';
@@ -80,105 +81,116 @@ export async function grantVanguardRewardsForSession(session: PvpSession): Promi
         return { granted: false, reason: 'too-quick' };
     }
 
-    // Load winner save.
-    const winnerKey = `save:${winnerName}`;
-    const winnerRecord = await kv.get<Record<string, unknown>>(winnerKey);
-    const winnerChar = winnerRecord?.character as Record<string, unknown> | undefined;
-    if (!winnerChar) return { granted: false };
-    if (winnerChar.profession !== 'vanguard') return { granted: false, reason: 'not-vanguard' };
+    // Per-player save lock around the read-modify-write below. Without
+    // this, a Vanguard winning two fights back-to-back within ms can
+    // race their own save: both grants read the same `dailySoFar` value
+    // and the second write clobbers the first, leaving the player with
+    // only one fight's worth of Honor Seals + XP credited even though
+    // they earned both. The lock serializes the two grants so they
+    // each see the updated daily counter from the prior commit.
+    return withKvLock(`save:${winnerName}`, async () => {
+        // Load winner save (inside the lock so we observe the latest
+        // committed value).
+        const winnerKey = `save:${winnerName}`;
+        const winnerRecord = await kv.get<Record<string, unknown>>(winnerKey);
+        const winnerChar = winnerRecord?.character as Record<string, unknown> | undefined;
+        if (!winnerChar) return { granted: false };
+        if (winnerChar.profession !== 'vanguard') return { granted: false, reason: 'not-vanguard' };
 
-    // Load loser save for anti-alt checks.
-    const loserRecord = await kv.get<Record<string, unknown>>(`save:${loserName}`);
-    const loserChar = loserRecord?.character as Record<string, unknown> | undefined;
-    if (!loserChar) return { granted: false };
+        // Load loser save for anti-alt checks. Loser save is read-only
+        // here, so it doesn't need a lock.
+        const loserRecord = await kv.get<Record<string, unknown>>(`save:${loserName}`);
+        const loserChar = loserRecord?.character as Record<string, unknown> | undefined;
+        if (!loserChar) return { granted: false };
 
-    // Anti-alt: account age and IP overlap.
-    const loserCreated = Number(loserChar.createdAt ?? 0);
-    if (loserCreated > 0 && (Date.now() - loserCreated) < ACCOUNT_AGE_MIN_MS) {
-        return { granted: false, reason: 'too-young' };
-    }
-    const sharesIp = await hasRecentIpOverlap(winnerName, loserName);
-    if (sharesIp) return { granted: false, reason: 'same-ip' };
-
-    // Level-gap rule.
-    const rank = Math.max(1, Math.min(MAX_RANK, Number(winnerChar.professionRank ?? 1)));
-    const baseSeals = VANGUARD_SEALS_PER_KILL[rank];
-    const gapMult = levelGapMult(Number(winnerChar.level ?? 1), Number(loserChar.level ?? 1));
-    let seals = Math.floor(baseSeals * gapMult);
-    if (seals <= 0) return { granted: false, reason: 'level-gap' };
-
-    // Daily + per-target caps.
-    const today = todayKey();
-    const dailyActive = winnerChar.vanguardDailyResetDate === today;
-    const dailySoFar = dailyActive ? Number(winnerChar.dailyHonorSealsEarned ?? 0) : 0;
-    const byTarget: Record<string, number> = dailyActive
-        ? ((winnerChar.dailyHonorSealsByTarget as Record<string, number>) ?? {})
-        : {};
-    const loserKey = loserName.toLowerCase();
-    const targetSoFar = byTarget[loserKey] ?? 0;
-    seals = Math.min(seals, Math.max(0, DAILY_SEAL_CAP - dailySoFar));
-    seals = Math.min(seals, Math.max(0, PER_TARGET_DAILY_CAP - targetSoFar));
-    if (seals <= 0) return { granted: false, reason: 'capped' };
-
-    // Pet escort: if the Vanguard has an active pet and their clan has any
-    // Pet Tamer with an active escort offer, +5% Seals to Vanguard AND set
-    // a next-expedition bonus flag on each offering Pet Tamer.
-    const winnerClan = typeof winnerChar.clan === 'string' ? winnerChar.clan : '';
-    const hasActivePet = typeof winnerChar.activePetId === 'string' && winnerChar.activePetId.length > 0;
-    let escorters: string[] = [];
-    if (winnerClan && hasActivePet) {
-        try {
-            escorters = await listActiveEscorters(winnerClan);
-        } catch { /* best-effort */ }
-        if (escorters.length > 0) {
-            seals = Math.floor(seals * PET_ESCORT_SEAL_BONUS);
+        // Anti-alt: account age and IP overlap.
+        const loserCreated = Number(loserChar.createdAt ?? 0);
+        if (loserCreated > 0 && (Date.now() - loserCreated) < ACCOUNT_AGE_MIN_MS) {
+            return { granted: false, reason: 'too-young' };
         }
-    }
+        const sharesIp = await hasRecentIpOverlap(winnerName, loserName);
+        if (sharesIp) return { granted: false, reason: 'same-ip' };
 
-    // Profession XP (always granted when Vanguard wins a real human fight,
-    // regardless of seal cap — XP and Seals can decouple at the daily cap).
-    // Rank 2+ perk: +10% XP. Multiplier is based on rank BEFORE this grant.
-    const baseXpGain = vanguardXpForLevel(Number(loserChar.level ?? 1));
-    const xpGain = rank >= 2 ? Math.floor(baseXpGain * 1.1) : baseXpGain;
+        // Level-gap rule.
+        const rank = Math.max(1, Math.min(MAX_RANK, Number(winnerChar.professionRank ?? 1)));
+        const baseSeals = VANGUARD_SEALS_PER_KILL[rank];
+        const gapMult = levelGapMult(Number(winnerChar.level ?? 1), Number(loserChar.level ?? 1));
+        let seals = Math.floor(baseSeals * gapMult);
+        if (seals <= 0) return { granted: false, reason: 'level-gap' };
 
-    const nextHonor = Number(winnerChar.honorSeals ?? 0) + seals;
-    const nextProfessionXp = Number(winnerChar.professionXp ?? 0) + xpGain;
-    const nextRank = rankFromXp(nextProfessionXp);
-    const nextByTarget = { ...byTarget, [loserKey]: targetSoFar + seals };
+        // Daily + per-target caps.
+        const today = todayKey();
+        const dailyActive = winnerChar.vanguardDailyResetDate === today;
+        const dailySoFar = dailyActive ? Number(winnerChar.dailyHonorSealsEarned ?? 0) : 0;
+        const byTarget: Record<string, number> = dailyActive
+            ? ((winnerChar.dailyHonorSealsByTarget as Record<string, number>) ?? {})
+            : {};
+        const loserKey = loserName.toLowerCase();
+        const targetSoFar = byTarget[loserKey] ?? 0;
+        seals = Math.min(seals, Math.max(0, DAILY_SEAL_CAP - dailySoFar));
+        seals = Math.min(seals, Math.max(0, PER_TARGET_DAILY_CAP - targetSoFar));
+        if (seals <= 0) return { granted: false, reason: 'capped' };
 
-    // Transactional ordering: escort stamps go FIRST. Each escort stamp is
-    // idempotent (setting petEscortBonusReady=true twice is a no-op), so if
-    // we crash between escorts the next retry safely re-stamps any missed
-    // ones. The winner save commits LAST — that's the "transaction commit"
-    // and the only write that's hard to retry without double-grant. If the
-    // winner save fails, the session's vanguardRewardsGranted flag never
-    // gets set, so the next call retries the whole grant.
-    await Promise.all(escorters.map(async (escorterName) => {
-        const eKey = `save:${escorterName}`;
-        const eRecord = await kv.get<Record<string, unknown>>(eKey);
-        const eChar = eRecord?.character as Record<string, unknown> | undefined;
-        if (!eChar || eChar.profession !== 'petTamer') return;
-        await kv.set(eKey, {
-            ...eRecord,
-            character: { ...eChar, petEscortBonusReady: true },
-        });
-    }));
+        // Pet escort: if the Vanguard has an active pet and their clan has any
+        // Pet Tamer with an active escort offer, +5% Seals to Vanguard AND set
+        // a next-expedition bonus flag on each offering Pet Tamer.
+        const winnerClan = typeof winnerChar.clan === 'string' ? winnerChar.clan : '';
+        const hasActivePet = typeof winnerChar.activePetId === 'string' && winnerChar.activePetId.length > 0;
+        let escorters: string[] = [];
+        if (winnerClan && hasActivePet) {
+            try {
+                escorters = await listActiveEscorters(winnerClan);
+            } catch { /* best-effort */ }
+            if (escorters.length > 0) {
+                seals = Math.floor(seals * PET_ESCORT_SEAL_BONUS);
+            }
+        }
 
-    // Now commit the winner save. If this throws, the session flag isn't set
-    // and the next move's grant call retries cleanly (escorts already done = no-op).
-    const updated = {
-        ...winnerRecord,
-        character: {
-            ...winnerChar,
-            honorSeals: nextHonor,
-            professionXp: nextProfessionXp,
-            professionRank: nextRank,
-            dailyHonorSealsEarned: dailySoFar + seals,
-            dailyHonorSealsByTarget: nextByTarget,
-            vanguardDailyResetDate: today,
-        },
-    };
-    await kv.set(winnerKey, updated);
+        // Profession XP (always granted when Vanguard wins a real human fight,
+        // regardless of seal cap — XP and Seals can decouple at the daily cap).
+        // Rank 2+ perk: +10% XP. Multiplier is based on rank BEFORE this grant.
+        const baseXpGain = vanguardXpForLevel(Number(loserChar.level ?? 1));
+        const xpGain = rank >= 2 ? Math.floor(baseXpGain * 1.1) : baseXpGain;
 
-    return { granted: true, seals, xp: xpGain };
+        const nextHonor = Number(winnerChar.honorSeals ?? 0) + seals;
+        const nextProfessionXp = Number(winnerChar.professionXp ?? 0) + xpGain;
+        const nextRank = rankFromXp(nextProfessionXp);
+        const nextByTarget = { ...byTarget, [loserKey]: targetSoFar + seals };
+
+        // Transactional ordering: escort stamps go FIRST. Each escort stamp is
+        // idempotent (setting petEscortBonusReady=true twice is a no-op), so if
+        // we crash between escorts the next retry safely re-stamps any missed
+        // ones. The winner save commits LAST — that's the "transaction commit"
+        // and the only write that's hard to retry without double-grant. If the
+        // winner save fails, the session's vanguardRewardsGranted flag never
+        // gets set, so the next call retries the whole grant.
+        await Promise.all(escorters.map(async (escorterName) => {
+            const eKey = `save:${escorterName}`;
+            const eRecord = await kv.get<Record<string, unknown>>(eKey);
+            const eChar = eRecord?.character as Record<string, unknown> | undefined;
+            if (!eChar || eChar.profession !== 'petTamer') return;
+            await kv.set(eKey, {
+                ...eRecord,
+                character: { ...eChar, petEscortBonusReady: true },
+            });
+        }));
+
+        // Now commit the winner save. If this throws, the session flag isn't set
+        // and the next move's grant call retries cleanly (escorts already done = no-op).
+        const updated = {
+            ...winnerRecord,
+            character: {
+                ...winnerChar,
+                honorSeals: nextHonor,
+                professionXp: nextProfessionXp,
+                professionRank: nextRank,
+                dailyHonorSealsEarned: dailySoFar + seals,
+                dailyHonorSealsByTarget: nextByTarget,
+                vanguardDailyResetDate: today,
+            },
+        };
+        await kv.set(winnerKey, updated);
+
+        return { granted: true, seals, xp: xpGain };
+    });
 }
