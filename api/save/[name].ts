@@ -191,6 +191,22 @@ const FIRST_SAVE_BASELINE_CHARACTER: Record<string, unknown> = {
     honorSeals: 0, fateShards: 0, boneCharms: 0, auraStones: 0,
     auraDust: 0, mythicSeals: 0,
     hospitalized: false, hospitalizedUntil: 0,
+    // Profession progression — a fresh account must start at rank 1 with 0
+    // XP. Without these baseline zeros, the cappedProfXp delta-against-existing
+    // logic would let a brand-new save submit 5000 prof XP at registration
+    // time, putting the player at rank ~4 from the gate.
+    professionXp: 0, professionRank: 1,
+    // Banked ryo and lifetime / leaderboard counters — first save can't
+    // start with these populated.
+    bankRyo: 0,
+    totalPvpKills: 0, totalAiKills: 0, totalVillageRaids: 0,
+    warsWon: 0, warMvpCount: 0, lifetimeWarDamage: 0,
+    monthlyPvpKills: 0, dailyAiKills: 0,
+    // Inventory / equipment / pets / mastery / bloodlines must start empty —
+    // otherwise the first save can ship with a maxed loadout and the
+    // per-save inventory cap (500) won't catch it because there's no diff.
+    inventory: [], jutsuMastery: [], pets: [], savedBloodlines: [], tileCards: [],
+    equipment: {},
 };
 
 function sanitizeCharacterSave(
@@ -447,6 +463,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (req.method === 'POST') {
         try {
+            // Body size guard. We strip image fields server-side post-parse,
+            // but a multi-MB body still has to be parsed (synchronous work
+            // on a tight Vercel cold-start budget). Cap incoming payloads at
+            // 1 MB — any legit save is under ~100 KB after image stripping
+            // and the client already strips embedded images before POSTing.
+            const contentLengthHeader = req.headers['content-length'];
+            const contentLength = Array.isArray(contentLengthHeader) ? Number(contentLengthHeader[0]) : Number(contentLengthHeader);
+            if (Number.isFinite(contentLength) && contentLength > 1_000_000) {
+                return res.status(413).json({ error: 'Save payload too large. Strip embedded images and retry.' });
+            }
             const resetSignalKey = `reset-signal:${name.toLowerCase()}`;
             const adminLockKey = `admin-lock:${name.toLowerCase()}`;
             if (req.query.ack === '1') {
