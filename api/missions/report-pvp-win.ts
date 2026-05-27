@@ -101,15 +101,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(200).json({ ok: true, vanguard: true, reason: 'same-ip', xpAwarded: 0, missionsCompleted: [] });
         }
 
-        // Idempotency: stamp this battle as already-reported so a client retry
-        // (network blip, page reload) can't double-credit. 24h TTL covers any
-        // reasonable retry window.
+        // Idempotency: atomic NX reserve. Two concurrent reports racing for
+        // the same battleId both used to pass a separate get→check→set, both
+        // applied XP. Now the loser sees the NX fail and short-circuits with
+        // alreadyReported. 24h TTL covers any reasonable retry window.
         const idemKey = `missions:pvp-reported:${playerName}:${battleId}`;
-        const already = await kv.get<boolean>(idemKey);
-        if (already) {
+        const placed = await kv.set(idemKey, true, { nx: true, ex: 24 * 60 * 60 });
+        if (!placed) {
             return res.status(200).json({ ok: true, alreadyReported: true });
         }
-        await kv.set(idemKey, true, { ex: 24 * 60 * 60 });
 
         const winsResult = await reportMissionEvent({
             playerName,

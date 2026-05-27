@@ -1,4 +1,5 @@
 import { kv } from '../_storage.js';
+import { withKvLock } from '../_lock.js';
 import {
     type Profession,
     type MissionKind,
@@ -66,23 +67,30 @@ export async function awardProfessionXp(
 ): Promise<{ xp: number; rank: number } | null> {
     if (amount <= 0) return null;
     const saveKey = `save:${playerName}`;
-    const record = await kv.get<Record<string, unknown>>(saveKey);
-    const char = record?.character as Record<string, unknown> | undefined;
-    if (!char || char.profession !== profession) return null;
-    const currentRank = Number(char.professionRank ?? 1);
-    const boosted = Math.floor(amount * xpMultiplierFor(profession, currentRank));
-    const nextXp = Number(char.professionXp ?? 0) + boosted;
-    const nextRank = rankFor(profession, nextXp);
-    const updated = {
-        ...record,
-        character: {
-            ...char,
-            professionXp: nextXp,
-            professionRank: nextRank,
-        },
-    };
-    await kv.set(saveKey, updated);
-    return { xp: nextXp, rank: nextRank };
+    // Wrap the read-modify-write under the same lock the save endpoint uses
+    // so a concurrent auto-save can't clobber the XP credit, and so two
+    // concurrent reportMissionEvent calls (e.g. a Vanguard PvP win + raid
+    // report landing in the same tick) don't both read the pre-grant XP
+    // and one lose its credit.
+    return await withKvLock(saveKey, async () => {
+        const record = await kv.get<Record<string, unknown>>(saveKey);
+        const char = record?.character as Record<string, unknown> | undefined;
+        if (!char || char.profession !== profession) return null;
+        const currentRank = Number(char.professionRank ?? 1);
+        const boosted = Math.floor(amount * xpMultiplierFor(profession, currentRank));
+        const nextXp = Number(char.professionXp ?? 0) + boosted;
+        const nextRank = rankFor(profession, nextXp);
+        const updated = {
+            ...record,
+            character: {
+                ...char,
+                professionXp: nextXp,
+                professionRank: nextRank,
+            },
+        };
+        await kv.set(saveKey, updated);
+        return { xp: nextXp, rank: nextRank };
+    });
 }
 
 function dailyKey(playerName: string): string {
@@ -154,44 +162,52 @@ export async function reportMissionEvent(opts: {
 }): Promise<{ xpAwarded: number; missionsCompleted: CompletedMissionInfo[] }> {
     const { playerName, profession, kind, targetName } = opts;
     const now = opts.now ?? new Date();
-    const state = await loadOrIssueDailyMissions(playerName, profession, now);
-    if (!state) return { xpAwarded: 0, missionsCompleted: [] };
+    // Lock the daily-missions key for the entire read-modify-write so two
+    // concurrent reports for the same player can't both read progress=N,
+    // both increment to N+1, and the second write clobber the first.
+    const dKey = dailyKey(playerName);
+    const result = await withKvLock(dKey, async () => {
+        const state = await loadOrIssueDailyMissions(playerName, profession, now);
+        if (!state) return { xpAwarded: 0, missionsCompleted: [] as CompletedMissionInfo[] };
 
-    let xpAwarded = 0;
-    const completed: CompletedMissionInfo[] = [];
-    let changed = false;
+        let xpAwarded = 0;
+        const completed: CompletedMissionInfo[] = [];
+        let changed = false;
 
-    const next = state.missions.map(m => {
-        if (m.kind !== kind || m.completedAt) return m;
-        // Unique-target dedup.
-        let nextProgress = m.progress;
-        let nextUnique = m.uniqueTargets;
-        if (m.uniqueTargets) {
-            if (!targetName) return m;
-            if (m.uniqueTargets.includes(targetName)) return m;
-            nextUnique = [...m.uniqueTargets, targetName];
-            nextProgress = nextUnique.length;
-        } else {
-            nextProgress = m.progress + 1;
+        const next = state.missions.map(m => {
+            if (m.kind !== kind || m.completedAt) return m;
+            // Unique-target dedup.
+            let nextProgress = m.progress;
+            let nextUnique = m.uniqueTargets;
+            if (m.uniqueTargets) {
+                if (!targetName) return m;
+                if (m.uniqueTargets.includes(targetName)) return m;
+                nextUnique = [...m.uniqueTargets, targetName];
+                nextProgress = nextUnique.length;
+            } else {
+                nextProgress = m.progress + 1;
+            }
+            changed = true;
+            const justCompleted = nextProgress >= m.target;
+            if (justCompleted) {
+                xpAwarded += m.xpReward;
+                completed.push({ id: m.id, name: m.name, xpReward: m.xpReward });
+                return { ...m, progress: m.target, uniqueTargets: nextUnique, completedAt: Date.now() };
+            }
+            return { ...m, progress: nextProgress, uniqueTargets: nextUnique };
+        });
+
+        if (changed) {
+            await kv.set(dKey, { ...state, missions: next }, { ex: 36 * 60 * 60 });
         }
-        changed = true;
-        const justCompleted = nextProgress >= m.target;
-        if (justCompleted) {
-            xpAwarded += m.xpReward;
-            completed.push({ id: m.id, name: m.name, xpReward: m.xpReward });
-            return { ...m, progress: m.target, uniqueTargets: nextUnique, completedAt: Date.now() };
-        }
-        return { ...m, progress: nextProgress, uniqueTargets: nextUnique };
+        return { xpAwarded, missionsCompleted: completed };
     });
 
-    if (changed) {
-        await kv.set(dailyKey(playerName), { ...state, missions: next }, { ex: 36 * 60 * 60 });
+    // Auto-grant mission XP onto the player's character. awardProfessionXp
+    // takes its own lock on save:<player> so we don't nest locks here.
+    if (result.xpAwarded > 0) {
+        await awardProfessionXp(playerName, profession, result.xpAwarded);
     }
 
-    // Auto-grant mission XP onto the player's character.
-    if (xpAwarded > 0) {
-        await awardProfessionXp(playerName, profession, xpAwarded);
-    }
-
-    return { xpAwarded, missionsCompleted: completed };
+    return result;
 }
