@@ -25,8 +25,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const key = specKey(battleId);
 
     if (req.method === 'GET') {
+        // Auth gate: previously anyone could poll any battleId and harvest
+        // the list of lowercase player names currently watching it — a
+        // useful presence-tracking signal for stalkers / mods circumventing
+        // the moderation tooling. Logged-in players only.
+        const identity = await authedPlayerOrAdmin(req);
+        if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         const spectators = await kv.get<Spectator[]>(key) ?? [];
-        // Filter stale spectators (haven't pinged in 30s)
         const active = spectators.filter(s => Date.now() - s.joinedAt < STALE_MS);
         res.setHeader('Cache-Control', 'no-store');
         return res.status(200).json(active);

@@ -12,11 +12,16 @@
 //
 // Required Supabase config:
 //   1. Database → Replication → enable for `kv_store` table
-//   2. SQL editor — add an RLS policy for anon SELECT on the keys you
-//      want clients to read:
-//        CREATE POLICY "anon_read_pvp_realtime"
-//        ON kv_store FOR SELECT TO anon
-//        USING (key LIKE 'pvp:%' OR key LIKE 'cw-tilecards:%');
+//   2. SQL editor — run supabase-schema.sql (idempotent). It enables RLS
+//      on kv_store and creates an anon SELECT policy that allows reads
+//      on the prefixes this client subscribes to:
+//        pvp:*           — PvP session state
+//        cw-tilecards:*  — Clan-war tile-card duels
+//        challenges:*    — Incoming duel-challenge inbox
+//      Anything else stays invisible to the browser.
+//
+// To add a new realtime-subscribed prefix: update supabase-schema.sql's
+// SELECT policy AND this comment, then re-run the schema file.
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 

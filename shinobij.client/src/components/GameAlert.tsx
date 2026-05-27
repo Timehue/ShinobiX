@@ -95,6 +95,16 @@ export function GameAlertHost() {
                         className="game-alert-ok"
                         onClick={dismiss}
                         autoFocus
+                        onKeyDown={(e) => {
+                            // Stop Enter/Space/Escape from bubbling to the
+                            // window-level keydown handler — otherwise pressing
+                            // Enter on the focused button dismissed TWO queued
+                            // alerts (one from the button's native click, one
+                            // from the window listener firing dismiss too).
+                            if (e.key === "Enter" || e.key === " " || e.key === "Escape") {
+                                e.stopPropagation();
+                            }
+                        }}
                     >
                         OK
                     </button>

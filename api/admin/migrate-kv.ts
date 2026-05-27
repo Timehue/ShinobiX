@@ -16,7 +16,7 @@
 
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { migrateDiskRoutedKeysToOverlay } from '../_storage.js';
-import { safeEqual } from '../_auth.js';
+import { isFullAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -25,14 +25,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return;
     }
     if (!enforceRateLimit(req, res, 'admin-migrate-kv', 10, 60 * 60_000)) return;
-    const expected = process.env.ADMIN_PASSWORD;
-    if (!expected) {
-        res.status(500).json({ error: 'ADMIN_PASSWORD not configured.' });
-        return;
-    }
-    const providedRaw = req.headers['x-admin-password'];
-    const provided = Array.isArray(providedRaw) ? providedRaw[0] : providedRaw;
-    if (!provided || !safeEqual(provided, expected)) {
+    // Full admin (Admin 1) only — destructive endpoint.
+    if (!isFullAdmin(req)) {
         res.status(401).json({ error: 'invalid admin password' });
         return;
     }
@@ -50,6 +44,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
     } catch (err) {
         console.error('[admin/migrate-kv] failed:', err);
-        res.status(500).json({ ok: false, error: String(err) });
+        res.status(500).json({ ok: false, error: 'Internal server error.' });
     }
 }

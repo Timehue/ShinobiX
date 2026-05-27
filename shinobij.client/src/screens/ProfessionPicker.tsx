@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Character, Profession } from "../App";
 
 type Stage = "intro" | "choose" | "confirm";
@@ -30,9 +30,9 @@ const PROFESSIONS: ProfessionInfo[] = [
         name: "Healer",
         tagline: "Mend what war breaks.",
         bullets: [
-            "Heal allies from the hospital",
-            "See injured villagers at Rank 10",
-            "No healing cooldown",
+            "Heal allies for XP (% HP restored)",
+            "Faster per-target cooldown & shorter hospital timer with rank",
+            "Rank 10: see & heal injured villagers anywhere in the world",
         ],
         accent: "#22d3ee",
         icon: "✚",
@@ -74,6 +74,18 @@ export function ProfessionPicker({
     const [pending, setPending] = useState<Profession | null>(null);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    // Recovery effect for "stage=confirm but pending was cleared somehow":
+    // bounce back to the choose screen. Previously this lived inside the
+    // confirm render branch as a direct setStage() call, which React warns
+    // about (setState during render) and can loop. Lives here at the top
+    // level so it doesn't violate the Rules of Hooks across the early
+    // returns for "intro" / "choose" / "confirm".
+    useEffect(() => {
+        if (stage === "confirm" && !PROFESSIONS.some(p => p.id === pending)) {
+            setStage("choose");
+        }
+    }, [stage, pending]);
 
     async function commit() {
         if (!pending || submitting) return;
@@ -257,10 +269,11 @@ export function ProfessionPicker({
 
     // stage === "confirm"
     const info = PROFESSIONS.find(p => p.id === pending);
-    if (!info) {
-        setStage("choose");
-        return null;
-    }
+    // NOTE: the recovery effect for "confirm with no info" lives at
+    // the top of this component (just below the useState calls) so
+    // it doesn't violate the Rules of Hooks across the earlier
+    // returns for "intro" and "choose".
+    if (!info) return null;
     return (
         <div style={backdrop}>
             <div style={{

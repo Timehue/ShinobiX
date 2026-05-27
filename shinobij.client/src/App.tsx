@@ -67,6 +67,7 @@ import {
     type VillageUpgradeKey,
     type VillageUpgrades,
     type AdminAccount,
+    type AdminRole,
 } from "./types/core";
 import {
     type PetRarity,
@@ -109,6 +110,7 @@ export type {
     Rank,
     JutsuTarget,
     AdminAccount,
+    AdminRole,
     Pet,
     Stats,
     Jutsu,
@@ -573,7 +575,7 @@ function damageSectorTerritory(sector: number, amount: number) {
     return next;
 }
 // Stats / JutsuMastery moved to ./types/combat.
-// AdminAccount moved to ./types/core — re-exported at the top of this file.
+// AdminAccount + AdminRole moved to ./types/core — re-exported at the top of this file.
 
 // The protected admin account. The Admin button is only visible to this
 // username, the name is reserved server-side (no one else can register it),
@@ -7984,6 +7986,12 @@ export default function App() {
     const [adminLoggedIn, setAdminLoggedIn] = useState(false);
     const [adminAccount, setAdminAccount] = useState<AdminAccount | "">("");
     const [adminPw, setAdminPw] = useState(() => sessionStorage.getItem("admin:pw") ?? "");
+    // Admin role. "full" = Admin 1 (every tab). "content" = Admin 2
+    // (restricted tabs hidden). Restored from sessionStorage on reload so a
+    // page refresh doesn't downgrade an Admin 1 session or vice versa.
+    const [adminRole, setAdminRole] = useState<AdminRole>(() =>
+        (sessionStorage.getItem("admin:role") as AdminRole | null) ?? "full"
+    );
     const [_resetCountdown, setResetCountdown] = useState("--:--:--");
     const [creatorJutsus, setCreatorJutsus] = useState<Jutsu[]>([]);
     const [creatorEvents, setCreatorEvents] = useState<CreatorEvent[]>([]);
@@ -12110,7 +12118,15 @@ export default function App() {
                     <StartScreen
                         onCreate={createPlayerAccount}
                         onLogin={loginPlayerAccount}
-                        onAdmin={() => {
+                        onAdmin={(prefilledPassword) => {
+                            // If the user typed "Admin 1" / "Admin 2" in the
+                            // player login form, the StartScreen forwards the
+                            // password they typed so they don't have to retype
+                            // it on the admin screen. Stash it in
+                            // sessionStorage where AdminLogin reads it.
+                            if (prefilledPassword) {
+                                sessionStorage.setItem("admin:prefill-pw", prefilledPassword);
+                            }
                             navigate(adminLoggedIn ? "adminPanel" : "adminLogin");
                         }}
                     />
@@ -12118,11 +12134,15 @@ export default function App() {
 
                 {screen === "adminLogin" && (
                     <AdminLogin
-                        onLogin={async (account, pw) => {
+                        onLogin={async (account, pw, role) => {
                             setAdminLoggedIn(true);
                             setAdminAccount(account);
                             sessionStorage.setItem("admin:pw", pw);
+                            // Persist the role so a refresh doesn't lose it
+                            // and re-show restricted tabs to Admin 2.
+                            sessionStorage.setItem("admin:role", role);
                             setAdminPw(pw);
+                            setAdminRole(role);
                             setCurrentAccountName(account); // needed for save button + auto-save
                             const adminChar = createAdminCharacter(account);
                             setCharacter(adminChar);
@@ -12198,6 +12218,7 @@ export default function App() {
                         playerRoster={playerRoster}
                         allServerPlayers={allServerPlayers}
                         adminPw={adminPw}
+                        adminRole={adminRole}
                         onSave={async () => {
                             const adminSaveName = adminAccount || currentAccountName;
                             if (!adminSaveName) return;
@@ -15614,8 +15635,16 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
     // Starting positions on the 14×7 grid: player col 1 row 3 (=43),
     // enemy col 12 row 3 (=54). Row 3 is the visual centre (row 0 = top
     // breathing-room row, row 6 = bottom).
-    let player: PetBattleFighter = { owner: "You",        pet: playerPet,   hp: playerPet.hp,   pos: 43, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: 0, moveLocked: 0, absorbRounds: 0, absorbPercent: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0 };
-    let enemy:  PetBattleFighter = { owner: opponentOwner, pet: opponentPet, hp: opponentPet.hp, pos: 54, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: 0, moveLocked: 0, absorbRounds: 0, absorbPercent: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0 };
+    //
+    // Defensive clamp: pet.hp can be undefined for custom/creator pets,
+    // or for opponent pets that were stripped by an earlier roster
+    // projection (now restored — but the clamp stays as belt-and-
+    // suspenders). Without this, NaN propagates through the damage
+    // pipeline and the KO check `fighter.hp <= 0` is never true,
+    // looping the fight to the round cap with no resolution.
+    const safeHp = (h: unknown): number => Math.max(1, Number(h) || 100);
+    let player: PetBattleFighter = { owner: "You",        pet: playerPet,   hp: safeHp(playerPet.hp),   pos: 43, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: 0, moveLocked: 0, absorbRounds: 0, absorbPercent: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0 };
+    let enemy:  PetBattleFighter = { owner: opponentOwner, pet: opponentPet, hp: safeHp(opponentPet.hp), pos: 54, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: 0, moveLocked: 0, absorbRounds: 0, absorbPercent: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0 };
     // One-time coin flip for first-move advantage, consistent with
     // PvP and tile-card duels. Previously this was decided every round
     // by raw speed comparison, which guaranteed the faster pet always
@@ -17114,8 +17143,17 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
             // intact (each call is rate-limited and counts toward daily cap).
             // Pass battleSeed + match-index so the server can dedup a
             // refresh-replay (same seed → same reportKey → no double-claim).
+            //
+            // Tier-2 security fix made reportKey REQUIRED for wins. The
+            // static genericPetArenaOpponents array doesn't have battleSeed,
+            // and the roster-opponent constructor doesn't stamp one either.
+            // Without a fallback, every AI-arena and roster-opponent win
+            // was rejected with 400 (silent — wrapped in try/catch). Stamp
+            // a click-stable fallback so honest wins still pay out. Refresh-
+            // replay dedup is weakened for unseeded opponents, but the
+            // server's 5s/12-per-min/100-per-day caps still bound damage.
             const matchesWon = party.matches.filter(m => m.result === "win").length;
-            const partySeed = opponent.battleSeed ?? null;
+            const partySeed = opponent.battleSeed ?? `party-${opponent.owner}-${opponent.pet.id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
             for (let i = 0; i < matchesWon; i++) {
                 void (async () => {
                     try {
@@ -17126,7 +17164,7 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                                 playerName: character.name,
                                 outcome: "win",
                                 opponentLevel: opponent.pet.level,
-                                reportKey: partySeed != null ? `${partySeed}:match:${i}` : undefined,
+                                reportKey: `${partySeed}:match:${i}`,
                             }),
                         });
                     } catch { /* ignore */ }
@@ -17158,6 +17196,14 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
             // the endpoint is unreachable so existing saves don't get stuck.
             void (async () => {
                 try {
+                    // reportKey: seed-based when we have a battleSeed (refresh-
+                    // replay dedupes server-side). When the opponent has no
+                    // battleSeed (the static genericPetArenaOpponents AI list,
+                    // or any roster opponent lacking a stamp), fall back to a
+                    // click-stable key so the server doesn't 400 — Tier-2
+                    // security fix made reportKey REQUIRED for wins. The
+                    // server's daily cap + rate limits still bound damage.
+                    const effectiveSeed = opponent.battleSeed ?? `1v1-${opponent.owner}-${opponent.pet.id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
                     const r = await fetch("/api/pet/battle-result", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
@@ -17165,11 +17211,7 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                             playerName: character.name,
                             outcome: "win",
                             opponentLevel: opponent.pet.level,
-                            // Seed-based reportKey: a refresh-replay re-runs
-                            // the same deterministic battle and tries to
-                            // report again. Server rejects duplicates so the
-                            // player can't double-claim by refreshing.
-                            reportKey: opponent.battleSeed != null ? `${opponent.battleSeed}:1v1` : undefined,
+                            reportKey: `${effectiveSeed}:1v1`,
                         }),
                     });
                     if (r.ok) {
@@ -17885,6 +17927,7 @@ function AdminPanel({
     playerRoster,
     allServerPlayers,
     adminPw,
+    adminRole,
     sharedImages,
     setSharedImages,
 }: {
@@ -17929,6 +17972,7 @@ function AdminPanel({
     playerRoster: PlayerRecord[];
     allServerPlayers: ServerPlayerSummary[];
     adminPw: string;
+    adminRole: AdminRole;
     sharedImages: Record<string, string>;
     setSharedImages: Dispatch<SetStateAction<Record<string, string>>>;
 }) {
@@ -18428,7 +18472,23 @@ function AdminPanel({
     const [aiJutsuIds, setAiJutsuIds] = useState<string[]>(starterJutsus.slice(0, 4).map((jutsu) => jutsu.id));
     const [aiRules, setAiRules] = useState<AiRule[]>(starterAiProfile(starterJutsus).rules);
     const [selectedAiId, setSelectedAiId] = useState("");
+    // Tabs Admin 2 (content role) is NOT allowed to access. Hidden from the
+    // tab switcher AND clamped at state level so a refresh / stale session-
+    // storage / manual setState can't slip them in. Server-side, the
+    // matching endpoints (admin/players, admin/moderation, admin/server-reset,
+    // admin/migrate-kv, game-state arenaTournament/weeklyBossOverride) gate
+    // on isFullAdmin — so even if a content admin somehow landed on these
+    // tabs, the underlying actions would 401.
+    const CONTENT_ADMIN_FORBIDDEN_TABS = new Set<string>(['playerManagement', 'hollowGate', 'moderation']);
     const [activeAdminPanel, setActiveAdminPanel] = useState<"jutsuBloodlines" | "eventsRaids" | "visualNovels" | "aiCreator" | "petEditor" | "cardEditor" | "villageLeaders" | "playerManagement" | "hollowGate" | "professions" | "moderation">("jutsuBloodlines");
+    // Clamp the active tab whenever the role flips OR a refresh restored
+    // a forbidden tab from React's initial state.
+    useEffect(() => {
+        if (adminRole === 'content' && CONTENT_ADMIN_FORBIDDEN_TABS.has(activeAdminPanel)) {
+            setActiveAdminPanel('jutsuBloodlines');
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [adminRole, activeAdminPanel]);
 
     // Hollow Gate admin tab state — prompts, current preview images, busy/status
     // strings. Preview images are seeded from the existing shared KV on first
@@ -18498,13 +18558,17 @@ function AdminPanel({
     const [approvedItemIds, setApprovedItemIds] = useState<string[]>([]);
     const [approvedBloodlineIds, setApprovedBloodlineIds] = useState<string[]>([]);
 
-    // Fetch all server-saved players (registry + presence)
+    // Fetch all server-saved players (registry + presence). Full admin only —
+    // Admin 2 can't access this endpoint (server-side isFullAdmin gate). The
+    // client also avoids calling it when role is content; the jutsuBloodlines
+    // tab falls back to /api/bloodlines/list for the bloodline gallery.
     function fetchAllKnownPlayers() {
         if (!adminPw) return;
+        if (adminRole !== 'full') return;
         fetch('/api/admin/players', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ password: adminPw }),
+            headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPw },
+            body: JSON.stringify({}),
         })
             .then(r => r.ok ? r.json() : null)
             .then((data: { players: { name: string; level: number; village: string; online: boolean }[]; bloodlines?: ReviewBloodline[]; approvedBloodlines?: string[] } | null) => {
@@ -18527,11 +18591,13 @@ function AdminPanel({
     useEffect(() => {
         if (activeAdminPanel !== "playerManagement" && activeAdminPanel !== "jutsuBloodlines") return;
         fetchAllKnownPlayers();
+        // Content admin (Admin 2) is allowed to read the approved-items list
+        // (they can curate items) — the server-side item-review endpoint
+        // accepts either admin password via isAdmin().
         if (adminPw) {
             fetch('/api/admin/item-review', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ password: adminPw }),
+                method: 'GET',
+                headers: { 'x-admin-password': adminPw },
             })
                 .then(r => r.ok ? r.json() : null)
                 .then((data: { approvedItems?: string[] } | null) => {
@@ -18539,7 +18605,27 @@ function AdminPanel({
                 })
                 .catch(() => {});
         }
-    }, [activeAdminPanel, adminPw]);
+        // For content admin on the jutsu/bloodline tab, fetch the bloodline
+        // gallery from /api/bloodlines/list since they can't hit
+        // /api/admin/players. The endpoint returns the same shape (ownerName,
+        // ownerKey, jutsus, etc.) — just without the player roster half.
+        if (adminRole === 'content' && activeAdminPanel === 'jutsuBloodlines' && adminPw) {
+            fetch('/api/bloodlines/list', {
+                headers: { 'x-admin-password': adminPw },
+            })
+                .then(r => r.ok ? r.json() : null)
+                .then((data: { bloodlines?: ReviewBloodline[] } | null) => {
+                    if (data?.bloodlines) {
+                        setPendingPlayerBloodlines(data.bloodlines.map((bloodline) => ({
+                            ...bloodline,
+                            rank: bloodline.rank as Rank,
+                            jutsus: (bloodline.jutsus ?? []).map(normalizeJutsu),
+                        })));
+                    }
+                })
+                .catch(() => {});
+        }
+    }, [activeAdminPanel, adminPw, adminRole]);
     const [pmGivePetId, setPmGivePetId] = useState("");
     const [pmGiveAmounts, setPmGiveAmounts] = useState<Record<string, number>>({ honorSeals: 0, fateShards: 0, boneCharms: 0, auraStones: 0, auraDust: 0, mythicSeals: 0 });
 
@@ -18738,8 +18824,8 @@ function AdminPanel({
         try {
             const res = await fetch('/api/admin/server-reset', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ password: adminPw }),
+                headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPw },
+                body: JSON.stringify({}),
             });
             const data = await res.json() as { ok?: boolean; deletedCount?: number; error?: string };
             if (data.ok) {
@@ -18787,8 +18873,8 @@ function AdminPanel({
         try {
             const res = await fetch('/api/admin/item-review', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ password: adminPw, itemId: id }),
+                headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPw },
+                body: JSON.stringify({ action: 'approve', itemId: id }),
             });
             const data = await res.json() as { approvedItems?: string[] };
             if (data.approvedItems) setApprovedItemIds(data.approvedItems);
@@ -18809,9 +18895,8 @@ function AdminPanel({
     async function saveBloodlineReviewAction(action: "approve" | "delete", bloodline: ReviewBloodline) {
         const res = await fetch('/api/admin/bloodline-review', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPw },
             body: JSON.stringify({
-                password: adminPw,
                 action,
                 ownerKey: bloodline.ownerKey ?? "admin",
                 bloodlineId: bloodline.id,
@@ -19525,9 +19610,8 @@ function AdminPanel({
         if (isPlayerBloodline) {
             const res = await fetch('/api/admin/bloodline-review', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPw },
                 body: JSON.stringify({
-                    password: adminPw,
                     action: 'update',
                     ownerKey: editingBloodlineOwnerKey,
                     bloodlineId: editingBloodlineId,
@@ -19603,9 +19687,15 @@ function AdminPanel({
             <p>Anything created here is saved and imported into normal gameplay.</p>
 
             <div className="admin-panel-switcher">
-                <button className={activeAdminPanel === "playerManagement" ? "active" : ""} onClick={() => setActiveAdminPanel("playerManagement")}>
-                    👥 Players
-                </button>
+                {/* Players, Hollow Gate, and Moderation are full-admin only
+                    (Admin 1). Admin 2 (content role) gets the curation tabs:
+                    Jutsus+Bloodlines, Events, VNs, AI Creator, Pet/Card
+                    Editors, Village Leaders, Professions. */}
+                {adminRole === 'full' && (
+                    <button className={activeAdminPanel === "playerManagement" ? "active" : ""} onClick={() => setActiveAdminPanel("playerManagement")}>
+                        👥 Players
+                    </button>
+                )}
                 <button className={activeAdminPanel === "jutsuBloodlines" ? "active" : ""} onClick={() => setActiveAdminPanel("jutsuBloodlines")}>
                     Jutsus + Bloodlines
                 </button>
@@ -19627,15 +19717,19 @@ function AdminPanel({
                 <button className={activeAdminPanel === "villageLeaders" ? "active" : ""} onClick={() => setActiveAdminPanel("villageLeaders")}>
                     Village Leaders
                 </button>
-                <button className={activeAdminPanel === "hollowGate" ? "active" : ""} onClick={() => setActiveAdminPanel("hollowGate")}>
-                    ⛩ Hollow Gate
-                </button>
+                {adminRole === 'full' && (
+                    <button className={activeAdminPanel === "hollowGate" ? "active" : ""} onClick={() => setActiveAdminPanel("hollowGate")}>
+                        ⛩ Hollow Gate
+                    </button>
+                )}
                 <button className={activeAdminPanel === "professions" ? "active" : ""} onClick={() => setActiveAdminPanel("professions")}>
                     🧑‍⚕️ Professions
                 </button>
-                <button className={activeAdminPanel === "moderation" ? "active" : ""} onClick={() => setActiveAdminPanel("moderation")}>
-                    🛡 Moderation
-                </button>
+                {adminRole === 'full' && (
+                    <button className={activeAdminPanel === "moderation" ? "active" : ""} onClick={() => setActiveAdminPanel("moderation")}>
+                        🛡 Moderation
+                    </button>
+                )}
             </div>
 
             <div className="admin-grid">
@@ -21751,7 +21845,11 @@ function AdminPanel({
                 </div>
             )}
 
-            {activeAdminPanel === "playerManagement" && (() => {
+            {/* Restricted to full admin (Admin 1). The clamp effect above
+                also re-routes Admin 2 away from this tab, but render-gate
+                here too to avoid a single-frame flicker if the clamp runs
+                after the first paint. */}
+            {activeAdminPanel === "playerManagement" && adminRole === 'full' && (() => {
                 const reviewItems = getAllItems(creatorItems).filter(i =>
                     i.image && ["weapon","armor","accessory","rune"].includes(i.slot) && !approvedItemIds.includes(i.id)
                 );
@@ -22115,8 +22213,9 @@ function AdminPanel({
                 );
             })()}
 
-            {activeAdminPanel === "hollowGate" && (() => {
+            {activeAdminPanel === "hollowGate" && adminRole === 'full' && (() => {
                 // ── Hollow Gate admin panel ─────────────────────────────────────
+                // Restricted to full admin (Admin 1).
                 // Lists every asset the Hollow Gate Shrine system needs an image for,
                 // with a one-click image generator wired to /api/generate-image and
                 // publishSharedImage. Each row shows the current preview (if any),
@@ -22670,7 +22769,7 @@ function AdminPanel({
                 );
             })()}
 
-            {activeAdminPanel === "moderation" && (
+            {activeAdminPanel === "moderation" && adminRole === 'full' && (
                 <ModerationPanel adminPw={adminPw} />
             )}
 
@@ -22678,7 +22777,15 @@ function AdminPanel({
                 <button onClick={() => setScreen("worldMap")}>Test World Map</button>
                 <button onClick={() => setScreen("profile")}>Test Profile</button>
                 <button onClick={() => setScreen("arena")}>Test Combat</button>
-                <button className="danger-button" onClick={() => { setAdminLoggedIn(false); setScreen("start"); }}>Admin Logout</button>
+                <button className="danger-button" onClick={() => {
+                    // Clear admin session including the role + password so
+                    // the next login starts fresh (and Admin 2 logging in
+                    // after Admin 1 doesn't inherit "full" by accident).
+                    sessionStorage.removeItem("admin:pw");
+                    sessionStorage.removeItem("admin:role");
+                    setAdminLoggedIn(false);
+                    setScreen("start");
+                }}>Admin Logout</button>
             </div>
             <p className="hint">Total available jutsus right now: {allGameJutsus.length}</p>
         </div>
@@ -37545,12 +37652,18 @@ function PvpBattleScreen({
     }
 
     function pvpMinActionCost() {
+        // Every action cost MUST flow through pvpAdjustedApCost so the
+        // client's "can I afford anything?" check agrees with the server's
+        // adjustedCost in api/pvp/move.ts. Under Lag (+50% AP cost), the
+        // bare 40 / j.ap / i.apCost numbers don't match what the server
+        // will actually charge — leading to "send move, server rejects,
+        // UI looks frozen" before the round timer fires auto-wait.
         const costs = [
             pvpAdjustedApCost(30), // move / dash
-            40,                    // basic attack
-            ...sessionEquippedJutsu.map(j => j.ap ?? 40),
-            ...pvpEquippedWeapons.map(i => i.apCost ?? 40),
-            ...pvpEquippedConsumables.map(i => i.apCost ?? 35),
+            pvpAdjustedApCost(40), // basic attack
+            ...sessionEquippedJutsu.map(j => pvpAdjustedApCost(j.ap ?? 40)),
+            ...pvpEquippedWeapons.map(i => pvpAdjustedApCost(i.apCost ?? 40)),
+            ...pvpEquippedConsumables.map(i => pvpAdjustedApCost(i.apCost ?? 35)),
         ];
         return Math.min(...costs);
     }
@@ -37626,8 +37739,23 @@ function PvpBattleScreen({
                         setTimeout(() => submitAction("wait"), 500);
                     }
                 }
+            } else {
+                // Server rejected the move (400/409/429/etc.). Previously
+                // this was silently swallowed — the UI looked frozen until
+                // the round timer expired. Now: surface the error in the
+                // combat log AND clear pending selections so the player
+                // can pick a different action immediately.
+                const errData = await res.json().catch(() => ({} as Record<string, unknown>));
+                const errMsg = typeof errData?.error === "string" ? errData.error : `Server rejected move (${res.status})`;
+                console.warn("[pvp/move]", res.status, errMsg);
+                setSession(prev => prev ? { ...prev, log: [...prev.log, `⚠️ ${errMsg}`].slice(-60) } : prev);
+                clearPendingPvpJutsu();
+                setDashMode(false);
+                setSelectedActionId(undefined);
+                setPendingBasicAttack(false);
+                setPendingWeaponId("");
             }
-        } catch { /* ignore */ }
+        } catch { /* network error — leave selections so the player can retry */ }
         finally { setSubmitting(false); }
     }
 

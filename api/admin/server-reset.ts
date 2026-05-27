@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
-import { safeEqual } from '../_auth.js';
+import { isFullAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { RESERVED_USERNAMES } from '../player-auth.js';
 
@@ -82,15 +82,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Rate-limit: server-reset is destructive; allow only a handful per hour.
     if (!enforceRateLimit(req, res, 'admin-server-reset', 5, 60 * 60_000)) return;
 
+    // Full admin (Admin 1) only — destructive endpoint. Admin password via
+    // x-admin-password header (was body — see players.ts for the migration
+    // rationale).
+    if (!isFullAdmin(req)) {
+        return res.status(401).json({ error: 'Unauthorized.' });
+    }
+
     try {
-        const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-        const { password } = body as { password?: string };
-
-        const adminPassword = process.env.ADMIN_PASSWORD;
-        if (!adminPassword || !password || !safeEqual(password, adminPassword)) {
-            return res.status(401).json({ error: 'Unauthorized.' });
-        }
-
         const deleted: string[] = [];
 
         // 1. Wipe all player saves — admin saves are preserved so admin-created
@@ -194,6 +193,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             deleted,
         });
     } catch (err) {
-        return res.status(500).json({ error: String(err) });
+        console.error('[admin/server-reset]', err);
+        return res.status(500).json({ error: 'Internal server error.' });
     }
 }

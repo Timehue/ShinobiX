@@ -1,10 +1,22 @@
-import { useState } from "react";
-import { type AdminAccount, type Screen } from "../App";
+import { useEffect, useRef, useState } from "react";
+import { type AdminAccount, type AdminRole, type Screen } from "../App";
 
-export function AdminLogin({ onLogin, setScreen }: { onLogin: (account: AdminAccount, password: string) => void; setScreen: (screen: Screen) => void }) {
-    const [password, setPassword] = useState("");
+export function AdminLogin({ onLogin, setScreen }: { onLogin: (account: AdminAccount, password: string, role: AdminRole) => void; setScreen: (screen: Screen) => void }) {
+    // If StartScreen detected an admin name in the player login form and
+    // forwarded the typed password, pull it from sessionStorage and
+    // auto-submit so the user doesn't have to retype. The key is consumed
+    // immediately so a stale stash from a previous flow doesn't auto-submit
+    // again on a manual visit to this screen.
+    const [password, setPassword] = useState(() => {
+        const prefilled = sessionStorage.getItem("admin:prefill-pw") ?? "";
+        if (prefilled) sessionStorage.removeItem("admin:prefill-pw");
+        return prefilled;
+    });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
+    // Guard against double-submit if React StrictMode / re-render fires the
+    // auto-submit effect twice.
+    const autoSubmittedRef = useRef(false);
 
     async function submit() {
         const pw = password.trim();
@@ -17,11 +29,25 @@ export function AdminLogin({ onLogin, setScreen }: { onLogin: (account: AdminAcc
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ password: pw }),
             });
-            const data = await res.json() as { success: boolean; error?: string };
+            const data = await res.json() as {
+                success: boolean;
+                error?: string;
+                account?: AdminAccount;
+                role?: AdminRole;
+            };
             if (data.success) {
-                onLogin("Admin 1", pw);
+                // Trust the server's choice of account + role. ADMIN_PASSWORD
+                // returns Admin 1 / full; ADMIN_CONTENT_PASSWORD returns
+                // Admin 2 / content (restricted tabs). Fall back to the
+                // legacy "Admin 1 / full" combo if the server is on an old
+                // version that doesn't return these fields.
+                onLogin(data.account ?? "Admin 1", pw, data.role ?? "full");
             } else {
-                setError("Incorrect password.");
+                // Surface the server's specific error when present (e.g.
+                // "Rate limited", "Account suspended"). Falls back to the
+                // generic message for plain wrong-password 401s where
+                // the server intentionally doesn't say more.
+                setError(data.error ?? `Incorrect password.`);
                 setPassword("");
             }
         } catch {
@@ -30,6 +56,18 @@ export function AdminLogin({ onLogin, setScreen }: { onLogin: (account: AdminAcc
             setLoading(false);
         }
     }
+
+    // Auto-submit if the password was prefilled from the start screen.
+    // The ref guard makes this idempotent against React StrictMode's
+    // double-effect-invocation in dev.
+    useEffect(() => {
+        if (autoSubmittedRef.current) return;
+        if (password && !loading && !error) {
+            autoSubmittedRef.current = true;
+            void submit();
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     return (
         <div className="card creator-card">

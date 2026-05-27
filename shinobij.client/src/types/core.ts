@@ -92,3 +92,8 @@ export type VillageUpgradeKey =
 export type VillageUpgrades = Record<VillageUpgradeKey, number>;
 
 export type AdminAccount = "Admin 1" | "Admin 2";
+// Admin role. "full" = Admin 1 (sees every tab, can call any admin endpoint).
+// "content" = Admin 2 (jutsu/bloodline, events, VNs, AI creator, pet/card
+// editors, village leaders, professions only — no players / hollow gate /
+// moderation). Returned by /api/admin-auth based on which password matched.
+export type AdminRole = "full" | "content";

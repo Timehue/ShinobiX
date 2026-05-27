@@ -2,8 +2,42 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
+import { withKvLock } from '../_lock.js';
 
 const CHALLENGE_TTL = 120; // seconds — long enough for two heartbeat cycles
+
+// Public projection for the challenger character stored alongside a
+// challenges:<name> entry. The challenges:* prefix is anon-readable via
+// Supabase Realtime (see supabase-schema.sql), so the FULL challenger
+// character — including ryo, jutsu, equipment, stats — would otherwise
+// be world-readable to any anon WS subscriber. Strip down to the bare
+// minimum the recipient's inbox needs to render: name, level, village,
+// avatar, cosmetic title, ranked rating.
+const CHALLENGER_PUBLIC_FIELDS = new Set<string>([
+    'name', 'level', 'village', 'specialty',
+    'avatarImage', 'rankTitle', 'customTitle',
+    'profession', 'professionRank', 'rankedRating',
+    'clan',
+    // Pet-challenge accept handlers (App.tsx :9090, :9107, :17624,
+    // :17635, :36432) read challenge.challenger.pets to find the
+    // matching pet by id at accept time. Stripping it broke every
+    // pet challenge (TypeError on .find).
+    'pets',
+]);
+function projectChallengerCharacter(c: unknown): unknown {
+    if (!c || typeof c !== 'object') return c;
+    const src = c as Record<string, unknown>;
+    const out: Record<string, unknown> = {};
+    for (const k of CHALLENGER_PUBLIC_FIELDS) if (k in src) out[k] = src[k];
+    return out;
+}
+function projectChallenge(c: unknown): unknown {
+    if (!c || typeof c !== 'object') return c;
+    const rec = c as Record<string, unknown>;
+    const out: Record<string, unknown> = { ...rec };
+    if ('challenger' in rec) out.challenger = projectChallengerCharacter(rec.challenger);
+    return out;
+}
 
 function challengeKey(name: string) {
     return `challenges:${name.toLowerCase().trim()}`;
@@ -82,12 +116,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const { targetName, challengeId: id, fromName } = body as { targetName?: string; challengeId?: string; fromName?: string };
             if (!targetName && !fromName) return res.status(400).json({ error: 'Missing targetName or fromName.' });
             const pendingKey = targetName ? challengeKey(targetName) : '';
-            const existing = pendingKey ? await kv.get<unknown[]>(pendingKey) ?? [] : [];
-            const updated = id ? existing.filter(challenge => challengeId(challenge) !== id) : existing;
-            await Promise.all([
-                pendingKey ? (updated.length ? kv.set(pendingKey, updated, { ex: CHALLENGE_TTL }) : kv.del(pendingKey)) : Promise.resolve(),
-                fromName ? kv.del(outgoingKey(fromName)) : Promise.resolve(),
-            ]);
+            // Lock the recipient's inbox during the read-filter-write so a
+            // concurrent POST adding a new challenge can't be silently
+            // overwritten by our DELETE (or vice versa).
+            if (pendingKey) {
+                await withKvLock(pendingKey, async () => {
+                    const existing = await kv.get<unknown[]>(pendingKey) ?? [];
+                    const updated = id ? existing.filter(challenge => challengeId(challenge) !== id) : existing;
+                    if (updated.length) await kv.set(pendingKey, updated, { ex: CHALLENGE_TTL });
+                    else await kv.del(pendingKey);
+                });
+            }
+            if (fromName) await kv.del(outgoingKey(fromName));
             return res.status(200).json({ ok: true });
         }
 
@@ -131,22 +171,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             await kv.set(senderKey, { targetName, challengeId: challengeId(challenge), createdAt: Date.now() }, { ex: CHALLENGE_TTL });
         }
 
-        // Clamp clanWarPoints to the mode's legal value before persisting.
-        // The win-credit path (App.tsx handlePvpWin → addClanWarPoints)
-        // trusts whatever value sits on the stored challenge, so clamping
-        // here is the only chokepoint that prevents inflation.
-        const safeChallenge = clampClanWarPoints(challenge);
+        // Two server-side transforms before the challenge hits KV:
+        //   1. clampClanWarPoints — keeps the win-credit path honest.
+        //   2. projectChallenge   — strips the challenger's full character
+        //      down to the inbox-renderable public projection. The
+        //      challenges:* key prefix is anon-readable via Supabase
+        //      Realtime; the full payload would otherwise leak ryo /
+        //      jutsu / equipment / stats to any anon WS subscriber.
+        const safeChallenge = projectChallenge(clampClanWarPoints(challenge));
 
-        // Read-modify-write — the previous retry loop was dead code (broke on
-        // iter 0). Concurrent challenges to the same target can race; we
-        // dedupe by id so retries don't duplicate, but a true CAS would need
-        // RPC-level support.
+        // Lock the recipient's inbox around the read-dedupe-write so two
+        // simultaneous challengers can't both read the same snapshot and
+        // both produce a final list that's missing the other's entry.
         const key = challengeKey(targetName);
-        const existing = await kv.get<unknown[]>(key) ?? [];
         const cid = challengeId(challenge);
-        const deduped = cid ? existing.filter(c => challengeId(c) !== cid) : existing;
-        const updated = [...deduped, safeChallenge].slice(-20);
-        await kv.set(key, updated, { ex: CHALLENGE_TTL });
+        await withKvLock(key, async () => {
+            const existing = await kv.get<unknown[]>(key) ?? [];
+            const deduped = cid ? existing.filter(c => challengeId(c) !== cid) : existing;
+            const updated = [...deduped, safeChallenge].slice(-20);
+            await kv.set(key, updated, { ex: CHALLENGE_TTL });
+        });
 
         return res.status(200).json({ ok: true });
     } catch (err) {

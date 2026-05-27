@@ -2,6 +2,8 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
+import { enforceRateLimit } from '../_ratelimit.js';
+import { withKvLock } from '../_lock.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -12,6 +14,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // can be marked as "engaged" to block their PvP.
     const identity = await authedPlayerOrAdmin(req);
     if (!identity) return res.status(401).json({ error: 'Authentication required.' });
+
+    // Per-actor rate limit. Without this, an authed attacker could hammer
+    // /api/player/attack against arbitrary `targetName` values, repeatedly
+    // overwriting their presence row (and refreshing the 60s TTL — keeping
+    // them perpetually "engaged" so their own PvP gets blocked). 6 per
+    // 60s leaves plenty of headroom for legitimate fights but kills the
+    // spam vector.
+    const rlName = identity.admin ? undefined : identity.name;
+    if (!identity.admin && !enforceRateLimit(req, res, 'player-attack', 6, 60_000, rlName)) return;
 
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
@@ -27,28 +38,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
         }
 
+        // Lock the target's presence row around the check-and-write so a
+        // concurrent heartbeat from the target doesn't get clobbered by our
+        // pendingAttacker stamp (and vice versa). The previous code spread
+        // a stale `target` snapshot into the write, which could revert a
+        // freshly-changed sector or battle flag.
         const key = `presence:${targetName}`;
-        const target = await kv.get<Record<string, unknown>>(key);
-        if (!target) return res.status(404).json({ error: 'Target not online.' });
+        const outcome = await withKvLock(key, async () => {
+            const target = await kv.get<Record<string, unknown>>(key);
+            if (!target) return { status: 404 as const, body: { error: 'Target not online.' } };
 
-        // Block attack if the target is currently traveling between sectors.
-        const travelingUntil = Number(target.travelingUntil ?? 0);
-        if (travelingUntil > Date.now()) {
-            return res.status(409).json({ error: 'Target is traveling and cannot be attacked.' });
-        }
+            const travelingUntil = Number(target.travelingUntil ?? 0);
+            if (travelingUntil > Date.now()) {
+                return { status: 409 as const, body: { error: 'Target is traveling and cannot be attacked.' } };
+            }
+            if (target.pendingAttacker) {
+                return { status: 409 as const, body: { error: 'Target is already engaged in combat.' } };
+            }
+            if (target.inBattle) {
+                return { status: 409 as const, body: { error: 'Target is already in a battle.' } };
+            }
 
-        // Block attack if the target already has a pending attacker (double-battle prevention).
-        if (target.pendingAttacker) {
-            return res.status(409).json({ error: 'Target is already engaged in combat.' });
-        }
+            // Re-stamp only — and crucially DO NOT extend the original TTL
+            // beyond the standard 60s. The presence row stays exactly as
+            // long as the target's heartbeat owns it; we just splice in
+            // pendingAttacker. Original TTL is preserved by passing ex: 60
+            // (same as heartbeat), so it can't be perpetually refreshed.
+            await kv.set(key, { ...target, pendingAttacker: attacker ?? null }, { ex: 60 });
+            return { status: 200 as const, body: { ok: true } };
+        });
 
-        // Block attack if the target is in an active PvP battle.
-        if (target.inBattle) {
-            return res.status(409).json({ error: 'Target is already in a battle.' });
-        }
-
-        await kv.set(key, { ...target, pendingAttacker: attacker ?? null }, { ex: 60 });
-        return res.status(200).json({ ok: true });
+        return res.status(outcome.status).json(outcome.body);
     } catch (err) {
         console.error('[attack]', err);
         return res.status(500).json({ error: 'Internal server error.' });

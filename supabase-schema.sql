@@ -1,8 +1,16 @@
 -- ============================================================
 -- ShinobiX — Supabase KV store schema
--- Run this once in the Supabase SQL editor.
--- RLS is intentionally disabled; access is through the
--- service-role key which is server-side only.
+-- Run this in the Supabase SQL editor (idempotent — safe to re-run).
+--
+-- Access model:
+--   * The server uses SUPABASE_SERVICE_ROLE_KEY which BYPASSES RLS — it
+--     can read/write any key. Never expose this key to the client.
+--   * The browser uses VITE_SUPABASE_ANON_KEY for Realtime ONLY. RLS
+--     allows it to SELECT a strict allowlist of key prefixes that the
+--     client subscribes to via Supabase Realtime (PvP sessions,
+--     clan-war tile-card duels, incoming duel challenges). Everything
+--     else (player saves, auth, IP/fingerprint maps, presence, etc.)
+--     stays invisible to the anon role.
 -- ============================================================
 
 -- ── Core table ───────────────────────────────────────────────────────────────
@@ -22,8 +30,42 @@ create index if not exists kv_store_expires_at_idx
 create index if not exists kv_store_key_pattern_idx
     on public.kv_store (key text_pattern_ops);
 
--- Disable RLS — table is backend-only (service key never reaches the browser).
-alter table public.kv_store disable row level security;
+-- ── Row-level security ───────────────────────────────────────────────────────
+-- RLS MUST be ENABLED. Service-role bypasses it for server-side reads/writes;
+-- the anon role is what the browser uses and we want a narrow allowlist.
+--
+-- Anon allowlist:
+--   pvp:*            — PvP session state (intentionally shared between fighters and spectators)
+--   cw-tilecards:*   — Clan-war tile-card duel state (same rationale)
+--   challenges:*     — Per-player incoming duel-challenge inbox
+--
+-- Adding a new client-subscribed key prefix? Add it to the USING clause
+-- of the SELECT policy below AND update lib/realtime.ts. Keep both in sync.
+
+alter table public.kv_store enable row level security;
+
+-- Drop any prior policies before re-creating so this script is idempotent.
+drop policy if exists "anon_read_pvp_realtime" on public.kv_store;
+drop policy if exists "kv_store_anon_select"   on public.kv_store;
+
+-- Anon SELECT — strict prefix allowlist. Nothing else is readable.
+create policy "kv_store_anon_select"
+    on public.kv_store
+    for select
+    to anon
+    using (
+        key like 'pvp:%'
+        or key like 'cw-tilecards:%'
+        or key like 'challenges:%'
+    );
+
+-- Belt-and-suspenders: also revoke broad table grants from anon so that
+-- even if the policy is ever dropped, anon can't read/write anything.
+-- The SELECT policy above re-grants the narrow allowlist.
+revoke all      on public.kv_store from anon;
+grant  select   on public.kv_store to   anon;
+revoke all      on public.kv_store from authenticated;
+grant  select   on public.kv_store to   authenticated;
 
 -- ── kv_set_nx — atomic set-if-not-exists for PvP lock semantics ──────────────
 

@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
-import { safeEqual } from '../_auth.js';
+import { isFullAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 
 const REGISTRY_KEY = 'player:registry';
@@ -14,14 +14,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Rate-limit admin endpoints: 30 requests / 5 minutes per IP.
     if (!enforceRateLimit(req, res, 'admin-players', 30, 5 * 60_000)) return;
 
-    try {
-        const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-        const { password } = body as { password?: string };
+    // Admin password now read from x-admin-password HEADER instead of the
+    // request body. Bodies routinely land in request loggers / error
+    // trackers / reverse-proxy buffers; headers are typically redacted.
+    // (Two other admin endpoints — moderation.ts, migrate-kv.ts — already
+    // used the header; players.ts/server-reset.ts/item-review.ts/
+    // bloodline-review.ts now match.)
+    // Full admin (Admin 1) only — content admin (Admin 2) does NOT have
+    // access to player management.
+    if (!isFullAdmin(req)) {
+        return res.status(401).json({ error: 'Unauthorized.' });
+    }
 
-        const adminPassword = process.env.ADMIN_PASSWORD;
-        if (!adminPassword || !password || !safeEqual(password, adminPassword)) {
-            return res.status(401).json({ error: 'Unauthorized.' });
-        }
+    try {
 
         // Pull presence keys to determine who is online right now
         const presenceKeys = await kv.keys('presence:*');
@@ -117,8 +122,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         // Restore bloodline images from shared KV image store
-        // (saveBloodline strips large data-urls on auto-save; they live in shared:imgfields:bloodline)
-        if (bloodlineEntries.length > 0) {
+        // (saveBloodline strips large data-urls on auto-save; they live in shared:imgfields:bloodline).
+        //
+        // Bandwidth guard: each data-URL can be 100-500 KB, so a moderately
+        // populated registry inlining ALL of them could push the response past
+        // function memory limits / make the admin tab unusable. If there are
+        // more than INLINE_IMAGE_LIMIT bloodlines, skip the inline restore
+        // and let the admin UI lazy-fetch the few it actually needs via the
+        // shared image endpoint.
+        const INLINE_IMAGE_LIMIT = 50;
+        if (bloodlineEntries.length > 0 && bloodlineEntries.length <= INLINE_IMAGE_LIMIT) {
             try {
                 const sharedImages = await kv.hgetall<Record<string, string>>('shared:imgfields:bloodline') ?? {};
                 for (const bl of bloodlineEntries) {
@@ -128,6 +141,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
             } catch {
                 // non-fatal — images just won't be restored
+            }
+        }
+        // If we skipped inline restore, strip any inline data-URLs the saves
+        // happened to keep so the response stays compact. The admin UI can
+        // fetch shared:imgfields:bloodline directly when it needs them.
+        if (bloodlineEntries.length > INLINE_IMAGE_LIMIT) {
+            for (const bl of bloodlineEntries) {
+                if (bl.image && bl.image.startsWith('data:')) bl.image = undefined;
             }
         }
 
@@ -140,6 +161,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         return res.status(200).json({ players, bloodlines: bloodlineEntries });
     } catch (err) {
-        return res.status(500).json({ error: String(err) });
+        console.error('[admin/players]', err);
+        return res.status(500).json({ error: 'Internal server error.' });
     }
 }
