@@ -40,7 +40,13 @@ function stripPrivateFields(data: Record<string, unknown>): Record<string, unkno
     if (!char || typeof char !== 'object') return data;
     const sanitized = { ...char };
     for (const field of PRIVATE_CHAR_FIELDS) delete sanitized[field];
-    return { ...data, character: sanitized };
+    // _saveVersion / _saveAt are server bookkeeping for the multi-tab autosave
+    // guard. Owners need to see them (so they can echo `_baseSaveVersion`
+    // back on the next POST), but non-owners shouldn't get internal metadata.
+    const stripped = { ...data, character: sanitized };
+    delete stripped._saveVersion;
+    delete stripped._saveAt;
+    return stripped;
 }
 
 // Character-level fields stripped under ?combatOnly=1 — none of these affect
@@ -668,7 +674,51 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         }
                     }
 
-                    const payload = existing ? mergePreservingImages(safeIncoming, existing) : safeIncoming;
+                    // ── Multi-tab autosave guard ─────────────────────────────
+                    // Stale-write detection via monotonic version stamp.
+                    //
+                    // Each stored player save carries `_saveVersion: number`,
+                    // bumped on every successful write. Clients MAY echo back
+                    // the version they last loaded as `_baseSaveVersion` in
+                    // the request body. If they do, and the server's stored
+                    // version is newer, reject the write — another tab saved
+                    // in the meantime and overwriting would clobber that
+                    // progress.
+                    //
+                    // Clients that don't send `_baseSaveVersion` get the old
+                    // (lossy) behaviour. This is opt-in so a stale browser
+                    // tab still on the prior client build doesn't get locked
+                    // out of saving entirely.
+                    //
+                    // Clan saves are excluded — they're intentionally shared
+                    // across the whole clan and use a separate field-level
+                    // delta validator that already handles concurrent writes.
+                    const existingObj = (existing as Record<string, unknown> | null) ?? null;
+                    const storedVersion = Number(existingObj?._saveVersion ?? 0);
+                    const incomingBody = incoming as Record<string, unknown>;
+                    const baseVersionRaw = incomingBody?._baseSaveVersion;
+                    if (
+                        !isClanSave
+                        && typeof baseVersionRaw === 'number'
+                        && Number.isFinite(baseVersionRaw)
+                        && baseVersionRaw < storedVersion
+                    ) {
+                        return res.status(409).json({
+                            error: 'Save conflict — another tab or device wrote first.',
+                            currentVersion: storedVersion,
+                        });
+                    }
+                    const nextVersion = storedVersion + 1;
+                    const mergedPayload = existing ? mergePreservingImages(safeIncoming, existing) : safeIncoming;
+                    // Strip `_baseSaveVersion` from the persisted payload so
+                    // it doesn't accumulate in the stored save record.
+                    const mergedRecord = mergedPayload as Record<string, unknown>;
+                    delete mergedRecord._baseSaveVersion;
+                    const payload = isClanSave ? mergedRecord : {
+                        ...mergedRecord,
+                        _saveVersion: nextVersion,
+                        _saveAt: Date.now(),
+                    };
 
                     const char = (incoming as Record<string, unknown>)?.character as Record<string, unknown> | undefined;
                     const displayName: string = (char?.name as string) || name;
@@ -684,7 +734,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         kv.set(key, payload),
                         kv.hset(REGISTRY_KEY, { [name]: registryEntry }),
                     ]);
-                    return res.status(200).end();
+                    return res.status(200).json(isClanSave ? { ok: true } : { ok: true, _saveVersion: nextVersion });
                 } finally {
                     // Always release the lock — player AND clan saves now
                     // both serialize through it.
@@ -695,7 +745,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Admin save path — lock first, then read + write, then signal reload.
             await kv.set(adminLockKey, 1, { ex: 300 });
             const existing = await kv.get(key);
-            const payload = existing ? mergePreservingImages(incoming, existing) : incoming;
+            const adminStoredVersion = Number((existing as Record<string, unknown> | null)?._saveVersion ?? 0);
+            const adminMerged = existing ? mergePreservingImages(incoming, existing) : incoming;
+            const payload = {
+                ...(adminMerged as Record<string, unknown>),
+                _saveVersion: adminStoredVersion + 1,
+                _saveAt: Date.now(),
+            };
 
             const char = (incoming as Record<string, unknown>)?.character as Record<string, unknown> | undefined;
             const displayName: string = (char?.name as string) || name;

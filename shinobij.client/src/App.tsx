@@ -10214,6 +10214,38 @@ export default function App() {
     // Keep a ref to the latest save payload so the interval always uses current data.
     const latestSaveRef = useRef<{ character: Character; name: string; payload: ReturnType<typeof buildPlayerSavePayload> } | null>(null);
 
+    // Server-issued monotonic version of the last save we loaded or wrote.
+    // We echo this back as `_baseSaveVersion` in autosave POSTs so the server
+    // can detect when a second tab/device wrote in between and reject the
+    // stale overwrite (HTTP 409). On 409 we refetch + reapply the server's
+    // newer snapshot. Defaults to 0 = "no version known" which the server
+    // treats as an allow (preserves backwards compat for stale tabs).
+    const latestSaveVersionRef = useRef<number>(0);
+    // Guard so we only run one conflict-recovery refetch at a time even if
+    // multiple autosave timers fire 409s in close succession.
+    const conflictRefetchInFlightRef = useRef<boolean>(false);
+
+    async function refetchAfterSaveConflict(accountName: string) {
+        if (conflictRefetchInFlightRef.current) return;
+        conflictRefetchInFlightRef.current = true;
+        try {
+            const res = await fetch(`/api/save/${encodeURIComponent(accountName.toLowerCase())}`, { cache: "no-store" });
+            if (!res.ok) return;
+            const snap = await res.json() as ReturnType<typeof buildPlayerSavePayload> & { _saveVersion?: number };
+            // Apply the server's newer snapshot. Clears charDirtyRef so the
+            // autosave loop doesn't immediately re-clobber the freshly loaded
+            // state — same reasoning as the post-login load.
+            applyServerSnapshot(snap);
+            if (typeof snap._saveVersion === "number") {
+                latestSaveVersionRef.current = snap._saveVersion;
+            }
+        } catch {
+            // Network error — autosave loop will retry; nothing to do here.
+        } finally {
+            conflictRefetchInFlightRef.current = false;
+        }
+    }
+
     // Dirty-tracking: only auto-save when character state actually changed locally.
     // This prevents a second device (e.g. desktop) from continuously re-uploading the
     // snapshot it loaded from the server, which would overwrite progress made on the
@@ -10251,10 +10283,27 @@ export default function App() {
             const snap = latestSaveRef.current;
             if (!snap) return;
             charDirtyRef.current = false;
-            fetch(`/api/save/${encodeURIComponent(snap.name.toLowerCase())}`, {
+            const bodyWithVersion = { ...snap.payload, _baseSaveVersion: latestSaveVersionRef.current };
+            const accountName = snap.name;
+            fetch(`/api/save/${encodeURIComponent(accountName.toLowerCase())}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(snap.payload, (_k: string, v: unknown) => typeof v === "string" && v.startsWith("data:image") ? "" : v),
+                body: JSON.stringify(bodyWithVersion, (_k: string, v: unknown) => typeof v === "string" && v.startsWith("data:image") ? "" : v),
+            }).then(async (res) => {
+                if (res.status === 409) {
+                    // Another tab/device wrote first. Refetch + reapply rather
+                    // than overwriting their work. The user's local changes
+                    // since the conflict will need to be redone, but that's
+                    // better than silently losing the other tab's progress.
+                    void refetchAfterSaveConflict(accountName);
+                    return;
+                }
+                if (res.ok) {
+                    try {
+                        const data = await res.json() as { _saveVersion?: number };
+                        if (typeof data._saveVersion === "number") latestSaveVersionRef.current = data._saveVersion;
+                    } catch { /* server may return 200 with empty body; ignore */ }
+                }
             }).catch(() => { charDirtyRef.current = true; });
         }, 3000);
         return () => { if (saveSoonTimerRef.current) clearTimeout(saveSoonTimerRef.current); };
@@ -10272,10 +10321,23 @@ export default function App() {
             const snap = latestSaveRef.current;
             if (!snap) return;
             charDirtyRef.current = false; // optimistically clear; restored on failure
-            fetch(`/api/save/${encodeURIComponent(snap.name.toLowerCase())}`, {
+            const bodyWithVersion = { ...snap.payload, _baseSaveVersion: latestSaveVersionRef.current };
+            const accountName = snap.name;
+            fetch(`/api/save/${encodeURIComponent(accountName.toLowerCase())}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(snap.payload, stripAutosaveImages),
+                body: JSON.stringify(bodyWithVersion, stripAutosaveImages),
+            }).then(async (res) => {
+                if (res.status === 409) {
+                    void refetchAfterSaveConflict(accountName);
+                    return;
+                }
+                if (res.ok) {
+                    try {
+                        const data = await res.json() as { _saveVersion?: number };
+                        if (typeof data._saveVersion === "number") latestSaveVersionRef.current = data._saveVersion;
+                    } catch { /* ignore */ }
+                }
             }).catch(() => {
                 charDirtyRef.current = true; // restore so next tick retries
             });
@@ -10299,11 +10361,16 @@ export default function App() {
             if (!charDirtyRef.current) return; // nothing changed — skip
             const snap = latestSaveRef.current;
             if (!snap) return;
+            // Page is unloading — we can't recover from a 409 here (no chance
+            // to refetch), but we still send the version so the server can
+            // reject and preserve the other tab's progress rather than letting
+            // a stale unload-time write clobber newer state.
+            const bodyWithVersion = { ...snap.payload, _baseSaveVersion: latestSaveVersionRef.current };
             fetch(`/api/save/${encodeURIComponent(snap.name.toLowerCase())}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 keepalive: true,
-                body: JSON.stringify(snap.payload, stripImages),
+                body: JSON.stringify(bodyWithVersion, stripImages),
             });
         }
         window.addEventListener('beforeunload', handleBeforeUnload);
@@ -10360,6 +10427,11 @@ export default function App() {
         const normalized = normalizeAdminCharacter(snap.character);
         prevCharRef.current = normalized;
         charDirtyRef.current = false;
+        // Capture server-issued save version (for multi-tab clobber detection).
+        const snapVersion = (snap as Record<string, unknown>)._saveVersion;
+        if (typeof snapVersion === "number" && Number.isFinite(snapVersion)) {
+            latestSaveVersionRef.current = snapVersion;
+        }
         setCurrentAccountName(snap.character.name);
         setCharacter(normalized);
         setCurrentBiome(snap.currentBiome ?? "central");
@@ -13982,7 +14054,7 @@ function LeftProfileCard({
                     title="View character profile"
                 >
                     {character.avatarImage ? (
-                        <img src={character.avatarImage} alt={character.name} />
+                        <img src={character.avatarImage} alt={character.name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
                     ) : (
                         character.name.slice(0, 2).toUpperCase()
                     )}
@@ -14289,7 +14361,7 @@ function MobileNav({
                     <div className="mobile-char-card">
                         <div className="mobile-char-avatar">
                             {character.avatarImage
-                                ? <img src={character.avatarImage} alt={character.name} />
+                                ? <img src={character.avatarImage} alt={character.name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
                                 : character.name.slice(0, 2).toUpperCase()
                             }
                         </div>
@@ -29947,8 +30019,8 @@ function WorldMap({
                     </div>
                     <div className={"vn-stage vn-biome-forest" + (pageImage ? " vn-has-image" : "")} style={pageImage ? { backgroundImage: `linear-gradient(180deg, rgba(7,12,27,.18), rgba(7,12,27,.78)), url(${pageImage})` } : undefined}>
                         <div className="vn-backdrop"><span className="vn-village-silhouette" /></div>
-                        <div className="vn-character mentor-character">{character.avatarImage ? <img src={character.avatarImage} alt={character.name} /> : character.name.slice(0, 2).toUpperCase()}</div>
-                        <div className="vn-character hero-character">{activePetEncounter.image ? <img src={activePetEncounter.image} alt={activePetEncounter.name} /> : "🐾"}</div>
+                        <div className="vn-character mentor-character">{character.avatarImage ? <img src={character.avatarImage} alt={character.name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} /> : character.name.slice(0, 2).toUpperCase()}</div>
+                        <div className="vn-character hero-character">{activePetEncounter.image ? <img src={activePetEncounter.image} alt={activePetEncounter.name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} /> : "🐾"}</div>
                         <div className="vn-scene-card">{page.scene || vn.vnScene || "Something moves through the undergrowth."}</div>
                         <div className="vn-dialogue">
                             <div className="vn-speaker">{speaker === "Narrator" ? initials : speaker}</div>
@@ -30244,14 +30316,14 @@ function WorldMap({
                                     >
                                         {isPlayer ? (
                                             character.avatarImage
-                                                ? <img className="tiny-map-avatar" src={character.avatarImage} alt={character.name} />
-                                                : "?"
+                                                ? <img className="tiny-map-avatar" src={character.avatarImage} alt={character.name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                                                : character.name.slice(0, 2).toUpperCase()
                                         ) : otherHere.length > 0 ? (
                                             <div className="other-players-map-stack">
                                                 {otherHere.map(p => (
                                                     <div key={p.name} className="other-player-map-dot" title={`${p.name} Lv ${p.level}`}>
                                                         {(sharedImages['avatar:' + p.name.toLowerCase()] || (p.character.avatarImage as string) || '')
-                                                            ? <img className="tiny-map-avatar other-player-map-avatar" src={sharedImages['avatar:' + p.name.toLowerCase()] || (p.character.avatarImage as string) || ''} alt={p.name} />
+                                                            ? <img className="tiny-map-avatar other-player-map-avatar" src={sharedImages['avatar:' + p.name.toLowerCase()] || (p.character.avatarImage as string) || ''} alt={p.name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
                                                             : <span className="other-player-map-emoji">🥷</span>
                                                         }
                                                         <span className="other-player-map-name">{p.name}</span>
@@ -30399,9 +30471,9 @@ function WorldMap({
                                     >
                                         {isPlayer ? (
                                             character.avatarImage ? (
-                                                <img className="tiny-map-avatar" src={character.avatarImage} alt={character.name} />
+                                                <img className="tiny-map-avatar" src={character.avatarImage} alt={character.name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
                                             ) : (
-                                                "?"
+                                                character.name.slice(0, 2).toUpperCase()
                                             )
                                         ) : ""}
                                     </button>
@@ -32314,7 +32386,7 @@ function Profile({
                 <div className="profile-avatar-upload-box">
                     <div className={`profile-big-avatar ${auraBonuses.avatarAura ? "aura-sphere-avatar" : ""}`}>
                         {character.avatarImage ? (
-                            <img src={character.avatarImage} alt="Avatar" />
+                            <img src={character.avatarImage} alt="Avatar" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
                         ) : (
                             <span>{character.name.slice(0, 2).toUpperCase()}</span>
                         )}
