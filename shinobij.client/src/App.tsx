@@ -236,6 +236,45 @@ import { CardVisual, ClanImageMark, LeaderPortrait } from "./components/Marks";
 import { FestivalPortrait, VillagePill } from "./components/Pills";
 import { ClanWarManual } from "./components/ClanWarManual";
 
+// Pure element/awakening helpers extracted to ./lib/elements.
+import {
+    elementIcon,
+    uniqueElements,
+    getCharacterElements,
+    hasCharacterElement,
+    rollAwakeningElement,
+    rollNewAwakeningElement,
+    rollAwakeningElements,
+} from "./lib/elements";
+// hasCharacterElement was previously exported from App.tsx — keep the
+// re-export so external imports continue to resolve.
+export { hasCharacterElement };
+
+// Pure pet helpers extracted to ./lib/pet. petDisplayName was already
+// exported from App.tsx so external imports keep working.
+import {
+    petDisplayName,
+    petHappiness,
+    isPetOnExpedition,
+    petCombatDamage,
+    increasePetHappiness,
+    petVariantIndex,
+} from "./lib/pet";
+export { petDisplayName };
+
+// Equipment helpers + tables extracted to ./lib/equipment. The three
+// helpers (normalizeEquipmentSlot, equipmentSlotLabel,
+// armorReductionForQuality) were already exported from App.tsx so
+// external screens keep importing them transparently.
+import {
+    itemSectionOptions,
+    normalizeEquipmentSlot,
+    equipmentSlotLabel,
+    armorQualityTiers,
+    armorReductionForQuality,
+} from "./lib/equipment";
+export { normalizeEquipmentSlot, equipmentSlotLabel, armorReductionForQuality };
+
 const terrainEffects: Record<
     Biome,
     {
@@ -627,43 +666,8 @@ type CreatorAi = {
 };
 
 // JutsuTag / Jutsu / EquipmentSlot moved to ./types/combat.
-
-const itemSectionOptions: Array<{ value: EquipmentSlot; label: string }> = [
-    { value: "aura", label: "Aura" },
-    { value: "hand", label: "Hand" },
-    { value: "body", label: "Body" },
-    { value: "waist", label: "Waist" },
-    { value: "legs", label: "Legs" },
-    { value: "feet", label: "Feet" },
-    { value: "head", label: "Head" },
-    { value: "item", label: "Item" },
-    { value: "thrown", label: "Thrown" },
-];
-
-export function normalizeEquipmentSlot(slot: EquipmentSlot): EquipmentSlot {
-    if (slot === "weapon") return "hand";
-    if (slot === "armor") return "body";
-    if (slot === "accessory") return "aura";
-    return slot;
-}
-
-export function equipmentSlotLabel(slot: EquipmentSlot) {
-    const normalized = normalizeEquipmentSlot(slot);
-    return itemSectionOptions.find((option) => option.value === normalized)?.label ?? normalized;
-}
-
-// ArmorQuality moved to ./types/combat.
-const armorQualityTiers: { quality: ArmorQuality; reduction: number; label: string }[] = [
-    { quality: "Standard", reduction: 0.01, label: "Standard — 1% damage reduction" },
-    { quality: "Reinforced", reduction: 0.03, label: "Reinforced — 3% damage reduction" },
-    { quality: "Rare", reduction: 0.05, label: "Rare — 5% damage reduction" },
-    { quality: "Elite", reduction: 0.06, label: "Elite — 6% damage reduction" },
-    { quality: "Legendary", reduction: 0.07, label: "Legendary — 7% damage reduction" },
-];
-
-export function armorReductionForQuality(quality?: ArmorQuality): number {
-    return armorQualityTiers.find((t) => t.quality === quality)?.reduction ?? 0;
-}
+// itemSectionOptions / normalizeEquipmentSlot / equipmentSlotLabel /
+// armorQualityTiers / armorReductionForQuality moved to ./lib/equipment.
 
 function getActivePetTrait(character: Character): PetTrait | undefined {
     return character.pets?.find((p) => p.id === character.activePetId)?.trait;
@@ -2232,37 +2236,8 @@ const STAT_KEYS: Array<keyof Stats> = [
     "ninjutsuOffense",
     "ninjutsuDefense",
 ];
-function rollAwakeningElement(): string {
-    return AWAKENING_ELEMENTS[Math.floor(Math.random() * AWAKENING_ELEMENTS.length)];
-}
-function elementIcon(element?: string) {
-    if (element === "Water") return "🌊";
-    if (element === "Wind") return "🌀";
-    if (element === "Earth") return "⛰";
-    if (element === "Lightning") return "⚡";
-    if (element === "Fire") return "🔥";
-    return "✦";
-}
-function uniqueElements(elements: (string | undefined | null)[]) {
-    const seen = new Set<string>();
-    return elements
-        .map((element) => element?.trim())
-        .filter((element): element is string => Boolean(element))
-        .filter((element) => {
-            const key = element.toLowerCase();
-            if (seen.has(key)) return false;
-            seen.add(key);
-            return true;
-        });
-}
-function getCharacterElements(character: Pick<Character, "element" | "elements">) {
-    return uniqueElements([...(character.elements ?? []), character.element]);
-}
-export function hasCharacterElement(character: Pick<Character, "element" | "elements">, element?: string) {
-    if (!element) return true;
-    const ownedElements = getCharacterElements(character).map((owned) => owned.toLowerCase());
-    return ownedElements.includes(element.toLowerCase());
-}
+// rollAwakeningElement / elementIcon / uniqueElements /
+// getCharacterElements / hasCharacterElement moved to ./lib/elements.
 function getCharacterBloodlines(character: Pick<Character, "bloodline" | "equippedBloodlineId">, savedBloodlines: SavedBloodline[]) {
     const starterBloodlineName = character.bloodline === "Blue Blade Eyes" ? "Ashen Eyes" : character.bloodline;
     const starterBloodline = starterSavedBloodlines.find((bloodline) => bloodline.name === starterBloodlineName);
@@ -2314,16 +2289,7 @@ function replaceCharacterBloodline(character: Character, newBloodline: SavedBloo
         jutsuMastery: (character.jutsuMastery ?? []).filter((m) => !bloodlineJutsuIds.has(m.jutsuId)),
     };
 }
-function rollNewAwakeningElement(currentElements: string[]) {
-    const current = new Set(currentElements.map((element) => element.toLowerCase()));
-    const available = AWAKENING_ELEMENTS.filter((element) => !current.has(element.toLowerCase()));
-    return available.length ? available[Math.floor(Math.random() * available.length)] : rollAwakeningElement();
-}
-function rollAwakeningElements(count: number) {
-    return Array.from({ length: Math.min(count, AWAKENING_ELEMENTS.length) }).reduce<string[]>((elements) => {
-        return [...elements, rollNewAwakeningElement(elements)];
-    }, []);
-}
+// rollNewAwakeningElement / rollAwakeningElements moved to ./lib/elements.
 const awakeningLv2VnEvent: CreatorEvent = {
     id: AWAKENING_VN_ID,
     name: "The Awakening Stone Calls",
@@ -2681,23 +2647,8 @@ const stackableItemIds = new Set<string>([...petFeedItems.map((item) => item.id)
 export function petFeedXpForItem(itemId?: string): number | undefined {
     return petFeedItems.find((item) => item.id === itemId)?.xp;
 }
-export function petDisplayName(pet: Pick<Pet, "name" | "nickname">) { return pet.nickname?.trim() || pet.name; }
-function petHappiness(pet: Pick<Pet, "happiness">) {
-    return Math.max(0, Math.min(100, Math.floor(pet.happiness ?? 0)));
-}
-function isPetOnExpedition(pet?: Pick<Pet, "expedition"> | null) {
-    return Boolean(pet?.expedition && Date.now() < pet.expedition.endsAt);
-}
-function petCombatDamage(pet: Pet) {
-    const bestDamageJutsu = Math.max(0, ...pet.jutsus.filter((jutsu) => jutsu.kind === "damage").map((jutsu) => jutsu.power));
-    return Math.max(20, Math.floor(pet.attack * 1.35 + bestDamageJutsu * 0.65 + pet.level * 2));
-}
-function increasePetHappiness(pet: Pet, amount = 10): Pet {
-    return { ...pet, happiness: Math.min(100, petHappiness(pet) + amount) };
-}
-function petVariantIndex(pet: Pick<Pet, "id">) {
-    return Math.max(0, Number(pet.id.match(/-(\d+)(?:-|$)/)?.[1] ?? 0));
-}
+// petDisplayName / petHappiness / isPetOnExpedition / petCombatDamage /
+// increasePetHappiness / petVariantIndex moved to ./lib/pet.
 function capPetStats(pet: Pet): Pet {
     const caps = petStatCaps[pet.rarity] ?? petStatCaps.standard;
     return {
