@@ -48,83 +48,33 @@ import { DailyProfessionMissions } from "./screens/DailyProfessionMissions";
 import { ClanSealPool } from "./screens/ClanSealPool";
 import { ProfessionRankBar } from "./screens/ProfessionRankBar";
 
-export type Profession = "healer" | "vanguard" | "petTamer";
-
-export type Screen =
-    | "start"
-    | "adminLogin"
-    | "adminPanel"
-    | "professionPicker"
-    | "village"
-    | "villageLore"
-    | "profile"
-    | "inventory"
-    | "logbook"
-    | "training"
-    | "jutsuTraining"
-    | "missions"
-    | "arena"
-    | "battleArena"
-    | "arenaDistrict"
-    | "bloodlineMaker"
-    | "clan"
-    | "worldMap"
-    | "townHall"
-    | "bank"
-    | "shop"
-    | "grandMarketplace"
-    | "hospital"
-    | "cafeteria"
-    | "storyHall"
-    | "storyBoss"
-    | "sunscarFestival"
-    | "centralHub"
-    | "petArena"
-    | "pets"
-    | "shinobiTiles"
-    | "eventPetBattle"
-    | "eventTiles"
-    | "dungeon"
-    | "hunting"
-    | "tavern"
-    | "hallOfLegends"
-    | "shinobiCouncil"
-    | "userHub"
-    | "userView"
-    | "pvpBattle"
-    | "hollowGateShrine"
-    | "hollowGateTiles"
-    | "endlessTower"
-    | "weeklyBoss"
-    | "villageWar"
-    | "tilecardsDuel";
-
-export type Rank = "B Rank" | "A Rank" | "S Rank";
-type Biome = "forest" | "snow" | "volcano" | "shadow" | "central";
-type JutsuType = "Ninjutsu" | "Taijutsu" | "Genjutsu" | "Bukijutsu" | "Any";
-type JutsuElement = "Earth" | "Wind" | "Lightning" | "Fire" | "Water" | "None";
-export type JutsuTarget = "SELF" | "OPPONENT" | "OTHER_USER" | "CHARACTER" | "EMPTY_GROUND";
-type JutsuMethod = "SINGLE" | "ALL" | "AOE_CIRCLE" | "INSTANT_EFFECT";
-type JutsuSort = "name" | "type" | "element" | "effect" | "ap" | "range" | "effectPower";
-type WeatherType =
-    | "clear"
-    | "rain"
-    | "ashfall"
-    | "thunderstorm"
-    | "tornado"
-    | "desertHaze";
-
-type VillageUpgradeKey =
-    | "training"
-    | "jutsuTraining"
-    | "shop"
-    | "townDefense"
-    | "petYard"
-    | "bank"
-    | "missionHall"
-    | "hospital";
-
-type VillageUpgrades = Record<VillageUpgradeKey, number>;
+// ─── Core game types ─────────────────────────────────────────────────────
+// Extracted to src/types/core.ts so screens / components can reach them
+// without dragging in the full App.tsx import surface. We re-export the
+// public ones below so existing `import { Profession } from "../App"` call
+// sites keep resolving identically.
+import {
+    type Profession,
+    type Screen,
+    type Rank,
+    type Biome,
+    type JutsuType,
+    type JutsuElement,
+    type JutsuTarget,
+    type JutsuMethod,
+    type JutsuSort,
+    type WeatherType,
+    type VillageUpgradeKey,
+    type VillageUpgrades,
+    type AdminAccount,
+} from "./types/core";
+export type {
+    Profession,
+    Screen,
+    Rank,
+    JutsuTarget,
+    AdminAccount,
+};
 
 const terrainEffects: Record<
     Biome,
@@ -446,7 +396,7 @@ export type Stats = {
 };
 
 type JutsuMastery = { jutsuId: string; level: number; xp: number };
-export type AdminAccount = "Admin 1" | "Admin 2";
+// AdminAccount moved to ./types/core — re-exported at the top of this file.
 
 // The protected admin account. The Admin button is only visible to this
 // username, the name is reserved server-side (no one else can register it),
