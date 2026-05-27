@@ -25243,7 +25243,7 @@ function CentralHub({
     const [namedWeaponFlavorText, setNamedWeaponFlavorText] = useState("");
 
     const NAMED_WEAPON_TAGS = [
-        "Damage", "Siphon", "Absorb", "Poison", "Wound",
+        "Siphon", "Absorb", "Poison", "Wound",
         "Reflect", "Shield", "Drain", "Ignition", "Heal",
         "Increase Damage Given", "Decrease Damage Taken",
     ];
@@ -25274,7 +25274,7 @@ function CentralHub({
         auraStones: 25,
         mythicSeals: 75,
     };
-    const NW_COST = 500; // total points needed
+    const NW_COST = 1000; // total points needed
 
     function namedWeaponCurrencyPts(): number {
         return (
@@ -26157,7 +26157,7 @@ function CentralHub({
                                                     </div>
                                                 </div>
                                                 <div className="nwo-section nwo-section-wide">
-                                                    <div className="nwo-label">Possible Tags (each ~8.3% to appear)</div>
+                                                    <div className="nwo-label">Possible Tags (each ~{(100 / NAMED_WEAPON_TAGS.length).toFixed(1)}% to appear)</div>
                                                     <div className="nwo-tags">
                                                         {NAMED_WEAPON_TAGS.map(t => (
                                                             <span key={t} className="nwo-tag-chip">{t}</span>
