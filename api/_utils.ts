@@ -1,7 +1,13 @@
 // Shared utilities for Vercel API functions
 
+// Max length for a player / clan-slug name. KV keys like `save:<name>`,
+// `ratelimit:save:<name>:gains`, `presence:<name>`, etc. embed this string,
+// so an unbounded length inflates every key the player touches. 32 chars
+// covers any realistic display name; longer inputs are truncated rather
+// than rejected so legacy code that hands raw user input here keeps working.
+const SAFE_NAME_MAX_LEN = 32;
 export function safeName(name: string) {
-    return name.toLowerCase().replace(/[^a-z0-9\-_]/g, '');
+    return name.toLowerCase().replace(/[^a-z0-9\-_]/g, '').slice(0, SAFE_NAME_MAX_LEN);
 }
 
 function recordId(value: unknown) {
