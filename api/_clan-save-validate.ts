@@ -1,3 +1,5 @@
+import { isCleanText as isCleanClanText } from './_text-moderation.js';
+
 // Per-field validator for clan-* saves written via /api/save/clan-<slug>.
 //
 // Before this layer the writer only checked that the caller's
@@ -118,6 +120,18 @@ export function validateClanSaveWrite(
     // Treat as immutable post-creation.
     if (prev.name && lower(incoming.name) !== lower(prev.name)) {
         if (!ctx.isAdmin) { next.name = prev.name; suppressed.push('name change (admin only)'); }
+    }
+    // On clan creation (no prev.name), gate the incoming name through the
+    // strict moderation check. We reject rather than asterisk-mask because
+    // the clan slug is derived from the name and slug routing keys can't
+    // include `*`. Existing clans (prev.name present) are immutable above.
+    if (!prev.name && incoming.name && !ctx.isAdmin) {
+        if (!isCleanClanText(String(incoming.name))) {
+            // Strip the name from the incoming blob — the save endpoint's
+            // upstream check rejects clan saves without a usable name.
+            delete next.name;
+            suppressed.push('clan name failed content moderation');
+        }
     }
     if (prev.createdAt && incoming.createdAt && Number(incoming.createdAt) !== Number(prev.createdAt)) {
         if (!ctx.isAdmin) { next.createdAt = prev.createdAt; suppressed.push('createdAt change (admin only)'); }

@@ -93,12 +93,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(403).json({ error: 'Can only report your own events.' });
         }
 
-        // Verify the player is actually a Pet Tamer (peek; the authoritative
-        // re-read happens inside the lock below).
+        // Verify the player is actually a Pet Tamer. Cheap pre-lock peek; the
+        // authoritative read happens under the lock below.
         const saveKey = `save:${playerName}`;
-        const peek = await kv.get<Record<string, unknown>>(saveKey);
-        const peekChar = peek?.character as Record<string, unknown> | undefined;
-        if (peekChar?.profession !== 'petTamer') {
+        const preCheck = await kv.get<Record<string, unknown>>(saveKey);
+        const preChar = preCheck?.character as Record<string, unknown> | undefined;
+        if (preChar?.profession !== 'petTamer') {
             return res.status(200).json({ ok: true, petTamer: false });
         }
 
@@ -120,57 +120,62 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         let dailyCapHit = false;
         const isExpedition = event === 'expedition' || event === 'long-expedition';
         if (isExpedition && durationMinutes > 0) {
-            const lockOutcome = await withKvLock(saveKey, async () => {
-                const fresh = await kv.get<Record<string, unknown>>(saveKey);
-                const freshChar = fresh?.character as Record<string, unknown> | undefined;
-                if (!fresh || !freshChar) return { capped: false as const, xp: 0, ryo: 0, bone: 0, aura: 0, fate: 0, missing: true as const };
-                if (freshChar.profession !== 'petTamer') return { capped: false as const, xp: 0, ryo: 0, bone: 0, aura: 0, fate: 0, missing: true as const };
+            // ── withKvLock: the daily-cap check + write must be atomic ────
+            // Two concurrent expedition claims (multi-tab race) used to both
+            // read the same `expeditionsClaimedToday`, both pass the cap
+            // check, and both grant ryo/drops/Tamer XP. The lock serializes
+            // them so the second sees the updated counter and short-circuits.
+            await withKvLock(saveKey, async () => {
+                const record = await kv.get<Record<string, unknown>>(saveKey);
+                const char = record?.character as Record<string, unknown> | undefined;
+                if (!char) return; // race: save deleted mid-call
 
                 const today = utcDateKey();
-                const sameDay = freshChar.lastExpeditionClaimDate === today;
-                const claimedToday = sameDay ? Number(freshChar.expeditionsClaimedToday ?? 0) : 0;
+                const sameDay = char.lastExpeditionClaimDate === today;
+                const claimedToday = sameDay ? Number(char.expeditionsClaimedToday ?? 0) : 0;
                 if (claimedToday >= MAX_EXPEDITIONS_PER_DAY) {
-                    return { capped: true as const, xp: 0, ryo: 0, bone: 0, aura: 0, fate: 0 };
+                    dailyCapHit = true;
+                    return;
                 }
                 const isFirstToday = claimedToday === 0;
-                const escortReady = !!freshChar.petEscortBonusReady;
-                const rank = Number(freshChar.professionRank ?? 1);
+                const escortReady = !!char.petEscortBonusReady;
+                const rank = Number(char.professionRank ?? 1);
 
-                const xp = tamerXpForExpedition(durationMinutes, { isFirstToday, escortReady });
-                let ryo = 0, bone = 0, aura = 0, fate = 0;
+                expeditionXp = tamerXpForExpedition(durationMinutes, { isFirstToday, escortReady });
+
+                // Ryo + drop calculation (mirrors client formula). Requires expType.
                 if (expType) {
                     const durationHours = Math.max(1, durationMinutes / 60);
-                    const tamerMult = petTamerExpeditionMultFromRank(rank, freshChar.profession);
+                    const tamerMult = petTamerExpeditionMultFromRank(rank, char.profession);
                     const firstBonus = isFirstToday ? 2 : 1;
                     const dropBonus = (tamerMult - 1) + (isFirstToday ? 0.5 : 0);
-                    ryo = Math.round((90 * durationHours * RYO_MULT[expType] + petLevel * 6) * tamerMult * firstBonus);
-                    bone = Math.random() < (BONE_RATE[expType] + dropBonus) ? 1 : 0;
-                    aura = Math.random() < (AURA_RATE[expType] + dropBonus * 0.1) ? 1 : 0;
-                    fate = Math.random() < (FATE_RATE[expType] + dropBonus * 0.1) ? 1 : 0;
+
+                    ryoEarned = Math.round((90 * durationHours * RYO_MULT[expType] + petLevel * 6) * tamerMult * firstBonus);
+                    foundBone = Math.random() < (BONE_RATE[expType] + dropBonus) ? 1 : 0;
+                    foundAura = Math.random() < (AURA_RATE[expType] + dropBonus * 0.1) ? 1 : 0;
+                    foundFate = Math.random() < (FATE_RATE[expType] + dropBonus * 0.1) ? 1 : 0;
                 }
 
+                // Stamp daily tracking + consume escort bonus + apply currencies.
                 const updated = {
-                    ...fresh,
+                    ...record,
                     character: {
-                        ...freshChar,
+                        ...char,
                         lastExpeditionClaimDate: today,
                         expeditionsClaimedToday: claimedToday + 1,
-                        ryo: Number(freshChar.ryo ?? 0) + ryo,
-                        boneCharms: Number(freshChar.boneCharms ?? 0) + bone,
-                        auraStones: Number(freshChar.auraStones ?? 0) + aura,
-                        fateShards: Number(freshChar.fateShards ?? 0) + fate,
+                        ryo: Number(char.ryo ?? 0) + ryoEarned,
+                        boneCharms: Number(char.boneCharms ?? 0) + foundBone,
+                        auraStones: Number(char.auraStones ?? 0) + foundAura,
+                        fateShards: Number(char.fateShards ?? 0) + foundFate,
                         ...(escortReady ? { petEscortBonusReady: false } : {}),
                     },
                 };
-                await kv.set(saveKey, mergePreservingImages(updated, fresh));
-                return { capped: false as const, xp, ryo, bone, aura, fate };
+                await kv.set(saveKey, mergePreservingImages(updated, record));
             });
 
-            if ('missing' in lockOutcome) {
-                // Race: profession changed or save deleted between peek and lock.
-                return res.status(200).json({ ok: true, petTamer: false });
-            }
-            if (lockOutcome.capped) {
+            // Daily cap reached — short-circuit cleanly with the same shape
+            // the pre-lock cap check used to return.
+            if (dailyCapHit) {
                 return res.status(200).json({
                     ok: true,
                     petTamer: true,
@@ -183,16 +188,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     missionsCompleted: [],
                 });
             }
-            expeditionXp = lockOutcome.xp;
-            ryoEarned = lockOutcome.ryo;
-            foundBone = lockOutcome.bone;
-            foundAura = lockOutcome.aura;
-            foundFate = lockOutcome.fate;
-            void dailyCapHit;
 
             // Grant Tamer XP (subject to per-save cap and Rank-2 multiplier).
-            // awardProfessionXp takes its own save lock internally — outside
-            // our lock to avoid the nested-acquire.
+            // awardProfessionXp acquires its own lock — kept outside the
+            // expedition-counter lock above so we don't nest lock acquires.
             if (expeditionXp > 0) {
                 await awardProfessionXp(playerName, 'petTamer', expeditionXp);
             }

@@ -5,6 +5,7 @@ import { verifyPlayerPassword } from '../player-auth.js';
 import { authedPlayerOrAdmin, isAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { validateClanSaveWrite } from '../_clan-save-validate.js';
+import { sanitizeUserText, TEXT_LIMITS } from '../_text-moderation.js';
 
 // Fields stripped from character objects when a non-owner reads another player's save.
 // Prevents ryo farming (reading other players' wallets) and inventory snooping.
@@ -40,7 +41,13 @@ function stripPrivateFields(data: Record<string, unknown>): Record<string, unkno
     if (!char || typeof char !== 'object') return data;
     const sanitized = { ...char };
     for (const field of PRIVATE_CHAR_FIELDS) delete sanitized[field];
-    return { ...data, character: sanitized };
+    // _saveVersion / _saveAt are server bookkeeping for the multi-tab autosave
+    // guard. Owners need to see them (so they can echo `_baseSaveVersion`
+    // back on the next POST), but non-owners shouldn't get internal metadata.
+    const stripped: Record<string, unknown> = { ...data, character: sanitized };
+    delete stripped._saveVersion;
+    delete stripped._saveAt;
+    return stripped;
 }
 
 // Character-level fields stripped under ?combatOnly=1 — none of these affect
@@ -222,6 +229,15 @@ function sanitizeCharacterSave(
 
     const char: Record<string, unknown> = { ...inChar };
 
+    // ── Free-form user text moderation ──────────────────────────────
+    // customTitle is the only character-level field a player can put
+    // arbitrary text into. Mask profanity, redact PII, cap length so a
+    // tampered save can't park a slur as their public title or stuff
+    // a 10 KB string into the field.
+    if (typeof char.customTitle === 'string' && char.customTitle.trim()) {
+        char.customTitle = sanitizeUserText(char.customTitle, TEXT_LIMITS.customTitle);
+    }
+
     // Level: can't jump more than MAX_LEVEL_GAIN levels per save; hard cap at LEVEL_CAP.
     const exLevel = Math.max(1, Number(exChar.level ?? 1));
     const inLevel = Math.max(1, Number(char.level ?? 1));
@@ -324,19 +340,21 @@ function sanitizeCharacterSave(
         lifetimeWarDamage: 50_000,
         monthlyPvpKills: 10,
         dailyAiKills: 30,
-        // totalPetWins is incremented server-side by api/pet/battle-result
-        // (under a per-player lock + daily cap). Without this clamp a
-        // tampered client save could POST `totalPetWins: 9999` directly
-        // and spoof the Hall-of-Legends Pet Arena leaderboard.
-        totalPetWins: 20,
-        // totalEndlessTowerWins similarly drives a HoL leaderboard.
+        // Leaderboard / Hall-of-Legends counters — feed Hall pages directly,
+        // so a tampered save can pad them to claim top spots. All are
+        // upward-only by gameplay design. Server-side win endpoints
+        // (api/pet/battle-result, etc.) are the legitimate increment path;
+        // these caps stop a direct save POST from spoofing.
+        totalPetWins: 30,
         totalEndlessTowerWins: 5,
+        totalTournamentsCompleted: 3,
+        totalTilesExplored: 200,
+        rankedWins: 20,
+        rankedLosses: 20,
         // Village-war mission counter (drives the "War Veteran" achievement
         // path). Without a clamp, a tampered save can jump 0 → 999K in one
         // POST. 5/save matches the raid cap pacing.
         villageWarMissionsCompleted: 5,
-        // Tournament completion counter (rare event — at most one per save).
-        totalTournamentsCompleted: 1,
         // Stats trained + missions completed lifetime counters — used by
         // achievements but never decreased through legitimate play.
         totalStatsTrained: 100,
@@ -348,6 +366,25 @@ function sanitizeCharacterSave(
         // Disallow shrinking the counter, and clamp growth to maxDelta.
         const clamped = Math.max(exV, Math.min(inV, exV + maxDelta));
         (char as Record<string, unknown>)[field] = clamped;
+    }
+
+    // ── rankedRating: bidirectional clamp ─────────────────────────────────
+    // Unlike the monotonic counters above, ranked rating both rises and
+    // falls (win → +N, loss → −N), so a "no shrink" rule would break
+    // legitimate losses. Bound the per-save *magnitude* of change instead.
+    // Typical rankedDelta is 5–50 per fight; a save cycle covers at most
+    // a few fights, so 200 points of swing is generous.
+    const MAX_RATING_SWING_PER_SAVE = 200;
+    const inRating = Number((char as Record<string, unknown>).rankedRating ?? 1000);
+    const exRating = Number((exChar as Record<string, unknown>).rankedRating ?? 1000);
+    if (Number.isFinite(inRating) && Number.isFinite(exRating)) {
+        const delta = inRating - exRating;
+        if (Math.abs(delta) > MAX_RATING_SWING_PER_SAVE) {
+            const sign = delta > 0 ? 1 : -1;
+            (char as Record<string, unknown>).rankedRating = exRating + sign * MAX_RATING_SWING_PER_SAVE;
+        } else {
+            (char as Record<string, unknown>).rankedRating = inRating;
+        }
     }
 
     // Pet cap: client enforces "max 5 pets" at befriend time, but a tampered
@@ -952,7 +989,51 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         }
                     }
 
-                    const payload = existing ? mergePreservingImages(safeIncoming, existing) : safeIncoming;
+                    // ── Multi-tab autosave guard ─────────────────────────────
+                    // Stale-write detection via monotonic version stamp.
+                    //
+                    // Each stored player save carries `_saveVersion: number`,
+                    // bumped on every successful write. Clients MAY echo back
+                    // the version they last loaded as `_baseSaveVersion` in
+                    // the request body. If they do, and the server's stored
+                    // version is newer, reject the write — another tab saved
+                    // in the meantime and overwriting would clobber that
+                    // progress.
+                    //
+                    // Clients that don't send `_baseSaveVersion` get the old
+                    // (lossy) behaviour. This is opt-in so a stale browser
+                    // tab still on the prior client build doesn't get locked
+                    // out of saving entirely.
+                    //
+                    // Clan saves are excluded — they're intentionally shared
+                    // across the whole clan and use a separate field-level
+                    // delta validator that already handles concurrent writes.
+                    const existingObj = (existing as Record<string, unknown> | null) ?? null;
+                    const storedVersion = Number(existingObj?._saveVersion ?? 0);
+                    const incomingBody = incoming as Record<string, unknown>;
+                    const baseVersionRaw = incomingBody?._baseSaveVersion;
+                    if (
+                        !isClanSave
+                        && typeof baseVersionRaw === 'number'
+                        && Number.isFinite(baseVersionRaw)
+                        && baseVersionRaw < storedVersion
+                    ) {
+                        return res.status(409).json({
+                            error: 'Save conflict — another tab or device wrote first.',
+                            currentVersion: storedVersion,
+                        });
+                    }
+                    const nextVersion = storedVersion + 1;
+                    const mergedPayload = existing ? mergePreservingImages(safeIncoming, existing) : safeIncoming;
+                    // Strip `_baseSaveVersion` from the persisted payload so
+                    // it doesn't accumulate in the stored save record.
+                    const mergedRecord = mergedPayload as Record<string, unknown>;
+                    delete mergedRecord._baseSaveVersion;
+                    const payload = isClanSave ? mergedRecord : {
+                        ...mergedRecord,
+                        _saveVersion: nextVersion,
+                        _saveAt: Date.now(),
+                    };
 
                     const char = (incoming as Record<string, unknown>)?.character as Record<string, unknown> | undefined;
                     const displayName: string = (char?.name as string) || name;
@@ -968,7 +1049,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         kv.set(key, payload),
                         kv.hset(REGISTRY_KEY, { [name]: registryEntry }),
                     ]);
-                    return res.status(200).end();
+                    return res.status(200).json(isClanSave ? { ok: true } : { ok: true, _saveVersion: nextVersion });
                 } finally {
                     // Always release the lock — player AND clan saves now
                     // both serialize through it.
@@ -979,7 +1060,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Admin save path — lock first, then read + write, then signal reload.
             await kv.set(adminLockKey, 1, { ex: 300 });
             const existing = await kv.get(key);
-            const payload = existing ? mergePreservingImages(incoming, existing) : incoming;
+            const adminStoredVersion = Number((existing as Record<string, unknown> | null)?._saveVersion ?? 0);
+            const adminMerged = existing ? mergePreservingImages(incoming, existing) : incoming;
+            const payload = {
+                ...(adminMerged as Record<string, unknown>),
+                _saveVersion: adminStoredVersion + 1,
+                _saveAt: Date.now(),
+            };
 
             const char = (incoming as Record<string, unknown>)?.character as Record<string, unknown> | undefined;
             const displayName: string = (char?.name as string) || name;
