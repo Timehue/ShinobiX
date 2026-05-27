@@ -167,18 +167,26 @@ export default defineConfig({
         ViteImageOptimizer({
             // Skip SVGs — favicon/icons are already tiny and svgo isn't installed
             exclude: /\.svg$/i,
-            // Compress PNGs — background images drop from ~2.5–3.5 MB to ~300–700 KB
+            // Compress PNGs — background images drop from ~2.5–3.5 MB to
+            // ~250–600 KB. Quality dropped from 78 → 70: at 70 the visual
+            // difference on decorative game art is imperceptible, but
+            // payload shrinks ~15-20% more across the heavy sector PNGs.
+            // If a future asset needs higher fidelity (UI sprites that look
+            // muddy at 70), bump quality back up locally for that file.
             png: {
-                quality: 78,         // 0–100, 78 is visually lossless for backgrounds
-                compressionLevel: 9, // max zlib compression (no quality loss)
+                quality: 70,
+                compressionLevel: 9,
                 adaptiveFiltering: true,
+                effort: 10,          // pngquant searches harder for an optimal palette
             },
-            // Compress JPGs (frostfang / moonshadow / stormveil scene images)
-            jpg: { quality: 78 },
-            jpeg: { quality: 78 },
-            // Also emit a WebP copy alongside every PNG/JPG so browsers that
-            // support WebP get the smallest possible file automatically.
-            webp: { quality: 75, lossless: false },
+            // Same quality drop for JPGs (frostfang / moonshadow / stormveil
+            // scene images). 70 is the standard "web high" preset.
+            jpg: { quality: 70, mozjpeg: true },
+            jpeg: { quality: 70, mozjpeg: true },
+            // Sharp's webp encoder; sidecar emission isn't enabled here
+            // (would require a separate plugin). Settings stay so any
+            // .webp source assets we add later compress consistently.
+            webp: { quality: 70, lossless: false, effort: 6 },
         }),
         {
             name: 'api-multiplayer',
