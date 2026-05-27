@@ -506,12 +506,26 @@ function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu, wMult 
         const defAbsorb = activeStatuses(o, round).find(st => st.name === 'Absorb');
         const absorbHeal = defAbsorb && !pierce ? cappedPostDamage(finalDmg, defAbsorb.percent ?? 30) : 0;
 
+        // Named-armor passives (stack with status-based versions above).
+        // Percentages are clamped to [0, 100] at session merge; pierce
+        // jutsus bypass them all the same way they bypass DR / shield.
+        const itemAbsorbPct    = Math.max(0, Math.min(100, Number((o.character.itemAbsorbPct    as number) ?? 0)));
+        const itemReflectPct   = Math.max(0, Math.min(100, Number((o.character.itemReflectPct   as number) ?? 0)));
+        const itemLifeStealPct = Math.max(0, Math.min(100, Number((s.character.itemLifeStealPct as number) ?? 0)));
+        const itemAbsorbHeal    = !pierce && itemAbsorbPct    > 0 ? Math.floor(cappedPostDamage(finalDmg, itemAbsorbPct))    : 0;
+        const itemReflectedDmg  = !pierce && itemReflectPct   > 0 ? Math.floor(cappedPostDamage(finalDmg, itemReflectPct))   : 0;
+        const itemLifeStealHeal = !pierce && itemLifeStealPct > 0 ? Math.floor(cappedPostDamage(finalDmg, itemLifeStealPct)) : 0;
+
         o = { ...o, hp: Math.max(0, o.hp - finalDmg), shield: Math.max(0, o.shield - damage) };
         if (absorbHeal > 0) o = { ...o, hp: Math.min(o.maxHp, o.hp + absorbHeal) };
+        if (itemAbsorbHeal > 0) o = { ...o, hp: Math.min(o.maxHp, o.hp + itemAbsorbHeal) };
         if (blocked > 0) lines.push(`${blocked} absorbed by ${o.name}'s shield.`);
         if (finalDmg > 0) lines.push(`${finalDmg} damage to ${o.name}.`);
         if (absorbHeal > 0) lines.push(`${o.name} absorbs ${absorbHeal} HP.`);
+        if (itemAbsorbHeal > 0) lines.push(`${o.name}'s armor absorbs ${itemAbsorbHeal} HP.`);
         if (reflectedDmg > 0) { s = { ...s, hp: Math.max(0, s.hp - reflectedDmg) }; lines.push(`${s.name} takes ${reflectedDmg} reflected damage.`); }
+        if (itemReflectedDmg > 0) { s = { ...s, hp: Math.max(0, s.hp - itemReflectedDmg) }; lines.push(`${s.name} takes ${itemReflectedDmg} damage reflected by ${o.name}'s armor.`); }
+        if (itemLifeStealHeal > 0) { s = { ...s, hp: Math.min(s.maxHp, s.hp + itemLifeStealHeal) }; lines.push(`${s.name}'s armor steals ${itemLifeStealHeal} HP.`); }
 
         for (const tag of tags) {
             const pct = tag.percent ?? 0;

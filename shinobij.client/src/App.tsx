@@ -6510,6 +6510,11 @@ export default function App() {
                         armorFactor: getCharacterArmorFactor(p1Character, p1AllItems),
                         armorRawDR: getCharacterArmorRawDR(p1Character, p1AllItems),
                         itemDamagePct: getEquippedItemBonus(p1Character, p1AllItems, "damagePercent"),
+                        // Named-armor passives — server clamps these in session.ts.
+                        itemAbsorbPct:    getEquippedItemBonus(p1Character, p1AllItems, "absorbPercent"),
+                        itemReflectPct:   getEquippedItemBonus(p1Character, p1AllItems, "reflectPercent"),
+                        itemLifeStealPct: getEquippedItemBonus(p1Character, p1AllItems, "lifeStealPercent"),
+                        itemShield:       getEquippedItemBonus(p1Character, p1AllItems, "shield"),
                     },
                     p2Character: {
                         ...p2Character,
@@ -6519,6 +6524,10 @@ export default function App() {
                         armorFactor: getCharacterArmorFactor(p2Character, p2AllItems),
                         armorRawDR: getCharacterArmorRawDR(p2Character, p2AllItems),
                         itemDamagePct: getEquippedItemBonus(p2Character, p2AllItems, "damagePercent"),
+                        itemAbsorbPct:    getEquippedItemBonus(p2Character, p2AllItems, "absorbPercent"),
+                        itemReflectPct:   getEquippedItemBonus(p2Character, p2AllItems, "reflectPercent"),
+                        itemLifeStealPct: getEquippedItemBonus(p2Character, p2AllItems, "lifeStealPercent"),
+                        itemShield:       getEquippedItemBonus(p2Character, p2AllItems, "shield"),
                     },
                 }),
             });
@@ -10694,8 +10703,8 @@ export default function App() {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: stringifyPvpSessionPayload({
-                                        p1Character: { ...selfChar, jutsu: p1Jutsus, pvpItems: getPvpItemLoadout(selfChar, selfAllItems), bloodlineMult: getBloodlineMultiplier(selfChar, selfBloodlines), armorFactor: getCharacterArmorFactor(selfChar, selfAllItems), armorRawDR: getCharacterArmorRawDR(selfChar, selfAllItems), itemDamagePct: getEquippedItemBonus(selfChar, selfAllItems, "damagePercent") },
-                                        p2Character: { ...oppChar, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(oppChar, opponentAllItems), bloodlineMult: getBloodlineMultiplier(oppChar, opponentBloodlines), armorFactor: getCharacterArmorFactor(oppChar, opponentAllItems), armorRawDR: getCharacterArmorRawDR(oppChar, opponentAllItems), itemDamagePct: getEquippedItemBonus(oppChar, opponentAllItems, "damagePercent") },
+                                        p1Character: { ...selfChar, jutsu: p1Jutsus, pvpItems: getPvpItemLoadout(selfChar, selfAllItems), bloodlineMult: getBloodlineMultiplier(selfChar, selfBloodlines), armorFactor: getCharacterArmorFactor(selfChar, selfAllItems), armorRawDR: getCharacterArmorRawDR(selfChar, selfAllItems), itemDamagePct: getEquippedItemBonus(selfChar, selfAllItems, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(selfChar, selfAllItems, "absorbPercent"), itemReflectPct: getEquippedItemBonus(selfChar, selfAllItems, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(selfChar, selfAllItems, "lifeStealPercent"), itemShield: getEquippedItemBonus(selfChar, selfAllItems, "shield") },
+                                        p2Character: { ...oppChar, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(oppChar, opponentAllItems), bloodlineMult: getBloodlineMultiplier(oppChar, opponentBloodlines), armorFactor: getCharacterArmorFactor(oppChar, opponentAllItems), armorRawDR: getCharacterArmorRawDR(oppChar, opponentAllItems), itemDamagePct: getEquippedItemBonus(oppChar, opponentAllItems, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(oppChar, opponentAllItems, "absorbPercent"), itemReflectPct: getEquippedItemBonus(oppChar, opponentAllItems, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(oppChar, opponentAllItems, "lifeStealPercent"), itemShield: getEquippedItemBonus(oppChar, opponentAllItems, "shield") },
                                     }),
                                 });
                                 if (sr.ok) ({ battleId } = await sr.json() as { battleId: string });
@@ -26819,8 +26828,8 @@ function WorldMap({
                 headers: { 'Content-Type': 'application/json' },
                 body: stringifyPvpSessionPayload({
                     battleId,
-                    p1Character: { ...selfCharacter, jutsu: p1Jutsus, pvpItems: getPvpItemLoadout(selfCharacter, selfAllItems), bloodlineMult: getBloodlineMultiplier(selfCharacter, selfBloodlines), armorFactor: getCharacterArmorFactor(selfCharacter, selfAllItems), armorRawDR: getCharacterArmorRawDR(selfCharacter, selfAllItems), itemDamagePct: getEquippedItemBonus(selfCharacter, selfAllItems, "damagePercent") },
-                    p2Character: { ...opponentCharacter, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(opponentCharacter, opponentAllItems), bloodlineMult: getBloodlineMultiplier(opponentCharacter, opponentBloodlines), armorFactor: getCharacterArmorFactor(opponentCharacter, opponentAllItems), armorRawDR: getCharacterArmorRawDR(opponentCharacter, opponentAllItems), itemDamagePct: getEquippedItemBonus(opponentCharacter, opponentAllItems, "damagePercent") },
+                    p1Character: { ...selfCharacter, jutsu: p1Jutsus, pvpItems: getPvpItemLoadout(selfCharacter, selfAllItems), bloodlineMult: getBloodlineMultiplier(selfCharacter, selfBloodlines), armorFactor: getCharacterArmorFactor(selfCharacter, selfAllItems), armorRawDR: getCharacterArmorRawDR(selfCharacter, selfAllItems), itemDamagePct: getEquippedItemBonus(selfCharacter, selfAllItems, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(selfCharacter, selfAllItems, "absorbPercent"), itemReflectPct: getEquippedItemBonus(selfCharacter, selfAllItems, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(selfCharacter, selfAllItems, "lifeStealPercent"), itemShield: getEquippedItemBonus(selfCharacter, selfAllItems, "shield") },
+                    p2Character: { ...opponentCharacter, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(opponentCharacter, opponentAllItems), bloodlineMult: getBloodlineMultiplier(opponentCharacter, opponentBloodlines), armorFactor: getCharacterArmorFactor(opponentCharacter, opponentAllItems), armorRawDR: getCharacterArmorRawDR(opponentCharacter, opponentAllItems), itemDamagePct: getEquippedItemBonus(opponentCharacter, opponentAllItems, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(opponentCharacter, opponentAllItems, "absorbPercent"), itemReflectPct: getEquippedItemBonus(opponentCharacter, opponentAllItems, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(opponentCharacter, opponentAllItems, "lifeStealPercent"), itemShield: getEquippedItemBonus(opponentCharacter, opponentAllItems, "shield") },
                 }),
             }).catch(() => null),
             fetch('/api/player/challenge', {
