@@ -137,7 +137,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
                 // Look up actor stats to compute a server-trusted damage cap
                 // for this single request. Matches the legitimate client roll
-                // (best offensive stat × (1 + level/100) × max 1.3 multiplier).
+                // (best offensive stat × (1 + level/100) × max 1.4 multiplier).
+                //
+                // `best` is clamped before the formula so a stat-padded save
+                // can't drive the fairMax up to the absolute cap. Even maxed
+                // legitimate stats top out around 1500–2000 per offense slot;
+                // 2500 is a generous ceiling that lets late-game vanguards
+                // dump the cap but stops a tampered save from blowing past
+                // it to maximize the per-actor MVP bonus.
+                const MAX_OFFENSE_STAT_FOR_CAP = 2500;
                 let perActorCap = WEEKLY_BOSS_DMG_ABSOLUTE_CAP;
                 if (!identity.admin) {
                     try {
@@ -145,12 +153,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         const actorChar = (actorSave?.character ?? null) as Record<string, unknown> | null;
                         const stats = (actorChar?.stats ?? {}) as Record<string, number>;
                         const level = Math.max(1, Math.min(100, Math.floor(Number(actorChar?.level ?? 1))));
-                        const best = Math.max(
+                        const rawBest = Math.max(
                             Number(stats.bukijutsuOffense ?? 0),
                             Number(stats.taijutsuOffense ?? 0),
                             Number(stats.ninjutsuOffense ?? 0),
                             Number(stats.genjutsuOffense ?? 0),
                         );
+                        const best = Math.min(MAX_OFFENSE_STAT_FOR_CAP, rawBest);
                         const fairMax = Math.max(50, Math.floor(best * (1 + level / 100) * 1.4));
                         perActorCap = Math.min(WEEKLY_BOSS_DMG_ABSOLUTE_CAP, fairMax);
                     } catch {

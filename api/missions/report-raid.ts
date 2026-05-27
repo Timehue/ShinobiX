@@ -5,6 +5,12 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { reportMissionEvent, type CompletedMissionInfo } from './_progress.js';
+import type { PvpSession } from '../pvp/session.js';
+
+// Replay window for PvP-flavored raid reports — keyed off the same 24h
+// window report-pvp-win uses (session KV TTL is typically 1h but a player
+// could re-submit a battleId pulled from browser history much later).
+const SESSION_REPLAY_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 // Vanguard Rank 10 perk: +1 Honor Seal per raid mission completion.
 const RANK_10_BONUS_SEAL_PER_MISSION = 1;
@@ -27,11 +33,25 @@ function utcDateKey(): string {
 
 // Vanguard raid-mission progress reporter. Fires once per completed village
 // raid — counts the same whether the defender was a human guard or an AI
-// fill-in. Rate-limited to 1 report per 30s per player + a 60/day hard cap.
+// fill-in.
 //
-// No server-side "did the raid actually happen" check today — the raid
-// system itself is partly client-side. The rate limit + daily cap + per-save
-// XP cap bound the impact of any abuse.
+// PvP-flavored raids (human defender) pass `battleId`. The server cross-
+// validates that battleId against the actual PvpSession KV record (same
+// pattern as report-pvp-win): session exists, is done, the reporter won,
+// and the session age is within the 24h replay window. An atomic NX
+// idempotency key on (player, battleId) means each PvP battle can produce
+// AT MOST one raid mission report.
+//
+// AI-flavored raids pass `raidToken` instead — a single-use UUID minted
+// by /api/missions/raid-start when the player enters AI raid combat. The
+// token is stored at raid-token:<player>:<uuid> with a 5-min TTL; report
+// validates it belongs to the reporter and atomically deletes it on use.
+// raid-start has its own daily cap (30/day), so the AI raid claim ceiling
+// drops from 60/day (rate-limit-only) to 30/day (mint + report coupled).
+//
+// Both paths fall back to the rate-limit-only behaviour when their token
+// is absent — keeps stale clients on the prior build saving normally
+// instead of getting locked out.
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -54,11 +74,73 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const raidIdRaw = typeof body.raidId === 'string' ? body.raidId.slice(0, 80) : '';
         const raidId = /^[A-Za-z0-9:_-]+$/.test(raidIdRaw) ? raidIdRaw : '';
         if (!playerName) return res.status(400).json({ error: 'Invalid player name.' });
+        const battleId: string | undefined = typeof body.battleId === 'string' && body.battleId.trim()
+            ? body.battleId.trim()
+            : undefined;
+        // AI-raid token (minted by /api/missions/raid-start) — single-use.
+        // Validated and atomically deleted below before any reward grants.
+        const raidTokenRaw: string | undefined = typeof body.raidToken === 'string' && body.raidToken.trim()
+            ? body.raidToken.trim()
+            : undefined;
+        const raidToken: string | undefined = raidTokenRaw && /^[A-Za-z0-9]+$/.test(raidTokenRaw)
+            ? raidTokenRaw
+            : undefined;
 
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) {
             return res.status(403).json({ error: 'Can only report your own raids.' });
+        }
+
+        // ── AI-raid token cross-validation ────────────────────────────
+        // When the client passes a raidToken (and no battleId), look up
+        // the token at raid-token:<player>:<uuid>, verify ownership, and
+        // atomically delete it on use. A token mismatch is treated as
+        // a stale report and short-circuits with alreadyReported.
+        if (!battleId && raidToken) {
+            const tokenKey = `raid-token:${playerName}:${raidToken}`;
+            const tokenData = await kv.get<{ playerName?: string }>(tokenKey);
+            if (!tokenData) {
+                // Token expired, never minted, or already consumed.
+                // Return 200 so a stale client tab doesn't see a hard
+                // error; payload signals nothing was credited.
+                return res.status(200).json({ ok: true, vanguard: true, reason: 'invalid-or-spent-token' });
+            }
+            if ((tokenData.playerName ?? '').toLowerCase() !== playerName.toLowerCase()) {
+                return res.status(403).json({ error: 'Raid token does not belong to this player.' });
+            }
+            // Atomic consume — delete the token before granting rewards
+            // so a retry (or racing duplicate report) can't double-claim.
+            await kv.del(tokenKey).catch(() => undefined);
+        }
+
+        // ── PvP-raid cross-validation ─────────────────────────────────
+        // When the client passes a battleId, treat this as a PvP-flavored
+        // raid report and verify it against the actual PvpSession record.
+        // Same validation pattern as /api/missions/report-pvp-win.
+        if (battleId) {
+            const session = await kv.get<PvpSession>(`pvp:${battleId}`);
+            if (!session) return res.status(404).json({ error: 'Battle session not found or expired.' });
+            if (session.status !== 'done' || !session.winner) {
+                return res.status(409).json({ error: 'Battle not yet decided.' });
+            }
+            const sessionAge = Date.now() - Number(session.createdAt ?? 0);
+            if (sessionAge > SESSION_REPLAY_WINDOW_MS) {
+                return res.status(409).json({ error: 'Battle session is too old to report.' });
+            }
+            const winnerName = session.winner === 'p1' ? session.p1.name : session.winner === 'p2' ? session.p2.name : '';
+            if (winnerName.toLowerCase() !== playerName.toLowerCase()) {
+                return res.status(403).json({ error: 'You are not the winner of this battle.' });
+            }
+            // Atomic NX idempotency — each battle can only produce one
+            // raid mission report. Two racing reports both used to pass
+            // a separate get→check→set and double-count; the loser of
+            // the NX now short-circuits as alreadyReported.
+            const idemKey = `missions:raid-reported:${playerName}:${battleId}`;
+            const placed = await kv.set(idemKey, true, { nx: true, ex: 24 * 60 * 60 });
+            if (!placed) {
+                return res.status(200).json({ ok: true, alreadyReported: true });
+            }
         }
 
         const record = await kv.get<Record<string, unknown>>(`save:${playerName}`);

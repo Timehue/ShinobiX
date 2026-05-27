@@ -30,7 +30,10 @@ const GRID_W = 12;
 const GRID_H = 10;
 const MAX_ROUNDS = 25;
 const MAX_ACTIONS = 5;
-const SESSION_TTL = 60 * 60;
+// Must match session.ts. 15 min covers the live fight; every move resets
+// the TTL via writeSession, so an active match never expires — only
+// abandoned ones (a tab closed mid-fight) decay quickly.
+const SESSION_TTL = 15 * 60;
 
 // ─── Jutsu safety bounds (re-validated at move time) ──────────────────────────
 // session.ts clamps these when the fight is hydrated; we double-check at use
