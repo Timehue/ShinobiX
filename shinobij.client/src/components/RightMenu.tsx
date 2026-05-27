@@ -65,7 +65,7 @@ export const RightMenu = memo(function RightMenu({
                         <button onClick={() => navigate("profile")}>Character</button>
                         <button onClick={() => navigate("logbook")}>Logbook</button>
                         <button onClick={() => navigate("inventory")}>Inventory</button>
-                        <button onClick={() => navigate("training")}>Stats</button>
+                        <button onClick={() => navigate("training")}>Training</button>
                         <button onClick={() => navigate("jutsuTraining")}>Jutsu</button>
                         <button onClick={() => navigate("missions")}>Missions</button>
                         <button onClick={() => navigate("pets")}>Pets</button>
