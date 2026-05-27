@@ -7767,7 +7767,20 @@ export default function App() {
         if (snap.petEncounterVn) setPetEncounterVn(snap.petEncounterVn);
         if (snap.ancientChestVn) setAncientChestVn(snap.ancientChestVn);
         if (snap.editablePets) setEditablePets(mergeMissingBuiltInPets(snap.editablePets));
-        setScreen("village");
+        // Only reset to village when the user isn't in an active battle. This
+        // function gets called from the 409 save-conflict refetch and from
+        // the admin-forceReload heartbeat as well as from login; without this
+        // guard the player got yanked back to village mid-fight whenever a
+        // conflict happened (rare, but happens with multi-tab saves on a
+        // flaky connection).
+        const BATTLE_SCREENS = new Set<Screen>([
+            "arena", "pvpBattle", "storyBoss", "weeklyBoss",
+            "hollowGateShrine", "eventPetBattle", "petArena",
+            "dungeon", "tilecardsDuel",
+        ]);
+        if (!BATTLE_SCREENS.has(screenRef.current)) {
+            setScreen("village");
+        }
         // Mirror the freshly-applied state to the localStorage preview cache
         // so the next login can paint instantly before the save round-trip.
         writeSavePreview(snap.character.name, snap);
