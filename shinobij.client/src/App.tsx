@@ -120,6 +120,63 @@ export type {
     EndlessTowerRun,
 };
 
+// ─── Game constants ──────────────────────────────────────────────────────
+// Extracted to src/constants/game.ts. Re-exported here so existing
+// "../App" imports keep working.
+import {
+    WORLD_STATE_API,
+    GAME_STATE_API,
+    TERRITORY_CONTROL_SCROLL_ID,
+    TERRITORY_CONTROL_MAX,
+    TERRITORY_HP_MAX,
+    TERRITORY_DAILY_WAR_SUPPLY,
+    TERRITORY_SUPPLY_INTERVAL_MS,
+    TERRITORY_REBUILD_COOLDOWN_MS,
+    MAX_LEVEL,
+    MAX_STAT,
+    STARTING_STAT_POINTS,
+    CHARACTER_XP_GAIN_MULTIPLIER,
+    HP_CAP,
+    CHAKRA_CAP,
+    STAMINA_CAP,
+    STUN_AP_PENALTY,
+    JUTSU_MAX_LEVEL,
+    JUTSU_TRAINING_CAP,
+    STORAGE,
+    PLAYER_ACCOUNTS_STORAGE,
+    AWAKENING_VN_ID,
+    AURA_SPHERE_VN_ID,
+    AURA_SPHERE_ITEM_ID,
+    AWAKENING_FREE_LV2_ID,
+    AWAKENING_FREE_LV20_ID,
+    DUNGEON_VN_ID,
+    AWAKENING_ELEMENTS,
+    ANIMATED_MAX_MB,
+    DAILY_MISSION_LIMIT,
+    WEEKLY_BOSS_CORE_ID,
+    DUNGEON_KEY_ID,
+    DUNGEON_LEGENDARY_RELIC_ID,
+    DUNGEON_LEGENDARY_FRAGMENT_ID,
+    VEIL_OF_THE_HOLLOW_ID,
+    HOLLOW_GATE_KEY_ID,
+    WARFORGED_RELIC_ID,
+    LEGENDARY_WAR_CRATE_ID,
+    WAR_CRATE_EXPIRY_MS,
+    ADMIN_DELETED_ITEM_MARKER,
+    PROTECTED_ADMIN_USERNAME,
+    isProtectedAdminName,
+    HOLLOW_GATE_SHRINE_W,
+    HOLLOW_GATE_SHRINE_H,
+} from "./constants/game";
+export {
+    PROTECTED_ADMIN_USERNAME,
+    isProtectedAdminName,
+    JUTSU_MAX_LEVEL,
+    DUNGEON_KEY_ID,
+    WARFORGED_RELIC_ID,
+    LEGENDARY_WAR_CRATE_ID,
+};
+
 const terrainEffects: Record<
     Biome,
     {
@@ -243,14 +300,7 @@ function biomeForWorldSector(sector: number): Biome {
     return "snow";
 }
 
-const TERRITORY_CONTROL_SCROLL_ID = "territory-control-scroll";
-const WORLD_STATE_API = "/api/world-state";
-const GAME_STATE_API = "/api/game-state";
-const TERRITORY_CONTROL_MAX = 20000;
-const TERRITORY_HP_MAX = 20000;
-const TERRITORY_DAILY_WAR_SUPPLY = 100;
-const TERRITORY_SUPPLY_INTERVAL_MS = 24 * 60 * 60 * 1000;
-const TERRITORY_REBUILD_COOLDOWN_MS = 2 * 60 * 60 * 1000; // 2 hours after destruction before recapture
+// Territory + API constants moved to ./constants/game — imported above.
 type TerritoryBuffStat = "bukijutsuOffense" | "taijutsuOffense" | "ninjutsuOffense" | "genjutsuOffense";
 type SectorTerritory = {
     sector: number;
@@ -431,10 +481,7 @@ function damageSectorTerritory(sector: number, amount: number) {
 // username, the name is reserved server-side (no one else can register it),
 // and the save survives server reset. Keep in sync with the same constant
 // in api/_auth.ts.
-export const PROTECTED_ADMIN_USERNAME = "Rill";
-export function isProtectedAdminName(name: string | undefined | null): boolean {
-    return !!name && name.trim().toLowerCase() === PROTECTED_ADMIN_USERNAME.toLowerCase();
-}
+// PROTECTED_ADMIN_USERNAME / isProtectedAdminName moved to ./constants/game.
 // Pet-related types moved to ./types/pet — imported + re-exported above.
 // Character moved to ./types/character — imported + re-exported above.
 // The original definition is now in that module.
@@ -780,11 +827,7 @@ type PendingArenaStoryBattle =
 // moved to ./types/character (co-located with Character.hollowGateRun) and
 // imported at the top of this file.
 
-// Grid dimensions stay const — changing them mid-run would break saved layouts.
-// 15×11 = 165 cells gives enough room for the BSP generator to carve 5-7
-// distinct rooms of 3×3 to 4×5 connected by 1-tile corridors.
-const HOLLOW_GATE_SHRINE_W = 15;
-const HOLLOW_GATE_SHRINE_H = 11;
+// HOLLOW_GATE_SHRINE_W / H moved to ./constants/game.
 // Runtime-tunable from the admin panel.
 let HOLLOW_GATE_THREAT_PER_STEP = 7;
 let HOLLOW_GATE_THREAT_AMBUSH = 100;
@@ -2081,8 +2124,7 @@ type PendingEventEncounter = {
     battle?: EventEncounterBattle;
 };
 
-const MAX_LEVEL = 100;
-const MAX_STAT = 2500;
+// MAX_LEVEL / MAX_STAT moved to ./constants/game.
 
 // Lookup helper for VN speaker portraits. Returns "" for Narrator/Player or empty
 // names so callers can decide whether to hide the slot entirely; otherwise returns
@@ -2215,9 +2257,8 @@ const ACHIEVEMENTS: Achievement[] = [
     { id: "secret-minmaxer",         name: "Min-Maxer",         desc: "Reach level 50+ with zero unspent stat points.",category: "Progression",icon: "🧮", hidden: true, check: c => c.level >= 50 && c.unspentStats === 0 },
     { id: "secret-war-crates-10",    name: "Salvager",          desc: "Claim 10 war crates.",                          category: "Village",    icon: "📦", hidden: true, check: c => (c.claimedWarCrateIds?.length ?? 0) >= 10 },
 ];
-const STARTING_STAT_POINTS = 20;
-// Testing-phase progression speed. Set to 1 for release pacing.
-const CHARACTER_XP_GAIN_MULTIPLIER: number = 45;
+// STARTING_STAT_POINTS / CHARACTER_XP_GAIN_MULTIPLIER / AWAKENING_*_ID /
+// AWAKENING_ELEMENTS / STUN_AP_PENALTY moved to ./constants/game.
 const STAT_KEYS: Array<keyof Stats> = [
     "strength",
     "speed",
@@ -2232,14 +2273,6 @@ const STAT_KEYS: Array<keyof Stats> = [
     "ninjutsuOffense",
     "ninjutsuDefense",
 ];
-const AWAKENING_VN_ID = "builtin-awakening-lv2";
-const AURA_SPHERE_VN_ID = "builtin-aura-sphere-lv9";
-const AURA_SPHERE_ITEM_ID = "aura-sphere";
-const AWAKENING_FREE_LV2_ID = "awakening-free-lv2";
-const AWAKENING_FREE_LV20_ID = "awakening-free-lv20";
-const DUNGEON_VN_ID = "builtin-hidden-dungeon";
-const AWAKENING_ELEMENTS = ["Water", "Wind", "Earth", "Lightning", "Fire"] as const;
-const STUN_AP_PENALTY = 40;
 function rollAwakeningElement(): string {
     return AWAKENING_ELEMENTS[Math.floor(Math.random() * AWAKENING_ELEMENTS.length)];
 }
@@ -2463,18 +2496,13 @@ const craftDungeonEvents: CreatorEvent[] = [
     { ...hiddenDungeonVnEvent, id: "craft-dungeon-shadow", name: "Shadow Relic Dungeon", biome: "shadow", icon: "XD", vnTitle: "Shadow Relic Dungeon", vnScene: "A black shrine exhales old chakra and opens below." },
     { ...hiddenDungeonVnEvent, id: "craft-dungeon-central", name: "Central Relic Dungeon", biome: "central", icon: "CD", vnTitle: "Central Relic Dungeon", vnScene: "A neutral gate beneath Central hums with sealed relic power." },
 ];
-export const JUTSU_MAX_LEVEL = 50;
-const JUTSU_TRAINING_CAP = 30;
-const STORAGE = "ninjav-admin-build-v1";
+// JUTSU_MAX_LEVEL / JUTSU_TRAINING_CAP / STORAGE / PLAYER_ACCOUNTS_STORAGE /
+// HP_CAP / CHAKRA_CAP / STAMINA_CAP moved to ./constants/game.
 const jutsuResourceCostPercentByAp: Record<number, number> = {
     20: 2,
     40: 3,
     60: 5,
 };
-const PLAYER_ACCOUNTS_STORAGE = "ninjav-player-accounts-v1";
-const HP_CAP = 10000;
-const CHAKRA_CAP = 5000;
-const STAMINA_CAP = 5000;
 
 export const villages = ["Stormveil Village", "Ashen Leaf Village", "Frostfang Village", "Moonshadow Village"];
 export function villagePageImage(villageName: string): string {
@@ -4431,7 +4459,7 @@ const DELETED_ITEM_IDS = new Set([
     "myth-weapon-earth", "myth-weapon-wind", "myth-weapon-lightning", "myth-weapon-fire", "myth-weapon-water",
 ]);
 
-const ADMIN_DELETED_ITEM_MARKER = "__ADMIN_DELETED_ITEM__";
+// ADMIN_DELETED_ITEM_MARKER moved to ./constants/game.
 
 function isAdminDeletedItemMarker(item: GameItem) {
     return item.name === ADMIN_DELETED_ITEM_MARKER;
@@ -4506,12 +4534,11 @@ function itemDisplayName(itemId: string, allItems: GameItem[]) {
     return getItemById(allItems, itemId)?.name ?? itemId;
 }
 
-const WEEKLY_BOSS_CORE_ID = "weekly-boss-core";
-export const DUNGEON_KEY_ID = "dungeon-key";
-const DUNGEON_LEGENDARY_RELIC_ID = "dungeon-legendary-relic";
-const DUNGEON_LEGENDARY_FRAGMENT_ID = "dungeon-legendary-fragment";
-const VEIL_OF_THE_HOLLOW_ID = "veil-of-the-hollow";
-const HOLLOW_GATE_KEY_ID = "hollow-gate-key";
+// Item ID constants moved to ./constants/game.
+// HOLLOW_GATE_KEY_DUNGEON_KEY_COST / FATE_SHARD_COST / TRAP_DMG_PCT /
+// BOSS_FLOOR_REWARD_MULT are MUTABLE (admin-tunable via let) so they stay
+// in App.tsx — moving them to a constants file would break the admin
+// panel's runtime mutation.
 let HOLLOW_GATE_KEY_DUNGEON_KEY_COST = 5;
 let HOLLOW_GATE_KEY_FATE_SHARD_COST = 10;
 // Damage taken per trap tile (and "Cursed Bind" sealed-door outcome), as a
@@ -4519,11 +4546,6 @@ let HOLLOW_GATE_KEY_FATE_SHARD_COST = 10;
 let HOLLOW_GATE_TRAP_DMG_PCT = 0.33;
 // Per-floor reward multiplier for boss kills: total mult = 1 + (floor - 1) * this.
 let HOLLOW_GATE_BOSS_FLOOR_REWARD_MULT = 0.2;
-export const WARFORGED_RELIC_ID = "warforged-relic";
-export const LEGENDARY_WAR_CRATE_ID = "legendary-war-crate";
-
-// How long a war crate stays claimable after the war ends.
-const WAR_CRATE_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 /**
  * Check both clan war history and the village war cache for unclaimed war crates.
@@ -5812,7 +5834,7 @@ async function publishSharedImage(id: string, img: string): Promise<boolean> {
 // (≈ 2.15 MB raw after base64 overhead), so picking 2 MB here gives a
 // friendly client-side error before the upload, instead of a silent
 // HTTP 400 from the server.
-const ANIMATED_MAX_MB = 2;
+// ANIMATED_MAX_MB moved to ./constants/game.
 
 /**
  * Detect whether an upload contains animation. Canvas re-encoding flattens
@@ -5951,7 +5973,7 @@ function currentDateKey() {
     return new Date().toISOString().slice(0, 10);
 }
 
-const DAILY_MISSION_LIMIT = 20;
+// DAILY_MISSION_LIMIT moved to ./constants/game.
 
 function dailyMissionsCompleted(character: Character) {
     return character.lastDailyReset === currentDateKey() ? character.dailyMissionsCompleted ?? 0 : 0;
