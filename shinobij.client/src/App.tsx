@@ -447,6 +447,11 @@ export type Stats = {
 
 type JutsuMastery = { jutsuId: string; level: number; xp: number };
 export type AdminAccount = "Admin 1" | "Admin 2";
+// Admin role. "full" = Admin 1 (sees every tab, can call any admin endpoint).
+// "content" = Admin 2 (jutsu/bloodline, events, VNs, AI creator, pet/card
+// editors, village leaders, professions only — no players / hollow gate /
+// moderation). Returned by /api/admin-auth based on which password matched.
+export type AdminRole = "full" | "content";
 
 // The protected admin account. The Admin button is only visible to this
 // username, the name is reserved server-side (no one else can register it),
@@ -8446,6 +8451,12 @@ export default function App() {
     const [adminLoggedIn, setAdminLoggedIn] = useState(false);
     const [adminAccount, setAdminAccount] = useState<AdminAccount | "">("");
     const [adminPw, setAdminPw] = useState(() => sessionStorage.getItem("admin:pw") ?? "");
+    // Admin role. "full" = Admin 1 (every tab). "content" = Admin 2
+    // (restricted tabs hidden). Restored from sessionStorage on reload so a
+    // page refresh doesn't downgrade an Admin 1 session or vice versa.
+    const [adminRole, setAdminRole] = useState<AdminRole>(() =>
+        (sessionStorage.getItem("admin:role") as AdminRole | null) ?? "full"
+    );
     const [_resetCountdown, setResetCountdown] = useState("--:--:--");
     const [creatorJutsus, setCreatorJutsus] = useState<Jutsu[]>([]);
     const [creatorEvents, setCreatorEvents] = useState<CreatorEvent[]>([]);
@@ -12449,11 +12460,15 @@ export default function App() {
 
                 {screen === "adminLogin" && (
                     <AdminLogin
-                        onLogin={async (account, pw) => {
+                        onLogin={async (account, pw, role) => {
                             setAdminLoggedIn(true);
                             setAdminAccount(account);
                             sessionStorage.setItem("admin:pw", pw);
+                            // Persist the role so a refresh doesn't lose it
+                            // and re-show restricted tabs to Admin 2.
+                            sessionStorage.setItem("admin:role", role);
                             setAdminPw(pw);
+                            setAdminRole(role);
                             setCurrentAccountName(account); // needed for save button + auto-save
                             const adminChar = createAdminCharacter(account);
                             setCharacter(adminChar);
@@ -12529,6 +12544,7 @@ export default function App() {
                         playerRoster={playerRoster}
                         allServerPlayers={allServerPlayers}
                         adminPw={adminPw}
+                        adminRole={adminRole}
                         onSave={async () => {
                             const adminSaveName = adminAccount || currentAccountName;
                             if (!adminSaveName) return;
@@ -18261,6 +18277,7 @@ function AdminPanel({
     playerRoster,
     allServerPlayers,
     adminPw,
+    adminRole,
     sharedImages,
     setSharedImages,
 }: {
@@ -18305,6 +18322,7 @@ function AdminPanel({
     playerRoster: PlayerRecord[];
     allServerPlayers: ServerPlayerSummary[];
     adminPw: string;
+    adminRole: AdminRole;
     sharedImages: Record<string, string>;
     setSharedImages: Dispatch<SetStateAction<Record<string, string>>>;
 }) {
@@ -18804,7 +18822,23 @@ function AdminPanel({
     const [aiJutsuIds, setAiJutsuIds] = useState<string[]>(starterJutsus.slice(0, 4).map((jutsu) => jutsu.id));
     const [aiRules, setAiRules] = useState<AiRule[]>(starterAiProfile(starterJutsus).rules);
     const [selectedAiId, setSelectedAiId] = useState("");
+    // Tabs Admin 2 (content role) is NOT allowed to access. Hidden from the
+    // tab switcher AND clamped at state level so a refresh / stale session-
+    // storage / manual setState can't slip them in. Server-side, the
+    // matching endpoints (admin/players, admin/moderation, admin/server-reset,
+    // admin/migrate-kv, game-state arenaTournament/weeklyBossOverride) gate
+    // on isFullAdmin — so even if a content admin somehow landed on these
+    // tabs, the underlying actions would 401.
+    const CONTENT_ADMIN_FORBIDDEN_TABS = new Set<string>(['playerManagement', 'hollowGate', 'moderation']);
     const [activeAdminPanel, setActiveAdminPanel] = useState<"jutsuBloodlines" | "eventsRaids" | "visualNovels" | "aiCreator" | "petEditor" | "cardEditor" | "villageLeaders" | "playerManagement" | "hollowGate" | "professions" | "moderation">("jutsuBloodlines");
+    // Clamp the active tab whenever the role flips OR a refresh restored
+    // a forbidden tab from React's initial state.
+    useEffect(() => {
+        if (adminRole === 'content' && CONTENT_ADMIN_FORBIDDEN_TABS.has(activeAdminPanel)) {
+            setActiveAdminPanel('jutsuBloodlines');
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [adminRole, activeAdminPanel]);
 
     // Hollow Gate admin tab state — prompts, current preview images, busy/status
     // strings. Preview images are seeded from the existing shared KV on first
@@ -18874,13 +18908,17 @@ function AdminPanel({
     const [approvedItemIds, setApprovedItemIds] = useState<string[]>([]);
     const [approvedBloodlineIds, setApprovedBloodlineIds] = useState<string[]>([]);
 
-    // Fetch all server-saved players (registry + presence)
+    // Fetch all server-saved players (registry + presence). Full admin only —
+    // Admin 2 can't access this endpoint (server-side isFullAdmin gate). The
+    // client also avoids calling it when role is content; the jutsuBloodlines
+    // tab falls back to /api/bloodlines/list for the bloodline gallery.
     function fetchAllKnownPlayers() {
         if (!adminPw) return;
+        if (adminRole !== 'full') return;
         fetch('/api/admin/players', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ password: adminPw }),
+            headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPw },
+            body: JSON.stringify({}),
         })
             .then(r => r.ok ? r.json() : null)
             .then((data: { players: { name: string; level: number; village: string; online: boolean }[]; bloodlines?: ReviewBloodline[]; approvedBloodlines?: string[] } | null) => {
@@ -18903,11 +18941,13 @@ function AdminPanel({
     useEffect(() => {
         if (activeAdminPanel !== "playerManagement" && activeAdminPanel !== "jutsuBloodlines") return;
         fetchAllKnownPlayers();
+        // Content admin (Admin 2) is allowed to read the approved-items list
+        // (they can curate items) — the server-side item-review endpoint
+        // accepts either admin password via isAdmin().
         if (adminPw) {
             fetch('/api/admin/item-review', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ password: adminPw }),
+                method: 'GET',
+                headers: { 'x-admin-password': adminPw },
             })
                 .then(r => r.ok ? r.json() : null)
                 .then((data: { approvedItems?: string[] } | null) => {
@@ -18915,7 +18955,27 @@ function AdminPanel({
                 })
                 .catch(() => {});
         }
-    }, [activeAdminPanel, adminPw]);
+        // For content admin on the jutsu/bloodline tab, fetch the bloodline
+        // gallery from /api/bloodlines/list since they can't hit
+        // /api/admin/players. The endpoint returns the same shape (ownerName,
+        // ownerKey, jutsus, etc.) — just without the player roster half.
+        if (adminRole === 'content' && activeAdminPanel === 'jutsuBloodlines' && adminPw) {
+            fetch('/api/bloodlines/list', {
+                headers: { 'x-admin-password': adminPw },
+            })
+                .then(r => r.ok ? r.json() : null)
+                .then((data: { bloodlines?: ReviewBloodline[] } | null) => {
+                    if (data?.bloodlines) {
+                        setPendingPlayerBloodlines(data.bloodlines.map((bloodline) => ({
+                            ...bloodline,
+                            rank: bloodline.rank as Rank,
+                            jutsus: (bloodline.jutsus ?? []).map(normalizeJutsu),
+                        })));
+                    }
+                })
+                .catch(() => {});
+        }
+    }, [activeAdminPanel, adminPw, adminRole]);
     const [pmGivePetId, setPmGivePetId] = useState("");
     const [pmGiveAmounts, setPmGiveAmounts] = useState<Record<string, number>>({ honorSeals: 0, fateShards: 0, boneCharms: 0, auraStones: 0, auraDust: 0, mythicSeals: 0 });
 
@@ -19114,8 +19174,8 @@ function AdminPanel({
         try {
             const res = await fetch('/api/admin/server-reset', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ password: adminPw }),
+                headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPw },
+                body: JSON.stringify({}),
             });
             const data = await res.json() as { ok?: boolean; deletedCount?: number; error?: string };
             if (data.ok) {
@@ -19163,8 +19223,8 @@ function AdminPanel({
         try {
             const res = await fetch('/api/admin/item-review', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ password: adminPw, itemId: id }),
+                headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPw },
+                body: JSON.stringify({ action: 'approve', itemId: id }),
             });
             const data = await res.json() as { approvedItems?: string[] };
             if (data.approvedItems) setApprovedItemIds(data.approvedItems);
@@ -19185,9 +19245,8 @@ function AdminPanel({
     async function saveBloodlineReviewAction(action: "approve" | "delete", bloodline: ReviewBloodline) {
         const res = await fetch('/api/admin/bloodline-review', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPw },
             body: JSON.stringify({
-                password: adminPw,
                 action,
                 ownerKey: bloodline.ownerKey ?? "admin",
                 bloodlineId: bloodline.id,
@@ -19901,9 +19960,8 @@ function AdminPanel({
         if (isPlayerBloodline) {
             const res = await fetch('/api/admin/bloodline-review', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPw },
                 body: JSON.stringify({
-                    password: adminPw,
                     action: 'update',
                     ownerKey: editingBloodlineOwnerKey,
                     bloodlineId: editingBloodlineId,
@@ -19979,9 +20037,15 @@ function AdminPanel({
             <p>Anything created here is saved and imported into normal gameplay.</p>
 
             <div className="admin-panel-switcher">
-                <button className={activeAdminPanel === "playerManagement" ? "active" : ""} onClick={() => setActiveAdminPanel("playerManagement")}>
-                    👥 Players
-                </button>
+                {/* Players, Hollow Gate, and Moderation are full-admin only
+                    (Admin 1). Admin 2 (content role) gets the curation tabs:
+                    Jutsus+Bloodlines, Events, VNs, AI Creator, Pet/Card
+                    Editors, Village Leaders, Professions. */}
+                {adminRole === 'full' && (
+                    <button className={activeAdminPanel === "playerManagement" ? "active" : ""} onClick={() => setActiveAdminPanel("playerManagement")}>
+                        👥 Players
+                    </button>
+                )}
                 <button className={activeAdminPanel === "jutsuBloodlines" ? "active" : ""} onClick={() => setActiveAdminPanel("jutsuBloodlines")}>
                     Jutsus + Bloodlines
                 </button>
@@ -20003,15 +20067,19 @@ function AdminPanel({
                 <button className={activeAdminPanel === "villageLeaders" ? "active" : ""} onClick={() => setActiveAdminPanel("villageLeaders")}>
                     Village Leaders
                 </button>
-                <button className={activeAdminPanel === "hollowGate" ? "active" : ""} onClick={() => setActiveAdminPanel("hollowGate")}>
-                    ⛩ Hollow Gate
-                </button>
+                {adminRole === 'full' && (
+                    <button className={activeAdminPanel === "hollowGate" ? "active" : ""} onClick={() => setActiveAdminPanel("hollowGate")}>
+                        ⛩ Hollow Gate
+                    </button>
+                )}
                 <button className={activeAdminPanel === "professions" ? "active" : ""} onClick={() => setActiveAdminPanel("professions")}>
                     🧑‍⚕️ Professions
                 </button>
-                <button className={activeAdminPanel === "moderation" ? "active" : ""} onClick={() => setActiveAdminPanel("moderation")}>
-                    🛡 Moderation
-                </button>
+                {adminRole === 'full' && (
+                    <button className={activeAdminPanel === "moderation" ? "active" : ""} onClick={() => setActiveAdminPanel("moderation")}>
+                        🛡 Moderation
+                    </button>
+                )}
             </div>
 
             <div className="admin-grid">
@@ -22127,7 +22195,11 @@ function AdminPanel({
                 </div>
             )}
 
-            {activeAdminPanel === "playerManagement" && (() => {
+            {/* Restricted to full admin (Admin 1). The clamp effect above
+                also re-routes Admin 2 away from this tab, but render-gate
+                here too to avoid a single-frame flicker if the clamp runs
+                after the first paint. */}
+            {activeAdminPanel === "playerManagement" && adminRole === 'full' && (() => {
                 const reviewItems = getAllItems(creatorItems).filter(i =>
                     i.image && ["weapon","armor","accessory","rune"].includes(i.slot) && !approvedItemIds.includes(i.id)
                 );
@@ -22491,8 +22563,9 @@ function AdminPanel({
                 );
             })()}
 
-            {activeAdminPanel === "hollowGate" && (() => {
+            {activeAdminPanel === "hollowGate" && adminRole === 'full' && (() => {
                 // ── Hollow Gate admin panel ─────────────────────────────────────
+                // Restricted to full admin (Admin 1).
                 // Lists every asset the Hollow Gate Shrine system needs an image for,
                 // with a one-click image generator wired to /api/generate-image and
                 // publishSharedImage. Each row shows the current preview (if any),
@@ -23046,7 +23119,7 @@ function AdminPanel({
                 );
             })()}
 
-            {activeAdminPanel === "moderation" && (
+            {activeAdminPanel === "moderation" && adminRole === 'full' && (
                 <ModerationPanel adminPw={adminPw} />
             )}
 
@@ -23054,7 +23127,15 @@ function AdminPanel({
                 <button onClick={() => setScreen("worldMap")}>Test World Map</button>
                 <button onClick={() => setScreen("profile")}>Test Profile</button>
                 <button onClick={() => setScreen("arena")}>Test Combat</button>
-                <button className="danger-button" onClick={() => { setAdminLoggedIn(false); setScreen("start"); }}>Admin Logout</button>
+                <button className="danger-button" onClick={() => {
+                    // Clear admin session including the role + password so
+                    // the next login starts fresh (and Admin 2 logging in
+                    // after Admin 1 doesn't inherit "full" by accident).
+                    sessionStorage.removeItem("admin:pw");
+                    sessionStorage.removeItem("admin:role");
+                    setAdminLoggedIn(false);
+                    setScreen("start");
+                }}>Admin Logout</button>
             </div>
             <p className="hint">Total available jutsus right now: {allGameJutsus.length}</p>
         </div>

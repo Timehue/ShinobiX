@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from './_storage.js';
 import { cors } from './_utils.js';
-import { authedPlayerOrAdmin } from './_auth.js';
+import { authedPlayerOrAdmin, isFullAdmin } from './_auth.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
 import { withKvLock } from './_lock.js';
 import { validateVillageStateWrite, loadAuthoritativeKage } from './_village-state-validate.js';
@@ -88,9 +88,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!identity) return res.status(401).json({ error: 'Authentication required.' });
 
             // Admin-only kinds — wholesale state writes.
+            //
+            // Admin 2 (content role) is treated as `identity.admin === true`
+            // by authedPlayerOrAdmin (the new isAdmin accepts either password),
+            // so they pass the basic admin check. But for the kinds Admin 2
+            // shouldn't touch (arenaTournament, weeklyBossOverride — neither
+            // is exposed by their UI), require the full admin password.
             const adminOnlyKinds = new Set(['villageLeadershipImages', 'arenaTournament', 'weeklyBossOverride']);
+            const fullAdminOnlyKinds = new Set(['arenaTournament', 'weeklyBossOverride']);
             if (adminOnlyKinds.has(String(kind)) && !identity.admin) {
                 return res.status(403).json({ error: 'Admin only.' });
+            }
+            if (fullAdminOnlyKinds.has(String(kind)) && !isFullAdmin(req)) {
+                return res.status(403).json({ error: 'Full admin only.' });
             }
 
             if (kind === 'villageState') {

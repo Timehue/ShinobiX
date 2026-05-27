@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
-import { isAdmin } from '../_auth.js';
+import { isFullAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 
 const REGISTRY_KEY = 'player:registry';
@@ -20,7 +20,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // (Two other admin endpoints — moderation.ts, migrate-kv.ts — already
     // used the header; players.ts/server-reset.ts/item-review.ts/
     // bloodline-review.ts now match.)
-    if (!isAdmin(req)) {
+    // Full admin (Admin 1) only — content admin (Admin 2) does NOT have
+    // access to player management.
+    if (!isFullAdmin(req)) {
         return res.status(401).json({ error: 'Unauthorized.' });
     }
 
