@@ -8640,6 +8640,30 @@ export default function App() {
     const [allServerPlayers, setAllServerPlayers] = useState<ServerPlayerSummary[]>([]);
     const [hospitalEntryTime, setHospitalEntryTime] = useState<number | null>(null);
     const [duelChallenges, setDuelChallenges] = useState<DuelChallenge[]>([]);
+
+    // Realtime push for incoming duel challenges. Listens on the
+    // KV key `challenges:<myName>` and merges new entries the
+    // moment Postgres commits the write — instead of waiting up
+    // to the heartbeat interval (3-15s depending on screen). The
+    // heartbeat continues to handle presence + roster + pendingAttacker
+    // since those need separate logic; this is a parallel low-latency
+    // channel just for incoming challenges.
+    useEffect(() => {
+        if (!character?.name || !realtimeAvailable()) return;
+        const myKey = `challenges:${character.name.toLowerCase().trim()}`;
+        const unsubscribe = subscribeKvKey<DuelChallenge[]>(myKey, (next) => {
+            if (!Array.isArray(next)) return;
+            const myNameLower = character.name.toLowerCase();
+            const incoming = next
+                .filter((c) => (c?.toName ?? "").toLowerCase() === myNameLower)
+                .map((c) => ({ ...c, challenger: normalizeCharacter(c.challenger) }));
+            setDuelChallenges((current) => {
+                const merged = current.filter((existing) => !incoming.some((c) => c.id === existing.id));
+                return [...merged, ...incoming];
+            });
+        });
+        return () => { if (unsubscribe) unsubscribe(); };
+    }, [character?.name]);
     const [processingChallengeIds, setProcessingChallengeIds] = useState<string[]>([]);
     const [pendingPetBattleOpponent, setPendingPetBattleOpponent] = useState<PetArenaOpponent | null>(null);
 
@@ -37586,22 +37610,18 @@ function PvpBattleScreen({
         return () => window.clearTimeout(timeout);
     }, [session?.p1.pos, session?.p2.pos]);
 
-    // Prefight countdown — triggers once when session first loads (skip for spectators).
-    // The session is already live on the server; this is purely a UI delay before
-    // the player can act. Attacker (whoever initiated) starts immediately; defender
-    // gets a brief 2-second 'coin flip + go' window.
+    // Prefight countdown — fires once when the session first loads
+    // (skipped for spectators, who join mid-fight). 10-second window
+    // shows the "VS" splash + coin-flip result so BOTH players have
+    // time to load in, register the opponent, and read who goes
+    // first. The session is already live on the server during this
+    // window; we just gate the player's first action behind it.
     useEffect(() => {
         if (!session || pvpSessionFirstLoadRef.current) return;
         pvpSessionFirstLoadRef.current = true;
-        if (amSpectator) return; // spectators join mid-fight, no countdown
+        if (amSpectator) return;
         setPvpPrefightFirstActor(session.activePlayer);
-        const iAmFirstActor = session.activePlayer === role;
-        if (iAmFirstActor) {
-            // Attacker initiated — skip the countdown entirely.
-            setPvpPrefightCountdown(null);
-            return;
-        }
-        let count = 2;
+        let count = 10;
         setPvpPrefightCountdown(count);
         const iv = setInterval(() => {
             count -= 1;
@@ -37609,7 +37629,7 @@ function PvpBattleScreen({
             if (count <= 0) clearInterval(iv);
         }, 1000);
         return () => clearInterval(iv);
-    }, [!!session]);  
+    }, [!!session]);
 
     // Apply completion rewards/penalties once per client when the shared fight ends.
     // Refresh-resilience: the in-memory pvpRewardRef resets on every mount,
