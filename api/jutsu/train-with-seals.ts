@@ -3,6 +3,7 @@ import { kv } from '../_storage.js';
 import { safeName, mergePreservingImages, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
+import { withKvLock } from '../_lock.js';
 
 // jutsuId must be a sane slug — lowercase letters/digits/dashes only, length-
 // bounded. Stops injection of weird KV keys or path-traversal-ish values.
@@ -69,59 +70,70 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         const key = `save:${playerName}`;
-        const record = await kv.get<Record<string, unknown>>(key);
-        if (!record) return res.status(404).json({ error: 'Player not found.' });
-        const char = record.character as Record<string, unknown> | undefined;
-        if (!char) return res.status(404).json({ error: 'Character not found.' });
+        // Wrap the read-modify-write under lock:save:<name> so two concurrent
+        // train-with-seals calls (or one of these + a normal auto-save) can't
+        // both read the same balance + mastery row, both apply the same +1
+        // level, and the player end up at +2 levels for one cost (or 0
+        // levels for two costs depending on write order).
+        const lockResult = await withKvLock(key, async () => {
+            const record = await kv.get<Record<string, unknown>>(key);
+            if (!record) return { status: 404 as const, body: { error: 'Player not found.' } };
+            const char = record.character as Record<string, unknown> | undefined;
+            if (!char) return { status: 404 as const, body: { error: 'Character not found.' } };
 
-        const mastery = (char.jutsuMastery as Array<{ jutsuId: string; level: number; xp: number }> | undefined) ?? [];
-        const idx = mastery.findIndex(m => m.jutsuId === jutsuId);
-        if (idx === -1) return res.status(404).json({ error: 'You have not learned that jutsu.' });
+            const mastery = (char.jutsuMastery as Array<{ jutsuId: string; level: number; xp: number }> | undefined) ?? [];
+            const idx = mastery.findIndex(m => m.jutsuId === jutsuId);
+            if (idx === -1) return { status: 404 as const, body: { error: 'You have not learned that jutsu.' } };
 
-        const current = mastery[idx];
-        const fromLevel = Number(current.level ?? 0);
-        // Honor Seal training only opens once the jutsu has been hand-grinded
-        // to Lv 30 via ryo training. This prevents Seal-rich players from
-        // skipping the entire early jutsu progression. Bloodline-locked
-        // jutsu (and any element-gated jutsu) ARE eligible — once you've
-        // legitimately trained one to 30, Seals can carry it the rest of
-        // the way. The same-village / level / clan restrictions of the
-        // bloodline don't change anything for this endpoint.
-        if (fromLevel < MIN_LEVEL) {
-            return res.status(400).json({ error: `Honor Seal training is only available at level ${MIN_LEVEL}+. Train this jutsu to ${MIN_LEVEL} with ryo first.` });
-        }
-        if (fromLevel >= MAX_LEVEL) {
-            return res.status(400).json({ error: `Levels ${MAX_LEVEL}+ still require PvP training.` });
-        }
+            const current = mastery[idx];
+            const fromLevel = Number(current.level ?? 0);
+            // Honor Seal training only opens once the jutsu has been hand-grinded
+            // to Lv 30 via ryo training. This prevents Seal-rich players from
+            // skipping the entire early jutsu progression. Bloodline-locked
+            // jutsu (and any element-gated jutsu) ARE eligible — once you've
+            // legitimately trained one to 30, Seals can carry it the rest of
+            // the way. The same-village / level / clan restrictions of the
+            // bloodline don't change anything for this endpoint.
+            if (fromLevel < MIN_LEVEL) {
+                return { status: 400 as const, body: { error: `Honor Seal training is only available at level ${MIN_LEVEL}+. Train this jutsu to ${MIN_LEVEL} with ryo first.` } };
+            }
+            if (fromLevel >= MAX_LEVEL) {
+                return { status: 400 as const, body: { error: `Levels ${MAX_LEVEL}+ still require PvP training.` } };
+            }
 
-        const cost = computeCost(fromLevel, char.profession, char.professionRank);
-        if (cost <= 0) return res.status(400).json({ error: 'No cost defined for that level.' });
+            const cost = computeCost(fromLevel, char.profession, char.professionRank);
+            if (cost <= 0) return { status: 400 as const, body: { error: 'No cost defined for that level.' } };
 
-        const balance = Number(char.honorSeals ?? 0);
-        if (balance < cost) {
-            return res.status(402).json({ error: 'Not enough Honor Seals.', cost, balance });
-        }
+            const balance = Number(char.honorSeals ?? 0);
+            if (balance < cost) {
+                return { status: 402 as const, body: { error: 'Not enough Honor Seals.', cost, balance } };
+            }
 
-        // Apply: debit Seals, increment jutsu level.
-        const newMastery = [...mastery];
-        newMastery[idx] = { ...current, level: fromLevel + 1 };
-        const updated = {
-            ...record,
-            character: {
-                ...char,
-                honorSeals: balance - cost,
-                jutsuMastery: newMastery,
-            },
-        };
-        await kv.set(key, mergePreservingImages(updated, record));
+            // Apply: debit Seals, increment jutsu level.
+            const newMastery = [...mastery];
+            newMastery[idx] = { ...current, level: fromLevel + 1 };
+            const updated = {
+                ...record,
+                character: {
+                    ...char,
+                    honorSeals: balance - cost,
+                    jutsuMastery: newMastery,
+                },
+            };
+            await kv.set(key, mergePreservingImages(updated, record));
 
-        return res.status(200).json({
-            ok: true,
-            jutsuId,
-            newLevel: fromLevel + 1,
-            sealsSpent: cost,
-            honorSealsRemaining: balance - cost,
+            return {
+                status: 200 as const,
+                body: {
+                    ok: true,
+                    jutsuId,
+                    newLevel: fromLevel + 1,
+                    sealsSpent: cost,
+                    honorSealsRemaining: balance - cost,
+                },
+            };
         });
+        return res.status(lockResult.status).json(lockResult.body);
     } catch (err) {
         console.error('[jutsu/train-with-seals]', err);
         return res.status(500).json({ error: 'Internal server error.' });
