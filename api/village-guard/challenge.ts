@@ -3,10 +3,27 @@ import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
+import { withKvLock } from '../_lock.js';
 
 type GuardEntry = { name: string; village: string; level: number; lastSeen: number; defenseBonusPercent?: number };
 
 const CHALLENGE_TTL = 120; // seconds — survives two heartbeat cycles
+
+// Match the public projection in api/player/challenge.ts. The challenges:*
+// key prefix is anon-readable via Supabase Realtime, so the attacker's
+// full character would leak (ryo, jutsu, equipment, stats) without this.
+const CHALLENGER_PUBLIC_FIELDS = new Set<string>([
+    'name', 'level', 'village', 'specialty',
+    'avatarImage', 'rankTitle', 'customTitle',
+    'profession', 'professionRank', 'rankedRating',
+    'clan',
+]);
+function projectChallengerCharacter(c: Record<string, unknown> | undefined): Record<string, unknown> {
+    if (!c) return {};
+    const out: Record<string, unknown> = {};
+    for (const k of CHALLENGER_PUBLIC_FIELDS) if (k in c) out[k] = c[k];
+    return out;
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -63,7 +80,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 id: `guard-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
                 fromName: (attackerCharacter.name as string) ?? 'Raider',
                 toName: guard.name,
-                challenger: attackerCharacter,
+                // Strip the attacker's character to the inbox-public projection
+                // before it lands on the challenges:* key (anon-readable via
+                // Supabase Realtime). Without this strip the raider's ryo /
+                // jutsu / equipment / stats leak to any anon WS subscriber.
+                challenger: projectChallengerCharacter(attackerCharacter),
                 createdAt: Date.now(),
                 mode: 'standard',
                 sectorAttack: true,
@@ -71,8 +92,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             };
 
             const challengeKey = `challenges:${guard.name.toLowerCase().trim()}`;
-            const existing = await kv.get<unknown[]>(challengeKey) ?? [];
-            await kv.set(challengeKey, [...existing, challenge].slice(-20), { ex: CHALLENGE_TTL });
+            // Lock the guard's inbox during the read-append-write so a
+            // concurrent /api/player/challenge POST can't be overwritten.
+            await withKvLock(challengeKey, async () => {
+                const existing = await kv.get<unknown[]>(challengeKey) ?? [];
+                await kv.set(challengeKey, [...existing, challenge].slice(-20), { ex: CHALLENGE_TTL });
+            });
         }
 
         return res.status(200).json({ pvp: true, guardCharacter, guardName: guard.name });
