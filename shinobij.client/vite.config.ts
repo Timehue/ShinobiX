@@ -429,6 +429,28 @@ export default defineConfig({
             '@': fileURLToPath(new URL('./src', import.meta.url))
         }
     },
+    build: {
+        // Slightly bump the warning ceiling — the app bundle is ~1.5 MB
+        // unminified pre-gzip (≈ 420 KB gzipped), which is fine for an
+        // interactive game shell that loads once and lazy-fetches the
+        // route chunks. 700 KB cuts the noise without hiding real
+        // regressions.
+        chunkSizeWarningLimit: 700,
+        rollupOptions: {
+            output: {
+                // Pull React + ReactDOM into their own vendor chunk so they
+                // can be cached independently of app code. The app bundle
+                // changes constantly; React itself rarely does, so users
+                // re-download a much smaller diff between deploys.
+                manualChunks(id: string) {
+                    if (id.includes('node_modules/react-dom/') || id.includes('node_modules/react/')) {
+                        return 'react-vendor';
+                    }
+                    return undefined;
+                },
+            },
+        },
+    },
     server: {
         proxy: {
             '^/weatherforecast': {
