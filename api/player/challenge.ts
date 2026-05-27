@@ -18,6 +18,11 @@ const CHALLENGER_PUBLIC_FIELDS = new Set<string>([
     'avatarImage', 'rankTitle', 'customTitle',
     'profession', 'professionRank', 'rankedRating',
     'clan',
+    // Pet-challenge accept handlers (App.tsx :9090, :9107, :17624,
+    // :17635, :36432) read challenge.challenger.pets to find the
+    // matching pet by id at accept time. Stripping it broke every
+    // pet challenge (TypeError on .find).
+    'pets',
 ]);
 function projectChallengerCharacter(c: unknown): unknown {
     if (!c || typeof c !== 'object') return c;
