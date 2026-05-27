@@ -31,19 +31,23 @@ function utcDateKey(): string {
 // raid — counts the same whether the defender was a human guard or an AI
 // fill-in.
 //
-// PvP-flavored raids (human defender) now pass `battleId`, and the server
-// cross-validates that battleId against the actual PvpSession KV record
-// (same pattern as report-pvp-win): session exists, is done, the reporter
-// won, and the session age is within the 24h replay window. An atomic NX
+// PvP-flavored raids (human defender) pass `battleId`. The server cross-
+// validates that battleId against the actual PvpSession KV record (same
+// pattern as report-pvp-win): session exists, is done, the reporter won,
+// and the session age is within the 24h replay window. An atomic NX
 // idempotency key on (player, battleId) means each PvP battle can produce
-// AT MOST one raid mission report — closing the "spam this endpoint to
-// inflate Vanguard rank" exploit for the dominant raid path.
+// AT MOST one raid mission report.
 //
-// AI-flavored raids (no defender battleId available) keep the legacy
-// rate-limit-only path: 1 report / 30s + 60 / day hard cap. The exploit
-// surface there is bounded but not closed; tightening it further would
-// require a server-side raid-start endpoint, which is the obvious next
-// step if abuse appears in telemetry.
+// AI-flavored raids pass `raidToken` instead — a single-use UUID minted
+// by /api/missions/raid-start when the player enters AI raid combat. The
+// token is stored at raid-token:<player>:<uuid> with a 5-min TTL; report
+// validates it belongs to the reporter and atomically deletes it on use.
+// raid-start has its own daily cap (30/day), so the AI raid claim ceiling
+// drops from 60/day (rate-limit-only) to 30/day (mint + report coupled).
+//
+// Both paths fall back to the rate-limit-only behaviour when their token
+// is absent — keeps stale clients on the prior build saving normally
+// instead of getting locked out.
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -63,11 +67,41 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const battleId: string | undefined = typeof body.battleId === 'string' && body.battleId.trim()
             ? body.battleId.trim()
             : undefined;
+        // AI-raid token (minted by /api/missions/raid-start) — single-use.
+        // Validated and atomically deleted below before any reward grants.
+        const raidTokenRaw: string | undefined = typeof body.raidToken === 'string' && body.raidToken.trim()
+            ? body.raidToken.trim()
+            : undefined;
+        const raidToken: string | undefined = raidTokenRaw && /^[A-Za-z0-9]+$/.test(raidTokenRaw)
+            ? raidTokenRaw
+            : undefined;
 
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) {
             return res.status(403).json({ error: 'Can only report your own raids.' });
+        }
+
+        // ── AI-raid token cross-validation ────────────────────────────
+        // When the client passes a raidToken (and no battleId), look up
+        // the token at raid-token:<player>:<uuid>, verify ownership, and
+        // atomically delete it on use. A token mismatch is treated as
+        // a stale report and short-circuits with alreadyReported.
+        if (!battleId && raidToken) {
+            const tokenKey = `raid-token:${playerName}:${raidToken}`;
+            const tokenData = await kv.get<{ playerName?: string }>(tokenKey);
+            if (!tokenData) {
+                // Token expired, never minted, or already consumed.
+                // Return 200 so a stale client tab doesn't see a hard
+                // error; payload signals nothing was credited.
+                return res.status(200).json({ ok: true, vanguard: true, reason: 'invalid-or-spent-token' });
+            }
+            if ((tokenData.playerName ?? '').toLowerCase() !== playerName.toLowerCase()) {
+                return res.status(403).json({ error: 'Raid token does not belong to this player.' });
+            }
+            // Atomic consume — delete the token before granting rewards
+            // so a retry (or racing duplicate report) can't double-claim.
+            await kv.del(tokenKey).catch(() => undefined);
         }
 
         // ── PvP-raid cross-validation ─────────────────────────────────
