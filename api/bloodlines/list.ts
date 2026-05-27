@@ -76,6 +76,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
         }
         bloodlines.sort((a, b) => a.name.localeCompare(b.name) || a.ownerName.localeCompare(b.ownerName));
+        // 60s edge cache + 120s SWR. Public bloodline gallery is
+        // read-heavy + expensive (scans every save row) but rarely
+        // changes — minute-scale latency is fine.
+        res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=120');
         return res.status(200).json({ bloodlines });
     } catch (err) {
         // Return empty list rather than 500 so the bloodline gallery degrades

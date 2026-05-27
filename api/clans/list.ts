@@ -10,6 +10,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
         // Clans are stored with key pattern clan:{id}
         const keys = await kv.keys('clan:*');
+        // 30s edge cache + 60s SWR. The public clan list changes when a
+        // clan is created/disbanded/edited — minute-scale latency is
+        // fine, and the underlying mget is expensive (one row per clan).
+        res.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate=60');
         if (!keys.length) return res.status(200).json([]);
         const clans = await kv.mget(...keys);
         return res.status(200).json(clans.filter(Boolean));
