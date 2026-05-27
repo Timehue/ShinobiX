@@ -53,6 +53,7 @@ export const armorQualityTiers: ReadonlyArray<{ quality: ArmorQuality; reduction
     { quality: "Rare",       reduction: 0.05, label: "Rare — 5% damage reduction" },
     { quality: "Elite",      reduction: 0.06, label: "Elite — 6% damage reduction" },
     { quality: "Legendary",  reduction: 0.07, label: "Legendary — 7% damage reduction" },
+    { quality: "Mythic",     reduction: 0.08, label: "Mythic — 8% damage reduction" },
 ];
 
 export function armorReductionForQuality(quality?: ArmorQuality): number {
@@ -99,10 +100,21 @@ export function consolidateItemBonuses(
     tryCollapse(OFFENSE, "All Offense");
     tryCollapse(DEFENSE, "All Defense");
 
+    // Pretty labels for the armor-effect bonus keys — without these,
+    // "absorbPercent" would render as "Absorb Percent" which reads awkwardly.
+    const NICE_LABELS: Record<string, string> = {
+        absorbPercent:   "Absorb",
+        reflectPercent:  "Reflect",
+        lifeStealPercent: "Life Steal",
+        damagePercent:   "Increase Damage",
+        shield:          "Shield",
+    };
+
     for (const [stat, value] of entries) {
         if (consumed.has(stat)) continue;
-        // camelCase → "Title Case" (e.g. "ninjutsuOffense" → "Ninjutsu Offense")
-        const label = stat.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase());
+        const label = NICE_LABELS[stat]
+            // camelCase → "Title Case" fallback (e.g. "ninjutsuOffense" → "Ninjutsu Offense")
+            ?? stat.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase());
         lines.push({ stat: label, value });
     }
 
