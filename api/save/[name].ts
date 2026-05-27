@@ -321,6 +321,15 @@ function sanitizeCharacterSave(
         lifetimeWarDamage: 50_000,
         monthlyPvpKills: 10,
         dailyAiKills: 30,
+        // Leaderboard / Hall-of-Legends counters — feed Hall pages directly,
+        // so a tampered save can pad them to claim top spots. All are
+        // upward-only by gameplay design.
+        totalPetWins: 30,
+        totalEndlessTowerWins: 5,
+        totalTournamentsCompleted: 3,
+        totalTilesExplored: 200,
+        rankedWins: 20,
+        rankedLosses: 20,
     };
     for (const [field, maxDelta] of Object.entries(LIFETIME_COUNTERS)) {
         const inV = Math.max(0, Number((char as Record<string, unknown>)[field] ?? 0));
@@ -328,6 +337,25 @@ function sanitizeCharacterSave(
         // Disallow shrinking the counter, and clamp growth to maxDelta.
         const clamped = Math.max(exV, Math.min(inV, exV + maxDelta));
         (char as Record<string, unknown>)[field] = clamped;
+    }
+
+    // ── rankedRating: bidirectional clamp ─────────────────────────────────
+    // Unlike the monotonic counters above, ranked rating both rises and
+    // falls (win → +N, loss → −N), so a "no shrink" rule would break
+    // legitimate losses. Bound the per-save *magnitude* of change instead.
+    // Typical rankedDelta is 5–50 per fight; a save cycle covers at most
+    // a few fights, so 200 points of swing is generous.
+    const MAX_RATING_SWING_PER_SAVE = 200;
+    const inRating = Number((char as Record<string, unknown>).rankedRating ?? 1000);
+    const exRating = Number((exChar as Record<string, unknown>).rankedRating ?? 1000);
+    if (Number.isFinite(inRating) && Number.isFinite(exRating)) {
+        const delta = inRating - exRating;
+        if (Math.abs(delta) > MAX_RATING_SWING_PER_SAVE) {
+            const sign = delta > 0 ? 1 : -1;
+            (char as Record<string, unknown>).rankedRating = exRating + sign * MAX_RATING_SWING_PER_SAVE;
+        } else {
+            (char as Record<string, unknown>).rankedRating = inRating;
+        }
     }
 
     // Pet cap: client enforces "max 5 pets" at befriend time, but a tampered

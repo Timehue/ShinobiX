@@ -52,7 +52,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
         const playerName = safeName(String(body.playerName ?? ''));
         const outcome = (body.outcome === 'win' || body.outcome === 'loss') ? body.outcome as PetBattleOutcome : null;
-        const opponentLevel = Math.max(1, Math.min(100, Math.floor(Number(body.opponentLevel ?? 1))));
+        const opponentLevelRaw = Math.max(1, Math.min(100, Math.floor(Number(body.opponentLevel ?? 1))));
+        // Optional opponent name — used to verify the claimed opponentLevel
+        // against the opponent's actual saved level. Stops a level-5 player
+        // from claiming wins against level-100 opponents to maximize the
+        // `level * 5` ryo formula (500 ryo × 100/day = 50k ryo/day cheat).
+        const opponentNameRaw = typeof body.opponentName === 'string' ? safeName(body.opponentName) : '';
         // Optional reportKey for refresh-replay dedup. Clients pass
         // `${battleSeed}:1v1` or `${battleSeed}:match:${i}`; same key from
         // the same player within REPORT_KEY_TTL_SECONDS is treated as a
@@ -67,6 +72,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) {
             return res.status(403).json({ error: 'Can only report your own battles.' });
+        }
+
+        // ── opponentLevel cross-check ─────────────────────────────────
+        // When the client tells us who the opponent was, verify the
+        // claimed level matches that opponent's actual save. Players who
+        // omit opponentName (legacy clients, AI duels with no named foe)
+        // fall back to the level-cap rule below.
+        let opponentLevel = opponentLevelRaw;
+        if (opponentNameRaw && opponentNameRaw !== playerName) {
+            const oppSave = await kv.get<Record<string, unknown>>(`save:${opponentNameRaw}`);
+            const oppChar = (oppSave?.character ?? null) as Record<string, unknown> | null;
+            if (oppChar) {
+                const actualLevel = Math.max(1, Math.min(100, Math.floor(Number(oppChar.level ?? 1))));
+                // Use the actual saved level — even if the client claimed
+                // higher. This silently corrects the claim rather than
+                // erroring (so the player still gets a valid reward).
+                opponentLevel = actualLevel;
+            }
+        } else if (!identity.admin) {
+            // No opponent name supplied — clamp claimed level to
+            // playerLevel + 10 so the unnamed-opponent path can't exploit
+            // the formula. Look up the player's own actual level (not the
+            // value in the request body, which we don't trust here).
+            const meSave = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+            const meChar = (meSave?.character ?? null) as Record<string, unknown> | null;
+            const myLevel = Math.max(1, Math.min(100, Math.floor(Number(meChar?.level ?? 1))));
+            opponentLevel = Math.min(opponentLevelRaw, myLevel + 10);
         }
 
         // Refresh-replay dedup: NX-reserve the reportKey atomically. If it
