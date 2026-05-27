@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
-import { isAdmin } from '../_auth.js';
+import { isFullAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { RESERVED_USERNAMES } from '../player-auth.js';
 
@@ -82,9 +82,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Rate-limit: server-reset is destructive; allow only a handful per hour.
     if (!enforceRateLimit(req, res, 'admin-server-reset', 5, 60 * 60_000)) return;
 
-    // Admin password via x-admin-password header (was body — see players.ts
-    // for the migration rationale).
-    if (!isAdmin(req)) {
+    // Full admin (Admin 1) only — destructive endpoint. Admin password via
+    // x-admin-password header (was body — see players.ts for the migration
+    // rationale).
+    if (!isFullAdmin(req)) {
         return res.status(401).json({ error: 'Unauthorized.' });
     }
 
