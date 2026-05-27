@@ -4335,6 +4335,55 @@ function savePlayerAccounts(accounts: PlayerAccounts) {
     }
 }
 
+// ─── Save-preview cache ───────────────────────────────────────────────────
+// Lightweight per-account snapshot stored in localStorage so login can paint
+// the character UI *instantly* on the next visit instead of waiting on the
+// auth + save round-trip (which can be 5-15s when Supabase is cold). The
+// shape mirrors a server save payload but with all base64 images stripped
+// so the cache stays small (typically <50 KB per account).
+//
+// Source of truth is still the server: applyServerSnapshot replaces the
+// preview-painted state once the real save arrives. The 30s sector guard
+// added in the rubber-banding fix prevents the reconcile from rolling
+// back a fresh travel.
+const SAVE_PREVIEW_STORAGE_PREFIX = "ninjav-save-preview-v1:";
+
+function savePreviewKey(name: string) {
+    return SAVE_PREVIEW_STORAGE_PREFIX + accountKey(name);
+}
+
+function stripImagesForPreview(_key: string, value: unknown) {
+    return typeof value === "string" && value.startsWith("data:image") ? "" : value;
+}
+
+function writeSavePreview(name: string, payload: unknown) {
+    if (!name) return;
+    try {
+        localStorage.setItem(savePreviewKey(name), JSON.stringify(payload, stripImagesForPreview));
+    } catch {
+        // Quota exceeded or SSR — server save is still authoritative.
+    }
+}
+
+function readSavePreview(name: string): Record<string, unknown> | null {
+    if (!name) return null;
+    try {
+        const raw = localStorage.getItem(savePreviewKey(name));
+        if (!raw) return null;
+        const parsed = JSON.parse(raw) as Record<string, unknown>;
+        // Defense: the preview key includes the account name, but the
+        // payload's character.name MUST match — otherwise something is
+        // very wrong and we'd rather block than paint the wrong avatar.
+        const charRecord = (parsed.character && typeof parsed.character === "object")
+            ? parsed.character as Record<string, unknown>
+            : null;
+        if (!charRecord || accountKey(String(charRecord.name ?? "")) !== accountKey(name)) return null;
+        return parsed;
+    } catch {
+        return null;
+    }
+}
+
 function sameSector(a?: number, b?: number) {
     return Math.floor(Number(a ?? 40)) === Math.floor(Number(b ?? 40));
 }
@@ -7558,6 +7607,11 @@ export default function App() {
                         const data = await res.json() as { _saveVersion?: number };
                         if (typeof data._saveVersion === "number") latestSaveVersionRef.current = data._saveVersion;
                     } catch { /* server may return 200 with empty body; ignore */ }
+                    // Mirror to localStorage so the next login can paint instantly.
+                    writeSavePreview(accountName, {
+                        ...snap.payload,
+                        _saveVersion: latestSaveVersionRef.current,
+                    });
                 }
             }).catch(() => { charDirtyRef.current = true; });
         }, 3000);
@@ -7592,6 +7646,11 @@ export default function App() {
                         const data = await res.json() as { _saveVersion?: number };
                         if (typeof data._saveVersion === "number") latestSaveVersionRef.current = data._saveVersion;
                     } catch { /* ignore */ }
+                    // Mirror to localStorage so the next login can paint instantly.
+                    writeSavePreview(accountName, {
+                        ...snap.payload,
+                        _saveVersion: latestSaveVersionRef.current,
+                    });
                 }
             }).catch(() => {
                 charDirtyRef.current = true; // restore so next tick retries
@@ -7709,6 +7768,9 @@ export default function App() {
         if (snap.ancientChestVn) setAncientChestVn(snap.ancientChestVn);
         if (snap.editablePets) setEditablePets(mergeMissingBuiltInPets(snap.editablePets));
         setScreen("village");
+        // Mirror the freshly-applied state to the localStorage preview cache
+        // so the next login can paint instantly before the save round-trip.
+        writeSavePreview(snap.character.name, snap);
         // Re-hydrate images after login — server save strips base64 images to stay
         // within payload limits. Clear the loaded-cats guard and sessionStorage cache
         // so loadCategory re-fetches from KV and patches image fields back in.
@@ -7806,6 +7868,23 @@ export default function App() {
         // Without this, the interceptor has no credentials and the backend
         // returns 401, which the UI mistranslates as "no save found".
         setActivePlayer(name, password);
+
+        // Instant-paint from localStorage while the save fetch is in flight.
+        // The cached preview is written on every successful server save (both
+        // autosave paths) and after every applyServerSnapshot, so it mirrors
+        // the most-recent known state. The real save will arrive within a
+        // few seconds and applyServerSnapshot will reconcile any drift. Skip
+        // silently if no cache exists (first-time login on this device) or if
+        // the cache's character.name doesn't match (handled inside readSavePreview).
+        const cachedPreview = readSavePreview(name);
+        if (cachedPreview && cachedPreview.character) {
+            try {
+                applyServerSnapshot(cachedPreview as ReturnType<typeof buildPlayerSavePayload>);
+            } catch {
+                // Cache may be from an older schema — silently skip the
+                // instant-paint and let the server load take over.
+            }
+        }
 
         // Always pull the full server save - this is where the real character state lives.
         // Retry once on failure to handle transient Supabase cold starts.
