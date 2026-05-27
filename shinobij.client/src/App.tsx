@@ -25434,11 +25434,14 @@ function CentralHub({
         alert(`${item.name} forged and added to your inventory.`);
     }
 
-    // Armor crafting mirrors the weapon recipe shape but uses
-    // armor-appropriate materials (hides / pelts / scales — natural
-    // counterparts to the weapon-side fangs/claws).
+    // Armor crafting — rare armor only for now, priced at the epic-weapon
+    // tier (2× frost pelt + 1× Weekly Boss Core + 1,400 ryo). Armor sits
+    // a tier higher than the equivalent rare weapon, so this aligns
+    // resource scale even though the rarity label differs.
     function armorCraftRequirements(item: GameItem): { items: Record<string, number>; ryo: number } {
-        if (item.rarity === "rare") return { items: { "hunt-torn-hide": 2 }, ryo: 600 };
+        if (item.rarity === "rare") return { items: { "hunt-frost-pelt": 2, [WEEKLY_BOSS_CORE_ID]: 1 }, ryo: 1400 };
+        // Epic / legendary tiers reserved for future expansion — keep
+        // the function shape stable in case those rarities get unlocked.
         if (item.rarity === "epic") return { items: { "hunt-frost-pelt": 2, [WEEKLY_BOSS_CORE_ID]: 1 }, ryo: 1400 };
         return { items: { "hunt-ash-scale": 1, [DUNGEON_LEGENDARY_RELIC_ID]: 1, [WARFORGED_RELIC_ID]: 1 }, ryo: 3500 };
     }
@@ -25463,16 +25466,14 @@ function CentralHub({
             return (rank[a.rarity] ?? 0) - (rank[b.rarity] ?? 0) || a.name.localeCompare(b.name);
         });
 
-    // Armor items: anything with armorQuality set in one of the body slots.
-    // Mirrors the weapon filter so rarity rare/epic/legendary appear in the
-    // craft list; commons aren't worth forging.
+    // Armor items: rare-rarity body/head/waist/legs/feet pieces with
+    // armorQuality set. Restricted to rare for now per design — epic/
+    // legendary armor crafting can be unlocked later by widening the
+    // rarity allowlist.
     const ARMOR_SLOTS = new Set(["body", "head", "waist", "legs", "feet"]);
     const craftableArmor = allHubItems
-        .filter((item) => ARMOR_SLOTS.has(normalizeEquipmentSlot(item.slot)) && item.armorQuality && ["rare", "epic", "legendary"].includes(item.rarity))
-        .sort((a, b) => {
-            const rank = { rare: 1, epic: 2, legendary: 3, common: 0, mythic: 4 } as Record<string, number>;
-            return (rank[a.rarity] ?? 0) - (rank[b.rarity] ?? 0) || a.name.localeCompare(b.name);
-        });
+        .filter((item) => ARMOR_SLOTS.has(normalizeEquipmentSlot(item.slot)) && item.armorQuality && item.rarity === "rare")
+        .sort((a, b) => a.name.localeCompare(b.name));
 
     const centralOptions = [
         {
@@ -26118,12 +26119,8 @@ function CentralHub({
 
                             {crafterTab === "armor" && <><div className="crafter-material-list">
                                 <strong>Armor Materials</strong>
-                                <div className="crafter-material-row"><span>🦬 Torn Hide</span><span>{countInventory("hunt-torn-hide")} ×</span></div>
                                 <div className="crafter-material-row"><span>🐺 Frost Pelt</span><span>{countInventory("hunt-frost-pelt")} ×</span></div>
-                                <div className="crafter-material-row"><span>🦎 Ash Scale</span><span>{countInventory("hunt-ash-scale")} ×</span></div>
                                 <div className="crafter-material-row"><span>💠 Weekly Boss Core</span><span>{countInventory(WEEKLY_BOSS_CORE_ID)} ×</span></div>
-                                <div className="crafter-material-row"><span>💎 Dungeon Legendary Relic</span><span>{countInventory(DUNGEON_LEGENDARY_RELIC_ID)} ×</span></div>
-                                <div className="crafter-material-row"><span>⚔️ Warforged Relic</span><span>{countInventory(WARFORGED_RELIC_ID)} ×</span></div>
                             </div>
                             <div className="crafter-recipe-grid">
                                 {craftableArmor.length === 0 ? (
