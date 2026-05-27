@@ -58,3 +58,53 @@ export const armorQualityTiers: ReadonlyArray<{ quality: ArmorQuality; reduction
 export function armorReductionForQuality(quality?: ArmorQuality): number {
     return armorQualityTiers.find((t) => t.quality === quality)?.reduction ?? 0;
 }
+
+// ── Item bonus display consolidation ─────────────────────────────────────
+// Items can grant up to 8 specialty stats (Ninjutsu/Taijutsu/Bukijutsu/
+// Genjutsu × Offense/Defense). Without consolidation, an endgame relic
+// shows 8 nearly-identical "Effect N: Increase X Offense / Defense"
+// cards stacked in the popup. When all 4 offense (or defense) entries
+// have the same value, we collapse them into a single "All Offense +N"
+// (or "All Defense +N") line.
+//
+// Caller passes a bonuses map and gets back an ordered list of
+// { stat, value } entries ready for display — stat is the final display
+// label (camelCase already converted to "Title Case", or "All Offense"/
+// "All Defense" when collapsed).
+export function consolidateItemBonuses(
+    bonuses: Record<string, unknown> | null | undefined,
+    options: { excludeStats?: ReadonlySet<string> } = {},
+): Array<{ stat: string; value: number }> {
+    const exclude = options.excludeStats ?? new Set<string>();
+    const entries = Object.entries(bonuses ?? {})
+        .filter(([stat, value]) =>
+            typeof value === "number" && value !== 0 && !exclude.has(stat),
+        ) as Array<[string, number]>;
+
+    const OFFENSE = ["ninjutsuOffense", "taijutsuOffense", "bukijutsuOffense", "genjutsuOffense"];
+    const DEFENSE = ["ninjutsuDefense", "taijutsuDefense", "bukijutsuDefense", "genjutsuDefense"];
+
+    const lines: Array<{ stat: string; value: number }> = [];
+    const consumed = new Set<string>();
+
+    function tryCollapse(keys: string[], label: string) {
+        const found = keys.map((k) => entries.find(([s]) => s === k));
+        // All four must be present AND share the same value.
+        if (found.every((f) => f != null) && found.every((f) => f![1] === found[0]![1])) {
+            lines.push({ stat: label, value: found[0]![1] });
+            for (const k of keys) consumed.add(k);
+        }
+    }
+
+    tryCollapse(OFFENSE, "All Offense");
+    tryCollapse(DEFENSE, "All Defense");
+
+    for (const [stat, value] of entries) {
+        if (consumed.has(stat)) continue;
+        // camelCase → "Title Case" (e.g. "ninjutsuOffense" → "Ninjutsu Offense")
+        const label = stat.replace(/([A-Z])/g, " $1").replace(/^./, (c) => c.toUpperCase());
+        lines.push({ stat: label, value });
+    }
+
+    return lines;
+}
