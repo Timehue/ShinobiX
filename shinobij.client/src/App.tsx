@@ -22383,13 +22383,19 @@ function ShopBase({
 
     const allItems = getAllItems(creatorItems);
     const shopSlots: EquipmentSlot[] = ["head", "body", "waist", "legs", "feet", "hand", "aura", "weapon", "thrown", "item", "accessory"];
+    const armorShopSlots: EquipmentSlot[] = ["body", "head", "waist", "legs", "feet"];
     const shopItems = allItems.filter((item) => {
         const craftOnlyWeapon = item.slot === "hand" && item.weaponEp != null && ["rare", "epic", "legendary"].includes(item.rarity);
+        // Rare armor is craft-only — players get it from the Crafter's Armor
+        // tab, not the shop. Mirrors the craftOnlyWeapon exclusion above so
+        // both gear paths funnel through the crafter for rare-tier pieces.
+        const craftOnlyArmor = armorShopSlots.includes(normalizeEquipmentSlot(item.slot)) && item.armorQuality != null && item.rarity === "rare";
         // Drops, crafting materials, and keys ship with cost: 0 because they're
         // earned in-game, not bought. Exclude them from shop listings.
         return shopSlots.includes(item.slot)
             && filterRarities.includes(item.rarity)
             && !craftOnlyWeapon
+            && !craftOnlyArmor
             && item.cost > 0;
     });
 
