@@ -3635,7 +3635,11 @@ function aiStatsForLevel(level: number, jutsus: Jutsu[] = []): Stats {
 function aiHpForLevel(level: number, toughness = 0) {
     const safeLevel = Math.max(1, Math.min(MAX_LEVEL, Math.floor(level || 1)));
     const levelScale = safeLevel / MAX_LEVEL;
-    return Math.floor(maxHpForLevel(safeLevel) * (1.12 + levelScale * 0.35 + toughness * 1.5));
+    // PvE damage roughly halved when the formula was ported to match PvP
+    // (EP × 32 baseline vs the old maxHp × EP/100). AI HP was originally
+    // calibrated for ~2× higher damage; halving the multiplier keeps turn
+    // counts for PvE fights in roughly the same range they were before.
+    return Math.floor(maxHpForLevel(safeLevel) * (1.12 + levelScale * 0.35 + toughness * 1.5) * 0.5);
 }
 
 function aiRawDamageReductionForLevel(level: number, toughness = 0) {
@@ -4444,8 +4448,72 @@ function isZeroDamageFortyApJutsu(jutsu: Pick<Jutsu, "id" | "ap">) {
     return jutsu.ap === 40 && jutsu.id !== "basic-attack" && !jutsu.id.startsWith("item-");
 }
 
-// Damage buckets:
-// 1) base/stat/armor/weather/item outside bonuses, 2) jutsu damage tags, 3) bloodline multiplier.
+// ─── PvP-formula constants (mirrors api/pvp/move.ts) ─────────────────────────
+// Keep these in sync with the server constants. The whole point is that PvE
+// and PvP produce the same damage given the same inputs.
+const EP_MULTIPLIER_PVE = 32;       // Raw dmg = scaledEp × 32
+const K_DR_PVE          = 0.5;      // Defensive DR pool soft-cap
+const K_AMP_PVE         = 0.5;      // Offensive amp pool soft-cap
+const HEAL_FLAT_PVE     = 750;      // Heal tag value at max jutsu mastery
+const SHIELD_FLAT_PVE   = 750;      // Shield tag value at max jutsu mastery
+const WOUND_HARD_CAP_PCT_PVE = 60;  // Wound max cap (in % of finalDmg)
+const WOUND_CAP_BY_RANK_PVE: Record<string, number> = {
+    basic: 25, AB: 30, S: 35,
+};
+
+// Sum of attacker IDG% + defender IDT% + defender Ignition%, fed into a
+// soft-cap pool. Mirrors server ampMultiplierFor in api/pvp/move.ts.
+function pvpAmpMultiplier(attackerStatuses: CombatStatus[] = [], defenderStatuses: CombatStatus[] = []): number {
+    let rawAmp = 0;
+    for (const s of attackerStatuses) {
+        if (s.name === "Increase Damage Given") rawAmp += (s.percent ?? 0) / 100;
+    }
+    for (const s of defenderStatuses) {
+        if (s.name === "Increase Damage Taken")       rawAmp += (s.percent ?? 0) / 100;
+        else if (s.name === "Ignition" || statusMatchesName(s, "Ignition")) rawAmp += (s.percent ?? 0) / 100;
+    }
+    if (rawAmp <= 0) return 1;
+    return 1 + rawAmp / (rawAmp + K_AMP_PVE);
+}
+
+// Sum of attacker DDG% + defender DDT% (raw, not yet pooled with armor).
+function pvpStatusDr(attackerStatuses: CombatStatus[] = [], defenderStatuses: CombatStatus[] = []): number {
+    let dr = 0;
+    for (const s of attackerStatuses) {
+        if (s.name === "Decrease Damage Given") dr += (s.percent ?? 0) / 100;
+    }
+    for (const s of defenderStatuses) {
+        if (s.name === "Decrease Damage Taken") dr += (s.percent ?? 0) / 100;
+    }
+    return dr;
+}
+
+// True-damage Pierce. Mirrors server pierceTrueDamage exactly.
+function pvpPierceTrueDamage(offenseComposite: number, jutsuAp: number, masteryLevel: number): number {
+    const apFactor      = Math.max(0.5, (jutsuAp || 60) / 60);
+    const masteryFactor = 1 + Math.max(0, Math.min(50, masteryLevel)) * 0.005;
+    const raw           = offenseComposite * 0.35 * apFactor * masteryFactor;
+    return Math.floor(Math.max(100, Math.min(900, raw)));
+}
+
+// Linear armorFactor → raw DR. The old PvE formula used a linear armorFactor
+// (0.25..1.0 where lower = more reduction). New formula needs raw DR for the
+// soft-cap pool. Conversion preserves the same equipped-armor intent.
+function armorFactorToRawDr(armorFactor: number): number {
+    return Math.max(0, 1 - armorFactor);
+}
+
+// ─── Damage formula (mirrors api/pvp/move.ts applyJutsu damage block) ────────
+// PvE and PvP now use the same math:
+//   scaledEp   = jutsu utility-zero ? 0 : EP + mastery × 0.2
+//   baseDmg    = scaledEp × 32 × statFactor × wMult × bloodlineMult × itemDmgMult
+//   effDR      = (armorRawDR + statusDR) / (rawTotal + K_DR_PVE)
+//   ampMult    = 1 + rawAmp / (rawAmp + K_AMP_PVE)
+//   damage     = baseDmg × (1 - effDR) × ampMult     (or pierce true damage)
+//
+// Backward-compatible signature: old callers pass armorFactor + itemMult and
+// the function derives armorRawDR + uses default empty status arrays. New
+// callers pass attackerStatuses + defenderStatuses so amp/status DR pool work.
 function calculateDamage(
     jutsu: Jutsu,
     attackerStats: Stats,
@@ -4454,17 +4522,43 @@ function calculateDamage(
     bloodlineMult = 1.0,
     armorFactor = 1.0,
     itemMult = 1.0,
-    weatherMult = 1.0
+    weatherMult = 1.0,
+    attackerStatuses: CombatStatus[] = [],
+    defenderStatuses: CombatStatus[] = [],
+    masteryLevel: number = JUTSU_MAX_LEVEL,
 ) {
     if (isZeroDamageFortyApJutsu(jutsu)) return 0;
     const offense = getOffenseStat(attackerStats, jutsu.type);
     const defense = getDefenseStat(defenderStats, jutsu.type);
-    const baselineDamage = targetMaxHp; // EP is now % of target max HP before armor/stat modifiers
     const statFactor = clampNumber(1 + ((offense - defense) / (MAX_STAT * 2)) * 0.85, 0.35, 1.85);
-    const effectFactor = Math.max(0, jutsu.effectPower) / 100;
-    const bucketOne = baselineDamage * effectFactor * statFactor * armorFactor * itemMult * weatherMult;
-    const bucketTwo = bloodlineMult;
-    return Math.max(0, Math.floor(bucketOne * bucketTwo));
+
+    // Pierce short-circuits to true damage (capped 900). Caller still needs
+    // to handle shield/absorb-bypass semantics — this function only returns
+    // the raw damage number.
+    const pierce = jutsu.tags?.some(t => t.name === "Pierce");
+    if (pierce) {
+        return pvpPierceTrueDamage(offense, jutsu.ap ?? 40, masteryLevel);
+    }
+
+    const scaledEp = Math.max(0, jutsu.effectPower) + masteryLevel * 0.2;
+    const baseDmg = Math.max(0, Math.floor(
+        scaledEp * EP_MULTIPLIER_PVE * statFactor * weatherMult * bloodlineMult * itemMult
+    ));
+
+    // Defensive DR pool — armor + DDG/DDT statuses combined with soft-cap.
+    const armorRawDR = armorFactorToRawDr(armorFactor);
+    const statusDR   = pvpStatusDr(attackerStatuses, defenderStatuses);
+    const rawTotalDR = armorRawDR + statusDR;
+    const effectiveDR = rawTotalDR > 0 ? rawTotalDR / (rawTotalDR + K_DR_PVE) : 0;
+
+    // Offensive amp pool — IDG attacker + IDT/Ignition defender soft-capped.
+    const ampMult = pvpAmpMultiplier(attackerStatuses, defenderStatuses);
+
+    // targetMaxHp param kept for signature compatibility; new formula doesn't
+    // use it directly (damage no longer scales with target HP).
+    void targetMaxHp;
+
+    return Math.max(0, Math.floor(baseDmg * (1 - effectiveDR) * ampMult));
 }
 
 function tagPower(tag: JutsuTag, fallback = 30) {
@@ -31721,7 +31815,9 @@ function Arena({
             activeBloodlineMultiplier(character, playerStatuses),
             enemyArmorFactor,
             playerItemMult,
-            weatherDamageMultiplier(basicAttackJutsu) * territoryDamageMultiplier(basicAttackJutsu)
+            weatherDamageMultiplier(basicAttackJutsu) * territoryDamageMultiplier(basicAttackJutsu),
+            playerStatuses,
+            enemyStatuses,
         );
         if (!opponentCharacter && getActiveAuraSphereBonuses(character).pveDamagePercent > 0) {
             damage = boostAmount(damage, getActiveAuraSphereBonuses(character).pveDamagePercent);
@@ -31816,7 +31912,9 @@ function Arena({
             activeBloodlineMultiplier(character, playerStatuses),
             enemyArmorFactor,
             playerItemMult,
-            weatherDamageMultiplier(weaponJutsu) * territoryDamageMultiplier(weaponJutsu)
+            weatherDamageMultiplier(weaponJutsu) * territoryDamageMultiplier(weaponJutsu),
+            playerStatuses,
+            enemyStatuses,
         );
         if (!opponentCharacter && getActiveAuraSphereBonuses(character).pveDamagePercent > 0) {
             damage = boostAmount(damage, getActiveAuraSphereBonuses(character).pveDamagePercent);
@@ -32287,7 +32385,10 @@ function Arena({
             activeBloodlineMultiplier(character, playerStatuses),
             enemyArmorFactor,
             playerItemMult,
-            weatherDamageMultiplier(jutsu) * territoryDamageMultiplier(jutsu)
+            weatherDamageMultiplier(jutsu) * territoryDamageMultiplier(jutsu),
+            playerStatuses,
+            enemyStatuses,
+            mastery.level,
         );
         if (!opponentCharacter && getActiveAuraSphereBonuses(character).pveDamagePercent > 0) {
             damage = boostAmount(damage, getActiveAuraSphereBonuses(character).pveDamagePercent);
@@ -32378,15 +32479,15 @@ function Arena({
             }
 
             if (tag.name === "Heal") {
-                healing += 500;
+                healing += HEAL_FLAT_PVE;
                 damage = 0;
-                effectLines.push(`Heal: ${character.name} restores 500 HP.`);
+                effectLines.push(`Heal: ${character.name} restores ${HEAL_FLAT_PVE} HP.`);
             }
 
             if (tag.name === "Shield") {
-                shield += 500;
+                shield += SHIELD_FLAT_PVE;
                 damage = 0;
-                effectLines.push(`Shield: ${character.name} gains 500 shield.`);
+                effectLines.push(`Shield: ${character.name} gains ${SHIELD_FLAT_PVE} shield.`);
             }
 
             if (tag.name === "Barrier") {
@@ -32545,14 +32646,13 @@ function Arena({
             }
         });
 
-        const damageMultiplier =
-            multiplicativeTagMultiplier(activePlayerDmgBoosts, "increase") *
-            multiplicativeTagMultiplier([...activeDamageTakenTags, ...activeIgnition], "increase") *
-            (pierce ? 1 : multiplicativeTagMultiplier(activeDamageGivenDebuffs, "decrease")) * // Pierce ignores Smoke Bomb / Decrease Damage Given
-            multiplicativeTagMultiplier(activeDamageTakenReductions, "decrease");
-
-        damage = Math.floor(damage * damageMultiplier);
-        if (pierce) damage = jutsu.ap >= 60 ? 900 : 0;
+        // IDG/IDT/Ignition/DDG/DDT are now folded into calculateDamage via
+        // the soft-cap pools (mirrors server). Pierce is also handled inside
+        // calculateDamage (returns true damage capped at 900). The `pierce`
+        // variable is still consulted below for shield bypass + post-damage
+        // tag suppression.
+        void activePlayerDmgBoosts; void activeDamageTakenTags; void activeIgnition;
+        void activeDamageGivenDebuffs; void activeDamageTakenReductions;
 
         const blocked = pierce ? 0 : Math.min(enemyShield, damage);
         const finalDamage = Math.max(0, damage - blocked);
@@ -32667,6 +32767,8 @@ function Arena({
                 activeBloodlineMultiplier(opponentCharacter, enemyStatuses),
                 playerArmorFactor, 1.0,
                 weatherDamageMultiplier(jutsu),
+                enemyStatuses,
+                playerStatuses,
             );
         } catch {
             return jutsu.effectPower;
@@ -32936,7 +33038,9 @@ function Arena({
                 activeBloodlineMultiplier(opponentCharacter, enemyStatuses),
                 playerArmorFactor,
                 1.0,
-                weatherDamageMultiplier(jutsu)
+                weatherDamageMultiplier(jutsu),
+                enemyStatuses,
+                playerStatuses,
             );
         const damage = damageBase;
         let healing = 0;
@@ -32960,8 +33064,8 @@ function Arena({
                 effectLines.push(`${opponentName} heals ${Math.floor(jutsu.effectPower)} HP`);
             }
             if (tag.name === "Shield") {
-                shield += 500;
-                effectLines.push(`${opponentName} gains 500 shield`);
+                shield += SHIELD_FLAT_PVE;
+                effectLines.push(`${opponentName} gains ${SHIELD_FLAT_PVE} shield`);
             }
             if (tag.name === "Barrier") {
                 const barrierTile = nextStepToward(enemyPos, playerPos);
@@ -33237,16 +33341,17 @@ function Arena({
             activeBloodlineMultiplier(opponentCharacter, enemyStatuses),
             playerArmorFactor,
             1.0,
-            weatherDamageMultiplier(enemyBasicJutsu)
+            weatherDamageMultiplier(enemyBasicJutsu),
+            enemyStatuses,
+            playerStatuses,
         );
 
-        enemyDamage = Math.floor(
-            enemyDamage *
-            multiplicativeTagMultiplier(enemyStatuses.filter((s) => s.name === "Decrease Damage Given"), "decrease") *
-            multiplicativeTagMultiplier(playerStatuses.filter((s) => s.name === "Decrease Damage Taken"), "decrease") *
-            multiplicativeTagMultiplier(playerStatuses.filter((s) => s.name === "Increase Damage Taken" || statusMatchesName(s, "Ignition")), "increase") *
-            (enemyStatuses.some((s) => s.name === "Bloodline Seal" || s.name === "Seal" || s.name === "Elemental Seal") ? 0.85 : 1)
-        );
+        // Bloodline Seal still nips an extra 15% off — calculateDamage already
+        // folds DDG/DDT/IDT/Ignition via the soft-cap pools, so the old
+        // multiplicativeTagMultiplier stack is no longer needed here.
+        if (enemyStatuses.some((s) => s.name === "Bloodline Seal" || s.name === "Seal" || s.name === "Elemental Seal")) {
+            enemyDamage = Math.floor(enemyDamage * 0.85);
+        }
 
         setEnemyAp(0);
 
