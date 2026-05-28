@@ -162,6 +162,7 @@ import {
     AWAKENING_ELEMENTS,
     ANIMATED_MAX_MB,
     DAILY_MISSION_LIMIT,
+    DAILY_HUNT_LIMIT,
     WEEKLY_BOSS_CORE_ID,
     DUNGEON_KEY_ID,
     DUNGEON_LEGENDARY_RELIC_ID,
@@ -3561,6 +3562,28 @@ function markMissionCompleted(character: Character): Character {
     };
 }
 
+// Hunter Guild contracts use a daily pool independent of missions — its own
+// counter and reset key (lastHuntReset), so 20 hunts and 20 missions can be
+// done in the same day. Clan/lifetime aggregates still tick up like missions.
+export function dailyHuntsCompleted(character: Character) {
+    return character.lastHuntReset === currentDateKey() ? character.dailyHuntsCompleted ?? 0 : 0;
+}
+
+function hasDailyHuntSlot(character: Character) {
+    return dailyHuntsCompleted(character) < DAILY_HUNT_LIMIT;
+}
+
+function markHuntCompleted(character: Character): Character {
+    return {
+        ...character,
+        clanMissionContrib: (character.clanMissionContrib ?? 0) + 1,
+        totalMissionsCompleted: (character.totalMissionsCompleted ?? 0) + 1,
+        dailyHuntsCompleted: dailyHuntsCompleted(character) + 1,
+        lastHuntReset: currentDateKey(),
+        clanContribMonth: currentMonthKey(),
+    };
+}
+
 function roleRankTitle(character: Character) {
     const currentTitle = character.rankTitle?.trim();
     const lowerTitle = currentTitle?.toLowerCase() ?? "";
@@ -4372,6 +4395,8 @@ function normalizeCharacter(parsed: Character): Character {
         lastDailyReset: currentDateKey(),
         dailyTilesExplored: parsed.lastDailyReset === currentDateKey() ? (parsed.dailyTilesExplored ?? 0) : 0,
         dailyMissionsCompleted: parsed.lastDailyReset === currentDateKey() ? (parsed.dailyMissionsCompleted ?? 0) : 0,
+        dailyHuntsCompleted: parsed.lastHuntReset === currentDateKey() ? (parsed.dailyHuntsCompleted ?? 0) : 0,
+        lastHuntReset: currentDateKey(),
         dailyFateSpins: parsed.lastDailyReset === currentDateKey() ? (parsed.dailyFateSpins ?? 0) : 0,
         dailyAiKills: parsed.lastDailyReset === currentDateKey() ? (parsed.dailyAiKills ?? 0) : 0,
         dailyPetWins: parsed.lastDailyReset === currentDateKey() ? (parsed.dailyPetWins ?? 0) : 0,
@@ -26477,56 +26502,120 @@ function CentralHub({
     // despawn (top 10 → core, top 25 → key, all contributors → ryo/xp
     // share with MVP 2× bonus). No client-side claim handler is needed.
 
-    // Legendary weapons accept Warforged Relic OR Veil of the Hollow as
-    // the third relic — so players who never won a war (Warforged source)
-    // can still craft legendary by farming the Hollow Gate Shrine (Veil
-    // source). Prefer Warforged when both are present so war loot keeps
-    // its primary purpose.
-    function chooseLegendaryRelic(): typeof WARFORGED_RELIC_ID | typeof VEIL_OF_THE_HOLLOW_ID {
-        const hasWarforged = character.inventory.includes(WARFORGED_RELIC_ID);
-        return hasWarforged ? WARFORGED_RELIC_ID : VEIL_OF_THE_HOLLOW_ID;
+    // ── Unified craft-points pool ────────────────────────────────────────
+    // Every craftable material — hunt drops AND boss/dungeon/war relics —
+    // converts to points. All three Crafter tabs (Supplies, Weapons, Armor)
+    // draw from this single pool: any material is accepted until a recipe's
+    // point cost is filled. Consumption is cheapest-first, so high-value
+    // relics are preserved until a craft is expensive enough to need them.
+    const CRAFT_POINTS: Record<string, number> = {
+        "hunt-torn-hide": 3,
+        "hunt-wild-feather": 3,
+        "hunt-small-fang": 3,
+        "hunt-cracked-horn": 3,
+        "hunt-beast-meat": 5,
+        "hunt-frost-pelt": 8,
+        "hunt-shadow-claw": 8,
+        "hunt-wolf-fang": 10,
+        "hunt-ash-scale": 15,
+        "hunt-ember-scale": 20,
+        "hunt-shadow-pelt": 25,
+        "hunt-ancient-beast-core": 30,
+        "hunt-titan-bone": 30,
+        "hunt-legendary-material": 50,
+        [WEEKLY_BOSS_CORE_ID]: 150,
+        [DUNGEON_LEGENDARY_RELIC_ID]: 200,
+        [WARFORGED_RELIC_ID]: 250,
+        [VEIL_OF_THE_HOLLOW_ID]: 250,
+    };
+    const CRAFT_MATERIAL_NAMES: Record<string, string> = {
+        "hunt-torn-hide": "Torn Hide",
+        "hunt-wild-feather": "Wild Feather",
+        "hunt-small-fang": "Small Fang",
+        "hunt-cracked-horn": "Cracked Horn",
+        "hunt-beast-meat": "Beast Meat",
+        "hunt-frost-pelt": "Frost Pelt",
+        "hunt-shadow-claw": "Shadow Claw",
+        "hunt-wolf-fang": "Wolf Fang",
+        "hunt-ash-scale": "Ash Scale",
+        "hunt-ember-scale": "Ember Scale",
+        "hunt-shadow-pelt": "Shadow Pelt",
+        "hunt-ancient-beast-core": "Ancient Beast Core",
+        "hunt-titan-bone": "Titan Bone",
+        "hunt-legendary-material": "Legendary Material",
+        [WEEKLY_BOSS_CORE_ID]: "Weekly Boss Core",
+        [DUNGEON_LEGENDARY_RELIC_ID]: "Dungeon Legendary Relic",
+        [WARFORGED_RELIC_ID]: "Warforged Relic",
+        [VEIL_OF_THE_HOLLOW_ID]: "Veil of the Hollow",
+    };
+
+    function craftPointsTotal(): number {
+        return Object.entries(CRAFT_POINTS).reduce((sum, [id, pts]) => {
+            return sum + character.inventory.filter((i) => i === id).length * pts;
+        }, 0);
     }
 
-    function weaponCraftRequirements(item: GameItem): { items: Record<string, number>; ryo: number } {
-        if (item.rarity === "rare") return { items: { "hunt-wolf-fang": 2 }, ryo: 600 };
-        if (item.rarity === "epic") return { items: { "hunt-shadow-pelt": 2, [WEEKLY_BOSS_CORE_ID]: 1 }, ryo: 1400 };
-        return { items: { [WEEKLY_BOSS_CORE_ID]: 1, [DUNGEON_LEGENDARY_RELIC_ID]: 1, [chooseLegendaryRelic()]: 1 }, ryo: 3500 };
+    // Burn materials cheapest-first until costPts is paid. Returns the
+    // post-craft inventory; does not mutate state.
+    function consumeCraftPoints(costPts: number): string[] {
+        const ordered = Object.entries(CRAFT_POINTS).sort((a, b) => a[1] - b[1]);
+        const inv = [...character.inventory];
+        let remaining = costPts;
+        for (const [id, pts] of ordered) {
+            while (remaining > 0 && inv.includes(id)) {
+                inv.splice(inv.indexOf(id), 1);
+                remaining -= pts;
+            }
+        }
+        return inv;
+    }
+
+    // Points-based weapon/armor crafting — both tabs draw from the unified
+    // pool above, just like Supplies. Armor sits one tier above the
+    // equivalent weapon rarity (hence the higher point cost). Ryo stays as
+    // a secondary sink, scaled by rarity and shared across both crafts.
+    function craftRyoForRarity(rarity: string): number {
+        if (rarity === "rare") return 600;
+        if (rarity === "epic") return 1400;
+        return 3500; // legendary
+    }
+    function weaponCraftPoints(item: GameItem): number {
+        if (item.rarity === "rare") return 150;
+        if (item.rarity === "epic") return 350;
+        return 700; // legendary
+    }
+    function armorCraftPoints(item: GameItem): number {
+        if (item.rarity === "rare") return 200;
+        if (item.rarity === "epic") return 400;
+        return 800; // legendary
     }
 
     function craftExistingWeapon(item: GameItem) {
-        const requirements = weaponCraftRequirements(item);
+        const costPts = weaponCraftPoints(item);
+        const ryo = craftRyoForRarity(item.rarity);
         if (character.level < (item.levelReq ?? 1)) return alert(`Requires level ${item.levelReq ?? 1}.`);
-        if (character.ryo < requirements.ryo) return alert(`Not enough ryo. Need ${requirements.ryo.toLocaleString()}.`);
-        if (!hasInventoryRequirements(character, requirements.items)) return alert("Missing required weapon materials.");
+        if (character.ryo < ryo) return alert(`Not enough ryo. Need ${ryo.toLocaleString()}.`);
+        const total = craftPointsTotal();
+        if (total < costPts) return alert(`Not enough materials. Need ${costPts} craft points, you have ${total}.`);
         updateCharacter({
             ...character,
-            ryo: character.ryo - requirements.ryo,
-            inventory: [...removeInventoryItems(character.inventory, requirements.items), item.id],
+            ryo: character.ryo - ryo,
+            inventory: [...consumeCraftPoints(costPts), item.id],
         });
         alert(`${item.name} forged and added to your inventory.`);
     }
 
-    // Armor crafting — rare armor only for now, priced at the epic-weapon
-    // tier (2× frost pelt + 1× Weekly Boss Core + 1,400 ryo). Armor sits
-    // a tier higher than the equivalent rare weapon, so this aligns
-    // resource scale even though the rarity label differs.
-    function armorCraftRequirements(item: GameItem): { items: Record<string, number>; ryo: number } {
-        if (item.rarity === "rare") return { items: { "hunt-frost-pelt": 2, [WEEKLY_BOSS_CORE_ID]: 1 }, ryo: 1400 };
-        // Epic / legendary tiers reserved for future expansion — keep
-        // the function shape stable in case those rarities get unlocked.
-        if (item.rarity === "epic") return { items: { "hunt-frost-pelt": 2, [WEEKLY_BOSS_CORE_ID]: 1 }, ryo: 1400 };
-        return { items: { "hunt-ash-scale": 1, [DUNGEON_LEGENDARY_RELIC_ID]: 1, [WARFORGED_RELIC_ID]: 1 }, ryo: 3500 };
-    }
-
     function craftExistingArmor(item: GameItem) {
-        const requirements = armorCraftRequirements(item);
+        const costPts = armorCraftPoints(item);
+        const ryo = craftRyoForRarity(item.rarity);
         if (character.level < (item.levelReq ?? 1)) return alert(`Requires level ${item.levelReq ?? 1}.`);
-        if (character.ryo < requirements.ryo) return alert(`Not enough ryo. Need ${requirements.ryo.toLocaleString()}.`);
-        if (!hasInventoryRequirements(character, requirements.items)) return alert("Missing required armor materials.");
+        if (character.ryo < ryo) return alert(`Not enough ryo. Need ${ryo.toLocaleString()}.`);
+        const total = craftPointsTotal();
+        if (total < costPts) return alert(`Not enough materials. Need ${costPts} craft points, you have ${total}.`);
         updateCharacter({
             ...character,
-            ryo: character.ryo - requirements.ryo,
-            inventory: [...removeInventoryItems(character.inventory, requirements.items), item.id],
+            ryo: character.ryo - ryo,
+            inventory: [...consumeCraftPoints(costPts), item.id],
         });
         alert(`${item.name} forged and added to your inventory.`);
     }
@@ -26970,64 +27059,15 @@ function CentralHub({
             )}
 
             {showCrafter && (() => {
-                // Ordered low → high so the Supplies tab lists commons first.
-                // Consumer (consumeMaterials) sorts by point value and burns
-                // cheapest first, naturally preserving rank-up materials when
-                // crafting low-cost recipes.
-                const CRAFT_POINTS: Record<string, number> = {
-                    "hunt-torn-hide": 3,
-                    "hunt-wild-feather": 3,
-                    "hunt-small-fang": 3,
-                    "hunt-cracked-horn": 3,
-                    "hunt-beast-meat": 5,
-                    "hunt-frost-pelt": 8,
-                    "hunt-shadow-claw": 8,
-                    "hunt-wolf-fang": 10,
-                    "hunt-ash-scale": 15,
-                    "hunt-ember-scale": 20,
-                    "hunt-shadow-pelt": 25,
-                    "hunt-ancient-beast-core": 30,
-                    "hunt-titan-bone": 30,
-                    "hunt-legendary-material": 50,
-                };
-                const craftMaterialNames: Record<string, string> = {
-                    "hunt-torn-hide": "Torn Hide",
-                    "hunt-wild-feather": "Wild Feather",
-                    "hunt-small-fang": "Small Fang",
-                    "hunt-cracked-horn": "Cracked Horn",
-                    "hunt-beast-meat": "Beast Meat",
-                    "hunt-frost-pelt": "Frost Pelt",
-                    "hunt-shadow-claw": "Shadow Claw",
-                    "hunt-wolf-fang": "Wolf Fang",
-                    "hunt-ash-scale": "Ash Scale",
-                    "hunt-ember-scale": "Ember Scale",
-                    "hunt-shadow-pelt": "Shadow Pelt",
-                    "hunt-ancient-beast-core": "Ancient Beast Core",
-                    "hunt-titan-bone": "Titan Bone",
-                    "hunt-legendary-material": "Legendary Material",
-                };
-                const totalPts = Object.entries(CRAFT_POINTS).reduce((sum, [id, pts]) => {
-                    const count = character.inventory.filter((i) => i === id).length;
-                    return sum + count * pts;
-                }, 0);
-
-                function consumeMaterials(costPts: number): string[] {
-                    const ordered = Object.entries(CRAFT_POINTS).sort((a, b) => a[1] - b[1]);
-                    const inv = [...character.inventory];
-                    let remaining = costPts;
-                    for (const [id, pts] of ordered) {
-                        while (remaining > 0 && inv.includes(id)) {
-                            const idx = inv.indexOf(id);
-                            inv.splice(idx, 1);
-                            remaining -= pts;
-                        }
-                    }
-                    return inv;
-                }
+                // Supplies, Weapons, and Armor all read the same unified
+                // craft-points pool (CRAFT_POINTS / craftPointsTotal /
+                // consumeCraftPoints, defined at component scope) so the
+                // three tabs stay balanced against one another.
+                const totalPts = craftPointsTotal();
 
                 function craftItem(costPts: number, grant: (c: Character) => Character) {
                     if (totalPts < costPts) return alert(`Not enough materials. Need ${costPts} craft points, you have ${totalPts}.`);
-                    const newInv = consumeMaterials(costPts);
+                    const newInv = consumeCraftPoints(costPts);
                     updateCharacter(grant({ ...character, inventory: newInv }));
                     alert("Crafting complete!");
                 }
@@ -27063,7 +27103,7 @@ function CentralHub({
 
                             {crafterTab === "supplies" && <><div className="crafter-material-list">
                                 <strong>Your Materials</strong>
-                                {Object.entries(craftMaterialNames).map(([id, label]) => {
+                                {Object.entries(CRAFT_MATERIAL_NAMES).map(([id, label]) => {
                                     const count = character.inventory.filter((i) => i === id).length;
                                     return (
                                         <div key={id} className="crafter-material-row">
@@ -27075,12 +27115,10 @@ function CentralHub({
                                 <div className="crafter-total-pts">Total craft points: <strong>{totalPts}</strong></div>
                             </div>
 
-                            {/* ── Hollow Gate Key forge ────────────────────────────────────
-                                Two craft paths, each consumes its requirement directly:
-                                  • 5 Dungeon Keys → 1 Hollow Gate Key
-                                  • 10 Fate Shards → 1 Hollow Gate Key
-                                The key bypasses the village unlock + 2/day cap when entering
-                                the Hollow Gate Shrine. */}
+                            {/* ── Special forges: Hollow Gate Key + Dungeon Legendary Relic ──
+                                Rendered side-by-side in one compact 2-col grid (crafter-special-*)
+                                to save vertical space. Each card keeps its own forge logic. */}
+                            <div className="crafter-recipe-grid crafter-special-grid" style={{ marginBottom: 12 }}>
                             {(() => {
                                 const dungeonKeyCount = character.inventory.filter(id => id === DUNGEON_KEY_ID).length;
                                 const fateShardCount = character.fateShards ?? 0;
@@ -27117,34 +27155,25 @@ function CentralHub({
                                 }
                                 const ownedKeys = character.inventory.filter(id => id === HOLLOW_GATE_KEY_ID).length;
                                 return (
-                                    <div className="crafter-recipe-grid" style={{ marginBottom: 12 }}>
-                                        <div className="crafter-recipe-btn" style={{ borderColor: "#a855f7", boxShadow: "0 0 12px rgba(168,85,247,0.25)" }}>
-                                            <strong>⛩ Hollow Gate Key</strong>
-                                            <small>Personal shrine pass. Bypasses village unlock and the 2/day cap.</small>
-                                            <small>You own: <strong>{ownedKeys}</strong></small>
-                                            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 6 }}>
-                                                <button onClick={craftHollowGateKeyWithDungeonKeys} disabled={!canCraftWithKeys}>
-                                                    {canCraftWithKeys
-                                                        ? `Forge — ${HOLLOW_GATE_KEY_DUNGEON_KEY_COST} Dungeon Keys (have ${dungeonKeyCount})`
-                                                        : `Need ${HOLLOW_GATE_KEY_DUNGEON_KEY_COST} Dungeon Keys (have ${dungeonKeyCount})`}
-                                                </button>
-                                                <button onClick={craftHollowGateKeyWithFateShards} disabled={!canCraftWithShards}>
-                                                    {canCraftWithShards
-                                                        ? `Forge — ${HOLLOW_GATE_KEY_FATE_SHARD_COST} Fate Shards (have ${fateShardCount})`
-                                                        : `Need ${HOLLOW_GATE_KEY_FATE_SHARD_COST} Fate Shards (have ${fateShardCount})`}
-                                                </button>
-                                            </div>
+                                    <div className="crafter-recipe-btn crafter-special-card" style={{ borderColor: "#a855f7", boxShadow: "0 0 10px rgba(168,85,247,0.22)" }}>
+                                        <strong>⛩ Hollow Gate Key</strong>
+                                        <small>Shrine pass. Bypasses village unlock + 2/day cap.</small>
+                                        <small>You own: <strong>{ownedKeys}</strong></small>
+                                        <div style={{ display: "flex", flexDirection: "column", gap: 5, marginTop: "auto" }}>
+                                            <button onClick={craftHollowGateKeyWithDungeonKeys} disabled={!canCraftWithKeys}>
+                                                {canCraftWithKeys
+                                                    ? `Forge — ${HOLLOW_GATE_KEY_DUNGEON_KEY_COST} Dungeon Keys`
+                                                    : `Need ${HOLLOW_GATE_KEY_DUNGEON_KEY_COST} Keys (have ${dungeonKeyCount})`}
+                                            </button>
+                                            <button onClick={craftHollowGateKeyWithFateShards} disabled={!canCraftWithShards}>
+                                                {canCraftWithShards
+                                                    ? `Forge — ${HOLLOW_GATE_KEY_FATE_SHARD_COST} Fate Shards`
+                                                    : `Need ${HOLLOW_GATE_KEY_FATE_SHARD_COST} Shards (have ${fateShardCount})`}
+                                            </button>
                                         </div>
                                     </div>
                                 );
                             })()}
-
-                            {/* ── Dungeon Legendary Relic forge ────────────────
-                                Combines 5 Dungeon Legendary Fragments (shed by
-                                the Hollow Gate Warden) into 1 Dungeon Legendary
-                                Relic. Honors the fragment item description
-                                ("Combine fragments to forge a Dungeon Legendary
-                                Relic") which had no recipe before this. */}
                             {(() => {
                                 const FRAGMENTS_PER_RELIC = 5;
                                 const fragmentCount = character.inventory.filter(id => id === DUNGEON_LEGENDARY_FRAGMENT_ID).length;
@@ -27168,20 +27197,19 @@ function CentralHub({
                                     alert(`Dungeon Legendary Relic forged. Consumed ${FRAGMENTS_PER_RELIC} Fragments.`);
                                 }
                                 return (
-                                    <div className="crafter-recipe-grid" style={{ marginBottom: 12 }}>
-                                        <div className="crafter-recipe-btn" style={{ borderColor: "#facc15", boxShadow: "0 0 12px rgba(250,204,21,0.25)" }}>
-                                            <strong>💎 Dungeon Legendary Relic</strong>
-                                            <small>Combine fragments shed by the Hollow Gate Warden into a legendary crafting relic.</small>
-                                            <small>Fragments: <strong>{fragmentCount}</strong> · Relics: <strong>{relicCount}</strong></small>
-                                            <button onClick={forgeRelicFromFragments} disabled={!canForge}>
-                                                {canForge
-                                                    ? `Forge — ${FRAGMENTS_PER_RELIC} Fragments (have ${fragmentCount})`
-                                                    : `Need ${FRAGMENTS_PER_RELIC} Fragments (have ${fragmentCount})`}
-                                            </button>
-                                        </div>
+                                    <div className="crafter-recipe-btn crafter-special-card" style={{ borderColor: "#facc15", boxShadow: "0 0 10px rgba(250,204,21,0.22)" }}>
+                                        <strong>💎 Dungeon Legendary Relic</strong>
+                                        <small>Combine Hollow Gate Warden fragments into a legendary relic.</small>
+                                        <small>Fragments: <strong>{fragmentCount}</strong> · Relics: <strong>{relicCount}</strong></small>
+                                        <button style={{ marginTop: "auto" }} onClick={forgeRelicFromFragments} disabled={!canForge}>
+                                            {canForge
+                                                ? `Forge — ${FRAGMENTS_PER_RELIC} Fragments`
+                                                : `Need ${FRAGMENTS_PER_RELIC} Fragments (have ${fragmentCount})`}
+                                        </button>
                                     </div>
                                 );
                             })()}
+                            </div>
 
                             <div className="crafter-recipe-grid">
                                 {recipes.map((recipe) => {
@@ -27203,13 +27231,17 @@ function CentralHub({
                             </div></>}
 
                             {crafterTab === "weapons" && <><div className="crafter-material-list">
-                                <strong>Weapon Materials</strong>
-                                <div className="crafter-material-row"><span>🐺 Wolf Fang</span><span>{countInventory("hunt-wolf-fang")} ×</span></div>
-                                <div className="crafter-material-row"><span>🐆 Shadow Pelt</span><span>{countInventory("hunt-shadow-pelt")} ×</span></div>
-                                <div className="crafter-material-row"><span>💠 Weekly Boss Core</span><span>{countInventory(WEEKLY_BOSS_CORE_ID)} ×</span></div>
-                                <div className="crafter-material-row"><span>💎 Dungeon Legendary Relic</span><span>{countInventory(DUNGEON_LEGENDARY_RELIC_ID)} ×</span></div>
-                                <div className="crafter-material-row"><span>⚔️ Warforged Relic <small>(or Veil)</small></span><span>{countInventory(WARFORGED_RELIC_ID)} ×</span></div>
-                                <div className="crafter-material-row"><span>🌫 Veil of the Hollow <small>(alt)</small></span><span>{countInventory(VEIL_OF_THE_HOLLOW_ID)} ×</span></div>
+                                <strong>Your Materials</strong>
+                                {Object.entries(CRAFT_MATERIAL_NAMES).map(([id, label]) => {
+                                    const count = character.inventory.filter((i) => i === id).length;
+                                    return (
+                                        <div key={id} className="crafter-material-row">
+                                            <span>{label}</span>
+                                            <span>{count}× <small>({CRAFT_POINTS[id]} pts each)</small></span>
+                                        </div>
+                                    );
+                                })}
+                                <div className="crafter-total-pts">Total craft points: <strong>{totalPts}</strong></div>
                             </div>
 
                             {weaponInfoItem && (
@@ -27244,14 +27276,10 @@ function CentralHub({
                             )}
                             <div className="crafter-recipe-grid">
                                 {craftableWeapons.map((item) => {
-                                    const req = weaponCraftRequirements(item);
-                                    const ready = character.level >= (item.levelReq ?? 1) && character.ryo >= req.ryo && hasInventoryRequirements(character, req.items);
-                                    // Legendary weapons accept Warforged OR Veil as the third
-                                    // relic. Display both names so the requirement reads honestly
-                                    // regardless of which one the player happens to be holding.
-                                    const reqText = item.rarity === "legendary"
-                                        ? `1x ${itemDisplayName(WEEKLY_BOSS_CORE_ID, allHubItems)}, 1x ${itemDisplayName(DUNGEON_LEGENDARY_RELIC_ID, allHubItems)}, 1x ${itemDisplayName(WARFORGED_RELIC_ID, allHubItems)} OR ${itemDisplayName(VEIL_OF_THE_HOLLOW_ID, allHubItems)}`
-                                        : Object.entries(req.items).map(([id, qty]) => `${qty}x ${itemDisplayName(id, allHubItems)}`).join(", ");
+                                    const costPts = weaponCraftPoints(item);
+                                    const ryo = craftRyoForRarity(item.rarity);
+                                    const ready = character.level >= (item.levelReq ?? 1) && character.ryo >= ryo && totalPts >= costPts;
+                                    const fillPct = Math.min(100, Math.floor((totalPts / costPts) * 100));
                                     return (
                                         <div key={item.id} className="crafter-recipe-btn">
                                             <div className="crafter-recipe-btn-header">
@@ -27259,7 +27287,11 @@ function CentralHub({
                                                 <button className="weapon-info-btn" onClick={() => setWeaponInfoItem(item)} title="View weapon info">ℹ️</button>
                                             </div>
                                             <small>{item.rarity.toUpperCase()} | Lv {item.levelReq ?? 1} | {item.weaponEp ?? 0} EP | {item.weaponEffect ?? "Weapon"}</small>
-                                            <small>{reqText} + {req.ryo.toLocaleString()} ryo</small>
+                                            <small>{costPts} craft pts + {ryo.toLocaleString()} ryo</small>
+                                            <div className="crafter-progress-bar">
+                                                <div className="crafter-progress-fill" style={{ width: `${fillPct}%` }} />
+                                            </div>
+                                            <small className="crafter-pts-label">{Math.min(totalPts, costPts)}/{costPts} pts</small>
                                             <button onClick={() => craftExistingWeapon(item)} disabled={!ready}>
                                                 Forge
                                             </button>
@@ -27269,25 +27301,38 @@ function CentralHub({
                             </div></>}
 
                             {crafterTab === "armor" && <><div className="crafter-material-list">
-                                <strong>Armor Materials</strong>
-                                <div className="crafter-material-row"><span>🐺 Frost Pelt</span><span>{countInventory("hunt-frost-pelt")} ×</span></div>
-                                <div className="crafter-material-row"><span>💠 Weekly Boss Core</span><span>{countInventory(WEEKLY_BOSS_CORE_ID)} ×</span></div>
+                                <strong>Your Materials</strong>
+                                {Object.entries(CRAFT_MATERIAL_NAMES).map(([id, label]) => {
+                                    const count = character.inventory.filter((i) => i === id).length;
+                                    return (
+                                        <div key={id} className="crafter-material-row">
+                                            <span>{label}</span>
+                                            <span>{count}× <small>({CRAFT_POINTS[id]} pts each)</small></span>
+                                        </div>
+                                    );
+                                })}
+                                <div className="crafter-total-pts">Total craft points: <strong>{totalPts}</strong></div>
                             </div>
                             <div className="crafter-recipe-grid">
                                 {craftableArmor.length === 0 ? (
                                     <p className="hint">No armor recipes available yet — add craftable armor items via the admin item creator.</p>
                                 ) : (
                                     craftableArmor.map((item) => {
-                                        const req = armorCraftRequirements(item);
-                                        const ready = character.level >= (item.levelReq ?? 1) && character.ryo >= req.ryo && hasInventoryRequirements(character, req.items);
-                                        const reqText = Object.entries(req.items).map(([id, qty]) => `${qty}x ${itemDisplayName(id, allHubItems)}`).join(", ");
+                                        const costPts = armorCraftPoints(item);
+                                        const ryo = craftRyoForRarity(item.rarity);
+                                        const ready = character.level >= (item.levelReq ?? 1) && character.ryo >= ryo && totalPts >= costPts;
+                                        const fillPct = Math.min(100, Math.floor((totalPts / costPts) * 100));
                                         return (
                                             <div key={item.id} className="crafter-recipe-btn">
                                                 <div className="crafter-recipe-btn-header">
                                                     <strong>{item.name}</strong>
                                                 </div>
                                                 <small>{item.rarity.toUpperCase()} | Lv {item.levelReq ?? 1} | {equipmentSlotLabel(item.slot)} | {item.armorQuality ?? "—"}</small>
-                                                <small>{reqText} + {req.ryo.toLocaleString()} ryo</small>
+                                                <small>{costPts} craft pts + {ryo.toLocaleString()} ryo</small>
+                                                <div className="crafter-progress-bar">
+                                                    <div className="crafter-progress-fill" style={{ width: `${fillPct}%` }} />
+                                                </div>
+                                                <small className="crafter-pts-label">{Math.min(totalPts, costPts)}/{costPts} pts</small>
                                                 <button onClick={() => craftExistingArmor(item)} disabled={!ready}>
                                                     Forge
                                                 </button>
@@ -29979,14 +30024,14 @@ function HunterBoard({
     function claimHunt(mission: CreatorMission) {
         const progress = missionProgress[mission.id] ?? 0;
         if (progress < mission.exploreCount) return alert(`Hunt the beast ${mission.exploreCount - progress} more time(s) in Sector ${mission.targetSector}.`);
-        if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`);
+        if (!hasDailyHuntSlot(character)) return alert(`Daily hunt limit reached (${DAILY_HUNT_LIMIT}/${DAILY_HUNT_LIMIT}). Resets at midnight UTC.`);
         const boostedXp = boostAmount(mission.xpReward, missionRewardBonus);
         const boostedRyo = boostAmount(mission.ryoReward, missionRewardBonus);
         const boostedStamina = boostAmount(mission.staminaReward, missionRewardBonus);
         const withCurrencies = applyCurrencyRewards(gainXp(character, boostedXp), mission.currencyRewards);
         const withItems = { ...withCurrencies, inventory: [...withCurrencies.inventory, ...(mission.itemRewards ?? [])] };
         const leveled = grantTerritoryScrolls(withItems, 3);
-        updateCharacter(markMissionCompleted({ ...leveled, ryo: leveled.ryo + boostedRyo, stamina: Math.min(leveled.maxStamina, leveled.stamina + boostedStamina) }));
+        updateCharacter(markHuntCompleted({ ...leveled, ryo: leveled.ryo + boostedRyo, stamina: Math.min(leveled.maxStamina, leveled.stamina + boostedStamina) }));
         setAcceptedMissionIds(acceptedMissionIds.filter((id) => id !== mission.id));
         setMissionProgress({ ...missionProgress, [mission.id]: 0 });
         const materialNames = (mission.itemRewards ?? []).map((id) => {
@@ -30004,6 +30049,12 @@ function HunterBoard({
             <div className="hunter-board-header">
                 <button className="back-btn" onClick={() => setScreen("centralHub")}>← Central</button>
                 <h2>🎯 Hunter Guild — Contract Board</h2>
+                <span
+                    className="hunter-daily-chip"
+                    style={{ marginLeft: "auto", fontWeight: 600, color: dailyHuntsCompleted(character) >= DAILY_HUNT_LIMIT ? "#ef4444" : "#fcd34d" }}
+                >
+                    🎯 Hunts today: {dailyHuntsCompleted(character)}/{DAILY_HUNT_LIMIT}
+                </span>
             </div>
 
             <div className="hunter-rank-banner">

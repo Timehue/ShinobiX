@@ -14546,6 +14546,33 @@ button.combat-jutsu-button,
         font-size: 0.78rem;
     }
 
+/* Compact side-by-side cards for the two special forges (Hollow Gate Key +
+   Dungeon Legendary Relic). Smaller padding/fonts than a normal recipe card
+   so both fit neatly in one row above the standard recipe grid. */
+.crafter-special-grid {
+    gap: 10px;
+}
+
+.crafter-special-card {
+    padding: 11px 12px;
+    gap: 4px;
+    background: linear-gradient(160deg, rgba(30,41,59,.92), rgba(15,23,42,.92));
+}
+
+    .crafter-special-card strong {
+        font-size: 0.82rem;
+    }
+
+    .crafter-special-card small {
+        font-size: 0.71rem;
+        line-height: 1.3;
+    }
+
+    .crafter-special-card button {
+        padding: 6px 8px;
+        font-size: 0.72rem;
+    }
+
 .crafter-recipe-btn-header {
     display: flex;
     align-items: center;
