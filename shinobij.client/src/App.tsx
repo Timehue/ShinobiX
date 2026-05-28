@@ -28043,14 +28043,14 @@ function WorldMap({
             arrive();
             return;
         }
-        const arrivalAt = Date.now() + 5000;
+        const arrivalAt = Date.now() + 3000;
         setTravelingUntil(arrivalAt);
         setSelectedSector(null);
         setSelectedVillageTerritory(null);
         window.setTimeout(() => {
             arrive();
             setTravelingUntil(0);
-        }, 5000);
+        }, 3000);
     }
     function triggerTravelPoint(sector: number) {
         beginSectorTravel(sector, () => {
@@ -28615,7 +28615,7 @@ function WorldMap({
                 <div className="card" style={{ maxWidth: 520, margin: "4rem auto", textAlign: "center" }}>
                     <h2>Traveling</h2>
                     <p className="hint">Moving between sectors. You cannot be attacked during travel.</p>
-                    <div className="bar ap-bar"><span style={{ width: `${Math.max(0, Math.min(100, ((5 - secondsLeft) / 5) * 100))}%` }} /></div>
+                    <div className="bar ap-bar"><span style={{ width: `${Math.max(0, Math.min(100, ((3 - secondsLeft) / 3) * 100))}%` }} /></div>
                     <p>{secondsLeft}s</p>
                 </div>
             </div>
