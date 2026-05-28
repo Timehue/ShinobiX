@@ -25826,10 +25826,20 @@ function CentralHub({
     }
     void _claimWeeklyBoss;
 
+    // Legendary weapons accept Warforged Relic OR Veil of the Hollow as
+    // the third relic — so players who never won a war (Warforged source)
+    // can still craft legendary by farming the Hollow Gate Shrine (Veil
+    // source). Prefer Warforged when both are present so war loot keeps
+    // its primary purpose.
+    function chooseLegendaryRelic(): typeof WARFORGED_RELIC_ID | typeof VEIL_OF_THE_HOLLOW_ID {
+        const hasWarforged = character.inventory.includes(WARFORGED_RELIC_ID);
+        return hasWarforged ? WARFORGED_RELIC_ID : VEIL_OF_THE_HOLLOW_ID;
+    }
+
     function weaponCraftRequirements(item: GameItem): { items: Record<string, number>; ryo: number } {
         if (item.rarity === "rare") return { items: { "hunt-wolf-fang": 2 }, ryo: 600 };
         if (item.rarity === "epic") return { items: { "hunt-shadow-pelt": 2, [WEEKLY_BOSS_CORE_ID]: 1 }, ryo: 1400 };
-        return { items: { [WEEKLY_BOSS_CORE_ID]: 1, [DUNGEON_LEGENDARY_RELIC_ID]: 1, [WARFORGED_RELIC_ID]: 1 }, ryo: 3500 };
+        return { items: { [WEEKLY_BOSS_CORE_ID]: 1, [DUNGEON_LEGENDARY_RELIC_ID]: 1, [chooseLegendaryRelic()]: 1 }, ryo: 3500 };
     }
 
     function craftExistingWeapon(item: GameItem) {
@@ -26540,7 +26550,8 @@ function CentralHub({
                                 <div className="crafter-material-row"><span>🐆 Shadow Pelt</span><span>{countInventory("hunt-shadow-pelt")} ×</span></div>
                                 <div className="crafter-material-row"><span>💠 Weekly Boss Core</span><span>{countInventory(WEEKLY_BOSS_CORE_ID)} ×</span></div>
                                 <div className="crafter-material-row"><span>💎 Dungeon Legendary Relic</span><span>{countInventory(DUNGEON_LEGENDARY_RELIC_ID)} ×</span></div>
-                                <div className="crafter-material-row"><span>⚔️ Warforged Relic</span><span>{countInventory(WARFORGED_RELIC_ID)} ×</span></div>
+                                <div className="crafter-material-row"><span>⚔️ Warforged Relic <small>(or Veil)</small></span><span>{countInventory(WARFORGED_RELIC_ID)} ×</span></div>
+                                <div className="crafter-material-row"><span>🌫 Veil of the Hollow <small>(alt)</small></span><span>{countInventory(VEIL_OF_THE_HOLLOW_ID)} ×</span></div>
                             </div>
 
                             {weaponInfoItem && (
@@ -26577,7 +26588,12 @@ function CentralHub({
                                 {craftableWeapons.map((item) => {
                                     const req = weaponCraftRequirements(item);
                                     const ready = character.level >= (item.levelReq ?? 1) && character.ryo >= req.ryo && hasInventoryRequirements(character, req.items);
-                                    const reqText = Object.entries(req.items).map(([id, qty]) => `${qty}x ${itemDisplayName(id, allHubItems)}`).join(", ");
+                                    // Legendary weapons accept Warforged OR Veil as the third
+                                    // relic. Display both names so the requirement reads honestly
+                                    // regardless of which one the player happens to be holding.
+                                    const reqText = item.rarity === "legendary"
+                                        ? `1x ${itemDisplayName(WEEKLY_BOSS_CORE_ID, allHubItems)}, 1x ${itemDisplayName(DUNGEON_LEGENDARY_RELIC_ID, allHubItems)}, 1x ${itemDisplayName(WARFORGED_RELIC_ID, allHubItems)} OR ${itemDisplayName(VEIL_OF_THE_HOLLOW_ID, allHubItems)}`
+                                        : Object.entries(req.items).map(([id, qty]) => `${qty}x ${itemDisplayName(id, allHubItems)}`).join(", ");
                                     return (
                                         <div key={item.id} className="crafter-recipe-btn">
                                             <div className="crafter-recipe-btn-header">
