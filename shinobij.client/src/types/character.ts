@@ -92,6 +92,11 @@ export type EndlessTowerRun = {
     bankedRyo: number;
     bankedXp: number;
     startedAt: number;
+    // Highest 5-kill milestone (5, 10, 15, 20, ...) already credited
+    // during this run. Reset to 0 each new run. Lets the milestone
+    // grant survive client reloads without double-paying when the same
+    // wave is re-confirmed.
+    highestMilestoneClaimed?: number;
 };
 
 // ── Reward currencies ─────────────────────────────────────────────────────

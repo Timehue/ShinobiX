@@ -3442,6 +3442,32 @@ export function endlessWaveReward(wave: number, playerLevel: number): { ryo: num
     };
 }
 
+// Celestial Tower kill-milestone rewards. Every 5 kills the player
+// earns guaranteed shop currencies on top of the per-wave ryo/xp
+// banking. Pattern cycles every 20 kills:
+//   pos 0 (waves 5,  25, 45 …): 5 Bone Charms
+//   pos 1 (waves 10, 30, 50 …): 5 Bone Charms
+//   pos 2 (waves 15, 35, 55 …): 5 Fate Shards
+//   pos 3 (waves 20, 40, 60 …): 5 Bone Charms + 5 Fate Shards
+// Non-multiples of 5 return zero. Helper is pure data, called by
+// handleEndlessWin in the wave-bump path so a death-clear still
+// keeps everything already credited to the player's character.
+export function endlessTowerMilestoneReward(wave: number): { boneCharms: number; fateShards: number } {
+    if (wave <= 0 || wave % 5 !== 0) return { boneCharms: 0, fateShards: 0 };
+    const cyclePos = (Math.floor(wave / 5) - 1) % 4;
+    switch (cyclePos) {
+        case 0:
+        case 1:
+            return { boneCharms: 5, fateShards: 0 };
+        case 2:
+            return { boneCharms: 0, fateShards: 5 };
+        case 3:
+            return { boneCharms: 5, fateShards: 5 };
+        default:
+            return { boneCharms: 0, fateShards: 0 };
+    }
+}
+
 function maxChakraForLevel(level: number) {
     return Math.min(CHAKRA_CAP, Math.floor(100 + (Math.max(1, level) - 1) * ((CHAKRA_CAP - 100) / (MAX_LEVEL - 1))));
 }
@@ -8243,23 +8269,56 @@ export default function App() {
 
     function handleEndlessWin(currentWave: number) {
         const reward = endlessWaveReward(currentWave, character?.level ?? 1);
+        // Kill-milestone payouts (bone charms / fate shards every 5 kills,
+        // 4-step cycle) and the per-10-kill heal/restore. Both are credited
+        // directly to the player's character — no banking, no death-loss.
+        const milestonePayout = endlessTowerMilestoneReward(currentWave);
+        const isHealMilestone = currentWave > 0 && currentWave % 10 === 0;
+        const milestoneNotices: string[] = [];
         setCharacter((current) => {
             if (!current) return current;
             const nextWave = currentWave + 1;
-            const prevRun = current.endlessTowerRun ?? { wave: 1, bankedRyo: 0, bankedXp: 0, startedAt: Date.now() };
+            const prevRun = current.endlessTowerRun ?? { wave: 1, bankedRyo: 0, bankedXp: 0, startedAt: Date.now(), highestMilestoneClaimed: 0 };
+            const alreadyClaimed = prevRun.highestMilestoneClaimed ?? 0;
+            // Only grant the 5-kill payout if this wave is a new milestone
+            // (guards against accidental re-fires from save reloads).
+            const milestoneIsNew = currentWave > 0 && currentWave % 5 === 0 && currentWave > alreadyClaimed;
+            const grantedBone = milestoneIsNew ? milestonePayout.boneCharms : 0;
+            const grantedFate = milestoneIsNew ? milestonePayout.fateShards : 0;
+            if (milestoneIsNew && grantedBone > 0) milestoneNotices.push(`+${grantedBone} Bone Charms`);
+            if (milestoneIsNew && grantedFate > 0) milestoneNotices.push(`+${grantedFate} Fate Shards`);
             const updatedRun: EndlessTowerRun = {
                 ...prevRun,
                 wave: nextWave,
                 bankedRyo: prevRun.bankedRyo + reward.ryo,
                 bankedXp: prevRun.bankedXp + reward.xp,
+                highestMilestoneClaimed: milestoneIsNew ? currentWave : alreadyClaimed,
             };
+            // 10-kill rest stop: top HP up by 33% and refill 50% of
+            // chakra/stamina. Stacks with the wave's regular HP carry —
+            // we just bump current vitals (capped at max).
+            const healHp = isHealMilestone ? Math.floor((current.maxHp ?? 0) * 0.33) : 0;
+            const refillChakra = isHealMilestone ? Math.floor((current.maxChakra ?? 0) * 0.5) : 0;
+            const refillStamina = isHealMilestone ? Math.floor((current.maxStamina ?? 0) * 0.5) : 0;
+            if (isHealMilestone) milestoneNotices.push("33% HP heal · 50% chakra & stamina refill");
             return {
                 ...current,
                 totalEndlessTowerWins: (current.totalEndlessTowerWins ?? 0) + 1,
                 endlessTowerBestWave: Math.max(current.endlessTowerBestWave ?? 0, currentWave),
                 endlessTowerRun: updatedRun,
+                boneCharms: (current.boneCharms ?? 0) + grantedBone,
+                fateShards: (current.fateShards ?? 0) + grantedFate,
+                hp: Math.min(current.maxHp ?? 0, Math.max(0, (current.hp ?? 0) + healHp)),
+                chakra: Math.min(current.maxChakra ?? 0, Math.max(0, (current.chakra ?? 0) + refillChakra)),
+                stamina: Math.min(current.maxStamina ?? 0, Math.max(0, (current.stamina ?? 0) + refillStamina)),
             };
         });
+        if (milestoneNotices.length > 0) {
+            // Defer the alert so the state update commits first — otherwise
+            // the next render that React queues can flicker the pre-credit
+            // values into the milestone toast.
+            setTimeout(() => alert(`⭐ ${currentWave}-Kill Milestone! ${milestoneNotices.join(" · ")}.`), 30);
+        }
         const next = currentWave + 1;
         setEndlessBattleWave(next);
         setPendingAiProfileId(pickRandomEndlessAi(next));
@@ -26224,7 +26283,7 @@ function CentralHub({
         {
             name: "Celestial Tower",
             icon: "🌌",
-            text: "Endless PvE floors, boss rushes, element trials, bloodline trials, and ascension battles.",
+            text: "Endless PvE climb — fight scaling AI until you fall. Banked ryo & XP lost on death, but kill milestones (Bone Charms / Fate Shards) and 10-kill rest stops are yours to keep.",
             action: () => setShowCelestialPanel(true),
         },
     ];
@@ -26357,17 +26416,24 @@ function CentralHub({
                 <div className="celestial-panel-overlay" onClick={() => setShowCelestialPanel(false)}>
                     <div className="celestial-panel" onClick={e => e.stopPropagation()}>
                         <h2>🗼 Celestial Tower</h2>
-                        <p className="celestial-panel-sub">Choose your challenge, shinobi.</p>
+                        <p className="celestial-panel-sub">An endless climb against a parade of scaling opponents.</p>
+                        <div style={{ background: "rgba(15,23,42,0.5)", border: "1px solid rgba(148,163,184,0.25)", borderRadius: 6, padding: "0.7rem 0.9rem", margin: "0.4rem 0 0.8rem", fontSize: "0.85rem", lineHeight: 1.5 }}>
+                            <div><strong>How it works</strong></div>
+                            <div>· Each wave drops a random AI scaled to your level + current wave. Every 10th wave is a boss.</div>
+                            <div>· Win → bank ryo &amp; XP, advance to the next wave with whatever HP you have left.</div>
+                            <div>· Die → all banked ryo/XP is lost. Hospital trip applies. <strong>Milestone currencies stay credited.</strong></div>
+                            <div style={{ marginTop: 6 }}><strong>Kill milestones</strong> (auto-credited, repeat every 20 kills):</div>
+                            <div>· Kills 5, 10 → <span style={{ color: "#a78bfa" }}>+5 Bone Charms</span></div>
+                            <div>· Kill 15 → <span style={{ color: "#facc15" }}>+5 Fate Shards</span></div>
+                            <div>· Kill 20 → <span style={{ color: "#a78bfa" }}>+5 Bone Charms</span> &amp; <span style={{ color: "#facc15" }}>+5 Fate Shards</span></div>
+                            <div>· Pattern repeats: 25/30 bone, 35 fate, 40 both, and so on.</div>
+                            <div style={{ marginTop: 6 }}><strong>Rest stops:</strong> every 10th kill automatically restores 33% HP and 50% chakra &amp; stamina.</div>
+                        </div>
                         <div className="celestial-panel-options">
-                            <button className="celestial-option-btn" onClick={() => { setShowCelestialPanel(false); setCentralLog("Celestial Tower is open. Floor 1 trial begins in the Arena."); setScreen("arena"); }}>
-                                <span className="celestial-option-icon">⚔️</span>
-                                <strong>Floor Trial</strong>
-                                <small>Standard arena battle against a selected opponent.</small>
-                            </button>
                             <button className="celestial-option-btn celestial-endless-btn" onClick={() => { setShowCelestialPanel(false); setScreen("endlessTower"); }}>
                                 <span className="celestial-option-icon">🗼</span>
-                                <strong>Endless Tower</strong>
-                                <small>Fight wave after wave of scaling opponents. Bank rewards or push higher.</small>
+                                <strong>Enter Celestial Tower</strong>
+                                <small>Fight until you fall. Banked ryo/XP lost on death — milestones survive.</small>
                             </button>
                         </div>
                         <button className="back-btn" style={{ marginTop: "1rem" }} onClick={() => setShowCelestialPanel(false)}>× Close</button>
