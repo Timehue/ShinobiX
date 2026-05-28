@@ -30832,6 +30832,7 @@ function Arena({
     const [sparSearch, setSparSearch] = useState("");
     const [rankedSearch, setRankedSearch] = useState("");
     const [petChallengeSearch, setPetChallengeSearch] = useState("");
+    const [activeArenaTab, setActiveArenaTab] = useState<"clanWar" | "tournaments" | "ranked" | "spectate" | "spar" | "petBattles">("ranked");
     const [opponentCharacter, setOpponentCharacter] = useState<Character | null>(null);
     const [rankedBattleActive, setRankedBattleActive] = useState(false);
     const [rankedQueueActive, setRankedQueueActive] = useState(false);
@@ -33497,33 +33498,6 @@ function Arena({
                     </section>
 
                     <section className="summary-box">
-                        <h3>Spar Requests</h3>
-                        <label>Search Player Name</label>
-                        <input value={sparSearch} onChange={(e) => setSparSearch(e.target.value)} placeholder="Type a player name to challenge..." />
-                        {sparSearch.trim() && (
-                            <div className="jutsu-list">
-                                {sparOpponents.length === 0 ? (
-                                    <>
-                                        <p className="hint">No roster match. Send a challenge directly.</p>
-                                        <button onClick={() => {
-                                            const name = sparSearch.trim();
-                                            if (!name || name === character.name) return;
-                                            const stub = { name, level: 1, village: "", specialty: "Ninjutsu", character: { ...character, name } as Character, currentSector: 0, lastSeenAt: Date.now() } as PlayerRecord;
-                                            challengePlayer(stub);
-                                        }}>Send Spar Challenge to "{sparSearch.trim()}"</button>
-                                    </>
-                                ) : sparOpponents.map((player) => (
-                                    <div className="summary-box" key={`spar-${player.name}`}>
-                                        <strong>{player.name}</strong>
-                                        <p>Level {player.level} | {player.village} | {player.specialty}</p>
-                                        <button onClick={() => challengePlayer(player)}>Send Spar Challenge</button>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </section>
-
-                    <section className="summary-box">
                         <h3>🐾 Incoming Pet Challenges</h3>
                         {incomingChallenges.filter((c) => c.mode === "clanWarPet" && !c.clanWarPoints).length === 0
                             ? <p className="hint">No incoming pet challenges.</p>
@@ -33540,19 +33514,6 @@ function Arena({
                             ))}
                     </section>
 
-                    <section className="summary-box">
-                        <h3>Incoming Spar Requests</h3>
-                        {incomingChallenges.filter((challenge) => !challenge.clanWarPoints && challenge.mode !== "ranked" && challenge.mode !== "clanWarPet" && !challenge.sectorAttack).length === 0 ? <p className="hint">No incoming spar requests.</p> : incomingChallenges.filter((challenge) => !challenge.clanWarPoints && challenge.mode !== "ranked" && challenge.mode !== "clanWarPet" && !challenge.sectorAttack).map((challenge) => (
-                            <div className="summary-box" key={challenge.id}>
-                                <strong>{challenge.fromName}</strong>
-                                <p>Casual spar request to {challenge.toName}</p>
-                                <div className="menu">
-                                    <button onClick={() => acceptChallenge(challenge)}>Accept Spar</button>
-                                    <button className="danger-button" onClick={() => declineChallenge(challenge)}>Decline</button>
-                                </div>
-                            </div>
-                        ))}
-                    </section>
                 </div>
             );
         }
@@ -33564,183 +33525,265 @@ function Arena({
                 </div>
                 <p>Clan battles, ranked mode, tournaments, spectator view, and pet battles are handled here.</p>
 
-                <section className="summary-box">
-                    <h3>Ranked Battles</h3>
-                    <p>Rating: <strong>{character.rankedRating ?? 1000}</strong> Elo | Wins {character.rankedWins ?? 0} | Losses {character.rankedLosses ?? 0}</p>
-                    <p className="hint">Ranked fights use neutral ground: no terrain or weather modifiers.</p>
-                    <div style={{ display: "flex", gap: "8px", margin: "8px 0" }}>
-                        {rankedQueueActive ? (
-                            <button className="danger-button" onClick={leaveRankedQueue}>
-                                Leave Queue ({rankedQueueSize} in queue)
-                            </button>
-                        ) : (
-                            <button onClick={joinRankedQueue}>Queue Up for Ranked</button>
-                        )}
-                    </div>
-                    {rankedQueueActive && <p className="hint">Searching for opponent... ({rankedQueueSize} in queue)</p>}
-                    <label>Challenge a Specific Player</label>
-                    <input value={rankedSearch} onChange={(e) => setRankedSearch(e.target.value)} placeholder="Type a player name to challenge..." />
-                    {rankedSearch.trim() && (
-                        <div className="jutsu-list">
-                            {rankedOpponents.length === 0 ? (
+                <div className="clan-tabs expanded-tabs" style={{ marginBottom: 12 }}>
+                    <button className={activeArenaTab === "clanWar" ? "active" : ""} onClick={() => setActiveArenaTab("clanWar")}>⚔️ Clan War</button>
+                    <button className={activeArenaTab === "tournaments" ? "active" : ""} onClick={() => setActiveArenaTab("tournaments")}>🏆 Tournaments</button>
+                    <button className={activeArenaTab === "ranked" ? "active" : ""} onClick={() => setActiveArenaTab("ranked")}>📊 Ranked</button>
+                    <button className={activeArenaTab === "spectate" ? "active" : ""} onClick={() => setActiveArenaTab("spectate")}>👁️ Spectate</button>
+                    <button className={activeArenaTab === "spar" ? "active" : ""} onClick={() => setActiveArenaTab("spar")}>🤝 Spar</button>
+                    <button className={activeArenaTab === "petBattles" ? "active" : ""} onClick={() => setActiveArenaTab("petBattles")}>🐾 Pet Battles</button>
+                </div>
+
+                {activeArenaTab === "clanWar" && (
+                    <>
+                        <section className="summary-box">
+                            <h3>Clan War Challenges</h3>
+                            {!character.clan ? <p className="hint">Join a clan to see clan war opponents.</p> : !opponentClanData ? <p className="hint">Your clan is not currently at war with a player clan.</p> : (
                                 <>
-                                    <p className="hint">No roster match. Send a ranked challenge directly.</p>
-                                    <button onClick={() => {
-                                        const name = rankedSearch.trim();
-                                        if (!name || name === character.name) return;
-                                        const stub = { name, level: 1, village: "", specialty: "Ninjutsu", character: { ...character, name } as Character, currentSector: 0, lastSeenAt: Date.now() } as PlayerRecord;
-                                        challengePlayer(stub, "ranked");
-                                    }}>Send Ranked Challenge to "{rankedSearch.trim()}"</button>
+                                    <p className="hint">War opponent: <strong>{opponentClanData.name}</strong>. Winners earn clan war points.</p>
+                                    <div className="jutsu-list">
+                                        {clanWarOpponents.length === 0 ? <p className="hint">No online roster records found for enemy clan members yet.</p> : clanWarOpponents.map((player) => (
+                                            <div className="summary-box" key={`war-${player.name}`}>
+                                                <strong>{player.name}</strong>
+                                                <p>Level {player.level} | {player.specialty}</p>
+                                                <div className="menu">
+                                                    <button onClick={() => challengePlayer(player, "clanWar1v1", 50)}>1v1 +50</button>
+                                                    <button onClick={() => challengePlayer(player, "clanWar2v2", 100)}>2v2 +100</button>
+                                                    <button onClick={() => challengePlayer(player, "clanWarPet", 25)}>Pet Battle +25</button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </>
-                            ) : rankedOpponents.map((player) => (
-                                <div className="summary-box" key={`ranked-${player.name}`}>
-                                    <strong>{player.name}</strong>
-                                    <p>Level {player.level} | Elo {player.character.rankedRating ?? 1000}</p>
-                                    <button onClick={() => challengePlayer(player, "ranked")}>Send Ranked Challenge</button>
+                            )}
+                        </section>
+
+                        <section className="summary-box">
+                            <h3>Incoming Clan War Challenges</h3>
+                            {incomingChallenges.filter((challenge) => Boolean(challenge.clanWarPoints)).length === 0 ? <p className="hint">No incoming clan war challenges.</p> : incomingChallenges.filter((challenge) => Boolean(challenge.clanWarPoints)).map((challenge) => (
+                                <div className="summary-box" key={challenge.id}>
+                                    <strong>{challenge.fromName}</strong>
+                                    <p>{challenge.mode ?? "standard"} challenge to {challenge.toName} | {challenge.clanWarPoints} clan points</p>
+                                    <div className="menu">
+                                        <button onClick={() => {
+                                            if (challenge.mode === "clanWarPet") {
+                                                const challengerPet = challenge.challenger.pets.find(pet => pet.id === challenge.challengerPetId && !isPetOnExpedition(pet)) ?? challenge.challenger.pets.find(pet => !isPetOnExpedition(pet));
+                                                const responderPet = character.pets.find(pet => pet.id === character.activePetId && !isPetOnExpedition(pet)) ?? character.pets.find(pet => !isPetOnExpedition(pet));
+                                                if (!challengerPet || !responderPet) {
+                                                    alert("Both players need a pet before this pet battle can start.");
+                                                    return;
+                                                }
+                                                savePendingClanPetBattle({
+                                                    clanName: character.clan,
+                                                    points: challenge.clanWarPoints ?? 25,
+                                                    opponentName: challenge.fromName,
+                                                    createdAt: Date.now(),
+                                                });
+                                                setDuelChallenges(duelChallenges.filter((candidate) => candidate.id !== challenge.id));
+                                                fetch('/api/player/challenge', {
+                                                    method: 'DELETE',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify({ targetName: challenge.toName, fromName: challenge.fromName, challengeId: challenge.id }),
+                                                }).catch(() => {});
+                                                fetch('/api/player/challenge', {
+                                                    method: 'POST',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify({ targetName: challenge.fromName, challenge: { ...challenge, accepted: true, fromName: character.name, toName: challenge.fromName, responderPetId: responderPet.id, responderPet } }),
+                                                }).catch(() => {});
+                                                setPendingPetBattleOpponent?.({ owner: challenge.fromName, pet: challengerPet, battleSeed: challenge.petBattleSeed });
+                                                setScreen("petArena");
+                                                return;
+                                            }
+                                            acceptChallenge(challenge);
+                                        }}>{challenge.mode === "clanWarPet" ? "Open Pet Arena" : "Accept Duel"}</button>
+                                        <button className="danger-button" onClick={() => declineChallenge(challenge)}>Decline</button>
+                                    </div>
                                 </div>
                             ))}
-                        </div>
-                    )}
-                </section>
+                        </section>
+                    </>
+                )}
 
-                <section className="summary-box">
-                    <h3>Clan War Challenges</h3>
-                    {!character.clan ? <p className="hint">Join a clan to see clan war opponents.</p> : !opponentClanData ? <p className="hint">Your clan is not currently at war with a player clan.</p> : (
-                        <>
-                            <p className="hint">War opponent: <strong>{opponentClanData.name}</strong>. Winners earn clan war points.</p>
-                            <div className="jutsu-list">
-                                {clanWarOpponents.length === 0 ? <p className="hint">No online roster records found for enemy clan members yet.</p> : clanWarOpponents.map((player) => (
-                                    <div className="summary-box" key={`war-${player.name}`}>
-                                        <strong>{player.name}</strong>
-                                        <p>Level {player.level} | {player.specialty}</p>
-                                        <div className="menu">
-                                            <button onClick={() => challengePlayer(player, "clanWar1v1", 50)}>1v1 +50</button>
-                                            <button onClick={() => challengePlayer(player, "clanWar2v2", 100)}>2v2 +100</button>
-                                            <button onClick={() => challengePlayer(player, "clanWarPet", 25)}>Pet Battle +25</button>
+                {activeArenaTab === "tournaments" && (
+                    <section className="summary-box">
+                        <h3>Tournaments</h3>
+                        {arenaTournament ? (
+                            <>
+                                <p><strong>{arenaTournament.name}</strong> | Started by {arenaTournament.createdBy}</p>
+                                <p>Event ends in {Math.ceil(tournamentRemaining / (60 * 60 * 1000))} hour(s). Match timer: {Math.ceil(matchRemaining / (60 * 60 * 1000))} hour(s).</p>
+                                <p className="hint">Participants: {arenaTournament.participants.join(", ") || "No participants"}</p>
+                                <p className="hint">Advanced: {arenaTournament.advancedPlayers.join(", ") || "None yet"}</p>
+                                {isAdminTournamentManager && <div className="jutsu-list">{arenaTournament.participants.map((name) => <div className="summary-box" key={`advance-${name}`}><strong>{name}</strong><button onClick={() => advanceTournamentPlayer(name)}>Advance Player</button></div>)}</div>}
+                                {isAdminTournamentManager && <button className="danger-button" onClick={clearTournament}>End Tournament</button>}
+                            </>
+                        ) : (
+                            <>
+                                <p className="hint">Only Admin 1 or Admin 2 can start a weekly tournament.</p>
+                                <button disabled={!isAdminTournamentManager} onClick={startTournament}>{isAdminTournamentManager ? "Start 1 Week Tournament" : "Admin Only"}</button>
+                            </>
+                        )}
+                    </section>
+                )}
+
+                {activeArenaTab === "ranked" && (
+                    <>
+                        <section className="summary-box">
+                            <h3>Ranked Battles</h3>
+                            <p>Rating: <strong>{character.rankedRating ?? 1000}</strong> Elo | Wins {character.rankedWins ?? 0} | Losses {character.rankedLosses ?? 0}</p>
+                            <p className="hint">Ranked fights use neutral ground: no terrain or weather modifiers.</p>
+                            <div style={{ display: "flex", gap: "8px", margin: "8px 0" }}>
+                                {rankedQueueActive ? (
+                                    <button className="danger-button" onClick={leaveRankedQueue}>
+                                        Leave Queue ({rankedQueueSize} in queue)
+                                    </button>
+                                ) : (
+                                    <button onClick={joinRankedQueue}>Queue Up for Ranked</button>
+                                )}
+                            </div>
+                            {rankedQueueActive && <p className="hint">Searching for opponent... ({rankedQueueSize} in queue)</p>}
+                            <label>Challenge a Specific Player</label>
+                            <input value={rankedSearch} onChange={(e) => setRankedSearch(e.target.value)} placeholder="Type a player name to challenge..." />
+                            {rankedSearch.trim() && (
+                                <div className="jutsu-list">
+                                    {rankedOpponents.length === 0 ? (
+                                        <>
+                                            <p className="hint">No roster match. Send a ranked challenge directly.</p>
+                                            <button onClick={() => {
+                                                const name = rankedSearch.trim();
+                                                if (!name || name === character.name) return;
+                                                const stub = { name, level: 1, village: "", specialty: "Ninjutsu", character: { ...character, name } as Character, currentSector: 0, lastSeenAt: Date.now() } as PlayerRecord;
+                                                challengePlayer(stub, "ranked");
+                                            }}>Send Ranked Challenge to "{rankedSearch.trim()}"</button>
+                                        </>
+                                    ) : rankedOpponents.map((player) => (
+                                        <div className="summary-box" key={`ranked-${player.name}`}>
+                                            <strong>{player.name}</strong>
+                                            <p>Level {player.level} | Elo {player.character.rankedRating ?? 1000}</p>
+                                            <button onClick={() => challengePlayer(player, "ranked")}>Send Ranked Challenge</button>
                                         </div>
+                                    ))}
+                                </div>
+                            )}
+                        </section>
+
+                        <section className="summary-box">
+                            <h3>Incoming Ranked Challenges</h3>
+                            {incomingChallenges.filter((challenge) => challenge.mode === "ranked" && !challenge.clanWarPoints).length === 0 ? <p className="hint">No incoming ranked challenges.</p> : incomingChallenges.filter((challenge) => challenge.mode === "ranked" && !challenge.clanWarPoints).map((challenge) => (
+                                <div className="summary-box" key={challenge.id}>
+                                    <strong>{challenge.fromName}</strong>
+                                    <p>Ranked challenge to {challenge.toName}</p>
+                                    <div className="menu">
+                                        <button onClick={() => acceptChallenge(challenge)}>Accept Duel</button>
+                                        <button className="danger-button" onClick={() => declineChallenge(challenge)}>Decline</button>
+                                    </div>
+                                </div>
+                            ))}
+                        </section>
+                    </>
+                )}
+
+                {activeArenaTab === "spectate" && (
+                    <section className="summary-box">
+                        <h3>Spectator Board</h3>
+                        <button onClick={() => setSpectatorFights(loadArenaActiveFights())}>Refresh Fights</button>
+                        {spectatorFights.length === 0 && duelChallenges.filter((challenge) => !challenge.accepted && !challenge.declined && (Boolean(challenge.clanWarPoints) || challenge.mode === "ranked")).length === 0 ? <p className="hint">No active fights or open district challenges detected right now.</p> : (
+                            <div className="jutsu-list">
+                                {spectatorFights.map((fight) => <div className="summary-box" key={fight.id}><strong>{fight.title}</strong><p>{fight.mode}{fight.biome ? ` | ${fight.biome}` : ""} | Started {new Date(fight.startedAt).toLocaleTimeString()}</p><button onClick={() => {
+                                    if (fight.battleId && setPvpBattleId && setPvpRole) {
+                                        // Join as spectator
+                                        fetch(`/api/pvp/spectate?id=${encodeURIComponent(fight.battleId)}`, {
+                                            method: "POST",
+                                            headers: { "Content-Type": "application/json" },
+                                            body: JSON.stringify({ name: character.name, action: "join" }),
+                                        }).catch(() => {});
+                                        setPvpBattleId(fight.battleId);
+                                        setPvpRole("p1"); // spectator uses p1 view but can't act
+                                        setScreen("pvpBattle" as Screen);
+                                    } else {
+                                        alert(`Spectating ${fight.title}. Live replay streams will use this fight feed.`);
+                                    }
+                                }}>Spectate</button></div>)}
+                                {duelChallenges.filter((challenge) => !challenge.accepted && !challenge.declined && (Boolean(challenge.clanWarPoints) || challenge.mode === "ranked")).map((challenge) => <div className="summary-box" key={`spectate-${challenge.id}`}><strong>{challenge.fromName} vs {challenge.toName}</strong><p>{challenge.mode ?? "standard"} challenge pending</p><button onClick={() => alert("This fight has not started yet.")}>View Challenge</button></div>)}
+                            </div>
+                        )}
+                    </section>
+                )}
+
+                {activeArenaTab === "spar" && (
+                    <>
+                        <section className="summary-box">
+                            <h3>Spar Requests</h3>
+                            <label>Search Player Name</label>
+                            <input value={sparSearch} onChange={(e) => setSparSearch(e.target.value)} placeholder="Type a player name to challenge..." />
+                            {sparSearch.trim() && (
+                                <div className="jutsu-list">
+                                    {sparOpponents.length === 0 ? (
+                                        <>
+                                            <p className="hint">No roster match. Send a challenge directly.</p>
+                                            <button onClick={() => {
+                                                const name = sparSearch.trim();
+                                                if (!name || name === character.name) return;
+                                                const stub = { name, level: 1, village: "", specialty: "Ninjutsu", character: { ...character, name } as Character, currentSector: 0, lastSeenAt: Date.now() } as PlayerRecord;
+                                                challengePlayer(stub);
+                                            }}>Send Spar Challenge to "{sparSearch.trim()}"</button>
+                                        </>
+                                    ) : sparOpponents.map((player) => (
+                                        <div className="summary-box" key={`spar-${player.name}`}>
+                                            <strong>{player.name}</strong>
+                                            <p>Level {player.level} | {player.village} | {player.specialty}</p>
+                                            <button onClick={() => challengePlayer(player)}>Send Spar Challenge</button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </section>
+
+                        <section className="summary-box">
+                            <h3>Incoming Spar Requests</h3>
+                            {incomingChallenges.filter((challenge) => !challenge.clanWarPoints && challenge.mode !== "ranked" && challenge.mode !== "clanWarPet" && !challenge.sectorAttack).length === 0 ? <p className="hint">No incoming spar requests.</p> : incomingChallenges.filter((challenge) => !challenge.clanWarPoints && challenge.mode !== "ranked" && challenge.mode !== "clanWarPet" && !challenge.sectorAttack).map((challenge) => (
+                                <div className="summary-box" key={challenge.id}>
+                                    <strong>{challenge.fromName}</strong>
+                                    <p>Casual spar request to {challenge.toName}</p>
+                                    <div className="menu">
+                                        <button onClick={() => acceptChallenge(challenge)}>Accept Spar</button>
+                                        <button className="danger-button" onClick={() => declineChallenge(challenge)}>Decline</button>
+                                    </div>
+                                </div>
+                            ))}
+                        </section>
+                    </>
+                )}
+
+                {activeArenaTab === "petBattles" && (
+                    <section className="summary-box">
+                        <h3>Pet Battles</h3>
+                        <p className="hint">Search players with pets, send a pet battle challenge, or open the pet arena directly.</p>
+                        <label>Search Player Name</label>
+                        <input value={petChallengeSearch} onChange={(e) => setPetChallengeSearch(e.target.value)} placeholder="Type a player name to challenge..." />
+                        {petChallengeSearch.trim() && (
+                            <div className="jutsu-list">
+                                {petChallengeOpponents.length === 0 ? (
+                                    <>
+                                        <p className="hint">No roster match. Send a pet challenge directly.</p>
+                                        <button onClick={() => {
+                                            const name = petChallengeSearch.trim();
+                                            if (!name || name === character.name) return;
+                                            const stub = { name, level: 1, village: "", specialty: "Ninjutsu", character: { ...character, name } as Character, currentSector: 0, lastSeenAt: Date.now() } as PlayerRecord;
+                                            challengePlayer(stub, "clanWarPet", 25);
+                                        }}>Challenge "{petChallengeSearch.trim()}" to a Pet Battle</button>
+                                    </>
+                                ) : petChallengeOpponents.map((player) => (
+                                    <div className="summary-box" key={`pet-challenge-${player.name}`}>
+                                        <strong>{player.name}</strong>
+                                        <p>Level {player.level} | Pets {player.character.pets.length}</p>
+                                        <button onClick={() => challengePlayer(player, "clanWarPet", 25)}>Send Pet Challenge</button>
                                     </div>
                                 ))}
                             </div>
-                        </>
-                    )}
-                </section>
-
-                <section className="summary-box">
-                    <h3>Tournaments</h3>
-                    {arenaTournament ? (
-                        <>
-                            <p><strong>{arenaTournament.name}</strong> | Started by {arenaTournament.createdBy}</p>
-                            <p>Event ends in {Math.ceil(tournamentRemaining / (60 * 60 * 1000))} hour(s). Match timer: {Math.ceil(matchRemaining / (60 * 60 * 1000))} hour(s).</p>
-                            <p className="hint">Participants: {arenaTournament.participants.join(", ") || "No participants"}</p>
-                            <p className="hint">Advanced: {arenaTournament.advancedPlayers.join(", ") || "None yet"}</p>
-                            {isAdminTournamentManager && <div className="jutsu-list">{arenaTournament.participants.map((name) => <div className="summary-box" key={`advance-${name}`}><strong>{name}</strong><button onClick={() => advanceTournamentPlayer(name)}>Advance Player</button></div>)}</div>}
-                            {isAdminTournamentManager && <button className="danger-button" onClick={clearTournament}>End Tournament</button>}
-                        </>
-                    ) : (
-                        <>
-                            <p className="hint">Only Admin 1 or Admin 2 can start a weekly tournament.</p>
-                            <button disabled={!isAdminTournamentManager} onClick={startTournament}>{isAdminTournamentManager ? "Start 1 Week Tournament" : "Admin Only"}</button>
-                        </>
-                    )}
-                </section>
-
-                <section className="summary-box">
-                    <h3>Pet Battles</h3>
-                    <p className="hint">Search players with pets, send a pet battle challenge, or open the pet arena directly.</p>
-                    <label>Search Player Name</label>
-                    <input value={petChallengeSearch} onChange={(e) => setPetChallengeSearch(e.target.value)} placeholder="Type a player name to challenge..." />
-                    {petChallengeSearch.trim() && (
-                        <div className="jutsu-list">
-                            {petChallengeOpponents.length === 0 ? (
-                                <>
-                                    <p className="hint">No roster match. Send a pet challenge directly.</p>
-                                    <button onClick={() => {
-                                        const name = petChallengeSearch.trim();
-                                        if (!name || name === character.name) return;
-                                        const stub = { name, level: 1, village: "", specialty: "Ninjutsu", character: { ...character, name } as Character, currentSector: 0, lastSeenAt: Date.now() } as PlayerRecord;
-                                        challengePlayer(stub, "clanWarPet", 25);
-                                    }}>Challenge "{petChallengeSearch.trim()}" to a Pet Battle</button>
-                                </>
-                            ) : petChallengeOpponents.map((player) => (
-                                <div className="summary-box" key={`pet-challenge-${player.name}`}>
-                                    <strong>{player.name}</strong>
-                                    <p>Level {player.level} | Pets {player.character.pets.length}</p>
-                                    <button onClick={() => challengePlayer(player, "clanWarPet", 25)}>Send Pet Challenge</button>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                    <button onClick={() => setScreen("petArena")}>Open Pet Battle Arena</button>
-                </section>
-
-                <section className="summary-box">
-                    <h3>Spectator Board</h3>
-                    <button onClick={() => setSpectatorFights(loadArenaActiveFights())}>Refresh Fights</button>
-                    {spectatorFights.length === 0 && duelChallenges.filter((challenge) => !challenge.accepted && !challenge.declined && (Boolean(challenge.clanWarPoints) || challenge.mode === "ranked")).length === 0 ? <p className="hint">No active fights or open district challenges detected right now.</p> : (
-                        <div className="jutsu-list">
-                            {spectatorFights.map((fight) => <div className="summary-box" key={fight.id}><strong>{fight.title}</strong><p>{fight.mode}{fight.biome ? ` | ${fight.biome}` : ""} | Started {new Date(fight.startedAt).toLocaleTimeString()}</p><button onClick={() => {
-                                if (fight.battleId && setPvpBattleId && setPvpRole) {
-                                    // Join as spectator
-                                    fetch(`/api/pvp/spectate?id=${encodeURIComponent(fight.battleId)}`, {
-                                        method: "POST",
-                                        headers: { "Content-Type": "application/json" },
-                                        body: JSON.stringify({ name: character.name, action: "join" }),
-                                    }).catch(() => {});
-                                    setPvpBattleId(fight.battleId);
-                                    setPvpRole("p1"); // spectator uses p1 view but can't act
-                                    setScreen("pvpBattle" as Screen);
-                                } else {
-                                    alert(`Spectating ${fight.title}. Live replay streams will use this fight feed.`);
-                                }
-                            }}>Spectate</button></div>)}
-                            {duelChallenges.filter((challenge) => !challenge.accepted && !challenge.declined && (Boolean(challenge.clanWarPoints) || challenge.mode === "ranked")).map((challenge) => <div className="summary-box" key={`spectate-${challenge.id}`}><strong>{challenge.fromName} vs {challenge.toName}</strong><p>{challenge.mode ?? "standard"} challenge pending</p><button onClick={() => alert("This fight has not started yet.")}>View Challenge</button></div>)}
-                        </div>
-                    )}
-                </section>
-
-                <section className="summary-box">
-                    <h3>Incoming District Challenges</h3>
-                    {incomingChallenges.filter((challenge) => Boolean(challenge.clanWarPoints) || challenge.mode === "ranked").length === 0 ? <p className="hint">No incoming ranked or clan challenges.</p> : incomingChallenges.filter((challenge) => Boolean(challenge.clanWarPoints) || challenge.mode === "ranked").map((challenge) => (
-                        <div className="summary-box" key={challenge.id}>
-                            <strong>{challenge.fromName}</strong>
-                            <p>{challenge.mode ?? "standard"} challenge to {challenge.toName}{challenge.clanWarPoints ? ` | ${challenge.clanWarPoints} clan points` : ""}</p>
-                            <div className="menu">
-                                <button onClick={() => {
-                                    if (challenge.mode === "clanWarPet") {
-                                        const challengerPet = challenge.challenger.pets.find(pet => pet.id === challenge.challengerPetId && !isPetOnExpedition(pet)) ?? challenge.challenger.pets.find(pet => !isPetOnExpedition(pet));
-                                        const responderPet = character.pets.find(pet => pet.id === character.activePetId && !isPetOnExpedition(pet)) ?? character.pets.find(pet => !isPetOnExpedition(pet));
-                                        if (!challengerPet || !responderPet) {
-                                            alert("Both players need a pet before this pet battle can start.");
-                                            return;
-                                        }
-                                        savePendingClanPetBattle({
-                                            clanName: character.clan,
-                                            points: challenge.clanWarPoints ?? 25,
-                                            opponentName: challenge.fromName,
-                                            createdAt: Date.now(),
-                                        });
-                                        setDuelChallenges(duelChallenges.filter((candidate) => candidate.id !== challenge.id));
-                                        fetch('/api/player/challenge', {
-                                            method: 'DELETE',
-                                            headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({ targetName: challenge.toName, fromName: challenge.fromName, challengeId: challenge.id }),
-                                        }).catch(() => {});
-                                        fetch('/api/player/challenge', {
-                                            method: 'POST',
-                                            headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({ targetName: challenge.fromName, challenge: { ...challenge, accepted: true, fromName: character.name, toName: challenge.fromName, responderPetId: responderPet.id, responderPet } }),
-                                        }).catch(() => {});
-                                        setPendingPetBattleOpponent?.({ owner: challenge.fromName, pet: challengerPet, battleSeed: challenge.petBattleSeed });
-                                        setScreen("petArena");
-                                        return;
-                                    }
-                                    acceptChallenge(challenge);
-                                }}>{challenge.mode === "clanWarPet" ? "Open Pet Arena" : "Accept Duel"}</button>
-                                <button className="danger-button" onClick={() => declineChallenge(challenge)}>Decline</button>
-                            </div>
-                        </div>
-                    ))}
-                </section>
+                        )}
+                        <button onClick={() => setScreen("petArena")}>Open Pet Battle Arena</button>
+                    </section>
+                )}
             </div>
         );
     }
