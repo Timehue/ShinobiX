@@ -11163,6 +11163,7 @@ export default function App() {
                         creatorAis={playableAis}
                         setScreen={setScreen}
                         playerRoster={playerRoster}
+                        sharedImages={sharedImages}
                     />
                 )}
                 {!activeTriggeredEvent && screen === "villageWar" && character && (
@@ -36336,6 +36337,7 @@ function WeeklyBossArena({
     creatorAis,
     setScreen,
     playerRoster,
+    sharedImages = {},
 }: {
     character: Character;
     updateCharacter: (c: Character) => void;
@@ -36345,6 +36347,7 @@ function WeeklyBossArena({
     setArenaKey?: (fn: (k: number) => number) => void;
     setScreen: (s: Screen) => void;
     playerRoster: PlayerRecord[];
+    sharedImages?: Record<string, string>;
 }) {
     const [bossState, setBossState] = useState<WeeklyBossState | null>(null);
     const [loading, setLoading] = useState(true);
@@ -36409,7 +36412,16 @@ function WeeklyBossArena({
             setAttacking(false);
         }
     }
-    void creatorAis; // kept for future arena-integrated mode
+    // Resolve the picked boss AI so the arena page can show its art.
+    // Admins pick the active boss in the Admin → AIs / Weekly Boss panel;
+    // each AI's image is uploaded via the AI Creator (`ai:<id>` shared
+    // image key) and merged onto the AI's `image` field at load time.
+    // Prefer sharedImages directly in case the creatorAis list arrived
+    // before the image bulk-load finished hydrating.
+    const bossAi = bossState ? creatorAis.find(ai => ai.id === bossState.aiId) : null;
+    const bossImage = bossState
+        ? (sharedImages[`ai:${bossState.aiId}`] || bossAi?.image || "")
+        : "";
 
     if (loading) return <div className="card" style={{ padding: "1.4rem", maxWidth: 720, margin: "1rem auto" }}>Loading weekly boss…</div>;
 
@@ -36452,16 +36464,30 @@ function WeeklyBossArena({
             <p style={{ color: "#94a3b8", marginTop: 0 }}>Week: <strong>{bossState.weekKey}</strong></p>
             {error && <div style={{ color: "#f87171", marginBottom: "0.5rem" }}>⚠ {error}</div>}
             <div style={{ background: "#1a1a2e", border: "1px solid #f87171", borderRadius: 8, padding: "0.8rem", margin: "0.8rem 0" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                    <strong style={{ color: "#f87171" }}>{bossState.bossName ?? "Weekly Boss"}</strong>
-                    <span style={{ fontFamily: "monospace", color: expired ? "#94a3b8" : "#facc15" }}>
-                        {expired ? "🪦 Despawned" : `⏱ ${countdown}`}
-                    </span>
+                <div style={{ display: "flex", gap: 12, alignItems: "stretch" }}>
+                    {bossImage && (
+                        <div style={{ flex: "0 0 96px", width: 96, height: 96, background: "#0a0a1a", border: "1px solid rgba(248,113,113,0.5)", borderRadius: 6, overflow: "hidden" }}>
+                            <img
+                                src={bossImage}
+                                alt={bossState.bossName ?? "Weekly Boss"}
+                                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                            />
+                        </div>
+                    )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                            <strong style={{ color: "#f87171", fontSize: "1.05rem" }}>{bossState.bossName ?? bossAi?.name ?? "Weekly Boss"}</strong>
+                            <span style={{ fontFamily: "monospace", color: expired ? "#94a3b8" : "#facc15" }}>
+                                {expired ? "🪦 Despawned" : `⏱ ${countdown}`}
+                            </span>
+                        </div>
+                        <p className="hint" style={{ margin: 0, fontSize: "0.78rem" }}>
+                            The boss has no HP cap — it rampages for 24 hours, then despawns. Damage as much as you can to
+                            climb the leaderboard before the timer hits zero.
+                        </p>
+                    </div>
                 </div>
-                <p className="hint" style={{ margin: 0, fontSize: "0.78rem" }}>
-                    The boss has no HP cap — it rampages for 24 hours, then despawns. Damage as much as you can to
-                    climb the leaderboard before the timer hits zero.
-                </p>
             </div>
             <p>
                 Your damage: <strong style={{ color: "#facc15" }}>{myDamage.toLocaleString()}</strong>
