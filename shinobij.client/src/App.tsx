@@ -18247,7 +18247,13 @@ function AdminPanel({
                     {/* ── Weekly Boss Override ── */}
                     <h3>Weekly Boss</h3>
                     <section className="summary-box">
-                        <p className="hint">Select a Boss AI to use as the active weekly boss. This overrides the seeded rotation for all players until cleared. Only AIs marked as <strong>Boss AI</strong> appear here.</p>
+                        <p className="hint">
+                            The weekly boss is <strong>admin-spawned only</strong>. Pick a Boss AI as the override, then hit
+                            <strong> Spawn Now</strong> to summon it. The boss runs for 24h then auto-distributes rewards
+                            (Top 10 → Weekly Boss Core, Top 25 → Dungeon Key, MVP → 2× ryo/XP). Spawning again before
+                            24h overwrites the active boss and wipes its leaderboard. Only AIs marked as <strong>Boss AI</strong>
+                            appear here.
+                        </p>
                         {(() => {
                             const bossAis = allAdminAis.filter(ai => ai.isBossAi);
                             const currentOverride = allAdminAis.find(ai => ai.id === sharedWeeklyBossAiIdCache);
@@ -18285,10 +18291,37 @@ function AdminPanel({
                                                 if (!selectedBossAi) return;
                                                 persistSharedGameState({ kind: "weeklyBossOverride", aiId: selectedBossAi.id });
                                                 sharedWeeklyBossAiIdCache = selectedBossAi.id;
-                                                alert(`Weekly boss set to ${selectedBossAi.name}. Players will see it on next game state refresh.`);
+                                                alert(`Override set to ${selectedBossAi.name}. Hit "Spawn Now" to summon it.`);
                                             }}
                                         >
-                                            Set as Weekly Boss
+                                            Set as Override
+                                        </button>
+                                        <button
+                                            style={{ background: "linear-gradient(135deg, #b45309, #facc15)", color: "#1c1917", fontWeight: 700 }}
+                                            onClick={async () => {
+                                                // Calls the existing /api/weekly-boss reset endpoint
+                                                // (admin-only). Server reads the override key inside
+                                                // buildFreshBossState and spawns whatever AI is set,
+                                                // overwriting any active boss. No-op if no AI
+                                                // override is set AND no fallback boss list exists.
+                                                try {
+                                                    const r = await fetch("/api/weekly-boss", {
+                                                        method: "POST",
+                                                        headers: { "Content-Type": "application/json" },
+                                                        body: JSON.stringify({ kind: "reset" }),
+                                                    });
+                                                    const data = await r.json();
+                                                    if (!r.ok) {
+                                                        alert(`Spawn failed: ${data?.error ?? "unknown error"}`);
+                                                        return;
+                                                    }
+                                                    alert(`Boss spawned: ${data?.boss?.bossName ?? data?.boss?.aiId ?? "(unnamed)"}. 24h timer started.`);
+                                                } catch (err) {
+                                                    alert(`Spawn failed: ${err instanceof Error ? err.message : "network error"}`);
+                                                }
+                                            }}
+                                        >
+                                            🪄 Spawn Now
                                         </button>
                                         <button
                                             className="danger-button"
@@ -18297,7 +18330,7 @@ function AdminPanel({
                                                 persistSharedGameState({ kind: "weeklyBossOverride", aiId: null });
                                                 sharedWeeklyBossAiIdCache = "";
                                                 setAdminWeeklyBossAiId("");
-                                                alert("Weekly boss override cleared. Seeded rotation restored.");
+                                                alert("Override cleared. Spawn Now will fall back to a random boss AI.");
                                             }}
                                         >
                                             Clear Override
