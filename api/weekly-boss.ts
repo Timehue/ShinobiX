@@ -18,13 +18,24 @@ const WEEKLY_BOSS_STATE_KEY = 'game:weekly-boss-state';
 const WEEKLY_BOSS_OVERRIDE_KEY = 'game:weekly-boss-override';
 const WEEKLY_BOSS_COOLDOWN_KEY_PREFIX = 'rl:weekly-boss:';
 const WEEKLY_BOSS_COOLDOWN_SECONDS = 3;
-// Per-request damage hard ceiling. Even at high level the legitimate client
-// attack roll (best offensive stat × ~1.5 × random) tops out well under this.
-// Server still uses per-actor stats for a tighter cap; this is the absolute lid.
+// Per-request damage hard ceiling for the legacy single-tap `damage` kind.
+// Kept for back-compat with old clients that haven't picked up the arena
+// flow yet. Server still uses per-actor stats for a tighter cap; this is
+// the absolute lid.
 const WEEKLY_BOSS_DMG_ABSOLUTE_CAP = 20000;
+// Per-fight damage ceiling for the new `logFight` kind. A full arena
+// duel against an unkillable boss can rack up significantly more damage
+// than a single tap, so this cap is much higher than the per-tap one
+// but still bounded to stop a tampered client from claiming nonsense.
+// Legit late-game attackers top out around 5–7k per attack × ~30 attacks
+// before being KO'd = ~150–200k. 500k is a generous ceiling.
+const WEEKLY_BOSS_LOG_FIGHT_CAP = 500000;
 // 24h fight window. After this the boss "despawns" and rewards are
 // auto-distributed on the next POST that lands.
 const WEEKLY_BOSS_LIFETIME_MS = 24 * 60 * 60 * 1000;
+// Maximum arena attempts a player can make per boss spawn. After this
+// they're locked out until the boss despawns and a new one spawns.
+const WEEKLY_BOSS_MAX_ATTEMPTS = 3;
 // Reward tier cutoffs by damage rank (1-indexed in the natural reading).
 const TOP_CORE_COUNT = 10;  // ranks 1..10 each receive 1 Weekly Boss Core
 const TOP_KEY_COUNT = 25;   // ranks 1..25 each receive 1 Dungeon Key
@@ -53,6 +64,9 @@ type WeeklyBossState = {
     hpRemaining: number;
     scaleFactor: number;
     damageByPlayer: Record<string, number>;
+    // How many arena attempts each player has used against this spawn.
+    // Capped at WEEKLY_BOSS_MAX_ATTEMPTS. Resets every new boss spawn.
+    attemptsByPlayer?: Record<string, number>;
     startedAt: number;
     expiresAt: number;
     rewardsDistributed?: boolean;
@@ -116,6 +130,7 @@ async function buildFreshBossState(weekKey: string): Promise<WeeklyBossState | n
         hpRemaining: hpMax,
         scaleFactor: 1 + Math.min(53, parseInt(weekKey.split('-W')[1] ?? '1', 10)) * 0.04,
         damageByPlayer: {},
+        attemptsByPlayer: {},
         startedAt,
         expiresAt: startedAt + WEEKLY_BOSS_LIFETIME_MS,
     };
@@ -331,6 +346,56 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
                 if ('error' in result) {
                     if (result.error === 'stale-week') return res.status(409).json({ error: 'Stale week — boss has reset.' });
+                    return res.status(409).json({ error: 'Boss despawned. Rewards have been distributed.' });
+                }
+                return res.status(200).json(result);
+            }
+
+            if (kind === 'logFight') {
+                // End-of-arena-fight damage report. Client launches the
+                // standard arena vs the boss AI (HP set to a sentinel so
+                // the boss is effectively unkillable), tracks how much
+                // damage the player dealt, then POSTs the total here when
+                // the player is KO'd or flees. Counted as one attempt.
+                if (!identity.admin) {
+                    const used = boss.attemptsByPlayer?.[actorName] ?? 0;
+                    if (used >= WEEKLY_BOSS_MAX_ATTEMPTS) {
+                        return res.status(429).json({ error: `Locked out — you've used your ${WEEKLY_BOSS_MAX_ATTEMPTS} attempts for this boss spawn.` });
+                    }
+                }
+                const requested = Math.floor(Number(amount ?? 0));
+                if (!Number.isFinite(requested) || requested < 0) {
+                    return res.status(400).json({ error: 'Invalid damage amount.' });
+                }
+                const logged = Math.min(WEEKLY_BOSS_LOG_FIGHT_CAP, Math.max(0, requested));
+
+                const result = await withKvLock(WEEKLY_BOSS_STATE_KEY, async () => {
+                    const fresh = await kv.get<WeeklyBossState>(WEEKLY_BOSS_STATE_KEY) ?? boss!;
+                    if (fresh.weekKey !== boss!.weekKey) return { error: 'stale-week' as const };
+                    if (fresh.rewardsDistributed) return { error: 'expired' as const };
+                    if (Date.now() >= fresh.expiresAt) return { error: 'expired' as const };
+                    const used = fresh.attemptsByPlayer?.[actorName] ?? 0;
+                    if (!identity.admin && used >= WEEKLY_BOSS_MAX_ATTEMPTS) {
+                        return { error: 'locked' as const };
+                    }
+                    const updated: WeeklyBossState = {
+                        ...fresh,
+                        damageByPlayer: {
+                            ...fresh.damageByPlayer,
+                            [actorName]: (fresh.damageByPlayer[actorName] ?? 0) + logged,
+                        },
+                        attemptsByPlayer: {
+                            ...(fresh.attemptsByPlayer ?? {}),
+                            [actorName]: used + 1,
+                        },
+                    };
+                    await kv.set(WEEKLY_BOSS_STATE_KEY, updated);
+                    return { boss: updated, dealt: logged, attemptsUsed: used + 1 };
+                });
+
+                if ('error' in result) {
+                    if (result.error === 'stale-week') return res.status(409).json({ error: 'Stale week — boss has reset.' });
+                    if (result.error === 'locked') return res.status(429).json({ error: `Locked out — you've used your ${WEEKLY_BOSS_MAX_ATTEMPTS} attempts for this boss spawn.` });
                     return res.status(409).json({ error: 'Boss despawned. Rewards have been distributed.' });
                 }
                 return res.status(200).json(result);
