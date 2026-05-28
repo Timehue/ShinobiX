@@ -4457,9 +4457,14 @@ const WOUND_CAP_BY_RANK_PVE: Record<string, number> = {
     basic: 25, AB: 30, S: 35,
 };
 
+// Structural type used by the helpers below — CombatStatus is declared
+// locally inside the battle component (out of module scope here), so we
+// accept any object shape that exposes the fields these helpers read.
+type PvpStatusLike = { name: string; percent?: number };
+
 // Sum of attacker IDG% + defender IDT% + defender Ignition%, fed into a
 // soft-cap pool. Mirrors server ampMultiplierFor in api/pvp/move.ts.
-function pvpAmpMultiplier(attackerStatuses: CombatStatus[] = [], defenderStatuses: CombatStatus[] = []): number {
+function pvpAmpMultiplier(attackerStatuses: PvpStatusLike[] = [], defenderStatuses: PvpStatusLike[] = []): number {
     let rawAmp = 0;
     for (const s of attackerStatuses) {
         if (s.name === "Increase Damage Given") rawAmp += (s.percent ?? 0) / 100;
@@ -4473,7 +4478,7 @@ function pvpAmpMultiplier(attackerStatuses: CombatStatus[] = [], defenderStatuse
 }
 
 // Sum of attacker DDG% + defender DDT% (raw, not yet pooled with armor).
-function pvpStatusDr(attackerStatuses: CombatStatus[] = [], defenderStatuses: CombatStatus[] = []): number {
+function pvpStatusDr(attackerStatuses: PvpStatusLike[] = [], defenderStatuses: PvpStatusLike[] = []): number {
     let dr = 0;
     for (const s of attackerStatuses) {
         if (s.name === "Decrease Damage Given") dr += (s.percent ?? 0) / 100;
@@ -4519,8 +4524,8 @@ function calculateDamage(
     armorFactor = 1.0,
     itemMult = 1.0,
     weatherMult = 1.0,
-    attackerStatuses: CombatStatus[] = [],
-    defenderStatuses: CombatStatus[] = [],
+    attackerStatuses: PvpStatusLike[] = [],
+    defenderStatuses: PvpStatusLike[] = [],
     masteryLevel: number = JUTSU_MAX_LEVEL,
 ) {
     if (isZeroDamageFortyApJutsu(jutsu)) return 0;
