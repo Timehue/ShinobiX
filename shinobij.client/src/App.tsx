@@ -6400,7 +6400,7 @@ export default function App() {
                             if (idx >= 0) merged[idx] = record;
                             else merged.push(record);
                         }
-                        return merged.slice(0, 50);
+                        return merged.slice(0, 100);
                     });
                 }
                 if (data.pendingChallenges?.length) {
