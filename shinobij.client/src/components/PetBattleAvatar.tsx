@@ -1,10 +1,10 @@
 import { type Pet, petDisplayName, petTraitDescriptions } from "../App";
 
-export function PetBattleAvatar({ pet, side, active, status, sharedImages = {} }: { pet: Pet; side: "player" | "enemy"; active: boolean; status?: { poisoned?: number; atkBuff?: boolean; defBuff?: boolean }; sharedImages?: Record<string, string> }) {
+export function PetBattleAvatar({ pet, side, active, hit, status, sharedImages = {} }: { pet: Pet; side: "player" | "enemy"; active: boolean; hit?: boolean; status?: { poisoned?: number; atkBuff?: boolean; defBuff?: boolean }; sharedImages?: Record<string, string> }) {
     const petBaseId = pet.id.replace(/-\d{10,}$/, '');
     const img = sharedImages['pet:' + pet.id] || sharedImages['pet:' + petBaseId] || pet.image || '';
     return (
-        <div className={`pet-battle-avatar ${side}${active ? " active" : ""}${status?.poisoned ? " poisoned" : ""}`}>
+        <div className={`pet-battle-avatar ${side}${active ? " active" : ""}${hit ? " hit" : ""}${status?.poisoned ? " poisoned" : ""}`}>
             {img ? <img src={img} alt={pet.name} /> : <span>{pet.name.slice(0, 2).toUpperCase()}</span>}
         </div>
     );
