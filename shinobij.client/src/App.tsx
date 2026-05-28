@@ -2314,61 +2314,104 @@ function hasFixedEffectPower(jutsu: Pick<Jutsu, "tags">) {
     return jutsu.tags.some((tag) => fixedEffectPowerTags.includes(normalizeTagName(tag.name)));
 }
 
-const nonBloodlineFortyApTagPairs: JutsuTag[][] = [
-    [{ name: "Increase Damage Given", percent: 30 }, { name: "Recoil", percent: 30 }],
-    [{ name: "Increase Damage Taken", percent: 30 }, { name: "Reflect", percent: 30 }],
-    [{ name: "Decrease Damage Given", percent: 30 }, { name: "Absorb", percent: 30 }],
-    [{ name: "Decrease Damage Taken", percent: 30 }, { name: "Lifesteal", percent: 30 }],
-    [{ name: "Increase Heal", percent: 30 }, { name: "Absorb", percent: 30 }],
-    [{ name: "Shield", percent: 0 }, { name: "Decrease Damage Taken", percent: 30 }],
-    [{ name: "Reflect", percent: 30 }, { name: "Decrease Damage Given", percent: 30 }],
-];
+// ── Non-bloodline (starter) balance table ────────────────────────────────
+// Every element owns one of all 13 offense effects + Shield + Increase Heal,
+// each discipline carries an identical offense load, and Siphon + Wound — the
+// two tags that compute off THIS jutsu's hit damage — live only on the 60AP
+// (single-tag) variant, since 40AP jutsu deal 0 base damage and would render
+// them inert.
+//
+// Variant suffix → AP tier: a 1-tag entry is the 60AP damage variant; a 2-tag
+// entry is a 40AP utility pair. Move stays on the two movement jutsu.
+const nonBloodlineTagTable: Record<string, string[]> = {
+    "starter-nin-earth-1": ["Shield", "Increase Damage Taken"],
+    "starter-nin-earth-2": ["Ignition"],
+    "starter-nin-earth-3": ["Lifesteal", "Recoil"],
+    "starter-nin-wind-1": ["Increase Heal", "Increase Damage Given"],
+    "starter-nin-wind-2": ["Recoil"],
+    "starter-nin-wind-3": ["Increase Damage Taken", "Poison"],
+    "starter-nin-lightning-1": ["Lifesteal", "Increase Damage Given"],
+    "starter-nin-lightning-2": ["Wound"],
+    "starter-nin-lightning-3": ["Drain", "Poison"],
+    "starter-nin-fire-1": ["Shield", "Lifesteal"],
+    "starter-nin-fire-2": ["Poison"],
+    "starter-nin-fire-3": ["Reflect", "Increase Damage Given"],
+    "starter-nin-water-1": ["Lifesteal", "Increase Damage Taken"],
+    "starter-nin-water-2": ["Wound"],
+    "starter-nin-water-3": ["Recoil", "Ignition"],
 
-const nonBloodlineSixtyApTags: JutsuTag[] = [
-    { name: "Stun", percent: 0 },
-    { name: "Increase Damage Given", percent: 30 },
-    { name: "Decrease Damage Given", percent: 30 },
-    { name: "Increase Damage Taken", percent: 30 },
-    { name: "Decrease Damage Taken", percent: 30 },
-    { name: "Absorb", percent: 30 },
-    { name: "Siphon", percent: 30 },
-    { name: "Reflect", percent: 30 },
-    { name: "Recoil", percent: 30 },
-];
+    "starter-tai-earth-1": ["Increase Damage Taken", "Ignition"],
+    "starter-tai-earth-2": ["Poison"],
+    "starter-tai-earth-3": ["Reflect", "Absorb"],
+    "starter-tai-wind-1": ["Move", "Reflect"],
+    "starter-tai-wind-2": ["Lifesteal"],
+    "starter-tai-wind-3": ["Drain", "Poison"],
+    "starter-tai-lightning-1": ["Shield", "Increase Damage Given"],
+    "starter-tai-lightning-2": ["Reflect"],
+    "starter-tai-lightning-3": ["Lifesteal", "Increase Damage Taken"],
+    "starter-tai-fire-1": ["Decrease Damage Taken", "Decrease Damage Given"],
+    "starter-tai-fire-2": ["Drain"],
+    "starter-tai-fire-3": ["Ignition", "Recoil"],
+    "starter-tai-water-1": ["Increase Heal", "Lifesteal"],
+    "starter-tai-water-2": ["Increase Damage Given"],
+    "starter-tai-water-3": ["Reflect", "Absorb"],
 
-function nonBloodlineBalanceIndex(jutsu: Jutsu) {
-    const elementIndex = Math.max(0, jutsuElements.indexOf(jutsu.element as JutsuElement));
-    const specialtyIndex = Math.max(0, specialties.indexOf(jutsu.type));
-    const variant = Number(jutsu.id.match(/-(\d+)$/)?.[1] ?? 1);
-    return elementIndex + specialtyIndex * jutsuElements.length + variant;
-}
+    "starter-gen-earth-1": ["Increase Damage Given", "Decrease Damage Taken"],
+    "starter-gen-earth-2": ["Siphon"],
+    "starter-gen-earth-3": ["Decrease Damage Given", "Drain"],
+    "starter-gen-wind-1": ["Shield", "Absorb"],
+    "starter-gen-wind-2": ["Siphon"],
+    "starter-gen-wind-3": ["Move", "Decrease Damage Given"],
+    "starter-gen-lightning-1": ["Absorb", "Drain"],
+    "starter-gen-lightning-2": ["Decrease Damage Given"],
+    "starter-gen-lightning-3": ["Recoil", "Ignition"],
+    "starter-gen-fire-1": ["Increase Heal", "Decrease Damage Taken"],
+    "starter-gen-fire-2": ["Siphon"],
+    "starter-gen-fire-3": ["Reflect", "Increase Damage Taken"],
+    "starter-gen-water-1": ["Increase Damage Given", "Drain"],
+    "starter-gen-water-2": ["Poison"],
+    "starter-gen-water-3": ["Decrease Damage Given", "Absorb"],
 
-function nonBloodlineFortyApTags(jutsu: Jutsu): JutsuTag[] {
-    const pair = nonBloodlineFortyApTagPairs[nonBloodlineBalanceIndex(jutsu) % nonBloodlineFortyApTagPairs.length];
-    return pair.map((tag) => ({ ...tag }));
-}
+    "starter-buki-earth-1": ["Increase Heal", "Decrease Damage Given"],
+    "starter-buki-earth-2": ["Wound"],
+    "starter-buki-earth-3": ["Decrease Damage Taken", "Increase Damage Given"],
+    "starter-buki-wind-1": ["Ignition", "Recoil"],
+    "starter-buki-wind-2": ["Wound"],
+    "starter-buki-wind-3": ["Decrease Damage Taken", "Reflect"],
+    "starter-buki-lightning-1": ["Increase Heal", "Absorb"],
+    "starter-buki-lightning-2": ["Siphon"],
+    "starter-buki-lightning-3": ["Decrease Damage Taken", "Decrease Damage Given"],
+    "starter-buki-fire-1": ["Poison", "Increase Damage Taken"],
+    "starter-buki-fire-2": ["Wound"],
+    "starter-buki-fire-3": ["Ignition", "Absorb"],
+    "starter-buki-water-1": ["Shield", "Decrease Damage Taken"],
+    "starter-buki-water-2": ["Siphon"],
+    "starter-buki-water-3": ["Recoil", "Drain"],
+};
 
-function nonBloodlineSixtyApTag(jutsu: Jutsu): JutsuTag {
-    const tag = nonBloodlineSixtyApTags[nonBloodlineBalanceIndex(jutsu) % nonBloodlineSixtyApTags.length];
-    return { ...tag };
+// Flat-value or binary tags carry no percent; every other starter tag uses the
+// uniform 30% creator value (which displays as 20% at mastery 0).
+function nonBloodlineTagPercent(name: string): number {
+    if (name === "Move" || name === "Shield" || name === "Drain") return 0;
+    return 30;
 }
 
 function rebalanceNonBloodlineJutsu(jutsu: Jutsu): Jutsu {
     const normalized = normalizeJutsu(jutsu);
-    const moveTags = normalized.tags.filter((t) => normalizeTagName(t.name) === "Move");
-    const combatTags = normalized.ap === 60
-        ? [nonBloodlineSixtyApTag(normalized)]
-        : normalized.ap === 40
-            ? nonBloodlineFortyApTags(normalized)
-            : [];
-    // Move tags define movement jutsus — always preserve them regardless of AP tier
-    const tags = [...moveTags, ...combatTags.filter((t) => normalizeTagName(t.name) !== "Move")];
+    const tagNames = nonBloodlineTagTable[normalized.id];
+    if (!tagNames) return normalized; // Flicker + any off-table jutsu untouched
+    const ap = tagNames.length === 1 ? 60 : 40; // 1 tag = 60AP damage, 2 = 40AP utility
+    const tags = tagNames.map((name) => ({ name, percent: nonBloodlineTagPercent(name) }));
+    const isMove = tagNames.includes("Move");
 
     return normalizeJutsu({
         ...normalized,
-        range: moveTags.length ? normalized.range : normalized.target === "OPPONENT" ? 4 : normalized.range,
+        ap,
+        range: isMove ? normalized.range : 4,
         cooldown: 7,
-        effectPower: normalized.ap === 60 ? 36 : 0,
+        effectPower: ap === 60 ? 36 : 0,
+        chakraCost: ap === 60 ? 250 : 125,
+        staminaCost: ap === 60 ? 250 : 125,
         tags,
     });
 }
@@ -4601,26 +4644,41 @@ function tagPower(tag: JutsuTag, fallback = 30) {
     return tag.percent > 0 ? tag.percent : fallback;
 }
 
-export function jutsuEffectInfo(jutsu: Jutsu, tag: JutsuTag) {
+// The discipline used to label a player's own damage effects across the jutsu
+// screens (Profile lens default + overview, Training Hall, combat inspect).
+// Derives from the chosen bloodline, then specialty; "Any"/missing → Ninjutsu.
+function playerLensDiscipline(character: Character): JutsuType {
+    const fromBloodline = starterBloodlineOffense[character.bloodline];
+    if (fromBloodline && fromBloodline !== "Any") return fromBloodline;
+    return character.specialty && character.specialty !== "Any" ? character.specialty : "Ninjutsu";
+}
+
+export function jutsuEffectInfo(jutsu: Jutsu, tag: JutsuTag, lensDiscipline?: JutsuType) {
     const pct = tagPower(tag);
     const effectPower = jutsu.effectPower;
     const percentLabel = tag.percent > 0 ? `${tag.percent}%` : "Static";
+    // Display-only lens (Profile discipline dropdown). For tags that key off
+    // the player's OWN outgoing damage, name the chosen discipline so it's
+    // clear what's being modified (e.g. "Taijutsu damage given"). Trailing
+    // space so `${disc}damage` reads naturally with or without a lens. Tags
+    // that describe the enemy's damage or incoming damage stay neutral.
+    const disc = lensDiscipline && lensDiscipline !== "Any" ? `${lensDiscipline} ` : "";
 
     if (tag.name === "Damage") return { summary: `Deals damage at ${effectPower}% effect power.`, rule: "Uses the jutsu offense type against the target's matching defense, then applies weather, terrain, bloodline, armor, and status modifiers.", duration: "Instant", value: `${effectPower}% EP` };
     if (tag.name === "Heal") return { summary: `Restores 750 HP to the user.`, rule: "Sets direct damage to 0 and heals the caster for a flat 750 HP.", duration: "Instant", value: "750 HP" };
     if (tag.name === "Shield") return { summary: `Adds 750 shield to the user — always succeeds.`, rule: "Shield absorbs incoming damage before HP. Pierce can bypass shield. Cannot be blocked by Buff Prevent.", duration: "Until broken", value: "750" };
     if (tag.name === "Barrier") return { summary: "Erects an impassable wall tile one step toward the enemy on the battlefield.", rule: "Places a barrier tile that blocks movement for both fighters for 2 rounds. Cannot be bypassed.", duration: "2 rounds", value: "Wall tile" };
-    if (tag.name === "Increase Damage Given") return { summary: `Boosts the caster's damage by ${pct}% for 2 rounds.`, rule: "Adds a positive status to the caster that boosts outgoing damage for 2 rounds.", duration: "2 rounds", value: `${pct}%` };
+    if (tag.name === "Increase Damage Given") return { summary: `Increases your ${disc}damage given by ${pct}% for 2 rounds.`, rule: "Adds a positive status to the caster that boosts outgoing damage for 2 rounds.", duration: "2 rounds", value: `${pct}%` };
     if (tag.name === "Decrease Damage Given") return { summary: `Makes the target deal ${pct}% less damage.`, rule: "Adds a negative status to the target that lowers outgoing damage.", duration: "2 rounds", value: `${pct}%` };
-    if (tag.name === "Increase Damage Taken") return { summary: `Makes the target take ${pct}% more damage.`, rule: "Adds a negative status to the target that raises incoming damage.", duration: "2 rounds", value: `${pct}%` };
-    if (tag.name === "Decrease Damage Taken") return { summary: `Makes the user take ${pct}% less damage.`, rule: "Adds a positive status to the caster that lowers incoming damage.", duration: "2 rounds", value: `${pct}%` };
+    if (tag.name === "Increase Damage Taken") return { summary: `Makes the target take ${pct}% more ${disc}damage from you.`, rule: "Adds a negative status to the target that raises incoming damage.", duration: "2 rounds", value: `${pct}%` };
+    if (tag.name === "Decrease Damage Taken") return { summary: `Makes the user take ${pct}% less ${disc}damage.`, rule: "Adds a positive status to the caster that lowers incoming damage.", duration: "2 rounds", value: `${pct}%` };
     if (tag.name === "Absorb") return { summary: `Converts ${pct}% of incoming damage into healing.`, rule: "Adds a positive status to the caster. Buff Prevent can block it.", duration: "2 rounds", value: `${pct}%` };
-    if (tag.name === "Siphon") return { summary: `Heals the user for ${pct}% of damage dealt.`, rule: "Triggers after damage. Instant heal based on final damage.", duration: "Instant after hit", value: `${pct}%` };
-    if (tag.name === "Lifesteal") return { summary: `Applies a 2-round status: your next 2 attacks heal you for ${pct}% of damage dealt.`, rule: "Adds a positive status to the caster. Each attack heals based on final damage.", duration: "2 rounds", value: `${pct}%` };
+    if (tag.name === "Siphon") return { summary: `Heals the user for ${pct}% of the ${disc}damage dealt.`, rule: "Triggers after damage. Instant heal based on final damage.", duration: "Instant after hit", value: `${pct}%` };
+    if (tag.name === "Lifesteal") return { summary: `Applies a 2-round status: your next 2 attacks heal you for ${pct}% of the ${disc}damage dealt.`, rule: "Adds a positive status to the caster. Each attack heals based on final damage.", duration: "2 rounds", value: `${pct}%` };
     if (tag.name === "Reflect") return { summary: `Reflects ${pct}% damage back at attackers.`, rule: "Adds a positive status to the caster. Buff Prevent can block it.", duration: "2 rounds", value: `${pct}%` };
     if (tag.name === "Recoil") return { summary: `Applies ${pct}% recoil to the target.`, rule: "The target suffers capped recoil damage when they attack.", duration: "2 rounds", value: `${pct}%` };
-    if (tag.name === "Wound") return { summary: `Makes the target bleed after the hit.`, rule: "Applies a damage-over-time status based on capped post-damage.", duration: "2 rounds", value: `${pct}%` };
-    if (tagMatchesName(tag.name, "Ignition")) return { summary: `Applies a 2-round ignition status: next 2 incoming attacks deal an extra ${pct}% damage.`, rule: "Adds a negative status to the enemy. Each time they are attacked while ignited, the attacker's damage is boosted by this percent.", duration: "2 rounds", value: `${pct}%` };
+    if (tag.name === "Wound") return { summary: `Makes the target bleed for a portion of the ${disc}damage dealt over 2 rounds.`, rule: "Applies a damage-over-time status based on capped post-damage.", duration: "2 rounds", value: `${pct}%` };
+    if (tagMatchesName(tag.name, "Ignition")) return { summary: `Ignites the target for 2 rounds — your next 2 hits on them deal an extra ${pct}% ${disc}damage.`, rule: "Adds a negative status to the enemy. Each time they are attacked while ignited, the attacker's damage is boosted by this percent (e.g. 30% ignition turns a 1000 hit into 1300).", duration: "2 rounds", value: `${pct}%` };
     if (tag.name === "Stun") return { summary: `Removes ${STUN_AP_PENALTY} AP from the target's next turn.`, rule: "Always applies unless Stun Prevent or Debuff Prevent blocks it. It does not skip the target's turn.", duration: "Next turn", value: `-${STUN_AP_PENALTY} AP` };
     if (tag.name === "Bloodline Seal" || tag.name === "Seal") return { summary: "Seals the target's bloodline and suppresses their bloodline damage bonus.", rule: "Always applies unless Debuff Prevent blocks it. While sealed, the target's bloodline multiplier is treated as 1.0 in the combat damage formula.", duration: "2 rounds", value: "No bloodline bonus" };
     if (tag.name === "Elemental Seal") return { summary: "Seals elemental jutsu.", rule: "Always applies unless Debuff Prevent blocks it. Prevents elemental jutsu use while active for 1 round.", duration: "1 round", value: "Always" };
@@ -4648,11 +4706,11 @@ export function jutsuDisplayAtLevel(jutsu: Jutsu, masteryLevel = JUTSU_MAX_LEVEL
     return scaleJutsuTagsForDisplay({ ...jutsu, effectPower: scaled.scaledEffectPower }, masteryLevel);
 }
 
-function describeJutsuEffects(jutsu: Jutsu, masteryLevel = JUTSU_MAX_LEVEL) {
+function describeJutsuEffects(jutsu: Jutsu, masteryLevel = JUTSU_MAX_LEVEL, lensDiscipline?: JutsuType) {
     const displayJutsu = jutsuDisplayAtLevel(jutsu, masteryLevel);
     const descriptions = displayJutsu.tags
         .filter((tag) => tag.name)
-        .map((tag) => jutsuEffectInfo(displayJutsu, tag).summary);
+        .map((tag) => jutsuEffectInfo(displayJutsu, tag, lensDiscipline).summary);
 
     return descriptions.length ? descriptions.join(" ") : "No special effects.";
 }
@@ -29650,8 +29708,9 @@ function JutsuTrainingHall({
     const selectedCost = selectedMastery ? jutsuTrainingCost(selectedMastery.level) : 0;
     const selectedDuration = selectedMastery ? jutsuTrainingDuration(selectedMastery.level) : 0;
     const activeRemaining = activeJutsuTraining ? activeJutsuTraining.endsAt - now : 0;
+    const tagLensDiscipline = playerLensDiscipline(character);
 
-    return <div className="card jutsu-training-screen"><JutsuSealPanel character={character} updateCharacter={updateCharacter} selectedJutsu={selectedJutsu ?? null} selectedMastery={selectedMastery} activeJutsuTraining={activeJutsuTraining} setActiveJutsuTraining={setActiveJutsuTraining} /><h2>Jutsu Training Hall</h2><p>Train jutsu to <strong>Level 30</strong> with ryo. Levels <strong>31-50</strong> must be earned from battles. Your elements: <strong>{ownedElements.length ? ownedElements.join(" / ") : "None awakened"}</strong>. Town Hall + Aura training bonus: <strong>{jutsuTrainingBonus.toFixed(2)}%</strong>.</p>{lockedElementCount > 0 && <p className="hint">{lockedElementCount} jutsu locked until you awaken their element.</p>}{activeJutsuTraining && <div className="summary-box"><h3>Active Jutsu Training</h3><p><strong>{activeJutsuTraining.label}</strong>: Level {activeJutsuTraining.fromLevel} → {activeJutsuTraining.toLevel}</p><p>Cost paid: {activeJutsuTraining.ryoCost} ryo</p><p>{activeRemaining > 0 ? `Time remaining: ${formatTrainingTime(activeRemaining)}` : "Training complete. Claim your level."}</p><button onClick={completePaidJutsuTraining}>{activeRemaining > 0 ? "Check Training" : "Claim Jutsu Level"}</button></div>}<h3>Paid Ryo Training</h3><div className="summary-box"><p>{selectedJutsu ? <><strong>{selectedJutsu.name}</strong> will train from level {selectedMastery?.level ?? 0} to {Math.min(JUTSU_TRAINING_CAP, (selectedMastery?.level ?? 0) + 1)}.</> : "Choose a jutsu to train."}</p><p>{selectedMastery?.level === 0 ? <><strong>Free & Instant</strong> — Level 0 → 1</> : <>Cost: <strong>{selectedCost}</strong> ryo | Time: <strong>{selectedDuration / 60000}</strong> minutes | Reward: <strong>1 full jutsu level</strong></>}</p><button onClick={startPaidJutsuTraining} disabled={!selectedJutsu || !!activeJutsuTraining || !selectedMastery || selectedMastery.level >= JUTSU_TRAINING_CAP || (selectedMastery.level > 0 && character.ryo < selectedCost)}>{activeJutsuTraining ? "Training In Progress" : selectedMastery && selectedMastery.level >= JUTSU_TRAINING_CAP ? "Battle Training Required" : selectedMastery?.level === 0 ? "Unlock Level 1 (Free)" : `Pay ${selectedCost} Ryo & Train`}</button></div><JutsuDropdownList jutsus={availableJutsus} label="Choose Jutsu" emptyText={ownedElements.length ? "No jutsu match your awakened elements." : "Awaken an element at the Awakening Stone before training elemental jutsu."} renderDetails={(jutsu) => { const mastery = getJutsuMastery(character, jutsu.id); const scaled = scaleJutsuByLevel(jutsu, mastery.level); const cost = jutsuTrainingCost(mastery.level); const duration = jutsuTrainingDuration(mastery.level); const displayJutsu = jutsuDisplayAtLevel(jutsu, mastery.level); return <><p>Level: {mastery.level}/50 | XP: {mastery.xp}/{mastery.level >= 50 ? "MAX" : jutsuXpNeeded(mastery.level)}</p><p>Type: {jutsu.type} | Element: {jutsu.element} | AP: {jutsu.ap} | Range: {jutsu.range}</p><p>Scaled EP: {scaled.scaledEffectPower} | Chakra Cost: {scaled.chakraCost}% | Stamina Cost: {scaled.staminaCost}%</p><p>Tags: {displayJutsu.tags.map((tag) => `${tag.name}${tag.percent ? ` ${tag.percent}%` : ""}`).join(", ") || "None"}</p><p><strong>Paid Training:</strong> {mastery.level === 0 ? "Free & Instant — unlocks Level 1" : mastery.level < JUTSU_TRAINING_CAP ? `${cost} ryo | ${duration / 60000} minutes | +1 full level` : "Battle only from here"}</p><p><strong>Effects:</strong> {describeJutsuEffects(jutsu, mastery.level)}</p><JutsuEffectCards jutsu={jutsu} scaledEffectPower={scaled.scaledEffectPower} masteryLevel={mastery.level} /><p>{selectedJutsuId === jutsu.id ? "Selected for paid training." : mastery.level < 30 ? "Training Hall available." : mastery.level < 50 ? "Battle only." : "Mastered."}</p></>; }} onSelectJutsu={(jutsu) => setSelectedJutsuId(jutsu.id)} /></div>;
+    return <div className="card jutsu-training-screen"><JutsuSealPanel character={character} updateCharacter={updateCharacter} selectedJutsu={selectedJutsu ?? null} selectedMastery={selectedMastery} activeJutsuTraining={activeJutsuTraining} setActiveJutsuTraining={setActiveJutsuTraining} /><h2>Jutsu Training Hall</h2><p>Train jutsu to <strong>Level 30</strong> with ryo. Levels <strong>31-50</strong> must be earned from battles. Your elements: <strong>{ownedElements.length ? ownedElements.join(" / ") : "None awakened"}</strong>. Town Hall + Aura training bonus: <strong>{jutsuTrainingBonus.toFixed(2)}%</strong>.</p>{lockedElementCount > 0 && <p className="hint">{lockedElementCount} jutsu locked until you awaken their element.</p>}{activeJutsuTraining && <div className="summary-box"><h3>Active Jutsu Training</h3><p><strong>{activeJutsuTraining.label}</strong>: Level {activeJutsuTraining.fromLevel} → {activeJutsuTraining.toLevel}</p><p>Cost paid: {activeJutsuTraining.ryoCost} ryo</p><p>{activeRemaining > 0 ? `Time remaining: ${formatTrainingTime(activeRemaining)}` : "Training complete. Claim your level."}</p><button onClick={completePaidJutsuTraining}>{activeRemaining > 0 ? "Check Training" : "Claim Jutsu Level"}</button></div>}<h3>Paid Ryo Training</h3><div className="summary-box"><p>{selectedJutsu ? <><strong>{selectedJutsu.name}</strong> will train from level {selectedMastery?.level ?? 0} to {Math.min(JUTSU_TRAINING_CAP, (selectedMastery?.level ?? 0) + 1)}.</> : "Choose a jutsu to train."}</p><p>{selectedMastery?.level === 0 ? <><strong>Free & Instant</strong> — Level 0 → 1</> : <>Cost: <strong>{selectedCost}</strong> ryo | Time: <strong>{selectedDuration / 60000}</strong> minutes | Reward: <strong>1 full jutsu level</strong></>}</p><button onClick={startPaidJutsuTraining} disabled={!selectedJutsu || !!activeJutsuTraining || !selectedMastery || selectedMastery.level >= JUTSU_TRAINING_CAP || (selectedMastery.level > 0 && character.ryo < selectedCost)}>{activeJutsuTraining ? "Training In Progress" : selectedMastery && selectedMastery.level >= JUTSU_TRAINING_CAP ? "Battle Training Required" : selectedMastery?.level === 0 ? "Unlock Level 1 (Free)" : `Pay ${selectedCost} Ryo & Train`}</button></div><JutsuDropdownList jutsus={availableJutsus} label="Choose Jutsu" emptyText={ownedElements.length ? "No jutsu match your awakened elements." : "Awaken an element at the Awakening Stone before training elemental jutsu."} renderDetails={(jutsu) => { const mastery = getJutsuMastery(character, jutsu.id); const scaled = scaleJutsuByLevel(jutsu, mastery.level); const cost = jutsuTrainingCost(mastery.level); const duration = jutsuTrainingDuration(mastery.level); const displayJutsu = jutsuDisplayAtLevel(jutsu, mastery.level); return <><p>Level: {mastery.level}/50 | XP: {mastery.xp}/{mastery.level >= 50 ? "MAX" : jutsuXpNeeded(mastery.level)}</p><p>Type: {jutsu.type} | Element: {jutsu.element} | AP: {jutsu.ap} | Range: {jutsu.range}</p><p>Scaled EP: {scaled.scaledEffectPower} | Chakra Cost: {scaled.chakraCost}% | Stamina Cost: {scaled.staminaCost}%</p><p>Tags: {displayJutsu.tags.map((tag) => `${tag.name}${tag.percent ? ` ${tag.percent}%` : ""}`).join(", ") || "None"}</p><p><strong>Paid Training:</strong> {mastery.level === 0 ? "Free & Instant — unlocks Level 1" : mastery.level < JUTSU_TRAINING_CAP ? `${cost} ryo | ${duration / 60000} minutes | +1 full level` : "Battle only from here"}</p><p><strong>Effects:</strong> {describeJutsuEffects(jutsu, mastery.level, tagLensDiscipline)}</p><JutsuEffectCards jutsu={jutsu} scaledEffectPower={scaled.scaledEffectPower} masteryLevel={mastery.level} lensDiscipline={tagLensDiscipline} /><p>{selectedJutsuId === jutsu.id ? "Selected for paid training." : mastery.level < 30 ? "Training Hall available." : mastery.level < 50 ? "Battle only." : "Mastered."}</p></>; }} onSelectJutsu={(jutsu) => setSelectedJutsuId(jutsu.id)} /></div>;
 }
 
 // CardVisual / ClanImageMark / LeaderPortrait moved to ./components/Marks.
@@ -30462,6 +30521,10 @@ function Profile({
     const TITLE_COST = 10;
     const [mobileTab, setMobileTab] = useState<'overview' | 'stats' | 'jutsu' | 'achievements'>('overview');
     const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);
+    // Display-only lens for jutsu effect descriptions — names a discipline so
+    // damage tags read e.g. "Taijutsu damage given". Defaults to the player's
+    // bloodline/specialty discipline. Purely cosmetic — does not touch stats.
+    const [tagLensDiscipline, setTagLensDiscipline] = useState<JutsuType>(() => playerLensDiscipline(character));
 
     useEffect(() => {
         if (!selectedAchievement) return;
@@ -30647,6 +30710,7 @@ function Profile({
                         {character.customTitle && <p><strong>Title:</strong> <span style={{ color: "#facc15" }}>{character.customTitle}</span></p>}
                         <p><strong>Level:</strong> {character.level}/100</p>
                         <p><strong>Bloodline:</strong> {equippedBloodline?.name || character.bloodline}</p>
+                        <p><strong>Specialty:</strong> {playerLensDiscipline(character)}</p>
                         <p><strong>Elements:</strong> {ownedElements.length ? ownedElements.join(" / ") : "Not awakened"}</p>
                         {character.profession && (
                             <p>
@@ -30798,6 +30862,19 @@ function Profile({
                         Unequip All
                     </button>
                 </div>
+                <div className="jutsu-lens-row" style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", margin: "4px 0 10px" }}>
+                    <label htmlFor="jutsu-lens-discipline" style={{ fontSize: "0.82rem", color: "#94a3b8" }}>Read effects as:</label>
+                    <select
+                        id="jutsu-lens-discipline"
+                        value={tagLensDiscipline}
+                        onChange={(e) => setTagLensDiscipline(e.target.value as JutsuType)}
+                    >
+                        {(["Ninjutsu", "Taijutsu", "Genjutsu", "Bukijutsu"] as JutsuType[]).map((d) => (
+                            <option key={d} value={d}>{d}</option>
+                        ))}
+                    </select>
+                    <span className="hint" style={{ fontSize: "0.74rem" }}>Display only — labels damage effects with this discipline. Does not change your stats.</span>
+                </div>
                 {(() => {
                     const learnedAnyJutsus = allJutsus.filter((j) => getJutsuMastery(character, j.id).level >= 1);
                     const learnedJutsus = allJutsus.filter((j) => getJutsuMastery(character, j.id).level >= 1 && canEquipElementJutsu(character, j, savedBloodlines));
@@ -30813,8 +30890,8 @@ function Profile({
                             <>
                                 <p>Level {mastery.level}/50 | {jutsu.type} | {jutsu.element} | {jutsu.ap} AP | R{jutsu.range} | EP {displayJutsu.effectPower}</p>
                                 <p>Tags: {displayJutsu.tags.map((tag) => `${tag.name}${tag.percent ? ` ${tag.percent}%` : ""}`).join(", ") || "None"}</p>
-                                <p><strong>Effects:</strong> {describeJutsuEffects(jutsu, mastery.level)}</p>
-                                <JutsuEffectCards jutsu={jutsu} masteryLevel={mastery.level} />
+                                <p><strong>Effects:</strong> {describeJutsuEffects(jutsu, mastery.level, tagLensDiscipline)}</p>
+                                <JutsuEffectCards jutsu={jutsu} masteryLevel={mastery.level} lensDiscipline={tagLensDiscipline} />
                             </>
                         );
                     };
@@ -33179,6 +33256,10 @@ function Arena({
         const activePlayerLifesteal = currentPlayerStatuses.filter((s) => s.name === "Lifesteal");
         const enemyDebuffPrevented = currentEnemyStatuses.some((s) => s.name === "Debuff Prevent");
         const playerBuffPrevented = currentPlayerStatuses.some((s) => s.name === "Buff Prevent");
+        // Flavor: label the player's own damage effects with their discipline,
+        // matching the Profile/Training/inspect lens. Trailing space so
+        // `${flavorDisc}damage` reads "Genjutsu damage" / "damage" if ever empty.
+        const flavorDisc = `${playerLensDiscipline(character)} `;
 
         const enemyAffectingTags = new Set([
             "Increase Damage Taken", "Decrease Damage Given", "Ignition", "Stun", "Bloodline Seal", "Poison", "Drain",
@@ -33196,7 +33277,7 @@ function Arena({
                 if (playerBuffPrevented) effectLines.push(`${character.name}'s Increase Damage Given was prevented`);
                 else {
                     queuePlayerStatus({ name: "Increase Damage Given", rounds: 2, percent: pct, kind: "positive" });
-                    effectLines.push(`Increase Damage Given: ${character.name} deals ${pct}% more damage for 2 rounds${tagTimingText}.`);
+                    effectLines.push(`Increase Damage Given: ${character.name} deals ${pct}% more ${flavorDisc}damage for 2 rounds${tagTimingText}.`);
                 }
             }
 
@@ -33204,7 +33285,7 @@ function Arena({
                 if (enemyDebuffPrevented) effectLines.push(`${opponentName} resists damage taken debuff`);
                 else {
                     queueEnemyStatus({ name: "Increase Damage Taken", rounds: 2, percent: pct, kind: "negative" });
-                    effectLines.push(`Increase Damage Taken: ${opponentName} takes ${pct}% more damage for 2 rounds${tagTimingText}.`);
+                    effectLines.push(`Increase Damage Taken: ${opponentName} takes ${pct}% more ${flavorDisc}damage for 2 rounds${tagTimingText}.`);
                 }
             }
 
@@ -33212,7 +33293,7 @@ function Arena({
                 if (playerBuffPrevented) effectLines.push(`${character.name}'s damage taken buff was prevented`);
                 else {
                     queuePlayerStatus({ name: "Decrease Damage Taken", rounds: 2, percent: pct, kind: "positive" });
-                    effectLines.push(`Decrease Damage Taken: ${character.name} takes ${pct}% less damage for 2 rounds${tagTimingText}.`);
+                    effectLines.push(`Decrease Damage Taken: ${character.name} takes ${pct}% less ${flavorDisc}damage for 2 rounds${tagTimingText}.`);
                 }
             }
 
@@ -33231,7 +33312,7 @@ function Arena({
                 if (enemyDebuffPrevented) effectLines.push(`${opponentName} resists Ignition`);
                 else {
                     queueEnemyStatus({ name: "Ignition", rounds: 2, percent: pct, kind: "negative" });
-                    effectLines.push(`Ignition: ${opponentName} will take ${pct}% extra damage for 2 rounds${tagTimingText}.`);
+                    effectLines.push(`Ignition: ${opponentName} will take ${pct}% extra ${flavorDisc}damage for 2 rounds${tagTimingText}.`);
                 }
             }
 
@@ -33239,7 +33320,7 @@ function Arena({
                 if (playerBuffPrevented) effectLines.push(`${character.name}'s Lifesteal was prevented`);
                 else {
                     queuePlayerStatus({ name: "Lifesteal", rounds: 2, percent: pct, kind: "positive" });
-                    effectLines.push(`Lifesteal: ${character.name} will heal ${pct}% of damage dealt for 2 rounds${tagTimingText}.`);
+                    effectLines.push(`Lifesteal: ${character.name} will heal ${pct}% of ${flavorDisc}damage dealt for 2 rounds${tagTimingText}.`);
                 }
             }
 
@@ -35060,7 +35141,7 @@ function Arena({
                                             )}
 
                                             <div className="combat-jutsu-effects-list">
-                                                <JutsuEffectCards jutsu={inspectedJutsu} scaledEffectPower={scaled.scaledEffectPower} masteryLevel={mastery.level} />
+                                                <JutsuEffectCards jutsu={inspectedJutsu} scaledEffectPower={scaled.scaledEffectPower} masteryLevel={mastery.level} lensDiscipline={playerLensDiscipline(character)} />
                                             </div>
                                         </div>
                                     );
@@ -36781,7 +36862,7 @@ function PvpBattleScreen({
                                             </div>
                                             {inspectedJutsu.description && <p className="combat-jutsu-detail-desc">{inspectedJutsu.description}</p>}
                                             <div className="combat-jutsu-effects-list">
-                                                <JutsuEffectCards jutsu={inspectedJutsu} scaledEffectPower={scaled.scaledEffectPower} masteryLevel={mastery.level} />
+                                                <JutsuEffectCards jutsu={inspectedJutsu} scaledEffectPower={scaled.scaledEffectPower} masteryLevel={mastery.level} lensDiscipline={playerLensDiscipline(character)} />
                                             </div>
                                         </div>
                                     );
