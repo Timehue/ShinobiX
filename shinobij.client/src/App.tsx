@@ -32774,9 +32774,11 @@ function Arena({
         }
         if (bestLethal) return bestLethal.jutsu;
 
-        // 2. Sustain trigger — when very low HP, grab heal/sustain.
+        // 2. Sustain trigger — heal at 40% so a single nuke can't catch the
+        // AI mid-heal. Previous 35% left zero buffer against a follow-up hit
+        // (heal ≈ one standard hit; nuke is 1.2× that).
         const hpPct = enemyHp / Math.max(1, enemyMaxHp);
-        if (hpPct < 0.35) {
+        if (hpPct < 0.40) {
             const healish = usable.find(j => isSelfSupportJutsu(j));
             if (healish) return healish;
         }
@@ -32793,6 +32795,26 @@ function Arena({
         // Lower of player's two combat resources — a low-resource player is
         // already throttled, so resource-drain jutsus lose value.
         const playerLowAp      = ap < 50; // engine-side player AP
+
+        // ── Stack-awareness pre-computes (diminishing returns aware) ──
+        // multiplicativeTagMultiplier already applies diminishing returns per
+        // stack, so 2nd stack of any amp tag gives much less than the 1st,
+        // and 3rd+ is near-wasted. The AI used to keep applying these even
+        // when stacked — these counts let the score function penalize it.
+        const selfIdgStacks      = enemyStatuses.filter(s => s.name === "Increase Damage Given").length;
+        const playerIdtStacks    = playerStatuses.filter(s => s.name === "Increase Damage Taken").length;
+        const playerIgnStacks    = playerStatuses.filter(s => s.name === "Ignition" || statusMatchesName(s, "Ignition")).length;
+        // Defensive stacks the AI itself has on
+        const selfDdtStacks      = enemyStatuses.filter(s => s.name === "Decrease Damage Taken").length;
+        const playerDdgStacks    = playerStatuses.filter(s => s.name === "Decrease Damage Given").length;
+
+        // ── Pierce-vs-armor signal ──
+        // playerArmorFactor is 0.25..1.0 where lower = more armor mitigation.
+        // <0.55 means the player has stacked ≥45% raw armor DR — Pierce is
+        // disproportionately valuable here since it bypasses both armor and
+        // any active shield.
+        const playerHeavyArmor = playerArmorFactor < 0.55;
+        const playerShielded   = playerShield > 0;
 
         return usable.sort((a, b) => {
             const tacticalScore = (jutsu: Jutsu) => {
@@ -32816,6 +32838,44 @@ function Arena({
                 if (playerWounded   && tagNames.includes("Wound"))          score -= 25;
                 if (playerDrained   && tagNames.includes("Drain"))          score -= 25;
                 if (playerLowAp     && tagNames.includes("Lag"))            score -= 20;
+
+                // ── Diminishing-returns awareness for amp tags ──
+                // 1st stack of an amp tag is huge; 2nd is half-value; 3rd+
+                // is near-wasted under multiplicativeTagMultiplier's curve.
+                // Score the cast accordingly so the AI pivots to damage
+                // once a stack is up rather than spamming the buff.
+                if (tagNames.includes("Increase Damage Given")) {
+                    score += selfIdgStacks === 0 ? 14 : selfIdgStacks === 1 ? -2 : -25;
+                }
+                if (tagNames.includes("Increase Damage Taken")) {
+                    score += playerIdtStacks === 0 ? 12 : playerIdtStacks === 1 ? -2 : -25;
+                }
+                if (tagNames.includes("Ignition")) {
+                    score += playerIgnStacks === 0 ? 12 : playerIgnStacks === 1 ? -2 : -25;
+                }
+                if (tagNames.includes("Decrease Damage Taken")) {
+                    score += selfDdtStacks === 0 ? 10 : selfDdtStacks === 1 ? -2 : -20;
+                }
+                if (tagNames.includes("Decrease Damage Given")) {
+                    score += playerDdgStacks === 0 ? 10 : playerDdgStacks === 1 ? -2 : -20;
+                }
+
+                // ── Pierce-vs-armor bonus ──
+                // Pierce bypasses both armor and shield in PvE (set to
+                // flat 900 when ap≥60). Against a heavy-armor or shielded
+                // player it's worth far more than its raw effect power.
+                if (tagNames.includes("Pierce")) {
+                    if (playerHeavyArmor) score += 25;
+                    if (playerShielded)   score += 30;
+                }
+
+                // ── Mirror — only useful when carrying ≥1 transferable debuff
+                // (post-fix it copies, doesn't strip from self). Penalize
+                // casting Mirror in clean state since it'd send nothing.
+                if (tagNames.includes("Mirror")) {
+                    const selfNegStacks = enemyStatuses.filter(s => s.kind === "negative" && s.name !== "Wound" && s.name !== "Poison" && s.name !== "Drain" && !statusMatchesName(s, "Ignition")).length;
+                    score += selfNegStacks >= 2 ? 22 : selfNegStacks === 1 ? 6 : -15;
+                }
 
                 // ── Synergy bonuses — set up future damage / capitalize on
                 // player's current debuffs.
