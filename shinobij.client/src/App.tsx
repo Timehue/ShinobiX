@@ -4572,8 +4572,8 @@ export function jutsuEffectInfo(jutsu: Jutsu, tag: JutsuTag) {
     const percentLabel = tag.percent > 0 ? `${tag.percent}%` : "Static";
 
     if (tag.name === "Damage") return { summary: `Deals damage at ${effectPower}% effect power.`, rule: "Uses the jutsu offense type against the target's matching defense, then applies weather, terrain, bloodline, armor, and status modifiers.", duration: "Instant", value: `${effectPower}% EP` };
-    if (tag.name === "Heal") return { summary: `Restores 500 HP to the user.`, rule: "Sets direct damage to 0 and heals the caster for a flat 500 HP.", duration: "Instant", value: "500 HP" };
-    if (tag.name === "Shield") return { summary: `Adds 500 shield to the user — always succeeds.`, rule: "Shield absorbs incoming damage before HP. Pierce can bypass shield. Cannot be blocked by Buff Prevent.", duration: "Until broken", value: "500" };
+    if (tag.name === "Heal") return { summary: `Restores 750 HP to the user.`, rule: "Sets direct damage to 0 and heals the caster for a flat 750 HP.", duration: "Instant", value: "750 HP" };
+    if (tag.name === "Shield") return { summary: `Adds 750 shield to the user — always succeeds.`, rule: "Shield absorbs incoming damage before HP. Pierce can bypass shield. Cannot be blocked by Buff Prevent.", duration: "Until broken", value: "750" };
     if (tag.name === "Barrier") return { summary: "Erects an impassable wall tile one step toward the enemy on the battlefield.", rule: "Places a barrier tile that blocks movement for both fighters for 2 rounds. Cannot be bypassed.", duration: "2 rounds", value: "Wall tile" };
     if (tag.name === "Increase Damage Given") return { summary: `Boosts the caster's damage by ${pct}% for 2 rounds.`, rule: "Adds a positive status to the caster that boosts outgoing damage for 2 rounds.", duration: "2 rounds", value: `${pct}%` };
     if (tag.name === "Decrease Damage Given") return { summary: `Makes the target deal ${pct}% less damage.`, rule: "Adds a negative status to the target that lowers outgoing damage.", duration: "2 rounds", value: `${pct}%` };
