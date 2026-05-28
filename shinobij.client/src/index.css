@@ -13006,6 +13006,41 @@ button.combat-jutsu-button,
     backdrop-filter: blur(6px);
     pointer-events: none;
 }
+
+/* Small pill that surfaces in the top-right when the live-update channel
+   drops (Supabase Realtime CHANNEL_ERROR / SSE onerror). Gives players a
+   visible signal that something's reconnecting in the background, instead
+   of staring at a frozen board and reflexively refreshing. */
+.pvp-reconnecting-pill {
+    position: fixed;
+    top: 14px;
+    right: 14px;
+    z-index: 10000;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px 6px 10px;
+    background: rgba(120, 53, 15, 0.92);
+    border: 1px solid rgba(251, 191, 36, 0.6);
+    border-radius: 999px;
+    color: #fef3c7;
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+    pointer-events: none;
+}
+.pvp-reconnecting-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #fbbf24;
+    animation: pvp-reconnecting-pulse 1.1s ease-in-out infinite;
+}
+@keyframes pvp-reconnecting-pulse {
+    0%, 100% { opacity: 0.3; transform: scale(0.85); }
+    50%      { opacity: 1;   transform: scale(1.15); }
+}
 .pvp-countdown-box {
     display: flex;
     flex-direction: column;
