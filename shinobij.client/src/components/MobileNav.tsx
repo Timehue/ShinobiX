@@ -96,15 +96,16 @@ export const MobileNav = memo(function MobileNav({
                         <button className="mobile-menu-btn" onClick={() => go("village")} disabled={!atHome}>🏯 Village</button>
                         <button className="mobile-menu-btn" onClick={() => go("worldMap")}>🗺️ Travel</button>
                         <button className="mobile-menu-btn" onClick={() => go("userHub")}>👥 Users</button>
-                        <button className="mobile-menu-btn" onClick={() => go("profile")}>👤 Character</button>
-                        <button className="mobile-menu-btn" onClick={() => go("logbook")}>📜 Logbook</button>
-                        <button className="mobile-menu-btn" onClick={() => go("inventory")}>🎒 Inventory</button>
-                        <button className="mobile-menu-btn" onClick={() => go("training")}>💪 Training</button>
-                        <button className="mobile-menu-btn" onClick={() => go("jutsuTraining")}>⚡ Jutsu</button>
                         <button className="mobile-menu-btn" onClick={() => go("missions")}>📋 Missions</button>
+                        <button className="mobile-menu-btn" onClick={() => go("training")}>💪 Training</button>
+                        <button className="mobile-menu-btn" onClick={() => go("profile")}>👤 Character</button>
+                        <button className="mobile-menu-btn" onClick={() => go("inventory")}>🎒 Inventory</button>
+                        <button className="mobile-menu-btn" onClick={() => go("jutsuTraining")}>⚡ Jutsu</button>
                         <button className="mobile-menu-btn" onClick={() => go("pets")}>🐾 Pets</button>
-                        <button className="mobile-menu-btn" onClick={() => go("arena")}>⚔️ Arena</button>
                         <button className="mobile-menu-btn" onClick={() => go("bloodlineMaker")}>🧬 Bloodline</button>
+                        <button className="mobile-menu-btn" onClick={() => go("logbook")}>📜 Logbook</button>
+                        <button className="mobile-menu-btn" onClick={() => { window.open("https://discord.gg/bCQGs8r6SK", "_blank", "noopener,noreferrer"); setOpen(false); }}>💬 Discord</button>
+                        <button className="mobile-menu-btn" onClick={() => { window.open("https://www.patreon.com/c/shinobijourney", "_blank", "noopener,noreferrer"); setOpen(false); }}>♥ Patreon</button>
                         {isAdminAccount && (
                             <button className="mobile-menu-btn" onClick={() => go(adminLoggedIn ? "adminPanel" : "adminLogin")}>🛠️ Admin</button>
                         )}
