@@ -1,8 +1,8 @@
 /*
  * Desktop right-rail navigation menu — the collapsible side menu with
  * Village / Travel / Users / Character / Logbook / Inventory / Stats /
- * Jutsu / Missions / Pets / Arena / Bloodline / Admin (Rill-only) /
- * Logout buttons.
+ * Jutsu / Missions / Pets / Patreon (external link) / Bloodline /
+ * Admin (Rill-only) / Logout buttons.
  *
  * Pure leaf — `navigate` and `logoutPlayer` callbacks come in as props.
  * `villageBiomes` lookup imported from App.tsx; admin-name gate via
@@ -69,7 +69,7 @@ export const RightMenu = memo(function RightMenu({
                         <button onClick={() => navigate("jutsuTraining")}>Jutsu</button>
                         <button onClick={() => navigate("missions")}>Missions</button>
                         <button onClick={() => navigate("pets")}>Pets</button>
-                        <button onClick={() => navigate("arena")}>Arena</button>
+                        <button onClick={() => window.open("https://www.patreon.com/c/shinobijourney", "_blank", "noopener,noreferrer")}>♥ Patreon</button>
                         <button onClick={() => navigate("bloodlineMaker")}>Bloodline</button>
                         {isAdminAccount && (
                             <button onClick={() => navigate(adminLoggedIn ? "adminPanel" : "adminLogin")}>Admin</button>
