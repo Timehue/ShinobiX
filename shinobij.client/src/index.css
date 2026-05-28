@@ -12933,13 +12933,58 @@ button.combat-jutsu-button,
     font-weight: 900;
     letter-spacing: 0.04em;
 }
+.pet-prefight-side {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+.pet-prefight-side.player { animation: petPrefightSlideInLeft 0.55s cubic-bezier(.2, .8, .2, 1) both; }
+.pet-prefight-side.enemy  { animation: petPrefightSlideInRight 0.55s cubic-bezier(.2, .8, .2, 1) both; }
+/* Bump the portrait above the size we use on the grid so the prefight
+   really reads as a "fighter introduction" beat, not just a duplicate of
+   the in-fight sprite. The :where() de-specs the rule so it doesn't
+   collide with the inline grid sizing on .pet-battle-avatar. */
+.pet-prefight-portrait :where(.pet-battle-avatar) {
+    width: clamp(96px, 11vw, 144px);
+    height: clamp(96px, 11vw, 144px);
+}
 .pet-prefight-name.player { color: #4ade80; }
 .pet-prefight-name.enemy  { color: #f87171; }
 .pet-prefight-vs-label {
     color: #fef3c7;
-    font-size: 2.2rem;
+    font-size: 2.6rem;
     font-weight: 900;
-    text-shadow: 0 0 18px rgba(250, 204, 21, 0.7);
+    letter-spacing: 0.08em;
+    text-shadow: 0 0 18px rgba(250, 204, 21, 0.7), 0 0 38px rgba(239, 68, 68, 0.35);
+    animation: petPrefightVsPop 0.6s 0.2s cubic-bezier(.2, .8, .2, 1) both;
+}
+.pet-prefight-tagline {
+    margin-top: 14px;
+    color: #fde68a;
+    font-size: 1.05rem;
+    font-weight: 800;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    text-shadow: 0 0 14px rgba(250, 204, 21, 0.55);
+    animation: petPrefightTaglineFade 0.5s 0.55s ease both;
+}
+@keyframes petPrefightSlideInLeft {
+    0% { opacity: 0; transform: translateX(-60px) scale(0.92); }
+    100% { opacity: 1; transform: translateX(0) scale(1); }
+}
+@keyframes petPrefightSlideInRight {
+    0% { opacity: 0; transform: translateX(60px) scale(0.92); }
+    100% { opacity: 1; transform: translateX(0) scale(1); }
+}
+@keyframes petPrefightVsPop {
+    0% { opacity: 0; transform: scale(0.6) rotate(-6deg); }
+    60% { opacity: 1; transform: scale(1.18) rotate(2deg); }
+    100% { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+@keyframes petPrefightTaglineFade {
+    0% { opacity: 0; transform: translateY(6px); }
+    100% { opacity: 1; transform: translateY(0); }
 }
 
 /* ── K.O. overlay — cinematic punch-in with slow-mo decay ─────── */
@@ -13617,9 +13662,30 @@ button.combat-jutsu-button,
         0 0 0 6px rgba(250, 204, 21, 0.18);
 }
 
-.pet-vfx-damage .pet-battle-avatar.active,
-.pet-vfx-basic .pet-battle-avatar.active {
-    animation: petAvatarLunge 0.62s ease both;
+/* Horizontal lunge — attacker steps into the target's column on damage/basic
+   actions. Direction is side-aware: player sprites lunge right, enemy sprites
+   lunge left, both relative to their resting position. The parent supplies a
+   per-frame React key (PetBattleAvatar in PetArenaBattlefield), so this
+   animation cleanly restarts on each successive blow even when the same pet
+   attacks twice in a row. */
+.pet-vfx-damage .pet-battle-avatar.player.active,
+.pet-vfx-basic  .pet-battle-avatar.player.active {
+    animation: petAvatarLungePlayer 0.55s ease both;
+}
+.pet-vfx-damage .pet-battle-avatar.enemy.active,
+.pet-vfx-basic  .pet-battle-avatar.enemy.active {
+    animation: petAvatarLungeEnemy 0.55s ease both;
+}
+
+/* Hit reaction on the target — brief recoil + red flash + ring pulse the
+   moment the lunging attacker connects. Without this, attacks felt one-sided:
+   one pet hopped and the other sat still. Direction is side-aware so the
+   defender visibly gets shoved away from the attacker. */
+.pet-battle-avatar.player.hit {
+    animation: petAvatarHitPlayer 0.45s ease both;
+}
+.pet-battle-avatar.enemy.hit {
+    animation: petAvatarHitEnemy 0.45s ease both;
 }
 
 .pet-vfx-buff .pet-battle-avatar.active {
@@ -13844,10 +13910,39 @@ button.combat-jutsu-button,
     100% { opacity: 0; transform: scale(1.45) rotate(80deg); }
 }
 
-@keyframes petAvatarLunge {
-    0% { transform: translateY(-5px) scale(1.08); }
-    38% { transform: translateY(-8px) scale(1.16); }
-    100% { transform: translateY(-5px) scale(1.08); }
+/* Horizontal lunges — the attacker physically steps into the opponent's
+   space at the midpoint, peaks slightly above resting height, then snaps
+   back. Tuned to land the impact spike (~45%) just before the defender's
+   hit reaction crests, so the two animations look like a single coupled
+   exchange instead of two unrelated moves. */
+@keyframes petAvatarLungePlayer {
+    0%   { transform: translate(0, -5px) scale(1.08); }
+    45%  { transform: translate(36px, -10px) scale(1.18); filter: brightness(1.18) saturate(1.12); }
+    65%  { transform: translate(18px, -7px) scale(1.12); }
+    100% { transform: translate(0, -5px) scale(1.08); filter: brightness(1); }
+}
+@keyframes petAvatarLungeEnemy {
+    0%   { transform: translate(0, -5px) scale(1.08); }
+    45%  { transform: translate(-36px, -10px) scale(1.18); filter: brightness(1.18) saturate(1.12); }
+    65%  { transform: translate(-18px, -7px) scale(1.12); }
+    100% { transform: translate(0, -5px) scale(1.08); filter: brightness(1); }
+}
+
+/* Hit reaction — sharp shove away from the attacker with a red flash on the
+   ring + a quick desaturate dip (selling the "stunned" beat), then snaps
+   back to neutral. Pairs with the lunge above; their peak timings are
+   offset so impact reads as cause-and-effect, not parallel jiggle. */
+@keyframes petAvatarHitPlayer {
+    0%   { transform: translate(0, 0) scale(1); filter: none; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+    20%  { transform: translate(-14px, 4px) scale(0.94); filter: saturate(0.6) brightness(1.35); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0.55), 0 0 22px rgba(239, 68, 68, 0.45); }
+    55%  { transform: translate(-7px, 1px) scale(0.97); filter: saturate(0.85) brightness(1.1); box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.25); }
+    100% { transform: translate(0, 0) scale(1); filter: none; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+@keyframes petAvatarHitEnemy {
+    0%   { transform: translate(0, 0) scale(1); filter: none; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+    20%  { transform: translate(14px, 4px) scale(0.94); filter: saturate(0.6) brightness(1.35); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0.55), 0 0 22px rgba(239, 68, 68, 0.45); }
+    55%  { transform: translate(7px, 1px) scale(0.97); filter: saturate(0.85) brightness(1.1); box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.25); }
+    100% { transform: translate(0, 0) scale(1); filter: none; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
 }
 
 @keyframes petAvatarBuff {
