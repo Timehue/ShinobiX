@@ -8770,6 +8770,18 @@ export default function App() {
                 : `Corrupted shinobi defeated. +${effectiveCharacterXpGain(character, xpReward)} XP, +${ryoReward} ryo, +${auraDustReward} Aura Dust.`;
         }
 
+        if (pendingArenaStoryBattle.kind === "weeklyBoss") {
+            // Weekly Boss fights are designed to be unwinnable — the boss
+            // is spawned with a sentinel HP (~100M) so the player can only
+            // KO or flee, never deal a finishing blow. If somehow the win
+            // path fires (e.g. boss damage cap regression, save edit) we
+            // just bail without granting story rewards — the logFight call
+            // on the loss/flee path is what credits the leaderboard.
+            setTemporaryStoryAi(null);
+            setPendingAiProfileId("");
+            return "Weekly Boss collapsed unexpectedly. Damage logged on your next attempt.";
+        }
+
         const { event, battle } = pendingArenaStoryBattle;
         const xpReward = battle?.xpReward ?? event.xpReward;
         const ryoReward = battle?.ryoReward ?? event.ryoReward;
