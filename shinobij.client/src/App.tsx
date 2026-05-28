@@ -3635,11 +3635,7 @@ function aiStatsForLevel(level: number, jutsus: Jutsu[] = []): Stats {
 function aiHpForLevel(level: number, toughness = 0) {
     const safeLevel = Math.max(1, Math.min(MAX_LEVEL, Math.floor(level || 1)));
     const levelScale = safeLevel / MAX_LEVEL;
-    // PvE damage roughly halved when the formula was ported to match PvP
-    // (EP × 32 baseline vs the old maxHp × EP/100). AI HP was originally
-    // calibrated for ~2× higher damage; halving the multiplier keeps turn
-    // counts for PvE fights in roughly the same range they were before.
-    return Math.floor(maxHpForLevel(safeLevel) * (1.12 + levelScale * 0.35 + toughness * 1.5) * 0.5);
+    return Math.floor(maxHpForLevel(safeLevel) * (1.12 + levelScale * 0.35 + toughness * 1.5));
 }
 
 function aiRawDamageReductionForLevel(level: number, toughness = 0) {
