@@ -8465,11 +8465,17 @@ export default function App() {
         const armorRawDR = aiRawDamageReductionForLevel(level, toughness);
         const dungeonLoadoutId: AiLoadoutId = level === 100 ? "boss" : level === 75 ? "control" : "defender";
         const aiProfileId = `temp-dungeon-ai-${level}-${Date.now()}`;
+        // Admin-uploaded warden portrait wins if present, falling back to the
+        // event's static avatar/scene art. Key shape mirrors the rest of the
+        // event-asset overlay system used by the Visual Novel editor.
+        const wardenImage = sharedImages[`event:${activeDungeonEvent.id}:warden`]
+            || activeDungeonEvent.avatarImage
+            || activeDungeonEvent.image;
         setTemporaryStoryAi({
             id: aiProfileId,
             name: level === 100 ? "Abyssal Dungeon Warden" : level === 75 ? "Sealed Dungeon Warden" : "Dungeon Warden",
             icon: "DG",
-            image: activeDungeonEvent.avatarImage || activeDungeonEvent.image,
+            image: wardenImage,
             level,
             village: "Hidden Dungeon",
             hp: aiHpForLevel(level, toughness),
@@ -11721,7 +11727,16 @@ function DungeonEncounter({
     const splitLine = activeLine.includes(":") ? activeLine.split(":") : [page.speaker || event.vnSpeaker || "Narrator", activeLine];
     const speaker = splitLine[0].trim();
     const spoken = splitLine.slice(1).join(":").trim() || activeLine;
-    const pageImage = page.image || event.image || defaultVnScene(event.id, event.biome);
+    // Admin-uploaded dungeon art (managed via the Relic Dungeons admin tab)
+    // overlays the static event/page fallbacks. Each dungeon has 4 slots:
+    // backdrop (VN scene), warden (boss portrait), tilescene (seal 2
+    // banner), pet (seal 3 rare-beast portrait). Keys piggyback on the
+    // existing `event:` category so no server prefix change is needed.
+    const adminBackdrop = sharedImages[`event:${event.id}:backdrop`];
+    const adminWarden = sharedImages[`event:${event.id}:warden`];
+    const adminTileScene = sharedImages[`event:${event.id}:tilescene`];
+    const adminPet = sharedImages[`event:${event.id}:pet`];
+    const pageImage = adminBackdrop || page.image || event.image || defaultVnScene(event.id, event.biome);
     const canBack = lineIndex > 0;
     const isLastLine = lineIndex >= pageDialogue.length - 1;
     const actionLabel = stage === "intro" ? "Challenge Seal One" : stage === "tile" ? "Start Tile Seal" : "Challenge Rare Pet";
@@ -11729,10 +11744,10 @@ function DungeonEncounter({
         if (!isLastLine) setLineIndex((line) => line + 1);
     }
     if (stage === "tile" && isLastLine) {
-        return <ShinobiTiles character={character} updateCharacter={updateCharacter} creatorCards={creatorCards} dungeonMode onDungeonWin={onTileWin} onDungeonLeave={onLeave} />;
+        return <ShinobiTiles character={character} updateCharacter={updateCharacter} creatorCards={creatorCards} dungeonMode onDungeonWin={onTileWin} onDungeonLeave={onLeave} dungeonSceneImage={adminTileScene} />;
     }
     if (stage === "pet" && isLastLine) {
-        return <DungeonPetBattle character={character} updateCharacter={updateCharacter} editablePets={editablePets} onWin={onPetWin} onLeave={onLeave} sharedImages={sharedImages} />;
+        return <DungeonPetBattle character={character} updateCharacter={updateCharacter} editablePets={editablePets} onWin={onPetWin} onLeave={onLeave} sharedImages={sharedImages} dungeonPetImage={adminPet} />;
     }
     return (
         <div className="card cinematic-card">
@@ -11754,7 +11769,7 @@ function DungeonEncounter({
                         <span className="vn-character-initials">{character.name.slice(0, 2).toUpperCase()}</span>
                     </div>
                     {(() => {
-                        const portrait = event.avatarImage || defaultVnPortrait(speaker);
+                        const portrait = adminWarden || event.avatarImage || defaultVnPortrait(speaker);
                         if (!portrait && speaker.trim().toLowerCase() === "narrator") return null;
                         return (
                             <div className="vn-character hero-character">
@@ -11784,7 +11799,7 @@ function DungeonEncounter({
     );
 }
 
-function DungeonPetBattle({ character, updateCharacter, editablePets, onWin, onLeave, sharedImages = {}, enemyOverride, enemyOwner = "Dungeon Beast" }: { character: Character; updateCharacter: (character: Character) => void; editablePets: Pet[]; onWin: () => void; onLeave: () => void; sharedImages?: Record<string, string>; enemyOverride?: Pet; enemyOwner?: string }) {
+function DungeonPetBattle({ character, updateCharacter, editablePets, onWin, onLeave, sharedImages = {}, enemyOverride, enemyOwner = "Dungeon Beast", dungeonPetImage }: { character: Character; updateCharacter: (character: Character) => void; editablePets: Pet[]; onWin: () => void; onLeave: () => void; sharedImages?: Record<string, string>; enemyOverride?: Pet; enemyOwner?: string; dungeonPetImage?: string }) {
     const defaultPetId = character.activePetId ?? character.pets[0]?.id ?? "";
     const [chosenPetId, setChosenPetId] = useState(defaultPetId);
     const selectedPet = character.pets.find((pet) => pet.id === chosenPetId) ?? character.pets[0];
@@ -11794,6 +11809,11 @@ function DungeonPetBattle({ character, updateCharacter, editablePets, onWin, onL
         ...basePet,
         id: `dungeon-pet-${Date.now()}`,
         name: basePet.name || "Dungeon Rare Beast",
+        // Admin-uploaded dungeon-specific rare-beast art overrides the
+        // random rare pet's image (lore-aware boss portrait), while all
+        // other stats stay rolled from the random pet so combat behavior
+        // is unchanged.
+        image: dungeonPetImage || basePet.image,
         rarity: "rare",
         level: Math.max(55, basePet.level + 25),
         hp: Math.max(900, Math.floor(basePet.hp * 2.1)),
@@ -15960,8 +15980,8 @@ function AdminPanel({
     // admin/migrate-kv, game-state arenaTournament/weeklyBossOverride) gate
     // on isFullAdmin — so even if a content admin somehow landed on these
     // tabs, the underlying actions would 401.
-    const CONTENT_ADMIN_FORBIDDEN_TABS = new Set<string>(['playerManagement', 'hollowGate', 'moderation']);
-    const [activeAdminPanel, setActiveAdminPanel] = useState<"jutsuBloodlines" | "eventsRaids" | "visualNovels" | "aiCreator" | "petEditor" | "cardEditor" | "villageLeaders" | "playerManagement" | "hollowGate" | "professions" | "moderation">("jutsuBloodlines");
+    const CONTENT_ADMIN_FORBIDDEN_TABS = new Set<string>(['playerManagement', 'hollowGate', 'relicDungeons', 'moderation']);
+    const [activeAdminPanel, setActiveAdminPanel] = useState<"jutsuBloodlines" | "eventsRaids" | "visualNovels" | "aiCreator" | "petEditor" | "cardEditor" | "villageLeaders" | "playerManagement" | "hollowGate" | "relicDungeons" | "professions" | "moderation">("jutsuBloodlines");
     // Clamp the active tab whenever the role flips OR a refresh restored
     // a forbidden tab from React's initial state.
     useEffect(() => {
@@ -17201,6 +17221,11 @@ function AdminPanel({
                 {adminRole === 'full' && (
                     <button className={activeAdminPanel === "hollowGate" ? "active" : ""} onClick={() => setActiveAdminPanel("hollowGate")}>
                         ⛩ Hollow Gate
+                    </button>
+                )}
+                {adminRole === 'full' && (
+                    <button className={activeAdminPanel === "relicDungeons" ? "active" : ""} onClick={() => setActiveAdminPanel("relicDungeons")}>
+                        🗝 Relic Dungeons
                     </button>
                 )}
                 <button className={activeAdminPanel === "professions" ? "active" : ""} onClick={() => setActiveAdminPanel("professions")}>
@@ -20171,6 +20196,121 @@ function AdminPanel({
                                 Default values: Unlock <strong>10,000</strong> · Key (DK) <strong>5</strong> · Key (FS) <strong>10</strong> · Max Floor <strong>5</strong> · Threat/Step <strong>7</strong> · Ambush <strong>100</strong> · Trap Dmg <strong>0.33</strong> · Boss Floor Mult <strong>0.2</strong>
                             </p>
                         </section>
+                    </div>
+                );
+            })()}
+
+            {activeAdminPanel === "relicDungeons" && adminRole === 'full' && (() => {
+                // Image slots for each of the 5 biome relic dungeons. The
+                // dungeon runtime reads these via the `event:<id>:<slot>`
+                // sharedImages keys (DungeonEncounter + startDungeonAiFight
+                // + DungeonPetBattle). Falls back to event/page defaults
+                // when a slot is empty.
+                const slotTypes: Array<{ slot: string; label: string; hint: string }> = [
+                    { slot: "backdrop",  label: "VN Backdrop",        hint: "Wide scene art (1024×512+) shown behind all 3 VN pages." },
+                    { slot: "warden",    label: "Dungeon Warden",     hint: "Boss portrait (~512×512) shown on the right-hand VN side and in the Seal 1 arena battle." },
+                    { slot: "tilescene", label: "Tile Game Scene",    hint: "Banner image shown above the Seal 2 card-game board." },
+                    { slot: "pet",       label: "Rare Beast (Seal 3)",hint: "Pet portrait (~512×512) shown for the final pet battle. Stats stay rolled from the random rare pool." },
+                ];
+
+                async function uploadDungeonImage(eventId: string, slot: string, file: File) {
+                    const reader = new FileReader();
+                    reader.onload = async () => {
+                        try {
+                            const img = await compressDataUrl(reader.result as string, 1024, 0.85);
+                            const key = `event:${eventId}:${slot}`;
+                            // Optimistic update so the preview refreshes
+                            // before the KV round-trip lands. Mirrors the
+                            // Hollow Gate atlas pattern.
+                            setSharedImages(prev => ({ ...prev, [key]: img }));
+                            const ok = await publishSharedImage(key, img);
+                            if (!ok) alert(`Failed to publish ${key} to shared KV. The local preview will revert on refresh.`);
+                        } catch (err) {
+                            alert(`Upload failed: ${err instanceof Error ? err.message : "unknown"}`);
+                        }
+                    };
+                    reader.readAsDataURL(file);
+                }
+
+                async function clearDungeonImage(eventId: string, slot: string) {
+                    const key = `event:${eventId}:${slot}`;
+                    if (!confirm(`Remove the ${slot} image for this dungeon?`)) return;
+                    setSharedImages(prev => {
+                        const next = { ...prev };
+                        delete next[key];
+                        return next;
+                    });
+                    try {
+                        await fetch(`/api/images?id=${encodeURIComponent(key)}`, { method: 'DELETE' });
+                        try { sessionStorage.removeItem(`imgcat:event`); } catch { /* ignore */ }
+                    } catch (err) {
+                        console.warn(`[relicDungeons] DELETE ${key} failed`, err);
+                    }
+                }
+
+                return (
+                    <div className="admin-subpanel">
+                        <div className="admin-panel-heading">
+                            <h3>🗝 Relic Dungeons — Image Slots</h3>
+                            <p className="hint">
+                                Each of the 5 biome relic dungeons has 4 image slots: VN backdrop, Dungeon Warden boss
+                                portrait, Tile Game scene banner, and the Seal 3 Rare Beast portrait. Slots are stored
+                                in the shared KV under <code>event:&lt;dungeon-id&gt;:&lt;slot&gt;</code> keys and overlay the
+                                static event defaults at runtime. Images are downscaled to 1024px max edge.
+                            </p>
+                        </div>
+                        <div style={{ display: "grid", gap: 20 }}>
+                            {craftDungeonEvents.map(dungeon => (
+                                <section key={dungeon.id} className="summary-box">
+                                    <h4 style={{ marginTop: 0, marginBottom: 4 }}>{dungeon.icon} {dungeon.name}</h4>
+                                    <p className="hint" style={{ marginTop: 0 }}>
+                                        Biome: <strong>{dungeon.biome}</strong> · Level Req: <strong>{dungeon.levelReq}</strong> · Event ID: <code>{dungeon.id}</code>
+                                    </p>
+                                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 10 }}>
+                                        {slotTypes.map(slotDef => {
+                                            const key = `event:${dungeon.id}:${slotDef.slot}`;
+                                            const currentImage = sharedImages[key];
+                                            return (
+                                                <div key={key} className="summary-box" style={{ display: "grid", gridTemplateColumns: "90px 1fr", gap: 10, alignItems: "center" }}>
+                                                    <div style={{ width: 90, height: 90, background: "rgba(0,0,0,0.45)", border: "1px dashed rgba(250,204,21,0.4)", borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                                                        {currentImage
+                                                            ? <img src={currentImage} alt={slotDef.label} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                                                            : <span style={{ color: "#facc15", fontSize: 11, textAlign: "center", padding: 4 }}>No image</span>}
+                                                    </div>
+                                                    <div>
+                                                        <strong style={{ fontSize: "0.9rem" }}>{slotDef.label}</strong>
+                                                        <p className="hint" style={{ margin: "2px 0 6px", fontSize: "0.72rem" }}>{slotDef.hint}</p>
+                                                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                                                            <label style={{ cursor: "pointer", padding: "4px 10px", background: "linear-gradient(135deg, #ca8a04, #facc15)", borderRadius: 4, color: "#1c1917", fontSize: "0.78rem", fontWeight: 600 }}>
+                                                                {currentImage ? "Replace" : "Upload"}
+                                                                <input
+                                                                    type="file"
+                                                                    accept="image/*"
+                                                                    style={{ display: "none" }}
+                                                                    onChange={(e) => {
+                                                                        const file = e.target.files?.[0];
+                                                                        if (file) void uploadDungeonImage(dungeon.id, slotDef.slot, file);
+                                                                    }}
+                                                                />
+                                                            </label>
+                                                            {currentImage && (
+                                                                <button
+                                                                    className="danger-button"
+                                                                    style={{ padding: "4px 10px", fontSize: "0.78rem" }}
+                                                                    onClick={() => void clearDungeonImage(dungeon.id, slotDef.slot)}
+                                                                >
+                                                                    Remove
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </section>
+                            ))}
+                        </div>
                     </div>
                 );
             })()}
