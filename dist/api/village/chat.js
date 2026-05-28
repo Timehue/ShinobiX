@@ -4,6 +4,10 @@ exports.default = handler;
 const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
+const _ratelimit_js_1 = require("../_ratelimit.js");
+const moderation_js_1 = require("../admin/moderation.js");
+const _lock_js_1 = require("../_lock.js");
+const _text_moderation_js_1 = require("../_text-moderation.js");
 const MSG_TTL_MS = 30 * 60 * 1000; // 30 minutes
 const MAX_MESSAGES = 60;
 const KV_TTL_SECONDS = 4 * 60 * 60; // 4-hour KV key TTL (refreshed on every POST)
@@ -19,15 +23,25 @@ async function handler(req, res) {
         return res.status(400).json({ error: 'Missing village.' });
     const key = chatKey(village);
     if (req.method === 'GET') {
+        // Auth gate: village chat used to be scrapeable anonymously (just
+        // guess the village name from the hardcoded client list). Logged-in
+        // players only. Server-side reads are unaffected because they go
+        // through the service-role key, not this endpoint.
+        const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req);
+        if (!identity)
+            return res.status(401).json({ error: 'Authentication required.' });
         const messages = await _storage_js_1.kv.get(key) ?? [];
         const fresh = messages.filter(m => Date.now() - m.ts < MSG_TTL_MS);
-        // X-Message-Count lets the client skip JSON parsing when nothing changed
         res.setHeader('X-Message-Count', String(fresh.length));
-        // Don't cache chat — always fresh, but no-store avoids CDN storing it
         res.setHeader('Cache-Control', 'no-store');
         return res.status(200).json(fresh);
     }
     if (req.method === 'POST') {
+        // Cap chat posts at 20/min per IP — keeps the KV-lock R-M-W
+        // from being a DOS vector while leaving room for fast banter.
+        // Matches the PvP chat ceiling.
+        if (!(await (0, _ratelimit_js_1.enforceRateLimitKv)(req, res, 'village-chat-post', 20, 60_000)))
+            return;
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
             const { author, text } = body;
@@ -40,6 +54,16 @@ async function handler(req, res) {
                 return res.status(401).json({ error: 'Authentication required.' });
             if (!identity.admin && identity.name !== author.toLowerCase().trim()) {
                 return res.status(403).json({ error: 'Cannot post as another player.' });
+            }
+            // Silenced players can read but not post. Admin bypasses.
+            if (!identity.admin) {
+                const sil = await (0, moderation_js_1.getActiveSilence)(identity.name);
+                if (sil) {
+                    return res.status(403).json({
+                        error: 'You are silenced.',
+                        silence: { until: sil.until, reason: sil.reason },
+                    });
+                }
             }
             // Derive rank/customTitle/level from the authed player's save so they
             // can't be spoofed via the request body (no posing as "Kage" etc.).
@@ -63,22 +87,32 @@ async function handler(req, res) {
                     // Best effort — fall through with no derived fields.
                 }
             }
+            // Moderate + length-cap before persisting. Profanity is masked
+            // with asterisks; PII patterns are redacted. Admins bypass so
+            // they can still send command-style messages with URLs.
+            const safeText = identity.admin ? text.slice(0, _text_moderation_js_1.TEXT_LIMITS.chatMessage) : (0, _text_moderation_js_1.sanitizeUserText)(text, _text_moderation_js_1.TEXT_LIMITS.chatMessage);
+            if (!safeText)
+                return res.status(400).json({ error: 'Empty message after moderation.' });
             const newMsg = {
                 author,
-                text: text.slice(0, 300),
+                text: safeText,
                 ts: Date.now(),
                 ...(derivedRank ? { rank: derivedRank } : {}),
                 ...(derivedCustomTitle ? { customTitle: derivedCustomTitle } : {}),
                 ...(derivedLevel != null ? { level: derivedLevel } : {}),
             };
-            // Read-modify-write — the previous retry loop was dead code (broke
-            // unconditionally on iter 0). Concurrent writers can still race here;
-            // accepting that for now since chat-message loss is low-impact and
-            // truly fixing it needs RPC-level CAS.
-            const existing = await _storage_js_1.kv.get(key) ?? [];
-            const fresh = existing.filter(m => Date.now() - m.ts < MSG_TTL_MS);
-            const updated = [...fresh, newMsg].slice(-MAX_MESSAGES);
-            await _storage_js_1.kv.set(key, updated, { ex: KV_TTL_SECONDS });
+            // Read-modify-write under a short-lived KV lock so two concurrent
+            // posters can't silently overwrite each other's message. Lock TTL
+            // is bounded so a crashed lambda releases the key after a second
+            // or two; under sustained contention (lock acquire fails) we fall
+            // through and run unlocked rather than dropping the write.
+            const updated = await (0, _lock_js_1.withKvLock)(key, async () => {
+                const existing = await _storage_js_1.kv.get(key) ?? [];
+                const fresh = existing.filter(m => Date.now() - m.ts < MSG_TTL_MS);
+                const next = [...fresh, newMsg].slice(-MAX_MESSAGES);
+                await _storage_js_1.kv.set(key, next, { ex: KV_TTL_SECONDS });
+                return next;
+            });
             return res.status(200).json(updated);
         }
         catch (err) {

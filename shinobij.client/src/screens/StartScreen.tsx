@@ -170,6 +170,19 @@ export function StartScreen({ onCreate, onLogin, onAdmin }: {
                         <p className="start-hint">
                             Logging in automatically restores your full save including images.
                         </p>
+
+                        <p className="start-hint" style={{ marginTop: "0.5rem", fontSize: 12, opacity: 0.75 }}>
+                            Forgot your password?{" "}
+                            <a
+                                href={DISCORD_URL}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{ color: "#fbbf24", textDecoration: "underline" }}
+                            >
+                                Contact an admin on Discord
+                            </a>
+                            {" "}for a manual reset.
+                        </p>
                     </div>
                 </div>
             )}

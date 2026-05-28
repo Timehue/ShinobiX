@@ -4,6 +4,10 @@ exports.default = handler;
 const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
+const _ratelimit_js_1 = require("../_ratelimit.js");
+const moderation_js_1 = require("../admin/moderation.js");
+const _lock_js_1 = require("../_lock.js");
+const _text_moderation_js_1 = require("../_text-moderation.js");
 const MSG_TTL_MS = 60 * 60 * 1000; // 1 hour (matches battle session TTL)
 const MAX_MESSAGES = 100;
 const KV_TTL_SECONDS = 2 * 60 * 60; // 2-hour KV key TTL
@@ -19,6 +23,16 @@ async function handler(req, res) {
         return res.status(400).json({ error: 'Missing battle id.' });
     const key = chatKey(battleId);
     if (req.method === 'GET') {
+        // Auth gate: previously this was wide open and anyone who could
+        // guess `pvp-<ms-epoch>-<5-base36>` could read private fighter +
+        // spectator chat. Logged-in players only. (We could further restrict
+        // to participants/spectators-of-this-battle, but that requires a
+        // session lookup on every GET and the chat itself is short-lived
+        // and low-stakes — the auth gate alone closes the unauthenticated
+        // scrape vector that was the actual finding.)
+        const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req);
+        if (!identity)
+            return res.status(401).json({ error: 'Authentication required.' });
         const messages = await _storage_js_1.kv.get(key) ?? [];
         const fresh = messages.filter(m => Date.now() - m.ts < MSG_TTL_MS);
         res.setHeader('X-Message-Count', String(fresh.length));
@@ -26,6 +40,10 @@ async function handler(req, res) {
         return res.status(200).json(fresh);
     }
     if (req.method === 'POST') {
+        // Cap chat posts at 20/min per IP — keeps the KV-lock R-M-W from
+        // being a DOS vector while still allowing fast banter.
+        if (!(await (0, _ratelimit_js_1.enforceRateLimitKv)(req, res, 'pvp-chat-post', 20, 60_000)))
+            return;
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
             const { author, text } = body;
@@ -38,6 +56,16 @@ async function handler(req, res) {
             const authorNorm = author.toLowerCase().trim();
             if (!identity.admin && identity.name !== authorNorm) {
                 return res.status(403).json({ error: 'Cannot post as another player.' });
+            }
+            // Silenced players can spectate / fight but not chat. Admin bypasses.
+            if (!identity.admin) {
+                const sil = await (0, moderation_js_1.getActiveSilence)(identity.name);
+                if (sil) {
+                    return res.status(403).json({
+                        error: 'You are silenced.',
+                        silence: { until: sil.until, reason: sil.reason },
+                    });
+                }
             }
             // Derive role from the session: if the author is one of the two
             // fighters, allow `fighter`; otherwise force `spectator` regardless
@@ -56,16 +84,27 @@ async function handler(req, res) {
             catch {
                 // Session lookup failed — fall back to spectator.
             }
+            // Moderate before persisting — masks profanity, redacts PII,
+            // caps length. Empty post after sanitization is rejected so
+            // the chat log doesn't carry blank lines.
+            const safeText = identity.admin ? text.slice(0, _text_moderation_js_1.TEXT_LIMITS.chatMessage) : (0, _text_moderation_js_1.sanitizeUserText)(text, _text_moderation_js_1.TEXT_LIMITS.chatMessage);
+            if (!safeText)
+                return res.status(400).json({ error: 'Empty message after moderation.' });
             const newMsg = {
                 author,
-                text: text.slice(0, 200),
+                text: safeText,
                 ts: Date.now(),
                 role: derivedRole,
             };
-            const existing = await _storage_js_1.kv.get(key) ?? [];
-            const fresh = existing.filter(m => Date.now() - m.ts < MSG_TTL_MS);
-            const updated = [...fresh, newMsg].slice(-MAX_MESSAGES);
-            await _storage_js_1.kv.set(key, updated, { ex: KV_TTL_SECONDS });
+            // Read-modify-write under a short KV lock so spectators + fighters
+            // posting at the same time can't overwrite each other's lines.
+            const updated = await (0, _lock_js_1.withKvLock)(key, async () => {
+                const existing = await _storage_js_1.kv.get(key) ?? [];
+                const fresh = existing.filter(m => Date.now() - m.ts < MSG_TTL_MS);
+                const next = [...fresh, newMsg].slice(-MAX_MESSAGES);
+                await _storage_js_1.kv.set(key, next, { ex: KV_TTL_SECONDS });
+                return next;
+            });
             return res.status(200).json(updated);
         }
         catch (err) {

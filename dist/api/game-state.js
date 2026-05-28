@@ -4,6 +4,9 @@ exports.default = handler;
 const _storage_js_1 = require("./_storage.js");
 const _utils_js_1 = require("./_utils.js");
 const _auth_js_1 = require("./_auth.js");
+const _ratelimit_js_1 = require("./_ratelimit.js");
+const _lock_js_1 = require("./_lock.js");
+const _village_state_validate_js_1 = require("./_village-state-validate.js");
 const LEADERSHIP_IMAGES_KEY = 'game:village-leadership-images';
 const VILLAGE_STATE_PREFIX = 'game:village-state:';
 const ARENA_TOURNAMENT_KEY = 'game:arena:tournament';
@@ -71,29 +74,42 @@ async function handler(req, res) {
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
             const { kind } = body;
-            // Only pendingClanPetBattle remains "open" (still requires the actor
-            // to be in the clan, gated below in its handler). villageState and
-            // arenaActiveFights now require auth — both were trivially abusable
-            // by anonymous clients before this fix.
-            const openKinds = new Set(['pendingClanPetBattle']);
-            // Everything else needs auth
-            let identity = null;
-            if (!openKinds.has(String(kind))) {
-                identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req);
-                if (!identity)
-                    return res.status(401).json({ error: 'Authentication required.' });
-                // Admin-only kinds — wholesale state writes
-                const adminOnlyKinds = new Set(['villageLeadershipImages', 'arenaTournament', 'weeklyBossOverride']);
-                if (adminOnlyKinds.has(String(kind)) && !identity.admin) {
-                    return res.status(403).json({ error: 'Admin only.' });
-                }
+            // Every kind now requires auth. The previous "openKinds" branch
+            // that exempted `pendingClanPetBattle` let any anonymous caller
+            // write or delete the pet-battle slot for any clan (since the
+            // body provides the clanName) — blocking legit battles or
+            // injecting fake records.
+            const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req);
+            if (!identity)
+                return res.status(401).json({ error: 'Authentication required.' });
+            // Admin-only kinds — wholesale state writes.
+            //
+            // Admin 2 (content role) is treated as `identity.admin === true`
+            // by authedPlayerOrAdmin (the new isAdmin accepts either password),
+            // so they pass the basic admin check. But for the kinds Admin 2
+            // shouldn't touch (arenaTournament, weeklyBossOverride — neither
+            // is exposed by their UI), require the full admin password.
+            const adminOnlyKinds = new Set(['villageLeadershipImages', 'arenaTournament', 'weeklyBossOverride']);
+            const fullAdminOnlyKinds = new Set(['arenaTournament', 'weeklyBossOverride']);
+            if (adminOnlyKinds.has(String(kind)) && !identity.admin) {
+                return res.status(403).json({ error: 'Admin only.' });
+            }
+            if (fullAdminOnlyKinds.has(String(kind)) && !(0, _auth_js_1.isFullAdmin)(req)) {
+                return res.status(403).json({ error: 'Full admin only.' });
             }
             if (kind === 'villageState') {
                 const { village, state } = body;
-                if (!village || !state)
+                if (!village || !state || typeof state !== 'object') {
                     return res.status(400).json({ error: 'Missing village or state.' });
+                }
+                // Rate-limit per-caller: legitimate gameplay writes village
+                // state on donate / notice / agenda / kage actions — far
+                // below 30/min. Higher cadence = abuse loop.
+                const rlName = identity.admin ? undefined : identity.name;
+                if (!identity.admin && !(await (0, _ratelimit_js_1.enforceRateLimitKv)(req, res, 'village-state-write', 30, 60_000, rlName)))
+                    return;
                 // Actor must be a member of the village they're writing for.
-                if (identity && !identity.admin) {
+                if (!identity.admin) {
                     try {
                         const save = await _storage_js_1.kv.get(`save:${identity.name}`);
                         const char = (save?.character ?? null);
@@ -107,8 +123,27 @@ async function handler(req, res) {
                     }
                 }
                 const key = `${VILLAGE_STATE_PREFIX}${village.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
-                await _storage_js_1.kv.set(key, state);
-                return res.status(200).json({ ok: true });
+                // Read-validate-write under a lock so concurrent kage
+                // challenge / donation / notice writes can't race-overwrite
+                // each other. Audit-validate per field — see
+                // _village-state-validate.ts. Suppressed mutations fall
+                // back to the existing value (silently — admin can find
+                // them in server logs).
+                const suppressedLog = await (0, _lock_js_1.withKvLock)(key, async () => {
+                    const existing = await _storage_js_1.kv.get(key);
+                    const kageState = await (0, _village_state_validate_js_1.loadAuthoritativeKage)(village);
+                    const { next, suppressed } = await (0, _village_state_validate_js_1.validateVillageStateWrite)(existing, state, {
+                        callerName: identity.admin ? '' : identity.name,
+                        isAdmin: identity.admin,
+                        village,
+                    }, kageState);
+                    await _storage_js_1.kv.set(key, next);
+                    return suppressed;
+                });
+                if (suppressedLog.length > 0) {
+                    console.warn('[game-state villageState] suppressed:', identity.admin ? 'admin' : identity.name, suppressedLog.join('; '));
+                }
+                return res.status(200).json({ ok: true, suppressed: suppressedLog.length });
             }
             if (kind === 'villageLeadershipImages') {
                 const { images } = body;
@@ -131,14 +166,18 @@ async function handler(req, res) {
                 const { fights } = body;
                 if (!Array.isArray(fights))
                     return res.status(400).json({ error: 'Missing fights array.' });
-                // Non-admin actor must appear in at least one fight entry to
-                // write the active-fights list. Stops random players from
-                // wiping or polluting the arena fight list.
-                if (identity && !identity.admin) {
+                // Non-admin actor must have been in the OLD list OR be in the
+                // NEW list. Without the "old list" check, the legitimate
+                // cleanup case 403'd: when a player's own fight ends they
+                // POST the list minus their fight, and the new list no
+                // longer contains them. Comparing against the prior KV
+                // value lets that cleanup through while still rejecting
+                // strangers who try to wipe or pollute the list.
+                if (!identity.admin) {
                     const me = identity.name;
-                    const inAnyFight = fights.some((f) => {
+                    function fighterNames(f) {
                         if (!f || typeof f !== 'object')
-                            return false;
+                            return [];
                         const rec = f;
                         const names = [];
                         if (typeof rec.p1Name === 'string')
@@ -148,14 +187,29 @@ async function handler(req, res) {
                         const fighters = rec.fighters;
                         if (Array.isArray(fighters)) {
                             for (const ff of fighters) {
-                                if (ff && typeof ff === 'object' && typeof ff.name === 'string') {
+                                // ArenaSpectatorFight.fighters is string[] in the
+                                // client type; accept that plus the legacy
+                                // { name: string } shape for safety.
+                                if (typeof ff === 'string') {
+                                    names.push(ff);
+                                }
+                                else if (ff && typeof ff === 'object' && typeof ff.name === 'string') {
                                     names.push(String(ff.name));
                                 }
                             }
                         }
-                        return names.some((n) => n.toLowerCase().trim() === me);
-                    });
-                    if (!inAnyFight) {
+                        return names;
+                    }
+                    function listIncludesMe(list) {
+                        return list.some((f) => fighterNames(f).some((n) => n.toLowerCase().trim() === me));
+                    }
+                    const inNewList = listIncludesMe(fights);
+                    let inOldList = false;
+                    if (!inNewList) {
+                        const oldFights = await _storage_js_1.kv.get(ARENA_ACTIVE_FIGHTS_KEY);
+                        inOldList = Array.isArray(oldFights) ? listIncludesMe(oldFights) : false;
+                    }
+                    if (!inNewList && !inOldList) {
                         return res.status(403).json({ error: 'Actor must be one of the fighters to update the arena fight list.' });
                     }
                 }
@@ -166,6 +220,27 @@ async function handler(req, res) {
                 const { clanName, battle } = body;
                 if (!clanName)
                     return res.status(400).json({ error: 'Missing clanName.' });
+                // Membership gate: only members of the named clan (or admin)
+                // can write or delete its pet-battle slot. Previously this
+                // was wide open (the kind was in `openKinds`), so any
+                // anonymous caller could clobber any clan's battle slot.
+                if (!identity.admin) {
+                    try {
+                        const save = await _storage_js_1.kv.get(`save:${identity.name}`);
+                        const char = (save?.character ?? null);
+                        const myClan = String(char?.clan ?? '').trim();
+                        if (!myClan || myClan !== clanName.trim()) {
+                            return res.status(403).json({ error: 'Can only set the pet battle slot for your own clan.' });
+                        }
+                    }
+                    catch {
+                        return res.status(500).json({ error: 'Unable to verify clan membership.' });
+                    }
+                    // Rate limit so a member can't griefly thrash their own
+                    // clan's battle slot either.
+                    if (!(await (0, _ratelimit_js_1.enforceRateLimitKv)(req, res, 'clan-pet-battle-write', 10, 60_000, identity.name)))
+                        return;
+                }
                 const key = clanPetBattleKey(clanName);
                 if (battle == null) {
                     await _storage_js_1.kv.del(key);
@@ -176,7 +251,7 @@ async function handler(req, res) {
                 return res.status(200).json({ ok: true });
             }
             if (kind === 'weeklyBossOverride') {
-                if (!identity?.admin)
+                if (!identity.admin)
                     return res.status(403).json({ error: 'Admin only.' });
                 const { aiId } = body;
                 if (aiId) {

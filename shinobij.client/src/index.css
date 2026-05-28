@@ -5185,6 +5185,7 @@ button {
 
 body {
     background: linear-gradient(180deg, rgba(5, 7, 13, .22), rgba(5, 7, 13, .86)), radial-gradient(circle at 12% 10%, rgba(56, 189, 248, .18), transparent 28%), radial-gradient(circle at 88% 0%, rgba(248, 113, 113, .13), transparent 25%), url("/Shinobi-Journeys.png") center top / cover fixed;
+    background: linear-gradient(180deg, rgba(5, 7, 13, .22), rgba(5, 7, 13, .86)), radial-gradient(circle at 12% 10%, rgba(56, 189, 248, .18), transparent 28%), radial-gradient(circle at 88% 0%, rgba(248, 113, 113, .13), transparent 25%), image-set(url("/Shinobi-Journeys.webp") type("image/webp"), url("/Shinobi-Journeys.png") type("image/png")) center top / cover fixed;
 }
 
 .game {
@@ -5261,6 +5262,7 @@ body {
 
 .vn-stage {
     background: linear-gradient(180deg, rgba(9, 14, 28, .06), rgba(7, 9, 18, .78)), url("/Shinobi-Journeys.png") center / cover;
+    background: linear-gradient(180deg, rgba(9, 14, 28, .06), rgba(7, 9, 18, .78)), image-set(url("/Shinobi-Journeys.webp") type("image/webp"), url("/Shinobi-Journeys.png") type("image/png")) center / cover;
 }
 
     .vn-stage::after {
@@ -5391,6 +5393,7 @@ body {
     justify-items: center;
     isolation: isolate;
     background: linear-gradient(180deg, rgba(2, 6, 23, .08), rgba(2, 6, 23, .36) 58%, rgba(2, 6, 23, .82)), url("/Shinobi-Journeys.png") center / cover no-repeat;
+    background: linear-gradient(180deg, rgba(2, 6, 23, .08), rgba(2, 6, 23, .36) 58%, rgba(2, 6, 23, .82)), image-set(url("/Shinobi-Journeys.webp") type("image/webp"), url("/Shinobi-Journeys.png") type("image/png")) center / cover no-repeat;
 }
 
     .title-login-screen::before {

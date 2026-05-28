@@ -40,6 +40,28 @@ function normalizeSector(value: unknown, fallback = 40) {
     return Math.max(0, Math.floor(sector));
 }
 
+// Allowlist of character fields that may be persisted in presence. Anything
+// the client sends outside this set is dropped before write. This is both a
+// security defence (no fake stats/jutsu/inventory leaking into other players'
+// rosters) and a storage cost win — presence rows shrink from full-character
+// payloads (often 50KB+) to a few hundred bytes.
+const PRESENCE_CHARACTER_FIELDS = ['name', 'level', 'village', 'specialty', 'avatarImage'] as const;
+
+function sanitizeCharacterForPresence(input: unknown): Record<string, unknown> | null {
+    if (!input || typeof input !== 'object') return null;
+    const src = input as Record<string, unknown>;
+    const out: Record<string, unknown> = {};
+    for (const field of PRESENCE_CHARACTER_FIELDS) {
+        if (field in src) out[field] = src[field];
+    }
+    // Hard-cap avatarImage to keep one player from blowing up the KV row with
+    // a giant base64 blob. Avatars normally clock in well under this.
+    if (typeof out.avatarImage === 'string' && out.avatarImage.length > 200_000) {
+        out.avatarImage = '';
+    }
+    return out;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -110,10 +132,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ? Math.min(travelingUntil, now + MAX_TRAVEL_WINDOW_MS)
             : undefined;
 
+        // Whitelist the character payload before persisting. Combat endpoints
+        // re-fetch the authoritative save for stats — presence only needs to
+        // power display-side rosters/leaderboards.
+        const sanitizedCharacter = sanitizeCharacterForPresence(character)
+            ?? (existing?.character as Record<string, unknown> | undefined)
+            ?? null;
+
         const entry: PresenceEntry = {
             name,
             sector: entrySector,
-            character: character ?? existing?.character ?? null,
+            character: sanitizedCharacter,
             lastSeen: now,
             pendingAttacker: null,
             // Persist travel window so attack.ts / challenge.ts can reject mid-travel requests.

@@ -89,6 +89,6 @@ async function handler(req, res) {
     }
     catch (err) {
         console.error('[kv-proxy] error', op, err);
-        res.status(500).json({ error: String(err) });
+        res.status(500).json({ error: 'Internal server error.' });
     }
 }

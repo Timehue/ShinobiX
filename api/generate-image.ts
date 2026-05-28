@@ -2,6 +2,12 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { cors } from './_utils.js';
 import { authedPlayerOrAdmin } from './_auth.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
+import { kv } from './_storage.js';
+
+// Hard ceiling on OpenAI image spend per UTC day. At ~$0.04/image this caps
+// worst-case daily cost around $4 regardless of how many users or how
+// compromised any single account is.
+const DAILY_IMAGE_CAP = 100;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -18,6 +24,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // KV-backed so a stateless lambda hop can't reset the counter.
     const authedName = identity.admin ? null : (identity as { name: string }).name;
     if (!(await enforceRateLimitKv(req, res, 'generate-image', 2, 60_000, authedName))) return;
+
+    // Global daily ceiling — protects against runaway scripts or a leaked
+    // credential racking up an unbounded bill. Read-then-increment is not
+    // atomic in this KV layer, but a few-request overshoot at the boundary
+    // is acceptable for a 100-call cap.
+    const dayKey = `image-gen:daily:${new Date().toISOString().slice(0, 10)}`;
+    const used = Number((await kv.get<number>(dayKey)) ?? 0);
+    if (used >= DAILY_IMAGE_CAP) {
+        return res.status(429).json({
+            error: 'Daily image generation limit reached. Try again tomorrow.',
+            cap: DAILY_IMAGE_CAP,
+        });
+    }
+    // 48-hour TTL covers DST + clock-skew without leaving abandoned keys around.
+    await kv.set(dayKey, used + 1, { ex: 48 * 60 * 60 }).catch(() => { /* best effort */ });
 
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {

@@ -1,7 +1,9 @@
 # cPanel Deployment Guide — ShinobiX
 
+> **Status: inactive fallback.** As of the v1.0 launch, **Vercel is the active production target** (`vercel.json` + `api/` folder). The cPanel setup below remains documented as a working fallback in case Vercel becomes unviable. The Express server (`server.ts`) is missing ~17 routes that the client expects — see the `NOTE` block in `server.ts` for the list. If activating cPanel as primary, those handlers must be wired into `server.ts` first.
+
 Runs the Express API + React SPA on cPanel via Phusion Passenger (Node.js).
-No Vercel needed. Direct Postgres connection to Supabase cuts cold-start latency.
+Direct Postgres connection to Supabase cuts cold-start latency.
 
 ---
 

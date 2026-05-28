@@ -52,6 +52,9 @@ const join_js_1 = __importDefault(require("./api/ranked-queue/join.js"));
 const leave_js_1 = __importDefault(require("./api/ranked-queue/leave.js"));
 const kv_proxy_js_1 = __importDefault(require("./api/kv-proxy.js"));
 const migrate_kv_js_1 = __importDefault(require("./api/admin/migrate-kv.js"));
+const raid_start_js_1 = __importDefault(require("./api/missions/raid-start.js"));
+const treasury_transfer_js_1 = __importDefault(require("./api/village/treasury-transfer.js"));
+const save_snapshot_js_1 = __importDefault(require("./api/admin/save-snapshot.js"));
 // ─── App setup ───────────────────────────────────────────────────────────────
 const app = (0, express_1.default)();
 // Parse JSON bodies up to 50 MB (needed for saves that include base64 images).
@@ -68,17 +71,24 @@ const ALLOWED_ORIGINS = new Set([
     'http://localhost:3000',
     'http://127.0.0.1:5173',
 ]);
+// Mirror the safe-method allowlist from api/_utils.ts cors(). The old
+// version sent `*` for ANY method when no Origin was present, which is
+// strictly looser than the Vercel path (which only allows `*` for safe
+// methods). An unsafe method with no Origin gets no ACAO header now,
+// matching Vercel behaviour.
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 app.use((req, res, next) => {
     const origin = req.headers.origin ?? '';
+    const method = (req.method ?? 'GET').toUpperCase();
     if (origin && ALLOWED_ORIGINS.has(origin)) {
         res.setHeader('Access-Control-Allow-Origin', origin);
         res.setHeader('Vary', 'Origin');
     }
-    else if (!origin) {
+    else if (!origin && SAFE_METHODS.has(method)) {
         res.setHeader('Access-Control-Allow-Origin', '*');
     }
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-password, x-player-password, x-player-name, x-kv-token');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-password, x-player-password, x-player-name, x-kv-token, x-client-fp');
     if (req.method === 'OPTIONS') {
         res.status(200).end();
         return;
@@ -200,6 +210,26 @@ route('/ranked-queue/leave', leave_js_1.default);
 route('/kv/:op', kv_proxy_js_1.default);
 // Admin: migrate disk-routed keys from Supabase → disk overlay.
 route('/admin/migrate-kv', migrate_kv_js_1.default);
+// Missions — AI raid token mint (PvP raids cross-validate via PvpSession;
+// AI raids use this short-lived single-use token instead).
+route('/missions/raid-start', raid_start_js_1.default);
+// Village treasury — atomic Kage-gift endpoint that replaces the broken
+// 2-write client flow (deduct treasury + patch recipient).
+route('/village/treasury/transfer', treasury_transfer_js_1.default);
+// Admin: snapshot / list / restore a player save (90-day TTL). Survives
+// server-reset because the `save-snapshot:` prefix isn't matched by the
+// reset's `save:*` glob.
+route('/admin/save-snapshot', save_snapshot_js_1.default);
+// NOTE: Many other api/** handlers exist but are not yet routed here:
+//   - api/missions/{report-raid, report-pvp-win, report-pet-event, daily}
+//   - api/pvp/{chat, spectate, stream, claim-rewards, ranked-queue}
+//   - api/jutsu/{speedup, train-with-seals}
+//   - api/clan/** (all)
+//   - api/pet/battle-result
+//   - api/admin/moderation
+//   - api/weekly-boss, api/profession/choose
+// Vercel deploys hit them via the api/ folder convention; cPanel needs them
+// added here if cPanel becomes a primary deployment target.
 // ─── Static files (React SPA) ─────────────────────────────────────────────────
 // STATIC_DIR env var overrides the default so the same compiled server.js works
 // both in the repo (shinobij.client/dist) and in a manual cPanel upload (public/).

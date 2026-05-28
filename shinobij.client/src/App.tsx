@@ -5,6 +5,7 @@ import type * as React from "react";
 import "./index.css";
 import { installAuthFetch, setActivePlayer } from "./authFetch";
 import { GameAlertHost } from "./components/GameAlert";
+import { ToastHost, showToast } from "./components/Toast";
 import { subscribeKvKey, realtimeAvailable } from "./lib/realtime";
 
 // Install the global fetch interceptor once at module load. From here on,
@@ -6187,10 +6188,13 @@ export default function App() {
     const isTraveling = travelingUntil > travelNow;
 
     useEffect(() => {
-        if (!isTraveling) return;
-        const id = window.setInterval(() => setTravelNow(Date.now()), 250);
+        if (!isTraveling || !tabVisible) return;
+        // Sync immediately so the UI reflects real elapsed time the instant
+        // travel starts or the tab regains focus after being hidden.
+        setTravelNow(Date.now());
+        const id = window.setInterval(() => setTravelNow(Date.now()), 1000);
         return () => window.clearInterval(id);
-    }, [isTraveling]);
+    }, [isTraveling, tabVisible]);
 
     useEffect(() => {
         if (!character) return;
@@ -6896,12 +6900,33 @@ export default function App() {
         function stripImages(_k: string, v: unknown) {
             return typeof v === 'string' && v.startsWith('data:image') ? '' : v;
         }
-        const res = await fetch(`/api/save/${encodeURIComponent(name.toLowerCase())}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(buildPlayerSavePayload(characterToSave, overrides), stripImages),
-        });
-        if (!res.ok) throw new Error(`Server returned ${res.status}`);
+        try {
+            const res = await fetch(`/api/save/${encodeURIComponent(name.toLowerCase())}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(buildPlayerSavePayload(characterToSave, overrides), stripImages),
+            });
+            if (!res.ok) {
+                if (res.status === 409) {
+                    // Optimistic-concurrency conflict — another tab/device wrote
+                    // first. Telling the player to reload is the only safe
+                    // recovery; auto-merging could silently drop progress.
+                    showToast("⚠️ Game state changed in another tab. Reload to sync your save.");
+                } else {
+                    showToast(`⚠️ Save failed (server ${res.status}). Your last action may not have saved.`);
+                }
+                throw new Error(`Server returned ${res.status}`);
+            }
+        } catch (err) {
+            // Network failure or thrown above — surface a toast so the player
+            // notices, but re-throw so callers that wanted to react can still
+            // see the rejection.
+            if (err instanceof TypeError) {
+                // TypeError on fetch = network error (offline, DNS, CORS).
+                showToast("⚠️ Save failed — you may be offline. Reconnecting…");
+            }
+            throw err;
+        }
     }
 
     async function pullSaveFromServer(name: string): Promise<ReturnType<typeof buildPlayerSavePayload> | null> {
@@ -9741,6 +9766,7 @@ export default function App() {
             }}
         >
             <GameAlertHost />
+            <ToastHost />
             <div
                 className="app-background"
                 style={{ backgroundImage: `url(${backgroundImage})` }}
@@ -11824,7 +11850,7 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
         if (!hasActivePetTimer) return;
         const id = setInterval(() => setTick((t) => t + 1), 1000);
         return () => clearInterval(id);
-    }, [character.pets, tick]);
+    }, [character.pets]);
 
     function startTraining() {
         if (!selectedPet) return;
@@ -25542,10 +25568,10 @@ function CentralHub({
     ];
 
     const NAMED_ARMOR_SPECIALS: Array<{ kind: string; bonusKey: string; valueRoll: () => number }> = [
-        { kind: "Absorb",          bonusKey: "absorbPercent",    valueRoll: () => 10 + Math.floor(Math.random() * 11) },         // 10 – 20 %
+        { kind: "Absorb",          bonusKey: "absorbPercent",    valueRoll: () => +(0.75 + Math.random() * 0.75).toFixed(2) },   // 0.75 – 1.50 %
         { kind: "Shield",          bonusKey: "shield",           valueRoll: () => 75 + Math.floor(Math.random() * 76) },         // 75 – 150 HP
-        { kind: "Reflect",         bonusKey: "reflectPercent",   valueRoll: () => 10 + Math.floor(Math.random() * 11) },         // 10 – 20 %
-        { kind: "Life Steal",      bonusKey: "lifeStealPercent", valueRoll: () => 10 + Math.floor(Math.random() * 11) },         // 10 – 20 %
+        { kind: "Reflect",         bonusKey: "reflectPercent",   valueRoll: () => +(0.75 + Math.random() * 0.75).toFixed(2) },   // 0.75 – 1.50 %
+        { kind: "Life Steal",      bonusKey: "lifeStealPercent", valueRoll: () => +(0.75 + Math.random() * 0.75).toFixed(2) },   // 0.75 – 1.50 %
         { kind: "Increase Damage", bonusKey: "damagePercent",    valueRoll: () => +(0.75 + Math.random() * 0.75).toFixed(2) },   // 0.75 – 1.50 %
     ];
 
@@ -26515,10 +26541,10 @@ function CentralHub({
                                                 <div className="nwo-section nwo-section-wide">
                                                     <div className="nwo-label">Special Effect (each {(100 / NAMED_ARMOR_SPECIALS.length).toFixed(1)}% to roll)</div>
                                                     <div className="nwo-rows">
-                                                        <div className="nwo-row"><span>🛡 Absorb</span><span className="nwo-pct">10–20%</span></div>
+                                                        <div className="nwo-row"><span>🛡 Absorb</span><span className="nwo-pct">0.75–1.50%</span></div>
                                                         <div className="nwo-row"><span>🔰 Shield</span><span className="nwo-pct">+75 to +150 HP</span></div>
-                                                        <div className="nwo-row"><span>↩️ Reflect</span><span className="nwo-pct">10–20%</span></div>
-                                                        <div className="nwo-row"><span>🩸 Life Steal</span><span className="nwo-pct">10–20%</span></div>
+                                                        <div className="nwo-row"><span>↩️ Reflect</span><span className="nwo-pct">0.75–1.50%</span></div>
+                                                        <div className="nwo-row"><span>🩸 Life Steal</span><span className="nwo-pct">0.75–1.50%</span></div>
                                                         <div className="nwo-row"><span>💥 Increase Damage</span><span className="nwo-pct">0.75–1.50%</span></div>
                                                     </div>
                                                 </div>
