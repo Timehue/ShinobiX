@@ -202,7 +202,15 @@
     margin: 0 !important;
 }
 .arena-fullscreen .timeline-round {
-    border-top: 1px solid rgba(196,162,90,0.08);
+    /* The base index.css rule paints this a near-white pastel
+       (`rgba(248,250,252,.7)`) for the day theme. Inside the arena we
+       want the navy `.combat-text-log` gradient to show through —
+       otherwise the new near-white body text becomes invisible. */
+    background: transparent !important;
+    border: none !important;
+    border-top: 1px solid rgba(196,162,90,0.08) !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
     padding: 4px 0 !important;
 }
 .arena-fullscreen .timeline-round:first-child { border-top: none; }
