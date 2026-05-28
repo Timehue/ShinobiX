@@ -18,13 +18,14 @@ import {
     petTrainingOptions,
     getActiveAuraSphereBonuses,
     dailyMissionsCompleted,
+    dailyHuntsCompleted,
     xpNeeded,
     gainXp,
 } from "../App";
 import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
 import type { ActiveTraining, ActiveJutsuTraining } from "../types/combat";
-import { DAILY_MISSION_LIMIT, MAX_LEVEL } from "../constants/game";
+import { DAILY_MISSION_LIMIT, DAILY_HUNT_LIMIT, MAX_LEVEL } from "../constants/game";
 import { formatPetTimer } from "../lib/utils";
 import { petDisplayName } from "../lib/pet";
 
@@ -124,6 +125,10 @@ export const LeftProfileCard = memo(function LeftProfileCard({
                     <div className="left-caps-cell">
                         <span className="left-caps-label">📜 Missions</span>
                         <span className="left-caps-value" style={{ color: dailyMissionsCompleted(character) >= DAILY_MISSION_LIMIT ? "#ef4444" : "#fcd34d" }}>{dailyMissionsCompleted(character)}/{DAILY_MISSION_LIMIT}</span>
+                    </div>
+                    <div className="left-caps-cell">
+                        <span className="left-caps-label">🎯 Hunts</span>
+                        <span className="left-caps-value" style={{ color: dailyHuntsCompleted(character) >= DAILY_HUNT_LIMIT ? "#ef4444" : "#fcd34d" }}>{dailyHuntsCompleted(character)}/{DAILY_HUNT_LIMIT}</span>
                     </div>
                     <div className="left-caps-cell">
                         <span className="left-caps-label">🎰 Fate Spins</span>

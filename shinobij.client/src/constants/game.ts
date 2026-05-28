@@ -55,6 +55,9 @@ export const ANIMATED_MAX_MB = 2;
 
 // ── Misc gameplay tuning ─────────────────────────────────────────────────
 export const DAILY_MISSION_LIMIT = 20;
+// Hunter Guild contracts have their own daily pool, separate from the
+// mission limit above — a player gets 20 missions AND 20 hunts per day.
+export const DAILY_HUNT_LIMIT = 20;
 
 // ── Item IDs (special / shared) ──────────────────────────────────────────
 export const WEEKLY_BOSS_CORE_ID = "weekly-boss-core";
