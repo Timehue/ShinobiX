@@ -218,6 +218,11 @@ export type Character = {
     lastBankInterestAt?: number;
     dailyTilesExplored?: number;
     dailyMissionsCompleted?: number;
+    // Hunter Guild contracts claimed today. Capped at DAILY_HUNT_LIMIT and
+    // reset off its own key (lastHuntReset) so it never collides with the
+    // mission counter's rollover.
+    dailyHuntsCompleted?: number;
+    lastHuntReset?: string;
     dailyFateSpins?: number;
     dailyAiKills?: number;
     dailyPetWins?: number;
