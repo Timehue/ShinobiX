@@ -11096,6 +11096,7 @@ export default function App() {
                         setPvpBattleId={setPvpBattleId}
                         setPvpRole={setPvpRole}
                         setPvpBattleContext={setPvpBattleContext}
+                        setPvpSeedSession={setPvpSeedSession}
                         savedBloodlines={savedBloodlines}
                         creatorJutsus={creatorJutsus}
                         creatorItems={creatorItems}
@@ -15370,14 +15371,29 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerReservePet
 
     return (
         <section className="pet-arena-battlefield">
-            {/* Pre-fight face-off overlay */}
+            {/* Pre-fight face-off overlay — sprites flank the VS badge for a
+                cinematic intro instead of a bare text "Pet A VS Pet B" line.
+                Sliding-in avatars + a tagline make the start of a fight feel
+                like an actual event. The overlay's existing 1.4s fade keeps
+                it from blocking the battle. */}
             {frame?.isPrefight && (
                 <div className="pet-prefight-overlay">
                     <div className="pet-prefight-vs">
-                        <div className="pet-prefight-name player">{playerPet.name}</div>
+                        <div className="pet-prefight-side player">
+                            <div className="pet-prefight-portrait">
+                                <PetBattleAvatar pet={playerPet} side="player" active sharedImages={sharedImages} />
+                            </div>
+                            <div className="pet-prefight-name player">{playerPet.name}</div>
+                        </div>
                         <span className="pet-prefight-vs-label">VS</span>
-                        <div className="pet-prefight-name enemy">{enemyPet.name}</div>
+                        <div className="pet-prefight-side enemy">
+                            <div className="pet-prefight-portrait">
+                                <PetBattleAvatar pet={enemyPet} side="enemy" active sharedImages={sharedImages} />
+                            </div>
+                            <div className="pet-prefight-name enemy">{enemyPet.name}</div>
+                        </div>
                     </div>
+                    <div className="pet-prefight-tagline">Begin!</div>
                 </div>
             )}
 
@@ -15503,17 +15519,24 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerReservePet
                         // 4-pet mode: build a position→pet map covering all
                         // living party members. 1v1 mode keeps the old 2-pet
                         // layout via playerPos / enemyPos.
-                        type GridPet = { pet: Pet; side: "player" | "enemy"; ko: boolean; isActor: boolean };
+                        // isTarget flags the pet receiving an incoming hit
+                        // so PetBattleAvatar can play the recoil/flash. For
+                        // 2v2 the simulator names a slot via party4v4.targetSlot;
+                        // for 1v1 the target is just the opposite side of the
+                        // actor on damage-class actions.
+                        const HIT_ACTIONS = new Set(["damage", "basic", "dot", "lifesteal"] as const);
+                        const isHitFrame = !!frame?.actionKind && (HIT_ACTIONS as Set<string>).has(frame.actionKind);
+                        type GridPet = { pet: Pet; side: "player" | "enemy"; ko: boolean; isActor: boolean; isTarget: boolean };
                         const positionMap = new Map<number, GridPet>();
                         if (frame?.party4v4) {
                             const p4 = frame.party4v4;
-                            if (playerPet         && !p4.playerLead.ko)    positionMap.set(p4.playerLead.pos,    { pet: playerPet,        side: "player", ko: false, isActor: p4.actorSlot === "playerLead" });
-                            if (playerReservePet  && !p4.playerReserve.ko) positionMap.set(p4.playerReserve.pos, { pet: playerReservePet, side: "player", ko: false, isActor: p4.actorSlot === "playerReserve" });
-                            if (enemyPet          && !p4.enemyLead.ko)     positionMap.set(p4.enemyLead.pos,     { pet: enemyPet,         side: "enemy",  ko: false, isActor: p4.actorSlot === "enemyLead" });
-                            if (enemyReservePet   && !p4.enemyReserve.ko)  positionMap.set(p4.enemyReserve.pos,  { pet: enemyReservePet,  side: "enemy",  ko: false, isActor: p4.actorSlot === "enemyReserve" });
+                            if (playerPet         && !p4.playerLead.ko)    positionMap.set(p4.playerLead.pos,    { pet: playerPet,        side: "player", ko: false, isActor: p4.actorSlot === "playerLead",    isTarget: isHitFrame && p4.targetSlot === "playerLead" });
+                            if (playerReservePet  && !p4.playerReserve.ko) positionMap.set(p4.playerReserve.pos, { pet: playerReservePet, side: "player", ko: false, isActor: p4.actorSlot === "playerReserve", isTarget: isHitFrame && p4.targetSlot === "playerReserve" });
+                            if (enemyPet          && !p4.enemyLead.ko)     positionMap.set(p4.enemyLead.pos,     { pet: enemyPet,         side: "enemy",  ko: false, isActor: p4.actorSlot === "enemyLead",     isTarget: isHitFrame && p4.targetSlot === "enemyLead" });
+                            if (enemyReservePet   && !p4.enemyReserve.ko)  positionMap.set(p4.enemyReserve.pos,  { pet: enemyReservePet,  side: "enemy",  ko: false, isActor: p4.actorSlot === "enemyReserve",  isTarget: isHitFrame && p4.targetSlot === "enemyReserve" });
                         } else {
-                            positionMap.set(playerPos, { pet: playerPet, side: "player", ko: false, isActor: frame?.actor === "player" });
-                            positionMap.set(enemyPos,  { pet: enemyPet,  side: "enemy",  ko: false, isActor: frame?.actor === "enemy" });
+                            positionMap.set(playerPos, { pet: playerPet, side: "player", ko: false, isActor: frame?.actor === "player", isTarget: isHitFrame && frame?.actor === "enemy" });
+                            positionMap.set(enemyPos,  { pet: enemyPet,  side: "enemy",  ko: false, isActor: frame?.actor === "enemy",  isTarget: isHitFrame && frame?.actor === "player" });
                         }
                         return Array.from({ length: PET_GRID_SIZE }, (_, index) => {
                             const here = positionMap.get(index);
@@ -15540,7 +15563,13 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerReservePet
                                             <em />
                                         </span>
                                     )}
-                                    {here && <PetBattleAvatar pet={here.pet} side={here.side} active={here.isActor} status={here.side === "player" ? frame?.playerStatus : frame?.enemyStatus} sharedImages={sharedImages} />}
+                                    {/* Per-frame key forces a fresh mount each tick so the
+                                        CSS lunge / hit animations restart cleanly on every
+                                        successive blow — without this, two back-to-back
+                                        damage frames against the same target would only
+                                        animate once (CSS quirk: animation-name doesn't
+                                        restart when the same class persists). */}
+                                    {here && <PetBattleAvatar key={`${here.pet.id}-${frame?.message ?? "idle"}`} pet={here.pet} side={here.side} active={here.isActor} hit={here.isTarget} status={here.side === "player" ? frame?.playerStatus : frame?.enemyStatus} sharedImages={sharedImages} />}
                                 </div>
                             );
                         });
@@ -27610,6 +27639,7 @@ function WorldMap({
     setPvpBattleId,
     setPvpRole,
     setPvpBattleContext,
+    setPvpSeedSession,
     savedBloodlines,
     creatorJutsus: wmCreatorJutsus,
     creatorItems: wmCreatorItems,
@@ -27647,6 +27677,7 @@ function WorldMap({
     setPvpBattleId: (id: string) => void;
     setPvpRole: (role: "p1" | "p2") => void;
     setPvpBattleContext: (context: SharedPvpBattleContext | null) => void;
+    setPvpSeedSession: (session: PvpSessionState | null) => void;
     savedBloodlines: SavedBloodline[];
     creatorJutsus: Jutsu[];
     creatorItems: GameItem[];
