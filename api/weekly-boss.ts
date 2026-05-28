@@ -137,21 +137,22 @@ async function buildFreshBossState(weekKey: string): Promise<WeeklyBossState | n
 }
 
 async function loadOrInitBoss(): Promise<WeeklyBossState | null> {
-    const currentWeek = isoWeekKey();
+    // ⚠ Admin-only spawn model: the boss is NEVER auto-created here.
+    // Previously this function would auto-build a fresh boss whenever
+    // no state existed for the current ISO week, but the project owner
+    // wants full control over cadence — they decide "what's been a week"
+    // and trigger spawns via POST { kind: "reset" } from the admin panel.
+    // GET requests therefore return whatever state is in KV (or null if
+    // no boss has ever been spawned).
     const existing = await kv.get<WeeklyBossState>(WEEKLY_BOSS_STATE_KEY);
-    if (existing && existing.weekKey === currentWeek) {
-        // Old saves predate expiresAt — backfill so the despawn logic has
-        // something to compare against. Treats any pre-expiresAt boss as if
-        // it started at its recorded startedAt.
-        if (!existing.expiresAt) {
-            existing.expiresAt = (existing.startedAt ?? Date.now()) + WEEKLY_BOSS_LIFETIME_MS;
-        }
-        return existing;
+    if (!existing) return null;
+    // Old saves predate expiresAt — backfill so the despawn logic has
+    // something to compare against. Treats any pre-expiresAt boss as if
+    // it started at its recorded startedAt.
+    if (!existing.expiresAt) {
+        existing.expiresAt = (existing.startedAt ?? Date.now()) + WEEKLY_BOSS_LIFETIME_MS;
     }
-    // Either no boss yet, or last boss was a different week → reset.
-    const fresh = await buildFreshBossState(currentWeek);
-    if (fresh) await kv.set(WEEKLY_BOSS_STATE_KEY, fresh);
-    return fresh;
+    return existing;
 }
 
 // Distribute rewards once 24h has elapsed. Idempotent: rewardsDistributed
@@ -267,7 +268,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const { kind, weekKey, amount } = body as { kind?: string; weekKey?: string; amount?: number };
 
             let boss = await loadOrInitBoss();
-            if (!boss) return res.status(409).json({ error: 'No boss available — admin must set weeklyBossOverride.' });
+            if (!boss) return res.status(409).json({ error: 'No boss is currently spawned. An admin needs to hit "Spawn Now" in the admin panel.' });
             if (weekKey && weekKey !== boss.weekKey) return res.status(409).json({ error: 'Stale week — boss has reset.' });
 
             // Auto-despawn + distribute. Any POST after the 24h mark
