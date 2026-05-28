@@ -192,8 +192,13 @@
 .arena-fullscreen .combat-text-log p,
 .arena-fullscreen .combat-text-log .timeline-entry {
     padding: 4px 14px !important;
-    font: 400 11px/1.4 'Inter', system-ui, sans-serif !important;
-    color: #c8cfdc !important;
+    /* Weight 500 + near-white color reads much cleaner against the navy
+       background than the previous 400 / #c8cfdc combo, which had ~3.8:1
+       contrast and faded into the gradient. Colored FX lines (damage/heal/
+       shield/effect) keep their own colors below — only the neutral
+       narration lines pick this up. */
+    font: 500 12px/1.45 'Inter', system-ui, sans-serif !important;
+    color: #f1f5f9 !important;
     margin: 0 !important;
 }
 .arena-fullscreen .timeline-round {
@@ -332,15 +337,18 @@
     color: #fca5a5 !important;
 }
 .arena-fullscreen .timeline-fx {
-    font: 400 11px/1.45 'Inter', system-ui, sans-serif !important;
+    /* Match the bump to body text — slightly larger and bolder so the
+       narration is legible without dominating the colored FX lines below. */
+    font: 500 12px/1.45 'Inter', system-ui, sans-serif !important;
     padding: 1px 0 1px 14px !important;
     margin: 0 !important;
-    color: #c8cfdc !important;
+    color: #f1f5f9 !important;
 }
-.arena-fullscreen .timeline-fx-damage { color: #fca5a5 !important; }
-.arena-fullscreen .timeline-fx-heal   { color: #86efac !important; }
-.arena-fullscreen .timeline-fx-shield { color: #93c5fd !important; }
-.arena-fullscreen .timeline-fx-effect { color: #d8b4fe !important; }
+/* Colored FX lines get weight 600 so they pop against the new brighter base. */
+.arena-fullscreen .timeline-fx-damage { color: #fca5a5 !important; font-weight: 600 !important; }
+.arena-fullscreen .timeline-fx-heal   { color: #86efac !important; font-weight: 600 !important; }
+.arena-fullscreen .timeline-fx-shield { color: #93c5fd !important; font-weight: 600 !important; }
+.arena-fullscreen .timeline-fx-effect { color: #d8b4fe !important; font-weight: 600 !important; }
 
 /* =========================================================================
    Battle Skin v2 - Final cleanup pass
