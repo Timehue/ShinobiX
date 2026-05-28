@@ -16,6 +16,9 @@ type WeeklyBossLb = {
     hpRemaining: number;
     hpMax: number;
     damageByPlayer?: Record<string, number>;
+    startedAt?: number;
+    expiresAt?: number;
+    rewardsDistributed?: boolean;
 };
 
 export 
@@ -224,24 +227,45 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
                 )}
                 {tab === "weeklyBoss" && (
                     <>
-                        <p className="hol-board-label">Weekly Boss — Top Damage Dealers</p>
+                        <p className="hol-board-label">Weekly Boss — Top 25 Damage Dealers</p>
                         {!weeklyBoss
                             ? <p className="hol-empty">Loading weekly boss…</p>
                             : (
                                 <>
                                     <div style={{ marginBottom: "0.6rem", padding: "0.5rem", background: "#0a0a1a", borderRadius: 6 }}>
-                                        <strong>{weeklyBoss.bossName ?? "Weekly Boss"}</strong> ({weeklyBoss.weekKey}) — {weeklyBoss.hpRemaining.toLocaleString()} / {weeklyBoss.hpMax.toLocaleString()} HP
+                                        <strong>{weeklyBoss.bossName ?? "Weekly Boss"}</strong> ({weeklyBoss.weekKey})
+                                        {(() => {
+                                            // Countdown to despawn (24h after spawn). Falls back
+                                            // to startedAt+24h if expiresAt isn't set in legacy
+                                            // payloads. Refreshes on tab visit (no interval) —
+                                            // good enough for a leaderboard tab.
+                                            const nowMs = Date.now();
+                                            const expiresAt = weeklyBoss.expiresAt ?? ((weeklyBoss.startedAt ?? nowMs) + 24 * 60 * 60 * 1000);
+                                            const ms = Math.max(0, expiresAt - nowMs);
+                                            if (weeklyBoss.rewardsDistributed || ms <= 0) return <span style={{ marginLeft: 8, color: "#94a3b8" }}>· Despawned</span>;
+                                            const h = Math.floor(ms / 3_600_000);
+                                            const m = Math.floor((ms % 3_600_000) / 60_000);
+                                            return <span style={{ marginLeft: 8, color: "#facc15" }}>· {h}h {m}m to despawn</span>;
+                                        })()}
                                     </div>
+                                    <p className="hint" style={{ fontSize: "0.78rem", margin: "0 0 0.4rem" }}>
+                                        Top 10 receive a Weekly Boss Core · Top 25 receive a Dungeon Key · MVP also gets 2× ryo/XP.
+                                    </p>
                                     {Object.entries(weeklyBoss.damageByPlayer ?? {})
                                         .sort(([, a], [, b]) => (b as number) - (a as number))
-                                        .slice(0, 10)
+                                        .slice(0, 25)
                                         .map(([name, dmg], i) => {
                                             // damageByPlayer keys come from the server with mixed
                                             // casing; the prior compare missed every time and the
                                             // village suffix never rendered. Lowercase both sides.
                                             const playerChar = all.find(c => c.name.toLowerCase() === name.toLowerCase());
+                                            const tierSuffix = i === 0
+                                                ? " dmg · 👑 MVP"
+                                                : i < 10
+                                                    ? " dmg · 💠 core"
+                                                    : " dmg · 🗝 key";
                                             return (
-                                                <Row key={name} rank={i + 1} name={playerChar?.name ?? name} value={dmg as number} suffix=" dmg" village={playerChar?.village} />
+                                                <Row key={name} rank={i + 1} name={playerChar?.name ?? name} value={dmg as number} suffix={tierSuffix} village={playerChar?.village} />
                                             );
                                         })
                                     }
