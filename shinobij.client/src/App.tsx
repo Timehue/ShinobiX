@@ -25947,24 +25947,9 @@ function CentralHub({
         return character.inventory.filter((id) => id === itemId).length;
     }
 
-    function _claimWeeklyBoss() {
-        const schedule = weeklyBossSchedule(character, Date.now(), weeklyBossOverrideAi);
-        if (schedule.status === "defeated") return alert("You already defeated this week's boss.");
-        if (schedule.status === "dormant") return alert(`The weekly boss has not spawned yet. Spawn: ${new Date(schedule.startsAt).toLocaleString()}.`);
-        if (schedule.status === "escaped") return alert("This week's boss has escaped.");
-        if (character.level < 40) return alert("Weekly bosses require level 40.");
-        if (character.hp <= 0) return alert("You need to heal before challenging the weekly boss.");
-        const rewards = [WEEKLY_BOSS_CORE_ID];
-        if (Math.random() < 0.5) rewards.push(DUNGEON_KEY_ID);
-        updateCharacter({
-            ...addInventoryItems(character, rewards),
-            weeklyBossKills: { ...(character.weeklyBossKills ?? {}), [schedule.weekKey]: schedule.bossId },
-            ryo: character.ryo + 1500,
-            auraDust: (character.auraDust ?? 0) + 10,
-        });
-        alert(`${schedule.bossName} defeated. +1 Weekly Boss Core, +1,500 ryo, +10 Aura Dust${rewards.includes(DUNGEON_KEY_ID) ? ", +1 Dungeon Key" : ""}.`);
-    }
-    void _claimWeeklyBoss;
+    // Rewards are auto-distributed by the weekly-boss API at the 24h
+    // despawn (top 10 → core, top 25 → key, all contributors → ryo/xp
+    // share with MVP 2× bonus). No client-side claim handler is needed.
 
     // Legendary weapons accept Warforged Relic OR Veil of the Hollow as
     // the third relic — so players who never won a war (Warforged source)
@@ -26102,7 +26087,7 @@ function CentralHub({
         {
             name: "Weekly Boss",
             icon: "👹",
-            text: "Server-wide boss with shared HP. Deal damage to earn a share of the kill reward — MVP gets double.",
+            text: "Server-wide rampage — boss has unlimited HP and despawns in 24h. Top 10 by damage earn a Weekly Boss Core, top 25 earn a Dungeon Key, MVP gets 2× ryo + XP.",
             action: () => setScreen("weeklyBoss"),
         },
         {
@@ -36438,12 +36423,28 @@ function WeeklyBossArena({
         );
     }
 
-    const hpPct = Math.max(0, Math.min(100, (bossState.hpRemaining / Math.max(1, bossState.hpMax)) * 100));
-    const dead = bossState.hpRemaining <= 0;
-    const myDamage = bossState.damageByPlayer?.[character.name.toLowerCase()] ?? 0;
-    const top = Object.entries(bossState.damageByPlayer ?? {})
-        .sort(([, a], [, b]) => (b as number) - (a as number))
-        .slice(0, 10);
+    const nowMs = Date.now();
+    const expiresAt = bossState.expiresAt ?? ((bossState.startedAt ?? nowMs) + 24 * 60 * 60 * 1000);
+    const msToDespawn = Math.max(0, expiresAt - nowMs);
+    const expired = bossState.rewardsDistributed || msToDespawn <= 0;
+    const myKey = character.name.toLowerCase();
+    const myDamage = bossState.damageByPlayer?.[myKey] ?? 0;
+    const sortedEntries = Object.entries(bossState.damageByPlayer ?? {})
+        .sort(([, a], [, b]) => (b as number) - (a as number));
+    const top25 = sortedEntries.slice(0, 25);
+    const myRank = sortedEntries.findIndex(([n]) => n === myKey);
+    const myRankDisplay = myRank >= 0 ? myRank + 1 : null;
+    const mySummary = bossState.distributionSummary?.find(e => e.name === myKey);
+
+    // hh:mm:ss countdown to despawn. Re-renders every interval via the
+    // existing refresh() poll (15s); even between polls the countdown
+    // calc above re-evaluates whenever React re-renders for any reason.
+    const hours = Math.floor(msToDespawn / 3_600_000);
+    const minutes = Math.floor((msToDespawn % 3_600_000) / 60_000);
+    const seconds = Math.floor((msToDespawn % 60_000) / 1000);
+    const countdown = expired
+        ? "Despawned"
+        : `${hours}h ${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s`;
 
     return (
         <div className="card" style={{ maxWidth: 820, margin: "1rem auto", padding: "1.4rem" }}>
@@ -36451,22 +36452,36 @@ function WeeklyBossArena({
             <p style={{ color: "#94a3b8", marginTop: 0 }}>Week: <strong>{bossState.weekKey}</strong></p>
             {error && <div style={{ color: "#f87171", marginBottom: "0.5rem" }}>⚠ {error}</div>}
             <div style={{ background: "#1a1a2e", border: "1px solid #f87171", borderRadius: 8, padding: "0.8rem", margin: "0.8rem 0" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                     <strong style={{ color: "#f87171" }}>{bossState.bossName ?? "Weekly Boss"}</strong>
-                    <span>{bossState.hpRemaining.toLocaleString()} / {bossState.hpMax.toLocaleString()} HP</span>
+                    <span style={{ fontFamily: "monospace", color: expired ? "#94a3b8" : "#facc15" }}>
+                        {expired ? "🪦 Despawned" : `⏱ ${countdown}`}
+                    </span>
                 </div>
-                <div style={{ background: "#0a0a1a", borderRadius: 6, overflow: "hidden", height: 18 }}>
-                    <div style={{ width: `${hpPct}%`, height: "100%", background: "linear-gradient(90deg,#dc2626,#7f1d1d)" }} />
-                </div>
+                <p className="hint" style={{ margin: 0, fontSize: "0.78rem" }}>
+                    The boss has no HP cap — it rampages for 24 hours, then despawns. Damage as much as you can to
+                    climb the leaderboard before the timer hits zero.
+                </p>
             </div>
-            <p>Your damage this week: <strong style={{ color: "#facc15" }}>{myDamage.toLocaleString()}</strong></p>
+            <p>
+                Your damage: <strong style={{ color: "#facc15" }}>{myDamage.toLocaleString()}</strong>
+                {myRankDisplay !== null && (
+                    <span style={{ color: "#94a3b8", marginLeft: "0.5rem" }}>· Rank #{myRankDisplay}</span>
+                )}
+            </p>
+            <div style={{ background: "rgba(15,23,42,0.5)", border: "1px solid rgba(250,204,21,0.25)", borderRadius: 6, padding: "0.5rem 0.7rem", margin: "0.4rem 0", fontSize: "0.82rem" }}>
+                <div>🏆 <strong>Rewards at despawn</strong></div>
+                <div>· Top 10 by damage → <strong style={{ color: "#facc15" }}>1 Weekly Boss Core</strong> each</div>
+                <div>· Top 25 by damage → <strong style={{ color: "#60a5fa" }}>1 Dungeon Key</strong> each</div>
+                <div>· Every contributor → ryo + XP share by damage (MVP = top 1 gets <strong>×2</strong>)</div>
+            </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.6rem", marginTop: "0.6rem" }}>
                 <button
-                    disabled={dead || attacking || (character.stamina ?? 0) < 20}
-                    style={{ padding: "0.8rem", background: dead ? "#333" : "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171", fontWeight: 700, opacity: dead || attacking ? 0.6 : 1 }}
+                    disabled={expired || attacking || (character.stamina ?? 0) < 20}
+                    style={{ padding: "0.8rem", background: expired ? "#333" : "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171", fontWeight: 700, opacity: expired || attacking ? 0.6 : 1 }}
                     onClick={attackBoss}
                 >
-                    {dead ? "💀 Boss Defeated" : attacking ? "Attacking…" : `⚔ Attack (20 stamina)`}
+                    {expired ? "🪦 Despawned" : attacking ? "Attacking…" : `⚔ Attack (20 stamina)`}
                 </button>
                 <button className="back-btn" onClick={() => setScreen("centralHub")}>× Back</button>
             </div>
@@ -36475,56 +36490,82 @@ function WeeklyBossArena({
                     {combatLog.map((line, i) => <div key={i} style={{ color: "#facc15" }}>{line}</div>)}
                 </div>
             )}
-            <h3 style={{ marginTop: "1.2rem" }}>Top Contributors</h3>
+            <h3 style={{ marginTop: "1.2rem" }}>Top 25 Contributors</h3>
             <div style={{ display: "grid", gap: 4 }}>
-                {top.length === 0 && <em style={{ color: "#64748b" }}>No damage dealt yet.</em>}
-                {top.map(([name, dmg], i) => {
+                {top25.length === 0 && <em style={{ color: "#64748b" }}>No damage dealt yet.</em>}
+                {top25.map(([name, dmg], i) => {
                     const player = playerRoster.find(p => p.name.toLowerCase() === name);
+                    // Tier coloring: MVP gold (rank 1), top-10 core tier (ranks 2-10),
+                    // top-25 key tier (ranks 11-25). Self gets a subtle outline.
+                    const isMvp = i === 0;
+                    const inCoreTier = i < 10;
+                    const inKeyTier = i < 25;
+                    const isMe = name === myKey;
+                    const bg = isMvp
+                        ? "rgba(250,204,21,0.18)"
+                        : inCoreTier
+                            ? "rgba(250,204,21,0.07)"
+                            : inKeyTier
+                                ? "rgba(96,165,250,0.07)"
+                                : "transparent";
+                    const tierLabel = isMvp
+                        ? "👑 MVP · core + key"
+                        : inCoreTier
+                            ? "💠 core + key"
+                            : inKeyTier
+                                ? "🗝 key"
+                                : "";
                     return (
-                        <div key={name} style={{ display: "flex", justifyContent: "space-between", padding: "0.3rem 0.5rem", background: i === 0 ? "rgba(250,204,21,0.1)" : "transparent", borderRadius: 4 }}>
-                            <span>#{i + 1} {player?.name ?? name} {player?.village ? `(${player.village})` : ""}</span>
+                        <div
+                            key={name}
+                            style={{
+                                display: "grid",
+                                gridTemplateColumns: "auto 1fr auto auto",
+                                gap: 8,
+                                padding: "0.3rem 0.55rem",
+                                background: bg,
+                                outline: isMe ? "1px solid rgba(74,222,128,0.45)" : undefined,
+                                borderRadius: 4,
+                                alignItems: "center",
+                            }}
+                        >
+                            <span style={{ color: "#94a3b8", fontSize: "0.85rem" }}>#{i + 1}</span>
+                            <span>{player?.name ?? name} {player?.village ? <span style={{ color: "#94a3b8", fontSize: "0.78rem" }}>· {player.village}</span> : null}</span>
+                            <small style={{ color: "#cbd5e1", fontSize: "0.72rem" }}>{tierLabel}</small>
                             <strong>{(dmg as number).toLocaleString()}</strong>
                         </div>
                     );
                 })}
             </div>
-            {dead && bossState.lastKillRewardedAt && bossState.killRewardedTo?.includes(character.name.toLowerCase()) && (
-                <p style={{ color: "#4ade80", marginTop: "0.8rem" }}>✓ Rewards already claimed for this kill.</p>
+            {expired && mySummary && (
+                <div style={{ background: "rgba(15,118,110,0.18)", border: "1px solid rgba(74,222,128,0.4)", borderRadius: 6, padding: "0.6rem 0.8rem", margin: "0.8rem 0 0.4rem", fontSize: "0.85rem" }}>
+                    <strong style={{ color: "#4ade80" }}>✓ Rewards distributed.</strong> You earned:
+                    <ul style={{ margin: "4px 0 0 18px" }}>
+                        <li>+{mySummary.ryo.toLocaleString()} ryo · +{mySummary.xp.toLocaleString()} XP{mySummary.isMvp ? " (MVP ×2)" : ""}</li>
+                        {mySummary.gotCore && <li>+1 Weekly Boss Core (top 10)</li>}
+                        {mySummary.gotKey && <li>+1 Dungeon Key (top 25)</li>}
+                    </ul>
+                </div>
             )}
-            {dead && !bossState.killRewardedTo?.includes(character.name.toLowerCase()) && myDamage > 0 && (
-                <button
-                    style={{ marginTop: "0.8rem", padding: "0.8rem", background: "linear-gradient(#1a3a1a,#0a2010)", borderColor: "#4ade80", fontWeight: 700 }}
-                    onClick={async () => {
-                        try {
-                            const r = await fetch("/api/weekly-boss", {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ kind: "claim", weekKey: bossState.weekKey }),
-                            });
-                            const data = await r.json();
-                            if (data?.reward) {
-                                updateCharacter({
-                                    ...character,
-                                    ryo: (character.ryo ?? 0) + (data.reward.ryo ?? 0),
-                                    xp: (character.xp ?? 0) + (data.reward.xp ?? 0),
-                                    weeklyBossKills: { ...(character.weeklyBossKills ?? {}), [bossState.weekKey]: new Date().toISOString() },
-                                });
-                                alert(`Claimed: ${data.reward.ryo} ryo, ${data.reward.xp} xp${data.reward.isMvp ? " — MVP bonus!" : ""}`);
-                                await refresh();
-                            } else if (data?.error) {
-                                setError(data.error);
-                            }
-                        } catch (e) {
-                            setError(String((e as Error).message || e));
-                        }
-                    }}
-                >
-                    💰 Claim Rewards
-                </button>
+            {expired && !mySummary && myDamage > 0 && (
+                <p style={{ color: "#94a3b8", marginTop: "0.8rem", fontSize: "0.85rem" }}>
+                    Rewards distributed — your save has been credited (refresh to see updated totals).
+                </p>
             )}
         </div>
     );
 }
+
+type WeeklyBossRewardEntry = {
+    name: string;
+    damage: number;
+    rank: number;
+    ryo: number;
+    xp: number;
+    gotCore: boolean;
+    gotKey: boolean;
+    isMvp: boolean;
+};
 
 type WeeklyBossState = {
     weekKey: string;
@@ -36535,6 +36576,11 @@ type WeeklyBossState = {
     scaleFactor?: number;
     damageByPlayer: Record<string, number>;
     startedAt: number;
+    expiresAt?: number;
+    rewardsDistributed?: boolean;
+    distributedAt?: number;
+    distributionSummary?: WeeklyBossRewardEntry[];
+    // Legacy fields — kept for type-compat with pre-despawn state shapes.
     lastKillRewardedAt?: number;
     killRewardedTo?: string[];
 };
