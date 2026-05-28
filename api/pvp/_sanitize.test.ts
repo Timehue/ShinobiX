@@ -93,8 +93,15 @@ describe('sanitizePvpItems', () => {
         assert.equal(pick(sanitizePvpItems([{ weaponElement: 'Lightning' }])).weaponElement, 'Lightning');
     });
 
-    it('drops weaponEffectTarget if not in {self, opponent, both}', () => {
-        assert.equal(pick(sanitizePvpItems([{ weaponEffectTarget: 'enemy' }])).weaponEffectTarget, undefined);
+    it('drops weaponEffectTarget if not in {self, opponent, enemy, both}', () => {
+        // Unrecognized tokens get dropped
+        assert.equal(pick(sanitizePvpItems([{ weaponEffectTarget: 'all' }])).weaponEffectTarget, undefined);
+        assert.equal(pick(sanitizePvpItems([{ weaponEffectTarget: 'nobody' }])).weaponEffectTarget, undefined);
+        // All four valid tokens are preserved — 'enemy' is a legacy alias of
+        // 'opponent' kept for compatibility with the GameItem client type.
+        assert.equal(pick(sanitizePvpItems([{ weaponEffectTarget: 'self' }])).weaponEffectTarget, 'self');
+        assert.equal(pick(sanitizePvpItems([{ weaponEffectTarget: 'opponent' }])).weaponEffectTarget, 'opponent');
+        assert.equal(pick(sanitizePvpItems([{ weaponEffectTarget: 'enemy' }])).weaponEffectTarget, 'enemy');
         assert.equal(pick(sanitizePvpItems([{ weaponEffectTarget: 'both' }])).weaponEffectTarget, 'both');
     });
 

@@ -172,10 +172,13 @@ const VALID_WEAPON_ELEMENTS: ReadonlySet<string> = new Set([
 ]);
 
 // 'both' is the only effect-target token the move handler treats specially
-// (Smoke Bomb path). Anything outside this set is dropped so a tampered save
-// can't activate an as-yet-unwritten code path by guessing future tokens.
+// (Smoke Bomb path). 'enemy' is accepted as a legacy alias of 'opponent' —
+// the client GameItem type still allows "enemy" so the sanitizer must too,
+// otherwise valid items would have their target field silently dropped.
+// Anything outside this set is dropped so a tampered save can't activate an
+// as-yet-unwritten code path by guessing future tokens.
 const VALID_WEAPON_EFFECT_TARGETS: ReadonlySet<string> = new Set([
-    'self', 'opponent', 'both',
+    'self', 'opponent', 'enemy', 'both',
 ]);
 
 // Mirrors sanitizeJutsuList for equipped weapons / armor / consumables /
@@ -520,6 +523,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return res.status(400).json({ error: 'Your character save was not found on the server.' });
             } else {
                 finalP2Character = hydrateNpcCharacter(p2Character);
+            }
+
+            // Sector / guard fights bring current vitals — refuse to start
+            // one with a 0-HP fighter so a dead attacker can't be created
+            // via direct API calls (the client UI should already gate this,
+            // this is the server-side belt). Spar / ranked / arena reset to
+            // max anyway so they're unaffected.
+            if (useCurrentVitals === true) {
+                const p1Hp = Number((finalP1Character.hp as number) ?? 0);
+                const p2Hp = Number((finalP2Character.hp as number) ?? 0);
+                if (p1Hp <= 0) {
+                    return res.status(400).json({ error: `${p1Name} is unconscious and cannot enter this fight.` });
+                }
+                if (p2Hp <= 0) {
+                    return res.status(400).json({ error: `${p2Name} is unconscious and cannot enter this fight.` });
+                }
             }
 
             // Server-generated battleId. We used to accept a client-supplied
