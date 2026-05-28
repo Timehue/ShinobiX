@@ -5,8 +5,9 @@ import {
     jutsuEffectInfo,
     scaleJutsuTagsForDisplay,
 } from "../App";
+import type { JutsuType } from "../types/core";
 
-export function JutsuEffectCards({ jutsu, scaledEffectPower, masteryLevel }: { jutsu: Jutsu; scaledEffectPower?: number; masteryLevel?: number }) {
+export function JutsuEffectCards({ jutsu, scaledEffectPower, masteryLevel, lensDiscipline }: { jutsu: Jutsu; scaledEffectPower?: number; masteryLevel?: number; lensDiscipline?: JutsuType }) {
     const tags = jutsu.tags.filter((tag) => tag.name);
     if (tags.length === 0) {
         return (
@@ -27,7 +28,7 @@ export function JutsuEffectCards({ jutsu, scaledEffectPower, masteryLevel }: { j
     return (
         <div className="jutsu-effect-cards">
             {effectJutsu.tags.filter((tag) => tag.name).map((tag, index) => {
-                const info = jutsuEffectInfo(effectJutsu, tag);
+                const info = jutsuEffectInfo(effectJutsu, tag, lensDiscipline);
                 return (
                     <div className="jutsu-effect-card" key={`${tag.name}-${index}`}>
                         <div className="jutsu-effect-card-head">
