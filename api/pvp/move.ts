@@ -63,12 +63,20 @@ function jutsuIsSane(j: { id?: string; effectPower?: number; tags?: Array<{ name
 
 // ─── Combat formula constants (v4.3) ──────────────────────────────────────────
 const MAX_STAT = 2500;
-const EP_MULTIPLIER = 40;             // Raw dmg = scaledEp × 40 (calibrated for 10K HP, TTK ~10)
+// Raw dmg = scaledEp × 32. Calibrated so a round-1 standard 60-AP jutsu
+// (EP 40) at A-rank vs A-rank with full Legendary armor + Void Sovereign
+// damage set lands at ~1,150 (in the ~875-1,150 target band depending on
+// bloodline and armor-set pairing).
+const EP_MULTIPLIER = 32;
 const K_DR = 0.5;                      // DR pool soft cap: effDR = raw / (raw + K_DR)
-const AMP_EXP_CAP = 4;                 // Max effective stacks per damage-amp type
+// Damage-amplification soft-cap pool. Mirrors K_DR: IDG (attacker), IDT
+// (defender), and Ignition (defender) all feed one pool with diminishing
+// returns, so 4 stacks of 35% multiply by ~1.74× instead of ~3.32×.
+const K_AMP = 0.5;
+const AMP_EXP_CAP = 4;                 // legacy safety cap; pool below already softcaps
 const DR_DOT_SCALE = 0.5;              // DR mitigation against DoT ticks (0..1)
-const HEAL_FLAT = 500;
-const SHIELD_FLAT = 500;
+const HEAL_FLAT = 750;                 // Heal tag value at max jutsu mastery
+const SHIELD_FLAT = 750;               // Shield tag value at max jutsu mastery
 // Drain: single-stack, scales with attacker mastery → 50..300 per tick
 const DRAIN_BASE_TICK = 50;
 const DRAIN_PER_LEVEL = 5;
@@ -374,18 +382,24 @@ function drContributionFor(attacker: PvpFighter, defender: PvpFighter, round: nu
     }
     return dr;
 }
-// Amplifiers (offensive / vulnerability buffs). v4.3: exponent capped at AMP_EXP_CAP per type
-// so stacking beyond the cap is wasted — pivot to damage instead of buffing.
+// Amplifiers (offensive / vulnerability buffs). All amp tags feed a single
+// diminishing-returns pool, mirroring K_DR for defensive stacks:
+//     rawAmp     = Σ(IDG attacker) + Σ(IDT defender) + Σ(Ignition defender)
+//     effective  = rawAmp / (rawAmp + K_AMP)        ← always < 1, soft-caps
+//     multiplier = 1 + effective
+// Stack 1 of 35% gives ~1.41×; stack 4 of 35% gives ~1.74× (was ~3.32×).
+// Also stops the IDG-+-Ignition combo from compounding past the soft cap.
 function ampMultiplierFor(attacker: PvpFighter, defender: PvpFighter, round: number): number {
-    let m = 1;
-    // Multiply by each active stack up to the cap, then ignore extras.
-    const idgStacks = activeStatuses(attacker, round).filter(s => s.name === 'Increase Damage Given').slice(0, AMP_EXP_CAP);
-    for (const s of idgStacks) m *= (1 + (s.percent ?? 0) / 100);
-    const idtStacks = activeStatuses(defender, round).filter(s => s.name === 'Increase Damage Taken').slice(0, AMP_EXP_CAP);
-    for (const s of idtStacks) m *= (1 + (s.percent ?? 0) / 100);
-    const ignStacks = activeStatuses(defender, round).filter(s => nameMatches(s.name, 'Ignition')).slice(0, AMP_EXP_CAP);
-    for (const s of ignStacks) m *= (1 + (s.percent ?? 0) / 100);
-    return m;
+    let rawAmp = 0;
+    for (const s of activeStatuses(attacker, round)) {
+        if (s.name === 'Increase Damage Given') rawAmp += (s.percent ?? 0) / 100;
+    }
+    for (const s of activeStatuses(defender, round)) {
+        if (s.name === 'Increase Damage Taken')       rawAmp += (s.percent ?? 0) / 100;
+        else if (nameMatches(s.name, 'Ignition'))     rawAmp += (s.percent ?? 0) / 100;
+    }
+    if (rawAmp <= 0) return 1;
+    return 1 + rawAmp / (rawAmp + K_AMP);
 }
 
 // Scale a tag percent by mastery level — mirrors the client's effectiveTagPercent logic:
@@ -405,9 +419,14 @@ function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu, wMult 
     const scaledEp = isZeroDamageFortyApJutsu(jutsu) ? 0 : (jutsu.effectPower ?? 20) + masteryLevel * 0.2;
     const offStats = (self.character.stats as Record<string, number>) ?? {};
     const defStats = (opponent.character.stats as Record<string, number>) ?? {};
-    // v4.3: max-stat assumption — every player caps stats, so statFactor=1.0 always.
-    // (offStats/defStats kept for Pierce composite-offense lookup below.)
-    const statFactor = 1.0;
+    // statFactor = 1 + (off - def) * 0.85 / (MAX_STAT * 2), clamped [0.35, 1.85].
+    // Identity at off == def (so maxed-vs-maxed stays balanced at 1.0× exactly,
+    // matching the previous v4.3 max-stat assumption). Mirrors the client's
+    // calculateDamage() in App.tsx so the displayed damage preview agrees with
+    // the server-resolved damage outside max-vs-max matchups.
+    const offense = getOffense(offStats, jutsu.type);
+    const defense = getDefense(defStats, jutsu.type);
+    const statFactor = Math.max(0.35, Math.min(1.85, 1 + ((offense - defense) / (MAX_STAT * 2)) * 0.85));
     // Bloodline mult: pre-computed on the client (1.0 if absent). v4.3 keeps the seal interaction.
     const bloodlineMult = (hasStatus(self, 'Bloodline Seal', round) || hasStatus(self, 'Seal', round)) ? 1.0 : Math.max(1.0, Number((self.character.bloodlineMult as number) ?? 1.0));
     // Item damage bonus.
@@ -476,7 +495,20 @@ function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu, wMult 
         if (tag.name === 'Clear Prevent') { if (!hasStatus(s, 'Buff Prevent', round)) { s = addJutsuStatus(s, jutsu, { name: 'Clear Prevent', rounds: 2, kind: 'positive' }, round); lines.push(`Clear Prevent: ${s.name}'s buffs cannot be cleared for 2 turns.`); } continue; }
         if (tag.name === 'Stun Prevent') { s = addJutsuStatus(s, jutsu, { name: 'Stun Prevent', rounds: 2, kind: 'positive' }, round); lines.push(`Stun Prevent: ${s.name} is immune to Stun for 2 turns.`); continue; }
         if (tag.name === 'Copy') { const copied = activeStatuses(o, round).filter(st => st.kind === 'positive'); copied.forEach(st => { s = addJutsuStatus(s, jutsu, { ...st }, round); }); lines.push(`Copy: ${s.name} copied ${copied.length ? copied.map(st => st.name).join(', ') : 'nothing'} from ${o.name}.`); continue; }
-        if (tag.name === 'Mirror') { const mirrored = activeStatuses(s, round).filter(st => st.kind === 'negative' && st.name !== 'Wound' && !nameMatches(st.name, 'Ignition') && st.name !== 'Poison' && st.name !== 'Drain'); if (!hasStatus(o, 'Debuff Prevent', round)) { mirrored.forEach(st => { o = addJutsuStatus(o, jutsu, { ...st }, round); }); s = { ...s, statuses: s.statuses.filter(st => !mirrored.includes(st)) }; lines.push(`Mirror: ${s.name} reflected ${mirrored.length ? mirrored.map(st => st.name).join(', ') : 'no debuffs'} onto ${o.name}.`); } continue; }
+        if (tag.name === 'Mirror') {
+            // Copies caster's non-DoT debuffs onto the opponent. Debuffs stay
+            // on the caster too — Mirror is "spread the pain", not "free
+            // cleanse + transfer". Sim showed the old transfer behavior let
+            // Disruption builds win 100% vs setup-heavy opponents.
+            const mirrored = activeStatuses(s, round).filter(st => st.kind === 'negative'
+                && st.name !== 'Wound' && !nameMatches(st.name, 'Ignition')
+                && st.name !== 'Poison' && st.name !== 'Drain');
+            if (!hasStatus(o, 'Debuff Prevent', round)) {
+                mirrored.forEach(st => { o = addJutsuStatus(o, jutsu, { ...st }, round); });
+                lines.push(`Mirror: ${s.name} copies ${mirrored.length ? mirrored.map(st => st.name).join(', ') : 'no debuffs'} onto ${o.name}.`);
+            }
+            continue;
+        }
         if (tagName === 'Lag') { if (!hasStatus(o, 'Debuff Prevent', round)) { o = addJutsuStatus(o, jutsu, { name: 'Lag', rounds: 2, percent: pct || 20, kind: 'negative' }, round); lines.push(`Lag: ${o.name}'s actions cost ${pct || 20}% more AP for 2 turns.`); } continue; }
         if (tagName === 'Overclock') { if (!hasStatus(s, 'Buff Prevent', round)) { s = addJutsuStatus(s, jutsu, { name: 'Overclock', rounds: 2, percent: pct || 20, kind: 'positive' }, round); lines.push(`Overclock: ${s.name}'s actions cost ${pct || 20}% less AP for 2 turns.`); } continue; }
         if (tag.name === 'Increase Heal') { if (!hasStatus(s, 'Buff Prevent', round)) { s = addJutsuStatus(s, jutsu, { name: 'Increase Heal', rounds: 2, percent: pct, kind: 'positive' }, round); lines.push(`Increase Heal: ${s.name}'s healing is increased by ${pct}% for 2 turns.`); } continue; }
