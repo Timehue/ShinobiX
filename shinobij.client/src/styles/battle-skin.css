@@ -278,6 +278,25 @@
     box-shadow: none !important;
     filter: none !important;
 }
+
+/* Dash / Move-jutsu landing-tile highlight — green to distinguish from the
+   blue attack-range glow. Triggered by the basic dash action AND by Move-tag
+   jutsus (Flicker, Ambush, Blitz, any custom Move jutsu). Without this rule
+   the class was added to the DOM but invisible, leading to "the range glow
+   doesn't appear" reports for Move-tag jutsus. */
+.arena-fullscreen .hex-tile.dash-target-tile {
+    outline: 2px solid rgba(34, 197, 94, 0.9) !important;
+    box-shadow:
+        inset 0 0 18px rgba(20, 83, 45, 0.55),
+        0 0 10px rgba(22, 163, 74, 0.6) !important;
+    filter: none !important;
+}
+.arena-fullscreen .hex-tile.hex-enemy.dash-target-tile,
+.arena-fullscreen .hex-tile.hex-player.dash-target-tile {
+    outline: none !important;
+    box-shadow: none !important;
+    filter: none !important;
+}
 .arena-fullscreen .hex-tile.hex-enemy .avatar-orb.enemy-orb {
     box-shadow:
         0 0 0 3px rgba(255,160,80,0.9),
