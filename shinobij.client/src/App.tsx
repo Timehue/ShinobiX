@@ -30830,7 +30830,6 @@ function Arena({
     const [battleStarted, setBattleStarted] = useState(false);
     const [aiLevel, setAiLevel] = useState(character.level);
     const [sparSearch, setSparSearch] = useState("");
-    const [rankedSearch, setRankedSearch] = useState("");
     const [petChallengeSearch, setPetChallengeSearch] = useState("");
     const [activeArenaTab, setActiveArenaTab] = useState<"clanWar" | "tournaments" | "ranked" | "spectate" | "spar" | "petBattles">("ranked");
     const [opponentCharacter, setOpponentCharacter] = useState<Character | null>(null);
@@ -33463,9 +33462,6 @@ function Arena({
 
     if (!battleStarted) {
         const sparOpponents = sparSearch.trim() ? playerRoster.filter((player) => playerSearchMatches(player, sparSearch)) : [];
-        const rankedOpponents = rankedSearch.trim() ? playerRoster
-            .filter((player) => playerSearchMatches(player, rankedSearch))
-            .filter((player) => player.character.level >= Math.max(1, character.level - 20)) : [];
         const petChallengeOpponents = petChallengeSearch.trim() ? playerRoster
             .filter((player) => playerSearchMatches(player, petChallengeSearch))
             .filter((player) => player.character.pets.length > 0) : [];
@@ -33626,60 +33622,20 @@ function Arena({
                 )}
 
                 {activeArenaTab === "ranked" && (
-                    <>
-                        <section className="summary-box">
-                            <h3>Ranked Battles</h3>
-                            <p>Rating: <strong>{character.rankedRating ?? 1000}</strong> Elo | Wins {character.rankedWins ?? 0} | Losses {character.rankedLosses ?? 0}</p>
-                            <p className="hint">Ranked fights use neutral ground: no terrain or weather modifiers.</p>
-                            <div style={{ display: "flex", gap: "8px", margin: "8px 0" }}>
-                                {rankedQueueActive ? (
-                                    <button className="danger-button" onClick={leaveRankedQueue}>
-                                        Leave Queue ({rankedQueueSize} in queue)
-                                    </button>
-                                ) : (
-                                    <button onClick={joinRankedQueue}>Queue Up for Ranked</button>
-                                )}
-                            </div>
-                            {rankedQueueActive && <p className="hint">Searching for opponent... ({rankedQueueSize} in queue)</p>}
-                            <label>Challenge a Specific Player</label>
-                            <input value={rankedSearch} onChange={(e) => setRankedSearch(e.target.value)} placeholder="Type a player name to challenge..." />
-                            {rankedSearch.trim() && (
-                                <div className="jutsu-list">
-                                    {rankedOpponents.length === 0 ? (
-                                        <>
-                                            <p className="hint">No roster match. Send a ranked challenge directly.</p>
-                                            <button onClick={() => {
-                                                const name = rankedSearch.trim();
-                                                if (!name || name === character.name) return;
-                                                const stub = { name, level: 1, village: "", specialty: "Ninjutsu", character: { ...character, name } as Character, currentSector: 0, lastSeenAt: Date.now() } as PlayerRecord;
-                                                challengePlayer(stub, "ranked");
-                                            }}>Send Ranked Challenge to "{rankedSearch.trim()}"</button>
-                                        </>
-                                    ) : rankedOpponents.map((player) => (
-                                        <div className="summary-box" key={`ranked-${player.name}`}>
-                                            <strong>{player.name}</strong>
-                                            <p>Level {player.level} | Elo {player.character.rankedRating ?? 1000}</p>
-                                            <button onClick={() => challengePlayer(player, "ranked")}>Send Ranked Challenge</button>
-                                        </div>
-                                    ))}
-                                </div>
+                    <section className="summary-box">
+                        <h3>Ranked Battles</h3>
+                        <p>Rating: <strong>{character.rankedRating ?? 1000}</strong> Elo | Wins {character.rankedWins ?? 0} | Losses {character.rankedLosses ?? 0}</p>
+                        <p className="hint">Ranked fights use neutral ground: no terrain or weather modifiers.</p>
+                        <p>Players in queue: <strong>{rankedQueueSize}</strong></p>
+                        <div style={{ display: "flex", gap: "8px", margin: "8px 0" }}>
+                            {rankedQueueActive ? (
+                                <button className="danger-button" onClick={leaveRankedQueue}>Leave Queue</button>
+                            ) : (
+                                <button onClick={joinRankedQueue}>Queue Up for Ranked</button>
                             )}
-                        </section>
-
-                        <section className="summary-box">
-                            <h3>Incoming Ranked Challenges</h3>
-                            {incomingChallenges.filter((challenge) => challenge.mode === "ranked" && !challenge.clanWarPoints).length === 0 ? <p className="hint">No incoming ranked challenges.</p> : incomingChallenges.filter((challenge) => challenge.mode === "ranked" && !challenge.clanWarPoints).map((challenge) => (
-                                <div className="summary-box" key={challenge.id}>
-                                    <strong>{challenge.fromName}</strong>
-                                    <p>Ranked challenge to {challenge.toName}</p>
-                                    <div className="menu">
-                                        <button onClick={() => acceptChallenge(challenge)}>Accept Duel</button>
-                                        <button className="danger-button" onClick={() => declineChallenge(challenge)}>Decline</button>
-                                    </div>
-                                </div>
-                            ))}
-                        </section>
-                    </>
+                        </div>
+                        {rankedQueueActive && <p className="hint">Searching for opponent...</p>}
+                    </section>
                 )}
 
                 {activeArenaTab === "spectate" && (
