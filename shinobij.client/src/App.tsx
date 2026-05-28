@@ -5389,7 +5389,7 @@ const builtinAis: CreatorAi[] = [
 
 const builtinHuntMissions: CreatorMission[] = [
     { id: "hunt-wild-boar", name: "Hunt the Wild Boar", rank: "D Rank", description: "A large wild boar has been spotted trampling the forest undergrowth near Sector 25. Track it down and eliminate it.", type: "fetchExplore", targetSector: 25, exploreCount: 3, levelReq: 1, xpReward: 80, ryoReward: 60, staminaReward: 8, aiProfileId: "hunt-ai-wild-boar", itemRewards: ["hunt-beast-meat", "hunt-beast-meat", "hunt-torn-hide"] },
-    { id: "hunt-forest-hawk", name: "Hunt the Forest Hawk", rank: "D Rank", description: "A predatory hawk has been attacking travelers through Sector 28. Scout the area and bring it down.", type: "fetchExplore", targetSector: 28, exploreCount: 3, levelReq: 1, xpReward: 80, ryoReward: 60, staminaReward: 8, aiProfileId: "hunt-ai-forest-hawk", itemRewards: ["hunt-wild-feather", "hunt-wild-feather", "hunt-small-fang"] },
+    { id: "hunt-forest-hawk", name: "Hunt the Forest Hawk", rank: "D Rank", description: "A predatory hawk has been attacking travelers through Sector 28. Scout the area and bring it down.", type: "fetchExplore", targetSector: 28, exploreCount: 3, levelReq: 1, xpReward: 80, ryoReward: 60, staminaReward: 8, aiProfileId: "hunt-ai-forest-hawk", itemRewards: ["hunt-beast-meat", "hunt-wild-feather", "hunt-small-fang"] },
     { id: "hunt-frost-wolf", name: "Hunt the Frost Wolf", rank: "C Rank", description: "A Frost Wolf pack has been raiding supply routes through Sector 50. The alpha must be hunted and driven off.", type: "fetchExplore", targetSector: 50, exploreCount: 4, levelReq: 15, xpReward: 200, ryoReward: 160, staminaReward: 12, aiProfileId: "hunt-ai-frost-wolf", itemRewards: ["hunt-wolf-fang", "hunt-wolf-fang", "hunt-frost-pelt"] },
     { id: "hunt-ash-lizard", name: "Hunt the Ash Lizard", rank: "C Rank", description: "An Ash Lizard has made its nest near the volcanic vents in Sector 40, blocking access to the trade paths.", type: "fetchExplore", targetSector: 40, exploreCount: 4, levelReq: 15, xpReward: 200, ryoReward: 160, staminaReward: 12, aiProfileId: "hunt-ai-ash-lizard", itemRewards: ["hunt-ash-scale", "hunt-ash-scale", "hunt-cracked-horn"] },
     { id: "hunt-shadow-panther", name: "Hunt the Shadow Panther", rank: "B Rank", description: "A Shadow Panther stalks the darkness of Sector 12. It ambushes shinobi under cover of night — approach carefully.", type: "fetchExplore", targetSector: 12, exploreCount: 4, levelReq: 30, xpReward: 420, ryoReward: 340, staminaReward: 20, currencyRewards: { boneCharms: 1 }, aiProfileId: "hunt-ai-shadow-panther", itemRewards: ["hunt-shadow-pelt", "hunt-shadow-claw", "hunt-shadow-claw"] },
@@ -26283,18 +26283,40 @@ function CentralHub({
             )}
 
             {showCrafter && (() => {
+                // Ordered low → high so the Supplies tab lists commons first.
+                // Consumer (consumeMaterials) sorts by point value and burns
+                // cheapest first, naturally preserving rank-up materials when
+                // crafting low-cost recipes.
                 const CRAFT_POINTS: Record<string, number> = {
+                    "hunt-torn-hide": 3,
+                    "hunt-wild-feather": 3,
+                    "hunt-small-fang": 3,
+                    "hunt-cracked-horn": 3,
                     "hunt-beast-meat": 5,
+                    "hunt-frost-pelt": 8,
+                    "hunt-shadow-claw": 8,
                     "hunt-wolf-fang": 10,
                     "hunt-ash-scale": 15,
+                    "hunt-ember-scale": 20,
                     "hunt-shadow-pelt": 25,
+                    "hunt-ancient-beast-core": 30,
+                    "hunt-titan-bone": 30,
                     "hunt-legendary-material": 50,
                 };
                 const craftMaterialNames: Record<string, string> = {
+                    "hunt-torn-hide": "Torn Hide",
+                    "hunt-wild-feather": "Wild Feather",
+                    "hunt-small-fang": "Small Fang",
+                    "hunt-cracked-horn": "Cracked Horn",
                     "hunt-beast-meat": "Beast Meat",
+                    "hunt-frost-pelt": "Frost Pelt",
+                    "hunt-shadow-claw": "Shadow Claw",
                     "hunt-wolf-fang": "Wolf Fang",
                     "hunt-ash-scale": "Ash Scale",
+                    "hunt-ember-scale": "Ember Scale",
                     "hunt-shadow-pelt": "Shadow Pelt",
+                    "hunt-ancient-beast-core": "Ancient Beast Core",
+                    "hunt-titan-bone": "Titan Bone",
                     "hunt-legendary-material": "Legendary Material",
                 };
                 const totalPts = Object.entries(CRAFT_POINTS).reduce((sum, [id, pts]) => {
