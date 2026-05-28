@@ -311,6 +311,18 @@ function hydrateCharacterFromSave(saveCharacter: Record<string, unknown>, client
     merged.itemReflectPct   = pickClamped(saveCharacter.itemReflectPct,   clientCharacter.itemReflectPct,   0, 100, 0);
     merged.itemLifeStealPct = pickClamped(saveCharacter.itemLifeStealPct, clientCharacter.itemLifeStealPct, 0, 100, 0);
     merged.itemShield       = pickClamped(saveCharacter.itemShield,       clientCharacter.itemShield,       0, 5000, 0);
+    // Per-stat defense-in-depth clamp. Save endpoint already gates stat-gain
+    // rates (api/save/[name].ts), but a tampered KV row or NPC payload could
+    // still ship 999999 on a single stat. Each stat clamps to [0, MAX_STAT].
+    //
+    // The damage formula's getOffense/getDefense (api/pvp/move.ts) pairs each
+    // school's offense vs the SAME school's defense, plus its two general
+    // stats — so these all matter symmetrically:
+    //   Taijutsu  → taiOff/taiDef + strength + speed
+    //   Bukijutsu → bukiOff/bukiDef + intelligence + strength
+    //   Genjutsu  → genOff/genDef + intelligence + willpower
+    //   Ninjutsu  → ninOff/ninDef + willpower + speed
+    merged.stats = clampStatsObject(saveCharacter.stats ?? clientCharacter.stats);
     // Sanitize loadout fields (jutsu list, pvpItems) — these ARE persisted.
     merged.jutsu = sanitizeJutsuList(saveCharacter.jutsu ?? clientCharacter.jutsu);
     merged.pvpItems = sanitizePvpItems(saveCharacter.pvpItems ?? clientCharacter.pvpItems);
@@ -318,6 +330,37 @@ function hydrateCharacterFromSave(saveCharacter: Record<string, unknown>, client
     // spectators (and by the unauth /api/pvp/stream endpoint) so anything
     // sensitive (ryo, currencies, inventory, journals) would leak otherwise.
     return stripNonCombatFields(merged);
+}
+
+// MAX_STAT = 2500 (matches api/pvp/move.ts and shinobij.client/src/App.tsx).
+// If this ever needs to change, update all three sites.
+const SESSION_MAX_STAT = 2500;
+const CLAMPED_STAT_FIELDS = [
+    // Per-school offense/defense pairs — used by getOffense/getDefense in
+    // api/pvp/move.ts. Each school's offense reads against the same school's
+    // defense, so the cap has to be symmetric (no one stat can outrun its
+    // mirror).
+    'taijutsuOffense', 'taijutsuDefense',
+    'bukijutsuOffense', 'bukijutsuDefense',
+    'ninjutsuOffense', 'ninjutsuDefense',
+    'genjutsuOffense', 'genjutsuDefense',
+    // General stats — each one feeds two schools (strength → tai+buki,
+    // speed → tai+nin, intelligence → buki+gen, willpower → gen+nin).
+    'strength', 'speed', 'intelligence', 'willpower',
+] as const;
+function clampStatsObject(raw: unknown): Record<string, number> {
+    const out: Record<string, number> = {};
+    const src = (raw && typeof raw === 'object') ? (raw as Record<string, unknown>) : {};
+    for (const key of CLAMPED_STAT_FIELDS) {
+        out[key] = clampNumber(src[key], 0, SESSION_MAX_STAT, 0);
+    }
+    // Pass through any non-combat stat fields untouched (e.g., display-only
+    // labels). Only the formula-facing stats above are clamped.
+    for (const [k, v] of Object.entries(src)) {
+        if (CLAMPED_STAT_FIELDS.includes(k as typeof CLAMPED_STAT_FIELDS[number])) continue;
+        if (typeof v === 'number' || typeof v === 'string' || typeof v === 'boolean') out[k] = v as number;
+    }
+    return out;
 }
 
 // For NPC opponents (no save key in KV), we still clamp the client payload
@@ -333,6 +376,7 @@ function hydrateNpcCharacter(clientCharacter: Record<string, unknown>): Record<s
     out.itemReflectPct   = clampNumber(out.itemReflectPct,   0, 100, 0);
     out.itemLifeStealPct = clampNumber(out.itemLifeStealPct, 0, 100, 0);
     out.itemShield       = clampNumber(out.itemShield,       0, 5000, 0);
+    out.stats = clampStatsObject(out.stats);
     out.jutsu = sanitizeJutsuList(out.jutsu);
     out.pvpItems = sanitizePvpItems(out.pvpItems);
     // Same strip as real characters — NPCs can have arbitrary client-
@@ -341,20 +385,28 @@ function hydrateNpcCharacter(clientCharacter: Record<string, unknown>): Record<s
     return stripNonCombatFields(out);
 }
 
-function makeFighter(char: Record<string, unknown>, pos: number): PvpFighter {
+function makeFighter(char: Record<string, unknown>, pos: number, useCurrentVitals: boolean): PvpFighter {
     const maxHp = Number((char.maxHp as number) ?? 100);
     const maxChakra = Number((char.maxChakra as number) ?? 50);
     const maxStamina = Number((char.maxStamina as number) ?? 50);
     // Named-armor "Shield" passive: starting flat shield, already clamped
     // to [0, 5000] during character merge.
     const startingShield = Math.max(0, Math.min(5000, Number((char.itemShield as number) ?? 0)));
+    // Spar / ranked PvP fights are fresh-start contests — full HP/chakra/
+    // stamina. Sector attacks and the village defense/attack system are
+    // continuous engagements where the fighter brings whatever vitals they
+    // currently have (so a damaged player who keeps raiding stays damaged).
+    // useCurrentVitals=true preserves char.hp/chakra/stamina; false resets.
+    const startHp      = useCurrentVitals ? Math.min(Number((char.hp      as number) ?? maxHp),      maxHp)      : maxHp;
+    const startChakra  = useCurrentVitals ? Math.min(Number((char.chakra  as number) ?? maxChakra),  maxChakra)  : maxChakra;
+    const startStamina = useCurrentVitals ? Math.min(Number((char.stamina as number) ?? maxStamina), maxStamina) : maxStamina;
     return {
         name: (char.name as string) ?? 'Unknown',
-        hp: Math.min(Number((char.hp as number) ?? maxHp), maxHp),
+        hp: startHp,
         maxHp,
-        chakra: Math.min(Number((char.chakra as number) ?? maxChakra), maxChakra),
+        chakra: startChakra,
         maxChakra,
-        stamina: Math.min(Number((char.stamina as number) ?? maxStamina), maxStamina),
+        stamina: startStamina,
         maxStamina,
         shield: startingShield,
         statuses: [],
@@ -406,13 +458,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'pvp-session-create', 6, 60_000, rlName))) return;
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-            const { p1Character, p2Character, biome, weatherPositiveElement, weatherNegativeElement, battleId: clientBattleId } = body as {
+            const { p1Character, p2Character, biome, weatherPositiveElement, weatherNegativeElement, battleId: clientBattleId, useCurrentVitals } = body as {
                 p1Character?: Record<string, unknown>;
                 p2Character?: Record<string, unknown>;
                 biome?: string;
                 weatherPositiveElement?: string;
                 weatherNegativeElement?: string;
                 battleId?: string;
+                // Sector attacks + village defense/attack fights are continuous
+                // engagements that bring whatever HP/chakra/stamina the fighter
+                // currently has. Spar / ranked / arena default to a fresh-start
+                // reset (full vitals). Pass true only from sector/guard flows.
+                useCurrentVitals?: boolean;
             };
             if (!p1Character || !p2Character) return res.status(400).json({ error: 'Missing characters' });
 
@@ -482,8 +539,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const firstActorName = firstActor === 'p1' ? p1Name : p2Name;
             const session: PvpSession = {
                 battleId,
-                p1: makeFighter(finalP1Character, P1_START),
-                p2: makeFighter(finalP2Character, P2_START),
+                p1: makeFighter(finalP1Character, P1_START, useCurrentVitals === true),
+                p2: makeFighter(finalP2Character, P2_START, useCurrentVitals === true),
                 round: 1,
                 activePlayer: firstActor,
                 ap: { p1: 100, p2: 100 },
