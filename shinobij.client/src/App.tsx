@@ -35216,7 +35216,11 @@ function PvpBattleScreen({
     const pvpEquippedWeapons = sessionEquippedItems.filter(item => { const s = normalizeEquipmentSlot(item.slot); return s === "hand"; });
     const pvpEquippedThrown = sessionEquippedItems.filter(item => { const s = normalizeEquipmentSlot(item.slot); return s === "thrown"; });
     const pvpEquippedConsumables = sessionEquippedItems.filter(item => { const s = normalizeEquipmentSlot(item.slot); return s === "item"; });
-    const pendingWeapon = pvpEquippedWeapons.find(w => w.id === pendingWeaponId) ?? null;
+    // pendingWeaponId is set by clicking either a hand weapon OR a thrown
+    // weapon card (both call setPendingWeaponId). The lookup has to span
+    // both lists or thrown items would have pendingWeapon === null,
+    // collapsing pvpWeaponRange to 0 and hiding the range glow entirely.
+    const pendingWeapon = [...pvpEquippedWeapons, ...pvpEquippedThrown].find(w => w.id === pendingWeaponId) ?? null;
     const pvpWeaponRange = pendingWeapon ? (pendingWeapon.weaponRange ?? (normalizeEquipmentSlot(pendingWeapon.slot) === "thrown" ? 4 : 1)) : 0;
     const weaponRangeTilesSet = new Set(pendingWeapon ? allTiles.filter(t => t !== myPos && pvpDist(myPos, t) <= pvpWeaponRange) : []);
     const basicAttackRangeTiles = new Set(pendingBasicAttack ? allTiles.filter(t => t !== myPos && pvpDist(myPos, t) <= 1) : []);
