@@ -33526,7 +33526,7 @@ function Arena({
                     <button className={activeArenaTab === "tournaments" ? "active" : ""} onClick={() => setActiveArenaTab("tournaments")}>🏆 Tournaments</button>
                     <button className={activeArenaTab === "ranked" ? "active" : ""} onClick={() => setActiveArenaTab("ranked")}>📊 Ranked</button>
                     <button className={activeArenaTab === "spectate" ? "active" : ""} onClick={() => setActiveArenaTab("spectate")}>👁️ Spectate</button>
-                    <button className={activeArenaTab === "spar" ? "active" : ""} onClick={() => setActiveArenaTab("spar")}>🤝 Spar</button>
+                    <button className={activeArenaTab === "spar" ? "active" : ""} onClick={() => setActiveArenaTab("spar")}>🤝 Spar / AI Battle</button>
                     <button className={activeArenaTab === "petBattles" ? "active" : ""} onClick={() => setActiveArenaTab("petBattles")}>🐾 Pet Battles</button>
                 </div>
 
@@ -33667,6 +33667,20 @@ function Arena({
 
                 {activeArenaTab === "spar" && (
                     <>
+                        <section className="summary-box">
+                            <h3>Fight AI</h3>
+                            <p className="hint">Pick an AI level (1–{MAX_LEVEL}) and start a practice battle. This stays separate from ranked, clan war, and tournament play.</p>
+                            <label>AI Level</label>
+                            <input
+                                type="number"
+                                min={1}
+                                max={MAX_LEVEL}
+                                value={aiLevel}
+                                onChange={(e) => setAiLevel(Math.max(1, Math.min(MAX_LEVEL, Number(e.target.value))))}
+                            />
+                            <button onClick={beginAiBattle}>Start AI Battle</button>
+                        </section>
+
                         <section className="summary-box">
                             <h3>Spar Requests</h3>
                             <label>Search Player Name</label>
