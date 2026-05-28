@@ -878,6 +878,15 @@ type PendingArenaStoryBattle =
         returnScreen: Screen;
         isBoss?: boolean;
         isAmbush?: boolean;
+    }
+    | {
+        // Weekly Boss arena fight. Boss has an effectively unlimited HP
+        // pool (set at fight start) so the player can never win — they
+        // fight until KO/flee, then the damage dealt this round is
+        // posted to /api/weekly-boss as a logFight entry.
+        kind: "weeklyBoss";
+        returnScreen: Screen;
+        bossInitialHp: number;
     };
 
 // ── Hollow Gate Shrine — crawler dungeon ──────────────────────────────────────
@@ -8537,6 +8546,80 @@ export default function App() {
         setScreen(dungeonReturnScreen);
     }
 
+    // ── Weekly Boss arena launch ─────────────────────────────────────────────
+    // Spawns the admin-picked weekly boss AI as a temporary opponent with a
+    // sentinel HP value (effectively unkillable). The player fights until
+    // KO/flee — at that point logWeeklyBossFightDamage() POSTs the damage
+    // dealt to /api/weekly-boss so it lands on the shared leaderboard.
+    const WEEKLY_BOSS_SENTINEL_HP = 99_999_999;
+    function launchWeeklyBossFight(bossAiId: string, bossDisplayName?: string) {
+        if (!character) return;
+        const bossAi = playableAis.find(ai => ai.id === bossAiId);
+        if (!bossAi) {
+            alert("Couldn't find the weekly boss AI. An admin needs to set or re-set the override.");
+            return;
+        }
+        if ((character.stamina ?? 0) < 20) {
+            alert("You need at least 20 stamina to challenge the weekly boss.");
+            return;
+        }
+        const tempId = `temp-weekly-boss-${Date.now()}`;
+        // Copy the picked AI but force HP to the sentinel value so the
+        // arena can never reduce it to 0. The boss is meant to outlast
+        // the player every time — damage dealt is what matters.
+        setTemporaryStoryAi({
+            ...bossAi,
+            id: tempId,
+            name: bossDisplayName || bossAi.name,
+            hp: WEEKLY_BOSS_SENTINEL_HP,
+            isBossAi: true,
+        });
+        setPendingPvpOpponent(null);
+        setRaidBattleKind("none");
+        setPendingArenaStoryBattle({
+            kind: "weeklyBoss",
+            returnScreen: "weeklyBoss",
+            bossInitialHp: WEEKLY_BOSS_SENTINEL_HP,
+        });
+        setPendingAiProfileId(tempId);
+        // Weekly boss fight uses central neutral terrain — matches the
+        // ranked-fight convention of no biome bias for shared content.
+        setCurrentBiome("central");
+        setCurrentWeather(weatherForBiome("central"));
+        setArenaKey((key) => key + 1);
+        setScreen("arena");
+    }
+
+    async function logWeeklyBossFightDamage(damageDealt: number) {
+        if (!character || damageDealt < 0) return;
+        try {
+            const r = await fetch("/api/weekly-boss", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ kind: "logFight", amount: Math.floor(damageDealt) }),
+            });
+            const data = await r.json();
+            if (!r.ok) {
+                // Surface server-side rejection (locked out / despawned) but
+                // still proceed with the post-fight transition so the player
+                // isn't trapped in the arena.
+                console.warn("[weekly-boss] logFight rejected:", data?.error);
+                alert(data?.error ?? "Failed to log weekly boss damage.");
+            } else {
+                const dealt = data?.dealt ?? Math.floor(damageDealt);
+                const used = data?.attemptsUsed ?? 0;
+                alert(`Damage logged: ${dealt.toLocaleString()} added to the leaderboard. Attempts used: ${used}/3.`);
+            }
+        } catch (err) {
+            console.warn("[weekly-boss] logFight error:", err);
+        } finally {
+            setPendingArenaStoryBattle(null);
+            setTemporaryStoryAi(null);
+            setPendingAiProfileId("");
+            setScreen("weeklyBoss");
+        }
+    }
+
     function startStoryArenaBattle(step: StoryStep) {
         setTemporaryStoryAi(null);
         setPendingPvpOpponent(null);
@@ -11164,6 +11247,7 @@ export default function App() {
                         setScreen={setScreen}
                         playerRoster={playerRoster}
                         sharedImages={sharedImages}
+                        onLaunchFight={launchWeeklyBossFight}
                     />
                 )}
                 {!activeTriggeredEvent && screen === "villageWar" && character && (
@@ -11247,6 +11331,7 @@ export default function App() {
                         onPendingStoryBattleWin={completePendingArenaStoryBattle}
                         onPendingStoryBattleContinue={continuePendingArenaStoryBattle}
                         onDungeonFail={failDungeon}
+                        onWeeklyBossLogDamage={logWeeklyBossFightDamage}
                         onMissionRaidComplete={recordMissionRaid}
                         setPvpBattleId={setPvpBattleId}
                         setPvpRole={setPvpRole}
@@ -30892,6 +30977,7 @@ function Arena({
     onPendingStoryBattleWin,
     onPendingStoryBattleContinue,
     onDungeonFail,
+    onWeeklyBossLogDamage,
     onMissionRaidComplete,
     setPvpBattleId,
     setPvpRole,
@@ -30927,6 +31013,7 @@ function Arena({
     onPendingStoryBattleWin?: (survivingHp: number) => string;
     onPendingStoryBattleContinue?: () => void;
     onDungeonFail?: () => void;
+    onWeeklyBossLogDamage?: (damageDealt: number) => void;
     onMissionRaidComplete?: (sector: number, battleId?: string) => void;
     setPvpBattleId?: (id: string) => void;
     setPvpRole?: (role: "p1" | "p2") => void;
@@ -34676,10 +34763,33 @@ function Arena({
                         ) : (
                             <>
                                 <h2 className={battleResult === "win" ? "battle-result-win" : battleResult === "fled" ? "battle-result-fled" : "battle-result-loss"}>
-                                    {battleResult === "win" ? "Victory" : battleResult === "fled" ? "Escaped" : pendingStoryBattle?.kind === "dungeonAi" ? "💀 The Seal Rejects You" : "💥 Knocked Out"}
+                                    {battleResult === "win"
+                                        ? "Victory"
+                                        : battleResult === "fled"
+                                            ? "Escaped"
+                                            : pendingStoryBattle?.kind === "dungeonAi"
+                                                ? "💀 The Seal Rejects You"
+                                                : pendingStoryBattle?.kind === "weeklyBoss"
+                                                    ? "💀 Knocked Out by the Weekly Boss"
+                                                    : "💥 Knocked Out"}
                                 </h2>
                                 <p>{log}</p>
-                                {battleResult === "loss" && pendingStoryBattle?.kind === "dungeonAi" ? (
+                                {pendingStoryBattle?.kind === "weeklyBoss" && (battleResult === "loss" || battleResult === "fled") ? (
+                                    <>
+                                        <p style={{ color: "#facc15", fontSize: "0.9rem", margin: "0.5rem 0" }}>
+                                            Total damage dealt this attempt: <strong>{(pendingStoryBattle.bossInitialHp - enemyHp).toLocaleString()}</strong>.
+                                            {battleResult === "fled"
+                                                ? " Fleeing still counts as an attempt and logs your damage."
+                                                : ""}
+                                        </p>
+                                        <button
+                                            style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#facc15" }}
+                                            onClick={() => onWeeklyBossLogDamage?.(pendingStoryBattle.bossInitialHp - enemyHp)}
+                                        >
+                                            📋 Log Damage & Return
+                                        </button>
+                                    </>
+                                ) : battleResult === "loss" && pendingStoryBattle?.kind === "dungeonAi" ? (
                                     <>
                                         <p style={{ color: "#f87171", fontSize: "0.9rem", margin: "0.5rem 0" }}>
                                             Your Dungeon Key was consumed by the failed run. You return to your village empty-handed.
@@ -36333,11 +36443,11 @@ function EndlessTowerLobby({
 // from the full Arena.
 function WeeklyBossArena({
     character,
-    updateCharacter,
     creatorAis,
     setScreen,
     playerRoster,
     sharedImages = {},
+    onLaunchFight,
 }: {
     character: Character;
     updateCharacter: (c: Character) => void;
@@ -36348,6 +36458,7 @@ function WeeklyBossArena({
     setScreen: (s: Screen) => void;
     playerRoster: PlayerRecord[];
     sharedImages?: Record<string, string>;
+    onLaunchFight?: (bossAiId: string, bossDisplayName?: string) => void;
 }) {
     const [bossState, setBossState] = useState<WeeklyBossState | null>(null);
     const [loading, setLoading] = useState(true);
@@ -36372,46 +36483,6 @@ function WeeklyBossArena({
         return () => clearInterval(id);
     }, [refresh]);
 
-    const [attacking, setAttacking] = useState(false);
-    const [combatLog, setCombatLog] = useState<string[]>([]);
-
-    function rollAttackDamage(): number {
-        // Simple roll: best offensive stat * (1 + level/100) * random 0.7..1.3
-        const stats = character.stats;
-        const best = Math.max(stats.bukijutsuOffense, stats.taijutsuOffense, stats.ninjutsuOffense, stats.genjutsuOffense);
-        const lvlScale = 1 + (character.level ?? 1) / 100;
-        const roll = 0.7 + Math.random() * 0.6;
-        return Math.max(1, Math.floor(best * lvlScale * roll));
-    }
-
-    async function attackBoss() {
-        if (!bossState || attacking) return;
-        if ((character.stamina ?? 0) < 20) {
-            setError("You need at least 20 stamina to attack.");
-            return;
-        }
-        setAttacking(true);
-        const dmg = rollAttackDamage();
-        try {
-            const r = await fetch("/api/weekly-boss", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ kind: "damage", weekKey: bossState.weekKey, amount: dmg }),
-            });
-            const data = await r.json();
-            if (!r.ok) throw new Error(data.error ?? `HTTP ${r.status}`);
-            updateCharacter({
-                ...character,
-                stamina: Math.max(0, (character.stamina ?? 0) - 20),
-            });
-            setCombatLog(prev => [`+${dmg.toLocaleString()} damage dealt`, ...prev].slice(0, 8));
-            setBossState(data.boss ?? bossState);
-        } catch (e) {
-            setError(String((e as Error).message || e));
-        } finally {
-            setAttacking(false);
-        }
-    }
     // Resolve the picked boss AI so the arena page can show its art.
     // Admins pick the active boss in the Admin → AIs / Weekly Boss panel;
     // each AI's image is uploaded via the AI Creator (`ai:<id>` shared
@@ -36447,6 +36518,13 @@ function WeeklyBossArena({
     const myRank = sortedEntries.findIndex(([n]) => n === myKey);
     const myRankDisplay = myRank >= 0 ? myRank + 1 : null;
     const mySummary = bossState.distributionSummary?.find(e => e.name === myKey);
+    // Server caps the player at 3 arena attempts per boss spawn. Show the
+    // counter prominently so the player knows when they're about to burn
+    // their last try.
+    const WEEKLY_BOSS_MAX_ATTEMPTS = 3;
+    const attemptsUsed = bossState.attemptsByPlayer?.[myKey] ?? 0;
+    const attemptsLeft = Math.max(0, WEEKLY_BOSS_MAX_ATTEMPTS - attemptsUsed);
+    const lockedOut = attemptsLeft <= 0;
 
     // hh:mm:ss countdown to despawn. Re-renders every interval via the
     // existing refresh() poll (15s); even between polls the countdown
@@ -36494,28 +36572,43 @@ function WeeklyBossArena({
                 {myRankDisplay !== null && (
                     <span style={{ color: "#94a3b8", marginLeft: "0.5rem" }}>· Rank #{myRankDisplay}</span>
                 )}
+                <span style={{ color: lockedOut ? "#f87171" : "#94a3b8", marginLeft: "0.5rem" }}>
+                    · Attempts: <strong>{attemptsUsed}/{WEEKLY_BOSS_MAX_ATTEMPTS}</strong>
+                </span>
             </p>
             <div style={{ background: "rgba(15,23,42,0.5)", border: "1px solid rgba(250,204,21,0.25)", borderRadius: 6, padding: "0.5rem 0.7rem", margin: "0.4rem 0", fontSize: "0.82rem" }}>
                 <div>🏆 <strong>Rewards at despawn</strong></div>
                 <div>· Top 10 by damage → <strong style={{ color: "#facc15" }}>1 Weekly Boss Core</strong> each</div>
                 <div>· Top 25 by damage → <strong style={{ color: "#60a5fa" }}>1 Dungeon Key</strong> each</div>
                 <div>· Every contributor → ryo + XP share by damage (MVP = top 1 gets <strong>×2</strong>)</div>
+                <div style={{ marginTop: 4, color: "#94a3b8" }}>
+                    Each attack launches a full arena fight vs the boss — it has unlimited HP and will eventually
+                    knock you out. Whatever damage you dealt is added to the leaderboard. <strong>3 attempts per spawn.</strong>
+                </div>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.6rem", marginTop: "0.6rem" }}>
                 <button
-                    disabled={expired || attacking || (character.stamina ?? 0) < 20}
-                    style={{ padding: "0.8rem", background: expired ? "#333" : "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171", fontWeight: 700, opacity: expired || attacking ? 0.6 : 1 }}
-                    onClick={attackBoss}
+                    disabled={expired || lockedOut || (character.stamina ?? 0) < 20}
+                    style={{
+                        padding: "0.8rem",
+                        background: expired || lockedOut ? "#333" : "linear-gradient(#7f1d1d,#450a0a)",
+                        borderColor: "#f87171",
+                        fontWeight: 700,
+                        opacity: expired || lockedOut ? 0.6 : 1,
+                    }}
+                    onClick={() => {
+                        if (!bossState) return;
+                        onLaunchFight?.(bossState.aiId, bossState.bossName ?? bossAi?.name);
+                    }}
                 >
-                    {expired ? "🪦 Despawned" : attacking ? "Attacking…" : `⚔ Attack (20 stamina)`}
+                    {expired
+                        ? "🪦 Despawned"
+                        : lockedOut
+                            ? "🔒 No attempts left"
+                            : `⚔ Fight Boss (${attemptsLeft} left · 20 stamina)`}
                 </button>
                 <button className="back-btn" onClick={() => setScreen("centralHub")}>× Back</button>
             </div>
-            {combatLog.length > 0 && (
-                <div style={{ background: "#0a0a1a", borderRadius: 6, padding: "0.5rem 0.8rem", margin: "0.6rem 0", fontFamily: "monospace", fontSize: "0.85rem" }}>
-                    {combatLog.map((line, i) => <div key={i} style={{ color: "#facc15" }}>{line}</div>)}
-                </div>
-            )}
             <h3 style={{ marginTop: "1.2rem" }}>Top 25 Contributors</h3>
             <div style={{ display: "grid", gap: 4 }}>
                 {top25.length === 0 && <em style={{ color: "#64748b" }}>No damage dealt yet.</em>}
@@ -36601,6 +36694,7 @@ type WeeklyBossState = {
     hpRemaining: number;
     scaleFactor?: number;
     damageByPlayer: Record<string, number>;
+    attemptsByPlayer?: Record<string, number>;
     startedAt: number;
     expiresAt?: number;
     rewardsDistributed?: boolean;
