@@ -8503,6 +8503,24 @@ export default function App() {
         setScreen(dungeonReturnScreen);
     }
 
+    // Loss path for the dungeon Warden fight. Without this the player
+    // gets sent to Hospital with activeDungeonEvent still set, then
+    // returning to the dungeon screen drops them back at the intro VN
+    // with no usable progression (the key was already consumed). Clears
+    // all dungeon state and routes them to their village.
+    function failDungeon() {
+        if (!character) return;
+        setActiveDungeonEvent(null);
+        setDungeonStage("intro");
+        setDungeonPage(0);
+        setDungeonLine(0);
+        setTemporaryStoryAi(null);
+        setPendingArenaStoryBattle(null);
+        setPendingAiProfileId("");
+        alert("The dungeon seal rejected you. Your Dungeon Key was consumed. You return to your village empty-handed.");
+        setScreen("village");
+    }
+
     function completeDungeon() {
         if (!character || !activeDungeonEvent) return;
         const rewarded = addInventoryItems(applyCurrencyRewards(character, activeDungeonEvent.currencyRewards), [DUNGEON_LEGENDARY_RELIC_ID]);
@@ -11221,6 +11239,7 @@ export default function App() {
                         pendingStoryBattle={pendingArenaStoryBattle}
                         onPendingStoryBattleWin={completePendingArenaStoryBattle}
                         onPendingStoryBattleContinue={continuePendingArenaStoryBattle}
+                        onDungeonFail={failDungeon}
                         onMissionRaidComplete={recordMissionRaid}
                         setPvpBattleId={setPvpBattleId}
                         setPvpRole={setPvpRole}
@@ -26452,6 +26471,50 @@ function CentralHub({
                                 );
                             })()}
 
+                            {/* ── Dungeon Legendary Relic forge ────────────────
+                                Combines 5 Dungeon Legendary Fragments (shed by
+                                the Hollow Gate Warden) into 1 Dungeon Legendary
+                                Relic. Honors the fragment item description
+                                ("Combine fragments to forge a Dungeon Legendary
+                                Relic") which had no recipe before this. */}
+                            {(() => {
+                                const FRAGMENTS_PER_RELIC = 5;
+                                const fragmentCount = character.inventory.filter(id => id === DUNGEON_LEGENDARY_FRAGMENT_ID).length;
+                                const relicCount = character.inventory.filter(id => id === DUNGEON_LEGENDARY_RELIC_ID).length;
+                                const canForge = fragmentCount >= FRAGMENTS_PER_RELIC;
+                                function forgeRelicFromFragments() {
+                                    if (fragmentCount < FRAGMENTS_PER_RELIC) {
+                                        alert(`You need ${FRAGMENTS_PER_RELIC} Dungeon Legendary Fragments. You have ${fragmentCount}.`);
+                                        return;
+                                    }
+                                    const newInv = [...character.inventory];
+                                    let toRemove = FRAGMENTS_PER_RELIC;
+                                    for (let i = newInv.length - 1; i >= 0 && toRemove > 0; i -= 1) {
+                                        if (newInv[i] === DUNGEON_LEGENDARY_FRAGMENT_ID) {
+                                            newInv.splice(i, 1);
+                                            toRemove -= 1;
+                                        }
+                                    }
+                                    newInv.push(DUNGEON_LEGENDARY_RELIC_ID);
+                                    updateCharacter({ ...character, inventory: newInv });
+                                    alert(`Dungeon Legendary Relic forged. Consumed ${FRAGMENTS_PER_RELIC} Fragments.`);
+                                }
+                                return (
+                                    <div className="crafter-recipe-grid" style={{ marginBottom: 12 }}>
+                                        <div className="crafter-recipe-btn" style={{ borderColor: "#facc15", boxShadow: "0 0 12px rgba(250,204,21,0.25)" }}>
+                                            <strong>💎 Dungeon Legendary Relic</strong>
+                                            <small>Combine fragments shed by the Hollow Gate Warden into a legendary crafting relic.</small>
+                                            <small>Fragments: <strong>{fragmentCount}</strong> · Relics: <strong>{relicCount}</strong></small>
+                                            <button onClick={forgeRelicFromFragments} disabled={!canForge}>
+                                                {canForge
+                                                    ? `Forge — ${FRAGMENTS_PER_RELIC} Fragments (have ${fragmentCount})`
+                                                    : `Need ${FRAGMENTS_PER_RELIC} Fragments (have ${fragmentCount})`}
+                                            </button>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+
                             <div className="crafter-recipe-grid">
                                 {recipes.map((recipe) => {
                                     const fillPct = Math.min(100, Math.floor((totalPts / recipe.cost) * 100));
@@ -30686,6 +30749,7 @@ function Arena({
     pendingStoryBattle,
     onPendingStoryBattleWin,
     onPendingStoryBattleContinue,
+    onDungeonFail,
     onMissionRaidComplete,
     setPvpBattleId,
     setPvpRole,
@@ -30720,6 +30784,7 @@ function Arena({
     pendingStoryBattle?: PendingArenaStoryBattle | null;
     onPendingStoryBattleWin?: (survivingHp: number) => string;
     onPendingStoryBattleContinue?: () => void;
+    onDungeonFail?: () => void;
     onMissionRaidComplete?: (sector: number, battleId?: string) => void;
     setPvpBattleId?: (id: string) => void;
     setPvpRole?: (role: "p1" | "p2") => void;
@@ -34469,10 +34534,19 @@ function Arena({
                         ) : (
                             <>
                                 <h2 className={battleResult === "win" ? "battle-result-win" : battleResult === "fled" ? "battle-result-fled" : "battle-result-loss"}>
-                                    {battleResult === "win" ? "Victory" : battleResult === "fled" ? "Escaped" : "💥 Knocked Out"}
+                                    {battleResult === "win" ? "Victory" : battleResult === "fled" ? "Escaped" : pendingStoryBattle?.kind === "dungeonAi" ? "💀 The Seal Rejects You" : "💥 Knocked Out"}
                                 </h2>
                                 <p>{log}</p>
-                                {battleResult === "loss" ? (
+                                {battleResult === "loss" && pendingStoryBattle?.kind === "dungeonAi" ? (
+                                    <>
+                                        <p style={{ color: "#f87171", fontSize: "0.9rem", margin: "0.5rem 0" }}>
+                                            Your Dungeon Key was consumed by the failed run. You return to your village empty-handed.
+                                        </p>
+                                        <button style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171" }} onClick={() => onDungeonFail?.()}>
+                                            🏯 Return to Village
+                                        </button>
+                                    </>
+                                ) : battleResult === "loss" ? (
                                     <>
                                         <p style={{ color: "#f87171", fontSize: "0.9rem", margin: "0.5rem 0" }}>
                                             You've been rushed to the village hospital. Pay <strong style={{ color: "#fde047" }}>1,000 ryo</strong> to be treated and released.
