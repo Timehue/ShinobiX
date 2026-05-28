@@ -5851,6 +5851,14 @@ export default function App() {
     }, [pvpBattleId]);
     const [pvpRole, setPvpRole] = useState<"p1" | "p2" | null>(null);
     const [pvpBattleContext, setPvpBattleContext] = useState<SharedPvpBattleContext | null>(null);
+    // Seeds PvpBattleScreen with the freshly created session payload so it
+    // can render the grid on first paint instead of showing the "Connecting
+    // to battle session..." card while a redundant GET round trip resolves.
+    // The /api/pvp/session POST now returns the full session alongside the
+    // battleId; the call sites that initiate a fight stash the response
+    // here. PvpBattleScreen only consumes the seed when its battleId
+    // matches, so a stale seed left over from a previous fight is ignored.
+    const [pvpSeedSession, setPvpSeedSession] = useState<PvpSessionState | null>(null);
     // PvP session storage hook — see PVP_SESSION_KEY note above. Saves a
     // breadcrumb whenever the local client enters/exits a PvP battle, so a
     // browser refresh can re-fetch the server-side session and resume.
@@ -7899,18 +7907,15 @@ export default function App() {
         if (snap.petEncounterVn) setPetEncounterVn(snap.petEncounterVn);
         if (snap.ancientChestVn) setAncientChestVn(snap.ancientChestVn);
         if (snap.editablePets) setEditablePets(mergeMissingBuiltInPets(snap.editablePets));
-        // Only reset to village when the user isn't in an active battle. This
-        // function gets called from the 409 save-conflict refetch and from
-        // the admin-forceReload heartbeat as well as from login; without this
-        // guard the player got yanked back to village mid-fight whenever a
-        // conflict happened (rare, but happens with multi-tab saves on a
-        // flaky connection).
-        const BATTLE_SCREENS = new Set<Screen>([
-            "arena", "pvpBattle", "storyBoss", "weeklyBoss",
-            "hollowGateShrine", "eventPetBattle", "petArena",
-            "dungeon", "tilecardsDuel",
-        ]);
-        if (!BATTLE_SCREENS.has(screenRef.current)) {
+        // Preserve the current screen across in-session snapshot reapplies
+        // (409 save-conflict refetch + admin forceReload heartbeat) so a
+        // stale base-version or a deploy-time chunk reload doesn't yank the
+        // player out of the shop / inventory / hospital / world map / etc.
+        // Only route to village on a fresh login (current screen is "start");
+        // every other call site is mid-session and already has a screen
+        // worth keeping — including battle screens, which used to be the
+        // only ones preserved here.
+        if (screenRef.current === "start") {
             setScreen("village");
         }
         // Mirror the freshly-applied state to the localStorage preview cache
@@ -11104,21 +11109,34 @@ export default function App() {
                                 alert(`${opponent.name} is traveling and cannot be attacked right now.`);
                                 return;
                             }
-                            // Create shared PvP session so both players fight each other for real
-                            const [selfSave, opponentSave] = await Promise.all([
-                                fetchPlayerCombatSave(character.name),
-                                fetchPlayerCombatSave(opponent.name),
-                            ]);
-                            const selfChar = selfSave?.character ?? character;
-                            const selfBloodlines = selfSave?.savedBloodlines?.length ? selfSave.savedBloodlines : savedBloodlines;
-                            const selfCreatorJutsus = selfSave?.creatorJutsus?.length ? [...creatorJutsus, ...selfSave.creatorJutsus] : creatorJutsus;
-                            const selfAllItems = getAllItems(selfSave?.creatorItems?.length ? selfSave.creatorItems : creatorItems);
-                            const p1Jutsus = getPvpJutsuLoadout(selfBloodlines, selfCreatorJutsus, selfChar);
-                            const oppChar = opponentSave?.character ?? opponent.character as Character;
-                            const opponentBloodlines = opponentSave?.savedBloodlines?.length ? opponentSave.savedBloodlines : savedBloodlines;
-                            const opponentCreatorJutsus = opponentSave?.creatorJutsus?.length ? [...creatorJutsus, ...opponentSave.creatorJutsus] : creatorJutsus;
-                            const opponentAllItems = getAllItems(opponentSave?.creatorItems?.length ? opponentSave.creatorItems : creatorItems);
-                            const p2Jutsus = getPvpJutsuLoadout(opponentBloodlines, opponentCreatorJutsus, oppChar);
+                            // Use local character data — the server hydrates both
+                            // fighters from their KV save records directly (see
+                            // api/pvp/session.ts ~line 502), so the redundant
+                            // fetchPlayerCombatSave round trips that used to gate
+                            // this flow are unnecessary. The payload below is
+                            // only consulted as a fallback for fighters without
+                            // a save (NPCs).
+                            const selfChar = character;
+                            const selfAllItems = getAllItems(creatorItems);
+                            const p1Jutsus = getPvpJutsuLoadout(savedBloodlines, creatorJutsus, selfChar);
+                            const oppChar = opponent.character as Character;
+                            const opponentAllItems = getAllItems(creatorItems);
+                            const p2Jutsus = getPvpJutsuLoadout(savedBloodlines, creatorJutsus, oppChar);
+
+                            // Optimistic navigation — flip to the pvpBattle screen
+                            // immediately so the player sees the proper battle
+                            // backdrop + a "Connecting to battle session..." card
+                            // instead of staring at the sector view for 1–3
+                            // seconds while the session POST resolves. The
+                            // PvpBattleScreen session-fetch effect is keyed on
+                            // battleId, so the empty id just renders the
+                            // loading card; once we set the real id below the
+                            // effect re-runs and loads the grid.
+                            setPvpBattleId('');
+                            setPvpRole("p1");
+                            setPvpBattleContext({ mode: "standard", sectorAttack: true, raidKind: "raidPlayer", sector: currentSector });
+                            setScreen("pvpBattle");
+
                             let battleId = '';
                             try {
                                 const sr = await fetch('/api/pvp/session', {
@@ -11127,22 +11145,45 @@ export default function App() {
                                     body: stringifyPvpSessionPayload({
                                         // Sector attack — fighters bring current vitals.
                                         useCurrentVitals: true,
-                                        p1Character: { ...selfChar, jutsu: p1Jutsus, pvpItems: getPvpItemLoadout(selfChar, selfAllItems), bloodlineMult: getBloodlineMultiplier(selfChar, selfBloodlines), armorFactor: getCharacterArmorFactor(selfChar, selfAllItems), armorRawDR: getCharacterArmorRawDR(selfChar, selfAllItems), itemDamagePct: getEquippedItemBonus(selfChar, selfAllItems, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(selfChar, selfAllItems, "absorbPercent"), itemReflectPct: getEquippedItemBonus(selfChar, selfAllItems, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(selfChar, selfAllItems, "lifeStealPercent"), itemShield: getEquippedItemBonus(selfChar, selfAllItems, "shield") },
-                                        p2Character: { ...oppChar, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(oppChar, opponentAllItems), bloodlineMult: getBloodlineMultiplier(oppChar, opponentBloodlines), armorFactor: getCharacterArmorFactor(oppChar, opponentAllItems), armorRawDR: getCharacterArmorRawDR(oppChar, opponentAllItems), itemDamagePct: getEquippedItemBonus(oppChar, opponentAllItems, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(oppChar, opponentAllItems, "absorbPercent"), itemReflectPct: getEquippedItemBonus(oppChar, opponentAllItems, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(oppChar, opponentAllItems, "lifeStealPercent"), itemShield: getEquippedItemBonus(oppChar, opponentAllItems, "shield") },
+                                        p1Character: { ...selfChar, jutsu: p1Jutsus, pvpItems: getPvpItemLoadout(selfChar, selfAllItems), bloodlineMult: getBloodlineMultiplier(selfChar, savedBloodlines), armorFactor: getCharacterArmorFactor(selfChar, selfAllItems), armorRawDR: getCharacterArmorRawDR(selfChar, selfAllItems), itemDamagePct: getEquippedItemBonus(selfChar, selfAllItems, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(selfChar, selfAllItems, "absorbPercent"), itemReflectPct: getEquippedItemBonus(selfChar, selfAllItems, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(selfChar, selfAllItems, "lifeStealPercent"), itemShield: getEquippedItemBonus(selfChar, selfAllItems, "shield") },
+                                        p2Character: { ...oppChar, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(oppChar, opponentAllItems), bloodlineMult: getBloodlineMultiplier(oppChar, savedBloodlines), armorFactor: getCharacterArmorFactor(oppChar, opponentAllItems), armorRawDR: getCharacterArmorRawDR(oppChar, opponentAllItems), itemDamagePct: getEquippedItemBonus(oppChar, opponentAllItems, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(oppChar, opponentAllItems, "absorbPercent"), itemReflectPct: getEquippedItemBonus(oppChar, opponentAllItems, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(oppChar, opponentAllItems, "lifeStealPercent"), itemShield: getEquippedItemBonus(oppChar, opponentAllItems, "shield") },
                                     }),
                                 });
-                                if (sr.ok) ({ battleId } = await sr.json() as { battleId: string });
+                                if (sr.ok) {
+                                    const data = await sr.json() as { battleId: string; session?: PvpSessionState };
+                                    battleId = data.battleId;
+                                    // Stash the session payload so PvpBattleScreen
+                                    // can render the grid on first paint instead
+                                    // of flashing the "Connecting..." card.
+                                    if (data.session) setPvpSeedSession(data.session);
+                                }
                             } catch { /* fallback below */ }
 
                             if (!battleId) {
-                                // Fallback: old arena behavior
+                                // Session creation failed — drop into the local
+                                // arena fight so the user isn't stranded on the
+                                // "Connecting..." card forever.
+                                setPvpBattleId('');
+                                setPvpSeedSession(null);
                                 setPendingPvpOpponent(normalizeCharacter(opponent.character));
                                 setRaidBattleKind("raidPlayer");
                                 setScreen("arena");
                                 return;
                             }
 
-                            // Notify defender via DuelChallenge with battleId
+                            // Surface the real battleId — PvpBattleScreen
+                            // re-renders with both the matching seed session
+                            // and the right id, so the battle grid appears
+                            // without the loading card showing.
+                            setPvpBattleId(battleId);
+
+                            // Notify defender via DuelChallenge with battleId.
+                            // Fire-and-forget: the session is already live on
+                            // the server; if the defender's challenge POST
+                            // fails (e.g. they just started traveling) we
+                            // alert and bounce the attacker back to the world
+                            // map so they aren't stuck waiting on an empty
+                            // session that'll time out server-side.
                             const challenge: DuelChallenge = {
                                 id: makeId(),
                                 fromName: character.name,
@@ -11155,21 +11196,17 @@ export default function App() {
                                 sectorAttack: true,
                                 battleId,
                             };
-                            const notified = await fetch('/api/player/challenge', {
+                            fetch('/api/player/challenge', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ targetName: opponent.name, challenge }),
-                            }).catch(() => null);
-                            if (!notified?.ok) {
-                                alert(`${opponent.name} is traveling and cannot be attacked right now.`);
-                                return;
-                            }
-
-                            // Route attacker to shared pvpBattle as p1
-                            setPvpBattleId(battleId);
-                            setPvpRole("p1");
-                            setPvpBattleContext({ mode: challenge.mode, clanWarPoints: challenge.clanWarPoints, sectorAttack: true, raidKind: "raidPlayer", sector: currentSector });
-                            setScreen("pvpBattle");
+                            }).then((res) => {
+                                if (!res.ok) {
+                                    alert(`${opponent.name} is traveling and cannot be attacked right now.`);
+                                    setPvpBattleId('');
+                                    setScreen("worldMap");
+                                }
+                            }).catch(() => { /* defender notification is best-effort; session is live regardless */ });
                         }}
                     />
                 )}
@@ -11565,6 +11602,11 @@ export default function App() {
                             currentWeather={currentWeather}
                             currentSector={currentSector}
                             sharedImages={sharedImages}
+                            // Pass the seed only when its battleId matches the
+                            // current pvpBattleId — a stale seed left over
+                            // from a previous fight should be ignored so the
+                            // mount fetches fresh state.
+                            seedSession={pvpSeedSession && pvpSeedSession.battleId === pvpBattleId ? pvpSeedSession : null}
                             isSpar={!pvpBattleContext?.mode || (pvpBattleContext.mode === "standard" && !pvpBattleContext.clanWarPoints && !pvpBattleContext.sectorAttack)}
                             battleMode={pvpBattleContext?.mode ?? "standard"}
                             onWin={handlePvpWin}
@@ -27647,14 +27689,11 @@ function WorldMap({
         setCurrentBiome(biome);
         setCurrentWeather(weather);
 
-        // Generate the battleId client-side so we can navigate immediately
-        // and let the session POST + challenge notification fire in parallel.
-        const battleId = `pvp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-
-        // Use local character data — the server now hydrates both fighters from
-        // KV save records directly, so the redundant fetchPlayerCombatSave round
-        // trips that used to gate this flow are unnecessary. The payload is
-        // only consulted as a fallback for fighters without a save (NPCs).
+        // Use local character data — the server hydrates both fighters from
+        // their KV save records directly (see api/pvp/session.ts ~line 502),
+        // so the redundant fetchPlayerCombatSave round trips that used to
+        // gate this flow are unnecessary. The payload below is only
+        // consulted as a fallback for fighters without a save (NPCs).
         const selfCharacter = character;
         const selfBloodlines = savedBloodlines;
         const selfCreatorJutsus = wmCreatorJutsus;
@@ -27666,14 +27705,72 @@ function WorldMap({
         const opponentAllItems = getAllItems(wmCreatorItems);
         const p2Jutsus = getPvpJutsuLoadout(opponentBloodlines, opponentCreatorJutsus, opponentCharacter);
 
-        // Optimistic navigation — set up the battle screen before the network
-        // round trips return. The PvP battle screen polls /api/pvp/session at
-        // 1s; once the session POST below lands it will pick it up.
-        setPvpBattleId(battleId);
+        // Optimistic navigation — flip to the pvpBattle screen immediately
+        // so the player sees the proper battle backdrop + a "Connecting to
+        // battle session..." card instead of staring at the sector view
+        // while the session POST resolves. The PvpBattleScreen session-fetch
+        // effect is keyed on battleId, so the empty id just renders the
+        // loading card; once we set the real id below the effect re-runs
+        // and loads the grid.
+        //
+        // Note: this used to generate a client-side battleId and pass it
+        // through both POSTs in parallel, but the server intentionally
+        // ignores client-supplied ids (api/pvp/session.ts:544–550 — the
+        // comment explains the scrape-via-stream vector that motivated the
+        // change). The result was that the attacker's pvpBattle screen
+        // fetched a non-existent session and was stuck on "Connecting..."
+        // until the server-managed defender heartbeat happened to re-route
+        // them — i.e. broken in production for the attacker. The challenge
+        // now ships the *real* server-issued battleId so the defender
+        // routes to the right session too.
+        setPvpBattleId('');
         setPvpRole("p1");
         setPvpBattleContext({ mode: "standard", sectorAttack: true, raidKind: "raidPlayer", sector });
         setScreen("pvpBattle");
 
+        let battleId = '';
+        try {
+            const sr = await fetch('/api/pvp/session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: stringifyPvpSessionPayload({
+                    // Sector raid — fighters bring current vitals.
+                    useCurrentVitals: true,
+                    p1Character: { ...selfCharacter, jutsu: p1Jutsus, pvpItems: getPvpItemLoadout(selfCharacter, selfAllItems), bloodlineMult: getBloodlineMultiplier(selfCharacter, selfBloodlines), armorFactor: getCharacterArmorFactor(selfCharacter, selfAllItems), armorRawDR: getCharacterArmorRawDR(selfCharacter, selfAllItems), itemDamagePct: getEquippedItemBonus(selfCharacter, selfAllItems, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(selfCharacter, selfAllItems, "absorbPercent"), itemReflectPct: getEquippedItemBonus(selfCharacter, selfAllItems, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(selfCharacter, selfAllItems, "lifeStealPercent"), itemShield: getEquippedItemBonus(selfCharacter, selfAllItems, "shield") },
+                    p2Character: { ...opponentCharacter, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(opponentCharacter, opponentAllItems), bloodlineMult: getBloodlineMultiplier(opponentCharacter, opponentBloodlines), armorFactor: getCharacterArmorFactor(opponentCharacter, opponentAllItems), armorRawDR: getCharacterArmorRawDR(opponentCharacter, opponentAllItems), itemDamagePct: getEquippedItemBonus(opponentCharacter, opponentAllItems, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(opponentCharacter, opponentAllItems, "absorbPercent"), itemReflectPct: getEquippedItemBonus(opponentCharacter, opponentAllItems, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(opponentCharacter, opponentAllItems, "lifeStealPercent"), itemShield: getEquippedItemBonus(opponentCharacter, opponentAllItems, "shield") },
+                }),
+            });
+            if (sr.ok) {
+                const data = await sr.json() as { battleId: string; session?: PvpSessionState };
+                battleId = data.battleId;
+                // Stash the session payload so PvpBattleScreen can render
+                // the grid on first paint instead of flashing the
+                // "Connecting..." card.
+                if (data.session) setPvpSeedSession(data.session);
+            }
+        } catch { /* fallback below */ }
+
+        if (!battleId) {
+            // Session creation failed — drop into the local arena fight so
+            // the user isn't stranded on the "Connecting..." card forever.
+            setPvpBattleId('');
+            setPvpSeedSession(null);
+            setPendingPvpOpponent(normalizeCharacter(opponent));
+            setRaidBattleKind("raidPlayer");
+            setScreen("arena");
+            return;
+        }
+
+        // Surface the real battleId — PvpBattleScreen re-renders with both
+        // the matching seed session and the right id, so the battle grid
+        // appears without the loading card showing.
+        setPvpBattleId(battleId);
+
+        // Notify defender via DuelChallenge with the real battleId. Fire-
+        // and-forget: the session is already live on the server; if the
+        // defender's challenge POST fails (e.g. they just started
+        // traveling) we alert and bounce the attacker back to the world
+        // map so they aren't stuck waiting on an empty session.
         const challenge: DuelChallenge = {
             id: makeId(),
             fromName: character.name,
@@ -27686,43 +27783,17 @@ function WorldMap({
             sectorAttack: true,
             battleId,
         };
-
-        // Fire both server calls in parallel — neither depends on the other's
-        // response.
-        const [sessionRes, challengeRes] = await Promise.all([
-            fetch('/api/pvp/session', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: stringifyPvpSessionPayload({
-                    battleId,
-                    // Sector raid — fighters bring current vitals.
-                    useCurrentVitals: true,
-                    p1Character: { ...selfCharacter, jutsu: p1Jutsus, pvpItems: getPvpItemLoadout(selfCharacter, selfAllItems), bloodlineMult: getBloodlineMultiplier(selfCharacter, selfBloodlines), armorFactor: getCharacterArmorFactor(selfCharacter, selfAllItems), armorRawDR: getCharacterArmorRawDR(selfCharacter, selfAllItems), itemDamagePct: getEquippedItemBonus(selfCharacter, selfAllItems, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(selfCharacter, selfAllItems, "absorbPercent"), itemReflectPct: getEquippedItemBonus(selfCharacter, selfAllItems, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(selfCharacter, selfAllItems, "lifeStealPercent"), itemShield: getEquippedItemBonus(selfCharacter, selfAllItems, "shield") },
-                    p2Character: { ...opponentCharacter, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(opponentCharacter, opponentAllItems), bloodlineMult: getBloodlineMultiplier(opponentCharacter, opponentBloodlines), armorFactor: getCharacterArmorFactor(opponentCharacter, opponentAllItems), armorRawDR: getCharacterArmorRawDR(opponentCharacter, opponentAllItems), itemDamagePct: getEquippedItemBonus(opponentCharacter, opponentAllItems, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(opponentCharacter, opponentAllItems, "absorbPercent"), itemReflectPct: getEquippedItemBonus(opponentCharacter, opponentAllItems, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(opponentCharacter, opponentAllItems, "lifeStealPercent"), itemShield: getEquippedItemBonus(opponentCharacter, opponentAllItems, "shield") },
-                }),
-            }).catch(() => null),
-            fetch('/api/player/challenge', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ targetName: opponentCharacter.name, challenge }),
-            }).catch(() => null),
-        ]);
-
-        // If the session POST failed, bounce back to arena so the user isn't
-        // stranded on an empty battle screen.
-        if (!sessionRes?.ok) {
-            setPvpBattleId('');
-            setPendingPvpOpponent(normalizeCharacter(opponent));
-            setRaidBattleKind("raidPlayer");
-            setScreen("arena");
-            return;
-        }
-        if (!challengeRes?.ok) {
-            alert(`${opponentCharacter.name} is traveling and cannot be attacked right now.`);
-            setPvpBattleId('');
-            setScreen("village");
-            return;
-        }
+        fetch('/api/player/challenge', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ targetName: opponentCharacter.name, challenge }),
+        }).then((res) => {
+            if (!res.ok) {
+                alert(`${opponentCharacter.name} is traveling and cannot be attacked right now.`);
+                setPvpBattleId('');
+                setScreen("worldMap");
+            }
+        }).catch(() => { /* defender notification is best-effort; session is live regardless */ });
     }
 
     function pickGuardAi(level: number, defenseBonusPercent = 0): string {
@@ -28568,8 +28639,14 @@ function WorldMap({
                                             setCurrentSector(selectedSector!);
                                             setCurrentBiome(biome);
                                             setCurrentWeather(sectorWeather);
+                                            // sectorAttackPlayer handles its own routing — it sets the
+                                            // screen to "pvpBattle" on a successful session POST and
+                                            // falls back to "arena" only if session creation fails.
+                                            // The redundant setScreen("arena") that used to live here
+                                            // caused a 2–4s flash on the arena page (and the racy
+                                            // arena mount could clobber the pvpBattle context) while
+                                            // the session POST was in flight.
                                             sectorAttackPlayer(player);
-                                            setScreen("arena");
                                         }}>{player.travelingUntil && player.travelingUntil > Date.now() ? "Traveling" : "⚔️ Attack"}</button>
                                     </div>
                                 ))
@@ -35334,6 +35411,7 @@ function PvpBattleScreen({
     currentWeather,
     currentSector,
     sharedImages,
+    seedSession,
     isSpar = false,
     battleMode = "standard",
     onWin,
@@ -35349,6 +35427,12 @@ function PvpBattleScreen({
     currentWeather: WeatherType;
     currentSector: number;
     sharedImages: Record<string, string>;
+    // Pre-fetched session payload supplied by the call site that just
+    // created the fight. When present and matching battleId, the grid
+    // renders on first paint and the initial GET in the fetch-loop
+    // useEffect below short-circuits. Refresh / resume paths leave this
+    // null so the GET still runs.
+    seedSession?: PvpSessionState | null;
     isSpar?: boolean;
     battleMode?: string;
     onWin?: (opponentName: string, opponent?: Character) => void;
@@ -35365,7 +35449,26 @@ function PvpBattleScreen({
     const GRID_LAYER_W = (gridWidth - 1) * X_STEP + HEX_W;
     const GRID_LAYER_H = (gridHeight - 1) * Y_STEP + HEX_H * 1.5;
 
-    const [session, setSession] = useState<PvpSessionState | null>(null);
+    // Lazy initializer covers the case where the parent already has the
+    // seed in state at mount time (e.g. accept-challenge flow that awaits
+    // the POST before navigating). The optimistic-navigation flow mounts
+    // before the POST resolves, so the seedSyncRef effect below also
+    // handles the seed arriving via a later re-render.
+    const [session, setSession] = useState<PvpSessionState | null>(() => (
+        seedSession && seedSession.battleId === battleId ? seedSession : null
+    ));
+    // Tracks the battleId we've already seeded so a later Realtime/move
+    // update on the same fight doesn't get clobbered by a re-apply of the
+    // (now-stale) initial seed.
+    const seededBattleIdRef = useRef<string | null>(
+        seedSession && seedSession.battleId === battleId ? battleId : null,
+    );
+    useEffect(() => {
+        if (!seedSession || seedSession.battleId !== battleId) return;
+        if (seededBattleIdRef.current === battleId) return;
+        seededBattleIdRef.current = battleId;
+        setSession(seedSession);
+    }, [seedSession, battleId]);
     const [submitting, setSubmitting] = useState(false);
     const [dashMode, setDashMode] = useState(false);
     const [selectedActionId, setSelectedActionId] = useState<"move" | "dash" | undefined>(undefined);
@@ -35390,6 +35493,13 @@ function PvpBattleScreen({
     const [pvpPendingAutoWait, setPvpPendingAutoWait] = useState(false);
     const [pvpPrefightCountdown, setPvpPrefightCountdown] = useState<number | null>(null);
     const [pvpPrefightFirstActor, setPvpPrefightFirstActor] = useState<"p1" | "p2" | null>(null);
+    // Connection state for the live-update channel (Realtime → SSE → poll
+    // fallback chain). "connected" stays in place during normal play;
+    // "reconnecting" fires when the WebSocket drops or SSE errors, so
+    // players see a visible pill instead of staring at a frozen board
+    // wondering whether to refresh. The fetch/subscribe effect flips
+    // this on Realtime status callbacks and SSE error/open events.
+    const [connectionState, setConnectionState] = useState<"connected" | "reconnecting">("connected");
     const [pvpMotionFx, setPvpMotionFx] = useState<PvpMotionFx[]>([]);
     const battlefieldRef = useRef<HTMLDivElement | null>(null);
     const logRef = useRef<HTMLDivElement>(null);
@@ -35505,10 +35615,15 @@ function PvpBattleScreen({
                 es = new EventSource(`/api/pvp/stream?id=${encodeURIComponent(battleId)}`);
                 es.addEventListener("session", (e) => {
                     if (!active) return;
+                    // Any message arriving means the channel is healthy.
+                    setConnectionState("connected");
                     try {
                         const data = JSON.parse((e as MessageEvent).data) as PvpSessionState;
                         setSession(data);
                     } catch { /* ignore malformed chunk */ }
+                });
+                es.addEventListener("open", () => {
+                    if (active) setConnectionState("connected");
                 });
                 es.addEventListener("end", () => {
                     es?.close();
@@ -35518,12 +35633,16 @@ function PvpBattleScreen({
                     es?.close();
                     es = null;
                     if (!active) return;
+                    // Surface the gap so players see "reconnecting…" rather
+                    // than a frozen board.
+                    setConnectionState("reconnecting");
                     pollTimer = window.setTimeout(() => {
                         if (!active) return;
                         startStream();
                     }, 1500);
                 };
             } catch {
+                if (active) setConnectionState("reconnecting");
                 void pollFallback();
             }
         }
@@ -35536,10 +35655,36 @@ function PvpBattleScreen({
         if (realtimeAvailable()) {
             unsubscribeRealtime = subscribeKvKey<PvpSessionState>(
                 `pvp:${battleId}`,
-                (next) => { if (active) setSession(next); },
+                (next) => {
+                    if (!active) return;
+                    // Updates only arrive while the channel is healthy,
+                    // so the act of receiving one clears any "reconnecting"
+                    // state set by an earlier CHANNEL_ERROR.
+                    setConnectionState("connected");
+                    setSession(next);
+                },
+                (status) => {
+                    if (!active) return;
+                    if (status === "SUBSCRIBED") setConnectionState("connected");
+                    else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+                        // Supabase auto-retries the channel; we just surface
+                        // the gap so the player has a signal that something
+                        // is off. The next setSession push flips us back.
+                        setConnectionState("reconnecting");
+                    }
+                },
             );
         }
-        void fetchInitial();
+        // Skip the initial GET when the parent has a matching seed —
+        // checked off the seedSession prop directly (not local state)
+        // because the seedSync effect that copies the seed into state
+        // races with this effect on the same battleId change, and the
+        // prop is the authoritative signal of "we already have it."
+        // Realtime / SSE still attaches above so any move that lands
+        // between session creation and mount arrives via push.
+        if (!seedSession || seedSession.battleId !== battleId) {
+            void fetchInitial();
+        }
         // If Realtime didn't initialize (env vars missing or client
         // construct failed), fall back to SSE. We don't run both —
         // they'd both setSession with the same data, wasting cycles.
@@ -35580,17 +35725,22 @@ function PvpBattleScreen({
     }, [session?.p1.pos, session?.p2.pos]);
 
     // Prefight countdown — fires once when the session first loads
-    // (skipped for spectators, who join mid-fight). 10-second window
-    // shows the "VS" splash + coin-flip result so BOTH players have
-    // time to load in, register the opponent, and read who goes
-    // first. The session is already live on the server during this
-    // window; we just gate the player's first action behind it.
+    // (skipped for spectators, who join mid-fight). Shows the "VS"
+    // splash + coin-flip result before either player can act.
+    //
+    // Originally 10s to cover slow load-in + read-the-coin-flip time.
+    // With the seedSession path (attacker renders the grid on first
+    // paint, no GET) and the Realtime challenge push (defender lands
+    // on pvpBattle within ~30-80ms of the attack POST), both players
+    // are visually ready essentially at session-create time. 5s is
+    // ample to read "X goes first!" and gives a noticeably snappier
+    // start without sacrificing readability.
     useEffect(() => {
         if (!session || pvpSessionFirstLoadRef.current) return;
         pvpSessionFirstLoadRef.current = true;
         if (amSpectator) return;
         setPvpPrefightFirstActor(session.activePlayer);
-        let count = 10;
+        let count = 5;
         setPvpPrefightCountdown(count);
         const iv = setInterval(() => {
             count -= 1;
@@ -36063,6 +36213,12 @@ function PvpBattleScreen({
 
     return (
         <div className={`arena-fullscreen pvp-battle-layout arena-bg-${currentBiome}${currentSector === 99 ? " arena-bg-deathsgate" : ""}`}>
+            {connectionState === "reconnecting" && (
+                <div className="pvp-reconnecting-pill" role="status" aria-live="polite">
+                    <span className="pvp-reconnecting-dot" />
+                    Reconnecting…
+                </div>
+            )}
             {pvpPrefightCountdown !== null && (
                 <div className="pvp-countdown-overlay">
                     <div className="pvp-countdown-box">

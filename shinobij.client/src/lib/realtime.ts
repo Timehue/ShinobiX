@@ -70,9 +70,19 @@ export function realtimeAvailable(): boolean {
 //
 // Returns null when Realtime isn't configured — caller should use
 // SSE / polling fallback.
+// Status forwarded from Supabase's channel.subscribe callback. Consumers
+// can use this to render a "reconnecting..." indicator when the
+// WebSocket drops mid-session.
+export type RealtimeChannelStatus =
+    | 'SUBSCRIBED'
+    | 'CLOSED'
+    | 'CHANNEL_ERROR'
+    | 'TIMED_OUT';
+
 export function subscribeKvKey<T = unknown>(
     key: string,
     onChange: (value: T) => void,
+    onStatus?: (status: RealtimeChannelStatus) => void,
 ): (() => void) | null {
     const client = init();
     if (!client) return null;
@@ -97,7 +107,10 @@ export function subscribeKvKey<T = unknown>(
                 }
             },
         )
-        .subscribe();
+        .subscribe((status) => {
+            if (!onStatus) return;
+            try { onStatus(status as RealtimeChannelStatus); } catch { /* ignore */ }
+        });
 
     return () => {
         try { client.removeChannel(channel); } catch { /* ignore */ }

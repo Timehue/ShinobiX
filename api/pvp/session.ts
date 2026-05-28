@@ -578,7 +578,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             };
 
             await kv.set(`pvp:${battleId}`, session, { ex: SESSION_TTL });
-            return res.status(200).json({ battleId });
+            // Return the full session alongside the id so the client can seed
+            // PvpBattleScreen's state on mount and skip the redundant GET
+            // round trip that immediately follows a POST. Same data the GET
+            // endpoint returns (and GET is unauthenticated for spectator-by-id
+            // / EventSource compat), so no new exposure here — POST itself is
+            // already gated to a fighter or admin via authedPlayerOrAdmin.
+            return res.status(200).json({ battleId, session });
         } catch (err) {
             console.error('[pvp/session]', err);
             return res.status(500).json({ error: 'Internal server error.' });
