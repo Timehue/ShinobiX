@@ -164,9 +164,71 @@ export function sanitizeJutsuList(rawList: unknown): unknown[] {
         });
 }
 
-function sanitizePvpItems(raw: unknown): unknown[] {
+// Acceptable weapon elements — must match VALID_ELEMENTS below so the weather
+// multiplier in api/pvp/move.ts treats this field consistently. Unknown
+// elements are dropped (no weather interaction) rather than blocking the item.
+const VALID_WEAPON_ELEMENTS: ReadonlySet<string> = new Set([
+    '', 'Earth', 'Wind', 'Water', 'Lightning', 'Fire', 'Yin', 'Yang',
+]);
+
+// 'both' is the only effect-target token the move handler treats specially
+// (Smoke Bomb path). Anything outside this set is dropped so a tampered save
+// can't activate an as-yet-unwritten code path by guessing future tokens.
+const VALID_WEAPON_EFFECT_TARGETS: ReadonlySet<string> = new Set([
+    'self', 'opponent', 'both',
+]);
+
+// Mirrors sanitizeJutsuList for equipped weapons / armor / consumables /
+// throwables. A pvpItem is read by api/pvp/move.ts as an authoritative source
+// of damage, range, AP cost, tags, and elemental affinity, so a tampered save
+// could otherwise inject a 999999-EP free-cost ranged weapon or apply unknown
+// tags. Clamps numerics, whitelists tag names + element, drops anything
+// suspicious.
+export function sanitizePvpItems(raw: unknown): unknown[] {
     if (!Array.isArray(raw)) return [];
-    return raw.filter((i) => !!i && typeof i === 'object');
+    return raw
+        .filter((i): i is Record<string, unknown> => !!i && typeof i === 'object')
+        .map((item) => {
+            const out: Record<string, unknown> = { ...item };
+            // Numeric clamps — match the jutsu sanitizer's bounds so weapons
+            // can't out-scale jutsus.
+            if (out.weaponEp != null)          out.weaponEp = clampNumber(out.weaponEp, 0, 600, 0);
+            if (out.weaponRange != null)       out.weaponRange = clampNumber(out.weaponRange, 0, 30, 1);
+            if (out.apCost != null)            out.apCost = clampNumber(out.apCost, 0, 200, 40);
+            if (out.weaponEffectValue != null) out.weaponEffectValue = clampNumber(out.weaponEffectValue, 0, 100, 0);
+            // Tag list — same whitelist + cap (10) as sanitizeJutsuList.
+            if (out.weaponTags != null) {
+                const rawTags = Array.isArray(out.weaponTags) ? out.weaponTags : [];
+                out.weaponTags = (rawTags as unknown[])
+                    .filter((t): t is Record<string, unknown> => !!t && typeof t === 'object')
+                    .filter((t) => typeof t.name === 'string' && KNOWN_TAG_NAMES.has(String(t.name)))
+                    .map((t) => {
+                        const tag: Record<string, unknown> = { name: String(t.name) };
+                        if (t.percent != null) tag.percent = clampNumber(t.percent, 0, 100, 0);
+                        if (t.amount  != null) tag.amount  = clampNumber(t.amount, 0, 10000, 0);
+                        return tag;
+                    })
+                    .slice(0, 10);
+            }
+            // weaponEffect / weaponElement / weaponEffectTarget — drop if not
+            // in their respective whitelists rather than blocking the whole
+            // item, so a single bad field doesn't disarm the player.
+            if (out.weaponEffect != null && !KNOWN_TAG_NAMES.has(String(out.weaponEffect))) {
+                delete out.weaponEffect;
+            }
+            if (out.weaponElement != null && !VALID_WEAPON_ELEMENTS.has(String(out.weaponElement))) {
+                delete out.weaponElement;
+            }
+            if (out.weaponEffectTarget != null && !VALID_WEAPON_EFFECT_TARGETS.has(String(out.weaponEffectTarget))) {
+                delete out.weaponEffectTarget;
+            }
+            // String identity fields — equippedPvpItem matches on item.id and
+            // item.name, so non-string values would break the lookup.
+            if (out.id   != null && typeof out.id   !== 'string') delete out.id;
+            if (out.name != null && typeof out.name !== 'string') delete out.name;
+            if (out.slot != null && typeof out.slot !== 'string') delete out.slot;
+            return out;
+        });
 }
 
 // Fields STRIPPED from the character before it's sealed into the PvP
