@@ -1,8 +1,9 @@
 /*
- * Desktop right-rail navigation menu — the collapsible side menu with
- * Village / Travel / Users / Character / Logbook / Inventory / Stats /
- * Jutsu / Missions / Pets / Patreon (external link) / Bloodline /
- * Admin (Rill-only) / Logout buttons.
+ * Desktop right-rail navigation menu — the collapsible side menu.
+ * Grouped: travel/world (Village, Travel, Users) → activities
+ * (Missions, Training) → character (Character, Inventory, Jutsu, Pets,
+ * Bloodline, Logbook) → community (Discord, Patreon — external links) →
+ * system (Admin Rill-only, Logout).
  *
  * Pure leaf — `navigate` and `logoutPlayer` callbacks come in as props.
  * `villageBiomes` lookup imported from App.tsx; admin-name gate via
@@ -62,15 +63,16 @@ export const RightMenu = memo(function RightMenu({
                         <button onClick={() => navigate("village")} disabled={!atHome} title={atHome ? undefined : `Travel to ${characterVillage} to enter`}>Village</button>
                         <button onClick={() => navigate("worldMap")}>Travel</button>
                         <button onClick={() => navigate("userHub")}>Users</button>
-                        <button onClick={() => navigate("profile")}>Character</button>
-                        <button onClick={() => navigate("logbook")}>Logbook</button>
-                        <button onClick={() => navigate("inventory")}>Inventory</button>
-                        <button onClick={() => navigate("training")}>Training</button>
-                        <button onClick={() => navigate("jutsuTraining")}>Jutsu</button>
                         <button onClick={() => navigate("missions")}>Missions</button>
+                        <button onClick={() => navigate("training")}>Training</button>
+                        <button onClick={() => navigate("profile")}>Character</button>
+                        <button onClick={() => navigate("inventory")}>Inventory</button>
+                        <button onClick={() => navigate("jutsuTraining")}>Jutsu</button>
                         <button onClick={() => navigate("pets")}>Pets</button>
-                        <button onClick={() => window.open("https://www.patreon.com/c/shinobijourney", "_blank", "noopener,noreferrer")}>♥ Patreon</button>
                         <button onClick={() => navigate("bloodlineMaker")}>Bloodline</button>
+                        <button onClick={() => navigate("logbook")}>Logbook</button>
+                        <button onClick={() => window.open("https://discord.gg/bCQGs8r6SK", "_blank", "noopener,noreferrer")}>💬 Discord</button>
+                        <button onClick={() => window.open("https://www.patreon.com/c/shinobijourney", "_blank", "noopener,noreferrer")}>♥ Patreon</button>
                         {isAdminAccount && (
                             <button onClick={() => navigate(adminLoggedIn ? "adminPanel" : "adminLogin")}>Admin</button>
                         )}
