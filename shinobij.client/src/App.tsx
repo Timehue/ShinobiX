@@ -6760,7 +6760,15 @@ export default function App() {
                 }),
             });
             if (!res.ok) throw new Error('Session create failed');
-            const { battleId } = await res.json() as { battleId: string };
+            // Capture both battleId and the full session payload — POST returns
+            // the freshly-created session so PvpBattleScreen can render the
+            // grid on first paint instead of flashing the "Connecting…" card.
+            // Same pattern wired into sectorAttackPlayer / startPvpRaid; this
+            // brings ranked / clan-war / spar / standard accepts to the same
+            // bar.
+            const acceptData = await res.json() as { battleId: string; session?: PvpSessionState };
+            const battleId = acceptData.battleId;
+            if (acceptData.session) setPvpSeedSession(acceptData.session);
             // Push acceptance back so challenger's heartbeat routes them to pvpBattle as p1
             const notified = await postPlayerChallengeNotice(challenge.fromName, { ...challenge, battleId, accepted: true, fromName: character.name, toName: challenge.fromName });
             setPvpBattleId(battleId);
@@ -11445,6 +11453,7 @@ export default function App() {
                         setPvpBattleId={setPvpBattleId}
                         setPvpRole={setPvpRole}
                         setPvpBattleContext={setPvpBattleContext}
+                        setPvpSeedSession={setPvpSeedSession}
                         setPendingPetBattleOpponent={setPendingPetBattleOpponent}
                     />
                 )}
@@ -28799,7 +28808,14 @@ function WorldMap({
                                                         headers: { 'Content-Type': 'application/json' },
                                                         body: stringifyPvpSessionPayload({ useCurrentVitals: true, p1Character: { ...selfChar, jutsu: p1j, pvpItems: getPvpItemLoadout(selfChar, getAllItems(wmCreatorItems)), bloodlineMult: getBloodlineMultiplier(selfChar, selfBloodlines), armorFactor: getCharacterArmorFactor(selfChar, getAllItems(wmCreatorItems)), armorRawDR: getCharacterArmorRawDR(selfChar, getAllItems(wmCreatorItems)), itemDamagePct: getEquippedItemBonus(selfChar, getAllItems(wmCreatorItems), "damagePercent") }, p2Character: { ...guardSessionChar, jutsu: p2j, pvpItems: getPvpItemLoadout(guardSessionChar, getAllItems(wmCreatorItems)), bloodlineMult: getBloodlineMultiplier(guardSessionChar, guardBloodlines), armorFactor: getCharacterArmorFactor(guardSessionChar, getAllItems(wmCreatorItems)), armorRawDR: getCharacterArmorRawDR(guardSessionChar, getAllItems(wmCreatorItems)), itemDamagePct: getEquippedItemBonus(guardSessionChar, getAllItems(wmCreatorItems), "damagePercent") } }),
                                                     });
-                                                    if (sr.ok) ({ battleId } = await sr.json() as { battleId: string });
+                                                    if (sr.ok) {
+                                                        // Seed PvpBattleScreen with the session returned
+                                                        // by POST so the village-guard raid lands on the
+                                                        // grid instantly, matching sector-attack snappiness.
+                                                        const data = await sr.json() as { battleId: string; session?: PvpSessionState };
+                                                        battleId = data.battleId;
+                                                        if (data.session) setPvpSeedSession(data.session);
+                                                    }
                                                 } catch { /* fallback */ }
 
                                                 if (battleId) {
@@ -31399,6 +31415,7 @@ function Arena({
     setPvpBattleId,
     setPvpRole,
     setPvpBattleContext,
+    setPvpSeedSession,
     setPendingPetBattleOpponent,
 }: {
     lobbyMode?: "battleArena" | "arenaDistrict";
@@ -31435,6 +31452,7 @@ function Arena({
     setPvpBattleId?: (id: string) => void;
     setPvpRole?: (role: "p1" | "p2") => void;
     setPvpBattleContext?: (context: SharedPvpBattleContext | null) => void;
+    setPvpSeedSession?: (session: PvpSessionState | null) => void;
     setPendingPetBattleOpponent?: (opponent: PetArenaOpponent | null) => void;
 }) {
     type CombatStatus = {
@@ -32016,7 +32034,14 @@ function Arena({
                 body: stringifyPvpSessionPayload({ useCurrentVitals: !!challenge.sectorAttack, p1Character: { ...p1Character, jutsu: p1Jutsus, pvpItems: getPvpItemLoadout(p1Character, p1AllItems), bloodlineMult: challenge.challengerBloodlineMult ?? getBloodlineMultiplier(p1Character, p1SavedBloodlines), armorFactor: getCharacterArmorFactor(p1Character, p1AllItems), armorRawDR: getCharacterArmorRawDR(p1Character, p1AllItems), itemDamagePct: getEquippedItemBonus(p1Character, p1AllItems, "damagePercent") }, p2Character: { ...p2Character, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(p2Character, p2AllItems), bloodlineMult: getBloodlineMultiplier(p2Character, p2SavedBloodlines), armorFactor: getCharacterArmorFactor(p2Character, p2AllItems), armorRawDR: getCharacterArmorRawDR(p2Character, p2AllItems), itemDamagePct: getEquippedItemBonus(p2Character, p2AllItems, "damagePercent") } }),
             });
             if (!res.ok) throw new Error('Session create failed');
-            const { battleId } = await res.json() as { battleId: string };
+            // Mirrors acceptChallengeGlobal (App.tsx ~6763): read the session
+            // payload returned alongside battleId and seed PvpBattleScreen so
+            // the grid renders on first paint. Without this, accept-from-Arena
+            // (Spar / Ranked tab) flashes the "Connecting…" card for the GET
+            // round-trip even though sector attacks no longer do.
+            const acceptData = await res.json() as { battleId: string; session?: PvpSessionState };
+            const battleId = acceptData.battleId;
+            if (acceptData.session) setPvpSeedSession?.(acceptData.session);
             // Push acceptance notification back so the original challenger gets routed to p1
             const notified = await postPlayerChallengeNotice(challenge.fromName, { ...challenge, battleId, accepted: true, fromName: character.name, toName: challenge.fromName });
             setPvpBattleId?.(battleId);
