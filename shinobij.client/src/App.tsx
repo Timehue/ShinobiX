@@ -415,6 +415,7 @@ import {
     increasePetHappiness,
 } from "./lib/pet";
 import { playPetSfx, isPetSfxMuted, setPetSfxMuted, primePetSfx } from "./lib/pet-sfx";
+import { startBattleMusic, stopBattleMusic, isAudioMuted, setAudioMuted, subscribeAudioMute } from "./lib/pet-music";
 export { petDisplayName };
 
 // Equipment helpers + tables extracted to ./lib/equipment. The three
@@ -10835,6 +10836,7 @@ function DungeonPetBattle({ character, updateCharacter, editablePets, onWin, onL
     }, [battleFrames.length, frameIndex, isPlaying]);
     function startBattle() {
         primePetSfx(); // unlock the audio context inside the click gesture
+        startBattleMusic(); // rotate to a fresh battle track
         if (!selectedPet) return;
         if (isPetOnExpedition(selectedPet)) return alert(`${petDisplayName(selectedPet)} is exploring and cannot battle right now.`);
         const battle = runPetArenaBattle(selectedPet, enemyPet, enemyOwner, Date.now(), petTamerPveMultiplier(character));
@@ -14231,6 +14233,7 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
 
     function startBattle(opponentOverride?: PetArenaOpponent) {
         primePetSfx(); // unlock the audio context inside the click gesture
+        startBattleMusic(); // rotate to a fresh battle track
         if (!selectedPet) return alert("Choose one of your pets first.");
         if (isPetOnExpedition(selectedPet)) return alert(`${petDisplayName(selectedPet)} is exploring and cannot battle right now.`);
         const opponent = opponentOverride ?? selectedOpponent;
