@@ -42,6 +42,24 @@ import {
     applyCurrencyRewards,
     rewardSummary,
 } from "./lib/currency";
+import {
+    VILLAGE_UPGRADE_MAX_LEVEL,
+    villageUpgradeDefinitions,
+    defaultVillageUpgrades,
+    normalizeVillageUpgrades,
+    getVillageUpgrades,
+    villageUpgradeCost,
+    boostAmount,
+    discountCost,
+    getTrainingXpBonus,
+    getJutsuTrainingSpeedBonus,
+    getShopDiscountPercent,
+    getTownDefenseGuardBonus,
+    getPetXpBonus,
+    getBankInterestPercent,
+    getMissionRewardBonus,
+    getHospitalDiscountPercent,
+} from "./lib/village-upgrades";
 
 // Install the global fetch interceptor once at module load. From here on,
 // every fetch('/api/...') call automatically picks up x-player-name and
@@ -108,7 +126,6 @@ import {
     type JutsuSort,
     type WeatherType,
     type VillageUpgradeKey,
-    type VillageUpgrades,
     type AdminAccount,
     type AdminRole,
 } from "./types/core";
@@ -3912,28 +3929,9 @@ export function gainProfessionXp(character: Character, amount: number): Characte
 // ./lib/currency. The symbols still referenced here are imported back near the
 // top of this file. None were part of the public "../App" surface.
 
-const VILLAGE_UPGRADE_MAX_LEVEL = 50;
 // Hollow Gate tunables — declared as `let` so the admin panel can override
 // them at runtime without rebuilding. Defaults are baked-in canonical values.
 let HOLLOW_GATE_UNLOCK_COST = 10_000;
-
-const villageUpgradeDefinitions: Array<{
-    key: VillageUpgradeKey;
-    name: string;
-    icon: string;
-    perLevel: number;
-    unit: "%";
-    description: string;
-}> = [
-        { key: "training", name: "Training Grounds", icon: "💪", perLevel: 0.25, unit: "%", description: "+0.25% character XP from stat training per level." },
-        { key: "jutsuTraining", name: "Jutsu Training", icon: "📖", perLevel: 0.25, unit: "%", description: "+0.25% jutsu training speed / jutsu XP per level." },
-        { key: "shop", name: "Shop", icon: "🛒", perLevel: 0.25, unit: "%", description: "0.25% shop discount per level." },
-        { key: "townDefense", name: "Town Defense", icon: "🏯", perLevel: 0.1, unit: "%", description: "+0.1% defense vs Genjutsu, Taijutsu, Bukijutsu, and Ninjutsu while defending through the Village Guard queue." },
-        { key: "petYard", name: "Pet Yard", icon: "🐾", perLevel: 0.25, unit: "%", description: "+0.25% pet XP from pet training per level." },
-        { key: "bank", name: "Bank", icon: "🏦", perLevel: 0.25, unit: "%", description: "+0.25% bank interest per level." },
-        { key: "missionHall", name: "Mission Hall", icon: "📜", perLevel: 0.5, unit: "%", description: "+0.5% XP, ryo, and stamina mission rewards per level." },
-        { key: "hospital", name: "Hospital", icon: "⚕️", perLevel: 1, unit: "%", description: "1% hospital discount per level." },
-    ];
 
 type VillageLeadershipProfile = { kage: string; elders: string[]; atWar: boolean; pastWars: string[] };
 type VillageLeadershipImages = Record<string, { kage?: string; elders?: string[] }>;
@@ -3989,44 +3987,11 @@ function saveVillageLeadershipImages(images: VillageLeadershipImages) {
     persistSharedGameState({ kind: "villageLeadershipImages", images: sharedVillageLeadershipImagesCache });
 }
 
-function defaultVillageUpgrades(): VillageUpgrades {
-    return {
-        training: 0,
-        jutsuTraining: 0,
-        shop: 0,
-        townDefense: 0,
-        petYard: 0,
-        bank: 0,
-        missionHall: 0,
-        hospital: 0,
-    };
-}
-
-function normalizeVillageUpgrades(upgrades?: Partial<VillageUpgrades>): VillageUpgrades {
-    const defaults = defaultVillageUpgrades();
-    const normalized = { ...defaults, ...(upgrades ?? {}) } as VillageUpgrades;
-    for (const key of Object.keys(defaults) as VillageUpgradeKey[]) {
-        normalized[key] = clampNumber(Math.floor(Number(normalized[key] ?? 0)), 0, VILLAGE_UPGRADE_MAX_LEVEL);
-    }
-    return normalized;
-}
-
-function getVillageUpgrades(character: Character): VillageUpgrades {
-    return normalizeVillageUpgrades(character.villageUpgrades);
-}
-
-function villageUpgradeLevel(character: Character, key: VillageUpgradeKey): number {
-    return getVillageUpgrades(character)[key] ?? 0;
-}
-
-function villageUpgradeBonus(character: Character, key: VillageUpgradeKey): number {
-    const def = villageUpgradeDefinitions.find((upgrade) => upgrade.key === key);
-    return villageUpgradeLevel(character, key) * (def?.perLevel ?? 0);
-}
-
-function boostAmount(amount: number, percent: number) {
-    return Math.max(0, Math.floor(amount * (1 + percent / 100)));
-}
+// Village upgrade system (definitions, levels/bonuses, costs + the derived
+// bonus helpers) extracted to ./lib/village-upgrades. The symbols still
+// referenced here are imported back near the top of this file; discountCost,
+// getBankInterestPercent and getHospitalDiscountPercent are re-exported below
+// for the Bank/Hospital "../App" import sites.
 
 // Aura Sphere progression + equipped-bonus helpers extracted to
 // ./lib/aura-sphere. The symbols still referenced here are imported back near
@@ -4034,32 +3999,7 @@ function boostAmount(amount: number, percent: number) {
 // LeftProfileCard "../App" import site.
 export { getActiveAuraSphereBonuses };
 
-export function discountCost(cost: number, percent: number) {
-    return Math.max(1, Math.floor(cost * Math.max(0, 1 - percent / 100)));
-}
-
-function villageUpgradeCost(key: VillageUpgradeKey, currentLevel: number) {
-    const base: Record<VillageUpgradeKey, number> = {
-        training: 10,
-        jutsuTraining: 12,
-        shop: 12,
-        townDefense: 14,
-        petYard: 12,
-        bank: 16,
-        missionHall: 14,
-        hospital: 12,
-    };
-    return Math.floor((base[key] ?? 12) + currentLevel * 4 + Math.pow(currentLevel, 1.25) * 2);
-}
-
-function getTrainingXpBonus(character: Character) { return villageUpgradeBonus(character, "training") + (character.elderFocus === "training" ? 10 : 0); }
-function getJutsuTrainingSpeedBonus(character: Character) { return villageUpgradeBonus(character, "jutsuTraining") + (character.elderFocus === "training" ? 10 : 0); }
-function getShopDiscountPercent(character: Character) { return villageUpgradeBonus(character, "shop") + (character.elderFocus === "trade" ? 5 : 0); }
-function getTownDefenseGuardBonus(character: Character) { return villageUpgradeBonus(character, "townDefense"); }
-function getPetXpBonus(character: Character) { return villageUpgradeBonus(character, "petYard"); }
-export function getBankInterestPercent(character: Character) { return villageUpgradeBonus(character, "bank"); }
-function getMissionRewardBonus(character: Character) { return villageUpgradeBonus(character, "missionHall"); }
-export function getHospitalDiscountPercent(character: Character) { return villageUpgradeBonus(character, "hospital"); }
+export { discountCost, getBankInterestPercent, getHospitalDiscountPercent };
 
 export function normalizeJutsu(jutsu: Partial<Jutsu> & Pick<Jutsu, "id" | "name" | "type">): Jutsu {
     const tags = normalizeJutsuTags(jutsu.tags);
