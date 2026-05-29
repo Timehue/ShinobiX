@@ -35,6 +35,13 @@ import {
     hasEquippedAuraSphere,
     getActiveAuraSphereBonuses,
 } from "./lib/aura-sphere";
+import {
+    rewardCurrencyOptions,
+    singleCurrencyReward,
+    firstCurrencyReward,
+    applyCurrencyRewards,
+    rewardSummary,
+} from "./lib/currency";
 
 // Install the global fetch interceptor once at module load. From here on,
 // every fetch('/api/...') call automatically picks up x-player-name and
@@ -3901,54 +3908,9 @@ export function gainProfessionXp(character: Character, amount: number): Characte
     };
 }
 
-const rewardCurrencyOptions: Array<{ key: RewardCurrencyKey; label: string }> = [
-    { key: "fateShards", label: "Fate Shards" },
-    { key: "honorSeals", label: "Honor Seals" },
-    { key: "boneCharms", label: "Bone Charms" },
-    { key: "auraStones", label: "Aura Stones" },
-    { key: "auraDust", label: "Aura Dust" },
-    { key: "mythicSeals", label: "Mythic Seals" },
-];
-
-function normalizeCurrencyRewards(rewards?: CurrencyRewards): CurrencyRewards {
-    const normalized: CurrencyRewards = {};
-    rewardCurrencyOptions.forEach(({ key }) => {
-        const value = Math.max(0, Math.floor(Number(rewards?.[key] ?? 0)));
-        if (value > 0) normalized[key] = value;
-    });
-    return normalized;
-}
-
-function singleCurrencyReward(key: RewardCurrencyKey, amount: number): CurrencyRewards | undefined {
-    const value = Math.max(0, Math.floor(Number(amount)));
-    return value > 0 ? ({ [key]: value } as CurrencyRewards) : undefined;
-}
-
-function firstCurrencyReward(rewards?: CurrencyRewards): { key: RewardCurrencyKey; amount: number } {
-    const normalized = normalizeCurrencyRewards(rewards);
-    const found = rewardCurrencyOptions.find(({ key }) => (normalized[key] ?? 0) > 0);
-    return { key: found?.key ?? "fateShards", amount: found ? normalized[found.key] ?? 0 : 0 };
-}
-
-function applyCurrencyRewards(character: Character, rewards?: CurrencyRewards): Character {
-    const normalized = normalizeCurrencyRewards(rewards);
-    return rewardCurrencyOptions.reduce<Character>((updated, { key }) => {
-        const amount = normalized[key] ?? 0;
-        return amount > 0 ? { ...updated, [key]: (updated[key] ?? 0) + amount } : updated;
-    }, character);
-}
-
-function formatCurrencyRewards(rewards?: CurrencyRewards): string {
-    const normalized = normalizeCurrencyRewards(rewards);
-    return rewardCurrencyOptions
-        .filter(({ key }) => (normalized[key] ?? 0) > 0)
-        .map(({ key, label }) => `+${normalized[key]} ${label}`)
-        .join(" / ");
-}
-
-function rewardSummary(xp: number, ryo: number, stamina: number, rewards?: CurrencyRewards, character?: Pick<Character, "elderFocus">): string {
-    return [`+${displayCharacterXpGain(xp, character)} XP`, `+${ryo} ryo`, `+${stamina} stamina`, formatCurrencyRewards(rewards)].filter(Boolean).join(" / ");
-}
+// Reward-currency helpers (normalize/apply/format + rewardSummary) extracted to
+// ./lib/currency. The symbols still referenced here are imported back near the
+// top of this file. None were part of the public "../App" surface.
 
 const VILLAGE_UPGRADE_MAX_LEVEL = 50;
 // Hollow Gate tunables — declared as `let` so the admin panel can override
