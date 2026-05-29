@@ -12,6 +12,10 @@ type PetSfxKind =
 const MUTE_KEY = "petSfxMuted";
 let ctx: AudioContext | null = null;
 let noiseBuf: AudioBuffer | null = null;
+// Master bus: a gentle limiter so the stacked impact layers glue together and
+// never clip into harsh digital crackle. Everything routes through this, not
+// straight to the speakers.
+let master: DynamicsCompressorNode | null = null;
 
 function getCtx(): AudioContext | null {
     if (typeof window === "undefined") return null;
@@ -21,6 +25,13 @@ function getCtx(): AudioContext | null {
                 ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
             if (!AC) return null;
             ctx = new AC();
+            master = ctx.createDynamicsCompressor();
+            master.threshold.value = -10;
+            master.knee.value = 24;
+            master.ratio.value = 8;
+            master.attack.value = 0.002;
+            master.release.value = 0.2;
+            master.connect(ctx.destination);
         }
         if (ctx.state === "suspended") void ctx.resume();
         return ctx;
@@ -28,6 +39,9 @@ function getCtx(): AudioContext | null {
         return null;
     }
 }
+
+// Route layers to the master bus (falls back to destination if unset).
+function out(c: AudioContext): AudioNode { return master ?? c.destination; }
 
 export function isPetSfxMuted(): boolean {
     try { return localStorage.getItem(MUTE_KEY) === "1"; } catch { return false; }
@@ -60,7 +74,7 @@ function tone(c: AudioContext, opts: {
     g.gain.setValueAtTime(0.0001, t0);
     g.gain.exponentialRampToValueAtTime(gain, t0 + attack);
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-    osc.connect(g).connect(c.destination);
+    osc.connect(g).connect(out(c));
     osc.start(t0);
     osc.stop(t0 + dur + 0.02);
 }
@@ -90,7 +104,7 @@ function noise(c: AudioContext, opts: {
     const g = c.createGain();
     g.gain.setValueAtTime(gain, t0);
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-    src.connect(f).connect(g).connect(c.destination);
+    src.connect(f).connect(g).connect(out(c));
     src.start(t0);
     src.stop(t0 + dur + 0.02);
 }
@@ -102,21 +116,28 @@ export function playPetSfx(kind: PetSfxKind): void {
     try {
         switch (kind) {
             case "hit":
-                // Punchy thud: pitch-dropping body + a short low crunch.
-                tone(c, { type: "sine", from: 170, to: 58, dur: 0.16, gain: 0.34 });
-                noise(c, { dur: 0.10, gain: 0.18, type: "lowpass", freq: 2200 });
+                // Real impacts = 3 layers stacked at t=0: a bright CLICK transient
+                // (the "crack"), a pitched-down body THUMP, and a short low tail.
+                // The transient is what your ear reads as "solid contact".
+                noise(c, { dur: 0.035, gain: 0.5, type: "highpass", freq: 3500 });   // crack
+                tone(c, { type: "triangle", from: 320, to: 70, dur: 0.13, gain: 0.4, attack: 0.001 }); // thump
+                noise(c, { dur: 0.13, gain: 0.22, type: "lowpass", freq: 1400 });    // body
+                tone(c, { type: "sine", from: 110, to: 45, dur: 0.18, gain: 0.32, attack: 0.001 });    // low tail
                 break;
             case "crit":
-                // Sharper, brighter, with a metallic high blip on top.
-                tone(c, { type: "square", from: 230, to: 70, dur: 0.20, gain: 0.26 });
-                tone(c, { type: "sine", from: 900, to: 320, dur: 0.12, gain: 0.16 });
-                noise(c, { dur: 0.15, gain: 0.24, type: "highpass", freq: 1500 });
+                // Heavier, brighter, with a metallic ring + a deeper boom under it.
+                noise(c, { dur: 0.05, gain: 0.6, type: "highpass", freq: 4000 });    // sharp crack
+                tone(c, { type: "sawtooth", from: 420, to: 80, dur: 0.18, gain: 0.34, attack: 0.001 }); // aggressive body
+                tone(c, { type: "square", from: 1300, to: 600, dur: 0.09, gain: 0.14 }); // metallic ring
+                noise(c, { dur: 0.22, gain: 0.3, type: "lowpass", freq: 1100 });     // boom
+                tone(c, { type: "sine", from: 90, to: 38, dur: 0.3, gain: 0.4, attack: 0.001 });        // deep tail
                 break;
             case "ko":
-                // Big, slow boom with a sub layer.
-                tone(c, { type: "sine", from: 150, to: 40, dur: 0.55, gain: 0.42 });
-                tone(c, { type: "sine", from: 72, to: 30, dur: 0.65, gain: 0.30 });
-                noise(c, { dur: 0.45, gain: 0.30, type: "lowpass", freq: 900 });
+                // Big cinematic boom: sharp crack → huge sub drop → long rumble tail.
+                noise(c, { dur: 0.06, gain: 0.55, type: "highpass", freq: 3000 });
+                tone(c, { type: "sine", from: 200, to: 32, dur: 0.6, gain: 0.5, attack: 0.001 });
+                tone(c, { type: "sine", from: 80, to: 24, dur: 0.8, gain: 0.42, attack: 0.002 });
+                noise(c, { dur: 0.55, gain: 0.32, type: "lowpass", freq: 700 });
                 break;
             case "heal":
                 tone(c, { type: "sine", from: 523, to: 784, dur: 0.30, gain: 0.20 });
