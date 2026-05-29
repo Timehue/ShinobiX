@@ -11,6 +11,7 @@
 
 import type { GameItem } from "../types/combat";
 import { AURA_SPHERE_ITEM_ID } from "../constants/game";
+import { petCollars, petPvpGear, petPveGear, petConsumables } from "./pet-config";
 
 export const starterItems: GameItem[] = [
     {
@@ -86,6 +87,55 @@ export const starterItems: GameItem[] = [
         description: "A Grand Marketplace pet feast. Feed to a selected pet for +2000 pet XP.",
         bonuses: {},
     },
+    // Glow collars — one buyable item per collar color (see petCollars). Each
+    // wraps the pet in a differently colored battle aura when equipped in the
+    // Pet Yard. Cosmetic only (no bonuses); buy once with Fate Shards in the
+    // Grand Marketplace, then equip on any pet. Legendary/mythic rarity keeps
+    // them in the Grand Marketplace; cost is in Fate Shards.
+    ...petCollars.map((collar): GameItem => ({
+        id: collar.id,
+        name: collar.name,
+        slot: "item",
+        rarity: collar.rarity,
+        cost: collar.cost,
+        description: `A chakra-threaded pet collar. Equip it in a pet's Collar slot to wrap the pet in a ${collar.tint} glow during pet battles and when it's summoned into a PvE fight.`,
+        bonuses: {},
+    })),
+    // PVP battle gear — one buyable item per gear (see petPvpGear). Each grants
+    // stat modifiers applied to the pet in pet arena battles when equipped in
+    // the PVP slot. Sold for ryo; buy once, equip on any pet.
+    ...petPvpGear.map((gear): GameItem => ({
+        id: gear.id,
+        name: gear.name,
+        slot: "item",
+        rarity: gear.rarity,
+        cost: gear.cost,
+        description: `Pet battle gear. ${gear.desc} while equipped in a pet's PVP slot — boosts your pet in pet arena battles.`,
+        bonuses: {},
+    })),
+    // PVE companion gear — boosts the pet when summoned into a PvE ninja fight
+    // (see petPveGear). Consumable: equip it in a pet's PVE slot and it breaks
+    // after 20 summons. Sold here for ryo and craftable in the Crafter.
+    ...petPveGear.map((gear): GameItem => ({
+        id: gear.id,
+        name: gear.name,
+        slot: "item",
+        rarity: gear.rarity,
+        cost: gear.cost,
+        description: `Pet companion gear (PVE slot). ${gear.desc} when your pet is summoned into a PvE fight. Wears out after 20 summons.`,
+        bonuses: {},
+    })),
+    // Battle consumables — one-use boosts equipped in a pet's Consumable slot,
+    // spent the next time the pet fights (pet battle or PvE summon).
+    ...petConsumables.map((c): GameItem => ({
+        id: c.id,
+        name: c.name,
+        slot: "item",
+        rarity: c.rarity,
+        cost: c.cost,
+        description: `Pet battle consumable (Consumable slot). ${c.desc} — triggers once in a pet battle. When summoned in PvE instead, the pet spends it to shield you. Single use.`,
+        bonuses: {},
+    })),
     // -- Hunting materials ----------------------------------------------------
     { id: "hunt-beast-meat", name: "Beast Meat", slot: "item", rarity: "common", cost: 0, description: "Coarse meat carved from a wild beast. Used in the Crafter to make pet treats.", bonuses: {} },
     { id: "hunt-torn-hide", name: "Torn Hide", slot: "item", rarity: "common", cost: 0, description: "Ragged hide stripped from a forest creature. Crafting material.", bonuses: {} },
