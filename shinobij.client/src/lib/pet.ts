@@ -43,7 +43,16 @@ export function petCombatDamage(pet: Pet): number {
         0,
         ...pet.jutsus.filter((jutsu) => jutsu.kind === "damage").map((jutsu) => jutsu.power),
     );
-    return Math.max(20, Math.floor(pet.attack * 1.35 + bestDamageJutsu * 0.65 + pet.level * 2));
+    // All four stats feed the summon's strike: attack + its best damage jutsu
+    // are the core, speed (agility) adds bite, and the pet's bulk (hp + def —
+    // its battle "presence") chips in a little so every stat matters.
+    return Math.max(20, Math.floor(
+        pet.attack * 1.25
+        + bestDamageJutsu * 0.6
+        + pet.speed * 0.35
+        + (pet.hp + pet.defense) * 0.025
+        + pet.level * 2,
+    ));
 }
 
 // Returns a new pet with happiness bumped by `amount`, clamped to 100.
