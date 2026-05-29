@@ -177,6 +177,13 @@ import {
     type PlayerRecord,
     type ServerPlayerSummary,
 } from "./types/character";
+import {
+    type AiCondition,
+    type AiAction,
+    type AiLoadoutId,
+    type AiRule,
+    type CreatorAi,
+} from "./types/creator-ai";
 export type {
     Profession,
     Screen,
@@ -685,39 +692,9 @@ type SharedPvpBattleContext = {
     clanWarChallengeId?: string;
 };
 
-type AiCondition = "always" | "specific_round" | "distance_lower_than" | "distance_higher_than" | "hp_lower_than";
-type AiAction = "use_specific_jutsu" | "use_highest_power_jutsu" | "move_towards_opponent" | "use_basic_attack";
-type AiLoadoutId = "balanced" | "control" | "burst" | "bruiser" | "defender" | "hunter" | "boss";
-type AiRule = {
-    id: string;
-    condition: AiCondition;
-    value: number;
-    action: AiAction;
-    jutsuId?: string;
-};
-type CreatorAi = {
-    id: string;
-    name: string;
-    icon: string;
-    image?: string;
-    level: number;
-    village: string;
-    hp: number;
-    chakra: number;
-    stamina: number;
-    stats: Stats;
-    armorRawDR?: number;
-    armorFactor?: number;
-    loadoutId?: AiLoadoutId;
-    jutsuIds: string[];
-    rules: AiRule[];
-    isBossAi?: boolean;
-    // When true, force the smart battle AI (lethal detection, DoT-aware
-    // KO, no-redundant status, full jutsu pool, multi-axis scoring) even
-    // if the AI is below the level-30 auto-threshold. Lets admins flag a
-    // low-level "elite" mob as a real fight without bumping its level.
-    masterAi?: boolean;
-};
+// Creator AI definition types (AiCondition, AiAction, AiLoadoutId, AiRule,
+// CreatorAi) moved to ./types/creator-ai and imported back near the top of
+// this file.
 
 // JutsuTag / Jutsu / EquipmentSlot moved to ./types/combat.
 // itemSectionOptions / normalizeEquipmentSlot / equipmentSlotLabel /
