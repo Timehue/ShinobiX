@@ -414,6 +414,7 @@ import {
     petCombatDamage,
     increasePetHappiness,
 } from "./lib/pet";
+import { playPetSfx, isPetSfxMuted, setPetSfxMuted, primePetSfx } from "./lib/pet-sfx";
 export { petDisplayName };
 
 // Equipment helpers + tables extracted to ./lib/equipment. The three
@@ -10812,6 +10813,7 @@ function DungeonPetBattle({ character, updateCharacter, editablePets, onWin, onL
         return () => window.clearTimeout(timer);
     }, [battleFrames.length, frameIndex, isPlaying]);
     function startBattle() {
+        primePetSfx(); // unlock the audio context inside the click gesture
         if (!selectedPet) return;
         if (isPetOnExpedition(selectedPet)) return alert(`${petDisplayName(selectedPet)} is exploring and cannot battle right now.`);
         const battle = runPetArenaBattle(selectedPet, enemyPet, enemyOwner, Date.now(), petTamerPveMultiplier(character));
@@ -14161,6 +14163,19 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
     const showResult = currentFrame?.actionKind === "result";
     const visibleLog = battleFrames.length ? battleFrames.slice(0, frameIndex + 1).map((frame) => frame.message) : battleLog;
 
+    // Auto-scroll to the fight the moment a battle becomes ready — both sides
+    // accept (1v1 or 2v2 / PvP) and the page glides down to the arena so they
+    // can watch it play out without hunting for it. Covers every accept path
+    // because all three setBattleReady(true) sites flip this same flag.
+    const battlefieldRef = useRef<HTMLDivElement | null>(null);
+    useEffect(() => {
+        if (!battleReady || battleFrames.length === 0) return;
+        const t = window.setTimeout(() => {
+            battlefieldRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 80); // let the battlefield mount first
+        return () => window.clearTimeout(t);
+    }, [battleReady, battleFrames.length]);
+
     useEffect(() => {
         if (opponentPets.length === 0) {
             if (selectedOpponentKey) setSelectedOpponentKey("");
@@ -14194,6 +14209,7 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
     }
 
     function startBattle(opponentOverride?: PetArenaOpponent) {
+        primePetSfx(); // unlock the audio context inside the click gesture
         if (!selectedPet) return alert("Choose one of your pets first.");
         if (isPetOnExpedition(selectedPet)) return alert(`${petDisplayName(selectedPet)} is exploring and cannot battle right now.`);
         const opponent = opponentOverride ?? selectedOpponent;
@@ -14765,6 +14781,7 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
             )}
 
             {battleReady && selectedPet && (battleOpponent ?? selectedOpponent) && (
+                <div ref={battlefieldRef} className="pet-arena-stage-wrap" style={{ scrollMarginTop: "12px" }}>
                 <PetArenaBattlefield
                     playerPet={selectedPet}
                     enemyPet={(battleOpponent ?? selectedOpponent)!.pet}
@@ -14807,6 +14824,7 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                     }}
                     sharedImages={sharedImages}
                 />
+                </div>
             )}
 
             <section className="summary-box pet-arena-log">
@@ -14832,6 +14850,28 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerReservePet
         else           { setEnemyShake(true);  const t = window.setTimeout(() => setEnemyShake(false),  420); return () => window.clearTimeout(t); }
     }, [frame?.message]);
 
+    // ── Battle sound — one synthesized SFX per frame. Lives here so it covers
+    // every caller of this component (Pet Arena, Hollow Gate beast duels, PvP).
+    const [sfxMuted, setSfxMuted] = useState(isPetSfxMuted());
+    useEffect(() => {
+        if (!frame || sfxMuted) return;
+        const m = frame.message;
+        if (/dodges|evades|blunts the blow/.test(m)) { playPetSfx("dodge"); return; }
+        if (frame.isKO) { playPetSfx("ko"); return; }
+        if (frame.actionKind === "result") { if (result === "Victory") playPetSfx("victory"); return; }
+        switch (frame.actionKind) {
+            case "damage": case "basic": case "lifesteal": playPetSfx(frame.crit ? "crit" : "hit"); break;
+            case "heal":     playPetSfx("heal"); break;
+            case "buff":     playPetSfx("buff"); break;
+            case "dot":      playPetSfx("dot"); break;
+            case "debuff":   playPetSfx("debuff"); break;
+            case "movelock": playPetSfx("movelock"); break;
+            case "shield": case "barrier": case "absorb": playPetSfx("shield"); break;
+            default: break;
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [frame?.message]);
+
     const playerPos = frame?.playerPos ?? 29;
     const enemyPos  = frame?.enemyPos  ?? 40;
 
@@ -14852,15 +14892,15 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerReservePet
         frame?.actionKind === "result"    ? selfTile   : -1;
     const effectLabel =
         frame?.actionKind === "buff"      ? "⬆️ Boost!"    :
-        frame?.actionKind === "basic"     ? "👊 Hit!"     :
-        frame?.actionKind === "damage"    ? "💥 Strike!"   :
+        frame?.actionKind === "basic"     ? (frame.damage ? `-${frame.damage}` : "👊 Hit!") :
+        frame?.actionKind === "damage"    ? (frame.crit ? `💥 ${frame.damage}!` : frame.damage ? `-${frame.damage}` : "💥 Strike!") :
+        frame?.actionKind === "lifesteal" ? (frame.damage ? `-${frame.damage}` : "🩸 Drain!") :
         frame?.actionKind === "heal"      ? "💚 Heal!"    :
         frame?.actionKind === "dot"       ? "☠️ Poison!"   :
         frame?.actionKind === "move"      ? "💨 Dash!"    :
         frame?.actionKind === "barrier"   ? "🛡️ Barrier!" :
         frame?.actionKind === "shield"    ? "🛡️ Shield!"  :
         frame?.actionKind === "absorb"    ? "🌀 Absorb!"  :
-        frame?.actionKind === "lifesteal" ? "🩸 Drain!"   :
         frame?.actionKind === "movelock"  ? "⛓️ Root!"    :
         frame?.actionKind === "debuff"    ? "⬇️ Weaken!"  :
         frame?.actionKind === "result"    ? result        : "";
@@ -15079,8 +15119,27 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerReservePet
             <div className={`pet-park-stage${
                 (frame?.actionKind === "result" || frame?.isKO) ? " pet-stage-impact-ko" :
                 frame?.signatureMove                            ? " pet-stage-impact-sig" :
-                frame?.crit                                     ? " pet-stage-impact-crit" : ""
+                frame?.crit                                     ? " pet-stage-impact-crit" :
+                (frame?.actionKind === "damage" || frame?.actionKind === "basic" || frame?.actionKind === "lifesteal") ? " pet-stage-impact-hit" : ""
             }${dangerZone ? " pet-stage-danger" : ""}`}>
+                {/* Mute toggle for the synthesized battle SFX. */}
+                <button
+                    type="button"
+                    className="pet-sfx-toggle"
+                    onClick={() => { const next = !sfxMuted; setSfxMuted(next); setPetSfxMuted(next); }}
+                    title={sfxMuted ? "Unmute battle sounds" : "Mute battle sounds"}
+                    aria-label={sfxMuted ? "Unmute battle sounds" : "Mute battle sounds"}
+                >{sfxMuted ? "🔇" : "🔊"}</button>
+                {/* Impact flash — a brief full-stage colour pop at the moment of
+                    contact. Keyed per frame so it restarts on every blow even
+                    when two hits of the same kind land back-to-back. */}
+                {frame && (frame.actionKind === "damage" || frame.actionKind === "basic" || frame.actionKind === "lifesteal" || frame.isKO) && (
+                    <div
+                        key={`flash-${frame.message}`}
+                        className={`pet-impact-flash${frame.isKO ? " ko" : frame.crit ? " crit" : ""}`}
+                        aria-hidden="true"
+                    />
+                )}
                 {/* Low-HP danger vignette — red pulse closes in as a fighter nears death. */}
                 {dangerZone && <div className="pet-danger-vignette" aria-hidden="true" />}
                 {/* Signature jutsu cut-in — anime-style portrait + move-name slam. */}
@@ -15143,7 +15202,7 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerReservePet
                                         </div>
                                     )}
                                     {hasEffect && (
-                                        <span className="pet-battle-vfx" key={`${frame?.message}-${index}`}>
+                                        <span className={`pet-battle-vfx${frame?.crit ? " crit" : ""}${frame?.isKO ? " ko" : ""}`} key={`${frame?.message}-${index}`}>
                                             <i />
                                             <b>{effectLabel}</b>
                                             <em />
