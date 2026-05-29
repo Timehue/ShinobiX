@@ -14035,17 +14035,34 @@ button.combat-jutsu-button,
     z-index: 2;
 }
 
+/* Cast shadow on the floor — a flattened ellipse pooled below the pet so it
+   reads as a figure STANDING on the ground, not a disc floating in space.
+   Bigger + softer than before; sits behind everything (z-index -1) so the
+   lunge/hit transforms (which move the whole avatar) carry it along for free. */
 .pet-battle-avatar::after {
     content: "";
     position: absolute;
-    left: 12%;
-    right: 12%;
-    bottom: -11px;
-    height: 14px;
+    left: 4%;
+    right: 4%;
+    bottom: -16px;
+    height: 20px;
     border-radius: 50%;
-    background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.58), transparent 70%);
-    filter: blur(3px);
+    background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.7), rgba(0,0,0,0.32) 45%, transparent 72%);
+    filter: blur(4px);
     z-index: -1;
+    animation: petStandeeBob 2.8s ease-in-out infinite;
+}
+
+/* Idle "breathing" bob — a tiny vertical float on the cast shadow's scale so
+   standing pets feel alive between turns. Only the ::after pseudo bobs (its
+   own animation), so it never collides with the avatar's lunge/hit keyframes
+   on the element itself. */
+@keyframes petStandeeBob {
+    0%, 100% { transform: scaleX(1); opacity: 0.9; }
+    50%      { transform: scaleX(0.86); opacity: 0.66; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .pet-battle-avatar::after { animation: none; }
 }
 
 .pet-battle-avatar.enemy {
