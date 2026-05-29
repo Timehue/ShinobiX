@@ -12,11 +12,12 @@
  * Extracted from App.tsx.
  */
 
-import { memo, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import rightMenuBg from "../assets/rightmenu.png";
 import { villageBiomes } from "../App";
 import type { Screen, Biome } from "../types/core";
 import { isProtectedAdminName } from "../constants/game";
+import { isAudioMuted, setAudioMuted, subscribeAudioMute } from "../lib/pet-music";
 
 // Memo'd — `navigate`/`logoutPlayer` are stable callbacks from App's
 // useCallback hooks (or the navigate wrapper). All other props are
@@ -40,6 +41,11 @@ export const RightMenu = memo(function RightMenu({
     screen: Screen;
 }) {
     const [menuOpen, setMenuOpen] = useState(true);
+    // Global audio master-mute — silences music AND all battle SFX. Mirrored
+    // into local state so the icon re-renders, and subscribed so it stays in
+    // sync if the switch is flipped elsewhere.
+    const [audioMuted, setAudioMutedState] = useState(isAudioMuted());
+    useEffect(() => subscribeAudioMute(() => setAudioMutedState(isAudioMuted())), []);
     const homeBiome = villageBiomes[characterVillage];
     const atHome = screen !== "worldMap" || currentBiome === homeBiome;
     const isAdminAccount = isProtectedAdminName(characterName);
@@ -51,9 +57,17 @@ export const RightMenu = memo(function RightMenu({
                 backgroundImage: `url(${rightMenuBg})`,
             }}
         >
-            <button onClick={() => setMenuOpen((open) => !open)}>
-                {menuOpen ? "Hide Menu" : "Menu"}
-            </button>
+            <div className="right-menu-header-row">
+                <button onClick={() => setMenuOpen((open) => !open)}>
+                    {menuOpen ? "Hide Menu" : "Menu"}
+                </button>
+                <button
+                    className="audio-mute-btn"
+                    onClick={() => { const next = !audioMuted; setAudioMuted(next); setAudioMutedState(next); }}
+                    title={audioMuted ? "Unmute all audio" : "Mute all audio (music + sound effects)"}
+                    aria-label={audioMuted ? "Unmute all audio" : "Mute all audio"}
+                >{audioMuted ? "🔇" : "🔊"}</button>
+            </div>
 
             {menuOpen && (
                 <>
