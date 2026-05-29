@@ -10808,7 +10808,7 @@ function DungeonPetBattle({ character, updateCharacter, editablePets, onWin, onL
             setIsPlaying(false);
             return;
         }
-        const timer = window.setTimeout(() => setFrameIndex((index) => Math.min(index + 1, battleFrames.length - 1)), 900);
+        const timer = window.setTimeout(() => setFrameIndex((index) => Math.min(index + 1, battleFrames.length - 1)), petFramePace(battleFrames[frameIndex]));
         return () => window.clearTimeout(timer);
     }, [battleFrames.length, frameIndex, isPlaying]);
     function startBattle() {
@@ -11379,9 +11379,21 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
                     <div className="pet-detail-panel">
                         <div className="pet-detail-left pet-profile-panel">
                             <div className="pet-heart-anchor">
-                                <div className="pet-detail-avatar">
-                                    {selectedPet.image ? <img src={selectedPet.image} alt={selectedPet.name} /> : <span className="pet-detail-initials">{selectedPet.name.slice(0, 2).toUpperCase()}</span>}
-                                </div>
+                                {(() => {
+                                    // Equipped collar tints the big profile avatar with the same
+                                    // glow color it gives the pet in battle (prismatic cycles).
+                                    const detailCollar = petCollarVisual(selectedPet.loadout?.collar);
+                                    const detailGlowClass = detailCollar ? (detailCollar.prismatic ? " pet-collar-detail-prismatic" : " pet-collar-detail-glow") : "";
+                                    return (
+                                        <div
+                                            className={`pet-detail-avatar${detailGlowClass}`}
+                                            style={detailCollar ? { ["--collar-glow" as string]: detailCollar.glow } : undefined}
+                                        >
+                                            {selectedPet.image ? <img src={selectedPet.image} alt={selectedPet.name} /> : <span className="pet-detail-initials">{selectedPet.name.slice(0, 2).toUpperCase()}</span>}
+                                            {detailCollar?.prismatic && <span className="pet-collar-sparkles" aria-hidden="true" />}
+                                        </div>
+                                    );
+                                })()}
                                 {petHeartBurst > 0 && <span key={petHeartBurst} className="pet-heart-pop">❤️</span>}
                             </div>
                             <h3>{petDisplayName(selectedPet)}</h3>
@@ -11927,6 +11939,8 @@ type PetArenaFrame = {
     combo?: number;
     isPrefight?: boolean;
     isKO?: boolean;
+    // Set when a pet unleashes its signature jutsu — drives the anime cut-in.
+    signatureMove?: { name: string; petName: string; side: "player" | "enemy" };
     playerStatus?: { poisoned?: number; atkBuff?: boolean; defBuff?: boolean; shield?: number; moveLocked?: boolean; absorbing?: boolean };
     enemyStatus?: { poisoned?: number; atkBuff?: boolean; defBuff?: boolean; shield?: number; moveLocked?: boolean; absorbing?: boolean };
     // ── 4-pet simultaneous fields (Pokémon-doubles style 2v2) ────────
@@ -11971,6 +11985,9 @@ function swapPetArenaFrame(f: PetArenaFrame): PetArenaFrame {
         traitFlash: f.traitFlash
             ? { ...f.traitFlash, actor: f.traitFlash.actor === "player" ? "enemy" : "player" }
             : f.traitFlash,
+        signatureMove: f.signatureMove
+            ? { ...f.signatureMove, side: f.signatureMove.side === "player" ? "enemy" : "player" }
+            : f.signatureMove,
         playerStatus: f.enemyStatus,
         enemyStatus: f.playerStatus,
     };
@@ -12233,6 +12250,10 @@ function choosePetActionSmart(
     // Crush is hybrid damage+debuff — always worth casting (the damage
     // portion lands even when Battleborn halves the strip).
     const crush   = avail.find(j => j.kind === "crush");
+    // The pet's flagged signature move (its iconic crush/lifesteal jutsu). Used
+    // to give it a deliberate priority slot below so the AI reaches for it when
+    // it makes sense — not hoarded, not spammed — and the cut-in fires on it.
+    const signature = avail.find(j => j.signature);
 
     // Pre-compute the strongest non-wasted disruption status for quick
     // priority slotting. Stun > Freeze ≈ Confuse > Burn (raw value order).
@@ -12277,6 +12298,19 @@ function choosePetActionSmart(
     if (dist <= 1 && !critical && !finishing && !superEffective) {
         if (petGearDotOnHit(actor.pet) && target.dotRounds <= 0) return "basic";          // keep the foe poisoned
         if (petGearLifestealHeal(actor.pet, 100) > 0 && hpPct <= 55 && hpPct > 25) return "basic"; // drain to sustain
+    }
+
+    // ── Signature move (every personality) ─────────────────────────────────
+    // The pet's iconic jutsu is a strong damage-with-effect move. Reach for it
+    // when it's the right call: a super-effective matchup, pressing a wounded
+    // foe, or as a mid-game offensive beat — but only when healthy enough to be
+    // on the offensive (gated by !critical && !hurting so a wounded pet still
+    // defends/heals via its trait tree first). It's in `avail`, so it's already
+    // off-cooldown and in range; lethal is checked above, so this never robs a
+    // guaranteed KO. This makes the AI deliberately showcase its signature
+    // "when it makes sense" rather than only stumbling into it.
+    if (signature && !critical && !hurting && (superEffective || finishing || midGame)) {
+        return signature;
     }
 
     // -- GUARDIAN: outlast and wear down ---------------------------------------
@@ -12452,6 +12486,53 @@ function petFlurryChance(mySpeed: number, oppSpeed: number, swift: boolean): num
     return chance;
 }
 
+// A pet's "signature" jutsu — its strongest damaging move. Using it triggers
+// the anime cut-in. undefined when the pet has no real offensive jutsu.
+function petSignatureJutsu(pet: Pet): string | undefined {
+    // Prefer the explicitly-flagged signature move (every built-in pet gets one
+    // via balanceBuiltInPetTemplate). This is what the cut-in announces.
+    const flagged = pet.jutsus.find(j => j.signature);
+    if (flagged) return flagged.name;
+    // Fallback for creator/custom or pre-signature legacy pets that carry no
+    // flag: treat their strongest damage-class move as the signature.
+    let best: PetJutsu | undefined;
+    for (const j of pet.jutsus) {
+        if (j.kind !== "damage" && j.kind !== "crush" && j.kind !== "lifesteal") continue;
+        if (!best || j.power > best.power) best = j;
+    }
+    return best && best.power > 0 ? best.name : undefined;
+}
+
+// Cinematic pacing — how long each replay frame should linger. Dramatic beats
+// (KO, finisher, signature cut-in, clutch save, crit) breathe; routine actions
+// snap by. Shared by every pet-battle replay loop.
+function petFramePace(f: PetArenaFrame | undefined): number {
+    if (!f) return 1000;
+    if (f.actionKind === "result") return 2800;                          // final outcome
+    if (f.isKO) return 2200;                                             // KO — slow-mo
+    if (f.signatureMove) return 1800;                                   // cut-in dwell
+    if (/endures at 1 HP|Lifeline heals/.test(f.message)) return 1700;  // clutch survival
+    if (f.crit) return 1600;                                            // savor the crit
+    if (/dodges|evades|blunts the blow/.test(f.message)) return 1150;   // a near-miss
+    switch (f.actionKind) {
+        case "damage":
+        case "lifesteal": return 1100;
+        case "debuff":
+        case "heal":      return 950;
+        case "movelock":  return 900;
+        case "dot":       return 850;
+        case "shield":
+        case "barrier":
+        case "absorb":    return 800;
+        case "basic":     return 750;
+        case "buff":      return 700;
+        case "move":      return 600;
+        default:          break;
+    }
+    if (f.traitFlash) return 1300;
+    return 1000;
+}
+
 function seededPetBattleRandom(seed: number) {
     let state = Math.max(1, Math.floor(seed) >>> 0);
     return () => {
@@ -12532,10 +12613,11 @@ function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponentOwner: 
         round: number, message: string, actor: PetArenaFrame["actor"],
         actionKind?: PetArenaFrame["actionKind"], damage?: number, crit?: boolean,
         traitFlash?: PetArenaFrame["traitFlash"], combo?: number, isPrefight?: boolean, isKO?: boolean,
+        signatureMove?: PetArenaFrame["signatureMove"],
     ) {
         const playerStatus = { poisoned: player.dotRounds > 0 ? player.dotRounds : undefined, atkBuff: player.attackBuff > 0 || undefined, defBuff: player.defenseBuff > 0 || undefined, shield: player.shieldHp > 0 ? player.shieldHp : undefined, moveLocked: player.moveLocked > 0 || undefined, absorbing: player.absorbRounds > 0 || undefined };
         const enemyStatus  = { poisoned: enemy.dotRounds  > 0 ? enemy.dotRounds  : undefined, atkBuff: enemy.attackBuff  > 0 || undefined, defBuff: enemy.defenseBuff  > 0 || undefined, shield: enemy.shieldHp   > 0 ? enemy.shieldHp  : undefined, moveLocked: enemy.moveLocked  > 0 || undefined, absorbing: enemy.absorbRounds  > 0 || undefined };
-        frames.push({ round, message, playerHp: player.hp, enemyHp: enemy.hp, playerPos: player.pos, enemyPos: enemy.pos, actor, actionKind, damage, crit, traitFlash, combo, isPrefight, isKO, playerStatus, enemyStatus });
+        frames.push({ round, message, playerHp: player.hp, enemyHp: enemy.hp, playerPos: player.pos, enemyPos: enemy.pos, actor, actionKind, damage, crit, traitFlash, combo, isPrefight, isKO, signatureMove, playerStatus, enemyStatus });
     }
 
     // Pre-fight face-off frame
@@ -12735,10 +12817,14 @@ function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponentOwner: 
                 (dmgBonus > 1 && actor2.pet.trait === "Battleborn") ? { actor: actorSide as "player" | "enemy", trait: "Battleborn" } :
                 undefined;
             const elementNote = petElementLabel(elementMult);
+            // Signature cut-in when this jutsu is the actor's strongest move.
+            const sigMove: PetArenaFrame["signatureMove"] = (jutsuName && jutsuName === petSignatureJutsu(actor2.pet))
+                ? { name: jutsuName, petName: actor2.pet.name, side: actorSide as "player" | "enemy" }
+                : undefined;
             const msg = `Round ${round}: ${actor2.pet.name}${jutsuName ? ` uses ${jutsuName}` : " basic attacks"} for ${damage} damage${crit ? " — CRITICAL HIT!" : ""}${elementNote ? ` ${elementNote}` : ""}${procNote}.`;
             logs.push(msg);
             if (actorSide === "player") { player = procActor; enemy = procTarget; } else { enemy = procActor; player = procTarget; }
-            pushFrame(round, msg, actorSide, kind, damage, crit, traitFlash, currentCombo >= 3 ? currentCombo : undefined);
+            pushFrame(round, msg, actorSide, kind, damage, crit, traitFlash, currentCombo >= 3 ? currentCombo : undefined, undefined, undefined, sigMove);
             // KO frame
             if (procTarget.hp <= 0) {
                 const koMsg = `💥 K.O.! ${actor2.pet.name} knocks out ${target2.pet.name}!`;
@@ -13364,7 +13450,7 @@ function runPetArenaParty(
             status: statusObj(f),
         };
     }
-    function pushPartyFrame(round: number, message: string, actorSlot: PartySlot | "system", actionKind: PetArenaFrame["actionKind"], damage?: number, crit?: boolean, traitFlash?: PetArenaFrame["traitFlash"], combo?: number, isKO?: boolean, targetSlot?: PartySlot) {
+    function pushPartyFrame(round: number, message: string, actorSlot: PartySlot | "system", actionKind: PetArenaFrame["actionKind"], damage?: number, crit?: boolean, traitFlash?: PetArenaFrame["traitFlash"], combo?: number, isKO?: boolean, targetSlot?: PartySlot, signatureMove?: PetArenaFrame["signatureMove"]) {
         // Pick 1v1-style player/enemy "primary" pet for legacy fields:
         // most recently-acting on each side, else lead, else reserve.
         const primPlayer  = fighters.playerLead  ?? fighters.playerReserve;
@@ -13376,7 +13462,7 @@ function runPetArenaParty(
             playerPos: primPlayer?.pos ?? 0,
             enemyPos:  primEnemy?.pos  ?? 0,
             actor: actorSlot === "system" ? "system" : (isPlayerSlot(actorSlot) ? "player" : "enemy"),
-            actionKind, damage, crit, traitFlash, combo,
+            actionKind, damage, crit, traitFlash, combo, signatureMove,
             isPrefight: false, isKO,
             playerStatus: statusObj(primPlayer),
             enemyStatus:  statusObj(primEnemy),
@@ -13682,7 +13768,10 @@ function runPetArenaParty(
                 (guardianBlock < 1)                        ? { actor: isPlayerSlot(targetSlot!) ? "player" : "enemy", trait: "Guardian"   } :
                 (dmgBonus > 1 && actor.pet.trait === "Battleborn") ? { actor: actorIsPlayer ? "player" : "enemy", trait: "Battleborn" } :
                 undefined;
-            pushPartyFrame(round, msg, actorSlot, kind, damage, crit, traitFlash, undefined, fighters[targetSlot!]!.hp <= 0, targetSlot!);
+            const sigMove: PetArenaFrame["signatureMove"] = (jutsuName === petSignatureJutsu(actor.pet))
+                ? { name: jutsuName, petName: actor.pet.name, side: actorIsPlayer ? "player" : "enemy" }
+                : undefined;
+            pushPartyFrame(round, msg, actorSlot, kind, damage, crit, traitFlash, undefined, fighters[targetSlot!]!.hp <= 0, targetSlot!, sigMove);
         }
 
         switch (chosen.kind) {
@@ -14090,25 +14179,7 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
         // Cinematic pacing — let dramatic frames breathe, snap through
         // routine ones. Uniform 1200ms makes every action read the same;
         // variable timing tells the player when to lean in.
-        const f = battleFrames[frameIndex];
-        const ms =
-            f?.isKO                       ? 2200 :  // KO — slow-mo, let it land
-            f?.actionKind === "result"    ? 2800 :  // final outcome — biggest pause
-            f?.crit                       ? 1600 :  // crit — savor the hit
-            f?.actionKind === "damage"    ? 1100 :
-            f?.actionKind === "basic"     ? 750  :
-            f?.actionKind === "move"      ? 600  :  // movement — snappy
-            f?.actionKind === "dot"       ? 850  :
-            f?.actionKind === "movelock"  ? 900  :
-            f?.actionKind === "heal"      ? 950  :
-            f?.actionKind === "buff"      ? 700  :
-            f?.actionKind === "shield"    ? 800  :
-            f?.actionKind === "barrier"   ? 800  :
-            f?.actionKind === "absorb"    ? 800  :
-            f?.actionKind === "debuff"    ? 950  :
-            f?.actionKind === "lifesteal" ? 1100 :
-            f?.traitFlash                 ? 1300 :  // trait proc — show off
-                                            1000;
+        const ms = petFramePace(battleFrames[frameIndex]);
         const timer = window.setTimeout(() => setFrameIndex((index) => Math.min(index + 1, battleFrames.length - 1)), ms);
         return () => window.clearTimeout(timer);
     }, [battleFrames.length, frameIndex, isPlaying]);
@@ -14827,6 +14898,30 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerReservePet
         : frame?.actor === "enemy" && frame.actionKind === "lifesteal" ? " pet-damage-float lifesteal"
         : "";
 
+    // ── Commentator — a reactive hype caller for the dramatic beats. Empty on
+    // routine frames so it only shouts when something worth shouting happens. ──
+    const commentary: string = (() => {
+        if (!frame || frame.isPrefight || frame.actionKind === "result") return "";
+        if (frame.isKO) return "DOWN IT GOES!";
+        if (frame.signatureMove) return "SIGNATURE MOVE!";
+        if (/endures at 1 HP/.test(frame.message)) return "IT REFUSES TO FALL!";
+        if (/Lifeline heals/.test(frame.message)) return "CLUTCH RECOVERY!";
+        if (/dodges|evades/.test(frame.message)) return "NOTHING BUT AIR!";
+        if (frame.crit) return "CRITICAL HIT!";
+        if ((frame.combo ?? 0) >= 3) return `COMBO ×${frame.combo}!`;
+        const low = Math.min(playerPercent, enemyPercent);
+        if (low <= 12) return "ONE HIT FROM DEFEAT!";
+        if (low <= 30) return "ON THE ROPES!";
+        if (Math.abs(playerPercent - enemyPercent) <= 8 && (frame.round ?? 0) >= 3) return "NECK AND NECK!";
+        return "";
+    })();
+
+    // ── Tension flags + momentum (HP tug-of-war) ──
+    const lowestPct  = Math.min(playerPercent, enemyPercent);
+    const dangerZone = lowestPct <= 25 && !winnerPet;   // red vignette + heartbeat
+    const oneHitWarn = lowestPct <= 12 && !winnerPet;   // "1 HIT LEFT" pulse
+    const momentumPlayer = (playerPercent / Math.max(1, playerPercent + enemyPercent)) * 100;
+
     return (
         <section className="pet-arena-battlefield">
             {/* Pre-fight face-off overlay — sprites flank the VS badge for a
@@ -14864,6 +14959,24 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerReservePet
             {frame?.combo && frame.combo >= 3 && (
                 <div key={`combo-${frame.message}`} className={`pet-combo-counter ${frame.actor}`}>COMBO ×{frame.combo}</div>
             )}
+
+            {/* Momentum tug-of-war — who's winning at a glance (player HP share). */}
+            {!frame?.isPrefight && (
+                <div className="pet-momentum-bar" aria-label="Momentum">
+                    <div className="pet-momentum-fill-player" style={{ width: `${momentumPlayer}%` }} />
+                    <div className="pet-momentum-fill-enemy" style={{ width: `${100 - momentumPlayer}%` }} />
+                    <span className="pet-momentum-label player">{playerPet.name}</span>
+                    <span className="pet-momentum-label enemy">{enemyPet.name}</span>
+                </div>
+            )}
+
+            {/* Commentator — hype caller for the dramatic beats. */}
+            {commentary && (
+                <div key={`comm-${frame?.round}-${frame?.message}`} className="pet-commentary">{commentary}</div>
+            )}
+
+            {/* "1 HIT LEFT" — flashes when a fighter is on the brink. */}
+            {oneHitWarn && <div className="pet-onehit-warn">⚠ ONE HIT LEFT ⚠</div>}
 
             {/* HP bars with status badges. 4-pet mode (simultaneous 2v2)
                 renders four compact bars (lead + reserve per side). 1v1
@@ -14964,9 +15077,24 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerReservePet
             )}
 
             <div className={`pet-park-stage${
-                frame?.isKO ? " pet-stage-shake-heavy" :
-                frame?.crit ? " pet-stage-shake-light" : ""
-            }`}>
+                (frame?.actionKind === "result" || frame?.isKO) ? " pet-stage-impact-ko" :
+                frame?.signatureMove                            ? " pet-stage-impact-sig" :
+                frame?.crit                                     ? " pet-stage-impact-crit" : ""
+            }${dangerZone ? " pet-stage-danger" : ""}`}>
+                {/* Low-HP danger vignette — red pulse closes in as a fighter nears death. */}
+                {dangerZone && <div className="pet-danger-vignette" aria-hidden="true" />}
+                {/* Signature jutsu cut-in — anime-style portrait + move-name slam. */}
+                {frame?.signatureMove && (
+                    <div className={`pet-cutin ${frame.signatureMove.side}`} key={`cutin-${frame.round}-${frame.message}`}>
+                        <div className="pet-cutin-portrait">
+                            <PetBattleAvatar pet={frame.signatureMove.side === "player" ? playerPet : enemyPet} side={frame.signatureMove.side} active sharedImages={sharedImages} />
+                        </div>
+                        <div className="pet-cutin-text">
+                            <span className="pet-cutin-pet">{frame.signatureMove.petName}</span>
+                            <span className="pet-cutin-move">{frame.signatureMove.name}!</span>
+                        </div>
+                    </div>
+                )}
                 {/* KO freeze overlay */}
                 {frame?.isKO && !winnerPet && (
                     <div className="pet-ko-overlay">K.O. ??</div>

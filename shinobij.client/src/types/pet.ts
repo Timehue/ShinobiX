@@ -59,6 +59,12 @@ export type PetJutsu = {
     // freeze last 3 rounds while a Standard freeze lasts 1. Defaults are
     // baked into each status handler if rounds is undefined.
     rounds?: number;
+    // Marks this jutsu as the pet's dedicated finisher — the strongest hit in
+    // its kit, themed to its element. Drives the cinematic signature cut-in in
+    // the Pet Arena replay (petSignatureJutsu prefers the flagged move). Pure
+    // combat-wise it's an ordinary lifesteal/crush jutsu; the flag is only used
+    // to pick which move triggers the cut-in.
+    signature?: boolean;
 };
 
 export type Pet = {

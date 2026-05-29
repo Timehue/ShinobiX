@@ -116,6 +116,101 @@ export function elementalSpecialFor(element: JutsuElement | undefined, rarity: P
     };
 }
 
+// ── Signature move (one iconic jutsu per pet) ───────────────────────────
+// A second special, distinct from the elemental status jutsu above: each
+// pet's *signature* — a strong, element-themed damage-with-effect move the
+// AI weaves into its rotation whenever it makes tactical sense (NOT a low-HP
+// finisher — it's just part of the kit). It's flagged so the Pet Arena
+// narrator/cut-in knows which move is the signature when it lands.
+//
+// Effect kind is chosen per element so the move is the ONLY jutsu of that kind
+// in the pet's kit — that way the AI's single crush/lifesteal branch always
+// resolves to the signature (it never gets shadowed by the elemental special,
+// whose kinds are burn/freeze/confuse/stun/crush):
+//   Fire / Earth → lifesteal (drain — Earth avoids crush, which is its special)
+//   Water / Wind / Lightning → crush (shatter + ATK/DEF strip)
+
+export type SignatureKind = "crush" | "lifesteal";
+
+const signatureKindByElement: Record<Exclude<JutsuElement, "None">, SignatureKind> = {
+    Fire: "lifesteal",
+    Earth: "lifesteal",
+    Water: "crush",
+    Wind: "crush",
+    Lightning: "crush",
+};
+
+export type SignatureSpec = { name: string; power: number; cooldown: number };
+
+// Per (tier, element) signature. Generics share an element-themed name within a
+// tier (templated, as designed); the five mythics — one per element — get a
+// unique flagship name. Power sits at the top of each tier's kit so the move
+// feels iconic, but cooldown 4 keeps it a rotational signature, not a nuke.
+const signatureByRarityElement: Record<PetRarity, Record<Exclude<JutsuElement, "None">, SignatureSpec>> = {
+    standard: {
+        Fire:      { name: "Cinder Devour",       power: 90,  cooldown: 4 },
+        Water:     { name: "Frost Shatter",       power: 90,  cooldown: 4 },
+        Wind:      { name: "Gale Render",         power: 90,  cooldown: 4 },
+        Lightning: { name: "Thunderclap Sunder",  power: 90,  cooldown: 4 },
+        Earth:     { name: "Gaia's Feast",        power: 90,  cooldown: 4 },
+    },
+    rare: {
+        Fire:      { name: "Ember Communion",     power: 112, cooldown: 4 },
+        Water:     { name: "Glacier Breaker",     power: 112, cooldown: 4 },
+        Wind:      { name: "Cyclone Render",      power: 112, cooldown: 4 },
+        Lightning: { name: "Voltaic Sunder",      power: 112, cooldown: 4 },
+        Earth:     { name: "Verdant Feast",       power: 112, cooldown: 4 },
+    },
+    legendary: {
+        Fire:      { name: "Inferno Communion",   power: 132, cooldown: 4 },
+        Water:     { name: "Absolute Zero",       power: 132, cooldown: 4 },
+        Wind:      { name: "Tempest Sundering",   power: 132, cooldown: 4 },
+        Lightning: { name: "Heaven's Sundering",  power: 132, cooldown: 4 },
+        Earth:     { name: "World Tree Feast",    power: 132, cooldown: 4 },
+    },
+    mythic: {
+        Fire:      { name: "Supernova: Solar Communion",       power: 152, cooldown: 4 }, // Solar Stag
+        Water:     { name: "Absolute Zero: Glacial Apocalypse", power: 152, cooldown: 4 }, // Ancient Frost Titan
+        Wind:      { name: "Lunar Eclipse: Ninetail Requiem",  power: 152, cooldown: 4 }, // Eclipse Kitsune
+        Lightning: { name: "Worldstorm: Heaven's End",         power: 152, cooldown: 4 }, // Worldstorm Dragon
+        Earth:     { name: "Hellgate: Soul Devour",            power: 152, cooldown: 4 }, // Abyssal Oni Hound
+    },
+};
+
+// Per-NAME override for the expansion mythics. Each mythic tier holds one pet
+// per element, but the pool now has two mythics per element (original +
+// expansion) — the element-keyed table above can only name one, so the second
+// of each element looks itself up here by name to keep its OWN flagship
+// signature. (The five originals fall through to the element table.)
+const mythicSignatureByName: Record<string, SignatureSpec> = {
+    "Vermillion Suzaku":  { name: "Vermillion Rebirth: Phoenix Pyre",    power: 152, cooldown: 4 },
+    "Azure Ryujin":       { name: "Dragon God's Maelstrom",              power: 152, cooldown: 4 },
+    "Celestial Tengu":    { name: "Heavenfall: Crow Tempest",            power: 152, cooldown: 4 },
+    "Stormgod Raijin":    { name: "Raijin's Wrath: Thunder Apocalypse",  power: 152, cooldown: 4 },
+    "Worldroot Colossus": { name: "World Devourer: Gaia's Embrace",      power: 152, cooldown: 4 },
+};
+
+/** Pull the signature jutsu spec for a pet. A per-name mythic override wins
+ *  (so each flagship keeps a unique signature even when two mythics share an
+ *  element); otherwise it's the element+tier entry. Flagged so the arena cut-in
+ *  recognizes it. Null for elementless pets (they fall back to the auto-derived
+ *  strongest move in petSignatureJutsu). */
+export function signatureMoveFor(element: JutsuElement | undefined, rarity: PetRarity, name?: string): PetJutsu | null {
+    if (!element || element === "None") return null;
+    const override = name ? mythicSignatureByName[name] : undefined;
+    const tierTable = signatureByRarityElement[rarity] ?? signatureByRarityElement.standard;
+    const spec = override ?? tierTable[element as Exclude<JutsuElement, "None">];
+    if (!spec) return null;
+    return {
+        name: spec.name,
+        power: spec.power,
+        cooldown: spec.cooldown,
+        currentCooldown: 0,
+        kind: signatureKindByElement[element as Exclude<JutsuElement, "None">],
+        signature: true,
+    };
+}
+
 // ── Built-in template balancing ─────────────────────────────────────────
 
 /**
@@ -127,8 +222,20 @@ export function elementalSpecialFor(element: JutsuElement | undefined, rarity: P
  */
 export function balanceBuiltInPetTemplate(pet: Pet): Pet {
     const base = balancedPetBaseStats[pet.rarity] ?? balancedPetBaseStats.standard;
-    const variant = petVariantIndex(pet);
-    const kitBonus = Math.max(0, pet.jutsus.length - 3);
+    // Wrap the id-derived variant within the per-tier template count. The pool
+    // ships in two batches (original + expansion) whose ids keep counting up
+    // (standard-25…, etc.); without this wrap a higher id would scale stats
+    // ever higher. Modulo makes the second batch reuse the SAME 0..N-1 spread
+    // as the first, so an expansion pet is balanced identically to its
+    // same-slot original. Existing pets (id < count) are unaffected.
+    const tierCount = pet.rarity === "standard" || pet.rarity === "rare" ? 25 : pet.rarity === "legendary" ? 15 : 5;
+    const variant = petVariantIndex(pet) % tierCount;
+    // +1 accounts for the signature jutsu appended below (every elemental pet
+    // gets one). It's a real kit slot, so it pays the same per-extra-jutsu stat
+    // tax as anything beyond the third — keeping the new move balanced exactly
+    // like the rest of the kit. The elemental special is appended the same way
+    // but predates this and is folded into the base stat table already.
+    const kitBonus = Math.max(0, pet.jutsus.length - 3) + 1;
     const hp = base.hp + variant * (pet.rarity === "standard" ? 6 : pet.rarity === "rare" ? 7 : pet.rarity === "legendary" ? 9 : 11) - kitBonus * 18;
     const attack = base.attack + Math.floor(variant * (pet.rarity === "standard" ? 0.7 : pet.rarity === "rare" ? 0.8 : pet.rarity === "legendary" ? 1 : 1.2)) - kitBonus * 2;
     const defense = base.defense + Math.floor(variant * (pet.rarity === "standard" ? 0.55 : pet.rarity === "rare" ? 0.65 : pet.rarity === "legendary" ? 0.85 : 1)) - kitBonus * 2;
@@ -151,7 +258,15 @@ export function balanceBuiltInPetTemplate(pet: Pet): Pet {
     const jutsusWithSpecial = specialJutsu && !jutsus.some(j => j.name === specialJutsu.name)
         ? [...jutsus, specialJutsu]
         : jutsus;
-    return capPetStats({ ...pet, hp, attack, defense, speed, jutsus: jutsusWithSpecial, moveRange: pet.moveRange ?? base.moveRange, element });
+    // Append the signature jutsu LAST — after the elemental special — so the
+    // slot-based save-merge in normalizePet backfills it into a fresh trailing
+    // slot for existing pets (it won't collide with / overwrite a slot they
+    // already hold). Deduped by name so re-balancing is idempotent.
+    const signatureJutsu = signatureMoveFor(element, pet.rarity, pet.name);
+    const jutsusFinal = signatureJutsu && !jutsusWithSpecial.some(j => j.name === signatureJutsu.name)
+        ? [...jutsusWithSpecial, signatureJutsu]
+        : jutsusWithSpecial;
+    return capPetStats({ ...pet, hp, attack, defense, speed, jutsus: jutsusFinal, moveRange: pet.moveRange ?? base.moveRange, element });
 }
 
 // ── Training math ───────────────────────────────────────────────────────
