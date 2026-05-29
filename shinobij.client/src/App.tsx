@@ -112,6 +112,26 @@ import {
     endlessTowerMilestoneReward,
 } from "./lib/endless-tower";
 export { endlessScaleFactor, endlessWaveReward, endlessTowerMilestoneReward };
+import {
+    STAT_KEYS,
+    capStat,
+    scaleStat,
+    baseStats,
+    normalizeStats,
+    allocatedStatPoints,
+    addToAllStats,
+    maxedStats,
+    formatStatName,
+    xpNeeded,
+    maxHpForLevel,
+    maxChakraForLevel,
+    maxStaminaForLevel,
+    rankFromLevel,
+    statPointBudgetForProgress,
+    progressAfterXp,
+    reconcileCharacterStatBudget,
+} from "./lib/stats";
+export { xpNeeded };
 
 // Install the global fetch interceptor once at module load. From here on,
 // every fetch('/api/...') call automatically picks up x-player-name and
@@ -260,9 +280,6 @@ import {
     MAX_STAT,
     STARTING_STAT_POINTS,
     CHARACTER_XP_GAIN_MULTIPLIER,
-    HP_CAP,
-    CHAKRA_CAP,
-    STAMINA_CAP,
     STUN_AP_PENALTY,
     JUTSU_MAX_LEVEL,
     JUTSU_TRAINING_CAP,
@@ -1940,20 +1957,8 @@ import { defaultVnPortrait, defaultVnScene } from "./lib/vn";
 // ./constants/achievements — imported at the top of this file.
 // STARTING_STAT_POINTS / CHARACTER_XP_GAIN_MULTIPLIER / AWAKENING_*_ID /
 // AWAKENING_ELEMENTS / STUN_AP_PENALTY moved to ./constants/game.
-const STAT_KEYS: Array<keyof Stats> = [
-    "strength",
-    "speed",
-    "intelligence",
-    "willpower",
-    "bukijutsuOffense",
-    "bukijutsuDefense",
-    "taijutsuOffense",
-    "taijutsuDefense",
-    "genjutsuOffense",
-    "genjutsuDefense",
-    "ninjutsuOffense",
-    "ninjutsuDefense",
-];
+// STAT_KEYS + the character stat/level math moved to ./lib/stats (imported
+// back above; xpNeeded re-exported).
 // rollAwakeningElement / elementIcon / uniqueElements /
 // getCharacterElements / hasCharacterElement moved to ./lib/elements.
 // Bloodline lookup + access-control helpers moved to ./lib/bloodline.
@@ -2910,50 +2915,8 @@ function readImageFile(file: File, onLoad: (image: string) => void, maxSizeMb = 
     })();
 }
 
-function capStat(value: number) {
-    return Math.min(MAX_STAT, Math.max(0, Math.floor(value)));
-}
-
-export function xpNeeded(level: number) {
-    if (level >= MAX_LEVEL) return 0;
-    return level * 100;
-}
-
-const TOTAL_XP_TO_MAX_LEVEL = ((MAX_LEVEL - 1) * MAX_LEVEL / 2) * 100;
-
-function totalXpBeforeLevel(level: number) {
-    const clampedLevel = Math.max(1, Math.min(MAX_LEVEL, Math.floor(level)));
-    return ((clampedLevel - 1) * clampedLevel / 2) * 100;
-}
-
-function totalXpForProgress(level: number, xp: number) {
-    if (level >= MAX_LEVEL) return TOTAL_XP_TO_MAX_LEVEL;
-    const currentLevelXp = Math.max(0, Math.min(xpNeeded(level), Math.floor(xp)));
-    return Math.min(TOTAL_XP_TO_MAX_LEVEL, totalXpBeforeLevel(level) + currentLevelXp);
-}
-
-function maxHpForLevel(level: number) {
-    return Math.min(HP_CAP, 100 + (Math.max(1, level) - 1) * 100);
-}
-
-// Endless / Celestial Tower scaling + reward math extracted to
-// ./lib/endless-tower (imported back + re-exported above).
-
-function maxChakraForLevel(level: number) {
-    return Math.min(CHAKRA_CAP, Math.floor(100 + (Math.max(1, level) - 1) * ((CHAKRA_CAP - 100) / (MAX_LEVEL - 1))));
-}
-
-function maxStaminaForLevel(level: number) {
-    return Math.min(STAMINA_CAP, Math.floor(100 + (Math.max(1, level) - 1) * ((STAMINA_CAP - 100) / (MAX_LEVEL - 1))));
-}
-
-function rankFromLevel(level: number) {
-    if (level >= 80) return "Special Jonin";
-    if (level >= 50) return "Jonin";
-    if (level >= 30) return "Chunin";
-    if (level >= 15) return "Genin";
-    return "Academy Student";
-}
+// capStat / xpNeeded / level→HP/chakra/stamina / rankFromLevel + total-XP
+// curves moved to ./lib/stats (imported back above).
 
 const levelOnlyRankTitles = new Set([
     "Academy Student",
@@ -3030,44 +2993,9 @@ function rankTitleForLevel(character: Character, level: number) {
     return roleRankTitle(character) || "Special Jonin";
 }
 
-function baseStats(): Stats {
-    return {
-        strength: 10,
-        speed: 10,
-        intelligence: 10,
-        willpower: 10,
-        bukijutsuOffense: 10,
-        bukijutsuDefense: 10,
-        taijutsuOffense: 10,
-        taijutsuDefense: 10,
-        genjutsuOffense: 10,
-        genjutsuDefense: 10,
-        ninjutsuOffense: 10,
-        ninjutsuDefense: 10,
-    };
-}
-
-const TOTAL_STAT_POINTS_TO_CAP = STAT_KEYS.reduce((total, key) => total + (MAX_STAT - baseStats()[key]), 0);
-const STAT_POINTS_FROM_XP_TO_CAP = TOTAL_STAT_POINTS_TO_CAP - STARTING_STAT_POINTS;
-
-function statPointBudgetForProgress(level: number, xp: number) {
-    const progressXp = totalXpForProgress(level, xp);
-    const earnedFromXp = Math.floor((progressXp / TOTAL_XP_TO_MAX_LEVEL) * STAT_POINTS_FROM_XP_TO_CAP);
-    return Math.min(TOTAL_STAT_POINTS_TO_CAP, STARTING_STAT_POINTS + earnedFromXp);
-}
-
-// effectiveCharacterXpGain / displayCharacterXpGain moved to ./lib/progression.
-
-function progressAfterXp(level: number, xp: number, amount: number) {
-    let nextLevel = Math.max(1, Math.min(MAX_LEVEL, Math.floor(level)));
-    let nextXp = nextLevel >= MAX_LEVEL ? 0 : Math.max(0, Math.floor(xp)) + Math.max(0, Math.floor(amount));
-    while (nextLevel < MAX_LEVEL && nextXp >= xpNeeded(nextLevel)) {
-        nextXp -= xpNeeded(nextLevel);
-        nextLevel += 1;
-    }
-    if (nextLevel >= MAX_LEVEL) return { level: MAX_LEVEL, xp: 0 };
-    return { level: nextLevel, xp: nextXp };
-}
+// baseStats, stat-budget + progressAfterXp moved to ./lib/stats (imported
+// back above). statPointsEarnedFromXp stays here because it pulls
+// effectiveCharacterXpGain from ./lib/progression.
 
 function statPointsEarnedFromXp(character: Character, amount: number) {
     const before = statPointBudgetForProgress(character.level, character.xp);
@@ -3075,35 +3003,8 @@ function statPointsEarnedFromXp(character: Character, amount: number) {
     return Math.max(0, statPointBudgetForProgress(after.level, after.xp) - before);
 }
 
-function normalizeStats(stats?: Partial<Stats>): Stats {
-    const base = baseStats();
-    return STAT_KEYS.reduce((normalized, key) => {
-        normalized[key] = capStat(stats?.[key] ?? base[key]);
-        return normalized;
-    }, { ...base });
-}
-
-function allocatedStatPoints(stats: Stats) {
-    const base = baseStats();
-    return STAT_KEYS.reduce((total, key) => total + Math.max(0, capStat(stats[key]) - base[key]), 0);
-}
-
-function formatStatName(name: string) {
-    return name
-        .replace(/([A-Z])/g, " $1")
-        .replace(/^./, (c) => c.toUpperCase());
-}
-
-function reconcileCharacterStatBudget(character: Character): Character {
-    const stats = normalizeStats(character.stats);
-    const earnedBudget = statPointBudgetForProgress(character.level, character.xp);
-    const available = Math.max(0, earnedBudget - allocatedStatPoints(stats));
-    return { ...character, stats, unspentStats: available };
-}
-
-function scaleStat(value: number) {
-    return capStat(Math.floor(value));
-}
+// normalizeStats / allocatedStatPoints / formatStatName /
+// reconcileCharacterStatBudget / scaleStat moved to ./lib/stats.
 
 function aiPrimaryJutsuType(jutsus: Jutsu[] = []): JutsuType | undefined {
     const counts = jutsus.reduce<Record<JutsuType, number>>((acc, jutsu) => {
@@ -3186,26 +3087,7 @@ function aiArmorFactorForProfile(ai?: Pick<CreatorAi, "level" | "armorRawDR" | "
     return aiArmorFactorForLevel(ai.level);
 }
 
-function addToAllStats(stats: Stats, amount: number): Stats {
-    return {
-        strength: capStat(stats.strength + amount),
-        speed: capStat(stats.speed + amount),
-        intelligence: capStat(stats.intelligence + amount),
-        willpower: capStat(stats.willpower + amount),
-        bukijutsuOffense: capStat(stats.bukijutsuOffense + amount),
-        bukijutsuDefense: capStat(stats.bukijutsuDefense + amount),
-        taijutsuOffense: capStat(stats.taijutsuOffense + amount),
-        taijutsuDefense: capStat(stats.taijutsuDefense + amount),
-        genjutsuOffense: capStat(stats.genjutsuOffense + amount),
-        genjutsuDefense: capStat(stats.genjutsuDefense + amount),
-        ninjutsuOffense: capStat(stats.ninjutsuOffense + amount),
-        ninjutsuDefense: capStat(stats.ninjutsuDefense + amount),
-    };
-}
-
-function maxedStats(): Stats {
-    return addToAllStats(baseStats(), MAX_STAT);
-}
+// addToAllStats / maxedStats moved to ./lib/stats (imported back above).
 
 function isAdminAccountName(name?: string): name is AdminAccount {
     return name === "Admin 1" || name === "Admin 2";
