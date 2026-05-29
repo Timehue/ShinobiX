@@ -9,6 +9,8 @@ type PetSfxKind =
     | "hit" | "crit" | "ko" | "heal" | "buff" | "dot"
     | "debuff" | "movelock" | "dodge" | "shield" | "move" | "victory";
 
+import { isAudioMuted } from "./pet-music";
+
 const MUTE_KEY = "petSfxMuted";
 let ctx: AudioContext | null = null;
 let noiseBuf: AudioBuffer | null = null;
@@ -44,6 +46,8 @@ function getCtx(): AudioContext | null {
 function out(c: AudioContext): AudioNode { return master ?? c.destination; }
 
 export function isPetSfxMuted(): boolean {
+    // The global master mute (button next to Hide Menu) silences SFX too.
+    if (isAudioMuted()) return true;
     try { return localStorage.getItem(MUTE_KEY) === "1"; } catch { return false; }
 }
 
