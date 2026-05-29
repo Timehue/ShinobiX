@@ -13542,6 +13542,38 @@ button.combat-jutsu-button,
 }
 .pet-sfx-toggle:hover { border-color: rgba(250, 204, 21, 0.85); transform: translateY(-1px); }
 
+/* Right-menu header: "Hide Menu" + the global audio mute button on one row.
+   High-specificity + !important so it overrides whatever full-width button
+   rule the right menu applies, on desktop and mobile alike. */
+.right-menu-panel .right-menu-header-row {
+    display: flex !important;
+    gap: 6px;
+    align-items: stretch;
+}
+.right-menu-panel .right-menu-header-row > button:first-child {
+    flex: 1 1 auto;
+    width: auto !important;
+}
+.right-menu-panel .right-menu-header-row .audio-mute-btn {
+    flex: 0 0 auto;
+    width: 38px !important;
+    min-width: 38px;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: inline-grid !important;
+    place-items: center;
+    font-size: 17px;
+    line-height: 1;
+    background: linear-gradient(180deg, #3b82f6, #1d4ed8);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 8px;
+    color: #fff;
+    cursor: pointer;
+}
+.right-menu-panel .right-menu-header-row .audio-mute-btn:hover {
+    filter: brightness(1.12);
+}
+
 @media (prefers-reduced-motion: reduce) {
     .pet-arena-stage-wrap,
     .pet-park-stage.pet-stage-impact-hit { animation: none; }
