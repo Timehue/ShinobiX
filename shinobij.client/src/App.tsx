@@ -132,6 +132,16 @@ import {
     reconcileCharacterStatBudget,
 } from "./lib/stats";
 export { xpNeeded };
+import {
+    dailyMissionsCompleted,
+    hasDailyMissionSlot,
+    markMissionCompleted,
+    dailyHuntsCompleted,
+    hasDailyHuntSlot,
+    markHuntCompleted,
+    rankTitleForLevel,
+} from "./lib/character-progress";
+export { dailyMissionsCompleted, dailyHuntsCompleted };
 
 // Install the global fetch interceptor once at module load. From here on,
 // every fetch('/api/...') call automatically picks up x-player-name and
@@ -2918,80 +2928,9 @@ function readImageFile(file: File, onLoad: (image: string) => void, maxSizeMb = 
 // capStat / xpNeeded / level→HP/chakra/stamina / rankFromLevel + total-XP
 // curves moved to ./lib/stats (imported back above).
 
-const levelOnlyRankTitles = new Set([
-    "Academy Student",
-    "Genin",
-    "Chunin",
-    "Jonin",
-    "Elite Jonin",
-    "Special Jonin",
-    "Kage",
-    "Legendary Kage",
-]);
-
-// currentMonthKey / currentDateKey moved to ./lib/utils.
-
-// DAILY_MISSION_LIMIT moved to ./constants/game.
-
-export function dailyMissionsCompleted(character: Character) {
-    return character.lastDailyReset === currentDateKey() ? character.dailyMissionsCompleted ?? 0 : 0;
-}
-
-function hasDailyMissionSlot(character: Character) {
-    return dailyMissionsCompleted(character) < DAILY_MISSION_LIMIT;
-}
-
-function markMissionCompleted(character: Character): Character {
-    return {
-        ...character,
-        clanMissionContrib: (character.clanMissionContrib ?? 0) + 1,
-        totalMissionsCompleted: (character.totalMissionsCompleted ?? 0) + 1,
-        dailyMissionsCompleted: dailyMissionsCompleted(character) + 1,
-        lastDailyReset: currentDateKey(),
-        clanContribMonth: currentMonthKey(),
-    };
-}
-
-// Hunter Guild contracts use a daily pool independent of missions — its own
-// counter and reset key (lastHuntReset), so 20 hunts and 20 missions can be
-// done in the same day. Clan/lifetime aggregates still tick up like missions.
-export function dailyHuntsCompleted(character: Character) {
-    return character.lastHuntReset === currentDateKey() ? character.dailyHuntsCompleted ?? 0 : 0;
-}
-
-function hasDailyHuntSlot(character: Character) {
-    return dailyHuntsCompleted(character) < DAILY_HUNT_LIMIT;
-}
-
-function markHuntCompleted(character: Character): Character {
-    return {
-        ...character,
-        clanMissionContrib: (character.clanMissionContrib ?? 0) + 1,
-        totalMissionsCompleted: (character.totalMissionsCompleted ?? 0) + 1,
-        dailyHuntsCompleted: dailyHuntsCompleted(character) + 1,
-        lastHuntReset: currentDateKey(),
-        clanContribMonth: currentMonthKey(),
-    };
-}
-
-function roleRankTitle(character: Character) {
-    const currentTitle = character.rankTitle?.trim();
-    const lowerTitle = currentTitle?.toLowerCase() ?? "";
-    const isRoleTitle = lowerTitle.includes("kage") ||
-        lowerTitle.includes("elder") ||
-        lowerTitle.includes("anbu") ||
-        lowerTitle.includes("clan leader") ||
-        lowerTitle.includes("clan head");
-
-    if (currentTitle && isRoleTitle && !levelOnlyRankTitles.has(currentTitle)) return currentTitle;
-    if (character.clanFounder) return "Clan Leader";
-    return "";
-}
-
-function rankTitleForLevel(character: Character, level: number) {
-    if (level < MAX_LEVEL) return rankFromLevel(level);
-    return roleRankTitle(character) || "Special Jonin";
-}
+// Daily mission/hunt tracking + rank-title display moved to
+// ./lib/character-progress (imported back above; dailyMissionsCompleted +
+// dailyHuntsCompleted re-exported for the LeftProfileCard "../App" import site).
 
 // baseStats, stat-budget + progressAfterXp moved to ./lib/stats (imported
 // back above). statPointsEarnedFromXp stays here because it pulls
