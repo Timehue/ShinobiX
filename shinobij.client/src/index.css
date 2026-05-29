@@ -13481,12 +13481,16 @@ button.combat-jutsu-button,
     animation-duration: 0.46s;
 }
 .pet-impact-flash.ko {
-    background: radial-gradient(circle at center, rgba(255,255,255,0.85), rgba(239,68,68,0.38) 55%, transparent 82%);
-    animation-duration: 0.6s;
+    /* Toned way down from 0.85 white — at full strength it blew the whole
+       arena out to a white/green flood on the KO frame (the "DOWN IT GOES"
+       flicker). A soft red-tinted vignette-pulse now reads as a heavy hit
+       without nuking the scene. */
+    background: radial-gradient(circle at center, rgba(255,120,120,0.28), rgba(239,68,68,0.16) 55%, transparent 80%);
+    animation-duration: 0.55s;
 }
 @keyframes petImpactFlash {
     0%   { opacity: 0; }
-    12%  { opacity: 1; }
+    12%  { opacity: 0.85; }
     100% { opacity: 0; }
 }
 
@@ -13551,12 +13555,14 @@ button.combat-jutsu-button,
 .pet-park-stage.pet-stage-danger { box-shadow: 0 0 0 2px rgba(239,68,68,0.5), 0 16px 48px rgba(0,0,0,0.55); }
 .pet-danger-vignette {
     position: absolute; inset: 0; z-index: 6; pointer-events: none; border-radius: inherit;
-    box-shadow: inset 0 0 70px 18px rgba(220, 38, 38, 0.55);
-    animation: petDangerPulse 1.1s ease-in-out infinite;
+    box-shadow: inset 0 0 60px 14px rgba(220, 38, 38, 0.42);
+    animation: petDangerPulse 1.3s ease-in-out infinite;
 }
 @keyframes petDangerPulse {
-    0%, 100% { opacity: 0.45; }
-    50%      { opacity: 0.9; }
+    /* Calmer low end + slower cadence so it doesn't strobe, and so it doesn't
+       compound with the KO flash into a blowout on the finishing frame. */
+    0%, 100% { opacity: 0.32; }
+    50%      { opacity: 0.62; }
 }
 @media (prefers-reduced-motion: reduce) { .pet-danger-vignette { animation: none; opacity: 0.6; } }
 
@@ -14280,8 +14286,10 @@ button.combat-jutsu-button,
 }
 
 @keyframes petTileVictoryPulse {
+    /* Pulled back from brightness(1.45) saturate(1.45) — that over-saturated
+       the green arena floor into the neon yellow/green flood seen on KO. */
     0% { filter: brightness(1); }
-    45% { filter: brightness(1.45) saturate(1.45); }
+    45% { filter: brightness(1.18) saturate(1.15); }
     100% { filter: brightness(1); }
 }
 
