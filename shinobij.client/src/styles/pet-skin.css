@@ -112,6 +112,7 @@
 .pet-yard-screen .pet-info-panel,
 .pet-yard-screen .pet-jutsu-panel,
 .pet-yard-screen .pet-training-panel,
+.pet-yard-screen .pet-loadout-panel,
 .pet-yard-screen .pet-feed-panel {
     background: linear-gradient(180deg, rgba(8,12,24,0.45), rgba(5,9,18,0.55)) !important;
     border: 1px solid var(--bsv2-gold-faint) !important;
@@ -308,6 +309,165 @@
 }
 .pet-yard-screen .pet-feed-grid > button:disabled {
     opacity: 0.4; cursor: not-allowed;
+}
+
+/* ----- Center column (loadout + training + expedition stacked) ----- */
+.pet-yard-screen .pet-center-column {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 14px !important;
+    min-width: 0 !important;
+}
+.pet-yard-screen .pet-center-column > * {
+    margin-bottom: 0 !important;
+}
+
+/* ----- Loadout slots (Collar / PVP / PVE / Consumable) ----- */
+.pet-yard-screen .pet-loadout-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    margin-top: 6px;
+}
+.pet-yard-screen .pet-loadout-slot {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center;
+    text-align: center;
+    gap: 2px;
+    padding: 10px 8px !important;
+    min-height: 80px;
+    background: linear-gradient(180deg, #1a2238 0%, #0a1020 100%) !important;
+    border: 1px dashed var(--bsv2-gold-faint) !important;
+    border-radius: 6px !important;
+}
+.pet-yard-screen .pet-loadout-slot.pet-loadout-filled {
+    border-style: solid !important;
+    border-color: var(--bsv2-gold-soft) !important;
+}
+/* Collar slot, when a collar is equipped, echoes that collar's glow color. */
+.pet-yard-screen .pet-loadout-slot.pet-loadout-filled[style*="--collar-glow"] {
+    border-color: var(--collar-glow, var(--bsv2-gold-soft)) !important;
+    box-shadow: 0 0 10px var(--collar-glow, rgba(250, 204, 21, 0.4));
+}
+
+/* Collar swatch picker — one colored dot per owned collar + a "none" dot. */
+.pet-yard-screen .pet-collar-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    margin-top: 10px;
+}
+.pet-yard-screen .pet-collar-swatch {
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.25);
+    background: var(--collar-glow, #888);
+    box-shadow: 0 0 8px var(--collar-glow, transparent);
+    cursor: pointer;
+    transition: transform 80ms, border-color 120ms;
+}
+.pet-yard-screen .pet-collar-swatch:hover {
+    transform: scale(1.14);
+}
+.pet-yard-screen .pet-collar-swatch.selected {
+    border-color: #fff;
+    transform: scale(1.14);
+}
+.pet-yard-screen .pet-collar-swatch.pet-collar-none {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(20, 28, 46, 0.85);
+    color: #cbd5e1;
+    font: 700 11px Inter, sans-serif;
+    line-height: 1;
+    box-shadow: none;
+}
+/* PVP gear picker — a labeled dropdown of owned battle gear under the swatches. */
+.pet-yard-screen .pet-gear-picker {
+    margin-top: 10px;
+}
+.pet-yard-screen .pet-gear-picker label {
+    display: block;
+    font: 700 9px Cinzel, serif !important;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--bsv2-gold-bright) !important;
+    margin-bottom: 4px;
+}
+.pet-yard-screen .pet-gear-picker select {
+    width: 100%;
+    background: linear-gradient(180deg, #1a2238 0%, #0a1020 100%) !important;
+    border: 1px solid var(--bsv2-gold-faint) !important;
+    border-radius: 6px !important;
+    color: #e8edf5 !important;
+    padding: 6px 8px !important;
+    font: 500 11px Inter, sans-serif !important;
+}
+
+/* Prismatic swatch — a spinning rainbow wheel instead of a single color. */
+.pet-yard-screen .pet-collar-swatch.pet-collar-swatch-prismatic {
+    background: conic-gradient(from 0deg, #f87171, #fbbf24, #a3e635, #2dd4bf, #60a5fa, #c084fc, #f472b6, #f87171);
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.6);
+    animation: pet-collar-swatch-spin 4s linear infinite;
+}
+@keyframes pet-collar-swatch-spin {
+    to { filter: hue-rotate(360deg); }
+}
+/* Prismatic collar equipped in the slot — white-rimmed, rainbow icon. */
+.pet-yard-screen .pet-loadout-slot.pet-collar-slot-prismatic {
+    border-color: #ffffff !important;
+    box-shadow: 0 0 12px rgba(255, 255, 255, 0.5);
+}
+.pet-yard-screen .pet-collar-prismatic-text {
+    animation: pet-collar-text-rainbow 3s linear infinite;
+}
+@keyframes pet-collar-text-rainbow {
+    0%   { text-shadow: 0 0 9px rgba(248,113,113,0.95); }
+    34%  { text-shadow: 0 0 9px rgba(163,230,53,0.95); }
+    67%  { text-shadow: 0 0 9px rgba(96,165,250,0.95); }
+    100% { text-shadow: 0 0 9px rgba(248,113,113,0.95); }
+}
+.pet-yard-screen .pet-loadout-icon {
+    font-size: 18px;
+    line-height: 1;
+}
+.pet-yard-screen .pet-loadout-label {
+    font: 700 9px Cinzel, serif !important;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--bsv2-gold-bright) !important;
+}
+.pet-yard-screen .pet-loadout-value {
+    font: 600 11px Inter, sans-serif !important;
+    color: #e8edf5 !important;
+}
+.pet-yard-screen .pet-loadout-slot:not(.pet-loadout-filled) .pet-loadout-value {
+    color: rgba(200,207,220,0.45) !important;
+    font-style: italic;
+}
+.pet-yard-screen .pet-loadout-hint {
+    font: 400 9px Inter, sans-serif !important;
+    color: rgba(200,207,220,0.55) !important;
+}
+
+/* ----- Expedition lock (until level 20) ----- */
+.pet-yard-screen .pet-expedition-locked {
+    background: rgba(148,163,184,0.08) !important;
+    border: 1px solid var(--bsv2-gold-faint) !important;
+    border-radius: 8px !important;
+    padding: 12px !important;
+}
+.pet-yard-screen .pet-lock-title {
+    font: 700 13px Cinzel, serif !important;
+    letter-spacing: 0.08em;
+    color: var(--bsv2-gold-bright) !important;
+    margin: 0 0 4px !important;
 }
 
 /* ----- Care actions / general buttons ----- */

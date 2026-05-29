@@ -7,7 +7,7 @@
  * Extracted from App.tsx.
  */
 
-import type { PetRarity, PetTrait, PetTrainingType, PetExpeditionType } from "../types/pet";
+import type { Pet, PetRarity, PetTrait, PetTrainingType, PetExpeditionType } from "../types/pet";
 import { TERRITORY_CONTROL_SCROLL_ID } from "../constants/game";
 
 // ── Trait roster + descriptions ──────────────────────────────────────────
@@ -101,7 +101,7 @@ export const petFeedItems = [
 ] as const;
 
 // Items that stack in inventory (consumables, scrolls, dungeon shards).
-// All petFeedItems are stackable plus 4 hand-picked special-case ids.
+// All petFeedItems are stackable plus a few hand-picked special-case ids.
 export const stackableItemIds = new Set<string>([
     ...petFeedItems.map((item) => item.id),
     TERRITORY_CONTROL_SCROLL_ID,
@@ -112,4 +112,316 @@ export const stackableItemIds = new Set<string>([
 
 export function petFeedXpForItem(itemId?: string): number | undefined {
     return petFeedItems.find((item) => item.id === itemId)?.xp;
+}
+
+// ── Glow collars ─────────────────────────────────────────────────────────
+// Ten cosmetic pet collars, one per glow color, sold in the Grand Marketplace
+// for Fate Shards. Equip one in a pet's Collar slot (Pet Yard) to tint the
+// pet's battle aura — visible in pet battles and when the pet is summoned into
+// a PvE fight. Fields:
+//   glow   — CSS color for the drop-shadow / box-shadow halo (exposed as the
+//            --collar-glow var)
+//   tint   — human color word used in the shop description
+//   rarity — legendary (common colors) or mythic (rarer colors); must be one
+//            of these two so the collar surfaces in the Grand Marketplace
+//   cost   — price in Fate Shards. Cheapest is 50; rarer colors cost more.
+// Unlock-style cosmetics: buy once, then equip on any pet for free.
+//   prismatic — true for the animated rainbow collar. Its glow cycles through
+//               every hue instead of using a single `glow` color, and it is
+//               NOT sold in any shop (cost 0); it's admin-granted only for now.
+export type PetCollar = {
+    id: string;
+    name: string;
+    tint: string;
+    glow: string;
+    rarity: "legendary" | "mythic";
+    cost: number;
+    prismatic?: boolean;
+};
+
+export const petCollars: PetCollar[] = [
+    { id: "collar-crimson",   name: "Emberheart Collar",  tint: "crimson",            glow: "rgba(248, 113, 113, 0.95)", rarity: "legendary", cost: 50 },
+    { id: "collar-amber",     name: "Sunflare Collar",    tint: "golden amber",       glow: "rgba(251, 191, 36, 0.95)",  rarity: "legendary", cost: 50 },
+    { id: "collar-emerald",   name: "Thornwood Collar",   tint: "emerald",            glow: "rgba(52, 211, 153, 0.95)",  rarity: "legendary", cost: 50 },
+    { id: "collar-azure",     name: "Skywarden Collar",   tint: "azure",              glow: "rgba(96, 165, 250, 0.95)",  rarity: "legendary", cost: 50 },
+    { id: "collar-inferno",   name: "Wildfire Collar",    tint: "fiery orange",       glow: "rgba(251, 146, 60, 0.95)",  rarity: "legendary", cost: 80 },
+    { id: "collar-verdant",   name: "Meadowlight Collar", tint: "lime",               glow: "rgba(163, 230, 53, 0.95)",  rarity: "legendary", cost: 80 },
+    { id: "collar-rose",      name: "Blossom Collar",     tint: "rose-pink",          glow: "rgba(244, 114, 182, 0.95)", rarity: "mythic",    cost: 120 },
+    { id: "collar-tidal",     name: "Riptide Collar",     tint: "teal",               glow: "rgba(45, 212, 191, 0.95)",  rarity: "mythic",    cost: 120 },
+    { id: "collar-amethyst",  name: "Twilight Collar",    tint: "amethyst",           glow: "rgba(192, 132, 252, 0.95)", rarity: "mythic",    cost: 200 },
+    { id: "collar-void",      name: "Voidpulse Collar",   tint: "violet void",        glow: "rgba(232, 121, 249, 0.95)", rarity: "mythic",    cost: 300 },
+    { id: "collar-prismatic", name: "Prismatic Collar",   tint: "shifting prismatic", glow: "rgba(255, 255, 255, 0.95)", rarity: "mythic",    cost: 0, prismatic: true },
+];
+
+export const petCollarIds: ReadonlySet<string> = new Set(petCollars.map((c) => c.id));
+
+export function petCollarById(collarId?: string): PetCollar | undefined {
+    return collarId ? petCollars.find((c) => c.id === collarId) : undefined;
+}
+
+// Visual treatment for an equipped collar id: the glow color (falls back to a
+// soft gold for legacy/unknown ids so an old save still glows) and whether it
+// animates through the prismatic rainbow. Returns undefined when no collar.
+export function petCollarVisual(collarId?: string): { glow: string; prismatic: boolean } | undefined {
+    if (!collarId) return undefined;
+    const collar = petCollarById(collarId);
+    return { glow: collar?.glow ?? "rgba(250, 204, 21, 0.9)", prismatic: !!collar?.prismatic };
+}
+
+// ── PVP battle gear ──────────────────────────────────────────────────────
+// Pet-battle-themed gear equipped in a pet's PVP slot, applied to BOTH
+// combatants — from their own loadout — during a pet arena battle. Every effect
+// is pure and loadout-driven, so both clients in a synced battle compute the
+// identical result and deterministic ranked/PvP fights stay in sync.
+//
+// Two kinds of effect:
+//   • Passive stat mods — atkPct/defPct/hpPct/spdPct (may be negative for
+//     trade-off gear). Applied to the pet's stats at battle start via
+//     applyPetPvpGear.
+//   • Combat procs/conditionals — read live by the battle sim:
+//       shieldStartPctOfHp   — start the fight with a shield = % of max HP
+//       dotOnHitPctOfAtk(+Rounds) — basic-attack hits poison the foe for % of
+//                              the attacker's ATK per round (default 2 rounds)
+//       executeBelowPct/executeBonusPct — +% damage vs foes below an HP% line
+//       lastStandBelowPct/lastStandReductionPct — % less damage taken while
+//                              the wearer is below an HP% line
+//       lifestealPctOfDamage — heal % of basic-attack damage dealt
+// Sold in the Grand Marketplace (Aura / Accessory) for Fate Shards — rarity is
+// legendary/mythic so it surfaces there. Unlock-style: buy once, equip on any
+// pet. `desc` is shown in the shop and the loadout picker.
+export type PetPvpGear = {
+    id: string;
+    name: string;
+    rarity: "legendary" | "mythic";
+    cost: number;
+    desc: string;
+    atkPct?: number;
+    defPct?: number;
+    hpPct?: number;
+    spdPct?: number;
+    shieldStartPctOfHp?: number;
+    dotOnHitPctOfAtk?: number;
+    dotOnHitRounds?: number;
+    executeBelowPct?: number;
+    executeBonusPct?: number;
+    lastStandBelowPct?: number;
+    lastStandReductionPct?: number;
+    lifestealPctOfDamage?: number;
+};
+
+export const petPvpGear: PetPvpGear[] = [
+    { id: "pvp-spiked-war-harness",     name: "Spiked War Harness",       rarity: "legendary", cost: 100, desc: "+15% Attack",                                  atkPct: 15 },
+    { id: "pvp-ironhide-barding",       name: "Ironhide Barding",         rarity: "legendary", cost: 100, desc: "+15% Defense",                                 defPct: 15 },
+    { id: "pvp-berserkers-muzzle",      name: "Berserker's Muzzle",       rarity: "legendary", cost: 110, desc: "+25% Attack, −12% Defense",                    atkPct: 25, defPct: -12 },
+    { id: "pvp-tortoise-shell-plating", name: "Tortoise Shell Plating",   rarity: "legendary", cost: 110, desc: "+25% Defense, −12% Attack",                    defPct: 25, atkPct: -12 },
+    { id: "pvp-aegis-pendant",          name: "Aegis Pendant",            rarity: "legendary", cost: 120, desc: "Start each battle with a shield (25% max HP)",  shieldStartPctOfHp: 25 },
+    { id: "pvp-venomfang-bit",          name: "Venomfang Bit",            rarity: "mythic",    cost: 130, desc: "Basic attacks poison the foe for 2 rounds",     dotOnHitPctOfAtk: 30, dotOnHitRounds: 2 },
+    { id: "pvp-executioners-talon",     name: "Executioner's Talon",      rarity: "mythic",    cost: 140, desc: "+30% damage to foes below 40% HP",             executeBelowPct: 40, executeBonusPct: 30 },
+    { id: "pvp-final-bastion-charm",    name: "Final Bastion Charm",      rarity: "mythic",    cost: 140, desc: "−30% damage taken while below 30% HP",         lastStandBelowPct: 30, lastStandReductionPct: 30 },
+    { id: "pvp-bloodthirster-fang",     name: "Bloodthirster Fang",       rarity: "mythic",    cost: 140, desc: "Heal 15% of basic-attack damage dealt",        lifestealPctOfDamage: 15 },
+    { id: "pvp-arena-champion-regalia", name: "Arena Champion's Regalia", rarity: "mythic",    cost: 150, desc: "+10% to all stats",                            atkPct: 10, defPct: 10, hpPct: 10, spdPct: 10 },
+];
+
+export function petPvpGearById(gearId?: string): PetPvpGear | undefined {
+    return gearId ? petPvpGear.find((g) => g.id === gearId) : undefined;
+}
+
+// Apply the pet's equipped PVP gear stat modifiers (passive atk/def/hp/spd).
+// Pure + deterministic: a pet with no PVP gear (or an unknown id) is returned
+// unchanged. Stats stay >= 1. Not re-capped — gear is a deliberate boost. The
+// proc effects below are read live by the sim, not folded in here.
+export function applyPetPvpGear(pet: Pet): Pet {
+    const gear = petPvpGearById(pet.loadout?.pvp);
+    if (!gear) return pet;
+    const scale = (base: number, pct?: number) => pct ? Math.max(1, Math.round(base * (1 + pct / 100))) : base;
+    return {
+        ...pet,
+        attack:  scale(pet.attack,  gear.atkPct),
+        defense: scale(pet.defense, gear.defPct),
+        hp:      scale(pet.hp,      gear.hpPct),
+        speed:   scale(pet.speed,   gear.spdPct),
+    };
+}
+
+// ── PVP gear combat procs (read live by the pet battle sim) ──────────────
+// All pure and driven by the pet's own loadout, so synced battles stay
+// deterministic. maxHp passed in is the pet's (gear-scaled) hp.
+
+/** Flat shield HP granted at battle start (0 if none). */
+export function petGearStartShield(pet: Pet): number {
+    const g = petPvpGearById(pet.loadout?.pvp);
+    return g?.shieldStartPctOfHp ? Math.max(1, Math.round(pet.hp * g.shieldStartPctOfHp / 100)) : 0;
+}
+
+/** Outgoing-damage multiplier from the attacker's execute gear vs a low-HP foe. */
+export function petGearExecuteMult(attacker: Pet, targetHp: number, targetMaxHp: number): number {
+    const g = petPvpGearById(attacker.loadout?.pvp);
+    if (g?.executeBelowPct && g.executeBonusPct && targetMaxHp > 0 && (targetHp / targetMaxHp) * 100 < g.executeBelowPct) {
+        return 1 + g.executeBonusPct / 100;
+    }
+    return 1;
+}
+
+/** Incoming-damage multiplier from the defender's last-stand gear while low. */
+export function petGearLastStandMult(defender: Pet, selfHp: number, selfMaxHp: number): number {
+    const g = petPvpGearById(defender.loadout?.pvp);
+    if (g?.lastStandBelowPct && g.lastStandReductionPct && selfMaxHp > 0 && (selfHp / selfMaxHp) * 100 < g.lastStandBelowPct) {
+        return Math.max(0.1, 1 - g.lastStandReductionPct / 100);
+    }
+    return 1;
+}
+
+/** DoT to stamp on the foe after a basic-attack hit (null if none). */
+export function petGearDotOnHit(attacker: Pet): { damage: number; rounds: number } | null {
+    const g = petPvpGearById(attacker.loadout?.pvp);
+    if (!g?.dotOnHitPctOfAtk) return null;
+    return { damage: Math.max(1, Math.round(attacker.attack * g.dotOnHitPctOfAtk / 100)), rounds: g.dotOnHitRounds ?? 2 };
+}
+
+/** HP to heal the attacker for, given basic-attack damage dealt (0 if none). */
+export function petGearLifestealHeal(attacker: Pet, damageDealt: number): number {
+    const g = petPvpGearById(attacker.loadout?.pvp);
+    return g?.lifestealPctOfDamage ? Math.max(1, Math.floor(damageDealt * g.lifestealPctOfDamage / 100)) : 0;
+}
+
+// ── PVE companion gear ───────────────────────────────────────────────────
+// Gear equipped in a pet's PVE slot. Unlike PVP gear (pet-vs-pet arena), these
+// boost the pet when it's SUMMONED into a PvE ninja fight — read live by the
+// summon logic (runSummonedPetAction in regular combat, bossPetFollowUp in the
+// story boss). PvE is single-player, so no determinism constraints.
+//   summonDmgPct          — flat % bonus to the summoned pet's attack damage
+//   loyalty               — the pet never backfires (always strikes the foe)
+//   healOnSummonPctOfMaxHp— heal you % of max HP when you summon the pet
+//   playerLifestealPct    — heal you % of the damage your pet deals the foe
+//   executeBelowPct/Bonus — +% summon damage vs foes below an HP% line
+//   avengerBelowPct/Bonus — +% summon damage while YOU are below an HP% line
+// These are CONSUMABLE gear: equipping installs the piece with a durability of
+// PET_PVE_DURABILITY summons, and it breaks (is destroyed) once spent. Crafted
+// in the Crafter (Supplies tab) at an epic/legendary craft-point cost, or
+// bought for ryo in the Shop (Aura / Accessory) — they are NOT in the Grand
+// Marketplace. `craftPts` = Crafter cost; `cost` = ryo Shop price. `desc`
+// shows in the shop, crafter, and loadout picker.
+export const PET_PVE_DURABILITY = 20;
+
+export type PetPveGear = {
+    id: string;
+    name: string;
+    rarity: "rare" | "epic";
+    cost: number;       // ryo Shop price (expensive — these are consumable)
+    craftPts: number;   // Crafter craft-point cost (epic/legendary tier)
+    desc: string;
+    summonDmgPct?: number;
+    loyalty?: boolean;
+    healOnSummonPctOfMaxHp?: number;
+    playerLifestealPct?: number;
+    executeBelowPct?: number;
+    executeBonusPct?: number;
+    avengerBelowPct?: number;
+    avengerBonusPct?: number;
+};
+
+export const petPveGear: PetPveGear[] = [
+    { id: "pve-hunters-bond-harness", name: "Hunter's Bond Harness", rarity: "epic", cost: 3000, craftPts: 200, desc: "+20% summon damage",                              summonDmgPct: 20 },
+    { id: "pve-loyal-companion-bell", name: "Loyal Companion Bell",  rarity: "epic", cost: 3000, craftPts: 200, desc: "Your pet never backfires (always strikes the foe)", loyalty: true },
+    { id: "pve-frenzy-claw",          name: "Frenzy Claw",           rarity: "epic", cost: 3500, craftPts: 250, desc: "+30% summon damage",                              summonDmgPct: 30 },
+    { id: "pve-guardians-blessing",   name: "Guardian's Blessing",   rarity: "epic", cost: 3500, craftPts: 250, desc: "Restore 15% of your max HP when you summon",       healOnSummonPctOfMaxHp: 15 },
+    { id: "pve-sanguine-charm",       name: "Sanguine Charm",        rarity: "epic", cost: 4000, craftPts: 250, desc: "Heal for 20% of your pet's attack damage",         playerLifestealPct: 20 },
+    { id: "pve-predators-fang",       name: "Predator's Fang",       rarity: "epic", cost: 4500, craftPts: 300, desc: "+35% summon damage to foes below 40% HP",          executeBelowPct: 40, executeBonusPct: 35 },
+    { id: "pve-avengers-pendant",     name: "Avenger's Pendant",     rarity: "epic", cost: 4500, craftPts: 300, desc: "+30% summon damage while you're below 30% HP",     avengerBelowPct: 30, avengerBonusPct: 30 },
+    { id: "pve-bloodbond-totem",      name: "Bloodbond Totem",       rarity: "epic", cost: 5000, craftPts: 300, desc: "Heal for 35% of your pet's attack damage",         playerLifestealPct: 35 },
+    { id: "pve-pack-alpha-crest",     name: "Pack Alpha Crest",      rarity: "epic", cost: 5500, craftPts: 350, desc: "+18% summon damage and your pet never backfires",   summonDmgPct: 18, loyalty: true },
+    { id: "pve-apex-predator-fang",   name: "Apex Predator Fang",    rarity: "epic", cost: 6000, craftPts: 350, desc: "+25% summon damage, +25% more vs foes below 40% HP", summonDmgPct: 25, executeBelowPct: 40, executeBonusPct: 25 },
+];
+
+// PVE gear is consumable (breaks after PET_PVE_DURABILITY summons), so it
+// stacks in inventory — you can hold, buy, and craft multiple copies.
+petPveGear.forEach((g) => stackableItemIds.add(g.id));
+
+export function petPveGearById(gearId?: string): PetPveGear | undefined {
+    return gearId ? petPveGear.find((g) => g.id === gearId) : undefined;
+}
+
+// Total summon-damage multiplier for the equipped PVE gear, folding in the
+// flat bonus plus the execute (foe low) and avenger (you low) conditionals.
+export function petPveSummonDamageMult(pet: Pet, enemyHpPct: number, playerHpPct: number): number {
+    const g = petPveGearById(pet.loadout?.pve);
+    if (!g) return 1;
+    let mult = 1 + (g.summonDmgPct ?? 0) / 100;
+    if (g.executeBelowPct && g.executeBonusPct && enemyHpPct < g.executeBelowPct) mult *= 1 + g.executeBonusPct / 100;
+    if (g.avengerBelowPct && g.avengerBonusPct && playerHpPct < g.avengerBelowPct) mult *= 1 + g.avengerBonusPct / 100;
+    return mult;
+}
+
+/** True if the equipped PVE gear stops the summoned pet from ever backfiring. */
+export function petPveLoyalty(pet: Pet): boolean {
+    return !!petPveGearById(pet.loadout?.pve)?.loyalty;
+}
+
+/** % of max HP to heal the player when summoning (0 if none). */
+export function petPveHealOnSummonPct(pet: Pet): number {
+    return petPveGearById(pet.loadout?.pve)?.healOnSummonPctOfMaxHp ?? 0;
+}
+
+/** % of the pet's dealt damage to heal the player for (0 if none). */
+export function petPveLifestealPct(pet: Pet): number {
+    return petPveGearById(pet.loadout?.pve)?.playerLifestealPct ?? 0;
+}
+
+// ── Battle consumables ───────────────────────────────────────────────────
+// One-use items equipped in a pet's Consumable slot, spent the next time the
+// pet fights. Unlike PVP/PVE gear (stat boosts), these are REACTIVE — a single
+// charge that triggers on an event during a pet battle:
+//   dodge    — negates the next `value` incoming attacks
+//   endure   — survives one lethal blow (drops to 1 HP instead of 0)
+//   thorns   — reflects `value`% of the next attack back at the attacker
+//   lifeline — the first time it falls below 35% HP, heals `value`% max HP
+//   cleanse  — once, purges all poisons/burns and freeze/confuse/stun
+// Reactive effects fire in pet battles (where the pet takes hits and debuffs).
+// When summoned into a PvE fight instead, the pet spends the item to shield
+// you for PET_CONSUMABLE_PVE_HEAL_PCT% of your max HP. Single-use; stack in
+// inventory; bought for ryo in the Shop.
+export type PetConsumableEffect = "dodge" | "mitigate" | "endure" | "thorns" | "lifeline" | "cleanse";
+
+export const PET_CONSUMABLE_PVE_HEAL_PCT = 25;
+export const PET_CONSUMABLE_LIFELINE_THRESHOLD_PCT = 35;
+
+export type PetConsumable = {
+    id: string;
+    name: string;
+    rarity: "uncommon" | "rare";
+    cost: number;       // ryo Shop price (expensive — single-use reactive items)
+    craftPts: number;   // Crafter (Supplies) craft-point cost — epic tier
+    desc: string;
+    effect: PetConsumableEffect;
+    value?: number;
+};
+
+export const petConsumables: PetConsumable[] = [
+    { id: "consum-phantom-charm",     name: "Phantom Charm",     rarity: "uncommon", cost: 600,  craftPts: 120, desc: "Dodges the next attack",                              effect: "dodge",    value: 1 },
+    { id: "consum-smoke-pellet",      name: "Smoke Pellet",      rarity: "uncommon", cost: 600,  craftPts: 120, desc: "The next attack deals 50% less damage",                effect: "mitigate", value: 50 },
+    { id: "consum-cleansing-incense", name: "Cleansing Incense", rarity: "uncommon", cost: 700,  craftPts: 140, desc: "Purges all poisons, burns, and control effects once", effect: "cleanse" },
+    { id: "consum-thornmail-oil",     name: "Thornmail Oil",     rarity: "rare",     cost: 800,  craftPts: 160, desc: "Reflects 40% of the next attack back at the attacker", effect: "thorns",   value: 40 },
+    { id: "consum-lifeline-elixir",   name: "Lifeline Elixir",   rarity: "rare",     cost: 900,  craftPts: 180, desc: "First time below 35% HP, heals 30% of max HP",        effect: "lifeline", value: 30 },
+    { id: "consum-second-wind",       name: "Second Wind",       rarity: "rare",     cost: 1000, craftPts: 200, desc: "Survives one lethal blow (drops to 1 HP)",            effect: "endure" },
+];
+
+petConsumables.forEach((c) => stackableItemIds.add(c.id));
+
+export function petConsumableById(consumableId?: string): PetConsumable | undefined {
+    return consumableId ? petConsumables.find((c) => c.id === consumableId) : undefined;
+}
+
+// Reactive-charge values granted to a battle fighter by its equipped
+// consumable. Read from loadout at fighter creation (symmetric → synced
+// battles stay deterministic). All zero when nothing is equipped.
+export function petConsumableCharges(pet: Pet): { dodge: number; mitigate: number; endure: number; thorns: number; lifeline: number; cleanse: number } {
+    const c = petConsumableById(pet.loadout?.consumable);
+    return {
+        dodge:    c?.effect === "dodge"    ? (c.value ?? 1) : 0,
+        mitigate: c?.effect === "mitigate" ? (c.value ?? 50) : 0,
+        endure:   c?.effect === "endure"   ? 1 : 0,
+        thorns:   c?.effect === "thorns"   ? (c.value ?? 50) : 0,
+        lifeline: c?.effect === "lifeline" ? (c.value ?? 30) : 0,
+        cleanse:  c?.effect === "cleanse"  ? 1 : 0,
+    };
 }

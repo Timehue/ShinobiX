@@ -496,6 +496,29 @@ import {
     petExpeditionStories,
     petTreatItems,
     petFeedItems,
+    petCollars,
+    petCollarById,
+    petCollarVisual,
+    petPvpGear,
+    petPvpGearById,
+    applyPetPvpGear,
+    petGearStartShield,
+    petGearExecuteMult,
+    petGearLastStandMult,
+    petGearDotOnHit,
+    petGearLifestealHeal,
+    petPveGear,
+    petPveGearById,
+    petPveSummonDamageMult,
+    petPveLoyalty,
+    petPveHealOnSummonPct,
+    petPveLifestealPct,
+    PET_PVE_DURABILITY,
+    petConsumables,
+    petConsumableById,
+    petConsumableCharges,
+    PET_CONSUMABLE_PVE_HEAL_PCT,
+    PET_CONSUMABLE_LIFELINE_THRESHOLD_PCT,
     stackableItemIds,
     petFeedXpForItem,
 } from "./data/pet-config";
@@ -10853,6 +10876,21 @@ function DungeonPetBattle({ character, updateCharacter, editablePets, onWin, onL
     );
 }
 
+// Pets must reach this level before expeditions unlock. Training (and the
+// loadout scaffold) stay available from level 1.
+const PET_EXPEDITION_UNLOCK_LEVEL = 20;
+
+// Loadout slots shown above Training. The Collar slot is functional — pick any
+// glow collar you own (see petCollars) from the swatch row below the grid.
+// PVP / PVE / Consumable are visual scaffolds for now — they read their
+// equipped item id off pet.loadout and render "Empty".
+const PET_LOADOUT_SLOTS: Array<{ key: "collar" | "pvp" | "pve" | "consumable"; label: string; icon: string; hint: string }> = [
+    { key: "collar",     label: "Collar",     icon: "✨", hint: "Glowing battle aura" },
+    { key: "pvp",        label: "PVP",        icon: "⚔️", hint: "PvP gear" },
+    { key: "pve",        label: "PVE",        icon: "🛡️", hint: "PvE gear" },
+    { key: "consumable", label: "Consumable", icon: "🧪", hint: "Used in PvP & PvE" },
+];
+
 function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { character: Character; updateCharacter: (c: Character) => void; setScreen: (s: Screen) => void; onImmediateSave?: (c: Character) => void }) {
     const [selectedPetId, setSelectedPetId] = useState(character.pets[0]?.id ?? "");
     const [trainingType, setTrainingType] = useState<PetTrainingType>("strength");
@@ -10933,6 +10971,7 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
 
     function startExpedition() {
         if (!selectedPet) return;
+        if (selectedPet.level < PET_EXPEDITION_UNLOCK_LEVEL) return alert(`${petDisplayName(selectedPet)} must reach Level ${PET_EXPEDITION_UNLOCK_LEVEL} before going on expeditions.`);
         if (selectedPet.training && Date.now() < selectedPet.training.endsAt) return alert(`${selectedPet.name} is training right now.`);
         if (isPetOnExpedition(selectedPet)) return alert(`${selectedPet.name} is already exploring.`);
         if (selectedPet.expedition) return alert(`${petDisplayName(selectedPet)} has an unclaimed expedition. Collect it first!`);
@@ -11096,6 +11135,73 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
 
     function inventoryCount(itemId: string) {
         return character.inventory.filter((entry) => entry === itemId).length;
+    }
+
+    // Equip a glow collar (or clear it with id = undefined) on the selected
+    // pet's Collar slot. Cosmetic unlock model: the collar stays in inventory
+    // and can be equipped on any pet, so equipping just records the id.
+    function equipCollar(collarId?: string) {
+        if (!selectedPet) return;
+        if (collarId && !character.inventory.includes(collarId)) return;
+        updateCharacter({
+            ...character,
+            pets: character.pets.map((p) => p.id === selectedPet.id
+                ? { ...p, loadout: { ...p.loadout, collar: collarId } }
+                : p),
+        });
+    }
+
+    // Equip PVP battle gear (or clear with id = undefined) on the selected pet.
+    // Same unlock model as collars: the gear stays in inventory and can be
+    // equipped on any pet, so this just records the id on pet.loadout.pvp.
+    function equipPvpGear(gearId?: string) {
+        if (!selectedPet) return;
+        if (gearId && !character.inventory.includes(gearId)) return;
+        updateCharacter({
+            ...character,
+            pets: character.pets.map((p) => p.id === selectedPet.id
+                ? { ...p, loadout: { ...p.loadout, pvp: gearId } }
+                : p),
+        });
+    }
+
+    // Equip a battle consumable (or clear with id = undefined). It's installed
+    // from inventory into the slot and spent the next time the pet fights;
+    // unequipping before then returns it to inventory.
+    function equipConsumable(consumableId?: string) {
+        if (!selectedPet) return;
+        const current = selectedPet.loadout?.consumable;
+        if (consumableId === current) return;
+        if (consumableId && !character.inventory.includes(consumableId)) return;
+        // Install the new one (consume from inventory) and return the old one.
+        let nextInventory = [...character.inventory];
+        if (consumableId) nextInventory = removeInventoryItem(consumableId);
+        if (current) nextInventory = [...nextInventory, current];
+        updateCharacter({
+            ...character,
+            inventory: nextInventory,
+            pets: character.pets.map((p) => p.id === selectedPet.id
+                ? { ...p, loadout: { ...p.loadout, consumable: consumableId } }
+                : p),
+        });
+    }
+
+    // Equip PVE companion gear (or clear with id = undefined). Consumable model:
+    // equipping installs one piece from inventory at full durability; the piece
+    // already in the slot is discarded (its remaining durability is lost).
+    function equipPveGear(gearId?: string) {
+        if (!selectedPet) return;
+        const current = selectedPet.loadout?.pve;
+        if (gearId === current) return; // no change
+        if (gearId && !character.inventory.includes(gearId)) return; // must own one to install
+        const nextInventory = gearId ? removeInventoryItem(gearId) : [...character.inventory];
+        updateCharacter({
+            ...character,
+            inventory: nextInventory,
+            pets: character.pets.map((p) => p.id === selectedPet.id
+                ? { ...p, loadout: { ...p.loadout, pve: gearId, pveDurability: gearId ? PET_PVE_DURABILITY : undefined } }
+                : p),
+        });
     }
 
     function petSelectedPet() {
@@ -11340,6 +11446,185 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
                             </div>
                         </div>
 
+                        <div className="pet-center-column">
+                        <div className="pet-loadout-panel">
+                            <h4>Loadout</h4>
+                            <p className="hint" style={{ margin: "0 0 4px" }}>Pick a Collar to set your pet's battle glow. Other slots coming soon.</p>
+                            <div className="pet-loadout-grid">
+                                {PET_LOADOUT_SLOTS.map((slot) => {
+                                    const equippedId = selectedPet.loadout?.[slot.key];
+                                    if (slot.key === "collar") {
+                                        const collar = petCollarById(equippedId);
+                                        const visual = petCollarVisual(equippedId);
+                                        const iconStyle = visual && !visual.prismatic ? { color: visual.glow, textShadow: `0 0 8px ${visual.glow}` } : undefined;
+                                        return (
+                                            <div
+                                                key={slot.key}
+                                                className={`pet-loadout-slot${equippedId ? " pet-loadout-filled" : ""}${visual?.prismatic ? " pet-collar-slot-prismatic" : ""}`}
+                                                style={visual ? { ["--collar-glow" as string]: visual.glow } : undefined}
+                                            >
+                                                <span className={`pet-loadout-icon${visual?.prismatic ? " pet-collar-prismatic-text" : ""}`} style={iconStyle}>{slot.icon}</span>
+                                                <span className="pet-loadout-label">{slot.label}</span>
+                                                <span className="pet-loadout-value">{collar?.name ?? "Empty"}</span>
+                                                <span className="pet-loadout-hint">{equippedId ? "Glow active" : slot.hint}</span>
+                                            </div>
+                                        );
+                                    }
+                                    if (slot.key === "pvp") {
+                                        const gear = petPvpGearById(equippedId);
+                                        return (
+                                            <div key={slot.key} className={`pet-loadout-slot${equippedId ? " pet-loadout-filled" : ""}`}>
+                                                <span className="pet-loadout-icon">{slot.icon}</span>
+                                                <span className="pet-loadout-label">{slot.label}</span>
+                                                <span className="pet-loadout-value">{gear?.name ?? "Empty"}</span>
+                                                <span className="pet-loadout-hint">{gear ? gear.desc : slot.hint}</span>
+                                            </div>
+                                        );
+                                    }
+                                    if (slot.key === "consumable") {
+                                        const cons = petConsumableById(equippedId);
+                                        return (
+                                            <div key={slot.key} className={`pet-loadout-slot${equippedId ? " pet-loadout-filled" : ""}`}>
+                                                <span className="pet-loadout-icon">{slot.icon}</span>
+                                                <span className="pet-loadout-label">{slot.label}</span>
+                                                <span className="pet-loadout-value">{cons?.name ?? "Empty"}</span>
+                                                <span className="pet-loadout-hint">{cons ? cons.desc : slot.hint}</span>
+                                            </div>
+                                        );
+                                    }
+                                    if (slot.key === "pve") {
+                                        const gear = petPveGearById(equippedId);
+                                        const dur = selectedPet.loadout?.pveDurability ?? 0;
+                                        return (
+                                            <div key={slot.key} className={`pet-loadout-slot${equippedId ? " pet-loadout-filled" : ""}`}>
+                                                <span className="pet-loadout-icon">{slot.icon}</span>
+                                                <span className="pet-loadout-label">{slot.label}</span>
+                                                <span className="pet-loadout-value">{gear?.name ?? "Empty"}</span>
+                                                <span className="pet-loadout-hint">{gear ? `${dur}/${PET_PVE_DURABILITY} summons left` : slot.hint}</span>
+                                            </div>
+                                        );
+                                    }
+                                    return (
+                                        <div key={slot.key} className={`pet-loadout-slot${equippedId ? " pet-loadout-filled" : ""}`}>
+                                            <span className="pet-loadout-icon">{slot.icon}</span>
+                                            <span className="pet-loadout-label">{slot.label}</span>
+                                            <span className="pet-loadout-value">{equippedId ?? "Empty"}</span>
+                                            <span className="pet-loadout-hint">{slot.hint}</span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            {(() => {
+                                const owned = petCollars.filter((c) => character.inventory.includes(c.id));
+                                if (owned.length === 0) {
+                                    return <p className="hint" style={{ margin: "8px 0 0" }}>Buy collars in the Grand Marketplace (Aura / Accessory, 🔮 Fate Shards) to glow your pet.</p>;
+                                }
+                                const current = selectedPet.loadout?.collar;
+                                return (
+                                    <div className="pet-collar-picker">
+                                        <button
+                                            type="button"
+                                            className={`pet-collar-swatch pet-collar-none${current ? "" : " selected"}`}
+                                            onClick={() => equipCollar(undefined)}
+                                            title="No collar"
+                                        >✕</button>
+                                        {owned.map((c) => (
+                                            <button
+                                                key={c.id}
+                                                type="button"
+                                                className={`pet-collar-swatch${c.prismatic ? " pet-collar-swatch-prismatic" : ""}${current === c.id ? " selected" : ""}`}
+                                                style={{ ["--collar-glow" as string]: c.glow }}
+                                                onClick={() => equipCollar(c.id)}
+                                                title={c.name}
+                                                aria-label={c.name}
+                                            />
+                                        ))}
+                                    </div>
+                                );
+                            })()}
+                            {(() => {
+                                const ownedGear = petPvpGear.filter((g) => character.inventory.includes(g.id));
+                                return (
+                                    <div className="pet-gear-picker">
+                                        <label>PVP Gear</label>
+                                        {ownedGear.length === 0 ? (
+                                            <p className="hint" style={{ margin: "2px 0 0" }}>Buy PVP gear in the Grand Marketplace (Aura / Accessory, 🔮 Fate Shards) to boost your pet in pet battles.</p>
+                                        ) : (
+                                            <select value={selectedPet.loadout?.pvp ?? ""} onChange={(e) => equipPvpGear(e.target.value || undefined)}>
+                                                <option value="">None</option>
+                                                {ownedGear.map((g) => (
+                                                    <option key={g.id} value={g.id}>{g.name} — {g.desc}</option>
+                                                ))}
+                                            </select>
+                                        )}
+                                    </div>
+                                );
+                            })()}
+                            {(() => {
+                                const equippedPveId = selectedPet.loadout?.pve;
+                                const pveDur = selectedPet.loadout?.pveDurability ?? 0;
+                                const ownedIds = petPveGear.filter((g) => character.inventory.includes(g.id)).map((g) => g.id);
+                                const optionIds = [...new Set([...(equippedPveId ? [equippedPveId] : []), ...ownedIds])];
+                                if (optionIds.length === 0) {
+                                    return (
+                                        <div className="pet-gear-picker">
+                                            <label>PVE Gear</label>
+                                            <p className="hint" style={{ margin: "2px 0 0" }}>Craft PVE gear in the Crafter (Supplies) or buy it in the ryo Shop (Aura / Accessory). It wears out after {PET_PVE_DURABILITY} summons.</p>
+                                        </div>
+                                    );
+                                }
+                                return (
+                                    <div className="pet-gear-picker">
+                                        <label>PVE Gear</label>
+                                        <select value={equippedPveId ?? ""} onChange={(e) => equipPveGear(e.target.value || undefined)}>
+                                            <option value="">None</option>
+                                            {optionIds.map((id) => {
+                                                const g = petPveGearById(id);
+                                                if (!g) return null;
+                                                const isEquipped = id === equippedPveId;
+                                                const ownCount = character.inventory.filter((i) => i === id).length;
+                                                const label = isEquipped
+                                                    ? `${g.name} — equipped (${pveDur}/${PET_PVE_DURABILITY})`
+                                                    : `${g.name} — ${g.desc}${ownCount > 1 ? ` ×${ownCount}` : ""}`;
+                                                return <option key={id} value={id}>{label}</option>;
+                                            })}
+                                        </select>
+                                    </div>
+                                );
+                            })()}
+                            {(() => {
+                                const equippedConsId = selectedPet.loadout?.consumable;
+                                const ownedIds = petConsumables.filter((c) => character.inventory.includes(c.id)).map((c) => c.id);
+                                const optionIds = [...new Set([...(equippedConsId ? [equippedConsId] : []), ...ownedIds])];
+                                if (optionIds.length === 0) {
+                                    return (
+                                        <div className="pet-gear-picker">
+                                            <label>Consumable</label>
+                                            <p className="hint" style={{ margin: "2px 0 0" }}>Buy battle consumables in the ryo Shop (Aura / Accessory) or craft them in the Crafter (Supplies). Spent the next time your pet fights — 1v1, 2v2, or a PvE summon.</p>
+                                        </div>
+                                    );
+                                }
+                                return (
+                                    <div className="pet-gear-picker">
+                                        <label>Consumable</label>
+                                        <select value={equippedConsId ?? ""} onChange={(e) => equipConsumable(e.target.value || undefined)}>
+                                            <option value="">None</option>
+                                            {optionIds.map((id) => {
+                                                const c = petConsumableById(id);
+                                                if (!c) return null;
+                                                const isEquipped = id === equippedConsId;
+                                                const ownCount = character.inventory.filter((i) => i === id).length;
+                                                const label = isEquipped
+                                                    ? `${c.name} — equipped`
+                                                    : `${c.name} — ${c.desc}${ownCount > 1 ? ` ×${ownCount}` : ""}`;
+                                                return <option key={id} value={id}>{label}</option>;
+                                            })}
+                                        </select>
+                                    </div>
+                                );
+                            })()}
+                        </div>
+
                         <div className="pet-training-panel">
                             <h4>Training</h4>
                             {character.profession === "petTamer" && (
@@ -11410,6 +11695,11 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
                                     <p>Expedition complete!</p>
                                     <button className="admin-button" onClick={collectExpedition}>Collect Expedition</button>
                                 </div>
+                            ) : selectedPet.level < PET_EXPEDITION_UNLOCK_LEVEL ? (
+                                <div className="pet-expedition-locked">
+                                    <p className="pet-lock-title">🔒 Unlocks at Level {PET_EXPEDITION_UNLOCK_LEVEL}</p>
+                                    <p className="hint">{petDisplayName(selectedPet)} is Level {selectedPet.level}. Train to Level {PET_EXPEDITION_UNLOCK_LEVEL} to send it on expeditions.</p>
+                                </div>
                             ) : (
                                 <>
                                     <label>Expedition Type</label>
@@ -11420,6 +11710,7 @@ function PetYard({ character, updateCharacter, setScreen, onImmediateSave }: { c
                                     <p className="hint">Expeditions give ryo, pet XP, stat gains, and a chance for Aura Stones, Bone Charms, and Fate Shards.</p>
                                 </>
                             )}
+                        </div>
                         </div>
 
                         <div className="pet-info-panel">
@@ -11611,6 +11902,13 @@ type PetBattleFighter = {
     freezeRounds: number; // each round of freeze, 50% chance to skip turn
     confuseRounds: number;// each turn while confused, 50% chance to hit self
     stunRounds: number;   // next N turns are auto-skip
+    // Reactive battle-consumable charges (one-shot, from loadout.consumable).
+    consDodge?: number;   // negate the next N incoming attacks
+    consMitigate?: number;// reduce the next incoming attack by this %
+    consEndure?: number;  // survive one lethal blow (→ 1 HP)
+    consThorns?: number;  // reflect this % of the next attack (0 once spent)
+    consLifeline?: number;// heal this % max HP the first time below threshold
+    consCleanse?: number; // purge all statuses once
 };
 
 type PetArenaFrame = {
@@ -12116,7 +12414,15 @@ function petElementLabel(mult: number): string {
     return "";
 }
 
-function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: string, seed = Date.now(), playerDamageMult = 1) {
+function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponentOwner: string, seed = Date.now(), playerDamageMult = 1) {
+    // Apply each pet's equipped PVP gear (stat modifiers) before the fight.
+    // Driven by each pet's own loadout, so a synced battle stays deterministic.
+    const playerPet = applyPetPvpGear(playerPetIn);
+    const opponentPet = applyPetPvpGear(opponentPetIn);
+    // Reactive battle-consumable charges (dodge / endure / thorns / lifeline /
+    // cleanse). Read from each pet's loadout, so synced battles stay in sync.
+    const playerCons = petConsumableCharges(playerPet);
+    const enemyCons = petConsumableCharges(opponentPet);
     const rng = seededPetBattleRandom(seed);
     // 10×5 grid — player starts col 1 (tile 21), enemy starts col 8 (tile 28), distance = 7
     // Pick a random obstacle layout for this battle
@@ -12135,8 +12441,8 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
     // pipeline and the KO check `fighter.hp <= 0` is never true,
     // looping the fight to the round cap with no resolution.
     const safeHp = (h: unknown): number => Math.max(1, Number(h) || 100);
-    let player: PetBattleFighter = { owner: "You",        pet: playerPet,   hp: safeHp(playerPet.hp),   pos: 43, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: 0, moveLocked: 0, absorbRounds: 0, absorbPercent: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0 };
-    let enemy:  PetBattleFighter = { owner: opponentOwner, pet: opponentPet, hp: safeHp(opponentPet.hp), pos: 54, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: 0, moveLocked: 0, absorbRounds: 0, absorbPercent: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0 };
+    let player: PetBattleFighter = { owner: "You",        pet: playerPet,   hp: safeHp(playerPet.hp),   pos: 43, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: petGearStartShield(playerPet),   moveLocked: 0, absorbRounds: 0, absorbPercent: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0, consDodge: playerCons.dodge, consMitigate: playerCons.mitigate, consEndure: playerCons.endure, consThorns: playerCons.thorns, consLifeline: playerCons.lifeline, consCleanse: playerCons.cleanse };
+    let enemy:  PetBattleFighter = { owner: opponentOwner, pet: opponentPet, hp: safeHp(opponentPet.hp), pos: 54, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: petGearStartShield(opponentPet), moveLocked: 0, absorbRounds: 0, absorbPercent: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0, consDodge: enemyCons.dodge, consMitigate: enemyCons.mitigate, consEndure: enemyCons.endure, consThorns: enemyCons.thorns, consLifeline: enemyCons.lifeline, consCleanse: enemyCons.cleanse };
     // One-time coin flip for first-move advantage, consistent with
     // PvP and tile-card duels. Previously this was decided every round
     // by raw speed comparison, which guaranteed the faster pet always
@@ -12267,6 +12573,17 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
                 pushFrame(round, msg, targetSide, kind, undefined, undefined, { actor: targetSide as "player" | "enemy", trait: "Lucky" });
                 return [actor2, target2];
             }
+            // Consumable: Phantom Charm / Evasion Draught — a charged dodge that
+            // fully negates the incoming attack, then ticks down.
+            if ((target2.consDodge ?? 0) > 0) {
+                if (actorSide === "player") playerCombo = 0; else enemyCombo = 0;
+                const dodged = { ...target2, consDodge: (target2.consDodge ?? 0) - 1 };
+                const left = dodged.consDodge ?? 0;
+                const msg = `Round ${round}: ${target2.pet.name} slips aside and dodges ${actor2.pet.name}'s attack!${left > 0 ? ` (${left} dodge${left === 1 ? "" : "s"} left)` : ""}`;
+                logs.push(msg);
+                pushFrame(round, msg, targetSide, kind, undefined, undefined, { actor: targetSide as "player" | "enemy", trait: "consumDodge" });
+                return [actor2, dodged];
+            }
             const crit   = rng() < critChance;
             // Absorb stance reduces incoming damage by absorbPercent
             const absorbMult = target2.absorbRounds > 0 ? (1 - target2.absorbPercent) : 1;
@@ -12276,32 +12593,83 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
             // Element type effectiveness — Fire > Wind > Lightning > Earth > Water > Fire.
             // Neutral if either pet has no element. Applies to all damage jutsus equally.
             const elementMult = petElementMultiplier(actor2.pet, target2.pet);
-            const damage = Math.max(1, Math.floor(base * (crit ? 1.5 : 1) * dmgBonus * guardianBlock * absorbMult * tamerMult * elementMult));
+            // PVP gear: attacker's execute bonus vs a low-HP foe, and the
+            // target's last-stand damage reduction while it is low. Both read
+            // from each pet's own loadout, so synced battles stay deterministic.
+            const executeMult  = petGearExecuteMult(actor2.pet, target2.hp, target2.pet.hp);
+            const lastStandMult = petGearLastStandMult(target2.pet, target2.hp, target2.pet.hp);
+            // Consumable: Smoke Pellet — the next hit deals less damage (spent below).
+            const mitigateMult = (target2.consMitigate ?? 0) > 0 ? (1 - (target2.consMitigate ?? 0) / 100) : 1;
+            const damage = Math.max(1, Math.floor(base * (crit ? 1.5 : 1) * dmgBonus * guardianBlock * absorbMult * tamerMult * elementMult * executeMult * lastStandMult * mitigateMult));
             // Shield absorbs damage before HP
             const shieldAbsorb  = Math.min(target2.shieldHp, damage);
             const remainDamage  = damage - shieldAbsorb;
             const damagedTarget = { ...target2, hp: Math.max(0, target2.hp - remainDamage), shieldHp: target2.shieldHp - shieldAbsorb };
+            // PVP gear procs on a landed basic attack: poison-on-hit + lifesteal.
+            let procActor = actor2;
+            let procTarget = damagedTarget;
+            let procNote = "";
+            let consFlash: string | undefined; // banner key for a consumable proc
+            if (kind === "basic" && remainDamage > 0) {
+                const dot = petGearDotOnHit(actor2.pet);
+                if (dot) { procTarget = { ...procTarget, dotDamage: dot.damage, dotRounds: dot.rounds }; procNote += " ☠️ Poisoned!"; }
+                const lsHeal = petGearLifestealHeal(actor2.pet, damage);
+                if (lsHeal > 0) { procActor = { ...procActor, hp: Math.min(procActor.pet.hp, procActor.hp + lsHeal) }; procNote += ` 🩸 +${lsHeal} HP`; }
+            }
+            // Reactive battle-consumable triggers on the defender (target2).
+            // Smoke Pellet — the mitigation applied above is now spent.
+            if (mitigateMult < 1) {
+                procTarget = { ...procTarget, consMitigate: 0 };
+                procNote += ` 💨 ${target2.pet.name} blunts the blow!`;
+                consFlash = "consumBlock";
+            }
+            // Thornmail Oil — reflect a cut of the hit back at the attacker.
+            if ((target2.consThorns ?? 0) > 0 && remainDamage > 0) {
+                const reflect = Math.max(1, Math.floor(damage * (target2.consThorns ?? 0) / 100));
+                procActor = { ...procActor, hp: Math.max(0, procActor.hp - reflect) };
+                procTarget = { ...procTarget, consThorns: 0 };
+                procNote += ` 🌵 ${target2.pet.name} reflects ${reflect}!`;
+                consFlash = "consumReflect";
+            }
+            // Second Wind — survive an otherwise-lethal blow at 1 HP.
+            if (procTarget.hp <= 0 && (procTarget.consEndure ?? 0) > 0) {
+                procTarget = { ...procTarget, hp: 1, consEndure: (procTarget.consEndure ?? 0) - 1 };
+                procNote += ` 💪 ${procTarget.pet.name} endures at 1 HP!`;
+                consFlash = "consumEndure";
+            }
+            // Lifeline Elixir — first dip below the threshold instantly heals.
+            const lifelineMax = target2.pet.hp;
+            if ((procTarget.consLifeline ?? 0) > 0 && procTarget.hp > 0
+                && (procTarget.hp / lifelineMax) * 100 < PET_CONSUMABLE_LIFELINE_THRESHOLD_PCT
+                && (target2.hp / lifelineMax) * 100 >= PET_CONSUMABLE_LIFELINE_THRESHOLD_PCT) {
+                const heal = Math.max(1, Math.floor(lifelineMax * (procTarget.consLifeline ?? 0) / 100));
+                procTarget = { ...procTarget, hp: Math.min(lifelineMax, procTarget.hp + heal), consLifeline: 0 };
+                procNote += ` ✨ Lifeline heals ${heal}!`;
+                consFlash = "consumLifeline";
+            }
             // Combo tracking
             if (actorSide === "player") { playerCombo++; enemyCombo = 0; } else { enemyCombo++; playerCombo = 0; }
             const currentCombo = actorSide === "player" ? playerCombo : enemyCombo;
-            // Trait flash selection
+            // Trait flash selection — a consumable proc on the defender takes
+            // priority over trait flashes so the player sees the item fire.
             const traitFlash: PetArenaFrame["traitFlash"] =
+                consFlash                                   ? { actor: targetSide as "player" | "enemy", trait: consFlash } :
                 (crit && actor2.pet.trait === "Aggressive") ? { actor: actorSide as "player" | "enemy", trait: "Aggressive" } :
                 (guardianBlock < 1)                         ? { actor: targetSide as "player" | "enemy", trait: "Guardian"   } :
                 (dmgBonus > 1 && actor2.pet.trait === "Battleborn") ? { actor: actorSide as "player" | "enemy", trait: "Battleborn" } :
                 undefined;
             const elementNote = petElementLabel(elementMult);
-            const msg = `Round ${round}: ${actor2.pet.name}${jutsuName ? ` uses ${jutsuName}` : " basic attacks"} for ${damage} damage${crit ? " — CRITICAL HIT!" : ""}${elementNote ? ` ${elementNote}` : ""}.`;
+            const msg = `Round ${round}: ${actor2.pet.name}${jutsuName ? ` uses ${jutsuName}` : " basic attacks"} for ${damage} damage${crit ? " — CRITICAL HIT!" : ""}${elementNote ? ` ${elementNote}` : ""}${procNote}.`;
             logs.push(msg);
-            if (actorSide === "player") { player = actor2; enemy = damagedTarget; } else { enemy = actor2; player = damagedTarget; }
+            if (actorSide === "player") { player = procActor; enemy = procTarget; } else { enemy = procActor; player = procTarget; }
             pushFrame(round, msg, actorSide, kind, damage, crit, traitFlash, currentCombo >= 3 ? currentCombo : undefined);
             // KO frame
-            if (damagedTarget.hp <= 0) {
+            if (procTarget.hp <= 0) {
                 const koMsg = `💥 K.O.! ${actor2.pet.name} knocks out ${target2.pet.name}!`;
                 logs.push(koMsg);
                 pushFrame(round, koMsg, actorSide, "result", undefined, undefined, undefined, undefined, undefined, true);
             }
-            return [actor2, damagedTarget];
+            return [procActor, procTarget];
         }
 
         // Finisher mode: close the gap aggressively when target is near death
@@ -12562,9 +12930,23 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
         return doMove(`advances toward ${target.pet.name}.`);
     }
 
+    // Cleansing Incense — at the top of a round, if a fighter is afflicted and
+    // still holds a cleanse charge, purge all poisons/burns and control effects.
+    function consumableCleanse(f: PetBattleFighter, side: "player" | "enemy", round: number): PetBattleFighter {
+        const afflicted = f.dotRounds > 0 || f.burnRounds > 0 || f.freezeRounds > 0 || f.confuseRounds > 0 || f.stunRounds > 0;
+        if ((f.consCleanse ?? 0) <= 0 || !afflicted) return f;
+        const cleansed = { ...f, dotRounds: 0, dotDamage: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0, consCleanse: (f.consCleanse ?? 0) - 1 };
+        const msg = `Round ${round}: ${f.pet.name} burns away every affliction with Cleansing Incense!`;
+        logs.push(msg);
+        pushFrame(round, msg, side, "buff", undefined, undefined, { actor: side, trait: "consumCleanse" });
+        return cleansed;
+    }
+
     for (let round = 1; round <= 30 && player.hp > 0 && enemy.hp > 0; round += 1) {
         player = tick(player);
         enemy  = tick(enemy);
+        player = consumableCleanse(player, "player", round);
+        enemy  = consumableCleanse(enemy, "enemy", round);
 
         // Apply DOT poison damage
         if (player.dotRounds > 0) {
@@ -12671,6 +13053,47 @@ function runPetArenaBattle(playerPet: Pet, opponentPet: Pet, opponentOwner: stri
     logs.push(finalMessage);
     pushFrame(21, finalMessage, "system", "result");
     return { result, player, enemy, logs, frames, obstacles: [...obstacles] };
+}
+
+// ── Reactive battle-consumable resolvers (shared by the 2v2 party engine) ──
+// Mirror the 1v1 hooks. Pre-hit handles dodge (full negate) and mitigate
+// (damage reduction); post-hit handles thorns (reflect), endure (survive
+// lethal), and lifeline (heal on first dip below threshold). All consume the
+// charge they trigger so the item is one-shot.
+function petReactivePreHit(defender: PetBattleFighter, rawDamage: number): { damage: number; defender: PetBattleFighter; dodged: boolean; note: string; flash?: string } {
+    if ((defender.consDodge ?? 0) > 0) {
+        return { damage: 0, defender: { ...defender, consDodge: (defender.consDodge ?? 0) - 1 }, dodged: true, note: ` 💨 ${defender.pet.name} dodges!`, flash: "consumDodge" };
+    }
+    if ((defender.consMitigate ?? 0) > 0) {
+        return { damage: Math.max(1, Math.floor(rawDamage * (1 - (defender.consMitigate ?? 0) / 100))), defender: { ...defender, consMitigate: 0 }, dodged: false, note: ` 💨 ${defender.pet.name} blunts the blow!`, flash: "consumBlock" };
+    }
+    return { damage: rawDamage, defender, dodged: false, note: "" };
+}
+function petReactivePostHit(attacker: PetBattleFighter, defender: PetBattleFighter, preHitHp: number, damageDealt: number): { attacker: PetBattleFighter; defender: PetBattleFighter; note: string; flash?: string } {
+    let a = attacker, d = defender, note = "";
+    let flash: string | undefined;
+    if ((d.consThorns ?? 0) > 0 && damageDealt > 0) {
+        const reflect = Math.max(1, Math.floor(damageDealt * (d.consThorns ?? 0) / 100));
+        a = { ...a, hp: Math.max(0, a.hp - reflect) };
+        d = { ...d, consThorns: 0 };
+        note += ` 🌵 ${d.pet.name} reflects ${reflect}!`;
+        flash = "consumReflect";
+    }
+    if (d.hp <= 0 && (d.consEndure ?? 0) > 0) {
+        d = { ...d, hp: 1, consEndure: (d.consEndure ?? 0) - 1 };
+        note += ` 💪 ${d.pet.name} endures at 1 HP!`;
+        flash = "consumEndure";
+    }
+    const maxHp = d.pet.hp;
+    if ((d.consLifeline ?? 0) > 0 && d.hp > 0
+        && (d.hp / maxHp) * 100 < PET_CONSUMABLE_LIFELINE_THRESHOLD_PCT
+        && (preHitHp / maxHp) * 100 >= PET_CONSUMABLE_LIFELINE_THRESHOLD_PCT) {
+        const heal = Math.max(1, Math.floor(maxHp * (d.consLifeline ?? 0) / 100));
+        d = { ...d, hp: Math.min(maxHp, d.hp + heal), consLifeline: 0 };
+        note += ` ✨ Lifeline heals ${heal}!`;
+        flash = "consumLifeline";
+    }
+    return { attacker: a, defender: d, note, flash };
 }
 
 // ── 2v2 Party Battle AI: matchup scoring and party ordering ───────────────
@@ -12827,8 +13250,13 @@ function runPetArenaParty(
     //   playerReserve = col 1, row 4 = 57
     //   enemyLead     = col 12, row 2 = 40
     //   enemyReserve  = col 12, row 4 = 68
-    function makeFighter(pet: Pet, owner: string, pos: number): PetBattleFighter {
-        return { owner, pet, hp: pet.hp, pos, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: 0, moveLocked: 0, absorbRounds: 0, absorbPercent: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0 };
+    function makeFighter(petIn: Pet, owner: string, pos: number): PetBattleFighter {
+        // Apply the pet's equipped PVP gear (stat mods) + seed its reactive
+        // battle-consumable charges from its own loadout — deterministic, so
+        // synced 2v2 battles stay in sync.
+        const pet = applyPetPvpGear(petIn);
+        const ch = petConsumableCharges(pet);
+        return { owner, pet, hp: pet.hp, pos, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: petGearStartShield(pet), moveLocked: 0, absorbRounds: 0, absorbPercent: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0, consDodge: ch.dodge, consMitigate: ch.mitigate, consEndure: ch.endure, consThorns: ch.thorns, consLifeline: ch.lifeline, consCleanse: ch.cleanse };
     }
     const fighters: Partial<Record<PartySlot, PetBattleFighter>> = {};
     if (playerParty[0])   fighters.playerLead    = makeFighter(playerParty[0],   "You",        29);
@@ -13076,12 +13504,40 @@ function runPetArenaParty(
             const dmgRaw = actor.pet.attack + actor.attackBuff - (damageTarget.pet.defense + damageTarget.defenseBuff) * 0.45;
             const tamerMult = actorIsPlayer ? playerDamageMult : 1;
             const elementMult = petElementMultiplier(actor.pet, damageTarget.pet);
-            const dmg = Math.max(1, Math.floor(dmgRaw * tamerMult * elementMult));
-            fighters[damageTargetSlot] = { ...damageTarget, hp: Math.max(0, damageTarget.hp - dmg) };
+            // PVP gear: attacker execute vs low-HP foe + target last-stand reduction.
+            const executeMult = petGearExecuteMult(actor.pet, damageTarget.hp, damageTarget.pet.hp);
+            const lastStandMult = petGearLastStandMult(damageTarget.pet, damageTarget.hp, damageTarget.pet.hp);
+            const baseDmg = Math.max(1, Math.floor(dmgRaw * tamerMult * elementMult * executeMult * lastStandMult));
+            // Reactive consumable pre-hit (dodge / mitigate).
+            const pre = petReactivePreHit(damageTarget, baseDmg);
+            if (pre.dodged) {
+                fighters[damageTargetSlot] = pre.defender;
+                const dmsg = `Round ${round}: ${damageTarget.pet.name} dodges ${actor.pet.name}'s attack!${pre.note}`;
+                logs.push(dmsg);
+                pushPartyFrame(round, dmsg, damageTargetSlot, "basic", undefined, false, { actor: isPlayerSlot(damageTargetSlot) ? "player" : "enemy", trait: "consumDodge" }, undefined, false, damageTargetSlot);
+                return;
+            }
+            const dmg = pre.damage;
+            const preHitHp = damageTarget.hp;
+            // PVP gear procs: poison-on-hit + lifesteal on the basic attack.
+            let hitTarget = { ...pre.defender, hp: Math.max(0, pre.defender.hp - dmg) };
+            let procNote = pre.note;
+            const dot = petGearDotOnHit(actor.pet);
+            if (dot) { hitTarget = { ...hitTarget, dotDamage: dot.damage, dotRounds: dot.rounds }; procNote += " ☠️ Poisoned!"; }
+            let hitActor = actor;
+            const lsHeal = petGearLifestealHeal(actor.pet, dmg);
+            if (lsHeal > 0) { hitActor = { ...hitActor, hp: Math.min(hitActor.pet.hp, hitActor.hp + lsHeal) }; procNote += ` 🩸 +${lsHeal} HP`; }
+            // Reactive consumable post-hit (thorns / endure / lifeline).
+            const post = petReactivePostHit(hitActor, hitTarget, preHitHp, dmg);
+            fighters[damageTargetSlot] = post.defender;
+            fighters[actorSlot] = post.attacker;
+            procNote += post.note;
+            const consFlashKey = post.flash ?? pre.flash;
+            const basicFlash: PetArenaFrame["traitFlash"] = consFlashKey ? { actor: isPlayerSlot(damageTargetSlot) ? "player" : "enemy", trait: consFlashKey } : undefined;
             const elementNote = elementMult > 1 ? " 🔆 Super effective!" : elementMult < 1 ? " ⛔ Resisted." : "";
-            const msg = `Round ${round}: ${actor.pet.name} basic-attacks ${damageTarget.pet.name} for ${dmg} damage.${elementNote}`;
+            const msg = `Round ${round}: ${actor.pet.name} basic-attacks ${damageTarget.pet.name} for ${dmg} damage.${elementNote}${procNote}`;
             logs.push(msg);
-            pushPartyFrame(round, msg, actorSlot, "basic", dmg, false, undefined, undefined, fighters[damageTargetSlot]!.hp <= 0, damageTargetSlot);
+            pushPartyFrame(round, msg, actorSlot, "basic", dmg, false, basicFlash, undefined, fighters[damageTargetSlot]!.hp <= 0, damageTargetSlot);
             return;
         }
 
@@ -13105,6 +13561,14 @@ function runPetArenaParty(
                 pushPartyFrame(round, msg, targetSlot!, kind, undefined, undefined, { actor: isPlayerSlot(targetSlot!) ? "player" : "enemy", trait: "Lucky" }, undefined, undefined, targetSlot!);
                 return;
             }
+            // Consumable: charged dodge fully negates the attack, then ticks down.
+            if ((target.consDodge ?? 0) > 0) {
+                fighters[targetSlot!] = { ...target, consDodge: (target.consDodge ?? 0) - 1 };
+                const msg = `Round ${round}: ${target.pet.name} dodges ${actor.pet.name}'s ${jutsuName}!`;
+                logs.push(msg);
+                pushPartyFrame(round, msg, targetSlot!, kind, undefined, undefined, { actor: isPlayerSlot(targetSlot!) ? "player" : "enemy", trait: "consumDodge" }, undefined, undefined, targetSlot!);
+                return;
+            }
             const critChance = actor.pet.trait === "Aggressive" ? 0.30 : 0.15;
             const crit = rng() < critChance;
             const dmgBonus = actor.pet.trait === "Battleborn" ? 1.10 : 1.0;
@@ -13112,14 +13576,28 @@ function runPetArenaParty(
             const absorbMult = target.absorbRounds > 0 ? (1 - target.absorbPercent) : 1;
             const tamerMult = actorIsPlayer ? playerDamageMult : 1;
             const elementMult = petElementMultiplier(actor.pet, target.pet);
-            const damage = Math.max(1, Math.floor(rawDmg * (crit ? 1.5 : 1) * dmgBonus * guardianBlock * absorbMult * tamerMult * elementMult));
+            // PVP gear: attacker execute vs low-HP foe + target last-stand reduction.
+            const executeMult = petGearExecuteMult(actor.pet, target.hp, target.pet.hp);
+            const lastStandMult = petGearLastStandMult(target.pet, target.hp, target.pet.hp);
+            // Consumable: Smoke Pellet reduces this hit (spent below).
+            const mitigateMult = (target.consMitigate ?? 0) > 0 ? (1 - (target.consMitigate ?? 0) / 100) : 1;
+            const damage = Math.max(1, Math.floor(rawDmg * (crit ? 1.5 : 1) * dmgBonus * guardianBlock * absorbMult * tamerMult * elementMult * executeMult * lastStandMult * mitigateMult));
             const shieldAbsorb = Math.min(target.shieldHp, damage);
             const remainDamage = damage - shieldAbsorb;
-            fighters[targetSlot!] = { ...target, hp: Math.max(0, target.hp - remainDamage), shieldHp: target.shieldHp - shieldAbsorb };
+            const preHitHp = target.hp;
+            let hitTarget = { ...target, hp: Math.max(0, target.hp - remainDamage), shieldHp: target.shieldHp - shieldAbsorb };
+            if (mitigateMult < 1) hitTarget = { ...hitTarget, consMitigate: 0 };
+            // Reactive consumable post-hit (thorns / endure / lifeline).
+            const post = petReactivePostHit(fighters[actorSlot]!, hitTarget, preHitHp, remainDamage > 0 ? damage : 0);
+            fighters[targetSlot!] = post.defender;
+            fighters[actorSlot] = post.attacker;
             const elementNote = elementMult > 1 ? " 🔆 Super effective!" : elementMult < 1 ? " ⛔ Resisted." : "";
-            const msg = `Round ${round}: ${actor.pet.name} uses ${jutsuName} on ${target.pet.name} for ${damage} damage${crit ? " — CRITICAL HIT!" : ""}.${elementNote}`;
+            const consNote = `${mitigateMult < 1 ? ` 💨 ${target.pet.name} blunts the blow!` : ""}${post.note}`;
+            const msg = `Round ${round}: ${actor.pet.name} uses ${jutsuName} on ${target.pet.name} for ${damage} damage${crit ? " — CRITICAL HIT!" : ""}.${elementNote}${consNote}`;
             logs.push(msg);
+            const consFlashKey = post.flash ?? (mitigateMult < 1 ? "consumBlock" : undefined);
             const traitFlash: PetArenaFrame["traitFlash"] =
+                consFlashKey                               ? { actor: isPlayerSlot(targetSlot!) ? "player" : "enemy", trait: consFlashKey } :
                 (crit && actor.pet.trait === "Aggressive") ? { actor: actorIsPlayer ? "player" : "enemy", trait: "Aggressive" } :
                 (guardianBlock < 1)                        ? { actor: isPlayerSlot(targetSlot!) ? "player" : "enemy", trait: "Guardian"   } :
                 (dmgBonus > 1 && actor.pet.trait === "Battleborn") ? { actor: actorIsPlayer ? "player" : "enemy", trait: "Battleborn" } :
@@ -13278,6 +13756,16 @@ function runPetArenaParty(
     for (let round = 1; round <= 30 && playerLiving() > 0 && enemyLiving() > 0; round += 1) {
         // tick status counters on all live fighters
         for (const s of liveSlots()) fighters[s] = tick(fighters[s]!);
+
+        // Cleansing Incense — purge afflictions on any fighter holding a charge.
+        for (const s of liveSlots()) {
+            const f = fighters[s]!;
+            const afflicted = f.dotRounds > 0 || f.burnRounds > 0 || f.freezeRounds > 0 || f.confuseRounds > 0 || f.stunRounds > 0;
+            if ((f.consCleanse ?? 0) > 0 && afflicted) {
+                fighters[s] = { ...f, dotRounds: 0, dotDamage: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0, consCleanse: (f.consCleanse ?? 0) - 1 };
+                pushPartyFrame(round, `${f.pet.name} burns away every affliction with Cleansing Incense!`, s, "buff", undefined, undefined, { actor: isPlayerSlot(s) ? "player" : "enemy", trait: "consumCleanse" });
+            }
+        }
 
         // DoT (poison + burn) damage
         for (const s of liveSlots()) {
@@ -13540,6 +14028,15 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
         return () => window.clearTimeout(timer);
     }, [battleFrames.length, frameIndex, isPlaying]);
 
+    // Battle consumables are applied inside the sim from each pet's loadout
+    // (kept deterministic), then spent here once the sim has run. Returns the
+    // character.pets array with the given pets' consumable slots cleared.
+    function clearConsumablePets(petIds: string[]) {
+        return character.pets.map((p) => petIds.includes(p.id) && p.loadout?.consumable
+            ? { ...p, loadout: { ...p.loadout, consumable: undefined } }
+            : p);
+    }
+
     function startBattle(opponentOverride?: PetArenaOpponent) {
         if (!selectedPet) return alert("Choose one of your pets first.");
         if (isPetOnExpedition(selectedPet)) return alert(`${petDisplayName(selectedPet)} is exploring and cannot battle right now.`);
@@ -13612,6 +14109,10 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                 seed,
                 petTamerPveMultiplier(character),
             );
+            // Spend any battle consumables on the pets that fought (2v2).
+            if ([myLead, myReserve].some((p) => p.loadout?.consumable)) {
+                updateCharacter({ ...character, pets: clearConsumablePets([myLead.id, myReserve.id]) });
+            }
             setBattleOpponent(opponent);
             setBattleReady(true);
             // Concatenate match logs/frames into one continuous replay.
@@ -13713,6 +14214,7 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                     totalPetWins: (character.totalPetWins ?? 0) + 1,
                     dailyPetWins: (character.dailyPetWins ?? 0) + 1,
                     lastDailyReset: currentDateKey(),
+                    pets: clearConsumablePets([myPet.id]),
                 });
                 setBattleLog([...sim.logs, `🏆 Ranked pet victory! +${gain} Elo — now ${myRating + gain}.`]);
             } else if (myResult === "loss") {
@@ -13721,9 +14223,13 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                     ...character,
                     petRankedRating: Math.max(0, myRating - drop),
                     petRankedLosses: (character.petRankedLosses ?? 0) + 1,
+                    pets: clearConsumablePets([myPet.id]),
                 });
                 setBattleLog([...sim.logs, `Ranked pet defeat. -${drop} Elo — now ${Math.max(0, myRating - drop)}.`]);
             } else {
+                if (character.pets.find((p) => p.id === myPet.id)?.loadout?.consumable) {
+                    updateCharacter({ ...character, pets: clearConsumablePets([myPet.id]) });
+                }
                 setBattleLog([...sim.logs, "Ranked pet draw — no Elo change."]);
             }
             if (pendingClanPetBattle) savePendingClanPetBattle(null);
@@ -13731,6 +14237,10 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
         }
 
         const battle = runPetArenaBattle(selectedPet, opponent.pet, opponent.owner, opponent.battleSeed ?? Date.now(), petTamerPveMultiplier(character));
+        // Spend the battle consumable on the pet that fought.
+        if (selectedPet.loadout?.consumable) {
+            updateCharacter({ ...character, pets: clearConsumablePets([selectedPet.id]) });
+        }
         setBattleOpponent(opponent);
         setBattleReady(true);
         setBattleLog(battle.logs);
@@ -14203,13 +14713,19 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerReservePet
     const winnerSide: "player" | "enemy" = result === "Victory" ? "player" : "enemy";
     const winnerOwner = result === "Victory" ? "You" : enemyOwner;
 
-    // Trait flash label
+    // Trait flash label (also carries reactive battle-consumable flashes).
     const traitLabel =
         frame?.traitFlash?.trait === "Lucky"      ? "🍀 LUCKY DODGE!"      :
         frame?.traitFlash?.trait === "Aggressive" ? "🔥 AGGRESSIVE CRIT!"  :
         frame?.traitFlash?.trait === "Guardian"   ? "🛡️ GUARDIAN BLOCK!"  :
         frame?.traitFlash?.trait === "Battleborn" ? "⚔️ BATTLEBORN BONUS!" :
-        frame?.traitFlash?.trait === "Swift"      ? "⚡ SWIFT STRIKE!"     : "";
+        frame?.traitFlash?.trait === "Swift"      ? "⚡ SWIFT STRIKE!"     :
+        frame?.traitFlash?.trait === "consumDodge"    ? "💨 DODGED!"        :
+        frame?.traitFlash?.trait === "consumBlock"    ? "🛡️ SMOKE SCREEN!"  :
+        frame?.traitFlash?.trait === "consumReflect"  ? "🌵 THORNS!"        :
+        frame?.traitFlash?.trait === "consumEndure"   ? "💪 SECOND WIND!"   :
+        frame?.traitFlash?.trait === "consumLifeline" ? "✨ LIFELINE!"      :
+        frame?.traitFlash?.trait === "consumCleanse"  ? "🧹 CLEANSED!"      : "";
 
     // Float color class — lifesteal shows a green +drain on the attacker's bar
     const playerFloatClass =
@@ -17664,6 +18180,14 @@ function AdminPanel({
                                     </div>
                                     <div className="menu" style={{ flexShrink: 0 }}>
                                         <button onClick={() => loadAdminItem(item)}>Load / Edit</button>
+                                        <button
+                                            onClick={() => {
+                                                updateCharacter({ ...character, inventory: [...character.inventory, item.id] });
+                                                alert(`${item.name} added to your inventory.`);
+                                            }}
+                                        >
+                                            Give to Me
+                                        </button>
                                         <button
                                             className="danger-button"
                                             onClick={() => deleteAdminItem(item)}
@@ -25843,6 +26367,21 @@ function CentralHub({
                     { name: "Smoke Bomb ×1", cost: 25, desc: "1× Smoke Bomb (100% dmg reduction to both players, 1 round; pierce still deals full dmg)", craft: (c: Character) => ({ ...c, inventory: [...c.inventory, "item-smoke-bomb"] }) },
                     { name: "Attack Pill ×1", cost: 20, desc: "1× Attack Pill (+15% damage dealt, 2 rounds)", craft: (c: Character) => ({ ...c, inventory: [...c.inventory, "item-attack-pill"] }) },
                     { name: "Defense Pill ×1", cost: 20, desc: "1× Defense Pill (-15% damage received, 2 rounds)", craft: (c: Character) => ({ ...c, inventory: [...c.inventory, "item-defense-pill"] }) },
+                    // PVE companion gear — epic/legendary-tier crafts. Each piece
+                    // boosts the summoned pet in PvE and wears out after 20 summons.
+                    ...petPveGear.map((gear) => ({
+                        name: gear.name,
+                        cost: gear.craftPts,
+                        desc: `1× ${gear.name} (PVE slot) — ${gear.desc}. Breaks after ${PET_PVE_DURABILITY} summons.`,
+                        craft: (c: Character) => ({ ...c, inventory: [...c.inventory, gear.id] }),
+                    })),
+                    // Battle consumables — reactive single-use items (epic-tier craft).
+                    ...petConsumables.map((cons) => ({
+                        name: cons.name,
+                        cost: cons.craftPts,
+                        desc: `1× ${cons.name} (Consumable slot) — ${cons.desc}. Single use.`,
+                        craft: (c: Character) => ({ ...c, inventory: [...c.inventory, cons.id] }),
+                    })),
                 ];
 
                 return (
@@ -28131,21 +28670,60 @@ function StoryBoss({ character, updateCharacter, setScreen }: { character: Chara
         if (!activeBattlePet.unlockedForPve && activeBattlePet.level < 50) return setLog(`${petDisplayName(activeBattlePet)} must reach level 50 before it can join PvE battles.`);
         if (summonedPet) return setLog(`${petDisplayName(summonedPet)} is already fighting beside you.`);
         setSummonedPetId(activeBattlePet.id);
-        setLog(`${petDisplayName(activeBattlePet)} joins the boss fight and will act after you do.`);
+        // PVE gear durability — spent gear breaks before this fight; otherwise
+        // it ticks down one summon and still applies this fight.
+        const pveId = activeBattlePet.loadout?.pve;
+        const pveDur = activeBattlePet.loadout?.pveDurability ?? 0;
+        const gearBroke = !!pveId && pveDur <= 0;
+        const gearActive = !!pveId && pveDur > 0;
+        let nextPets = character.pets;
+        if (gearBroke) {
+            nextPets = character.pets.map((p) => p.id === activeBattlePet.id ? { ...p, loadout: { ...p.loadout, pve: undefined, pveDurability: undefined } } : p);
+        } else if (gearActive) {
+            nextPets = character.pets.map((p) => p.id === activeBattlePet.id ? { ...p, loadout: { ...p.loadout, pveDurability: pveDur - 1 } } : p);
+        }
+        const summonHealPct = gearActive ? petPveHealOnSummonPct(activeBattlePet) : 0;
+        const heal = summonHealPct > 0 ? Math.floor(character.maxHp * summonHealPct / 100) : 0;
+        // Battle consumable in PvE: the pet spends it to shield you on entry.
+        const consId = activeBattlePet.loadout?.consumable;
+        const consHeal = consId ? Math.max(1, Math.floor(character.maxHp * PET_CONSUMABLE_PVE_HEAL_PCT / 100)) : 0;
+        if (consId) nextPets = nextPets.map((p) => p.id === activeBattlePet.id ? { ...p, loadout: { ...p.loadout, consumable: undefined } } : p);
+        const healedFinal = Math.min(character.maxHp, playerHp + heal + consHeal);
+        if (heal + consHeal > 0) setPlayerHp(healedFinal);
+        updateCharacter({ ...character, hp: healedFinal, pets: nextPets });
+        const brokeNote = gearBroke ? ` ${petPveGearById(pveId)?.name ?? "Its PVE gear"} has worn out and breaks.` : "";
+        const healNote = heal > 0 ? ` It steadies you — +${heal} HP.` : "";
+        const consNote = consHeal > 0 ? ` ${petConsumableById(consId)?.name ?? "A consumable"} shields you for +${consHeal} HP.` : "";
+        setLog(`${petDisplayName(activeBattlePet)} joins the boss fight and will act after you do.${healNote}${consNote}${brokeNote}`);
     }
     function bossPetFollowUp(currentBossHp = bossHp, currentPlayerHp = playerHp) {
         if (!summonedPet || currentBossHp <= 0 || currentPlayerHp <= 0) return;
         const petName = petDisplayName(summonedPet);
         const happiness = petHappiness(summonedPet);
         const loyalTarget = happiness >= 71;
-        const attacksBoss = loyalTarget || Math.random() >= 0.5;
-        const damage = petCombatDamage(summonedPet);
+        const gearLoyal = petPveLoyalty(summonedPet);
+        const attacksBoss = loyalTarget || gearLoyal || Math.random() >= 0.5;
+        const enemyHpPct = (currentBossHp / Math.max(1, storyStep.bossHp)) * 100;
+        const playerHpPct = (currentPlayerHp / Math.max(1, character.maxHp)) * 100;
+        const damage = Math.max(1, Math.floor(petCombatDamage(summonedPet) * petPveSummonDamageMult(summonedPet, enemyHpPct, playerHpPct)));
         if (attacksBoss) {
             const nextBossHp = Math.max(0, currentBossHp - damage);
             setBossHp(nextBossHp);
             setEffect("💥");
+            // PVE gear lifesteal — heal the player for a cut of the damage dealt.
+            const lsPct = petPveLifestealPct(summonedPet);
+            let healNote = "";
+            if (lsPct > 0) {
+                const heal = Math.max(1, Math.floor(damage * lsPct / 100));
+                const healedHp = Math.min(character.maxHp, currentPlayerHp + heal);
+                if (healedHp > currentPlayerHp) {
+                    setPlayerHp(healedHp);
+                    updateCharacter({ ...character, hp: healedHp });
+                    healNote = ` It channels ${heal} HP back to you.`;
+                }
+            }
             if (nextBossHp <= 0) return winBossFight(currentPlayerHp);
-            return setLog(`${petName} attacks ${storyStep.bossName}${loyalTarget ? "" : " despite low happiness"} for ${damage} damage.`);
+            return setLog(`${petName} attacks ${storyStep.bossName}${(loyalTarget || gearLoyal) ? "" : " despite low happiness"} for ${damage} damage.${healNote}`);
         }
         const friendlyDamage = Math.max(1, Math.floor(damage * 0.65));
         const nextPlayerHp = Math.max(0, currentPlayerHp - friendlyDamage);
@@ -31176,7 +31754,34 @@ function Arena({
             return;
         }
         setSummonedPetId(activeBattlePet.id);
-        setLog(`${petDisplayName(activeBattlePet)} joins the fight and will act after your moves.`);
+        // PVE gear durability: a spent piece (durability 0) breaks before this
+        // fight and gives no effect; otherwise the gear is active and ticks down
+        // one summon (it still applies this fight).
+        const pveId = activeBattlePet.loadout?.pve;
+        const pveDur = activeBattlePet.loadout?.pveDurability ?? 0;
+        const gearBroke = !!pveId && pveDur <= 0;
+        const gearActive = !!pveId && pveDur > 0;
+        let nextPets = character.pets;
+        if (gearBroke) {
+            nextPets = character.pets.map((p) => p.id === activeBattlePet.id ? { ...p, loadout: { ...p.loadout, pve: undefined, pveDurability: undefined } } : p);
+        } else if (gearActive) {
+            nextPets = character.pets.map((p) => p.id === activeBattlePet.id ? { ...p, loadout: { ...p.loadout, pveDurability: pveDur - 1 } } : p);
+        }
+        // Heal-on-summon (Guardian's Blessing, etc.) — only while the gear is live.
+        const summonHealPct = gearActive ? petPveHealOnSummonPct(activeBattlePet) : 0;
+        const heal = summonHealPct > 0 ? Math.floor(character.maxHp * summonHealPct / 100) : 0;
+        // Battle consumable in PvE: reactive effects need a pet that takes hits,
+        // so when summoned the pet instead spends the item to shield you.
+        const consId = activeBattlePet.loadout?.consumable;
+        const consHeal = consId ? Math.max(1, Math.floor(character.maxHp * PET_CONSUMABLE_PVE_HEAL_PCT / 100)) : 0;
+        if (consId) nextPets = nextPets.map((p) => p.id === activeBattlePet.id ? { ...p, loadout: { ...p.loadout, consumable: undefined } } : p);
+        const healedFinal = Math.min(character.maxHp, playerHp + heal + consHeal);
+        if (heal + consHeal > 0) setPlayerHp(healedFinal);
+        updateCharacter({ ...character, hp: healedFinal, pets: nextPets });
+        const brokeNote = gearBroke ? ` ${petPveGearById(pveId)?.name ?? "Its PVE gear"} has worn out and breaks.` : "";
+        const healNote = heal > 0 ? ` It steadies you — +${heal} HP.` : "";
+        const consNote = consHeal > 0 ? ` ${petConsumableById(consId)?.name ?? "A consumable"} shields you for +${consHeal} HP.` : "";
+        setLog(`${petDisplayName(activeBattlePet)} joins the fight and will act after your moves.${healNote}${consNote}${brokeNote}`);
         addCombatLog(`${character.name} summons ${petDisplayName(activeBattlePet)}. Happiness: ${petHappiness(activeBattlePet)}%.`, "summonPet", petDisplayName(activeBattlePet));
     }
 
@@ -31187,15 +31792,32 @@ function Arena({
         const petName = petDisplayName(summonedPet);
         const happiness = petHappiness(summonedPet);
         const loyalTarget = happiness >= 71;
-        const attacksEnemy = loyalTarget || Math.random() >= 0.5;
-        const damage = petCombatDamage(summonedPet);
+        // PVE gear: a loyalty charm stops backfires; summon-damage gear scales
+        // the hit (with execute vs a low-HP foe / avenger while you're low).
+        const gearLoyal = petPveLoyalty(summonedPet);
+        const attacksEnemy = loyalTarget || gearLoyal || Math.random() >= 0.5;
+        const enemyHpPct = (enemyHp / Math.max(1, enemyMaxHp)) * 100;
+        const playerHpPct = (playerHp / Math.max(1, character.maxHp)) * 100;
+        const damage = Math.max(1, Math.floor(petCombatDamage(summonedPet) * petPveSummonDamageMult(summonedPet, enemyHpPct, playerHpPct)));
 
         if (attacksEnemy) {
             const newEnemyHp = Math.max(0, enemyHp - damage);
             setEnemyHp(newEnemyHp);
-            const loyaltyNote = loyalTarget ? "" : " despite its low happiness";
-            setLog(`${petName} attacks ${opponentName}${loyaltyNote} for ${damage} damage.`);
-            addCombatLog(`${petName} attacks ${opponentName}${loyaltyNote} for ${damage} damage.`, "petAttack", petName);
+            const loyaltyNote = (loyalTarget || gearLoyal) ? "" : " despite its low happiness";
+            // PVE gear lifesteal — heal the player for a cut of the damage dealt.
+            const lsPct = petPveLifestealPct(summonedPet);
+            let healNote = "";
+            if (lsPct > 0) {
+                const heal = Math.max(1, Math.floor(damage * lsPct / 100));
+                const healedHp = Math.min(character.maxHp, playerHp + heal);
+                if (healedHp > playerHp) {
+                    setPlayerHp(healedHp);
+                    updateCharacter({ ...character, hp: healedHp });
+                    healNote = ` It channels ${heal} HP back to you.`;
+                }
+            }
+            setLog(`${petName} attacks ${opponentName}${loyaltyNote} for ${damage} damage.${healNote}`);
+            addCombatLog(`${petName} attacks ${opponentName}${loyaltyNote} for ${damage} damage.${healNote}`, "petAttack", petName);
             if (newEnemyHp <= 0) winBattle();
             return;
         }
@@ -33758,9 +34380,31 @@ function Arena({
                                         </div>
                                     );
                                 };
+                                // Summoned pet — a smaller companion orb tucked beside the
+                                // player. A Glow Collar (pet.loadout.collar) lights it up.
+                                const petOrbForPos = (pos: number, pet: Pet) => {
+                                    const row = Math.floor(pos / gridWidth);
+                                    const col = pos % gridWidth;
+                                    const PET_ORB = Math.round(ORB * 0.62);
+                                    const x = col * X_STEP + HEX_W / 2 - ORB / 2 + ORB * 0.62;
+                                    const y = row * Y_STEP + (col % 2 === 1 ? HEX_H / 2 : 0) + HEX_H * 0.85 - PET_ORB + ORB * 0.12;
+                                    const collarVisual = petCollarVisual(pet.loadout?.collar);
+                                    const style: Record<string, string | number> = { position: "absolute", left: x, top: y, width: PET_ORB, height: PET_ORB, zIndex: 9, pointerEvents: "none" };
+                                    if (collarVisual) style["--collar-glow"] = collarVisual.glow;
+                                    const orbGlowClass = collarVisual ? (collarVisual.prismatic ? " pet-collar-prismatic" : " pet-collar-glow") : "";
+                                    return (
+                                        <div key="pet-summon-orb" className={`avatar-orb pet-summon-orb${orbGlowClass}`} style={style as React.CSSProperties}>
+                                            {pet.image
+                                                ? <img className="tiny-map-avatar" src={pet.image} alt={petDisplayName(pet)} />
+                                                : <span style={{ fontSize: PET_ORB * 0.5 }}>🐾</span>}
+                                            {collarVisual?.prismatic && <span className="pet-collar-sparkles" aria-hidden="true" />}
+                                        </div>
+                                    );
+                                };
                                 return (
                                     <>
                                         {character.avatarImage && orbForPos(playerPos, false, character.avatarImage, character.name)}
+                                        {summonedPet && petOrbForPos(playerPos, summonedPet)}
                                         {(opponentAvatar.startsWith("data:image") || opponentAvatar.startsWith("blob:")) && orbForPos(enemyPos, true, opponentAvatar, opponentName)}
                                     </>
                                 );
