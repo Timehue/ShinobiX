@@ -13641,6 +13641,38 @@ button.combat-jutsu-button,
     border: none;
     background: transparent;
     box-shadow: none;
+    /* Cinematic camera: the whole board glides + pushes in toward whoever is
+       acting, then eases back to a wide shot. Driven purely by the
+       pet-vfx-actor-* / pet-vfx-* classes already on this element, so there's
+       no TSX wiring and no conflict with the per-tile child animations (those
+       transform the tiles, this transforms their container). transform-origin
+       biases the zoom toward the side under attack. */
+    transition: transform 0.5s cubic-bezier(.3, .7, .3, 1);
+    transform-origin: 50% 60%;
+    will-change: transform;
+}
+/* Player attacks → camera shoves toward the ENEMY half (right). */
+.pet-park-grid.pet-vfx-actor-player.pet-vfx-damage,
+.pet-park-grid.pet-vfx-actor-player.pet-vfx-basic,
+.pet-park-grid.pet-vfx-actor-player.pet-vfx-lifesteal {
+    transform: scale(1.16) translateX(-6%);
+    transform-origin: 70% 58%;
+}
+/* Enemy attacks → camera shoves toward the PLAYER half (left). */
+.pet-park-grid.pet-vfx-actor-enemy.pet-vfx-damage,
+.pet-park-grid.pet-vfx-actor-enemy.pet-vfx-basic,
+.pet-park-grid.pet-vfx-actor-enemy.pet-vfx-lifesteal {
+    transform: scale(1.16) translateX(6%);
+    transform-origin: 30% 58%;
+}
+/* Signature move / KO → a bigger, slower hero push for the dramatic beats. */
+.pet-park-grid.pet-vfx-result,
+.pet-park-grid.pet-vfx-actor-player.pet-vfx-buff,
+.pet-park-grid.pet-vfx-actor-enemy.pet-vfx-buff {
+    transform: scale(1.1);
+}
+@media (prefers-reduced-motion: reduce) {
+    .pet-park-grid { transition: none; transform: none !important; }
 }
 
 .pet-park-tile {
