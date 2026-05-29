@@ -11955,6 +11955,15 @@ type PetBattleFighter = {
     consCleanse?: number; // purge all statuses once
 };
 
+// Win/loss record shown on the 5-second pre-fight card. Wins/losses are the
+// player's account-level pet-ranked tallies; rating is the current pet-ranked
+// Elo. All optional so an AI/wild opponent can show a rating only, or nothing.
+interface PetBattleRecord {
+    wins?: number;
+    losses?: number;
+    rating?: number;
+}
+
 type PetArenaFrame = {
     round: number;
     message: string;
@@ -12540,6 +12549,7 @@ function petSignatureJutsu(pet: Pet): string | undefined {
 // snap by. Shared by every pet-battle replay loop.
 function petFramePace(f: PetArenaFrame | undefined): number {
     if (!f) return 1000;
+    if (f.isPrefight) return 5000;                                       // pre-fight card: pets + ranked record, 5s
     if (f.actionKind === "result") return 2800;                          // final outcome
     if (f.isKO) return 2200;                                             // KO — slow-mo
     if (f.signatureMove) return 1800;                                   // cut-in dwell
@@ -14854,6 +14864,14 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                         setScreen(back);
                     }}
                     sharedImages={sharedImages}
+                    playerRecord={{ wins: character.petRankedWins ?? 0, losses: character.petRankedLosses ?? 0, rating: character.petRankedRating ?? 1000 }}
+                    enemyRecord={(() => {
+                        // Ranked PvP carries the opponent's Elo snapshot; we
+                        // don't track their W/L, so show rating only. AI/wild
+                        // opponents carry no rating → no record card for them.
+                        const opp = (battleOpponent ?? selectedOpponent);
+                        return opp?.opponentRating !== undefined ? { rating: opp.opponentRating } : undefined;
+                    })()}
                 />
                 </div>
             )}
@@ -14866,7 +14884,7 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
     );
 }
 
-function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerReservePet, enemyReservePet, frame, recentFrames, result, obstacles, onReplay, onFightAgain, onExit, sharedImages = {} }: { playerPet: Pet; enemyPet: Pet; enemyOwner: string; playerReservePet?: Pet; enemyReservePet?: Pet; frame?: PetArenaFrame; recentFrames?: PetArenaFrame[]; result: string; obstacles?: number[]; onReplay: () => void; onFightAgain: () => void; onExit: () => void; sharedImages?: Record<string, string> }) {
+function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerReservePet, enemyReservePet, frame, recentFrames, result, obstacles, onReplay, onFightAgain, onExit, sharedImages = {}, playerRecord, enemyRecord }: { playerPet: Pet; enemyPet: Pet; enemyOwner: string; playerReservePet?: Pet; enemyReservePet?: Pet; frame?: PetArenaFrame; recentFrames?: PetArenaFrame[]; result: string; obstacles?: number[]; onReplay: () => void; onFightAgain: () => void; onExit: () => void; sharedImages?: Record<string, string>; playerRecord?: PetBattleRecord; enemyRecord?: PetBattleRecord }) {
     const playerHp = frame?.playerHp ?? playerPet.hp;
     const enemyHp  = frame?.enemyHp  ?? enemyPet.hp;
     const playerPercent = Math.max(0, Math.min(100, (playerHp / Math.max(1, playerPet.hp)) * 100));
@@ -14889,7 +14907,13 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerReservePet
         const m = frame.message;
         if (/dodges|evades|blunts the blow/.test(m)) { playPetSfx("dodge"); return; }
         if (frame.isKO) { playPetSfx("ko"); return; }
-        if (frame.actionKind === "result") { if (result === "Victory") playPetSfx("victory"); return; }
+        // Match end: the win/lose stinger the player added. Victory → "win",
+        // Defeat → "lose"; a draw gets neither.
+        if (frame.actionKind === "result") {
+            if (result === "Victory") playPetSfx("win");
+            else if (result === "Defeat") playPetSfx("lose");
+            return;
+        }
         switch (frame.actionKind) {
             case "damage": case "basic": case "lifesteal": playPetSfx(frame.crit ? "crit" : "hit"); break;
             case "heal":     playPetSfx("heal"); break;
@@ -15021,6 +15045,16 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerReservePet
                                 <PetBattleAvatar pet={playerPet} side="player" active sharedImages={sharedImages} />
                             </div>
                             <div className="pet-prefight-name player">{playerPet.name}</div>
+                            <div className="pet-prefight-sub">Lv {playerPet.level} · {playerPet.rarity}{playerPet.element && playerPet.element !== "None" ? ` · ${playerPet.element}` : ""}</div>
+                            <div className="pet-prefight-stats">
+                                <span>❤ {playerPet.hp}</span><span>⚔ {playerPet.attack}</span><span>🛡 {playerPet.defense}</span><span>⚡ {playerPet.speed}</span>
+                            </div>
+                            {playerRecord && (
+                                <div className="pet-prefight-record">
+                                    {playerRecord.wins !== undefined && <><span className="rec-w">{playerRecord.wins}W</span> <span className="rec-l">{playerRecord.losses ?? 0}L</span></>}
+                                    {playerRecord.rating !== undefined && <span className="rec-elo">{playerRecord.wins !== undefined ? " · " : ""}{playerRecord.rating} Elo</span>}
+                                </div>
+                            )}
                         </div>
                         <span className="pet-prefight-vs-label">VS</span>
                         <div className="pet-prefight-side enemy">
@@ -15028,9 +15062,19 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerReservePet
                                 <PetBattleAvatar pet={enemyPet} side="enemy" active sharedImages={sharedImages} />
                             </div>
                             <div className="pet-prefight-name enemy">{enemyPet.name}</div>
+                            <div className="pet-prefight-sub">Lv {enemyPet.level} · {enemyPet.rarity}{enemyPet.element && enemyPet.element !== "None" ? ` · ${enemyPet.element}` : ""}</div>
+                            <div className="pet-prefight-stats">
+                                <span>❤ {enemyPet.hp}</span><span>⚔ {enemyPet.attack}</span><span>🛡 {enemyPet.defense}</span><span>⚡ {enemyPet.speed}</span>
+                            </div>
+                            {enemyRecord && (
+                                <div className="pet-prefight-record">
+                                    {enemyRecord.wins !== undefined && <><span className="rec-w">{enemyRecord.wins}W</span> <span className="rec-l">{enemyRecord.losses ?? 0}L</span></>}
+                                    {enemyRecord.rating !== undefined && <span className="rec-elo">{enemyRecord.wins !== undefined ? " · " : ""}{enemyRecord.rating} Elo</span>}
+                                </div>
+                            )}
                         </div>
                     </div>
-                    <div className="pet-prefight-tagline">Begin!</div>
+                    <div className="pet-prefight-tagline">Get Ready!</div>
                 </div>
             )}
 

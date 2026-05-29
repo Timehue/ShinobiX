@@ -7,7 +7,8 @@
 
 type PetSfxKind =
     | "hit" | "crit" | "ko" | "heal" | "buff" | "dot"
-    | "debuff" | "movelock" | "dodge" | "shield" | "move" | "victory";
+    | "debuff" | "movelock" | "dodge" | "shield" | "move" | "victory"
+    | "win" | "lose";
 
 import { isAudioMuted } from "./pet-music";
 
@@ -117,10 +118,10 @@ function noise(c: AudioContext, opts: {
 // ── Recorded-sample layer ────────────────────────────────────────────────
 // Real .ogg/.mp3 files in public/sfx are fetched + decoded once on prime. If
 // a kind has a decoded buffer we play that; otherwise we fall back to the
-// synth below — so a missing/late file is never silent. `hit` has 5 variants
+// synth below — so a missing/late file is never silent. `hit` has 4 variants
 // chosen at random so rapid back-to-back hits don't sound machine-gunned.
 const SAMPLE_SOURCES: Partial<Record<PetSfxKind, string[]>> = {
-    hit:     ["/sfx/hit_1.ogg", "/sfx/hit_2.ogg", "/sfx/hit_3.ogg", "/sfx/hit_4.ogg", "/sfx/hit_5.ogg"],
+    hit:     ["/sfx/hit_1.ogg", "/sfx/hit_2.ogg", "/sfx/hit_3.ogg", "/sfx/hit_4.ogg"],
     crit:    ["/sfx/crit.ogg"],
     ko:      ["/sfx/ko.mp3"],
     heal:    ["/sfx/heal.ogg"],
@@ -130,6 +131,8 @@ const SAMPLE_SOURCES: Partial<Record<PetSfxKind, string[]>> = {
     dodge:   ["/sfx/dodge.mp3"],
     shield:  ["/sfx/shield.mp3"],
     victory: ["/sfx/victory.ogg"],
+    win:     ["/sfx/win.mp3"],
+    lose:    ["/sfx/lose.mp3"],
 };
 
 // Per-kind playback gain — recorded files vary in inherent loudness, so each
@@ -137,6 +140,7 @@ const SAMPLE_SOURCES: Partial<Record<PetSfxKind, string[]>> = {
 const SAMPLE_GAIN: Partial<Record<PetSfxKind, number>> = {
     hit: 0.55, crit: 0.75, ko: 0.85, heal: 0.6, buff: 0.6,
     debuff: 0.6, dot: 0.5, dodge: 0.5, shield: 0.6, victory: 0.65,
+    win: 0.8, lose: 0.8,
 };
 
 const sampleBuffers = new Map<string, AudioBuffer>();
