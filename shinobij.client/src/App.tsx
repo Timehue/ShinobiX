@@ -30,6 +30,11 @@ import {
     HEAL_FLAT_PVE,
     SHIELD_FLAT_PVE,
 } from "./lib/combat-math";
+import {
+    auraSphereDustNeeded,
+    hasEquippedAuraSphere,
+    getActiveAuraSphereBonuses,
+} from "./lib/aura-sphere";
 
 // Install the global fetch interceptor once at module load. From here on,
 // every fetch('/api/...') call automatically picks up x-player-name and
@@ -4085,61 +4090,11 @@ function boostAmount(amount: number, percent: number) {
     return Math.max(0, Math.floor(amount * (1 + percent / 100)));
 }
 
-const auraSphereRanks = [
-    "Dormant Aura Stone",
-    "Awakened Aura Stone",
-    "Radiant Aura Stone",
-    "Fighting Spirit Aura Stone",
-    "Sage Aura Stone",
-    "Mythic Aura Stone",
-    "Eternal Aura Stone",
-];
-
-function auraSphereLevel(character: Pick<Character, "auraSphereLevel">) {
-    return Math.max(1, Math.floor(character.auraSphereLevel ?? 1));
-}
-
-function auraSphereRankIndex(level: number) {
-    return Math.min(auraSphereRanks.length - 1, Math.floor(Math.max(1, level) / 50));
-}
-
-function auraSphereRankName(level: number) {
-    return auraSphereRanks[auraSphereRankIndex(level)];
-}
-
-function auraSphereDustNeeded(level: number) {
-    return Math.floor(12 + Math.max(1, level) * 2.5);
-}
-
-function getAuraSphereBonuses(character: Pick<Character, "auraSphereLevel">) {
-    const level = auraSphereLevel(character);
-    return {
-        rankName: auraSphereRankName(level),
-        regen: level >= 300 ? 5 : level >= 150 ? 2 : level >= 100 ? 2 : level >= 1 ? 1 : 0,
-        missionRewardPercent: level >= 100 ? 1 : level >= 50 ? 2 : 0,
-        jutsuTrainingSpeedPercent: level >= 250 ? 5 : level >= 150 ? 5 : 0,
-        jutsuXpPercent: level >= 250 ? 5 : 0,
-        pveDamagePercent: level >= 300 ? 5 : 0,
-        avatarAura: level >= 200,
-    };
-}
-function hasEquippedAuraSphere(character: Pick<Character, "equipment">) {
-    return character.equipment?.aura === AURA_SPHERE_ITEM_ID || character.equipment?.accessory === AURA_SPHERE_ITEM_ID;
-}
-export function getActiveAuraSphereBonuses(character: Pick<Character, "auraSphereLevel" | "equipment">) {
-    if (!hasEquippedAuraSphere(character)) {
-        return {
-            ...getAuraSphereBonuses(character),
-            regen: 0,
-            missionRewardPercent: 0,
-            jutsuTrainingSpeedPercent: 0,
-            jutsuXpPercent: 0,
-            pveDamagePercent: 0,
-            avatarAura: false,
-        };
-    }
-    return getAuraSphereBonuses(character);
-}
+// Aura Sphere progression + equipped-bonus helpers extracted to
+// ./lib/aura-sphere. The symbols still referenced here are imported back near
+// the top of this file; getActiveAuraSphereBonuses is re-exported for the
+// LeftProfileCard "../App" import site.
+export { getActiveAuraSphereBonuses };
 
 export function discountCost(cost: number, percent: number) {
     return Math.max(1, Math.floor(cost * Math.max(0, 1 - percent / 100)));
