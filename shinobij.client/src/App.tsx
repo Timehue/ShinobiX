@@ -36891,8 +36891,11 @@ function PvpBattleScreen({
                         </div>
                     </div>
 
-                    {!done && !amSpectator && (isMyTurn ? (
-                        <div className="basic-action-bar shinobi-command-bar">
+                    {/* Action bar stays visible on the opponent's turn (dimmed +
+                        non-interactive) so the player can review their kit and plan.
+                        submitAction also guards isMyTurn, so nothing can fire. */}
+                    {!done && !amSpectator && (
+                        <div className="basic-action-bar shinobi-command-bar" style={isMyTurn ? undefined : { opacity: 0.55, pointerEvents: "none" }}>
                             <button className={pendingBasicAttack ? "selected-action" : ""}
                                 onClick={() => { clearPendingPvpJutsu(); setPendingWeaponId(""); setDashMode(false); setSelectedActionId(undefined); setPendingBasicAttack(v => !v); }}
                                 disabled={submitting || myAp < 40 || me.stamina < 10}>
@@ -36927,7 +36930,8 @@ function PvpBattleScreen({
                                 <span>Wait</span><small>End turn</small>
                             </button>
                         </div>
-                    ) : (() => {
+                    )}
+                    {!done && !amSpectator && !isMyTurn && (() => {
                         // Two AFK signals:
                         //  1) Opponent has skipped 2 consecutive rounds via the
                         //     45s round timer auto-firing (server-tracked).
@@ -36964,7 +36968,7 @@ function PvpBattleScreen({
                                 ) : null}
                             </div>
                         );
-                    })())}
+                    })()}
 
                     <div className="jutsu-layout-card combat-jutsu-bar">
                         {done ? (
@@ -37000,14 +37004,11 @@ function PvpBattleScreen({
                             <p style={{ textAlign: "center", color: "#a78bfa", padding: "0.75rem", fontSize: "0.85em", margin: 0 }}>
                                 👁 Spectating — {session.activePlayer === "p1" ? session.p1.name : session.p2.name}'s turn (Round {session.round})
                             </p>
-                        ) : !isMyTurn ? (
-                            <p style={{ textAlign: "center", color: "#94a3b8", padding: "0.75rem", fontSize: "0.85em", margin: 0 }}>
-                                Waiting for {opp.name} to act...
-                            </p>
                         ) : (
-                            <>
-                                {/* Armed jutsu/weapon banner removed — card highlight
-                                     and log message provide targeting feedback. */}
+                            <div style={isMyTurn ? { display: "contents" } : { opacity: 0.6, pointerEvents: "none" }}>
+                                {/* Action grid stays visible (dimmed + non-interactive) on the
+                                     opponent's turn so the player can review jutsu / weapons /
+                                     consumables / throwables and strategize. */}
                                 {sessionEquippedJutsu.length === 0 && pvpEquippedWeapons.length === 0 && pvpEquippedThrown.length === 0 && pvpEquippedConsumables.length === 0 ? (
                                     <div className="summary-box">No equipped jutsus or items. Equip from Profile.</div>
                                 ) : (
@@ -37162,7 +37163,7 @@ function PvpBattleScreen({
                                         </div>
                                     );
                                 })()}
-                            </>
+                            </div>
                         )}
                     </div>
 
