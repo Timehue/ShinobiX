@@ -211,6 +211,11 @@ export type Character = {
     rankedRating?: number;
     rankedWins?: number;
     rankedLosses?: number;
+    // Pet ranked 1v1 ladder — account-level (one rating per player, not
+    // per-pet). Mirrors the player ranked fields above. Default 1000 Elo.
+    petRankedRating?: number;
+    petRankedWins?: number;
+    petRankedLosses?: number;
     clanContribMonth?: string;
     guardQueued?: boolean;
     hospitalized?: boolean;
