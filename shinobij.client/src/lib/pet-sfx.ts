@@ -56,6 +56,7 @@ export function setPetSfxMuted(muted: boolean): void {
 export function primePetSfx(): void {
     if (isPetSfxMuted()) return;
     getCtx();
+    preloadSamples(); // fetch + decode the recorded SFX up front
 }
 
 // A pitched envelope: oscillator with an optional exponential frequency sweep
@@ -109,10 +110,79 @@ function noise(c: AudioContext, opts: {
     src.stop(t0 + dur + 0.02);
 }
 
+// ── Recorded-sample layer ────────────────────────────────────────────────
+// Real .ogg/.mp3 files in public/sfx are fetched + decoded once on prime. If
+// a kind has a decoded buffer we play that; otherwise we fall back to the
+// synth below — so a missing/late file is never silent. `hit` has 5 variants
+// chosen at random so rapid back-to-back hits don't sound machine-gunned.
+const SAMPLE_SOURCES: Partial<Record<PetSfxKind, string[]>> = {
+    hit:     ["/sfx/hit_1.ogg", "/sfx/hit_2.ogg", "/sfx/hit_3.ogg", "/sfx/hit_4.ogg", "/sfx/hit_5.ogg"],
+    crit:    ["/sfx/crit.ogg"],
+    ko:      ["/sfx/ko.mp3"],
+    heal:    ["/sfx/heal.ogg"],
+    buff:    ["/sfx/buff.ogg"],
+    debuff:  ["/sfx/debuff.ogg"],
+    dot:     ["/sfx/dot.ogg"],
+    dodge:   ["/sfx/dodge.mp3"],
+    shield:  ["/sfx/shield.mp3"],
+    victory: ["/sfx/victory.ogg"],
+};
+
+// Per-kind playback gain — recorded files vary in inherent loudness, so each
+// kind gets a level here. Tweak these to balance the mix.
+const SAMPLE_GAIN: Partial<Record<PetSfxKind, number>> = {
+    hit: 0.55, crit: 0.75, ko: 0.85, heal: 0.6, buff: 0.6,
+    debuff: 0.6, dot: 0.5, dodge: 0.5, shield: 0.6, victory: 0.65,
+};
+
+const sampleBuffers = new Map<string, AudioBuffer>();
+let samplesRequested = false;
+
+async function loadSample(c: AudioContext, url: string): Promise<void> {
+    if (sampleBuffers.has(url)) return;
+    try {
+        const resp = await fetch(url);
+        if (!resp.ok) return;
+        const arr = await resp.arrayBuffer();
+        const buf = await c.decodeAudioData(arr);
+        sampleBuffers.set(url, buf);
+    } catch { /* missing / undecodable → synth fallback handles it */ }
+}
+
+function preloadSamples(): void {
+    const c = getCtx();
+    if (!c || samplesRequested) return;
+    samplesRequested = true;
+    for (const urls of Object.values(SAMPLE_SOURCES)) {
+        if (urls) for (const u of urls) void loadSample(c, u);
+    }
+}
+
+// Play a decoded recorded sample for this kind. Returns true if one played
+// (caller then skips the synth); false if no file is ready for this kind.
+function playSample(c: AudioContext, kind: PetSfxKind): boolean {
+    const urls = SAMPLE_SOURCES[kind];
+    if (!urls) return false;
+    const ready = urls.filter((u) => sampleBuffers.has(u));
+    if (ready.length === 0) return false;
+    const url = ready[Math.floor(Math.random() * ready.length)];
+    const buf = sampleBuffers.get(url);
+    if (!buf) return false;
+    const src = c.createBufferSource();
+    src.buffer = buf;
+    const g = c.createGain();
+    g.gain.value = SAMPLE_GAIN[kind] ?? 0.6;
+    src.connect(g).connect(out(c));
+    src.start();
+    return true;
+}
+
 export function playPetSfx(kind: PetSfxKind): void {
     if (isPetSfxMuted()) return;
     const c = getCtx();
     if (!c) return;
+    // Prefer a recorded sample; fall through to the synth only if none loaded.
+    if (playSample(c, kind)) return;
     try {
         switch (kind) {
             case "hit":
