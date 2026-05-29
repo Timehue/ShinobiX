@@ -91,6 +91,13 @@ import {
     jutsuDisplayAtLevel,
     describeJutsuEffects,
 } from "./lib/jutsu-effects";
+import {
+    jutsuCountForRank,
+    pointBudgetForRank,
+    normalizeBloodlineTagPercent,
+    jutsuPoints,
+    bloodlinePoints,
+} from "./lib/jutsu-points";
 
 // Install the global fetch interceptor once at module load. From here on,
 // every fetch('/api/...') call automatically picks up x-player-name and
@@ -4056,54 +4063,10 @@ function blankJutsu(index: number, rank: Rank): Jutsu {
         { name: "", percent: defaultPercent },
     ]);
 }
-function jutsuCountForRank(rank: Rank) { return rank === "B Rank" ? 4 : 5; }
-function pointBudgetForRank(rank: Rank) { return rank === "S Rank" ? 11 : rank === "A Rank" ? 10 : 7; }
-// v4.3: rank-based Wound percent caps — basic jutsus = 25, A/B bloodline = 30, S bloodline = 35.
-function bloodlineTagPercentChoices(rank: Rank) { return rank === "S Rank" ? [30, 35] : [25, 30]; }
-function normalizeBloodlineTagPercent(percent: number | undefined, rank: Rank) {
-    const choices = bloodlineTagPercentChoices(rank);
-    return choices.includes(Number(percent)) ? Number(percent) : choices[choices.length - 1];
-}
-
-function tagPointValue(tag: JutsuTag, rank?: Rank | null) {
-    if (!tag.name) return 0;
-    const tagName = normalizeTagName(tag.name);
-    if (cappedDamageTags.includes(tagName)) {
-        const cap = tagCapForRank(rank);
-        if (tag.percent >= cap) return 0.75; // at-cap bonus cost
-        return 0;
-    }
-    if (percentageTags.includes(tagName)) { // Wound only remains here
-        // v4.3: shifted Wound % tiers (new caps are 25 / 30 / 35).
-        if (tag.percent >= 35) return 1;
-        if (tag.percent >= 30) return 0.5;
-        return 0;
-    }
-    if (["Stun", "Bloodline Seal", "Copy", "Mirror", "Lag", "Overclock", "Debuff Prevent"].includes(tagName)) return 2;
-    if (["Reflect", "Buff Prevent", "Cleanse Prevent", "Clear Prevent"].includes(tagName)) return 1.5;
-    if (["Shield", "Heal", "Pierce", "Wound", "Barrier", "Drain"].includes(tagName)) return 1;
-    if (tagName === "Push") return 1;
-    if (tagName === "Pull") return 0.75;
-    if (["Move", "Poison", "Ignition"].includes(tagName)) return 0.5;
-    return 1;
-}
-
-function jutsuPoints(jutsu: Jutsu, rank?: Rank | null) {
-    const effectiveRank = rank ?? jutsu.bloodlineRank ?? null;
-    let points = jutsu.tags.reduce((sum, tag) => sum + tagPointValue(tag, effectiveRank), 0);
-    if (jutsu.ap === 40) points += 1;
-    if (jutsu.range >= 5) points += 0.5;
-    if (jutsu.target === "EMPTY_GROUND" && (jutsu.method === "AOE_CIRCLE" || jutsu.method === "INSTANT_EFFECT")) points += 1;
-    if (!hasFixedEffectPower(jutsu)) {
-        if (jutsu.ap === 60 && jutsu.effectPower >= 45) points += 1;
-    }
-    if (jutsu.cooldown <= 1) points += 0.5;
-    return points;
-}
-
-function bloodlinePoints(jutsus: Jutsu[]) {
-    return jutsus.reduce((sum, jutsu) => sum + jutsuPoints(jutsu), 0);
-}
+// Jutsu point-budget + rank rules (jutsuCountForRank, pointBudgetForRank,
+// bloodlineTagPercentChoices/normalize, tagPointValue, jutsuPoints,
+// bloodlinePoints) extracted to ./lib/jutsu-points. Referenced helpers are
+// imported back near the top of this file.
 
 function biomeLabel(biome: Biome) {
     if (biome === "forest") return "Stormveil Coastal Waters";
