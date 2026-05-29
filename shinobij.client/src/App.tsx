@@ -745,8 +745,13 @@ type DuelChallenge = {
     responderPetIds?: [string, string];
     responderParty?: [Pet, Pet];
     createdAt: number;
-    mode?: "standard" | "ranked" | "clanWar1v1" | "clanWar2v2" | "clanWarPet";
+    mode?: "standard" | "ranked" | "clanWar1v1" | "clanWar2v2" | "clanWarPet" | "rankedPet";
     clanWarPoints?: number;
+    // Pet ranked 1v1 — each side's account-level petRankedRating snapshot at
+    // challenge time, so the winner/loser can compute symmetric Elo deltas
+    // without an extra round-trip. challengerPetRating = the challenge sender.
+    challengerPetRating?: number;
+    responderPetRating?: number;
     sectorAttack?: boolean; // true = initiated from world-map sector, auto-routes defender
     kageChallengeId?: string;
     kageVillage?: string;
@@ -3361,6 +3366,9 @@ function normalizeCharacter(parsed: Character): Character {
         rankedRating: parsed.rankedRating ?? 1000,
         rankedWins: parsed.rankedWins ?? 0,
         rankedLosses: parsed.rankedLosses ?? 0,
+        petRankedRating: parsed.petRankedRating ?? 1000,
+        petRankedWins: parsed.petRankedWins ?? 0,
+        petRankedLosses: parsed.petRankedLosses ?? 0,
         weeklyBossKills: parsed.weeklyBossKills ?? {},
         claimedWarCrateIds: Array.isArray(parsed.claimedWarCrateIds) ? parsed.claimedWarCrateIds : [],
         clanContribMonth: parsed.clanContribMonth,
@@ -3584,6 +3592,9 @@ export function createCharacter(name: string, village: string, specialty: JutsuT
         rankedRating: 1000,
         rankedWins: 0,
         rankedLosses: 0,
+        petRankedRating: 1000,
+        petRankedWins: 0,
+        petRankedLosses: 0,
         villageUpgrades: defaultVillageUpgrades(),
         lastBankInterestAt: 0,
         createdAt: Date.now(),
@@ -5212,6 +5223,7 @@ export default function App() {
         setProcessingChallengeIds(prev => [...prev, challenge.id]);
         setDuelChallenges(prev => prev.filter(candidate => candidate.id !== challenge.id));
         await clearChallengeOnServer(challenge);
+        const isRanked = challenge.mode === "rankedPet";
         const acceptedNotice: DuelChallenge = {
             ...challenge,
             accepted: true,
@@ -5219,6 +5231,9 @@ export default function App() {
             toName: challenge.fromName,
             responderPetId: myPet.id,
             responderPet: myPet,
+            // Stamp my pet-ranked rating so the challenger can compute its
+            // symmetric Elo delta when the accepted notice routes it in.
+            ...(isRanked ? { responderPetRating: character.petRankedRating ?? 1000 } : {}),
             ...(doParty && myParty ? {
                 petParty: true,
                 responderPetIds: [myParty[0].id, myParty[1].id] as [string, string],
@@ -5230,6 +5245,11 @@ export default function App() {
             owner: challenge.fromName,
             pet: challengerPet,
             battleSeed: challenge.petBattleSeed,
+            // For ranked, the challenger is my opponent — carry their rating
+            // snapshot so my own Elo math has both sides. selfPet locks MY
+            // combatant to the exact pet I just sent as responderPet so the
+            // canonical sim matches the challenger's view of it.
+            ...(isRanked ? { ranked: true, opponentRating: challenge.challengerPetRating ?? 1000, selfPet: myPet } : {}),
             ...(doParty && challengerParty && myParty ? {
                 opponentParty: challengerParty,
                 challengerParty: myParty,
@@ -5239,9 +5259,17 @@ export default function App() {
         // battle on remount instead of silently abandoning it. 5-min TTL.
         // stripDataUrlImages keeps the payload bounded — pet/avatar art
         // gets re-hydrated from sharedImages on remount.
-        try {
-            localStorage.setItem(PENDING_PET_PVP_KEY, JSON.stringify({ opponent: stripDataUrlImages(opponentForResume), savedAt: Date.now() }));
-        } catch { /* private mode / quota — battle will just not resume on refresh */ }
+        //
+        // Ranked battles are NOT persisted: the resume path re-runs
+        // startBattle, and ranked applies the Elo delta purely client-side
+        // (no server-deduped reportKey like the clan-war/PvE win path), so a
+        // refresh would re-award rating. Better to abandon an interrupted
+        // ranked fight than to open a refresh-to-farm-Elo exploit.
+        if (!isRanked) {
+            try {
+                localStorage.setItem(PENDING_PET_PVP_KEY, JSON.stringify({ opponent: stripDataUrlImages(opponentForResume), savedAt: Date.now() }));
+            } catch { /* private mode / quota — battle will just not resume on refresh */ }
+        }
         setPendingPetBattleOpponent(opponentForResume);
         setScreen("petArena");
         setProcessingChallengeIds(prev => prev.filter(id => id !== challenge.id));
@@ -5335,7 +5363,7 @@ export default function App() {
         const accepted = duelChallenges.find(c => c.accepted && c.toName.toLowerCase() === character.name.toLowerCase());
         if (!accepted) return;
         setDuelChallenges(prev => prev.filter(c => c.id !== accepted.id));
-        if (accepted.mode === "clanWarPet") {
+        if (accepted.mode === "clanWarPet" || accepted.mode === "rankedPet") {
             if (accepted.responderPet) {
                 // Reconstruct the challenger's own party from the IDs they
                 // originally sent — character.pets is the authoritative source.
@@ -5351,6 +5379,13 @@ export default function App() {
                     owner: accepted.fromName,
                     pet: accepted.responderPet,
                     battleSeed: accepted.petBattleSeed,
+                    // Ranked: the responder is my opponent — carry the rating
+                    // they stamped on the accepted notice for my Elo math, and
+                    // lock MY combatant to the pet I originally challenged with
+                    // (challengerPetId) so the canonical sim stays in sync.
+                    ...(accepted.mode === "rankedPet"
+                        ? { ranked: true, opponentRating: accepted.responderPetRating ?? 1000, selfPet: character.pets.find(p => p.id === accepted.challengerPetId) }
+                        : {}),
                     ...(accepted.petParty && accepted.responderParty && myParty ? {
                         opponentParty: accepted.responderParty,
                         challengerParty: myParty,
@@ -5359,9 +5394,14 @@ export default function App() {
                 // Mirror of the accept-side persistence: store enough state
                 // so a refresh restores the deterministic battle. Strip data
                 // URLs before serializing — pet art rehydrates from sharedImages.
-                try {
-                    localStorage.setItem(PENDING_PET_PVP_KEY, JSON.stringify({ opponent: stripDataUrlImages(opponentForResume), savedAt: Date.now() }));
-                } catch { /* ignore */ }
+                // Ranked is excluded (see acceptPetChallengeGlobal): its Elo
+                // delta is applied client-side without a deduped reportKey, so
+                // a refresh-resume would re-award rating.
+                if (accepted.mode !== "rankedPet") {
+                    try {
+                        localStorage.setItem(PENDING_PET_PVP_KEY, JSON.stringify({ opponent: stripDataUrlImages(opponentForResume), savedAt: Date.now() }));
+                    } catch { /* ignore */ }
+                }
                 setPendingPetBattleOpponent(opponentForResume);
                 setScreen("petArena");
             } else {
@@ -8791,9 +8831,9 @@ export default function App() {
                 );
                 if (!pending.length) return null;
                 const c = pending[0];
-                const isPet = c.mode === "clanWarPet";
+                const isPet = c.mode === "clanWarPet" || c.mode === "rankedPet";
                 const isRanked = c.mode === "ranked";
-                const label = isPet ? "pet battle" : isRanked ? "ranked duel" : "spar";
+                const label = c.mode === "rankedPet" ? "ranked pet battle" : isPet ? "pet battle" : isRanked ? "ranked duel" : "spar";
                 const busy = processingChallengeIds.includes(c.id);
                 return (
                     <div className="incoming-attack-banner" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
@@ -9819,9 +9859,6 @@ export default function App() {
                             const selfChar = character;
                             const selfAllItems = getAllItems(creatorItems);
                             const p1Jutsus = getPvpJutsuLoadout(savedBloodlines, creatorJutsus, selfChar);
-                            const oppChar = opponent.character as Character;
-                            const opponentAllItems = getAllItems(creatorItems);
-                            const p2Jutsus = getPvpJutsuLoadout(savedBloodlines, creatorJutsus, oppChar);
 
                             // Optimistic navigation — flip to the pvpBattle screen
                             // immediately so the player sees the proper battle
@@ -9837,6 +9874,20 @@ export default function App() {
                             setPvpBattleContext({ mode: "standard", sectorAttack: true, raidKind: "raidPlayer", sector: currentSector });
                             setScreen("pvpBattle");
 
+                            // Sector-mate records from /api/player/heartbeat only carry { avatarImage }
+                            // (the full character is intentionally stripped for bandwidth). Fetch the
+                            // opponent's combat save and resolve their FULL loadout — stats, armor,
+                            // weapons + consumables/throwables (pvpItems), jutsu and bloodline — from
+                            // THEIR own bloodlines + creator content. fetchPlayerCombatSave returns null
+                            // (never throws) on failure, so the optimistic navigation above stays safe;
+                            // the server also re-hydrates authoritatively from the save by p2Character.name.
+                            const oppSave = await fetchPlayerCombatSave(opponent.name);
+                            const oppChar = oppSave?.character ?? normalizeCharacter(opponent.character as Character);
+                            const oppBloodlines = oppSave?.savedBloodlines?.length ? oppSave.savedBloodlines : savedBloodlines;
+                            const oppCreatorJutsus = oppSave?.creatorJutsus?.length ? [...creatorJutsus, ...oppSave.creatorJutsus] : creatorJutsus;
+                            const opponentAllItems = getAllItems(oppSave?.creatorItems?.length ? [...creatorItems, ...oppSave.creatorItems] : creatorItems);
+                            const p2Jutsus = getPvpJutsuLoadout(oppBloodlines, oppCreatorJutsus, oppChar);
+
                             let battleId = '';
                             try {
                                 const sr = await fetch('/api/pvp/session', {
@@ -9846,7 +9897,7 @@ export default function App() {
                                         // Sector attack — fighters bring current vitals.
                                         useCurrentVitals: true,
                                         p1Character: { ...selfChar, jutsu: p1Jutsus, pvpItems: getPvpItemLoadout(selfChar, selfAllItems), bloodlineMult: getBloodlineMultiplier(selfChar, savedBloodlines), armorFactor: getCharacterArmorFactor(selfChar, selfAllItems), armorRawDR: getCharacterArmorRawDR(selfChar, selfAllItems), itemDamagePct: getEquippedItemBonus(selfChar, selfAllItems, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(selfChar, selfAllItems, "absorbPercent"), itemReflectPct: getEquippedItemBonus(selfChar, selfAllItems, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(selfChar, selfAllItems, "lifeStealPercent"), itemShield: getEquippedItemBonus(selfChar, selfAllItems, "shield") },
-                                        p2Character: { ...oppChar, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(oppChar, opponentAllItems), bloodlineMult: getBloodlineMultiplier(oppChar, savedBloodlines), armorFactor: getCharacterArmorFactor(oppChar, opponentAllItems), armorRawDR: getCharacterArmorRawDR(oppChar, opponentAllItems), itemDamagePct: getEquippedItemBonus(oppChar, opponentAllItems, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(oppChar, opponentAllItems, "absorbPercent"), itemReflectPct: getEquippedItemBonus(oppChar, opponentAllItems, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(oppChar, opponentAllItems, "lifeStealPercent"), itemShield: getEquippedItemBonus(oppChar, opponentAllItems, "shield") },
+                                        p2Character: { ...oppChar, name: opponent.name, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(oppChar, opponentAllItems), bloodlineMult: getBloodlineMultiplier(oppChar, oppBloodlines), armorFactor: getCharacterArmorFactor(oppChar, opponentAllItems), armorRawDR: getCharacterArmorRawDR(oppChar, opponentAllItems), itemDamagePct: getEquippedItemBonus(oppChar, opponentAllItems, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(oppChar, opponentAllItems, "absorbPercent"), itemReflectPct: getEquippedItemBonus(oppChar, opponentAllItems, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(oppChar, opponentAllItems, "lifeStealPercent"), itemShield: getEquippedItemBonus(oppChar, opponentAllItems, "shield") },
                                     }),
                                 });
                                 if (sr.ok) {
@@ -9865,7 +9916,7 @@ export default function App() {
                                 // "Connecting..." card forever.
                                 setPvpBattleId('');
                                 setPvpSeedSession(null);
-                                setPendingPvpOpponent(normalizeCharacter(opponent.character));
+                                setPendingPvpOpponent(oppChar);
                                 setRaidBattleKind("raidPlayer");
                                 setScreen("arena");
                                 return;
@@ -11440,6 +11491,18 @@ type PetArenaOpponent = {
     // from a PvP party challenge so we don't re-pick on the player's side).
     opponentParty?: [Pet, Pet];
     challengerParty?: [Pet, Pet];
+    // ── Ranked 1v1 extensions ─────────────────────────────────────────
+    // Set when this opponent came from the pet-ranked ladder queue. The
+    // battle resolves deterministically (canonical sim) and the result
+    // adjusts each player's account-level petRankedRating via rankedDelta.
+    // opponentRating is the opponent's petRankedRating snapshot for the
+    // symmetric Elo computation. selfPet is MY pet as locked into the
+    // challenge handshake — used instead of the UI's selectedPet so both
+    // clients feed the canonical sim the exact same two combatants (a
+    // mid-handshake pet swap would otherwise desync the deterministic fight).
+    ranked?: boolean;
+    opponentRating?: number;
+    selfPet?: Pet;
 };
 
 const genericPetArenaOpponents: PetArenaOpponent[] = [
@@ -11586,6 +11649,34 @@ type PetArenaFrame = {
 };
 
 // PET_GRID_COLS / ROWS / SIZE / PET_OBSTACLE_LAYOUTS moved to ./constants/pet-arena.
+
+/** Horizontal mirror of a grid tile index (left↔right within its row). */
+function mirrorPetTile(tile: number): number {
+    const row = Math.floor(tile / PET_GRID_COLS);
+    const col = tile % PET_GRID_COLS;
+    return row * PET_GRID_COLS + (PET_GRID_COLS - 1 - col);
+}
+
+// Render a canonical (deterministic) ranked replay from the OTHER side's
+// perspective: swap every player/enemy frame field and mirror positions so
+// the local player's pet still appears on the left. Used by ranked 1v1 pet
+// battles, where both clients run an identical canonical simulation but the
+// non-canonical side needs its own pet shown as "player". Pure transform.
+function swapPetArenaFrame(f: PetArenaFrame): PetArenaFrame {
+    return {
+        ...f,
+        playerHp: f.enemyHp,
+        enemyHp: f.playerHp,
+        playerPos: mirrorPetTile(f.enemyPos),
+        enemyPos: mirrorPetTile(f.playerPos),
+        actor: f.actor === "player" ? "enemy" : f.actor === "enemy" ? "player" : "system",
+        traitFlash: f.traitFlash
+            ? { ...f.traitFlash, actor: f.traitFlash.actor === "player" ? "enemy" : "player" }
+            : f.traitFlash,
+        playerStatus: f.enemyStatus,
+        enemyStatus: f.playerStatus,
+    };
+}
 
 /** BFS: returns the next tile to step onto when moving from `from` toward `to`, avoiding obstacles. */
 function bfsNextStep(from: number, to: number, obstacles: ReadonlySet<number>): number {
@@ -13571,6 +13662,71 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                     } catch { /* ignore */ }
                 })();
             }
+            return;
+        }
+
+        // ── Ranked 1v1 (account-level pet ladder) ───────────────────────
+        // Both clients must agree on the winner for the Elo ladder to stay
+        // honest. runPetArenaBattle is role-asymmetric (its coin flip treats
+        // the FIRST arg as "player"), so two clients each passing their own
+        // pet first could disagree. Fix: run a CANONICAL simulation — order
+        // the two combatants by lowercase owner name so both clients feed
+        // the engine identical args (and pass multiplier 1, dropping the
+        // per-player Pet-Tamer PvE bonus for fairness). The seeded RNG then
+        // produces a byte-identical fight. We render from MY perspective:
+        // if I'm the canonical opponent, swap each frame so my pet shows on
+        // the left. Rating + W/L fold into ONE updateCharacter (no ryo, no
+        // clan-war report, no /api/pet/battle-result call).
+        if (opponent.ranked) {
+            // Use the handshake-locked pet (selfPet) rather than the UI's
+            // selectedPet so both clients simulate the exact same combatants.
+            const myPet = opponent.selfPet ?? selectedPet;
+            // Keep the picker (and thus the on-grid sprite) in sync with the
+            // locked combatant if they diverged after navigation.
+            if (opponent.selfPet && opponent.selfPet.id !== selectedPetId) setSelectedPetId(opponent.selfPet.id);
+            const myName = character.name.toLowerCase();
+            const oppName = opponent.owner.toLowerCase();
+            const iAmCanonicalPlayer = myName <= oppName;
+            const seed = opponent.battleSeed ?? Date.now();
+            const canonicalPlayerPet = iAmCanonicalPlayer ? myPet : opponent.pet;
+            const canonicalOpponentPet = iAmCanonicalPlayer ? opponent.pet : myPet;
+            const canonicalOpponentOwner = iAmCanonicalPlayer ? opponent.owner : character.name;
+            const sim = runPetArenaBattle(canonicalPlayerPet, canonicalOpponentPet, canonicalOpponentOwner, seed, 1);
+            const myResult: "win" | "loss" | "draw" = iAmCanonicalPlayer
+                ? sim.result
+                : sim.result === "win" ? "loss" : sim.result === "loss" ? "win" : "draw";
+            setBattleOpponent(opponent);
+            setBattleReady(true);
+            setBattleObstacles(iAmCanonicalPlayer ? sim.obstacles : sim.obstacles.map(mirrorPetTile));
+            setBattleFrames(iAmCanonicalPlayer ? sim.frames : sim.frames.map(swapPetArenaFrame));
+            setFrameIndex(0);
+            setIsPlaying(true);
+            setResult(myResult === "win" ? "Victory" : myResult === "draw" ? "Draw" : "Defeat");
+            const myRating = character.petRankedRating ?? 1000;
+            const oppRating = opponent.opponentRating ?? 1000;
+            if (myResult === "win") {
+                const gain = rankedDelta(myRating, oppRating);
+                updateCharacter({
+                    ...character,
+                    petRankedRating: myRating + gain,
+                    petRankedWins: (character.petRankedWins ?? 0) + 1,
+                    totalPetWins: (character.totalPetWins ?? 0) + 1,
+                    dailyPetWins: (character.dailyPetWins ?? 0) + 1,
+                    lastDailyReset: currentDateKey(),
+                });
+                setBattleLog([...sim.logs, `🏆 Ranked pet victory! +${gain} Elo — now ${myRating + gain}.`]);
+            } else if (myResult === "loss") {
+                const drop = rankedDelta(oppRating, myRating);
+                updateCharacter({
+                    ...character,
+                    petRankedRating: Math.max(0, myRating - drop),
+                    petRankedLosses: (character.petRankedLosses ?? 0) + 1,
+                });
+                setBattleLog([...sim.logs, `Ranked pet defeat. -${drop} Elo — now ${Math.max(0, myRating - drop)}.`]);
+            } else {
+                setBattleLog([...sim.logs, "Ranked pet draw — no Elo change."]);
+            }
+            if (pendingClanPetBattle) savePendingClanPetBattle(null);
             return;
         }
 
@@ -26424,9 +26580,14 @@ function WorldMap({
     }, [selectedSector, character.village]);
 
     async function fetchSavedPlayerCharacter(name: string): Promise<Character | null> {
+        // Always prefer the authoritative combat save for PvP. Roster entries can be
+        // avatar-only (heartbeat broadcasts { avatarImage }, which normalizes to a
+        // level-1, no-jutsu default), so trusting them would load a broken opponent.
+        // Fall back to a roster character only if the save fetch fails.
+        const fromSave = (await fetchPlayerCombatSave(name))?.character;
+        if (fromSave) return fromSave;
         const rosterMatch = playerRoster.find((player) => player.name.toLowerCase() === name.toLowerCase());
-        if (rosterMatch?.character) return normalizeCharacter(rosterMatch.character);
-        return (await fetchPlayerCombatSave(name))?.character ?? null;
+        return rosterMatch?.character ? normalizeCharacter(rosterMatch.character) : null;
     }
 
     async function startPvpRaid(opponent: Character, sector: number, biome: Biome, weather: WeatherType) {
@@ -30383,6 +30544,70 @@ function Arena({
         }).catch(() => {});
     }
 
+    /* ── Pet ranked queue (account-level pet ladder) ── */
+    // Mirror of the player ranked queue above, but hits pet-ranked-queue and
+    // sends a "rankedPet" challenge on match. Elo flows from petRankedRating.
+    // Ratings for the actual Elo deltas travel through the challenge handshake
+    // (challengerPetRating / responderPetRating), not this stub.
+    const [petRankedQueueActive, setPetRankedQueueActive] = useState(false);
+    const [petRankedQueueSize, setPetRankedQueueSize] = useState(0);
+    useEffect(() => {
+        if (!petRankedQueueActive) return;
+        let active = true;
+        const poll = () => {
+            if (document.visibilityState === "hidden") return;
+            fetch("/api/pvp/pet-ranked-queue", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: character.name, level: character.level, elo: character.petRankedRating ?? 1000, action: "poll" }),
+            })
+                .then(r => r.json())
+                .then(data => {
+                    if (!active) return;
+                    setPetRankedQueueSize(data.queueSize ?? 0);
+                    if (data.match) {
+                        setPetRankedQueueActive(false);
+                        const opName = data.match.opponent;
+                        const stub = { name: opName, level: data.match.opponentLevel ?? 1, village: "", specialty: "Ninjutsu", character: { ...character, name: opName, petRankedRating: data.match.opponentElo ?? 1000 } as Character, currentSector: 0, lastSeenAt: Date.now() } as PlayerRecord;
+                        challengePlayer(stub, "rankedPet");
+                    }
+                    if (!data.inQueue) {
+                        setPetRankedQueueActive(false);
+                    }
+                })
+                .catch(() => {});
+        };
+        poll();
+        const iv = setInterval(poll, 3000);
+        return () => { active = false; clearInterval(iv); };
+    }, [petRankedQueueActive]);
+
+    function joinPetRankedQueue() {
+        const availablePet = character.pets.find(pet => !isPetOnExpedition(pet));
+        if (!availablePet) {
+            alert("You need a pet that isn't on an expedition before queueing for ranked pet battles.");
+            return;
+        }
+        setPetRankedQueueActive(true);
+        fetch("/api/pvp/pet-ranked-queue", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: character.name, level: character.level, elo: character.petRankedRating ?? 1000, action: "join" }),
+        })
+            .then(r => r.json())
+            .then(data => setPetRankedQueueSize(data.queueSize ?? 0))
+            .catch(() => {});
+    }
+
+    function leavePetRankedQueue() {
+        setPetRankedQueueActive(false);
+        fetch("/api/pvp/pet-ranked-queue", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: character.name, action: "leave" }),
+        }).catch(() => {});
+    }
+
     const [opponentClanData, setOpponentClanData] = useState<EnhancedClanData | null>(null);
     const opponentLevel = opponentCharacter?.level ?? pendingAiProfile?.level ?? aiLevel;
     const enemyArmorFactor = opponentCharacter ? getCharacterArmorFactor(opponentCharacter, allItems) : aiArmorFactorForProfile(pendingAiProfile ?? { level: opponentLevel });
@@ -30678,12 +30903,13 @@ function Arena({
             alert("You already have a pending challenge. Wait for it to be accepted, declined, or expire before sending another.");
             return;
         }
-        if (mode === "clanWarPet" && !character.pets.length) {
+        const isPetMode = mode === "clanWarPet" || mode === "rankedPet";
+        if (isPetMode && !character.pets.length) {
             alert("You need a pet before sending a pet battle challenge.");
             return;
         }
-        const knownPetTarget = mode === "clanWarPet" ? playerRoster.find((player) => player.name.toLowerCase() === opponent.name.toLowerCase()) : undefined;
-        if (mode === "clanWarPet" && knownPetTarget && knownPetTarget.character.pets.length === 0) {
+        const knownPetTarget = isPetMode ? playerRoster.find((player) => player.name.toLowerCase() === opponent.name.toLowerCase()) : undefined;
+        if (isPetMode && knownPetTarget && knownPetTarget.character.pets.length === 0) {
             alert(`${opponent.name} does not have a pet available for battle.`);
             return;
         }
@@ -30694,8 +30920,11 @@ function Arena({
             challenger: character,
             challengerJutsus: getPvpJutsuLoadout(savedBloodlines, creatorJutsus, character),
             challengerBloodlineMult: getBloodlineMultiplier(character, savedBloodlines),
-            challengerPetId: mode === "clanWarPet" ? (character.pets.find(pet => pet.id === character.activePetId && !isPetOnExpedition(pet)) ?? character.pets.find(pet => !isPetOnExpedition(pet)))?.id : undefined,
-            petBattleSeed: mode === "clanWarPet" ? Date.now() + Math.floor(Math.random() * 100000) : undefined,
+            challengerPetId: isPetMode ? (character.pets.find(pet => pet.id === character.activePetId && !isPetOnExpedition(pet)) ?? character.pets.find(pet => !isPetOnExpedition(pet)))?.id : undefined,
+            petBattleSeed: isPetMode ? Date.now() + Math.floor(Math.random() * 100000) : undefined,
+            // Pet ranked: stamp my account-level pet Elo so the responder's
+            // accepted-notice carries both ratings for symmetric deltas.
+            challengerPetRating: mode === "rankedPet" ? (character.petRankedRating ?? 1000) : undefined,
             createdAt: Date.now(),
             mode,
             clanWarPoints,
@@ -30712,7 +30941,7 @@ function Arena({
             }
             if (!res.ok) throw new Error(`Server returned ${res.status}`);
             if (!duelChallenges.some((existing: DuelChallenge) => existing.id === challenge.id)) setDuelChallenges([...duelChallenges, challenge]);
-            alert(`${mode === "ranked" ? "Ranked challenge" : mode === "clanWarPet" ? "Pet challenge" : "Challenge"} sent to ${opponent.name}.`);
+            alert(`${mode === "ranked" ? "Ranked challenge" : mode === "rankedPet" ? "Ranked pet challenge" : mode === "clanWarPet" ? "Pet challenge" : "Challenge"} sent to ${opponent.name}.`);
         } catch {
             alert(`${opponent.name} is not reachable live right now. Challenge was not sent.`);
         }
@@ -33127,6 +33356,21 @@ function Arena({
                             )}
                         </div>
                         {rankedQueueActive && <p className="hint">Searching for opponent...</p>}
+
+                        <hr style={{ border: "none", borderTop: "1px solid rgba(148,163,184,.25)", margin: "16px 0" }} />
+
+                        <h3>🐾 Ranked Pet Battles (1v1)</h3>
+                        <p>Pet Rating: <strong>{character.petRankedRating ?? 1000}</strong> Elo | Wins {character.petRankedWins ?? 0} | Losses {character.petRankedLosses ?? 0}</p>
+                        <p className="hint">Queues you against another player's pet of similar rating. Outcome is decided by a shared deterministic simulation, so both sides agree on the winner.</p>
+                        <p>Pets in queue: <strong>{petRankedQueueSize}</strong></p>
+                        <div style={{ display: "flex", gap: "8px", margin: "8px 0" }}>
+                            {petRankedQueueActive ? (
+                                <button className="danger-button" onClick={leavePetRankedQueue}>Leave Pet Queue</button>
+                            ) : (
+                                <button onClick={joinPetRankedQueue}>Queue Up for Ranked Pet</button>
+                            )}
+                        </div>
+                        {petRankedQueueActive && <p className="hint">Searching for a pet opponent...</p>}
                     </section>
                 )}
 
@@ -35249,8 +35493,11 @@ function PvpBattleScreen({
                         </div>
                     </div>
 
-                    {!done && !amSpectator && (isMyTurn ? (
-                        <div className="basic-action-bar shinobi-command-bar">
+                    {/* Action bar stays visible on the opponent's turn (dimmed +
+                        non-interactive) so the player can review their kit and plan.
+                        submitAction also guards isMyTurn, so nothing can fire. */}
+                    {!done && !amSpectator && (
+                        <div className="basic-action-bar shinobi-command-bar" style={isMyTurn ? undefined : { opacity: 0.55, pointerEvents: "none" }}>
                             <button className={pendingBasicAttack ? "selected-action" : ""}
                                 onClick={() => { clearPendingPvpJutsu(); setPendingWeaponId(""); setDashMode(false); setSelectedActionId(undefined); setPendingBasicAttack(v => !v); }}
                                 disabled={submitting || myAp < 40 || me.stamina < 10}>
@@ -35285,7 +35532,8 @@ function PvpBattleScreen({
                                 <span>Wait</span><small>End turn</small>
                             </button>
                         </div>
-                    ) : (() => {
+                    )}
+                    {!done && !amSpectator && !isMyTurn && (() => {
                         // Two AFK signals:
                         //  1) Opponent has skipped 2 consecutive rounds via the
                         //     45s round timer auto-firing (server-tracked).
@@ -35322,7 +35570,7 @@ function PvpBattleScreen({
                                 ) : null}
                             </div>
                         );
-                    })())}
+                    })()}
 
                     <div className="jutsu-layout-card combat-jutsu-bar">
                         {done ? (
@@ -35358,14 +35606,11 @@ function PvpBattleScreen({
                             <p style={{ textAlign: "center", color: "#a78bfa", padding: "0.75rem", fontSize: "0.85em", margin: 0 }}>
                                 👁 Spectating — {session.activePlayer === "p1" ? session.p1.name : session.p2.name}'s turn (Round {session.round})
                             </p>
-                        ) : !isMyTurn ? (
-                            <p style={{ textAlign: "center", color: "#94a3b8", padding: "0.75rem", fontSize: "0.85em", margin: 0 }}>
-                                Waiting for {opp.name} to act...
-                            </p>
                         ) : (
-                            <>
-                                {/* Armed jutsu/weapon banner removed — card highlight
-                                     and log message provide targeting feedback. */}
+                            <div style={isMyTurn ? { display: "contents" } : { opacity: 0.6, pointerEvents: "none" }}>
+                                {/* Action grid stays visible (dimmed + non-interactive) on the
+                                     opponent's turn so the player can review jutsu / weapons /
+                                     consumables / throwables and strategize. */}
                                 {sessionEquippedJutsu.length === 0 && pvpEquippedWeapons.length === 0 && pvpEquippedThrown.length === 0 && pvpEquippedConsumables.length === 0 ? (
                                     <div className="summary-box">No equipped jutsus or items. Equip from Profile.</div>
                                 ) : (
@@ -35520,7 +35765,7 @@ function PvpBattleScreen({
                                         </div>
                                     );
                                 })()}
-                            </>
+                            </div>
                         )}
                     </div>
 
