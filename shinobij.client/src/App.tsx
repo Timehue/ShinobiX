@@ -61,6 +61,20 @@ import {
     getHospitalDiscountPercent,
 } from "./lib/village-upgrades";
 import { weeklyBossSchedule } from "./lib/weekly-boss";
+import {
+    sanitizeArmorAndGloveItem,
+    deletedItemMarker,
+    getAllItems,
+    getItemById,
+    itemDisplayName,
+    cleanTreasuryItems,
+    addTreasuryItem,
+    removeTreasuryItem,
+    addInventoryItems,
+    removeInventoryItems,
+    inventoryItemStacks,
+    type TreasuryItemStack,
+} from "./lib/items";
 
 // Install the global fetch interceptor once at module load. From here on,
 // every fetch('/api/...') call automatically picks up x-player-name and
@@ -223,7 +237,6 @@ import {
     WARFORGED_RELIC_ID,
     LEGENDARY_WAR_CRATE_ID,
     WAR_CRATE_EXPIRY_MS,
-    ADMIN_DELETED_ITEM_MARKER,
     PROTECTED_ADMIN_USERNAME,
     isProtectedAdminName,
     HOLLOW_GATE_SHRINE_W,
@@ -2567,99 +2580,13 @@ const defaultAncientChestVn: CreatorEvent = {
 
 // starterItems moved to ./data/starter-items — imported at the top of this file.
 
-function isArmorOrGloveItem(item: GameItem) {
-    const armorSlots: EquipmentSlot[] = ["head", "body", "armor", "waist", "legs", "feet"];
-    const isGlove = item.slot === "hand" && /glove|gauntlet/i.test(item.name);
-    return Boolean(item.armorQuality) || armorSlots.includes(item.slot) || isGlove;
-}
+// Item catalog + treasury/inventory helpers (getAllItems, getItemById,
+// itemDisplayName, armor sanitizers, treasury + inventory mutators) extracted
+// to ./lib/items. The symbols still referenced here are imported back near the
+// top of this file; getAllItems and getItemById are re-exported for the
+// Inventory screen's "../App" import site.
+export { getAllItems, getItemById };
 
-function sanitizeArmorAndGloveItem(item: GameItem): GameItem {
-    if (!isArmorOrGloveItem(item)) return item;
-    const { maxHp: _maxHp, strength: _strength, ...bonuses } = item.bonuses;
-    return { ...item, bonuses };
-}
-
-// IDs that were deleted from starterItems — purge them from any save file that still has them.
-const DELETED_ITEM_IDS = new Set([
-    "wooden-katana",
-    "leg-weapon-earth", "leg-weapon-wind", "leg-weapon-lightning", "leg-weapon-fire", "leg-weapon-water",
-    "myth-weapon-earth", "myth-weapon-wind", "myth-weapon-lightning", "myth-weapon-fire", "myth-weapon-water",
-]);
-
-// ADMIN_DELETED_ITEM_MARKER moved to ./constants/game.
-
-function isAdminDeletedItemMarker(item: GameItem) {
-    return item.name === ADMIN_DELETED_ITEM_MARKER;
-}
-
-function deletedItemMarker(id: string): GameItem {
-    return {
-        id,
-        name: ADMIN_DELETED_ITEM_MARKER,
-        slot: "item",
-        rarity: "common",
-        cost: 0,
-        description: "Admin-deleted item marker.",
-        bonuses: {},
-    };
-}
-
-export function getAllItems(creatorItems: GameItem[]) {
-    // starterItems always win for built-in stats so code updates aren't overridden by stale save data.
-    // Exception: admin-generated images on starter items ARE respected — only the image field is merged.
-    // Deleted items are stripped out entirely even if present in an old save file.
-    const starterIds = new Set(starterItems.map((s) => s.id));
-    const adminDeletedIds = new Set(creatorItems.filter(isAdminDeletedItemMarker).map((item) => item.id));
-    const customOnly = creatorItems.filter((c) =>
-        !starterIds.has(c.id) &&
-        !DELETED_ITEM_IDS.has(c.id) &&
-        !adminDeletedIds.has(c.id) &&
-        !isAdminDeletedItemMarker(c)
-    );
-    // Build a map of image overrides for starter items from creator entries
-    const imageOverrides = new Map(
-        creatorItems
-            .filter(c => starterIds.has(c.id) && c.image && !adminDeletedIds.has(c.id) && !isAdminDeletedItemMarker(c))
-            .map(c => [c.id, c.image as string])
-    );
-    const starterWithImages = starterItems
-        .filter(s => !adminDeletedIds.has(s.id))
-        .map(s => imageOverrides.has(s.id) ? { ...s, image: imageOverrides.get(s.id) } : s);
-    return [...customOnly, ...starterWithImages].map(sanitizeArmorAndGloveItem);
-}
-
-type TreasuryItemStack = { itemId: string; count: number };
-
-function cleanTreasuryItems(items?: TreasuryItemStack[]): TreasuryItemStack[] {
-    const counts = new Map<string, number>();
-    for (const stack of items ?? []) {
-        if (!stack?.itemId) continue;
-        counts.set(stack.itemId, (counts.get(stack.itemId) ?? 0) + Math.max(0, Math.floor(Number(stack.count ?? 0))));
-    }
-    return [...counts.entries()]
-        .filter(([, count]) => count > 0)
-        .map(([itemId, count]) => ({ itemId, count }));
-}
-
-function addTreasuryItem(items: TreasuryItemStack[] | undefined, itemId: string, count = 1) {
-    return cleanTreasuryItems([...(items ?? []), { itemId, count }]);
-}
-
-function removeTreasuryItem(items: TreasuryItemStack[] | undefined, itemId: string, count = 1) {
-    let remaining = Math.max(1, Math.floor(count));
-    return cleanTreasuryItems(items)
-        .map((stack) => {
-            if (stack.itemId !== itemId || remaining <= 0) return stack;
-            const removed = Math.min(stack.count, remaining);
-            remaining -= removed;
-            return { ...stack, count: stack.count - removed };
-        })
-        .filter((stack) => stack.count > 0);
-}
-
-function itemDisplayName(itemId: string, allItems: GameItem[]) {
-    return getItemById(allItems, itemId)?.name ?? itemId;
-}
 
 // Item ID constants moved to ./constants/game.
 // HOLLOW_GATE_KEY_DUNGEON_KEY_COST / FATE_SHARD_COST / TRAP_DMG_PCT /
@@ -2886,27 +2813,6 @@ function claimPendingWarCrates(
 // Weekly world-boss scheduling (seeded boss pick + spawn window + status)
 // extracted to ./lib/weekly-boss. weeklyBossSchedule is imported back near the
 // top of this file; it was not part of the public "../App" surface.
-
-function addInventoryItems(character: Character, itemIds: string[]) {
-    return { ...character, inventory: [...character.inventory, ...itemIds] };
-}
-
-function removeInventoryItems(inventory: string[], requirements: Record<string, number>) {
-    const remaining = { ...requirements };
-    return inventory.filter((itemId) => {
-        if (!remaining[itemId]) return true;
-        remaining[itemId] -= 1;
-        return false;
-    });
-}
-
-function inventoryItemStacks(character: Character, allItems: GameItem[]) {
-    const counts = new Map<string, number>();
-    character.inventory.forEach((itemId) => counts.set(itemId, (counts.get(itemId) ?? 0) + 1));
-    return [...counts.entries()]
-        .map(([itemId, count]) => ({ itemId, count, name: itemDisplayName(itemId, allItems) }))
-        .sort((a, b) => a.name.localeCompare(b.name));
-}
 
 type PlayerTransferCurrencyKey = "ryo" | "honorSeals" | "fateShards" | "boneCharms" | "auraStones" | "mythicSeals";
 
@@ -3146,9 +3052,7 @@ export function getAllTileCards(creatorCards: TileCard[]): TileCard[] {
     return [...creatorCards, ...shinobiTileCards.filter((s) => !creatorCards.some((c) => c.id === s.id))];
 }
 
-export function getItemById(items: GameItem[], id?: string) {
-    return items.find((item) => item.id === id);
-}
+// getItemById extracted to ./lib/items (imported back + re-exported above).
 
 
 function makeJutsu(id: string, name: string, type: JutsuType, ap: number, range: number, effectPower: number, cooldown: number, chakraCost: number, staminaCost: number, tags: JutsuTag[], element: JutsuElement = "Fire"): Jutsu {
