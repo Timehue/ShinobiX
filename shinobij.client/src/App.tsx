@@ -11253,7 +11253,13 @@ export default function App() {
                             const p1Jutsus = getPvpJutsuLoadout(savedBloodlines, creatorJutsus, selfChar);
                             const oppChar = opponent.character as Character;
                             const opponentAllItems = getAllItems(creatorItems);
-                            const p2Jutsus = getPvpJutsuLoadout(savedBloodlines, creatorJutsus, oppChar);
+                            // Sector-mate records from /api/player/heartbeat only carry { avatarImage }
+                            // (the full character is intentionally stripped for bandwidth). Guard the
+                            // loadout build so a partial opponent doesn't throw before navigation — the
+                            // server re-hydrates the real fighter from its KV save by name (p2Character.name).
+                            const p2Jutsus = oppChar?.equippedJutsuIds
+                                ? getPvpJutsuLoadout(savedBloodlines, creatorJutsus, oppChar)
+                                : [];
 
                             // Optimistic navigation — flip to the pvpBattle screen
                             // immediately so the player sees the proper battle
@@ -11278,7 +11284,7 @@ export default function App() {
                                         // Sector attack — fighters bring current vitals.
                                         useCurrentVitals: true,
                                         p1Character: { ...selfChar, jutsu: p1Jutsus, pvpItems: getPvpItemLoadout(selfChar, selfAllItems), bloodlineMult: getBloodlineMultiplier(selfChar, savedBloodlines), armorFactor: getCharacterArmorFactor(selfChar, selfAllItems), armorRawDR: getCharacterArmorRawDR(selfChar, selfAllItems), itemDamagePct: getEquippedItemBonus(selfChar, selfAllItems, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(selfChar, selfAllItems, "absorbPercent"), itemReflectPct: getEquippedItemBonus(selfChar, selfAllItems, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(selfChar, selfAllItems, "lifeStealPercent"), itemShield: getEquippedItemBonus(selfChar, selfAllItems, "shield") },
-                                        p2Character: { ...oppChar, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(oppChar, opponentAllItems), bloodlineMult: getBloodlineMultiplier(oppChar, savedBloodlines), armorFactor: getCharacterArmorFactor(oppChar, opponentAllItems), armorRawDR: getCharacterArmorRawDR(oppChar, opponentAllItems), itemDamagePct: getEquippedItemBonus(oppChar, opponentAllItems, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(oppChar, opponentAllItems, "absorbPercent"), itemReflectPct: getEquippedItemBonus(oppChar, opponentAllItems, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(oppChar, opponentAllItems, "lifeStealPercent"), itemShield: getEquippedItemBonus(oppChar, opponentAllItems, "shield") },
+                                        p2Character: { ...oppChar, name: opponent.name, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(oppChar, opponentAllItems), bloodlineMult: getBloodlineMultiplier(oppChar, savedBloodlines), armorFactor: getCharacterArmorFactor(oppChar, opponentAllItems), armorRawDR: getCharacterArmorRawDR(oppChar, opponentAllItems), itemDamagePct: getEquippedItemBonus(oppChar, opponentAllItems, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(oppChar, opponentAllItems, "absorbPercent"), itemReflectPct: getEquippedItemBonus(oppChar, opponentAllItems, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(oppChar, opponentAllItems, "lifeStealPercent"), itemShield: getEquippedItemBonus(oppChar, opponentAllItems, "shield") },
                                     }),
                                 });
                                 if (sr.ok) {
