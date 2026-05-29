@@ -110,7 +110,6 @@ import {
     type PetTrait,
     type PetTrainingType,
     type PetExpeditionType,
-    type PetExpedition,
     type PetJutsu,
     type Pet,
 } from "./types/pet";
@@ -122,7 +121,6 @@ import {
     type EquipmentSlot,
     type ArmorQuality,
     type GameItem,
-    type EquipmentSlots,
     type SavedBloodline,
     type ReviewBloodline,
     type ActiveTraining,
@@ -188,7 +186,6 @@ import {
     AWAKENING_FREE_LV2_ID,
     AWAKENING_FREE_LV20_ID,
     DUNGEON_VN_ID,
-    AWAKENING_ELEMENTS,
     ANIMATED_MAX_MB,
     DAILY_MISSION_LIMIT,
     DAILY_HUNT_LIMIT,
@@ -255,7 +252,6 @@ import {
 
 // Achievement table extracted to src/constants/achievements.ts.
 import {
-    type AchievementCategory,
     type Achievement,
     ACHIEVEMENTS,
 } from "./constants/achievements";
@@ -281,7 +277,6 @@ import {
     uniqueElements,
     getCharacterElements,
     hasCharacterElement,
-    rollAwakeningElement,
     rollNewAwakeningElement,
     rollAwakeningElements,
 } from "./lib/elements";
@@ -297,7 +292,6 @@ import {
     isPetOnExpedition,
     petCombatDamage,
     increasePetHappiness,
-    petVariantIndex,
 } from "./lib/pet";
 export { petDisplayName };
 
@@ -356,10 +350,6 @@ import { starterItems } from "./data/starter-items";
 // scales them against the global stat caps stays in App.tsx and is
 // applied below where petPool is defined.
 import { rawPetPool } from "./data/pet-pool";
-// Pet name → element lookup moved to ./data/pet-elements.
-import { petElementByName } from "./data/pet-elements";
-// Pet base stats + caps moved to ./data/pet-stats.
-import { balancedPetBaseStats, petStatCaps } from "./data/pet-stats";
 // Per-village storyline arc + milestone constructors moved to ./data/storylines.
 import { storylines, storyAiId, villageBiomeMap } from "./data/storylines";
 // Built-in VN event templates moved to ./data/vn-events.
@@ -377,11 +367,9 @@ import {
 } from "./data/world";
 // Pet config tables (traits, training, expedition, feed items) moved to ./data/pet-config.
 import {
-    petTraits,
     petTraitDescriptions,
     petTrainingDurations,
     petRarityOrder,
-    petTrainingDurationMultipliers,
     petTrainingOptions,
     petExpeditionOptions,
     petExpeditionStories,
@@ -396,13 +384,11 @@ export { petTrainingOptions, petTraitDescriptions, petFeedXpForItem };
 
 // Hollow Gate atlas configuration moved to ./data/hollow-gate-atlas.
 import {
-    type HollowGateIconRoleCfg,
     type HollowGateIconSlot,
     HOLLOW_GATE_ICON_ROLES,
     HOLLOW_GATE_ICON_SLOTS,
     HOLLOW_GATE_ICON_KEY,
     HOLLOW_GATE_THEMES,
-    HOLLOW_GATE_THEME_TILE_ROLES,
     HOLLOW_GATE_THEME_SLOTS,
     pickRoomTheme,
 } from "./data/hollow-gate-atlas";
@@ -1954,9 +1940,6 @@ const STAT_KEYS: Array<keyof Stats> = [
 // They import starterSavedBloodlines back from this file (re-exported
 // above the table). All call sites in App.tsx keep the same names.
 import {
-    getCharacterBloodlines,
-    isBloodlineSpecialElementJutsu,
-    isBloodlineJutsu,
     canEquipElementJutsu,
     replaceCharacterBloodline,
 } from "./lib/bloodline";
@@ -2089,9 +2072,7 @@ export const starterBloodlines = ["Ashen Eyes", "Inferno Cataclysm", "Shadow Lot
 // derived via balanceBuiltInPetTemplate from the imported lib).
 import {
     capPetStats,
-    elementalSpecialFor,
     balanceBuiltInPetTemplate,
-    petTrainingMultiplier,
     petTrainingGains,
     petTrainingPreview,
     rollPetTrait,
@@ -2101,7 +2082,6 @@ import {
     gainPetXp,
     cloneEncounterPet,
     builtInPetTemplateId,
-    eventPetDifficultyMultiplier,
     scaleEventPetOpponent,
 } from "./lib/pet-balance";
 export { gainPetXp, collectPetTraining };
@@ -2947,10 +2927,6 @@ function removeInventoryItems(inventory: string[], requirements: Record<string, 
         remaining[itemId] -= 1;
         return false;
     });
-}
-
-function hasInventoryRequirements(character: Character, requirements: Record<string, number>) {
-    return Object.entries(requirements).every(([itemId, qty]) => character.inventory.filter((id) => id === itemId).length >= qty);
 }
 
 function inventoryItemStacks(character: Character, allItems: GameItem[]) {
@@ -23087,12 +23063,6 @@ function ShopBase({
 
     const alreadyOwned = (item: GameItem) =>
         stackableItemIds.has(item.id) ? false : character.inventory.includes(item.id) || Object.values(character.equipment).includes(item.id);
-
-    function statLabel(stat: string) {
-        return stat
-            .replace(/([A-Z])/g, " $1")
-            .replace(/^./, (c) => c.toUpperCase());
-    }
 
     function itemBonusLines(item: GameItem) {
         // Armor blocks maxChakra/maxStamina visually so the popup doesn't
