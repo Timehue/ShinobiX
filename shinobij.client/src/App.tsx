@@ -14957,7 +14957,20 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerReservePet
     })();
 
     // ── Tension flags + momentum (HP tug-of-war) ──
-    const lowestPct  = Math.min(playerPercent, enemyPercent);
+    // In 2v2 the legacy playerHp/enemyHp track the PRIMARY fighter, which
+    // stays pinned at 0 after it's KO'd — so the brink warning would stick
+    // forever once one pet falls. Base the warning on LIVING fighters only:
+    // a knocked-out slot (already dead) must not keep "ONE HIT LEFT" lit.
+    const lowestPct = (() => {
+        if (frame?.party4v4) {
+            const p = frame.party4v4;
+            const living = [p.playerLead, p.playerReserve, p.enemyLead, p.enemyReserve]
+                .filter(s => s && !s.ko)
+                .map(s => (s.hp / Math.max(1, s.maxHp)) * 100);
+            return living.length ? Math.min(...living) : 100;
+        }
+        return Math.min(playerPercent, enemyPercent);
+    })();
     const dangerZone = lowestPct <= 25 && !winnerPet;   // red vignette + heartbeat
     const oneHitWarn = lowestPct <= 12 && !winnerPet;   // "1 HIT LEFT" pulse
     const momentumPlayer = (playerPercent / Math.max(1, playerPercent + enemyPercent)) * 100;
