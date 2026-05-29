@@ -415,7 +415,7 @@ import {
     increasePetHappiness,
 } from "./lib/pet";
 import { playPetSfx, isPetSfxMuted, setPetSfxMuted, primePetSfx } from "./lib/pet-sfx";
-import { startBattleMusic, stopBattleMusic, isAudioMuted, setAudioMuted, subscribeAudioMute } from "./lib/pet-music";
+import { startBattleMusic, stopBattleMusic } from "./lib/pet-music";
 export { petDisplayName };
 
 // Equipment helpers + tables extracted to ./lib/equipment. The three
@@ -4241,6 +4241,13 @@ function normalizeAiProfile(ai: Partial<CreatorAi>, allJutsus: Jutsu[] = starter
 }
 export default function App() {
     const [screen, setScreen] = useState<Screen>("start");
+    // Battle music is only ever STARTED from startBattle() (pet arena + dungeon
+    // beast duel). Catch the exit here: leaving the Pet Arena fades the loop
+    // out. Screen doesn't change mid-battle, so this never cuts music during a
+    // fight; "Fight Again" restarts it with a fresh track.
+    useEffect(() => {
+        if (screen !== "petArena") stopBattleMusic();
+    }, [screen]);
     // ── Mobile back-navigation history stack ─────────────────────────────
     // Captures every screen change so the MobileStatusHUD can render a
     // back button. We track via a useEffect (below) rather than wrapping
