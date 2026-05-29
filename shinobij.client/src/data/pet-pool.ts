@@ -1,9 +1,16 @@
 /*
- * rawPetPool — the canonical template list for all 70 built-in pets:
- *   25 standard (level 1 generic kit)
- *   25 rare     (damage + utility)
- *   15 legendary (buff + damage + utility)
- *    5 mythic    (full hand-crafted 5-jutsu kits with element)
+ * rawPetPool — the canonical template list for all 140 built-in pets
+ * (original 70 + a 70-pet expansion appended to the same generators, so the
+ * second batch shares the identical kit/stat treatment):
+ *   50 standard (level 1 generic kit)
+ *   50 rare     (damage + utility)
+ *   30 legendary (buff + damage + utility)
+ *   10 mythic    (full hand-crafted 5-jutsu kits with element)
+ *
+ * The expansion pets keep numbering past the original count (standard-25…,
+ * rare-25…, legendary-15…, mythic-5…). balanceBuiltInPetTemplate wraps the
+ * id-derived variant within the per-tier count so a higher id never inflates
+ * stats — the second batch reuses the same 0..N-1 spread as the first.
  *
  * Pure data. The balanceBuiltInPetTemplate transform that scales each
  * template against balancedPetBaseStats / petStatCaps / petElementByName
@@ -22,7 +29,13 @@ export const rawPetPool: Pet[] = ([
         "Stone Turtle", "Desert Lizard", "Ashen Crow", "Blue Frog", "Wild Boar",
         "Pine Owl", "Sand Snake", "Mist Ferret", "Iron Beetle", "White Crane",
         "Cinder Rat", "Meadow Deer", "Storm Gull", "Shadow Bat", "Mud Toad",
-        "Leaf Monkey", "Frost Cub", "Temple Gecko", "Rock Badger", "Tiny Wolf"
+        "Leaf Monkey", "Frost Cub", "Temple Gecko", "Rock Badger", "Tiny Wolf",
+        // ── Expansion (standard-25…standard-49) ──
+        "Flint Jackal", "Ember Mole", "Cinder Moth", "Scorch Skink", "Magma Pup",
+        "Brook Newt", "Pebble Crab", "Tide Minnow", "Reed Heron", "Marsh Eel",
+        "Breeze Finch", "Dust Swift", "Cliff Swallow", "Kite Magpie", "Glide Sparrow",
+        "Spark Shrew", "Bolt Mouse", "Arc Vole", "Storm Shrike", "Zap Quail",
+        "Clay Tortoise", "Moss Hedgehog", "Dune Armadillo", "Gravel Pangolin", "Loam Marmot"
     ].map((name, index): Pet => ({
         id: `standard-${index}`,
         name,
@@ -52,7 +65,13 @@ export const rawPetPool: Pet[] = ([
         "Ironback Turtle", "Dune Viper", "Ashwing Raven", "Azure Toad", "Bristle Boar",
         "Silver Owl", "Glass Serpent", "Mist Lynx", "Steel Beetle", "Pearl Crane",
         "Cinder Weasel", "Thorn Stag", "Stormfin Gull", "Duskwings Bat", "Mossback Toad",
-        "Bamboo Ape", "Frostbite Cub", "Shrine Salamander", "Granite Badger", "Young Direwolf"
+        "Bamboo Ape", "Frostbite Cub", "Shrine Salamander", "Granite Badger", "Young Direwolf",
+        // ── Expansion (rare-25…rare-49) ──
+        "Magma Hyena", "Ember Ocelot", "Pyre Kestrel", "Scoria Mongoose", "Blaze Caracal",
+        "Tidal Mink", "Frost Seal", "Coral Serval", "Brine Cormorant", "Glacier Marten",
+        "Cyclone Harrier", "Zephyr Osprey", "Gust Tern", "Squall Plover", "Drift Albatross",
+        "Volt Polecat", "Surge Stoat", "Thunder Jerboa", "Static Meerkat", "Arc Buzzard",
+        "Granite Wombat", "Stoneback Tapir", "Quartz Aardvark", "Terra Porcupine", "Bramble Capybara"
     ].map((name, index): Pet => ({
         id: `rare-${index}`,
         name,
@@ -84,7 +103,13 @@ export const rawPetPool: Pet[] = ([
     ...[
         "Glacier Wolf", "Tempest Hawk", "Umbra Fox", "Spirit Deer", "Ironfang Tiger",
         "Azure Kirin", "Ember Phoenix", "Moon Serpent", "Storm Lion", "Crystal Bear",
-        "Void Raven", "Thunder Drake", "Frost Lynx", "Golden Scarab", "Ancient Crane"
+        "Void Raven", "Thunder Drake", "Frost Lynx", "Golden Scarab", "Ancient Crane",
+        // ── Expansion (legendary-15…legendary-29) ──
+        "Inferno Chimera", "Ash Garuda", "Magma Behemoth",
+        "Tidelord Leviathan", "Frost Wyrm", "Abyss Kraken",
+        "Storm Roc", "Tempest Pegasus", "Cyclone Sphinx",
+        "Thunder Raiju", "Storm Wyvern", "Galvanic Manticore",
+        "Titan Golem", "Granite Gargoyle", "Verdant Treant"
     ].map((name, index): Pet => ({
         id: `legendary-${index}`,
         name,
@@ -224,6 +249,119 @@ export const rawPetPool: Pet[] = ([
             { name: "Hellhound Execution", power: 310, cooldown: 4, currentCooldown: 0, kind: "damage" },
             { name: "Hellfire Corruption", power: 120, cooldown: 5, currentCooldown: 0, kind: "dot"    },
             { name: "Demon Surge",         power: 0,   cooldown: 3, currentCooldown: 0, kind: "move"   },
+        ],
+    },
+
+    // ── MYTHIC EXPANSION (mythic-5…mythic-9) ── one per element, each with a
+    // unique flagship signature move (see mythicSignatureByName in pet-balance).
+    {
+        id: "mythic-5",
+        name: "Vermillion Suzaku",
+        rarity: "mythic",
+        level: 1,
+        xp: 0,
+        maxLevel: 100,
+        hp: 1050,
+        attack: 135,
+        defense: 100,
+        speed: 120,
+        unlockedForPve: false,
+        element: "Fire",
+        // Identity: reborn phoenix — heavy fire damage backed by strong self-heal
+        jutsus: [
+            { name: "Vermillion Blessing", power: 30,  cooldown: 3, currentCooldown: 0, kind: "buff"   },
+            { name: "Searing Talon",       power: 175, cooldown: 2, currentCooldown: 0, kind: "damage" },
+            { name: "Phoenix Firestorm",   power: 260, cooldown: 4, currentCooldown: 0, kind: "damage" },
+            { name: "Rebirth Flame",       power: 120, cooldown: 5, currentCooldown: 0, kind: "heal"   },
+            { name: "Flame Glide",         power: 0,   cooldown: 3, currentCooldown: 0, kind: "move"   },
+        ],
+    },
+    {
+        id: "mythic-6",
+        name: "Azure Ryujin",
+        rarity: "mythic",
+        level: 1,
+        xp: 0,
+        maxLevel: 100,
+        hp: 1200,
+        attack: 125,
+        defense: 130,
+        speed: 90,
+        unlockedForPve: false,
+        element: "Water",
+        // Identity: sea-dragon god — bulky control bruiser with a hard barrier
+        jutsus: [
+            { name: "Dragon God Aura", power: 26,  cooldown: 3, currentCooldown: 0, kind: "buff"    },
+            { name: "Tide Fang",       power: 180, cooldown: 2, currentCooldown: 0, kind: "damage"  },
+            { name: "Tsunami Surge",   power: 255, cooldown: 4, currentCooldown: 0, kind: "damage"  },
+            { name: "Abyssal Barrier", power: 130, cooldown: 5, currentCooldown: 0, kind: "barrier" },
+            { name: "Current Slide",   power: 0,   cooldown: 3, currentCooldown: 0, kind: "move"    },
+        ],
+    },
+    {
+        id: "mythic-7",
+        name: "Celestial Tengu",
+        rarity: "mythic",
+        level: 1,
+        xp: 0,
+        maxLevel: 100,
+        hp: 980,
+        attack: 130,
+        defense: 95,
+        speed: 145,
+        unlockedForPve: false,
+        element: "Wind",
+        // Identity: trickster yokai — fastest, strips the foe then carves them up
+        jutsus: [
+            { name: "Tengu Focus",       power: 28,  cooldown: 3, currentCooldown: 0, kind: "buff"   },
+            { name: "Gale Slash",        power: 165, cooldown: 2, currentCooldown: 0, kind: "damage" },
+            { name: "Heaven Crow Storm", power: 250, cooldown: 4, currentCooldown: 0, kind: "damage" },
+            { name: "Feather Hex",       power: 100, cooldown: 4, currentCooldown: 0, kind: "debuff" },
+            { name: "Wind Leap",         power: 0,   cooldown: 3, currentCooldown: 0, kind: "move"   },
+        ],
+    },
+    {
+        id: "mythic-8",
+        name: "Stormgod Raijin",
+        rarity: "mythic",
+        level: 1,
+        xp: 0,
+        maxLevel: 100,
+        hp: 1080,
+        attack: 155,
+        defense: 90,
+        speed: 115,
+        unlockedForPve: false,
+        element: "Lightning",
+        // Identity: thunder god — explosive burst plus a lingering voltaic DoT
+        jutsus: [
+            { name: "Thunder God Aura", power: 24,  cooldown: 3, currentCooldown: 0, kind: "buff"   },
+            { name: "Lightning Maw",    power: 195, cooldown: 2, currentCooldown: 0, kind: "damage" },
+            { name: "Heaven's Judgment",power: 285, cooldown: 4, currentCooldown: 0, kind: "damage" },
+            { name: "Voltaic Venom",    power: 110, cooldown: 5, currentCooldown: 0, kind: "dot"    },
+            { name: "Flash Step",       power: 0,   cooldown: 3, currentCooldown: 0, kind: "move"   },
+        ],
+    },
+    {
+        id: "mythic-9",
+        name: "Worldroot Colossus",
+        rarity: "mythic",
+        level: 1,
+        xp: 0,
+        maxLevel: 100,
+        hp: 1280,
+        attack: 120,
+        defense: 145,
+        speed: 65,
+        unlockedForPve: false,
+        element: "Earth",
+        // Identity: immovable titan — slowest, towering bulk with steady regen
+        jutsus: [
+            { name: "Worldroot Aura",    power: 32,  cooldown: 3, currentCooldown: 0, kind: "buff"   },
+            { name: "Boulder Fist",      power: 170, cooldown: 2, currentCooldown: 0, kind: "damage" },
+            { name: "Continental Slam",  power: 250, cooldown: 4, currentCooldown: 0, kind: "damage" },
+            { name: "Stoneheart Regen",  power: 110, cooldown: 5, currentCooldown: 0, kind: "heal"   },
+            { name: "Tremor Step",       power: 0,   cooldown: 3, currentCooldown: 0, kind: "move"   },
         ],
     },
 ] as Pet[]);
