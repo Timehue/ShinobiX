@@ -13,7 +13,6 @@ import {
     allTags,
     tagCapForRank,
     normalizeTagName,
-    normalizeJutsuMethod,
     tagMatchesName,
     statusMatchesName,
     normalizeJutsuTags,
@@ -98,6 +97,7 @@ import {
     jutsuPoints,
     bloodlinePoints,
 } from "./lib/jutsu-points";
+import { normalizeJutsu, makeJutsu } from "./lib/jutsu";
 
 // Install the global fetch interceptor once at module load. From here on,
 // every fetch('/api/...') call automatically picks up x-player-name and
@@ -3020,9 +3020,8 @@ export function getAllTileCards(creatorCards: TileCard[]): TileCard[] {
 // getItemById extracted to ./lib/items (imported back + re-exported above).
 
 
-function makeJutsu(id: string, name: string, type: JutsuType, ap: number, range: number, effectPower: number, cooldown: number, chakraCost: number, staminaCost: number, tags: JutsuTag[], element: JutsuElement = "Fire"): Jutsu {
-    return normalizeJutsu({ id, name, type, element, ap, range, effectPower, cooldown, currentCooldown: 0, chakraCost, staminaCost, tags });
-}
+// makeJutsu + normalizeJutsu extracted to ./lib/jutsu (imported back above;
+// normalizeJutsu re-exported below for the TagPicker "../App" import site).
 
 function makeId() {
     return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
@@ -3817,36 +3816,7 @@ export { getActiveAuraSphereBonuses };
 
 export { discountCost, getBankInterestPercent, getHospitalDiscountPercent };
 
-export function normalizeJutsu(jutsu: Partial<Jutsu> & Pick<Jutsu, "id" | "name" | "type">): Jutsu {
-    const tags = normalizeJutsuTags(jutsu.tags);
-    const hasMoveTag = tags.some((tag) => tagMatchesName(tag.name, "Move"));
-    return {
-        id: jutsu.id,
-        name: jutsu.name,
-        type: jutsu.type,
-        element: (jutsu.element != null ? jutsu.element : "Fire") as JutsuElement,
-        ap: jutsu.ap ?? 40,
-        // Floor range to 1 — `??` doesn't catch 0/NaN/"" which any of the
-        // save/import/form paths can produce, and range:0 silently turns
-        // off the on-board range highlight (jutsuRangeTiles bails on <=0).
-        range: Math.max(1, Number(jutsu.range) || 3),
-        effectPower: jutsu.effectPower ?? 50,
-        cooldown: jutsu.cooldown ?? 1,
-        currentCooldown: jutsu.currentCooldown ?? 0,
-        chakraCost: jutsu.chakraCost ?? 20,
-        staminaCost: jutsu.staminaCost ?? 10,
-        healthCost: jutsu.healthCost ?? 0,
-        target: (hasMoveTag ? "EMPTY_GROUND" : (jutsu.target ?? "OPPONENT")) as JutsuTarget,
-        method: normalizeJutsuMethod(jutsu.method),
-        battleDescription: jutsu.battleDescription ?? `${jutsu.name} strikes %target`,
-        healthCostReducePerLvl: jutsu.healthCostReducePerLvl ?? 0,
-        chakraCostReducePerLvl: jutsu.chakraCostReducePerLvl ?? 0,
-        staminaCostReducePerLvl: jutsu.staminaCostReducePerLvl ?? 0,
-        tags,
-        description: jutsu.description ?? "",
-        image: jutsu.image ?? "",
-    };
-}
+export { normalizeJutsu };
 
 function normalizeCharacter(parsed: Character): Character {
     const level = Math.max(1, Math.min(MAX_LEVEL, Math.floor(parsed.level ?? 1)));
