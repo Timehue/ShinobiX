@@ -12099,20 +12099,29 @@ function estimatePetActionDamage(
     const guardianBlock = target.pet.trait === "Guardian"   ? 0.85 : 1.0;
     const elementMult  = petElementMultiplier(actor.pet, target.pet);
     const absorbMult   = target.absorbRounds > 0 ? (1 - target.absorbPercent) : 1;
+    // Item-aware: fold in the same PVP-gear / consumable multipliers the real
+    // hit uses so the AI's lethal-detection matches reality — it goes for the
+    // kill when its Executioner's Talon makes the math work, and won't waste a
+    // nuke into a foe's last-stand gear or Smoke Pellet. Crit is left out on
+    // purpose (treated as a free upside, keeps "lethal" calls conservative).
+    const executeMult   = petGearExecuteMult(actor.pet, target.hp, target.pet.hp);
+    const lastStandMult = petGearLastStandMult(target.pet, target.hp, target.pet.hp);
+    const mitigateMult  = (target.consMitigate ?? 0) > 0 ? (1 - (target.consMitigate ?? 0) / 100) : 1;
+    const mods = dmgBonus * guardianBlock * absorbMult * elementMult * executeMult * lastStandMult * mitigateMult;
     if (action === "basic") {
         const raw = actor.pet.attack + actor.attackBuff - (target.pet.defense + target.defenseBuff) * 0.45;
-        return Math.max(1, Math.floor(raw * dmgBonus * guardianBlock * absorbMult * elementMult));
+        return Math.max(1, Math.floor(raw * mods));
     }
     const jutsu = action;
     if (jutsu.kind === "damage" || jutsu.kind === "lifesteal") {
         const raw = actor.pet.attack + actor.attackBuff + jutsu.power - (target.pet.defense + target.defenseBuff) * 0.5;
-        return Math.max(1, Math.floor(raw * dmgBonus * guardianBlock * absorbMult * elementMult));
+        return Math.max(1, Math.floor(raw * mods));
     }
     if (jutsu.kind === "crush") {
         // Crush damage component is power × 0.5 (the other half is the
         // ATK/DEF strip, which doesn't help with KO this turn).
         const raw = actor.pet.attack + actor.attackBuff + (jutsu.power * 0.5) - (target.pet.defense + target.defenseBuff) * 0.5;
-        return Math.max(1, Math.floor(raw * dmgBonus * guardianBlock * absorbMult * elementMult));
+        return Math.max(1, Math.floor(raw * mods));
     }
     return 0; // burn/freeze/confuse/stun/heal/buff/etc — no immediate damage
 }
@@ -12126,6 +12135,10 @@ function findLethalAction(
     avail: PetJutsu[],
     dist: number,
 ): PetJutsu | "basic" | null {
+    // Can't actually KO this turn if the target holds a charged dodge (the next
+    // hit is fully negated) or a Second Wind (survives any lethal blow at 1 HP).
+    // Innate speed evasion is only a chance, so we still take the shot for that.
+    if ((target.consDodge ?? 0) > 0 || (target.consEndure ?? 0) > 0) return null;
     const requiredHp = target.hp + target.shieldHp;
     const candidates: Array<{ action: PetJutsu | "basic"; dmg: number }> = [];
     for (const j of avail) {
@@ -12245,6 +12258,26 @@ function choosePetActionSmart(
     const elementMult     = petElementMultiplier(actor.pet, target.pet);
     const superEffective  = elementMult > 1;
     const resisted        = elementMult < 1;
+
+    // ── PVP gear / consumable counter-play (every personality) ─────────────
+    // These sit above the trait trees but below lethal + critical-survival
+    // (the `!critical` guards defer to a trait's emergency heal).
+    //
+    // 1) The foe holds a charged dodge — its next hit is fully negated no
+    //    matter what we throw. Spend a cheap basic to burn the charge instead
+    //    of a real jutsu, then commit next turn.
+    if ((target.consDodge ?? 0) > 0 && dist <= 1 && !critical) return "basic";
+    // 2) Execute hunt — our gear (Executioner's Talon / Apex Predator Fang)
+    //    deals bonus damage to low-HP foes and the target is in that window:
+    //    slam the heaviest hit to cash it in.
+    if (heavy && !critical && petGearExecuteMult(actor.pet, target.hp, target.pet.hp) > 1) return heavy;
+    // 3) On-basic gear procs (Venomfang poison / Bloodthirster lifesteal) only
+    //    fire on basic attacks, so weave one in when it's worth more than a
+    //    jutsu this turn — otherwise the gear would never trigger.
+    if (dist <= 1 && !critical && !finishing && !superEffective) {
+        if (petGearDotOnHit(actor.pet) && target.dotRounds <= 0) return "basic";          // keep the foe poisoned
+        if (petGearLifestealHeal(actor.pet, 100) > 0 && hpPct <= 55 && hpPct > 25) return "basic"; // drain to sustain
+    }
 
     // -- GUARDIAN: outlast and wear down ---------------------------------------
     if (trait === "Guardian") {
@@ -12384,6 +12417,41 @@ function petBasicDamage(attacker: PetBattleFighter, defender: PetBattleFighter) 
     return Math.max(1, Math.floor(attacker.pet.attack + attacker.attackBuff - (defender.pet.defense + defender.defenseBuff) * 0.45));
 }
 
+// ── Speed & swing helpers — make all four stats (HP/ATK/DEF/SPD) matter and
+// keep pet battles dramatic. Every roll uses the battle's seeded RNG so synced
+// (ranked) battles stay deterministic. ──────────────────────────────────────
+const PET_CRIT_MULT = 1.85; // a crit hits for nearly double — big, visible spikes
+
+// Crit chance: a base rate, lifted by how much faster the attacker is than the
+// defender (quick pets find openings), and by the Aggressive trait. Capped.
+function petCritChance(attacker: PetBattleFighter, defender: PetBattleFighter): number {
+    const base = attacker.pet.trait === "Aggressive" ? 0.32 : 0.16;
+    const speedEdge = Math.max(0, attacker.pet.speed - defender.pet.speed) / 1100;
+    return Math.min(0.5, base + speedEdge);
+}
+
+// Innate evasion: a defender meaningfully faster than the attacker slips some
+// blows entirely. Separate from the Lucky trait and dodge consumables. Capped
+// low so it adds "oh!" moments without feeling unfair.
+function petEvadeChance(attacker: PetBattleFighter, defender: PetBattleFighter): number {
+    return Math.min(0.18, Math.max(0, (defender.pet.speed - attacker.pet.speed) / 950));
+}
+
+// Per-hit damage roll (±12%) so no two strikes look identical.
+function petDamageVariance(rng: () => number): number {
+    return 0.88 + rng() * 0.24;
+}
+
+// Flurry: a faster pet gets bonus actions — the core reason to invest in Speed.
+// Scales with the speed ratio for ANY pet; the Swift trait amplifies it.
+//   ratio 1.5× → ~25% bonus-action chance, 2.0× → ~50%, Swift adds +25%.
+function petFlurryChance(mySpeed: number, oppSpeed: number, swift: boolean): number {
+    const ratio = mySpeed / Math.max(1, oppSpeed);
+    let chance = Math.min(0.55, Math.max(0, (ratio - 1) * 0.5));
+    if (swift) chance = Math.min(0.85, chance + 0.25);
+    return chance;
+}
+
 function seededPetBattleRandom(seed: number) {
     let state = Math.max(1, Math.floor(seed) >>> 0);
     return () => {
@@ -12451,10 +12519,10 @@ function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponentOwner: 
     // Swift bonus actions (≥1.2× / 1.5× / 2.0× thresholds below).
     // Uses the seeded RNG so the result is deterministic per battle
     // seed — both clients in a synced battle see the same coin flip.
-    const playerFirstSeeded = rng() < 0.5;
+    const faster = player.pet.speed >= enemy.pet.speed ? player : enemy;
     const logs: string[] = [
         `${player.pet.name} enters against ${enemy.owner}'s ${enemy.pet.name}.`,
-        `🪙 ${playerFirstSeeded ? player.pet.name : enemy.pet.name} wins the coin flip and strikes first.`,
+        `⚡ ${faster.pet.name} is quicker on its feet — speed will decide who strikes first.`,
     ];
     const frames: PetArenaFrame[] = [];
     let playerCombo = 0;
@@ -12544,7 +12612,6 @@ function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponentOwner: 
         }
 
         // Trait modifiers
-        const critChance     = actor.pet.trait === "Aggressive" ? 0.30 : 0.15;
         const dmgBonus       = actor.pet.trait === "Battleborn"  ? 1.10 : 1.0;
         const guardianBlock  = target.pet.trait === "Guardian"   ? 0.85 : 1.0;
         const luckyDodgeRoll = target.pet.trait === "Lucky" && rng() < 0.10;
@@ -12584,7 +12651,16 @@ function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponentOwner: 
                 pushFrame(round, msg, targetSide, kind, undefined, undefined, { actor: targetSide as "player" | "enemy", trait: "consumDodge" });
                 return [actor2, dodged];
             }
-            const crit   = rng() < critChance;
+            // Innate speed evasion — a faster defender slips the blow entirely.
+            if (rng() < petEvadeChance(actor2, target2)) {
+                if (actorSide === "player") playerCombo = 0; else enemyCombo = 0;
+                const msg = `Round ${round}: ${target2.pet.name} blurs out of reach — evades ${actor2.pet.name}'s attack!`;
+                logs.push(msg);
+                pushFrame(round, msg, targetSide, kind, undefined, undefined, { actor: targetSide as "player" | "enemy", trait: "petEvade" });
+                return [actor2, target2];
+            }
+            const crit     = rng() < petCritChance(actor2, target2);
+            const variance = petDamageVariance(rng);
             // Absorb stance reduces incoming damage by absorbPercent
             const absorbMult = target2.absorbRounds > 0 ? (1 - target2.absorbPercent) : 1;
             // Pet Tamer profession: +5–20% pet damage in PvE (player's pet only).
@@ -12600,7 +12676,7 @@ function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponentOwner: 
             const lastStandMult = petGearLastStandMult(target2.pet, target2.hp, target2.pet.hp);
             // Consumable: Smoke Pellet — the next hit deals less damage (spent below).
             const mitigateMult = (target2.consMitigate ?? 0) > 0 ? (1 - (target2.consMitigate ?? 0) / 100) : 1;
-            const damage = Math.max(1, Math.floor(base * (crit ? 1.5 : 1) * dmgBonus * guardianBlock * absorbMult * tamerMult * elementMult * executeMult * lastStandMult * mitigateMult));
+            const damage = Math.max(1, Math.floor(base * (crit ? PET_CRIT_MULT : 1) * variance * dmgBonus * guardianBlock * absorbMult * tamerMult * elementMult * executeMult * lastStandMult * mitigateMult));
             // Shield absorbs damage before HP
             const shieldAbsorb  = Math.min(target2.shieldHp, damage);
             const remainDamage  = damage - shieldAbsorb;
@@ -12983,42 +13059,30 @@ function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponentOwner: 
             if (enemy.hp <= 0) break;
         }
 
-        // Initiative is set ONCE at battle start via playerFirstSeeded
-        // (coin flip), and holds for every round of this duel. Speed
-        // still matters — see swiftFires() below — but no longer
-        // determines first-strike.
-        const playerFirst = playerFirstSeeded;
-        // Swift bonus action scales with the actual speed gap instead of a
-        // binary trigger at 1.2×:
-        //   • ≥ 2.0× speed → bonus action every round (raw blitz)
-        //   • ≥ 1.5× speed → bonus action every other round
-        //   • ≥ 1.2× speed → bonus action every third round
-        // Below 1.2× Swift gives no bonus action — just normal turn order
-        // priority on tie. Prevents the old "1.2× → +100% damage output" gap
-        // while preserving Swift's identity as the speed trait.
-        const playerSpeedRatio = player.pet.speed / Math.max(1, enemy.pet.speed);
-        const enemySpeedRatio  = enemy.pet.speed  / Math.max(1, player.pet.speed);
-        function swiftFires(round: number, ratio: number): boolean {
-            if (ratio >= 2.0) return true;
-            if (ratio >= 1.5) return round % 2 === 1;       // every other round
-            if (ratio >= 1.2) return round % 3 === 1;       // every third round
-            return false;
-        }
-        const playerSwift = player.pet.trait === "Swift" && swiftFires(round, playerSpeedRatio);
-        const enemySwift  = enemy.pet.trait  === "Swift" && swiftFires(round, enemySpeedRatio);
+        // Initiative is rolled EACH round, weighted by speed: the faster pet is
+        // likelier to strike first (a 2× speed lead wins the opener ~67% of
+        // rounds) but it's never guaranteed, so fights stay unpredictable.
+        const playerFirst = rng() < player.pet.speed / Math.max(1, player.pet.speed + enemy.pet.speed);
+        // Flurry — a faster pet earns a bonus action this round. Universal (any
+        // pet, scaling with the speed ratio); the Swift trait amplifies it. This
+        // is the core payoff for investing in Speed: more turns = more pressure.
+        const playerFlurry = rng() < petFlurryChance(player.pet.speed, enemy.pet.speed, player.pet.trait === "Swift");
+        const enemyFlurry  = rng() < petFlurryChance(enemy.pet.speed, player.pet.speed, enemy.pet.trait === "Swift");
+        if (playerFlurry) { logs.push(`Round ${round}: ${player.pet.name} blurs into a flurry — bonus action!`); }
+        if (enemyFlurry)  { logs.push(`Round ${round}: ${enemy.pet.name} blurs into a flurry — bonus action!`); }
 
         if (playerFirst) {
             [player, enemy] = act(player, enemy, round);
-            if (playerSwift && enemy.hp > 0) [player, enemy] = act(player, enemy, round);
+            if (playerFlurry && enemy.hp > 0) [player, enemy] = act(player, enemy, round);
             if (enemy.hp <= 0) break;
             [enemy, player] = act(enemy, player, round);
-            if (enemySwift && player.hp > 0) [enemy, player] = act(enemy, player, round);
+            if (enemyFlurry && player.hp > 0) [enemy, player] = act(enemy, player, round);
         } else {
             [enemy, player] = act(enemy, player, round);
-            if (enemySwift && player.hp > 0) [enemy, player] = act(enemy, player, round);
+            if (enemyFlurry && player.hp > 0) [enemy, player] = act(enemy, player, round);
             if (player.hp <= 0) break;
             [player, enemy] = act(player, enemy, round);
-            if (playerSwift && enemy.hp > 0) [player, enemy] = act(player, enemy, round);
+            if (playerFlurry && enemy.hp > 0) [player, enemy] = act(player, enemy, round);
         }
         const roundMessage = `Round ${round}: ${player.pet.name} ${player.hp}/${player.pet.hp} HP | ${enemy.pet.name} ${enemy.hp}/${enemy.pet.hp} HP`;
         logs.push(roundMessage);
@@ -13501,13 +13565,22 @@ function runPetArenaParty(
         }
         if (chosen === "basic") {
             noteAttack(damageTargetSlot);
+            // Innate speed evasion — a faster defender slips the blow entirely.
+            if (rng() < petEvadeChance(actor, damageTarget)) {
+                const emsg = `Round ${round}: ${damageTarget.pet.name} blurs out of reach — evades ${actor.pet.name}'s attack!`;
+                logs.push(emsg);
+                pushPartyFrame(round, emsg, damageTargetSlot, "basic", undefined, false, { actor: isPlayerSlot(damageTargetSlot) ? "player" : "enemy", trait: "petEvade" }, undefined, false, damageTargetSlot);
+                return;
+            }
             const dmgRaw = actor.pet.attack + actor.attackBuff - (damageTarget.pet.defense + damageTarget.defenseBuff) * 0.45;
             const tamerMult = actorIsPlayer ? playerDamageMult : 1;
             const elementMult = petElementMultiplier(actor.pet, damageTarget.pet);
             // PVP gear: attacker execute vs low-HP foe + target last-stand reduction.
             const executeMult = petGearExecuteMult(actor.pet, damageTarget.hp, damageTarget.pet.hp);
             const lastStandMult = petGearLastStandMult(damageTarget.pet, damageTarget.hp, damageTarget.pet.hp);
-            const baseDmg = Math.max(1, Math.floor(dmgRaw * tamerMult * elementMult * executeMult * lastStandMult));
+            const crit = rng() < petCritChance(actor, damageTarget);
+            const variance = petDamageVariance(rng);
+            const baseDmg = Math.max(1, Math.floor(dmgRaw * (crit ? PET_CRIT_MULT : 1) * variance * tamerMult * elementMult * executeMult * lastStandMult));
             // Reactive consumable pre-hit (dodge / mitigate).
             const pre = petReactivePreHit(damageTarget, baseDmg);
             if (pre.dodged) {
@@ -13535,9 +13608,9 @@ function runPetArenaParty(
             const consFlashKey = post.flash ?? pre.flash;
             const basicFlash: PetArenaFrame["traitFlash"] = consFlashKey ? { actor: isPlayerSlot(damageTargetSlot) ? "player" : "enemy", trait: consFlashKey } : undefined;
             const elementNote = elementMult > 1 ? " 🔆 Super effective!" : elementMult < 1 ? " ⛔ Resisted." : "";
-            const msg = `Round ${round}: ${actor.pet.name} basic-attacks ${damageTarget.pet.name} for ${dmg} damage.${elementNote}${procNote}`;
+            const msg = `Round ${round}: ${actor.pet.name} basic-attacks ${damageTarget.pet.name} for ${dmg} damage${crit ? " — CRITICAL HIT!" : ""}.${elementNote}${procNote}`;
             logs.push(msg);
-            pushPartyFrame(round, msg, actorSlot, "basic", dmg, false, basicFlash, undefined, fighters[damageTargetSlot]!.hp <= 0, damageTargetSlot);
+            pushPartyFrame(round, msg, actorSlot, "basic", dmg, crit, basicFlash, undefined, fighters[damageTargetSlot]!.hp <= 0, damageTargetSlot);
             return;
         }
 
@@ -13569,8 +13642,15 @@ function runPetArenaParty(
                 pushPartyFrame(round, msg, targetSlot!, kind, undefined, undefined, { actor: isPlayerSlot(targetSlot!) ? "player" : "enemy", trait: "consumDodge" }, undefined, undefined, targetSlot!);
                 return;
             }
-            const critChance = actor.pet.trait === "Aggressive" ? 0.30 : 0.15;
-            const crit = rng() < critChance;
+            // Innate speed evasion — a faster defender slips the blow entirely.
+            if (rng() < petEvadeChance(actor, target)) {
+                const msg = `Round ${round}: ${target.pet.name} blurs out of reach — evades ${actor.pet.name}'s ${jutsuName}!`;
+                logs.push(msg);
+                pushPartyFrame(round, msg, targetSlot!, kind, undefined, undefined, { actor: isPlayerSlot(targetSlot!) ? "player" : "enemy", trait: "petEvade" }, undefined, undefined, targetSlot!);
+                return;
+            }
+            const crit = rng() < petCritChance(actor, target);
+            const variance = petDamageVariance(rng);
             const dmgBonus = actor.pet.trait === "Battleborn" ? 1.10 : 1.0;
             const guardianBlock = target.pet.trait === "Guardian" ? 0.85 : 1.0;
             const absorbMult = target.absorbRounds > 0 ? (1 - target.absorbPercent) : 1;
@@ -13581,7 +13661,7 @@ function runPetArenaParty(
             const lastStandMult = petGearLastStandMult(target.pet, target.hp, target.pet.hp);
             // Consumable: Smoke Pellet reduces this hit (spent below).
             const mitigateMult = (target.consMitigate ?? 0) > 0 ? (1 - (target.consMitigate ?? 0) / 100) : 1;
-            const damage = Math.max(1, Math.floor(rawDmg * (crit ? 1.5 : 1) * dmgBonus * guardianBlock * absorbMult * tamerMult * elementMult * executeMult * lastStandMult * mitigateMult));
+            const damage = Math.max(1, Math.floor(rawDmg * (crit ? PET_CRIT_MULT : 1) * variance * dmgBonus * guardianBlock * absorbMult * tamerMult * elementMult * executeMult * lastStandMult * mitigateMult));
             const shieldAbsorb = Math.min(target.shieldHp, damage);
             const remainDamage = damage - shieldAbsorb;
             const preHitHp = target.hp;
@@ -13782,17 +13862,12 @@ function runPetArenaParty(
         }
         if (playerLiving() === 0 || enemyLiving() === 0) break;
 
-        // Initiative — all living pets act in a randomized order this
-        // round. Previously sorted speed-desc, which guaranteed the
-        // faster pets always struck first. Fair-shuffle via seeded RNG
-        // (Fisher-Yates) so both clients in a synced battle compute
-        // the same order. Speed still gates Swift bonus actions
-        // elsewhere; it just no longer rigs initiative.
+        // Initiative — faster pets act earlier, but a per-pet random jitter
+        // keeps the order from being perfectly rigid (so Speed matters without
+        // fully rigging the round). Seeded so synced battles stay in sync.
         const order = liveSlots();
-        for (let i = order.length - 1; i > 0; i -= 1) {
-            const j = Math.floor(rng() * (i + 1));
-            [order[i], order[j]] = [order[j]!, order[i]!];
-        }
+        const initKey = new Map(order.map((s) => [s, fighters[s]!.pet.speed * (0.8 + rng() * 0.4)]));
+        order.sort((a, b) => (initKey.get(b) ?? 0) - (initKey.get(a) ?? 0));
         // Track the last opposing slot each side attacked this round.
         // Passed to subsequent same-side actors as partnerFocusSlot so
         // partners converge their focus-fire on the same target.
@@ -13809,6 +13884,16 @@ function runPetArenaParty(
             act(slot, round, focusHint);
             if (lastOpposingAttacked) {
                 lastTargetBySide[sideKey] = lastOpposingAttacked;
+            }
+            // Flurry — a faster pet may immediately act again (Swift amplifies).
+            if (isAlive(slot) && livingOpposing(slot).length > 0) {
+                const oppSpeeds = livingOpposing(slot).map((o) => fighters[o]!.pet.speed);
+                const avgOpp = oppSpeeds.reduce((sum, v) => sum + v, 0) / Math.max(1, oppSpeeds.length);
+                if (rng() < petFlurryChance(fighters[slot]!.pet.speed, avgOpp, fighters[slot]!.pet.trait === "Swift")) {
+                    logs.push(`Round ${round}: ${fighters[slot]!.pet.name} blurs into a flurry — bonus action!`);
+                    act(slot, round, lastTargetBySide[sideKey]);
+                    if (lastOpposingAttacked) lastTargetBySide[sideKey] = lastOpposingAttacked;
+                }
             }
         }
 
@@ -14720,6 +14805,7 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerReservePet
         frame?.traitFlash?.trait === "Guardian"   ? "🛡️ GUARDIAN BLOCK!"  :
         frame?.traitFlash?.trait === "Battleborn" ? "⚔️ BATTLEBORN BONUS!" :
         frame?.traitFlash?.trait === "Swift"      ? "⚡ SWIFT STRIKE!"     :
+        frame?.traitFlash?.trait === "petEvade"       ? "⚡ EVADED!"        :
         frame?.traitFlash?.trait === "consumDodge"    ? "💨 DODGED!"        :
         frame?.traitFlash?.trait === "consumBlock"    ? "🛡️ SMOKE SCREEN!"  :
         frame?.traitFlash?.trait === "consumReflect"  ? "🌵 THORNS!"        :
@@ -28705,7 +28791,11 @@ function StoryBoss({ character, updateCharacter, setScreen }: { character: Chara
         const attacksBoss = loyalTarget || gearLoyal || Math.random() >= 0.5;
         const enemyHpPct = (currentBossHp / Math.max(1, storyStep.bossHp)) * 100;
         const playerHpPct = (currentPlayerHp / Math.max(1, character.maxHp)) * 100;
-        const damage = Math.max(1, Math.floor(petCombatDamage(summonedPet) * petPveSummonDamageMult(summonedPet, enemyHpPct, playerHpPct)));
+        // Speed-scaled crit + a damage roll so summon hits have visible punch.
+        const summonCrit = Math.random() < Math.min(0.45, 0.16 + summonedPet.speed / 1100);
+        const summonVar = 0.9 + Math.random() * 0.2;
+        const damage = Math.max(1, Math.floor(petCombatDamage(summonedPet) * petPveSummonDamageMult(summonedPet, enemyHpPct, playerHpPct) * (summonCrit ? PET_CRIT_MULT : 1) * summonVar));
+        const critNote = summonCrit ? " — CRITICAL HIT!" : "";
         if (attacksBoss) {
             const nextBossHp = Math.max(0, currentBossHp - damage);
             setBossHp(nextBossHp);
@@ -28723,7 +28813,7 @@ function StoryBoss({ character, updateCharacter, setScreen }: { character: Chara
                 }
             }
             if (nextBossHp <= 0) return winBossFight(currentPlayerHp);
-            return setLog(`${petName} attacks ${storyStep.bossName}${(loyalTarget || gearLoyal) ? "" : " despite low happiness"} for ${damage} damage.${healNote}`);
+            return setLog(`${petName} attacks ${storyStep.bossName}${(loyalTarget || gearLoyal) ? "" : " despite low happiness"} for ${damage} damage${critNote}.${healNote}`);
         }
         const friendlyDamage = Math.max(1, Math.floor(damage * 0.65));
         const nextPlayerHp = Math.max(0, currentPlayerHp - friendlyDamage);
@@ -31798,7 +31888,11 @@ function Arena({
         const attacksEnemy = loyalTarget || gearLoyal || Math.random() >= 0.5;
         const enemyHpPct = (enemyHp / Math.max(1, enemyMaxHp)) * 100;
         const playerHpPct = (playerHp / Math.max(1, character.maxHp)) * 100;
-        const damage = Math.max(1, Math.floor(petCombatDamage(summonedPet) * petPveSummonDamageMult(summonedPet, enemyHpPct, playerHpPct)));
+        // Speed-scaled crit + a damage roll so summon hits have visible punch.
+        const summonCrit = Math.random() < Math.min(0.45, 0.16 + summonedPet.speed / 1100);
+        const summonVar = 0.9 + Math.random() * 0.2;
+        const damage = Math.max(1, Math.floor(petCombatDamage(summonedPet) * petPveSummonDamageMult(summonedPet, enemyHpPct, playerHpPct) * (summonCrit ? PET_CRIT_MULT : 1) * summonVar));
+        const critNote = summonCrit ? " — CRITICAL HIT!" : "";
 
         if (attacksEnemy) {
             const newEnemyHp = Math.max(0, enemyHp - damage);
@@ -31816,8 +31910,8 @@ function Arena({
                     healNote = ` It channels ${heal} HP back to you.`;
                 }
             }
-            setLog(`${petName} attacks ${opponentName}${loyaltyNote} for ${damage} damage.${healNote}`);
-            addCombatLog(`${petName} attacks ${opponentName}${loyaltyNote} for ${damage} damage.${healNote}`, "petAttack", petName);
+            setLog(`${petName} attacks ${opponentName}${loyaltyNote} for ${damage} damage${critNote}.${healNote}`);
+            addCombatLog(`${petName} attacks ${opponentName}${loyaltyNote} for ${damage} damage${critNote}.${healNote}`, "petAttack", petName);
             if (newEnemyHp <= 0) winBattle();
             return;
         }
