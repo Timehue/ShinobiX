@@ -4734,6 +4734,7 @@ export default function App() {
             const myNameLower = character.name.toLowerCase();
             const incoming = next
                 .filter((c) => (c?.toName ?? "").toLowerCase() === myNameLower)
+                .filter((c) => !dismissedChallengeIdsRef.current.has(c.id))
                 .map((c) => ({ ...c, challenger: normalizeCharacter(c.challenger) }));
             setDuelChallenges((current) => {
                 const merged = current.filter((existing) => !incoming.some((c) => c.id === existing.id));
@@ -4744,6 +4745,20 @@ export default function App() {
     }, [character?.name]);
     const [processingChallengeIds, setProcessingChallengeIds] = useState<string[]>([]);
     const [pendingPetBattleOpponent, setPendingPetBattleOpponent] = useState<PetArenaOpponent | null>(null);
+    // IDs of challenges the user already handled (accepted / declined /
+    // consumed an accepted-or-declined notice). Both the realtime push and the
+    // heartbeat poll re-merge from the server, which keeps each challenge for a
+    // 120s TTL and NEVER signals removal — so without this guard a stale
+    // server snapshot resurrects a challenge the user already dealt with,
+    // making accepted challenges "hang around" and block sending/accepting new
+    // ones. Any id here is filtered out of every incoming merge. A ref (not
+    // state) so the long-lived realtime subscription closure sees it live.
+    const dismissedChallengeIdsRef = useRef<Set<string>>(new Set<string>());
+    const dismissChallengeLocally = useCallback((id: string) => {
+        if (!id) return;
+        dismissedChallengeIdsRef.current.add(id);
+        setDuelChallenges(prev => prev.filter(c => c.id !== id));
+    }, []);
 
     // Auto-report a clan-war battle result on behalf of the actual
     // battle systems. Reads the clan-war stash placed in
@@ -5134,6 +5149,7 @@ export default function App() {
                         const myNameLower = char.name.toLowerCase();
                         const incoming = data.pendingChallenges!
                             .filter((challenge) => challenge.toName.toLowerCase() === myNameLower)
+                            .filter((challenge) => !dismissedChallengeIdsRef.current.has(challenge.id))
                             .map((challenge) => ({ ...challenge, challenger: normalizeCharacter(challenge.challenger) }));
                         if (!incoming.length) return current;
                         const merged = current.filter((existing) => !incoming.some((challenge) => challenge.id === existing.id));
@@ -5185,7 +5201,7 @@ export default function App() {
     }
 
     function declineChallengeGlobal(challenge: DuelChallenge) {
-        setDuelChallenges(prev => prev.filter(candidate => candidate.id !== challenge.id));
+        dismissChallengeLocally(challenge.id);
         void clearChallengeOnServer(challenge);
         fetch('/api/player/challenge', {
             method: 'POST',
@@ -5245,7 +5261,7 @@ export default function App() {
         const doParty = !!(wantsParty && myParty && challengerParty);
 
         setProcessingChallengeIds(prev => [...prev, challenge.id]);
-        setDuelChallenges(prev => prev.filter(candidate => candidate.id !== challenge.id));
+        dismissChallengeLocally(challenge.id);
         await clearChallengeOnServer(challenge);
         const isRanked = challenge.mode === "rankedPet";
         const acceptedNotice: DuelChallenge = {
@@ -5386,7 +5402,11 @@ export default function App() {
         if (!character) return;
         const accepted = duelChallenges.find(c => c.accepted && c.toName.toLowerCase() === character.name.toLowerCase());
         if (!accepted) return;
-        setDuelChallenges(prev => prev.filter(c => c.id !== accepted.id));
+        // Mark dismissed AND delete from the server inbox — otherwise the
+        // accepted notice (120s TTL) keeps getting re-pushed and this effect
+        // re-fires, re-routing to battle / re-alerting forever.
+        dismissChallengeLocally(accepted.id);
+        void clearChallengeOnServer(accepted);
         if (accepted.mode === "clanWarPet" || accepted.mode === "rankedPet") {
             if (accepted.responderPet) {
                 // Reconstruct the challenger's own party from the IDs they
@@ -5448,7 +5468,8 @@ export default function App() {
         if (!character) return;
         const declined = duelChallenges.find(c => c.declined && c.toName.toLowerCase() === character.name.toLowerCase());
         if (!declined) return;
-        setDuelChallenges(prev => prev.filter(c => c.id !== declined.id));
+        dismissChallengeLocally(declined.id);
+        void clearChallengeOnServer(declined);
         alert(`${declined.fromName} declined your challenge.`);
     }, [duelChallenges, character?.name]);
 
@@ -5459,7 +5480,7 @@ export default function App() {
         if (processingChallengeIds.includes(challenge.id)) return;
         setProcessingChallengeIds(prev => [...prev, challenge.id]);
         const challenger = normalizeCharacter(challenge.challenger);
-        setDuelChallenges(prev => prev.filter(c => c.id !== challenge.id));
+        dismissChallengeLocally(challenge.id);
         try {
             const [p1CombatSave, p2CombatSave] = await Promise.all([
                 fetchPlayerCombatSave(challenge.fromName),
