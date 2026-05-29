@@ -184,6 +184,11 @@ import {
     type AiRule,
     type CreatorAi,
 } from "./types/creator-ai";
+import {
+    type MissionRank,
+    type CreatorMission,
+    type CreatorRaid,
+} from "./types/missions";
 export type {
     Profession,
     Screen,
@@ -812,45 +817,8 @@ export type CreatorEvent = {
     dialogue: string[];
 };
 
-type MissionRank = "Daily" | "D Rank" | "C Rank" | "B Rank" | "A Rank" | "S Rank";
-
-type CreatorMission = {
-    id: string;
-    name: string;
-    rank: MissionRank;
-    description: string;
-    type: "fetchExplore";
-    aiProfileId?: string;
-    targetSector: number;
-    tileX?: number;  // tile position within sector (0-143)
-    tileY?: number;  // tile position within sector (0-143)
-    exploreCount: number;
-    raidCount?: number;
-    levelReq: number;
-    xpReward: number;
-    ryoReward: number;
-    staminaReward: number;
-    currencyRewards?: CurrencyRewards;
-    itemRewards?: string[];
-};
-
-type CreatorRaid = {
-    id: string;
-    name: string;
-    biome: Biome;
-    targetSector?: number;
-    tileX?: number;  // tile position within sector (0-143)
-    tileY?: number;  // tile position within sector (0-143)
-    icon: string;
-    levelReq: number;
-    aiProfileId?: string;
-    waves: number;
-    xpReward: number;
-    ryoReward: number;
-    staminaReward: number;
-    currencyRewards?: CurrencyRewards;
-    description: string;
-};
+// Creator mission/raid content types (MissionRank, CreatorMission, CreatorRaid)
+// moved to ./types/missions and imported back near the top of this file.
 
 type PlayerAccountSave = {
     password?: string;
