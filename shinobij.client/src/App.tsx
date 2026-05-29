@@ -11251,15 +11251,6 @@ export default function App() {
                             const selfChar = character;
                             const selfAllItems = getAllItems(creatorItems);
                             const p1Jutsus = getPvpJutsuLoadout(savedBloodlines, creatorJutsus, selfChar);
-                            const oppChar = opponent.character as Character;
-                            const opponentAllItems = getAllItems(creatorItems);
-                            // Sector-mate records from /api/player/heartbeat only carry { avatarImage }
-                            // (the full character is intentionally stripped for bandwidth). Guard the
-                            // loadout build so a partial opponent doesn't throw before navigation — the
-                            // server re-hydrates the real fighter from its KV save by name (p2Character.name).
-                            const p2Jutsus = oppChar?.equippedJutsuIds
-                                ? getPvpJutsuLoadout(savedBloodlines, creatorJutsus, oppChar)
-                                : [];
 
                             // Optimistic navigation — flip to the pvpBattle screen
                             // immediately so the player sees the proper battle
@@ -11275,6 +11266,20 @@ export default function App() {
                             setPvpBattleContext({ mode: "standard", sectorAttack: true, raidKind: "raidPlayer", sector: currentSector });
                             setScreen("pvpBattle");
 
+                            // Sector-mate records from /api/player/heartbeat only carry { avatarImage }
+                            // (the full character is intentionally stripped for bandwidth). Fetch the
+                            // opponent's combat save and resolve their FULL loadout — stats, armor,
+                            // weapons + consumables/throwables (pvpItems), jutsu and bloodline — from
+                            // THEIR own bloodlines + creator content. fetchPlayerCombatSave returns null
+                            // (never throws) on failure, so the optimistic navigation above stays safe;
+                            // the server also re-hydrates authoritatively from the save by p2Character.name.
+                            const oppSave = await fetchPlayerCombatSave(opponent.name);
+                            const oppChar = oppSave?.character ?? normalizeCharacter(opponent.character as Character);
+                            const oppBloodlines = oppSave?.savedBloodlines?.length ? oppSave.savedBloodlines : savedBloodlines;
+                            const oppCreatorJutsus = oppSave?.creatorJutsus?.length ? [...creatorJutsus, ...oppSave.creatorJutsus] : creatorJutsus;
+                            const opponentAllItems = getAllItems(oppSave?.creatorItems?.length ? [...creatorItems, ...oppSave.creatorItems] : creatorItems);
+                            const p2Jutsus = getPvpJutsuLoadout(oppBloodlines, oppCreatorJutsus, oppChar);
+
                             let battleId = '';
                             try {
                                 const sr = await fetch('/api/pvp/session', {
@@ -11284,7 +11289,7 @@ export default function App() {
                                         // Sector attack — fighters bring current vitals.
                                         useCurrentVitals: true,
                                         p1Character: { ...selfChar, jutsu: p1Jutsus, pvpItems: getPvpItemLoadout(selfChar, selfAllItems), bloodlineMult: getBloodlineMultiplier(selfChar, savedBloodlines), armorFactor: getCharacterArmorFactor(selfChar, selfAllItems), armorRawDR: getCharacterArmorRawDR(selfChar, selfAllItems), itemDamagePct: getEquippedItemBonus(selfChar, selfAllItems, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(selfChar, selfAllItems, "absorbPercent"), itemReflectPct: getEquippedItemBonus(selfChar, selfAllItems, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(selfChar, selfAllItems, "lifeStealPercent"), itemShield: getEquippedItemBonus(selfChar, selfAllItems, "shield") },
-                                        p2Character: { ...oppChar, name: opponent.name, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(oppChar, opponentAllItems), bloodlineMult: getBloodlineMultiplier(oppChar, savedBloodlines), armorFactor: getCharacterArmorFactor(oppChar, opponentAllItems), armorRawDR: getCharacterArmorRawDR(oppChar, opponentAllItems), itemDamagePct: getEquippedItemBonus(oppChar, opponentAllItems, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(oppChar, opponentAllItems, "absorbPercent"), itemReflectPct: getEquippedItemBonus(oppChar, opponentAllItems, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(oppChar, opponentAllItems, "lifeStealPercent"), itemShield: getEquippedItemBonus(oppChar, opponentAllItems, "shield") },
+                                        p2Character: { ...oppChar, name: opponent.name, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(oppChar, opponentAllItems), bloodlineMult: getBloodlineMultiplier(oppChar, oppBloodlines), armorFactor: getCharacterArmorFactor(oppChar, opponentAllItems), armorRawDR: getCharacterArmorRawDR(oppChar, opponentAllItems), itemDamagePct: getEquippedItemBonus(oppChar, opponentAllItems, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(oppChar, opponentAllItems, "absorbPercent"), itemReflectPct: getEquippedItemBonus(oppChar, opponentAllItems, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(oppChar, opponentAllItems, "lifeStealPercent"), itemShield: getEquippedItemBonus(oppChar, opponentAllItems, "shield") },
                                     }),
                                 });
                                 if (sr.ok) {
@@ -11303,7 +11308,7 @@ export default function App() {
                                 // "Connecting..." card forever.
                                 setPvpBattleId('');
                                 setPvpSeedSession(null);
-                                setPendingPvpOpponent(normalizeCharacter(opponent.character));
+                                setPendingPvpOpponent(oppChar);
                                 setRaidBattleKind("raidPlayer");
                                 setScreen("arena");
                                 return;
@@ -27973,9 +27978,14 @@ function WorldMap({
     }, [selectedSector, character.village]);
 
     async function fetchSavedPlayerCharacter(name: string): Promise<Character | null> {
+        // Always prefer the authoritative combat save for PvP. Roster entries can be
+        // avatar-only (heartbeat broadcasts { avatarImage }, which normalizes to a
+        // level-1, no-jutsu default), so trusting them would load a broken opponent.
+        // Fall back to a roster character only if the save fetch fails.
+        const fromSave = (await fetchPlayerCombatSave(name))?.character;
+        if (fromSave) return fromSave;
         const rosterMatch = playerRoster.find((player) => player.name.toLowerCase() === name.toLowerCase());
-        if (rosterMatch?.character) return normalizeCharacter(rosterMatch.character);
-        return (await fetchPlayerCombatSave(name))?.character ?? null;
+        return rosterMatch?.character ? normalizeCharacter(rosterMatch.character) : null;
     }
 
     async function startPvpRaid(opponent: Character, sector: number, biome: Biome, weather: WeatherType) {
