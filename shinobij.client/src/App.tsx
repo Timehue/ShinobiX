@@ -15205,6 +15205,11 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerReservePet
             )}
 
             <div className={`pet-park-stage${
+                // Once a winner is decided, hold the stage still so the victory
+                // card shows on a calm board. Without this gate the result
+                // frame fired the KO camera-punch + grid pulse + flash under
+                // the card, which read as a broken end-of-fight flicker.
+                winnerPet                                       ? "" :
                 (frame?.actionKind === "result" || frame?.isKO) ? " pet-stage-impact-ko" :
                 frame?.signatureMove                            ? " pet-stage-impact-sig" :
                 frame?.crit                                     ? " pet-stage-impact-crit" :
@@ -15221,7 +15226,7 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerReservePet
                 {/* Impact flash — a brief full-stage colour pop at the moment of
                     contact. Keyed per frame so it restarts on every blow even
                     when two hits of the same kind land back-to-back. */}
-                {frame && (frame.actionKind === "damage" || frame.actionKind === "basic" || frame.actionKind === "lifesteal" || frame.isKO) && (
+                {frame && !winnerPet && (frame.actionKind === "damage" || frame.actionKind === "basic" || frame.actionKind === "lifesteal" || frame.isKO) && (
                     <div
                         key={`flash-${frame.message}`}
                         className={`pet-impact-flash${frame.isKO ? " ko" : frame.crit ? " crit" : ""}`}
@@ -15247,7 +15252,7 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerReservePet
                     <div className="pet-ko-overlay">K.O. ??</div>
                 )}
 
-                <div className={`pet-park-grid pet-vfx-${frame?.actionKind ?? "idle"} pet-vfx-actor-${frame?.actor ?? "system"}`} aria-label="Pet arena park battlefield">
+                <div className={`pet-park-grid pet-vfx-${winnerPet ? "idle" : (frame?.actionKind ?? "idle")} pet-vfx-actor-${frame?.actor ?? "system"}`} aria-label="Pet arena park battlefield">
                     {(() => {
                         // 4-pet mode: build a position→pet map covering all
                         // living party members. 1v1 mode keeps the old 2-pet
