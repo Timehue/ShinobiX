@@ -66,10 +66,19 @@ export function allow(key: string, limit: number, windowMs: number): RateLimitDe
  * with TTL = windowMs*2.
  *
  * Returns { ok: true } when allowed; { ok: false, retryAfterMs } when over.
- * Best-effort: any KV error returns ok=true so a flaky KV doesn't lock
- * legitimate players out.
+ *
+ * KV-outage behavior depends on `strict`:
+ *   • strict=false (default) — fail OPEN (return ok=true) so a flaky KV doesn't
+ *     lock legitimate players out of low-risk endpoints.
+ *   • strict=true — fall back to a per-instance in-memory bucket at the SAME
+ *     limit. This is NOT a hard fail-closed (it won't lock a normal user out;
+ *     it just enforces the limit locally), but it prevents an outage from
+ *     turning into "unlimited calls" on cost-bearing / abuse-sensitive paths
+ *     (auth, rewards, generate-image). Per-instance means an attacker hopping
+ *     serverless instances could still get `limit` per instance, but that's a
+ *     far smaller blast radius than unbounded.
  */
-export async function allowKv(key: string, limit: number, windowMs: number): Promise<RateLimitDecision> {
+export async function allowKv(key: string, limit: number, windowMs: number, strict = false): Promise<RateLimitDecision> {
     const now = Date.now();
     const windowIndex = Math.floor(now / windowMs);
     const kvKey = `ratelimit:${key}:${windowIndex}`;
@@ -84,7 +93,9 @@ export async function allowKv(key: string, limit: number, windowMs: number): Pro
         await kv.set(kvKey, current + 1, { ex: ttlSec }).catch(() => undefined);
         return { ok: true };
     } catch {
-        // KV unavailable — fail open (do NOT lock legit users out).
+        // KV unavailable. Strict callers fall back to a per-instance bucket so
+        // an outage can't unlock unlimited cost-bearing calls; others fail open.
+        if (strict) return allow(`kvfallback:${key}`, limit, windowMs);
         return { ok: true };
     }
 }
@@ -134,6 +145,9 @@ export function enforceRateLimit(
  *
  * Use this for endpoints that need durable rate limits (auth, save,
  * generate-image) so abusers can't bypass by hopping serverless instances.
+ *
+ * Pass `{ strict: true }` for cost-bearing / abuse-sensitive endpoints so a KV
+ * outage falls back to a per-instance limit instead of fail-open (see allowKv).
  */
 export async function enforceRateLimitKv(
     req: { headers: Record<string, string | string[] | undefined>; ip?: string; socket?: { remoteAddress?: string } },
@@ -142,6 +156,7 @@ export async function enforceRateLimitKv(
     limit: number,
     windowMs: number,
     authedName?: string | null,
+    opts?: { strict?: boolean },
 ): Promise<boolean> {
     const key = `${bucket}:${clientKey(req, authedName)}`;
     // Per-instance fast path — reject early on hot lambdas without a KV trip.
@@ -152,7 +167,7 @@ export async function enforceRateLimitKv(
         return false;
     }
     // Authoritative path — KV-backed window.
-    const kvDecision = await allowKv(key, limit, windowMs);
+    const kvDecision = await allowKv(key, limit, windowMs, opts?.strict ?? false);
     if (!kvDecision.ok) {
         res.status(429).json({ error: 'Rate limit exceeded.', retryAfterMs: kvDecision.retryAfterMs });
         return false;

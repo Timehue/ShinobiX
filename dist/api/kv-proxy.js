@@ -18,9 +18,40 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = handler;
 const _storage_js_1 = require("./_storage.js");
 const _auth_js_1 = require("./_auth.js");
+const _ratelimit_js_1 = require("./_ratelimit.js");
+// Brute-force guard: cap FAILED auth attempts per IP. Successful authenticated
+// calls are NEVER throttled — this proxy carries legitimate, high-volume
+// server-to-server traffic (Vercel → cPanel disk overlay), so we must not
+// rate-limit the happy path. Only wrong/missing tokens count against the bucket.
+const FAILED_AUTH_MAX = 30;
+const FAILED_AUTH_WINDOW_MS = 5 * 60_000;
+function proxyClientIp(req) {
+    const xff = req.headers['x-forwarded-for'];
+    const xffStr = Array.isArray(xff) ? xff[0] : xff;
+    return xffStr?.split(',')[0]?.trim()
+        || req.socket?.remoteAddress
+        || 'unknown';
+}
+// Optional IP allowlist via KV_PROXY_IP_ALLOWLIST (comma-separated). Disabled
+// (allow-all) when the env var is unset, so this is a no-op unless an operator
+// opts in — auth via the token is always required regardless.
+function ipAllowed(ip) {
+    const raw = process.env.KV_PROXY_IP_ALLOWLIST;
+    if (!raw)
+        return true;
+    const list = raw.split(',').map(s => s.trim()).filter(Boolean);
+    return list.length === 0 || list.includes(ip);
+}
 async function handler(req, res) {
     if (req.method !== 'POST') {
         res.status(405).json({ error: 'POST only' });
+        return;
+    }
+    const ip = proxyClientIp(req);
+    // Optional operator-configured IP allowlist (off by default).
+    if (!ipAllowed(ip)) {
+        console.warn(`[kv-proxy] DENIED disallowed IP ${ip} at ${new Date().toISOString()}`);
+        res.status(403).json({ error: 'forbidden' });
         return;
     }
     const expectedToken = process.env.KV_PROXY_TOKEN;
@@ -31,6 +62,15 @@ async function handler(req, res) {
     const providedRaw = req.headers['x-kv-token'];
     const provided = Array.isArray(providedRaw) ? providedRaw[0] : providedRaw;
     if (!provided || !(0, _auth_js_1.safeEqual)(provided, expectedToken)) {
+        // Audit + brute-force throttle. Each failure consumes the per-IP bucket;
+        // once exhausted, further attempts get 429 instead of 401 so guessing
+        // the token is bounded to FAILED_AUTH_MAX tries per window.
+        const d = (0, _ratelimit_js_1.allow)(`kvproxy-fail:${ip}`, FAILED_AUTH_MAX, FAILED_AUTH_WINDOW_MS);
+        console.warn(`[kv-proxy] DENIED bad/missing token from ${ip} at ${new Date().toISOString()}`);
+        if (!d.ok) {
+            res.status(429).json({ error: 'too many failed attempts' });
+            return;
+        }
         res.status(401).json({ error: 'invalid x-kv-token' });
         return;
     }

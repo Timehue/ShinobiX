@@ -53,15 +53,21 @@ async function handler(req, res) {
         // AND to collect player-submitted bloodlines.
         const saveKeys = await _storage_js_1.kv.keys('save:*');
         const bloodlineEntries = [];
-        const saveSnaps = await Promise.all(saveKeys.map(async (key) => {
-            try {
-                const snap = await _storage_js_1.kv.get(key);
-                return { key, snap };
-            }
-            catch {
-                return { key, snap: null };
-            }
-        }));
+        // Single mget round-trip instead of N individual kv.get() calls
+        // (audit #29: the old map+get pattern issued one KV request per player,
+        // which scaled linearly and hammered the connection pool). mget returns
+        // values positionally aligned to saveKeys.
+        let saveValues = [];
+        try {
+            saveValues = saveKeys.length > 0
+                ? await _storage_js_1.kv.mget(...saveKeys)
+                : [];
+        }
+        catch (err) {
+            console.warn('[admin/players] save mget failed', err);
+            saveValues = [];
+        }
+        const saveSnaps = saveKeys.map((key, i) => ({ key, snap: saveValues[i] ?? null }));
         for (const { key, snap } of saveSnaps) {
             const name = key.replace('save:', '');
             const char = snap?.character;
