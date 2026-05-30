@@ -1,0 +1,116 @@
+# CLAUDE.md
+
+ShinobiX / "Shinobi Journey" — a ninja RPG browser game. React 19 + Vite SPA
+frontend, a set of Vercel-style TypeScript serverless handlers for the API, and
+Supabase (Postgres) for storage. The same API runs two ways: as Vercel
+Functions, and as a single Express server for cPanel / Phusion Passenger.
+
+## Commands
+
+Run from the repo root (`shinobix-api` package) unless noted.
+
+- `npm run build`: Build everything — `build:server` (`tsc -p tsconfig.cpanel.json` → `dist/`) then `build:client`.
+- `npm start`: Run the production server (`node app.js`) — the cPanel/Passenger entry point.
+- `npm run dev`: Run the server with `node --watch app.js`.
+- `npm test`: Run the API/unit tests (`node --import tsx --test` over the colocated `*.test.ts` files).
+
+Frontend (run inside `shinobij.client/`):
+
+- `npm run dev`: Vite dev server (default `http://localhost:5173`).
+- `npm run build`: Type-check + bundle (`tsc -b && vite build`) → `shinobij.client/dist/`.
+- `npm run lint`: ESLint over the client.
+
+## Architecture
+
+- **`api/`** — the backend. Each `*.ts` file is one endpoint with a Vercel-style
+  default export: `export default async function handler(req: VercelRequest, res: VercelResponse)`.
+  Subfolders group features: `player/`, `pvp/`, `clan/` & `clans/`, `village/` &
+  `village-guard/`, `missions/`, `pet/`, `jutsu/`, `bloodlines/`, `profession/`,
+  `ranked-queue/`, `admin/`, `cron/`, `save/`.
+- **Underscore-prefixed files in `api/` are shared helpers, NOT routes** —
+  `_auth.ts`, `_utils.ts` (CORS, etc.), `_storage.ts`, `_ratelimit.ts`,
+  `_lock.ts`, `_text-moderation.ts`, `_player-ips.ts`, and the `_*-validate.ts`
+  validators. Import from these; don't add a route file starting with `_`.
+- **`server.ts`** (repo root) — the Express wrapper for cPanel. It imports the
+  Vercel handlers unchanged and registers each on **both** the bare path and the
+  `/api`-prefixed path (Passenger may or may not strip `/api`). It also serves
+  the React SPA static build and provides `/health` and `/restart`. Compiles to
+  `dist/server.js`.
+- **`app.js`** (repo root, CommonJS) — the Passenger entry point that `server.ts`
+  runs under. It hardcodes Supabase DNS and forces IPv4 (CageFS/CloudLinux can't
+  resolve DNS or route IPv6), loads `.env`, then `require('./dist/server.js')`.
+- **`shinobij.client/`** — React 19 + TypeScript + Vite SPA. `src/main.tsx` →
+  `src/App.tsx`; feature views in `src/screens/` (Village, PvP, Ranked, Clan,
+  Mission, Training, Pet, GuardDuty, BloodlineCodex), shared UI in
+  `src/components/`, game data/config in `src/data/` & `src/constants/`,
+  helpers in `src/lib/`, types in `src/types/`. `authFetch.ts` wraps
+  authenticated API calls; `fingerprint.ts` produces the `x-client-fp` header.
+- **Storage** — Supabase via `@supabase/supabase-js` (and `pg`). Schema in
+  `supabase-schema.sql`; migration notes in `SUPABASE_MIGRATION.md`. A legacy
+  Upstash/Redis KV layer is being migrated out (see `scripts/migrate-upstash-*`
+  and `api/kv-proxy.ts`).
+- **`scripts/`** — one-off migration and PvP balance-simulation scripts.
+- **`docs/`** — design docs (e.g. `professions.md`).
+- **`ShinobiJ.Server/`, `*.slnx`, `*.esproj`** — Visual Studio solution scaffolding; not the runtime.
+
+## Deployment
+
+Two targets share the `api/` handlers:
+
+- **Vercel** (`vercel.json`) — `api/**/*.ts` deploy as Functions (30s, 256MB).
+  Build runs the client; SPA rewrites send non-`/api` paths to `index.html`.
+  Cron `GET /api/cron/snapshot-saves` runs daily at 03:00.
+- **cPanel / Phusion Passenger** — `app.js` → `dist/server.js` (Express).
+  See `CPANEL_SETUP.md` and `Passengerfile.json`.
+
+Note: `server.ts` only routes a subset of `api/**` handlers explicitly — see the
+`NOTE:` block near the bottom of the file. Vercel reaches every handler via the
+folder convention, but **a new endpoint must be added to `server.ts` manually to
+work on cPanel.**
+
+## Conventions
+
+- Handlers are Vercel-style and check `req.method` directly (`GET`/`POST`/`DELETE`/`OPTIONS`); return early on `OPTIONS`.
+- CORS lives in `api/_utils.ts` `cors()`; the Express server in `server.ts`
+  mirrors the same origin allowlist and headers — **keep the two in sync** when
+  changing allowed origins or custom headers (`x-admin-password`,
+  `x-player-password`, `x-player-name`, `x-kv-token`, `x-client-fp`).
+- Tests are colocated as `*.test.ts` next to the code under test and run with the
+  built-in `node:test` runner via `tsx`. Add new tests to the `test` script in
+  the relevant `package.json` if they aren't picked up automatically.
+
+## Hard Rules
+
+- Do not rewrite large systems unless explicitly asked. Prefer small, incremental changes.
+- Do not change Supabase schema, SQL migration files, or storage structure without approval.
+- Do not modify auth, password, admin, rate-limit, or IP-tracking logic without explaining the risk first.
+- Do not remove cPanel/Passenger support when changing API handlers.
+- When adding a new API endpoint, update both:
+  - the `api/` handler for Vercel
+  - `server.ts` route registration for cPanel
+- Keep Vercel and cPanel behavior consistent.
+- Keep CORS headers in `api/_utils.ts` and `server.ts` synchronized.
+- Do not commit secrets, API keys, Supabase service keys, passwords, or `.env` contents.
+- Always run the relevant tests before saying a task is complete.
+- For frontend changes, run `npm run lint` inside `shinobij.client/`.
+- For backend/API changes, run `npm test` from the repo root.
+
+## Refactoring Rules
+
+- Preserve existing behavior unless the task explicitly asks for a behavior change.
+- Before refactoring, identify the current entry points and callers.
+- Keep old function signatures as wrappers when extracting logic.
+- Avoid moving files unless necessary.
+- After refactoring, summarize:
+  - what changed
+  - what stayed compatible
+  - what tests were run
+  - any files that need manual deployment attention
+
+## Game-Specific Priorities
+
+- Shinobi Journey is a live browser RPG project, so avoid changes that break existing player saves.
+- Be careful with balance-sensitive systems: jutsu, bloodlines, pets, PvP, ranked queue, village guard, missions, professions, inventory, and premium currency.
+- Do not change reward rates, rarity odds, combat formulas, cooldowns, AP costs, or currency payouts unless explicitly asked.
+- When changing UI, preserve mobile responsiveness and avoid overlapping side panels.
+- When changing battle logic, verify AP costs, targeting, cooldowns, damage tags, and turn resolution.
