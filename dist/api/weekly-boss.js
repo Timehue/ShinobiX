@@ -120,10 +120,18 @@ async function loadOrInitBoss() {
     }
     return existing;
 }
-// Distribute rewards once 24h has elapsed. Idempotent: rewardsDistributed
-// is flipped inside the boss-lock so two concurrent expiry-triggers can't
-// both credit. Per-save crediting happens outside the boss-lock so each
-// save:<name> write only blocks that player's own concurrent saves.
+// Distribute rewards once 24h has elapsed. Idempotent + crash-resumable
+// (audit #25):
+//   1. Under the boss-lock, COMPUTE the distributionSummary (once) and persist
+//      it WITHOUT setting rewardsDistributed. The reward amounts are frozen at
+//      this point so a re-run never recomputes a different payout.
+//   2. Outside the boss-lock, credit each contributor's save. Each successful
+//      credit appends the player's name to creditedPlayers and persists it,
+//      so a credit is recorded the moment it lands. Already-credited players
+//      are skipped on re-entry — re-runs only retry the ones that didn't land.
+//   3. Once every summary entry is credited, flip rewardsDistributed = true.
+// If the process dies mid-credit, the next GET/POST re-enters and finishes the
+// remaining credits instead of marking distributed up-front and stranding them.
 async function distributeRewardsIfExpired(boss) {
     if (boss.rewardsDistributed)
         return boss;
@@ -131,6 +139,7 @@ async function distributeRewardsIfExpired(boss) {
         return boss;
     let summary = null;
     let finalBoss = boss;
+    // Phase 1 — compute + freeze the summary under the boss-lock (idempotent).
     await (0, _lock_js_1.withKvLock)(WEEKLY_BOSS_STATE_KEY, async () => {
         const fresh = await _storage_js_1.kv.get(WEEKLY_BOSS_STATE_KEY) ?? boss;
         if (fresh.rewardsDistributed) {
@@ -139,6 +148,13 @@ async function distributeRewardsIfExpired(boss) {
         }
         if (Date.now() < fresh.expiresAt) {
             // Lost the expiry race — someone else extended somehow. Bail.
+            finalBoss = fresh;
+            return;
+        }
+        // Already computed on a prior (crashed) run — resume with the FROZEN
+        // summary so payouts don't change between attempts.
+        if (Array.isArray(fresh.distributionSummary) && fresh.distributionSummary.length >= 0 && fresh.distributedAt) {
+            summary = fresh.distributionSummary;
             finalBoss = fresh;
             return;
         }
@@ -163,26 +179,48 @@ async function distributeRewardsIfExpired(boss) {
         });
         const updated = {
             ...fresh,
-            rewardsDistributed: true,
+            // NOT distributed yet — only after all credits succeed (phase 3).
             distributedAt: Date.now(),
             distributionSummary: computed,
+            creditedPlayers: Array.isArray(fresh.creditedPlayers) ? fresh.creditedPlayers : [],
         };
         await _storage_js_1.kv.set(WEEKLY_BOSS_STATE_KEY, updated);
         summary = computed;
         finalBoss = updated;
     });
-    // Credit each contributor outside the boss-lock — per-save locks are
-    // independent of the boss-lock and only serialize concurrent writes
-    // for the same player. Bots / dead players (no save row) are skipped.
-    if (summary) {
-        for (const entry of summary) {
-            const saveKey = `save:${entry.name}`;
-            try {
-                await (0, _lock_js_1.withKvLock)(saveKey, async () => {
-                    const fresh = await _storage_js_1.kv.get(saveKey);
-                    const freshChar = fresh?.character;
-                    if (!fresh || !freshChar)
-                        return;
+    if (!summary)
+        return finalBoss;
+    // Phase 2 — credit each contributor outside the boss-lock. Per-save locks
+    // are independent of the boss-lock and only serialize that player's own
+    // concurrent saves. Bots / dead players (no save row) are marked credited
+    // (nothing to pay) so they don't block phase-3 completion forever.
+    const alreadyCredited = new Set(finalBoss.creditedPlayers ?? []);
+    const newlyCredited = [];
+    const weekKey = finalBoss.weekKey;
+    for (const entry of summary) {
+        if (alreadyCredited.has(entry.name))
+            continue;
+        try {
+            const did = await (0, _lock_js_1.withKvLock)(saveKeyCreditScope(entry.name), async () => {
+                const saveKey = `save:${entry.name}`;
+                const fresh = await _storage_js_1.kv.get(saveKey);
+                const freshChar = fresh?.character;
+                if (!fresh || !freshChar)
+                    return true; // no save → nothing to credit; count as done
+                // EXACTLY-ONCE GATE (audit #25). Two concurrent distribute
+                // passes (e.g. two GETs after expiry) both iterate the frozen
+                // summary; without this an entry could be paid twice. Reserve a
+                // per-(week,player) receipt with NX — only the first pass wins
+                // the reservation and applies the credit. The receipt key
+                // embeds weekKey so it's scoped to this boss spawn and self-
+                // expires. On credit-write failure we roll the reservation back
+                // so a later run can retry. TTL outlives any realistic retry
+                // window (boss lifetime is 24h; 35d is generous + self-cleaning).
+                const receiptKey = `weekly-boss-credit:${weekKey}:${entry.name}`;
+                const reserved = await _storage_js_1.kv.set(receiptKey, '1', { nx: true, ex: 35 * 24 * 60 * 60 });
+                if (!reserved)
+                    return true; // already credited by another pass
+                try {
                     const currentInventory = Array.isArray(freshChar.inventory)
                         ? [...freshChar.inventory]
                         : [];
@@ -200,14 +238,48 @@ async function distributeRewardsIfExpired(boss) {
                         },
                     };
                     await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)(updated, fresh));
-                });
-            }
-            catch (err) {
-                console.warn(`[weekly-boss] credit ${entry.name} failed:`, err);
-            }
+                    return true;
+                }
+                catch (creditErr) {
+                    // Roll back the reservation so the next run re-credits.
+                    await _storage_js_1.kv.del(receiptKey).catch(() => undefined);
+                    throw creditErr;
+                }
+            });
+            if (did)
+                newlyCredited.push(entry.name);
+        }
+        catch (err) {
+            // Leave this player OUT of creditedPlayers so a later run retries.
+            console.warn(`[weekly-boss] credit ${entry.name} failed (will retry):`, err);
         }
     }
+    // Phase 3 — persist receipts and, if everyone is now credited, flip the
+    // distributed flag. Done under the boss-lock to avoid clobbering a
+    // concurrent crediting pass.
+    if (newlyCredited.length > 0 || !finalBoss.rewardsDistributed) {
+        await (0, _lock_js_1.withKvLock)(WEEKLY_BOSS_STATE_KEY, async () => {
+            const fresh = await _storage_js_1.kv.get(WEEKLY_BOSS_STATE_KEY) ?? finalBoss;
+            const credited = new Set([...(fresh.creditedPlayers ?? []), ...newlyCredited]);
+            const summaryNames = (fresh.distributionSummary ?? summary ?? []).map(e => e.name);
+            const allDone = summaryNames.every(n => credited.has(n));
+            const updated = {
+                ...fresh,
+                creditedPlayers: [...credited],
+                rewardsDistributed: allDone ? true : fresh.rewardsDistributed,
+            };
+            await _storage_js_1.kv.set(WEEKLY_BOSS_STATE_KEY, updated);
+            finalBoss = updated;
+        });
+    }
     return finalBoss;
+}
+// The per-player save credit serializes on the same logical lock target as
+// the save endpoint's own lock so a weekly-boss credit and a concurrent
+// player autosave don't interleave a lost update. (save endpoint locks on
+// `save:<name>`; we mirror that target string here.)
+function saveKeyCreditScope(name) {
+    return `save:${name}`;
 }
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res, req);
