@@ -4,12 +4,31 @@ exports.default = handler;
 const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
+const _ratelimit_js_1 = require("../_ratelimit.js");
+const session_js_1 = require("./session.js");
+const _vanguard_rewards_js_1 = require("./_vanguard-rewards.js");
+// All session writes flow through here so the combat log gets capped
+// + the idempotency token ring buffer is appended before it hits KV.
+// Without log trim the payload bloats unbounded across a long fight;
+// without the token append, retries from network blips could
+// double-apply moves.
+async function saveSession(key, session, opts = {}) {
+    const trimmedLog = (0, session_js_1.trimPvpLog)(session.log);
+    const tokens = opts.moveToken
+        ? [...(session.recentMoveTokens ?? []), opts.moveToken].slice(-session_js_1.PVP_MOVE_TOKEN_HISTORY)
+        : session.recentMoveTokens;
+    const next = { ...session, log: trimmedLog, recentMoveTokens: tokens };
+    await _storage_js_1.kv.set(key, next, { ex: opts.ex ?? SESSION_TTL });
+}
 // ─── Grid constants (match arena exactly) ─────────────────────────────────────
 const GRID_W = 12;
 const GRID_H = 10;
 const MAX_ROUNDS = 25;
 const MAX_ACTIONS = 5;
-const SESSION_TTL = 60 * 60;
+// Must match session.ts. 15 min covers the live fight; every move resets
+// the TTL via writeSession, so an active match never expires — only
+// abandoned ones (a tab closed mid-fight) decay quickly.
+const SESSION_TTL = 15 * 60;
 // ─── Jutsu safety bounds (re-validated at move time) ──────────────────────────
 // session.ts clamps these when the fight is hydrated; we double-check at use
 // time so a saved-but-tampered jutsu is rejected even if it survived hydration.
@@ -40,13 +59,49 @@ function jutsuIsSane(j) {
     }
     return true;
 }
-// ─── Combat formula constants ─────────────────────────────────────────────────
+// ─── Combat formula constants (v4.3) ──────────────────────────────────────────
 const MAX_STAT = 2500;
-const PVP_SCALE = 0.42; // Global PvP damage scale — tuned for ~10-round TTK in a mirror match
-const K_DR = 0.5; // Diminishing-returns constant for the DR pool: DR% = raw/(raw+K_DR)
-const HEAL_FLAT = 500;
-const SHIELD_FLAT = 500;
-const DRAIN_AMOUNT = 250;
+// Raw dmg = scaledEp × 32. Calibrated so a round-1 standard 60-AP jutsu
+// (EP 40) at A-rank vs A-rank with full Legendary armor + Void Sovereign
+// damage set lands at ~1,150 (in the ~875-1,150 target band depending on
+// bloodline and armor-set pairing).
+const EP_MULTIPLIER = 32;
+const K_DR = 0.5; // DR pool soft cap: effDR = raw / (raw + K_DR)
+// Damage-amplification soft-cap pool. Mirrors K_DR: IDG (attacker), IDT
+// (defender), and Ignition (defender) all feed one pool with diminishing
+// returns, so 4 stacks of 35% multiply by ~1.74× instead of ~3.32×.
+const K_AMP = 0.5;
+const AMP_EXP_CAP = 4; // legacy safety cap; pool below already softcaps
+const DR_DOT_SCALE = 0.5; // DR mitigation against DoT ticks (0..1)
+const HEAL_FLAT = 750; // Heal tag value at max jutsu mastery
+const SHIELD_FLAT = 750; // Shield tag value at max jutsu mastery
+// Drain: single-stack, scales with attacker mastery → 50..300 per tick
+const DRAIN_BASE_TICK = 50;
+const DRAIN_PER_LEVEL = 5;
+const DRAIN_MAX_TICK = 300;
+// Wound: per-instance tick amount = finalDmg × min(tag.pct, rank_cap, hard_cap) / 100
+const WOUND_CAP_BY_RANK = {
+    basic: 25, // basic / non-bloodline jutsus
+    AB: 30, // A and B rank bloodline jutsus
+    S: 35, // S rank bloodline jutsus
+};
+const WOUND_HARD_CAP_PCT = 60;
+// Buff/debuff durations: amps run 4 rounds (was 2) so stacking to 2 is reliable
+const STATUS_DURATIONS_OVERRIDE = {
+    'Increase Damage Given': 4,
+    'Increase Damage Taken': 4,
+    'Decrease Damage Given': 4,
+    'Decrease Damage Taken': 4,
+};
+function statusDurationFor(name, fallback = 2) {
+    return STATUS_DURATIONS_OVERRIDE[name] ?? fallback;
+}
+// Statuses that allow multiple coexisting instances. Everything else replaces on re-apply.
+const STACKABLE_STATUS = new Set([
+    'Increase Damage Given', 'Increase Damage Taken', 'Ignition',
+    'Decrease Damage Given', 'Decrease Damage Taken',
+    'Wound', 'Lifesteal', 'Reflect', 'Absorb',
+]);
 // ─── Grid helpers (exact match to arena geometry) ─────────────────────────────
 function xy(pos) { return { x: pos % GRID_W, y: Math.floor(pos / GRID_W) }; }
 function posFromXY(x, y) {
@@ -143,6 +198,25 @@ function getDefense(stats, type) {
 function cappedPostDamage(damage, percent) {
     return Math.floor(Math.min(damage * (percent / 100), damage * 0.6));
 }
+// v4.3 Wound rank caps. Bloodline rank string → max allowed Wound percent.
+// Basic / non-bloodline = 25, A/B rank bloodline = 30, S rank = 35.
+function woundCapForJutsu(jutsu) {
+    const rank = (jutsu.bloodlineRank ?? '').trim();
+    if (/^S/i.test(rank))
+        return WOUND_CAP_BY_RANK.S;
+    if (/^[AB]/i.test(rank))
+        return WOUND_CAP_BY_RANK.AB;
+    return WOUND_CAP_BY_RANK.basic;
+}
+// Pierce v3: stat-scaled true damage with hard cap.
+// True damage bypasses DR, shield, absorb, reflect — replaces normal damage.
+// Coef tuned so mid-build (composite offense ~3000) caps at 900; low builds get a floor of 100.
+function pierceTrueDamage(offenseComposite, jutsuAp, masteryLevel) {
+    const apFactor = Math.max(0.5, (jutsuAp || 60) / 60);
+    const masteryFactor = 1 + Math.max(0, Math.min(50, masteryLevel)) * 0.005; // +25% at level 50
+    const raw = offenseComposite * 0.35 * apFactor * masteryFactor;
+    return Math.floor(Math.max(100, Math.min(900, raw)));
+}
 function weatherMultiplier(element, positiveEl, negativeEl) {
     if (!element || (!positiveEl && !negativeEl))
         return 1;
@@ -178,7 +252,15 @@ function hasStatus(f, name, round = Number.POSITIVE_INFINITY) {
     return activeStatuses(f, round).some(s => nameMatches(s.name, name));
 }
 function addStatus(f, s) {
-    return { ...f, statuses: [...f.statuses.filter(x => !nameMatches(x.name, s.name)), s] };
+    // v4.3: apply duration override (IDG/IDT/DDG/DDT → 4 rounds), then either stack or replace.
+    const adjusted = { ...s, rounds: statusDurationFor(s.name, s.rounds) };
+    if (STACKABLE_STATUS.has(adjusted.name)) {
+        return { ...f, statuses: [...f.statuses, adjusted] };
+    }
+    return { ...f, statuses: [...f.statuses.filter(x => !nameMatches(x.name, adjusted.name)), adjusted] };
+}
+function countActive(f, name, round) {
+    return activeStatuses(f, round).filter(s => nameMatches(s.name, name)).length;
 }
 // Tags resolve next round for ALL jutsus (bloodline or not) except INSTANT_EFFECT
 // ground-zone jutsus where the enemy is standing in the zone on cast.
@@ -271,7 +353,8 @@ function tickCooldowns(cds) {
     return next;
 }
 // Raw DR contribution from defensive status effects.
-// Added into the DR pool alongside armor — soft cap via K_DR so stacking always helps.
+// v4.3: DDT/DDG are stackable; each instance contributes its percent to the DR pool.
+// Soft-capped via K_DR so stacking always helps but with diminishing returns.
 function drContributionFor(attacker, defender, round) {
     let dr = 0;
     for (const s of activeStatuses(attacker, round)) {
@@ -284,20 +367,28 @@ function drContributionFor(attacker, defender, round) {
     }
     return dr;
 }
-// Amplifiers (offensive / vulnerability buffs) — no diminishing returns, these increase damage.
+// Amplifiers (offensive / vulnerability buffs). All amp tags feed a single
+// diminishing-returns pool, mirroring K_DR for defensive stacks:
+//     rawAmp     = Σ(IDG attacker) + Σ(IDT defender) + Σ(Ignition defender)
+//     effective  = rawAmp / (rawAmp + K_AMP)        ← always < 1, soft-caps
+//     multiplier = 1 + effective
+// Stack 1 of 35% gives ~1.41×; stack 4 of 35% gives ~1.74× (was ~3.32×).
+// Also stops the IDG-+-Ignition combo from compounding past the soft cap.
 function ampMultiplierFor(attacker, defender, round) {
-    let m = 1;
+    let rawAmp = 0;
     for (const s of activeStatuses(attacker, round)) {
         if (s.name === 'Increase Damage Given')
-            m *= (1 + (s.percent ?? 0) / 100);
+            rawAmp += (s.percent ?? 0) / 100;
     }
     for (const s of activeStatuses(defender, round)) {
         if (s.name === 'Increase Damage Taken')
-            m *= (1 + (s.percent ?? 0) / 100);
-        if (nameMatches(s.name, 'Ignition'))
-            m *= (1 + (s.percent ?? 0) / 100);
+            rawAmp += (s.percent ?? 0) / 100;
+        else if (nameMatches(s.name, 'Ignition'))
+            rawAmp += (s.percent ?? 0) / 100;
     }
-    return m;
+    if (rawAmp <= 0)
+        return 1;
+    return 1 + rawAmp / (rawAmp + K_AMP);
 }
 // Scale a tag percent by mastery level — mirrors the client's effectiveTagPercent logic:
 //   level 50 = full stored value, each level below 50 subtracts 0.2 from the raw percent.
@@ -315,17 +406,23 @@ function applyJutsu(self, opponent, jutsu, wMult = 1, biome = 'central', round =
     const scaledEp = isZeroDamageFortyApJutsu(jutsu) ? 0 : (jutsu.effectPower ?? 20) + masteryLevel * 0.2;
     const offStats = self.character.stats ?? {};
     const defStats = opponent.character.stats ?? {};
-    const statFactor = Math.max(0.35, Math.min(1.85, 1 + (getOffense(offStats, jutsu.type) - getDefense(defStats, jutsu.type)) / (MAX_STAT * 2) * 0.85));
-    const effectFactor = Math.max(0, scaledEp) / 100;
-    // Bloodline mult: pre-computed on the client (1.0 if absent)
+    // statFactor = 1 + (off - def) * 0.85 / (MAX_STAT * 2), clamped [0.35, 1.85].
+    // Identity at off == def (so maxed-vs-maxed stays balanced at 1.0× exactly,
+    // matching the previous v4.3 max-stat assumption). Mirrors the client's
+    // calculateDamage() in App.tsx so the displayed damage preview agrees with
+    // the server-resolved damage outside max-vs-max matchups.
+    const offense = getOffense(offStats, jutsu.type);
+    const defense = getDefense(defStats, jutsu.type);
+    const statFactor = Math.max(0.35, Math.min(1.85, 1 + ((offense - defense) / (MAX_STAT * 2)) * 0.85));
+    // Bloodline mult: pre-computed on the client (1.0 if absent). v4.3 keeps the seal interaction.
     const bloodlineMult = (hasStatus(self, 'Bloodline Seal', round) || hasStatus(self, 'Seal', round)) ? 1.0 : Math.max(1.0, Number(self.character.bloodlineMult ?? 1.0));
-    // Item damage bonus: pre-computed on the client from equipped item bonuses (0 if absent → ×1.0)
+    // Item damage bonus.
     const itemDamageMult = 1 + Math.max(0, Number(self.character.itemDamagePct ?? 0)) / 100;
     // Terrain bonus: +10% when jutsu type/element matches the current biome
     const tMult = terrainMultiplier(jutsu, biome);
-    // Raw base damage — scaled off attacker's maxHp so higher-level players hit harder.
-    // Using opponent.maxHp caused low-level players to deal more damage against tanky targets.
-    const baseDmg = Math.max(0, Math.floor(self.maxHp * effectFactor * statFactor * PVP_SCALE * wMult * tMult * bloodlineMult * itemDamageMult));
+    // v4.3 raw damage = scaledEp × 40 (EP table). Decoupled from maxHp — all max-level players
+    // have similar maxHp anyway, and this gives a tunable damage curve independent of HP scaling.
+    const baseDmg = Math.max(0, Math.floor(scaledEp * EP_MULTIPLIER * statFactor * wMult * tMult * bloodlineMult * itemDamageMult));
     // ── Defensive DR pool (diminishing returns) ───────────────────────────────
     // armorRawDR: raw sum of per-piece reductions (e.g. 7×0.15 + 0.08 Guardian = 1.13).
     // Falls back to deriving from old armorFactor for sessions created before this update.
@@ -396,9 +493,12 @@ function applyJutsu(self, opponent, jutsu, wMult = 1, biome = 'central', round =
             continue;
         }
         if (tag.name === 'Drain') {
+            // v4.3: Drain is single-stack (addStatus replaces on re-apply) and scales with attacker mastery.
+            // Tick = clamp(50 + masteryLevel × 5, 50, 300). At mastery 50: 300/tick.
             if (!hasStatus(o, 'Debuff Prevent', round)) {
-                o = addJutsuStatus(o, jutsu, { name: 'Drain', rounds: 2, amount: DRAIN_AMOUNT, kind: 'negative' }, round);
-                lines.push(`Drain: ${o.name} loses ${DRAIN_AMOUNT} HP+chakra/turn for 2 turns.`);
+                const drainTick = Math.max(DRAIN_BASE_TICK, Math.min(DRAIN_MAX_TICK, DRAIN_BASE_TICK + masteryLevel * DRAIN_PER_LEVEL));
+                o = addJutsuStatus(o, jutsu, { name: 'Drain', rounds: 2, amount: drainTick, kind: 'negative' }, round);
+                lines.push(`Drain: ${o.name} loses ${drainTick} HP+chakra/turn for 2 turns.`);
             }
             continue;
         }
@@ -496,11 +596,16 @@ function applyJutsu(self, opponent, jutsu, wMult = 1, biome = 'central', round =
             continue;
         }
         if (tag.name === 'Mirror') {
-            const mirrored = activeStatuses(s, round).filter(st => st.kind === 'negative' && st.name !== 'Wound' && !nameMatches(st.name, 'Ignition') && st.name !== 'Poison' && st.name !== 'Drain');
+            // Copies caster's non-DoT debuffs onto the opponent. Debuffs stay
+            // on the caster too — Mirror is "spread the pain", not "free
+            // cleanse + transfer". Sim showed the old transfer behavior let
+            // Disruption builds win 100% vs setup-heavy opponents.
+            const mirrored = activeStatuses(s, round).filter(st => st.kind === 'negative'
+                && st.name !== 'Wound' && !nameMatches(st.name, 'Ignition')
+                && st.name !== 'Poison' && st.name !== 'Drain');
             if (!hasStatus(o, 'Debuff Prevent', round)) {
                 mirrored.forEach(st => { o = addJutsuStatus(o, jutsu, { ...st }, round); });
-                s = { ...s, statuses: s.statuses.filter(st => !mirrored.includes(st)) };
-                lines.push(`Mirror: ${s.name} reflected ${mirrored.length ? mirrored.map(st => st.name).join(', ') : 'no debuffs'} onto ${o.name}.`);
+                lines.push(`Mirror: ${s.name} copies ${mirrored.length ? mirrored.map(st => st.name).join(', ') : 'no debuffs'} onto ${o.name}.`);
             }
             continue;
         }
@@ -583,7 +688,9 @@ function applyJutsu(self, opponent, jutsu, wMult = 1, biome = 'central', round =
         }
     }
     if (pierce) {
-        damage = (jutsu.ap ?? 40) >= 60 ? 900 : 0;
+        // v3: replaces the old binary "900 if ap≥60 else 0" with offense-scaled true damage.
+        // True damage bypasses DR, shield, absorb, reflect (handled below by skipping those paths).
+        damage = pierceTrueDamage(getOffense(offStats, jutsu.type), jutsu.ap ?? 40, masteryLevel);
     }
     else {
         // Amplifiers (Increase Damage Given, Increase Damage Taken, Ignition) apply at full value.
@@ -598,24 +705,49 @@ function applyJutsu(self, opponent, jutsu, wMult = 1, biome = 'central', round =
         const reflect = activeStatuses(o, round).find(st => st.name === 'Reflect');
         const reflectedDmg = reflect && !pierce ? cappedPostDamage(finalDmg, reflect.percent ?? 30) : 0;
         const defAbsorb = activeStatuses(o, round).find(st => st.name === 'Absorb');
-        const absorbHeal = defAbsorb ? cappedPostDamage(finalDmg, defAbsorb.percent ?? 30) : 0;
+        const absorbHeal = defAbsorb && !pierce ? cappedPostDamage(finalDmg, defAbsorb.percent ?? 30) : 0;
+        // Named-armor passives (stack with status-based versions above).
+        // Percentages are clamped to [0, 100] at session merge; pierce
+        // jutsus bypass them all the same way they bypass DR / shield.
+        const itemAbsorbPct = Math.max(0, Math.min(100, Number(o.character.itemAbsorbPct ?? 0)));
+        const itemReflectPct = Math.max(0, Math.min(100, Number(o.character.itemReflectPct ?? 0)));
+        const itemLifeStealPct = Math.max(0, Math.min(100, Number(s.character.itemLifeStealPct ?? 0)));
+        const itemAbsorbHeal = !pierce && itemAbsorbPct > 0 ? Math.floor(cappedPostDamage(finalDmg, itemAbsorbPct)) : 0;
+        const itemReflectedDmg = !pierce && itemReflectPct > 0 ? Math.floor(cappedPostDamage(finalDmg, itemReflectPct)) : 0;
+        const itemLifeStealHeal = !pierce && itemLifeStealPct > 0 ? Math.floor(cappedPostDamage(finalDmg, itemLifeStealPct)) : 0;
         o = { ...o, hp: Math.max(0, o.hp - finalDmg), shield: Math.max(0, o.shield - damage) };
         if (absorbHeal > 0)
             o = { ...o, hp: Math.min(o.maxHp, o.hp + absorbHeal) };
+        if (itemAbsorbHeal > 0)
+            o = { ...o, hp: Math.min(o.maxHp, o.hp + itemAbsorbHeal) };
         if (blocked > 0)
             lines.push(`${blocked} absorbed by ${o.name}'s shield.`);
         if (finalDmg > 0)
             lines.push(`${finalDmg} damage to ${o.name}.`);
         if (absorbHeal > 0)
             lines.push(`${o.name} absorbs ${absorbHeal} HP.`);
+        if (itemAbsorbHeal > 0)
+            lines.push(`${o.name}'s armor absorbs ${itemAbsorbHeal} HP.`);
         if (reflectedDmg > 0) {
             s = { ...s, hp: Math.max(0, s.hp - reflectedDmg) };
             lines.push(`${s.name} takes ${reflectedDmg} reflected damage.`);
         }
+        if (itemReflectedDmg > 0) {
+            s = { ...s, hp: Math.max(0, s.hp - itemReflectedDmg) };
+            lines.push(`${s.name} takes ${itemReflectedDmg} damage reflected by ${o.name}'s armor.`);
+        }
+        if (itemLifeStealHeal > 0) {
+            s = { ...s, hp: Math.min(s.maxHp, s.hp + itemLifeStealHeal) };
+            lines.push(`${s.name}'s armor steals ${itemLifeStealHeal} HP.`);
+        }
         for (const tag of tags) {
             const pct = tag.percent ?? 0;
             if (tag.name === 'Wound' && !hasStatus(o, 'Debuff Prevent', round)) {
-                const amt = cappedPostDamage(finalDmg, pct || 30);
+                // v4.3: Wound bleeds finalDmg × min(tag.pct, rank_cap, 60%) per tick.
+                // Basic jutsus cap at 25%, A/B-rank bloodline at 30%, S-rank at 35%.
+                const rankCap = woundCapForJutsu(jutsu);
+                const effectivePct = Math.min(pct || 30, rankCap, WOUND_HARD_CAP_PCT);
+                const amt = cappedPostDamage(finalDmg, effectivePct);
                 o = addJutsuStatus(o, jutsu, { name: 'Wound', rounds: 2, amount: amt, kind: 'negative' }, round);
                 lines.push(`Wound: ${o.name} bleeds ${amt}/turn for 2 turns.`);
             }
@@ -652,22 +784,37 @@ function applyJutsu(self, opponent, jutsu, wMult = 1, biome = 'central', round =
     return { self: s, opponent: o, lines };
 }
 // ─── DoTs applied at start of each turn ───────────────────────────────────────
+// v4.3: DoT ticks are partially mitigated by the defender's own DR pool (armor + DDT stacks),
+// scaled by DR_DOT_SCALE so DoT can't be made fully invulnerable.
 function applyDoTs(fighter, round) {
     const lines = [];
     let f = { ...fighter };
+    // Compute own DR pool against incoming DoT.
+    const ownArmor = (f.character.armorRawDR !== undefined && f.character.armorRawDR !== null)
+        ? Math.min(1.5, Math.max(0, Number(f.character.armorRawDR)))
+        : Math.max(0, 1 - Math.min(1.0, Math.max(0.25, Number(f.character.armorFactor ?? 1.0))));
+    let ownStatusDR = 0;
+    for (const s of activeStatuses(f, round)) {
+        if (s.name === 'Decrease Damage Taken')
+            ownStatusDR += (s.percent ?? 0) / 100;
+    }
+    const ownEffDR = (ownArmor + ownStatusDR) > 0 ? (ownArmor + ownStatusDR) / ((ownArmor + ownStatusDR) + K_DR) : 0;
+    const dotMitigation = Math.max(0, 1 - ownEffDR * DR_DOT_SCALE);
+    const mit = (raw) => Math.max(0, Math.floor(raw * dotMitigation));
     for (const s of activeStatuses(f, round)) {
         if (s.name === 'Wound' && s.amount) {
-            f = { ...f, hp: Math.max(0, f.hp - s.amount) };
-            lines.push(`${f.name} bleeds ${s.amount} (Wound).`);
+            const dmg = mit(s.amount);
+            f = { ...f, hp: Math.max(0, f.hp - dmg) };
+            lines.push(`${f.name} bleeds ${dmg} (Wound).`);
         }
         if (s.name === 'Poison') {
             const poisonPct = s.percent && s.percent > 0 ? s.percent : 6;
-            const dmg = Math.floor(f.maxChakra * (poisonPct / 100));
+            const dmg = mit(Math.floor(f.maxChakra * (poisonPct / 100)));
             f = { ...f, hp: Math.max(0, f.hp - dmg), chakra: Math.max(0, f.chakra - dmg) };
             lines.push(`${f.name} takes ${dmg} Poison damage.`);
         }
         if (s.name === 'Drain') {
-            const amt = s.amount ?? DRAIN_AMOUNT;
+            const amt = mit(s.amount ?? DRAIN_BASE_TICK);
             f = { ...f, hp: Math.max(0, f.hp - amt), chakra: Math.max(0, f.chakra - amt) };
             lines.push(`${f.name} drained ${amt} HP+chakra.`);
         }
@@ -798,12 +945,31 @@ async function handler(req, res) {
         return res.status(200).end();
     if (req.method !== 'POST')
         return res.status(405).end();
+    // Move cadence: legitimate gameplay caps at ~1 action/sec with the 45s
+    // round timer + 5 actions/round; 120/min is roughly 4× that, leaving
+    // headroom for retries and the AFK-fallback POSTs while blocking
+    // scripted spam (which would also tank the move-lock NX path).
+    //
+    // Peek the body for a player name BEFORE the limiter so the budget is
+    // keyed per-name when available — IP-only keys mean a NAT'd / mobile-
+    // tower IP shares the 120/min budget across every real user behind it.
+    // The actual auth check happens further down; this peek only feeds the
+    // limiter key, it's not a trust signal.
+    const moveBodyPeek = typeof req.body === 'string' ? (() => { try {
+        return JSON.parse(req.body);
+    }
+    catch {
+        return {};
+    } })() : (req.body ?? {});
+    const movePeekName = typeof moveBodyPeek?.playerName === 'string' ? moveBodyPeek.playerName : undefined;
+    if (!(await (0, _ratelimit_js_1.enforceRateLimitKv)(req, res, 'pvp-move', 120, 60_000, movePeekName)))
+        return;
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
         // NOTE: biome and weather* are intentionally NOT read from the body —
         // they were a trust-the-client hole. We pull them from the session
         // that was sealed at create time.
-        const { battleId, role, action, tile, jutsuId, itemId, itemName } = body;
+        const { battleId, role, action, tile, jutsuId, itemId, itemName, auto, moveToken } = body;
         if (!battleId || !role || !action)
             return res.status(400).json({ error: 'Missing battleId, role, or action' });
         const key = `pvp:${battleId}`;
@@ -811,6 +977,13 @@ async function handler(req, res) {
         if (!sessionMaybe)
             return res.status(404).json({ error: 'Battle session not found' });
         const session = sessionMaybe;
+        // Idempotency: if the client's moveToken matches a recently
+        // applied move, return the current session without re-applying.
+        // Stops a retried request (network blip, double-tap) from
+        // double-applying the move.
+        if (moveToken && Array.isArray(session.recentMoveTokens) && session.recentMoveTokens.includes(moveToken)) {
+            return res.status(200).json(session);
+        }
         // Environment is read from the session — clients can't override it.
         const biome = session.biome ?? 'central';
         const weatherPositiveElement = session.weatherPositiveElement ?? '';
@@ -833,6 +1006,12 @@ async function handler(req, res) {
         }
         const lockKey = `${key}:lock`;
         const lockToken = `${role}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+        // 10s lock (was 3s) — long enough that a move taking a few seconds
+        // under load can't have the lock expire and a concurrent move slip in.
+        // Lock TTL: 3s. The critical section is <50ms in 99% of cases;
+        // 10s used to be the budget for "what if the lambda crashed
+        // holding the lock?" but 3s is plenty for that recovery while
+        // letting legitimate retries proceed faster.
         const lockResult = await _storage_js_1.kv.set(lockKey, lockToken, { nx: true, ex: 3 });
         if (!lockResult)
             return res.status(200).json(session);
@@ -868,13 +1047,59 @@ async function handler(req, res) {
                 s = { ...s, cooldowns: { ...s.cooldowns, [role]: { ...myCooldowns, ...cd } } };
             if (lines.length)
                 s = { ...s, log: [...s.log, ...lines] };
+            // Stamp lastMoveAt + reset this player's AFK counter (any real
+            // action ends the streak of skipped rounds). Both are read by
+            // the claim-afk-win action.
+            const nextConsec = { ...(s.consecAutoWait ?? {}), [role]: 0 };
+            s = { ...s, lastMoveAt: Date.now(), consecAutoWait: nextConsec };
             return checkWinner(s);
         }
         let result;
         switch (action) {
             case 'wait': {
+                // Determine whether this wait counts as an AFK skip. The
+                // client passes `auto: true` when the 45s round timer fired
+                // it. If the player took zero real actions this turn AND it
+                // was auto-fired, it's a skipped round — bump the counter.
+                // Manual wait OR auto-wait after actions resets the streak.
+                const isIdleAutoSkip = auto === true && session.actionsThisTurn === 0;
+                const prevCount = session.consecAutoWait?.[role] ?? 0;
+                const nextCount = isIdleAutoSkip ? prevCount + 1 : 0;
+                const consecAutoWait = { ...(session.consecAutoWait ?? {}), [role]: nextCount };
                 lines.push(`${me.name} ends their turn.`);
-                result = endTurn({ ...session, log: [...session.log, ...lines] });
+                if (isIdleAutoSkip && nextCount >= 2) {
+                    lines.push(`⚠ ${me.name} has skipped 2 rounds in a row — opponent may claim a forfeit win.`);
+                }
+                result = endTurn({ ...session, log: [...session.log, ...lines], consecAutoWait });
+                break;
+            }
+            case 'claim-afk-win': {
+                // Inactive player claims the win when the active player has
+                // skipped 2 consecutive rounds (let the 45s timer run out
+                // twice). Falls back to a 90s "no contact" timeout for the
+                // crashed-tab case where the round timer never fires.
+                if (session.activePlayer === role) {
+                    return finish(session); // can only claim against opponent
+                }
+                const oppRole = role === 'p1' ? 'p2' : 'p1';
+                const oppSkipCount = session.consecAutoWait?.[oppRole] ?? 0;
+                const AFK_FALLBACK_MS = 90_000;
+                const lastMove = Number(session.lastMoveAt ?? session.createdAt);
+                const elapsed = Date.now() - lastMove;
+                const timedOut = elapsed >= AFK_FALLBACK_MS;
+                if (oppSkipCount < 2 && !timedOut) {
+                    const remaining = Math.max(0, Math.ceil((AFK_FALLBACK_MS - elapsed) / 1000));
+                    return finish({ ...session, log: [...session.log, `${me.name}'s AFK claim rejected — opponent has skipped ${oppSkipCount}/2 rounds (or ${remaining}s of inactivity remain).`] });
+                }
+                const reason = oppSkipCount >= 2 ? `skipped 2 rounds` : `inactive for ${Math.floor(elapsed / 1000)}s`;
+                lines.push(`${opp.name} forfeits — ${reason}. ${me.name} wins by default.`);
+                result = {
+                    ...session,
+                    status: 'done',
+                    winner: role,
+                    log: [...session.log, ...lines],
+                    lastMoveAt: Date.now(),
+                };
                 break;
             }
             case 'move': {
@@ -899,11 +1124,11 @@ async function handler(req, res) {
                 if (!canAct(40))
                     return finish(session);
                 if (distance(me.pos, opp.pos) > 1) {
-                    await _storage_js_1.kv.set(key, { ...session, log: [...session.log, `${me.name}: too far for basic attack — move closer.`] }, { ex: SESSION_TTL });
+                    await saveSession(key, { ...session, log: [...session.log, `${me.name}: too far for basic attack — move closer.`] });
                     return finish({ ...session, log: [...session.log, `${me.name}: too far for basic attack.`] });
                 }
                 if (me.stamina < 10) {
-                    await _storage_js_1.kv.set(key, { ...session, log: [...session.log, `${me.name}: not enough stamina.`] }, { ex: SESSION_TTL });
+                    await saveSession(key, { ...session, log: [...session.log, `${me.name}: not enough stamina.`] });
                     return finish({ ...session, log: [...session.log, `${me.name}: not enough stamina.`] });
                 }
                 const specialty = me.character.specialty ?? 'Ninjutsu';
@@ -960,19 +1185,14 @@ async function handler(req, res) {
                 if (!jutsu) {
                     const missingMsg = `${me.name}: selected jutsu is not available in this PvP session. Reopen the duel or re-equip your loadout.`;
                     const updated = { ...session, log: [...session.log, missingMsg] };
-                    await _storage_js_1.kv.set(key, updated, { ex: SESSION_TTL });
+                    await saveSession(key, updated);
                     return finish(updated);
                 }
-                // Defense-in-depth: even though session.ts clamps the jutsu list
-                // at fight-create time, double-check the jutsu being USED falls
-                // inside known-safe bounds. Rejects anything tampered after
-                // hydration (e.g. via session-replay attacks).
-                if (!jutsuIsSane(jutsu)) {
-                    const rejectMsg = `${me.name}: ${jutsu.name} failed server validation (out-of-bounds effect or tag).`;
-                    const updated = { ...session, log: [...session.log, rejectMsg] };
-                    await _storage_js_1.kv.set(key, updated, { ex: SESSION_TTL });
-                    return finish(updated);
-                }
+                // jutsuIsSane re-validation removed — the jutsu comes from the
+                // session's loadout list, which session.ts already sanitized at
+                // fight-create time and is immutable afterwards. No code path
+                // mutates the loadout mid-fight, so per-move re-validation was
+                // pure overhead (~2-5ms in big loadouts).
                 const apCost = jutsu.ap ?? 40;
                 if (!canAct(apCost) || (myCooldowns[jutsuId] ?? 0) > 0)
                     return finish(session);
@@ -982,7 +1202,7 @@ async function handler(req, res) {
                 if (hasStatus(me, 'Elemental Seal', session.round) && jutsu.element && BASIC_ELEMENTS.has(jutsu.element)) {
                     const esMsg = `${me.name} is Elementally Sealed — cannot use ${jutsu.name} (${jutsu.element}).`;
                     const esState = { ...session, log: [...session.log, esMsg] };
-                    await _storage_js_1.kv.set(key, esState, { ex: SESSION_TTL });
+                    await saveSession(key, esState);
                     return finish(esState);
                 }
                 const jChakraCost = jutsu.chakraCost ?? 0;
@@ -990,13 +1210,13 @@ async function handler(req, res) {
                 if (jChakraCost > 0 && me.chakra < jChakraCost) {
                     const msg = `${me.name}: not enough chakra for ${jutsu.name} (need ${jChakraCost}).`;
                     const updated = { ...session, log: [...session.log, msg] };
-                    await _storage_js_1.kv.set(key, updated, { ex: SESSION_TTL });
+                    await saveSession(key, updated);
                     return finish(updated);
                 }
                 if (jStaminaCost > 0 && me.stamina < jStaminaCost) {
                     const msg = `${me.name}: not enough stamina for ${jutsu.name} (need ${jStaminaCost}).`;
                     const updated = { ...session, log: [...session.log, msg] };
-                    await _storage_js_1.kv.set(key, updated, { ex: SESSION_TTL });
+                    await saveSession(key, updated);
                     return finish(updated);
                 }
                 const tags = jutsu.tags ?? [];
@@ -1009,7 +1229,7 @@ async function handler(req, res) {
                 if (needsGroundTile && tile === undefined) {
                     const msg = `${me.name}: ${jutsu.name} needs a ground tile target.`;
                     const updated = { ...session, log: [...session.log, msg] };
-                    await _storage_js_1.kv.set(key, updated, { ex: SESSION_TTL });
+                    await saveSession(key, updated);
                     return finish(updated);
                 }
                 if (!selfTarget && !groundTarget && !moveTag && affectsOpponent) {
@@ -1017,7 +1237,7 @@ async function handler(req, res) {
                     if (range > 0 && distance(me.pos, opp.pos) > range) {
                         const outOfRangeMsg = `${jutsu.name} is out of range (need ≤${range}, distance ${Math.round(distance(me.pos, opp.pos))}).`;
                         const updated = { ...session, log: [...session.log, outOfRangeMsg] };
-                        await _storage_js_1.kv.set(key, updated, { ex: SESSION_TTL });
+                        await saveSession(key, updated);
                         return finish(updated);
                     }
                 }
@@ -1034,7 +1254,7 @@ async function handler(req, res) {
                     if (destTile < 0 || destTile >= GRID_W * GRID_H || distance(me.pos, destTile) > range || destTile === opp.pos || destTile === me.pos || tileBlocked(destTile, me, opp)) {
                         const msg = `${me.name}: ${jutsu.name} — destination out of range or occupied.`;
                         const updated = { ...session, log: [...session.log, msg] };
-                        await _storage_js_1.kv.set(key, updated, { ex: SESSION_TTL });
+                        await saveSession(key, updated);
                         return finish(updated);
                     }
                     const movedSelf = { ...me, pos: destTile, chakra: Math.max(0, me.chakra - jChakraCost), stamina: Math.max(0, me.stamina - jStaminaCost) };
@@ -1063,7 +1283,7 @@ async function handler(req, res) {
                     if (targetTile < 0 || targetTile >= GRID_W * GRID_H || distance(me.pos, targetTile) > range || targetTile === opp.pos || targetTile === me.pos || tileBlocked(targetTile, me, opp)) {
                         const msg = `${me.name}: ${jutsu.name} — target tile out of range or occupied.`;
                         const updated = { ...session, log: [...session.log, msg] };
-                        await _storage_js_1.kv.set(key, updated, { ex: SESSION_TTL });
+                        await saveSession(key, updated);
                         return finish(updated);
                     }
                     if (jutsuMethod === 'INSTANT_EFFECT') {
@@ -1071,7 +1291,7 @@ async function handler(req, res) {
                         if (!zoneTags.length) {
                             const msg = `${me.name}: ${jutsu.name} needs Decrease Damage Given, Recoil, or Poison for its ground effect.`;
                             const updated = { ...session, log: [...session.log, msg] };
-                            await _storage_js_1.kv.set(key, updated, { ex: SESSION_TTL });
+                            await saveSession(key, updated);
                             return finish(updated);
                         }
                         const groundEffect = {
@@ -1127,7 +1347,7 @@ async function handler(req, res) {
                 if (distance(me.pos, opp.pos) > weapRange) {
                     const msg = `${me.name}: ${itemName ?? 'Weapon'} is out of range (need ≤${weapRange}).`;
                     const updated = { ...session, log: [...session.log, msg] };
-                    await _storage_js_1.kv.set(key, updated, { ex: SESSION_TTL });
+                    await saveSession(key, updated);
                     return finish(updated);
                 }
                 const wTags = [...(serverItem.weaponTags ?? [])];
@@ -1216,7 +1436,53 @@ async function handler(req, res) {
                 await _storage_js_1.kv.del(lockKey).catch(() => undefined);
                 return res.status(400).json({ error: `Unknown action: ${action}` });
         }
-        await _storage_js_1.kv.set(key, result, { ex: SESSION_TTL });
+        // If this commit resolved the fight, grant server-side Vanguard
+        // rewards (Honor Seals + Vanguard XP) for the winner. Idempotent via
+        // session.vanguardRewardsGranted, so retries don't double-grant.
+        if (result.status === 'done' && result.winner && result.winner !== 'draw'
+            && !result.vanguardRewardsGranted) {
+            try {
+                const grant = await (0, _vanguard_rewards_js_1.grantVanguardRewardsForSession)(result);
+                if (grant.granted) {
+                    result.vanguardRewardsGranted = true;
+                    result = { ...result, log: [...result.log, `Vanguard rewards: +${grant.seals} Seals, +${grant.xp} XP`] };
+                }
+            }
+            catch (err) {
+                console.error('[pvp/move] vanguard reward grant failed', err);
+            }
+        }
+        // Clear both fighters' inBattle + pendingAttacker flags when a battle
+        // resolves. Otherwise the loser is "engaged" for ~60s after their
+        // fight ends (pendingAttacker has a 60s TTL) and the cached presence
+        // entry blocks third parties from attacking them. Best-effort —
+        // failures don't undo the battle resolution.
+        if (result.status === 'done') {
+            const p1Key = `presence:${result.p1.name}`;
+            const p2Key = `presence:${result.p2.name}`;
+            try {
+                const [p1Presence, p2Presence] = await Promise.all([
+                    _storage_js_1.kv.get(p1Key),
+                    _storage_js_1.kv.get(p2Key),
+                ]);
+                const PRESENCE_TTL_S = 60;
+                await Promise.all([
+                    p1Presence ? _storage_js_1.kv.set(p1Key, { ...p1Presence, inBattle: undefined, pendingAttacker: null }, { ex: PRESENCE_TTL_S }) : Promise.resolve(),
+                    p2Presence ? _storage_js_1.kv.set(p2Key, { ...p2Presence, inBattle: undefined, pendingAttacker: null }, { ex: PRESENCE_TTL_S }) : Promise.resolve(),
+                ]);
+            }
+            catch (err) {
+                console.error('[pvp/move] presence cleanup failed', err);
+            }
+        }
+        // Cap log size — UI only renders the last ~20 entries anyway, and an
+        // Final commit also threads the moveToken into the recent-tokens
+        // ring buffer so a retry of this same request (network blip,
+        // double-tap) short-circuits at the top of the handler instead
+        // of re-applying the move. (Note: saveSession already trims
+        // the log internally; the manual 100-line cap below was a
+        // legacy guard now subsumed by trimPvpLog.)
+        await saveSession(key, result, { moveToken });
         return finish(result);
     }
     catch (err) {

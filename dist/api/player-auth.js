@@ -3,6 +3,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.RESERVED_USERNAMES = void 0;
+exports.isReservedUsername = isReservedUsername;
+exports.isReservedNameShape = isReservedNameShape;
 exports.hashPw = hashPw;
 exports.authKey = authKey;
 exports.verifyPlayerPassword = verifyPlayerPassword;
@@ -10,7 +13,37 @@ exports.default = handler;
 const _storage_js_1 = require("./_storage.js");
 const _utils_js_1 = require("./_utils.js");
 const _ratelimit_js_1 = require("./_ratelimit.js");
+const _auth_js_1 = require("./_auth.js");
+const moderation_js_1 = require("./admin/moderation.js");
 const crypto_1 = __importDefault(require("crypto"));
+// Usernames reserved for the protected admin account. New `register` requests
+// for these names are refused unless the caller passes the admin password via
+// the `x-admin-password` header. The first-time owner registers themselves by
+// supplying that header once; after that, the existing auth record blocks any
+// further registration anyway. Server reset also preserves their save + auth.
+// Keep in sync with PROTECTED_ADMIN_USERNAME in shinobij.client/src/App.tsx.
+exports.RESERVED_USERNAMES = new Set(['rill']);
+function isReservedUsername(name) {
+    return exports.RESERVED_USERNAMES.has(name.trim().toLowerCase());
+}
+// Storage-layer name prefixes that must NOT be allowed as player usernames.
+// `save:<name>` routes saves through different validators depending on the
+// name prefix — `save:clan-*` goes through validateClanSaveWrite (designed for
+// shared clan records) instead of sanitizeCharacterSave (designed for
+// individual players), so a player who registered as `clan-cheat` would
+// bypass every character-level cap. `system` / `admin` / `server` are
+// reserved for internal use. Reject these at the registration gate so the
+// situation never arises.
+const RESERVED_NAME_PREFIXES = ['clan-', 'admin-', 'system-', 'server-'];
+const RESERVED_NAME_LITERALS = new Set(['admin', 'admin1', 'admin2', 'system', 'server', 'kage', 'narrator', 'player']);
+function isReservedNameShape(name) {
+    const n = name.trim().toLowerCase();
+    if (!n)
+        return true;
+    if (RESERVED_NAME_LITERALS.has(n))
+        return true;
+    return RESERVED_NAME_PREFIXES.some((p) => n.startsWith(p));
+}
 function newSalt() {
     return crypto_1.default.randomBytes(16).toString('hex');
 }
@@ -100,6 +133,33 @@ async function handler(req, res) {
         // Register a new password. Fails if one already exists — use 'change' to update.
         if (!password)
             return res.status(400).json({ ok: false, error: 'Missing password.' });
+        // Reserved-shape defense: storage-layer prefixes like `clan-` route
+        // saves through the wrong validator (`validateClanSaveWrite` instead
+        // of `sanitizeCharacterSave`), bypassing every character-level cap.
+        // Names like `admin` / `system` / `server` are reserved for internal
+        // use. Refuse these at the gate so the bad code path never runs.
+        if (isReservedNameShape(name)) {
+            return res.status(403).json({
+                ok: false,
+                error: 'That username is reserved. Pick a different name.',
+            });
+        }
+        // Reserved-username defense: the protected admin account can only be
+        // claimed once, and only by someone holding the admin password. This
+        // prevents random players from grabbing the privileged username after
+        // a fresh server-reset. The reservation is on the *first* registration
+        // only — once the auth record exists, the `existing` check below
+        // refuses any further registration anyway.
+        if (isReservedUsername(name)) {
+            const adminPassword = process.env.ADMIN_PASSWORD;
+            const adminPw = req.headers['x-admin-password'];
+            if (!adminPassword || !adminPw || !(0, _auth_js_1.safeEqual)(adminPw, adminPassword)) {
+                return res.status(403).json({
+                    ok: false,
+                    error: 'This username is reserved. Ask an admin to register it.',
+                });
+            }
+        }
         try {
             const existing = await _storage_js_1.kv.get(key);
             if (existing)
@@ -162,6 +222,23 @@ async function handler(req, res) {
         }
         if (!valid)
             return res.status(200).json({ ok: false });
+        // Refuse login for banned accounts. The client surfaces this so the
+        // user sees a clear "you are banned until X — reason: Y" message.
+        const ban = await (0, moderation_js_1.getActiveBan)(name);
+        if (ban) {
+            return res.status(403).json({
+                ok: false,
+                error: 'Account is banned.',
+                ban: { until: ban.until, reason: ban.reason, permanent: ban.permanent ?? false },
+            });
+        }
+        // Capture the login IP + browser fingerprint so the Moderation lookup
+        // can link sock-puppets even before the player heartbeats — and even
+        // if they're hiding behind a VPN.
+        void (0, moderation_js_1.recordClientIp)(name, (0, moderation_js_1.clientIpFrom)(req));
+        const fp = (0, moderation_js_1.clientFpFrom)(req);
+        if (fp)
+            void (0, moderation_js_1.recordClientFingerprint)(name, fp);
         return res.status(200).json({ ok: true });
     }
     if (action === 'change') {

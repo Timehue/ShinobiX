@@ -1,0 +1,485 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.getActiveBan = getActiveBan;
+exports.getActiveSilence = getActiveSilence;
+exports.clientFpFrom = clientFpFrom;
+exports.clientIpFrom = clientIpFrom;
+exports.recordClientFingerprint = recordClientFingerprint;
+exports.recordClientIp = recordClientIp;
+exports.default = handler;
+const _storage_js_1 = require("../_storage.js");
+const _utils_js_1 = require("../_utils.js");
+const _auth_js_1 = require("../_auth.js");
+const _ratelimit_js_1 = require("../_ratelimit.js");
+const _lock_js_1 = require("../_lock.js");
+const BAN_KEY_PREFIX = 'mod:ban:';
+const SILENCE_KEY_PREFIX = 'mod:silence:';
+const IP_KEY_PREFIX = 'mod:ip:';
+const BY_IP_KEY_PREFIX = 'mod:by-ip:';
+const FP_KEY_PREFIX = 'mod:fp:';
+const BY_FP_KEY_PREFIX = 'mod:by-fp:';
+const AUDIT_KEY = 'mod:audit';
+const MAX_AUDIT_ENTRIES = 200;
+const MAX_IPS_PER_ACCOUNT = 25;
+const MAX_NAMES_PER_IP = 50;
+const MAX_FPS_PER_ACCOUNT = 10;
+const MAX_NAMES_PER_FP = 50;
+// Reject fingerprints that don't match the expected hex format / length.
+// Stops the header from being abused to dump arbitrary garbage into KV.
+const FP_PATTERN = /^[0-9a-f]{16,64}$/;
+function normalizeName(name) {
+    return name.trim().toLowerCase();
+}
+function banKey(name) { return `${BAN_KEY_PREFIX}${normalizeName(name)}`; }
+function silenceKey(name) { return `${SILENCE_KEY_PREFIX}${normalizeName(name)}`; }
+function ipKey(name) { return `${IP_KEY_PREFIX}${normalizeName(name)}`; }
+function byIpKey(ip) { return `${BY_IP_KEY_PREFIX}${ip}`; }
+function fpKey(name) { return `${FP_KEY_PREFIX}${normalizeName(name)}`; }
+function byFpKey(fp) { return `${BY_FP_KEY_PREFIX}${fp}`; }
+/** Returns the active ban record, or null if none / expired. */
+async function getActiveBan(name) {
+    if (!name)
+        return null;
+    const rec = await _storage_js_1.kv.get(banKey(name));
+    if (!rec)
+        return null;
+    if (rec.permanent)
+        return rec;
+    if (rec.until <= Date.now()) {
+        await _storage_js_1.kv.del(banKey(name)).catch(() => 0);
+        return null;
+    }
+    return rec;
+}
+/** Returns the active silence record, or null if none / expired. */
+async function getActiveSilence(name) {
+    if (!name)
+        return null;
+    const rec = await _storage_js_1.kv.get(silenceKey(name));
+    if (!rec)
+        return null;
+    if (rec.until <= Date.now()) {
+        await _storage_js_1.kv.del(silenceKey(name)).catch(() => 0);
+        return null;
+    }
+    return rec;
+}
+/** Extract the client browser fingerprint from the x-client-fp header. */
+function clientFpFrom(req) {
+    const raw = req.headers['x-client-fp'];
+    const s = (Array.isArray(raw) ? raw[0] : raw) ?? '';
+    const trimmed = String(s).trim().toLowerCase();
+    if (!trimmed || !FP_PATTERN.test(trimmed))
+        return '';
+    return trimmed;
+}
+/** Extract the request's client IP, normalized (first XFF hop wins). */
+function clientIpFrom(req) {
+    const xff = req.headers['x-forwarded-for'];
+    const xffStr = Array.isArray(xff) ? xff[0] : xff;
+    const fromXff = xffStr?.split(',')[0]?.trim();
+    if (fromXff)
+        return fromXff;
+    const real = req.headers['x-real-ip'];
+    if (typeof real === 'string' && real.trim())
+        return real.trim();
+    return (req.socket?.remoteAddress ?? 'unknown').trim();
+}
+/**
+ * Record that `name` was just observed with browser fingerprint `fp`.
+ * Mirrors recordClientIp but for fingerprints, which survive VPNs.
+ * Safe to call on every heartbeat / login.
+ *
+ * Fast path: if the fingerprint hasn't changed since the last call AND the
+ * reverse index already lists this name, we skip both writes entirely. This
+ * is the case ~99% of the time (fingerprints don't change every 2s), and it
+ * drops the heartbeat write count by 80%.
+ */
+async function recordClientFingerprint(name, fp) {
+    if (!name || !fp || !FP_PATTERN.test(fp))
+        return;
+    const n = normalizeName(name);
+    try {
+        const existing = await _storage_js_1.kv.get(fpKey(n));
+        const noopForward = existing?.lastFp === fp && Date.now() - (existing?.lastSeenAt ?? 0) < 10 * 60_000;
+        if (noopForward) {
+            // Forward record is fresh and unchanged. Cheap reverse-index check:
+            // only touch by-fp if our name isn't already in it.
+            const ipList = await _storage_js_1.kv.get(byFpKey(fp));
+            if (Array.isArray(ipList) && ipList.includes(n))
+                return;
+        }
+        const fps = existing?.fps ?? [];
+        const nextFps = [fp, ...fps.filter(x => x !== fp)].slice(0, MAX_FPS_PER_ACCOUNT);
+        const forward = { lastFp: fp, fps: nextFps, lastSeenAt: Date.now() };
+        const ipList = await _storage_js_1.kv.get(byFpKey(fp));
+        const names = Array.isArray(ipList) ? ipList : [];
+        const nextNames = [n, ...names.filter(x => x !== n)].slice(0, MAX_NAMES_PER_FP);
+        await Promise.all([
+            _storage_js_1.kv.set(fpKey(n), forward),
+            _storage_js_1.kv.set(byFpKey(fp), nextNames),
+        ]);
+    }
+    catch {
+        // Best-effort — never break the calling handler.
+    }
+}
+/**
+ * Record that `name` was just observed coming from `ip`. Updates both
+ * mod:ip:<name> (forward lookup) and mod:by-ip:<ip> (reverse index).
+ * Safe to call on every heartbeat / login.
+ *
+ * Fast path: if the IP hasn't changed since the last call AND the reverse
+ * index already lists this name, we skip both writes. Players sit on one IP
+ * for hours at a time, so this short-circuits ~99% of heartbeat writes.
+ */
+async function recordClientIp(name, ip) {
+    if (!name || !ip || ip === 'unknown')
+        return;
+    const n = normalizeName(name);
+    try {
+        const existing = await _storage_js_1.kv.get(ipKey(n));
+        const noopForward = existing?.lastIp === ip && Date.now() - (existing?.lastSeenAt ?? 0) < 10 * 60_000;
+        if (noopForward) {
+            // Forward record is fresh and unchanged. Cheap reverse-index check:
+            // only touch by-ip if our name isn't already in it.
+            const ipList = await _storage_js_1.kv.get(byIpKey(ip));
+            if (Array.isArray(ipList) && ipList.includes(n))
+                return;
+        }
+        const ips = existing?.ips ?? [];
+        const nextIps = [ip, ...ips.filter(x => x !== ip)].slice(0, MAX_IPS_PER_ACCOUNT);
+        const forward = { lastIp: ip, ips: nextIps, lastSeenAt: Date.now() };
+        const ipList = await _storage_js_1.kv.get(byIpKey(ip));
+        const names = Array.isArray(ipList) ? ipList : [];
+        const nextNames = [n, ...names.filter(x => x !== n)].slice(0, MAX_NAMES_PER_IP);
+        await Promise.all([
+            _storage_js_1.kv.set(ipKey(n), forward),
+            _storage_js_1.kv.set(byIpKey(ip), nextNames),
+        ]);
+    }
+    catch {
+        // IP tracking is best-effort — never break the calling handler.
+    }
+}
+async function appendAudit(entry) {
+    try {
+        // Lock so two simultaneous mod actions don't overwrite each other in
+        // the audit blob. Audit log is small + low-volume so the lock contention
+        // cost is essentially zero.
+        await (0, _lock_js_1.withKvLock)(AUDIT_KEY, async () => {
+            const existing = (await _storage_js_1.kv.get(AUDIT_KEY)) ?? [];
+            const next = [entry, ...existing].slice(0, MAX_AUDIT_ENTRIES);
+            await _storage_js_1.kv.set(AUDIT_KEY, next);
+        });
+    }
+    catch {
+        // best-effort
+    }
+}
+function isAdminAuth(req) {
+    const expected = process.env.ADMIN_PASSWORD;
+    if (!expected)
+        return false;
+    const header = req.headers['x-admin-password'];
+    const headerStr = Array.isArray(header) ? header[0] : header;
+    const bodyPw = (() => {
+        try {
+            const b = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+            return typeof b?.password === 'string' ? b.password : '';
+        }
+        catch {
+            return '';
+        }
+    })();
+    if (headerStr && (0, _auth_js_1.safeEqual)(headerStr, expected))
+        return true;
+    if (bodyPw && (0, _auth_js_1.safeEqual)(bodyPw, expected))
+        return true;
+    return false;
+}
+function durationMs(d) {
+    if (d === 'permanent')
+        return Number.POSITIVE_INFINITY;
+    const days = Number(d);
+    if (!Number.isFinite(days) || days <= 0)
+        return 0;
+    return Math.floor(days) * 24 * 60 * 60 * 1000;
+}
+async function handler(req, res) {
+    (0, _utils_js_1.cors)(res, req);
+    if (req.method === 'OPTIONS')
+        return res.status(200).end();
+    // Light rate-limit to stop accidental hammering.
+    if (!(0, _ratelimit_js_1.enforceRateLimit)(req, res, 'admin-moderation', 60, 60_000))
+        return;
+    if (!isAdminAuth(req)) {
+        return res.status(401).json({ error: 'Admin authentication required.' });
+    }
+    try {
+        if (req.method === 'GET') {
+            // Return the full mod state: active bans, active silences, audit log.
+            const [banKeys, silKeys, audit] = await Promise.all([
+                _storage_js_1.kv.keys(`${BAN_KEY_PREFIX}*`),
+                _storage_js_1.kv.keys(`${SILENCE_KEY_PREFIX}*`),
+                _storage_js_1.kv.get(AUDIT_KEY),
+            ]);
+            const [banVals, silVals] = await Promise.all([
+                banKeys.length ? _storage_js_1.kv.mget(...banKeys) : Promise.resolve([]),
+                silKeys.length ? _storage_js_1.kv.mget(...silKeys) : Promise.resolve([]),
+            ]);
+            const now = Date.now();
+            const bans = banKeys
+                .map((k, i) => ({ name: k.slice(BAN_KEY_PREFIX.length), record: banVals[i] }))
+                .filter(b => b.record && (b.record.permanent || b.record.until > now));
+            const silences = silKeys
+                .map((k, i) => ({ name: k.slice(SILENCE_KEY_PREFIX.length), record: silVals[i] }))
+                .filter(s => s.record && s.record.until > now);
+            return res.status(200).json({
+                bans,
+                silences,
+                audit: Array.isArray(audit) ? audit : [],
+            });
+        }
+        if (req.method !== 'POST')
+            return res.status(405).end();
+        const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+        const { kind, target, reason, days, actor } = body;
+        const actorName = (typeof actor === 'string' && actor.trim()) ? actor.trim() : 'admin';
+        const targetName = typeof target === 'string' ? normalizeName(target) : '';
+        if (kind === 'ban') {
+            if (!targetName)
+                return res.status(400).json({ error: 'Missing target.' });
+            const dur = durationMs(days);
+            if (dur === 0)
+                return res.status(400).json({ error: 'Invalid duration.' });
+            const permanent = dur === Number.POSITIVE_INFINITY;
+            const rec = {
+                until: permanent ? 0 : Date.now() + dur,
+                reason: (reason ?? '').slice(0, 500),
+                by: actorName,
+                at: Date.now(),
+                permanent,
+            };
+            await _storage_js_1.kv.set(banKey(targetName), rec);
+            // Also clear active presence + any auth header session won't help, so
+            // the player will be kicked on next auth check.
+            await _storage_js_1.kv.del(`presence:${targetName}`).catch(() => 0);
+            await appendAudit({
+                ts: Date.now(),
+                actor: actorName,
+                action: 'ban',
+                target: targetName,
+                detail: permanent ? 'permanent' : `${Math.round(dur / 86400000)}d — ${rec.reason}`,
+            });
+            return res.status(200).json({ ok: true, ban: rec });
+        }
+        if (kind === 'unban') {
+            if (!targetName)
+                return res.status(400).json({ error: 'Missing target.' });
+            await _storage_js_1.kv.del(banKey(targetName));
+            await appendAudit({
+                ts: Date.now(),
+                actor: actorName,
+                action: 'unban',
+                target: targetName,
+            });
+            return res.status(200).json({ ok: true });
+        }
+        if (kind === 'silence') {
+            if (!targetName)
+                return res.status(400).json({ error: 'Missing target.' });
+            const dur = durationMs(days);
+            if (dur === 0 || dur === Number.POSITIVE_INFINITY) {
+                return res.status(400).json({ error: 'Silence requires a finite duration in days.' });
+            }
+            const rec = {
+                until: Date.now() + dur,
+                reason: (reason ?? '').slice(0, 500),
+                by: actorName,
+                at: Date.now(),
+            };
+            await _storage_js_1.kv.set(silenceKey(targetName), rec);
+            await appendAudit({
+                ts: Date.now(),
+                actor: actorName,
+                action: 'silence',
+                target: targetName,
+                detail: `${Math.round(dur / 86400000)}d — ${rec.reason}`,
+            });
+            return res.status(200).json({ ok: true, silence: rec });
+        }
+        if (kind === 'unsilence') {
+            if (!targetName)
+                return res.status(400).json({ error: 'Missing target.' });
+            await _storage_js_1.kv.del(silenceKey(targetName));
+            await appendAudit({
+                ts: Date.now(),
+                actor: actorName,
+                action: 'unsilence',
+                target: targetName,
+            });
+            return res.status(200).json({ ok: true });
+        }
+        if (kind === 'kick') {
+            // Force-kick: clear presence + active PvP session pointers. The player
+            // stays logged in but is dropped from active state.
+            if (!targetName)
+                return res.status(400).json({ error: 'Missing target.' });
+            await _storage_js_1.kv.del(`presence:${targetName}`).catch(() => 0);
+            await _storage_js_1.kv.set(`reset-signal:${targetName}`, { reason: 'admin-kick', at: Date.now() }, { ex: 60 }).catch(() => null);
+            await appendAudit({
+                ts: Date.now(),
+                actor: actorName,
+                action: 'kick',
+                target: targetName,
+                detail: typeof reason === 'string' ? reason.slice(0, 200) : undefined,
+            });
+            return res.status(200).json({ ok: true });
+        }
+        if (kind === 'ip-lookup' || kind === 'lookup') {
+            if (!targetName)
+                return res.status(400).json({ error: 'Missing target.' });
+            const [ipRec, fpRec] = await Promise.all([
+                _storage_js_1.kv.get(ipKey(targetName)),
+                _storage_js_1.kv.get(fpKey(targetName)),
+            ]);
+            // Build per-IP reverse listings (capped at 10 IPs to bound work).
+            const ipReverse = ipRec?.ips?.length
+                ? await Promise.all(ipRec.ips.slice(0, 10).map(ip => _storage_js_1.kv.get(byIpKey(ip)).then(list => ({ ip, names: list ?? [] }))))
+                : [];
+            const linkedByIpSet = new Set();
+            const perIp = [];
+            for (const { ip, names } of ipReverse) {
+                const others = names.filter(n => n !== targetName);
+                perIp.push({ ip, names: others });
+                others.forEach(n => linkedByIpSet.add(n));
+            }
+            // Same for fingerprints. The fp signal survives VPNs, so a match
+            // here is much stronger evidence of the same person than a shared IP.
+            const fpReverse = fpRec?.fps?.length
+                ? await Promise.all(fpRec.fps.slice(0, 10).map(fp => _storage_js_1.kv.get(byFpKey(fp)).then(list => ({ fp, names: list ?? [] }))))
+                : [];
+            const linkedByFpSet = new Set();
+            const perFp = [];
+            for (const { fp, names } of fpReverse) {
+                const others = names.filter(n => n !== targetName);
+                perFp.push({ fp, names: others });
+                others.forEach(n => linkedByFpSet.add(n));
+            }
+            // Accounts linked by BOTH signals are almost certainly the same person.
+            const linkedByBoth = Array.from(linkedByIpSet).filter(n => linkedByFpSet.has(n)).sort();
+            return res.status(200).json({
+                target: targetName,
+                ipRecord: ipRec,
+                fpRecord: fpRec,
+                linkedByIp: Array.from(linkedByIpSet).sort(),
+                linkedByFp: Array.from(linkedByFpSet).sort(),
+                linkedByBoth,
+                perIp,
+                perFp,
+                // Back-compat for older clients that still read `linked`.
+                linked: Array.from(new Set([...linkedByIpSet, ...linkedByFpSet])).sort(),
+            });
+        }
+        if (kind === 'snapshot') {
+            // Curated read-only summary of a player's save for the Mod tab.
+            // Excludes anything sensitive (no jutsu loadouts, no inventory) —
+            // just the bits a mod needs to decide what action to take.
+            if (!targetName)
+                return res.status(400).json({ error: 'Missing target.' });
+            const [save, ban, sil, presence] = await Promise.all([
+                _storage_js_1.kv.get(`save:${targetName}`),
+                _storage_js_1.kv.get(banKey(targetName)),
+                _storage_js_1.kv.get(silenceKey(targetName)),
+                _storage_js_1.kv.get(`presence:${targetName}`),
+            ]);
+            if (!save)
+                return res.status(200).json({ target: targetName, exists: false });
+            const ch = (save.character ?? {});
+            const created = save.createdAt ?? save.created ?? null;
+            return res.status(200).json({
+                target: targetName,
+                exists: true,
+                snapshot: {
+                    level: Number(ch.level ?? 1),
+                    village: String(ch.village ?? ''),
+                    clan: String(ch.clan ?? ''),
+                    specialty: String(ch.specialty ?? ''),
+                    rank: String(ch.rank ?? ''),
+                    ryo: Number(ch.ryo ?? 0),
+                    xp: Number(ch.xp ?? 0),
+                    totalPvpKills: Number(ch.totalPvpKills ?? 0),
+                    totalAiKills: Number(ch.totalAiKills ?? 0),
+                    hospitalized: Boolean(ch.hospitalized),
+                    createdAt: created,
+                    lastSeenAt: presence ? Number(presence.lastSeen ?? 0) : 0,
+                    currentSector: presence ? Number(presence.sector ?? 0) : 0,
+                    online: !!presence,
+                },
+                ban: ban && (ban.permanent || ban.until > Date.now()) ? ban : null,
+                silence: sil && sil.until > Date.now() ? sil : null,
+            });
+        }
+        if (kind === 'reverse-ip') {
+            // Given a raw IP, return every account that has used it.
+            const { ip } = body;
+            if (!ip || typeof ip !== 'string')
+                return res.status(400).json({ error: 'Missing ip.' });
+            const ipTrim = ip.trim();
+            const names = (await _storage_js_1.kv.get(byIpKey(ipTrim))) ?? [];
+            return res.status(200).json({ ip: ipTrim, names: Array.isArray(names) ? names : [] });
+        }
+        if (kind === 'reverse-fp') {
+            // Given a fingerprint hash, return every account that has used it.
+            const { fp } = body;
+            if (!fp || typeof fp !== 'string' || !FP_PATTERN.test(fp.trim().toLowerCase())) {
+                return res.status(400).json({ error: 'Missing or malformed fingerprint hash.' });
+            }
+            const norm = fp.trim().toLowerCase();
+            const names = (await _storage_js_1.kv.get(byFpKey(norm))) ?? [];
+            return res.status(200).json({ fp: norm, names: Array.isArray(names) ? names : [] });
+        }
+        if (kind === 'fetch-village-chat') {
+            // Return the current chat backlog for a village so the mod can
+            // see context before acting. Same source as the player-facing
+            // chat endpoint — just exposed under admin auth for moderation.
+            const { village } = body;
+            if (!village)
+                return res.status(400).json({ error: 'Missing village.' });
+            const chatKey = `chat:village:${village.toLowerCase().replace(/\s+/g, '-')}`;
+            const messages = (await _storage_js_1.kv.get(chatKey)) ?? [];
+            return res.status(200).json({ village, messages: Array.isArray(messages) ? messages : [] });
+        }
+        if (kind === 'delete-chat-message') {
+            // Remove a single message from a village chat. The chat blob is the
+            // full message array — we filter out one by author+ts. Wrap the
+            // read/filter/write under the same lock api/village/chat.ts uses
+            // so a concurrent legitimate chat append doesn't race-lose its
+            // new message to our admin delete.
+            const { village, author, ts } = body;
+            if (!village || !author || !Number.isFinite(ts)) {
+                return res.status(400).json({ error: 'Missing village, author, or ts.' });
+            }
+            const chatBlobKey = `chat:village:${village.toLowerCase().replace(/\s+/g, '-')}`;
+            await (0, _lock_js_1.withKvLock)(chatBlobKey, async () => {
+                const list = (await _storage_js_1.kv.get(chatBlobKey)) ?? [];
+                const next = list.filter(m => !(m.author === author && m.ts === ts));
+                await _storage_js_1.kv.set(chatBlobKey, next, { ex: 4 * 60 * 60 });
+            });
+            await appendAudit({
+                ts: Date.now(),
+                actor: actorName,
+                action: 'delete-chat-message',
+                target: normalizeName(author),
+                detail: `village=${village}`,
+            });
+            return res.status(200).json({ ok: true });
+        }
+        return res.status(400).json({ error: 'Unknown kind.' });
+    }
+    catch (err) {
+        console.error('[admin/moderation]', err);
+        return res.status(500).json({ error: 'Internal server error.' });
+    }
+}

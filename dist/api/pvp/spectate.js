@@ -18,8 +18,14 @@ async function handler(req, res) {
         return res.status(400).json({ error: 'Missing battle id.' });
     const key = specKey(battleId);
     if (req.method === 'GET') {
+        // Auth gate: previously anyone could poll any battleId and harvest
+        // the list of lowercase player names currently watching it — a
+        // useful presence-tracking signal for stalkers / mods circumventing
+        // the moderation tooling. Logged-in players only.
+        const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req);
+        if (!identity)
+            return res.status(401).json({ error: 'Authentication required.' });
         const spectators = await _storage_js_1.kv.get(key) ?? [];
-        // Filter stale spectators (haven't pinged in 30s)
         const active = spectators.filter(s => Date.now() - s.joinedAt < STALE_MS);
         res.setHeader('Cache-Control', 'no-store');
         return res.status(200).json(active);

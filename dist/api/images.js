@@ -11,8 +11,14 @@ const MAX_IMAGE_BYTES = 3_000_000;
 function isValidImageString(s) {
     if (s.length > MAX_IMAGE_BYTES)
         return false;
-    // Accept data URLs for png/jpeg/webp/gif/svg, or http(s) URLs.
-    if (/^data:image\/(png|jpe?g|webp|gif|svg\+xml);base64,/i.test(s))
+    // Accept ONLY raster-image data URLs (png/jpeg/webp/gif) or http(s) URLs.
+    // SVG is intentionally rejected: SVG can carry <script> tags. The current
+    // client only ever renders avatar/pet/jutsu images via <img src>, which
+    // browsers treat as opaque raster — so SVG is technically safe today, but
+    // it's a XSS time-bomb the moment any future code uses an image URL in
+    // dangerouslySetInnerHTML / <object> / <iframe>. Better to lock it down
+    // now than to discover it later.
+    if (/^data:image\/(png|jpe?g|webp|gif);base64,/i.test(s))
         return true;
     if (/^https?:\/\//i.test(s))
         return true;
@@ -36,11 +42,53 @@ const KNOWN_PREFIXES = {
     bloodline: 'bloodline',
     vn: 'event', // visual-novel pages share the event category
     ai: 'ai',
+    // Hollow Gate Shrine assets: backgrounds + tile/scene illustrations + intro VN pages
+    // ride under their own 'shrine' bucket; world-map landmarks (like the Hollow Gate POI)
+    // ride under 'landmark'. Without these, both would fall into 'misc' and the bulk GET
+    // (which only walks KNOWN_CATEGORIES) would never return them.
+    shrine: 'shrine',
+    landmark: 'landmark',
 };
 const KNOWN_CATEGORIES = Array.from(new Set(Object.values(KNOWN_PREFIXES)));
 function categoryFromId(id) {
     const prefix = id.split(':')[0];
     return KNOWN_PREFIXES[prefix] ?? 'misc';
+}
+// Admin-only image prefixes. The admin tooling owns these (jutsus, items,
+// AIs, events, cards, bloodlines, VN backdrops, shrine assets, world-map
+// landmarks). Players can't add or replace them — without this gate, any
+// authed player can POST id="jutsu:fireball" with an arbitrary image and
+// overwrite the actual jutsu icon shown to everyone.
+const ADMIN_ONLY_PREFIXES = new Set(['jutsu', 'item', 'card', 'event', 'vn', 'ai', 'shrine', 'landmark', 'bloodline']);
+// Returns null if the identity may write to this image id; otherwise an
+// HTTP { status, error } describing the rejection.
+function ownershipReject(id, identity) {
+    if (identity.admin)
+        return null;
+    const colon = id.indexOf(':');
+    if (colon < 0) {
+        return { status: 400, error: 'Image id must use the "<category>:<key>" format.' };
+    }
+    const prefix = id.slice(0, colon).toLowerCase();
+    const rest = id.slice(colon + 1);
+    if (ADMIN_ONLY_PREFIXES.has(prefix)) {
+        return { status: 403, error: `${prefix} images are admin-only.` };
+    }
+    if (prefix === 'avatar') {
+        // avatar:<lowercased player name>. Only the player themselves may
+        // upload or replace their own avatar.
+        if (rest.toLowerCase() !== identity.name.toLowerCase()) {
+            return { status: 403, error: 'You can only set your own avatar.' };
+        }
+    }
+    if (prefix === 'pet') {
+        // pet:<petId>. We don't have a fast pet-ownership lookup here —
+        // pet IDs are client-generated. The misc-per-player cap covers
+        // abuse magnitude, but per-pet ownership would need a save read.
+        // For now, allow any authed player to write pet images. Future:
+        // optionally cross-check char.pets.some(p => p.id === rest).
+    }
+    return null;
 }
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res, req);
@@ -94,9 +142,16 @@ async function handler(req, res) {
             const { id, image } = body;
             if (!id || typeof image !== 'string')
                 return res.status(400).json({ error: 'Missing id or image.' });
+            if (id.length > 256)
+                return res.status(400).json({ error: 'Image id too long.' });
             if (!isValidImageString(image)) {
                 return res.status(400).json({ error: 'Image must be a valid data URL or http(s) URL under 3 MB.' });
             }
+            // Ownership: non-admins can't overwrite admin-prefixed images
+            // (jutsu/item/event/etc) and can only write avatar:<their-name>.
+            const reject = ownershipReject(id, identity);
+            if (reject)
+                return res.status(reject.status).json({ error: reject.error });
             const cat = categoryFromId(id);
             // Per-player cap on "misc" (uncategorized) uploads — stops a single
             // account filling the shared bucket. Tracked by uploader; admins exempt.
@@ -117,6 +172,53 @@ async function handler(req, res) {
         }
         catch (err) {
             console.error('[images]', err);
+            return res.status(500).json({ error: 'Internal server error.' });
+        }
+    }
+    if (req.method === 'DELETE') {
+        // Used by the admin tooling (atlas picker "clear slot", per-asset
+        // "clear image" buttons). POST with empty string used to be the way
+        // to nominally delete, but isValidImageString rejected empty strings,
+        // so server-side state never actually cleared. This branch does a
+        // real HDEL on the category's hash field so reloads no longer
+        // resurrect cleared slots.
+        const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req);
+        if (!identity)
+            return res.status(401).json({ error: 'Authentication required.' });
+        try {
+            // Accept the id either as ?id= query param OR JSON body, for
+            // flexibility with fetch wrappers that strip DELETE bodies.
+            const queryId = typeof req.query.id === 'string' ? req.query.id : '';
+            let bodyId = '';
+            if (req.body) {
+                const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+                if (body && typeof body.id === 'string')
+                    bodyId = body.id;
+            }
+            const id = queryId || bodyId;
+            if (!id)
+                return res.status(400).json({ error: 'Missing id.' });
+            if (id.length > 256)
+                return res.status(400).json({ error: 'Image id too long.' });
+            // Same ownership rules as POST — players can't HDEL admin-owned
+            // assets or other players' avatars.
+            const reject = ownershipReject(id, identity);
+            if (reject)
+                return res.status(reject.status).json({ error: reject.error });
+            const cat = categoryFromId(id);
+            await _storage_js_1.kv.hdel(catHashKey(cat), id);
+            // Also clear the legacy per-cat blob field in case the image
+            // lived there (pre-hash-migration uploads).
+            const blob = await _storage_js_1.kv.get(catKey(cat));
+            if (blob && id in blob) {
+                const next = { ...blob };
+                delete next[id];
+                await _storage_js_1.kv.set(catKey(cat), next);
+            }
+            return res.status(200).end();
+        }
+        catch (err) {
+            console.error('[images DELETE]', err);
             return res.status(500).json({ error: 'Internal server error.' });
         }
     }

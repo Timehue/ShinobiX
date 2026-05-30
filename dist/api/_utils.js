@@ -4,8 +4,14 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.safeName = safeName;
 exports.mergePreservingImages = mergePreservingImages;
 exports.cors = cors;
+// Max length for a player / clan-slug name. KV keys like `save:<name>`,
+// `ratelimit:save:<name>:gains`, `presence:<name>`, etc. embed this string,
+// so an unbounded length inflates every key the player touches. 32 chars
+// covers any realistic display name; longer inputs are truncated rather
+// than rejected so legacy code that hands raw user input here keeps working.
+const SAFE_NAME_MAX_LEN = 32;
 function safeName(name) {
-    return name.toLowerCase().replace(/[^a-z0-9\-_]/g, '');
+    return name.toLowerCase().replace(/[^a-z0-9\-_]/g, '').slice(0, SAFE_NAME_MAX_LEN);
 }
 function recordId(value) {
     return value && typeof value === 'object' && 'id' in value
@@ -19,6 +25,9 @@ function isImageField(key, value) {
         key === 'rightImage') && typeof value === 'string';
 }
 function mergePreservingImages(incoming, existing) {
+    // Arrays: take the incoming sequence verbatim (preserving order +
+    // intentional deletions), but per-item recurse so embedded images and
+    // nested objects merge cleanly with the matching existing entry.
     if (Array.isArray(incoming)) {
         return incoming.map((item, index) => {
             const existingArray = Array.isArray(existing) ? existing : [];
@@ -33,7 +42,15 @@ function mergePreservingImages(incoming, existing) {
         return incoming;
     const inc = incoming;
     const ex = existing && typeof existing === 'object' ? existing : {};
-    const merged = {};
+    // Objects: start with `existing` so any field present on the stored
+    // record but ABSENT from the incoming payload is preserved. The incoming
+    // payload then overrides field-by-field. This defends against partial-
+    // payload writes (e.g. a foreign-save fetch returning a public projection
+    // of ~19 fields then being POSTed back, which used to silently wipe the
+    // remaining ~30 fields of the recipient's save — inventory, pets,
+    // jutsuMastery, equipment, stats, etc.). Players send their full state on
+    // normal auto-save, so this change is a no-op there.
+    const merged = { ...ex };
     for (const [key, value] of Object.entries(inc)) {
         if (isImageField(key, value) && value === '' && typeof ex[key] === 'string' && String(ex[key]).startsWith('data:image')) {
             merged[key] = ex[key];
@@ -79,5 +96,5 @@ function cors(res, req) {
     // If origin is set but not allowed, or method is unsafe without Origin:
     // no ACAO header is emitted. Browser blocks the request.
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-password, x-player-password, x-player-name, x-kv-token');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-password, x-player-password, x-player-name, x-kv-token, x-client-fp');
 }

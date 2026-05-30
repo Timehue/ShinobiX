@@ -5,7 +5,29 @@ const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
+const _lock_js_1 = require("../_lock.js");
 const CHALLENGE_TTL = 120; // seconds — survives two heartbeat cycles
+// Match the public projection in api/player/challenge.ts. The challenges:*
+// key prefix is anon-readable via Supabase Realtime, so the attacker's
+// full character would leak (ryo, jutsu, equipment, stats) without this.
+const CHALLENGER_PUBLIC_FIELDS = new Set([
+    'name', 'level', 'village', 'specialty',
+    'avatarImage', 'rankTitle', 'customTitle',
+    'profession', 'professionRank', 'rankedRating',
+    'clan',
+    // Keep parity with api/player/challenge.ts — pet-challenge accept
+    // handlers read challenge.challenger.pets to find the matching pet.
+    'pets',
+]);
+function projectChallengerCharacter(c) {
+    if (!c)
+        return {};
+    const out = {};
+    for (const k of CHALLENGER_PUBLIC_FIELDS)
+        if (k in c)
+            out[k] = c[k];
+    return out;
+}
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res, req);
     if (req.method === 'OPTIONS')
@@ -58,15 +80,23 @@ async function handler(req, res) {
                 id: `guard-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
                 fromName: attackerCharacter.name ?? 'Raider',
                 toName: guard.name,
-                challenger: attackerCharacter,
+                // Strip the attacker's character to the inbox-public projection
+                // before it lands on the challenges:* key (anon-readable via
+                // Supabase Realtime). Without this strip the raider's ryo /
+                // jutsu / equipment / stats leak to any anon WS subscriber.
+                challenger: projectChallengerCharacter(attackerCharacter),
                 createdAt: Date.now(),
                 mode: 'standard',
                 sectorAttack: true,
                 ...(battleId ? { battleId } : {}),
             };
             const challengeKey = `challenges:${guard.name.toLowerCase().trim()}`;
-            const existing = await _storage_js_1.kv.get(challengeKey) ?? [];
-            await _storage_js_1.kv.set(challengeKey, [...existing, challenge].slice(-20), { ex: CHALLENGE_TTL });
+            // Lock the guard's inbox during the read-append-write so a
+            // concurrent /api/player/challenge POST can't be overwritten.
+            await (0, _lock_js_1.withKvLock)(challengeKey, async () => {
+                const existing = await _storage_js_1.kv.get(challengeKey) ?? [];
+                await _storage_js_1.kv.set(challengeKey, [...existing, challenge].slice(-20), { ex: CHALLENGE_TTL });
+            });
         }
         return res.status(200).json({ pvp: true, guardCharacter, guardName: guard.name });
     }

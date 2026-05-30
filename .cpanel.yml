@@ -1,7 +1,24 @@
 ---
+# cPanel Git Version-Control auto-deploy.
+#
+# This repo COMMITS dist/ (Passenger runs `require('./dist/server.js')` with no
+# build step on the server — see CPANEL_SETUP.md). So this hook restores the
+# committed working tree and bounces Passenger; it deliberately does NOT run
+# `npm run build` here, because the cPanel deploy shell does not have the
+# Node.js App's npm/node on PATH and the client (Vite) build is too heavy for
+# the hook. Build + verify happens on the developer's machine via `npm run
+# build` (which now runs verify:dist) before the commit that ships dist/.
+#
+# The guard below fails the deploy LOUDLY if dist/server.js is missing or empty
+# instead of bouncing Passenger into a 502. To rebuild on the server, SSH in and
+# run `npm run build` (installs devDeps + compiles + verifies) before restarting.
 deployment:
   tasks:
     - export DEPLOYPATH=/home/theraven/apps/shinobix
     - git -C $DEPLOYPATH reset --hard HEAD
+    # -fd only removes UNTRACKED, non-ignored files. node_modules/ is gitignored
+    # so it survives (no slow reinstall); dist/ is tracked so reset restores it.
     - git -C $DEPLOYPATH clean -fd
+    # Fail before restart if the committed server bundle is missing/empty.
+    - test -s $DEPLOYPATH/dist/server.js
     - mkdir -p $DEPLOYPATH/tmp && touch $DEPLOYPATH/tmp/restart.txt

@@ -52,6 +52,50 @@ const join_js_1 = __importDefault(require("./api/ranked-queue/join.js"));
 const leave_js_1 = __importDefault(require("./api/ranked-queue/leave.js"));
 const kv_proxy_js_1 = __importDefault(require("./api/kv-proxy.js"));
 const migrate_kv_js_1 = __importDefault(require("./api/admin/migrate-kv.js"));
+const raid_start_js_1 = __importDefault(require("./api/missions/raid-start.js"));
+const treasury_transfer_js_1 = __importDefault(require("./api/village/treasury-transfer.js"));
+const save_snapshot_js_1 = __importDefault(require("./api/admin/save-snapshot.js"));
+// Clan — wars
+const list_js_4 = __importDefault(require("./api/clan/war/list.js"));
+const declare_js_1 = __importDefault(require("./api/clan/war/declare.js"));
+const challenge_js_3 = __importDefault(require("./api/clan/war/challenge.js"));
+const report_js_1 = __importDefault(require("./api/clan/war/report.js"));
+const tilecards_js_1 = __importDefault(require("./api/clan/war/tilecards.js"));
+// Clan — seal pool
+const get_js_1 = __importDefault(require("./api/clan/seal-pool/get.js"));
+const donate_js_1 = __importDefault(require("./api/clan/seal-pool/donate.js"));
+const distribute_js_1 = __importDefault(require("./api/clan/seal-pool/distribute.js"));
+// Clan — pet escort
+const list_js_5 = __importDefault(require("./api/clan/pet-escort/list.js"));
+const offer_js_1 = __importDefault(require("./api/clan/pet-escort/offer.js"));
+const cancel_js_1 = __importDefault(require("./api/clan/pet-escort/cancel.js"));
+// Missions — daily + reporting
+const daily_js_1 = __importDefault(require("./api/missions/daily.js"));
+const report_raid_js_1 = __importDefault(require("./api/missions/report-raid.js"));
+const report_pvp_win_js_1 = __importDefault(require("./api/missions/report-pvp-win.js"));
+const report_pet_event_js_1 = __importDefault(require("./api/missions/report-pet-event.js"));
+// PvP — realtime + rewards + queues
+const chat_js_2 = __importDefault(require("./api/pvp/chat.js"));
+const spectate_js_1 = __importDefault(require("./api/pvp/spectate.js"));
+const stream_js_1 = __importDefault(require("./api/pvp/stream.js"));
+const claim_rewards_js_1 = __importDefault(require("./api/pvp/claim-rewards.js"));
+const ranked_queue_js_1 = __importDefault(require("./api/pvp/ranked-queue.js"));
+const pet_ranked_queue_js_1 = __importDefault(require("./api/pvp/pet-ranked-queue.js"));
+// Pet
+const battle_result_js_1 = __importDefault(require("./api/pet/battle-result.js"));
+// Jutsu
+const speedup_js_1 = __importDefault(require("./api/jutsu/speedup.js"));
+const train_with_seals_js_1 = __importDefault(require("./api/jutsu/train-with-seals.js"));
+// Profession
+const choose_js_1 = __importDefault(require("./api/profession/choose.js"));
+// Player
+const injured_villagers_js_1 = __importDefault(require("./api/player/injured-villagers.js"));
+// Weekly boss
+const weekly_boss_js_1 = __importDefault(require("./api/weekly-boss.js"));
+// Admin moderation
+const moderation_js_1 = __importDefault(require("./api/admin/moderation.js"));
+// Shared auth helper — constant-time compare for the restart endpoint.
+const _auth_js_1 = require("./api/_auth.js");
 // ─── App setup ───────────────────────────────────────────────────────────────
 const app = (0, express_1.default)();
 // Parse JSON bodies up to 50 MB (needed for saves that include base64 images).
@@ -68,17 +112,24 @@ const ALLOWED_ORIGINS = new Set([
     'http://localhost:3000',
     'http://127.0.0.1:5173',
 ]);
+// Mirror the safe-method allowlist from api/_utils.ts cors(). The old
+// version sent `*` for ANY method when no Origin was present, which is
+// strictly looser than the Vercel path (which only allows `*` for safe
+// methods). An unsafe method with no Origin gets no ACAO header now,
+// matching Vercel behaviour.
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 app.use((req, res, next) => {
     const origin = req.headers.origin ?? '';
+    const method = (req.method ?? 'GET').toUpperCase();
     if (origin && ALLOWED_ORIGINS.has(origin)) {
         res.setHeader('Access-Control-Allow-Origin', origin);
         res.setHeader('Vary', 'Origin');
     }
-    else if (!origin) {
+    else if (!origin && SAFE_METHODS.has(method)) {
         res.setHeader('Access-Control-Allow-Origin', '*');
     }
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-password, x-player-password, x-player-name, x-kv-token');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-password, x-player-password, x-player-name, x-kv-token, x-client-fp');
     if (req.method === 'OPTIONS') {
         res.status(200).end();
         return;
@@ -133,16 +184,59 @@ const _BUILD_INFO = (() => {
 app.get(['/health', '/api/health'], (_req, res) => {
     res.json({ ok: true, ..._BUILD_INFO });
 });
-// Internal restart endpoint — auth via KV_PROXY_TOKEN (the same shared
-// secret we already trust). Passenger respawns the worker when the
-// process exits, which reliably picks up new code from disk even when
-// tmp/restart.txt isn't honored.
+// Normalize a possibly-array header to a single string (Express can hand
+// back string[] for repeated headers).
+function headerValue(h) {
+    if (Array.isArray(h))
+        return h[0] ?? '';
+    return h ?? '';
+}
+// Internal restart endpoint. Passenger respawns the worker when the process
+// exits, which reliably picks up new code from disk even when tmp/restart.txt
+// isn't honored.
+//
+// Auth hardening (see "Route parity + deployment safety" handoff):
+//   • Prefer a DEDICATED `RESTART_TOKEN` so the powerful KV_PROXY_TOKEN does
+//     not double as a worker kill-switch — a KV-token leak should not also
+//     grant restart. Falls back to KV_PROXY_TOKEN only when RESTART_TOKEN is
+//     unset, so existing operations keep working until the dedicated secret
+//     is configured (a one-time warning nudges the migration).
+//   • Constant-time compare via safeEqual (no early-exit timing leak).
+//   • Array-header safe (headerValue) — repeated headers no longer bypass the
+//     `!==` check by arriving as an array.
+//   • Small in-memory throttle + audit logging blunt brute-force guessing.
+//
+// The token is still sent in the existing `x-kv-token` header (also accepts
+// `x-restart-token`) so no CORS change is needed — restart is an operational
+// server-to-server call, never a browser request.
+const RESTART_MAX_ATTEMPTS = 5;
+const RESTART_WINDOW_MS = 60_000;
+let restartAttempts = []; // epoch-ms of recent attempts
+let warnedRestartFallback = false;
 app.post(['/restart', '/api/restart'], (req, res) => {
-    const expected = process.env.KV_PROXY_TOKEN;
-    if (!expected || req.headers['x-kv-token'] !== expected) {
-        res.status(401).json({ error: 'invalid x-kv-token' });
+    const now = Date.now();
+    restartAttempts = restartAttempts.filter((t) => now - t < RESTART_WINDOW_MS);
+    const ip = headerValue(req.headers['x-forwarded-for']).split(',')[0].trim()
+        || req.socket.remoteAddress || 'unknown';
+    if (restartAttempts.length >= RESTART_MAX_ATTEMPTS) {
+        console.warn(`[restart] RATE-LIMITED — ${restartAttempts.length} attempts in ${RESTART_WINDOW_MS}ms from ${ip}`);
+        res.status(429).json({ error: 'too many restart attempts' });
         return;
     }
+    restartAttempts.push(now);
+    const dedicated = process.env.RESTART_TOKEN;
+    const expected = dedicated || process.env.KV_PROXY_TOKEN;
+    if (!dedicated && process.env.KV_PROXY_TOKEN && !warnedRestartFallback) {
+        warnedRestartFallback = true;
+        console.warn('[restart] RESTART_TOKEN not set — falling back to KV_PROXY_TOKEN. Set a dedicated RESTART_TOKEN to separate restart auth from the KV proxy secret.');
+    }
+    const provided = headerValue(req.headers['x-restart-token']) || headerValue(req.headers['x-kv-token']);
+    if (!expected || !provided || !(0, _auth_js_1.safeEqual)(provided, expected)) {
+        console.warn(`[restart] DENIED from ${ip} at ${new Date(now).toISOString()}`);
+        res.status(401).json({ error: 'invalid restart token' });
+        return;
+    }
+    console.log(`[restart] AUTHORIZED from ${ip} at ${new Date(now).toISOString()} (prevCommit ${_BUILD_INFO.commit})`);
     res.json({ ok: true, restarting: true, prevCommit: _BUILD_INFO.commit });
     // Give the response a chance to flush before exiting.
     setTimeout(() => {
@@ -200,6 +294,64 @@ route('/ranked-queue/leave', leave_js_1.default);
 route('/kv/:op', kv_proxy_js_1.default);
 // Admin: migrate disk-routed keys from Supabase → disk overlay.
 route('/admin/migrate-kv', migrate_kv_js_1.default);
+// Missions — AI raid token mint (PvP raids cross-validate via PvpSession;
+// AI raids use this short-lived single-use token instead).
+route('/missions/raid-start', raid_start_js_1.default);
+// Village treasury — atomic Kage-gift endpoint that replaces the broken
+// 2-write client flow (deduct treasury + patch recipient).
+route('/village/treasury/transfer', treasury_transfer_js_1.default);
+// Admin: snapshot / list / restore a player save (90-day TTL). Survives
+// server-reset because the `save-snapshot:` prefix isn't matched by the
+// reset's `save:*` glob.
+route('/admin/save-snapshot', save_snapshot_js_1.default);
+// ─── Clan: wars ────────────────────────────────────────────────────────────────
+// Council Hall "Clan Battles" tab + the village-war flow (which reuses the
+// clan-war engine with the village name as the clan key).
+route('/clan/war/list', list_js_4.default);
+route('/clan/war/declare', declare_js_1.default);
+route('/clan/war/challenge', challenge_js_3.default);
+route('/clan/war/report', report_js_1.default);
+route('/clan/war/tilecards', tilecards_js_1.default);
+// ─── Clan: seal pool ───────────────────────────────────────────────────────────
+route('/clan/seal-pool/get', get_js_1.default);
+route('/clan/seal-pool/donate', donate_js_1.default);
+route('/clan/seal-pool/distribute', distribute_js_1.default);
+// ─── Clan: pet escort ──────────────────────────────────────────────────────────
+route('/clan/pet-escort/list', list_js_5.default);
+route('/clan/pet-escort/offer', offer_js_1.default);
+route('/clan/pet-escort/cancel', cancel_js_1.default);
+// ─── Missions: daily + reporting ───────────────────────────────────────────────
+route('/missions/daily', daily_js_1.default);
+route('/missions/report-raid', report_raid_js_1.default);
+route('/missions/report-pvp-win', report_pvp_win_js_1.default);
+route('/missions/report-pet-event', report_pet_event_js_1.default);
+// ─── PvP: realtime, rewards, ranked queues ─────────────────────────────────────
+// stream/spectate hold the connection open (SSE / long-poll); the generic
+// route() wrapper passes res straight through so the handlers stream normally.
+route('/pvp/chat', chat_js_2.default);
+route('/pvp/spectate', spectate_js_1.default);
+route('/pvp/stream', stream_js_1.default);
+route('/pvp/claim-rewards', claim_rewards_js_1.default);
+route('/pvp/ranked-queue', ranked_queue_js_1.default);
+route('/pvp/pet-ranked-queue', pet_ranked_queue_js_1.default);
+// ─── Pet battle result ─────────────────────────────────────────────────────────
+route('/pet/battle-result', battle_result_js_1.default);
+// ─── Jutsu training ────────────────────────────────────────────────────────────
+route('/jutsu/speedup', speedup_js_1.default);
+route('/jutsu/train-with-seals', train_with_seals_js_1.default);
+// ─── Profession ────────────────────────────────────────────────────────────────
+route('/profession/choose', choose_js_1.default);
+// ─── Player: injured villagers (Hospital screen) ───────────────────────────────
+route('/player/injured-villagers', injured_villagers_js_1.default);
+// ─── Weekly boss (Hall of Legends) ─────────────────────────────────────────────
+route('/weekly-boss', weekly_boss_js_1.default);
+// ─── Admin: moderation (bans / silences / IP linkage) ──────────────────────────
+route('/admin/moderation', moderation_js_1.default);
+// NOTE: Route parity between Vercel (folder convention) and cPanel (this file)
+// is now guarded by `server-routes.test.ts`, which fails CI/`npm test` if the
+// client calls an /api path that isn't registered here. Add the route above
+// AND the import when you add a client-facing endpoint — do not rely on this
+// comment alone.
 // ─── Static files (React SPA) ─────────────────────────────────────────────────
 // STATIC_DIR env var overrides the default so the same compiled server.js works
 // both in the repo (shinobij.client/dist) and in a manual cPanel upload (public/).

@@ -5,6 +5,8 @@ const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
+const _player_ips_js_1 = require("../_player-ips.js");
+const moderation_js_1 = require("../admin/moderation.js");
 // Individual TTL keys (presence:<name>) with 60s expiry.
 // Postgres expires them automatically — no JSONB hash merges, no CPU spike.
 // Reads use kv.keys('presence:*') + kv.mget() = 2 indexed queries.
@@ -27,8 +29,11 @@ async function handler(req, res) {
         return res.status(200).end();
     if (req.method !== 'POST')
         return res.status(405).end();
-    // 1 heartbeat per 2 s per player (30/min). Authenticated name wins over IP for
-    // the rate-limit key so shared IPs (NAT) don't bleed into each other's quota.
+    // 30/min per player heartbeat. Use the KV-backed limiter so the window
+    // is authoritative across all Vercel lambda instances. The previous
+    // in-process limiter let a player triggering parallel invocations
+    // (cold-start fan-out) blow past the 30/min cap on individual instances,
+    // which let the IP/fingerprint capture in this handler be hammered.
     const bodyPeek = typeof req.body === 'string' ? (() => { try {
         return JSON.parse(req.body);
     }
@@ -36,7 +41,7 @@ async function handler(req, res) {
         return {};
     } })() : (req.body ?? {});
     const peekName = typeof bodyPeek?.name === 'string' ? bodyPeek.name : undefined;
-    if (!(0, _ratelimit_js_1.enforceRateLimit)(req, res, 'heartbeat', 30, 60_000, peekName))
+    if (!(await (0, _ratelimit_js_1.enforceRateLimitKv)(req, res, 'heartbeat', 30, 60_000, peekName)))
         return;
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
@@ -51,6 +56,16 @@ async function handler(req, res) {
             return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== name.toLowerCase().trim()) {
             return res.status(403).json({ error: 'Cannot heartbeat as another player.' });
+        }
+        // Fire-and-forget IP + browser-fingerprint capture so the admin
+        // Moderation tab can link sock-puppet accounts even when the user
+        // hops VPNs (the IP changes, the fingerprint doesn't). Never block
+        // the heartbeat on these — best-effort only.
+        if (!identity.admin) {
+            void (0, moderation_js_1.recordClientIp)(identity.name, (0, moderation_js_1.clientIpFrom)(req));
+            const fp = (0, moderation_js_1.clientFpFrom)(req);
+            if (fp)
+                void (0, moderation_js_1.recordClientFingerprint)(identity.name, fp);
         }
         const challengeKey = `challenges:${name.toLowerCase().trim()}`;
         const presenceKey = `${PRESENCE_KEY_PREFIX}${name}`;
@@ -85,9 +100,12 @@ async function handler(req, res) {
         };
         // Write only the individual TTL key — one cheap upsert, Postgres handles expiry.
         // No JSONB hash merge means no O(N-players) CPU work per heartbeat.
+        // Also stamp the current request IP for anti-alt overlap checks
+        // (player-ip:{name}:{ip} keys with 7-day TTL, idempotent).
         await Promise.all([
             _storage_js_1.kv.set(presenceKey, entry, { ex: PRESENCE_TTL_S }),
             pendingChallenges?.length ? _storage_js_1.kv.del(challengeKey) : Promise.resolve(),
+            (0, _player_ips_js_1.stampPlayerIp)(req, name),
         ]);
         // Build the full presence list using an in-process cache (refreshed every 5 s).
         // Between refreshes, each call patches its own updated entry into the cached list —
