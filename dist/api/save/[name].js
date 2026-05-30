@@ -551,7 +551,11 @@ function sanitizeCharacterSave(incoming, existing) {
     // whatever was previously stored, so the legitimate-today claim still
     // survives but backdating doesn't.
     const SERVER_UTC_DATE = new Date().toISOString().slice(0, 10);
-    const DAILY_CLAIM_DATE_FIELDS = ['claimedVillageAgendaDate', 'claimedMapControlDate'];
+    // warGroundBountyDate gates the once-per-UTC-day War Ground bounty (+500
+    // ryo, +1 Fate Shard — see App.tsx). Same backdating risk as the other
+    // daily-claim stamps: setting it to a different date re-opens the bounty.
+    // Locked to the server's UTC today by the same rule below. (audit #12)
+    const DAILY_CLAIM_DATE_FIELDS = ['claimedVillageAgendaDate', 'claimedMapControlDate', 'warGroundBountyDate'];
     for (const field of DAILY_CLAIM_DATE_FIELDS) {
         const incomingDate = char[field];
         if (typeof incomingDate !== 'string' || incomingDate === '')
@@ -1000,7 +1004,13 @@ async function handler(req, res) {
                         _saveVersion: nextVersion,
                         _saveAt: Date.now(),
                     };
-                    const char = incoming?.character;
+                    // Build the registry entry from the SANITIZED payload, not
+                    // the raw incoming body (audit #13). Reading raw `incoming`
+                    // let a tampered client publish a forged level/village/
+                    // specialty into the public roster index even though the
+                    // persisted save was clamped. safeIncoming is what we just
+                    // wrote, so the index matches the stored truth.
+                    const char = safeIncoming?.character;
                     const displayName = char?.name || name;
                     const registryEntry = {
                         name: displayName,
