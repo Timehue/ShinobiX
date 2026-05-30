@@ -1,0 +1,12 @@
+{
+  "_comment": "Copy to appsettings.Development.json (gitignored) and fill locally, or prefer `dotnet user-secrets` / env vars. NEVER commit a real key.",
+  "OpenAI": {
+    "ApiKey": "<OPENAI_API_KEY>"
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  }
+}
