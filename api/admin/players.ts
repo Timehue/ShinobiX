@@ -72,16 +72,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         };
         const bloodlineEntries: BloodlineEntry[] = [];
 
-        const saveSnaps = await Promise.all(
-            saveKeys.map(async (key) => {
-                try {
-                    const snap = await kv.get<Record<string, unknown>>(key);
-                    return { key, snap };
-                } catch {
-                    return { key, snap: null };
-                }
-            })
-        );
+        // Single mget round-trip instead of N individual kv.get() calls
+        // (audit #29: the old map+get pattern issued one KV request per player,
+        // which scaled linearly and hammered the connection pool). mget returns
+        // values positionally aligned to saveKeys.
+        let saveValues: (Record<string, unknown> | null)[] = [];
+        try {
+            saveValues = saveKeys.length > 0
+                ? await kv.mget<Record<string, unknown>[]>(...saveKeys)
+                : [];
+        } catch (err) {
+            console.warn('[admin/players] save mget failed', err);
+            saveValues = [];
+        }
+        const saveSnaps = saveKeys.map((key, i) => ({ key, snap: saveValues[i] ?? null }));
 
         for (const { key, snap } of saveSnaps) {
             const name = key.replace('save:', '');

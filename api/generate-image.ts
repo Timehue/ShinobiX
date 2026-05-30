@@ -16,8 +16,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // 2 images per 60 s per authenticated identity. Tight limit because each
     // call costs real money ($0.02-0.04/image at gpt-image-1 low quality).
     // KV-backed so a stateless lambda hop can't reset the counter.
+    // strict=true: on a KV outage, fall back to a per-instance limit rather
+    // than failing open — an outage must not unlock unbounded paid OpenAI calls.
     const authedName = identity.admin ? null : (identity as { name: string }).name;
-    if (!(await enforceRateLimitKv(req, res, 'generate-image', 2, 60_000, authedName))) return;
+    if (!(await enforceRateLimitKv(req, res, 'generate-image', 2, 60_000, authedName, { strict: true }))) return;
 
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {

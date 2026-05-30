@@ -18,8 +18,10 @@ async function handler(req, res) {
     // 2 images per 60 s per authenticated identity. Tight limit because each
     // call costs real money ($0.02-0.04/image at gpt-image-1 low quality).
     // KV-backed so a stateless lambda hop can't reset the counter.
+    // strict=true: on a KV outage, fall back to a per-instance limit rather
+    // than failing open — an outage must not unlock unbounded paid OpenAI calls.
     const authedName = identity.admin ? null : identity.name;
-    if (!(await (0, _ratelimit_js_1.enforceRateLimitKv)(req, res, 'generate-image', 2, 60_000, authedName)))
+    if (!(await (0, _ratelimit_js_1.enforceRateLimitKv)(req, res, 'generate-image', 2, 60_000, authedName, { strict: true })))
         return;
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
