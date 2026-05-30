@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
-import { isAdmin } from '../_auth.js';
+import { isFullAdmin } from '../_auth.js';
 import { withKvLock } from '../_lock.js';
 
 /*
@@ -13,8 +13,10 @@ import { withKvLock } from '../_lock.js';
  * save *does* get corrupted by a future bug or admin mistake, we want
  * a way to roll it back.
  *
- * Three actions, all admin-only (constant-time password compare via
- * isAdmin):
+ * Three actions, all FULL-admin only (Admin 1, constant-time password compare
+ * via isFullAdmin). Snapshot/restore can overwrite any player's live save, so
+ * content admins (Admin 2) must NOT have access — this is a destructive
+ * recovery tool, not a content-curation one:
  *
  *   { action: 'snapshot', playerName }     — copies save:<name> to
  *                                            save-snapshot:<name>:<ts>
@@ -60,8 +62,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).end();
 
-    if (!isAdmin(req)) {
-        return res.status(401).json({ error: 'Admin authentication required.' });
+    if (!isFullAdmin(req)) {
+        return res.status(401).json({ error: 'Full admin authentication required.' });
     }
 
     try {

@@ -4,6 +4,7 @@ import { cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
+import { stripNonCombatFields } from '../pvp/session.js';
 
 type GuardEntry = { name: string; village: string; level: number; lastSeen: number; defenseBonusPercent?: number };
 
@@ -103,7 +104,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             });
         }
 
-        return res.status(200).json({ pvp: true, guardCharacter, guardName: guard.name });
+        // Project the guard down to the combat-safe field set before returning
+        // it to the ATTACKER. Previously the guard's full private save (ryo,
+        // bank, inventory, daily ledgers, mission journals, pets, lifetime
+        // counters) was handed to whoever attacked them — a free pre-battle
+        // scouting + economic-intel leak. The PvP session endpoint re-hydrates
+        // the guard from their authoritative save anyway, so the attacker only
+        // needs the combat/display fields this projection keeps.
+        const safeGuardCharacter = stripNonCombatFields(guardCharacter);
+        return res.status(200).json({ pvp: true, guardCharacter: safeGuardCharacter, guardName: guard.name });
     } catch (err) {
         console.error('[village-guard/challenge]', err);
         return res.status(500).json({ error: 'Internal server error.' });

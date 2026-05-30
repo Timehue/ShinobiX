@@ -92,10 +92,12 @@ async function handler(req, res) {
         return res.status(200).end();
     if (req.method !== 'GET' && req.method !== 'POST')
         return res.status(405).end();
-    // Allow Vercel cron OR an admin password (so ops can trigger manually
-    // from the admin panel without exposing CRON_SECRET).
-    if (!isVercelCron(req) && !(0, _auth_js_1.isAdmin)(req)) {
-        return res.status(401).json({ error: 'Cron secret or admin password required.' });
+    // Allow Vercel cron OR a FULL-admin password (so ops can trigger manually
+    // from the admin panel without exposing CRON_SECRET). Content admins
+    // (Admin 2) must not be able to drive system-wide snapshot runs — this is
+    // an operational endpoint, not a content one.
+    if (!isVercelCron(req) && !(0, _auth_js_1.isFullAdmin)(req)) {
+        return res.status(401).json({ error: 'Cron secret or full admin password required.' });
     }
     const startedAt = Date.now();
     const deadline = startedAt + MAX_RUNTIME_MS;
