@@ -6,6 +6,7 @@ const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
+const session_js_1 = require("../pvp/session.js");
 const CHALLENGE_TTL = 120; // seconds — survives two heartbeat cycles
 // Match the public projection in api/player/challenge.ts. The challenges:*
 // key prefix is anon-readable via Supabase Realtime, so the attacker's
@@ -98,7 +99,15 @@ async function handler(req, res) {
                 await _storage_js_1.kv.set(challengeKey, [...existing, challenge].slice(-20), { ex: CHALLENGE_TTL });
             });
         }
-        return res.status(200).json({ pvp: true, guardCharacter, guardName: guard.name });
+        // Project the guard down to the combat-safe field set before returning
+        // it to the ATTACKER. Previously the guard's full private save (ryo,
+        // bank, inventory, daily ledgers, mission journals, pets, lifetime
+        // counters) was handed to whoever attacked them — a free pre-battle
+        // scouting + economic-intel leak. The PvP session endpoint re-hydrates
+        // the guard from their authoritative save anyway, so the attacker only
+        // needs the combat/display fields this projection keeps.
+        const safeGuardCharacter = (0, session_js_1.stripNonCombatFields)(guardCharacter);
+        return res.status(200).json({ pvp: true, guardCharacter: safeGuardCharacter, guardName: guard.name });
     }
     catch (err) {
         console.error('[village-guard/challenge]', err);

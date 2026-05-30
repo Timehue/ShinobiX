@@ -4,7 +4,9 @@ exports.PVP_LOG_MAX_LINES = exports.PVP_MOVE_TOKEN_HISTORY = void 0;
 exports.trimPvpLog = trimPvpLog;
 exports.sanitizeJutsuList = sanitizeJutsuList;
 exports.sanitizePvpItems = sanitizePvpItems;
+exports.stripNonCombatFields = stripNonCombatFields;
 exports.default = handler;
+const crypto_1 = require("crypto");
 const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
@@ -225,6 +227,11 @@ const SESSION_STRIP_CHAR_FIELDS = new Set([
     // Pets are huge and not needed for a 1v1 PvP fight
     'pets', 'editablePets',
 ]);
+// Exported so other PvP entry points that return an opponent character to the
+// attacker (e.g. village-guard/challenge) can apply the SAME combat-safe
+// projection instead of leaking the opponent's full private save (currencies,
+// inventory, journals). Keeps stats/jutsu/equipment/bloodlines needed for the
+// fight; strips everything economic / scouting-irrelevant.
 function stripNonCombatFields(character) {
     const out = {};
     for (const [k, v] of Object.entries(character)) {
@@ -481,7 +488,14 @@ async function handler(req, res) {
             // ids close that scrape vector. The client just waits the ~50ms
             // round trip for the id before navigating; UX impact is invisible.
             void clientBattleId; // intentionally ignored
-            const battleId = `pvp-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+            // Crypto-random id: knowing a battleId grants read access to the
+            // session + SSE stream + chat (GET is unauth by design for
+            // EventSource), so it doubles as a capability token. The old
+            // `Date.now()-Math.random().slice(2,9)` suffix was only ~36^7 and
+            // time-seeded — brute-forceable within a timestamp window. A UUIDv4
+            // (122 bits of entropy) closes the scrape vector. Same `pvp-`
+            // prefix so all existing key/route patterns are unchanged.
+            const battleId = `pvp-${(0, crypto_1.randomUUID)()}`;
             // True 50/50 coin flip — going first is a meaningful turn-based
             // advantage and previously the attacker (always p1) won by default.
             // Now both sides have an equal shot at the opening move; the

@@ -114,6 +114,24 @@ async function handler(req, res) {
             const { targetName, challengeId: id, fromName } = body;
             if (!targetName && !fromName)
                 return res.status(400).json({ error: 'Missing targetName or fromName.' });
+            // Ownership gate: a DELETE clears a challenge from targetName's
+            // inbox and/or fromName's outgoing slot. The caller must be a PARTY
+            // to the challenge — i.e. either its recipient (targetName === me)
+            // or its sender (fromName === me). This preserves both legitimate
+            // flows, where one name is the caller and the other is the
+            // counterparty:
+            //   • sender cancels:    targetName=<recipient>, fromName=<me>
+            //   • recipient resolves: targetName=<me>, fromName=<sender>
+            // It blocks a pure third party (neither sender nor recipient) from
+            // clearing someone else's inbox/outgoing slot. Admins bypass.
+            if (!identity.admin) {
+                const me = identity.name;
+                const ownsTarget = targetName ? targetName.toLowerCase().trim() === me : false;
+                const ownsFrom = fromName ? fromName.toLowerCase().trim() === me : false;
+                if (!ownsTarget && !ownsFrom) {
+                    return res.status(403).json({ error: 'Cannot delete another player\'s challenges.' });
+                }
+            }
             const pendingKey = targetName ? challengeKey(targetName) : '';
             // Lock the recipient's inbox during the read-filter-write so a
             // concurrent POST adding a new challenge can't be silently
