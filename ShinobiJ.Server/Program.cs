@@ -33,6 +33,27 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+// SECURITY (audit #26): this .NET project is Visual Studio scaffolding, NOT the
+// production runtime — the Express server in server.ts is. Every /api/* endpoint
+// below is an UNAUTHENTICATED in-memory/file mock that mirrors real API paths
+// (presence, attack, village-guard, save read/write). If this server is ever
+// accidentally deployed to production, those would be a wide-open bypass. This
+// single guard 404s the entire /api surface outside Development, so a misdeploy
+// degrades to "static SPA only" instead of "unauthenticated game API". Local
+// dev (Development environment) is unaffected.
+if (!app.Environment.IsDevelopment())
+{
+    app.Use(async (context, next) =>
+    {
+        if (context.Request.Path.StartsWithSegments("/api"))
+        {
+            context.Response.StatusCode = StatusCodes.Status404NotFound;
+            return;
+        }
+        await next();
+    });
+}
+
 // Trust the ALB/reverse-proxy X-Forwarded-* headers in production.
 // No-op locally (no proxy sends those headers).
 app.UseForwardedHeaders(new ForwardedHeadersOptions
