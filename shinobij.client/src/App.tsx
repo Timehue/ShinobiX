@@ -867,6 +867,8 @@ export type CreatorEvent = {
     name: string;
     biome: Biome;
     targetSector?: number;
+    tileX?: number;  // tile position within sector (0-143)
+    tileY?: number;  // tile position within sector (0-143)
     icon: string;
     eventKind?: "reward" | "visualNovel";
     trigger?: "manual" | "firstBattleArena" | "firstLeaveVillage";
@@ -9859,6 +9861,7 @@ export default function App() {
                         character={character}
                         updateCharacter={setCharacter}
                         creatorEvents={creatorEvents}
+                        creatorRaids={creatorRaids}
                         petEncounterVn={petEncounterVn}
                         ancientChestVn={ancientChestVn}
                         editablePets={editablePets}
@@ -27393,6 +27396,7 @@ function WorldMap({
     character,
     updateCharacter,
     creatorEvents,
+    creatorRaids,
     petEncounterVn,
     ancientChestVn,
     editablePets,
@@ -27431,6 +27435,7 @@ function WorldMap({
     character: Character;
     updateCharacter: (character: Character) => void;
     creatorEvents: CreatorEvent[];
+    creatorRaids: CreatorRaid[];
     petEncounterVn: CreatorEvent;
     ancientChestVn: CreatorEvent;
     editablePets: Pet[];
@@ -28370,7 +28375,92 @@ function WorldMap({
                                     </button>
                                 );
                             })}
-                        </div>                  
+
+                            {creatorEvents
+                                .filter((event) => event.eventKind !== "visualNovel" && event.targetSector === selectedSector)
+                                .map((event) => {
+                                    const col = ((event.tileX ?? 0) % 12 + 12) % 12;
+                                    const row = ((event.tileY ?? 0) % 12 + 12) % 12;
+                                    return (
+                                        <button
+                                            key={`sector-event-${event.id}`}
+                                            className="sector-encounter-marker sector-event-marker"
+                                            style={{
+                                                gridColumn: `${col + 1} / span 1`,
+                                                gridRow: `${row + 1} / span 1`,
+                                                alignSelf: "center",
+                                                justifySelf: "center",
+                                                zIndex: 5,
+                                                background: "rgba(2,6,23,.85)",
+                                                color: "#f8fafc",
+                                                border: "2px solid #fef3c7",
+                                                borderRadius: 8,
+                                                padding: "4px 6px",
+                                                fontSize: 10,
+                                                lineHeight: 1.05,
+                                                display: "grid",
+                                                gap: 1,
+                                                textAlign: "center",
+                                                cursor: "pointer",
+                                                boxShadow: "0 3px 0 rgba(2,6,23,.8), 0 0 16px rgba(0,0,0,.58)",
+                                            }}
+                                            onClick={() => triggerCreatorEvent(event)}
+                                            title={`${event.name} | Lvl ${event.levelReq}`}
+                                        >
+                                            <strong style={{ color: "#facc15", fontSize: 16 }}>{event.icon}</strong>
+                                            <span>{event.name}</span>
+                                        </button>
+                                    );
+                                })}
+
+                            {creatorRaids
+                                .filter((raid) => raid.targetSector === selectedSector)
+                                .map((raid) => {
+                                    const col = ((raid.tileX ?? 0) % 12 + 12) % 12;
+                                    const row = ((raid.tileY ?? 0) % 12 + 12) % 12;
+                                    return (
+                                        <button
+                                            key={`sector-raid-${raid.id}`}
+                                            className="sector-encounter-marker sector-raid-marker"
+                                            style={{
+                                                gridColumn: `${col + 1} / span 1`,
+                                                gridRow: `${row + 1} / span 1`,
+                                                alignSelf: "center",
+                                                justifySelf: "center",
+                                                zIndex: 5,
+                                                background: "rgba(60,10,10,.88)",
+                                                color: "#fff",
+                                                border: "2px solid #fca5a5",
+                                                borderRadius: 8,
+                                                padding: "4px 6px",
+                                                fontSize: 10,
+                                                lineHeight: 1.05,
+                                                display: "grid",
+                                                gap: 1,
+                                                textAlign: "center",
+                                                cursor: "pointer",
+                                                boxShadow: "0 3px 0 rgba(2,6,23,.8), 0 0 16px rgba(220,38,38,.45)",
+                                            }}
+                                            onClick={() => {
+                                                if (character.level < raid.levelReq) {
+                                                    alert(`Requires level ${raid.levelReq}.`);
+                                                    return;
+                                                }
+                                                setCurrentSector(raid.targetSector!);
+                                                setPendingAiProfileId(raid.aiProfileId || "");
+                                                setRaidBattleKind("raidAi");
+                                                setCurrentBiome(raid.biome);
+                                                setCurrentWeather(weatherForBiome(raid.biome));
+                                                setScreen("arena");
+                                            }}
+                                            title={`${raid.name} | ${raid.waves} waves | Lvl ${raid.levelReq}`}
+                                        >
+                                            <strong style={{ color: "#fca5a5", fontSize: 16 }}>{raid.icon}</strong>
+                                            <span>{raid.name}</span>
+                                        </button>
+                                    );
+                                })}
+                        </div>
                     </main>
 
                     <aside className="instance-actions">
@@ -28754,23 +28844,6 @@ function WorldMap({
                     The Central Hub banner + the explicit Village War
                     screen already surface active wars; a third overlay
                     on the atlas was cluttering the village markers.) */}
-
-                {creatorEvents.filter((event) => event.eventKind !== "visualNovel" && event.targetSector).map((event) => {
-                    const sector = sectorPoints.find((point) => point.id === event.targetSector);
-                    if (!sector) return null;
-                    return (
-                        <button
-                            key={`event-marker-${event.id}`}
-                            className="atlas-landmark atlas-event"
-                            style={{ left: sector.x + "%", top: sector.y + "%", transform: "translate(-50%, -120%)" }}
-                            onClick={() => triggerCreatorEvent(event)}
-                            title={`${event.name} | Sector ${event.targetSector}`}
-                        >
-                            <strong>{event.icon}</strong>
-                            <span>{event.name}</span>
-                        </button>
-                    );
-                })}
 
                 {locations.map((location) => {
                     // Hollow Gate POI consumes its admin-generated landmark image
