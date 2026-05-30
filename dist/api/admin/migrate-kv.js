@@ -26,14 +26,8 @@ async function handler(req, res) {
     }
     if (!(0, _ratelimit_js_1.enforceRateLimit)(req, res, 'admin-migrate-kv', 10, 60 * 60_000))
         return;
-    const expected = process.env.ADMIN_PASSWORD;
-    if (!expected) {
-        res.status(500).json({ error: 'ADMIN_PASSWORD not configured.' });
-        return;
-    }
-    const providedRaw = req.headers['x-admin-password'];
-    const provided = Array.isArray(providedRaw) ? providedRaw[0] : providedRaw;
-    if (!provided || !(0, _auth_js_1.safeEqual)(provided, expected)) {
+    // Full admin (Admin 1) only — destructive endpoint.
+    if (!(0, _auth_js_1.isFullAdmin)(req)) {
         res.status(401).json({ error: 'invalid admin password' });
         return;
     }
@@ -52,6 +46,6 @@ async function handler(req, res) {
     }
     catch (err) {
         console.error('[admin/migrate-kv] failed:', err);
-        res.status(500).json({ ok: false, error: String(err) });
+        res.status(500).json({ ok: false, error: 'Internal server error.' });
     }
 }

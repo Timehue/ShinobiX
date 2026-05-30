@@ -54,6 +54,49 @@ import raidStartHandler   from './api/missions/raid-start.js';
 import villageTreasuryTransferHandler from './api/village/treasury-transfer.js';
 import saveSnapshotHandler from './api/admin/save-snapshot.js';
 
+// Clan — wars
+import clanWarListHandler      from './api/clan/war/list.js';
+import clanWarDeclareHandler   from './api/clan/war/declare.js';
+import clanWarChallengeHandler from './api/clan/war/challenge.js';
+import clanWarReportHandler    from './api/clan/war/report.js';
+import clanWarTilecardsHandler from './api/clan/war/tilecards.js';
+// Clan — seal pool
+import clanSealPoolGetHandler        from './api/clan/seal-pool/get.js';
+import clanSealPoolDonateHandler     from './api/clan/seal-pool/donate.js';
+import clanSealPoolDistributeHandler from './api/clan/seal-pool/distribute.js';
+// Clan — pet escort
+import clanPetEscortListHandler   from './api/clan/pet-escort/list.js';
+import clanPetEscortOfferHandler  from './api/clan/pet-escort/offer.js';
+import clanPetEscortCancelHandler from './api/clan/pet-escort/cancel.js';
+// Missions — daily + reporting
+import missionsDailyHandler          from './api/missions/daily.js';
+import missionsReportRaidHandler     from './api/missions/report-raid.js';
+import missionsReportPvpWinHandler   from './api/missions/report-pvp-win.js';
+import missionsReportPetEventHandler from './api/missions/report-pet-event.js';
+// PvP — realtime + rewards + queues
+import pvpChatHandler           from './api/pvp/chat.js';
+import pvpSpectateHandler       from './api/pvp/spectate.js';
+import pvpStreamHandler         from './api/pvp/stream.js';
+import pvpClaimRewardsHandler   from './api/pvp/claim-rewards.js';
+import pvpRankedQueueHandler    from './api/pvp/ranked-queue.js';
+import pvpPetRankedQueueHandler from './api/pvp/pet-ranked-queue.js';
+// Pet
+import petBattleResultHandler from './api/pet/battle-result.js';
+// Jutsu
+import jutsuSpeedupHandler       from './api/jutsu/speedup.js';
+import jutsuTrainWithSealsHandler from './api/jutsu/train-with-seals.js';
+// Profession
+import professionChooseHandler from './api/profession/choose.js';
+// Player
+import injuredVillagersHandler from './api/player/injured-villagers.js';
+// Weekly boss
+import weeklyBossHandler from './api/weekly-boss.js';
+// Admin moderation
+import moderationHandler from './api/admin/moderation.js';
+
+// Shared auth helper — constant-time compare for the restart endpoint.
+import { safeEqual } from './api/_auth.js';
+
 // ─── App setup ───────────────────────────────────────────────────────────────
 
 const app = express();
@@ -154,16 +197,64 @@ app.get(['/health', '/api/health'], (_req, res) => {
     res.json({ ok: true, ..._BUILD_INFO });
 });
 
-// Internal restart endpoint — auth via KV_PROXY_TOKEN (the same shared
-// secret we already trust). Passenger respawns the worker when the
-// process exits, which reliably picks up new code from disk even when
-// tmp/restart.txt isn't honored.
+// Normalize a possibly-array header to a single string (Express can hand
+// back string[] for repeated headers).
+function headerValue(h: string | string[] | undefined): string {
+    if (Array.isArray(h)) return h[0] ?? '';
+    return h ?? '';
+}
+
+// Internal restart endpoint. Passenger respawns the worker when the process
+// exits, which reliably picks up new code from disk even when tmp/restart.txt
+// isn't honored.
+//
+// Auth hardening (see "Route parity + deployment safety" handoff):
+//   • Prefer a DEDICATED `RESTART_TOKEN` so the powerful KV_PROXY_TOKEN does
+//     not double as a worker kill-switch — a KV-token leak should not also
+//     grant restart. Falls back to KV_PROXY_TOKEN only when RESTART_TOKEN is
+//     unset, so existing operations keep working until the dedicated secret
+//     is configured (a one-time warning nudges the migration).
+//   • Constant-time compare via safeEqual (no early-exit timing leak).
+//   • Array-header safe (headerValue) — repeated headers no longer bypass the
+//     `!==` check by arriving as an array.
+//   • Small in-memory throttle + audit logging blunt brute-force guessing.
+//
+// The token is still sent in the existing `x-kv-token` header (also accepts
+// `x-restart-token`) so no CORS change is needed — restart is an operational
+// server-to-server call, never a browser request.
+const RESTART_MAX_ATTEMPTS = 5;
+const RESTART_WINDOW_MS = 60_000;
+let restartAttempts: number[] = [];   // epoch-ms of recent attempts
+let warnedRestartFallback = false;
+
 app.post(['/restart', '/api/restart'], (req, res) => {
-    const expected = process.env.KV_PROXY_TOKEN;
-    if (!expected || req.headers['x-kv-token'] !== expected) {
-        res.status(401).json({ error: 'invalid x-kv-token' });
+    const now = Date.now();
+    restartAttempts = restartAttempts.filter((t) => now - t < RESTART_WINDOW_MS);
+    const ip = headerValue(req.headers['x-forwarded-for']).split(',')[0].trim()
+        || req.socket.remoteAddress || 'unknown';
+
+    if (restartAttempts.length >= RESTART_MAX_ATTEMPTS) {
+        console.warn(`[restart] RATE-LIMITED — ${restartAttempts.length} attempts in ${RESTART_WINDOW_MS}ms from ${ip}`);
+        res.status(429).json({ error: 'too many restart attempts' });
         return;
     }
+    restartAttempts.push(now);
+
+    const dedicated = process.env.RESTART_TOKEN;
+    const expected = dedicated || process.env.KV_PROXY_TOKEN;
+    if (!dedicated && process.env.KV_PROXY_TOKEN && !warnedRestartFallback) {
+        warnedRestartFallback = true;
+        console.warn('[restart] RESTART_TOKEN not set — falling back to KV_PROXY_TOKEN. Set a dedicated RESTART_TOKEN to separate restart auth from the KV proxy secret.');
+    }
+
+    const provided = headerValue(req.headers['x-restart-token']) || headerValue(req.headers['x-kv-token']);
+    if (!expected || !provided || !safeEqual(provided, expected)) {
+        console.warn(`[restart] DENIED from ${ip} at ${new Date(now).toISOString()}`);
+        res.status(401).json({ error: 'invalid restart token' });
+        return;
+    }
+
+    console.log(`[restart] AUTHORIZED from ${ip} at ${new Date(now).toISOString()} (prevCommit ${_BUILD_INFO.commit})`);
     res.json({ ok: true, restarting: true, prevCommit: _BUILD_INFO.commit });
     // Give the response a chance to flush before exiting.
     setTimeout(() => {
@@ -253,16 +344,65 @@ route('/village/treasury/transfer', villageTreasuryTransferHandler);
 // reset's `save:*` glob.
 route('/admin/save-snapshot', saveSnapshotHandler);
 
-// NOTE: Many other api/** handlers exist but are not yet routed here:
-//   - api/missions/{report-raid, report-pvp-win, report-pet-event, daily}
-//   - api/pvp/{chat, spectate, stream, claim-rewards, ranked-queue}
-//   - api/jutsu/{speedup, train-with-seals}
-//   - api/clan/** (all)
-//   - api/pet/battle-result
-//   - api/admin/moderation
-//   - api/weekly-boss, api/profession/choose
-// Vercel deploys hit them via the api/ folder convention; cPanel needs them
-// added here if cPanel becomes a primary deployment target.
+// ─── Clan: wars ────────────────────────────────────────────────────────────────
+// Council Hall "Clan Battles" tab + the village-war flow (which reuses the
+// clan-war engine with the village name as the clan key).
+route('/clan/war/list',      clanWarListHandler);
+route('/clan/war/declare',   clanWarDeclareHandler);
+route('/clan/war/challenge', clanWarChallengeHandler);
+route('/clan/war/report',    clanWarReportHandler);
+route('/clan/war/tilecards', clanWarTilecardsHandler);
+
+// ─── Clan: seal pool ───────────────────────────────────────────────────────────
+route('/clan/seal-pool/get',        clanSealPoolGetHandler);
+route('/clan/seal-pool/donate',     clanSealPoolDonateHandler);
+route('/clan/seal-pool/distribute', clanSealPoolDistributeHandler);
+
+// ─── Clan: pet escort ──────────────────────────────────────────────────────────
+route('/clan/pet-escort/list',   clanPetEscortListHandler);
+route('/clan/pet-escort/offer',  clanPetEscortOfferHandler);
+route('/clan/pet-escort/cancel', clanPetEscortCancelHandler);
+
+// ─── Missions: daily + reporting ───────────────────────────────────────────────
+route('/missions/daily',            missionsDailyHandler);
+route('/missions/report-raid',      missionsReportRaidHandler);
+route('/missions/report-pvp-win',   missionsReportPvpWinHandler);
+route('/missions/report-pet-event', missionsReportPetEventHandler);
+
+// ─── PvP: realtime, rewards, ranked queues ─────────────────────────────────────
+// stream/spectate hold the connection open (SSE / long-poll); the generic
+// route() wrapper passes res straight through so the handlers stream normally.
+route('/pvp/chat',             pvpChatHandler);
+route('/pvp/spectate',         pvpSpectateHandler);
+route('/pvp/stream',           pvpStreamHandler);
+route('/pvp/claim-rewards',    pvpClaimRewardsHandler);
+route('/pvp/ranked-queue',     pvpRankedQueueHandler);
+route('/pvp/pet-ranked-queue', pvpPetRankedQueueHandler);
+
+// ─── Pet battle result ─────────────────────────────────────────────────────────
+route('/pet/battle-result', petBattleResultHandler);
+
+// ─── Jutsu training ────────────────────────────────────────────────────────────
+route('/jutsu/speedup',         jutsuSpeedupHandler);
+route('/jutsu/train-with-seals', jutsuTrainWithSealsHandler);
+
+// ─── Profession ────────────────────────────────────────────────────────────────
+route('/profession/choose', professionChooseHandler);
+
+// ─── Player: injured villagers (Hospital screen) ───────────────────────────────
+route('/player/injured-villagers', injuredVillagersHandler);
+
+// ─── Weekly boss (Hall of Legends) ─────────────────────────────────────────────
+route('/weekly-boss', weeklyBossHandler);
+
+// ─── Admin: moderation (bans / silences / IP linkage) ──────────────────────────
+route('/admin/moderation', moderationHandler);
+
+// NOTE: Route parity between Vercel (folder convention) and cPanel (this file)
+// is now guarded by `server-routes.test.ts`, which fails CI/`npm test` if the
+// client calls an /api path that isn't registered here. Add the route above
+// AND the import when you add a client-facing endpoint — do not rely on this
+// comment alone.
 
 // ─── Static files (React SPA) ─────────────────────────────────────────────────
 // STATIC_DIR env var overrides the default so the same compiled server.js works

@@ -43,10 +43,18 @@ SUPABASE_URL         = https://<project>.supabase.co
 SUPABASE_SERVICE_ROLE_KEY = <service role key>
 ADMIN_PASSWORD       = <your admin password>
 OPENAI_API_KEY       = <openai key — only needed for AI image generation>
+RESTART_TOKEN        = <random secret for POST /api/restart — see note below>
 ```
 
 > `DATABASE_URL` activates the direct pg Pool backend in `_storage.ts`.
 > This is faster than Supabase REST and avoids their CPU-intensive JSONB endpoints.
+>
+> `RESTART_TOKEN` authenticates the internal `POST /api/restart` worker-bounce
+> endpoint. It is **optional but recommended**: if unset, restart falls back to
+> `KV_PROXY_TOKEN` (a one-time warning is logged). Setting a dedicated token
+> means a leak of the KV proxy secret can no longer also restart the worker.
+> Send it in the `x-kv-token` (or `x-restart-token`) header. The compare is
+> constant-time and the endpoint is rate-limited + audit-logged.
 
 ### 4. Run npm install (in App Manager)
 
@@ -82,15 +90,22 @@ All code changes flow through Git. After pushing to GitHub:
 ```bash
 cd ~/apps/shinobix
 git pull
-npm run build        # compiles TypeScript + builds React client
+npm run build        # compiles TypeScript + builds React client + verifies dist
 ```
 
 Then click **Restart** in Application Manager (or via Terminal if you have the restart command).
+
+> The auto-deploy hook (`.cpanel.yml`) does **not** build — it restores the
+> committed `dist/` and bounces Passenger, failing loudly if `dist/server.js`
+> is missing. So whoever commits must run `npm run build` first (it now runs
+> `verify:dist` at the end, which aborts on a missing/empty server bundle).
 
 ### What `npm run build` does
 
 1. `build:server` — TypeScript → `dist/` (Express server + API handlers)
 2. `build:client` — Vite → `shinobij.client/dist/` (React SPA)
+3. `verify:dist` — asserts `dist/server.js` exists, is non-trivial, and contains
+   the expected Express wiring (catches a broken/empty compile before commit)
 
 The Express server automatically serves the React build from `shinobij.client/dist/`
 and falls back to `index.html` for all non-API routes.
