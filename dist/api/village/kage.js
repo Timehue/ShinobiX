@@ -4,6 +4,7 @@ exports.default = handler;
 const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
+const _ratelimit_js_1 = require("../_ratelimit.js");
 function kageKey(village) {
     return `village:kage:${village.toLowerCase().replace(/\s+/g, '-')}`;
 }
@@ -30,6 +31,10 @@ async function handler(req, res) {
         const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req);
         if (!identity)
             return res.status(401).json({ error: 'Authentication required.' });
+        // Tight per-player cap — legitimate kage actions are once-in-a-while.
+        // Admins skip (admin reset scripts may legitimately fire many fast).
+        if (!identity.admin && !(await (0, _ratelimit_js_1.enforceRateLimitKv)(req, res, 'village-kage', 10, 60_000, identity.name)))
+            return;
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
             const { village: bodyVillage, playerName, action } = body;

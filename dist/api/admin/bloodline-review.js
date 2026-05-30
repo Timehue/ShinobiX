@@ -41,13 +41,13 @@ async function handler(req, res) {
         return res.status(405).end();
     if (!(0, _ratelimit_js_1.enforceRateLimit)(req, res, 'admin-bloodline-review', 60, 5 * 60_000))
         return;
+    // Admin password via header (was body). See players.ts.
+    if (!(0, _auth_js_1.isAdmin)(req)) {
+        return res.status(401).json({ error: 'Unauthorized.' });
+    }
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-        const { password, action, ownerKey, bloodlineId, bloodline } = body;
-        const adminPassword = process.env.ADMIN_PASSWORD;
-        if (!adminPassword || !password || !(0, _auth_js_1.safeEqual)(password, adminPassword)) {
-            return res.status(401).json({ error: 'Unauthorized.' });
-        }
+        const { action, ownerKey, bloodlineId, bloodline } = body;
         if (!bloodlineId || (action !== 'approve' && action !== 'delete' && action !== 'update')) {
             return res.status(400).json({ error: 'Missing action or bloodlineId.' });
         }
@@ -61,23 +61,35 @@ async function handler(req, res) {
             const snap = await _storage_js_1.kv.get(saveKey);
             if (snap) {
                 const rawBloodlines = Array.isArray(snap.savedBloodlines) ? snap.savedBloodlines : [];
-                const nextBloodlines = action === 'delete'
-                    ? rawBloodlines.filter((savedBloodline) => {
-                        return !(savedBloodline && typeof savedBloodline === 'object' && String(savedBloodline.id ?? '') === bloodlineId);
-                    })
-                    : rawBloodlines.map((savedBloodline) => {
-                        if (!(savedBloodline && typeof savedBloodline === 'object' && String(savedBloodline.id ?? '') === bloodlineId))
-                            return savedBloodline;
-                        // Allowlist-merge: only known bloodline fields can be overwritten
-                        // by the admin payload. Stops arbitrary properties from being
-                        // injected into player saves via this endpoint.
-                        return { ...savedBloodline, ...filterBloodlineFields(bloodline), id: bloodlineId };
-                    });
-                await Promise.all([
-                    _storage_js_1.kv.set(adminLockKey, 1, { ex: 300 }),
-                    _storage_js_1.kv.set(saveKey, { ...snap, savedBloodlines: nextBloodlines }),
-                    _storage_js_1.kv.set(resetSignalKey, 1, { ex: 300 }),
-                ]);
+                // Pre-check: does the bloodlineId actually exist on this
+                // save? If not, the filter/map below is a no-op and we'd
+                // still write the save + spam the player with a force-
+                // reload via reset-signal. Skip the write in that case.
+                const hasBloodline = rawBloodlines.some((b) => b && typeof b === 'object' && String(b.id ?? '') === bloodlineId);
+                if (!hasBloodline) {
+                    // Nothing to do — owner doesn't actually hold this bloodline.
+                    // Still update the approved-list below so admin can curate
+                    // entries pre-emptively.
+                }
+                else {
+                    const nextBloodlines = action === 'delete'
+                        ? rawBloodlines.filter((savedBloodline) => {
+                            return !(savedBloodline && typeof savedBloodline === 'object' && String(savedBloodline.id ?? '') === bloodlineId);
+                        })
+                        : rawBloodlines.map((savedBloodline) => {
+                            if (!(savedBloodline && typeof savedBloodline === 'object' && String(savedBloodline.id ?? '') === bloodlineId))
+                                return savedBloodline;
+                            // Allowlist-merge: only known bloodline fields can be overwritten
+                            // by the admin payload. Stops arbitrary properties from being
+                            // injected into player saves via this endpoint.
+                            return { ...savedBloodline, ...filterBloodlineFields(bloodline), id: bloodlineId };
+                        });
+                    await Promise.all([
+                        _storage_js_1.kv.set(adminLockKey, 1, { ex: 300 }),
+                        _storage_js_1.kv.set(saveKey, { ...snap, savedBloodlines: nextBloodlines }),
+                        _storage_js_1.kv.set(resetSignalKey, 1, { ex: 300 }),
+                    ]);
+                }
             }
         }
         const nextApproved = action === 'update' ? approved : Array.from(new Set([...approved, key]));
@@ -85,6 +97,7 @@ async function handler(req, res) {
         return res.status(200).json({ ok: true, approvedBloodlines: nextApproved });
     }
     catch (err) {
-        return res.status(500).json({ error: String(err) });
+        console.error('[admin/bloodline-review]', err);
+        return res.status(500).json({ error: 'Internal server error.' });
     }
 }

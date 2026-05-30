@@ -15,13 +15,18 @@ async function handler(req, res) {
     // Rate-limit admin endpoints: 30 requests / 5 minutes per IP.
     if (!(0, _ratelimit_js_1.enforceRateLimit)(req, res, 'admin-players', 30, 5 * 60_000))
         return;
+    // Admin password now read from x-admin-password HEADER instead of the
+    // request body. Bodies routinely land in request loggers / error
+    // trackers / reverse-proxy buffers; headers are typically redacted.
+    // (Two other admin endpoints — moderation.ts, migrate-kv.ts — already
+    // used the header; players.ts/server-reset.ts/item-review.ts/
+    // bloodline-review.ts now match.)
+    // Full admin (Admin 1) only — content admin (Admin 2) does NOT have
+    // access to player management.
+    if (!(0, _auth_js_1.isFullAdmin)(req)) {
+        return res.status(401).json({ error: 'Unauthorized.' });
+    }
     try {
-        const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-        const { password } = body;
-        const adminPassword = process.env.ADMIN_PASSWORD;
-        if (!adminPassword || !password || !(0, _auth_js_1.safeEqual)(password, adminPassword)) {
-            return res.status(401).json({ error: 'Unauthorized.' });
-        }
         // Pull presence keys to determine who is online right now
         const presenceKeys = await _storage_js_1.kv.keys('presence:*');
         const onlineNames = new Set(presenceKeys.map(k => k.replace('presence:', '').toLowerCase()));
@@ -94,8 +99,16 @@ async function handler(req, res) {
             }
         }
         // Restore bloodline images from shared KV image store
-        // (saveBloodline strips large data-urls on auto-save; they live in shared:imgfields:bloodline)
-        if (bloodlineEntries.length > 0) {
+        // (saveBloodline strips large data-urls on auto-save; they live in shared:imgfields:bloodline).
+        //
+        // Bandwidth guard: each data-URL can be 100-500 KB, so a moderately
+        // populated registry inlining ALL of them could push the response past
+        // function memory limits / make the admin tab unusable. If there are
+        // more than INLINE_IMAGE_LIMIT bloodlines, skip the inline restore
+        // and let the admin UI lazy-fetch the few it actually needs via the
+        // shared image endpoint.
+        const INLINE_IMAGE_LIMIT = 50;
+        if (bloodlineEntries.length > 0 && bloodlineEntries.length <= INLINE_IMAGE_LIMIT) {
             try {
                 const sharedImages = await _storage_js_1.kv.hgetall('shared:imgfields:bloodline') ?? {};
                 for (const bl of bloodlineEntries) {
@@ -106,6 +119,15 @@ async function handler(req, res) {
             }
             catch {
                 // non-fatal — images just won't be restored
+            }
+        }
+        // If we skipped inline restore, strip any inline data-URLs the saves
+        // happened to keep so the response stays compact. The admin UI can
+        // fetch shared:imgfields:bloodline directly when it needs them.
+        if (bloodlineEntries.length > INLINE_IMAGE_LIMIT) {
+            for (const bl of bloodlineEntries) {
+                if (bl.image && bl.image.startsWith('data:'))
+                    bl.image = undefined;
             }
         }
         // Sort: online first, then by lastSeen descending, then alphabetically
@@ -119,6 +141,7 @@ async function handler(req, res) {
         return res.status(200).json({ players, bloodlines: bloodlineEntries });
     }
     catch (err) {
-        return res.status(500).json({ error: String(err) });
+        console.error('[admin/players]', err);
+        return res.status(500).json({ error: 'Internal server error.' });
     }
 }

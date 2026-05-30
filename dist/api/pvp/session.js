@@ -1,11 +1,35 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.PVP_LOG_MAX_LINES = exports.PVP_MOVE_TOKEN_HISTORY = void 0;
+exports.trimPvpLog = trimPvpLog;
 exports.sanitizeJutsuList = sanitizeJutsuList;
+exports.sanitizePvpItems = sanitizePvpItems;
 exports.default = handler;
 const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
-const SESSION_TTL = 60 * 60;
+const _ratelimit_js_1 = require("../_ratelimit.js");
+exports.PVP_MOVE_TOKEN_HISTORY = 20;
+// Shorter TTL than the 60-min ceiling — most PvP matches finish in 5-15
+// minutes, so a 15-min TTL covers the live fight plus a buffer for the
+// claim flow. Each move/state action via `move.ts` refreshes the TTL via
+// `writeSession`, so an actively-played match never expires; only
+// abandoned sessions (a tab closed mid-fight) decay. Keeps KV usage
+// proportional to actual live matches instead of accumulating an hour
+// of stale rows per started fight.
+const SESSION_TTL = 15 * 60;
+// Cap the combat log at the last N lines. Without this the log grows
+// unbounded over a long fight (typical: 1-3 lines per move × 30+
+// moves = 50+ KB of payload that both clients re-download every
+// state poll). Recent context is what matters; historians can scroll
+// the live ticker, but the wire payload stays small.
+exports.PVP_LOG_MAX_LINES = 60;
+function trimPvpLog(log) {
+    if (log.length <= exports.PVP_LOG_MAX_LINES)
+        return log;
+    const dropped = log.length - exports.PVP_LOG_MAX_LINES + 1;
+    return [`… (${dropped} earlier lines trimmed)`, ...log.slice(-exports.PVP_LOG_MAX_LINES + 1)];
+}
 // Starting positions matching arena (p1 left side, p2 right side)
 const P1_START = 62;
 const P2_START = 33;
@@ -36,6 +60,8 @@ const KNOWN_TAG_NAMES = new Set([
 function sanitizeJutsuList(rawList) {
     if (!Array.isArray(rawList))
         return [];
+    // v4.3 Pierce rules: enforce ap=60 on any Pierce jutsu, and only ONE Pierce per loadout.
+    let piercesSeen = 0;
     return rawList
         .filter((j) => !!j && typeof j === 'object')
         .map((j) => {
@@ -54,18 +80,159 @@ function sanitizeJutsuList(rawList) {
             out.range = clampNumber(out.range, 0, 30, 1);
         // Filter and cap tag list — at most 10 known tags per jutsu.
         const rawTags = Array.isArray(out.tags) ? out.tags : [];
-        const cleanTags = rawTags
+        let cleanTags = rawTags
             .filter((t) => !!t && typeof t === 'object')
             .filter((t) => typeof t.name === 'string' && KNOWN_TAG_NAMES.has(String(t.name)))
             .slice(0, 10);
+        // v4.3 Pierce: at most one Pierce per loadout; subsequent Pierces are stripped.
+        // Pierce jutsu AP is forced to 60.
+        const hasPierce = cleanTags.some(t => t.name === 'Pierce');
+        if (hasPierce) {
+            if (piercesSeen >= 1) {
+                cleanTags = cleanTags.filter(t => t.name !== 'Pierce');
+            }
+            else {
+                piercesSeen += 1;
+                out.ap = 60;
+            }
+        }
         out.tags = cleanTags;
         return out;
     });
 }
+// Acceptable weapon elements — must match VALID_ELEMENTS below so the weather
+// multiplier in api/pvp/move.ts treats this field consistently. Unknown
+// elements are dropped (no weather interaction) rather than blocking the item.
+const VALID_WEAPON_ELEMENTS = new Set([
+    '', 'Earth', 'Wind', 'Water', 'Lightning', 'Fire', 'Yin', 'Yang',
+]);
+// 'both' is the only effect-target token the move handler treats specially
+// (Smoke Bomb path). 'enemy' is accepted as a legacy alias of 'opponent' —
+// the client GameItem type still allows "enemy" so the sanitizer must too,
+// otherwise valid items would have their target field silently dropped.
+// Anything outside this set is dropped so a tampered save can't activate an
+// as-yet-unwritten code path by guessing future tokens.
+const VALID_WEAPON_EFFECT_TARGETS = new Set([
+    'self', 'opponent', 'enemy', 'both',
+]);
+// Mirrors sanitizeJutsuList for equipped weapons / armor / consumables /
+// throwables. A pvpItem is read by api/pvp/move.ts as an authoritative source
+// of damage, range, AP cost, tags, and elemental affinity, so a tampered save
+// could otherwise inject a 999999-EP free-cost ranged weapon or apply unknown
+// tags. Clamps numerics, whitelists tag names + element, drops anything
+// suspicious.
 function sanitizePvpItems(raw) {
     if (!Array.isArray(raw))
         return [];
-    return raw.filter((i) => !!i && typeof i === 'object');
+    return raw
+        .filter((i) => !!i && typeof i === 'object')
+        .map((item) => {
+        const out = { ...item };
+        // Numeric clamps — match the jutsu sanitizer's bounds so weapons
+        // can't out-scale jutsus.
+        if (out.weaponEp != null)
+            out.weaponEp = clampNumber(out.weaponEp, 0, 600, 0);
+        if (out.weaponRange != null)
+            out.weaponRange = clampNumber(out.weaponRange, 0, 30, 1);
+        if (out.apCost != null)
+            out.apCost = clampNumber(out.apCost, 0, 200, 40);
+        if (out.weaponEffectValue != null)
+            out.weaponEffectValue = clampNumber(out.weaponEffectValue, 0, 100, 0);
+        // Tag list — same whitelist + cap (10) as sanitizeJutsuList.
+        if (out.weaponTags != null) {
+            const rawTags = Array.isArray(out.weaponTags) ? out.weaponTags : [];
+            out.weaponTags = rawTags
+                .filter((t) => !!t && typeof t === 'object')
+                .filter((t) => typeof t.name === 'string' && KNOWN_TAG_NAMES.has(String(t.name)))
+                .map((t) => {
+                const tag = { name: String(t.name) };
+                if (t.percent != null)
+                    tag.percent = clampNumber(t.percent, 0, 100, 0);
+                if (t.amount != null)
+                    tag.amount = clampNumber(t.amount, 0, 10000, 0);
+                return tag;
+            })
+                .slice(0, 10);
+        }
+        // weaponEffect / weaponElement / weaponEffectTarget — drop if not
+        // in their respective whitelists rather than blocking the whole
+        // item, so a single bad field doesn't disarm the player.
+        if (out.weaponEffect != null && !KNOWN_TAG_NAMES.has(String(out.weaponEffect))) {
+            delete out.weaponEffect;
+        }
+        if (out.weaponElement != null && !VALID_WEAPON_ELEMENTS.has(String(out.weaponElement))) {
+            delete out.weaponElement;
+        }
+        if (out.weaponEffectTarget != null && !VALID_WEAPON_EFFECT_TARGETS.has(String(out.weaponEffectTarget))) {
+            delete out.weaponEffectTarget;
+        }
+        // String identity fields — equippedPvpItem matches on item.id and
+        // item.name, so non-string values would break the lookup.
+        if (out.id != null && typeof out.id !== 'string')
+            delete out.id;
+        if (out.name != null && typeof out.name !== 'string')
+            delete out.name;
+        if (out.slot != null && typeof out.slot !== 'string')
+            delete out.slot;
+        return out;
+    });
+}
+// Fields STRIPPED from the character before it's sealed into the PvP
+// session record. The session is then exposed via /api/pvp/session GET
+// + /api/pvp/stream (both unauthenticated for spectator/EventSource
+// compatibility), so anything not strictly needed for combat resolution
+// is a leak surface. Combat needs: stats, jutsu, pvpItems, equipment,
+// bloodlines/armor multipliers, specialty, name/level/village/avatar.
+// It does NOT need: ryo / bankRyo / honorSeals / fateShards / boneCharms
+// / mythicSeals / auraStones / auraDust, inventory, daily ledgers,
+// mission journals, achievement state, creator content.
+const SESSION_STRIP_CHAR_FIELDS = new Set([
+    // Currencies
+    'ryo', 'bankRyo', 'honorSeals', 'fateShards', 'boneCharms',
+    'auraStones', 'mythicSeals', 'auraDust',
+    // Non-combat inventory (pvpItems and equipment ARE used by combat)
+    'inventory', 'tileCards', 'savedTileDeck',
+    // Daily / weekly ledgers
+    'dailyAiKills', 'dailyPetWins', 'dailyTilesExplored', 'dailyMissionsCompleted',
+    'dailyFateSpins', 'lastDailyReset',
+    'dailyHonorSealsEarned', 'dailyHonorSealsByTarget', 'vanguardDailyResetDate',
+    'lastExpeditionClaimDate', 'expeditionsClaimedToday',
+    'dailyDonatedSeals', 'dailyDonationDate',
+    'claimedVillageAgendaDate', 'claimedMapControlDate',
+    // Mission / quest journals
+    'missions', 'missionLog', 'completedMissions', 'activeMissions',
+    'questLog', 'bankLog',
+    'totalMissionsCompleted', 'totalStatsTrained',
+    // Lifetime counters (not needed mid-fight; UI reads them from save endpoint)
+    'totalPvpKills', 'monthlyPvpKills', 'pvpKillMonth',
+    'totalAiKills', 'totalVillageRaids',
+    'totalPetWins', 'totalEndlessTowerWins', 'totalTilesExplored',
+    'totalTournamentsCompleted', 'warsWon', 'warMvpCount', 'lifetimeWarDamage',
+    'unlockedAchievements', 'achievementUnlockedAt',
+    // Run state for solo modes
+    'hollowGateRun', 'hollowGateWardenKills', 'hollowGateIntroSeen',
+    'endlessTowerRun', 'endlessTowerBestWave',
+    'weeklyBossKills', 'claimedWarCrateIds',
+    'villageWarMissionDate', 'villageWarRaidProgress', 'villageWarMissionsCompleted',
+    'clanBattleContrib', 'clanEventContrib', 'clanMissionContrib', 'clanContribMonth',
+    'petEscortBonusReady', 'hunterRank',
+    'lastBankInterestAt',
+    'creatorAis', 'creatorEvents', 'creatorMissions', 'creatorRaids', 'creatorCards',
+    'defeatedAiIds', 'elderFocus', 'examsPassed',
+    'triggeredEvents',
+    // Story-only persistence
+    'storyTraits', 'storyTitle', 'storyProgress',
+    // Pets are huge and not needed for a 1v1 PvP fight
+    'pets', 'editablePets',
+]);
+function stripNonCombatFields(character) {
+    const out = {};
+    for (const [k, v] of Object.entries(character)) {
+        if (SESSION_STRIP_CHAR_FIELDS.has(k))
+            continue;
+        out[k] = v;
+    }
+    return out;
 }
 // Hydrate a fighter character from the authoritative save. The client payload
 // is only used as a fallback for fields the save lacks (e.g. computed
@@ -84,10 +251,64 @@ function hydrateCharacterFromSave(saveCharacter, clientCharacter) {
     merged.armorFactor = pickClamped(saveCharacter.armorFactor, clientCharacter.armorFactor, 0.25, 1.0, 1.0);
     merged.armorRawDR = pickClamped(saveCharacter.armorRawDR, clientCharacter.armorRawDR, 0, 1.5, 0);
     merged.itemDamagePct = pickClamped(saveCharacter.itemDamagePct, clientCharacter.itemDamagePct, 0, 200, 0);
+    // Named-armor passives. Percentage values cap at 100 (no point allowing
+    // 100%+ absorb/reflect/lifesteal). Shield is flat HP — capped at 5000
+    // to prevent a degenerate equipment stack from making a fighter unkillable.
+    merged.itemAbsorbPct = pickClamped(saveCharacter.itemAbsorbPct, clientCharacter.itemAbsorbPct, 0, 100, 0);
+    merged.itemReflectPct = pickClamped(saveCharacter.itemReflectPct, clientCharacter.itemReflectPct, 0, 100, 0);
+    merged.itemLifeStealPct = pickClamped(saveCharacter.itemLifeStealPct, clientCharacter.itemLifeStealPct, 0, 100, 0);
+    merged.itemShield = pickClamped(saveCharacter.itemShield, clientCharacter.itemShield, 0, 5000, 0);
+    // Per-stat defense-in-depth clamp. Save endpoint already gates stat-gain
+    // rates (api/save/[name].ts), but a tampered KV row or NPC payload could
+    // still ship 999999 on a single stat. Each stat clamps to [0, MAX_STAT].
+    //
+    // The damage formula's getOffense/getDefense (api/pvp/move.ts) pairs each
+    // school's offense vs the SAME school's defense, plus its two general
+    // stats — so these all matter symmetrically:
+    //   Taijutsu  → taiOff/taiDef + strength + speed
+    //   Bukijutsu → bukiOff/bukiDef + intelligence + strength
+    //   Genjutsu  → genOff/genDef + intelligence + willpower
+    //   Ninjutsu  → ninOff/ninDef + willpower + speed
+    merged.stats = clampStatsObject(saveCharacter.stats ?? clientCharacter.stats);
     // Sanitize loadout fields (jutsu list, pvpItems) — these ARE persisted.
     merged.jutsu = sanitizeJutsuList(saveCharacter.jutsu ?? clientCharacter.jutsu);
     merged.pvpItems = sanitizePvpItems(saveCharacter.pvpItems ?? clientCharacter.pvpItems);
-    return merged;
+    // Strip everything that isn't combat-relevant. The session is read by
+    // spectators (and by the unauth /api/pvp/stream endpoint) so anything
+    // sensitive (ryo, currencies, inventory, journals) would leak otherwise.
+    return stripNonCombatFields(merged);
+}
+// MAX_STAT = 2500 (matches api/pvp/move.ts and shinobij.client/src/App.tsx).
+// If this ever needs to change, update all three sites.
+const SESSION_MAX_STAT = 2500;
+const CLAMPED_STAT_FIELDS = [
+    // Per-school offense/defense pairs — used by getOffense/getDefense in
+    // api/pvp/move.ts. Each school's offense reads against the same school's
+    // defense, so the cap has to be symmetric (no one stat can outrun its
+    // mirror).
+    'taijutsuOffense', 'taijutsuDefense',
+    'bukijutsuOffense', 'bukijutsuDefense',
+    'ninjutsuOffense', 'ninjutsuDefense',
+    'genjutsuOffense', 'genjutsuDefense',
+    // General stats — each one feeds two schools (strength → tai+buki,
+    // speed → tai+nin, intelligence → buki+gen, willpower → gen+nin).
+    'strength', 'speed', 'intelligence', 'willpower',
+];
+function clampStatsObject(raw) {
+    const out = {};
+    const src = (raw && typeof raw === 'object') ? raw : {};
+    for (const key of CLAMPED_STAT_FIELDS) {
+        out[key] = clampNumber(src[key], 0, SESSION_MAX_STAT, 0);
+    }
+    // Pass through any non-combat stat fields untouched (e.g., display-only
+    // labels). Only the formula-facing stats above are clamped.
+    for (const [k, v] of Object.entries(src)) {
+        if (CLAMPED_STAT_FIELDS.includes(k))
+            continue;
+        if (typeof v === 'number' || typeof v === 'string' || typeof v === 'boolean')
+            out[k] = v;
+    }
+    return out;
 }
 // For NPC opponents (no save key in KV), we still clamp the client payload
 // rather than trusting it as-is — caller already restricted this path to
@@ -98,23 +319,42 @@ function hydrateNpcCharacter(clientCharacter) {
     out.armorFactor = clampNumber(out.armorFactor, 0.25, 1.0, 1.0);
     out.armorRawDR = clampNumber(out.armorRawDR, 0, 1.5, 0);
     out.itemDamagePct = clampNumber(out.itemDamagePct, 0, 200, 0);
+    out.itemAbsorbPct = clampNumber(out.itemAbsorbPct, 0, 100, 0);
+    out.itemReflectPct = clampNumber(out.itemReflectPct, 0, 100, 0);
+    out.itemLifeStealPct = clampNumber(out.itemLifeStealPct, 0, 100, 0);
+    out.itemShield = clampNumber(out.itemShield, 0, 5000, 0);
+    out.stats = clampStatsObject(out.stats);
     out.jutsu = sanitizeJutsuList(out.jutsu);
     out.pvpItems = sanitizePvpItems(out.pvpItems);
-    return out;
+    // Same strip as real characters — NPCs can have arbitrary client-
+    // supplied fields and we don't want any of the sensitive ones to land
+    // in the session record either.
+    return stripNonCombatFields(out);
 }
-function makeFighter(char, pos) {
+function makeFighter(char, pos, useCurrentVitals) {
     const maxHp = Number(char.maxHp ?? 100);
     const maxChakra = Number(char.maxChakra ?? 50);
     const maxStamina = Number(char.maxStamina ?? 50);
+    // Named-armor "Shield" passive: starting flat shield, already clamped
+    // to [0, 5000] during character merge.
+    const startingShield = Math.max(0, Math.min(5000, Number(char.itemShield ?? 0)));
+    // Spar / ranked PvP fights are fresh-start contests — full HP/chakra/
+    // stamina. Sector attacks and the village defense/attack system are
+    // continuous engagements where the fighter brings whatever vitals they
+    // currently have (so a damaged player who keeps raiding stays damaged).
+    // useCurrentVitals=true preserves char.hp/chakra/stamina; false resets.
+    const startHp = useCurrentVitals ? Math.min(Number(char.hp ?? maxHp), maxHp) : maxHp;
+    const startChakra = useCurrentVitals ? Math.min(Number(char.chakra ?? maxChakra), maxChakra) : maxChakra;
+    const startStamina = useCurrentVitals ? Math.min(Number(char.stamina ?? maxStamina), maxStamina) : maxStamina;
     return {
         name: char.name ?? 'Unknown',
-        hp: Math.min(Number(char.hp ?? maxHp), maxHp),
+        hp: startHp,
         maxHp,
-        chakra: Math.min(Number(char.chakra ?? maxChakra), maxChakra),
+        chakra: startChakra,
         maxChakra,
-        stamina: Math.min(Number(char.stamina ?? maxStamina), maxStamina),
+        stamina: startStamina,
         maxStamina,
-        shield: 0,
+        shield: startingShield,
         statuses: [],
         character: char,
         pos,
@@ -137,6 +377,11 @@ async function handler(req, res) {
     if (req.method === 'OPTIONS')
         return res.status(200).end();
     if (req.method === 'GET') {
+        // Poll endpoint — clients hit this every ~1s while the battle screen
+        // is open. Generous budget per IP so two players + spectators can
+        // share an IP, but block obvious abuse (≥10 polls/sec sustained).
+        if (!(await (0, _ratelimit_js_1.enforceRateLimitKv)(req, res, 'pvp-session-get', 360, 60_000)))
+            return;
         const battleId = String(req.query.id ?? '');
         if (!battleId)
             return res.status(400).json({ error: 'Missing id' });
@@ -154,9 +399,16 @@ async function handler(req, res) {
         const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req);
         if (!identity)
             return res.status(401).json({ error: 'Authentication required.' });
+        // Cap session creation. A legit player starts a duel maybe every
+        // 30s in heavy play; 6/min is comfortable headroom and stops
+        // KV-fill attacks that spam-create sessions. Admins skip the cap
+        // (testing scripts may legitimately create many sessions fast).
+        const rlName = identity.admin ? undefined : identity.name;
+        if (!identity.admin && !(await (0, _ratelimit_js_1.enforceRateLimitKv)(req, res, 'pvp-session-create', 6, 60_000, rlName)))
+            return;
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-            const { p1Character, p2Character, biome, weatherPositiveElement, weatherNegativeElement } = body;
+            const { p1Character, p2Character, biome, weatherPositiveElement, weatherNegativeElement, battleId: clientBattleId, useCurrentVitals } = body;
             if (!p1Character || !p2Character)
                 return res.status(400).json({ error: 'Missing characters' });
             const p1Name = p1Character.name ?? 'Player 1';
@@ -207,20 +459,49 @@ async function handler(req, res) {
             else {
                 finalP2Character = hydrateNpcCharacter(p2Character);
             }
-            const battleId = `pvp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+            // Sector / guard fights bring current vitals — refuse to start
+            // one with a 0-HP fighter so a dead attacker can't be created
+            // via direct API calls (the client UI should already gate this,
+            // this is the server-side belt). Spar / ranked / arena reset to
+            // max anyway so they're unaffected.
+            if (useCurrentVitals === true) {
+                const p1Hp = Number(finalP1Character.hp ?? 0);
+                const p2Hp = Number(finalP2Character.hp ?? 0);
+                if (p1Hp <= 0) {
+                    return res.status(400).json({ error: `${p1Name} is unconscious and cannot enter this fight.` });
+                }
+                if (p2Hp <= 0) {
+                    return res.status(400).json({ error: `${p2Name} is unconscious and cannot enter this fight.` });
+                }
+            }
+            // Server-generated battleId. We used to accept a client-supplied
+            // id (for optimistic navigation) — but that let an attacker
+            // pre-claim guessable ids to later scrape via /api/pvp/stream
+            // (which is unauth by design for EventSource compat). Server-only
+            // ids close that scrape vector. The client just waits the ~50ms
+            // round trip for the id before navigating; UX impact is invisible.
+            void clientBattleId; // intentionally ignored
+            const battleId = `pvp-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+            // True 50/50 coin flip — going first is a meaningful turn-based
+            // advantage and previously the attacker (always p1) won by default.
+            // Now both sides have an equal shot at the opening move; the
+            // prefight overlay's "X goes first!" reveal matches the server roll.
+            const firstActor = Math.random() < 0.5 ? 'p1' : 'p2';
+            const firstActorName = firstActor === 'p1' ? p1Name : p2Name;
             const session = {
                 battleId,
-                p1: makeFighter(finalP1Character, P1_START),
-                p2: makeFighter(finalP2Character, P2_START),
+                p1: makeFighter(finalP1Character, P1_START, useCurrentVitals === true),
+                p2: makeFighter(finalP2Character, P2_START, useCurrentVitals === true),
                 round: 1,
-                activePlayer: 'p1',
+                activePlayer: firstActor,
                 ap: { p1: 100, p2: 100 },
                 actionsThisTurn: 0,
                 cooldowns: { p1: {}, p2: {} },
-                log: [`⚔️ ${p1Name} vs ${p2Name} — Battle begins! ${p1Name} goes first.`],
+                log: [`⚔️ ${p1Name} vs ${p2Name} — Battle begins! 🪙 ${firstActorName} wins the coin flip and goes first.`],
                 status: 'active',
                 winner: null,
                 createdAt: Date.now(),
+                lastMoveAt: Date.now(),
                 // Snapshot environment so /api/pvp/move can't be tricked into
                 // applying a different biome / weather mid-fight.
                 biome: normalizeBiome(biome),
@@ -228,7 +509,13 @@ async function handler(req, res) {
                 weatherNegativeElement: normalizeElement(weatherNegativeElement),
             };
             await _storage_js_1.kv.set(`pvp:${battleId}`, session, { ex: SESSION_TTL });
-            return res.status(200).json({ battleId });
+            // Return the full session alongside the id so the client can seed
+            // PvpBattleScreen's state on mount and skip the redundant GET
+            // round trip that immediately follows a POST. Same data the GET
+            // endpoint returns (and GET is unauthenticated for spectator-by-id
+            // / EventSource compat), so no new exposure here — POST itself is
+            // already gated to a fighter or admin via authedPlayerOrAdmin.
+            return res.status(200).json({ battleId, session });
         }
         catch (err) {
             console.error('[pvp/session]', err);

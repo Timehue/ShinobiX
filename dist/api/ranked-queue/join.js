@@ -4,6 +4,7 @@ exports.default = handler;
 const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
+const _lock_js_1 = require("../_lock.js");
 const QUEUE_KEY = 'ranked-queue';
 const NOTIFY_TTL = 120; // seconds
 const STALE_MS = 5 * 60 * 1000; // 5 minutes
@@ -58,39 +59,46 @@ async function handler(req, res) {
             await _storage_js_1.kv.del(notifyKey);
             return res.status(200).json({ matched: true, opponentName: notification.opponentName });
         }
-        // Load and clean the queue
-        const raw = await _storage_js_1.kv.get(QUEUE_KEY) ?? [];
-        const now = Date.now();
-        let queue = raw.filter((e) => now - e.joinedAt < STALE_MS && e.name.toLowerCase() !== nameLower);
-        // Try to find a match — prefer closest Elo, but accept anyone
-        if (queue.length > 0) {
-            queue.sort((a, b) => Math.abs(a.rating - playerRating) - Math.abs(b.rating - playerRating));
-            const opponent = queue[0];
-            queue = queue.filter((e) => e.name.toLowerCase() !== opponent.name.toLowerCase());
-            // Persist updated queue (opponent removed)
+        // Lock the queue around the read-match-write so two simultaneous
+        // joiners can't both pull the same opponent off the queue (which
+        // previously could double-match an opponent or lose a join entry).
+        const result = await (0, _lock_js_1.withKvLock)(QUEUE_KEY, async () => {
+            const raw = await _storage_js_1.kv.get(QUEUE_KEY) ?? [];
+            const now = Date.now();
+            let queue = raw.filter((e) => now - e.joinedAt < STALE_MS && e.name.toLowerCase() !== nameLower);
+            if (queue.length > 0) {
+                queue.sort((a, b) => Math.abs(a.rating - playerRating) - Math.abs(b.rating - playerRating));
+                const opponent = queue[0];
+                queue = queue.filter((e) => e.name.toLowerCase() !== opponent.name.toLowerCase());
+                await _storage_js_1.kv.set(QUEUE_KEY, queue, { ex: 600 });
+                const challenge = {
+                    id: `rq-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                    fromName: opponent.name,
+                    toName: name,
+                    challenger: { name: opponent.name, rankedRating: opponent.rating },
+                    createdAt: now,
+                    mode: 'ranked',
+                    queueMatch: true,
+                };
+                // Append the challenge to the joiner's inbox under its own
+                // lock so a separate /api/player/challenge POST landing in
+                // the same tick doesn't lose either write.
+                const joinerKey = `challenges:${nameLower}`;
+                await (0, _lock_js_1.withKvLock)(joinerKey, async () => {
+                    const existing = await _storage_js_1.kv.get(joinerKey) ?? [];
+                    await _storage_js_1.kv.set(joinerKey, [...existing, challenge].slice(-20), { ex: NOTIFY_TTL });
+                });
+                await _storage_js_1.kv.set(`ranked-queue-notify:${opponent.name.toLowerCase().trim()}`, { opponentName: name }, { ex: NOTIFY_TTL });
+                return { matched: true, opponentName: opponent.name, challenge };
+            }
+            queue.push({ name, rating: playerRating, joinedAt: now });
             await _storage_js_1.kv.set(QUEUE_KEY, queue, { ex: 600 });
-            // Build a ranked challenge: opponent (waiting) = fromName/challenger, joiner = toName/defender
-            const challenge = {
-                id: `rq-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-                fromName: opponent.name,
-                toName: name,
-                challenger: { name: opponent.name, rankedRating: opponent.rating },
-                createdAt: now,
-                mode: 'ranked',
-                queueMatch: true,
-            };
-            // Write challenge to joiner's (defender's) challenges list
-            const joinerKey = `challenges:${nameLower}`;
-            const existing = await _storage_js_1.kv.get(joinerKey) ?? [];
-            await _storage_js_1.kv.set(joinerKey, [...existing, challenge].slice(-20), { ex: NOTIFY_TTL });
-            // Notify the waiting player (challenger) so their poll returns matched
-            await _storage_js_1.kv.set(`ranked-queue-notify:${opponent.name.toLowerCase().trim()}`, { opponentName: name }, { ex: NOTIFY_TTL });
-            return res.status(200).json({ matched: true, opponentName: opponent.name, challenge });
+            return { matched: false, queueSize: queue.length };
+        });
+        if (result.matched) {
+            return res.status(200).json({ matched: true, opponentName: result.opponentName, challenge: result.challenge });
         }
-        // No match — add this player to the queue
-        queue.push({ name, rating: playerRating, joinedAt: now });
-        await _storage_js_1.kv.set(QUEUE_KEY, queue, { ex: 600 });
-        return res.status(200).json({ queued: true, queueSize: queue.length });
+        return res.status(200).json({ queued: true, queueSize: result.queueSize });
     }
     catch (err) {
         console.error('[ranked-queue/join]', err);

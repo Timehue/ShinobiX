@@ -24,19 +24,20 @@ async function handler(req, res) {
             return res.status(200).json({ approvedItems: approved });
         }
         catch (err) {
-            return res.status(500).json({ error: String(err) });
+            console.error('[admin/item-review GET]', err);
+            return res.status(500).json({ error: 'Internal server error.' });
         }
     }
     if (req.method === 'POST') {
         if (!(0, _ratelimit_js_1.enforceRateLimit)(req, res, 'admin-item-review', 60, 5 * 60_000))
             return;
+        // Admin password via header (was body). See players.ts.
+        if (!(0, _auth_js_1.isAdmin)(req)) {
+            return res.status(401).json({ error: 'Unauthorized.' });
+        }
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-            const { password, action, itemId } = body;
-            const adminPassword = process.env.ADMIN_PASSWORD;
-            if (!adminPassword || !password || !(0, _auth_js_1.safeEqual)(password, adminPassword)) {
-                return res.status(401).json({ error: 'Unauthorized.' });
-            }
+            const { action, itemId } = body;
             if (!itemId || (action !== 'approve' && action !== 'hide')) {
                 return res.status(400).json({ error: 'Missing action or itemId.' });
             }
@@ -46,7 +47,8 @@ async function handler(req, res) {
             return res.status(200).json({ ok: true, approvedItems: next });
         }
         catch (err) {
-            return res.status(500).json({ error: String(err) });
+            console.error('[admin/item-review POST]', err);
+            return res.status(500).json({ error: 'Internal server error.' });
         }
     }
     return res.status(405).end();

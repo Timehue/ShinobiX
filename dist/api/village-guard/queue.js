@@ -4,6 +4,7 @@ exports.default = handler;
 const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
+const _ratelimit_js_1 = require("../_ratelimit.js");
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res, req);
     if (req.method === 'OPTIONS')
@@ -21,6 +22,13 @@ async function handler(req, res) {
         if (!identity.admin && identity.name !== name.toLowerCase().trim()) {
             return res.status(403).json({ error: 'Cannot queue as another player.' });
         }
+        // Per-actor rate limit. The legit flow is "queue once when you go
+        // AFK as a guard" — 6/min is comfortable for re-queuing across
+        // disconnects but kills any KV-churn attack that hammers
+        // guard:<name> writes (each refreshes the 5min TTL).
+        const rlName = identity.admin ? undefined : identity.name;
+        if (!identity.admin && !(0, _ratelimit_js_1.enforceRateLimit)(req, res, 'village-guard-queue', 6, 60_000, rlName))
+            return;
         // Derive level (and verify village) from the server-side save.
         let serverLevel = 1;
         let serverVillage = village;
