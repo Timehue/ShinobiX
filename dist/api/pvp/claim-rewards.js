@@ -89,16 +89,28 @@ async function handler(req, res) {
         // Atomic NX reserve. If the key already exists, we lost the race
         // (or a duplicate call) — return alreadyClaimed so the caller
         // skips the local grant entirely.
-        const placed = await _storage_js_1.kv.set(key, { outcome, ts: Date.now() }, { nx: true, ex: CLAIM_TTL_SECONDS });
-        const alreadyClaimed = !placed;
-        return res.status(200).json({ ok: true, alreadyClaimed });
+        //
+        // Fail-open is scoped to JUST this reserve step (audit #7): if the
+        // NX write throws because KV is briefly down, we still let the
+        // legitimate, already-verified winner pay out (one possible duplicate
+        // during an outage beats denying a real winner). The outer try/catch
+        // used to swallow EVERYTHING — including auth/session-verification
+        // failures above — into a misleading ok:true. Those now fall through
+        // to the outer catch and surface as a real 500, so a broken request
+        // can't masquerade as a successful claim.
+        let alreadyClaimed = false;
+        try {
+            const placed = await _storage_js_1.kv.set(key, { outcome, ts: Date.now() }, { nx: true, ex: CLAIM_TTL_SECONDS });
+            alreadyClaimed = !placed;
+            return res.status(200).json({ ok: true, alreadyClaimed });
+        }
+        catch (reserveErr) {
+            console.error('[pvp/claim-rewards] reserve failed (fail-open)', reserveErr);
+            return res.status(200).json({ ok: true, alreadyClaimed: false, degraded: true });
+        }
     }
     catch (err) {
         console.error('[pvp/claim-rewards]', err);
-        // Fail open: returning ok=true with alreadyClaimed=false means the
-        // legitimate first-time claim still pays out if KV is briefly down.
-        // The risk of a one-time double-grant during an outage is preferable
-        // to denying a legitimate winner their reward.
-        return res.status(200).json({ ok: true, alreadyClaimed: false, degraded: true });
+        return res.status(500).json({ error: 'Internal server error.' });
     }
 }
