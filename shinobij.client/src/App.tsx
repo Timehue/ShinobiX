@@ -15128,7 +15128,7 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerReservePet
                                     {snap.status.absorbing && <span className="pet-status-badge absorb">✨ABSORB</span>}
                                 </div>
                                 <span>{snap.hp}/{snap.maxHp} HP</span>
-                                <div className={`pet-arena-hpbar${(snap.hp / snap.maxHp * 100) <= 30 ? " pet-arena-hpbar-low" : ""}`}>
+                                <div className={`pet-arena-hpbar${!winnerPet && (snap.hp / snap.maxHp * 100) <= 30 ? " pet-arena-hpbar-low" : ""}`}>
                                     <i style={{ width: `${Math.max(0, Math.min(100, (snap.hp / snap.maxHp) * 100))}%` }} />
                                 </div>
                             </div>
@@ -15151,7 +15151,7 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerReservePet
                                     {snap.status.absorbing && <span className="pet-status-badge absorb">✨ABSORB</span>}
                                 </div>
                                 <span>{snap.hp}/{snap.maxHp} HP</span>
-                                <div className={`pet-arena-hpbar${(snap.hp / snap.maxHp * 100) <= 30 ? " pet-arena-hpbar-low" : ""}`}>
+                                <div className={`pet-arena-hpbar${!winnerPet && (snap.hp / snap.maxHp * 100) <= 30 ? " pet-arena-hpbar-low" : ""}`}>
                                     <i style={{ width: `${Math.max(0, Math.min(100, (snap.hp / snap.maxHp) * 100))}%` }} />
                                 </div>
                             </div>
@@ -15171,7 +15171,7 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerReservePet
                         {frame?.playerStatus?.absorbing  && <span className="pet-status-badge absorb">✨ABSORB</span>}
                     </div>
                     <span>{playerHp}/{playerPet.hp} HP</span>
-                    <div className={`pet-arena-hpbar${playerPercent <= 30 ? " pet-arena-hpbar-low" : ""}`}>
+                    <div className={`pet-arena-hpbar${!winnerPet && playerPercent <= 30 ? " pet-arena-hpbar-low" : ""}`}>
                         <i style={{ width: `${playerPercent}%` }} />
                         {playerFloatClass && frame && (
                             <span key={frame.message} className={playerFloatClass}>
@@ -15192,7 +15192,7 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerReservePet
                         {frame?.enemyStatus?.absorbing  && <span className="pet-status-badge absorb">✨ABSORB</span>}
                     </div>
                     <span>{enemyHp}/{enemyPet.hp} HP</span>
-                    <div className={`pet-arena-hpbar${enemyPercent <= 30 ? " pet-arena-hpbar-low" : ""}`}>
+                    <div className={`pet-arena-hpbar${!winnerPet && enemyPercent <= 30 ? " pet-arena-hpbar-low" : ""}`}>
                         <i style={{ width: `${enemyPercent}%` }} />
                         {enemyFloatClass && frame && (
                             <span key={frame.message} className={enemyFloatClass}>
@@ -15280,8 +15280,12 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerReservePet
                             const here = positionMap.get(index);
                             const isObstacle  = (obstacles ?? []).includes(index);
                             const isTrail     = index >= 42 && index <= 55; // row 3 of 14-col, 7-row grid (centre lane)
-                            const isActionTile = frame?.actionKind && !!here;
-                            const hasEffect   = index === effectTile && frame?.actionKind;
+                            // Once a winner is decided, stop firing per-tile glows and
+                            // the centre-tile vfx burst. Otherwise the result frame's
+                            // tile pulse + victory ring + sparks fire UNDER the winner
+                            // card, which reads as a broken end-of-fight flicker.
+                            const isActionTile = !winnerPet && frame?.actionKind && !!here;
+                            const hasEffect   = !winnerPet && index === effectTile && frame?.actionKind;
                             return (
                                 <div
                                     key={index}
@@ -15316,7 +15320,9 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerReservePet
 
                 {winnerPet && (
                     <div className={`pet-victory-screen ${winnerSide}`}>
-                        <span className="pet-victory-burst" />
+                        {/* Removed the rotating <pet-victory-burst /> sparkle ring —
+                            its 1.8s infinite spin read as a broken-looking flicker
+                            against the static winner card. The card now sits calm. */}
                         <PetBattleAvatar pet={winnerPet} side={winnerSide} active sharedImages={sharedImages} />
                         <div>
                             <span>Arena Winner</span>
