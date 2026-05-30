@@ -82,12 +82,30 @@ function projectPet(p: unknown): unknown {
     return out;
 }
 
+// Defense-in-depth pattern guard (audit item #24). The explicit blacklist
+// above is intentionally a blacklist (not a whitelist) so a new *display*
+// field doesn't silently break opponent rendering — but that means a new
+// *sensitive* field would silently LEAK until someone remembers to add it to
+// the strip set. This regex auto-strips any field whose name looks like a
+// currency, secret, or PII channel even if it's not yet listed explicitly.
+// Patterns are deliberately precise to avoid colliding with legitimate public
+// display fields. They target (a) the known currency tokens as they actually
+// appear in field names and (b) unambiguous secret/PII markers — NOT broad
+// substrings like "stone" (would catch "milestone") or "bank" alone. The
+// public fields (name/level/village/specialty/avatarImage/rankTitle/
+// customTitle/profession/professionRank/rankedRating/clan/pets) match none of
+// these, so this only ever removes things that should never be public.
+const ROSTER_SENSITIVE_NAME_RE = /\bryo\b|honorseal|fateshard|bonecharm|aurastone|mythicseal|auradust|password|secret|token|apikey|api_key|\bemail\b|\bphone\b|fingerprint|payment|stripe|patreon|\bssn\b/i;
+
 function rosterProjection(character: unknown): unknown {
     if (!character || typeof character !== 'object') return character;
     const src = character as Record<string, unknown>;
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(src)) {
         if (ROSTER_STRIP_CHAR_FIELDS.has(k)) continue;
+        // Belt-and-suspenders: drop anything that looks sensitive by name even
+        // if it's not in the explicit strip list (future-field leak guard).
+        if (ROSTER_SENSITIVE_NAME_RE.test(k)) continue;
         if (k === 'pets' && Array.isArray(v)) {
             out[k] = v.map(projectPet);
             continue;

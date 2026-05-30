@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = handler;
+const crypto_1 = require("crypto");
 const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
@@ -72,7 +73,10 @@ async function handler(req, res) {
                 queue = queue.filter((e) => e.name.toLowerCase() !== opponent.name.toLowerCase());
                 await _storage_js_1.kv.set(QUEUE_KEY, queue, { ex: 600 });
                 const challenge = {
-                    id: `rq-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                    // Crypto-random id — the challenge id is surfaced in the
+                    // anon-readable challenges:* inbox, so a guessable id leaks
+                    // pending matchups. UUIDv4 removes the brute-force window.
+                    id: `rq-${(0, crypto_1.randomUUID)()}`,
                     fromName: opponent.name,
                     toName: name,
                     challenger: { name: opponent.name, rankedRating: opponent.rating },
