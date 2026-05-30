@@ -141,6 +141,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(200).json(Object.assign({}, ...categoryEntries.map((entry) => entry ?? {})));
         } catch (err) {
             console.error('[images GET error]', err);
+            // Override the success Cache-Control set above — an empty result
+            // caused by a transient KV failure must NOT be cached by the CDN /
+            // browser, or a blip would blank images for up to max-age. Return
+            // empty (so the client degrades gracefully rather than 500ing) but
+            // make it non-cacheable so the next request re-fetches live data.
+            res.setHeader('Cache-Control', 'no-store');
             return res.status(200).json({}); // return empty rather than hanging/500
         }
     }

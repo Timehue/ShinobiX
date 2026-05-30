@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { randomUUID } from 'crypto';
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
@@ -282,7 +283,12 @@ const SESSION_STRIP_CHAR_FIELDS = new Set<string>([
     // Pets are huge and not needed for a 1v1 PvP fight
     'pets', 'editablePets',
 ]);
-function stripNonCombatFields(character: Record<string, unknown>): Record<string, unknown> {
+// Exported so other PvP entry points that return an opponent character to the
+// attacker (e.g. village-guard/challenge) can apply the SAME combat-safe
+// projection instead of leaking the opponent's full private save (currencies,
+// inventory, journals). Keeps stats/jutsu/equipment/bloodlines needed for the
+// fight; strips everything economic / scouting-irrelevant.
+export function stripNonCombatFields(character: Record<string, unknown>): Record<string, unknown> {
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(character)) {
         if (SESSION_STRIP_CHAR_FIELDS.has(k)) continue;
@@ -548,7 +554,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // ids close that scrape vector. The client just waits the ~50ms
             // round trip for the id before navigating; UX impact is invisible.
             void clientBattleId; // intentionally ignored
-            const battleId = `pvp-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+            // Crypto-random id: knowing a battleId grants read access to the
+            // session + SSE stream + chat (GET is unauth by design for
+            // EventSource), so it doubles as a capability token. The old
+            // `Date.now()-Math.random().slice(2,9)` suffix was only ~36^7 and
+            // time-seeded — brute-forceable within a timestamp window. A UUIDv4
+            // (122 bits of entropy) closes the scrape vector. Same `pvp-`
+            // prefix so all existing key/route patterns are unchanged.
+            const battleId = `pvp-${randomUUID()}`;
 
             // True 50/50 coin flip — going first is a meaningful turn-based
             // advantage and previously the attacker (always p1) won by default.

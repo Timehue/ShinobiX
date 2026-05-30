@@ -273,28 +273,40 @@ function applyWarDecay(war, now = Date.now()) {
         changed: true,
     };
 }
+// Throws on KV failure so the GET handler can distinguish "genuinely empty"
+// from "storage is down". Previously this swallowed errors and returned [],
+// which made territories/wars silently VANISH during a KV outage — the client
+// saw a 200 with an empty map and rendered "no wars / no territory" instead of
+// a transient error. The caller now surfaces a degraded response instead.
 async function getByPrefix(prefix) {
-    try {
-        const keys = await _storage_js_1.kv.keys(`${prefix}*`);
-        if (!keys.length)
-            return [];
-        // Use mget to fetch all values in one round-trip instead of N individual gets.
-        const values = await _storage_js_1.kv.mget(...keys);
-        return values.filter(Boolean);
-    }
-    catch {
+    const keys = await _storage_js_1.kv.keys(`${prefix}*`);
+    if (!keys.length)
         return [];
-    }
+    // Use mget to fetch all values in one round-trip instead of N individual gets.
+    const values = await _storage_js_1.kv.mget(...keys);
+    return values.filter(Boolean);
 }
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res, req);
     if (req.method === 'OPTIONS')
         return res.status(200).end();
     if (req.method === 'GET') {
-        const [territories, warsRaw] = await Promise.all([
-            getByPrefix(TERRITORY_KEY_PREFIX),
-            getByPrefix(VILLAGE_WAR_KEY_PREFIX),
-        ]);
+        let territories;
+        let warsRaw;
+        try {
+            [territories, warsRaw] = await Promise.all([
+                getByPrefix(TERRITORY_KEY_PREFIX),
+                getByPrefix(VILLAGE_WAR_KEY_PREFIX),
+            ]);
+        }
+        catch (err) {
+            // Storage is down — fail safe with an explicit degraded flag and a
+            // non-cacheable 503 instead of a 200 with empty data. The client
+            // keeps its last-known territories/wars rather than wiping the map.
+            console.error('[world-state] GET read failed', err);
+            res.setHeader('Cache-Control', 'no-store');
+            return res.status(503).json({ degraded: true, error: 'World state temporarily unavailable.' });
+        }
         // Apply daily decay lazily on read. Wars that crossed a UTC day
         // boundary since their last decay get -500 HP per side per day.
         // Persist the result so subsequent reads (and the cached CDN

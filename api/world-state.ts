@@ -342,16 +342,17 @@ function applyWarDecay(war: VillageWar, now: number = Date.now()): { war: Villag
     };
 }
 
+// Throws on KV failure so the GET handler can distinguish "genuinely empty"
+// from "storage is down". Previously this swallowed errors and returned [],
+// which made territories/wars silently VANISH during a KV outage — the client
+// saw a 200 with an empty map and rendered "no wars / no territory" instead of
+// a transient error. The caller now surfaces a degraded response instead.
 async function getByPrefix<T>(prefix: string) {
-    try {
-        const keys = await kv.keys(`${prefix}*`);
-        if (!keys.length) return [];
-        // Use mget to fetch all values in one round-trip instead of N individual gets.
-        const values = await kv.mget<T[]>(...keys);
-        return values.filter(Boolean) as T[];
-    } catch {
-        return [];
-    }
+    const keys = await kv.keys(`${prefix}*`);
+    if (!keys.length) return [] as T[];
+    // Use mget to fetch all values in one round-trip instead of N individual gets.
+    const values = await kv.mget<T[]>(...keys);
+    return values.filter(Boolean) as T[];
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -359,10 +360,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'OPTIONS') return res.status(200).end();
 
     if (req.method === 'GET') {
-        const [territories, warsRaw] = await Promise.all([
-            getByPrefix<SectorTerritory>(TERRITORY_KEY_PREFIX),
-            getByPrefix<VillageWar>(VILLAGE_WAR_KEY_PREFIX),
-        ]);
+        let territories: SectorTerritory[];
+        let warsRaw: VillageWar[];
+        try {
+            [territories, warsRaw] = await Promise.all([
+                getByPrefix<SectorTerritory>(TERRITORY_KEY_PREFIX),
+                getByPrefix<VillageWar>(VILLAGE_WAR_KEY_PREFIX),
+            ]);
+        } catch (err) {
+            // Storage is down — fail safe with an explicit degraded flag and a
+            // non-cacheable 503 instead of a 200 with empty data. The client
+            // keeps its last-known territories/wars rather than wiping the map.
+            console.error('[world-state] GET read failed', err);
+            res.setHeader('Cache-Control', 'no-store');
+            return res.status(503).json({ degraded: true, error: 'World state temporarily unavailable.' });
+        }
         // Apply daily decay lazily on read. Wars that crossed a UTC day
         // boundary since their last decay get -500 HP per side per day.
         // Persist the result so subsequent reads (and the cached CDN

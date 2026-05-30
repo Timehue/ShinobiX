@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { randomUUID } from 'crypto';
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
@@ -80,7 +81,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 await kv.set(QUEUE_KEY, queue, { ex: 600 });
 
                 const challenge = {
-                    id: `rq-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+                    // Crypto-random id — the challenge id is surfaced in the
+                    // anon-readable challenges:* inbox, so a guessable id leaks
+                    // pending matchups. UUIDv4 removes the brute-force window.
+                    id: `rq-${randomUUID()}`,
                     fromName: opponent.name,
                     toName: name,
                     challenger: { name: opponent.name, rankedRating: opponent.rating },

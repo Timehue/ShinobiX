@@ -177,26 +177,17 @@ async function appendAudit(entry) {
         // best-effort
     }
 }
+// Moderation is FULL-admin only (Admin 1). Content admins (Admin 2) must NOT
+// be able to ban/silence players or wipe chat. Delegate to the shared
+// isFullAdmin() so this endpoint stays in lockstep with the canonical role
+// split in _auth.ts instead of re-implementing a bespoke password check.
+//
+// The body-password path was removed: accepting the admin password in the
+// request body risks it being captured in request logs / proxies / the
+// browser's network panel. The header (x-admin-password) is the single
+// supported channel, matching every other admin endpoint.
 function isAdminAuth(req) {
-    const expected = process.env.ADMIN_PASSWORD;
-    if (!expected)
-        return false;
-    const header = req.headers['x-admin-password'];
-    const headerStr = Array.isArray(header) ? header[0] : header;
-    const bodyPw = (() => {
-        try {
-            const b = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-            return typeof b?.password === 'string' ? b.password : '';
-        }
-        catch {
-            return '';
-        }
-    })();
-    if (headerStr && (0, _auth_js_1.safeEqual)(headerStr, expected))
-        return true;
-    if (bodyPw && (0, _auth_js_1.safeEqual)(bodyPw, expected))
-        return true;
-    return false;
+    return (0, _auth_js_1.isFullAdmin)(req);
 }
 function durationMs(d) {
     if (d === 'permanent')
