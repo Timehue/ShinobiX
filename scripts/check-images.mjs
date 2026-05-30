@@ -1,7 +1,18 @@
 import pg from 'pg';
 const { Client } = pg;
+
+// The connection string (with the DB password) comes from the environment —
+// never hardcode it. Fail closed if it's missing so a misconfigured run can't
+// silently fall back to a baked-in credential.
+//   PowerShell:  $env:DATABASE_URL = "postgres://...:<pw>@...pooler.supabase.com:5432/postgres?sslmode=require"; node scripts/check-images.mjs
+//   bash:        DATABASE_URL="postgres://..." node scripts/check-images.mjs
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) {
+    console.error('check-images: set DATABASE_URL (Supabase pooler connection string) before running.');
+    process.exit(1);
+}
 const client = new Client({
-    connectionString: 'postgres://postgres.soaychxshtbgwujhytsf:OAYhs28XnzW3z8Pn@aws-1-us-east-1.pooler.supabase.com:5432/postgres?sslmode=require',
+    connectionString,
     ssl: { rejectUnauthorized: false },
 });
 await client.connect();
