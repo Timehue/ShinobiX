@@ -10,6 +10,7 @@
  */
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.safeEqual = safeEqual;
+exports.isFullAdmin = isFullAdmin;
 exports.isAdmin = isAdmin;
 exports.authedPlayer = authedPlayer;
 exports.authedPlayerOrAdmin = authedPlayerOrAdmin;
@@ -17,6 +18,7 @@ exports.bodyNameMatchesAuth = bodyNameMatchesAuth;
 const crypto_1 = require("crypto");
 const player_auth_js_1 = require("./player-auth.js");
 const _utils_js_1 = require("./_utils.js");
+const moderation_js_1 = require("./admin/moderation.js");
 function headerString(req, key) {
     const v = req.headers[key.toLowerCase()];
     if (Array.isArray(v))
@@ -38,10 +40,15 @@ function safeEqual(a, b) {
     return (0, crypto_1.timingSafeEqual)(ba, bb);
 }
 /**
- * Verify the request carries a valid admin password.
+ * Verify the request carries the FULL admin password (Admin 1 only).
  * Accepts header `x-admin-password`. Constant-time compare.
+ *
+ * Use this for the destructive / sensitive endpoints that Admin 2 must
+ * NOT have access to: player management, moderation, server reset, KV
+ * migration. Every other admin endpoint uses `isAdmin()` which accepts
+ * either password.
  */
-function isAdmin(req) {
+function isFullAdmin(req) {
     const expected = process.env.ADMIN_PASSWORD;
     if (!expected)
         return false;
@@ -49,6 +56,27 @@ function isAdmin(req) {
     if (!provided)
         return false;
     return safeEqual(provided, expected);
+}
+/**
+ * Verify the request carries A valid admin password — either ADMIN_PASSWORD
+ * (Admin 1, full access) or ADMIN_CONTENT_PASSWORD (Admin 2, content-only
+ * access). Use this for endpoints that BOTH admin roles should be able to
+ * call (content curation: bloodline-review, item-review, save:admin* writes,
+ * villageLeadershipImages, etc.).
+ *
+ * For the restricted set (player management, moderation, etc.) use
+ * `isFullAdmin()` instead.
+ */
+function isAdmin(req) {
+    if (isFullAdmin(req))
+        return true;
+    const expectedContent = process.env.ADMIN_CONTENT_PASSWORD;
+    if (!expectedContent)
+        return false;
+    const provided = headerString(req, 'x-admin-password');
+    if (!provided)
+        return false;
+    return safeEqual(provided, expectedContent);
 }
 /**
  * Verify the request carries a valid player password.
@@ -69,7 +97,15 @@ async function authedPlayer(req, nameFromRoute) {
         return null;
     const canonical = name.trim().toLowerCase();
     try {
-        return (await (0, player_auth_js_1.verifyPlayerPassword)(canonical, pw)) ? canonical : null;
+        if (!(await (0, player_auth_js_1.verifyPlayerPassword)(canonical, pw)))
+            return null;
+        // Banned players authenticate but lose access. authedPlayer is the
+        // single chokepoint for every player-only endpoint, so this one check
+        // freezes the account out of every game action until the ban lifts.
+        const ban = await (0, moderation_js_1.getActiveBan)(canonical);
+        if (ban)
+            return null;
+        return canonical;
     }
     catch {
         return null;

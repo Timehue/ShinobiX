@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = handler;
 const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
+const _auth_js_1 = require("../_auth.js");
 // NOTE: LEGACY_IMAGE_KEY ('shared:images') intentionally omitted here — it is a
 // multi-MB all-categories blob that causes connection-pool exhaustion when
 // fetched alongside N save reads.  Bloodline images migrated to the per-category
@@ -15,6 +16,13 @@ async function handler(req, res) {
         return res.status(200).end();
     if (req.method !== 'GET')
         return res.status(405).end();
+    // Auth gate: this endpoint mget's EVERY player save in the registry
+    // (expensive) and returns the full list of (ownerName, ownerKey,
+    // bloodlines) — useful for stalking and player enumeration. Auth
+    // required so the cost can't be triggered by anonymous traffic.
+    const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req);
+    if (!identity)
+        return res.status(401).json({ error: 'Authentication required.' });
     try {
         // Fetch image maps and save keys in parallel — 3 queries total.
         const [saveKeys, bloodlineBlobImages, bloodlineHashImages] = await Promise.all([
@@ -63,6 +71,10 @@ async function handler(req, res) {
             }
         }
         bloodlines.sort((a, b) => a.name.localeCompare(b.name) || a.ownerName.localeCompare(b.ownerName));
+        // 60s edge cache + 120s SWR. Public bloodline gallery is
+        // read-heavy + expensive (scans every save row) but rarely
+        // changes — minute-scale latency is fine.
+        res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=120');
         return res.status(200).json({ bloodlines });
     }
     catch (err) {

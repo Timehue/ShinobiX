@@ -4,6 +4,8 @@ exports.default = handler;
 const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
+const _ratelimit_js_1 = require("../_ratelimit.js");
+const _lock_js_1 = require("../_lock.js");
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res, req);
     if (req.method === 'OPTIONS')
@@ -15,6 +17,15 @@ async function handler(req, res) {
     const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req);
     if (!identity)
         return res.status(401).json({ error: 'Authentication required.' });
+    // Per-actor rate limit. Without this, an authed attacker could hammer
+    // /api/player/attack against arbitrary `targetName` values, repeatedly
+    // overwriting their presence row (and refreshing the 60s TTL — keeping
+    // them perpetually "engaged" so their own PvP gets blocked). 6 per
+    // 60s leaves plenty of headroom for legitimate fights but kills the
+    // spam vector.
+    const rlName = identity.admin ? undefined : identity.name;
+    if (!identity.admin && !(0, _ratelimit_js_1.enforceRateLimit)(req, res, 'player-attack', 6, 60_000, rlName))
+        return;
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
         const { targetName, attacker } = body;
@@ -28,25 +39,35 @@ async function handler(req, res) {
                 return res.status(403).json({ error: 'Attacker name does not match authenticated user.' });
             }
         }
+        // Lock the target's presence row around the check-and-write so a
+        // concurrent heartbeat from the target doesn't get clobbered by our
+        // pendingAttacker stamp (and vice versa). The previous code spread
+        // a stale `target` snapshot into the write, which could revert a
+        // freshly-changed sector or battle flag.
         const key = `presence:${targetName}`;
-        const target = await _storage_js_1.kv.get(key);
-        if (!target)
-            return res.status(404).json({ error: 'Target not online.' });
-        // Block attack if the target is currently traveling between sectors.
-        const travelingUntil = Number(target.travelingUntil ?? 0);
-        if (travelingUntil > Date.now()) {
-            return res.status(409).json({ error: 'Target is traveling and cannot be attacked.' });
-        }
-        // Block attack if the target already has a pending attacker (double-battle prevention).
-        if (target.pendingAttacker) {
-            return res.status(409).json({ error: 'Target is already engaged in combat.' });
-        }
-        // Block attack if the target is in an active PvP battle.
-        if (target.inBattle) {
-            return res.status(409).json({ error: 'Target is already in a battle.' });
-        }
-        await _storage_js_1.kv.set(key, { ...target, pendingAttacker: attacker ?? null }, { ex: 60 });
-        return res.status(200).json({ ok: true });
+        const outcome = await (0, _lock_js_1.withKvLock)(key, async () => {
+            const target = await _storage_js_1.kv.get(key);
+            if (!target)
+                return { status: 404, body: { error: 'Target not online.' } };
+            const travelingUntil = Number(target.travelingUntil ?? 0);
+            if (travelingUntil > Date.now()) {
+                return { status: 409, body: { error: 'Target is traveling and cannot be attacked.' } };
+            }
+            if (target.pendingAttacker) {
+                return { status: 409, body: { error: 'Target is already engaged in combat.' } };
+            }
+            if (target.inBattle) {
+                return { status: 409, body: { error: 'Target is already in a battle.' } };
+            }
+            // Re-stamp only — and crucially DO NOT extend the original TTL
+            // beyond the standard 60s. The presence row stays exactly as
+            // long as the target's heartbeat owns it; we just splice in
+            // pendingAttacker. Original TTL is preserved by passing ex: 60
+            // (same as heartbeat), so it can't be perpetually refreshed.
+            await _storage_js_1.kv.set(key, { ...target, pendingAttacker: attacker ?? null }, { ex: 60 });
+            return { status: 200, body: { ok: true } };
+        });
+        return res.status(outcome.status).json(outcome.body);
     }
     catch (err) {
         console.error('[attack]', err);
