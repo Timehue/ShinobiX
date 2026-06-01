@@ -5866,19 +5866,50 @@ export default function App() {
         };
     }
 
-    async function pushSaveToServer(characterToSave: Character, name: string, overrides?: Parameters<typeof buildPlayerSavePayload>[1]) {
+    async function pushSaveToServer(
+        characterToSave: Character,
+        name: string,
+        overrides?: Parameters<typeof buildPlayerSavePayload>[1],
+        opts?: { echoVersion?: boolean },
+    ) {
         // Strip base64 images before sending — keeps the payload small so it fits
         // within Vercel's request body limit. Images persist separately via
         // publishSharedImage ? shared:images:{cat} and are hydrated on load.
         function stripImages(_k: string, v: unknown) {
             return typeof v === 'string' && v.startsWith('data:image') ? '' : v;
         }
+        // Echo the optimistic-concurrency version on the player's OWN save so the
+        // multi-tab guard covers these immediate saves too (the autosave timers
+        // already do). Without it, new-character / pet / bloodline saves bypass
+        // the version check — and once the guard is required for player saves
+        // they'd be rejected. Admin saves to ANOTHER player's slot pass
+        // echoVersion:false: our version ref tracks THIS player, not the target,
+        // so echoing it would false-conflict against the target's stored version.
+        const echoVersion = opts?.echoVersion ?? true;
+        const payload = buildPlayerSavePayload(characterToSave, overrides);
+        const body = echoVersion
+            ? { ...payload, _baseSaveVersion: latestSaveVersionRef.current }
+            : payload;
         const res = await fetch(`/api/save/${encodeURIComponent(name.toLowerCase())}`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(buildPlayerSavePayload(characterToSave, overrides), stripImages),
+            body: JSON.stringify(body, stripImages),
         });
+        if (res.status === 409 && echoVersion) {
+            // Another tab/device wrote first — reconcile instead of clobbering,
+            // exactly as the autosave timers do on 409.
+            void refetchAfterSaveConflict(name);
+            return;
+        }
         if (!res.ok) throw new Error(`Server returned ${res.status}`);
+        // Keep the version ref current so the next autosave doesn't echo a stale
+        // base version and spuriously conflict.
+        if (echoVersion) {
+            try {
+                const data = await res.json() as { _saveVersion?: number };
+                if (typeof data._saveVersion === "number") latestSaveVersionRef.current = data._saveVersion;
+            } catch { /* server may return 200 with an empty body; ignore */ }
+        }
     }
 
     async function pullSaveFromServer(name: string): Promise<ReturnType<typeof buildPlayerSavePayload> | null> {
@@ -9136,7 +9167,9 @@ export default function App() {
                         onSave={async () => {
                             const adminSaveName = adminAccount || currentAccountName;
                             if (!adminSaveName) return;
-                            await pushSaveToServer(character, adminSaveName);
+                            // Admin may be editing another player's slot — don't echo
+                            // THIS player's version ref against the target's save.
+                            await pushSaveToServer(character, adminSaveName, undefined, { echoVersion: false });
                         }}
                         onTestHollowGate={adminTestEnterHollowGateShrine}
                         onHollowGateForceUnlock={adminHollowGateForceUnlock}
