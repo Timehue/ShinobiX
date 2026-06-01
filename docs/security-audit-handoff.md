@@ -165,13 +165,22 @@ clan `warSupply` (`collectTerritoryWarSupply`) and the village daily-agenda
 - **✅ Step 1a — DONE (this run):** `_clan-save-validate.ts` now REJECTS save-blob
   increases for clan `ryo/fateShards/boneCharms/auraStones/mythicSeals`
   (credit-without-debit) — donations re-assert zero-delta, nothing else credits
-  them. `warSupply` still allowed (live collect path) until 1b. Admin exempt;
-  decreases + zero-delta allowed. Closes #17's clan-currency hole for those 5.
-- **Step 1b — OPEN:** `POST /api/clan/territory/collect-supply` — server computes
-  territory `warSupply` accrual (from `world:territory:*` `lastSupplyAt`), zeroes
-  + credits under locks; then lock clan `warSupply` increases. Also fixes today's
-  latent bug: the validator caps warSupply +100/write, silently truncating large
-  client collections.
+  them. Admin exempt; decreases + zero-delta allowed. (As of 1b, **warSupply is
+  blocked too** — see below; ALL clan-treasury currency increases via the save
+  blob are now rejected.)
+- **✅ Step 1b — DONE (this run):** `POST /api/clan/territory/collect-supply`
+  (`api/clan/territory/collect-supply.ts` + pure core `api/_territory-supply.ts`,
+  tested; registered in `server.ts`). Scans `world:territory:*`, recomputes each
+  owned sector's accrual server-side (mirrors `produceSectorWarSupply`), zeroes
+  sectors under per-sector locks (debit-first), then credits the clan treasury
+  `warSupply` under the clan-save lock; idempotent (2nd call collects 0). Client
+  `collectTerritoryWarSupply` now calls it and re-asserts the returned treasury.
+  The validator now rejects save-blob `warSupply` increases too. Also fixes the
+  latent +100-truncation bug. **Permission note:** gated at clan MEMBERSHIP (like
+  donate) since collection only feeds the shared treasury — the "leader/elder"
+  restriction stays a client UI gate (`canSpendTerritoryScrolls`), not a server
+  boundary (faithfully porting the contribution-rank role model server-side was
+  fragile and unnecessary for a no-personal-gain action).
 - **Step 1c — OPEN:** `POST /api/village/claim-daily-agenda` — server recomputes
   the agenda (port `makeVillageDailyAgenda`), verifies once-per-UTC-day via
   `claimedVillageAgendaDate`, credits village treasury + character authoritatively;

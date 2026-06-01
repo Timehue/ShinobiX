@@ -106,9 +106,17 @@ function items(next) {
         const { next } = (0, _clan_save_validate_js_1.validateClanSaveWrite)(prev, clanWith([], { ryo: 5000 }), admin);
         node_assert_1.strict.equal(next.treasury.ryo, 5000);
     });
-    (0, node_test_1.it)('still allows a warSupply increase within cap (live collect path, until step 1b)', () => {
+    (0, node_test_1.it)('blocks a warSupply increase too (collected via /api/clan/territory/collect-supply, step 1b)', () => {
         const prev = clanWith([], { warSupply: 10 });
-        const { next } = (0, _clan_save_validate_js_1.validateClanSaveWrite)(prev, clanWith([], { warSupply: 60 }), member);
-        node_assert_1.strict.equal(next.treasury.warSupply, 60); // +50 within cap 100
+        const { next, suppressed } = (0, _clan_save_validate_js_1.validateClanSaveWrite)(prev, clanWith([], { warSupply: 60 }), member);
+        node_assert_1.strict.equal(next.treasury.warSupply, 10); // kept at prev, not credited
+        node_assert_1.strict.equal(suppressed.some((s) => s.includes('treasury.warSupply increase via save blob blocked')), true);
+    });
+    (0, node_test_1.it)('allows an admin warSupply increase + a member decrease (spend) unchanged', () => {
+        const prevAdmin = clanWith([], { warSupply: 0 });
+        node_assert_1.strict.equal((0, _clan_save_validate_js_1.validateClanSaveWrite)(prevAdmin, clanWith([], { warSupply: 500 }), admin).next.treasury.warSupply, 500);
+        const prevSpend = clanWith([], { warSupply: 100 });
+        const founderCtx = { callerName: 'kaze', isAdmin: false }; // founderName 'Kaze' → admin-role
+        node_assert_1.strict.equal((0, _clan_save_validate_js_1.validateClanSaveWrite)(prevSpend, clanWith([], { warSupply: 0 }), founderCtx).next.treasury.warSupply, 0);
     });
 });
