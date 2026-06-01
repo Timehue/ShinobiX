@@ -50,6 +50,38 @@ function items(next) {
         node_assert_1.strict.equal(suppressed.some((s) => s.includes('treasury.items')), false);
     });
 });
+(0, node_test_1.describe)('validateClanSaveWrite — warHistory same-length content (#16 secondary)', () => {
+    const founder = { callerName: 'kaze', isAdmin: false }; // matches founderName below
+    function clanHist(hist) {
+        return { name: 'Storm', founderName: 'Kaze', warHistory: hist };
+    }
+    function hist(next) {
+        return next.warHistory;
+    }
+    (0, node_test_1.it)('allows a verbatim re-assert of warHistory by a regular member', () => {
+        const prev = clanHist([{ id: 'w1', result: 'Lost', warCrateId: '' }]);
+        const { next, suppressed } = (0, _clan_save_validate_js_1.validateClanSaveWrite)(prev, clanHist([{ id: 'w1', result: 'Lost', warCrateId: '' }]), member);
+        node_assert_1.strict.deepEqual(hist(next), [{ id: 'w1', result: 'Lost', warCrateId: '' }]);
+        node_assert_1.strict.equal(suppressed.some((s) => s.includes('warHistory')), false);
+    });
+    (0, node_test_1.it)('blocks a regular member rewriting an entry (mint) and reverts to prev', () => {
+        const prev = clanHist([{ id: 'w1', result: 'Lost', warCrateId: '' }]);
+        const { next, suppressed } = (0, _clan_save_validate_js_1.validateClanSaveWrite)(prev, clanHist([{ id: 'w1', result: 'Won', warCrateId: 'crate-1' }]), member);
+        node_assert_1.strict.deepEqual(hist(next), [{ id: 'w1', result: 'Lost', warCrateId: '' }]);
+        node_assert_1.strict.equal(suppressed.some((s) => s.includes('warHistory in-place content edit')), true);
+    });
+    (0, node_test_1.it)('allows the Founder (admin-role) to change an entry at the same length (war-end at cap)', () => {
+        const prev = clanHist([{ id: 'w1', result: 'Lost' }]);
+        const { next, suppressed } = (0, _clan_save_validate_js_1.validateClanSaveWrite)(prev, clanHist([{ id: 'w2', result: 'Won', warCrateId: 'c2' }]), founder);
+        node_assert_1.strict.deepEqual(hist(next), [{ id: 'w2', result: 'Won', warCrateId: 'c2' }]);
+        node_assert_1.strict.equal(suppressed.some((s) => s.includes('warHistory in-place content edit')), false);
+    });
+    (0, node_test_1.it)('allows a full admin to change warHistory content', () => {
+        const prev = clanHist([{ id: 'w1', result: 'Lost' }]);
+        const { next } = (0, _clan_save_validate_js_1.validateClanSaveWrite)(prev, clanHist([{ id: 'w9', result: 'Won' }]), admin);
+        node_assert_1.strict.deepEqual(hist(next), [{ id: 'w9', result: 'Won' }]);
+    });
+});
 (0, node_test_1.describe)('validateClanSaveWrite — currency caps unchanged by the lockdown', () => {
     (0, node_test_1.it)('still caps a ryo increase at the per-write ceiling (not hard-blocked)', () => {
         const prev = clanWith([], { ryo: 0 });
