@@ -4,6 +4,7 @@ import { cors, safeName, mergePreservingImages } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
+import { creditRankedFromSelf } from '../_ranked-rating.js';
 
 // Server-authoritative Pet Arena win recorder. Replaces the client-trusted
 // ryo + totalPetWins increment that lived in the PetArena component.
@@ -25,6 +26,11 @@ import { withKvLock } from '../_lock.js';
 const ARENA_WIN_RATE_LIMIT = 5_000;   // ms — one win per 5s per player
 const DAILY_ARENA_WIN_CAP = 100;       // max server-validated wins per UTC day
 const REPORT_KEY_TTL_SECONDS = 10 * 60; // 10-min dedup window per reportKey
+// Ranked-rating credit receipt window (audit #7 / Stage 3). Longer than the
+// 10-min casual dedup because the rating change is a durable economic credit,
+// not just a ryo grant — a stale tab re-reporting hours later must not
+// re-apply the Elo swing. Matches the 24h receipt in pvp/claim-rewards.ts.
+const RANKED_RECEIPT_TTL_SECONDS = 24 * 60 * 60;
 
 type PetBattleOutcome = 'win' | 'loss';
 
@@ -52,6 +58,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
         const playerName = safeName(String(body.playerName ?? ''));
         const outcome = (body.outcome === 'win' || body.outcome === 'loss') ? body.outcome as PetBattleOutcome : null;
+        // Ranked-pet-ladder marker (audit #7 / Stage 3). DORMANT until the
+        // client sends it: when true the SERVER owns the petRankedRating swing
+        // (computed from the caller's + opponent's saved ratings) instead of
+        // the client self-applying rankedDelta. No current client sets this,
+        // so the casual path below is byte-for-byte unchanged.
+        const ranked = body.ranked === true;
         const opponentLevelRaw = Math.max(1, Math.min(100, Math.floor(Number(body.opponentLevel ?? 1))));
         // Optional opponent name — used to verify the claimed opponentLevel
         // against the opponent's actual saved level. Stops a level-5 player
@@ -88,6 +100,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // omit opponentName (legacy clients, AI duels with no named foe)
         // fall back to the level-cap rule below.
         let opponentLevel = opponentLevelRaw;
+        // Opponent's saved petRankedRating, used ONLY by the ranked branch
+        // below to compute the caller's Elo swing. Defaults to 1000 (matching
+        // the client's `opponent.opponentRating ?? 1000`) for AI / roster foes
+        // with no save. Read here from the same oppSave we already load for the
+        // level cross-check, so the ranked path adds no extra KV read.
+        let opponentPetRating = 1000;
         if (opponentNameRaw && opponentNameRaw !== playerName) {
             const oppSave = await kv.get<Record<string, unknown>>(`save:${opponentNameRaw}`);
             const oppChar = (oppSave?.character ?? null) as Record<string, unknown> | null;
@@ -97,6 +115,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // higher. This silently corrects the claim rather than
                 // erroring (so the player still gets a valid reward).
                 opponentLevel = actualLevel;
+                const oppRating = Number(oppChar.petRankedRating);
+                if (Number.isFinite(oppRating)) opponentPetRating = oppRating;
             }
         } else if (!identity.admin) {
             // No opponent name supplied — clamp claimed level to
@@ -107,6 +127,66 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const meChar = (meSave?.character ?? null) as Record<string, unknown> | null;
             const myLevel = Math.max(1, Math.min(100, Math.floor(Number(meChar?.level ?? 1))));
             opponentLevel = Math.min(opponentLevelRaw, myLevel + 10);
+        }
+
+        const saveKey = `save:${playerName}`;
+
+        // ── Ranked pet ladder credit (audit #7 / Stage 3 — DORMANT) ──────────
+        // Unreachable until a client sends `ranked:true` (none does today), so
+        // the casual path below is byte-for-byte unchanged. When active, the
+        // SERVER owns the petRankedRating swing: it computes the Elo change from
+        // the caller's CURRENT saved rating + the opponent's saved rating (read
+        // above, default 1000 for AI/roster foes) and the reported outcome, then
+        // credits the caller's save. This mirrors the client's pet-ranked
+        // appliers exactly (creditRankedFromSelf is a verbatim port), so moving
+        // it server-side is a zero-balance change.
+        //
+        // Differences from the casual path, by design (matching the client's
+        // ranked-pet branch in App.tsx, which grants NO ryo and bypasses the
+        // daily arena cap): no ryo, no totalPetWins/dailyPetWins touch — only
+        // petRankedRating + petRankedWins/petRankedLosses move here. The general
+        // pet-win counters stay client-owned during the convergence window, like
+        // the non-rating PvP counters do in claim-rewards.
+        //
+        // Exactly-once: the receipt is placed INSIDE the save lock together with
+        // the rating write (failClosed), so a contention abort (→503) leaves
+        // NOTHING placed and a retry credits cleanly without ever double-applying
+        // the swing. reportKey is REQUIRED (for losses too, since a ranked loss
+        // also moves the rating) so the receipt is stable across refresh-replays.
+        if (ranked) {
+            if (!identity.admin && !reportKey) {
+                return res.status(400).json({ error: 'Missing or invalid reportKey for ranked result.' });
+            }
+            const receiptKey = `pet:ranked-rewarded:${playerName.toLowerCase()}:${reportKey}`;
+            try {
+                const out = await withKvLock(saveKey, async () => {
+                    // Admin without a reportKey can't be deduped (no stable key);
+                    // treat as a fresh credit each call (admin-only test path).
+                    const placed = reportKey
+                        ? await kv.set(receiptKey, { outcome, ts: Date.now() }, { nx: true, ex: RANKED_RECEIPT_TTL_SECONDS } as never)
+                        : true;
+                    const already = !placed;
+                    const record = await kv.get<Record<string, unknown>>(saveKey);
+                    const char = (record?.character ?? null) as Record<string, unknown> | null;
+                    if (!record || !char) return { error: 'no-save' as const };
+                    const credit = creditRankedFromSelf(char, { outcome, opponentRating: opponentPetRating, kind: 'pet' });
+                    if (!already) {
+                        const nextChar = { ...char, ...credit.patch };
+                        await kv.set(saveKey, mergePreservingImages({ ...record, character: nextChar }, record));
+                        return { already, rating: { field: 'petRankedRating', value: credit.newRating, delta: credit.delta } };
+                    }
+                    // Already credited on a prior call — echo the stored rating.
+                    const cur = Number(char.petRankedRating);
+                    return { already, rating: { field: 'petRankedRating', value: Number.isFinite(cur) ? cur : credit.newRating, delta: credit.delta } };
+                }, { failClosed: true });
+                if ('error' in out) return res.status(404).json({ error: out.error });
+                return res.status(200).json({ ok: true, ranked: true, reward: 0, alreadyReported: out.already, rating: out.rating });
+            } catch (rankedErr) {
+                // Lock contention/outage (failClosed) — receipt NOT placed, so
+                // the client can safely retry. 503 signals "transient, retry".
+                console.error('[pet/battle-result] ranked credit failed', rankedErr);
+                return res.status(503).json({ error: 'Could not record ranked result — please retry.' });
+            }
         }
 
         // Refresh-replay dedup: NX-reserve the reportKey atomically. If it
@@ -122,8 +202,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return res.status(200).json({ ok: true, alreadyReported: true, reward: 0 });
             }
         }
-
-        const saveKey = `save:${playerName}`;
 
         // Apply under a per-player lock so simultaneous result POSTs (e.g.
         // double-clicked Confirm) can't both award ryo + increment counters.
