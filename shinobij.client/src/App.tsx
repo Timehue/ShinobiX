@@ -5559,6 +5559,14 @@ export default function App() {
                 body: stringifyPvpSessionPayload({
                     // Sector attacks bring current vitals; spar/ranked reset to full.
                     useCurrentVitals: !!challenge.sectorAttack,
+                    // Ranked-match markers (audit #7 / Stage 3). When ranked, the
+                    // server snapshots BOTH fighters' pre-match Elo from their
+                    // saves and claim-rewards credits the rating server-side; the
+                    // client still self-applies for now (the two converge — same
+                    // formula, same snapshot). Only the ranked ladder (queue +
+                    // ranked challenges) sets this — never spar / clan-war / sector.
+                    ranked: challenge.mode === "ranked",
+                    rankedKind: "player",
                     p1Character: {
                         ...p1Character,
                         jutsu: p1Jutsus,
@@ -32163,7 +32171,7 @@ function Arena({
             const res = await fetch('/api/pvp/session', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: stringifyPvpSessionPayload({ useCurrentVitals: !!challenge.sectorAttack, p1Character: { ...p1Character, jutsu: p1Jutsus, pvpItems: getPvpItemLoadout(p1Character, p1AllItems), bloodlineMult: challenge.challengerBloodlineMult ?? getBloodlineMultiplier(p1Character, p1SavedBloodlines), armorFactor: getCharacterArmorFactor(p1Character, p1AllItems), armorRawDR: getCharacterArmorRawDR(p1Character, p1AllItems), itemDamagePct: getEquippedItemBonus(p1Character, p1AllItems, "damagePercent") }, p2Character: { ...p2Character, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(p2Character, p2AllItems), bloodlineMult: getBloodlineMultiplier(p2Character, p2SavedBloodlines), armorFactor: getCharacterArmorFactor(p2Character, p2AllItems), armorRawDR: getCharacterArmorRawDR(p2Character, p2AllItems), itemDamagePct: getEquippedItemBonus(p2Character, p2AllItems, "damagePercent") } }),
+                body: stringifyPvpSessionPayload({ useCurrentVitals: !!challenge.sectorAttack, ranked: challenge.mode === "ranked", rankedKind: "player", p1Character: { ...p1Character, jutsu: p1Jutsus, pvpItems: getPvpItemLoadout(p1Character, p1AllItems), bloodlineMult: challenge.challengerBloodlineMult ?? getBloodlineMultiplier(p1Character, p1SavedBloodlines), armorFactor: getCharacterArmorFactor(p1Character, p1AllItems), armorRawDR: getCharacterArmorRawDR(p1Character, p1AllItems), itemDamagePct: getEquippedItemBonus(p1Character, p1AllItems, "damagePercent") }, p2Character: { ...p2Character, jutsu: p2Jutsus, pvpItems: getPvpItemLoadout(p2Character, p2AllItems), bloodlineMult: getBloodlineMultiplier(p2Character, p2SavedBloodlines), armorFactor: getCharacterArmorFactor(p2Character, p2AllItems), armorRawDR: getCharacterArmorRawDR(p2Character, p2AllItems), itemDamagePct: getEquippedItemBonus(p2Character, p2AllItems, "damagePercent") } }),
             });
             if (!res.ok) throw new Error('Session create failed');
             // Mirrors acceptChallengeGlobal (App.tsx ~6763): read the session
