@@ -5225,18 +5225,21 @@ export default function App() {
 
         if (!tabVisible) return; // pause heartbeat when tab hidden
         heartbeat();
-        // Adaptive heartbeat: fast in battle/arena (3s), moderate while exploring (5s),
-        // slow in village/sector 0 (15s) to reduce serverless function invocations.
-        // EXCEPTION: village-queued guards drop to 3s so a raider's attack on the
-        // village reaches the defender within seconds, not 15.
+        // Adaptive heartbeat: 1s in combat/arena AND while exploring sectors (live
+        // presence + fast attack/challenge delivery), slow in village/sector 0 (15s)
+        // where there's no urgent combat. The 1s cadence is affordable because the
+        // presence payload no longer carries avatar data URLs (the former egress
+        // bulk) — see toRecord() in api/player/heartbeat.ts and the avatar cache-fill
+        // above. EXCEPTION: village-queued guards also drop to 1s so a raider's
+        // attack on the village reaches the defender within ~1s, not 15.
         const currentScreen = screenRef.current;
         const interval = currentScreen === "pvpBattle" || currentScreen === "arena" || currentScreen === "petArena"
-            ? 3000   // in combat — need fast challenge delivery
+            ? 1000   // in combat — fast challenge/attack delivery
             : character?.guardQueued
-            ? 3000   // queued for village defense — must respond to raids fast
+            ? 1000   // queued for village defense — must respond to raids fast
             : currentSector === 0
             ? 15000  // village — no urgent combat needs
-            : 5000;  // exploring sectors — moderate speed
+            : 1000;  // exploring sectors — live presence
         const id = setInterval(heartbeat, interval);
         return () => clearInterval(id);
     }, [character?.name, character?.guardQueued, currentSector, isTraveling, travelingUntil, screen, tabVisible]);
@@ -6389,8 +6392,56 @@ export default function App() {
 
     // Load ALL image categories at startup — ensures images from publishSharedImage
     // are always available regardless of which screen the player visits first.
-     
+
     useEffect(() => { void loadCategory('item'); void loadCategory('pet'); void loadCategory('card'); void loadCategory('jutsu'); void loadCategory('event'); void loadCategory('avatar'); void loadCategory('ai'); void loadCategory('bloodline'); void loadCategory('shrine'); void loadCategory('landmark'); }, []);
+
+    // ── Avatar cache-fill for live players ────────────────────────────────
+    // The presence heartbeat no longer ships avatar data URLs (they were the
+    // bulk of its egress). Instead the client resolves other players' avatars
+    // from sharedImages['avatar:<name>'], hydrated by loadCategory('avatar')
+    // (which fetches the whole avatar bucket from /api/images?cat=avatar in one
+    // CDN-cached request). That bucket is loaded at startup, but a player who
+    // sets an avatar AFTER we loaded — or who joins mid-session — wouldn't be in
+    // it yet, so their sector dot / roster entry would show the 🥷 emoji.
+    //
+    // This refreshes the avatar bucket (at most once per AVATAR_REFRESH_MS) when
+    // we encounter a live player name we don't have a cached avatar for. The
+    // refresh re-fetches the WHOLE bucket, not per-name, so N unknown players
+    // cost one request, not N. Throttled so a churny sector can't spam /api/images.
+    const lastAvatarRefreshRef = useRef(0);
+    const AVATAR_REFRESH_MS = 30_000;
+    function ensureAvatarsCached(names: Array<string | undefined | null>) {
+        // Any live player whose avatar isn't in the cache yet?
+        const missing = names.some((n) => {
+            if (!n) return false;
+            const lower = n.toLowerCase();
+            if (lower === (characterRef.current?.name ?? '').toLowerCase()) return false; // self: uses own field
+            return !sharedImages['avatar:' + lower];
+        });
+        if (!missing) return;
+        const now = Date.now();
+        if (now - lastAvatarRefreshRef.current < AVATAR_REFRESH_MS) return; // throttle
+        lastAvatarRefreshRef.current = now;
+        // Force loadCategory('avatar') to actually re-fetch: clear the in-memory
+        // "already loaded" guard and the sessionStorage copy so it bypasses both
+        // short-circuits and pulls the freshest bucket.
+        loadedCatsRef.current.delete('avatar');
+        try { sessionStorage.removeItem(imgCacheKey('avatar')); } catch { /* ignore */ }
+        void loadCategory('avatar');
+    }
+
+    // Drive the cache-fill from the live player lists. Runs whenever the set of
+    // visible players changes OR sharedImages updates — so it always evaluates
+    // "is anyone's avatar missing?" against fresh state (no stale closure), and
+    // the internal throttle keeps it from spamming /api/images.
+    useEffect(() => {
+        const names = [
+            ...liveSectorPlayers.map((p) => p.name),
+            ...playerRoster.map((p) => p.name),
+        ];
+        if (names.length) ensureAvatarsCached(names);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [liveSectorPlayers, playerRoster, sharedImages]);
 
     // ── Hollow Gate Shrine — Kenney atlas auto-slicer ─────────────────────
     // If /public/assets/dungeon/tilemap.png exists, slice 4 tiles from it
