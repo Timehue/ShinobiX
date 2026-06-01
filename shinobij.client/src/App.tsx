@@ -23174,11 +23174,46 @@ function TownHall({ character, updateCharacter, creatorItems, allServerPlayers, 
     const mapControlRyo = ownedVillageSectors.length * 100;
     const mapControlHonor = ownedVillageSectors.length * 2;
     const mapControlBone = Math.floor(ownedVillageSectors.length / 3);
-    function claimMapControlRewards() {
+    async function claimMapControlRewards() {
         if (ownedVillageSectors.length <= 0) return alert("Your village does not control any sectors yet.");
         if (mapControlClaimed) return alert("You already claimed today's map control reward.");
-        updateCharacter({ ...character, claimedMapControlDate: currentDateKey(), ryo: character.ryo + mapControlRyo, honorSeals: (character.honorSeals ?? 0) + vanguardOnlyHonorSeals(character, mapControlHonor), boneCharms: (character.boneCharms ?? 0) + mapControlBone, fateShards: (character.fateShards ?? 0) + nonVanguardShardSubstitute(character, mapControlHonor) });
-        updateVillageState(addNotice(`${character.name} claimed map control rewards from ${ownedVillageSectors.length} village sector${ownedVillageSectors.length === 1 ? "" : "s"}.`, { ...state, contributionPoints: state.contributionPoints + ownedVillageSectors.length }));
+        // The map-control reward is now server-authoritative (audit #7 / Stage 3
+        // Phase 2): the server counts the village's owned world:territory:* sectors,
+        // computes the payout (verbatim formula), and credits the player's save
+        // under lock:save:<name> once per UTC day via an NX marker. We add the
+        // returned `granted` delta to our OWN balance (preserving concurrent ryo
+        // gains) and re-assert via autosave — converges with the server write. The
+        // contributionPoints credit uses the SERVER sector count, so it can't be
+        // inflated past the true owned-sector count.
+        let data: { ok?: boolean; alreadyClaimed?: boolean; error?: string; sectors?: number; granted?: { ryo: number; honorSeals: number; boneCharms: number; fateShards: number } };
+        try {
+            const res = await fetch("/api/village/claim-map-control", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ playerName: character.name, village: character.village }),
+            });
+            data = await res.json().catch(() => ({}));
+            if (!res.ok || !data.ok) return alert(data.error || "Could not claim the map control reward. Please try again.");
+        } catch {
+            return alert("Could not claim the map control reward. Please try again.");
+        }
+        const grant = (!data.alreadyClaimed && data.granted) ? data.granted : null;
+        const serverSectors = Math.max(0, Math.floor(Number(data.sectors ?? 0)));
+        updateCharacter({
+            ...character,
+            claimedMapControlDate: currentDateKey(),
+            ...(grant ? {
+                ryo: character.ryo + grant.ryo,
+                honorSeals: (character.honorSeals ?? 0) + grant.honorSeals,
+                boneCharms: (character.boneCharms ?? 0) + grant.boneCharms,
+                fateShards: (character.fateShards ?? 0) + grant.fateShards,
+            } : {}),
+        });
+        if (grant) {
+            updateVillageState(addNotice(`${character.name} claimed map control rewards from ${serverSectors} village sector${serverSectors === 1 ? "" : "s"}.`, { ...state, contributionPoints: state.contributionPoints + serverSectors }));
+        } else if (data.alreadyClaimed) {
+            return alert("Today's map control reward was already claimed.");
+        }
     }
     return <div className="card town-hall-screen">
         <div className="town-hall-hero"><div><p className="act-label">{character.village}</p><h2>Town Hall</h2><p className="hint">Village government, war records, guard defense, upgrades, treasury, and leadership.</p></div><div className="town-hall-wallet"><span>Honor Seals</span><strong>{(character.honorSeals ?? 0).toLocaleString()}</strong></div></div>
