@@ -52,6 +52,7 @@ import kvProxyHandler     from './api/kv-proxy.js';
 import migrateKvHandler   from './api/admin/migrate-kv.js';
 import raidStartHandler   from './api/missions/raid-start.js';
 import villageTreasuryTransferHandler from './api/village/treasury-transfer.js';
+import villageTreasuryDonateHandler from './api/village/treasury/donate.js';
 import saveSnapshotHandler from './api/admin/save-snapshot.js';
 
 // Clan — wars
@@ -64,6 +65,8 @@ import clanWarTilecardsHandler from './api/clan/war/tilecards.js';
 import clanSealPoolGetHandler        from './api/clan/seal-pool/get.js';
 import clanSealPoolDonateHandler     from './api/clan/seal-pool/donate.js';
 import clanSealPoolDistributeHandler from './api/clan/seal-pool/distribute.js';
+// Clan — treasury donate (atomic)
+import clanTreasuryDonateHandler     from './api/clan/treasury/donate.js';
 // Clan — pet escort
 import clanPetEscortListHandler   from './api/clan/pet-escort/list.js';
 import clanPetEscortOfferHandler  from './api/clan/pet-escort/offer.js';
@@ -338,6 +341,8 @@ route('/missions/raid-start', raidStartHandler);
 // Village treasury — atomic Kage-gift endpoint that replaces the broken
 // 2-write client flow (deduct treasury + patch recipient).
 route('/village/treasury/transfer', villageTreasuryTransferHandler);
+// Village treasury — atomic player donation (debit donor + credit treasury).
+route('/village/treasury/donate', villageTreasuryDonateHandler);
 
 // Admin: snapshot / list / restore a player save (90-day TTL). Survives
 // server-reset because the `save-snapshot:` prefix isn't matched by the
@@ -357,6 +362,10 @@ route('/clan/war/tilecards', clanWarTilecardsHandler);
 route('/clan/seal-pool/get',        clanSealPoolGetHandler);
 route('/clan/seal-pool/donate',     clanSealPoolDonateHandler);
 route('/clan/seal-pool/distribute', clanSealPoolDistributeHandler);
+
+// ─── Clan: treasury donate ─────────────────────────────────────────────────────
+// Atomic player donation (debit donor save + credit clan treasury).
+route('/clan/treasury/donate',      clanTreasuryDonateHandler);
 
 // ─── Clan: pet escort ──────────────────────────────────────────────────────────
 route('/clan/pet-escort/list',   clanPetEscortListHandler);
