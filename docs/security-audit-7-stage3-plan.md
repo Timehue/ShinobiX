@@ -207,12 +207,36 @@ carefully afterward, before the sanitizer tighten.
    creation), the pet path reads live ratings at report time — there is no pet
    PvpSession; the convergence note above covers the tiny snapshot-vs-live
    divergence, and it is moot until activation + read-back cutover.
-2. **Activate (low-risk, convergence-safe):** add `ranked:true` + `rankedKind`
-   to the `/api/pvp/session` POST body at the RANKED creation sites and `ranked`
-   to the ranked `/api/pet/battle-result` calls. Session-creation sites in
-   `App.tsx`: ~5556, ~10033, ~27701, ~28819, ~32163 — only the ones where the
-   match is ranked (`mode==="ranked"` → `rankedKind:'player'`; `mode==="rankedPet"`
-   → `'pet'`). Pet-arena battle-result calls: ~14453, ~14574.
+2. **Activate — PLAYER half DONE (this commit); PET half DEFERRED.**
+   - **PLAYER (done):** `App.tsx` now sends `ranked: challenge.mode === "ranked"`
+     + `rankedKind:"player"` on the `/api/pvp/session` POST at the two
+     ranked-capable accept sites — `acceptChallengeGlobal` (~5559) and the Arena
+     `acceptChallenge` (~32166). Investigation correction to the earlier plan:
+     of the five session-creation sites, only those two are ever ranked; the
+     other three (~10033 sector attack, ~27701 sector raid, ~28819 village
+     guard) hardcode `mode:"standard"`, so they are NOT touched. The ranked
+     QUEUE flows through these accepts too (`joinRankedQueue` → match →
+     `challengePlayer(stub,"ranked")` → accept), so this covers queue + ranked
+     challenges. Both accepts route to **PvpBattleScreen**, whose claim effect
+     (~36060) calls `claim-rewards`, which now credits the rating server-side
+     (the dormant `c130cc4` branch). **Convergence-safe:** the client still
+     self-applies in `handlePvpWin`/loss; `rankedRating` is NOT stripped from the
+     session, so the opponent snapshot in the session == the server's pXRating
+     snapshot → identical delta from the same base, and the full-state autosave
+     overwrites with the same value. A 503 (failClosed contention) is also safe:
+     the claim effect's `if (r.ok)` leaves `alreadyClaimed=false` so the client
+     still self-applies. The inline `rankedBattleActive` BattleScreen path is
+     only the session-create FAILURE fallback (no server session) — unchanged.
+   - **PET (deferred — coupled to step 3, NOT a flag-add):** the earlier plan
+     said "add `ranked` to the pet battle-result calls at ~14453/~14574," but
+     those are the CASUAL party / 1v1 paths. The actual ranked-pet path
+     (`if (opponent.ranked)` at ~14481) folds rating into ONE `updateCharacter`
+     and makes **no `battle-result` call at all**. Activating the server credit
+     therefore means ADDING a new `battle-result({ranked:true,…})` call there +
+     threading a stable `reportKey` (`${battleSeed}:ranked`) + `opponentName`
+     (`opponent.owner`) — which is best done together with the pet read-back
+     (step 3) rather than as a pure activation. The dormant pet server branch
+     (step 1) is ready and waiting; this is a deliberate sequencing choice.
 3. **Read-back cutover (stop self-applying):** thread the `rating` returned by
    `claim-rewards` / `battle-result` into the win/loss appliers and use
    `rating.value` instead of `rankedDelta(...)`:
