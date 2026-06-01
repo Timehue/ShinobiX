@@ -22,19 +22,18 @@
 --     the `anon` role; there is no Supabase `authenticated` user and no
 --     auth.uid() to scope a per-row "owner" policy on.
 --   * `save:%` rows are ALREADY service-role-only: they are not in the anon
---     SELECT allowlist below, and the `authenticated` role has NO policy, so
---     RLS denies it every row by default (the `grant select` to authenticated
---     is neutralised by deny-by-default — it only reads rows a policy permits,
---     and none exists for it).
+--     SELECT allowlist below, and the `authenticated` role has NO policy AND
+--     (as of 2026-06-01) NO grant either, so RLS denies it every row.
 --   * Field-level redaction of the anon-readable prefixes (pvp/cw-tilecards/
 --     challenges) is done in the app layer — RLS is row-level and cannot
 --     project inside the `value` jsonb. See the PvP/guard projection helpers.
--- Latent footgun (left as-is; revoke is available as future defense-in-depth):
---   the `grant select on kv_store to authenticated` below is harmless WHILE RLS
---   is enabled, but would expose all rows to any authenticated session if RLS
---   were ever turned off. The app never uses the authenticated role, so
---   `revoke select on public.kv_store from authenticated;` is a safe hardening
---   to apply later. Not applied here to avoid an unreviewed schema change.
+-- Defense-in-depth (APPLIED 2026-06-01, migration
+-- `harden_kv_store_revoke_authenticated_select`): the `authenticated` role is
+--   now granted NOTHING on kv_store (see the `revoke all … from authenticated`
+--   below, with no re-grant). It previously carried a harmless-but-latent
+--   `grant select` that would have exposed all rows if RLS were ever disabled;
+--   the app never uses that role, so the grant was revoked. The `anon` SELECT
+--   grant/policy is deliberately untouched — live Realtime depends on it.
 -- ============================================================
 
 -- ── Core table ───────────────────────────────────────────────────────────────
@@ -88,8 +87,12 @@ create policy "kv_store_anon_select"
 -- The SELECT policy above re-grants the narrow allowlist.
 revoke all      on public.kv_store from anon;
 grant  select   on public.kv_store to   anon;
+-- audit #27 hardening (applied to prod 2026-06-01): the app never uses the
+-- `authenticated` role (players are `anon` via Realtime; the server is
+-- `service_role`), so grant it NOTHING. RLS already denied it every row by
+-- deny-by-default; revoking the grant also closes the "if RLS is ever disabled,
+-- authenticated would see all rows" footgun. Do NOT re-add a grant here.
 revoke all      on public.kv_store from authenticated;
-grant  select   on public.kv_store to   authenticated;
 
 -- ── kv_set_nx — atomic set-if-not-exists for PvP lock semantics ──────────────
 
