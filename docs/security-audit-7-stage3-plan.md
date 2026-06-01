@@ -160,6 +160,57 @@ tighten (step 4) is a separate, telemetry-gated follow-up.
 
 ---
 
+## Build progress (2026-06-01)
+
+- **Phase 0 DONE** (`f3d0af2`): `api/_ranked-rating.ts` (verbatim `rankedDelta`
+  port + `creditRankedOutcome`) + `_ranked-rating.test.ts`.
+- **Phase 1 server, DORMANT, DONE** (`c130cc4`): `PvpSession` gained
+  `ranked`/`rankedKind`/`p1Rating`/`p2Rating`; `api/pvp/session.ts` POST stamps
+  them (ratings read from saves) when the body says `ranked:true`;
+  `api/pvp/claim-rewards.ts` credits the caller's save via `creditRankedOutcome`
+  under `lock:save:<name>` (failClosed) with the receipt placed atomically. The
+  casual path is byte-for-byte unchanged, so this is a **no-op until the client
+  sends `ranked`** — safe to ship.
+
+### Convergence-safety note (important for the remaining steps)
+Once the client sends `ranked:true` at session creation, the server credits the
+rating AND (until cut over) the client also self-applies it. These **converge**
+(same formula, same base rating), and the client's autosave runs under the
+permissive ±200 sanitizer — so there is **no double-credit explosion**; worst
+case is a tiny divergence if the snapshot ratings differ. This makes activating
+the server crediting low-risk and lets the client read-back cutover be done
+carefully afterward, before the sanitizer tighten.
+
+### Precise remaining cutover (client + pet-arena server)
+1. **Pet-arena server (battle-result):** extend `api/pet/battle-result.ts` to
+   credit `petRankedRating` via `creditRankedOutcome` (kind `'pet'`) when the body
+   flags ranked — read the opponent's `petRankedRating` from their save (it
+   already loads `oppSave` for the level clamp) and the caller's from theirs
+   inside the existing `withKvLock(saveKey)`. Gate dormant on `body.ranked`.
+2. **Activate (low-risk, convergence-safe):** add `ranked:true` + `rankedKind`
+   to the `/api/pvp/session` POST body at the RANKED creation sites and `ranked`
+   to the ranked `/api/pet/battle-result` calls. Session-creation sites in
+   `App.tsx`: ~5556, ~10033, ~27701, ~28819, ~32163 — only the ones where the
+   match is ranked (`mode==="ranked"` → `rankedKind:'player'`; `mode==="rankedPet"`
+   → `'pet'`). Pet-arena battle-result calls: ~14453, ~14574.
+3. **Read-back cutover (stop self-applying):** thread the `rating` returned by
+   `claim-rewards` / `battle-result` into the win/loss appliers and use
+   `rating.value` instead of `rankedDelta(...)`:
+   - Shared-session duel (`PvpBattleScreen`): the claim effect at App.tsx ~36060
+     fetches claim-rewards; capture `data.rating` and pass it to
+     `onWin`/`onLoss`. `handlePvpWin` (~10359/10420) and `handlePvpLoss`
+     (~10517/10520) override `rankedRating` with `rating.value` when present.
+   - Player arena (`BattleScreen`, ~33136/33170/33213) — its own win/loss path.
+   - Pet 1v1 (`rankedPet`) and pet arena (~14506-14524) — `petRankedRating`.
+   Counters (`rankedWins`/`rankedLosses`) already increment by 1 from the same
+   base on both sides, so they converge — leave that logic, override only the
+   rating value.
+4. **Telemetry + sanitizer tighten (final, gated):** once the read-back client
+   is deployed and telemetry shows no client-driven `rankedRating` increases,
+   tighten `api/save/[name].ts` so the ±200 swing clamp becomes "re-assert /
+   decrease only" for `rankedRating`/`petRankedRating`. This is what finally
+   makes the server the SOLE authority. NOT before the read-back client is live.
+
 ## Non-negotiables (per CLAUDE.md)
 
 - **No balance change** — every formula ported verbatim; tests assert server ==
