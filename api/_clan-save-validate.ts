@@ -39,22 +39,13 @@ type ClanContext = {
 };
 
 const TREASURY_KEYS = ['ryo', 'fateShards', 'boneCharms', 'auraStones', 'mythicSeals', 'warSupply'] as const;
-// SECURITY NOTE: same trust-the-caller-debited model as the village-state
-// validator — a caller can credit the clan treasury without debiting their
-// save. Honor Seals are already protected by the dedicated
-// /api/clan/seal-pool/donate.ts atomic endpoint; ryo / fate / bone / aura /
-// mythic / warSupply still flow through the trust-the-debit path here.
-// Per-call ceilings below cap the per-request blast radius; a full fix
-// needs a generic /api/clan/treasury/donate endpoint that does both halves
-// atomically. Tightened ~10× from prior values.
-const MAX_TREASURY_INCREASE: Record<string, number> = {
-    ryo: 50_000,         // was 500_000
-    fateShards: 50,      // was 500
-    boneCharms: 50,      // was 500
-    auraStones: 50,      // was 500
-    mythicSeals: 20,     // was 200
-    warSupply: 100,      // was 1_000
-};
+// #17 — clan-treasury currencies are now CREDITED ONLY by server endpoints, not
+// the save blob: the donatable currencies (ryo/fateShards/boneCharms/auraStones/
+// mythicSeals) via /api/clan/treasury/donate, and warSupply via
+// /api/clan/territory/collect-supply. Both atomically move the source → treasury
+// and the client then re-asserts the returned treasury at a zero delta, so a
+// save-blob currency INCREASE here is credit-without-debit and is rejected below
+// (admin bypasses). Honor Seals use the /api/clan/seal-pool/donate endpoint.
 const MAX_ACTIVE_WAR_SCORE_PER_WRITE = 100;
 // Auto-finalize stale clan wars. A war whose endsAt is more than 24h
 // in the past is treated as abandoned on the next write — moved into
@@ -316,27 +307,15 @@ export function validateClanSaveWrite(
             const after = num(inTreasury[key], before);
             const delta = after - before;
             if (delta > 0) {
-                // #17 lockdown: every player-donatable clan currency now enters
-                // the treasury ONLY via the atomic /api/clan/treasury/donate
-                // endpoint (which the client re-asserts at a zero delta), so a
-                // save-blob INCREASE here is credit-without-debit — reject it
-                // (keep prev). Admin bypasses. `warSupply` is the exception: it's
-                // still collected client-side via the save blob
-                // (collectTerritoryWarSupply) until its server endpoint lands,
-                // so keep its capped-increase path for now.
-                if (key === 'warSupply') {
-                    const cap = MAX_TREASURY_INCREASE[key] ?? 0;
-                    if (delta > cap) {
-                        outTreasury[key] = before + cap;
-                        suppressed.push(`clan treasury.${key} +${delta} > cap ${cap}`);
-                    } else {
-                        outTreasury[key] = after;
-                    }
-                } else if (ctx.isAdmin) {
+                // #17 lockdown: clan-treasury currencies are credited ONLY by
+                // server endpoints (donate / collect-supply), which the client
+                // re-asserts at a zero delta — so a save-blob INCREASE is
+                // credit-without-debit. Reject it (keep prev); admin bypasses.
+                if (ctx.isAdmin) {
                     outTreasury[key] = after;
                 } else {
                     outTreasury[key] = before;
-                    suppressed.push(`clan treasury.${key} increase via save blob blocked — donate via /api/clan/treasury/donate`);
+                    suppressed.push(`clan treasury.${key} increase via save blob blocked — use the server endpoint`);
                 }
             } else if (delta < 0) {
                 if (!callerIsAdminRole) {

@@ -21910,13 +21910,27 @@ function ClanHall({ character, updateCharacter, creatorItems, setScreen }: { cha
     void _addWarScore;
     async function collectTerritoryWarSupply() {
         if (!clanData || !canSpendTerritoryScrolls) return alert("Only the clan leader or Clan Elders can collect sector war supply.");
-        const territories = clanOwnedTerritories(clanData.name);
-        const total = territories.reduce((sum, territory) => sum + territory.warSupply, 0);
-        if (total <= 0) return alert("Your owned sectors have not produced war supply yet.");
-        territories.forEach(territory => saveSectorTerritory({ ...territory, warSupply: 0 }));
-        await saveClan({ ...clanData, treasury: { ...clanData.treasury, warSupply: clanData.treasury.warSupply + total } });
+        // Server-authoritative: the endpoint scans owned sectors, accrues +
+        // zeroes them, and credits the clan treasury under locks. We re-assert
+        // the returned treasury (zero delta into the validator) instead of
+        // crediting client-side. The next world-state poll reconciles the
+        // sector displays.
+        let data: { ok?: boolean; error?: string; treasury?: Partial<ClanTreasury>; collected?: number };
+        try {
+            const res = await fetch("/api/clan/territory/collect-supply", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ playerName: character.name, clan: clanData.name }),
+            });
+            data = await res.json().catch(() => ({}));
+            if (!res.ok || !data.ok) return alert(data.error || "Could not collect war supply. Please try again.");
+        } catch {
+            return alert("Could not collect war supply. Please try again.");
+        }
+        if (!data.collected || data.collected <= 0) return alert("Your owned sectors have not produced war supply yet.");
+        await saveClan({ ...clanData, treasury: cleanClanTreasury(data.treasury as Partial<ClanTreasury>) });
         refreshTerritoryPanel();
-        alert(`Collected ${total.toLocaleString()} War Supply from clan sectors.`);
+        alert(`Collected ${data.collected.toLocaleString()} War Supply from clan sectors.`);
     }
     async function _spendWarSupplyOnActiveWar() {
         if (!clanData?.activeWar) return alert("Start a clan war before spending War Supply.");
