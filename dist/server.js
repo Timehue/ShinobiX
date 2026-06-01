@@ -55,6 +55,7 @@ const migrate_kv_js_1 = __importDefault(require("./api/admin/migrate-kv.js"));
 const raid_start_js_1 = __importDefault(require("./api/missions/raid-start.js"));
 const treasury_transfer_js_1 = __importDefault(require("./api/village/treasury-transfer.js"));
 const donate_js_1 = __importDefault(require("./api/village/treasury/donate.js"));
+const claim_daily_agenda_js_1 = __importDefault(require("./api/village/claim-daily-agenda.js"));
 const save_snapshot_js_1 = __importDefault(require("./api/admin/save-snapshot.js"));
 // Clan — wars
 const list_js_4 = __importDefault(require("./api/clan/war/list.js"));
@@ -307,6 +308,8 @@ route('/missions/raid-start', raid_start_js_1.default);
 route('/village/treasury/transfer', treasury_transfer_js_1.default);
 // Village treasury — atomic player donation (debit donor + credit treasury).
 route('/village/treasury/donate', donate_js_1.default);
+// Village daily-agenda — server-authoritative shared-treasury credit (NX once/day).
+route('/village/claim-daily-agenda', claim_daily_agenda_js_1.default);
 // Admin: snapshot / list / restore a player save (90-day TTL). Survives
 // server-reset because the `save-snapshot:` prefix isn't matched by the
 // reset's `save:*` glob.
