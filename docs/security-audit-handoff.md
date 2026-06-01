@@ -1,9 +1,9 @@
 # ShinobiX Security Audit — Session Handoff
 
-Status as of commit `5b17321` (branch `claude/romantic-noyce-9e11d4`, pushed to
-`origin/main`, working tree clean). This continues the 30-item "full audit
-consolidation" handoff. The companion file `docs/security-audit-triage.md` has
-the per-item evidence; this file is the **what's-done / what's-left + how-to**.
+Status as of commit `bf37f0b` (pushed to `origin/main`, working tree clean).
+This continues the 30-item "full audit consolidation" handoff. The companion
+file `docs/security-audit-triage.md` has the per-item evidence; this file is
+the **what's-done / what's-left + how-to**.
 
 ---
 
@@ -14,9 +14,12 @@ the per-item evidence; this file is the **what's-done / what's-left + how-to**.
 2. **Two non-code items are still open and are the user's job, not yours:**
    - 🔴 **Rotate the leaked secrets** (dashboards) — see "Open: secrets" below.
    - **Optional git history purge** — runbook below; do NOT run in-place.
-3. **The remaining CODE work is the "larger/rollout" bucket (#5, #14, #16, #17,
-   #27).** Each needs a client rollout or Supabase schema change, so each wants
-   its own plan + explicit user sign-off (balance/auth/schema-sensitive).
+3. **Remaining CODE work:** #5 DONE (`cf80b50`), #16+#17 DONE (`bf37f0b`). Still
+   open: **#14** (mandatory `_baseSaveVersion`), **#27** (Supabase RLS), plus the
+   **#16/#17 follow-up** (lock the clan/village validators to reject treasury
+   *increases* via the save blob now that the atomic endpoints exist — do this
+   only after the migrated client has rolled out, or stale tabs break). Each
+   wants its own plan + explicit user sign-off (balance/auth/schema-sensitive).
 4. **Hard rules still apply** (see CLAUDE.md): no payout/rate/formula changes
    without explicit ask; keep Vercel + cPanel in sync; never edit `dist/` as
    source — fix TS, `npm run build`, commit the rebuilt dist; always run
@@ -69,6 +72,8 @@ the per-item evidence; this file is the **what's-done / what's-left + how-to**.
 | `63682a4` | **Batch 1+2** — #6 admin→`isFullAdmin` (save-snapshot, snapshot cron, moderation; moderation also dropped body-password); #21 challenge DELETE ownership gate; #28 crypto `randomUUID` for battleId + ranked challenge id; #20 world-state GET 503 `degraded` on KV failure (no silent empty map); #22 guard char projected via shared `stripNonCombatFields`; #23 images GET error → `no-store`; #24 roster sensitive-field-name regex guard. |
 | `7e6dca6` | **Batch 4** — #3 KV proxy IP-allowlist (opt-in) + per-IP failed-auth throttle + audit logs; #11 `enforceRateLimitKv({strict})` per-instance fallback on KV outage (applied to `generate-image`); #29 `admin/players` single `mget` instead of N gets; #26 `.NET Program.cs` 404s all `/api` outside Development; added `api/_ratelimit.test.ts`. |
 | `5b17321` | **Batch 3** — #12 `warGroundBountyDate` clamped to server UTC; #13 registry built from sanitized payload not raw; #7 claim-rewards fail-open scoped to NX reserve only (real errors now 500); #25 weekly-boss crash-resumable + exactly-once distribution (per-`(week,player)` NX receipt, `creditedPlayers[]`, flag flipped only after all credits land). **No payout/rate/formula changes.** |
+| `cf80b50` | **#5 stateless session tokens** — `issuePlayerToken`/`verifyPlayerToken` (HMAC-SHA256, constant-time, stateless); `authedPlayer` tries token first, falls back to password (ban check identical on both paths); `verify`/`register`/`change` return `{token}`; client stores + attaches `x-player-token` (token-only when present), silent refresh-on-401; `x-player-token` added to CORS allow-headers in **both** `_utils.ts` + `server.ts`; `api/_auth.test.ts` (9 cases). Cuts per-request scrypt cost. |
+| `bf37f0b` | **#16+#17 atomic treasury donate** — new `POST /api/clan/treasury/donate` + `POST /api/village/treasury/donate` (nested-folder files → resolve on Vercel **and** cPanel). Each debits donor save + credits the shared treasury under dual KV locks (treasury row outer, donor inner), **debit-first** so a credit failure can't mint free treasury; self+membership gated, 30/min rate-limit, audit-logged. Shared IO-free core `api/_treasury-donate.ts` (+ `_treasury-donate.test.ts`, 15 cases). Client donate buttons (clan ryo/special/item/territory-scrolls + village ryo/special/item) migrated to the endpoints; clan XP / contrib / village contributionPoints / notices stay client-side, written on top of the returned treasury (zero-delta in the validators) — **no reward/balance logic moved server-side.** Registered in `server.ts`. **No payout/rate/formula changes.** |
 
 Items verified **FALSE / already-handled** in triage (do not redo): #4 (account
 takeover — register blocks existing-save names), #9 (PvP move concurrency — lock
@@ -108,29 +113,29 @@ defense-in-depth, not the actual fix.
 
 These were intentionally NOT done as drive-bys: each touches auth/economy/schema
 and needs a client rollout or migration. Tackle one at a time, smallest blast
-radius first. Suggested order: **#16 → #17 → #14 → #5 → #27**.
+radius first. Suggested order now: **#16/#17 follow-up → #14 → #27**.
 
-### #16 — Clan-save authority: treasury.items ownership  (MEDIUM)
-- File: `api/_clan-save-validate.ts` (treasury.items handling, ~L295-327).
-- Now: incoming `treasury.items` accepted with only a 200-item cap, no ownership
-  check. A regular member can POST arbitrary item objects.
-- Direction: validate item additions server-side (route through an authorized
-  endpoint / verify against the donor's inventory) rather than trusting the
-  clan-save blob. Same-length `warHistory` swap is also content-unvalidated.
-- Risk: clan data is veteran-sensitive — must NOT wipe existing treasury/history.
+### ✅ #16 + #17 — DONE (`bf37f0b`), with a follow-up still open
+Atomic `POST /api/clan/treasury/donate` + `POST /api/village/treasury/donate`
+now debit the donor and credit the treasury under dual locks (shared core
+`api/_treasury-donate.ts`); the client donate buttons use them. This migrated
+the legitimate traffic onto the safe path **but did NOT yet lock down the
+validators** — by design, so old/stale client tabs don't break mid-rollout.
 
-### #17 — Atomic treasury donate endpoints  (MEDIUM)
-- Files: `api/_clan-save-validate.ts`, `api/_village-state-validate.ts`,
-  pattern to copy: `api/village/treasury-transfer.ts` (already atomic, Kage-only).
-- Now: generic clan/village treasury CREDITS via the save validators use a
-  "trust-the-debit" model (explicitly noted in-code) — a client can credit the
-  treasury without debiting their save (bounded by per-call caps). Honor Seals
-  already have an atomic donate endpoint (`api/clan/seal-pool/donate.ts`) — mirror
-  that for ryo/fate/bone/aura/etc.
-- Direction: new `POST /api/clan/treasury/donate` (and village equivalent) that
-  debits donor save + credits treasury under dual locks, like treasury-transfer.
-- Remember: new endpoint must be registered in BOTH `api/**` (Vercel) AND
-  `server.ts` (cPanel), and `server-routes.test.ts` will enforce it.
+**FOLLOW-UP (open, needs sign-off): lock down the save-blob treasury path.**
+- Files: `api/_clan-save-validate.ts` (treasury block ~L295-327, incl.
+  `treasury.items` which still takes any 200-cap array), `api/_village-state-validate.ts`
+  (treasury block ~L170-208, items ~L204-206).
+- Change: reject treasury *increases* (currency deltas > 0 and net-new
+  `treasury.items`) submitted via the save blob — they must now come from the
+  donate endpoints. Allow zero-delta writes (the migrated client re-asserts the
+  endpoint-credited treasury) and admin. This is what actually CLOSES #16's
+  item-minting hole and #17's credit-without-debit hole.
+- Do this **only after** the client in `bf37f0b` has rolled out to players, or
+  a stale tab still crediting via the save blob will have its donation silently
+  suppressed. Confirm rollout with the user first.
+- Note: #16's secondary "same-length `warHistory` swap is content-unvalidated"
+  is still open and untouched.
 
 ### #14 — Mandatory `_baseSaveVersion` (multi-tab conflict)  (LOW-MEDIUM)
 - File: `api/save/[name].ts` (optimistic-concurrency check ~L1011-1026).
@@ -140,14 +145,13 @@ radius first. Suggested order: **#16 → #17 → #14 → #5 → #27**.
   once the client always sends it, make it required for player saves. Needs a
   client rollout BEFORE tightening or it locks out stale tabs.
 
-### #5 — Token/session auth (stop raw passwords in browser storage)  (LARGER)
-- Files: `shinobij.client/src/authFetch.ts`, `App.tsx`; server `api/_auth.ts`,
-  `api/player-auth.ts`.
-- Now: player password persisted in localStorage, admin pw in sessionStorage; the
-  fetch interceptor attaches them to every `/api/` call.
-- Direction: move to short-lived signed session tokens (issue on login, verify
-  server-side, refresh). This is a real auth-model change — design doc + the
-  user's explicit OK first. Per CLAUDE.md, explain the risk before touching auth.
+### ✅ #5 — Token/session auth — DONE (`cf80b50`)
+Stateless HMAC session tokens (`issuePlayerToken`/`verifyPlayerToken` in
+`api/_auth.ts`); login/register/change return `{token}`; client stores +
+attaches `x-player-token`, falls back to password, silent refresh-on-401.
+Raw password is still persisted as the fallback credential, but the per-request
+path is now token-first (no scrypt). If you want to fully stop persisting the
+raw password, that's a further step on top of this.
 
 ### #27 — Supabase RLS for `save:` rows  (LARGER, schema)
 - File: `supabase-schema.sql`. Triage rated this LOW (anon is already restricted
