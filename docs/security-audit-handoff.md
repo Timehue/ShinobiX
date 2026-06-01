@@ -165,8 +165,15 @@ village currencies (`App.tsx:23042`, +honorSeals/ryo/boneCharms). Blocking
 increases would silently delete those. The per-call caps remain the bound
 (defense-in-depth). Fully closing #17's currency side needs those rewards moved
 server-side — a #7-class server-authoritative-rewards refactor, tracked separately.
-- Note: #16's secondary "same-length `warHistory` swap is content-unvalidated"
-  is still open and untouched.
+- ✅ #16's secondary "same-length `warHistory` swap" — DONE (this run).
+  `_clan-save-validate.ts` now treats a same-length `warHistory` write as a
+  verbatim re-assert (allowed for anyone) vs a content change (allowed only for
+  admin-role — same trust as adding an entry). Previously ANY member could
+  rewrite an entry's result / reward / `warCrateId` to mint a War Crate claim
+  without growing the array. The leadership war-finalization at the 12-entry cap
+  (prepend + drop oldest = same length) still works (`callerIsAdminRole`). Tests
+  added to `_clan-save-validate.test.ts`. The deeper "validate war-record content
+  against the actual war result" is server-authoritative-rewards territory (#7).
 
 ### #14 — Mandatory `_baseSaveVersion` (multi-tab conflict)  (LOW-MEDIUM)
 - File: `api/save/[name].ts` (optimistic-concurrency guard) + pure helpers in
