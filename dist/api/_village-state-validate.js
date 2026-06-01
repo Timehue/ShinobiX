@@ -20,6 +20,7 @@ exports.loadAuthoritativeKage = loadAuthoritativeKage;
 const _storage_js_1 = require("./_storage.js");
 const moderation_js_1 = require("./admin/moderation.js");
 const _text_moderation_js_1 = require("./_text-moderation.js");
+const _treasury_donate_js_1 = require("./_treasury-donate.js");
 const TREASURY_KEYS = ['ryo', 'honorSeals', 'fateShards', 'boneCharms', 'auraStones', 'mythicSeals'];
 // Lazy-expiry window for kage challenges. A challenge that's been open
 // (not yet "resolved" / "expired") for more than 7 days is auto-expired
@@ -168,13 +169,31 @@ kageState) {
                 outTreasury[key] = before;
             }
         }
-        // items: keep the incoming items array but cap length. We don't
-        // validate individual item donations here (no cheap server-side
-        // way to verify the caller's inventory without an extra KV hit),
-        // but cap the array size to prevent KV bloat.
-        const prevItems = Array.isArray(prevTreasury.items) ? prevTreasury.items : [];
-        const incomingItems = Array.isArray(inTreasury.items) ? inTreasury.items : prevItems;
-        outTreasury.items = incomingItems.slice(0, 200);
+        // items: net-new additions must come from the atomic donate endpoint
+        // (/api/village/treasury/donate), which verifies the donor actually
+        // owned the item. The save blob may only RE-ASSERT the current items
+        // (the migrated client re-saves the endpoint-credited treasury verbatim
+        // → no delta) or REMOVE them (Kage withdrawals/sends). Any itemId whose
+        // count rises — or a brand-new itemId — is a mint attempt and is
+        // rejected (revert to prev). Admin bypasses. No gameplay reward adds
+        // treasury items via the save blob, so this only blocks abuse. Closes
+        // audit item #16's treasury.items minting hole.
+        const prevRawItems = Array.isArray(prevTreasury.items) ? prevTreasury.items : [];
+        if (Array.isArray(inTreasury.items)) {
+            const prevCounts = new Map((0, _treasury_donate_js_1.cleanTreasuryItems)(prevRawItems).map((s) => [s.itemId, s.count]));
+            const incomingStacks = (0, _treasury_donate_js_1.cleanTreasuryItems)(inTreasury.items);
+            const minted = ctx.isAdmin ? [] : incomingStacks.filter((s) => s.count > (prevCounts.get(s.itemId) ?? 0));
+            if (minted.length > 0) {
+                outTreasury.items = prevRawItems.slice(0, 200);
+                suppressed.push(`village treasury.items net-new [${minted.map((s) => s.itemId).join(',')}] blocked — donate via /api/village/treasury/donate`);
+            }
+            else {
+                outTreasury.items = incomingStacks.slice(0, 200);
+            }
+        }
+        else {
+            outTreasury.items = prevRawItems.slice(0, 200);
+        }
         next.treasury = outTreasury;
     }
     // ── contributionPoints ──────────────────────────────────────────

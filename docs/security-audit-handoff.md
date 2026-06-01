@@ -14,15 +14,21 @@ the **what's-done / what's-left + how-to**.
 2. **Two non-code items are still open and are the user's job, not yours:**
    - 🔴 **Rotate the leaked secrets** (dashboards) — see "Open: secrets" below.
    - **Optional git history purge** — runbook below; do NOT run in-place.
-3. **Remaining CODE work:** #5 DONE (`cf80b50`), #16+#17 DONE (`bf37f0b`),
-   **#14 step 1 (telemetry) DONE**, **#27 CLOSED** (verified service-role-only +
-   documented; per-player RLS N/A for this auth model). Still open — both
-   **gated on real-world rollout signal**, not ready to ship yet:
+3. **Remaining CODE work:** #5 DONE (`cf80b50`), #16+#17 atomic endpoints DONE
+   (`bf37f0b`), **#16 item-mint lockdown DONE** (this run — validators reject
+   net-new `treasury.items`), **#14 step 1 (telemetry) DONE**, **#27 CLOSED**
+   (verified service-role-only + documented; per-player RLS N/A for this auth
+   model). Still open:
    - **#14 step 2** — make `_baseSaveVersion` mandatory, once the
-     `telemetry:save-noversion:<date>` daily counter stays ~0.
-   - **#16/#17 follow-up** — lock the clan/village validators to reject treasury
-     *increases* via the save blob now that the atomic endpoints exist (only
-     after the migrated client has rolled out, or stale tabs break).
+     `telemetry:save-noversion:<date>` daily counter stays ~0. **GATE NOT MET as
+     of 2026-06-01**: no telemetry rows + no base-store traffic since
+     2026-05-30 22:34 UTC, so no signal exists yet. Read it from
+     `public.kv_store` directly (NOT `/api/kv/get` — see #14 below).
+   - **#17 currency credit-without-debit** — NOT hard-blockable via the save-blob
+     validators: clan-war/agenda/warSupply rewards credit currencies through the
+     same path and would be deleted. Caps remain the bound; full close needs a
+     #7-class server-authoritative-rewards refactor. (Client IS deployed on
+     Vercel — cPanel/theravensark is storage-only, never player-facing.)
    Optional, anytime: the #27 `revoke select … from authenticated` hardening
    (needs approval). Each wants explicit user sign-off (balance/auth/schema).
 4. **Hard rules still apply** (see CLAUDE.md): no payout/rate/formula changes
@@ -120,38 +126,43 @@ These were intentionally NOT done as drive-bys: each touches auth/economy/schema
 and needs a client rollout or migration. Tackle one at a time, smallest blast
 radius first. Suggested order now: **#16/#17 follow-up → #14 → #27**.
 
-### ✅ #16 + #17 — DONE (`bf37f0b`), with a follow-up still open
+### ✅ #16 (item-mint) DONE; #17 currency side partially open by design
 Atomic `POST /api/clan/treasury/donate` + `POST /api/village/treasury/donate`
-now debit the donor and credit the treasury under dual locks (shared core
-`api/_treasury-donate.ts`); the client donate buttons use them. This migrated
-the legitimate traffic onto the safe path **but did NOT yet lock down the
-validators** — by design, so old/stale client tabs don't break mid-rollout.
+(`bf37f0b`) debit the donor and credit the treasury under dual locks (shared
+core `api/_treasury-donate.ts`); the client donate buttons use them and
+re-assert the endpoint-credited treasury verbatim (zero-delta save).
 
-**FOLLOW-UP (open, needs sign-off): lock down the save-blob treasury path.**
-- Files: `api/_clan-save-validate.ts` (treasury block ~L295-327, incl.
-  `treasury.items` which still takes any 200-cap array), `api/_village-state-validate.ts`
-  (treasury block ~L170-208, items ~L204-206).
-- Change: reject treasury *increases* (currency deltas > 0 and net-new
-  `treasury.items`) submitted via the save blob — they must now come from the
-  donate endpoints. Allow zero-delta writes (the migrated client re-asserts the
-  endpoint-credited treasury) and admin. This is what actually CLOSES #16's
-  item-minting hole and #17's credit-without-debit hole.
-- Do this **only after** the client in `bf37f0b` has rolled out to players, or
-  a stale tab still crediting via the save blob will have its donation silently
-  suppressed. Confirm rollout with the user first.
-- **Gate status checked 2026-06-01: NOT met — client is NOT deployed.** The
-  `bf37f0b` server/API *is* live (`GET https://theravensark.com/api/clan/treasury/donate`
-  → HTTP 405, route exists), but the **client was never rebuilt**: `bf37f0b`'s diff
-  touched `dist/api/**` + `dist/server.js` (server build) but NOT `shinobij.client/dist`,
-  and nothing has rebuilt it since (`bf37f0b..HEAD -- shinobij.client/dist` is empty).
-  The committed `shinobij.client/dist/index.html` is the **2026-05-26 build** (`a99e280`),
-  referencing `index-DL-4FcSV.js` — and the live site serves that exact same hash. So
-  players load the pre-donate bundle that still credits treasury via the save blob.
-  **⚠️ Deployment gap:** the donate-client *source* (`App.tsx`) is committed but the
-  client `dist` is stale, so even a fresh redeploy from origin/main serves the old
-  client. Before this lockdown can ever proceed: rebuild the client
-  (`cd shinobij.client && npm run build`), commit the regenerated `shinobij.client/dist`,
-  redeploy, and let stale tabs cycle out — THEN re-check.
+**Hosting reality (confirmed by user 2026-06-01):** players use the Vercel
+deploy (`test-five-delta-37.vercel.app`, pending a real domain). **cPanel /
+theravensark.com is NEVER player-facing** — it's storage only (disk KV overlay
+for `save:`/`shared:images*`, taking load off Vercel/Supabase). Vercel rebuilds
+the client from source on every deploy, so the committed `shinobij.client/dist`
+is vestigial (it only feeds cPanel's static serve, which no player hits).
+Verified the live Vercel bundle (`index-D-c8lHku.js`) contains both
+`/api/(clan|village)/treasury/donate` calls + the `x-player-token` (#5) client →
+**the bf37f0b client IS deployed to players.** (Supersedes the earlier
+"client not deployed" note, which mistakenly checked cPanel's stale dist.)
+
+**✅ Items lockdown — DONE (this run).** `api/_clan-save-validate.ts` +
+`api/_village-state-validate.ts` now reject net-new `treasury.items` submitted
+via the save blob: incoming items are normalized (shared `cleanTreasuryItems`)
+and any itemId whose count *rises* — or a brand-new itemId — reverts to prev and
+logs a suppressed reason. Re-assert (equal) and removals/withdrawals are allowed;
+admin bypasses. No gameplay reward adds treasury items via the save blob (every
+non-donation item write is a removal), so this is safe. New tests:
+`api/_clan-save-validate.test.ts` + `api/_village-state-validate.test.ts`. This
+closes #16's `treasury.items` minting hole.
+
+**⚠️ #17 currency credit-without-debit — deliberately NOT hard-blocked.** A
+blanket "reject currency increases via the save blob" was the original plan but
+is UNSAFE: several gameplay rewards still credit currencies through the save blob
+and are indistinguishable from a fake donation in the same field —
+clan `warSupply` collection (`App.tsx:21884`, and warSupply is non-donatable by
+design), clan-war victory ryo (`App.tsx:21903`, +4000/+1500), and daily-agenda
+village currencies (`App.tsx:23042`, +honorSeals/ryo/boneCharms). Blocking
+increases would silently delete those. The per-call caps remain the bound
+(defense-in-depth). Fully closing #17's currency side needs those rewards moved
+server-side — a #7-class server-authoritative-rewards refactor, tracked separately.
 - Note: #16's secondary "same-length `warHistory` swap is content-unvalidated"
   is still open and untouched.
 
