@@ -19,13 +19,13 @@ the **what's-done / what's-left + how-to**.
    net-new `treasury.items`), **#14 step 1 (telemetry) DONE**, **#27 CLOSED**
    (verified service-role-only + documented; per-player RLS N/A for this auth
    model). Still open:
-   - **#14 step 2** — make `_baseSaveVersion` mandatory. **Client prerequisite DONE
-     this run** (the immediate-save path now echoes the version too). **Server
-     enforcement still GATED**: needs (a) the fixed client deployed to Vercel, and
-     (b) the `telemetry:save-noversion:<date>` daily count to stay ~0. **GATE NOT MET
-     as of 2026-06-01**: no telemetry rows + no base-store traffic since
-     2026-05-30 22:34 UTC, so no signal exists yet. Read it from `public.kv_store`
-     directly (NOT `/api/kv/get` — see #14 below).
+   - **#14 step 2 — DONE this run** (client prerequisite + server enforcement;
+     user-authorized for the low-traffic test env). Non-clan player saves without a
+     numeric `_baseSaveVersion` are now rejected (426); admins exempt, current/
+     post-2026-05-26 clients unaffected, only pre-`3455f8d` tabs forced to refresh.
+     **Deploy + watch:** confirm no legit-client 426s after the new client rolls
+     out (telemetry `telemetry:save-noversion:<date>` in `public.kv_store`; read it
+     directly, NOT via `/api/kv/get` — see #14 below).
    - **#17 currency credit-without-debit** — NOT hard-blockable via the save-blob
      validators: clan-war/agenda/warSupply rewards credit currencies through the
      same path and would be deleted. Caps remain the bound; full close needs a
@@ -205,14 +205,21 @@ server-side — a #7-class server-authoritative-rewards refactor, tracked separa
     panel `onSave`) pass `echoVersion:false` — the ref tracks THIS player, not the
     target. So once this client deploys, EVERY non-admin own-save carries a numeric
     version and the telemetry `count` should be 0 (only pre-`3455f8d` tabs lack it).
-  - **Server enforcement (OPEN, needs sign-off + the data):** once this client is
-    deployed AND the daily count stays ~0 for a sustained window, change
-    `api/save/[name].ts` (the `baseVersion === null` branch ~L1051) to REJECT
-    (e.g. 426/410) instead of allowing. **Do NOT do this before the client above
-    deploys**, or current-client immediate saves (which only just started echoing)
-    on not-yet-refreshed tabs break. `parseBaseSaveVersion` returns `0` (not null)
-    for the current client, so enforcement only rejects field-absent (ancient)
-    saves — new players send `0` and pass.
+  - **Server enforcement — DONE (this run, user-authorized for the test env).**
+    `api/save/[name].ts` now REJECTS a non-clan player save with no version stamp
+    (HTTP 426 + `code:CLIENT_REFRESH_REQUIRED`) instead of allowing it, via the
+    pure helper `isVersionlessPlayerSave(isClanSave, identityName, baseVersion)` in
+    `api/save/_save-version.js` (tested in `_save-version.test.ts`). Telemetry is
+    still recorded on the rejected path. Rationale it's safe despite the telemetry
+    gate being unconfirmable (no traffic since May 30): **admins are exempt**
+    (authFetch attaches `x-admin-password` on every request when logged in →
+    `identityName === null`); the **current client echoes a numeric version on
+    every own-save path** so it's never rejected; **post-2026-05-26 clients** echo
+    `0+` on autosave (and any rejected immediate save is masked by the next
+    autosave, which persists the same state with a version); only **pre-2026-05-26
+    (`3455f8d`) tabs** — which don't echo at all — are hard-rejected and must
+    refresh. The game is in low-traffic testing, so that population is ~0. If a
+    legitimate client is ever rejected, the message tells the user to refresh.
   - Cross-player grants via `patchPlayerSaveCharacter` POST no version and are
     admin-gated (identityName === null → already exempt). Keep admin exempt.
 
