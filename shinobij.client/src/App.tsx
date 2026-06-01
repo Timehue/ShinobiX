@@ -10356,7 +10356,7 @@ export default function App() {
                         .filter((id): id is string => Boolean(id))
                         .map(id => getItemById(pvpAllItems, id))
                         .filter((item): item is GameItem => Boolean(item));
-                    function handlePvpWin(_opponentName: string, opponent?: Character) {
+                    function handlePvpWin(_opponentName: string, opponent?: Character, serverRating?: { field: string; value: number; delta: number }) {
                         if (!character) return;
                         const context = pvpBattleContext;
                         const rewardSector = context?.sector ?? currentSector;
@@ -10425,7 +10425,14 @@ export default function App() {
                             totalPvpKills: (rewarded.totalPvpKills ?? 0) + 1,
                             monthlyPvpKills: (rewarded.monthlyPvpKills ?? 0) + 1,
                             pvpKillMonth: currentMonthKey(),
-                            rankedRating: (rewarded.rankedRating ?? 1000) + ratingGain,
+                            // Read-back (audit #7 / Stage 3): when the session is
+                            // ranked the server credits the rating via claim-rewards
+                            // and returns it; use that authoritative value. Fall back
+                            // to the local delta only when the server didn't return
+                            // one (claim 503 / offline) so the rating still updates.
+                            // The win counter still increments locally (it converges —
+                            // server +1 from the same base).
+                            rankedRating: serverRating?.field === "rankedRating" ? serverRating.value : (rewarded.rankedRating ?? 1000) + ratingGain,
                             rankedWins: (rewarded.rankedWins ?? 0) + (ratingGain > 0 ? 1 : 0),
                         });
                         // Refetch the player's own save to pick up server-side
@@ -10510,7 +10517,7 @@ export default function App() {
                             isSpar={!pvpBattleContext?.mode || (pvpBattleContext.mode === "standard" && !pvpBattleContext.clanWarPoints && !pvpBattleContext.sectorAttack)}
                             battleMode={pvpBattleContext?.mode ?? "standard"}
                             onWin={handlePvpWin}
-                            onLoss={(opponent) => {
+                            onLoss={(opponent, serverRating) => {
                                 // Clan-war auto-report on loss — mirror of
                                 // handlePvpWin's call so both clients
                                 // confirm the same outcome on the server.
@@ -10525,7 +10532,10 @@ export default function App() {
                                 const loss = rankedDelta(opponent.rankedRating ?? 1000, character.rankedRating ?? 1000);
                                 setCharacter({
                                     ...character,
-                                    rankedRating: Math.max(0, (character.rankedRating ?? 1000) - loss),
+                                    // Read-back: prefer the server-credited rating
+                                    // (claim-rewards), fall back to the local delta if
+                                    // it wasn't returned. Loss counter stays local.
+                                    rankedRating: serverRating?.field === "rankedRating" ? serverRating.value : Math.max(0, (character.rankedRating ?? 1000) - loss),
                                     rankedLosses: (character.rankedLosses ?? 0) + 1,
                                 });
                             }}
@@ -35720,8 +35730,8 @@ function PvpBattleScreen({
     seedSession?: PvpSessionState | null;
     isSpar?: boolean;
     battleMode?: string;
-    onWin?: (opponentName: string, opponent?: Character) => void;
-    onLoss?: (opponent?: Character) => void;
+    onWin?: (opponentName: string, opponent?: Character, serverRating?: { field: string; value: number; delta: number }) => void;
+    onLoss?: (opponent?: Character, serverRating?: { field: string; value: number; delta: number }) => void;
 }) {
     // Grid constants — exact match to arena
     const gridWidth = 12;
@@ -36067,6 +36077,13 @@ function PvpBattleScreen({
         const outcome: "win" | "loss" = iWonNow ? "win" : "loss";
         (async () => {
             let alreadyClaimed = false;
+            // Server-credited ranked rating (audit #7 / Stage 3). For a ranked
+            // session, claim-rewards computes + persists the rating change and
+            // returns it here; we forward it to onWin/onLoss so they display the
+            // authoritative value rather than recomputing the delta locally.
+            // Absent (casual fight, or 503/offline) → callbacks fall back to the
+            // local delta, so nothing regresses during the rollout window.
+            let serverRating: { field: string; value: number; delta: number } | undefined;
             try {
                 const r = await fetch("/api/pvp/claim-rewards", {
                     method: "POST",
@@ -36074,8 +36091,9 @@ function PvpBattleScreen({
                     body: JSON.stringify({ playerName: character.name, battleId, outcome }),
                 });
                 if (r.ok) {
-                    const data = await r.json() as { alreadyClaimed?: boolean };
+                    const data = await r.json() as { alreadyClaimed?: boolean; rating?: { field: string; value: number; delta: number } };
                     alreadyClaimed = !!data.alreadyClaimed;
+                    serverRating = data.rating;
                 }
             } catch {
                 // Network failure → treat as first claim (fail open). One
@@ -36084,8 +36102,8 @@ function PvpBattleScreen({
             }
             try { window.localStorage.setItem(localKey, "1"); } catch { /* storage quota — non-fatal */ }
             if (alreadyClaimed) return;
-            if (iWonNow) onWin?.(oppFighter.name, opponent);
-            else onLoss?.(opponent);
+            if (iWonNow) onWin?.(oppFighter.name, opponent, serverRating);
+            else onLoss?.(opponent, serverRating);
         })();
     }, [session?.status, session?.winner]);
 
