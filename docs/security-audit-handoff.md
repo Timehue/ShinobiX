@@ -14,12 +14,15 @@ the **what's-done / what's-left + how-to**.
 2. **Two non-code items are still open and are the user's job, not yours:**
    - 🔴 **Rotate the leaked secrets** (dashboards) — see "Open: secrets" below.
    - **Optional git history purge** — runbook below; do NOT run in-place.
-3. **Remaining CODE work:** #5 DONE (`cf80b50`), #16+#17 DONE (`bf37f0b`). Still
-   open: **#14** (mandatory `_baseSaveVersion`), **#27** (Supabase RLS), plus the
-   **#16/#17 follow-up** (lock the clan/village validators to reject treasury
-   *increases* via the save blob now that the atomic endpoints exist — do this
-   only after the migrated client has rolled out, or stale tabs break). Each
-   wants its own plan + explicit user sign-off (balance/auth/schema-sensitive).
+3. **Remaining CODE work:** #5 DONE (`cf80b50`), #16+#17 DONE (`bf37f0b`),
+   **#14 step 1 (telemetry) DONE** (this run). Still open:
+   - **#14 step 2** — make `_baseSaveVersion` mandatory, once the
+     `telemetry:save-noversion:<date>` daily counter stays ~0.
+   - **#16/#17 follow-up** — lock the clan/village validators to reject treasury
+     *increases* via the save blob now that the atomic endpoints exist (only
+     after the migrated client has rolled out, or stale tabs break).
+   - **#27** — Supabase RLS for `save:` rows (schema; needs approval).
+   Each wants its own plan + explicit user sign-off (balance/auth/schema-sensitive).
 4. **Hard rules still apply** (see CLAUDE.md): no payout/rate/formula changes
    without explicit ask; keep Vercel + cPanel in sync; never edit `dist/` as
    source — fix TS, `npm run build`, commit the rebuilt dist; always run
@@ -138,12 +141,25 @@ validators** — by design, so old/stale client tabs don't break mid-rollout.
   is still open and untouched.
 
 ### #14 — Mandatory `_baseSaveVersion` (multi-tab conflict)  (LOW-MEDIUM)
-- File: `api/save/[name].ts` (optimistic-concurrency check ~L1011-1026).
-- Now: version check exists but is OPT-IN (skipped if client omits the field) for
-  old-client compat.
-- Direction: telemetry first (log how many saves arrive without the field), then
-  once the client always sends it, make it required for player saves. Needs a
-  client rollout BEFORE tightening or it locks out stale tabs.
+- File: `api/save/[name].ts` (optimistic-concurrency guard) + pure helpers in
+  `api/save/_save-version.ts` (`parseBaseSaveVersion`, `saveVersionTelemetryKey`).
+- **Step 1 — telemetry: DONE (this run).** A non-clan PLAYER save arriving
+  without a valid `_baseSaveVersion` now increments a best-effort daily counter
+  `telemetry:save-noversion:<UTC-date>` (`{count,lastPlayer,lastAt}`, 45-day TTL)
+  and logs `[save-version-telemetry] …`. Admin saves + clan saves excluded. Only
+  fires on the missing path → ~zero overhead once clients roll over. The current
+  client already echoes the field on all three own-save paths (debounce/interval/
+  unload), so a nonzero count = stale/old client tabs still out there.
+  - **Read it:** `GET /api/kv/get?key=telemetry:save-noversion:<UTC-date>` (admin
+    `x-kv-token`), e.g. `telemetry:save-noversion:2026-06-01`. Watch the daily
+    `count` trend toward zero across consecutive days.
+- **Step 2 — make it mandatory (OPEN, needs sign-off + the data above):** once the
+  daily count stays ~0 for a sustained window, require a valid `_baseSaveVersion`
+  for non-clan player saves (reject/410 the ones without it instead of allowing).
+  Do NOT tighten while the counter is still nonzero or it locks out stale tabs.
+  Heads-up: cross-player grants via the client `patchPlayerSaveCharacter` POST
+  no version and are admin-gated (the 403 already blocks non-admins) — keep admin
+  saves exempt when tightening.
 
 ### ✅ #5 — Token/session auth — DONE (`cf80b50`)
 Stateless HMAC session tokens (`issuePlayerToken`/`verifyPlayerToken` in
