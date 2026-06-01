@@ -1,4 +1,5 @@
 import { isCleanText as isCleanClanText } from './_text-moderation.js';
+import { cleanTreasuryItems } from './_treasury-donate.js';
 
 // Per-field validator for clan-* saves written via /api/save/clan-<slug>.
 //
@@ -320,9 +321,29 @@ export function validateClanSaveWrite(
                 outTreasury[key] = before;
             }
         }
-        const prevItems = Array.isArray(prevTreasury.items) ? prevTreasury.items : [];
-        const incomingItems = Array.isArray(inTreasury.items) ? inTreasury.items : prevItems;
-        outTreasury.items = (incomingItems as unknown[]).slice(0, 200);
+        // items: net-new additions must come from the atomic donate endpoint
+        // (/api/clan/treasury/donate), which verifies the donor actually owned
+        // the item. The save blob may only RE-ASSERT the current items (the
+        // migrated client re-saves the endpoint-credited treasury verbatim → no
+        // delta) or REMOVE them (leadership withdrawals/sends). Any itemId whose
+        // count rises — or a brand-new itemId — is a mint attempt and is
+        // rejected (revert to prev). Admin bypasses. No gameplay reward adds
+        // treasury items via the save blob, so this only blocks abuse. Closes
+        // audit item #16's treasury.items minting hole.
+        const prevRawItems = Array.isArray(prevTreasury.items) ? prevTreasury.items : [];
+        if (Array.isArray(inTreasury.items)) {
+            const prevCounts = new Map(cleanTreasuryItems(prevRawItems).map((s) => [s.itemId, s.count]));
+            const incomingStacks = cleanTreasuryItems(inTreasury.items);
+            const minted = ctx.isAdmin ? [] : incomingStacks.filter((s) => s.count > (prevCounts.get(s.itemId) ?? 0));
+            if (minted.length > 0) {
+                outTreasury.items = prevRawItems.slice(0, 200);
+                suppressed.push(`clan treasury.items net-new [${minted.map((s) => s.itemId).join(',')}] blocked — donate via /api/clan/treasury/donate`);
+            } else {
+                outTreasury.items = incomingStacks.slice(0, 200);
+            }
+        } else {
+            outTreasury.items = prevRawItems.slice(0, 200);
+        }
         next.treasury = outTreasury;
     }
 
