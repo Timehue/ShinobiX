@@ -26,6 +26,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.DEFAULT_RANKED_RATING = void 0;
 exports.rankedDelta = rankedDelta;
 exports.creditRankedOutcome = creditRankedOutcome;
+exports.creditRankedFromSelf = creditRankedFromSelf;
 /** Default Elo for a character that has never been rated (matches the client's `?? 1000`). */
 exports.DEFAULT_RANKED_RATING = 1000;
 const FIELDS = {
@@ -73,4 +74,32 @@ function creditRankedOutcome(char, opts) {
     const newRating = Math.max(0, current - delta);
     const losses = Math.max(0, Math.floor(toNumber(char[fields.losses], 0)));
     return { patch: { [fields.rating]: newRating, [fields.losses]: losses + 1 }, newRating, delta };
+}
+/**
+ * Credit a ranked outcome from ONE participant's own perspective.
+ *
+ * Used where the report carries only "I won / I lost" against an opponent
+ * whose rating we read separately (the pet-arena ladder has no server PvP
+ * session to snapshot pre-match ratings on, so `battle-result` reads the
+ * caller's rating from their save and the opponent's from theirs). This is a
+ * VERBATIM port of the client's pet-ranked appliers
+ * (`shinobij.client/src/App.tsx` ~14506-14528):
+ *   win:  gain = rankedDelta(myRating, oppRating); rating += gain
+ *   loss: drop = rankedDelta(oppRating, myRating); rating  = max(0, rating-drop)
+ * i.e. on a win I am the winner (my rating is the winnerRating); on a loss the
+ * opponent is the winner. The caller's current rating is read from `char` so
+ * the delta's winner/loser rating is consistent with the rating being mutated.
+ *
+ * @param char           the caller's current character fields (read-only)
+ * @param outcome        whether the CALLER won or lost
+ * @param opponentRating the opponent's pre-match rating for this ladder
+ * @param kind           'player' or 'pet'
+ */
+function creditRankedFromSelf(char, opts) {
+    const { outcome, opponentRating, kind } = opts;
+    const selfRating = toNumber(char[FIELDS[kind].rating], exports.DEFAULT_RANKED_RATING);
+    if (outcome === 'win') {
+        return creditRankedOutcome(char, { role: 'winner', winnerRating: selfRating, loserRating: opponentRating, kind });
+    }
+    return creditRankedOutcome(char, { role: 'loser', winnerRating: opponentRating, loserRating: selfRating, kind });
 }
