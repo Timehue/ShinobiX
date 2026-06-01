@@ -11117,7 +11117,10 @@ function DungeonPetBattle({ character, updateCharacter, editablePets, onWin, onL
             enemyOwner={enemyOwner}
             frame={currentFrame}
             recentFrames={battleFrames.slice(Math.max(0, frameIndex - 4), frameIndex + 1)}
-            result={result}
+            // Gate the victory card to the final frame so it doesn't cover the
+            // replay (movement, lunges, KO/faint) — mirrors the ranked arena's
+            // showResult gate. Without this the card showed from frame 0.
+            result={frameIndex >= battleFrames.length - 1 ? result : ""}
             obstacles={battleObstacles}
             onReplay={() => { setBattleFrames([]); setResult(""); }}
             onFightAgain={() => { setBattleFrames([]); setResult(""); }}
@@ -12766,7 +12769,7 @@ function petSignatureJutsu(pet: Pet): string | undefined {
 // Cinematic pacing — how long each replay frame should linger. Dramatic beats
 // (KO, finisher, signature cut-in, clutch save, crit) breathe; routine actions
 // snap by. Shared by every pet-battle replay loop.
-function petFramePace(f: PetArenaFrame | undefined): number {
+export function petFramePace(f: PetArenaFrame | undefined): number {
     if (!f) return 1000;
     if (f.isPrefight) return 5000;                                       // pre-fight card: pets + ranked record, 5s
     if (f.actionKind === "result") return 2800;                          // final outcome
@@ -12824,7 +12827,7 @@ function petElementLabel(mult: number): string {
     return "";
 }
 
-function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponentOwner: string, seed = Date.now(), playerDamageMult = 1) {
+export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponentOwner: string, seed = Date.now(), playerDamageMult = 1) {
     // Apply each pet's equipped PVP gear (stat modifiers) before the fight.
     // Driven by each pet's own loadout, so a synced battle stays deterministic.
     const playerPet = applyPetPvpGear(playerPetIn);
@@ -13711,7 +13714,7 @@ function runPetArenaParty(
             status: statusObj(f),
         };
     }
-    function pushPartyFrame(round: number, message: string, actorSlot: PartySlot | "system", actionKind: PetArenaFrame["actionKind"], damage?: number, crit?: boolean, traitFlash?: PetArenaFrame["traitFlash"], combo?: number, isKO?: boolean, targetSlot?: PartySlot, signatureMove?: PetArenaFrame["signatureMove"]) {
+    function pushPartyFrame(round: number, message: string, actorSlot: PartySlot | "system", actionKind: PetArenaFrame["actionKind"], damage?: number, crit?: boolean, traitFlash?: PetArenaFrame["traitFlash"], combo?: number, isKO?: boolean, targetSlot?: PartySlot, signatureMove?: PetArenaFrame["signatureMove"], isPrefight = false) {
         // Pick 1v1-style player/enemy "primary" pet for legacy fields:
         // most recently-acting on each side, else lead, else reserve.
         const primPlayer  = fighters.playerLead  ?? fighters.playerReserve;
@@ -13724,7 +13727,7 @@ function runPetArenaParty(
             enemyPos:  primEnemy?.pos  ?? 0,
             actor: actorSlot === "system" ? "system" : (isPlayerSlot(actorSlot) ? "player" : "enemy"),
             actionKind, damage, crit, traitFlash, combo, signatureMove,
-            isPrefight: false, isKO,
+            isPrefight, isKO,
             playerStatus: statusObj(primPlayer),
             enemyStatus:  statusObj(primEnemy),
             party4v4: {
@@ -13738,9 +13741,10 @@ function runPetArenaParty(
         });
     }
 
-    // Pre-fight face-off frame.
+    // Pre-fight face-off frame. isPrefight=true so PetArenaBattlefield renders
+    // the pet-prefight-overlay + 5s countdown in 2v2 PvP, matching the 1v1 path.
     logs.push("2v2 party battle begins — all 4 pets on the field!");
-    pushPartyFrame(0, "2v2 — FIGHT!", "system", undefined);
+    pushPartyFrame(0, "2v2 — FIGHT!", "system", /*actionKind*/ undefined, /*damage*/ undefined, /*crit*/ undefined, /*traitFlash*/ undefined, /*combo*/ undefined, /*isKO*/ undefined, /*targetSlot*/ undefined, /*signatureMove*/ undefined, /*isPrefight*/ true);
 
     // ── Target selection ──────────────────────────────────────────
     // For damage / status: prefer lowest-HP opposing pet, weighted by
@@ -15126,13 +15130,68 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
     );
 }
 
-function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerReservePet, enemyReservePet, frame, recentFrames, result, obstacles, onReplay, onFightAgain, onExit, sharedImages = {}, playerRecord, enemyRecord }: { playerPet: Pet; enemyPet: Pet; enemyOwner: string; playerReservePet?: Pet; enemyReservePet?: Pet; frame?: PetArenaFrame; recentFrames?: PetArenaFrame[]; result: string; obstacles?: number[]; onReplay: () => void; onFightAgain: () => void; onExit: () => void; sharedImages?: Record<string, string>; playerRecord?: PetBattleRecord; enemyRecord?: PetBattleRecord }) {
+export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerReservePet, enemyReservePet, frame, recentFrames, result, obstacles, onReplay, onFightAgain, onExit, sharedImages = {}, playerRecord, enemyRecord }: { playerPet: Pet; enemyPet: Pet; enemyOwner: string; playerReservePet?: Pet; enemyReservePet?: Pet; frame?: PetArenaFrame; recentFrames?: PetArenaFrame[]; result: string; obstacles?: number[]; onReplay: () => void; onFightAgain: () => void; onExit: () => void; sharedImages?: Record<string, string>; playerRecord?: PetBattleRecord; enemyRecord?: PetBattleRecord }) {
     const playerHp = frame?.playerHp ?? playerPet.hp;
     const enemyHp  = frame?.enemyHp  ?? enemyPet.hp;
     const playerPercent = Math.max(0, Math.min(100, (playerHp / Math.max(1, playerPet.hp)) * 100));
     const enemyPercent  = Math.max(0, Math.min(100, (enemyHp  / Math.max(1, enemyPet.hp))  * 100));
     const [playerShake, setPlayerShake] = useState(false);
     const [enemyShake,  setEnemyShake]  = useState(false);
+    // Pre-fight 5-second countdown for the face-off overlay. Starts at 5 when an
+    // isPrefight frame is current and ticks 5→4→3→2→1→"FIGHT!"; the overlay's
+    // own 5s fade then dismisses it. Cosmetic only — drives no battle logic.
+    const [prefightCount, setPrefightCount] = useState<number | null>(null);
+    useEffect(() => {
+        if (!frame?.isPrefight) { setPrefightCount(null); return; }
+        setPrefightCount(5);
+        const id = window.setInterval(() => {
+            setPrefightCount((c) => (c === null || c <= 0 ? c : c - 1));
+        }, 1000);
+        return () => window.clearInterval(id);
+    }, [frame?.isPrefight, frame?.message]);
+
+    // ── Movement glide (FLIP) ───────────────────────────────────────────────
+    // The simulator already relocates pets between grid tiles on "move" frames
+    // (BFS pathfinding around obstacles), but the renderer mounts each avatar
+    // fresh in its new tile cell — so without this the pet teleports. After
+    // every frame we compare each pet's tile to its previous tile; if it moved
+    // we measure the old + new cell centres and play a FLIP: snap the mover to
+    // where it came from, then transition to zero so the pet visibly walks
+    // across the board. The tile is lifted in z during transit so the gliding
+    // pet passes OVER intervening tiles. Prefight frames just record positions
+    // (no glide) so a replay doesn't slingshot from the previous fight's end.
+    const petArenaGridRef = useRef<HTMLDivElement>(null);
+    const moverPrevTile = useRef<Map<string, number>>(new Map());
+    useLayoutEffect(() => {
+        const grid = petArenaGridRef.current;
+        if (!grid) return;
+        const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+        grid.querySelectorAll<HTMLElement>(".pet-avatar-mover[data-petid]").forEach((mover) => {
+            const petId = mover.dataset.petid;
+            if (!petId) return;
+            const tileEl = mover.closest<HTMLElement>(".pet-park-tile");
+            const curIdx = tileEl?.dataset.tile != null ? Number(tileEl.dataset.tile) : NaN;
+            if (Number.isNaN(curIdx)) return;
+            const prevIdx = moverPrevTile.current.get(petId);
+            moverPrevTile.current.set(petId, curIdx);
+            if (reduce || frame?.isPrefight || prevIdx === undefined || prevIdx === curIdx || !tileEl) return;
+            const oldTile = grid.querySelector<HTMLElement>(`.pet-park-tile[data-tile="${prevIdx}"]`);
+            if (!oldTile) return;
+            const o = oldTile.getBoundingClientRect();
+            const n = tileEl.getBoundingClientRect();
+            const dx = (o.left + o.right - n.left - n.right) / 2;
+            const dy = (o.top + o.bottom - n.top - n.bottom) / 2;
+            if (!dx && !dy) return;
+            tileEl.style.zIndex = "8";
+            mover.style.transition = "none";
+            mover.style.transform = `translate(${dx}px, ${dy}px)`;
+            void mover.offsetWidth; // force reflow so the start transform applies before the glide
+            mover.style.transition = "transform 520ms cubic-bezier(.34, .1, .2, 1)";
+            mover.style.transform = "translate(0px, 0px)";
+            const done = () => { tileEl.style.zIndex = ""; mover.removeEventListener("transitionend", done); };
+            mover.addEventListener("transitionend", done);
+        });
+    }, [frame?.message]);
 
     useEffect(() => {
         if (!frame?.damage) return;
@@ -15149,13 +15208,8 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerReservePet
         const m = frame.message;
         if (/dodges|evades|blunts the blow/.test(m)) { playPetSfx("dodge"); return; }
         if (frame.isKO) { playPetSfx("ko"); return; }
-        // Match end: the win/lose stinger the player added. Victory → "win",
-        // Defeat → "lose"; a draw gets neither.
-        if (frame.actionKind === "result") {
-            if (result === "Victory") playPetSfx("win");
-            else if (result === "Defeat") playPetSfx("lose");
-            return;
-        }
+        // Match-end win/lose stingers intentionally removed — result frames are silent.
+        if (frame.actionKind === "result") return;
         switch (frame.actionKind) {
             case "damage": case "basic": case "lifesteal": playPetSfx(frame.crit ? "crit" : "hit"); break;
             case "heal":     playPetSfx("heal"); break;
@@ -15205,6 +15259,13 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerReservePet
     const winnerPet   = result === "Victory" ? playerPet : result === "Defeat" ? enemyPet : null;
     const winnerSide: "player" | "enemy" = result === "Victory" ? "player" : "enemy";
     const winnerOwner = result === "Victory" ? "You" : enemyOwner;
+    // Element-typed impact VFX: tint the impact flash to the acting pet's chakra
+    // nature, and surface the sim's already-applied "Super effective!" matchup
+    // (read from the frame message) as a slam banner. Visual only.
+    const actingElement = frame?.actor === "player" ? playerPet.element : frame?.actor === "enemy" ? enemyPet.element : undefined;
+    const elName = actingElement ? String(actingElement).toLowerCase() : "";
+    const elClass = elName && elName !== "none" && elName !== "neutral" ? ` pet-el-${elName}` : "";
+    const superEffective = !!frame && !winnerPet && /super effective/i.test(frame.message ?? "") && (frame.actionKind === "damage" || frame.actionKind === "basic" || frame.actionKind === "lifesteal");
 
     // Trait flash label (also carries reactive battle-consumable flashes).
     const traitLabel =
@@ -15316,7 +15377,11 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerReservePet
                             )}
                         </div>
                     </div>
-                    <div className="pet-prefight-tagline">Get Ready!</div>
+                    <div className="pet-prefight-tagline">
+                        {prefightCount !== null && prefightCount > 0
+                            ? <span className="pet-prefight-count" key={prefightCount}>{prefightCount}</span>
+                            : <span className="pet-prefight-go">FIGHT!</span>}
+                    </div>
                 </div>
             )}
 
@@ -15471,9 +15536,13 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerReservePet
                 {frame && !winnerPet && (frame.actionKind === "damage" || frame.actionKind === "basic" || frame.actionKind === "lifesteal" || frame.isKO) && (
                     <div
                         key={`flash-${frame.message}`}
-                        className={`pet-impact-flash${frame.isKO ? " ko" : frame.crit ? " crit" : ""}`}
+                        className={`pet-impact-flash${frame.isKO ? " ko" : frame.crit ? " crit" : ""}${frame.isKO ? "" : elClass}`}
                         aria-hidden="true"
                     />
+                )}
+                {/* Super-effective slam — surfaces the element matchup the sim already applied. */}
+                {superEffective && (
+                    <div key={`se-${frame!.message}`} className="pet-super-effective" aria-hidden="true">Super Effective!</div>
                 )}
                 {/* Low-HP danger vignette — red pulse closes in as a fighter nears death. */}
                 {dangerZone && <div className="pet-danger-vignette" aria-hidden="true" />}
@@ -15494,7 +15563,7 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerReservePet
                     <div className="pet-ko-overlay">K.O. ??</div>
                 )}
 
-                <div className={`pet-park-grid pet-vfx-${winnerPet ? "idle" : (frame?.actionKind ?? "idle")} pet-vfx-actor-${frame?.actor ?? "system"}`} aria-label="Pet arena park battlefield">
+                <div ref={petArenaGridRef} className={`pet-park-grid pet-vfx-${winnerPet ? "idle" : (frame?.actionKind ?? "idle")} pet-vfx-actor-${frame?.actor ?? "system"}`} aria-label="Pet arena park battlefield">
                     {(() => {
                         // 4-pet mode: build a position→pet map covering all
                         // living party members. 1v1 mode keeps the old 2-pet
@@ -15528,9 +15597,26 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerReservePet
                             // card, which reads as a broken end-of-fight flicker.
                             const isActionTile = !winnerPet && frame?.actionKind && !!here;
                             const hasEffect   = !winnerPet && index === effectTile && frame?.actionKind;
+                            // Pseudo-3D depth + loser faint ride a wrapper BETWEEN the
+                            // glide-mover and the avatar, so neither collides with the
+                            // FLIP translate (mover) nor the lunge/walk (avatar). Depth:
+                            // scale/brighten by grid row so up-field reads as farther
+                            // (row 3 = centre lane = neutral 1.0). Faint: the pet that
+                            // just hit 0 HP topples, sinks, and desaturates in place.
+                            const depthRow = Math.floor(index / PET_GRID_COLS);
+                            const depthScale = 1 + (depthRow - 3) * 0.04;
+                            const faint = !!here && (here.side === "player" ? (frame?.playerHp ?? 1) <= 0 : (frame?.enemyHp ?? 1) <= 0);
+                            const depthStyle: React.CSSProperties = {
+                                transform: faint
+                                    ? `scale(${depthScale}) translateY(15px) rotate(${here!.side === "player" ? -68 : 68}deg)`
+                                    : `scale(${depthScale})`,
+                                filter: faint ? "grayscale(0.85) brightness(0.5)" : `brightness(${(1 + (depthRow - 3) * 0.03).toFixed(3)})`,
+                                opacity: faint ? 0.62 : 1,
+                            };
                             return (
                                 <div
                                     key={index}
+                                    data-tile={index}
                                     className={`pet-park-tile${isObstacle ? " pet-obstacle" : ""}${isTrail && !isObstacle ? " pet-path" : ""}${isActionTile && !isObstacle ? " pet-action-tile" : ""}${hasEffect && !isObstacle ? ` pet-vfx-tile pet-vfx-tile-${frame?.actionKind}` : ""}${here && !isObstacle ? " pet-occupied" : ""}`}
                                 >
                                     {isObstacle && (
@@ -15541,7 +15627,7 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerReservePet
                                         </div>
                                     )}
                                     {hasEffect && (
-                                        <span className={`pet-battle-vfx${frame?.crit ? " crit" : ""}${frame?.isKO ? " ko" : ""}`} key={`${frame?.message}-${index}`}>
+                                        <span className={`pet-battle-vfx${frame?.crit ? " crit" : ""}${frame?.isKO ? " ko" : ""}${frame?.isKO ? "" : elClass}`} key={`${frame?.message}-${index}`}>
                                             <i />
                                             <b>{effectLabel}</b>
                                             <em />
@@ -15553,7 +15639,13 @@ function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerReservePet
                                         damage frames against the same target would only
                                         animate once (CSS quirk: animation-name doesn't
                                         restart when the same class persists). */}
-                                    {here && <PetBattleAvatar key={`${here.pet.id}-${frame?.message ?? "idle"}`} pet={here.pet} side={here.side} active={here.isActor} hit={here.isTarget} status={here.side === "player" ? frame?.playerStatus : frame?.enemyStatus} sharedImages={sharedImages} />}
+                                    {here && (
+                                        <div className="pet-avatar-mover" data-petid={here.pet.id}>
+                                            <div className={`pet-avatar-depth${faint ? " pet-fainted" : ""}`} style={depthStyle}>
+                                                <PetBattleAvatar key={`${here.pet.id}-${frame?.message ?? "idle"}`} pet={here.pet} side={here.side} active={here.isActor} hit={here.isTarget && !faint} status={here.side === "player" ? frame?.playerStatus : frame?.enemyStatus} sharedImages={sharedImages} />
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             );
                         });
