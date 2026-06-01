@@ -71,18 +71,28 @@ async function handler(req, res) {
             // fighters, allow `fighter`; otherwise force `spectator` regardless
             // of what the body claimed.
             let derivedRole = 'spectator';
+            let session = null;
             try {
-                const session = await _storage_js_1.kv.get(`pvp:${battleId}`);
-                if (session) {
-                    const p1Norm = String(session.p1?.name ?? '').toLowerCase().trim();
-                    const p2Norm = String(session.p2?.name ?? '').toLowerCase().trim();
-                    if (authorNorm === p1Norm || authorNorm === p2Norm) {
-                        derivedRole = 'fighter';
-                    }
-                }
+                session = await _storage_js_1.kv.get(`pvp:${battleId}`);
             }
-            catch {
-                // Session lookup failed — fall back to spectator.
+            catch (err) {
+                // Session lookup FAILED (KV error). We can't tell whether the
+                // author is a fighter or a spectator, so don't silently mislabel
+                // them as a spectator (audit #8 — that swallowed the error and
+                // posted a fighter's line tagged 'spectator'). Reject so the
+                // client retries. NOTE: a genuinely-missing session (null below,
+                // e.g. post-battle banter after the 15-min session TTL lapses
+                // while the 2-hour chat key lives on) is NOT an error — it
+                // legitimately resolves to 'spectator'.
+                console.error('[pvp/chat] session lookup failed', err);
+                return res.status(503).json({ error: 'Could not verify battle role — please retry.' });
+            }
+            if (session) {
+                const p1Norm = String(session.p1?.name ?? '').toLowerCase().trim();
+                const p2Norm = String(session.p2?.name ?? '').toLowerCase().trim();
+                if (authorNorm === p1Norm || authorNorm === p2Norm) {
+                    derivedRole = 'fighter';
+                }
             }
             // Moderate before persisting — masks profanity, redacts PII,
             // caps length. Empty post after sanitization is rejected so

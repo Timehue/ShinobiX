@@ -110,7 +110,7 @@ async function handler(req, res) {
                     dailyCap,
                 },
             };
-        });
+        }, { failClosed: true });
         return res.status(lockResult.status).json(lockResult.body);
     }
     catch (err) {

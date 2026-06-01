@@ -80,7 +80,7 @@ async function handler(req, res) {
             });
             await (0, _storage_js_2.savePool)(pool);
             return { ok: true, poolBalance: pool.balance };
-        });
+        }, { failClosed: true });
         if (!result.ok) {
             return res.status(400).json({
                 error: 'Not enough Seals in the clan pool.',
@@ -95,6 +95,12 @@ async function handler(req, res) {
         // can retry — Seals don't vanish silently. (Refunds on failure
         // are noted as a TODO; pool itself is already debited at this
         // point. Investigate when claim-back is needed.)
+        //
+        // Deliberately NOT failClosed (unlike the pool lock above): the pool is
+        // already debited here, so throwing on lock contention would lose the
+        // Seals (pool down, recipient not credited). Falling through to run the
+        // credit unlocked still credits the recipient — the lesser evil until
+        // proper refund-on-failure exists.
         const recipientSaveKey = `save:${recipientName}`;
         await (0, _lock_js_1.withKvLock)(recipientSaveKey, async () => {
             // Re-read inside the lock to grab any updates that landed

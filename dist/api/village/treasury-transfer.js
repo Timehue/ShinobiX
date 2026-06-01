@@ -169,7 +169,7 @@ async function handler(req, res) {
                     };
                     await _storage_js_1.kv.set(recipientSaveKey, { ...fresh, character: nextChar });
                     return true;
-                });
+                }, { failClosed: true });
                 if (!creditOk) {
                     return { ok: false, status: 500, error: 'Failed to credit recipient.' };
                 }
@@ -200,7 +200,7 @@ async function handler(req, res) {
                     const nextChar = { ...freshChar, inventory: nextInv };
                     await _storage_js_1.kv.set(recipientSaveKey, { ...fresh, character: nextChar });
                     return true;
-                });
+                }, { failClosed: true });
                 if (!creditOk) {
                     return { ok: false, status: 500, error: 'Failed to credit recipient.' };
                 }
@@ -212,7 +212,7 @@ async function handler(req, res) {
                 await _storage_js_1.kv.set(villageStateKey, nextState);
                 return { ok: true, itemId };
             }
-        });
+        }, { failClosed: true });
         if (!result.ok) {
             return res.status(result.status).json({ error: result.error });
         }

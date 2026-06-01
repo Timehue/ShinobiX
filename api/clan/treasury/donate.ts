@@ -133,13 +133,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // Commit donor debit first.
                 await kv.set(donorSaveKey, { ...donorRec, character: outcome.nextDonorChar });
                 return { ok: true as const, nextTreasury: outcome.nextTreasury };
-            });
+            }, { failClosed: true });
             if (!debit.ok) return debit;
 
             // Credit the clan treasury (donor debit is already committed).
             await kv.set(clanSaveKey, { ...clanRec, treasury: debit.nextTreasury });
             return { ok: true as const, treasury: debit.nextTreasury };
-        });
+        }, { failClosed: true });
 
         if (!result.ok) return res.status(result.status).json({ error: result.error });
 

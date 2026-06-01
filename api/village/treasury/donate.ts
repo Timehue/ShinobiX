@@ -121,13 +121,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
                 await kv.set(donorSaveKey, { ...donorRec, character: outcome.nextDonorChar });
                 return { ok: true as const, nextTreasury: outcome.nextTreasury };
-            });
+            }, { failClosed: true });
             if (!debit.ok) return debit;
 
             // Credit ONLY the treasury; preserve every other village-state field.
             await kv.set(villageStateKey, { ...stateRec, treasury: debit.nextTreasury });
             return { ok: true as const, treasury: debit.nextTreasury };
-        });
+        }, { failClosed: true });
 
         if (!result.ok) return res.status(result.status).json({ error: result.error });
 
