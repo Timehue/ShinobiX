@@ -298,13 +298,30 @@ function validateClanSaveWrite(existing, incoming, ctx) {
             const after = num(inTreasury[key], before);
             const delta = after - before;
             if (delta > 0) {
-                const cap = MAX_TREASURY_INCREASE[key] ?? 0;
-                if (delta > cap) {
-                    outTreasury[key] = before + cap;
-                    suppressed.push(`clan treasury.${key} +${delta} > cap ${cap}`);
+                // #17 lockdown: every player-donatable clan currency now enters
+                // the treasury ONLY via the atomic /api/clan/treasury/donate
+                // endpoint (which the client re-asserts at a zero delta), so a
+                // save-blob INCREASE here is credit-without-debit — reject it
+                // (keep prev). Admin bypasses. `warSupply` is the exception: it's
+                // still collected client-side via the save blob
+                // (collectTerritoryWarSupply) until its server endpoint lands,
+                // so keep its capped-increase path for now.
+                if (key === 'warSupply') {
+                    const cap = MAX_TREASURY_INCREASE[key] ?? 0;
+                    if (delta > cap) {
+                        outTreasury[key] = before + cap;
+                        suppressed.push(`clan treasury.${key} +${delta} > cap ${cap}`);
+                    }
+                    else {
+                        outTreasury[key] = after;
+                    }
+                }
+                else if (ctx.isAdmin) {
+                    outTreasury[key] = after;
                 }
                 else {
-                    outTreasury[key] = after;
+                    outTreasury[key] = before;
+                    suppressed.push(`clan treasury.${key} increase via save blob blocked — donate via /api/clan/treasury/donate`);
                 }
             }
             else if (delta < 0) {
