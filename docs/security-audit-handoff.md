@@ -139,6 +139,19 @@ validators** — by design, so old/stale client tabs don't break mid-rollout.
 - Do this **only after** the client in `bf37f0b` has rolled out to players, or
   a stale tab still crediting via the save blob will have its donation silently
   suppressed. Confirm rollout with the user first.
+- **Gate status checked 2026-06-01: NOT met — client is NOT deployed.** The
+  `bf37f0b` server/API *is* live (`GET https://theravensark.com/api/clan/treasury/donate`
+  → HTTP 405, route exists), but the **client was never rebuilt**: `bf37f0b`'s diff
+  touched `dist/api/**` + `dist/server.js` (server build) but NOT `shinobij.client/dist`,
+  and nothing has rebuilt it since (`bf37f0b..HEAD -- shinobij.client/dist` is empty).
+  The committed `shinobij.client/dist/index.html` is the **2026-05-26 build** (`a99e280`),
+  referencing `index-DL-4FcSV.js` — and the live site serves that exact same hash. So
+  players load the pre-donate bundle that still credits treasury via the save blob.
+  **⚠️ Deployment gap:** the donate-client *source* (`App.tsx`) is committed but the
+  client `dist` is stale, so even a fresh redeploy from origin/main serves the old
+  client. Before this lockdown can ever proceed: rebuild the client
+  (`cd shinobij.client && npm run build`), commit the regenerated `shinobij.client/dist`,
+  redeploy, and let stale tabs cycle out — THEN re-check.
 - Note: #16's secondary "same-length `warHistory` swap is content-unvalidated"
   is still open and untouched.
 
@@ -152,9 +165,21 @@ validators** — by design, so old/stale client tabs don't break mid-rollout.
   fires on the missing path → ~zero overhead once clients roll over. The current
   client already echoes the field on all three own-save paths (debounce/interval/
   unload), so a nonzero count = stale/old client tabs still out there.
-  - **Read it:** `GET /api/kv/get?key=telemetry:save-noversion:<UTC-date>` (admin
-    `x-kv-token`), e.g. `telemetry:save-noversion:2026-06-01`. Watch the daily
+  - **Read it (CORRECTED):** the `telemetry:` prefix routes to the **BASE store**
+    (Supabase `public.kv_store`), **not** the disk overlay — so the `/api/kv/get`
+    proxy (which reads ONLY the disk overlay, see `api/_storage.ts:_DISK_PREFIXES`)
+    always returns `null` for this key. Ignore the old "GET /api/kv/get" note.
+    Query the row directly instead, e.g. SQL via Supabase/MCP:
+    `SELECT value, updated_at FROM public.kv_store WHERE key LIKE 'telemetry:save-noversion:%' ORDER BY key DESC;`
+    (per-day key e.g. `telemetry:save-noversion:2026-06-01`). Watch the daily
     `count` trend toward zero across consecutive days.
+  - **Gate status checked 2026-06-01:** **NOT met — no signal exists yet.** Zero
+    `telemetry:save-noversion:*` rows in `kv_store`, AND the base store has had no
+    writes of *any* prefix since `2026-05-30 22:34 UTC` (newest `ratelimit:`/
+    `presence:`/`player:` rows), i.e. ~no production traffic since May 30. The
+    telemetry code (`757b46f`) only landed 2026-06-01, so there is neither a
+    confirmed-zero nor a nonzero — just no data. Step 2 stays blocked until traffic
+    resumes and several days of ~0 counts accumulate. Do NOT tighten on an empty table.
 - **Step 2 — make it mandatory (OPEN, needs sign-off + the data above):** once the
   daily count stays ~0 for a sustained window, require a valid `_baseSaveVersion`
   for non-clan player saves (reject/410 the ones without it instead of allowing).
