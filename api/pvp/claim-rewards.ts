@@ -1,8 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
-import { cors, safeName } from '../_utils.js';
+import { cors, safeName, mergePreservingImages } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
+import { withKvLock } from '../_lock.js';
+import { creditRankedOutcome } from '../_ranked-rating.js';
 import type { PvpSession } from './session.js';
 
 // Session-replay window — must roughly match SESSION_REPLAY_WINDOW_MS in
@@ -91,6 +93,54 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const key = claimKey(playerName, battleId);
 
+        // ── Ranked path (audit #7 / Stage 3) ────────────────────────────────
+        // When the session was stamped ranked at creation, the SERVER owns the
+        // rating change: compute it from the session's pre-match Elo snapshot +
+        // the server-verified winner, credit the caller's save, and return the
+        // new rating so the client displays it instead of computing its own
+        // delta. Skip draws (the Elo formula is win/loss only). The receipt is
+        // placed INSIDE the save lock together with the rating write, so the
+        // credit + the "already claimed" gate are atomic — a contention abort
+        // (failClosed → 503) leaves NOTHING placed, so a retry credits cleanly
+        // without ever double-crediting.
+        const isRankedClaim =
+            session.ranked === true &&
+            (session.rankedKind === 'player' || session.rankedKind === 'pet') &&
+            (session.winner === 'p1' || session.winner === 'p2');
+        if (isRankedClaim) {
+            const kind = session.rankedKind as 'player' | 'pet';
+            const ratingField = kind === 'pet' ? 'petRankedRating' : 'rankedRating';
+            const winnerRating = Number((session.winner === 'p1' ? session.p1Rating : session.p2Rating) ?? 1000);
+            const loserRating = Number((session.winner === 'p1' ? session.p2Rating : session.p1Rating) ?? 1000);
+            const role = outcome === 'win' ? 'winner' : 'loser';
+            const saveKey = `save:${callerLower}`;
+            try {
+                const out = await withKvLock(saveKey, async () => {
+                    const placed = await kv.set(key, { outcome, ts: Date.now() }, { nx: true, ex: CLAIM_TTL_SECONDS } as never);
+                    const already = !placed;
+                    const record = await kv.get<Record<string, unknown>>(saveKey);
+                    const char = (record?.character ?? null) as Record<string, unknown> | null;
+                    if (!record || !char) return { already, rating: undefined as undefined | { field: string; value: number; delta: number } };
+                    const r = creditRankedOutcome(char, { role, winnerRating, loserRating, kind });
+                    if (!already) {
+                        const nextChar = { ...char, ...r.patch };
+                        await kv.set(saveKey, mergePreservingImages({ ...record, character: nextChar }, record));
+                        return { already, rating: { field: ratingField, value: r.newRating, delta: r.delta } };
+                    }
+                    // Already credited on a prior call — report the stored value.
+                    const cur = Number(char[ratingField]);
+                    return { already, rating: { field: ratingField, value: Number.isFinite(cur) ? cur : r.newRating, delta: r.delta } };
+                }, { failClosed: true });
+                return res.status(200).json({ ok: true, alreadyClaimed: out.already, ...(out.rating ? { rating: out.rating } : {}) });
+            } catch (rankedErr) {
+                // Lock contention/outage (failClosed) — receipt NOT placed, so
+                // the client can safely retry. 503 signals "transient, retry".
+                console.error('[pvp/claim-rewards] ranked credit failed', rankedErr);
+                return res.status(503).json({ error: 'Could not record ranked result — please retry.' });
+            }
+        }
+
+        // ── Casual path (unchanged) ─────────────────────────────────────────
         // Atomic NX reserve. If the key already exists, we lost the race
         // (or a duplicate call) — return alreadyClaimed so the caller
         // skips the local grant entirely.

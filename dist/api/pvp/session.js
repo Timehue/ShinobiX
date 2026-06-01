@@ -415,7 +415,7 @@ async function handler(req, res) {
             return;
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-            const { p1Character, p2Character, biome, weatherPositiveElement, weatherNegativeElement, battleId: clientBattleId, useCurrentVitals } = body;
+            const { p1Character, p2Character, biome, weatherPositiveElement, weatherNegativeElement, battleId: clientBattleId, useCurrentVitals, ranked, rankedKind } = body;
             if (!p1Character || !p2Character)
                 return res.status(400).json({ error: 'Missing characters' });
             const p1Name = p1Character.name ?? 'Player 1';
@@ -502,6 +502,31 @@ async function handler(req, res) {
             // prefight overlay's "X goes first!" reveal matches the server roll.
             const firstActor = Math.random() < 0.5 ? 'p1' : 'p2';
             const firstActorName = firstActor === 'p1' ? p1Name : p2Name;
+            // ── Ranked snapshot (audit #7 / Stage 3) ─────────────────────────
+            // When the client flags this match ranked, record each fighter's
+            // pre-match Elo read from their SAVE (authoritative), keyed to the
+            // ladder. claim-rewards reads these back + the server winner to
+            // compute and durably credit the rating change — the client can no
+            // longer compute or self-apply the delta. NPC fighters (no save)
+            // default to 1000, matching the client's `?? 1000`. The `ranked`
+            // assertion itself is currently client-supplied (a documented
+            // follow-up will tie it to the queue/challenge record); the RATINGS,
+            // WINNER and MAGNITUDE are all server-authoritative regardless.
+            let rankedStamp = {};
+            if (ranked === true && (rankedKind === 'player' || rankedKind === 'pet')) {
+                const ratingField = rankedKind === 'pet' ? 'petRankedRating' : 'rankedRating';
+                const ratingOf = (save) => {
+                    const c = (save?.character ?? null);
+                    const r = Number(c?.[ratingField]);
+                    return Number.isFinite(r) ? r : 1000;
+                };
+                rankedStamp = {
+                    ranked: true,
+                    rankedKind,
+                    p1Rating: ratingOf(p1Save),
+                    p2Rating: ratingOf(p2Save),
+                };
+            }
             const session = {
                 battleId,
                 p1: makeFighter(finalP1Character, P1_START, useCurrentVitals === true),
@@ -521,6 +546,7 @@ async function handler(req, res) {
                 biome: normalizeBiome(biome),
                 weatherPositiveElement: normalizeElement(weatherPositiveElement),
                 weatherNegativeElement: normalizeElement(weatherNegativeElement),
+                ...rankedStamp,
             };
             await _storage_js_1.kv.set(`pvp:${battleId}`, session, { ex: SESSION_TTL });
             // Return the full session alongside the id so the client can seed
