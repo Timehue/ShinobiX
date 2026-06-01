@@ -237,18 +237,23 @@ carefully afterward, before the sanitizer tighten.
      (`opponent.owner`) — which is best done together with the pet read-back
      (step 3) rather than as a pure activation. The dormant pet server branch
      (step 1) is ready and waiting; this is a deliberate sequencing choice.
-3. **Read-back cutover (stop self-applying):** thread the `rating` returned by
-   `claim-rewards` / `battle-result` into the win/loss appliers and use
-   `rating.value` instead of `rankedDelta(...)`:
-   - Shared-session duel (`PvpBattleScreen`): the claim effect at App.tsx ~36060
-     fetches claim-rewards; capture `data.rating` and pass it to
-     `onWin`/`onLoss`. `handlePvpWin` (~10359/10420) and `handlePvpLoss`
-     (~10517/10520) override `rankedRating` with `rating.value` when present.
-   - Player arena (`BattleScreen`, ~33136/33170/33213) — its own win/loss path.
-   - Pet 1v1 (`rankedPet`) and pet arena (~14506-14524) — `petRankedRating`.
-   Counters (`rankedWins`/`rankedLosses`) already increment by 1 from the same
-   base on both sides, so they converge — leave that logic, override only the
-   rating value.
+3. **Read-back cutover (stop self-applying).** Thread the `rating` returned by
+   `claim-rewards` / `battle-result` into the appliers; use `rating.value` when
+   present, else fall back to the local `rankedDelta(...)` (graceful — the rating
+   still updates on a 503/offline claim). Counters (`rankedWins`/`rankedLosses`,
+   `petRankedWins`/`petRankedLosses`) keep incrementing locally — they converge
+   (+1 from the same base) — only the rating VALUE is overridden.
+   - **PLAYER — DONE (this commit).** PvpBattleScreen's claim effect (~36060)
+     now captures `data.rating` and forwards it as a 3rd arg to `onWin`/`onLoss`
+     (prop types widened). `handlePvpWin` (~10359, rating line ~10428) and the
+     loss callback (~10513) set `rankedRating` to `serverRating.value` when the
+     field is `rankedRating`, else the local delta. The inline
+     `rankedBattleActive` `BattleScreen` path is the session-create FAILURE
+     fallback (no server session, hence no server rating) — left self-applying
+     on purpose; there is nothing to read back there.
+   - **PET — DONE (next commit).** See step 2 PET note: the ranked-pet path
+     (~14481) gets a `battle-result({ranked:true, reportKey, opponentName})` call
+     and reads back `petRankedRating` the same way.
 4. **Telemetry + sanitizer tighten (final, gated):** once the read-back client
    is deployed and telemetry shows no client-driven `rankedRating` increases,
    tighten `api/save/[name].ts` so the ±200 swing clamp becomes "re-assert /
