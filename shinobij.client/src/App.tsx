@@ -4820,6 +4820,23 @@ export default function App() {
     const [hospitalEntryTime, setHospitalEntryTime] = useState<number | null>(null);
     const [duelChallenges, setDuelChallenges] = useState<DuelChallenge[]>([]);
 
+    // Auto-cancel stale challenges after 3 minutes. The server inbox + outgoing
+    // slot expire via their TTL, but nothing pruned the client list by age — so
+    // an un-answered challenge lingered in the recipient's inbox and kept the
+    // sender's "pending challenge" guard tripped (e.g. after challenging an
+    // offline player who never responds). Sweep every 20s and drop anything
+    // older than 3 minutes that isn't tied to a live battle.
+    useEffect(() => {
+        const CHALLENGE_TIMEOUT_MS = 180000; // 3 minutes — keep in sync with CHALLENGE_TTL in api/player/challenge.ts
+        const id = setInterval(() => {
+            setDuelChallenges((current) => {
+                const fresh = current.filter((c) => c.battleId || Date.now() - (c.createdAt ?? 0) < CHALLENGE_TIMEOUT_MS);
+                return fresh.length === current.length ? current : fresh;
+            });
+        }, 20000);
+        return () => clearInterval(id);
+    }, []);
+
     // Realtime push for incoming duel challenges. Listens on the
     // KV key `challenges:<myName>` and merges new entries the
     // moment Postgres commits the write — instead of waiting up
@@ -14342,7 +14359,7 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
     const [partyResult, setPartyResult] = useState<PetPartyBattleResult | null>(null);
 
     async function sendDirectPetChallenge(toName: string, fromPetId?: string) {
-        if (duelChallenges.some((challenge) => challenge.fromName === character.name && !challenge.accepted && !challenge.declined && !challenge.battleId && Date.now() - challenge.createdAt < 120000)) {
+        if (duelChallenges.some((challenge) => challenge.fromName === character.name && !challenge.accepted && !challenge.declined && !challenge.battleId && Date.now() - challenge.createdAt < 180000)) {
             setPetChallengeMsg("You already have a pending challenge. Wait for it to be accepted, declined, or expire before sending another.");
             return;
         }
@@ -32373,7 +32390,7 @@ function Arena({
     }
 
     async function challengePlayer(opponent: PlayerRecord, mode: DuelChallenge["mode"] = "standard", clanWarPoints = 0) {
-        if (duelChallenges.some((challenge) => challenge.fromName === character.name && !challenge.accepted && !challenge.declined && !challenge.battleId && Date.now() - challenge.createdAt < 120000)) {
+        if (duelChallenges.some((challenge) => challenge.fromName === character.name && !challenge.accepted && !challenge.declined && !challenge.battleId && Date.now() - challenge.createdAt < 180000)) {
             alert("You already have a pending challenge. Wait for it to be accepted, declined, or expire before sending another.");
             return;
         }
