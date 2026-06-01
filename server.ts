@@ -132,7 +132,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
         res.setHeader('Access-Control-Allow-Origin', '*');
     }
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-password, x-player-password, x-player-name, x-kv-token, x-client-fp');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-password, x-player-password, x-player-name, x-player-token, x-kv-token, x-client-fp');
     if (req.method === 'OPTIONS') {
         res.status(200).end();
         return;
