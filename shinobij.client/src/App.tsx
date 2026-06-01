@@ -3363,6 +3363,54 @@ export { discountCost, getBankInterestPercent, getHospitalDiscountPercent };
 
 export { normalizeJutsu };
 
+// ── Heartbeat presence projection ─────────────────────────────────────────
+// The heartbeat POST used to upload the player's ENTIRE character every beat
+// (inventory, jutsu, stats, bloodlines, mission journals, full pet objects,
+// and a base64 avatar data URL). At a 1s cadence that was a large repeated
+// upload, a fat presence-row write, and bloated the roster mget that reads
+// these rows back. The presence row's `character` is consumed ONLY by the
+// roster endpoint for *display* (and the Pet Arena reads `pets` for PvP pet
+// challenges). Gameplay/PvP paths (attack, challenge, heal, clear-attack)
+// read only sector/inBattle/travelingUntil/pendingAttacker — never character;
+// real combat hydrates the opponent from save:<name> via fetchPlayerCombatSave.
+//
+// So we upload only the display fields the roster surfaces. Notable drops:
+//   • avatarImage — every avatar render site falls back to the name-keyed
+//     sharedImages['avatar:<name>'] cache, so the heavy data URL is redundant.
+//   • inventory / jutsu / stats / bloodlines / mission+quest logs / currencies
+//     — never read off the presence row; roster.ts strips them anyway.
+// Pets are kept but projected to the same public fields roster.ts exposes, so
+// Pet Arena opponent selection keeps working without shipping pet movesets,
+// raw images, etc.
+const PRESENCE_PET_FIELDS = [
+    'id', 'name', 'image', 'rarity', 'level', 'element', 'trait', 'species',
+    'hp', 'attack', 'defense', 'speed', 'jutsus', 'xp', 'unlockedForPve', 'expedition',
+] as const;
+function presenceCharacter(c: Character): Partial<Character> {
+    const src = c as unknown as Record<string, unknown>;
+    const slim: Record<string, unknown> = {};
+    // Display scalars the roster / profile cards render. Avatar intentionally
+    // omitted — resolved from the shared image cache by name.
+    const KEEP = [
+        'name', 'level', 'village', 'specialty', 'rank', 'rankTitle', 'customTitle',
+        'profession', 'professionRank', 'professionXp', 'rankedRating', 'petRankedRating',
+        'clan', 'clanFounder', 'hp', 'maxHp',
+    ];
+    for (const k of KEEP) if (k in src) slim[k] = src[k];
+    // Pets: project to public fields only (Pet Arena needs the list + basic stats).
+    const pets = src.pets;
+    if (Array.isArray(pets)) {
+        slim.pets = pets.map((p) => {
+            if (!p || typeof p !== 'object') return p;
+            const ps = p as Record<string, unknown>;
+            const out: Record<string, unknown> = {};
+            for (const f of PRESENCE_PET_FIELDS) if (f in ps) out[f] = ps[f];
+            return out;
+        });
+    }
+    return slim as Partial<Character>;
+}
+
 function normalizeCharacter(parsed: Character): Character {
     const level = Math.max(1, Math.min(MAX_LEVEL, Math.floor(parsed.level ?? 1)));
     const xp = level >= MAX_LEVEL ? 0 : Math.max(0, Math.min(xpNeeded(level), Math.floor(parsed.xp ?? 0)));
@@ -5137,7 +5185,11 @@ export default function App() {
                     body: JSON.stringify({
                         name: char.name,
                         sector: currentSector,
-                        character: char,
+                        // Upload only the display fields the roster surfaces, not the
+                        // full character blob — see presenceCharacter(). Gameplay/PvP
+                        // paths read the presence row's sector/inBattle/travel flags,
+                        // not this character; combat hydrates opponents from save:<name>.
+                        character: presenceCharacter(char),
                         travelingUntil: isTraveling ? travelingUntil : 0,
                         // inBattle covers PvP AND PvE combat screens so Healers
                         // can't heal a player who's actively fighting anything.
