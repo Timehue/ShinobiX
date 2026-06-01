@@ -101,7 +101,7 @@ async function handler(req, res) {
                     return;
                 total += collected;
                 await _storage_js_1.kv.set(key, { ...fresh, warSupply: 0, lastSupplyAt: nextLastSupplyAt, updatedAt: now });
-            });
+            }, { failClosed: true });
         }
         // ── Phase 2 (credit): add the collected total to the clan treasury under
         // the clan-save lock. Re-read so we don't clobber a concurrent clan write.
@@ -113,7 +113,7 @@ async function handler(req, res) {
                 const nextTreasury = { ...prevTreasury, warSupply: Math.max(0, Number(prevTreasury.warSupply ?? 0)) + total };
                 await _storage_js_1.kv.set(clanSaveKey, { ...fresh, treasury: nextTreasury });
                 return nextTreasury;
-            });
+            }, { failClosed: true });
             await _storage_js_1.kv.set(`${AUDIT_LOG_PREFIX}${targetSlug}:${now}`, {
                 ts: now,
                 actor: identity.admin ? 'admin' : identity.name,

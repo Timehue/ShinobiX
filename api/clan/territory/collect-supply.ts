@@ -101,7 +101,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (collected <= 0) return;
                 total += collected;
                 await kv.set(key, { ...fresh, warSupply: 0, lastSupplyAt: nextLastSupplyAt, updatedAt: now });
-            });
+            }, { failClosed: true });
         }
 
         // ── Phase 2 (credit): add the collected total to the clan treasury under
@@ -114,7 +114,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const nextTreasury = { ...prevTreasury, warSupply: Math.max(0, Number(prevTreasury.warSupply ?? 0)) + total };
                 await kv.set(clanSaveKey, { ...fresh, treasury: nextTreasury });
                 return nextTreasury;
-            });
+            }, { failClosed: true });
             await kv.set(`${AUDIT_LOG_PREFIX}${targetSlug}:${now}`, {
                 ts: now,
                 actor: identity.admin ? 'admin' : identity.name,

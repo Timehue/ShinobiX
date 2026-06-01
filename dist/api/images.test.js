@@ -1,0 +1,71 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const node_test_1 = require("node:test");
+const node_assert_1 = require("node:assert");
+const images_js_1 = require("./images.js");
+// Pure validation logic for the shared-image upload endpoint (audit #23). No KV,
+// no network — covers the internal-host / SSRF guard and the data-URL allowlist.
+(0, node_test_1.describe)('isUnsafeImageUrlHost (internal-target guard)', () => {
+    (0, node_test_1.it)('flags localhost and internal / mDNS TLDs', () => {
+        for (const h of ['localhost', 'foo.localhost', 'box.local', 'svc.internal', 'host.lan', 'nas.home', 'app.corp', 'wiki.intranet']) {
+            node_assert_1.strict.equal((0, images_js_1.isUnsafeImageUrlHost)(h), true, h);
+        }
+    });
+    (0, node_test_1.it)('flags bare single-label hosts', () => {
+        node_assert_1.strict.equal((0, images_js_1.isUnsafeImageUrlHost)('router'), true);
+        node_assert_1.strict.equal((0, images_js_1.isUnsafeImageUrlHost)('intranet'), true);
+    });
+    (0, node_test_1.it)('flags private / loopback / link-local / CGNAT IPv4', () => {
+        for (const h of ['127.0.0.1', '10.0.0.5', '192.168.1.1', '169.254.169.254', '172.16.0.1', '172.31.255.255', '100.64.0.1', '0.0.0.0']) {
+            node_assert_1.strict.equal((0, images_js_1.isUnsafeImageUrlHost)(h), true, h);
+        }
+    });
+    (0, node_test_1.it)('allows public IPv4 (incl. 172.x / 100.x outside the private ranges)', () => {
+        for (const h of ['8.8.8.8', '1.1.1.1', '172.15.0.1', '172.32.0.1', '100.63.0.1', '100.128.0.1']) {
+            node_assert_1.strict.equal((0, images_js_1.isUnsafeImageUrlHost)(h), false, h);
+        }
+    });
+    (0, node_test_1.it)('flags numeric / hex IPv4 obfuscation', () => {
+        node_assert_1.strict.equal((0, images_js_1.isUnsafeImageUrlHost)('2130706433'), true); // 127.0.0.1 decimal
+        node_assert_1.strict.equal((0, images_js_1.isUnsafeImageUrlHost)('0x7f000001'), true); // 127.0.0.1 hex
+    });
+    (0, node_test_1.it)('flags IPv6 loopback / link-local / unique-local (with or without brackets)', () => {
+        for (const h of ['::1', '[::1]', 'fe80::1', 'fc00::1', 'fd12:3456::1']) {
+            node_assert_1.strict.equal((0, images_js_1.isUnsafeImageUrlHost)(h), true, h);
+        }
+    });
+    (0, node_test_1.it)('allows global IPv6 and public domains (incl. ones that start with fc/fd)', () => {
+        node_assert_1.strict.equal((0, images_js_1.isUnsafeImageUrlHost)('2606:4700::6810:85e5'), false);
+        node_assert_1.strict.equal((0, images_js_1.isUnsafeImageUrlHost)('cdn.example.com'), false);
+        node_assert_1.strict.equal((0, images_js_1.isUnsafeImageUrlHost)('fc-barcelona.com'), false);
+        node_assert_1.strict.equal((0, images_js_1.isUnsafeImageUrlHost)('fd-example.net'), false);
+    });
+});
+(0, node_test_1.describe)('isValidImageString', () => {
+    (0, node_test_1.it)('accepts raster data URLs', () => {
+        node_assert_1.strict.equal((0, images_js_1.isValidImageString)('data:image/png;base64,AAAA'), true);
+        node_assert_1.strict.equal((0, images_js_1.isValidImageString)('data:image/jpeg;base64,AAAA'), true);
+        node_assert_1.strict.equal((0, images_js_1.isValidImageString)('data:image/webp;base64,AAAA'), true);
+        node_assert_1.strict.equal((0, images_js_1.isValidImageString)('data:image/gif;base64,AAAA'), true);
+    });
+    (0, node_test_1.it)('rejects SVG and non-image data URLs', () => {
+        node_assert_1.strict.equal((0, images_js_1.isValidImageString)('data:image/svg+xml;base64,AAAA'), false);
+        node_assert_1.strict.equal((0, images_js_1.isValidImageString)('data:text/html;base64,AAAA'), false);
+    });
+    (0, node_test_1.it)('accepts public http(s) image URLs', () => {
+        node_assert_1.strict.equal((0, images_js_1.isValidImageString)('https://cdn.example.com/a.png'), true);
+        node_assert_1.strict.equal((0, images_js_1.isValidImageString)('http://images.example.org/p.jpg'), true);
+    });
+    (0, node_test_1.it)('rejects internal / loopback / metadata http(s) URLs', () => {
+        node_assert_1.strict.equal((0, images_js_1.isValidImageString)('http://localhost/a.png'), false);
+        node_assert_1.strict.equal((0, images_js_1.isValidImageString)('http://127.0.0.1:9000/a.png'), false);
+        node_assert_1.strict.equal((0, images_js_1.isValidImageString)('http://169.254.169.254/latest/meta-data/'), false);
+        node_assert_1.strict.equal((0, images_js_1.isValidImageString)('http://[::1]/a.png'), false);
+        node_assert_1.strict.equal((0, images_js_1.isValidImageString)('http://192.168.0.10/a.png'), false);
+    });
+    (0, node_test_1.it)('rejects malformed URLs and oversized strings', () => {
+        node_assert_1.strict.equal((0, images_js_1.isValidImageString)('https://'), false);
+        node_assert_1.strict.equal((0, images_js_1.isValidImageString)('ftp://example.com/a.png'), false);
+        node_assert_1.strict.equal((0, images_js_1.isValidImageString)('x'.repeat(3_000_001)), false);
+    });
+});

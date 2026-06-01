@@ -123,13 +123,13 @@ async function handler(req, res) {
                 // Commit donor debit first.
                 await _storage_js_1.kv.set(donorSaveKey, { ...donorRec, character: outcome.nextDonorChar });
                 return { ok: true, nextTreasury: outcome.nextTreasury };
-            });
+            }, { failClosed: true });
             if (!debit.ok)
                 return debit;
             // Credit the clan treasury (donor debit is already committed).
             await _storage_js_1.kv.set(clanSaveKey, { ...clanRec, treasury: debit.nextTreasury });
             return { ok: true, treasury: debit.nextTreasury };
-        });
+        }, { failClosed: true });
         if (!result.ok)
             return res.status(result.status).json({ error: result.error });
         // Best-effort audit log (30-day TTL).

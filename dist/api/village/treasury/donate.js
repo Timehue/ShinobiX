@@ -109,13 +109,13 @@ async function handler(req, res) {
                     return outcome;
                 await _storage_js_1.kv.set(donorSaveKey, { ...donorRec, character: outcome.nextDonorChar });
                 return { ok: true, nextTreasury: outcome.nextTreasury };
-            });
+            }, { failClosed: true });
             if (!debit.ok)
                 return debit;
             // Credit ONLY the treasury; preserve every other village-state field.
             await _storage_js_1.kv.set(villageStateKey, { ...stateRec, treasury: debit.nextTreasury });
             return { ok: true, treasury: debit.nextTreasury };
-        });
+        }, { failClosed: true });
         if (!result.ok)
             return res.status(result.status).json({ error: result.error });
         await _storage_js_1.kv.set(`${AUDIT_LOG_PREFIX}${slug}:${Date.now()}`, {

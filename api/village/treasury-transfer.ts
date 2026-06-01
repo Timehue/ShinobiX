@@ -213,7 +213,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     };
                     await kv.set(recipientSaveKey, { ...fresh, character: nextChar });
                     return true;
-                });
+                }, { failClosed: true });
                 if (!creditOk) {
                     return { ok: false as const, status: 500, error: 'Failed to credit recipient.' };
                 }
@@ -244,7 +244,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const nextChar = { ...freshChar, inventory: nextInv };
                     await kv.set(recipientSaveKey, { ...fresh, character: nextChar });
                     return true;
-                });
+                }, { failClosed: true });
                 if (!creditOk) {
                     return { ok: false as const, status: 500, error: 'Failed to credit recipient.' };
                 }
@@ -257,7 +257,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 await kv.set(villageStateKey, nextState);
                 return { ok: true as const, itemId };
             }
-        });
+        }, { failClosed: true });
 
         if (!result.ok) {
             return res.status(result.status).json({ error: result.error });

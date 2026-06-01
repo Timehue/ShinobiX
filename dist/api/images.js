@@ -1,5 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.isUnsafeImageUrlHost = isUnsafeImageUrlHost;
+exports.isValidImageString = isValidImageString;
 exports.default = handler;
 const _storage_js_1 = require("./_storage.js");
 const _utils_js_1 = require("./_utils.js");
@@ -8,6 +10,60 @@ const _auth_js_1 = require("./_auth.js");
 // rejected — keeps disk usage bounded and stops one player from filling the
 // shared image bucket with megabyte uploads.
 const MAX_IMAGE_BYTES = 3_000_000;
+// Reject http(s) image URLs whose host is internal / non-public (audit #23).
+// The server never fetches these URLs today — they're rendered browser-side as
+// <img src> — so this is not an active SSRF sink. But storing a loopback /
+// private / link-local target would (a) become a latent SSRF the moment any
+// future code fetches a stored image URL, and (b) turn other players' browsers
+// into probes against internal infrastructure when they render it. Legitimate
+// external images are public-CDN URLs with a dotted public hostname, so this
+// rejects only clearly-internal targets and the classic IP-obfuscation bypasses.
+function isUnsafeImageUrlHost(rawHost) {
+    let host = rawHost.toLowerCase().trim();
+    if (host.startsWith('[') && host.endsWith(']'))
+        host = host.slice(1, -1); // URL.hostname brackets IPv6
+    if (!host)
+        return true;
+    // localhost + common internal / mDNS TLDs.
+    if (host === 'localhost' || host.endsWith('.localhost'))
+        return true;
+    if (/\.(local|internal|lan|home|corp|intranet)$/.test(host))
+        return true;
+    // IPv6 literals: loopback / link-local (fe80::/10) / unique-local (fc00::/7).
+    if (host.includes(':')) {
+        if (host === '::1' || host === '::')
+            return true;
+        if (host.startsWith('fe80:') || host.startsWith('fc') || host.startsWith('fd'))
+            return true;
+        return false; // other IPv6 literals are global
+    }
+    // Bare single-label host (e.g. 'router', 'intranet') — never a public image
+    // host; resolves internally on most networks.
+    if (!host.includes('.'))
+        return true;
+    // Numeric / hex-obfuscated IPv4 (e.g. '2130706433', '0x7f000001') — classic
+    // SSRF bypass; no legitimate public image host is a bare number.
+    if (/^[0-9]+$/.test(host) || /^0x[0-9a-f]+$/.test(host))
+        return true;
+    // Dotted IPv4 private / loopback / link-local / CGNAT ranges.
+    const m = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+    if (m) {
+        const a = Number(m[1]), b = Number(m[2]);
+        if (a === 0 || a === 127)
+            return true; // this-host / loopback
+        if (a === 10)
+            return true; // 10.0.0.0/8
+        if (a === 192 && b === 168)
+            return true; // 192.168.0.0/16
+        if (a === 169 && b === 254)
+            return true; // link-local 169.254.0.0/16
+        if (a === 172 && b >= 16 && b <= 31)
+            return true; // 172.16.0.0/12
+        if (a === 100 && b >= 64 && b <= 127)
+            return true; // CGNAT 100.64.0.0/10
+    }
+    return false;
+}
 function isValidImageString(s) {
     if (s.length > MAX_IMAGE_BYTES)
         return false;
@@ -20,8 +76,15 @@ function isValidImageString(s) {
     // now than to discover it later.
     if (/^data:image\/(png|jpe?g|webp|gif);base64,/i.test(s))
         return true;
-    if (/^https?:\/\//i.test(s))
-        return true;
+    if (/^https?:\/\//i.test(s)) {
+        // External URL — allow only public hosts (block internal SSRF targets).
+        try {
+            return !isUnsafeImageUrlHost(new URL(s).hostname);
+        }
+        catch {
+            return false; // malformed URL
+        }
+    }
     return false;
 }
 // Legacy single-blob key (kept for backward-compat reads during migration)
@@ -82,11 +145,17 @@ function ownershipReject(id, identity) {
         }
     }
     if (prefix === 'pet') {
-        // pet:<petId>. We don't have a fast pet-ownership lookup here —
-        // pet IDs are client-generated. The misc-per-player cap covers
-        // abuse magnitude, but per-pet ownership would need a save read.
-        // For now, allow any authed player to write pet images. Future:
-        // optionally cross-check char.pets.some(p => p.id === rest).
+        // pet:<petId>. Ownership is intentionally NOT enforced here (audit #23).
+        // A save-read check (char.pets.some(p => p.id === rest)) looks tempting
+        // but would reject legitimately-created pet portraits: the client
+        // publishes 'pet:<id>' optimistically (App.tsx, on file pick / AI gen)
+        // BEFORE the debounced autosave persists the new pet to save:<name>, so
+        // a fresh pet's id is not yet in the stored save at upload time. A strict
+        // check would 403 real uploads; a fail-open check gives no protection.
+        // Closing this properly needs the client to save-then-upload (a larger
+        // change). Abuse magnitude is bounded by the 256-char id cap and the
+        // shared-bucket size; the worst case is cosmetic (overwriting a pet
+        // portrait whose client-generated id an attacker already knows).
     }
     return null;
 }
