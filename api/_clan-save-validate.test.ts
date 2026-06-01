@@ -106,14 +106,35 @@ describe('validateClanSaveWrite — warHistory same-length content (#16 secondar
     });
 });
 
-describe('validateClanSaveWrite — currency caps unchanged by the lockdown', () => {
-    it('still caps a ryo increase at the per-write ceiling (not hard-blocked)', () => {
+describe('validateClanSaveWrite — currency lockdown (#17, step 1a)', () => {
+    it('blocks a non-admin clan ryo increase via the save blob (credit-without-debit)', () => {
         const prev = clanWith([], { ryo: 0 });
-        const { next } = validateClanSaveWrite(prev, clanWith([], { ryo: 1_000_000 }), member);
-        assert.equal((next.treasury as Record<string, number>).ryo, 50_000); // before(0) + cap(50_000)
+        const { next, suppressed } = validateClanSaveWrite(prev, clanWith([], { ryo: 1_000_000 }), member);
+        assert.equal((next.treasury as Record<string, number>).ryo, 0); // kept at prev, NOT credited
+        assert.equal(suppressed.some((s) => s.includes('treasury.ryo increase via save blob blocked')), true);
     });
 
-    it('still allows a warSupply increase within cap (war-earned, save-blob path)', () => {
+    it('blocks a non-admin special-currency increase too (e.g. fateShards)', () => {
+        const prev = clanWith([], { fateShards: 3 });
+        const { next, suppressed } = validateClanSaveWrite(prev, clanWith([], { fateShards: 99 }), member);
+        assert.equal((next.treasury as Record<string, number>).fateShards, 3);
+        assert.equal(suppressed.some((s) => s.includes('treasury.fateShards increase via save blob blocked')), true);
+    });
+
+    it('allows a zero-delta re-assert (post-donate the client re-saves the credited value)', () => {
+        const prev = clanWith([], { ryo: 5000, fateShards: 2 });
+        const { next, suppressed } = validateClanSaveWrite(prev, clanWith([], { ryo: 5000, fateShards: 2 }), member);
+        assert.equal((next.treasury as Record<string, number>).ryo, 5000);
+        assert.equal(suppressed.some((s) => s.includes('increase via save blob blocked')), false);
+    });
+
+    it('allows an admin to increase clan currency (admin bypass)', () => {
+        const prev = clanWith([], { ryo: 0 });
+        const { next } = validateClanSaveWrite(prev, clanWith([], { ryo: 5000 }), admin);
+        assert.equal((next.treasury as Record<string, number>).ryo, 5000);
+    });
+
+    it('still allows a warSupply increase within cap (live collect path, until step 1b)', () => {
         const prev = clanWith([], { warSupply: 10 });
         const { next } = validateClanSaveWrite(prev, clanWith([], { warSupply: 60 }), member);
         assert.equal((next.treasury as Record<string, number>).warSupply, 60); // +50 within cap 100

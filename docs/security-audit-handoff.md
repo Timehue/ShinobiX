@@ -155,16 +155,28 @@ non-donation item write is a removal), so this is safe. New tests:
 `api/_clan-save-validate.test.ts` + `api/_village-state-validate.test.ts`. This
 closes #16's `treasury.items` minting hole.
 
-**⚠️ #17 currency credit-without-debit — deliberately NOT hard-blocked.** A
-blanket "reject currency increases via the save blob" was the original plan but
-is UNSAFE: several gameplay rewards still credit currencies through the save blob
-and are indistinguishable from a fake donation in the same field —
-clan `warSupply` collection (`App.tsx:21884`, and warSupply is non-donatable by
-design), clan-war victory ryo (`App.tsx:21903`, +4000/+1500), and daily-agenda
-village currencies (`App.tsx:23042`, +honorSeals/ryo/boneCharms). Blocking
-increases would silently delete those. The per-call caps remain the bound
-(defense-in-depth). Fully closing #17's currency side needs those rewards moved
-server-side — a #7-class server-authoritative-rewards refactor, tracked separately.
+**#17 currency credit-without-debit — server-authoritative refactor, Stage 1 in progress.**
+Correction to the earlier note: the "clan-war victory ryo" credit (`_resolveClanWar`)
+is **dead code** (`void`-suppressed, superseded by the live `/api/clan/war/*`
+endpoints), so clan-treasury currencies have NO live save-blob increase except
+`warSupply` collection. The live save-blob currency increases are only:
+clan `warSupply` (`collectTerritoryWarSupply`) and the village daily-agenda
+(`claimVillageAgenda` → +honorSeals/ryo/boneCharms). Stage 1 closes #17 in steps:
+- **✅ Step 1a — DONE (this run):** `_clan-save-validate.ts` now REJECTS save-blob
+  increases for clan `ryo/fateShards/boneCharms/auraStones/mythicSeals`
+  (credit-without-debit) — donations re-assert zero-delta, nothing else credits
+  them. `warSupply` still allowed (live collect path) until 1b. Admin exempt;
+  decreases + zero-delta allowed. Closes #17's clan-currency hole for those 5.
+- **Step 1b — OPEN:** `POST /api/clan/territory/collect-supply` — server computes
+  territory `warSupply` accrual (from `world:territory:*` `lastSupplyAt`), zeroes
+  + credits under locks; then lock clan `warSupply` increases. Also fixes today's
+  latent bug: the validator caps warSupply +100/write, silently truncating large
+  client collections.
+- **Step 1c — OPEN:** `POST /api/village/claim-daily-agenda` — server recomputes
+  the agenda (port `makeVillageDailyAgenda`), verifies once-per-UTC-day via
+  `claimedVillageAgendaDate`, credits village treasury + character authoritatively;
+  then lock village-treasury currency increases. Completion gate is best-effort
+  until the daily counters (`dailyAiKills`, etc.) are server-incremented (Stage 3).
 - ✅ #16's secondary "same-length `warHistory` swap" — DONE (this run).
   `_clan-save-validate.ts` now treats a same-length `warHistory` write as a
   verbatim re-assert (allowed for anyone) vs a content change (allowed only for
