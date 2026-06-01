@@ -355,23 +355,28 @@ function sanitizeCharacterSave(incoming, existing) {
         const clamped = Math.max(exV, Math.min(inV, exV + maxDelta));
         char[field] = clamped;
     }
-    // ── rankedRating: bidirectional clamp ─────────────────────────────────
-    // Unlike the monotonic counters above, ranked rating both rises and
-    // falls (win → +N, loss → −N), so a "no shrink" rule would break
-    // legitimate losses. Bound the per-save *magnitude* of change instead.
-    // Typical rankedDelta is 5–50 per fight; a save cycle covers at most
-    // a few fights, so 200 points of swing is generous.
-    const MAX_RATING_SWING_PER_SAVE = 200;
-    const inRating = Number(char.rankedRating ?? 1000);
-    const exRating = Number(exChar.rankedRating ?? 1000);
-    if (Number.isFinite(inRating) && Number.isFinite(exRating)) {
-        const delta = inRating - exRating;
-        if (Math.abs(delta) > MAX_RATING_SWING_PER_SAVE) {
-            const sign = delta > 0 ? 1 : -1;
-            char.rankedRating = exRating + sign * MAX_RATING_SWING_PER_SAVE;
-        }
-        else {
-            char.rankedRating = inRating;
+    // ── rankedRating / petRankedRating: server-authoritative ──────────────
+    // (audit #7 / Stage 3, final step.) These ratings are now credited ONLY by
+    // the server — pvp/claim-rewards (player) and pet/battle-result (pet) — under
+    // the SAME lock:save:<name> the autosave takes, so by the time an updated
+    // client's autosave runs the stored value already reflects the credit and
+    // the autosave is a no-op RE-ASSERT. The read-back client only displays +
+    // re-asserts the returned value; it no longer mints the delta. So a
+    // client-driven INCREASE via the save blob is illegitimate (the old ±200
+    // swing clamp merely rate-limited minting — it didn't stop it). Reject
+    // increases by reverting to the stored value; allow a re-assert (equal) and
+    // a DECREASE (the server lowers a loser's rating, and a stale tab
+    // re-asserting an older/lower value is harmless — the next server credit
+    // re-raises it). Admin saves skip this whole sanitizer (the `!isAdminSave`
+    // gate at the call site), so admin tooling can still set ratings directly.
+    // NOTE: assumes the read-back client is live — a pre-activation client that
+    // self-applied a win WITHOUT the server crediting will have that increase
+    // reverted here and must refresh to the current client.
+    for (const ratingField of ['rankedRating', 'petRankedRating']) {
+        const inV = Number(char[ratingField] ?? 1000);
+        const exV = Number(exChar[ratingField] ?? 1000);
+        if (Number.isFinite(inV) && Number.isFinite(exV)) {
+            char[ratingField] = inV > exV ? exV : inV;
         }
     }
     // Pet cap: client enforces "max 5 pets" at befriend time, but a tampered
