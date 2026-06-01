@@ -6,6 +6,7 @@ import { authedPlayerOrAdmin, isAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { validateClanSaveWrite } from '../_clan-save-validate.js';
 import { sanitizeUserText, TEXT_LIMITS } from '../_text-moderation.js';
+import { parseBaseSaveVersion, saveVersionTelemetryKey } from './_save-version.js';
 
 // Fields stripped from character objects when a non-owner reads another player's save.
 // Prevents ryo farming (reading other players' wallets) and inventory snooping.
@@ -664,6 +665,28 @@ function clanRecordSlug(name: string): string {
     return 'clan-' + name.toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
+// #14 telemetry — count player saves that arrive WITHOUT a `_baseSaveVersion`
+// stamp (old/stale clients; the current client always echoes it on its
+// own-save autosave paths). Best-effort daily counter so an operator can watch
+// the per-day total trend toward zero before making the multi-tab guard
+// mandatory. Read it with GET /api/kv/get?key=telemetry:save-noversion:<UTC-date>.
+// RMW is non-atomic (kv has no incr) — fine for a trend signal — and only runs
+// on the missing path, so steady-state overhead is zero once clients roll over.
+const SAVE_NOVERSION_TELEMETRY_TTL_SEC = 45 * 24 * 60 * 60; // 45 days
+async function recordMissingSaveVersion(playerName: string): Promise<void> {
+    try {
+        const key = saveVersionTelemetryKey(new Date().toISOString());
+        const cur = (await kv.get<{ count?: number }>(key)) ?? {};
+        await kv.set(
+            key,
+            { count: Number(cur.count ?? 0) + 1, lastPlayer: playerName, lastAt: Date.now() },
+            { ex: SAVE_NOVERSION_TELEMETRY_TTL_SEC },
+        );
+    } catch {
+        // Telemetry is best-effort and MUST NOT affect the save outcome.
+    }
+}
+
 type MinimalClanRec = { name?: string; founderName?: string; members?: Array<{ name?: string }> };
 
 async function validateClanAndVillageIdentity(
@@ -1015,13 +1038,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const existingObj = (existing as Record<string, unknown> | null) ?? null;
                     const storedVersion = Number(existingObj?._saveVersion ?? 0);
                     const incomingBody = incoming as Record<string, unknown>;
-                    const baseVersionRaw = incomingBody?._baseSaveVersion;
-                    if (
-                        !isClanSave
-                        && typeof baseVersionRaw === 'number'
-                        && Number.isFinite(baseVersionRaw)
-                        && baseVersionRaw < storedVersion
-                    ) {
+                    const baseVersion = parseBaseSaveVersion(incomingBody?._baseSaveVersion);
+
+                    // #14 rollout telemetry: a non-clan PLAYER save with no
+                    // version stamp is an old client. Count it (best-effort) so
+                    // we can tell when it's safe to require the field. Admin
+                    // saves (identityName === null) and clan saves are excluded.
+                    if (!isClanSave && identityName && baseVersion === null) {
+                        console.warn('[save-version-telemetry] player save missing _baseSaveVersion:', identityName);
+                        await recordMissingSaveVersion(identityName);
+                    }
+
+                    if (!isClanSave && baseVersion !== null && baseVersion < storedVersion) {
                         return res.status(409).json({
                             error: 'Save conflict — another tab or device wrote first.',
                             currentVersion: storedVersion,
