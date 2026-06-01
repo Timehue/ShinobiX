@@ -347,6 +347,91 @@ agenda half, the sanitizer stays PERMISSIVE for these currencies
 sources — missions/raids/hunts — until later Stage-3 phases move those too); this
 phase closes the map-control claim-repeatedly / inflate-the-sector-count vector.
 
+## Phase 3 — PvP-win ryo + XP (IN PROGRESS)
+
+Sign-off (2026-06-01): "full ryo + XP now." Recon correction to the roadmap's
+"Med risk" estimate: **"xp" is the entire level engine**, not a flat number.
+`gainXp` (App.tsx:3064) chains `effectiveCharacterXpGain` (lib/progression),
+`examLevelCap` (App.tsx), `xpNeeded` / `maxHp|Chakra|StaminaForLevel` /
+`reconcileCharacterStatBudget` (lib/stats), and `rankTitleForLevel`
+(lib/character-progress) — shared by ~25 reward sites game-wide. Porting it is
+the real cost of this phase (and the foundation Phase 4's character-XP reuses).
+
+**The single server-authoritative PvP path.** `PvpBattleScreen` → `handlePvpWin`
+(App.tsx:10359) → the claim effect (~36131) → `POST /api/pvp/claim-rewards`.
+Both ranked-queue duels and Arena challenges route through it. The inline
+`winBattle` (App.tsx:33240) is the **no-session `BattleScreen`** (AI/PvE + the
+session-create fallback) — no `PvpSession`, never calls claim-rewards, so it is
+NOT addressable here (it's Phase 4/5 territory).
+
+**The win reward (verbatim, App.tsx:10365-10416 / 33253-33283).** Winner only;
+loser/draw get no ryo/xp:
+```
+activeTrait = getActivePetTrait(char)            // pets.find(activePetId).trait
+deathsGate  = rewardSector === 99
+xpGain      = (activeTrait==="Swift" ? 125 : 100) * (deathsGate ? 2 : 1)
+ryoGain     = (activeTrait==="Lucky" ?  90 :  75) * (deathsGate ? 2 : 1)
+char        = gainXp(char, xpGain)               // applies ×45 testing mult inside
+char.ryo   += ryoGain
+```
+auraDust(+6), territory scrolls(+5), `totalPvpKills`/`monthlyPvpKills`(+1), war
+bounties/crates, kage-seat, clan-war + village-war reports are NOT in scope —
+they stay client-side (kills = Phase 5; the rest are their own systems).
+
+**Design (mirrors Phase 1 staging, server-DORMANT first).**
+1. **XP-engine port** — `api/_xp-engine.ts`: verbatim copy of `gainXp` +
+   `effectiveCharacterXpGain` + `examLevelCap` + the lib/stats level/stat math +
+   `rankTitleForLevel`, with the `constants/game` numbers (`MAX_LEVEL 100`,
+   `CHARACTER_XP_GAIN_MULTIPLIER 45`, `MAX_STAT 2500`, `HP_CAP 10000`,
+   `CHAKRA_CAP`/`STAMINA_CAP 5000`, `STARTING_STAT_POINTS 20`). Golden-value +
+   formula-replica tests (`_xp-engine.test.ts`) pin server == client. Plus a
+   thin `creditPvpWinBase(char, {xpGain, ryoGain})` (gainXp + ryo) and
+   `computePvpWinGains(char, rewardSector)` (pet-trait + deaths-gate → gains).
+2. **Session stamp** — `PvpSession` gains `baseRewards?: boolean` +
+   `rewardSector?: number`, set at creation when the client opts in (the
+   deaths-gate ×2 needs the sector; the rest is read from the winner's full
+   SAVE under the claim lock — `elderFocus`/`examsPassed`/`pets`/`activePetId`
+   are stripped from the session char but present on the save). Until the client
+   sends `baseRewards:true`, nothing is stamped → fully dormant.
+3. **claim-rewards** — when `session.baseRewards === true` AND `outcome==='win'`,
+   credit ryo + gainXp on the winner's save, MERGED into the same locked write +
+   the existing `pvp:rewarded:<player>:<battleId>` receipt as the ranked-rating
+   credit (so a ranked win does rating + ryo/xp atomically, exactly-once,
+   failClosed → 503/retry). Returns the credited `{ryo, xp, level, …}`. Casual
+   non-baseRewards sessions are byte-for-byte unchanged (NX-only) → safe to ship.
+4. **Activate (client)** — later step: `handlePvpWin`'s two session-create sites
+   send `baseRewards:true` + `rewardSector`. Convergence-safe like Phase 1: the
+   client keeps self-applying `gainXp`+ryo from the SAME base, so the server
+   credit and the client autosave converge; the kills/auraDust/scrolls extras
+   ride along on the autosave.
+5. **Read-back (client)** — later step: thread the returned ryo/xp/level so the
+   client displays the server values, falling back to the local compute on a
+   503/offline claim.
+6. **Sanitizer** — NOT tightened in Phase 3. `ryo`/`xp`/`level` have many other
+   client sources (missions/raids/hunts/story/AI-kills) until Phase 4 moves them,
+   so the cap-not-reject gate stays. This phase moves the PvP-win source server-
+   side + builds the reusable XP-engine; it does not yet close the save-blob hole.
+
+### Build progress (2026-06-01)
+- **Step 1+2+3 server, DORMANT — DONE (this commit).** `api/_xp-engine.ts` is the
+  verbatim XP-engine port (`gainXp` + `effectiveCharacterXpGain` + `examLevelCap`
+  + the lib/stats level/stat math + `rankTitleForLevel` + the `constants/game`
+  numbers) plus `computePvpWinGains` (pet-trait + deaths-gate → gains) and
+  `creditPvpWinBase` (gainXp + ryo). `_xp-engine.test.ts` pins it to the client
+  with a 3000+ case sweep vs an independent inline replica + hand-computed golden
+  anchors (level-10 climb, exam-gate clamp, max-level clamp) — 15 tests.
+  `PvpSession` gained `baseRewards?`/`rewardSector?`, stamped by `session.ts` POST
+  when the client opts in. `claim-rewards.ts` now unifies the ranked-rating credit
+  and the new base ryo/xp credit into ONE locked save-write keyed by the existing
+  `pvp:rewarded:<player>:<battleId>` receipt — a ranked win credits rating + ryo/xp
+  exactly-once, failClosed → 503/retry. **No-op until the client sends
+  `baseRewards:true`** (none does yet), so the ranked + casual paths are
+  byte-for-byte unchanged. Suite 218/218; tsc clean.
+- **Remaining:** activate (client sends `baseRewards`+`rewardSector` at the two
+  ranked-capable session-create sites) → read-back (thread returned ryo/xp/level)
+  → (later, gated) the sanitizer is NOT tightened this phase (ryo/xp/level have
+  other client sources until Phase 4).
+
 ## Non-negotiables (per CLAUDE.md)
 
 - **No balance change** — every formula ported verbatim; tests assert server ==

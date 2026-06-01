@@ -415,7 +415,7 @@ async function handler(req, res) {
             return;
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-            const { p1Character, p2Character, biome, weatherPositiveElement, weatherNegativeElement, battleId: clientBattleId, useCurrentVitals, ranked, rankedKind } = body;
+            const { p1Character, p2Character, biome, weatherPositiveElement, weatherNegativeElement, battleId: clientBattleId, useCurrentVitals, ranked, rankedKind, baseRewards, rewardSector } = body;
             if (!p1Character || !p2Character)
                 return res.status(400).json({ error: 'Missing characters' });
             const p1Name = p1Character.name ?? 'Player 1';
@@ -527,6 +527,16 @@ async function handler(req, res) {
                     p2Rating: ratingOf(p2Save),
                 };
             }
+            // ── Base-reward stamp (audit #7 / Stage 3 Phase 3) ───────────────
+            // Opt this session into server crediting of the winner's base ryo +
+            // XP. Only the sector matters for the math (Death's Gate ×2); the
+            // pet trait + elder focus + exam gates are read from the winner's
+            // full save under the claim lock. Dormant until the client opts in.
+            let baseRewardStamp = {};
+            if (baseRewards === true) {
+                const s = Number(rewardSector);
+                baseRewardStamp = { baseRewards: true, rewardSector: Number.isFinite(s) ? Math.floor(s) : 0 };
+            }
             const session = {
                 battleId,
                 p1: makeFighter(finalP1Character, P1_START, useCurrentVitals === true),
@@ -547,6 +557,7 @@ async function handler(req, res) {
                 weatherPositiveElement: normalizeElement(weatherPositiveElement),
                 weatherNegativeElement: normalizeElement(weatherNegativeElement),
                 ...rankedStamp,
+                ...baseRewardStamp,
             };
             await _storage_js_1.kv.set(`pvp:${battleId}`, session, { ex: SESSION_TTL });
             // Return the full session alongside the id so the client can seed

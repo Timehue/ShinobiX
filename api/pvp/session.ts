@@ -86,6 +86,14 @@ export type PvpSession = {
     rankedKind?: 'player' | 'pet';
     p1Rating?: number;
     p2Rating?: number;
+    // Server-authoritative base PvP-win reward (audit #7 / Stage 3 Phase 3).
+    // `baseRewards` opts this session into server crediting of the winner's base
+    // ryo + XP (via the ported gainXp) on claim-rewards; `rewardSector` is the
+    // battle's sector, used ONLY for the Death's Gate (99) 2× bonus — everything
+    // else is read from the winner's full save under the claim lock. Absent on
+    // pre-Phase-3 / non-opted sessions, which keep the NX-only casual path.
+    baseRewards?: boolean;
+    rewardSector?: number;
 };
 export const PVP_MOVE_TOKEN_HISTORY = 20;
 
@@ -478,7 +486,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'pvp-session-create', 6, 60_000, rlName))) return;
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-            const { p1Character, p2Character, biome, weatherPositiveElement, weatherNegativeElement, battleId: clientBattleId, useCurrentVitals, ranked, rankedKind } = body as {
+            const { p1Character, p2Character, biome, weatherPositiveElement, weatherNegativeElement, battleId: clientBattleId, useCurrentVitals, ranked, rankedKind, baseRewards, rewardSector } = body as {
                 p1Character?: Record<string, unknown>;
                 p2Character?: Record<string, unknown>;
                 biome?: string;
@@ -496,6 +504,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // client-supplied rating). Casual fights omit these.
                 ranked?: boolean;
                 rankedKind?: 'player' | 'pet';
+                // Base PvP-win reward opt-in (audit #7 / Stage 3 Phase 3). When
+                // the client sends baseRewards:true the server credits the
+                // winner's base ryo + XP on claim-rewards; rewardSector feeds the
+                // Death's Gate (99) 2× bonus. Omitted by pre-Phase-3 clients.
+                baseRewards?: boolean;
+                rewardSector?: number;
             };
             if (!p1Character || !p2Character) return res.status(400).json({ error: 'Missing characters' });
 
@@ -613,6 +627,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 };
             }
 
+            // ── Base-reward stamp (audit #7 / Stage 3 Phase 3) ───────────────
+            // Opt this session into server crediting of the winner's base ryo +
+            // XP. Only the sector matters for the math (Death's Gate ×2); the
+            // pet trait + elder focus + exam gates are read from the winner's
+            // full save under the claim lock. Dormant until the client opts in.
+            let baseRewardStamp: Pick<PvpSession, 'baseRewards' | 'rewardSector'> = {};
+            if (baseRewards === true) {
+                const s = Number(rewardSector);
+                baseRewardStamp = { baseRewards: true, rewardSector: Number.isFinite(s) ? Math.floor(s) : 0 };
+            }
+
             const session: PvpSession = {
                 battleId,
                 p1: makeFighter(finalP1Character, P1_START, useCurrentVitals === true),
@@ -633,6 +658,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 weatherPositiveElement: normalizeElement(weatherPositiveElement),
                 weatherNegativeElement: normalizeElement(weatherNegativeElement),
                 ...rankedStamp,
+                ...baseRewardStamp,
             };
 
             await kv.set(`pvp:${battleId}`, session, { ex: SESSION_TTL });
