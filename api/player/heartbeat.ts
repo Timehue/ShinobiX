@@ -40,6 +40,42 @@ function normalizeSector(value: unknown, fallback = 40) {
     return Math.max(0, Math.floor(sector));
 }
 
+// Server-side defense-in-depth: project the incoming character down to the
+// display fields the presence row is actually read for (by roster.ts, plus
+// `pets` for Pet Arena challenges) BEFORE storing it. The current client
+// already slims this (see presenceCharacter() in App.tsx), but an old or
+// hostile client could still POST the full multi-MB blob (avatar data URL,
+// inventory, jutsu, mission logs, …). Slimming here keeps the presence row —
+// and the roster `mget` that reads every row back — small regardless of what
+// the client sends. Gameplay/PvP paths never read this character (they read
+// sector/inBattle/travelingUntil/pendingAttacker, and combat hydrates from
+// save:<name>), so trimming it cannot affect battle or PvP behavior.
+const PRESENCE_CHAR_KEEP = new Set<string>([
+    'name', 'level', 'village', 'specialty', 'rank', 'rankTitle', 'customTitle',
+    'profession', 'professionRank', 'professionXp', 'rankedRating', 'petRankedRating',
+    'clan', 'clanFounder', 'hp', 'maxHp',
+]);
+const PRESENCE_PET_KEEP = new Set<string>([
+    'id', 'name', 'image', 'rarity', 'level', 'element', 'trait', 'species',
+    'hp', 'attack', 'defense', 'speed', 'jutsus', 'xp', 'unlockedForPve', 'expedition',
+]);
+function slimPresenceCharacter(input: unknown): Record<string, unknown> | null {
+    if (!input || typeof input !== 'object') return null;
+    const src = input as Record<string, unknown>;
+    const out: Record<string, unknown> = {};
+    for (const k of PRESENCE_CHAR_KEEP) if (k in src) out[k] = src[k];
+    if (Array.isArray(src.pets)) {
+        out.pets = src.pets.map((p) => {
+            if (!p || typeof p !== 'object') return p;
+            const ps = p as Record<string, unknown>;
+            const pet: Record<string, unknown> = {};
+            for (const f of PRESENCE_PET_KEEP) if (f in ps) pet[f] = ps[f];
+            return pet;
+        });
+    }
+    return out;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -113,10 +149,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ? Math.min(travelingUntil, now + MAX_TRAVEL_WINDOW_MS)
             : undefined;
 
+        // Slim the incoming character to display fields before storing (defense
+        // in depth — see slimPresenceCharacter). Fall back to the already-slim
+        // stored character if this beat sent none.
+        const slimChar = slimPresenceCharacter(character) ?? existing?.character ?? null;
+
         const entry: PresenceEntry = {
             name,
             sector: entrySector,
-            character: character ?? existing?.character ?? null,
+            character: slimChar,
             lastSeen: now,
             pendingAttacker: null,
             // Persist travel window so attack.ts / challenge.ts can reject mid-travel requests.
