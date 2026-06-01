@@ -75,6 +75,17 @@ export type PvpSession = {
     // the list short-circuits with the current session state instead
     // of re-applying the move.
     recentMoveTokens?: string[];
+    // Server-authoritative ranked-rating snapshot (audit #7 / Stage 3).
+    // Set ONLY when this session is a ranked match: `ranked` flags it,
+    // `rankedKind` selects the ladder, and p1Rating/p2Rating are each
+    // fighter's pre-match Elo read from their SAVE at create time (not from
+    // the client body). claim-rewards uses these + the server-verified
+    // winner to compute and credit the rating change, so the client can no
+    // longer fake the delta. Absent on casual / clan-war / tournament fights.
+    ranked?: boolean;
+    rankedKind?: 'player' | 'pet';
+    p1Rating?: number;
+    p2Rating?: number;
 };
 export const PVP_MOVE_TOKEN_HISTORY = 20;
 
@@ -467,7 +478,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'pvp-session-create', 6, 60_000, rlName))) return;
         try {
             const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-            const { p1Character, p2Character, biome, weatherPositiveElement, weatherNegativeElement, battleId: clientBattleId, useCurrentVitals } = body as {
+            const { p1Character, p2Character, biome, weatherPositiveElement, weatherNegativeElement, battleId: clientBattleId, useCurrentVitals, ranked, rankedKind } = body as {
                 p1Character?: Record<string, unknown>;
                 p2Character?: Record<string, unknown>;
                 biome?: string;
@@ -479,6 +490,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // currently has. Spar / ranked / arena default to a fresh-start
                 // reset (full vitals). Pass true only from sector/guard flows.
                 useCurrentVitals?: boolean;
+                // Ranked-match markers (audit #7 / Stage 3). The client asserts
+                // `ranked` + which ladder; the server snapshots BOTH fighters'
+                // pre-match Elo from their saves below (never trusting a
+                // client-supplied rating). Casual fights omit these.
+                ranked?: boolean;
+                rankedKind?: 'player' | 'pet';
             };
             if (!p1Character || !p2Character) return res.status(400).json({ error: 'Missing characters' });
 
@@ -569,6 +586,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // prefight overlay's "X goes first!" reveal matches the server roll.
             const firstActor: 'p1' | 'p2' = Math.random() < 0.5 ? 'p1' : 'p2';
             const firstActorName = firstActor === 'p1' ? p1Name : p2Name;
+
+            // ── Ranked snapshot (audit #7 / Stage 3) ─────────────────────────
+            // When the client flags this match ranked, record each fighter's
+            // pre-match Elo read from their SAVE (authoritative), keyed to the
+            // ladder. claim-rewards reads these back + the server winner to
+            // compute and durably credit the rating change — the client can no
+            // longer compute or self-apply the delta. NPC fighters (no save)
+            // default to 1000, matching the client's `?? 1000`. The `ranked`
+            // assertion itself is currently client-supplied (a documented
+            // follow-up will tie it to the queue/challenge record); the RATINGS,
+            // WINNER and MAGNITUDE are all server-authoritative regardless.
+            let rankedStamp: Pick<PvpSession, 'ranked' | 'rankedKind' | 'p1Rating' | 'p2Rating'> = {};
+            if (ranked === true && (rankedKind === 'player' || rankedKind === 'pet')) {
+                const ratingField = rankedKind === 'pet' ? 'petRankedRating' : 'rankedRating';
+                const ratingOf = (save: Record<string, unknown> | null): number => {
+                    const c = (save?.character ?? null) as Record<string, unknown> | null;
+                    const r = Number(c?.[ratingField]);
+                    return Number.isFinite(r) ? r : 1000;
+                };
+                rankedStamp = {
+                    ranked: true,
+                    rankedKind,
+                    p1Rating: ratingOf(p1Save),
+                    p2Rating: ratingOf(p2Save),
+                };
+            }
+
             const session: PvpSession = {
                 battleId,
                 p1: makeFighter(finalP1Character, P1_START, useCurrentVitals === true),
@@ -588,6 +632,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 biome: normalizeBiome(biome),
                 weatherPositiveElement: normalizeElement(weatherPositiveElement),
                 weatherNegativeElement: normalizeElement(weatherNegativeElement),
+                ...rankedStamp,
             };
 
             await kv.set(`pvp:${battleId}`, session, { ex: SESSION_TTL });
