@@ -347,7 +347,7 @@ agenda half, the sanitizer stays PERMISSIVE for these currencies
 sources — missions/raids/hunts — until later Stage-3 phases move those too); this
 phase closes the map-control claim-repeatedly / inflate-the-sector-count vector.
 
-## Phase 3 — PvP-win ryo + XP (IN PROGRESS)
+## Phase 3 — PvP-win ryo + XP (COMPLETE — server credit live; read-back folded into Phase 4)
 
 Sign-off (2026-06-01): "full ryo + XP now." Recon correction to the roadmap's
 "Med risk" estimate: **"xp" is the entire level engine**, not a flat number.
@@ -440,10 +440,28 @@ they stay client-side (kills = Phase 5; the rest are their own systems).
   converge (single credit, no double — the client overwrites with the full state
   rather than adding to the server value). The inline no-session `BattleScreen`
   fallback is untouched (no server session → no server credit, as before).
-- **Remaining:** read-back (thread the returned ryo/xp/level so the client
-  displays the server value, falling back to the local compute on a 503/offline
-  claim) → the sanitizer is NOT tightened this phase (ryo/xp/level have other
-  client sources until Phase 4).
+  (Activation pushed `7b53d5e`.)
+- **Read-back — DEFERRED to Phase 4 (design conclusion, NOT done).** The Phase-1
+  *rating* read-back overrode the field with the server's ABSOLUTE value
+  (`serverRating.value`) — safe only because `rankedRating` has **no concurrent
+  client source** (only a ranked claim ever moves it). `ryo`/`xp`/`level` have
+  many concurrent client sources (missions/hunts/story/AI-kills), so overriding
+  them with the server's absolute would **clobber any ryo/xp earned between the
+  save-read and the claim**. The activation already does the right thing here:
+  the client self-applies the DELTA (preserving concurrent gains) and the server
+  credits the same delta — they CONVERGE. A true "stop self-applying + read the
+  absolute" cutover is only safe once the server is the SOLE source of ryo/xp
+  (all sources server-side + sanitizer rejects client increases) — i.e. Phase 4.
+  Forcing a partial absolute read-back now would be a regression (lost concurrent
+  gains) for negative value, so it is intentionally folded into Phase 4.
+- **Sanitizer — NOT tightened (by design).** `ryo`/`xp`/`level` stay permissive
+  until Phase 4 moves their other sources server-side.
+
+**✅ Phase 3 scope COMPLETE.** PvP-win base ryo + XP is now computed and credited
+server-side (the verbatim `gainXp` port) on `claim-rewards`, convergence-safe with
+the client self-apply. What remains for FULL server-ownership of ryo/xp (read-back
++ sanitizer reject) is Phase 4's job, since it depends on every other ryo/xp source
+moving server-side first.
 
 ## Non-negotiables (per CLAUDE.md)
 
