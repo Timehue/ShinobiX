@@ -278,7 +278,20 @@ export function validateClanSaveWrite(
             next.warHistory = prevHistory;
             suppressed.push('warHistory shortened (admin only)');
         } else if (inHistory.length === prevHistory.length) {
-            next.warHistory = inHistory; // allow in-place edits (rare)
+            // Same length: a verbatim re-assert (the client re-saves the
+            // unchanged history on every clan write) is fine for anyone. A
+            // CONTENT change at the same length is either a leadership
+            // war-finalization at the 12-entry cap (prepend + drop oldest) or an
+            // abuse attempt to swap an existing entry's result / reward /
+            // warCrateId to mint a War Crate claim without adding an entry.
+            // Allow it only for admin-role callers — same trust as adding an
+            // entry (closes #16's same-length warHistory swap gap).
+            if (callerIsAdminRole || JSON.stringify(inHistory) === JSON.stringify(prevHistory)) {
+                next.warHistory = inHistory;
+            } else {
+                next.warHistory = prevHistory;
+                suppressed.push('warHistory in-place content edit (admin role only)');
+            }
         } else {
             const added = inHistory.length - prevHistory.length;
             if (added > 1) {
