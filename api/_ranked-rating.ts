@@ -89,3 +89,35 @@ export function creditRankedOutcome(
     const losses = Math.max(0, Math.floor(toNumber(char[fields.losses], 0)));
     return { patch: { [fields.rating]: newRating, [fields.losses]: losses + 1 }, newRating, delta };
 }
+
+/**
+ * Credit a ranked outcome from ONE participant's own perspective.
+ *
+ * Used where the report carries only "I won / I lost" against an opponent
+ * whose rating we read separately (the pet-arena ladder has no server PvP
+ * session to snapshot pre-match ratings on, so `battle-result` reads the
+ * caller's rating from their save and the opponent's from theirs). This is a
+ * VERBATIM port of the client's pet-ranked appliers
+ * (`shinobij.client/src/App.tsx` ~14506-14528):
+ *   win:  gain = rankedDelta(myRating, oppRating); rating += gain
+ *   loss: drop = rankedDelta(oppRating, myRating); rating  = max(0, rating-drop)
+ * i.e. on a win I am the winner (my rating is the winnerRating); on a loss the
+ * opponent is the winner. The caller's current rating is read from `char` so
+ * the delta's winner/loser rating is consistent with the rating being mutated.
+ *
+ * @param char           the caller's current character fields (read-only)
+ * @param outcome        whether the CALLER won or lost
+ * @param opponentRating the opponent's pre-match rating for this ladder
+ * @param kind           'player' or 'pet'
+ */
+export function creditRankedFromSelf(
+    char: Record<string, unknown>,
+    opts: { outcome: 'win' | 'loss'; opponentRating: number; kind: RankedKind },
+): RankedCreditResult {
+    const { outcome, opponentRating, kind } = opts;
+    const selfRating = toNumber(char[FIELDS[kind].rating], DEFAULT_RANKED_RATING);
+    if (outcome === 'win') {
+        return creditRankedOutcome(char, { role: 'winner', winnerRating: selfRating, loserRating: opponentRating, kind });
+    }
+    return creditRankedOutcome(char, { role: 'loser', winnerRating: opponentRating, loserRating: selfRating, kind });
+}

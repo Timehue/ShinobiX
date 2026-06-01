@@ -84,3 +84,59 @@ const _ranked_rating_js_1 = require("./_ranked-rating.js");
         }
     });
 });
+(0, node_test_1.describe)('creditRankedFromSelf (verbatim port of client pet-ranked appliers)', () => {
+    // Mirrors App.tsx ~14506-14528:
+    //   win:  gain = rankedDelta(myRating, oppRating); petRankedRating += gain; petRankedWins  += 1
+    //   loss: drop = rankedDelta(oppRating, myRating); petRankedRating  = max(0,-); petRankedLosses += 1
+    (0, node_test_1.it)('even match win → +12 and a win (pet ladder)', () => {
+        const r = (0, _ranked_rating_js_1.creditRankedFromSelf)({ petRankedRating: 1000, petRankedWins: 3 }, {
+            outcome: 'win', opponentRating: 1000, kind: 'pet',
+        });
+        node_assert_1.strict.equal(r.delta, 12);
+        node_assert_1.strict.equal(r.newRating, 1012);
+        node_assert_1.strict.deepEqual(r.patch, { petRankedRating: 1012, petRankedWins: 4 });
+    });
+    (0, node_test_1.it)('even match loss → -12 and a loss (pet ladder)', () => {
+        const r = (0, _ranked_rating_js_1.creditRankedFromSelf)({ petRankedRating: 1000, petRankedLosses: 2 }, {
+            outcome: 'loss', opponentRating: 1000, kind: 'pet',
+        });
+        node_assert_1.strict.equal(r.delta, 12);
+        node_assert_1.strict.equal(r.newRating, 988);
+        node_assert_1.strict.deepEqual(r.patch, { petRankedRating: 988, petRankedLosses: 3 });
+    });
+    (0, node_test_1.it)('favorite winning floors the gain at 8; underdog winning gains more', () => {
+        const fav = (0, _ranked_rating_js_1.creditRankedFromSelf)({ petRankedRating: 1500 }, { outcome: 'win', opponentRating: 1000, kind: 'pet' });
+        node_assert_1.strict.equal(fav.delta, 8);
+        node_assert_1.strict.equal(fav.newRating, 1508);
+        const dog = (0, _ranked_rating_js_1.creditRankedFromSelf)({ petRankedRating: 1000 }, { outcome: 'win', opponentRating: 1200, kind: 'pet' });
+        node_assert_1.strict.equal(dog.delta, 18);
+        node_assert_1.strict.equal(dog.newRating, 1018);
+    });
+    (0, node_test_1.it)('losing to a favorite only drops the floor (8), matching client drop=rankedDelta(opp,me)', () => {
+        // self 1000, opp 1500: drop = rankedDelta(1500, 1000) = 8 → 992
+        const r = (0, _ranked_rating_js_1.creditRankedFromSelf)({ petRankedRating: 1000 }, { outcome: 'loss', opponentRating: 1500, kind: 'pet' });
+        node_assert_1.strict.equal(r.delta, 8);
+        node_assert_1.strict.equal(r.newRating, 992);
+        node_assert_1.strict.equal(r.patch.petRankedLosses, 1);
+    });
+    (0, node_test_1.it)('self-perspective equals the explicit winner/loser computation', () => {
+        // win: I am the winner → winnerRating = my rating, loserRating = opp.
+        const selfWin = (0, _ranked_rating_js_1.creditRankedFromSelf)({ rankedRating: 1100 }, { outcome: 'win', opponentRating: 950, kind: 'player' });
+        const explicitWin = (0, _ranked_rating_js_1.creditRankedOutcome)({ rankedRating: 1100 }, { role: 'winner', winnerRating: 1100, loserRating: 950, kind: 'player' });
+        node_assert_1.strict.deepEqual(selfWin, explicitWin);
+        // loss: opponent is the winner → winnerRating = opp, loserRating = my rating.
+        const selfLoss = (0, _ranked_rating_js_1.creditRankedFromSelf)({ rankedRating: 1100 }, { outcome: 'loss', opponentRating: 950, kind: 'player' });
+        const explicitLoss = (0, _ranked_rating_js_1.creditRankedOutcome)({ rankedRating: 1100 }, { role: 'loser', winnerRating: 950, loserRating: 1100, kind: 'player' });
+        node_assert_1.strict.deepEqual(selfLoss, explicitLoss);
+    });
+    (0, node_test_1.it)('defaults a missing/garbage self rating to 1000', () => {
+        const win = (0, _ranked_rating_js_1.creditRankedFromSelf)({}, { outcome: 'win', opponentRating: 1000, kind: 'pet' });
+        node_assert_1.strict.equal(win.newRating, _ranked_rating_js_1.DEFAULT_RANKED_RATING + 12);
+        node_assert_1.strict.deepEqual(win.patch, { petRankedRating: 1012, petRankedWins: 1 });
+    });
+    (0, node_test_1.it)('floors a near-zero loser rating at 0', () => {
+        const r = (0, _ranked_rating_js_1.creditRankedFromSelf)({ petRankedRating: 5 }, { outcome: 'loss', opponentRating: 1000, kind: 'pet' });
+        node_assert_1.strict.equal(r.newRating, 0);
+        node_assert_1.strict.equal(r.patch.petRankedRating, 0);
+    });
+});

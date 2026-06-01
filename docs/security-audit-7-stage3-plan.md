@@ -171,6 +171,11 @@ tighten (step 4) is a separate, telemetry-gated follow-up.
   under `lock:save:<name>` (failClosed) with the receipt placed atomically. The
   casual path is byte-for-byte unchanged, so this is a **no-op until the client
   sends `ranked`** — safe to ship.
+- **Phase 1 PET server, DORMANT, DONE** (this commit): `api/pet/battle-result.ts`
+  gained a `body.ranked` branch crediting `petRankedRating` via the new pure
+  `creditRankedFromSelf` (`api/_ranked-rating.ts` + tests). Same exactly-once
+  failClosed-receipt pattern; no ryo / no general pet-win counters; no-op until
+  the client sends `ranked:true`. See "Precise remaining cutover" step 1.
 
 ### Convergence-safety note (important for the remaining steps)
 Once the client sends `ranked:true` at session creation, the server credits the
@@ -182,11 +187,26 @@ the server crediting low-risk and lets the client read-back cutover be done
 carefully afterward, before the sanitizer tighten.
 
 ### Precise remaining cutover (client + pet-arena server)
-1. **Pet-arena server (battle-result):** extend `api/pet/battle-result.ts` to
-   credit `petRankedRating` via `creditRankedOutcome` (kind `'pet'`) when the body
-   flags ranked — read the opponent's `petRankedRating` from their save (it
-   already loads `oppSave` for the level clamp) and the caller's from theirs
-   inside the existing `withKvLock(saveKey)`. Gate dormant on `body.ranked`.
+1. **Pet-arena server (battle-result) — DONE, DORMANT (this commit).**
+   `api/pet/battle-result.ts` gained a `body.ranked` branch that credits
+   `petRankedRating` server-side. Math is the new pure `creditRankedFromSelf`
+   in `api/_ranked-rating.ts` (+ `_ranked-rating.test.ts`) — a VERBATIM port of
+   the client's pet-ranked appliers (App.tsx ~14506-14528): on a win I'm the
+   winner (`rankedDelta(myRating, oppRating)`), on a loss the opponent is. The
+   opponent's rating is read from their save (default 1000 for AI/roster foes),
+   reusing the `oppSave` already loaded for the level clamp; the caller's from
+   theirs inside a `withKvLock(saveKey, …, {failClosed:true})` with an NX
+   receipt (`pet:ranked-rewarded:<player>:<reportKey>`, 24h) placed atomically
+   with the rating write — exactly-once, 503-on-contention/retry (the
+   claim-rewards pattern). By design, matching the client ranked-pet branch:
+   **no ryo, no totalPetWins/dailyPetWins touch** — only `petRankedRating` +
+   `petRankedWins`/`petRankedLosses` move; `reportKey` is REQUIRED for losses
+   too (a ranked loss also moves the rating). **No-op until the client sends
+   `ranked:true`** (none does today), so the casual path is byte-for-byte
+   unchanged. NOTE: unlike the PvP path (ratings snapshotted on the session at
+   creation), the pet path reads live ratings at report time — there is no pet
+   PvpSession; the convergence note above covers the tiny snapshot-vs-live
+   divergence, and it is moot until activation + read-back cutover.
 2. **Activate (low-risk, convergence-safe):** add `ranked:true` + `rankedKind`
    to the `/api/pvp/session` POST body at the RANKED creation sites and `ranked`
    to the ranked `/api/pet/battle-result` calls. Session-creation sites in

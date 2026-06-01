@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { rankedDelta, creditRankedOutcome, DEFAULT_RANKED_RATING } from './_ranked-rating.js';
+import { rankedDelta, creditRankedOutcome, creditRankedFromSelf, DEFAULT_RANKED_RATING } from './_ranked-rating.js';
 
 // Pins the server rating math to the client's formula
 // (shinobij.client/src/lib/progression.ts rankedDelta) so moving the
@@ -93,5 +93,68 @@ describe('creditRankedOutcome', () => {
             assert.equal(winner.newRating - w, winner.delta, `winner gains the delta for (${w},${l})`);
             assert.equal(l - loser.newRating, loser.delta, `loser loses the delta for (${w},${l})`);
         }
+    });
+});
+
+describe('creditRankedFromSelf (verbatim port of client pet-ranked appliers)', () => {
+    // Mirrors App.tsx ~14506-14528:
+    //   win:  gain = rankedDelta(myRating, oppRating); petRankedRating += gain; petRankedWins  += 1
+    //   loss: drop = rankedDelta(oppRating, myRating); petRankedRating  = max(0,-); petRankedLosses += 1
+    it('even match win → +12 and a win (pet ladder)', () => {
+        const r = creditRankedFromSelf({ petRankedRating: 1000, petRankedWins: 3 }, {
+            outcome: 'win', opponentRating: 1000, kind: 'pet',
+        });
+        assert.equal(r.delta, 12);
+        assert.equal(r.newRating, 1012);
+        assert.deepEqual(r.patch, { petRankedRating: 1012, petRankedWins: 4 });
+    });
+
+    it('even match loss → -12 and a loss (pet ladder)', () => {
+        const r = creditRankedFromSelf({ petRankedRating: 1000, petRankedLosses: 2 }, {
+            outcome: 'loss', opponentRating: 1000, kind: 'pet',
+        });
+        assert.equal(r.delta, 12);
+        assert.equal(r.newRating, 988);
+        assert.deepEqual(r.patch, { petRankedRating: 988, petRankedLosses: 3 });
+    });
+
+    it('favorite winning floors the gain at 8; underdog winning gains more', () => {
+        const fav = creditRankedFromSelf({ petRankedRating: 1500 }, { outcome: 'win', opponentRating: 1000, kind: 'pet' });
+        assert.equal(fav.delta, 8);
+        assert.equal(fav.newRating, 1508);
+        const dog = creditRankedFromSelf({ petRankedRating: 1000 }, { outcome: 'win', opponentRating: 1200, kind: 'pet' });
+        assert.equal(dog.delta, 18);
+        assert.equal(dog.newRating, 1018);
+    });
+
+    it('losing to a favorite only drops the floor (8), matching client drop=rankedDelta(opp,me)', () => {
+        // self 1000, opp 1500: drop = rankedDelta(1500, 1000) = 8 → 992
+        const r = creditRankedFromSelf({ petRankedRating: 1000 }, { outcome: 'loss', opponentRating: 1500, kind: 'pet' });
+        assert.equal(r.delta, 8);
+        assert.equal(r.newRating, 992);
+        assert.equal(r.patch.petRankedLosses, 1);
+    });
+
+    it('self-perspective equals the explicit winner/loser computation', () => {
+        // win: I am the winner → winnerRating = my rating, loserRating = opp.
+        const selfWin = creditRankedFromSelf({ rankedRating: 1100 }, { outcome: 'win', opponentRating: 950, kind: 'player' });
+        const explicitWin = creditRankedOutcome({ rankedRating: 1100 }, { role: 'winner', winnerRating: 1100, loserRating: 950, kind: 'player' });
+        assert.deepEqual(selfWin, explicitWin);
+        // loss: opponent is the winner → winnerRating = opp, loserRating = my rating.
+        const selfLoss = creditRankedFromSelf({ rankedRating: 1100 }, { outcome: 'loss', opponentRating: 950, kind: 'player' });
+        const explicitLoss = creditRankedOutcome({ rankedRating: 1100 }, { role: 'loser', winnerRating: 950, loserRating: 1100, kind: 'player' });
+        assert.deepEqual(selfLoss, explicitLoss);
+    });
+
+    it('defaults a missing/garbage self rating to 1000', () => {
+        const win = creditRankedFromSelf({}, { outcome: 'win', opponentRating: 1000, kind: 'pet' });
+        assert.equal(win.newRating, DEFAULT_RANKED_RATING + 12);
+        assert.deepEqual(win.patch, { petRankedRating: 1012, petRankedWins: 1 });
+    });
+
+    it('floors a near-zero loser rating at 0', () => {
+        const r = creditRankedFromSelf({ petRankedRating: 5 }, { outcome: 'loss', opponentRating: 1000, kind: 'pet' });
+        assert.equal(r.newRating, 0);
+        assert.equal(r.patch.petRankedRating, 0);
     });
 });
