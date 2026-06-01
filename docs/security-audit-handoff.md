@@ -19,11 +19,13 @@ the **what's-done / what's-left + how-to**.
    net-new `treasury.items`), **#14 step 1 (telemetry) DONE**, **#27 CLOSED**
    (verified service-role-only + documented; per-player RLS N/A for this auth
    model). Still open:
-   - **#14 step 2** — make `_baseSaveVersion` mandatory, once the
-     `telemetry:save-noversion:<date>` daily counter stays ~0. **GATE NOT MET as
-     of 2026-06-01**: no telemetry rows + no base-store traffic since
-     2026-05-30 22:34 UTC, so no signal exists yet. Read it from
-     `public.kv_store` directly (NOT `/api/kv/get` — see #14 below).
+   - **#14 step 2** — make `_baseSaveVersion` mandatory. **Client prerequisite DONE
+     this run** (the immediate-save path now echoes the version too). **Server
+     enforcement still GATED**: needs (a) the fixed client deployed to Vercel, and
+     (b) the `telemetry:save-noversion:<date>` daily count to stay ~0. **GATE NOT MET
+     as of 2026-06-01**: no telemetry rows + no base-store traffic since
+     2026-05-30 22:34 UTC, so no signal exists yet. Read it from `public.kv_store`
+     directly (NOT `/api/kv/get` — see #14 below).
    - **#17 currency credit-without-debit** — NOT hard-blockable via the save-blob
      validators: clan-war/agenda/warSupply rewards credit currencies through the
      same path and would be deleted. Caps remain the bound; full close needs a
@@ -173,9 +175,12 @@ server-side — a #7-class server-authoritative-rewards refactor, tracked separa
   without a valid `_baseSaveVersion` now increments a best-effort daily counter
   `telemetry:save-noversion:<UTC-date>` (`{count,lastPlayer,lastAt}`, 45-day TTL)
   and logs `[save-version-telemetry] …`. Admin saves + clan saves excluded. Only
-  fires on the missing path → ~zero overhead once clients roll over. The current
-  client already echoes the field on all three own-save paths (debounce/interval/
-  unload), so a nonzero count = stale/old client tabs still out there.
+  fires on the missing path → ~zero overhead once clients roll over. **Correction:**
+  the autosave timers (debounce/interval/unload) echo the field, but the
+  immediate-save helper `pushSaveToServer` (new-character / pet / bloodline saves)
+  did NOT — so the *current* client also produced versionless saves. Fixed this run
+  (see step-2 prerequisite below). Once the fixed client deploys, a nonzero count =
+  truly ancient (pre-2026-05-26, before `3455f8d`) tabs.
   - **Read it (CORRECTED):** the `telemetry:` prefix routes to the **BASE store**
     (Supabase `public.kv_store`), **not** the disk overlay — so the `/api/kv/get`
     proxy (which reads ONLY the disk overlay, see `api/_storage.ts:_DISK_PREFIXES`)
@@ -191,13 +196,25 @@ server-side — a #7-class server-authoritative-rewards refactor, tracked separa
     telemetry code (`757b46f`) only landed 2026-06-01, so there is neither a
     confirmed-zero nor a nonzero — just no data. Step 2 stays blocked until traffic
     resumes and several days of ~0 counts accumulate. Do NOT tighten on an empty table.
-- **Step 2 — make it mandatory (OPEN, needs sign-off + the data above):** once the
-  daily count stays ~0 for a sustained window, require a valid `_baseSaveVersion`
-  for non-clan player saves (reject/410 the ones without it instead of allowing).
-  Do NOT tighten while the counter is still nonzero or it locks out stale tabs.
-  Heads-up: cross-player grants via the client `patchPlayerSaveCharacter` POST
-  no version and are admin-gated (the 403 already blocks non-admins) — keep admin
-  saves exempt when tightening.
+- **Step 2 — client prerequisite DONE (this run); server enforcement still OPEN.**
+  - **Prerequisite (DONE):** the immediate-save helper `pushSaveToServer`
+    (`shinobij.client/src/App.tsx`) now echoes `_baseSaveVersion` for the player's
+    OWN saves (new-character, pet, bloodline) and updates the version ref from the
+    response (so the next autosave doesn't stale-conflict); it reconciles on 409
+    like the autosave timers. Admin saves to *another* player's slot (the admin
+    panel `onSave`) pass `echoVersion:false` — the ref tracks THIS player, not the
+    target. So once this client deploys, EVERY non-admin own-save carries a numeric
+    version and the telemetry `count` should be 0 (only pre-`3455f8d` tabs lack it).
+  - **Server enforcement (OPEN, needs sign-off + the data):** once this client is
+    deployed AND the daily count stays ~0 for a sustained window, change
+    `api/save/[name].ts` (the `baseVersion === null` branch ~L1051) to REJECT
+    (e.g. 426/410) instead of allowing. **Do NOT do this before the client above
+    deploys**, or current-client immediate saves (which only just started echoing)
+    on not-yet-refreshed tabs break. `parseBaseSaveVersion` returns `0` (not null)
+    for the current client, so enforcement only rejects field-absent (ancient)
+    saves — new players send `0` and pass.
+  - Cross-player grants via `patchPlayerSaveCharacter` POST no version and are
+    admin-gated (identityName === null → already exempt). Keep admin exempt.
 
 ### ✅ #5 — Token/session auth — DONE (`cf80b50`)
 Stateless HMAC session tokens (`issuePlayerToken`/`verifyPlayerToken` in
