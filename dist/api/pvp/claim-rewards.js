@@ -5,6 +5,8 @@ const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
+const _lock_js_1 = require("../_lock.js");
+const _ranked_rating_js_1 = require("../_ranked-rating.js");
 // Session-replay window — must roughly match SESSION_REPLAY_WINDOW_MS in
 // report-pvp-win.ts. A battleId older than this can't be claimed even if
 // somebody dredges it out of browser history.
@@ -86,6 +88,54 @@ async function handler(req, res) {
             });
         }
         const key = claimKey(playerName, battleId);
+        // ── Ranked path (audit #7 / Stage 3) ────────────────────────────────
+        // When the session was stamped ranked at creation, the SERVER owns the
+        // rating change: compute it from the session's pre-match Elo snapshot +
+        // the server-verified winner, credit the caller's save, and return the
+        // new rating so the client displays it instead of computing its own
+        // delta. Skip draws (the Elo formula is win/loss only). The receipt is
+        // placed INSIDE the save lock together with the rating write, so the
+        // credit + the "already claimed" gate are atomic — a contention abort
+        // (failClosed → 503) leaves NOTHING placed, so a retry credits cleanly
+        // without ever double-crediting.
+        const isRankedClaim = session.ranked === true &&
+            (session.rankedKind === 'player' || session.rankedKind === 'pet') &&
+            (session.winner === 'p1' || session.winner === 'p2');
+        if (isRankedClaim) {
+            const kind = session.rankedKind;
+            const ratingField = kind === 'pet' ? 'petRankedRating' : 'rankedRating';
+            const winnerRating = Number((session.winner === 'p1' ? session.p1Rating : session.p2Rating) ?? 1000);
+            const loserRating = Number((session.winner === 'p1' ? session.p2Rating : session.p1Rating) ?? 1000);
+            const role = outcome === 'win' ? 'winner' : 'loser';
+            const saveKey = `save:${callerLower}`;
+            try {
+                const out = await (0, _lock_js_1.withKvLock)(saveKey, async () => {
+                    const placed = await _storage_js_1.kv.set(key, { outcome, ts: Date.now() }, { nx: true, ex: CLAIM_TTL_SECONDS });
+                    const already = !placed;
+                    const record = await _storage_js_1.kv.get(saveKey);
+                    const char = (record?.character ?? null);
+                    if (!record || !char)
+                        return { already, rating: undefined };
+                    const r = (0, _ranked_rating_js_1.creditRankedOutcome)(char, { role, winnerRating, loserRating, kind });
+                    if (!already) {
+                        const nextChar = { ...char, ...r.patch };
+                        await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)({ ...record, character: nextChar }, record));
+                        return { already, rating: { field: ratingField, value: r.newRating, delta: r.delta } };
+                    }
+                    // Already credited on a prior call — report the stored value.
+                    const cur = Number(char[ratingField]);
+                    return { already, rating: { field: ratingField, value: Number.isFinite(cur) ? cur : r.newRating, delta: r.delta } };
+                }, { failClosed: true });
+                return res.status(200).json({ ok: true, alreadyClaimed: out.already, ...(out.rating ? { rating: out.rating } : {}) });
+            }
+            catch (rankedErr) {
+                // Lock contention/outage (failClosed) — receipt NOT placed, so
+                // the client can safely retry. 503 signals "transient, retry".
+                console.error('[pvp/claim-rewards] ranked credit failed', rankedErr);
+                return res.status(503).json({ error: 'Could not record ranked result — please retry.' });
+            }
+        }
+        // ── Casual path (unchanged) ─────────────────────────────────────────
         // Atomic NX reserve. If the key already exists, we lost the race
         // (or a duplicate call) — return alreadyClaimed so the caller
         // skips the local grant entirely.
