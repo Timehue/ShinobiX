@@ -67,6 +67,8 @@ import clanSealPoolDonateHandler     from './api/clan/seal-pool/donate.js';
 import clanSealPoolDistributeHandler from './api/clan/seal-pool/distribute.js';
 // Clan — treasury donate (atomic)
 import clanTreasuryDonateHandler     from './api/clan/treasury/donate.js';
+// Clan — territory war-supply collect (server-authoritative)
+import clanCollectSupplyHandler      from './api/clan/territory/collect-supply.js';
 // Clan — pet escort
 import clanPetEscortListHandler   from './api/clan/pet-escort/list.js';
 import clanPetEscortOfferHandler  from './api/clan/pet-escort/offer.js';
@@ -366,6 +368,10 @@ route('/clan/seal-pool/distribute', clanSealPoolDistributeHandler);
 // ─── Clan: treasury donate ─────────────────────────────────────────────────────
 // Atomic player donation (debit donor save + credit clan treasury).
 route('/clan/treasury/donate',      clanTreasuryDonateHandler);
+
+// ─── Clan: collect territory war supply (server-authoritative) ──────────────────
+// Scans owned world:territory:* sectors, accrues + zeroes them, credits treasury.
+route('/clan/territory/collect-supply', clanCollectSupplyHandler);
 
 // ─── Clan: pet escort ──────────────────────────────────────────────────────────
 route('/clan/pet-escort/list',   clanPetEscortListHandler);
