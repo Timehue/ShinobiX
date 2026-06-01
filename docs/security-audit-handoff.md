@@ -35,7 +35,16 @@ the **what's-done / what's-left + how-to**.
      Remaining is broad **#7/Stage 3**: move PERSONAL ryo/XP/seals/ranked-rating
      crediting server-side (server-owned daily counters + receipts).
    The #27 `revoke select … from authenticated` hardening is now **APPLIED**
-   (2026-06-01, user-approved). Remaining items each want explicit sign-off.
+   (2026-06-01, user-approved).
+   - **Residual hardening DONE (`0e02527`, 2026-06-01):** #10 (`failClosed`
+     locks on the currency/treasury endpoints), #8 (chat POST 503 on session-
+     lookup throw), #23-partial (internal-host image-URL rejection). #29 closed
+     as no-change (N+1 already gone; only an O(n) scan remains → indexes deferred).
+     See the DONE table row. **The only substantive code item left is #7/Stage 3**
+     (server-authoritative PERSONAL rewards) — large, balance-sensitive, needs a
+     plan + explicit sign-off. Smaller leftovers that remain by choice: #23 pet-
+     image ownership (blocked on a client save-then-upload change), #5 stop
+     persisting the raw password (further step on top of tokens).
 4. **Hard rules still apply** (see CLAUDE.md): no payout/rate/formula changes
    without explicit ask; keep Vercel + cPanel in sync; never edit `dist/` as
    source — fix TS, `npm run build`, commit the rebuilt dist; always run
@@ -90,6 +99,7 @@ the **what's-done / what's-left + how-to**.
 | `5b17321` | **Batch 3** — #12 `warGroundBountyDate` clamped to server UTC; #13 registry built from sanitized payload not raw; #7 claim-rewards fail-open scoped to NX reserve only (real errors now 500); #25 weekly-boss crash-resumable + exactly-once distribution (per-`(week,player)` NX receipt, `creditedPlayers[]`, flag flipped only after all credits land). **No payout/rate/formula changes.** |
 | `cf80b50` | **#5 stateless session tokens** — `issuePlayerToken`/`verifyPlayerToken` (HMAC-SHA256, constant-time, stateless); `authedPlayer` tries token first, falls back to password (ban check identical on both paths); `verify`/`register`/`change` return `{token}`; client stores + attaches `x-player-token` (token-only when present), silent refresh-on-401; `x-player-token` added to CORS allow-headers in **both** `_utils.ts` + `server.ts`; `api/_auth.test.ts` (9 cases). Cuts per-request scrypt cost. |
 | `bf37f0b` | **#16+#17 atomic treasury donate** — new `POST /api/clan/treasury/donate` + `POST /api/village/treasury/donate` (nested-folder files → resolve on Vercel **and** cPanel). Each debits donor save + credits the shared treasury under dual KV locks (treasury row outer, donor inner), **debit-first** so a credit failure can't mint free treasury; self+membership gated, 30/min rate-limit, audit-logged. Shared IO-free core `api/_treasury-donate.ts` (+ `_treasury-donate.test.ts`, 15 cases). Client donate buttons (clan ryo/special/item/territory-scrolls + village ryo/special/item) migrated to the endpoints; clan XP / contrib / village contributionPoints / notices stay client-side, written on top of the returned treasury (zero-delta in the validators) — **no reward/balance logic moved server-side.** Registered in `server.ts`. **No payout/rate/formula changes.** |
+| `0e02527` | **Residual hardening (#8, #10, #23 partial; #29 closed-as-no-change)** — **#10:** opt-in `failClosed` on `withKvLock` (throws `LockContendedError` instead of running the critical section unlocked when the lock can't be acquired); applied to the currency/treasury endpoints (clan+village donate both nested locks, treasury-transfer outer+both credit locks, collect-supply per-sector+treasury locks, seal-pool donate full RMW + distribute **pool lock only**). **Deliberately NOT** failClosed where a throw would *lose* currency: `claim-daily-agenda` (NX marker already consumed) + distribute's recipient-credit lock (pool already debited) — both documented in-code. Refactored to `withLockCore` over injected `LockPrimitives` (testable; `withKvLock` unchanged wrapper); `api/_lock.test.ts`. **#8:** `pvp/chat` POST returns **503** on a session-lookup *throw* (was silently posting a fighter's line tagged `spectator`); `null` session (post-battle banter) still → spectator. **#23 (partial):** image URLs to internal/non-public hosts rejected (localhost, private/loopback/link-local/CGNAT IPv4, IPv6 ULA, numeric/hex IP obfuscation, internal TLDs); public CDN + data URLs unaffected; `api/images.test.ts`. **Pet-image ownership still deferred** — the client publishes `pet:<id>` *before* the debounced autosave persists the pet, so a save-read check would 403 real uploads (documented in `images.ts`). **#29:** no code change — the N+1 individual-get pattern is already gone in roster/bloodlines/injured-villagers (single `keys`-scan + one `mget`); remaining O(n) scan needs secondary indexes (deferred until scale demands). **No payout/rate/formula changes.** Suite 182/182. |
 
 Items verified **FALSE / already-handled** in triage (do not redo): #4 (account
 takeover — register blocks existing-save names), #9 (PvP move concurrency — lock
