@@ -26,11 +26,14 @@ the **what's-done / what's-left + how-to**.
      **Deploy + watch:** confirm no legit-client 426s after the new client rolls
      out (telemetry `telemetry:save-noversion:<date>` in `public.kv_store`; read it
      directly, NOT via `/api/kv/get` — see #14 below).
-   - **#17 currency credit-without-debit** — NOT hard-blockable via the save-blob
-     validators: clan-war/agenda/warSupply rewards credit currencies through the
-     same path and would be deleted. Caps remain the bound; full close needs a
-     #7-class server-authoritative-rewards refactor. (Client IS deployed on
-     Vercel — cPanel/theravensark is storage-only, never player-facing.)
+   - **#17 currency credit-without-debit — ✅ Stage 1 DONE** (refactor, this run).
+     All live save-blob treasury-currency increases (clan + village) are now
+     rejected by the validators; legit credits flow through atomic server
+     endpoints — `donate` (clan+village), clan `territory/collect-supply`, village
+     `claim-daily-agenda` — each re-asserted at zero delta. (The earlier
+     "clan-war ryo" blocker was DEAD code; agenda + warSupply are now endpoints.)
+     Remaining is broad **#7/Stage 3**: move PERSONAL ryo/XP/seals/ranked-rating
+     crediting server-side (server-owned daily counters + receipts).
    The #27 `revoke select … from authenticated` hardening is now **APPLIED**
    (2026-06-01, user-approved). Remaining items each want explicit sign-off.
 4. **Hard rules still apply** (see CLAUDE.md): no payout/rate/formula changes
@@ -128,7 +131,7 @@ These were intentionally NOT done as drive-bys: each touches auth/economy/schema
 and needs a client rollout or migration. Tackle one at a time, smallest blast
 radius first. Suggested order now: **#16/#17 follow-up → #14 → #27**.
 
-### ✅ #16 (item-mint) DONE; #17 currency side partially open by design
+### ✅ #16 DONE; ✅ #17 Stage 1 DONE (currency lockdown + server endpoints)
 Atomic `POST /api/clan/treasury/donate` + `POST /api/village/treasury/donate`
 (`bf37f0b`) debit the donor and credit the treasury under dual locks (shared
 core `api/_treasury-donate.ts`); the client donate buttons use them and
@@ -155,7 +158,7 @@ non-donation item write is a removal), so this is safe. New tests:
 `api/_clan-save-validate.test.ts` + `api/_village-state-validate.test.ts`. This
 closes #16's `treasury.items` minting hole.
 
-**#17 currency credit-without-debit — server-authoritative refactor, Stage 1 in progress.**
+**#17 currency credit-without-debit — server-authoritative refactor, ✅ Stage 1 DONE.**
 Correction to the earlier note: the "clan-war victory ryo" credit (`_resolveClanWar`)
 is **dead code** (`void`-suppressed, superseded by the live `/api/clan/war/*`
 endpoints), so clan-treasury currencies have NO live save-blob increase except
@@ -181,11 +184,27 @@ clan `warSupply` (`collectTerritoryWarSupply`) and the village daily-agenda
   restriction stays a client UI gate (`canSpendTerritoryScrolls`), not a server
   boundary (faithfully porting the contribution-rank role model server-side was
   fragile and unnecessary for a no-personal-gain action).
-- **Step 1c — OPEN:** `POST /api/village/claim-daily-agenda` — server recomputes
-  the agenda (port `makeVillageDailyAgenda`), verifies once-per-UTC-day via
-  `claimedVillageAgendaDate`, credits village treasury + character authoritatively;
-  then lock village-treasury currency increases. Completion gate is best-effort
-  until the daily counters (`dailyAiKills`, etc.) are server-incremented (Stage 3).
+- **✅ Step 1c — DONE (this run):** `POST /api/village/claim-daily-agenda`
+  (`api/village/claim-daily-agenda.ts`; registered in `server.ts`) credits the
+  FIXED shared-treasury amounts (+15 HS/+1500 ryo/+2 BC) at most once per player
+  per UTC day, gated by an NX marker `agenda-claimed:<village>:<player>:<date>`
+  (no player-save write → can't race the autosave version guard). Client
+  `claimVillageAgenda` calls it, re-asserts the returned treasury, and handles
+  `alreadyClaimed` (cross-device) without double-crediting. `_village-state-validate.ts`
+  now rejects save-blob village-treasury currency increases (admin exempt;
+  decreases stay seatedKage-gated; contributionPoints stays client-credited).
+  **Scope (lean, by design):** this closes #17's arbitrary-amount + repeat
+  vectors on the shared treasury. It deliberately does NOT (a) re-verify task
+  completion — the daily counters are still client-incremented, a Stage-3 item —
+  or (b) move the PERSONAL agenda reward (player ryo/seals) server-side — that's
+  the player's own currency, capped by the save sanitizer, also broad-#7/Stage-3.
+- **✅ #17 Stage 1 COMPLETE.** All live save-blob treasury-currency increases
+  (clan ryo/fate/bone/aura/mythic + warSupply; village all 6) are now rejected by
+  the validators; the legitimate credits flow through atomic server endpoints
+  (donate / collect-supply / claim-daily-agenda), each re-asserted at zero delta.
+  Remaining #7/Stage-3 work (separate): move PERSONAL ryo/XP/seals/ranked-rating
+  crediting server-side (server-owned daily counters + receipts), which also
+  enables true agenda task-verification.
 - ✅ #16's secondary "same-length `warHistory` swap" — DONE (this run).
   `_clan-save-validate.ts` now treats a same-length `warHistory` write as a
   verbatim re-assert (allowed for anyone) vs a content change (allowed only for

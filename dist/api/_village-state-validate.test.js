@@ -50,15 +50,29 @@ function items(next) {
         node_assert_1.strict.equal(suppressed.some((s) => s.includes('treasury.items')), false);
     });
 });
-(0, node_test_1.describe)('validateVillageStateWrite — currency caps unchanged by the lockdown', () => {
-    (0, node_test_1.it)('still caps a ryo increase at the per-write ceiling (not hard-blocked)', async () => {
+(0, node_test_1.describe)('validateVillageStateWrite — currency lockdown (#17, step 1c)', () => {
+    const admin = { callerName: '', isAdmin: true, village: 'Leaf' };
+    (0, node_test_1.it)('blocks a non-admin village-treasury currency increase (credit-without-debit)', async () => {
         const prev = stateWith([], { ryo: 0 });
-        const { next } = await (0, _village_state_validate_js_1.validateVillageStateWrite)(prev, stateWith([], { ryo: 1_000_000 }), villager, null);
-        node_assert_1.strict.equal(next.treasury.ryo, 20_000); // before(0) + cap(20_000)
+        const { next, suppressed } = await (0, _village_state_validate_js_1.validateVillageStateWrite)(prev, stateWith([], { ryo: 1_000_000 }), villager, null);
+        node_assert_1.strict.equal(next.treasury.ryo, 0); // kept at prev, not credited
+        node_assert_1.strict.equal(suppressed.some((s) => s.includes('treasury.ryo increase via save blob blocked')), true);
     });
-    (0, node_test_1.it)('still allows agenda-style honorSeals credits within cap (save-blob reward path)', async () => {
+    (0, node_test_1.it)('blocks the agenda-style honorSeals increase too (now credited via the endpoint)', async () => {
         const prev = stateWith([], { honorSeals: 0 });
-        const { next } = await (0, _village_state_validate_js_1.validateVillageStateWrite)(prev, stateWith([], { honorSeals: 15 }), villager, null);
-        node_assert_1.strict.equal(next.treasury.honorSeals, 15); // +15 within cap 25
+        const { next, suppressed } = await (0, _village_state_validate_js_1.validateVillageStateWrite)(prev, stateWith([], { honorSeals: 15 }), villager, null);
+        node_assert_1.strict.equal(next.treasury.honorSeals, 0);
+        node_assert_1.strict.equal(suppressed.some((s) => s.includes('treasury.honorSeals increase via save blob blocked')), true);
+    });
+    (0, node_test_1.it)('allows a zero-delta re-assert (post-endpoint the client re-saves the credited value)', async () => {
+        const prev = stateWith([], { ryo: 1500, honorSeals: 15 });
+        const { next, suppressed } = await (0, _village_state_validate_js_1.validateVillageStateWrite)(prev, stateWith([], { ryo: 1500, honorSeals: 15 }), villager, null);
+        node_assert_1.strict.equal(next.treasury.ryo, 1500);
+        node_assert_1.strict.equal(suppressed.some((s) => s.includes('increase via save blob blocked')), false);
+    });
+    (0, node_test_1.it)('allows an admin to increase village currency (admin bypass)', async () => {
+        const prev = stateWith([], { ryo: 0 });
+        const { next } = await (0, _village_state_validate_js_1.validateVillageStateWrite)(prev, stateWith([], { ryo: 1500 }), admin, null);
+        node_assert_1.strict.equal(next.treasury.ryo, 1500);
     });
 });

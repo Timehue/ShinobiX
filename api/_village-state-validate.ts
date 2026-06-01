@@ -53,30 +53,13 @@ const TREASURY_KEYS = ['ryo', 'honorSeals', 'fateShards', 'boneCharms', 'auraSto
 // only minutes wide; anything older is dead.
 const KAGE_CHALLENGE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
-// Hard per-call ceilings on treasury currency *increases*.
-//
-// SECURITY NOTE: this validator trusts the caller debited their own save in
-// a separate /api/save POST. A malicious caller can skip the debit and the
-// treasury still credits, letting the seatedKage extract the inflated balance
-// to a sock-puppet via the legitimate withdrawal path. The proper fix is a
-// dedicated /api/village/donate endpoint that does both halves (debit donor
-// save + credit treasury) atomically under a save-lock — same pattern as
-// api/clan/seal-pool/donate.ts. Until that endpoint exists, the per-call
-// ceilings below bound the per-request blast radius. Combined with the
-// 30/min village-state-write rate limit, the worst-case injection is roughly:
-//   ryo:        20_000  × 30/min = 600K/min
-//   honorSeals:     25  × 30/min = 750/min
-// These are bounded enough that a seatedKage laundering attempt would be
-// loud (and easily caught in admin logs) — but it IS still exploitable.
-// TODO: build /api/village/donate and lock down treasury deltas to it.
-const MAX_TREASURY_INCREASE: Record<string, number> = {
-    ryo: 20_000,          // was 200_000 — tightened 10×
-    honorSeals: 25,       // was 200 — tightened 8×
-    fateShards: 25,
-    boneCharms: 25,
-    auraStones: 25,
-    mythicSeals: 10,
-};
+// #17 — village-treasury currencies are CREDITED ONLY by server endpoints now,
+// not the save blob: player donations via /api/village/treasury/donate, and the
+// daily-agenda reward via /api/village/claim-daily-agenda. Both atomically move
+// the source → treasury, and the client re-asserts the returned treasury at a
+// zero delta, so a save-blob currency INCREASE here is credit-without-debit and
+// is rejected below (admin bypasses). contributionPoints stays client-credited
+// (a per-player stat, not the shared currency pool) and keeps its per-call cap.
 
 const MAX_CONTRIBUTION_INCREASE_PER_CALL = 5_000;
 const MAX_NOTICE_POSTS = 60;     // matches client cap
@@ -180,12 +163,15 @@ export async function validateVillageStateWrite(
             const after = num(inTreasury[key], before);
             const delta = after - before;
             if (delta > 0) {
-                const cap = MAX_TREASURY_INCREASE[key] ?? 0;
-                if (delta > cap) {
-                    outTreasury[key] = before + cap;
-                    suppressed.push(`treasury.${key} +${delta} > cap ${cap}`);
-                } else {
+                // #17 lockdown: village-treasury currencies are credited ONLY by
+                // server endpoints (treasury/donate, claim-daily-agenda), which
+                // the client re-asserts at a zero delta — a save-blob INCREASE is
+                // credit-without-debit. Reject it (keep prev); admin bypasses.
+                if (ctx.isAdmin) {
                     outTreasury[key] = after;
+                } else {
+                    outTreasury[key] = before;
+                    suppressed.push(`treasury.${key} increase via save blob blocked — use the server endpoint`);
                 }
             } else if (delta < 0) {
                 if (!callerIsSeatedKage) {

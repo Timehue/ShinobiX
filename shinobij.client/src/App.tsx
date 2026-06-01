@@ -23083,10 +23083,34 @@ function TownHall({ character, updateCharacter, creatorItems, allServerPlayers, 
     }
     const agendaComplete = agenda.tasks.every(task => agendaProgress(task) >= task.target);
     const agendaClaimed = character.claimedVillageAgendaDate === agenda.date;
-    function claimVillageAgenda() {
+    async function claimVillageAgenda() {
         if (!agendaComplete) return alert("Complete all three village agenda goals first.");
         if (agendaClaimed) return alert("You already claimed today's village agenda.");
-        const nextState = normalizeVillageState(character.village, { ...state, dailyAgenda: agenda, contributionPoints: state.contributionPoints + 15, treasury: { ...state.treasury, honorSeals: state.treasury.honorSeals + 15, ryo: state.treasury.ryo + 1500, boneCharms: state.treasury.boneCharms + 2 } });
+        // The shared village-treasury credit is now server-authoritative (fixed
+        // amounts, once/day via an NX marker). We re-assert the returned treasury
+        // (zero delta into the validator); contributionPoints + the personal
+        // reward stay client-side (capped by the save sanitizer).
+        let data: { ok?: boolean; alreadyClaimed?: boolean; error?: string; treasury?: Partial<VillageTreasury> };
+        try {
+            const res = await fetch("/api/village/claim-daily-agenda", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ playerName: character.name, village: character.village }),
+            });
+            data = await res.json().catch(() => ({}));
+            if (!res.ok || !data.ok) return alert(data.error || "Could not claim the village agenda. Please try again.");
+        } catch {
+            return alert("Could not claim the village agenda. Please try again.");
+        }
+        const serverTreasury = cleanVillageTreasury(data.treasury as Partial<VillageTreasury>);
+        if (data.alreadyClaimed) {
+            // Another device already claimed today — sync the treasury + claim
+            // marker, but don't double-credit the personal reward.
+            updateVillageState(normalizeVillageState(character.village, { ...state, dailyAgenda: agenda, treasury: serverTreasury }));
+            updateCharacter({ ...character, claimedVillageAgendaDate: agenda.date });
+            return alert("Today's village agenda was already claimed.");
+        }
+        const nextState = normalizeVillageState(character.village, { ...state, dailyAgenda: agenda, contributionPoints: state.contributionPoints + 15, treasury: serverTreasury });
         updateVillageState(addNotice(`${character.name} completed today's village agenda. Village treasury gained Honor Seals, ryo, and Bone Charms.`, nextState));
         updateCharacter({ ...character, claimedVillageAgendaDate: agenda.date, honorSeals: (character.honorSeals ?? 0) + vanguardOnlyHonorSeals(character, 8), ryo: character.ryo + 750, boneCharms: (character.boneCharms ?? 0) + 1, fateShards: (character.fateShards ?? 0) + nonVanguardShardSubstitute(character, 8) });
     }
