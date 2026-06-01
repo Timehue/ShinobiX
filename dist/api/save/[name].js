@@ -655,7 +655,11 @@ function clanRecordSlug(name) {
 // stamp (old/stale clients; the current client always echoes it on its
 // own-save autosave paths). Best-effort daily counter so an operator can watch
 // the per-day total trend toward zero before making the multi-tab guard
-// mandatory. Read it with GET /api/kv/get?key=telemetry:save-noversion:<UTC-date>.
+// mandatory. This key has the `telemetry:` prefix, so it lives on the BASE
+// store (Supabase/pg `public.kv_store`), NOT the disk overlay — the /api/kv
+// proxy reads only the disk overlay and would always return null for it, so do
+// NOT read it there. Read the base store directly, e.g.
+//   SELECT value FROM public.kv_store WHERE key = 'telemetry:save-noversion:<UTC-date>';
 // RMW is non-atomic (kv has no incr) — fine for a trend signal — and only runs
 // on the missing path, so steady-state overhead is zero once clients roll over.
 const SAVE_NOVERSION_TELEMETRY_TTL_SEC = 45 * 24 * 60 * 60; // 45 days
