@@ -4,7 +4,7 @@ import { cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { withKvLock } from '../_lock.js';
 
-const CHALLENGE_TTL = 120; // seconds — long enough for two heartbeat cycles
+const CHALLENGE_TTL = 180; // seconds (3 min) — challenge auto-cancels if unanswered
 
 // Public projection for the challenger character stored alongside a
 // challenges:<name> entry. The challenges:* prefix is anon-readable via
