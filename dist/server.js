@@ -54,6 +54,7 @@ const kv_proxy_js_1 = __importDefault(require("./api/kv-proxy.js"));
 const migrate_kv_js_1 = __importDefault(require("./api/admin/migrate-kv.js"));
 const raid_start_js_1 = __importDefault(require("./api/missions/raid-start.js"));
 const treasury_transfer_js_1 = __importDefault(require("./api/village/treasury-transfer.js"));
+const donate_js_1 = __importDefault(require("./api/village/treasury/donate.js"));
 const save_snapshot_js_1 = __importDefault(require("./api/admin/save-snapshot.js"));
 // Clan — wars
 const list_js_4 = __importDefault(require("./api/clan/war/list.js"));
@@ -63,8 +64,10 @@ const report_js_1 = __importDefault(require("./api/clan/war/report.js"));
 const tilecards_js_1 = __importDefault(require("./api/clan/war/tilecards.js"));
 // Clan — seal pool
 const get_js_1 = __importDefault(require("./api/clan/seal-pool/get.js"));
-const donate_js_1 = __importDefault(require("./api/clan/seal-pool/donate.js"));
+const donate_js_2 = __importDefault(require("./api/clan/seal-pool/donate.js"));
 const distribute_js_1 = __importDefault(require("./api/clan/seal-pool/distribute.js"));
+// Clan — treasury donate (atomic)
+const donate_js_3 = __importDefault(require("./api/clan/treasury/donate.js"));
 // Clan — pet escort
 const list_js_5 = __importDefault(require("./api/clan/pet-escort/list.js"));
 const offer_js_1 = __importDefault(require("./api/clan/pet-escort/offer.js"));
@@ -300,6 +303,8 @@ route('/missions/raid-start', raid_start_js_1.default);
 // Village treasury — atomic Kage-gift endpoint that replaces the broken
 // 2-write client flow (deduct treasury + patch recipient).
 route('/village/treasury/transfer', treasury_transfer_js_1.default);
+// Village treasury — atomic player donation (debit donor + credit treasury).
+route('/village/treasury/donate', donate_js_1.default);
 // Admin: snapshot / list / restore a player save (90-day TTL). Survives
 // server-reset because the `save-snapshot:` prefix isn't matched by the
 // reset's `save:*` glob.
@@ -314,8 +319,11 @@ route('/clan/war/report', report_js_1.default);
 route('/clan/war/tilecards', tilecards_js_1.default);
 // ─── Clan: seal pool ───────────────────────────────────────────────────────────
 route('/clan/seal-pool/get', get_js_1.default);
-route('/clan/seal-pool/donate', donate_js_1.default);
+route('/clan/seal-pool/donate', donate_js_2.default);
 route('/clan/seal-pool/distribute', distribute_js_1.default);
+// ─── Clan: treasury donate ─────────────────────────────────────────────────────
+// Atomic player donation (debit donor save + credit clan treasury).
+route('/clan/treasury/donate', donate_js_3.default);
 // ─── Clan: pet escort ──────────────────────────────────────────────────────────
 route('/clan/pet-escort/list', list_js_5.default);
 route('/clan/pet-escort/offer', offer_js_1.default);
