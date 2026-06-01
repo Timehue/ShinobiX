@@ -6,7 +6,7 @@ import { authedPlayerOrAdmin, isAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { validateClanSaveWrite } from '../_clan-save-validate.js';
 import { sanitizeUserText, TEXT_LIMITS } from '../_text-moderation.js';
-import { parseBaseSaveVersion, saveVersionTelemetryKey } from './_save-version.js';
+import { parseBaseSaveVersion, saveVersionTelemetryKey, isVersionlessPlayerSave } from './_save-version.js';
 
 // Fields stripped from character objects when a non-owner reads another player's save.
 // Prevents ryo farming (reading other players' wallets) and inventory snooping.
@@ -1044,13 +1044,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const incomingBody = incoming as Record<string, unknown>;
                     const baseVersion = parseBaseSaveVersion(incomingBody?._baseSaveVersion);
 
-                    // #14 rollout telemetry: a non-clan PLAYER save with no
-                    // version stamp is an old client. Count it (best-effort) so
-                    // we can tell when it's safe to require the field. Admin
-                    // saves (identityName === null) and clan saves are excluded.
-                    if (!isClanSave && identityName && baseVersion === null) {
-                        console.warn('[save-version-telemetry] player save missing _baseSaveVersion:', identityName);
-                        await recordMissingSaveVersion(identityName);
+                    // #14 step 2: REQUIRE a version stamp for non-clan player
+                    // saves. A missing field means a client old enough to
+                    // predate the autosave guard (pre-2026-05-26 / 3455f8d) — the
+                    // current client always echoes a numeric version (0+) on
+                    // every own-save path (autosave timers + immediate saves).
+                    // Such a stale tab can silently clobber a newer tab's
+                    // progress, so reject it and tell it to refresh. Admin saves
+                    // (identityName === null, incl. cross-player grants) and clan
+                    // saves are exempt. Telemetry still records the rejection so
+                    // the (now ~0) trend stays visible in kv_store.
+                    if (isVersionlessPlayerSave(isClanSave, identityName, baseVersion)) {
+                        // isVersionlessPlayerSave is true only when identityName is set.
+                        console.warn('[save-version] REJECT player save missing _baseSaveVersion (client too old):', identityName);
+                        await recordMissingSaveVersion(identityName!);
+                        return res.status(426).json({
+                            error: 'Your game client is out of date. Please refresh the page to keep saving.',
+                            code: 'CLIENT_REFRESH_REQUIRED',
+                        });
                     }
 
                     if (!isClanSave && baseVersion !== null && baseVersion < storedVersion) {

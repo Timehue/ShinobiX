@@ -1007,13 +1007,24 @@ async function handler(req, res) {
                     const storedVersion = Number(existingObj?._saveVersion ?? 0);
                     const incomingBody = incoming;
                     const baseVersion = (0, _save_version_js_1.parseBaseSaveVersion)(incomingBody?._baseSaveVersion);
-                    // #14 rollout telemetry: a non-clan PLAYER save with no
-                    // version stamp is an old client. Count it (best-effort) so
-                    // we can tell when it's safe to require the field. Admin
-                    // saves (identityName === null) and clan saves are excluded.
-                    if (!isClanSave && identityName && baseVersion === null) {
-                        console.warn('[save-version-telemetry] player save missing _baseSaveVersion:', identityName);
+                    // #14 step 2: REQUIRE a version stamp for non-clan player
+                    // saves. A missing field means a client old enough to
+                    // predate the autosave guard (pre-2026-05-26 / 3455f8d) — the
+                    // current client always echoes a numeric version (0+) on
+                    // every own-save path (autosave timers + immediate saves).
+                    // Such a stale tab can silently clobber a newer tab's
+                    // progress, so reject it and tell it to refresh. Admin saves
+                    // (identityName === null, incl. cross-player grants) and clan
+                    // saves are exempt. Telemetry still records the rejection so
+                    // the (now ~0) trend stays visible in kv_store.
+                    if ((0, _save_version_js_1.isVersionlessPlayerSave)(isClanSave, identityName, baseVersion)) {
+                        // isVersionlessPlayerSave is true only when identityName is set.
+                        console.warn('[save-version] REJECT player save missing _baseSaveVersion (client too old):', identityName);
                         await recordMissingSaveVersion(identityName);
+                        return res.status(426).json({
+                            error: 'Your game client is out of date. Please refresh the page to keep saving.',
+                            code: 'CLIENT_REFRESH_REQUIRED',
+                        });
                     }
                     if (!isClanSave && baseVersion !== null && baseVersion < storedVersion) {
                         return res.status(409).json({

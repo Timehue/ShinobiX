@@ -24,6 +24,22 @@ const _save_version_js_1 = require("./_save-version.js");
         node_assert_1.strict.notEqual((0, _save_version_js_1.parseBaseSaveVersion)(0), null);
     });
 });
+(0, node_test_1.describe)('isVersionlessPlayerSave (#14 step 2 reject condition)', () => {
+    (0, node_test_1.it)('rejects a non-clan player save with no version stamp (old client)', () => {
+        node_assert_1.strict.equal((0, _save_version_js_1.isVersionlessPlayerSave)(false, 'akira', null), true);
+    });
+    (0, node_test_1.it)('allows a player save that carries a numeric version (incl. 0)', () => {
+        node_assert_1.strict.equal((0, _save_version_js_1.isVersionlessPlayerSave)(false, 'akira', 0), false);
+        node_assert_1.strict.equal((0, _save_version_js_1.isVersionlessPlayerSave)(false, 'akira', 7), false);
+    });
+    (0, node_test_1.it)('exempts admin saves (identityName === null), incl. cross-player grants', () => {
+        node_assert_1.strict.equal((0, _save_version_js_1.isVersionlessPlayerSave)(false, null, null), false);
+    });
+    (0, node_test_1.it)('exempts clan saves regardless of version', () => {
+        node_assert_1.strict.equal((0, _save_version_js_1.isVersionlessPlayerSave)(true, 'akira', null), false);
+        node_assert_1.strict.equal((0, _save_version_js_1.isVersionlessPlayerSave)(true, null, null), false);
+    });
+});
 (0, node_test_1.describe)('saveVersionTelemetryKey', () => {
     (0, node_test_1.it)('keys by UTC date only (strips the time component)', () => {
         node_assert_1.strict.equal((0, _save_version_js_1.saveVersionTelemetryKey)('2026-06-01T13:45:09.123Z'), 'telemetry:save-noversion:2026-06-01');

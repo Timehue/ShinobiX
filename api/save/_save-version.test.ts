@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { parseBaseSaveVersion, saveVersionTelemetryKey } from './_save-version.js';
+import { parseBaseSaveVersion, saveVersionTelemetryKey, isVersionlessPlayerSave } from './_save-version.js';
 
 describe('parseBaseSaveVersion', () => {
     it('returns the number for a valid finite version (including 0)', () => {
@@ -23,6 +23,26 @@ describe('parseBaseSaveVersion', () => {
         // The 409 guard fires only when parse !== null AND version < stored.
         // A present version of 0 must stay 0 (not be treated as "missing").
         assert.notEqual(parseBaseSaveVersion(0), null);
+    });
+});
+
+describe('isVersionlessPlayerSave (#14 step 2 reject condition)', () => {
+    it('rejects a non-clan player save with no version stamp (old client)', () => {
+        assert.equal(isVersionlessPlayerSave(false, 'akira', null), true);
+    });
+
+    it('allows a player save that carries a numeric version (incl. 0)', () => {
+        assert.equal(isVersionlessPlayerSave(false, 'akira', 0), false);
+        assert.equal(isVersionlessPlayerSave(false, 'akira', 7), false);
+    });
+
+    it('exempts admin saves (identityName === null), incl. cross-player grants', () => {
+        assert.equal(isVersionlessPlayerSave(false, null, null), false);
+    });
+
+    it('exempts clan saves regardless of version', () => {
+        assert.equal(isVersionlessPlayerSave(true, 'akira', null), false);
+        assert.equal(isVersionlessPlayerSave(true, null, null), false);
     });
 });
 
