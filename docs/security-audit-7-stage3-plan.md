@@ -264,11 +264,28 @@ carefully afterward, before the sanitizer tighten.
      `onPendingPetBattleStarted` clearing `pendingPetBattleOpponent`). This both
      ACTIVATES the dormant pet server branch (step 1, `8571bdd`) and reads it back
      in one move, since the pet path had no prior `battle-result` call to flag.
-4. **Telemetry + sanitizer tighten (final, gated):** once the read-back client
-   is deployed and telemetry shows no client-driven `rankedRating` increases,
-   tighten `api/save/[name].ts` so the ±200 swing clamp becomes "re-assert /
-   decrease only" for `rankedRating`/`petRankedRating`. This is what finally
-   makes the server the SOLE authority. NOT before the read-back client is live.
+4. **Sanitizer tighten (final) — DONE (this commit).** `api/save/[name].ts`
+   replaced the bidirectional ±200 swing clamp with "re-assert / decrease only"
+   for BOTH `rankedRating` and `petRankedRating` (the latter was previously
+   unsanitized): a client-driven INCREASE reverts to the stored value; equal
+   (re-assert) and decreases pass. This makes the server the SOLE authority —
+   the client can no longer mint rating via the save blob. Admin saves skip the
+   whole sanitizer (the `!isAdminSave` gate), so admin tooling is unaffected.
+   **Why this is safe to ship now (low-traffic test env):** (a) `claim-rewards` /
+   `battle-result` credit under the SAME `lock:save:<name>` the autosave takes,
+   so an updated client's autosave reads the post-credit stored value and is a
+   no-op re-assert (allowed); (b) it ships in the SAME Vercel deploy as the
+   read-back client (both already on `main`), so any page loaded after deploy is
+   the read-back client; (c) even the already-live activation client (`12a5ed4`)
+   self-applies the SAME value the server credits, so its autosave is also a
+   re-assert; (d) the only clients whose increase is reverted are pre-activation
+   (pre-`12a5ed4`) tabs that self-apply without a server credit — ~0 in this
+   low-traffic test env, and they simply refresh. This mirrors the #14
+   server-enforcement decision (telemetry signal unavailable — no traffic — so
+   the gate is satisfied by the deploy-ordering + convergence argument instead).
+   On a server-credit failure the read-back client's local-delta fallback would
+   be reverted here (rating change lost that match) — acceptable under
+   "server is sole authority."
 
 ## Non-negotiables (per CLAUDE.md)
 
