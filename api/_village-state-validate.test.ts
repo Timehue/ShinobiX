@@ -67,16 +67,33 @@ describe('validateVillageStateWrite — treasury.items lockdown (#16)', () => {
     });
 });
 
-describe('validateVillageStateWrite — currency caps unchanged by the lockdown', () => {
-    it('still caps a ryo increase at the per-write ceiling (not hard-blocked)', async () => {
+describe('validateVillageStateWrite — currency lockdown (#17, step 1c)', () => {
+    const admin = { callerName: '', isAdmin: true, village: 'Leaf' };
+
+    it('blocks a non-admin village-treasury currency increase (credit-without-debit)', async () => {
         const prev = stateWith([], { ryo: 0 });
-        const { next } = await validateVillageStateWrite(prev, stateWith([], { ryo: 1_000_000 }), villager, null);
-        assert.equal((next.treasury as Record<string, number>).ryo, 20_000); // before(0) + cap(20_000)
+        const { next, suppressed } = await validateVillageStateWrite(prev, stateWith([], { ryo: 1_000_000 }), villager, null);
+        assert.equal((next.treasury as Record<string, number>).ryo, 0); // kept at prev, not credited
+        assert.equal(suppressed.some((s) => s.includes('treasury.ryo increase via save blob blocked')), true);
     });
 
-    it('still allows agenda-style honorSeals credits within cap (save-blob reward path)', async () => {
+    it('blocks the agenda-style honorSeals increase too (now credited via the endpoint)', async () => {
         const prev = stateWith([], { honorSeals: 0 });
-        const { next } = await validateVillageStateWrite(prev, stateWith([], { honorSeals: 15 }), villager, null);
-        assert.equal((next.treasury as Record<string, number>).honorSeals, 15); // +15 within cap 25
+        const { next, suppressed } = await validateVillageStateWrite(prev, stateWith([], { honorSeals: 15 }), villager, null);
+        assert.equal((next.treasury as Record<string, number>).honorSeals, 0);
+        assert.equal(suppressed.some((s) => s.includes('treasury.honorSeals increase via save blob blocked')), true);
+    });
+
+    it('allows a zero-delta re-assert (post-endpoint the client re-saves the credited value)', async () => {
+        const prev = stateWith([], { ryo: 1500, honorSeals: 15 });
+        const { next, suppressed } = await validateVillageStateWrite(prev, stateWith([], { ryo: 1500, honorSeals: 15 }), villager, null);
+        assert.equal((next.treasury as Record<string, number>).ryo, 1500);
+        assert.equal(suppressed.some((s) => s.includes('increase via save blob blocked')), false);
+    });
+
+    it('allows an admin to increase village currency (admin bypass)', async () => {
+        const prev = stateWith([], { ryo: 0 });
+        const { next } = await validateVillageStateWrite(prev, stateWith([], { ryo: 1500 }), admin, null);
+        assert.equal((next.treasury as Record<string, number>).ryo, 1500);
     });
 });
