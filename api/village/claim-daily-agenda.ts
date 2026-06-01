@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
-import { cors, safeName } from '../_utils.js';
+import { cors, safeName, mergePreservingImages } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
@@ -16,13 +16,21 @@ import { withKvLock } from '../_lock.js';
  *
  * This endpoint credits the FIXED treasury amounts under the village-state lock,
  * at most once per player per UTC day, gated by a server-side NX idempotency
- * marker. It deliberately does NOT write the player save (so it can't race the
- * autosave version guard) and does NOT credit the PERSONAL reward — that's the
- * player's own currency, capped by the save sanitizer, and belongs to the broader
- * server-authoritative-rewards work (Stage 3), not the shared-pool hole #17 is
- * about. Task COMPLETION is not re-verified here either: the daily counters are
- * still client-incremented (also Stage 3). What this closes is the arbitrary-
- * amount + repeat vectors, which is the credit-without-debit hole.
+ * marker. What this closes for the treasury is the arbitrary-amount + repeat
+ * vectors (the credit-without-debit hole #17 is about).
+ *
+ * It ALSO credits the player's own fixed PERSONAL reward (audit #7 / Stage 3
+ * Phase 2): +750 ryo, +1 boneCharm, +8 honorSeals (Vanguard only). That credit
+ * runs under lock:save:<name> (the same lock the autosave takes) with its OWN
+ * NX day-marker placed atomically inside the lock — exactly-once, failClosed →
+ * 503/retry — so the player save can no longer be raced and a crafted client
+ * can no longer claim the personal reward repeatedly or inflate it. The client
+ * still adds the returned `granted` delta to its OWN balance (preserving
+ * concurrent ryo gains) and re-asserts via autosave; the two converge. The
+ * sanitizer stays permissive for these currencies (they have other legit
+ * sources — missions/raids/hunts — until later Stage-3 phases move those too).
+ * Task COMPLETION is still not re-verified (daily counters remain
+ * client-incremented — a later Stage-3 item).
  *
  * Body: { playerName, village }. Caller MUST be the player (or admin) and a
  * member of `village`. Rate-limited 30/min per actor.
@@ -30,6 +38,12 @@ import { withKvLock } from '../_lock.js';
 
 const VILLAGE_STATE_PREFIX = 'game:village-state:';
 const AGENDA_TREASURY = { honorSeals: 15, ryo: 1500, boneCharms: 2 } as const;
+// Personal reward (audit #7 / Stage 3 Phase 2). VERBATIM port of the client
+// (App.tsx claimVillageAgenda): flat ryo + boneCharm for everyone; honorSeals
+// only for the Vanguard profession (vanguardOnlyHonorSeals). The client's
+// fateShards line is nonVanguardShardSubstitute(8) = floor(8/25) = 0, so there
+// is no fateShard grant here — omitting it is a zero-balance change.
+const AGENDA_PERSONAL = { ryo: 750, boneCharms: 1, honorSeals: 8 } as const;
 const CLAIM_MARKER_TTL_SEC = 2 * 24 * 60 * 60; // 2 days — comfortably past one UTC day
 const AUDIT_LOG_PREFIX = 'audit:village-agenda-claim:';
 
@@ -76,14 +90,54 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
         }
 
+        const date = utcDate();
+
+        // ── PERSONAL reward (audit #7 / Stage 3 Phase 2) ───────────────────────
+        // Credit the player's OWN fixed agenda reward under lock:save:<name> (the
+        // same lock the autosave takes — option A) with its OWN NX day-marker
+        // placed atomically inside the lock: exactly-once, and a contention abort
+        // (failClosed → 503) leaves nothing placed for a clean retry (the
+        // claim-rewards pattern). Done BEFORE the treasury credit so a personal
+        // 503 can't burn the treasury day-marker. The client adds the returned
+        // `granted` delta to its OWN balance (not the absolute — so concurrent ryo
+        // gains elsewhere survive) and re-asserts via autosave; the two converge.
+        const personalMarker = `agenda-personal:${playerName.toLowerCase()}:${date}`;
+        let personal: { alreadyClaimed: boolean; granted: { ryo: number; boneCharms: number; honorSeals: number } };
+        try {
+            const out = await withKvLock(`save:${playerName}`, async () => {
+                const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+                const char = (rec?.character ?? null) as Record<string, unknown> | null;
+                if (!rec || !char) return { error: 'no-save' as const };
+                const seals = char.profession === 'vanguard' ? AGENDA_PERSONAL.honorSeals : 0;
+                const placed = await kv.set(personalMarker, { ts: Date.now() }, { nx: true, ex: CLAIM_MARKER_TTL_SEC });
+                if (placed !== 'OK') {
+                    return { alreadyClaimed: true, granted: { ryo: 0, boneCharms: 0, honorSeals: 0 } };
+                }
+                const granted = { ryo: AGENDA_PERSONAL.ryo, boneCharms: AGENDA_PERSONAL.boneCharms, honorSeals: seals };
+                const nextChar = {
+                    ...char,
+                    ryo: num(char.ryo) + granted.ryo,
+                    boneCharms: num(char.boneCharms) + granted.boneCharms,
+                    honorSeals: num(char.honorSeals) + granted.honorSeals,
+                };
+                await kv.set(`save:${playerName}`, mergePreservingImages({ ...rec, character: nextChar }, rec));
+                return { alreadyClaimed: false, granted };
+            }, { failClosed: true });
+            if ('error' in out) return res.status(404).json({ error: 'Your save was not found.' });
+            personal = out;
+        } catch (e) {
+            console.error('[village/claim-daily-agenda] personal credit failed', e);
+            return res.status(503).json({ error: 'Could not credit your daily reward — please retry.' });
+        }
+
         // One treasury credit per player per UTC day. NX reserve = authoritative
-        // idempotency; no player-save write, so the autosave version guard is
-        // untouched. If the marker already exists, the agenda was claimed today.
-        const claimKey = `agenda-claimed:${slug}:${playerName.toLowerCase()}:${utcDate()}`;
+        // idempotency; if the marker already exists, the treasury half was claimed
+        // today (the personal half above is gated independently by its own marker).
+        const claimKey = `agenda-claimed:${slug}:${playerName.toLowerCase()}:${date}`;
         const reserved = await kv.set(claimKey, { ts: Date.now() }, { nx: true, ex: CLAIM_MARKER_TTL_SEC });
         if (reserved !== 'OK') {
             const state = await kv.get<Record<string, unknown>>(villageStateKey);
-            return res.status(200).json({ ok: true, alreadyClaimed: true, treasury: (state?.treasury ?? {}) });
+            return res.status(200).json({ ok: true, alreadyClaimed: true, treasury: (state?.treasury ?? {}), personal });
         }
 
         // NOT failClosed (unlike the donate/transfer/collect endpoints): the NX
@@ -114,7 +168,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             granted: AGENDA_TREASURY,
         }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
 
-        return res.status(200).json({ ok: true, treasury, granted: AGENDA_TREASURY });
+        return res.status(200).json({ ok: true, treasury, granted: AGENDA_TREASURY, personal });
     } catch (err) {
         console.error('[village/claim-daily-agenda]', err);
         return res.status(500).json({ error: 'Internal server error.' });

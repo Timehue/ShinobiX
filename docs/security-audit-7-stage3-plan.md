@@ -287,6 +287,45 @@ carefully afterward, before the sanitizer tighten.
    be reverted here (rating change lost that match) — acceptable under
    "server is sole authority."
 
+**✅ Phase 1 (ranked rating) COMPLETE + deployed** through the sanitizer tighten
+(`b549729`). The server is the sole authority for `rankedRating`/`petRankedRating`.
+
+---
+
+## Phase 2 — daily-claim personal rewards (IN PROGRESS)
+
+Sign-off (2026-06-01): "agenda only first" — do the Village Agenda personal
+reward; map-control deferred (it needs server-side sector-ownership computation).
+
+**Agenda half — DONE (this commit).** `api/village/claim-daily-agenda.ts` now
+ALSO credits the player's own fixed personal reward (+750 ryo, +1 boneCharm, +8
+honorSeals Vanguard-only — VERBATIM port of `claimVillageAgenda`; the client's
+`fateShards += floor(8/25)` is 0, so it's dropped). It runs under
+`lock:save:<name>` (the autosave's lock) with its OWN NX day-marker
+(`agenda-personal:<player>:<date>`) placed atomically inside the lock —
+exactly-once, `failClosed` → 503/retry — done BEFORE the treasury credit so a
+personal 503 can't burn the treasury day-marker. The two markers are
+independent. The client (`claimVillageAgenda`) now adds the server-returned
+`granted` delta to its OWN balance (preserving concurrent ryo gains) and
+re-asserts via autosave (converges with the server write); it applies the grant
+whenever the server reports it fresh — even if the treasury half was already
+claimed — so the treasury-claimed-but-personal-fresh edge doesn't let the
+autosave revert the server's personal credit.
+
+**Sanitizer NOT tightened for these currencies** (and won't be in Phase 2):
+`ryo`/`honorSeals`/`boneCharms`/`fateShards` have many other legit client sources
+(missions/raids/hunts/story/AI-kills), so they stay permissive until Phases 3–4
+move those sources server-side. Phase 2's value is narrower than Phase 1's: it
+closes the daily-agenda claim-repeatedly / inflate-the-amount vector (server gate
++ server-computed amount), not the broad currency-minting surface.
+
+**Map-control half — DEFERRED.** `claimMapControlRewards` (App.tsx ~23165) pays a
+VARIABLE amount (`sectors×100` ryo, `sectors×2` seals Vanguard-only,
+`floor(sectors/3)` charms, `floor(sectors×2/25)` shards). Moving it server-side
+needs a NEW endpoint that computes `ownedVillageSectors` authoritatively from
+`world:territory:*` (like `clan/territory/collect-supply`), so the client can't
+fake the sector count. Separate follow-up.
+
 ## Non-negotiables (per CLAUDE.md)
 
 - **No balance change** — every formula ported verbatim; tests assert server ==
