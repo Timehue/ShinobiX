@@ -54,6 +54,7 @@ import raidStartHandler   from './api/missions/raid-start.js';
 import villageTreasuryTransferHandler from './api/village/treasury-transfer.js';
 import villageTreasuryDonateHandler from './api/village/treasury/donate.js';
 import villageClaimDailyAgendaHandler from './api/village/claim-daily-agenda.js';
+import villageClaimMapControlHandler from './api/village/claim-map-control.js';
 import saveSnapshotHandler from './api/admin/save-snapshot.js';
 
 // Clan — wars
@@ -348,6 +349,9 @@ route('/village/treasury/transfer', villageTreasuryTransferHandler);
 route('/village/treasury/donate', villageTreasuryDonateHandler);
 // Village daily-agenda — server-authoritative shared-treasury credit (NX once/day).
 route('/village/claim-daily-agenda', villageClaimDailyAgendaHandler);
+// Village map-control — server-authoritative PERSONAL daily reward (server counts
+// owned world:territory:* sectors, computes payout, credits once/day via NX marker).
+route('/village/claim-map-control', villageClaimMapControlHandler);
 
 // Admin: snapshot / list / restore a player save (90-day TTL). Survives
 // server-reset because the `save-snapshot:` prefix isn't matched by the

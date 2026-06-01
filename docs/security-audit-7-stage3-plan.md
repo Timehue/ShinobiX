@@ -292,10 +292,11 @@ carefully afterward, before the sanitizer tighten.
 
 ---
 
-## Phase 2 — daily-claim personal rewards (IN PROGRESS)
+## Phase 2 — daily-claim personal rewards (COMPLETE)
 
 Sign-off (2026-06-01): "agenda only first" — do the Village Agenda personal
 reward; map-control deferred (it needs server-side sector-ownership computation).
+Map-control half subsequently signed off + done (2026-06-01).
 
 **Agenda half — DONE (this commit).** `api/village/claim-daily-agenda.ts` now
 ALSO credits the player's own fixed personal reward (+750 ryo, +1 boneCharm, +8
@@ -319,12 +320,32 @@ move those sources server-side. Phase 2's value is narrower than Phase 1's: it
 closes the daily-agenda claim-repeatedly / inflate-the-amount vector (server gate
 + server-computed amount), not the broad currency-minting surface.
 
-**Map-control half — DEFERRED.** `claimMapControlRewards` (App.tsx ~23165) pays a
-VARIABLE amount (`sectors×100` ryo, `sectors×2` seals Vanguard-only,
-`floor(sectors/3)` charms, `floor(sectors×2/25)` shards). Moving it server-side
-needs a NEW endpoint that computes `ownedVillageSectors` authoritatively from
-`world:territory:*` (like `clan/territory/collect-supply`), so the client can't
-fake the sector count. Separate follow-up.
+**Map-control half — DONE (this commit).** New endpoint
+`POST /api/village/claim-map-control` (`api/village/claim-map-control.ts`;
+registered in `server.ts`) owns BOTH halves the client used to compute:
+- **Sector count** — scans the canonical `world:territory:*` records and counts
+  `ownerVillage === village` (mirrors the client `villageOwnedTerritories`, like
+  `clan/territory/collect-supply` does for `ownerClan`), so the client can no
+  longer fake it.
+- **Payout** — the verbatim-ported `computeMapControlReward` (pure core
+  `api/_map-control-reward.ts` + `_map-control-reward.test.ts`, which asserts
+  server == client across every sector count 0..60 × vanguard/non-vanguard):
+  `ryo = sectors×100`, `honorSeals = vanguardOnlyHonorSeals(sectors×2)` (Vanguard
+  only), `boneCharms = floor(sectors/3)`, `fateShards = floor((sectors×2)/25)`.
+  Credited to the player's OWN save under `lock:save:<name>` (the autosave's
+  lock — option A) with an NX day-marker `map-control-personal:<player>:<date>`
+  placed atomically inside the lock — exactly-once, `failClosed` → 503/retry.
+  Zero owned sectors → 400 (no marker placed, so a later claim still works).
+
+Client (`claimMapControlRewards`, App.tsx) now `await`s the endpoint, adds the
+returned `granted` delta to its OWN balance (preserving concurrent ryo gains) and
+re-asserts via autosave (converges with the server write). The village-state
+`contributionPoints` credit stays client-side but uses the **server**-returned
+sector count, so it can't be inflated past the true owned count. As with the
+agenda half, the sanitizer stays PERMISSIVE for these currencies
+(`ryo`/`honorSeals`/`boneCharms`/`fateShards` have many other legit client
+sources — missions/raids/hunts — until later Stage-3 phases move those too); this
+phase closes the map-control claim-repeatedly / inflate-the-sector-count vector.
 
 ## Non-negotiables (per CLAUDE.md)
 
