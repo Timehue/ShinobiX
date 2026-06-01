@@ -228,11 +228,21 @@ but nothing prevents accidental production deploy.
 **Fix:** `#if DEBUG` / `IsDevelopment` guard around the `/api/*` maps, or isolate
 the project so it can't ship. (Confirm it isn't a deployed fallback first.)
 
-### #27 Supabase RLS exposure — ⚪ LOW (as-designed)
+### #27 Supabase RLS exposure — ⚪ LOW → ✅ VERIFIED-AND-DOCUMENTED (`<this run>`)
 `supabase-schema.sql`: anon SELECT limited to `pvp:%`, `cw-tilecards:%`,
-`challenges:%` (intended for Realtime). `authenticated` role has broad SELECT —
-relies on app-layer auth/projections (single failure point) but not anon-exposed.
-**Fix (optional):** per-player RLS on `save:%`; document the Realtime assumption.
+`challenges:%` (intended for Realtime).
+**Correction to the original note:** the `authenticated` role does NOT have an
+effective broad SELECT. It carries a `grant select`, but with RLS enabled and
+**no policy for `authenticated`**, deny-by-default returns it zero rows. `save:%`
+(and auth / IP / fingerprint rows) are therefore service-role-only — invisible to
+both anon and authenticated.
+**Re the proposed "per-player RLS on `save:%`":** N/A for this app — players use
+the game's own session-token auth, not Supabase Auth, so there is no `auth.uid()`
+to scope an owner policy on (browser is always `anon`, Realtime only).
+**Outcome:** verified + documented in the `supabase-schema.sql` header; no schema
+change. Latent footgun noted there (`grant select to authenticated` would expose
+rows only if RLS were ever disabled; `revoke` available as future hardening).
+Field redaction of the anon-readable prefixes stays app-layer (RLS is row-level).
 
 ### #28 Math.random security IDs — 🟠 REAL (selective)
 Auth-relevant (knowing the id grants access) → must be crypto:
