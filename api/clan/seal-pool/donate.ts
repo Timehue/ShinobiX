@@ -113,7 +113,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     dailyCap,
                 },
             };
-        });
+        }, { failClosed: true });
         return res.status(lockResult.status).json(lockResult.body);
     } catch (err) {
         console.error('[clan/seal-pool/donate]', err);

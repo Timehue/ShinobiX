@@ -86,6 +86,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(200).json({ ok: true, alreadyClaimed: true, treasury: (state?.treasury ?? {}) });
         }
 
+        // NOT failClosed (unlike the donate/transfer/collect endpoints): the NX
+        // marker above is the authoritative once-per-day idempotency guard and
+        // it's already consumed at this point. Throwing on lock contention would
+        // burn the marker without crediting → the player loses the day's reward.
+        // Falling through to run the fixed-amount credit unlocked is the safer
+        // choice; the only racy writers to this treasury (other agenda claims /
+        // donations) are themselves serialized, so the window is negligible.
         const treasury = await withKvLock(villageStateKey, async () => {
             const state = (await kv.get<Record<string, unknown>>(villageStateKey)) ?? {};
             const prevT = (state.treasury ?? {}) as Record<string, unknown>;
