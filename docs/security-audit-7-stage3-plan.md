@@ -426,11 +426,24 @@ they stay client-side (kills = Phase 5; the rest are their own systems).
   `pvp:rewarded:<player>:<battleId>` receipt — a ranked win credits rating + ryo/xp
   exactly-once, failClosed → 503/retry. **No-op until the client sends
   `baseRewards:true`** (none does yet), so the ranked + casual paths are
-  byte-for-byte unchanged. Suite 218/218; tsc clean.
-- **Remaining:** activate (client sends `baseRewards`+`rewardSector` at the two
-  ranked-capable session-create sites) → read-back (thread returned ryo/xp/level)
-  → (later, gated) the sanitizer is NOT tightened this phase (ryo/xp/level have
-  other client sources until Phase 4).
+  byte-for-byte unchanged. Suite 218/218; tsc clean. (Pushed `66916e1`.)
+- **Step 4 ACTIVATE (client) — DONE (this commit).** All FIVE PvP session-create
+  sites that route to `PvpBattleScreen` → `handlePvpWin` now send
+  `baseRewards:true` + the matching `rewardSector` (correction to the earlier
+  "two ranked-capable sites" note — every PvpBattleScreen win grants base ryo/xp,
+  not just ranked, so all five activate): `acceptChallengeGlobal` + Arena
+  `acceptChallenge` (rewardSector=`currentSector`), the sector attack
+  (`currentSector`), `startPvpRaid` (the raid's `sector`), and the village-guard
+  raid (`virtualSector`) — each mirrors `handlePvpWin`'s `context?.sector ??
+  currentSector`. Convergence-safe: `handlePvpWin` STILL self-applies the same
+  `gainXp`+ryo from the same base, so the server credit and the client autosave
+  converge (single credit, no double — the client overwrites with the full state
+  rather than adding to the server value). The inline no-session `BattleScreen`
+  fallback is untouched (no server session → no server credit, as before).
+- **Remaining:** read-back (thread the returned ryo/xp/level so the client
+  displays the server value, falling back to the local compute on a 503/offline
+  claim) → the sanitizer is NOT tightened this phase (ryo/xp/level have other
+  client sources until Phase 4).
 
 ## Non-negotiables (per CLAUDE.md)
 
