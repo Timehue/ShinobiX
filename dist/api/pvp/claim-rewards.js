@@ -7,6 +7,7 @@ const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
 const _ranked_rating_js_1 = require("../_ranked-rating.js");
+const _xp_engine_js_1 = require("../_xp-engine.js");
 // Session-replay window — must roughly match SESSION_REPLAY_WINDOW_MS in
 // report-pvp-win.ts. A battleId older than this can't be claimed even if
 // somebody dredges it out of browser history.
@@ -88,26 +89,36 @@ async function handler(req, res) {
             });
         }
         const key = claimKey(playerName, battleId);
-        // ── Ranked path (audit #7 / Stage 3) ────────────────────────────────
-        // When the session was stamped ranked at creation, the SERVER owns the
-        // rating change: compute it from the session's pre-match Elo snapshot +
-        // the server-verified winner, credit the caller's save, and return the
-        // new rating so the client displays it instead of computing its own
-        // delta. Skip draws (the Elo formula is win/loss only). The receipt is
-        // placed INSIDE the save lock together with the rating write, so the
-        // credit + the "already claimed" gate are atomic — a contention abort
-        // (failClosed → 503) leaves NOTHING placed, so a retry credits cleanly
-        // without ever double-crediting.
+        // ── Server-credited paths (audit #7 / Stage 3) ─────────────────────
+        // Two server-authoritative credits can apply to a claim:
+        //   • RANKED rating (Phase 1) — when the session was stamped ranked at
+        //     creation, the SERVER owns the rating change (computed from the
+        //     pre-match Elo snapshot + the server-verified winner). Draws skip
+        //     (the Elo formula is win/loss only).
+        //   • BASE ryo + XP (Phase 3) — when the session was stamped baseRewards
+        //     AND this is the WINNER's claim. The amount comes from the verbatim
+        //     gainXp port computed on the winner's full save (pet trait + elder
+        //     focus + exam gates), with the Death's Gate (sector 99) 2× bonus
+        //     keyed off the session's stamped rewardSector. Loser/draw earn none.
+        // When either applies we take the save lock ONCE, place the receipt, and
+        // apply BOTH credits in a single atomic write keyed by the same NX
+        // receipt — a ranked win credits rating + ryo/xp exactly-once, and a
+        // contention abort (failClosed → 503) leaves NOTHING placed so a retry
+        // credits cleanly without ever double-crediting. A casual,
+        // non-baseRewards session keeps the byte-for-byte unchanged NX-only path
+        // below, so this is a no-op until a client opts a session into either.
         const isRankedClaim = session.ranked === true &&
             (session.rankedKind === 'player' || session.rankedKind === 'pet') &&
             (session.winner === 'p1' || session.winner === 'p2');
-        if (isRankedClaim) {
+        const creditBase = session.baseRewards === true && outcome === 'win';
+        if (isRankedClaim || creditBase) {
+            const saveKey = `save:${callerLower}`;
+            // Ranked params — only consulted when isRankedClaim.
             const kind = session.rankedKind;
             const ratingField = kind === 'pet' ? 'petRankedRating' : 'rankedRating';
             const winnerRating = Number((session.winner === 'p1' ? session.p1Rating : session.p2Rating) ?? 1000);
             const loserRating = Number((session.winner === 'p1' ? session.p2Rating : session.p1Rating) ?? 1000);
             const role = outcome === 'win' ? 'winner' : 'loser';
-            const saveKey = `save:${callerLower}`;
             try {
                 const out = await (0, _lock_js_1.withKvLock)(saveKey, async () => {
                     const placed = await _storage_js_1.kv.set(key, { outcome, ts: Date.now() }, { nx: true, ex: CLAIM_TTL_SECONDS });
@@ -115,24 +126,60 @@ async function handler(req, res) {
                     const record = await _storage_js_1.kv.get(saveKey);
                     const char = (record?.character ?? null);
                     if (!record || !char)
-                        return { already, rating: undefined };
-                    const r = (0, _ranked_rating_js_1.creditRankedOutcome)(char, { role, winnerRating, loserRating, kind });
-                    if (!already) {
-                        const nextChar = { ...char, ...r.patch };
-                        await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)({ ...record, character: nextChar }, record));
-                        return { already, rating: { field: ratingField, value: r.newRating, delta: r.delta } };
+                        return { already, rating: undefined, base: undefined };
+                    let nextChar = { ...char };
+                    let rating;
+                    let base;
+                    if (isRankedClaim) {
+                        const r = (0, _ranked_rating_js_1.creditRankedOutcome)(nextChar, { role, winnerRating, loserRating, kind });
+                        if (!already)
+                            nextChar = { ...nextChar, ...r.patch };
+                        // First call → the freshly computed value; re-claim →
+                        // the stored value (falling back to computed on garbage).
+                        const cur = Number(char[ratingField]);
+                        rating = { field: ratingField, value: already ? (Number.isFinite(cur) ? cur : r.newRating) : r.newRating, delta: r.delta };
                     }
-                    // Already credited on a prior call — report the stored value.
-                    const cur = Number(char[ratingField]);
-                    return { already, rating: { field: ratingField, value: Number.isFinite(cur) ? cur : r.newRating, delta: r.delta } };
+                    if (creditBase) {
+                        // Gains depend only on pets + the stamped sector, so read
+                        // them from the original save; apply gainXp to nextChar so
+                        // a ranked rating patch above is preserved.
+                        const { xpGain, ryoGain } = (0, _xp_engine_js_1.computePvpWinGains)(char, session.rewardSector);
+                        if (!already) {
+                            const credit = (0, _xp_engine_js_1.creditPvpWinBase)(nextChar, xpGain, ryoGain);
+                            nextChar = credit.char;
+                            base = credit.summary;
+                        }
+                        else {
+                            // Already credited on a prior call — report stored values.
+                            base = {
+                                ryo: Number(char.ryo) || 0,
+                                xp: Number(char.xp) || 0,
+                                level: Number(char.level) || 0,
+                                rankTitle: typeof char.rankTitle === 'string' ? char.rankTitle : '',
+                                maxHp: Number(char.maxHp) || 0,
+                                maxChakra: Number(char.maxChakra) || 0,
+                                maxStamina: Number(char.maxStamina) || 0,
+                                unspentStats: Number(char.unspentStats) || 0,
+                            };
+                        }
+                    }
+                    if (!already) {
+                        await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)({ ...record, character: nextChar }, record));
+                    }
+                    return { already, rating, base };
                 }, { failClosed: true });
-                return res.status(200).json({ ok: true, alreadyClaimed: out.already, ...(out.rating ? { rating: out.rating } : {}) });
+                return res.status(200).json({
+                    ok: true,
+                    alreadyClaimed: out.already,
+                    ...(out.rating ? { rating: out.rating } : {}),
+                    ...(out.base ? { base: out.base } : {}),
+                });
             }
-            catch (rankedErr) {
+            catch (creditErr) {
                 // Lock contention/outage (failClosed) — receipt NOT placed, so
                 // the client can safely retry. 503 signals "transient, retry".
-                console.error('[pvp/claim-rewards] ranked credit failed', rankedErr);
-                return res.status(503).json({ error: 'Could not record ranked result — please retry.' });
+                console.error('[pvp/claim-rewards] server credit failed', creditErr);
+                return res.status(503).json({ error: 'Could not record battle result — please retry.' });
             }
         }
         // ── Casual path (unchanged) ─────────────────────────────────────────
