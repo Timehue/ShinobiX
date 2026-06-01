@@ -12,6 +12,30 @@
 --     else (player saves, auth, IP/fingerprint maps, presence, etc.)
 --     stays invisible to the anon role.
 -- ============================================================
+--
+-- Security posture — audit item #27 (verified-and-documented; no change needed)
+-- ------------------------------------------------------------
+-- "Per-player RLS so a logged-in user can only SELECT their own save:<name>"
+-- does NOT apply to this app and is intentionally NOT implemented:
+--   * Players do NOT authenticate via Supabase Auth — the game uses its own
+--     password / session-token auth (see api/_auth.ts). The browser is always
+--     the `anon` role; there is no Supabase `authenticated` user and no
+--     auth.uid() to scope a per-row "owner" policy on.
+--   * `save:%` rows are ALREADY service-role-only: they are not in the anon
+--     SELECT allowlist below, and the `authenticated` role has NO policy, so
+--     RLS denies it every row by default (the `grant select` to authenticated
+--     is neutralised by deny-by-default — it only reads rows a policy permits,
+--     and none exists for it).
+--   * Field-level redaction of the anon-readable prefixes (pvp/cw-tilecards/
+--     challenges) is done in the app layer — RLS is row-level and cannot
+--     project inside the `value` jsonb. See the PvP/guard projection helpers.
+-- Latent footgun (left as-is; revoke is available as future defense-in-depth):
+--   the `grant select on kv_store to authenticated` below is harmless WHILE RLS
+--   is enabled, but would expose all rows to any authenticated session if RLS
+--   were ever turned off. The app never uses the authenticated role, so
+--   `revoke select on public.kv_store from authenticated;` is a safe hardening
+--   to apply later. Not applied here to avoid an unreviewed schema change.
+-- ============================================================
 
 -- ── Core table ───────────────────────────────────────────────────────────────
 

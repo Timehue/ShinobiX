@@ -15,14 +15,16 @@ the **what's-done / what's-left + how-to**.
    - 🔴 **Rotate the leaked secrets** (dashboards) — see "Open: secrets" below.
    - **Optional git history purge** — runbook below; do NOT run in-place.
 3. **Remaining CODE work:** #5 DONE (`cf80b50`), #16+#17 DONE (`bf37f0b`),
-   **#14 step 1 (telemetry) DONE** (this run). Still open:
+   **#14 step 1 (telemetry) DONE**, **#27 CLOSED** (verified service-role-only +
+   documented; per-player RLS N/A for this auth model). Still open — both
+   **gated on real-world rollout signal**, not ready to ship yet:
    - **#14 step 2** — make `_baseSaveVersion` mandatory, once the
      `telemetry:save-noversion:<date>` daily counter stays ~0.
    - **#16/#17 follow-up** — lock the clan/village validators to reject treasury
      *increases* via the save blob now that the atomic endpoints exist (only
      after the migrated client has rolled out, or stale tabs break).
-   - **#27** — Supabase RLS for `save:` rows (schema; needs approval).
-   Each wants its own plan + explicit user sign-off (balance/auth/schema-sensitive).
+   Optional, anytime: the #27 `revoke select … from authenticated` hardening
+   (needs approval). Each wants explicit user sign-off (balance/auth/schema).
 4. **Hard rules still apply** (see CLAUDE.md): no payout/rate/formula changes
    without explicit ask; keep Vercel + cPanel in sync; never edit `dist/` as
    source — fix TS, `npm run build`, commit the rebuilt dist; always run
@@ -169,14 +171,26 @@ Raw password is still persisted as the fallback credential, but the per-request
 path is now token-first (no scrypt). If you want to fully stop persisting the
 raw password, that's a further step on top of this.
 
-### #27 — Supabase RLS for `save:` rows  (LARGER, schema)
-- File: `supabase-schema.sql`. Triage rated this LOW (anon is already restricted
-  to `pvp:%`, `cw-tilecards:%`, `challenges:%`).
-- Now: the `authenticated` role has broad SELECT; protection relies on app-layer
-  projections (single failure point).
-- Direction: per-player RLS so a logged-in user can only SELECT their own
-  `save:<name>`. **Do NOT change schema without approval** (CLAUDE.md hard rule)
-  and test against live realtime subscriptions, which depend on the anon allowlist.
+### ✅ #27 — Supabase RLS for `save:` rows — CLOSED (verified + documented, this run)
+- File: `supabase-schema.sql` (header "Security posture — audit item #27").
+- Verified: `save:%` (+ auth / IP / fingerprint rows) are **already service-role-
+  only**. The anon SELECT policy allows only `pvp:%` / `cw-tilecards:%` /
+  `challenges:%`; the `authenticated` role has **no policy**, so RLS denies it
+  every row by default (the triage's "broad SELECT" was the grant, neutralised by
+  deny-by-default — not effective access).
+- The proposed "per-player RLS on `save:%`" is **N/A**: players use the game's own
+  session-token auth, not Supabase Auth → the browser is always `anon` (Realtime
+  only), so there's no `auth.uid()` to scope an owner policy on. Implementing it
+  would require migrating auth into Supabase Auth (out of scope; #5 already did
+  app-side tokens).
+- **No schema change made** (user chose verify-and-document). Documented the
+  posture + the rationale in the schema header and corrected the triage note.
+- **Optional future hardening (needs approval, idempotent):**
+  `revoke select on public.kv_store from authenticated;` — kills the latent "if
+  RLS is ever disabled, authenticated sees everything" footgun (the app never uses
+  that role). Left unapplied to avoid an unreviewed schema change; if applied, do
+  NOT touch the anon SELECT/policy (live Realtime: PvP / clan-war duels / challenge
+  inbox depend on it) and re-test those after.
 
 ---
 
