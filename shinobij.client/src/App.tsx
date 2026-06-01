@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect, react-hooks/purity */
 import type * as React from "react";
 import "./index.css";
-import { installAuthFetch, setActivePlayer } from "./authFetch";
+import { installAuthFetch, setActivePlayer, setActiveToken } from "./authFetch";
 import { GameAlertHost } from "./components/GameAlert";
 import { subscribeKvKey, realtimeAvailable } from "./lib/realtime";
 import {
@@ -6641,6 +6641,10 @@ export default function App() {
                 alert("Could not create the server account. Try again.");
                 return;
             }
+            // Capture the session token from registration so the first
+            // requests use the cheap HMAC path right away.
+            const regData = await authRes.json().catch(() => null) as { token?: string } | null;
+            if (regData?.token) setActiveToken(regData.token);
         } catch {
             alert("Could not reach the server to create the account. Check your connection and try again.");
             return;
@@ -6651,6 +6655,7 @@ export default function App() {
         savePlayerAccounts(accounts);
         // Pass the password so the global authFetch interceptor can attach
         // x-player-name / x-player-password to every /api/ request from now on.
+        // (The token captured above is preferred; password is the fallback.)
         setActivePlayer(newCharacter.name, password);
 
         setCurrentAccountName(newCharacter.name);
@@ -6771,10 +6776,13 @@ export default function App() {
                     return;
                 }
                 if (authRes.ok) {
-                    const authData = await authRes.json() as { ok: boolean; legacy?: boolean };
+                    const authData = await authRes.json() as { ok: boolean; legacy?: boolean; token?: string };
                     authOk = authData.ok;
                     legacy = authData.legacy ?? false;
                     authVerified = true;
+                    // Store the session token so every later /api/ request uses
+                    // the cheap HMAC path instead of re-running scrypt server-side.
+                    if (authData.ok && authData.token) setActiveToken(authData.token);
                 } else {
                     // Non-retriable HTTP error — stop
                     authVerified = true;
