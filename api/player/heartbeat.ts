@@ -45,14 +45,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).end();
 
-    // 30/min per player heartbeat. Use the KV-backed limiter so the window
-    // is authoritative across all Vercel lambda instances. The previous
-    // in-process limiter let a player triggering parallel invocations
-    // (cold-start fan-out) blow past the 30/min cap on individual instances,
-    // which let the IP/fingerprint capture in this handler be hammered.
+    // 90/min per player heartbeat. The client beats once per second on the
+    // exploring/combat screens (= 60/min), so the cap must sit above 60 with
+    // headroom for clock jitter, retries, and the occasional double-fire on a
+    // remount; 90 gives ~1.5x margin without opening the abuse window wide.
+    // KV-backed so the window is authoritative across all Vercel lambda
+    // instances — the previous in-process limiter let a player triggering
+    // parallel invocations (cold-start fan-out) blow past the cap on individual
+    // instances, which let the IP/fingerprint capture in this handler be hammered.
     const bodyPeek = typeof req.body === 'string' ? (() => { try { return JSON.parse(req.body); } catch { return {}; } })() : (req.body ?? {});
     const peekName: string | undefined = typeof bodyPeek?.name === 'string' ? bodyPeek.name : undefined;
-    if (!(await enforceRateLimitKv(req, res, 'heartbeat', 30, 60_000, peekName))) return;
+    if (!(await enforceRateLimitKv(req, res, 'heartbeat', 90, 60_000, peekName))) return;
 
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
@@ -160,9 +163,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const ch = c as Record<string, unknown> | null;
             return {
                 name: n, sector: s,
-                // Only include the avatar — full stats/jutsu/inventory are fetched fresh via
-                // fetchPlayerCombatSave() at attack/challenge time, so the full blob is wasteful here.
-                character: { avatarImage: (ch?.avatarImage as string) ?? '' },
+                // Avatar image is intentionally NOT sent here. It used to ride along as a
+                // base64 data URL on every record — but presence responses include up to
+                // ~100 players and fire as often as once per second, so broadcasting the
+                // blob was by far the largest egress cost (it dwarfed everything else).
+                // The client resolves avatars from its name-keyed cache
+                // (sharedImages['avatar:<name>'], hydrated from /api/images?cat=avatar) and
+                // every avatar render site already falls back to that cache first, so
+                // dropping it here is visually transparent. Full stats/jutsu/inventory are
+                // still fetched fresh via fetchPlayerCombatSave() at attack/challenge time.
+                character: { avatarImage: '' },
                 level: ch?.level ?? 1,
                 village: ch?.village ?? '',
                 specialty: ch?.specialty ?? 'Ninjutsu',
