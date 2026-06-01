@@ -31,8 +31,8 @@ the **what's-done / what's-left + how-to**.
      same path and would be deleted. Caps remain the bound; full close needs a
      #7-class server-authoritative-rewards refactor. (Client IS deployed on
      Vercel — cPanel/theravensark is storage-only, never player-facing.)
-   Optional, anytime: the #27 `revoke select … from authenticated` hardening
-   (needs approval). Each wants explicit user sign-off (balance/auth/schema).
+   The #27 `revoke select … from authenticated` hardening is now **APPLIED**
+   (2026-06-01, user-approved). Remaining items each want explicit sign-off.
 4. **Hard rules still apply** (see CLAUDE.md): no payout/rate/formula changes
    without explicit ask; keep Vercel + cPanel in sync; never edit `dist/` as
    source — fix TS, `npm run build`, commit the rebuilt dist; always run
@@ -243,14 +243,17 @@ raw password, that's a further step on top of this.
   only), so there's no `auth.uid()` to scope an owner policy on. Implementing it
   would require migrating auth into Supabase Auth (out of scope; #5 already did
   app-side tokens).
-- **No schema change made** (user chose verify-and-document). Documented the
-  posture + the rationale in the schema header and corrected the triage note.
-- **Optional future hardening (needs approval, idempotent):**
-  `revoke select on public.kv_store from authenticated;` — kills the latent "if
-  RLS is ever disabled, authenticated sees everything" footgun (the app never uses
-  that role). Left unapplied to avoid an unreviewed schema change; if applied, do
-  NOT touch the anon SELECT/policy (live Realtime: PvP / clan-war duels / challenge
-  inbox depend on it) and re-test those after.
+- Documented the posture + rationale in the schema header and corrected the
+  triage note.
+- **Defense-in-depth hardening — APPLIED 2026-06-01 (user-approved).** Migration
+  `harden_kv_store_revoke_authenticated_select` ran `revoke select on
+  public.kv_store from authenticated;` on prod (`soaychxshtbgwujhytsf`), and
+  `supabase-schema.sql` no longer re-grants select to `authenticated` (the
+  `revoke all … from authenticated` stands alone). Verified post-apply: the
+  `authenticated` grant is gone; the `anon` SELECT grant + `kv_store_anon_select`
+  policy + RLS are untouched, so live Realtime (PvP / clan-war duels / challenge
+  inbox) is unaffected. Reverse with `grant select on public.kv_store to
+  authenticated;` if ever needed.
 
 ---
 
