@@ -14523,25 +14523,48 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
             setResult(myResult === "win" ? "Victory" : myResult === "draw" ? "Draw" : "Defeat");
             const myRating = character.petRankedRating ?? 1000;
             const oppRating = opponent.opponentRating ?? 1000;
+            // Read-back + activation (audit #7 / Stage 3): the SERVER owns the
+            // petRankedRating swing. Report the outcome to /api/pet/battle-result
+            // (ranked) — which credits the rating under a save lock with an NX
+            // receipt keyed by `${seed}:ranked` (exactly-once) — and read the
+            // returned rating back as the authoritative value, falling back to
+            // the local rankedDelta if the call fails (offline/503) so the rating
+            // still updates. The W/L + lifetime pet counters stay LOCAL: they
+            // converge (server credits +1 from the same base, and only touches
+            // petRankedRating + petRankedWins/Losses). The shared, stable
+            // battleSeed makes reportKey refresh-replay-safe; ranked pet battles
+            // are intentionally NOT persisted for resume (see acceptPetChallenge),
+            // so this effect fires once and can't double the local counters.
+            const reportRankedPet = (outcome: "win" | "loss", fallbackRating: number, counters: Partial<Character>) => {
+                void (async () => {
+                    let newRating = fallbackRating;
+                    try {
+                        const r = await fetch("/api/pet/battle-result", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ playerName: character.name, outcome, ranked: true, opponentName: opponent.owner, opponentLevel: opponent.pet.level, reportKey: `${seed}:ranked` }),
+                        });
+                        if (r.ok) {
+                            const data = await r.json() as { rating?: { field: string; value: number } };
+                            if (data.rating?.field === "petRankedRating" && Number.isFinite(data.rating.value)) newRating = data.rating.value;
+                        }
+                    } catch { /* offline → keep the local fallback */ }
+                    updateCharacter({ ...character, ...counters, petRankedRating: newRating, pets: clearConsumablePets([myPet.id]) });
+                })();
+            };
             if (myResult === "win") {
                 const gain = rankedDelta(myRating, oppRating);
-                updateCharacter({
-                    ...character,
-                    petRankedRating: myRating + gain,
+                reportRankedPet("win", myRating + gain, {
                     petRankedWins: (character.petRankedWins ?? 0) + 1,
                     totalPetWins: (character.totalPetWins ?? 0) + 1,
                     dailyPetWins: (character.dailyPetWins ?? 0) + 1,
                     lastDailyReset: currentDateKey(),
-                    pets: clearConsumablePets([myPet.id]),
                 });
                 setBattleLog([...sim.logs, `🏆 Ranked pet victory! +${gain} Elo — now ${myRating + gain}.`]);
             } else if (myResult === "loss") {
                 const drop = rankedDelta(oppRating, myRating);
-                updateCharacter({
-                    ...character,
-                    petRankedRating: Math.max(0, myRating - drop),
+                reportRankedPet("loss", Math.max(0, myRating - drop), {
                     petRankedLosses: (character.petRankedLosses ?? 0) + 1,
-                    pets: clearConsumablePets([myPet.id]),
                 });
                 setBattleLog([...sim.logs, `Ranked pet defeat. -${drop} Elo — now ${Math.max(0, myRating - drop)}.`]);
             } else {
