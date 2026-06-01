@@ -66,7 +66,6 @@ import {
     getItemById,
     itemDisplayName,
     cleanTreasuryItems,
-    addTreasuryItem,
     removeTreasuryItem,
     addInventoryItems,
     removeInventoryItems,
@@ -2618,6 +2617,50 @@ async function patchPlayerSaveCharacter(playerName: string, mutate: (character: 
         return saveRes.ok;
     } catch {
         return false;
+    }
+}
+
+type TreasuryDonationBody =
+    | { currency: string; amount: number }
+    | { itemId: string; count?: number };
+
+// Atomic clan-treasury donation. Debits the donor AND credits the clan
+// treasury server-side under dual locks (api/clan/treasury/donate.ts), closing
+// the old "credit treasury without a matching debit" gap. Returns the
+// server-credited treasury (clan XP / clanEventContrib are still applied
+// client-side on top of it), or null on failure (alerts the player).
+async function postClanTreasuryDonation(playerName: string, clan: string, donation: TreasuryDonationBody): Promise<Record<string, unknown> | null> {
+    try {
+        const res = await fetch("/api/clan/treasury/donate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ playerName, clan, ...donation }),
+        });
+        const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; treasury?: Record<string, unknown> };
+        if (!res.ok || !data.ok || !data.treasury) { alert(data.error || "Donation failed. Please try again."); return null; }
+        return data.treasury;
+    } catch {
+        alert("Donation failed. Please try again.");
+        return null;
+    }
+}
+
+// Atomic village-treasury donation — village twin of the clan helper above
+// (api/village/treasury/donate.ts). Returns the server-credited treasury
+// (contributionPoints / notice stay client-side), or null on failure.
+async function postVillageTreasuryDonation(playerName: string, village: string, donation: TreasuryDonationBody): Promise<Record<string, unknown> | null> {
+    try {
+        const res = await fetch("/api/village/treasury/donate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ playerName, village, ...donation }),
+        });
+        const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; treasury?: Record<string, unknown> };
+        if (!res.ok || !data.ok || !data.treasury) { alert(data.error || "Donation failed. Please try again."); return null; }
+        return data.treasury;
+    } catch {
+        alert("Donation failed. Please try again.");
+        return null;
     }
 }
 
@@ -21768,28 +21811,36 @@ function ClanHall({ character, updateCharacter, creatorItems, setScreen }: { cha
     }
     async function donateRyo() {
         if (!clanData) return; const amount = Math.max(1, Math.floor(donation)); if (character.ryo < amount) return alert("Not enough ryo.");
-        await saveClan(addClanXp({ ...clanData, treasury: { ...clanData.treasury, ryo: clanData.treasury.ryo + amount } }, Math.floor(amount / 35)));
+        const treasury = await postClanTreasuryDonation(character.name, clanData.name, { currency: "ryo", amount });
+        if (!treasury) return;
+        await saveClan(addClanXp({ ...clanData, treasury: cleanClanTreasury(treasury as Partial<ClanTreasury>) }, Math.floor(amount / 35)));
         updateCharacter({ ...character, ryo: character.ryo - amount, clanEventContrib: (character.clanEventContrib ?? 0) + Math.max(1, Math.floor(amount / 1000)) });
     }
     async function donateSpecial(currency: Exclude<ClanTreasuryCurrencyKey, "ryo">, amount: number) {
         if (!clanData) return; const current = character[currency] ?? 0; if (current < amount) return alert(`Not enough ${currency}.`);
-        await saveClan(addClanXp({ ...clanData, treasury: { ...clanData.treasury, [currency]: clanData.treasury[currency] + amount } }, amount * 200));
+        const treasury = await postClanTreasuryDonation(character.name, clanData.name, { currency, amount });
+        if (!treasury) return;
+        await saveClan(addClanXp({ ...clanData, treasury: cleanClanTreasury(treasury as Partial<ClanTreasury>) }, amount * 200));
         updateCharacter({ ...character, [currency]: current - amount, clanEventContrib: (character.clanEventContrib ?? 0) + amount } as Character);
     }
     async function donateClanItem() {
         if (!clanData) return;
         if (!clanDonateItemId) return alert("Choose an item to donate.");
         if (!character.inventory.includes(clanDonateItemId)) return alert("You do not have that item.");
+        const treasury = await postClanTreasuryDonation(character.name, clanData.name, { itemId: clanDonateItemId });
+        if (!treasury) return;
         const nextInventory = [...character.inventory];
         nextInventory.splice(nextInventory.indexOf(clanDonateItemId), 1);
-        await saveClan(addClanXp({ ...clanData, treasury: { ...clanData.treasury, items: addTreasuryItem(clanData.treasury.items, clanDonateItemId) } }, 50));
+        await saveClan(addClanXp({ ...clanData, treasury: cleanClanTreasury(treasury as Partial<ClanTreasury>) }, 50));
         updateCharacter({ ...character, inventory: nextInventory, clanEventContrib: (character.clanEventContrib ?? 0) + 1 });
     }
     async function donateAllTerritoryScrollsToClan() {
         if (!clanData) return;
         const count = territoryScrollCount(character);
         if (count <= 0) return alert("You do not have any Territory Control Scrolls.");
-        await saveClan(addClanXp({ ...clanData, treasury: { ...clanData.treasury, items: addTreasuryItem(clanData.treasury.items, TERRITORY_CONTROL_SCROLL_ID, count) } }, count * 20));
+        const treasury = await postClanTreasuryDonation(character.name, clanData.name, { itemId: TERRITORY_CONTROL_SCROLL_ID, count });
+        if (!treasury) return;
+        await saveClan(addClanXp({ ...clanData, treasury: cleanClanTreasury(treasury as Partial<ClanTreasury>) }, count * 20));
         updateCharacter({ ...character, inventory: removeTerritoryScrolls(character, count), clanEventContrib: (character.clanEventContrib ?? 0) + count });
         alert(`Donated ${count} Territory Control Scroll${count === 1 ? "" : "s"} to the clan hall.`);
     }
@@ -22716,15 +22767,31 @@ function TownHall({ character, updateCharacter, creatorItems, allServerPlayers, 
         updateCharacter({ ...character, honorSeals: (character.honorSeals ?? 0) - cost });
         updateVillageState(addNotice(`${character.name} broke the Hollow Gate seal for ${cost.toLocaleString()} Honor Seals. The shrine has revealed itself on the World Map.`, { ...state, hollowGateUnlocked: true, contributionPoints: state.contributionPoints + 25 }));
     }
-    function donateVillageRyo() { const amount = Math.max(1, Math.floor(donation)); if (character.ryo < amount) return alert("Not enough ryo."); updateCharacter({ ...character, ryo: character.ryo - amount }); updateVillageState(addNotice(`${character.name} donated ${amount.toLocaleString()} ryo to the village treasury.`, { ...state, treasury: { ...state.treasury, ryo: state.treasury.ryo + amount }, contributionPoints: state.contributionPoints + Math.max(1, Math.floor(amount / 1000)) })); }
-    function donateVillageSpecial(currency: Exclude<VillageTreasuryCurrencyKey, "ryo">) { const current = character[currency] ?? 0; if (current < 1) return alert(`Not enough ${currency}.`); updateCharacter({ ...character, [currency]: current - 1 } as Character); updateVillageState(addNotice(`${character.name} donated 1 ${currency} to the village treasury.`, { ...state, treasury: { ...state.treasury, [currency]: state.treasury[currency] + 1 }, contributionPoints: state.contributionPoints + 5 })); }
-    function donateVillageItem() {
+    async function donateVillageRyo() {
+        const amount = Math.max(1, Math.floor(donation));
+        if (character.ryo < amount) return alert("Not enough ryo.");
+        const treasury = await postVillageTreasuryDonation(character.name, character.village, { currency: "ryo", amount });
+        if (!treasury) return;
+        updateCharacter({ ...character, ryo: character.ryo - amount });
+        updateVillageState(addNotice(`${character.name} donated ${amount.toLocaleString()} ryo to the village treasury.`, { ...state, treasury: cleanVillageTreasury(treasury as Partial<VillageTreasury>), contributionPoints: state.contributionPoints + Math.max(1, Math.floor(amount / 1000)) }));
+    }
+    async function donateVillageSpecial(currency: Exclude<VillageTreasuryCurrencyKey, "ryo">) {
+        const current = character[currency] ?? 0;
+        if (current < 1) return alert(`Not enough ${currency}.`);
+        const treasury = await postVillageTreasuryDonation(character.name, character.village, { currency, amount: 1 });
+        if (!treasury) return;
+        updateCharacter({ ...character, [currency]: current - 1 } as Character);
+        updateVillageState(addNotice(`${character.name} donated 1 ${currency} to the village treasury.`, { ...state, treasury: cleanVillageTreasury(treasury as Partial<VillageTreasury>), contributionPoints: state.contributionPoints + 5 }));
+    }
+    async function donateVillageItem() {
         if (!villageDonateItemId) return alert("Choose an item to donate.");
         if (!character.inventory.includes(villageDonateItemId)) return alert("You do not have that item.");
+        const treasury = await postVillageTreasuryDonation(character.name, character.village, { itemId: villageDonateItemId });
+        if (!treasury) return;
         const nextInventory = [...character.inventory];
         nextInventory.splice(nextInventory.indexOf(villageDonateItemId), 1);
         updateCharacter({ ...character, inventory: nextInventory });
-        updateVillageState(addNotice(`${character.name} donated ${itemDisplayName(villageDonateItemId, allVillageItems)} to the village treasury.`, { ...state, treasury: { ...state.treasury, items: addTreasuryItem(state.treasury.items, villageDonateItemId) }, contributionPoints: state.contributionPoints + 5 }));
+        updateVillageState(addNotice(`${character.name} donated ${itemDisplayName(villageDonateItemId, allVillageItems)} to the village treasury.`, { ...state, treasury: cleanVillageTreasury(treasury as Partial<VillageTreasury>), contributionPoints: state.contributionPoints + 5 }));
     }
     async function sendVillageCurrency() {
         if (!isSeatedKage) return alert("Only the seated Kage can send village treasury resources.");
