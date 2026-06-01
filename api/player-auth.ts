@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from './_storage.js';
 import { cors } from './_utils.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
-import { safeEqual } from './_auth.js';
+import { safeEqual, issuePlayerToken } from './_auth.js';
 import { getActiveBan, recordClientIp, clientIpFrom, recordClientFingerprint, clientFpFrom } from './admin/moderation.js';
 import crypto from 'crypto';
 
@@ -195,7 +195,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             console.error('[player-auth register]', String(err));
             return res.status(503).json({ ok: false, error: 'Storage unavailable. Try again.' });
         }
-        return res.status(200).json({ ok: true });
+        // Issue a session token so the client can use the cheap token path
+        // immediately instead of re-sending the password (and re-running
+        // scrypt server-side) on every subsequent request. null when
+        // SESSION_SECRET is unset — client then keeps using the password.
+        return res.status(200).json({ ok: true, token: issuePlayerToken(name) ?? undefined });
     }
 
     if (action === 'verify') {
@@ -248,7 +252,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const fp = clientFpFrom(req);
         if (fp) void recordClientFingerprint(name, fp);
 
-        return res.status(200).json({ ok: true });
+        // Mint a session token so subsequent requests use the cheap HMAC path
+        // instead of re-running scrypt on every call. null → SESSION_SECRET
+        // unset, client falls back to the password path transparently.
+        return res.status(200).json({ ok: true, token: issuePlayerToken(name) ?? undefined });
     }
 
     if (action === 'change') {
@@ -262,14 +269,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // Legacy account with no password yet — just set it.
                 const salt = newSalt();
                 await kv.set(key, { hash: hashPw(newPassword, salt), salt });
-                return res.status(200).json({ ok: true });
+                return res.status(200).json({ ok: true, token: issuePlayerToken(name) ?? undefined });
             }
             if (!verifyAgainst(record, oldPassword)) {
                 return res.status(401).json({ ok: false, error: 'Incorrect current password.' });
             }
             const salt = newSalt();
             await kv.set(key, { hash: hashPw(newPassword, salt), salt });
-            return res.status(200).json({ ok: true });
+            return res.status(200).json({ ok: true, token: issuePlayerToken(name) ?? undefined });
         } catch (err) {
             console.error('[player-auth change]', String(err));
             return res.status(503).json({ ok: false, error: 'Storage unavailable. Try again.' });

@@ -185,7 +185,11 @@ async function handler(req, res) {
             console.error('[player-auth register]', String(err));
             return res.status(503).json({ ok: false, error: 'Storage unavailable. Try again.' });
         }
-        return res.status(200).json({ ok: true });
+        // Issue a session token so the client can use the cheap token path
+        // immediately instead of re-sending the password (and re-running
+        // scrypt server-side) on every subsequent request. null when
+        // SESSION_SECRET is unset — client then keeps using the password.
+        return res.status(200).json({ ok: true, token: (0, _auth_js_1.issuePlayerToken)(name) ?? undefined });
     }
     if (action === 'verify') {
         // Verify a password. Returns { ok: true } on match, { ok: false } on mismatch,
@@ -239,7 +243,10 @@ async function handler(req, res) {
         const fp = (0, moderation_js_1.clientFpFrom)(req);
         if (fp)
             void (0, moderation_js_1.recordClientFingerprint)(name, fp);
-        return res.status(200).json({ ok: true });
+        // Mint a session token so subsequent requests use the cheap HMAC path
+        // instead of re-running scrypt on every call. null → SESSION_SECRET
+        // unset, client falls back to the password path transparently.
+        return res.status(200).json({ ok: true, token: (0, _auth_js_1.issuePlayerToken)(name) ?? undefined });
     }
     if (action === 'change') {
         // Change password — requires old password.
@@ -252,14 +259,14 @@ async function handler(req, res) {
                 // Legacy account with no password yet — just set it.
                 const salt = newSalt();
                 await _storage_js_1.kv.set(key, { hash: hashPw(newPassword, salt), salt });
-                return res.status(200).json({ ok: true });
+                return res.status(200).json({ ok: true, token: (0, _auth_js_1.issuePlayerToken)(name) ?? undefined });
             }
             if (!verifyAgainst(record, oldPassword)) {
                 return res.status(401).json({ ok: false, error: 'Incorrect current password.' });
             }
             const salt = newSalt();
             await _storage_js_1.kv.set(key, { hash: hashPw(newPassword, salt), salt });
-            return res.status(200).json({ ok: true });
+            return res.status(200).json({ ok: true, token: (0, _auth_js_1.issuePlayerToken)(name) ?? undefined });
         }
         catch (err) {
             console.error('[player-auth change]', String(err));

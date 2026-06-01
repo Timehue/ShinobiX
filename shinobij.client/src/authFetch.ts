@@ -40,6 +40,12 @@ const ACTIVE_PASSWORD_KEY = 'shinobix:activePassword';
 // (which explicitly strips passwords) is unaffected.
 const ACTIVE_PLAYER_LS_KEY = 'shinobix:activePlayerPersist';
 const ACTIVE_PASSWORD_LS_KEY = 'shinobix:activePasswordPersist';
+// Session token (stateless HMAC, minted by /api/player-auth). Preferred over
+// the password on every /api/ request so the server skips the ~100ms scrypt
+// verify. Same XSS exposure as the password it sits beside, but it expires
+// (24h) and is revocable by rotating SESSION_SECRET server-side.
+const ACTIVE_TOKEN_KEY = 'shinobix:activeToken';
+const ACTIVE_TOKEN_LS_KEY = 'shinobix:activeTokenPersist';
 
 function getActivePlayer(): string | null {
     try {
@@ -59,6 +65,33 @@ function getActivePassword(): string | null {
     }
 }
 
+function getActiveToken(): string | null {
+    try {
+        return sessionStorage.getItem(ACTIVE_TOKEN_KEY)
+            ?? localStorage.getItem(ACTIVE_TOKEN_LS_KEY);
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Store (or clear) the session token. Called after a successful auth response
+ * carries a `token`, and cleared on logout via setActivePlayer(null).
+ */
+export function setActiveToken(token: string | null): void {
+    try {
+        if (!token) {
+            sessionStorage.removeItem(ACTIVE_TOKEN_KEY);
+            localStorage.removeItem(ACTIVE_TOKEN_LS_KEY);
+            return;
+        }
+        sessionStorage.setItem(ACTIVE_TOKEN_KEY, token);
+        localStorage.setItem(ACTIVE_TOKEN_LS_KEY, token);
+    } catch {
+        /* storage disabled — ignore */
+    }
+}
+
 function isApiUrl(input: string | URL | Request): boolean {
     if (typeof input === 'string') return input.startsWith('/api/');
     if (input instanceof URL) return input.pathname.startsWith('/api/');
@@ -75,6 +108,7 @@ function isApiUrl(input: string | URL | Request): boolean {
 function hasAuthHeader(init: RequestInit | undefined, input: RequestInfo | URL): boolean {
     const headers = new Headers(init?.headers ?? (input instanceof Request ? input.headers : undefined));
     return (
+        headers.has('x-player-token') ||
         headers.has('x-player-password') ||
         headers.has('x-admin-password') ||
         headers.has('x-kv-token')
@@ -93,11 +127,12 @@ function hasAuthHeader(init: RequestInit | undefined, input: RequestInfo | URL):
 export function setActivePlayer(name: string | null, password?: string | null): void {
     try {
         if (name === null) {
-            // Clear from both stores on logout.
+            // Clear from both stores on logout — including the session token.
             sessionStorage.removeItem(ACTIVE_PLAYER_KEY);
             sessionStorage.removeItem(ACTIVE_PASSWORD_KEY);
             localStorage.removeItem(ACTIVE_PLAYER_LS_KEY);
             localStorage.removeItem(ACTIVE_PASSWORD_LS_KEY);
+            setActiveToken(null);
             return;
         }
         sessionStorage.setItem(ACTIVE_PLAYER_KEY, name);
@@ -118,6 +153,47 @@ function attachFingerprint(headers: Headers): void {
     if (headers.has('x-client-fp')) return;
     const fp = getFingerprintSync();
     if (fp) headers.set('x-client-fp', fp);
+}
+
+// Shared in-flight token refresh. When a token expires, every in-flight /api/
+// request 401s at roughly the same time; without dedupe each would fire its
+// own /api/player-auth verify (each ~100ms scrypt server-side). This promise
+// collapses a burst of refreshes into one network call.
+let _refreshInFlight: Promise<string | null> | null = null;
+
+/**
+ * Re-mint a session token from the stored password by calling the auth
+ * endpoint directly (bypassing the interceptor to avoid recursion). Returns
+ * the new token, or null if no password is stored / the refresh failed.
+ * Uses `origFetch` (the un-patched fetch) so this never re-enters the
+ * interceptor.
+ */
+async function refreshToken(origFetch: typeof window.fetch): Promise<string | null> {
+    if (_refreshInFlight) return _refreshInFlight;
+    const name = getActivePlayer();
+    const pw = getActivePassword();
+    if (!name || !pw) return null;
+    _refreshInFlight = (async () => {
+        try {
+            const res = await origFetch('/api/player-auth', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'verify', name: name.toLowerCase(), password: pw }),
+            });
+            if (!res.ok) return null;
+            const data = await res.json().catch(() => null) as { ok?: boolean; token?: string } | null;
+            if (data?.ok && data.token) {
+                setActiveToken(data.token);
+                return data.token;
+            }
+            return null;
+        } catch {
+            return null;
+        } finally {
+            _refreshInFlight = null;
+        }
+    })();
+    return _refreshInFlight;
 }
 
 let installed = false;
@@ -166,14 +242,55 @@ export function installAuthFetch(): void {
         // Fall back to player auth
         const activeName = getActivePlayer();
         const pw = getActivePassword();
-        if (!activeName || !pw) {
+        const token = getActiveToken();
+        // Nothing to attach (logged out) — pass through unauthenticated.
+        if (!activeName || (!pw && !token)) {
             newInit.headers = newHeaders;
             return originalFetch(input, newInit);
         }
 
         if (!newHeaders.has('x-player-name')) newHeaders.set('x-player-name', activeName);
-        if (!newHeaders.has('x-player-password')) newHeaders.set('x-player-password', pw);
+        // Token-only when we have one: do NOT also send the password. If both
+        // were sent, an expired token would silently fall back to the server's
+        // scrypt password path and succeed — so the client would never see a
+        // 401, never refresh the token, and every later request would pay
+        // scrypt forever. Sending token-only forces the cheap path and lets
+        // refresh-on-401 below re-mint when it actually expires. The password
+        // is used only when no token exists yet (first login / legacy client).
+        if (token) {
+            if (!newHeaders.has('x-player-token')) newHeaders.set('x-player-token', token);
+        } else if (pw) {
+            if (!newHeaders.has('x-player-password')) newHeaders.set('x-player-password', pw);
+        }
         newInit.headers = newHeaders;
-        return originalFetch(input, newInit);
+
+        const response = await originalFetch(input, newInit);
+
+        // Refresh-on-401: a token request the server rejected almost always
+        // means the token expired. Re-mint once from the stored password and
+        // retry. Skip the auth endpoint itself to avoid recursion, and only
+        // retry when the fresh token actually differs from what we just sent.
+        if (response.status === 401 && token && !isAuthEndpoint(input)) {
+            const fresh = await refreshToken(originalFetch);
+            if (fresh && fresh !== token) {
+                const retryHeaders = new Headers(newHeaders);
+                retryHeaders.set('x-player-token', fresh);
+                retryHeaders.delete('x-player-password');
+                return originalFetch(input, { ...newInit, headers: retryHeaders });
+            }
+        }
+        return response;
     };
+}
+
+/** True for the player-auth endpoint — never trigger refresh-on-401 on it. */
+function isAuthEndpoint(input: RequestInfo | URL): boolean {
+    try {
+        if (typeof input === 'string') return input.startsWith('/api/player-auth');
+        if (input instanceof URL) return input.pathname.startsWith('/api/player-auth');
+        if (input instanceof Request) return new URL(input.url, location.href).pathname.startsWith('/api/player-auth');
+    } catch {
+        /* ignore */
+    }
+    return false;
 }
