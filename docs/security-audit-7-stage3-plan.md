@@ -251,9 +251,19 @@ carefully afterward, before the sanitizer tighten.
      `rankedBattleActive` `BattleScreen` path is the session-create FAILURE
      fallback (no server session, hence no server rating) — left self-applying
      on purpose; there is nothing to read back there.
-   - **PET — DONE (next commit).** See step 2 PET note: the ranked-pet path
-     (~14481) gets a `battle-result({ranked:true, reportKey, opponentName})` call
-     and reads back `petRankedRating` the same way.
+   - **PET — DONE (this commit) — also performs the PET activation (step 2 PET).**
+     The ranked-pet path (`startBattle`, ~14499) now reports each ranked outcome
+     to `/api/pet/battle-result` with `{ranked:true, opponentName:opponent.owner,
+     opponentLevel, reportKey:"${seed}:ranked"}` and reads `petRankedRating` back
+     from the response (server value when present, else the local `rankedDelta`
+     fallback). The W/L + lifetime pet counters (`petRankedWins`/`petRankedLosses`,
+     `totalPetWins`/`dailyPetWins`) stay LOCAL and converge. `seed` is the shared
+     deterministic `battleSeed`, so `reportKey` is stable + per-player; ranked pet
+     battles are still NOT persisted for refresh-resume (so the single fire of the
+     `startBattle` effect can't double the local counters — guarded by
+     `onPendingPetBattleStarted` clearing `pendingPetBattleOpponent`). This both
+     ACTIVATES the dormant pet server branch (step 1, `8571bdd`) and reads it back
+     in one move, since the pet path had no prior `battle-result` call to flag.
 4. **Telemetry + sanitizer tighten (final, gated):** once the read-back client
    is deployed and telemetry shows no client-driven `rankedRating` increases,
    tighten `api/save/[name].ts` so the ±200 swing clamp becomes "re-assert /
