@@ -70,6 +70,31 @@ test("jutsuToPetMove derives a target type (self vs single-enemy)", () => {
     assert.equal(jutsuToPetMove(j("buff")).targetType, "self");
 });
 
+test("Phase 12 kinds project to the right descriptors", () => {
+    // wound = melee bleed (single enemy); haste = self buff; slow/pull = ranged control.
+    const wound = jutsuToPetMove(j("wound"));
+    assert.ok(wound.tags.includes("dot"));
+    assert.equal(wound.targetType, "singleEnemy");
+    assert.equal(jutsuToPetMove(j("haste")).targetType, "self");
+    assert.equal(jutsuToPetMove(j("haste")).aiHint, "buff");
+    assert.ok(jutsuToPetMove(j("slow")).tags.includes("slow"));
+    assert.equal(jutsuToPetMove(j("slow")).aiHint, "control");
+    assert.ok(jutsuToPetMove(j("push")).tags.includes("push"));
+    assert.ok(jutsuToPetMove(j("pull")).tags.includes("pull"));
+    assert.equal(jutsuToPetMove(j("mark")).aiHint, "debuff");
+    assert.equal(jutsuToPetMove(j("taunt")).aiHint, "defense");
+});
+
+test("the new statuses surface as badges", () => {
+    const out = collectActorStatuses({ wound: 3, marked: true, slow: 2, haste: 1, taunted: true });
+    const ids = out.map(s => s.id);
+    assert.ok(ids.includes("wound"));
+    assert.ok(ids.includes("marked"));
+    assert.ok(ids.includes("slow"));
+    assert.ok(ids.includes("haste"));
+    assert.ok(ids.includes("taunted"));
+});
+
 test("petMoveset maps a whole kit", () => {
     const moves = petMoveset({ jutsus: [j("damage"), j("heal"), j("stun")], element: "Water" });
     assert.equal(moves.length, 3);

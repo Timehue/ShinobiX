@@ -34,7 +34,10 @@ export type PetArchetype =
 export type BattleStatus = {
     kind:
         | "burn" | "freeze" | "confuse" | "stun" | "poison"
-        | "atkBuff" | "defBuff" | "shield" | "moveLock" | "absorb";
+        | "atkBuff" | "defBuff" | "shield" | "moveLock" | "absorb"
+        // Phase-12 archetype statuses — surfaced so the scorer's anti-waste can
+        // see them (don't re-wound an already-bleeding foe, don't re-slow, etc.).
+        | "wound" | "marked" | "slow" | "haste";
     rounds: number;
     magnitude?: number;
 };
