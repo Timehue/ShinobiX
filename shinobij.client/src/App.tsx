@@ -3584,7 +3584,6 @@ export default function App() {
     const [adminRole, setAdminRole] = useState<AdminRole>(() =>
         (sessionStorage.getItem("admin:role") as AdminRole | null) ?? "full"
     );
-    const [_resetCountdown, setResetCountdown] = useState("--:--:--");
     const [creatorJutsus, setCreatorJutsus] = useState<Jutsu[]>([]);
     const [creatorEvents, setCreatorEvents] = useState<CreatorEvent[]>([]);
     const [creatorItems, setCreatorItems] = useState<GameItem[]>([]);
@@ -3642,24 +3641,6 @@ export default function App() {
             clearInterval(id);
         };
     }, [currentAccountName, character?.name, tabVisible]);
-    // Daily reset countdown — updates every second, resets at midnight UTC
-    useEffect(() => {
-        function tick() {
-            const now = new Date();
-            const midnight = new Date();
-            midnight.setUTCHours(24, 0, 0, 0);
-            const diff = midnight.getTime() - now.getTime();
-            const h = Math.floor(diff / 3_600_000);
-            const m = Math.floor((diff % 3_600_000) / 60_000);
-            const s = Math.floor((diff % 60_000) / 1_000);
-            setResetCountdown(
-                `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
-            );
-        }
-        tick();
-        const id = setInterval(tick, 1000);
-        return () => clearInterval(id);
-    }, []);
     useEffect(() => {
         setEditablePets((currentPets) => {
             const mergedPets = mergeMissingBuiltInPets(currentPets);
