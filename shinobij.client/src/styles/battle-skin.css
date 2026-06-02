@@ -223,6 +223,36 @@
     text-transform: uppercase;
     border: none !important;
 }
+/* Collapsible round accordion (TNR-style battle log). The header is a button;
+   the chevron rotates when the round is collapsed and entries hide. */
+.arena-fullscreen .timeline-round-toggle {
+    display: flex !important;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    cursor: pointer;
+    text-align: left;
+    border: none !important;
+    border-radius: 0;
+}
+.arena-fullscreen .timeline-round-toggle:hover {
+    background: rgba(196,162,90,0.14) !important;
+}
+.arena-fullscreen .timeline-round-chevron {
+    font-size: 8px;
+    line-height: 1;
+    transition: transform 0.15s ease;
+    opacity: 0.85;
+}
+.arena-fullscreen .timeline-round.collapsed .timeline-round-chevron {
+    transform: rotate(-90deg);
+}
+.arena-fullscreen .timeline-round-count {
+    margin-left: auto;
+    opacity: 0.55;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+}
 
 /* Tighten gaps between the battle log and surrounding panels */
 .arena-fullscreen .combat-main-area > * + * {

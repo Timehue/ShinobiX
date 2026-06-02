@@ -27397,6 +27397,10 @@ function Arena({
     const [activeActor, setActiveActor] = useState<BattleActor>(rollInitiative);
     const [actionsThisTurn, setActionsThisTurn] = useState(0);
     const [battleHistory, setBattleHistory] = useState<BattleActionEntry[]>([]);
+    // Battle-log round accordion (TNR-style): records only the rounds the user
+    // has explicitly toggled; default-open is the latest two rounds, computed in
+    // render. Keeps long fights from becoming a wall of text.
+    const [logRoundOverridesA, setLogRoundOverridesA] = useState<Record<number, boolean>>({});
     const [selectedActionId, setSelectedActionId] = useState<SelectedCombatAction>(undefined);
     const [summonedPetId, setSummonedPetId] = useState("");
 
@@ -30903,13 +30907,19 @@ function Arena({
                         {battleHistory.length === 0 ? (
                             <p>No entries yet.</p>
                         ) : (
-                            timelineRounds.map((roundGroup) => (
-                                <section className="timeline-round" key={roundGroup.round}>
-                                    <div className="timeline-round-header">
+                            timelineRounds.map((roundGroup) => {
+                                const maxLogRound = timelineRounds[timelineRounds.length - 1]?.round ?? 0;
+                                const roundOpen = logRoundOverridesA[roundGroup.round] ?? (roundGroup.round >= maxLogRound - 1);
+                                return (
+                                <section className={`timeline-round${roundOpen ? " open" : " collapsed"}`} key={roundGroup.round}>
+                                    <button type="button" className="timeline-round-header timeline-round-toggle" aria-expanded={roundOpen}
+                                        onClick={() => setLogRoundOverridesA((prev) => ({ ...prev, [roundGroup.round]: !roundOpen }))}>
+                                        <span className="timeline-round-chevron" aria-hidden="true">▾</span>
                                         <span>Round {roundGroup.round}</span>
                                         <small>{new Date(roundGroup.entries[0]?.createdAt ?? Date.now()).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" })}</small>
-                                    </div>
-                                    {roundGroup.entries.map((entry) => {
+                                        <span className="timeline-round-count">{roundGroup.entries.length}</span>
+                                    </button>
+                                    {roundOpen && roundGroup.entries.map((entry) => {
                                         const lines = entry.description.split("\n");
                                         const [headLine, ...effectLines] = lines;
                                         return (
@@ -30932,7 +30942,8 @@ function Arena({
                                         );
                                     })}
                                 </section>
-                            ))
+                                );
+                            })
                         )}
                     </div>
 
@@ -31352,6 +31363,8 @@ function PvpBattleScreen({
     const [pvpMotionFx, setPvpMotionFx] = useState<PvpMotionFx[]>([]);
     const battlefieldRef = useRef<HTMLDivElement | null>(null);
     const logRef = useRef<HTMLDivElement>(null);
+    // Battle-log round accordion overrides (default-open = latest two rounds).
+    const [logRoundOverrides, setLogRoundOverrides] = useState<Record<number, boolean>>({});
     const pvpSessionFirstLoadRef = useRef(false);
     const pvpRewardRef = useRef(false);
     const previousPvpPositionsRef = useRef<{ p1: number; p2: number } | null>(null);
@@ -32601,12 +32614,18 @@ function PvpBattleScreen({
                         </div>
                         {session.log.length === 0 ? (
                             <p>No entries yet.</p>
-                        ) : pvpLogRounds.length > 0 ? pvpLogRounds.map(group => (
-                            <section className="timeline-round" key={group.round}>
-                                <div className="timeline-round-header">
+                        ) : pvpLogRounds.length > 0 ? pvpLogRounds.map(group => {
+                            const maxLogRound = pvpLogRounds[pvpLogRounds.length - 1]?.round ?? 0;
+                            const roundOpen = logRoundOverrides[group.round] ?? (group.round >= maxLogRound - 1);
+                            return (
+                            <section className={`timeline-round${roundOpen ? " open" : " collapsed"}`} key={group.round}>
+                                <button type="button" className="timeline-round-header timeline-round-toggle" aria-expanded={roundOpen}
+                                    onClick={() => setLogRoundOverrides((prev) => ({ ...prev, [group.round]: !roundOpen }))}>
+                                    <span className="timeline-round-chevron" aria-hidden="true">▾</span>
                                     <span>Round {group.round}</span>
-                                </div>
-                                {group.entries.map((line, i) => {
+                                    <span className="timeline-round-count">{group.entries.length}</span>
+                                </button>
+                                {roundOpen && group.entries.map((line, i) => {
                                     const trimmed = line.trim();
                                     const actorRole = line.startsWith(me.name) ? "timeline-player" : line.startsWith(opp.name) ? "timeline-enemy" : "timeline-system";
                                     const isHeader = / uses /.test(trimmed) || trimmed.endsWith(":") || line.startsWith(me.name) || line.startsWith(opp.name);
@@ -32627,7 +32646,8 @@ function PvpBattleScreen({
                                     );
                                 })}
                             </section>
-                        )) : session.log.map((line, i) => (
+                            );
+                        }) : session.log.map((line, i) => (
                             <p key={i} className="timeline-fx timeline-fx-effect">· {line}</p>
                         ))}
                     </div>
