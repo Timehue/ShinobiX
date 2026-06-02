@@ -2,16 +2,18 @@
  * Pure clan progression / treasury / upgrade math.
  *
  * Dependency-closed pure helpers extracted verbatim from App.tsx (formulas,
- * caps, and the roster-boost tier table — all behavior unchanged). The three
- * impure clan helpers stay in App.tsx: enhanceClanData (calls
- * normalizeNoticePosts), clanRoleOf (calls clanContribTotal), and
- * clanMissionProgress (reads the territory caches via loadAllSectorTerritories).
+ * caps, and the roster-boost tier table — all behavior unchanged). The two
+ * remaining impure clan helpers stay in App.tsx: clanRoleOf (calls
+ * clanContribTotal) and clanMissionProgress (reads the territory caches via
+ * loadAllSectorTerritories). enhanceClanData lives here now that its only
+ * App-local dependency (normalizeNoticePosts) moved to ./clan-notices.
  */
 
 import { clampNumber } from "./utils";
 import { cleanTreasuryItems } from "./items";
+import { normalizeNoticePosts } from "./clan-notices";
 import { CLAN_UPGRADE_MAX_LEVEL } from "../constants/clan";
-import type { ClanMemberEntry, ClanTreasury, ClanUpgradeKey, ClanUpgradeLevels, ClanWarRecord, EnhancedClanData, ClanRole } from "../types/clan";
+import type { ClanData, ClanMemberEntry, ClanTreasury, ClanUpgradeKey, ClanUpgradeLevels, ClanWarRecord, EnhancedClanData, ClanRole } from "../types/clan";
 
 export const clanBoostTiers = [
     { min: 3, max: 5, percent: 2 },
@@ -24,6 +26,7 @@ export function defaultClanUpgrades(): ClanUpgradeLevels { return { trainingGrou
 export function cleanClanTreasury(t?: Partial<ClanTreasury>): ClanTreasury { const base = defaultClanTreasury(); return { ryo: Math.max(0, Math.floor(Number(t?.ryo ?? base.ryo))), fateShards: Math.max(0, Math.floor(Number(t?.fateShards ?? base.fateShards))), boneCharms: Math.max(0, Math.floor(Number(t?.boneCharms ?? base.boneCharms))), auraStones: Math.max(0, Math.floor(Number(t?.auraStones ?? base.auraStones))), mythicSeals: Math.max(0, Math.floor(Number(t?.mythicSeals ?? base.mythicSeals))), warSupply: Math.max(0, Math.floor(Number(t?.warSupply ?? base.warSupply))), items: cleanTreasuryItems(t?.items ?? base.items) }; }
 export function cleanClanUpgrades(u?: Partial<ClanUpgradeLevels>): ClanUpgradeLevels { const b = defaultClanUpgrades(); const m = { ...b, ...(u ?? {}) } as ClanUpgradeLevels; (Object.keys(b) as ClanUpgradeKey[]).forEach(k => m[k] = clampNumber(Math.floor(Number(m[k] ?? 0)), 0, CLAN_UPGRADE_MAX_LEVEL)); return m; }
 export function defaultClanWarHistory(name: string): ClanWarRecord[] { return [{ opponent: "Iron Lanterns", result: "Won", finalScore: "84 - 61", topAttacker: "Rill", topDefender: "Village Guard", mvpClan: name, reward: "2,500 ryo / 450 Clan XP", date: "Recent Season" }]; }
+export function enhanceClanData(data: ClanData & Partial<EnhancedClanData>): EnhancedClanData { return { ...data, level: clampNumber(Math.floor(Number(data.level ?? 1)), 1, 100), xp: Math.max(0, Math.floor(Number(data.xp ?? 0))), treasury: cleanClanTreasury(data.treasury), upgrades: cleanClanUpgrades(data.upgrades), warHistory: data.warHistory?.length ? data.warHistory : defaultClanWarHistory(data.name), activeWar: data.activeWar, roleOverrides: data.roleOverrides ?? {}, joinRequests: (data.joinRequests ?? []).filter((request) => request?.name), notices: normalizeNoticePosts(data.notices) }; }
 export function clanXpNeeded(level: number) { return Math.floor(500 + level * 275 + Math.pow(level, 1.22) * 45); }
 export function addClanXp(data: EnhancedClanData, amount: number): EnhancedClanData { let next = { ...data, xp: data.xp + Math.max(0, Math.floor(amount)) }; while (next.level < 100 && next.xp >= clanXpNeeded(next.level)) next = { ...next, xp: next.xp - clanXpNeeded(next.level), level: next.level + 1 }; return next; }
 export function clanMemberBoostPercent(memberCount: number) { return clanBoostTiers.find(tier => memberCount >= tier.min && memberCount <= tier.max)?.percent ?? 0; }

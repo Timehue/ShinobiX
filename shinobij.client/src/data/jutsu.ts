@@ -17,6 +17,11 @@ import { bloodlinePoints } from "../lib/jutsu-points";
 import type { Jutsu, JutsuTag, SavedBloodline } from "../types/combat";
 import type { JutsuType, JutsuElement, Rank } from "../types/core";
 
+// Jutsu taxonomy dropdown options (moved from App.tsx; re-exported there for the
+// "../App" import site in components/JutsuDropdownList).
+export const specialties: JutsuType[] = ["Ninjutsu", "Taijutsu", "Genjutsu", "Bukijutsu", "Any"];
+export const jutsuElements: JutsuElement[] = ["Earth", "Wind", "Lightning", "Fire", "Water", "None"];
+
 export const starterBloodlines = ["Ashen Eyes", "Inferno Cataclysm", "Shadow Lotus", "Iron Fang"];
 
 export const starterBloodlineOffense: Record<string, JutsuType> = {

@@ -75,11 +75,12 @@ import {
 import { compressDataUrl, publishSharedImage, readImageFile, isAnimatedImageFile } from "./lib/shared-images";
 import { getAllTileCards, shinobiTileCards, ELEMENT_COUNTERS, type TileCard, type TileCardArrow } from "./data/tile-cards";
 import type {
-    ClanMemberEntry, ClanData, ClanJoinRequest, NoticePostType, NoticePost,
+    ClanMemberEntry, ClanJoinRequest, NoticePostType, NoticePost,
     ClanRole, ClanTreasury,
     ClanTreasuryCurrencyKey, ClanWarRecord, EnhancedClanData,
 } from "./types/clan";
-import { cleanClanTreasury, cleanClanUpgrades, defaultClanWarHistory, clanXpNeeded, addClanXp, clanMemberBoostPercent, clanUpgradeBonus, canManageClan, clanHallTier, clanBoostTiers, clanContribTotal, clanRankOf } from "./lib/clan-math";
+import { cleanClanTreasury, clanXpNeeded, addClanXp, clanMemberBoostPercent, clanUpgradeBonus, canManageClan, clanHallTier, clanBoostTiers, clanContribTotal, clanRankOf, enhanceClanData } from "./lib/clan-math";
+import { makeNoticePost, normalizeNoticePosts, noticeTypeLabel } from "./lib/clan-notices";
 import { clanSlug, fetchClanData, fetchClanDataDetailed, writeClanData, postGuardQueue } from "./lib/clan-api";
 import {
     cappedPostDamage,
@@ -110,9 +111,11 @@ import {
     rebalanceNonBloodlineJutsu,
     starterJutsus,
     starterSavedBloodlines,
+    specialties,
+    jutsuElements,
 } from "./data/jutsu";
 export { starterBloodlines } from "./data/jutsu";
-export { starterBloodlineOffense, starterSavedBloodlines };
+export { starterBloodlineOffense, starterSavedBloodlines, specialties, jutsuElements };
 import {
     endlessScaleFactor,
     endlessWaveReward,
@@ -369,6 +372,7 @@ import {
     CW_DAMAGE,
     CW_MODE_LABEL,
     CW_MODE_ICON,
+    clanMissionDefinitions,
 } from "./constants/clan";
 
 // Achievement table extracted to src/constants/achievements.ts.
@@ -490,6 +494,8 @@ import { RightMenu } from "./components/RightMenu";
 import { MobileNav } from "./components/MobileNav";
 // Filterable jutsu technique browser moved to ./components/JutsuDropdownList.
 import { JutsuDropdownList } from "./components/JutsuDropdownList";
+// Triggered visual-novel reader moved to ./components/TriggeredVisualNovel.
+import { TriggeredVisualNovel } from "./components/TriggeredVisualNovel";
 // Hollow Gate atlas tile picker (admin) moved to ./components/KenneyAtlasPicker.
 import { KenneyAtlasPicker } from "./components/KenneyAtlasPicker";
 // Training screens (stat + jutsu training) moved to ./screens/Training.
@@ -517,6 +523,7 @@ import {
     terrainEffects,
     weatherEffects,
     biomeWeatherTables,
+    biomeLabel,
 } from "./data/world";
 // Pet config tables (traits, training, expedition, feed items) moved to ./data/pet-config.
 import {
@@ -1071,8 +1078,7 @@ export function villagePageImage(villageName: string): string {
 // existing "../App" import site (screens/VillageLoreScreen). villagePageImage
 // above stays — it pulls in image-asset imports the data module shouldn't.
 export { villageLore } from "./data/village-lore";
-export const specialties: JutsuType[] = ["Ninjutsu", "Taijutsu", "Genjutsu", "Bukijutsu", "Any"];
-export const jutsuElements: JutsuElement[] = ["Earth", "Wind", "Lightning", "Fire", "Water", "None"];
+// specialties + jutsuElements moved to ./data/jutsu (imported + re-exported above).
 const jutsuTargets: JutsuTarget[] = ["OPPONENT", "SELF", "OTHER_USER", "CHARACTER", "EMPTY_GROUND"];
 const jutsuMethods: JutsuMethod[] = ["SINGLE", "ALL", "AOE_CIRCLE", "INSTANT_EFFECT"];
 const bloodlineJutsuMethods: JutsuMethod[] = ["SINGLE", "AOE_CIRCLE", "INSTANT_EFFECT"];
@@ -2300,13 +2306,7 @@ function blankJutsu(index: number, rank: Rank): Jutsu {
 // bloodlinePoints) extracted to ./lib/jutsu-points. Referenced helpers are
 // imported back near the top of this file.
 
-function biomeLabel(biome: Biome) {
-    if (biome === "forest") return "Stormveil Coastal Waters";
-    if (biome === "snow") return "Frostfang Icefields";
-    if (biome === "volcano") return "Ashen Leaf Forest";
-    if (biome === "shadow") return "Moonshadow Darklands";
-    return "Central Meadow";
-}
+// biomeLabel moved to ./data/world (imported back near the top).
 
 function getCurrentStory(character: Character) {
     const storyLine = storylines[character.storyVillage || character.village] || storylines["Stormveil Village"];
@@ -9415,164 +9415,7 @@ export const villageBiomes: Record<string, Biome> = {
 
 // RightMenu + MobileNav moved to ./components/RightMenu and ./components/MobileNav.
 
-function TriggeredVisualNovel({ event, character, pageIndex, lineIndex, setPageIndex, setLineIndex, onCancel, onComplete, onBattle, sharedImages }: { event: CreatorEvent; character: Character; pageIndex: number; lineIndex: number; setPageIndex: (index: number | ((index: number) => number)) => void; setLineIndex: (index: number | ((index: number) => number)) => void; onCancel: () => void; onComplete: () => void; onBattle: (event: CreatorEvent, battle?: NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number]["battle"]) => void; sharedImages?: Record<string, string> }) {
-    // The local character object can drift out of sync with the freshly-
-    // uploaded avatar (server saves strip images and re-hydrate from the
-    // shared image store). Resolve once via the same path the Tavern uses:
-    // shared store first, then the character's own field.
-    const playerAvatar =
-        (sharedImages?.['avatar:' + character.name.trim().toLowerCase()]) ||
-        character.avatarImage ||
-        "";
-    const pages = event.vnPages && event.vnPages.length > 0 ? event.vnPages : [{ title: event.vnTitle || event.name, scene: event.vnScene || "", speaker: event.vnSpeaker || "Narrator", dialogue: event.dialogue, image: event.image }];
-    const page = pages[Math.min(pageIndex, pages.length - 1)];
-    const pageDialogue = page.dialogue.length > 0 ? page.dialogue : event.dialogue;
-    const activeLine = pageDialogue[lineIndex] ?? pageDialogue[0] ?? page.scene ?? "The scene begins.";
-    const splitLine = activeLine.includes(":") ? activeLine.split(":") : [page.speaker || event.vnSpeaker || "Narrator", activeLine];
-    const speaker = splitLine[0].trim();
-    const spoken = splitLine.slice(1).join(":").trim() || activeLine;
-    const pageImage = page.image || event.image || defaultVnScene(event.id, event.biome);
-    const savedRightWasPlayer = (page.rightName ?? "").trim().toLowerCase() === "player";
-    const leftName = savedRightWasPlayer ? "Player" : (page.leftName || "Player");
-    const rightName = savedRightWasPlayer ? (page.leftName || page.speaker || event.vnSpeaker || speaker) : (page.rightName || page.speaker || event.vnSpeaker || speaker);
-    const leftInitials = leftName === "Narrator" ? "..." : leftName.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase();
-    const rightInitials = rightName.toLowerCase() === "player" ? character.name.slice(0, 2).toUpperCase() : rightName.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase();
-    const leftImage = savedRightWasPlayer
-        ? playerAvatar
-        : (page.leftImage || (leftName.toLowerCase() === "player" ? playerAvatar : "") || defaultVnPortrait(leftName));
-    const rightImage = savedRightWasPlayer
-        ? (page.leftImage || page.rightImage || event.avatarImage || "" || defaultVnPortrait(rightName))
-        : (page.rightImage || event.avatarImage || "" || defaultVnPortrait(rightName));
-    // Hide a portrait slot entirely when there is genuinely nothing to show
-    // (the Narrator or an NPC without a configured image AND no /portraits/<slug>.png
-    // on disk). The dialogue's <speaker> label already tells the player who's talking.
-    const hideLeft  = !leftImage  && leftName.trim().toLowerCase() === "narrator";
-    const hideRight = !rightImage && rightName.trim().toLowerCase() === "narrator";
-    const canBack = lineIndex > 0 || pageIndex > 0;
-    const isLastLine = pageIndex === pages.length - 1 && lineIndex >= pageDialogue.length - 1;
-    const pageChoices = page.choices?.filter((c) => c.text);
-    const isAtChoicePoint = lineIndex >= pageDialogue.length - 1 && !!pageChoices?.length;
-    const [showFinale, setShowFinale] = useState(false);
-    const [pendingChoice, setPendingChoice] = useState<{ conclusion: string; nextPage: number } | null>(null);
-    const isAuraSphereEvent = event.id === AURA_SPHERE_VN_ID;
-    const isStoryChapterEvent = event.id.startsWith("story-");
-    function previousLine() { if (lineIndex > 0) return setLineIndex((index) => index - 1); if (pageIndex > 0) { const previousPage = pages[pageIndex - 1]; setPageIndex((index) => index - 1); setLineIndex(Math.max(0, ((previousPage.dialogue.length || 1) - 1))); } }
-    function nextLine() { if (isAtChoicePoint) return; if (lineIndex < pageDialogue.length - 1) return setLineIndex((index) => index + 1); if (pageIndex < pages.length - 1) { setPageIndex((index) => index + 1); setLineIndex(0); return; } setShowFinale(true); }
-    function chooseOption(choice: { text: string; nextPage: number; conclusion?: string; trait?: string; battle?: NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number]["battle"] }) {
-        if (choice.battle) {
-            onBattle(event, choice.battle);
-            return;
-        }
-        const target = Math.max(0, Math.min(pages.length - 1, choice.nextPage));
-        if (choice.conclusion?.trim()) { setPendingChoice({ conclusion: choice.conclusion.trim(), nextPage: target }); }
-        else { setPageIndex(target); setLineIndex(0); }
-    }
-    function confirmPendingChoice() { if (!pendingChoice) return; setPageIndex(pendingChoice.nextPage); setLineIndex(0); setPendingChoice(null); }
-    if (showFinale) return (
-        <div className="card cinematic-card vn-finale-panel">
-            <div className="vn-finale-header">
-                <p className="act-label">SCENE COMPLETE</p>
-                <h2>{event.name}</h2>
-            </div>
-            <div className="vn-finale-body">
-                <p className="vn-scene-card">
-                    {isAuraSphereEvent
-                        ? "The elder places the Aura Sphere in your hands. It waits in your inventory until you equip it in your aura slot."
-                        : isStoryChapterEvent
-                            ? <>The scene fades. Your village story continues — face the chapter boss when you are ready.</>
-                            : <>The scene fades — a shinobi challenger steps from the shadows of <strong>{biomeLabel(event.biome)}</strong>. The fight is not over.</>}
-                </p>
-            </div>
-            <div className="menu">
-                {!isAuraSphereEvent && !isStoryChapterEvent && (
-                    <button className="admin-button" onClick={() => onBattle(event)}>
-                        Enter Battle — {biomeLabel(event.biome)}
-                    </button>
-                )}
-                <button onClick={onComplete}>
-                    {isAuraSphereEvent ? "Claim Aura Sphere" : isStoryChapterEvent ? "Continue to Story Hall" : "Claim Reward & Skip Fight"}
-                </button>
-            </div>
-            <div className="vn-reward-strip">
-                <span>
-                    {isAuraSphereEvent
-                        ? "Reward: Aura Sphere item"
-                        : isStoryChapterEvent
-                            ? "Defeat the chapter boss in Story Hall to earn XP and ryo."
-                            : `Reward: ${rewardSummary(event.xpReward, event.ryoReward, event.staminaReward, event.currencyRewards)}`}
-                </span>
-            </div>
-        </div>
-    );
-    return (
-        <div className="card cinematic-card">
-            <button onClick={onCancel}>Skip Scene</button>
-            <div className="visual-novel admin-vn-play">
-                <div className="vn-header">
-                    <div>
-                        <p className="act-label">TRIGGERED STORY EVENT</p>
-                        <h2>{page.title || event.vnTitle || event.name}</h2>
-                    </div>
-                    <div className="vn-progress">Page {pageIndex + 1}/{pages.length} | Line {lineIndex + 1}/{Math.max(1, pageDialogue.length)}</div>
-                </div>
-                <div className={"vn-stage vn-biome-" + event.biome + (pageImage ? " vn-has-image" : "")} style={pageImage ? { backgroundImage: `linear-gradient(180deg, rgba(7,12,27,.18), rgba(7,12,27,.78)), url(${pageImage})` } : undefined}>
-                    <div className="vn-backdrop"><span className="vn-village-silhouette"></span></div>
-                    {!hideLeft && (
-                        <div className="vn-character mentor-character">
-                            {leftImage
-                                ? <img src={leftImage} alt={leftName} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
-                                : null}
-                            <span className="vn-character-initials">{leftInitials}</span>
-                        </div>
-                    )}
-                    {!hideRight && (
-                        <div className="vn-character hero-character">
-                            {rightImage
-                                ? <img src={rightImage} alt={rightName} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
-                                : null}
-                            <span className="vn-character-initials">{rightInitials}</span>
-                        </div>
-                    )}
-                    <div className="vn-scene-card">{page.scene || event.vnScene || "An event interrupts your path."}</div>
-                    <div className="vn-dialogue">
-                        <div className="vn-speaker">{speaker}</div>
-                        <p>{spoken}</p>
-                        {pendingChoice ? (
-                            <div className="vn-conclusion">
-                                <p className="vn-conclusion-text">{pendingChoice.conclusion}</p>
-                                <div className="vn-controls">
-                                    <button onClick={confirmPendingChoice}>Continue</button>
-                                </div>
-                            </div>
-                        ) : isAtChoicePoint ? (
-                            <div className="vn-choices">
-                                {pageChoices!.map((choice, i) => (
-                                    <button key={i} className="vn-choice-btn" onClick={() => chooseOption(choice)}>
-                                        {choice.text}
-                                    </button>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="vn-controls">
-                                <button disabled={!canBack} onClick={previousLine}>Back</button>
-                                <button onClick={nextLine}>{isLastLine ? "Begin Battle" : "Next"}</button>
-                            </div>
-                        )}
-                    </div>
-                </div>
-                <div className="vn-choice-row">
-                    <button onClick={() => { setPageIndex(0); setLineIndex(0); }}>Replay Scene</button>
-                    <button onClick={() => onBattle(event)}>Battle in {biomeLabel(event.biome)}</button>
-                    <button onClick={onComplete}>Claim Reward + Continue</button>
-                </div>
-                <div className="vn-reward-strip">
-                    <span>Trigger: {event.trigger === "firstBattleArena" ? "First Battle Arena click" : "First Village exit"}</span>
-                    <span>Reward: {rewardSummary(event.xpReward, event.ryoReward, event.staminaReward, event.currencyRewards)}</span>
-                </div>
-            </div>
-        </div>
-    );
-}
+// TriggeredVisualNovel moved to ./components/TriggeredVisualNovel (imported back near the top).
 
 function DungeonEncounter({
     event,
@@ -17846,31 +17689,8 @@ const clanLore: Record<string, { name: string; motto: string; lore: string }> = 
 // -- Clan system types & helpers --------------------------------------------
 // Clan types (ClanMemberEntry, ClanData, ClanJoinRequest, NoticePostType,
 // NoticePost) moved to ./types/clan (type-imported back near the top).
-function makeNoticePost(type: NoticePostType, title: string, body: string, author: string, authorRole: string, pinned = false, sector?: number): NoticePost {
-    return { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, type, title: title.trim().slice(0, 70), body: body.trim().slice(0, 500), author, authorRole, createdAt: Date.now(), pinned, sector };
-}
-function normalizeNoticePosts(posts?: Partial<NoticePost>[], legacyNotices: string[] = []): NoticePost[] {
-    const structured = (posts ?? [])
-        .filter((notice) => notice?.title || notice?.body)
-        .map((notice) => ({
-            id: String(notice.id ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
-            type: (notice.type ?? "general") as NoticePostType,
-            title: String(notice.title ?? "Notice").slice(0, 70),
-            body: String(notice.body ?? "").slice(0, 500),
-            author: String(notice.author ?? "System"),
-            authorRole: String(notice.authorRole ?? "System"),
-            createdAt: Number(notice.createdAt ?? Date.now()),
-            pinned: Boolean(notice.pinned),
-            sector: typeof notice.sector === "number" ? notice.sector : undefined,
-        }));
-    const legacy = legacyNotices.map((body, index) => makeNoticePost("general", "Village Notice", body, "System", "System", index === 0));
-    return [...structured, ...legacy].sort((a, b) => Number(Boolean(b.pinned)) - Number(Boolean(a.pinned)) || b.createdAt - a.createdAt).slice(0, 24);
-}
-function noticeTypeLabel(type: NoticePostType) {
-    if (type === "order") return "Village Order";
-    if (type === "clan") return "Clan Notice";
-    return type.charAt(0).toUpperCase() + type.slice(1);
-}
+// makeNoticePost / normalizeNoticePosts / noticeTypeLabel moved to
+// ./lib/clan-notices (imported back near the top).
 // clanContribTotal + clanRankOf (pure clan scoring/rank-label helpers) moved
 // to ./lib/clan-math (imported back near the top).
 // CLAN_RANK_COLOR / CLAN_RANK_ICON moved to ./constants/clan.
@@ -17885,24 +17705,16 @@ function noticeTypeLabel(type: NoticePostType) {
 // ./types/clan (type-imported back near the top).
 // CLAN_UPGRADE_MAX_LEVEL moved to ./constants/clan.
 // clanBoostTiers moved to ./lib/clan-math (imported back near the top).
-const clanMissionDefinitions = [
-    { key: "battle", icon: "⚔", name: "Win 20 Battles", description: "Clan members combine for 20 battle wins.", target: 20, reward: "+450 Clan XP / +2,500 Treasury Ryo" },
-    { key: "mission", icon: "📜", name: "Complete 50 Missions", description: "Clan members combine for 50 mission completions.", target: 50, reward: "+650 Clan XP / +3,500 Treasury Ryo" },
-    { key: "guard", icon: "🛡", name: "Defend Village 10 Times", description: "Keep village guard pressure active and defend the village.", target: 10, reward: "+500 Clan XP / +2,000 Treasury Ryo" },
-    { key: "territory", icon: "🏴", name: "Claim Territory", description: "Collect Territory Control Scrolls and donate them to a sector your clan wants to own.", target: 20, reward: "+1 Sector claim push" },
-    { key: "anbu", icon: "🥷", name: "ANBU Recon Support", description: "Coordinate with ANBU scouts, sector guards, and raid defense missions.", target: 10, reward: "+300 Clan XP / intel advantage" },
-    { key: "donation", icon: "💰", name: "Donate 25,000 Ryo", description: "Grow the clan treasury through member donations.", target: 25000, reward: "+700 Clan XP / +1 Aura Stone" },
-    { key: "training", icon: "💪", name: "Train 100 Hours", description: "Long-term clan discipline objective.", target: 100, reward: "+600 Clan XP" },
-    { key: "raid", icon: "🗡", name: "Defeat 5 Raid Bosses", description: "Raid contribution objective for future PvE events.", target: 5, reward: "+900 Clan XP / +1 Mythic Seal" },
-] as const;
+// clanMissionDefinitions moved to ./constants/clan (imported back near the top).
 // CLAN_ROLE_ICON moved to ./constants/clan.
 // Pure clan-math helpers (defaultClanTreasury, defaultClanUpgrades,
 // cleanClanTreasury, cleanClanUpgrades, defaultClanWarHistory, clanXpNeeded,
 // addClanXp, clanMemberBoostPercent, clanUpgradeBonus, canManageClan,
 // clanHallTier) moved to ./lib/clan-math (imported back near the top).
-// enhanceClanData / clanRoleOf / clanMissionProgress stay below — they call
-// App-local helpers (normalizeNoticePosts / clanContribTotal / territory cache).
-function enhanceClanData(data: ClanData & Partial<EnhancedClanData>): EnhancedClanData { return { ...data, level: clampNumber(Math.floor(Number(data.level ?? 1)), 1, 100), xp: Math.max(0, Math.floor(Number(data.xp ?? 0))), treasury: cleanClanTreasury(data.treasury), upgrades: cleanClanUpgrades(data.upgrades), warHistory: data.warHistory?.length ? data.warHistory : defaultClanWarHistory(data.name), activeWar: data.activeWar, roleOverrides: data.roleOverrides ?? {}, joinRequests: (data.joinRequests ?? []).filter((request) => request?.name), notices: normalizeNoticePosts(data.notices) }; }
+// clanRoleOf / clanMissionProgress stay below — they call App-local helpers
+// (clanContribTotal / territory cache). enhanceClanData moved to
+// ./lib/clan-math (imported back near the top) now that normalizeNoticePosts
+// moved to ./lib/clan-notices.
 // (clanXpNeeded, addClanXp, clanMemberBoostPercent, clanUpgradeBonus -> ./lib/clan-math)
 function clanRoleOf(member: ClanMemberEntry, data: EnhancedClanData): ClanRole { const override = data.roleOverrides?.[member.name]; if (override) return override; if (member.name === data.founderName || member.isFounder) return "Founder"; const sorted = [...data.members].filter(m => m.name !== data.founderName).sort((a, b) => clanContribTotal(b) - clanContribTotal(a)); const idx = sorted.findIndex(m => m.name === member.name); if (idx === 0) return "Leader"; if (idx > 0 && idx <= 2) return "Officer"; if (idx > 2 && idx <= 4) return "Elite Member"; if (clanContribTotal(member) <= 5) return "Recruit"; return "Member"; }
 // (canManageClan, clanHallTier -> ./lib/clan-math)
