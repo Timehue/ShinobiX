@@ -96,6 +96,7 @@ export const MobileNav = memo(function MobileNav({
                         <button className="mobile-menu-btn" onClick={() => go("village")} disabled={!atHome}>🏯 Village</button>
                         <button className="mobile-menu-btn" onClick={() => go("worldMap")}>🗺️ Travel</button>
                         <button className="mobile-menu-btn" onClick={() => go("userHub")}>👥 Users</button>
+                        <button className="mobile-menu-btn" onClick={() => go("messages")}>📬 Mail</button>
                         <button className="mobile-menu-btn" onClick={() => go("missions")}>📋 Missions</button>
                         <button className="mobile-menu-btn" onClick={() => go("training")}>💪 Training</button>
                         <button className="mobile-menu-btn" onClick={() => go("profile")}>👤 Character</button>
