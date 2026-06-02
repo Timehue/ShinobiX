@@ -1,3 +1,5 @@
+// Verbatim-moved from App.tsx (which disables this rule file-wide); effect behavior unchanged.
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useState } from "react";
 import type { Character } from "../App";
 
