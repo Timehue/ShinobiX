@@ -31365,6 +31365,9 @@ function PvpBattleScreen({
     const logRef = useRef<HTMLDivElement>(null);
     // Battle-log round accordion overrides (default-open = latest two rounds).
     const [logRoundOverrides, setLogRoundOverrides] = useState<Record<number, boolean>>({});
+    // Latest combat-hotkey handlers, read by a stable keydown listener (below).
+    // Updated each render so it never goes stale and stays a top-level hook.
+    const combatHotkeyRef = useRef<{ active: boolean; actions: Record<string, () => void> } | null>(null);
     const pvpSessionFirstLoadRef = useRef(false);
     const pvpRewardRef = useRef(false);
     const previousPvpPositionsRef = useRef<{ p1: number; p2: number } | null>(null);
@@ -31567,6 +31570,24 @@ function PvpBattleScreen({
     useEffect(() => {
         if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight;
     }, [session?.log.length]);
+
+    // Desktop combat hotkeys — A=Attack M=Move D=Dash H=Heal C=Clear X=Cleanse
+    // F=Flee W/Space=End turn Esc=Deselect. Reads the latest handlers via a ref
+    // so this stays a stable top-level hook. Ignores keypresses while typing
+    // (battle chat) and only fires on the local player's turn; AP/cooldown
+    // affordability is enforced server-side.
+    useEffect(() => {
+        function onCombatKey(e: KeyboardEvent) {
+            const state = combatHotkeyRef.current;
+            if (!state || !state.active || e.ctrlKey || e.metaKey || e.altKey) return;
+            const el = document.activeElement as HTMLElement | null;
+            if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)) return;
+            const fn = state.actions[e.key.toLowerCase()];
+            if (fn) { e.preventDefault(); fn(); }
+        }
+        window.addEventListener("keydown", onCombatKey);
+        return () => window.removeEventListener("keydown", onCombatKey);
+    }, []);
 
     useEffect(() => {
         if (!session) return;
@@ -32082,6 +32103,23 @@ function PvpBattleScreen({
         j.type === "Taijutsu" ? "👊" : j.type === "Bukijutsu" ? "⚔" : j.type === "Genjutsu" ? "👁" : "🌀";
     const myAvatar = (me.character?.avatarImage as string) || sharedImages['avatar:' + me.name.toLowerCase()] || "";
     const oppAvatar = (opp.character?.avatarImage as string) || sharedImages['avatar:' + opp.name.toLowerCase()] || "";
+
+    // Combat hotkey wiring for this render (read by the keydown listener above).
+    combatHotkeyRef.current = {
+        active: isMyTurn && !submitting && !done && !amSpectator,
+        actions: {
+            a: () => { clearPendingPvpJutsu(); setPendingWeaponId(""); setDashMode(false); setSelectedActionId(undefined); setPendingBasicAttack(v => !v); },
+            m: () => { clearPendingPvpJutsu(); setPendingBasicAttack(false); setPendingWeaponId(""); setDashMode(false); setSelectedActionId(v => v === "move" ? undefined : "move"); },
+            d: () => { clearPendingPvpJutsu(); setPendingBasicAttack(false); setPendingWeaponId(""); setSelectedActionId(undefined); setDashMode(v => !v); },
+            h: () => void submitAction("basicHeal"),
+            c: () => void submitAction("clear"),
+            x: () => void submitAction("cleanse"),
+            f: () => void submitAction("flee"),
+            w: () => void submitAction("wait"),
+            " ": () => void submitAction("wait"),
+            escape: () => { clearPendingPvpJutsu(); setPendingBasicAttack(false); setPendingWeaponId(""); setDashMode(false); setSelectedActionId(undefined); },
+        },
+    };
 
     return (
         <div className={`arena-fullscreen pvp-battle-layout arena-bg-${currentBiome}${currentSector === 99 ? " arena-bg-deathsgate" : ""}`}>
