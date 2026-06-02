@@ -3037,6 +3037,20 @@ export default function App() {
     useEffect(() => {
         try { localStorage.setItem(LAST_SCREEN_KEY, screen); } catch { /* quota / SSR */ }
     }, [screen]);
+    // ── Shareable URL hash ──────────────────────────────────────────────
+    // Reflect the active screen in the URL (e.g. #/village) so links are
+    // visible, bookmarkable, and shareable. replaceState only — no new history
+    // entries and no popstate — so it never conflicts with the localStorage
+    // restore or the mobile back-stack. We deliberately skip the "start" (login)
+    // screen so a bookmarked deep-link hash isn't wiped before the post-login
+    // restore can read it.
+    useEffect(() => {
+        if (screen === "start") return;
+        try {
+            const want = `#/${screen}`;
+            if (window.location.hash !== want) window.history.replaceState(null, "", want);
+        } catch { /* sandboxed / SSR */ }
+    }, [screen]);
     // ── PvP session persistence ─────────────────────────────────────────
     // PvP keys are declared / used here, but the useEffect that consumes
     // pvpBattleId is registered AFTER the pvp state hooks are declared
@@ -4491,7 +4505,13 @@ export default function App() {
                     return;
                 }
                 try {
-                    const persisted = localStorage.getItem(LAST_SCREEN_KEY) as Screen | null;
+                    // A bookmarked/shared URL hash (#/village) takes precedence
+                    // over the last-visited screen — but only for deep-linkable
+                    // hub screens; mid-encounter screens fall back to localStorage
+                    // and the safe-screen routing below.
+                    const DEEP_LINKABLE = new Set<string>(["village", "villageLore", "profile", "inventory", "logbook", "training", "jutsuTraining", "missions", "bloodlineMaker", "clan", "worldMap", "townHall", "bank", "shop", "grandMarketplace", "hospital", "cafeteria", "storyHall", "centralHub", "pets", "hunting", "tavern", "hallOfLegends", "shinobiCouncil"]);
+                    const hashRaw = (() => { try { return window.location.hash.replace(/^#\/?/, ""); } catch { return ""; } })();
+                    const persisted = (DEEP_LINKABLE.has(hashRaw) ? (hashRaw as Screen) : null) ?? (localStorage.getItem(LAST_SCREEN_KEY) as Screen | null);
                     if (persisted) {
                         const inHollowGateRun = Boolean(normalized.hollowGateRun && !normalized.hollowGateRun.completed);
                         // Mid-encounter screens that can't resume from
