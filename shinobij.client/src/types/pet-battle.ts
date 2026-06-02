@@ -23,7 +23,9 @@
 /** How a pet is rendered on the battlefield. */
 export type PetSpriteMode =
     | "circleFallback"
-    | "fullBodySprite";
+    | "fullBodySprite"
+    | "layeredParallax"
+    | "spriteSheet";
 
 /** The visual pose an individual pet sprite is holding on a given tick. */
 export type PetVisualState =
