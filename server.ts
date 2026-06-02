@@ -42,6 +42,7 @@ import guardChallengeHandler from './api/village-guard/challenge.js';
 import generateImageHandler from './api/generate-image.js';
 import gameStateHandler    from './api/game-state.js';
 import worldStateHandler   from './api/world-state.js';
+import messagesHandler     from './api/messages.js';
 import kageHandler         from './api/village/kage.js';
 import bloodlineReviewHandler from './api/admin/bloodline-review.js';
 import itemReviewHandler   from './api/admin/item-review.js';
@@ -317,6 +318,7 @@ route('/generate-image', generateImageHandler);
 // Game / world state
 route('/game-state',  gameStateHandler);
 route('/world-state', worldStateHandler);
+route('/messages',    messagesHandler);
 
 // Village
 route('/village/kage', kageHandler);
