@@ -9869,14 +9869,19 @@ textarea {
     }
 
 .combat-jutsu-name {
-    display: block !important;
+    /* Up to two lines so longer names ("Stone Needle Barrage") don't truncate to
+       "Stone Nee…". Multi-line ellipsis via line-clamp instead of nowrap. */
+    display: -webkit-box !important;
+    -webkit-box-orient: vertical !important;
+    -webkit-line-clamp: 2 !important;
+    line-clamp: 2 !important;
     font-size: 9px !important;
     line-height: 1.05 !important;
     font-weight: 900 !important;
     color: #111827 !important;
-    white-space: nowrap !important;
+    white-space: normal !important;
     overflow: hidden !important;
-    text-overflow: ellipsis !important;
+    overflow-wrap: anywhere !important;
 }
 
 .combat-jutsu-info {
