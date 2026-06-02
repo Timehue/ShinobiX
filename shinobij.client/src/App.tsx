@@ -479,6 +479,7 @@ import {
 // All-users directory screen moved to ./screens/UserHub. Lazy-loaded — accessed
 // from the Central Hub menu, not on first paint.
 const UserHub = lazy(() => import("./screens/UserHub").then(m => ({ default: m.UserHub })));
+const Messages = lazy(() => import("./screens/Messages").then(m => ({ default: m.Messages })));
 // Read-only profile screen for viewing other players moved to ./screens/UserView.
 // Lazy-loaded — only mounts when the player clicks into another player's profile.
 const UserView = lazy(() => import("./screens/UserView").then(m => ({ default: m.UserView })));
@@ -4509,7 +4510,7 @@ export default function App() {
                     // over the last-visited screen — but only for deep-linkable
                     // hub screens; mid-encounter screens fall back to localStorage
                     // and the safe-screen routing below.
-                    const DEEP_LINKABLE = new Set<string>(["village", "villageLore", "profile", "inventory", "logbook", "training", "jutsuTraining", "missions", "bloodlineMaker", "clan", "worldMap", "townHall", "bank", "shop", "grandMarketplace", "hospital", "cafeteria", "storyHall", "centralHub", "pets", "hunting", "tavern", "hallOfLegends", "shinobiCouncil"]);
+                    const DEEP_LINKABLE = new Set<string>(["village", "villageLore", "profile", "inventory", "logbook", "training", "jutsuTraining", "missions", "bloodlineMaker", "clan", "worldMap", "townHall", "bank", "shop", "grandMarketplace", "hospital", "cafeteria", "storyHall", "centralHub", "pets", "hunting", "tavern", "hallOfLegends", "shinobiCouncil", "messages"]);
                     const hashRaw = (() => { try { return window.location.hash.replace(/^#\/?/, ""); } catch { return ""; } })();
                     const persisted = (DEEP_LINKABLE.has(hashRaw) ? (hashRaw as Screen) : null) ?? (localStorage.getItem(LAST_SCREEN_KEY) as Screen | null);
                     if (persisted) {
@@ -9050,6 +9051,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "hospital" && character && <Hospital character={character} updateCharacter={setCharacter} setScreen={navigate} playerRoster={playerRoster} hospitalEntryTime={hospitalEntryTime} />}
                 {!activeTriggeredEvent && screen === "cafeteria" && character && <Cafeteria character={character} updateCharacter={setCharacter} />}
                 {!activeTriggeredEvent && screen === "tavern" && character && <VillageTavern character={character} setScreen={setScreen} sharedImages={sharedImages} />}
+                {!activeTriggeredEvent && screen === "messages" && character && <Messages character={character} onBack={() => setScreen("village")} />}
                 {!activeTriggeredEvent && screen === "hallOfLegends" && character && <HallOfLegends character={character} setScreen={setScreen} playerRoster={playerRoster} />}
                 {!activeTriggeredEvent && screen === "endlessTower" && character && (
                     <EndlessTowerLobby
