@@ -465,7 +465,11 @@ moving server-side first.
 
 ---
 
-## Phase 4 — Mission/raid/hunt/AI-kill ryo + character XP (PLAN)
+## Phase 4 — Mission/raid/hunt/AI-kill ryo + character XP (CLOSED under Option A)
+
+**OUTCOME (2026-06-01): bank interest (4f) shipped; deeper ryo/xp authority needs
+Option B.** See "Close-out finding" at the end of this section. The original
+Option-A plan is preserved below for the record.
 
 **Scope SIGNED OFF 2026-06-01: Option A (Pragmatic).** Move the DETERMINISTIC
 sources server-side; leave RNG loot (chest, Hollow Gate) client-side behind
@@ -581,16 +585,54 @@ reverted. Two sources make "everything server-side" expensive:
   uncapped in the sanitizer, so the re-assert is unaffected; this closes the
   interest-amount-inflation vector (the broad bankRyo-mint via the save blob
   remains until 4g). Suite 223/223; tsc clean; Bank.tsx 0 lint findings.
-- **Remaining (Option A):** 4c story → 4d tower → 4b AI-kill → 4e RNG-cap
-  tighten → 4g sanitizer flip + the Phase-3-deferred read-back. Missions (4a)
-  revisited after server-side progress tracking exists.
+### Close-out finding — Phase 4 CLOSED under Option A (2026-06-01)
 
-### Open decisions for sign-off
-1. **Option A (pragmatic, tighten RNG residual) vs Option B (full server RNG).**
-2. Sub-phase ORDER / which to do first (default: 4a → 4f → 4c → 4d → 4b → 4e → 4g).
-3. Whether 4g adopts a server-owned **ledger key** (cleanest full-authority) or
-   keeps economic fields in the save blob behind the reject-sanitizer.
-4. AI-kill (4b) is entangled with Phase 5 (server `dailyAiKills`) — do them together?
+Scoping every remaining sub-phase (4a–4e) surfaced one root cause, repeatedly:
+**the game computes rewards client-side, gates them with client-tracked progress,
+and has no server-side battle/run verification.** Bank interest (4f) was the only
+source that could be made server-authoritative under Option A because it is small,
+time-gated, and fully server-owned (no battle, no client-tracked progress). The
+others each dead-ended:
+
+- **4a missions** — completion is client-tracked (`missionProgress` explore/raid
+  counters) and rewards are user-authored `CreatorMission` content in the save
+  blob → server can neither verify completion nor trust the amount.
+- **4c story** — reward amounts live in client data (`storylines.ts`/`vn-events.ts`),
+  battles are local AI (no `PvpSession` to verify), and `storyProgress` is not
+  server-gated → server can't verify the win or trust the gate.
+- **4d/4e tower + caps** — the Endless Tower banking legitimately grants up to
+  **~2,073,980 ryo / ~696,655 raw XP in a single save** (a long run banks every
+  wave then pays out at once), *at or above* the current `MAX_RYO_GAIN` of 1,000,000.
+  So the per-save cap **cannot be lowered** without clipping legit runs. A bounded
+  tower endpoint does NOT help, because the **convergence model** (client adds the
+  credited delta and autosaves) keeps the tower ryo on the save-blob cap path — the
+  cap can only drop once the server is the SOLE writer of `ryo` (the read-back /
+  ledger model). And the tower credit is bounded-not-verified (client-reported wave
+  count), so no bound both stops a cheat and spares a legit 150-wave grinder.
+- **4b AI-kill** — local AI, no `PvpSession`; only a bounded daily-capped credit is
+  possible (entangled with Phase 5 `dailyAiKills`).
+
+**Conclusion:** under Option A (no rewrite), Phase 4's reachable surface is bank
+interest. Genuinely server-authoritative ryo/xp — and any meaningful cap reduction
+— requires **Option B**: a server-owned **ledger** for `ryo`/`xp`/`level` (the save
+blob stops carrying authoritative economic fields; the client reads server values
+instead of self-applying) **plus** server-side run/battle verification for the big
+sources (tower, story, missions). That is a multi-week, balance-sensitive program
+with its own roadmap and sign-off — deliberately out of scope here.
+
+**What stands as the program's security posture today:** the save sanitizer caps
+(ryo +1M/save & 5M/min, level +5/save, currencies per-save, the daily-claim-date
+locks, stat caps) remain the economic gate for all still-client-applied sources,
+and Phases 1–3 + 4f made PvP rating, PvP-win ryo/xp, the daily claims, and bank
+interest genuinely server-authoritative on top of that.
+
+### Deferred to a future Option-B program (not started)
+- Server-owned ledger for `ryo`/`xp`/`level` + client read-back (replaces the
+  convergence model so the sanitizer can flip cap→reject).
+- Server-side run/battle verification: Endless Tower, story/event battles, mission
+  completion (explore/raid progress), AI-kills — the prerequisite for trusting any
+  of those rewards.
+- Phase 5 (server-owned daily counters `dailyAiKills`/`dailyPetWins`) folds in here.
 
 ## Non-negotiables (per CLAUDE.md)
 
