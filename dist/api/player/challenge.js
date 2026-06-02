@@ -182,8 +182,26 @@ async function handler(req, res) {
         else if (fromName && !record.battleId) {
             const senderKey = outgoingKey(fromName);
             const existingOutgoing = await _storage_js_1.kv.get(senderKey);
-            if (existingOutgoing) {
-                return res.status(409).json({ error: 'You already have a pending challenge.' });
+            // Supersede the sender's prior pending challenge instead of rejecting
+            // the new one. A challenge that was never answered (recipient
+            // offline) — or one the sender lost track of after a page reload —
+            // used to lock the sender out for the full CHALLENGE_TTL window with
+            // a "you already have a pending challenge" error and no way to clear
+            // it. Clear the previous recipient's inbox copy here; the outgoing
+            // slot is overwritten just below. This preserves the "one
+            // outstanding challenge per sender" invariant — the new challenge
+            // simply replaces the old, dead one.
+            if (existingOutgoing?.targetName) {
+                const prevKey = challengeKey(String(existingOutgoing.targetName));
+                const prevId = existingOutgoing.challengeId ? String(existingOutgoing.challengeId) : '';
+                await (0, _lock_js_1.withKvLock)(prevKey, async () => {
+                    const inbox = await _storage_js_1.kv.get(prevKey) ?? [];
+                    const filtered = prevId ? inbox.filter(c => challengeId(c) !== prevId) : inbox;
+                    if (filtered.length)
+                        await _storage_js_1.kv.set(prevKey, filtered, { ex: CHALLENGE_TTL });
+                    else
+                        await _storage_js_1.kv.del(prevKey);
+                });
             }
             await _storage_js_1.kv.set(senderKey, { targetName, challengeId: challengeId(challenge), createdAt: Date.now() }, { ex: CHALLENGE_TTL });
         }
