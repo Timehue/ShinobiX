@@ -161,6 +161,7 @@ type Jutsu = {
     ap?: number;
     cooldown?: number;
     effectPower?: number;
+    isUtility?: boolean;
     bloodlineRank?: string;
     method?: string;
     chakraCost?: number;
@@ -168,7 +169,12 @@ type Jutsu = {
     tags?: JutsuTag[];
 };
 
-function isZeroDamageFortyApJutsu(jutsu: Pick<Jutsu, 'id' | 'ap'>): boolean {
+// Utility jutsu = no damage (status/buff/debuff only). Prefers the explicit
+// `isUtility` flag; falls back to the legacy 40-AP convention when absent so
+// existing content is unchanged (40-AP jutsu still deal zero damage).
+function isZeroDamageFortyApJutsu(jutsu: Pick<Jutsu, 'id' | 'ap' | 'isUtility'>): boolean {
+    if (jutsu.isUtility === true) return true;
+    if (jutsu.isUtility === false) return false;
     return jutsu.ap === 40 && jutsu.id !== 'basic-attack' && !jutsu.id.startsWith('item-');
 }
 
