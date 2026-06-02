@@ -14,6 +14,10 @@ const M = {
     heal: { id: "mend", name: "Mend", description: "", power: 0, accuracy: 100, cooldown: 0, range: { min: 0, max: 0 }, tags: ["heal"], animationType: "heal", vfxKey: "chakra", aiHint: "heal", targetType: "self" } as PetMove,
     root: { id: "snare", name: "Snare", description: "", power: 0, accuracy: 90, cooldown: 0, range: { min: 1, max: 4 }, tags: ["ranged", "root"], animationType: "beam", vfxKey: "shadow", aiHint: "control", targetType: "singleEnemy" } as PetMove,
     aoe: { id: "nova", name: "Nova", description: "", power: 24, accuracy: 90, cooldown: 0, range: { min: 1, max: 4 }, tags: ["ranged", "aoe"], animationType: "beam", vfxKey: "fire", aiHint: "damage", targetType: "allEnemies" } as PetMove,
+    // Phase-12 archetype mechanics.
+    wound: { id: "rend", name: "Rend", description: "", power: 20, accuracy: 95, cooldown: 0, range: { min: 1, max: 2 }, tags: ["melee", "dot"], animationType: "melee_lunge", vfxKey: "blood", aiHint: "debuff", targetType: "singleEnemy" } as PetMove,
+    pull: { id: "hook", name: "Hook", description: "", power: 0, accuracy: 90, cooldown: 0, range: { min: 1, max: 4 }, tags: ["ranged", "pull"], animationType: "beam", vfxKey: "wind", aiHint: "control", targetType: "singleEnemy" } as PetMove,
+    push: { id: "shove", name: "Shove", description: "", power: 18, accuracy: 90, cooldown: 0, range: { min: 1, max: 2 }, tags: ["melee", "push"], animationType: "ground_impact", vfxKey: "earth", aiHint: "damage", targetType: "singleEnemy" } as PetMove,
 };
 
 function state(actors: PetBattleActor[], moves: Record<string, PetMove[]>, stats?: PetAiState["statsByActor"]): PetAiState {
@@ -150,6 +154,40 @@ test("kite holds a range band — retreats when inside its firing distance", () 
     const cd = { ...me, cooldowns: { bolt: 1 } };
     const d = choosePetAction(state([cd, foe], { me: [M.rangedHit], foe: [] }), "me");
     assert.ok(d.action === "move" && d.moveDir === "away", `got ${d.action}/${d.moveDir}`);
+});
+
+// ── Phase-12 archetype-mechanic affinity ──────────────────────────────────
+
+test("bruiser opens with its wound on a healthy adjacent foe", () => {
+    const me = actor("me", "bruiser", 3, 5);
+    const foe = actor("foe", "bruiser", 3, 6); // adjacent, full HP
+    const d = choosePetAction(state([me, foe], { me: [M.wound, M.meleeHit], foe: [] }), "me");
+    assert.equal(d.action, "useMove");
+    assert.equal(d.moveId, "rend");
+});
+
+test("bruiser does NOT re-wound an already-bleeding foe (anti-waste)", () => {
+    const me = actor("me", "bruiser", 3, 5);
+    const foe = actor("foe", "bruiser", 3, 6, { statuses: [{ kind: "wound", rounds: 2 } as BattleStatus] });
+    const d = choosePetAction(state([me, foe], { me: [M.wound, M.meleeHit], foe: [] }), "me");
+    assert.equal(d.action, "useMove");
+    assert.equal(d.moveId, "claw"); // attacks instead of stacking the bleed
+});
+
+test("bruiser pulls a spacing foe into mauling range (anti-kite)", () => {
+    const me = actor("me", "bruiser", 3, 2);
+    const foe = actor("foe", "bruiser", 3, 6); // dist 4 — out of melee, in pull range
+    const d = choosePetAction(state([me, foe], { me: [M.pull, M.meleeHit], foe: [] }), "me");
+    assert.equal(d.action, "useMove");
+    assert.equal(d.moveId, "hook");
+});
+
+test("control pushes a crowding foe away to restore its kill-zone (peel)", () => {
+    const me = actor("me", "control", 3, 5);
+    const foe = actor("foe", "bruiser", 3, 6); // point-blank
+    const d = choosePetAction(state([me, foe], { me: [M.push, M.rangedHit], foe: [] }), "me");
+    assert.equal(d.action, "useMove");
+    assert.equal(d.moveId, "shove");
 });
 
 test("choosePartyTarget: control interrupts a charging enemy first", () => {
