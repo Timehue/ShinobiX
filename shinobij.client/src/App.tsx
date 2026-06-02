@@ -11303,10 +11303,6 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
     const [partyResult, setPartyResult] = useState<PetPartyBattleResult | null>(null);
 
     async function sendDirectPetChallenge(toName: string, fromPetId?: string) {
-        if (duelChallenges.some((challenge) => challenge.fromName === character.name && !challenge.accepted && !challenge.declined && !challenge.battleId && Date.now() - challenge.createdAt < 180000)) {
-            setPetChallengeMsg("You already have a pending challenge. Wait for it to be accepted, declined, or expire before sending another.");
-            return;
-        }
         const targetRecord = allServerPlayers.find((player) => player.name.toLowerCase() === toName.toLowerCase());
         if (targetRecord?.character && targetRecord.character.pets.length === 0) {
             setPetChallengeMsg(`${toName} does not have a pet available for battle.`);
@@ -11355,10 +11351,18 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                 body: JSON.stringify({ targetName: toName, challenge }),
             });
             if (res.status === 409) {
-                setPetChallengeMsg("You already have a pending challenge. Wait for it to be accepted, declined, or expire before sending another.");
+                // Server supersedes a stale pending challenge now, so a 409 is a
+                // genuine block (target traveling / in battle). Show its message.
+                const data = await res.json().catch(() => ({} as { error?: string }));
+                setPetChallengeMsg(data?.error ?? "This challenge can't be sent right now.");
                 return;
             }
-            if (res.ok && !duelChallenges.some((c: DuelChallenge) => c.id === challenge.id)) setDuelChallenges([...duelChallenges, challenge]);
+            // Drop our prior pending outgoing challenge (server just superseded
+            // it) and keep this fresh one.
+            if (res.ok) setDuelChallenges([
+                ...duelChallenges.filter((c: DuelChallenge) => !(c.fromName === character.name && !c.accepted && !c.declined && !c.battleId)),
+                challenge,
+            ]);
             setPetChallengeMsg(res.ok ? `✅ Pet challenge sent to ${toName}! They'll see it shortly.` : `❌ Could not reach ${toName}. Check the name and try again.`);
         } catch {
             setPetChallengeMsg(`❌ Network error sending challenge.`);
@@ -12650,10 +12654,29 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
                         const positionMap = new Map<number, GridPet>();
                         if (frame?.party4v4) {
                             const p4 = frame.party4v4;
-                            if (playerPet         && !p4.playerLead.ko)    positionMap.set(p4.playerLead.pos,    { pet: playerPet,        side: "player", ko: false, isActor: p4.actorSlot === "playerLead",    isTarget: isHitFrame && p4.targetSlot === "playerLead" });
-                            if (playerReservePet  && !p4.playerReserve.ko) positionMap.set(p4.playerReserve.pos, { pet: playerReservePet, side: "player", ko: false, isActor: p4.actorSlot === "playerReserve", isTarget: isHitFrame && p4.targetSlot === "playerReserve" });
-                            if (enemyPet          && !p4.enemyLead.ko)     positionMap.set(p4.enemyLead.pos,     { pet: enemyPet,         side: "enemy",  ko: false, isActor: p4.actorSlot === "enemyLead",     isTarget: isHitFrame && p4.targetSlot === "enemyLead" });
-                            if (enemyReservePet   && !p4.enemyReserve.ko)  positionMap.set(p4.enemyReserve.pos,  { pet: enemyReservePet,  side: "enemy",  ko: false, isActor: p4.actorSlot === "enemyReserve",  isTarget: isHitFrame && p4.targetSlot === "enemyReserve" });
+                            // Place ALL fielded party pets — including KO'd ones,
+                            // which stay on the grid toppled/greyed (see `faint`
+                            // below) instead of vanishing. This is what 1v1
+                            // already does for the loser, and it means a 2v2
+                            // always shows both pets per side, not just the
+                            // survivor. Each entry carries its OWN ko flag so a
+                            // downed ally never drags its still-standing partner
+                            // into the faint pose.
+                            const partySlots = [
+                                { pet: playerPet,        side: "player" as const, slot: "playerLead"    as const, snap: p4.playerLead },
+                                { pet: playerReservePet, side: "player" as const, slot: "playerReserve" as const, snap: p4.playerReserve },
+                                { pet: enemyPet,         side: "enemy"  as const, slot: "enemyLead"     as const, snap: p4.enemyLead },
+                                { pet: enemyReservePet,  side: "enemy"  as const, slot: "enemyReserve"  as const, snap: p4.enemyReserve },
+                            ];
+                            // Two passes: add KO'd pets first, living pets second,
+                            // so a living pet that has stepped onto a freed square
+                            // wins the cell instead of being hidden under a corpse.
+                            for (const koPass of [true, false]) {
+                                for (const s of partySlots) {
+                                    if (!s.pet || s.snap.ko !== koPass) continue;
+                                    positionMap.set(s.snap.pos, { pet: s.pet, side: s.side, ko: s.snap.ko, isActor: p4.actorSlot === s.slot, isTarget: isHitFrame && p4.targetSlot === s.slot });
+                                }
+                            }
                         } else {
                             positionMap.set(playerPos, { pet: playerPet, side: "player", ko: false, isActor: frame?.actor === "player", isTarget: isHitFrame && frame?.actor === "enemy" });
                             positionMap.set(enemyPos,  { pet: enemyPet,  side: "enemy",  ko: false, isActor: frame?.actor === "enemy",  isTarget: isHitFrame && frame?.actor === "player" });
@@ -12689,7 +12712,13 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
                             // just hit 0 HP topples, sinks, and desaturates in place.
                             const depthRow = Math.floor(index / PET_GRID_COLS);
                             const depthScale = 1 + (depthRow - 3) * 0.04;
-                            const faint = !!here && (here.side === "player" ? (frame?.playerHp ?? 1) <= 0 : (frame?.enemyHp ?? 1) <= 0);
+                            // In 2v2 the side-wide playerHp/enemyHp track only the
+                            // lead pet, so they can't decide faint per pet — a downed
+                            // lead would otherwise topple its living reserve too
+                            // (the "2nd pet glitches after a KO" bug). Use the slot's
+                            // own KO flag in party mode; in 1v1 there's a single pet
+                            // per side, so the side HP is the right signal.
+                            const faint = !!here && (frame?.party4v4 ? here.ko : (here.side === "player" ? (frame?.playerHp ?? 1) <= 0 : (frame?.enemyHp ?? 1) <= 0));
                             const depthStyle: React.CSSProperties = {
                                 transform: faint
                                     ? `scale(${depthScale}) translateY(15px) rotate(${here!.side === "player" ? -68 : 68}deg)`
@@ -27978,6 +28007,12 @@ function Arena({
 
     useEffect(() => {
         if (!battleStarted || battleEnded) return;
+        // Spectator board is player-vs-player only. opponentCharacter is set
+        // exclusively for real PvP bouts (it is null for every AI / story /
+        // raid-boss / training opponent — see opponentName above), so it's the
+        // reliable PvP signal. Skipping AI fights keeps the board free of
+        // entries like "Sota vs Oathbound Soldier" that can't be spectated.
+        if (!opponentCharacter) return;
         const fight: ArenaSpectatorFight = {
             id: `${character.name}-${opponentName}-${Date.now()}`,
             title: `${character.name} vs ${opponentName}`,
@@ -27994,7 +28029,7 @@ function Arena({
             saveArenaActiveFights(remaining);
             setSpectatorFights(remaining);
         };
-    }, [battleStarted, opponentName, rankedBattleActive, clanWarPointsActive, raidBattleKind, character.name]);
+    }, [battleStarted, battleEnded, opponentName, opponentCharacter, rankedBattleActive, clanWarPointsActive, raidBattleKind, character.name]);
 
     useEffect(() => {
         if (!character.clan) { setOpponentClanData(null); return; }
@@ -28133,10 +28168,6 @@ function Arena({
     }
 
     async function challengePlayer(opponent: PlayerRecord, mode: DuelChallenge["mode"] = "standard", clanWarPoints = 0) {
-        if (duelChallenges.some((challenge) => challenge.fromName === character.name && !challenge.accepted && !challenge.declined && !challenge.battleId && Date.now() - challenge.createdAt < 180000)) {
-            alert("You already have a pending challenge. Wait for it to be accepted, declined, or expire before sending another.");
-            return;
-        }
         const isPetMode = mode === "clanWarPet" || mode === "rankedPet";
         if (isPetMode && !character.pets.length) {
             alert("You need a pet before sending a pet battle challenge.");
@@ -28170,11 +28201,20 @@ function Arena({
                 body: JSON.stringify({ targetName: opponent.name, challenge }),
             });
             if (res.status === 409) {
-                alert("You already have a pending challenge. Wait for it to be accepted, declined, or expire before sending another.");
+                // The server now supersedes a stale pending challenge rather than
+                // rejecting a new one, so a 409 here means a genuine block (target
+                // traveling / already in a battle / engaged). Surface its message.
+                const data = await res.json().catch(() => ({} as { error?: string }));
+                alert(data?.error ?? "This challenge can't be sent right now.");
                 return;
             }
             if (!res.ok) throw new Error(`Server returned ${res.status}`);
-            if (!duelChallenges.some((existing: DuelChallenge) => existing.id === challenge.id)) setDuelChallenges([...duelChallenges, challenge]);
+            // Drop any prior pending outgoing challenge of ours (the server just
+            // superseded it) and keep only this fresh one.
+            setDuelChallenges([
+                ...duelChallenges.filter((c) => !(c.fromName === character.name && !c.accepted && !c.declined && !c.battleId)),
+                challenge,
+            ]);
             alert(`${mode === "ranked" ? "Ranked challenge" : mode === "rankedPet" ? "Ranked pet challenge" : mode === "clanWarPet" ? "Pet challenge" : "Challenge"} sent to ${opponent.name}.`);
         } catch {
             alert(`${opponent.name} is not reachable live right now. Challenge was not sent.`);
@@ -30660,9 +30700,9 @@ function Arena({
                     <section className="summary-box">
                         <h3>Spectator Board</h3>
                         <button onClick={() => setSpectatorFights(loadArenaActiveFights())}>Refresh Fights</button>
-                        {spectatorFights.length === 0 && duelChallenges.filter((challenge) => !challenge.accepted && !challenge.declined && (Boolean(challenge.clanWarPoints) || challenge.mode === "ranked")).length === 0 ? <p className="hint">No active fights or open district challenges detected right now.</p> : (
+                        {spectatorFights.filter((fight) => fight.battleId).length === 0 && duelChallenges.filter((challenge) => !challenge.accepted && !challenge.declined && (Boolean(challenge.clanWarPoints) || challenge.mode === "ranked")).length === 0 ? <p className="hint">No active fights or open district challenges detected right now.</p> : (
                             <div className="jutsu-list">
-                                {spectatorFights.map((fight) => <div className="summary-box" key={fight.id}><strong>{fight.title}</strong><p>{fight.mode}{fight.biome ? ` | ${fight.biome}` : ""} | Started {new Date(fight.startedAt).toLocaleTimeString()}</p><button onClick={() => {
+                                {spectatorFights.filter((fight) => fight.battleId).map((fight) => <div className="summary-box" key={fight.id}><strong>{fight.title}</strong><p>{fight.mode}{fight.biome ? ` | ${fight.biome}` : ""} | Started {new Date(fight.startedAt).toLocaleTimeString()}</p><button onClick={() => {
                                     if (fight.battleId && setPvpBattleId && setPvpRole) {
                                         // Join as spectator
                                         fetch(`/api/pvp/spectate?id=${encodeURIComponent(fight.battleId)}`, {
