@@ -19,7 +19,7 @@ import type {
 } from "../types/pet-battle";
 
 // Kinds that target the caster (or allies), never an enemy tile.
-const SELF_KINDS = new Set<PetJutsu["kind"]>(["heal", "buff", "barrier", "shield", "absorb", "move"]);
+const SELF_KINDS = new Set<PetJutsu["kind"]>(["heal", "buff", "barrier", "shield", "absorb", "move", "haste"]);
 
 // ── Per-kind descriptor table ───────────────────────────────────────────────
 // Maps a PetJutsu.kind onto its tactical descriptor. `vfx: null` means "use the
@@ -51,6 +51,14 @@ const KIND_SPECS: Record<PetJutsu["kind"], KindSpec> = {
     shield:    { tags: ["shield"],                    anim: "shield",            hint: "defense", range: { min: 0, max: 0 }, accuracy: 100, vfx: "chakra",    blurb: "Forms a protective ward." },
     absorb:    { tags: ["shield", "buff"],            anim: "guard",             hint: "defense", range: { min: 0, max: 0 }, accuracy: 100, vfx: "chakra",    blurb: "Enters an absorb stance, reducing damage." },
     move:      { tags: ["charge"],                    anim: "dash",              hint: "kite",    range: { min: 0, max: 5 }, accuracy: 100, vfx: "none",      blurb: "Dashes across the arena." },
+    // Phase 12 archetype-identity kinds.
+    wound:     { tags: ["melee", "dot"],              anim: "melee_lunge",       hint: "debuff",  range: { min: 1, max: 2 }, accuracy: 95,  vfx: "blood",     blurb: "Opens a bleeding wound — damage over time and halved healing." },
+    mark:      { tags: ["ranged", "debuff"],          anim: "roar",              hint: "debuff",  range: { min: 1, max: 4 }, accuracy: 100, vfx: "shadow",    blurb: "Marks the target — its next heavy hit bites deeper." },
+    slow:      { tags: ["ranged", "slow", "debuff"],  anim: "beam",              hint: "control", range: { min: 1, max: 4 }, accuracy: 90,  vfx: "ice",       blurb: "Chills the target — slower movement and dodge." },
+    haste:     { tags: ["buff"],                      anim: "self_buff",         hint: "buff",    range: { min: 0, max: 0 }, accuracy: 100, vfx: "lightning", blurb: "Surges with speed — faster and harder to pin." },
+    taunt:     { tags: ["debuff"],                    anim: "roar",              hint: "defense", range: { min: 1, max: 4 }, accuracy: 100, vfx: "none",      blurb: "Taunts the foe into attacking the caster." },
+    push:      { tags: ["melee", "push"],             anim: "ground_impact",     hint: "damage",  range: { min: 1, max: 2 }, accuracy: 90,  vfx: "earth",     blurb: "A shove that knocks the target back." },
+    pull:      { tags: ["ranged", "pull"],            anim: "beam",              hint: "control", range: { min: 1, max: 4 }, accuracy: 90,  vfx: "wind",      blurb: "Yanks the target in close." },
 };
 
 function slug(name: string): string {
@@ -220,8 +228,8 @@ export type StatusFlags = {
     poisoned?: number; burn?: number; freeze?: number; confuse?: number; stun?: number;
     moveLocked?: number | boolean; slow?: number; haste?: number;
     shield?: number; guarding?: number | boolean; focused?: number | boolean;
-    evading?: number | boolean; wound?: number; marked?: number; blinded?: number;
-    taunted?: number; armorBroken?: number; countering?: number | boolean; reflecting?: number;
+    evading?: number | boolean; wound?: number; marked?: number | boolean; blinded?: number;
+    taunted?: number | boolean; armorBroken?: number; countering?: number | boolean; reflecting?: number;
 };
 
 function rounds(v: number | boolean | undefined): number {
