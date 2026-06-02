@@ -199,26 +199,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             } catch { /* skip malformed */ }
         }
 
-        // Supplement: any saves not yet in the registry — no extra get() calls needed,
-        // just list their names so they show up; character data will arrive on next heartbeat.
-        const saveKeysFull = await kv.keys('save:*');
-        for (const key of saveKeysFull) {
-            const name = key.replace('save:', '');
-            if (players.some(p => p.name.toLowerCase() === name.toLowerCase())) continue;
-            const livePresence = livePresenceByName.get(name.toLowerCase());
-            // Only include if they have live presence (character data available without a save read).
-            if (!livePresence?.character) continue;
-            const rawCharacter = livePresence.character as Record<string, unknown>;
+        // Supplement: online players missing from the registry. Each save:<name>
+        // is written atomically with its registry entry (save/[name].ts uses one
+        // Promise.all for kv.set + kv.hset, and deletes both together), so the
+        // registry already covers every saved player — the previous full
+        // `keys('save:*')` directory walk added nothing in normal operation and
+        // cost a recursive scan of the entire save tree on every (cache-miss)
+        // call. The only players Block A above can miss are those online yet
+        // absent from the registry: a brand-new character that hasn't saved yet,
+        // or the rare window where a save's registry upsert lagged. We already
+        // hold every live presence (no extra reads), so source the supplement
+        // from there instead of scanning the save tree.
+        const seen = new Set(players.map(p => p.name.toLowerCase()));
+        for (const entry of presenceEntries) {
+            const lname = entry.name.toLowerCase();
+            if (seen.has(lname)) continue;
+            // Need character data to render the row (presence carries a trimmed
+            // copy — same source Block A uses for online players).
+            if (!entry.character) continue;
+            seen.add(lname);
+            const rawCharacter = entry.character as Record<string, unknown>;
             const character = rosterProjection(rawCharacter) as Record<string, unknown>;
             players.push({
-                name: (rawCharacter.name as string) ?? name,
+                name: (rawCharacter.name as string) ?? entry.name,
                 level: (rawCharacter.level as number) ?? 1,
                 village: (rawCharacter.village as string) ?? '',
                 specialty: (rawCharacter.specialty as string) ?? '',
                 online: true,
                 character,
-                currentSector: normalizeSector(livePresence.sector, 40),
-                lastSeenAt: livePresence.lastSeen ?? 0,
+                currentSector: normalizeSector(entry.sector, 40),
+                lastSeenAt: entry.lastSeen ?? 0,
             });
         }
 
