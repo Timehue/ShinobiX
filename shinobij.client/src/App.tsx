@@ -72,6 +72,15 @@ import {
     inventoryItemStacks,
     type TreasuryItemStack,
 } from "./lib/items";
+import { compressDataUrl, publishSharedImage, readImageFile, isAnimatedImageFile } from "./lib/shared-images";
+import { getAllTileCards, shinobiTileCards, ELEMENT_COUNTERS, type TileCard, type TileCardArrow } from "./data/tile-cards";
+import type {
+    ClanMemberEntry, ClanData, ClanJoinRequest, NoticePostType, NoticePost,
+    ClanRole, ClanTreasury,
+    ClanTreasuryCurrencyKey, ClanWarRecord, EnhancedClanData,
+} from "./types/clan";
+import { cleanClanTreasury, cleanClanUpgrades, defaultClanWarHistory, clanXpNeeded, addClanXp, clanMemberBoostPercent, clanUpgradeBonus, canManageClan, clanHallTier, clanBoostTiers, clanContribTotal, clanRankOf } from "./lib/clan-math";
+import { clanSlug, fetchClanData, fetchClanDataDetailed, writeClanData, postGuardQueue } from "./lib/clan-api";
 import {
     cappedPostDamage,
     getJutsuMastery,
@@ -356,7 +365,6 @@ import {
     CLAN_RANK_COLOR,
     CLAN_RANK_ICON,
     CLAN_ROLE_ICON,
-    CLAN_UPGRADE_MAX_LEVEL,
     CW_HP_MAX,
     CW_DAMAGE,
     CW_MODE_LABEL,
@@ -1059,67 +1067,10 @@ export function villagePageImage(villageName: string): string {
     if (villageName === "Moonshadow Village") return moonshadowImage;
     return stormveilVillageImg;
 }
-export const villageLore: Record<string, { icon: string; theme: string; lore: string }> = {
-    "Ashen Leaf Village": {
-        icon: "🔥",
-        theme: "The Traditional Path",
-        lore: `Born from the remnants of a world once consumed by fire, Ashen Leaf rose where devastation met renewal.
-
-Long ago, the land was reduced to ash during a great war between rival clans. From that scorched earth, a single forest began to grow—its leaves darkened by soot, yet alive with quiet strength.
-
-The survivors who gathered there believed in preserving the old ways. They rebuilt not just a village, but a philosophy: discipline, balance, and respect for tradition above all else.
-
-Their shinobi are taught that true strength is not taken—it is cultivated. Every jutsu, every movement, is rooted in history. While other villages chase evolution, Ashen Leaf endures.
-
-To walk their path is to carry the weight of legacy… and the honor that comes with it.`
-    },
-
-    "Stormveil Village": {
-        icon: "⚡",
-        theme: "The Chaotic Path",
-        lore: `Stormveil was never meant to exist.
-
-It began as a refuge for outcasts—rogue shinobi, exiles, and warriors who rejected the rigid laws of the great villages. They gathered beneath endless storms, where lightning split the sky and power answered only to those bold enough to seize it.
-
-There were no rulers. No traditions. Only strength.
-
-Over time, Stormveil became something far more dangerous than a village—it became a proving ground. Alliances are temporary, betrayal is common, and power shifts like the storm itself.
-
-Their shinobi embrace unpredictability. They fight without restraint, evolve without limits, and destroy anything that tries to control them.
-
-To join Stormveil is to abandon certainty… and become the storm.`
-    },
-
-    "Frostfang Village": {
-        icon: "❄️",
-        theme: "The Loyal Path",
-        lore: `Far beyond the reach of warm lands lies Frostfang—a village carved into ice and bound by unbreakable unity.
-
-Founded by a single clan that survived the harshest winters imaginable, Frostfang was built on one principle: no one survives alone. The cold does not forgive weakness, and so its people became each other’s strength.
-
-Every shinobi of Frostfang is raised as part of a greater whole. Loyalty is not taught—it is lived. To betray the village is to lose not just honor, but identity.
-
-Their warriors fight with precision and purpose, moving as one, striking as one. Like a pack of wolves in the snow, they overwhelm their enemies through trust and coordination.
-
-To stand with Frostfang is to never stand alone… but to fall means you have failed more than just yourself.`
-    },
-
-    "Moonshadow Village": {
-        icon: "🌙",
-        theme: "The Selfish Path",
-        lore: `Moonshadow exists in silence… and thrives in secrecy.
-
-No one knows exactly when it was founded. Some say it emerged from assassins who abandoned all allegiance. Others believe it was built by those who understood a simple truth: trust is weakness.
-
-In Moonshadow, every shinobi walks their own path. Power is personal. Alliances are fleeting. Even within the village, information is currency—and secrets are worth more than gold.
-
-They are masters of stealth, deception, and precision. They strike from darkness, achieve their goals, and vanish before consequences can follow.
-
-Where other villages build bonds, Moonshadow cultivates ambition.
-
-To choose Moonshadow is to rely on no one… and ensure no one can ever control you.`
-    }
-};
+// villageLore moved to ./data/village-lore. Re-exported here for the
+// existing "../App" import site (screens/VillageLoreScreen). villagePageImage
+// above stays — it pulls in image-asset imports the data module shouldn't.
+export { villageLore } from "./data/village-lore";
 export const specialties: JutsuType[] = ["Ninjutsu", "Taijutsu", "Genjutsu", "Bukijutsu", "Any"];
 export const jutsuElements: JutsuElement[] = ["Earth", "Wind", "Lightning", "Fire", "Water", "None"];
 const jutsuTargets: JutsuTarget[] = ["OPPONENT", "SELF", "OTHER_USER", "CHARACTER", "EMPTY_GROUND"];
@@ -1703,196 +1654,12 @@ async function grantCurrencyToPlayer(playerName: string, currency: PlayerTransfe
     } as Character));
 }
 
-// -- Shinobi Tiles card game ---------------------------------------------------
-export type TileCardArrow = "up" | "down" | "left" | "right";
-export type TileCard = {
-    id: string; name: string; element: string;
-    top: number; right: number; bottom: number; left: number;
-    rarity: "common" | "rare" | "epic" | "legendary"; description: string;
-    image?: string;
-};
-
-const ELEMENT_COUNTERS: Record<string, string> = {
-    Water: "Fire", Fire: "Wind", Wind: "Earth", Earth: "Lightning", Lightning: "Water",
-    Ice: "Shadow", Shadow: "Neutral", Neutral: "None"
-};
-
-const shinobiTileCards: TileCard[] = [
-    // Common (20) — values 15–45
-    { id: "tc-01", name: "Training Dummy",      element: "None",    top: 15, right: 15, bottom: 15, left: 15, rarity: "common", description: "Weak starter card." },
-    { id: "tc-02", name: "Leaf Cat",            element: "Wind",    top: 25, right: 30, bottom: 20, left: 30, rarity: "common", description: "Fast village pet card." },
-    { id: "tc-03", name: "Stone Turtle",        element: "Earth",   top: 35, right: 20, bottom: 35, left: 20, rarity: "common", description: "Slow but sturdy." },
-    { id: "tc-04", name: "Kunai Scout",         element: "Lightning", top: 30, right: 35, bottom: 20, left: 25, rarity: "common", description: "Basic ninja scout." },
-    { id: "tc-05", name: "Ramen Dog",           element: "Water",   top: 20, right: 25, bottom: 20, left: 25, rarity: "common", description: "Weak power, good coverage." },
-    { id: "tc-06", name: "Rookie Shinobi",      element: "Neutral", top: 25, right: 25, bottom: 25, left: 25, rarity: "common", description: "Balanced beginner card." },
-    { id: "tc-07", name: "Wooden Shield Guard", element: "Earth",   top: 30, right: 15, bottom: 30, left: 15, rarity: "common", description: "Defensive corner card." },
-    { id: "tc-08", name: "Paper Tag Mouse",     element: "Fire",    top: 20, right: 35, bottom: 35, left: 20, rarity: "common", description: "Tiny explosive card." },
-    { id: "tc-09", name: "River Frog",          element: "Water",   top: 20, right: 30, bottom: 30, left: 20, rarity: "common", description: "Good corner water card." },
-    { id: "tc-10", name: "Crow Lookout",        element: "Wind",    top: 35, right: 20, bottom: 20, left: 35, rarity: "common", description: "Good top-left card." },
-    { id: "tc-11", name: "Rusty Blade Bandit",  element: "Neutral", top: 20, right: 45, bottom: 20, left: 20, rarity: "common", description: "Strong but only one direction." },
-    { id: "tc-12", name: "Forest Beetle",       element: "Earth",   top: 20, right: 20, bottom: 30, left: 30, rarity: "common", description: "Small defensive bug card." },
-    { id: "tc-13", name: "Candle Wisp",         element: "Fire",    top: 30, right: 35, bottom: 20, left: 20, rarity: "common", description: "Starter fire spirit." },
-    { id: "tc-14", name: "Static Lizard",       element: "Lightning", top: 20, right: 35, bottom: 20, left: 35, rarity: "common", description: "Side-control card." },
-    { id: "tc-15", name: "Pond Turtle",         element: "Water",   top: 35, right: 20, bottom: 35, left: 35, rarity: "common", description: "Low attack, high coverage." },
-    { id: "tc-16", name: "Training Clone",      element: "Neutral", top: 30, right: 30, bottom: 30, left: 20, rarity: "common", description: "Good beginner combo card." },
-    { id: "tc-17", name: "Small Spider",        element: "Neutral", top: 20, right: 20, bottom: 35, left: 35, rarity: "common", description: "Sneaky bottom-left card." },
-    { id: "tc-18", name: "Wind Squirrel",       element: "Wind",    top: 30, right: 35, bottom: 20, left: 20, rarity: "common", description: "Quick movement card." },
-    { id: "tc-19", name: "Clay Golem Head",     element: "Earth",   top: 20, right: 20, bottom: 45, left: 20, rarity: "common", description: "Strong single-direction card." },
-    { id: "tc-20", name: "Village Messenger",   element: "Neutral", top: 30, right: 35, bottom: 20, left: 30, rarity: "common", description: "Flexible neutral card." },
-    // Rare (20) — values 30–65
-    { id: "tc-21", name: "Ashen Wolf",          element: "Earth",   top: 50, right: 55, bottom: 50, left: 35, rarity: "rare", description: "Reliable earth attacker." },
-    { id: "tc-22", name: "Storm Crow",          element: "Lightning", top: 55, right: 50, bottom: 35, left: 55, rarity: "rare", description: "Great top-row control." },
-    { id: "tc-23", name: "Frost Owl",           element: "Water",   top: 55, right: 35, bottom: 50, left: 55, rarity: "rare", description: "Strong side card." },
-    { id: "tc-24", name: "Shadow Fox",          element: "Neutral", top: 40, right: 55, bottom: 55, left: 55, rarity: "rare", description: "Good for multi-flips." },
-    { id: "tc-25", name: "Blue Fang Lynx",      element: "Lightning", top: 60, right: 65, bottom: 35, left: 40, rarity: "rare", description: "High pressure rare." },
-    { id: "tc-26", name: "Forest Tanuki",       element: "Earth",   top: 50, right: 40, bottom: 55, left: 55, rarity: "rare", description: "Defensive rare pet." },
-    { id: "tc-27", name: "Mist Serpent",        element: "Water",   top: 40, right: 60, bottom: 40, left: 60, rarity: "rare", description: "Strong lane card." },
-    { id: "tc-28", name: "Ember Salamander",    element: "Fire",    top: 40, right: 60, bottom: 60, left: 35, rarity: "rare", description: "Good attack corner." },
-    { id: "tc-29", name: "Moonshadow Cat",      element: "Neutral", top: 45, right: 45, bottom: 45, left: 45, rarity: "rare", description: "Low stats, all-direction." },
-    { id: "tc-30", name: "Iron Mask Guard",     element: "Earth",   top: 65, right: 35, bottom: 65, left: 35, rarity: "rare", description: "Strong vertical defender." },
-    { id: "tc-31", name: "Scroll Thief",        element: "Wind",    top: 40, right: 55, bottom: 55, left: 55, rarity: "rare", description: "Sneaky board-control card." },
-    { id: "tc-32", name: "Lightning Hare",      element: "Lightning", top: 55, right: 60, bottom: 55, left: 35, rarity: "rare", description: "Fast pressure card." },
-    { id: "tc-33", name: "Shrine Monk",         element: "Neutral", top: 50, right: 55, bottom: 35, left: 55, rarity: "rare", description: "Good support-style card." },
-    { id: "tc-34", name: "Ice Shell Turtle",    element: "Water",   top: 60, right: 40, bottom: 40, left: 60, rarity: "rare", description: "Strong corner defender." },
-    { id: "tc-35", name: "Wild Boar Bandit",    element: "Neutral", top: 40, right: 60, bottom: 60, left: 35, rarity: "rare", description: "Simple brute card." },
-    { id: "tc-36", name: "Ashen Leaf Archer",   element: "Wind",    top: 55, right: 60, bottom: 55, left: 40, rarity: "rare", description: "Balanced ranged card." },
-    { id: "tc-37", name: "Stormveil Raider",    element: "Lightning", top: 40, right: 65, bottom: 40, left: 60, rarity: "rare", description: "Aggressive side flipper." },
-    { id: "tc-38", name: "Frostfang Pup",       element: "Water",   top: 55, right: 40, bottom: 55, left: 55, rarity: "rare", description: "Flexible rare pet." },
-    { id: "tc-39", name: "Moonshadow Spy",      element: "Neutral", top: 60, right: 55, bottom: 35, left: 55, rarity: "rare", description: "Strong top control." },
-    { id: "tc-40", name: "Golden Beetle",       element: "Neutral", top: 35, right: 60, bottom: 60, left: 60, rarity: "rare", description: "Strong bottom control." },
-    // Epic (10) — values 50–90, can include Shadow
-    { id: "tc-41", name: "Blue Blade Raccoon",  element: "Water",   top: 75, right: 75, bottom: 75, left: 75, rarity: "epic", description: "Strong all-around mascot card." },
-    { id: "tc-42", name: "Inferno Cat",         element: "Fire",    top: 55, right: 90, bottom: 85, left: 50, rarity: "epic", description: "Huge power, limited left." },
-    { id: "tc-43", name: "Iron Beetle King",    element: "Earth",   top: 80, right: 60, bottom: 80, left: 70, rarity: "epic", description: "Strong defensive control." },
-    { id: "tc-44", name: "Phantom Spider Lady", element: "Shadow",  top: 80, right: 70, bottom: 55, left: 80, rarity: "epic", description: "Excellent top-side control." },
-    { id: "tc-45", name: "Storm Serpent",       element: "Lightning", top: 80, right: 85, bottom: 75, left: 55, rarity: "epic", description: "Aggressive combo card." },
-    { id: "tc-46", name: "Frostfang Dire Wolf", element: "Water",   top: 85, right: 80, bottom: 55, left: 60, rarity: "epic", description: "High power beast card." },
-    { id: "tc-47", name: "Ashen Forest Guardian", element: "Earth", top: 75, right: 75, bottom: 75, left: 80, rarity: "epic", description: "Strong village defender." },
-    { id: "tc-48", name: "Moonshadow Nine-Tail", element: "Shadow", top: 60, right: 80, bottom: 85, left: 80, rarity: "epic", description: "Dangerous bottom-row flipper." },
-    { id: "tc-49", name: "Shrine Dragon Spirit", element: "Neutral", top: 80, right: 70, bottom: 55, left: 75, rarity: "epic", description: "Holy epic spirit card." },
-    { id: "tc-50", name: "Crimson Tag Master",  element: "Fire",    top: 60, right: 55, bottom: 90, left: 80, rarity: "epic", description: "Big power, bottom-left angles." },
-
-    // ─── Expansion: +100 cards spread across all 4 rarities ───────────────
-    // Stat ranges per tier kept the same as the originals so existing balance
-    // holds: common 15–45, rare 30–65, epic 50–90, legendary 65–99.
-    // Elements use the full nine the engine supports (None, Fire, Water, Wind,
-    // Earth, Lightning, Shadow, Ice, Neutral). Each tier rotates through them
-    // for variety. Admin panel + image upload already supports all of these
-    // out of the box — editing a tc-NN card creates an override that lets
-    // an admin upload custom art via the Card Editor.
-
-    // Common +20 (tc-51 to tc-70) — values 15–45
-    { id: "tc-51", name: "Sapling Spirit",      element: "Earth",     top: 25, right: 25, bottom: 30, left: 25, rarity: "common", description: "Newborn forest sprite." },
-    { id: "tc-52", name: "Spark Mouse",         element: "Lightning", top: 30, right: 30, bottom: 20, left: 20, rarity: "common", description: "Twitchy little jolt." },
-    { id: "tc-53", name: "Tide Shrimp",         element: "Water",     top: 20, right: 30, bottom: 35, left: 25, rarity: "common", description: "Skitters with the surf." },
-    { id: "tc-54", name: "Ash Sparrow",         element: "Fire",      top: 35, right: 25, bottom: 20, left: 25, rarity: "common", description: "Tiny ember scout." },
-    { id: "tc-55", name: "Breeze Pixie",        element: "Wind",      top: 25, right: 30, bottom: 25, left: 30, rarity: "common", description: "Flighty wind spirit." },
-    { id: "tc-56", name: "Twilight Moth",       element: "Shadow",    top: 30, right: 20, bottom: 30, left: 35, rarity: "common", description: "Drifts on dusk wings." },
-    { id: "tc-57", name: "Snowflake Wisp",      element: "Ice",       top: 25, right: 25, bottom: 25, left: 35, rarity: "common", description: "Frigid mote of cold." },
-    { id: "tc-58", name: "Calm Stone Pebble",   element: "Neutral",   top: 30, right: 25, bottom: 30, left: 25, rarity: "common", description: "Meditation aide." },
-    { id: "tc-59", name: "Apprentice Genin",    element: "None",      top: 20, right: 30, bottom: 30, left: 30, rarity: "common", description: "Fresh out of the academy." },
-    { id: "tc-60", name: "Pebble Crab",         element: "Earth",     top: 20, right: 35, bottom: 20, left: 35, rarity: "common", description: "Tough shell, tiny pinch." },
-    { id: "tc-61", name: "Cinder Ant",          element: "Fire",      top: 35, right: 30, bottom: 25, left: 15, rarity: "common", description: "Burns where it bites." },
-    { id: "tc-62", name: "Mist Newt",           element: "Water",     top: 25, right: 30, bottom: 30, left: 30, rarity: "common", description: "Slippery little wisp." },
-    { id: "tc-63", name: "Static Beetle",       element: "Lightning", top: 30, right: 35, bottom: 20, left: 25, rarity: "common", description: "Sparks on its shell." },
-    { id: "tc-64", name: "Whisper Bat",         element: "Wind",      top: 35, right: 25, bottom: 25, left: 30, rarity: "common", description: "Hears the wind whisper." },
-    { id: "tc-65", name: "Hollow Imp",          element: "Shadow",    top: 25, right: 35, bottom: 35, left: 20, rarity: "common", description: "Mischievous shade." },
-    { id: "tc-66", name: "Frost Mouse",         element: "Ice",       top: 30, right: 25, bottom: 25, left: 35, rarity: "common", description: "Tiny chill-skitter." },
-    { id: "tc-67", name: "Zen Disciple",        element: "Neutral",   top: 30, right: 30, bottom: 30, left: 30, rarity: "common", description: "Perfectly balanced." },
-    { id: "tc-68", name: "Bandit Recruit",      element: "None",      top: 35, right: 20, bottom: 35, left: 20, rarity: "common", description: "Wields a rusty kunai." },
-    { id: "tc-69", name: "Clay Hatchling",      element: "Earth",     top: 25, right: 30, bottom: 35, left: 25, rarity: "common", description: "Tiny earth golem." },
-    { id: "tc-70", name: "Ember Cricket",       element: "Fire",      top: 30, right: 35, bottom: 25, left: 20, rarity: "common", description: "Chirps in flame." },
-
-    // Rare +25 (tc-71 to tc-95) — values 30–65
-    { id: "tc-71", name: "Granite Stag",        element: "Earth",     top: 55, right: 45, bottom: 55, left: 45, rarity: "rare", description: "Antlers like cliff-edges." },
-    { id: "tc-72", name: "Volt Hawk",           element: "Lightning", top: 60, right: 60, bottom: 35, left: 45, rarity: "rare", description: "Strikes from the storm." },
-    { id: "tc-73", name: "Riverstone Eel",      element: "Water",     top: 40, right: 60, bottom: 45, left: 55, rarity: "rare", description: "Shocks the current." },
-    { id: "tc-74", name: "Char-Blade Mantis",   element: "Fire",      top: 60, right: 55, bottom: 40, left: 45, rarity: "rare", description: "Glowing red scythes." },
-    { id: "tc-75", name: "Cyclone Falcon",      element: "Wind",      top: 50, right: 65, bottom: 40, left: 45, rarity: "rare", description: "Folds wind into a spiral." },
-    { id: "tc-76", name: "Dusk Wraith",         element: "Shadow",    top: 45, right: 50, bottom: 55, left: 60, rarity: "rare", description: "Slips through twilight." },
-    { id: "tc-77", name: "Glacier Pup",         element: "Ice",       top: 55, right: 40, bottom: 55, left: 50, rarity: "rare", description: "Walks the frostpaths." },
-    { id: "tc-78", name: "Sage Apprentice",     element: "Neutral",   top: 50, right: 50, bottom: 50, left: 50, rarity: "rare", description: "Master of fundamentals." },
-    { id: "tc-79", name: "Veteran Ronin",       element: "None",      top: 60, right: 35, bottom: 60, left: 35, rarity: "rare", description: "Wandering blade-for-hire." },
-    { id: "tc-80", name: "Mossback Boar",       element: "Earth",     top: 55, right: 50, bottom: 45, left: 50, rarity: "rare", description: "Tusks crusted with stone." },
-    { id: "tc-81", name: "Thunder Spider",      element: "Lightning", top: 45, right: 55, bottom: 55, left: 60, rarity: "rare", description: "Webs hum with charge." },
-    { id: "tc-82", name: "Coral Naga",          element: "Water",     top: 50, right: 60, bottom: 50, left: 40, rarity: "rare", description: "Reef-born serpent." },
-    { id: "tc-83", name: "Inferno Toad",        element: "Fire",      top: 55, right: 50, bottom: 60, left: 35, rarity: "rare", description: "Croaks burning oil." },
-    { id: "tc-84", name: "Gale Crane",          element: "Wind",      top: 60, right: 40, bottom: 45, left: 55, rarity: "rare", description: "Long-necked storm caller." },
-    { id: "tc-85", name: "Eclipse Cat",         element: "Shadow",    top: 50, right: 55, bottom: 45, left: 55, rarity: "rare", description: "Vanishes mid-pounce." },
-    { id: "tc-86", name: "Snowstorm Wolf",      element: "Ice",       top: 60, right: 45, bottom: 50, left: 50, rarity: "rare", description: "Howl freezes the breath." },
-    { id: "tc-87", name: "Twin Blade Monk",     element: "Neutral",   top: 50, right: 55, bottom: 50, left: 55, rarity: "rare", description: "Dual-wielding ascetic." },
-    { id: "tc-88", name: "Rogue Mercenary",     element: "None",      top: 55, right: 45, bottom: 55, left: 45, rarity: "rare", description: "Loyal only to the coin." },
-    { id: "tc-89", name: "Crystal Cobra",       element: "Earth",     top: 45, right: 60, bottom: 40, left: 60, rarity: "rare", description: "Fang of pure quartz." },
-    { id: "tc-90", name: "Plasma Fox",          element: "Lightning", top: 60, right: 55, bottom: 40, left: 50, rarity: "rare", description: "Tail trails arc-light." },
-    { id: "tc-91", name: "Abyss Octopus",       element: "Water",     top: 45, right: 50, bottom: 55, left: 60, rarity: "rare", description: "Deep-sea ambusher." },
-    { id: "tc-92", name: "Magma Bear",          element: "Fire",      top: 55, right: 60, bottom: 45, left: 45, rarity: "rare", description: "Fur smolders red." },
-    { id: "tc-93", name: "Sky Glider",          element: "Wind",      top: 45, right: 55, bottom: 60, left: 45, rarity: "rare", description: "Rides the high currents." },
-    { id: "tc-94", name: "Void Stalker",        element: "Shadow",    top: 55, right: 45, bottom: 50, left: 60, rarity: "rare", description: "Hunts in starless dark." },
-    { id: "tc-95", name: "Blizzard Owl",        element: "Ice",       top: 50, right: 50, bottom: 60, left: 45, rarity: "rare", description: "Silent in the snowfall." },
-
-    // Epic +25 (tc-96 to tc-120) — values 50–90
-    { id: "tc-96",  name: "Stoneheart Titan",       element: "Earth",     top: 85, right: 65, bottom: 85, left: 65, rarity: "epic", description: "Living mountain warrior." },
-    { id: "tc-97",  name: "Stormbreaker Drake",     element: "Lightning", top: 80, right: 85, bottom: 60, left: 60, rarity: "epic", description: "Wings split the thunder." },
-    { id: "tc-98",  name: "Tidal Lord Manta",       element: "Water",     top: 70, right: 80, bottom: 65, left: 80, rarity: "epic", description: "Glides the open sea." },
-    { id: "tc-99",  name: "Phoenix Warlord",        element: "Fire",      top: 85, right: 75, bottom: 55, left: 75, rarity: "epic", description: "Reborn in every battle." },
-    { id: "tc-100", name: "Tempest Marshal",        element: "Wind",      top: 75, right: 80, bottom: 70, left: 65, rarity: "epic", description: "Commands the storm." },
-    { id: "tc-101", name: "Nightveil Assassin",     element: "Shadow",    top: 60, right: 90, bottom: 80, left: 65, rarity: "epic", description: "One strike, one shadow." },
-    { id: "tc-102", name: "Frostlord Berserker",    element: "Ice",       top: 80, right: 70, bottom: 80, left: 60, rarity: "epic", description: "Frozen rage incarnate." },
-    { id: "tc-103", name: "Mountain Sage",          element: "Neutral",   top: 70, right: 75, bottom: 70, left: 75, rarity: "epic", description: "Speaks with the peak." },
-    { id: "tc-104", name: "Wandering Master",       element: "None",      top: 80, right: 60, bottom: 80, left: 60, rarity: "epic", description: "No village, all ways." },
-    { id: "tc-105", name: "Geode Behemoth",         element: "Earth",     top: 65, right: 80, bottom: 85, left: 65, rarity: "epic", description: "Crystal-spined leviathan." },
-    { id: "tc-106", name: "Plasma Hydra",           element: "Lightning", top: 75, right: 70, bottom: 75, left: 85, rarity: "epic", description: "Each head sparks fresh bolts." },
-    { id: "tc-107", name: "Krakenheart Diver",      element: "Water",     top: 85, right: 65, bottom: 75, left: 70, rarity: "epic", description: "Hunts the abyss." },
-    { id: "tc-108", name: "Volcanic Reaper",        element: "Fire",      top: 60, right: 90, bottom: 70, left: 75, rarity: "epic", description: "Scythe of molten obsidian." },
-    { id: "tc-109", name: "Sky Empress Roc",        element: "Wind",      top: 90, right: 65, bottom: 60, left: 75, rarity: "epic", description: "Wingspan blots out the sun." },
-    { id: "tc-110", name: "Wraithlord Necromancer", element: "Shadow",    top: 80, right: 70, bottom: 70, left: 75, rarity: "epic", description: "Master of stilled souls." },
-    { id: "tc-111", name: "Glacial Empress",        element: "Ice",       top: 70, right: 80, bottom: 75, left: 70, rarity: "epic", description: "Queen of the eternal frost." },
-    { id: "tc-112", name: "Balance Keeper",         element: "Neutral",   top: 75, right: 75, bottom: 75, left: 75, rarity: "epic", description: "Perfectly even in all things." },
-    { id: "tc-113", name: "Forgotten Champion",     element: "None",      top: 85, right: 60, bottom: 80, left: 65, rarity: "epic", description: "Hero of an unrecorded age." },
-    { id: "tc-114", name: "Crystal Dragon",         element: "Earth",     top: 75, right: 75, bottom: 70, left: 80, rarity: "epic", description: "Scales of cut diamond." },
-    { id: "tc-115", name: "Voltaic Knight",         element: "Lightning", top: 80, right: 75, bottom: 65, left: 75, rarity: "epic", description: "Armor crackles with charge." },
-    { id: "tc-116", name: "Deep Sea Leviathan",     element: "Water",     top: 60, right: 80, bottom: 85, left: 70, rarity: "epic", description: "Risen from the trench." },
-    { id: "tc-117", name: "Magma Colossus",         element: "Fire",      top: 85, right: 65, bottom: 70, left: 75, rarity: "epic", description: "Each step cracks the earth." },
-    { id: "tc-118", name: "Skyflame Archer",        element: "Wind",      top: 70, right: 85, bottom: 65, left: 70, rarity: "epic", description: "Arrows ignite mid-air." },
-    { id: "tc-119", name: "Phantom Reaper",         element: "Shadow",    top: 65, right: 75, bottom: 85, left: 80, rarity: "epic", description: "Soul-harvester from beyond." },
-    { id: "tc-120", name: "Eternal Frostgiant",     element: "Ice",       top: 80, right: 70, bottom: 80, left: 65, rarity: "epic", description: "Carved from a million winters." },
-
-    // Legendary +30 (tc-121 to tc-150) — values 65–99
-    { id: "tc-121", name: "Worldroot Behemoth",     element: "Earth",     top: 95, right: 80, bottom: 95, left: 80, rarity: "legendary", description: "Roots reach the planet's core." },
-    { id: "tc-122", name: "Stormgod Dragon",        element: "Lightning", top: 90, right: 95, bottom: 75, left: 80, rarity: "legendary", description: "Breath splits the sky." },
-    { id: "tc-123", name: "Ocean Sovereign",        element: "Water",     top: 85, right: 90, bottom: 85, left: 90, rarity: "legendary", description: "King of every tide." },
-    { id: "tc-124", name: "Inferno Sovereign",      element: "Fire",      top: 95, right: 85, bottom: 75, left: 85, rarity: "legendary", description: "Crowned in living flame." },
-    { id: "tc-125", name: "Sky King Garuda",        element: "Wind",      top: 95, right: 90, bottom: 75, left: 80, rarity: "legendary", description: "Wings beat hurricanes." },
-    { id: "tc-126", name: "Eclipse Sovereign",      element: "Shadow",    top: 80, right: 95, bottom: 90, left: 85, rarity: "legendary", description: "Eats the sun." },
-    { id: "tc-127", name: "Eternal Glacier King",   element: "Ice",       top: 90, right: 80, bottom: 90, left: 90, rarity: "legendary", description: "Frozen since the first age." },
-    { id: "tc-128", name: "Grand Sage of Balance",  element: "Neutral",   top: 85, right: 85, bottom: 85, left: 85, rarity: "legendary", description: "Equal in all dimensions." },
-    { id: "tc-129", name: "Forgotten Hokage",       element: "None",      top: 90, right: 85, bottom: 90, left: 80, rarity: "legendary", description: "Lost name, undying skill." },
-    { id: "tc-130", name: "World-Ender Titan",      element: "Earth",     top: 80, right: 95, bottom: 95, left: 75, rarity: "legendary", description: "A walking apocalypse." },
-    { id: "tc-131", name: "Heaven-Shatter Drake",   element: "Lightning", top: 90, right: 85, bottom: 80, left: 95, rarity: "legendary", description: "One bolt, one mountain." },
-    { id: "tc-132", name: "Abyssal Leviathan",      element: "Water",     top: 75, right: 95, bottom: 90, left: 90, rarity: "legendary", description: "Sleeps beneath the world." },
-    { id: "tc-133", name: "Phoenix Emperor",        element: "Fire",      top: 85, right: 90, bottom: 85, left: 90, rarity: "legendary", description: "Eternal in rebirth." },
-    { id: "tc-134", name: "Storm Empress",          element: "Wind",      top: 95, right: 80, bottom: 85, left: 90, rarity: "legendary", description: "Rules every cloud." },
-    { id: "tc-135", name: "Void Devourer",          element: "Shadow",    top: 90, right: 90, bottom: 85, left: 85, rarity: "legendary", description: "Hungers for all light." },
-    { id: "tc-136", name: "Frostfall Empress",      element: "Ice",       top: 95, right: 85, bottom: 80, left: 80, rarity: "legendary", description: "Snow obeys her hand." },
-    { id: "tc-137", name: "Zen Master Eternal",     element: "Neutral",   top: 90, right: 90, bottom: 90, left: 90, rarity: "legendary", description: "Unchanging through all wars." },
-    { id: "tc-138", name: "Legendary Wanderer",     element: "None",      top: 95, right: 75, bottom: 95, left: 75, rarity: "legendary", description: "Knows every blade and none." },
-    { id: "tc-139", name: "Primordial Dragon",      element: "Earth",     top: 85, right: 90, bottom: 90, left: 95, rarity: "legendary", description: "Older than the villages." },
-    { id: "tc-140", name: "Plasma God Beast",       element: "Lightning", top: 95, right: 80, bottom: 95, left: 75, rarity: "legendary", description: "Lightning made aware." },
-    { id: "tc-141", name: "Tidal God Beast",        element: "Water",     top: 90, right: 95, bottom: 80, left: 85, rarity: "legendary", description: "The ocean given will." },
-    { id: "tc-142", name: "Solar God Beast",        element: "Fire",      top: 99, right: 80, bottom: 80, left: 85, rarity: "legendary", description: "A fragment of the sun." },
-    { id: "tc-143", name: "Tempest God Beast",      element: "Wind",      top: 85, right: 99, bottom: 80, left: 85, rarity: "legendary", description: "Living tornado spirit." },
-    { id: "tc-144", name: "Shadow God Beast",       element: "Shadow",    top: 90, right: 85, bottom: 99, left: 80, rarity: "legendary", description: "Born in the eclipse." },
-    { id: "tc-145", name: "Frost God Beast",        element: "Ice",       top: 85, right: 80, bottom: 95, left: 99, rarity: "legendary", description: "Heart of the polar night." },
-    { id: "tc-146", name: "Equilibrium God",        element: "Neutral",   top: 88, right: 88, bottom: 88, left: 88, rarity: "legendary", description: "Perfect in every measure." },
-    { id: "tc-147", name: "Final Shinobi",          element: "None",      top: 99, right: 70, bottom: 99, left: 70, rarity: "legendary", description: "Last living blade of legend." },
-    { id: "tc-148", name: "Demon-King Slayer",      element: "Shadow",    top: 99, right: 99, bottom: 65, left: 70, rarity: "legendary", description: "The blade that ended the demon king." },
-    { id: "tc-149", name: "Cosmic Phoenix",         element: "Fire",      top: 75, right: 99, bottom: 99, left: 70, rarity: "legendary", description: "Soars between stars." },
-    { id: "tc-150", name: "World-Eater Naga",       element: "Water",     top: 70, right: 75, bottom: 99, left: 99, rarity: "legendary", description: "Coils swallow continents." },
-];
-
-export function getAllTileCards(creatorCards: TileCard[]): TileCard[] {
-    return [...creatorCards, ...shinobiTileCards.filter((s) => !creatorCards.some((c) => c.id === s.id))];
-}
+// -- Shinobi Tiles card game (types, ELEMENT_COUNTERS, the 150-card catalog,
+// and getAllTileCards) moved to ./data/tile-cards (imported back near the top).
+// TileCard, TileCardArrow + getAllTileCards are re-exported here for the
+// existing "../App" import sites (components/Shop, screens/Inventory).
+export { getAllTileCards };
+export type { TileCard, TileCardArrow };
 
 // getItemById extracted to ./lib/items (imported back + re-exported above).
 
@@ -1900,122 +1667,11 @@ export function getAllTileCards(creatorCards: TileCard[]): TileCard[] {
 // makeJutsu + normalizeJutsu extracted to ./lib/jutsu (imported back above;
 // normalizeJutsu re-exported below for the TagPicker "../App" import site).
 
-export function compressDataUrl(dataUrl: string, maxPx = 512, quality = 0.82): Promise<string> {
-    return new Promise((resolve) => {
-        const img = new Image();
-        img.onload = () => {
-            const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
-            const canvas = document.createElement("canvas");
-            canvas.width = Math.round(img.width * scale);
-            canvas.height = Math.round(img.height * scale);
-            canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
-            // Prefer WebP (~30% smaller than JPEG at same quality); fall back to JPEG
-            const webp = canvas.toDataURL("image/webp", quality);
-            resolve(webp.startsWith("data:image/webp") ? webp : canvas.toDataURL("image/jpeg", quality));
-        };
-        img.onerror = () => resolve(dataUrl);
-        img.src = dataUrl;
-    });
-}
-
-// Module-level — callable from any component without prop drilling
-// Mirror of api/images.ts KNOWN_PREFIXES so the client can figure out which
-// category an image lives in without a round-trip. Used for sessionStorage
-// cache invalidation on publish.
-const CLIENT_KNOWN_PREFIXES: Record<string, string> = {
-    avatar: 'avatar', pet: 'pet', jutsu: 'jutsu', item: 'item',
-    card: 'card', event: 'event', bloodline: 'bloodline',
-    vn: 'event', ai: 'ai', shrine: 'shrine', landmark: 'landmark',
-};
-function categoryFromImageKey(id: string): string {
-    const prefix = id.split(':')[0];
-    return CLIENT_KNOWN_PREFIXES[prefix] ?? 'misc';
-}
-
-export async function publishSharedImage(id: string, img: string): Promise<boolean> {
-    if (!id) return false;
-    try {
-        const res = await fetch('/api/images', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id, image: img }),
-        });
-        if (!res.ok) throw new Error(`Image publish failed: ${res.status}`);
-        // Bust the per-category sessionStorage cache so a page reload fetches
-        // fresh from KV instead of hydrating the pre-publish snapshot. Without
-        // this, the 10-minute IMG_CACHE_TTL would mask new assignments for
-        // up to 10 minutes after a publish.
-        try {
-            const cat = categoryFromImageKey(id);
-            sessionStorage.removeItem(`imgcat:${cat}`);
-        } catch { /* sessionStorage unavailable — ignore */ }
-        return true;
-    } catch (error) {
-        console.warn(`Could not save shared image ${id}:`, error);
-        return false;
-    }
-}
-
-// Cap animated uploads tighter than still uploads — canvas compression
-// doesn't apply, so the raw bytes hit storage as-is. The server-side
-// validator in /api/images caps the data URL at 3,000,000 chars
-// (≈ 2.15 MB raw after base64 overhead), so picking 2 MB here gives a
-// friendly client-side error before the upload, instead of a silent
-// HTTP 400 from the server.
-// ANIMATED_MAX_MB moved to ./constants/game.
-
-/**
- * Detect whether an upload contains animation. Canvas re-encoding flattens
- * everything to a single frame, so we want to skip compressDataUrl for these
- * formats and pass the original bytes through to preserve movement.
- *
- *   GIF, APNG          → assumed animated by MIME alone (single-frame GIFs are
- *                        rare in practice and still render fine raw)
- *   WebP               → may or may not be animated. Animated WebP files
- *                        contain an "ANIM" chunk in the RIFF container — we
- *                        scan the first 1 KB for that marker.
- */
-async function isAnimatedImageFile(file: File): Promise<boolean> {
-    if (file.type === "image/gif" || file.type === "image/apng") return true;
-    if (file.type === "image/webp") {
-        try {
-            const header = await file.slice(0, 1024).arrayBuffer();
-            const bytes = new Uint8Array(header);
-            // Look for the literal ASCII "ANIM" chunk header.
-            for (let i = 0; i < bytes.length - 4; i++) {
-                if (bytes[i] === 0x41 && bytes[i + 1] === 0x4E && bytes[i + 2] === 0x49 && bytes[i + 3] === 0x4D) {
-                    return true;
-                }
-            }
-        } catch { /* fall through to non-animated */ }
-    }
-    return false;
-}
-
-function readImageFile(file: File, onLoad: (image: string) => void, maxSizeMb = 100) {
-    if (!file.type.startsWith("image/")) return alert("Please upload an image file.");
-    void (async () => {
-        const animated = await isAnimatedImageFile(file);
-        const effectiveCap = animated ? ANIMATED_MAX_MB : maxSizeMb;
-        if (file.size > effectiveCap * 1024 * 1024) {
-            return alert(animated
-                ? `Animated images must be under ${ANIMATED_MAX_MB} MB so animation is preserved (we can't compress without flattening it). Yours is ${(file.size / 1024 / 1024).toFixed(1)} MB.`
-                : `Please upload an image under ${maxSizeMb} MB.`);
-        }
-        const reader = new FileReader();
-        reader.onload = () => {
-            const dataUrl = String(reader.result);
-            if (animated) {
-                // Pass the original bytes through — canvas compression would
-                // strip every frame after the first.
-                onLoad(dataUrl);
-            } else {
-                compressDataUrl(dataUrl).then(onLoad);
-            }
-        };
-        reader.readAsDataURL(file);
-    })();
-}
+// Shared-image helpers (compressDataUrl, publishSharedImage, readImageFile,
+// isAnimatedImageFile, categoryFromImageKey) moved to ./lib/shared-images
+// (imported back above). compressDataUrl + publishSharedImage are re-exported
+// here for the existing "../App" import sites (AiImagePrompt, KenneyAtlasPicker).
+export { compressDataUrl, publishSharedImage };
 
 // capStat / xpNeeded / level→HP/chakra/stamina / rankFromLevel + total-XP
 // curves moved to ./lib/stats (imported back above).
@@ -18188,29 +17844,8 @@ const clanLore: Record<string, { name: string; motto: string; lore: string }> = 
 };
 
 // -- Clan system types & helpers --------------------------------------------
-type ClanMemberEntry = {
-    name: string; village: string; level: number; specialty: string;
-    battleContrib: number; eventContrib: number; missionContrib: number;
-    isFounder: boolean; month: string;
-};
-type ClanData = {
-    name: string; village: string; founderName: string;
-    image?: string;
-    createdAt: number; members: ClanMemberEntry[];
-};
-type ClanJoinRequest = ClanMemberEntry & { requestedAt: number };
-type NoticePostType = "order" | "clan" | "raid" | "guard" | "medic" | "trade" | "general";
-type NoticePost = {
-    id: string;
-    type: NoticePostType;
-    title: string;
-    body: string;
-    author: string;
-    authorRole: string;
-    createdAt: number;
-    pinned?: boolean;
-    sector?: number;
-};
+// Clan types (ClanMemberEntry, ClanData, ClanJoinRequest, NoticePostType,
+// NoticePost) moved to ./types/clan (type-imported back near the top).
 function makeNoticePost(type: NoticePostType, title: string, body: string, author: string, authorRole: string, pinned = false, sector?: number): NoticePost {
     return { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, type, title: title.trim().slice(0, 70), body: body.trim().slice(0, 500), author, authorRole, createdAt: Date.now(), pinned, sector };
 }
@@ -18236,78 +17871,20 @@ function noticeTypeLabel(type: NoticePostType) {
     if (type === "clan") return "Clan Notice";
     return type.charAt(0).toUpperCase() + type.slice(1);
 }
-function clanContribTotal(m: ClanMemberEntry): number {
-    return m.battleContrib * 10 + m.eventContrib * 5 + m.missionContrib * 2;
-}
-function clanRankOf(member: ClanMemberEntry, members: ClanMemberEntry[], founderName: string): string {
-    if (member.name === founderName) return "Clan Head";
-    const sorted = [...members].filter(m => m.name !== founderName)
-        .sort((a, b) => clanContribTotal(b) - clanContribTotal(a));
-    const idx = sorted.findIndex(m => m.name === member.name);
-    if (idx < 0) return "Clan Initiate";
-    if (idx < 2) return "Clan Elder";
-    if (idx < 5) return "Clan Enforcer";
-    if (idx < 10) return "Clan Shinobi";
-    return "Clan Initiate";
-}
+// clanContribTotal + clanRankOf (pure clan scoring/rank-label helpers) moved
+// to ./lib/clan-math (imported back near the top).
 // CLAN_RANK_COLOR / CLAN_RANK_ICON moved to ./constants/clan.
-function clanSlug(name: string): string {
-    return "clan-" + name.toLowerCase().replace(/[^a-z0-9]/g, "");
-}
-async function fetchClanData(name: string): Promise<ClanData | null> {
-    try {
-        const res = await fetch(`/api/save/${clanSlug(name)}`);
-        if (!res.ok) return null;
-        return res.json();
-    } catch { return null; }
-}
-// Same as fetchClanData but tells the caller whether the failure was a
-// definitive "clan doesn't exist" (HTTP 404) or just a transient network /
-// auth error. The Clan Hall uses this to auto-clear a player's stale clan
-// reference when the clan was wiped (e.g. by a server reset) while leaving
-// transient failures alone so the player isn't booted by a flaky request.
-async function fetchClanDataDetailed(name: string): Promise<{ ok: true; data: ClanData } | { ok: false; reason: "notFound" | "error" }> {
-    try {
-        const res = await fetch(`/api/save/${clanSlug(name)}`);
-        if (res.status === 404) return { ok: false, reason: "notFound" };
-        if (!res.ok) return { ok: false, reason: "error" };
-        const data = await res.json() as ClanData;
-        return { ok: true, data };
-    } catch {
-        return { ok: false, reason: "error" };
-    }
-}
-async function writeClanData(data: ClanData): Promise<void> {
-    await fetch(`/api/save/${clanSlug(data.name)}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-    });
-}
-async function postGuardQueue(action: "queue" | "dequeue", payload: object): Promise<void> {
-    await fetch(`/api/village-guard/${action}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-    }).catch(() => { });
-}
+// Clan save/load network helpers (clanSlug, fetchClanData,
+// fetchClanDataDetailed, writeClanData, postGuardQueue) moved to
+// ./lib/clan-api (imported back near the top).
 
 
 // -- Expanded clan systems -------------------------------------------------
-type ClanRole = "Founder" | "Leader" | "Officer" | "Elite Member" | "Member" | "Recruit";
-type ClanUpgradeKey = "trainingGrounds" | "warRoom" | "treasury" | "petDen" | "medicalWing" | "blacksmith" | "scoutNetwork";
-type ClanUpgradeLevels = Record<ClanUpgradeKey, number>;
-type ClanTreasury = { ryo: number; fateShards: number; boneCharms: number; auraStones: number; mythicSeals: number; warSupply: number; items: TreasuryItemStack[]; };
-type ClanTreasuryCurrencyKey = Exclude<keyof ClanTreasury, "items" | "warSupply">;
-type ClanWarRecord = { opponent: string; result: "Won" | "Lost" | "Draw"; finalScore: string; topAttacker: string; topDefender: string; mvpClan: string; reward: string; date: string; endedAt?: number; warCrateId?: string; };
-type EnhancedClanData = ClanData & { level: number; xp: number; treasury: ClanTreasury; upgrades: ClanUpgradeLevels; warHistory: ClanWarRecord[]; activeWar?: { opponentClan: string; enemyVillage: string; ourScore: number; enemyScore: number; startedAt: number; endsAt: number; }; roleOverrides?: Record<string, ClanRole>; joinRequests: ClanJoinRequest[]; notices: NoticePost[]; };
+// Clan types (ClanRole, ClanUpgradeKey, ClanUpgradeLevels, ClanTreasury,
+// ClanTreasuryCurrencyKey, ClanWarRecord, EnhancedClanData) moved to
+// ./types/clan (type-imported back near the top).
 // CLAN_UPGRADE_MAX_LEVEL moved to ./constants/clan.
-const clanBoostTiers = [
-    { min: 3, max: 5, percent: 2 },
-    { min: 6, max: 10, percent: 5 },
-    { min: 11, max: 15, percent: 7 },
-    { min: 16, max: Infinity, percent: 10 },
-] as const;
+// clanBoostTiers moved to ./lib/clan-math (imported back near the top).
 const clanMissionDefinitions = [
     { key: "battle", icon: "⚔", name: "Win 20 Battles", description: "Clan members combine for 20 battle wins.", target: 20, reward: "+450 Clan XP / +2,500 Treasury Ryo" },
     { key: "mission", icon: "📜", name: "Complete 50 Missions", description: "Clan members combine for 50 mission completions.", target: 50, reward: "+650 Clan XP / +3,500 Treasury Ryo" },
@@ -18319,19 +17896,16 @@ const clanMissionDefinitions = [
     { key: "raid", icon: "🗡", name: "Defeat 5 Raid Bosses", description: "Raid contribution objective for future PvE events.", target: 5, reward: "+900 Clan XP / +1 Mythic Seal" },
 ] as const;
 // CLAN_ROLE_ICON moved to ./constants/clan.
-function defaultClanTreasury(): ClanTreasury { return { ryo: 0, fateShards: 0, boneCharms: 0, auraStones: 0, mythicSeals: 0, warSupply: 0, items: [] }; }
-function defaultClanUpgrades(): ClanUpgradeLevels { return { trainingGrounds: 0, warRoom: 0, treasury: 0, petDen: 0, medicalWing: 0, blacksmith: 0, scoutNetwork: 0 }; }
-function cleanClanTreasury(t?: Partial<ClanTreasury>): ClanTreasury { const base = defaultClanTreasury(); return { ryo: Math.max(0, Math.floor(Number(t?.ryo ?? base.ryo))), fateShards: Math.max(0, Math.floor(Number(t?.fateShards ?? base.fateShards))), boneCharms: Math.max(0, Math.floor(Number(t?.boneCharms ?? base.boneCharms))), auraStones: Math.max(0, Math.floor(Number(t?.auraStones ?? base.auraStones))), mythicSeals: Math.max(0, Math.floor(Number(t?.mythicSeals ?? base.mythicSeals))), warSupply: Math.max(0, Math.floor(Number(t?.warSupply ?? base.warSupply))), items: cleanTreasuryItems(t?.items ?? base.items) }; }
-function cleanClanUpgrades(u?: Partial<ClanUpgradeLevels>): ClanUpgradeLevels { const b = defaultClanUpgrades(); const m = { ...b, ...(u ?? {}) } as ClanUpgradeLevels; (Object.keys(b) as ClanUpgradeKey[]).forEach(k => m[k] = clampNumber(Math.floor(Number(m[k] ?? 0)), 0, CLAN_UPGRADE_MAX_LEVEL)); return m; }
-function defaultClanWarHistory(name: string): ClanWarRecord[] { return [{ opponent: "Iron Lanterns", result: "Won", finalScore: "84 - 61", topAttacker: "Rill", topDefender: "Village Guard", mvpClan: name, reward: "2,500 ryo / 450 Clan XP", date: "Recent Season" }]; }
+// Pure clan-math helpers (defaultClanTreasury, defaultClanUpgrades,
+// cleanClanTreasury, cleanClanUpgrades, defaultClanWarHistory, clanXpNeeded,
+// addClanXp, clanMemberBoostPercent, clanUpgradeBonus, canManageClan,
+// clanHallTier) moved to ./lib/clan-math (imported back near the top).
+// enhanceClanData / clanRoleOf / clanMissionProgress stay below — they call
+// App-local helpers (normalizeNoticePosts / clanContribTotal / territory cache).
 function enhanceClanData(data: ClanData & Partial<EnhancedClanData>): EnhancedClanData { return { ...data, level: clampNumber(Math.floor(Number(data.level ?? 1)), 1, 100), xp: Math.max(0, Math.floor(Number(data.xp ?? 0))), treasury: cleanClanTreasury(data.treasury), upgrades: cleanClanUpgrades(data.upgrades), warHistory: data.warHistory?.length ? data.warHistory : defaultClanWarHistory(data.name), activeWar: data.activeWar, roleOverrides: data.roleOverrides ?? {}, joinRequests: (data.joinRequests ?? []).filter((request) => request?.name), notices: normalizeNoticePosts(data.notices) }; }
-function clanXpNeeded(level: number) { return Math.floor(500 + level * 275 + Math.pow(level, 1.22) * 45); }
-function addClanXp(data: EnhancedClanData, amount: number): EnhancedClanData { let next = { ...data, xp: data.xp + Math.max(0, Math.floor(amount)) }; while (next.level < 100 && next.xp >= clanXpNeeded(next.level)) next = { ...next, xp: next.xp - clanXpNeeded(next.level), level: next.level + 1 }; return next; }
-function clanMemberBoostPercent(memberCount: number) { return clanBoostTiers.find(tier => memberCount >= tier.min && memberCount <= tier.max)?.percent ?? 0; }
-function clanUpgradeBonus(data: EnhancedClanData, key: ClanUpgradeKey) { if (key === "trainingGrounds" || key === "scoutNetwork") return clanMemberBoostPercent(data.members.length); return 0; }
+// (clanXpNeeded, addClanXp, clanMemberBoostPercent, clanUpgradeBonus -> ./lib/clan-math)
 function clanRoleOf(member: ClanMemberEntry, data: EnhancedClanData): ClanRole { const override = data.roleOverrides?.[member.name]; if (override) return override; if (member.name === data.founderName || member.isFounder) return "Founder"; const sorted = [...data.members].filter(m => m.name !== data.founderName).sort((a, b) => clanContribTotal(b) - clanContribTotal(a)); const idx = sorted.findIndex(m => m.name === member.name); if (idx === 0) return "Leader"; if (idx > 0 && idx <= 2) return "Officer"; if (idx > 2 && idx <= 4) return "Elite Member"; if (clanContribTotal(member) <= 5) return "Recruit"; return "Member"; }
-function canManageClan(role: ClanRole) { return role === "Founder" || role === "Leader" || role === "Officer"; }
-function clanHallTier(level: number) { if (level >= 40) return { name: "Legendary Clan Citadel", icon: "🏰", desc: "A mythic fortress known across the shinobi world." }; if (level >= 25) return { name: "War Fortress", icon: "🏰", desc: "Walls, watchtowers, and banners built for war." }; if (level >= 15) return { name: "Hidden Clan Compound", icon: "🏯", desc: "A fortified compound with training yards and sealed rooms." }; if (level >= 7) return { name: "Fortified Dojo", icon: "🏠", desc: "A proper dojo with guard posts and a treasury room." }; return { name: "Empty Clan Camp", icon: "⛺", desc: "A small camp waiting to grow into a feared clan home." }; }
+// (canManageClan, clanHallTier -> ./lib/clan-math)
 function clanMissionProgress(data: EnhancedClanData, key: string) { const battle = data.members.reduce((s, m) => s + (m.battleContrib ?? 0), 0); const mission = data.members.reduce((s, m) => s + (m.missionContrib ?? 0), 0); const event = data.members.reduce((s, m) => s + (m.eventContrib ?? 0), 0); const territories = loadAllSectorTerritories().filter(territory => territory.ownerClan === data.name); if (key === "battle") return battle; if (key === "mission") return mission; if (key === "guard") return Math.min(10, territories.reduce((sum, territory) => sum + territory.guards.length, 0) + data.members.filter(m => m.level >= 5).length); if (key === "territory") return Math.min(20, Math.floor(territories.reduce((sum, territory) => sum + territory.controlScore, 0) / 1000)); if (key === "anbu") return Math.min(10, territories.reduce((sum, territory) => sum + territory.guards.length, 0) + Math.floor(battle / 5)); if (key === "donation") return data.treasury.ryo; if (key === "training") return Math.min(100, Math.floor((battle + mission + event) * 1.5)); if (key === "raid") return Math.min(5, Math.floor(event / 3)); return 0; }
 // addClanWarPoints removed — replaced by the server-managed Clan War
 // system (see api/clan/war/_storage.ts + autoReportClanWarBattleResult
