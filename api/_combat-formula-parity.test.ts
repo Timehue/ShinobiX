@@ -13,16 +13,18 @@
  *
  * Static text analysis only: reads source, imports nothing, opens no DB —
  * so it can never destabilise a live endpoint (mirrors server-routes.test.ts).
+ * Paths are resolved from process.cwd() (npm test runs from the repo root) so
+ * this file contains no import.meta — it is also compiled by the cPanel build,
+ * whose Node16 CJS-interop output rejects import.meta.
  */
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 
-const HERE = dirname(fileURLToPath(import.meta.url));
-const SERVER = readFileSync(join(HERE, 'pvp', 'move.ts'), 'utf8');
-const CLIENT = readFileSync(join(HERE, '..', 'shinobij.client', 'src', 'lib', 'combat-math.ts'), 'utf8');
+const ROOT = process.cwd();
+const SERVER = readFileSync(join(ROOT, 'api', 'pvp', 'move.ts'), 'utf8');
+const CLIENT = readFileSync(join(ROOT, 'shinobij.client', 'src', 'lib', 'combat-math.ts'), 'utf8');
 
 function num(src: string, name: string): number {
     const m = src.match(new RegExp(`(?:export\\s+)?const\\s+${name}(?:\\s*:[^=]+)?\\s*=\\s*([0-9.]+)`));
