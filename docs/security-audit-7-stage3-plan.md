@@ -562,6 +562,29 @@ reverted. Two sources make "everything server-side" expensive:
    + sanitizer flip (4g) — the only step that changes the cap→reject behavior.
 4. cPanel parity on every endpoint; `dist/` rebuilt + committed.
 
+### Build progress (2026-06-01)
+- **Re-order DECIDED:** 4a (missions) is blocked — fetch-mission COMPLETION is
+  client-tracked (`missionProgress` explore/raid counters) and the rewards are
+  user-authored `CreatorMission` content in the save blob, so the server can
+  neither verify completion nor trust the amount without first building
+  server-side mission-progress tracking (Phase 5) + creator-reward caps. So
+  Phase 4 starts with the genuinely self-contained source instead.
+- **4f Bank interest — DONE.** `POST /api/bank/claim-interest`
+  (`api/bank/claim-interest.ts`; registered in `server.ts`) recomputes the
+  interest server-side via the verbatim-ported `computeBankInterest`
+  (`api/_bank-interest.ts` + `_bank-interest.test.ts`, server == client across a
+  sweep): `floor(bankRyo × clamp(villageUpgrades.bank,0,50)×0.25/100)`, gated to
+  once / 24h against the SERVER clock (no clock-rollback replay). Credits
+  `bankRyo` + stamps `lastBankInterestAt` under `lock:save:<name>` (failClosed →
+  503/retry). Client `Bank.tsx claimInterest` calls it and adds the returned
+  `claimed` delta (preserving concurrent deposits) → converges. `bankRyo` is
+  uncapped in the sanitizer, so the re-assert is unaffected; this closes the
+  interest-amount-inflation vector (the broad bankRyo-mint via the save blob
+  remains until 4g). Suite 223/223; tsc clean; Bank.tsx 0 lint findings.
+- **Remaining (Option A):** 4c story → 4d tower → 4b AI-kill → 4e RNG-cap
+  tighten → 4g sanitizer flip + the Phase-3-deferred read-back. Missions (4a)
+  revisited after server-side progress tracking exists.
+
 ### Open decisions for sign-off
 1. **Option A (pragmatic, tighten RNG residual) vs Option B (full server RNG).**
 2. Sub-phase ORDER / which to do first (default: 4a → 4f → 4c → 4d → 4b → 4e → 4g).
