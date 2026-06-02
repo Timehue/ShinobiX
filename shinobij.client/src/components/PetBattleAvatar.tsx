@@ -1,19 +1,25 @@
 import { type Pet, petDisplayName, petTraitDescriptions } from "../App";
 import { petCollarVisual } from "../data/pet-config";
+import { petBattleSprite, petAvatarStateClass } from "../lib/pet-battle-anim";
+import type { PetVisualState } from "../types/pet-battle";
 
-export function PetBattleAvatar({ pet, side, active, hit, status, sharedImages = {} }: { pet: Pet; side: "player" | "enemy"; active: boolean; hit?: boolean; status?: { poisoned?: number; atkBuff?: boolean; defBuff?: boolean }; sharedImages?: Record<string, string> }) {
-    const petBaseId = pet.id.replace(/-\d{10,}$/, '');
-    const img = sharedImages['pet:' + pet.id] || sharedImages['pet:' + petBaseId] || pet.image || '';
+export function PetBattleAvatar({ pet, side, active, hit, status, sharedImages = {}, visualState = "idle" }: { pet: Pet; side: "player" | "enemy"; active: boolean; hit?: boolean; status?: { poisoned?: number; atkBuff?: boolean; defBuff?: boolean }; sharedImages?: Record<string, string>; visualState?: PetVisualState }) {
+    // Sprite mode: a transparent full-body PNG (petbody:<id> / pet.bodyImage)
+    // renders un-clipped + larger; otherwise the legacy circular portrait is
+    // the fallback. Both modes share the same directional pose classes.
+    const { mode, src } = petBattleSprite(pet, sharedImages);
+    const modeClass = mode === "fullBodySprite" ? " pet-sprite-fullbody" : " pet-sprite-circle-fallback";
+    const poseClass = ` ${petAvatarStateClass(visualState, side)}`;
     // Glow collar equipped → wrap the pet in a colored aura during battle.
     // Prismatic collars cycle through the rainbow instead of a single color.
     const collarVisual = petCollarVisual(pet.loadout?.collar);
     const collarClass = collarVisual ? (collarVisual.prismatic ? " pet-collar-prismatic" : " pet-collar-glow") : "";
     return (
         <div
-            className={`pet-battle-avatar ${side}${active ? " active" : ""}${hit ? " hit" : ""}${status?.poisoned ? " poisoned" : ""}${collarClass}`}
+            className={`pet-battle-avatar pet-sprite ${side}${active ? " active" : ""}${hit ? " hit" : ""}${status?.poisoned ? " poisoned" : ""}${collarClass}${modeClass}${poseClass}`}
             style={collarVisual ? { ["--collar-glow" as string]: collarVisual.glow } : undefined}
         >
-            {img ? <img src={img} alt={pet.name} /> : <span>{pet.name.slice(0, 2).toUpperCase()}</span>}
+            {src ? <img src={src} alt={pet.name} /> : <span>{pet.name.slice(0, 2).toUpperCase()}</span>}
             {collarVisual?.prismatic && <span className="pet-collar-sparkles" aria-hidden="true" />}
         </div>
     );
