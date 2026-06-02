@@ -52,6 +52,10 @@ export type Jutsu = {
     description?: string;
     image?: string;
     bloodlineRank?: Rank; // set on bloodline jutsus; absent = global/starter
+    // Explicit "utility = deals no damage" flag. When absent, the legacy 40-AP
+    // convention applies (see isZeroDamageFortyApJutsu). Decouples AP cost from
+    // whether a jutsu deals damage.
+    isUtility?: boolean;
 };
 
 export type EquipmentSlot =

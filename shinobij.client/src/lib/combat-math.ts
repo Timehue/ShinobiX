@@ -70,7 +70,13 @@ export function getBloodlineMultiplier(char: Character, allSavedBloodlines: Save
     return 1.0;
 }
 
-export function isZeroDamageFortyApJutsu(jutsu: Pick<Jutsu, "id" | "ap">) {
+// True for "utility" jutsu that deal no damage (status/buff/debuff only).
+// Prefers the explicit `isUtility` flag; when absent, falls back to the legacy
+// 40-AP convention so all existing content behaves exactly as before — existing
+// 40-AP jutsu keep dealing zero damage.
+export function isZeroDamageFortyApJutsu(jutsu: Pick<Jutsu, "id" | "ap" | "isUtility">) {
+    if (jutsu.isUtility === true) return true;
+    if (jutsu.isUtility === false) return false;
     return jutsu.ap === 40 && jutsu.id !== "basic-attack" && !jutsu.id.startsWith("item-");
 }
 
