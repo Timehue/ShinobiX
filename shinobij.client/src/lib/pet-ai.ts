@@ -169,6 +169,29 @@ export function choosePetAction(state: PetAiState, actorId: string): PetBattleDe
         if (arch === "bruiser" && m.tags.includes("lifesteal") && hpPct <= 60) s += 10; // sustain when hurt
         if (arch === "assassin" && m.aiHint === "execute") s += 10;
 
+        // ── Phase-12 archetype-mechanic affinity (deterministic, bounded) ─────
+        // Without this the scorer always prefers a raw damage move, so a pet
+        // never reaches for its identity tool. Each is anti-waste (won't re-apply
+        // a status the foe already carries) and positioning-aware.
+        const isWoundMove = m.tags.includes("dot") && m.tags.includes("melee"); // bleed (vs ranged DoT)
+        const isPushMove  = m.tags.includes("push");                            // shove away (peel)
+        const isPullMove  = m.tags.includes("pull");                            // yank in (anti-kite)
+        const enemyWounded = hasStatus(enemy, "wound");
+        const enemySlowed  = hasStatus(enemy, "slow");
+        if ((arch === "bruiser" || arch === "assassin") && isWoundMove) {
+            // Open with the bleed on a healthy foe; never stack it on a bleeding one.
+            s += enemyWounded ? -34 : (enemyPct > 40 ? 28 : 8);
+        }
+        // Bruiser pull — drag a spacing / fleeing foe back into mauling range
+        // (anti-kite). Worthwhile from a step away; pointless once adjacent, and
+        // it won't chase a foe it can't reach (the move offer below handles that).
+        if (arch === "bruiser" && isPullMove) s += dist >= 3 ? 28 : dist === 2 ? 14 : -16;
+        // Control / kite push — peel a foe that has closed into melee (dist ≤2)
+        // to restore the ranged kill-zone; never chase out to use it.
+        if ((arch === "control" || arch === "kite") && isPushMove) s += dist <= 2 ? 24 : -15;
+        // Control values slowing an un-slowed foe (kiting uptime); skip if slowed.
+        if (arch === "control" && m.tags.includes("slow")) s += enemySlowed ? -22 : 12;
+
         if (inRange(m)) {
             add("useMove", s, `use ${m.name}`, { moveId: m.id, targetId: enemy.id });
         } else {

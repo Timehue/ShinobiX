@@ -2149,6 +2149,7 @@ const adminIconOptions: { value: string; label: string }[] = [
 import {
     capPetStats,
     balanceBuiltInPetTemplate,
+    mergePetJutsuSlots,
     petTrainingGains,
     petTrainingPreview,
     rollPetTrait,
@@ -2213,28 +2214,14 @@ function normalizePet(pet: Pet): Pet {
         // predate the element field. Pet's own element (if any) wins so a
         // future admin-edit override would still stick.
         element: pet.element ?? baseTemplate.element,
-        // Backfill any NEW jutsu slots the template gained since this save
-        // was written (e.g. the elemental special jutsu added later). We
-        // iterate up to the larger of the two arrays and fall back to the
-        // template entry for any slot the player's save doesn't have.
-        jutsus: (() => {
-            const playerJutsus = pet.jutsus ?? [];
-            const maxLen = Math.max(playerJutsus.length, baseTemplate.jutsus.length);
-            return Array.from({ length: maxLen }, (_, i) => {
-                const baseJutsu = baseTemplate.jutsus[i];
-                const playerJutsu = playerJutsus[i];
-                if (!playerJutsu && baseJutsu) {
-                    // Slot is new — copy straight from the template.
-                    return { ...baseJutsu, currentCooldown: 0 };
-                }
-                return {
-                    ...(baseJutsu ?? {}),
-                    ...playerJutsu,
-                    power: Math.max(playerJutsu?.power ?? 0, baseJutsu?.power ?? 0),
-                    currentCooldown: 0,
-                };
-            });
-        })(),
+        // Phase 12c migration: merge the player's kit onto the current template
+        // so existing pets ADOPT the redesigned archetype kit (Phase 12b). The
+        // template's effect (kind/name/cooldown/rounds) wins; the player's
+        // leveled jutsu POWER is preserved (max). New trailing slots backfill.
+        // Only the re-themed UTILITY slots actually change — damage/move/special/
+        // signature are identical between old and new templates. See
+        // mergePetJutsuSlots for the full rationale + investment guarantees.
+        jutsus: mergePetJutsuSlots(pet.jutsus ?? [], baseTemplate.jutsus),
     } : pet;
     return capPetStats({
         ...merged,
@@ -12198,6 +12185,14 @@ type PetBattleFighter = {
     braceRounds: number;  // Brace: reduced crit damage taken (+ push/pull immunity)
     focusReady: boolean;  // Focus: next offensive move ×1.3 damage, then consumed
     defensiveCd: number;  // throttles base defensive actions so the pet still mostly attacks
+    // Phase 12 archetype-identity statuses (pet battles only).
+    woundRounds: number;  // wound = DoT each round
+    woundDamage: number;  // per-round wound damage; also halves healing received while > 0
+    markedRounds: number; // next damage hit on this fighter deals +bonus, then clears
+    slowRounds: number;   // −1 move step + reduced dodge while active
+    hasteRounds: number;  // +1 move step + extra dodge while active
+    tauntedRounds: number;// forced to target the taunter in 2v2 while active
+    tauntById: string;    // owner id of the taunter ("You" / opponentOwner / "")
     // Reactive battle-consumable charges (one-shot, from loadout.consumable).
     consDodge?: number;   // negate the next N incoming attacks
     consMitigate?: number;// reduce the next incoming attack by this %
@@ -12224,6 +12219,8 @@ type PetFrameStatus = {
     moveLocked?: boolean; absorbing?: boolean;
     burn?: number; freeze?: number; confuse?: number; stun?: number;
     guarding?: boolean; focused?: boolean; evading?: boolean; bracing?: boolean;
+    // Phase 12 archetype statuses.
+    wound?: number; marked?: boolean; slow?: number; haste?: number; taunted?: boolean;
 };
 
 type PetArenaFrame = {
@@ -12377,6 +12374,7 @@ function hasLineOfSight(from: number, to: number, obstacles: ReadonlySet<number>
 // Self / ally targets and adjacent basic attacks don't.
 function petJutsuNeedsLineOfSight(kind: PetJutsu["kind"] | "basic"): boolean {
     if (kind === "buff" || kind === "heal" || kind === "move" || kind === "barrier" || kind === "shield" || kind === "absorb") return false;
+    if (kind === "haste") return false;  // self-buff (Phase 12)
     if (kind === "basic") return false; // adjacent, no LOS issue
     return true;
 }
@@ -12391,11 +12389,11 @@ function petJutsuInRange(
     obstacles?: ReadonlySet<number>,
 ): boolean {
     let inRange: boolean;
-    if (kind === "buff" || kind === "heal" || kind === "move" || kind === "barrier" || kind === "shield" || kind === "absorb") inRange = true;
-    else if (kind === "dot" || kind === "movelock" || kind === "burn" || kind === "freeze" || kind === "confuse" || kind === "stun") inRange = dist <= 4;
+    if (kind === "buff" || kind === "heal" || kind === "move" || kind === "barrier" || kind === "shield" || kind === "absorb" || kind === "haste") inRange = true;
+    else if (kind === "dot" || kind === "movelock" || kind === "burn" || kind === "freeze" || kind === "confuse" || kind === "stun" || kind === "slow" || kind === "mark" || kind === "taunt" || kind === "pull") inRange = dist <= 4;
     else if (kind === "debuff") inRange = dist <= 3;
-    // crush is a melee slam — closer range than plain debuff, similar to lifesteal.
-    else if (kind === "damage" || kind === "lifesteal" || kind === "crush") inRange = dist <= 2;
+    // crush/wound/push are melee slams — closer range than plain debuff.
+    else if (kind === "damage" || kind === "lifesteal" || kind === "crush" || kind === "wound" || kind === "push") inRange = dist <= 2;
     else inRange = dist <= 1; // basic attack
     if (!inRange) return false;
     // LOS check when caller supplied positional context.
@@ -12599,6 +12597,30 @@ function choosePetActionSmart(
     const midGame        = round >= 4 && round <= 8;
     const alreadyBuffed  = actor.attackBuff > 0 || actor.defenseBuff > 0;
     const targetPoisoned = target.dotRounds > 0;
+
+    // ── Phase 12 archetype kit moves (shared, 2v2 rule-list) ───────────────
+    // Use the pet's identity moves when worthwhile — never re-applying a status
+    // the foe already carries (the utility-AI "waste avoidance" principle). Each
+    // applies once then falls through to the trait trees / damage below, so the
+    // pet still mostly attacks.
+    const hasteMv  = avail.find(j => j.kind === "haste");
+    const woundMv  = avail.find(j => j.kind === "wound");
+    const markMv   = avail.find(j => j.kind === "mark");
+    const slowMv   = avail.find(j => j.kind === "slow");
+    const tauntMv  = avail.find(j => j.kind === "taunt");
+    const pushPull = avail.find(j => j.kind === "push" || j.kind === "pull");
+    if (hasteMv && !alreadyBuffed && actor.hasteRounds <= 0)            return hasteMv;
+    if (tauntMv && hpPct <= 65 && actor.pet.trait !== "Aggressive")     return tauntMv;
+    if (woundMv && target.woundRounds <= 0 && !finishing)              return woundMv;
+    if (slowMv && target.slowRounds <= 0)                              return slowMv;
+    if (markMv && target.markedRounds <= 0 && !finishing)             return markMv;
+    // Positioning-aware (avail is already range-filtered): pull yanks a spacing
+    // foe into melee (anti-kite — pointless once adjacent); push shoves a
+    // crowding foe away (peel). Each serves its archetype's range preference.
+    if (pushPull && !finishing) {
+        if (pushPull.kind === "pull" && dist >= 2) return pushPull;
+        if (pushPull.kind === "push" && dist <= 2) return pushPull;
+    }
 
     // ── Element matchup awareness ──────────────────────────────────────
     // If the actor is super-effective vs the target, prefer damage and crush
@@ -12955,8 +12977,8 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
     // pipeline and the KO check `fighter.hp <= 0` is never true,
     // looping the fight to the round cap with no resolution.
     const safeHp = (h: unknown): number => Math.max(1, Number(h) || 100);
-    let player: PetBattleFighter = { owner: "You",        pet: playerPet,   hp: safeHp(playerPet.hp),   pos: 43, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: petGearStartShield(playerPet),   moveLocked: 0, absorbRounds: 0, absorbPercent: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0, consDodge: playerCons.dodge, consMitigate: playerCons.mitigate, consEndure: playerCons.endure, consThorns: playerCons.thorns, consLifeline: playerCons.lifeline, consCleanse: playerCons.cleanse, guardRounds: 0, evadeRounds: 0, braceRounds: 0, focusReady: false, defensiveCd: 0 };
-    let enemy:  PetBattleFighter = { owner: opponentOwner, pet: opponentPet, hp: safeHp(opponentPet.hp), pos: 54, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: petGearStartShield(opponentPet), moveLocked: 0, absorbRounds: 0, absorbPercent: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0, consDodge: enemyCons.dodge, consMitigate: enemyCons.mitigate, consEndure: enemyCons.endure, consThorns: enemyCons.thorns, consLifeline: enemyCons.lifeline, consCleanse: enemyCons.cleanse, guardRounds: 0, evadeRounds: 0, braceRounds: 0, focusReady: false, defensiveCd: 0 };
+    let player: PetBattleFighter = { owner: "You",        pet: playerPet,   hp: safeHp(playerPet.hp),   pos: 43, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: petGearStartShield(playerPet),   moveLocked: 0, absorbRounds: 0, absorbPercent: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0, consDodge: playerCons.dodge, consMitigate: playerCons.mitigate, consEndure: playerCons.endure, consThorns: playerCons.thorns, consLifeline: playerCons.lifeline, consCleanse: playerCons.cleanse, guardRounds: 0, evadeRounds: 0, braceRounds: 0, focusReady: false, defensiveCd: 0, woundRounds: 0, woundDamage: 0, markedRounds: 0, slowRounds: 0, hasteRounds: 0, tauntedRounds: 0, tauntById: "" };
+    let enemy:  PetBattleFighter = { owner: opponentOwner, pet: opponentPet, hp: safeHp(opponentPet.hp), pos: 54, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: petGearStartShield(opponentPet), moveLocked: 0, absorbRounds: 0, absorbPercent: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0, consDodge: enemyCons.dodge, consMitigate: enemyCons.mitigate, consEndure: enemyCons.endure, consThorns: enemyCons.thorns, consLifeline: enemyCons.lifeline, consCleanse: enemyCons.cleanse, guardRounds: 0, evadeRounds: 0, braceRounds: 0, focusReady: false, defensiveCd: 0, woundRounds: 0, woundDamage: 0, markedRounds: 0, slowRounds: 0, hasteRounds: 0, tauntedRounds: 0, tauntById: "" };
     // One-time coin flip for first-move advantage, consistent with
     // PvP and tile-card duels. Previously this was decided every round
     // by raw speed comparison, which guaranteed the faster pet always
@@ -12995,6 +13017,11 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
             focused: f.focusReady || undefined,
             evading: f.evadeRounds > 0 || undefined,
             bracing: f.braceRounds > 0 || undefined,
+            wound: f.woundRounds > 0 ? f.woundRounds : undefined,
+            marked: f.markedRounds > 0 || undefined,
+            slow: f.slowRounds > 0 ? f.slowRounds : undefined,
+            haste: f.hasteRounds > 0 ? f.hasteRounds : undefined,
+            taunted: f.tauntedRounds > 0 || undefined,
         });
         const playerStatus = statusOf(player);
         const enemyStatus  = statusOf(enemy);
@@ -13021,6 +13048,11 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
             evadeRounds:  Math.max(0, fighter.evadeRounds  - 1),
             braceRounds:  Math.max(0, fighter.braceRounds  - 1),
             defensiveCd:  Math.max(0, fighter.defensiveCd  - 1),
+            markedRounds: Math.max(0, fighter.markedRounds - 1),
+            slowRounds:   Math.max(0, fighter.slowRounds   - 1),
+            hasteRounds:  Math.max(0, fighter.hasteRounds  - 1),
+            tauntedRounds:Math.max(0, fighter.tauntedRounds - 1),
+            // woundRounds ticks in the round loop (with the wound DoT), like burn.
         };
     }
 
@@ -13057,6 +13089,11 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
         if (f.dotRounds > 0)    statuses.push({ kind: "poison", rounds: f.dotRounds });
         if (f.burnRounds > 0)   statuses.push({ kind: "burn", rounds: f.burnRounds });
         if (f.shieldHp > 0)     statuses.push({ kind: "shield", rounds: 1, magnitude: f.shieldHp });
+        // Phase-12 statuses → let the scorer avoid re-applying them (anti-waste).
+        if (f.woundRounds > 0)  statuses.push({ kind: "wound", rounds: f.woundRounds });
+        if (f.markedRounds > 0) statuses.push({ kind: "marked", rounds: f.markedRounds });
+        if (f.slowRounds > 0)   statuses.push({ kind: "slow", rounds: f.slowRounds });
+        if (f.hasteRounds > 0)  statuses.push({ kind: "haste", rounds: f.hasteRounds });
         const cooldowns: Record<string, number> = { __defensiveCd: f.defensiveCd };
         for (const j of f.pet.jutsus) cooldowns[jutsuToPetMove(j, f.pet).id] = f.cooldowns[j.name] ?? 0;
         return {
@@ -13147,10 +13184,11 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
         const luckyDodgeRoll = target.pet.trait === "Lucky" && rng() < 0.10;
 
         function doMove(reason: string): [PetBattleFighter, PetBattleFighter] {
-            // Slow tile (Phases 5-6): a pet that begins its move on boggy ground
-            // loses one step of movement (min 1).
+            // Movement step count: slow tiles (Phase 5-6) and the Slow status
+            // (Phase 12) each cut a step; Haste (Phase 12) adds one. Min 1.
             const baseSteps = actor.pet.moveRange ?? 2;
-            const steps = slowTiles.has(actor.pos) ? Math.max(1, baseSteps - 1) : baseSteps;
+            const stepMod = (slowTiles.has(actor.pos) ? -1 : 0) + (actor.slowRounds > 0 ? -1 : 0) + (actor.hasteRounds > 0 ? 1 : 0);
+            const steps = Math.max(1, baseSteps + stepMod);
             let newPos = actor.pos;
             for (let s = 0; s < steps; s++) {
                 const next = bfsNextStep(newPos, target.pos, obstacles);
@@ -13186,7 +13224,7 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
             }
             // Innate speed evasion — a faster defender slips the blow entirely.
             // The Evade base action adds a flat +25% while active (Phases 7-8).
-            const evadeBonus = target2.evadeRounds > 0 ? 0.25 : 0;
+            const evadeBonus = (target2.evadeRounds > 0 ? 0.25 : 0) + (target2.hasteRounds > 0 ? 0.12 : 0) - (target2.slowRounds > 0 ? 0.1 : 0);
             if (rng() < petEvadeChance(actor2, target2) + evadeBonus) {
                 if (actorSide === "player") playerCombo = 0; else enemyCombo = 0;
                 const msg = `Round ${round}: ${target2.pet.name} blurs out of reach — evades ${actor2.pet.name}'s attack!`;
@@ -13221,7 +13259,9 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
             const guardMult = target2.guardRounds > 0 ? 0.6 : 1;
             const critMult = crit ? (target2.braceRounds > 0 ? 1.35 : PET_CRIT_MULT) : 1;
             const focusMult = actor2.focusReady ? 1.3 : 1;
-            const damage = Math.max(1, Math.floor(base * critMult * variance * dmgBonus * guardianBlock * absorbMult * tamerMult * elementMult * executeMult * lastStandMult * mitigateMult * coverMult * guardMult * focusMult));
+            // Mark (Phase 12): the marked target's next damage hit lands harder.
+            const markMult = target2.markedRounds > 0 ? 1.3 : 1;
+            const damage = Math.max(1, Math.floor(base * critMult * variance * dmgBonus * guardianBlock * absorbMult * tamerMult * elementMult * executeMult * lastStandMult * mitigateMult * coverMult * guardMult * focusMult * markMult));
             // Shield absorbs damage before HP
             const shieldAbsorb  = Math.min(target2.shieldHp, damage);
             const remainDamage  = damage - shieldAbsorb;
@@ -13234,6 +13274,8 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
             // Focus is consumed by the strike it empowers.
             if (actor2.focusReady) { procActor = { ...procActor, focusReady: false }; procNote += " 🎯 Focused strike!"; }
             if (guardMult < 1) procNote += " 🛡️ Guarded!";
+            // Mark is spent the moment it amplifies a hit.
+            if (markMult > 1) { procTarget = { ...procTarget, markedRounds: 0 }; procNote += " 🔻 Marked!"; }
             if (kind === "basic" && remainDamage > 0) {
                 const dot = petGearDotOnHit(actor2.pet);
                 if (dot) { procTarget = { ...procTarget, dotDamage: dot.damage, dotRounds: dot.rounds }; procNote += " ☠️ Poisoned!"; }
@@ -13372,9 +13414,11 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
             }
 
             if (jutsu.kind === "heal") {
-                const healAmt = Math.max(1, Math.floor(jutsu.power * 0.6));
+                // Wound (Phase 12) halves healing the wounded pet receives.
+                const woundCut = nextActor.woundRounds > 0 ? 0.5 : 1;
+                const healAmt = Math.max(1, Math.floor(jutsu.power * 0.6 * woundCut));
                 const healed  = { ...nextActor, hp: Math.min(nextActor.pet.hp, nextActor.hp + healAmt) };
-                const msg = `Round ${round}: ${actor.pet.name} uses ${jutsu.name}, restoring ${healAmt} HP.`;
+                const msg = `Round ${round}: ${actor.pet.name} uses ${jutsu.name}, restoring ${healAmt} HP${woundCut < 1 ? " (halved — wounded)" : ""}.`;
                 logs.push(msg);
                 if (actorSide === "player") player = healed; else enemy = healed;
                 pushFrame(round, msg, actorSide, "heal");
@@ -13550,6 +13594,76 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
                 return [returnedActor, crushed];
             }
 
+            // ── Phase 12 archetype kinds (pet battles only) ────────────────
+            if (jutsu.kind === "wound") {
+                const baseW = Math.max(1, Math.floor(jutsu.power * 0.22));
+                const wDmg = target.pet.trait === "Guardian" ? Math.max(1, Math.floor(baseW * 0.5)) : baseW;
+                const wRounds = Math.max(2, jutsu.rounds ?? 3);
+                const wounded = { ...target, woundRounds: Math.max(target.woundRounds, wRounds), woundDamage: Math.max(target.woundDamage, wDmg) };
+                const msg = `Round ${round}: ${actor.pet.name} wounds ${target.pet.name} — ${wDmg}/round and halved healing (${wRounds} rounds).`;
+                logs.push(msg);
+                if (actorSide === "player") { player = nextActor; enemy = wounded; } else { enemy = nextActor; player = wounded; }
+                pushFrame(round, msg, actorSide, "dot");
+                return [nextActor, wounded];
+            }
+            if (jutsu.kind === "mark") {
+                const mRounds = Math.max(2, jutsu.rounds ?? 2);
+                const marked = { ...target, markedRounds: Math.max(target.markedRounds, mRounds) };
+                const msg = `Round ${round}: ${actor.pet.name} marks ${target.pet.name} — its next heavy hit bites deeper.`;
+                logs.push(msg);
+                if (actorSide === "player") { player = nextActor; enemy = marked; } else { enemy = nextActor; player = marked; }
+                pushFrame(round, msg, actorSide, "debuff");
+                return [nextActor, marked];
+            }
+            if (jutsu.kind === "slow") {
+                const sRounds = Math.max(1, jutsu.rounds ?? 2);
+                const slowed = { ...target, slowRounds: Math.max(target.slowRounds, sRounds) };
+                const msg = `Round ${round}: ${actor.pet.name} slows ${target.pet.name} — sluggish footing (${sRounds} rounds).`;
+                logs.push(msg);
+                if (actorSide === "player") { player = nextActor; enemy = slowed; } else { enemy = nextActor; player = slowed; }
+                pushFrame(round, msg, actorSide, "movelock");
+                return [nextActor, slowed];
+            }
+            if (jutsu.kind === "haste") {
+                const hRounds = Math.max(1, jutsu.rounds ?? 2);
+                const hasted = { ...nextActor, hasteRounds: Math.max(nextActor.hasteRounds, hRounds) };
+                const msg = `Round ${round}: ${actor.pet.name} surges with haste — quicker and harder to pin (${hRounds} rounds).`;
+                logs.push(msg);
+                if (actorSide === "player") player = hasted; else enemy = hasted;
+                pushFrame(round, msg, actorSide, "buff");
+                return [hasted, target];
+            }
+            if (jutsu.kind === "taunt") {
+                const tRounds = Math.max(1, jutsu.rounds ?? 2);
+                const taunted = { ...target, tauntedRounds: Math.max(target.tauntedRounds, tRounds), tauntById: actor.pet.id };
+                // 1v1 has a single foe (taunt's targeting is moot), so the taunter
+                // also raises a brief guard — the move still does something useful.
+                const guardedSelf = { ...nextActor, guardRounds: Math.max(nextActor.guardRounds, 1) };
+                const msg = `Round ${round}: ${actor.pet.name} taunts ${target.pet.name}, drawing its aggression.`;
+                logs.push(msg);
+                if (actorSide === "player") { player = guardedSelf; enemy = taunted; } else { enemy = guardedSelf; player = taunted; }
+                pushFrame(round, msg, actorSide, "debuff");
+                return [guardedSelf, taunted];
+            }
+            if (jutsu.kind === "push" || jutsu.kind === "pull") {
+                const rawDmg = actor.pet.attack + actor.attackBuff + (jutsu.power * 0.5) - (target.pet.defense + target.defenseBuff) * 0.5;
+                const [returnedActor, damagedTarget] = applyDamage(rawDmg, jutsu.name, "damage", nextActor, target);
+                if (damagedTarget.hp <= 0) return [returnedActor, damagedTarget];
+                let movedTarget = damagedTarget;
+                // Brace negates the reposition. Push = away from the actor; pull = toward.
+                if (damagedTarget.braceRounds <= 0) {
+                    const newPos = jutsu.kind === "push"
+                        ? bfsStepAway(damagedTarget.pos, returnedActor.pos, obstacles)
+                        : (() => { const n = bfsNextStep(damagedTarget.pos, returnedActor.pos, obstacles); return n === returnedActor.pos ? damagedTarget.pos : n; })();
+                    if (newPos !== damagedTarget.pos) {
+                        movedTarget = { ...damagedTarget, pos: newPos };
+                        logs.push(`Round ${round}: ${target.pet.name} is ${jutsu.kind === "push" ? "shoved back" : "dragged in"}.`);
+                    }
+                }
+                if (actorSide === "player") { player = returnedActor; enemy = movedTarget; } else { enemy = returnedActor; player = movedTarget; }
+                return [returnedActor, movedTarget];
+            }
+
             if (jutsu.kind === "lifesteal") {
                 const rawDmg = actor.pet.attack + actor.attackBuff + jutsu.power - (target.pet.defense + target.defenseBuff) * 0.5;
                 const preTargetHp = target.hp;
@@ -13663,6 +13777,23 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
             const msg = `Round ${round}: 🔥 ${enemy.pet.name} burns for ${enemy.burnDamage} damage.`;
             logs.push(msg);
             pushFrame(round, msg, "enemy", "dot", enemy.burnDamage);
+            if (enemy.hp <= 0) break;
+        }
+
+        // Wound DoT (Phase 12) — bleeds each round and ticks its own counter
+        // (the heal-reduction lives in the heal handler). Mirrors burn.
+        if (player.woundRounds > 0 && player.woundDamage > 0) {
+            player = { ...player, hp: Math.max(0, player.hp - player.woundDamage), woundRounds: player.woundRounds - 1 };
+            const msg = `Round ${round}: 🩸 ${player.pet.name} bleeds for ${player.woundDamage} damage.`;
+            logs.push(msg);
+            pushFrame(round, msg, "player", "dot", player.woundDamage);
+            if (player.hp <= 0) break;
+        }
+        if (enemy.woundRounds > 0 && enemy.woundDamage > 0) {
+            enemy = { ...enemy, hp: Math.max(0, enemy.hp - enemy.woundDamage), woundRounds: enemy.woundRounds - 1 };
+            const msg = `Round ${round}: 🩸 ${enemy.pet.name} bleeds for ${enemy.woundDamage} damage.`;
+            logs.push(msg);
+            pushFrame(round, msg, "enemy", "dot", enemy.woundDamage);
             if (enemy.hp <= 0) break;
         }
 
@@ -13949,7 +14080,7 @@ function runPetArenaParty(
         // synced 2v2 battles stay in sync.
         const pet = applyPetPvpGear(petIn);
         const ch = petConsumableCharges(pet);
-        return { owner, pet, hp: pet.hp, pos, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: petGearStartShield(pet), moveLocked: 0, absorbRounds: 0, absorbPercent: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0, consDodge: ch.dodge, consMitigate: ch.mitigate, consEndure: ch.endure, consThorns: ch.thorns, consLifeline: ch.lifeline, consCleanse: ch.cleanse, guardRounds: 0, evadeRounds: 0, braceRounds: 0, focusReady: false, defensiveCd: 0 };
+        return { owner, pet, hp: pet.hp, pos, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: petGearStartShield(pet), moveLocked: 0, absorbRounds: 0, absorbPercent: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0, consDodge: ch.dodge, consMitigate: ch.mitigate, consEndure: ch.endure, consThorns: ch.thorns, consLifeline: ch.lifeline, consCleanse: ch.cleanse, guardRounds: 0, evadeRounds: 0, braceRounds: 0, focusReady: false, defensiveCd: 0, woundRounds: 0, woundDamage: 0, markedRounds: 0, slowRounds: 0, hasteRounds: 0, tauntedRounds: 0, tauntById: "" };
     }
     const fighters: Partial<Record<PartySlot, PetBattleFighter>> = {};
     if (playerParty[0])   fighters.playerLead    = makeFighter(playerParty[0],   "You",        29);
@@ -13977,6 +14108,11 @@ function runPetArenaParty(
             stun:     f.stunRounds > 0 ? f.stunRounds : undefined,
             shield:   f.shieldHp > 0 ? f.shieldHp : undefined,
             absorbing: f.absorbRounds > 0 || undefined,
+            wound:    f.woundRounds > 0 ? f.woundRounds : undefined,
+            marked:   f.markedRounds > 0 || undefined,
+            slow:     f.slowRounds > 0 ? f.slowRounds : undefined,
+            haste:    f.hasteRounds > 0 ? f.hasteRounds : undefined,
+            taunted:  f.tauntedRounds > 0 || undefined,
         };
     }
     function slotSnapshot(slot: PartySlot) {
@@ -14110,6 +14246,11 @@ function runPetArenaParty(
             freezeRounds: Math.max(0, f.freezeRounds - 1),
             confuseRounds: Math.max(0, f.confuseRounds - 1),
             stunRounds:   Math.max(0, f.stunRounds   - 1),
+            markedRounds: Math.max(0, f.markedRounds - 1),
+            slowRounds:   Math.max(0, f.slowRounds   - 1),
+            hasteRounds:  Math.max(0, f.hasteRounds  - 1),
+            tauntedRounds:Math.max(0, f.tauntedRounds - 1),
+            // woundRounds ticks with the wound DoT in the round loop.
         };
     }
     function applyStatusToFighter(target: PetBattleFighter, status: "burn" | "freeze" | "confuse" | "stun", rounds: number, burnDmgIfBurn = 0): PetBattleFighter {
@@ -14176,7 +14317,12 @@ function runPetArenaParty(
         // then re-pick if the chosen jutsu is heal/buff (ally-targeted).
         // partnerFocusSlot weights the picker toward the slot our teammate
         // just attacked, so partners converge on focus-fire.
-        const damageTargetSlot = pickArchetypeTargetSlot(actorSlot) ?? pickTargetSlot(actorSlot, "damage", partnerFocusSlot);
+        // Phase 12: a taunted pet is forced to attack the specific taunter (if it
+        // is still alive on the opposing side); otherwise pick by archetype.
+        const tauntSlot = actor.tauntedRounds > 0
+            ? ALL_SLOTS.find(s => { const f = fighters[s]; return !!f && f.hp > 0 && isPlayerSlot(s) !== actorIsPlayer && f.pet.id === actor.tauntById; })
+            : undefined;
+        const damageTargetSlot = tauntSlot ?? pickArchetypeTargetSlot(actorSlot) ?? pickTargetSlot(actorSlot, "damage", partnerFocusSlot);
         if (!damageTargetSlot) return; // no opposing pets left — shouldn't happen, loop checks first
         const damageTarget = fighters[damageTargetSlot]!;
         const dist = tileDistance(actor.pos, damageTarget.pos);
@@ -14303,7 +14449,9 @@ function runPetArenaParty(
                 return;
             }
             // Innate speed evasion — a faster defender slips the blow entirely.
-            if (rng() < petEvadeChance(actor, target)) {
+            // Phase 12: Haste adds dodge, Slow removes it (mirrors the 1v1 engine).
+            const evadeMod = (target.hasteRounds > 0 ? 0.12 : 0) - (target.slowRounds > 0 ? 0.1 : 0);
+            if (rng() < petEvadeChance(actor, target) + evadeMod) {
                 const msg = `Round ${round}: ${target.pet.name} blurs out of reach — evades ${actor.pet.name}'s ${jutsuName}!`;
                 logs.push(msg);
                 pushPartyFrame(round, msg, targetSlot!, kind, undefined, undefined, { actor: isPlayerSlot(targetSlot!) ? "player" : "enemy", trait: "petEvade" }, undefined, undefined, targetSlot!);
@@ -14321,12 +14469,15 @@ function runPetArenaParty(
             const lastStandMult = petGearLastStandMult(target.pet, target.hp, target.pet.hp);
             // Consumable: Smoke Pellet reduces this hit (spent below).
             const mitigateMult = (target.consMitigate ?? 0) > 0 ? (1 - (target.consMitigate ?? 0) / 100) : 1;
-            const damage = Math.max(1, Math.floor(rawDmg * (crit ? PET_CRIT_MULT : 1) * variance * dmgBonus * guardianBlock * absorbMult * tamerMult * elementMult * executeMult * lastStandMult * mitigateMult));
+            // Phase 12: Mark amplifies the next damage hit (spent below).
+            const markMult = target.markedRounds > 0 ? 1.3 : 1;
+            const damage = Math.max(1, Math.floor(rawDmg * (crit ? PET_CRIT_MULT : 1) * variance * dmgBonus * guardianBlock * absorbMult * tamerMult * elementMult * executeMult * lastStandMult * mitigateMult * markMult));
             const shieldAbsorb = Math.min(target.shieldHp, damage);
             const remainDamage = damage - shieldAbsorb;
             const preHitHp = target.hp;
             let hitTarget = { ...target, hp: Math.max(0, target.hp - remainDamage), shieldHp: target.shieldHp - shieldAbsorb };
             if (mitigateMult < 1) hitTarget = { ...hitTarget, consMitigate: 0 };
+            if (markMult > 1) hitTarget = { ...hitTarget, markedRounds: 0 }; // mark is spent on the amplified hit
             // Reactive consumable post-hit (thorns / endure / lifeline).
             const post = petReactivePostHit(fighters[actorSlot]!, hitTarget, preHitHp, remainDamage > 0 ? damage : 0);
             fighters[targetSlot!] = post.defender;
@@ -14351,7 +14502,7 @@ function runPetArenaParty(
         switch (chosen.kind) {
             case "heal": {
                 if (!targetIsAlly) return;
-                const healed = Math.min(target.pet.hp, target.hp + chosen.power);
+                const healed = Math.min(target.pet.hp, target.hp + Math.floor(chosen.power * (target.woundRounds > 0 ? 0.5 : 1)));
                 fighters[targetSlot] = { ...target, hp: healed };
                 const msg = targetSlot === actorSlot
                     ? `Round ${round}: ${actor.pet.name} heals itself for ${healed - target.hp} HP.`
@@ -14482,6 +14633,65 @@ function runPetArenaParty(
                 fighters[actorSlot] = { ...cdActor, hp: Math.min(cdActor.pet.hp, cdActor.hp + steal) };
                 return;
             }
+            // ── Phase 12 archetype kinds (2v2) ─────────────────────────
+            case "wound": {
+                const baseW = Math.max(1, Math.floor(chosen.power * 0.22));
+                const wDmg = target.pet.trait === "Guardian" ? Math.max(1, Math.floor(baseW * 0.5)) : baseW;
+                const wRounds = Math.max(2, chosen.rounds ?? 3);
+                fighters[targetSlot] = { ...target, woundRounds: Math.max(target.woundRounds, wRounds), woundDamage: Math.max(target.woundDamage, wDmg) };
+                const msg = `Round ${round}: ${actor.pet.name} wounds ${target.pet.name} for ${wDmg}/round (halved healing).`;
+                logs.push(msg);
+                pushPartyFrame(round, msg, actorSlot, "dot", undefined, undefined, undefined, undefined, undefined, targetSlot);
+                return;
+            }
+            case "mark": {
+                const mRounds = Math.max(2, chosen.rounds ?? 2);
+                fighters[targetSlot] = { ...target, markedRounds: Math.max(target.markedRounds, mRounds) };
+                const msg = `Round ${round}: ${actor.pet.name} marks ${target.pet.name} — its next heavy hit bites deeper.`;
+                logs.push(msg);
+                pushPartyFrame(round, msg, actorSlot, "debuff", undefined, undefined, undefined, undefined, undefined, targetSlot);
+                return;
+            }
+            case "slow": {
+                const sRounds = Math.max(1, chosen.rounds ?? 2);
+                fighters[targetSlot] = { ...target, slowRounds: Math.max(target.slowRounds, sRounds) };
+                const msg = `Round ${round}: ${actor.pet.name} slows ${target.pet.name}.`;
+                logs.push(msg);
+                pushPartyFrame(round, msg, actorSlot, "movelock", undefined, undefined, undefined, undefined, undefined, targetSlot);
+                return;
+            }
+            case "haste": {
+                const hRounds = Math.max(1, chosen.rounds ?? 2);
+                fighters[actorSlot] = { ...cdActor, hasteRounds: Math.max(cdActor.hasteRounds, hRounds) };
+                const msg = `Round ${round}: ${actor.pet.name} surges with haste.`;
+                logs.push(msg);
+                pushPartyFrame(round, msg, actorSlot, "buff");
+                return;
+            }
+            case "taunt": {
+                const tRounds = Math.max(1, chosen.rounds ?? 2);
+                fighters[targetSlot] = { ...target, tauntedRounds: Math.max(target.tauntedRounds, tRounds), tauntById: actor.pet.id };
+                const msg = `Round ${round}: ${actor.pet.name} taunts ${target.pet.name}, drawing its aggression.`;
+                logs.push(msg);
+                pushPartyFrame(round, msg, actorSlot, "debuff", undefined, undefined, undefined, undefined, undefined, targetSlot);
+                return;
+            }
+            case "push":
+            case "pull": {
+                const rawDmg = actor.pet.attack + actor.attackBuff + (chosen.power * 0.5) - (target.pet.defense + target.defenseBuff) * 0.5;
+                applyDmg(rawDmg, chosen.name, "damage");
+                const after = fighters[targetSlot]!;
+                if (after.hp > 0 && after.braceRounds <= 0) {
+                    const newPos = chosen.kind === "push"
+                        ? bfsStepAway(after.pos, actor.pos, obstacles)
+                        : (() => { const n = bfsNextStep(after.pos, actor.pos, obstacles); return n === actor.pos ? after.pos : n; })();
+                    if (newPos !== after.pos) {
+                        fighters[targetSlot] = { ...after, pos: newPos };
+                        logs.push(`Round ${round}: ${target.pet.name} is ${chosen.kind === "push" ? "shoved back" : "dragged in"}.`);
+                    }
+                }
+                return;
+            }
             case "damage":
             default: {
                 const rawDmg = actor.pet.attack + actor.attackBuff + chosen.power - (target.pet.defense + target.defenseBuff) * 0.5;
@@ -14521,6 +14731,12 @@ function runPetArenaParty(
             if (g.burnRounds > 0 && g.burnDamage > 0) {
                 fighters[s] = { ...g, hp: Math.max(0, g.hp - g.burnDamage) };
                 pushPartyFrame(round, `🔥 ${g.pet.name} burns for ${g.burnDamage} damage.`, s, "dot", g.burnDamage);
+            }
+            // Phase 12: wound bleed (ticks its own counter, like burn).
+            const w = fighters[s]!;
+            if (w.woundRounds > 0 && w.woundDamage > 0) {
+                fighters[s] = { ...w, hp: Math.max(0, w.hp - w.woundDamage), woundRounds: w.woundRounds - 1 };
+                pushPartyFrame(round, `🩸 ${w.pet.name} bleeds for ${w.woundDamage} damage.`, s, "dot", w.woundDamage);
             }
         }
         if (playerLiving() === 0 || enemyLiving() === 0) break;

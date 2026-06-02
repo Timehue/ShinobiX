@@ -177,27 +177,38 @@ const signatureByRarityElement: Record<PetRarity, Record<Exclude<JutsuElement, "
     },
 };
 
-// Per-NAME override for the expansion mythics. Each mythic tier holds one pet
-// per element, but the pool now has two mythics per element (original +
-// expansion) — the element-keyed table above can only name one, so the second
-// of each element looks itself up here by name to keep its OWN flagship
-// signature. (The five originals fall through to the element table.)
-const mythicSignatureByName: Record<string, SignatureSpec> = {
+// Per-NAME flagship signature overrides. Two uses:
+//  1) Expansion mythics — the element-keyed table above names only one mythic
+//     per element, but the pool has two (original + expansion); the second of
+//     each element looks itself up here to keep its OWN flagship signature.
+//  2) APEX LEGENDARIES — a curated 1-per-element set kept iconic + strong:
+//     each gets a UNIQUE flagship signature name at power 142 (above a normal
+//     legendary's 132, below a mythic's 152), so "some legendaries" stay
+//     distinctive instead of sharing the element-tier signature name. They keep
+//     their archetype kit + element special; only the signature is bespoke.
+const flagshipSignatureByName: Record<string, SignatureSpec> = {
+    // Mythic expansion flagships (one per element).
     "Vermillion Suzaku":  { name: "Vermillion Rebirth: Phoenix Pyre",    power: 152, cooldown: 4 },
     "Azure Ryujin":       { name: "Dragon God's Maelstrom",              power: 152, cooldown: 4 },
     "Celestial Tengu":    { name: "Heavenfall: Crow Tempest",            power: 152, cooldown: 4 },
     "Stormgod Raijin":    { name: "Raijin's Wrath: Thunder Apocalypse",  power: 152, cooldown: 4 },
     "Worldroot Colossus": { name: "World Devourer: Gaia's Embrace",      power: 152, cooldown: 4 },
+    // Apex legendaries (one iconic boss per element) — unique + stronger signature.
+    "Inferno Chimera":    { name: "Triple Maw: Infernal Devour",         power: 142, cooldown: 4 },
+    "Tidelord Leviathan": { name: "Abyssal Tide: Leviathan's Maw",       power: 142, cooldown: 4 },
+    "Storm Roc":          { name: "Skytalon: Tempest Dive",              power: 142, cooldown: 4 },
+    "Thunder Raiju":      { name: "Raiju's Fury: Thunderclap Rush",      power: 142, cooldown: 4 },
+    "Titan Golem":        { name: "Titanfall: Seismic Ruin",             power: 142, cooldown: 4 },
 };
 
-/** Pull the signature jutsu spec for a pet. A per-name mythic override wins
- *  (so each flagship keeps a unique signature even when two mythics share an
- *  element); otherwise it's the element+tier entry. Flagged so the arena cut-in
- *  recognizes it. Null for elementless pets (they fall back to the auto-derived
- *  strongest move in petSignatureJutsu). */
+/** Pull the signature jutsu spec for a pet. A per-name flagship override wins
+ *  (so each expansion mythic + apex legendary keeps a UNIQUE signature even when
+ *  it shares an element with others); otherwise it's the element+tier entry.
+ *  Flagged so the arena cut-in recognizes it. Null for elementless pets (they
+ *  fall back to the auto-derived strongest move in petSignatureJutsu). */
 export function signatureMoveFor(element: JutsuElement | undefined, rarity: PetRarity, name?: string): PetJutsu | null {
     if (!element || element === "None") return null;
-    const override = name ? mythicSignatureByName[name] : undefined;
+    const override = name ? flagshipSignatureByName[name] : undefined;
     const tierTable = signatureByRarityElement[rarity] ?? signatureByRarityElement.standard;
     const spec = override ?? tierTable[element as Exclude<JutsuElement, "None">];
     if (!spec) return null;
@@ -208,6 +219,150 @@ export function signatureMoveFor(element: JutsuElement | undefined, rarity: PetR
         currentCooldown: 0,
         kind: signatureKindByElement[element as Exclude<JutsuElement, "None">],
         signature: true,
+    };
+}
+
+// ── Phase 12b: per-archetype kit identity ────────────────────────────────
+// Re-theme each non-mythic template's UTILITY slots to a combat archetype, so
+// a pet's kit reflects a ROLE (tank/bruiser/striker/kite/control/support/
+// assassin) instead of a generic Guard/Bind/Mend rotation. The archetype is
+// derived deterministically from element + variant, so every tier spans the
+// full role spread and an element keeps a consistent fantasy (Fire = aggressive,
+// Water = defensive/sustain, Earth = sturdy, Wind = evasive/tricky, Lightning =
+// fast burst).
+//
+// Rarity gates how many *new-mechanic* slots (wound/mark/slow/haste/taunt/push/
+// pull — the Phase-12 kinds) a pet may hold:
+//   standard  0  — basic kinds only (simple + readable)
+//   rare      1  — one signature mechanic
+//   legendary 2  — two role mechanics / a combo
+//   mythic    —  the hand-crafted kit is preserved; one signature mechanic is
+//                APPENDED (see mythicSignatureMechanic), themed to its identity.
+//
+// SAVE-SAFETY: this only edits TEMPLATES. normalizePet merges jutsus
+// positionally with the player's slot winning kind/name, so existing pets are
+// grandfathered (they migrate in a later step) — and the DAMAGE + MOVE slots,
+// slot COUNT, and slot ORDER are never changed, so the positional merge stays
+// aligned. No pet has every answer: each archetype trades away whole categories
+// (a tank has no burst mechanic, an assassin no heal/shield, support no control).
+
+export type PetTemplateArchetype = "tank" | "bruiser" | "striker" | "kite" | "control" | "support" | "assassin";
+
+// Per-element role rotation. Indexed by the template's variant so a tier's pets
+// of one element spread across several roles while keeping the element's flavor.
+const elementArchetypeRotation: Record<Exclude<JutsuElement, "None">, PetTemplateArchetype[]> = {
+    Fire:      ["bruiser", "striker", "assassin", "bruiser", "striker"],
+    Water:     ["tank", "support", "control", "support", "tank"],
+    Wind:      ["kite", "assassin", "control", "kite", "striker"],
+    Lightning: ["striker", "assassin", "kite", "striker", "bruiser"],
+    Earth:     ["tank", "bruiser", "control", "tank", "bruiser"],
+};
+
+/** Deterministic archetype for a (element, variant) template. Elementless →
+ *  striker (a neutral, all-rounder fallback). */
+export function petTemplateArchetype(element: JutsuElement | undefined, variant: number): PetTemplateArchetype {
+    if (!element || element === "None") return "striker";
+    const rotation = elementArchetypeRotation[element as Exclude<JutsuElement, "None">];
+    return rotation[((variant % rotation.length) + rotation.length) % rotation.length];
+}
+
+type KitSpec = { kind: PetJutsu["kind"]; label: string };
+
+// Each archetype's utility palette. `mechanics` are the Phase-12 role mechanics,
+// richest first (gated by the rarity budget). `basics` are the simple-kind
+// fallbacks that fill the rest of the utility slots (and the lone utility slot
+// of a standard, which gets NO new mechanic). The combination defines the
+// archetype's identity AND its weaknesses (what it deliberately lacks).
+const ARCHETYPE_KIT: Record<PetTemplateArchetype, { mechanics: KitSpec[]; basics: KitSpec[] }> = {
+    tank:     { mechanics: [{ kind: "taunt", label: "Challenging Roar" }, { kind: "shield", label: "Bulwark" }], basics: [{ kind: "barrier", label: "Guard" }] },
+    // Bruiser is melee and wants to STICK to its target → pull yanks a fleeing /
+    // kiting foe back into mauling range (anti-kite). Paired with the wound bleed.
+    bruiser:  { mechanics: [{ kind: "wound", label: "Rending Maul" }, { kind: "pull", label: "Grappling Hook" }], basics: [{ kind: "barrier", label: "Iron Brace" }] },
+    striker:  { mechanics: [{ kind: "mark", label: "Opening Strike" }, { kind: "haste", label: "Battle Tempo" }], basics: [{ kind: "debuff", label: "Weaken" }] },
+    kite:     { mechanics: [{ kind: "slow", label: "Hobbling Shot" }, { kind: "haste", label: "Quickstep" }],     basics: [{ kind: "debuff", label: "Sand Veil" }] },
+    // Control is ranged and wants SPACING → push shoves a crowding foe away so it
+    // can keep kiting + stacking slows (peel / zone control). Paired with slow.
+    control:  { mechanics: [{ kind: "slow", label: "Frost Shackle" }, { kind: "push", label: "Force Pulse" }],    basics: [{ kind: "movelock", label: "Bind" }] },
+    support:  { mechanics: [{ kind: "haste", label: "Inspire" }],                                                 basics: [{ kind: "heal", label: "Mend" }, { kind: "shield", label: "Aegis" }] },
+    assassin: { mechanics: [{ kind: "mark", label: "Death Mark" }, { kind: "wound", label: "Lacerate" }],         basics: [{ kind: "debuff", label: "Expose" }] },
+};
+
+// How many NEW-mechanic slots each tier may host (a CAP, not a quota — support
+// only carries one mechanic even at legendary, so it stays sustain-focused).
+const NEW_MECH_BUDGET: Record<PetRarity, number> = { standard: 0, rare: 1, legendary: 2, mythic: 0 };
+
+// Kinds whose magnitude is driven by `power` (so the template seed must stay
+// > 0 to get scaled). The pure-status Phase-12 kinds (mark/slow/haste/taunt)
+// and movelock ignore power entirely → seeded at 0 so the scaler leaves them.
+const POWER_BEARING_KINDS = new Set<PetJutsu["kind"]>([
+    "damage", "heal", "barrier", "shield", "dot", "wound", "push", "pull", "lifesteal", "crush", "absorb", "debuff", "buff",
+]);
+
+/** Ordered list of utility specs to drop into a template's utility slots:
+ *  the first `budget` role mechanics (those that exist) followed by the basics,
+ *  generously padded so any number of utility slots can be filled. */
+function archetypeUtilityFill(archetype: PetTemplateArchetype, rarity: PetRarity): KitSpec[] {
+    const kit = ARCHETYPE_KIT[archetype];
+    const budget = NEW_MECH_BUDGET[rarity] ?? 0;
+    const mechanics = kit.mechanics.slice(0, budget);
+    return [...mechanics, ...kit.basics, ...kit.basics, ...kit.basics];
+}
+
+/** Re-theme a template's UTILITY slots (everything that isn't the primary
+ *  `damage` hit or the `move` dash) to the pet's archetype, preserving slot
+ *  count + order. Damage and move slots are returned untouched. */
+export function applyArchetypeKit(jutsus: PetJutsu[], archetype: PetTemplateArchetype, rarity: PetRarity, petName: string): PetJutsu[] {
+    const fill = archetypeUtilityFill(archetype, rarity);
+    let ordinal = 0;
+    return jutsus.map((jutsu) => {
+        if (jutsu.kind === "damage" || jutsu.kind === "move") return jutsu;
+        const spec = fill[ordinal++] ?? fill[fill.length - 1];
+        return {
+            ...jutsu,
+            name: `${petName} ${spec.label}`,
+            kind: spec.kind,
+            // Power-bearing kinds keep a positive seed so the scaler in
+            // balanceBuiltInPetTemplate replaces it with a tier-scaled value;
+            // pure-status kinds are pinned to 0 (their handlers ignore power).
+            power: POWER_BEARING_KINDS.has(spec.kind) ? Math.max(1, jutsu.power || 1) : 0,
+        };
+    });
+}
+
+// ── Mythic signature mechanic (one Phase-12 kind appended per mythic) ─────────
+// Mythics keep their hand-crafted kits; each gains ONE signature mechanic that
+// leans into its stated identity. Appended LAST (after the elemental special +
+// signature) so the positional save-merge backfills it into a fresh trailing
+// slot — purely additive, exactly like the elemental-special rollout, never a
+// nerf. Power: utility-status kinds at 0; the lone wound (Oni Hound) carries a
+// real bleed value (clamped by capPetStats to the mythic jutsu-power ceiling).
+type MythicMechSpec = { kind: PetJutsu["kind"]; name: string; cooldown: number; power: number; rounds?: number };
+
+const mythicMechByName: Record<string, MythicMechSpec> = {
+    "Eclipse Kitsune":     { kind: "mark",  name: "Eclipse Mark",        cooldown: 4, power: 0,   rounds: 3 }, // trickster assassin
+    "Worldstorm Dragon":   { kind: "haste", name: "Storm Tempo",         cooldown: 4, power: 0,   rounds: 2 }, // storm striker
+    "Ancient Frost Titan": { kind: "taunt", name: "Glacial Challenge",   cooldown: 4, power: 0,   rounds: 2 }, // fortress tank
+    "Solar Stag":          { kind: "mark",  name: "Solar Brand",         cooldown: 4, power: 0,   rounds: 2 }, // debuffer striker
+    "Abyssal Oni Hound":   { kind: "wound", name: "Abyssal Rend",        cooldown: 5, power: 120, rounds: 3 }, // glass-cannon brawler
+    "Vermillion Suzaku":   { kind: "mark",  name: "Phoenix Brand",       cooldown: 4, power: 0,   rounds: 2 }, // reborn bruiser
+    "Azure Ryujin":        { kind: "taunt", name: "Dragon's Challenge",  cooldown: 4, power: 0,   rounds: 2 }, // bulky control bruiser
+    "Celestial Tengu":     { kind: "mark",  name: "Tengu Mark",          cooldown: 4, power: 0,   rounds: 3 }, // trickster assassin
+    "Stormgod Raijin":     { kind: "haste", name: "Raijin Tempo",        cooldown: 4, power: 0,   rounds: 2 }, // burst striker
+    "Worldroot Colossus":  { kind: "taunt", name: "Worldroot Challenge", cooldown: 4, power: 0,   rounds: 2 }, // immovable tank
+};
+
+/** The signature Phase-12 mechanic appended to a mythic, or null for a name
+ *  with no entry (keeps the function total over the mythic pool). */
+export function mythicSignatureMechanic(name: string): PetJutsu | null {
+    const spec = mythicMechByName[name];
+    if (!spec) return null;
+    return {
+        name: spec.name,
+        power: spec.power,
+        cooldown: spec.cooldown,
+        currentCooldown: 0,
+        kind: spec.kind,
+        ...(spec.rounds ? { rounds: spec.rounds } : {}),
     };
 }
 
@@ -240,17 +395,26 @@ export function balanceBuiltInPetTemplate(pet: Pet): Pet {
     const attack = base.attack + Math.floor(variant * (pet.rarity === "standard" ? 0.7 : pet.rarity === "rare" ? 0.8 : pet.rarity === "legendary" ? 1 : 1.2)) - kitBonus * 2;
     const defense = base.defense + Math.floor(variant * (pet.rarity === "standard" ? 0.55 : pet.rarity === "rare" ? 0.65 : pet.rarity === "legendary" ? 0.85 : 1)) - kitBonus * 2;
     const speed = base.speed + Math.floor(variant * (pet.rarity === "standard" ? 0.5 : pet.rarity === "rare" ? 0.6 : pet.rarity === "legendary" ? 0.75 : 0.9));
-    const jutsus = pet.jutsus.map((jutsu, i) => {
+    // Inject the assigned element from the lookup table. Mythics get their
+    // element from the inline template directly (preserved via ...pet) and
+    // skip the lookup. Falls back to undefined for any unrecognized name,
+    // which the engine treats as neutral. (Resolved before the archetype
+    // re-theme below, which keys off the element.)
+    const element: JutsuElement | undefined = pet.element ?? petElementByName[pet.name];
+    // Phase 12b: re-theme the non-mythic utility slots to the template's
+    // archetype (damage + move slots, and the slot count/order, are preserved
+    // so the positional save-merge keeps grandfathering existing pets). Mythics
+    // keep their hand-crafted kit untouched (their signature mechanic is
+    // appended further below). kitBonus is unchanged — same slot count.
+    const baseKit = pet.rarity === "mythic"
+        ? pet.jutsus
+        : applyArchetypeKit(pet.jutsus, petTemplateArchetype(element, variant), pet.rarity, pet.name);
+    const jutsus = baseKit.map((jutsu, i) => {
         if (jutsu.power <= 0) return { ...jutsu };
         const kindBonus = jutsu.kind === "damage" ? 8 : jutsu.kind === "heal" || jutsu.kind === "barrier" ? 4 : 0;
         const slotBonus = i * 5;
         return { ...jutsu, power: base.jutsuPower + variant + kindBonus + slotBonus };
     });
-    // Inject the assigned element from the lookup table. Mythics get their
-    // element from the inline template directly (preserved via ...pet) and
-    // skip the lookup. Falls back to undefined for any unrecognized name,
-    // which the engine treats as neutral.
-    const element: JutsuElement | undefined = pet.element ?? petElementByName[pet.name];
     // Append the elemental special jutsu (one per pet, themed to its
     // element + tier-scaled in power and duration). Deduped by name so a
     // template that already declares the special doesn't get a duplicate.
@@ -266,7 +430,54 @@ export function balanceBuiltInPetTemplate(pet: Pet): Pet {
     const jutsusFinal = signatureJutsu && !jutsusWithSpecial.some(j => j.name === signatureJutsu.name)
         ? [...jutsusWithSpecial, signatureJutsu]
         : jutsusWithSpecial;
-    return capPetStats({ ...pet, hp, attack, defense, speed, jutsus: jutsusFinal, moveRange: pet.moveRange ?? base.moveRange, element });
+    // Phase 12b: append the mythic's signature archetype mechanic LAST (after
+    // the elemental special + signature) so it backfills into a fresh trailing
+    // slot for existing mythic owners — purely additive, no stat change (it's
+    // added after the kitBonus stat math). Deduped by name → idempotent.
+    const mythicMech = pet.rarity === "mythic" ? mythicSignatureMechanic(pet.name) : null;
+    const jutsusComplete = mythicMech && !jutsusFinal.some(j => j.name === mythicMech.name)
+        ? [...jutsusFinal, mythicMech]
+        : jutsusFinal;
+    return capPetStats({ ...pet, hp, attack, defense, speed, jutsus: jutsusComplete, moveRange: pet.moveRange ?? base.moveRange, element });
+}
+
+// ── Phase 12c: migrate a saved pet's kit onto its (redesigned) template ───────
+
+/**
+ * Merge a saved pet's jutsu slots onto its current built-in template. The
+ * template's EFFECT wins (kind / name / cooldown / rounds / signature / aoe) so
+ * an existing pet ADOPTS the redesigned archetype kit (Phase 12b), while the
+ * player's leveled POWER is preserved (power = max of the two). New trailing
+ * template slots backfill; any extra player-only slot is kept; currentCooldown
+ * resets to 0.
+ *
+ * This is the one-way Phase-12 migration — it replaces the legacy generic
+ * utility kinds (the Guard/Bind/Mend rotation) with each pet's archetype
+ * identity. Because the DAMAGE, MOVE, elemental-special and signature slots are
+ * IDENTICAL between the old and new templates, the only slots whose effect
+ * actually changes are the re-themed utility slots. Everything that represents
+ * player investment lives on the pet, not the jutsu slots:
+ *   - stats (hp/attack/defense/speed), level, xp, loadout, trait, happiness →
+ *     untouched here (normalizePet preserves them, stats via Math.max).
+ *   - jutsu POWER (from level-ups + chakra training) → preserved via Math.max.
+ *
+ * Pure + deterministic; idempotent (re-running on an already-migrated pet is a
+ * no-op since the kinds already match the template).
+ */
+export function mergePetJutsuSlots(playerJutsus: PetJutsu[], templateJutsus: PetJutsu[]): PetJutsu[] {
+    const maxLen = Math.max(playerJutsus.length, templateJutsus.length);
+    return Array.from({ length: maxLen }, (_, i) => {
+        const base = templateJutsus[i];
+        const player = playerJutsus[i];
+        if (!player && base) return { ...base, currentCooldown: 0 };       // template gained a slot
+        if (!base && player) return { ...player, currentCooldown: 0 };     // player holds an extra slot
+        return {
+            ...player,
+            ...base,                                                       // adopt the template's effect
+            power: Math.max(player.power ?? 0, base.power ?? 0),           // keep the leveled power
+            currentCooldown: 0,
+        };
+    });
 }
 
 // ── Training math ───────────────────────────────────────────────────────

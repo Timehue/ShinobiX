@@ -53,8 +53,17 @@ export type PetJutsu = {
     //            prevented damage — crush adds an impact moment.
     // Existing kinds (damage/buff/heal/debuff/dot/move/barrier/movelock/
     // lifesteal/shield/absorb) keep their original behavior.
+    // Phase 12 archetype-identity kinds (pet battles ONLY — never player combat):
+    //   wound — DoT that also halves healing the target receives (bruiser/poison)
+    //   mark  — the next damage hit on the target deals bonus damage (assassin)
+    //   slow  — target loses a step of movement + some dodge for N rounds (ice/control)
+    //   haste — SELF buff: +movement + dodge for N rounds (fast/lightning)
+    //   taunt — forces the target to attack the taunter in 2v2 (tank); 1v1 = a small self-guard
+    //   push  — light damage + shove the target one tile away (bruiser); Brace negates the shove
+    //   pull  — light damage + drag the target one tile closer (control); Brace negates the drag
     kind: "damage" | "buff" | "heal" | "debuff" | "dot" | "move" | "barrier" | "movelock" | "lifesteal" | "shield" | "absorb"
-        | "burn" | "freeze" | "confuse" | "stun" | "crush";
+        | "burn" | "freeze" | "confuse" | "stun" | "crush"
+        | "wound" | "mark" | "slow" | "haste" | "taunt" | "push" | "pull";
     // Optional duration override for status-effect kinds. Lets a Mythic
     // freeze last 3 rounds while a Standard freeze lasts 1. Defaults are
     // baked into each status handler if rounds is undefined.
