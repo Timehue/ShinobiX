@@ -1,3 +1,18 @@
+import { K_AMP_PVE } from "../lib/combat-math";
+
+// Tags that feed the diminishing-returns soft-cap pools in combat (see
+// combat-math.ts). For these, stacking is NOT linear — the HUD surfaces the
+// approximate effective % so players can read their build instead of assuming
+// e.g. 3×35% = +105%.
+const POOL_TAGS = new Set([
+    "Increase Damage Given", "Increase Damage Taken", "Ignition",
+    "Decrease Damage Given", "Decrease Damage Taken",
+]);
+function effectivePoolPercent(rawPct: number): number {
+    const raw = Math.max(0, rawPct) / 100;
+    return Math.round((raw / (raw + K_AMP_PVE)) * 100); // K_AMP == K_DR == 0.5
+}
+
 export function CombatSideHud({
     name,
     avatar,
@@ -94,18 +109,44 @@ export function CombatEffectsPanel({
     title: string;
     statuses: { name: string; rounds: number; amount?: number; percent?: number }[];
 }) {
+    // Group duplicate stacking statuses (e.g. three "Increase Damage Given")
+    // into one pill with a ×count, summing the raw percent. For soft-cap pool
+    // tags we also show the approximate effective % in a tooltip so players see
+    // that stacks diminish rather than add linearly.
+    const grouped: { name: string; count: number; percent?: number; amount?: number; rounds: number }[] = [];
+    for (const s of statuses) {
+        const g = grouped.find((x) => x.name === s.name);
+        if (g) {
+            g.count += 1;
+            g.rounds = Math.max(g.rounds, s.rounds);
+            if (s.percent != null) g.percent = (g.percent ?? 0) + s.percent;
+            if (s.amount != null) g.amount = (g.amount ?? 0) + s.amount;
+        } else {
+            grouped.push({ name: s.name, count: 1, percent: s.percent, amount: s.amount, rounds: s.rounds });
+        }
+    }
     return (
         <div className="combat-effect-panel">
             <h4>{title}</h4>
-            {statuses.length === 0 ? (
+            {grouped.length === 0 ? (
                 <p className="empty-effects">No active effects</p>
             ) : (
-                statuses.map((s, i) => (
-                    <div key={i} className="effect-pill">
-                        <span>{s.name}</span>
-                        <small>{s.percent ? `${s.percent}%` : s.amount ? `${s.amount}` : "active"} | {s.rounds}r</small>
-                    </div>
-                ))
+                grouped.map((s, i) => {
+                    const pooled = s.percent != null && POOL_TAGS.has(s.name);
+                    const tooltip = pooled
+                        ? `${s.count} stack${s.count > 1 ? "s" : ""} · +${s.percent}% raw ≈ ${effectivePoolPercent(s.percent ?? 0)}% effective. Diminishing-returns pool shared with other damage modifiers.`
+                        : undefined;
+                    return (
+                        <div key={i} className="effect-pill" title={tooltip}>
+                            <span>{s.name}{s.count > 1 ? ` ×${s.count}` : ""}</span>
+                            <small>
+                                {s.percent != null
+                                    ? (pooled ? `${s.percent}% → ~${effectivePoolPercent(s.percent)}%` : `${s.percent}%`)
+                                    : s.amount != null ? `${s.amount}` : "active"} | {s.rounds}r
+                            </small>
+                        </div>
+                    );
+                })
             )}
         </div>
     );
