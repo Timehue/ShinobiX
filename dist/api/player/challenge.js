@@ -5,7 +5,7 @@ const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _lock_js_1 = require("../_lock.js");
-const CHALLENGE_TTL = 120; // seconds — long enough for two heartbeat cycles
+const CHALLENGE_TTL = 180; // seconds (3 min) — challenge auto-cancels if unanswered
 // Public projection for the challenger character stored alongside a
 // challenges:<name> entry. The challenges:* prefix is anon-readable via
 // Supabase Realtime (see supabase-schema.sql), so the FULL challenger
