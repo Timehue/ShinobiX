@@ -62,6 +62,49 @@ function isCovered(clientPath: string): boolean {
     );
 }
 
+// ─── Vercel side: what the api/ folder convention actually serves ──────────────
+//
+// On Vercel every file under api/ is exposed at its path: api/foo/bar.ts →
+// /api/foo/bar, api/save/[name].ts → /api/save/:name. server.ts can paper over a
+// path↔file mismatch (it maps each route explicitly), so a handler can work on
+// cPanel yet 404 on Vercel — exactly the treasury-transfer bug (client called
+// /api/village/treasury/transfer but the file was api/village/treasury-transfer.ts,
+// which Vercel exposes at /api/village/treasury-transfer). Derive the
+// Vercel-served paths straight from the filesystem.
+
+const API_DIR = join(HERE, 'api');
+
+function vercelApiPaths(dir = API_DIR, prefix = '/api'): string[] {
+    const out: string[] = [];
+    for (const entry of readdirSync(dir)) {
+        const full = join(dir, entry);
+        if (statSync(full).isDirectory()) {
+            out.push(...vercelApiPaths(full, `${prefix}/${entry}`));
+            continue;
+        }
+        if (!/\.ts$/.test(entry) || entry.endsWith('.test.ts')) continue; // handlers only
+        if (entry.startsWith('_')) continue;                              // shared helper, not a route
+        // Vercel dynamic segments: [name] → :name, [...rest] → :rest* (so
+        // stripParams() treats them the same as the cPanel side).
+        const base = entry
+            .replace(/\.ts$/, '')
+            .replace(/\[\.\.\.(.+?)\]/g, ':$1*')
+            .replace(/\[(.+?)\]/g, ':$1');
+        out.push(base === 'index' ? prefix : `${prefix}/${base}`);
+    }
+    return out;
+}
+
+const vercelFull = vercelApiPaths();
+const vercelStripped = vercelFull.map(stripParams);
+
+/** A client path is served by Vercel if a handler file's folder-convention path
+ *  matches it (same exact / param-stripped / prefix logic as the cPanel side). */
+function isVercelServed(clientPath: string): boolean {
+    const all = [...vercelFull, ...vercelStripped];
+    return all.some((r) => r === clientPath || r.startsWith(clientPath + '/'));
+}
+
 // ─── Client side: every /api call site ─────────────────────────────────────────
 
 function walk(dir: string): string[] {
@@ -131,5 +174,30 @@ describe('cPanel route parity', () => {
         assert.match(serverSrc, /route\(\s*['"]\/save\/:name['"]/, 'missing /save/:name route');
         assert.match(serverSrc, /route\(\s*['"]\/kv\/:op['"]/, 'missing /kv/:op route');
         assert.match(serverSrc, /app\.all\(\s*paths/, 'route() should mount via app.all() so every method is served');
+    });
+});
+
+describe('Vercel route parity (folder convention)', () => {
+    it('serves every /api endpoint the client calls via a file under api/', () => {
+        const client = clientApiPaths();
+        const missing: string[] = [];
+        for (const [path, file] of client) {
+            if (!isVercelServed(path)) missing.push(`${path}  (first used in ${file})`);
+        }
+        assert.equal(
+            missing.length,
+            0,
+            `Client calls /api endpoints with NO matching handler file under api/ — ` +
+            `these 404 on Vercel even if server.ts maps them for cPanel.\n` +
+            `Create api/<path>.ts (folder convention) or fix the call path:\n  - ` +
+            missing.join('\n  - '),
+        );
+    });
+
+    it('enumerated the api/ handler files (filesystem scan did not silently break)', () => {
+        assert.ok(
+            vercelFull.length >= 20,
+            `Only found ${vercelFull.length} api/ routes — the filesystem scan looks broken.`,
+        );
     });
 });
