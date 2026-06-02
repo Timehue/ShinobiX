@@ -13453,6 +13453,19 @@ button.combat-jutsu-button,
     will-change: transform;
 }
 
+/* Canvas particle layer (Phase A) — overlays the whole stage, never eats
+   clicks, and sits above the board (z1) alongside the impact flash (z7).
+   Sizing is driven by CSS; the engine matches its backing store to this box
+   × devicePixelRatio. Shakes WITH the stage since it's a stage child. */
+.pet-vfx-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 7;
+}
+
 /* Whole-stage camera shake — fires on crit hits and KOs. Stronger than the
    existing HP-bar shake so it reads as "the world reacted to this blow." */
 .pet-park-stage.pet-stage-shake-light {
@@ -13727,6 +13740,52 @@ button.combat-jutsu-button,
     100% { opacity: 0; transform: translateX(30px) skewX(-6deg); }
 }
 @media (prefers-reduced-motion: reduce) { .pet-cutin { animation: none; opacity: 1; } }
+
+/* Richer signature cut-in (Phase A increment 2): faint diagonal speed-lines
+   sweep behind the slam. Pure ::before, so no TSX change. Painted over the dark
+   banner gradient but under the portrait/move text (no z-index = first child).
+   The cut-in's clip-path keeps the streaks inside the banner shape. */
+.pet-cutin::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: repeating-linear-gradient(100deg, rgba(255,255,255,0) 0 13px, rgba(255,255,255,0.07) 13px 15px);
+    opacity: 0;
+    animation: petCutinLines 1.6s ease both;
+}
+@keyframes petCutinLines {
+    0%   { opacity: 0; transform: translateX(-12%); }
+    18%  { opacity: 0.85; }
+    70%  { opacity: 0.45; transform: translateX(6%); }
+    100% { opacity: 0; transform: translateX(12%); }
+}
+.pet-cutin.enemy::before { animation-direction: reverse; }
+@media (prefers-reduced-motion: reduce) { .pet-cutin::before { animation: none; opacity: 0; } }
+
+/* ── Impact ring (grounding, Phase A increment 2) ── */
+/* A shockwave that expands flat on the FLOOR at the moment of contact. The
+   perspective + rotateX lays it onto the same ground plane as the stage tilt,
+   so it reads as a ring on the ground, not a flat decal facing the camera.
+   Rendered in the struck tile before the avatar → naturally sits under the pet. */
+.pet-impact-ring {
+    position: absolute; left: 50%; top: 60%; pointer-events: none;
+    width: 64%; aspect-ratio: 1;
+    border: 3px solid rgba(255, 244, 214, 0.92);
+    border-radius: 50%;
+    transform: translate(-50%, -50%) perspective(300px) rotateX(62deg) scale(0.1);
+    animation: petImpactRing 0.5s cubic-bezier(.2,.7,.3,1) both;
+    will-change: transform, opacity;
+}
+@keyframes petImpactRing {
+    0%   { opacity: 0;    border-width: 4px; transform: translate(-50%, -50%) perspective(300px) rotateX(62deg) scale(0.1); }
+    35%  { opacity: 0.9; }
+    100% { opacity: 0;    border-width: 1px; transform: translate(-50%, -50%) perspective(300px) rotateX(62deg) scale(2.4); }
+}
+.pet-impact-ring.crit          { border-color: rgba(253, 224, 71, 0.95); box-shadow: 0 0 12px rgba(253, 224, 71, 0.55); }
+.pet-impact-ring.pet-el-fire      { border-color: rgba(251, 146, 60, 0.95); }
+.pet-impact-ring.pet-el-water     { border-color: rgba(96, 165, 250, 0.95); }
+.pet-impact-ring.pet-el-wind      { border-color: rgba(167, 243, 208, 0.95); }
+.pet-impact-ring.pet-el-lightning { border-color: rgba(253, 224, 71, 0.95); }
+.pet-impact-ring.pet-el-earth     { border-color: rgba(214, 164, 90, 0.95); }
+@media (prefers-reduced-motion: reduce) { .pet-impact-ring { animation: none; opacity: 0; } }
 
 /* ── Momentum tug-of-war bar ── */
 .pet-momentum-bar {
@@ -14401,6 +14460,74 @@ button.combat-jutsu-button,
     0%, 100% { transform: translateY(0) scale(1); }
     50%      { transform: translateY(-3px) scale(1.012); }
 }
+
+/* ── Layered-parallax billboard (Phase B 2.5D) ───────────────────────────────
+   Three depth-sliced layers (far/mid/near) stacked and gently swayed in
+   OPPOSITE directions, so the near plane leads and the far plane lags — motion
+   parallax that reads as a slowly-rounding 3D figure, all from one flat
+   portrait. Sized + ground-anchored like the full-body standee; the inner
+   wrapper carries the enemy mirror so each layer's parallax composes inside it.
+   Activates only when petlayers:<id>:{far,mid,near} exist; otherwise the
+   full-body / circle modes render unchanged. */
+.pet-battle-avatar.pet-sprite-layered {
+    width: clamp(104px, 12vw, 168px);
+    height: clamp(104px, 12vw, 168px);
+    border: none; border-radius: 0; background: none; overflow: visible;
+    transform: none; box-shadow: none;
+    place-items: end center;
+    position: relative;
+}
+.pet-battle-avatar.pet-sprite-layered::before { display: none; }   /* no orb gloss */
+.pet-battle-avatar.pet-sprite-layered::after { bottom: 2px; height: 16px; }  /* ground shadow */
+.pet-sprite-layers { position: absolute; inset: 0; }
+.pet-battle-avatar.pet-sprite-layered.enemy .pet-sprite-layers { transform: scaleX(-1); }
+.pet-sprite-layer {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    object-fit: contain; object-position: bottom center;
+    will-change: transform;
+}
+.pet-sprite-layer.far  { filter: brightness(0.9); animation: petParallaxFar  4.4s ease-in-out infinite; }
+.pet-sprite-layer.mid  { animation: petParallaxMid  4.4s ease-in-out infinite; }
+.pet-sprite-layer.near { filter: drop-shadow(0 5px 5px rgba(0, 0, 0, 0.5)); animation: petParallaxNear 4.4s ease-in-out infinite; }
+/* near leads, far lags the opposite way → the depth cue. */
+@keyframes petParallaxNear { 0%, 100% { transform: translateX(-3.5px) translateY(-1px); } 50% { transform: translateX(3.5px) translateY(0); } }
+@keyframes petParallaxMid  { 0%, 100% { transform: translateX(-1.6px); }                  50% { transform: translateX(1.6px); } }
+@keyframes petParallaxFar  { 0%, 100% { transform: translateX(1px); }                      50% { transform: translateX(-1px); } }
+.pet-battle-avatar.pet-sprite-layered.pet-idle { animation: petBreathe 3.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+    .pet-sprite-layer.far, .pet-sprite-layer.mid, .pet-sprite-layer.near,
+    .pet-battle-avatar.pet-sprite-layered.pet-idle { animation: none; }
+}
+
+/* ── Baked sprite-sheet mode (Phase C) ───────────────────────────────────────
+   A premium slot for a pre-rendered/AI-3D-baked animation. `petsheet:<id>` is a
+   horizontal strip of N square frames; an overflow window shows one frame and a
+   CSS steps() loop walks the strip across it (--frames = N). Sized + anchored
+   like the standee; the window carries the enemy mirror. Pose classes still
+   animate the CONTAINER, so the windowed figure lunges/recoils while it loops.
+   Activates only when petsheet:<id> exists; otherwise the modes above render. */
+.pet-battle-avatar.pet-sprite-sheet {
+    width: clamp(104px, 12vw, 168px);
+    height: clamp(104px, 12vw, 168px);
+    border: none; border-radius: 0; background: none; overflow: visible;
+    transform: none; box-shadow: none;
+    place-items: end center;
+    position: relative;
+}
+.pet-battle-avatar.pet-sprite-sheet::before { display: none; }
+.pet-battle-avatar.pet-sprite-sheet::after { bottom: 2px; height: 16px; }
+.pet-sprite-sheet-window { position: absolute; inset: 0; overflow: hidden; }
+.pet-battle-avatar.pet-sprite-sheet.enemy .pet-sprite-sheet-window { transform: scaleX(-1); }
+.pet-sprite-sheet-strip {
+    height: 100%;
+    width: calc(var(--frames, 8) * 100%);
+    object-fit: fill;
+    filter: drop-shadow(0 5px 5px rgba(0, 0, 0, 0.5));
+    animation: petSheetPlay calc(var(--frames, 8) * 0.13s) steps(var(--frames, 8)) infinite;
+}
+@keyframes petSheetPlay { from { transform: translateX(0); } to { transform: translateX(-100%); } }
+@media (prefers-reduced-motion: reduce) { .pet-sprite-sheet-strip { animation: none; } }
 
 /* ── Pose timeline classes ───────────────────────────────────────────────
    Directional lunge/recoil use --dir (set per class); windup/dodge use --face.

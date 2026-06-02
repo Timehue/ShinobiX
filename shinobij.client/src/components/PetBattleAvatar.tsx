@@ -1,14 +1,24 @@
 import { type Pet, petDisplayName, petTraitDescriptions } from "../App";
 import { petCollarVisual } from "../data/pet-config";
-import { petBattleSprite, petAvatarStateClass } from "../lib/pet-battle-anim";
+import { petBattleSprite, petBattleLayers, petBattleSheet, petAvatarStateClass } from "../lib/pet-battle-anim";
 import type { PetVisualState } from "../types/pet-battle";
 
 export function PetBattleAvatar({ pet, side, active, hit, status, sharedImages = {}, visualState = "idle" }: { pet: Pet; side: "player" | "enemy"; active: boolean; hit?: boolean; status?: { poisoned?: number; atkBuff?: boolean; defBuff?: boolean }; sharedImages?: Record<string, string>; visualState?: PetVisualState }) {
-    // Sprite mode: a transparent full-body PNG (petbody:<id> / pet.bodyImage)
-    // renders un-clipped + larger; otherwise the legacy circular portrait is
-    // the fallback. Both modes share the same directional pose classes.
+    // Sprite mode, most-dimensional first:
+    //   spriteSheet     — a baked animation strip (petsheet:<id>), played via a
+    //                     CSS steps() loop (Phase C — the AI-3D-baked slot);
+    //   layeredParallax — depth-sliced far/mid/near layers (petlayers:<id>:*),
+    //                     drawn as a parallax stack (Phase B 2.5D billboard);
+    //   fullBodySprite  — a single transparent full-body PNG (petbody:<id>);
+    //   circleFallback  — the legacy clipped portrait orb.
+    // All modes share the same directional pose classes.
+    const sheet = petBattleSheet(pet, sharedImages);
+    const layers = sheet ? null : petBattleLayers(pet, sharedImages);
     const { mode, src } = petBattleSprite(pet, sharedImages);
-    const modeClass = mode === "fullBodySprite" ? " pet-sprite-fullbody" : " pet-sprite-circle-fallback";
+    const modeClass = sheet ? " pet-sprite-sheet"
+        : layers ? " pet-sprite-layered"
+        : mode === "fullBodySprite" ? " pet-sprite-fullbody"
+        : " pet-sprite-circle-fallback";
     const poseClass = ` ${petAvatarStateClass(visualState, side)}`;
     // Glow collar equipped → wrap the pet in a colored aura during battle.
     // Prismatic collars cycle through the rainbow instead of a single color.
@@ -19,7 +29,23 @@ export function PetBattleAvatar({ pet, side, active, hit, status, sharedImages =
             className={`pet-battle-avatar pet-sprite ${side}${active ? " active" : ""}${hit ? " hit" : ""}${status?.poisoned ? " poisoned" : ""}${collarClass}${modeClass}${poseClass}`}
             style={collarVisual ? { ["--collar-glow" as string]: collarVisual.glow } : undefined}
         >
-            {src ? <img src={src} alt={pet.name} /> : <span>{pet.name.slice(0, 2).toUpperCase()}</span>}
+            {sheet ? (
+                // Overflow window shows one frame; the strip (N× wide) is stepped
+                // across by CSS. The window carries the enemy mirror so the frame
+                // animation composes inside it. --frames drives the step count.
+                <span className="pet-sprite-sheet-window" aria-hidden="false">
+                    <img className="pet-sprite-sheet-strip" src={sheet.src} alt={pet.name} style={{ ["--frames" as string]: sheet.frames }} />
+                </span>
+            ) : layers ? (
+                // Inner wrapper carries the enemy mirror so the per-layer
+                // parallax transforms compose cleanly inside it. near layer is
+                // last (front-most) and carries the alt text + drop shadow.
+                <span className="pet-sprite-layers" aria-hidden="false">
+                    <img className="pet-sprite-layer far" src={layers.far} alt="" />
+                    <img className="pet-sprite-layer mid" src={layers.mid} alt="" />
+                    <img className="pet-sprite-layer near" src={layers.near} alt={pet.name} />
+                </span>
+            ) : src ? <img src={src} alt={pet.name} /> : <span>{pet.name.slice(0, 2).toUpperCase()}</span>}
             {collarVisual?.prismatic && <span className="pet-collar-sparkles" aria-hidden="true" />}
         </div>
     );

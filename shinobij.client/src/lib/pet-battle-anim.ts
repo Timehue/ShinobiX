@@ -29,10 +29,64 @@ import type {
 // then by the variant-stripped base id (encounter clones append a timestamp).
 const PET_IMG_PREFIX = "pet:";
 const PET_BODY_PREFIX = "petbody:";
+// Depth-sliced parallax layers (Phase B). Key form: `petlayers:<id>:<band>`
+// where band ∈ {far, mid, near}. Produced offline by
+// scripts/derive-pet-battle-sprites.mjs; all three must exist to use the mode.
+const PET_LAYER_PREFIX = "petlayers:";
+// Baked animation sprite STRIP (Phase C). `petsheet:<id>` is a horizontal strip
+// of N square frames; `petsheet:<id>:frames` is N (defaults to 8 if absent).
+// The renderer plays it with a CSS steps() animation — the slot a real AI-3D
+// baked animation drops into for flagship pets.
+const PET_SHEET_PREFIX = "petsheet:";
+const PET_SHEET_DEFAULT_FRAMES = 8;
 
 /** Strip the per-encounter `-<timestamp>` suffix to recover the template id. */
 export function petStripVariant(id: string): string {
     return id.replace(/-\d{10,}$/, "");
+}
+
+/**
+ * Resolve a pet's depth-sliced parallax layers (Phase B), if all three bands
+ * are published. Looked up by full id first, then the variant-stripped base id
+ * (encounter clones append a timestamp). Returns null unless every band exists,
+ * so the renderer cleanly falls back to the full-body sprite / circle. Pure.
+ */
+export function petBattleLayers(
+    pet: Pet,
+    sharedImages: Record<string, string> = {},
+): { far: string; mid: string; near: string } | null {
+    const baseId = petStripVariant(pet.id);
+    const pick = (band: "far" | "mid" | "near"): string =>
+        sharedImages[`${PET_LAYER_PREFIX}${pet.id}:${band}`] ||
+        sharedImages[`${PET_LAYER_PREFIX}${baseId}:${band}`] ||
+        "";
+    const far = pick("far"), mid = pick("mid"), near = pick("near");
+    return far && mid && near ? { far, mid, near } : null;
+}
+
+/**
+ * Resolve a pet's baked animation sprite sheet (Phase C), if published — the
+ * `petsheet:<id>` strip plus its `:frames` count (clamped to 1..24, default 8).
+ * Looked up by full id then variant-stripped base id. Returns null when no
+ * sheet exists so the renderer falls back to layers / full-body / circle. Pure.
+ */
+export function petBattleSheet(
+    pet: Pet,
+    sharedImages: Record<string, string> = {},
+): { src: string; frames: number } | null {
+    const baseId = petStripVariant(pet.id);
+    const src =
+        sharedImages[`${PET_SHEET_PREFIX}${pet.id}`] ||
+        sharedImages[`${PET_SHEET_PREFIX}${baseId}`] ||
+        "";
+    if (!src) return null;
+    const framesRaw =
+        sharedImages[`${PET_SHEET_PREFIX}${pet.id}:frames`] ||
+        sharedImages[`${PET_SHEET_PREFIX}${baseId}:frames`] ||
+        "";
+    const parsed = parseInt(framesRaw, 10);
+    const frames = Math.max(1, Math.min(24, Number.isFinite(parsed) && parsed > 0 ? parsed : PET_SHEET_DEFAULT_FRAMES));
+    return { src, frames };
 }
 
 /**

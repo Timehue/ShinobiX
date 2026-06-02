@@ -406,6 +406,8 @@ import {
 import { playPetSfx, isPetSfxMuted, setPetSfxMuted, primePetSfx } from "./lib/pet-sfx";
 import { startBattleMusic, stopBattleMusic } from "./lib/pet-music";
 import { buildPetAnimationEvents, petPoseForAvatar, elementVfxKey } from "./lib/pet-battle-anim";
+import { petBattleCamera, petCameraHoldMs } from "./lib/pet-battle-camera";
+import { PetParticleField, vfxBurstForEvent } from "./lib/pet-vfx-particles";
 import { petArchetypeFor, petTacticalZone, type ArenaTile } from "./lib/pet-tactics";
 import { collectActorStatuses, BATTLE_STATUS_DEFS } from "./lib/pet-moves";
 
@@ -12121,6 +12123,21 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
     // (no glide) so a replay doesn't slingshot from the previous fight's end.
     const petArenaGridRef = useRef<HTMLDivElement>(null);
     const moverPrevTile = useRef<Map<string, number>>(new Map());
+    // Canvas particle layer (Phase A "juice") — sits over the stage and sprays
+    // sparks/embers/shards on impact/KO/charge. Cosmetic-only; it never reads or
+    // affects the sim, so its particle RNG can't desync a ranked replay.
+    const vfxCanvasRef = useRef<HTMLCanvasElement>(null);
+    const vfxFieldRef = useRef<PetParticleField | null>(null);
+    useEffect(() => {
+        const canvas = vfxCanvasRef.current;
+        if (!canvas) return;
+        let field: PetParticleField | null = null;
+        try { field = new PetParticleField(canvas); } catch { return; }
+        vfxFieldRef.current = field;
+        const onResize = () => field?.resize();
+        window.addEventListener("resize", onResize);
+        return () => { window.removeEventListener("resize", onResize); field?.dispose(); vfxFieldRef.current = null; };
+    }, []);
     useLayoutEffect(() => {
         const grid = petArenaGridRef.current;
         if (!grid) return;
@@ -12179,6 +12196,8 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
             case "shield": case "barrier": case "absorb": playPetSfx("shield"); break;
             default: break;
         }
+        // Super-effective matchup → layer a bright rising sting on top of the hit.
+        if (/super effective/i.test(m) && (frame.actionKind === "damage" || frame.actionKind === "basic" || frame.actionKind === "lifesteal")) playPetSfx("superEffective");
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [frame?.message]);
 
@@ -12359,11 +12378,21 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
         if (reduce) { setAnimIdx(animEvents.length - 1); return; }
         const pace = petFramePace(frame);
         const total = animEvents.reduce((sum, e) => sum + e.durationMs, 0) || 1;
-        const scale = Math.min(1, (pace * 0.9) / total);
+        // Hit-stop: freeze the timeline a beat on the heaviest blows. We RESERVE
+        // budget for the holds out of the per-frame pace so the base beats just
+        // compress to fit the remainder — the whole queue still finishes within
+        // pace*0.9, keeping the outer frame cadence (and ranked sync) untouched.
+        const hVictimMaxHp = Math.max(1, frame?.actor === "enemy" ? playerPet.hp : enemyPet.hp);
+        const holdOpts = { crit: !!frame?.crit, signature: !!frame?.signatureMove, isKO: !!frame?.isKO, heavyHit: !!frame?.damage && frame.damage >= hVictimMaxHp * 0.18 };
+        const rawHolds = animEvents.map((e) => petCameraHoldMs(e.type, holdOpts));
+        const rawHoldTotal = rawHolds.reduce((sum, h) => sum + h, 0);
+        const holdBudget = Math.min(pace * 0.35, rawHoldTotal);
+        const holdScale = rawHoldTotal > 0 ? holdBudget / rawHoldTotal : 0;
+        const scale = Math.min(1, Math.max(0, pace * 0.9 - holdBudget) / total);
         const timers: number[] = [];
         let acc = 0;
         for (let i = 1; i < animEvents.length; i++) {
-            acc += animEvents[i - 1].durationMs * scale;
+            acc += animEvents[i - 1].durationMs * scale + rawHolds[i - 1] * holdScale;
             timers.push(window.setTimeout(() => setAnimIdx(i), acc));
         }
         return () => timers.forEach((t) => window.clearTimeout(t));
@@ -12376,13 +12405,39 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
     // plays, then releases with a heavy shake on impact.
     const victimMaxHp = Math.max(1, frame?.actor === "enemy" ? playerPet.hp : enemyPet.hp);
     const heavyHit = !!frame?.damage && frame.damage >= victimMaxHp * 0.18;
-    const sigChargePhase = !!frame?.signatureMove && activeAnimEvent?.type === "charge";
-    const shakeNow = activeAnimEvent?.type === "impact" || activeAnimEvent?.type === "ko" || activeAnimEvent?.type === "screenShake";
-    const cameraClass = winnerPet ? ""
-        : sigChargePhase ? " battle-camera-focus battle-background-dim"
-        : (frame?.isKO || (shakeNow && (frame?.crit || !!frame?.signatureMove))) ? " battle-camera-shake-heavy"
-        : (shakeNow && heavyHit) ? " battle-camera-shake-small"
-        : "";
+    // Stage camera treatment (shake / focus+dim) for this beat — centralized in
+    // the pure, tested pet-battle-camera director (which also drives hit-stop).
+    const camera = petBattleCamera({
+        resolved: !!winnerPet,
+        isKO: !!frame?.isKO,
+        crit: !!frame?.crit,
+        signature: !!frame?.signatureMove,
+        heavyHit,
+        activeType: activeAnimEvent?.type,
+        sigCharge: !!frame?.signatureMove && activeAnimEvent?.type === "charge",
+    });
+    const cameraClass = camera.className ? ` ${camera.className}` : "";
+
+    // Fire a particle burst at the active beat's focal tile (target for a hit,
+    // self for a charge). Positions read from the live tile DOM rect — same
+    // approach the FLIP glide uses. Skipped under reduced-motion + once resolved.
+    useEffect(() => {
+        const field = vfxFieldRef.current;
+        if (!field || winnerPet || !activeAnimEvent) return;
+        if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+        const spec = vfxBurstForEvent(activeAnimEvent, { crit: !!frame?.crit, isKO: !!frame?.isKO });
+        if (spec.kind === "none") return;
+        const focusTile = activeAnimEvent.type === "charge" ? selfTile : (effectTile >= 0 ? effectTile : selfTile);
+        const grid = petArenaGridRef.current;
+        const canvas = vfxCanvasRef.current;
+        if (!grid || !canvas || focusTile < 0) return;
+        const tileEl = grid.querySelector<HTMLElement>(`.pet-park-tile[data-tile="${focusTile}"]`);
+        if (!tileEl) return;
+        const t = tileEl.getBoundingClientRect();
+        const c = canvas.getBoundingClientRect();
+        field.burst((t.left + t.right) / 2 - c.left, (t.top + t.bottom) / 2 - c.top, spec);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [animIdx, frame?.message]);
 
     // Status badges near the HP bar (Phases 7-9): the BattleStatusId set via the
     // shared registry (icon + remaining rounds), plus the value/flag badges
@@ -12572,6 +12627,9 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
             )}
 
             <div className={`pet-park-stage${cameraClass}${dangerZone ? " pet-stage-danger" : ""}`}>
+                {/* Particle VFX layer (Phase A) — overlays the stage; driven by
+                    the animation-event queue via vfxFieldRef. Cosmetic only. */}
+                <canvas ref={vfxCanvasRef} className="pet-vfx-canvas" aria-hidden="true" />
                 {/* Mute toggle for the synthesized battle SFX. */}
                 <button
                     type="button"
@@ -12725,6 +12783,13 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
                                             <b className={effectNumberClass}>{effectLabel}</b>
                                             <em />
                                         </span>
+                                    )}
+                                    {/* Grounding — an impact ring expands on the floor at the
+                                        moment of contact (Phase A increment 2). Fires on the
+                                        impact beat at the struck tile; element-tinted, brighter
+                                        on a crit. Sits on the ground plane (tile-local). */}
+                                    {!winnerPet && activeAnimEvent?.type === "impact" && index === effectTile && !isObstacle && (
+                                        <span className={`pet-impact-ring${frame?.crit ? " crit" : ""}${elClass}`} key={`ring-${frame?.message}-${animIdx}`} aria-hidden="true" />
                                     )}
                                     {/* Per-frame key forces a fresh mount each tick so the
                                         CSS lunge / hit animations restart cleanly on every
