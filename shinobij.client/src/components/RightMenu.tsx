@@ -78,6 +78,7 @@ export const RightMenu = memo(function RightMenu({
                         <button onClick={() => navigate("village")} disabled={!atHome} title={atHome ? undefined : `Travel to ${characterVillage} to enter`}>Village</button>
                         <button onClick={() => navigate("worldMap")}>Travel</button>
                         <button onClick={() => navigate("userHub")}>Users</button>
+                        <button onClick={() => navigate("messages")}>📬 Mail</button>
                         <button onClick={() => navigate("missions")}>Missions</button>
                         <button onClick={() => navigate("training")}>Training</button>
                         <button onClick={() => navigate("profile")}>Character</button>
