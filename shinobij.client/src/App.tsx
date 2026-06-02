@@ -3854,9 +3854,17 @@ export default function App() {
                         // not this character; combat hydrates opponents from save:<name>.
                         character: presenceCharacter(char),
                         travelingUntil: isTraveling ? travelingUntil : 0,
-                        // inBattle covers PvP AND PvE combat screens so Healers
-                        // can't heal a player who's actively fighting anything.
-                        inBattle: ['pvpBattle', 'arena', 'storyBoss', 'hollowGateShrine', 'weeklyBoss', 'eventPetBattle', 'petArena', 'dungeon'].includes(screenRef.current ?? ''),
+                        // inBattle covers screens where the player is ACTUALLY
+                        // mid-fight (PvP + PvE) so attack.ts/challenge.ts can reject
+                        // double-battle requests and Healers can't heal an active
+                        // fighter. The opponent-search HUBS ('arena' = spar/PvP search,
+                        // 'petArena' = pet search) are deliberately EXCLUDED: a player
+                        // browsing them to send/receive a challenge is not in a battle,
+                        // and flagging them made every incoming challenge fail with
+                        // "Target is already in a battle." The live PvP fight runs on
+                        // 'pvpBattle'; pet battles are local sims that a queued challenge
+                        // doesn't interrupt.
+                        inBattle: ['pvpBattle', 'storyBoss', 'hollowGateShrine', 'weeklyBoss', 'eventPetBattle', 'dungeon'].includes(screenRef.current ?? ''),
                     }),
                 });
                 if (!res.ok) return;
@@ -4122,7 +4130,14 @@ export default function App() {
             } catch { /* silently skip */ }
         }
         fetchRoster();
-        const id = setInterval(fetchRoster, 300000); // refresh every 5 min
+        // Poll at the roster endpoint's CDN TTL (s-maxage=60). The old 5-min
+        // cadence left the search's 🟢/⚫ online dot up to 5 min stale, so a
+        // player who was actually online showed "Offline". Polling every 60s
+        // makes the dot as fresh as the cache allows; because the response is
+        // CDN-cached for 60s, the extra client polls are absorbed by the edge
+        // (the serverless function still runs ~once per 60s globally), so this
+        // is a freshness win at negligible origin cost.
+        const id = setInterval(fetchRoster, 60000); // refresh every 60s (matches CDN TTL)
         return () => clearInterval(id);
     }, [character?.name]);
 
