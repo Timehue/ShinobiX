@@ -71,6 +71,7 @@ function Harness() {
                     recentFrames={frames.slice(Math.max(0, i - 4), i + 1)}
                     result={i >= frames.length - 1 ? result : ""}
                     obstacles={battle.obstacles}
+                    tiles={battle.tiles}
                     onReplay={restart}
                     onFightAgain={restart}
                     onExit={() => {}}

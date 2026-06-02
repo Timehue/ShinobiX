@@ -415,6 +415,10 @@ import {
 } from "./lib/pet";
 import { playPetSfx, isPetSfxMuted, setPetSfxMuted, primePetSfx } from "./lib/pet-sfx";
 import { startBattleMusic, stopBattleMusic } from "./lib/pet-music";
+import { buildPetAnimationEvents, petPoseForAvatar, elementVfxKey } from "./lib/pet-battle-anim";
+import { buildArenaTiles, isAdjacentToAny, petArchetypeFor, makeArena, petTacticalZone, type ArenaTile, type PetBattleActor, type BattleStatus } from "./lib/pet-tactics";
+import { collectActorStatuses, BATTLE_STATUS_DEFS, petMoveset, jutsuToPetMove } from "./lib/pet-moves";
+import { choosePetAction, choosePartyTarget, type PetAiState } from "./lib/pet-ai";
 export { petDisplayName };
 
 // Equipment helpers + tables extracted to ./lib/equipment. The three
@@ -11064,6 +11068,7 @@ function DungeonPetBattle({ character, updateCharacter, editablePets, onWin, onL
     }));
     const [battleFrames, setBattleFrames] = useState<PetArenaFrame[]>([]);
     const [battleObstacles, setBattleObstacles] = useState<number[]>([]);
+    const [battleTiles, setBattleTiles] = useState<ArenaTile[]>([]);
     const [frameIndex, setFrameIndex] = useState(0);
     const [isPlaying, setIsPlaying] = useState(false);
     const [result, setResult] = useState("");
@@ -11085,6 +11090,7 @@ function DungeonPetBattle({ character, updateCharacter, editablePets, onWin, onL
         const battle = runPetArenaBattle(selectedPet, enemyPet, enemyOwner, Date.now(), petTamerPveMultiplier(character));
         setBattleFrames(battle.frames);
         setBattleObstacles(battle.obstacles);
+        setBattleTiles(battle.tiles ?? []);
         setFrameIndex(0);
         setIsPlaying(true);
         setResult(battle.result === "win" ? "Victory" : battle.result === "draw" ? "Draw" : "Defeat");
@@ -11139,6 +11145,7 @@ function DungeonPetBattle({ character, updateCharacter, editablePets, onWin, onL
             // showResult gate. Without this the card showed from frame 0.
             result={frameIndex >= battleFrames.length - 1 ? result : ""}
             obstacles={battleObstacles}
+            tiles={battleTiles}
             onReplay={() => { setBattleFrames([]); setResult(""); }}
             onFightAgain={() => { setBattleFrames([]); setResult(""); }}
             onExit={result === "Victory" ? onWin : onLeave}
@@ -12185,6 +12192,12 @@ type PetBattleFighter = {
     freezeRounds: number; // each round of freeze, 50% chance to skip turn
     confuseRounds: number;// each turn while confused, 50% chance to hit self
     stunRounds: number;   // next N turns are auto-skip
+    // Base tactical actions (Phases 7-8) — a pet doesn't attack every turn.
+    guardRounds: number;  // Guard: incoming damage ×0.6 while active
+    evadeRounds: number;  // Evade: +25% dodge while active
+    braceRounds: number;  // Brace: reduced crit damage taken (+ push/pull immunity)
+    focusReady: boolean;  // Focus: next offensive move ×1.3 damage, then consumed
+    defensiveCd: number;  // throttles base defensive actions so the pet still mostly attacks
     // Reactive battle-consumable charges (one-shot, from loadout.consumable).
     consDodge?: number;   // negate the next N incoming attacks
     consMitigate?: number;// reduce the next incoming attack by this %
@@ -12202,6 +12215,16 @@ interface PetBattleRecord {
     losses?: number;
     rating?: number;
 }
+
+// Per-fighter status snapshot carried on each frame for the HP-bar badges
+// (Phases 7-9). atk/def buffs + shield are value/flag badges; the rest map to
+// BattleStatusId icons via collectActorStatuses in the renderer.
+type PetFrameStatus = {
+    poisoned?: number; atkBuff?: boolean; defBuff?: boolean; shield?: number;
+    moveLocked?: boolean; absorbing?: boolean;
+    burn?: number; freeze?: number; confuse?: number; stun?: number;
+    guarding?: boolean; focused?: boolean; evading?: boolean; bracing?: boolean;
+};
 
 type PetArenaFrame = {
     round: number;
@@ -12221,8 +12244,8 @@ type PetArenaFrame = {
     isKO?: boolean;
     // Set when a pet unleashes its signature jutsu — drives the anime cut-in.
     signatureMove?: { name: string; petName: string; side: "player" | "enemy" };
-    playerStatus?: { poisoned?: number; atkBuff?: boolean; defBuff?: boolean; shield?: number; moveLocked?: boolean; absorbing?: boolean };
-    enemyStatus?: { poisoned?: number; atkBuff?: boolean; defBuff?: boolean; shield?: number; moveLocked?: boolean; absorbing?: boolean };
+    playerStatus?: PetFrameStatus;
+    enemyStatus?: PetFrameStatus;
     // ── 4-pet simultaneous fields (Pokémon-doubles style 2v2) ────────
     // When present, the renderer shows 4 pet cards instead of 2, and
     // places all 4 pets on the grid. The 1v1 fields above stay populated
@@ -12300,6 +12323,25 @@ function bfsNextStep(from: number, to: number, obstacles: ReadonlySet<number>): 
         }
     }
     return from; // no path — stay put
+}
+
+/** One retreat step: the adjacent non-obstacle tile that maximizes distance
+ *  from `to` (kiting). Returns `from` if no neighbor opens more space. */
+function bfsStepAway(from: number, to: number, obstacles: ReadonlySet<number>): number {
+    const r = Math.floor(from / PET_GRID_COLS), c = from % PET_GRID_COLS;
+    let best = from;
+    let bestDist = tileDistance(from, to);
+    const ns: number[] = [];
+    if (r > 0)                 ns.push(from - PET_GRID_COLS);
+    if (r < PET_GRID_ROWS - 1) ns.push(from + PET_GRID_COLS);
+    if (c > 0)                 ns.push(from - 1);
+    if (c < PET_GRID_COLS - 1) ns.push(from + 1);
+    for (const n of ns) {
+        if (obstacles.has(n) || n === to) continue;
+        const d = tileDistance(n, to);
+        if (d > bestDist) { bestDist = d; best = n; }
+    }
+    return best;
 }
 
 // Bresenham's line algorithm — walks the tiles between from/to and returns
@@ -12404,7 +12446,10 @@ function estimatePetActionDamage(
     const executeMult   = petGearExecuteMult(actor.pet, target.hp, target.pet.hp);
     const lastStandMult = petGearLastStandMult(target.pet, target.hp, target.pet.hp);
     const mitigateMult  = (target.consMitigate ?? 0) > 0 ? (1 - (target.consMitigate ?? 0) / 100) : 1;
-    const mods = dmgBonus * guardianBlock * absorbMult * elementMult * executeMult * lastStandMult * mitigateMult;
+    // Base-action mods so lethal detection matches the real hit (Phases 7-8).
+    const guardMult = target.guardRounds > 0 ? 0.6 : 1;
+    const focusMult = actor.focusReady ? 1.3 : 1;
+    const mods = dmgBonus * guardianBlock * absorbMult * elementMult * executeMult * lastStandMult * mitigateMult * guardMult * focusMult;
     if (action === "basic") {
         const raw = actor.pet.attack + actor.attackBuff - (target.pet.defense + target.defenseBuff) * 0.45;
         return Math.max(1, Math.floor(raw * mods));
@@ -12463,7 +12508,10 @@ function choosePetActionSmart(
     // through to movement (which already routes around obstacles via BFS),
     // so it naturally walks into a firing position.
     obstacles?: ReadonlySet<number>,
-): PetJutsu | "basic" | null {
+    // Base tactical actions (guard/evade/focus/brace) are 1v1-only for now; the
+    // 2v2 party engine doesn't tick their state, so it opts out (default false).
+    allowBaseActions = false,
+): PetJutsu | "basic" | "guard" | "evade" | "focus" | "brace" | null {
     const hpPct     = (actor.hp / Math.max(1, actor.pet.hp)) * 100;
     const targetPct = (target.hp / Math.max(1, target.pet.hp)) * 100;
     const trait     = actor.pet.trait ?? "";
@@ -12559,6 +12607,26 @@ function choosePetActionSmart(
     const elementMult     = petElementMultiplier(actor.pet, target.pet);
     const superEffective  = elementMult > 1;
     const resisted        = elementMult < 1;
+
+    // ── Base tactical actions (Phases 7-8) — a pet does NOT attack every turn.
+    // Situational, and throttled by defensiveCd so the pet still mostly fights.
+    // Sits BELOW lethal (above) so it never skips a guaranteed KO, and a brief
+    // setup is only taken when it's clearly worth it.
+    const canDefendWithJutsu = !!heal || !!barrier || !!shield || alreadyAbsorbing;
+    if (allowBaseActions && actor.defensiveCd <= 0 && !finishing) {
+        // Brace against a heavy hitter when wounded.
+        if (actor.braceRounds <= 0 && hurting && target.pet.attack >= actor.pet.defense * 1.6) return "brace";
+        // Guard when hurt with no defensive jutsu ready and the foe is in reach.
+        if (actor.guardRounds <= 0 && critical && !canDefendWithJutsu && dist <= 2) return "guard";
+        // Evade for nimble pets under pressure (the kite/Swift fantasy).
+        if (actor.evadeRounds <= 0 && hurting && dist <= 2 && (trait === "Swift" || actor.pet.speed > target.pet.speed * 1.15)) return "evade";
+        // Focus to load up when healthy but only holding a weak hit this turn
+        // (no damage jutsu off-cooldown), so the next big move lands harder.
+        if (!actor.focusReady && hpPct > 60 && !superEffective && dmgs.length === 0
+            && actor.pet.jutsus.some(j => j.kind === "damage" || j.kind === "lifesteal" || j.kind === "crush") && dist <= 2) {
+            return "focus";
+        }
+    }
 
     // ── PVP gear / consumable counter-play (every personality) ─────────────
     // These sit above the trait trees but below lethal + critical-survival
@@ -12856,8 +12924,24 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
     const rng = seededPetBattleRandom(seed);
     // 10×5 grid — player starts col 1 (tile 21), enemy starts col 8 (tile 28), distance = 7
     // Pick a random obstacle layout for this battle
-    const obstacleLayout = PET_OBSTACLE_LAYOUTS[Math.floor(rng() * PET_OBSTACLE_LAYOUTS.length)];
+    const layoutIndex = Math.floor(rng() * PET_OBSTACLE_LAYOUTS.length);
+    const obstacleLayout = PET_OBSTACLE_LAYOUTS[layoutIndex];
     const obstacles = new Set<number>(obstacleLayout);
+    // ── Tactical tile types (Phases 5-6) ────────────────────────────────────
+    // Derive cover / hazard / healing / slow tiles DETERMINISTICALLY from the
+    // chosen layout — consumes NO rng, so the existing roll sequence (initiative,
+    // crits, flurries) is untouched and only the tile effects change outcomes.
+    // `obstacles` (blocked ∪ cover) stays the full pathing-blocker set, so BFS
+    // routing around the centre obstacles is unchanged. Cover reduces ranged
+    // damage to an adjacent defender; hazard/healing tick at end of round; slow
+    // tiles cut a mover's step count.
+    const arenaTiles = buildArenaTiles(obstacleLayout, layoutIndex);
+    const coverTiles = arenaTiles.cover;
+    const hazardTiles = arenaTiles.hazard;
+    const healingTiles = arenaTiles.healing;
+    const slowTiles = arenaTiles.slow;
+    // Compiled tile-type lookup for the scored AI (Phase 10).
+    const arena = makeArena(arenaTiles.tiles);
 
     // 14×6 grid: player col 1 row 2 = tile 29; enemy col 12 row 2 = tile 40
     // Starting positions on the 14×7 grid: player col 1 row 3 (=43),
@@ -12871,8 +12955,8 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
     // pipeline and the KO check `fighter.hp <= 0` is never true,
     // looping the fight to the round cap with no resolution.
     const safeHp = (h: unknown): number => Math.max(1, Number(h) || 100);
-    let player: PetBattleFighter = { owner: "You",        pet: playerPet,   hp: safeHp(playerPet.hp),   pos: 43, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: petGearStartShield(playerPet),   moveLocked: 0, absorbRounds: 0, absorbPercent: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0, consDodge: playerCons.dodge, consMitigate: playerCons.mitigate, consEndure: playerCons.endure, consThorns: playerCons.thorns, consLifeline: playerCons.lifeline, consCleanse: playerCons.cleanse };
-    let enemy:  PetBattleFighter = { owner: opponentOwner, pet: opponentPet, hp: safeHp(opponentPet.hp), pos: 54, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: petGearStartShield(opponentPet), moveLocked: 0, absorbRounds: 0, absorbPercent: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0, consDodge: enemyCons.dodge, consMitigate: enemyCons.mitigate, consEndure: enemyCons.endure, consThorns: enemyCons.thorns, consLifeline: enemyCons.lifeline, consCleanse: enemyCons.cleanse };
+    let player: PetBattleFighter = { owner: "You",        pet: playerPet,   hp: safeHp(playerPet.hp),   pos: 43, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: petGearStartShield(playerPet),   moveLocked: 0, absorbRounds: 0, absorbPercent: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0, consDodge: playerCons.dodge, consMitigate: playerCons.mitigate, consEndure: playerCons.endure, consThorns: playerCons.thorns, consLifeline: playerCons.lifeline, consCleanse: playerCons.cleanse, guardRounds: 0, evadeRounds: 0, braceRounds: 0, focusReady: false, defensiveCd: 0 };
+    let enemy:  PetBattleFighter = { owner: opponentOwner, pet: opponentPet, hp: safeHp(opponentPet.hp), pos: 54, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: petGearStartShield(opponentPet), moveLocked: 0, absorbRounds: 0, absorbPercent: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0, consDodge: enemyCons.dodge, consMitigate: enemyCons.mitigate, consEndure: enemyCons.endure, consThorns: enemyCons.thorns, consLifeline: enemyCons.lifeline, consCleanse: enemyCons.cleanse, guardRounds: 0, evadeRounds: 0, braceRounds: 0, focusReady: false, defensiveCd: 0 };
     // One-time coin flip for first-move advantage, consistent with
     // PvP and tile-card duels. Previously this was decided every round
     // by raw speed comparison, which guaranteed the faster pet always
@@ -12896,8 +12980,24 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
         traitFlash?: PetArenaFrame["traitFlash"], combo?: number, isPrefight?: boolean, isKO?: boolean,
         signatureMove?: PetArenaFrame["signatureMove"],
     ) {
-        const playerStatus = { poisoned: player.dotRounds > 0 ? player.dotRounds : undefined, atkBuff: player.attackBuff > 0 || undefined, defBuff: player.defenseBuff > 0 || undefined, shield: player.shieldHp > 0 ? player.shieldHp : undefined, moveLocked: player.moveLocked > 0 || undefined, absorbing: player.absorbRounds > 0 || undefined };
-        const enemyStatus  = { poisoned: enemy.dotRounds  > 0 ? enemy.dotRounds  : undefined, atkBuff: enemy.attackBuff  > 0 || undefined, defBuff: enemy.defenseBuff  > 0 || undefined, shield: enemy.shieldHp   > 0 ? enemy.shieldHp  : undefined, moveLocked: enemy.moveLocked  > 0 || undefined, absorbing: enemy.absorbRounds  > 0 || undefined };
+        const statusOf = (f: PetBattleFighter) => ({
+            poisoned: f.dotRounds > 0 ? f.dotRounds : undefined,
+            atkBuff: f.attackBuff > 0 || undefined,
+            defBuff: f.defenseBuff > 0 || undefined,
+            shield: f.shieldHp > 0 ? f.shieldHp : undefined,
+            moveLocked: f.moveLocked > 0 || undefined,
+            absorbing: f.absorbRounds > 0 || undefined,
+            burn: f.burnRounds > 0 ? f.burnRounds : undefined,
+            freeze: f.freezeRounds > 0 ? f.freezeRounds : undefined,
+            confuse: f.confuseRounds > 0 ? f.confuseRounds : undefined,
+            stun: f.stunRounds > 0 ? f.stunRounds : undefined,
+            guarding: f.guardRounds > 0 || undefined,
+            focused: f.focusReady || undefined,
+            evading: f.evadeRounds > 0 || undefined,
+            bracing: f.braceRounds > 0 || undefined,
+        });
+        const playerStatus = statusOf(player);
+        const enemyStatus  = statusOf(enemy);
         frames.push({ round, message, playerHp: player.hp, enemyHp: enemy.hp, playerPos: player.pos, enemyPos: enemy.pos, actor, actionKind, damage, crit, traitFlash, combo, isPrefight, isKO, signatureMove, playerStatus, enemyStatus });
     }
 
@@ -12917,6 +13017,10 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
             freezeRounds: Math.max(0, fighter.freezeRounds - 1),
             confuseRounds:Math.max(0, fighter.confuseRounds - 1),
             stunRounds:   Math.max(0, fighter.stunRounds   - 1),
+            guardRounds:  Math.max(0, fighter.guardRounds  - 1),
+            evadeRounds:  Math.max(0, fighter.evadeRounds  - 1),
+            braceRounds:  Math.max(0, fighter.braceRounds  - 1),
+            defensiveCd:  Math.max(0, fighter.defensiveCd  - 1),
         };
     }
 
@@ -12938,6 +13042,69 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
             case "freeze":  return { ...target, freezeRounds: Math.max(target.freezeRounds, rounds) };
             case "confuse": return { ...target, confuseRounds: Math.max(target.confuseRounds, rounds) };
             case "stun":    return { ...target, stunRounds: Math.max(target.stunRounds, rounds) };
+        }
+    }
+
+    // ── Scored AI adapter (Phase 10) ────────────────────────────────────────
+    // Projects the two fighters into a PetAiState, runs the pure scorer, and
+    // maps the decision back to the engine's action union. Replaces the rule-list
+    // in the 1v1 act(); deterministic (no rng), so ranked replays stay in sync.
+    function fighterToActor(f: PetBattleFighter): PetBattleActor {
+        const statuses: BattleStatus[] = [];
+        if (f.moveLocked > 0)   statuses.push({ kind: "moveLock", rounds: f.moveLocked });
+        if (f.stunRounds > 0)   statuses.push({ kind: "stun", rounds: f.stunRounds });
+        if (f.freezeRounds > 0) statuses.push({ kind: "freeze", rounds: f.freezeRounds });
+        if (f.dotRounds > 0)    statuses.push({ kind: "poison", rounds: f.dotRounds });
+        if (f.burnRounds > 0)   statuses.push({ kind: "burn", rounds: f.burnRounds });
+        if (f.shieldHp > 0)     statuses.push({ kind: "shield", rounds: 1, magnitude: f.shieldHp });
+        const cooldowns: Record<string, number> = { __defensiveCd: f.defensiveCd };
+        for (const j of f.pet.jutsus) cooldowns[jutsuToPetMove(j, f.pet).id] = f.cooldowns[j.name] ?? 0;
+        return {
+            id: f.owner === "You" ? "player" : "enemy",
+            name: f.pet.name,
+            hp: f.hp,
+            maxHp: f.pet.hp,
+            position: { row: Math.floor(f.pos / PET_GRID_COLS), col: f.pos % PET_GRID_COLS },
+            archetype: petArchetypeFor(f.pet),
+            statuses,
+            cooldowns,
+            // The scorer reads isCharging as "winding up a big hit" — Focus is our
+            // current stand-in for a telegraphed charge.
+            isCharging: f.focusReady || undefined,
+        };
+    }
+    function petScoredDecision(
+        actor: PetBattleFighter, target: PetBattleFighter, round: number,
+    ): PetJutsu | "basic" | "guard" | "evade" | "focus" | "brace" | "retreat" | null {
+        const a = fighterToActor(actor);
+        const t = fighterToActor(target);
+        // Both actors get distinct ids by side; the acting side is "player" only
+        // when it actually is the player — otherwise relabel so the scorer's
+        // nearest-enemy logic is correct regardless of who's acting.
+        const aId = actor.owner === "You" ? "player" : "enemy";
+        const tId = aId === "player" ? "enemy" : "player";
+        a.id = aId; t.id = tId;
+        const state: PetAiState = {
+            actors: [a, t],
+            teamOf: { [aId]: aId === "player" ? "player" : "enemy", [tId]: tId === "player" ? "player" : "enemy" },
+            movesByActor: { [aId]: petMoveset(actor.pet), [tId]: petMoveset(target.pet) },
+            statsByActor: {
+                [aId]: { attack: actor.pet.attack + actor.attackBuff, defense: actor.pet.defense + actor.defenseBuff, speed: actor.pet.speed },
+                [tId]: { attack: target.pet.attack + target.attackBuff, defense: target.pet.defense + target.defenseBuff, speed: target.pet.speed },
+            },
+            arena,
+            round,
+        };
+        const decision = choosePetAction(state, aId);
+        switch (decision.action) {
+            case "basicAttack": return "basic";
+            case "guard": case "evade": case "focus": case "brace": return decision.action;
+            case "move": return decision.moveDir === "away" ? "retreat" : null;
+            case "useMove": {
+                const jutsu = actor.pet.jutsus.find(j => jutsuToPetMove(j, actor.pet).id === decision.moveId);
+                return jutsu ?? null;
+            }
+            default: return null;
         }
     }
 
@@ -12980,7 +13147,10 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
         const luckyDodgeRoll = target.pet.trait === "Lucky" && rng() < 0.10;
 
         function doMove(reason: string): [PetBattleFighter, PetBattleFighter] {
-            const steps = actor.pet.moveRange ?? 2;
+            // Slow tile (Phases 5-6): a pet that begins its move on boggy ground
+            // loses one step of movement (min 1).
+            const baseSteps = actor.pet.moveRange ?? 2;
+            const steps = slowTiles.has(actor.pos) ? Math.max(1, baseSteps - 1) : baseSteps;
             let newPos = actor.pos;
             for (let s = 0; s < steps; s++) {
                 const next = bfsNextStep(newPos, target.pos, obstacles);
@@ -13015,7 +13185,9 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
                 return [actor2, dodged];
             }
             // Innate speed evasion — a faster defender slips the blow entirely.
-            if (rng() < petEvadeChance(actor2, target2)) {
+            // The Evade base action adds a flat +25% while active (Phases 7-8).
+            const evadeBonus = target2.evadeRounds > 0 ? 0.25 : 0;
+            if (rng() < petEvadeChance(actor2, target2) + evadeBonus) {
                 if (actorSide === "player") playerCombo = 0; else enemyCombo = 0;
                 const msg = `Round ${round}: ${target2.pet.name} blurs out of reach — evades ${actor2.pet.name}'s attack!`;
                 logs.push(msg);
@@ -13039,7 +13211,17 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
             const lastStandMult = petGearLastStandMult(target2.pet, target2.hp, target2.pet.hp);
             // Consumable: Smoke Pellet — the next hit deals less damage (spent below).
             const mitigateMult = (target2.consMitigate ?? 0) > 0 ? (1 - (target2.consMitigate ?? 0) / 100) : 1;
-            const damage = Math.max(1, Math.floor(base * (crit ? PET_CRIT_MULT : 1) * variance * dmgBonus * guardianBlock * absorbMult * tamerMult * elementMult * executeMult * lastStandMult * mitigateMult));
+            // Tactical cover (Phases 5-6): a RANGED hit (attacker not adjacent)
+            // against a defender hugging a cover tile lands for 30% less. Melee
+            // (dist ≤ 1) ignores cover. Deterministic — no rng.
+            const defenderBehindCover = dist > 1 && isAdjacentToAny(target2.pos, coverTiles);
+            const coverMult = defenderBehindCover ? 0.7 : 1;
+            // Base-action modifiers (Phases 7-8): Guard cuts incoming 40%; Brace
+            // softens a crit; Focus powers up the attacker's strike (then spent).
+            const guardMult = target2.guardRounds > 0 ? 0.6 : 1;
+            const critMult = crit ? (target2.braceRounds > 0 ? 1.35 : PET_CRIT_MULT) : 1;
+            const focusMult = actor2.focusReady ? 1.3 : 1;
+            const damage = Math.max(1, Math.floor(base * critMult * variance * dmgBonus * guardianBlock * absorbMult * tamerMult * elementMult * executeMult * lastStandMult * mitigateMult * coverMult * guardMult * focusMult));
             // Shield absorbs damage before HP
             const shieldAbsorb  = Math.min(target2.shieldHp, damage);
             const remainDamage  = damage - shieldAbsorb;
@@ -13049,6 +13231,9 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
             let procTarget = damagedTarget;
             let procNote = "";
             let consFlash: string | undefined; // banner key for a consumable proc
+            // Focus is consumed by the strike it empowers.
+            if (actor2.focusReady) { procActor = { ...procActor, focusReady: false }; procNote += " 🎯 Focused strike!"; }
+            if (guardMult < 1) procNote += " 🛡️ Guarded!";
             if (kind === "basic" && remainDamage > 0) {
                 const dot = petGearDotOnHit(actor2.pet);
                 if (dot) { procTarget = { ...procTarget, dotDamage: dot.damage, dotRounds: dot.rounds }; procNote += " ☠️ Poisoned!"; }
@@ -13093,16 +13278,18 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
             // priority over trait flashes so the player sees the item fire.
             const traitFlash: PetArenaFrame["traitFlash"] =
                 consFlash                                   ? { actor: targetSide as "player" | "enemy", trait: consFlash } :
+                (guardMult < 1)                             ? { actor: targetSide as "player" | "enemy", trait: "guardBlock" } :
                 (crit && actor2.pet.trait === "Aggressive") ? { actor: actorSide as "player" | "enemy", trait: "Aggressive" } :
                 (guardianBlock < 1)                         ? { actor: targetSide as "player" | "enemy", trait: "Guardian"   } :
                 (dmgBonus > 1 && actor2.pet.trait === "Battleborn") ? { actor: actorSide as "player" | "enemy", trait: "Battleborn" } :
                 undefined;
             const elementNote = petElementLabel(elementMult);
+            const coverNote = defenderBehindCover ? " 🧱 Behind cover!" : "";
             // Signature cut-in when this jutsu is the actor's strongest move.
             const sigMove: PetArenaFrame["signatureMove"] = (jutsuName && jutsuName === petSignatureJutsu(actor2.pet))
                 ? { name: jutsuName, petName: actor2.pet.name, side: actorSide as "player" | "enemy" }
                 : undefined;
-            const msg = `Round ${round}: ${actor2.pet.name}${jutsuName ? ` uses ${jutsuName}` : " basic attacks"} for ${damage} damage${crit ? " — CRITICAL HIT!" : ""}${elementNote ? ` ${elementNote}` : ""}${procNote}.`;
+            const msg = `Round ${round}: ${actor2.pet.name}${jutsuName ? ` uses ${jutsuName}` : " basic attacks"} for ${damage} damage${crit ? " — CRITICAL HIT!" : ""}${elementNote ? ` ${elementNote}` : ""}${coverNote}${procNote}.`;
             logs.push(msg);
             if (actorSide === "player") { player = procActor; enemy = procTarget; } else { enemy = procActor; player = procTarget; }
             pushFrame(round, msg, actorSide, kind, damage, crit, traitFlash, currentCombo >= 3 ? currentCombo : undefined, undefined, undefined, sigMove);
@@ -13120,14 +13307,53 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
             return doMove("lunges in for the kill!");
         }
 
-        // Smart situational AI decision — pass obstacles so the AI
-        // filters out ranged jutsus with no line-of-sight to the target.
-        // When LOS is blocked the AI falls through to movement (which
-        // routes around obstacles via BFS) and walks into firing position.
-        const chosen = choosePetActionSmart(actor, target, round, dist, obstacles);
+        // Scored AI decision (Phase 10) — a pure, archetype-weighted scorer over
+        // distance / range / HP / cooldowns / statuses / charging / cover /
+        // melee-vs-ranged. Replaces the old rule-list for 1v1. Returns a jutsu,
+        // "basic", a base action, "retreat" (kite back), or null (advance).
+        const chosen = petScoredDecision(actor, target, round);
 
         if (chosen === "basic") {
             return applyDamage(petBasicDamage(actor, target), "", "basic", actor, target);
+        }
+
+        // Retreat — a nimble/ranged pet kites away from the foe (Phase 10).
+        if (chosen === "retreat") {
+            if (actor.moveLocked > 0) {
+                const msg = `Round ${round}: ${actor.pet.name} is rooted and cannot retreat!`;
+                logs.push(msg); pushFrame(round, msg, actorSide, "movelock");
+                return [actor, target];
+            }
+            const steps = slowTiles.has(actor.pos) ? 1 : 2;
+            let newPos = actor.pos;
+            for (let s = 0; s < steps; s++) {
+                const next = bfsStepAway(newPos, target.pos, obstacles);
+                if (next === newPos) break;
+                newPos = next;
+            }
+            const moved = { ...actor, pos: newPos };
+            const msg = `Round ${round}: ${actor.pet.name} kites back, keeping its distance.`;
+            logs.push(msg);
+            if (actorSide === "player") player = moved; else enemy = moved;
+            pushFrame(round, msg, actorSide, "move");
+            return [moved, target];
+        }
+
+        // ── Base tactical actions (Phases 7-8) — the pet sets up instead of
+        // attacking this turn. Each marks defensiveCd so it stays occasional.
+        if (chosen === "guard" || chosen === "evade" || chosen === "focus" || chosen === "brace") {
+            const setup: Record<string, Partial<PetBattleFighter> & { msg: string; kind: PetArenaFrame["actionKind"] }> = {
+                guard: { guardRounds: 1, msg: `${actor.pet.name} raises its guard — incoming damage cut.`,          kind: "barrier" },
+                evade: { evadeRounds: 1, msg: `${actor.pet.name} reads the foe, ready to slip the next blow.`,        kind: "buff" },
+                focus: { focusReady: true, msg: `${actor.pet.name} focuses — its next strike will hit harder.`,       kind: "buff" },
+                brace: { braceRounds: 1, msg: `${actor.pet.name} braces — shrugging off knockback and crits.`,         kind: "absorb" },
+            };
+            const s = setup[chosen];
+            const acted = { ...actor, ...s, defensiveCd: 3 } as PetBattleFighter;
+            logs.push(`Round ${round}: ${s.msg}`);
+            if (actorSide === "player") player = acted; else enemy = acted;
+            pushFrame(round, `Round ${round}: ${s.msg}`, actorSide, s.kind);
+            return [acted, target];
         }
 
         if (chosen) {
@@ -13358,7 +13584,8 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
         if (moveJutsu && dist > 2) {
             const nextActor = { ...actor, cooldowns: { ...actor.cooldowns, [moveJutsu.name]: Math.max(1, moveJutsu.cooldown) } };
             let newPos = actor.pos;
-            for (let step = 0; step < 3; step++) {
+            const dashSteps = slowTiles.has(actor.pos) ? 2 : 3;   // slow tile clips the dash
+            for (let step = 0; step < dashSteps; step++) {
                 const next = bfsNextStep(newPos, target.pos, obstacles);
                 if (next === newPos) break;
                 newPos = next;
@@ -13385,7 +13612,20 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
         return cleansed;
     }
 
+    // ── Round structure (Phase 10) ──────────────────────────────────────────
+    // Each round flows through six clear phases. The cinematic windup → impact →
+    // reaction beats are realized per-frame by the animation event queue
+    // (buildPetAnimationEvents); the simulator resolves an action atomically
+    // inside act() and emits the frames the renderer choreographs.
+    //   1. INTENT   — petScoredDecision() picks the action from the tactical state
+    //   2. MOVEMENT — doMove / retreat / dash reposition (rooted pets can't)
+    //   3. WINDUP   — telegraph (move callout + charge/wind-up pose)
+    //   4. IMPACT   — applyDamage / status / heal / shield lands
+    //   5. REACTION — dodge / block / guard / recoil / shield-absorb / proc
+    //   6. CLEANUP  — DoT ticks, tile effects, cooldown/buff decay, KO check
     for (let round = 1; round <= 30 && player.hp > 0 && enemy.hp > 0; round += 1) {
+        // ── Phase 6 (start-of-round CLEANUP): decay cooldowns/buffs/statuses,
+        // purge with cleanse, then tick damage-over-time + tile hazards. ──
         player = tick(player);
         enemy  = tick(enemy);
         player = consumableCleanse(player, "player", round);
@@ -13451,6 +13691,28 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
             [player, enemy] = act(player, enemy, round);
             if (playerFlurry && enemy.hp > 0) [player, enemy] = act(player, enemy, round);
         }
+
+        // ── End-of-round tile effects (Phases 5-6) — hazard chips, healing
+        // restores. Small (≈4% max HP) so a pet that fights on bad ground bleeds
+        // out a little, and a pet holding a healing tile sustains. Deterministic.
+        if (player.hp > 0 && (hazardTiles.has(player.pos) || healingTiles.has(player.pos))) {
+            const hz = hazardTiles.has(player.pos);
+            const amt = Math.max(2, Math.floor(player.pet.hp * 0.04));
+            player = { ...player, hp: hz ? Math.max(0, player.hp - amt) : Math.min(player.pet.hp, player.hp + amt) };
+            const msg = `Round ${round}: ${player.pet.name} ${hz ? `is scorched by the hazard for ${amt}` : `recovers ${amt} on the healing field`}.`;
+            logs.push(msg);
+            pushFrame(round, msg, "player", hz ? "dot" : "heal", hz ? amt : undefined);
+        }
+        if (enemy.hp > 0 && (hazardTiles.has(enemy.pos) || healingTiles.has(enemy.pos))) {
+            const hz = hazardTiles.has(enemy.pos);
+            const amt = Math.max(2, Math.floor(enemy.pet.hp * 0.04));
+            enemy = { ...enemy, hp: hz ? Math.max(0, enemy.hp - amt) : Math.min(enemy.pet.hp, enemy.hp + amt) };
+            const msg = `Round ${round}: ${enemy.pet.name} ${hz ? `is scorched by the hazard for ${amt}` : `recovers ${amt} on the healing field`}.`;
+            logs.push(msg);
+            pushFrame(round, msg, "enemy", hz ? "dot" : "heal", hz ? amt : undefined);
+        }
+        if (player.hp <= 0 || enemy.hp <= 0) break;
+
         const roundMessage = `Round ${round}: ${player.pet.name} ${player.hp}/${player.pet.hp} HP | ${enemy.pet.name} ${enemy.hp}/${enemy.pet.hp} HP`;
         logs.push(roundMessage);
         pushFrame(round, roundMessage, "system");
@@ -13483,7 +13745,7 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
         `Draw — neither pet could finish the fight.`;
     logs.push(finalMessage);
     pushFrame(21, finalMessage, "system", "result");
-    return { result, player, enemy, logs, frames, obstacles: [...obstacles] };
+    return { result, player, enemy, logs, frames, obstacles: [...obstacles], tiles: arenaTiles.tiles };
 }
 
 // ── Reactive battle-consumable resolvers (shared by the 2v2 party engine) ──
@@ -13687,7 +13949,7 @@ function runPetArenaParty(
         // synced 2v2 battles stay in sync.
         const pet = applyPetPvpGear(petIn);
         const ch = petConsumableCharges(pet);
-        return { owner, pet, hp: pet.hp, pos, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: petGearStartShield(pet), moveLocked: 0, absorbRounds: 0, absorbPercent: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0, consDodge: ch.dodge, consMitigate: ch.mitigate, consEndure: ch.endure, consThorns: ch.thorns, consLifeline: ch.lifeline, consCleanse: ch.cleanse };
+        return { owner, pet, hp: pet.hp, pos, attackBuff: 0, defenseBuff: 0, cooldowns: {}, dotDamage: 0, dotRounds: 0, shieldHp: petGearStartShield(pet), moveLocked: 0, absorbRounds: 0, absorbPercent: 0, burnRounds: 0, burnDamage: 0, freezeRounds: 0, confuseRounds: 0, stunRounds: 0, consDodge: ch.dodge, consMitigate: ch.mitigate, consEndure: ch.endure, consThorns: ch.thorns, consLifeline: ch.lifeline, consCleanse: ch.cleanse, guardRounds: 0, evadeRounds: 0, braceRounds: 0, focusReady: false, defensiveCd: 0 };
     }
     const fighters: Partial<Record<PartySlot, PetBattleFighter>> = {};
     if (playerParty[0])   fighters.playerLead    = makeFighter(playerParty[0],   "You",        29);
@@ -13809,6 +14071,32 @@ function runPetArenaParty(
         })[0];
     }
 
+    // Archetype-aware enemy pick (Phase 13) — runs the shared choosePartyTarget
+    // over all 4 fielded pets so a pet considers BOTH enemies by its role
+    // (assassin→lowest HP, control/tank→biggest threat, etc.). Falls back to
+    // pickTargetSlot's HP/matchup/focus-fire score when it can't decide. Pure +
+    // deterministic (target choice reads only HP/attack/distance), so ranked
+    // party replays stay in sync.
+    function pickArchetypeTargetSlot(actorSlot: PartySlot): PartySlot | undefined {
+        const actors: PetBattleActor[] = [];
+        const teamOf: Record<string, "player" | "enemy"> = {};
+        const statsByActor: Record<string, { attack: number; defense: number; speed: number }> = {};
+        for (const s of ALL_SLOTS) {
+            const f = fighters[s];
+            if (!f || f.hp <= 0) continue;
+            actors.push({
+                id: s, name: f.pet.name, hp: f.hp, maxHp: f.pet.hp,
+                position: { row: Math.floor(f.pos / PET_GRID_COLS), col: f.pos % PET_GRID_COLS },
+                archetype: petArchetypeFor(f.pet), statuses: [], cooldowns: {},
+            });
+            teamOf[s] = isPlayerSlot(s) ? "player" : "enemy";
+            statsByActor[s] = { attack: f.pet.attack + f.attackBuff, defense: f.pet.defense + f.defenseBuff, speed: f.pet.speed };
+        }
+        const aiState: PetAiState = { actors, teamOf, movesByActor: {}, statsByActor, arena: makeArena([]), round: 0 };
+        const id = choosePartyTarget(aiState, actorSlot);
+        return id && (ALL_SLOTS as string[]).includes(id) ? (id as PartySlot) : undefined;
+    }
+
     // ── tick + status helpers (cloned from 1v1 engine) ────────────
     function tick(f: PetBattleFighter): PetBattleFighter {
         return {
@@ -13888,7 +14176,7 @@ function runPetArenaParty(
         // then re-pick if the chosen jutsu is heal/buff (ally-targeted).
         // partnerFocusSlot weights the picker toward the slot our teammate
         // just attacked, so partners converge on focus-fire.
-        const damageTargetSlot = pickTargetSlot(actorSlot, "damage", partnerFocusSlot);
+        const damageTargetSlot = pickArchetypeTargetSlot(actorSlot) ?? pickTargetSlot(actorSlot, "damage", partnerFocusSlot);
         if (!damageTargetSlot) return; // no opposing pets left — shouldn't happen, loop checks first
         const damageTarget = fighters[damageTargetSlot]!;
         const dist = tileDistance(actor.pos, damageTarget.pos);
@@ -13981,6 +14269,10 @@ function runPetArenaParty(
             pushPartyFrame(round, msg, actorSlot, "basic", dmg, crit, basicFlash, undefined, fighters[damageTargetSlot]!.hp <= 0, damageTargetSlot);
             return;
         }
+        // The 2v2 party engine opts out of base tactical actions (it calls
+        // choosePetActionSmart with allowBaseActions=false), so a base-action
+        // string never reaches here — this guard narrows `chosen` to a jutsu.
+        if (chosen === "guard" || chosen === "evade" || chosen === "focus" || chosen === "brace") return;
 
         // Resolve actual target slot based on jutsu kind.
         const allyKinds = new Set<PetJutsu["kind"]>(["heal", "buff", "barrier", "shield", "absorb"]);
@@ -14436,6 +14728,7 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
     const [battleLog, setBattleLog] = useState<string[]>([]);
     const [battleFrames, setBattleFrames] = useState<PetArenaFrame[]>([]);
     const [battleObstacles, setBattleObstacles] = useState<number[]>([]);
+    const [battleTiles, setBattleTiles] = useState<ArenaTile[]>([]);
     const [frameIndex, setFrameIndex] = useState(0);
     const [isPlaying, setIsPlaying] = useState(false);
     const [result, setResult] = useState("");
@@ -14572,6 +14865,7 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
             setBattleLog(party.matches.flatMap(m => m.logs).concat(party.summaryLogs));
             setBattleFrames(party.matches.flatMap(m => m.frames));
             setBattleObstacles(party.matches[0]?.obstacles ?? []);
+            setBattleTiles([]); // 2v2 party engine keeps the legacy obstacle-only grid for now
             setFrameIndex(0);
             setIsPlaying(true);
             setResult(party.result === "win" ? "Victory" : party.result === "draw" ? "Draw" : "Defeat");
@@ -14652,6 +14946,9 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
             setBattleOpponent(opponent);
             setBattleReady(true);
             setBattleObstacles(iAmCanonicalPlayer ? sim.obstacles : sim.obstacles.map(mirrorPetTile));
+            // Mirror tactical tiles for the non-canonical side so the local pet
+            // still appears on the left (matches the obstacle + frame mirroring).
+            setBattleTiles(iAmCanonicalPlayer ? sim.tiles : sim.tiles.map(t => ({ ...t, col: PET_GRID_COLS - 1 - t.col })));
             setBattleFrames(iAmCanonicalPlayer ? sim.frames : sim.frames.map(swapPetArenaFrame));
             setFrameIndex(0);
             setIsPlaying(true);
@@ -14722,6 +15019,7 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
         setBattleLog(battle.logs);
         setBattleFrames(battle.frames);
         setBattleObstacles(battle.obstacles);
+        setBattleTiles(battle.tiles ?? []);
         setFrameIndex(0);
         setIsPlaying(true);
         setResult(battle.result === "win" ? "Victory" : battle.result === "draw" ? "Draw" : "Defeat");
@@ -15111,6 +15409,7 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
                     recentFrames={battleFrames.slice(Math.max(0, frameIndex - 2), frameIndex + 1).filter(f => f.actionKind && f.actionKind !== "result")}
                     result={showResult ? result : ""}
                     obstacles={battleObstacles}
+                    tiles={battleTiles}
                     onReplay={() => {
                         if (!battleFrames.length) return;
                         setFrameIndex(0);
@@ -15147,7 +15446,14 @@ function PetArena({ character, updateCharacter, playerRoster, allServerPlayers, 
     );
 }
 
-export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerReservePet, enemyReservePet, frame, recentFrames, result, obstacles, onReplay, onFightAgain, onExit, sharedImages = {}, playerRecord, enemyRecord }: { playerPet: Pet; enemyPet: Pet; enemyOwner: string; playerReservePet?: Pet; enemyReservePet?: Pet; frame?: PetArenaFrame; recentFrames?: PetArenaFrame[]; result: string; obstacles?: number[]; onReplay: () => void; onFightAgain: () => void; onExit: () => void; sharedImages?: Record<string, string>; playerRecord?: PetBattleRecord; enemyRecord?: PetBattleRecord }) {
+export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerReservePet, enemyReservePet, frame, recentFrames, result, obstacles, tiles, onReplay, onFightAgain, onExit, sharedImages = {}, playerRecord, enemyRecord }: { playerPet: Pet; enemyPet: Pet; enemyOwner: string; playerReservePet?: Pet; enemyReservePet?: Pet; frame?: PetArenaFrame; recentFrames?: PetArenaFrame[]; result: string; obstacles?: number[]; tiles?: ArenaTile[]; onReplay: () => void; onFightAgain: () => void; onExit: () => void; sharedImages?: Record<string, string>; playerRecord?: PetBattleRecord; enemyRecord?: PetBattleRecord }) {
+    // Tactical tile-type lookup (Phases 5-6). Built once per tiles change so the
+    // grid renderer can tint cover / hazard / healing / slow tiles.
+    const tileTypeByIndex = useMemo(() => {
+        const m = new Map<number, ArenaTile["type"]>();
+        for (const t of tiles ?? []) m.set(t.row * PET_GRID_COLS + t.col, t.type);
+        return m;
+    }, [tiles]);
     const playerHp = frame?.playerHp ?? playerPet.hp;
     const enemyHp  = frame?.enemyHp  ?? enemyPet.hp;
     const playerPercent = Math.max(0, Math.min(100, (playerHp / Math.max(1, playerPet.hp)) * 100));
@@ -15272,6 +15578,17 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
         frame?.actionKind === "movelock"  ? "⛓️ Root!"    :
         frame?.actionKind === "debuff"    ? "⬇️ Weaken!"  :
         frame?.actionKind === "result"    ? result        : "";
+    // User-facing floating-number / text-pop class for the per-tile label, so
+    // damage / heal / shield / status numbers read in their own color near the
+    // target sprite (not only in the log). Crit damage also gets the crit-text
+    // class for the gold punch styling.
+    const effectNumberClass =
+        (frame?.actionKind === "damage" || frame?.actionKind === "basic" || frame?.actionKind === "lifesteal")
+            ? (frame?.crit ? "damage-number crit-text" : "damage-number")
+        : frame?.actionKind === "heal" ? "heal-number"
+        : (frame?.actionKind === "shield" || frame?.actionKind === "barrier" || frame?.actionKind === "absorb") ? "shield-number"
+        : (frame?.actionKind === "dot" || frame?.actionKind === "debuff" || frame?.actionKind === "movelock") ? "status-pop"
+        : "";
 
     const winnerPet   = result === "Victory" ? playerPet : result === "Defeat" ? enemyPet : null;
     const winnerSide: "player" | "enemy" = result === "Victory" ? "player" : "enemy";
@@ -15289,6 +15606,7 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
         frame?.traitFlash?.trait === "Lucky"      ? "🍀 LUCKY DODGE!"      :
         frame?.traitFlash?.trait === "Aggressive" ? "🔥 AGGRESSIVE CRIT!"  :
         frame?.traitFlash?.trait === "Guardian"   ? "🛡️ GUARDIAN BLOCK!"  :
+        frame?.traitFlash?.trait === "guardBlock" ? "🛡️ BLOCK!"           :
         frame?.traitFlash?.trait === "Battleborn" ? "⚔️ BATTLEBORN BONUS!" :
         frame?.traitFlash?.trait === "Swift"      ? "⚡ SWIFT STRIKE!"     :
         frame?.traitFlash?.trait === "petEvade"       ? "⚡ EVADED!"        :
@@ -15350,6 +15668,107 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
     const oneHitWarn = lowestPct <= 12 && !winnerPet;   // "1 HIT LEFT" pulse
     const momentumPlayer = (playerPercent / Math.max(1, playerPercent + enemyPercent)) * 100;
 
+    // ── Phase 2: animation event queue ──────────────────────────────────────
+    // Combat is no longer shown by sliding one avatar into the other. Each
+    // resolved frame is turned into an ordered queue of presentation events
+    // (windup → lunge / rangedCast → projectile → impact → recoil; guard,
+    // dodge, charge, KO, victory). A lightweight scheduler walks the queue
+    // within the frame's pacing budget, and every pet sprite holds the pose of
+    // whichever event is currently playing. Purely derived from the (already
+    // deterministic) frame, so ranked replays animate identically and no
+    // balance/RNG/clock is touched.
+    const battleDist = tileDistance(playerPos, enemyPos);
+    const animVfxKey = elementVfxKey(actingElement);
+    const slotPetId = (slot?: string): string =>
+        slot === "playerLead" ? playerPet.id
+        : slot === "playerReserve" ? (playerReservePet?.id ?? "")
+        : slot === "enemyLead" ? enemyPet.id
+        : slot === "enemyReserve" ? (enemyReservePet?.id ?? "")
+        : "";
+    const animActorId = frame?.party4v4?.actorSlot
+        ? slotPetId(frame.party4v4.actorSlot)
+        : frame?.actor === "enemy" ? enemyPet.id : playerPet.id;
+    const animTargetId = frame?.party4v4?.targetSlot
+        ? slotPetId(frame.party4v4.targetSlot)
+        : frame?.actor === "enemy" ? playerPet.id : enemyPet.id;
+    const resolvedWinnerId = winnerPet ? (winnerSide === "player" ? playerPet.id : enemyPet.id) : null;
+    const animEvents = useMemo(() => {
+        if (!frame) return [];
+        return buildPetAnimationEvents({
+            frame: {
+                actor: frame.actor,
+                actionKind: frame.actionKind,
+                damage: frame.damage,
+                crit: frame.crit,
+                isKO: frame.isKO,
+                isPrefight: frame.isPrefight,
+                message: frame.message,
+                signatureMove: frame.signatureMove ?? null,
+            },
+            dist: battleDist,
+            actorId: animActorId,
+            targetId: animTargetId,
+            vfxKey: animVfxKey,
+            isResultFrame: frame.actionKind === "result" && !frame.isKO,
+            winnerId: resolvedWinnerId,
+            loserId: animTargetId,
+        });
+    }, [frame?.message]);
+
+    const [animIdx, setAnimIdx] = useState(0);
+    useEffect(() => {
+        setAnimIdx(0);
+        if (animEvents.length <= 1) return;
+        const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+        if (reduce) { setAnimIdx(animEvents.length - 1); return; }
+        const pace = petFramePace(frame);
+        const total = animEvents.reduce((sum, e) => sum + e.durationMs, 0) || 1;
+        const scale = Math.min(1, (pace * 0.9) / total);
+        const timers: number[] = [];
+        let acc = 0;
+        for (let i = 1; i < animEvents.length; i++) {
+            acc += animEvents[i - 1].durationMs * scale;
+            timers.push(window.setTimeout(() => setAnimIdx(i), acc));
+        }
+        return () => timers.forEach((t) => window.clearTimeout(t));
+    }, [animEvents]);
+    const activeAnimEvent = animEvents[animIdx];
+
+    // ── Camera + background (stage-level) ───────────────────────────────────
+    // Screen shake is reserved for crits / heavy hits / KO (never routine
+    // hits). A signature charge dims + zooms the stage while the wind-up glow
+    // plays, then releases with a heavy shake on impact.
+    const victimMaxHp = Math.max(1, frame?.actor === "enemy" ? playerPet.hp : enemyPet.hp);
+    const heavyHit = !!frame?.damage && frame.damage >= victimMaxHp * 0.18;
+    const sigChargePhase = !!frame?.signatureMove && activeAnimEvent?.type === "charge";
+    const shakeNow = activeAnimEvent?.type === "impact" || activeAnimEvent?.type === "ko" || activeAnimEvent?.type === "screenShake";
+    const cameraClass = winnerPet ? ""
+        : sigChargePhase ? " battle-camera-focus battle-background-dim"
+        : (frame?.isKO || (shakeNow && (frame?.crit || !!frame?.signatureMove))) ? " battle-camera-shake-heavy"
+        : (shakeNow && heavyHit) ? " battle-camera-shake-small"
+        : "";
+
+    // Status badges near the HP bar (Phases 7-9): the BattleStatusId set via the
+    // shared registry (icon + remaining rounds), plus the value/flag badges
+    // (ATK/DEF buff, shield amount, absorb, brace) that fall outside that set.
+    const statusBadges = (st?: PetFrameStatus) => (
+        <>
+            {collectActorStatuses({ ...(st ?? {}), shield: undefined }).map((s) => {
+                const def = BATTLE_STATUS_DEFS[s.id];
+                return (
+                    <span key={s.id} className={`pet-status-badge pet-status-${def.kind}`} title={`${def.label} — ${def.description}`}>
+                        {def.icon}{s.rounds > 1 ? `×${s.rounds}` : ""}
+                    </span>
+                );
+            })}
+            {st?.atkBuff   && <span className="pet-status-badge atk" title="Attack up">⚔️ATK↑</span>}
+            {st?.defBuff   && <span className="pet-status-badge def" title="Defense up">🛡️DEF↑</span>}
+            {st?.shield    && <span className="pet-status-badge shield" title="Shield — absorbs damage before HP">🔰{st.shield}</span>}
+            {st?.absorbing && <span className="pet-status-badge absorb" title="Absorb stance">✨ABSORB</span>}
+            {st?.bracing   && <span className="pet-status-badge" title="Bracing — resists knockback and crits">🧱</span>}
+        </>
+    );
+
     return (
         <section className="pet-arena-battlefield">
             {/* Pre-fight face-off overlay — sprites flank the VS badge for a
@@ -15366,6 +15785,7 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
                             </div>
                             <div className="pet-prefight-name player">{playerPet.name}</div>
                             <div className="pet-prefight-sub">Lv {playerPet.level} · {playerPet.rarity}{playerPet.element && playerPet.element !== "None" ? ` · ${playerPet.element}` : ""}</div>
+                            <div className="pet-prefight-archetype">{petArchetypeFor(playerPet)}</div>
                             <div className="pet-prefight-stats">
                                 <span>❤ {playerPet.hp}</span><span>⚔ {playerPet.attack}</span><span>🛡 {playerPet.defense}</span><span>⚡ {playerPet.speed}</span>
                             </div>
@@ -15383,6 +15803,7 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
                             </div>
                             <div className="pet-prefight-name enemy">{enemyPet.name}</div>
                             <div className="pet-prefight-sub">Lv {enemyPet.level} · {enemyPet.rarity}{enemyPet.element && enemyPet.element !== "None" ? ` · ${enemyPet.element}` : ""}</div>
+                            <div className="pet-prefight-archetype">{petArchetypeFor(enemyPet)}</div>
                             <div className="pet-prefight-stats">
                                 <span>❤ {enemyPet.hp}</span><span>⚔ {enemyPet.attack}</span><span>🛡 {enemyPet.defense}</span><span>⚡ {enemyPet.speed}</span>
                             </div>
@@ -15486,14 +15907,7 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
             <div className="pet-arena-bars">
                 <div className={`pet-arena-fighter-bar${playerShake ? " pet-hp-shaking" : ""}`}>
                     <strong>{playerPet.name}</strong>
-                    <div className="pet-status-badges">
-                        {frame?.playerStatus?.poisoned   && <span className="pet-status-badge poison">☠️×{frame.playerStatus.poisoned}</span>}
-                        {frame?.playerStatus?.atkBuff    && <span className="pet-status-badge atk">⚔️ATK↑</span>}
-                        {frame?.playerStatus?.defBuff    && <span className="pet-status-badge def">🛡️DEF↑</span>}
-                        {frame?.playerStatus?.shield     && <span className="pet-status-badge shield">🔰{frame.playerStatus.shield}</span>}
-                        {frame?.playerStatus?.moveLocked && <span className="pet-status-badge movelock">🔒ROOT</span>}
-                        {frame?.playerStatus?.absorbing  && <span className="pet-status-badge absorb">✨ABSORB</span>}
-                    </div>
+                    <div className="pet-status-badges">{statusBadges(frame?.playerStatus)}</div>
                     <span>{playerHp}/{playerPet.hp} HP</span>
                     <div className={`pet-arena-hpbar${!winnerPet && playerPercent <= 30 ? " pet-arena-hpbar-low" : ""}`}>
                         <i style={{ width: `${playerPercent}%` }} />
@@ -15507,14 +15921,7 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
 
                 <div className={`pet-arena-fighter-bar enemy${enemyShake ? " pet-hp-shaking" : ""}`}>
                     <strong>{enemyOwner}: {enemyPet.name}</strong>
-                    <div className="pet-status-badges">
-                        {frame?.enemyStatus?.poisoned   && <span className="pet-status-badge poison">☠️×{frame.enemyStatus.poisoned}</span>}
-                        {frame?.enemyStatus?.atkBuff    && <span className="pet-status-badge atk">⚔️ATK↑</span>}
-                        {frame?.enemyStatus?.defBuff    && <span className="pet-status-badge def">🛡️DEF↑</span>}
-                        {frame?.enemyStatus?.shield     && <span className="pet-status-badge shield">🔰{frame.enemyStatus.shield}</span>}
-                        {frame?.enemyStatus?.moveLocked && <span className="pet-status-badge movelock">🔒ROOT</span>}
-                        {frame?.enemyStatus?.absorbing  && <span className="pet-status-badge absorb">✨ABSORB</span>}
-                    </div>
+                    <div className="pet-status-badges">{statusBadges(frame?.enemyStatus)}</div>
                     <span>{enemyHp}/{enemyPet.hp} HP</span>
                     <div className={`pet-arena-hpbar${!winnerPet && enemyPercent <= 30 ? " pet-arena-hpbar-low" : ""}`}>
                         <i style={{ width: `${enemyPercent}%` }} />
@@ -15528,17 +15935,7 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
             </div>
             )}
 
-            <div className={`pet-park-stage${
-                // Once a winner is decided, hold the stage still so the victory
-                // card shows on a calm board. Without this gate the result
-                // frame fired the KO camera-punch + grid pulse + flash under
-                // the card, which read as a broken end-of-fight flicker.
-                winnerPet                                       ? "" :
-                (frame?.actionKind === "result" || frame?.isKO) ? " pet-stage-impact-ko" :
-                frame?.signatureMove                            ? " pet-stage-impact-sig" :
-                frame?.crit                                     ? " pet-stage-impact-crit" :
-                (frame?.actionKind === "damage" || frame?.actionKind === "basic" || frame?.actionKind === "lifesteal") ? " pet-stage-impact-hit" : ""
-            }${dangerZone ? " pet-stage-danger" : ""}`}>
+            <div className={`pet-park-stage${cameraClass}${dangerZone ? " pet-stage-danger" : ""}`}>
                 {/* Mute toggle for the synthesized battle SFX. */}
                 <button
                     type="button"
@@ -15575,6 +15972,11 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
                         </div>
                     </div>
                 )}
+                {/* Move-name callout — brief banner as a (non-signature) move
+                    fires; the signature cut-in above announces its own name. */}
+                {!winnerPet && activeAnimEvent?.type === "moveCallout" && activeAnimEvent.text && (
+                    <div className="move-callout" key={`callout-${frame?.message}-${animIdx}`}>{activeAnimEvent.text}</div>
+                )}
                 {/* KO freeze overlay */}
                 {frame?.isKO && !winnerPet && (
                     <div className="pet-ko-overlay">K.O. ??</div>
@@ -15606,7 +16008,20 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
                         }
                         return Array.from({ length: PET_GRID_SIZE }, (_, index) => {
                             const here = positionMap.get(index);
-                            const isObstacle  = (obstacles ?? []).includes(index);
+                            // Tactical tile type (Phases 5-6). Blocked + cover are both
+                            // impassable obstacles (pets path around them); cover renders
+                            // as a lower wall. Hazard / healing / slow are passable but
+                            // tinted. Falls back to the legacy obstacles list (all blocked).
+                            const tileType = tileTypeByIndex.get(index);
+                            const isCover     = tileType === "cover";
+                            const isObstacle  = isCover || tileType === "blocked" || (tileTypeByIndex.size === 0 && (obstacles ?? []).includes(index));
+                            const tileFxClass = tileType === "hazard" ? " pet-tile-hazard" : tileType === "healing" ? " pet-tile-healing" : tileType === "slow" ? " pet-tile-slow" : "";
+                            // Tactical zone (Phase 10-14) — a faint highlight on the
+                            // contested centre columns focuses the eye on where pets
+                            // actually fight, without using the whole oversized grid.
+                            const zoneClass = !isObstacle && petTacticalZone(index % PET_GRID_COLS, tileType) === "frontline" ? " pet-zone-frontline" : "";
+                            // Target-tile highlight during an offensive beat.
+                            const isTargetTile = !winnerPet && index === targetTile && (frame?.actionKind === "damage" || frame?.actionKind === "basic" || frame?.actionKind === "lifesteal" || frame?.actionKind === "dot" || frame?.actionKind === "debuff" || frame?.actionKind === "movelock");
                             const isTrail     = index >= 42 && index <= 55; // row 3 of 14-col, 7-row grid (centre lane)
                             // Once a winner is decided, stop firing per-tile glows and
                             // the centre-tile vfx burst. Otherwise the result frame's
@@ -15634,10 +16049,10 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
                                 <div
                                     key={index}
                                     data-tile={index}
-                                    className={`pet-park-tile${isObstacle ? " pet-obstacle" : ""}${isTrail && !isObstacle ? " pet-path" : ""}${isActionTile && !isObstacle ? " pet-action-tile" : ""}${hasEffect && !isObstacle ? ` pet-vfx-tile pet-vfx-tile-${frame?.actionKind}` : ""}${here && !isObstacle ? " pet-occupied" : ""}`}
+                                    className={`pet-park-tile${isObstacle ? " pet-obstacle" : ""}${isCover ? " pet-tile-cover" : ""}${tileFxClass}${zoneClass}${isTargetTile && !isObstacle ? " pet-target-tile" : ""}${isTrail && !isObstacle ? " pet-path" : ""}${isActionTile && !isObstacle ? " pet-action-tile" : ""}${hasEffect && !isObstacle ? ` pet-vfx-tile pet-vfx-tile-${frame?.actionKind}` : ""}${here && !isObstacle ? " pet-occupied" : ""}`}
                                 >
                                     {isObstacle && (
-                                        <div className="pet-obstacle-block">
+                                        <div className={`pet-obstacle-block${isCover ? " pet-obstacle-cover" : ""}`}>
                                             <div className="pet-obstacle-top" />
                                             <div className="pet-obstacle-face" />
                                             <div className="pet-obstacle-side" />
@@ -15646,7 +16061,7 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
                                     {hasEffect && (
                                         <span className={`pet-battle-vfx${frame?.crit ? " crit" : ""}${frame?.isKO ? " ko" : ""}${frame?.isKO ? "" : elClass}`} key={`${frame?.message}-${index}`}>
                                             <i />
-                                            <b>{effectLabel}</b>
+                                            <b className={effectNumberClass}>{effectLabel}</b>
                                             <em />
                                         </span>
                                     )}
@@ -15659,10 +16074,48 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
                                     {here && (
                                         <div className="pet-avatar-mover" data-petid={here.pet.id}>
                                             <div className={`pet-avatar-depth${faint ? " pet-fainted" : ""}`} style={depthStyle}>
-                                                <PetBattleAvatar key={`${here.pet.id}-${frame?.message ?? "idle"}`} pet={here.pet} side={here.side} active={here.isActor} hit={here.isTarget && !faint} status={here.side === "player" ? frame?.playerStatus : frame?.enemyStatus} sharedImages={sharedImages} />
+                                                <PetBattleAvatar key={`${here.pet.id}-${frame?.message ?? "idle"}`} pet={here.pet} side={here.side} active={here.isActor} hit={here.isTarget && !faint} status={here.side === "player" ? frame?.playerStatus : frame?.enemyStatus} sharedImages={sharedImages} visualState={petPoseForAvatar(activeAnimEvent, here.pet.id, !!winnerPet && here.side === winnerSide, faint)} />
                                             </div>
                                         </div>
                                     )}
+                                    {/* Ranged projectile — fired from the acting pet's tile
+                                        toward its target across `--pdist` tile-widths. Keyed
+                                        per event so it restarts; player fires right (+1),
+                                        enemy fires left (−1). Element drives the VFX look. */}
+                                    {here && !winnerPet && activeAnimEvent && (activeAnimEvent.type === "projectile" || activeAnimEvent.type === "beam") && activeAnimEvent.actorId === here.pet.id && (
+                                        <span
+                                            key={`proj-${frame?.message ?? ""}-${animIdx}`}
+                                            className={`pet-projectile pet-proj-${activeAnimEvent.type} ${
+                                                activeAnimEvent.vfxKey === "fire"      ? "vfx-fire-projectile" :
+                                                activeAnimEvent.vfxKey === "shadow"    ? "vfx-shadow-slash" :
+                                                activeAnimEvent.vfxKey === "lightning" ? "vfx-lightning-bolt" :
+                                                activeAnimEvent.vfxKey === "poison"    ? "vfx-poison-cloud" :
+                                                `pet-pvfx-${activeAnimEvent.vfxKey ?? "none"}`
+                                            }`}
+                                            style={{ ["--face" as string]: here.side === "player" ? 1 : -1, ["--pdist" as string]: Math.max(1, Math.min(11, battleDist)) }}
+                                            aria-hidden="true"
+                                        />
+                                    )}
+                                    {/* Localized VFX layer — impact flash + dust on the target,
+                                        shield aura / heal glow on the actor, status pop on the
+                                        afflicted pet, DODGE text on the dodger. Event-driven, so
+                                        each beat fires at its moment in the timeline. */}
+                                    {here && !winnerPet && activeAnimEvent && (() => {
+                                        const ae = activeAnimEvent;
+                                        const evtActor = ae.actorId === here.pet.id;
+                                        const evtTarget = ae.targetId === here.pet.id;
+                                        const k = `${frame?.message ?? ""}-${animIdx}`;
+                                        return (
+                                            <>
+                                                {ae.type === "impact" && evtTarget && <span key={`imp-${k}`} className="vfx-impact-flash" aria-hidden="true" />}
+                                                {ae.type === "impact" && evtTarget && <span key={`dust-${k}`} className="vfx-dust-burst" aria-hidden="true" />}
+                                                {ae.type === "guard" && evtActor && <span key={`shld-${k}`} className="vfx-shield-aura" aria-hidden="true" />}
+                                                {ae.type === "charge" && evtActor && ae.vfxKey === "chakra" && <span key={`heal-${k}`} className="vfx-heal-glow" aria-hidden="true" />}
+                                                {ae.type === "statusApply" && evtTarget && <span key={`stat-${k}`} className="vfx-status-pop" aria-hidden="true" />}
+                                                {ae.type === "dodge" && evtActor && <span key={`dodge-${k}`} className="dodge-text">DODGE</span>}
+                                            </>
+                                        );
+                                    })()}
                                 </div>
                             );
                         });
@@ -15674,7 +16127,7 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
                         {/* Removed the rotating <pet-victory-burst /> sparkle ring —
                             its 1.8s infinite spin read as a broken-looking flicker
                             against the static winner card. The card now sits calm. */}
-                        <PetBattleAvatar pet={winnerPet} side={winnerSide} active sharedImages={sharedImages} />
+                        <PetBattleAvatar pet={winnerPet} side={winnerSide} active sharedImages={sharedImages} visualState="victory" />
                         <div>
                             <span>Arena Winner</span>
                             <strong>{winnerPet.name}</strong>

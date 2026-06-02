@@ -65,6 +65,11 @@ export type PetJutsu = {
     // combat-wise it's an ordinary lifesteal/crush jutsu; the flag is only used
     // to pick which move triggers the cut-in.
     signature?: boolean;
+    // Marks this jutsu as area-of-effect — in 2v2 it strikes BOTH enemies (or
+    // all allies for support kinds) at a reduced per-target rate (see
+    // PET_AOE_DAMAGE_MULT). Optional + additive; nothing sets it yet, so 1v1
+    // and existing saves are unaffected.
+    aoe?: boolean;
 };
 
 export type Pet = {
@@ -79,6 +84,12 @@ export type Pet = {
     defense: number;
     speed: number;
     image?: string;
+    // Optional transparent FULL-BODY battle sprite (distinct from `image`, the
+    // circular portrait). When present — or when a `petbody:<id>` shared image
+    // exists — the Pet Arena renders the pet un-clipped as a full-body sprite
+    // instead of a clipped circular icon. Purely cosmetic; nothing writes it
+    // yet, so existing saves are unaffected.
+    bodyImage?: string;
     description?: string;
     jutsus: PetJutsu[];
     unlockedForPve: boolean;
