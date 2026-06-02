@@ -491,7 +491,7 @@ function _patternToRegex(pattern: string): RegExp {
     return new RegExp('^' + pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*') + '$');
 }
 
-interface KvLike {
+export interface KvLike {
     get<T = unknown>(key: string): Promise<T | null>;
     set(key: string, value: unknown, options?: { ex?: number; nx?: boolean }): Promise<'OK' | null>;
     del(...keys: string[]): Promise<number>;
@@ -602,7 +602,7 @@ function _makeRemoteKv(baseUrl: string, token: string): KvLike {
 
 // ─── Routing wrapper ──────────────────────────────────────────────────────────
 
-function _makeRoutedKv(base: KvLike, disk: KvLike): KvLike {
+export function _makeRoutedKv(base: KvLike, disk: KvLike): KvLike {
     function split(keys: string[]): { diskKeys: string[]; baseKeys: string[]; order: ('disk' | 'base')[] } {
         const diskKeys: string[] = [];
         const baseKeys: string[] = [];
@@ -639,10 +639,21 @@ function _makeRoutedKv(base: KvLike, disk: KvLike): KvLike {
             return _routesToDisk(pattern) ? disk.keys(pattern) : base.keys(pattern);
         },
         async mget<T extends unknown[] = unknown[]>(...keys: string[]): Promise<(T[number] | null)[]> {
-            // Use the per-key get path so disk-routed keys benefit from fallback.
-            return Promise.all(keys.map((k) =>
-                _routesToDisk(k) ? diskGet<T[number]>(k) : base.get<T[number]>(k)
-            ));
+            // Batch per backend so the remote (Vercel) disk overlay does ONE
+            // round-trip for all disk-routed keys instead of one HTTP call per
+            // key. Migration is complete, so disk reads no longer need a per-key
+            // fallback path (see diskGet above). Results are re-interleaved into
+            // the caller's original key order — byte-identical to the per-key
+            // path, just fewer network calls.
+            const { diskKeys, baseKeys, order } = split(keys);
+            const [diskVals, baseVals] = await Promise.all([
+                diskKeys.length ? disk.mget<T>(...diskKeys) : Promise.resolve([] as (T[number] | null)[]),
+                baseKeys.length ? base.mget<T>(...baseKeys) : Promise.resolve([] as (T[number] | null)[]),
+            ]);
+            const out: (T[number] | null)[] = [];
+            let di = 0, bi = 0;
+            for (const src of order) out.push(src === 'disk' ? diskVals[di++] : baseVals[bi++]);
+            return out;
         },
         async hgetall<T = Record<string, unknown>>(key: string): Promise<T | null> {
             return _routesToDisk(key) ? diskGet<T>(key) : base.hgetall<T>(key);
