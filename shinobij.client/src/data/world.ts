@@ -1,9 +1,10 @@
 /*
  * World environment tables — terrain effects per biome, weather effects
  * per weather type, and the per-biome weather rotation table that drives
- * the per-sector weather lookup.
+ * the per-sector weather lookup. Plus biomeLabel: the biome → in-world
+ * place-name lookup used across battle, world-map, VN, and dungeon screens.
  *
- * Pure data. Extracted from App.tsx.
+ * Pure data + the one pure biome lookup helper. Extracted from App.tsx.
  */
 
 import type { Biome, WeatherType, JutsuElement } from "../types/core";
@@ -110,3 +111,11 @@ export const biomeWeatherTables: Record<Biome, WeatherType[]> = {
     shadow: ["thunderstorm", "tornado", "desertHaze", "clear"],
     central: ["clear", "rain", "ashfall", "thunderstorm", "tornado", "desertHaze"],
 };
+
+export function biomeLabel(biome: Biome) {
+    if (biome === "forest") return "Stormveil Coastal Waters";
+    if (biome === "snow") return "Frostfang Icefields";
+    if (biome === "volcano") return "Ashen Leaf Forest";
+    if (biome === "shadow") return "Moonshadow Darklands";
+    return "Central Meadow";
+}
