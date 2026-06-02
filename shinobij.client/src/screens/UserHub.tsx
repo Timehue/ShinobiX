@@ -11,6 +11,8 @@
  * monolith and re-enable React Fast Refresh on this screen.
  */
 
+// Relative-time display reads Date.now() in render by design; verbatim-moved from App.tsx (rule disabled file-wide there).
+/* eslint-disable react-hooks/purity */
 import { useState } from "react";
 import type { PlayerRecord, ServerPlayerSummary } from "../types/character";
 

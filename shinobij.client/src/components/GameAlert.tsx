@@ -16,6 +16,8 @@
  * confirm() and prompt() are left as native browser calls — they return
  * values synchronously and would require touching each call site.
  */
+// Verbatim-moved from App.tsx (which disables this rule file-wide); effect behavior unchanged.
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useState } from "react";
 
 type Listener = (message: string) => void;
