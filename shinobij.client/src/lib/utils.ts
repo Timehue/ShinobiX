@@ -37,3 +37,9 @@ export function currentMonthKey(): string {
 export function currentDateKey(): string {
     return new Date().toISOString().slice(0, 10);
 }
+
+// Generate a unique id — crypto.randomUUID when available, else a
+// timestamp+random fallback. Used for jutsu/item/bloodline/AI/event ids, etc.
+export function makeId() {
+    return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+}
