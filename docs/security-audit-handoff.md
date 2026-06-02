@@ -316,12 +316,22 @@ raw password, that's a further step on top of this.
 
 ## Partially-addressed (note for completeness)
 
-- **#7 server-authoritative rewards** — Batch 3 made claim-rewards honest about
-  errors, but the deeper model (client still self-applies ryo/XP/ranked-rating
-  then autosaves; server endpoint is only a double-fire guard) is unchanged. Full
-  server-authoritative payouts (server credits, client only displays) is a large
-  reward-system refactor — same caution class as #5. The save sanitizer remains
-  the real economic gate.
+- **#7 server-authoritative rewards — Stage 3 ran 2026-06-01; see
+  `docs/security-audit-7-stage3-plan.md` for the full design + outcome.** Shipped
+  to `main`: Phase 0 (`_credit-player`/`_ranked-rating`/`_xp-engine` cores), Phase 1
+  (ranked rating, player + pet — server-authoritative incl. sanitizer reject),
+  Phase 2 (village daily-agenda + map-control personal rewards), Phase 3 (PvP-win
+  base ryo + XP via the verbatim `gainXp` port on `claim-rewards`, convergence-safe),
+  and Phase 4f (bank-interest claim). **Phase 4 CLOSED under "Option A (pragmatic,
+  no rewrite)":** bank interest was the only further source reachable without a
+  rewrite. The recon conclusion (in the plan doc) is that genuinely server-
+  authoritative ryo/xp — and any cap reduction — needs **Option B**: a server-owned
+  **ledger** for `ryo`/`xp`/`level` (client reads server values instead of self-
+  applying, so the sanitizer can flip cap→reject) **plus** server-side run/battle
+  verification (tower, story, missions, AI-kills — none are verifiable today; the
+  Endless Tower alone legitimately banks ~2M ryo / ~700K raw XP in one save, which
+  pins the per-save cap). That is a deliberate multi-week future program. The save
+  sanitizer caps remain the economic gate for all still-client-applied sources.
 - **#29 full KV scans** — fixed the worst offender (`admin/players` N-gets). The
   others (`roster`, `bloodlines/list`, `injured-villagers`) already use `mget`
   but still do a full `keys('*')` scan (one indexed query, not N). True
