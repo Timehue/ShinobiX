@@ -55,6 +55,7 @@ import villageTreasuryTransferHandler from './api/village/treasury-transfer.js';
 import villageTreasuryDonateHandler from './api/village/treasury/donate.js';
 import villageClaimDailyAgendaHandler from './api/village/claim-daily-agenda.js';
 import villageClaimMapControlHandler from './api/village/claim-map-control.js';
+import bankClaimInterestHandler from './api/bank/claim-interest.js';
 import saveSnapshotHandler from './api/admin/save-snapshot.js';
 
 // Clan — wars
@@ -352,6 +353,9 @@ route('/village/claim-daily-agenda', villageClaimDailyAgendaHandler);
 // Village map-control — server-authoritative PERSONAL daily reward (server counts
 // owned world:territory:* sectors, computes payout, credits once/day via NX marker).
 route('/village/claim-map-control', villageClaimMapControlHandler);
+// Bank interest — server-authoritative personal claim (server computes
+// floor(bankRyo×rate) under the save lock + 24h gate). Audit #7 / Stage 3 Phase 4f.
+route('/bank/claim-interest', bankClaimInterestHandler);
 
 // Admin: snapshot / list / restore a player save (90-day TTL). Survives
 // server-reset because the `save-snapshot:` prefix isn't matched by the

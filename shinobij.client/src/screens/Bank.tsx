@@ -22,13 +22,34 @@ export function Bank({ character, updateCharacter }: { character: Character; upd
         updateCharacter({ ...character, ryo: character.ryo + value, bankRyo: character.bankRyo - value });
     }
 
-    function claimInterest() {
+    async function claimInterest() {
         if (interestPercent <= 0) return alert("Upgrade the Bank in Town Hall to earn interest.");
         if (character.bankRyo <= 0) return alert("Deposit ryo first.");
         if (Date.now() < nextClaimAt) return alert(`Interest can be claimed again at ${new Date(nextClaimAt).toLocaleString()}.`);
         if (projectedInterest <= 0) return alert("Your deposit is too small to earn interest yet.");
-        updateCharacter({ ...character, bankRyo: character.bankRyo + projectedInterest, lastBankInterestAt: Date.now() });
-        alert(`Bank interest claimed: +${projectedInterest.toLocaleString()} ryo.`);
+        // Server-authoritative (audit #7 / Stage 3 Phase 4f): the server recomputes
+        // the interest from the SAVED bankRyo + bank-upgrade rate under the save
+        // lock and stamps lastBankInterestAt against its own clock, so the client
+        // can no longer inflate the amount or replay via a rolled-back clock. We add
+        // the returned `claimed` delta to our OWN bankRyo (preserving concurrent
+        // deposits/withdrawals) and re-assert via autosave — the two converge.
+        let data: { ok?: boolean; eligible?: boolean; claimed?: number; error?: string; lastBankInterestAt?: number; reason?: string };
+        try {
+            const res = await fetch("/api/bank/claim-interest", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ playerName: character.name }),
+            });
+            data = await res.json().catch(() => ({}));
+            if (!res.ok || !data.ok) return alert(data.error || "Could not claim bank interest. Please try again.");
+        } catch {
+            return alert("Could not claim bank interest. Please try again.");
+        }
+        if (!data.eligible || !data.claimed || data.claimed <= 0) {
+            return alert("Bank interest isn't available yet — try again later.");
+        }
+        updateCharacter({ ...character, bankRyo: character.bankRyo + data.claimed, lastBankInterestAt: data.lastBankInterestAt ?? Date.now() });
+        alert(`Bank interest claimed: +${data.claimed.toLocaleString()} ryo.`);
     }
 
     return (
