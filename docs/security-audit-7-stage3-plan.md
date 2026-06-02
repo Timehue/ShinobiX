@@ -463,6 +463,112 @@ the client self-apply. What remains for FULL server-ownership of ryo/xp (read-ba
 + sanitizer reject) is Phase 4's job, since it depends on every other ryo/xp source
 moving server-side first.
 
+---
+
+## Phase 4 — Mission/raid/hunt/AI-kill ryo + character XP (PLAN)
+
+**Scope SIGNED OFF 2026-06-01: Option A (Pragmatic).** Move the DETERMINISTIC
+sources server-side; leave RNG loot (chest, Hollow Gate) client-side behind
+TIGHTENED residual sanitizer caps (no loot-engine rewrite). Option B (full server
+RNG) is recorded below but NOT chosen. Each sub-phase still needs its own
+implementation sign-off before code.
+
+The bulk of the program, and the only thing that finally lets the sanitizer flip
+`ryo`/`xp`/`level` from **cap** to **reject** (for the deterministic sources;
+RNG stays cap-bounded). `_xp-engine.ts` (Phase 3) is the reusable XP foundation;
+this phase fans it out across the remaining sources.
+
+### The landscape (grounded recon, 2026-06-01)
+
+The save sanitizer (`api/save/[name].ts`) today only RATE-LIMITS these fields:
+`level` ≤ `exLevel+5` & ≤ 100; `ryo` ≤ `exRyo+1,000,000`/save; soft currencies ≤
+`+CURRENCY_CAPS`/save; rolling windows `MAX_RYO_PER_MINUTE 5M` / `MAX_XP_PER_MINUTE
+1M`. `xp` itself is NOT per-save capped (only `level` is). So a crafted client can
+mint up to the caps, repeatedly — the caps are a speed bump, not a lock.
+
+**Already server-credited (durable):** PvP-win base ryo/xp (Phase 3); PvP-win
+Vanguard seals + profession XP (`_vanguard-rewards` / `report-pvp-win`); pet arena
+ryo (`pet/battle-result`); pet expedition ryo/drops (`report-pet-event`); Healer
+heal XP (`player/heal`); weekly-boss ryo/xp (`weekly-boss`, #25); village agenda +
+map-control personal ryo/seals (Phase 2).
+
+**⚠️ Key nuance — "server-backed" missions are only HALF server-backed.**
+`report-raid` credits the **Vanguard BONUS** (rank-4+ ryo, rank-10 seal) + profession
+XP, but the **BASE mission/raid `ryo`/`xp` is still client-applied** (the mission
+template's reward, via `updateCharacter`). So missions/raids/hunts are NOT yet
+server-authoritative for their base payout. Confirm this first thing in 4a.
+
+**Still client-only (the migration targets):**
+
+| # | Source | Site (approx) | Credits | Deterministic? |
+|---|---|---|---|---|
+| 1 | **Mission/raid/hunt BASE** ryo/xp | `claimFetchMission` ~30027, hunt, daily missions | template ryo/xp + currencies + scrolls | ✅ template-deterministic |
+| 2 | **AI-kill** (PvE `winBattle`, no session) | `winBattle` ~33240 | 75/100 base ×trait, +auraDust, dailyAiKills | ✅ per opponent level |
+| 3 | **Story / triggered-event** battle win | `completePendingArenaStoryBattle` ~7750 | step/event ryo/xp + currencies | ✅ per step/event |
+| 4 | **Endless Tower** wave + milestone (banked) | `handleEndlessWin`/`bankEndlessRewards` ~7270 | `endlessWaveReward(wave,level)` ryo/xp, milestone charms/shards | ✅ formula |
+| 5 | **Exploration** tile encounter | `exploreSector` ~28309 | `20+⌊s/5⌋` xp, `10+⌊s/4⌋` ryo | ✅ but RNG-triggered |
+| 6 | **Ancient chest** loot | `claimChest`/`rollAncientChest` ~28285 | RNG ryo/auraDust/shards/charms/items | ❌ **RNG** |
+| 7 | **Hollow Gate** chest / tile-seal / battle | ~8504 / ~10315 / ~7790 | RNG + formula ryo/xp/auraDust/seals/items | ❌ mostly **RNG** |
+| 8 | **Bank interest** | `Bank.tsx` `claimBankInterest` ~30 | `⌊bankRyo×rate⌋` to bankRyo | ✅ formula (24h-gated) |
+
+### The hard constraint (why this is the biggest phase)
+
+The sanitizer can only **reject** client ryo/xp/level increases once **EVERY**
+legit source is server-credited — otherwise a real client save would be wrongly
+reverted. Two sources make "everything server-side" expensive:
+
+- **RNG loot (chests, Hollow Gate):** faithful server-authority means moving the
+  loot RNG server-side (the server rolls, the client displays). That borders on a
+  battle/loot-engine rewrite — and the hard rules forbid large rewrites without an
+  explicit ask. **This is the pivotal scope decision (below).**
+- **AI-kill:** the AI opponent is client-defined (no save to verify against), so the
+  server can only credit a BOUNDED amount per kill under a daily cap — inherently a
+  weaker guarantee (ties into Phase 5's server-owned `dailyAiKills`).
+
+### Two end-state options (PICK ONE before any code)
+
+- **Option A — Pragmatic (recommended).** Move the DETERMINISTIC, high-value
+  sources server-side (4a mission/raid/hunt base, 4b AI-kill bounded, 4c story,
+  4d tower, 4f bank). Leave the RNG loot (chest, Hollow Gate) client-applied but
+  **tighten the residual sanitizer caps** (e.g. lower `MAX_RYO_GAIN`, add a per-save
+  XP cap) sized to the largest legit single RNG drop, so the abuse ceiling drops
+  ~10-100× without a loot-engine rewrite. End-state: ryo/xp can't be *minted
+  arbitrarily*, only within a small RNG-sized residual window. Honest, proportionate,
+  ~5-6 PRs.
+- **Option B — Full server-authority.** Also port the loot/RNG server-side (new
+  `chest-claim` / `hollow-gate-*` endpoints that roll loot with a seeded server RNG),
+  then flip the sanitizer to full reject (ledger-style, like Phases 1-2). Closes the
+  hole completely but is a large, multi-month, balance-sensitive effort touching the
+  loot tables and every RNG site — closest to a partial rewrite.
+
+### Sub-phase roadmap (Option A; each its own PR + sign-off, smallest blast first)
+
+| Sub | Scope | Mechanism | Risk |
+|---|---|---|---|
+| **4a** | Mission/raid/hunt **base** ryo/xp | Extend `report-raid` + new `report-mission`/`report-hunt` to credit the template base via `_xp-engine`, server recomputes the reward from the mission id (client can't pick the amount); convergence-safe activate | Med |
+| **4b** | AI-kill ryo/xp | New `report-ai-kill` (bounded per opponent level, daily-capped NX) — pairs with Phase 5 `dailyAiKills` | Med-High |
+| **4c** | Story/event battle ryo/xp | New `report-story-win` keyed to the story step / event id (server holds the reward table) | Med |
+| **4d** | Endless Tower banked ryo/xp | New `endless-tower/bank` recomputes `endlessWaveReward` server-side from the verified wave reached | Med |
+| **4f** | Bank interest | New `bank/claim-interest` (server computes `⌊bankRyo×rate⌋`, 24h NX gate) | Low |
+| **4e** | RNG loot residual | Do NOT migrate; instead TIGHTEN `MAX_RYO_GAIN` + add a per-save XP cap sized to the max legit RNG drop; telemetry-gated like #14 | Med (balance-sensitive caps) |
+| **4g** | **Sanitizer flip** | Only after 4a-4f + telemetry clean: `ryo`/`xp`/`level` become "re-assert/decrease only" (reject client increase), mirroring Phase 1's rating tighten. Then the client read-back deferred from Phase 3 lands (client stops self-applying; reads server values). | High |
+
+### Per-sub-phase recipe (unchanged from Phases 1-3)
+1. Server endpoint computes + credits (formula ported verbatim; XP via `_xp-engine`;
+   a test asserts server == client). The server recomputes the amount from a
+   server-held table / id, so the client can't choose the payout.
+2. Client activates (calls endpoint, keeps self-applying → convergence-safe).
+3. After ALL deterministic sources land + the RNG residual is capped: the read-back
+   + sanitizer flip (4g) — the only step that changes the cap→reject behavior.
+4. cPanel parity on every endpoint; `dist/` rebuilt + committed.
+
+### Open decisions for sign-off
+1. **Option A (pragmatic, tighten RNG residual) vs Option B (full server RNG).**
+2. Sub-phase ORDER / which to do first (default: 4a → 4f → 4c → 4d → 4b → 4e → 4g).
+3. Whether 4g adopts a server-owned **ledger key** (cleanest full-authority) or
+   keeps economic fields in the save blob behind the reject-sanitizer.
+4. AI-kill (4b) is entangled with Phase 5 (server `dailyAiKills`) — do them together?
+
 ## Non-negotiables (per CLAUDE.md)
 
 - **No balance change** — every formula ported verbatim; tests assert server ==
