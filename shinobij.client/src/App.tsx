@@ -6,6 +6,7 @@ import "./index.css";
 import { installAuthFetch, setActivePlayer, setActiveToken } from "./authFetch";
 import { GameAlertHost } from "./components/GameAlert";
 import { subscribeKvKey, realtimeAvailable } from "./lib/realtime";
+import { useBoardScale } from "./lib/use-board-scale";
 import {
     percentageTags,
     cappedDamageTags,
@@ -27108,62 +27109,10 @@ function Arena({
     const GRID_LAYER_W = (gridWidth - 1) * X_STEP + HEX_W;
     const GRID_LAYER_H = (gridHeight - 1) * Y_STEP + HEX_H * 1.5;
 
-    // Callback ref — fires whenever the hex-battlefield element mounts or unmounts.
-    // This ensures the ResizeObserver is always attached even when the element first
-    // renders mid-session (e.g. after the lobby?battle transition or prefight countdown).
-    const battlefieldRef = useRef<HTMLDivElement | null>(null);
-    const [boardScale, setBoardScale] = useState(1);
-    // Container dimensions stored in state so the JSX centering math is always
-    // in sync with the scale that was computed from the same measurement.
-    const [boardContainerSize, setBoardContainerSize] = useState({ w: 0, h: 0 });
-    // User-controlled zoom offset on top of the auto scale (mobile slider)
-    const [userScaleOffset, setUserScaleOffset] = useState(0);
-
-    const battlefieldCallbackRef = useCallback((el: HTMLDivElement | null) => {
-        battlefieldRef.current = el;
-
-        // Clean up any previous observer stored on the element
-        if ((el as (HTMLDivElement & { _roCleanup?: () => void }) | null)?._roCleanup) {
-            (el as HTMLDivElement & { _roCleanup?: () => void })._roCleanup!();
-        }
-
-        if (!el) return;
-
-        function updateBoardScale() {
-            if (!el) return;
-            const cw = el.clientWidth;
-            const ch = el.clientHeight;
-            const isMobileNarrow = cw < 600;
-            const edgeBuffer = 0;
-            const availableW = Math.max(1, cw - edgeBuffer * 2);
-            const availableH = Math.max(1, ch - edgeBuffer * 2);
-
-            // Fit-to-container with NO upper cap so the grid scales UP to fill a
-            // wide/tall board. Was Math.min(1, …), which pinned the grid to its
-            // intrinsic px size and left it floating small on widescreen. Using
-            // min() of the two fit ratios guarantees scaledW≤cw and scaledH≤ch,
-            // so the centering math below stays valid and never clips.
-            const nextScale = Math.min(availableW / GRID_LAYER_W, availableH / GRID_LAYER_H);
-            const minScale = isMobileNarrow ? 0.15 : 0.45;
-            const clamped = Math.max(minScale, Number(nextScale.toFixed(3)));
-            setBoardScale(clamped);
-            setBoardContainerSize({ w: cw, h: ch });
-        }
-
-        updateBoardScale();
-
-        const observer = new ResizeObserver(updateBoardScale);
-        observer.observe(el);
-        window.addEventListener("resize", updateBoardScale);
-
-        const cleanup = () => {
-            observer.disconnect();
-            window.removeEventListener("resize", updateBoardScale);
-        };
-        (el as HTMLDivElement & { _roCleanup?: () => void })._roCleanup = cleanup;
-    }, [GRID_LAYER_W, GRID_LAYER_H]);
-    // Clamp effective scale between 0.15 and 1.5
-    const effectiveScale = Math.max(0.15, Math.min(2.5, boardScale + userScaleOffset));
+    // Auto-fit board scale + manual zoom — shared with the live-PvP battle via
+    // the useBoardScale hook (this logic was previously duplicated inline in
+    // both battle components, which is how the grid-scaling bug existed twice).
+    const { battlefieldRef, battlefieldCallbackRef, boardContainerSize, userScaleOffset, setUserScaleOffset, effectiveScale } = useBoardScale(GRID_LAYER_W, GRID_LAYER_H);
 
     // Keep stable refs in sync with the latest arena function versions every render.
     // Timer callbacks read these so they always call fresh closures.
@@ -31339,9 +31288,8 @@ function PvpBattleScreen({
     const [inspectedJutsuId, setInspectedJutsuId] = useState("");
     const [inspectedWeaponId, setInspectedWeaponId] = useState("");
     const [hoveredPvpTile, setHoveredPvpTile] = useState<number | null>(null);
-    const [boardScale, setBoardScale] = useState(1);
-    const [boardContainerSize, setBoardContainerSize] = useState({ w: 0, h: 0 });
-    const [userScaleOffset, setUserScaleOffset] = useState(0);
+    // Auto-fit board scale + manual zoom — shared hook (see lib/use-board-scale).
+    const { battlefieldRef, battlefieldCallbackRef, boardContainerSize, userScaleOffset, setUserScaleOffset, effectiveScale } = useBoardScale(GRID_LAYER_W, GRID_LAYER_H);
     const [pvpRoundTimer, setPvpRoundTimer] = useState(45);
     const [pvpRoundTimerKey, setPvpRoundTimerKey] = useState(0);
     // When the round timer hits 0 we queue an auto-wait. If the player has
@@ -31361,7 +31309,6 @@ function PvpBattleScreen({
     // this on Realtime status callbacks and SSE error/open events.
     const [connectionState, setConnectionState] = useState<"connected" | "reconnecting">("connected");
     const [pvpMotionFx, setPvpMotionFx] = useState<PvpMotionFx[]>([]);
-    const battlefieldRef = useRef<HTMLDivElement | null>(null);
     const logRef = useRef<HTMLDivElement>(null);
     // Battle-log round accordion overrides (default-open = latest two rounds).
     const [logRoundOverrides, setLogRoundOverrides] = useState<Record<number, boolean>>({});
@@ -31399,33 +31346,8 @@ function PvpBattleScreen({
         };
     }
 
-    // ResizeObserver — exact match to arena pattern
-    const battlefieldCallbackRef = useCallback((el: HTMLDivElement | null) => {
-        battlefieldRef.current = el;
-        if ((el as (HTMLDivElement & { _roCleanup?: () => void }) | null)?._roCleanup) {
-            (el as HTMLDivElement & { _roCleanup?: () => void })._roCleanup!();
-        }
-        if (!el) return;
-        function updateScale() {
-            if (!el) return;
-            const cw = el.clientWidth;
-            const ch = el.clientHeight;
-            const isMobileNarrow = cw < 600;
-            // Fit-to-container with NO upper cap (see arena path for rationale) —
-            // lets the grid scale up to fill the board instead of floating small.
-            const nextScale = Math.min(cw / GRID_LAYER_W, ch / GRID_LAYER_H);
-            const minScale = isMobileNarrow ? 0.15 : 0.45;
-            setBoardScale(Math.max(minScale, Number(nextScale.toFixed(3))));
-            setBoardContainerSize({ w: cw, h: ch });
-        }
-        updateScale();
-        const observer = new ResizeObserver(updateScale);
-        observer.observe(el);
-        window.addEventListener("resize", updateScale);
-        const cleanup = () => { observer.disconnect(); window.removeEventListener("resize", updateScale); };
-        (el as HTMLDivElement & { _roCleanup?: () => void })._roCleanup = cleanup;
-    }, []);  
-    const effectiveScale = Math.max(0.15, Math.min(2.5, boardScale + userScaleOffset));
+    // Board scale, zoom, and the battlefield callback-ref are now provided by
+    // the shared useBoardScale hook destructured above.
 
     useEffect(() => {
         let active = true;
