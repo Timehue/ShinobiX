@@ -3557,9 +3557,10 @@ export default function App() {
         let alive = true;
         async function refreshClanWars() {
             try {
+                const before = JSON.stringify(sharedClanWarCache);
                 await cwListWars();
                 if (!alive) return;
-                setClanWarStateVersion(v => v + 1);
+                if (JSON.stringify(sharedClanWarCache) !== before) setClanWarStateVersion(v => v + 1);
             } catch { /* dev/offline fallback */ }
         }
         refreshClanWars();
@@ -3604,8 +3605,7 @@ export default function App() {
                 if (!response.ok) return;
                 const data = await response.json();
                 if (!alive) return;
-                hydrateSharedWorldState(data);
-                setWorldStateVersion(version => version + 1);
+                if (hydrateSharedWorldState(data)) setWorldStateVersion(version => version + 1);
             } catch {
                 // Offline/dev fallback keeps the current in-memory world state until the API is available.
             }
@@ -3628,8 +3628,7 @@ export default function App() {
                 if (!response.ok) return;
                 const data = await response.json();
                 if (!alive) return;
-                hydrateSharedGameState(data);
-                setSharedGameStateVersion(version => version + 1);
+                if (hydrateSharedGameState(data)) setSharedGameStateVersion(version => version + 1);
             } catch {
                 // Shared game state will refresh again on the next heartbeat-sized poll.
             }
@@ -19047,7 +19046,8 @@ function normalizeVillageWar(data: Partial<VillageWar> & { villages: [string, st
     };
 }
 
-function hydrateSharedWorldState(data: { territories?: Partial<SectorTerritory>[]; wars?: (Partial<VillageWar> & { villages?: [string, string] })[] }) {
+let lastSharedWorldStateSnapshot = "";
+function hydrateSharedWorldState(data: { territories?: Partial<SectorTerritory>[]; wars?: (Partial<VillageWar> & { villages?: [string, string] })[] }): boolean {
     const territories: Record<number, SectorTerritory> = {};
     (data.territories ?? []).forEach(territory => {
         const sector = Math.floor(Number(territory?.sector ?? 0));
@@ -19064,6 +19064,14 @@ function hydrateSharedWorldState(data: { territories?: Partial<SectorTerritory>[
         wars[normalized.id] = normalized;
     });
     sharedVillageWarCache = wars;
+    // Report whether anything actually changed so the poller can skip a wasted
+    // full-app re-render when the server payload is identical (common in the
+    // village / when idle). The cache still updates every poll, so any re-render
+    // from another source (e.g. the heartbeat) reads current data.
+    const snapshot = JSON.stringify([sharedSectorTerritoryCache, sharedVillageWarCache]);
+    const changed = snapshot !== lastSharedWorldStateSnapshot;
+    lastSharedWorldStateSnapshot = snapshot;
+    return changed;
 }
 
 function firstOpenWarGroundSector() {
@@ -27455,6 +27463,7 @@ function savePendingClanPetBattle(battle: PendingClanPetBattle | null) {
     }
 }
 
+let lastSharedGameStateSnapshot = "";
 function hydrateSharedGameState(data: {
     villageStates?: Record<string, unknown> | (Partial<VillageState> & { village?: string })[];
     villageLeadershipImages?: VillageLeadershipImages;
@@ -27463,7 +27472,7 @@ function hydrateSharedGameState(data: {
     pendingClanPetBattle?: PendingClanPetBattle | null;
     clanPetBattles?: Record<string, PendingClanPetBattle>;
     weeklyBossAiId?: string | null;
-}) {
+}): boolean {
     const villageStates: Record<string, VillageState> = {};
     const rawVS = data.villageStates;
     if (Array.isArray(rawVS)) {
@@ -27511,6 +27520,16 @@ function hydrateSharedGameState(data: {
         ? pendingBattle
         : null;
     sharedWeeklyBossAiIdCache = data.weeklyBossAiId ?? "";
+    // See hydrateSharedWorldState: report change so the 5s poller skips the
+    // wasted full-app re-render when the server payload is unchanged.
+    const snapshot = JSON.stringify([
+        sharedVillageStateCache, sharedVillageLeadershipImagesCache,
+        sharedArenaTournamentCache, sharedArenaActiveFightsCache,
+        sharedPendingClanPetBattleCache, sharedWeeklyBossAiIdCache,
+    ]);
+    const changed = snapshot !== lastSharedGameStateSnapshot;
+    lastSharedGameStateSnapshot = snapshot;
+    return changed;
 }
 
 // rankedDelta moved to ./lib/progression.
