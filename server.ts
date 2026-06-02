@@ -51,7 +51,7 @@ import rankedLeaveHandler from './api/ranked-queue/leave.js';
 import kvProxyHandler     from './api/kv-proxy.js';
 import migrateKvHandler   from './api/admin/migrate-kv.js';
 import raidStartHandler   from './api/missions/raid-start.js';
-import villageTreasuryTransferHandler from './api/village/treasury-transfer.js';
+import villageTreasuryTransferHandler from './api/village/treasury/transfer.js';
 import villageTreasuryDonateHandler from './api/village/treasury/donate.js';
 import villageClaimDailyAgendaHandler from './api/village/claim-daily-agenda.js';
 import villageClaimMapControlHandler from './api/village/claim-map-control.js';
