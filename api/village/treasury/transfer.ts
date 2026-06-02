@@ -1,9 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { kv } from '../_storage.js';
-import { cors, safeName } from '../_utils.js';
-import { authedPlayerOrAdmin } from '../_auth.js';
-import { enforceRateLimitKv } from '../_ratelimit.js';
-import { withKvLock } from '../_lock.js';
+import { kv } from '../../_storage.js';
+import { cors, safeName } from '../../_utils.js';
+import { authedPlayerOrAdmin } from '../../_auth.js';
+import { enforceRateLimitKv } from '../../_ratelimit.js';
+import { withKvLock } from '../../_lock.js';
 
 /*
  * /api/village/treasury/transfer  — POST only
