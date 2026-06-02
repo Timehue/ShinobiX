@@ -11590,7 +11590,10 @@ button.combat-jutsu-button,
     --banner-h: clamp(108px, 15dvh, 170px);
     --sector-side-w: clamp(124px, 15vw, 190px);
     --battle-side-w: clamp(150px, 16vw, 210px);
-    --battle-board-h: clamp(320px, 42dvh, 520px);
+    /* Board height drives the auto-fit grid scale. Raised so the hex grid grows
+       to fill widescreen instead of floating small. Width is capped to ~grid
+       aspect (1.62:1) below so the arena hugs the grid rather than ballooning. */
+    --battle-board-h: clamp(360px, 50dvh, 640px);
     --jutsu-card-min: clamp(82px, 8.6vw, 118px);
     --jutsu-card-h: clamp(82px, 11vh, 104px);
 }
@@ -11744,8 +11747,13 @@ button.combat-jutsu-button,
 
 .arena-fullscreen .hex-battlefield {
     height: var(--battle-board-h) !important;
+    /* Cap width to ~the grid's 1.62:1 aspect (+ small arena margin) and center,
+       so on widescreen the arena hugs the grid instead of stretching wide with a
+       tiny grid floating in the middle. */
+    width: min(100%, calc(var(--battle-board-h) * 1.72)) !important;
+    margin-inline: auto !important;
     min-height: clamp(300px, 38dvh, 440px) !important;
-    max-height: min(520px, calc(100dvh - var(--banner-h) - 220px)) !important;
+    max-height: min(640px, calc(100dvh - var(--banner-h) - 170px)) !important;
     padding: clamp(10px, 1.8vmin, 18px) !important;
 }
 
@@ -11796,7 +11804,7 @@ button.combat-jutsu-button,
         --side-rail-w: clamp(150px, 16vw, 205px);
         --right-menu-w: clamp(150px, 16vw, 205px);
         --banner-h: clamp(98px, 14dvh, 145px);
-        --battle-board-h: clamp(300px, 40dvh, 470px);
+        --battle-board-h: clamp(320px, 44dvh, 560px);
     }
 
     .left-profile-card {

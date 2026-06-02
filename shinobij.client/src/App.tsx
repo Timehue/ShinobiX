@@ -27138,9 +27138,14 @@ function Arena({
             const availableW = Math.max(1, cw - edgeBuffer * 2);
             const availableH = Math.max(1, ch - edgeBuffer * 2);
 
-            const nextScale = Math.min(1, availableW / GRID_LAYER_W, availableH / GRID_LAYER_H);
+            // Fit-to-container with NO upper cap so the grid scales UP to fill a
+            // wide/tall board. Was Math.min(1, …), which pinned the grid to its
+            // intrinsic px size and left it floating small on widescreen. Using
+            // min() of the two fit ratios guarantees scaledW≤cw and scaledH≤ch,
+            // so the centering math below stays valid and never clips.
+            const nextScale = Math.min(availableW / GRID_LAYER_W, availableH / GRID_LAYER_H);
             const minScale = isMobileNarrow ? 0.15 : 0.45;
-            const clamped = Math.max(minScale, Math.min(1, Number(nextScale.toFixed(3))));
+            const clamped = Math.max(minScale, Number(nextScale.toFixed(3)));
             setBoardScale(clamped);
             setBoardContainerSize({ w: cw, h: ch });
         }
@@ -27158,7 +27163,7 @@ function Arena({
         (el as HTMLDivElement & { _roCleanup?: () => void })._roCleanup = cleanup;
     }, [GRID_LAYER_W, GRID_LAYER_H]);
     // Clamp effective scale between 0.15 and 1.5
-    const effectiveScale = Math.max(0.15, Math.min(1.5, boardScale + userScaleOffset));
+    const effectiveScale = Math.max(0.15, Math.min(2.5, boardScale + userScaleOffset));
 
     // Keep stable refs in sync with the latest arena function versions every render.
     // Timer callbacks read these so they always call fresh closures.
@@ -31390,9 +31395,11 @@ function PvpBattleScreen({
             const cw = el.clientWidth;
             const ch = el.clientHeight;
             const isMobileNarrow = cw < 600;
-            const nextScale = Math.min(1, cw / GRID_LAYER_W, ch / GRID_LAYER_H);
+            // Fit-to-container with NO upper cap (see arena path for rationale) —
+            // lets the grid scale up to fill the board instead of floating small.
+            const nextScale = Math.min(cw / GRID_LAYER_W, ch / GRID_LAYER_H);
             const minScale = isMobileNarrow ? 0.15 : 0.45;
-            setBoardScale(Math.max(minScale, Math.min(1, Number(nextScale.toFixed(3)))));
+            setBoardScale(Math.max(minScale, Number(nextScale.toFixed(3))));
             setBoardContainerSize({ w: cw, h: ch });
         }
         updateScale();
@@ -31402,7 +31409,7 @@ function PvpBattleScreen({
         const cleanup = () => { observer.disconnect(); window.removeEventListener("resize", updateScale); };
         (el as HTMLDivElement & { _roCleanup?: () => void })._roCleanup = cleanup;
     }, []);  
-    const effectiveScale = Math.max(0.15, Math.min(1.5, boardScale + userScaleOffset));
+    const effectiveScale = Math.max(0.15, Math.min(2.5, boardScale + userScaleOffset));
 
     useEffect(() => {
         let active = true;
