@@ -7,6 +7,8 @@ import {
     petAvatarStateClass,
     extractPetMoveName,
     petBattleSprite,
+    petBattleLayers,
+    petBattleSheet,
     petStripVariant,
     elementVfxKey,
     type PetFrameLike,
@@ -32,6 +34,58 @@ test("petBattleSprite: full-body sprite wins via petbody shared image (base id)"
     const { mode, src } = petBattleSprite(pet, { "petbody:standard-1": "shared-body.png" });
     assert.equal(mode, "fullBodySprite");
     assert.equal(src, "shared-body.png");
+});
+
+test("petBattleLayers: all three bands present → returns the layer set", () => {
+    const layers = petBattleLayers(mkPet({}), {
+        "petlayers:standard-1:far": "f.png",
+        "petlayers:standard-1:mid": "m.png",
+        "petlayers:standard-1:near": "n.png",
+    });
+    assert.deepEqual(layers, { far: "f.png", mid: "m.png", near: "n.png" });
+});
+
+test("petBattleLayers: a missing band → null (renderer falls back)", () => {
+    const layers = petBattleLayers(mkPet({}), {
+        "petlayers:standard-1:far": "f.png",
+        "petlayers:standard-1:near": "n.png",
+    });
+    assert.equal(layers, null);
+});
+
+test("petBattleLayers: resolves by variant-stripped base id for encounter clones", () => {
+    const pet = mkPet({ id: "standard-1-1700000000000" });
+    const layers = petBattleLayers(pet, {
+        "petlayers:standard-1:far": "f.png",
+        "petlayers:standard-1:mid": "m.png",
+        "petlayers:standard-1:near": "n.png",
+    });
+    assert.deepEqual(layers, { far: "f.png", mid: "m.png", near: "n.png" });
+});
+
+test("petBattleLayers: none present → null", () => {
+    assert.equal(petBattleLayers(mkPet({}), {}), null);
+});
+
+test("petBattleSheet: strip + frames meta → {src, frames}", () => {
+    const sheet = petBattleSheet(mkPet({}), { "petsheet:standard-1": "s.png", "petsheet:standard-1:frames": "12" });
+    assert.deepEqual(sheet, { src: "s.png", frames: 12 });
+});
+
+test("petBattleSheet: strip without frames meta → default 8", () => {
+    const sheet = petBattleSheet(mkPet({}), { "petsheet:standard-1": "s.png" });
+    assert.deepEqual(sheet, { src: "s.png", frames: 8 });
+});
+
+test("petBattleSheet: frames clamped to 1..24, base-id fallback for clones", () => {
+    const pet = mkPet({ id: "standard-1-1700000000000" });
+    assert.equal(petBattleSheet(pet, { "petsheet:standard-1": "s.png", "petsheet:standard-1:frames": "999" })?.frames, 24);
+    assert.equal(petBattleSheet(pet, { "petsheet:standard-1": "s.png", "petsheet:standard-1:frames": "0" })?.frames, 8);
+});
+
+test("petBattleSheet: no strip → null", () => {
+    assert.equal(petBattleSheet(mkPet({}), { "petsheet:standard-1:frames": "8" }), null);
+    assert.equal(petBattleSheet(mkPet({}), {}), null);
 });
 
 test("petBattleSprite: falls back to circle when only a portrait exists", () => {

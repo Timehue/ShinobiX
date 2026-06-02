@@ -7,7 +7,8 @@
 
 type PetSfxKind =
     | "hit" | "crit" | "ko" | "heal" | "buff" | "dot"
-    | "debuff" | "movelock" | "dodge" | "shield" | "move" | "victory";
+    | "debuff" | "movelock" | "dodge" | "shield" | "move" | "victory"
+    | "superEffective";
 
 import { isAudioMuted } from "./pet-music";
 
@@ -247,6 +248,13 @@ export function playPetSfx(kind: PetSfxKind): void {
                 tone(c, { type: "triangle", from: 659, dur: 0.16, gain: 0.22, delay: 0.14 });
                 tone(c, { type: "triangle", from: 784, dur: 0.16, gain: 0.22, delay: 0.28 });
                 tone(c, { type: "triangle", from: 1047, dur: 0.34, gain: 0.22, delay: 0.42 });
+                break;
+            case "superEffective":
+                // A bright rising two-note "ta-DA" sting + a shimmer of air,
+                // layered ON TOP of the underlying hit/crit to flag the matchup.
+                tone(c, { type: "square", from: 700, to: 1180, dur: 0.12, gain: 0.16, attack: 0.002 });
+                tone(c, { type: "triangle", from: 920, to: 1640, dur: 0.20, gain: 0.15, delay: 0.07 });
+                noise(c, { dur: 0.10, gain: 0.09, type: "highpass", freq: 5200, delay: 0.02 });
                 break;
         }
     } catch {
