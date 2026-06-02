@@ -3,7 +3,8 @@
  * Grouped: travel/world (Village, Travel, Users) → activities
  * (Missions, Training) → character (Character, Inventory, Jutsu, Pets,
  * Bloodline, Logbook) → community (Discord, Patreon — external links) →
- * system (Admin Rill-only, Logout).
+ * system (Admin — shown to the protected admin name or any active admin
+ * session so you can always get back into the panel, Logout).
  *
  * Pure leaf — `navigate` and `logoutPlayer` callbacks come in as props.
  * `villageBiomes` lookup imported from App.tsx; admin-name gate via
@@ -87,7 +88,7 @@ export const RightMenu = memo(function RightMenu({
                         <button onClick={() => navigate("logbook")}>Logbook</button>
                         <button onClick={() => window.open("https://discord.gg/bCQGs8r6SK", "_blank", "noopener,noreferrer")}>💬 Discord</button>
                         <button onClick={() => window.open("https://www.patreon.com/c/shinobijourney", "_blank", "noopener,noreferrer")}>♥ Patreon</button>
-                        {isAdminAccount && (
+                        {(isAdminAccount || adminLoggedIn) && (
                             <button onClick={() => navigate(adminLoggedIn ? "adminPanel" : "adminLogin")}>Admin</button>
                         )}
                         <button onClick={logoutPlayer}>Logout + Save</button>
