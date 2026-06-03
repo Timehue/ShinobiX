@@ -5817,6 +5817,9 @@ export default function App() {
         savePlayerAccounts(accounts);
         setCharacter(null);
         setCurrentAccountName("");
+        // Account deleted — also wipe the persisted password + session token
+        // (same credential-clear as logoutPlayer; the account no longer exists).
+        setActivePlayer(null);
         setActiveTraining(null);
         setActiveJutsuTraining(null);
         setAcceptedMissionIds([]);
@@ -5836,6 +5839,11 @@ export default function App() {
         }
         setCharacter(null);
         setCurrentAccountName("");
+        // Clear the persisted player password + session token from local/session
+        // storage on logout. Without this they survive logout (the sync effect
+        // only ever passes "" — never null — so it never triggers the clear),
+        // leaving a reusable plaintext password readable on a shared machine.
+        setActivePlayer(null);
         setActiveTraining(null);
         setActiveJutsuTraining(null);
         setAcceptedMissionIds([]);
