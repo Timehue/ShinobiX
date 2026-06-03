@@ -25,7 +25,7 @@ async function handler(req, res) {
         return;
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
-        return res.status(500).json({ error: 'OPENAI_API_KEY is not configured in Vercel environment variables.' });
+        return res.status(500).json({ error: 'OPENAI_API_KEY is not configured in the server environment variables.' });
     }
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;

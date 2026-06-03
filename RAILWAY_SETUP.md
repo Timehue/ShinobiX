@@ -91,12 +91,19 @@ vars (see `.env.example` for why).
 
 ## Daily save-snapshot cron
 
-On Vercel this runs via `vercel.json` (`GET /api/cron/snapshot-saves`, 03:00).
-On Railway, add a **Cron** schedule (or a separate cron service) that calls the
-endpoint with the secret, e.g.:
+This now runs **in-process** on the always-on server (`startSnapshotCron`,
+`api/cron/_scheduler.ts`) at 03:00 UTC — no external scheduler needed. It was a
+Vercel cron before the migration; the always-on Railway/cPanel process schedules
+it itself. Set `DISABLE_SNAPSHOT_CRON=1` on any *secondary* instance so only the
+primary runs the nightly pass (a double run is a harmless no-op either way — the
+20h dedup window covers it).
+
+The HTTP endpoint `GET /api/cron/snapshot-saves` stays as an **optional manual
+trigger** (auth: `CRON_SECRET` bearer or full-admin password). You do not need to
+wire a Railway Cron to it, but you can force a run with:
 
 ```
-0 3 * * *   curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://<domain>/api/cron/snapshot-saves
+curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://<domain>/api/cron/snapshot-saves
 ```
 
 (Supabase keeps its own managed backups; this snapshot is an extra safety net.)

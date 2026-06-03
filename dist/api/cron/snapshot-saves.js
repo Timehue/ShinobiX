@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.runSnapshotSaves = runSnapshotSaves;
 exports.default = handler;
 const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
@@ -86,60 +87,109 @@ async function runBatches(items, worker, deadline) {
     }
     return { snapshotted, skipped, failed, processed: cursor, total: items.length };
 }
+/**
+ * Core snapshot pass — extracted from the HTTP handler so the always-on
+ * server's in-process scheduler (api/cron/_scheduler.ts) can run the exact same
+ * logic directly, with NO HTTP and NO auth (it's internal trusted code). The
+ * handler below is now a thin auth+response wrapper around this.
+ *
+ * `maxRuntimeMs` bounds one pass. The HTTP path keeps the original ~25s budget
+ * (so a manual admin trigger returns promptly); the nightly scheduler passes a
+ * larger budget so it snapshots everyone in one run instead of leaning on the
+ * next-day catch-up.
+ */
+async function runSnapshotSaves(maxRuntimeMs = MAX_RUNTIME_MS) {
+    const startedAt = Date.now();
+    const deadline = startedAt + maxRuntimeMs;
+    const saveKeys = await _storage_js_1.kv.keys(`${SAVE_PREFIX}*`);
+    // Alarm on an empty keyspace. The live saves live on the cPanel disk overlay
+    // reached via KV_PROXY_URL / KV_PROXY_TOKEN; if those env vars are missing,
+    // `kv.keys('save:*')` hits the (empty) base store and this would silently
+    // "succeed" while snapshotting ZERO players — exactly when you'd most want a
+    // backup. Surface it loudly instead of masquerading as healthy. No writes
+    // happen before this point, so the early return is side-effect free.
+    if (saveKeys.length === 0) {
+        console.error('[cron/snapshot-saves] ALARM: zero save:* rows found — KV overlay/proxy likely misconfigured (check KV_PROXY_URL / KV_PROXY_TOKEN). Snapshotted 0 players.');
+        return { ok: false, emptyKeyspace: true, writeOutage: false, snapshotted: 0, skipped: 0, failed: [], processed: 0, total: 0, elapsedMs: Date.now() - startedAt, truncated: false };
+    }
+    // Filter out admin saves — they don't represent player progress and bloat
+    // the snapshot table. Admin accounts (`save:Admin*`, `save:Rill`) store
+    // content authoring data which has its own backups.
+    const playerSaveKeys = saveKeys.filter(k => {
+        const name = k.slice(SAVE_PREFIX.length);
+        return !name.startsWith('Admin ') && name !== 'Rill';
+    });
+    const result = await runBatches(playerSaveKeys, async (saveKey) => {
+        const playerName = saveKey.slice(SAVE_PREFIX.length);
+        // Dedup against existing snapshots: if the player has a snapshot within
+        // the last SKIP_IF_RECENT_MS window, skip. This also makes a double run
+        // (e.g. Railway + cPanel both scheduling) a harmless no-op.
+        const existing = await _storage_js_1.kv.keys(`${SNAPSHOT_PREFIX}${playerName}:*`);
+        if (existing.length > 0) {
+            const newest = existing
+                .map(k => Number(k.slice(`${SNAPSHOT_PREFIX}${playerName}:`.length)))
+                .filter(n => Number.isFinite(n))
+                .reduce((a, b) => Math.max(a, b), 0);
+            if (newest > 0 && Date.now() - newest < SKIP_IF_RECENT_MS) {
+                return { ok: false, skip: true };
+            }
+        }
+        const live = await _storage_js_1.kv.get(saveKey);
+        if (!live)
+            return { ok: false, skip: true };
+        const ts = Date.now();
+        await _storage_js_1.kv.set(snapshotKey(playerName, ts), live, { ex: SNAPSHOT_TTL_SECONDS });
+        return { ok: true };
+    }, deadline);
+    const elapsed = Date.now() - startedAt;
+    const truncated = result.processed < result.total;
+    // Backup-health alarm: we had players to snapshot but wrote none and at
+    // least one failed — i.e. the snapshot store is rejecting writes. (All-
+    // skipped is normal: every player already has a recent snapshot, so we
+    // don't alarm on that.)
+    const writeOutage = result.snapshotted === 0 && result.failed.length > 0;
+    if (writeOutage) {
+        console.error(`[cron/snapshot-saves] ALARM: ${result.failed.length} snapshot writes failed and 0 succeeded — snapshot store may be down. Sample: ${result.failed.slice(0, 5).join(', ')}`);
+    }
+    return { ok: !writeOutage, emptyKeyspace: false, writeOutage, ...result, elapsedMs: elapsed, truncated };
+}
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res, req);
     if (req.method === 'OPTIONS')
         return res.status(200).end();
     if (req.method !== 'GET' && req.method !== 'POST')
         return res.status(405).end();
-    // Allow Vercel cron OR a FULL-admin password (so ops can trigger manually
-    // from the admin panel without exposing CRON_SECRET). Content admins
-    // (Admin 2) must not be able to drive system-wide snapshot runs — this is
-    // an operational endpoint, not a content one.
+    // Allow a cron header / CRON_SECRET (legacy Vercel path, harmless to keep)
+    // OR a FULL-admin password (so ops can trigger manually from the admin panel
+    // without exposing CRON_SECRET). Content admins (Admin 2) must not be able to
+    // drive system-wide snapshot runs — this is an operational endpoint.
     if (!isVercelCron(req) && !(0, _auth_js_1.isFullAdmin)(req)) {
         return res.status(401).json({ error: 'Cron secret or full admin password required.' });
     }
-    const startedAt = Date.now();
-    const deadline = startedAt + MAX_RUNTIME_MS;
     try {
-        const saveKeys = await _storage_js_1.kv.keys(`${SAVE_PREFIX}*`);
-        // Filter out admin saves — they don't represent player progress and
-        // bloat the snapshot table. Admin accounts (`save:Admin*`, `save:Rill`)
-        // store content authoring data which has its own backups.
-        const playerSaveKeys = saveKeys.filter(k => {
-            const name = k.slice(SAVE_PREFIX.length);
-            return !name.startsWith('Admin ') && name !== 'Rill';
-        });
-        const result = await runBatches(playerSaveKeys, async (saveKey) => {
-            const playerName = saveKey.slice(SAVE_PREFIX.length);
-            // Dedup against existing snapshots: if the player has a snapshot
-            // within the last SKIP_IF_RECENT_MS window, skip.
-            const existing = await _storage_js_1.kv.keys(`${SNAPSHOT_PREFIX}${playerName}:*`);
-            if (existing.length > 0) {
-                const newest = existing
-                    .map(k => Number(k.slice(`${SNAPSHOT_PREFIX}${playerName}:`.length)))
-                    .filter(n => Number.isFinite(n))
-                    .reduce((a, b) => Math.max(a, b), 0);
-                if (newest > 0 && Date.now() - newest < SKIP_IF_RECENT_MS) {
-                    return { ok: false, skip: true };
-                }
-            }
-            const live = await _storage_js_1.kv.get(saveKey);
-            if (!live)
-                return { ok: false, skip: true };
-            const ts = Date.now();
-            await _storage_js_1.kv.set(snapshotKey(playerName, ts), live, { ex: SNAPSHOT_TTL_SECONDS });
-            return { ok: true };
-        }, deadline);
-        const elapsed = Date.now() - startedAt;
-        const truncated = result.processed < result.total;
-        return res.status(200).json({
-            ok: true,
-            ...result,
-            elapsedMs: elapsed,
-            truncated,
-            note: truncated
-                ? 'Hit runtime deadline before processing all players. The next cron firing will pick up the rest (dedup window prevents double-snapshots).'
+        const r = await runSnapshotSaves();
+        if (r.emptyKeyspace) {
+            return res.status(500).json({
+                ok: false,
+                error: 'No save rows found — refusing to report a healthy backup. Check KV_PROXY_URL / KV_PROXY_TOKEN on this deployment.',
+                snapshotted: 0,
+                total: 0,
+            });
+        }
+        return res.status(r.writeOutage ? 500 : 200).json({
+            ok: r.ok,
+            snapshotted: r.snapshotted,
+            skipped: r.skipped,
+            failed: r.failed,
+            processed: r.processed,
+            total: r.total,
+            elapsedMs: r.elapsedMs,
+            truncated: r.truncated,
+            warning: r.writeOutage
+                ? 'Every snapshot write failed — the snapshot store may be unavailable. No player was backed up this run.'
+                : undefined,
+            note: r.truncated
+                ? 'Hit runtime deadline before processing all players. The next firing will pick up the rest (dedup window prevents double-snapshots).'
                 : undefined,
         });
     }

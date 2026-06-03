@@ -6,6 +6,7 @@ const _utils_js_1 = require("./_utils.js");
 const _auth_js_1 = require("./_auth.js");
 const _ratelimit_js_1 = require("./_ratelimit.js");
 const _lock_js_1 = require("./_lock.js");
+const _territory_supply_js_1 = require("./_territory-supply.js");
 const TERRITORY_CONTROL_MAX = 20000;
 const TERRITORY_HP_MAX = 20000;
 const VILLAGE_WAR_HP_MAX = 5000;
@@ -18,6 +19,15 @@ const VILLAGE_WAR_KEY_PREFIX = 'world:war:';
 const TERRITORY_HP_MAX_DELTA_PER_REQUEST = 1000;
 // Same idea for raising HP via rebuild — bound the per-request gain.
 const TERRITORY_HP_MAX_REPAIR_PER_REQUEST = 1000;
+// Anti-cheat: hard ceiling on a single sector's stored War Supply. War Supply
+// accrues at 100/day and is the one territory field a claiming clan/village
+// writer can set freely (HP + ownership are clamped separately). Without a cap
+// a client could POST an arbitrarily large warSupply and then bank it into the
+// clan treasury via /api/clan/territory/collect-supply, which trusts the stored
+// value as its accrual base. 36,500 == one full year (365 × 100) of
+// uninterrupted accrual on one sector — far above any realistic uncollected
+// balance, so legitimate play is never clamped.
+const TERRITORY_WAR_SUPPLY_MAX = 36_500;
 // Village War damage per write — typical legit raid is 5–50 (role × 1).
 // 100 leaves plenty of headroom for elite raiders + the +750 capture
 // bonus, which is applied as a SECOND write rather than one fat one.
@@ -118,7 +128,7 @@ function normalizeSectorTerritory(data) {
         controlScore: clampNumber(Math.floor(Number(data.controlScore ?? 0)), 0, TERRITORY_CONTROL_MAX),
         hp: clampNumber(Math.floor(Number(data.hp ?? TERRITORY_HP_MAX)), 0, TERRITORY_HP_MAX),
         guards: Array.isArray(data.guards) ? data.guards.filter(Boolean).map(String).slice(0, 20) : [],
-        warSupply: Math.max(0, Math.floor(Number(data.warSupply ?? 0))),
+        warSupply: Math.min(TERRITORY_WAR_SUPPLY_MAX, Math.max(0, Math.floor(Number(data.warSupply ?? 0)))),
         terrainBuffStat: normalizeTerrainBuffStat(data.terrainBuffStat),
         updatedAt: data.updatedAt ?? Date.now(),
     };
@@ -454,6 +464,23 @@ async function handler(req, res) {
                             if (ownershipFlipping && !prevHpZero && (prevOwnerVillage || prevOwnerClan)) {
                                 return res.status(400).json({ error: 'Owner can only change after the sector reaches 0 HP.' });
                             }
+                        }
+                        // ── Server-authoritative War Supply (anti-mint, audit H4) ──
+                        // collectTerritorySupply banks a sector's stored warSupply
+                        // straight into the clan treasury, so warSupply must never
+                        // come from the client. The raider / owner-rebuild branches
+                        // above already carried prev via Object.assign; this owns
+                        // warSupply + lastSupplyAt for the claiming path (and the
+                        // prev === null first-write case): same owner → carry prev
+                        // (accrual is recomputed lazily from lastSupplyAt at collect
+                        // time, so nothing is lost); fresh claim / ownership flip →
+                        // reset to 0 and re-anchor to now. The absolute cap in
+                        // normalizeSectorTerritory remains a backstop for the
+                        // admin-exempt path.
+                        if (matchesClan || matchesVillage) {
+                            const owned = (0, _territory_supply_js_1.resolveClaimedWarSupply)(prev, incomingTerritory, Date.now());
+                            incomingTerritory.warSupply = owned.warSupply;
+                            incomingTerritory.lastSupplyAt = owned.lastSupplyAt;
                         }
                     }
                     catch {

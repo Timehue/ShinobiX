@@ -101,19 +101,44 @@ async function handler(req, res) {
                     return;
                 total += collected;
                 await _storage_js_1.kv.set(key, { ...fresh, warSupply: 0, lastSupplyAt: nextLastSupplyAt, updatedAt: now });
-            }, { failClosed: true });
+            }, { failClosed: true, maxAttempts: 10, baseBackoffMs: 30 });
         }
         // ── Phase 2 (credit): add the collected total to the clan treasury under
         // the clan-save lock. Re-read so we don't clobber a concurrent clan write.
         let treasury;
         if (total > 0) {
-            treasury = await (0, _lock_js_1.withKvLock)(clanSaveKey, async () => {
-                const fresh = (await _storage_js_1.kv.get(clanSaveKey)) ?? clanRec;
-                const prevTreasury = (fresh.treasury ?? {});
-                const nextTreasury = { ...prevTreasury, warSupply: Math.max(0, Number(prevTreasury.warSupply ?? 0)) + total };
-                await _storage_js_1.kv.set(clanSaveKey, { ...fresh, treasury: nextTreasury });
-                return nextTreasury;
-            }, { failClosed: true });
+            try {
+                treasury = await (0, _lock_js_1.withKvLock)(clanSaveKey, async () => {
+                    const fresh = (await _storage_js_1.kv.get(clanSaveKey)) ?? clanRec;
+                    const prevTreasury = (fresh.treasury ?? {});
+                    const nextTreasury = { ...prevTreasury, warSupply: Math.max(0, Number(prevTreasury.warSupply ?? 0)) + total };
+                    await _storage_js_1.kv.set(clanSaveKey, { ...fresh, treasury: nextTreasury });
+                    return nextTreasury;
+                }, { failClosed: true, maxAttempts: 10, baseBackoffMs: 30 });
+            }
+            catch (creditErr) {
+                // Phase 1 already zeroed the sectors (debit). If the treasury
+                // credit can't land — sustained clan-save lock contention or a KV
+                // hiccup — `total` War Supply would otherwise silently vanish. We
+                // deliberately KEEP "lose, never duplicate" (do NOT re-credit the
+                // sectors — that could mint on a racing collect), but record the
+                // shortfall durably (90d) + loudly so an admin can reconcile, and
+                // tell the caller it failed instead of pretending it succeeded.
+                console.error(`[clan/territory/collect-supply] CREDIT FAILED after debit — ${total} War Supply unreconciled for clan "${clan}":`, creditErr);
+                await _storage_js_1.kv.set(`${AUDIT_LOG_PREFIX}LOSS:${targetSlug}:${now}`, {
+                    ts: now,
+                    actor: identity.admin ? 'admin' : identity.name,
+                    clan,
+                    unreconciled: total,
+                    sectors: owned.length,
+                    error: creditErr instanceof Error ? creditErr.message : String(creditErr),
+                }, { ex: 90 * 24 * 60 * 60 }).catch(() => undefined);
+                return res.status(503).json({
+                    ok: false,
+                    error: 'Supply was collected from your sectors but the treasury credit could not be saved. An admin can reconcile it — please do not retry.',
+                    unreconciled: total,
+                });
+            }
             await _storage_js_1.kv.set(`${AUDIT_LOG_PREFIX}${targetSlug}:${now}`, {
                 ts: now,
                 actor: identity.admin ? 'admin' : identity.name,

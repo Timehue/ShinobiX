@@ -7,63 +7,13 @@ const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const _player_ips_js_1 = require("../_player-ips.js");
 const moderation_js_1 = require("../admin/moderation.js");
-// Individual TTL keys (presence:<name>) with 60s expiry.
-// Postgres expires them automatically — no JSONB hash merges, no CPU spike.
-// Reads use kv.keys('presence:*') + kv.mget() = 2 indexed queries.
-const PRESENCE_KEY_PREFIX = 'presence:';
-const PRESENCE_TTL_S = 60;
-let _presenceListCache = null;
-const PRESENCE_LIST_CACHE_TTL_MS = 5_000;
-// Max time the client can claim to be traveling (10 min). Caps an exploited
-// travelingUntil that would make a player permanently unreachable.
-const MAX_TRAVEL_WINDOW_MS = 10 * 60_000;
-function normalizeSector(value, fallback = 40) {
-    const sector = Number(value);
-    if (!Number.isFinite(sector))
-        return fallback;
-    return Math.max(0, Math.floor(sector));
-}
-// Server-side defense-in-depth: project the incoming character down to the
-// display fields the presence row is actually read for (by roster.ts, plus
-// `pets` for Pet Arena challenges) BEFORE storing it. The current client
-// already slims this (see presenceCharacter() in App.tsx), but an old or
-// hostile client could still POST the full multi-MB blob (avatar data URL,
-// inventory, jutsu, mission logs, …). Slimming here keeps the presence row —
-// and the roster `mget` that reads every row back — small regardless of what
-// the client sends. Gameplay/PvP paths never read this character (they read
-// sector/inBattle/travelingUntil/pendingAttacker, and combat hydrates from
-// save:<name>), so trimming it cannot affect battle or PvP behavior.
-const PRESENCE_CHAR_KEEP = new Set([
-    'name', 'level', 'village', 'specialty', 'rank', 'rankTitle', 'customTitle',
-    'profession', 'professionRank', 'professionXp', 'rankedRating', 'petRankedRating',
-    'clan', 'clanFounder', 'hp', 'maxHp',
-]);
-const PRESENCE_PET_KEEP = new Set([
-    'id', 'name', 'image', 'rarity', 'level', 'element', 'trait', 'species',
-    'hp', 'attack', 'defense', 'speed', 'jutsus', 'xp', 'unlockedForPve', 'expedition',
-]);
-function slimPresenceCharacter(input) {
-    if (!input || typeof input !== 'object')
-        return null;
-    const src = input;
-    const out = {};
-    for (const k of PRESENCE_CHAR_KEEP)
-        if (k in src)
-            out[k] = src[k];
-    if (Array.isArray(src.pets)) {
-        out.pets = src.pets.map((p) => {
-            if (!p || typeof p !== 'object')
-                return p;
-            const ps = p;
-            const pet = {};
-            for (const f of PRESENCE_PET_KEEP)
-                if (f in ps)
-                    pet[f] = ps[f];
-            return pet;
-        });
-    }
-    return out;
-}
+const online_store_js_1 = require("../_realtime/online-store.js");
+const presence_input_js_1 = require("../_realtime/presence-input.js");
+// Presence now lives in the in-memory online store (api/_realtime/online-store.ts)
+// instead of `presence:<name>` DB keys — no per-second DB read/write. The live
+// roster comes from onlineStore.list(); writes from onlineStore.upsert(). The
+// slim/cap/shape helpers live in ../_realtime/presence-input.ts so the WS
+// presence path (api/_realtime/socket.ts) uses byte-for-byte the same logic.
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res, req);
     if (req.method === 'OPTIONS')
@@ -112,99 +62,54 @@ async function handler(req, res) {
                 void (0, moderation_js_1.recordClientFingerprint)(identity.name, fp);
         }
         const challengeKey = `challenges:${name.toLowerCase().trim()}`;
-        const presenceKey = `${PRESENCE_KEY_PREFIX}${name}`;
         const resetSignalKey = `reset-signal:${name.toLowerCase().trim()}`;
-        // Read this player's own presence (for pendingAttacker), challenges, and reset signal in parallel.
-        const [existing, pendingChallenges, resetSignal] = await Promise.all([
-            _storage_js_1.kv.get(presenceKey),
+        // Presence (own record, for the sector fallback) comes from memory now.
+        // Challenges + reset-signal stay DB-backed (polled until the WS push layer).
+        const existing = online_store_js_1.onlineStore.get(name);
+        const [pendingChallenges, resetSignal] = await Promise.all([
             _storage_js_1.kv.get(challengeKey),
             _storage_js_1.kv.get(resetSignalKey),
         ]);
         if (resetSignal) {
             return res.status(200).json({ forceReload: true });
         }
-        const pendingAttacker = existing?.pendingAttacker ?? null;
-        const entrySector = normalizeSector(sector, normalizeSector(existing?.sector, 40));
+        const entrySector = (0, presence_input_js_1.normalizeSector)(sector, (0, presence_input_js_1.normalizeSector)(existing?.sector, 40));
         const now = Date.now();
         // Cap client-supplied travelingUntil so an exploit can't make a player
-        // permanently untouchable (e.g. client sends year 9999 epoch).
-        const safeTravelUntil = travelingUntil
-            ? Math.min(travelingUntil, now + MAX_TRAVEL_WINDOW_MS)
-            : undefined;
+        // permanently untouchable (capTravelingUntil returns undefined unless
+        // it's still in the future).
+        const safeTravelUntil = (0, presence_input_js_1.capTravelingUntil)(travelingUntil, now);
         // Slim the incoming character to display fields before storing (defense
         // in depth — see slimPresenceCharacter). Fall back to the already-slim
         // stored character if this beat sent none.
-        const slimChar = slimPresenceCharacter(character) ?? existing?.character ?? null;
-        const entry = {
+        const slimChar = (0, presence_input_js_1.slimPresenceCharacter)(character) ?? existing?.character ?? null;
+        // Presence write → PROCESS MEMORY (no per-second DB write). upsert
+        // preserves any pendingAttacker queued by attack.ts; we deliver it to this
+        // client and clear it (one-shot), matching the old behavior where the
+        // heartbeat read pendingAttacker then rewrote the row with null. Also
+        // stamp the request IP for anti-alt overlap checks (player-ip:{name}:{ip},
+        // 7-day TTL, idempotent).
+        const stored = online_store_js_1.onlineStore.upsert({
             name,
             sector: entrySector,
             character: slimChar,
-            lastSeen: now,
-            pendingAttacker: null,
-            // Persist travel window so attack.ts / challenge.ts can reject mid-travel requests.
-            travelingUntil: (safeTravelUntil && safeTravelUntil > now) ? safeTravelUntil : undefined,
-            // Persist battle flag so attack.ts can reject double-battle requests.
+            travelingUntil: safeTravelUntil,
             inBattle: inBattle === true ? true : undefined,
-        };
-        // Write only the individual TTL key — one cheap upsert, Postgres handles expiry.
-        // No JSONB hash merge means no O(N-players) CPU work per heartbeat.
-        // Also stamp the current request IP for anti-alt overlap checks
-        // (player-ip:{name}:{ip} keys with 7-day TTL, idempotent).
+        });
+        const pendingAttacker = stored.pendingAttacker ?? null;
+        online_store_js_1.onlineStore.clearPendingAttacker(name);
         await Promise.all([
-            _storage_js_1.kv.set(presenceKey, entry, { ex: PRESENCE_TTL_S }),
             pendingChallenges?.length ? _storage_js_1.kv.del(challengeKey) : Promise.resolve(),
             (0, _player_ips_js_1.stampPlayerIp)(req, name),
         ]);
-        // Build the full presence list using an in-process cache (refreshed every 5 s).
-        // Between refreshes, each call patches its own updated entry into the cached list —
-        // so the caller always sees fresh data for themselves without an O(N) KV round-trip
-        // on every single heartbeat (which would be O(N²) total across all players).
-        let allEntries;
-        const cacheAge = _presenceListCache ? now - _presenceListCache.at : Infinity;
-        if (cacheAge < PRESENCE_LIST_CACHE_TTL_MS) {
-            // Splice caller's freshly-written entry into the cached list.
-            allEntries = _presenceListCache.entries
-                .filter(e => e.name.toLowerCase() !== name.toLowerCase())
-                .concat([entry]);
-        }
-        else {
-            // Cache stale — do the full O(N) refresh from KV.
-            const presenceKeys = await _storage_js_1.kv.keys(`${PRESENCE_KEY_PREFIX}*`);
-            const otherKeys = presenceKeys.filter(k => k !== presenceKey);
-            const otherValues = otherKeys.length
-                ? await _storage_js_1.kv.mget(...otherKeys)
-                : [];
-            const otherEntries = otherValues.filter((v) => Boolean(v?.name));
-            allEntries = [...otherEntries, entry];
-            _presenceListCache = { entries: allEntries, at: now };
-        }
-        const toRecord = ({ name: n, sector: s, character: c, travelingUntil: tu, inBattle: ib }) => {
-            const ch = c;
-            return {
-                name: n, sector: s,
-                // Avatar image is intentionally NOT sent here. It used to ride along as a
-                // base64 data URL on every record — but presence responses include up to
-                // ~100 players and fire as often as once per second, so broadcasting the
-                // blob was by far the largest egress cost (it dwarfed everything else).
-                // The client resolves avatars from its name-keyed cache
-                // (sharedImages['avatar:<name>'], hydrated from /api/images?cat=avatar) and
-                // every avatar render site already falls back to that cache first, so
-                // dropping it here is visually transparent. Full stats/jutsu/inventory are
-                // still fetched fresh via fetchPlayerCombatSave() at attack/challenge time.
-                character: { avatarImage: '' },
-                level: ch?.level ?? 1,
-                village: ch?.village ?? '',
-                specialty: ch?.specialty ?? 'Ninjutsu',
-                currentSector: s,
-                lastSeenAt: Date.now(),
-                travelingUntil: tu ?? 0,
-                inBattle: ib ?? false,
-            };
-        };
+        // The in-memory store IS the live roster — no DB scan, no cache layer.
+        // toPlayerRecord (shared with the WS path) shapes each entry; avatar
+        // image is omitted (client resolves it from its name-keyed cache).
+        const allEntries = online_store_js_1.onlineStore.list();
         const sectorMates = allEntries
-            .filter(p => normalizeSector(p.sector) === entry.sector)
-            .map(toRecord);
-        const allPlayers = allEntries.map(toRecord);
+            .filter(p => (0, presence_input_js_1.normalizeSector)(p.sector) === entrySector)
+            .map(presence_input_js_1.toPlayerRecord);
+        const allPlayers = allEntries.map(presence_input_js_1.toPlayerRecord);
         return res.status(200).json({
             sectorMates,
             allPlayers,

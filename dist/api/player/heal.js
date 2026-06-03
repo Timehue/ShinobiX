@@ -5,6 +5,7 @@ const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _lock_js_1 = require("../_lock.js");
+const online_store_js_1 = require("../_realtime/online-store.js");
 const _progress_js_1 = require("../missions/_progress.js");
 // Per-target cooldown is now rank-scaled via healerPerTargetCooldownMs(rank).
 // Baseline (rank 1) is 5 min; rank 10 is 1.5 min. See api/missions/_progress.ts.
@@ -206,8 +207,7 @@ async function handler(req, res) {
         // to be hospitalized); Rank 1-9 heals are blocked earlier by the
         // hospitalized check (KO'd players aren't in a live battle).
         if (!identity.admin) {
-            const presence = await _storage_js_1.kv.get(`presence:${targetName}`);
-            if (presence?.inBattle) {
+            if (online_store_js_1.onlineStore.get(targetName)?.inBattle) {
                 return res.status(409).json({ error: 'Target is in an active battle.' });
             }
         }
