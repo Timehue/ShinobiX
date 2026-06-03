@@ -202,13 +202,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             );
             if (!placed) {
                 // Reservation lost — read the existing entry to compute the
-                // retry-after hint. Read-after-fail is purely informational;
-                // the gate is still safe because NX already rejected us.
+                // retry-after hint. If the key has already vanished (TTL
+                // expired between NX-fail and this read), we must NOT return
+                // retryAfterMs=0 because the client treats 0 as "ready" and
+                // retries immediately, defeating the cooldown. Floor the
+                // hint at half the cooldown so the client always waits.
                 const existing = await kv.get<{ at: number; by: string }>(cooldownKey);
                 const elapsed = existing?.at ? Date.now() - existing.at : 0;
+                const computed = effectiveCooldownMs - elapsed;
+                const retryAfterMs = existing
+                    ? Math.max(250, computed)
+                    : Math.max(250, Math.floor(effectiveCooldownMs / 2));
                 return res.status(429).json({
                     error: 'Target was healed recently. Try again later.',
-                    retryAfterMs: Math.max(0, effectiveCooldownMs - elapsed),
+                    retryAfterMs,
                 });
             }
         }

@@ -37,16 +37,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!identity) return res.status(401).json({ error: 'Authentication required.' });
 
     try {
-        // Fetch image maps and save keys in parallel — 3 queries total.
-        const [saveKeys, bloodlineBlobImages, bloodlineHashImages] = await Promise.all([
+        // Skip the legacy per-cat blob (bloodlineImageBlobKey). All current
+        // bloodline images live in the new hash key. The blob is reserved
+        // for one final read+delete in a future migration step. Reading it
+        // on every list call cost a multi-KB transfer per request that
+        // never contributed entries the hash didn't already have.
+        const [saveKeys, bloodlineHashImages] = await Promise.all([
             kv.keys('save:*'),
-            kv.get<Record<string, string>>(bloodlineImageBlobKey),
             kv.hgetall<Record<string, string>>(bloodlineImageHashKey),
         ]);
-        const sharedBloodlineImages = {
-            ...(bloodlineBlobImages ?? {}),
-            ...(bloodlineHashImages ?? {}),
-        };
+        const sharedBloodlineImages = bloodlineHashImages ?? {};
+        void bloodlineImageBlobKey; // legacy key reference retained for documentation
 
         // Batch-fetch all saves in a single mget instead of N individual get()
         // calls. This keeps connection-pool usage to 1 query regardless of how

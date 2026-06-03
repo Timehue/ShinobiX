@@ -8,10 +8,12 @@ const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
 const _ranked_rating_js_1 = require("../_ranked-rating.js");
 const _xp_engine_js_1 = require("../_xp-engine.js");
-// Session-replay window — must roughly match SESSION_REPLAY_WINDOW_MS in
-// report-pvp-win.ts. A battleId older than this can't be claimed even if
-// somebody dredges it out of browser history.
-const SESSION_REPLAY_WINDOW_MS = 24 * 60 * 60 * 1000;
+// Session-replay window — tightened from 24h to 2h. Sessions themselves
+// have a 15-min KV TTL (see pvp/session.ts), so a 24h claim window outlived
+// the evidence by 23+ hours. 2 hours gives players with bad connections,
+// background-tab freezes, and mobile-app-switch delays plenty of headroom
+// while closing most of the reward-shifting gap.
+const SESSION_REPLAY_WINDOW_MS = 2 * 60 * 60 * 1000;
 // One-shot idempotency gate for the CLIENT-side PvP reward payout.
 //
 // Server-side Vanguard rewards are already idempotent inside

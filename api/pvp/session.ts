@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { randomUUID } from 'crypto';
+import { randomUUID, randomBytes } from 'crypto';
 import { kv } from '../_storage.js';
 import { cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
@@ -598,7 +598,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // advantage and previously the attacker (always p1) won by default.
             // Now both sides have an equal shot at the opening move; the
             // prefight overlay's "X goes first!" reveal matches the server roll.
-            const firstActor: 'p1' | 'p2' = Math.random() < 0.5 ? 'p1' : 'p2';
+            // Use crypto.randomBytes for the coin flip — Math.random() is
+            // V8-seeded and at session-creation rates could in principle be
+            // biased/predicted via timing correlation.
+            const firstActor: 'p1' | 'p2' = (randomBytes(1)[0] & 1) === 0 ? 'p1' : 'p2';
             const firstActorName = firstActor === 'p1' ? p1Name : p2Name;
 
             // ── Ranked snapshot (audit #7 / Stage 3) ─────────────────────────

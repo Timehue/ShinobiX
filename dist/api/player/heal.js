@@ -191,13 +191,20 @@ async function handler(req, res) {
             const placed = await _storage_js_1.kv.set(cooldownKey, { at: Date.now(), by: actorName }, { nx: true, ex: Math.max(1, Math.ceil(effectiveCooldownMs / 1000)) });
             if (!placed) {
                 // Reservation lost — read the existing entry to compute the
-                // retry-after hint. Read-after-fail is purely informational;
-                // the gate is still safe because NX already rejected us.
+                // retry-after hint. If the key has already vanished (TTL
+                // expired between NX-fail and this read), we must NOT return
+                // retryAfterMs=0 because the client treats 0 as "ready" and
+                // retries immediately, defeating the cooldown. Floor the
+                // hint at half the cooldown so the client always waits.
                 const existing = await _storage_js_1.kv.get(cooldownKey);
                 const elapsed = existing?.at ? Date.now() - existing.at : 0;
+                const computed = effectiveCooldownMs - elapsed;
+                const retryAfterMs = existing
+                    ? Math.max(250, computed)
+                    : Math.max(250, Math.floor(effectiveCooldownMs / 2));
                 return res.status(429).json({
                     error: 'Target was healed recently. Try again later.',
-                    retryAfterMs: Math.max(0, effectiveCooldownMs - elapsed),
+                    retryAfterMs,
                 });
             }
         }
