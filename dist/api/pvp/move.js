@@ -7,6 +7,7 @@ const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const session_js_1 = require("./session.js");
 const _vanguard_rewards_js_1 = require("./_vanguard-rewards.js");
+const online_store_js_1 = require("../_realtime/online-store.js");
 // All session writes flow through here so the combat log gets capped
 // + the idempotency token ring buffer is appended before it hits KV.
 // Without log trim the payload bloats unbounded across a long fight;
@@ -135,7 +136,14 @@ function barrierTiles(...fighters) {
 function tileBlocked(tile, ...fighters) {
     return barrierTiles(...fighters).includes(tile);
 }
+// Utility jutsu = no damage (status/buff/debuff only). Prefers the explicit
+// `isUtility` flag; falls back to the legacy 40-AP convention when absent so
+// existing content is unchanged (40-AP jutsu still deal zero damage).
 function isZeroDamageFortyApJutsu(jutsu) {
+    if (jutsu.isUtility === true)
+        return true;
+    if (jutsu.isUtility === false)
+        return false;
     return jutsu.ap === 40 && jutsu.id !== 'basic-attack' && !jutsu.id.startsWith('item-');
 }
 function normalizeTagName(name) {
@@ -699,6 +707,19 @@ function applyJutsu(self, opponent, jutsu, wMult = 1, biome = 'central', round =
         // Armor, DDT, and DDG all feed the same pool — more always helps, but with diminishing returns.
         damage = Math.max(0, Math.floor(damage * (1 - effectiveDR) * ampMult));
     }
+    // ── Post-damage consequence pipeline (resolution order is load-bearing) ──
+    // Every consequence below reads the FINAL post-mitigation damage (finalDmg),
+    // so the order is fixed and documented here to keep it auditable / drift-free:
+    //   1. shield block         → finalDmg = damage − blocked
+    //   2. reflect (status)      % of finalDmg back to the attacker
+    //   3. absorb (status)       % of finalDmg healed to the defender
+    //   4. item absorb / reflect / lifesteal (named-armor passives)
+    //   5. wound                 bleed seeded from finalDmg (rank-capped)
+    //   6. recoil (status)       attacker self-damage from their own hit
+    //   7. lifesteal (status)    attacker heal from finalDmg
+    //   8. siphon                attacker heal from finalDmg
+    // All post-damage effects are capped at 60% of finalDmg via cappedPostDamage().
+    // Pierce skips shield/reflect/absorb (true damage). Reordering changes outcomes.
     if (damage > 0) {
         const blocked = pierce ? 0 : Math.min(o.shield, damage);
         const finalDmg = Math.max(0, damage - blocked);
@@ -1458,22 +1479,13 @@ async function handler(req, res) {
         // entry blocks third parties from attacking them. Best-effort —
         // failures don't undo the battle resolution.
         if (result.status === 'done') {
-            const p1Key = `presence:${result.p1.name}`;
-            const p2Key = `presence:${result.p2.name}`;
-            try {
-                const [p1Presence, p2Presence] = await Promise.all([
-                    _storage_js_1.kv.get(p1Key),
-                    _storage_js_1.kv.get(p2Key),
-                ]);
-                const PRESENCE_TTL_S = 60;
-                await Promise.all([
-                    p1Presence ? _storage_js_1.kv.set(p1Key, { ...p1Presence, inBattle: undefined, pendingAttacker: null }, { ex: PRESENCE_TTL_S }) : Promise.resolve(),
-                    p2Presence ? _storage_js_1.kv.set(p2Key, { ...p2Presence, inBattle: undefined, pendingAttacker: null }, { ex: PRESENCE_TTL_S }) : Promise.resolve(),
-                ]);
-            }
-            catch (err) {
-                console.error('[pvp/move] presence cleanup failed', err);
-            }
+            // Clear both fighters' inBattle + pendingAttacker in the in-memory
+            // store so third parties can attack them again right after the fight
+            // resolves. No-ops if either has since gone offline.
+            online_store_js_1.onlineStore.setInBattle(result.p1.name, false);
+            online_store_js_1.onlineStore.clearPendingAttacker(result.p1.name);
+            online_store_js_1.onlineStore.setInBattle(result.p2.name, false);
+            online_store_js_1.onlineStore.clearPendingAttacker(result.p2.name);
         }
         // Cap log size — UI only renders the last ~20 entries anyway, and an
         // Final commit also threads the moveToken into the recent-tokens

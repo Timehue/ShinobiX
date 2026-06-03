@@ -12,6 +12,7 @@ const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
 const _lock_js_1 = require("../_lock.js");
+const online_store_js_1 = require("../_realtime/online-store.js");
 const BAN_KEY_PREFIX = 'mod:ban:';
 const SILENCE_KEY_PREFIX = 'mod:silence:';
 const IP_KEY_PREFIX = 'mod:ip:';
@@ -255,7 +256,7 @@ async function handler(req, res) {
             await _storage_js_1.kv.set(banKey(targetName), rec);
             // Also clear active presence + any auth header session won't help, so
             // the player will be kicked on next auth check.
-            await _storage_js_1.kv.del(`presence:${targetName}`).catch(() => 0);
+            online_store_js_1.onlineStore.remove(targetName);
             await appendAudit({
                 ts: Date.now(),
                 actor: actorName,
@@ -317,7 +318,7 @@ async function handler(req, res) {
             // stays logged in but is dropped from active state.
             if (!targetName)
                 return res.status(400).json({ error: 'Missing target.' });
-            await _storage_js_1.kv.del(`presence:${targetName}`).catch(() => 0);
+            online_store_js_1.onlineStore.remove(targetName);
             await _storage_js_1.kv.set(`reset-signal:${targetName}`, { reason: 'admin-kick', at: Date.now() }, { ex: 60 }).catch(() => null);
             await appendAudit({
                 ts: Date.now(),
@@ -383,7 +384,7 @@ async function handler(req, res) {
                 _storage_js_1.kv.get(`save:${targetName}`),
                 _storage_js_1.kv.get(banKey(targetName)),
                 _storage_js_1.kv.get(silenceKey(targetName)),
-                _storage_js_1.kv.get(`presence:${targetName}`),
+                Promise.resolve(online_store_js_1.onlineStore.get(targetName)),
             ]);
             if (!save)
                 return res.status(200).json({ target: targetName, exists: false });
@@ -404,7 +405,7 @@ async function handler(req, res) {
                     totalAiKills: Number(ch.totalAiKills ?? 0),
                     hospitalized: Boolean(ch.hospitalized),
                     createdAt: created,
-                    lastSeenAt: presence ? Number(presence.lastSeen ?? 0) : 0,
+                    lastSeenAt: presence ? Number(presence.lastSeenAt ?? 0) : 0,
                     currentSector: presence ? Number(presence.sector ?? 0) : 0,
                     online: !!presence,
                 },

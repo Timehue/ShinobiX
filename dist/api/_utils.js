@@ -1,6 +1,7 @@
 "use strict";
 // Shared utilities for Vercel API functions
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.ALLOWED_ORIGINS = void 0;
 exports.safeName = safeName;
 exports.mergePreservingImages = mergePreservingImages;
 exports.cors = cors;
@@ -65,15 +66,20 @@ function mergePreservingImages(incoming, existing) {
 // Origins we trust to call our API. Anything not on this list won't get
 // browser-side CORS approval — protects authenticated calls from XSRF via
 // random sites.
-const ALLOWED_ORIGINS = new Set([
+//
+// SINGLE SOURCE OF TRUTH for the CORS origin allowlist: server.ts (the Express
+// global CORS middleware) and api/_realtime/socket.ts (Socket.IO cors) both
+// import this exact array, so the three surfaces can no longer drift apart
+// (CLAUDE.md: keep CORS in api/_utils.ts and server.ts synchronized).
+exports.ALLOWED_ORIGINS = [
     'https://theravensark.com',
     'https://www.theravensark.com',
-    'https://test-five-delta-37.vercel.app',
     // Local dev — Vite default ports
     'http://localhost:5173',
     'http://localhost:3000',
     'http://127.0.0.1:5173',
-]);
+];
+const ALLOWED_ORIGIN_SET = new Set(exports.ALLOWED_ORIGINS);
 // Methods that browsers consider "safe" — these can't mutate state, so even
 // a CSRF-style attack from a third-party page can't do damage. For these we
 // allow the open '*' fallback when no Origin header is present.
@@ -82,7 +88,7 @@ function cors(res, req) {
     const originHeader = req?.headers?.origin;
     const origin = Array.isArray(originHeader) ? originHeader[0] : originHeader;
     const method = (req?.method ?? 'GET').toUpperCase();
-    if (origin && ALLOWED_ORIGINS.has(origin)) {
+    if (origin && ALLOWED_ORIGIN_SET.has(origin)) {
         res.setHeader('Access-Control-Allow-Origin', origin);
         res.setHeader('Vary', 'Origin');
     }

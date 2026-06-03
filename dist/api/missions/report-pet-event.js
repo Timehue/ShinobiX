@@ -84,10 +84,13 @@ async function handler(req, res) {
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
         const playerName = (0, _utils_js_1.safeName)(String(body.playerName ?? ''));
-        const event = String(body.event ?? '');
-        const durationMinutes = Math.max(0, Math.min(MAX_EXPEDITION_MINUTES, Math.floor(Number(body.durationMinutes ?? 0))));
-        const expType = (body.expType && VALID_EXPEDITION_TYPES.includes(body.expType) ? body.expType : null);
-        const petLevel = Math.max(1, Math.min(100, Math.floor(Number(body.petLevel ?? 1))));
+        // event/duration/expType/petLevel are re-derived from the sealed
+        // expedition token below for expedition events (audit M1), so they're
+        // `let`. They stay client-supplied only for the non-currency pet-train.
+        let event = String(body.event ?? '');
+        let durationMinutes = Math.max(0, Math.min(MAX_EXPEDITION_MINUTES, Math.floor(Number(body.durationMinutes ?? 0))));
+        let expType = (body.expType && VALID_EXPEDITION_TYPES.includes(body.expType) ? body.expType : null);
+        let petLevel = Math.max(1, Math.min(100, Math.floor(Number(body.petLevel ?? 1))));
         if (!playerName)
             return res.status(400).json({ error: 'Invalid player name.' });
         if (!VALID_EVENTS.includes(event))
@@ -105,6 +108,42 @@ async function handler(req, res) {
         const preChar = preCheck?.character;
         if (preChar?.profession !== 'petTamer') {
             return res.status(200).json({ ok: true, petTamer: false });
+        }
+        // ── Expedition token: REQUIRED, single-use, time-gated (audit M1) ──
+        // Expedition rewards (Ryo + premium drops + Tamer XP) are gated on a
+        // token minted by /api/missions/expedition-start at launch. The token
+        // seals expType/duration/petLevel so they can't be tampered with at
+        // redeem, and an endsAt the redeem must be past so rewards require the
+        // expedition to have actually run for its full duration. No fallback: an
+        // expedition event without a valid, matured token earns nothing (returns
+        // 200 + a reason so the client mirrors the zero-reward result cleanly).
+        const NO_REWARD = { expeditionXp: 0, ryoEarned: 0, foundBone: 0, foundAura: 0, foundFate: 0, missionsCompleted: [] };
+        if (event === 'expedition' || event === 'long-expedition') {
+            const tokRaw = typeof body.expeditionToken === 'string' && body.expeditionToken.trim() ? body.expeditionToken.trim() : undefined;
+            const tok = tokRaw && /^[A-Za-z0-9]+$/.test(tokRaw) ? tokRaw : undefined;
+            if (!tok) {
+                return res.status(200).json({ ok: true, petTamer: true, reason: 'missing-expedition-token', ...NO_REWARD });
+            }
+            const tokenKey = `pet-exp-token:${playerName}:${tok}`;
+            const tokenData = await _storage_js_1.kv.get(tokenKey);
+            if (!tokenData || (tokenData.playerName ?? '').toLowerCase() !== playerName.toLowerCase()) {
+                return res.status(200).json({ ok: true, petTamer: true, reason: 'invalid-or-spent-expedition-token', ...NO_REWARD });
+            }
+            // Must have actually elapsed (60s grace for clock/latency skew).
+            if (Date.now() < Number(tokenData.endsAt ?? 0) - 60_000) {
+                return res.status(200).json({ ok: true, petTamer: true, reason: 'expedition-not-complete', ...NO_REWARD });
+            }
+            // Atomic single-use consume — delete BEFORE granting so a retry or a
+            // racing duplicate report can't double-claim.
+            await _storage_js_1.kv.del(tokenKey).catch(() => undefined);
+            // Drive all reward math from the SEALED token values, not the client
+            // body — including the expedition/long-expedition split (long fires
+            // extra mission progress) which is re-derived from the sealed duration.
+            if (tokenData.expType && VALID_EXPEDITION_TYPES.includes(tokenData.expType))
+                expType = tokenData.expType;
+            durationMinutes = Math.max(0, Math.min(MAX_EXPEDITION_MINUTES, Math.floor(Number(tokenData.durationMinutes ?? durationMinutes))));
+            petLevel = Math.max(1, Math.min(100, Math.floor(Number(tokenData.petLevel ?? petLevel))));
+            event = durationMinutes >= 240 ? 'long-expedition' : 'expedition';
         }
         // For expedition events, server computes Tamer XP AND the Ryo + drop
         // currencies (previously client-trusted). Pet stat/XP gains stay

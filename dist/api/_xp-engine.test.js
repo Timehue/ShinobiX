@@ -9,7 +9,7 @@ const _xp_engine_js_1 = require("./_xp-engine.js");
 // copy from api/_xp-engine.ts so a transcription drift on either side fails the
 // sweep below. If the client formula changes, BOTH this replica and the port
 // must change in lockstep — that's the point (the "server == client" rule).
-const C_MAX_LEVEL = 100, C_MAX_STAT = 2500, C_STARTING = 20, C_MULT = 45;
+const C_MAX_LEVEL = 100, C_MAX_STAT = 2500, C_STARTING = 20, C_MULT = 3;
 const C_HP_CAP = 10000, C_CHAKRA_CAP = 5000, C_STAMINA_CAP = 5000;
 const C_KEYS = [
     'strength', 'speed', 'intelligence', 'willpower',
@@ -98,14 +98,14 @@ function cGainXp(character, amount) {
             node_assert_1.strict.equal((0, _xp_engine_js_1.rankFromLevel)(lvl), cRankFrom(lvl), `rankFromLevel(${lvl})`);
         }
     });
-    (0, node_test_1.it)('effectiveCharacterXpGain applies the ×45 testing mult + elder bonus', () => {
-        node_assert_1.strict.equal(_xp_engine_js_1.CHARACTER_XP_GAIN_MULTIPLIER, 45);
+    (0, node_test_1.it)('effectiveCharacterXpGain applies the ×3 boost mult + elder bonus', () => {
+        node_assert_1.strict.equal(_xp_engine_js_1.CHARACTER_XP_GAIN_MULTIPLIER, 3);
         for (const amt of [0, 1, 75, 100, 125, 250]) {
             node_assert_1.strict.equal((0, _xp_engine_js_1.effectiveCharacterXpGain)({}, amt), cEffXp({}, amt), `plain ${amt}`);
             node_assert_1.strict.equal((0, _xp_engine_js_1.effectiveCharacterXpGain)({ elderFocus: 'training' }, amt), cEffXp({ elderFocus: 'training' }, amt), `training ${amt}`);
         }
-        node_assert_1.strict.equal((0, _xp_engine_js_1.effectiveCharacterXpGain)({}, 100), 4500);
-        node_assert_1.strict.equal((0, _xp_engine_js_1.effectiveCharacterXpGain)({ elderFocus: 'training' }, 100), 4950);
+        node_assert_1.strict.equal((0, _xp_engine_js_1.effectiveCharacterXpGain)({}, 100), 300);
+        node_assert_1.strict.equal((0, _xp_engine_js_1.effectiveCharacterXpGain)({ elderFocus: 'training' }, 100), 330);
     });
 });
 // ─── gainXp full-object sweep vs the inline client replica ───────────────────
@@ -151,26 +151,26 @@ function cGainXp(character, amount) {
         node_assert_1.strict.equal(out.xp, 0);
         node_assert_1.strict.equal(out.unspentStats, 20);
     });
-    (0, node_test_1.it)('level 1 + 100 base XP (×45 = 4500) climbs to level 10, xp 0', () => {
+    (0, node_test_1.it)('level 1 + 100 base XP (×3 = 300) climbs to level 3, xp 0', () => {
         const out = (0, _xp_engine_js_1.gainXp)({ level: 1, xp: 0, examsPassed: ['genin', 'chunin'], stats: {} }, 100);
-        node_assert_1.strict.equal(out.level, 10);
+        node_assert_1.strict.equal(out.level, 3);
         node_assert_1.strict.equal(out.xp, 0);
-        node_assert_1.strict.equal(out.maxHp, 1000);
-        node_assert_1.strict.equal(out.hp, 1000);
-        node_assert_1.strict.equal(out.maxChakra, 545);
-        node_assert_1.strict.equal(out.maxStamina, 545);
+        node_assert_1.strict.equal(out.maxHp, 300);
+        node_assert_1.strict.equal(out.hp, 300);
+        node_assert_1.strict.equal(out.maxChakra, 198);
+        node_assert_1.strict.equal(out.maxStamina, 198);
         node_assert_1.strict.equal(out.rankTitle, 'Academy Student');
-        node_assert_1.strict.equal(out.unspentStats, 291);
+        node_assert_1.strict.equal(out.unspentStats, 38);
     });
     (0, node_test_1.it)('exam gate clamps level + XP (no genin exam → cap 20)', () => {
-        const out = (0, _xp_engine_js_1.gainXp)({ level: 19, xp: 0, examsPassed: [], stats: {} }, 100);
+        const out = (0, _xp_engine_js_1.gainXp)({ level: 19, xp: 0, examsPassed: [], stats: {} }, 2000);
         node_assert_1.strict.equal(out.level, 20);
         node_assert_1.strict.equal(out.xp, 1999); // clamped to xpNeeded(20)-1
         node_assert_1.strict.equal(out.rankTitle, 'Genin');
         node_assert_1.strict.equal(out.maxHp, 2000);
     });
     (0, node_test_1.it)('clamps to MAX_LEVEL and 0 xp at the top', () => {
-        const out = (0, _xp_engine_js_1.gainXp)({ level: 99, xp: 0, examsPassed: ['genin', 'chunin'], stats: {} }, 1000);
+        const out = (0, _xp_engine_js_1.gainXp)({ level: 99, xp: 0, examsPassed: ['genin', 'chunin'], stats: {} }, 5000);
         node_assert_1.strict.equal(out.level, _xp_engine_js_1.MAX_LEVEL);
         node_assert_1.strict.equal(out.xp, 0);
     });
