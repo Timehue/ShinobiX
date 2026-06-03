@@ -52,6 +52,7 @@ import rankedLeaveHandler from './api/ranked-queue/leave.js';
 import kvProxyHandler     from './api/kv-proxy.js';
 import migrateKvHandler   from './api/admin/migrate-kv.js';
 import raidStartHandler   from './api/missions/raid-start.js';
+import expeditionStartHandler from './api/missions/expedition-start.js';
 import villageTreasuryTransferHandler from './api/village/treasury/transfer.js';
 import villageTreasuryDonateHandler from './api/village/treasury/donate.js';
 import villageClaimDailyAgendaHandler from './api/village/claim-daily-agenda.js';
@@ -344,6 +345,9 @@ route('/admin/migrate-kv', migrateKvHandler);
 // Missions — AI raid token mint (PvP raids cross-validate via PvpSession;
 // AI raids use this short-lived single-use token instead).
 route('/missions/raid-start', raidStartHandler);
+// Missions — pet expedition token mint (single-use, time-gated; redeemed by
+// report-pet-event so expedition rewards require a real, fully-elapsed run).
+route('/missions/expedition-start', expeditionStartHandler);
 
 // Village treasury — atomic Kage-gift endpoint that replaces the broken
 // 2-write client flow (deduct treasury + patch recipient).
