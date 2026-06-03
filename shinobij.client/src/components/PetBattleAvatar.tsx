@@ -1,5 +1,6 @@
-import { type Pet, petDisplayName, petTraitDescriptions } from "../App";
-import { petCollarVisual } from "../data/pet-config";
+import { type Pet } from "../App";
+import { petDisplayName } from "../lib/pet";
+import { petCollarVisual, petTraitDescriptions } from "../data/pet-config";
 import { petBattleSprite, petBattleLayers, petBattleSheet, petAvatarStateClass } from "../lib/pet-battle-anim";
 import type { PetVisualState } from "../types/pet-battle";
 

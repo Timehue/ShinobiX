@@ -117,7 +117,7 @@ import {
     jutsuElements,
 } from "./data/jutsu";
 export { starterBloodlines } from "./data/jutsu";
-export { starterBloodlineOffense, starterSavedBloodlines, specialties, jutsuElements };
+export { starterBloodlineOffense, starterSavedBloodlines };
 import {
     endlessScaleFactor,
     endlessWaveReward,
@@ -405,12 +405,11 @@ import {
     rollNewAwakeningElement,
     rollAwakeningElements,
 } from "./lib/elements";
-// hasCharacterElement was previously exported from App.tsx — keep the
-// re-export so external imports continue to resolve.
-export { hasCharacterElement };
+// hasCharacterElement is imported above for internal use; external callers
+// (screens/Inventory) now import it directly from ./lib/elements.
 
-// Pure pet helpers extracted to ./lib/pet. petDisplayName was already
-// exported from App.tsx so external imports keep working.
+// Pure pet helpers extracted to ./lib/pet (imported below for internal use;
+// external callers import petDisplayName directly from ./lib/pet).
 import {
     petDisplayName,
     petHappiness,
@@ -446,12 +445,11 @@ import {
 } from "./lib/pet-battle-sim";
 export { runPetArenaBattle, petFramePace };
 export type { PetPartyBattleMatch, PetPartyBattleResult } from "./lib/pet-battle-sim";
-export { petDisplayName };
 
-// Equipment helpers + tables extracted to ./lib/equipment. The three
-// helpers (normalizeEquipmentSlot, equipmentSlotLabel,
-// armorReductionForQuality) were already exported from App.tsx so
-// external screens keep importing them transparently.
+// Equipment helpers + tables extracted to ./lib/equipment (imported above for
+// internal use). armorReductionForQuality + consolidateItemBonuses stay
+// re-exported for the screens/Inventory "../App" import site; the slot
+// normalize/label helpers are imported directly from ./lib/equipment.
 import {
     itemSectionOptions,
     normalizeEquipmentSlot,
@@ -460,7 +458,7 @@ import {
     armorReductionForQuality,
     consolidateItemBonuses,
 } from "./lib/equipment";
-export { normalizeEquipmentSlot, equipmentSlotLabel, armorReductionForQuality, consolidateItemBonuses };
+export { armorReductionForQuality, consolidateItemBonuses };
 
 // Generic utility helpers (clamp, time format, date keys) extracted to ./lib/utils.
 import {
@@ -559,9 +557,11 @@ import {
     stackableItemIds,
     petFeedXpForItem,
 } from "./data/pet-config";
-// Keep external-import compatibility — these were previously exported from App.tsx
-// directly and consumed by screens/ + components/ via "../App".
-export { petTrainingOptions, petTraitDescriptions, petFeedXpForItem };
+// Keep external-import compatibility — petTrainingOptions + petFeedXpForItem
+// were previously exported from App.tsx directly and consumed via "../App".
+// petTraitDescriptions is now imported directly from ./data/pet-config by
+// components/PetBattleAvatar.
+export { petTrainingOptions, petFeedXpForItem };
 
 // Hollow Gate atlas configuration moved to ./data/hollow-gate-atlas.
 import {
@@ -581,7 +581,8 @@ import {
     villageOutskirtsSectorNumber,
     villageForOutskirtsSector,
 } from "./data/sectors";
-export { villages, weatherForBiome };
+// villages + weatherForBiome imported above for internal use; external callers
+// (screens/CharacterCreator) import villages directly from ./data/sectors.
 
 function weatherForSector(sector: number, biome: Biome) {
     const territory = loadSectorTerritory(sector);
@@ -999,16 +1000,15 @@ let HOLLOW_GATE_THREAT_PER_STEP = 7;
 let HOLLOW_GATE_THREAT_AMBUSH = 100;
 export let HOLLOW_GATE_MAX_FLOOR = 5;
 
-// Hollow Gate flavor pool + intro pages + hollowGateFlavorFor moved to
-// ./data/hollow-gate-flavor. We re-export them so existing callers
-// (and the legend renderer) keep resolving the same names.
+// Hollow Gate intro pages + flavor + tile-icon helpers from
+// ./data/hollow-gate-flavor (imported for internal use). External callers
+// (KenneyAtlasPicker) import hollowGateTileIconForKind directly from the
+// data module.
 import {
-    hollowGateFlavorPool,
     hollowGateIntroPages,
     hollowGateFlavorFor,
     hollowGateTileIconForKind,
 } from "./data/hollow-gate-flavor";
-export { hollowGateFlavorPool, hollowGateIntroPages, hollowGateFlavorFor, hollowGateTileIconForKind };
 
 // hollowGateReachableSet + bsp* geometry helpers (./lib/hollow-gate-bsp) are
 // now consumed directly by ./lib/hollow-gate-dungeon, not App.tsx.
@@ -1085,11 +1085,11 @@ export function villagePageImage(villageName: string): string {
     if (villageName === "Moonshadow Village") return moonshadowImage;
     return stormveilVillageImg;
 }
-// villageLore moved to ./data/village-lore. Re-exported here for the
-// existing "../App" import site (screens/VillageLoreScreen). villagePageImage
-// above stays — it pulls in image-asset imports the data module shouldn't.
-export { villageLore } from "./data/village-lore";
-// specialties + jutsuElements moved to ./data/jutsu (imported + re-exported above).
+// villageLore lives in ./data/village-lore; screens/VillageLoreScreen imports
+// it directly from there. villagePageImage above stays — it pulls in
+// image-asset imports the data module shouldn't.
+// specialties + jutsuElements live in ./data/jutsu (imported above for internal
+// use; JutsuDropdownList imports them directly from ./data/jutsu).
 const jutsuTargets: JutsuTarget[] = ["OPPONENT", "SELF", "OTHER_USER", "CHARACTER", "EMPTY_GROUND"];
 const jutsuMethods: JutsuMethod[] = ["SINGLE", "ALL", "AOE_CIRCLE", "INSTANT_EFFECT"];
 const bloodlineJutsuMethods: JutsuMethod[] = ["SINGLE", "AOE_CIRCLE", "INSTANT_EFFECT"];
@@ -1686,9 +1686,8 @@ export type { TileCard, TileCardArrow };
 
 // Shared-image helpers (compressDataUrl, publishSharedImage, readImageFile,
 // isAnimatedImageFile, categoryFromImageKey) moved to ./lib/shared-images
-// (imported back above). compressDataUrl + publishSharedImage are re-exported
-// here for the existing "../App" import sites (AiImagePrompt, KenneyAtlasPicker).
-export { compressDataUrl, publishSharedImage };
+// (imported back above for internal use). AiImagePrompt + KenneyAtlasPicker
+// import compressDataUrl / publishSharedImage directly from ./lib/shared-images.
 
 // capStat / xpNeeded / level→HP/chakra/stamina / rankFromLevel + total-XP
 // curves moved to ./lib/stats (imported back above).
@@ -5291,7 +5290,6 @@ export default function App() {
             ...playerRoster.map((p) => p.name),
         ];
         if (names.length) ensureAvatarsCached(names);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [liveSectorPlayers, playerRoster, sharedImages]);
 
     // ── Hollow Gate Shrine — Kenney atlas auto-slicer ─────────────────────
@@ -9581,12 +9579,8 @@ export default function App() {
 // LeftProfileCard moved to ./components/LeftProfileCard.
 
 // SectorBanner moved to ./components/SectorBanner.
-export const villageBiomes: Record<string, Biome> = {
-    "Stormveil Village": "forest",
-    "Ashen Leaf Village": "volcano",
-    "Frostfang Village": "snow",
-    "Moonshadow Village": "shadow",
-};
+// villageBiomes (village → home-biome lookup) moved to ./data/village-biomes;
+// components import it directly from there.
 
 // RightMenu + MobileNav moved to ./components/RightMenu and ./components/MobileNav.
 
@@ -11916,7 +11910,6 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
         }
         // Super-effective matchup → layer a bright rising sting on top of the hit.
         if (/super effective/i.test(m) && (frame.actionKind === "damage" || frame.actionKind === "basic" || frame.actionKind === "lifesteal")) playPetSfx("superEffective");
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [frame?.message]);
 
     const playerPos = frame?.playerPos ?? 29;
@@ -12182,7 +12175,6 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
             const frames = bundledJutsuFxFrames(fxKey);
             if (frames) setPetSpriteFx({ id: petSpriteFxSeq.current++, frames, x: cx, y: cy, variant: fxVariant });
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [animIdx, frame?.message]);
 
     // Status badges near the HP bar (Phases 7-9): the BattleStatusId set via the
@@ -13256,7 +13248,6 @@ function AdminPanel({
         if (adminRole === 'content' && CONTENT_ADMIN_FORBIDDEN_TABS.has(activeAdminPanel)) {
             setActiveAdminPanel('jutsuBloodlines');
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [adminRole, activeAdminPanel]);
 
     // Hollow Gate admin tab state — prompts, current preview images, busy/status

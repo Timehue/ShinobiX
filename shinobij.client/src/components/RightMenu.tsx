@@ -7,15 +7,15 @@
  * session so you can always get back into the panel, Logout).
  *
  * Pure leaf — `navigate` and `logoutPlayer` callbacks come in as props.
- * `villageBiomes` lookup imported from App.tsx; admin-name gate via
- * isProtectedAdminName from constants/game.
+ * `villageBiomes` lookup imported from ./data/village-biomes; admin-name gate
+ * via isProtectedAdminName from constants/game.
  *
  * Extracted from App.tsx.
  */
 
 import { memo, useEffect, useState } from "react";
 import rightMenuBg from "../assets/rightmenu.png";
-import { villageBiomes } from "../App";
+import { villageBiomes } from "../data/village-biomes";
 import type { Screen, Biome } from "../types/core";
 import { isProtectedAdminName } from "../constants/game";
 import { isAudioMuted, setAudioMuted, subscribeAudioMute } from "../lib/pet-music";

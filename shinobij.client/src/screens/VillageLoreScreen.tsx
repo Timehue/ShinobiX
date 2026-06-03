@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { type Character, villageLore } from "../App";
+import { type Character } from "../App";
+import { villageLore } from "../data/village-lore";
 
 export function VillageLoreScreen({
     character,
