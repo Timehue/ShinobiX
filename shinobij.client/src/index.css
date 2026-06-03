@@ -13491,6 +13491,29 @@ button.combat-jutsu-button,
     z-index: 7;
 }
 
+/* Elemental sprite-effect overlay (CC0 frame sequences) played over a struck
+   tile in the pet arena — above the particle canvas (z 7), below cut-ins.
+   Pixel art scaled up crisply; height-driven so any frame width keeps aspect.
+   This is an EFFECT only; pet portraits/sprites are never replaced. */
+.pet-park-stage .jutsu-sprite-fx {
+    position: absolute;
+    height: 64px;
+    width: auto;
+    transform: translate(-50%, -50%);
+    image-rendering: pixelated;
+    pointer-events: none;
+    z-index: 8;
+    filter: drop-shadow(0 0 5px rgba(0, 0, 0, 0.5));
+}
+/* Heal reuses the white spirit wisp but with a green restorative glow so it
+   reads as healing without risky pixel recolouring. */
+.pet-park-stage .jutsu-sprite-fx.fx-heal {
+    filter: drop-shadow(0 0 6px #34d399) drop-shadow(0 0 3px #6ee7b7);
+}
+@media (prefers-reduced-motion: reduce) {
+    .pet-park-stage .jutsu-sprite-fx { display: none; }
+}
+
 /* Whole-stage camera shake — fires on crit hits and KOs. Stronger than the
    existing HP-bar shake so it reads as "the world reacted to this blow." */
 .pet-park-stage.pet-stage-shake-light {

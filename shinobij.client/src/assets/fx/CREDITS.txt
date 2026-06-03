@@ -1,0 +1,36 @@
+Battle VFX frames (jutsu + pet abilities)
+=========================================
+
+All sources are Creative Commons Zero (CC0 1.0 Universal) — public domain,
+free for commercial use/modification/redistribution, attribution not required
+(recorded here for provenance only).
+
+Source A: "Pixel Magic Effects" by Foozle (commissioned from lordfitoi).
+          https://foozlecc.itch.io/pixel-magic-sprite-effects
+Source B: "Ninja Adventure - Asset Pack" by Pixel-boy / AAA.
+          https://pixel-boy.itch.io/ninja-adventure-asset-pack
+          (FX strips sliced into individual frames; see scripts note below.)
+
+Mapping (folder -> in-game element/key):
+  fire      <- [A] Fire_Ball      (10 frames)
+  water     <- [A] Water          (10 frames)
+  earth     <- [A] Rocks          (10 frames)
+  wind      <- [A] Wind           (10 frames)
+  lava      <- [A] Molten_Spear   (12 frames)   [bloodline nature]
+  none      <- [A] Explosion       (7 frames)   [neutral / fallback impact]
+  lightning <- [B] FX/Elemental/Thunder  (8 frames, sliced from 160x28 @ fw20)
+  ice       <- [B] FX/Elemental/Ice      (10 frames, sliced from 320x32 @ fw32)
+
+Pet ability "kind" effects (pet arena only, chosen by ability kind):
+  shield    <- [B] FX/Magic/Shield (Blue)  (6 frames @ fw24)   [barrier/shield/absorb]
+  buff      <- [B] FX/Magic/Boost          (8 frames @ fw53)   [stat buffs]
+  heal      <- [B] FX/Magic/Spirit         (5 frames @ fw32)   [+ green CSS glow .fx-heal]
+  slash     <- [B] FX/Slash (Slash01)      (5 frames @ fw26)   [basic physical attack]
+
+Each folder is an ordered frame sequence (001.png, 002.png, ...). The client
+loads them via import.meta.glob in src/lib/jutsu-fx-assets.ts and plays them as
+a short frame-swap animation over the struck tile (see JutsuSpriteFx in App.tsx).
+
+Elements without bundled frames (lightning, shadow, blood, iron) fall back to
+the procedural element-tinted particle burst. Drop a matching folder here (e.g.
+fx/lightning/) to give them a sprite too — no code change needed.
