@@ -25701,6 +25701,9 @@ function Logbook({
     setCurrentWeather: (weather: WeatherType) => void;
     setScreen: (screen: Screen) => void;
 }) {
+    // Rank-up ceremony: set to the exam title when a promotion is claimed, so we
+    // celebrate with a modal instead of a bare alert().
+    const [ceremonyTitle, setCeremonyTitle] = useState<string | null>(null);
     const missionRewardBonus = getMissionRewardBonus(character) + getActiveAuraSphereBonuses(character).missionRewardPercent;
     const ownedElements = getCharacterElements(character);
     const baseStatTotal = Object.values(baseStats()).reduce((sum, value) => sum + value, 0);
@@ -25905,6 +25908,16 @@ function Logbook({
     return (
         <div className="card logbook-screen">
             <h2>Logbook</h2>
+            {ceremonyTitle && (
+                <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.78)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9000, padding: 16 }}>
+                    <div className="card" style={{ maxWidth: 420, width: "100%", textAlign: "center" }}>
+                        <div style={{ fontSize: 48, marginBottom: 4 }}>🎉</div>
+                        <h2 style={{ marginTop: 0 }}>{ceremonyTitle} Passed!</h2>
+                        <p>Congratulations, {character.name} — you've been promoted. Your level cap is lifted and new content awaits.</p>
+                        <button className="start-primary-btn" style={{ width: "100%" }} onClick={() => setCeremonyTitle(null)}>Continue →</button>
+                    </div>
+                </div>
+            )}
             <p>Exam missions: <strong>{examMissions.length}</strong> · Daily missions: <strong>{dailyMissions.length + (activeVillageWar ? VILLAGE_WAR_DAILY_MISSIONS : 0)}</strong> · Events: <strong>{logbookEvents.length}</strong> · Raids: <strong>{logbookRaids.length}</strong> · Assigned missions: <strong>{assignedMissions.length}</strong></p>
             {academyChecklist && (
                 <>
@@ -25937,7 +25950,7 @@ function Logbook({
                                 {!passed && <div className="menu">
                                     <button disabled={!complete} onClick={() => {
                                         updateCharacter({ ...character, examsPassed: [...(character.examsPassed ?? []), exam.examKey] });
-                                        alert(`${exam.title} passed! You have been promoted. Level cap removed.`);
+                                        setCeremonyTitle(exam.title);
                                     }}>{complete ? `Pass ${exam.title}` : "Requirements Incomplete"}</button>
                                 </div>}
                             </section>
