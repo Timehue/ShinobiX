@@ -113,6 +113,9 @@ import moderationHandler from './api/admin/moderation.js';
 
 // Shared auth helper — constant-time compare for the restart endpoint.
 import { safeEqual } from './api/_auth.js';
+// CORS origin allowlist — single source of truth, shared with cors() and the
+// Socket.IO layer so the three CORS surfaces can't drift (CLAUDE.md).
+import { ALLOWED_ORIGINS } from './api/_utils.js';
 
 // ─── App setup ───────────────────────────────────────────────────────────────
 
@@ -123,15 +126,10 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Global CORS — restrict to known origins so a malicious site can't initiate
-// authenticated requests from a visitor's browser. Same allowlist as
-// api/_utils.ts cors().
-const ALLOWED_ORIGINS = new Set<string>([
-    'https://theravensark.com',
-    'https://www.theravensark.com',
-    'http://localhost:5173',
-    'http://localhost:3000',
-    'http://127.0.0.1:5173',
-]);
+// authenticated requests from a visitor's browser. The origin allowlist is
+// imported from api/_utils.ts (single source of truth) so this middleware and
+// cors() can never drift.
+const ALLOWED_ORIGIN_SET = new Set<string>(ALLOWED_ORIGINS);
 // Mirror the safe-method allowlist from api/_utils.ts cors(). The old
 // version sent `*` for ANY method when no Origin was present, which is
 // strictly looser than the Vercel path (which only allows `*` for safe
@@ -141,7 +139,7 @@ const SAFE_METHODS = new Set<string>(['GET', 'HEAD', 'OPTIONS']);
 app.use((req: Request, res: Response, next: NextFunction) => {
     const origin = (req.headers.origin as string | undefined) ?? '';
     const method = (req.method ?? 'GET').toUpperCase();
-    if (origin && ALLOWED_ORIGINS.has(origin)) {
+    if (origin && ALLOWED_ORIGIN_SET.has(origin)) {
         res.setHeader('Access-Control-Allow-Origin', origin);
         res.setHeader('Vary', 'Origin');
     } else if (!origin && SAFE_METHODS.has(method)) {
