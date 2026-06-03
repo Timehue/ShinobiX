@@ -3,8 +3,8 @@ import { strict as assert } from 'node:assert';
 import { _makeRoutedKv, type KvLike } from './_storage.js';
 
 // The routed KV splits keys across two backends — a disk overlay for the
-// disk-routed prefixes ('save:', 'shared:images', 'shared:imgfields') and the
-// base store for everything else. For mget the routing layer must issue ONE
+// disk-routed prefixes ('save:', 'save-snapshot:', 'shared:images',
+// 'shared:imgfields') and the base store for everything else. For mget the routing layer must issue ONE
 // batched call per backend (so the remote/Vercel overlay does a single HTTP
 // round-trip, not one per key) and then re-interleave the results back into the
 // caller's original key order. These tests pin that contract: same values, same
@@ -87,5 +87,19 @@ describe('_makeRoutedKv.mget', () => {
         const disk = makeStub('disk', { 'save:a': 'A' }, log);
         const out = await _makeRoutedKv(base, disk).mget('save:a', 'save:a', 'queue:1', 'save:a');
         assert.deepEqual(out, ['A', 'A', 'Q', 'A']);
+    });
+
+    it('save-snapshot: routes to DISK (backups go to cPanel), auth: stays on base', async () => {
+        const log: string[] = [];
+        const base = makeStub('base', { 'auth:alice': 'pw' }, log);
+        const disk = makeStub('disk', { 'save:alice': 'LIVE', 'save-snapshot:alice:1700000000000': 'SNAP' }, log);
+        const out = await _makeRoutedKv(base, disk).mget('save:alice', 'save-snapshot:alice:1700000000000', 'auth:alice');
+        assert.deepEqual(out, ['LIVE', 'SNAP', 'pw']);
+        // The snapshot blob must land in the DISK batch (cPanel), NOT the base
+        // store (Supabase) — and 'save:' must not swallow 'save-snapshot:'.
+        assert.deepEqual([...log].sort(), [
+            'base.mget:[auth:alice]',
+            'disk.mget:[save:alice,save-snapshot:alice:1700000000000]',
+        ].sort());
     });
 });
