@@ -250,6 +250,12 @@ export type Character = {
     hollowGateRun?: HollowGateShrineRun | null;
     hollowGateWardenKills?: number;
     hollowGateIntroSeen?: boolean;
+    // Early-game onboarding flags (additive; undefined = not started / legacy).
+    // onboardingStep drives the forced first-session coach; the others are
+    // one-time "seen/claimed" gates matching the hollowGateIntroSeen convention.
+    onboardingStep?: "tour" | "training" | "jutsu" | "done";
+    academyChecklistClaimed?: boolean;
+    geninCeremonySeen?: boolean;
     endlessTowerRun?: EndlessTowerRun | null;
     endlessTowerBestWave?: number;
 };
