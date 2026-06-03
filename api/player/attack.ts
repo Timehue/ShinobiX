@@ -48,6 +48,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const target = await kv.get<Record<string, unknown>>(key);
             if (!target) return { status: 404 as const, body: { error: 'Target not online.' } };
 
+            // Academy-Student PvP protection: shinobi below Genin (level 15)
+            // cannot be attacked, so brand-new players aren't farmed before they
+            // learn the game. The presence row keeps `character.level` (see
+            // heartbeat slimPresenceCharacter). Skip the guard if level is
+            // unknown (0) so a missing field can't break legitimate fights.
+            const targetChar = target.character as Record<string, unknown> | null;
+            const targetLevel = Number(targetChar?.level ?? 0);
+            if (targetLevel > 0 && targetLevel < 15) {
+                return { status: 403 as const, body: { error: 'This shinobi is under Academy protection (cannot be attacked until they reach Genin, level 15).' } };
+            }
+
             const travelingUntil = Number(target.travelingUntil ?? 0);
             if (travelingUntil > Date.now()) {
                 return { status: 409 as const, body: { error: 'Target is traveling and cannot be attacked.' } };
