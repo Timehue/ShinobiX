@@ -147,6 +147,15 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     }
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-password, x-player-password, x-player-name, x-player-token, x-kv-token, x-client-fp');
+    // HSTS: tell browsers to always use HTTPS for this host (1 year). Only emit
+    // it on responses that actually arrived over HTTPS — both Railway's edge and
+    // cPanel's Apache terminate TLS and forward with x-forwarded-proto. Per the
+    // HSTS spec the header must not be sent over plain HTTP, and gating this way
+    // also avoids HSTS-locking http://localhost during local dev. Apex only — no
+    // includeSubDomains, so it can't affect a not-yet-configured subdomain.
+    if (req.headers['x-forwarded-proto'] === 'https') {
+        res.setHeader('Strict-Transport-Security', 'max-age=31536000');
+    }
     if (req.method === 'OPTIONS') {
         res.status(200).end();
         return;
