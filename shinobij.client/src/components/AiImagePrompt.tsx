@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { compressDataUrl } from "../App";
+import { compressDataUrl } from "../lib/shared-images";
 
 export function AiImagePrompt({
     label,

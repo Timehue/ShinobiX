@@ -8,7 +8,8 @@
 /* eslint-disable react-hooks/set-state-in-effect */ // matches App.tsx's file-wide suppression; logic moved verbatim
 import { useState, useEffect, type ReactNode } from "react";
 import { allTags } from "../lib/tags";
-import { getJutsuSelectOptions, specialties, jutsuElements } from "../App";
+import { getJutsuSelectOptions } from "../App";
+import { specialties, jutsuElements } from "../data/jutsu";
 import type { Jutsu } from "../types/combat";
 import type { JutsuType, JutsuElement, JutsuSort } from "../types/core";
 
