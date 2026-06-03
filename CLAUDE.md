@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-ShinobiX / "Shinobi Journey" — a ninja RPG browser game. React 19 + Vite SPA
+ShinobiX / "Shinobi Journey" — a shinobi RPG browser game. React 19 + Vite SPA
 frontend, a set of Vercel-style TypeScript serverless handlers for the API, and
 Supabase (Postgres) for storage. The same API runs two ways: as Vercel
 Functions, and as a single Express server for cPanel / Phusion Passenger.

@@ -7,7 +7,7 @@ clusters: direct ninja/anime browser RPGs, the classic stat-training/energy
 "PBBG" lineage ShinobiX descends from, and best-in-class idle/gacha onboarding.
 
 > **Single biggest takeaway:** ShinobiX's two closest genre twins —
-> **TheNinja-RPG** and **Ninpocho Chronicles** — both start a new Academy
+> **the genre leader** and **Ninpocho Chronicles** — both start a new Academy
 > Student with **3 basic jutsu to learn and level**. Every comparable game gives
 > a starter kit. **ShinobiX starting with zero equipped jutsu is the genre
 > outlier** — which is exactly what the auto-learn-bloodline-jutsu plan fixes.
@@ -19,13 +19,13 @@ clusters: direct ninja/anime browser RPGs, the classic stat-training/energy
 These share ShinobiX's exact DNA: Academy→Genin→Chunin ranks, real-time resource
 pools, learn-and-level jutsu, bloodlines.
 
-### TheNinja-RPG (theninja-rpg.com) — the genre ancestor
+### The genre leader — the genre ancestor
 - **Start as an Academy Student** with HP/Chakra/Stamina pools and essentially
   no offense; your first task is to **learn 3 academy jutsu** (Clone,
-  Replacement, Transform) by spending Ryo. ([Fresh Player Guide](https://theninja-rpg.fandom.com/wiki/Fresh_Player_Guide))
+  Replacement, Transform) by spending Ryo.
 - **Rank-up is a checklist, not just XP:** Academy→Genin requires **18,000 XP +
   Academy level 10 + all 3 starter jutsu at level 5 + 12 Intelligence.** The
-  academy *is* the tutorial-by-objective. ([KISS Guide](http://kiss-tnrguide.blogspot.com/2013/05/kisss-beginners-guide.html))
+  academy *is* the tutorial-by-objective.
 - **Training grows your max pools**, so early training is self-reinforcing
   ("cap your pools first"). A **Sensei system** grants up to **+200% stat gain**
   to soften the early grind.
@@ -158,7 +158,7 @@ mechanics. Updates to fold into the other two docs:
 
 **Reinforced (already in the plan):**
 - ✅ Auto-learn bloodline jutsu at creation — confirmed as the genre standard
-  (TheNinja-RPG/Ninpocho/Ninja Saga). ShinobiX is the outlier; fix it first.
+  (the genre leader/Ninpocho/Ninja Saga). ShinobiX is the outlier; fix it first.
 - ✅ Guided first win in the first minutes (Ninja Saga's exam-as-tutorial).
 - ✅ Always-visible "Next Goals" panel (Torn's Duke, KoL's Council, gacha rails).
 - ✅ New-player daily scaffold; the **daily-cap reset** (missions/hunts/explore)
@@ -169,7 +169,7 @@ mechanics. Updates to fold into the other two docs:
 
 **New ideas worth adding:**
 - **Rank-up as a learn-and-level checklist.** Make the Genin objective include
-  "raise your starter jutsu to mastery level N" (TheNinja-RPG/Ninpocho model), so
+  "raise your starter jutsu to mastery level N" (the genre leader/Ninpocho model), so
   the rank-up *is* the tutorial. **Owner decision:** keep this a *soft* teach-by-
   doing goal (Next-Goals + small reward), not a hard wall. Mastery is judged by
   the per-jutsu `mastery.level`, reached via battle use (+20 XP/cast) — see
@@ -209,9 +209,7 @@ mechanics. Updates to fold into the other two docs:
 
 ## Sources
 
-Ninja RPGs: [TheNinja-RPG Fresh Player Guide](https://theninja-rpg.fandom.com/wiki/Fresh_Player_Guide) ·
-[KISS Beginners Guide](http://kiss-tnrguide.blogspot.com/2013/05/kisss-beginners-guide.html) ·
-[Ninpocho](https://ninpocho.com/) ·
+Shinobi RPGs: [Ninpocho](https://ninpocho.com/) ·
 [Ninja Saga Tutorial](https://ninjasaga.fandom.com/wiki/Tutorial) ·
 [Naruto Online review (MMOs.com)](https://mmos.com/review/naruto-online) ·
 [Common Sense Media](https://www.commonsensemedia.org/game-reviews/naruto-online)

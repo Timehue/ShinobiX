@@ -6,7 +6,7 @@ Drills into §3 of [`early-progression.md`](./early-progression.md); follows the
 research principles documented there (teach-by-doing, progressive disclosure,
 always-show-the-next-thing, win the first 60s). Competitor evidence for these
 choices is in [`competitor-early-game.md`](./competitor-early-game.md) — notably
-that ShinobiX's two closest genre twins (TheNinja-RPG, Ninpocho) both give new
+that ShinobiX's two closest genre twins (the genre leader, Ninpocho) both give new
 players starter jutsu, making the auto-learn feature (§1) the genre norm.
 
 > **Status:** proposal / not yet implemented.
