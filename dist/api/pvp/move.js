@@ -619,15 +619,15 @@ function applyJutsu(self, opponent, jutsu, wMult = 1, biome = 'central', round =
         }
         if (tagName === 'Lag') {
             if (!hasStatus(o, 'Debuff Prevent', round)) {
-                o = addJutsuStatus(o, jutsu, { name: 'Lag', rounds: 2, percent: pct || 20, kind: 'negative' }, round);
-                lines.push(`Lag: ${o.name}'s actions cost ${pct || 20}% more AP for 2 turns.`);
+                o = addJutsuStatus(o, jutsu, { name: 'Lag', rounds: 1, percent: pct || 20, kind: 'negative' }, round);
+                lines.push(`Lag: ${o.name}'s actions cost ${pct || 20}% more AP for 1 turn.`);
             }
             continue;
         }
         if (tagName === 'Overclock') {
             if (!hasStatus(s, 'Buff Prevent', round)) {
-                s = addJutsuStatus(s, jutsu, { name: 'Overclock', rounds: 2, percent: pct || 20, kind: 'positive' }, round);
-                lines.push(`Overclock: ${s.name}'s actions cost ${pct || 20}% less AP for 2 turns.`);
+                s = addJutsuStatus(s, jutsu, { name: 'Overclock', rounds: 1, percent: pct || 20, kind: 'positive' }, round);
+                lines.push(`Overclock: ${s.name}'s actions cost ${pct || 20}% less AP for 1 turn.`);
             }
             continue;
         }
