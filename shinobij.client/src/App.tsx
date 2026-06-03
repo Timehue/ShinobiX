@@ -6,6 +6,7 @@ import "./index.css";
 import { installAuthFetch, setActivePlayer, setActiveToken } from "./authFetch";
 import { GameAlertHost } from "./components/GameAlert";
 import { subscribeKvKey, realtimeAvailable } from "./lib/realtime";
+import { connectRealtime, disconnectRealtime, updatePresence, onSector as onPresenceSector, onGone as onPresenceGone, onKick as onPresenceKick, onStatus as onPresenceStatus } from "./lib/presence-socket";
 import { useBoardScale } from "./lib/use-board-scale";
 import {
     percentageTags,
@@ -3810,6 +3811,14 @@ export default function App() {
     useEffect(() => { characterRef.current = character; }, [character]);
     const screenRef = useRef<Screen>(screen);
     useEffect(() => { screenRef.current = screen; }, [screen]);
+    // Step 3 realtime: true while the Socket.IO presence channel is connected.
+    // When connected, the HTTP heartbeat can poll slowly (the socket pushes live
+    // sector presence and kicks an immediate poll on incoming attack/challenge);
+    // when disconnected we fall straight back to the fast adaptive poll.
+    const [socketConnected, setSocketConnected] = useState(false);
+    // Lets the socket "kick" handler trigger an off-cycle heartbeat without the
+    // heartbeat being in scope (it's redefined each effect run).
+    const heartbeatRef = useRef<() => void>(() => {});
     // Travel rubber-banding guard — applySnapshot used to clobber a freshly
     // travelled-to sector with the server's stale value (409 refetch, admin
     // forceReload, etc.). Two refs work together to fix it:
@@ -3871,31 +3880,42 @@ export default function App() {
         async function heartbeat() {
             const char = characterRef.current;
             if (!char) return;
+            // inBattle covers screens where the player is ACTUALLY mid-fight (PvP +
+            // PvE) so attack.ts/challenge.ts can reject double-battle requests and
+            // Healers can't heal an active fighter. The opponent-search HUBS
+            // ('arena' = spar/PvP search, 'petArena' = pet search) are deliberately
+            // EXCLUDED: a player browsing them to send/receive a challenge is not in
+            // a battle, and flagging them made every incoming challenge fail with
+            // "Target is already in a battle." The live PvP fight runs on 'pvpBattle';
+            // pet battles are local sims that a queued challenge doesn't interrupt.
+            const inBattleNow = ['pvpBattle', 'storyBoss', 'hollowGateShrine', 'weeklyBoss', 'eventPetBattle', 'dungeon'].includes(screenRef.current ?? '');
+            // Upload only the display fields the roster surfaces, not the full
+            // character blob — see presenceCharacter(). Gameplay/PvP paths read the
+            // presence row's sector/inBattle/travel flags, not this character; combat
+            // hydrates opponents from save:<name>.
+            const presenceBody = {
+                name: char.name,
+                sector: currentSector,
+                character: presenceCharacter(char),
+                travelingUntil: isTraveling ? travelingUntil : 0,
+                inBattle: inBattleNow,
+            };
+            // Mirror the same frame onto the Socket.IO presence channel (no-op when
+            // the socket isn't connected). Because a sector change re-runs this
+            // effect and fires heartbeat() immediately, the move propagates to
+            // sector-mates instantly; the 20s+ keepalive ping rides along too.
+            updatePresence({
+                sector: currentSector,
+                character: presenceBody.character,
+                travelingUntil: presenceBody.travelingUntil,
+                inBattle: inBattleNow,
+                displayName: char.name,
+            });
             try {
                 const res = await fetch('/api/player/heartbeat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        name: char.name,
-                        sector: currentSector,
-                        // Upload only the display fields the roster surfaces, not the
-                        // full character blob — see presenceCharacter(). Gameplay/PvP
-                        // paths read the presence row's sector/inBattle/travel flags,
-                        // not this character; combat hydrates opponents from save:<name>.
-                        character: presenceCharacter(char),
-                        travelingUntil: isTraveling ? travelingUntil : 0,
-                        // inBattle covers screens where the player is ACTUALLY
-                        // mid-fight (PvP + PvE) so attack.ts/challenge.ts can reject
-                        // double-battle requests and Healers can't heal an active
-                        // fighter. The opponent-search HUBS ('arena' = spar/PvP search,
-                        // 'petArena' = pet search) are deliberately EXCLUDED: a player
-                        // browsing them to send/receive a challenge is not in a battle,
-                        // and flagging them made every incoming challenge fail with
-                        // "Target is already in a battle." The live PvP fight runs on
-                        // 'pvpBattle'; pet battles are local sims that a queued challenge
-                        // doesn't interrupt.
-                        inBattle: ['pvpBattle', 'storyBoss', 'hollowGateShrine', 'weeklyBoss', 'eventPetBattle', 'dungeon'].includes(screenRef.current ?? ''),
-                    }),
+                    body: JSON.stringify(presenceBody),
                 });
                 if (!res.ok) return;
                 const data: { sectorMates?: PlayerRecord[]; allPlayers?: PlayerRecord[]; pendingAttacker?: Character | null; pendingChallenges?: DuelChallenge[]; forceReload?: boolean } = await res.json();
@@ -3976,17 +3996,26 @@ export default function App() {
             }
         }
 
+        // Expose the latest heartbeat so the socket "kick" handler can fire an
+        // immediate off-cycle poll on an incoming attack/challenge.
+        heartbeatRef.current = heartbeat;
+
         if (!tabVisible) return; // pause heartbeat when tab hidden
         heartbeat();
-        // Adaptive heartbeat: 1s in combat/arena AND while exploring sectors (live
-        // presence + fast attack/challenge delivery), slow in village/sector 0 (15s)
-        // where there's no urgent combat. The 1s cadence is affordable because the
-        // presence payload no longer carries avatar data URLs (the former egress
-        // bulk) — see toRecord() in api/player/heartbeat.ts and the avatar cache-fill
-        // above. EXCEPTION: village-queued guards also drop to 1s so a raider's
-        // attack on the village reaches the defender within ~1s, not 15.
+        // Adaptive heartbeat interval. When the Socket.IO presence channel is
+        // CONNECTED it owns liveness: it pushes live sector presence and kicks an
+        // immediate poll on incoming attack/challenge, so the HTTP poll only needs
+        // to be a slow (~20s) reconcile + forceReload backstop — this is the win
+        // that removes the bulk of the request volume. When the socket is DOWN we
+        // fall straight back to the original fast adaptive cadence so nothing
+        // regresses: 1s in combat/arena AND while exploring sectors, 15s in the
+        // village (sector 0). Village-queued guards also stay fast so a raider's
+        // attack reaches the defender within ~1s.
         const currentScreen = screenRef.current;
-        const interval = currentScreen === "pvpBattle" || currentScreen === "arena" || currentScreen === "petArena"
+        const SOCKET_RECONCILE_MS = 20000;
+        const interval = socketConnected
+            ? SOCKET_RECONCILE_MS
+            : currentScreen === "pvpBattle" || currentScreen === "arena" || currentScreen === "petArena"
             ? 1000   // in combat — fast challenge/attack delivery
             : character?.guardQueued
             ? 1000   // queued for village defense — must respond to raids fast
@@ -3995,7 +4024,49 @@ export default function App() {
             : 1000;  // exploring sectors — live presence
         const id = setInterval(heartbeat, interval);
         return () => clearInterval(id);
-    }, [character?.name, character?.guardQueued, currentSector, isTraveling, travelingUntil, screen, tabVisible]);
+    }, [character?.name, character?.guardQueued, currentSector, isTraveling, travelingUntil, screen, tabVisible, socketConnected]);
+
+    // Step 3 realtime: open the Socket.IO presence channel for the logged-in
+    // player and wire its pushes into the same state the HTTP heartbeat feeds.
+    // Connects once per login (deps: character?.name) and lets the heartbeat keep
+    // the presence frame fresh via updatePresence(). All four subscriptions are
+    // additive — if the socket never connects, these simply never fire and the
+    // HTTP heartbeat path is unchanged.
+    useEffect(() => {
+        if (!character?.name) return;
+        const char = characterRef.current;
+        if (!char) return;
+        const inBattleNow = ['pvpBattle', 'storyBoss', 'hollowGateShrine', 'weeklyBoss', 'eventPetBattle', 'dungeon'].includes(screenRef.current ?? '');
+        // Place us immediately; the heartbeat (which fires now and on every sector
+        // change) supersedes this frame with the authoritative travel/battle state.
+        connectRealtime({
+            sector: currentSectorRef.current,
+            character: presenceCharacter(char),
+            travelingUntil: 0,
+            inBattle: inBattleNow,
+            displayName: char.name,
+        });
+        const offStatus = onPresenceStatus((connected) => setSocketConnected(connected));
+        const offSector = onPresenceSector((sector, players) => {
+            // Only adopt a snapshot for the sector we're actually standing in.
+            if (sector === currentSectorRef.current) setLiveSectorPlayers(players);
+        });
+        const offGone = onPresenceGone((names) => {
+            const goneLower = new Set(names.map((n) => n.toLowerCase()));
+            setLiveSectorPlayers((prev) => prev.filter((p) => !goneLower.has(p.name.toLowerCase())));
+        });
+        // A kick means an attack/challenge is queued — run an immediate off-cycle
+        // heartbeat (the authoritative carrier) so it lands without poll latency.
+        const offKick = onPresenceKick(() => { heartbeatRef.current?.(); });
+        return () => {
+            offStatus();
+            offSector();
+            offGone();
+            offKick();
+            disconnectRealtime();
+            setSocketConnected(false);
+        };
+    }, [character?.name]);
 
     async function clearChallengeOnServer(challenge: DuelChallenge) {
         await fetch('/api/player/challenge', {

@@ -15,6 +15,7 @@
 import './api/_force-ipv4.js';
 
 import { startGameLoop } from './api/_realtime/game-loop.js';
+import { attachSocketServer } from './api/_realtime/socket.js';
 import express, { type Request, type Response, type NextFunction } from 'express';
 import { createServer } from 'node:http';
 import { join } from 'node:path';
@@ -469,6 +470,11 @@ const PORT = Number(process.env.PORT ?? 3000);
 // Phusion Passenger sets the PORT env var automatically.
 // When running locally, defaults to 3000.
 const server = createServer(app);
+// Phase 2/Step 3: attach the Socket.IO realtime layer to the SAME HTTP server
+// (registers the sweep→presence:gone listener). No-op when DISABLE_REALTIME=1;
+// the client then falls back to the HTTP heartbeat. Done before startGameLoop
+// so the sweep listener is registered before the first tick.
+attachSocketServer(server);
 server.listen(PORT, () => {
     console.log(`ShinobiX API listening on port ${PORT}`);
     // Phase 2: start the 1s in-memory presence/game tick (single instance).
