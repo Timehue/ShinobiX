@@ -1,11 +1,15 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.onlineStore = exports.MemoryOnlineStateStore = exports.OFFLINE_AFTER_MS = void 0;
+const _utils_js_1 = require("../_utils.js");
 // A player is considered offline if not seen within this window. Matches the
 // legacy `presence:<name>` 60s TTL so behavior is unchanged after the cutover.
 exports.OFFLINE_AFTER_MS = 60_000;
+// Canonical presence key = the safeName slug, matching the identity returned by
+// authedPlayer and every `save:`/`user:` key, so a display name with spaces
+// resolves to the same presence entry the heartbeat and kick paths use.
 function canon(name) {
-    return name.trim().toLowerCase();
+    return (0, _utils_js_1.safeName)(name);
 }
 class MemoryOnlineStateStore {
     players = new Map();

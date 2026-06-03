@@ -50,7 +50,7 @@ function flagged(text) {
 // Daily counter key (UTC date so the reset is consistent regardless of caller).
 function dailyKey(name) {
     const d = new Date().toISOString().slice(0, 10);
-    return `img-gen:daily:${name.toLowerCase()}:${d}`;
+    return `img-gen:daily:${(0, _utils_js_1.safeName)(name)}:${d}`;
 }
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res, req);

@@ -420,8 +420,8 @@ async function handler(req, res) {
                 return res.status(400).json({ error: 'Missing characters' });
             const p1Name = p1Character.name ?? 'Player 1';
             const p2Name = p2Character.name ?? 'Player 2';
-            const p1Norm = String(p1Name).trim().toLowerCase();
-            const p2Norm = String(p2Name).trim().toLowerCase();
+            const p1Norm = (0, _utils_js_1.safeName)(String(p1Name));
+            const p2Norm = (0, _utils_js_1.safeName)(String(p2Name));
             if (!identity.admin) {
                 const me = identity.name;
                 if (me !== p1Norm && me !== p2Norm) {

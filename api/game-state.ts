@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from './_storage.js';
-import { cors } from './_utils.js';
+import { cors, safeName } from './_utils.js';
 import { authedPlayerOrAdmin, isFullAdmin } from './_auth.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
 import { withKvLock } from './_lock.js';
@@ -211,7 +211,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         return names;
                     }
                     function listIncludesMe(list: unknown[]): boolean {
-                        return list.some((f) => fighterNames(f).some((n) => n.toLowerCase().trim() === me));
+                        return list.some((f) => fighterNames(f).some((n) => safeName(n) === me));
                     }
                     const inNewList = listIncludesMe(fights);
                     let inOldList = false;

@@ -93,7 +93,7 @@ function issuePlayerToken(name, ttlMs = TOKEN_TTL_MS) {
     const secret = sessionSecret();
     if (!secret)
         return null;
-    const canonical = name.trim().toLowerCase();
+    const canonical = (0, _utils_js_1.safeName)(name);
     const expMs = Date.now() + ttlMs;
     const sig = signToken(canonical, expMs, secret);
     return `${TOKEN_VERSION}.${b64url(canonical)}.${expMs}.${sig}`;
@@ -199,11 +199,17 @@ async function authedPlayer(req, nameFromRoute) {
         // ── Fast path: stateless session token (no scrypt, no KV) ──────────
         const token = headerString(req, 'x-player-token');
         if (token) {
-            const tokenName = verifyPlayerToken(token);
-            if (tokenName) {
+            const rawTokenName = verifyPlayerToken(token);
+            if (rawTokenName) {
+                // Normalize to the safeName slug so the returned identity always
+                // equals the storage-key form (covers any legacy token minted
+                // before the canonicalization was unified).
+                const tokenName = (0, _utils_js_1.safeName)(rawTokenName);
                 // If the route/header names an explicit player, the token must
                 // match it — a valid token for player A cannot act as player B.
-                const claimed = (headerString(req, 'x-player-name') || nameFromRoute || '').trim().toLowerCase();
+                // Canonicalize via safeName so a display name with spaces /
+                // stripped chars compares equal to the slug encoded in the token.
+                const claimed = (0, _utils_js_1.safeName)(headerString(req, 'x-player-name') || nameFromRoute || '');
                 if (claimed && claimed !== tokenName)
                     return null;
                 // Same ban gate as the password path — bans bite immediately.
@@ -224,7 +230,7 @@ async function authedPlayer(req, nameFromRoute) {
         const name = headerName || nameFromRoute || '';
         if (!name)
             return null;
-        const canonical = name.trim().toLowerCase();
+        const canonical = (0, _utils_js_1.safeName)(name);
         if (!(await (0, player_auth_js_1.verifyPlayerPassword)(canonical, pw)))
             return null;
         // Banned players authenticate but lose access. authedPlayer is the
@@ -264,7 +270,7 @@ function bodyNameMatchesAuth(identity, bodyName) {
         return true;
     if (!bodyName)
         return false;
-    const a = identity.name;
-    const b = (0, _utils_js_1.safeName)(bodyName) || bodyName.trim().toLowerCase();
-    return a === b || a === bodyName.trim().toLowerCase();
+    // identity.name is the safeName slug (see authedPlayer), so compare the
+    // body name through the same canonicalizer.
+    return identity.name === (0, _utils_js_1.safeName)(bodyName);
 }

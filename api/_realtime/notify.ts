@@ -14,6 +14,8 @@
  *   instant without any double-delivery or lost-on-dropped-socket risk.
  */
 
+import { safeName } from '../_utils.js';
+
 type Emitter = (room: string, event: string, payload: unknown) => void;
 
 let _emit: Emitter | null = null;
@@ -23,8 +25,10 @@ export function setRealtimeEmitter(fn: Emitter | null): void {
     _emit = fn;
 }
 
+// Same safeName slug used for the socket's `user:<slug>` room join, so a kick
+// reaches a player whose display name contains spaces / stripped chars.
 function canon(name: string): string {
-    return name.trim().toLowerCase();
+    return safeName(name);
 }
 
 /**

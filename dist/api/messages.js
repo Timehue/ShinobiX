@@ -14,7 +14,10 @@ const THREAD_MAX = 200; // messages kept per conversation
 const INBOX_MAX = 60; // conversations kept per inbox
 const KV_TTL_SECONDS = 30 * 24 * 60 * 60; // 30 days
 function norm(name) {
-    return String(name ?? '').toLowerCase().trim();
+    // Canonicalize to the safeName slug so DM thread/inbox keys and the
+    // recipient `save:` lookup line up with the player's identity — a recipient
+    // whose display name has a space resolves to their real save record.
+    return (0, _utils_js_1.safeName)(String(name ?? ''));
 }
 // Stable thread key for a pair of players, independent of who sends.
 function threadKey(a, b) {

@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
-import { cors } from '../_utils.js';
+import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -15,11 +15,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const identity = await authedPlayerOrAdmin(req, name);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
-        if (!identity.admin && identity.name !== name.toLowerCase().trim()) {
+        if (!identity.admin && identity.name !== safeName(name)) {
             return res.status(403).json({ error: 'Cannot dequeue another player.' });
         }
 
-        await kv.del(`guard:${name.toLowerCase().trim()}`);
+        await kv.del(`guard:${safeName(name)}`);
         return res.status(200).json({ ok: true });
     } catch (err) {
         console.error('[village-guard/dequeue]', err);

@@ -131,7 +131,8 @@ async function handler(req, res) {
                 return res.status(409).json({ error: 'Battle session is too old to report.' });
             }
             const winnerName = session.winner === 'p1' ? session.p1.name : session.winner === 'p2' ? session.p2.name : '';
-            if (winnerName.toLowerCase() !== playerName.toLowerCase()) {
+            // winnerName is a stored DISPLAY name; playerName is a safeName slug.
+            if ((0, _utils_js_1.safeName)(winnerName) !== playerName) {
                 return res.status(403).json({ error: 'You are not the winner of this battle.' });
             }
             // Atomic NX idempotency — each battle can only produce one

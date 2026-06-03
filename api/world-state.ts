@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from './_storage.js';
-import { cors } from './_utils.js';
+import { cors, safeName } from './_utils.js';
 import { authedPlayerOrAdmin } from './_auth.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
 import { withKvLock } from './_lock.js';
@@ -75,8 +75,8 @@ async function isSeatedKageOf(playerName: string, village: string): Promise<bool
     if (!village) return false;
     try {
         const vs = await kv.get<Record<string, unknown>>(`${VILLAGE_STATE_KEY_PREFIX}${normalizeVillageKey(village)}`);
-        const seated = String(vs?.seatedKage ?? '').trim().toLowerCase();
-        return seated === playerName.trim().toLowerCase();
+        const seated = safeName(String(vs?.seatedKage ?? ''));
+        return seated === safeName(playerName);
     } catch {
         return false;
     }

@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { kv } from '../_storage.js';
-import { cors } from '../_utils.js';
+import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 
@@ -52,7 +52,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!v || !playerName) return res.status(400).json({ error: 'Missing village or playerName.' });
 
             // Players may only act as themselves (or admin can act for anyone).
-            if (!identity.admin && identity.name !== playerName.toLowerCase().trim()) {
+            if (!identity.admin && identity.name !== safeName(playerName)) {
                 return res.status(403).json({ error: 'Cannot perform Kage actions as another player.' });
             }
 
@@ -117,14 +117,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return res.status(400).json({ error: 'Kage system not unlocked for this village.' });
                 }
                 // Only the current seated Kage or an admin may install a new Kage.
-                const currentKage = (current.seatedKage ?? '').toLowerCase().trim();
+                const currentKage = safeName(current.seatedKage ?? '');
                 if (!identity.admin && identity.name !== currentKage) {
                     return res.status(403).json({ error: 'Only the seated Kage or admin can change the Kage.' });
                 }
 
                 // Verify the candidate actually belongs to this village. Stops the
                 // seated Kage from installing someone from a different village.
-                const candidateNorm = playerName.toLowerCase().trim();
+                const candidateNorm = safeName(playerName);
                 if (!identity.admin) {
                     try {
                         const candSave = await kv.get<Record<string, unknown>>(`save:${candidateNorm}`);

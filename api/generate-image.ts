@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { cors } from './_utils.js';
+import { cors, safeName } from './_utils.js';
 import { authedPlayerOrAdmin } from './_auth.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
 import { kv } from './_storage.js';
@@ -52,7 +52,7 @@ function flagged(text: string): { reason: string } | null {
 // Daily counter key (UTC date so the reset is consistent regardless of caller).
 function dailyKey(name: string): string {
     const d = new Date().toISOString().slice(0, 10);
-    return `img-gen:daily:${name.toLowerCase()}:${d}`;
+    return `img-gen:daily:${safeName(name)}:${d}`;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

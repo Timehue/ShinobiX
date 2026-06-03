@@ -6,6 +6,7 @@ exports.recentFps = recentFps;
 exports.hasRecentIpOverlap = hasRecentIpOverlap;
 exports.hasRecentIpOrFpOverlap = hasRecentIpOrFpOverlap;
 const _storage_js_1 = require("./_storage.js");
+const _utils_js_1 = require("./_utils.js");
 // Per-player recent-IP / fingerprint tracking. Stamps two keys with 7-day TTL
 // whenever a player is observed: `player-ip:{name}:{ip}` and
 // `player-fp:{name}:{fp}`. Lets us cheaply detect alt-account farming.
@@ -15,10 +16,10 @@ const _storage_js_1 = require("./_storage.js");
 // raises the cost of farming meaningfully.
 const TTL_SECONDS = 7 * 24 * 60 * 60;
 function ipKey(name, ip) {
-    return `player-ip:${name.toLowerCase()}:${ip}`;
+    return `player-ip:${(0, _utils_js_1.safeName)(name)}:${ip}`;
 }
 function fpKey(name, fp) {
-    return `player-fp:${name.toLowerCase()}:${fp}`;
+    return `player-fp:${(0, _utils_js_1.safeName)(name)}:${fp}`;
 }
 function extractIp(req) {
     const xff = req.headers['x-forwarded-for'];
@@ -51,8 +52,8 @@ async function stampPlayerIp(req, name) {
 // List the IPs we've recently seen for a player.
 async function recentIps(name) {
     try {
-        const keys = await _storage_js_1.kv.keys(`player-ip:${name.toLowerCase()}:*`);
-        const prefix = `player-ip:${name.toLowerCase()}:`;
+        const keys = await _storage_js_1.kv.keys(`player-ip:${(0, _utils_js_1.safeName)(name)}:*`);
+        const prefix = `player-ip:${(0, _utils_js_1.safeName)(name)}:`;
         return keys.map(k => k.slice(prefix.length)).filter(Boolean);
     }
     catch {
@@ -61,8 +62,8 @@ async function recentIps(name) {
 }
 async function recentFps(name) {
     try {
-        const keys = await _storage_js_1.kv.keys(`player-fp:${name.toLowerCase()}:*`);
-        const prefix = `player-fp:${name.toLowerCase()}:`;
+        const keys = await _storage_js_1.kv.keys(`player-fp:${(0, _utils_js_1.safeName)(name)}:*`);
+        const prefix = `player-fp:${(0, _utils_js_1.safeName)(name)}:`;
         return keys.map(k => k.slice(prefix.length)).filter(Boolean);
     }
     catch {

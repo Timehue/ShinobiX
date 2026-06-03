@@ -1,4 +1,5 @@
 import { kv } from './_storage.js';
+import { safeName } from './_utils.js';
 
 // Per-player recent-IP / fingerprint tracking. Stamps two keys with 7-day TTL
 // whenever a player is observed: `player-ip:{name}:{ip}` and
@@ -11,10 +12,10 @@ import { kv } from './_storage.js';
 const TTL_SECONDS = 7 * 24 * 60 * 60;
 
 function ipKey(name: string, ip: string): string {
-    return `player-ip:${name.toLowerCase()}:${ip}`;
+    return `player-ip:${safeName(name)}:${ip}`;
 }
 function fpKey(name: string, fp: string): string {
-    return `player-fp:${name.toLowerCase()}:${fp}`;
+    return `player-fp:${safeName(name)}:${fp}`;
 }
 
 function extractIp(req: { headers: Record<string, string | string[] | undefined>; ip?: string; socket?: { remoteAddress?: string } }): string | null {
@@ -48,8 +49,8 @@ export async function stampPlayerIp(req: { headers: Record<string, string | stri
 // List the IPs we've recently seen for a player.
 export async function recentIps(name: string): Promise<string[]> {
     try {
-        const keys = await kv.keys(`player-ip:${name.toLowerCase()}:*`);
-        const prefix = `player-ip:${name.toLowerCase()}:`;
+        const keys = await kv.keys(`player-ip:${safeName(name)}:*`);
+        const prefix = `player-ip:${safeName(name)}:`;
         return keys.map(k => k.slice(prefix.length)).filter(Boolean);
     } catch {
         return [];
@@ -58,8 +59,8 @@ export async function recentIps(name: string): Promise<string[]> {
 
 export async function recentFps(name: string): Promise<string[]> {
     try {
-        const keys = await kv.keys(`player-fp:${name.toLowerCase()}:*`);
-        const prefix = `player-fp:${name.toLowerCase()}:`;
+        const keys = await kv.keys(`player-fp:${safeName(name)}:*`);
+        const prefix = `player-fp:${safeName(name)}:`;
         return keys.map(k => k.slice(prefix.length)).filter(Boolean);
     } catch {
         return [];

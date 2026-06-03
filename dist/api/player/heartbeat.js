@@ -48,7 +48,7 @@ async function handler(req, res) {
         const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req, name);
         if (!identity)
             return res.status(401).json({ error: 'Authentication required.' });
-        if (!identity.admin && identity.name !== name.toLowerCase().trim()) {
+        if (!identity.admin && identity.name !== (0, _utils_js_1.safeName)(name)) {
             return res.status(403).json({ error: 'Cannot heartbeat as another player.' });
         }
         // Fire-and-forget IP + browser-fingerprint capture so the admin
@@ -61,8 +61,8 @@ async function handler(req, res) {
             if (fp)
                 void (0, moderation_js_1.recordClientFingerprint)(identity.name, fp);
         }
-        const challengeKey = `challenges:${name.toLowerCase().trim()}`;
-        const resetSignalKey = `reset-signal:${name.toLowerCase().trim()}`;
+        const challengeKey = `challenges:${(0, _utils_js_1.safeName)(name)}`;
+        const resetSignalKey = `reset-signal:${(0, _utils_js_1.safeName)(name)}`;
         // Presence (own record, for the sector fallback) comes from memory now.
         // Challenges + reset-signal stay DB-backed (polled until the WS push layer).
         const existing = online_store_js_1.onlineStore.get(name);
