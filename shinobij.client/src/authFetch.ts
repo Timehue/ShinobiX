@@ -111,6 +111,16 @@ export function setActiveToken(token: string | null): void {
     }
 }
 
+/**
+ * Snapshot of the credentials a Socket.IO handshake needs, mirroring the HTTP
+ * interceptor's priority (token preferred, plaintext password only as the
+ * pre-token fallback). Read fresh at connect / reconnect time so a token the
+ * HTTP path just re-minted is picked up. No-op-safe if storage is unavailable.
+ */
+export function getSocketAuth(): { token: string | null; name: string | null; password: string | null } {
+    return { token: getActiveToken(), name: getActivePlayer(), password: getActivePassword() };
+}
+
 function isApiUrl(input: string | URL | Request): boolean {
     if (typeof input === 'string') return input.startsWith('/api/');
     if (input instanceof URL) return input.pathname.startsWith('/api/');

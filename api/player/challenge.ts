@@ -5,6 +5,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { withKvLock } from '../_lock.js';
 import { onlineStore } from '../_realtime/online-store.js';
 import { challengeBlock } from '../_realtime/presence-gating.js';
+import { kickPlayer } from '../_realtime/notify.js';
 
 const CHALLENGE_TTL = 180; // seconds (3 min) — challenge auto-cancels if unanswered
 
@@ -223,6 +224,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const updated = [...deduped, safeChallenge].slice(-20);
             await kv.set(key, updated, { ex: CHALLENGE_TTL });
         });
+
+        // Instant delivery: nudge the recipient to poll now. The HTTP heartbeat
+        // remains the authoritative carrier of pendingChallenges; this just makes
+        // it arrive immediately. No-op when realtime is off / they have no socket.
+        kickPlayer(targetName, 'challenge');
 
         return res.status(200).json({ ok: true });
     } catch (err) {
