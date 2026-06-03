@@ -1,9 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = handler;
-const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
+const online_store_js_1 = require("../_realtime/online-store.js");
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res, req);
     if (req.method === 'OPTIONS')
@@ -22,10 +22,7 @@ async function handler(req, res) {
         if (!identity.admin && identity.name !== name.toLowerCase().trim()) {
             return res.status(403).json({ error: 'Cannot clear another player.' });
         }
-        const key = `presence:${name}`;
-        const entry = await _storage_js_1.kv.get(key);
-        if (entry)
-            await _storage_js_1.kv.set(key, { ...entry, pendingAttacker: null }, { ex: 60 });
+        online_store_js_1.onlineStore.clearPendingAttacker(name);
         return res.status(200).json({ ok: true });
     }
     catch (err) {

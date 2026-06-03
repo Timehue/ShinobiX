@@ -1111,19 +1111,35 @@ async function handler(req, res) {
         try {
             const adminAuth = (0, _auth_js_1.isAdmin)(req);
             if (!adminAuth) {
-                // Player must auth via headers; clan saves allow any logged-in
-                // player (deletes are admin-gated UI in practice).
                 const identity = await (0, _auth_js_1.authedPlayerOrAdmin)(req, name);
                 if (!identity)
                     return res.status(401).json({ error: 'Authentication required.' });
-                if (!identity.admin && !isClanSave && identity.name !== name) {
-                    // Backwards-compat: legacy body-supplied password also accepted.
+                if (!identity.admin && isClanSave) {
+                    // Clan record: only the clan FOUNDER (or an admin) may delete
+                    // the shared save — mirrors the founder-only "Delete Clan" UI.
+                    // (The POST path lets any clan member WRITE the record, but a
+                    // destructive delete is restricted to the founder so a random
+                    // logged-in player can't wipe a rival clan.) The founder gate
+                    // at clan creation guarantees founderName.toLowerCase() equals
+                    // the founder's canonical name. If the record is already gone
+                    // there is nothing to protect, so we no-op rather than 403.
+                    const clanRec = await _storage_js_1.kv.get(key);
+                    const founder = String(clanRec?.founderName ?? '').toLowerCase();
+                    if (clanRec && founder !== identity.name) {
+                        return res.status(403).json({ error: 'Only the clan founder can delete this clan.' });
+                    }
+                }
+                else if (!identity.admin && identity.name !== name) {
+                    // Deleting ANOTHER player's save requires that player's own
+                    // password (legacy body-supplied path) verified against an
+                    // EXISTING auth record. Default-deny: a legacy account with no
+                    // auth record can only be deleted by an admin. (Previously the
+                    // missing-auth-record case fell through and let any logged-in
+                    // player delete a legacy save.)
                     const playerPw = req.headers['x-player-password'];
                     const authRecord = await _storage_js_1.kv.get(`auth:${name.toLowerCase()}`);
-                    if (authRecord) {
-                        if (!playerPw || !(await (0, player_auth_js_1.verifyPlayerPassword)(name, playerPw))) {
-                            return res.status(403).json({ error: 'Cannot delete another player\'s save.' });
-                        }
+                    if (!authRecord || !playerPw || !(await (0, player_auth_js_1.verifyPlayerPassword)(name, playerPw))) {
+                        return res.status(403).json({ error: 'Cannot delete another player\'s save.' });
                     }
                 }
             }

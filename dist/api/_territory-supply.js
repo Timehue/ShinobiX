@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TERRITORY_SUPPLY_INTERVAL_MS = exports.TERRITORY_DAILY_WAR_SUPPLY = void 0;
 exports.collectTerritorySupply = collectTerritorySupply;
+exports.resolveClaimedWarSupply = resolveClaimedWarSupply;
 // Pure, IO-free core for the server-authoritative clan war-supply collection
 // endpoint (api/clan/territory/collect-supply.ts). Split out so the accrual +
 // collection math is unit-testable without storage — same pattern as
@@ -40,4 +41,40 @@ function collectTerritorySupply(t, now) {
         collected: stored + accrued,
         nextLastSupplyAt: base + cycles * exports.TERRITORY_SUPPLY_INTERVAL_MS,
     };
+}
+/**
+ * Decide the SERVER-authoritative `warSupply` + `lastSupplyAt` for a territory
+ * write on the CLAIMING path (the writer's clan/village owns or is claiming the
+ * sector). War Supply must never be taken from the client: collectTerritorySupply
+ * banks a sector's stored `warSupply` straight into the clan treasury, so a
+ * client-supplied value is a direct mint (audit H4).
+ *
+ *   • Same owner continuing  → carry `prev`'s warSupply + lastSupplyAt unchanged.
+ *     Accrual is derived lazily from `lastSupplyAt` by collectTerritorySupply, so
+ *     freezing the stored value here loses NOTHING — the collected total is the
+ *     same whether the client rolled accrual into `stored` or left it implicit.
+ *   • Fresh claim / ownership flip / previously-unowned / first write (no `prev`)
+ *                            → reset `warSupply` to 0 and anchor `lastSupplyAt` to
+ *     `now`, so the new owner accrues from claim time (and a defeated owner
+ *     forfeits uncollected supply, matching the capture reset).
+ *
+ * `incoming` only supplies the claiming owner identity; its `warSupply` /
+ * `lastSupplyAt` are intentionally ignored.
+ */
+function resolveClaimedWarSupply(prev, incoming, now) {
+    const prevClan = String(prev?.ownerClan ?? '').trim();
+    const prevVillage = String(prev?.ownerVillage ?? '').trim();
+    const claimClan = String(incoming.ownerClan ?? '').trim();
+    const claimVillage = String(incoming.ownerVillage ?? '').trim();
+    const hadOwner = !!(prevClan || prevVillage);
+    const sameOwner = hadOwner &&
+        (!claimClan || claimClan === prevClan) &&
+        (!claimVillage || claimVillage === prevVillage);
+    if (prev && sameOwner) {
+        return {
+            warSupply: Math.max(0, Math.floor(num(prev.warSupply))),
+            lastSupplyAt: num(prev.lastSupplyAt, num(prev.updatedAt, now)),
+        };
+    }
+    return { warSupply: 0, lastSupplyAt: now };
 }

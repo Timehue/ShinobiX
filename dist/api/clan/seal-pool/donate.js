@@ -94,18 +94,29 @@ async function handler(req, res) {
                 },
             };
             await _storage_js_1.kv.set(saveKey, (0, _utils_js_1.mergePreservingImages)(updatedRecord, record));
-            // Credit pool. Pool itself has its own internal lock inside savePool.
-            const pool = await (0, _storage_js_2.loadPool)(clanName);
-            pool.balance += amount;
-            pool.log.unshift({ kind: 'donate', by: playerName, amount, at: Date.now() });
-            await (0, _storage_js_2.savePool)(pool);
+            // Credit the shared clan pool under the pool's OWN lock. The outer
+            // lock above is the DONOR's `save:<name>` lock, which does NOT
+            // serialize two different donors — without this, two concurrent
+            // donations both read the pre-credit balance and one credit is lost.
+            // distribute.ts locks the same `clan-seal-pool:<clan>` key, so this
+            // also serializes donate-vs-distribute. NOT failClosed: the donor is
+            // already debited above, so on rare lock contention we fall through
+            // to an unlocked credit rather than throw and lose the donated Seals
+            // (same trade-off as distribute.ts's recipient credit).
+            const poolBalance = await (0, _lock_js_1.withKvLock)(`clan-seal-pool:${clanName.toLowerCase()}`, async () => {
+                const pool = await (0, _storage_js_2.loadPool)(clanName);
+                pool.balance += amount;
+                pool.log.unshift({ kind: 'donate', by: playerName, amount, at: Date.now() });
+                await (0, _storage_js_2.savePool)(pool);
+                return pool.balance;
+            });
             return {
                 status: 200,
                 body: {
                     ok: true,
                     donated: amount,
                     honorSealsRemaining: balance - amount,
-                    poolBalance: pool.balance,
+                    poolBalance,
                     dailyDonatedToday: donatedToday + amount,
                     dailyCap,
                 },

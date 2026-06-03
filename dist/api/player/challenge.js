@@ -5,6 +5,9 @@ const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _lock_js_1 = require("../_lock.js");
+const online_store_js_1 = require("../_realtime/online-store.js");
+const presence_gating_js_1 = require("../_realtime/presence-gating.js");
+const notify_js_1 = require("../_realtime/notify.js");
 const CHALLENGE_TTL = 180; // seconds (3 min) — challenge auto-cancels if unanswered
 // Public projection for the challenger character stored alongside a
 // challenges:<name> entry. The challenges:* prefix is anon-readable via
@@ -163,18 +166,16 @@ async function handler(req, res) {
         }
         // For new challenges (not accept/decline/battle routing), gate on travel + battle state.
         if (!record.accepted && !record.declined && !record.battleId) {
-            const targetPresence = await _storage_js_1.kv.get(`presence:${targetName}`);
-            if (targetPresence) {
-                if (Number(targetPresence.travelingUntil ?? 0) > Date.now()) {
-                    return res.status(409).json({ error: 'Target is traveling.' });
-                }
-                if (targetPresence.inBattle) {
-                    return res.status(409).json({ error: 'Target is already in a battle.' });
-                }
-                if (targetPresence.pendingAttacker) {
-                    return res.status(409).json({ error: 'Target is already engaged in combat.' });
-                }
-            }
+            // Presence is in process memory; challengeBlock carries the
+            // traveling / in-battle / engaged gates AND the Academy-Student
+            // protection (sub-Genin can't be challenged). Spar and pet-battle
+            // modes are exempt from the Academy gate (passed via record.mode) so
+            // brand-new players can still practice-fight; ranked / clan-war keep
+            // it. An OFFLINE target is NOT blocked — the challenge is queued in
+            // their inbox for later.
+            const block = (0, presence_gating_js_1.challengeBlock)(online_store_js_1.onlineStore.get(targetName), record.mode);
+            if (block)
+                return res.status(block.status).json({ error: block.error });
         }
         if (record.accepted || record.declined) {
             await _storage_js_1.kv.del(outgoingKey(targetName));
@@ -224,6 +225,10 @@ async function handler(req, res) {
             const updated = [...deduped, safeChallenge].slice(-20);
             await _storage_js_1.kv.set(key, updated, { ex: CHALLENGE_TTL });
         });
+        // Instant delivery: nudge the recipient to poll now. The HTTP heartbeat
+        // remains the authoritative carrier of pendingChallenges; this just makes
+        // it arrive immediately. No-op when realtime is off / they have no socket.
+        (0, notify_js_1.kickPlayer)(targetName, 'challenge');
         return res.status(200).json({ ok: true });
     }
     catch (err) {

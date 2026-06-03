@@ -5,6 +5,7 @@ const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
+const online_store_js_1 = require("../_realtime/online-store.js");
 const REGISTRY_KEY = 'player:registry';
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res, req);
@@ -27,9 +28,8 @@ async function handler(req, res) {
         return res.status(401).json({ error: 'Unauthorized.' });
     }
     try {
-        // Pull presence keys to determine who is online right now
-        const presenceKeys = await _storage_js_1.kv.keys('presence:*');
-        const onlineNames = new Set(presenceKeys.map(k => k.replace('presence:', '').toLowerCase()));
+        // Who is online right now — from the in-memory presence store.
+        const onlineNames = new Set(online_store_js_1.onlineStore.list().map(p => p.name));
         // Primary source: persistent player registry (hset by heartbeat + save API)
         const rawRegistry = await _storage_js_1.kv.hgetall(REGISTRY_KEY) ?? {};
         const players = [];

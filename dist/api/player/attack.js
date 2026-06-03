@@ -1,11 +1,12 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = handler;
-const _storage_js_1 = require("../_storage.js");
 const _utils_js_1 = require("../_utils.js");
 const _auth_js_1 = require("../_auth.js");
 const _ratelimit_js_1 = require("../_ratelimit.js");
-const _lock_js_1 = require("../_lock.js");
+const online_store_js_1 = require("../_realtime/online-store.js");
+const presence_gating_js_1 = require("../_realtime/presence-gating.js");
+const notify_js_1 = require("../_realtime/notify.js");
 async function handler(req, res) {
     (0, _utils_js_1.cors)(res, req);
     if (req.method === 'OPTIONS')
@@ -39,35 +40,22 @@ async function handler(req, res) {
                 return res.status(403).json({ error: 'Attacker name does not match authenticated user.' });
             }
         }
-        // Lock the target's presence row around the check-and-write so a
-        // concurrent heartbeat from the target doesn't get clobbered by our
-        // pendingAttacker stamp (and vice versa). The previous code spread
-        // a stale `target` snapshot into the write, which could revert a
-        // freshly-changed sector or battle flag.
-        const key = `presence:${targetName}`;
-        const outcome = await (0, _lock_js_1.withKvLock)(key, async () => {
-            const target = await _storage_js_1.kv.get(key);
-            if (!target)
-                return { status: 404, body: { error: 'Target not online.' } };
-            const travelingUntil = Number(target.travelingUntil ?? 0);
-            if (travelingUntil > Date.now()) {
-                return { status: 409, body: { error: 'Target is traveling and cannot be attacked.' } };
-            }
-            if (target.pendingAttacker) {
-                return { status: 409, body: { error: 'Target is already engaged in combat.' } };
-            }
-            if (target.inBattle) {
-                return { status: 409, body: { error: 'Target is already in a battle.' } };
-            }
-            // Re-stamp only — and crucially DO NOT extend the original TTL
-            // beyond the standard 60s. The presence row stays exactly as
-            // long as the target's heartbeat owns it; we just splice in
-            // pendingAttacker. Original TTL is preserved by passing ex: 60
-            // (same as heartbeat), so it can't be perpetually refreshed.
-            await _storage_js_1.kv.set(key, { ...target, pendingAttacker: attacker ?? null }, { ex: 60 });
-            return { status: 200, body: { ok: true } };
-        });
-        return res.status(outcome.status).json(outcome.body);
+        // Presence is in process memory; get → check → set runs synchronously on
+        // Node's single thread (no await gap for a concurrent heartbeat to
+        // interleave), so no lock is needed. setPendingAttacker does NOT bump the
+        // target's lastSeen — the same "can't be perpetually refreshed" property
+        // the old `ex: 60` re-stamp guaranteed. attackBlock carries the offline
+        // (404), Academy-protection (403 for sub-Genin), and traveling / engaged
+        // / in-battle (409) gates.
+        const block = (0, presence_gating_js_1.attackBlock)(online_store_js_1.onlineStore.get(targetName));
+        if (block)
+            return res.status(block.status).json({ error: block.error });
+        online_store_js_1.onlineStore.setPendingAttacker(targetName, attacker ?? null);
+        // Instant delivery: nudge the target to run an immediate heartbeat (which
+        // is the authoritative path that reads + clears pendingAttacker). No-op if
+        // the target has no socket / realtime is off — the poll still delivers it.
+        (0, notify_js_1.kickPlayer)(targetName, 'attack');
+        return res.status(200).json({ ok: true });
     }
     catch (err) {
         console.error('[attack]', err);
