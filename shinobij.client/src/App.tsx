@@ -908,7 +908,12 @@ export type CreatorEvent = {
 // moved to ./types/missions and imported back near the top of this file.
 
 type PlayerAccountSave = {
+    // Legacy: plaintext password (no-token deployments only). Token-issuing
+    // servers store `token` instead and never persist this (audit M5).
     password?: string;
+    // Per-account session token (24h). Present once the account has logged into
+    // a token-issuing server; supersedes `password`.
+    token?: string;
     snapshot?: {
         character: Character;
         currentBiome: Biome;
@@ -4593,7 +4598,11 @@ export default function App() {
             // getActivePlayer/Password already read from localStorage via the fallback,
             // but we call setActivePlayer here to populate sessionStorage for the session.
             const persistedPw = localStorage.getItem('shinobix:activePasswordPersist');
-            if (persistedPw) setActivePlayer(localAccountName, persistedPw);
+            // Token-first (M5): when a session token is persisted (localStorage),
+            // auth rides on it and no password is stored — this call just re-syncs
+            // the name into sessionStorage. When no token exists (legacy / no-token
+            // server) the persisted password is restored as the credential.
+            setActivePlayer(localAccountName, persistedPw ?? undefined);
 
             pullSaveFromServer(localAccountName).then((snap) => {
                 if (snap) applySnapshot(snap);
@@ -5529,6 +5538,7 @@ export default function App() {
 
     async function createPlayerAccount(newCharacter: Character, password: string) {
         const key = accountKey(newCharacter.name);
+        let regToken: string | undefined;
         try {
             const authRes = await fetch('/api/player-auth', {
                 method: 'POST',
@@ -5546,14 +5556,20 @@ export default function App() {
             // Capture the session token from registration so the first
             // requests use the cheap HMAC path right away.
             const regData = await authRes.json().catch(() => null) as { token?: string } | null;
-            if (regData?.token) setActiveToken(regData.token);
+            regToken = regData?.token ?? undefined;
+            if (regToken) setActiveToken(regToken);
         } catch {
             alert("Could not reach the server to create the account. Check your connection and try again.");
             return;
         }
 
         const accounts = loadPlayerAccounts();
-        accounts[key] = { ...(accounts[key] ?? {}), password };
+        // M5: on a token-issuing server, store the per-account token and DROP the
+        // plaintext password. Only persist the password when no token was issued
+        // (SESSION_SECRET unset), since then it's the only credential available.
+        accounts[key] = regToken
+            ? { ...(accounts[key] ?? {}), token: regToken, password: undefined }
+            : { ...(accounts[key] ?? {}), password };
         savePlayerAccounts(accounts);
         // Pass the password so the global authFetch interceptor can attach
         // x-player-name / x-player-password to every /api/ request from now on.
@@ -5684,7 +5700,22 @@ export default function App() {
                     authVerified = true;
                     // Store the session token so every later /api/ request uses
                     // the cheap HMAC path instead of re-running scrypt server-side.
-                    if (authData.ok && authData.token) setActiveToken(authData.token);
+                    if (authData.ok && authData.token) {
+                        setActiveToken(authData.token);
+                        // M5: migrate this account to token-only — drop any
+                        // previously-persisted plaintext password from the blob.
+                        // (Only runs on a successful ONLINE login; the offline
+                        // fallback below never reaches here, so it keeps its
+                        // password until the next successful online login.)
+                        const mk = accountKey(name);
+                        if (mk) {
+                            const maccs = loadPlayerAccounts();
+                            if (maccs[mk]) {
+                                maccs[mk] = { ...maccs[mk], token: authData.token, password: undefined };
+                                savePlayerAccounts(maccs);
+                            }
+                        }
+                    }
                 } else {
                     // Non-retriable HTTP error — stop
                     authVerified = true;
