@@ -1,14 +1,17 @@
 /**
- * Route parity smoke test (Vercel ⇄ cPanel).
+ * Route parity smoke test (Express: Railway + cPanel).
  *
- * The same api/** handlers run two ways:
- *   • Vercel — every file under api/ is auto-exposed by the folder convention.
- *   • cPanel — server.ts must register each handler EXPLICITLY.
+ * The api/** handlers are served by the single Express server (server.ts →
+ * dist/server.js) on both Railway and cPanel. Unlike the retired Vercel target,
+ * there is NO folder-convention auto-routing: a handler is reachable ONLY if
+ * server.ts imports and route()s it. Two ways that breaks, both caught here:
+ *   1. The client calls an /api path that server.ts never registered  → 404.
+ *   2. A handler file exists but nobody wired it in server.ts          → dead.
  *
- * It is therefore easy to ship a client feature that works on Vercel but 404s
- * on cPanel because nobody added the route to server.ts. This test closes that
- * gap: it scans the client for every `/api/...` call site and asserts each one
- * is registered in server.ts. A new unregistered endpoint fails `npm test`.
+ * This test closes both gaps statically: it scans the client for every
+ * `/api/...` call site (asserting each is registered) and inventories every
+ * api/ handler file (asserting each is imported in server.ts). Drift in either
+ * direction fails `npm test`.
  *
  * It is intentionally a STATIC analysis (reads source text only): it boots no
  * server, opens no DB connection, and touches none of the PvP/realtime paths,
@@ -62,48 +65,37 @@ function isCovered(clientPath: string): boolean {
     );
 }
 
-// ─── Vercel side: what the api/ folder convention actually serves ──────────────
+// ─── Handler inventory: every HTTP handler file under api/ ──────────────────────
 //
-// On Vercel every file under api/ is exposed at its path: api/foo/bar.ts →
-// /api/foo/bar, api/save/[name].ts → /api/save/:name. server.ts can paper over a
-// path↔file mismatch (it maps each route explicitly), so a handler can work on
-// cPanel yet 404 on Vercel — exactly the treasury-transfer bug (client called
-// /api/village/treasury/transfer but the file was api/village/treasury-transfer.ts,
-// which Vercel exposes at /api/village/treasury-transfer). Derive the
-// Vercel-served paths straight from the filesystem.
+// Express (Railway + cPanel) has NO folder-convention auto-routing — that was
+// Vercel, now retired. A handler is reachable ONLY if server.ts imports and
+// route()s it, so a handler file nobody wired in server.ts is dead code that
+// 404s everywhere (it used to be reachable via Vercel's folder convention).
+// This inventory drives the "no orphaned endpoints" check below.
+//
+// HTTP handlers only: skip *.test.ts and anything whose file OR directory name
+// starts with `_` — that covers shared helpers (api/_utils.ts, api/_auth.ts, …)
+// and the api/_realtime/* Socket.IO internals, which are wired via
+// attachSocketServer(), not route().
 
 const API_DIR = join(HERE, 'api');
 
-function vercelApiPaths(dir = API_DIR, prefix = '/api'): string[] {
+function httpHandlerFiles(dir = API_DIR, prefix = ''): string[] {
     const out: string[] = [];
     for (const entry of readdirSync(dir)) {
+        if (entry.startsWith('_')) continue;             // helper file or _realtime/ dir
         const full = join(dir, entry);
         if (statSync(full).isDirectory()) {
-            out.push(...vercelApiPaths(full, `${prefix}/${entry}`));
+            out.push(...httpHandlerFiles(full, `${prefix}${entry}/`));
             continue;
         }
-        if (!/\.ts$/.test(entry) || entry.endsWith('.test.ts')) continue; // handlers only
-        if (entry.startsWith('_')) continue;                              // shared helper, not a route
-        // Vercel dynamic segments: [name] → :name, [...rest] → :rest* (so
-        // stripParams() treats them the same as the cPanel side).
-        const base = entry
-            .replace(/\.ts$/, '')
-            .replace(/\[\.\.\.(.+?)\]/g, ':$1*')
-            .replace(/\[(.+?)\]/g, ':$1');
-        out.push(base === 'index' ? prefix : `${prefix}/${base}`);
+        if (!/\.ts$/.test(entry) || entry.endsWith('.test.ts')) continue;
+        out.push(`${prefix}${entry.replace(/\.ts$/, '')}`);  // e.g. 'save/[name]', 'kv-proxy'
     }
     return out;
 }
 
-const vercelFull = vercelApiPaths();
-const vercelStripped = vercelFull.map(stripParams);
-
-/** A client path is served by Vercel if a handler file's folder-convention path
- *  matches it (same exact / param-stripped / prefix logic as the cPanel side). */
-function isVercelServed(clientPath: string): boolean {
-    const all = [...vercelFull, ...vercelStripped];
-    return all.some((r) => r === clientPath || r.startsWith(clientPath + '/'));
-}
+const handlerFiles = httpHandlerFiles();
 
 // ─── Client side: every /api call site ─────────────────────────────────────────
 
@@ -141,7 +133,7 @@ function clientApiPaths(): Map<string, string> {
 
 // ─── Tests ──────────────────────────────────────────────────────────────────
 
-describe('cPanel route parity', () => {
+describe('Express route parity (Railway + cPanel)', () => {
     it('registers every /api endpoint the client calls', () => {
         const client = clientApiPaths();
         const missing: string[] = [];
@@ -151,8 +143,9 @@ describe('cPanel route parity', () => {
         assert.equal(
             missing.length,
             0,
-            `Client calls /api endpoints that server.ts does NOT register for ` +
-            `cPanel.\nAdd a route() (and the matching import) in server.ts:\n  - ` +
+            `Client calls /api endpoints that server.ts does NOT register.\n` +
+            `Express (Railway + cPanel) serves only what server.ts route()s — add a ` +
+            `route() (and the matching import) in server.ts:\n  - ` +
             missing.join('\n  - '),
         );
     });
@@ -177,27 +170,27 @@ describe('cPanel route parity', () => {
     });
 });
 
-describe('Vercel route parity (folder convention)', () => {
-    it('serves every /api endpoint the client calls via a file under api/', () => {
-        const client = clientApiPaths();
-        const missing: string[] = [];
-        for (const [path, file] of client) {
-            if (!isVercelServed(path)) missing.push(`${path}  (first used in ${file})`);
-        }
+describe('handler wiring (no orphaned endpoints)', () => {
+    it('imports every api/ HTTP handler file in server.ts', () => {
+        // server.ts imports each handler as `from './api/<relpath>.js'` (the
+        // dynamic ones keep their literal filename, e.g. './api/save/[name].js'),
+        // so the import specifier is the reliable "is it wired?" signal — more
+        // robust than matching route paths against file names.
+        const missing = handlerFiles.filter((rel) => !serverSrc.includes(`./api/${rel}.js`));
         assert.equal(
             missing.length,
             0,
-            `Client calls /api endpoints with NO matching handler file under api/ — ` +
-            `these 404 on Vercel even if server.ts maps them for cPanel.\n` +
-            `Create api/<path>.ts (folder convention) or fix the call path:\n  - ` +
-            missing.join('\n  - '),
+            `These api/ HTTP handler files are not imported in server.ts, so they ` +
+            `are unreachable on Express (Railway + cPanel) — Vercel's folder-convention ` +
+            `auto-routing is retired. Wire each with an import + route() in server.ts:\n  - ` +
+            missing.map((r) => `api/${r}.ts`).join('\n  - '),
         );
     });
 
     it('enumerated the api/ handler files (filesystem scan did not silently break)', () => {
         assert.ok(
-            vercelFull.length >= 20,
-            `Only found ${vercelFull.length} api/ routes — the filesystem scan looks broken.`,
+            handlerFiles.length >= 20,
+            `Only found ${handlerFiles.length} api/ handler files — the scan looks broken.`,
         );
     });
 });
